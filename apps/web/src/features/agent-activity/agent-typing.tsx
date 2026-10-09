@@ -31,7 +31,12 @@ import {
 } from 'solid-js';
 import { LiveTail } from './components/live-tail';
 import { TypingRow } from './components/typing-row';
-import { openReply, streamingProse, typingLabel } from './core/live-reply';
+import {
+  currentStep,
+  openReply,
+  streamingProse,
+  typingLabel,
+} from './core/live-reply';
 import { createLiveSession } from './queries/live-session';
 
 /** One place of a conversation: the timeline, or one thread. */
@@ -202,6 +207,12 @@ function AgentTypingEntry(props: {
         />
       }
       label={label()}
+      step={(() => {
+        const open = reply();
+        return open && props.phase === 'working'
+          ? currentStep(open)
+          : undefined;
+      })()}
     >
       <Show when={reply() || live.failed()}>
         <LiveTail
