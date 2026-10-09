@@ -21,13 +21,8 @@ export function BotIcon(props: BotIconProps) {
 
   return (
     <Avatar size={props.size ?? 'md'} class={props.class}>
-      <Show
-        when={props.avatarUrl}
-        fallback={
-          <Avatar.Fallback class="font-semibold">{initial()}</Avatar.Fallback>
-        }
-        keyed
-      >
+      <Avatar.Fallback class="font-semibold">{initial()}</Avatar.Fallback>
+      <Show when={props.avatarUrl} keyed>
         {(url) => {
           // Fall back from the sized URL to the original at most once, so a
           // broken original doesn't retrigger onError in a loop.

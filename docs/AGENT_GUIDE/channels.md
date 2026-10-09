@@ -50,6 +50,12 @@ longer gap starts another group; returning to an earlier sender also starts a ne
 group. Deleted replies and agent replies triggered by different users keep the
 same group boundaries as their avatar display.
 
+Saved agents show their assigned profile picture beside messages and in the
+collapsed thread's participant avatars. Check a saved agent with a picture in
+both places, including an older message without picture metadata. The thread
+must remain visible while its profile loads. Agents without a picture retain a
+fallback icon or initial; built-in agents retain their brand marks.
+
 The `N more replies` control counts individual hidden replies and expands the
 whole thread. Check a thread with more than three consecutive replies from one
 sender (all remain visible), then one with four groups (the first three groups

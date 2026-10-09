@@ -15,6 +15,7 @@ import {
 } from '@core/user';
 import RobotIcon from '@phosphor/robot.svg';
 import Trash from '@phosphor-icons/core/regular/trash.svg?component-solid';
+import { useBotProfile } from '@queries/bots/profiles';
 import { useGetOrCreateDirectMessageMutation } from '@queries/channel/get-or-create-dm';
 import { Avatar, type AvatarSize, cn } from '@ui';
 import { createMemo, Match, Show, Switch } from 'solid-js';
@@ -123,6 +124,26 @@ function UserIconContent(props: {
   );
 }
 
+function BotProfileImage(props: { id: string; photoUrl?: string }) {
+  const profile = useBotProfile(() =>
+    props.photoUrl ? '' : props.id.slice('bot|'.length)
+  );
+  // An avatar lookup must never suspend the surrounding channel or thread.
+  const imageUrl = () =>
+    props.photoUrl || (profile.isSuccess ? profile.data?.avatarUrl : undefined);
+
+  return (
+    <>
+      <Avatar.Fallback>
+        <RobotIcon class="size-[62%]" />
+      </Avatar.Fallback>
+      <Show when={imageUrl()}>
+        {(url) => <Avatar.Image class="bg-surface" src={url()} alt="" />}
+      </Show>
+    </>
+  );
+}
+
 /**
  * User avatar with profile picture, tooltip, and DM click behavior.
  * For pure styling without user-specific behavior, use `<Avatar>` from @ui.
@@ -196,15 +217,8 @@ export function UserIcon(props: UserIconProps) {
           size={size()}
           class={cn('bg-surface text-accent ring ring-edge-muted', props.class)}
         >
-          <Show
-            when={props.photoUrl}
-            fallback={
-              <Avatar.Fallback>
-                <RobotIcon class="size-[62%]" />
-              </Avatar.Fallback>
-            }
-          >
-            {(photoUrl) => <Avatar.Image src={photoUrl()} alt="" />}
+          <Show when={props.id} keyed>
+            {(id) => <BotProfileImage id={id} photoUrl={props.photoUrl} />}
           </Show>
         </Avatar>
       </Match>

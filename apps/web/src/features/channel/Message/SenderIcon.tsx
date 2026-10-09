@@ -1,5 +1,6 @@
 import { firstPartyBotMark } from '@core/component/firstPartyBotMark';
 import { UserIcon } from '@core/component/UserIcon';
+import { useBotProfile } from '@queries/bots/profiles';
 import { senderFromStorageId } from '@queries/messages/message-sender';
 import type { MessageSender } from '@service-storage/messages';
 import { cn } from '@ui';
@@ -11,6 +12,23 @@ type SenderIconProps = {
   class?: string;
   hidden?: boolean;
 };
+
+function BotSenderIcon(props: { sender: MessageSender }) {
+  const profile = useBotProfile(() =>
+    props.sender.avatar_url ? '' : props.sender.id
+  );
+  // Older cached messages can predate the agent's uploaded picture. Resolve
+  // missing metadata without suspending the message while the lookup runs.
+  const resolvedProfile = () => (profile.isSuccess ? profile.data : undefined);
+
+  return (
+    <BotIcon
+      name={props.sender.name ?? resolvedProfile()?.name}
+      avatarUrl={props.sender.avatar_url || resolvedProfile()?.avatarUrl}
+      size="fill"
+    />
+  );
+}
 
 export function SenderIcon(props: SenderIconProps) {
   const message = useMessage();
@@ -36,13 +54,7 @@ export function SenderIcon(props: SenderIconProps) {
           when={botSender()}
           fallback={<UserIcon id={message().sender_id} size="fill" />}
         >
-          {(bot) => (
-            <BotIcon
-              name={bot().name}
-              avatarUrl={bot().avatar_url}
-              size="fill"
-            />
-          )}
+          {(bot) => <BotSenderIcon sender={bot()} />}
         </Show>
       )}
     </div>

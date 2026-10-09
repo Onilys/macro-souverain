@@ -7,6 +7,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MessageProvider } from './context';
 import { SenderIcon } from './SenderIcon';
 
+vi.mock('@queries/bots/profiles', () => ({
+  useBotProfile: (id: () => string) => ({
+    isSuccess: true,
+    get data() {
+      return id()
+        ? { name: 'Saved agent', avatarUrl: 'https://cdn/saved.png' }
+        : undefined;
+    },
+  }),
+}));
+
 vi.mock('@core/component/UserIcon', () => ({
   UserIcon: (props: { id: string }) => (
     <span data-testid="user-icon">{props.id}</span>
@@ -71,5 +82,13 @@ describe('SenderIcon', () => {
   it('draws people through UserIcon', () => {
     const { getByTestId } = renderSender(message('macro|peter@macro.com'));
     expect(getByTestId('user-icon').textContent).toBe('macro|peter@macro.com');
+  });
+
+  it('resolves an agent picture when a cached message has only its principal', () => {
+    const { getByTestId } = renderSender(message(`bot|${TEAM_BOT_ID}`));
+    expect(getByTestId('bot-icon').dataset.avatar).toBe(
+      'https://cdn/saved.png'
+    );
+    expect(getByTestId('bot-icon').textContent).toBe('Saved agent');
   });
 });

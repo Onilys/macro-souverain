@@ -86,9 +86,13 @@ export const botProfileLoader = new BotProfileLoader();
 
 /** Profile for a bare bot UUID. `null` when the backend does not know it. */
 export function useBotProfile(botId: () => string) {
-  return useQuery(() => ({
-    queryKey: botProfileKeys.detail(botId()).queryKey,
-    queryFn: () => botProfileLoader.load(botId()),
-    enabled: botId().length > 0,
-  }));
+  return useQuery(() => botProfileOptions(botId()));
+}
+
+function botProfileOptions(botId: string) {
+  return {
+    queryKey: botProfileKeys.detail(botId).queryKey,
+    queryFn: () => botProfileLoader.load(botId),
+    enabled: isHexHyphenatedId(botId),
+  };
 }

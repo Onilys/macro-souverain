@@ -33,6 +33,9 @@ vi.mock('@core/user', () => ({
 vi.mock('@core/signal/profilePicture', () => ({
   useProfilePictureUrl: () => [() => undefined],
 }));
+vi.mock('@queries/bots/profiles', () => ({
+  useBotProfile: () => ({ isSuccess: false }),
+}));
 
 afterEach(cleanup);
 
