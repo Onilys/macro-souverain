@@ -118,6 +118,51 @@ pub enum ActivityCard {
         #[specta(type = specta_typescript::Unknown)]
         view: serde_json::Value,
     },
+    /// What a search or a read found, for a reader checking what the answer
+    /// rests on: web pages by address, workspace items by kind and id.
+    Sources {
+        /// What the step looked for: `lumen pricing change`.
+        query: Option<String>,
+        /// The first of what it found, in the order it found them.
+        sources: Vec<Source>,
+        /// How many different things it found in all.
+        total: u32,
+    },
+    /// A database answer the agent asked to show. Only the statement is
+    /// stored: readers run it again with their own access, so the numbers
+    /// are current and a reader never sees rows they could not query.
+    Data {
+        /// The `SELECT` statement, as the agent ran it.
+        sql: String,
+        /// The database it is scoped to, when the agent named one.
+        #[serde(rename = "databaseId")]
+        database_id: Option<String>,
+        /// How the agent asked to show it: `table`, `bar`, `line`.
+        display: Option<String>,
+    },
+}
+
+/// Something an answer rests on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Source {
+    /// A web page: its address, and its title when the step had one.
+    Web {
+        /// The page's `http` or `https` address.
+        url: String,
+        /// The page's title.
+        title: Option<String>,
+    },
+    /// A workspace item. Nothing about it but its kind and id is stored:
+    /// readers load it with their own access.
+    Item {
+        /// What kind of item it is.
+        #[serde(rename = "itemType")]
+        item_type: CardItemType,
+        /// The item's id.
+        #[serde(rename = "itemId")]
+        item_id: String,
+    },
 }
 
 /// The kinds of workspace item a card opens.
@@ -575,6 +620,88 @@ fn spreadsheet_summary(output: Option<&serde_json::Value>) -> Option<String> {
     }
 }
 
+/// Most sources a card keeps; the total says how many there were.
+const MAX_SOURCES: usize = 12;
+
+/// Longest web address a source keeps; a longer one is left out.
+const MAX_SOURCE_URL_CHARS: usize = 2048;
+
+/// Longest page title a source keeps, in characters.
+const MAX_SOURCE_TITLE_CHARS: usize = 160;
+
+/// A web page as a source, when its address is one a reader can open.
+fn web_source(url: String, title: Option<String>) -> Option<Source> {
+    let scheme = url.get(..8).unwrap_or(&url).to_ascii_lowercase();
+    let openable = scheme.starts_with("https://") || scheme.starts_with("http://");
+    (openable && url.chars().count() <= MAX_SOURCE_URL_CHARS).then(|| Source::Web {
+        url,
+        title: title.map(|title| {
+            if title.chars().count() <= MAX_SOURCE_TITLE_CHARS {
+                return title;
+            }
+            let cut: String = title.chars().take(MAX_SOURCE_TITLE_CHARS - 1).collect();
+            format!("{}…", cut.trim_end())
+        }),
+    })
+}
+
+/// The pages a web search returned.
+fn web_results(output: Option<&serde_json::Value>) -> Vec<Source> {
+    output
+        .and_then(|output| output.get("content"))
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|result| text(Some(result), "type").as_deref() == Some("web_search_result"))
+        .filter_map(|result| web_source(text(Some(result), "url")?, text(Some(result), "title")))
+        .collect()
+}
+
+/// The workspace items a search returned, of the kinds a card can show.
+/// Search results keep their Rust names.
+fn workspace_results(output: Option<&serde_json::Value>) -> Vec<Source> {
+    output
+        .and_then(|output| output.get("results"))
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|result| {
+            let (item_type, id) = match text(Some(result), "type")?.as_str() {
+                "document" => (CardItemType::Document, "id"),
+                "email" => (CardItemType::EmailThread, "thread_id"),
+                "channel" | "channelMessage" => (CardItemType::Channel, "channel_id"),
+                "project" => (CardItemType::Project, "id"),
+                _ => return None,
+            };
+            Some(Source::Item {
+                item_type,
+                item_id: text(Some(result), id)?,
+            })
+        })
+        .collect()
+}
+
+/// A sources card for what a step found, each thing once, the first few
+/// kept; nothing for a step that found nothing.
+fn sources_card(query: Option<String>, found: Vec<Source>) -> Option<ActivityCard> {
+    let mut unique: Vec<Source> = Vec::new();
+    for source in found {
+        if !unique.contains(&source) {
+            unique.push(source);
+        }
+    }
+    if unique.is_empty() {
+        return None;
+    }
+    let total = u32::try_from(unique.len()).unwrap_or(u32::MAX);
+    unique.truncate(MAX_SOURCES);
+    Some(ActivityCard::Sources {
+        query,
+        sources: unique,
+        total,
+    })
+}
+
 /// What a form change that did not finish left behind, worded for a receipt.
 fn form_state(output: Option<&serde_json::Value>) -> Option<String> {
     match text(output, "state").as_deref() {
@@ -845,6 +972,34 @@ fn macro_card(
                 ..ItemFacts::default()
             },
         )),
+        "WebSearch" => sources_card(arg("input"), web_results(output)),
+        "WebFetch" => {
+            let fetched = output?.get("content")?;
+            if text(Some(fetched), "type").as_deref() != Some("web_fetch_result") {
+                return None;
+            }
+            let page = web_source(
+                text(Some(fetched), "url")?,
+                text(fetched.get("content"), "title"),
+            );
+            sources_card(None, page.into_iter().collect())
+        }
+        "ContentSearch" => sources_card(arg("query"), workspace_results(output)),
+        "NameSearch" => sources_card(arg("name"), workspace_results(output)),
+        // A read the agent asked to show; a query it ran for itself, or a
+        // write, is not a card.
+        "QueryDatabase" => {
+            let display = arg("display")?;
+            let statement = output?.get("statement");
+            if text(statement, "kind").as_deref() != Some("select") {
+                return None;
+            }
+            Some(ActivityCard::Data {
+                sql: arg("sql")?,
+                database_id: arg("databaseId"),
+                display: Some(display),
+            })
+        }
         "CreateConfirmedCalendarEvent" => event_card(output?, Created),
         "UpdateCalendarEvent" => event_card(output?, Edited),
         // Deleting part of a series leaves the rest of it.

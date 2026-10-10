@@ -60,7 +60,24 @@ const sessionAnnouncementRequest = z.object({
  * turn runs, or prose the harness patches in - the answer, a fallback for a
  * turn that said nothing, a question only the session view can answer.
  */
-/** What a step produced: an item it made, changed or sent, or a view. */
+/** Something an answer rests on: a web page, or a workspace item by id. */
+const activitySource = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('web'),
+    url: z.string().regex(/^https?:\/\//i),
+    title: z.string().nullish(),
+  }),
+  z.object({
+    kind: z.literal('item'),
+    itemType: z.enum(AGENT_ACTIVITY_CARD_ITEM_TYPES),
+    itemId: z.string().min(1),
+  }),
+]);
+
+/**
+ * What a step produced: an item it made, changed or sent, a view, what a
+ * search found, or a database answer to show.
+ */
 const activityCard = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('item'),
@@ -72,6 +89,18 @@ const activityCard = z.discriminatedUnion('kind', [
     summary: z.string().nullish(),
   }),
   z.object({ kind: z.literal('view'), view: z.unknown() }),
+  z.object({
+    kind: z.literal('sources'),
+    query: z.string().nullish(),
+    sources: z.array(activitySource),
+    total: z.number().int().nonnegative(),
+  }),
+  z.object({
+    kind: z.literal('data'),
+    sql: z.string().min(1),
+    databaseId: z.string().nullish(),
+    display: z.string().nullish(),
+  }),
 ]);
 
 const activityRow = z.object({
@@ -79,7 +108,10 @@ const activityRow = z.object({
   label: z.string(),
   detail: z.string().nullish(),
   status: z.enum(AGENT_ACTIVITY_STATUSES),
-  card: activityCard.nullish(),
+  // A card this version cannot read is dropped, not the reply: the row
+  // still says what the step did, so a newer agent service never has to
+  // wait on this one to post.
+  card: activityCard.nullish().catch(null),
 });
 
 const replySegment = z.discriminatedUnion('kind', [

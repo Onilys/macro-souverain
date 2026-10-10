@@ -36,6 +36,33 @@ export type ActivityCard =
       kind: 'view';
       /**  The dynamic-UI view. */
       view: unknown;
+    }
+  /**
+   *  What a search or a read found, for a reader checking what the answer
+   *  rests on: web pages by address, workspace items by kind and id.
+   */
+  | {
+      kind: 'sources';
+      /**  What the step looked for: `lumen pricing change`. */
+      query: string | null;
+      /**  The first of what it found, in the order it found them. */
+      sources: Source[];
+      /**  How many different things it found in all. */
+      total: number;
+    }
+  /**
+   *  A database answer the agent asked to show. Only the statement is
+   *  stored: readers run it again with their own access, so the numbers
+   *  are current and a reader never sees rows they could not query.
+   */
+  | {
+      kind: 'data';
+      /**  The `SELECT` statement, as the agent ran it. */
+      sql: string;
+      /**  The database it is scoped to, when the agent named one. */
+      databaseId: string | null;
+      /**  How the agent asked to show it: `table`, `bar`, `line`. */
+      display: string | null;
     };
 
 /**  One step of work, worded for a person reading a conversation. */
@@ -1130,6 +1157,28 @@ export type SessionMetadata = {
    */
   turn: TurnState;
 };
+
+/**  Something an answer rests on. */
+export type Source =
+  /**  A web page: its address, and its title when the step had one. */
+  | {
+      kind: 'web';
+      /**  The page's `http` or `https` address. */
+      url: string;
+      /**  The page's title. */
+      title: string | null;
+    }
+  /**
+   *  A workspace item. Nothing about it but its kind and id is stored:
+   *  readers load it with their own access.
+   */
+  | {
+      kind: 'item';
+      /**  What kind of item it is. */
+      itemType: CardItemType;
+      /**  The item's id. */
+      itemId: string;
+    };
 
 /**
  *  Why a turn stopped.

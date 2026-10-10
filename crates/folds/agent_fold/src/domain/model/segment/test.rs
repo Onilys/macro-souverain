@@ -927,6 +927,155 @@ fn an_upload_and_a_saved_copy_are_new_files() {
 }
 
 #[test]
+fn a_web_search_cards_the_pages_it_found() {
+    let parts = [
+        macro_result(
+            "a",
+            "WebSearch",
+            serde_json::json!({"input": "lumen pricing change"}),
+            serde_json::json!({"tool_use_id": "t", "content": [
+                {"type": "web_search_result", "title": "Lumen raises prices", "url": "https://lumen.example/blog"},
+                {"type": "web_search_result", "title": "Lumen raises prices", "url": "https://lumen.example/blog"},
+                {"type": "web_search_result", "title": "Script", "url": "javascript:alert(1)"},
+                {"type": "web_search_result", "title": "Pricing", "url": "https://news.example/lumen"}
+            ]}),
+        ),
+        macro_result(
+            "b",
+            "WebFetch",
+            serde_json::json!({"input": "https://lumen.example/pricing"}),
+            serde_json::json!({"tool_use_id": "t", "content": {
+                "type": "web_fetch_result",
+                "url": "https://lumen.example/pricing",
+                "content": {"source": {}, "title": "Pricing · Lumen"},
+                "retrieved_at": "2026-10-10T00:00:00Z"
+            }}),
+        ),
+        macro_result(
+            "c",
+            "WebSearch",
+            serde_json::json!({"input": "nothing"}),
+            serde_json::json!({"tool_use_id": "t", "content": {"type": "web_search_tool_result_error", "error_code": "unavailable"}}),
+        ),
+    ];
+    let cards: Vec<_> = segments(&parts, true)[0]
+        .rows
+        .iter()
+        .map(|row| row.card.clone())
+        .collect();
+    assert_eq!(
+        cards,
+        [
+            Some(ActivityCard::Sources {
+                query: Some("lumen pricing change".to_owned()),
+                sources: vec![
+                    Source::Web {
+                        url: "https://lumen.example/blog".to_owned(),
+                        title: Some("Lumen raises prices".to_owned()),
+                    },
+                    Source::Web {
+                        url: "https://news.example/lumen".to_owned(),
+                        title: Some("Pricing".to_owned()),
+                    },
+                ],
+                total: 2,
+            }),
+            Some(ActivityCard::Sources {
+                query: None,
+                sources: vec![Source::Web {
+                    url: "https://lumen.example/pricing".to_owned(),
+                    title: Some("Pricing · Lumen".to_owned()),
+                }],
+                total: 1,
+            }),
+            None,
+        ]
+    );
+}
+
+#[test]
+fn a_workspace_search_cards_items_by_kind_and_id_only() {
+    let results: Vec<_> = (0..14)
+        .map(|n| serde_json::json!({"type": "document", "id": format!("doc-{n}"), "name": "Secret plan"}))
+        .chain([
+            serde_json::json!({"type": "email", "id": "message-1", "thread_id": "thread-1", "name": "Re: pricing"}),
+            serde_json::json!({"type": "channelMessage", "channel_id": "channel-1"}),
+            serde_json::json!({"type": "chat", "id": "chat-1"}),
+        ])
+        .collect();
+    let parts = [macro_result(
+        "a",
+        "ContentSearch",
+        serde_json::json!({"query": "pricing floor"}),
+        serde_json::json!({"results": results}),
+    )];
+    let Some(ActivityCard::Sources {
+        query,
+        sources,
+        total,
+    }) = segments(&parts, true)[0].rows[0].card.clone()
+    else {
+        panic!("expected a sources card");
+    };
+    assert_eq!(query.as_deref(), Some("pricing floor"));
+    assert_eq!(total, 16);
+    assert_eq!(sources.len(), 12);
+    assert_eq!(
+        sources[0],
+        Source::Item {
+            item_type: CardItemType::Document,
+            item_id: "doc-0".to_owned(),
+        }
+    );
+    assert!(
+        !serde_json::to_string(&sources).unwrap().contains("Secret"),
+        "names stay out of the message"
+    );
+}
+
+#[test]
+fn a_database_answer_is_a_card_only_when_the_agent_asked_to_show_it() {
+    let select = serde_json::json!({"results": [], "statement": {"kind": "select"}});
+    let parts = [
+        macro_result(
+            "a",
+            "QueryDatabase",
+            serde_json::json!({"sql": "SELECT plan, arr FROM deals", "databaseId": "db-1", "display": "bar"}),
+            select.clone(),
+        ),
+        macro_result(
+            "b",
+            "QueryDatabase",
+            serde_json::json!({"sql": "SELECT count(*) FROM deals"}),
+            select,
+        ),
+        macro_result(
+            "c",
+            "QueryDatabase",
+            serde_json::json!({"sql": "UPDATE deals SET arr = 0", "display": "table"}),
+            serde_json::json!({"results": [], "statement": {"kind": "write"}}),
+        ),
+    ];
+    let cards: Vec<_> = segments(&parts, true)[0]
+        .rows
+        .iter()
+        .map(|row| row.card.clone())
+        .collect();
+    assert_eq!(
+        cards,
+        [
+            Some(ActivityCard::Data {
+                sql: "SELECT plan, arr FROM deals".to_owned(),
+                database_id: Some("db-1".to_owned()),
+                display: Some("bar".to_owned()),
+            }),
+            None,
+            None,
+        ]
+    );
+}
+
+#[test]
 fn humanize_keeps_acronyms_and_splits_every_convention() {
     assert_eq!(humanize("ListEntities"), "List entities");
     assert_eq!(humanize("read_document"), "Read document");

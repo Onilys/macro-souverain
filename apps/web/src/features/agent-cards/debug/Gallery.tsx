@@ -8,10 +8,16 @@ import {
   ActivityRows,
   RunSummary,
 } from '@app/features/agent-activity/components/activity-rows';
+import { AppAnswerDisplay } from '@app/features/database-query/answer-display';
+import { QueryResults } from '@app/features/database-query/components/query-results';
+import { useAnswerDisplay } from '@app/features/database-query/context/answer-display';
+import type { QueryAnswer } from '@app/features/database-query/core/query';
 import { EntityIcon } from '@core/component/EntityIcon';
+import type { DatabaseQueryDisplayMode } from '@macro-inc/lexical-core/nodes/databaseQueryData';
 import { createSignal, For, type JSX, type ParentProps } from 'solid-js';
 import { AgendaView } from '../components/agenda';
 import { CollectionCard, CollectionGroup } from '../components/collection';
+import { DataCardView } from '../components/data-card';
 import { EventCardView } from '../components/event-card';
 import {
   Card,
@@ -23,6 +29,11 @@ import {
 import { CardRow, SkeletonSingle, Tile } from '../components/kit/parts';
 import { ReferenceCardView } from '../components/reference-card';
 import { RoutineCardView } from '../components/routine-card';
+import {
+  type SourceRef,
+  SourcesList,
+  SourcesPill,
+} from '../components/sources';
 
 const noop = () => {};
 
@@ -129,6 +140,89 @@ function FixedHeightDemo() {
         )}
       </For>
     </Example>
+  );
+}
+
+const SOURCES: SourceRef[] = [
+  {
+    kind: 'web',
+    url: 'https://www.theverge.com/2026/10/lumen-pricing',
+    title: 'Lumen raises team prices for the first time since 2023',
+  },
+  {
+    kind: 'web',
+    url: 'https://lumen.example/pricing',
+    title: 'Pricing · Lumen',
+  },
+  { kind: 'item', itemType: 'document', itemId: 'pricing-review' },
+  {
+    kind: 'web',
+    url: 'https://news.ycombinator.com/item?id=1',
+    title: 'Lumen pricing change (412 comments)',
+  },
+  { kind: 'item', itemType: 'email_thread', itemId: 'globex' },
+  {
+    kind: 'web',
+    url: 'https://www.reuters.com/technology/lumen',
+    title: 'Lumen to lift prices as AI costs climb',
+  },
+];
+
+const FIXTURE_ITEMS: Record<string, [string, string, string]> = {
+  'pricing-review': ['Pricing review notes', 'md', 'Document'],
+  globex: ['Re: Lumen renewal', 'email', 'Email'],
+};
+
+function FixtureItemSource(props: { id: string }) {
+  const [name, type, kind] = FIXTURE_ITEMS[props.id] ?? ['Item', 'md', ''];
+  return (
+    <CardRow onClick={noop}>
+      <Tile size={24}>
+        <EntityIcon targetType={type as 'md'} size="xs" />
+      </Tile>
+      <span class="flex min-w-0 flex-1 flex-col">
+        <span class="truncate text-sm text-ink">{name}</span>
+        <span class="truncate text-xs text-ink-subtle">{kind}</span>
+      </span>
+    </CardRow>
+  );
+}
+
+const cell = (value: string | number) =>
+  typeof value === 'number'
+    ? ({ type: 'number', value } as const)
+    : ({ type: 'text', value } as const);
+
+const ARR: QueryAnswer = {
+  columns: [
+    { name: 'Plan', kind: 'text' },
+    { name: 'ARR', kind: 'number' },
+    { name: 'Accounts', kind: 'number' },
+  ],
+  rows: [
+    ['Enterprise', 1840000, 38],
+    ['Business', 962000, 211],
+    ['Team', 612000, 604],
+    ['Starter', 128000, 1290],
+  ].map((row) => row.map(cell)) as QueryAnswer['rows'],
+  rowIds: [],
+  readTables: [],
+  readDatabaseIds: [],
+  truncatedTables: [],
+};
+
+function FixtureResults(props: { mode: DatabaseQueryDisplayMode }) {
+  const display = useAnswerDisplay();
+  const names = display.names(() => ARR);
+  return (
+    <QueryResults
+      answer={ARR}
+      displayMode={props.mode}
+      names={names()}
+      display={display}
+      compact
+      bare
+    />
   );
 }
 
@@ -424,6 +518,44 @@ export default function AgentCardsGallery() {
               </div>
             </div>
           </Example>
+        </Section>
+
+        <Section
+          title="Sources"
+          note="What the answer rests on: a pill under the steps that opens into the list"
+        >
+          <Example label="Folded, under the steps">
+            <RunSummary steps={5} duration="24s" open={false} onToggle={noop} />
+            <SourcesPill sources={SOURCES} total={14} onOpen={noop} />
+          </Example>
+          <Example label="Open">
+            <SourcesList
+              queries={['lumen pricing change', 'lumen renewal']}
+              sources={SOURCES}
+              total={14}
+              onClose={noop}
+              itemRow={(source) => <FixtureItemSource id={source.itemId} />}
+            />
+          </Example>
+        </Section>
+
+        <Section
+          title="Data"
+          note="A database answer the agent asked to show, live with your own access"
+        >
+          <AppAnswerDisplay>
+            <Example label="Table">
+              <DataCardView title="Deals" subtitle="4 rows" state="ready">
+                <FixtureResults mode="table" />
+              </DataCardView>
+            </Example>
+            <Example label="Bars, and loading">
+              <DataCardView title="Deals" subtitle="4 rows" chart state="ready">
+                <FixtureResults mode="bar" />
+              </DataCardView>
+              <DataCardView title="Database answer" state="loading" />
+            </Example>
+          </AppAnswerDisplay>
         </Section>
 
         <Section

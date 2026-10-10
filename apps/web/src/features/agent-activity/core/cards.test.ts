@@ -57,6 +57,48 @@ describe('the cards a run produced', () => {
     expect(stronger[0]).toMatchObject({ action: 'renamed', summary: null });
   });
 
+  it('gather what every search found into one list, each thing once', () => {
+    const web = (url: string) => ({ kind: 'web', url, title: url });
+    const cards = runCards([
+      {
+        id: 'a',
+        card: {
+          kind: 'sources',
+          query: 'lumen pricing',
+          sources: [web('https://a.example'), web('https://b.example')],
+          total: 9,
+        },
+      },
+      { id: 'b', card: document('doc-1', 'created', 'Plan') },
+      {
+        id: 'c',
+        card: {
+          kind: 'sources',
+          query: 'lumen pricing',
+          sources: [
+            web('https://b.example'),
+            { kind: 'item', itemType: 'document', itemId: 'doc-9' },
+          ],
+          total: 2,
+        },
+      },
+      {
+        id: 'd',
+        card: { kind: 'data', sql: 'SELECT 1', display: 'table' },
+      },
+    ]);
+    expect(cards.map((card) => card.kind)).toEqual(['sources', 'item', 'data']);
+    expect(cards[0]).toMatchObject({
+      rowId: 'a',
+      queries: ['lumen pricing'],
+      total: 10,
+    });
+    expect(
+      cards[0].kind === 'sources' ? cards[0].sources.length : undefined
+    ).toBe(3);
+    expect(cards[2]).toMatchObject({ rowId: 'd', sql: 'SELECT 1' });
+  });
+
   it('leave out a card this version cannot read', () => {
     expect(
       runCards([

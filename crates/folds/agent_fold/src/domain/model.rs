@@ -60,7 +60,7 @@ pub use permission::{PermissionOption, PermissionOptionKind, PermissionOutcome};
 pub use plan::{PlanEntry, PlanEntryPriority, PlanEntryStatus};
 pub use segment::{
     ActivityCard, ActivityRow, ActivityStatus, CardAction, CardItemType, ProjectedSegment, Segment,
-    SegmentKind, TurnPhase, phase, project, prose_text, segments,
+    SegmentKind, Source, TurnPhase, phase, project, prose_text, segments,
 };
 pub use signal::TurnSignal;
 pub use subagent::{SubagentResult, ToolStats};

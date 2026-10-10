@@ -14,9 +14,9 @@ import { Card, CardSingle } from './kit/card';
 import { CardBadge, type CardTone, Tile } from './kit/parts';
 
 /** The card types the preview service loads by id, and as what. */
-type LoadableType = Exclude<CardItemType, 'calendar_event'>;
+export type LoadableType = Exclude<CardItemType, 'calendar_event'>;
 
-const PREVIEW_TYPES: Record<LoadableType, ItemType> = {
+export const PREVIEW_TYPES: Record<LoadableType, ItemType> = {
   document: 'document',
   email_thread: 'email',
   project: 'project',

@@ -181,10 +181,52 @@ describe('agent announcements', () => {
     );
   });
 
-  it('rejects a card it does not know', async () => {
+  it('keeps what a search found and a database answer to show', async () => {
+    const cards = [
+      {
+        kind: 'sources',
+        query: 'lumen pricing',
+        sources: [
+          { kind: 'web', url: 'https://lumen.example/blog', title: 'Prices' },
+          { kind: 'item', itemType: 'document', itemId: 'doc-1' },
+        ],
+        total: 2,
+      },
+      { kind: 'data', sql: 'SELECT 1', databaseId: null, display: 'table' },
+    ];
     const response = await request({
       chatReply: {
         sessionId: 'session',
+        link: false,
+        body: {
+          kind: 'segments',
+          segments: [
+            {
+              kind: 'activity',
+              turn: 2,
+              segment: 0,
+              sealed: true,
+              rows: cards.map((card, index) => ({
+                id: `t${index}`,
+                label: 'Searched',
+                status: 'completed',
+                card,
+              })),
+            },
+          ],
+        },
+      },
+    });
+    expect(response.status).toBe(200);
+    const { markdown } = await response.json<{ markdown: string }>();
+    for (const card of cards) expect(markdown).toContain(JSON.stringify(card));
+  });
+
+  it('drops a card it does not know and keeps the step', async () => {
+    const response = await request({
+      chatReply: {
+        sessionId: 'session',
+        link: false,
         body: {
           kind: 'segments',
           segments: [
@@ -198,11 +240,16 @@ describe('agent announcements', () => {
                   id: 't1',
                   label: 'Ran',
                   status: 'completed',
+                  card: { kind: 'hologram', depth: 3 },
+                },
+                {
+                  id: 't2',
+                  label: 'Searched',
+                  status: 'completed',
                   card: {
-                    kind: 'item',
-                    itemType: 'spaceship',
-                    itemId: 'x',
-                    action: 'created',
+                    kind: 'sources',
+                    total: 1,
+                    sources: [{ kind: 'web', url: 'javascript:alert(1)' }],
                   },
                 },
               ],
@@ -211,8 +258,11 @@ describe('agent announcements', () => {
         },
       },
     });
-    expect(response.status).toBeGreaterThanOrEqual(400);
-    expect(response.status).toBeLessThan(500);
+    expect(response.status).toBe(200);
+    const { markdown } = await response.json<{ markdown: string }>();
+    expect(markdown).toBe(
+      '<m-agent-activity>{"agentSessionId":"session","turn":2,"segment":0,"rows":[{"id":"t1","label":"Ran","status":"completed"},{"id":"t2","label":"Searched","status":"completed"}],"sealed":true}</m-agent-activity>'
+    );
   });
 
   it('rejects a chat reply body it does not know', async () => {
