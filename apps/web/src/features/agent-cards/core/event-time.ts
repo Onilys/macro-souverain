@@ -7,6 +7,8 @@ export type EventSchedule = {
   day: Date;
   /** Start instant in milliseconds, local midnight for an all-day event. */
   start: number;
+  /** End instant in milliseconds; the next midnight for an all-day event. */
+  end: number;
   /** `3:00 – 3:30 PM`, `All day`, or a range across days. */
   time: string;
   allDay: boolean;
@@ -21,10 +23,11 @@ function midnight(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+/** `3:30 PM`, or `3 PM` on the hour, as calendars write it. */
 function clock(date: Date): string {
   return date.toLocaleTimeString('en-US', {
     hour: 'numeric',
-    minute: '2-digit',
+    ...(date.getMinutes() === 0 ? {} : { minute: '2-digit' }),
     hour12: true,
   });
 }
@@ -55,6 +58,7 @@ export function eventSchedule(
     return {
       day: midnight(start),
       start: start.getTime(),
+      end: ends.getTime(),
       time:
         ends.getTime() === start.getTime()
           ? clock(start)
@@ -78,6 +82,7 @@ export function eventSchedule(
   return {
     day: start,
     start: start.getTime(),
+    end: after.getTime(),
     time: multiDay
       ? `All day · until ${last.toLocaleDateString('en-US', DAY)}`
       : 'All day',
@@ -123,4 +128,26 @@ export function groupByDay<T extends { schedule: EventSchedule }>(
     }
   }
   return days;
+}
+
+/**
+ * Timed events that overlap another on the agenda, keyed by index: the
+ * event each one runs into first, and by how many minutes. Overlaps are
+ * flagged rather than hidden, since a clash is something to act on.
+ */
+export function overlaps(
+  schedules: readonly EventSchedule[]
+): Map<number, { with: number; minutes: number }> {
+  const clashes = new Map<number, { with: number; minutes: number }>();
+  schedules.forEach((a, i) => {
+    if (a.allDay) return;
+    schedules.forEach((b, j) => {
+      if (i === j || b.allDay || clashes.has(i)) return;
+      const minutes = Math.round(
+        (Math.min(a.end, b.end) - Math.max(a.start, b.start)) / 60_000
+      );
+      if (minutes > 0) clashes.set(i, { with: j, minutes });
+    });
+  });
+  return clashes;
 }

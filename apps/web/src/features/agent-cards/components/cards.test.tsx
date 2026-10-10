@@ -37,8 +37,8 @@ vi.mock('@queries/calendar/mention-preview', () => ({
 }));
 
 import { Agenda } from './agenda';
-import { EntityCard } from './entity-card';
 import { EventCard } from './event-card';
+import { ReferenceCard } from './reference-card';
 
 afterEach(() => {
   cleanup();
@@ -62,7 +62,7 @@ const meeting = (title: string, startsAt: string, endsAt: string) => ({
 describe('an item card', () => {
   it('names a created document as the agent did until it loads', () => {
     const view = render(() => (
-      <EntityCard
+      <ReferenceCard
         type="document"
         id="doc-1"
         fileType="spreadsheet"
@@ -90,7 +90,7 @@ describe('an item card', () => {
       fileType: 'md',
     });
     const view = render(() => (
-      <EntityCard
+      <ReferenceCard
         type="document"
         id="doc-1"
         action="edited"
@@ -113,7 +113,7 @@ describe('an item card', () => {
   it('says so when the viewer cannot open it', () => {
     setPreview({ loading: false, access: 'no_access', id: 'thread-1' });
     const view = render(() => (
-      <EntityCard
+      <ReferenceCard
         type="email_thread"
         id="thread-1"
         action="sent"
@@ -123,6 +123,36 @@ describe('an item card', () => {
     expect(view.getByText('Launch plan')).toBeTruthy();
     expect(view.getByText("Email · You don't have access")).toBeTruthy();
     expect(view.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('a receipt', () => {
+  it('says what the step did to the item in a few words', () => {
+    const view = render(() => (
+      <ReferenceCard
+        type="document"
+        id="doc-1"
+        fileType="spreadsheet"
+        action="edited"
+        title="Revenue by region"
+        summary="12 cells in EMEA"
+      />
+    ));
+    expect(view.getByText('Spreadsheet · 12 cells in EMEA')).toBeTruthy();
+    expect(
+      view.container
+        .querySelector('[data-agent-card]')
+        ?.getAttribute('data-agent-card')
+    ).toBe('receipt');
+  });
+
+  it('strikes through an item that is gone', () => {
+    setPreview({ loading: false, access: 'does_not_exist', id: 'doc-1' });
+    const view = render(() => (
+      <ReferenceCard type="document" id="doc-1" title="Old notes" />
+    ));
+    expect(view.getByText('Old notes').className).toContain('line-through');
+    expect(view.getByText('Document · Deleted')).toBeTruthy();
   });
 });
 
@@ -137,8 +167,7 @@ describe('an event card', () => {
     ));
     expect(view.getByText('Design review')).toBeTruthy();
     expect(view.getByText('Scheduled')).toBeTruthy();
-    expect(view.getByText(/3:00 – 3:30 PM/)).toBeTruthy();
-    expect(view.getByText('Room 4')).toBeTruthy();
+    expect(view.getByText(/3 – 3:30 PM · Room 4/)).toBeTruthy();
     await fireEvent.click(view.getByRole('button'));
     expect(mocks.openEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventId: 'mine-Design review' })
@@ -149,7 +178,7 @@ describe('an event card', () => {
     mocks.event.data = null;
     const view = render(() => <EventCard eventId="event-1" title="Offsite" />);
     expect(view.getByText('Offsite')).toBeTruthy();
-    expect(view.getByText('Not on your calendar')).toBeTruthy();
+    expect(view.getByText('Event · Not on your calendar')).toBeTruthy();
     expect(view.queryByRole('button')).toBeNull();
   });
 });
@@ -181,10 +210,10 @@ describe('an agenda', () => {
       expect.stringContaining('Review'),
     ]);
     expect(view.getByRole('region', { name: 'Your day' })).toBeTruthy();
-    expect(view.getByText("1 event isn't on your calendar.")).toBeTruthy();
+    expect(view.getByText("1 event isn't on your calendar")).toBeTruthy();
   });
 
-  it('folds a long agenda behind "Show more" instead of scrolling', async () => {
+  it('holds a long agenda at a fixed height instead of growing', () => {
     mocks.agenda.data = Array.from({ length: 10 }, (_, index) =>
       access(
         `e${index}`,
@@ -198,9 +227,12 @@ describe('an agenda', () => {
         }))}
       />
     ));
-    expect(view.getAllByRole('listitem')).toHaveLength(8);
-    await fireEvent.click(view.getByRole('button', { name: 'Show 2 more' }));
-    expect(view.getAllByRole('listitem')).toHaveLength(10);
+    const card = view.container.querySelector<HTMLElement>(
+      '[data-agent-card="agenda"]'
+    );
+    expect(card?.style.height).toBe('320px');
+    expect(view.getAllByText(/^Event \d$/)).toHaveLength(10);
+    expect(view.getAllByText('10 events').length).toBeGreaterThan(0);
   });
 
   it('says when there is nothing to show', () => {

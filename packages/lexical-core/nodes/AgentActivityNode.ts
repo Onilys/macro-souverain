@@ -33,6 +33,11 @@ export const AGENT_ACTIVITY_CARD_ITEM_TYPES = [
   'document',
   'email_thread',
   'calendar_event',
+  'project',
+  'channel',
+  'routine',
+  'form',
+  'initiative',
 ] as const;
 
 /** What a step did to the item its card opens. */
@@ -40,6 +45,13 @@ export const AGENT_ACTIVITY_CARD_ACTIONS = [
   'created',
   'edited',
   'sent',
+  'updated',
+  'moved',
+  'shared',
+  'renamed',
+  'commented',
+  'deleted',
+  'failed',
 ] as const;
 
 /**
@@ -57,6 +69,8 @@ export type AgentActivityCard =
       action: (typeof AGENT_ACTIVITY_CARD_ACTIONS)[number];
       /** The item's name as the step knew it, until the item loads. */
       title?: string | null;
+      /** What happened to it, in a few words: `12 cells in EMEA`. */
+      summary?: string | null;
     }
   | {
       kind: 'view';
@@ -96,7 +110,8 @@ export function isAgentActivityCard(
     card.itemId.length > 0 &&
     (AGENT_ACTIVITY_CARD_ACTIONS as readonly unknown[]).includes(card.action) &&
     isOptionalText(card.fileType) &&
-    isOptionalText(card.title)
+    isOptionalText(card.title) &&
+    isOptionalText(card.summary)
   );
 }
 

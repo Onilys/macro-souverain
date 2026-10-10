@@ -69,6 +69,7 @@ const activityCard = z.discriminatedUnion('kind', [
     fileType: z.string().nullish(),
     action: z.enum(AGENT_ACTIVITY_CARD_ACTIONS),
     title: z.string().nullish(),
+    summary: z.string().nullish(),
   }),
   z.object({ kind: z.literal('view'), view: z.unknown() }),
 ]);

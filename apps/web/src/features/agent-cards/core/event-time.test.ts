@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayLabel, eventSchedule, groupByDay } from './event-time';
+import { dayLabel, eventSchedule, groupByDay, overlaps } from './event-time';
 
 const NOW = new Date(2026, 9, 9, 12, 0);
 const at = (day: number, hour: number, minute = 0) =>
@@ -10,18 +10,18 @@ const allDay = (startDate: string, endDate: string) =>
   ({ kind: 'allDay', startDate, endDate }) as const;
 
 describe('an event schedule', () => {
-  it('names a same-day range once per meridiem', () => {
+  it('names a same-day range once per meridiem, on the hour without minutes', () => {
     expect(eventSchedule(timed(at(9, 15), at(9, 15, 30)), NOW)?.time).toBe(
-      '3:00 – 3:30 PM'
+      '3 – 3:30 PM'
     );
     expect(eventSchedule(timed(at(9, 11), at(9, 13)), NOW)?.time).toBe(
-      '11:00 AM – 1:00 PM'
+      '11 AM – 1 PM'
     );
   });
 
   it('names both days of a range that crosses midnight', () => {
     expect(eventSchedule(timed(at(9, 22), at(10, 9)), NOW)?.time).toBe(
-      'Oct 9, 10:00 PM – Oct 10, 9:00 AM'
+      'Oct 9, 10 PM – Oct 10, 9 AM'
     );
   });
 
@@ -80,5 +80,29 @@ describe('agenda days', () => {
       ['Today', ['standup', 'lunch']],
       ['Tomorrow', ['offsite', 'review']],
     ]);
+  });
+});
+
+describe('overlapping events', () => {
+  const minute = 60_000;
+  const base = new Date(2026, 9, 9, 14, 30).getTime();
+  const span = (from: number, to: number, allDay = false) => ({
+    day: new Date(base),
+    start: base + from * minute,
+    end: base + to * minute,
+    time: '',
+    allDay,
+    past: false,
+  });
+
+  it('are flagged against the event each runs into, by how long', () => {
+    const clashes = overlaps([span(0, 45), span(30, 60), span(90, 120)]);
+    expect(clashes.get(0)).toEqual({ with: 1, minutes: 15 });
+    expect(clashes.get(1)).toEqual({ with: 0, minutes: 15 });
+    expect(clashes.has(2)).toBe(false);
+  });
+
+  it('leave all-day events out: a day off is not a clash', () => {
+    expect(overlaps([span(0, 1440, true), span(30, 60)]).size).toBe(0);
   });
 });

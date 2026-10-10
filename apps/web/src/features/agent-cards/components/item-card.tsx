@@ -1,14 +1,19 @@
 import { Match, Switch } from 'solid-js';
 import type { CardAction, CardItem } from '../core/types';
-import { EntityCard } from './entity-card';
 import { EventCard } from './event-card';
+import { ReferenceCard } from './reference-card';
 
-/** The card for a workspace item, by what kind of item it is. */
+/**
+ * The card for a workspace item, by what kind of item it is: a calendar
+ * page for an event, an icon tile for everything else.
+ */
 export function ItemCard(props: {
   item: CardItem;
   action?: CardAction;
   /** The item's name as the agent knew it, until it loads. */
   title?: string | null;
+  /** What happened to it, in a few words. */
+  summary?: string | null;
 }) {
   return (
     <Switch>
@@ -18,6 +23,7 @@ export function ItemCard(props: {
           occurrenceKey={props.item.occurrenceKey}
           action={props.action}
           title={props.title}
+          summary={props.summary}
         />
       </Match>
       <Match
@@ -26,12 +32,13 @@ export function ItemCard(props: {
         }
       >
         {(type) => (
-          <EntityCard
+          <ReferenceCard
             type={type()}
             id={props.item.id}
             fileType={props.item.fileType}
             action={props.action}
             title={props.title}
+            summary={props.summary}
           />
         )}
       </Match>

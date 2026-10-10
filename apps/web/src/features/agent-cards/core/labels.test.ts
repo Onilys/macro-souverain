@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionLabel, documentKind } from './labels';
+import { actionLabel, actionTone, documentKind, itemKind } from './labels';
 
 describe('card labels', () => {
   it('say what the agent did in the item’s own terms', () => {
@@ -8,6 +8,21 @@ describe('card labels', () => {
     expect(actionLabel('calendar_event', 'created')).toBe('Scheduled');
     expect(actionLabel('calendar_event', 'edited')).toBe('Updated');
     expect(actionLabel('email_thread', 'sent')).toBe('Sent');
+    expect(actionLabel('channel', 'sent')).toBe('Posted');
+    expect(actionLabel('calendar_event', 'deleted')).toBe('Canceled');
+    expect(actionLabel('document', 'moved')).toBe('Moved');
+  });
+
+  it('keep failure and removal from reading as good news', () => {
+    expect(actionTone('created')).toBe('accent');
+    expect(actionTone('deleted')).toBe('neutral');
+    expect(actionTone('failed')).toBe('bad');
+  });
+
+  it('name any item by its kind', () => {
+    expect(itemKind('document', 'spreadsheet')).toBe('Spreadsheet');
+    expect(itemKind('routine')).toBe('Routine');
+    expect(itemKind('email_thread')).toBe('Email');
   });
 
   it('name a document by its kind', () => {

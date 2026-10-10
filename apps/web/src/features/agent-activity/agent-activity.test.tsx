@@ -19,12 +19,9 @@ vi.mock('@app/features/block-agent/ui', () => ({
   TextShimmer: (props: { text: string }) => <>{props.text}</>,
 }));
 vi.mock('./components/activity-cards', () => ({
-  default: (props: { rows: { id: string; card?: unknown }[] }) => (
+  default: (props: { cards: { key: string; rowId: string }[] }) => (
     <aside aria-label="Cards">
-      {props.rows
-        .filter((row) => row.card)
-        .map((row) => row.id)
-        .join(',')}
+      {props.cards.map((card) => `${card.rowId}:${card.key}`).join(',')}
     </aside>
   ),
 }));
@@ -103,7 +100,28 @@ it('ticks an open run live from the session, keeping the snapshot until it loads
   ]);
 });
 
-it('folds a long run behind a count of its earlier steps', () => {
+it('keeps a long live run on its latest steps, folding the earlier ones behind a count', () => {
+  const rows = Array.from({ length: 8 }, (_, index) => ({
+    id: `t${index}`,
+    label: `Step ${index}`,
+    status: 'completed' as const,
+  }));
+  const view = render(() => (
+    <AgentActivity
+      agentSessionId="session"
+      turn={2}
+      segment={1}
+      rows={rows}
+      sealed={false}
+    />
+  ));
+  expect(view.getByRole('button', { name: '2 earlier steps' })).toBeTruthy();
+  expect(view.queryByText('Step 1')).toBeNull();
+  view.getByRole('button', { name: '2 earlier steps' }).click();
+  expect(view.getByText('Step 1')).toBeTruthy();
+});
+
+it('folds a finished run into one line that opens to every step', () => {
   const rows = Array.from({ length: 8 }, (_, index) => ({
     id: `t${index}`,
     label: `Step ${index}`,
@@ -118,10 +136,11 @@ it('folds a long run behind a count of its earlier steps', () => {
       sealed
     />
   ));
-  expect(view.getByRole('button', { name: '2 earlier steps' })).toBeTruthy();
-  expect(view.queryByText('Step 1')).toBeNull();
-  view.getByRole('button', { name: '2 earlier steps' }).click();
-  expect(view.getByText('Step 1')).toBeTruthy();
+  const summary = view.getByRole('button', { name: /Worked · 8 steps/ });
+  expect(view.queryByText('Step 0')).toBeNull();
+  summary.click();
+  expect(view.getByText('Step 0')).toBeTruthy();
+  expect(view.getByText('Step 7')).toBeTruthy();
 });
 
 it('updates a live row in place as the run paints, rather than redrawing it', () => {
@@ -190,7 +209,27 @@ it('keeps snapshots free of tool details while authorized live rows retain them'
   );
 });
 
-it('shows a composed view in place of its step, and what the steps produced after them', async () => {
+it('keeps a finished run open when a step failed', () => {
+  const view = render(() => (
+    <AgentActivity
+      agentSessionId="session"
+      turn={2}
+      segment={1}
+      rows={[
+        { id: 't1', label: 'Searched', status: 'completed' },
+        { id: 't2', label: 'Posted', status: 'failed' },
+      ]}
+      sealed
+    />
+  ));
+  expect(view.queryByRole('button', { name: /Worked/ })).toBeNull();
+  expect(steps(view)).toEqual([
+    ['Searched', 'completed'],
+    ['Posted', 'failed'],
+  ]);
+});
+
+it('shows what a step produced under it, and a composed view in place of its step', async () => {
   const view = render(() => (
     <AgentActivity
       agentSessionId="session"
@@ -219,10 +258,13 @@ it('shows a composed view in place of its step, and what the steps produced afte
       sealed
     />
   ));
-  expect(steps(view)).toEqual([['Create documentLaunch FAQ', 'completed']]);
-  expect(
-    (await view.findByRole('complementary', { name: 'Cards' })).textContent
-  ).toBe('t1,t2');
+  const cards = await view.findAllByRole('complementary', { name: 'Cards' });
+  expect(cards.map((card) => card.textContent)).toEqual([
+    't1:document:doc-1',
+    't2:t2',
+  ]);
+  expect(view.getByText('Create document')).toBeTruthy();
+  expect(view.queryByText('Display results')).toBeNull();
   expect(live.acquired).toEqual([]);
 });
 

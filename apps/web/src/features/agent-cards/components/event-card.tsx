@@ -7,9 +7,11 @@ import { queryReadyGate } from '@queries/gate';
 import type { CalendarMentionEvent } from '@service-storage/generated/schemas/calendarMentionEvent';
 import { Show } from 'solid-js';
 import { dayLabel, eventSchedule } from '../core/event-time';
-import { actionLabel } from '../core/labels';
+import { actionLabel, actionTone } from '../core/labels';
 import type { CardAction } from '../core/types';
-import { CardShell } from './card-shell';
+import { Card, CardSingle } from './kit/card';
+import { CardBadge, type CardTone, DateTile } from './kit/parts';
+import { OpenArrow } from './reference-card';
 
 /**
  * Where opening an event goes for this viewer: their own copy of the
@@ -35,42 +37,66 @@ export function eventOpenTarget(
 /** One line about who and where: the place, else the people. */
 export function eventDetail(event: CalendarMentionEvent): string | undefined {
   if (event.location) return event.location;
-  if (event.attendeeCount > 1) return `${event.attendeeCount} people`;
+  if (event.attendeeCount > 1) return `${event.attendeeCount} guests`;
   return event.organizerName ?? event.organizerEmail ?? undefined;
 }
 
-/** A calendar page: the month over the day, past events quieter. */
-export function DateTile(props: { day: Date; past?: boolean }) {
+/**
+ * An event as a card, from values already worked out: its day as a
+ * calendar tile, its title, what happened to it, and when and where.
+ */
+export function EventCardView(props: {
+  day: Date;
+  past?: boolean;
+  title: string;
+  badge?: { label: string; tone: CardTone };
+  meta: string;
+  onOpen?: (event: MouseEvent) => void;
+  muted?: boolean;
+  canceled?: boolean;
+}) {
   return (
-    <span
-      class="flex size-10 shrink-0 flex-col items-center justify-center rounded-lg border border-edge-muted bg-panel leading-none"
-      aria-hidden="true"
+    <Card
+      width="compact"
+      height={72}
+      onOpen={props.onOpen}
+      label={`Open ${props.title}`}
+      muted={props.muted}
+      data-agent-card="event"
     >
-      <span
-        class={
-          props.past
-            ? 'text-[9px] font-semibold tracking-wide text-ink-extra-muted uppercase'
-            : 'text-[9px] font-semibold tracking-wide text-accent uppercase'
+      <CardSingle
+        tile={<DateTile date={props.day} past={props.past} />}
+        title={props.title}
+        struck={props.canceled}
+        badge={
+          <Show when={props.badge}>
+            {(badge) => (
+              <CardBadge tone={badge().tone}>{badge().label}</CardBadge>
+            )}
+          </Show>
         }
-      >
-        {props.day.toLocaleDateString('en-US', { month: 'short' })}
-      </span>
-      <span class="mt-0.5 text-base font-semibold text-ink tabular-nums">
-        {props.day.getDate()}
-      </span>
-    </span>
+        meta={props.meta}
+        trailing={
+          <Show when={props.onOpen}>
+            <OpenArrow />
+          </Show>
+        }
+      />
+    </Card>
   );
 }
 
 /**
- * A calendar event, from the viewer's own copy of the meeting: when, what,
- * and where, with the day it falls on.
+ * A calendar event, from the viewer's own copy of the meeting: its day as a
+ * calendar tile, its title, and when and where on one line. A receipt names
+ * what the agent did to it - scheduled, updated, canceled.
  */
 export function EventCard(props: {
   eventId: string;
   occurrenceKey?: string;
   action?: CardAction;
   title?: string | null;
+  summary?: string | null;
 }) {
   const query = useCalendarMentionPreviewQuery(() => ({
     eventId: props.eventId,
@@ -86,44 +112,47 @@ export function EventCard(props: {
     return loaded ? eventOpenTarget(props.occurrenceKey, loaded) : undefined;
   };
   const badge = () =>
-    props.action ? actionLabel('calendar_event', props.action) : undefined;
-  const unavailable = () =>
-    queryReadyGate(query) && query.data === null ? 'Not on your calendar' : '';
+    props.action
+      ? {
+          label: actionLabel('calendar_event', props.action),
+          tone: actionTone(props.action),
+        }
+      : undefined;
+  const unavailable = () => queryReadyGate(query) && query.data === null;
+  const title = () => event()?.title || props.title || 'Event';
+  const meta = () => {
+    const when = schedule();
+    if (!when) {
+      if (props.summary) return props.summary;
+      if (unavailable()) return 'Event · Not on your calendar';
+      return query.isError ? "Event · Couldn't load" : 'Event · Loading…';
+    }
+    const loaded = event();
+    return [
+      `${dayLabel(when.day)} ${when.time}`,
+      props.summary ?? (loaded ? eventDetail(loaded) : undefined),
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  };
+  const open = () => {
+    const to = target();
+    return to
+      ? (click: MouseEvent) =>
+          void openCalendarEventSplit({ ...to, openInNewSplit: click.shiftKey })
+      : undefined;
+  };
 
   return (
-    <Show
-      when={schedule()}
-      fallback={
-        <CardShell
-          tile={<DateTile day={new Date()} past />}
-          title={props.title || 'Event'}
-          badge={badge()}
-          meta={unavailable() || (query.isError ? "Couldn't load" : 'Loading…')}
-          muted={!!unavailable()}
-        />
-      }
-    >
-      {(when) => (
-        <CardShell
-          tile={<DateTile day={when().day} past={when().past} />}
-          title={event()?.title || props.title || 'Event'}
-          badge={badge()}
-          meta={`${dayLabel(when().day)} · ${when().time}`}
-          detail={(() => {
-            const loaded = event();
-            return loaded ? eventDetail(loaded) : undefined;
-          })()}
-          onOpen={
-            target()
-              ? (click) =>
-                  void openCalendarEventSplit({
-                    ...target()!,
-                    openInNewSplit: click.shiftKey,
-                  })
-              : undefined
-          }
-        />
-      )}
-    </Show>
+    <EventCardView
+      day={schedule()?.day ?? new Date()}
+      past={schedule()?.past ?? true}
+      title={title()}
+      badge={badge()}
+      meta={meta()}
+      onOpen={open()}
+      muted={unavailable()}
+      canceled={props.action === 'deleted'}
+    />
   );
 }
