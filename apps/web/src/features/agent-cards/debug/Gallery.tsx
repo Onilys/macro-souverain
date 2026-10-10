@@ -16,7 +16,10 @@ import { QueryResults } from '@app/features/database-query/components/query-resu
 import { useAnswerDisplay } from '@app/features/database-query/context/answer-display';
 import type { QueryAnswer } from '@app/features/database-query/core/query';
 import { EntityIcon } from '@core/component/EntityIcon';
+import { ConnectCard } from '@core/component/LexicalMarkdown/component/decorator/ConnectApp';
+import { PipedreamConnectorIcon } from '@core/pipedream/ConnectorIcon';
 import type { DatabaseQueryDisplayMode } from '@macro-inc/lexical-core/nodes/databaseQueryData';
+import { Button } from '@ui';
 import { createSignal, For, type JSX, type ParentProps } from 'solid-js';
 import { AgendaView } from '../components/agenda';
 import { CollectionCard, CollectionGroup } from '../components/collection';
@@ -30,6 +33,7 @@ import {
   CardHiddenCount,
 } from '../components/kit/card';
 import { CardRow, SkeletonSingle, Tile } from '../components/kit/parts';
+import { NoticeCard } from '../components/notice';
 import { ReferenceCardView } from '../components/reference-card';
 import { RoutineCardView } from '../components/routine-card';
 import {
@@ -616,6 +620,26 @@ export default function AgentCardsGallery() {
               onSelect={noop}
             />
           </Example>
+          <Example label="Connect · on a line of its own, then connected">
+            <ConnectCard
+              appSlug="linear"
+              name="Linear"
+              connected={() => false}
+              icon={(size) => (
+                <PipedreamConnectorIcon appSlug="linear" class={size} />
+              )}
+              onConnect={noop}
+            />
+            <ConnectCard
+              appSlug="gmail"
+              name="Gmail"
+              connected={() => true}
+              icon={(size) => (
+                <PipedreamConnectorIcon appSlug="gmail" class={size} />
+              )}
+              onConnect={noop}
+            />
+          </Example>
           <Example label="Draft · an email to send as you">
             <DraftCard
               tool={{ name: 'SendEmail', data: DRAFT_EMAIL }}
@@ -829,6 +853,28 @@ export default function AgentCardsGallery() {
               badge={{ label: 'Created', tone: 'accent' }}
               meta="Document · just now"
               onOpen={noop}
+            />
+          </Example>
+          <Example label="Notice · a failed message, and an interrupted one">
+            <NoticeCard
+              tone="error"
+              title="Couldn't finish this"
+              detail="Retry runs your message again"
+              action={
+                <Button size="sm" variant="cta" onClick={noop}>
+                  Retry
+                </Button>
+              }
+            />
+            <NoticeCard
+              tone="warning"
+              title="Interrupted before it finished"
+              detail="Check what it already did before you retry"
+              action={
+                <Button size="sm" variant="outline" onClick={noop}>
+                  Retry
+                </Button>
+              }
             />
           </Example>
           <Example label="A failed step keeps the run open">
