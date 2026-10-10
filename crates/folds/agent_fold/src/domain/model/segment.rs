@@ -31,7 +31,7 @@ use super::part::MessagePart;
 use super::plan::PlanEntryStatus;
 use super::tool::{ToolDetail, ToolName, ToolStatus};
 use super::user_tool::UserToolOutcome;
-use super::{ElicitationOutcome, PermissionOutcome};
+use super::{ElicitationOutcome, ElicitationRequest, PermissionOutcome};
 
 #[cfg(test)]
 mod test;
@@ -371,15 +371,26 @@ fn is_blank_text(part: &MessagePart) -> bool {
     matches!(part, MessagePart::Text { text } if text.trim().is_empty())
 }
 
+/// Which segment a part belongs to, if any.
+///
+/// A request still waiting on the user is a segment of its own, answered
+/// live. Once answered it is history and splits nothing: a question that
+/// stood in for its tool call - a user tool's review, a harness's own
+/// question tool - is that call's step, and any other request is told by
+/// the row of the tool it was about.
 fn part_kind(part: &MessagePart) -> Option<SegmentKind> {
     match part {
         MessagePart::Text { text } if text.trim().is_empty() => None,
         MessagePart::Text { .. } => Some(SegmentKind::Prose),
         MessagePart::ToolUse { .. } | MessagePart::Plan { .. } => Some(SegmentKind::Activity),
+        _ if is_pending_request(part) => Some(SegmentKind::Interaction),
+        MessagePart::Elicitation {
+            tool_call: Some(_), ..
+        } => Some(SegmentKind::Activity),
         MessagePart::Permission { .. }
         | MessagePart::Elicitation { .. }
-        | MessagePart::ToolApproval { .. } => Some(SegmentKind::Interaction),
-        MessagePart::Thought { .. }
+        | MessagePart::ToolApproval { .. }
+        | MessagePart::Thought { .. }
         | MessagePart::Attachment { .. }
         | MessagePart::Control { .. } => None,
     }
@@ -401,6 +412,21 @@ fn activity_rows(parts: &[MessagePart], closed: bool) -> Vec<ActivityRow> {
                 status,
                 detail,
             } => Some(tool_row(id.0.clone(), name, *status, detail, closed)),
+            MessagePart::Elicitation {
+                tool_call: Some(id),
+                message,
+                request,
+                outcome,
+                tool_outcome,
+                ..
+            } => Some(answered_row(
+                id.0.clone(),
+                message,
+                request,
+                outcome,
+                tool_outcome.as_ref(),
+                closed,
+            )),
             MessagePart::Plan { entries } => {
                 let done = entries
                     .iter()
@@ -417,6 +443,132 @@ fn activity_rows(parts: &[MessagePart], closed: bool) -> Vec<ActivityRow> {
             _ => None,
         })
         .collect()
+}
+
+/// The step an answered question stands for, when it stood in for a tool
+/// call: the user tool it reviewed - the email sent, the event created, with
+/// its card - or the question itself. A question's answer is not told:
+/// only that it was answered.
+fn answered_row(
+    id: String,
+    message: &str,
+    request: &ElicitationRequest,
+    outcome: &ElicitationOutcome,
+    tool_outcome: Option<&UserToolOutcome>,
+    closed: bool,
+) -> ActivityRow {
+    let row = |label: &str, detail: Option<String>, status, card| ActivityRow {
+        id: id.clone(),
+        label: label.to_owned(),
+        detail,
+        status,
+        card,
+    };
+    let ElicitationRequest::UserTool { tool, draft, .. } = request else {
+        let detail = summary_line(message);
+        return match outcome {
+            ElicitationOutcome::Pending | ElicitationOutcome::Accepted { .. } => {
+                row("Answered", detail, ActivityStatus::Completed, None)
+            }
+            ElicitationOutcome::Completed => row("Opened", detail, ActivityStatus::Completed, None),
+            ElicitationOutcome::Declined => row("Skipped", detail, ActivityStatus::Completed, None),
+            ElicitationOutcome::Cancelled => {
+                row("Question canceled", detail, ActivityStatus::Completed, None)
+            }
+            ElicitationOutcome::Errored { .. } | ElicitationOutcome::Unrecognized => {
+                row("Question failed", detail, ActivityStatus::Failed, None)
+            }
+        };
+    };
+    let words = UserToolWords::of(tool);
+    let draft: &serde_json::Value = draft;
+    let detail = text(Some(draft), words.title_field);
+    match outcome {
+        ElicitationOutcome::Declined | ElicitationOutcome::Cancelled => {
+            return row(words.discarded, detail, ActivityStatus::Completed, None);
+        }
+        ElicitationOutcome::Errored { .. } | ElicitationOutcome::Unrecognized => {
+            return row(words.failed, detail, ActivityStatus::Failed, None);
+        }
+        ElicitationOutcome::Pending
+        | ElicitationOutcome::Accepted { .. }
+        | ElicitationOutcome::Completed => {}
+    }
+    match tool_outcome {
+        None | Some(UserToolOutcome::Pending | UserToolOutcome::Edited) => {
+            let status = if closed {
+                ActivityStatus::Interrupted
+            } else {
+                ActivityStatus::Running
+            };
+            row(words.running, detail, status, None)
+        }
+        Some(UserToolOutcome::Draft { .. }) => {
+            row(words.saved, detail, ActivityStatus::Completed, None)
+        }
+        Some(UserToolOutcome::Rejected) => {
+            row(words.discarded, detail, ActivityStatus::Completed, None)
+        }
+        Some(UserToolOutcome::Failed { .. }) => {
+            row(words.failed, detail, ActivityStatus::Failed, None)
+        }
+        Some(
+            done @ (UserToolOutcome::Sent { .. }
+            | UserToolOutcome::Completed { .. }
+            | UserToolOutcome::Unrecognized),
+        ) => row(
+            words.done,
+            detail,
+            ActivityStatus::Completed,
+            user_tool_card(tool, draft, done),
+        ),
+    }
+}
+
+/// How a user tool's step reads at each point of its review.
+struct UserToolWords {
+    drafted: &'static str,
+    running: &'static str,
+    done: &'static str,
+    saved: &'static str,
+    discarded: &'static str,
+    failed: &'static str,
+    /// The draft's field that names it: an email's subject.
+    title_field: &'static str,
+}
+
+impl UserToolWords {
+    fn of(tool: &str) -> Self {
+        match tool {
+            "SendEmail" => Self {
+                drafted: "Drafted email",
+                running: "Sending email",
+                done: "Sent email",
+                saved: "Saved email draft",
+                discarded: "Discarded email draft",
+                failed: "Email not sent",
+                title_field: "subject",
+            },
+            "CreateCalendarEvent" => Self {
+                drafted: "Drafted event",
+                running: "Creating event",
+                done: "Created event",
+                saved: "Saved event draft",
+                discarded: "Discarded event draft",
+                failed: "Event not created",
+                title_field: "title",
+            },
+            _ => Self {
+                drafted: "Drafted for you",
+                running: "Finishing your draft",
+                done: "Finished your draft",
+                saved: "Saved your draft",
+                discarded: "Discarded your draft",
+                failed: "Draft failed",
+                title_field: "title",
+            },
+        }
+    }
 }
 
 /// Verb forms for a step: while it runs, once it finished, and if it failed.
@@ -523,7 +675,13 @@ fn tool_row(
             input.as_ref().and_then(input_detail),
         ),
         ToolDetail::Macro { input, .. } => (named_label(&named, status), input_detail(input)),
-        ToolDetail::UserTool { outcome, .. } => (user_tool_label(&named, outcome), None),
+        ToolDetail::UserTool { input, outcome } => {
+            let words = UserToolWords::of(tool_name(name));
+            (
+                user_tool_label(&words, outcome).to_owned(),
+                text(Some(input), words.title_field),
+            )
+        }
         ToolDetail::Subagent { title, .. } => verbed(&DELEGATE, Some(truncate(title))),
     };
     ActivityRow {
@@ -1087,17 +1245,17 @@ fn named_label(named: &str, status: ActivityStatus) -> String {
     }
 }
 
-fn user_tool_label(named: &str, outcome: &UserToolOutcome) -> String {
-    let state = match outcome {
-        UserToolOutcome::Pending | UserToolOutcome::Edited => "drafted",
-        UserToolOutcome::Sent { .. } => "sent",
-        UserToolOutcome::Draft { .. } => "saved as draft",
-        UserToolOutcome::Completed { .. } => "done",
-        UserToolOutcome::Rejected => "declined",
-        UserToolOutcome::Failed { .. } => "failed",
-        UserToolOutcome::Unrecognized => "finished",
-    };
-    format!("{named} {state}")
+/// A user tool's step, by where the user got to with what the agent drafted.
+fn user_tool_label(words: &UserToolWords, outcome: &UserToolOutcome) -> &'static str {
+    match outcome {
+        UserToolOutcome::Pending | UserToolOutcome::Edited => words.drafted,
+        UserToolOutcome::Sent { .. }
+        | UserToolOutcome::Completed { .. }
+        | UserToolOutcome::Unrecognized => words.done,
+        UserToolOutcome::Draft { .. } => words.saved,
+        UserToolOutcome::Rejected => words.discarded,
+        UserToolOutcome::Failed { .. } => words.failed,
+    }
 }
 
 fn tool_name(name: &ToolName) -> &str {

@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use super::*;
-use crate::domain::model::{AgentRequestId, AnsiText, ToolUseId};
+use crate::domain::model::{
+    AgentRequestId, AnsiText, ElicitationRequestId, ElicitationSchema, ToolUseId,
+};
 
 fn text(text: &str) -> MessagePart {
     MessagePart::Text {
@@ -180,7 +182,7 @@ fn a_thought_inside_a_passage_belongs_to_no_segment() {
 #[test]
 fn each_request_for_the_user_is_its_own_segment() {
     let parts = [
-        permission(1, PermissionOutcome::Cancelled),
+        permission(1, PermissionOutcome::Pending),
         permission(2, PermissionOutcome::Pending),
     ];
     assert_eq!(
@@ -190,6 +192,137 @@ fn each_request_for_the_user_is_its_own_segment() {
             (SegmentKind::Interaction, false),
         ]
     );
+}
+
+#[test]
+fn an_answered_request_is_history_and_splits_no_run() {
+    let parts = [
+        run("a", "ls", ToolStatus::Completed),
+        permission(1, PermissionOutcome::Cancelled),
+        run("b", "pwd", ToolStatus::Completed),
+    ];
+    let segments = segments(&parts, true);
+    assert_eq!(kinds(&segments), [(SegmentKind::Activity, true)]);
+    assert_eq!(segments[0].rows.len(), 2);
+}
+
+fn email_review(outcome: ElicitationOutcome, tool_outcome: Option<UserToolOutcome>) -> MessagePart {
+    MessagePart::Elicitation {
+        request_id: ElicitationRequestId::Number(7),
+        tool_call: Some(ToolUseId("call-email".to_owned())),
+        message: "Send email?".to_owned(),
+        request: ElicitationRequest::UserTool {
+            tool: "SendEmail".to_owned(),
+            draft: Box::new(serde_json::json!({
+                "subject": "Launch plan",
+                "to": [{"email": "ana@example.com", "name": "Ana Ruiz"}],
+                "body": "Hi Ana"
+            })),
+            schema: Box::new(ElicitationSchema {
+                title: None,
+                description: None,
+                properties: Vec::new(),
+                required: Vec::new(),
+            }),
+        },
+        outcome,
+        reported: None,
+        tool_outcome,
+    }
+}
+
+#[test]
+fn a_reviewed_email_is_the_step_that_sent_it_with_its_receipt() {
+    let accepted = || ElicitationOutcome::Accepted {
+        answers: Vec::new(),
+    };
+    let sent = [
+        run("a", "ls", ToolStatus::Completed),
+        email_review(
+            accepted(),
+            Some(UserToolOutcome::Sent {
+                message_id: "m-1".to_owned(),
+                thread_id: "thread-1".to_owned(),
+            }),
+        ),
+    ];
+    let segments_sent = segments(&sent, true);
+    assert_eq!(kinds(&segments_sent), [(SegmentKind::Activity, true)]);
+    let row = &segments_sent[0].rows[1];
+    assert_eq!(row.label, "Sent email");
+    assert_eq!(row.detail.as_deref(), Some("Launch plan"));
+    assert_eq!(row.status, ActivityStatus::Completed);
+    assert_eq!(
+        row.card,
+        Some(ActivityCard::Item {
+            item_type: CardItemType::EmailThread,
+            item_id: "thread-1".to_owned(),
+            file_type: None,
+            action: CardAction::Sent,
+            title: Some("Launch plan".to_owned()),
+            summary: Some("to Ana Ruiz".to_owned()),
+        })
+    );
+
+    let sending = [email_review(accepted(), None)];
+    let row = &segments(&sending, false)[0].rows[0];
+    assert_eq!(
+        (row.label.as_str(), row.status),
+        ("Sending email", ActivityStatus::Running)
+    );
+
+    let discarded = [email_review(ElicitationOutcome::Declined, None)];
+    let row = &segments(&discarded, true)[0].rows[0];
+    assert_eq!(row.label, "Discarded email draft");
+    assert_eq!(row.card, None);
+
+    let waiting = [email_review(ElicitationOutcome::Pending, None)];
+    assert_eq!(
+        kinds(&segments(&waiting, false)),
+        [(SegmentKind::Interaction, false)]
+    );
+}
+
+#[test]
+fn an_answered_question_says_it_was_answered_and_never_what() {
+    let question = |tool_call: Option<&str>| MessagePart::Elicitation {
+        request_id: ElicitationRequestId::Number(3),
+        tool_call: tool_call.map(|id| ToolUseId(id.to_owned())),
+        message: "Which deck should I start from?".to_owned(),
+        request: ElicitationRequest::Form {
+            schema: ElicitationSchema {
+                title: None,
+                description: None,
+                properties: Vec::new(),
+                required: Vec::new(),
+            },
+        },
+        outcome: ElicitationOutcome::Accepted {
+            answers: Vec::new(),
+        },
+        reported: None,
+        tool_outcome: None,
+    };
+    let in_place = [question(Some("call-ask"))];
+    let row = &segments(&in_place, true)[0].rows[0];
+    assert_eq!(row.label, "Answered");
+    assert_eq!(
+        row.detail.as_deref(),
+        Some("Which deck should I start from?")
+    );
+    // A question its own tool asked is told by that tool's row.
+    let beside_its_tool = [
+        macro_tool(
+            "ask",
+            "AskUser",
+            serde_json::json!({"question": "Which deck should I start from?"}),
+            ToolStatus::Completed,
+        ),
+        question(None),
+    ];
+    let segments = segments(&beside_its_tool, true);
+    assert_eq!(kinds(&segments), [(SegmentKind::Activity, true)]);
+    assert_eq!(segments[0].rows.len(), 1);
 }
 
 #[test]
