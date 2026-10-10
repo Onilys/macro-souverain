@@ -11,6 +11,7 @@ import {
 import { EntityIcon } from '@core/component/EntityIcon';
 import { createSignal, For, type JSX, type ParentProps } from 'solid-js';
 import { AgendaView } from '../components/agenda';
+import { CollectionCard, CollectionGroup } from '../components/collection';
 import { EventCardView } from '../components/event-card';
 import {
   Card,
@@ -128,6 +129,16 @@ function FixedHeightDemo() {
         )}
       </For>
     </Example>
+  );
+}
+
+function FileRow(props: { name: string; type: string; when: string }) {
+  return (
+    <CardRow onClick={noop}>
+      <EntityIcon targetType={props.type as 'md'} size="xs" />
+      <span class="min-w-0 flex-1 truncate text-sm">{props.name}</span>
+      <span class="text-xs text-ink-subtle tabular-nums">{props.when}</span>
+    </CardRow>
   );
 }
 
@@ -307,6 +318,111 @@ export default function AgentCardsGallery() {
               meta="Tue 11 – 11:30 AM"
               canceled
             />
+          </Example>
+        </Section>
+
+        <Section
+          title="Collection"
+          note="Many items at once, live from a query or a fixed set"
+        >
+          <Example label="List · a live query">
+            <CollectionCard
+              title="Docs that mention “pricing floor”"
+              subtitle="4 items"
+              icon="document"
+              count={4}
+              live
+              state="ready"
+            >
+              <For each={FILES.slice(0, 4)}>
+                {([name, type, when]) => (
+                  <FileRow name={name} type={type} when={when} />
+                )}
+              </For>
+            </CollectionCard>
+          </Example>
+          <Example label="Grouped by date">
+            <CollectionCard
+              title="Q4 launch, what changed"
+              subtitle="4 items"
+              count={4}
+              state="ready"
+            >
+              <CollectionGroup label="Today">
+                <FileRow name="Q4 launch plan" type="md" when="2h ago" />
+                <FileRow
+                  name="Revenue by region FY26"
+                  type="spreadsheet"
+                  when="9:40 AM"
+                />
+              </CollectionGroup>
+              <CollectionGroup label="Yesterday">
+                <FileRow name="Onboarding flow" type="canvas" when="4:12 PM" />
+                <FileRow
+                  name="Pricing review notes"
+                  type="md"
+                  when="11:03 AM"
+                />
+              </CollectionGroup>
+            </CollectionCard>
+          </Example>
+          <Example label="Long list · fixed 240">
+            <CollectionCard
+              title="Files touched this week"
+              subtitle={`${FILES.length} items`}
+              count={FILES.length}
+              state="ready"
+            >
+              <For each={FILES}>
+                {([name, type, when]) => (
+                  <FileRow name={name} type={type} when={when} />
+                )}
+              </For>
+            </CollectionCard>
+          </Example>
+          <Example label="Loading, and nothing found">
+            <CollectionCard
+              title="Unanswered emails"
+              count={0}
+              live
+              state="loading"
+            />
+            <CollectionCard
+              title="Globex renewal"
+              subtitle="0 items"
+              count={0}
+              state="ready"
+            />
+          </Example>
+          <Example label="Four to six cards · a grid of separate cards">
+            <div class="@container w-full max-w-2xl">
+              <div class="grid grid-cols-1 gap-2 @lg:grid-cols-2">
+                <ReferenceCardView
+                  tile={icon('md')}
+                  title="Q4 pricing proposal"
+                  meta="Document · Updated 2h ago"
+                  onOpen={noop}
+                />
+                <ReferenceCardView
+                  tile={icon('email')}
+                  title="Re: Q4 pricing"
+                  meta="Email · Ana Ruiz · Oct 8"
+                  onOpen={noop}
+                />
+                <ReferenceCardView
+                  tile={icon('pdf')}
+                  title="Globex MSA 2025.pdf"
+                  meta="PDF · Updated Sep 30"
+                  onOpen={noop}
+                />
+                <EventCardView
+                  day={day(11)}
+                  title="Globex renewal call"
+                  meta="Tue 11 AM · 4 guests"
+                  onOpen={noop}
+                />
+              </div>
+            </div>
           </Example>
         </Section>
 

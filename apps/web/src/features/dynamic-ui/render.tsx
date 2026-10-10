@@ -2,6 +2,7 @@ import { Telemetry } from '@macro-inc/observability';
 import { createMemo, ErrorBoundary, For, type JSX, Suspense } from 'solid-js';
 import { match } from 'ts-pattern';
 import { Col, Row, View } from './core/Layout';
+import { titledWidgets } from './core/view-title';
 import type {
   View as ComposedView,
   Widget,
@@ -120,6 +121,7 @@ function RowLayout(props: { node: WidgetOf<'container'> }): JSX.Element {
  * makes per-widget boundaries unnecessary).
  */
 export function Compose(props: { view: ComposedView }): JSX.Element {
+  const shown = createMemo(() => titledWidgets(props.view));
   return (
     <ErrorBoundary
       fallback={(err) => {
@@ -139,8 +141,8 @@ export function Compose(props: { view: ComposedView }): JSX.Element {
       <Suspense
         fallback={<div class="text-ink-muted p-3 text-sm">Loading…</div>}
       >
-        <View title={props.view.title}>
-          <For each={props.view.widgets}>
+        <View title={shown().title}>
+          <For each={shown().widgets}>
             {(widget) => <Render node={widget} />}
           </For>
         </View>
