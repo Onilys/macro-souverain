@@ -59,7 +59,6 @@ fn provider_schema_contains_the_recursive_view_contract_at_the_tool_root() {
             "channelMessage",
             "events",
             "cards",
-            "preview",
             "container"
         ]
     );
