@@ -8,6 +8,9 @@ import {
   ActivityRows,
   RunSummary,
 } from '@app/features/agent-activity/components/activity-rows';
+import { ApprovalCard } from '@app/features/agent-interactions/components/ApprovalCard';
+import { DraftCard } from '@app/features/agent-interactions/components/DraftCard';
+import { QuestionCard } from '@app/features/agent-interactions/components/QuestionCard';
 import { AppAnswerDisplay } from '@app/features/database-query/answer-display';
 import { QueryResults } from '@app/features/database-query/components/query-results';
 import { useAnswerDisplay } from '@app/features/database-query/context/answer-display';
@@ -187,6 +190,54 @@ function FixtureItemSource(props: { id: string }) {
     </CardRow>
   );
 }
+
+const answering = async () => true;
+
+function answerSchema(options: string[]) {
+  return {
+    title: null,
+    description: null,
+    required: ['answer'],
+    properties: [
+      {
+        name: 'answer',
+        title: 'Answer',
+        description: null,
+        schema: {
+          type: 'string' as const,
+          minLength: null,
+          maxLength: null,
+          pattern: null,
+          format: null,
+          default: null,
+          options: options.map((value) => ({
+            value,
+            title: value,
+            description: null,
+          })),
+          customField: null,
+        },
+      },
+    ],
+  };
+}
+
+const PERMISSION_OPTIONS = [
+  { id: 'allow', name: 'Allow this time', kind: 'allow_once' as const },
+  {
+    id: 'always',
+    name: 'Always allow comments in Linear',
+    kind: 'allow_always' as const,
+  },
+  { id: 'deny', name: 'Deny', kind: 'reject_once' as const },
+];
+
+const DRAFT_EMAIL = {
+  to: [{ email: 'ana@globex.example', name: 'Ana Ruiz' }],
+  cc: [{ email: 'maya@macro.example', name: 'Maya Chen' }],
+  subject: 'Re: Q4 pricing proposal',
+  body: 'Hi Ana,\n\nThanks for the quick turnaround. We can do the annual plan at **$42k** if we sign by Oct 31. That includes the 60 seats and SSO.\n\nBest,\nMaya',
+};
 
 const cell = (value: string | number) =>
   typeof value === 'number'
@@ -517,6 +568,62 @@ export default function AgentCardsGallery() {
                 />
               </div>
             </div>
+          </Example>
+        </Section>
+
+        <Section
+          title="Ask"
+          note="The agent waits on you: one card, one action that says yes"
+        >
+          <Example label="Question · a quick answer">
+            <QuestionCard
+              message="Send it to the whole team or just leads?"
+              request={{
+                kind: 'form',
+                schema: answerSchema(['Whole team', 'Just leads']),
+              }}
+              locked={false}
+              canAnswer
+              onRespond={answering}
+            />
+          </Example>
+          <Example label="Question · options">
+            <QuestionCard
+              message="Which deck should I start from?"
+              request={{
+                kind: 'form',
+                schema: answerSchema([
+                  'Q3 board review',
+                  'Q2 investor update',
+                  'Start from scratch',
+                  'The launch deck',
+                ]),
+              }}
+              locked={false}
+              canAnswer
+              onRespond={answering}
+            />
+          </Example>
+          <Example label="Approval">
+            <ApprovalCard
+              action="Comment on issue"
+              detail="ENG-2141 · “Fixed in #8812, closing.”"
+              input={
+                '{\n  "issue": "ENG-2141",\n  "body": "Fixed in #8812, closing."\n}'
+              }
+              options={PERMISSION_OPTIONS}
+              canAnswer
+              onSelect={noop}
+            />
+          </Example>
+          <Example label="Draft · an email to send as you">
+            <DraftCard
+              tool={{ name: 'SendEmail', data: DRAFT_EMAIL }}
+              toolCall="gallery"
+              message="Send email?"
+              review={{ canAnswer: () => true, respond: answering }}
+              fallback={<span />}
+            />
           </Example>
         </Section>
 

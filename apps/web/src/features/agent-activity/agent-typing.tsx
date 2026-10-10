@@ -183,6 +183,11 @@ function AgentTypingEntry(props: {
     );
     return part;
   };
+  // The run's own wording for the step a request is about.
+  const stepFor = (toolCall: string | null) =>
+    reply()
+      ?.segments.flatMap((segment) => segment.rows)
+      .find((row) => row.id === toolCall);
   const [stopping, setStopping] = createSignal(false);
   const stop = async () => {
     setStopping(true);
@@ -235,6 +240,7 @@ function AgentTypingEntry(props: {
                 request={request()}
                 controller={interactions}
                 tool={toolFor(request().toolCall)}
+                step={stepFor(request().toolCall)}
               />
             )}
           </Key>

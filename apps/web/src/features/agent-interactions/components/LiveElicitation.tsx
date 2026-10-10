@@ -139,6 +139,8 @@ function urlHost(url: string): string {
 export function QuestionFields(props: {
   question: LiveQuestion;
   locked: boolean;
+  /** The surface asks the question itself, as a card's title does. */
+  asked?: boolean;
 }) {
   return (
     <Switch>
@@ -150,6 +152,7 @@ export function QuestionFields(props: {
             errors={question().draft.errors()}
             disabled={props.locked}
             onChange={question().draft.setValue}
+            asked={props.asked}
           />
         )}
       </Match>
@@ -181,6 +184,27 @@ export function QuestionFields(props: {
 }
 
 /**
+ * Answer a question with what the user gave it: a form's content once it
+ * is valid - until then its problems show - or consent to open a URL,
+ * which opens it in a new tab once the agent has the consent. Nothing for
+ * a mode this client cannot display.
+ */
+export async function answerQuestion(
+  question: LiveQuestion,
+  onRespond: RespondToElicitation
+): Promise<void> {
+  if (question.kind === 'form') {
+    const content = question.draft.content();
+    if (content) await onRespond({ action: 'accept', content });
+    return;
+  }
+  if (question.kind === 'url') {
+    const accepted = await onRespond({ action: 'accept' });
+    if (accepted) window.open(question.url, '_blank', 'noopener,noreferrer');
+  }
+}
+
+/**
  * The decisions, as buttons for the caller's row: the question's own
  * (Submit, Open) then Decline and, unless the row is short of room, Cancel.
  *
@@ -202,42 +226,32 @@ export function QuestionActions(props: {
     if (props.locked) return;
     void props.onRespond(answer);
   };
-  const submit = (draft: FormDraft) => {
-    const content = draft.content();
-    if (content) respond({ action: 'accept', content });
-  };
-  const open = async (target: string) => {
+  const answer = () => {
     if (props.locked) return;
-    const accepted = await props.onRespond({ action: 'accept' });
-    if (!accepted) return;
-    window.open(target, '_blank', 'noopener,noreferrer');
+    void answerQuestion(props.question, props.onRespond);
   };
 
   const primary = (
     <Switch>
       <Match when={form(props.question)}>
-        {(question) => (
-          <Button
-            variant="cta"
-            size="xs"
-            disabled={props.locked}
-            onClick={() => submit(question().draft)}
-          >
-            Submit
-          </Button>
-        )}
+        <Button
+          variant="cta"
+          size="xs"
+          disabled={props.locked}
+          onClick={answer}
+        >
+          Submit
+        </Button>
       </Match>
       <Match when={url(props.question)}>
-        {(question) => (
-          <Button
-            variant="cta"
-            size="xs"
-            disabled={props.locked}
-            onClick={() => void open(question().url)}
-          >
-            Open
-          </Button>
-        )}
+        <Button
+          variant="cta"
+          size="xs"
+          disabled={props.locked}
+          onClick={answer}
+        >
+          Open
+        </Button>
       </Match>
     </Switch>
   );
