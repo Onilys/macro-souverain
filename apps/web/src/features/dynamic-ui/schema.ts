@@ -154,6 +154,28 @@ export const CardsWidgetSchema = z
 export type CardsWidget = z.infer<typeof CardsWidgetSchema>;
 
 /**
+ * A live look inside one document, rendered from the document itself with
+ * the viewer's own access, so it is current and never shows what the
+ * viewer cannot open.
+ */
+export const PreviewWidgetSchema = z
+  .object({
+    type: z.literal('preview'),
+    item: z.object({
+      type: z.literal('document'),
+      id: z
+        .string()
+        .describe(
+          'The id of a document - a doc, spreadsheet, PDF or image - exactly as a tool returned it.'
+        ),
+    }),
+  })
+  .describe(
+    "A live look inside one document when its content is the point: the summary you wrote, the clause to read, the image you made. It renders from the document itself with the viewer's access and opens in full. To point at items without showing their content, use a cards widget. At most one preview per view."
+  );
+export type PreviewWidget = z.infer<typeof PreviewWidgetSchema>;
+
+/**
  * A nestable flex container. This is what makes real dashboards composable.
  *
  * `ContainerWidget` and `Widget` are mutually recursive, so their types are
@@ -192,6 +214,7 @@ export type Widget =
   | ChannelMessageWidget
   | EventsWidget
   | CardsWidget
+  | PreviewWidget
   | ContainerWidget;
 
 export const WidgetSchema: z.ZodType<Widget> = z.union([
@@ -201,6 +224,7 @@ export const WidgetSchema: z.ZodType<Widget> = z.union([
   ChannelMessageWidgetSchema,
   EventsWidgetSchema,
   CardsWidgetSchema,
+  PreviewWidgetSchema,
   ContainerWidgetSchema,
 ]);
 

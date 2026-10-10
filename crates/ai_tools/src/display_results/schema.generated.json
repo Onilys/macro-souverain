@@ -348,6 +348,39 @@
           "properties": {
             "type": {
               "type": "string",
+              "const": "preview"
+            },
+            "item": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "document"
+                },
+                "id": {
+                  "type": "string",
+                  "description": "The id of a document - a doc, spreadsheet, PDF or image - exactly as a tool returned it."
+                }
+              },
+              "required": [
+                "type",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "type",
+            "item"
+          ],
+          "additionalProperties": false,
+          "description": "A live look inside one document when its content is the point: the summary you wrote, the clause to read, the image you made. It renders from the document itself with the viewer's access and opens in full. To point at items without showing their content, use a cards widget. At most one preview per view."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
               "const": "container"
             },
             "direction": {

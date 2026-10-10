@@ -14,6 +14,7 @@ import { ChannelMessage } from './widgets/ChannelMessage';
 import { Events } from './widgets/Events';
 import { List } from './widgets/List';
 import { Md } from './widgets/Md';
+import { Preview } from './widgets/Preview';
 import { Timeline } from './widgets/Timeline';
 
 /**
@@ -31,6 +32,7 @@ export function Render(props: { node: Widget }): JSX.Element {
     .with({ type: 'list' }, (n) => <List {...n} />)
     .with({ type: 'events' }, (n) => <Events {...n} />)
     .with({ type: 'cards' }, (n) => <Cards {...n} />)
+    .with({ type: 'preview' }, (n) => <Preview {...n} />)
     .with({ type: 'container' }, (n) => <Container node={n} />)
     .exhaustive();
 }
@@ -43,6 +45,7 @@ export function Render(props: { node: Widget }): JSX.Element {
 const FULL_WIDTH_TYPES: ReadonlySet<WidgetType> = new Set<WidgetType>([
   'list',
   'events',
+  'preview',
 ]);
 
 /**
