@@ -68,7 +68,48 @@ vi.mock('@queries/auth/cursor-api-key', () => ({
 vi.mock('../../plugins', () => ({}));
 
 import { AppConnectionContext } from '@core/pipedream/connection-context';
+import {
+  $createConnectAppNode,
+  ConnectAppNode,
+} from '@macro-inc/lexical-core/nodes/ConnectAppNode';
+import {
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
+  createEditor,
+  type LexicalEditor,
+} from 'lexical';
+import {
+  type LexicalWrapper,
+  LexicalWrapperContext,
+} from '../../context/LexicalWrapperContext';
 import { ConnectApp } from './ConnectApp';
+
+/** An editor holding one connect button, alone on its line or in a sentence. */
+function editorWithButton(alone: boolean): {
+  editor: LexicalEditor;
+  key: string;
+} {
+  const editor = createEditor({
+    nodes: [ConnectAppNode],
+    onError: (error) => {
+      throw error;
+    },
+  });
+  let key = '';
+  editor.update(
+    () => {
+      const node = $createConnectAppNode('linear', 'Linear', 'connections');
+      key = node.getKey();
+      const paragraph = $createParagraphNode();
+      if (!alone) paragraph.append($createTextNode('You can also '));
+      paragraph.append(node);
+      $getRoot().append(paragraph);
+    },
+    { discrete: true }
+  );
+  return { editor, key };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -123,6 +164,53 @@ describe('connect-app chip', () => {
         .hasAttribute('disabled')
     ).toBe(true);
     expect(connect).not.toHaveBeenCalled();
+  });
+
+  it('is a card when the reply is waiting on it, a chip inside a sentence', () => {
+    for (const alone of [true, false]) {
+      const { editor, key } = editorWithButton(alone);
+      const view = render(() => (
+        <LexicalWrapperContext.Provider
+          value={{ editor } as unknown as LexicalWrapper}
+        >
+          <ConnectApp
+            appSlug="linear"
+            name="Linear"
+            target="connections"
+            key={key}
+            theme={{}}
+          />
+        </LexicalWrapperContext.Provider>
+      ));
+      const card = view.container.querySelector('[data-agent-card="connect"]');
+      expect(!!card).toBe(alone);
+      if (alone) {
+        expect(view.getByText('Needed to continue')).toBeTruthy();
+        fireEvent.click(view.getByRole('button', { name: 'Connect' }));
+        expect(mocks.requestConnectApp).toHaveBeenCalledWith('linear');
+      }
+      view.unmount();
+    }
+  });
+
+  it('opens Connections where the surface does not connect in place', () => {
+    const connect = vi.fn(async () => {});
+    render(() => (
+      <AppConnectionContext.Provider
+        value={{ connect, disabled: () => false, enabled: () => false }}
+      >
+        <ConnectApp
+          appSlug="linear"
+          name="Linear"
+          target="connections"
+          key="node"
+          theme={{}}
+        />
+      </AppConnectionContext.Provider>
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect Linear' }));
+    expect(connect).not.toHaveBeenCalled();
+    expect(mocks.requestConnectApp).toHaveBeenCalledWith('linear');
   });
 
   it('sends a Pipedream chip to Connections with the app queued', () => {
