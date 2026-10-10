@@ -68,7 +68,10 @@ export function runCards(
     if (seen) {
       if (STRENGTH[card.action] > STRENGTH[seen.action]) {
         seen.action = card.action;
-        seen.summary = card.summary ?? seen.summary;
+        seen.summary = card.summary;
+      } else if (card.action === seen.action && card.summary !== seen.summary) {
+        // Neither of two edits' summaries says what both did.
+        seen.summary = null;
       }
       seen.title ??= card.title;
       continue;

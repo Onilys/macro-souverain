@@ -191,6 +191,7 @@ fn a_steps_card_travels_with_its_row() {
         file_type: Some("md".to_owned()),
         action: CardAction::Created,
         title: Some("Launch FAQ".to_owned()),
+        summary: None,
     };
     let segments = reply_segments(TurnId(2), &[carded_run(card)]);
     assert_eq!(
@@ -202,6 +203,7 @@ fn a_steps_card_travels_with_its_row() {
             "fileType": "md",
             "action": "created",
             "title": "Launch FAQ",
+            "summary": null,
         })
     );
 }

@@ -2,10 +2,12 @@ import { Match, Switch } from 'solid-js';
 import type { CardAction, CardItem } from '../core/types';
 import { EventCard } from './event-card';
 import { ReferenceCard } from './reference-card';
+import { RoutineCard } from './routine-card';
 
 /**
  * The card for a workspace item, by what kind of item it is: a calendar
- * page for an event, an icon tile for everything else.
+ * page for an event, a routine with its schedule and controls, an icon tile
+ * for everything else.
  */
 export function ItemCard(props: {
   item: CardItem;
@@ -21,6 +23,14 @@ export function ItemCard(props: {
         <EventCard
           eventId={props.item.id}
           occurrenceKey={props.item.occurrenceKey}
+          action={props.action}
+          title={props.title}
+          summary={props.summary}
+        />
+      </Match>
+      <Match when={props.item.type === 'routine'}>
+        <RoutineCard
+          id={props.item.id}
           action={props.action}
           title={props.title}
           summary={props.summary}

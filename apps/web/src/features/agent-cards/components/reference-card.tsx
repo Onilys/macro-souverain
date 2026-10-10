@@ -41,9 +41,7 @@ export function fallbackIcon(
   fileType?: string | null
 ): EntityIconSelector {
   if (type === 'document') {
-    return (
-      fileType === 'spreadsheet' ? 'spreadsheet' : 'md'
-    ) as EntityIconSelector;
+    return (fileType?.toLowerCase() || 'md') as EntityIconSelector;
   }
   return FALLBACK_ICONS[type] as EntityIconSelector;
 }

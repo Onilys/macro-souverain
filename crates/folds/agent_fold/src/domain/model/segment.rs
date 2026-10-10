@@ -106,6 +106,9 @@ pub enum ActivityCard {
         action: CardAction,
         /// The item's name, as the step knew it.
         title: Option<String>,
+        /// What happened to it, in a few words, when the step said:
+        /// `12 cells in EMEA`, `to Ana Ruiz`.
+        summary: Option<String>,
     },
     /// A view the agent composed for the user: the `DisplayResults` tool's
     /// `view` argument, as the model wrote it. Its widgets name the items
@@ -121,12 +124,22 @@ pub enum ActivityCard {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum CardItemType {
-    /// A document, including a spreadsheet.
+    /// A document, including a spreadsheet, a presentation or an uploaded file.
     Document,
     /// An email thread.
     EmailThread,
     /// A calendar event.
     CalendarEvent,
+    /// A project folder.
+    Project,
+    /// A channel.
+    Channel,
+    /// A routine: a job run on a schedule.
+    Routine,
+    /// A form.
+    Form,
+    /// An initiative.
+    Initiative,
 }
 
 /// What a step did to the item its card opens.
@@ -135,10 +148,24 @@ pub enum CardItemType {
 pub enum CardAction {
     /// The step made it: a document, an event.
     Created,
-    /// The step changed it.
+    /// The step changed its content.
     Edited,
-    /// The step sent it: an email.
+    /// The step sent it: an email, a channel message.
     Sent,
+    /// The step changed its settings or properties.
+    Updated,
+    /// The step moved it somewhere else.
+    Moved,
+    /// The step shared it with someone.
+    Shared,
+    /// The step renamed it.
+    Renamed,
+    /// The step commented on it.
+    Commented,
+    /// The step deleted or canceled it.
+    Deleted,
+    /// The step tried to change it and failed.
+    Failed,
 }
 
 /// A run of a reply's parts that reads as one unit.
@@ -463,37 +490,153 @@ fn tool_row(
     }
 }
 
+/// A string field of a tool's arguments or result, trimmed, when present.
+fn text(value: Option<&serde_json::Value>, key: &str) -> Option<String> {
+    value
+        .and_then(|value| value.get(key))
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_owned)
+}
+
+/// What a receipt knows besides the item and what happened to it.
+#[derive(Default)]
+struct ItemFacts {
+    file_type: Option<String>,
+    title: Option<String>,
+    summary: Option<String>,
+}
+
+fn item_card(
+    item_type: CardItemType,
+    item_id: String,
+    action: CardAction,
+    facts: ItemFacts,
+) -> ActivityCard {
+    ActivityCard::Item {
+        item_type,
+        item_id,
+        file_type: facts.file_type,
+        action,
+        title: facts.title,
+        summary: facts.summary,
+    }
+}
+
+/// Longest summary a receipt keeps, in characters.
+const SUMMARY_MAX_CHARS: usize = 80;
+
+/// One line of prose for a summary, from markdown that may hold markup:
+/// the first line that says anything, with tags, emphasis, link targets and
+/// block markers dropped, whitespace collapsed, cut to a readable length.
+fn summary_line(raw: &str) -> Option<String> {
+    let plain = lazy_regex::regex_replace_all!(r"<[^>]*>", raw, "");
+    let line = plain
+        .lines()
+        .map(|line| lazy_regex::regex_replace!(r"^\s*(?:#{1,6}|>|[-*+]|\d+\.)\s+", line, ""))
+        .map(|line| {
+            lazy_regex::regex_replace_all!(r"\[([^\]]*)\]\([^)]*\)", &line, "$1").into_owned()
+        })
+        .map(|line| lazy_regex::regex_replace_all!(r"\*\*|__|[*`~]", &line, "").into_owned())
+        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+        .find(|line| !line.is_empty())?;
+    if line.chars().count() <= SUMMARY_MAX_CHARS {
+        return Some(line);
+    }
+    let cut: String = line.chars().take(SUMMARY_MAX_CHARS - 1).collect();
+    Some(format!("{}…", cut.trim_end()))
+}
+
+/// Who an email went to: `to Ana Ruiz`, `to Ana Ruiz and 2 others`.
+/// A recipient is an address, or an address with a name.
+fn recipients(input: &serde_json::Value) -> Option<String> {
+    let to = input.get("to")?.as_array()?;
+    let first = to.first()?;
+    let name = match first.as_str() {
+        Some(address) => Some(address.trim().to_owned()).filter(|address| !address.is_empty()),
+        None => text(Some(first), "name").or_else(|| text(Some(first), "email")),
+    }?;
+    Some(match to.len() {
+        1 => format!("to {name}"),
+        2 => format!("to {name} and 1 other"),
+        count => format!("to {name} and {} others", count - 1),
+    })
+}
+
+/// What a spreadsheet edit changed: its one change in its own words, or how
+/// many there were.
+fn spreadsheet_summary(output: Option<&serde_json::Value>) -> Option<String> {
+    let changes = output?.get("changes")?.as_array()?;
+    match changes.as_slice() {
+        [] => None,
+        [change] => text(Some(change), "summary").and_then(|summary| summary_line(&summary)),
+        changes => Some(format!("{} changes", changes.len())),
+    }
+}
+
+/// What a form change that did not finish left behind, worded for a receipt.
+fn form_state(output: Option<&serde_json::Value>) -> Option<String> {
+    match text(output, "state").as_deref() {
+        Some("partiallyApplied") => Some("Partly saved".to_owned()),
+        Some("savedPendingProjection") => Some("Saved, still updating".to_owned()),
+        _ => None,
+    }
+}
+
+/// The file type an uploaded file's name gives it.
+fn extension(name: &str) -> Option<String> {
+    let (_, extension) = name.rsplit_once('.')?;
+    (!extension.is_empty()).then(|| extension.to_ascii_lowercase())
+}
+
+/// The card type a tool's entity type names, for the kinds a card shows.
+fn entity_card_type(entity_type: &str) -> Option<CardItemType> {
+    match entity_type {
+        "document" => Some(CardItemType::Document),
+        "email" | "email_thread" | "thread" => Some(CardItemType::EmailThread),
+        "project" => Some(CardItemType::Project),
+        "channel" => Some(CardItemType::Channel),
+        "initiative" => Some(CardItemType::Initiative),
+        _ => None,
+    }
+}
+
+/// Whether a result says the change did not happen.
+fn refused(output: Option<&serde_json::Value>, key: &str) -> bool {
+    output
+        .and_then(|output| output.get(key))
+        .and_then(serde_json::Value::as_bool)
+        == Some(false)
+}
+
 /// The card a finished Macro tool call earns, by the tool's own arguments
-/// and result.
+/// and result: a receipt for the item it made or changed, or the view it
+/// composed.
 fn macro_card(
     tool: &str,
     input: &serde_json::Value,
     output: Option<&serde_json::Value>,
 ) -> Option<ActivityCard> {
-    let field = |value: Option<&serde_json::Value>, key: &str| {
-        value
-            .and_then(|value| value.get(key))
-            .and_then(serde_json::Value::as_str)
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .map(str::to_owned)
+    use CardAction::{Commented, Created, Deleted, Edited, Moved, Renamed, Sent, Updated};
+    use CardItemType::{
+        CalendarEvent, Channel, Document, EmailThread, Form, Initiative, Project, Routine,
     };
-    let document = |id, file_type: Option<&str>, action, title| ActivityCard::Item {
-        item_type: CardItemType::Document,
-        item_id: id,
-        file_type: file_type.map(str::to_owned),
-        action,
-        title,
-    };
+    let arg = |key: &str| text(Some(input), key);
+    let result = |key: &str| text(output, key);
     match tool {
         "DisplayResults" => input
             .get("view")
             .map(|view| ActivityCard::View { view: view.clone() }),
-        "CreateDocument" => Some(document(
-            field(output, "documentId")?,
-            field(Some(input), "fileExtension").as_deref(),
-            CardAction::Created,
-            field(Some(input), "documentName"),
+        "CreateDocument" => Some(item_card(
+            Document,
+            result("documentId")?,
+            Created,
+            ItemFacts {
+                file_type: arg("fileExtension"),
+                title: arg("documentName"),
+                ..ItemFacts::default()
+            },
         )),
         // EditDocument's arguments keep their Rust names. An edit that asked
         // for clarification instead changed nothing.
@@ -501,22 +644,241 @@ fn macro_card(
             .and_then(|output| output.get("clarification"))
             .is_none_or(serde_json::Value::is_null)
             .then(|| {
-                Some(document(
-                    field(Some(input), "document_id")?,
-                    Some("md"),
-                    CardAction::Edited,
-                    None,
+                Some(item_card(
+                    Document,
+                    arg("document_id")?,
+                    Edited,
+                    ItemFacts {
+                        file_type: Some("md".to_owned()),
+                        ..ItemFacts::default()
+                    },
                 ))
             })
             .flatten(),
-        "EditSpreadsheet" => Some(document(
-            field(Some(input), "documentId")?,
-            Some("spreadsheet"),
-            CardAction::Edited,
-            None,
+        // An edit the sheet did not apply changed nothing.
+        "EditSpreadsheet" if !refused(output, "applied") => Some(item_card(
+            Document,
+            arg("documentId")?,
+            Edited,
+            ItemFacts {
+                file_type: Some("spreadsheet".to_owned()),
+                summary: spreadsheet_summary(output),
+                ..ItemFacts::default()
+            },
         )),
-        "CreateConfirmedCalendarEvent" => event_card(output?, CardAction::Created),
-        "UpdateCalendarEvent" => event_card(output?, CardAction::Edited),
+        "EditWordDocument" => Some(item_card(
+            Document,
+            arg("documentId")?,
+            Edited,
+            ItemFacts {
+                file_type: Some("docx".to_owned()),
+                ..ItemFacts::default()
+            },
+        )),
+        // Saving a presentation as a copy makes a new one under that name.
+        "EditPresentation" => match input.get("saveAs") {
+            Some(save_as) if !save_as.is_null() => Some(item_card(
+                Document,
+                result("documentId")?,
+                Created,
+                ItemFacts {
+                    file_type: Some("pptx".to_owned()),
+                    title: text(Some(save_as), "name"),
+                    ..ItemFacts::default()
+                },
+            )),
+            _ => Some(item_card(
+                Document,
+                arg("documentId")?,
+                Edited,
+                ItemFacts {
+                    file_type: Some("pptx".to_owned()),
+                    ..ItemFacts::default()
+                },
+            )),
+        },
+        "RenameDocument" if !refused(output, "success") => Some(item_card(
+            Document,
+            arg("documentId")?,
+            Renamed,
+            ItemFacts {
+                title: arg("documentName"),
+                ..ItemFacts::default()
+            },
+        )),
+        "CommentOnDocument" => Some(item_card(
+            Document,
+            result("documentId").or_else(|| arg("documentId"))?,
+            Commented,
+            ItemFacts {
+                summary: result("markedText")
+                    .and_then(|quote| summary_line(&quote))
+                    .map(|quote| format!("on “{quote}”")),
+                ..ItemFacts::default()
+            },
+        )),
+        "UploadFile" => {
+            let name = result("fileName").or_else(|| arg("fileName"));
+            Some(item_card(
+                Document,
+                result("documentId")?,
+                Created,
+                ItemFacts {
+                    file_type: name.as_deref().and_then(extension),
+                    title: name,
+                    ..ItemFacts::default()
+                },
+            ))
+        }
+        "CreateProject" => Some(item_card(
+            Project,
+            result("projectId")?,
+            Created,
+            ItemFacts {
+                title: result("projectName"),
+                ..ItemFacts::default()
+            },
+        )),
+        // A move without a project takes the item out to the top level.
+        "MoveToProject" if !refused(output, "success") => Some(item_card(
+            entity_card_type(&arg("entityType")?)?,
+            arg("entityId")?,
+            Moved,
+            ItemFacts {
+                summary: input
+                    .get("projectId")
+                    .is_none_or(serde_json::Value::is_null)
+                    .then(|| "to the top level".to_owned()),
+                ..ItemFacts::default()
+            },
+        )),
+        "CreateChannel" => Some(item_card(
+            Channel,
+            result("channelId")?,
+            Created,
+            ItemFacts {
+                title: result("name"),
+                ..ItemFacts::default()
+            },
+        )),
+        "RenameChannel" => Some(item_card(
+            Channel,
+            result("channelId")?,
+            Renamed,
+            ItemFacts {
+                title: result("name"),
+                summary: result("previousName").map(|previous| format!("was {previous}")),
+                ..ItemFacts::default()
+            },
+        )),
+        // SendChannelMessage's arguments and result keep their Rust names.
+        "SendChannelMessage" => Some(item_card(
+            Channel,
+            result("channel_id").or_else(|| arg("channel_id"))?,
+            Sent,
+            ItemFacts {
+                summary: arg("content").and_then(|content| summary_line(&content)),
+                ..ItemFacts::default()
+            },
+        )),
+        "CreateRoutine" => Some(item_card(
+            Routine,
+            result("id")?,
+            Created,
+            ItemFacts {
+                title: result("name"),
+                ..ItemFacts::default()
+            },
+        )),
+        "UpdateRoutine" => {
+            let change = input.get("change");
+            let enabled = change
+                .filter(|change| text(Some(change), "type").as_deref() == Some("enabled"))
+                .and_then(|change| change.get("enabled"))
+                .and_then(serde_json::Value::as_bool);
+            Some(item_card(
+                Routine,
+                result("id")?,
+                Updated,
+                ItemFacts {
+                    title: result("name"),
+                    summary: enabled
+                        .map(|enabled| if enabled { "Resumed" } else { "Paused" }.to_owned()),
+                    ..ItemFacts::default()
+                },
+            ))
+        }
+        "CreateForm" => Some(item_card(
+            Form,
+            result("formId")?,
+            Created,
+            ItemFacts {
+                title: arg("name"),
+                summary: form_state(output),
+                ..ItemFacts::default()
+            },
+        )),
+        "EditForm" => Some(item_card(
+            Form,
+            result("formId").or_else(|| arg("formId"))?,
+            Edited,
+            ItemFacts {
+                summary: form_state(output),
+                ..ItemFacts::default()
+            },
+        )),
+        "CreateInitiative" => Some(item_card(
+            Initiative,
+            result("initiativeId")?,
+            Created,
+            ItemFacts {
+                title: result("name"),
+                ..ItemFacts::default()
+            },
+        )),
+        "UpdateInitiative" => Some(item_card(
+            Initiative,
+            result("initiativeId")?,
+            Updated,
+            ItemFacts {
+                title: result("name"),
+                ..ItemFacts::default()
+            },
+        )),
+        "CreateConfirmedCalendarEvent" => event_card(output?, Created),
+        "UpdateCalendarEvent" => event_card(output?, Edited),
+        // Deleting part of a series leaves the rest of it.
+        "DeleteCalendarEvent" => Some(item_card(
+            CalendarEvent,
+            result("eventId").or_else(|| arg("eventId"))?,
+            Deleted,
+            ItemFacts {
+                summary: match arg("scope").as_deref() {
+                    Some("this_event") => Some("One occurrence".to_owned()),
+                    Some("this_and_following") => Some("This and later occurrences".to_owned()),
+                    _ => None,
+                },
+                ..ItemFacts::default()
+            },
+        )),
+        // A send the user already confirmed runs as an ordinary tool.
+        "SendConfirmedEmail" => Some(item_card(
+            EmailThread,
+            text(output?.get("sent"), "thread_id")?,
+            Sent,
+            ItemFacts {
+                title: arg("subject"),
+                summary: recipients(input),
+                ..ItemFacts::default()
+            },
+        )),
+        // SetEntityProperty's arguments keep their Rust names.
+        "SetEntityProperty" if !refused(output, "success") => Some(item_card(
+            entity_card_type(&arg("entity_type")?)?,
+            arg("entity_id")?,
+            Updated,
+            ItemFacts::default(),
+        )),
         _ => None,
     }
 }
@@ -529,20 +891,16 @@ fn user_tool_card(
     outcome: &UserToolOutcome,
 ) -> Option<ActivityCard> {
     match outcome {
-        UserToolOutcome::Sent { thread_id, .. } if tool == "SendEmail" => {
-            Some(ActivityCard::Item {
-                item_type: CardItemType::EmailThread,
-                item_id: thread_id.clone(),
-                file_type: None,
-                action: CardAction::Sent,
-                title: input
-                    .get("subject")
-                    .and_then(serde_json::Value::as_str)
-                    .map(str::trim)
-                    .filter(|subject| !subject.is_empty())
-                    .map(str::to_owned),
-            })
-        }
+        UserToolOutcome::Sent { thread_id, .. } if tool == "SendEmail" => Some(item_card(
+            CardItemType::EmailThread,
+            thread_id.clone(),
+            CardAction::Sent,
+            ItemFacts {
+                title: text(Some(input), "subject"),
+                summary: recipients(input),
+                ..ItemFacts::default()
+            },
+        )),
         UserToolOutcome::Completed { result } if tool == "CreateCalendarEvent" => {
             event_card(result, CardAction::Created)
         }
@@ -552,21 +910,15 @@ fn user_tool_card(
 
 /// A calendar event's card, from the event a calendar tool returned.
 fn event_card(event: &serde_json::Value, action: CardAction) -> Option<ActivityCard> {
-    let text = |key: &str| {
-        event
-            .get(key)
-            .and_then(serde_json::Value::as_str)
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .map(str::to_owned)
-    };
-    Some(ActivityCard::Item {
-        item_type: CardItemType::CalendarEvent,
-        item_id: text("eventId")?,
-        file_type: None,
+    Some(item_card(
+        CardItemType::CalendarEvent,
+        text(Some(event), "eventId")?,
         action,
-        title: text("title"),
-    })
+        ItemFacts {
+            title: text(Some(event), "title"),
+            ..ItemFacts::default()
+        },
+    ))
 }
 
 /// A tool known only by name reads as its name in every state; the status

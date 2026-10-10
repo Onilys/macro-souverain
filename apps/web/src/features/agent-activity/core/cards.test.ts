@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { isViewCard, runCards } from './cards';
 
-const document = (itemId: string, action: string, title?: string) => ({
+const document = (
+  itemId: string,
+  action: string,
+  title?: string,
+  summary?: string
+) => ({
   kind: 'item',
   itemType: 'document',
   itemId,
   fileType: 'md',
   action,
   title: title ?? null,
+  summary: summary ?? null,
 });
 
 describe('the cards a run produced', () => {
@@ -34,6 +40,21 @@ describe('the cards a run produced', () => {
     ]);
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({ action: 'created', title: 'Plan' });
+  });
+
+  it('keep a summary only while it says what was done to the item', () => {
+    const [twice, stronger] = [
+      runCards([
+        { id: 'a', card: document('doc-1', 'edited', 'Plan', '12 cells') },
+        { id: 'b', card: document('doc-1', 'edited', 'Plan', '3 changes') },
+      ]),
+      runCards([
+        { id: 'a', card: document('doc-2', 'edited', 'Plan', '12 cells') },
+        { id: 'b', card: document('doc-2', 'renamed', 'Plan v2') },
+      ]),
+    ];
+    expect(twice[0]).toMatchObject({ action: 'edited', summary: null });
+    expect(stronger[0]).toMatchObject({ action: 'renamed', summary: null });
   });
 
   it('leave out a card this version cannot read', () => {

@@ -113,6 +113,8 @@ export function Card(
 export function CardHeader(props: {
   tile?: JSX.Element;
   title: JSX.Element;
+  /** What happened to the item, beside its title: `Created`. */
+  badge?: JSX.Element;
   subtitle?: JSX.Element;
   trailing?: JSX.Element;
   /** Center the tile on the text instead of aligning to the top. */
@@ -132,13 +134,16 @@ export function CardHeader(props: {
     >
       {props.tile}
       <div class="flex min-w-0 flex-1 flex-col">
-        <span
-          class={cn(
-            'text-sm font-medium text-ink',
-            props.wrap ? '[overflow-wrap:anywhere]' : 'truncate'
-          )}
-        >
-          {props.title}
+        <span class="flex min-w-0 items-center gap-1.5">
+          <span
+            class={cn(
+              'text-sm font-medium text-ink',
+              props.wrap ? '[overflow-wrap:anywhere]' : 'truncate'
+            )}
+          >
+            {props.title}
+          </span>
+          {props.badge}
         </span>
         <Show when={props.subtitle}>
           <span class="truncate text-xs leading-5 text-ink-muted">

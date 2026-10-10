@@ -21,6 +21,11 @@ export type ActivityCard =
       action: CardAction;
       /**  The item's name, as the step knew it. */
       title: string | null;
+      /**
+       *  What happened to it, in a few words, when the step said:
+       *  `12 cells in EMEA`, `to Ana Ruiz`.
+       */
+      summary: string | null;
     }
   /**
    *  A view the agent composed for the user: the `DisplayResults` tool's
@@ -218,19 +223,43 @@ export type AvailableCommand = {
 export type CardAction =
   /**  The step made it: a document, an event. */
   | 'created'
-  /**  The step changed it. */
+  /**  The step changed its content. */
   | 'edited'
-  /**  The step sent it: an email. */
-  | 'sent';
+  /**  The step sent it: an email, a channel message. */
+  | 'sent'
+  /**  The step changed its settings or properties. */
+  | 'updated'
+  /**  The step moved it somewhere else. */
+  | 'moved'
+  /**  The step shared it with someone. */
+  | 'shared'
+  /**  The step renamed it. */
+  | 'renamed'
+  /**  The step commented on it. */
+  | 'commented'
+  /**  The step deleted or canceled it. */
+  | 'deleted'
+  /**  The step tried to change it and failed. */
+  | 'failed';
 
 /**  The kinds of workspace item a card opens. */
 export type CardItemType =
-  /**  A document, including a spreadsheet. */
+  /**  A document, including a spreadsheet, a presentation or an uploaded file. */
   | 'document'
   /**  An email thread. */
   | 'email_thread'
   /**  A calendar event. */
-  | 'calendar_event';
+  | 'calendar_event'
+  /**  A project folder. */
+  | 'project'
+  /**  A channel. */
+  | 'channel'
+  /**  A routine: a job run on a schedule. */
+  | 'routine'
+  /**  A form. */
+  | 'form'
+  /**  An initiative. */
+  | 'initiative';
 
 /**  A session control operation shown in the conversation timeline. */
 export type Control =

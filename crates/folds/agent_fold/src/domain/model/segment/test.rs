@@ -329,6 +329,7 @@ fn a_created_document_is_a_card_named_as_the_agent_named_it() {
             file_type: Some("md".to_owned()),
             action: CardAction::Created,
             title: Some("Launch FAQ".to_owned()),
+            summary: None,
         })
     );
 }
@@ -383,6 +384,7 @@ fn edits_name_the_document_they_changed() {
                 file_type: Some("md".to_owned()),
                 action: CardAction::Edited,
                 title: None,
+                summary: None,
             }),
             Some(ActivityCard::Item {
                 item_type: CardItemType::Document,
@@ -390,6 +392,7 @@ fn edits_name_the_document_they_changed() {
                 file_type: Some("spreadsheet".to_owned()),
                 action: CardAction::Edited,
                 title: None,
+                summary: None,
             }),
         ]
     );
@@ -496,6 +499,7 @@ fn a_sent_email_is_a_card_and_an_unsent_draft_is_not() {
             file_type: None,
             action: CardAction::Sent,
             title: Some("Launch plan".to_owned()),
+            summary: Some("to ada@example.com".to_owned()),
         })
     );
     assert_eq!(rows[1].card, None);
@@ -521,6 +525,7 @@ fn a_card_travels_in_the_row_it_belongs_to() {
             file_type: None,
             action: CardAction::Sent,
             title: None,
+            summary: None,
         }),
         ..plain
     };
@@ -533,7 +538,391 @@ fn a_card_travels_in_the_row_it_belongs_to() {
             "fileType": null,
             "action": "sent",
             "title": null,
+            "summary": null,
         })
+    );
+}
+
+/// The kind, id, action and summary of each card the rows earned.
+fn receipts(
+    parts: &[MessagePart],
+) -> Vec<Option<(CardItemType, String, CardAction, Option<String>)>> {
+    segments(parts, true)[0]
+        .rows
+        .iter()
+        .map(|row| match &row.card {
+            Some(ActivityCard::Item {
+                item_type,
+                item_id,
+                action,
+                summary,
+                ..
+            }) => Some((*item_type, item_id.clone(), *action, summary.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+fn receipt(
+    item_type: CardItemType,
+    id: &str,
+    action: CardAction,
+    summary: Option<&str>,
+) -> Option<(CardItemType, String, CardAction, Option<String>)> {
+    Some((item_type, id.to_owned(), action, summary.map(str::to_owned)))
+}
+
+#[test]
+fn a_spreadsheet_edit_says_what_it_changed() {
+    let parts = [
+        macro_result(
+            "a",
+            "EditSpreadsheet",
+            serde_json::json!({"documentId": "sheet-1"}),
+            serde_json::json!({"applied": true, "changes": [
+                {"type": "cells", "sheetId": "s1", "summary": "12 cells in EMEA"}
+            ]}),
+        ),
+        macro_result(
+            "b",
+            "EditSpreadsheet",
+            serde_json::json!({"documentId": "sheet-2"}),
+            serde_json::json!({"applied": true, "changes": [
+                {"type": "cells", "sheetId": "s1", "summary": "A"},
+                {"type": "format", "sheetId": "s1", "summary": "B"},
+                {"type": "sheet", "sheetId": "s2", "summary": "C"}
+            ]}),
+        ),
+        macro_result(
+            "c",
+            "EditSpreadsheet",
+            serde_json::json!({"documentId": "sheet-3"}),
+            serde_json::json!({"applied": false, "changes": []}),
+        ),
+    ];
+    assert_eq!(
+        receipts(&parts),
+        [
+            receipt(
+                CardItemType::Document,
+                "sheet-1",
+                CardAction::Edited,
+                Some("12 cells in EMEA")
+            ),
+            receipt(
+                CardItemType::Document,
+                "sheet-2",
+                CardAction::Edited,
+                Some("3 changes")
+            ),
+            None,
+        ]
+    );
+}
+
+#[test]
+fn a_sent_email_says_who_it_went_to() {
+    let parts = [
+        macro_result(
+            "a",
+            "SendConfirmedEmail",
+            serde_json::json!({
+                "subject": "Q4 pricing",
+                "to": [{"email": "ana@example.com", "name": "Ana Ruiz"}, {"email": "leo@example.com"}]
+            }),
+            serde_json::json!({"sent": {"message_id": "m-1", "thread_id": "thread-1"}}),
+        ),
+        user_tool(
+            "b",
+            "SendEmail",
+            serde_json::json!({"subject": "Launch plan", "to": ["ada@example.com"]}),
+            UserToolOutcome::Sent {
+                message_id: "m-2".to_owned(),
+                thread_id: "thread-2".to_owned(),
+            },
+        ),
+    ];
+    assert_eq!(
+        receipts(&parts),
+        [
+            receipt(
+                CardItemType::EmailThread,
+                "thread-1",
+                CardAction::Sent,
+                Some("to Ana Ruiz and 1 other")
+            ),
+            receipt(
+                CardItemType::EmailThread,
+                "thread-2",
+                CardAction::Sent,
+                Some("to ada@example.com")
+            ),
+        ]
+    );
+}
+
+#[test]
+fn a_channel_post_is_summed_up_by_its_first_line() {
+    let long = format!("<p>{}</p>\n\nSecond paragraph", "word ".repeat(30));
+    let parts = [
+        macro_result(
+            "a",
+            "SendChannelMessage",
+            serde_json::json!({"channel_id": "channel-1", "content": "  Pricing review   moves to **Thu 10:00**\nDetails below"}),
+            serde_json::json!({"channel_id": "channel-1", "message_id": "m-1"}),
+        ),
+        macro_result(
+            "b",
+            "SendChannelMessage",
+            serde_json::json!({"channel_id": "channel-2", "content": long}),
+            serde_json::json!({"channel_id": "channel-2", "message_id": "m-2"}),
+        ),
+    ];
+    let summaries: Vec<_> = receipts(&parts)
+        .into_iter()
+        .map(|card| card.and_then(|(_, _, _, summary)| summary))
+        .collect();
+    assert_eq!(
+        summaries[0].as_deref(),
+        Some("Pricing review moves to Thu 10:00")
+    );
+    let cut = summaries[1].as_deref().unwrap();
+    assert!(cut.ends_with('…') && cut.chars().count() <= 80, "{cut}");
+    assert!(!cut.contains('<'), "{cut}");
+}
+
+#[test]
+fn every_kind_of_item_a_step_changes_is_a_receipt() {
+    let parts = [
+        macro_result(
+            "a",
+            "CreateProject",
+            serde_json::json!({"name": "Q4 launch"}),
+            serde_json::json!({"projectId": "project-1", "projectName": "Q4 launch"}),
+        ),
+        macro_result(
+            "b",
+            "MoveToProject",
+            serde_json::json!({"entityType": "document", "entityId": "doc-1", "projectId": "project-1"}),
+            serde_json::json!({"success": true, "message": "Moved"}),
+        ),
+        macro_result(
+            "c",
+            "MoveToProject",
+            serde_json::json!({"entityType": "email", "entityId": "thread-1"}),
+            serde_json::json!({"success": true, "message": "Moved"}),
+        ),
+        macro_result(
+            "d",
+            "CreateChannel",
+            serde_json::json!({"name": "pricing"}),
+            serde_json::json!({"channelId": "channel-1", "name": "pricing"}),
+        ),
+        macro_result(
+            "e",
+            "RenameChannel",
+            serde_json::json!({"channelId": "channel-1", "name": "pricing-q4"}),
+            serde_json::json!({"channelId": "channel-1", "name": "pricing-q4", "previousName": "pricing"}),
+        ),
+        macro_result(
+            "f",
+            "CreateRoutine",
+            serde_json::json!({"configuration": {"name": "Weekly digest"}}),
+            serde_json::json!({"id": "routine-1", "name": "Weekly digest", "enabled": true}),
+        ),
+        macro_result(
+            "g",
+            "UpdateRoutine",
+            serde_json::json!({"routineId": "routine-1", "change": {"type": "enabled", "enabled": false}}),
+            serde_json::json!({"id": "routine-1", "name": "Weekly digest", "enabled": false}),
+        ),
+        macro_result(
+            "h",
+            "CreateForm",
+            serde_json::json!({"name": "Intake"}),
+            serde_json::json!({"state": "partiallyApplied", "formId": "form-1"}),
+        ),
+        macro_result(
+            "i",
+            "CreateInitiative",
+            serde_json::json!({"name": "Renewals"}),
+            serde_json::json!({"initiativeId": "initiative-1", "name": "Renewals"}),
+        ),
+        macro_result(
+            "j",
+            "RenameDocument",
+            serde_json::json!({"documentId": "doc-2", "documentName": "Plan v2"}),
+            serde_json::json!({"success": true, "documentId": "doc-2", "message": "Renamed"}),
+        ),
+        macro_result(
+            "k",
+            "CommentOnDocument",
+            serde_json::json!({"documentId": "doc-3"}),
+            serde_json::json!({"documentId": "doc-3", "threadId": "t", "commentId": "c", "markedText": "Q4 targets"}),
+        ),
+        macro_result(
+            "l",
+            "DeleteCalendarEvent",
+            serde_json::json!({"eventId": "event-1", "scope": "this_event"}),
+            serde_json::json!({"eventId": "event-1", "summary": "Deleted one occurrence of the event."}),
+        ),
+        macro_result(
+            "m",
+            "SetEntityProperty",
+            serde_json::json!({"entity_id": "doc-4", "entity_type": "document"}),
+            serde_json::json!({"success": true, "message": "Property updated successfully."}),
+        ),
+    ];
+    assert_eq!(
+        receipts(&parts),
+        [
+            receipt(
+                CardItemType::Project,
+                "project-1",
+                CardAction::Created,
+                None
+            ),
+            receipt(CardItemType::Document, "doc-1", CardAction::Moved, None),
+            receipt(
+                CardItemType::EmailThread,
+                "thread-1",
+                CardAction::Moved,
+                Some("to the top level")
+            ),
+            receipt(
+                CardItemType::Channel,
+                "channel-1",
+                CardAction::Created,
+                None
+            ),
+            receipt(
+                CardItemType::Channel,
+                "channel-1",
+                CardAction::Renamed,
+                Some("was pricing")
+            ),
+            receipt(
+                CardItemType::Routine,
+                "routine-1",
+                CardAction::Created,
+                None
+            ),
+            receipt(
+                CardItemType::Routine,
+                "routine-1",
+                CardAction::Updated,
+                Some("Paused")
+            ),
+            receipt(
+                CardItemType::Form,
+                "form-1",
+                CardAction::Created,
+                Some("Partly saved")
+            ),
+            receipt(
+                CardItemType::Initiative,
+                "initiative-1",
+                CardAction::Created,
+                None
+            ),
+            receipt(CardItemType::Document, "doc-2", CardAction::Renamed, None),
+            receipt(
+                CardItemType::Document,
+                "doc-3",
+                CardAction::Commented,
+                Some("on “Q4 targets”")
+            ),
+            receipt(
+                CardItemType::CalendarEvent,
+                "event-1",
+                CardAction::Deleted,
+                Some("One occurrence")
+            ),
+            receipt(CardItemType::Document, "doc-4", CardAction::Updated, None),
+        ]
+    );
+}
+
+#[test]
+fn a_change_that_did_not_happen_is_no_receipt() {
+    let parts = [
+        macro_result(
+            "a",
+            "MoveToProject",
+            serde_json::json!({"entityType": "document", "entityId": "doc-1", "projectId": "p"}),
+            serde_json::json!({"success": false, "message": "No access"}),
+        ),
+        macro_result(
+            "b",
+            "SetEntityProperty",
+            serde_json::json!({"entity_id": "macro|ana@example.com", "entity_type": "user"}),
+            serde_json::json!({"success": true, "message": "Property updated successfully."}),
+        ),
+        macro_result(
+            "c",
+            "MoveToProject",
+            serde_json::json!({"entityType": "chat", "entityId": "chat-1", "projectId": "p"}),
+            serde_json::json!({"success": true, "message": "Moved"}),
+        ),
+    ];
+    assert_eq!(receipts(&parts), [None, None, None]);
+}
+
+#[test]
+fn an_upload_and_a_saved_copy_are_new_files() {
+    let parts = [
+        macro_result(
+            "a",
+            "UploadFile",
+            serde_json::json!({"fileName": "Vendor MSA.PDF"}),
+            serde_json::json!({"documentId": "doc-1", "fileName": "Vendor MSA.PDF", "sizeBytes": 10}),
+        ),
+        macro_result(
+            "b",
+            "EditPresentation",
+            serde_json::json!({"documentId": "deck-1", "saveAs": {"name": "Board deck v2"}}),
+            serde_json::json!({"documentId": "deck-2"}),
+        ),
+        macro_result(
+            "c",
+            "EditPresentation",
+            serde_json::json!({"documentId": "deck-1"}),
+            serde_json::json!({"documentId": "deck-1"}),
+        ),
+    ];
+    let cards: Vec<_> = segments(&parts, true)[0]
+        .rows
+        .iter()
+        .map(|row| row.card.clone())
+        .collect();
+    assert_eq!(
+        cards,
+        [
+            Some(ActivityCard::Item {
+                item_type: CardItemType::Document,
+                item_id: "doc-1".to_owned(),
+                file_type: Some("pdf".to_owned()),
+                action: CardAction::Created,
+                title: Some("Vendor MSA.PDF".to_owned()),
+                summary: None,
+            }),
+            Some(ActivityCard::Item {
+                item_type: CardItemType::Document,
+                item_id: "deck-2".to_owned(),
+                file_type: Some("pptx".to_owned()),
+                action: CardAction::Created,
+                title: Some("Board deck v2".to_owned()),
+                summary: None,
+            }),
+            Some(ActivityCard::Item {
+                item_type: CardItemType::Document,
+                item_id: "deck-1".to_owned(),
+                file_type: Some("pptx".to_owned()),
+                action: CardAction::Edited,
+                title: None,
+                summary: None,
+            }),
+        ]
     );
 }
 

@@ -23,6 +23,8 @@ describe('card labels', () => {
     expect(itemKind('document', 'spreadsheet')).toBe('Spreadsheet');
     expect(itemKind('routine')).toBe('Routine');
     expect(itemKind('email_thread')).toBe('Email');
+    expect(itemKind('project')).toBe('Folder');
+    expect(itemKind('initiative')).toBe('Project');
   });
 
   it('name a document by its kind', () => {

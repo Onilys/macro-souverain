@@ -104,6 +104,11 @@ export function dayLabel(day: Date, now: Date = new Date()): string {
   });
 }
 
+/** `Today at 3 PM`, `Tomorrow at 8:30 AM`, `Mon, Oct 13 at 9 AM`. */
+export function dayAndTime(date: Date, now: Date = new Date()): string {
+  return `${dayLabel(date, now)} at ${clock(date)}`;
+}
+
 /** Entries grouped by the day they start, days and entries in time order. */
 export function groupByDay<T extends { schedule: EventSchedule }>(
   entries: readonly T[],

@@ -55,14 +55,15 @@ export function documentKind(fileType: string | null | undefined): string {
   return (fileType && DOCUMENT_KINDS[fileType.toLowerCase()]) || 'Document';
 }
 
+// The app calls a `project` a folder and an `initiative` a project.
 const ITEM_KINDS: Record<Exclude<CardItemType, 'document'>, string> = {
   email_thread: 'Email',
   calendar_event: 'Event',
-  project: 'Project',
+  project: 'Folder',
   channel: 'Channel',
   routine: 'Routine',
   form: 'Form',
-  initiative: 'Initiative',
+  initiative: 'Project',
 };
 
 /** What kind of item a card shows, as a reader would name it. */

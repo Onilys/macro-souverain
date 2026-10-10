@@ -21,6 +21,7 @@ import {
 } from '../components/kit/card';
 import { CardRow, SkeletonSingle, Tile } from '../components/kit/parts';
 import { ReferenceCardView } from '../components/reference-card';
+import { RoutineCardView } from '../components/routine-card';
 
 const noop = () => {};
 
@@ -191,13 +192,13 @@ export default function AgentCardsGallery() {
             <EventCardView
               day={day(5)}
               title="Design crit: onboarding v3"
-              meta="Thu 2:00 – 2:45 PM · 6 guests"
+              meta="Thu 2 – 2:45 PM · 6 guests"
               onOpen={noop}
             />
             <ReferenceCardView
               tile={icon('project')}
               title="Q4 launch"
-              meta="Project · Updated yesterday"
+              meta="Folder · Updated yesterday"
               onOpen={noop}
             />
             <ReferenceCardView
@@ -236,7 +237,44 @@ export default function AgentCardsGallery() {
               day={day(5)}
               title="Design crit: onboarding v3"
               badge={{ label: 'Scheduled', tone: 'accent' }}
-              meta="Thu 2:00 – 2:45 PM · 6 guests"
+              meta="Thu 2 – 2:45 PM · 6 guests"
+              onOpen={noop}
+            />
+          </Example>
+          <Example label="Every kind of item">
+            <ReferenceCardView
+              tile={icon('pdf')}
+              title="Vendor MSA (signed).pdf"
+              badge={{ label: 'Created', tone: 'accent' }}
+              meta="PDF · Uploaded to Contracts"
+              onOpen={noop}
+            />
+            <ReferenceCardView
+              tile={icon('md')}
+              title="Q4 pricing proposal"
+              badge={{ label: 'Commented', tone: 'accent' }}
+              meta="Document · on “Q4 targets”"
+              onOpen={noop}
+            />
+            <ReferenceCardView
+              tile={icon('form')}
+              title="Customer intake"
+              badge={{ label: 'Created', tone: 'accent' }}
+              meta="Form · Partly saved"
+              onOpen={noop}
+            />
+            <ReferenceCardView
+              tile={icon('initiative')}
+              title="Renewals Q4"
+              badge={{ label: 'Updated', tone: 'accent' }}
+              meta="Project · Updated 2m ago"
+              onOpen={noop}
+            />
+            <ReferenceCardView
+              tile={icon('project')}
+              title="Contracts"
+              badge={{ label: 'Created', tone: 'accent' }}
+              meta="Folder · Updated just now"
               onOpen={noop}
             />
           </Example>
@@ -256,18 +294,57 @@ export default function AgentCardsGallery() {
               onOpen={noop}
             />
             <ReferenceCardView
-              tile={icon('routine')}
-              title="Weekly pipeline digest"
-              badge={{ label: 'Created', tone: 'accent' }}
-              meta="Routine · Mondays at 8:00 AM"
+              tile={icon('channel')}
+              title="pricing-q4"
+              badge={{ label: 'Renamed', tone: 'accent' }}
+              meta="Channel · was pricing"
               onOpen={noop}
             />
             <EventCardView
               day={day(2)}
               title="Vendor sync"
               badge={{ label: 'Canceled', tone: 'neutral' }}
-              meta="Tue 11:00 – 11:30 AM"
+              meta="Tue 11 – 11:30 AM"
               canceled
+            />
+          </Example>
+        </Section>
+
+        <Section
+          title="Routine"
+          note="A job the agent runs on a schedule, live, with its controls"
+        >
+          <Example label="Created, active">
+            <RoutineCardView
+              name="Weekly pipeline digest"
+              badge={{ label: 'Created', tone: 'accent' }}
+              state="active"
+              schedule="Monday at 8:00 AM"
+              nextRun="Mon, Oct 13 at 8 AM"
+              onOpen={noop}
+              onToggle={noop}
+              onRunNow={noop}
+            />
+          </Example>
+          <Example label="Paused by the agent, and running">
+            <RoutineCardView
+              name="Weekly pipeline digest"
+              badge={{ label: 'Updated', tone: 'accent' }}
+              summary="Paused"
+              state="paused"
+              schedule="Monday at 8:00 AM"
+              onOpen={noop}
+              onToggle={noop}
+              onRunNow={noop}
+            />
+            <RoutineCardView
+              name="Inbox triage"
+              state="running"
+              schedule="Weekdays at 9:00 AM"
+              nextRun="Tomorrow at 9 AM"
+              onOpen={noop}
+              onToggle={noop}
+              onRunNow={noop}
             />
           </Example>
         </Section>
@@ -293,7 +370,7 @@ export default function AgentCardsGallery() {
                     {
                       key: '2',
                       title: 'Pricing review',
-                      time: '11:00 AM – 12:00 PM',
+                      time: '11 AM – 12 PM',
                       past: true,
                       detail: 'Maya, Leo +2',
                       onOpen: noop,
@@ -309,7 +386,7 @@ export default function AgentCardsGallery() {
                     {
                       key: '4',
                       title: 'Hiring sync',
-                      time: '3:00 – 3:30 PM',
+                      time: '3 – 3:30 PM',
                       past: false,
                       clash: 'Overlaps Globex check-in by 15 min',
                       onOpen: noop,
@@ -322,7 +399,7 @@ export default function AgentCardsGallery() {
                     {
                       key: '5',
                       title: 'Design crit: onboarding v3',
-                      time: '10:00 – 10:45 AM',
+                      time: '10 – 10:45 AM',
                       past: false,
                       detail: '6 guests · Google Meet',
                       onOpen: noop,
