@@ -517,7 +517,7 @@ fn edits_name_the_document_they_changed() {
                 file_type: Some("md".to_owned()),
                 action: CardAction::Edited,
                 title: None,
-                summary: None,
+                summary: Some("tighten it".to_owned()),
             }),
             Some(ActivityCard::Item {
                 item_type: CardItemType::Document,
@@ -746,7 +746,7 @@ fn a_spreadsheet_edit_says_what_it_changed() {
                 CardItemType::Document,
                 "sheet-2",
                 CardAction::Edited,
-                Some("3 changes")
+                Some("A and 2 more")
             ),
             None,
         ]
@@ -1203,6 +1203,42 @@ fn a_database_answer_is_a_card_only_when_the_agent_asked_to_show_it() {
                 display: Some("bar".to_owned()),
             }),
             None,
+            None,
+        ]
+    );
+}
+
+#[test]
+fn an_edit_says_what_it_changed_in_a_few_words() {
+    let parts = [
+        macro_result(
+            "a",
+            "EditDocument",
+            serde_json::json!({"document_id": "doc-1", "instructions": "Add a **pricing** section after the intro.\nKeep the rest."}),
+            serde_json::json!({"summary": "Applied.", "clarification": null}),
+        ),
+        macro_result(
+            "b",
+            "EditWordDocument",
+            serde_json::json!({"documentId": "doc-2", "operations": [{}, {}, {}]}),
+            serde_json::json!({}),
+        ),
+        macro_result(
+            "c",
+            "EditWordDocument",
+            serde_json::json!({"documentId": "doc-3", "operations": [{}]}),
+            serde_json::json!({}),
+        ),
+    ];
+    let summaries: Vec<_> = receipts(&parts)
+        .into_iter()
+        .map(|card| card.and_then(|(_, _, _, summary)| summary))
+        .collect();
+    assert_eq!(
+        summaries,
+        [
+            Some("Add a pricing section after the intro.".to_owned()),
+            Some("3 changes".to_owned()),
             None,
         ]
     );

@@ -767,15 +767,26 @@ fn recipients(input: &serde_json::Value) -> Option<String> {
     })
 }
 
-/// What a spreadsheet edit changed: its one change in its own words, or how
-/// many there were.
+/// What a spreadsheet edit changed: its first change in its own words, and
+/// how many more there were.
 fn spreadsheet_summary(output: Option<&serde_json::Value>) -> Option<String> {
     let changes = output?.get("changes")?.as_array()?;
-    match changes.as_slice() {
-        [] => None,
-        [change] => text(Some(change), "summary").and_then(|summary| summary_line(&summary)),
-        changes => Some(format!("{} changes", changes.len())),
+    let first = changes
+        .first()
+        .and_then(|change| text(Some(change), "summary"))
+        .and_then(|summary| summary_line(&summary));
+    match (first, changes.len()) {
+        (_, 0) => None,
+        (first, 1) => first,
+        (Some(first), count) => Some(format!("{first} and {} more", count - 1)),
+        (None, count) => Some(format!("{count} changes")),
     }
+}
+
+/// How many operations an edit made, when it made several.
+fn operations_summary(input: &serde_json::Value) -> Option<String> {
+    let count = input.get("operations")?.as_array()?.len();
+    (count > 1).then(|| format!("{count} changes"))
 }
 
 /// Most sources a card keeps; the total says how many there were.
@@ -935,6 +946,8 @@ fn macro_card(
                     Edited,
                     ItemFacts {
                         file_type: Some("md".to_owned()),
+                        // What the agent asked the edit to do says what changed.
+                        summary: arg("instructions").and_then(|asked| summary_line(&asked)),
                         ..ItemFacts::default()
                     },
                 ))
@@ -957,6 +970,7 @@ fn macro_card(
             Edited,
             ItemFacts {
                 file_type: Some("docx".to_owned()),
+                summary: operations_summary(input),
                 ..ItemFacts::default()
             },
         )),
@@ -978,6 +992,7 @@ fn macro_card(
                 Edited,
                 ItemFacts {
                     file_type: Some("pptx".to_owned()),
+                    summary: operations_summary(input),
                     ..ItemFacts::default()
                 },
             )),
