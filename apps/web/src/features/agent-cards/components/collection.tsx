@@ -13,7 +13,7 @@ import {
 import { CardGroupHeader, CardPill, Skeleton, Tile } from './kit/parts';
 
 /** A collection longer than this holds a fixed height and says what is below. */
-export const COLLECTION_ROWS = 5;
+const COLLECTION_ROWS = 5;
 
 /**
  * Many items at once, in one card: a header that says what they are and

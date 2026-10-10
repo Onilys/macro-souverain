@@ -41,7 +41,7 @@ type CardState = {
 const CardContext = createContext<CardState>();
 
 /** The state of the card a slot sits in. */
-export function useCard(): CardState | undefined {
+function useCard(): CardState | undefined {
   return useContext(CardContext);
 }
 

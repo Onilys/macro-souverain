@@ -17,7 +17,7 @@ import {
 import { CardGroupHeader, Skeleton } from './kit/parts';
 
 /** An agenda longer than this holds a fixed height and scrolls under a fade. */
-export const AGENDA_ROWS = 6;
+const AGENDA_ROWS = 6;
 
 /** One event on an agenda, worded and ready to show. */
 export type AgendaRowView = {

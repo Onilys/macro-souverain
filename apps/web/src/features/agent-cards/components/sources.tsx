@@ -125,7 +125,7 @@ export function SourcesPill(props: {
 }
 
 /** One web page among the sources: its title, its site, and a way out. */
-export function WebSourceRow(props: { url: string; title?: string | null }) {
+function WebSourceRow(props: { url: string; title?: string | null }) {
   const site = () => siteOf(props.url);
   return (
     <CardRow onClick={() => openExternalUrl(props.url)}>
