@@ -676,10 +676,12 @@ fn a_card_travels_in_the_row_it_belongs_to() {
     );
 }
 
+/// A receipt as a test reads it: the item's kind and id, what was done, and
+/// the summary.
+type Receipt = (CardItemType, String, CardAction, Option<String>);
+
 /// The kind, id, action and summary of each card the rows earned.
-fn receipts(
-    parts: &[MessagePart],
-) -> Vec<Option<(CardItemType, String, CardAction, Option<String>)>> {
+fn receipts(parts: &[MessagePart]) -> Vec<Option<Receipt>> {
     segments(parts, true)[0]
         .rows
         .iter()
@@ -701,7 +703,7 @@ fn receipt(
     id: &str,
     action: CardAction,
     summary: Option<&str>,
-) -> Option<(CardItemType, String, CardAction, Option<String>)> {
+) -> Option<Receipt> {
     Some((item_type, id.to_owned(), action, summary.map(str::to_owned)))
 }
 
