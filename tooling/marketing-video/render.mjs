@@ -46,6 +46,42 @@ try {
       await shot(p, t, path.join(out, `b${parseFloat(b).toFixed(2).padStart(5, "0")}.png`));
     }
     console.log("stills:", rest.length);
+  } else if (mode === "segments") {
+    // Like "frames", but each worker pipes its subframes straight into its own ffmpeg, which blends
+    // every 4 subframes (tmix) and encodes one H.264 segment; nothing touches the disk but the segments.
+    const { spawn } = await import("node:child_process");
+    fs.mkdirSync(out, { recursive: true });
+    const workers = parseInt(rest[0] || "4", 10);
+    const probe = await openPage(browser);
+    const dur = process.env.LIMIT ? parseFloat(process.env.LIMIT) : await probe.page.evaluate(() => window.DURATION);
+    await probe.page.context().close();
+    const frames = Math.round(dur * FPS), t0 = Date.now();
+    let done = 0;
+    await Promise.all(Array.from({ length: workers }, async (_, w) => {
+      const p = await openPage(browser);
+      const a = Math.floor((w * frames) / workers), b = Math.floor(((w + 1) * frames) / workers);
+      const ff = spawn(process.env.FF || "ffmpeg", ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(FPS * SUB), "-c:v", "png", "-i", "-",
+        "-vf", `tmix=frames=${SUB}:weights='${Array(SUB).fill(1).join(" ")}',select='eq(mod(n\\,${SUB})\\,${SUB - 1})',setpts=N/(${FPS}*TB),scale=out_color_matrix=bt709:out_range=tv`,
+        "-r", String(FPS), "-c:v", "libx264", "-preset", "slow", "-tune", "animation", "-profile:v", "high", "-crf", "15", "-pix_fmt", "yuv420p", "-x264-params", "threads=2",
+        "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", path.join(out, `seg${String(w).padStart(2, "0")}.mp4`)], { stdio: ["pipe", "inherit", "inherit"] });
+      const closed = new Promise((res, rej) => ff.on("close", (c) => (c === 0 ? res() : rej(new Error("ffmpeg exit " + c)))));
+      for (let f = a; f < b; f++) {
+        for (let k = 0; k < SUB; k++) {
+          const t = f / FPS + ((k - (SUB - 1) / 2) * (SHUTTER / FPS)) / SUB;
+          await p.page.evaluate((tt) => window.seek(tt), t);
+          const { data } = await p.cdp.send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: VW, height: VH, scale: 1 }, optimizeForSpeed: true });
+          if (!ff.stdin.write(Buffer.from(data, "base64"))) await new Promise((r) => ff.stdin.once("drain", r));
+          done++;
+        }
+        if (w === 0 && f % 30 === 0) {
+          const el = (Date.now() - t0) / 1000;
+          console.log(`${done}/${frames * SUB}  ${el.toFixed(0)}s  eta ${((el / done) * (frames * SUB - done)).toFixed(0)}s`);
+        }
+      }
+      ff.stdin.end();
+      await closed;
+    }));
+    console.log("segments:", workers, "frames:", frames, "in", ((Date.now() - t0) / 1000).toFixed(0), "s");
   } else if (mode === "frames") {
     fs.mkdirSync(out, { recursive: true });
     const workers = parseInt(rest[0] || "4", 10);
