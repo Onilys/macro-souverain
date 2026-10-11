@@ -36,6 +36,25 @@ export type AutoReloadDefaults = {
 };
 
 /**
+ * Calendar-month commitments that consume the payer's automatic reload cap.
+ */
+export type AutoReloadMonthlyBudget = {
+    /**
+     * Reloads paid, pending, or failed with an invoice that can still collect.
+     * Customer cents; manual credit purchases do not count.
+     */
+    committed_cents: number;
+    /**
+     * Remaining cap cannot fund the minimum automatic reload charge.
+     */
+    limit_reached: boolean;
+    /**
+     * Start of the next UTC calendar month, independently of subscription renewal.
+     */
+    resets_at: string;
+};
+
+/**
  * The payer's automatic reload settings, as shown in Billing settings.
  */
 export type AutoReloadSnapshot = {
@@ -47,6 +66,7 @@ export type AutoReloadSnapshot = {
      * Reload once the effective balance drops below this, in customer cents.
      */
     minimum_balance_cents: number;
+    monthly_budget?: null | AutoReloadMonthlyBudget;
     /**
      * Most reloaded per UTC calendar month, in customer cents. `null` when
      * there is no limit.
@@ -740,6 +760,72 @@ export type GithubPullRequestLabel = {
 };
 
 /**
+ * Whether GitHub can merge a pull request's head into its base without conflicts.
+ */
+export type GithubPullRequestMergeability = 'mergeable' | 'conflicting' | 'unknown';
+
+/**
+ * One pull request's mergeability.
+ */
+export type GithubPullRequestMergeabilityEntry = {
+    /**
+     * Whether the head merges cleanly into the base.
+     */
+    mergeability: GithubPullRequestMergeability;
+    /**
+     * The GitHub pull request number.
+     */
+    number: number;
+    /**
+     * The GitHub repository owner or organization.
+     */
+    owner: string;
+    /**
+     * The GitHub repository name.
+     */
+    repo: string;
+};
+
+/**
+ * Request body for the mergeability of several pull requests.
+ */
+export type GithubPullRequestMergeabilityRequest = {
+    /**
+     * The pull requests to check, at most [`GithubPullRequestMergeabilityRequest::MAX`].
+     */
+    pullRequests: Array<GithubPullRequestNumber>;
+};
+
+/**
+ * Response body for pull request mergeability. Pull requests the user
+ * cannot see are left out.
+ */
+export type GithubPullRequestMergeabilityResponse = {
+    /**
+     * The mergeability of each visible pull request.
+     */
+    pullRequests: Array<GithubPullRequestMergeabilityEntry>;
+};
+
+/**
+ * One pull request, by repository and number.
+ */
+export type GithubPullRequestNumber = {
+    /**
+     * The GitHub pull request number.
+     */
+    number: number;
+    /**
+     * The GitHub repository owner or organization.
+     */
+    owner: string;
+    /**
+     * The GitHub repository name.
+     */
+    repo: string;
+};
+
+/**
  * A pull request reference that can be enriched with live GitHub data.
  */
 export type GithubPullRequestRef = {
@@ -1350,6 +1436,20 @@ export type ResendFusionauthVerifyUserEmailRequest = {
 };
 
 /**
+ * A seat's future plan in the subscription's currently attached schedule.
+ */
+export type ScheduledSeatPlan = {
+    /**
+     * Provider-confirmed time when the future phase starts.
+     */
+    effectiveAt: string;
+    /**
+     * Plan that takes effect at renewal.
+     */
+    plan: SeatPlan;
+};
+
+/**
  * The paid plan a seat is billed at. Every member of a paying team has one;
  * a team may mix them, and its Stripe subscription carries one seat item per
  * plan in use.
@@ -1380,6 +1480,40 @@ export type SendMobileWelcomeEmailResponse = {
     sent: boolean;
 };
 
+/**
+ * A request to mark one pull request as a draft, or as ready for review, on
+ * the user's behalf.
+ */
+export type SetGithubPullRequestDraftRequest = {
+    /**
+     * `true` converts the pull request to a draft; `false` marks it ready for review.
+     */
+    draft: boolean;
+    /**
+     * The GitHub pull request number.
+     */
+    number: number;
+    /**
+     * The GitHub repository owner or organization.
+     */
+    owner: string;
+    /**
+     * The GitHub repository name.
+     */
+    repo: string;
+};
+
+/**
+ * Response body for a pull request whose draft state changed.
+ */
+export type SetGithubPullRequestDraftResponse = {
+    /**
+     * Whether the pull request is now a draft.
+     */
+    draft: boolean;
+    pullRequest?: null | EnrichedGithubPullRequest;
+};
+
 export type SsoRequiredResponse = {
     /**
      * The idp_id you need to perform sso login with.
@@ -1395,6 +1529,17 @@ export type StripeSessionResponse = {
      * The URL to redirect the user to
      */
     url: string;
+};
+
+/**
+ * Current renewal and scheduled change; empty for accounts without a subscription.
+ */
+export type SubscriptionStatus = {
+    /**
+     * Provider-confirmed subscription renewal date.
+     */
+    renewalDate?: string | null;
+    scheduledChange?: null | ScheduledSeatPlan;
 };
 
 /**
@@ -1515,6 +1660,13 @@ export type TeamWithMembers = {
      */
     members: Array<TeamMember>;
     /**
+     * Provider-confirmed pending seat changes, keyed by member user ID.
+     * Only available to paid-team admins and owners; empty means no pending changes.
+     */
+    scheduled_seat_plans?: {
+        [key: string]: ScheduledSeatPlan;
+    } | null;
+    /**
      * The team
      */
     team: Team;
@@ -1603,6 +1755,10 @@ export type UsageSnapshot = {
      * Shared payer credits already applied to this period, in customer cents.
      */
     credits_consumed_cents: number;
+    /**
+     * Whether prepaid credits belong to the team, including a team with one seat.
+     */
+    credits_shared_with_team: boolean;
     /**
      * Included AI for this user's seat this period, in cents at provider cost.
      */
@@ -2186,6 +2342,39 @@ export type VerifyEmailLinkResponses = {
 
 export type VerifyEmailLinkResponse = VerifyEmailLinkResponses[keyof VerifyEmailLinkResponses];
 
+export type SetGithubPullRequestDraftData = {
+    body: SetGithubPullRequestDraftRequest;
+    path?: never;
+    query?: never;
+    url: '/github_pull_requests/draft';
+};
+
+export type SetGithubPullRequestDraftErrors = {
+    401: ErrorResponse;
+    /**
+     * The user cannot change the pull request
+     */
+    403: ErrorResponse;
+    /**
+     * No GitHub link, or the pull request is not visible to the user
+     */
+    404: ErrorResponse;
+    /**
+     * GitHub declined the change
+     */
+    422: ErrorResponse;
+    428: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type SetGithubPullRequestDraftError = SetGithubPullRequestDraftErrors[keyof SetGithubPullRequestDraftErrors];
+
+export type SetGithubPullRequestDraftResponses = {
+    200: SetGithubPullRequestDraftResponse;
+};
+
+export type SetGithubPullRequestDraftResponse2 = SetGithubPullRequestDraftResponses[keyof SetGithubPullRequestDraftResponses];
+
 export type EnrichGithubPullRequestsData = {
     body: EnrichGithubPullRequestsProxyRequest;
     path?: never;
@@ -2241,6 +2430,35 @@ export type MergeGithubPullRequestResponses = {
 };
 
 export type MergeGithubPullRequestResponse2 = MergeGithubPullRequestResponses[keyof MergeGithubPullRequestResponses];
+
+export type GetGithubPullRequestMergeabilityData = {
+    body: GithubPullRequestMergeabilityRequest;
+    path?: never;
+    query?: never;
+    url: '/github_pull_requests/mergeability';
+};
+
+export type GetGithubPullRequestMergeabilityErrors = {
+    401: ErrorResponse;
+    /**
+     * No GitHub link
+     */
+    404: ErrorResponse;
+    /**
+     * Too many pull requests requested
+     */
+    422: ErrorResponse;
+    428: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type GetGithubPullRequestMergeabilityError = GetGithubPullRequestMergeabilityErrors[keyof GetGithubPullRequestMergeabilityErrors];
+
+export type GetGithubPullRequestMergeabilityResponses = {
+    200: GithubPullRequestMergeabilityResponse;
+};
+
+export type GetGithubPullRequestMergeabilityResponse = GetGithubPullRequestMergeabilityResponses[keyof GetGithubPullRequestMergeabilityResponses];
 
 export type ListGtmInviteLinksData = {
     body?: never;
@@ -3710,6 +3928,30 @@ export type CreateCheckoutSessionV2Responses = {
 
 export type CreateCheckoutSessionV2Response = CreateCheckoutSessionV2Responses[keyof CreateCheckoutSessionV2Responses];
 
+export type GetSubscriptionStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/user/stripe/plan';
+};
+
+export type GetSubscriptionStatusErrors = {
+    401: ErrorResponse;
+    /**
+     * More than one active subscription
+     */
+    409: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type GetSubscriptionStatusError = GetSubscriptionStatusErrors[keyof GetSubscriptionStatusErrors];
+
+export type GetSubscriptionStatusResponses = {
+    200: SubscriptionStatus;
+};
+
+export type GetSubscriptionStatusResponse = GetSubscriptionStatusResponses[keyof GetSubscriptionStatusResponses];
+
 export type ChangePlanData = {
     body: ChangePlanRequest;
     path?: never;
@@ -3735,7 +3977,7 @@ export type ChangePlanErrors = {
      */
     404: ErrorResponse;
     /**
-     * Already on this plan, or more than one active subscription
+     * More than one active subscription
      */
     409: ErrorResponse;
     500: ErrorResponse;

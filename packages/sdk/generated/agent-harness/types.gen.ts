@@ -128,6 +128,10 @@ export type AgentModelDto = {
      * Display name.
      */
     name: string;
+    /**
+     * Image input support, absent when the runtime does not advertise it.
+     */
+    supportsImages?: boolean | null;
 };
 
 /**
@@ -716,6 +720,13 @@ export type CompleteRequest = {
  */
 export type ControlRequest = AgentAction & {
     actionId?: null | AgentActionId;
+    /**
+     * Why the agent is being asked. Only a runtime forwarding a triggered
+     * prompt may send it; a user's request carrying it is refused.
+     */
+    context?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -1192,6 +1203,11 @@ export type PullRequestLinkSource = 'agent' | 'user';
  */
 export type PullRequestLinkedSession = {
     /**
+     * The message that started the session, such as an @mention, when it was
+     * started from a thread. A mention inside a thread is that reply, not the root.
+     */
+    originMessageId?: string | null;
+    /**
      * The session id.
      */
     sessionId: string;
@@ -1546,7 +1562,7 @@ export type DiscoverAgentCapabilitiesHandlerErrors = {
      */
     403: unknown;
     /**
-     * Macrod runtime is disconnected
+     * Macrod runtime or Cursor account is not connected
      */
     409: unknown;
     /**
@@ -1629,7 +1645,7 @@ export type LoadAgentModelsHandlerErrors = {
      */
     403: unknown;
     /**
-     * Macrod runtime is disconnected
+     * Macrod runtime or Cursor account is not connected
      */
     409: unknown;
     /**
