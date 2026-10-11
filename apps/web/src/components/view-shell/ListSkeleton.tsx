@@ -32,11 +32,7 @@ function Row(props: ParentProps<{ class?: string }>) {
 }
 
 function Bar(props: { class?: string }) {
-  return (
-    <div
-      class={cn('skeleton-shimmer h-2.5 rounded-full bg-skeleton', props.class)}
-    />
-  );
+  return <div class={cn('h-2.5 rounded-full bg-skeleton', props.class)} />;
 }
 
 /** Decorative list geometry; the caller owns loading and pagination state. */
