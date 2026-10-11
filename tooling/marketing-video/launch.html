@@ -88,10 +88,12 @@ const SCA = { "916": 1.22, "45": 1.1, "11": 1.065 }[FMT];   // the platform cut'
 const pp = (x, y) => [PX0 + PS * x, PY0 + PS * y];           // creative grid → artboard
 
 // ---------- music-driven timing ----------
-// Upbeat: "Swish Swed" by Arulo (Mixkit 201), time-stretched 120 → 100 BPM (pitch kept). The cut starts
-// four bars before the drop, so the build-up carries A and B and the drop lands on beat 16 (the platform cut).
-// A 0–8 · B 8–16 · C 16–32 · D 32–88 (seven slides, eight beats each) · E 88–96. 96 beats = 57.6 s.
-const MUSIC = [["upbeat", 100.0, Array(96).fill(1)]];
+// Upbeat: "Swish Swed" by Arulo (Mixkit 201), time-stretched 120 → 100 BPM (pitch kept), cut on its own structure:
+// three bars of build-up under A and B; the first drop on beat 12 (the platform cut) runs through three slides and
+// filters down into the breakdown on beat 52; its riser lands the second drop on beat 60; a breath of silence, then
+// the end card hits on the top of the next phrase (beat 84).
+// A 0–6 · B 6–12 · C 12–28 · D 28–84 (seven slides, eight beats each) · E 84–92. 92 beats = 55.2 s.
+const MUSIC = [["upA", 100.0, Array(52).fill(1), { lpEnd: [1.25, 16000, 420] }], ["upB", 100.0, Array(32).fill(1), { gapEnd: 0.15 }], ["upC", 100.0, Array(8).fill(1)]];
 const STEP_T = [0];
 for (const [, bpm, beats] of MUSIC) for (const n of beats) STEP_T.push(STEP_T[STEP_T.length - 1] + (n * 60) / bpm);
 const BEATS = STEP_T.length - 1, T = STEP_T[BEATS];
@@ -112,6 +114,11 @@ function spr(t, resp = 0.42, damp = 0.82) {
   if (damp >= 1) { const e = Math.exp(-w * t); return 1 - e * (1 + w * t); }
   const wd = w * Math.sqrt(1 - damp * damp), e = Math.exp(-damp * w * t);
   return 1 - e * (Math.cos(wd * t) + (damp * w / wd) * Math.sin(wd * t));
+}
+// Free response from displacement x0 and velocity v0 (what a flung carousel does after the thumb lifts).
+function free(t, x0, v0, resp, damp) {
+  const w = TAU / resp, wd = w * Math.sqrt(1 - damp * damp), e = Math.exp(-damp * w * t);
+  return e * (x0 * Math.cos(wd * t) + ((v0 + damp * w * x0) / wd) * Math.sin(wd * t));
 }
 const mj = (x) => { x = clamp(x); return x * x * x * (10 + x * (-15 + 6 * x)); }; // minimum-jerk
 const bell = (x) => (x <= 0 || x >= 1 ? 0 : 16 * x * x * (1 - x) * (1 - x));
@@ -292,7 +299,7 @@ const CARDS = [
       <div class="a flex nowrap" style="left:28px;bottom:24px;gap:10px;font-size:16px;color:var(--lab)">${ic("wide-claude", 16, "#d97757")}<span><span class="men">@Claude</span> who owns Northwind? <span style="color:var(--ink)">Maya, from the CRM and the Sep 14 call.</span></span></div>
     </div>` },
 ];
-const NC = CARDS.length, C0 = 18;   // card k lives in beat C0 + k
+const NC = CARDS.length, C0 = 14;   // card k lives in beat C0 + k
 
 // =====================================================================
 // D: the carousel (frame px; the frame is 1200 wide so bleeds survive the 1:1 scale)
@@ -308,6 +315,7 @@ const TASKS = [["Answer onboarding questions", "julia", "todo"], ["Check launch 
   ["Fix the team invite handoff", "teo", "prog"], ["Update the pricing page", "julia", "todo"], ["Email the pilot customers", "jacob", "todo"]];
 const CHECK = ["Teo · Verify the invite flow", "Julia · Publish the announcement", "Jacob · Email the pilot customers"];
 const QUERY = "invite flow";
+const QWORDS = ["@Macro", "what", "did", "we", "promise", "Northwind", "for", "Thursday?"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"], GX = 150, GW = 186, GY = 244, RH = 110, HRS = 4;
 const evY = (h) => GY + (h - 9) * RH;
 const CAL0 = [[0, 9, 9.5, "Standup"], [1, 9, 9.5, "Standup"], [2, 9, 9.5, "Standup"], [3, 9, 9.5, "Standup"], [4, 9, 9.5, "Standup"], [0, 11, 12, "Team sync"], [2, 10, 11, "Design review"], [3, 12, 13, "Launch prep"], [4, 11.5, 12.5, "Roadmap"]];
@@ -325,14 +333,14 @@ const SLIDES = [
     <div class="field" style="left:48px;top:176px;width:974px;height:85px"></div>
     ${ICO("magnifying-glass", 93, 218.5, 30, "#54524f")}${T1(128, 218.5, 28, "Search email", "color:var(--mut)")}${T1(944, 218.5, 18, "⌘&nbsp;&nbsp;F", "color:var(--lab)")}
     ${T1(83, 330, 22, "Today", "color:var(--lab)")}
-    <div class="a" id="e_sel" style="left:30px;top:0;width:1200px;height:80px;border-radius:18px;background:#1d1c1a0c"></div>
-    ${MAIL.map(([n, s, pv, un], i) => `<div class="a nowrap" id="e_r${i}" style="left:0;top:${406 + 96 * i - 48}px;width:1200px;height:96px">
+    ${MAIL.map(([n, s, pv, un], i) => `<div class="a" id="e_w${i}" style="left:0;top:${406 + 96 * i - 48}px;width:1200px;height:96px">
+      ${i < 2 ? `<div class="a" id="e_rv${i}" style="left:0;top:6px;width:${VR}px;height:84px;background:var(--ink)"><div class="a flex nowrap" style="left:${VR - 168}px;top:0;height:84px;gap:10px;font-size:22px;font-weight:600;color:#f5f1e8">${pxb("check", 24, "#f5f1e8")}Done</div></div>` : ""}
+      <div class="a nowrap" id="e_r${i}" style="left:0;top:0;width:${VR + 2}px;height:96px;overflow:hidden;background:var(--bg)">
       ${un ? `<div class="a" style="left:51px;top:43px;width:10px;height:10px;border-radius:50%;background:#60a4e3"></div>` : ""}
       ${ICO("envelope-open", 108, 47, 27, "#2f2d29")}${T1(144, 48, 28, n, `font-weight:${un ? 600 : 400}`)}
       <div class="a flex nowrap" style="left:510px;top:28px;height:40px;font-size:28px;gap:18px"><span style="font-weight:${un ? 600 : 400}">${s}</span><span id="e_pv${i}" style="color:var(--mut)">${pv}</span>
         <span class="flex" id="e_dc${i}" style="display:none;height:38px;padding:0 14px 0 8px;border-radius:19px;background:#d977571f;color:#a8502e;font-size:20px;font-weight:500;gap:8px">${claudeAv(26)}Draft ready</span></div>
-    </div>`).join("")}
-    <div class="a flex nowrap" id="e_key" style="left:540px;top:0;height:52px;padding:0 18px 0 8px;border-radius:16px;background:#faf8f3;gap:12px;font-size:19px;color:var(--body);box-shadow:0 12px 28px -14px #1d1c1a4d, inset 0 0 0 1px #1d1c1a14"><span class="kbd" id="e_kc">E</span>Mark done</div>` },
+    </div></div>`).join("")}` },
   { cat: "Docs", head: ["Markdown docs with", "live agent edits."], ui: () => `
     ${T1(205, 20, 20, "Julia", "color:var(--body)")}
     <div class="a" style="left:95px;top:99px">${photo("julia", 58)}</div>
@@ -385,10 +393,10 @@ const SLIDES = [
     ${T1(96, 150, 40, "Launch check-in", "font-weight:600;color:#141312")}
     ${T1(96, 210, 22, "Sep 24, 2026 · 9:30 AM &nbsp;·&nbsp; 12m 18s", "color:var(--body)")}
     ${T1(96, 290, 24, "Transcript", "font-weight:600")}
-    <div class="field" id="c_f" style="left:470px;top:259px;width:600px;height:62px"></div>
-    ${ICO("magnifying-glass", 504, 290, 24, "#54524f")}
-    <div class="a t1" style="left:532px;top:${290 - 11.5}px;font-size:23px"><span id="c_ph" style="color:var(--mut)">Search transcript</span><span id="c_qt"></span><span class="caret" id="c_qc" style="background:var(--ink)"></span></div>
-    ${T1(900, 290, 18, "2 matches", "color:var(--lab);width:150px;text-align:right", "c_n")}
+    <div class="field" id="c_f" style="left:440px;top:259px;width:${VR - 504}px;height:62px"></div>
+    ${ICO("magnifying-glass", 474, 290, 24, "#54524f")}
+    <div class="a t1" style="left:502px;top:${290 - 11.5}px;font-size:23px"><span id="c_ph" style="color:var(--mut)">Search transcript</span><span id="c_qt"></span><span class="caret" id="c_qc" style="background:var(--ink)"></span></div>
+    ${T1(VR - 84 - 150, 290, 18, "2 matches", "color:var(--lab);width:150px;text-align:right", "c_n")}
     <div class="a" style="left:96px;top:338px;width:1200px;height:900px;border-radius:16px;box-shadow:inset 0 0 0 1px #1d1c1a14;background:#f2eee6"></div>
     <div class="a" id="c_hl" style="left:113px;top:0;width:1200px;height:100px;border-radius:12px;background:#e5e0d9"></div>
     ${[["jacob", "Jacob Beckerman", "00:12", ["Let’s confirm the last checks for Thursday’s launch."]],
@@ -424,10 +432,10 @@ const SLIDES = [
     ${T1(716, 612, 22, "⌄&nbsp; Contacts")}
     <div class="a flex nowrap" id="r_dana" style="left:712px;top:642px;height:44px;gap:12px;font-size:23px">${ini("D", 34, "#b08968")}Dana Whitfield<span style="color:var(--mut);font-size:19px">Head of Ops</span></div>` },
   { cat: "Calendar", head: ["Booking links that", "fill your calendar."], ui: () => `
-    <div class="field" style="left:64px;top:22px;width:1140px;height:76px"></div>
+    <div class="field" style="left:64px;top:22px;width:${VR - 128}px;height:76px"></div>
     ${ICO("link", 106, 60, 26, "#2f2d29")}${T1(138, 60, 25, "macro.com/book/jacob", "font-weight:500")}
     <div class="a flex" style="left:420px;top:44px;height:32px;padding:0 12px;border-radius:16px;background:#1d1c1a0d;font-size:18px;color:var(--body);gap:6px">${px_("clock", 17)}30 min</div>
-    <div class="a flex" id="k_copy" style="left:868px;top:35px;width:140px;height:50px;border-radius:25px;background:var(--ink);color:#f5f1e8;font-size:20px;font-weight:600;justify-content:center;gap:8px">
+    <div class="a flex" id="k_copy" style="left:${VR - 214}px;top:35px;width:140px;height:50px;border-radius:25px;background:var(--ink);color:#f5f1e8;font-size:20px;font-weight:600;justify-content:center;gap:8px">
       <span class="flex" id="k_c0" style="gap:8px">${px_("copy", 19, "#f5f1e8")}Copy</span><span class="a flex" id="k_c1" style="gap:8px">${px_("check", 19, "#f5f1e8")}Copied</span></div>
     ${T1(64, 150, 25, `October <span style="font-weight:400;color:var(--lab)">2026</span>`, "font-weight:600")}
     <div class="a flex nowrap" id="k_sum" style="left:690px;top:131px;height:38px;padding:0 14px 0 10px;border-radius:19px;background:#1d1c1a0b;gap:8px;font-size:18px;color:var(--body)">${px_("calendar-plus", 18, "var(--ink)")}5 booked this week</div>
@@ -448,16 +456,18 @@ const SLIDES = [
       <span style="position:relative;width:22px;height:22px;flex:none"><span class="a" id="g_sp${i}" style="inset:0">${pxb("circle-notch", 22, "var(--mut)")}</span><span class="a" id="g_sc${i}" style="inset:0">${pxb("check-circle-fill", 22, "var(--ok)")}</span></span>${px_(n, 20, "var(--lab)")}${x}</div>`).join("")}
     ${ANSWER.map((l, i) => T1(128, 418 + 40 * i, 26, l, "", "g_a" + i)).join("")}
     <div class="a flex nowrap" style="left:128px;top:${418 + 40 * 2 + 44}px;gap:12px">${SRC.map(([n, x], i) => `<span class="chip" id="g_c${i}" style="height:42px;border-radius:21px;padding:0 16px 0 12px;font-size:19px;gap:8px">${px_(n, 18, "var(--body)")}${x}</span>`).join("")}</div>
-    <div class="a" style="left:64px;top:640px;width:1140px;height:84px;border-radius:42px;background:#e6e2da;box-shadow:inset 0 1px 0 #ffffff80, inset 0 0 0 1px #1d1c1a0f, 0 12px 26px -18px #1d1c1a59"></div>
-    ${ICO("paperclip", 108, 682, 26, "#3d3b37")}${T1(146, 682, 25, "Ask Macro about anything in your workspace…", "color:var(--mut)")}
-    <div class="a flex" style="left:940px;top:654px;width:56px;height:56px;border-radius:50%;background:#d8d4cc;justify-content:center">${pxb("arrow-up", 25, "#3d3b37")}</div>` },
+    <div class="a" style="left:64px;top:640px;width:${VR - 128}px;height:84px;border-radius:42px;background:#e6e2da;box-shadow:inset 0 1px 0 #ffffff80, inset 0 0 0 1px #1d1c1a0f, 0 12px 26px -18px #1d1c1a59"></div>
+    ${ICO("paperclip", 108, 682, 26, "#3d3b37")}
+    <div class="a t1" id="g_ct" style="left:146px;top:${682 - 12.5}px;width:${VR - 146 - 150}px;overflow:hidden;font-size:25px"></div>
+    <div class="a flex" id="g_send" style="left:${VR - 134}px;top:654px;width:56px;height:56px;border-radius:50%;background:#d8d4cc;justify-content:center">${pxb("arrow-up", 25, "#3d3b37")}</div>` },
 ];
-const NS = SLIDES.length, D0 = 32, SL = 8;   // slide i starts at beat D0 + SL * i
+const NS = SLIDES.length, D0 = 28, SL = 8;   // slide i starts at beat D0 + SL * i
 const DL = {
   "45": { hy: 84, hfs: 75, hb: [241, 326], ui: 420, f0: 1150, f1: 1236, dots: 1292, uis: 1, ms: 33 },
   "916": { hy: 236, hfs: 80, hb: [400, 490], ui: 590, f0: 1400, f1: 1510, dots: 1560, uis: 1, ms: 36 },
   "11": { hy: 60, hfs: 66, hb: [188, 262], ui: 322, f0: 950, f1: 1030, dots: 1048, uis: 0.9, ms: 30 },
 }[FMT];
+const VR = 1080 / DL.uis;   // the visible right edge of a slide, in slide-frame px
 
 // =====================================================================
 // DOM
@@ -565,6 +575,11 @@ add(LL, `<div class="a" id="lock" style="left:0;top:0;transform-origin:0 0">
   <svg id="mk" class="a" width="${MW0}" height="${MH0}" viewBox="0 0 191.3 126.4" fill="#141312" style="left:${-MW0 / 2}px;top:${-MH0 / 2}px;overflow:visible">${LOGO_MARK.map((d, i) => `<path id="mk${i}" d="${d}"/>`).join("")}</svg>
   <svg id="wm" class="a" width="${WMW0}" height="${MH0}" viewBox="236 0 630.7 126.4" fill="#141312" style="left:${MW0 / 2 + GAP0}px;top:${-MH0 / 2}px;overflow:visible">${LOGO_TYPE.map((d, i) => `<path id="lt${i}" d="${d}"/>`).join("")}</svg>
 </div>`);
+// ----- hands: a thumb's touch indicator and a cursor, above everything -----
+add(LL, `<div class="a" id="tring" style="left:-32px;top:-32px;width:64px;height:64px;border-radius:50%;box-shadow:inset 0 0 0 2.5px #fff, 0 0 0 1px #1d1c1a14"></div>`);
+add(LL, `<div class="a" id="touch" style="left:-32px;top:-32px;width:64px;height:64px;border-radius:50%;background:rgba(30,29,27,.58);box-shadow:inset 0 0 0 3px #fff, 0 6px 16px -4px rgba(29,28,26,.35)"></div>`);
+add(LL, `<div class="a" id="cring" style="left:-20px;top:-20px;width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 2px rgba(29,28,26,.35)"></div>`);
+add(LL, `<div class="a" id="cur" style="left:0;top:0;transform-origin:2px 2px"><svg width="27" height="37" viewBox="0 0 27 37" style="display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M2 2v27.5l7-6.6 4.6 10.6 4.6-2-4.5-10.4h9.6z" fill="#111" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg></div>`);
 const E = {};
 document.querySelectorAll("#world [id]").forEach((n) => { E[n.id] = n; });
 
@@ -574,10 +589,10 @@ function show(n, o) { if (o <= 0.002) { n.style.display = "none"; return false; 
 function fx(n, o, blur, tr) { if (!show(n, o)) return false; n.style.filter = blur > 0.04 ? `blur(${blur.toFixed(3)}px)` : "none"; n.style.transform = tr || "none"; return true; }
 const pop = (n, t, at, dy = 10, resp = 0.26) => { const p = spr(t - at, resp, 1); fx(n, t < at ? 0 : p, (1 - p) * 6, `translate3d(0,${px((1 - p) * dy)},0)`); };
 function write(n, t, a, b) { const p = sm((t - a) / (b - a)); if (!show(n, p > 0 ? 0.3 + 0.7 * p : 0)) return; n.style.clipPath = p >= 1 ? "none" : `inset(-8px ${((1 - p) * 100).toFixed(2)}% -8px -8px)`; }
-// a word or line rising in (slight overshoot) and leaving upward
-function rise(n, t, tin, tout, dy = 34, blur = 10) {
+// a word or line rising in (slight overshoot) and leaving upward; each caller picks its own spring
+function rise(n, t, tin, tout, dy = 34, blur = 10, resp = 0.42, damp = 0.78) {
   if (t < tin) { show(n, 0); return; }
-  const p = spr(t - tin, 0.42, 0.78), q = tout == null ? 0 : sm((t - tout) / 0.22);
+  const p = spr(t - tin, resp, damp), q = tout == null ? 0 : sm((t - tout) / 0.22);
   fx(n, clamp(spr(t - tin, 0.3, 1) * 1.3) * (1 - q), (1 - clamp(p)) * blur + q * blur, `translate3d(0,${px((1 - p) * dy - q * dy * 0.6)},0)`);
 }
 // the pop of a disc or chip: scale from small with a little overshoot
@@ -606,6 +621,51 @@ function quadMatrix(q) {
   const [a, b1, c, d, e, f, g, h] = solve8(A, b);
   return `matrix3d(${[a, d, 0, g, b1, e, 0, h, 0, 0, 1, 0, c, f, 0, 1].map((v) => +v.toFixed(9)).join(",")})`;
 }
+const setHtml = (n, h) => { if (n._h !== h) { n.innerHTML = h; n._h = h; } };
+
+// ---------- hands: a cursor and a thumb that move like people ----------
+// A hand never holds still: a faint tremor plus a slow wander.
+const tremor = (t, k, a) => [a * (0.6 * Math.sin(t * 9.3 + k) + 0.4 * Math.sin(t * 14.9 + 2.1 * k)) + 1.4 * Math.sin(t * 0.9 + k), a * (0.6 * Math.sin(t * 8.1 + 1.7 * k) + 0.4 * Math.sin(t * 13.3 + 0.6 * k)) + 1.1 * Math.sin(t * 1.2 + 2 * k)];
+// One aimed movement: a quick primary stroke that lands a little off (overshoot plus a sideways miss),
+// then a slower correction onto the target. The path bows and the speed peaks early, like a flick of the wrist.
+function reach(t, t0, t1, A, Bp, o = {}) {
+  const over = o.over ?? 0.07, side = o.side ?? 0.035, bow = o.bow ?? 0.1, split = o.split ?? 0.68;
+  const dx = Bp[0] - A[0], dy = Bp[1] - A[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+  const P = [Bp[0] + ux * L * over - uy * L * side, Bp[1] + uy * L * over + ux * L * side];
+  const tm = t0 + (t1 - t0) * split;
+  if (t <= t0) return A;
+  if (t < tm) {
+    const u = Math.pow((t - t0) / (tm - t0), 0.8), m = mj(u), b = bell(u) * bow, ex = P[0] - A[0], ey = P[1] - A[1];
+    return [A[0] + ex * m - ey * b, A[1] + ey * m + ex * b];
+  }
+  const m = mj((t - tm) / (t1 - tm));
+  return [P[0] + (Bp[0] - P[0]) * m, P[1] + (Bp[1] - P[1]) * m];
+}
+// a chain of aimed moves, [b0, b1, x, y, opts] in beats, starting at `from`
+function Hand(from, moves) {
+  const M = moves.map(([b0, b1, x, y, o]) => ({ t0: B(b0), t1: B(b1), to: [x, y], o: o || {} }));
+  return (t) => { let a = from, p = from; for (const m of M) { if (t < m.t0) break; p = reach(t, m.t0, m.t1, a, m.to, m.o); a = m.to; } return p; };
+}
+// A thumb swipe on the carousel. The content follows the thumb 1:1; when it lifts, the carousel keeps the
+// thumb's velocity and settles on a spring. `hes` = [px, s, pause, flick s]: drag a little, hesitate, then flick.
+function Swipe({ b, dur, dist, x, y, k = 2, arc = 0, resp = 0.55, damp = 0.85, hes = null }) {
+  const td = B(b);
+  let d, v, tu;
+  if (!hes) {
+    tu = td + dur; v = (dist * k) / dur;
+    d = (t) => dist * Math.pow(clamp((t - td) / dur), k);
+  } else {
+    const [a, ta, tp, tf] = hes;
+    tu = td + ta + tp + tf; v = ((dist - a) * 2.2) / tf;
+    d = (t) => { const u = t - td; if (u < ta) return a * (1 - Math.pow(1 - clamp(u / ta), 2.2)); if (u < ta + tp) return a + 5 * Math.sin(((u - ta) / tp) * Math.PI); return a + (dist - a) * Math.pow(clamp((u - ta - tp) / tf), 2.2); };
+  }
+  const pr = dist / 1080, vr = v / 1080;
+  return {
+    kind: "drag", td, tu, vx: -v, vy: (2 * arc * v) / dist,
+    prog: (t) => (t < td ? 0 : t < tu ? d(t) / 1080 : 1 + free(t - tu, pr - 1, vr, resp, damp)),
+    at: (t) => { const dd = d(Math.min(t, tu)), f = clamp(dd / dist); return [x - dd, y + arc * f * f]; },
+  };
+}
 
 // ---------- the lockup's path through the story (artboard px) ----------
 const LS_A = PS * 0.5, [AX, AY] = pp(517.8, 243);
@@ -613,11 +673,59 @@ const LS_B = PS * (66 / MH0), [BX, BY] = pp(540, OY);
 const LS_C = (104 * SCA) / MH0, CY = AH / 2;
 const LS_H = DL.ms / MH0, HXc = 64 + (MW0 * LS_H) / 2;
 const LS_E = PS * (61 / MH0), [, EY] = pp(540, 231.5 + EDY), EXc = 540 - LS_E * HALF;
-const LKX = Track([[0, AX, 0.02, 1], [7.55, BX, 0.55, 0.86], [15.25, 540, 0.5, 0.88], [16, 540 - LS_C * HALF, 0.42, 0.9], [18, 540, 0.02, 1], [30, 540 - LS_C * HALF, 0.42, 0.9], [32, HXc, 0.5, 0.9], [88, EXc, 0.6, 0.88]]);
-const LKY = Track([[0, AY, 0.02, 1], [7.55, BY, 0.55, 0.86], [15.25, CY, 0.5, 0.88], [32, DL.hy, 0.5, 0.9], [88, EY, 0.6, 0.88]]);
-const LKS = Track([[0, LS_A, 0.02, 1], [7.55, LS_B, 0.55, 0.86], [15.25, LS_C, 0.5, 0.88], [18, LS_C * 1.3, 0.02, 1], [30, LS_C, 0.42, 0.9], [32, LS_H, 0.5, 0.9], [88, LS_E, 0.6, 0.88]]);
-// the carousel's position (slide index), one swipe per eight beats
-const POS = Track([[31.5, -1, 0.02, 1], ...SLIDES.map((_, i) => [D0 + SL * i + (i ? 0 : 0.35), i, 0.62, 0.86]), [88, NS, 0.62, 0.86]]);
+const LKX = Track([[0, AX, 0.02, 1], [5.25, BX, 0.55, 0.86], [11.2, 540, 0.5, 0.88], [12, 540 - LS_C * HALF, 0.42, 0.9], [14, 540, 0.02, 1], [26, 540 - LS_C * HALF, 0.42, 0.9], [28, HXc, 0.5, 0.9], [84, EXc, 0.6, 0.88]]);
+const LKY = Track([[0, AY, 0.02, 1], [5.25, BY, 0.55, 0.86], [11.2, CY, 0.5, 0.88], [28, DL.hy, 0.5, 0.9], [84, EY, 0.6, 0.88]]);
+const LKS = Track([[0, LS_A, 0.02, 1], [5.25, LS_B, 0.55, 0.86], [11.2, LS_C, 0.5, 0.88], [14, LS_C * 1.3, 0.02, 1], [26, LS_C, 0.42, 0.9], [28, LS_H, 0.5, 0.9], [84, LS_E, 0.6, 0.88]]);
+
+// ---------- the carousel: every slide change is a different gesture ----------
+// a swipe, a quick flick, a hesitant drag into the breakdown, a whip on the second drop, a long confident swipe,
+// another flick; the first slide rises in and the last one pulls back into the end card.
+const SY = DL.ui + 330 * DL.uis;
+const TRANS = [null,
+  Swipe({ b: 35.45, dur: 0.3, dist: 430, x: 830, y: SY + 40, k: 2.1, arc: -26, resp: 0.56, damp: 0.84 }),
+  Swipe({ b: 43.72, dur: 0.12, dist: 170, x: 760, y: SY - 60, k: 1.6, arc: 10, resp: 0.5, damp: 0.8 }),
+  Swipe({ b: 51.2, dist: 400, x: 880, y: SY + 120, hes: [240, 0.42, 0.15, 0.12], arc: -18, resp: 0.62, damp: 0.88 }),
+  { whip: B(59.9) },
+  Swipe({ b: 67.4, dur: 0.34, dist: 600, x: 1000, y: SY + 10, k: 2.3, arc: -40, resp: 0.6, damp: 0.86 }),
+  Swipe({ b: 75.78, dur: 0.15, dist: 210, x: 800, y: SY + 90, k: 1.7, arc: 14, resp: 0.5, damp: 0.82 }),
+];
+function posAt(t) {
+  if (t < B(D0 - 0.5)) return -1;
+  let p = 0;
+  for (let k = 1; k < NS; k++) {
+    const tr = TRANS[k], t0 = tr.whip ?? tr.td;
+    if (t < t0) break;
+    p = k - 1 + (tr.whip != null ? spr(t - tr.whip, 0.34, 0.7) : tr.prog(t));
+  }
+  return p;
+}
+// slide-frame px → artboard px for slide i (follows the carousel)
+const fa = (i, t, x, y) => [(i - posAt(t)) * 1080 + x * DL.uis, DL.ui + y * DL.uis];
+
+// email: two threads swiped away with a thumb (the second one quicker, more casual)
+function RowSwipe(b, dur, dist, k, x0) {
+  const td = B(b), tu = td + dur, v = (dist * k) / dur;
+  const d = (t) => (t < td ? 0 : t < tu ? dist * Math.pow((t - td) / dur, k) : dist + v * (t - tu) + 4500 * (t - tu) ** 2);
+  return { kind: "drag", td, tu, d, vx: -v * DL.uis, vy: 0, at: (t) => fa(0, t, x0 - Math.min(d(t), dist), 406 + 4) };
+}
+const ESW = [RowSwipe(29.35, 0.27, 430, 1.8, VR - 210), RowSwipe(30.55, 0.2, 390, 1.6, VR - 250)];
+// every touch in the film, in order
+const [OBX, OBY] = pp(540, OY);
+const TOUCHES = [
+  { kind: "tap", td: B(8.48), tu: B(8.62), at: () => [OBX + 6, OBY + 5], vx: 0, vy: 0 },   // tap Macro: the apps come in
+  ESW[0], ESW[1], TRANS[1], TRANS[2], TRANS[3], TRANS[5], TRANS[6],
+  { kind: "tap", td: B(78.08), tu: B(78.2), at: (t) => fa(6, t, VR - 104, 684), vx: 0, vy: 0 },   // send the question
+];
+// cursor scenes, in slide-frame px: hover, aim (overshoot, correct), click, move out of the way
+const CURSORS = [
+  { slide: 2, t0: B(44.3), t1: B(51.0), seed: 3, clicks: [B(45.2), B(46.3)],
+    hand: Hand([VR + 60, 880], [[44.35, 45.05, 770, 592, { over: 0.08, side: 0.05 }], [45.55, 46.12, 742, 472, { over: 0.24, side: 0.02, split: 0.62 }], [46.65, 47.3, 985, 770, { over: 0.05, side: -0.04 }]]) },
+  { slide: 3, t0: B(52.8), t1: B(59.45), seed: 5, clicks: [B(53.62), B(57.0)],
+    hand: Hand([VR + 40, 760], [[52.88, 53.5, 700, 291, { over: 0.06 }], [53.95, 54.5, 860, 372, { over: 0.04, bow: -0.06 }], [56.25, 56.88, 560, 702, { over: 0.07, side: -0.04 }], [57.6, 58.2, 830, 830, {}]]) },
+  { slide: 5, t0: B(68.45), t1: B(75.3), seed: 7, clicks: [B(69.25)],
+    hand: Hand([VR + 50, 330], [[68.5, 69.1, VR - 146, 61, { over: 0.06, side: 0.04 }], [69.55, 70.15, VR - 360, 252, {}]]) },
+];
+const curAt = (c, t) => { const [x, y] = c.hand(t); return fa(c.slide, t, x, y); };
 
 // gather layout of the platform cut: ten tiles around the mark (hand-placed per format)
 const SLOTS = {
@@ -627,31 +735,48 @@ const SLOTS = {
 }[FMT];
 const LBL_GAP = TALL ? 60 : 44;
 const cardTop = (k) => -CARDS[k].h / 2 + (TALL ? 70 : 52);
+// each surface arrives its own way (no two alike), and its label too
+const ENT = [{ dy: 34, rot: 1.6 }, {}, { s0: 1.1 }, { dx: 130 }, { dy: 56, resp: 0.36 }, { dy: -64, damp: 0.6 }, { rx: 30, dy: 16 }, { dx: -130 }, { s0: 0.86 }, { dy: 30, rot: -1.6 }];
+const LAB = ["rise", "type", "wipe", "rise", "scale", "type", "wipe", "rise", "scale", "type"];
+
+// A: irregular, like someone setting it by hand
+const AWORDS = [["ah0w0", 0, 40, 0.42, 0.78], ["ah0w1", 0.2, 36, 0.4, 0.82], ["ah1w0", 0.43, 44, 0.46, 0.75], ["ah1w1", 0.6, 38, 0.4, 0.8]];
+const CALL_T = [2.05, 2.38, 2.66, 3.0, 3.28];
+const ORB_T = [6.3, 6.48, 6.72, 6.9, 7.12, 7.28];
 
 // ---------- sound ----------
 const CUES = [];
 const cue = (bt, type, gain = 1, extra = {}) => CUES.push({ t: B(bt), type, gain, ...extra });
+const cueT = (t, type, gain = 1, extra = {}) => CUES.push({ t, type, gain, ...extra });
 const DING = [1, 1.122, 1.26, 1.335, 1.498, 1.682, 1.888, 2];
+// orchestration on the song's structure: hits on both drops and the end card, a riser into the second drop
+cue(12, "revcrash", 0.8); cue(12, "impact", 0.85); cue(12, "crash", 0.7);
+cue(28, "crash", 0.45, { seed: 724 }); cue(44, "crash", 0.4, { seed: 727 });
+cue(51.95, "downlift", 0.8); cue(52, "boom", 0.22);
+cue(60, "riser", 0.9, { dur: 2.4 }); cue(60, "revcrash", 0.9); cue(60, "impact", 1); cue(60, "crash", 0.8, { seed: 733 });
+cue(76, "crash", 0.45, { seed: 736 });
+cue(84, "revcrash", 1); cue(84, "impact", 1); cue(84, "crash", 0.85, { seed: 739 });
 // A
-[0, 0.33, 0.67, 1].forEach((b, i) => cue(b + 0.02, "pop", 0.32, { pitch: [0.84, 0.94, 1.06, 1.12][i] }));
-[1.33, 1.415, 1.5].forEach((b, i) => cue(b, "pop", 0.55, { pitch: [1, 1.26, 1.5][i] }));
-for (let i = 0; i < 5; i++) cue(1.67 + i * 0.09 + 0.05, "key", 0.4, { seed: 60 + i });
-cue(2, "swoosh", 0.6); cue(2.55, "click", 0.35);
-SIDE.forEach((_, i) => cue(2.35 + i * 0.07, "tick", 0.1, { pitch: 1.5 }));
-ROWS_A.forEach((_, i) => cue(2.6 + i * 0.09, "tick", 0.08, { pitch: 1.25 }));
-cue(2.9, "blip", 0.3);
-CALL.forEach((_, i) => { cue(3.25 + i * 0.5, "tick", 0.5, { pitch: DING[i] }); cue(3.3 + i * 0.5, "swish", 0.12); });
-cue(7.2, "swoosh", 0.55);
+AWORDS.forEach(([, b], i) => cue(b + 0.02, "pop", 0.3, { pitch: [0.84, 0.94, 1.06, 1.12][i] }));
+[0.78, 0.84, 0.9].forEach((b, i) => cue(b, "pop", 0.55, { pitch: [1, 1.26, 1.5][i] }));
+for (let i = 0; i < 5; i++) cue(0.95 + i * 0.075 + 0.05, "key", 0.38, { seed: 60 + i });
+cue(1.2, "swoosh", 0.6); cue(1.75, "click", 0.3);
+SIDE.forEach((_, i) => cue(1.45 + i * 0.055, "tick", 0.09, { pitch: 1.5 }));
+ROWS_A.forEach((_, i) => cue(1.6 + i * 0.07, "tick", 0.07, { pitch: 1.25 }));
+cue(1.85, "blip", 0.28);
+CALL_T.forEach((b, i) => { cue(b, "tick", 0.5, { pitch: DING[i] }); cue(b + 0.05, "swish", 0.12); });
+cue(4.9, "swoosh", 0.55);
 // B
-cue(7.9, "pop", 0.6, { pitch: 0.75 }); cue(8.1, "swish", 0.3);
-ORB.forEach((_, i) => cue(8.6 + i * 0.25, "pop", 0.55, { pitch: DING[i] }));
-ORB.forEach((_, i) => cue(13 + i * 0.25 + 0.42, "pop", 0.42, { pitch: DING[5 - i] * 1.5 }));
-cue(13, "swoosh", 0.35); cue(14.6, "swish", 0.3); cue(15.25, "swoosh", 0.6);
+cue(5.6, "pop", 0.6, { pitch: 0.75 }); cue(5.85, "swish", 0.3);
+ORB_T.forEach((b, i) => cue(b, "pop", 0.55, { pitch: DING[i] }));
+cue(8.7, "swoosh", 0.35);
+ORB.forEach((_, i) => cueT(B(8.7 + i * 0.17) + 0.42, "pop", 0.42, { pitch: DING[5 - i] * 1.5 }));
+cue(10.2, "swish", 0.3); cue(11.1, "swoosh", 0.55);
 // C
-cue(16, "chime", 0.7); for (let i = 0; i < 5; i++) cue(16.03 + i * 0.09 + 0.05, "key", 0.42, { seed: 40 + i });
-cue(17.65, "swish", 0.3);
+cue(12, "chime", 0.55); for (let i = 0; i < 5; i++) cue(12.03 + i * 0.09 + 0.05, "key", 0.42, { seed: 40 + i });
+cue(13.65, "swish", 0.3);
 CARDS.forEach((c, k) => {
-  const s0 = C0 + k; cue(s0, "click", 0.85); cue(s0 + 0.01, "swish", 0.45);
+  const s0 = C0 + k; cue(s0, "click", 0.8); cue(s0 + 0.01, "swish", 0.42);
   const at = (f) => s0 + f * 0.6;
   if (c.key === "email") [0.15, 0.24, 0.33, 0.42, 0.55, 0.64, 0.73].forEach((f, i) => cue(at(f), "key", 0.28, { seed: i }));
   if (c.key === "chat") cue(at(0.3), "pop", 0.55, { pitch: 1.2 });
@@ -664,68 +789,84 @@ CARDS.forEach((c, k) => {
   if (c.key === "agents") [0.15, 0.32, 0.49, 0.66].forEach((f, i) => cue(at(f), "tick", 0.4, { pitch: [1.26, 1.335, 1.498, 1.682][i] }));
   if (c.key === "memory") [0.1, 0.22, 0.34, 0.46, 0.58].forEach((f, i) => cue(at(f), "tick", 0.3, { pitch: 1.12 + 0.12 * i }));
 });
-[28, 28.085, 28.17].forEach((b, i) => cue(b, "pop", 0.6, { pitch: [1, 1.26, 1.5][i] }));
-CARDS.forEach((_, k) => cue(28.25 + k * 0.125, "pop", 0.36, { pitch: DING[k % 8] * (k >= 8 ? 2 : 1) }));
-cue(29.75, "swoosh", 0.6); for (let i = 0; i < 5; i++) cue(30.03 + i * 0.09 + 0.05, "key", 0.42, { seed: 50 + i }); cue(30.5, "chime", 0.8);
-// D
-cue(32, "swoosh", 0.6); cue(32.37, "swish", 0.4);
-for (let i = 1; i <= NS; i++) { cue(D0 + SL * i, "swoosh", 0.45); cue(D0 + SL * i + 0.02, "swish", 0.4); }
-// email: triage two threads with E, then Claude drafts two replies
-cue(33, "tick", 0.4, { pitch: 1.2 }); cue(33.5, "key", 0.6, { seed: 3 }); cue(33.55, "swish", 0.35);
-cue(34.5, "tick", 0.4, { pitch: 1.26 }); cue(35, "key", 0.6, { seed: 5 }); cue(35.05, "swish", 0.35);
-cue(36, "pop", 0.5, { pitch: 1.3 }); cue(36.25, "pop", 0.5, { pitch: 1.5 }); cue(36.6, "chime", 0.45);
+[24, 24.085, 24.17].forEach((b, i) => cue(b, "pop", 0.6, { pitch: [1, 1.26, 1.5][i] }));
+CARDS.forEach((_, k) => cue(24.25 + k * 0.125, "pop", 0.36, { pitch: DING[k % 8] * (k >= 8 ? 2 : 1) }));
+cue(25.75, "swoosh", 0.6); for (let i = 0; i < 5; i++) cue(26.03 + i * 0.09 + 0.05, "key", 0.42, { seed: 50 + i }); cue(26.5, "chime", 0.75);
+// D: hands
+cue(28, "swoosh", 0.55); cue(28.3, "swish", 0.35);
+for (const c of TOUCHES) {
+  cueT(c.td, "tap", c.kind === "tap" ? 0.9 : 0.55);
+  if (c.kind === "drag") cueT(c.tu, "swish", clamp(Math.abs(c.vx) / 3000, 0.25, 0.6));
+}
+ESW.forEach((s) => cueT(s.tu + 0.12, "tick", 0.3, { pitch: 1.4 }));
+cue(59.9, "swoosh", 0.7);
+for (const c of CURSORS) c.clicks.forEach((tc) => cueT(tc, "click", 0.75));
+// email: Claude drafts two replies
+cue(31.6, "pop", 0.5, { pitch: 1.3 }); cue(31.85, "pop", 0.5, { pitch: 1.5 }); cue(32.2, "chime", 0.45);
 // docs: Julia asks, Claude trims the intro and types the checklist
-cue(40.75, "pop", 0.55, { pitch: 1.15 }); cue(41.75, "blip", 0.4); cue(42, "tick", 0.35, { pitch: 1.4 }); cue(42.75, "key", 0.55, { seed: 9 }); cue(42.8, "swish", 0.2);
-CHECK.forEach((x, i) => { const a = 43.25 + i * 0.85; for (let k = 0; k < 6; k++) cue(a + k * 0.115, "key", 0.24, { seed: 70 + i * 6 + k }); cue(a, "tick", 0.2, { pitch: 1.3 }); });
-cue(46, "chime", 0.4);
-// tasks: assign the deploy fix to Cursor, it lands, Claude files a new task
-cue(48.9, "tick", 0.35, { pitch: 1.2 }); cue(49.25, "click", 0.6); cue(49.25, "pop", 0.35, { pitch: 1.2 }); cue(49.75, "tick", 0.3, { pitch: 1.4 }); cue(50.25, "click", 0.7); cue(50.3, "pop", 0.5, { pitch: 1.3 });
-cue(51.25, "tick", 0.5, { pitch: 1.335 }); cue(52.25, "chime", 0.6); cue(53, "pop", 0.5, { pitch: 1.5 }); cue(53.02, "swish", 0.3);
-// calls: search the transcript
-cue(56.75, "click", 0.5); QUERY.split("").forEach((_, i) => cue(57 + i * 0.118, "key", 0.3, { seed: 80 + i }));
-cue(58.6, "pop", 0.5, { pitch: 1.3 }); cue(58.7, "pop", 0.45, { pitch: 1.6 }); cue(59.25, "tick", 0.45, { pitch: 1.2 }); cue(60.5, "tick", 0.45, { pitch: 1.335 });
+cue(36.75, "pop", 0.55, { pitch: 1.15 }); cue(37.75, "blip", 0.4); cue(38, "tick", 0.35, { pitch: 1.4 }); cue(38.75, "key", 0.55, { seed: 9 }); cue(38.8, "swish", 0.2);
+CHECK.forEach((x, i) => { const a = 39.25 + i * 0.85; for (let k = 0; k < 6; k++) cue(a + k * 0.115, "key", 0.24, { seed: 70 + i * 6 + k }); cue(a, "tick", 0.2, { pitch: 1.3 }); });
+cue(42, "chime", 0.4);
+// tasks: the menu opens, Cursor gets the task, it ships, Claude files a new one
+cue(45.25, "pop", 0.35, { pitch: 1.2 }); cue(46.33, "pop", 0.5, { pitch: 1.3 });
+cue(47.4, "tick", 0.5, { pitch: 1.335 }); cue(48.4, "chime", 0.6); cue(49.2, "pop", 0.5, { pitch: 1.5 }); cue(49.22, "swish", 0.3);
+// calls: search the transcript, open the second hit
+QUERY.split("").forEach((_, i) => cue(53.8 + i * 0.1 + (i % 3) * 0.012, "key", 0.3, { seed: 80 + i }));
+cue(55.1, "pop", 0.5, { pitch: 1.3 }); cue(55.2, "pop", 0.45, { pitch: 1.6 }); cue(55.5, "tick", 0.45, { pitch: 1.2 }); cue(57.05, "tick", 0.45, { pitch: 1.335 });
 // crm: the call updates the company
-cue(65, "pop", 0.5, { pitch: 1.1 }); cue(65.6, "tick", 0.45, { pitch: 1.26 }); cue(66.2, "tick", 0.45, { pitch: 1.335 });
-for (let k = 0; k < 5; k++) cue(66.8 + k * 0.16, "tick", 0.22, { pitch: 1.5 + 0.08 * k }); cue(68, "pop", 0.5, { pitch: 1.5 }); cue(68.4, "chime", 0.45);
+cue(61, "pop", 0.5, { pitch: 1.1 }); cue(61.6, "tick", 0.45, { pitch: 1.26 }); cue(62.2, "tick", 0.45, { pitch: 1.335 });
+for (let k = 0; k < 5; k++) cue(62.8 + k * 0.16, "tick", 0.22, { pitch: 1.5 + 0.08 * k }); cue(64, "pop", 0.5, { pitch: 1.5 }); cue(64.4, "chime", 0.45);
 // calendar: copy the link, the week fills up
-cue(72.75, "click", 0.7); cue(72.8, "blip", 0.35);
-BOOK.forEach((_, i) => { cue(73.5 + i * 0.6, "pop", 0.5, { pitch: DING[i] * 1.2 }); cue(73.52 + i * 0.6, "tick", 0.2, { pitch: 1.6 }); });
-cue(76.6, "chime", 0.5);
-// agents: ask Macro; it searches team memory and answers with sources
-cue(80.75, "pop", 0.55, { pitch: 1.15 }); cue(81.5, "blip", 0.35);
-STEPS.forEach((_, i) => cue(81.75 + i * 0.4 + 0.3, "tick", 0.42, { pitch: DING[i + 1] }));
-ANSWER.forEach((_, i) => cue(83.6 + i * 0.5, "swish", 0.15));
-SRC.forEach((_, i) => cue(85.25 + i * 0.125, "pop", 0.4, { pitch: DING[i + 2] * 1.3 }));
+cue(69.3, "blip", 0.35);
+BOOK.forEach((_, i) => { cue(69.9 + i * 0.55, "pop", 0.5, { pitch: DING[i] * 1.2 }); cue(69.92 + i * 0.55, "tick", 0.2, { pitch: 1.6 }); });
+cue(72.7, "chime", 0.5);
+// agents: type the question, send it with a tap; Macro searches team memory and answers with sources
+QWORDS.forEach((_, i) => { cue(76.3 + i * 0.19, "key", 0.28, { seed: 90 + i }); cue(76.36 + i * 0.19, "key", 0.2, { seed: 95 + i }); });
+cue(78.22, "swoosh", 0.45);
+cue(78.6, "blip", 0.35);
+STEPS.forEach((_, i) => cue(78.85 + i * 0.38 + 0.3, "tick", 0.42, { pitch: DING[i + 1] }));
+ANSWER.forEach((_, i) => cue(80.45 + i * 0.45, "swish", 0.15));
+SRC.forEach((_, i) => cue(81.95 + i * 0.12, "pop", 0.4, { pitch: DING[i + 2] * 1.3 }));
 // E
-cue(88, "swoosh", 0.6); cue(88.3, "pop", 0.6, { pitch: 0.9 });
-MOD_ORDER.forEach((m, k) => cue(88.55 + k * 0.1, "pop", 0.3, { pitch: DING[k % 8] * (k >= 8 ? 2 : 1) }));
-cue(90.3, "swish", 0.3); cue(91, "chime", 0.8);
+cue(84.3, "pop", 0.6, { pitch: 0.9 });
+MOD_ORDER.forEach((m, k) => cue(84.55 + k * 0.1, "pop", 0.3, { pitch: DING[k % 8] * (k >= 8 ? 2 : 1) }));
+cue(86.25, "swish", 0.3); cue(87, "chime", 0.8);
 
 // =====================================================================
 // seek(t)
 // =====================================================================
-const CALL_T = CALL.map((_, i) => 3.25 + i * 0.5);
 let PATHLEN = [];
+const PUNCH = [[12, 0.03], [28, 0.01], [60, 0.034], [84, 0.03]];
 function seek(tIn) {
   const t = ((tIn % T) + T) % T, bt = stepAt(t);
+
+  // ----- camera: handheld drift, a lean-in through the riser, a punch on every drop -----
+  {
+    const dx = 1.8 * Math.sin(t * 0.83 + 1.1) + 0.8 * Math.sin(t * 1.97 + 0.4), dy = 1.5 * Math.sin(t * 0.61 + 2.3) + 0.7 * Math.sin(t * 1.49 + 1.7);
+    const r = 0.07 * Math.sin(t * 0.47 + 0.7) + 0.025 * Math.sin(t * 1.3);
+    let z = 1.012 + 0.002 * Math.sin(t * 0.33 + 0.5);   // enough margin that the drift never shows an edge
+    if (bt >= 55 && bt < 60) z += 0.018 * sm((bt - 56) / 4); else if (bt >= 60) z += 0.018 * Math.exp(-(t - B(60)) / 0.3);
+    for (const [b, a] of PUNCH) { const u = t - B(b); if (u >= 0) z += a * clamp(u / 0.025) * Math.exp(-u / 0.13); }
+    world.style.transform = `translate(${(W / 2 + dx * K).toFixed(3)}px,${(H / 2 + dy * K).toFixed(3)}px) rotate(${r.toFixed(4)}deg) scale(${(K * z).toFixed(5)}) translate(-540px,${(-AH / 2).toFixed(3)}px)`;
+  }
 
   // ----- lockup -----
   {
     const s = LKS(t), cx = LKX(t), cy = LKY(t);
     let lo = 1, lb = 0;
-    if (bt < 1.2) lo = 0;
-    if (bt >= 17.6 && bt < 27.9) { const q = sm((t - B(17.6)) / 0.2); lo = 1 - q; lb = q * 10; }
+    if (bt < 0.75) lo = 0;
+    if (bt >= 13.6 && bt < 23.9) { const q = sm((t - B(13.6)) / 0.2); lo = 1 - q; lb = q * 10; }
     if (fx(E.lock, lo, lb, `translate3d(${px(cx)},${px(cy)},0) scale(${s.toFixed(5)})`)) {
-      const m0 = bt >= 27.9 ? 28 : 1.33;
+      const m0 = bt >= 23.9 ? 24 : 0.78;
       LOGO_MARK.forEach((_, i) => {
-        const at = B(m0 + i * 0.085), p = spr(t - at, 0.3, 0.8), pe = E["mk" + i];
+        const at = B(m0 + i * (m0 === 24 ? 0.085 : 0.06)), p = spr(t - at, 0.3, 0.8), pe = E["mk" + i];
         pe.style.opacity = (t < at ? 0 : clamp(p * 1.4)).toFixed(3);
         pe.style.transform = `translate(0px,${((1 - p) * 24).toFixed(3)}px)`;
       });
-      let w0 = null, wout = null;
-      if (bt >= 1.6 && bt < 8.3) { w0 = 1.67; wout = 7.35; } else if (bt >= 16 && bt < 18.5) w0 = 16.03; else if (bt >= 30) w0 = 30.03;
+      let w0 = null, wout = null, step = 0.09;
+      if (bt >= 0.9 && bt < 6.3) { w0 = 0.95; wout = 5.0; step = 0.075; } else if (bt >= 12 && bt < 14.5) w0 = 12.03; else if (bt >= 26) w0 = 26.03;
       if (show(E.wm, w0 != null ? 1 : 0)) LOGO_TYPE.forEach((_, i) => {   // letters rise in on sixteenths
-        const at = B(w0 + i * 0.09), p = spr(t - at, 0.26, 0.72), le = E["lt" + i];
+        const at = B(w0 + i * step), p = spr(t - at, 0.26, 0.72), le = E["lt" + i];
         let o = t < at ? 0 : clamp(p * 1.5), dy = (1 - p) * 34;
         if (wout != null) { const q = sm((t - B(wout + i * 0.04)) / 0.2); o *= 1 - q; dy -= q * 30; }
         le.style.opacity = o.toFixed(3);
@@ -735,30 +876,31 @@ function seek(tIn) {
   }
 
   // ----- A: "Notion wasn't built like Macro" -----
-  const aOn = bt < 8.6;
-  [["ah0w0", 0], ["ah0w1", 0.33], ["ah1w0", 0.67], ["ah1w1", 1]].forEach(([id, b], i) => rise(E[id], aOn ? t : -1, B(b), B(7.3 + i * 0.05), 40, 12));
+  const aOn = bt < 6.4;
+  AWORDS.forEach(([id, b, dy, r, d], i) => rise(E[id], aOn ? t : -1, B(b), B(5.0 + i * 0.05), dy, 12, r, d));
   {
-    const pin = spr(t - B(2), 0.72, 0.84), pout = sm((t - B(7.2)) / 0.45) ** 1.6;
-    const o = t < B(2) || !aOn ? 0 : clamp(spr(t - B(2), 0.3, 1) * 1.4) * (1 - sm((t - B(7.3)) / 0.35));
+    const pin = spr(t - B(1.2), 0.7, 0.8), pout = sm((t - B(4.9)) / 0.45) ** 1.6;
+    const o = t < B(1.2) || !aOn ? 0 : clamp(spr(t - B(1.2), 0.3, 1) * 1.4) * (1 - sm((t - B(5.0)) / 0.35));
     if (show(E.win, o)) {
-      const dx = (1 - pin) * 520 + pout * 760, dy = (1 - pin) * 50;
-      E.win.style.transform = quadMatrix(QA.map(([x, y]) => [x + dx, y + dy]));
+      // the window swings in with a little tilt that settles, then leaves to the right
+      const dx = (1 - pin) * 520 + pout * 760, dy = (1 - pin) * 50, th = ((1 - pin) * 3.2 - pout * 1.5) * (Math.PI / 180);
+      const cxq = 905, cyq = 812, c = Math.cos(th), sn = Math.sin(th);
+      E.win.style.transform = quadMatrix(QA.map(([x, y]) => [cxq + (x - cxq) * c - (y - cyq) * sn + dx, cyq + (x - cxq) * sn + (y - cyq) * c + dy]));
       SIDE.forEach((_, i) => {
-        const at = B(2.35 + i * 0.07), p = spr(t - at, 0.3, 0.7);
-        // a callout lights its icon up as its line arrives
-        const ci = CALL.findIndex((c) => c[3] === i), hit = ci < 0 ? 0 : t - B(CALL_T[ci] + 0.2);
+        const at = B(1.45 + i * 0.055 + 0.02 * Math.sin(i * 2.7)), p = spr(t - at, 0.3, 0.7);
+        const ci = CALL.findIndex((cl) => cl[3] === i), hit = ci < 0 ? 0 : t - B(CALL_T[ci] + 0.2);
         const hs = ci < 0 || hit < 0 ? 1 : 1 + 0.16 * Math.exp(-hit * 7) * Math.sin(Math.min(hit * 18, Math.PI));
         E["as" + i].style.opacity = (t < at ? 0 : clamp(p * 1.4)).toFixed(3);
         E["as" + i].style.transform = `scale(${((0.6 + 0.4 * p) * hs).toFixed(4)})`;
         E["ash" + i].style.opacity = (ci < 0 || hit < 0 ? 0 : 0.9 * Math.exp(-hit * 4.5)).toFixed(3);
       });
-      pop(E.as10, t, B(2.35 + 10 * 0.07), 0, 0.3);
-      pop(E.ahome, t, B(2.4), 8); pop(E.al0, t, B(2.55), 8); pop(E.al1, t, B(2.55 + 5 * 0.09), 8);
-      ROWS_A.forEach((_, i) => pop(E["ar" + i], t, B(2.6 + i * 0.09), 10));
+      pop(E.as10, t, B(1.45 + 10 * 0.055), 0, 0.3);
+      pop(E.ahome, t, B(1.5), 8); pop(E.al0, t, B(1.62), 8); pop(E.al1, t, B(1.62 + 5 * 0.07), 8);
+      ROWS_A.forEach((_, i) => pop(E["ar" + i], t, B(1.6 + i * 0.07), 10));
     }
-    const co = 1 - sm((t - B(7.2)) / 0.25);
-    if (show(E.acall, aOn && bt >= 2.8 ? co : 0)) {
-      const lp = sm((t - B(2.85)) / 0.28);
+    const co = 1 - sm((t - B(4.9)) / 0.25);
+    if (show(E.acall, aOn && bt >= 1.8 ? co : 0)) {
+      const lp = sm((t - B(1.85)) / 0.28);
       E.alead.style.strokeDasharray = "80"; E.alead.style.strokeDashoffset = (80 * (1 - lp)).toFixed(2);
       CALL.forEach((_, i) => {
         const p = mj((t - B(CALL_T[i])) / 0.3), L = PATHLEN[i];
@@ -774,38 +916,51 @@ function seek(tIn) {
     });
   }
 
-  // ----- B: the unified-workspace orbit -----
-  const bOn = bt >= 7.7 && bt < 16.2;
+  // ----- B: the unified-workspace orbit; a tap on Macro pulls the apps in -----
+  const bOn = bt >= 5.3 && bt < 12.2;
   {
-    const dIn = spr(t - B(7.9), 0.42, 0.62), dOut = spr(t - B(15.2), 0.36, 1);
-    const pulse = ORB.reduce((a, _, i) => { const h = t - (B(13 + i * 0.25) + 0.42); return a + (h > 0 ? 0.07 * Math.exp(-h * 9) * Math.sin(Math.min(h * 20, Math.PI)) : 0); }, 0);
-    const ds = bOn && t >= B(7.9) ? Math.max(0, dIn * (1 - dOut) + pulse) : 0;
+    const dIn = spr(t - B(5.6), 0.42, 0.62), dOut = spr(t - B(11.1), 0.36, 1);
+    const pulse = ORB.reduce((a, _, i) => { const h = t - (B(8.7 + i * 0.17) + 0.42); return a + (h > 0 ? 0.07 * Math.exp(-h * 9) * Math.sin(Math.min(h * 20, Math.PI)) : 0); }, 0);
+    const press = t >= B(8.48) ? Math.exp(-(t - B(8.48)) * 6) * Math.sin(Math.min((t - B(8.48)) * 16, Math.PI)) : 0;
+    const ds = bOn && t >= B(5.6) ? Math.max(0, dIn * (1 - dOut) + pulse - 0.06 * press) : 0;
     if (show(E.bdisc, ds > 0.01 ? 1 : 0)) E.bdisc.style.transform = `scale(${ds.toFixed(4)})`;
-    const rp = spr(t - B(7.95), 0.9, 1), ro = bOn ? clamp(rp * 1.2) * (1 - sm((t - B(14.9)) / 0.5)) : 0;
-    if (show(E.brings, ro)) E.brings.style.transform = `scale(${(0.55 + 0.45 * rp + 0.012 * Math.sin(t * 2.2)).toFixed(4)})`;
-    const r2 = bOn ? clamp(spr(t - B(8.4), 0.5, 1) * 1.2) * (1 - sm((t - B(13.2)) / 0.5)) : 0;
-    if (show(E.bring2, r2)) E.bring2.style.transform = `scale(${(0.9 + 0.1 * spr(t - B(8.4), 0.5, 0.8)).toFixed(4)})`;
-    const rot = Math.max(0, t - B(8.6)) * 4.5;    // degrees: the ring turns slowly
+    const rp = spr(t - B(5.65), 0.9, 1), ro = bOn ? clamp(rp * 1.2) * (1 - sm((t - B(10.9)) / 0.5)) : 0;
+    if (show(E.brings, ro)) E.brings.style.transform = `scale(${(0.55 + 0.45 * rp + 0.012 * Math.sin(t * 2.2) + 0.03 * press).toFixed(4)})`;
+    const r2 = bOn ? clamp(spr(t - B(6.0), 0.5, 1) * 1.2) * (1 - sm((t - B(9.2)) / 0.5)) : 0;
+    if (show(E.bring2, r2)) E.bring2.style.transform = `scale(${(0.9 + 0.1 * spr(t - B(6.0), 0.5, 0.8)).toFixed(4)})`;
+    const u = Math.max(0, t - B(6.3)), rot = 34 * (1 - Math.exp(-u / 2.2)) + 2.2 * u;   // a spin that eases off
     ORB.forEach(([, a0], i) => {
-      const at = B(8.6 + i * 0.25), ta = B(13 + i * 0.25), n = E["bo" + i];
+      const at = B(ORB_T[i]), ta = B(8.7 + i * 0.17), n = E["bo" + i];
       if (!bOn || t < at) { show(n, 0); return; }
       const pa = mj((t - ta) / 0.42), ang = ((a0 + rot + pa * 70) * Math.PI) / 180, r = OR * (1 - pa);
-      const p = spr(t - at, 0.36, 0.6), s = (0.3 + 0.7 * p) * (1 - 0.75 * pa);
+      const p = spr(t - at, 0.36, 0.56 + 0.06 * (i % 3)), s = (0.3 + 0.7 * p) * (1 - 0.75 * pa);
       fx(n, clamp(spr(t - at, 0.2, 1) * 1.3) * (1 - sm((pa - 0.55) / 0.45)), pa * 3, `translate3d(${px(Math.cos(ang) * r)},${px(Math.sin(ang) * r)},0) scale(${s.toFixed(4)})`);
     });
-    rise(E.bh0, bOn ? t : -1, B(8.1), B(14.6), 36, 12);
-    rise(E.bh1, bOn ? t : -1, B(8.35), B(14.68), 36, 12);
-    rise(E.bsub, bOn ? t : -1, B(10.25), B(14.75), 20, 8);
+    rise(E.bh0, bOn ? t : -1, B(5.85), B(10.2), 36, 12, 0.44, 0.8);
+    rise(E.bh1, bOn ? t : -1, B(6.05), B(10.28), 30, 12, 0.4, 0.76);
+    rise(E.bsub, bOn ? t : -1, B(7.0), B(10.35), 20, 8);
   }
 
-  // ----- C: the platform cut, one surface per beat -----
+  // ----- C: the platform cut, one surface per beat, each arriving its own way -----
   CARDS.forEach((c, k) => {
-    const s0 = C0 + k, tin = B(s0), tout = B(s0 + 1) - 0.01;
-    const v = visAmt(t, tin, tout, 0.2);
+    const s0 = C0 + k, tin = B(s0), tout = B(s0 + 1) - 0.075, e = ENT[k];   // clear out before the next one lands
     const top = cardTop(k);
-    const on = fx(hero[k].n, v.o, (1 - v.pin) * 10 + v.pout * 14, `translate3d(0,${px(top + c.h / 2 + (1 - v.pin) * 26)},0) scale(${(0.965 + 0.035 * v.pin).toFixed(4)})`);
-    const lv = visAmt(t, tin + 0.02, tout, 0.24);
-    fx(hero[k].lab, lv.o, (1 - lv.pin) * 10 + lv.pout * 14, `translate3d(0,${px(top - LBL_GAP - (TALL ? 92 : 80) + (1 - lv.pin) * 14)},0)`);
+    let on = false;
+    if (t >= tin && t < tout + 0.165) {   // cards crossfade a little; labels never overlap
+      const p = spr(t - tin, e.resp ?? 0.4, e.damp ?? 0.78), q = sm((t - tout - 0.045) / 0.09), o = clamp(spr(t - tin, 0.16, 1) * 1.3) * (1 - q);
+      const tr = `translate3d(${px((e.dx ?? 0) * (1 - p))},${px(top + c.h / 2 + (e.dy ?? 0) * (1 - p))},0)${e.rx ? ` perspective(1100px) rotateX(${(e.rx * (1 - p)).toFixed(3)}deg)` : ""} rotate(${((e.rot ?? 0) * (1 - p)).toFixed(3)}deg) scale(${((e.s0 ?? 1) + (1 - (e.s0 ?? 1)) * p).toFixed(4)})`;
+      on = fx(hero[k].n, o, (1 - clamp(p)) * 8 + q * 10, tr);
+    } else show(hero[k].n, 0);
+    // labels: rise, type, wipe or scale
+    const ln = hero[k].lab, li = ln.firstElementChild, lt = tin + 0.02;
+    if (t >= lt && t < tout + 0.06) {
+      const q = sm((t - tout) / 0.06), ly = top - LBL_GAP - (TALL ? 92 : 80), st = LAB[k];
+      const p = spr(t - lt, 0.24, st === "scale" ? 0.62 : 1);
+      li.textContent = st === "type" ? c.label.slice(0, Math.ceil(c.label.length * clamp((t - lt) / 0.26))) : c.label;
+      li.style.clipPath = st === "wipe" ? `inset(-20px ${((1 - sm((t - lt) / 0.3)) * 100).toFixed(2)}% -20px -20px)` : "none";
+      const dy = st === "rise" ? (1 - p) * 14 : 0, sc = st === "scale" ? 0.86 + 0.14 * p : 1;
+      fx(ln, (st === "type" || st === "wipe" ? 1 : p) * (1 - q), (st === "rise" ? (1 - p) * 10 : 0) + q * 14, `translate3d(0,${px(ly + dy)},0) scale(${sc.toFixed(4)})`);
+    } else show(ln, 0);
     if (!on) return;
     const p = "h" + k, a = (f) => tin + f * 0.6 * (tout - tin);   // settle early: a card is on for one beat
     if (c.key === "email") {
@@ -831,10 +986,10 @@ function seek(tIn) {
   });
   // gather: all ten around the mark, then they fold into it
   tiles.forEach((n, k) => {
-    const at = B(28.25 + k * 0.125), v = visAmt(t, at, B(30.45), 0.26), c = CARDS[k];
+    const at = B(24.25 + k * 0.125), v = visAmt(t, at, B(26.45), 0.26), c = CARDS[k];
     if (!show(n, v.o)) return;
-    const [sx, sy] = SLOTS[1][k], d = 1 + 0.006 * (bt - 28);
-    const fold = clamp(spr(t - B(29.75) - k * 0.015, 0.4, 1));
+    const [sx, sy] = SLOTS[1][k], d = 1 + 0.006 * (bt - 24);
+    const fold = clamp(spr(t - B(25.75) - k * 0.015, 0.4, 1));
     const x = sx * d * (1 - fold), y = sy * d * (1 - fold);
     const s = SLOTS[0] * (0.6 + 0.4 * v.pin) * (1 - 0.85 * fold);
     n.style.filter = (1 - v.pin) * 8 + fold * 6 > 0.04 ? `blur(${((1 - v.pin) * 8 + fold * 6).toFixed(3)}px)` : "none";
@@ -843,16 +998,31 @@ function seek(tIn) {
   });
 
   // ----- D: the carousel -----
-  const pos = POS(t), dOn = bt >= 31.6 && bt < 89.5;
-  const hdr = dOn ? clamp(spr(t - B(32.15), 0.3, 1) * 1.2) * (1 - sm((t - B(88)) / 0.3)) : 0;
+  const pos = posAt(t), dOn = bt >= 27.6 && bt < 85.6;
+  const hdr = dOn ? clamp(spr(t - B(28.15), 0.3, 1) * 1.2) * (1 - sm((t - B(84)) / 0.3)) : 0;
   SLIDES.forEach((s, i) => {
-    const d = Math.abs(i - pos);
-    const o = hdr * clamp(1 - d * 1.6);
+    const d = Math.abs(i - pos), o = hdr * clamp(1 - d * 1.6);
     fx(E["dcat" + i], o, (1 - clamp(1 - d * 1.6)) * 4, `translate3d(0,${px((i - pos) * 14)},0)`);
   });
   if (show(E.trkw, dOn ? 1 : 0)) {
     E.trk.style.transform = `translate3d(${px(-1080 * pos)},0,0)`;
-    SLIDES.forEach((_, i) => { const vis = Math.abs(i - pos) < 1.02; show(E["sl" + i], vis ? 1 : 0); if (vis) SLIDE_FX[i](t, B(D0 + SL * i)); });
+    SLIDES.forEach((_, i) => {
+      const n = E["sl" + i], vis = Math.abs(i - pos) < 1.02;
+      if (!show(n, vis ? 1 : 0)) return;
+      if (i === 0) {                          // the first slide rises in under the header
+        const p = spr(t - B(D0 + 0.3), 0.6, 0.8);
+        fx(n, clamp(spr(t - B(D0 + 0.3), 0.25, 1) * 1.3), (1 - clamp(p)) * 6, `translate3d(0,${px((1 - p) * 150)},0)`);
+      } else if (i === NS - 1 && bt >= 84) {  // the last one pulls back into the end card
+        const p = spr(t - B(84), 0.42, 1);
+        fx(n, 1 - sm(p * 1.4), p * 8, `translate3d(0,${px(-40 * p)},0) scale(${(1 - 0.14 * p).toFixed(4)})`);
+        n.style.transformOrigin = `540px ${DL.ui}px`;
+      } else if (i === 4 && bt >= 59.9 && bt < 62) {   // the whip lands with a punch
+        const p = spr(t - B(59.9), 0.3, 0.75);
+        fx(n, 1, 0, `scale(${(1.05 - 0.05 * p).toFixed(4)})`);
+        n.style.transformOrigin = `540px ${AH / 2}px`;
+      } else fx(n, 1, 0, "none");
+      SLIDE_FX[i](t, B(D0 + SL * i));
+    });
   }
   if (show(E.dots, hdr)) {
     const ws = SLIDES.map((_, i) => 8 + 18 * clamp(1 - Math.abs(i - pos)));
@@ -865,54 +1035,76 @@ function seek(tIn) {
   }
 
   // ----- E: "Replace 27+ apps with a single system." -----
-  const eOn = bt >= 88;
+  const eOn = bt >= 84;
   {
-    const g = eOn ? clamp(spr(t - B(88.1), 0.9, 1) * 1.1) : 0;
+    const g = eOn ? clamp(spr(t - B(84.1), 0.9, 1) * 1.1) : 0;
     if (show(E.eglow, g)) E.eglow.style.transform = `translate3d(${px(Math.sin(t * 0.7) * 14)},${px(Math.cos(t * 0.5) * 8)},0) scale(${(0.94 + 0.06 * g).toFixed(4)})`;
-    popScale(E.ectr, eOn ? t : -1, B(88.3), 0.3, 0.42, 0.6);
+    popScale(E.ectr, eOn ? t : -1, B(84.3), 0.3, 0.42, 0.6);
     MOD_ORDER.forEach((m, k) => {
-      const at = B(88.55 + k * 0.1), bob = Math.sin(t * 1.6 + m * 1.3) * 3 * clamp((t - at) / 0.6);
-      popScale(E["em" + m], eOn ? t : -1, at, 0.35, 0.38, 0.58, `translate3d(0,${px(bob)},0)`);
+      const at = B(84.55 + k * 0.1 + 0.03 * Math.sin(k * 1.9)), bob = Math.sin(t * 1.6 + m * 1.3) * 3 * clamp((t - at) / 0.6);
+      popScale(E["em" + m], eOn ? t : -1, at, 0.35, 0.38, 0.52 + 0.08 * (k % 3), `translate3d(0,${px(bob)},0)`);
       if (!eOn || t < at + 0.06) { show(E["eml" + m], 0); return; }
       const p = spr(t - at - 0.06, 0.3, 1);
       fx(E["eml" + m], p, (1 - p) * 4, `translate3d(0,${px((1 - p) * 8)},0)`);
     });
-    rise(E.eh0, eOn ? t : -1, B(90.25), null, 34, 12);
-    rise(E.eh1, eOn ? t : -1, B(90.5), null, 34, 12);
-    rise(E.esub, eOn ? t : -1, B(91.1), null, 18, 8);
+    rise(E.eh0, eOn ? t : -1, B(86.25), null, 34, 12, 0.44, 0.8);
+    rise(E.eh1, eOn ? t : -1, B(86.5), null, 30, 12, 0.4, 0.76);
+    rise(E.esub, eOn ? t : -1, B(87.1), null, 18, 8);
+  }
+
+  // ----- hands on top -----
+  {
+    let c = null;
+    for (const k of TOUCHES) if (t >= k.td - 0.07 && t <= k.tu + 0.34) { c = k; break; }
+    if (!c) { show(E.touch, 0); show(E.tring, 0); }
+    else {
+      let [x, y] = c.at(Math.min(t, c.tu));
+      if (t > c.tu) { const m = 0.06 * (1 - Math.exp(-(t - c.tu) / 0.06)); x += c.vx * m; y += c.vy * m; }   // momentum as it lifts
+      const appear = clamp((t - (c.td - 0.07)) / 0.07), lift = sm((t - c.tu) / 0.16), held = t >= c.td && t <= c.tu ? 1 : 0;
+      const s = (1.25 - 0.25 * sm(appear)) * (1 - (c.kind === "tap" ? 0.1 : 0.05) * held) * (1 + 0.15 * lift);
+      fx(E.touch, appear * (1 - lift), 0, `translate3d(${px(x)},${px(y)},0) scale(${s.toFixed(4)})`);
+      if (c.kind === "tap" && t > c.tu) { const u = (t - c.tu) / 0.36; fx(E.tring, (1 - sm(u)) * 0.9, 0, `translate3d(${px(x)},${px(y)},0) scale(${(1 + 1.3 * mj(u)).toFixed(4)})`); }
+      else show(E.tring, 0);
+    }
+    let k = null;
+    for (const q of CURSORS) if (t >= q.t0 && t <= q.t1) { k = q; break; }
+    if (!k) { show(E.cur, 0); show(E.cring, 0); }
+    else {
+      let [x, y] = curAt(k, t);
+      const [jx, jy] = tremor(t, k.seed, 0.6); x += jx; y += jy;
+      const o = clamp((t - k.t0) / 0.12) * (1 - clamp((t - (k.t1 - 0.2)) / 0.2));
+      let press = 0, ring = null;
+      for (const tc of k.clicks) { const u = t - tc; if (u > -0.02 && u < 0.14) press = Math.max(press, Math.sin(Math.PI * clamp((u + 0.02) / 0.16))); if (u >= 0 && u < 0.4) ring = u / 0.4; }
+      fx(E.cur, o, 0, `translate3d(${px(x - 2)},${px(y - 2)},0) scale(${(1 - 0.1 * press).toFixed(4)})`);
+      if (ring != null) fx(E.cring, (1 - ring) * 0.9 * o, 0, `translate3d(${px(x)},${px(y)},0) scale(${(0.3 + 0.9 * mj(ring)).toFixed(4)})`); else show(E.cring, 0);
+    }
   }
 }
 
 // ---------- the carousel slides, each from its own start time s ----------
-const sEl = (id) => E[id];
 const at_ = (s, b) => s + b * (60 / 100);    // s + b beats
+// where the cursor is over a slide, in slide-frame px (or null)
+const curIn = (i, t) => { for (const q of CURSORS) if (q.slide === i && t >= q.t0 && t <= q.t1) return q.hand(t); return null; };
 const SLIDE_FX = [
-  // EMAIL: E marks two threads done, then Claude drafts two replies
+  // EMAIL: two threads swiped away with a thumb, then Claude drafts two replies
   (t, s) => {
-    const d0 = at_(s, 1.5), d1 = at_(s, 3), c0 = spr(t - d0 - 0.1, 0.42, 0.9), c1 = spr(t - d1 - 0.1, 0.42, 0.9);
+    const gone = ESW.map((w) => spr(t - w.tu - 0.12, 0.42, 0.9));
     MAIL.forEach((_, i) => {
-      const n = E["e_r" + i], up = 96 * ((i > 0 ? c0 : 0) + (i > 1 ? c1 : 0));
-      const dn = i === 0 ? d0 : i === 1 ? d1 : null, q = dn == null ? 0 : sm((t - dn) / 0.24);
-      fx(n, 1 - q, 0, `translate3d(${px(-90 * q * q)},${px(-up)},0)`);
+      const up = 96 * ((i > 0 ? gone[0] : 0) + (i > 1 ? gone[1] : 0));
+      if (i < 2) {
+        const w = ESW[i], dx = w.d(t), fade = sm((t - w.tu - 0.06) / 0.14);
+        if (fx(E["e_w" + i], 1 - fade, 0, `translate3d(0,${px(-(i > 0 ? 96 * gone[0] : 0))},0)`)) {
+          show(E["e_rv" + i], dx > 1 ? 1 : 0);
+          show(E["e_r" + i], dx < VR + 40 ? 1 : 0);
+          E["e_r" + i].style.transform = `translate3d(${px(-dx)},0,0)`;
+        }
+      } else E["e_w" + i].style.transform = `translate3d(0,${px(-up)},0)`;
     });
-    // selection + the E key, row 0 then row 1 (which is on top by then)
-    const h0 = at_(s, 1), h1 = at_(s, 2.5);
-    const selOn = (t >= h0 && t < d0 + 0.12) || (t >= h1 && t < d1 + 0.12);
-    const y = 406 - 40 + 0;   // both selections sit on the top row
-    const so = selOn ? clamp(spr(t - (t < h1 ? h0 : h1), 0.2, 1) * 1.3) * (1 - sm((t - (t < h1 ? d0 : d1) - 0.04) / 0.08)) : 0;
-    if (show(E.e_sel, so)) E.e_sel.style.top = px(y);
-    if (show(E.e_key, so)) {
-      const pr = t < h1 ? d0 : d1, press = Math.exp(-Math.max(0, t - pr) * 10) * (t >= pr - 0.04 ? 1 : 0);
-      E.e_key.style.top = px(406 - 48 - 56); E.e_key.style.transform = `translate3d(0,${px((1 - clamp(spr(t - (t < h1 ? h0 : h1), 0.3, 0.7))) * 10)},0)`;
-      E.e_kc.style.transform = `translateY(${(press * 2).toFixed(2)}px) scale(${(1 - 0.08 * press).toFixed(3)})`;
-      E.e_kc.style.boxShadow = `inset 0 0 0 1px #1d1c1a1f, 0 ${(2 - 2 * press).toFixed(2)}px 0 #1d1c1a26`;
-    }
-    [[2, at_(s, 4)], [4, at_(s, 4.25)]].forEach(([i, a]) => {
-      const on = t >= a; E["e_pv" + i].style.display = on ? "none" : "";
-      if (popScale(E["e_dc" + i], on ? t : -1, a, 0.5, 0.3, 0.6)) E["e_dc" + i].style.display = "flex";
+    [[2, at_(s, 3.6)], [4, at_(s, 3.85)]].forEach(([i, a]) => {
+      E["e_pv" + i].style.display = t >= a ? "none" : "";
+      popScale(E["e_dc" + i], t, a, 0.5, 0.3, 0.6);
     });
-    const ag = at_(s, 4.6);
-    if (popScale(E.e_ag, t, ag, 0.6, 0.3, 0.7)) {}
+    popScale(E.e_ag, t, at_(s, 4.2), 0.6, 0.3, 0.7);
   },
   // DOCS: Julia asks; Claude trims the intro and types the checklist
   (t, s) => {
@@ -921,59 +1113,62 @@ const SLIDE_FX = [
     E.d_del.style.display = t >= del ? "none" : "";
     E.d_del.style.backgroundColor = `rgba(217,119,87,${(0.28 * sel).toFixed(3)})`;
     E.d_del.style.borderRadius = "4px";
-    const up = 35 * spr(t - del, 0.38, 0.9);
-    E.d_after.style.transform = `translate3d(0,${px(-up)},0)`;
+    E.d_after.style.transform = `translate3d(0,${px(-35 * spr(t - del, 0.38, 0.9))},0)`;
     show(E.d_c0, t >= at_(s, 1.75) && t < at_(s, 3.25) ? 1 : 0);
     CHECK.forEach((x, i) => {
       const a = at_(s, 3.25 + i * 0.85), b = at_(s, 3.25 + i * 0.85 + 0.7);
       if (t < a) { show(E["d_t" + i], 0); return; }
       pop(E["d_t" + i], t, a, 8, 0.24);
-      const n = Math.round(clamp((t - a) / (b - a)) * x.length);
-      E["d_tt" + i].textContent = x.slice(0, n);
-      const last = i === CHECK.length - 1;
-      show(E["d_c" + (i + 1)], t < (last ? at_(s, 6) : at_(s, 3.25 + (i + 1) * 0.85)) ? 1 : 0);
+      // typing isn't metronomic: little bursts and pauses
+      const u = clamp((t - a) / (b - a)), w = u + 0.06 * Math.sin(u * Math.PI * 3 + i) * (1 - u) * u * 4;
+      E["d_tt" + i].textContent = x.slice(0, Math.round(clamp(w) * x.length));
+      show(E["d_c" + (i + 1)], t < (i === CHECK.length - 1 ? at_(s, 6) : at_(s, 3.25 + (i + 1) * 0.85)) ? 1 : 0);
     });
   },
-  // TASKS: hand the deploy fix to Cursor; it ships; Claude files a new task
+  // TASKS: the cursor hands the deploy fix to Cursor; it ships; Claude files a new task
   (t, s) => {
-    const ins = spr(t - at_(s, 5), 0.42, 0.86);
+    const ins = spr(t - at_(s, 5.2), 0.42, 0.86);
     TASKS.forEach((_, i) => { E["t_r" + i].style.transform = `translate3d(0,${px(81 * ins)},0)`; });
-    if (t >= at_(s, 5)) { const p = spr(t - at_(s, 5) - 0.08, 0.32, 1); fx(E.t_new, p, (1 - p) * 6, `translate3d(${px((1 - p) * -30)},0,0)`); } else show(E.t_new, 0);
-    const hv = at_(s, 0.9), op = at_(s, 1.25), cl = at_(s, 2.25);
-    const so = t >= hv && t < at_(s, 4.75) ? clamp(spr(t - hv, 0.2, 1) * 1.3) * (1 - sm((t - at_(s, 4.6)) / 0.2)) : 0;
+    if (t >= at_(s, 5.2)) { const p = spr(t - at_(s, 5.2) - 0.08, 0.32, 1); fx(E.t_new, p, (1 - p) * 6, `translate3d(${px((1 - p) * -30)},0,0)`); } else show(E.t_new, 0);
+    const cp = curIn(2, t), onRow = cp && cp[1] > 550 && cp[1] < 632 && cp[0] > 46;
+    const op = B(45.2), cl = B(46.3);
+    const selOn = onRow || (t >= op && t < cl + 0.4);
+    const so = selOn ? 1 : 0;
     if (show(E.t_sel, so)) E.t_sel.style.top = px(428 + 81 * 2 - 36 + 81 * ins);
-    const mo = t >= op ? clamp(spr(t - op, 0.22, 1) * 1.3) * (1 - sm((t - cl - 0.05) / 0.15)) : 0;
+    const mo = t >= op ? clamp(spr(t - op, 0.2, 1) * 1.3) * (1 - sm((t - cl - 0.05) / 0.15)) : 0;
     if (fx(E.t_menu, mo, 0, `translate3d(0,${px((1 - clamp(spr(t - op, 0.3, 0.8))) * 10)},0) scale(${(0.97 + 0.03 * clamp(spr(t - op, 0.3, 0.8))).toFixed(4)})`)) {
       E.t_menu.style.transformOrigin = "60% 100%";
-      const hk = 3 * mj((t - at_(s, 1.6)) / 0.28);    // hover walks down to Cursor
-      E.t_mh.style.top = px(54 + 48 * hk);
+      // the hover snaps to whichever item is under the cursor (overshooting onto Jacob, then back)
+      const top = 590 - 34 - 306, kk = cp ? Math.floor((cp[1] - top - 54) / 48) : -1, inMenu = cp && cp[0] > 612 && cp[0] < 932 && kk >= 0 && kk < 5;
+      if (show(E.t_mh, inMenu || t >= cl ? 1 : 0)) E.t_mh.style.top = px(54 + 48 * (t >= cl ? 3 : clamp(kk, 0, 4)));
     }
     const sw = t >= cl + 0.03;
     show(E.t_a2, sw ? 0 : 1);
     popScale(E.t_ac, sw ? t : -1, cl + 0.03, 0.5, 0.3, 0.6);
-    const rv = at_(s, 3.25), dn = at_(s, 4.25);
+    const rv = at_(s, 3.4), dn = at_(s, 4.4);
     show(E.t_s2prog, t < rv ? 1 : 0);
     popScale(E.t_s2rev, t >= rv && t < dn ? t : -1, rv, 0.5, 0.26, 0.6);
     popScale(E.t_s2done, t >= dn ? t : -1, dn, 0.5, 0.26, 0.55);
     if (t >= rv) {
       const merged = t >= dn;
-      const html = merged ? `${px_("git-merge", 18, "#8250df")}Merged` : `${px_("git-pull-request", 18, "var(--ok)")}PR #482`;
-      if (E.t_pr.dataset.k !== String(merged)) { E.t_pr.innerHTML = html; E.t_pr.dataset.k = String(merged); }
+      setHtml(E.t_pr, merged ? `${px_("git-merge", 18, "#8250df")}Merged` : `${px_("git-pull-request", 18, "var(--ok)")}PR #482`);
       E.t_pr.style.background = merged ? "#8250df1a" : "#2e9e5b1a"; E.t_pr.style.color = merged ? "#8250df" : "var(--ok)";
       popScale(E.t_pr, t, merged ? dn : rv, 0.6, 0.26, 0.6);
     } else show(E.t_pr, 0);
   },
-  // CALLS: search the transcript for "invite flow"
+  // CALLS: click the search, type "invite flow", open the second hit
   (t, s) => {
-    const ty = at_(s, 1), te = at_(s, 2.3);
-    const n = Math.round(clamp((t - ty) / (te - ty)) * QUERY.length);
+    const fc = B(53.62), ty = at_(s, 1.8), te = at_(s, 2.9);
+    let n = 0;
+    QUERY.split("").forEach((_, i) => { if (t >= B(53.8 + i * 0.1 + (i % 3) * 0.012)) n = i + 1; });
     E.c_qt.textContent = QUERY.slice(0, n);
     show(E.c_ph, t < ty ? 1 : 0);
-    show(E.c_qc, t >= at_(s, 0.75) && t < at_(s, 3.4) && (t < te || Math.floor((t - te) / 0.27) % 2 === 0) ? 1 : 0);
-    const hm = at_(s, 2.6);
+    show(E.c_qc, t >= fc && t < at_(s, 3.6) && (t < te || Math.floor((t - te) / 0.27) % 2 === 0) ? 1 : 0);
+    E.c_f.style.boxShadow = t >= fc && t < at_(s, 3.6) ? "inset 0 0 0 1.5px #1d1c1a59" : "";
+    const hm = at_(s, 3.1);
     [0, 1].forEach((i) => { const p = clamp(spr(t - hm - i * 0.06, 0.24, 1) * 1.2); E["c_m" + i].style.backgroundColor = `rgba(236,190,72,${(0.42 * p).toFixed(3)})`; E["c_m" + i].style.boxShadow = `0 0 0 ${(3 * p).toFixed(2)}px rgba(236,190,72,${(0.42 * p).toFixed(3)})`; });
     popScale(E.c_n, t, hm + 0.1, 0.7, 0.3, 0.8);
-    const a1 = at_(s, 3.25), a2 = at_(s, 4.5);
+    const a1 = at_(s, 3.5), a2 = B(57.05);
     const yk = spr(t - a2, 0.36, 0.86), y = lerp(468, 630, yk), h = lerp(152, 110, yk);
     if (show(E.c_hl, t >= a1 ? clamp(spr(t - a1, 0.22, 1) * 1.3) : 0)) { E.c_hl.style.top = px(y); E.c_hl.style.height = px(h); }
   },
@@ -984,41 +1179,46 @@ const SLIDE_FX = [
     const v0 = t >= at_(s, 1.6), v1 = t >= at_(s, 2.2);
     setHtml(E.r_v0, v0 ? T1(8, 17, 25, "Today, 9:41 AM") : T1(8, 17, 25, "Sep 22, 3:10 PM", "color:var(--body)"));
     setHtml(E.r_v1, v1 ? T1(16, 18, 23, `Customer&nbsp; ${px_("caret-down", 18)}`) : T1(16, 18, 23, `Pilot&nbsp; ${px_("caret-down", 18)}`));
-    const rc = clamp((t - at_(s, 2.8)) / (at_(s, 3.6) - at_(s, 2.8))), rv = 8000 + Math.round((rc * 8)) * 500;
+    const rc = clamp((t - at_(s, 2.8)) / (at_(s, 3.6) - at_(s, 2.8))), rv = 8000 + Math.round(rc * 8) * 500;
     setHtml(E.r_v2, T1(12, 18, 23, rv.toLocaleString("en-US")));
     [[E.r_v0, flash(at_(s, 1.6)), 260], [E.r_v1, flash(at_(s, 2.2)), 190], [E.r_v2, Math.max(flash(at_(s, 2.8)), rc > 0 && rc < 1 ? 1 : flash(at_(s, 3.6))), 120]].forEach(([n, f, w]) => {
       n.style.width = px(w); n.style.borderRadius = "10px"; n.style.background = `rgba(29,28,26,${(0.09 * f).toFixed(3)})`;
     });
     pop(E.r_dana, t, at_(s, 4), 10, 0.28);
   },
-  // CALENDAR: copy the link; the week fills with bookings
+  // CALENDAR: the cursor copies the link; the week fills with bookings
   (t, s) => {
-    const cp = at_(s, 0.75), press = t >= cp ? Math.exp(-(t - cp) * 9) : 0;
+    const cp = B(69.25), press = t >= cp ? Math.exp(-(t - cp) * 9) : 0;
     E.k_copy.style.transform = `scale(${(1 - 0.06 * press).toFixed(3)})`;
     show(E.k_c0, t < cp ? 1 : 0); show(E.k_c1, t >= cp ? 1 : 0);
-    BOOK.forEach((_, i) => popScale(E["k_b" + i], t, at_(s, 1.5 + i * 0.6), 0.6, 0.3, 0.62));
-    popScale(E.k_sum, t, at_(s, 4.6), 0.7, 0.3, 0.7);
+    BOOK.forEach((_, i) => popScale(E["k_b" + i], t, at_(s, 1.9 + i * 0.55 + 0.04 * Math.sin(i * 2.3)), 0.6, 0.3, 0.6 + 0.04 * (i % 2)));
+    popScale(E.k_sum, t, at_(s, 4.7), 0.7, 0.3, 0.7);
   },
-  // AGENTS: ask Macro; it searches team memory and answers with sources
+  // AGENTS: type the question, send it with a tap; Macro searches team memory and answers with sources
   (t, s) => {
-    pop(E.g_q, t, at_(s, 0.75), 14, 0.3);
-    pop(E.g_h, t, at_(s, 1.5), 8, 0.3); pop(E.g_n, t, at_(s, 1.55), 8, 0.3);
+    const n = QWORDS.reduce((a, _, i) => a + (t >= at_(s, 0.3 + i * 0.19) ? 1 : 0), 0), sent = at_(s, 2.2);
+    setHtml(E.g_ct, t >= sent || n === 0 ? `<span style="color:var(--mut)">Ask Macro about anything in your workspace…</span>` : QWORDS.slice(0, n).map((w, i) => (i === 0 ? `<span class="men">${w}</span>` : w)).join(" ") + `<span class="caret" style="background:var(--ink)"></span>`);
+    const armed = n > 0 && t < sent;
+    E.g_send.style.background = armed ? "var(--ink)" : "#d8d4cc";
+    E.g_send.firstElementChild.setAttribute("fill", armed ? "#f5f1e8" : "#3d3b37");
+    if (t >= sent) { const p = spr(t - sent, 0.5, 0.8); fx(E.g_q, clamp(spr(t - sent, 0.12, 1) * 1.4), (1 - clamp(p)) * 3, `translate3d(${px((1 - p) * 40)},${px((1 - p) * 600)},0) scale(${(0.92 + 0.08 * p).toFixed(4)})`); } else show(E.g_q, 0);
+    pop(E.g_h, t, at_(s, 2.6), 8, 0.3); pop(E.g_n, t, at_(s, 2.65), 8, 0.3);
     STEPS.forEach((_, i) => {
-      const a = at_(s, 1.75 + i * 0.4), done = a + 0.3 * 0.6;
+      const a = at_(s, 2.85 + i * 0.38), done = a + (0.3 + 0.05 * (i % 2)) * 0.6;
       pop(E["g_s" + i], t, a, 8, 0.24);
       show(E["g_sp" + i], t < done ? 1 : 0); E["g_sp" + i].style.transform = `rotate(${((t - a) * 540).toFixed(1)}deg)`;
       popScale(E["g_sc" + i], t >= done ? t : -1, done, 0.4, 0.24, 0.6);
     });
-    ANSWER.forEach((_, i) => write(E["g_a" + i], t, at_(s, 3.6 + i * 0.5), at_(s, 3.6 + i * 0.5 + 0.55)));
-    SRC.forEach((_, i) => popScale(E["g_c" + i], t, at_(s, 5.25 + i * 0.125), 0.6, 0.28, 0.65));
+    ANSWER.forEach((_, i) => write(E["g_a" + i], t, at_(s, 4.45 + i * 0.45), at_(s, 4.45 + i * 0.45 + 0.5)));
+    SRC.forEach((_, i) => popScale(E["g_c" + i], t, at_(s, 5.95 + i * 0.12), 0.6, 0.28, 0.65));
   },
 ];
-function setHtml(n, h) { if (n._h !== h) { n.innerHTML = h; n._h = h; } }
 
 // ---------- boot ----------
-window.SONGS = { upbeat: ["song-swish-swed-arulo-100.wav", 38.4382] }; // Mixkit 201, "Swish Swed" by Arulo, atempo 0.8333; four bars before the drop
+const SONG = "song-swish-swed-arulo-100.wav";  // Mixkit 201, "Swish Swed" by Arulo, atempo 0.8333; bar k of the first drop starts at 48.0382 + 2.4k s
+window.SONGS = { upA: [SONG, 40.8382], upB: [SONG, 120.0382], upC: [SONG, 144.0382] };
 window.seek = seek; window.DURATION = T; window.CUES = CUES; window.B = B; window.MUSIC = MUSIC; window.FMT = [W, H];
-window.probe = (t) => [LKX(t), LKY(t), LKS(t), POS(t), 0, 0, 0, 0, 0, 0, 0, 0, 0];
+window.probe = (t) => [LKX(t), LKY(t), LKS(t), posAt(t), 0, 0, 0, 0, 0, 0, 0, 0, 0];
 window.ready = Promise.all(['400 20px "Inter"', '500 20px "Inter"', '600 20px "Inter"', '320 40px "display"'].map((f) => document.fonts.load(f)))
   .then(() => document.fonts.ready)
   .then(() => Promise.all([...document.querySelectorAll(".av"), ...document.querySelectorAll("[style*='url(img']")].map((a) => { const u = a.style.backgroundImage.match(/url\("?(.*?)"?\)/); if (!u) return 0; return new Promise((r) => { const i = new Image(); i.onload = i.onerror = r; i.src = u[1]; }); })))

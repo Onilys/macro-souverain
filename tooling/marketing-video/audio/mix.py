@@ -201,6 +201,71 @@ def hover():
     return norm(sine(1240, n) * env(n, 0.001, 0.012))
 
 
+def tap():
+    """A fingertip on glass: a dull, short knock."""
+    n = int(0.08 * SR)
+    y = band(noise(n, 701), 180, 1800) * env(n, 0.0004, 0.006) + 0.6 * sine(170, n) * env(n, 0.0008, 0.014)
+    return norm(y)
+
+
+# ---------- orchestration: hits and transitions on the song's structure ----------
+def impact():
+    """The hit on a drop: a sub thump with a short, bright transient."""
+    n = int(1.4 * SR)
+    y = 1.0 * sweep(78, 34, n) * env(n, 0.001, 0.42) + 0.5 * band(noise(n, 711), 40, 260) * env(n, 0.002, 0.18)
+    y += 0.55 * band(noise(n, 712), 900, 6000) * env(n, 0.0004, 0.035) + 0.25 * band(noise(n, 713), 3000, 12000) * env(n, 0.0003, 0.012)
+    return norm(y)
+
+
+def crash(seed=721):
+    """A crash cymbal: bright noise with an inharmonic shimmer, long decay."""
+    n = int(2.4 * SR)
+    r = np.random.default_rng(seed)
+    y = band(noise(n, seed), 3200, 15000) * env(n, 0.001, 0.75) + 0.35 * band(noise(n, seed + 1), 1200, 4000) * env(n, 0.001, 0.25)
+    for _ in range(10):
+        f = r.uniform(3000, 9500)
+        y += r.uniform(0.04, 0.1) * sine(f, n, r.uniform(0, 6.28)) * env(n, 0.001, r.uniform(0.3, 0.9))
+    return norm(y)
+
+
+def revcrash():
+    """A reversed crash swelling into the hit (its peak is the last sample)."""
+    n = int(1.5 * SR)
+    y = crash(731)[:n][::-1].copy()
+    y *= np.linspace(0.2, 1, n) ** 1.5
+    return norm(y)
+
+
+def riser(dur=2.4):
+    """Noise sweeping up with a rising tone; loudest at the very end."""
+    n = int(dur * SR)
+    t = tt(n) / dur
+    X = np.zeros(n)
+    hop = 2048
+    src = noise(n + hop, 741)
+    for i in range(0, n, hop):
+        u = i / n
+        fc = 350 * (9500 / 350) ** (u ** 1.3)
+        seg = band(src[i:i + 2 * hop], fc * 0.55, fc * 1.6)[:min(hop, n - i)]
+        X[i:i + len(seg)] = seg
+    k = int(0.02 * SR)
+    X = np.convolve(X, np.ones(k) / k, mode="same") * 0.15 + X * 0.85   # soften block edges
+    tone = 0.35 * sweep(180, 1400, n)
+    y = (X + tone) * (0.04 + 0.96 * t ** 2.6)
+    y[-int(0.01 * SR):] *= np.linspace(1, 0.85, int(0.01 * SR))
+    return norm(y)
+
+
+def downlift():
+    """Noise falling away after a section ends."""
+    n = int(1.3 * SR)
+    t = tt(n) / (n / SR)
+    lo = band(noise(n, 751), 200, 1400)
+    hi = band(noise(n, 752), 1800, 9000)
+    y = (hi * (1 - t) + lo * t) * env(n, 0.005, 0.45)
+    return norm(y)
+
+
 SYNTH = {
     "click": lambda c: click(int(c["t"] * 1000) % 97),
     "key": lambda c: key(c.get("seed", int(c["t"] * 1000) % 50)),
@@ -220,10 +285,17 @@ SYNTH = {
     "tink": lambda c: tink(c.get("pitch", 1.0)),
     "boom": lambda c: boom(),
     "shatter": lambda c: shatter(),
+    "tap": lambda c: tap(),
+    "impact": lambda c: impact(),
+    "crash": lambda c: crash(c.get("seed", 721)),
+    "revcrash": lambda c: revcrash(),
+    "riser": lambda c: riser(c.get("dur", 2.4)),
+    "downlift": lambda c: downlift(),
 }
 LEVEL = {  # per-type bus level (linear, relative to the UI bus)
     "click": 1.0, "key": 0.55, "enter": 0.8, "tick": 0.55, "pop": 0.55, "blip": 0.5, "chime": 0.5,
     "swish": 0.35, "swoosh": 0.4, "grab": 0.8, "stretch": 0.35, "release": 0.5, "hover": 0.35, "beep": 0.55, "shot": 1.9, "tink": 0.4, "boom": 1.6, "shatter": 0.7,
+    "tap": 0.5, "impact": 1.25, "crash": 0.42, "revcrash": 0.5, "riser": 0.42, "downlift": 0.4,
 }
 
 
@@ -231,6 +303,54 @@ SONGS = {  # Mixkit Stock Music Free License
     "ambient": ("song-ambient-kodama-night-town.mp3", 11.6186),  # section entry downbeat  # "Kodama Night Town", Alejandro Magaña; section entry downbeat
     "funk": ("song-funk-are-u-ready.mp3", 17.8605),              # "Are U Ready For This?"; accented bar downbeat
 }
+
+
+def limiter(mix, ceil=0.94, rel=0.12):
+    """Peak limiter: instant attack (one block of look-ahead), smooth release. Leaves the rest of the mix alone."""
+    a = np.abs(mix).max(axis=1)
+    blk = 64
+    nb = int(np.ceil(len(a) / blk))
+    pa = np.pad(a, (0, nb * blk - len(a))).reshape(nb, blk).max(axis=1)
+    need = np.minimum(1.0, ceil / np.maximum(pa, 1e-9))
+    need = np.minimum(need, np.minimum(np.roll(need, 1), np.roll(need, -1)))
+    g = np.empty(nb)
+    cur, k = 1.0, np.exp(-blk / (rel * SR))
+    for i in range(nb):
+        cur = need[i] if need[i] < cur else need[i] + (cur - need[i]) * k
+        g[i] = cur
+    gs = np.interp(np.arange(len(a)), np.arange(nb) * blk + blk / 2, g)
+    return mix * gs[:, None]
+
+
+def lowpass_tail(seg, dur, f0, f1):
+    """Sweep a resonant low-pass from f0 down to f1 over the last `dur` seconds (STFT, overlap-add)."""
+    pre = 0.12
+    a = max(0, len(seg) - int((dur + pre) * SR))
+    x = seg[a:].copy()
+    N, H = 2048, 512
+    win = np.hanning(N + 1)[:-1]
+    freqs = np.fft.rfftfreq(N, 1 / SR)
+    out = np.zeros_like(x)
+    wsum = np.zeros(len(x))
+    for start in range(-N + H, len(x), H):
+        idx = np.arange(start, start + N)
+        ok = (idx >= 0) & (idx < len(x))
+        frame = np.zeros((N, x.shape[1]))
+        frame[ok] = x[idx[ok]]
+        u = min(1.0, max(0.0, ((start + N / 2) / SR - pre) / dur))
+        fc = f0 * (f1 / f0) ** (u ** 1.4)
+        mask = 1 / np.sqrt(1 + (freqs / fc) ** 8)
+        mask = mask * (1 + 0.7 * np.exp(-((np.log(freqs + 1) - np.log(fc)) / 0.14) ** 2))
+        y = np.fft.irfft(np.fft.rfft(frame * win[:, None], axis=0) * mask[:, None], N, axis=0) * win[:, None]
+        out[idx[ok]] += y[ok]
+        wsum[idx[ok]] += win[ok] ** 2
+    out /= np.maximum(wsum, 1e-6)[:, None]
+    k = int(pre * SR)
+    ramp = np.linspace(0, 1, k)[:, None]
+    out[:k] = x[:k] * (1 - ramp) + out[:k] * ramp
+    seg = seg.copy()
+    seg[a:] = out
+    return seg
 
 
 def main():
@@ -241,22 +361,39 @@ def main():
     # Alternate the two songs; each resumes where it left off. Cuts land on bar lines,
     # with a 4 ms declick. The loop end is a cut too: no fade-out.
     songs = {k: tuple(v) for k, v in (meta.get("songs") or SONGS).items()}
-    decoded = {k: load_stereo(f) for k, (f, _) in songs.items()}
+    cache = {}
+    decoded = {k: cache[f] if f in cache else cache.setdefault(f, load_stereo(f)) for k, (f, _) in songs.items()}
     pos = {k: off for k, (_, off) in songs.items()}
+    # One key per entry point, so a cut can jump within a song (e.g. drop → breakdown → second drop).
+    # Optional per-entry effects: lpEnd [seconds, from Hz, to Hz] sweeps a low-pass down over the entry's
+    # last seconds; gapEnd seconds mutes its tail (the breath before a hit).
+    same_song = len(cache) == 1
     parts = []
-    for song, bpm, beats in meta["music"]:
+    for entry in meta["music"]:
+        song, bpm, beats = entry[:3]
+        opts = entry[3] if len(entry) > 3 else {}
         length = sum(beats) * 60 / bpm
         x = decoded[song]
         a0 = int(round((pos[song] - PREROLL) * SR))
         seg = x[a0:a0 + int(round(length * SR))].copy()
-        seg /= np.sqrt(np.mean(seg ** 2)) + 1e-9          # match loudness across songs
-        seg *= 0.2
+        if not same_song:
+            seg /= np.sqrt(np.mean(seg ** 2)) + 1e-9      # match loudness across songs
+            seg *= 0.2
+        if "lpEnd" in opts:
+            seg = lowpass_tail(seg, *opts["lpEnd"])
         d = int(0.004 * SR)
         seg[:d] *= np.linspace(0, 1, d)[:, None]
         seg[-d:] *= np.linspace(1, 0, d)[:, None]
+        if "gapEnd" in opts:
+            g, f = int(opts["gapEnd"] * SR), int(0.006 * SR)
+            seg[-g - f:-g] *= np.linspace(1, 0, f)[:, None]
+            seg[-g:] = 0
         parts.append(seg)
         pos[song] += length
     music = np.concatenate(parts)
+    if same_song:                                         # cuts of one song keep their relative levels
+        music /= np.sqrt(np.mean(music ** 2)) + 1e-9
+        music *= 0.2
     music = np.pad(music, ((0, max(0, n - len(music))), (0, 0)))[:n]
 
     ui = np.zeros(n)
@@ -274,6 +411,7 @@ def main():
 
     music_gain, ui_gain, master_db = 1.0, 0.42, -3.0
     mix = (music * music_gain + ui[:, None] * ui_gain) * 10 ** (master_db / 20)
+    mix = limiter(mix)                                    # only the hits that would clip get turned down
     peak = np.abs(mix).max()
     if peak > 0.97:
         mix *= 0.97 / peak
