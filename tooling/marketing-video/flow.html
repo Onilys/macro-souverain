@@ -1019,7 +1019,7 @@ function handsFx(t) {
 const curG = (c, t) => c.hand(t);   // graph px
 
 function seek(tIn) {
-  const t = ((tIn % T) + T) % T;
+  const t = clamp(tIn, 0, T);   // the film plays once: the shutter's samples before 0 hold frame 0 (no wrap to the end card)
   // ----- camera: springs between shots, a handheld drift that starts once things move, a punch on each hit -----
   {
     const env = sm((t - B(2.6)) / 1.2);
