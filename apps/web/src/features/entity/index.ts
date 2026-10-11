@@ -5,6 +5,7 @@ export { UnreadIndicator } from './components/UnreadIndicator';
 export { InlineEntity } from './composed/InlineEntity';
 export {
   ListEntity,
+  ListEntitySkeleton,
   ListLayoutProvider,
   MaybeEntityRow,
   type NarrowLayoutVariant,

@@ -65,6 +65,7 @@ export {
   ListLayoutProvider,
   type NarrowLayoutVariant,
 } from './list-entity/shared';
+export { ListEntitySkeleton } from './list-entity/skeleton';
 
 interface ListEntityProps extends BaseListEntityProps {
   showUnrollNotifications?: boolean;

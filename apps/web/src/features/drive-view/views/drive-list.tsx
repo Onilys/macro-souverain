@@ -1,5 +1,4 @@
 import { useListInteractions } from '@app/components/list';
-import { SearchResultsSkeleton } from '@app/components/view-shell/SearchResultsSkeleton';
 import {
   resolveEntityActionViewContext,
   toEntityActionListState,
@@ -20,6 +19,7 @@ import {
   type EntityData,
   EntitySelectionToolbar,
   ListEntity,
+  ListEntitySkeleton,
   ListLayoutProvider,
 } from '@entity';
 import ArrowLeftIcon from '@phosphor/arrow-left.svg';
@@ -295,8 +295,8 @@ export function DriveList() {
                   source.items().length === 0
                 }
               >
-                <div class="min-h-0 flex-1 overflow-hidden pt-1">
-                  <SearchResultsSkeleton />
+                <div class="min-h-0 flex-1 overflow-hidden">
+                  <ListEntitySkeleton label="Searching files" />
                 </div>
               </Match>
               <Match
