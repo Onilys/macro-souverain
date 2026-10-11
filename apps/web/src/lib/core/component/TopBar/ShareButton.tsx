@@ -1,3 +1,7 @@
+import {
+  fetchPipelineSharePermissions,
+  updatePipelineTeamShare,
+} from '@app/features/crm/sharing-adapter';
 import { projectRouteId } from '@app/features/projects/core/route';
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { useChannelParticipants } from '@channel/use-channel-participants';
@@ -136,7 +140,8 @@ const isLinkSharingDisabledForItem = (itemType: ShareItemType): boolean =>
   itemType === 'project' ||
   itemType === 'database' ||
   // A form's public link is its audience, set on the form, not a share permission.
-  itemType === 'form';
+  itemType === 'form' ||
+  itemType === 'crm_pipeline';
 
 /** Blocks, plus native entities that are shared without one. */
 type ShareBlockType = BlockName | BlockAlias | 'initiative';
@@ -157,6 +162,7 @@ export function shareLevelsFor(
 }
 
 async function fetchSharePermissions(id: string, itemType: ShareItemType) {
+  if (itemType === 'crm_pipeline') return fetchPipelineSharePermissions(id);
   if (itemType === 'agent_session') {
     return fetchAgentSessionSharePermissions(id);
   }
@@ -185,6 +191,8 @@ const SHARE_LINK_SUBTEXT =
 // Only these owners can grant access, so only they may forward. Their links
 // don't grant access to recipients either, so copying skips SHARE_LINK_SUBTEXT.
 const OWNER_ONLY_SHARE_DESCRIPTIONS: Partial<Record<ShareItemType, string>> = {
+  crm_pipeline:
+    'Only the owner can change team access. You can copy a link for people who already have access.',
   agent_session:
     'Only the owner can share access to this session. You can copy a link for people who already have access.',
   initiative:
@@ -506,6 +514,8 @@ function LinkSharingControls(props: LinkSharingControlsProps) {
 interface MobileShareDrawerProps {
   editPermissionEnabled?: boolean;
   canForward: boolean;
+  /** The roster lists only the owner, so it is titled for them alone. */
+  ownerOnlyRoster: boolean;
   isOpen: boolean;
   setIsOpen: (value: boolean) => void;
   blockAlias: ShareBlockType;
@@ -544,7 +554,10 @@ function MobileShareDrawer(props: MobileShareDrawerProps) {
   const mobileTabs = createMemo((): TabItem[] => {
     const tabs: TabItem[] = [{ value: 'share', label: 'Share' }];
     if ((props.recipients?.length ?? 0) > 0 || props.owner)
-      tabs.push({ value: 'people', label: 'People' });
+      tabs.push({
+        value: 'people',
+        label: props.ownerOnlyRoster ? 'Owner' : 'People',
+      });
     if (
       props.linkSharing ||
       (props.userPermissions === Permissions.OWNER &&
@@ -796,7 +809,8 @@ export function ShareModal(props: ShareModalProps) {
   const isBlockContext =
     isInBlock() &&
     props.itemType !== 'agent_session' &&
-    props.itemType !== 'initiative';
+    props.itemType !== 'initiative' &&
+    props.itemType !== 'crm_pipeline';
   const [fallbackPermissionsResource, { refetch: refetchFallback }] =
     createResource(
       () => {
@@ -818,8 +832,9 @@ export function ShareModal(props: ShareModalProps) {
     : refetchFallback;
   const userId = useUserId();
   const canForward = () =>
-    !OWNER_ONLY_SHARE_DESCRIPTIONS[props.itemType] ||
-    (Boolean(userId()) && props.owner === userId());
+    props.itemType !== 'crm_pipeline' &&
+    (!OWNER_ONLY_SHARE_DESCRIPTIONS[props.itemType] ||
+      (Boolean(userId()) && props.owner === userId()));
   const userPermissions = () =>
     props.itemType === 'agent_session' && !canForward()
       ? Permissions.CAN_VIEW
@@ -889,6 +904,14 @@ export function ShareModal(props: ShareModalProps) {
     const sharePermission = result.value;
     return sharePermission.channelSharePermissions;
   });
+
+  // A viewer who does not own the item cannot read its other grants, so the
+  // roster is just the owner and must not be titled as the full audience.
+  const ownerOnlyRoster = () =>
+    !!props.owner &&
+    props.owner !== userId() &&
+    (recipients()?.length ?? 0) === 0 &&
+    !props.hasDirectShares;
 
   // Function to navigate to a channel
   const navigateToChannel = createCallback((channelId: string) => {
@@ -1181,7 +1204,9 @@ export function ShareModal(props: ShareModalProps) {
         getTeamShareScope(sharePermission.teamShareAccessLevel) !== 'NONE';
 
       let result: Result<unknown, ResultError<any>[]>;
-      if (props.itemType === 'agent_session') {
+      if (props.itemType === 'crm_pipeline') {
+        result = await updatePipelineTeamShare(props.id, shared);
+      } else if (props.itemType === 'agent_session') {
         result = await updateAgentSessionSharePermissions(
           props.id,
           sharePermission
@@ -1363,6 +1388,7 @@ export function ShareModal(props: ShareModalProps) {
         <MobileShareDrawer
           editPermissionEnabled={editPermissionEnabled()}
           canForward={canForward()}
+          ownerOnlyRoster={ownerOnlyRoster()}
           isOpen={props.open}
           setIsOpen={props.onOpenChange}
           blockAlias={props.blockAlias}
@@ -1457,8 +1483,10 @@ export function ShareModal(props: ShareModalProps) {
                 <Panel depth={2} class="rounded-xl bg-dialog">
                   <Panel.Header class="px-4">
                     <span class="text-sm font-medium">
-                      People with access to this{' '}
-                      {getShareItemNoun(props.itemType)}
+                      <Show when={!ownerOnlyRoster()} fallback="Owner">
+                        People with access to this{' '}
+                        {getShareItemNoun(props.itemType)}
+                      </Show>
                     </span>
                   </Panel.Header>
                   <Panel.Body class="text-ink">

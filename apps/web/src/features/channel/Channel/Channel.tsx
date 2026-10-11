@@ -45,6 +45,7 @@ import {
   buildMentionMarkdownString,
   markdownToPlainText,
 } from '@macro-inc/lexical-core';
+import { MessageNotificationIndexContext } from '@notifications/components/MarkMessageNotifications';
 import {
   invalidateChannelsActivity,
   useUpdateChannelsActivityMutation,
@@ -69,6 +70,7 @@ import {
   type MessageTimelineData,
   useMessageTimelineQuery,
 } from '@queries/messages/timeline';
+import { timelineEntryKey } from '@queries/messages/timeline-entries';
 import { usePostTypingUpdateMutation } from '@queries/messages/typing';
 import { ChannelTypeEnum } from '@service-storage/client';
 import { useBeforeLeave } from '@solidjs/router';
@@ -91,18 +93,22 @@ import {
 } from '../Input';
 import { ChannelInputContainer } from '../Input/ChannelInputContainer';
 import { hasSendableInputContent } from '../Input/utils/sendable-content';
+import { decodeSystemActivity } from '../queries/system-activity';
+import { SystemActivity } from '../SystemActivity';
 import { ChannelThread } from '../Thread';
+import { ThreadRow } from '../Thread/ThreadRow';
+import { ThreadTypingIndicator } from '../Thread/ThreadTypingIndicator';
 import { buildReplyTargetValue } from '../Thread/utils/message-actions';
 import { CHANNEL_TOUR } from '../tour';
 import { isUnifiedInputMode } from '../unified-input-mode';
 import { ActiveCallMessage } from './ActiveCallMessage';
 import { ChannelDropZone } from './ChannelDropZone';
-import { ChannelUnreadNotifications } from './ChannelUnreadNotifications';
 import { createChannelDragState } from './create-channel-drag-state';
 import { createChannelFindBar } from './create-channel-find-bar';
 import { createChannelHotkeys } from './create-channel-hotkeys';
 import { createChannelKeyboardHandler } from './create-channel-keyboard-handler';
 import { createChannelMessageActions } from './create-channel-message-actions';
+import { createChannelUnreadNavigation } from './create-channel-unread-navigation';
 import { createDeleteMessageConfirmation } from './create-delete-message-confirmation';
 import { createMessageEditor } from './create-message-editor';
 import { createMessageSelection } from './create-message-selection';
@@ -252,8 +258,18 @@ export function Channel(props: ChannelProps) {
       : undefined
   );
 
-  const messages = createMemo(() => [...messageIndex.items]);
   const messageById = () => messageIndex.byId;
+  // Loaded messages, oldest first; activity rows are not unread targets.
+  const messages = createMemo(() => [...messageIndex.byId.values()]);
+  const unread = createChannelUnreadNavigation({
+    channelId: props.channelId,
+    messages,
+    activities: () => messageIndex.activityByKey,
+    scrollState: threadListScrollState,
+    container: threadListContainerEl,
+    insets: threadListScrollInsets,
+    onDestinationsChanged: () => threadListNavigation()?.requestLayoutUpdate(),
+  });
   const participants = useChannelParticipants(() => props.channelId);
   const channelBotMentionUsers = useMessageBotMentionUsers(() => ({
     type: 'channel',
@@ -334,9 +350,9 @@ export function Channel(props: ChannelProps) {
     userId,
   });
 
-  const listMetaByMessageId = createMemo(() =>
+  const listMetaByKey = createMemo(() =>
     buildChannelMessageListMeta(
-      messages(),
+      messageIndex.entries,
       activityTracker.isNewMessage,
       // Once there are no older pages left to fetch, the oldest loaded message
       // (index 0) is the true first message in the channel.
@@ -561,12 +577,10 @@ export function Channel(props: ChannelProps) {
       return;
     // Retained data is usable after a pagination error. Wait only if the query
     // has no data yet or the message index still contains the old page.
-    const latestMessageId = messagesQuery.data?.pages.find(
-      (page) => page.items.length > 0
-    )?.items[0]?.id;
+    const latestEntry = messagesQuery.data?.pages[0]?.entries[0];
     if (
-      latestMessageId !== undefined &&
-      messageIndex.keys.at(-1) === latestMessageId &&
+      latestEntry !== undefined &&
+      messageIndex.entryKeys.at(-1) === timelineEntryKey(latestEntry) &&
       threadListNavigation()?.scrollToLatest()
     )
       cancelLatestNavigation();
@@ -716,76 +730,97 @@ export function Channel(props: ChannelProps) {
                       direction="desc"
                     />
                   </Show>
-                  <Show when={messages().length > 0}>
+                  <Show when={messageIndex.entryKeys.length > 0}>
                     <div
                       class="relative flex-1 min-h-0"
                       ref={setThreadListContainerEl}
                     >
-                      <ChannelUnreadNotifications
-                        channelId={props.channelId}
-                        messages={messages}
-                        scrollState={threadListScrollState}
-                        container={threadListContainerEl}
-                        insets={threadListScrollInsets}
+                      <MessageNotificationIndexContext.Provider
+                        value={unread.unreadByMessage}
                       >
-                        {(unreadChip) => (
-                          <>
-                            <SwipableRowProvider
-                              container={threadListContainerEl}
-                              triggerBehavior="spring-back"
-                            >
-                              <ThreadList
-                                keys={() => messageIndex.keys}
-                                targetId={
-                                  targetMessageController.hasPendingElementScroll()
-                                    ? targetMessageController.activeTargetMessageId()
-                                    : undefined
-                                }
-                                insets={threadListScrollInsets()}
-                                followOnAppend={!messagesQuery.hasPreviousPage}
-                                onScrollNearTop={threadPaginator.shiftPaginate}
-                                onScrollNearBottom={
-                                  threadPaginator.prependPaginate
-                                }
-                                onReady={onThreadListReady}
-                                onScroll={onThreadListScroll}
-                                onUserNavigation={cancelLatestNavigation}
-                                initialPosition={
-                                  targetMessageController.activeTargetMessageId()
-                                    ? {
-                                        type: 'element',
-                                        id: targetMessageController.activeTargetMessageId()!,
-                                      }
-                                    : props.initialMessagesStateSnapshot?.scroll
-                                      ? {
-                                          type: 'restore',
-                                          snapshot:
-                                            props.initialMessagesStateSnapshot
-                                              .scroll,
-                                        }
-                                      : { type: 'latest' }
-                                }
-                              >
-                                {(item) => {
-                                  const message = () =>
-                                    messageById().get(item.id);
-                                  const state =
-                                    threadManager.getOrCreateThreadState(
-                                      item.id
-                                    );
-                                  const isNewestThread = () =>
-                                    item.id === messageIndex.keys.at(-1);
+                        <SwipableRowProvider
+                          container={threadListContainerEl}
+                          triggerBehavior="spring-back"
+                        >
+                          <ThreadList
+                            keys={() => messageIndex.entryKeys}
+                            targetId={
+                              targetMessageController.hasPendingElementScroll()
+                                ? targetMessageController.activeTargetMessageId()
+                                : undefined
+                            }
+                            insets={threadListScrollInsets()}
+                            followOnAppend={!messagesQuery.hasPreviousPage}
+                            onScrollNearTop={threadPaginator.shiftPaginate}
+                            onScrollNearBottom={threadPaginator.prependPaginate}
+                            onReady={onThreadListReady}
+                            onScroll={onThreadListScroll}
+                            onUserNavigation={cancelLatestNavigation}
+                            initialPosition={
+                              targetMessageController.activeTargetMessageId()
+                                ? {
+                                    type: 'element',
+                                    id: targetMessageController.activeTargetMessageId()!,
+                                  }
+                                : props.initialMessagesStateSnapshot?.scroll
+                                  ? {
+                                      type: 'restore',
+                                      snapshot:
+                                        props.initialMessagesStateSnapshot
+                                          .scroll,
+                                    }
+                                  : { type: 'latest' }
+                            }
+                          >
+                            {(item) => {
+                              const isNewestRow = () =>
+                                item.id === messageIndex.entryKeys.at(-1);
+                              const activity = () =>
+                                messageIndex.activityByKey.get(item.id);
+                              const message = () => messageById().get(item.id);
 
-                                  return (
-                                    <Show when={message()}>
-                                      {(m) => (
+                              return (
+                                <Switch>
+                                  <Match when={activity()}>
+                                    {(activity) => (
+                                      <ThreadRow
+                                        channelId={props.channelId}
+                                        message={{
+                                          created_at: activity().occurred_at,
+                                        }}
+                                        listMeta={listMetaByKey()[item.id]}
+                                      >
+                                        <SystemActivity
+                                          event={decodeSystemActivity(
+                                            activity()
+                                          )}
+                                        />
+                                        <Show when={isNewestRow()}>
+                                          <ThreadTypingIndicator
+                                            parent={{
+                                              type: 'channel',
+                                              id: props.channelId,
+                                            }}
+                                            threadId={null}
+                                          />
+                                        </Show>
+                                      </ThreadRow>
+                                    )}
+                                  </Match>
+                                  <Match when={message()}>
+                                    {(m) => {
+                                      const state =
+                                        threadManager.getOrCreateThreadState(
+                                          item.id
+                                        );
+                                      return (
                                         <ChannelThread
                                           data={m}
                                           parent={() => ({
                                             type: 'channel',
                                             id: (() => props.channelId)(),
                                           })}
-                                          isNewestThread={isNewestThread()}
+                                          isNewestThread={isNewestRow()}
                                           getMessageActions={getMessageActions}
                                           isFindBarOpen={findBar.isOpen}
                                           targetNavigation={{
@@ -827,6 +862,13 @@ export function Channel(props: ChannelProps) {
                                               : 'inline'
                                           }
                                           unifiedReplyTarget={unifiedInput.replyTarget()}
+                                          onMessageMount={unread.onMessageMount}
+                                          onDisclosureMount={
+                                            unread.onDisclosureMount
+                                          }
+                                          unreadMessageIds={unread
+                                            .unreadByThread()
+                                            .get(item.id)}
                                           isExpanded={state.isExpanded}
                                           setIsExpanded={state.setIsExpanded}
                                           isReplying={state.isReplying}
@@ -849,9 +891,7 @@ export function Channel(props: ChannelProps) {
                                           replyInputFocusRequest={
                                             state.replyInputFocusRequest
                                           }
-                                          listMeta={
-                                            listMetaByMessageId()[item.id]
-                                          }
+                                          listMeta={listMetaByKey()[item.id]}
                                           messageEditor={messageEditor}
                                           threadActions={{
                                             onDismissNewMessages:
@@ -869,35 +909,35 @@ export function Channel(props: ChannelProps) {
                                             messageListScopeId
                                           }
                                         />
-                                      )}
-                                    </Show>
-                                  );
-                                }}
-                              </ThreadList>
-                            </SwipableRowProvider>
+                                      );
+                                    }}
+                                  </Match>
+                                </Switch>
+                              );
+                            }}
+                          </ThreadList>
+                        </SwipableRowProvider>
 
-                            <Show when={!findBar.isOpen()}>
-                              <Show when={unreadChip()}>
-                                {(chip) => (
-                                  <UnreadNotificationsOverlay
-                                    direction={chip().direction}
-                                    count={chip().count}
-                                    onClick={() => goToUnread(chip().thread)}
-                                    bottomInset={threadListScrollInsets().end}
-                                  />
-                                )}
-                              </Show>
-                              <Show when={unreadChip()?.direction !== 'above'}>
-                                <ScrollToBottomOverlay
-                                  scrollState={threadListScrollState}
-                                  onScrollToBottom={goToLatest}
-                                  class="touch:top-[calc(var(--mobile-content-inset-top,0)+1rem)]"
-                                />
-                              </Show>
-                            </Show>
-                          </>
-                        )}
-                      </ChannelUnreadNotifications>
+                        <Show when={!findBar.isOpen()}>
+                          <Show when={unread.chip()}>
+                            {(chip) => (
+                              <UnreadNotificationsOverlay
+                                direction={chip().direction}
+                                count={chip().count}
+                                onClick={() => goToUnread(chip().thread)}
+                                bottomInset={threadListScrollInsets().end}
+                              />
+                            )}
+                          </Show>
+                          <Show when={unread.chip()?.direction !== 'above'}>
+                            <ScrollToBottomOverlay
+                              scrollState={threadListScrollState}
+                              onScrollToBottom={goToLatest}
+                              class="touch:top-[calc(var(--mobile-content-inset-top,0)+1rem)]"
+                            />
+                          </Show>
+                        </Show>
+                      </MessageNotificationIndexContext.Provider>
                     </div>
                   </Show>
                   <DebugSuspense name="Channel.active-call">

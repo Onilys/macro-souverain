@@ -157,6 +157,14 @@ impl Column {
     pub fn is_relation(&self) -> bool {
         matches!(self.config, Some(ColumnConfig::Link { .. }))
     }
+
+    /// A derived column's formula.
+    pub fn formula(&self) -> Option<&models_databases::Formula> {
+        match &self.config {
+            Some(ColumnConfig::Derived { formula }) => Some(formula),
+            _ => None,
+        }
+    }
 }
 
 /// What changing a column to one type would do to its values: the dry run
@@ -241,7 +249,7 @@ pub struct ColumnReplacement {
 }
 
 /// Column-kind specific configuration stored on the placement.
-#[derive(utoipa::ToSchema, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(utoipa::ToSchema, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ColumnConfig {
     /// A relation column: its cells reference rows of another table.
@@ -252,6 +260,12 @@ pub enum ColumnConfig {
         /// Target table.
         #[schema(value_type = Uuid)]
         table_id: TableId,
+    },
+    /// A derived column: its cells are computed from the row's others, and
+    /// its definition, a number or date one, never holds a value.
+    Derived {
+        /// How its cells are computed.
+        formula: models_databases::Formula,
     },
 }
 
@@ -778,7 +792,8 @@ pub struct CommittedChange {
 
 /// What a committed batch answers: a result per op, and the journal's change
 /// for each table version it produced.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AppliedOps {
     /// One result per op, in order.
     pub results: Vec<models_databases::OpResult>,
@@ -787,12 +802,15 @@ pub struct AppliedOps {
 }
 
 /// A batch of ops for one database and the versions its tables must be at.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct OpBatch {
     /// The ops, in the order they apply.
     pub ops: Vec<DatabaseOp>,
     /// The version each named table must still be at; the batch is refused
     /// as a conflict if one moved. Without one, ops are last-write-wins.
+    #[serde(default)]
+    #[schema(value_type = HashMap<String, TableVersion>)]
     pub base_versions: HashMap<TableId, TableVersion>,
 }
 

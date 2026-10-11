@@ -140,6 +140,42 @@ describe('grid cell', () => {
     }
   );
 
+  it('toggles the shared checkbox with pointer and keyboard and keeps grid Tab navigation', async () => {
+    const [value, setValue] = createSignal<DatabaseCellValue>(0);
+    const write = vi.fn(async (next: DatabaseCellValue) => {
+      setValue(next);
+      return true;
+    });
+    const navigate = vi.fn(() => true);
+    let control: GridCellControl | undefined;
+    render(() => (
+      <GridCell
+        column={{ ...column, dataType: 'BOOLEAN' }}
+        value={value()}
+        canEdit
+        onWrite={write}
+        onNavigate={navigate}
+        onAddOption={vi.fn(async () => true)}
+        onReady={(ready) => {
+          control = ready;
+        }}
+      />
+    ));
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'Name',
+    }) as HTMLInputElement;
+    await userEvent.click(screen.getByText('Name', { selector: 'label' }));
+    expect(write).toHaveBeenLastCalledWith(1);
+    expect(checkbox.checked).toBe(true);
+    control?.focus();
+    expect(document.activeElement).toBe(checkbox);
+    await userEvent.keyboard(' ');
+    expect(write).toHaveBeenLastCalledWith(0);
+    expect(checkbox.checked).toBe(false);
+    await userEvent.tab();
+    expect(navigate).toHaveBeenCalledWith(1);
+  });
+
   it('focuses the read-only boolean wrapper without enabling its checkbox', () => {
     let control: GridCellControl | undefined;
     const onWrite = vi.fn(async () => true);
@@ -465,6 +501,48 @@ describe('grid cell', () => {
     expect(onMention).not.toHaveBeenCalled();
     await userEvent.keyboard('{Delete}');
     expect(onWrite).toHaveBeenCalledExactlyOnceWith(null);
+  });
+
+  it('opens an entity it is given an opener for on click and Enter, and still edits with F2', async () => {
+    const onOpenMention = vi.fn();
+    const onWrite = vi.fn(async () => true);
+    const [value, setValue] = createSignal<DatabaseCellValue>('company-1');
+    render(() => (
+      <GridCell
+        column={{
+          ...column,
+          name: 'Company',
+          dataType: 'ENTITY',
+          specificEntityType: 'COMPANY',
+        }}
+        value={value()}
+        canEdit
+        onWrite={onWrite}
+        onAddOption={vi.fn(async () => true)}
+        onMention={vi.fn(async () => true)}
+        onOpenMention={onOpenMention}
+        renderMentionValue={() => <span>Acme</span>}
+        renderMentionPicker={(props) => <MentionPicker {...props} />}
+      />
+    ));
+    const button = screen.getByRole('button', { name: 'Company: Acme' });
+    expect(button.getAttribute('aria-description')).toBe('Click to open');
+    fireEvent.click(button);
+    expect(onOpenMention).toHaveBeenLastCalledWith('company-1', 'COMPANY');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.keyDown(button, { key: 'Enter' });
+    expect(onOpenMention).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.keyDown(button, { key: 'F2' });
+    await screen.findByRole('textbox', { name: 'Find an item' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // An empty cell has nothing to open, so a click picks one.
+    setValue(null);
+    fireEvent.click(screen.getByRole('button', { name: /Company: Empty/ }));
+    await screen.findByRole('textbox', { name: 'Find an item' });
+    expect(onOpenMention).toHaveBeenCalledTimes(2);
+    expect(onWrite).not.toHaveBeenCalled();
   });
 
   it('keeps the selected label through a delayed write and hands it to the entity renderer when the schema arrives', async () => {

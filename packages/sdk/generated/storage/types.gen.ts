@@ -10,6 +10,16 @@ export type ClientOptions = {
 export type AccessLevel = 'view' | 'comment' | 'edit' | 'owner';
 
 /**
+ * Metadata together with the caller's effective grant.
+ */
+export type AccessiblePipeline = Pipeline & {
+    /**
+     * Highest effective access.
+     */
+    grant: AccessLevel;
+};
+
+/**
  * A currently active call, as returned by the batch active-calls listing.
  */
 export type ActiveCallSummary = {
@@ -82,7 +92,7 @@ export type AddFavoriteRequest = {
     /**
      * The type of the entity to favorite.
      */
-    entityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
+    entityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
 };
 
 /**
@@ -868,6 +878,21 @@ export type ApiParticipantRole = 'owner' | 'admin' | 'member';
  * Entity type for property lookups (API representation).
  */
 export type ApiPropertyEntityType = 'CHANNEL' | 'CHAT' | 'COMPANY' | 'DOCUMENT' | 'PROJECT' | 'TASK' | 'THREAD' | 'USER';
+
+/**
+ * What a committed batch answers: a result per op, and the journal's change
+ * for each table version it produced.
+ */
+export type AppliedOps = {
+    /**
+     * The journal's changes.
+     */
+    changes: Array<CommittedChange>;
+    /**
+     * One result per op, in order.
+     */
+    results: Array<OpResult>;
+};
 
 /**
  * A batch of ops for one database, applied in order, in one transaction,
@@ -1804,52 +1829,6 @@ export type CallFilters = {
 };
 
 /**
- * One flag per [`CallKind`].
- */
-export type CallKinds = {
-    /**
-     * Standalone calls that someone outside the host's team joined.
-     */
-    externalMeetings: boolean;
-    /**
-     * Calls started from a channel other than a two-person direct message.
-     */
-    huddles: boolean;
-    /**
-     * Standalone calls with three or more people, all teammates.
-     */
-    internalMeetings: boolean;
-    /**
-     * Huddles in a two-person direct message, and standalone calls with only
-     * two people, both teammates.
-     */
-    oneOnOnes: boolean;
-};
-
-/**
- * A partial update to [`CallKinds`]. Omitted kinds keep their current value,
- * so two people changing different kinds at once do not undo each other.
- */
-export type CallKindsPatch = {
-    /**
-     * New value for standalone calls with people from outside the team.
-     */
-    externalMeetings?: boolean | null;
-    /**
-     * New value for huddles.
-     */
-    huddles?: boolean | null;
-    /**
-     * New value for standalone calls with three or more people, all teammates.
-     */
-    internalMeetings?: boolean | null;
-    /**
-     * New value for one-on-ones.
-     */
-    oneOnOnes?: boolean | null;
-};
-
-/**
  * Full record of a call, unifying rows from `calls` (active) and
  * `call_records` (archived) into a single response shape.
  */
@@ -1896,12 +1875,6 @@ export type CallRecord = {
      * Whether the call is currently active (from `calls` table).
      */
     isActive: boolean;
-    /**
-     * People in this live one-on-one who refuse being recorded or
-     * transcribed in one-on-ones, which is why it is not recording. Empty
-     * otherwise, and always empty once the call has ended.
-     */
-    oneOnOneRecordingRefusedBy: Array<string>;
     /**
      * Macro-account participants (both active and historic).
      */
@@ -2071,26 +2044,6 @@ export type CallRecordTranscriptSegment = {
      * Stable DB-row id for the segment.
      */
     transcriptId: string;
-};
-
-/**
- * The caller's call settings.
- */
-export type CallSettings = {
-    /**
-     * Kinds of call the caller's own calls record by default.
-     */
-    recordByDefault: CallKinds;
-    /**
-     * The caller does not allow being recorded or transcribed in
-     * one-on-ones, whoever hosts them.
-     */
-    refuseOneOnOneRecording: boolean;
-    /**
-     * Who each kind of call the caller hosts is shared with once it ends.
-     */
-    shareByDefault: ShareByDefault;
-    team?: null | TeamCallPolicy;
 };
 
 /**
@@ -2641,6 +2594,20 @@ export type ChannelParticipantRemovedMetadata = {
 };
 
 /**
+ * Metadata for a channel picture update, including removals.
+ */
+export type ChannelPictureChangedMetadata = {
+    /**
+     * User who changed the picture.
+     */
+    actor: MacroUserIdStr;
+    /**
+     * Channel whose picture changed.
+     */
+    channel_id: string;
+};
+
+/**
  * Preview entry for a single channel id.
  */
 export type ChannelPreview = (ChannelPreviewData & {
@@ -2718,6 +2685,12 @@ export type ChannelThreadFilters = {
  * Events that can be published to [`MacroChannelsTopic`].
  */
 export type ChannelTopicEvent = {
+    event_type: 'channel.picture_changed';
+    /**
+     * A channel's profile picture changed.
+     */
+    metadata: ChannelPictureChangedMetadata;
+} | {
     event_type: 'channel.created';
     /**
      * A channel was created.
@@ -2928,7 +2901,7 @@ export type CollabSurfaceResponse = {
     /**
      * Type of the parent entity.
      */
-    parentEntityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
+    parentEntityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
     /**
      * Lifecycle state (`ready` for every surface visible via the API).
      */
@@ -3085,6 +3058,12 @@ export type ColumnChange = {
      */
     option: string;
 } | {
+    /**
+     * The formula, over the table's other columns.
+     */
+    formula: Formula;
+    kind: 'set_formula';
+} | {
     kind: 'delete_option';
     /**
      * The option.
@@ -3095,10 +3074,10 @@ export type ColumnChange = {
 /**
  * How a change touched a column.
  */
-export type ColumnChangeKind = 'create' | 'rename' | 'change_type' | 'delete' | 'add_options' | 'update_option' | 'delete_option' | 'reorder' | 'infer_type' | 'related';
+export type ColumnChangeKind = 'create' | 'rename' | 'change_type' | 'set_formula' | 'delete' | 'add_options' | 'update_option' | 'delete_option' | 'reorder' | 'infer_type' | 'related';
 
 /**
- * A relation column: its cells reference rows of another table.
+ * Column-kind specific configuration stored on the placement.
  */
 export type ColumnConfig = {
     /**
@@ -3110,6 +3089,12 @@ export type ColumnConfig = {
      * Target table.
      */
     table_id: string;
+} | {
+    /**
+     * How its cells are computed.
+     */
+    formula: Formula;
+    kind: 'derived';
 };
 
 /**
@@ -3252,6 +3237,8 @@ export type ColumnResult = {
     kind: 'option_updated';
 } | {
     kind: 'option_deleted';
+} | {
+    kind: 'formula_set';
 };
 
 /**
@@ -4072,6 +4059,24 @@ export type CreatePairingRequest = {
      */
     name: string;
     scope?: null | RequestedHarnessScope;
+};
+
+/**
+ * Request to create an empty pipeline with the standard CRM columns.
+ */
+export type CreatePipeline = {
+    /**
+     * Pipeline name.
+     */
+    name: string;
+    /**
+     * Company or contact entries.
+     */
+    recordType: PipelineRecordType;
+    /**
+     * Defaults to private.
+     */
+    sharing?: PipelineSharing;
 };
 
 export type CreateProjectRequest = {
@@ -5813,7 +5818,7 @@ export type EnsureCollabSurfaceRequest = {
     /**
      * Type of the parent entity access derives from.
      */
-    parentEntityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
+    parentEntityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
 };
 
 /**
@@ -6021,7 +6026,7 @@ export type EventStatus = 'confirmed' | 'tentative' | 'cancelled';
  */
 export type EventTime = {
     /**
-     * Exclusive end instant.
+     * Exclusive end instant; equal to the start for an imported point event.
      */
     endsAt: string;
     kind: 'timed';
@@ -6119,7 +6124,7 @@ export type Favorite = {
     /**
      * The type of the favorited entity.
      */
-    entityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
+    entityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
     /**
      * File type of the favorited document, when applicable.
      */
@@ -6141,7 +6146,7 @@ export type FavoriteEntityRef = {
     /**
      * The type of the favorited entity.
      */
-    entityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
+    entityType: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
 };
 
 /**
@@ -6802,6 +6807,43 @@ export type FormTally = {
     questions: Array<QuestionTally>;
 };
 
+/**
+ * An expression over one row's cells.
+ */
+export type Formula = {
+    /**
+     * The column placement.
+     */
+    column: string;
+    kind: 'column';
+} | {
+    kind: 'number';
+    /**
+     * The value; finite.
+     */
+    value: number;
+} | {
+    kind: 'binary';
+    /**
+     * The left operand.
+     */
+    left: Formula;
+    /**
+     * How.
+     */
+    operator: Operator;
+    /**
+     * The right operand.
+     */
+    right: Formula;
+} | {
+    kind: 'negate';
+    /**
+     * The expression negated; a number.
+     */
+    operand: Formula;
+};
+
 export type GenericErrorResponse = {
     /**
      * Indicates if an error occurred
@@ -7441,6 +7483,41 @@ export type GithubPullRequestReviewDecision = 'approved' | 'changes_requested' |
  * What a reviewer's latest review on a pull request said.
  */
 export type GithubPullRequestReviewState = 'approved' | 'changes_requested' | 'commented' | 'dismissed';
+
+/**
+ * The tasks linked to one GitHub pull request.
+ */
+export type GithubPullRequestTasks = {
+    /**
+     * The pull request's `owner/repo/pull/number` key, as requested.
+     */
+    githubKey: string;
+    /**
+     * Ids of the task documents the pull request references, oldest link first. Empty when
+     * the caller cannot see the pull request. The caller may still lack access to a task.
+     */
+    taskIds: Array<string>;
+};
+
+/**
+ * Request body for looking up the tasks linked to GitHub pull requests.
+ */
+export type GithubPullRequestTasksRequest = {
+    /**
+     * Pull request `owner/repo/pull/number` keys, at most 100.
+     */
+    githubKeys: Array<string>;
+};
+
+/**
+ * The tasks linked to each requested GitHub pull request.
+ */
+export type GithubPullRequestTasksResponse = {
+    /**
+     * One entry per requested pull request, in request order.
+     */
+    pullRequests: Array<GithubPullRequestTasks>;
+};
 
 /**
  * A GitHub user named on a pull request, such as an assignee.
@@ -8708,11 +8785,11 @@ export type MessageChange = {
  */
 export type MessageCursor = {
     /**
-     * Last root creation time.
+     * Last message creation time or activity occurrence time.
      */
     created_at: string;
     /**
-     * Last root UUID, used to break timestamp ties.
+     * Last entry UUID, used to break timestamp ties across both sources.
      */
     id: string;
 };
@@ -9045,6 +9122,36 @@ export type MessageThreadPreview = {
 };
 
 /**
+ * One chronological entry in a parent's timeline.
+ */
+export type MessageTimelineEntry = {
+    /**
+     * The message and thread state.
+     */
+    message: MessageListItem;
+    type: 'message';
+} | {
+    /**
+     * The recorded activity.
+     */
+    activity: TimelineActivity;
+    type: 'activity';
+};
+
+/**
+ * A bounded, newest-first window of a parent's messages and activity, ordered
+ * by the server on one `(timestamp, id)` keyset.
+ */
+export type MessageTimelinePage = {
+    /**
+     * Messages and activity, newest first.
+     */
+    entries: Array<MessageTimelineEntry>;
+    next_cursor?: null | MessageCursor;
+    previous_cursor?: null | MessageCursor;
+};
+
+/**
  * Root selection shared by channel timelines and document discussions.
  */
 export type MessageTimelineQuery = {
@@ -9195,6 +9302,17 @@ export type NewColumn = {
     type: ColumnKind;
 } | {
     /**
+     * How its cells are computed: arithmetic over the table's number,
+     * date and other derived columns.
+     */
+    formula: Formula;
+    /**
+     * The column's name, unique within the table ignoring case.
+     */
+    name: string;
+    source: 'derived';
+} | {
+    /**
      * The property's definition.
      */
     property: string;
@@ -9340,6 +9458,23 @@ export type NotificationState = 'unseen' | 'seen' | 'done';
 export type NumberOperator = 'is' | 'isNot' | 'greaterThan' | 'greaterThanOrEqual' | 'lessThan' | 'lessThanOrEqual';
 
 /**
+ * A batch of ops for one database and the versions its tables must be at.
+ */
+export type OpBatch = {
+    /**
+     * The version each named table must still be at; the batch is refused
+     * as a conflict if one moved. Without one, ops are last-write-wins.
+     */
+    baseVersions?: {
+        [key: string]: TableVersion;
+    };
+    /**
+     * The ops, in the order they apply.
+     */
+    ops: Array<DatabaseOp>;
+};
+
+/**
  * Why an op of a batch was refused. Nothing in the batch was written.
  */
 export type OpRefusalResponse = {
@@ -9440,6 +9575,11 @@ export type OpResult = {
      */
     tables: Array<VersionedTable>;
 };
+
+/**
+ * An arithmetic operator.
+ */
+export type Operator = 'add' | 'subtract' | 'multiply' | 'divide';
 
 /**
  * A select option, by its id or by its label.
@@ -9712,6 +9852,66 @@ export type PinnedItem = {
      */
     pinIndex: number;
 };
+
+/**
+ * Pipeline metadata; table schema and data are read through the database service.
+ */
+export type Pipeline = {
+    /**
+     * Creation time.
+     */
+    createdAt: string;
+    /**
+     * Dedicated backing database.
+     */
+    databaseId: string;
+    /**
+     * Entity identity, used with `CrmPipeline` access receipts.
+     */
+    id: string;
+    /**
+     * Pipeline display name.
+     */
+    name: string;
+    /**
+     * Protected primary column.
+     */
+    primaryColumnId: string;
+    /**
+     * Kind of the primary reference.
+     */
+    recordType: PipelineRecordType;
+    /**
+     * Whether the pipeline has a team grant.
+     */
+    sharing: PipelineSharing;
+    /**
+     * Table of entries.
+     */
+    tableId: string;
+    /**
+     * Team owning the pipeline; references retain their own access controls.
+     */
+    teamId: string;
+    /**
+     * Trashed pipelines are omitted from navigation.
+     */
+    trashedAt: string | null;
+    /**
+     * Owning user; sharing never changes ownership.
+     */
+    userId: string;
+};
+
+/**
+ * Which CRM entity each row references. Fixed when a pipeline is created.
+ */
+export type PipelineRecordType = 'company' | 'contact';
+
+/**
+ * Initial sharing, or the desired team grant. Individual ownership is preserved.
+ */
+export type PipelineSharing = 'private' | 'team';
 
 /**
  * Request body for `POST /channels/activity`.
@@ -10249,6 +10449,16 @@ export type RenameChannelLabelRequest = {
 };
 
 /**
+ * Rename input.
+ */
+export type RenamePipeline = {
+    /**
+     * New display name.
+     */
+    name: string;
+};
+
+/**
  * Request body for reordering favorites.
  */
 export type ReorderFavoritesRequest = {
@@ -10468,6 +10678,11 @@ export type RowHistoryResponse = {
      */
     changes: Array<RowHistoryEntry>;
 };
+
+/**
+ * Identifier of a row.
+ */
+export type RowId = string;
 
 /**
  * A write to a table's rows.
@@ -10931,44 +11146,6 @@ export type SetPropertyValue = {
  */
 export type Sha256Digest = string;
 
-/**
- * Who can open a call's recording, transcript and notes once it ends, besides
- * its host.
- */
-export type ShareAudience = 'participants' | 'channel' | 'invited' | 'team';
-
-/**
- * Who each kind of call a person hosts is shared with once it ends.
- */
-export type ShareByDefault = {
-    /**
-     * External meetings: participants, invitees or the whole team.
-     */
-    externalMeetings: ShareAudience;
-    /**
-     * Huddles: their channel or the whole team.
-     */
-    huddles: ShareAudience;
-    /**
-     * Internal meetings: participants, invitees or the whole team.
-     */
-    internalMeetings: ShareAudience;
-    /**
-     * One-on-ones: the two people in them or the whole team.
-     */
-    oneOnOnes: ShareAudience;
-};
-
-/**
- * A partial update to [`ShareByDefault`]. Omitted kinds keep their audience.
- */
-export type ShareByDefaultPatch = {
-    externalMeetings?: null | ShareAudience;
-    huddles?: null | ShareAudience;
-    internalMeetings?: null | ShareAudience;
-    oneOnOnes?: null | ShareAudience;
-};
-
 export type SharePermissionV2 = {
     /**
      * The channel share permissions for the item
@@ -10985,6 +11162,16 @@ export type SharePermissionV2 = {
      */
     owner: string;
     teamShareAccessLevel?: null | AccessLevel;
+};
+
+/**
+ * Sharing input.
+ */
+export type SharePipeline = {
+    /**
+     * Desired team grant.
+     */
+    sharing: PipelineSharing;
 };
 
 /**
@@ -12514,6 +12701,52 @@ export type StarterDocumentsResponse = {
 };
 
 /**
+ * One storage row, with cells keyed by column placement.
+ */
+export type StorageRow = {
+    /**
+     * Populated cells.
+     */
+    cells: {
+        [key: string]: PropertyValue;
+    };
+    /**
+     * Row identity, independent of any referenced entity.
+     */
+    rowId: RowId;
+};
+
+/**
+ * A bounded page of rows at a table version.
+ */
+export type StorageRows = {
+    next?: null | RowId;
+    /**
+     * Rows in the requested view's order.
+     */
+    rows: Array<StorageRow>;
+    /**
+     * Table version when the read began.
+     */
+    version: TableVersion;
+};
+
+/**
+ * A query over one authorized storage table.
+ */
+export type StorageRowsQuery = {
+    after?: null | RowId;
+    /**
+     * The common database filter and sort semantics.
+     */
+    query?: ViewQuery;
+    /**
+     * Read these retained rows regardless of the active filter.
+     */
+    rowIds?: Array<RowId> | null;
+};
+
+/**
  * A GitHub pull request as Macro stores it, read through one of the caller's records.
  */
 export type StoredGithubPullRequest = {
@@ -12932,23 +13165,124 @@ export type TaskFilters = {
 };
 
 /**
- * What a team's admins forbid for everyone on the team.
+ * Disjoint busy/detail shapes prevent new event fields leaking by default.
  */
-export type TeamCallPolicy = {
+export type TeamCalendarContent = {
+    kind: 'busy';
+} | {
     /**
-     * Whether the caller may change the blocks (team admins and owners).
+     * Detail projection.
      */
-    canEdit: boolean;
-    /**
-     * No call started from a channel, direct messages included, may be
-     * shared with the team.
-     */
-    huddleSharingBlocked: boolean;
-    /**
-     * Kinds of call no one on the team may record.
-     */
-    recordingBlocked: CallKinds;
+    details: TeamCalendarDetails;
+    kind: 'details';
 };
+
+/**
+ * Whether a member's calendar projection can establish availability.
+ */
+export type TeamCalendarCoverage = 'ready' | 'unavailable' | 'hidden';
+
+/**
+ * Safe details from a single authorized source.
+ */
+export type TeamCalendarDetails = {
+    /**
+     * Attendees; self flags are relative to the requesting viewer.
+     */
+    attendees: Array<CalendarAttendee>;
+    /**
+     * Source calendar name, shown only with details.
+     */
+    calendarName: string;
+    /**
+     * Join URL, if supplied by this source.
+     */
+    conferenceUrl?: string | null;
+    /**
+     * Body, if supplied by this source.
+     */
+    description?: string | null;
+    /**
+     * Location, if supplied by this source.
+     */
+    location?: string | null;
+    /**
+     * Organizer address from this source.
+     */
+    organizerEmail?: string | null;
+    /**
+     * Organizer name from this source.
+     */
+    organizerName?: string | null;
+    /**
+     * Display title.
+     */
+    title: string;
+};
+
+/**
+ * A read-only team calendar occurrence.
+ */
+export type TeamCalendarItem = TeamCalendarContent & {
+    /**
+     * Whether this occurrence blocks the sharer's personal availability.
+     * A subscribed calendar's block can be shared without occupying the sharer.
+     */
+    contributesToAvailability: boolean;
+    /**
+     * Stable opaque projection identity, never an event entity id.
+     */
+    id: string;
+    /**
+     * The person sharing access to the source.
+     */
+    ownerId: string;
+    /**
+     * Occurrence interval.
+     */
+    time: EventTime;
+};
+
+/**
+ * A current member of the requester's team.
+ */
+export type TeamCalendarMember = {
+    /**
+     * Coverage available for a trustworthy calculation.
+     */
+    coverage: TeamCalendarCoverage;
+    /**
+     * Current team-sharing policy.
+     */
+    sharing: TeamCalendarSharing;
+    /**
+     * Macro user identifier.
+     */
+    userId: string;
+};
+
+/**
+ * A bounded page of team calendar projections.
+ */
+export type TeamCalendarPage = {
+    /**
+     * Authorized read-only projections.
+     */
+    items: Array<TeamCalendarItem>;
+    /**
+     * Current membership and sharing policies.
+     */
+    members: Array<TeamCalendarMember>;
+    /**
+     * Opaque continuation token; null after the last source occurrence.
+     */
+    nextCursor?: string | null;
+};
+
+/**
+ * What a user exposes through their team membership.
+ */
+export type TeamCalendarSharing = 'all' | 'busy_only' | 'none';
 
 /**
  * One teammate's out-of-office occurrence.
@@ -13139,6 +13473,32 @@ export type ThreadState = {
 };
 
 /**
+ * A displayable fact returned together with a message page.
+ */
+export type TimelineActivity = {
+    /**
+     * Durable action tag. Unknown tags remain representable during rollouts.
+     */
+    action: string;
+    /**
+     * Principal who performed the action.
+     */
+    actor_id: string;
+    /**
+     * Stable activity identity, independent of message ids.
+     */
+    id: string;
+    /**
+     * Immutable chronological position.
+     */
+    occurred_at: string;
+    /**
+     * The action's stored payload.
+     */
+    payload?: unknown;
+};
+
+/**
  * A column a table's changes since some version touched.
  */
 export type TouchedColumn = {
@@ -13225,6 +13585,16 @@ export type TranscriptSegmentRequest = {
      * (it stamps egress bootstrap, not first audio frame).
      */
     streamStartedAt?: string | null;
+};
+
+/**
+ * Trash/restore input.
+ */
+export type TrashPipeline = {
+    /**
+     * True to trash; false to restore.
+     */
+    trashed: boolean;
 };
 
 /**
@@ -13500,24 +13870,6 @@ export type UpdateAgentRequest = {
     team_id?: string | null;
 };
 
-/**
- * Body of `PATCH /call/settings`. Omitted fields keep their current value.
- */
-export type UpdateCallSettingsRequest = {
-    /**
-     * Changes to the kinds of call the caller records by default.
-     */
-    recordByDefault?: CallKindsPatch;
-    /**
-     * New value for refusing to be recorded or transcribed in one-on-ones.
-     */
-    refuseOneOnOneRecording?: boolean | null;
-    /**
-     * Changes to who each kind of call the caller hosts is shared with.
-     */
-    shareByDefault?: ShareByDefaultPatch;
-};
-
 export type UpdateChannelSharePermission = {
     accessLevel?: null | AccessLevel;
     /**
@@ -13635,21 +13987,6 @@ export type UpdateSharePermissionRequestV2 = {
     linkShare?: null | LinkShare;
     linkShareAccessLevel?: null | AccessLevel;
     teamShareAccessLevel?: null | AccessLevel;
-};
-
-/**
- * Body of `PATCH /call/settings/team`. Omitted fields keep their current
- * value.
- */
-export type UpdateTeamCallPolicyRequest = {
-    /**
-     * New value for forbidding sharing huddles with the team.
-     */
-    huddleSharingBlocked?: boolean | null;
-    /**
-     * Changes to the kinds of call no one on the team may record.
-     */
-    recordingBlocked?: CallKindsPatch;
 };
 
 /**
@@ -14604,6 +14941,36 @@ export type MentionPreviewsResponses = {
 
 export type MentionPreviewsResponse = MentionPreviewsResponses[keyof MentionPreviewsResponses];
 
+export type ListTeamCalendarData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Inclusive instant.
+         */
+        start: string;
+        /**
+         * Exclusive instant.
+         */
+        end: string;
+        /**
+         * Continuation returned by the preceding page.
+         */
+        cursor?: string | null;
+        /**
+         * Maximum source occurrences, at most 2,000. Zero returns the roster only.
+         */
+        limit?: number | null;
+    };
+    url: '/calendar-events/team';
+};
+
+export type ListTeamCalendarResponses = {
+    200: TeamCalendarPage;
+};
+
+export type ListTeamCalendarResponse = ListTeamCalendarResponses[keyof ListTeamCalendarResponses];
+
 export type ListTeamOutOfOfficeData = {
     body?: never;
     path?: never;
@@ -15266,69 +15633,6 @@ export type GetRingStatusResponses = {
 };
 
 export type GetRingStatusResponse = GetRingStatusResponses[keyof GetRingStatusResponses];
-
-export type GetCallSettingsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/call/settings';
-};
-
-export type GetCallSettingsErrors = {
-    401: ErrorResponse;
-    500: ErrorResponse;
-};
-
-export type GetCallSettingsError = GetCallSettingsErrors[keyof GetCallSettingsErrors];
-
-export type GetCallSettingsResponses = {
-    200: CallSettings;
-};
-
-export type GetCallSettingsResponse = GetCallSettingsResponses[keyof GetCallSettingsResponses];
-
-export type UpdateCallSettingsData = {
-    body: UpdateCallSettingsRequest;
-    path?: never;
-    query?: never;
-    url: '/call/settings';
-};
-
-export type UpdateCallSettingsErrors = {
-    400: ErrorResponse;
-    401: ErrorResponse;
-    500: ErrorResponse;
-};
-
-export type UpdateCallSettingsError = UpdateCallSettingsErrors[keyof UpdateCallSettingsErrors];
-
-export type UpdateCallSettingsResponses = {
-    200: CallSettings;
-};
-
-export type UpdateCallSettingsResponse = UpdateCallSettingsResponses[keyof UpdateCallSettingsResponses];
-
-export type UpdateTeamCallPolicyData = {
-    body: UpdateTeamCallPolicyRequest;
-    path?: never;
-    query?: never;
-    url: '/call/settings/team';
-};
-
-export type UpdateTeamCallPolicyErrors = {
-    400: ErrorResponse;
-    401: ErrorResponse;
-    403: ErrorResponse;
-    500: ErrorResponse;
-};
-
-export type UpdateTeamCallPolicyError = UpdateTeamCallPolicyErrors[keyof UpdateTeamCallPolicyErrors];
-
-export type UpdateTeamCallPolicyResponses = {
-    200: CallSettings;
-};
-
-export type UpdateTeamCallPolicyResponse = UpdateTeamCallPolicyResponses[keyof UpdateTeamCallPolicyResponses];
 
 export type CallWebhookData = {
     body?: never;
@@ -16731,6 +17035,157 @@ export type SetCrmContactNameResponses = {
 
 export type SetCrmContactNameResponse = SetCrmContactNameResponses[keyof SetCrmContactNameResponses];
 
+export type ListCrmPipelinesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/crm/pipelines';
+};
+
+export type ListCrmPipelinesResponses = {
+    200: Array<AccessiblePipeline>;
+};
+
+export type ListCrmPipelinesResponse = ListCrmPipelinesResponses[keyof ListCrmPipelinesResponses];
+
+export type CreateCrmPipelineData = {
+    body: CreatePipeline;
+    path?: never;
+    query?: never;
+    url: '/crm/pipelines';
+};
+
+export type CreateCrmPipelineResponses = {
+    200: AccessiblePipeline;
+};
+
+export type CreateCrmPipelineResponse = CreateCrmPipelineResponses[keyof CreateCrmPipelineResponses];
+
+export type GetCrmPipelineData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}';
+};
+
+export type GetCrmPipelineResponses = {
+    200: AccessiblePipeline;
+};
+
+export type GetCrmPipelineResponse = GetCrmPipelineResponses[keyof GetCrmPipelineResponses];
+
+export type RenameCrmPipelineData = {
+    body: RenamePipeline;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/name';
+};
+
+export type RenameCrmPipelineResponses = {
+    204: void;
+};
+
+export type RenameCrmPipelineResponse = RenameCrmPipelineResponses[keyof RenameCrmPipelineResponses];
+
+export type ApplyCrmPipelineOpsData = {
+    body: OpBatch;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/ops';
+};
+
+export type ApplyCrmPipelineOpsResponses = {
+    200: AppliedOps;
+};
+
+export type ApplyCrmPipelineOpsResponse = ApplyCrmPipelineOpsResponses[keyof ApplyCrmPipelineOpsResponses];
+
+export type GetCrmPipelineRowsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        /**
+         * Continue after this row identity.
+         */
+        after?: string | null;
+    };
+    url: '/crm/pipelines/{id}/rows';
+};
+
+export type GetCrmPipelineRowsResponses = {
+    200: StorageRows;
+};
+
+export type GetCrmPipelineRowsResponse = GetCrmPipelineRowsResponses[keyof GetCrmPipelineRowsResponses];
+
+export type QueryCrmPipelineRowsData = {
+    body: StorageRowsQuery;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/rows';
+};
+
+export type QueryCrmPipelineRowsResponses = {
+    200: StorageRows;
+};
+
+export type QueryCrmPipelineRowsResponse = QueryCrmPipelineRowsResponses[keyof QueryCrmPipelineRowsResponses];
+
+export type ShareCrmPipelineData = {
+    body: SharePipeline;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/sharing';
+};
+
+export type ShareCrmPipelineResponses = {
+    204: void;
+};
+
+export type ShareCrmPipelineResponse = ShareCrmPipelineResponses[keyof ShareCrmPipelineResponses];
+
+export type GetCrmPipelineTableData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/table';
+};
+
+export type GetCrmPipelineTableResponses = {
+    200: TableDetail;
+};
+
+export type GetCrmPipelineTableResponse = GetCrmPipelineTableResponses[keyof GetCrmPipelineTableResponses];
+
+export type TrashCrmPipelineData = {
+    body: TrashPipeline;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/trash';
+};
+
+export type TrashCrmPipelineResponses = {
+    204: void;
+};
+
+export type TrashCrmPipelineResponse = TrashCrmPipelineResponses[keyof TrashCrmPipelineResponses];
+
 export type GetCrmTeamSettingsData = {
     body?: never;
     path?: never;
@@ -17671,6 +18126,27 @@ export type CreateTaskHandlerResponses = {
 
 export type CreateTaskHandlerResponse = CreateTaskHandlerResponses[keyof CreateTaskHandlerResponses];
 
+export type GetGithubPullRequestTasksData = {
+    body: GithubPullRequestTasksRequest;
+    path?: never;
+    query?: never;
+    url: '/documents/github_prs/tasks';
+};
+
+export type GetGithubPullRequestTasksErrors = {
+    400: ErrorResponse;
+    401: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type GetGithubPullRequestTasksError = GetGithubPullRequestTasksErrors[keyof GetGithubPullRequestTasksErrors];
+
+export type GetGithubPullRequestTasksResponses = {
+    200: GithubPullRequestTasksResponse;
+};
+
+export type GetGithubPullRequestTasksResponse = GetGithubPullRequestTasksResponses[keyof GetGithubPullRequestTasksResponses];
+
 export type InitializeUserDocumentsData = {
     body?: never;
     path?: never;
@@ -18492,7 +18968,7 @@ export type ListFavoritesData = {
         /**
          * Restrict to favorites whose entity is one of these types.
          */
-        entityType?: Array<'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form'>;
+        entityType?: Array<'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form'>;
         /**
          * Restrict to favorites whose entity is one of these ids.
          */
@@ -18561,7 +19037,7 @@ export type RemoveFavoriteByEntityData = {
         /**
          * The type of an entity in Macro
          */
-        entity_type: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
+        entity_type: 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
         /**
          * The id of the favorited entity.
          */
@@ -19986,6 +20462,27 @@ export type EntityMessagePatchThreadResponses = {
 };
 
 export type EntityMessagePatchThreadResponse = EntityMessagePatchThreadResponses[keyof EntityMessagePatchThreadResponses];
+
+export type MessageTimelineEntriesData = {
+    body?: never;
+    path: {
+        parent_type: string;
+        parent_id: string;
+    };
+    query?: {
+        /**
+         * Serialized MessageTimelineQuery; absent selects the latest roots.
+         */
+        selection?: string | null;
+    };
+    url: '/messages/{parent_type}/{parent_id}/timeline';
+};
+
+export type MessageTimelineEntriesResponses = {
+    200: MessageTimelinePage;
+};
+
+export type MessageTimelineEntriesResponse = MessageTimelineEntriesResponses[keyof MessageTimelineEntriesResponses];
 
 export type EntityMessageTypingData = {
     body: TypingInput;

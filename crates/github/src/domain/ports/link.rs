@@ -3,10 +3,12 @@
 use std::future::Future;
 
 use crate::domain::models::{
-    EnrichedGithubPullRequest, GithubAccessToken, GithubError, GithubExchangeTokenResponse,
-    GithubLink, GithubMergeMethod, GithubMergeOutcome, GithubPullRequestDetails,
+    EnrichedGithubPullRequest, GithubAccessToken, GithubDraftOutcome, GithubError,
+    GithubExchangeTokenResponse, GithubLink, GithubMergeMethod, GithubMergeOutcome,
+    GithubPullRequestDetails, GithubPullRequestMergeabilityEntry, GithubPullRequestNumber,
     GithubPullRequestRef, GithubRepositoryMergeSettings, GithubUserInfo,
     MergeGithubPullRequestRequest, MergeGithubPullRequestResponse,
+    SetGithubPullRequestDraftRequest, SetGithubPullRequestDraftResponse,
 };
 use macro_user_id::{lowercased::Lowercase, user_id::MacroUserId};
 
@@ -68,12 +70,15 @@ pub trait GithubOauth: Send + Sync + 'static {
     /// The error type returned by repository operations.
     type Err: Into<anyhow::Error> + Send + std::fmt::Debug;
 
-    /// Constructs the oauth url to authenticate with github
-    fn construct_oauth_url<T: serde::Serialize + std::fmt::Debug + 'static>(
+    /// Constructs the oauth url to authenticate with github.
+    ///
+    /// `state` is the opaque, already-encoded value the callback expects
+    /// back; it is placed in the URL as-is.
+    fn construct_oauth_url(
         &self,
         client_id: &str,
         redirect_uri: &str,
-        state: T,
+        state: &str,
     ) -> Result<String, Self::Err>;
 
     /// Exchanges the oauth code for tokens
@@ -126,6 +131,26 @@ pub trait GithubOauth: Send + Sync + 'static {
         number: u64,
         merge_method: GithubMergeMethod,
     ) -> impl Future<Output = Result<GithubMergeOutcome, Self::Err>> + Send;
+
+    /// Converts a pull request to a draft, or marks it ready for review, as
+    /// the user. A change GitHub declines is a [`GithubDraftOutcome::Rejected`]
+    /// value, not an error.
+    fn set_pull_request_draft(
+        &self,
+        access_token: &str,
+        owner: &str,
+        repo: &str,
+        number: u64,
+        draft: bool,
+    ) -> impl Future<Output = Result<GithubDraftOutcome, Self::Err>> + Send;
+
+    /// Reads whether each pull request merges cleanly, as the user sees it.
+    /// Pull requests the user cannot see are left out.
+    fn get_pull_request_mergeability(
+        &self,
+        access_token: &str,
+        pull_requests: &[GithubPullRequestNumber],
+    ) -> impl Future<Output = Result<Vec<GithubPullRequestMergeabilityEntry>, Self::Err>> + Send;
 }
 
 /// Repository for handling auth related actions.
@@ -163,12 +188,11 @@ pub trait Auth: Send + Sync + 'static {
 ///
 /// Handles OAuth URL construction and user account linking.
 pub trait GithubLinkService: Send + Sync + 'static {
-    /// Constructs the oauth url to authenticate with github
-    fn construct_oauth_url<T: serde::Serialize + std::fmt::Debug + 'static>(
-        &self,
-        redirect_uri: &str,
-        state: T,
-    ) -> Result<String, GithubError>;
+    /// Constructs the oauth url to authenticate with github.
+    ///
+    /// `state` is the opaque, already-encoded value the callback expects
+    /// back; it is placed in the URL as-is.
+    fn construct_oauth_url(&self, redirect_uri: &str, state: &str) -> Result<String, GithubError>;
 
     /// Uses token exchange to link the user to the github account
     fn link_user(
@@ -215,4 +239,25 @@ pub trait GithubLinkService: Send + Sync + 'static {
         user_id: &MacroUserId<Lowercase<'static>>,
         request: MergeGithubPullRequestRequest,
     ) -> impl Future<Output = Result<MergeGithubPullRequestResponse, GithubError>> + Send;
+
+    /// Converts a pull request to a draft, or marks it ready for review, as
+    /// the user with their own GitHub grant.
+    ///
+    /// A change GitHub declines is
+    /// [`GithubError::PullRequestUpdateRejected`] with GitHub's message.
+    fn set_pull_request_draft(
+        &self,
+        user_id: &MacroUserId<Lowercase<'static>>,
+        request: SetGithubPullRequestDraftRequest,
+    ) -> impl Future<Output = Result<SetGithubPullRequestDraftResponse, GithubError>> + Send;
+
+    /// Reads whether each pull request merges cleanly into its base, as the
+    /// user sees it. More than
+    /// [`GithubPullRequestMergeabilityRequest::MAX`](crate::domain::models::GithubPullRequestMergeabilityRequest::MAX)
+    /// pull requests is [`GithubError::TooManyPullRequests`].
+    fn get_pull_request_mergeability(
+        &self,
+        user_id: &MacroUserId<Lowercase<'static>>,
+        pull_requests: Vec<GithubPullRequestNumber>,
+    ) -> impl Future<Output = Result<Vec<GithubPullRequestMergeabilityEntry>, GithubError>> + Send;
 }

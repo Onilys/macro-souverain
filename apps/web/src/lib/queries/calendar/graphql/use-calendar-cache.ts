@@ -3,12 +3,13 @@ import { queryClient } from '@queries/client';
 import { CalendarSyncStatus } from '@service-storage/generated/schemas/calendarSyncStatus';
 import { subscribeGraphqlSoupReconnected } from '@service-storage/graphql-soup';
 import { makeEventListener } from '@solid-primitives/event-listener';
-import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { type Accessor, createEffect, createSignal, onCleanup } from 'solid-js';
 import { calendarKeys } from '../keys';
 import { createCalendarOccurrenceQueryRange } from '../occurrences';
 import { runCalendarBackfill } from './backfill';
 import { useGraphqlCalendarHost } from './flag';
 import { mapCalendarSyncStatus } from './map';
+import { trackCalendarCreateSettlements } from './mutations';
 import {
   beginCalendarSyncStatusSample,
   fetchCalendarOccurrencePage,
@@ -48,20 +49,22 @@ async function refreshSyncStatus(): Promise<void> {
  * server is still syncing. The cross-tab leader also widens coverage in the
  * background.
  */
-export function useCalendarCache(): void {
+/** Keeps the calendar cache in sync while `active`, i.e. once a user is signed in. */
+export function useCalendarCache(active: Accessor<boolean>): void {
   const host = useGraphqlCalendarHost();
   const isLeader = createTabLeaderSignal('graphql-calendar-backfill:v1');
   const [generation, setGeneration] = createSignal(0);
 
   createEffect(() => {
     const cacheHost = host();
-    if (!cacheHost) return;
+    if (!cacheHost || !active()) return;
     const controller = new CalendarSyncController(cacheHost);
     setActiveCalendarSyncController(controller);
     controller.markStale('start');
     const unsubscribeReconnect = subscribeGraphqlSoupReconnected(() =>
       controller.markStale('reconnect')
     );
+    const untrackCreates = trackCalendarCreateSettlements(cacheHost);
     const unsubscribeGeneration = cacheHost.onCacheGenerationChanged(() => {
       controller.markStale('generation');
       setGeneration((value) => value + 1);
@@ -91,6 +94,7 @@ export function useCalendarCache(): void {
       removeOnline();
       unsubscribeGeneration();
       unsubscribeReconnect();
+      untrackCreates();
       controller.dispose();
       if (activeCalendarSyncController() === controller) {
         setActiveCalendarSyncController(undefined);
@@ -100,7 +104,7 @@ export function useCalendarCache(): void {
 
   createEffect(() => {
     const cacheHost = host();
-    if (!cacheHost || !isLeader()) return;
+    if (!cacheHost || !active() || !isLeader()) return;
     generation();
     const abort = new AbortController();
     runCalendarBackfill(cacheHost, { signal: abort.signal }).catch((error) => {

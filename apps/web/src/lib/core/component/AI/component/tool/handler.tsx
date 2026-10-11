@@ -39,6 +39,7 @@ import {
   createChannelHandler,
   manageChannelParticipantsHandler,
   renameChannelHandler,
+  shareWithChannelHandler,
 } from './ChannelMutations';
 import {
   dispatchCodingAgentHandler,
@@ -58,6 +59,7 @@ import {
   readIllustratorDocumentHandler,
   readPhotoshopDocumentHandler,
 } from './DesignDocument';
+import { discoverConnectorsHandler } from './DiscoverConnectors';
 import { displayResultsHandler } from './DisplayResults';
 import {
   commentOnDocumentHandler,
@@ -65,6 +67,7 @@ import {
 } from './DocumentComments';
 import { editDocumentHandler } from './EditDocument';
 import { editTagHandler } from './EditTag';
+import { lazyFormsToolHandlers } from './FormsHandlers';
 import { generateImageHandler } from './GenerateImage';
 import { getThreadHandler } from './GetThread';
 import {
@@ -130,6 +133,7 @@ import {
   readSpreadsheetHandler,
 } from './Spreadsheet';
 import { subagentHandler } from './Subagent';
+import { getTeamAvailabilityHandler } from './TeamAvailability';
 import { textEditorCodeExecutionHandler } from './TextEditorCodeExecution';
 import {
   type RenderContext,
@@ -171,6 +175,7 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   IssueBotCredential: issueBotCredentialHandler,
   ListBots: listBotsHandler,
   ManageBotChannelAccess: manageBotChannelAccessHandler,
+  ...lazyFormsToolHandlers,
   ListBookingLinks: listBookingLinksHandler,
   CreateBookingLink: createBookingLinkHandler,
   EditBookingLink: editBookingLinkHandler,
@@ -180,6 +185,7 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   DeleteCalendarEvent: deleteCalendarEventHandler,
   ListCalendarEvents: listCalendarEventsHandler,
   ListCalendars: listCalendarsHandler,
+  GetTeamAvailability: getTeamAvailabilityHandler,
   CreateImportEntity: createImportEntityHandler,
   DeleteImportEntity: deleteImportEntityHandler,
   ImportNotionPage: importNotionPageHandler,
@@ -206,6 +212,7 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   MoveToProject: moveToProjectHandler,
   BashCodeExecution: bashCodeExecutionHandler,
   DisplayResults: displayResultsHandler,
+  DiscoverConnectors: discoverConnectorsHandler,
   ContentSearch: contentSearchHandler,
   CreateDocument: createDocumentHandler,
   UploadFile: uploadFileHandler,
@@ -236,6 +243,7 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   SearchTools: searchToolsHandler,
   SelfKnowledge: selfKnowledgeHandler,
   SendChannelMessage: sendChannelMessageHandler,
+  ShareWithChannel: shareWithChannelHandler,
   SendConfirmedEmail: sendConfirmedEmailHandler,
   SendEmail: sendEmailHandler,
   SetSenderPolicy: setSenderPolicyHandler,

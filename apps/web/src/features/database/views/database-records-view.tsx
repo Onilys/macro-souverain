@@ -1,6 +1,7 @@
 import { until } from '@solid-primitives/promise';
 import { Button } from '@ui/components/Button';
 import { DeleteDialog } from '@ui/components/DeleteDialog';
+import { cn } from '@ui/utils/classname';
 import {
   type Accessor,
   type JSX,
@@ -31,7 +32,10 @@ import { filterConditionCount } from '../components/database-view-filters';
 import { GridCell, type GridCellProps } from '../components/grid-cell';
 import { RecordPanel } from '../components/record-panel';
 import type { DatabaseRowsSource } from '../context/table-source';
-import type { DatabaseColumnType } from '../core/column-inference';
+import type {
+  DatabaseColumnType,
+  DatabaseEntityType,
+} from '../core/column-inference';
 import type {
   DatabaseColumnCastsSource,
   DatabaseColumnConversion,
@@ -90,6 +94,8 @@ export type RelationCellProps = GridCellEditorOptions & {
 
 /** A table's records in the view's layout — a grid or a board — with the record panel over them. */
 export type DatabaseRecordsViewProps = {
+  /** Host framing for the records area, below the toolbar. */
+  contentClass?: string;
   name: string;
   source: DatabaseRowsSource;
   canEdit: boolean;
@@ -107,6 +113,8 @@ export type DatabaseRecordsViewProps = {
   renderTextValue?: GridCellProps['renderTextValue'];
   renderMentionPicker?: GridCellProps['renderMentionPicker'];
   renderMentionValue?: GridCellProps['renderMentionValue'];
+  /** Opens what a record's title mentions, such as a pipeline row's company, in place of editing it. */
+  onOpenTitleMention?: (id: string, type: DatabaseEntityType) => void;
   renderRelationCell?: (props: RelationCellProps) => JSX.Element;
   relationTables?: { id: string; name: string }[];
   columnCasts?: DatabaseColumnCastsSource;
@@ -270,6 +278,7 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
   ) {
     const write = (value: DatabaseCellValue) =>
       writeValue(row(), column(), value);
+    const isTitle = () => column().id === titleColumn(columns())?.id;
     const relationCell = () => {
       const render = props.renderRelationCell;
       const current = column();
@@ -284,15 +293,14 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
           <GridCell
             {...options}
             column={column()}
-            emptyLabel={
-              column().id === titleColumn(columns())?.id ? 'Unnamed' : undefined
-            }
+            emptyLabel={isTitle() ? 'Unnamed' : undefined}
             value={rowValue(row(), column().id)}
             canEdit={props.canEdit}
             renderTextEditor={props.renderTextEditor}
             renderTextValue={props.renderTextValue}
             renderMentionPicker={props.renderMentionPicker}
             renderMentionValue={props.renderMentionValue}
+            onOpenMention={isTitle() ? props.onOpenTitleMention : undefined}
             onMention={(mention) =>
               writeValue(row(), column(), mention.id, undefined, {
                 dataType: 'ENTITY',
@@ -355,7 +363,12 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
     <>
       {/* Rendered once: the toolbar's own props keep it current, and a rerun would close its open popovers. */}
       {untrack(() => props.renderToolbar?.(actions))}
-      <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        class={cn(
+          'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+          props.contentClass
+        )}
+      >
         <Show when={columnLayout.schemaError()}>
           {(message) => <SchemaErrorNotice message={message()} />}
         </Show>

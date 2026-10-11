@@ -33,6 +33,8 @@ export const agentHarnessExcluded = [
   'loadAgentModelsHandler',
   'discoverAgentCapabilitiesHandler',
   'previewAgentSessions',
+  // Batch form of agentSessionsForPullRequest that feeds the web Reviews list.
+  'agentSessionsForPullRequests',
   // Speculative page warm-up requires a signed-in user and is app-internal.
   'warmAgentSessionHandler',
 ] as const satisfies readonly (keyof AgentHarnessSdk)[];
@@ -57,7 +59,6 @@ export const authExcluded = [
   'createMergeRequest',
   'createPortalSession',
   'createTeam',
-  'createUser',
   'deleteCursorApiKey',
   'deleteGithubLink',
   'deleteTeam',
@@ -70,10 +71,13 @@ export const authExcluded = [
   'getAiBillingSummary',
   'getCodexConnection',
   'getCursorApiKey',
+  'getGithubPullRequestMergeability',
   'getGtmInviteOffer',
   'getLegacyUserPermissions',
   'getPermissions',
   'getReferralCode',
+  // Renewal and scheduled-plan details are part of the app's billing settings.
+  'getSubscriptionStatus',
   'getTeamInvites',
   'getUserInvites',
   'getUserLinkExists',
@@ -121,6 +125,7 @@ export const authExcluded = [
   'sendReferralCode',
   'sessionCreation',
   'sessionLogin',
+  'setGithubPullRequestDraft',
   'ssoLogin',
   'startCodexLogin',
   'toggleTeamAutoJoinDomain',
@@ -141,8 +146,13 @@ export const calendarExcluded = [
   'healthHandler',
 ] as const satisfies readonly (keyof CalendarSdk)[];
 
-export const calendarBacklog =
-  [] as const satisfies readonly (keyof CalendarSdk)[];
+export const calendarBacklog = [
+  // Team sharing and availability preferences use the generated client for now.
+  'getAvailabilityCalendars',
+  'getTeamSharing',
+  'setAvailabilityCalendar',
+  'setTeamSharing',
+] as const satisfies readonly (keyof CalendarSdk)[];
 
 export const cognitionExcluded = [
   'addMcpServer',
@@ -395,6 +405,17 @@ export const storageBacklog = [
   'getEmailFollowup',
   'setEmailFollowup',
   'listEmailReminders',
+  // CRM pipelines fit the crm namespace but are not wrapped yet.
+  'createCrmPipeline',
+  'applyCrmPipelineOps',
+  'getCrmPipeline',
+  'getCrmPipelineRows',
+  'queryCrmPipelineRows',
+  'getCrmPipelineTable',
+  'listCrmPipelines',
+  'renameCrmPipeline',
+  'shareCrmPipeline',
+  'trashCrmPipeline',
   'approveHarnessPairing',
   'claimHarnessPairing',
   'createAgent',
@@ -436,6 +457,8 @@ export const storageBacklog = [
   'listHarnesses',
   'listInitiatives',
   'listOccurrences',
+  // Read-only team projections use the generated client for now.
+  'listTeamCalendar',
   'listTeamOutOfOffice',
   'listUserApiKeys',
   // Meeting management uses the generated client.
@@ -449,6 +472,8 @@ export const storageBacklog = [
   'meetingLookup',
   'meetingShare',
   'meetingUpdate',
+  // Mixed message and activity timelines; Channel.messages() reads messages only.
+  'messageTimelineEntries',
   'postActivity',
   'presaveDocumentHandler',
   'saveDocumentHandler',
