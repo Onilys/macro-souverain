@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   setCallRecordTeamShareCache: vi.fn(),
   callRecordShared: true,
   callRecordChannelId: 'channel-1' as string | null,
+  callRecordActive: false,
   callRecordQuerySuccess: true,
   getProjectPermissions: vi.fn(),
   editProject: vi.fn(),
@@ -202,6 +203,10 @@ vi.mock('@queries/call/call', () => ({
     mocks.updateCallTeamShare(...args),
   setCallRecordTeamShareCache: (...args: unknown[]) =>
     mocks.setCallRecordTeamShareCache(...args),
+  hasCallTeamShareControl: (record: {
+    channelId: string | null;
+    isActive: boolean;
+  }) => record.channelId != null || !record.isActive,
   sharePermissionFromCallRecord: (record: {
     callId: string;
     createdBy: string;
@@ -219,6 +224,7 @@ vi.mock('@queries/call/call', () => ({
       return {
         callId: 'call-1',
         channelId: mocks.callRecordChannelId,
+        isActive: mocks.callRecordActive,
         createdBy: ME,
         shareWithTeam: mocks.callRecordShared,
       };
@@ -343,6 +349,7 @@ beforeEach(() => {
   mocks.hasTeam = false;
   mocks.callRecordShared = true;
   mocks.callRecordChannelId = 'channel-1';
+  mocks.callRecordActive = false;
   mocks.callRecordQuerySuccess = true;
   mocks.getAgentPermissions.mockResolvedValue(
     ok({
@@ -776,9 +783,10 @@ function mountCallShare() {
 }
 
 describe('call team sharing', () => {
-  it('hides team access for a standalone call even when stale permissions claim it is shared', () => {
+  it('hides team access for a live meeting even when stale permissions claim it is shared', () => {
     mocks.hasTeam = true;
     mocks.callRecordChannelId = null;
+    mocks.callRecordActive = true;
     mountCallShare();
 
     expect(screen.queryByText('Team access')).toBeNull();
@@ -787,6 +795,13 @@ describe('call team sharing', () => {
     ).toBeNull();
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
     expect(mocks.updateCallTeamShare).not.toHaveBeenCalled();
+  });
+
+  it('offers team access on a meeting once it has ended', () => {
+    mocks.hasTeam = true;
+    mocks.callRecordChannelId = null;
+    mountCallShare();
+    expect(screen.getByText('Team access')).toBeTruthy();
   });
 
   it('does not offer team access until the call channel is known', () => {

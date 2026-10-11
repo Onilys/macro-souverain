@@ -5,16 +5,33 @@ import {
   SettingsSection,
 } from '../../settings/primitives';
 import { CheckboxRow } from '../components/checkbox-row';
+import { SelectRow } from '../components/select-row';
 import { useCallSettings } from '../context/call-settings-context';
 import {
+  type CallSettings,
   isHuddleSharingBlocked,
   isRecordingBlocked,
   RECORDING_KINDS,
+  type RecordingKind,
   recordsByDefault,
-  sharesHuddlesByDefault,
+  SHARE_AUDIENCE_LABELS,
+  type ShareAudience,
+  shareAudience,
 } from '../core/call-settings';
 
 const ADMINS_ONLY = 'Only team admins can change this.';
+
+/** Why a sharing default doesn't fully apply under the team's huddle block. */
+function huddleBlockNote(
+  settings: CallSettings,
+  kind: RecordingKind
+): string | undefined {
+  if (!isHuddleSharingBlocked(settings)) return undefined;
+  if (kind === 'oneOnOnes' && settings.shareByDefault.oneOnOnes === 'team') {
+    return 'Your team admins have blocked sharing huddles with the team, so DM huddles stay between the two of you.';
+  }
+  return undefined;
+}
 
 export function CallSettingsView() {
   const calls = useCallSettings();
@@ -59,28 +76,46 @@ export function CallSettingsView() {
 
               <SettingsSection
                 title="Share by default"
-                description="Shared calls let your team open the recording, transcript, and AI notes once the call ends. Meetings are never shared with your team."
+                description="Who can open the recording, transcript, and AI notes of calls you start once they end. Huddles shared with your team begin with “Share with team” on, and anyone in the huddle can turn it off."
               >
                 <SettingsCard>
-                  <CheckboxRow
-                    label="Share huddles with my team"
-                    description="Huddles you start begin with “Share with team” on. Anyone in the huddle can still turn it off."
-                    checked={sharesHuddlesByDefault(settings())}
-                    disabled={isHuddleSharingBlocked(settings())}
-                    disabledReason="Your team admins have blocked sharing huddles with the team."
-                    onChange={(value) => calls.setShareHuddlesByDefault(value)}
-                  />
+                  <For each={RECORDING_KINDS}>
+                    {(option) => (
+                      <SelectRow
+                        label={option.label}
+                        controlLabel={`${option.label} audience`}
+                        description={option.description}
+                        options={option.audiences.map((audience) => ({
+                          id: audience,
+                          name: SHARE_AUDIENCE_LABELS[audience],
+                        }))}
+                        value={shareAudience(settings(), option.kind)}
+                        disabled={
+                          option.kind === 'huddles' &&
+                          isHuddleSharingBlocked(settings())
+                        }
+                        disabledReason="Your team admins have blocked sharing huddles with the team."
+                        note={huddleBlockNote(settings(), option.kind)}
+                        onChange={(audience) =>
+                          calls.setShareByDefault(
+                            option.kind,
+                            audience as ShareAudience
+                          )
+                        }
+                      />
+                    )}
+                  </For>
                 </SettingsCard>
               </SettingsSection>
 
               <SettingsSection
                 title="1:1 privacy"
-                description="Applies to 1:1 meetings and huddles in a two-person direct message, whoever starts them."
+                description="Applies to DM huddles and 1:1 meetings, whoever starts them."
               >
                 <SettingsCard>
                   <CheckboxRow
-                    label="Don't record or transcribe my 1:1s"
-                    description="Overrides the other person's settings, and both of you see why it isn't recording. Stops applying once a third teammate or anyone from outside your team joins."
+                    label="Block all my 1:1s"
+                    description="They aren't recorded or transcribed, whatever the other person's settings say, and both of you see why. Stops applying once a third teammate or anyone from outside your team joins a meeting."
                     checked={settings().refuseOneOnOneRecording}
                     disabled={false}
                     onChange={(value) =>
@@ -105,7 +140,7 @@ export function CallSettingsView() {
                       <For each={RECORDING_KINDS}>
                         {(option) => (
                           <CheckboxRow
-                            label={`Block recording ${option.label.toLowerCase()}`}
+                            label={option.blockLabel}
                             description={option.description}
                             checked={team().recordingBlocked[option.kind]}
                             disabled={!team().canEdit}
@@ -118,7 +153,7 @@ export function CallSettingsView() {
                       </For>
                       <CheckboxRow
                         label="Block sharing huddles"
-                        description="No one's huddles are shared with the team, including huddles already running."
+                        description="No one's huddles, DM huddles included, are shared with the team, including huddles already running."
                         checked={team().huddleSharingBlocked}
                         disabled={!team().canEdit}
                         disabledReason={ADMINS_ONLY}

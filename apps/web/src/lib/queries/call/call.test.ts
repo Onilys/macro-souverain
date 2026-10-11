@@ -128,24 +128,42 @@ describe('call team sharing helpers', () => {
     callClient.editCallRecord.mockReset();
   });
 
-  it('never represents standalone calls as team shared, including stale record and cache values', () => {
-    const standalone = record({
+  it('never represents a live meeting as team shared, including stale record and cache values', () => {
+    const live = record({
       channelId: null,
+      isActive: true,
       shareWithTeam: true,
       teamShareAccessLevel: 'view',
     });
-    expect(isCallSharedWithTeam(standalone)).toBe(false);
-    expect(
-      sharePermissionFromCallRecord(standalone).teamShareAccessLevel
-    ).toBeNull();
+    expect(isCallSharedWithTeam(live)).toBe(false);
+    expect(sharePermissionFromCallRecord(live).teamShareAccessLevel).toBeNull();
 
-    queryClient.setQueryData(
-      callKeys.record(standalone.callId).queryKey,
-      standalone
-    );
-    setCallRecordTeamShareCache(standalone.callId, true);
+    queryClient.setQueryData(callKeys.record(live.callId).queryKey, live);
+    setCallRecordTeamShareCache(live.callId, true);
     expect(
-      queryClient.getQueryData(callKeys.record(standalone.callId).queryKey)
+      queryClient.getQueryData(callKeys.record(live.callId).queryKey)
+    ).toMatchObject({
+      shareWithTeam: false,
+      teamShareAccessLevel: null,
+    });
+  });
+
+  it('lets an ended meeting be shared with the team', () => {
+    const ended = record({
+      channelId: null,
+      isActive: false,
+      shareWithTeam: true,
+      teamShareAccessLevel: 'view',
+    });
+    expect(isCallSharedWithTeam(ended)).toBe(true);
+    expect(sharePermissionFromCallRecord(ended).teamShareAccessLevel).toBe(
+      'view'
+    );
+
+    queryClient.setQueryData(callKeys.record(ended.callId).queryKey, ended);
+    setCallRecordTeamShareCache(ended.callId, false);
+    expect(
+      queryClient.getQueryData(callKeys.record(ended.callId).queryKey)
     ).toMatchObject({
       shareWithTeam: false,
       teamShareAccessLevel: null,

@@ -6,6 +6,6 @@
  */
 
 /**
- * New value for calls started from a channel.
+ * New value for huddles.
  */
 export type CallKindsPatchHuddles = boolean | null;

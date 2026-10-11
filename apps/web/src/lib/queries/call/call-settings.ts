@@ -60,8 +60,10 @@ export function useUpdateCallSettingsMutation() {
           ...settings.recordByDefault,
           ...definedFields(body.recordByDefault ?? {}),
         },
-        shareHuddlesByDefault:
-          body.shareHuddlesByDefault ?? settings.shareHuddlesByDefault,
+        shareByDefault: {
+          ...settings.shareByDefault,
+          ...definedFields(body.shareByDefault ?? {}),
+        },
         refuseOneOnOneRecording:
           body.refuseOneOnOneRecording ?? settings.refuseOneOnOneRecording,
       }),
@@ -96,11 +98,11 @@ export function useUpdateTeamCallPolicyMutation() {
   }));
 }
 
-/** The flags a patch sets; omitted ones stay as they are. */
-function definedFields<T extends object>(patch: T) {
+/** The fields a patch sets; omitted ones stay as they are. */
+function definedFields<T extends object>(
+  patch: T
+): Partial<{ [K in keyof T]: NonNullable<T[K]> }> {
   return Object.fromEntries(
-    Object.entries(patch).filter(
-      (entry): entry is [string, boolean] => typeof entry[1] === 'boolean'
-    )
-  );
+    Object.entries(patch).filter((entry) => entry[1] != null)
+  ) as Partial<{ [K in keyof T]: NonNullable<T[K]> }>;
 }

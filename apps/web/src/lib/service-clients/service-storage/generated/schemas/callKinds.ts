@@ -11,10 +11,11 @@
 export interface CallKinds {
   /** Standalone calls that someone outside the host's team joined. */
   externalMeetings: boolean;
-  /** Calls started from a channel. */
+  /** Calls started from a channel other than a two-person direct message. */
   huddles: boolean;
   /** Standalone calls with three or more people, all teammates. */
   internalMeetings: boolean;
-  /** Standalone calls with only two people, both teammates. */
-  oneOnOneMeetings: boolean;
+  /** Huddles in a two-person direct message, and standalone calls with only
+two people, both teammates. */
+  oneOnOnes: boolean;
 }

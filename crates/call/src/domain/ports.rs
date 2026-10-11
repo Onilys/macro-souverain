@@ -315,9 +315,9 @@ pub trait CallRepository: Send + Sync + 'static {
 
     /// Archive an active call to the permanent `call_records` and
     /// `call_record_participants` tables, then delete the ephemeral rows.
-    /// For channel calls, the live `share_with_team` intent is translated into
-    /// canonical team sharing (View for the creator's current team) in the same
-    /// transaction. Calls without a channel must archive with team sharing off.
+    /// The live `share_with_team` intent is translated into canonical team
+    /// sharing (View for the creator's current team) in the same transaction,
+    /// and a standalone call shared with its invitees grants each of them View.
     /// Returns facts committed by the archive transaction.
     fn archive_call(
         &self,
@@ -427,7 +427,7 @@ pub trait CallRepository: Send + Sync + 'static {
 
     /// Fetch visible active and archived records, without transcripts. Status
     /// reflects the user's participation and current channel membership.
-    /// Standalone calls require an individual user grant, never a group grant.
+    /// Standalone calls need the user's own grant or their team's.
     /// Apply `filter`, order by start time descending, and return at most `limit`.
     fn get_call_records_by_user<'a>(
         &self,
@@ -655,6 +655,16 @@ pub trait CallRepository: Send + Sync + 'static {
     fn unshare_live_team_huddles(
         &self,
         team_id: &Uuid,
+    ) -> impl Future<Output = Result<(), CallError>> + Send;
+
+    /// Share a live standalone call of `kind` with `audience` when it ends.
+    /// Does nothing once the call has become a later kind, so a late write
+    /// cannot undo the audience of the kind it is now.
+    fn set_meeting_audience(
+        &self,
+        call_id: &Uuid,
+        kind: crate::domain::recording::CallKind,
+        audience: crate::domain::recording::ShareAudience,
     ) -> impl Future<Output = Result<(), CallError>> + Send;
 }
 
@@ -1154,8 +1164,8 @@ pub trait CallService: Send + Sync + 'static {
 pub trait CallRecordQueryService: Send + Sync + 'static {
     /// Fetch the most recent call records visible to the user, ordered by
     /// `started_at` descending. Transcript data is excluded, and status is
-    /// computed relative to the requesting user. Calls without a channel require
-    /// an individual user grant; group grants do not make them discoverable.
+    /// computed relative to the requesting user. Calls without a channel need
+    /// the user's own grant or their team's; channel grants never reach them.
     fn get_user_call_records(
         &self,
         req: GetCallRecordsRequest,

@@ -49,6 +49,7 @@ import {
   updateAgentSessionSharePermissions,
 } from '@queries/agent-session/share-permissions';
 import {
+  hasCallTeamShareControl,
   setCallRecordTeamShareCache,
   sharePermissionFromCallRecord,
   updateCallTeamShare,
@@ -1245,7 +1246,8 @@ export function ShareModal(props: ShareModalProps) {
   const canShareWithTeam = () =>
     isTeamShareSupportedForItem(props.itemType) &&
     (props.itemType !== 'call' ||
-      (callRecordQuery.isSuccess && callRecordQuery.data.channelId != null));
+      (callRecordQuery.isSuccess &&
+        hasCallTeamShareControl(callRecordQuery.data)));
 
   const teamShareControls = (): TeamShareControls | undefined =>
     canShareWithTeam() &&

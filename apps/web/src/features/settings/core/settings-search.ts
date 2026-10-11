@@ -119,20 +119,21 @@ const SETTINGS: Setting[] = [
     title: 'Record by default',
     target: 'Record by default',
     keywords:
-      'recording automatic huddles 1:1 one-on-one internal external meetings',
+      'recording automatic huddles dm direct message 1:1 one-on-one internal external meetings',
   },
   {
     tab: 'Calls',
     title: 'Share by default',
     target: 'Share by default',
-    keywords: 'share team huddles recording transcript notes visibility',
+    keywords:
+      'share team huddles meetings channel participants invited invitees recording transcript notes visibility audience',
   },
   {
     tab: 'Calls',
     title: '1:1 privacy',
     target: '1:1 privacy',
     keywords:
-      "opt out don't record transcribe one-on-one direct message privacy",
+      "block all opt out don't record transcribe one-on-one dm direct message privacy",
   },
   {
     tab: 'Calls',

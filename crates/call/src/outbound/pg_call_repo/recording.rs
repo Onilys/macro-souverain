@@ -6,9 +6,15 @@ mod test;
 
 use super::*;
 use crate::domain::recording::{
-    CallKinds, CallPreferences, HuddleSharing, MeetingAttendance, MeetingKindChange,
-    RecordingRules, UpdateCallSettingsRequest, UpdateTeamCallPolicyRequest,
+    CallKind, CallKinds, CallPreferences, MeetingAttendance, MeetingKindChange, RecordingRules,
+    ShareAudience, ShareByDefault, UpdateCallSettingsRequest, UpdateTeamCallPolicyRequest,
 };
+
+/// The audience stored as `name`.
+fn stored_audience(name: &str) -> Result<ShareAudience, CallError> {
+    ShareAudience::from_name(name)
+        .ok_or_else(|| CallError::Internal(anyhow::anyhow!("unknown call share audience {name:?}")))
+}
 
 impl PgCallRepo {
     #[tracing::instrument(err, skip(self))]
@@ -17,21 +23,24 @@ impl PgCallRepo {
         user_id: &str,
         team_id: Option<Uuid>,
     ) -> Result<CallPreferences, CallError> {
-        // Absent rows keep the column defaults: record and share everything,
-        // refuse nothing, block nothing.
+        // Absent rows keep the column defaults: record everything, share each
+        // kind with its default audience, refuse nothing, block nothing.
         let row = sqlx::query!(
             r#"
             SELECT
                 COALESCE(p.record_huddles, TRUE) AS "record_huddles!",
-                COALESCE(p.record_one_on_one_meetings, TRUE) AS "record_one_on_one_meetings!",
+                COALESCE(p.record_one_on_ones, TRUE) AS "record_one_on_ones!",
                 COALESCE(p.record_internal_meetings, TRUE) AS "record_internal_meetings!",
                 COALESCE(p.record_external_meetings, TRUE) AS "record_external_meetings!",
-                COALESCE(p.share_huddles, TRUE) AS "share_huddles!",
+                COALESCE(p.share_huddles, 'channel') AS "share_huddles!",
+                COALESCE(p.share_one_on_ones, 'participants') AS "share_one_on_ones!",
+                COALESCE(p.share_internal_meetings, 'invited') AS "share_internal_meetings!",
+                COALESCE(p.share_external_meetings, 'team') AS "share_external_meetings!",
                 COALESCE(p.refuse_one_on_one_recording, FALSE)
                     AS "refuse_one_on_one_recording!",
                 COALESCE(t.block_recording_huddles, FALSE) AS "block_recording_huddles!",
-                COALESCE(t.block_recording_one_on_one_meetings, FALSE)
-                    AS "block_recording_one_on_one_meetings!",
+                COALESCE(t.block_recording_one_on_ones, FALSE)
+                    AS "block_recording_one_on_ones!",
                 COALESCE(t.block_recording_internal_meetings, FALSE)
                     AS "block_recording_internal_meetings!",
                 COALESCE(t.block_recording_external_meetings, FALSE)
@@ -50,21 +59,24 @@ impl PgCallRepo {
             recording: RecordingRules {
                 record_by_default: CallKinds {
                     huddles: row.record_huddles,
-                    one_on_one_meetings: row.record_one_on_one_meetings,
+                    one_on_ones: row.record_one_on_ones,
                     internal_meetings: row.record_internal_meetings,
                     external_meetings: row.record_external_meetings,
                 },
                 blocked: CallKinds {
                     huddles: row.block_recording_huddles,
-                    one_on_one_meetings: row.block_recording_one_on_one_meetings,
+                    one_on_ones: row.block_recording_one_on_ones,
                     internal_meetings: row.block_recording_internal_meetings,
                     external_meetings: row.block_recording_external_meetings,
                 },
             },
-            huddle_sharing: HuddleSharing {
-                share_by_default: row.share_huddles,
-                blocked: row.block_huddle_sharing,
+            share_by_default: ShareByDefault {
+                huddles: stored_audience(&row.share_huddles)?,
+                one_on_ones: stored_audience(&row.share_one_on_ones)?,
+                internal_meetings: stored_audience(&row.share_internal_meetings)?,
+                external_meetings: stored_audience(&row.share_external_meetings)?,
             },
+            huddle_sharing_blocked: row.block_huddle_sharing,
             refuses_one_on_one_recording: row.refuse_one_on_one_recording,
         })
     }
@@ -78,15 +90,20 @@ impl PgCallRepo {
         // Each setting is merged in SQL so concurrent patches to different
         // settings both land.
         let record = patch.record_by_default;
+        let share = patch.share_by_default;
+        let audience = |audience: Option<ShareAudience>| audience.map(ShareAudience::as_str);
         sqlx::query!(
             r#"
             INSERT INTO call_preferences (
                 user_id,
                 record_huddles,
-                record_one_on_one_meetings,
+                record_one_on_ones,
                 record_internal_meetings,
                 record_external_meetings,
                 share_huddles,
+                share_one_on_ones,
+                share_internal_meetings,
+                share_external_meetings,
                 refuse_one_on_one_recording
             )
             VALUES (
@@ -95,28 +112,39 @@ impl PgCallRepo {
                 COALESCE($3, TRUE),
                 COALESCE($4, TRUE),
                 COALESCE($5, TRUE),
-                COALESCE($6, TRUE),
-                COALESCE($7, FALSE)
+                COALESCE($6, 'channel'),
+                COALESCE($7, 'participants'),
+                COALESCE($8, 'invited'),
+                COALESCE($9, 'team'),
+                COALESCE($10, FALSE)
             )
             ON CONFLICT (user_id) DO UPDATE SET
                 record_huddles = COALESCE($2, call_preferences.record_huddles),
-                record_one_on_one_meetings =
-                    COALESCE($3, call_preferences.record_one_on_one_meetings),
+                record_one_on_ones =
+                    COALESCE($3, call_preferences.record_one_on_ones),
                 record_internal_meetings =
                     COALESCE($4, call_preferences.record_internal_meetings),
                 record_external_meetings =
                     COALESCE($5, call_preferences.record_external_meetings),
                 share_huddles = COALESCE($6, call_preferences.share_huddles),
+                share_one_on_ones = COALESCE($7, call_preferences.share_one_on_ones),
+                share_internal_meetings =
+                    COALESCE($8, call_preferences.share_internal_meetings),
+                share_external_meetings =
+                    COALESCE($9, call_preferences.share_external_meetings),
                 refuse_one_on_one_recording =
-                    COALESCE($7, call_preferences.refuse_one_on_one_recording),
+                    COALESCE($10, call_preferences.refuse_one_on_one_recording),
                 updated_at = now()
             "#,
             user_id,
             record.huddles,
-            record.one_on_one_meetings,
+            record.one_on_ones,
             record.internal_meetings,
             record.external_meetings,
-            patch.share_huddles_by_default,
+            audience(share.huddles),
+            audience(share.one_on_ones),
+            audience(share.internal_meetings),
+            audience(share.external_meetings),
             patch.refuse_one_on_one_recording,
         )
         .execute(&self.pool)
@@ -136,7 +164,7 @@ impl PgCallRepo {
             INSERT INTO call_team_policies (
                 team_id,
                 block_recording_huddles,
-                block_recording_one_on_one_meetings,
+                block_recording_one_on_ones,
                 block_recording_internal_meetings,
                 block_recording_external_meetings,
                 block_huddle_sharing
@@ -152,8 +180,8 @@ impl PgCallRepo {
             ON CONFLICT (team_id) DO UPDATE SET
                 block_recording_huddles =
                     COALESCE($2, call_team_policies.block_recording_huddles),
-                block_recording_one_on_one_meetings =
-                    COALESCE($3, call_team_policies.block_recording_one_on_one_meetings),
+                block_recording_one_on_ones =
+                    COALESCE($3, call_team_policies.block_recording_one_on_ones),
                 block_recording_internal_meetings =
                     COALESCE($4, call_team_policies.block_recording_internal_meetings),
                 block_recording_external_meetings =
@@ -163,7 +191,7 @@ impl PgCallRepo {
             "#,
             team_id,
             recording.huddles,
-            recording.one_on_one_meetings,
+            recording.one_on_ones,
             recording.internal_meetings,
             recording.external_meetings,
             patch.huddle_sharing_blocked,
@@ -349,6 +377,43 @@ impl PgCallRepo {
         .execute(&self.pool)
         .await?;
         Ok(stored.rows_affected() > 0)
+    }
+
+    #[tracing::instrument(err, skip(self))]
+    pub(super) async fn store_meeting_audience(
+        &self,
+        call_id: &Uuid,
+        kind: CallKind,
+        audience: ShareAudience,
+    ) -> Result<(), CallError> {
+        // Only the call's current kind writes, so a slow write for a kind the
+        // call has since outgrown cannot undo a later one.
+        let kind = match kind {
+            CallKind::Huddle => return Ok(()),
+            CallKind::OneOnOne => "one_on_one",
+            CallKind::InternalMeeting => "internal",
+            CallKind::ExternalMeeting => "external",
+        };
+        sqlx::query!(
+            r#"
+            UPDATE calls SET share_with_team = $3, share_with_invitees = $4
+            WHERE id = $1
+                AND channel_id IS NULL
+                AND CASE $2::text
+                    WHEN 'external' THEN has_external_participants
+                    WHEN 'internal'
+                        THEN has_more_than_two_participants AND NOT has_external_participants
+                    ELSE NOT has_more_than_two_participants AND NOT has_external_participants
+                END
+            "#,
+            call_id,
+            kind,
+            audience == ShareAudience::Team,
+            audience == ShareAudience::Invited,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     #[tracing::instrument(err, skip(self))]

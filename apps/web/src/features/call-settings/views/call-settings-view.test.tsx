@@ -8,6 +8,7 @@ import {
 import type {
   CallSettings,
   RecordingKinds,
+  ShareByDefault,
   TeamCallPolicy,
 } from '../core/call-settings';
 import { CallSettingsView } from './call-settings-view';
@@ -16,20 +17,27 @@ afterEach(cleanup);
 
 const ALL: RecordingKinds = {
   huddles: true,
-  oneOnOneMeetings: true,
+  oneOnOnes: true,
   internalMeetings: true,
   externalMeetings: true,
 };
 const NONE: RecordingKinds = {
   huddles: false,
-  oneOnOneMeetings: false,
+  oneOnOnes: false,
   internalMeetings: false,
   externalMeetings: false,
 };
 
+const SHARE_DEFAULTS: ShareByDefault = {
+  huddles: 'channel',
+  oneOnOnes: 'participants',
+  internalMeetings: 'invited',
+  externalMeetings: 'team',
+};
+
 const settingsWith = (overrides: Partial<CallSettings> = {}): CallSettings => ({
   recordByDefault: ALL,
-  shareHuddlesByDefault: true,
+  shareByDefault: SHARE_DEFAULTS,
   refuseOneOnOneRecording: false,
   team: null,
   ...overrides,
@@ -53,7 +61,7 @@ function renderView(
       error: () => options.error ?? false,
     }),
     setRecordByDefault: vi.fn(),
-    setShareHuddlesByDefault: vi.fn(),
+    setShareByDefault: vi.fn(),
     setRefuseOneOnOneRecording: vi.fn(),
     setRecordingBlocked: vi.fn(),
     setHuddleSharingBlocked: vi.fn(),
@@ -69,29 +77,45 @@ function renderView(
 const checkbox = (name: string) =>
   screen.getByRole('checkbox', { name }) as HTMLInputElement;
 
+/** The dropdown's name is its label followed by the chosen audience. */
+const audience = (label: string) =>
+  screen.getByRole('button', {
+    name: (name) => name.startsWith(`${label} audience`),
+  });
+
+/** Open `label`'s audience dropdown from the keyboard. */
+function openAudience(label: string) {
+  const trigger = audience(label);
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+}
+
+/** Open `label`'s audience dropdown and pick `option`. */
+function chooseAudience(label: string, option: string) {
+  openAudience(label);
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
+
 describe('Calls settings', () => {
   it('shows each record-by-default option and saves a change', () => {
     const calls = renderView(
       settingsWith({
         recordByDefault: {
           ...ALL,
-          oneOnOneMeetings: false,
+          oneOnOnes: false,
           externalMeetings: false,
         },
       })
     );
     expect(checkbox('Huddles').checked).toBe(true);
-    expect(checkbox('1:1 meetings').checked).toBe(false);
+    expect(checkbox('DM huddles and 1:1 meetings').checked).toBe(false);
     expect(checkbox('Internal meetings').checked).toBe(true);
     expect(checkbox('External meetings').checked).toBe(false);
 
     fireEvent.click(checkbox('Huddles'));
     expect(calls.setRecordByDefault).toHaveBeenCalledWith('huddles', false);
-    fireEvent.click(checkbox('1:1 meetings'));
-    expect(calls.setRecordByDefault).toHaveBeenCalledWith(
-      'oneOnOneMeetings',
-      true
-    );
+    fireEvent.click(checkbox('DM huddles and 1:1 meetings'));
+    expect(calls.setRecordByDefault).toHaveBeenCalledWith('oneOnOnes', true);
   });
 
   it('places sharing between recording and 1:1 privacy', () => {
@@ -109,36 +133,64 @@ describe('Calls settings', () => {
     ]);
   });
 
-  it('saves the huddle sharing default and says meetings are never shared', () => {
-    const calls = renderView(settingsWith({ shareHuddlesByDefault: true }));
-    const share = checkbox('Share huddles with my team');
-    expect(share.checked).toBe(true);
-    expect(screen.getByText(/Meetings are never shared/)).toBeTruthy();
-    fireEvent.click(share);
-    expect(calls.setShareHuddlesByDefault).toHaveBeenCalledWith(false);
+  it('shows who each kind is shared with and saves a change', () => {
+    const calls = renderView(settingsWith());
+    expect(audience('Huddles').textContent).toContain('People in the channel');
+    expect(audience('DM huddles and 1:1 meetings').textContent).toContain(
+      'Participants only'
+    );
+    expect(audience('Internal meetings').textContent).toContain(
+      'Everyone invited'
+    );
+    expect(audience('External meetings').textContent).toContain(
+      'My whole team'
+    );
+
+    chooseAudience('Internal meetings', 'My whole team');
+    expect(calls.setShareByDefault).toHaveBeenCalledWith(
+      'internalMeetings',
+      'team'
+    );
   });
 
-  it('locks huddle sharing off when the team blocks it', () => {
-    const calls = renderView(
+  it('offers huddles only their channel or the whole team', () => {
+    renderView(settingsWith());
+    openAudience('Huddles');
+    expect(
+      screen.getAllByRole('option').map((option) => option.textContent)
+    ).toEqual(['People in the channel', 'My whole team']);
+  });
+
+  it('keeps huddles in their channel when the team blocks sharing them', () => {
+    renderView(
       settingsWith({
+        shareByDefault: {
+          ...SHARE_DEFAULTS,
+          huddles: 'team',
+          oneOnOnes: 'team',
+        },
         team: team({ huddleSharingBlocked: true, canEdit: false }),
       })
     );
-    const share = checkbox('Share huddles with my team');
-    expect(share.checked).toBe(false);
-    expect(share.disabled).toBe(true);
+    const huddles = audience('Huddles');
+    expect(huddles.textContent).toContain('People in the channel');
+    expect(huddles.hasAttribute('disabled')).toBe(true);
     expect(
       screen.getByText(
         'Your team admins have blocked sharing huddles with the team.'
       )
     ).toBeTruthy();
-    fireEvent.click(share);
-    expect(calls.setShareHuddlesByDefault).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/so DM huddles stay between the two of you/)
+    ).toBeTruthy();
+    expect(
+      audience('DM huddles and 1:1 meetings').hasAttribute('disabled')
+    ).toBe(false);
   });
 
   it('lets anyone refuse being recorded in 1:1s', () => {
     const calls = renderView(settingsWith({ team: team({ canEdit: false }) }));
-    const refuse = checkbox("Don't record or transcribe my 1:1s");
+    const refuse = checkbox('Block all my 1:1s');
     expect(refuse.checked).toBe(false);
     expect(refuse.disabled).toBe(false);
     fireEvent.click(refuse);
@@ -159,10 +211,7 @@ describe('Calls settings', () => {
       true
     );
     fireEvent.click(checkbox('Block recording 1:1 meetings'));
-    expect(calls.setRecordingBlocked).toHaveBeenCalledWith(
-      'oneOnOneMeetings',
-      true
-    );
+    expect(calls.setRecordingBlocked).toHaveBeenCalledWith('oneOnOnes', true);
     fireEvent.click(checkbox('Block sharing huddles'));
     expect(calls.setHuddleSharingBlocked).toHaveBeenCalledWith(true);
   });

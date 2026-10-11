@@ -6,6 +6,6 @@
  */
 
 /**
- * New value for standalone calls with only two people, both teammates.
+ * New value for one-on-ones.
  */
-export type CallKindsPatchOneOnOneMeetings = boolean | null;
+export type CallKindsPatchOneOnOnes = boolean | null;

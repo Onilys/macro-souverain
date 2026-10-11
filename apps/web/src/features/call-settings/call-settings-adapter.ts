@@ -10,7 +10,7 @@ import type { CallSettings } from './core/call-settings';
 function toCallSettings(settings: CallSettingsResponse): CallSettings {
   return {
     recordByDefault: settings.recordByDefault,
-    shareHuddlesByDefault: settings.shareHuddlesByDefault,
+    shareByDefault: settings.shareByDefault,
     refuseOneOnOneRecording: settings.refuseOneOnOneRecording,
     team: settings.team ?? null,
   };
@@ -30,8 +30,8 @@ export function createAppCallSettings(): CallSettingsCapabilities {
     }),
     setRecordByDefault: (kind, value) =>
       update.mutate({ recordByDefault: { [kind]: value } }),
-    setShareHuddlesByDefault: (value) =>
-      update.mutate({ shareHuddlesByDefault: value }),
+    setShareByDefault: (kind, audience) =>
+      update.mutate({ shareByDefault: { [kind]: audience } }),
     setRefuseOneOnOneRecording: (value) =>
       update.mutate({ refuseOneOnOneRecording: value }),
     setRecordingBlocked: (kind, blocked) =>

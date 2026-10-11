@@ -1,15 +1,14 @@
 //! Which calls record on their own.
 //!
 //! Each person chooses which kinds of call their recorder starts for by
-//! default, and whether their huddles start shared with their team; team
-//! admins can block recording kinds of call, or sharing huddles, for everyone
-//! on the team.
+//! default, and who each kind is shared with once it ends; team admins can
+//! block recording kinds of call, or sharing huddles with the team, for
+//! everyone on the team.
 //! A call records only when its host records that kind by default and the
 //! host's team has not blocked it.
 //!
-//! Anyone can also refuse to be recorded or transcribed in one-on-ones: 1:1
-//! meetings and huddles in a two-person direct message. That overrides the
-//! host, but only while the call stays a one-on-one.
+//! Anyone can also refuse to be recorded or transcribed in one-on-ones. That
+//! overrides the host, but only while the call stays a one-on-one.
 //!
 //! A standalone call can change kind while it is live. Its recording stops
 //! the first time it becomes a kind its host does not record, and starts the
@@ -27,11 +26,11 @@ mod test;
 /// happen at any point, and ends the progression).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CallKind {
-    /// A call started from a channel.
+    /// A call started from a channel other than a two-person direct message.
     Huddle,
-    /// A standalone call that at most two people, all on the host's team,
-    /// have joined so far.
-    OneOnOneMeeting,
+    /// A huddle in a two-person direct message, or a standalone call that at
+    /// most two people, all on the host's team, have joined so far.
+    OneOnOne,
     /// A standalone call that three or more of the host's teammates joined.
     InternalMeeting,
     /// A standalone call that someone outside the host's team joined.
@@ -43,10 +42,11 @@ pub enum CallKind {
 #[cfg_attr(feature = "inbound", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct CallKinds {
-    /// Calls started from a channel.
+    /// Calls started from a channel other than a two-person direct message.
     pub huddles: bool,
-    /// Standalone calls with only two people, both teammates.
-    pub one_on_one_meetings: bool,
+    /// Huddles in a two-person direct message, and standalone calls with only
+    /// two people, both teammates.
+    pub one_on_ones: bool,
     /// Standalone calls with three or more people, all teammates.
     pub internal_meetings: bool,
     /// Standalone calls that someone outside the host's team joined.
@@ -57,7 +57,7 @@ impl CallKinds {
     /// Every kind of call.
     pub const ALL: Self = Self {
         huddles: true,
-        one_on_one_meetings: true,
+        one_on_ones: true,
         internal_meetings: true,
         external_meetings: true,
     };
@@ -65,7 +65,7 @@ impl CallKinds {
     /// No kind of call.
     pub const NONE: Self = Self {
         huddles: false,
-        one_on_one_meetings: false,
+        one_on_ones: false,
         internal_meetings: false,
         external_meetings: false,
     };
@@ -74,7 +74,7 @@ impl CallKinds {
     pub fn contains(self, kind: CallKind) -> bool {
         match kind {
             CallKind::Huddle => self.huddles,
-            CallKind::OneOnOneMeeting => self.one_on_one_meetings,
+            CallKind::OneOnOne => self.one_on_ones,
             CallKind::InternalMeeting => self.internal_meetings,
             CallKind::ExternalMeeting => self.external_meetings,
         }
@@ -84,9 +84,7 @@ impl CallKinds {
     pub fn patched(self, patch: CallKindsPatch) -> Self {
         Self {
             huddles: patch.huddles.unwrap_or(self.huddles),
-            one_on_one_meetings: patch
-                .one_on_one_meetings
-                .unwrap_or(self.one_on_one_meetings),
+            one_on_ones: patch.one_on_ones.unwrap_or(self.one_on_ones),
             internal_meetings: patch.internal_meetings.unwrap_or(self.internal_meetings),
             external_meetings: patch.external_meetings.unwrap_or(self.external_meetings),
         }
@@ -99,10 +97,10 @@ impl CallKinds {
 #[cfg_attr(feature = "inbound", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct CallKindsPatch {
-    /// New value for calls started from a channel.
+    /// New value for huddles.
     pub huddles: Option<bool>,
-    /// New value for standalone calls with only two people, both teammates.
-    pub one_on_one_meetings: Option<bool>,
+    /// New value for one-on-ones.
+    pub one_on_ones: Option<bool>,
     /// New value for standalone calls with three or more people, all teammates.
     pub internal_meetings: Option<bool>,
     /// New value for standalone calls with people from outside the team.
@@ -136,32 +134,137 @@ impl Default for RecordingRules {
     }
 }
 
-/// Whether a host's huddles are shared with their team. Standalone meetings
-/// are never shared with the team.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HuddleSharing {
-    /// Huddles the host starts begin with "Share with team" on.
-    pub share_by_default: bool,
-    /// The host's team forbids sharing its members' huddles with it.
-    pub blocked: bool,
+/// Who can open a call's recording, transcript and notes once it ends, besides
+/// its host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "inbound", derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum ShareAudience {
+    /// Only the people who joined it.
+    Participants,
+    /// Everyone in the channel it was started from.
+    Channel,
+    /// Everyone invited to it, whether or not they joined.
+    Invited,
+    /// Everyone on its host's team.
+    Team,
 }
 
-impl HuddleSharing {
-    /// Whether a huddle hosted under these rules starts shared.
-    pub fn shares_by_default(&self) -> bool {
-        self.share_by_default && !self.blocked
-    }
-}
-
-impl Default for HuddleSharing {
-    /// Someone who never changed a setting, on a team that blocks nothing:
-    /// huddles start shared, as they did before these settings existed.
-    fn default() -> Self {
-        Self {
-            share_by_default: true,
-            blocked: false,
+impl ShareAudience {
+    /// The name the database stores.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Participants => "participants",
+            Self::Channel => "channel",
+            Self::Invited => "invited",
+            Self::Team => "team",
         }
     }
+
+    /// The audience the database stores as `name`.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "participants" => Some(Self::Participants),
+            "channel" => Some(Self::Channel),
+            "invited" => Some(Self::Invited),
+            "team" => Some(Self::Team),
+            _ => None,
+        }
+    }
+}
+
+impl CallKind {
+    /// Whether calls of this kind can be shared with `audience`. Huddles
+    /// always reach their channel, and a one-on-one has no one else to invite.
+    pub fn allows(self, audience: ShareAudience) -> bool {
+        use ShareAudience::*;
+        match self {
+            Self::Huddle => matches!(audience, Channel | Team),
+            Self::OneOnOne => matches!(audience, Participants | Team),
+            Self::InternalMeeting | Self::ExternalMeeting => {
+                matches!(audience, Participants | Invited | Team)
+            }
+        }
+    }
+}
+
+/// Who each kind of call a person hosts is shared with once it ends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "inbound", derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ShareByDefault {
+    /// Huddles: their channel or the whole team.
+    pub huddles: ShareAudience,
+    /// One-on-ones: the two people in them or the whole team.
+    pub one_on_ones: ShareAudience,
+    /// Internal meetings: participants, invitees or the whole team.
+    pub internal_meetings: ShareAudience,
+    /// External meetings: participants, invitees or the whole team.
+    pub external_meetings: ShareAudience,
+}
+
+impl ShareByDefault {
+    /// The audience of a call of `kind`.
+    pub fn audience(self, kind: CallKind) -> ShareAudience {
+        match kind {
+            CallKind::Huddle => self.huddles,
+            CallKind::OneOnOne => self.one_on_ones,
+            CallKind::InternalMeeting => self.internal_meetings,
+            CallKind::ExternalMeeting => self.external_meetings,
+        }
+    }
+
+    /// These audiences with `patch` applied, or the first kind the patch
+    /// gives an audience it cannot have.
+    pub fn patched(self, patch: ShareByDefaultPatch) -> Result<Self, CallKind> {
+        let pick = |kind: CallKind, current: ShareAudience, new: Option<ShareAudience>| match new {
+            Some(audience) if !kind.allows(audience) => Err(kind),
+            new => Ok(new.unwrap_or(current)),
+        };
+        Ok(Self {
+            huddles: pick(CallKind::Huddle, self.huddles, patch.huddles)?,
+            one_on_ones: pick(CallKind::OneOnOne, self.one_on_ones, patch.one_on_ones)?,
+            internal_meetings: pick(
+                CallKind::InternalMeeting,
+                self.internal_meetings,
+                patch.internal_meetings,
+            )?,
+            external_meetings: pick(
+                CallKind::ExternalMeeting,
+                self.external_meetings,
+                patch.external_meetings,
+            )?,
+        })
+    }
+}
+
+impl Default for ShareByDefault {
+    /// Someone who never changed a setting: huddles reach their channel,
+    /// one-on-ones stay between the two people, internal meetings reach
+    /// everyone invited and external meetings the whole team.
+    fn default() -> Self {
+        Self {
+            huddles: ShareAudience::Channel,
+            one_on_ones: ShareAudience::Participants,
+            internal_meetings: ShareAudience::Invited,
+            external_meetings: ShareAudience::Team,
+        }
+    }
+}
+
+/// A partial update to [`ShareByDefault`]. Omitted kinds keep their audience.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize)]
+#[cfg_attr(feature = "inbound", derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ShareByDefaultPatch {
+    /// New audience for huddles: `channel` or `team`.
+    pub huddles: Option<ShareAudience>,
+    /// New audience for one-on-ones: `participants` or `team`.
+    pub one_on_ones: Option<ShareAudience>,
+    /// New audience for internal meetings: `participants`, `invited` or `team`.
+    pub internal_meetings: Option<ShareAudience>,
+    /// New audience for external meetings: `participants`, `invited` or `team`.
+    pub external_meetings: Option<ShareAudience>,
 }
 
 /// Everything a person's call settings decide, with their team's blocks.
@@ -169,10 +272,20 @@ impl Default for HuddleSharing {
 pub struct CallPreferences {
     /// Whether the calls they host record.
     pub recording: RecordingRules,
-    /// Whether the huddles they host are shared with their team.
-    pub huddle_sharing: HuddleSharing,
+    /// Who the calls they host are shared with.
+    pub share_by_default: ShareByDefault,
+    /// Their team forbids sharing the calls they start from a channel with it.
+    pub huddle_sharing_blocked: bool,
     /// They do not allow being recorded or transcribed in one-on-ones.
     pub refuses_one_on_one_recording: bool,
+}
+
+impl CallPreferences {
+    /// Whether a huddle of `kind` (a [`CallKind::Huddle`] or a direct-message
+    /// [`CallKind::OneOnOne`]) they host starts shared with their team.
+    pub fn shares_huddle_with_team(&self, kind: CallKind) -> bool {
+        self.share_by_default.audience(kind) == ShareAudience::Team && !self.huddle_sharing_blocked
+    }
 }
 
 /// The caller's call settings.
@@ -182,10 +295,10 @@ pub struct CallPreferences {
 pub struct CallSettings {
     /// Kinds of call the caller's own calls record by default.
     pub record_by_default: CallKinds,
-    /// Huddles the caller starts begin shared with their team.
-    pub share_huddles_by_default: bool,
-    /// The caller does not allow being recorded or transcribed in 1:1 meetings
-    /// or two-person direct-message huddles, whoever hosts them.
+    /// Who each kind of call the caller hosts is shared with once it ends.
+    pub share_by_default: ShareByDefault,
+    /// The caller does not allow being recorded or transcribed in
+    /// one-on-ones, whoever hosts them.
     pub refuse_one_on_one_recording: bool,
     /// The caller's team policy; absent when the caller is not on a team.
     pub team: Option<TeamCallPolicy>,
@@ -198,7 +311,8 @@ pub struct CallSettings {
 pub struct TeamCallPolicy {
     /// Kinds of call no one on the team may record.
     pub recording_blocked: CallKinds,
-    /// No one's huddles may be shared with the team.
+    /// No call started from a channel, direct messages included, may be
+    /// shared with the team.
     pub huddle_sharing_blocked: bool,
     /// Whether the caller may change the blocks (team admins and owners).
     pub can_edit: bool,
@@ -212,9 +326,10 @@ pub struct UpdateCallSettingsRequest {
     /// Changes to the kinds of call the caller records by default.
     #[serde(default)]
     pub record_by_default: CallKindsPatch,
-    /// New value for starting the caller's huddles shared with their team.
-    pub share_huddles_by_default: Option<bool>,
-    /// New value for refusing to be recorded or transcribed in 1:1s.
+    /// Changes to who each kind of call the caller hosts is shared with.
+    #[serde(default)]
+    pub share_by_default: ShareByDefaultPatch,
+    /// New value for refusing to be recorded or transcribed in one-on-ones.
     pub refuse_one_on_one_recording: Option<bool>,
 }
 
@@ -255,10 +370,10 @@ impl MeetingAttendance {
         let mut kinds = vec![since];
         // A call only gains its third participant while still internal, so a
         // call that is both went through the internal kind first.
-        if since == CallKind::OneOnOneMeeting && self.more_than_two {
+        if since == CallKind::OneOnOne && self.more_than_two {
             kinds.push(CallKind::InternalMeeting);
         }
-        if matches!(since, CallKind::OneOnOneMeeting | CallKind::InternalMeeting) && self.external {
+        if matches!(since, CallKind::OneOnOne | CallKind::InternalMeeting) && self.external {
             kinds.push(CallKind::ExternalMeeting);
         }
         kinds

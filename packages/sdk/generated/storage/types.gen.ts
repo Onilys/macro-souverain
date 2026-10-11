@@ -1812,7 +1812,7 @@ export type CallKinds = {
      */
     externalMeetings: boolean;
     /**
-     * Calls started from a channel.
+     * Calls started from a channel other than a two-person direct message.
      */
     huddles: boolean;
     /**
@@ -1820,9 +1820,10 @@ export type CallKinds = {
      */
     internalMeetings: boolean;
     /**
-     * Standalone calls with only two people, both teammates.
+     * Huddles in a two-person direct message, and standalone calls with only
+     * two people, both teammates.
      */
-    oneOnOneMeetings: boolean;
+    oneOnOnes: boolean;
 };
 
 /**
@@ -1835,7 +1836,7 @@ export type CallKindsPatch = {
      */
     externalMeetings?: boolean | null;
     /**
-     * New value for calls started from a channel.
+     * New value for huddles.
      */
     huddles?: boolean | null;
     /**
@@ -1843,9 +1844,9 @@ export type CallKindsPatch = {
      */
     internalMeetings?: boolean | null;
     /**
-     * New value for standalone calls with only two people, both teammates.
+     * New value for one-on-ones.
      */
-    oneOnOneMeetings?: boolean | null;
+    oneOnOnes?: boolean | null;
 };
 
 /**
@@ -2081,14 +2082,14 @@ export type CallSettings = {
      */
     recordByDefault: CallKinds;
     /**
-     * The caller does not allow being recorded or transcribed in 1:1 meetings
-     * or two-person direct-message huddles, whoever hosts them.
+     * The caller does not allow being recorded or transcribed in
+     * one-on-ones, whoever hosts them.
      */
     refuseOneOnOneRecording: boolean;
     /**
-     * Huddles the caller starts begin shared with their team.
+     * Who each kind of call the caller hosts is shared with once it ends.
      */
-    shareHuddlesByDefault: boolean;
+    shareByDefault: ShareByDefault;
     team?: null | TeamCallPolicy;
 };
 
@@ -10930,6 +10931,44 @@ export type SetPropertyValue = {
  */
 export type Sha256Digest = string;
 
+/**
+ * Who can open a call's recording, transcript and notes once it ends, besides
+ * its host.
+ */
+export type ShareAudience = 'participants' | 'channel' | 'invited' | 'team';
+
+/**
+ * Who each kind of call a person hosts is shared with once it ends.
+ */
+export type ShareByDefault = {
+    /**
+     * External meetings: participants, invitees or the whole team.
+     */
+    externalMeetings: ShareAudience;
+    /**
+     * Huddles: their channel or the whole team.
+     */
+    huddles: ShareAudience;
+    /**
+     * Internal meetings: participants, invitees or the whole team.
+     */
+    internalMeetings: ShareAudience;
+    /**
+     * One-on-ones: the two people in them or the whole team.
+     */
+    oneOnOnes: ShareAudience;
+};
+
+/**
+ * A partial update to [`ShareByDefault`]. Omitted kinds keep their audience.
+ */
+export type ShareByDefaultPatch = {
+    externalMeetings?: null | ShareAudience;
+    huddles?: null | ShareAudience;
+    internalMeetings?: null | ShareAudience;
+    oneOnOnes?: null | ShareAudience;
+};
+
 export type SharePermissionV2 = {
     /**
      * The channel share permissions for the item
@@ -12901,7 +12940,8 @@ export type TeamCallPolicy = {
      */
     canEdit: boolean;
     /**
-     * No one's huddles may be shared with the team.
+     * No call started from a channel, direct messages included, may be
+     * shared with the team.
      */
     huddleSharingBlocked: boolean;
     /**
@@ -13469,13 +13509,13 @@ export type UpdateCallSettingsRequest = {
      */
     recordByDefault?: CallKindsPatch;
     /**
-     * New value for refusing to be recorded or transcribed in 1:1s.
+     * New value for refusing to be recorded or transcribed in one-on-ones.
      */
     refuseOneOnOneRecording?: boolean | null;
     /**
-     * New value for starting the caller's huddles shared with their team.
+     * Changes to who each kind of call the caller hosts is shared with.
      */
-    shareHuddlesByDefault?: boolean | null;
+    shareByDefault?: ShareByDefaultPatch;
 };
 
 export type UpdateChannelSharePermission = {

@@ -1,5 +1,9 @@
 import { type Accessor, createContext, useContext } from 'solid-js';
-import type { CallSettings, RecordingKind } from '../core/call-settings';
+import type {
+  CallSettings,
+  RecordingKind,
+  ShareAudience,
+} from '../core/call-settings';
 
 export type CallSettingsSource = {
   /** Undefined until the settings first load. */
@@ -14,8 +18,8 @@ export type CallSettingsCapabilities = {
   createSource: () => CallSettingsSource;
   /** Change whether the viewer's own calls of `kind` record by default. */
   setRecordByDefault: (kind: RecordingKind, value: boolean) => void;
-  /** Change whether huddles the viewer starts begin shared with their team. */
-  setShareHuddlesByDefault: (value: boolean) => void;
+  /** Change who the viewer's calls of `kind` are shared with once they end. */
+  setShareByDefault: (kind: RecordingKind, audience: ShareAudience) => void;
   /** Change whether the viewer refuses being recorded in 1:1s. */
   setRefuseOneOnOneRecording: (value: boolean) => void;
   /** Change whether anyone on the viewer's team may record `kind`. */

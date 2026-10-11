@@ -8,8 +8,9 @@ use uuid::Uuid;
 use super::super::test::{CALL1, USER_A, USER_B, USER_C, give_user_a_team, repo};
 use crate::domain::ports::CallRepository;
 use crate::domain::recording::{
-    CallKinds, CallKindsPatch, CallPreferences, HuddleSharing, MeetingAttendance,
-    MeetingKindChange, RecordingRules, UpdateCallSettingsRequest, UpdateTeamCallPolicyRequest,
+    CallKinds, CallKindsPatch, CallPreferences, MeetingAttendance, MeetingKindChange,
+    RecordingRules, ShareAudience, ShareByDefault, ShareByDefaultPatch, UpdateCallSettingsRequest,
+    UpdateTeamCallPolicyRequest,
 };
 
 const TEAM_ID: Uuid = Uuid::from_u128(0x7ea3_0000_0000_0000_0000_0000_0000_00c1);
@@ -66,7 +67,11 @@ async fn settings_patches_merge_one_setting_at_a_time(pool: Pool<Postgres>) -> a
                 external_meetings: Some(false),
                 ..CallKindsPatch::default()
             },
-            share_huddles_by_default: Some(false),
+            share_by_default: ShareByDefaultPatch {
+                huddles: Some(ShareAudience::Team),
+                internal_meetings: Some(ShareAudience::Participants),
+                ..ShareByDefaultPatch::default()
+            },
             refuse_one_on_one_recording: None,
         },
     )
@@ -93,10 +98,12 @@ async fn settings_patches_merge_one_setting_at_a_time(pool: Pool<Postgres>) -> a
                 },
                 blocked: CallKinds::NONE,
             },
-            huddle_sharing: HuddleSharing {
-                share_by_default: false,
-                blocked: false,
+            share_by_default: ShareByDefault {
+                huddles: ShareAudience::Team,
+                internal_meetings: ShareAudience::Participants,
+                ..ShareByDefault::default()
             },
+            huddle_sharing_blocked: false,
             refuses_one_on_one_recording: true,
         }
     );
@@ -119,7 +126,7 @@ async fn team_blocks_apply_only_to_their_team(pool: Pool<Postgres>) -> anyhow::R
         &TEAM_ID,
         UpdateTeamCallPolicyRequest {
             recording_blocked: CallKindsPatch {
-                one_on_one_meetings: Some(true),
+                one_on_ones: Some(true),
                 internal_meetings: Some(true),
                 ..CallKindsPatch::default()
             },
@@ -146,17 +153,16 @@ async fn team_blocks_apply_only_to_their_team(pool: Pool<Postgres>) -> anyhow::R
         team.recording.blocked,
         CallKinds {
             huddles: true,
-            one_on_one_meetings: true,
+            one_on_ones: true,
             ..CallKinds::NONE
         }
     );
-    assert!(team.huddle_sharing.blocked);
-    assert!(!team.huddle_sharing.shares_by_default());
+    assert!(team.huddle_sharing_blocked);
     let no_team = repo
         .get_call_preferences(USER_A.deref().copied(), None)
         .await?;
     assert_eq!(no_team.recording.blocked, CallKinds::NONE);
-    assert!(!no_team.huddle_sharing.blocked);
+    assert!(!no_team.huddle_sharing_blocked);
     Ok(())
 }
 

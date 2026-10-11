@@ -2,10 +2,11 @@ use super::meeting_invites::access::TeamAccessService;
 use super::*;
 use crate::domain::meetings::Meeting;
 use crate::domain::recording::CallKind::{
-    self, ExternalMeeting, Huddle, InternalMeeting, OneOnOneMeeting,
+    self, ExternalMeeting, Huddle, InternalMeeting, OneOnOne,
 };
 use crate::domain::recording::{
     CallKinds, CallPreferences, MeetingAttendance, MeetingKindChange, RecordingRules,
+    ShareAudience, ShareByDefault,
 };
 use crate::domain::service::recording::MeetingJoiner;
 use tokio::sync::oneshot;
@@ -50,7 +51,7 @@ pub(super) fn rules(record_by_default: CallKinds, blocked: CallKinds) -> Recordi
 pub(super) fn kinds(only: &[CallKind]) -> CallKinds {
     CallKinds {
         huddles: only.contains(&Huddle),
-        one_on_one_meetings: only.contains(&OneOnOneMeeting),
+        one_on_ones: only.contains(&OneOnOne),
         internal_meetings: only.contains(&InternalMeeting),
         external_meetings: only.contains(&ExternalMeeting),
     }
@@ -169,7 +170,7 @@ async fn huddles_record_only_when_the_starter_records_them_and_the_team_allows_i
         (RecordingRules::default(), true),
         (
             rules(
-                kinds(&[OneOnOneMeeting, InternalMeeting, ExternalMeeting]),
+                kinds(&[OneOnOne, InternalMeeting, ExternalMeeting]),
                 CallKinds::NONE,
             ),
             false,
@@ -179,6 +180,7 @@ async fn huddles_record_only_when_the_starter_records_them_and_the_team_allows_i
         let mut repo = huddle_repo();
         expect_host_preferences(&mut repo, 1, recording(rules));
         not_a_direct_message(&mut repo);
+        expect_live_share(&mut repo, false);
         // The mock rejects any recorder attachment the rules did not allow.
         repo.expect_set_egress_id()
             .times(usize::from(records))
@@ -252,6 +254,7 @@ async fn a_two_person_direct_message_huddle_is_kept_private_when_either_member_r
     let mut repo = huddle_repo();
     expect_host_preferences(&mut repo, 1, CallPreferences::default());
     direct_message(&mut repo, &[&host, &teammate, "bot-1"], Some(&[&teammate]));
+    expect_live_share(&mut repo, false);
     repo.expect_record_one_on_one_refusals()
         .times(1)
         .returning(move |_, refused_by| {
@@ -288,6 +291,7 @@ async fn direct_message_huddles_record_and_transcribe_when_nobody_refuses() {
         expect_host_preferences(&mut repo, 1, CallPreferences::default());
         direct_message(&mut repo, &members, refusers);
         repo.expect_record_one_on_one_refusals().never();
+        expect_live_share(&mut repo, false);
         repo.expect_set_egress_id()
             .times(1)
             .returning(|_, _| Box::pin(async { Ok(()) }));
@@ -301,6 +305,75 @@ async fn direct_message_huddles_record_and_transcribe_when_nobody_refuses() {
         assert!(started_recording_flag(&broker));
         assert_eq!(service.rtc_client.transcribed_rooms().len(), 1);
     }
+}
+
+#[tokio::test]
+async fn a_two_person_direct_message_huddle_follows_the_one_on_one_settings() {
+    let (host, teammate) = (user(HOST).to_string(), user(TEAMMATE).to_string());
+    let one_on_ones_to_the_team = ShareByDefault {
+        one_on_ones: ShareAudience::Team,
+        ..ShareByDefault::default()
+    };
+    for (preferences, records, shared) in [
+        // Recording huddles says nothing about one-on-ones.
+        (
+            CallPreferences {
+                recording: rules(kinds(&[Huddle]), CallKinds::NONE),
+                share_by_default: one_on_ones_to_the_team,
+                ..CallPreferences::default()
+            },
+            false,
+            true,
+        ),
+        (
+            CallPreferences {
+                recording: rules(kinds(&[OneOnOne]), CallKinds::NONE),
+                ..CallPreferences::default()
+            },
+            true,
+            false,
+        ),
+        // A team block on huddle sharing covers direct messages too.
+        (
+            CallPreferences {
+                share_by_default: one_on_ones_to_the_team,
+                huddle_sharing_blocked: true,
+                ..CallPreferences::default()
+            },
+            true,
+            false,
+        ),
+    ] {
+        let mut repo = huddle_repo();
+        expect_host_preferences(&mut repo, 1, preferences);
+        direct_message(&mut repo, &[&host, &teammate], Some(&[]));
+        repo.expect_record_one_on_one_refusals().never();
+        repo.expect_set_egress_id()
+            .times(usize::from(records))
+            .returning(|_, _| Box::pin(async { Ok(()) }));
+        expect_live_share(&mut repo, shared);
+        let broker = RecordingEventBroker::default();
+        let service =
+            service(repo, MockRtcClient::new(), teams()).with_event_broker(broker.clone());
+        service
+            .get_or_create_call(&STARTED_EVENT_CHANNEL_ID, user(HOST))
+            .await
+            .unwrap();
+        assert_eq!(started_recording_flag(&broker), records);
+        assert_eq!(service.rtc_client.transcribed_rooms().len(), 1);
+    }
+}
+
+/// A new huddle starts with "Share with team" on, so one its host does not
+/// share is turned off once.
+pub(super) fn expect_live_share(repo: &mut MockCallRepository, shared: bool) {
+    repo.expect_patch_call_record()
+        .times(usize::from(!shared))
+        .returning(|_, args| {
+            assert_eq!(args.live_share_with_team, Some(false));
+            assert!(args.team_share.is_none());
+            Box::pin(async { Ok(()) })
+        });
 }
 
 fn hosted_meeting(call_id: Option<Uuid>) -> Meeting {
@@ -321,6 +394,26 @@ fn attendance(more_than_two: bool, external: bool) -> MeetingAttendance {
         more_than_two,
         external,
     }
+}
+
+/// The host's untouched settings are read once per kind in `kinds` the
+/// meeting becomes, and it is shared with each kind's default audience.
+fn expect_meeting_audiences(repo: &mut MockCallRepository, kinds: &[CallKind]) {
+    repo.expect_get_call_preferences()
+        .times(kinds.len())
+        .returning(|host, team| {
+            assert_eq!(host, user(HOST));
+            assert_eq!(team, Some(HOST_TEAM));
+            Box::pin(async { Ok(CallPreferences::default()) })
+        });
+    let mut expected = kinds.to_vec().into_iter();
+    repo.expect_set_meeting_audience()
+        .times(kinds.len())
+        .returning(move |_, kind, audience| {
+            assert_eq!(Some(kind), expected.next());
+            assert_eq!(audience, ShareByDefault::default().audience(kind));
+            Box::pin(async { Ok(()) })
+        });
 }
 
 /// A recorder that attaches to a live meeting with `seen` attendance, and
@@ -382,7 +475,7 @@ async fn a_meeting_waits_for_its_second_person_unless_it_starts_external() {
             false,
         ),
         (MeetingJoiner::Guest, kinds(&[ExternalMeeting]), true),
-        (MeetingJoiner::Guest, kinds(&[OneOnOneMeeting]), true),
+        (MeetingJoiner::Guest, kinds(&[OneOnOne]), true),
     ] {
         let guest = matches!(joiner, MeetingJoiner::Guest);
         let recording = guest && records.contains(ExternalMeeting);
@@ -407,6 +500,7 @@ async fn a_meeting_waits_for_its_second_person_unless_it_starts_external() {
         } else {
             repo.expect_mark_call_external().never();
         }
+        expect_meeting_audiences(&mut repo, &[if guest { ExternalMeeting } else { OneOnOne }]);
         let host_rules = rules(records, CallKinds::NONE);
         repo.expect_get_recording_rules()
             .times(1)
@@ -588,6 +682,16 @@ fn join_live_meeting(
             repo.expect_get_recording_rules().never();
         }
     }
+    // A join that changes the call's kind shares it with that kind's audience.
+    let changes = [
+        (external, ExternalMeeting),
+        (more_than_two, InternalMeeting),
+    ]
+    .into_iter()
+    .filter(|(flag, _)| flag.change().is_some())
+    .map(|(_, kind)| kind)
+    .collect::<Vec<_>>();
+    expect_meeting_audiences(&mut repo, &changes);
     repo.expect_find_active_call_for_user()
         .returning(|_| Box::pin(async { Ok(None) }));
     repo
@@ -637,7 +741,7 @@ async fn an_outsider_joining_stops_a_recorder_the_host_does_not_keep_for_externa
 #[tokio::test]
 async fn a_third_teammate_joining_stops_a_recorder_the_host_keeps_only_for_one_on_ones() {
     for host_rules in [
-        rules(kinds(&[OneOnOneMeeting, ExternalMeeting]), CallKinds::NONE),
+        rules(kinds(&[OneOnOne, ExternalMeeting]), CallKinds::NONE),
         // A team block on internal meetings stops it the same way.
         rules(CallKinds::ALL, kinds(&[InternalMeeting])),
     ] {
@@ -786,10 +890,7 @@ async fn a_stopped_recording_is_not_resumed() {
         },
         Flag::Unchanged,
         Settle::Past(attendance(true, true)),
-        Some(rules(
-            kinds(&[OneOnOneMeeting, ExternalMeeting]),
-            CallKinds::NONE,
-        )),
+        Some(rules(kinds(&[OneOnOne, ExternalMeeting]), CallKinds::NONE)),
     );
     expect_participant_events(&mut repo);
     expect_transcriber_claim(&mut repo, false);
@@ -931,47 +1032,17 @@ async fn a_failed_participant_count_turns_the_join_away() {
 
 #[tokio::test]
 async fn an_attaching_recorder_stops_if_the_call_became_an_unrecorded_kind() {
-    let internal_only = kinds(&[OneOnOneMeeting, InternalMeeting]);
-    let one_on_ones_only = kinds(&[OneOnOneMeeting]);
-    let skips_internal = kinds(&[OneOnOneMeeting, ExternalMeeting]);
+    let internal_only = kinds(&[OneOnOne, InternalMeeting]);
+    let one_on_ones_only = kinds(&[OneOnOne]);
+    let skips_internal = kinds(&[OneOnOne, ExternalMeeting]);
     for (records, since, seen, stops) in [
-        (
-            internal_only,
-            OneOnOneMeeting,
-            attendance(false, false),
-            false,
-        ),
-        (
-            internal_only,
-            OneOnOneMeeting,
-            attendance(true, false),
-            false,
-        ),
-        (
-            internal_only,
-            OneOnOneMeeting,
-            attendance(false, true),
-            true,
-        ),
-        (
-            one_on_ones_only,
-            OneOnOneMeeting,
-            attendance(true, false),
-            true,
-        ),
+        (internal_only, OneOnOne, attendance(false, false), false),
+        (internal_only, OneOnOne, attendance(true, false), false),
+        (internal_only, OneOnOne, attendance(false, true), true),
+        (one_on_ones_only, OneOnOne, attendance(true, false), true),
         // It recorded while the call was internal, though it is external now.
-        (
-            skips_internal,
-            OneOnOneMeeting,
-            attendance(true, true),
-            true,
-        ),
-        (
-            skips_internal,
-            OneOnOneMeeting,
-            attendance(false, true),
-            false,
-        ),
+        (skips_internal, OneOnOne, attendance(true, true), true),
+        (skips_internal, OneOnOne, attendance(false, true), false),
         (
             kinds(&[InternalMeeting]),
             InternalMeeting,
@@ -1030,7 +1101,7 @@ async fn an_unverifiable_audience_stops_an_attaching_recorder() {
         "room",
         Some(&egress_config()),
         RecordingRules::default(),
-        OneOnOneMeeting,
+        OneOnOne,
     )
     .await;
 }

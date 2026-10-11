@@ -299,16 +299,21 @@ function FixtureCalls(props: { admin: boolean }) {
   const [settings, setSettings] = createSignal<CallSettings>({
     recordByDefault: {
       huddles: true,
-      oneOnOneMeetings: false,
+      oneOnOnes: false,
       internalMeetings: true,
       externalMeetings: true,
     },
-    shareHuddlesByDefault: true,
+    shareByDefault: {
+      huddles: 'channel',
+      oneOnOnes: 'participants',
+      internalMeetings: 'invited',
+      externalMeetings: 'team',
+    },
     refuseOneOnOneRecording: false,
     team: {
       recordingBlocked: {
         huddles: false,
-        oneOnOneMeetings: false,
+        oneOnOnes: false,
         internalMeetings: false,
         externalMeetings: true,
       },
@@ -340,10 +345,10 @@ function FixtureCalls(props: { admin: boolean }) {
             ...current,
             recordByDefault: withKind(current.recordByDefault, kind, value),
           })),
-        setShareHuddlesByDefault: (value) =>
+        setShareByDefault: (kind, audience) =>
           setSettings((current) => ({
             ...current,
-            shareHuddlesByDefault: value,
+            shareByDefault: { ...current.shareByDefault, [kind]: audience },
           })),
         setRefuseOneOnOneRecording: (value) =>
           setSettings((current) => ({

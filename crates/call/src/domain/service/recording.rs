@@ -1,11 +1,12 @@
-//! Call settings, and applying recording rules when a call starts or a standalone
-//! call changes kind: when its third participant, or its first from outside
-//! its host's team, joins.
+//! Call settings, and applying recording and sharing rules when a call starts
+//! or a standalone call changes kind: when its third participant, or its first
+//! from outside its host's team, joins.
 
 use super::*;
 use crate::domain::recording::{
     CallKind, CallKinds, CallPreferences, CallSettings, MeetingKindChange, RecordingRules,
-    TeamCallPolicy, UpdateCallSettingsRequest, UpdateTeamCallPolicyRequest,
+    ShareAudience, ShareByDefault, TeamCallPolicy, UpdateCallSettingsRequest,
+    UpdateTeamCallPolicyRequest,
 };
 use entity_access::domain::models::{AdminTeamRole, TeamRole, UserTeamInfo};
 use tracing::Instrument;
@@ -97,8 +98,7 @@ impl<
         Ok(self
             .host_call_preferences(host)
             .await?
-            .huddle_sharing
-            .blocked)
+            .huddle_sharing_blocked)
     }
 
     /// Which members of a two-person direct message refuse being recorded or
@@ -146,21 +146,49 @@ impl<
             .inspect_err(|error| {
                 tracing::error!(error = ?error, "failed to check one-on-one refusals");
             });
-        let allowed = match &refused_by {
-            Ok(None) => true,
-            Ok(Some(refusers)) => refusers.is_empty(),
-            Err(_) => false,
+        let Ok(refused_by) = refused_by else {
+            return HuddleStart::default();
+        };
+        // A two-person direct message is a one-on-one.
+        let (kind, allowed) = match &refused_by {
+            None => (CallKind::Huddle, true),
+            Some(refusers) => (CallKind::OneOnOne, refusers.is_empty()),
         };
         HuddleStart {
             record: allowed
                 && self.egress_s3_config.is_some()
-                && preferences
-                    .is_some_and(|preferences| preferences.recording.records(CallKind::Huddle)),
+                && preferences.is_some_and(|preferences| preferences.recording.records(kind)),
             transcribe: allowed,
-            share: preferences
-                .is_some_and(|preferences| preferences.huddle_sharing.shares_by_default()),
-            refused_by: refused_by.ok().flatten().unwrap_or_default(),
+            share: preferences.is_some_and(|preferences| preferences.shares_huddle_with_team(kind)),
+            refused_by: refused_by.unwrap_or_default(),
         }
+    }
+
+    /// Share `call`, a live standalone call that is now `kind`, with whoever
+    /// its host shares that kind with once it ends. A failed lookup shares it
+    /// only with its participants.
+    pub(super) async fn share_meeting(&self, call: &Call, kind: CallKind) {
+        if kind == CallKind::Huddle {
+            return;
+        }
+        let audience = async {
+            let host = MacroUserIdStr::parse_from_str(&call.created_by)
+                .map_err(|error| CallError::Internal(error.into()))?;
+            self.host_call_preferences(host).await
+        }
+        .await
+        .map(|preferences| preferences.share_by_default.audience(kind))
+        .unwrap_or_else(|error| {
+            tracing::error!(error = ?error, "failed to load meeting sharing; sharing with participants");
+            ShareAudience::Participants
+        });
+        self.repo
+            .set_meeting_audience(&call.id, kind, audience)
+            .await
+            .inspect_err(|error| {
+                tracing::error!(error = ?error, ?kind, "failed to store meeting sharing");
+            })
+            .ok();
     }
 
     /// Dispatch `call`'s one transcriber unless it already has one. A failed
@@ -220,10 +248,10 @@ impl<
         }
         self.start_meeting_transcriber(call).await;
         if let Some(rules) = self.host_recording_rules(&call.created_by).await
-            && rules.records(CallKind::OneOnOneMeeting)
+            && rules.records(CallKind::OneOnOne)
             && self.claim_meeting_recorder(call).await
         {
-            self.spawn_meeting_recording(call, rules, CallKind::OneOnOneMeeting);
+            self.spawn_meeting_recording(call, rules, CallKind::OneOnOne);
         }
         Ok(())
     }
@@ -288,16 +316,14 @@ impl<
             return Ok(CallKind::ExternalMeeting);
         };
         if joiner.as_ref() == meeting.user_id {
-            return Ok(CallKind::OneOnOneMeeting);
+            return Ok(CallKind::OneOnOne);
         }
         let host = MacroUserIdStr::parse_from_str(&meeting.user_id)
             .map_err(|error| CallError::Internal(error.into()))?;
         let (host_team, joiner_team) =
             tokio::join!(self.user_team(host.copied()), self.user_team(joiner));
         Ok(match (host_team?, joiner_team?) {
-            (Some(host), Some(joiner)) if host.team_id == joiner.team_id => {
-                CallKind::OneOnOneMeeting
-            }
+            (Some(host), Some(joiner)) if host.team_id == joiner.team_id => CallKind::OneOnOne,
             _ => CallKind::ExternalMeeting,
         })
     }
@@ -335,9 +361,9 @@ impl<
         Ok(())
     }
 
-    /// Stop the recording when `call` just became a `kind` its host does not
-    /// record, or start one when the host records it and the call has not
-    /// recorded yet.
+    /// Share `call` with whoever its host shares `kind` with, and stop the
+    /// recording when it just became a `kind` its host does not record, or
+    /// start one when the host records it and the call has not recorded yet.
     ///
     /// A recorder may still be attaching, invisible to `change`.
     /// [`start_meeting_recording`](super::meetings::start_meeting_recording)
@@ -348,6 +374,7 @@ impl<
         kind: CallKind,
         change: MeetingKindChange,
     ) {
+        self.share_meeting(call, kind).await;
         // Refusals only hold in one-on-ones, so a call past one transcribes.
         self.send_recording_refusals(call, &[]).await;
         self.start_meeting_transcriber(call).await;
@@ -396,11 +423,11 @@ impl<
             .await?;
         Ok(CallSettings {
             record_by_default: preferences.recording.record_by_default,
-            share_huddles_by_default: preferences.huddle_sharing.share_by_default,
+            share_by_default: preferences.share_by_default,
             refuse_one_on_one_recording: preferences.refuses_one_on_one_recording,
             team: team.map(|team| TeamCallPolicy {
                 recording_blocked: preferences.recording.blocked,
-                huddle_sharing_blocked: preferences.huddle_sharing.blocked,
+                huddle_sharing_blocked: preferences.huddle_sharing_blocked,
                 can_edit: team.role >= TeamRole::Admin,
             }),
         })
@@ -411,6 +438,17 @@ impl<
         actor: MacroUserIdStr<'_>,
         request: UpdateCallSettingsRequest,
     ) -> Result<CallSettings, CallError> {
+        if let Err(kind) = ShareByDefault::default().patched(request.share_by_default) {
+            let kind = match kind {
+                CallKind::Huddle => "Huddles",
+                CallKind::OneOnOne => "1:1s",
+                CallKind::InternalMeeting => "Internal meetings",
+                CallKind::ExternalMeeting => "External meetings",
+            };
+            return Err(CallError::InvalidRequest(format!(
+                "{kind} can't be shared with that audience"
+            )));
+        }
         self.repo
             .update_call_preferences(actor.copied(), request)
             .await?;

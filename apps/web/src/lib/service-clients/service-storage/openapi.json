@@ -19618,7 +19618,7 @@
         "description": "One flag per [`CallKind`].",
         "required": [
           "huddles",
-          "oneOnOneMeetings",
+          "oneOnOnes",
           "internalMeetings",
           "externalMeetings"
         ],
@@ -19629,15 +19629,15 @@
           },
           "huddles": {
             "type": "boolean",
-            "description": "Calls started from a channel."
+            "description": "Calls started from a channel other than a two-person direct message."
           },
           "internalMeetings": {
             "type": "boolean",
             "description": "Standalone calls with three or more people, all teammates."
           },
-          "oneOnOneMeetings": {
+          "oneOnOnes": {
             "type": "boolean",
-            "description": "Standalone calls with only two people, both teammates."
+            "description": "Huddles in a two-person direct message, and standalone calls with only\ntwo people, both teammates."
           }
         }
       },
@@ -19651,15 +19651,15 @@
           },
           "huddles": {
             "type": ["boolean", "null"],
-            "description": "New value for calls started from a channel."
+            "description": "New value for huddles."
           },
           "internalMeetings": {
             "type": ["boolean", "null"],
             "description": "New value for standalone calls with three or more people, all teammates."
           },
-          "oneOnOneMeetings": {
+          "oneOnOnes": {
             "type": ["boolean", "null"],
-            "description": "New value for standalone calls with only two people, both teammates."
+            "description": "New value for one-on-ones."
           }
         }
       },
@@ -19990,7 +19990,7 @@
         "description": "The caller's call settings.",
         "required": [
           "recordByDefault",
-          "shareHuddlesByDefault",
+          "shareByDefault",
           "refuseOneOnOneRecording"
         ],
         "properties": {
@@ -20000,11 +20000,11 @@
           },
           "refuseOneOnOneRecording": {
             "type": "boolean",
-            "description": "The caller does not allow being recorded or transcribed in 1:1 meetings\nor two-person direct-message huddles, whoever hosts them."
+            "description": "The caller does not allow being recorded or transcribed in\none-on-ones, whoever hosts them."
           },
-          "shareHuddlesByDefault": {
-            "type": "boolean",
-            "description": "Huddles the caller starts begin shared with their team."
+          "shareByDefault": {
+            "$ref": "#/components/schemas/ShareByDefault",
+            "description": "Who each kind of call the caller hosts is shared with once it ends."
           },
           "team": {
             "oneOf": [
@@ -34372,6 +34372,89 @@
         "type": "string",
         "description": "SHA-256 encoded as exactly 64 lowercase hexadecimal characters."
       },
+      "ShareAudience": {
+        "type": "string",
+        "description": "Who can open a call's recording, transcript and notes once it ends, besides\nits host.",
+        "enum": ["participants", "channel", "invited", "team"]
+      },
+      "ShareByDefault": {
+        "type": "object",
+        "description": "Who each kind of call a person hosts is shared with once it ends.",
+        "required": [
+          "huddles",
+          "oneOnOnes",
+          "internalMeetings",
+          "externalMeetings"
+        ],
+        "properties": {
+          "externalMeetings": {
+            "$ref": "#/components/schemas/ShareAudience",
+            "description": "External meetings: participants, invitees or the whole team."
+          },
+          "huddles": {
+            "$ref": "#/components/schemas/ShareAudience",
+            "description": "Huddles: their channel or the whole team."
+          },
+          "internalMeetings": {
+            "$ref": "#/components/schemas/ShareAudience",
+            "description": "Internal meetings: participants, invitees or the whole team."
+          },
+          "oneOnOnes": {
+            "$ref": "#/components/schemas/ShareAudience",
+            "description": "One-on-ones: the two people in them or the whole team."
+          }
+        }
+      },
+      "ShareByDefaultPatch": {
+        "type": "object",
+        "description": "A partial update to [`ShareByDefault`]. Omitted kinds keep their audience.",
+        "properties": {
+          "externalMeetings": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ShareAudience",
+                "description": "New audience for external meetings: `participants`, `invited` or `team`."
+              }
+            ]
+          },
+          "huddles": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ShareAudience",
+                "description": "New audience for huddles: `channel` or `team`."
+              }
+            ]
+          },
+          "internalMeetings": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ShareAudience",
+                "description": "New audience for internal meetings: `participants`, `invited` or `team`."
+              }
+            ]
+          },
+          "oneOnOnes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ShareAudience",
+                "description": "New audience for one-on-ones: `participants` or `team`."
+              }
+            ]
+          }
+        }
+      },
       "SharePermissionV2": {
         "type": "object",
         "required": ["id", "owner"],
@@ -37357,7 +37440,7 @@
           },
           "huddleSharingBlocked": {
             "type": "boolean",
-            "description": "No one's huddles may be shared with the team."
+            "description": "No call started from a channel, direct messages included, may be\nshared with the team."
           },
           "recordingBlocked": {
             "$ref": "#/components/schemas/CallKinds",
@@ -38155,11 +38238,11 @@
           },
           "refuseOneOnOneRecording": {
             "type": ["boolean", "null"],
-            "description": "New value for refusing to be recorded or transcribed in 1:1s."
+            "description": "New value for refusing to be recorded or transcribed in one-on-ones."
           },
-          "shareHuddlesByDefault": {
-            "type": ["boolean", "null"],
-            "description": "New value for starting the caller's huddles shared with their team."
+          "shareByDefault": {
+            "$ref": "#/components/schemas/ShareByDefaultPatch",
+            "description": "Changes to who each kind of call the caller hosts is shared with."
           }
         }
       },

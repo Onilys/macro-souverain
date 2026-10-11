@@ -6,6 +6,6 @@
  */
 
 /**
- * New value for refusing to be recorded or transcribed in 1:1s.
+ * New value for refusing to be recorded or transcribed in one-on-ones.
  */
 export type UpdateCallSettingsRequestRefuseOneOnOneRecording = boolean | null;

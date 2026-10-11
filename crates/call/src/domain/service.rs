@@ -439,6 +439,10 @@ fn resolve_ring_status(
     }
 }
 
+/// Why a live meeting's team sharing cannot be turned on by hand.
+const LIVE_MEETING_SHARING: &str =
+    "A meeting is shared according to its host's settings until it ends";
+
 /// Why a huddle cannot be shared with its host's team.
 const HUDDLE_SHARING_BLOCKED: &str = "Your team doesn't allow sharing huddles with the team";
 
@@ -1644,13 +1648,14 @@ impl<
                 .and_then(|p| p.team_share_access_level),
             legacy_enabled: request.share_with_team,
         };
+        // A live meeting's sharing follows its host's settings as people join;
+        // its creator can change it once it ends.
         if let Some(record) = &record
-            && !super::models::permitted_team_memory_intent(record.channel_id, true)
+            && record.is_active
+            && record.channel_id.is_none()
             && live_share_intent(team_share_request)? == Some(true)
         {
-            return Err(CallError::Forbidden(
-                "Calls without a channel cannot be included in team memory".to_string(),
-            ));
+            return Err(CallError::Forbidden(LIVE_MEETING_SHARING.to_string()));
         }
         // Contradictory inputs are rejected further on, with or without a block.
         if let Some(record) = &record
@@ -1763,9 +1768,7 @@ impl<
         }
         let (new_value, channel_id) = if record.channel_id.is_none() {
             if !record.share_with_team {
-                return Err(CallError::Forbidden(
-                    "Calls without a channel cannot be included in team memory".to_string(),
-                ));
+                return Err(CallError::Forbidden(LIVE_MEETING_SHARING.to_string()));
             }
             // Permit clearing an old standalone intent without a read/flip race
             // that could accidentally re-enable it in another request.

@@ -354,9 +354,10 @@ impl<
             // The session starts external, so later joins have nothing to flip.
             self.repo.mark_call_external(&call.id).await?;
         }
+        self.share_meeting(&call, kind).await;
         // A one-on-one waits for its second participant, whose settings
         // decide whether it records or transcribes at all.
-        let one_on_one = kind == CallKind::OneOnOneMeeting;
+        let one_on_one = kind == CallKind::OneOnOne;
         let recording = match self.host_recording_rules(&call.created_by).await {
             Some(rules)
                 if !one_on_one

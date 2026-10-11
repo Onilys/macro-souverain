@@ -1716,9 +1716,9 @@ A channel call's **Share** dialog has a `Team access` control (None or View) for
 team share. Its side panel has a `Sharing` section with one `Share with team` checkbox, and the
 in-call controls carry the same checkbox while a call is live. It is canonical team sharing (the
 same `Team access` model documents and AI chats use), fixed at **view**. While the call is **live**
-the checkbox is a pending toggle (on by default for channel calls, unless the
-creator turned off **Share huddles with my team** in Settings → Calls or their
-team blocks huddle sharing, in which case it can only be turned off)
+the checkbox is a pending toggle (on when the creator's **Share by default**
+setting in Settings → Calls shares that kind of huddle with the whole team; a
+team block on huddle sharing means it can only be turned off)
 that any participant with edit access can flip;
 other participants see it update live. When the call ends it is applied: with the toggle on,
 everyone on the creator's team can open the recorded call, read the transcript and AI summary,
@@ -1726,10 +1726,11 @@ and find it under Calls and in search; off means nothing is shared. Afterwards o
 **creator** can change it — everyone else sees the checkbox read-only with a note saying so.
 Team sharing is independent of channel access and of link sharing.
 
-Standalone instant and scheduled calls are excluded from team memory. They have no
-`Share with team` or `Team access` controls during the call or on the saved recording.
-Signed-in participants keep direct access to their recordings, transcripts, and summaries;
-joining a standalone call never makes its content available to the wider team.
+Standalone instant and scheduled calls have no `Share with team` control while live: they are
+shared according to the host's **Share by default** setting for the kind of meeting they ended as
+(see Call recording, sharing and 1:1 privacy). Once a meeting ends, its creator gets the same
+`Team access` control and `Sharing` section to change it. Signed-in participants always keep
+direct access to their recordings, transcripts, and summaries.
 
 ## Customers (CRM) — `/app/component/companies`
 
@@ -1986,31 +1987,40 @@ live-backend release gates and documents staging retention and recovery.
 ### Call recording, sharing and 1:1 privacy
 
 **Settings → Calls** (`/app/settings/calls`, just below Booking links) has four
-boxes, and each change saves immediately. Untouched accounts record everything,
-share huddles and allow 1:1 recording, matching behavior before these settings.
+boxes, and each change saves immediately. The boxes share four kinds of call:
+**Huddles** (calls started from a channel, other than a direct message with one
+person), **DM huddles and 1:1 meetings** (huddles in a two-person direct
+message, and meeting links only the host and one teammate join; bots don't
+count), **Internal meetings** (meeting links three or more teammates join) and
+**External meetings** (a guest or someone from another team joined).
 
-- **Record by default**: one checkbox each for **Huddles** (calls started from a
-  channel), **1:1 meetings** (standalone calls with only two people, both
-  teammates), **Internal meetings** (three or more people, all teammates) and
-  **External meetings** (a guest or someone from another team joined). Clearing
-  all four keeps recording off.
-- **Share by default**: **Share huddles with my team** decides whether huddles
-  you start begin with the in-call **Share with team** checkbox on. Standalone
-  meetings are never shared with the team (see Sharing a call).
-- **1:1 privacy**: **Don't record or transcribe my 1:1s** applies to 1:1 meetings
-  and huddles in a two-person direct message (bots don't count), whoever starts
-  them, and overrides the other person's settings. While it applies, the call
-  neither records nor transcribes, so it gets no transcript or AI notes, and
-  everyone in it sees a line above the call controls such as "Not recording or
-  transcribing: Sam doesn't allow 1:1 recordings". It stops applying once a third
-  teammate or anyone from outside the team joins a meeting.
+- **Record by default**: one checkbox per kind, all on for untouched accounts.
+  Clearing all four keeps recording off.
+- **Share by default**: one dropdown per kind saying who can open the recording,
+  transcript and AI notes once the call ends. Huddles offer **People in the
+  channel** (default) or **My whole team**; DM huddles and 1:1 meetings offer
+  **Participants only** (default) or **My whole team**; internal and external
+  meetings offer **Participants only**, **Everyone invited** or **My whole
+  team**, defaulting to **Everyone invited** and **My whole team**. A huddle
+  shared with the team starts with the in-call **Share with team** checkbox on,
+  which anyone in it can turn off. A meeting is shared according to the kind it
+  has become when it ends; **Everyone invited** covers people invited to the
+  session and the Macro accounts among its calendar event's attendees.
+- **1:1 privacy**: **Block all my 1:1s** applies to DM huddles and 1:1
+  meetings, whoever starts them, and overrides the other person's settings.
+  While it applies, the call neither records nor transcribes, so it gets no
+  transcript or AI notes, and everyone in it sees a line above the call controls
+  such as "Not recording or transcribing: Sam doesn't allow 1:1 recordings". It
+  stops applying once a third teammate or anyone from outside the team joins a
+  meeting.
 - **Team policy** appears for people on a team. Admins and owners can **Block
-  recording** each kind of call and **Block sharing huddles**; a block overrides
-  every personal setting, and blocking huddle sharing also turns sharing off on
-  the team's huddles already running. Members see the same checkboxes dimmed
-  with a not-allowed cursor, an **Admins only** label and an explanation. A
-  blocked setting also shows unchecked and disabled in the personal boxes, and
-  the in-call **Share with team** checkbox can then only be turned off.
+  recording** each kind and **Block sharing huddles**; a block overrides every
+  personal setting. Blocking huddle sharing covers DM huddles too, turns sharing
+  off on the team's huddles already running, and locks the Huddles dropdown to
+  **People in the channel**. Members see the same checkboxes dimmed with a
+  not-allowed cursor, an **Admins only** label and an explanation. A blocked
+  setting also shows unchecked and disabled in the personal boxes, and the
+  in-call **Share with team** checkbox can then only be turned off.
 
 The host's rules apply: the person who started a huddle, or the owner of a
 meeting link. A meeting counts as 1:1 until a third distinct person joins (a

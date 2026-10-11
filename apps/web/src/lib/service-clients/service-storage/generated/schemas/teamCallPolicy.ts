@@ -12,7 +12,8 @@ import type { CallKinds } from './callKinds';
 export interface TeamCallPolicy {
   /** Whether the caller may change the blocks (team admins and owners). */
   canEdit: boolean;
-  /** No one's huddles may be shared with the team. */
+  /** No call started from a channel, direct messages included, may be
+shared with the team. */
   huddleSharingBlocked: boolean;
   /** Kinds of call no one on the team may record. */
   recordingBlocked: CallKinds;

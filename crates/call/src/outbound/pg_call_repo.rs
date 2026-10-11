@@ -1552,8 +1552,8 @@ impl CallRepository for PgCallRepo {
         filter: &LiteralTree<CallLiteral>,
     ) -> Result<Vec<CallRecord>, Self::Err> {
         // Fetch active and archived headers without transcripts. Channel calls
-        // accept matching user, channel, or team grants; standalone calls require
-        // an individual user grant so group grants cannot add them to team memory.
+        // accept matching user, channel, or team grants; standalone calls accept
+        // the caller's own grant or their team's, never a channel's.
         let channel_ids = extract_channel_ids(filter);
         let has_channel_filter = !channel_ids.is_empty();
         let call_ids = extract_call_ids(filter);
@@ -1621,7 +1621,7 @@ impl CallRepository for PgCallRepo {
                     JOIN user_source_ids u ON u.source_id = ea.source_id
                     WHERE ea.entity_id = c.id
                       AND ea.entity_type = 'call'
-                      AND (c.channel_id IS NOT NULL OR (ea.source_type = 'user' AND ea.source_id = $1))
+                      AND (c.channel_id IS NOT NULL OR ea.source_type IN ('user', 'team'))
                 )
                 AND ($3::bool IS FALSE OR c.channel_id = ANY($4))
                 AND ($5::bool IS FALSE OR c.id = ANY($6))
@@ -1691,7 +1691,7 @@ impl CallRepository for PgCallRepo {
                     JOIN user_source_ids u ON u.source_id = ea.source_id
                     WHERE ea.entity_id = cr.id
                       AND ea.entity_type = 'call'
-                      AND (cr.channel_id IS NOT NULL OR (ea.source_type = 'user' AND ea.source_id = $1))
+                      AND (cr.channel_id IS NOT NULL OR ea.source_type IN ('user', 'team'))
                 )
                 AND ($3::bool IS FALSE OR cr.channel_id = ANY($4))
                 AND ($5::bool IS FALSE OR cr.id = ANY($6))
@@ -2282,5 +2282,14 @@ impl CallRepository for PgCallRepo {
 
     async fn unshare_live_team_huddles(&self, team_id: &Uuid) -> Result<(), CallError> {
         self.unshare_live_huddles(team_id).await
+    }
+
+    async fn set_meeting_audience(
+        &self,
+        call_id: &Uuid,
+        kind: crate::domain::recording::CallKind,
+        audience: crate::domain::recording::ShareAudience,
+    ) -> Result<(), CallError> {
+        self.store_meeting_audience(call_id, kind, audience).await
     }
 }

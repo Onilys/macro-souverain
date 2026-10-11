@@ -1,5 +1,7 @@
 use super::*;
-use crate::domain::recording::{CallKind, MeetingAttendance, RecordingRules};
+use crate::domain::recording::{
+    CallKind, CallPreferences, MeetingAttendance, RecordingRules, ShareAudience,
+};
 use crate::domain::service::recording::MeetingJoiner;
 
 fn service(
@@ -220,6 +222,18 @@ async fn meeting_allocation_does_not_wait_for_recording_or_transcription() {
     repo.expect_mark_call_external()
         .times(1)
         .returning(|_| Box::pin(async { Ok(None) }));
+    // ...and shares it with whoever its host shares external meetings with.
+    repo.expect_get_call_preferences()
+        .times(1)
+        .returning(|_, _| Box::pin(async { Ok(CallPreferences::default()) }));
+    repo.expect_set_meeting_audience()
+        .times(1)
+        .returning(move |id, kind, audience| {
+            assert_eq!(*id, call_id);
+            assert_eq!(kind, CallKind::ExternalMeeting);
+            assert_eq!(audience, ShareAudience::Team);
+            Box::pin(async { Ok(()) })
+        });
     repo.expect_get_recording_rules()
         .times(1)
         .returning(|_, _| Box::pin(async { Ok(RecordingRules::default()) }));
@@ -336,7 +350,7 @@ async fn late_meeting_recording_is_attached_before_it_is_stopped() {
             "room",
             Some(&test_egress_config()),
             RecordingRules::default(),
-            CallKind::OneOnOneMeeting,
+            CallKind::OneOnOne,
         )
         .await;
     }
@@ -365,7 +379,7 @@ async fn meeting_recording_stops_if_call_ends_just_after_attachment() {
         "room",
         Some(&test_egress_config()),
         RecordingRules::default(),
-        CallKind::OneOnOneMeeting,
+        CallKind::OneOnOne,
     )
     .await;
 }

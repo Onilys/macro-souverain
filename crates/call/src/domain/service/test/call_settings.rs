@@ -1,29 +1,39 @@
 use super::recording_rules::{
-    HOST, HOST_TEAM, expect_host_preferences, huddle_repo, kinds, not_a_direct_message, rules,
-    service, teams,
+    HOST, HOST_TEAM, expect_host_preferences, expect_live_share, huddle_repo, kinds,
+    not_a_direct_message, rules, service, teams,
 };
 use super::*;
-use crate::domain::recording::CallKind::{ExternalMeeting, Huddle, OneOnOneMeeting};
+use crate::domain::recording::CallKind::{ExternalMeeting, Huddle, OneOnOne};
 use crate::domain::recording::{
-    CallKinds, CallKindsPatch, CallPreferences, CallSettings, HuddleSharing, RecordingRules,
-    TeamCallPolicy, UpdateCallSettingsRequest, UpdateTeamCallPolicyRequest,
+    CallKinds, CallKindsPatch, CallPreferences, CallSettings, RecordingRules, ShareAudience,
+    ShareByDefault, ShareByDefaultPatch, TeamCallPolicy, UpdateCallSettingsRequest,
+    UpdateTeamCallPolicyRequest,
 };
 use entity_access::domain::models::{AdminTeamRole, TeamRole};
 
-fn sharing(share_by_default: bool, blocked: bool) -> CallPreferences {
+/// Preferences sharing huddles (and one-on-ones) with the team, or only with
+/// their channel.
+fn sharing(with_team: bool, blocked: bool) -> CallPreferences {
+    let audience = if with_team {
+        ShareAudience::Team
+    } else {
+        ShareAudience::Channel
+    };
     CallPreferences {
-        huddle_sharing: HuddleSharing {
-            share_by_default,
-            blocked,
+        share_by_default: ShareByDefault {
+            huddles: audience,
+            ..ShareByDefault::default()
         },
+        huddle_sharing_blocked: blocked,
         ..CallPreferences::default()
     }
 }
 
 #[tokio::test]
-async fn huddles_start_shared_unless_their_host_or_team_says_otherwise() {
+async fn huddles_start_shared_only_when_their_host_shares_them_with_the_team() {
     for (preferences, shared) in [
-        (CallPreferences::default(), true),
+        (CallPreferences::default(), false),
+        (sharing(true, false), true),
         (sharing(false, false), false),
         (sharing(true, true), false),
     ] {
@@ -32,13 +42,7 @@ async fn huddles_start_shared_unless_their_host_or_team_says_otherwise() {
         not_a_direct_message(&mut repo);
         repo.expect_set_egress_id()
             .returning(|_, _| Box::pin(async { Ok(()) }));
-        repo.expect_patch_call_record()
-            .times(usize::from(!shared))
-            .returning(|_, args| {
-                assert_eq!(args.live_share_with_team, Some(false));
-                assert!(args.team_share.is_none());
-                Box::pin(async { Ok(()) })
-            });
+        expect_live_share(&mut repo, shared);
         service(repo, MockRtcClient::new(), teams())
             .get_or_create_call(&STARTED_EVENT_CHANNEL_ID, user(HOST))
             .await
@@ -187,13 +191,14 @@ fn settings_repo(team: Option<Uuid>, preferences: CallPreferences) -> MockCallRe
 async fn settings_show_team_blocks_and_who_may_edit_them() {
     let preferences = CallPreferences {
         recording: rules(
-            kinds(&[Huddle, OneOnOneMeeting, ExternalMeeting]),
+            kinds(&[Huddle, OneOnOne, ExternalMeeting]),
             kinds(&[ExternalMeeting]),
         ),
-        huddle_sharing: HuddleSharing {
-            share_by_default: false,
-            blocked: true,
+        share_by_default: ShareByDefault {
+            internal_meetings: ShareAudience::Team,
+            ..ShareByDefault::default()
         },
+        huddle_sharing_blocked: true,
         refuses_one_on_one_recording: true,
     };
     for (role, can_edit) in [
@@ -215,7 +220,7 @@ async fn settings_show_team_blocks_and_who_may_edit_them() {
             settings,
             CallSettings {
                 record_by_default: preferences.recording.record_by_default,
-                share_huddles_by_default: false,
+                share_by_default: preferences.share_by_default,
                 refuse_one_on_one_recording: true,
                 team: Some(TeamCallPolicy {
                     recording_blocked: preferences.recording.blocked,
@@ -238,7 +243,7 @@ async fn settings_without_a_team_have_no_team_policy() {
     .await
     .unwrap();
     assert_eq!(settings.record_by_default, CallKinds::ALL);
-    assert!(settings.share_huddles_by_default);
+    assert_eq!(settings.share_by_default, ShareByDefault::default());
     assert!(!settings.refuse_one_on_one_recording);
     assert_eq!(settings.team, None);
 }
@@ -250,7 +255,10 @@ async fn people_change_only_their_own_settings() {
             huddles: Some(false),
             ..CallKindsPatch::default()
         },
-        share_huddles_by_default: Some(false),
+        share_by_default: ShareByDefaultPatch {
+            one_on_ones: Some(ShareAudience::Team),
+            ..ShareByDefaultPatch::default()
+        },
         refuse_one_on_one_recording: Some(true),
     };
     let mut repo = settings_repo(Some(HOST_TEAM), CallPreferences::default());
@@ -265,6 +273,40 @@ async fn people_change_only_their_own_settings() {
         .update_call_settings(user(HOST), request)
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn a_kind_cannot_be_shared_with_an_audience_it_does_not_have() {
+    for patch in [
+        ShareByDefaultPatch {
+            huddles: Some(ShareAudience::Participants),
+            ..ShareByDefaultPatch::default()
+        },
+        ShareByDefaultPatch {
+            one_on_ones: Some(ShareAudience::Channel),
+            ..ShareByDefaultPatch::default()
+        },
+        ShareByDefaultPatch {
+            external_meetings: Some(ShareAudience::Channel),
+            ..ShareByDefaultPatch::default()
+        },
+    ] {
+        let mut repo = MockCallRepository::new();
+        repo.expect_update_call_preferences().never();
+        let result = service(repo, MockCallRtcClient::new(), teams())
+            .update_call_settings(
+                user(HOST),
+                UpdateCallSettingsRequest {
+                    share_by_default: patch,
+                    ..UpdateCallSettingsRequest::default()
+                },
+            )
+            .await;
+        assert!(
+            matches!(result, Err(CallError::InvalidRequest(_))),
+            "{patch:?}"
+        );
+    }
 }
 
 fn admin_receipt() -> EntityAccessReceipt<AdminTeamRole> {

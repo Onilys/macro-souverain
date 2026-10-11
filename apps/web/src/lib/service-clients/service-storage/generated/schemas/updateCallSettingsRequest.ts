@@ -5,8 +5,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CallKindsPatch } from './callKindsPatch';
+import type { ShareByDefaultPatch } from './shareByDefaultPatch';
 import type { UpdateCallSettingsRequestRefuseOneOnOneRecording } from './updateCallSettingsRequestRefuseOneOnOneRecording';
-import type { UpdateCallSettingsRequestShareHuddlesByDefault } from './updateCallSettingsRequestShareHuddlesByDefault';
 
 /**
  * Body of `PATCH /call/settings`. Omitted fields keep their current value.
@@ -14,8 +14,8 @@ import type { UpdateCallSettingsRequestShareHuddlesByDefault } from './updateCal
 export interface UpdateCallSettingsRequest {
   /** Changes to the kinds of call the caller records by default. */
   recordByDefault?: CallKindsPatch;
-  /** New value for refusing to be recorded or transcribed in 1:1s. */
+  /** New value for refusing to be recorded or transcribed in one-on-ones. */
   refuseOneOnOneRecording?: UpdateCallSettingsRequestRefuseOneOnOneRecording;
-  /** New value for starting the caller's huddles shared with their team. */
-  shareHuddlesByDefault?: UpdateCallSettingsRequestShareHuddlesByDefault;
+  /** Changes to who each kind of call the caller hosts is shared with. */
+  shareByDefault?: ShareByDefaultPatch;
 }

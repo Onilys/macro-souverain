@@ -6,6 +6,7 @@
  */
 import type { CallKinds } from './callKinds';
 import type { CallSettingsTeam } from './callSettingsTeam';
+import type { ShareByDefault } from './shareByDefault';
 
 /**
  * The caller's call settings.
@@ -13,10 +14,10 @@ import type { CallSettingsTeam } from './callSettingsTeam';
 export interface CallSettings {
   /** Kinds of call the caller's own calls record by default. */
   recordByDefault: CallKinds;
-  /** The caller does not allow being recorded or transcribed in 1:1 meetings
-or two-person direct-message huddles, whoever hosts them. */
+  /** The caller does not allow being recorded or transcribed in
+one-on-ones, whoever hosts them. */
   refuseOneOnOneRecording: boolean;
-  /** Huddles the caller starts begin shared with their team. */
-  shareHuddlesByDefault: boolean;
+  /** Who each kind of call the caller hosts is shared with once it ends. */
+  shareByDefault: ShareByDefault;
   team?: CallSettingsTeam;
 }

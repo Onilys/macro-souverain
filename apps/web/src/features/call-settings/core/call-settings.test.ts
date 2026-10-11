@@ -6,30 +6,38 @@ import {
   RECORDING_KINDS,
   type RecordingKinds,
   recordsByDefault,
-  sharesHuddlesByDefault,
+  type ShareByDefault,
+  shareAudience,
   withKind,
 } from './call-settings';
 
 const ALL: RecordingKinds = {
   huddles: true,
-  oneOnOneMeetings: true,
+  oneOnOnes: true,
   internalMeetings: true,
   externalMeetings: true,
 };
 const NONE: RecordingKinds = {
   huddles: false,
-  oneOnOneMeetings: false,
+  oneOnOnes: false,
   internalMeetings: false,
   externalMeetings: false,
+};
+
+const SHARE_DEFAULTS: ShareByDefault = {
+  huddles: 'channel',
+  oneOnOnes: 'participants',
+  internalMeetings: 'invited',
+  externalMeetings: 'team',
 };
 
 const settings = (
   recordByDefault: RecordingKinds,
   recordingBlocked: RecordingKinds | null,
-  sharing: { byDefault?: boolean; blocked?: boolean } = {}
+  sharing: { byDefault?: ShareByDefault; blocked?: boolean } = {}
 ): CallSettings => ({
   recordByDefault,
-  shareHuddlesByDefault: sharing.byDefault ?? true,
+  shareByDefault: sharing.byDefault ?? SHARE_DEFAULTS,
   refuseOneOnOneRecording: false,
   team: recordingBlocked
     ? {
@@ -44,7 +52,7 @@ describe('call settings', () => {
   it('lists huddles, then meetings from smallest to most open', () => {
     expect(RECORDING_KINDS.map((option) => option.kind)).toEqual([
       'huddles',
-      'oneOnOneMeetings',
+      'oneOnOnes',
       'internalMeetings',
       'externalMeetings',
     ]);
@@ -71,14 +79,37 @@ describe('call settings', () => {
     }
   });
 
-  it('shares huddles only when chosen and the team allows it', () => {
-    expect(sharesHuddlesByDefault(settings(ALL, null))).toBe(true);
+  it('offers each kind only the audiences it can have', () => {
     expect(
-      sharesHuddlesByDefault(settings(ALL, null, { byDefault: false }))
-    ).toBe(false);
-    const blocked = settings(ALL, NONE, { blocked: true });
+      Object.fromEntries(
+        RECORDING_KINDS.map((option) => [option.kind, option.audiences])
+      )
+    ).toEqual({
+      huddles: ['channel', 'team'],
+      oneOnOnes: ['participants', 'team'],
+      internalMeetings: ['participants', 'invited', 'team'],
+      externalMeetings: ['participants', 'invited', 'team'],
+    });
+    for (const option of RECORDING_KINDS) {
+      expect(option.audiences).toContain(SHARE_DEFAULTS[option.kind]);
+    }
+  });
+
+  it('shares each kind with the chosen audience', () => {
+    const chosen = settings(ALL, null);
+    expect(shareAudience(chosen, 'huddles')).toBe('channel');
+    expect(shareAudience(chosen, 'externalMeetings')).toBe('team');
+  });
+
+  it('keeps huddles in their channel when the team blocks sharing them', () => {
+    const blocked = settings(ALL, NONE, {
+      byDefault: { ...SHARE_DEFAULTS, huddles: 'team', oneOnOnes: 'team' },
+      blocked: true,
+    });
     expect(isHuddleSharingBlocked(blocked)).toBe(true);
-    expect(sharesHuddlesByDefault(blocked)).toBe(false);
+    expect(shareAudience(blocked, 'huddles')).toBe('channel');
+    // 1:1 meetings are not huddles, so the choice still applies to them.
+    expect(shareAudience(blocked, 'oneOnOnes')).toBe('team');
   });
 
   it('changes one kind without mutating the input', () => {
