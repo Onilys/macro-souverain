@@ -8,7 +8,7 @@ const [W, H] = { "916": [1080, 1920], "45": [1080, 1350], "11": [1440, 1440] }[F
 const b = await chromium.launch({ args: ["--force-color-profile=srgb", "--font-render-hinting=none", "--disable-lcd-text"] });
 const p = await b.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE });
 p.on("pageerror", (e) => console.log("ERR", e.message));
-await p.goto("file://" + path.resolve(process.env.PAGE || "launch.html") + "?render=1&fmt=" + FMT); await p.evaluate(() => window.ready);
+await p.goto("file://" + path.resolve(process.env.PAGE || "launch.html") + "?render=1&fmt=" + FMT + (process.env.QS || "")); await p.evaluate(() => window.ready);
 const shots = [];
 for (const s of beats.map(Number)) { const t = await p.evaluate((x) => window.B(x), s); await p.evaluate((tt) => window.seek(tt), t); shots.push([s, (await p.screenshot()).toString("base64")]); }
 const c = parseInt(cols, 10), w = Math.round(W * SCALE), h = Math.round(H * SCALE);

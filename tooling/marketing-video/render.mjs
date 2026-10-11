@@ -7,7 +7,7 @@ try { ({ chromium } = await import("playwright")); } catch { ({ chromium } = awa
 import fs from "node:fs";
 import path from "node:path";
 
-const HTML = "file://" + path.resolve(process.env.PAGE || "trailer.html") + "?render=1" + (process.env.VIBE ? "&vibe=" + process.env.VIBE : "") + (process.env.FMT ? "&fmt=" + process.env.FMT : "");
+const HTML = "file://" + path.resolve(process.env.PAGE || "trailer.html") + "?render=1" + (process.env.VIBE ? "&vibe=" + process.env.VIBE : "") + (process.env.FMT ? "&fmt=" + process.env.FMT : "") + (process.env.QS || "");   // QS: extra params, e.g. "&cut=30&hook=slack"
 const [VW, VH] = { "916": [1080, 1920], "45": [1080, 1350], "11": [1440, 1440], "169": [1920, 1080] }[process.env.FMT || "11"];
 const FPS = 60, SUB = 4, SHUTTER = 0.5; // 180° shutter, 4 samples per frame
 
@@ -55,11 +55,13 @@ try {
     const probe = await openPage(browser);
     const dur = process.env.LIMIT ? parseFloat(process.env.LIMIT) : await probe.page.evaluate(() => window.DURATION);
     await probe.page.context().close();
-    const frames = Math.round(dur * FPS), t0 = Date.now();
+    // FROM / TO (seconds) render just that span, so pieces that several cuts share are rendered once
+    const fA = process.env.FROM ? Math.round(parseFloat(process.env.FROM) * FPS) : 0, fB = process.env.TO ? Math.round(parseFloat(process.env.TO) * FPS) : Math.round(dur * FPS);
+    const frames = fB - fA, t0 = Date.now();
     let done = 0;
     await Promise.all(Array.from({ length: workers }, async (_, w) => {
       const p = await openPage(browser);
-      const a = Math.floor((w * frames) / workers), b = Math.floor(((w + 1) * frames) / workers);
+      const a = fA + Math.floor((w * frames) / workers), b = fA + Math.floor(((w + 1) * frames) / workers);
       const ff = spawn(process.env.FF || "ffmpeg", ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(FPS * SUB), "-c:v", "png", "-i", "-",
         "-vf", `tmix=frames=${SUB}:weights='${Array(SUB).fill(1).join(" ")}',select='eq(mod(n\\,${SUB})\\,${SUB - 1})',setpts=N/(${FPS}*TB),scale=out_color_matrix=bt709:out_range=tv`,
         "-r", String(FPS), "-c:v", "libx264", "-preset", "slow", "-tune", "animation", "-profile:v", "high", "-crf", "15", "-pix_fmt", "yuv420p", "-x264-params", "threads=2",
