@@ -14,7 +14,8 @@ import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { lazyNamed } from '@core/util/lazyNamed';
 import { ListEntityMetadataQueryProvider } from '@entity';
-import { onMount, Show } from 'solid-js';
+import { cn } from '@ui';
+import { type JSX, onMount, Show } from 'solid-js';
 import { HomeChatStart } from './components/HomeChatStart';
 import { HomeList } from './components/HomeList';
 import { HomeListLayout } from './components/HomeListLayout';
@@ -81,12 +82,65 @@ function HomeListPane(props: {
   );
 }
 
+/** Detail routes load lazily. Suspend only this area, so the list stays
+ * mounted and a pending detail's effects wait until it resolves. */
+function HomeDetailOutlet() {
+  return (
+    <DebugSuspense name="HomeView.outlet" fallback={<HomeFallback />}>
+      <SplitRouter.Outlet fallback={() => <HomeChatStart />} />
+    </DebugSuspense>
+  );
+}
+
+/**
+ * Inbox mode: the list fills the view until Space previews an item, which
+ * opens beside the list. A narrow split shows the preview in place of the
+ * list, keeping the list mounted so its focus and scroll survive.
+ */
+function HomeInboxLayout(props: { list: JSX.Element; hasPreview: boolean }) {
+  const shell = useViewShell();
+  const narrow = () => shell.breakpoints.narrow?.() ?? false;
+
+  return (
+    <div class="flex size-full min-h-0 min-w-0">
+      <div
+        class={cn(
+          'flex min-h-0 min-w-0 flex-col bg-panel',
+          !props.hasPreview && 'flex-1',
+          props.hasPreview &&
+            !narrow() &&
+            'w-100 shrink-0 border-r border-edge-frame',
+          props.hasPreview && narrow() && 'hidden'
+        )}
+      >
+        {props.list}
+      </div>
+      <Show when={props.hasPreview}>
+        <div class="min-h-0 min-w-0 flex-1 overflow-hidden" data-home-preview>
+          <HomeDetailOutlet />
+        </div>
+      </Show>
+    </div>
+  );
+}
+
 function HomeViewRoot() {
   const panel = useSplitPanelOrThrow();
-  const { previewTarget, calendarOpen, openPreview, closePreview } =
-    useHomeView();
+  const {
+    previewTarget,
+    calendarOpen,
+    openPreview,
+    closePreview,
+    inboxMode,
+    setInboxMode,
+  } = useHomeView();
 
-  const newChat = closePreview;
+  const hasPreview = () => previewTarget() !== undefined || calendarOpen();
+  // The chat composer lives in the sidebar layout's empty detail area.
+  const newChat = () => {
+    setInboxMode(false);
+    closePreview();
+  };
   const onPreviewEntityChange = (entity: PreviewSelection | undefined) => {
     if (entity) openPreview(entity);
     else closePreview();
@@ -95,6 +149,16 @@ function HomeViewRoot() {
   // The touch nav item calls this "Notifications".
   onMount(() =>
     panel.handle.setDisplayName(isTouchDevice() ? 'Notifications' : 'Home')
+  );
+
+  const listPane = () => (
+    <DebugSuspense name="HomeView.list-pane">
+      <HomeListPane
+        hasPreview={hasPreview()}
+        onPreviewEntityChange={onPreviewEntityChange}
+        onNewChat={newChat}
+      />
+    </DebugSuspense>
   );
 
   return (
@@ -106,52 +170,38 @@ function HomeViewRoot() {
               when={isTouchDevice()}
               fallback={
                 <div class="size-full min-h-0 bg-panel">
-                  <ViewShell.Root
-                    asidePreferenceKey="home"
-                    aside={{ preserveDuringResize: false }}
-                    main={{ preferredWidth: 640 }}
-                    resizable
-                  >
-                    <ViewShell.Aside class="flex flex-col bg-panel">
-                      <DebugSuspense name="HomeView.list-pane">
-                        <HomeListPane
-                          hasPreview={
-                            previewTarget() !== undefined || calendarOpen()
-                          }
-                          onPreviewEntityChange={onPreviewEntityChange}
-                          onNewChat={newChat}
-                        />
-                      </DebugSuspense>
-                    </ViewShell.Aside>
-                    <ViewShell.Main class="overflow-hidden">
-                      {/* Detail routes load lazily. Suspend only this area, so
-                          the list stays mounted and a pending detail's effects
-                          wait until it resolves. */}
-                      <DebugSuspense
-                        name="HomeView.outlet"
-                        fallback={<HomeFallback />}
+                  <Show
+                    when={inboxMode()}
+                    fallback={
+                      <ViewShell.Root
+                        asidePreferenceKey="home"
+                        aside={{ preserveDuringResize: false }}
+                        main={{ preferredWidth: 640 }}
+                        resizable
                       >
-                        <SplitRouter.Outlet
-                          fallback={() => <HomeChatStart />}
+                        <ViewShell.Aside class="flex flex-col bg-panel">
+                          {listPane()}
+                        </ViewShell.Aside>
+                        <ViewShell.Main class="overflow-hidden">
+                          <HomeDetailOutlet />
+                        </ViewShell.Main>
+                      </ViewShell.Root>
+                    }
+                  >
+                    <ViewShell.Root aside={false}>
+                      <ViewShell.Main class="overflow-hidden">
+                        <HomeInboxLayout
+                          list={listPane()}
+                          hasPreview={hasPreview()}
                         />
-                      </DebugSuspense>
-                    </ViewShell.Main>
-                  </ViewShell.Root>
+                      </ViewShell.Main>
+                    </ViewShell.Root>
+                  </Show>
                 </div>
               }
             >
               <ViewShell.Root aside={false} main={{ min: 224 }}>
-                <ViewShell.Main>
-                  <DebugSuspense name="HomeView.list-pane">
-                    <HomeListPane
-                      hasPreview={
-                        previewTarget() !== undefined || calendarOpen()
-                      }
-                      onPreviewEntityChange={onPreviewEntityChange}
-                      onNewChat={newChat}
-                    />
-                  </DebugSuspense>
-                </ViewShell.Main>
+                <ViewShell.Main>{listPane()}</ViewShell.Main>
               </ViewShell.Root>
             </Show>
           </SplitPanel.Body>

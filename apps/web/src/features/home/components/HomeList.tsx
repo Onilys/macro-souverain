@@ -29,6 +29,7 @@ import {
   withSplitPanelOwner,
 } from '@components/app/split-layout/layoutUtils';
 import { useChannelsContext } from '@core/context/channels';
+import { registerHotkey } from '@core/hotkey/hotkeys';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import {
   type EntityData,
@@ -101,7 +102,7 @@ export function HomeList(props: HomeListProps) {
     entity.type === 'channel_thread'
       ? getChannelThreadName(entity, channels.channelsById())
       : undefined;
-  const { state } = useHomeView();
+  const { state, inboxMode } = useHomeView();
   const panel = useSplitPanelOrThrow();
   const notificationSource = useGlobalNotificationSource();
 
@@ -149,6 +150,7 @@ export function HomeList(props: HomeListProps) {
 
   function onActivate({
     item,
+    reason,
     metadata,
   }: ListActivation<HomeDataSourceItem, HomeListActivationMetadata>) {
     if (item.kind !== 'entity') return;
@@ -161,6 +163,12 @@ export function HomeList(props: HomeListProps) {
 
     const newSplit =
       metadata?.newSplit === true || metadata?.event?.shiftKey === true;
+
+    // Inbox mode's Enter opens the item in place of Home; Space previews it.
+    if (inboxMode() && reason === 'keyboard' && !newSplit) {
+      void openEntity(sourceRow.entity, { newSplit: false });
+      return;
+    }
 
     if (!isTouchDevice() && !newSplit) {
       markEntitySeen(sourceRow.entity);
@@ -333,7 +341,9 @@ export function HomeList(props: HomeListProps) {
         previewAfterNavigation.clear();
 
         const row = event.result?.item;
-        if (!isTouchDevice() && row?.kind === 'entity') {
+        // The full-width inbox only follows focus once a preview is open.
+        const followsFocus = !inboxMode() || props.hasPreview;
+        if (!isTouchDevice() && followsFocus && row?.kind === 'entity') {
           previewAfterNavigation(row.entity);
         }
 
@@ -370,6 +380,50 @@ export function HomeList(props: HomeListProps) {
       metadata: { event },
     });
   };
+
+  const canTogglePreview = () =>
+    inboxMode() && panel.isPanelActive() && list.selection.count() === 0;
+  // Space belongs to the preview once it has focus, e.g. to scroll a PDF.
+  const focusInPreview = () =>
+    document.activeElement?.closest('[data-home-preview]') != null;
+
+  registerHotkey({
+    hotkey: 'space',
+    scopeId: panel.splitHotkeyScope,
+    description: () => (props.hasPreview ? 'Close preview' : 'Preview item'),
+    condition: () =>
+      canTogglePreview() &&
+      !focusInPreview() &&
+      (props.hasPreview || focusedEntity() !== undefined),
+    keyDownHandler: () => {
+      previewAfterNavigation.clear();
+      if (props.hasPreview) {
+        props.onPreviewEntityChange(undefined);
+        return true;
+      }
+
+      const entity = focusedEntity();
+      if (!entity) return false;
+
+      markEntitySeen(entity);
+      showPreview(entity);
+      return true;
+    },
+  });
+
+  registerHotkey({
+    hotkey: 'escape',
+    scopeId: panel.splitHotkeyScope,
+    description: 'Close preview',
+    condition: () => canTogglePreview() && props.hasPreview,
+    keyDownHandler: () => {
+      previewAfterNavigation.clear();
+      props.onPreviewEntityChange(undefined);
+      listRoot()?.focus();
+      return true;
+    },
+    registrationType: 'add',
+  });
 
   useEntityActionHotkeys({
     enableDeleteHotkey: false,

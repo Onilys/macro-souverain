@@ -5,6 +5,7 @@ import { tourTarget } from '@ui/components/Tour';
 import { type JSX, type ParentProps, Show } from 'solid-js';
 import { HOME_TOUR } from '../tour';
 import { HomeFilterDropdown } from './HomeFilters';
+import { HomeInboxModeToggle } from './HomeInboxModeToggle';
 
 function MobileHomeHeader(props: ParentProps) {
   return (
@@ -35,7 +36,12 @@ export function HomeListLayout(
             title="Home"
             label="New chat"
             onCreate={props.onNewChat}
-            titleActions={<HomeFilterDropdown />}
+            titleActions={
+              <div class="ml-auto flex shrink-0 items-center gap-0.5">
+                <HomeInboxModeToggle />
+                <HomeFilterDropdown />
+              </div>
+            }
           />
         }
       >

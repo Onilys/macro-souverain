@@ -9,6 +9,7 @@ import {
   useNavigate,
   useParams,
 } from '@app/lib/split-router';
+import { usePreference } from '@app/preferences/use-preference';
 import {
   homeChannelRoute,
   homeDocumentRoute,
@@ -24,6 +25,7 @@ import {
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { createAssertedContextProvider } from '@core/context/createContext';
 import { useUserId } from '@core/context/user';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import type { ContextProviderProps } from '@solid-primitives/context';
 import deepEqual from 'fast-deep-equal';
 import {
@@ -77,6 +79,12 @@ export type HomeViewContext = {
   closePreview: () => void;
   setTab: (tab: HomeTab) => void;
   setFacets: (facets: FacetSelection) => void;
+  /**
+   * Desktop inbox mode: the list fills the view, Space previews the focused
+   * item beside it, and Enter opens it in place of Home.
+   */
+  inboxMode: Accessor<boolean>;
+  setInboxMode: (enabled: boolean) => void;
 };
 
 function defaultGroupBy(): HomeGroupBy {
@@ -229,6 +237,18 @@ export const [HomeViewProvider, useHomeView] = createAssertedContextProvider<
     setState('facets', reconcile(normalizeHomeFacets(facets)));
   };
 
+  const [inboxModePreference, setInboxModePreference] = usePreference(
+    'macro:pref:home:inbox-mode',
+    { default: false }
+  );
+  const inboxMode = () => !isTouchDevice() && inboxModePreference();
+  const setInboxMode = (enabled: boolean) => {
+    if (inboxModePreference() === enabled) return;
+    setInboxModePreference(enabled);
+    // Entering the mode starts from the full-width list.
+    if (enabled) closePreview();
+  };
+
   return {
     state,
     setState,
@@ -240,5 +260,7 @@ export const [HomeViewProvider, useHomeView] = createAssertedContextProvider<
     closePreview,
     setTab,
     setFacets,
+    inboxMode,
+    setInboxMode,
   };
 });

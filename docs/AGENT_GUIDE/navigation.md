@@ -152,6 +152,17 @@ targets, spreadsheets, unknown items, and other unsupported block types retain
 the legacy inline preview so their navigation still works. The URL shape stays
 `/app/home/<block-type>/<uuid>` in either rendering mode.
 
+Desktop Home's **Inbox mode** (lightning button beside the Home title, a
+sticky preference) turns the list into a full-width unified inbox of every
+item type. **J**/**K** move without opening anything, **E** marks done,
+**Space** previews the focused item beside the list inside Home (Space again or
+**Escape** closes it), and **Enter** opens the item in place of Home, where
+J/K keep stepping through the list. Shift+Enter still opens a new split, and a
+click previews. While a preview is open, J/K follow it as in the sidebar
+layout; once focus moves into the preview, Space belongs to the preview. A
+narrow split shows the preview in place of the list. **New chat** leaves inbox
+mode, since its composer lives in the sidebar layout's empty detail area.
+
 Desktop Home names a document comment event only when it is the latest
 outstanding notification and is at least as recent as the activity that placed
 the row there. Newer own activity, or an event without a supported comment
