@@ -308,34 +308,6 @@ async fn handle_delete(
         })
         .ok();
 
-    // delete cached access token, in case user re-enables within cache window
-    ctx.redis_client
-        .delete_gmail_access_token(&TokenCacheKey::new(
-            link.fusionauth_user_id.clone(),
-            link.email_address.0.as_ref(),
-            UserProvider::Gmail.as_str(),
-        ))
-        .await
-        .inspect_err(|e| {
-            tracing::warn!(error=?e, "Failed to delete Gmail access token");
-        })
-        .ok();
-
-    // remove google fusionauth link with gmail inbox permissions. best-effort: the FA user may
-    // already be gone (e.g. account deleted before we delete their email), so we warn and keep
-    // going rather than failing the message and retrying.
-    ctx.auth_service_client
-        .remove_link(
-            &link.fusionauth_user_id,
-            link.email_address.0.as_ref(),
-            "google_gmail",
-        )
-        .await
-        .inspect_err(|e| {
-            tracing::warn!(error=?e, "Failed to remove FusionAuth IdP link");
-        })
-        .ok();
-
     // Tear down CRM rows this link contributed to the user's team before
     // the big cascading link delete fires. Best-effort: a failure here
     // would only leave orphan `crm_contacts`/`crm_companies` rows behind
@@ -365,6 +337,39 @@ async fn handle_delete(
     email_db_client::links::delete::delete_link_by_id(&ctx.db, link.id)
         .await
         .context("Failed to delete link in background task")?;
+
+    // Revoke credentials only once the rows are gone. Sync and calendar work still
+    // running against the link during the long delete would otherwise hit token errors
+    // and try to mark the link for reauth while the delete holds its row lock. A failed
+    // delete returns above, so the retry still finds the link and revokes then.
+
+    // delete cached access token, in case user re-enables within cache window
+    ctx.redis_client
+        .delete_gmail_access_token(&TokenCacheKey::new(
+            link.fusionauth_user_id.clone(),
+            link.email_address.0.as_ref(),
+            UserProvider::Gmail.as_str(),
+        ))
+        .await
+        .inspect_err(|e| {
+            tracing::warn!(error=?e, "Failed to delete Gmail access token");
+        })
+        .ok();
+
+    // remove google fusionauth link with gmail inbox permissions. best-effort: the FA user may
+    // already be gone (e.g. account deleted before we delete their email), so we warn and keep
+    // going rather than failing the message and retrying.
+    ctx.auth_service_client
+        .remove_link(
+            &link.fusionauth_user_id,
+            link.email_address.0.as_ref(),
+            "google_gmail",
+        )
+        .await
+        .inspect_err(|e| {
+            tracing::warn!(error=?e, "Failed to remove FusionAuth IdP link");
+        })
+        .ok();
 
     // The teardown is async relative to the delete request, so signal completion
     // now that the rows are gone — a client showing this inbox can drop its data.
