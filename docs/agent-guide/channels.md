@@ -80,6 +80,18 @@ does not invoke the agent again. A reply inside a thread is not part of the
 conversation: the agent answers it only when mentioned there, in the thread,
 as in any channel.
 
+What a step made, changed, or showed appears as a card under its step: a
+document, a sent email, an event, a composed view. The cards of steps folded
+behind `N earlier steps` show above that control, and a finished run that
+folds into `Worked for … · N steps` keeps its cards. A card's short summary
+(`3 changes`, `to Ana Ruiz`) shows only to a reader who can open the item.
+Text typed into a question, or an edit to a drafted email or event, survives
+the typing row going away (scrolling up, a follow-up, a backgrounded phone)
+until it is sent. When the agent needs an app, its reply ends with a
+**Connect** card. Connecting from the agent's latest reply, while nothing else
+runs or waits, tells the agent to continue; from an older reply, or while the
+agent works, it only connects, and a toast says so.
+
 Each failed, stopped, or interrupted source message has its own **Retry message**
 action in the current context. Retry is explicit because an interrupted attempt
 may already have performed an external action. Refreshing or reopening the
