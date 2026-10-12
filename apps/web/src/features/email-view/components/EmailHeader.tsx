@@ -59,8 +59,40 @@ export function EmailTopBar() {
   );
 }
 
-export function EmailHeader(props: EmailHeaderProps) {
+/**
+ * The view's search and filter hotkeys for the split scope. Register them once,
+ * from whichever header or sidebar currently holds the search field.
+ */
+export function useEmailControlHotkeys(options: {
+  focusSearch: () => void;
+  openFilter: () => void;
+}) {
   const panel = useSplitPanelOrThrow();
+  const { state } = useEmailView();
+
+  useViewControlHotkeys({
+    scopeId: panel.splitHotkeyScope,
+    enabled: panel.isPanelActive,
+    search: {
+      description: 'Search email',
+      condition: () => state.tab !== 'scheduled' && state.tab !== 'reminders',
+      run: () => {
+        options.focusSearch();
+        return true;
+      },
+    },
+    filter: {
+      description: 'Filter email',
+      condition: () => state.tab !== 'scheduled',
+      run: () => {
+        options.openFilter();
+        return true;
+      },
+    },
+  });
+}
+
+export function EmailHeader(props: EmailHeaderProps) {
   const { openWithSplit } = useSplitLayout();
   const { state, setState } = useEmailView();
   const [filterOpen, setFilterOpen] = createSignal(false);
@@ -69,27 +101,12 @@ export function EmailHeader(props: EmailHeaderProps) {
   const selectedTabLabel = () =>
     EMAIL_TABS.find((tab) => tab.id === state.tab)?.label ?? 'Email';
 
-  // The view's control hotkeys are registered once, here, for the split scope.
-  useViewControlHotkeys({
-    scopeId: panel.splitHotkeyScope,
-    enabled: panel.isPanelActive,
-    search: {
-      description: 'Search email',
-      condition: () => state.tab !== 'scheduled' && state.tab !== 'reminders',
-      run: () => {
-        searchInput?.focus();
-        searchInput?.select();
-        return true;
-      },
+  useEmailControlHotkeys({
+    focusSearch: () => {
+      searchInput?.focus();
+      searchInput?.select();
     },
-    filter: {
-      description: 'Filter email',
-      condition: () => state.tab !== 'scheduled',
-      run: () => {
-        setFilterOpen(true);
-        return true;
-      },
-    },
+    openFilter: () => setFilterOpen(true),
   });
 
   return (

@@ -234,6 +234,16 @@ Legacy email
 and channel message targets are normalized into per-pane search by ingress
 middleware, including external/history navigation; explicit namespaced values win.
 Unavailable documents retain their error/retry UI rather than navigating away.
+Desktop Email's sidebar starts with a **Simple** / **Advanced** toggle, a sticky
+per-user preference that defaults to Advanced (the layout described above).
+Simple puts **Search email** above the toggle and a folder dropdown below it,
+holding the tabs (Signal, Noise, Sent, Drafts, …), inboxes, and tags, beside
+the filter and **New email** controls; the email list fills the rest of the
+wider sidebar, and the chosen thread reads in the main area, which otherwise
+shows **No conversation selected**. While a thread is open, the thread owns the
+keyboard (`j`/`k` move between threads). Hiding navigation or narrowing the
+split falls back to the Advanced placement until the docked sidebar returns.
+Touch layouts have no toggle.
 Long destination names are single-line and
 expose the full name on hover. Section chevrons point right and stay visible when
 collapsed. Expanded chevrons point down and appear when hovering their section;

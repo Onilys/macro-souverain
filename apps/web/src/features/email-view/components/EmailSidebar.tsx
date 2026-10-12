@@ -23,16 +23,20 @@ import { tourTarget } from '@ui/components/Tour';
 import { type Component, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { composeEmail } from '../compose-email';
-import { EMAIL_TAB_IDS, EMAIL_TABS, type EmailTabItem } from '../constants';
+import { EMAIL_TABS, type EmailTabItem } from '../constants';
 import { useEmailView } from '../email-view-context';
 import { EMAIL_TOUR } from '../tour';
 import type { EmailTab } from '../types';
 import { EmailInboxList } from './EmailInboxSelector';
+import { EmailLayoutToggle } from './EmailLayoutToggle';
 
 // Email is personal, so the sidebar lists only the user's own tags.
-const SIDEBAR_TAG_SCOPES: readonly TagScope[] = ['user'];
+export const SIDEBAR_TAG_SCOPES: readonly TagScope[] = ['user'];
 
-const TAB_ICONS: Record<EmailTab, Component<{ class?: string }>> = {
+export const EMAIL_TAB_ICONS: Record<
+  EmailTab,
+  Component<{ class?: string }>
+> = {
   important: SignalIcon,
   noise: NoiseIcon,
   favorites: StarIcon,
@@ -58,62 +62,55 @@ function Tab(props: { item: EmailTabItem; onNavigate?: () => void }) {
       })}
     >
       <ViewSidebar.Icon>
-        <Dynamic component={TAB_ICONS[props.item.id]} class="size-4" />
+        <Dynamic component={EMAIL_TAB_ICONS[props.item.id]} class="size-4" />
       </ViewSidebar.Icon>
       <span class="truncate">{props.item.label}</span>
     </ViewSidebar.Item>
   );
 }
 
-export function EmailNavigation(props: { onNavigate?: () => void }) {
+/** Tabs the user can open; Reminders waits on its feature flag. */
+export function useVisibleEmailTabs() {
   const { state } = useEmailView();
   const reminders = useFeatureFlag(enableReminders);
+  return () =>
+    EMAIL_TABS.filter(
+      (tab) =>
+        tab.id !== 'reminders' ||
+        reminders().enabled ||
+        (reminders().loading && state.tab === 'reminders')
+    );
+}
+
+export function EmailNavigation(props: { onNavigate?: () => void }) {
+  const tabs = useVisibleEmailTabs();
   return (
     <ViewSidebar.Nav aria-label="Email tabs">
       <div
         ref={tourTarget(EMAIL_TOUR.signalNoise)}
         class="flex flex-col gap-(--sidebar-row-gap)"
       >
-        <For each={EMAIL_TABS.slice(0, 2)}>
+        <For each={tabs().slice(0, 2)}>
           {(item) => <Tab item={item} onNavigate={props.onNavigate} />}
         </For>
       </div>
-      <For
-        each={EMAIL_TABS.slice(2).filter(
-          (tab) =>
-            tab.id !== 'reminders' ||
-            reminders().enabled ||
-            (reminders().loading && state.tab === 'reminders')
-        )}
-      >
+      <For each={tabs().slice(2)}>
         {(item) => <Tab item={item} onNavigate={props.onNavigate} />}
       </For>
     </ViewSidebar.Nav>
   );
 }
 
-export function EmailSidebar() {
-  const reminders = useFeatureFlag(enableReminders);
+/** Number-key tab switching, registered by whichever sidebar is showing. */
+export function useEmailTabHotkeys() {
   const panel = useSplitPanelOrThrow();
-  const { openWithSplit } = useSplitLayout();
-  const {
-    state,
-    setTab,
-    showTags,
-    isSidebarSectionOpen,
-    setSidebarSectionOpen,
-  } = useEmailView();
+  const { state, setTab } = useEmailView();
+  const tabs = useVisibleEmailTabs();
 
   useViewTabHotkeys({
     scopeId: panel.splitHotkeyScope,
     enabled: panel.isPanelActive,
-    ids: () =>
-      EMAIL_TAB_IDS.filter(
-        (id) =>
-          id !== 'reminders' ||
-          reminders().enabled ||
-          (reminders().loading && state.tab === 'reminders')
-      ),
+    ids: () => tabs().map((tab) => tab.id),
     activeId: () => state.tab,
     setActiveId: setTab,
     shouldHandleSequentialKeyEvent: (event) =>
@@ -122,6 +119,14 @@ export function EmailSidebar() {
         event.target.closest('[role="grid"][aria-label="Email"]')
       ),
   });
+}
+
+export function EmailSidebar() {
+  const { openWithSplit } = useSplitLayout();
+  const { state, showTags, isSidebarSectionOpen, setSidebarSectionOpen } =
+    useEmailView();
+
+  useEmailTabHotkeys();
 
   return (
     <ViewSidebar.Root aria-label="Email navigation">
@@ -132,6 +137,12 @@ export function EmailSidebar() {
             <ViewSidebar.Title>Email</ViewSidebar.Title>
           </div>
         </ViewSidebar.Header>
+      </Show>
+
+      <Show when={!isTouchDevice()}>
+        <ViewSidebar.Primary>
+          <EmailLayoutToggle />
+        </ViewSidebar.Primary>
       </Show>
 
       <ViewSidebar.Content>

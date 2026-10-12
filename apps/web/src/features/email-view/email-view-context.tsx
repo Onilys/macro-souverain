@@ -16,6 +16,7 @@ import {
   useNavigate,
   useRouteParams,
 } from '@app/lib/split-router';
+import { usePreference } from '@app/preferences/use-preference';
 import { emailSplitRoute, emailThreadRoute } from '@app/routes/routes';
 import { createPreviewSelectionGuard } from '@components/app/createPreviewSelectionGuard';
 import {
@@ -59,6 +60,7 @@ import {
   useEmailDataSource,
 } from './queries/use-email-query';
 import type {
+  EmailLayout,
   EmailTab,
   EmailThreadTarget,
   EmailViewState,
@@ -82,6 +84,9 @@ type EmailListController = ListController<
 export type EmailViewContext = {
   state: Store<EmailViewState>;
   setState: SetStoreFunction<EmailViewState>;
+  /** The desktop layout the user chose; kept per user across visits. */
+  layout: Accessor<EmailLayout>;
+  setLayout: (layout: EmailLayout) => void;
   setTab: (tab: EmailTab) => void;
   setInboxIds: (ids: string[] | undefined) => void;
   setFacets: (facets: EmailViewState['facets']) => void;
@@ -152,6 +157,10 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
       restoreLocalState: props.initialState === undefined,
       restorePreferences: initial.collapsedSidebarSectionIds === undefined,
     })
+  );
+  const [layout, setLayout] = usePreference<EmailLayout>(
+    'macro:pref:email:layout',
+    { default: 'advanced' }
   );
   const searchText = useMobileSearchText(
     () => persistedState.search,
@@ -404,6 +413,8 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
   return {
     state,
     setState,
+    layout,
+    setLayout: (next: EmailLayout) => setLayout(next),
     setTab,
     setInboxIds,
     setFacets,

@@ -233,16 +233,6 @@ export function EmailInboxFilter(props: { class?: string }) {
 export function EmailInboxMenu(props: { class?: string }) {
   const selection = useInboxSelection();
 
-  const radioValue = () => {
-    if (selection.isAll()) return ALL_INBOXES_ID;
-    return selection.selectedOption()?.id ?? '';
-  };
-
-  const onRadioChange = (value: string) => {
-    if (value === ALL_INBOXES_ID) selection.selectAll();
-    else selection.select(value);
-  };
-
   return (
     <Show when={selection.hasMultipleInboxes()}>
       <Dropdown placement="bottom-end">
@@ -263,42 +253,80 @@ export function EmailInboxMenu(props: { class?: string }) {
           </Show>
         </Dropdown.Trigger>
         <Dropdown.Content class="min-w-56">
-          <Dropdown.Group>
-            <Dropdown.RadioGroup value={radioValue()} onChange={onRadioChange}>
-              <InboxRadioItem
-                value={ALL_INBOXES_ID}
-                icon={<TrayIcon class="size-4" />}
-              >
-                All inboxes
-              </InboxRadioItem>
-              <For each={selection.options()}>
-                {(option) => (
-                  <InboxRadioItem
-                    value={option.id}
-                    icon={<InboxAvatar option={option} size="sm" />}
-                  >
-                    {option.label}
-                  </InboxRadioItem>
-                )}
-              </For>
-            </Dropdown.RadioGroup>
-          </Dropdown.Group>
-          <Show when={selection.canAddInbox()}>
-            <Dropdown.Group>
-              <Dropdown.Item closeOnSelect onSelect={selection.addInbox}>
-                <span
-                  aria-hidden="true"
-                  class="flex size-4 shrink-0 items-center justify-center"
-                >
-                  <PlusIcon class="size-4" />
-                </span>
-                <span class="flex-1">Connect another account</span>
-              </Dropdown.Item>
-            </Dropdown.Group>
-          </Show>
+          <InboxDropdownGroups selection={selection} />
         </Dropdown.Content>
       </Dropdown>
     </Show>
+  );
+}
+
+/**
+ * The inbox choice as groups of an existing menu, for layouts that fold the
+ * sidebar's navigation into one dropdown.
+ */
+export function EmailInboxDropdownGroups() {
+  const selection = useInboxSelection();
+
+  return (
+    <Show when={selection.hasMultipleInboxes()}>
+      <InboxDropdownGroups selection={selection} label="Inboxes" />
+    </Show>
+  );
+}
+
+function InboxDropdownGroups(props: {
+  selection: ReturnType<typeof useInboxSelection>;
+  label?: string;
+}) {
+  const radioValue = () => {
+    if (props.selection.isAll()) return ALL_INBOXES_ID;
+    return props.selection.selectedOption()?.id ?? '';
+  };
+
+  const onRadioChange = (value: string) => {
+    if (value === ALL_INBOXES_ID) props.selection.selectAll();
+    else props.selection.select(value);
+  };
+
+  return (
+    <>
+      <Dropdown.Group>
+        <Show when={props.label}>
+          {(label) => <Dropdown.GroupLabel>{label()}</Dropdown.GroupLabel>}
+        </Show>
+        <Dropdown.RadioGroup value={radioValue()} onChange={onRadioChange}>
+          <InboxRadioItem
+            value={ALL_INBOXES_ID}
+            icon={<TrayIcon class="size-4" />}
+          >
+            All inboxes
+          </InboxRadioItem>
+          <For each={props.selection.options()}>
+            {(option) => (
+              <InboxRadioItem
+                value={option.id}
+                icon={<InboxAvatar option={option} size="sm" />}
+              >
+                {option.label}
+              </InboxRadioItem>
+            )}
+          </For>
+        </Dropdown.RadioGroup>
+      </Dropdown.Group>
+      <Show when={props.selection.canAddInbox()}>
+        <Dropdown.Group>
+          <Dropdown.Item closeOnSelect onSelect={props.selection.addInbox}>
+            <span
+              aria-hidden="true"
+              class="flex size-4 shrink-0 items-center justify-center"
+            >
+              <PlusIcon class="size-4" />
+            </span>
+            <span class="flex-1">Connect another account</span>
+          </Dropdown.Item>
+        </Dropdown.Group>
+      </Show>
+    </>
   );
 }
 

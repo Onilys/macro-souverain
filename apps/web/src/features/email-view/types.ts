@@ -35,6 +35,13 @@ export type EmailViewState = {
   collapsedSidebarSectionIds: string[];
 };
 
+/**
+ * How the desktop view lays out email. `advanced` lists email in the main
+ * area beside full sidebar navigation; `simple` lists email in the sidebar and
+ * reads the chosen thread in the main area, like a classic mail client.
+ */
+export type EmailLayout = 'simple' | 'advanced';
+
 export type EmailViewStateOptions = Partial<EmailViewState>;
 
 export type EmailThreadTarget = {
