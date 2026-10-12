@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const toastFailure = vi.hoisted(() => vi.fn());
 vi.mock('@core/component/Toast/Toast', () => ({
@@ -15,7 +15,9 @@ import {
   createGraphqlSoupSubscriptionsLifecycle,
   createGraphqlSoupWebSocketUrlResolver,
   SOUP_GRAPHQL_WEBSOCKET_RETRY_ATTEMPTS,
+  SOUP_UPDATES_RETRY,
   shouldRetryGraphqlSoupWebSocket,
+  soupUpdatesRetryDelay,
   subscribeToGraphqlNotificationPatches,
 } from './graphql-soup-websocket';
 
@@ -188,11 +190,11 @@ describe('GraphQL Soup subscription lifecycle', () => {
 
   it('signals a terminal subscription failure once across both subscriptions', () => {
     toastFailure.mockClear();
-    const receive: Array<(result: { error?: unknown }) => void> = [];
+    const receive = new Map<unknown, (result: { error?: unknown }) => void>();
     const client = {
-      subscription: vi.fn(() => ({
+      subscription: vi.fn((document) => ({
         subscribe: vi.fn((next) => {
-          receive.push(next);
+          receive.set(document, next);
           return { unsubscribe: vi.fn() };
         }),
       })),
@@ -206,13 +208,159 @@ describe('GraphQL Soup subscription lifecycle', () => {
       } as never
     );
 
-    receive[0]?.({ error: new Error('retry budget exhausted') });
-    receive[1]?.({ error: new Error('duplicate terminal result') });
+    receive.get(ActivityUpdatesDocument)?.({
+      error: new Error('retry budget exhausted'),
+    });
+    receive.get(NotificationUpdatesDocument)?.({
+      error: new Error('duplicate terminal result'),
+    });
 
     expect(toastFailure).toHaveBeenCalledOnce();
     expect(toastFailure).toHaveBeenCalledWith('Live updates disconnected', {
       subtext: 'Refresh to reconnect.',
     });
+    lifecycle.dispose();
+  });
+});
+
+describe('soupUpdates retry backoff', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('grows exponentially to the cap with jitter over the upper half', () => {
+    const { baseDelayMs, maxDelayMs } = SOUP_UPDATES_RETRY;
+    expect(soupUpdatesRetryDelay(0, () => 0)).toBe(baseDelayMs / 2);
+    expect(soupUpdatesRetryDelay(0, () => 1)).toBe(baseDelayMs);
+    expect(soupUpdatesRetryDelay(3, () => 1)).toBe(baseDelayMs * 8);
+    expect(soupUpdatesRetryDelay(30, () => 0)).toBe(maxDelayMs / 2);
+    expect(soupUpdatesRetryDelay(30, () => 1)).toBe(maxDelayMs);
+  });
+
+  /** A client that records every `soupUpdates` subscription it opens. */
+  function soupUpdatesHarness() {
+    const opened: Array<{
+      next: (result: { data?: unknown; error?: unknown }) => void;
+      unsubscribe: ReturnType<typeof vi.fn>;
+    }> = [];
+    const client = {
+      subscription: vi.fn((document) => ({
+        subscribe: (next: (result: unknown) => void) => {
+          const unsubscribe = vi.fn();
+          if (document === SoupUpdatesDocument)
+            opened.push({ next, unsubscribe });
+          return { unsubscribe };
+        },
+      })),
+    };
+    const lifecycle = createGraphqlSoupSubscriptionsLifecycle();
+    lifecycle.replace(
+      client as never,
+      { disabled: false, onCacheGenerationChanged: () => () => {} } as never
+    );
+    const fail = () => opened.at(-1)?.next({ error: new Error('replica') });
+    return { opened, lifecycle, fail };
+  }
+
+  it('re-opens after a backoff, logging once per run of failures', () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(1);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    toastFailure.mockClear();
+    const { opened, lifecycle, fail } = soupUpdatesHarness();
+    expect(opened).toHaveLength(1);
+
+    fail();
+    expect(opened[0]?.unsubscribe).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(SOUP_UPDATES_RETRY.baseDelayMs - 1);
+    expect(opened).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(opened).toHaveLength(2);
+
+    fail();
+    vi.advanceTimersByTime(SOUP_UPDATES_RETRY.baseDelayMs * 2 - 1);
+    expect(opened).toHaveLength(2);
+    vi.advanceTimersByTime(1);
+    expect(opened).toHaveLength(3);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(
+      'GraphQL Soup updates subscription error',
+      expect.any(Error)
+    );
+
+    // Data resets the backoff: the next failure logs and waits the base delay.
+    opened[2]?.next({ data: { soupUpdates: [] } });
+    fail();
+    expect(warn).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(SOUP_UPDATES_RETRY.baseDelayMs);
+    expect(opened).toHaveLength(4);
+    expect(toastFailure).not.toHaveBeenCalled();
+
+    lifecycle.dispose();
+    expect(opened[3]?.unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it('stops retrying at the cap and signals the failure once', () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    toastFailure.mockClear();
+    const { opened, lifecycle, fail } = soupUpdatesHarness();
+
+    for (let retry = 0; retry < SOUP_UPDATES_RETRY.maxRetries; retry += 1) {
+      fail();
+      vi.advanceTimersByTime(SOUP_UPDATES_RETRY.maxDelayMs);
+    }
+    expect(opened).toHaveLength(SOUP_UPDATES_RETRY.maxRetries + 1);
+    expect(toastFailure).not.toHaveBeenCalled();
+
+    fail();
+    vi.advanceTimersByTime(SOUP_UPDATES_RETRY.maxDelayMs * 10);
+    expect(opened).toHaveLength(SOUP_UPDATES_RETRY.maxRetries + 1);
+    expect(opened.at(-1)?.unsubscribe).toHaveBeenCalledOnce();
+    expect(toastFailure).toHaveBeenCalledOnce();
+    lifecycle.dispose();
+  });
+
+  it('cancels a pending retry when disposed', () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { opened, lifecycle, fail } = soupUpdatesHarness();
+
+    fail();
+    lifecycle.dispose();
+    vi.advanceTimersByTime(SOUP_UPDATES_RETRY.maxDelayMs);
+    expect(opened).toHaveLength(1);
+  });
+
+  it('closes a subscription whose error arrives while it opens', () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const unsubscribe = vi.fn();
+    let opens = 0;
+    const client = {
+      subscription: vi.fn((document) => ({
+        subscribe: (next: (result: unknown) => void) => {
+          if (document === SoupUpdatesDocument) {
+            opens += 1;
+            next({ error: new Error('synchronous') });
+          }
+          return {
+            unsubscribe:
+              document === SoupUpdatesDocument ? unsubscribe : vi.fn(),
+          };
+        },
+      })),
+    };
+    const lifecycle = createGraphqlSoupSubscriptionsLifecycle();
+    lifecycle.replace(
+      client as never,
+      { disabled: false, onCacheGenerationChanged: () => () => {} } as never
+    );
+
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(SOUP_UPDATES_RETRY.baseDelayMs);
+    expect(opens).toBe(2);
     lifecycle.dispose();
   });
 });

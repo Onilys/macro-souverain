@@ -32,6 +32,29 @@ const RETRYABLE_WEBSOCKET_CLOSE_CODES = new Set([
   4504, // connection acknowledgement timeout
 ]);
 
+/** Backoff for re-opening `soupUpdates` after an error result. */
+export const SOUP_UPDATES_RETRY = {
+  baseDelayMs: 1_000,
+  maxDelayMs: 60_000,
+  maxRetries: 8,
+} as const;
+
+/**
+ * Delay before retry `attempt` (0-based): exponential up to the cap, with
+ * jitter over its upper half so clients that failed together spread out
+ * without any retrying immediately.
+ */
+export function soupUpdatesRetryDelay(
+  attempt: number,
+  random: () => number = Math.random
+): number {
+  const ceiling = Math.min(
+    SOUP_UPDATES_RETRY.maxDelayMs,
+    SOUP_UPDATES_RETRY.baseDelayMs * 2 ** attempt
+  );
+  return ceiling / 2 + random() * (ceiling / 2);
+}
+
 /** Retry transient transport failures, but not auth or protocol failures. */
 export function shouldRetryGraphqlSoupWebSocket(error: unknown): boolean {
   if (error !== null && typeof error === 'object' && 'code' in error) {
@@ -127,6 +150,58 @@ const LIVE_UPDATE_SUBSCRIPTIONS: readonly {
   },
 ] as const;
 
+/**
+ * Keeps one subscription open, closing it on each error result and
+ * re-opening it after a backoff. A successful result resets the backoff. The
+ * first error of a run of failures is logged; `onExhausted` fires once the
+ * retries run out, leaving the subscription closed.
+ */
+function subscribeWithBackoff(
+  open: (onResult: (result: OperationResult) => void) => () => void,
+  errorMessage: string,
+  onExhausted: () => void
+): () => void {
+  let attempt = 0;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  let close = () => {};
+
+  const connect = () => {
+    retry = undefined;
+    let closed = false;
+    let unsubscribe: (() => void) | undefined;
+    const closeThis = () => {
+      closed = true;
+      unsubscribe?.();
+      unsubscribe = undefined;
+    };
+    close = closeThis;
+    unsubscribe = open((result) => {
+      if (closed) return;
+      if (!result.error) {
+        attempt = 0;
+        return;
+      }
+      closeThis();
+      if (attempt === 0) console.warn(errorMessage, result.error);
+      if (attempt >= SOUP_UPDATES_RETRY.maxRetries) {
+        onExhausted();
+        return;
+      }
+      retry = setTimeout(connect, soupUpdatesRetryDelay(attempt));
+      attempt += 1;
+    });
+    // An error delivered while `open` ran found no unsubscribe to call.
+    if (closed) closeThis();
+  };
+
+  connect();
+  return () => {
+    clearTimeout(retry);
+    retry = undefined;
+    close();
+  };
+}
+
 /** Owns the realtime subscriptions served by the Soup GraphQL websocket. */
 export function createGraphqlSoupSubscriptionsLifecycle(
   options: { suspendOnPagehide?: boolean } = {}
@@ -192,40 +267,45 @@ export function createGraphqlSoupSubscriptionsLifecycle(
               ({ document }) => document !== SoupUpdatesDocument
             );
       let signaledFailure = false;
+      const signalFailure = () => {
+        if (signaledFailure) return;
+        signaledFailure = true;
+        toast.failure('Live updates disconnected', {
+          subtext: 'Refresh to reconnect.',
+        });
+      };
       unsubscribes = subscriptions.map(({ document, errorMessage }) => {
-        const subscription = client
-          .subscription(document, {})
-          .subscribe((result) => {
-            if (document === ActivityUpdatesDocument) {
-              activityHandler.onResult(
-                result as OperationResult<ActivityUpdatesSubscription>
-              );
-            }
-            if (
-              document === NotificationUpdatesDocument &&
-              result.data != null
-            ) {
-              const patch = (result.data as NotificationUpdatesSubscription)
-                .notificationUpdates;
-              publishNotificationPatch(patch);
-              const metadata = normalizedCacheResultMetadata(result);
-              void channelHandler.onPatch(
-                patch,
-                metadata?.source === 'live-network' &&
-                  metadata.cacheEffectsApplied === true
-              );
-            }
-            if (result.error) {
-              console.warn(errorMessage, result.error);
-              if (!signaledFailure) {
-                signaledFailure = true;
-                toast.failure('Live updates disconnected', {
-                  subtext: 'Refresh to reconnect.',
-                });
-              }
-            }
-          });
-        return () => subscription.unsubscribe();
+        const open = (onResult: (result: OperationResult) => void) => {
+          const subscription = client
+            .subscription(document, {})
+            .subscribe(onResult);
+          return () => subscription.unsubscribe();
+        };
+        if (document === SoupUpdatesDocument) {
+          return subscribeWithBackoff(open, errorMessage, signalFailure);
+        }
+        return open((result) => {
+          if (document === ActivityUpdatesDocument) {
+            activityHandler.onResult(
+              result as OperationResult<ActivityUpdatesSubscription>
+            );
+          }
+          if (document === NotificationUpdatesDocument && result.data != null) {
+            const patch = (result.data as NotificationUpdatesSubscription)
+              .notificationUpdates;
+            publishNotificationPatch(patch);
+            const metadata = normalizedCacheResultMetadata(result);
+            void channelHandler.onPatch(
+              patch,
+              metadata?.source === 'live-network' &&
+                metadata.cacheEffectsApplied === true
+            );
+          }
+          if (result.error) {
+            console.warn(errorMessage, result.error);
+            signalFailure();
+          }
+        });
       });
     },
     connected: () => {
