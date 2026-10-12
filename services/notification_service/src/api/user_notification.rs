@@ -12,9 +12,10 @@ use model_error_response::ErrorResponse;
 use model_notifications::{
     AgentSessionMentionedMetadata, AgentSessionSettledMetadata,
     AgentSessionWaitingForInputMetadata, AiResponseMetadata, CalendarEventReminderMetadata,
-    ChannelMentionMetadata, ChannelMessageSendMetadata, ChannelReplyMetadata,
-    CommentedOnDocumentMetadata, DocumentMentionMetadata, GithubPrComment, GithubPrMention,
-    GithubPrReview, GithubPrStatusChanged, GithubReviewRequested,
+    ChannelMentionMetadata, ChannelMessageReactionMetadata, ChannelMessageSendMetadata,
+    ChannelReplyMetadata, CommentedOnDocumentMetadata, CrmDiscussionMetadata,
+    DocumentMentionMetadata, GithubPrComment, GithubPrMention, GithubPrReview,
+    GithubPrStatusChanged, GithubReviewRequested, InitiativeDiscussionMetadata,
     MentionedInDocumentCommentMetadata, NewEmailMetadata, NotifEvent,
     RepliedToDocumentCommentThreadMetadata, TaskAssignedMetadata,
 };
@@ -35,6 +36,7 @@ pub(crate) static BLOCKABLE_NOTIFICATIONS: LazyLock<HashSet<&'static str>> = Laz
         NewEmailMetadata::TYPE_NAME,
         AiResponseMetadata::TYPE_NAME,
         ChannelMessageSendMetadata::TYPE_NAME,
+        ChannelMessageReactionMetadata::TYPE_NAME,
         ChannelMentionMetadata::TYPE_NAME,
         ChannelReplyMetadata::TYPE_NAME,
         DocumentMentionMetadata::TYPE_NAME,
@@ -47,6 +49,8 @@ pub(crate) static BLOCKABLE_NOTIFICATIONS: LazyLock<HashSet<&'static str>> = Laz
         MentionedInDocumentCommentMetadata::TYPE_NAME,
         RepliedToDocumentCommentThreadMetadata::TYPE_NAME,
         CommentedOnDocumentMetadata::TYPE_NAME,
+        InitiativeDiscussionMetadata::TYPE_NAME,
+        CrmDiscussionMetadata::TYPE_NAME,
         CalendarEventReminderMetadata::TYPE_NAME,
         AgentSessionSettledMetadata::TYPE_NAME,
         AgentSessionWaitingForInputMetadata::TYPE_NAME,
@@ -134,7 +138,7 @@ pub struct GetAllUserNotificationsResponse {
 
 /// Convert a [`UserNotificationRow<serde_json::Value>`] into a
 /// [`UserNotificationRow<NotifEvent>`] by tagging and deserializing the metadata.
-#[tracing::instrument(err)]
+#[tracing::instrument(err, skip(row), fields(notification_id = %row.notification_id))]
 pub fn to_typed_row(
     row: UserNotificationRow<serde_json::Value>,
 ) -> Result<UserNotificationRow<NotifEvent>, serde_json::Error> {

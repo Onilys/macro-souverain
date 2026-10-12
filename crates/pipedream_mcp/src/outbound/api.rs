@@ -13,6 +13,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use url::Url;
 
+mod capabilities;
+
 /// Default base URL of the Pipedream REST API.
 pub const DEFAULT_API_URL: &str = "https://api.pipedream.com";
 
@@ -239,6 +241,37 @@ impl PipedreamConnect for PipedreamClient {
 }
 
 impl ConnectorDirectory for PipedreamClient {
+    #[tracing::instrument(skip(self), err, fields(app = %app_slug))]
+    async fn retrieve(&self, app_slug: &str) -> anyhow::Result<Option<CatalogEntry>> {
+        // The slug is interpolated into the path. Anything outside Pipedream's
+        // app-slug charset is not an app, and is not requested.
+        if !is_app_slug(app_slug) {
+            return Ok(None);
+        }
+
+        let response = self
+            .authed(
+                self.http
+                    .get(self.api(&format!("/connect/apps/{app_slug}"))),
+            )
+            .await?
+            .send()
+            .await
+            .context("retrieving Pipedream app")?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        let response = error_for_status(response).await?;
+
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .context("decoding Pipedream app response")?;
+        let app = body.get("data").unwrap_or(&body).clone();
+        let app: AppResponse = serde_json::from_value(app).context("parsing Pipedream app")?;
+        Ok(connectable_catalog_entry(app_slug, app))
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn search(
         &self,
@@ -369,6 +402,10 @@ impl McpUpstream for PipedreamClient {
 }
 
 impl McpConnection for PipedreamClient {
+    fn is_configured(&self) -> bool {
+        true
+    }
+
     #[tracing::instrument(skip_all, err, fields(app = %record.app_slug, user_id = %record.user_id))]
     async fn connect(&self, record: &PipedreamConnection) -> anyhow::Result<McpServer> {
         let upstream = self.upstream(record).await?;
@@ -388,6 +425,31 @@ impl McpConnection for PipedreamClient {
         let transport = StreamableHttpClientTransport::with_client(client, config);
         Ok(client_info().serve(transport).await?)
     }
+}
+
+/// The charset a Pipedream app slug may use. A segment outside it could never
+/// name an app, and must not be placed in a request path.
+fn is_app_slug(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug
+            .chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-' || ch == '_')
+}
+
+/// An app the catalog would offer to connect: the slug we asked for, with an
+/// auth flow. Apps with `auth_type: none` have nothing to connect.
+fn connectable_catalog_entry(requested_slug: &str, app: AppResponse) -> Option<CatalogEntry> {
+    if app.auth_type.as_deref() == Some("none") || app.name_slug != requested_slug {
+        return None;
+    }
+    Some(CatalogEntry {
+        app_slug: app.name_slug,
+        display_name: app.name,
+        description: app
+            .description
+            .filter(|description| !description.is_empty()),
+        icon_url: Some(app.img_src).filter(|url| url.starts_with("https://")),
+    })
 }
 
 async fn error_for_status(response: reqwest::Response) -> anyhow::Result<reqwest::Response> {
@@ -438,6 +500,9 @@ struct AppsResponse {
 struct PageInfo {
     end_cursor: Option<String>,
 }
+
+#[cfg(test)]
+mod test;
 
 #[derive(Deserialize)]
 struct AppResponse {

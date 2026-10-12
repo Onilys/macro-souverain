@@ -2,6 +2,7 @@ use super::*;
 use crate::domain::sandbox::SandboxResizeEffect;
 use crate::testing::helpers::egress::test_egress;
 use agent_runtime_protocol::domain::schema::v0::{ToRuntimeMessage, ToServerMessage};
+use agent_session::domain::coding_preferences::CodingPreferences;
 use agent_session::domain::error::Result as SessionResult;
 use agent_session::domain::model::{
     AgentSession, CreateAgentSessionParams, DEFAULT_AGENT_SESSION_NAME, SandboxSize, SessionBot,
@@ -127,6 +128,10 @@ impl AgentSessionRepo for FixedBotSessions {
         unimplemented!("the router never looks sessions up by egress token")
     }
 
+    async fn find(&self, _id: AgentSessionId) -> SessionResult<Option<AgentSession>> {
+        unimplemented!("the router never probes for a missing session")
+    }
+
     async fn preview(
         &self,
         _viewer: &MacroUserIdStr<'static>,
@@ -139,6 +144,7 @@ impl AgentSessionRepo for FixedBotSessions {
         Ok(AgentSession {
             repo_branch: None,
             pull_request_url: None,
+            task_id: None,
             id,
             owner_id: model_owner::Owner::User(
                 MacroUserIdStr::try_from("macro|owner@macro.com".to_owned())
@@ -158,6 +164,7 @@ impl AgentSessionRepo for FixedBotSessions {
             repo_url: None,
             workspace: "/workspace".to_owned(),
             name: DEFAULT_AGENT_SESSION_NAME.to_owned(),
+            is_archived: false,
             sandbox_size: SandboxSize::Default,
             instructions: None,
             mcp_servers: Default::default(),
@@ -212,6 +219,21 @@ impl AgentSessionRepo for FixedBotSessions {
         unimplemented!("this adapter does not rotate credentials")
     }
 
+    async fn set_turn_prompter(
+        &self,
+        _id: AgentSessionId,
+        _prompter: &agent_session::domain::model::TurnPrompter,
+    ) -> SessionResult<()> {
+        unimplemented!("this adapter does not dispatch turns")
+    }
+
+    async fn turn_prompter(
+        &self,
+        _id: AgentSessionId,
+    ) -> SessionResult<Option<agent_session::domain::model::TurnPrompter>> {
+        unimplemented!("this adapter does not dispatch turns")
+    }
+
     async fn set_repo_url(
         &self,
         _id: AgentSessionId,
@@ -226,6 +248,10 @@ impl AgentSessionRepo for FixedBotSessions {
 
     async fn set_name(&self, _id: AgentSessionId, _name: &str) -> SessionResult<()> {
         unimplemented!("naming sessions is the session actor's job")
+    }
+
+    async fn set_archived(&self, _id: AgentSessionId, _is_archived: bool) -> SessionResult<()> {
+        unimplemented!("archiving sessions is the harness service's job")
     }
 
     async fn set_name_if_default(&self, _id: AgentSessionId, _name: &str) -> SessionResult<bool> {
@@ -249,6 +275,36 @@ impl AgentSessionRepo for FixedBotSessions {
         _size: SandboxSize,
     ) -> SessionResult<()> {
         unimplemented!("resizing is the harness service's job")
+    }
+
+    async fn user_coding_preferences(
+        &self,
+        _owner: &MacroUserIdStr<'static>,
+    ) -> SessionResult<CodingPreferences> {
+        unimplemented!("coding preferences are read when a session opens")
+    }
+
+    async fn set_user_coding_preferences(
+        &self,
+        _owner: &MacroUserIdStr<'static>,
+        _preferences: CodingPreferences,
+    ) -> SessionResult<()> {
+        unimplemented!("coding preferences are read when a session opens")
+    }
+
+    async fn list_queued_actions(
+        &self,
+        _id: AgentSessionId,
+    ) -> SessionResult<Vec<agent_session::domain::model::StoredQueuedAction>> {
+        unimplemented!("the router never reads the queue")
+    }
+
+    async fn replace_queued_actions(
+        &self,
+        _id: AgentSessionId,
+        _entries: &[agent_session::domain::model::StoredQueuedAction],
+    ) -> SessionResult<()> {
+        unimplemented!("the router never writes the queue")
     }
 }
 

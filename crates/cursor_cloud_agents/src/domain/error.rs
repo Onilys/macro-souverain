@@ -8,6 +8,10 @@ use thiserror::Error;
 /// Why a session operation failed.
 #[derive(Debug, Error)]
 pub enum SessionError {
+    /// A Macro-funded hosted helper was refused; the owner's Cursor budget is unrelated.
+    #[cfg(feature = "postgres")]
+    #[error(transparent)]
+    Admission(#[from] agent_session::domain::error::AiAdmissionError),
     /// The client referenced a session this agent never created.
     #[error("unknown session {0}")]
     UnknownSession(SessionId),
@@ -32,6 +36,12 @@ pub enum SessionError {
 
 impl From<rootcause::Report> for SessionError {
     fn from(report: rootcause::Report) -> Self {
+        #[cfg(feature = "postgres")]
+        if let Some(error) =
+            report.downcast_current_context::<agent_session::domain::error::AiAdmissionError>()
+        {
+            return Self::Admission(*error);
+        }
         Self::Cursor(report)
     }
 }
@@ -47,7 +57,7 @@ pub struct PromptRefusal {
     /// One plain sentence or two, no report decorations.
     pub message: String,
     /// The refusal as a rendered notice, when there is more to say than a line.
-    pub notice: Option<FailureNotice>,
+    pub notice: Option<Box<FailureNotice>>,
 }
 
 impl PromptRefusal {
@@ -117,7 +127,7 @@ impl UsageLimitExceeded {
         let notice = self.notice();
         PromptRefusal {
             message: format!("{} {}", notice.title, notice.body),
-            notice: Some(notice),
+            notice: Some(Box::new(notice)),
         }
     }
 }

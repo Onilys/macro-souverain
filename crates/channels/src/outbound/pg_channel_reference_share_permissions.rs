@@ -1,13 +1,16 @@
 //! Postgres adapter for channel reference share-permission side effects.
 
 use crate::domain::{
-    models::{ReferencedShareItem, ReferencedShareItemType},
+    models::{
+        ReferenceShareOutcome, ReferenceShareResult, ReferencedShareItem, ReferencedShareItemType,
+    },
     ports::ChannelReferenceSharePermissions,
     reference_sharing::grant_level,
 };
 use anyhow::Context;
 use entity_access::domain::{models::EntityType, ports::EntityAccessService};
 use macro_user_id::user_id::MacroUserIdStr;
+use model_file_type::FileType;
 use models_permissions::share_permission::{
     access_level::AccessLevel,
     channel_share_permission::{UpdateChannelSharePermission, UpdateOperation},
@@ -48,7 +51,8 @@ where
         actor: MacroUserIdStr<'static>,
         channel_id: Uuid,
         items: Vec<ReferencedShareItem>,
-    ) -> Result<(), Self::Err> {
+    ) -> Result<Vec<ReferenceShareResult>, Self::Err> {
+        let mut results = Vec::with_capacity(items.len());
         for item in items {
             let access = self
                 .entity_access_service
@@ -59,13 +63,48 @@ where
                 )
                 .await
                 .context("failed to get user access level")?;
-            if let Some(level) = grant_level(item.entity_type(), access) {
-                ensure_referenced_item_visible_to_channel(&self.pool, channel_id, &item, level)
-                    .await?;
-            }
+            let outcome =
+                share_referenced_item_with_channel(&self.pool, channel_id, &item, access).await?;
+            results.push(ReferenceShareResult {
+                entity_id: item.entity_id().to_string(),
+                entity_type: item.entity_type(),
+                outcome,
+            });
         }
-        Ok(())
+        Ok(results)
     }
+}
+
+async fn share_referenced_item_with_channel(
+    db: &PgPool,
+    channel_id: Uuid,
+    item: &ReferencedShareItem,
+    sharer_access: Option<AccessLevel>,
+) -> anyhow::Result<ReferenceShareOutcome> {
+    let file_type = match item.entity_type() {
+        ReferencedShareItemType::Document => get_document_file_type(db, item.entity_id()).await?,
+        _ => None,
+    };
+    let Some(level) = grant_level(item.entity_type(), file_type, sharer_access) else {
+        return Ok(ReferenceShareOutcome::NotPermitted);
+    };
+    ensure_referenced_item_visible_to_channel(db, channel_id, item, level).await?;
+    Ok(ReferenceShareOutcome::Shared)
+}
+
+async fn get_document_file_type(
+    db: &PgPool,
+    document_id: &str,
+) -> anyhow::Result<Option<FileType>> {
+    let file_type = sqlx::query_scalar!(
+        r#"SELECT "fileType" as "file_type?" FROM "Document" WHERE id = $1"#,
+        document_id,
+    )
+    .fetch_optional(db)
+    .await
+    .context("failed to get document file type")?
+    .flatten();
+    Ok(file_type.and_then(|file_type| file_type.parse().ok()))
 }
 
 async fn ensure_referenced_item_visible_to_channel(
@@ -82,12 +121,14 @@ async fn ensure_referenced_item_visible_to_channel(
             .context("failed to insert thread share permissions")?;
     }
 
-    // Session and calendar event channel grants are canonical entity-access
-    // rows. A reference must preserve explicit sharing and the originating
-    // channel's control grant. Calendar events carry no SharePermission row.
+    // Session, calendar event, database and form channel grants are canonical
+    // entity-access rows, and a reference keeps any grant the owner already chose.
     if matches!(
         item.entity_type(),
-        ReferencedShareItemType::AgentSession | ReferencedShareItemType::CalendarEvent
+        ReferencedShareItemType::AgentSession
+            | ReferencedShareItemType::CalendarEvent
+            | ReferencedShareItemType::Database
+            | ReferencedShareItemType::Form
     ) {
         let mut transaction = db.begin().await?;
         entity_access_db_utils::channel_share::insert_if_absent(
@@ -144,12 +185,14 @@ async fn ensure_referenced_item_visible_to_channel(
 fn entity_access_type_for(item_type: ReferencedShareItemType) -> EntityType {
     match item_type {
         ReferencedShareItemType::AgentSession => EntityType::AgentSession,
+        ReferencedShareItemType::Database => EntityType::Database,
         ReferencedShareItemType::Document => EntityType::Document,
         ReferencedShareItemType::Chat => EntityType::Chat,
         ReferencedShareItemType::Project => EntityType::Project,
         ReferencedShareItemType::EmailThread => EntityType::EmailThread,
         ReferencedShareItemType::Call => EntityType::Call,
         ReferencedShareItemType::CalendarEvent => EntityType::CalendarEvent,
+        ReferencedShareItemType::Form => EntityType::Form,
     }
 }
 
@@ -158,11 +201,13 @@ fn entity_access_db_type_for(
 ) -> entity_access_db_utils::EntityType {
     match item_type {
         ReferencedShareItemType::AgentSession => entity_access_db_utils::EntityType::AgentSession,
+        ReferencedShareItemType::Database => entity_access_db_utils::EntityType::Database,
         ReferencedShareItemType::Document => entity_access_db_utils::EntityType::Document,
         ReferencedShareItemType::Chat => entity_access_db_utils::EntityType::Chat,
         ReferencedShareItemType::Project => entity_access_db_utils::EntityType::Project,
         ReferencedShareItemType::EmailThread => entity_access_db_utils::EntityType::EmailThread,
         ReferencedShareItemType::Call => entity_access_db_utils::EntityType::Call,
         ReferencedShareItemType::CalendarEvent => entity_access_db_utils::EntityType::CalendarEvent,
+        ReferencedShareItemType::Form => entity_access_db_utils::EntityType::Form,
     }
 }

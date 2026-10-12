@@ -15,9 +15,9 @@ use macro_user_id::user_id::MacroUserIdStr;
 
 use super::error::{HarnessError, Result};
 use super::model::{
-    AgentKind, AgentRuntimeConfig, AnnouncedMessage, CommandOutcome, ConversationContext,
-    DeclinedMention, HarnessCommand, ProvisionedEgress, ReachableRepository, ResolvedReply,
-    SandboxEgress, SessionAnnouncement, SessionBlocker, SpawnContainer,
+    AgentKind, AgentRuntimeConfig, AnnouncedMessage, CommandOutcome, DeclinedMention,
+    HarnessCommand, ProvisionedEgress, ReachableRepository, ResolvedReply, SandboxEgress,
+    SessionAnnouncement, SessionBlocker, SpawnContainer, ToolApprovalChange,
 };
 use super::notifications::PlannedNotification;
 use super::sandbox::SandboxResizeEffect;
@@ -160,7 +160,7 @@ pub trait AgentRuntimeDirectory: Send + Sync + 'static {
     ) -> impl Future<Output = Result<Option<AgentRuntimeConfig>>> + Send;
 }
 
-/// Authorizes message origins and loads conversation context for agent prompts.
+/// Authorizes the message origins agent prompts answer into.
 pub trait MessagePromptContext: Send + Sync + 'static {
     /// Recheck the actor's posting permission and verify the live message belongs
     /// to exactly this parent and root before provisioning or dispatching work.
@@ -169,25 +169,19 @@ pub trait MessagePromptContext: Send + Sync + 'static {
         actor: &MacroUserIdStr<'static>,
         origin: &super::model::AnnounceOrigin,
     ) -> impl Future<Output = Result<()>> + Send;
-
-    /// Read up to ten preceding live messages, and the comment anchor the
-    /// prompt sits on, with a fresh access check.
-    fn conversation_context(
-        &self,
-        actor: &MacroUserIdStr<'static>,
-        origin: &super::model::AnnounceOrigin,
-    ) -> impl Future<Output = Result<ConversationContext>> + Send;
 }
 
-/// Composes an agent prompt from raw markdown and optional conversation context.
+/// Composes an agent prompt from raw markdown and trusted session context.
 pub trait AgentPromptComposer: Send + Sync + 'static {
     /// Return the markdown that should be delivered to the agent runtime.
-    /// `None` sanitizes a prompt without adding a conversation-context node.
+    /// With no instructions, people, or trigger, the prompt is sanitized
+    /// without adding a private context node.
     fn compose(
         &self,
         prompt_markdown: &str,
-        parent: Option<&messages::domain::models::MessageParent>,
-        context: Option<&ConversationContext>,
+        instructions: Option<&str>,
+        people: Option<&super::model::PromptPeople>,
+        trigger: Option<&trigger_context::TriggerContext>,
     ) -> impl Future<Output = Result<String>> + Send;
 }
 
@@ -297,6 +291,52 @@ pub trait SessionAnnouncer: Send + Sync + 'static {
     fn decline(&self, declined: DeclinedMention) -> impl Future<Output = Result<()>> + Send;
 }
 
+/// Told when a tool call in a session's turn starts or stops waiting for the
+/// owner's approval, so the thread that prompted the turn can be told.
+///
+/// Synchronous, like the turn observer: the one implementation admits a
+/// command to the session's queue and returns.
+pub trait HeldToolCallObserver: Send + Sync + 'static {
+    /// `session`'s held tool calls changed.
+    fn changed(&self, session: AgentSessionId, change: ToolApprovalChange);
+}
+
+/// A [`HeldToolCallObserver`] bound after construction: the approval service
+/// is built before the harness that observes it. Changes before the bind
+/// are dropped.
+#[derive(Default)]
+pub struct LateBoundHeldToolCallObserver {
+    observer: std::sync::OnceLock<Box<dyn HeldToolCallObserver>>,
+}
+
+impl LateBoundHeldToolCallObserver {
+    /// An observer awaiting its target.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Attach the real observer. A second bind is a wiring bug; the first
+    /// stays authoritative.
+    pub fn bind(&self, observer: impl HeldToolCallObserver) {
+        let _ = self.observer.set(Box::new(observer));
+    }
+}
+
+impl HeldToolCallObserver for LateBoundHeldToolCallObserver {
+    fn changed(&self, session: AgentSessionId, change: ToolApprovalChange) {
+        if let Some(observer) = self.observer.get() {
+            observer.changed(session, change);
+        }
+    }
+}
+
+impl<T: HeldToolCallObserver + ?Sized> HeldToolCallObserver for Arc<T> {
+    fn changed(&self, session: AgentSessionId, change: ToolApprovalChange) {
+        (**self).changed(session, change);
+    }
+}
+
 /// Where a session finds its bot's live runtime connection.
 ///
 /// A self-hosted runtime dials once and carries every session its bot is
@@ -340,8 +380,16 @@ pub trait RuntimeConnections: Send + Sync + 'static {
 /// A port rather than domain code because both halves are adapter work the
 /// domain has no business knowing: signing a JWT needs a key, and enumerating
 /// the owner's MCP servers needs their rows. What the domain keeps is *when* -
-/// once, at spawn, for the session's own owner.
+/// at spawn and native turn boundaries, for the session's own owner and policy.
 pub trait SandboxEgressProvisioner: Send + Sync + 'static {
+    /// Internal session tools at an address reachable by an external runtime.
+    fn external_mcp_servers(
+        &self,
+        egress: &SandboxEgress,
+    ) -> Vec<agent_client_protocol::schema::v1::McpServer> {
+        vec![egress.internal_mcp_server(), egress.preview_mcp_server()]
+    }
+
     /// The egress environment for one session, on behalf of `owner`, and the
     /// hash its session row must carry for that environment to mean anything.
     ///

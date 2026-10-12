@@ -42,7 +42,11 @@ import {
 } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { CalendarEvent, CalendarTimeFormat } from '../types';
-import { isSameLocalDate, parseLocalDate } from '../utils/calendar-date';
+import {
+  isSameLocalDate,
+  isTimedPointEvent,
+  parseLocalDate,
+} from '../utils/calendar-date';
 import {
   parseMacroAppLink,
   sanitizeCalendarDescription,
@@ -328,6 +332,10 @@ function formatEventSchedule(
       : `${formatShortDate.format(start)}–${formatShortDate.format(inclusiveEnd)} · All day`;
   }
 
+  if (isTimedPointEvent(event)) {
+    return `${formatDate.format(start)} · ${formatCalendarTime(start, timeFormat)} · No duration`;
+  }
+
   return isSameLocalDate(start, end)
     ? `${formatDate.format(start)} · ${formatCalendarTime(start, timeFormat)}–${formatCalendarTime(end, timeFormat)}`
     : `${formatDate.format(start)}, ${formatCalendarTime(start, timeFormat)}–${formatDate.format(end)}, ${formatCalendarTime(end, timeFormat)}`;
@@ -590,7 +598,7 @@ export function EventDetails(props: {
               <Button
                 variant="ghost"
                 size="sm"
-                class="h-8 min-w-0 rounded-lg bg-hover text-ink not-touch:not-disabled:hover:bg-active [&_svg]:size-3.5!"
+                class="h-8 min-w-0 bg-hover text-ink not-touch:not-disabled:hover:bg-active [&_svg]:size-3.5!"
                 onClick={() => openExternalUrl(url())}
               >
                 {conferenceLabel()}

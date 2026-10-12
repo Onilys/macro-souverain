@@ -1,5 +1,6 @@
 import { createUrqlInfiniteQuery } from '@app/lib/urql-solid';
 import type { EntityData } from '@entity';
+import { createKeyedProjection } from '@queries/soup/create-keyed-projection';
 import {
   makeGraphqlGroupedSoupContinuationInput,
   makeGraphqlGroupedSoupInput,
@@ -62,12 +63,14 @@ type GraphqlGroupQuery = {
   data: Accessor<GroupQueryData | undefined>;
   hasNextPage: Accessor<boolean>;
   isFetchingNextPage: Accessor<boolean>;
+  error: Accessor<Error | null>;
   fetchNextPage: () => Promise<void>;
   resetToInitialPage: () => void;
   dispose: () => void;
 };
 
 type GraphqlGroupedInitialPage = {
+  cachedMail?: boolean;
   items: SoupAstItemsGroupedPage['items'];
   groups: GroupMeta[];
 };
@@ -127,6 +130,18 @@ export function createGraphqlGroupedSoupQueries(
       if (isInstructionsMdDoc(item, instructionsIdQuery)) return [];
       return [mapApiSoupItemToEntity(item)];
     });
+
+  const initialItems = createKeyedProjection(
+    () => Object.entries(args.initialPage()?.items ?? {}),
+    ([id]) => id,
+    ([id, item]) => ({
+      id,
+      entity: mapItems({ [id]: item }, [id], args.itemFilter())[0],
+    })
+  );
+  const initialEntities = createMemo(
+    () => new Map(initialItems().map(({ id, entity }) => [id, entity]))
+  );
 
   const configs = createMemo<GraphqlGroupConfig[]>(() => {
     const field = args.groupByField();
@@ -290,6 +305,9 @@ export function createGraphqlGroupedSoupQueries(
         setContinuationRevision((value) => value + 1);
       };
 
+      const cachedMail = createMemo(
+        () => args.initialPage()?.cachedMail === true
+      );
       const initialData = createMemo<GroupQueryData | undefined>(() => {
         const config = getConfig();
         const initialPage = args.initialPage();
@@ -299,18 +317,19 @@ export function createGraphqlGroupedSoupQueries(
         );
         if (!group) return;
         return {
-          entities: mapItems(
-            initialPage.items,
-            group.itemIds,
-            config.itemFilter
-          ),
+          entities: group.itemIds.flatMap((id) => {
+            const entity = initialEntities().get(id);
+            return entity ? [entity] : [];
+          }),
         };
       });
 
       const data = createMemo<GroupQueryData | undefined>(() => {
         const initial = initialData();
         if (!initial) return;
-        const continued = getContinuation()?.query.data;
+        const continued = cachedMail()
+          ? undefined
+          : getContinuation()?.query.data;
         const combined = continued
           ? { entities: [...initial.entities, ...continued.entities] }
           : initial;
@@ -342,7 +361,7 @@ export function createGraphqlGroupedSoupQueries(
 
       const fetchNextPage = async (): Promise<void> => {
         const config = getConfig();
-        if (!config.enabled) return;
+        if (!config.enabled || cachedMail()) return;
         if (firstPagePromise) return firstPagePromise;
 
         let current = getContinuation();
@@ -368,12 +387,15 @@ export function createGraphqlGroupedSoupQueries(
         await current.query.fetchNextPage();
       };
 
+      createComputed(on(cachedMail, () => disposeContinuation()));
       onCleanup(disposeContinuation);
 
       return {
         key,
         data,
+        error: () => getContinuation()?.query.error ?? null,
         hasNextPage: () => {
+          if (cachedMail()) return false;
           const current = getContinuation();
           return current?.query.data === undefined
             ? getConfig().group.nextCursor !== null

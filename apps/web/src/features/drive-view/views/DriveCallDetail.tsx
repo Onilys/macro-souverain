@@ -48,6 +48,7 @@ function DriveCallBreadcrumb(props: { callId: string; name: string }) {
 export function DriveCallDetail(props: {
   callId: string;
   transcriptId?: string;
+  messageId?: string;
   seek?: string;
 }) {
   const detail = useCallDetail(() => props.callId);
@@ -61,7 +62,7 @@ export function DriveCallDetail(props: {
   });
 
   return (
-    <CallDetailRoot callId={props.callId} data={detail.data()}>
+    <CallDetailRoot callId={props.callId}>
       <div class="flex size-full min-h-0 min-w-0 flex-col overflow-hidden @container">
         <ViewShell.TopBar class="touch:flex">
           <SplitPanel.CloseButton class="hidden shrink-0 touch:flex" />
@@ -73,9 +74,8 @@ export function DriveCallDetail(props: {
             {(data) => (
               <CallDetailActions
                 callId={props.callId}
-                channelId={data().record.channelId}
+                record={data().record}
                 name={data().name}
-                isActive={data().record.isActive}
               />
             )}
           </Show>
@@ -85,6 +85,7 @@ export function DriveCallDetail(props: {
           query={detail.query}
           data={detail.data()}
           transcriptId={props.transcriptId}
+          messageId={props.messageId}
           seek={props.seek}
         />
       </div>

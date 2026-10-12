@@ -9,12 +9,12 @@ use entity_access::domain::ports::EntityAccessService;
 use entity_mutation::MoveEntity;
 use model::project::request::CreateProjectRequest;
 use model_entity::EntityType;
+use model_owner::CreationPrincipal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::ProjectToolContext;
+use super::{ChatCapabilities, DocumentCapabilities, ProjectCapabilities, ProjectToolContext};
 use crate::domain::models::ProjectError;
-use crate::domain::ports::ProjectService;
 
 fn failed_to_create_project(error: ProjectError) -> ToolCallError {
     let description = match &error {
@@ -69,10 +69,10 @@ impl ToolAnnotated for CreateProject {
 impl<PSvc, ESvc, DSvc, CSvc, EmSvc> AsyncTool<ProjectToolContext<PSvc, ESvc, DSvc, CSvc, EmSvc>>
     for CreateProject
 where
-    PSvc: ProjectService + MoveEntity,
+    PSvc: ProjectCapabilities,
     ESvc: EntityAccessService,
-    DSvc: MoveEntity + Send + Sync + 'static,
-    CSvc: MoveEntity + Send + Sync + 'static,
+    DSvc: DocumentCapabilities,
+    CSvc: ChatCapabilities,
     EmSvc: MoveEntity + Send + Sync + 'static,
 {
     type Output = CreateProjectResponse;
@@ -109,7 +109,10 @@ where
         let project = service_context
             .service
             .create_project(
-                user_id,
+                &CreationPrincipal::BotForUser {
+                    bot: service_context.actor,
+                    user: user_id,
+                },
                 CreateProjectRequest {
                     name: self.project_name.clone(),
                     project_parent_id: self.parent_project_id,

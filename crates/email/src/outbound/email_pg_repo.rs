@@ -7,7 +7,9 @@ use crate::domain::{
         SettledDraftIds, SimpleMessage, SimpleMessageInfo, ThreadRow, UpsertEmailFilterInput,
         UpsertedContacts, UserProvider,
     },
-    ports::{EmailRepo, EmailUserRepo, LinkEmailSettings, RecipientsByMessageId},
+    ports::{
+        DraftAttachmentRepo, EmailRepo, EmailUserRepo, LinkEmailSettings, RecipientsByMessageId,
+    },
 };
 use chrono::{DateTime, Utc};
 use macro_user_id::user_id::MacroUserIdStr;
@@ -21,6 +23,7 @@ mod db_types;
 mod draft;
 mod dynamic;
 mod email_filter;
+mod followup;
 mod label;
 mod link;
 mod message;
@@ -61,6 +64,11 @@ impl EmailPgRepo {
 }
 
 impl EmailUserRepo for EmailPgRepo {
+    async fn user_sender_filters(&self, link_id: Uuid) -> Result<Vec<EmailFilter>, EmailErr> {
+        email_filter::list_email_filters(&self.pool, link_id)
+            .await
+            .map_err(|error| EmailErr::RepoErr(error.into()))
+    }
     async fn user_accessible_inboxes(
         &self,
         macro_id: MacroUserIdStr<'static>,
@@ -214,6 +222,16 @@ impl EmailRepo for EmailPgRepo {
         message_ids: &[Uuid],
     ) -> Result<HashMap<Uuid, Vec<MessageLabel>>, Self::Err> {
         message::labels_by_message_ids(&self.pool, message_ids).await
+    }
+
+    async fn calendar_invitations_by_message_ids(
+        &self,
+        message_ids: &[Uuid],
+    ) -> Result<
+        HashMap<Uuid, Vec<crate::domain::models::calendar_invitation::CalendarInvitation>>,
+        Self::Err,
+    > {
+        crate::outbound::invitation_pg::load(&self.pool, message_ids).await
     }
 
     async fn attachments_by_message_ids(
@@ -506,5 +524,17 @@ impl EmailRepo for EmailPgRepo {
 
     async fn list_email_filters(&self, link_id: Uuid) -> Result<Vec<EmailFilter>, Self::Err> {
         email_filter::list_email_filters(&self.pool, link_id).await
+    }
+}
+
+impl DraftAttachmentRepo for EmailPgRepo {
+    type Err = sqlx::Error;
+
+    async fn insert_draft_attachment(
+        &self,
+        link_id: Uuid,
+        attachment: &AttachmentDraft,
+    ) -> Result<(), Self::Err> {
+        message::insert_draft_attachment(&self.pool, link_id, attachment).await
     }
 }

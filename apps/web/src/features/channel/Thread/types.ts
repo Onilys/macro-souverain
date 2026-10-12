@@ -9,6 +9,7 @@ import type {
   MessageData,
 } from '../Message';
 import type { FocusRequest } from './focus-request';
+import type { MessageElementMount } from './message-element-lifecycle';
 
 export type ThreadActions = {
   onDismissNewMessages?: () => void;
@@ -37,6 +38,8 @@ export type MessageEditState = {
 
 /** Reactive contract for positioning and releasing a channel navigation target. */
 export type ThreadTargetNavigation = {
+  /** A new request can revisit the same message without remounting the thread. */
+  requestKey?: Accessor<string | number | undefined>;
   targetThreadId: Accessor<string | undefined>;
   targetMessageId: Accessor<string | undefined>;
   targetReplyId: Accessor<string | undefined>;
@@ -64,6 +67,10 @@ export type ThreadProps = {
   isFindBarOpen: Accessor<boolean>;
   /** The unified input's reply binding */
   unifiedReplyTarget?: { threadId: string; replyId?: string };
+  /** Exact unread notification targets, including replies not yet loaded. */
+  unreadMessageIds?: readonly string[];
+  onMessageMount?: MessageElementMount;
+  onDisclosureMount?: MessageElementMount;
   isNewMessage?: (reply: NewMessageCheckable) => boolean;
   selectedMessageId?: Accessor<string | undefined>;
   onSelectMessage?: (messageId: string) => void;
@@ -75,4 +82,6 @@ export type ThreadProps = {
    * the root on one straight rail instead of indenting and branching them.
    */
   monorail?: boolean;
+  /** Flat chat surfaces do not draw thread connector rails. */
+  hideRail?: boolean;
 } & ThreadState;

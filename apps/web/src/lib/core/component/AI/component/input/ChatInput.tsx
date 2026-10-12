@@ -10,8 +10,9 @@ import type { ChatSendInput } from '@core/component/AI/component/input/buildRequ
 import { ModelSelector } from '@core/component/AI/component/input/ModelSelector';
 import {
   defaultModelForPlan,
-  Model,
+  type Model,
   modelsForPlan,
+  PAID_MODELS,
   SUPPORTED_ATTACHMENT_EXTENSIONS,
 } from '@core/component/AI/constant';
 import { useChatInputContext } from '@core/component/AI/context';
@@ -35,7 +36,10 @@ import { createElementSize } from '@solid-primitives/resize-observer';
 import { createCallback } from '@solid-primitives/rootless';
 import { Button, ComposerSurface, cn, SendButton as UiSendButton } from '@ui';
 import { createEffect, createMemo, createSignal, Show } from 'solid-js';
+import { speedForModel } from '../../constant/speed';
+import { fastModeEnabled } from '../../signal/speed';
 import { AttachmentList } from './Attachment';
+import { SpeedToggle } from './SpeedToggle';
 import { useAiDataConsentGate } from './useAiDataConsent';
 
 /**
@@ -83,7 +87,7 @@ export function ChatInput(props: ChatInputComponentProps) {
   // upsell at all.
   const modelOptions = createMemo(() => {
     const allowed = modelsForPlan(hasPaidAccess());
-    return Object.values(Model).map((id) => ({
+    return PAID_MODELS.map((id) => ({
       id,
       available: allowed.includes(id),
     }));
@@ -199,6 +203,7 @@ export function ChatInput(props: ChatInputComponentProps) {
       const sendInput: ChatSendInput = {
         content: markdownText(),
         model: opts?.modelOverride ?? model(),
+        speed: speedForModel(opts?.modelOverride ?? model(), fastModeEnabled()),
         attachments: attachments.attached(),
         toolset: toolsetSignal[0](),
         metaKey: opts?.metaKey,
@@ -222,6 +227,9 @@ export function ChatInput(props: ChatInputComponentProps) {
       },
     })
     .onEnter((e) => {
+      // On a virtual keyboard Enter is a newline, as in channels; the send
+      // button is the only way to submit.
+      if (isTouchDevice()) return false;
       if (canSendMessage()) {
         sendMessage({ metaKey: e?.metaKey });
       }
@@ -260,7 +268,7 @@ export function ChatInput(props: ChatInputComponentProps) {
     <Button
       variant="ghost"
       size="icon-composer"
-      class="rounded-full text-ink not-touch:text-composer-ink touch:size-6"
+      class="text-ink not-touch:text-composer-ink touch:size-6"
       label="Attach files"
       aria-label="Attach files"
       onClick={() => {
@@ -280,7 +288,7 @@ export function ChatInput(props: ChatInputComponentProps) {
       hotkey={TOKENS.chat.stop}
       onClick={() => props.onStop?.()}
       class={cn(
-        'rounded-full touch:size-7.5 [&_svg]:stroke-[4px]',
+        'touch:size-7.5 [&_svg]:stroke-[4px]',
         isTouchDevice() &&
           'text-ink-extra-muted not-disabled:bg-ink/5 not-disabled:hover:bg-ink/10',
         'data-disabled:opacity-100 data-disabled:text-ink-extra-muted data-disabled:bg-ink-muted/5'
@@ -314,6 +322,7 @@ export function ChatInput(props: ChatInputComponentProps) {
         onLocked={() => showPaywall(PaywallKey.O1_LIMIT)}
         compact={compactSelector()}
       />
+      <SpeedToggle model={model()} />
       <DictationButton dictation={dictation} />
       <Show when={generating() && props.onStop} fallback={<SendButton />}>
         <StopButton />
@@ -427,6 +436,7 @@ export function ChatInput(props: ChatInputComponentProps) {
                   models={modelOptions()}
                   onSelect={() => {}}
                 />
+                <div class="size-7 not-touch:size-[33.75px] shrink-0" />
                 <div class="size-7 not-touch:size-[33.75px] shrink-0" />
                 <div class="size-7 not-touch:size-[33.75px] shrink-0" />
               </div>

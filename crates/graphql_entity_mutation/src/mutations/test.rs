@@ -39,13 +39,23 @@ impl SoupEntityEdges for TestSoupEdges {
     type NotificationFilter = String;
     type ActivityEvent = String;
     type EmailThreadEdges = TestEmailThreadEdges;
+    type CrmRecordEdges = TestEmailThreadEdges;
+    type InitiativeEdges = TestEmailThreadEdges;
     type AgentSessionEdges = TestAgentSessionEdges;
 
     fn from_entity(_entity: Entity<'static>) -> Self {
         Self { available: true }
     }
 
+    fn initiative_edges(_initiative_id: uuid::Uuid) -> Self::InitiativeEdges {
+        TestEmailThreadEdges { available: true }
+    }
+
     fn email_thread_edges(_email_thread_id: uuid::Uuid) -> Self::EmailThreadEdges {
+        TestEmailThreadEdges { available: true }
+    }
+
+    fn crm_record_edges(_record: model_entity::Entity<'static>) -> Self::CrmRecordEdges {
         TestEmailThreadEdges { available: true }
     }
 
@@ -57,7 +67,10 @@ impl SoupEntityEdges for TestSoupEdges {
         Ok(None)
     }
 
-    fn agent_session_edges(_bot_id: uuid::Uuid) -> Self::AgentSessionEdges {
+    fn agent_session_edges(
+        _session_id: uuid::Uuid,
+        _bot_id: uuid::Uuid,
+    ) -> Self::AgentSessionEdges {
         TestAgentSessionEdges { available: true }
     }
 

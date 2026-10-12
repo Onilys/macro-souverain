@@ -19,7 +19,7 @@ use email_db_client::attachments::provider::upload_filters::{
     attachment_is_document, attachment_is_media,
 };
 use email_db_client::threads;
-use email_utils::dedupe_emails;
+use email_utils::{dedupe_emails, is_macro_notification_sender};
 use filter_ast::Expr;
 use item_filters::{SharedEmailFilter, ast::email::EmailLiteral};
 use macro_user_id::user_id::MacroUserIdStr;
@@ -38,6 +38,7 @@ use models_email::service::pubsub::{DetailedError, FailureReason, ProcessingErro
 use models_email::service::thread::Thread;
 use notification::domain::models::{SendNotificationRequest, SendNotificationRequestBuilder};
 use notification::domain::service::NotificationIngress;
+use sqlx::PgPool;
 use std::collections::HashSet;
 use std::result;
 use std::sync::Arc;
@@ -214,14 +215,9 @@ pub async fn upsert_message(
     // if the message's thread doesn't exist in the database, we need to fetch and insert the whole thread.
     // if it does exist in the database, we just need to insert the already fetched message.
     if let Some(thread_db_id) = thread_provider_to_db_map.get(&provider_thread_id) {
-        process_and_insert_message(ctx, link.id, *thread_db_id, &mut message)
-            .await
-            .map_err(|e| {
-                ProcessingError::NonRetryable(DetailedError {
-                    reason: FailureReason::DatabaseQueryFailed,
-                    source: e.context("Failed to process and insert message".to_string()),
-                })
-            })?;
+        // Retryable: a concurrent delete can drop the thread after the lookup
+        // above, and the redelivery then takes the whole-thread branch below.
+        process_and_insert_message(&ctx.db, link.id, *thread_db_id, &mut message).await?;
     } else {
         // Propagated verbatim: fetch_and_insert_thread already routed provider
         // errors through handle_operation_error (retry queue vs redelivery),
@@ -243,6 +239,20 @@ pub async fn upsert_message(
                 source: e.context("Failed to get new message db id".to_string()),
             })
         })?;
+
+    // Also runs for a message already saved by a whole-thread fetch, which carries no
+    // calendar parts. Saves skip existing components; an attachment-only invitation is
+    // downloaded again on a re-sync.
+    if !message.is_draft {
+        crate::pubsub::invitation_extraction::save_discovered(
+            ctx,
+            link.id,
+            &payload.provider_message_id,
+            message_db_id,
+            &fetched.calendar_parts,
+        )
+        .await;
+    }
 
     // Publish to the macro.email topic immediately after the committed insert.
     // Drafts publish after every sync because their bodies are mutable. Existing
@@ -624,31 +634,23 @@ fn thread_from_normalized_messages(
 }
 
 /// Process and insert message
-#[tracing::instrument(skip(ctx))]
+#[tracing::instrument(skip(db))]
 async fn process_and_insert_message(
-    ctx: &PubSubContext,
+    db: &PgPool,
     link_id: Uuid,
     thread_db_id: Uuid,
     message: &mut Message,
-) -> anyhow::Result<()> {
+) -> result::Result<(), ProcessingError> {
     process_message_pre_insert(message).await;
 
-    email_db_client::messages::insert::insert_message(
-        &ctx.db,
-        thread_db_id,
-        message,
-        link_id,
-        true,
-    )
-    .await
-    .map_err(|e| {
-        ProcessingError::Retryable(DetailedError {
-            reason: FailureReason::DatabaseQueryFailed,
-            source: e.context("Failed to insert messages".to_string()),
+    email_db_client::messages::insert::insert_message(db, thread_db_id, message, link_id, true)
+        .await
+        .map_err(|e| {
+            ProcessingError::Retryable(DetailedError {
+                reason: FailureReason::DatabaseQueryFailed,
+                source: e.context("Failed to insert message".to_string()),
+            })
         })
-    })?;
-
-    Ok(())
 }
 
 /// Notify downstream services about new message in a user's inbox
@@ -678,9 +680,7 @@ async fn send_notifications(
         return Ok(());
     }
 
-    let Some((message, tier)) =
-        filter_notifiable_message(ctx, link, new_message_provider_id).await?
-    else {
+    let Some(message) = filter_notifiable_message(ctx, link, new_message_provider_id).await? else {
         return Ok(());
     };
 
@@ -699,6 +699,21 @@ async fn send_notifications(
     let sender_contact = message
         .from_contact_id
         .and_then(|from_id| sender_contacts.get(&from_id));
+
+    // Macro's own digest / system emails describe activity the user already
+    // has in-app notifications for; never raise a new-email notification
+    // (in-app row or push) on top of them.
+    if sender_contact.is_some_and(|contact| is_macro_notification_sender(&contact.email)) {
+        tracing::debug!(
+            thread_id = %message.thread_db_id,
+            "skipping new-email notification for Macro's own notification sender"
+        );
+        return Ok(());
+    }
+
+    let Some(tier) = new_email_tier(ctx, link, message.thread_db_id).await? else {
+        return Ok(());
+    };
 
     let sender = sender_contact.map(|contact| {
         contact
@@ -865,12 +880,15 @@ async fn new_email_tier(
     Ok(staff_inbox.then_some(NewEmailTier::StaffInbox))
 }
 
+/// Loads the newly upserted message, returning `None` for messages that never
+/// notify (sent or draft). Sender- and tier-based gating happens in
+/// `send_notifications`.
 #[tracing::instrument(skip(ctx, link))]
 async fn filter_notifiable_message(
     ctx: &PubSubContext,
     link: &link::Link,
     new_message_provider_id: &str,
-) -> result::Result<Option<(SimpleMessage, NewEmailTier)>, ProcessingError> {
+) -> result::Result<Option<SimpleMessage>, ProcessingError> {
     let new_message =
         email_db_client::messages::get_simple_messages::get_simple_message_by_provider_and_link(
             &ctx.db,
@@ -893,6 +911,5 @@ async fn filter_notifiable_message(
         return Ok(None);
     }
 
-    let tier = new_email_tier(ctx, link, new_message.thread_db_id).await?;
-    Ok(tier.map(|tier| (new_message, tier)))
+    Ok(Some(new_message))
 }

@@ -1,4 +1,6 @@
+pub mod attachments;
 mod draft;
+mod followup;
 mod previews;
 mod send;
 pub(crate) mod signature;

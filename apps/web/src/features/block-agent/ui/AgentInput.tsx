@@ -1,4 +1,7 @@
+import { getAttachmentKindFromFile } from '@channel/Input/utils/file-helpers';
+import { toast } from '@core/component/Toast/Toast';
 import { createResizeObserver } from '@solid-primitives/resize-observer';
+import { IMAGE_INPUT_WARNING } from '../state/image-input';
 /**
  * The agent block's composer: the chat input's look and its markdown editing
  * surface (`MarkdownShell` over a lean `EditorConfigBuilder`), including `@`
@@ -19,6 +22,8 @@ import { createComposerDictation } from '@app/features/dictation/composer-dictat
 import { InputProvider } from '@channel/Input/context';
 import { Input } from '@channel/Input/Input';
 import type { InputAttachmentData, InputCommands } from '@channel/Input/types';
+import { useMacroMentionLinkResolver } from '@components/app/split-layout/split-router/mention-links';
+import { preloadAgentFold } from '@core/agent-fold/client';
 import { buildConfig } from '@core/component/LexicalMarkdown/builder/MarkdownConfigBuilder';
 import { ComposerEditor } from '@core/component/LexicalMarkdown/component/ComposerEditor';
 import type { AgentCommandItem } from '@core/component/LexicalMarkdown/plugins';
@@ -28,9 +33,15 @@ import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { useTouchOutsideToDismissKeyboard } from '@core/mobile/useTouchOutsideToDismissKeyboard';
 import { handleFileFolderDrop } from '@core/util/upload';
 import { $insertReferencedPaste } from '@macro-inc/lexical-core';
-import EnterIcon from '@phosphor-icons/core/regular/arrow-bend-down-left.svg?component-solid';
 import { Button, ComposerSurface, SendButton } from '@ui';
-import { createSignal, type JSX, onCleanup, onMount, Show } from 'solid-js';
+import {
+  createEffect,
+  createSignal,
+  type JSX,
+  onCleanup,
+  onMount,
+  Show,
+} from 'solid-js';
 
 /**
  * Id of the agent input's text-area wrapper. Exposed so callers (e.g. the
@@ -42,12 +53,23 @@ export const AGENT_INPUT_TEXT_AREA_ID = 'agent-input-text-area';
 export type QuoteInsert = (text: string) => void;
 
 export interface AgentInputProps {
+  /** Image capability of the selected model; unknown runtimes omit it. */
+  supportsImages?: boolean | null;
   placeholder?: string;
+  /** Context to seed in the composer without sending it. */
+  initialInput?: string;
+  /**
+   * Controlled composer text. Set with `onDraftChange` when a parent keeps
+   * the unsent message (an agent session draft).
+   */
+  draft?: string;
+  onDraftChange?: (draft: string) => void;
   /** The agent is working: the send button becomes a stop square. */
   busy?: boolean;
   /**
-   * A waiting action can be advanced by ending the current turn. While the
-   * input is empty, Enter and the matching button do exactly that.
+   * A waiting action can be flushed by ending the current turn. While the
+   * input is empty, Enter and the send button do exactly that. The button
+   * stays a send arrow, ringed so it reads as flush rather than a new message.
    */
   hasQueuedMessages?: boolean;
   /**
@@ -71,7 +93,7 @@ export interface AgentInputProps {
   autofocus?: boolean;
   /**
    * Slash commands the harness advertises (ACP `available_commands_update`);
-   * typing `/` opens a typeahead over them. `/` stays plain text while empty.
+   * shown alongside skills and pull requests in the `/` menu.
    */
   commands?: () => AgentCommandItem[];
   /**
@@ -111,7 +133,13 @@ export interface AgentInputProps {
 }
 
 export function AgentInput(props: AgentInputProps) {
-  const [markdown, setMarkdown] = createSignal('');
+  const [owned, setOwned] = createSignal(props.initialInput ?? '');
+  const controlled = () => props.onDraftChange !== undefined;
+  const markdown = () => (controlled() ? (props.draft ?? '') : owned());
+  const setMarkdown = (value: string) => {
+    if (props.onDraftChange) props.onDraftChange(value);
+    else setOwned(value);
+  };
   const [isDraggedOver, setIsDraggedOver] = createSignal(false);
   let containerRef: HTMLDivElement | undefined;
   const [layout, setLayout] = createSignal<HTMLDivElement>();
@@ -133,7 +161,12 @@ export function AgentInput(props: AgentInputProps) {
     attachments().some((attachment) => attachment.pending);
   const attachFiles = (files: File[]) => {
     if (!canAttach() || files.length === 0) return;
-    props.onAttachFiles?.(files);
+    const accepted =
+      props.supportsImages === false
+        ? files.filter((file) => getAttachmentKindFromFile(file) !== 'image')
+        : files;
+    if (accepted.length !== files.length) toast.failure(IMAGE_INPUT_WARNING);
+    if (accepted.length) props.onAttachFiles?.(accepted);
   };
 
   // Sending while busy is allowed — the service queues prompts behind the
@@ -142,6 +175,10 @@ export function AgentInput(props: AgentInputProps) {
   const canSend = () =>
     (markdown().trim().length > 0 || attachments().length > 0) &&
     !hasPendingAttachments() &&
+    !(
+      props.supportsImages === false &&
+      attachments().some((file) => file.kind === 'image')
+    ) &&
     !props.disabled &&
     !props.readOnly &&
     !dictation.active();
@@ -164,6 +201,7 @@ export function AgentInput(props: AgentInputProps) {
     if (!canSend()) return;
     const content = markdown().trim();
     const attached = attachments();
+    setMarkdown('');
     editor.controls.clear();
     props.onSend(content, attached);
   };
@@ -195,6 +233,7 @@ export function AgentInput(props: AgentInputProps) {
   };
 
   const editor = buildConfig('chat')
+    .withAppLinkResolver(useMacroMentionLinkResolver())
     .namespace('agent-input')
     .withMentions({
       showOpenTabs: true,
@@ -216,6 +255,9 @@ export function AgentInput(props: AgentInputProps) {
       },
     })
     .onEnter(() => {
+      // On a virtual keyboard Enter is a newline, as in channels; the send
+      // button is the only way to submit.
+      if (isTouchDevice()) return false;
       if (canSend()) send();
       else sendNext();
       return true;
@@ -230,6 +272,13 @@ export function AgentInput(props: AgentInputProps) {
       onEnd: () => {},
     })
     .onChange(setMarkdown);
+
+  // A parent can restore or clear the draft after the editor has mounted.
+  createEffect(() => {
+    const next = markdown();
+    if (next !== editor.controls.getMarkdown())
+      editor.controls.setMarkdown(next);
+  });
 
   const { isCompact, hasMultilineContent } = createComposerLayout(
     editor.buildHandle().lexical,
@@ -265,11 +314,14 @@ export function AgentInput(props: AgentInputProps) {
   // mousedown too because a real iPhone still synthesises it after a
   // cancelled pointerdown (see `keepEditorFocus` in TouchSelectionToolbar).
   // Taps inside the contenteditable keep their defaults so the caret lands
-  // under the finger.
+  // under the finger. So do presses in popups the editor portals out of the
+  // composer (the paste viewer): Solid still delegates their events through
+  // here, and cancelling them blocks selecting their text.
   const focusEditor = (event: Event) => {
     if (props.readOnly) return;
     const target = event.target as HTMLElement | null;
     if (!target || target.closest('button')) return;
+    if (!(event.currentTarget as Node).contains(target)) return;
     if (editor.lexical.getRootElement()?.contains(target)) return;
     event.preventDefault();
     if (event.type === 'pointerdown') editor.controls.focus();
@@ -290,10 +342,16 @@ export function AgentInput(props: AgentInputProps) {
       <div
         ref={containerRef}
         data-keep-keyboard
+        onFocusIn={() => void preloadAgentFold()}
         class="flex flex-col gap-1.5"
         classList={{ 'opacity-50': props.readOnly }}
       >
         {/* Desktop: the model pill sits above the box, as it always has. */}
+        <Show when={props.supportsImages === false}>
+          <p role="status" class="px-3 py-1 text-xs text-ink-muted">
+            {IMAGE_INPUT_WARNING}
+          </p>
+        </Show>
         <Show when={!isTouchDevice() && props.modelControl}>
           <div class="flex items-center px-0.5">{props.modelControl}</div>
         </Show>
@@ -352,6 +410,7 @@ export function AgentInput(props: AgentInputProps) {
                 >
                   <ComposerEditor
                     config={editor}
+                    initialValue={markdown()}
                     disabled={props.readOnly}
                     placeholder={
                       props.placeholder ??
@@ -386,10 +445,14 @@ export function AgentInput(props: AgentInputProps) {
                       disabled={props.disabled || props.readOnly}
                     />
                     <Show
-                      when={canSendNext()}
+                      when={
+                        props.hasQueuedMessages &&
+                        markdown().trim().length === 0 &&
+                        attachments().length === 0
+                      }
                       fallback={
                         <Show
-                          when={props.busy && props.onStop}
+                          when={props.busy && props.onStop && !canSend()}
                           fallback={
                             <SendButton
                               appearance="composer"
@@ -407,7 +470,7 @@ export function AgentInput(props: AgentInputProps) {
                             onClick={() => props.onStop?.()}
                             class={
                               isTouchDevice()
-                                ? 'rounded-full size-7.5 text-ink-extra-muted not-disabled:bg-ink/5 not-disabled:hover:bg-ink/10'
+                                ? 'size-7.5 text-ink-extra-muted not-disabled:bg-ink/5 not-disabled:hover:bg-ink/10'
                                 : undefined
                             }
                           >
@@ -418,13 +481,13 @@ export function AgentInput(props: AgentInputProps) {
                     >
                       <SendButton
                         appearance="composer"
-                        aria-label="Send next queued message"
-                        tooltip="Send next queued message"
+                        intent="flush"
+                        aria-label="Flush queued messages"
+                        tooltip="Flush queued messages"
                         shortcut="Enter"
                         onClick={sendNext}
-                      >
-                        <EnterIcon />
-                      </SendButton>
+                        disabled={!canSendNext()}
+                      />
                     </Show>
                   </div>
                 </div>

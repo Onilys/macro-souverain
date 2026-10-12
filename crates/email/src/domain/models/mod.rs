@@ -1,4 +1,5 @@
 pub mod attachment;
+pub mod calendar_invitation;
 pub mod contact;
 pub mod draft;
 pub mod email_filter;
@@ -15,7 +16,10 @@ pub mod thread;
 #[cfg(test)]
 mod tests;
 
-pub use attachment::{Attachment, AttachmentDraft, AttachmentForwarded, MessageAttachment};
+pub use attachment::{
+    Attachment, AttachmentDraft, AttachmentForwarded, MAX_DRAFT_ATTACHMENTS_BYTES,
+    MessageAttachment, SourcedAttachment,
+};
 pub use contact::{Contact, ContactInfo, RecipientType};
 pub use draft::{
     CreateDraftInput, CreatedDraft, DeletedUserDraft, DraftDeletion, MessageTimestamps,
@@ -33,7 +37,8 @@ pub use link::{
     UserEmailLinkSettings, UserProvider,
 };
 pub use mail_projection::{
-    EmailPreview, EmailThreadMailCacheFacts, EmailThreadMailPreviews, EmailThreadMailProjection,
+    EmailDraftAggregate, EmailDraftEntry, EmailPreview, EmailThreadDraftState,
+    EmailThreadMailCacheFacts, EmailThreadMailPreviews, EmailThreadMailProjection,
 };
 pub use message::{Message, MessageRow, SimpleMessage};
 pub use parsed_message::{ParsedLabel, ParsedMessage, ParsedThread};

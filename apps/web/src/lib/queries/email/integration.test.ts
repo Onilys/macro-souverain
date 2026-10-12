@@ -1,4 +1,4 @@
-import { CombinedError, stringifyDocument } from '@urql/core';
+import { CombinedError } from '@urql/core';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   archive: vi.fn(),
   mutation: vi.fn(),
   refresh: vi.fn(),
+  reminders: vi.fn(),
   revalidations: vi.fn(() => [] as unknown[]),
 }));
 vi.mock('@core/constant/featureFlags', () => ({
@@ -20,15 +21,20 @@ vi.mock('@service-storage/client', () => ({ storageServiceClient: {} }));
 vi.mock('@service-storage/graphql-soup', () => ({
   getGraphqlSoupClient: () => ({ mutation: mocks.mutation }),
 }));
+vi.mock('../reminders/email-collection', () => ({
+  invalidateEmailReminderCollection: mocks.reminders,
+}));
 vi.mock('../soup/graphql/active-queries', () => ({
   refreshActiveGraphqlSoupQueries: mocks.refresh,
   getActiveGraphqlSoupRevalidations: mocks.revalidations,
 }));
 
+import { predictOptimisticMutation } from '@graphql-cache/exchange/optimistic-resolvers';
 import {
   SetEmailThreadArchivedDocument,
   SoupDocument,
 } from '@service-storage/graphql/generated/graphql';
+import { soupOptimisticResolvers } from '../optimistic-resolvers';
 import { archiveEmailThread } from './integration';
 
 beforeEach(() => {
@@ -64,23 +70,30 @@ describe('GraphQL email archive writes', () => {
       expect(mocks.mutation).toHaveBeenCalledWith(
         SetEmailThreadArchivedDocument,
         { input: { threadId: 'thread', archived: value } },
-        expect.objectContaining({
-          normalizedCacheOptimistic: expect.objectContaining({
-            optimisticResponse: {
-              setEmailThreadArchived: {
-                __typename: 'GraphqlSoupEmailThread',
-                id: 'thread',
-                inboxVisible: !value,
-              },
-            },
-          }),
-        })
+        expect.objectContaining({ optimisticMutation: { revalidations: [] } })
       );
+      expect(
+        predictOptimisticMutation(
+          soupOptimisticResolvers,
+          SetEmailThreadArchivedDocument,
+          { input: { threadId: 'thread', archived: value } }
+        )?.response
+      ).toEqual({
+        setEmailThreadArchived: {
+          __typename: 'GraphqlSoupEmailThread',
+          id: 'thread',
+          inboxVisible: !value,
+        },
+      });
       expect(mocks.archive).not.toHaveBeenCalled();
       expect(mocks.refresh).not.toHaveBeenCalled();
+      expect(mocks.reminders).not.toHaveBeenCalled();
       finish();
       await expect(result).resolves.toBe('committed');
-      expect(mocks.refresh).toHaveBeenCalledOnce();
+      expect(mocks.reminders).toHaveBeenCalledOnce();
+      expect(mocks.refresh).toHaveBeenCalledExactlyOnceWith({
+        target: { kind: 'email-archive', threadId: 'thread' },
+      });
     }
   );
 
@@ -98,11 +111,14 @@ describe('GraphQL email archive writes', () => {
       false,
       true,
     ]);
+    expect(calls).toHaveLength(3);
+    // No caller-supplied UUID coalesces these separate intents. The resolver
+    // exchange assigns their transaction IDs when each operation is prepared.
     expect(
-      new Set(
-        calls.map(([, , context]) => context.normalizedCacheOptimistic.uuid)
-      ).size
-    ).toBe(3);
+      calls.every(
+        ([, , context]) => context.optimisticMutation.uuid === undefined
+      )
+    ).toBe(true);
   });
 
   it('preserves replay revalidations, including continuation pages, without refetching queued writes', async () => {
@@ -127,15 +143,15 @@ describe('GraphQL email archive writes', () => {
       archiveEmailThread({ id: 'thread', value: true })
     ).resolves.toBe('queued');
     expect(
-      mocks.mutation.mock.calls[0][2].normalizedCacheOptimistic.revalidations
+      mocks.mutation.mock.calls[0][2].optimisticMutation.revalidations
     ).toEqual(
       variables.map((variables) => ({
-        query: stringifyDocument(SoupDocument),
-        operationName: 'Soup',
-        variablesJson: JSON.stringify(variables),
+        document: SoupDocument,
+        variables,
       }))
     );
     expect(mocks.refresh).not.toHaveBeenCalled();
+    expect(mocks.reminders).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -157,6 +173,7 @@ describe('GraphQL email archive writes', () => {
         archiveEmailThread({ id: 'thread', value: true })
       ).rejects.toThrow();
       expect(mocks.refresh).not.toHaveBeenCalled();
+      expect(mocks.reminders).not.toHaveBeenCalled();
       expect(mocks.archive).not.toHaveBeenCalled();
     }
   );
@@ -175,6 +192,7 @@ describe('GraphQL email archive writes', () => {
       );
       expect(mocks.mutation).not.toHaveBeenCalled();
       expect(mocks.refresh).not.toHaveBeenCalled();
+      expect(mocks.reminders).toHaveBeenCalledOnce();
     }
   );
 

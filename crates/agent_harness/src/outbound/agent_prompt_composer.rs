@@ -1,10 +1,12 @@
-//! Compose channel context for every harness.
+//! Compose trigger context for every harness.
 
 use lexical_client::LexicalClient;
-use lexical_client::parse_markdown::{AgentContextAnchor, AgentContextMessage};
+use lexical_client::parse_markdown::{AgentContextPeople, AgentContextPerson};
+use macro_user_id::user_id::MacroUserIdStr;
+use trigger_context::TriggerContext;
 
 use crate::domain::error::{HarnessError, Result};
-use crate::domain::model::{CommentAnchor, ConversationContext};
+use crate::domain::model::PromptPeople;
 use crate::domain::ports::AgentPromptComposer;
 
 /// Lexical-service-backed agent prompt composer.
@@ -23,52 +25,26 @@ impl AgentPromptComposer for LexicalAgentPromptComposer {
     async fn compose(
         &self,
         prompt_markdown: &str,
-        parent: Option<&messages::domain::models::MessageParent>,
-        context: Option<&ConversationContext>,
+        instructions: Option<&str>,
+        people: Option<&PromptPeople>,
+        trigger: Option<&TriggerContext>,
     ) -> Result<String> {
-        let messages = context.map(|context| {
-            context
-                .messages
-                .iter()
-                .map(|message| AgentContextMessage {
-                    sender: &message.sender,
-                    content: &message.content,
-                })
-                .collect::<Vec<_>>()
+        let people = people.map(|people| AgentContextPeople {
+            owner: person(&people.owner),
+            sender: people.sender.as_ref().map(person),
         });
-        let anchor =
-            context
-                .and_then(|context| context.anchor.as_ref())
-                .map(|anchor| match anchor {
-                    CommentAnchor::Mark {
-                        mark_id,
-                        marked_text,
-                        current,
-                    } => AgentContextAnchor::Markdown {
-                        mark_id,
-                        marked_text: marked_text.as_deref(),
-                        current_marked_text: current.as_ref().map(|c| c.marked_text.as_str()),
-                        surrounding_text: current.as_ref().map(|c| c.surrounding_text.as_str()),
-                    },
-                    CommentAnchor::PdfHighlight {
-                        anchor_id,
-                        marked_text,
-                    } => AgentContextAnchor::PdfHighlight {
-                        anchor_id,
-                        marked_text: marked_text.as_deref(),
-                    },
-                    CommentAnchor::PdfPin { anchor_id } => AgentContextAnchor::PdfPin { anchor_id },
-                });
-
         self.lexical
-            .compose_agent_context(
-                prompt_markdown,
-                parent,
-                anchor.as_ref(),
-                messages.as_deref(),
-            )
+            .compose_agent_context(prompt_markdown, instructions, people.as_ref(), trigger)
             .await
             .map_err(|error| HarnessError::PromptComposition(rootcause::report!(error).into()))
+    }
+}
+
+/// A user as the context names them: by email, the way message authors are.
+fn person<'a>(user: &'a MacroUserIdStr<'static>) -> AgentContextPerson<'a> {
+    AgentContextPerson {
+        id: user.as_ref(),
+        name: user.email_str(),
     }
 }
 

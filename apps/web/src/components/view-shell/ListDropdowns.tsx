@@ -4,15 +4,20 @@ import {
 } from '@app/features/next-soup/soup-view/filters-bar/filter-menu';
 import CheckIcon from '@phosphor/check.svg';
 import FilterIcon from '@phosphor/funnel-simple.svg';
+import BoardIcon from '@phosphor/kanban.svg';
+import ListIcon from '@phosphor/list-bullets.svg';
 import SortIcon from '@phosphor/sort-ascending.svg';
 import GroupIcon from '@phosphor/stack.svg';
 import { cn, Dropdown } from '@ui';
-import { batch, For, type JSX, Show } from 'solid-js';
+import { batch, createSignal, For, type JSX, Show } from 'solid-js';
+import { AiFilterInput, type AiFilterInputProps } from './AiFilterInput';
 
 export type ListControlOption<TId extends string> = {
   id: TId;
   label: string;
   icon?: () => JSX.Element;
+  /** Drawn in place of `label`, which still drives search. */
+  content?: () => JSX.Element;
   disabled?: boolean;
 };
 
@@ -43,7 +48,7 @@ function SingleSelectDropdown<TId extends string>(
     >
       <Dropdown.Trigger
         ref={props.triggerRef}
-        variant="outline"
+        variant="ghost"
         size="md"
         square
         class={props.class}
@@ -72,7 +77,9 @@ function SingleSelectDropdown<TId extends string>(
                       {option.icon?.()}
                     </span>
                   </Show>
-                  <span class="flex-1">{option.label}</span>
+                  <span class="flex-1">
+                    {option.content?.() ?? option.label}
+                  </span>
                   <Dropdown.ItemIndicator>
                     <CheckIcon class="size-3.5 text-accent" />
                   </Dropdown.ItemIndicator>
@@ -83,6 +90,35 @@ function SingleSelectDropdown<TId extends string>(
         </Dropdown.Group>
       </Dropdown.Content>
     </Dropdown>
+  );
+}
+
+export type ViewLayout = 'list' | 'board';
+
+export type ViewLayoutDropdownProps = Omit<
+  SingleSelectDropdownProps<ViewLayout>,
+  'icon' | 'label' | 'options'
+> & {
+  label?: string;
+};
+
+const VIEW_LAYOUT_OPTIONS: ListControlOption<ViewLayout>[] = [
+  { id: 'list', label: 'List', icon: () => <ListIcon /> },
+  { id: 'board', label: 'Board', icon: () => <BoardIcon /> },
+];
+
+export function ViewLayoutDropdown(props: ViewLayoutDropdownProps) {
+  return (
+    <SingleSelectDropdown
+      {...props}
+      label={props.label ?? 'Layout'}
+      options={VIEW_LAYOUT_OPTIONS}
+      icon={
+        <Show when={props.value === 'board'} fallback={<ListIcon />}>
+          <BoardIcon />
+        </Show>
+      }
+    />
   );
 }
 
@@ -150,6 +186,11 @@ export type ListFilterDropdownProps<
     selected: boolean
   ) => void;
   onClear?: () => void;
+  /**
+   * Adds a plain-English box above the groups that resolves a description
+   * into a selection. The menu closes once a fully mapped request applies.
+   */
+  aiFilter?: Pick<AiFilterInputProps, 'placeholder' | 'onSubmit'>;
   customTrigger?: JSX.Element;
   triggerRef?: (element: HTMLButtonElement) => void;
   label?: string;
@@ -162,6 +203,15 @@ export function ListFilterDropdown<
   TGroupId extends string,
   TOptionId extends string,
 >(props: ListFilterDropdownProps<TGroupId, TOptionId>) {
+  let aiFilterInput: HTMLInputElement | undefined;
+  // Uncontrolled menus track their own state so the AI box can close them.
+  const [internalOpen, setInternalOpen] = createSignal(false);
+  const isOpen = () => props.open ?? internalOpen();
+  const setOpen = (open: boolean) => {
+    props.onOpenChange?.(open);
+    if (props.open === undefined) setInternalOpen(open);
+  };
+
   const isGroupActive = (group: ListFilterGroup<TGroupId, TOptionId>) =>
     props.isGroupActive?.(group.id) ??
     group.options.some(
@@ -171,17 +221,13 @@ export function ListFilterDropdown<
     );
 
   return (
-    <Dropdown
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      placement="bottom-end"
-    >
+    <Dropdown open={isOpen()} onOpenChange={setOpen} placement="bottom-end">
       <Show
         when={props.customTrigger}
         fallback={
           <Dropdown.Trigger
             ref={props.triggerRef}
-            variant="outline"
+            variant="ghost"
             size="md"
             square
             class={props.class}
@@ -193,7 +239,35 @@ export function ListFilterDropdown<
       >
         {(trigger) => trigger()}
       </Show>
-      <Dropdown.Content class={cn('min-w-32', props.contentClass)}>
+      <Dropdown.Content
+        class={cn('min-w-32', props.contentClass)}
+        onOpenAutoFocus={(event) => {
+          if (!props.aiFilter) return;
+          event.preventDefault();
+          // Kobalte focuses the menu itself on a deferred tick; land after it.
+          setTimeout(() => {
+            requestAnimationFrame(() => {
+              if (aiFilterInput?.isConnected) {
+                aiFilterInput.focus({ preventScroll: true });
+              }
+            });
+          }, 0);
+        }}
+      >
+        <Show when={props.aiFilter}>
+          {(aiFilter) => (
+            <Dropdown.Group>
+              <AiFilterInput
+                placeholder={aiFilter().placeholder}
+                onSubmit={aiFilter().onSubmit}
+                onApplied={() => setOpen(false)}
+                inputRef={(element) => {
+                  aiFilterInput = element;
+                }}
+              />
+            </Dropdown.Group>
+          )}
+        </Show>
         <Dropdown.Group>
           <For each={props.groups}>
             {(group) => (
@@ -214,12 +288,15 @@ export function ListFilterDropdown<
                           !props.isSelected(group.id, id)
                       )
                     }
-                    closeOnSelect={group.selectionMode === 'single'}
+                    closeOnSelect={
+                      group.selectionMode === 'single' ? true : 'unless-shift'
+                    }
                     contentClass={group.contentClass}
                   />
                 }
               >
                 <SearchableFilterSubmenu
+                  onSelectionComplete={() => setOpen(false)}
                   label={group.label}
                   active={isGroupActive(group)}
                   options={() => group.options}

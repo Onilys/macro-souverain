@@ -26,20 +26,77 @@ vi.mock('@queries/client', async () => {
 vi.mock('@service-storage/client', () => ({
   storageServiceClient: { getForeignEntityBySource: vi.fn() },
 }));
-vi.mock(
-  '@core/component/LexicalMarkdown/component/decorator/PullRequestMention',
-  () => ({
-    PullRequestEntityLink: (props: { entity: ForeignEntity }) => (
-      <span>{(props.entity.metadata as { status: string }).status}</span>
-    ),
-  })
-);
+const openWithSplit = vi.fn();
+vi.mock('@components/app/split-layout/layout', () => ({
+  useSplitLayout: () => ({ openWithSplit }),
+}));
 
 afterEach(() => {
   cleanup();
   queryClient.clear();
   vi.useRealTimers();
   vi.clearAllMocks();
+});
+
+it('hides merge on a draft or when CI is not passing', async () => {
+  const entity: ForeignEntity = {
+    id: '019f0000-0000-7000-8000-000000000002',
+    foreignEntityId: 'macro-inc/macro/pull/6369',
+    foreignEntitySource: 'github_pull_request',
+    metadata: {
+      status: 'open',
+      name: 'Fix reply state',
+      draft: true,
+      checks: [
+        { id: 1, name: 'ci', status: 'completed', conclusion: 'success' },
+      ],
+    },
+    storedForId: 'macro|wolf@macro.com',
+    storedForAuthEntity: 'user',
+    createdAt: '2026-09-11T00:00:00Z',
+    updatedAt: '2026-09-11T00:00:00Z',
+  };
+  vi.mocked(storageServiceClient.getForeignEntityBySource).mockResolvedValue(
+    err([{ code: 'NOT_FOUND', message: 'Not synced' }])
+  );
+  render(() => (
+    <QueryClientProvider client={queryClient}>
+      <MagicChipPullRequest url="https://github.com/macro-inc/macro/pull/6369" />
+    </QueryClientProvider>
+  ));
+  await waitFor(() =>
+    expect(queryClient.getQueryCache().getAll()[0]?.state.status).toBe(
+      'success'
+    )
+  );
+  await handlePullRequestUpdated(entity);
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: '#6369 · Fix reply state' })
+    ).toBeTruthy()
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Merge pull request #6369' })
+  ).toBeNull();
+  await handlePullRequestUpdated({
+    ...entity,
+    metadata: {
+      status: 'open',
+      name: 'Checks still running',
+      draft: false,
+      checks: [{ id: 1, name: 'ci', status: 'in_progress', conclusion: null }],
+    },
+    updatedAt: '2026-09-11T00:02:00Z',
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: '#6369 · Checks still running' })
+    ).toBeTruthy()
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Merge pull request #6369' })
+  ).toBeNull();
+  queryClient.clear();
 });
 
 it('shows a PR link without suspending while the webhook mapping is pending or missing', async () => {
@@ -84,7 +141,16 @@ it('keeps an already mounted chip current through late sync and merge', async ()
     id: '019f0000-0000-7000-8000-000000000001',
     foreignEntityId: 'macro-inc/macro/pull/6369',
     foreignEntitySource: 'github_pull_request',
-    metadata: { status: 'open' },
+    metadata: {
+      status: 'open',
+      name: 'Fix reply state',
+      additions: 42,
+      deletions: 0,
+      draft: false,
+      checks: [
+        { id: 1, name: 'ci', status: 'completed', conclusion: 'success' },
+      ],
+    },
     storedForId: 'macro|wolf@macro.com',
     storedForAuthEntity: 'user',
     createdAt: '2026-09-11T00:00:00Z',
@@ -106,14 +172,35 @@ it('keeps an already mounted chip current through late sync and merge', async ()
   expect(lookup).toHaveBeenCalledTimes(1);
   await handlePullRequestUpdated(entity);
   await vi.advanceTimersByTimeAsync(1);
-  expect(screen.getByText('open')).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: '#6369 · Fix reply state' })
+  ).toBeTruthy();
+  expect(screen.getByLabelText('42 lines added')).toBeTruthy();
+  expect(screen.getByLabelText('0 lines deleted')).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: 'Merge pull request #6369' })
+  ).toBeTruthy();
   await handlePullRequestUpdated({
     ...entity,
-    metadata: { status: 'merged' },
+    metadata: {
+      status: 'merged',
+      name: 'Fix reply state',
+      additions: 48,
+      deletions: 2,
+    },
     updatedAt: '2026-09-11T00:01:00Z',
   });
   await vi.advanceTimersByTimeAsync(1);
-  expect(screen.getByText('merged')).toBeTruthy();
+  expect(screen.getByLabelText('48 lines added')).toBeTruthy();
+  expect(screen.getByLabelText('2 lines deleted')).toBeTruthy();
+  expect(
+    screen.queryByRole('button', { name: 'Merge pull request #6369' })
+  ).toBeNull();
+  screen.getByRole('button', { name: '#6369 · Fix reply state' }).click();
+  expect(openWithSplit).toHaveBeenCalledWith(
+    { type: 'pr', id: entity.id },
+    expect.any(Object)
+  );
   rendered.unmount();
   const calls = lookup.mock.calls.length;
   await vi.advanceTimersByTimeAsync(30_000);

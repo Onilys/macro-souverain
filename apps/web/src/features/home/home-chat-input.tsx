@@ -1,5 +1,7 @@
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { DebugSuspense } from '@channel/DebugSuspense';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
+import { useMacroMentionLinkResolver } from '@components/app/split-layout/split-router/mention-links';
 import { buildChatEditor } from '@core/component/AI/component/input/buildChatEditor';
 import type { ChatSendInput } from '@core/component/AI/component/input/buildRequest';
 import { ChatInput } from '@core/component/AI/component/input/ChatInput';
@@ -17,7 +19,7 @@ import { createRenameDssEntityMutation } from '@entity';
 import { invalidateAllSoup } from '@queries/soup/normalized-cache';
 import { cognitionApiServiceClient } from '@service-cognition/client';
 import { $getRoot } from 'lexical';
-import { createEffect, Show, Suspense } from 'solid-js';
+import { createEffect, Show } from 'solid-js';
 import { HomeAgentComposer } from './home-agent-composer';
 import { replaceHomeComposerDraft } from './home-composer-selection';
 
@@ -37,10 +39,20 @@ export type HomeChatInputProps = {
 export const HomeChatInput = (props: HomeChatInputProps) => {
   const flag = useFeatureFlag(enableChatV3Agents);
   return (
-    <Show when={flag().enabled} fallback={<LegacyHomeChatInput {...props} />}>
-      <Suspense fallback={<div class="min-h-24" />}>
+    <Show
+      when={flag().enabled}
+      fallback={
+        <DebugSuspense name="Home.legacy-composer">
+          <LegacyHomeChatInput {...props} />
+        </DebugSuspense>
+      }
+    >
+      <DebugSuspense
+        name="Home.agent-composer"
+        fallback={<div class="min-h-24" />}
+      >
         <HomeAgentComposer autoFocus={props.autoFocusOnMount} />
-      </Suspense>
+      </DebugSuspense>
     </Show>
   );
 };
@@ -53,11 +65,13 @@ export const LegacyHomeChatInput = (props: HomeChatInputProps) => {
     input.attachments,
     getAttachmentFromMention
   );
-  const editor = buildChatEditor().withMentions({
-    ...attachmentMentionCallbacks,
-    block: 'chat',
-    showOpenTabs: true,
-  });
+  const editor = buildChatEditor()
+    .withAppLinkResolver(useMacroMentionLinkResolver())
+    .withMentions({
+      ...attachmentMentionCallbacks,
+      block: 'chat',
+      showOpenTabs: true,
+    });
 
   const applyDraft = (text: string) => {
     replaceHomeComposerDraft(editor.controls, text);
@@ -125,14 +139,19 @@ export const LegacyHomeChatInput = (props: HomeChatInputProps) => {
 
     if (backgroundSend) {
       // Send the message in the background without navigating
-      cognitionApiServiceClient.sendStreamChatMessage({
+      const sent = await cognitionApiServiceClient.sendStreamChatMessage({
         content: request.content,
         model: request.model,
+        speed: request.speed,
         chat_id: chatId,
         attachments:
           request.attachments.length > 0 ? request.attachments : undefined,
         toolset: request.toolset,
       });
+      if (sent.isErr()) {
+        restoreDraft(request);
+        return;
+      }
       invalidateAllSoup();
     } else {
       // Store the pending send data for the chat to pick up
@@ -140,6 +159,7 @@ export const LegacyHomeChatInput = (props: HomeChatInputProps) => {
         content: request.content,
         attachments: request.attachments,
         model: request.model,
+        speed: request.speed,
       });
 
       if (props.openChat) {

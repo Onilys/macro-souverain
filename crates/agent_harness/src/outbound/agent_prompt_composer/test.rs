@@ -1,34 +1,14 @@
 use super::*;
-use crate::domain::model::{CommentAnchor, MarkedPassage, PriorMessage};
 use axum::{Json, Router, routing::post};
+use chrono::{TimeZone, Utc};
 use std::sync::{Arc, Mutex};
+use trigger_context::{ContextPerson, ProjectRef, TaskAssignedContext, TaskSnapshot};
+use uuid::Uuid;
 
+/// The trigger crosses a service boundary, so the body the lexical service
+/// validates is asserted here rather than only in its own types.
 #[tokio::test]
-async fn composition_preserves_lexical_output_without_tool_instructions() {
-    let app = Router::new().route(
-        "/agent-context",
-        post(|| async { Json(serde_json::json!({ "markdown": "Sanitized prompt and context" })) }),
-    );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap();
-    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    let composer = LexicalAgentPromptComposer::new(LexicalClient::new(
-        "test".into(),
-        format!("http://{address}"),
-    ));
-
-    for context in [None, Some(&ConversationContext::default())] {
-        let prompt = composer.compose("Raw prompt", None, context).await.unwrap();
-        assert_eq!(prompt, "Sanitized prompt and context");
-        assert!(!prompt.contains("set_pull_request"));
-    }
-    server.abort();
-}
-
-/// The comment anchor crosses a service boundary, so the shape the lexical
-/// service validates is asserted here rather than only in its own types.
-#[tokio::test]
-async fn the_comment_anchor_reaches_the_lexical_service_beside_the_history() {
+async fn the_trigger_reaches_the_lexical_service_beside_the_people() {
     let received: Arc<Mutex<Option<serde_json::Value>>> = Arc::default();
     let seen = received.clone();
     let app = Router::new().route(
@@ -48,104 +28,107 @@ async fn the_comment_anchor_reaches_the_lexical_service_beside_the_history() {
         "test".into(),
         format!("http://{address}"),
     ));
-
-    composer
-        .compose(
-            "Raw prompt",
-            None,
-            Some(&ConversationContext {
-                anchor: Some(CommentAnchor::Mark {
-                    mark_id: "mark-1".to_owned(),
-                    marked_text: Some("the marked phrase".to_owned()),
-                    current: Some(MarkedPassage {
-                        marked_text: "the edited phrase".to_owned(),
-                        surrounding_text: "Around the edited phrase.".to_owned(),
-                    }),
-                }),
-                messages: vec![PriorMessage {
-                    sender: "alice".to_owned(),
-                    content: "earlier".to_owned(),
-                }],
+    let owner = MacroUserIdStr::try_from_email("julia@example.com").unwrap();
+    let trigger = TriggerContext::TaskAssigned(TaskAssignedContext {
+        task: TaskSnapshot {
+            id: "task-1".to_owned(),
+            title: "Fix calendar popover scroll".to_owned(),
+            markdown: "The popover scrolls the page behind it.".to_owned(),
+            status: Some("Todo".to_owned()),
+            priority: None,
+            due: None,
+            assignees: Vec::new(),
+            project: Some(ProjectRef {
+                id: Uuid::from_u128(0xA1),
+                name: "Calendar polish".to_owned(),
             }),
+        },
+        assigned_by: ContextPerson {
+            id: "macro|julia@example.com".to_owned(),
+            name: "Julia".to_owned(),
+            email: Some("julia@example.com".to_owned()),
+        },
+        assigned_at: Utc.with_ymd_and_hms(2026, 10, 8, 14, 2, 0).unwrap(),
+        discussion_id: Uuid::from_u128(0xD1),
+    });
+
+    let composed = composer
+        .compose(
+            "Work on the task",
+            Some("Be brief."),
+            Some(&PromptPeople {
+                owner: owner.clone(),
+                sender: Some(owner),
+            }),
+            Some(&trigger),
         )
         .await
         .unwrap();
-    let body = received.lock().unwrap().clone().unwrap();
-    assert_eq!(body["anchor"]["type"], "markdown");
-    assert_eq!(body["anchor"]["markId"], "mark-1");
-    assert_eq!(body["anchor"]["markedText"], "the marked phrase");
-    assert_eq!(body["anchor"]["currentMarkedText"], "the edited phrase");
-    assert_eq!(
-        body["anchor"]["surroundingText"],
-        "Around the edited phrase."
-    );
-    assert_eq!(body["messages"][0]["sender"], "alice");
 
-    // A thread anchored before snapshots existed still names its mark.
-    composer
-        .compose(
-            "Raw prompt",
-            None,
-            Some(&ConversationContext {
-                anchor: Some(CommentAnchor::Mark {
-                    mark_id: "mark-2".to_owned(),
-                    marked_text: None,
-                    current: None,
-                }),
-                messages: vec![],
-            }),
-        )
-        .await
-        .unwrap();
-    let body = received.lock().unwrap().clone().unwrap();
-    assert_eq!(body["anchor"]["markId"], "mark-2");
-    assert!(body["anchor"].get("markedText").is_none());
-    assert!(body["anchor"].get("currentMarkedText").is_none());
-
-    let sent = |anchor: CommentAnchor| {
-        let composer = &composer;
-        let received = received.clone();
-        async move {
-            composer
-                .compose(
-                    "Raw prompt",
-                    None,
-                    Some(&ConversationContext {
-                        anchor: Some(anchor),
-                        messages: vec![],
-                    }),
-                )
-                .await
-                .unwrap();
-            received.lock().unwrap().clone().unwrap()["anchor"].clone()
-        }
-    };
+    assert_eq!(composed, "composed");
     assert_eq!(
-        sent(CommentAnchor::PdfHighlight {
-            anchor_id: "highlight-1".to_owned(),
-            marked_text: Some("the highlighted words".to_owned()),
-        })
-        .await,
+        received.lock().unwrap().take().unwrap(),
         serde_json::json!({
-            "type": "pdfHighlight",
-            "anchorId": "highlight-1",
-            "markedText": "the highlighted words"
+            "promptMarkdown": "Work on the task",
+            "instructions": "Be brief.",
+            "owner": { "id": "macro|julia@example.com", "name": "julia@example.com" },
+            "sender": { "id": "macro|julia@example.com", "name": "julia@example.com" },
+            "trigger": {
+                "kind": "task_assigned",
+                "task": {
+                    "id": "task-1",
+                    "title": "Fix calendar popover scroll",
+                    "markdown": "The popover scrolls the page behind it.",
+                    "status": "Todo",
+                    "project": {
+                        "id": "00000000-0000-0000-0000-0000000000a1",
+                        "name": "Calendar polish"
+                    }
+                },
+                "assigned_by": {
+                    "id": "macro|julia@example.com",
+                    "name": "Julia",
+                    "email": "julia@example.com"
+                },
+                "assigned_at": "2026-10-08T14:02:00Z",
+                "discussion_id": "00000000-0000-0000-0000-0000000000d1"
+            }
         })
     );
-    assert_eq!(
-        sent(CommentAnchor::PdfHighlight {
-            anchor_id: "highlight-2".to_owned(),
-            marked_text: None,
-        })
-        .await,
-        serde_json::json!({ "type": "pdfHighlight", "anchorId": "highlight-2" })
+    server.abort();
+}
+
+#[tokio::test]
+async fn a_prompt_without_a_trigger_sends_none() {
+    let received: Arc<Mutex<Option<serde_json::Value>>> = Arc::default();
+    let seen = received.clone();
+    let app = Router::new().route(
+        "/agent-context",
+        post(move |Json(body): Json<serde_json::Value>| {
+            let seen = seen.clone();
+            async move {
+                *seen.lock().unwrap() = Some(body);
+                Json(serde_json::json!({ "markdown": "Sanitized prompt" }))
+            }
+        }),
     );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let composer = LexicalAgentPromptComposer::new(LexicalClient::new(
+        "test".into(),
+        format!("http://{address}"),
+    ));
+
+    let composed = composer
+        .compose("Raw prompt", None, None, None)
+        .await
+        .unwrap();
+
+    assert_eq!(composed, "Sanitized prompt");
     assert_eq!(
-        sent(CommentAnchor::PdfPin {
-            anchor_id: "pin-1".to_owned(),
-        })
-        .await,
-        serde_json::json!({ "type": "pdfPin", "anchorId": "pin-1" })
+        received.lock().unwrap().take().unwrap(),
+        serde_json::json!({ "promptMarkdown": "Raw prompt" })
     );
     server.abort();
 }

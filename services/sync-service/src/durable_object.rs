@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     rc::Rc,
     sync::{Arc, LazyLock},
 };
@@ -19,7 +19,7 @@ use worker::{
 
 use crate::{
     ai_peer::is_ai_peer,
-    auth::{AccessLevel, TokenFrom, decode_jwt, socket_access},
+    auth::{AccessLevel, TokenFrom, WriteAccess, decode_jwt, socket_access},
     constants::USER_PEER_D1_BINDING,
     d1::{PeerWithUserId, get_user_id_from_peer_id, insert_user_mapping},
     domain::document::DocumentAttribution,
@@ -28,13 +28,14 @@ use crate::{
     generated::schema::InitializeFromSnapshotRequest,
     keepalive::{DEFAULT_TIME_TO_LIVE, keepalive},
     mutex::Mutex,
+    socket::{InboundBuffers, Socket, protocol},
     state::DocumentState,
     storage::{
         SessionStorage, backends::durable_kv::DurableKVStorage, get_snapshot_storage,
         snapshot::SnapshotStorage,
     },
     tags::{get_ws_id_from_tags, new_ws_id},
-    timeit, websocket,
+    timeit,
 };
 
 pub const NO_SUCH_VALUE_ERR_STR: &str = "No such value in storage.";
@@ -136,7 +137,8 @@ pub struct DocumentSyncSession {
     awareness: EphemeralStore,
     /// a map from websocket's ID's to websocket metadata
     ws_meta_map: Arc<Mutex<WsMetaMap>>,
-    msg_buffer: Arc<Mutex<Vec<u8>>>,
+    /// Partial inbound messages, isolated by connection.
+    inbound: InboundBuffers,
     /// Buffered blame events. Flushed via D1 batch on each alarm tick.
     pending_blame: Arc<Mutex<Vec<crate::d1::BlameEvent>>>,
     /// Distinct editors since the last snapshot notification.
@@ -256,16 +258,16 @@ impl<'a> Wsm<'a> {
             .context("invalid signed websocket attribution")
     }
 
-    pub async fn can_edit(&mut self) -> Result<bool> {
+    pub async fn write_access(&mut self) -> Result<WriteAccess> {
         self.maybe_update_ws_meta_map().await?;
         let ws_id = self.get_ws_id()?.to_string();
         Ok(self
             .dss
             .ws_meta_map
-            .lock("Wsm::can_edit get")
+            .lock("Wsm::write_access get")
             .get(&ws_id)
             .ok_or(Error::from("missing ws metadata"))?
-            .can_edit())
+            .write_access())
     }
 
     pub async fn add_new_peerid(&mut self, peerid: u64, document_id: &str) -> Result<()> {
@@ -323,6 +325,21 @@ fn take_editors(editors: &Mutex<BTreeSet<DocumentAttribution>>) -> Vec<DocumentA
 }
 
 impl DocumentSyncSession {
+    pub(crate) fn env(&self) -> &Env {
+        &self.env
+    }
+
+    pub(crate) fn socket_for(&self, ws: &WebSocket) -> Socket {
+        Socket::new(ws.clone(), self.inbound.clone())
+    }
+
+    pub(crate) fn get_sockets(&self) -> Vec<Socket> {
+        self.active_websockets()
+            .into_iter()
+            .map(|ws| self.socket_for(&ws))
+            .collect()
+    }
+
     pub fn get_websockets(&self) -> Vec<WebSocket> {
         self.active_websockets()
     }
@@ -339,6 +356,7 @@ impl DocumentSyncSession {
         let Ok(ws_id) = get_ws_id(&self.state, ws) else {
             return;
         };
+        self.socket_for(ws).forget(&ws_id);
         self.ws_meta_map
             .lock("DocumentSyncSession::forget_websocket_metadata")
             .remove(&ws_id);
@@ -480,7 +498,7 @@ impl DocumentSyncSession {
         let storage = get_snapshot_storage(&self.env, &self.state, document_id.to_string())?;
 
         if storage.has_snapshot().await? {
-            return Err(Error::from("snapshot already exists"));
+            return Response::error("snapshot already exists", 409);
         } else {
             debug!(document_id = document_id, "Initializing snapshot");
             let body_raw = req.bytes().await?;
@@ -512,11 +530,10 @@ impl DocumentSyncSession {
         {
             let awareness = self.awareness.encode_all();
             for ws in &self.state.get_websockets() {
-                if let Err(e) = websocket::send_initial_sync(
-                    ws,
+                if let Err(e) = protocol::send_initial_sync(
+                    &self.socket_for(ws),
                     snapshot.as_slice(),
                     awareness.as_slice(),
-                    self.msg_buffer.clone(),
                 ) {
                     warn!(
                         error =? e,
@@ -748,11 +765,10 @@ impl DocumentSyncSession {
                 // Size of the initial sync this connect sent — the server end
                 // of the client's `doc.sync.initial-sync` span.
                 tracing::Span::current().record("snapshot.bytes", snapshot.len());
-                websocket::send_initial_sync(
-                    &pair.server,
+                protocol::send_initial_sync(
+                    &self.socket_for(&pair.server),
                     snapshot.as_slice(),
                     self.awareness.encode_all().as_slice(),
-                    self.msg_buffer.clone(),
                 )
                 .context("failed to send initial sync message")?;
             } else {
@@ -991,7 +1007,7 @@ impl DurableObject for DocumentSyncSession {
             session_storage: Mutex::new(None),
             awareness: EphemeralStore::new(5_000),
             ws_meta_map: Arc::new(Mutex::new(Default::default())),
-            msg_buffer: Arc::new(Mutex::new(vec![])),
+            inbound: Arc::new(Mutex::new(HashMap::new())),
             pending_blame: Arc::new(Mutex::new(Vec::new())),
             pending_editors: Arc::new(Mutex::new(Default::default())),
             surface_lifecycle: Mutex::new(None),
@@ -1073,8 +1089,13 @@ impl DurableObject for DocumentSyncSession {
             }
             WebSocketIncomingMessage::Binary(bm) => bm,
         };
+        let socket = self.socket_for(&ws);
+        let ws_id = get_ws_id(&self.state, &ws)?;
+        let Some(binary_message) = socket.receive(&ws_id, &binary_message)? else {
+            return Ok(());
+        };
         worker_rs_otel::scope(&self.env, &self.state, async {
-            let mut telemetry = websocket::InboundMessageTelemetry::new(binary_message.len());
+            let mut telemetry = protocol::InboundMessageTelemetry::new(binary_message.len());
 
             let res: Result<()> = async {
                 let document_id = self.document_id().await.inspect_err(|_| {
@@ -1083,21 +1104,19 @@ impl DurableObject for DocumentSyncSession {
                 let ws_id = get_ws_id_from_tags(&self.state.get_tags(&ws)).ok();
                 telemetry.record_context(&document_id, ws_id);
 
-                let message =
-                    websocket::deserialize_message(&binary_message).inspect_err(|_| {
-                        telemetry.record_message_type("invalid");
-                        telemetry.record_error_stage("deserialize");
-                    })?;
-                telemetry.record_message_type(websocket::message_type(&message));
+                let message = protocol::deserialize_message(&binary_message).inspect_err(|_| {
+                    telemetry.record_message_type("invalid");
+                    telemetry.record_error_stage("deserialize");
+                })?;
+                telemetry.record_message_type(protocol::message_type(&message));
 
-                websocket::process_message(
-                    &ws,
+                protocol::process_message(
+                    &self.socket_for(&ws),
                     &document_id,
                     &*self.document_state().await?,
                     &*self.session_storage().await?,
                     &self.awareness,
                     message,
-                    self.msg_buffer.clone(),
                     self,
                     &mut telemetry,
                 )
@@ -1231,13 +1250,8 @@ impl DurableObject for DocumentSyncSession {
                 let update = self.awareness.encode(&peer_id.to_string());
 
                 // Don't silently discard the error
-                websocket::broadcast_awareness(
-                    &ws,
-                    self.get_websockets().as_slice(),
-                    update.as_slice(),
-                    self.msg_buffer.clone(),
-                )
-                .context("failed to broadcast awareness")?;
+                protocol::broadcast_awareness(self, &self.socket_for(&ws), update.as_slice())
+                    .context("failed to broadcast awareness")?;
             }
 
             if self.state.get_websockets().len() == 1

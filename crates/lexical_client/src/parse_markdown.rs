@@ -4,6 +4,7 @@ mod test;
 use super::LexicalClient;
 use crate::types::{CognitionResponseData, CognitionV2ResponseData};
 use messages::domain::models::MessageParent;
+use trigger_context::TriggerContext;
 
 use crate::types::MarkdownParseResult;
 use agent_fold::domain::model::MessageId;
@@ -130,6 +131,20 @@ struct MentionsResponse {
     mentions: Vec<ExtractedMention>,
 }
 
+/// A static image to serialize through Lexical's image node and markdown transformer.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageMarkdownRequest<'a> {
+    /// Static file capability identifier.
+    pub static_file_id: &'a str,
+    /// Permanent image URL.
+    pub url: &'a str,
+    /// Intrinsic pixel width.
+    pub width: u32,
+    /// Intrinsic pixel height.
+    pub height: u32,
+}
+
 /// The Magic Chip embedded in an agent-session announcement, in the shape the
 /// lexical service `/agent-announcement` endpoint validates.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -171,7 +186,8 @@ pub struct AgentAnnouncementReplyTarget {
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AgentAnnouncementRequest<'a> {
-    reply_target: &'a AgentAnnouncementReplyTarget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reply_target: Option<&'a AgentAnnouncementReplyTarget>,
     chip: &'a AgentAnnouncementChip,
 }
 
@@ -240,50 +256,23 @@ struct AgentChatReplyRequest<'a> {
     chat_reply: &'a AgentChatReply,
 }
 
-/// A channel message included as context for an agent prompt.
+/// A person an agent session acts for or hears from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-pub struct AgentContextMessage<'a> {
-    /// Display name of the message sender.
-    pub sender: &'a str,
-    /// Markdown content of the message.
-    pub content: &'a str,
+pub struct AgentContextPerson<'a> {
+    /// Their Macro user id.
+    pub id: &'a str,
+    /// How a reader names them.
+    pub name: &'a str,
 }
 
-/// The document location of the comment thread an agent prompt was posted in.
+/// Whose access an agent session runs with, and who sent the prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-#[serde(
-    tag = "type",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum AgentContextAnchor<'a> {
-    /// A comment mark in a markdown document.
-    Markdown {
-        /// Lexical mark the comment is attached to.
-        mark_id: &'a str,
-        /// The marked text when the comment was posted, when it was captured.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        marked_text: Option<&'a str>,
-        /// The text the mark covers in the document now, when it was resolved.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        current_marked_text: Option<&'a str>,
-        /// The passage around the mark now, when it was resolved.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        surrounding_text: Option<&'a str>,
-    },
-    /// A highlight on a PDF.
-    PdfHighlight {
-        /// Highlight annotation the comment is attached to.
-        anchor_id: &'a str,
-        /// The text the highlight covers, when it carries any.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        marked_text: Option<&'a str>,
-    },
-    /// A point pinned on a PDF page, which covers no text.
-    PdfPin {
-        /// Pin annotation the comment is attached to.
-        anchor_id: &'a str,
-    },
+pub struct AgentContextPeople<'a> {
+    /// The session's owner.
+    pub owner: AgentContextPerson<'a>,
+    /// The prompt's sender; absent when a bot sent it on nobody's behalf.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender: Option<AgentContextPerson<'a>>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -291,11 +280,11 @@ pub enum AgentContextAnchor<'a> {
 struct AgentContextRequest<'a> {
     prompt_markdown: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    parent: Option<&'a MessageParent>,
+    instructions: Option<&'a str>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    people: Option<&'a AgentContextPeople<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    anchor: Option<&'a AgentContextAnchor<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    messages: Option<&'a [AgentContextMessage<'a>]>,
+    trigger: Option<&'a TriggerContext>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -536,13 +525,29 @@ impl LexicalClient {
         Ok(data.mentions)
     }
 
+    /// Compose dimension-preserving channel markup from a real Lexical image node.
+    #[tracing::instrument(skip_all, err)]
+    pub async fn compose_image_markdown(&self, image: &ImageMarkdownRequest<'_>) -> Result<String> {
+        let response = check_response(
+            self.client
+                .post(format!("{}/image-markdown", self.url))
+                .json(image)
+                .send()
+                .await?,
+        )
+        .await?;
+        let data: AgentAnnouncementResponse =
+            response.json().await.context("unexpected response")?;
+        Ok(data.markdown)
+    }
+
     /// Composes the channel message announcing an agent session — a structured
     /// reply target above the session's Magic Chip — via the lexical service,
     /// so the markdown is built from real Lexical nodes.
     #[tracing::instrument(skip(self, reply_target, chip), err)]
     pub async fn compose_agent_announcement(
         &self,
-        reply_target: &AgentAnnouncementReplyTarget,
+        reply_target: Option<&AgentAnnouncementReplyTarget>,
         chip: &AgentAnnouncementChip,
     ) -> Result<String> {
         let url = format!("{}/agent-announcement", self.url);
@@ -599,16 +604,16 @@ impl LexicalClient {
         Ok(data.markdown)
     }
 
-    /// Sanitizes an agent prompt and optionally composes it with the comment
-    /// anchor and prior-message context via the lexical service, so internal
-    /// nodes and escaping are handled by Lexical rather than by the caller.
-    #[tracing::instrument(skip(self, prompt_markdown, anchor, messages), err)]
+    /// Sanitizes an agent prompt and optionally composes it with why the
+    /// agent was called via the lexical service, so internal nodes and
+    /// escaping are handled by Lexical rather than by the caller.
+    #[tracing::instrument(skip(self, prompt_markdown, trigger), err)]
     pub async fn compose_agent_context(
         &self,
         prompt_markdown: &str,
-        parent: Option<&MessageParent>,
-        anchor: Option<&AgentContextAnchor<'_>>,
-        messages: Option<&[AgentContextMessage<'_>]>,
+        instructions: Option<&str>,
+        people: Option<&AgentContextPeople<'_>>,
+        trigger: Option<&TriggerContext>,
     ) -> Result<String> {
         let url = format!("{}/agent-context", self.url);
         let response = check_response(
@@ -616,9 +621,9 @@ impl LexicalClient {
                 .post(&url)
                 .json(&AgentContextRequest {
                     prompt_markdown,
-                    parent,
-                    anchor,
-                    messages,
+                    instructions,
+                    people,
+                    trigger,
                 })
                 .send()
                 .await?,

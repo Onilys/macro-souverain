@@ -18,6 +18,10 @@ pub use agent_fold::domain::model::{
     Author, AuthorKind, FoldEvent, MessageId, OwnedFoldEvent, TurnId,
 };
 
+/// The `_meta` key on `session/new`, `session/load` and `session/resume`
+/// whose string value is the [`AgentSessionId`] the ACP session serves.
+pub const MACRO_AGENT_SESSION_META_KEY: &str = "macro.com/agentSessionId";
+
 /// Identity of one harness participant, minted fresh at construction.
 ///
 /// A restarted process is a new replica: whatever the old identity claimed is
@@ -87,6 +91,23 @@ pub struct SessionManager {
     /// `None` means the manager is live but unreachable - hold the error
     /// rather than execute somewhere the actor is not.
     pub address: Option<ReplicaAddress>,
+    /// Whether the holder has published that it is shutting down. Still
+    /// heartbeating, so still "live" by the lease's own liveness rule, but
+    /// no longer somewhere to send work.
+    pub draining: bool,
+}
+
+/// What the lease says about a session, seen from one replica.
+#[derive(Debug, Clone)]
+pub struct LeaseView {
+    /// The replica holding the lease, when a live one holds it - draining
+    /// or not, because who may take over from a draining holder is the
+    /// reader's decision, not the store's.
+    pub holder: Option<SessionManager>,
+    /// Whether the replica that asked has published that it is draining.
+    /// Asked in the same statement as the holder: a command's routing turns
+    /// on both, and two round trips could straddle the drain.
+    pub asking_replica_draining: bool,
 }
 
 /// Where a session's live actor runs, from one service instance's viewpoint.
@@ -99,6 +120,9 @@ pub enum SessionManagement {
     Ours,
     /// A live peer manages it; commands belong at its address.
     Peer(SessionManager),
+    /// This instance is draining: it is about to stop, so work sent here
+    /// would die with it. Commands belong on a replica that is staying.
+    Draining,
 }
 
 /// A session's takeover counter, bumped by every successful claim.
@@ -154,15 +178,17 @@ pub enum SessionStatus {
 }
 
 /// Which Pipedream MCP servers a session is handed: the agent's own choice,
-/// snapshotted onto the session at creation like `instructions`. The ACP
-/// agent is given its server list once per attach and cannot refresh it, so
-/// the snapshot is what every later attach re-advertises; editing the agent
+/// snapshotted onto the session at creation like `instructions`. The native
+/// runtime refreshes connections within this policy before each turn. Other
+/// ACP runtimes receive the list on attach; editing the agent's selection
 /// applies to its next session.
 pub use bots::domain::models::{AgentMcpServer, AgentMcpServers};
 
 /// Caller-provided values required to create an agent session.
 #[derive(Debug, Clone)]
 pub struct CreateAgentSessionParams {
+    /// An unclaimed warm session, hidden from lists and history.
+    pub warm: bool,
     /// Caller-minted session id, available before persistence.
     pub id: AgentSessionId,
     /// Who created and owns the session.
@@ -211,6 +237,8 @@ pub struct AgentSession {
     pub id: AgentSessionId,
     /// User-facing session name.
     pub name: String,
+    /// Whether the session is archived and therefore read-only.
+    pub is_archived: bool,
     /// Who created and owns the session. Immutable for its life.
     pub owner_id: Owner,
     /// The root message where the bot was originally invoked, if any.
@@ -232,6 +260,8 @@ pub struct AgentSession {
     pub repo_branch: Option<super::repository_branch::RepositoryBranch>,
     /// The pull request associated with this session, independent of conversation history.
     pub pull_request_url: Option<String>,
+    /// The Macro task the session was explicitly linked to.
+    pub task_id: Option<String>,
     /// Directory the harness runs in, snapshotted at creation. The session
     /// actor sends it as the working directory of `session/new`, and resume
     /// and load re-enter it - the directory the session actually ran in,
@@ -257,18 +287,24 @@ pub struct AgentSession {
 }
 
 impl AgentSession {
-    /// The user this session runs as.
-    ///
-    /// For every path that acts as the owner - spends their credentials,
-    /// bills them, grants them access - rather than merely names them. The
-    /// owner is a user for every session today, but the type no longer says
-    /// so; asking here fails typed for any other kind instead of treating a
-    /// bot or team as a person.
+    /// The user this session runs as; see [`session_owner_user`].
     pub fn owner_user(&self) -> Result<&MacroUserIdStr<'static>, AgentSessionError> {
         self.owner_id
             .as_user()
             .ok_or_else(|| AgentSessionError::OwnerNotUser(self.owner_id.owner_type()))
     }
+}
+
+/// The user a session runs as.
+///
+/// A session spends its owner's credentials and bills them, so only a user
+/// can own one until the runtime has a bot execution context.
+// TODO(ownership-v2): T5.4 admits bot owners once the runtime has a bot execution context.
+pub fn session_owner_user(owner: &Owner) -> Result<MacroUserIdStr<'static>, AgentSessionError> {
+    owner
+        .as_user()
+        .cloned()
+        .ok_or_else(|| AgentSessionError::OwnerNotUser(owner.owner_type()))
 }
 
 /// A persisted agent-session name changed and should be shown to live viewers.
@@ -334,6 +370,59 @@ pub struct SessionBot {
     /// Avatar, when it has one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+}
+
+/// Who prompted the turn a session is running, or last ran.
+///
+/// Written at dispatch, before the runtime can act on the prompt, so the
+/// egress proxy - which may be on any replica - can tell a turn the owner
+/// prompted from one somebody else did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TurnPrompter {
+    /// The action that opened the turn.
+    pub action_id: agent_runtime_protocol::domain::action::AgentActionId,
+    /// The user who prompted it, absent when a bot acted on nobody's behalf.
+    pub user: Option<MacroUserIdStr<'static>>,
+}
+
+/// One waiting action as the session store records it.
+///
+/// The harness keeps an in-memory working copy beside the live actor; this
+/// is the durable form a restart or a reader on another replica consults.
+/// `announce` is the harness's channel/document origin, stored as JSON so
+/// this crate does not depend on harness types.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredQueuedAction {
+    /// The id the action was accepted under.
+    pub action_id: agent_runtime_protocol::domain::action::AgentActionId,
+    /// What will be delivered - a prompt's text is the raw user text.
+    pub action: agent_runtime_protocol::domain::action::AgentAction,
+    /// The user who queued it, absent when a bot acted on nobody's behalf.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<MacroUserIdStr<'static>>,
+    /// When it was accepted.
+    pub created_at: DateTime<Utc>,
+    /// Harness announce origin, opaque to this crate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announce: Option<serde_json::Value>,
+    /// Chip message id, once posted, so a retry does not announce twice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announced_message_id: Option<Uuid>,
+    /// Why the agent is being asked, composed into the prompt at dispatch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<trigger_context::TriggerContext>,
+}
+
+impl From<&StoredQueuedAction> for super::ports::QueuedControl {
+    fn from(stored: &StoredQueuedAction) -> Self {
+        Self {
+            action_id: stored.action_id,
+            action: stored.action.clone(),
+            actor: stored.actor.clone(),
+            created_at: stored.created_at,
+        }
+    }
 }
 
 /// One action waiting in a session's queue.

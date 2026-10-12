@@ -2,6 +2,12 @@
 
 Status: **draft / pre-implementation**
 
+Implementation note: document-based live projections are implemented on the
+local-resolvers branch; see [Live query API](#8-live-query-api). Earlier sections
+describe the original cache design.
+See [Testing optimistic live queries](graphql-cache-testing.md) for generated
+state-machine coverage, replay commands, and remaining confidence boundaries.
+
 ## 1. Problem
 
 We are migrating data fetching from REST to GraphQL (urql). We need normalized
@@ -100,8 +106,15 @@ entire cache in browser memory. With 10s of thousands of cached objects
 13. **Durable optimistic mutations** — optimistic GraphQL mutations are
     persisted with their replay request, restored across restarts, and applied
     strictly in enqueue order. Retryability is decided by an exchange callback;
-    retryable failures retain their optimistic layer. Each queued network
-    attempt has a one-minute timeout, comfortably inside its five-minute lease.
+    retryable failures retain their optimistic layer. Ten retryable server
+    failures (GraphQL errors or HTTP 5xx responses) permanently fail the mutation
+    through ordinary rollback so the next queued mutation can run. Transport
+    failures/timeouts do not consume or reset that budget. The separate server
+    failure counter survives reloads and tab handoff in pending-mutation metadata;
+    `attempt_count` still counts every claim for backoff and coalescing safety.
+    Settlement removes the pending mutation and counter; there is no retained DLQ.
+    Each queued network attempt has a one-minute timeout, comfortably inside its
+    five-minute lease.
 
 ### Open questions
 
@@ -198,18 +211,90 @@ heartbeat without changing epochs or touching storage. A released lock confirms
 silent worker termination and triggers the usual fenced recovery. Read deadlines
 still bound callers waiting on an unresponsive engine.
 
-Protocol v3 separates startup into asset loading and database opening. The engine
-loads/compiles WASM without touching OPFS, reports `engine-assets-ready`, and waits
-for the coordinator's `open-engine` grant. The coordinator records that storage may
-be touched before sending this grant. Pre-grant failures preserve the current
-open/reset requirement; an earlier required wipe is never forgotten. Startup phase
-budgets are relayed to every page, including late joiners: asset loading gets five
-minutes and database opening gets twenty seconds, plus a five-second page response
-grace. Ordinary read deadlines remain ten seconds. Coordinator registration gets
-sixty seconds per attempt, with three attempts; engine recovery retains its bounded
-five retries. Exhausted bootstrap retries preserve the cache scope only when the
-coordinator explicitly proves storage was untouched, not from a page's last-seen
-phase. Missing/broken transports remain conservatively uncertain.
+Protocol v6 separates startup into asset loading, taking the database owner
+lock, and database opening. The engine loads/compiles WASM without touching OPFS
+and reports `engine-assets-ready`. It then takes the owner lock only if it is
+free (`ifAvailable`), never queueing behind another holder: a busy lock is retried
+for about ten seconds with `owner-lock-busy` reports. Once it holds the lock it
+reports `owner-lock-acquired` and waits for the coordinator's `open-engine` grant;
+the coordinator records that storage may be touched before sending this grant.
+Pre-grant failures, including every failure while taking the lock, preserve the
+current open/reset requirement; an earlier required wipe is never forgotten.
+Startup phase budgets are relayed to every page, including late joiners: asset
+loading gets five minutes, taking the lock gets the retry window plus five
+seconds, and database opening gets twenty seconds, plus a five-second page
+response grace. Ordinary read deadlines remain ten seconds. Coordinator
+registration gets sixty seconds per attempt, with three attempts; engine recovery
+retains its bounded five retries. Exhausted bootstrap retries preserve the cache
+scope only when the coordinator explicitly proves storage was untouched, not from
+a page's last-seen phase. Missing/broken transports remain conservatively
+uncertain.
+
+A build's coordinator is usually a separate SharedWorker (its script URL is
+content-hashed), so after a deploy two builds can target one database. The newer
+build takes it over. Pages report their build time (`__APP_BUILD_TIME__`,
+stamped by Vite) when they register. When the lock stays busy while tabs of
+another build are alive (liveness locks of tabs this coordinator never
+registered; a departed tab's lock can outlast it), the coordinator posts a
+takeover request on the cross-build channel
+`graphql-cache-takeover:{database name}` (`coordinator-takeover.ts`, a contract
+every later build must keep). Only builds that open the same database join it,
+and only the coordinator whose engine holds the database answers:
+
+- **Yield**, if the requester is strictly newer. Every tab registered there gets
+  `cache-superseded`. Each page retires its host to the network. The owner's
+  page leaves the way a navigating page does: it terminates its engine, which
+  releases the owner lock without counting as a lost owner. An enqueue that was
+  already sent is reported as uncertain rather than sent again, because it may
+  be in the durable queue that the newer build replays. Nothing is elected
+  again. The requester's engine, still retrying the lock, opens the same
+  database with its data and queued mutations.
+- **Keep**, if the requester is not newer. The requester fails closed as below.
+
+A superseded page offers a persistent reload prompt. It reloads by itself only
+while hidden, online, not holding work (a call or an upload, via
+`holdAutomaticReload`), and not focused on a text field that holds text.
+Otherwise it retries the next time it is hidden or comes back online. A page
+that registers with a superseded coordinator later, for example after a
+rollback or from stale HTML, only runs uncached, because a reload could land on
+the same build again.
+
+A coordinator that holds nothing but gets a request from a newer build sends
+its tabs there too, without answering. When no yield arrives within a second
+(builds from before handover never answer), when the holder keeps the
+database, or when the engine exhausts its retries, the coordinator fails closed:
+it refuses queued requests with `owner-lock-unavailable` and tells every
+registered page `cache-unavailable`. Those pages retire their host for the rest
+of the page session, without quarantine, toast, or error report; only a tab
+that registers later tries again. Nothing waits in line for the lock, and a
+build only ever yields to a newer one. A rollback therefore leaves the rolled-back
+build uncached until the newer tabs close, instead of reloading tabs in a loop.
+
+The browser can also hand the owner lock to the next engine before a departing
+page's terminated worker has let go of the database files. Production logs show
+that gap outlasting two seconds after a reload. Every holder of these files
+first holds the owner lock, so a busy file seen while holding it is a predecessor
+still exiting, not damage. The OPFS adapter waits up to ten seconds for busy
+files within one open or wipe. If they stay busy, the engine reports
+`storage-busy`, and the coordinator fails closed as above. It keeps that
+attempt's open or wipe requirement instead of escalating a failed open to a
+wipe, which could not remove open files anyway.
+
+The physical database name embeds the storage versions,
+`graphql-cache:{scope}:s{epoch}.v{format}.t{storage}`, so builds with different
+compatibility epochs, record formats, or storage schemas use separate files and
+owner locks instead of resetting each other's data. Builds at the versions in
+use when names began to embed them (epoch 3, format 3, storage 11) keep the
+unversioned `graphql-cache:{scope}`, so that change moved no database and the
+next build still replays its queued mutations. Once an owner is active and no
+other build has live tabs, the coordinator lets that page delete stale
+databases of its scope: names for versions no newer than its own that it does
+not open, which includes the unversioned name once the versions move past it.
+A newer version is kept, because its build may come back after a rollback. The page lists OPFS and, only if a stale name exists,
+starts a disposable worker (a file Turso cannot read may poison its OPFS
+registry) that deletes each stale database whose owner lock is free and whose
+`mutation_queue` is empty. Databases still queueing mutations, or whose queue
+cannot be counted, are kept and reported.
 
 Browsers missing the required worker, lock, or OPFS
 capabilities use a storage-free no-op cache host. Tauri
@@ -282,6 +367,7 @@ apps/web/tauri/graphql_cache_plugin/ # tauri commands + engine thread wrapping
 apps/web/src/lib/graphql-cache/ # JS glue
   host/                        # CacheHost interface + worker & tauri transports
   exchange/                    # urql normalizedCacheExchange
+  solid/                       # createLiveQuery, the reactive document query
   worker/                      # SharedWorker entry + worker core
 ```
 
@@ -322,8 +408,9 @@ apps/web/src/lib/graphql-cache/ # JS glue
   compatibility epoch, record format, and storage schema) before creating the
   fixture database and again before fault injection. This matched-build check
   is intentionally stricter than normal cache compatibility.
-- Deferred: stale-namespace DB cleanup (browser), `scan_prefix`/
-  `approx_size` for GC (hardening phase).
+- Stale-version DB cleanup for the current scope (browser) is done; see §4.2.
+  Deferred: cleanup of other scopes' databases (quarantined or rotated
+  scopes), `scan_prefix`/`approx_size` for GC (hardening phase).
 
 **Phase 3 — hosts + JS glue** *(done)*
 - ~~`cache-wasm`~~: wasm-bindgen shell (async-mutex engine, string op-id
@@ -456,3 +543,197 @@ These takeaways originally drove the IDB decision. The current §4.2 topology
 requires SharedWorker for browser caching and deliberately falls back to no
 cache when it is unavailable. Firefox/Safari probe runs and the Tauri IPC
 benchmark were **skipped by decision**.
+
+## 8. Live query API
+
+### Choosing a reactive read
+
+Use one default per data shape:
+
+| Data shape | Default | Notes |
+| --- | --- | --- |
+| GraphQL document | `createLiveQuery` from `@graphql-cache/solid/create-live-query` | Cursor-paginated documents use `createUrqlInfiniteQuery` from `@app/lib/urql-solid`. |
+| Soup list | `createSoupLiveQuery` | Feature code reads it through `useSoupAstItemsQuery`, which adds the GraphQL Soup flag, REST fallback, grouping, and entity mapping. |
+
+`createLiveQuery` is a document-first wrapper over `createUrqlQuery`: the
+document and variables are arguments, other options pass through, and the result
+and live projection path are the same. Existing `createUrqlQuery` call sites are
+already live and need no migration; new single-document reads use
+`createLiveQuery`. Soup's maintained-view binding and keyed row projection are
+internal to `src/lib/queries/soup/`, not general query APIs.
+
+### Usage
+
+Use a generated document and reactive variables. The normal urql provider can
+supply the client; pass `client` when using a service-specific client.
+
+```ts
+const accountQuery = createLiveQuery(
+  MailAccountsDocument,
+  () => ({}),
+  () => ({ client: getGraphqlSoupClient(), requestPolicy: 'cache-and-network' })
+);
+
+// Access inside a reactive computation or JSX; don't destructure store fields.
+const accounts = () => accountQuery.data?.user.emailLinks ?? [];
+```
+
+`undefined` variables pause a query. Changing variables creates a separate cache
+identity. `refetch`, request policies, loading/error state and selection functions
+retain the existing urql-solid contract. Existing `createUrqlQuery` and
+`createUrqlInfiniteQuery` consumers use the same live projection path without
+being rewritten; every loaded infinite-query page stays subscribed.
+
+Mutation predictions are keyed by mutation field and registered once per field,
+alongside domain query definitions. A representative generated document names
+the field, types its arguments through the document's variables, and types the
+predicted value through its selection:
+
+```ts
+optimisticResolver(MarkEmailThreadSeenDocument, ({ input }) => ({
+  __typename: 'GraphqlSoupEmailThread',
+  id: input.threadId,
+  isRead: true,
+}));
+
+// Any caller can then execute the ordinary generated mutation, or any other
+// document that selects markEmailThreadSeen.
+await client.mutation(MarkEmailThreadSeenDocument, {
+  input: { threadId },
+}).toPromise();
+```
+
+The representative must pass every field argument as a same-named variable, so
+its variables and the field's arguments coincide. For each mutation without an
+explicit optimistic context, the exchange evaluates every root field's arguments
+against the operation's variables (substituting variables and applying variable
+defaults) and places the resolver's value under that document's response key.
+Predictions are all or nothing: if any root field has no resolver, carries a
+directive such as `@include` or `@skip`, or its resolver returns `undefined`, the
+operation is sent without a prediction. Registering two resolvers for one field
+is an error.
+
+Cache-core normalizes the prediction through the executing document's selection.
+Fields that document does not select are ignored, and selected fields missing
+from the prediction keep their cached values on existing entities. Nested
+response keys come from the representative, so a document that selects a field
+under a different alias does not receive that field's predicted value.
+
+The durable optimistic queue owns ordering, retries, commit and rollback. The
+query author supplies no optimistic callbacks, result traversal or cache writes.
+Both the list and a detail query for that thread observe the same effective
+value. Changes to `isRead` preserve row objects and do not notify subscribers to
+unrelated fields.
+
+### Adoption and mutation coverage
+
+Mounted project details, project identity chips, and agent-session mentions use
+this live path as well. Mention lookups share stable batches: adding another
+visible item does not clear an existing item's data or restart its request.
+Project creation links the complete server-normalized record to its detail query,
+including when the user root is not cached yet. Async creation stops publishing
+after viewer changes, cache replacement, or storage reset.
+Task project assignments use the standard Project entity property and its
+optimistic property mutation; the former task-to-project reference query and
+separate assignment mutations no longer exist. Task creation includes that
+property in its ordinary create request. Project descriptions use the project's
+collaborative surface, provisioned by an authoritative ensure mutation.
+
+Permissions and server-owned membership still revalidate on activity, focus, and
+the existing project polling interval. A denied mounted read stays hidden across
+cache hits until an authorized network response succeeds. Disabled detail reads
+and results for another viewer are not exposed. Mentions also refresh on session
+rename, deletion, metadata updates, and reconnect when the normalized cache is
+unavailable.
+Invalidations arriving during a refresh cause a trailing authorized read instead
+of being discarded; simultaneous refresh requests share one read.
+
+[Mutation coverage](../src/lib/queries/mutation-coverage.test.ts) enumerates all
+35 mutation documents and fails when a document has no declared strategy.
+Because predictions are keyed by mutation field, it also checks that local
+resolver documents select only resolved fields, and that any other document
+reaching a field resolver is a listed exception the resolver declines.
+RenameDatabase and RenameForm call `renameEntities` and so reach its resolver,
+which declines database and form entities; they stay authoritative, and the test
+proves they receive no prediction. Each representative document must declare
+every schema argument of its field with the schema's type:
+
+| Strategy | Operations |
+| --- | --- |
+| Local resolver (7) | MarkEmailThreadSeen, MarkEmailThreadUnread, SetEmailThreadArchived, UpdateNotifications, RenameEntities, UpdateInitiative, DeleteEntityProperty |
+| Existing domain optimistic recipe (11) | SaveEmailDraft, DeleteEmailDraft, SetFavorite, ReorderFavorites, SetEntityProperty, UpdateEntityPropertyOptions, CreateCalendarEvent, UpdateCalendarEvent, DeleteCalendarEvent, RespondToCalendarEvent, MarkWorkFeedItemsDone |
+| Authoritative outcome (10) | CreateInitiative, DeleteInitiative, EnsureInitiativeDescriptionSurface, RenameDatabase, TrashDatabase, RenameForm, TrashForm, RecordChannelActivity, UpdateNotificationsForEntity, UndoWorkFeedItemsDone |
+| Document only; no production caller (7) | MoveEntities, UpdateEntitySharePolicies, TrashEntities, RestoreEntities, DeleteEntitiesPermanently, DuplicateEntities, SetEntityFavorite |
+
+The project resolver predicts names and members; sharing waits for the server.
+Notification optimism predicts MARK_DONE; conditional seen/reopen transitions
+remain authoritative. Renames patch both displayName and the selected source-name
+alias. Property removal unlinks only the assignment from its parent, retaining a
+rollbackable link until the server confirms deletion.
+
+Server-generated identities, per-task permission outcomes, and exact notification
+IDs used by undo are not fabricated. A queued acknowledgement is not a completed
+server response. GraphQL renames keep optimism in the normalized layer; remaining
+legacy readers revalidate on final settlement instead of retaining independent
+optimistic writes that cannot roll back after an offline queue returns.
+
+```ts
+// Names, members, and property removal require no caller-owned cache writes.
+await client.mutation(UpdateInitiativeDocument, {
+  initiativeId: projectId,
+  input: { name: 'Launch', memberIds: [] },
+}).toPromise();
+
+await client.mutation(DeleteEntityPropertyDocument, {
+  entityType: 'DOCUMENT', entityId: taskId, entityPropertyId: assignmentId,
+}).toPromise();
+```
+
+### Projection contract
+
+Cache-core compiles response paths while reading normalized records. Bindings
+understand response aliases, argument-qualified fields, concrete fragment types,
+variable defaults and `@include`/`@skip`. Identity aliases are supported, and
+bindings follow list compaction when tombstoned items are omitted. A
+subscription retains its bindings and the last response it was sent; both count
+toward the bound on count and estimated retained bytes.
+
+Subsequent reads carry the last accepted engine revision. For scalar, scalar-list
+and opaque-scalar changes, the engine reads only changed dependency records and
+returns response-path patches. Relationships, embedded-object edits, list
+membership and order, tombstones, invalidation and journal gaps re-read the
+query, rebuild its bindings and diff the result against the retained response.
+Diffs only target paths present in the previous response: an object whose key
+set changed (another fragment type) or a list whose length or item identities
+(`id`, `__typename`) changed is replaced at its own path. A new root, or
+replacements larger than half of the response (such as a compacted page),
+return the complete result instead: such a patch would carry nearly as much
+and cost the engine a copy of every replaced value. Eviction and cursor
+mismatch also return a complete result. The JS adapter preserves
+immutable urql snapshots and applies those paths in one Solid batch. Query
+teardown and account/engine reset discard the corresponding retained state.
+Unknown directives, schema drift and incomplete cached results follow the
+query's normal network policy; `cache-only` never starts a network request.
+
+### Collection semantics and limits
+
+The generic projection reflects cached GraphQL results. It does not infer server
+resolver logic, authorization, aggregates, full-text ranking, or whether an entity
+belongs in an arbitrary filtered/paginated list. Such changes need a declared
+domain collection policy or server revalidation. A Soup page read as a plain
+document would retain its server-provided membership, which is why Soup lists
+use `createSoupLiveQuery`: it adds Soup's local membership, ordering, pagination
+and Mail policy through its predicate adapter. That policy remains outside
+generic cache-core.
+
+Network responses must provide the schema's identity fields (usually `id`, and
+`__typename` for abstract types) for normalization. They are not automatically
+injected. Queries against other schemas, incremental `@defer`/`@stream` delivery
+and arbitrary server-derived mutations are not promises of this API. A mutation
+with no registered prediction still runs normally, and its normalized server
+response updates subscribers. Existing websocket writers provide remote changes;
+this work does not introduce a new server subscription engine.
+
+Background hydration retains its existing opt-in notification contract. Soup's
+local collection source opts in; ordinary foreground queries refresh on their
+normal affected-operation notifications.

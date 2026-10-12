@@ -20,19 +20,23 @@ function notificationEntityTypeToSoupTag(
     .with('project', () => 'project' as const)
     .with('email_thread', () => 'emailThread' as const)
     .with('foreign_entity', () => 'foreignEntity' as const)
-    .with('reminder', () => 'reminder' as const)
     .with('calendar_event', () => 'calendarEvent' as const)
     .with('agent_session', () => 'agentSession' as const)
     .with(
       P.union(
         'user',
+        'reminder',
         'team',
         'call',
         'channel_message',
         'static_file',
         'crm_company',
         'crm_contact',
+        'crm_pipeline',
         'skill',
+        'database',
+        'database_row',
+        'form',
         'scheduled_action',
         'initiative'
       ),
@@ -58,7 +62,7 @@ export function updateSoupForNotification(notification: UnifiedNotification) {
     void refetchSoupEntity(notification.entity_id, soupTag);
   }
 
-  // Mentions and replies belong to the thread's Home row, not the channel's.
+  // Mentions, replies, and reactions belong to the thread's Home row.
   // The floor also protects against older pages that are already in flight.
   const threadRootId = channelThreadRootId(notification);
   if (notification.created_at) {

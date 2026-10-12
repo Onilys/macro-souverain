@@ -55,7 +55,6 @@ export interface EmailThreadContext {
   viewerEmail: Accessor<string | undefined>;
   viewerLoading: Accessor<boolean>;
   isTouch: Accessor<boolean>;
-  isMobile: Accessor<boolean>;
   createCommands(
     thread: Accessor<EmailThread | undefined>
   ): EmailThreadCommands;
@@ -66,14 +65,18 @@ export interface EmailThreadListNavigation {
   canNext: Accessor<boolean>;
   previous(): void;
   next(): void;
+  afterReminderSaved?(): Promise<void>;
   markDone(archiveThread: EmailThreadCommands['archiveThread']): void;
 }
 
 /** Host behavior is optional. A thread can render without a block or router. */
 export interface EmailThreadHost {
+  /** Close an embedded thread without navigating the containing split's history. */
+  returnToList?: () => void;
   listNavigation?: EmailThreadListNavigation;
   isActive?: Accessor<boolean>;
   registerKeyboard?: (handlers: EmailThreadKeyboardHandlers) => void;
   targetMessageId?: Accessor<string | undefined>;
+  targetRequest?: Accessor<string | undefined>;
   focusContainer?: () => void;
 }
