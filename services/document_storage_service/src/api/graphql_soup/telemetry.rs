@@ -1,13 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use std::sync::LazyLock;
-
 use async_graphql::{
     PathSegment, Request, Response, ServerError, Value,
     parser::types::{DocumentOperations, OperationType},
 };
-use regex::Regex;
 use tracing::{Instrument as _, Level, Span};
 
 /// Resource for requests whose operation cannot be resolved (parse errors,
@@ -20,22 +17,15 @@ const UNAUTHENTICATED_OPERATION: &str = "unauthenticated";
 const MAX_OPERATION_NAME_CHARS: usize = 100;
 /// A response can carry one error per aliased field; cap the log lines per request.
 const MAX_LOGGED_ERRORS: usize = 10;
-const MAX_ERROR_MESSAGE_CHARS: usize = 200;
-const REDACTED: &str = "<redacted>";
+/// Paths are field names, client-chosen aliases, and list indexes.
+const MAX_ERROR_PATH_CHARS: usize = 200;
+const MAX_ERROR_CODE_CHARS: usize = 64;
+/// Logged in place of an `extensions.code` that is not a plain identifier.
+const UNRECOGNIZED_ERROR_CODE: &str = "UNRECOGNIZED";
 const SERVER_ERROR_CODE_PREFIX: &str = "INTERNAL";
+const SERVER_ERROR_TEXT: &str = "graphql resolver error";
+const CLIENT_ERROR_TEXT: &str = "graphql client error";
 const DATADOG_MEASURED: i64 = 1;
-
-static QUOTED_LITERAL: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#""[^"]*"|`[^`]*`"#).expect("quoted literal pattern is valid"));
-/// Schema names, type names, codes, and ids. Anything else inside quotes may
-/// echo request input (variable values, string arguments).
-static SAFE_LITERAL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[A-Za-z0-9_:<>\[\]!$.-]*$").expect("safe literal pattern is valid")
-});
-static EMAIL_ADDRESS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-        .expect("email address pattern is valid")
-});
 
 /// Runs `execute` inside a `graphql.execute` span that records the selected
 /// operation and logs the response's errors.
@@ -132,32 +122,26 @@ impl GraphqlOperation {
         }
     }
 
-    /// Records the error count on `span`, logs each error with its path and a
-    /// sanitized message, and marks `span` errored when a resolver failed.
-    /// Request variables are never read.
+    /// Records the error count on `span`, logs each error with its path and
+    /// code, and marks `span` errored when a resolver failed.
+    ///
+    /// Error messages are never recorded: resolvers and async-graphql build
+    /// them from request input (variable values, arguments, upstream error
+    /// text), so no redaction of free text is reliable.
     fn record_response(&self, span: &Span, response: &Response) {
         span.record("graphql.error_count", response.errors.len());
 
-        let mut first_server_error = None;
-        for (index, error) in response.errors.iter().enumerate() {
-            let severity = self.error_severity(error);
-            let logged = index < MAX_LOGGED_ERRORS;
-            let sets_status = severity == ErrorSeverity::Server && first_server_error.is_none();
-            if !logged && !sets_status {
-                continue;
-            }
-            let message = sanitize_error_message(&error.message);
-            if logged {
-                self.log_error(span, error, severity, &message, response.errors.len());
-            }
-            if sets_status {
-                first_server_error = Some(message);
-            }
+        for error in response.errors.iter().take(MAX_LOGGED_ERRORS) {
+            self.log_error(span, error, response.errors.len());
         }
 
-        if let Some(message) = first_server_error {
+        if let Some(error) = response
+            .errors
+            .iter()
+            .find(|error| self.error_severity(error) == ErrorSeverity::Server)
+        {
             span.record("otel.status_code", "ERROR");
-            span.record("otel.status_description", message);
+            span.record("otel.status_description", status_description(error));
         }
     }
 
@@ -177,19 +161,12 @@ impl GraphqlOperation {
         }
     }
 
-    fn log_error(
-        &self,
-        span: &Span,
-        error: &ServerError,
-        severity: ErrorSeverity,
-        message: &str,
-        error_count: usize,
-    ) {
+    fn log_error(&self, span: &Span, error: &ServerError, error_count: usize) {
         let resource = self.resource_name();
         let path = error_path(&error.path);
-        let code = error_code(error);
+        let code = loggable_error_code(error);
         macro_rules! log_graphql_error {
-            ($level:expr, $text:literal) => {
+            ($level:expr, $text:expr) => {
                 tracing::event!(
                     parent: span,
                     $level,
@@ -199,14 +176,14 @@ impl GraphqlOperation {
                     "graphql.error.path" = path.as_deref(),
                     "graphql.error.code" = code,
                     "graphql.error_count" = error_count,
-                    error = message,
+                    "{}",
                     $text
                 )
             };
         }
-        match severity {
-            ErrorSeverity::Server => log_graphql_error!(Level::ERROR, "graphql resolver error"),
-            ErrorSeverity::Client => log_graphql_error!(Level::WARN, "graphql client error"),
+        match self.error_severity(error) {
+            ErrorSeverity::Server => log_graphql_error!(Level::ERROR, SERVER_ERROR_TEXT),
+            ErrorSeverity::Client => log_graphql_error!(Level::WARN, CLIENT_ERROR_TEXT),
         }
     }
 }
@@ -242,7 +219,33 @@ fn error_code(error: &ServerError) -> Option<&str> {
     }
 }
 
-/// `user.soup.items.3.name`; `None` for request-level errors.
+/// Codes are server-chosen identifiers such as `NOT_FOUND`. Anything else is
+/// replaced so a code built from input cannot carry it into telemetry.
+fn loggable_error_code(error: &ServerError) -> Option<&str> {
+    error_code(error).map(|code| {
+        let is_identifier = !code.is_empty()
+            && code.len() <= MAX_ERROR_CODE_CHARS
+            && code
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
+        if is_identifier {
+            code
+        } else {
+            UNRECOGNIZED_ERROR_CODE
+        }
+    })
+}
+
+/// Fixed text plus the error code, never the error message.
+fn status_description(error: &ServerError) -> String {
+    match loggable_error_code(error) {
+        Some(code) => format!("{SERVER_ERROR_TEXT}: {code}"),
+        None => SERVER_ERROR_TEXT.to_owned(),
+    }
+}
+
+/// `user.soup.items.3.name`; `None` for request-level errors. GraphQL names
+/// are limited to `[_A-Za-z][_0-9A-Za-z]*`, so segments cannot carry free text.
 fn error_path(path: &[PathSegment]) -> Option<String> {
     if path.is_empty() {
         return None;
@@ -254,37 +257,11 @@ fn error_path(path: &[PathSegment]) -> Option<String> {
             PathSegment::Index(index) => index.to_string(),
         })
         .collect();
-    Some(segments.join("."))
-}
-
-/// Error messages can echo request input or carry raw upstream errors.
-/// Redacts quoted literals that are not schema-like tokens and email
-/// addresses, strips control characters, and bounds the length.
-fn sanitize_error_message(message: &str) -> String {
-    let literals_redacted = QUOTED_LITERAL.replace_all(message, |captures: &regex::Captures| {
-        let literal = &captures[0];
-        let quote = &literal[..1];
-        let inner = &literal[1..literal.len() - 1];
-        if SAFE_LITERAL.is_match(inner) {
-            literal.to_owned()
-        } else {
-            format!("{quote}{REDACTED}{quote}")
-        }
-    });
-    let redacted = EMAIL_ADDRESS.replace_all(&literals_redacted, REDACTED);
-    let mut sanitized: String = redacted
-        .chars()
-        .map(|character| {
-            if character.is_control() {
-                ' '
-            } else {
-                character
-            }
-        })
-        .take(MAX_ERROR_MESSAGE_CHARS)
-        .collect();
-    if redacted.chars().count() > MAX_ERROR_MESSAGE_CHARS {
-        sanitized.push('…');
-    }
-    sanitized
+    Some(
+        segments
+            .join(".")
+            .chars()
+            .take(MAX_ERROR_PATH_CHARS)
+            .collect(),
+    )
 }

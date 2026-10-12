@@ -27,13 +27,20 @@ impl Query {
 
     async fn store(&self, value: String) -> async_graphql::Result<String> {
         Err(async_graphql::Error::new(format!(
-            "could not store \"{value}\""
+            "could not store {value}"
         )))
     }
 
-    async fn missing(&self) -> async_graphql::Result<i32> {
-        Err(async_graphql::Error::new("thread not found")
-            .extend_with(|_, extensions| extensions.set("code", "NOT_FOUND")))
+    async fn missing(&self, value: String) -> async_graphql::Result<i32> {
+        Err(
+            async_graphql::Error::new(format!("no thread named {value}"))
+                .extend_with(|_, extensions| extensions.set("code", "NOT_FOUND")),
+        )
+    }
+
+    async fn rejected(&self, value: String) -> async_graphql::Result<i32> {
+        Err(async_graphql::Error::new("rejected")
+            .extend_with(|_, extensions| extensions.set("code", format!("BAD {value}"))))
     }
 
     async fn unavailable(&self) -> async_graphql::Result<i32> {
@@ -247,42 +254,46 @@ fn error_paths_join_fields_and_indexes() {
 }
 
 #[test]
-fn sanitize_keeps_schema_tokens_and_redacts_input() {
+fn error_paths_are_bounded() {
+    let path = vec![PathSegment::Field("a".repeat(500))];
     assert_eq!(
-        sanitize_error_message("Unknown field \"nope\" on type \"GraphqlUser\""),
-        "Unknown field \"nope\" on type \"GraphqlUser\""
-    );
-    assert_eq!(
-        sanitize_error_message("Data `graphql_common::Foo<Bar>` does not exist."),
-        "Data `graphql_common::Foo<Bar>` does not exist."
-    );
-    assert_eq!(
-        sanitize_error_message("item \"0195ceb6-ec2e-7023-80e4-6e084fa6cccd\" not found"),
-        "item \"0195ceb6-ec2e-7023-80e4-6e084fa6cccd\" not found"
-    );
-    assert_eq!(
-        sanitize_error_message("could not store \"Q3 board notes\""),
-        "could not store \"<redacted>\""
-    );
-    assert_eq!(
-        sanitize_error_message("no inbox for jane.doe+work@example.co.uk"),
-        "no inbox for <redacted>"
-    );
-    assert_eq!(
-        sanitize_error_message("invalid value \"jane@example.com\""),
-        "invalid value \"<redacted>\""
-    );
-    assert_eq!(
-        sanitize_error_message("line one\nline two"),
-        "line one line two"
+        error_path(&path).map(|path| path.len()),
+        Some(MAX_ERROR_PATH_CHARS)
     );
 }
 
 #[test]
-fn sanitize_bounds_message_length() {
-    let sanitized = sanitize_error_message(&"é".repeat(1_000));
-    assert_eq!(sanitized.chars().count(), MAX_ERROR_MESSAGE_CHARS + 1);
-    assert!(sanitized.ends_with('…'));
+fn only_identifier_error_codes_are_logged() {
+    for code in ["NOT_FOUND", "INTERNAL_SERVER_ERROR", "invalid_input"] {
+        assert_eq!(loggable_error_code(&resolver_error(Some(code))), Some(code));
+    }
+    for code in [
+        "",
+        "BAD jane@example.com",
+        "invalid-input",
+        &"A".repeat(MAX_ERROR_CODE_CHARS + 1),
+    ] {
+        assert_eq!(
+            loggable_error_code(&resolver_error(Some(code))),
+            Some(UNRECOGNIZED_ERROR_CODE),
+            "{code}"
+        );
+    }
+    assert_eq!(loggable_error_code(&resolver_error(None)), None);
+}
+
+#[test]
+fn status_description_never_contains_the_message() {
+    let mut error = resolver_error(None);
+    error.message = "could not store Q3 board notes".to_owned();
+    assert_eq!(status_description(&error), "graphql resolver error");
+
+    let mut error = resolver_error(Some("INTERNAL"));
+    error.message = "could not store Q3 board notes".to_owned();
+    assert_eq!(
+        status_description(&error),
+        "graphql resolver error: INTERNAL"
+    );
 }
 
 #[tokio::test]
@@ -330,12 +341,13 @@ async fn every_execute_span_is_measured_as_an_integer() {
 }
 
 #[tokio::test]
-async fn resolver_errors_mark_span_and_log_sanitized_errors() {
-    let request =
-        Request::new("query Broken($value: String!) { ok broken store(value: $value) missing }")
-            .variables(Variables::from_json(
-                serde_json::json!({ "value": "Q3 board notes" }),
-            ));
+async fn resolver_errors_mark_span_and_log_without_messages() {
+    let request = Request::new(
+        "query Broken($value: String!) { ok broken store(value: $value) missing(value: $value) rejected(value: $value) }",
+    )
+    .variables(Variables::from_json(
+        serde_json::json!({ "value": "Q3 board notes jane@example.com" }),
+    ));
     let observed = observe_request(request, true).await;
 
     assert_eq!(
@@ -344,14 +356,14 @@ async fn resolver_errors_mark_span_and_log_sanitized_errors() {
     );
     assert_eq!(
         observed.attribute("graphql.error_count").as_deref(),
-        Some("3")
+        Some("4")
     );
     assert_eq!(
         observed.span.status,
-        Status::error("upstream rejected <redacted>")
+        Status::error("graphql resolver error")
     );
 
-    assert_eq!(observed.logs.len(), 3, "{}", observed.raw_logs);
+    assert_eq!(observed.logs.len(), 4, "{}", observed.raw_logs);
     let by_path = |path: &str| {
         observed
             .logs
@@ -362,31 +374,50 @@ async fn resolver_errors_mark_span_and_log_sanitized_errors() {
     let broken = by_path("broken");
     assert_eq!(broken["level"], "ERROR");
     assert_eq!(broken["message"], "graphql resolver error");
-    assert_eq!(broken["error"], "upstream rejected <redacted>");
     assert_eq!(broken["graphql.resource"], "graphql.query.Broken");
     assert_eq!(broken["graphql.operation.type"], "query");
     assert_eq!(broken["graphql.operation.name"], "Broken");
-    assert_eq!(broken["graphql.error_count"], 3);
+    assert_eq!(broken["graphql.error_count"], 4);
 
     let store = by_path("store");
     assert_eq!(store["level"], "ERROR");
-    assert_eq!(store["error"], "could not store \"<redacted>\"");
+    assert_eq!(store["message"], "graphql resolver error");
 
     let missing = by_path("missing");
     assert_eq!(missing["level"], "WARN");
     assert_eq!(missing["message"], "graphql client error");
     assert_eq!(missing["graphql.error.code"], "NOT_FOUND");
 
-    assert!(!observed.raw_logs.contains("Q3 board notes"));
-    assert!(!observed.raw_logs.contains("jane@example.com"));
-    assert!(!format!("{:?}", observed.span.attributes).contains("Q3 board notes"));
+    let rejected = by_path("rejected");
+    assert_eq!(rejected["level"], "WARN");
+    assert_eq!(rejected["graphql.error.code"], UNRECOGNIZED_ERROR_CODE);
+
+    let span = format!("{:?}", observed.span);
+    for leaked in [
+        "Q3 board notes",
+        "jane@example.com",
+        "upstream rejected",
+        "could not store",
+        "no thread named",
+    ] {
+        assert!(
+            !observed.raw_logs.contains(leaked),
+            "{leaked}: {}",
+            observed.raw_logs
+        );
+        assert!(!span.contains(leaked), "{leaked}: {span}");
+    }
 }
 
 #[tokio::test]
 async fn internal_error_code_marks_span() {
     let observed = observe_request(Request::new("query Down { unavailable }"), true).await;
 
-    assert_eq!(observed.span.status, Status::error("service unavailable"));
+    assert_eq!(
+        observed.span.status,
+        Status::error("graphql resolver error: INTERNAL_SERVER_ERROR")
+    );
+    assert!(!observed.raw_logs.contains("service unavailable"));
     assert_eq!(observed.logs.len(), 1, "{}", observed.raw_logs);
     assert_eq!(observed.logs[0]["level"], "ERROR");
     assert_eq!(
@@ -406,6 +437,7 @@ async fn client_errors_log_warnings_without_marking_span() {
     assert_eq!(invalid.logs.len(), 1, "{}", invalid.raw_logs);
     assert_eq!(invalid.logs[0]["level"], "WARN");
     assert!(invalid.logs[0].get("graphql.error.path").is_none());
+    assert!(!invalid.raw_logs.contains("nope"), "{}", invalid.raw_logs);
 
     let unparsable = observe_request(Request::new("query {"), true).await;
     assert_eq!(
