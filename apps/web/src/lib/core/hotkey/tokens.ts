@@ -130,6 +130,7 @@ export const TOKENS = {
       reminders: 'sidebar.goTo.reminders',
       channels: 'sidebar.goTo.channels',
       calls: 'sidebar.goTo.calls',
+      mentions: 'sidebar.goTo.mentions',
       reviews: 'sidebar.goTo.reviews',
       companies: 'sidebar.goTo.companies',
       folders: 'sidebar.goTo.folders',

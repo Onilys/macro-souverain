@@ -2,6 +2,7 @@ import { LIST_VIEW_PATHS } from '@app/constants/list-views';
 import { calendarPath } from '@app/features/calendar-view/calendar-url';
 import type { SidebarItem } from '@components/app/app-sidebar/sidebar';
 import { TOKENS } from '@core/hotkey/tokens';
+import AtIcon from '@phosphor/at.svg';
 import BuildingsIcon from '@phosphor/buildings.svg';
 import CalendarBlankIcon from '@phosphor/calendar-blank.svg';
 import ChatsCircleIcon from '@phosphor/chats-circle.svg';
@@ -12,6 +13,7 @@ import HouseIcon from '@phosphor/house.svg';
 import ListChecksIcon from '@phosphor/list-checks.svg';
 import PhoneCallIcon from '@phosphor/phone-call.svg';
 import AgentIcon from '@phosphor/sparkle.svg';
+import AtFillIcon from '@phosphor-fill/at-fill.svg';
 import BuildingsFillIcon from '@phosphor-fill/buildings-fill.svg';
 import CalendarBlankFillIcon from '@phosphor-fill/calendar-blank-fill.svg';
 import ChatsCircleFillIcon from '@phosphor-fill/chats-circle-fill.svg';
@@ -130,6 +132,15 @@ export const SIDEBAR_NEXT_NAV_ITEMS = [
     hotkeyToken: TOKENS.sidebar.goTo.calls,
   },
   {
+    id: 'mentions',
+    label: 'Mentions',
+    href: LIST_VIEW_PATHS.mentions,
+    icon: AtIcon,
+    iconActive: AtFillIcon,
+    hotkey: 'm',
+    hotkeyToken: TOKENS.sidebar.goTo.mentions,
+  },
+  {
     id: 'reviews',
     label: 'Reviews',
     href: '/reviews',
@@ -145,6 +156,7 @@ export type NavItemGates = {
   showCalendar: boolean;
   showCustomers: boolean;
   showCalls: boolean;
+  showMentions: boolean;
   showReviews: boolean;
   /** User preferences for which items are shown and in what order. */
   prefs: SidebarPrefs;
@@ -158,6 +170,7 @@ export const isNavItemAvailable = (
   if (item.id === 'calendar') return gates.showCalendar;
   if (item.id === 'companies') return gates.showCustomers;
   if (item.id === 'calls') return gates.showCalls;
+  if (item.id === 'mentions') return gates.showMentions;
   if (item.id === 'reviews') return gates.showReviews;
   return true;
 };

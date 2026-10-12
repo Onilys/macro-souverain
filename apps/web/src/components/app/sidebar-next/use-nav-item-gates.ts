@@ -3,6 +3,7 @@ import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import {
   ENABLE_CALLS,
   enableCrm,
+  enableMentions,
   enableTasksReviews,
 } from '@core/constant/featureFlags';
 import { type Accessor, createMemo } from 'solid-js';
@@ -10,14 +11,15 @@ import type { NavItemGates } from './nav-items';
 import { useSidebarPrefs } from './use-sidebar-prefs';
 
 /**
- * Subscribes to the flags gating Calendar, Customers, Calls, and Reviews, so a
- * flag that resolves after mount still reaches the rendered list. Shared by the
- * sidebar's nav and the More menu so the two can't disagree about which apps
- * exist.
+ * Subscribes to the flags gating Calendar, Customers, Calls, Mentions, and
+ * Reviews, so a flag that resolves after mount still reaches the rendered list.
+ * Shared by the sidebar's nav and the More menu so the two can't disagree about
+ * which apps exist.
  */
 export function useNavItemGates(): Accessor<NavItemGates> {
   const calendar = useCalendarUiFlag();
   const crm = useFeatureFlag(enableCrm);
+  const mentions = useFeatureFlag(enableMentions);
   const reviews = useFeatureFlag(enableTasksReviews);
   const { prefs } = useSidebarPrefs();
 
@@ -25,6 +27,7 @@ export function useNavItemGates(): Accessor<NavItemGates> {
     showCalendar: calendar(),
     showCustomers: crm().enabled,
     showCalls: ENABLE_CALLS,
+    showMentions: mentions().enabled,
     showReviews: reviews().enabled,
     prefs: prefs(),
   }));

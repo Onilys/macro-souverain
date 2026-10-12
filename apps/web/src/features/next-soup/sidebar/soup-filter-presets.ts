@@ -507,6 +507,15 @@ export const VIEW_TAB_PRESETS: Record<ListView, ViewTabConfig> = {
       }),
     },
   },
+  mentions: {
+    default: 'all',
+    tabs: {
+      all: () => ({
+        filters: defineQueryFilters({}),
+        clientFilters: { and: [] },
+      }),
+    },
+  },
   companies: CRM_TAB_PRESETS,
   folders: {
     default: 'owned',

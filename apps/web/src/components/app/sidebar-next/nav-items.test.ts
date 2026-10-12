@@ -19,6 +19,7 @@ const defaultGates = (overrides: Partial<NavItemGates> = {}): NavItemGates => ({
   showCalendar: true,
   showCustomers: true,
   showCalls: true,
+  showMentions: true,
   showReviews: true,
   prefs: defaultPrefs(),
   ...overrides,
@@ -31,10 +32,11 @@ it('keeps reminders inside Email instead of offering a separate app', () => {
 });
 
 describe('sidebar visibility preferences', () => {
-  it('hides calls and reviews from the rail by default', () => {
+  it('hides calls, mentions, and reviews from the rail by default', () => {
     const items = visibleNavItems(defaultGates());
 
     expect(items.some((item) => item.id === 'calls')).toBe(false);
+    expect(items.some((item) => item.id === 'mentions')).toBe(false);
     expect(items.some((item) => item.id === 'reviews')).toBe(false);
     expect(items.some((item) => item.id === 'home')).toBe(true);
     expect(items.some((item) => item.id === 'tasks')).toBe(true);
@@ -43,7 +45,11 @@ describe('sidebar visibility preferences', () => {
   it('puts default-hidden items in the more menu', () => {
     const items = moreMenuItems(defaultGates());
 
-    expect(items.map((item) => item.id)).toEqual(['calls', 'reviews']);
+    expect(items.map((item) => item.id)).toEqual([
+      'calls',
+      'mentions',
+      'reviews',
+    ]);
   });
 
   it('shows an item on the rail when it is not hidden', () => {

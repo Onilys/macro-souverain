@@ -46,6 +46,7 @@ function Modal() {
         showCalendar: true,
         showCustomers: true,
         showCalls: true,
+        showMentions: true,
         showReviews: true,
         get prefs() {
           return prefs();

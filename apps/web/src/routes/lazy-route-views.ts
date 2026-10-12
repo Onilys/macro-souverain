@@ -70,6 +70,10 @@ export const CallsRouteView = lazyNamed(
   () => import('@app/features/next-soup/route-views'),
   'CallsRouteView'
 );
+export const MentionsRouteView = lazyNamed(
+  () => import('@app/features/next-soup/route-views'),
+  'MentionsRouteView'
+);
 export const FoldersRouteView = lazyNamed(
   () => import('@app/features/next-soup/route-views'),
   'FoldersRouteView'

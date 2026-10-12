@@ -580,6 +580,13 @@ export const callsRoute = defineRoute({
   claim: () => ({ namespace: 'component', id: 'calls' }),
 });
 
+export const mentionsRoute = defineRoute({
+  id: 'view-mentions',
+  path: 'mentions',
+  search: '*' as const,
+  claim: () => ({ namespace: 'component', id: 'mentions' }),
+});
+
 export const callDetailRoute = defineRoute({
   id: 'call-detail',
   path: 'call/:callId',

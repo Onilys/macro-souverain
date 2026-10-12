@@ -367,6 +367,7 @@ export const VIEW_FILTER_CATEGORIES: Record<ListView, FilterCategory[]> = {
   companies: COMPANIES_FILTER_CATEGORIES,
   channels: [],
   calls: [],
+  mentions: [],
   folders: [],
   search: [],
 };

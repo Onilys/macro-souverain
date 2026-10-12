@@ -170,6 +170,13 @@ export const enableTasksReviews = defineFlag({
   default: onInDev,
 });
 
+/** Shows the Mentions view in the sidebar. */
+export const enableMentions = defineFlag({
+  key: 'enable-mentions',
+  env: 'ENABLE_MENTIONS',
+  default: true,
+});
+
 // Claude Cloud demo onboarding and harness/model discovery. Off until PostHog
 // enables it, including in dev; override locally with VITE_CLAUDE_CLOUD.
 export const claudeCloud = defineFlag({

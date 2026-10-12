@@ -69,6 +69,10 @@ const CallsRouteView = lazyNamed(
   () => import('@app/features/next-soup/route-views'),
   'CallsRouteView'
 );
+const MentionsRouteView = lazyNamed(
+  () => import('@app/features/next-soup/route-views'),
+  'MentionsRouteView'
+);
 const FoldersRouteView = lazyNamed(
   () => import('@app/features/next-soup/route-views'),
   'FoldersRouteView'
@@ -355,6 +359,11 @@ registerComponent(
 registerComponent(
   'calls',
   () => <CallsRouteView />,
+  () => composableLayout()
+);
+registerComponent(
+  'mentions',
+  () => <MentionsRouteView />,
   () => composableLayout()
 );
 registerComponent('companies', () => <CompaniesRouteView />, {

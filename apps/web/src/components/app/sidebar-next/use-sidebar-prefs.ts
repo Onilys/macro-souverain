@@ -5,7 +5,7 @@ const STORAGE_KEY = 'macro:sidebar:prefs';
 const LEGACY_PINNED_KEY = 'macro:sidebar:pinned-items';
 
 /** Items hidden from the rail by default (reachable via the More menu). */
-export const DEFAULT_HIDDEN_IDS = ['calls', 'reviews'] as const;
+export const DEFAULT_HIDDEN_IDS = ['calls', 'mentions', 'reviews'] as const;
 
 export type SidebarPrefs = {
   /** Item ids hidden from the outer rail. Home is never included. */

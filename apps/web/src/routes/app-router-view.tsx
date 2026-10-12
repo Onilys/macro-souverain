@@ -53,6 +53,7 @@ import {
   HomeEntityDetailRouteView,
   MailRouteView,
   MeetingRouter,
+  MentionsRouteView,
   NotFound,
   PrDetailRouteView,
   ProjectDetailRouteView,
@@ -120,6 +121,7 @@ import {
   loginPopupSuccessRoute,
   loginRoute,
   meetRoute,
+  mentionsRoute,
   mobileEmailSignupRoute,
   notFoundRoute,
   onboardingRoute,
@@ -385,6 +387,7 @@ export function AppRouterView() {
         </Route>
         <Route definition={callsRoute} component={CallsRouteView} />
         <Route definition={callDetailRoute} component={CallDetailRouteView} />
+        <Route definition={mentionsRoute} component={MentionsRouteView} />
         <Route definition={companiesRoute} component={CompaniesRouteView} />
         <Route definition={foldersRoute} component={FoldersRouteView} />
         <Route definition={searchRoute} component={SearchRouteView} />

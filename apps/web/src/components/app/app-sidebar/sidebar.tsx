@@ -26,6 +26,7 @@ import { toast } from '@core/component/Toast/Toast';
 import {
   ENABLE_CALLS,
   enableCrm,
+  enableMentions,
   enableTasksReviews,
   isFeatureEnabled,
 } from '@core/constant/featureFlags';
@@ -36,6 +37,7 @@ import type { ValidHotkey } from '@core/hotkey/types';
 import { activateClosestDOMScope } from '@core/hotkey/utils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { ContextMenu } from '@kobalte/core/context-menu';
+import AtIcon from '@phosphor/at.svg';
 import BellIcon from '@phosphor/bell.svg';
 import HomeIcon from '@phosphor/house.svg';
 import SearchIcon from '@phosphor/magnifying-glass.svg';
@@ -217,12 +219,14 @@ export const GoToHotkeys = () => {
   const calendarUiEnabled = useCalendarUiFlag();
   const activityFeedEnabled = useActivityFeedFlag();
   const recentViewEnabled = useRecentViewFlag();
+  const mentions = useFeatureFlag(enableMentions);
   const reviews = useFeatureFlag(enableTasksReviews);
   const links = createMemo((): SidebarItem[] =>
     buildSidebarLinks(
       calendarUiEnabled(),
       activityFeedEnabled(),
       recentViewEnabled(),
+      mentions().enabled,
       reviews().enabled
     )
   );
@@ -396,9 +400,18 @@ const REVIEWS_LINK: SidebarItem = {
   hotkeyToken: TOKENS.sidebar.goTo.reviews,
 };
 
+const MENTIONS_LINK: SidebarItem = {
+  id: 'mentions',
+  label: 'Mentions',
+  href: LIST_VIEW_PATHS.mentions,
+  icon: AtIcon,
+  hotkey: 'm',
+  hotkeyToken: TOKENS.sidebar.goTo.mentions,
+};
+
 /**
  * Assemble the ordered sidebar link list: the static links plus the
- * flag-gated Recent, Activity, Calendar, Calls, Reviews, and CRM
+ * flag-gated Recent, Activity, Calendar, Calls, Mentions, Reviews, and CRM
  * entries in their correct positions.
  * Call from a reactive context — it reads `ENABLE_CALLS` / `isFeatureEnabled(enableCrm)`.
  */
@@ -406,6 +419,7 @@ const buildSidebarLinks = (
   showCalendar: boolean,
   showActivity: boolean,
   showRecent: boolean,
+  showMentions: boolean,
   showReviews: boolean
 ): SidebarItem[] => {
   let links: SidebarItem[] = SIDEBAR_LINKS.filter(
@@ -430,10 +444,20 @@ const buildSidebarLinks = (
     links = [...links.slice(0, idx + 1), CALLS_LINK, ...links.slice(idx + 1)];
   }
 
+  // Mentions sits after Calls (or Channels if Calls is off).
+  if (showMentions) {
+    const mentionsAnchorId = ENABLE_CALLS ? 'calls' : 'channels';
+    insertAfter(mentionsAnchorId, MENTIONS_LINK);
+  }
+
   if (isFeatureEnabled(enableCrm)) {
-    // Customers sits just after Channels (and Calls when present).
-    const anchorId = ENABLE_CALLS ? 'calls' : 'channels';
-    const idx = links.findIndex((l) => l.id === anchorId);
+    // Customers sits just after Mentions (or Calls/Channels when absent).
+    const crmAnchorId = showMentions
+      ? 'mentions'
+      : ENABLE_CALLS
+        ? 'calls'
+        : 'channels';
+    const idx = links.findIndex((l) => l.id === crmAnchorId);
     links = [
       ...links.slice(0, idx + 1),
       COMPANIES_LINK,

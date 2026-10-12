@@ -19,6 +19,11 @@ const CallsView = lazy(async () => ({
     .CallsView,
 }));
 
+const MentionsView = lazy(async () => ({
+  default: (await import('@app/features/mentions-view/views/mentions-view'))
+    .MentionsView,
+}));
+
 const SoupView = lazy(async () => ({
   default: (await import('./soup-view/soup-view')).SoupView,
 }));
@@ -57,6 +62,11 @@ export const RecentRouteView = withAuth(() => {
 export const CallsRouteView = withAuth(() => {
   usePageViewTracking('calls');
   return <CallsView />;
+});
+
+export const MentionsRouteView = withAuth(() => {
+  usePageViewTracking('mentions');
+  return <MentionsView />;
 });
 
 export const FoldersRouteView = withAuth(() => {

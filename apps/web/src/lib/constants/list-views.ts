@@ -16,6 +16,7 @@ export const LIST_VIEWS = [
   'tasks',
   'channels',
   'calls',
+  'mentions',
   'companies',
   'folders',
   'search',
@@ -32,6 +33,7 @@ export const LIST_VIEW_PATHS = {
   tasks: '/tasks',
   channels: '/channels',
   calls: '/calls',
+  mentions: '/mentions',
   companies: '/companies',
   folders: '/folders',
   search: '/search',
@@ -46,6 +48,7 @@ export const LIST_VIEW_ID = {
   tasks: 'tasks',
   channels: 'channels',
   calls: 'calls',
+  mentions: 'mentions',
   companies: 'companies',
   folders: 'folders',
   search: 'search',
@@ -105,6 +108,7 @@ export const soupItemMatchesListView = (
     )
     .with('channels', () => item.tag === 'channel')
     .with('calls', () => item.tag === 'call')
+    .with('mentions', () => true)
     .with('folders', () => item.tag === 'project')
     .with('home', 'search', undefined, () => true)
     // Membership in the recent view is "did I touch it", not a type check:
