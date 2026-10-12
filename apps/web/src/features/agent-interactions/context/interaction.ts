@@ -6,6 +6,7 @@ import type {
   PermissionAnswer,
 } from '@service-agent-harness/generated/schemas';
 import type { Accessor } from 'solid-js';
+import type { FormValues } from '../state/elicitation-form';
 
 /** Requests the agent itself asked, answered through agent actions. */
 export type AgentInteraction = Exclude<
@@ -24,12 +25,43 @@ export type InteractionResponse = InteractionIdentity &
     | { kind: 'elicitation'; answer: ElicitationAnswer }
   );
 
+/** What the user has done so far with a request they have not answered. */
+export type InteractionDraft = {
+  /** A question's fields, as typed. */
+  form?: FormValues;
+  /** A drafted tool's arguments, as edited in its composer. */
+  tool?: unknown;
+};
+
+/**
+ * Where unsent answers are kept, by request, for as long as the surface
+ * that owns them; a `Map` is one.
+ */
+export type InteractionDraftStore = Pick<
+  Map<string, InteractionDraft>,
+  'get' | 'set' | 'delete'
+>;
+
+/**
+ * What a card keeps of the user's input, so it outlives the card: what was
+ * kept when the card mounted, and where to keep more.
+ */
+export type DraftKeeper<T> = {
+  saved: T | undefined;
+  save: (draft: T) => void;
+};
+
 export type InteractionSource = {
   sessionId: Accessor<string | undefined>;
   pending: Accessor<readonly PendingInteraction[]>;
   canEdit: Accessor<boolean | undefined>;
   issue: (action: AgentAction) => Promise<IssueResult> | undefined;
   onFailure: (message: string) => void;
+  /**
+   * Where unsent answers are kept when the cards showing them can unmount
+   * while their request stays open; the controller's own, if absent.
+   */
+  drafts?: InteractionDraftStore;
 };
 
 export type InteractionController = {
@@ -37,4 +69,8 @@ export type InteractionController = {
   canAnswer: Accessor<boolean>;
   answering: (request: InteractionIdentity) => boolean;
   respond: (response: InteractionResponse) => Promise<boolean>;
+  /** What the user has typed into `request` so far, until it is answered. */
+  draft: (request: InteractionIdentity) => InteractionDraft | undefined;
+  /** Keep what the user has typed into `request`. */
+  keepDraft: (request: InteractionIdentity, draft: InteractionDraft) => void;
 };

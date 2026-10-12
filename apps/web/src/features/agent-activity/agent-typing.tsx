@@ -1,7 +1,11 @@
 import { PersonaAvatar } from '@app/features/agent-dms/components/persona-avatar';
 import { InteractionCard } from '@app/features/agent-interactions/components/InteractionCard';
 import type { AgentInteraction } from '@app/features/agent-interactions/context/interaction';
-import { createInteractionController } from '@app/features/agent-interactions/primitives/create-interaction-controller';
+import {
+  createInteractionController,
+  interactionKey,
+} from '@app/features/agent-interactions/primitives/create-interaction-controller';
+import { conversationDrafts } from '@app/features/agent-interactions/state/interaction-drafts';
 import {
   isWorkingTurn,
   sessionTurn,
@@ -175,6 +179,9 @@ function AgentTypingEntry(props: {
     canEdit,
     issue: (action) => live.issue(action),
     onFailure: (message) => toast.failure(message),
+    // This row comes and goes while a request stays open; what the user
+    // typed into an answer must not go with it.
+    drafts: conversationDrafts,
   });
   const toolFor = (toolCall: string | null) => {
     const part = reply()?.parts.find(
@@ -229,12 +236,7 @@ function AgentTypingEntry(props: {
         >
           {/* Each metadata event carries every request anew. Keyed by what
               it asks, a card keeps whatever was typed into it. */}
-          <Key
-            each={pending()}
-            by={(request) =>
-              JSON.stringify([request.turn, request.kind, request.requestId])
-            }
-          >
+          <Key each={pending()} by={interactionKey}>
             {(request) => (
               <InteractionCard
                 request={request()}

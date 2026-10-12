@@ -33,8 +33,9 @@ import {
   Show,
   Switch,
 } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createStore, unwrap } from 'solid-js/store';
 import { match } from 'ts-pattern';
+import type { DraftKeeper } from '../context/interaction';
 import {
   type FieldValue,
   type FormValues,
@@ -75,15 +76,23 @@ export type LiveQuestion =
   | { kind: 'url'; url: string }
   | { kind: 'unrecognized'; mode: string };
 
-function createFormDraft(schema: ElicitationSchema): FormDraft {
-  const [values, setValues] = createStore(initialValues(schema));
+function createFormDraft(
+  schema: ElicitationSchema,
+  keeper?: DraftKeeper<FormValues>
+): FormDraft {
+  const [values, setValues] = createStore({
+    ...(keeper?.saved ?? initialValues(schema)),
+  });
   const [touched, setTouched] = createSignal(false);
   const problems = createMemo(() => validate(schema, values));
   return {
     schema,
     values,
     errors: () => (touched() ? problems() : {}),
-    setValue: (name, value) => setValues(name, value),
+    setValue: (name, value) => {
+      setValues(name, value);
+      keeper?.save({ ...unwrap(values) });
+    },
     content: () => {
       setTouched(true);
       return Object.keys(problems()).length > 0
@@ -93,14 +102,20 @@ function createFormDraft(schema: ElicitationSchema): FormDraft {
   };
 }
 
-/** The question's state; call it once per request, under a reactive owner. */
-export function createLiveQuestion(request: LiveQuestionRequest): LiveQuestion {
+/**
+ * The question's state; call it once per request, under a reactive owner.
+ * A form starts from what `keeper` kept of it, and keeps every change there.
+ */
+export function createLiveQuestion(
+  request: LiveQuestionRequest,
+  keeper?: DraftKeeper<FormValues>
+): LiveQuestion {
   return match(request)
     .with(
       { kind: 'form' },
       ({ schema }): LiveQuestion => ({
         kind: 'form',
-        draft: createFormDraft(schema),
+        draft: createFormDraft(schema, keeper),
       })
     )
     .with({ kind: 'url' }, ({ url }): LiveQuestion => ({ kind: 'url', url }))

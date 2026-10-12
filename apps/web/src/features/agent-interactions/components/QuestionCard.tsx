@@ -10,6 +10,8 @@ import type { ElicitationOption } from '@service-agent-fold/generated/types';
 import type { ElicitationAnswer } from '@service-agent-harness/generated/schemas';
 import { Button } from '@ui';
 import { For, Show } from 'solid-js';
+import type { DraftKeeper } from '../context/interaction';
+import type { FormValues } from '../state/elicitation-form';
 import {
   answerQuestion,
   createLiveQuestion,
@@ -54,9 +56,11 @@ export function QuestionCard(props: {
   locked: boolean;
   canAnswer: boolean;
   onRespond: RespondToElicitation;
+  /** Where what the user types is kept, so it outlives the card. */
+  draft?: DraftKeeper<FormValues>;
 }) {
   // A request never changes, so its state is made once.
-  const question = createLiveQuestion(props.request);
+  const question = createLiveQuestion(props.request, props.draft);
   const quick = quickAnswers(props.request);
   const respond = (answer: ElicitationAnswer) => {
     if (!props.locked) void props.onRespond(answer);

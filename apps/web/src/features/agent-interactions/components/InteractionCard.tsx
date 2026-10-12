@@ -45,6 +45,10 @@ function approvalInput(tool?: ToolPart): string | undefined {
  * A request the agent is waiting on, as the card it asks with: an approval
  * for an action, a draft to send, or a question to answer. Each has one
  * action that says yes, and a way to say no.
+ *
+ * What the user types into a question or a draft is kept with the
+ * controller rather than the card, so a card that unmounts and comes back
+ * while the request is open picks up where they left off.
  */
 export function InteractionCard(props: {
   request: AgentInteraction;
@@ -55,6 +59,8 @@ export function InteractionCard(props: {
 }) {
   const locked = () =>
     !props.controller.canAnswer() || props.controller.answering(props.request);
+  // Read once: the card's own state carries every change after it mounts.
+  const kept = props.controller.draft(props.request);
   return match(props.request)
     .with({ kind: 'permission' }, (request) => (
       <ApprovalCard
@@ -87,6 +93,10 @@ export function InteractionCard(props: {
           locked={locked()}
           canAnswer={props.controller.canAnswer()}
           onRespond={onRespond}
+          draft={{
+            saved: kept?.form,
+            save: (form) => props.controller.keepDraft(request, { form }),
+          }}
         />
       );
       const userTool = request.request;
@@ -102,6 +112,11 @@ export function InteractionCard(props: {
               message={request.message}
               review={{ canAnswer: () => !locked(), respond: onRespond }}
               fallback={question}
+              draft={{
+                saved: kept?.tool,
+                save: (edited) =>
+                  props.controller.keepDraft(request, { tool: edited }),
+              }}
             />
           )}
         </Show>

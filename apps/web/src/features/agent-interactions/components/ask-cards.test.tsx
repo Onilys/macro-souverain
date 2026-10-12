@@ -4,8 +4,16 @@ import type { ElicitationSchema } from '@service-agent-fold/generated/types';
 import { cleanup, fireEvent, render } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const composer = vi.hoisted(() => ({
+  props: undefined as
+    | { initialData: unknown; sink: { onEdit?: (args: unknown) => void } }
+    | undefined,
+}));
 vi.mock('@core/component/AI/component/tool/email/DraftComposer', () => ({
-  EmailDraftComposer: () => <div>email composer</div>,
+  EmailDraftComposer: (props: NonNullable<typeof composer.props>) => {
+    composer.props = props;
+    return <div>email composer</div>;
+  },
 }));
 vi.mock('@core/component/AI/component/tool/calendar/DraftComposer', () => ({
   CalendarDraftComposer: () => <div>event composer</div>,
@@ -17,13 +25,19 @@ vi.mock('@app/features/block-agent/component/parts/UserToolCall', () => ({
   EventDraft: () => <div>event draft</div>,
 }));
 
+import type {
+  InteractionController,
+  InteractionDraft,
+} from '../context/interaction';
 import { ApprovalCard } from './ApprovalCard';
 import { DraftCard, recipientsTitle } from './DraftCard';
+import { InteractionCard } from './InteractionCard';
 import { QuestionCard, quickAnswers } from './QuestionCard';
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  composer.props = undefined;
 });
 
 function answer(options: string[]): ElicitationSchema {
@@ -238,5 +252,78 @@ describe('a draft card', () => {
         { email: 'c@x.test' },
       ])
     ).toBe('Ada and 2 others');
+  });
+});
+
+describe('an ask card that comes back', () => {
+  const question = {
+    kind: 'elicitation' as const,
+    turn: 1,
+    requestId: 'ask-1',
+    toolCall: null,
+    message: 'What should the title say?',
+    request: { kind: 'form' as const, schema: answer([]) },
+  };
+
+  it('keeps what was typed into a question when its card comes back', () => {
+    // Held by the controller, not the card: the typing row comes and goes.
+    const drafts = new Map<string, InteractionDraft>();
+    const respond = vi.fn(async () => true);
+    const controller: InteractionController = {
+      pending: () => [question],
+      canAnswer: () => true,
+      answering: () => false,
+      respond,
+      draft: (request) => drafts.get(String(request.requestId)),
+      keepDraft: (request, draft) =>
+        drafts.set(String(request.requestId), draft),
+    };
+    const card = () => (
+      <InteractionCard request={question} controller={controller} />
+    );
+    const first = render(card);
+    fireEvent.input(first.getByRole('textbox'), {
+      target: { value: 'Q4 launch plan' },
+    });
+    first.unmount();
+
+    const again = render(card);
+    const field = again.getByRole('textbox') as HTMLInputElement;
+    expect(field.value).toBe('Q4 launch plan');
+    fireEvent.click(again.getByRole('button', { name: 'Submit' }));
+    expect(respond).toHaveBeenCalledWith({
+      ...question,
+      answer: { action: 'accept', content: { answer: 'Q4 launch plan' } },
+    });
+  });
+
+  it('reopens an email in its composer with the edit kept', () => {
+    const email = {
+      to: [{ email: 'ana@example.com', name: 'Ana Ruiz' }],
+      subject: 'Launch plan',
+      body: 'Hi Ana',
+    };
+    let kept: unknown;
+    const card = () => (
+      <DraftCard
+        tool={{ name: 'SendEmail', data: email }}
+        toolCall="call-1"
+        message="Send email?"
+        review={{ canAnswer: () => true, respond: vi.fn(async () => true) }}
+        fallback={<div>flat form</div>}
+        draft={{ saved: kept, save: (draft) => (kept = draft) }}
+      />
+    );
+    const first = render(card);
+    fireEvent.click(first.getByRole('button', { name: 'Edit' }));
+    const edited = { ...email, subject: 'Launch plan (final)' };
+    composer.props?.sink.onEdit?.(edited);
+    first.unmount();
+
+    const again = render(card);
+    expect(again.getByText('email composer')).toBeTruthy();
+    expect(again.queryByRole('button', { name: 'Send' })).toBeNull();
+    expect(composer.props?.initialData).toEqual(edited);
+    expect(again.getByText('Editing · the changes are yours')).toBeTruthy();
   });
 });

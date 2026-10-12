@@ -20,6 +20,7 @@ import type {
 } from '@service-cognition/generated/tools/types';
 import { Button } from '@ui';
 import { createSignal, type JSX, Match, Show, Switch } from 'solid-js';
+import type { DraftKeeper } from '../context/interaction';
 import { createElicitationReviewSink } from '../state/elicitation-review-sink';
 import {
   type DraftedTool,
@@ -70,8 +71,12 @@ function DraftShell(props: {
   onSend: () => void;
   onDiscard: () => void;
   locked: boolean;
+  /** Open in the composer: the user was editing when it last showed. */
+  editing?: boolean;
+  /** The user opened the composer. */
+  onEdit?: () => void;
 }) {
-  const [editing, setEditing] = createSignal(false);
+  const [editing, setEditing] = createSignal(props.editing ?? false);
   return (
     <Card width="standard" data-agent-card="draft">
       <section aria-label={props.title} class="flex min-h-0 flex-col">
@@ -103,7 +108,10 @@ function DraftShell(props: {
               size="sm"
               variant="outline"
               disabled={props.locked}
-              onClick={() => setEditing(true)}
+              onClick={() => {
+                setEditing(true);
+                props.onEdit?.();
+              }}
             >
               <NotePencil />
               Edit
@@ -128,9 +136,17 @@ function EmailDraftCard(props: {
   email: SendEmail;
   toolCall: string;
   review: ReviewInputs;
+  draft?: DraftKeeper<unknown>;
 }) {
-  const sink = createElicitationReviewSink<SendEmail>(props.review);
-  const subject = () => props.email.subject.trim();
+  // The user's edit from before the card last unmounted, which the
+  // composer kept as the email it would send.
+  const edited = props.draft?.saved as SendEmail | undefined;
+  const email = edited ?? props.email;
+  const sink = createElicitationReviewSink<SendEmail>({
+    ...props.review,
+    onEdit: (args) => props.draft?.save(args),
+  });
+  const subject = () => email.subject.trim();
   return (
     <DraftShell
       tile={
@@ -138,20 +154,22 @@ function EmailDraftCard(props: {
           <Envelope />
         </Tile>
       }
-      title={recipientsTitle(props.email.to)}
+      title={recipientsTitle(email.to)}
       subtitle={subject() ? `Draft email · ${subject()}` : 'Draft email'}
-      preview={<EmailDraft email={props.email} inFlight={false} />}
+      preview={<EmailDraft email={email} inFlight={false} />}
       editor={
         <EmailDraftComposer
-          initialData={props.email}
+          initialData={email}
           sink={sink}
           debugName={`agent-review:${props.toolCall}`}
         />
       }
       sendLabel="Send"
-      onSend={() => void sink.onExecute(props.email)}
+      onSend={() => void sink.onExecute(email)}
       onDiscard={() => void sink.onReject()}
       locked={!props.review.canAnswer()}
+      editing={edited !== undefined}
+      onEdit={() => props.draft?.save(email)}
     />
   );
 }
@@ -161,9 +179,16 @@ function EventDraftCard(props: {
   event: CreateCalendarEvent;
   toolCall: string;
   review: ReviewInputs;
+  draft?: DraftKeeper<unknown>;
 }) {
-  const sink = createElicitationReviewSink<CreateCalendarEvent>(props.review);
-  const day = () => eventDay(props.event);
+  // The user's edit from before the card last unmounted.
+  const edited = props.draft?.saved as CreateCalendarEvent | undefined;
+  const event = edited ?? props.event;
+  const sink = createElicitationReviewSink<CreateCalendarEvent>({
+    ...props.review,
+    onEdit: (args) => props.draft?.save(args),
+  });
+  const day = () => eventDay(event);
   return (
     <DraftShell
       tile={
@@ -178,20 +203,22 @@ function EventDraftCard(props: {
           {(start) => <DateTile date={start()} size={32} />}
         </Show>
       }
-      title={props.event.title?.trim() || 'New event'}
+      title={event.title?.trim() || 'New event'}
       subtitle="Draft event"
-      preview={<EventDraft event={props.event} />}
+      preview={<EventDraft event={event} />}
       editor={
         <CalendarDraftComposer
-          initialData={props.event}
+          initialData={event}
           sink={sink}
           previewKey={props.toolCall}
         />
       }
       sendLabel="Create event"
-      onSend={() => void sink.onExecute(props.event)}
+      onSend={() => void sink.onExecute(event)}
       onDiscard={() => void sink.onReject()}
       locked={!props.review.canAnswer()}
+      editing={edited !== undefined}
+      onEdit={() => props.draft?.save(event)}
     />
   );
 }
@@ -208,6 +235,8 @@ export function DraftCard(props: {
   review: ReviewInputs;
   /** The flat form, for a tool this client has no composer for. */
   fallback: JSX.Element;
+  /** Where the user's edit is kept, so it outlives the card. */
+  draft?: DraftKeeper<unknown>;
 }) {
   return (
     <Switch
@@ -240,6 +269,7 @@ export function DraftCard(props: {
           email={props.tool.data as SendEmail}
           toolCall={props.toolCall}
           review={props.review}
+          draft={props.draft}
         />
       </Match>
       <Match when={props.tool.name === 'CreateCalendarEvent'}>
@@ -247,6 +277,7 @@ export function DraftCard(props: {
           event={props.tool.data as CreateCalendarEvent}
           toolCall={props.toolCall}
           review={props.review}
+          draft={props.draft}
         />
       </Match>
     </Switch>
