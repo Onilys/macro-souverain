@@ -128,6 +128,14 @@ describe('live agent session', () => {
     expect(rows[0]).toBe(first);
     expect(rows[1]).toBe(second);
     expect(rows[1]!.status).toBe('completed');
+    // A load puts earlier turns ahead of it: each message is still matched
+    // to itself, never merged into whichever message held its place.
+    const earlier = { ...message('earlier'), turn: -1 };
+    live.emit([{ kind: 'replace', messages: [earlier, working('completed')] }]);
+    await vi.advanceTimersByTimeAsync(250);
+    const [before, after] = scope.live.messages();
+    expect(before!.turn).toBe(-1);
+    expect(after!.segments[0]!.rows[0]).toBe(first);
     scope.dispose();
   });
 
