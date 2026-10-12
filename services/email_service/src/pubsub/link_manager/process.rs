@@ -111,8 +111,9 @@ pub async fn process_message(
 /// Returns the token on success. When the grant is gone the link has already been
 /// marked for reauth as a side effect, so the message is terminal — return `None` to let it
 /// be dropped — but only once that mark is persisted; if the mark write itself failed,
-/// propagate the error so the message retries and the health signal isn't lost. Other,
-/// transient errors propagate to retry.
+/// propagate the error so the message retries and the health signal isn't lost. A link
+/// that is gone or has sync turned off is being deleted and is never marked, so it is
+/// terminal too. Other, transient errors propagate to retry.
 async fn settle_reauth_fetch(
     ctx: &LinkManagerContext,
     link: &Link,
@@ -121,12 +122,12 @@ async fn settle_reauth_fetch(
     match result {
         Ok(token) => Ok(Some(token)),
         Err(EmailApiError::AuthRequired) => {
-            let persisted = email_db_client::links::get::fetch_link_by_id(&ctx.db, link.id)
+            let settled = email_db_client::links::get::fetch_link_by_id(&ctx.db, link.id)
                 .await
                 .context("Failed to verify needs_reauth state after token fetch failure")?
-                .is_some_and(|l| l.needs_reauth);
+                .is_none_or(|l| l.needs_reauth || !l.is_sync_active);
 
-            settle_reauth_result(Err(EmailApiError::AuthRequired), persisted)
+            settle_reauth_result(Err(EmailApiError::AuthRequired), settled)
         }
         result => settle_reauth_result(result, false),
     }
@@ -134,11 +135,11 @@ async fn settle_reauth_fetch(
 
 fn settle_reauth_result(
     result: Result<AccessToken, EmailApiError>,
-    needs_reauth_persisted: bool,
+    reauth_settled: bool,
 ) -> anyhow::Result<Option<AccessToken>> {
     match result {
         Ok(token) => Ok(Some(token)),
-        Err(EmailApiError::AuthRequired) if needs_reauth_persisted => Ok(None),
+        Err(EmailApiError::AuthRequired) if reauth_settled => Ok(None),
         Err(error) => Err(anyhow::Error::new(error)),
     }
 }
