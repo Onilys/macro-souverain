@@ -172,6 +172,69 @@ async fn activity_does_not_resume_link_being_deleted(pool: Pool<Postgres>) -> an
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn failed_resume_restores_pause_for_next_activity(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let id = insert_test_link(&pool, "unsent-resume@retention.test").await?;
+    set_last_active_days_ago(&pool, id, 8).await?;
+    pause_link_sync(&pool, id, week_ago()).await?;
+    assert_eq!(record_link_activity(&pool, &[id]).await?, vec![id]);
+
+    assert!(restore_link_pause(&pool, id).await?);
+    let state = retention_state(&pool, id).await?;
+    assert!(!state.is_sync_active);
+    assert!(state.sync_paused_at.is_some());
+
+    assert_eq!(record_link_activity(&pool, &[id]).await?, vec![id]);
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn restore_pause_skips_link_being_deleted(pool: Pool<Postgres>) -> anyhow::Result<()> {
+    let id = insert_test_link(&pool, "restore-deleting@retention.test").await?;
+    update_link_sync_status(&pool, id, false).await?;
+
+    assert!(!restore_link_pause(&pool, id).await?);
+    assert!(retention_state(&pool, id).await?.sync_paused_at.is_none());
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn retention_delete_claims_paused_link_and_blocks_resume(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let id = insert_test_link(&pool, "expired@retention.test").await?;
+    set_last_active_days_ago(&pool, id, 31).await?;
+    pause_link_sync(&pool, id, week_ago()).await?;
+
+    assert!(claim_idle_link_for_deletion(&pool, id).await?);
+    assert!(
+        claim_idle_link_for_deletion(&pool, id).await?,
+        "a redelivered delete still proceeds"
+    );
+
+    assert!(record_link_activity(&pool, &[id]).await?.is_empty());
+    let state = retention_state(&pool, id).await?;
+    assert!(!state.is_sync_active);
+    assert!(state.sync_paused_at.is_none());
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn retention_delete_skips_link_resumed_since_the_sweep(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let id = insert_test_link(&pool, "came-back@retention.test").await?;
+    set_last_active_days_ago(&pool, id, 31).await?;
+    pause_link_sync(&pool, id, week_ago()).await?;
+    record_link_activity(&pool, &[id]).await?;
+
+    assert!(!claim_idle_link_for_deletion(&pool, id).await?);
+    assert!(retention_state(&pool, id).await?.is_sync_active);
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn reconnect_clears_pause(pool: Pool<Postgres>) -> anyhow::Result<()> {
     let id = insert_test_link(&pool, "reconnect@retention.test").await?;
     set_last_active_days_ago(&pool, id, 8).await?;

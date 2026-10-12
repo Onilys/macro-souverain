@@ -141,11 +141,18 @@ async fn record_activity_and_resume(ctx: &ApiContext, link_ids: &[uuid::Uuid]) {
 
     for link_id in resumed {
         tracing::info!(link_id=%link_id, "Resuming sync for paused inbox");
-        ctx.sqs_client
+        let Err(error) = ctx
+            .sqs_client
             .enqueue_link_manager_notification(LinkManagerMessage::ResumeSync { link_id })
             .await
+        else {
+            continue;
+        };
+        tracing::error!(error=?error, link_id=%link_id, "Failed to enqueue inbox resume; restoring its pause so the next app open retries");
+        email_db_client::links::retention::restore_link_pause(&ctx.db, link_id)
+            .await
             .inspect_err(|error| {
-                tracing::error!(error=?error, link_id=%link_id, "Failed to enqueue inbox resume; the daily refresh renews its watch");
+                tracing::error!(error=?error, link_id=%link_id, "Failed to restore pause after unsent inbox resume");
             })
             .ok();
     }

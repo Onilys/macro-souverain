@@ -4,6 +4,7 @@ use crate::pubsub::link_manager::process::{retry_teardown, settle_reauth_fetch};
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use email_api_client::domain::models::{EmailApiError, SyncCursor};
+use models_email::email::service::pubsub::{DeletionReason, LinkManagerMessage};
 use models_email::gmail::inbox_sync::{
     GmailMessagePayload, InboxSyncOperation, InboxSyncPubsubMessage,
 };
@@ -71,8 +72,47 @@ pub(super) async fn handle_pause(
         .inspect_err(|error| tracing::warn!(error=?error, "Gmail call to stop watch failed"))
         .ok();
 
+    // Activity during the teardown resumes the link, and that resume may have renewed
+    // the watch this just stopped. Resume again so the link ends with a live watch.
+    let resumed_meanwhile = email_db_client::links::get::fetch_link_by_id(&ctx.db, link.id)
+        .await
+        .context("Failed to re-read paused link")?
+        .is_some_and(|current| current.is_sync_active);
+    if resumed_meanwhile {
+        tracing::info!("Link was resumed while pausing; re-running resume");
+        ctx.sqs_client
+            .enqueue_link_manager_notification(LinkManagerMessage::ResumeSync { link_id: link.id })
+            .await
+            .context("Failed to enqueue resume for link resumed while pausing")?;
+        return Ok(());
+    }
+
     tracing::info!("Paused sync for idle link");
     Ok(())
+}
+
+/// Whether a delete should go ahead. Retention deletes (unused or inactive) are
+/// skipped when activity resumed the link after the sweep selected it; every other
+/// deletion is unconditional.
+pub(super) async fn claim_for_delete(
+    ctx: &LinkManagerContext,
+    link: &Link,
+    deletion_reason: &DeletionReason,
+) -> anyhow::Result<bool> {
+    if !matches!(
+        deletion_reason,
+        DeletionReason::Unused | DeletionReason::Inactive
+    ) {
+        return Ok(true);
+    }
+
+    let claimed = email_db_client::links::retention::claim_idle_link_for_deletion(&ctx.db, link.id)
+        .await
+        .context("Failed to claim idle link for deletion")?;
+    if !claimed {
+        tracing::info!(link_id=%link.id, deletion_reason=deletion_reason.as_str(), "Link was resumed after the retention sweep; not deleting");
+    }
+    Ok(claimed)
 }
 
 /// Restarts sync for a link that user activity resumed: renews the Gmail watch and

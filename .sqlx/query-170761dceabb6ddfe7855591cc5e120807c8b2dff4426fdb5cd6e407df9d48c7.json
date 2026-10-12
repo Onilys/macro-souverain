@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE email_links\n        SET is_sync_active = FALSE,\n            sync_paused_at = NOW(),\n            updated_at = NOW()\n        WHERE id = $1 AND is_sync_active AND sync_paused_at IS NULL\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "170761dceabb6ddfe7855591cc5e120807c8b2dff4426fdb5cd6e407df9d48c7"
+}

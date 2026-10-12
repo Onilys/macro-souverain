@@ -97,7 +97,9 @@ pub async fn process_message(
             let link = get_link_or_skip(&ctx, message, link_id).await?;
             let Some(link) = link else { return Ok(()) };
 
-            handle_delete(&ctx, &link, &deletion_reason).await?;
+            if retention::claim_for_delete(&ctx, &link, &deletion_reason).await? {
+                handle_delete(&ctx, &link, &deletion_reason).await?;
+            }
         }
         LinkManagerMessage::DeleteUser { fusionauth_user_id } => {
             handle_delete_all_user_links(&ctx, &fusionauth_user_id).await?;

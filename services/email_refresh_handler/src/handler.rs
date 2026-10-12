@@ -141,14 +141,12 @@ async fn send_refresh_messages(ctx: &context::Context) -> Result<(), Error> {
     Ok(())
 }
 
-/// pause sync for links that have been idle long enough to stop syncing but not yet long enough
-/// to delete
+/// pause sync for idle links; links are only deleted once paused, so a delete never races a
+/// link that is still syncing
 async fn send_pause_messages(ctx: &context::Context) -> Result<(), Error> {
-    let now = Utc::now();
-    let idle_before = now - Duration::days(i64::from(ctx.config.pause_inactive_after_days));
-    let delete_before = now - Duration::days(i64::from(ctx.config.delete_inactive_after_days));
+    let idle_before = Utc::now() - Duration::days(i64::from(ctx.config.pause_inactive_after_days));
 
-    let idle_links = fetch_idle_link_ids(&ctx.db, idle_before, delete_before)
+    let idle_links = fetch_idle_link_ids(&ctx.db, idle_before)
         .await
         .unwrap_or_else(|e| {
             tracing::error!(error=?e, "Error fetching idle links for pausing");
@@ -231,12 +229,11 @@ async fn send_delete_messages(ctx: &context::Context) -> Result<(), Error> {
     Ok(())
 }
 
-/// Fetch syncing link IDs whose last activity (app opened or thread viewed) falls in
-/// `[delete_before, idle_before)`. Links idle past `delete_before` are left to the delete sweep.
+/// Fetch syncing link IDs whose last activity (app opened or thread viewed) is before
+/// `idle_before`
 pub async fn fetch_idle_link_ids(
     pool: &Pool<Postgres>,
     idle_before: DateTime<Utc>,
-    delete_before: DateTime<Utc>,
 ) -> Result<Vec<uuid::Uuid>, sqlx::Error> {
     sqlx::query_scalar!(
         r#"
@@ -253,16 +250,15 @@ pub async fn fetch_idle_link_ids(
                 l.macro_id NOT LIKE '%@macro.com'
                 AND l.is_sync_active
                 AND GREATEST(l.last_active_at, h.last_viewed_at) < $1
-                AND GREATEST(l.last_active_at, h.last_viewed_at) >= $2
             "#,
-        idle_before,
-        delete_before
+        idle_before
     )
     .fetch_all(pool)
     .await
 }
 
-/// Fetch link IDs whose app was last opened > X days ago and that have never viewed a thread
+/// Fetch paused link IDs whose app was last opened > X days ago and that have never viewed a
+/// thread
 pub async fn fetch_unused_link_ids(
     pool: &Pool<Postgres>,
     delete_after_days: i32,
@@ -275,6 +271,7 @@ pub async fn fetch_unused_link_ids(
                 public.email_links l
             WHERE
                 l.macro_id NOT LIKE '%@macro.com'
+                AND NOT l.is_sync_active
                 AND l.last_active_at < NOW() - (make_interval(days => $1))
                 AND NOT EXISTS (
                     SELECT 1 FROM public.email_user_history h WHERE h.link_id = l.id
@@ -286,7 +283,8 @@ pub async fn fetch_unused_link_ids(
     .await
 }
 
-/// Fetch link IDs where both the app was last opened and the latest thread viewed > Y days ago
+/// Fetch paused link IDs where both the app was last opened and the latest thread viewed > Y
+/// days ago
 pub async fn fetch_inactive_link_ids(
     pool: &Pool<Postgres>,
     delete_inactive_after_days: i32,
@@ -301,6 +299,7 @@ pub async fn fetch_inactive_link_ids(
                 public.email_user_history h ON l.id = h.link_id
             WHERE
                 l.macro_id NOT LIKE '%@macro.com'
+                AND NOT l.is_sync_active
                 AND l.last_active_at < NOW() - (make_interval(days => $1))
             GROUP BY
                 l.id

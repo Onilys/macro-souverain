@@ -9,4 +9,5 @@ up by a listener in email-service that hits the necessary endpoint for each emai
 Once per day it also applies the retention policy for idle links. A link's activity is the later of the last time
 someone who can access it opened the app (`email_links.last_active_at`) and its last thread view. Links idle for
 `PAUSE_INACTIVE_AFTER_DAYS` get a `PauseSync` message, which stops syncing but keeps the data; opening the app resumes
-them. Links idle for `DELETE_INACTIVE_AFTER_DAYS` get a `DeleteLink` message.
+them. Paused links idle for `DELETE_INACTIVE_AFTER_DAYS` get a `DeleteLink` message, which the link manager skips if
+activity resumed the link in the meantime.

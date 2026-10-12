@@ -39,6 +39,51 @@ pub async fn pause_link_sync(
     Ok(paused.is_some())
 }
 
+/// Re-pauses a link whose resume could not be handed to the link manager, so the
+/// next [`record_link_activity`] call resumes it again instead of leaving it
+/// sync-active with no watch and no catch-up.
+#[tracing::instrument(skip(pool), err)]
+pub async fn restore_link_pause(pool: &PgPool, link_id: Uuid) -> anyhow::Result<bool> {
+    let restored = sqlx::query_scalar!(
+        r#"
+        UPDATE email_links
+        SET is_sync_active = FALSE,
+            sync_paused_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1 AND is_sync_active AND sync_paused_at IS NULL
+        RETURNING id
+        "#,
+        link_id,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(restored.is_some())
+}
+
+/// Claims a link the retention sweep selected for deletion, unless activity has
+/// resumed it since. Retention only deletes links that are not sync-active, and
+/// clearing `sync_paused_at` stops later activity from resuming a link that is
+/// being deleted. Returns `true` when the delete should go ahead, including on
+/// redelivery after a partial delete.
+#[tracing::instrument(skip(pool), err)]
+pub async fn claim_idle_link_for_deletion(pool: &PgPool, link_id: Uuid) -> anyhow::Result<bool> {
+    let claimed = sqlx::query_scalar!(
+        r#"
+        UPDATE email_links
+        SET sync_paused_at = NULL,
+            updated_at = NOW()
+        WHERE id = $1 AND NOT is_sync_active
+        RETURNING id
+        "#,
+        link_id,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(claimed.is_some())
+}
+
 /// Records that someone with access to `link_ids` opened the app, and resumes
 /// any of those links the retention sweep paused. Returns the resumed link ids;
 /// the caller owns restarting their provider sync.

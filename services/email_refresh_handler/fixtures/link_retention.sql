@@ -1,15 +1,15 @@
--- Links covering the retention policy (pause after 7 idle days, delete after 30).
+-- Links covering the retention policy (pause after 7 idle days, delete paused links after 30).
 -- Activity is the later of last_active_at (app opened) and the last thread view.
 
 INSERT INTO email_links (id, macro_id, fusionauth_user_id, email_address, provider,
                          is_sync_active, sync_paused_at, last_active_at, created_at)
 VALUES
-    -- 01: never viewed a thread, idle 40 days: delete as unused
+    -- 01: never viewed a thread, idle 40 days but still syncing: pause before deleting
     ('00000000-0000-0000-0000-000000000001', 'macro|unused@example.com', 'fa-01',
      'unused@example.com', 'GMAIL', true, NULL, NOW() - INTERVAL '40 days', NOW() - INTERVAL '40 days'),
-    -- 02: last thread view 90 days ago, idle 100 days: delete as inactive
+    -- 02: paused, last thread view 90 days ago, idle 100 days: delete as inactive
     ('00000000-0000-0000-0000-000000000002', 'macro|stale@example.com', 'fa-02',
-     'stale@example.com', 'GMAIL', true, NULL, NOW() - INTERVAL '100 days', NOW() - INTERVAL '100 days'),
+     'stale@example.com', 'GMAIL', false, NOW() - INTERVAL '70 days', NOW() - INTERVAL '100 days', NOW() - INTERVAL '100 days'),
     -- 03: app idle 60 days but a thread viewed 5 days ago: keep syncing
     ('00000000-0000-0000-0000-000000000003', 'macro|reader@example.com', 'fa-03',
      'reader@example.com', 'GMAIL', true, NULL, NOW() - INTERVAL '60 days', NOW() - INTERVAL '60 days'),

@@ -1,6 +1,6 @@
 use crate::handler::{fetch_idle_link_ids, fetch_inactive_link_ids, fetch_unused_link_ids};
 use anyhow::Result;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{Duration, Utc};
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use sqlx::{Pool, Postgres};
 use std::collections::BTreeSet;
@@ -17,17 +17,9 @@ fn links(ns: &[u8]) -> BTreeSet<Uuid> {
     ns.iter().copied().map(link).collect()
 }
 
-fn thresholds() -> (DateTime<Utc>, DateTime<Utc>) {
-    let now = Utc::now();
-    (
-        now - Duration::days(PAUSE_AFTER_DAYS),
-        now - Duration::days(DELETE_AFTER_DAYS),
-    )
-}
-
 async fn idle_links(pool: &Pool<Postgres>) -> Result<BTreeSet<Uuid>> {
-    let (idle_before, delete_before) = thresholds();
-    Ok(fetch_idle_link_ids(pool, idle_before, delete_before)
+    let idle_before = Utc::now() - Duration::days(PAUSE_AFTER_DAYS);
+    Ok(fetch_idle_link_ids(pool, idle_before)
         .await?
         .into_iter()
         .collect())
@@ -46,9 +38,10 @@ async fn links_to_delete(pool: &Pool<Postgres>) -> Result<(BTreeSet<Uuid>, BTree
 async fn idle_links_are_selected_for_pause(pool: Pool<Postgres>) -> Result<()> {
     const _: &sqlx::migrate::Migrator = &MACRO_DB_MIGRATIONS;
 
-    // 03 and 06 were active recently (thread view or app open), 01, 02 and 08 are past the
-    // delete threshold, 05 is internal, and 07 and 08 are already paused.
-    assert_eq!(idle_links(&pool).await?, links(&[4, 9]));
+    // 01 is past the delete threshold but still syncing, so it is paused first. 03 and 06
+    // were active recently (thread view or app open), 05 is internal, and 02, 07 and 08 are
+    // already paused.
+    assert_eq!(idle_links(&pool).await?, links(&[1, 4, 9]));
 
     Ok(())
 }
@@ -62,9 +55,9 @@ async fn links_idle_past_delete_threshold_are_selected_for_delete(
 ) -> Result<()> {
     let (unused, inactive) = links_to_delete(&pool).await?;
 
-    // 08 is deleted even though it is paused; 06 has stale thread views but opened the app
-    // yesterday, and 05 is internal.
-    assert_eq!(unused, links(&[1, 8]));
+    // Only paused links are deleted: 01 is idle long enough but still syncing. 06 has stale
+    // thread views but opened the app yesterday, and 05 is internal.
+    assert_eq!(unused, links(&[8]));
     assert_eq!(inactive, links(&[2]));
 
     Ok(())
@@ -75,9 +68,7 @@ async fn links_idle_past_delete_threshold_are_selected_for_delete(
     fixtures(path = "../fixtures", scripts("link_retention"))
 )]
 async fn retention_respects_threshold_parameters(pool: Pool<Postgres>) -> Result<()> {
-    let now = Utc::now();
-    let idle =
-        fetch_idle_link_ids(&pool, now - Duration::days(365), now - Duration::days(400)).await?;
+    let idle = fetch_idle_link_ids(&pool, Utc::now() - Duration::days(365)).await?;
     let unused = fetch_unused_link_ids(&pool, 365).await?;
     let inactive = fetch_inactive_link_ids(&pool, 365).await?;
     assert!(idle.is_empty() && unused.is_empty() && inactive.is_empty());
