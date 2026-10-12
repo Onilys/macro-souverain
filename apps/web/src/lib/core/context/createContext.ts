@@ -10,7 +10,8 @@ import {
  *
  * @param name - Name of the context (used in error messages)
  * @param factory - Factory function that creates the context value
- * @returns Tuple of [Provider, useContext] where useContext throws if undefined
+ * @returns Tuple of [Provider, useContext, useOptionalContext]. useContext throws
+ * if undefined; useOptionalContext returns undefined outside the provider.
  */
 export function createAssertedContextProvider<
   T,
@@ -18,7 +19,11 @@ export function createAssertedContextProvider<
 >(
   name: string,
   factory: (props: P) => T
-): [provider: ContextProvider<P>, useContext: () => T] {
+): [
+  provider: ContextProvider<P>,
+  useContext: () => T,
+  useOptionalContext: () => T | undefined,
+] {
   const [Provider, useContext] = createContextProvider(factory);
   const useAssertedContext = (): T => {
     const ctx = useContext();
@@ -27,5 +32,5 @@ export function createAssertedContextProvider<
     }
     return ctx;
   };
-  return [Provider, useAssertedContext];
+  return [Provider, useAssertedContext, useContext];
 }

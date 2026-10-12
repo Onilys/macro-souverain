@@ -45,7 +45,7 @@ export function deriveIsAuthenticated(
   return false;
 }
 
-export const [UserContextProvider, useUserContext] =
+export const [UserContextProvider, useUserContext, useOptionalUserContext] =
   createAssertedContextProvider('UserContext', (): UserContextValue => {
     const query = useUserInfoQuery({ enabled: shouldQueryUserInfo });
 
@@ -103,6 +103,12 @@ export function useIsAuthenticated() {
 
 export function useUserId() {
   return useUserContext().userId;
+}
+
+/** The signed-in user id, or a stable undefined accessor outside user context. */
+export function useOptionalUserId(): Accessor<string | undefined> {
+  const user = useOptionalUserContext();
+  return () => user?.userId();
 }
 
 export function useEmail() {

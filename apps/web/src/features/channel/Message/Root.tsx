@@ -1,3 +1,4 @@
+import { useOptionalUserId } from '@core/context/user';
 import type { MessageActions, MessageData } from '@core/messages/types';
 import { stickyGate } from '@core/util/debounce';
 import { cn } from '@ui';
@@ -7,6 +8,7 @@ import {
   MessageActionsProvider,
   MessageProvider,
 } from './context';
+import { messageMentionsViewer } from './mentioned';
 
 /**
  * How long the accent background fades once the message stops being
@@ -28,6 +30,10 @@ type RootProps = JSX.HTMLAttributes<HTMLDivElement> & {
    * navigation, points at this message. Renders the accent bar.
    */
   targeted?: boolean;
+  /**
+   * Viewer used for the golden mention wash. Defaults to the signed-in user.
+   */
+  viewerId?: string;
 };
 
 function callEventHandler<E extends Event>(
@@ -49,6 +55,7 @@ export function Root(props: RootProps) {
     'actions',
     'selected',
     'targeted',
+    'viewerId',
     'onPointerEnter',
     'onPointerLeave',
     'onFocusIn',
@@ -77,6 +84,12 @@ export function Root(props: RootProps) {
     TARGETED_FADE_OUT_MS
   );
   const targetFading = () => targetedSticky() && !local.targeted;
+  const signedInUserId = useOptionalUserId();
+  const mentioned = () =>
+    messageMentionsViewer(
+      local.message.content,
+      local.viewerId ?? signedInUserId()
+    );
 
   return (
     <div
@@ -86,6 +99,7 @@ export function Root(props: RootProps) {
       data-selected={local.selected ? '' : undefined}
       data-targeted={local.targeted ? '' : undefined}
       data-targeted-fading={targetFading() ? '' : undefined}
+      data-mentioned={mentioned() ? '' : undefined}
       onPointerEnter={(event) => {
         setActionMenuVisibilityFlag(ACTION_MENU_POINTER_VISIBLE, true);
         callEventHandler(event, local.onPointerEnter);
