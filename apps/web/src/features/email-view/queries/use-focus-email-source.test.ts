@@ -63,21 +63,21 @@ function email(
   };
 }
 
-// Server order: most important first.
+// Server order: by priority, so the fresh invoice leads the older report.
 const EMAILS = [
   email(
     'invoice',
-    { importance: 93, needsReply: true, category: 'CUSTOMER' },
+    { importance: 70, needsReply: true, category: 'CUSTOMER' },
     {
-      sortTs: '2026-10-01T10:00:00Z',
+      sortTs: '2026-10-08T10:00:00Z',
       senderName: 'Casey',
     }
   ),
   email(
     'report',
-    { importance: 80, category: 'SECURITY' },
+    { importance: 93, category: 'SECURITY' },
     {
-      sortTs: '2026-10-08T10:00:00Z',
+      sortTs: '2026-10-05T10:00:00Z',
       linkId: 'inbox-b',
     }
   ),
@@ -85,7 +85,7 @@ const EMAILS = [
     'plan',
     { importance: 61, needsFollowUp: true, category: 'TEAM' },
     {
-      sortTs: '2026-10-05T10:00:00Z',
+      sortTs: '2026-10-06T10:00:00Z',
       snippet: 'CRM rollout plan',
     }
   ),
@@ -104,7 +104,7 @@ function select(
       search: '',
       inboxIds: undefined,
       facets: {},
-      focusSort: 'importance',
+      focusSort: 'priority',
       ...input,
     },
     context
@@ -112,15 +112,23 @@ function select(
 }
 
 describe('selectFocusEmails', () => {
-  it('keeps the server order by importance', () => {
+  it('keeps the server order by priority', () => {
     expect(select({})).toEqual(['invoice', 'report', 'plan']);
+  });
+
+  it('orders by importance on request', () => {
+    expect(select({ focusSort: 'importance' })).toEqual([
+      'report',
+      'invoice',
+      'plan',
+    ]);
   });
 
   it('orders by recency on request', () => {
     expect(select({ focusSort: 'recent' })).toEqual([
-      'report',
-      'plan',
       'invoice',
+      'plan',
+      'report',
     ]);
   });
 
@@ -149,6 +157,7 @@ describe('selectFocusEmails', () => {
   });
 
   it('does not reorder the input list', () => {
+    select({ focusSort: 'importance' });
     select({ focusSort: 'recent' });
     expect(EMAILS.map((selected) => selected.id)).toEqual([
       'invoice',

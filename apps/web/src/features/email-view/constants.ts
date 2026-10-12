@@ -55,16 +55,27 @@ export const EMAIL_FOCUS_TAB: EmailTabItem = {
 };
 
 /** How the Focus tab orders its threads. */
-export const EMAIL_FOCUS_SORT_IDS = ['importance', 'recent'] as const;
+export const EMAIL_FOCUS_SORT_IDS = [
+  'priority',
+  'importance',
+  'recent',
+] as const;
 
 export type EmailFocusSort = (typeof EMAIL_FOCUS_SORT_IDS)[number];
 
-export const DEFAULT_EMAIL_FOCUS_SORT: EmailFocusSort = 'importance';
+export const DEFAULT_EMAIL_FOCUS_SORT: EmailFocusSort = 'priority';
 
 export const EMAIL_FOCUS_SORT_OPTIONS: readonly {
   id: EmailFocusSort;
   label: string;
+  /** A second line in the sort menu, for orders the label can't explain. */
+  description?: string;
 }[] = [
+  {
+    id: 'priority',
+    label: 'Priority',
+    description: 'Importance, halved every 2 days without new mail',
+  },
   { id: 'importance', label: 'Importance' },
   { id: 'recent', label: 'Most recent' },
 ];

@@ -191,7 +191,7 @@ async fn an_older_classification_never_replaces_a_newer_one(
     migrator = "MACRO_DB_MIGRATIONS",
     fixtures(path = "../../../fixtures", scripts("email_focus"))
 )]
-async fn focus_list_is_the_owners_inbox_by_importance(pool: Pool<Postgres>) -> Result<(), Report> {
+async fn focus_list_is_the_owners_inbox_by_priority(pool: Pool<Postgres>) -> Result<(), Report> {
     let repo = FocusPgRepository(pool);
     let now = Utc::now();
     repo.save(&record(INVOICE, LATEST_MESSAGE, now, 60)).await?;
@@ -206,12 +206,23 @@ async fn focus_list_is_the_owners_inbox_by_importance(pool: Pool<Postgres>) -> R
     })
     .await?;
 
+    // Mail from 20 hours ago at 60 outranks mail from 3 days ago at 90: the
+    // older thread has lost a half-life more.
     let since = now - Duration::days(30);
+    assert_eq!(
+        repo.focus_thread_ids(&owner(), since, 10).await?,
+        vec![INVOICE, BULK]
+    );
+    assert_eq!(
+        repo.focus_thread_ids(&owner(), since, 1).await?,
+        vec![INVOICE]
+    );
+    // A wide enough importance gap still wins.
+    repo.save(&record(INVOICE, LATEST_MESSAGE, now, 30)).await?;
     assert_eq!(
         repo.focus_thread_ids(&owner(), since, 10).await?,
         vec![BULK, INVOICE]
     );
-    assert_eq!(repo.focus_thread_ids(&owner(), since, 1).await?, vec![BULK]);
     assert_eq!(
         repo.focus_thread_ids(&owner(), now - Duration::days(1), 10)
             .await?,

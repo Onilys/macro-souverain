@@ -7,6 +7,20 @@ import { EMAIL_FOCUS_SORT_OPTIONS } from '../constants';
 import { useEmailView } from '../email-view-context';
 import { useEmailFilters } from '../filters/use-email-filters';
 
+const FOCUS_SORT_OPTIONS = EMAIL_FOCUS_SORT_OPTIONS.map((option) => ({
+  id: option.id,
+  label: option.label,
+  content:
+    option.description === undefined
+      ? undefined
+      : () => (
+          <span class="flex flex-col">
+            <span>{option.label}</span>
+            <span class="text-xs text-ink-muted">{option.description}</span>
+          </span>
+        ),
+}));
+
 export type EmailControlsProps = {
   /** Controlled filter-menu state, so the header's `f` hotkey can open it. */
   filterOpen?: boolean;
@@ -23,7 +37,7 @@ export function EmailControls(props: EmailControlsProps) {
         <ListSortDropdown
           label="Sort Focus"
           value={state.focusSort}
-          options={[...EMAIL_FOCUS_SORT_OPTIONS]}
+          options={FOCUS_SORT_OPTIONS}
           onChange={setFocusSort}
         />
       </Show>

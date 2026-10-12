@@ -848,7 +848,8 @@ where
     }
 
     /// The viewer's Focus: signal threads in their own inboxes worth their
-    /// attention, most important first, with mail in the last `days` days
+    /// attention, highest priority first (importance, halved for every 2 days
+    /// since the latest inbound mail), with mail in the last `days` days
     /// (default 30, at most 90). Each thread's `focus` field explains why.
     async fn email_focus(
         &self,

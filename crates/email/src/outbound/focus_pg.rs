@@ -306,7 +306,13 @@ impl FocusStore for FocusPgRepository {
               AND t.inbox_visible
               AND t.is_signal
               AND t.latest_inbound_message_ts >= $2
-            ORDER BY f.importance DESC, t.latest_inbound_message_ts DESC, f.thread_id
+            -- Priority: importance, halved for every 2 days (172800 s) since the
+            -- latest inbound mail. As a sum of logs the key doesn't depend on the
+            -- current time, so the order only changes when new mail arrives.
+            ORDER BY log(2.0, GREATEST(f.importance, 1))
+                         + extract(epoch FROM t.latest_inbound_message_ts) / 172800 DESC,
+                     t.latest_inbound_message_ts DESC,
+                     f.thread_id
             LIMIT $3
             "#,
             owner.as_ref(),

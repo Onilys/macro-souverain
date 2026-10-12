@@ -178,7 +178,7 @@ pub async fn load_email_thread_focus(
         .map_err(|_| async_graphql::Error::new("email thread focus is unavailable"))
 }
 
-/// The viewer's Focus thread ids, most important first; empty when Focus is
+/// The viewer's Focus thread ids, highest priority first; empty when Focus is
 /// not served here.
 pub async fn load_email_focus_thread_ids(
     ctx: &Context<'_>,

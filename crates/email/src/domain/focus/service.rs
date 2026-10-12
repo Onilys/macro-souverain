@@ -268,7 +268,7 @@ impl<S: FocusStore> FocusQueries<S> {
     }
 
     /// The owner's Focus threads still in the inbox with mail in the last
-    /// `window_days` (at most 90), most important first.
+    /// `window_days` (at most 90), highest priority first.
     pub async fn focus_thread_ids(
         &self,
         owner: &MacroUserIdStr<'static>,

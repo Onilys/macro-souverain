@@ -13,6 +13,7 @@ import { useEmailFocusQuery } from '@queries/email/focus';
 import { createGraphqlSoupDoneProjection } from '@queries/soup/graphql/done-projection';
 import { usePendingGraphqlSoupDone } from '@queries/soup/graphql/optimistic-done';
 import { createMemo } from 'solid-js';
+import { match } from 'ts-pattern';
 import { EMAIL_FACETS, type EmailFacetContext } from '../filters/email-facets';
 import { useEmailTabAvailability } from '../tab-availability';
 import type {
@@ -29,6 +30,13 @@ const timestamp = (value: DateValue | null | undefined) =>
 const recency = (email: EmailEntity) =>
   timestamp(email.sortTs ?? email.updatedAt ?? email.createdAt);
 
+const byRecency = (left: EmailEntity, right: EmailEntity) =>
+  recency(right) - recency(left);
+
+const byImportance = (left: EmailEntity, right: EmailEntity) =>
+  (right.focus?.importance ?? 0) - (left.focus?.importance ?? 0) ||
+  byRecency(left, right);
+
 function matchesSearch(email: EmailEntity, text: string): boolean {
   return [email.name, email.snippet, email.senderName, email.senderEmail].some(
     (value) => value?.toLowerCase().includes(text) === true
@@ -37,7 +45,7 @@ function matchesSearch(email: EmailEntity, text: string): boolean {
 
 /**
  * Applies the view's inbox scope, filters and search to the Focus list. The
- * server returns it most important first; "Most recent" reorders it here.
+ * server returns it by priority; "Importance" and "Most recent" reorder it here.
  * Done threads leave at once, as on Signal: the server drops archived
  * threads only on the next read. Focus has no Status or Done filters.
  */
@@ -62,9 +70,11 @@ export function selectFocusEmails(
       ) &&
       (text === '' || matchesSearch(email, text))
   );
-  return input.focusSort === 'recent'
-    ? selected.sort((left, right) => recency(right) - recency(left))
-    : selected;
+  return match(input.focusSort)
+    .with('priority', () => selected)
+    .with('importance', () => selected.sort(byImportance))
+    .with('recent', () => selected.sort(byRecency))
+    .exhaustive();
 }
 
 /**

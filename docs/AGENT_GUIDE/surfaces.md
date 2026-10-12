@@ -448,11 +448,13 @@ service. An empty favorites list shows `No favorite emails`.
 With `enable-email-focus` and `enable-graphql-soup` on, a `Focus` tab sits first
 in the sidebar and the mobile pills. It lists signal threads from the last 30
 days that the email focus worker (`services/email_focus_worker`) classified as
-worth attention, most important first, including inboxes linked to the account.
-On desktop each row shows a 0-100 importance score before the subject and
-`reply needed`, `follow up`, or category badges in its metadata, and a sort
-dropdown switches between **Importance** and **Most recent**; phones show the
-same rows in that order without the score, badges or sort. The filter menu adds
+worth attention, including inboxes linked to the account, by priority: the
+importance score halved for every 2 days since the thread's latest inbound mail.
+On desktop each row shows `Reply needed`, `Follow up`, or category tag pills and
+then the 0-100 importance score with a five-bar meter just before the date (in
+narrow panes the score sits before the subject), and a sort dropdown switches
+between **Priority**, **Importance** and **Most recent**; phones show the same
+rows in priority order without the score, labels or sort. The filter menu adds
 a Focus group (Reply needed, Follow up, Customers, Security, Team, People you
 know) on this tab only and has no Status or Done group there. The list is one
 `user.emailFocus` GraphQL read filtered on the client; it refreshes on open, not

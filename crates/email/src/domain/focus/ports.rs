@@ -40,7 +40,8 @@ pub trait FocusStore: Send + Sync + 'static {
     ) -> impl Future<Output = Result<Vec<StaleThread>, Report>> + Send;
 
     /// The owner's Focus threads still in the inbox with mail since `since`,
-    /// most important first.
+    /// highest priority first: importance, halved for every 2 days since the
+    /// latest inbound mail.
     fn focus_thread_ids(
         &self,
         owner: &MacroUserIdStr<'static>,
