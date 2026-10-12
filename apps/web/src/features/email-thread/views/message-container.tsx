@@ -133,7 +133,7 @@ export function MessageContainer(props: MessageContainerProps) {
                 replyType,
                 isLastMessage: props.isLastMessage,
                 setShowReply,
-                isMobile: threadContext.isMobile(),
+                isTouch: threadContext.isTouch(),
               })
           : undefined
       }

@@ -12,7 +12,11 @@ fn user() -> MacroUserIdStr<'static> {
     MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap()
 }
 
-struct FakeStore(Vec<PipedreamConnection>);
+#[derive(Default)]
+struct FakeStore {
+    connections: Vec<PipedreamConnection>,
+    native_records: Vec<McpServerRecord>,
+}
 
 impl ConnectionStore for FakeStore {
     type Err = ();
@@ -38,7 +42,7 @@ impl ConnectionStore for FakeStore {
         user: &MacroUserIdStr<'static>,
     ) -> Result<Vec<PipedreamConnection>, Self::Err> {
         assert_eq!(user, &self::user());
-        Ok(self.0.clone())
+        Ok(self.connections.clone())
     }
 }
 
@@ -63,10 +67,10 @@ impl McpServerStore for FakeStore {
 
     async fn list(&self, _: &MacroUserIdStr<'static>) -> Result<Vec<McpServerRecord>, Self::Err> {
         assert!(
-            self.0.is_empty(),
+            self.connections.is_empty() || !self.native_records.is_empty(),
             "Pipedream connections exclude the native stack"
         );
-        Ok(vec![])
+        Ok(self.native_records.clone())
     }
 }
 
@@ -76,6 +80,10 @@ struct FakeConnection {
 }
 
 impl McpConnection for FakeConnection {
+    fn is_configured(&self) -> bool {
+        true
+    }
+
     async fn connect(&self, record: &PipedreamConnection) -> anyhow::Result<McpServer> {
         self.attempts.lock().unwrap().push(record.app_slug.clone());
         // Exercise selection without a live MCP transport. Failed sessions
@@ -84,8 +92,8 @@ impl McpConnection for FakeConnection {
     }
 }
 
-fn selector(slugs: &[&str]) -> McpToolSelector<FakeStore, FakeStore, FakeConnection> {
-    let records = slugs
+fn connections(slugs: &[&str]) -> Vec<PipedreamConnection> {
+    slugs
         .iter()
         .map(|slug| PipedreamConnection {
             user_id: user(),
@@ -94,9 +102,83 @@ fn selector(slugs: &[&str]) -> McpToolSelector<FakeStore, FakeStore, FakeConnect
             account_id: format!("apn_{slug}"),
             enabled: true,
         })
-        .collect();
-    let store = Arc::new(FakeStore(records));
+        .collect()
+}
+
+fn selector(slugs: &[&str]) -> McpToolSelector<FakeStore, FakeStore, FakeConnection> {
+    let store = Arc::new(FakeStore {
+        connections: connections(slugs),
+        ..Default::default()
+    });
     McpToolSelector::new(store.clone(), store, Arc::new(FakeConnection::default()))
+}
+
+#[tokio::test]
+async fn unconfigured_pipedream_preserves_native_connector_selection() {
+    let connectors = [
+        SLACK,
+        ConnectorRef {
+            pipedream_app_slugs: &["notion"],
+            native_server_url: "https://mcp.notion.com/mcp",
+        },
+        ConnectorRef {
+            pipedream_app_slugs: &["linear"],
+            native_server_url: "https://mcp.linear.app/mcp",
+        },
+    ];
+    let store = Arc::new(FakeStore {
+        connections: connections(&["slack", "notion", "linear"]),
+        native_records: connectors
+            .iter()
+            .map(|connector| McpServerRecord {
+                user_id: user(),
+                url: connector.native_server_url.to_string(),
+                server_name: connector.pipedream_app_slugs[0].to_string(),
+                credentials: None,
+                // Only exercise routing; no live server should be contacted.
+                enabled: false,
+            })
+            .collect(),
+    });
+    let selector =
+        McpToolSelector::new(store.clone(), store, Arc::new(None::<Arc<FakeConnection>>));
+
+    assert!(matches!(
+        selector.user_toolset(&user()).await,
+        UserMcpTools::Native(_)
+    ));
+    for connector in connectors {
+        assert!(matches!(
+            selector
+                .connector_toolset(&user(), connector)
+                .await
+                .unwrap(),
+            Some(UserMcpTools::Native(_))
+        ));
+        assert!(
+            !selector
+                .connector_connected(&user(), connector)
+                .await
+                .unwrap(),
+            "stored Pipedream accounts must not report a usable connection"
+        );
+    }
+}
+
+#[tokio::test]
+async fn configured_optional_pipedream_keeps_precedence_over_native() {
+    let configured = selector(&["slack"]);
+    let selector = McpToolSelector::new(
+        configured.native_store,
+        configured.pipedream_store,
+        Arc::new(Some(configured.pipedream_connection)),
+    );
+
+    assert!(matches!(
+        selector.connector_toolset(&user(), SLACK).await.unwrap(),
+        Some(UserMcpTools::Pipedream(_))
+    ));
+    assert!(selector.connector_connected(&user(), SLACK).await.unwrap());
 }
 
 #[test]

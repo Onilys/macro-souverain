@@ -448,9 +448,18 @@ pub type ToolCalendarReadService = calendar_events::domain::service::CalendarSer
 pub type ToolCalendarMutationService =
     calendar_events::outbound::calendar_service_mutations::CalendarServiceMutations;
 
+/// Type alias for the meeting-link provider used by AI tools. Macro calls
+/// attached to events are minted through the same call service the call
+/// tools run on, owned by the requesting user.
+pub type ToolCalendarMeetingLinks =
+    calendar_events::outbound::call_meeting_links::CallServiceMeetingLinks<ToolCallService>;
+
 /// Type alias for the calendar AI tool context.
-pub type ToolCalendarToolContext =
-    CalendarToolContext<ToolCalendarMutationService, ToolCalendarReadService>;
+pub type ToolCalendarToolContext = CalendarToolContext<
+    ToolCalendarMutationService,
+    ToolCalendarReadService,
+    ToolCalendarMeetingLinks,
+>;
 
 /// Source-scoped team calendar domain service for read-only AI availability.
 pub type ToolTeamCalendarService = calendar_events::domain::team::CalendarTeamServiceImpl<
@@ -475,11 +484,15 @@ pub fn build_team_calendar_tool_context(
 
 /// Build the calendar AI tool context: reads query the local occurrence
 /// projections from `pool`; mutations call the calendar service at
-/// `calendar_service_url` with the shared internal API key.
+/// `calendar_service_url` with the shared internal API key; Macro calls
+/// attached to new events are minted through `call_service` and linked on
+/// `app_url`, the browser origin users open meetings on.
 pub fn build_calendar_tool_context(
     pool: sqlx::PgPool,
     calendar_service_url: macro_service_urls::CalendarServiceUrl,
     internal_api_key: String,
+    call_service: Arc<ToolCallService>,
+    app_url: macro_service_urls::AppServiceUrl,
 ) -> ToolCalendarToolContext {
     CalendarToolContext::new(
         Arc::new(
@@ -491,6 +504,12 @@ pub fn build_calendar_tool_context(
         Arc::new(calendar_events::domain::service::CalendarService::new(
             calendar_events::outbound::pg::PgCalendarRepository::new(pool),
         )),
+        Arc::new(
+            calendar_events::outbound::call_meeting_links::CallServiceMeetingLinks::new(
+                call_service,
+                app_url.as_str(),
+            ),
+        ),
     )
 }
 
@@ -522,6 +541,27 @@ pub fn build_booking_link_tool_context(
             macro_env::Environment::Local => "",
         }
         .into(),
+    }
+}
+
+/// Booking administration is executed by the calendar service, including provider recovery.
+pub type ToolBookingManagementToolContext =
+    calendar_scheduling::inbound::toolset::BookingManagementToolContext<
+        calendar_scheduling::outbound::administration_client::SchedulingAdministrationClient,
+    >;
+/// Construct the authenticated scheduling client at the host composition root.
+pub fn build_booking_management_tool_context(
+    calendar_url: macro_service_urls::CalendarServiceUrl,
+    internal_api_key: String,
+    environment: macro_env::Environment,
+) -> ToolBookingManagementToolContext {
+    calendar_scheduling::inbound::toolset::BookingManagementToolContext {
+        service: Arc::new(calendar_scheduling::outbound::administration_client::SchedulingAdministrationClient::new(calendar_url.to_string(), internal_api_key)),
+        public_origin: match environment {
+            macro_env::Environment::Production => "https://macro.com",
+            macro_env::Environment::Develop => "https://dev.macro.com",
+            macro_env::Environment::Local => "",
+        }.into(),
     }
 }
 
@@ -1554,9 +1594,7 @@ pub type ToolImportService = import::domain::service::ImportServiceImpl<
     import::outbound::mcp_slack_source::McpSlackSource<ToolMcpSelector>,
 >;
 
-/// Type alias for the import tool context. Built `unwired` by the shared
-/// context builder; hosts that can run the import pipeline (DCS) replace it
-/// with a wired one after constructing the import service.
+/// Type alias for the import tool context, wired by hosts with connector access.
 pub type ToolImportToolContext = import::inbound::toolset::ImportToolContext<ToolImportService>;
 
 pub type ToolActivityToolContext = activity::inbound::toolset::ActivityToolContext<
@@ -1620,6 +1658,8 @@ pub struct ToolServiceContext {
     pub calendar_tool_context: ToolCalendarToolContext,
     pub team_calendar_tool_context: ToolTeamCalendarToolContext,
     pub booking_link_tool_context: ToolBookingLinkToolContext,
+    /// Calendar-service-backed booking administration.
+    pub booking_management_tool_context: ToolBookingManagementToolContext,
     pub notification_tool_context: ToolNotificationToolContext,
     pub databases_tool_context: ToolDatabasesToolContext,
     pub forms_tool_context: ToolFormsToolContext,

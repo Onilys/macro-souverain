@@ -48,7 +48,7 @@ export const RouteMobileSignup: Component = () => {
           color: 'var(--c0)',
           'font-family': 'display',
           'font-size': mobile() ? 'clamp(38px, 11vw, 48px)' : '48px',
-          'font-weight': '315',
+          'font-weight': 'calc(315 + var(--cream-slab-weight-increase, 0))',
           'letter-spacing': '-0.012em',
           'line-height': 1.12,
           margin: '0',

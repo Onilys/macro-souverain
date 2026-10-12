@@ -72,9 +72,9 @@ function loadCal(): CalApi {
 const CREAM_BRAND = '#1d1c1a';
 const creamThemeVars = {
   'cal-bg': '#faf8f3',
-  'cal-bg-emphasis': '#ece8df',
-  'cal-bg-subtle': '#f2eee6',
-  'cal-bg-muted': '#f2eee6',
+  'cal-bg-emphasis': '#fdfcfb',
+  'cal-bg-subtle': '#fcfbf8',
+  'cal-bg-muted': '#fcfbf8',
   'cal-bg-inverted': '#1d1c1a',
   'cal-border': '#1d1c1a1a',
   'cal-border-default': '#1d1c1a1a',

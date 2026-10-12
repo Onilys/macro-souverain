@@ -74,6 +74,7 @@ ignore = [
   { id = "RUSTSEC-2023-0089", reason = "Dependency from heapless 0.7, showing up in Cargo.lock but not used on std platforms. " },
   { id = "RUSTSEC-2024-0384", reason = "Cannot yet switch to web-time, due to a 3rd party openai dependency" },
   { id = "RUSTSEC-2024-0436", reason = "Paste is a 'finished' crate which is heavily depended on" },
+  { id = "RUSTSEC-2024-0449", reason = "No patched release; serde_yaml is used only by local/CI YAML tooling, including docker-compose-types. Parser migration is separate from runtime changes." },
   { id = "RUSTSEC-2025-0012", reason = "Cannot remove dep due to 3rd party openai dependency" },
   { id = "RUSTSEC-2025-0057", reason = "We should switch to rustc-hash, but haven't got to that yet" },
   { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101.7 pinned by AWS SDK via rustls 0.21" },
@@ -215,6 +216,7 @@ deny = [
     "lambda_runtime_api_client", # External crate allowed to use tracing-subscriber
     "loom",                      # External concurrency testing dependency
     "macro_entrypoint",
+    "macro_authorization",      # Credential-redaction span tests only
     "macro_tower_layers",        # OpenTelemetry layer tests
     "native_app_server",         # Dev tooling only
     "notification_sandbox",      # This is not production code its just tooling

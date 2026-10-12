@@ -2181,6 +2181,9 @@ access to the title and property controls.
 1. Click `Edit with AI` (button directly under the editor body).
 2. A focused prompt box appears (placeholder `Describe the edit…`). Type the instruction,
    press Enter (or click `Send`).
+   Selected-text AI edit uses the shared Send button: muted and disabled for an
+   empty or whitespace-only prompt, black with a white arrow in light mode once
+   an instruction is entered (inverted for dark mode), on desktop and mobile.
 3. While running, the button row shows a `Stop` button (a11y text `Stop AI edit`), and the
    live cursor walking the text is labelled with the editor's name: `Macro (AI)` for an
    inline edit, or the name of the agent or persona whose session asked for the edit

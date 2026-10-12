@@ -2027,6 +2027,7 @@ pub async fn run() -> anyhow::Result<()> {
         email_focus_reader: Arc::new(email::domain::focus::FocusQueries::new(
             email::outbound::FocusPgRepository(readonly_db.clone()),
         )),
+        graphql_crm_context: graphql_crm::CrmGraphqlContext::new(pipeline_service.clone()),
         graphql_initiative_context: graphql_initiative::InitiativeGraphqlContext::new(
             initiative_service.clone(),
             entity_access_service.clone(),

@@ -75,6 +75,8 @@ env_vars! {
     pub struct DocumentPermissionJwt;
     /// Comma-separated Kafka bootstrap servers for the macro event broker.
     pub struct KafkaBrokers;
+    /// Secrets Manager secret name for the shared MCP credential encryption key.
+    pub struct McpCredentialsKeySecretName;
 }
 
 /// The configuration parameters for the MCP server.
@@ -139,6 +141,7 @@ pub struct Config {
     pub internal_api_key: InternalApiKey,
     pub document_permission_jwt: DocumentPermissionJwt,
     pub kafka_brokers: KafkaBrokers,
+    pub mcp_credentials_key_secret_name: McpCredentialsKeySecretName,
 }
 
 impl Config {

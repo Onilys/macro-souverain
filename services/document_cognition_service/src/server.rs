@@ -45,8 +45,9 @@ use macro_authorization::{
     MacroAuthorizationState, PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
 };
 use macro_service_urls::{
-    AuthServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl,
-    EmailServiceUrl, LexicalServiceUrl, StaticFileServiceUrl, SyncServiceUrl,
+    AppServiceUrl, AuthServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl,
+    DocumentStorageServiceUrl, EmailServiceUrl, LexicalServiceUrl, StaticFileServiceUrl,
+    SyncServiceUrl,
 };
 use notification::domain::service::{
     NotificationReaderService, PlatformArnConfig, SqsNotificationIngress,
@@ -438,6 +439,14 @@ pub async fn run() -> anyhow::Result<()> {
             db.clone(),
         ))),
         lexical_client.clone(),
+    )
+    .with_attachment_sender(
+        ai_tools::email_attachments::build_email_attachment_sender(
+            user_email_service.clone(),
+            EmailPgRepo::new(db.clone()),
+            document_tool_context.service.clone(),
+        )
+        .await,
     );
 
     tracing::info!("initialized email tool context");
@@ -698,6 +707,8 @@ pub async fn run() -> anyhow::Result<()> {
         db.clone(),
         CalendarServiceUrl::new()?,
         internal_api_key.clone(),
+        call_tool_context.service.clone(),
+        AppServiceUrl::new()?,
     );
     let forms_tool_context = ai_tools::build_forms_tool_context(
         db.clone(),
@@ -732,6 +743,11 @@ pub async fn run() -> anyhow::Result<()> {
         properties_tool_context: properties_tool_context.clone(),
         email_tool_context: email_tool_context.clone(),
         call_tool_context: call_tool_context.clone(),
+        booking_management_tool_context: ai_tools::build_booking_management_tool_context(
+            CalendarServiceUrl::new()?,
+            internal_api_key.clone(),
+            config.environment,
+        ),
         booking_link_tool_context: ai_tools::build_booking_link_tool_context(
             db.clone(),
             config.environment,

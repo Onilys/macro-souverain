@@ -71,6 +71,7 @@ export const authExcluded = [
   'getAiBillingSummary',
   'getCodexConnection',
   'getCursorApiKey',
+  'getGithubPullRequestMergeability',
   'getGtmInviteOffer',
   'getLegacyUserPermissions',
   'getPermissions',
@@ -124,6 +125,7 @@ export const authExcluded = [
   'sendReferralCode',
   'sessionCreation',
   'sessionLogin',
+  'setGithubPullRequestDraft',
   'ssoLogin',
   'startCodexLogin',
   'toggleTeamAutoJoinDomain',
@@ -320,6 +322,9 @@ export const storageExcluded = [
   'createCollabSurfaceToken',
   'createInstructionsHandler',
   'createViewHandler',
+  // Declining a ringing call is a live-device session flow, like leaving.
+  'declineCall',
+  'declineRing',
   'deleteCollabSurface',
   'ensureCollabSurface',
   // First-run sample content is provisioned by the app's feature-gated onboarding.
