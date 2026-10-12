@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   setActiveView: (_view: string) => {},
   activeView: (): string => 'settings',
   navigate: vi.fn(),
+  replaceAllSplits: vi.fn(),
 }));
 
 vi.mock('@app/lib/analytics/analytics-context', () => ({
@@ -28,7 +29,10 @@ vi.mock('@components/app/app-sidebar/sidebar', () => ({
   SidebarOpenInSplitMenu: (props: ParentProps) => props.children,
 }));
 vi.mock('@components/app/split-layout/layout', () => ({
-  useSplitLayout: () => ({ openWithSplit: vi.fn() }),
+  useSplitLayout: () => ({
+    openWithSplit: vi.fn(),
+    replaceAllSplits: mocks.replaceAllSplits,
+  }),
 }));
 vi.mock('@solidjs/router', () => ({
   useLocation: () => ({ pathname: '/app' }),
@@ -64,6 +68,10 @@ beforeEach(() => {
   mocks.navigate.mockImplementation(({ viewId }: { viewId: string }) =>
     setActiveView(viewId)
   );
+  mocks.replaceAllSplits.mockReset();
+  mocks.replaceAllSplits.mockImplementation((content: { id: string }) =>
+    setActiveView(content.id)
+  );
 });
 
 afterEach(() => {
@@ -86,7 +94,8 @@ describe('ListNav', () => {
     expect(agents.hasAttribute('data-active')).toBe(true);
 
     vi.runAllTimers();
-    expect(mocks.navigate).toHaveBeenCalledOnce();
+    // Default open mode is fullscreen, so replaceAllSplits is called.
+    expect(mocks.replaceAllSplits).toHaveBeenCalledOnce();
     expect(mocks.activeView()).toBe('agents');
     expect(agents.hasAttribute('data-active')).toBe(true);
 
@@ -96,5 +105,25 @@ describe('ListNav', () => {
     expect(
       screen.getByRole('button', { name: 'Home' }).hasAttribute('data-active')
     ).toBe(false);
+  });
+
+  it('uses navigateToSidebarView when open mode is split', () => {
+    localStorage.setItem(
+      'macro:sidebar:prefs',
+      JSON.stringify({ openMode: { agents: 'split' } })
+    );
+    render(() => (
+      <SidebarPrefsProvider>
+        <ListNav item={item('agents', 'Agents')} />
+      </SidebarPrefsProvider>
+    ));
+    const agents = screen.getByRole('button', { name: 'Agents' });
+
+    fireEvent.mouseDown(agents, { button: 0 });
+    vi.runAllTimers();
+    // Split mode uses navigateToSidebarView with shiftKey = true to prefer a new split.
+    expect(mocks.navigate).toHaveBeenCalledOnce();
+    expect(mocks.replaceAllSplits).not.toHaveBeenCalled();
+    localStorage.removeItem('macro:sidebar:prefs');
   });
 });

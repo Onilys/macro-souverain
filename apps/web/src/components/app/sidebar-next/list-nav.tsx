@@ -16,7 +16,7 @@ import { createSignal, onCleanup, Show } from 'solid-js';
 import { NavGlyph } from './nav-glyph';
 import type { SidebarNextNavItem } from './nav-items';
 import { SidebarUnreadDot } from './unread-dot';
-import { useSidebarPrefs } from './use-sidebar-prefs';
+import { type SidebarOpenMode, useSidebarPrefs } from './use-sidebar-prefs';
 
 export type ListNavProps = {
   item: SidebarNextNavItem;
@@ -59,13 +59,17 @@ const activeContentKey = () => {
  * for that is deliberately absent until there is a data source to fill it.
  */
 export const ListNav = (props: ListNavProps) => {
-  const { hideSidebarItem } = useSidebarPrefs();
+  const { hideSidebarItem, getItemOpenMode, setItemOpenMode } =
+    useSidebarPrefs();
   const analytics = useAnalytics();
   const layout = useSplitLayout();
   const location = useLocation();
 
   const content = () => sidebarContent(props.item.id, props.item.params);
   const preload = () => layout.preloadContent(content());
+
+  const openMode = (): SidebarOpenMode => getItemOpenMode(props.item.id);
+  const isSplitMode = () => openMode() === 'split';
 
   // Read the manager signal live: it is undefined until the split layout
   // mounts, which happens after the sidebar.
@@ -141,14 +145,22 @@ export const ListNav = (props: ListNavProps) => {
         activeContentKey: activeContentKey(),
       });
       const { shiftKey } = event;
+      const mode = openMode();
       afterNextPaint(() => {
-        navigateToSidebarView({
-          viewId: props.item.id,
-          params: props.item.params,
-          shiftKey,
-          openWithSplit: layout.openWithSplit,
-          referredFrom: 'sidebar',
-        });
+        // Shift key overrides the saved preference: shift always opens in a new split.
+        // In split mode, open beside the current view.
+        // In fullscreen mode, replace all splits with the new content.
+        if (shiftKey || mode === 'split') {
+          navigateToSidebarView({
+            viewId: props.item.id,
+            params: props.item.params,
+            shiftKey: shiftKey || mode === 'split',
+            openWithSplit: layout.openWithSplit,
+            referredFrom: 'sidebar',
+          });
+        } else {
+          layout.replaceAllSplits(content(), { referredFrom: 'sidebar' });
+        }
         // Navigation is synchronous, so the real state now holds. Drop the
         // press: left in place, it would claim the highlight again whenever
         // the active content returned to what it was at press time (e.g.
@@ -191,6 +203,14 @@ export const ListNav = (props: ListNavProps) => {
       additionalActions={
         <Show when={props.item.id !== 'home'}>
           <MenuSeparator />
+          <MenuItem
+            selectorType="checkbox"
+            checked={isSplitMode()}
+            onChange={(checked) =>
+              setItemOpenMode(props.item.id, checked ? 'split' : 'fullscreen')
+            }
+            text="Open in split view"
+          />
           <MenuItem
             text="Hide from sidebar"
             onClick={() => hideSidebarItem(props.item.id)}

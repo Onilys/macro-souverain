@@ -7,22 +7,29 @@ const LEGACY_PINNED_KEY = 'macro:sidebar:pinned-items';
 /** Items hidden from the rail by default (reachable via the More menu). */
 export const DEFAULT_HIDDEN_IDS = ['calls', 'reviews'] as const;
 
+/** How a sidebar item opens by default. 'split' opens beside the current view. */
+export type SidebarOpenMode = 'split' | 'fullscreen';
+
 export type SidebarPrefs = {
   /** Item ids hidden from the outer rail. Home is never included. */
   hidden: Set<string>;
   /** Custom rail order. Missing ids fall back to the default catalog order. */
   order: string[];
+  /** Per-item open mode. Missing ids open fullscreen (the default). */
+  openMode: Map<string, SidebarOpenMode>;
 };
 
 type StoredPrefs = {
   hidden?: string[];
   order?: string[];
+  openMode?: Record<string, SidebarOpenMode>;
 };
 
 function defaultPrefs(): SidebarPrefs {
   return {
     hidden: new Set(DEFAULT_HIDDEN_IDS),
     order: [],
+    openMode: new Map(),
   };
 }
 
@@ -34,6 +41,7 @@ function loadPrefs(): SidebarPrefs {
       return {
         hidden: new Set((parsed.hidden ?? []).filter((id) => id !== 'home')),
         order: Array.isArray(parsed.order) ? parsed.order : [],
+        openMode: new Map(Object.entries(parsed.openMode ?? {})),
       };
     }
 
@@ -45,7 +53,11 @@ function loadPrefs(): SidebarPrefs {
         const pinnedSet = new Set(pinned as string[]);
         const hidden = DEFAULT_HIDDEN_IDS.filter((id) => !pinnedSet.has(id));
         localStorage.removeItem(LEGACY_PINNED_KEY);
-        const prefs = { hidden: new Set(hidden), order: [] as string[] };
+        const prefs = {
+          hidden: new Set(hidden),
+          order: [] as string[],
+          openMode: new Map<string, SidebarOpenMode>(),
+        };
         savePrefs(prefs);
         return prefs;
       }
@@ -61,6 +73,7 @@ function savePrefs(prefs: SidebarPrefs): void {
     const payload: StoredPrefs = {
       hidden: [...prefs.hidden].filter((id) => id !== 'home'),
       order: prefs.order,
+      openMode: Object.fromEntries(prefs.openMode),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -136,10 +149,31 @@ export const [SidebarPrefsProvider, useSidebarPrefs] =
       updatePrefs((current) => ({ ...current, order: nextOrder }));
     }
 
+    /** Set the default open mode for an item (Home is ignored). */
+    function setItemOpenMode(itemId: string, mode: SidebarOpenMode): void {
+      if (itemId === 'home') return;
+      updatePrefs((current) => {
+        const openMode = new Map(current.openMode);
+        if (mode === 'fullscreen') {
+          openMode.delete(itemId);
+        } else {
+          openMode.set(itemId, mode);
+        }
+        return { ...current, openMode };
+      });
+    }
+
+    /** Get the open mode for an item. Defaults to fullscreen. */
+    function getItemOpenMode(itemId: string): SidebarOpenMode {
+      return prefs().openMode.get(itemId) ?? 'fullscreen';
+    }
+
     return {
       prefs,
       hideSidebarItem,
       setSidebarItemVisible,
       reorderSidebarItems,
+      setItemOpenMode,
+      getItemOpenMode,
     };
   });
