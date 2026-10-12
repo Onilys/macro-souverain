@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE email_links\n        SET is_sync_active = FALSE,\n            sync_paused_at = COALESCE(sync_paused_at, NOW()),\n            updated_at = NOW()\n        WHERE id = $1\n          AND (sync_paused_at IS NOT NULL OR (is_sync_active AND last_active_at < $2))\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9e2ab6e558b1c3bedce0d28275b46abb7c423531e50ccaa5dfa9d891e0e23cb4"
+}

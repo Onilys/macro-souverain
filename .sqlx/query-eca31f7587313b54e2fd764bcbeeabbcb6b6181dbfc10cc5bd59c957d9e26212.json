@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE email_links\n        SET is_sync_active = $2, sync_paused_at = NULL, updated_at = NOW()\n        WHERE id = $1\n          AND (is_sync_active IS DISTINCT FROM $2 OR sync_paused_at IS NOT NULL)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eca31f7587313b54e2fd764bcbeeabbcb6b6181dbfc10cc5bd59c957d9e26212"
+}
