@@ -293,13 +293,19 @@ export function Agenda(props: {
     });
   });
 
+  // With no events to load the query never runs, so an empty agenda is
+  // ready at once rather than loading for good.
+  const state = () => {
+    if (props.events.length === 0) return 'ready';
+    if (query.isError) return 'error';
+    return queryReadyGate(query) ? 'ready' : 'loading';
+  };
+
   return (
     <AgendaView
       title={props.title}
       days={days()}
-      state={
-        query.isError ? 'error' : queryReadyGate(query) ? 'ready' : 'loading'
-      }
+      state={state()}
       unseen={queryReadyGate(query) ? props.events.length - loaded().length : 0}
     />
   );

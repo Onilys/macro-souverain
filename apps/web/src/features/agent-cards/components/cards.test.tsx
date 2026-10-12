@@ -63,6 +63,7 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   setPreview({ loading: true });
+  mocks.agenda.isPending = false;
   mocks.agenda.data = undefined;
   mocks.event.data = undefined;
   mocks.routine.data = undefined;
@@ -381,9 +382,11 @@ describe('an agenda', () => {
     expect(view.getAllByText('10 events').length).toBeGreaterThan(0);
   });
 
-  it('says when there is nothing to show', () => {
-    mocks.agenda.data = [];
+  it('says when there is nothing to show, without waiting on a load', () => {
+    // With no events there is nothing to fetch: the query stays pending.
+    mocks.agenda.isPending = true;
     const view = render(() => <Agenda events={[]} />);
     expect(view.getByText('No events to show.')).toBeTruthy();
+    expect(view.container.querySelector('[aria-busy="true"]')).toBeNull();
   });
 });
