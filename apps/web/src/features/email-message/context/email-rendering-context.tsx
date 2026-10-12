@@ -26,6 +26,11 @@ export interface EmailRenderingContextValue {
   cachedBodies?: Accessor<boolean>;
   /** Observes each body's first display. */
   reportBodyShown?: (shown: EmailBodyShown) => void;
+  /**
+   * Registers a body that is about to show HTML, so a thread open can wait for
+   * it; the returned function releases a body that unmounts first.
+   */
+  trackBodyOpen?: (messageId: string) => () => void;
   /** Revokes mounted content/resources when the owning session ends. */
   canRender?: Accessor<boolean>;
   preparation?: EmailPreparation;

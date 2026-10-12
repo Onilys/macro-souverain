@@ -2,7 +2,7 @@ import { StaticMarkdown } from '@core/component/LexicalMarkdown/component/core/S
 import { channelTheme } from '@core/component/LexicalMarkdown/theme';
 import DotsThree from '@phosphor/dots-three.svg';
 import { Button, cn } from '@ui';
-import { Match, Show, Switch, untrack } from 'solid-js';
+import { Match, onCleanup, Show, Switch, untrack } from 'solid-js';
 
 import { useEmailRenderingContext } from '../context/email-rendering-context';
 import {
@@ -17,6 +17,18 @@ import { createStableEmailMessageBody } from '../primitives/stable-email-message
  */
 export function EmailMessageBody(props: EmailMessageBodyProps) {
   const context = useEmailRenderingContext();
+  // A thread open waits for bodies that show HTML now; Markdown and text
+  // bodies mount no HTML host and never report.
+  const showsHtml = untrack(
+    () =>
+      !!props.message.body_html_sanitized &&
+      !props.message.body_macro &&
+      context.canRender?.() !== false
+  );
+  if (showsHtml) {
+    const release = context.trackBodyOpen?.(untrack(() => props.message.db_id));
+    if (release) onCleanup(release);
+  }
   return untrack(() => context.cachedBodies?.() === true) ? (
     <CachedEmailMessageBody {...props} />
   ) : (

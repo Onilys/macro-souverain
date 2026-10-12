@@ -43,15 +43,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(cachedBodies: () => boolean, current: () => EmailMessage) {
+function mount(
+  cachedBodies: () => boolean,
+  current: () => EmailMessage,
+  trackBodyOpen?: EmailRenderingContextValue['trackBodyOpen']
+) {
   const shown: EmailBodyShown[] = [];
   const context: EmailRenderingContextValue = {
     cachedBodies,
+    trackBodyOpen,
     reportBodyShown: (sample) => shown.push(sample),
     theme: () => theme,
     resolveImages: async () => {},
   };
-  const { container } = render(() => (
+  const { container, unmount } = render(() => (
     <EmailRenderingProvider value={context}>
       <EmailMessageBody
         message={current()}
@@ -67,7 +72,7 @@ function mount(cachedBodies: () => boolean, current: () => EmailMessage) {
     [...container.querySelectorAll('div')].find(
       (element) => element.shadowRoot
     );
-  return { shown, host };
+  return { shown, host, unmount };
 }
 
 it('renders the direct body outside the rollout and reports its first display once', () => {
@@ -112,4 +117,29 @@ it('keeps a body on the path it opened with when the rollout changes', () => {
   setCached(false);
   expect(host()).toBe(first);
   expect(shown).toHaveLength(1);
+});
+
+it('registers only bodies that show HTML with the thread open', () => {
+  const release = vi.fn();
+  const track = vi.fn(() => release);
+  const html = mount(
+    () => false,
+    () => message('html'),
+    track
+  );
+  expect(track).toHaveBeenCalledExactlyOnceWith('html');
+  html.unmount();
+  expect(release).toHaveBeenCalledOnce();
+  track.mockClear();
+  mount(
+    () => false,
+    () => message('markdown', { body_macro: 'Macro **markdown**' }),
+    track
+  );
+  mount(
+    () => false,
+    () => message('text', { body_html_sanitized: null, body_text: 'Plain' }),
+    track
+  );
+  expect(track).not.toHaveBeenCalled();
 });
