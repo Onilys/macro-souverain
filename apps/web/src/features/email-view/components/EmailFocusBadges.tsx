@@ -1,73 +1,122 @@
 import type { EmailFocus, EmailFocusCategory, EntityData } from '@entity';
-import { cn, Tooltip } from '@ui';
-import { type ParentProps, Show } from 'solid-js';
+import { useListLayout } from '@entity/composed/list-entity/shared';
+import { Badge, cn, TagDot, Tooltip } from '@ui';
+import { For, type ParentProps, Show } from 'solid-js';
 import { match } from 'ts-pattern';
 
 /** A Focus row's classification; other rows have none. */
 export const emailFocusOf = (entity: EntityData): EmailFocus | undefined =>
   entity.type === 'email' ? entity.focus : undefined;
 
-/** Categories worth naming on a row; the rest add nothing to a Focus row. */
-const categoryLabel = (category: EmailFocusCategory): string | undefined =>
-  match(category)
-    .with('SECURITY', () => 'security')
-    .with('CUSTOMER', () => 'customer')
-    .with('TEAM', () => 'team')
-    .otherwise(() => undefined);
+/** Lit bars for each importance band, highest first. */
+const IMPORTANCE_LEVELS = [
+  { from: 80, lit: 5, color: 'bg-green' },
+  { from: 60, lit: 4, color: 'bg-lime' },
+  { from: 40, lit: 3, color: 'bg-yellow' },
+  { from: 20, lit: 2, color: 'bg-orange' },
+  { from: 5, lit: 1, color: 'bg-red' },
+  { from: 0, lit: 0, color: '' },
+] as const;
 
-/** The 0-100 importance score ahead of a Focus row's subject. */
-export function EmailFocusScore(props: { focus: EmailFocus }) {
+const BARS = [0, 1, 2, 3, 4] as const;
+
+/** The 0-100 importance score as a number and a five-bar meter. */
+function ImportanceMeter(props: { focus: EmailFocus; class?: string }) {
   const label = () => `Importance ${props.focus.importance} of 100`;
+  const level = () =>
+    IMPORTANCE_LEVELS.find((band) => props.focus.importance >= band.from) ??
+    IMPORTANCE_LEVELS[IMPORTANCE_LEVELS.length - 1];
   return (
-    <Tooltip as="span" label={label()} class="inline-flex shrink-0">
-      <span
-        role="img"
-        aria-label={label()}
-        class={cn(
-          'inline-flex h-4 min-w-6 items-center justify-center rounded-full px-1 font-mono text-xxs font-medium tabular-nums',
-          props.focus.importance >= 80
-            ? 'bg-accent text-surface'
-            : props.focus.importance >= 50
-              ? 'bg-accent/15 text-accent'
-              : 'border border-edge-muted text-ink-extra-muted'
-        )}
-      >
-        {props.focus.importance}
+    <Tooltip
+      as="span"
+      label={label()}
+      class={cn('inline-flex shrink-0', props.class)}
+    >
+      <span role="img" aria-label={label()} class="flex items-center gap-2">
+        <span class="w-[3ch] text-right text-xs font-medium tabular-nums text-ink-muted">
+          {props.focus.importance}
+        </span>
+        <span class="flex items-center gap-[3px]">
+          <For each={BARS}>
+            {(bar) => (
+              <span
+                class={cn(
+                  'h-3.5 w-1.5 rounded-full',
+                  bar < level().lit ? level().color : 'bg-ink-extra-muted/25'
+                )}
+              />
+            )}
+          </For>
+        </span>
       </span>
     </Tooltip>
   );
 }
 
-function FocusBadge(props: ParentProps<{ class: string }>) {
+/** The score at the end of a wide Focus row, after the labels and tags. */
+export function EmailFocusScore(props: { focus: EmailFocus }) {
+  // Last in the row's metadata, so scores line up just before the date.
+  return <ImportanceMeter focus={props.focus} class="order-last" />;
+}
+
+/** The score ahead of the subject in narrow rows, which have no metadata column. */
+export function EmailFocusNarrowScore(props: { focus: EmailFocus }) {
+  const listLayout = useListLayout();
   return (
-    <span
-      class={cn(
-        'inline-flex select-none items-center whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-xxs font-medium uppercase',
-        props.class
-      )}
-    >
-      {props.children}
-    </span>
+    <Show when={!(listLayout?.isWide() ?? true)}>
+      <ImportanceMeter focus={props.focus} />
+    </Show>
   );
 }
 
-/** Reply-needed, follow-up and category markers in a Focus row's metadata. */
+/** Dot color per label, from the palette tags use. */
+const LABEL_TONES = {
+  warning: 'var(--color-warning)',
+  blue: 'var(--color-blue)',
+  red: 'var(--color-red)',
+  green: 'var(--color-green)',
+  violet: 'var(--color-violet)',
+} as const;
+
+type LabelTone = keyof typeof LABEL_TONES;
+
+/** Categories worth naming on a row; the rest add nothing to a Focus row. */
+const categoryLabel = (
+  category: EmailFocusCategory
+): { label: string; tone: LabelTone } | undefined =>
+  match(category)
+    .with('SECURITY', () => ({ label: 'Security', tone: 'red' as const }))
+    .with('CUSTOMER', () => ({ label: 'Customer', tone: 'green' as const }))
+    .with('TEAM', () => ({ label: 'Team', tone: 'violet' as const }))
+    .otherwise(() => undefined);
+
+/** A read-only label drawn like a row's tag pills. */
+function FocusLabel(props: ParentProps<{ tone: LabelTone }>) {
+  return (
+    <Badge
+      variant="outline"
+      size="sm"
+      class="select-none gap-1.5 text-ink-muted"
+    >
+      <TagDot fill={LABEL_TONES[props.tone]} />
+      {props.children}
+    </Badge>
+  );
+}
+
+/** Reply-needed, follow-up and category labels in a Focus row's metadata. */
 export function EmailFocusFlags(props: { focus: EmailFocus }) {
   return (
     <>
       <Show when={props.focus.needsReply}>
-        <FocusBadge class="text-warning border-warning/20">
-          reply needed
-        </FocusBadge>
+        <FocusLabel tone="warning">Reply needed</FocusLabel>
       </Show>
       <Show when={props.focus.needsFollowUp}>
-        <FocusBadge class="text-accent border-accent/20">follow up</FocusBadge>
+        <FocusLabel tone="blue">Follow up</FocusLabel>
       </Show>
       <Show when={categoryLabel(props.focus.category)}>
-        {(label) => (
-          <FocusBadge class="text-ink-extra-muted border-edge-muted">
-            {label()}
-          </FocusBadge>
+        {(category) => (
+          <FocusLabel tone={category().tone}>{category().label}</FocusLabel>
         )}
       </Show>
     </>

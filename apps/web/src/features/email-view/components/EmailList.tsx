@@ -65,6 +65,7 @@ import { EmailDateGroupHeader } from './EmailDateGroupHeader';
 import { EmailEmptyState } from './EmailEmptyState';
 import {
   EmailFocusFlags,
+  EmailFocusNarrowScore,
   EmailFocusScore,
   emailFocusOf,
 } from './EmailFocusBadges';
@@ -596,7 +597,9 @@ export function EmailList(props: EmailListProps) {
                                           )}
                                         >
                                           {(focus) => (
-                                            <EmailFocusScore focus={focus()} />
+                                            <EmailFocusNarrowScore
+                                              focus={focus()}
+                                            />
                                           )}
                                         </Show>
                                       }
@@ -607,7 +610,14 @@ export function EmailList(props: EmailListProps) {
                                           )}
                                         >
                                           {(focus) => (
-                                            <EmailFocusFlags focus={focus()} />
+                                            <>
+                                              <EmailFocusFlags
+                                                focus={focus()}
+                                              />
+                                              <EmailFocusScore
+                                                focus={focus()}
+                                              />
+                                            </>
                                           )}
                                         </Show>
                                       }
