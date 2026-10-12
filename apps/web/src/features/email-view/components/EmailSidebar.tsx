@@ -17,7 +17,7 @@ import SignalIcon from '@phosphor/wave-sine.svg';
 import NoiseIcon from '@phosphor/waveform.svg';
 import { SidebarTagsSection } from '@property/tags/SidebarTagsSection';
 import type { TagScope } from '@service-properties/generated/schemas/tagScope';
-import { pressHandlers } from '@ui';
+import { Badge, pressHandlers } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { type Component, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
@@ -67,6 +67,13 @@ function Tab(props: { item: EmailTabItem; onNavigate?: () => void }) {
         <Dynamic component={TAB_ICONS[props.item.id]} class="size-4" />
       </ViewSidebar.Icon>
       <span class="truncate">{props.item.label}</span>
+      <Show when={props.item.badge}>
+        {(badge) => (
+          <Badge variant="outline" size="xs" class="ml-auto">
+            {badge()}
+          </Badge>
+        )}
+      </Show>
     </ViewSidebar.Item>
   );
 }

@@ -445,8 +445,8 @@ REST Soup uses `favorites_only: true`. Starring changes membership without
 changing the list query. Text search still resolves favorite IDs for the search
 service. An empty favorites list shows `No favorite emails`.
 
-With `enable-email-focus` and `enable-graphql-soup` on, a `Focus` tab sits first
-in the sidebar and the mobile pills. It lists signal threads from the last 30
+With `enable-email-focus` and `enable-graphql-soup` on, a `Focus` tab marked
+`Experimental` sits first in the sidebar and the mobile pills. It lists signal threads from the last 30
 days that the email focus worker (`services/email_focus_worker`) classified as
 worth attention, including inboxes linked to the account, by priority: the
 importance score halved for every 2 days since the thread's latest inbound mail.

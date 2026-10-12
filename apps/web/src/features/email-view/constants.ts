@@ -39,6 +39,8 @@ const EMAIL_TAB_LABELS = {
 export type EmailTabItem = {
   id: EmailTab;
   label: string;
+  /** A short status beside the label, e.g. for an experimental tab. */
+  badge?: string;
 };
 
 export const EMAIL_TABS: readonly EmailTabItem[] = EMAIL_TAB_IDS.map((id) => ({
@@ -52,6 +54,7 @@ export const DEFAULT_EMAIL_TAB: EmailTab = 'important';
 export const EMAIL_FOCUS_TAB: EmailTabItem = {
   id: 'focus',
   label: EMAIL_TAB_LABELS.focus,
+  badge: 'Experimental',
 };
 
 /** How the Focus tab orders its threads. */
