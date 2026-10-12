@@ -23,6 +23,7 @@ const MAX_LOGGED_ERRORS: usize = 10;
 const MAX_ERROR_MESSAGE_CHARS: usize = 200;
 const REDACTED: &str = "<redacted>";
 const SERVER_ERROR_CODE_PREFIX: &str = "INTERNAL";
+const DATADOG_MEASURED: i64 = 1;
 
 static QUOTED_LITERAL: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""[^"]*"|`[^`]*`"#).expect("quoted literal pattern is valid"));
@@ -57,6 +58,10 @@ where
 fn execute_span() -> Span {
     tracing::info_span!(
         "graphql.execute",
+        // The Datadog Agent computes `trace.Internal.*` stats for an internal
+        // child span only when this attribute is the OTLP integer 1; a bool or
+        // string is ignored.
+        "_dd.measured" = DATADOG_MEASURED,
         "resource.name" = tracing::field::Empty,
         "graphql.operation.type" = tracing::field::Empty,
         "graphql.operation.name" = tracing::field::Empty,

@@ -82,11 +82,15 @@ struct Observed {
 
 impl Observed {
     fn attribute(&self, key: &str) -> Option<String> {
+        self.attribute_value(key).map(ToString::to_string)
+    }
+
+    fn attribute_value(&self, key: &str) -> Option<&opentelemetry::Value> {
         self.span
             .attributes
             .iter()
             .find(|attribute| attribute.key.as_str() == key)
-            .map(|attribute| attribute.value.to_string())
+            .map(|attribute| &attribute.value)
     }
 }
 
@@ -304,6 +308,25 @@ async fn successful_request_records_operation_without_logging() {
     );
     assert_eq!(observed.span.status, Status::Unset);
     assert!(observed.logs.is_empty(), "{}", observed.raw_logs);
+}
+
+#[tokio::test]
+async fn every_execute_span_is_measured_as_an_integer() {
+    let requests = [
+        (Request::new("query Soup { ok }"), true),
+        (Request::new("query Broken { broken }"), true),
+        (Request::new("mutation Anything { ok }"), false),
+        (Request::new("query {"), true),
+    ];
+    for (request, authenticated) in requests {
+        let observed = observe_request(request, authenticated).await;
+        assert_eq!(
+            observed.attribute_value("_dd.measured"),
+            Some(&opentelemetry::Value::I64(1)),
+            "{:?}",
+            observed.attribute("resource.name")
+        );
+    }
 }
 
 #[tokio::test]
