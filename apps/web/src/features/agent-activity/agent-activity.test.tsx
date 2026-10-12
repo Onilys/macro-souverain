@@ -189,6 +189,46 @@ it('keeps a live step and what it produced in place while the run ticks', async 
   ]);
 });
 
+it('keeps what folded-away steps produced in view above the count', async () => {
+  const rows = (last: 'running' | 'failed'): AgentActivityRow[] =>
+    Array.from({ length: 8 }, (_, index) => ({
+      id: `t${index}`,
+      label: `Step ${index}`,
+      status: index === 7 ? last : 'completed',
+      card:
+        index === 0
+          ? {
+              kind: 'item',
+              itemType: 'document',
+              itemId: 'doc-1',
+              action: 'created',
+            }
+          : null,
+    }));
+  for (const [sealed, last] of [
+    [false, 'running'],
+    [true, 'failed'],
+  ] as const) {
+    const view = render(() => (
+      <AgentActivity
+        agentSessionId="session"
+        turn={2}
+        segment={1}
+        rows={rows(last)}
+        sealed={sealed}
+      />
+    ));
+    const count = view.getByRole('button', { name: '2 earlier steps' });
+    expect(view.queryByText('Step 0')).toBeNull();
+    const card = await view.findByRole('complementary', { name: 'Cards' });
+    expect(card.textContent).toBe('t0:document:doc-1');
+    expect(
+      card.compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    cleanup();
+  }
+});
+
 it('folds a finished run into one line that opens to every step', () => {
   const rows = Array.from({ length: 8 }, (_, index) => ({
     id: `t${index}`,

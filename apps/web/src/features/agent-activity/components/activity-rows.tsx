@@ -6,7 +6,14 @@ import WarningIcon from '@phosphor/warning-circle.svg';
 import XIcon from '@phosphor/x.svg';
 import { Key } from '@solid-primitives/keyed';
 import { cn } from '@ui';
-import { createSignal, type JSX, Match, Show, Switch } from 'solid-js';
+import {
+  type Accessor,
+  createSignal,
+  type JSX,
+  Match,
+  Show,
+  Switch,
+} from 'solid-js';
 
 /** One step of an agent's work, as the session's fold worded it. */
 export type ActivityRowView = {
@@ -23,7 +30,8 @@ const VISIBLE_ROWS = 6;
  * The steps an agent took between two passages of its reply: what it did, to
  * what, and how that went, one quiet line each, with whatever a step
  * produced right under it. A long run keeps its latest steps in view and
- * folds the rest behind a count, so the newest step is always on screen.
+ * folds the rest behind a count, so the newest step is always on screen;
+ * what the folded steps produced stays in view above the count.
  *
  * Steps are kept by id: a live run hands over new objects for the same steps
  * several times a second, and a step that only changed its status must not
@@ -33,6 +41,8 @@ export function ActivityRows<Row extends ActivityRowView>(props: {
   rows: readonly Row[];
   /** What a step produced, shown under its row, by the step's id. */
   after?: (id: string) => JSX.Element;
+  /** What the steps folded behind the count produced, by their ids. */
+  earlier?: (ids: Accessor<readonly string[]>) => JSX.Element;
   /**
    * Steps whose product replaces their line: a view the agent composed is
    * shown where the step ran, with no line of its own.
@@ -47,10 +57,13 @@ export function ActivityRows<Row extends ActivityRowView>(props: {
   return (
     <ul class="my-1 flex min-w-0 flex-col gap-0.5 text-xs" aria-label="Steps">
       <Show when={hidden() > 0}>
-        <li>
+        <li class="flex min-w-0 flex-col">
+          {props.earlier?.(() =>
+            props.rows.slice(0, hidden()).map((row) => row.id)
+          )}
           <button
             type="button"
-            class="text-ink-subtle hover:text-ink-muted"
+            class="self-start text-ink-subtle hover:text-ink-muted"
             onClick={() => setExpanded(true)}
           >
             {hidden()} earlier {hidden() === 1 ? 'step' : 'steps'}
