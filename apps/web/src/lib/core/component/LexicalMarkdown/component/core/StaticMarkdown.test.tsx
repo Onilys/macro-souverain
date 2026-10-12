@@ -1,8 +1,21 @@
 import { ChatMessageMarkdown } from '@core/component/AI/component/message/ChatMessageMarkdown';
 import { render, waitFor } from '@solidjs/testing-library';
-import type { JSX } from 'solid-js';
+import { createSignal, type JSX } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
-import { StaticMarkdownContext } from './StaticMarkdown';
+import { StaticMarkdown, StaticMarkdownContext } from './StaticMarkdown';
+
+const agentPreview = vi.hoisted(() => ({
+  label: (): string => 'Loading session',
+  mounted: vi.fn(),
+}));
+
+vi.mock('../decorator/AgentSessionMention', () => ({
+  AgentSessionMention: () => {
+    // Query setup can synchronously read its current reactive snapshot.
+    agentPreview.mounted(agentPreview.label());
+    return <span data-session-preview>{agentPreview.label()}</span>;
+  },
+}));
 
 vi.mock('@service-connection/websocket', () => ({
   ws: { send() {}, addEventListener() {}, removeEventListener() {} },
@@ -17,6 +30,25 @@ vi.mock('@service-storage/websocket', () => ({
 }));
 vi.mock('@app/lib/analytics/posthog', () => ({
   useFeatureFlag: () => () => ({ enabled: true }),
+}));
+vi.mock('@core/constant/featureFlags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@core/constant/featureFlags')>()),
+  ENABLE_STATIC_DOCUMENT_CARDS: false,
+  // Forms off for this viewer: recipients still get the card.
+  isFeatureEnabled: () => false,
+}));
+vi.mock('../decorator/DocumentCard', () => ({
+  DocumentCard: (props: { blockName: string; documentId: string }) => (
+    <div data-card={props.blockName} data-card-id={props.documentId} />
+  ),
+}));
+vi.mock('../decorator/DocumentMention', () => ({
+  DocumentMention: (props: { blockName: string }) => (
+    <span data-mention={props.blockName} />
+  ),
+  DocumentMentionStatic: (props: { blockName: string }) => (
+    <span data-mention={props.blockName} />
+  ),
 }));
 vi.mock('../decorator/LazyDecorator', () => ({
   LazyDecorator: (props: { render: () => JSX.Element }) => props.render(),
@@ -72,6 +104,62 @@ describe('assistant message database answers', () => {
     expect(rendered.container.textContent).toContain(
       'Unavailable database question'
     );
+    rendered.unmount();
+  });
+});
+
+describe('sent message document cards', () => {
+  const card = (blockName: string, documentId: string) =>
+    `<m-document-card>${JSON.stringify({ documentId, documentName: 'Lunch?', blockName })}</m-document-card>`;
+
+  it('renders a form card as a card whatever the viewer’s forms flag, while other cards stay mentions until static cards roll out', () => {
+    const rendered = render(() => (
+      <StaticMarkdownContext>
+        <ChatMessageMarkdown
+          text={`${card('form', 'form-1')}\n\n${card('md', 'document-1')}`}
+          generating={() => false}
+        />
+      </StaticMarkdownContext>
+    ));
+    expect(
+      rendered.container
+        .querySelector('[data-card="form"]')
+        ?.getAttribute('data-card-id')
+    ).toBe('form-1');
+    expect(rendered.container.querySelector('[data-card="md"]')).toBeNull();
+    expect(
+      rendered.container.querySelector('[data-mention="md"]')
+    ).toBeTruthy();
+    rendered.unmount();
+  });
+});
+
+describe('static agent session previews', () => {
+  it('updates a preview without remounting its query on every result', async () => {
+    const [label, setLabel] = createSignal('Loading session');
+    agentPreview.label = label;
+    agentPreview.mounted.mockClear();
+    const rendered = render(() => (
+      <StaticMarkdownContext>
+        <StaticMarkdown
+          markdown='<m-agent-session-mention>{"id":"session-1","label":"Session"}</m-agent-session-mention>'
+          singleLine
+        />
+      </StaticMarkdownContext>
+    ));
+    // Let the asynchronous citation pass finish its initial render too.
+    await waitFor(() => {
+      expect(rendered.container.textContent).toContain('Loading session');
+    });
+    const preview = rendered.container.querySelector('[data-session-preview]');
+    const mounts = agentPreview.mounted.mock.calls.length;
+
+    setLabel('Loaded session');
+    expect(rendered.container.textContent).toContain('Loaded session');
+    expect(rendered.container.querySelector('[data-session-preview]')).toBe(
+      preview
+    );
+    expect(agentPreview.mounted).toHaveBeenCalledTimes(mounts);
     rendered.unmount();
   });
 });

@@ -62,6 +62,13 @@ export const publicBookingRoute = defineRoute({
   externalSearch: '*',
 });
 
+/** A form's respond page, outside the split layout so public forms skip login. */
+export const formRespondRoute = defineRoute({
+  id: 'form-respond',
+  path: 'form/:formId/respond',
+  externalSearch: '*',
+});
+
 export const bookingReceiptRoute = defineRoute({
   id: 'booking-receipt',
   path: 'booking/:id',
@@ -158,6 +165,12 @@ export const channelInviteRoute = defineRoute({
   path: 'channel-invite',
   externalSearch: '*',
 });
+
+/** Sign-in, onboarding, invite, and handoff pages, without the app's chrome. */
+export const authRoute = defineRoute({ id: 'auth' });
+
+/** Booking pages a visitor opens from a shared link, in the focused shell. */
+export const publicRoute = defineRoute({ id: 'public' });
 
 /** The split layout; its children are the pane routes. */
 export const appRoute = defineRoute({ id: APP_ROUTE_ID });
@@ -614,6 +627,7 @@ export const prDetailRoute = defineRoute({
 const debugComponentIds = [
   'ui',
   'icon-gallery',
+  'create-menu-demo',
   ...(LOCAL_ONLY
     ? [
         'theme-edit-3',

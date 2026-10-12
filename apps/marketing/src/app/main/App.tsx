@@ -10,6 +10,14 @@ import {
   Show,
   Suspense,
 } from 'solid-js';
+import { isServer } from 'solid-js/web';
+import {
+  applyPalette,
+  onPaletteChange,
+  preferredPalette,
+} from '../../features/setup/sitePalette';
+import '../../styles/dark-theme.css';
+import '../../features/setup/cream-preview.css';
 import { DemoMentionMenu } from '../../features/marketing/components/DemoMentionMenu';
 import { PageVignette } from '../../features/marketing/components/PageVignette';
 import {
@@ -164,6 +172,11 @@ macbook of protons
 
 const RootLayout: ParentComponent = (props) => {
   const location = useLocation();
+  createEffect(() => {
+    void location.search;
+    if (!isServer) applyPalette(preferredPalette());
+  });
+  onMount(() => onCleanup(onPaletteChange(applyPalette)));
   let scrollRef!: HTMLDivElement;
   const [headerCtaActive, setHeaderCtaActive] = createSignal(false);
 

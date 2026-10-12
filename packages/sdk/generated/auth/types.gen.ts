@@ -36,17 +36,37 @@ export type AutoReloadDefaults = {
 };
 
 /**
+ * Calendar-month commitments that consume the payer's automatic reload cap.
+ */
+export type AutoReloadMonthlyBudget = {
+    /**
+     * Reloads paid, pending, or failed with an invoice that can still collect.
+     * Customer cents; manual credit purchases do not count.
+     */
+    committed_cents: number;
+    /**
+     * Remaining cap cannot fund the minimum automatic reload charge.
+     */
+    limit_reached: boolean;
+    /**
+     * Start of the next UTC calendar month, independently of subscription renewal.
+     */
+    resets_at: string;
+};
+
+/**
  * The payer's automatic reload settings, as shown in Billing settings.
  */
 export type AutoReloadSnapshot = {
     /**
-     * Whether reloads will fire: overage is on and reloads are not suspended.
+     * Whether reloads will fire: the payer opted in and reloads are not suspended.
      */
     active: boolean;
     /**
      * Reload once the effective balance drops below this, in customer cents.
      */
     minimum_balance_cents: number;
+    monthly_budget?: null | AutoReloadMonthlyBudget;
     /**
      * Most reloaded per UTC calendar month, in customer cents. `null` when
      * there is no limit.
@@ -300,27 +320,6 @@ export type CreateTeamRequest = {
      * The name of the team
      */
     name: string;
-};
-
-/**
- * The request body to create a new user in fusionauth
- * NOTE: Never derive debug here as we don't want to accidentally log the password
- */
-export type CreateUserRequest = {
-    /**
-     * The primary email address of the user.
-     * This will be the user's root "profile".
-     */
-    email: string;
-    /**
-     * The password for the user.
-     * TODO: configure password policy and validate password before attempting to create user
-     */
-    password: string;
-    /**
-     * The unique username for the user.
-     */
-    username: string;
 };
 
 /**
@@ -758,6 +757,72 @@ export type GithubPullRequestLabel = {
      * The label name, unique within its repository regardless of case.
      */
     name: string;
+};
+
+/**
+ * Whether GitHub can merge a pull request's head into its base without conflicts.
+ */
+export type GithubPullRequestMergeability = 'mergeable' | 'conflicting' | 'unknown';
+
+/**
+ * One pull request's mergeability.
+ */
+export type GithubPullRequestMergeabilityEntry = {
+    /**
+     * Whether the head merges cleanly into the base.
+     */
+    mergeability: GithubPullRequestMergeability;
+    /**
+     * The GitHub pull request number.
+     */
+    number: number;
+    /**
+     * The GitHub repository owner or organization.
+     */
+    owner: string;
+    /**
+     * The GitHub repository name.
+     */
+    repo: string;
+};
+
+/**
+ * Request body for the mergeability of several pull requests.
+ */
+export type GithubPullRequestMergeabilityRequest = {
+    /**
+     * The pull requests to check, at most [`GithubPullRequestMergeabilityRequest::MAX`].
+     */
+    pullRequests: Array<GithubPullRequestNumber>;
+};
+
+/**
+ * Response body for pull request mergeability. Pull requests the user
+ * cannot see are left out.
+ */
+export type GithubPullRequestMergeabilityResponse = {
+    /**
+     * The mergeability of each visible pull request.
+     */
+    pullRequests: Array<GithubPullRequestMergeabilityEntry>;
+};
+
+/**
+ * One pull request, by repository and number.
+ */
+export type GithubPullRequestNumber = {
+    /**
+     * The GitHub pull request number.
+     */
+    number: number;
+    /**
+     * The GitHub repository owner or organization.
+     */
+    owner: string;
+    /**
+     * The GitHub repository name.
+     */
+    repo: string;
 };
 
 /**
@@ -1371,6 +1436,20 @@ export type ResendFusionauthVerifyUserEmailRequest = {
 };
 
 /**
+ * A seat's future plan in the subscription's currently attached schedule.
+ */
+export type ScheduledSeatPlan = {
+    /**
+     * Provider-confirmed time when the future phase starts.
+     */
+    effectiveAt: string;
+    /**
+     * Plan that takes effect at renewal.
+     */
+    plan: SeatPlan;
+};
+
+/**
  * The paid plan a seat is billed at. Every member of a paying team has one;
  * a team may mix them, and its Stripe subscription carries one seat item per
  * plan in use.
@@ -1401,6 +1480,40 @@ export type SendMobileWelcomeEmailResponse = {
     sent: boolean;
 };
 
+/**
+ * A request to mark one pull request as a draft, or as ready for review, on
+ * the user's behalf.
+ */
+export type SetGithubPullRequestDraftRequest = {
+    /**
+     * `true` converts the pull request to a draft; `false` marks it ready for review.
+     */
+    draft: boolean;
+    /**
+     * The GitHub pull request number.
+     */
+    number: number;
+    /**
+     * The GitHub repository owner or organization.
+     */
+    owner: string;
+    /**
+     * The GitHub repository name.
+     */
+    repo: string;
+};
+
+/**
+ * Response body for a pull request whose draft state changed.
+ */
+export type SetGithubPullRequestDraftResponse = {
+    /**
+     * Whether the pull request is now a draft.
+     */
+    draft: boolean;
+    pullRequest?: null | EnrichedGithubPullRequest;
+};
+
 export type SsoRequiredResponse = {
     /**
      * The idp_id you need to perform sso login with.
@@ -1416,6 +1529,17 @@ export type StripeSessionResponse = {
      * The URL to redirect the user to
      */
     url: string;
+};
+
+/**
+ * Current renewal and scheduled change; empty for accounts without a subscription.
+ */
+export type SubscriptionStatus = {
+    /**
+     * Provider-confirmed subscription renewal date.
+     */
+    renewalDate?: string | null;
+    scheduledChange?: null | ScheduledSeatPlan;
 };
 
 /**
@@ -1536,6 +1660,13 @@ export type TeamWithMembers = {
      */
     members: Array<TeamMember>;
     /**
+     * Provider-confirmed pending seat changes, keyed by member user ID.
+     * Only available to paid-team admins and owners; empty means no pending changes.
+     */
+    scheduled_seat_plans?: {
+        [key: string]: ScheduledSeatPlan;
+    } | null;
+    /**
      * The team
      */
     team: Team;
@@ -1568,8 +1699,7 @@ export type ToggleNonAdminInvitesResponse = {
  */
 export type UpdateAutoReloadRequest = {
     /**
-     * Reload credits automatically, billing usage past allowance and
-     * credits to the payer's card. Turning this off also turns off overage.
+     * Purchase prepaid credits automatically using the payer's card.
      */
     enabled: boolean;
     /**
@@ -1578,9 +1708,7 @@ export type UpdateAutoReloadRequest = {
     minimumBalanceCents: number;
     /**
      * Most to reload per calendar month, cents. Omit or `null` for no limit.
-     * Also serves as the per-period overage cap, so it must be at least the
-     * catalog's `overage_limit_min_cents`; larger values are capped at
-     * `overage_limit_max_cents`.
+     * Must be at least the catalog's `overage_limit_min_cents` (legacy name).
      */
     monthlySpendLimitCents?: number | null;
     /**
@@ -1610,7 +1738,7 @@ export type UpdateOverageRequest = {
  */
 export type UsageSnapshot = {
     /**
-     * Automatic credit reload settings. `active` means overage is on and
+     * Automatic credit reload settings. `active` means the payer opted in and
      * reloads are not suspended.
      */
     auto_reload: AutoReloadSnapshot;
@@ -1628,6 +1756,10 @@ export type UsageSnapshot = {
      */
     credits_consumed_cents: number;
     /**
+     * Whether prepaid credits belong to the team, including a team with one seat.
+     */
+    credits_shared_with_team: boolean;
+    /**
      * Included AI for this user's seat this period, in cents at provider cost.
      */
     included_cents: number;
@@ -1636,7 +1768,7 @@ export type UsageSnapshot = {
      */
     overage_charged_cents: number;
     /**
-     * Whether overage billing is on.
+     * Legacy API name for the automatic reload opt-in. Never authorizes direct charges.
      */
     overage_enabled: boolean;
     /**
@@ -2210,6 +2342,39 @@ export type VerifyEmailLinkResponses = {
 
 export type VerifyEmailLinkResponse = VerifyEmailLinkResponses[keyof VerifyEmailLinkResponses];
 
+export type SetGithubPullRequestDraftData = {
+    body: SetGithubPullRequestDraftRequest;
+    path?: never;
+    query?: never;
+    url: '/github_pull_requests/draft';
+};
+
+export type SetGithubPullRequestDraftErrors = {
+    401: ErrorResponse;
+    /**
+     * The user cannot change the pull request
+     */
+    403: ErrorResponse;
+    /**
+     * No GitHub link, or the pull request is not visible to the user
+     */
+    404: ErrorResponse;
+    /**
+     * GitHub declined the change
+     */
+    422: ErrorResponse;
+    428: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type SetGithubPullRequestDraftError = SetGithubPullRequestDraftErrors[keyof SetGithubPullRequestDraftErrors];
+
+export type SetGithubPullRequestDraftResponses = {
+    200: SetGithubPullRequestDraftResponse;
+};
+
+export type SetGithubPullRequestDraftResponse2 = SetGithubPullRequestDraftResponses[keyof SetGithubPullRequestDraftResponses];
+
 export type EnrichGithubPullRequestsData = {
     body: EnrichGithubPullRequestsProxyRequest;
     path?: never;
@@ -2265,6 +2430,35 @@ export type MergeGithubPullRequestResponses = {
 };
 
 export type MergeGithubPullRequestResponse2 = MergeGithubPullRequestResponses[keyof MergeGithubPullRequestResponses];
+
+export type GetGithubPullRequestMergeabilityData = {
+    body: GithubPullRequestMergeabilityRequest;
+    path?: never;
+    query?: never;
+    url: '/github_pull_requests/mergeability';
+};
+
+export type GetGithubPullRequestMergeabilityErrors = {
+    401: ErrorResponse;
+    /**
+     * No GitHub link
+     */
+    404: ErrorResponse;
+    /**
+     * Too many pull requests requested
+     */
+    422: ErrorResponse;
+    428: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type GetGithubPullRequestMergeabilityError = GetGithubPullRequestMergeabilityErrors[keyof GetGithubPullRequestMergeabilityErrors];
+
+export type GetGithubPullRequestMergeabilityResponses = {
+    200: GithubPullRequestMergeabilityResponse;
+};
+
+export type GetGithubPullRequestMergeabilityResponse = GetGithubPullRequestMergeabilityResponses[keyof GetGithubPullRequestMergeabilityResponses];
 
 export type ListGtmInviteLinksData = {
     body?: never;
@@ -3403,27 +3597,6 @@ export type GetUserInvitesResponses = {
 
 export type GetUserInvitesResponse = GetUserInvitesResponses[keyof GetUserInvitesResponses];
 
-export type CreateUserData = {
-    body: CreateUserRequest;
-    path?: never;
-    query?: never;
-    url: '/user';
-};
-
-export type CreateUserErrors = {
-    400: ErrorResponse;
-    403: ErrorResponse;
-    500: ErrorResponse;
-};
-
-export type CreateUserError = CreateUserErrors[keyof CreateUserErrors];
-
-export type CreateUserResponses = {
-    200: EmptyResponse;
-};
-
-export type CreateUserResponse = CreateUserResponses[keyof CreateUserResponses];
-
 export type GetUserNamesData = {
     body: PostGetNamesRequestBody;
     path?: never;
@@ -3755,6 +3928,30 @@ export type CreateCheckoutSessionV2Responses = {
 
 export type CreateCheckoutSessionV2Response = CreateCheckoutSessionV2Responses[keyof CreateCheckoutSessionV2Responses];
 
+export type GetSubscriptionStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/user/stripe/plan';
+};
+
+export type GetSubscriptionStatusErrors = {
+    401: ErrorResponse;
+    /**
+     * More than one active subscription
+     */
+    409: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type GetSubscriptionStatusError = GetSubscriptionStatusErrors[keyof GetSubscriptionStatusErrors];
+
+export type GetSubscriptionStatusResponses = {
+    200: SubscriptionStatus;
+};
+
+export type GetSubscriptionStatusResponse = GetSubscriptionStatusResponses[keyof GetSubscriptionStatusResponses];
+
 export type ChangePlanData = {
     body: ChangePlanRequest;
     path?: never;
@@ -3780,7 +3977,7 @@ export type ChangePlanErrors = {
      */
     404: ErrorResponse;
     /**
-     * Already on this plan, or more than one active subscription
+     * More than one active subscription
      */
     409: ErrorResponse;
     500: ErrorResponse;

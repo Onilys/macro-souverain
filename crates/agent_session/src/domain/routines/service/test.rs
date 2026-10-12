@@ -12,6 +12,7 @@ use agent_runtime_protocol::domain::schema::v0::ToRuntimeMessage;
 use bots::domain::models::BotId;
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
+use shared_entity_registry::OwnedPurgeOutcome;
 use std::sync::{Arc, Mutex};
 
 #[test]
@@ -133,6 +134,13 @@ impl AgentSessionNotificationRecipient for Controls {
         panic!("not a routine capability")
     }
     async fn session_deleted(&self, _: AgentSessionId) -> SessionResult<()> {
+        panic!("not a routine capability")
+    }
+    async fn purge_owned_session(
+        &self,
+        _: AgentSessionId,
+        _: &Owner,
+    ) -> SessionResult<OwnedPurgeOutcome> {
         panic!("not a routine capability")
     }
     async fn edit_queued_control(
@@ -432,7 +440,8 @@ async fn every_subsequent_operation_checks_owner_and_persona_before_controls_or_
             fx.service
                 .prompt(PromptRoutineSession {
                     action,
-                    prompt: "task".into()
+                    prompt: "task".into(),
+                    context: None,
                 })
                 .await
                 .unwrap_err(),
@@ -452,6 +461,7 @@ async fn prompt_and_cancel_only_emit_attributed_prompt_and_stop_controls() {
         .prompt(PromptRoutineSession {
             action: action.clone(),
             prompt: "routine guidance and task".into(),
+            context: None,
         })
         .await
         .unwrap();
@@ -479,7 +489,8 @@ async fn ambiguous_prompt_failure_is_not_replayed() {
         fx.service
             .prompt(PromptRoutineSession {
                 action: fx.action(),
-                prompt: "task".into()
+                prompt: "task".into(),
+                context: None,
             })
             .await
             .unwrap_err(),
@@ -522,7 +533,8 @@ async fn refuses_known_prompt_replays_even_after_completion() {
         fx.service
             .prompt(PromptRoutineSession {
                 action,
-                prompt: "retry".into()
+                prompt: "retry".into(),
+                context: None,
             })
             .await
             .unwrap_err(),
@@ -545,7 +557,8 @@ async fn queued_prompt_prevents_second_submission() {
         fx.service
             .prompt(PromptRoutineSession {
                 action,
-                prompt: "retry".into()
+                prompt: "retry".into(),
+                context: None,
             })
             .await
             .unwrap_err(),

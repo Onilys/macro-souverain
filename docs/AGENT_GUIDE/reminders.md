@@ -7,11 +7,13 @@ recurrence editor, or reminder AI tool. Calendar event alarms remain separate.
 ## Snooze or change a conversation
 
 On one selected email or an open conversation, press **H**, choose **Remind me**
-in its menu, or activate its bell. The shared command menu shows the subject
-and time choices: **In 30m**, **Later today** (before 5 PM), **Tomorrow**, and
+in its menu, or activate its bell. The shared command menu's input placeholder
+reads `Remind me: <subject>`, followed by time choices: **In 30m**, **Later today** (before 5 PM), **Tomorrow**, and
 **Next week**. Type a future time such as `in 2 hours` or `tomorrow 9am` in
 **Remind me when**. Up/Down changes the selection; Enter or clicking a choice
-saves immediately. **Cancel** or Escape closes without saving. There is no
+saves immediately. **Cancel** (footer, bottom left) or Escape closes without
+saving. The **If no reply** / **Regardless** toggle sits in the footer's bottom
+right. There is no
 separate title, note, or recurrence step.
 
 The time picker opens immediately, including on the first use. You can type or
@@ -42,6 +44,9 @@ opens the conversation. An unseen reminder contributes to the row's unread dot
 without changing the mailbox read state. Mobile push titles read
 **Reminder: <email subject>**. No reply email is sent and no reminder toast appears.
 The dispatcher sweeps once a minute; delivery is not exact to the second.
+After delivery, the conversation leaves Email → Reminders immediately and its
+inbox position uses the return time, including when rows come from the local
+cache. Returning to the Reminders tab refreshes membership after missed updates.
 Deleted, trashed, or inaccessible conversations are not returned.
 
 Cmd/Ctrl+Z undoes a confirmed scheduling change. Undo of a new reminder restores
@@ -88,5 +93,8 @@ For UI failure checks against hosted data, intercept
 - Opening the menu from a row clock does not open or complete the email.
 
 Use local fixtures for real create/edit/remove/undo and due-delivery checks.
+For delivery, keep Reminders open through the firing, then switch to Signal and
+verify the conversation is in the newest time group without reloading. Repeat
+with an older conversation, a sent-only conversation, and a backgrounded tab.
 Also verify reply cancellation, caller isolation, multiple concurrent set
 requests, filtered pagination, desktop keyboard interaction, and a narrow viewport.
