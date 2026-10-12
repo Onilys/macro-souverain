@@ -31,7 +31,7 @@ function Title(props: { width: string }) {
 }
 
 function Timestamp() {
-  return <ListSkeleton.Bar class="h-2 w-[4em]" />;
+  return <ListSkeleton.Bar class="h-2 w-[3em]" />;
 }
 
 /** `WideLayout`'s grid with an empty meta column. */
@@ -90,7 +90,7 @@ function ContentHits() {
       <div class="min-w-0 flex-1 overflow-hidden ml-4 @lg/entity:ml-6">
         <div class="flex w-full items-center gap-1 px-3 py-1.5 text-[0.6875rem]">
           <ListSkeleton.Bar class="size-2.5 shrink-0" />
-          <ListSkeleton.Bar class="h-1.5 w-[5.5em]" />
+          <ListSkeleton.Bar class="h-1.5 w-[6.75em]" />
           <span>&#8203;</span>
         </div>
       </div>
@@ -137,7 +137,7 @@ export function ListEntitySkeleton(props: {
                 <NarrowRow title={row.title} condensed={condensed()} />
               </Match>
             </Switch>
-            <Show when={row.contentHits && !condensed()}>
+            <Show when={row.contentHits}>
               <ContentHits />
             </Show>
           </div>
