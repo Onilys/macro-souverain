@@ -141,14 +141,14 @@ export function MentionsMenuItem(props: {
             Agent
           </span>
         </Show>
-        <Show
-          when={isUserWithChannelStatus(props.item) && props.item.notInChannel}
-        >
-          <span class="inline-flex shrink-0 items-center rounded-sm bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-ink-extra-muted">
-            Not in channel
-          </span>
-        </Show>
       </div>
+      <Show
+        when={isUserWithChannelStatus(props.item) && props.item.notInChannel}
+      >
+        <span class="ml-2 inline-flex shrink-0 items-center text-[10px] font-medium leading-none text-ink-extra-muted">
+          Not in channel
+        </span>
+      </Show>
       {props.actions}
     </div>
   );
