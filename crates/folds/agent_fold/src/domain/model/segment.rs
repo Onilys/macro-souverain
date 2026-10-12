@@ -38,7 +38,7 @@ use super::part::MessagePart;
 use super::plan::PlanEntryStatus;
 use super::tool::{ToolDetail, ToolName, ToolStatus};
 use super::user_tool::UserToolOutcome;
-use super::{ElicitationOutcome, ElicitationRequest, PermissionOutcome};
+use super::{AnsweredValue, ElicitationOutcome, ElicitationRequest, PermissionOutcome};
 
 #[cfg(test)]
 mod test;
@@ -453,9 +453,9 @@ fn activity_rows(parts: &[MessagePart], closed: bool) -> Vec<ActivityRow> {
 }
 
 /// The step an answered question stands for, when it stood in for a tool
-/// call: the user tool it reviewed - the email sent, the event created, with
-/// its card - or the question itself. A question's answer is not told:
-/// only that it was answered.
+/// call: the user tool it reviewed - the email as the user sent it, the
+/// event created, with its card - or the question itself. A question's
+/// answer is not told: only that it was answered.
 fn answered_row(
     id: String,
     message: &str,
@@ -488,7 +488,10 @@ fn answered_row(
         };
     };
     let words = UserToolWords::of(tool);
-    let draft: &serde_json::Value = draft;
+    // What went out is what the user accepted: the draft as they edited it,
+    // when their composer sent it whole, else the agent's draft as it was.
+    let edited = accepted_draft(outcome);
+    let draft: &serde_json::Value = edited.as_ref().unwrap_or(draft);
     let detail = text(Some(draft), words.title_field);
     match outcome {
         ElicitationOutcome::Declined | ElicitationOutcome::Cancelled => {
@@ -530,6 +533,28 @@ fn answered_row(
             user_tool_card(tool, draft, done),
         ),
     }
+}
+
+/// The answer field a client with a user tool's own composer sends the
+/// whole edited draft under. Mirrors `ai_tools::user_tool_review::DRAFT_FIELD`;
+/// restated here so the wasm fold does not depend on the toolset crate.
+const DRAFT_FIELD: &str = "draft";
+
+/// The whole draft a review was accepted with, read the way the agent's
+/// finisher reads it (`ai_tools::user_tool_review::apply_review`): the JSON
+/// text of an object, or the object itself. Nothing when the review was not
+/// accepted, or its answer carried no whole draft.
+fn accepted_draft(outcome: &ElicitationOutcome) -> Option<serde_json::Value> {
+    let ElicitationOutcome::Accepted { answers } = outcome else {
+        return None;
+    };
+    let answer = answers.iter().find(|answer| answer.name == DRAFT_FIELD)?;
+    let draft = match &answer.value {
+        AnsweredValue::Text { text } => serde_json::from_str(text).ok()?,
+        AnsweredValue::Unrecognized { raw } => raw.clone(),
+        _ => return None,
+    };
+    draft.is_object().then_some(draft)
 }
 
 /// How a user tool's step reads at each point of its review.

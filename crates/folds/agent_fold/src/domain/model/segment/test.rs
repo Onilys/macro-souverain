@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::domain::model::{
-    AgentRequestId, AnsiText, ElicitationRequestId, ElicitationSchema, ToolUseId,
+    AgentRequestId, AnsiText, AnsweredField, AnsweredValue, ElicitationRequestId,
+    ElicitationSchema, ToolUseId,
 };
 
 fn text(text: &str) -> MessagePart {
@@ -281,6 +282,56 @@ fn a_reviewed_email_is_the_step_that_sent_it_with_its_receipt() {
         kinds(&segments(&waiting, false)),
         [(SegmentKind::Interaction, false)]
     );
+}
+
+#[test]
+fn a_sent_emails_receipt_is_the_email_the_user_sent() {
+    let answered = |draft: &str| ElicitationOutcome::Accepted {
+        answers: vec![AnsweredField {
+            name: "draft".to_owned(),
+            label: "draft".to_owned(),
+            value: AnsweredValue::Text {
+                text: draft.to_owned(),
+            },
+        }],
+    };
+    let sent = || {
+        Some(UserToolOutcome::Sent {
+            message_id: "m-1".to_owned(),
+            thread_id: "thread-1".to_owned(),
+        })
+    };
+    // The user retitled the agent's draft and sent it to two others.
+    let edited = serde_json::json!({
+        "subject": "Launch plan (final)",
+        "to": [{"email": "leo@example.com", "name": "Leo Park"}, {"email": "mia@example.com"}],
+        "body": "Hi both"
+    });
+    let parts = [email_review(answered(&edited.to_string()), sent())];
+    let row = &segments(&parts, true)[0].rows[0];
+    assert_eq!(row.detail.as_deref(), Some("Launch plan (final)"));
+    assert_eq!(
+        row.card,
+        Some(ActivityCard::Item {
+            item_type: CardItemType::EmailThread,
+            item_id: "thread-1".to_owned(),
+            file_type: None,
+            action: CardAction::Sent,
+            title: Some("Launch plan (final)".to_owned()),
+            summary: Some("to Leo Park and 1 other".to_owned()),
+        })
+    );
+
+    // An answer with no whole draft in it sent the agent's draft.
+    let unreadable = [email_review(answered("not a draft"), sent())];
+    let row = &segments(&unreadable, true)[0].rows[0];
+    assert_eq!(row.detail.as_deref(), Some("Launch plan"));
+    assert!(matches!(
+        &row.card,
+        Some(ActivityCard::Item { title, summary, .. })
+            if title.as_deref() == Some("Launch plan")
+                && summary.as_deref() == Some("to Ana Ruiz")
+    ));
 }
 
 #[test]
