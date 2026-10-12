@@ -1118,7 +1118,7 @@
             "description": "Discovery accepted (idempotent)"
           },
           "400": {
-            "description": "Unknown import source or discovery not supported"
+            "description": "Unknown import source"
           },
           "500": {
             "description": "Internal server error"

@@ -17,11 +17,13 @@ import { useFilterRefinements } from '@app/features/next-soup/soup-view/filters-
 import { usePreference } from '@app/preferences/use-preference';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { debounce } from '@core/util/debounce';
+import { lazyNamed } from '@core/util/lazyNamed';
 import {
   type EntityData,
   isCrmCompanyEntity,
   isCrmContactEntity,
 } from '@entity';
+import FileCsvIcon from '@phosphor/file-csv.svg';
 import ListIcon from '@phosphor/list.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import { Button, Dropdown, Tooltip } from '@ui';
@@ -54,6 +56,11 @@ import {
   useCurrentTeamQuery,
   useQuickAccessCrmCompaniesQuery,
 } from './use-crm';
+
+const ConnectorImportSidebar = lazyNamed(
+  () => import('@app/features/connector-import/connector-import'),
+  'ConnectorImportSidebar'
+);
 
 function NavigationToggle(props: {
   onExpand: () => void;
@@ -322,6 +329,22 @@ export function CrmWorkspaceView(props: {
   });
   const sidebar = () => (
     <CrmSidebar
+      promotion={
+        <Show when={teamId()}>
+          <Suspense>
+            <ConnectorImportSidebar
+              category="crm"
+              class="mt-auto"
+              alternative={{
+                icon: FileCsvIcon,
+                label: 'Upload a CSV',
+                description: 'Import companies from a spreadsheet export.',
+                onSelect: () => setImporting(true),
+              }}
+            />
+          </Suspense>
+        </Show>
+      }
       pipelines={
         <Show when={pipelinesEnabled()}>
           <PipelineSidebar

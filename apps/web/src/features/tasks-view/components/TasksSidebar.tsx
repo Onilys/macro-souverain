@@ -17,6 +17,7 @@ import {
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
+import { lazyNamed } from '@core/util/lazyNamed';
 import CheckSquareIcon from '@phosphor/check-square.svg';
 import ListChecksIcon from '@phosphor/list-checks.svg';
 import NoteIcon from '@phosphor/note-pencil.svg';
@@ -25,11 +26,16 @@ import { SidebarTagsSection } from '@property/tags/SidebarTagsSection';
 import { useFavoritesData } from '@queries/favorites/favorites';
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
 import { tourTarget } from '@ui/components/Tour';
-import { createMemo, For, Show } from 'solid-js';
+import { createMemo, For, Show, Suspense } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { useTasksView } from '../tasks-view-context';
 import { TASKS_TOUR } from '../tour';
 import type { TasksTab } from '../types';
+
+const ConnectorImportSidebar = lazyNamed(
+  () => import('@app/features/connector-import/connector-import'),
+  'ConnectorImportSidebar'
+);
 
 const TASK_NAV_ITEMS = [
   { id: 'my-tasks', label: 'My Tasks', icon: CheckSquareIcon },
@@ -219,6 +225,9 @@ export function TasksSidebar() {
             onOpenChange={(open) => setSidebarSectionOpen('tags', open)}
           />
         </div>
+        <Suspense>
+          <ConnectorImportSidebar category="tasks" class="mt-auto" />
+        </Suspense>
       </ViewSidebar.Content>
     </ViewSidebar.Root>
   );

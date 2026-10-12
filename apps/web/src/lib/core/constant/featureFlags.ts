@@ -163,6 +163,13 @@ export const enableSlackArchiveImport = defineFlag({
   default: onInDev,
 });
 
+/** Drive, Tasks, and CRM sidebar cards that import from connected apps. */
+export const enableConnectorImport = defineFlag({
+  key: 'enable-connector-import',
+  env: 'ENABLE_CONNECTOR_IMPORT',
+  default: onInDev,
+});
+
 /** Shows the Reviews shortcut in Tasks; copied Reviews links remain accessible. */
 export const enableTasksReviews = defineFlag({
   key: 'enable-tasks-reviews',
