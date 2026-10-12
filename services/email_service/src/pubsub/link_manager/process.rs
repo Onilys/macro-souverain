@@ -1,5 +1,6 @@
 use crate::pubsub::link_manager::context::LinkManagerContext;
 use crate::pubsub::util::{build_notification_recipients, cg_refresh_email, publish_email_event};
+use crate::util::redis::lock::LockError;
 use crate::util::sync_contacts::sync_contacts;
 use anyhow::{Context, anyhow};
 use crm::domain::service::CrmService;
@@ -21,6 +22,13 @@ use std::time::Duration;
 
 #[cfg(test)]
 mod test;
+
+/// Lifetime of a link-delete claim between renewals; how long a crashed worker's claim
+/// blocks the redelivered message.
+const LINK_DELETE_LOCK_TTL: Duration = Duration::from_secs(900);
+
+/// Well under [`LINK_DELETE_LOCK_TTL`], so one failed renewal doesn't drop the claim.
+const LINK_DELETE_LOCK_RENEW_INTERVAL: Duration = Duration::from_secs(300);
 
 /// Backoff schedule for teardown provider calls: three attempts total.
 const TEARDOWN_RETRY_DELAYS: [Duration; 2] =
@@ -96,7 +104,7 @@ pub async fn process_message(
             let link = get_link_or_skip(&ctx, message, link_id).await?;
             let Some(link) = link else { return Ok(()) };
 
-            handle_delete(&ctx, &link, &deletion_reason).await?;
+            delete_link_exclusively(&ctx, &link, &deletion_reason).await?;
         }
         LinkManagerMessage::DeleteUser { fusionauth_user_id } => {
             handle_delete_all_user_links(&ctx, &fusionauth_user_id).await?;
@@ -267,12 +275,78 @@ async fn handle_delete_all_user_links(
     );
 
     for link in &links {
-        if let Err(e) = handle_delete(ctx, link, &DeletionReason::UserDeleted).await {
+        if let Err(e) = delete_link_exclusively(ctx, link, &DeletionReason::UserDeleted).await {
             tracing::error!(error=?e, link_id=?link.id, "Failed to delete link during user cleanup");
         }
     }
 
     Ok(())
+}
+
+/// Runs [`handle_delete`] unless another worker is already deleting the same link, in
+/// which case this is a no-op: the other worker's message retries if its delete fails.
+///
+/// The claim is a Redis lock renewed for as long as the delete runs, so a crashed worker
+/// releases it within one TTL. If Redis is unreachable the delete runs unclaimed rather
+/// than stalling teardown.
+async fn delete_link_exclusively(
+    ctx: &LinkManagerContext,
+    link: &Link,
+    deletion_reason: &DeletionReason,
+) -> anyhow::Result<()> {
+    let key = format!("link_delete:{}", link.id);
+    let lock = match ctx
+        .redis_client
+        .try_acquire_lock(&key, LINK_DELETE_LOCK_TTL)
+        .await
+    {
+        Ok(lock) => lock,
+        Err(LockError::AlreadyHeld) => {
+            tracing::info!(link_id=%link.id, "Link delete already in progress - skipping");
+            return Ok(());
+        }
+        Err(LockError::Redis(error)) => {
+            tracing::warn!(error=?error, link_id=%link.id, "Failed to claim link delete; deleting unclaimed");
+            return handle_delete(ctx, link, deletion_reason).await;
+        }
+    };
+
+    let claim = &lock;
+    let result = renewing_while(
+        handle_delete(ctx, link, deletion_reason),
+        LINK_DELETE_LOCK_RENEW_INTERVAL,
+        move || async move {
+            match claim.extend(LINK_DELETE_LOCK_TTL).await {
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::warn!(link_id=%link.id, "Link delete claim lapsed; a duplicate delete may start");
+                }
+                Err(error) => {
+                    tracing::warn!(error=?error, link_id=%link.id, "Failed to renew link delete claim");
+                }
+            }
+        },
+    )
+    .await;
+    lock.release().await;
+    result
+}
+
+/// Drives `work` to completion, calling `renew` every `interval` while it runs.
+async fn renewing_while<W, R, RFut>(work: W, interval: Duration, mut renew: R) -> W::Output
+where
+    W: Future,
+    R: FnMut() -> RFut,
+    RFut: Future<Output = ()>,
+{
+    tokio::pin!(work);
+    let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + interval, interval);
+    loop {
+        tokio::select! {
+            output = &mut work => return output,
+            _ = ticker.tick() => renew().await,
+        }
+    }
 }
 
 /// notifies downstream dependencies of link deletion, and deletes link (and all data) from database
