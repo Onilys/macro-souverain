@@ -35,6 +35,7 @@ import {
   useChannelType,
 } from '@core/context/channels';
 import { useUserId } from '@core/context/user';
+import type { IUser } from '@core/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import type { DateValue } from '@core/util/date';
 import {
@@ -50,6 +51,7 @@ import {
   invalidateChannelsActivity,
   useUpdateChannelsActivityMutation,
 } from '@queries/channel/activity';
+import { useAddParticipantsMutation } from '@queries/channel/participants';
 import { queryClient } from '@queries/client';
 import { queryReadyGate } from '@queries/gate';
 import {
@@ -185,6 +187,7 @@ export function Channel(props: ChannelProps) {
   const typingMutation = usePostTypingUpdateMutation();
   const addReactionMutation = useAddReactionMutation();
   const removeReactionMutation = useRemoveReactionMutation();
+  const addParticipantsMutation = useAddParticipantsMutation();
 
   const [threadListNavigation, setThreadListNavigation] =
     createSignal<ThreadListNavigation>();
@@ -391,6 +394,23 @@ export function Channel(props: ChannelProps) {
   const inputPlaceholder = () => {
     const name = inputPlaceholderName();
     return name ? `Type @ to share with ${name}` : 'Type @ to share';
+  };
+
+  const handleMentionNonChannelMember = (user: IUser) => {
+    const userName = user.name || user.email.split('@')[0] || 'This person';
+    toast.alert(`${userName} is not in this channel`, {
+      actions: [
+        {
+          label: 'Add them',
+          onClick: () => {
+            addParticipantsMutation.mutate({
+              channelId: props.channelId,
+              participants: [user.id],
+            });
+          },
+        },
+      ],
+    });
   };
 
   const buildChannelMessageMention = (message: {
@@ -1020,6 +1040,10 @@ export function Channel(props: ChannelProps) {
                               placeholder: inputPlaceholder(),
                             }}
                             participants={participants.users}
+                            channelParticipantIds={participants.ids}
+                            onMentionNonChannelMember={
+                              handleMentionNonChannelMember
+                            }
                             bots={channelBotMentionUsers}
                             attachmentTracker={attachmentTracker}
                             persistenceKey={makeInputValuePersistenceKey({

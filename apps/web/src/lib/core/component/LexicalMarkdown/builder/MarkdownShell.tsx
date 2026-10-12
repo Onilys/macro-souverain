@@ -267,6 +267,12 @@ export const MarkdownShell: Component<MarkdownShellProps> = (props) => {
                 builderConfig.mentions?.disableMentionTracking
               }
               sources={builderConfig.mentions?.sources}
+              channelParticipantIds={
+                builderConfig.mentions?.channelParticipantIds
+              }
+              onMentionNonChannelMember={
+                builderConfig.mentions?.onMentionNonChannelMember
+              }
             />
           )}
         </Show>

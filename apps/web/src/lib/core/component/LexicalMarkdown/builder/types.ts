@@ -47,6 +47,16 @@ export interface MentionsOptions {
   users?: () => import('@core/user/types').IUser[];
   /** Skip backend mention tracking (e.g. for sandbox/onboarding). */
   disableMentionTracking?: boolean;
+  /**
+   * IDs of users who are members of the current channel. When provided,
+   * all workspace users are shown but non-members are marked as "Not in channel".
+   */
+  channelParticipantIds?: () => string[];
+  /**
+   * Callback invoked when a user not in the channel is mentioned.
+   * Can be used to prompt adding the user to the channel.
+   */
+  onMentionNonChannelMember?: (user: import('@core/user/types').IUser) => void;
 }
 
 export interface TagsOptions {

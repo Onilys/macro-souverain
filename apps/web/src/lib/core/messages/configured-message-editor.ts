@@ -41,6 +41,16 @@ export type MessageEditorOptions = {
   /** Invoked when the user picks the "Image" slash action. Opens a file picker and hands files back. */
   onAttachFromDisk?: (files: File[]) => void;
   scrollContainer?: Accessor<HTMLElement | undefined>;
+  /**
+   * IDs of users who are members of the current channel. When provided,
+   * all workspace users are shown but non-members are marked as "Not in channel".
+   */
+  channelParticipantIds?: () => string[];
+  /**
+   * Callback invoked when a user not in the channel is mentioned.
+   * Can be used to prompt adding the user to the channel.
+   */
+  onMentionNonChannelMember?: (user: IUser) => void;
 };
 
 export function createConfiguredMessageEditor(options: MessageEditorOptions) {
@@ -57,6 +67,8 @@ export function createConfiguredMessageEditor(options: MessageEditorOptions) {
       users: options.users,
       block: options.groupMentions ? 'channel' : undefined,
       disableMentionTracking: options.disableMentionTracking,
+      channelParticipantIds: options.channelParticipantIds,
+      onMentionNonChannelMember: options.onMentionNonChannelMember,
     });
   }
 

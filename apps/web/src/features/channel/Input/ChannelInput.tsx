@@ -83,6 +83,16 @@ export type ChannelInputProps = InputCallbacks & {
   participants?: Accessor<IUser[]>;
   /** Channel bots surfaced in the `@`-mention typeahead alongside users. */
   bots?: Accessor<IUser[]>;
+  /**
+   * IDs of channel participants. When provided, all workspace users appear
+   * in the mention menu but non-members are marked "Not in channel".
+   */
+  channelParticipantIds?: Accessor<string[]>;
+  /**
+   * Callback invoked when a user not in the channel is mentioned.
+   * Can be used to prompt adding the user to the channel.
+   */
+  onMentionNonChannelMember?: (user: IUser) => void;
   /** Handles a failed send while preserving the composer's draft. */
   onSendError?: (error: unknown) => void;
   /** Dismiss the host after Escape has closed inline menus or dictation. */
@@ -279,6 +289,8 @@ export function ChannelInput(props: ChannelInputProps) {
     resolveAppLink: useMacroMentionLinkResolver(),
     enableMentions: true,
     users: mentionUsers,
+    channelParticipantIds: props.channelParticipantIds,
+    onMentionNonChannelMember: props.onMentionNonChannelMember,
     scrollContainer,
     onMentionCreate: (mention) => {
       mentionsTracker.onMentionCreate(mention);
