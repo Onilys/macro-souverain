@@ -393,6 +393,7 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "trigger_context",
  "url",
  "utoipa",
  "uuid",
@@ -426,6 +427,7 @@ dependencies = [
  "axum-extra",
  "bot_id",
  "bots",
+ "call",
  "channels",
  "claude_cloud_agents",
  "codex_cloud_agents",
@@ -469,6 +471,7 @@ dependencies = [
  "model_owner",
  "notification",
  "pipedream_mcp",
+ "prompt",
  "properties",
  "rdkafka",
  "redis",
@@ -666,6 +669,7 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "trigger_context",
  "utoipa",
  "uuid",
  "workspace-hack",
@@ -703,6 +707,7 @@ dependencies = [
  "async-trait",
  "bot_id",
  "bots",
+ "call",
  "channel_sender",
  "channels",
  "chrono",
@@ -711,6 +716,7 @@ dependencies = [
  "entity_access",
  "initiative",
  "lexical_client",
+ "macro_db_migrator",
  "macro_event_broker",
  "macro_event_topics",
  "macro_user_id",
@@ -732,6 +738,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "trigger_context",
  "workspace-hack",
 ]
 
@@ -745,6 +752,7 @@ dependencies = [
  "ai_usage",
  "anyhow",
  "bots",
+ "call",
  "channels",
  "connection_gateway_client",
  "crm",
@@ -1124,9 +1132,9 @@ checksum = "c880a97d28a3681c0267bd29cff89621202715b065127cd445fa0f0fe0aa2880"
 
 [[package]]
 name = "ammonia"
-version = "4.1.4"
+version = "4.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc6d763210e2eb7670d1a5183a08bebefa3f97db2a738a684f2ce00bd49f681d"
+checksum = "36322ccf536de7b7afd259098615203e4cc5caca1b78482b58334a720c66e40a"
 dependencies = [
  "cssparser 0.37.0",
  "html5ever 0.39.0",
@@ -3459,7 +3467,7 @@ dependencies = [
 
 [[package]]
 name = "cache-wasm"
-version = "0.6.44"
+version = "0.6.47"
 dependencies = [
  "async-lock",
  "cache-core",
@@ -3543,6 +3551,7 @@ dependencies = [
  "async-trait",
  "aws-sdk-sqs",
  "axum",
+ "call",
  "chrono",
  "chrono-tz",
  "futures",
@@ -4355,6 +4364,7 @@ dependencies = [
  "toml_edit 0.22.27",
  "tracing",
  "tracing-subscriber",
+ "trigger_context",
  "tui-input",
  "uuid",
  "webbrowser",
@@ -4476,6 +4486,8 @@ dependencies = [
  "bots",
  "calendar_events",
  "chrono",
+ "crm",
+ "databases",
  "email",
  "entity_access",
  "entity_mutation",
@@ -4484,6 +4496,7 @@ dependencies = [
  "graphql_calendar",
  "graphql_channel",
  "graphql_common",
+ "graphql_crm",
  "graphql_email",
  "graphql_entity_mutation",
  "graphql_favorite",
@@ -4633,7 +4646,6 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-opentelemetry",
- "tungstenite 0.28.0",
  "url",
  "utoipa",
  "utoipa-swagger-ui",
@@ -4749,6 +4761,7 @@ dependencies = [
  "aws-sdk-sqs",
  "axum",
  "axum-extra",
+ "futures",
  "http-body-util",
  "macro_authorization",
  "macro_db_migrator",
@@ -4763,6 +4776,7 @@ dependencies = [
  "tokio",
  "tower 0.5.3",
  "tracing",
+ "urlencoding",
  "utoipa",
  "uuid",
  "workspace-hack",
@@ -6266,6 +6280,7 @@ dependencies = [
  "github",
  "github_pull_requests",
  "graphql_calendar",
+ "graphql_crm",
  "graphql_initiative",
  "graphql_scheduled_action",
  "graphql_soup",
@@ -6414,6 +6429,7 @@ dependencies = [
  "chrono",
  "lambda_runtime",
  "macro_aws_config",
+ "macro_db_migrator",
  "macro_entrypoint",
  "macro_env_var",
  "mockall",
@@ -6881,6 +6897,7 @@ dependencies = [
  "async-trait",
  "attachment",
  "authentication_service_client",
+ "aws-sdk-s3",
  "axum",
  "axum-extra",
  "base64 0.22.1",
@@ -7161,6 +7178,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "unfurl",
+ "unicode-segmentation",
  "url",
  "urlencoding",
  "utoipa",
@@ -8603,6 +8621,27 @@ dependencies = [
  "models_properties",
  "rootcause",
  "serde",
+ "tokio",
+ "tracing",
+ "uuid",
+ "workspace-hack",
+]
+
+[[package]]
+name = "graphql_crm"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "chrono",
+ "crm",
+ "databases",
+ "entity_access",
+ "graphql_common",
+ "graphql_properties",
+ "macro_user_id",
+ "models_databases",
+ "models_properties",
+ "serde_json",
  "tokio",
  "tracing",
  "uuid",
@@ -10871,6 +10910,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "trigger_context",
  "workspace-hack",
 ]
 
@@ -11455,6 +11495,7 @@ dependencies = [
  "tokio",
  "tower 0.5.3",
  "tracing",
+ "tracing-subscriber",
  "urlencoding",
  "uuid",
  "workspace-hack",
@@ -12016,6 +12057,7 @@ dependencies = [
  "futures",
  "github_pull_requests",
  "http 1.4.0",
+ "import",
  "lexical_client",
  "macro_auth",
  "macro_aws_config",
@@ -12028,7 +12070,10 @@ dependencies = [
  "macro_service_urls",
  "macro_user_id",
  "mcp_auth_proxy",
+ "mcp_client",
+ "mcp_select",
  "notification",
+ "pipedream_mcp",
  "prompt",
  "readonly_pool",
  "redis",
@@ -16639,6 +16684,7 @@ dependencies = [
  "tokio-util",
  "tower 0.5.3",
  "tracing",
+ "trigger_context",
  "utoipa",
  "utoipa-swagger-ui",
  "workspace-hack",
@@ -19127,6 +19173,7 @@ dependencies = [
  "url",
  "utoipa",
  "uuid",
+ "wiremock",
  "workspace-hack",
 ]
 
@@ -19822,6 +19869,18 @@ dependencies = [
  "memchr",
  "nom 8.0.0",
  "petgraph 0.8.3",
+]
+
+[[package]]
+name = "trigger_context"
+version = "0.1.0"
+dependencies = [
+ "bot_id",
+ "chrono",
+ "serde",
+ "serde_json",
+ "uuid",
+ "workspace-hack",
 ]
 
 [[package]]

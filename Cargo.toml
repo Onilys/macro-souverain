@@ -6,6 +6,7 @@ members = [
   "crates/activity",
   "crates/agent", "crates/agent_changes", "crates/agent_egress", "crates/folds/agent_fold", "crates/folds/claude_fold", "crates/folds/codex_fold",
   "crates/agent_harness",
+  "crates/trigger_context",
   "crates/agent_preview",
   "crates/agent_inmem",
   "crates/agent_runtime_protocol", "crates/agent_session", "crates/agent_session_realtime",
@@ -64,6 +65,7 @@ members = [
   "crates/graphql_email",
   "crates/graphql_entity_mutation",
   "crates/graphql_favorite",
+  "crates/graphql_crm",
   "crates/graphql_initiative",
   "crates/graphql_notification",
   "crates/graphql_permission",
@@ -437,7 +439,7 @@ strum_macros = "0.27.1"
 unicode-segmentation = "1.9.0"
 url = "2.5.0"
 zip = "=2.4.2"
-ammonia = "4.1.4"
+ammonia = "4.1.7"
 html-escape = "0.2"
 subtle = "2.6.1"
 

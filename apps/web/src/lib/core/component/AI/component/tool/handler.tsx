@@ -19,6 +19,14 @@ import {
   listBookingLinksHandler,
 } from './BookingLinks';
 import {
+  changeBookingHandler,
+  getBookingInsightsHandler,
+  getBookingRescheduleSlotsHandler,
+  listBookingsHandler,
+  readBookingSettingsHandler,
+  updateBookingSettingsHandler,
+} from './BookingManagement';
+import {
   configureBotHandler,
   createBotHandler,
   deleteBotHandler,
@@ -39,6 +47,7 @@ import {
   createChannelHandler,
   manageChannelParticipantsHandler,
   renameChannelHandler,
+  shareWithChannelHandler,
 } from './ChannelMutations';
 import {
   dispatchCodingAgentHandler,
@@ -175,6 +184,12 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   ListBots: listBotsHandler,
   ManageBotChannelAccess: manageBotChannelAccessHandler,
   ...lazyFormsToolHandlers,
+  ReadBookingSettings: readBookingSettingsHandler,
+  UpdateBookingSettings: updateBookingSettingsHandler,
+  ListBookings: listBookingsHandler,
+  GetBookingInsights: getBookingInsightsHandler,
+  GetBookingRescheduleSlots: getBookingRescheduleSlotsHandler,
+  ChangeBooking: changeBookingHandler,
   ListBookingLinks: listBookingLinksHandler,
   CreateBookingLink: createBookingLinkHandler,
   EditBookingLink: editBookingLinkHandler,
@@ -242,6 +257,7 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   SearchTools: searchToolsHandler,
   SelfKnowledge: selfKnowledgeHandler,
   SendChannelMessage: sendChannelMessageHandler,
+  ShareWithChannel: shareWithChannelHandler,
   SendConfirmedEmail: sendConfirmedEmailHandler,
   SendEmail: sendEmailHandler,
   SetSenderPolicy: setSenderPolicyHandler,

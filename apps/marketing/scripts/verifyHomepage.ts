@@ -24,13 +24,15 @@ export async function verifyHomepage(directory: string): Promise<void> {
   try {
     browser = await chromium.launch();
     const origin = `http://127.0.0.1:${server.port}`;
-    for (const viewport of [
-      { width: 1440, height: 1000 },
-      { width: 390, height: 844 },
-    ]) {
-      const label = `${viewport.width}×${viewport.height}`;
+    // Light mode renders the cream palette (src/features/setup/sitePalette.ts).
+    for (const [viewport, colorScheme] of [
+      [{ width: 1440, height: 1000 }, 'dark'],
+      [{ width: 390, height: 844 }, 'light'],
+    ] as const) {
+      const label = `${viewport.width}×${viewport.height} ${colorScheme}`;
       const page = await browser.newPage({
         viewport,
+        colorScheme,
         isMobile: viewport.width < 768,
         reducedMotion: 'reduce',
       });

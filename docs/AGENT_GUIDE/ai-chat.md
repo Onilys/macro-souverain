@@ -56,6 +56,12 @@ must not send a prompt. Record navigation and focus time separately from typing
 and Enter-to-first-answer time. Check the first readable agent words in the DOM,
 not a loading indicator or a bare Markdown delimiter.
 
+Verify transcript startup against a production build as well as the dev server.
+The first fold should load a compiled `fold.worker-*.js` script and its WASM
+assets; importing the client alone should not construct a worker. A
+`data:video/mp2t` worker URL indicates raw TypeScript was packaged as an asset.
+An empty worker startup error does not by itself establish that the tab is stale.
+
 Repeat from Home, Agents, and the create menu with an already-ready session.
 The first prompt can be accepted before its destination mounts; navigating into
 the session must keep the same streamed turn without restarting its load. Also
@@ -572,7 +578,9 @@ file or a guessed remote revision.
 Home's composer follows the existing `enable-chat-v3-agents` flag: disabled keeps
 legacy chat; enabled mounts the same new-conversation composer as the Agents page.
 The greeting, agent/model selector, coding repository/branch drawer, and send flow
-are shared. Sending opens the new session inside Agents with the matching URL.
+are shared. Sending stays on Home and opens the new session in Home's detail
+pane (`/home/agent/<id>`) with the first prompt shown as sent; its row joins the
+top of the Home list once the session is created.
 Home suggestions and document/project context populate this same draft as markdown
 mentions. A failed suggestion conversion preserves the text and shows an error.
 Session creation and prompt delivery use the shared pending-session flow.
@@ -790,6 +798,18 @@ On desktop, email drafts embedded in chat use the same rounded, elevated surface
 as email blocks: an opaque background, subtle border and shadow, and a raised
 rim in dark mode. The recipients, subject, body, and send controls stay inside
 that card. Touch-device styling is unchanged.
+
+A drafted email can carry attachments. The agent attaches uploaded Macro files
+(PDFs, images, spreadsheets, Word documents; a Word document is attached as its
+PDF rendering) through `SendEmail`'s `attachments`, and each appears as a
+removable file pill under the body once its name resolves. The card's paperclip
+`Attach` control and dropping files onto the body add more: each file is first
+uploaded as a Macro document, shown as a pill while it uploads, and `Send email`
+stays disabled until every upload finishes. Macro-native documents written in the
+editor have no file and cannot be attached; the send reports which document
+could not be attached. Attachments together may total 18 MB. The sent and
+saved-draft rows read `with N attachments`, and the expanded sent card shows
+the pills read-only.
 
 The reliable completion signal is the disappearance of the `Stop generating` button — poll
 with `evaluate_script`. Do not wait on response text: the page displays
@@ -1110,6 +1130,9 @@ choose **Reply to this** above the selection. The composer inserts a single-line
 **Replying to** preview with the same quote-reply styling as channel replies.
 Click the preview to open the full **Referenced text** viewer. While editable,
 hover the preview for its menu: **Copy**, **Convert to text**, or **Delete**.
+A plain-text paste over 1500 characters collapses into a **pasted** chip that
+opens the same viewer, titled **Pasted text**. Text in either viewer can be
+drag-selected and copied, from the composer and from sent messages.
 Selecting text in the composer or outside the transcript must not show the reply
 button; clearing the transcript selection dismisses it.
 
@@ -1559,6 +1582,22 @@ settings and confirms a fresh proposal. Identical retries reuse the saved link.
 Old pending booking review requests can be dismissed so the agent can resume with
 conversational confirmation.
 
+## Image attachments and model selection
+
+Attach images using the plus button, paste, or drop. Image-capable models receive
+uploaded images as normalized inline content, including attachments from earlier
+turns. Test an image-only prompt and a text-plus-image prompt, then follow up
+without reattaching the image.
+
+Text-only model choices show a description and a composer warning. Pasted,
+dropped, and picked images should be refused before upload; document attachments
+and text should still work. If an image is already attached when switching to a
+text-only model, keep the draft and image chip but disable Send until the image
+is removed or a vision model is selected. Switching an existing image conversation
+to a text-only model is rejected by the backend when sending, with guidance to
+choose a vision model or start a conversation without images.
+
+
 ## Accelerated model speed
 
 The lightning button beside the model selector enables Ultrafast for GPT-6 Astra
@@ -1579,3 +1618,29 @@ a rejected configuration must retain the unsent draft and attachments.
 Usage records follow the provider's delivered speed for each call, including tool
 loops. OpenAI prompts exceeding 272,000 tokens use the long-context rate for that
 call. Standard and accelerated rates have separate pricing keys.
+
+### Booking settings, meetings, and reporting through MCP
+
+All AI hosts, including MCP, also provide:
+
+- `ReadBookingSettings`: full personal/team page, shared schedules, default hours,
+  link settings and revision. Discover team IDs with `ListBookingLinks`.
+- `UpdateBookingSettings`: save a complete profile at the read revision. Preserve
+  unrelated settings; explain the proposal and quote the user’s later approving
+  reply in `userConfirmation`, as with link authoring. Supports page text,
+  schedule CRUD, default hours, link schedule assignments, duplication, deletion
+  and enabled state. Shared-hours
+  changes affect all referencing links; deleting a link keeps existing meetings.
+  Use the existing confirmed create/edit tools for ordinary link authoring.
+- `ListBookings`: complete meetings and answers in a half-open timestamp range.
+  Narrow the range on overflow; do not treat an error as an empty report.
+- `GetBookingRescheduleSlots` and `ChangeBooking`: discover replacements, move or
+  cancel meetings, approve legacy pending requests, and record/clear attendance.
+  Rescheduling requires the personal owner or team admin. Attendance also allows
+  assigned hosts after confirmed meetings end. Changes can notify attendees.
+- `GetBookingInsights`: inclusive local dates, IANA time zone, optional link/host
+  filters, current and previous period metrics, daily/hourly trends, and link/host
+  counts. Uses the same definitions as the visual Insights page. Meeting minutes
+  measure scheduled duration; completion does not claim verified attendance.
+
+These tools use the same domain permissions and booking lifecycle as the UI.

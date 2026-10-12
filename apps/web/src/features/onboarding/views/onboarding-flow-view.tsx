@@ -142,7 +142,7 @@ export function OnboardingFlowView(props: {
           )}
         </Show>
       }
-      explainerLabel={showPlanOffer() ? 'Continue with Free' : undefined}
+      explainerLabel={showPlanOffer() ? 'See more' : undefined}
       explainer={
         showPlanOffer() ? (
           <PlanComparisonView
