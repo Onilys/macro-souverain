@@ -610,14 +610,18 @@ export function EmailList(props: EmailListProps) {
                                           )}
                                         >
                                           {(focus) => (
-                                            <>
-                                              <EmailFocusFlags
-                                                focus={focus()}
-                                              />
-                                              <EmailFocusScore
-                                                focus={focus()}
-                                              />
-                                            </>
+                                            <EmailFocusFlags focus={focus()} />
+                                          )}
+                                        </Show>
+                                      }
+                                      metaEnd={
+                                        <Show
+                                          when={emailFocusOf(
+                                            entityRow().entity
+                                          )}
+                                        >
+                                          {(focus) => (
+                                            <EmailFocusScore focus={focus()} />
                                           )}
                                         </Show>
                                       }

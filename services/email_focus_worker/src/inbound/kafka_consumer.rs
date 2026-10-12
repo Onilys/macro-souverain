@@ -70,7 +70,8 @@ where
 }
 
 /// Consume `macro.email` under the `email-focus` group until `shutdown`
-/// resolves. Receive and commit failures end the consumer; restart it fresh.
+/// resolves. Receive and commit failures are logged and skipped, as in the
+/// activity consumer: a restart would only re-run the startup sweep.
 pub async fn run_focus_consumer<S, P, C>(
     brokers: &str,
     service: Arc<FocusService<S, P, C>>,
@@ -95,7 +96,13 @@ where
         let message = tokio::select! {
             biased;
             () = &mut shutdown => return Ok(()),
-            result = consumer.recv() => result?,
+            result = consumer.recv() => match result {
+                Ok(message) => message,
+                Err(error) => {
+                    tracing::error!(error = ?error, "kafka receive error");
+                    continue;
+                }
+            },
         };
         let span = kafka_util::consumer_span(message.inner(), EmailFocusGroup::GROUP_NAME);
         let thread_id = match message.decode_payload() {
@@ -114,8 +121,11 @@ where
                 () = classify(&service, thread_id).instrument(span.clone()) => {}
             }
         }
-        consumer
+        if let Err(error) = consumer
             .inner()
-            .commit_message(message.inner(), CommitMode::Async)?;
+            .commit_message(message.inner(), CommitMode::Async)
+        {
+            tracing::error!(error = ?error, "kafka commit error");
+        }
     }
 }

@@ -124,6 +124,20 @@ describe('selectFocusEmails', () => {
     ]);
   });
 
+  it('breaks importance ties by recency', () => {
+    const [invoice, report, plan] = EMAILS;
+    const tied = [
+      invoice,
+      report,
+      { ...plan, focus: { ...plan.focus!, importance: 93 } },
+    ];
+    expect(select({ focusSort: 'importance' }, tied)).toEqual([
+      'plan',
+      'report',
+      'invoice',
+    ]);
+  });
+
   it('orders by recency on request', () => {
     expect(select({ focusSort: 'recent' })).toEqual([
       'invoice',

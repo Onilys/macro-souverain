@@ -74,7 +74,7 @@ export const EMAIL_FOCUS_SORT_OPTIONS: readonly {
   {
     id: 'priority',
     label: 'Priority',
-    description: 'Importance, halved every 2 days without new mail',
+    description: 'Importance, halved every 2 days since mail last came in',
   },
   { id: 'importance', label: 'Importance' },
   { id: 'recent', label: 'Most recent' },

@@ -223,6 +223,12 @@ async fn focus_list_is_the_owners_inbox_by_priority(pool: Pool<Postgres>) -> Res
         repo.focus_thread_ids(&owner(), since, 10).await?,
         vec![BULK, INVOICE]
     );
+    // Importance 0 ranks as 1 instead of failing on log(0).
+    repo.save(&record(INVOICE, LATEST_MESSAGE, now, 0)).await?;
+    assert_eq!(
+        repo.focus_thread_ids(&owner(), since, 10).await?,
+        vec![BULK, INVOICE]
+    );
     assert_eq!(
         repo.focus_thread_ids(&owner(), now - Duration::days(1), 10)
             .await?,

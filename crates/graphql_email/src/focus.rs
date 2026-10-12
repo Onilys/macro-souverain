@@ -16,8 +16,8 @@ const MAX_FOCUS_KEYS: usize = 500;
 
 /// Focus reads on behalf of a viewer, limited to the viewer's own inboxes.
 pub trait EmailFocusReader: Send + Sync + 'static {
-    /// The viewer's Focus threads with mail in the last `window_days`, most
-    /// important first.
+    /// The viewer's Focus threads with mail in the last `window_days`,
+    /// highest priority first.
     fn focus_thread_ids<'a>(
         &'a self,
         user: &'a MacroUserIdStr<'static>,

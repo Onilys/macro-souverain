@@ -291,6 +291,7 @@ impl FocusStore for FocusPgRepository {
         since: DateTime<Utc>,
         limit: i64,
     ) -> Result<Vec<Uuid>, Report> {
+        // GREATEST floors importance at 1 below: log(0) is an error.
         Ok(sqlx::query_scalar!(
             r#"
             SELECT f.thread_id

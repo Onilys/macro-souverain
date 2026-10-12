@@ -450,11 +450,12 @@ in the sidebar and the mobile pills. It lists signal threads from the last 30
 days that the email focus worker (`services/email_focus_worker`) classified as
 worth attention, including inboxes linked to the account, by priority: the
 importance score halved for every 2 days since the thread's latest inbound mail.
-On desktop each row shows `Reply needed`, `Follow up`, or category tag pills and
-then the 0-100 importance score with a five-bar meter just before the date (in
-narrow panes the score sits before the subject), and a sort dropdown switches
-between **Priority**, **Importance** and **Most recent**; phones show the same
-rows in priority order without the score, labels or sort. The filter menu adds
+Rows at least 32rem wide show the 0-100 importance score with a five-bar meter
+just before the date, and from 56rem also `Reply needed`, `Follow up`, or
+category tag pills ahead of it. Narrower rows drop both; without a touch screen
+the score moves before the subject, and touch screens show neither. The desktop header's sort dropdown
+switches between **Priority**, **Importance** and **Most recent**; touch layouts
+have no dropdown and keep the saved order (Priority by default). The filter menu adds
 a Focus group (Reply needed, Follow up, Customers, Security, Team, People you
 know) on this tab only and has no Status or Done group there. The list is one
 `user.emailFocus` GraphQL read filtered on the client; it refreshes on open, not

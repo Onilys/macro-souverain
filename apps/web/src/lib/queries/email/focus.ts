@@ -18,7 +18,7 @@ import {
 export const FOCUS_WINDOW_DAYS = 30;
 
 /**
- * The viewer's Focus threads as email rows, most important first, each
+ * The viewer's Focus threads as email rows, highest priority first, each
  * carrying its classification in `focus`.
  */
 export function mapEmailFocus(data: EmailFocusQuery): EmailEntity[] {

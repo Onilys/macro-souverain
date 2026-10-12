@@ -21,17 +21,13 @@ const IMPORTANCE_LEVELS = [
 const BARS = [0, 1, 2, 3, 4] as const;
 
 /** The 0-100 importance score as a number and a five-bar meter. */
-function ImportanceMeter(props: { focus: EmailFocus; class?: string }) {
+function ImportanceMeter(props: { focus: EmailFocus }) {
   const label = () => `Importance ${props.focus.importance} of 100`;
   const level = () =>
     IMPORTANCE_LEVELS.find((band) => props.focus.importance >= band.from) ??
     IMPORTANCE_LEVELS[IMPORTANCE_LEVELS.length - 1];
   return (
-    <Tooltip
-      as="span"
-      label={label()}
-      class={cn('inline-flex shrink-0', props.class)}
-    >
+    <Tooltip as="span" label={label()} class="inline-flex shrink-0">
       <span role="img" aria-label={label()} class="flex items-center gap-2">
         <span class="w-[3ch] text-right text-xs font-medium tabular-nums text-ink-muted">
           {props.focus.importance}
@@ -55,8 +51,7 @@ function ImportanceMeter(props: { focus: EmailFocus; class?: string }) {
 
 /** The score at the end of a wide Focus row, after the labels and tags. */
 export function EmailFocusScore(props: { focus: EmailFocus }) {
-  // Last in the row's metadata, so scores line up just before the date.
-  return <ImportanceMeter focus={props.focus} class="order-last" />;
+  return <ImportanceMeter focus={props.focus} />;
 }
 
 /** The score ahead of the subject in narrow rows, which have no metadata column. */
@@ -69,7 +64,10 @@ export function EmailFocusNarrowScore(props: { focus: EmailFocus }) {
   );
 }
 
-/** Dot color per label, from the palette tags use. */
+/**
+ * Dot color per label. Follow up is blue, not the accent: the accent can be
+ * orange, which reads as Reply needed's amber beside it.
+ */
 const LABEL_TONES = {
   warning: 'var(--color-warning)',
   blue: 'var(--color-blue)',
@@ -90,15 +88,18 @@ const categoryLabel = (
     .with('TEAM', () => ({ label: 'Team', tone: 'violet' as const }))
     .otherwise(() => undefined);
 
-/** A read-only label drawn like a row's tag pills. */
+/**
+ * A read-only label drawn like a row's tag pills (`tagPillClasses`). Rows
+ * under 56rem leave the room to the subject; the filter menu still finds them.
+ */
 function FocusLabel(props: ParentProps<{ tone: LabelTone }>) {
   return (
     <Badge
       variant="outline"
       size="sm"
-      class="select-none gap-1.5 text-ink-muted"
+      class="hidden select-none border-edge-button bg-control @4xl/entity:inline-flex"
     >
-      <TagDot fill={LABEL_TONES[props.tone]} />
+      <TagDot size="sm" fill={LABEL_TONES[props.tone]} />
       {props.children}
     </Badge>
   );

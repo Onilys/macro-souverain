@@ -20,7 +20,8 @@ CREATE TABLE email_thread_focus (
     classified_at TIMESTAMPTZ NOT NULL
 );
 
--- The Focus list: one inbox's Focus threads, most important first.
+-- The Focus list: one inbox's Focus threads. The list sorts its few hundred
+-- rows by priority, which decays with time, so the index carries no order.
 CREATE INDEX email_thread_focus_list_idx
-    ON email_thread_focus (link_id, importance DESC)
+    ON email_thread_focus (link_id)
     WHERE is_focus;
