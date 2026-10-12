@@ -929,23 +929,6 @@ export type RoutineEventName =
   | 'channel.message_patched'
   | 'channel.message_attachment_created';
 /**
- * One activity selector. The routine runs when any filter matches.
- */
-export interface RoutineEventFilter {
-  /**
-   * Activity names that match this filter.
-   */
-  events: RoutineEventName[];
-  /**
-   * Channel, document, or task UUIDs. Required unless every event is `document.created`, `task.created`, `channel.created`, or `email.message_received`, which match every accessible item when omitted.
-   */
-  ids?: string[] | null;
-  /**
-   * Yes/no question about the triggering content, such as "Is this a bug report?". The routine runs only when the answer is yes. Omit to run on every match.
-   */
-  condition?: string | null;
-}
-/**
  * A tag color from the fixed palette.
  */
 export type TagColor =
@@ -7096,9 +7079,34 @@ export interface RoutineConfiguration {
    */
   schedule?: RoutineSchedule | null;
   /**
-   * Activity that starts a run immediately. Omit for a schedule-only routine. Each filter matches on its own. A message in a channel uses `channel.message_posted` with that channel's UUID in `ids`.
+   * Activity that starts a run immediately. Omit for a schedule-only routine.
+   * Each filter matches on its own. A message in a channel uses
+   * `channel.message_posted` with that channel's UUID in `ids`. `ids` are
+   * required except for `document.created`, `task.created`, `channel.created`,
+   * and `email.message_received`. `condition` is an optional yes/no question;
+   * the run starts only when the triggering content answers yes.
    */
   events?: RoutineEventFilter[] | null;
+}
+/**
+ * One activity selector. The routine runs when any filter matches.
+ */
+export interface RoutineEventFilter {
+  /**
+   * Activity names that match this filter.
+   */
+  events: RoutineEventName[];
+  /**
+   * Channel, document, or task UUIDs. Required unless every event is
+   * `document.created`, `task.created`, `channel.created`, or
+   * `email.message_received`, which match every accessible item when omitted.
+   */
+  ids?: string[] | null;
+  /**
+   * Yes/no question about the triggering content, such as "Is this a bug report?".
+   * The routine runs only when the answer is yes. Omit to run on every match.
+   */
+  condition?: string | null;
 }
 /**
  * Compact routine details returned to the caller.
@@ -12454,7 +12462,7 @@ export interface ProjectChannelSharing {
   access: ProjectShareAccess;
 }
 /**
- * Pause/resume or replace the configuration of a routine owned by the authenticated user. ReadRoutine first before replacing configuration. Select an agent to delegate the routine or a model to run as Macro. Does not change ownership. A running routine can be paused but cannot be reconfigured until it finishes.
+ * Pause/resume or replace the configuration of a routine owned by the authenticated user. ReadRoutine first before replacing configuration. A replacement can set a schedule, activity events such as channel.message_posted, or both. Select an agent to delegate the routine or a model to run as Macro. Does not change ownership. A running routine can be paused but cannot be reconfigured until it finishes.
  */
 export interface UpdateRoutine {
   /**

@@ -38,7 +38,7 @@ routines use `{"type":"cron","expression":"0 0 9 * * 2-6","timezone":"America/Ne
 To run when a message is sent, omit `schedule` and set
 `events: [{"events":["channel.message_posted"],"ids":["<channel uuid>"]}]`.
 Add `condition` with a yes/no question to skip messages that do not match.
-`ids` are required for messages, mentions, edits, deletions, and task changes.
+`ids` are required for messages, mentions, edits, attachments, deletions, and task changes.
 Omit `ids` only for `document.created`, `task.created`, `channel.created`, and
 `email.message_received`. A routine can set both a schedule and events.
 Use `ListRoutines` to avoid duplicates, `ReadRoutine` to inspect settings/results,
