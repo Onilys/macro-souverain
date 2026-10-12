@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex},
 };
 
@@ -51,9 +51,20 @@ struct RecordingSoupService {
     calls: Arc<Mutex<Vec<RecordedRequest>>>,
     /// Items returned for each user.
     responses: Arc<Mutex<HashMap<MacroUserIdStr<'static>, Vec<SoupItem<()>>>>>,
+    /// Errors returned, in order, before any configured items.
+    failures: Arc<Mutex<VecDeque<SoupErr>>>,
 }
 
 impl RecordingSoupService {
+    /// Fail the next request with `error`.
+    fn failing_with(self, error: SoupErr) -> Self {
+        self.failures
+            .lock()
+            .expect("failures lock")
+            .push_back(error);
+        self
+    }
+
     /// Configure the items returned for a user.
     fn with_response(self, user_id: MacroUserIdStr<'static>, items: Vec<SoupItem<()>>) -> Self {
         self.responses
@@ -90,6 +101,9 @@ impl SoupService for RecordingSoupService {
                 link_ids: req.link_ids,
                 team_id: team_receipt.map(|receipt| receipt.entity().entity_id.to_string()),
             });
+        if let Some(error) = self.failures.lock().expect("failures lock").pop_front() {
+            return Err(error);
+        }
         let page: PaginatedCursor<SoupItem<()>, String, SimpleSortMethod, T> =
             Paginated::from_parts(items, None);
         Ok(SoupOutput::Simple(page))
@@ -614,4 +628,100 @@ async fn pr_and_session_hydration_recheck_team_on_each_batch() {
     *team.0.lock().unwrap() = None;
     loader.load(&keys).await.unwrap();
     assert_eq!(soup.calls.lock().unwrap()[1].team_id, None);
+}
+
+/// Stands in for the replica classifier: `CommsErr` plays the replica conflict.
+fn comms_err_is_replica_conflict(error: &SoupErr) -> bool {
+    matches!(error, SoupErr::CommsErr)
+}
+
+/// One document key for `user_id`.
+fn document_key(user_id: &MacroUserIdStr<'static>, id: Uuid) -> SoupItemLoaderKey {
+    (
+        user_id.clone(),
+        EntityType::Document.with_entity_string(id.to_string()),
+    )
+}
+
+#[tokio::test]
+async fn retries_a_replica_conflict_once_on_the_primary() {
+    let user_id = user("macro|replica@example.com");
+    let id = Uuid::from_u128(21);
+    let replica = RecordingSoupService::default()
+        .with_response(user_id.clone(), vec![document_named(id, "stale")])
+        .failing_with(SoupErr::CommsErr);
+    let primary = RecordingSoupService::default()
+        .with_response(user_id.clone(), vec![document_named(id, "primary")]);
+    let loader = SoupItemLoader::new(replica.clone(), RecordingInboxReader::default())
+        .with_replica_fallback(SoupReplicaFallback::new(
+            primary.clone(),
+            comms_err_is_replica_conflict,
+        ));
+
+    let loaded = Loader::<SoupItemLoaderKey>::load(&loader, &[document_key(&user_id, id)])
+        .await
+        .expect("primary serves the cancelled batch");
+
+    let item = &loaded[&document_key(&user_id, id)].item;
+    assert!(matches!(item, SoupItem::Document(document) if document.name == "primary"));
+    assert_eq!(replica.calls.lock().unwrap().len(), 1);
+    let primary_calls = primary.calls.lock().unwrap();
+    assert_eq!(primary_calls.len(), 1);
+    assert_eq!(primary_calls[0].user_id, user_id);
+    assert_eq!(primary_calls[0].limit, 1);
+}
+
+#[tokio::test]
+async fn does_not_retry_other_replica_errors() {
+    let user_id = user("macro|other@example.com");
+    let replica = RecordingSoupService::default().failing_with(SoupErr::CallErr);
+    let primary = RecordingSoupService::default();
+    let loader = SoupItemLoader::new(replica.clone(), RecordingInboxReader::default())
+        .with_replica_fallback(SoupReplicaFallback::new(
+            primary.clone(),
+            comms_err_is_replica_conflict,
+        ));
+
+    let error =
+        Loader::<SoupItemLoaderKey>::load(&loader, &[document_key(&user_id, Uuid::from_u128(22))])
+            .await
+            .expect_err("non-conflict errors surface");
+
+    assert!(error.to_string().contains("call error"), "{error}");
+    assert_eq!(replica.calls.lock().unwrap().len(), 1);
+    assert!(primary.calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn surfaces_the_primary_error_without_retrying_again() {
+    let user_id = user("macro|both@example.com");
+    let replica = RecordingSoupService::default().failing_with(SoupErr::CommsErr);
+    let primary = RecordingSoupService::default()
+        .failing_with(SoupErr::CommsErr)
+        .failing_with(SoupErr::CommsErr);
+    let loader = SoupItemLoader::new(replica.clone(), RecordingInboxReader::default())
+        .with_replica_fallback(SoupReplicaFallback::new(
+            primary.clone(),
+            comms_err_is_replica_conflict,
+        ));
+
+    Loader::<SoupItemLoaderKey>::load(&loader, &[document_key(&user_id, Uuid::from_u128(23))])
+        .await
+        .expect_err("a failing primary is not retried");
+
+    assert_eq!(replica.calls.lock().unwrap().len(), 1);
+    assert_eq!(primary.calls.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn does_not_retry_without_a_replica_fallback() {
+    let user_id = user("macro|nofallback@example.com");
+    let replica = RecordingSoupService::default().failing_with(SoupErr::CommsErr);
+    let loader = SoupItemLoader::new(replica.clone(), RecordingInboxReader::default());
+
+    Loader::<SoupItemLoaderKey>::load(&loader, &[document_key(&user_id, Uuid::from_u128(24))])
+        .await
+        .expect_err("no fallback, no retry");
+
+    assert_eq!(replica.calls.lock().unwrap().len(), 1);
 }

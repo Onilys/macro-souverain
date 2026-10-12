@@ -47,7 +47,9 @@ use rootcause::{
     markers::{Cloneable, Dynamic},
 };
 use soup::domain::{
-    models::{SoupProjectionHydration, SoupQuery, SoupRequest, SoupSortDirection, SoupType},
+    models::{
+        SoupErr, SoupProjectionHydration, SoupQuery, SoupRequest, SoupSortDirection, SoupType,
+    },
     ports::SoupService,
 };
 use uuid::Uuid;
@@ -139,6 +141,24 @@ impl<A: EntityAccessService> SoupTeamReader for EntityAccessTeamReader<A> {
     }
 }
 
+/// Primary-backed Soup reader for a batch the read replica cancelled.
+pub struct SoupReplicaFallback<S> {
+    /// Soup service reading the primary pool.
+    primary: S,
+    /// Whether an error is a replica cancellation the primary can serve.
+    is_replica_conflict: fn(&SoupErr) -> bool,
+}
+
+impl<S> SoupReplicaFallback<S> {
+    /// Retry batches on `primary` when `is_replica_conflict` matches the replica's error.
+    pub fn new(primary: S, is_replica_conflict: fn(&SoupErr) -> bool) -> Self {
+        Self {
+            primary,
+            is_replica_conflict,
+        }
+    }
+}
+
 /// Batches lightweight entity patches into one filtered Soup request per user.
 pub struct SoupItemLoader<S, I> {
     /// Existing Soup query service.
@@ -147,6 +167,8 @@ pub struct SoupItemLoader<S, I> {
     inbox_reader: I,
     /// Optional reader for current team access during PR and session hydration.
     team_reader: Option<Arc<dyn SoupTeamReader>>,
+    /// Optional primary reader for batches the replica cancels.
+    replica_fallback: Option<SoupReplicaFallback<S>>,
 }
 
 impl<S, I> SoupItemLoader<S, I> {
@@ -156,7 +178,14 @@ impl<S, I> SoupItemLoader<S, I> {
             soup_service,
             inbox_reader,
             team_reader: None,
+            replica_fallback: None,
         }
+    }
+
+    /// Retry a batch once on the primary when the replica cancels it.
+    pub fn with_replica_fallback(mut self, fallback: SoupReplicaFallback<S>) -> Self {
+        self.replica_fallback = Some(fallback);
+        self
     }
 }
 
@@ -194,21 +223,31 @@ where
         let limit = u16::try_from(entities.len())
             .unwrap_or(MAX_BATCH_SIZE as u16)
             .clamp(1, MAX_BATCH_SIZE as u16);
-        let request = SoupRequest {
+        let request = || SoupRequest {
             soup_type: SoupType::Expanded,
             limit,
-            cursor: SoupQuery::new_sort_simple(SimpleSortMethod::UpdatedAt, filter),
+            cursor: SoupQuery::new_sort_simple(SimpleSortMethod::UpdatedAt, filter.clone()),
             // Batch entity load — order is irrelevant, the caller re-keys by id.
             sort_direction: SoupSortDirection::default(),
             user: user_id.clone(),
             email_preview_view: PreviewView::StandardLabel(PreviewViewStandardLabel::All),
-            link_ids,
+            link_ids: link_ids.clone(),
         };
 
-        let items = self
+        let mut output = self
             .soup_service
-            .get_user_soup_with_projection(request, team)
-            .await
+            .get_user_soup_with_projection(request(), team.clone())
+            .await;
+        if let (Err(error), Some(fallback)) = (&output, &self.replica_fallback)
+            && (fallback.is_replica_conflict)(error)
+        {
+            tracing::warn!(%error, "replica cancelled Soup hydration; retrying on the primary");
+            output = fallback
+                .primary
+                .get_user_soup_with_projection(request(), team)
+                .await;
+        }
+        let items = output
             .map_err(|error| rootcause::report!(error).into_dynamic().into_cloneable())?
             .into_items();
 
@@ -386,9 +425,11 @@ where
     ))
 }
 
-/// Build a loader that rechecks team access for PRs and linked session metadata.
+/// Build a loader that rechecks team access for PRs and linked session metadata,
+/// and retries batches the replica-backed `soup_service` cancels on `fallback`.
 pub fn soup_item_loader_with_team_access<S, E, A>(
     soup_service: S,
+    fallback: SoupReplicaFallback<S>,
     email_service: Arc<E>,
     access: A,
 ) -> SoupItemDataLoader
@@ -397,7 +438,8 @@ where
     E: EmailService,
     A: EntityAccessService,
 {
-    let mut loader = SoupItemLoader::new(soup_service, EmailServiceInboxReader::new(email_service));
+    let mut loader = SoupItemLoader::new(soup_service, EmailServiceInboxReader::new(email_service))
+        .with_replica_fallback(fallback);
     loader.team_reader = Some(Arc::new(EntityAccessTeamReader(access)));
     SoupItemDataLoader::new(loader)
 }

@@ -834,6 +834,9 @@ pub(crate) struct ApiContext {
     pub graphql_work_feed_context: complete_graph::WorkFeedGraphqlContext,
     pub graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader,
     pub graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader,
+    /// Primary-backed Soup reader; Soup lists and realtime hydration stay on
+    /// the replica reader in `soup_router_state`.
+    pub primary_entity_soup: Arc<DssSoupService>,
     pub databases_state: DssDatabasesState,
     pub forms_state: DssFormsState,
     pub database_starter_state: DssDatabaseStarterState,
