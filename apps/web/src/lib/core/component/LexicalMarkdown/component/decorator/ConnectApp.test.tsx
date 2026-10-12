@@ -182,10 +182,10 @@ describe('connect-app chip', () => {
       </AppConnectionContext.Provider>
     ));
     fireEvent.click(screen.getByRole('button', { name: 'Connect Linear' }));
-    expect(connect).toHaveBeenCalledExactlyOnceWith({
-      appSlug: 'linear',
-      name: 'Linear',
-    });
+    expect(connect).toHaveBeenCalledExactlyOnceWith(
+      { appSlug: 'linear', name: 'Linear' },
+      undefined
+    );
     expect(mocks.openAgentsPage).not.toHaveBeenCalled();
     expect(mocks.requestConnectApp).not.toHaveBeenCalled();
   });
@@ -402,10 +402,12 @@ describe('connect-app chip', () => {
     expect(screen.getByText('Ada needs it to continue')).toBeTruthy();
     expect(screen.getByText("Ada carries on once it's connected")).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
-    expect(connect).toHaveBeenCalledExactlyOnceWith({
-      appSlug: 'linear',
-      name: 'Linear',
-    });
+    // The reply it sits in, so the surface can tell whether the agent is
+    // still waiting on this reply once the app is connected.
+    expect(connect).toHaveBeenCalledExactlyOnceWith(
+      { appSlug: 'linear', name: 'Linear' },
+      { messageId: 'reply', postedAt: '2026-10-12T10:00:00Z' }
+    );
   });
 
   it('says the sign-in is open, and takes no second click', () => {

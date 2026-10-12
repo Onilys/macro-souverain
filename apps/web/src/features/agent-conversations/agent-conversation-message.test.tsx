@@ -71,7 +71,7 @@ function conversation(
 function context(
   data: () => AgentConversation
 ): AgentConversationsContextValue {
-  return { conversations: () => [data()], refresh: vi.fn() };
+  return { conversations: () => [data()], refresh: vi.fn(async () => true) };
 }
 
 it('places a fresh-context divider only before the session’s first source message', () => {

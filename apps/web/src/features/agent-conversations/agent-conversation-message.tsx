@@ -64,7 +64,7 @@ export function AgentConversationMessageStatus(props: { messageId: string }) {
         <TurnStatus
           conversation={entry().conversation}
           turn={entry().turn}
-          onChanged={context.refresh}
+          onChanged={() => void context.refresh()}
         />
       )}
     </Key>

@@ -128,6 +128,9 @@ function useWaitingOn(): Accessor<string | undefined> {
 function ConnectPipedreamApp(props: ConnectProps) {
   const context = useContext(AppConnectionContext);
   const inChat = () => (context?.enabled?.() === false ? undefined : context);
+  // The reply the button sits in, so the surface can tell whether the agent
+  // is still waiting on this reply when the app is connected.
+  const message = useOptionalMessage();
   const layout = useSplitLayout();
   const connections = usePipedreamConnectedSlugs();
   const waitingOn = useWaitingOn();
@@ -154,7 +157,11 @@ function ConnectPipedreamApp(props: ConnectProps) {
       onConnect={() => {
         const inPlace = inChat();
         if (inPlace) {
-          void inPlace.connect({ appSlug: props.appSlug, name: props.name });
+          const reply = message?.();
+          void inPlace.connect(
+            { appSlug: props.appSlug, name: props.name },
+            reply && { messageId: reply.id, postedAt: reply.created_at }
+          );
           return;
         }
         // Connections picks this up and starts the Connect flow.
