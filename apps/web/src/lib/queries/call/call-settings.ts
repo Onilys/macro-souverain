@@ -18,9 +18,14 @@ export function useCallSettingsQuery() {
   }));
 }
 
+/** Shared by every settings mutation, so each can see the others in flight. */
+const settingsMutationKey = [...callKeys.settings.queryKey, 'update'];
+
 /**
  * Shows a settings change at once, then replaces it with what the server
- * stored. A failed save restores the previous settings.
+ * stored once no other change is in flight; a snapshot from an earlier save
+ * would undo a later change still showing. A failed save restores the
+ * previous settings, or refetches them while another change is in flight.
  */
 function optimisticCallSettings<Args>(
   patch: (args: Args, settings: CallSettings) => CallSettings,
@@ -40,17 +45,24 @@ function optimisticCallSettings<Args>(
       context: { previous?: CallSettings } | undefined
     ) => {
       console.error(failure, error);
-      if (context?.previous) queryClient.setQueryData(key, context.previous);
+      // Restoring this save's snapshot would also undo a change still in
+      // flight, so refetch instead.
+      if (queryClient.isMutating({ mutationKey: settingsMutationKey }) > 1)
+        void queryClient.invalidateQueries({ queryKey: key });
+      else if (context?.previous)
+        queryClient.setQueryData(key, context.previous);
       toast.failure(failure);
     },
     onSuccess: (settings: CallSettings) => {
-      queryClient.setQueryData(key, settings);
+      if (queryClient.isMutating({ mutationKey: settingsMutationKey }) <= 1)
+        queryClient.setQueryData(key, settings);
     },
   };
 }
 
 export function useUpdateCallSettingsMutation() {
   return useMutation(() => ({
+    mutationKey: settingsMutationKey,
     mutationFn: (body: UpdateCallSettingsRequest) =>
       throwOnErr(() => callServiceClient.updateCallSettings(body)),
     ...optimisticCallSettings<UpdateCallSettingsRequest>(
@@ -74,6 +86,7 @@ export function useUpdateCallSettingsMutation() {
 
 export function useUpdateTeamCallPolicyMutation() {
   return useMutation(() => ({
+    mutationKey: settingsMutationKey,
     mutationFn: (body: UpdateTeamCallPolicyRequest) =>
       throwOnErr(() => callServiceClient.updateTeamCallPolicy(body)),
     ...optimisticCallSettings<UpdateTeamCallPolicyRequest>(
