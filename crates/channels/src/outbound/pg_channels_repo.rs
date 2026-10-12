@@ -1086,20 +1086,19 @@ fn build_channel_thread_rows_query(
     let cursor_id_str = cursor_id.map(|id| id.to_string());
     let cursor_timestamp = cursor_timestamp.cloned();
 
-    if let Some(expr) = cursor.filter().as_deref() {
-        if let ThreadNotifPlan::Ready { ids_sql, residuals } =
+    if let Some(expr) = cursor.filter().as_deref()
+        && let ThreadNotifPlan::Ready { ids_sql, residuals } =
             classify_channel_thread_notification(expr)
-        {
-            return build_channel_thread_notification_query(
-                params,
-                ids_sql,
-                &residuals,
-                sort_method_str,
-                query_limit,
-                cursor_timestamp,
-                cursor_id_str,
-            );
-        }
+    {
+        return build_channel_thread_notification_query(
+            params,
+            ids_sql,
+            &residuals,
+            sort_method_str,
+            query_limit,
+            cursor_timestamp,
+            cursor_id_str,
+        );
     }
 
     let mut builder = QueryBuilder::new(
