@@ -3,8 +3,29 @@
 `EmailRenderCacheProvider` owns one service per verified viewer session. Email
 features receive only an `EmailPreparation` capability: synchronous memory hits,
 a pending completion promise, and a release function. Standalone views use direct
-preparation. The PostHog flag is `enable-email-render-cache`, with the local
-override `VITE_ENABLE_EMAIL_RENDER_CACHE`. It defaults on only for local stacks.
+preparation.
+
+## Rollout
+
+The PostHog flag is `enable-email-render-cache`, with the local override
+`VITE_ENABLE_EMAIL_RENDER_CACHE`. It defaults on only for local stacks. As a
+plain boolean flag it enables the cache when on; as an experiment flag only the
+`test` variant enables it (`rollout.ts`), since PostHog reports every variant,
+`control` included, as enabled.
+
+Outside the cache arm the app behaves as it does without this module: bodies use
+the direct `createEmailMessageBody` path, denied threads keep their retained
+data, and backfill requests no preparation ids. Only cleanup still runs, so
+turning the flag off never strands prepared bodies on disk: sign-out, account
+switches and invalidation events clear an existing database, never creating one.
+Each body chooses its path when it mounts, so a flag change applies to bodies
+opened afterwards and never rebuilds a displayed one.
+
+Enrolled viewers, in either arm, send `email_body_shown` once per body mount:
+the path and source (`memory`, `storage`, `parsed`, or `direct`), preparation,
+mount and total milliseconds from the body's creation, HTML size, and whether the
+message was already shown in this page load. Comparing arms on `total_ms`, split
+by `repeat`, measures the cache's effect on opens.
 
 The cache engine and coordination run without Solid. `session-runtime.ts` owns
 browser storage, quarantine, cross-tab invalidation, and disposal from explicit

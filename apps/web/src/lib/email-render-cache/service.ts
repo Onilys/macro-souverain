@@ -2,6 +2,7 @@ import type {
   EmailPreparation,
   EmailPreparationRequest,
   PreparedEmailLease,
+  PreparedOrigin,
 } from '@app/features/email-message/context/email-preparation';
 import {
   type EmailBodyInput,
@@ -91,6 +92,7 @@ export class EmailRenderCache implements EmailPreparation {
   private bindings = new Map<string, Binding>();
   private bindingBytes = 0;
   private artifacts = new Map<string, Promise<PreparedEmailBody>>();
+  private origins = new WeakMap<PreparedEmailBody, PreparedOrigin>();
   private scheduler = new PreparationScheduler();
   private executor: PreparationExecutor;
   private disposed = false;
@@ -331,6 +333,19 @@ export class EmailRenderCache implements EmailPreparation {
     return body;
   }
 
+  /** How a delivered body was first obtained (rollout telemetry). */
+  origin(body: PreparedEmailBody): PreparedOrigin | undefined {
+    return this.origins.get(body);
+  }
+
+  private track(
+    body: PreparedEmailBody,
+    origin: PreparedOrigin
+  ): PreparedEmailBody {
+    if (!this.origins.has(body)) this.origins.set(body, origin);
+    return body;
+  }
+
   /** Infinity when no current consumer holds this artifact. */
   private priorityFor(key: string): number {
     let priority = Infinity;
@@ -372,7 +387,7 @@ export class EmailRenderCache implements EmailPreparation {
       );
       if (!valid()) throw cancelled();
       if (validArtifact(cached, key, sourceHash, policyHash)) {
-        return this.memory.publish(key, cached.body);
+        return this.track(this.memory.publish(key, cached.body), 'storage');
       }
       if (cached !== undefined)
         void storageDeadline(attempt(() => storage.store.remove(key)));
@@ -384,7 +399,7 @@ export class EmailRenderCache implements EmailPreparation {
         priority()
       );
       if (!valid()) throw cancelled();
-      return this.memory.publish(key, body);
+      return this.track(this.memory.publish(key, body), 'parsed');
     });
   }
 

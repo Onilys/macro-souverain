@@ -18,7 +18,10 @@ import type {
   EmailPreparationRequest,
   PreparedEmailLease,
 } from '../context/email-preparation';
-import type { EmailRenderingContextValue } from '../context/email-rendering-context';
+import type {
+  EmailBodyShown,
+  EmailRenderingContextValue,
+} from '../context/email-rendering-context';
 import type { EmailMessageBodyProps } from './email-message-body';
 
 function sameRequest(
@@ -123,6 +126,11 @@ export function createStableEmailMessageBody(
       disposed: false,
       accepted: undefined as EmailPreparationRequest | undefined,
       aborts: 0,
+      // First display, for rollout telemetry.
+      createdAt: performance.now(),
+      preparedAt: undefined as number | undefined,
+      source: 'direct' as EmailBodyShown['source'],
+      reported: false,
     };
     onCleanup(() => {
       current.disposed = true;
@@ -178,10 +186,14 @@ export function createStableEmailMessageBody(
     let active = true;
     let lease: PreparedEmailLease | undefined;
     current.setError(false);
-    function accept(body: PreparedEmailBody) {
+    function accept(body: PreparedEmailBody, source: EmailBodyShown['source']) {
       if (!active || current.disposed) {
         lease?.release();
         return;
+      }
+      if (current.preparedAt === undefined) {
+        current.preparedAt = performance.now();
+        current.source = source;
       }
       if (current.lease !== lease) current.lease?.release();
       current.lease = lease;
@@ -195,7 +207,8 @@ export function createStableEmailMessageBody(
     }
     async function receive() {
       try {
-        accept(await lease!.promise);
+        const body = await lease!.promise;
+        accept(body, preparation?.origin?.(body) ?? 'parsed');
       } catch (error) {
         if (!active || current.disposed) return;
         // Cancelled while this body still wants it (another consumer replaced
@@ -216,7 +229,7 @@ export function createStableEmailMessageBody(
         lease?.release();
         lease = undefined;
         try {
-          accept(prepareEmailBody(selected.input, selected.options));
+          accept(prepareEmailBody(selected.input, selected.options), 'direct');
         } catch {
           batch(() => {
             current.setPending(false);
@@ -228,13 +241,13 @@ export function createStableEmailMessageBody(
     try {
       if (preparation) {
         lease = preparation.acquire(selected);
-        if (lease.ready) accept(lease.ready);
+        if (lease.ready) accept(lease.ready, 'memory');
         else {
           current.setPending(true);
           void receive();
         }
       } else {
-        accept(prepareEmailBody(selected.input, selected.options));
+        accept(prepareEmailBody(selected.input, selected.options), 'direct');
       }
     } catch {
       current.setError(true);
@@ -312,8 +325,24 @@ export function createStableEmailMessageBody(
       // Keep wide designed email contained within the pane.
       host.style.minWidth = '0';
       host.style.width = '100%';
+      const mountStart = performance.now();
       current.renderer = mountEmailBody(host, body, options);
       current.setHost(host);
+      if (!current.reported) {
+        current.reported = true;
+        const now = performance.now();
+        untrack(() =>
+          context.reportBodyShown?.({
+            messageId: props.message.db_id,
+            path: 'cache',
+            source: current.source,
+            prepareMs: (current.preparedAt ?? mountStart) - current.createdAt,
+            mountMs: now - mountStart,
+            totalMs: now - current.createdAt,
+            htmlLength: props.message.body_html_sanitized?.length ?? 0,
+          })
+        );
+      }
     }
     current.rendered = body;
     current.presentation = presentation;

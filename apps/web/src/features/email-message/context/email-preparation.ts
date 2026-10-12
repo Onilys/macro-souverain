@@ -21,7 +21,12 @@ export interface PreparedEmailLease {
   release(): void;
 }
 
+/** Where a prepared body came from before it reached memory. */
+export type PreparedOrigin = 'storage' | 'parsed';
+
 /** Source authorization stays with the caller; artifacts never grant access. */
 export interface EmailPreparation {
   acquire(request: EmailPreparationRequest): PreparedEmailLease;
+  /** How a delivered body was first obtained, when this cache produced it. */
+  origin?(body: PreparedEmailBody): PreparedOrigin | undefined;
 }

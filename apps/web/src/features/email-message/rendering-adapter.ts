@@ -1,14 +1,15 @@
-import { useEmailRenderCache } from '@app/lib/email-render-cache/session';
+import { useEmailRenderCacheRollout } from '@app/lib/email-render-cache/session';
 import { useUserContext } from '@core/context/user';
 import { interceptMailtoLinks } from '@core/util/interceptMailtoLinks';
-import { createMemo } from 'solid-js';
+import { createMemo, untrack } from 'solid-js';
+import { reportEmailBodyShown } from './body-telemetry';
 import type { EmailRenderingContextValue } from './context/email-rendering-context';
 import { fetchImagesViaPlatform, resolveCidImages } from './image-adapter';
 import { emailImagePolicy } from './rendering-policy';
 import { createEmailTheme } from './theme';
 
 export function createEmailRenderingContext(): EmailRenderingContextValue {
-  const cache = useEmailRenderCache();
+  const rollout = useEmailRenderCacheRollout();
   const user = useUserContext();
   // The first viewer this surface renders for. A cold start may mount before
   // user info loads, so adopt the first known id instead of snapshotting.
@@ -18,6 +19,9 @@ export function createEmailRenderingContext(): EmailRenderingContextValue {
   const theme = createEmailTheme();
   return {
     theme,
+    cachedBodies: rollout.enabled,
+    reportBodyShown: (shown) =>
+      reportEmailBodyShown(shown, untrack(rollout.arm)),
     // Revoke only once the identity is cleared (a confirmed sign-out stores
     // an empty one) or replaced by another account. A raw 401 keeps the
     // retained identity, and an unknown one (cold start) keeps rendering.
@@ -27,7 +31,7 @@ export function createEmailRenderingContext(): EmailRenderingContextValue {
       return id !== '' && id === (owner() ?? id);
     },
     get preparation() {
-      return cache();
+      return rollout.cache();
     },
     images: emailImagePolicy,
     prepareLinks: interceptMailtoLinks,

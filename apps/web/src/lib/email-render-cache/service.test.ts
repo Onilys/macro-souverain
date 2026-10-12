@@ -367,4 +367,36 @@ describe('prepared email cache', () => {
     cache.dispose();
     lease.release();
   });
+  it('reports whether a delivered body was parsed or read from storage', async () => {
+    const artifacts = new Map<string, unknown>();
+    const store: ArtifactStore = {
+      generation: async () => 0,
+      read: async (key) => artifacts.get(key),
+      write: async (_generation, artifact) => {
+        artifacts.set(artifact.key, artifact);
+        return true;
+      },
+      remove: vi.fn(),
+      invalidate: vi.fn(),
+      close: vi.fn(),
+    };
+    const first = setup({ store: async () => store });
+    const parsed = first.cache.acquire(request);
+    const parsedBody = await parsed.promise;
+    expect(first.cache.origin(parsedBody)).toBe('parsed');
+    await vi.waitFor(() => expect(artifacts.size).toBe(1));
+    parsed.release();
+    first.cache.dispose();
+
+    const second = setup({ store: async () => store });
+    const stored = second.cache.acquire(request);
+    const storedBody = await stored.promise;
+    expect(second.prepare).not.toHaveBeenCalled();
+    expect(second.cache.origin(storedBody)).toBe('storage');
+    expect(
+      second.cache.origin(prepareEmailBody(request.input))
+    ).toBeUndefined();
+    stored.release();
+    second.cache.dispose();
+  });
 });

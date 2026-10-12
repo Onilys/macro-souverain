@@ -1,5 +1,6 @@
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { offerEmailPreparationHints } from '@app/lib/email-render-cache/hints';
+import { isEmailRenderCacheEnabled } from '@app/lib/email-render-cache/rollout-flag';
 import {
   ENABLE_GRAPHQL_BACKFILL,
   enableGraphqlSoup,
@@ -10,6 +11,7 @@ import { Telemetry } from '@macro-inc/observability';
 import {
   type GraphqlEmailExpr,
   SoupBackfillDocument,
+  SoupBackfillPreparationDocument,
   SoupMailBackfillDocument,
 } from '@service-storage/graphql/generated/graphql';
 import {
@@ -59,8 +61,10 @@ const fetchSoupPage: SoupBackfillFetchPage = (input, options) =>
   hydrateGraphqlSoup(SoupBackfillDocument, { input }, options);
 
 const fetchEmailContentPage: SoupBackfillFetchPage = async (input, options) => {
+  // Item ids are requested only for the render-cache rollout's warming.
+  if (!isEmailRenderCacheEnabled()) return await fetchSoupPage(input, options);
   const page = await hydrateGraphqlSoup(
-    SoupBackfillDocument,
+    SoupBackfillPreparationDocument,
     { input },
     options
   );

@@ -24,13 +24,25 @@ import {
   invalidateEmailRenders,
   registerEmailRenderInvalidation,
 } from './lifecycle';
+import { cacheArmFor, cacheEnabledFor } from './rollout';
 import type { EmailRenderCache } from './service';
 import { createEmailRenderSession } from './session-runtime';
 
-const SessionContext = createContext<Accessor<EmailRenderCache | undefined>>(
-  () => undefined
-);
-export const useEmailRenderCache = () => useContext(SessionContext);
+interface EmailRenderCacheContextValue {
+  cache: Accessor<EmailRenderCache | undefined>;
+  /** Whether newly opened bodies use the cache path (the rollout's test arm). */
+  enabled: Accessor<boolean>;
+  /** The rollout arm telemetry reports; undefined outside the rollout. */
+  arm: Accessor<string | undefined>;
+}
+
+const SessionContext = createContext<EmailRenderCacheContextValue>({
+  cache: () => undefined,
+  enabled: () => false,
+  arm: () => undefined,
+});
+export const useEmailRenderCache = () => useContext(SessionContext).cache;
+export const useEmailRenderCacheRollout = () => useContext(SessionContext);
 
 /** One service per verified viewer session, shared by every thread/split. */
 export function EmailRenderCacheProvider(props: ParentProps) {
@@ -108,7 +120,8 @@ export function EmailRenderCacheProvider(props: ParentProps) {
   // Every tab observes a normalized-cache identity reset itself.
   onCleanup(registerCacheResetListener(() => invalidateEmailRenders('local')));
 
-  const enabled = createMemo(() => flag().enabled);
+  const enabled = createMemo(() => cacheEnabledFor(flag()));
+  const arm = createMemo(() => cacheArmFor(flag()));
   const native = isTauri();
   // Speculative hydration runs in one tab, and only while enabled.
   const isLeader = createMemo(() =>
@@ -180,7 +193,7 @@ export function EmailRenderCacheProvider(props: ParentProps) {
   });
   const cache = () => (enabled() ? session()?.cache : undefined);
   return (
-    <SessionContext.Provider value={cache}>
+    <SessionContext.Provider value={{ cache, enabled, arm }}>
       {props.children}
     </SessionContext.Provider>
   );

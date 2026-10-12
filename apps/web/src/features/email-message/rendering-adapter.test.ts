@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ user: undefined as unknown }));
 vi.mock('@app/lib/email-render-cache/session', () => ({
-  useEmailRenderCache: () => () => undefined,
+  useEmailRenderCacheRollout: () => ({
+    cache: () => undefined,
+    enabled: () => false,
+    arm: () => undefined,
+  }),
 }));
 vi.mock('@core/context/user', () => ({ useUserContext: () => mocks.user }));
 vi.mock('./theme', () => ({ createEmailTheme: () => () => ({}) }));

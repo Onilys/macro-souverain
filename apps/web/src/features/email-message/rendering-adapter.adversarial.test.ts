@@ -12,7 +12,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ user: undefined as unknown }));
 // Flag OFF: no session cache.
 vi.mock('@app/lib/email-render-cache/session', () => ({
-  useEmailRenderCache: () => () => undefined,
+  useEmailRenderCacheRollout: () => ({
+    cache: () => undefined,
+    enabled: () => false,
+    arm: () => undefined,
+  }),
 }));
 vi.mock('@core/context/user', () => ({ useUserContext: () => mocks.user }));
 vi.mock('./theme', () => ({
@@ -34,7 +38,7 @@ vi.mock('./image-adapter', () => ({
   }),
 }));
 
-import { createEmailMessageBody } from './primitives/email-message-body';
+import { createStableEmailMessageBody } from './primitives/stable-email-message-body';
 import { createEmailRenderingContext } from './rendering-adapter';
 import { message } from './tests/messages';
 
@@ -53,7 +57,7 @@ function mount(initial: { authenticated?: boolean; id?: string }) {
       lifetime.onDispose(() => images.released++);
       return resolveImages(root, attachments, lifetime);
     };
-    const body = createEmailMessageBody(
+    const body = createStableEmailMessageBody(
       {
         message: message('one', {
           body_html_sanitized: '<p>Hello <img src="cid:logo"></p>',

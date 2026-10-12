@@ -96,10 +96,12 @@ export function toEmailThread(thread: ApiThread): EmailThread {
 
 export function createEmailThreadSource(
   threadId: Accessor<string>,
-  query: ThreadQueryResult<ThreadQueryData>
+  query: ThreadQueryResult<ThreadQueryData>,
+  /** Hide a thread the server denies and revoke its cached copies. */
+  revokeDenied: Accessor<boolean> = () => false
 ): EmailThreadSource {
   const accessDenied = createMemo(
-    () => query.isError && isEmailAccessDenied(query.error)
+    () => revokeDenied() && query.isError && isEmailAccessDenied(query.error)
   );
   let revokedId: string | undefined;
   createEffect(() => {

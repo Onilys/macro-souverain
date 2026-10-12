@@ -127,27 +127,43 @@ it('keeps a reopened local draft through server identity adoption and rejects an
   }));
 
 describe('thread query adaptation', () => {
+  const deniedQuery = (): ThreadQueryResult<ThreadQueryData> => ({
+    resolvedThreadId: 'thread',
+    isError: true,
+    isSuccess: false,
+    isLoading: false,
+    error: new ThrownResultError([
+      { code: 'FORBIDDEN', message: 'Access removed' },
+    ]),
+    data: { thread: thread([message('cached')]), hasMore: false },
+    isFetching: false,
+    isFetchingNextPage: false,
+    isEnabled: true,
+    hasNextPage: false,
+    transport: 'rest',
+    fetchNextPage: async () => {},
+    refetch: async () => {},
+  });
   it('does not render retained data after an authoritative access denial', () =>
     createRoot((dispose) => {
       try {
-        const source = createEmailThreadSource(() => 'thread', {
-          resolvedThreadId: 'thread',
-          isError: true,
-          isSuccess: false,
-          isLoading: false,
-          error: new ThrownResultError([
-            { code: 'FORBIDDEN', message: 'Access removed' },
-          ]),
-          data: { thread: thread([message('cached')]), hasMore: false },
-          isFetching: false,
-          isFetchingNextPage: false,
-          isEnabled: true,
-          hasNextPage: false,
-          transport: 'rest',
-          fetchNextPage: async () => {},
-          refetch: async () => {},
-        });
+        const source = createEmailThreadSource(
+          () => 'thread',
+          deniedQuery(),
+          () => true
+        );
         expect(source.thread()).toBeUndefined();
+      } finally {
+        dispose();
+      }
+    }));
+  it('keeps retained data on a denial outside the render-cache rollout', () =>
+    createRoot((dispose) => {
+      try {
+        const source = createEmailThreadSource(() => 'thread', deniedQuery());
+        expect(source.thread()?.messages.map((m) => m.db_id)).toEqual([
+          'cached',
+        ]);
       } finally {
         dispose();
       }
