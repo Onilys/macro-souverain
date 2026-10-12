@@ -319,6 +319,7 @@ export * from './refreshEmailEventOneOfThree';
 export * from './refreshEmailEventOneOfThreeEvent';
 export * from './resyncResponse';
 export * from './sendAsAlias';
+export * from './sendAsAliasDisplayName';
 export * from './sendMessageRequest';
 export * from './sendMessageResponse';
 export * from './settings';
