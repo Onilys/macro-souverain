@@ -22,8 +22,8 @@ export type ActivityCard =
       /**  The item's name, as the step knew it. */
       title: string | null;
       /**
-       *  What happened to it, in a few words, when the step said:
-       *  `12 cells in EMEA`, `to Ana Ruiz`.
+       *  What happened to it, in a few words that never quote the item:
+       *  `3 changes`, `to Ana Ruiz`.
        */
       summary: string | null;
     }

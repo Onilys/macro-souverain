@@ -22,6 +22,13 @@
 //! email it sent, the view it composed for the user. Cards are read from
 //! Macro's own tools, whose arguments and results are Macro's whichever
 //! harness relayed them, and are stored with the row for the same reason.
+//!
+//! Everyone who can read the conversation reads a stored card, including
+//! readers who cannot open the item it names. So a card names the item and
+//! says what was done to it - how many changes, who an email went to, where
+//! an item moved - and never quotes what the item says: not the text an edit
+//! was asked to write, a comment's anchor, or a post's words. Readers who can
+//! open the item load the rest with their own access.
 
 use agent_runtime_protocol::domain::tool_approval::ToolApprovalStatus;
 use serde::{Deserialize, Serialize};
@@ -106,8 +113,8 @@ pub enum ActivityCard {
         action: CardAction,
         /// The item's name, as the step knew it.
         title: Option<String>,
-        /// What happened to it, in a few words, when the step said:
-        /// `12 cells in EMEA`, `to Ana Ruiz`.
+        /// What happened to it, in a few words that never quote the item:
+        /// `3 changes`, `to Ana Ruiz`.
         summary: Option<String>,
     },
     /// A view the agent composed for the user: the `DisplayResults` tool's
@@ -465,7 +472,7 @@ fn answered_row(
         card,
     };
     let ElicitationRequest::UserTool { tool, draft, .. } = request else {
-        let detail = summary_line(message);
+        let detail = prose_line(message);
         return match outcome {
             ElicitationOutcome::Pending | ElicitationOutcome::Accepted { .. } => {
                 row("Answered", detail, ActivityStatus::Completed, None)
@@ -727,13 +734,11 @@ fn item_card(
     }
 }
 
-/// Longest summary a receipt keeps, in characters.
-const SUMMARY_MAX_CHARS: usize = 80;
-
-/// One line of prose for a summary, from markdown that may hold markup:
-/// the first line that says anything, with tags, emphasis, link targets and
-/// block markers dropped, whitespace collapsed, cut to a readable length.
-fn summary_line(raw: &str) -> Option<String> {
+/// One line of prose for a row's detail, from markdown that may hold
+/// markup: the first line that says anything, with tags, emphasis, link
+/// targets and block markers dropped, whitespace collapsed, cut to a
+/// readable length.
+fn prose_line(raw: &str) -> Option<String> {
     let plain = lazy_regex::regex_replace_all!(r"<[^>]*>", raw, "");
     let line = plain
         .lines()
@@ -744,10 +749,10 @@ fn summary_line(raw: &str) -> Option<String> {
         .map(|line| lazy_regex::regex_replace_all!(r"\*\*|__|[*`~]", &line, "").into_owned())
         .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
         .find(|line| !line.is_empty())?;
-    if line.chars().count() <= SUMMARY_MAX_CHARS {
+    if line.chars().count() <= DETAIL_MAX_CHARS {
         return Some(line);
     }
-    let cut: String = line.chars().take(SUMMARY_MAX_CHARS - 1).collect();
+    let cut: String = line.chars().take(DETAIL_MAX_CHARS - 1).collect();
     Some(format!("{}…", cut.trim_end()))
 }
 
@@ -767,25 +772,11 @@ fn recipients(input: &serde_json::Value) -> Option<String> {
     })
 }
 
-/// What a spreadsheet edit changed: its first change in its own words, and
-/// how many more there were.
-fn spreadsheet_summary(output: Option<&serde_json::Value>) -> Option<String> {
-    let changes = output?.get("changes")?.as_array()?;
-    let first = changes
-        .first()
-        .and_then(|change| text(Some(change), "summary"))
-        .and_then(|summary| summary_line(&summary));
-    match (first, changes.len()) {
-        (_, 0) => None,
-        (first, 1) => first,
-        (Some(first), count) => Some(format!("{first} and {} more", count - 1)),
-        (None, count) => Some(format!("{count} changes")),
-    }
-}
-
-/// How many operations an edit made, when it made several.
-fn operations_summary(input: &serde_json::Value) -> Option<String> {
-    let count = input.get("operations")?.as_array()?.len();
+/// How many changes an edit made, when it made several. A change's own
+/// words quote the item - a spreadsheet's describe the cells - so only the
+/// count is kept.
+fn changes_summary(changes: Option<&serde_json::Value>) -> Option<String> {
+    let count = changes?.as_array()?.len();
     (count > 1).then(|| format!("{count} changes"))
 }
 
@@ -935,7 +926,8 @@ fn macro_card(
             },
         )),
         // EditDocument's arguments keep their Rust names. An edit that asked
-        // for clarification instead changed nothing.
+        // for clarification instead changed nothing. Its instructions are
+        // the text it was asked to write, so they stay out of the receipt.
         "EditDocument" => output
             .and_then(|output| output.get("clarification"))
             .is_none_or(serde_json::Value::is_null)
@@ -946,8 +938,6 @@ fn macro_card(
                     Edited,
                     ItemFacts {
                         file_type: Some("md".to_owned()),
-                        // What the agent asked the edit to do says what changed.
-                        summary: arg("instructions").and_then(|asked| summary_line(&asked)),
                         ..ItemFacts::default()
                     },
                 ))
@@ -960,7 +950,7 @@ fn macro_card(
             Edited,
             ItemFacts {
                 file_type: Some("spreadsheet".to_owned()),
-                summary: spreadsheet_summary(output),
+                summary: changes_summary(output.and_then(|output| output.get("changes"))),
                 ..ItemFacts::default()
             },
         )),
@@ -970,7 +960,7 @@ fn macro_card(
             Edited,
             ItemFacts {
                 file_type: Some("docx".to_owned()),
-                summary: operations_summary(input),
+                summary: changes_summary(input.get("operations")),
                 ..ItemFacts::default()
             },
         )),
@@ -992,7 +982,7 @@ fn macro_card(
                 Edited,
                 ItemFacts {
                     file_type: Some("pptx".to_owned()),
-                    summary: operations_summary(input),
+                    summary: changes_summary(input.get("operations")),
                     ..ItemFacts::default()
                 },
             )),
@@ -1006,16 +996,12 @@ fn macro_card(
                 ..ItemFacts::default()
             },
         )),
+        // The text a comment is anchored to is the document's own.
         "CommentOnDocument" => Some(item_card(
             Document,
             result("documentId").or_else(|| arg("documentId"))?,
             Commented,
-            ItemFacts {
-                summary: result("markedText")
-                    .and_then(|quote| summary_line(&quote))
-                    .map(|quote| format!("on “{quote}”")),
-                ..ItemFacts::default()
-            },
+            ItemFacts::default(),
         )),
         "UploadFile" => {
             let name = result("fileName").or_else(|| arg("fileName"));
@@ -1072,14 +1058,12 @@ fn macro_card(
             },
         )),
         // SendChannelMessage's arguments and result keep their Rust names.
+        // The post is the channel's to show, to its own members.
         "SendChannelMessage" => Some(item_card(
             Channel,
             result("channel_id").or_else(|| arg("channel_id"))?,
             Sent,
-            ItemFacts {
-                summary: arg("content").and_then(|content| summary_line(&content)),
-                ..ItemFacts::default()
-            },
+            ItemFacts::default(),
         )),
         "CreateRoutine" => Some(item_card(
             Routine,

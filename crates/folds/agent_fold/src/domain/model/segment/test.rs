@@ -517,7 +517,7 @@ fn edits_name_the_document_they_changed() {
                 file_type: Some("md".to_owned()),
                 action: CardAction::Edited,
                 title: None,
-                summary: Some("tighten it".to_owned()),
+                summary: None,
             }),
             Some(ActivityCard::Item {
                 item_type: CardItemType::Document,
@@ -708,7 +708,7 @@ fn receipt(
 }
 
 #[test]
-fn a_spreadsheet_edit_says_what_it_changed() {
+fn a_spreadsheet_edit_counts_its_changes() {
     let parts = [
         macro_result(
             "a",
@@ -738,17 +738,12 @@ fn a_spreadsheet_edit_says_what_it_changed() {
     assert_eq!(
         receipts(&parts),
         [
-            receipt(
-                CardItemType::Document,
-                "sheet-1",
-                CardAction::Edited,
-                Some("12 cells in EMEA")
-            ),
+            receipt(CardItemType::Document, "sheet-1", CardAction::Edited, None),
             receipt(
                 CardItemType::Document,
                 "sheet-2",
                 CardAction::Edited,
-                Some("A and 2 more")
+                Some("3 changes")
             ),
             None,
         ]
@@ -794,36 +789,6 @@ fn a_sent_email_says_who_it_went_to() {
             ),
         ]
     );
-}
-
-#[test]
-fn a_channel_post_is_summed_up_by_its_first_line() {
-    let long = format!("<p>{}</p>\n\nSecond paragraph", "word ".repeat(30));
-    let parts = [
-        macro_result(
-            "a",
-            "SendChannelMessage",
-            serde_json::json!({"channel_id": "channel-1", "content": "  Pricing review   moves to **Thu 10:00**\nDetails below"}),
-            serde_json::json!({"channel_id": "channel-1", "message_id": "m-1"}),
-        ),
-        macro_result(
-            "b",
-            "SendChannelMessage",
-            serde_json::json!({"channel_id": "channel-2", "content": long}),
-            serde_json::json!({"channel_id": "channel-2", "message_id": "m-2"}),
-        ),
-    ];
-    let summaries: Vec<_> = receipts(&parts)
-        .into_iter()
-        .map(|card| card.and_then(|(_, _, _, summary)| summary))
-        .collect();
-    assert_eq!(
-        summaries[0].as_deref(),
-        Some("Pricing review moves to Thu 10:00")
-    );
-    let cut = summaries[1].as_deref().unwrap();
-    assert!(cut.ends_with('…') && cut.chars().count() <= 80, "{cut}");
-    assert!(!cut.contains('<'), "{cut}");
 }
 
 #[test]
@@ -961,12 +926,7 @@ fn every_kind_of_item_a_step_changes_is_a_receipt() {
                 None
             ),
             receipt(CardItemType::Document, "doc-2", CardAction::Renamed, None),
-            receipt(
-                CardItemType::Document,
-                "doc-3",
-                CardAction::Commented,
-                Some("on “Q4 targets”")
-            ),
+            receipt(CardItemType::Document, "doc-3", CardAction::Commented, None),
             receipt(
                 CardItemType::CalendarEvent,
                 "event-1",
@@ -1211,7 +1171,7 @@ fn a_database_answer_is_a_card_only_when_the_agent_asked_to_show_it() {
 }
 
 #[test]
-fn an_edit_says_what_it_changed_in_a_few_words() {
+fn an_edit_counts_its_changes_when_it_made_several() {
     let parts = [
         macro_result(
             "a",
@@ -1236,14 +1196,68 @@ fn an_edit_says_what_it_changed_in_a_few_words() {
         .into_iter()
         .map(|card| card.and_then(|(_, _, _, summary)| summary))
         .collect();
-    assert_eq!(
-        summaries,
-        [
-            Some("Add a pricing section after the intro.".to_owned()),
-            Some("3 changes".to_owned()),
-            None,
-        ]
+    assert_eq!(summaries, [None, Some("3 changes".to_owned()), None]);
+}
+
+/// Everyone who reads the conversation reads a stored receipt, including
+/// readers who cannot open its item: a receipt may count, name and address,
+/// but never quote what the item says.
+#[test]
+fn a_receipt_never_quotes_the_item() {
+    let parts = [
+        macro_result(
+            "a",
+            "EditDocument",
+            serde_json::json!({"document_id": "doc-1", "instructions": "Add the layoff list to section 2"}),
+            serde_json::json!({"summary": "Applied.", "clarification": null}),
+        ),
+        macro_result(
+            "b",
+            "CommentOnDocument",
+            serde_json::json!({"documentId": "doc-2", "comment": "Is this right?"}),
+            serde_json::json!({"documentId": "doc-2", "threadId": "t", "commentId": "c", "markedText": "Severance: 3 months"}),
+        ),
+        macro_result(
+            "c",
+            "SendChannelMessage",
+            serde_json::json!({"channel_id": "channel-1", "content": "Offer to Ana: 180k base"}),
+            serde_json::json!({"channel_id": "channel-1", "message_id": "m-1"}),
+        ),
+        macro_result(
+            "d",
+            "EditSpreadsheet",
+            serde_json::json!({"documentId": "sheet-1"}),
+            serde_json::json!({"applied": true, "changes": [
+                {"type": "cells", "sheetId": "s1", "summary": "Salary set to 180000 for Ana"}
+            ]}),
+        ),
+        macro_result(
+            "e",
+            "EditSpreadsheet",
+            serde_json::json!({"documentId": "sheet-2"}),
+            serde_json::json!({"applied": true, "changes": [
+                {"type": "cells", "sheetId": "s1", "summary": "Bonus pool cut to 2%"},
+                {"type": "format", "sheetId": "s1", "summary": "Bolded the totals"}
+            ]}),
+        ),
+    ];
+    let rows = &segments(&parts, true)[0].rows;
+    assert!(
+        rows.iter().all(|row| row.card.is_some()),
+        "every step still earns its receipt: {rows:#?}"
     );
+    let cards: Vec<_> = rows.iter().map(|row| &row.card).collect();
+    let stored = serde_json::to_string(&cards).unwrap();
+    for quoted in [
+        "layoff",
+        "Severance",
+        "180k",
+        "180000",
+        "Bonus pool",
+        "totals",
+    ] {
+        assert!(!stored.contains(quoted), "{quoted:?} is stored: {stored}");
+    }
 }
 
 #[test]
