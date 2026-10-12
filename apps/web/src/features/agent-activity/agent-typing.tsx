@@ -5,7 +5,6 @@ import {
   createInteractionController,
   interactionKey,
 } from '@app/features/agent-interactions/primitives/create-interaction-controller';
-import { conversationDrafts } from '@app/features/agent-interactions/state/interaction-drafts';
 import {
   isWorkingTurn,
   sessionTurn,
@@ -179,9 +178,6 @@ function AgentTypingEntry(props: {
     canEdit,
     issue: (action) => live.issue(action),
     onFailure: (message) => toast.failure(message),
-    // This row comes and goes while a request stays open; what the user
-    // typed into an answer must not go with it.
-    drafts: conversationDrafts,
   });
   const toolFor = (toolCall: string | null) => {
     const part = reply()?.parts.find(

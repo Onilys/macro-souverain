@@ -34,15 +34,6 @@ export type InteractionDraft = {
 };
 
 /**
- * Where unsent answers are kept, by request, for as long as the surface
- * that owns them; a `Map` is one.
- */
-export type InteractionDraftStore = Pick<
-  Map<string, InteractionDraft>,
-  'get' | 'set' | 'delete'
->;
-
-/**
  * What a card keeps of the user's input, so it outlives the card: what was
  * kept when the card mounted, and where to keep more.
  */
@@ -57,11 +48,6 @@ export type InteractionSource = {
   canEdit: Accessor<boolean | undefined>;
   issue: (action: AgentAction) => Promise<IssueResult> | undefined;
   onFailure: (message: string) => void;
-  /**
-   * Where unsent answers are kept when the cards showing them can unmount
-   * while their request stays open; the controller's own, if absent.
-   */
-  drafts?: InteractionDraftStore;
 };
 
 export type InteractionController = {

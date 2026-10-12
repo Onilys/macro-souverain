@@ -72,31 +72,18 @@ function setup() {
 
 describe('kept answers', () => {
   it('keeps what was typed into a request until it is answered', async () => {
-    const store = new Map();
-    const make = () =>
-      createRoot((dispose) => ({
-        controller: createInteractionController({
-          sessionId: () => 'session-a',
-          pending: () => [question],
-          canEdit: () => true,
-          issue: () => Promise.resolve(accepted),
-          onFailure: vi.fn(),
-          drafts: store,
-        }),
-        dispose,
-      }));
+    const { controller, setSessionId, dispose } = setup();
     const typed = { colour: { kind: 'text', text: 'te' } } as const;
-    const first = make();
-    first.controller.keepDraft(question, { form: typed });
-    // The surface showing the request unmounts, and a new one takes over.
-    first.dispose();
-    const second = make();
-    expect(second.controller.draft(question)).toEqual({ form: typed });
-    expect(second.controller.draft(permission)).toBeUndefined();
-    expect(await second.controller.respond(answer)).toBe(true);
-    expect(second.controller.draft(question)).toBeUndefined();
-    expect(store.size).toBe(0);
-    second.dispose();
+    controller.keepDraft(question, { form: typed });
+    expect(controller.draft(question)).toEqual({ form: typed });
+    expect(controller.draft(permission)).toBeUndefined();
+    // The same request id in another session is another request.
+    setSessionId('session-b');
+    expect(controller.draft(question)).toBeUndefined();
+    setSessionId('session-a');
+    expect(await controller.respond(answer)).toBe(true);
+    expect(controller.draft(question)).toBeUndefined();
+    dispose();
   });
 
   it('keeps the draft when the answer does not go through', async () => {

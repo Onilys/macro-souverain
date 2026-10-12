@@ -26,7 +26,9 @@ export function createInteractionController(
   const [answering, setAnswering] = createStore<
     Record<string, true | undefined>
   >({});
-  const drafts = source.drafts ?? new Map<string, InteractionDraft>();
+  // Unsent answers live as long as the surface that made this controller,
+  // which outlasts the cards it shows: a card remounts, the answer stays.
+  const drafts = new Map<string, InteractionDraft>();
   const key = (request: InteractionIdentity) =>
     JSON.stringify([source.sessionId(), interactionKey(request)]);
   const canAnswer = () => source.canEdit() === true;

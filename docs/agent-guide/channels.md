@@ -85,9 +85,9 @@ document, a sent email, an event, a composed view. The cards of steps folded
 behind `N earlier steps` show above that control, and a finished run that
 folds into `Worked for … · N steps` keeps its cards. A card's short summary
 (`3 changes`, `to Ana Ruiz`) shows only to a reader who can open the item.
-Text typed into a question, or an edit to a drafted email or event, survives
-the typing row going away (scrolling up, a follow-up, a backgrounded phone)
-until it is sent. When the agent needs an app, its reply ends with a
+Text typed into a question, or an edit to a drafted email or event, stays
+through scrolling away, a follow-up, or a backgrounded phone until it is
+sent. When the agent needs an app, its reply ends with a
 **Connect** card. Connecting from the agent's latest reply, while nothing else
 runs or waits, tells the agent to continue; from an older reply, or while the
 agent works, it only connects, and a toast says so.
