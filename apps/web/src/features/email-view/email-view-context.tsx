@@ -159,8 +159,8 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
     })
   );
   const [layout, setLayout] = usePreference<EmailLayout>(
-    'macro:pref:email:layout',
-    { default: 'advanced' }
+    'macro:pref:email:view-layout',
+    { default: 'list' }
   );
   const searchText = useMobileSearchText(
     () => persistedState.search,

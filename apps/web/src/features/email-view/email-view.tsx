@@ -36,8 +36,8 @@ import {
   EmailViewBreadcrumbItem,
 } from './components/EmailHeader';
 import { EmailList } from './components/EmailList';
+import { EmailPreviewSidebar } from './components/EmailPreviewSidebar';
 import { EmailSidebar } from './components/EmailSidebar';
-import { EmailSimpleSidebar } from './components/EmailSimpleSidebar';
 import { EMAIL_TABS } from './constants';
 import { EmailViewProvider, useEmailView } from './email-view-context';
 import { emailTour } from './tour';
@@ -84,21 +84,21 @@ type EmailListOptions = {
 
 type RenderEmailList = (options?: EmailListOptions) => JSX.Element;
 
-/** The Simple layout gives its sidebar a reading-list width. */
-const SIMPLE_ASIDE_LAYOUT = { width: 400, min: 320, max: 560 };
-const ADVANCED_ASIDE_LAYOUT = { preserveDuringResize: false };
-const ADVANCED_MAIN_LAYOUT = { preferredWidth: 640 };
+/** The Preview layout gives its sidebar a reading-list width. */
+const PREVIEW_ASIDE_LAYOUT = { width: 400, min: 320, max: 560 };
+const LIST_ASIDE_LAYOUT = { preserveDuringResize: false };
+const LIST_MAIN_LAYOUT = { preferredWidth: 640 };
 
 /**
- * Whether the Simple layout's list sits in the sidebar. A hidden or overlaid
+ * Whether the Preview layout's list sits in the sidebar. A hidden or overlaid
  * sidebar can't hold it, so the list falls back to the main area, as in
- * Advanced, until the docked sidebar returns.
+ * List, until the docked sidebar returns.
  */
 function useListInSidebar() {
   const shell = useViewShell();
   const { layout } = useEmailView();
   return () =>
-    layout() === 'simple' &&
+    layout() === 'preview' &&
     !shell.aside.isCollapsed() &&
     !shell.breakpoints.narrow?.();
 }
@@ -127,7 +127,7 @@ function EmailDesktopAside(props: {
 
   return (
     <Show when={listInSidebar()} fallback={<EmailSidebar />}>
-      <EmailSimpleSidebar
+      <EmailPreviewSidebar
         list={props.list({
           keyboardEnabled: () => !selectedThread(),
           narrowLayout: 'inbox',
@@ -178,14 +178,14 @@ function EmailDesktopLayout(props: {
   focusList: () => void;
 }) {
   const { layout } = useEmailView();
-  const simple = () => layout() === 'simple';
+  const preview = () => layout() === 'preview';
 
   return (
     <ViewShell.Root
       asidePreferenceKey="email"
       resizable
-      aside={simple() ? SIMPLE_ASIDE_LAYOUT : ADVANCED_ASIDE_LAYOUT}
-      main={simple() ? undefined : ADVANCED_MAIN_LAYOUT}
+      aside={preview() ? PREVIEW_ASIDE_LAYOUT : LIST_ASIDE_LAYOUT}
+      main={preview() ? undefined : LIST_MAIN_LAYOUT}
     >
       <ViewShell.Aside>
         <EmailDesktopAside list={props.list} focusList={props.focusList} />

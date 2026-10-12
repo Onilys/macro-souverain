@@ -36,11 +36,11 @@ export type EmailViewState = {
 };
 
 /**
- * How the desktop view lays out email. `advanced` lists email in the main
- * area beside full sidebar navigation; `simple` lists email in the sidebar and
- * reads the chosen thread in the main area, like a classic mail client.
+ * How the desktop view lays out email. `list` lists email in the main area
+ * beside full sidebar navigation; `preview` lists email in the sidebar and
+ * reads the chosen thread beside it, like a mail client's preview pane.
  */
-export type EmailLayout = 'simple' | 'advanced';
+export type EmailLayout = 'preview' | 'list';
 
 export type EmailViewStateOptions = Partial<EmailViewState>;
 

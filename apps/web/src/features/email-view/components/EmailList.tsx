@@ -75,7 +75,7 @@ export type EmailListProps = {
   /** The focusable list root, for callers that hand keyboard focus back. */
   ref?: (element: HTMLDivElement) => void;
   /**
-   * Whether the list owns the split's keyboard. The Simple layout hands it to
+   * Whether the list owns the split's keyboard. The Preview layout hands it to
    * the open thread beside the list. Defaults to on.
    */
   keyboardEnabled?: () => boolean;

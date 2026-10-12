@@ -28,8 +28,8 @@ function MenuIcon(props: { children: JSX.Element }) {
 }
 
 /**
- * The Simple layout's navigation: tabs, inboxes, and tags folded into one
- * dropdown so the sidebar can hold the email list. Like the Advanced sidebar,
+ * The Preview layout's navigation: tabs, inboxes, and tags folded into one
+ * dropdown so the sidebar can hold the email list. Like the List layout's sidebar,
  * every row is a destination: a tab clears any tag, and a tag shows alone.
  */
 export function EmailFolderMenu(props: { class?: string }) {

@@ -13,10 +13,10 @@ import { EmailLayoutToggle } from './EmailLayoutToggle';
 import { useEmailTabHotkeys } from './EmailSidebar';
 
 /**
- * The Simple layout's sidebar: search and the layout toggle, the folder menu,
+ * The Preview layout's sidebar: search and the layout toggle, the folder menu,
  * then the email list itself. The chosen thread reads in the main area.
  */
-export function EmailSimpleSidebar(props: {
+export function EmailPreviewSidebar(props: {
   list: JSX.Element;
   /** Restores list focus when Escape leaves the search field. */
   onSearchEscape?: () => void;
