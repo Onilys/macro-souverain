@@ -35,8 +35,8 @@ import {
   useChannelType,
 } from '@core/context/channels';
 import { useUserId } from '@core/context/user';
-import type { IUser } from '@core/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import type { IUser } from '@core/user';
 import type { DateValue } from '@core/util/date';
 import {
   extractUserMentions,

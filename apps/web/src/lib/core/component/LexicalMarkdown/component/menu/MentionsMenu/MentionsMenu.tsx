@@ -56,8 +56,8 @@ import {
   useEntityMentionFromList,
 } from './hooks/useEntityMention';
 import {
-  useUsersMention,
   type UserItemWithChannelStatus,
+  useUsersMention,
 } from './hooks/useUsersMention';
 import type { BucketConfig, MentionBucketId } from './MentionsMenuController';
 import { useMentionsMenuController } from './MentionsMenuController';
