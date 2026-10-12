@@ -17,6 +17,7 @@ describe('isCallEventType', () => {
     expect(isCallEventType('call_started')).toBe(true);
     expect(isCallEventType('call_ended')).toBe(true);
     expect(isCallEventType('call_answered')).toBe(true);
+    expect(isCallEventType('call_declined')).toBe(true);
     expect(isCallEventType('call_share_with_team_toggled')).toBe(true);
     expect(isCallEventType('call_recording_refusals_changed')).toBe(true);
   });
@@ -70,6 +71,28 @@ describe('parseCallEvent', () => {
       channelId: 'chan-1',
       callId: 'call-1',
       answeredBy: 'user-2',
+    });
+  });
+
+  it('parses call_declined with the declining user', () => {
+    expect(
+      parseCallEvent(
+        'call_declined',
+        wire({ channel_id: 'chan-1', call_id: 'call-1', user_id: 'user-2' })
+      )
+    ).toEqual({
+      type: 'call_declined',
+      channelId: 'chan-1',
+      callId: 'call-1',
+      declinedBy: 'user-2',
+    });
+    expect(
+      parseCallEvent('call_declined', wire({ call_id: 'call-1' }))
+    ).toEqual({
+      type: 'call_declined',
+      channelId: null,
+      callId: 'call-1',
+      declinedBy: null,
     });
   });
 
@@ -153,6 +176,7 @@ describe('parseCallEvent', () => {
     ['call_ended', { call_id: 'call-1' }],
     ['call_ended', { channel_id: 'chan-1' }],
     ['call_answered', { channel_id: 'chan-1' }],
+    ['call_declined', { channel_id: 'chan-1' }],
   ])('returns null when %s is missing a required id', (type, payload) => {
     expect(parseCallEvent(type, wire(payload))).toBe(null);
   });

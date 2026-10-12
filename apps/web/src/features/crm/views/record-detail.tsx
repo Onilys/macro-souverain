@@ -57,6 +57,7 @@ export function CrmRecordDetail(props: {
   viewName: string;
   onClose: () => void;
   navigation: JSX.Element;
+  onOpenPipeline?: (pipelineId: string) => void;
 }) {
   const [trail, setTrail] = createSignal<CrmRecordRef[]>([props.record]);
   const current = () => trail()[trail().length - 1];
@@ -189,6 +190,7 @@ export function CrmRecordDetail(props: {
                         section={companySection()}
                         headerToggle={false}
                         onHidden={back}
+                        onOpenPipeline={props.onOpenPipeline}
                         onOpenContact={(contact) =>
                           open({
                             type: 'contact',
@@ -203,6 +205,7 @@ export function CrmRecordDetail(props: {
                       contactId={record.id}
                       section={contactSection()}
                       headerToggle={false}
+                      onOpenPipeline={props.onOpenPipeline}
                       onOpenCompany={(companyId) => {
                         open({ type: 'company', id: companyId, name: '' });
                         return true;

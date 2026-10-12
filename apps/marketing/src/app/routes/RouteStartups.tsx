@@ -172,7 +172,7 @@ export const RouteStartups: Component = () => {
             'font-size': breakpoint() ? '38px' : '50px',
             'line-height': breakpoint() ? '1.02' : '0.98',
             'letter-spacing': '-0.035em',
-            'font-weight': '315',
+            'font-weight': 'calc(315 + var(--cream-slab-weight-increase, 0))',
             'max-width': '600px',
             margin: '0',
             color: 'var(--c1)',

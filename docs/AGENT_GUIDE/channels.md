@@ -12,8 +12,27 @@ An external email can be selected as a channel participant. For an unregistered 
 
 ## Imported Slack history
 
-Import starts in **Settings → Team → Connections → Import from Slack**, not the
-channel composer. Only explicitly selected Slack IDs create work. Slack public
+Import starts from the **Import from Slack** chip below the Chat sidebar tabs,
+or **Settings → Team → Connections → Import from Slack**. The chip is visible
+to team admins and owners when Slack archive import is enabled, and opens the
+same dialog without leaving Chat. Its **Dismiss Slack import** button hides the
+card and remembers the choice in this browser for that user and Macro team.
+Successful archive imports (including partial imports with a completed channel)
+and server-confirmed channel-only imports also hide it. Failed or cancelled
+imports do not. Dismissing or completing an import keeps the Settings entry
+available; completion does not close an open progress dialog. Check persistence
+after reload and confirm dismissal does not affect another user or team.
+Closing the dialog returns focus to the chip when it is still visible.
+The dialog offers **Import with history** (recommended) and **Import channels
+without history**. The first needs a ZIP export provided by a Slack workspace
+owner or admin; its upload screen links to Slack's export instructions. Files
+and attachments are excluded. The second opens a dedicated channel import flow:
+it reuses an enabled Pipedream Slack connection or requests authorization, then
+automatically discovers public channels. Select channels and click **Import N
+channels** to create their names and matching Macro teammates. It requires no
+Slack admin role, but workspace app-approval policies still apply. Neither method
+sets up ongoing message sync. Previous ZIP imports are collapsed under a disclosure.
+Only explicitly selected Slack IDs create work. Slack public
 channels become Team channels with automatic team joining off; private channels
 and group DMs become Private. Two-person DMs keep exactly their mapped pair and
 never gain the importing admin as a third participant. Existing names, roles,
@@ -139,6 +158,10 @@ attachment, delete-reply, and send controls have their own space.
 Attachment controls use a paperclip in both expanded and collapsed composers,
 including the iOS media picker. Input action and formatting buttons show the
 app tooltip without a second native browser tooltip.
+On desktop, select draft text to open the floating formatting toolbar. Its
+compact frame uses 4px outer padding with concentric button corners, a white
+light-mode background, a thin border, and a soft downward shadow. Check
+Bold and the text-style dropdown in both light and dark mode.
 When checking this transition, type a long draft without pressing Enter, then
 shorten it and resize the pane. It should expand when the text no longer fits
 beside the buttons and collapse when it fits again, without flickering between
@@ -1044,6 +1067,14 @@ from another account. Both tabs may show the incoming call; only one should play
 the chime. Closing the audible tab lets the other take over while the call is
 still ringing. Answering or dismissing stops ringing across tabs. An unanswered
 call stops ringing after 30 seconds, including after a tab takes over.
+
+Declining is per user and per device set, not per tab: the sidebar `X` and the
+rail `Decline` button send `POST /call/record/{call_id}/decline`, and every other
+signed-in device of the same user (other browsers, the iPhone's CallKit ring)
+stops ringing via `call_declined`. Declining on the iPhone lock screen does the
+same for the browser. Other channel members keep ringing, and the call stays
+active for them. Closing only the browser notification toast silences the chime
+without declining.
 
 ## Onboarding channel
 

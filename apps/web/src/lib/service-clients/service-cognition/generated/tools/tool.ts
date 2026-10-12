@@ -21,6 +21,7 @@ type ToolParserMap = {
     call: types.CalculateSpreadsheet;
     response: types.SpreadsheetResponse;
   };
+  ChangeBooking: { call: types.ChangeBooking; response: types.Booking };
   CommentOnDocument: {
     call: types.CommentOnDocument;
     response: types.CommentOnDocumentResponse;
@@ -133,6 +134,14 @@ type ToolParserMap = {
     call: types.GenerateImage;
     response: types.GenerateImageResponse;
   };
+  GetBookingInsights: {
+    call: types.GetBookingInsights;
+    response: types.BookingInsights;
+  };
+  GetBookingRescheduleSlots: {
+    call: types.GetBookingRescheduleSlots;
+    response: types.BookingSlotsResult;
+  };
   GetBotWebhooks: {
     call: types.GetBotWebhooks;
     response: types.GetBotWebhooksResponse;
@@ -160,6 +169,7 @@ type ToolParserMap = {
     call: types.ListBookingLinks;
     response: types.ListBookingLinksResult;
   };
+  ListBookings: { call: types.ListBookings; response: types.BookingsResult };
   ListBots: { call: types.ListBots; response: types.ListBotsResponse };
   ListCalendarEvents: {
     call: types.ListCalendarEvents;
@@ -236,6 +246,10 @@ type ToolParserMap = {
   ReadActivity: {
     call: types.ReadActivity;
     response: types.ReadActivityResponse;
+  };
+  ReadBookingSettings: {
+    call: types.ReadBookingSettings;
+    response: types.BookingSettingsResult;
   };
   ReadCallRecord: {
     call: types.ReadCallRecord;
@@ -352,6 +366,10 @@ type ToolParserMap = {
     call: types.TextEditorCodeExecution;
     response: types.TextEditorCodeExecutionResponse;
   };
+  UpdateBookingSettings: {
+    call: types.UpdateBookingSettings;
+    response: types.BookingSettingsResult;
+  };
   UpdateCalendarEvent: {
     call: types.UpdateCalendarEvent;
     response: types.ToolCalendarEvent;
@@ -387,6 +405,7 @@ const toolParserMap = {
     call: schemas.CalculateSpreadsheet,
     response: schemas.SpreadsheetResponse,
   },
+  ChangeBooking: { call: schemas.ChangeBooking, response: schemas.Booking },
   CommentOnDocument: {
     call: schemas.CommentOnDocument,
     response: schemas.CommentOnDocumentResponse,
@@ -499,6 +518,14 @@ const toolParserMap = {
     call: schemas.GenerateImage,
     response: schemas.GenerateImageResponse,
   },
+  GetBookingInsights: {
+    call: schemas.GetBookingInsights,
+    response: schemas.BookingInsights,
+  },
+  GetBookingRescheduleSlots: {
+    call: schemas.GetBookingRescheduleSlots,
+    response: schemas.BookingSlotsResult,
+  },
   GetBotWebhooks: {
     call: schemas.GetBotWebhooks,
     response: schemas.GetBotWebhooksResponse,
@@ -531,6 +558,10 @@ const toolParserMap = {
   ListBookingLinks: {
     call: schemas.ListBookingLinks,
     response: schemas.ListBookingLinksResult,
+  },
+  ListBookings: {
+    call: schemas.ListBookings,
+    response: schemas.BookingsResult,
   },
   ListBots: { call: schemas.ListBots, response: schemas.ListBotsResponse },
   ListCalendarEvents: {
@@ -620,6 +651,10 @@ const toolParserMap = {
   ReadActivity: {
     call: schemas.ReadActivity,
     response: schemas.ReadActivityResponse,
+  },
+  ReadBookingSettings: {
+    call: schemas.ReadBookingSettings,
+    response: schemas.BookingSettingsResult,
   },
   ReadCallRecord: {
     call: schemas.ReadCallRecord,
@@ -751,6 +786,10 @@ const toolParserMap = {
     call: schemas.TextEditorCodeExecution,
     response: schemas.TextEditorCodeExecutionResponse,
   },
+  UpdateBookingSettings: {
+    call: schemas.UpdateBookingSettings,
+    response: schemas.BookingSettingsResult,
+  },
   UpdateCalendarEvent: {
     call: schemas.UpdateCalendarEvent,
     response: schemas.ToolCalendarEvent,
@@ -797,6 +836,7 @@ type ToolDataMap = {
     call: types.CalculateSpreadsheet;
     response: types.SpreadsheetResponse;
   };
+  ChangeBooking: { call: types.ChangeBooking; response: types.Booking };
   CommentOnDocument: {
     call: types.CommentOnDocument;
     response: types.CommentOnDocumentResponse;
@@ -909,6 +949,14 @@ type ToolDataMap = {
     call: types.GenerateImage;
     response: types.GenerateImageResponse;
   };
+  GetBookingInsights: {
+    call: types.GetBookingInsights;
+    response: types.BookingInsights;
+  };
+  GetBookingRescheduleSlots: {
+    call: types.GetBookingRescheduleSlots;
+    response: types.BookingSlotsResult;
+  };
   GetBotWebhooks: {
     call: types.GetBotWebhooks;
     response: types.GetBotWebhooksResponse;
@@ -936,6 +984,7 @@ type ToolDataMap = {
     call: types.ListBookingLinks;
     response: types.ListBookingLinksResult;
   };
+  ListBookings: { call: types.ListBookings; response: types.BookingsResult };
   ListBots: { call: types.ListBots; response: types.ListBotsResponse };
   ListCalendarEvents: {
     call: types.ListCalendarEvents;
@@ -1012,6 +1061,10 @@ type ToolDataMap = {
   ReadActivity: {
     call: types.ReadActivity;
     response: types.ReadActivityResponse;
+  };
+  ReadBookingSettings: {
+    call: types.ReadBookingSettings;
+    response: types.BookingSettingsResult;
   };
   ReadCallRecord: {
     call: types.ReadCallRecord;
@@ -1127,6 +1180,10 @@ type ToolDataMap = {
   TextEditorCodeExecution: {
     call: types.TextEditorCodeExecution;
     response: types.TextEditorCodeExecutionResponse;
+  };
+  UpdateBookingSettings: {
+    call: types.UpdateBookingSettings;
+    response: types.BookingSettingsResult;
   };
   UpdateCalendarEvent: {
     call: types.UpdateCalendarEvent;

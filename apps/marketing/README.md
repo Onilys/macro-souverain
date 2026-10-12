@@ -5,6 +5,12 @@ It shares the repository with the authenticated application, but has its own
 package manifest, Vite entry points, TypeScript aliases, styles, assets, and UI
 components. Application UI changes must not alter the website.
 
+The public site, product pages, blog, sample workspace, and signup introduction
+follow the visitor's system color scheme. `?theme=cream` and `?theme=dark` pin a
+palette. `features/setup/cream-preview.css` owns the light palette; the shared
+router applies it across navigation, and each HTML entry applies it before
+first paint. Check both palettes when changing a shared demo or surface.
+
 ## Ownership and dependency boundary
 
 - `src/features/marketing/`: homepage, feature demonstrations, navigation, and

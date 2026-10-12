@@ -499,3 +499,29 @@ fn booking_link_mutations_execute_without_a_review_on_every_host() {
 }
 
 mod booking_links;
+
+#[test]
+fn booking_management_has_mcp_and_chat_parity() {
+    let names = [
+        "ReadBookingSettings",
+        "UpdateBookingSettings",
+        "ListBookings",
+        "GetBookingInsights",
+        "GetBookingRescheduleSlots",
+        "ChangeBooking",
+    ];
+    for host in [
+        AiHost::Chat,
+        AiHost::AgentSession,
+        AiHost::ChannelBot,
+        AiHost::Mcp,
+    ] {
+        let tools = tools_for(host);
+        for name in names {
+            assert!(
+                tools.toolset.tools.contains_key(name),
+                "{host:?} must expose {name}"
+            );
+        }
+    }
+}

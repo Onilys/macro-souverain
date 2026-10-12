@@ -2374,11 +2374,6 @@ export const getCallRecordResponse = zod
     isActive: zod
       .boolean()
       .describe('Whether the call is currently active (from `calls` table).'),
-    oneOnOneRecordingRefusedBy: zod
-      .array(zod.string())
-      .describe(
-        'People in this live one-on-one who refuse being recorded or\ntranscribed in one-on-ones, which is why it is not recording. Empty\notherwise, and always empty once the call has ended.'
-      ),
     participants: zod
       .array(
         zod
@@ -2489,6 +2484,12 @@ export const getCallRecordResponse = zod
           .describe('Ordered from least to most access top -> bottom'),
       ])
       .optional(),
+    viewerHasDeclined: zod
+      .boolean()
+      .optional()
+      .describe(
+        'Whether the authenticated viewer has declined this call on any device.\nSet on the single-record read so clients that missed `call_declined`\ncan still stop ringing via reconciliation; `false` in list contexts.'
+      ),
   })
   .describe(
     'Full record of a call, unifying rows from `calls` (active) and\n`call_records` (archived) into a single response shape.'
@@ -2585,6 +2586,17 @@ export const editCallRecordBody = zod
       ),
   })
   .describe('Edit call request, as supplied by inbound callers.');
+
+/**
+ * Declines the identified active call for the caller without joining it.
+Bound to `call_id` so a stale incoming-call UI cannot decline a newer call
+that replaced it in the same channel. The caller's other devices are told
+to stop ringing (`call_declined`); the call continues for everyone else.
+ * @summary Handler for `POST /call/record/{call_id}/decline`.
+ */
+export const declineCallParams = zod.object({
+  call_id: zod.uuid().describe('Call ID'),
+});
 
 /**
  * @summary Handle `POST /call/record/{call_id}/link` through the call domain service.
@@ -2692,7 +2704,7 @@ export const getRingStatusParams = zod.object({
 export const getRingStatusResponse = zod
   .object({
     status: zod
-      .enum(['ringing', 'answered', 'ended'])
+      .enum(['ringing', 'answered', 'declined', 'ended'])
       .describe(
         'Per-user status of an incoming-call ring, as reported by the\nring-status endpoint while a native client is ringing.'
       ),
@@ -2700,442 +2712,16 @@ export const getRingStatusResponse = zod
   .describe('Response body for `GET \/call\/ring-status\/{call_id}`.');
 
 /**
- * @summary Read the caller's call settings and their team's call policy.
+ * Declines a ringing call from a native client, e.g. the iPhone lock-screen
+decline button, so the user's other devices stop ringing. Authorized like
+[`ring_status_handler`]: the bearer credential is the recipient's LiveKit
+JWT from the VoIP push payload, which identifies both the room and the
+declining user.
+ * @summary Handler for `POST /call/ring-status/{call_id}/decline`.
  */
-export const getCallSettingsResponse = zod
-  .object({
-    recordByDefault: zod
-      .object({
-        externalMeetings: zod
-          .boolean()
-          .describe(
-            "Standalone calls that someone outside the host's team joined."
-          ),
-        huddles: zod
-          .boolean()
-          .describe(
-            'Calls started from a channel other than a two-person direct message.'
-          ),
-        internalMeetings: zod
-          .boolean()
-          .describe(
-            'Standalone calls with three or more people, all teammates.'
-          ),
-        oneOnOnes: zod
-          .boolean()
-          .describe(
-            'Huddles in a two-person direct message, and standalone calls with only\ntwo people, both teammates.'
-          ),
-      })
-      .describe('One flag per [`CallKind`].'),
-    refuseOneOnOneRecording: zod
-      .boolean()
-      .describe(
-        'The caller does not allow being recorded or transcribed in\none-on-ones, whoever hosts them.'
-      ),
-    shareByDefault: zod
-      .object({
-        externalMeetings: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        huddles: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        internalMeetings: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        oneOnOnes: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-      })
-      .describe(
-        'Who each kind of call a person hosts is shared with once it ends.'
-      ),
-    team: zod
-      .union([
-        zod.null(),
-        zod
-          .object({
-            canEdit: zod
-              .boolean()
-              .describe(
-                'Whether the caller may change the blocks (team admins and owners).'
-              ),
-            huddleSharingBlocked: zod
-              .boolean()
-              .describe(
-                'No call started from a channel, direct messages included, may be\nshared with the team.'
-              ),
-            recordingBlocked: zod
-              .object({
-                externalMeetings: zod
-                  .boolean()
-                  .describe(
-                    "Standalone calls that someone outside the host's team joined."
-                  ),
-                huddles: zod
-                  .boolean()
-                  .describe(
-                    'Calls started from a channel other than a two-person direct message.'
-                  ),
-                internalMeetings: zod
-                  .boolean()
-                  .describe(
-                    'Standalone calls with three or more people, all teammates.'
-                  ),
-                oneOnOnes: zod
-                  .boolean()
-                  .describe(
-                    'Huddles in a two-person direct message, and standalone calls with only\ntwo people, both teammates.'
-                  ),
-              })
-              .describe('One flag per [`CallKind`].'),
-          })
-          .describe("What a team's admins forbid for everyone on the team."),
-      ])
-      .optional(),
-  })
-  .describe("The caller's call settings.");
-
-/**
- * @summary Change the caller's own call settings.
- */
-export const updateCallSettingsBody = zod
-  .object({
-    recordByDefault: zod
-      .object({
-        externalMeetings: zod
-          .boolean()
-          .nullish()
-          .describe(
-            'New value for standalone calls with people from outside the team.'
-          ),
-        huddles: zod.boolean().nullish().describe('New value for huddles.'),
-        internalMeetings: zod
-          .boolean()
-          .nullish()
-          .describe(
-            'New value for standalone calls with three or more people, all teammates.'
-          ),
-        oneOnOnes: zod
-          .boolean()
-          .nullish()
-          .describe('New value for one-on-ones.'),
-      })
-      .optional()
-      .describe(
-        'A partial update to [`CallKinds`]. Omitted kinds keep their current value,\nso two people changing different kinds at once do not undo each other.'
-      ),
-    refuseOneOnOneRecording: zod
-      .boolean()
-      .nullish()
-      .describe(
-        'New value for refusing to be recorded or transcribed in one-on-ones.'
-      ),
-    shareByDefault: zod
-      .object({
-        externalMeetings: zod
-          .union([
-            zod.null(),
-            zod
-              .enum(['participants', 'channel', 'invited', 'team'])
-              .describe(
-                "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-              ),
-          ])
-          .optional(),
-        huddles: zod
-          .union([
-            zod.null(),
-            zod
-              .enum(['participants', 'channel', 'invited', 'team'])
-              .describe(
-                "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-              ),
-          ])
-          .optional(),
-        internalMeetings: zod
-          .union([
-            zod.null(),
-            zod
-              .enum(['participants', 'channel', 'invited', 'team'])
-              .describe(
-                "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-              ),
-          ])
-          .optional(),
-        oneOnOnes: zod
-          .union([
-            zod.null(),
-            zod
-              .enum(['participants', 'channel', 'invited', 'team'])
-              .describe(
-                "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-              ),
-          ])
-          .optional(),
-      })
-      .optional()
-      .describe(
-        'A partial update to [`ShareByDefault`]. Omitted kinds keep their audience.'
-      ),
-  })
-  .describe(
-    'Body of `PATCH \/call\/settings`. Omitted fields keep their current value.'
-  );
-
-export const updateCallSettingsResponse = zod
-  .object({
-    recordByDefault: zod
-      .object({
-        externalMeetings: zod
-          .boolean()
-          .describe(
-            "Standalone calls that someone outside the host's team joined."
-          ),
-        huddles: zod
-          .boolean()
-          .describe(
-            'Calls started from a channel other than a two-person direct message.'
-          ),
-        internalMeetings: zod
-          .boolean()
-          .describe(
-            'Standalone calls with three or more people, all teammates.'
-          ),
-        oneOnOnes: zod
-          .boolean()
-          .describe(
-            'Huddles in a two-person direct message, and standalone calls with only\ntwo people, both teammates.'
-          ),
-      })
-      .describe('One flag per [`CallKind`].'),
-    refuseOneOnOneRecording: zod
-      .boolean()
-      .describe(
-        'The caller does not allow being recorded or transcribed in\none-on-ones, whoever hosts them.'
-      ),
-    shareByDefault: zod
-      .object({
-        externalMeetings: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        huddles: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        internalMeetings: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        oneOnOnes: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-      })
-      .describe(
-        'Who each kind of call a person hosts is shared with once it ends.'
-      ),
-    team: zod
-      .union([
-        zod.null(),
-        zod
-          .object({
-            canEdit: zod
-              .boolean()
-              .describe(
-                'Whether the caller may change the blocks (team admins and owners).'
-              ),
-            huddleSharingBlocked: zod
-              .boolean()
-              .describe(
-                'No call started from a channel, direct messages included, may be\nshared with the team.'
-              ),
-            recordingBlocked: zod
-              .object({
-                externalMeetings: zod
-                  .boolean()
-                  .describe(
-                    "Standalone calls that someone outside the host's team joined."
-                  ),
-                huddles: zod
-                  .boolean()
-                  .describe(
-                    'Calls started from a channel other than a two-person direct message.'
-                  ),
-                internalMeetings: zod
-                  .boolean()
-                  .describe(
-                    'Standalone calls with three or more people, all teammates.'
-                  ),
-                oneOnOnes: zod
-                  .boolean()
-                  .describe(
-                    'Huddles in a two-person direct message, and standalone calls with only\ntwo people, both teammates.'
-                  ),
-              })
-              .describe('One flag per [`CallKind`].'),
-          })
-          .describe("What a team's admins forbid for everyone on the team."),
-      ])
-      .optional(),
-  })
-  .describe("The caller's call settings.");
-
-/**
- * @summary Change what no one on the caller's team may record or share. Team admins
-and owners only.
- */
-export const updateTeamCallPolicyBody = zod
-  .object({
-    huddleSharingBlocked: zod
-      .boolean()
-      .nullish()
-      .describe('New value for forbidding sharing huddles with the team.'),
-    recordingBlocked: zod
-      .object({
-        externalMeetings: zod
-          .boolean()
-          .nullish()
-          .describe(
-            'New value for standalone calls with people from outside the team.'
-          ),
-        huddles: zod.boolean().nullish().describe('New value for huddles.'),
-        internalMeetings: zod
-          .boolean()
-          .nullish()
-          .describe(
-            'New value for standalone calls with three or more people, all teammates.'
-          ),
-        oneOnOnes: zod
-          .boolean()
-          .nullish()
-          .describe('New value for one-on-ones.'),
-      })
-      .optional()
-      .describe(
-        'A partial update to [`CallKinds`]. Omitted kinds keep their current value,\nso two people changing different kinds at once do not undo each other.'
-      ),
-  })
-  .describe(
-    'Body of `PATCH \/call\/settings\/team`. Omitted fields keep their current\nvalue.'
-  );
-
-export const updateTeamCallPolicyResponse = zod
-  .object({
-    recordByDefault: zod
-      .object({
-        externalMeetings: zod
-          .boolean()
-          .describe(
-            "Standalone calls that someone outside the host's team joined."
-          ),
-        huddles: zod
-          .boolean()
-          .describe(
-            'Calls started from a channel other than a two-person direct message.'
-          ),
-        internalMeetings: zod
-          .boolean()
-          .describe(
-            'Standalone calls with three or more people, all teammates.'
-          ),
-        oneOnOnes: zod
-          .boolean()
-          .describe(
-            'Huddles in a two-person direct message, and standalone calls with only\ntwo people, both teammates.'
-          ),
-      })
-      .describe('One flag per [`CallKind`].'),
-    refuseOneOnOneRecording: zod
-      .boolean()
-      .describe(
-        'The caller does not allow being recorded or transcribed in\none-on-ones, whoever hosts them.'
-      ),
-    shareByDefault: zod
-      .object({
-        externalMeetings: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        huddles: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        internalMeetings: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-        oneOnOnes: zod
-          .enum(['participants', 'channel', 'invited', 'team'])
-          .describe(
-            "Who can open a call's recording, transcript and notes once it ends, besides\nits host."
-          ),
-      })
-      .describe(
-        'Who each kind of call a person hosts is shared with once it ends.'
-      ),
-    team: zod
-      .union([
-        zod.null(),
-        zod
-          .object({
-            canEdit: zod
-              .boolean()
-              .describe(
-                'Whether the caller may change the blocks (team admins and owners).'
-              ),
-            huddleSharingBlocked: zod
-              .boolean()
-              .describe(
-                'No call started from a channel, direct messages included, may be\nshared with the team.'
-              ),
-            recordingBlocked: zod
-              .object({
-                externalMeetings: zod
-                  .boolean()
-                  .describe(
-                    "Standalone calls that someone outside the host's team joined."
-                  ),
-                huddles: zod
-                  .boolean()
-                  .describe(
-                    'Calls started from a channel other than a two-person direct message.'
-                  ),
-                internalMeetings: zod
-                  .boolean()
-                  .describe(
-                    'Standalone calls with three or more people, all teammates.'
-                  ),
-                oneOnOnes: zod
-                  .boolean()
-                  .describe(
-                    'Huddles in a two-person direct message, and standalone calls with only\ntwo people, both teammates.'
-                  ),
-              })
-              .describe('One flag per [`CallKind`].'),
-          })
-          .describe("What a team's admins forbid for everyone on the team."),
-      ])
-      .optional(),
-  })
-  .describe("The caller's call settings.");
+export const declineRingParams = zod.object({
+  call_id: zod.uuid().describe('Call ID'),
+});
 
 /**
  * Gets or creates a call for the channel. If a call already exists, joins it;

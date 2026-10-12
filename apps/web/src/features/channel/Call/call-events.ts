@@ -30,6 +30,8 @@ type CallAnsweredWirePayload = {
   user_id?: string | null;
 };
 
+type CallDeclinedWirePayload = CallAnsweredWirePayload;
+
 type CallShareWithTeamToggledWirePayload = {
   channel_id?: string;
   call_id?: string;
@@ -66,6 +68,17 @@ export type CallAnsweredEvent = {
   answeredBy: string | null;
 };
 
+/**
+ * The user declined a call on one of their devices (e.g. the iPhone lock
+ * screen). Sent only to the declining user's own connections, so every other
+ * device can stop ringing; the call keeps going for other members.
+ */
+export type CallDeclinedEvent = {
+  channelId: string | null;
+  callId: string;
+  declinedBy: string | null;
+};
+
 /** A participant flipped the call's share-with-team flag. */
 export type CallShareWithTeamToggledEvent = {
   channelId: string;
@@ -87,6 +100,7 @@ export type CallEvent =
   | ({ type: 'call_started' } & CallStartedEvent)
   | ({ type: 'call_ended' } & CallEndedEvent)
   | ({ type: 'call_answered' } & CallAnsweredEvent)
+  | ({ type: 'call_declined' } & CallDeclinedEvent)
   | ({
       type: 'call_share_with_team_toggled';
     } & CallShareWithTeamToggledEvent)
@@ -100,6 +114,7 @@ const CALL_EVENT_TYPES = new Set<string>([
   'call_started',
   'call_ended',
   'call_answered',
+  'call_declined',
   'call_share_with_team_toggled',
   'call_recording_refusals_changed',
 ]);
@@ -159,6 +174,20 @@ export function parseCallEvent(
         answeredBy: answeredBy ?? null,
       };
     })
+    .with('call_declined', (eventType) => {
+      const {
+        channel_id: channelId,
+        call_id: callId,
+        user_id: declinedBy,
+      } = payload as CallDeclinedWirePayload;
+      if (!callId) return null;
+      return {
+        type: eventType,
+        channelId: channelId ?? null,
+        callId,
+        declinedBy: declinedBy ?? null,
+      };
+    })
     .with('call_share_with_team_toggled', (eventType) => {
       const {
         channel_id: channelId,
@@ -201,6 +230,7 @@ type CallEventHandlers = {
   onCallStarted?: (event: CallStartedEvent & { isFromSelf: boolean }) => void;
   onCallEnded?: (event: CallEndedEvent) => void;
   onCallAnswered?: (event: CallAnsweredEvent) => void;
+  onCallDeclined?: (event: CallDeclinedEvent) => void;
   onShareWithTeamToggled?: (event: CallShareWithTeamToggledEvent) => void;
   onRecordingRefusalsChanged?: (
     event: CallRecordingRefusalsChangedEvent
@@ -248,6 +278,15 @@ export function createCallEventsEffect(handlers: CallEventHandlers) {
           channelId: event.channelId,
           callId: event.callId,
           answeredBy: event.answeredBy,
+        });
+      })
+      .with({ type: 'call_declined' }, (event) => {
+        // Sent only to the declining user's connections, but guard anyway.
+        if (event.declinedBy && event.declinedBy !== userId()) return;
+        handlers.onCallDeclined?.({
+          channelId: event.channelId,
+          callId: event.callId,
+          declinedBy: event.declinedBy,
         });
       })
       .with({ type: 'call_share_with_team_toggled' }, (event) => {

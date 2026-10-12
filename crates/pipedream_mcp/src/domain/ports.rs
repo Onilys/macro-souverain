@@ -41,6 +41,9 @@ pub trait ConnectionStore: Send + Sync + 'static {
 /// scoped to the record's user and app; Pipedream injects the account's
 /// credentials server-side, so no tokens ever pass through here.
 pub trait McpConnection: Send + Sync + 'static {
+    /// Whether this deployment has the configuration needed to connect.
+    fn is_configured(&self) -> bool;
+
     /// Connect to the MCP server serving `record`'s app for `record.user_id`.
     fn connect(
         &self,
@@ -52,6 +55,11 @@ pub trait McpConnection: Send + Sync + 'static {
 /// before Pipedream is configured degrade to empty instead of erroring at
 /// composition time.
 impl<P: McpConnection> McpConnection for Option<std::sync::Arc<P>> {
+    fn is_configured(&self) -> bool {
+        self.as_ref()
+            .is_some_and(|connection| connection.is_configured())
+    }
+
     async fn connect(&self, record: &PipedreamConnection) -> anyhow::Result<McpServer> {
         match self {
             Some(connection) => connection.connect(record).await,

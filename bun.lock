@@ -533,6 +533,7 @@
     "esbuild",
   ],
   "patchedDependencies": {
+    "@kobalte/utils@0.9.2": "apps/web/patches/@kobalte%2Futils@0.9.2.patch",
     "@lexical/table@0.45.0": "apps/web/patches/@lexical%2Ftable@0.45.0.patch",
     "@tanstack/solid-query@5.90.3": "apps/web/patches/@tanstack%2Fsolid-query@5.90.3.patch",
     "ai-fallback@2.0.1": "apps/web/patches/ai-fallback@2.0.1.patch",
@@ -542,6 +543,7 @@
     "virtua@0.48.8": "apps/web/patches/virtua@0.48.8.patch",
     "@lexical/markdown@0.45.0": "apps/web/patches/@lexical%2Fmarkdown@0.45.0.patch",
     "@thisbeyond/solid-dnd@0.7.5": "apps/web/patches/@thisbeyond%2Fsolid-dnd@0.7.5.patch",
+    "@tauri-apps/plugin-http@2.5.9": "apps/web/patches/@tauri-apps%2Fplugin-http@2.5.9.patch",
   },
   "overrides": {
     "@kobalte/core": "0.13.11",
