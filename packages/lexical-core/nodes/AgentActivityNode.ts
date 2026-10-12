@@ -69,7 +69,7 @@ export type AgentActivityCard =
       action: (typeof AGENT_ACTIVITY_CARD_ACTIONS)[number];
       /** The item's name as the step knew it, until the item loads. */
       title?: string | null;
-      /** What happened to it, in a few words: `12 cells in EMEA`. */
+      /** What happened to it, without quoting it: `3 changes`. */
       summary?: string | null;
     }
   | {

@@ -109,7 +109,7 @@ export function ReferenceCardView(props: {
  * the agent points at it, a receipt when a step made, changed or sent it.
  * Before the item loads, and for a viewer who cannot open it, the card names
  * the item as the agent knew it and says why it cannot be opened - never
- * what is inside.
+ * what is inside, and never the receipt's summary.
  */
 export function ReferenceCard(props: {
   type: LoadableType;
@@ -119,7 +119,7 @@ export function ReferenceCard(props: {
   action?: CardAction;
   /** The item's name as the agent knew it, until it loads. */
   title?: string | null;
-  /** What happened, in a few words: `12 cells in EMEA`, `to Ana Ruiz`. */
+  /** What happened, in a few words: `3 changes`, `to Ana Ruiz`. */
   summary?: string | null;
 }) {
   const data = useItemPreviewData(() => ({
@@ -142,7 +142,9 @@ export function ReferenceCard(props: {
   const meta = () => {
     if (missing() === 'no_access') return `${kind()} · You don't have access`;
     if (missing() === 'does_not_exist') return `${kind()} · Deleted`;
-    if (props.summary) return `${kind()} · ${props.summary}`;
+    // Messages stored before receipts stopped quoting their item can still
+    // carry its words, so a summary waits until this viewer can open it.
+    if (props.summary && accessible()) return `${kind()} · ${props.summary}`;
     const owner =
       props.type === 'email_thread' ? accessible()?.owner : undefined;
     const updatedAt = accessible()?.updatedAt;

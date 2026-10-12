@@ -150,6 +150,14 @@ describe('an item card', () => {
 
 describe('a receipt', () => {
   it('says what the step did to the item in a few words', () => {
+    setPreview({
+      loading: false,
+      access: 'access',
+      id: 'doc-1',
+      type: 'document',
+      name: 'Revenue by region',
+      fileType: 'spreadsheet',
+    });
     const view = render(() => (
       <ReferenceCard
         type="document"
@@ -157,15 +165,40 @@ describe('a receipt', () => {
         fileType="spreadsheet"
         action="edited"
         title="Revenue by region"
-        summary="12 cells in EMEA"
+        summary="3 changes"
       />
     ));
-    expect(view.getByText('Spreadsheet · 12 cells in EMEA')).toBeTruthy();
+    expect(view.getByText('Spreadsheet · 3 changes')).toBeTruthy();
     expect(
       view.container
         .querySelector('[data-agent-card]')
         ?.getAttribute('data-agent-card')
     ).toBe('receipt');
+  });
+
+  it('keeps its summary to itself until the viewer can open the item', () => {
+    // A message stored before receipts stopped quoting their item.
+    const card = () => (
+      <ReferenceCard
+        type="document"
+        id="doc-1"
+        fileType="spreadsheet"
+        action="edited"
+        title="Comp bands"
+        summary="Salary set to 180000 for Ana"
+      />
+    );
+    const loading = render(card);
+    expect(loading.getByText('Spreadsheet')).toBeTruthy();
+    expect(loading.queryByText(/180000/)).toBeNull();
+    cleanup();
+
+    setPreview({ loading: false, access: 'no_access', id: 'doc-1' });
+    const denied = render(card);
+    expect(
+      denied.getByText("Spreadsheet · You don't have access")
+    ).toBeTruthy();
+    expect(denied.queryByText(/180000/)).toBeNull();
   });
 
   it('strikes through an item that is gone', () => {

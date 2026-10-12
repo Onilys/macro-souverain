@@ -396,7 +396,7 @@ export default function AgentCardsGallery() {
               tile={icon('spreadsheet')}
               title="Revenue by region FY26"
               badge={{ label: 'Edited', tone: 'accent' }}
-              meta="Spreadsheet · 12 cells in EMEA"
+              meta="Spreadsheet · 3 changes"
               onOpen={noop}
             />
             <ReferenceCardView
@@ -426,7 +426,7 @@ export default function AgentCardsGallery() {
               tile={icon('md')}
               title="Q4 pricing proposal"
               badge={{ label: 'Commented', tone: 'accent' }}
-              meta="Document · on “Q4 targets”"
+              meta="Document · Updated just now"
               onOpen={noop}
             />
             <ReferenceCardView
@@ -456,7 +456,7 @@ export default function AgentCardsGallery() {
               tile={icon('channel')}
               title="#pricing"
               badge={{ label: 'Posted', tone: 'accent' }}
-              meta="Channel · Pricing review moves to Thu 10:00"
+              meta="Channel · Updated just now"
               onOpen={noop}
             />
             <ReferenceCardView
