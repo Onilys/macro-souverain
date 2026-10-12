@@ -13,6 +13,7 @@ import { Root } from '../Root';
 
 vi.mock('@core/context/user', () => ({
   useUserId: () => () => 'user-1',
+  useOptionalUserId: () => () => 'user-1',
 }));
 
 vi.mock('@core/user', () => ({
