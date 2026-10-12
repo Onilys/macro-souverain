@@ -121,6 +121,74 @@ it('keeps a long live run on its latest steps, folding the earlier ones behind a
   expect(view.getByText('Step 1')).toBeTruthy();
 });
 
+it('keeps a live step and what it produced in place while the run ticks', async () => {
+  const created = {
+    id: 't1',
+    label: 'Create document',
+    detail: 'Launch FAQ',
+    status: 'completed' as const,
+    card: {
+      kind: 'item',
+      itemType: 'document',
+      itemId: 'doc-1',
+      action: 'created',
+      fileType: null,
+      title: 'Launch FAQ',
+      summary: null,
+    } as const,
+  };
+  const view = render(() => (
+    <AgentActivity
+      agentSessionId="session"
+      turn={2}
+      segment={1}
+      rows={snapshot}
+      sealed={false}
+    />
+  ));
+  setMessages([
+    reply([
+      { ...created },
+      {
+        id: 't2',
+        label: 'Reading',
+        detail: 'lib.rs',
+        status: 'running',
+        card: null,
+      },
+    ]),
+  ]);
+  const step = view.getByText('Create document').closest('li');
+  const card = await view.findByRole('complementary', { name: 'Cards' });
+  // A paint later the fold has sent new objects for every step.
+  setMessages([
+    reply([
+      { ...created },
+      {
+        id: 't2',
+        label: 'Read',
+        detail: 'lib.rs',
+        status: 'completed',
+        card: null,
+      },
+      {
+        id: 't3',
+        label: 'Running',
+        detail: 'cargo',
+        status: 'running',
+        card: null,
+      },
+    ]),
+  ]);
+  expect(view.getByText('Create document').closest('li')).toBe(step);
+  expect(view.getByRole('complementary', { name: 'Cards' })).toBe(card);
+  expect(steps(view).map(([, status]) => status)).toEqual([
+    'completed',
+    'completed',
+    'running',
+  ]);
+});
+
 it('folds a finished run into one line that opens to every step', () => {
   const rows = Array.from({ length: 8 }, (_, index) => ({
     id: `t${index}`,

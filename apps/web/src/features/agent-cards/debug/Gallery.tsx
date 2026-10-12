@@ -871,8 +871,8 @@ export default function AgentCardsGallery() {
                   status: 'running',
                 },
               ]}
-              after={(row) =>
-                row.id === 'c' ? (
+              after={(id) =>
+                id === 'c' ? (
                   <div class="my-1.5">
                     <ReferenceCardView
                       tile={icon('md')}

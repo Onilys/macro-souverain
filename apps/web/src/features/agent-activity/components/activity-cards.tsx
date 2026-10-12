@@ -5,22 +5,33 @@ import {
   Sources,
 } from '@app/features/agent-cards/components/sources';
 import { DashboardToolView } from '@app/features/dynamic-ui/DashboardToolView.lazy';
-import { For, Match, Suspense, Switch } from 'solid-js';
+import { Key } from '@solid-primitives/keyed';
+import { Match, Suspense, Switch } from 'solid-js';
 import type { RunCard } from '../core/cards';
+
+const asItem = (card: RunCard) => (card.kind === 'item' ? card : undefined);
+const asView = (card: RunCard) => (card.kind === 'view' ? card : undefined);
+const asData = (card: RunCard) => (card.kind === 'data' ? card : undefined);
+const asSources = (card: RunCard) =>
+  card.kind === 'sources' ? card : undefined;
 
 /**
  * What steps produced: the items the agent created, changed or sent, the
  * views it composed for the user, the database answers it asked to show,
  * and what its searches found. Loaded on its own, so a conversation without
  * cards never loads what they render with.
+ *
+ * Cards are kept by key: a live run works its cards out again on every
+ * paint, and a card that is still there must stay mounted - its entrance
+ * plays once, its data stays subscribed, and a list it opened stays open.
  */
 export default function ActivityCards(props: { cards: readonly RunCard[] }) {
   return (
     <div class="my-1.5 flex min-w-0 flex-col gap-2">
-      <For each={props.cards}>
-        {(card) => (
+      <Key each={props.cards} by="key">
+        {(entry) => (
           <Switch>
-            <Match when={card.kind === 'item' && card}>
+            <Match when={asItem(entry())}>
               {(item) => (
                 <ItemCard
                   item={item().item}
@@ -30,10 +41,10 @@ export default function ActivityCards(props: { cards: readonly RunCard[] }) {
                 />
               )}
             </Match>
-            <Match when={card.kind === 'view' && card}>
+            <Match when={asView(entry())}>
               {(view) => <AgentView view={view().view} />}
             </Match>
-            <Match when={card.kind === 'data' && card}>
+            <Match when={asData(entry())}>
               {(data) => (
                 <DataCard
                   sql={data().sql}
@@ -42,7 +53,7 @@ export default function ActivityCards(props: { cards: readonly RunCard[] }) {
                 />
               )}
             </Match>
-            <Match when={card.kind === 'sources' && card}>
+            <Match when={asSources(entry())}>
               {(found) => (
                 <Sources
                   queries={found().queries}
@@ -58,7 +69,7 @@ export default function ActivityCards(props: { cards: readonly RunCard[] }) {
             </Match>
           </Switch>
         )}
-      </For>
+      </Key>
     </div>
   );
 }

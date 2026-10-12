@@ -89,7 +89,7 @@ function Run(props: {
             rows={props.rows}
             all={foldable()}
             inPlace={(row) => isViewCard(row.card)}
-            after={(row) => <Cards cards={cardsOf(row.id)} />}
+            after={(id) => <Cards cards={cardsOf(id)} />}
           />
         </>
       }
