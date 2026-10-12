@@ -24,6 +24,7 @@ import {
   EntitySelectionToolbar,
   ListEntity,
   ListLayoutProvider,
+  type NarrowLayoutVariant,
   type WithNotification,
 } from '@entity';
 import CaretDownIcon from '@phosphor/caret-down.svg';
@@ -78,6 +79,8 @@ export type EmailListProps = {
    * the open thread beside the list. Defaults to on.
    */
   keyboardEnabled?: () => boolean;
+  /** Row layout below the wide breakpoint; the sidebar list stacks like mail. */
+  narrowLayout?: NarrowLayoutVariant;
 };
 
 export function EmailList(props: EmailListProps) {
@@ -459,7 +462,7 @@ export function EmailList(props: EmailListProps) {
           onRefresh={pullRefresh}
         />
 
-        <ListLayoutProvider ref={grid}>
+        <ListLayoutProvider ref={grid} narrowLayout={props.narrowLayout}>
           <SwipableRowProvider
             container={viewport}
             setCollapseEntity={setCollapseEntity}

@@ -93,7 +93,15 @@ export interface LayoutProps {
   showProject?: boolean;
 }
 
-export type NarrowLayoutVariant = 'standard' | 'condensed' | 'single-line';
+/**
+ * How rows lay out below the wide breakpoint. `inbox` stacks sender, subject,
+ * and preview as touch rows do, for mail-client lists on any device.
+ */
+export type NarrowLayoutVariant =
+  | 'standard'
+  | 'condensed'
+  | 'single-line'
+  | 'inbox';
 
 interface ListLayoutContextValue {
   isWide: Accessor<boolean>;
