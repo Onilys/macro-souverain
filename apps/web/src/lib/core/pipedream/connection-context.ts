@@ -6,4 +6,10 @@ export const AppConnectionContext = createContext<{
   disabled: () => boolean;
   /** Whether this surface connects in place right now; always, if absent. */
   enabled?: () => boolean;
+  /** The app whose sign-in is open, by slug. */
+  connecting?: () => string | undefined;
+  /** The app whose last connection attempt failed, by slug. */
+  failed?: () => string | undefined;
+  /** Apps connected here whose agent then carried on, by slug. */
+  resumed?: () => ReadonlySet<string>;
 }>();

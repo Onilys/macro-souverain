@@ -1,7 +1,10 @@
 import type { PipedreamConnectOutcome } from '@queries/pipedream-connectors';
 import { createSignal, onCleanup } from 'solid-js';
 
-/** Resume only the agent turn that initiated a successful connection. */
+/**
+ * Resume only the agent turn that initiated a successful connection, and say
+ * how each attempt is going for the button that started it.
+ */
 export function createConnectorContinuation(deps: {
   disabled: () => boolean;
   revision: () => string;
@@ -13,6 +16,12 @@ export function createConnectorContinuation(deps: {
   notify: (message: string) => void;
 }) {
   const [pending, setPending] = createSignal(false);
+  // What the button that started a connection shows: the app whose sign-in
+  // is open, the app whose last attempt failed, and the apps whose agent
+  // carried on once they were connected.
+  const [connecting, setConnecting] = createSignal<string>();
+  const [failed, setFailed] = createSignal<string>();
+  const [resumed, setResumed] = createSignal<ReadonlySet<string>>(new Set());
   let disposed = false;
   onCleanup(() => {
     disposed = true;
@@ -23,6 +32,8 @@ export function createConnectorContinuation(deps: {
     if (disposed || disabled()) return;
     const revision = deps.revision();
     setPending(true);
+    setConnecting(app.appSlug);
+    setFailed(undefined);
     try {
       const outcome = await deps.connect({
         appSlug: app.appSlug,
@@ -31,6 +42,7 @@ export function createConnectorContinuation(deps: {
       if (disposed) return;
       if (outcome === 'unsupported') {
         deps.notify('Connectors are not available on this deployment');
+        setFailed(app.appSlug);
         return;
       }
       if (outcome !== 'connected') return;
@@ -41,14 +53,18 @@ export function createConnectorContinuation(deps: {
         return;
       }
       await deps.resume(app.name);
+      setResumed((apps) => new Set(apps).add(app.appSlug));
     } catch {
-      if (!disposed)
+      if (!disposed) {
         deps.notify(
           `Could not connect ${app.name} and continue. Please try again.`
         );
+        setFailed(app.appSlug);
+      }
     } finally {
       setPending(false);
+      setConnecting(undefined);
     }
   }
-  return { connect, disabled };
+  return { connect, disabled, connecting, failed, resumed };
 }

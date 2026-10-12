@@ -74,6 +74,35 @@ describe('connector continuation', () => {
     expect(deps.resume).not.toHaveBeenCalled();
     expect(deps.notify).toHaveBeenCalledOnce();
     expect(flow.disabled()).toBe(false);
+    expect(flow.failed()).toBe('linear');
+    dispose();
+  });
+
+  it('says which app is signing in, and which one the agent carried on with', async () => {
+    const { flow, finish, dispose } = setup();
+    const pending = flow.connect(app);
+    expect(flow.connecting()).toBe('linear');
+    finish('connected');
+    await pending;
+    expect(flow.connecting()).toBeUndefined();
+    expect(flow.failed()).toBeUndefined();
+    expect([...flow.resumed()]).toEqual(['linear']);
+    dispose();
+  });
+
+  it('treats a closed sign-in as no attempt, and a new attempt clears a failure', async () => {
+    const { deps, flow, dispose } = setup();
+    deps.connect = vi.fn(async (): Promise<PipedreamConnectOutcome> => {
+      throw new Error('registration failed');
+    });
+    await flow.connect(app);
+    expect(flow.failed()).toBe('linear');
+    deps.connect = vi.fn(
+      async (): Promise<PipedreamConnectOutcome> => 'closed'
+    );
+    await flow.connect(app);
+    expect(flow.failed()).toBeUndefined();
+    expect(flow.resumed().size).toBe(0);
     dispose();
   });
 });

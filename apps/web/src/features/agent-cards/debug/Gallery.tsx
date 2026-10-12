@@ -16,7 +16,11 @@ import { QueryResults } from '@app/features/database-query/components/query-resu
 import { useAnswerDisplay } from '@app/features/database-query/context/answer-display';
 import type { QueryAnswer } from '@app/features/database-query/core/query';
 import { EntityIcon } from '@core/component/EntityIcon';
-import { ConnectCard } from '@core/component/LexicalMarkdown/component/decorator/ConnectApp';
+import {
+  ConnectCardView,
+  ConnectChipView,
+  type ConnectState,
+} from '@core/component/LexicalMarkdown/component/decorator/ConnectApp';
 import { PipedreamConnectorIcon } from '@core/pipedream/ConnectorIcon';
 import type { DatabaseQueryDisplayMode } from '@macro-inc/lexical-core/nodes/databaseQueryData';
 import { Button } from '@ui';
@@ -225,6 +229,15 @@ function answerSchema(options: string[]) {
     ],
   };
 }
+
+const CONNECT_STATES: ConnectState[] = [
+  'idle',
+  'connecting',
+  'failed',
+  'connected',
+  'resumed',
+  'waiting',
+];
 
 const PERMISSION_OPTIONS = [
   { id: 'allow', name: 'Allow this time', kind: 'allow_once' as const },
@@ -620,25 +633,58 @@ export default function AgentCardsGallery() {
               onSelect={noop}
             />
           </Example>
-          <Example label="Connect · on a line of its own, then connected">
-            <ConnectCard
-              appSlug="linear"
-              name="Linear"
-              connected={() => false}
-              icon={(size) => (
-                <PipedreamConnectorIcon appSlug="linear" class={size} />
+          <Example label="Connect · on a line of its own, in each state">
+            <For each={CONNECT_STATES}>
+              {(state) => (
+                <ConnectCardView
+                  appSlug="linear"
+                  name="Linear"
+                  icon={(size) => (
+                    <PipedreamConnectorIcon appSlug="linear" class={size} />
+                  )}
+                  state={state}
+                  inPlace
+                  agent="Ada"
+                  waitingOn="Maya Chen"
+                  onConnect={noop}
+                />
               )}
+            </For>
+            <ConnectCardView
+              appSlug="salesforce_rest_api"
+              name="Salesforce"
+              icon={(size) => (
+                <PipedreamConnectorIcon
+                  appSlug="salesforce_rest_api"
+                  class={size}
+                />
+              )}
+              state="idle"
+              inPlace={false}
               onConnect={noop}
             />
-            <ConnectCard
-              appSlug="gmail"
-              name="Gmail"
-              connected={() => true}
-              icon={(size) => (
-                <PipedreamConnectorIcon appSlug="gmail" class={size} />
+          </Example>
+          <Example label="Connect · inside a sentence, in each state">
+            <For each={[...CONNECT_STATES, 'idle' as const]}>
+              {(state, index) => (
+                <p class="text-sm text-ink">
+                  {index() === CONNECT_STATES.length
+                    ? 'Away from a DM, connecting opens settings: '
+                    : `${state}: I can post it in Slack too, once you connect `}
+                  <ConnectChipView
+                    appSlug="slack"
+                    name="Slack"
+                    icon={(size) => (
+                      <PipedreamConnectorIcon appSlug="slack" class={size} />
+                    )}
+                    state={state}
+                    inPlace={index() !== CONNECT_STATES.length}
+                    onConnect={noop}
+                  />
+                  .
+                </p>
               )}
-              onConnect={noop}
-            />
+            </For>
           </Example>
           <Example label="Draft · an email to send as you">
             <DraftCard

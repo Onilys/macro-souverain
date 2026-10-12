@@ -67,6 +67,8 @@ vi.mock('@queries/auth/cursor-api-key', () => ({
 // than the context object this chip reads its selection from.
 vi.mock('../../plugins', () => ({}));
 
+import { MessageProvider } from '@app/features/channel/Message/context';
+import type { MessageData } from '@core/messages/types';
 import { AppConnectionContext } from '@core/pipedream/connection-context';
 import {
   $createConnectAppNode,
@@ -109,6 +111,49 @@ function editorWithButton(alone: boolean): {
     { discrete: true }
   );
   return { editor, key };
+}
+
+/** A reply from the agent Ada, which `askedBy` prompted. */
+function agentReply(askedBy: string): MessageData {
+  return {
+    id: 'reply',
+    content: '',
+    sender_id: 'bot|ada',
+    sender: { id: 'ada', type: 'bot', name: 'Ada', triggered_by: askedBy },
+    created_at: '2026-10-12T10:00:00Z',
+    updated_at: '2026-10-12T10:00:00Z',
+    attachments: [],
+    reactions: [],
+  };
+}
+
+/** A card for Linear inside Ada's reply, connecting in place. */
+function renderCard(
+  connection: Partial<{
+    connecting: () => string | undefined;
+    failed: () => string | undefined;
+    resumed: () => ReadonlySet<string>;
+  }> = {},
+  askedBy = 'macro|reader@example.com'
+) {
+  const connect = vi.fn(async () => {});
+  render(() => (
+    <MessageProvider value={() => agentReply(askedBy)}>
+      <AppConnectionContext.Provider
+        value={{ connect, disabled: () => false, ...connection }}
+      >
+        <ConnectApp
+          appSlug="linear"
+          name="Linear"
+          target="connections"
+          key="node"
+          theme={{}}
+          standalone
+        />
+      </AppConnectionContext.Provider>
+    </MessageProvider>
+  ));
+  return connect;
 }
 
 beforeEach(() => {
@@ -349,6 +394,51 @@ describe('connect-app chip', () => {
     ));
     fireEvent.click(screen.getByRole('button', { name: 'Connect Codex' }));
     expect(mocks.openSettings).toHaveBeenCalledWith('Harness');
+  });
+
+  it('asks for the app in the agent’s name, on a line of its own', () => {
+    const connect = renderCard();
+    expect(screen.getByText('Connect Linear')).toBeTruthy();
+    expect(screen.getByText('Ada needs it to continue')).toBeTruthy();
+    expect(screen.getByText("Ada carries on once it's connected")).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(connect).toHaveBeenCalledExactlyOnceWith({
+      appSlug: 'linear',
+      name: 'Linear',
+    });
+  });
+
+  it('says the sign-in is open, and takes no second click', () => {
+    const connect = renderCard({ connecting: () => 'linear' });
+    const button = screen.getByRole('button', { name: 'Connecting…' });
+    expect(button.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('Finish signing in to Linear')).toBeTruthy();
+    fireEvent.click(button);
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it('says a failed attempt failed, and offers it again', () => {
+    const connect = renderCard({ failed: () => 'linear' });
+    expect(screen.getByRole('alert').textContent).toBe(
+      "Couldn't connect Linear"
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(connect).toHaveBeenCalledOnce();
+  });
+
+  it('shrinks to a receipt once connected, and says the agent carried on', () => {
+    mocks.pipedreamSlugs.add('linear');
+    renderCard({ resumed: () => new Set(['linear']) });
+    expect(screen.getByText('Connected')).toBeTruthy();
+    expect(screen.getByText('Ada is carrying on')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('shows someone the agent does not work for who it is waiting on', () => {
+    const connect = renderCard({}, 'macro|maya@example.com');
+    expect(screen.getByText(/^Waiting on .+ to connect it$/)).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(connect).not.toHaveBeenCalled();
   });
 
   it('does not let a Cursor key satisfy a Pipedream chip for an app of the same name', () => {
