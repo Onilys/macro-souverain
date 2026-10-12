@@ -5,7 +5,7 @@ import {
 } from '@app/features/agent-conversations/agent-conversation-message';
 import { AgentConversationsProvider } from '@app/features/agent-conversations/agent-conversations-provider';
 import { AgentDmComposer } from '@app/features/agent-dms/agent-dm-composer';
-import { AgentDmConnections } from '@app/features/agent-dms/components/agent-dm-connections';
+import { AgentDmConnections } from '@app/features/agent-dms/agent-dm-connections';
 import { openChatWithInput } from '@app/features/chat/ChatWithAgentButton';
 import { createActivityTracker } from '@channel/activity-tracker';
 import { useStartChannelCall } from '@channel/Call/use-start-channel-call';
@@ -388,6 +388,7 @@ export function Channel(props: ChannelProps) {
 
   const channelName = useChannelName(props.channelId);
   const channel = useChannel(props.channelId);
+  const agentDm = () => !!channel()?.agent_dm;
   const channelType = useChannelType(props.channelId);
   const { popoverSplit } = useSplitLayout();
 
@@ -719,12 +720,9 @@ export function Channel(props: ChannelProps) {
     <AgentConversationsProvider
       channelId={props.channelId}
       // Only an agent DM has a conversing agent so far.
-      hasAgents={!!channel()?.agent_dm}
+      hasAgents={agentDm()}
     >
-      <AgentDmConnections
-        channelId={props.channelId}
-        agentDm={!!channel()?.agent_dm}
-      >
+      <AgentDmConnections channelId={props.channelId} agentDm={agentDm()}>
         <EntityLoadGate
           result={messagesLoadResult}
           loadErrorTitle="Unable to load this channel"
@@ -870,9 +868,7 @@ export function Channel(props: ChannelProps) {
                                                     messageId={item.id}
                                                   />
                                                 }
-                                                hideTriggeredBy={
-                                                  !!channel()?.agent_dm
-                                                }
+                                                hideTriggeredBy={agentDm()}
                                                 data={m}
                                                 parent={() => ({
                                                   type: 'channel',
