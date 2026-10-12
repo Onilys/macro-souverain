@@ -1,4 +1,6 @@
 //! AI workflow tools. Request identity is supplied by the host, never by the model.
+#[cfg(test)]
+mod test;
 use crate::domain::{
     RoutineConfiguration, RoutineDetails, RoutineInfo, RoutineList, RoutineService,
 };
@@ -41,14 +43,14 @@ pub fn routine_toolset() -> AsyncToolCollection<RoutineToolContext> {
         .add_tool::<ReadRoutine, RoutineToolContext>()
         .add_tool::<UpdateRoutine, RoutineToolContext>()
 }
-/// Schedule future work.
+/// Schedule future work, or run it when a Macro activity event happens.
 #[derive(Deserialize, JsonSchema)]
 #[schemars(
     title = "CreateRoutine",
-    description = "Schedule recurring or one-off work for a model or agent. To schedule yourself, use your persona/bot ID as the agent target; to delegate, select an accessible agent from ListAgents using its bot.botId. Routines run as the authenticated user after this session ends, using the selected agent’s tools and configuration. Use Once with a future RFC3339 timestamp for a single run; use Cron for repetition. Returns the saved routine ID and next firing. Do not use reminders for work that should execute. Do not automatically create a new routine on every run of an existing routine."
+    description = "Run a model or agent on a schedule or when something happens in Macro. To run as yourself, use your persona/bot ID as the agent target; to delegate, select an accessible agent from ListAgents using its bot.botId. The routine runs as the authenticated user after this session ends, using the selected agent’s tools and configuration. For a schedule, set schedule to Once with a future RFC3339 timestamp, or Cron with a six-field expression and an IANA timezone. To run when a message is sent, omit schedule and set events to [{\"events\":[\"channel.message_posted\"],\"ids\":[\"<channel uuid>\"],\"condition\":\"Is this a bug report?\"}]. ids are required for messages, mentions, edits, attachments, deletions, and task changes. Omit ids only for document.created, task.created, channel.created, and email.message_received. condition is optional; when set, the run starts only if the triggering content answers yes. A routine can set both a schedule and events. Returns the saved routine ID and the next scheduled firing when it has a schedule. Do not use reminders for work that should execute. Do not automatically create a new routine on every run of an existing routine."
 )]
 pub struct CreateRoutine {
-    /// Name, instructions, target, and schedule.
+    /// Name, instructions, target, and when it runs.
     pub configuration: RoutineConfiguration,
 }
 impl ToolAnnotated for CreateRoutine {
@@ -151,7 +153,7 @@ pub enum RoutineChange {
         /// New activation state.
         enabled: bool,
     },
-    /// Replace the saved name, instructions, target and schedule. Read first; activation is preserved.
+    /// Replace the saved name, instructions, target, schedule, and activity events. Read first; activation is preserved.
     Configuration {
         /// Complete replacement configuration.
         configuration: RoutineConfiguration,
@@ -162,7 +164,7 @@ pub enum RoutineChange {
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "UpdateRoutine",
-    description = "Pause/resume or replace the configuration of a routine owned by the authenticated user. ReadRoutine first before replacing configuration. Select an agent to delegate the routine or a model to run as Macro. Does not change ownership. A running routine can be paused but cannot be reconfigured until it finishes."
+    description = "Pause/resume or replace the configuration of a routine owned by the authenticated user. ReadRoutine first before replacing configuration. A replacement can set a schedule, activity events such as channel.message_posted, or both. Select an agent to delegate the routine or a model to run as Macro. Does not change ownership. A running routine can be paused but cannot be reconfigured until it finishes."
 )]
 pub struct UpdateRoutine {
     /// Routine UUID.

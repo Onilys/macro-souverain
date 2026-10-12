@@ -82,7 +82,7 @@ impl RoutineClient {
                 serde_json::from_slice(&body).context("Invalid routine service response")
             }
             400 | 422 => bail!(
-                "Invalid routine configuration or unavailable model/agent. Check the schedule and select an accessible agent from ListAgents using its bot.botId."
+                "Invalid routine configuration or unavailable model/agent. Check the schedule or activity events and select an accessible agent from ListAgents using its bot.botId."
             ),
             401 | 403 | 404 => bail!("Routine or target is unavailable to this user."),
             409 => bail!("Routine is running or changed. Read it again before editing."),
@@ -194,8 +194,7 @@ impl RoutineService for RoutineClient {
 }
 
 fn configuration_body(config: &RoutineConfiguration, now: DateTime<Utc>) -> Result<Value> {
-    config.validate(now)?;
-    let (schedule, timezone) = config.schedule.cron(now)?;
+    let trigger = config.trigger(now)?;
     let mut task = serde_json::json!({ "prompt": "", "user_prompt": config.instructions });
     match &config.target {
         RoutineTarget::Model { model } => task["model"] = model.clone().into(),
@@ -204,7 +203,7 @@ fn configuration_body(config: &RoutineConfiguration, now: DateTime<Utc>) -> Resu
         }
     }
     Ok(
-        serde_json::json!({ "name": config.name, "kind": "Agent", "trigger": { "type": "cron", "schedule": schedule, "timezone": timezone }, "task": task }),
+        serde_json::json!({ "name": config.name, "kind": "Agent", "trigger": trigger, "task": task }),
     )
 }
 #[cfg(test)]

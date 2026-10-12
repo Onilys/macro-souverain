@@ -1,5 +1,5 @@
 use super::*;
-use crate::domain::RoutineSchedule;
+use crate::domain::{RoutineEventFilter, RoutineEventName, RoutineSchedule};
 #[test]
 fn agent_tasks_do_not_silently_become_model_tasks_or_override_defaults() {
     let agent_id = Uuid::from_u128(1);
@@ -7,16 +7,47 @@ fn agent_tasks_do_not_silently_become_model_tasks_or_override_defaults() {
         name: "Check in".into(),
         instructions: "Summarize blockers".into(),
         target: RoutineTarget::Agent { agent_id },
-        schedule: RoutineSchedule::Cron {
+        schedule: Some(RoutineSchedule::Cron {
             expression: "0 0 9 * * *".into(),
             timezone: "UTC".into(),
-        },
+        }),
+        events: None,
     };
     let body = configuration_body(&config, Utc::now()).unwrap();
     assert_eq!(body["task"]["agent"]["bot_id"], agent_id.to_string());
     assert!(body["task"].get("model").is_none());
     assert!(body.get("enabled").is_none());
     assert!(body.get("owner").is_none());
+}
+
+#[test]
+fn message_routines_subscribe_to_the_channel_instead_of_a_cron() {
+    let channel = Uuid::from_u128(9);
+    let config = RoutineConfiguration {
+        name: "Bug reports".into(),
+        instructions: "Handle the bug.".into(),
+        target: RoutineTarget::Model {
+            model: "model".into(),
+        },
+        schedule: None,
+        events: Some(vec![RoutineEventFilter {
+            events: vec![RoutineEventName::ChannelMessagePosted],
+            ids: Some(vec![channel]),
+            condition: Some("Is this a bug report?".into()),
+        }]),
+    };
+    let body = configuration_body(&config, Utc::now()).unwrap();
+    assert_eq!(body["trigger"]["type"], "events");
+    assert!(body["trigger"].get("schedule").is_none());
+    assert_eq!(
+        body["trigger"]["filters"][0]["events"][0],
+        "channel.message_posted"
+    );
+    assert_eq!(body["trigger"]["filters"][0]["ids"][0], channel.to_string());
+    assert_eq!(
+        body["trigger"]["filters"][0]["condition"],
+        "Is this a bug report?"
+    );
 }
 
 #[tokio::test]
@@ -75,9 +106,10 @@ async fn requests_forward_authenticated_identity_and_preserve_target_and_activat
         name: "Check in".into(),
         instructions: "Prepare a brief".into(),
         target: RoutineTarget::Agent { agent_id: id },
-        schedule: RoutineSchedule::Once {
+        schedule: Some(RoutineSchedule::Once {
             at: Utc::now() + chrono::Duration::hours(1),
-        },
+        }),
+        events: None,
     };
     client.create(&user, &config).await.unwrap();
     client.update(&user, id, &config).await.unwrap();

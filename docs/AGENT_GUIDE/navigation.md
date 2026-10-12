@@ -680,8 +680,15 @@ MCP and Macro agent tools expose **CreateRoutine**, **ListRoutines**,
 **ReadRoutine**, and **UpdateRoutine**. Select `target.type: "agent"` with the
 `bot.botId` from **ListAgents** as `agentId`, or `target.type: "model"` with a runtime
 model ID. `schedule.type: "once"` accepts a future RFC3339 `at` timestamp;
-`"cron"` accepts a six-field `expression` and IANA `timezone`. Routine ownership
-comes from the authenticated caller, never a model-supplied user ID.
+`"cron"` accepts a six-field `expression` and IANA `timezone`. Omit `schedule`
+and set `events` to run on activity instead: a channel message is
+`channel.message_posted` with that channel's UUID in `ids`. `ids` are required
+for messages, mentions, edits, attachments, deletions, and task changes. Omit
+`ids` only for `document.created`, `task.created`, `channel.created`, and
+`email.message_received`. `condition` is an optional yes/no question; the run
+starts only when the triggering content answers yes. A routine can set both a
+schedule and events. Routine ownership comes from the authenticated caller,
+never a model-supplied user ID.
 
 ## Command menu (Ctrl+K)
 

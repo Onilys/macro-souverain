@@ -1,12 +1,12 @@
 ---
 title: CreateRoutine
 description: >-
-  Schedule recurring or one-off work for a model or agent.
+  Run a model or agent on a schedule or when something happens in Macro.
 ---
 
 # CreateRoutine
 
-Schedule recurring or one-off work for a model or agent. To schedule yourself, use your persona/bot ID as the agent target; to delegate, select an accessible agent from ListAgents using its bot.botId. Routines run as the authenticated user after this session ends, using the selected agent’s tools and configuration. Use Once with a future RFC3339 timestamp for a single run; use Cron for repetition. Returns the saved routine ID and next firing. Do not use reminders for work that should execute. Do not automatically create a new routine on every run of an existing routine.
+Run a model or agent on a schedule or when something happens in Macro. To run as yourself, use your persona/bot ID as the agent target; to delegate, select an accessible agent from ListAgents using its bot.botId. The routine runs as the authenticated user after this session ends, using the selected agent’s tools and configuration. For a schedule, set schedule to Once with a future RFC3339 timestamp, or Cron with a six-field expression and an IANA timezone. To run when a message is sent, omit schedule and set events to [\{"events":["channel.message_posted"],"ids":["\<channel uuid>"],"condition":"Is this a bug report?"}]. ids are required for messages, mentions, edits, attachments, deletions, and task changes. Omit ids only for document.created, task.created, channel.created, and email.message_received. condition is optional; when set, the run starts only if the triggering content answers yes. A routine can set both a schedule and events. Returns the saved routine ID and the next scheduled firing when it has a schedule. Do not use reminders for work that should execute. Do not automatically create a new routine on every run of an existing routine.
 
 ## Parameters
 

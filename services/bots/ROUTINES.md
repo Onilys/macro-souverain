@@ -35,6 +35,12 @@ Agents can use `CreateRoutine` with `target: {"type":"agent","agentId":"…"}`
 itself, an agent selects its own persona ID. The authenticated user owns the
 routine, and the scheduler validates access to the selected agent. Recurring
 routines use `{"type":"cron","expression":"0 0 9 * * 2-6","timezone":"America/New_York"}`.
+To run when a message is sent, omit `schedule` and set
+`events: [{"events":["channel.message_posted"],"ids":["<channel uuid>"]}]`.
+Add `condition` with a yes/no question to skip messages that do not match.
+`ids` are required for messages, mentions, edits, deletions, and task changes.
+Omit `ids` only for `document.created`, `task.created`, `channel.created`, and
+`email.message_received`. A routine can set both a schedule and events.
 Use `ListRoutines` to avoid duplicates, `ReadRoutine` to inspect settings/results,
 and `UpdateRoutine` to pause or change future work. A routine should not create
 a replacement of itself on each run.
