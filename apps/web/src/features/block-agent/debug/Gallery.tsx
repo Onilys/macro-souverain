@@ -10,6 +10,7 @@ import type { MagicChipPresentation } from '@core/component/LexicalMarkdown/comp
 import { MarkdownImage } from '@core/component/LexicalMarkdown/component/decorator/MarkdownImage';
 import { MediaLoadingPlaceholder } from '@core/component/LexicalMarkdown/component/decorator/MediaLoadingPlaceholder';
 import { useUserId } from '@core/context/user';
+import { idToDisplayName } from '@core/user/util';
 import FileText from '@phosphor/file-text.svg';
 import MagnifyingGlass from '@phosphor/magnifying-glass.svg';
 import PencilSimple from '@phosphor/pencil-simple.svg';
@@ -868,6 +869,7 @@ function LiveTurnDemo() {
  */
 function PromptAuthorDemo() {
   const userId = useUserId();
+  const viewer = { userId, displayName: idToDisplayName };
   const prompt = (userId: string | null, text: string): FoldedMessage => ({
     agentSessionId: 'demo',
     requestId: null,
@@ -882,6 +884,7 @@ function PromptAuthorDemo() {
       <Message
         message={prompt(userId() ?? null, 'Tighten up the fold, please.')}
         inFlight={false}
+        viewer={viewer}
       />
       <Message
         message={prompt(
@@ -889,6 +892,7 @@ function PromptAuthorDemo() {
           'And run the snapshot tests after.'
         )}
         inFlight={false}
+        viewer={viewer}
       />
     </div>
   );

@@ -695,6 +695,28 @@ describe('Message prompt attribution', () => {
     expect(view.getByTestId('bubble').textContent).toBe('Do the thing.');
   });
 
+  it('attributes standalone prompts using an explicit viewer', () => {
+    renderTelemetry.context.mockReturnValue(undefined);
+    const view = render(() => (
+      <>
+        <Message
+          message={prompt('macro|me@macro.com')}
+          inFlight={false}
+          viewer={viewer}
+        />
+        <Message
+          message={prompt('macro|wolf@macro.com')}
+          inFlight={false}
+          viewer={viewer}
+        />
+      </>
+    ));
+    expect(view.getAllByTestId('prompt-author')).toHaveLength(1);
+    expect(view.getByTestId('prompt-author').textContent).toBe(
+      'wolf@macro.com'
+    );
+  });
+
   it("leaves the viewer's own prompt unlabelled", () => {
     const view = render(() => (
       <Message message={prompt('macro|me@macro.com')} inFlight={false} />

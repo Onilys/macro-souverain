@@ -18,7 +18,10 @@ import type {
 import { UserMessageBubble } from '@ui';
 import { For, Index, type JSX, Match, Show, Switch } from 'solid-js';
 import { match } from 'ts-pattern';
-import { useOptionalAgentSession } from '../context/AgentSessionContext';
+import {
+  type AgentSessionState,
+  useOptionalAgentSession,
+} from '../context/AgentSessionContext';
 import { isControlMessage } from '../state/control-message';
 import { isNotificationMessage } from '../state/notification-message';
 import { thoughtIsStreaming } from '../state/thought-streaming';
@@ -247,22 +250,29 @@ function promptAuthorName(
 const AGENT_CONTEXT_OPEN = '<m-agent-context>';
 const PENDING_AGENT_CONTEXT = `${AGENT_CONTEXT_OPEN}{"version":1,"text":""}</m-agent-context>\n\n`;
 
+type MessageViewer = Pick<AgentSessionState, 'userId' | 'displayName'>;
+
 /**
  * A prompt, in the chat block's user-bubble treatment
  * (`@core/component/AI/component/message/UserMessage.tsx`): right-aligned,
  * rounded, filled surface shared with production chat. A prompt another
  * participant sent carries their name above the bubble.
  */
-function UserMessage(props: { message: FoldedMessage }) {
+function UserMessage(props: {
+  message: FoldedMessage;
+  viewer?: MessageViewer;
+}) {
   const session = useOptionalAgentSession();
-  const authorName = () =>
-    session
+  const authorName = () => {
+    const viewer = props.viewer ?? session;
+    return viewer
       ? promptAuthorName(
           props.message.author,
-          session.userId(),
-          session.displayName
+          viewer.userId(),
+          viewer.displayName
         )
       : undefined;
+  };
   // The harness puts context before every prompt it delivers. Until the log
   // confirms this one, an empty stand-in renders where it will, through the
   // same markdown, so nothing moves when the real one arrives.
@@ -321,6 +331,8 @@ export function Message(props: {
   message: FoldedMessage;
   /** This is the running turn's reply, by the session's one `working` truth. */
   inFlight: boolean;
+  /** Attribution for standalone messages rendered outside a session. */
+  viewer?: MessageViewer;
 }) {
   const inFlight = () => props.inFlight;
   const failure = () =>
@@ -402,7 +414,7 @@ export function Message(props: {
         </div>
       }
     >
-      <UserMessage message={props.message} />
+      <UserMessage message={props.message} viewer={props.viewer} />
     </Show>
   );
 }
