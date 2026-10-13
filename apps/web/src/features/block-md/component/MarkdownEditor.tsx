@@ -1,3 +1,4 @@
+import { createTaskEditorExperience } from '@app/features/inline-tasks/inline-tasks';
 import { MessageCommentsProvider } from '@block-md/comments/MessageCommentsProvider';
 import { URL_PARAMS } from '@block-md/constants';
 import { keyNavigationPlugin } from '@block-md/plugins/keyboardNavigation';
@@ -24,8 +25,6 @@ import {
   type MarkdownEditingSource,
   registerMarkdownEditing,
 } from '@core/component/LexicalMarkdown/editing/registerMarkdownEditing';
-import { INSERT_INLINE_TASK_DRAFT_COMMAND } from '@core/component/LexicalMarkdown/plugins/inline-task-draft/inlineTaskDraftPlugin';
-import { ActionCategory, type Action } from '@core/component/LexicalMarkdown/plugins/actions/types';
 import {
   CLOSE_INLINE_SEARCH_COMMAND,
   createProgressStatsStore,
@@ -93,7 +92,6 @@ import {
   type PeerIdValidator,
 } from '@macro-inc/lexical-core';
 import { useDocTags } from '@property/tags';
-import CheckSquare from '@phosphor/check-square.svg';
 import { EntityType } from '@service-properties/generated/schemas/entityType';
 import { onElementConnect } from '@solid-primitives/lifecycle';
 import { isIOS } from '@solid-primitives/platform';
@@ -111,11 +109,11 @@ import {
   Suspense,
   untrack,
 } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { useMarkdownDocument } from '../context/markdown-document-context';
 import { createSaveMarkdownDocumentMutation } from '../queries/markdown-document-operations';
 import { EditorSystemMessage } from './EditorSystemMessage';
 import { MarkdownCollabProvider } from './MarkdownCollabProvider';
-import { InlineTaskDraft } from './InlineTaskDraft';
 import { MarkdownPopup } from './MarkdownPopup';
 import { isMarkdownEditorLoading } from './markdownEditorLoadingState';
 
@@ -155,6 +153,9 @@ export function MarkdownEditor(props: {
   const { canEdit, canComment } = permissions;
   const blockId = documentId();
   const documentKind = kind();
+  const taskExperience = createTaskEditorExperience(
+    documentKind === 'document' || documentKind === 'task'
+  );
   const userId = useUserId();
   const sourceBlockName = documentKind === 'document' ? 'md' : documentKind;
   const documentTags = useDocTags(
@@ -256,6 +257,9 @@ export function MarkdownEditor(props: {
     isInteractable: isContentEditable,
     withIds: true,
   });
+  if (taskExperience.kind === 'inline') {
+    lexicalWrapper.taskMention = taskExperience.mention;
+  }
 
   const { editor, plugins, cleanup: cleanupPlugins } = lexicalWrapper;
 
@@ -364,18 +368,6 @@ export function MarkdownEditor(props: {
     blockName: sourceBlockName,
     trackMentions: true,
   };
-  const inlineTaskActions: Action[] = documentKind === 'document' || documentKind === 'task'
-    ? [{
-        id: 'task',
-        name: 'Task',
-        keywords: ['task', 'todo', 'create'],
-        category: ActionCategory.ELEMENT,
-        icon: CheckSquare,
-        action: (editor) => {
-          editor.dispatchCommand(INSERT_INLINE_TASK_DRAFT_COMMAND, undefined);
-        },
-      }]
-    : [];
 
   // plugins
   plugins
@@ -780,7 +772,7 @@ export function MarkdownEditor(props: {
           canEdit={() => canEdit() ?? false}
           useBlockBoundary={true}
           showOpenTabs
-          additionalActions={inlineTaskActions}
+          additionalActions={taskExperience.additionalActions}
           floatingMenus={
             <MarkdownPopup
               highlightLayerRef={highlightLayerRef() ?? editorContainerRef}
@@ -789,26 +781,29 @@ export function MarkdownEditor(props: {
           }
         />
 
-        <Show when={documentKind === 'document' || documentKind === 'task'}>
-          <InlineTaskDraft
-            editor={editor}
-            canEdit={() => canEdit() ?? false}
-            isInlineMenuOpen={isInlineMenuOpen}
-            createTask={(title) =>
-              createTaskFromData(
-                {
-                  title,
-                  rawMarkdown: title,
-                  assigneeUserIds: [],
-                  dueDate: null,
-                },
-                {
-                  currentUserId: userId(),
-                  parentTaskId: documentKind === 'task' ? blockId : undefined,
-                }
-              )
-            }
-          />
+        <Show when={taskExperience.Extensions}>
+          {(Extensions) => (
+            <Dynamic
+              component={Extensions()}
+              editor={editor}
+              canEdit={() => canEdit() ?? false}
+              isInlineMenuOpen={isInlineMenuOpen}
+              createTask={(title: string) =>
+                createTaskFromData(
+                  {
+                    title,
+                    rawMarkdown: title,
+                    assigneeUserIds: [],
+                    dueDate: null,
+                  },
+                  {
+                    currentUserId: userId(),
+                    parentTaskId: documentKind === 'task' ? blockId : undefined,
+                  }
+                )
+              }
+            />
+          )}
         </Show>
 
         <TagsMenu

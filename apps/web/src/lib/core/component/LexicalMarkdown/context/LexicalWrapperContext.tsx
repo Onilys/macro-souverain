@@ -25,6 +25,7 @@ import {
   type SelectionData,
 } from '../plugins';
 import { theme as baseTheme } from '../theme';
+import type { TaskMentionExperience } from './taskMentionExperience';
 
 type LexicalWrapperProps = {
   type: EditorType;
@@ -45,6 +46,8 @@ export type LexicalWrapperBase = {
   selection?: Store<SelectionData>;
   /** When true, decorator components should skip backend fetches (e.g. preview API). */
   skipPreviewFetch?: boolean;
+  /** Optional task presentation selected once by the editor host. */
+  taskMention?: TaskMentionExperience;
 };
 
 export type LexicalWrapperWithMapping = LexicalWrapperBase & {

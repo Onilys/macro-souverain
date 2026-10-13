@@ -3,8 +3,8 @@ import {
   hasPermissions,
   Permissions,
 } from '@core/component/SharePermissions';
-import { focusNeighborTask, isPlainArrow, returnToDocument, type TaskEdge } from '@core/component/inlineTaskNavigation';
-import { CONTINUE_INLINE_TASK_DRAFT_COMMAND } from '@core/component/LexicalMarkdown/plugins/inline-task-draft/inlineTaskDraftPlugin';
+import { focusNeighborTask, isPlainArrow, returnToDocument, type TaskEdge } from '../primitives/task-navigation';
+import { CONTINUE_INLINE_TASK_DRAFT_COMMAND } from '../primitives/task-draft-plugin';
 import type { LexicalEditor, NodeKey } from 'lexical';
 import { createRenameDssEntityMutation } from '@entity';
 import type { PreviewDocumentProperties } from '@queries/preview/types';

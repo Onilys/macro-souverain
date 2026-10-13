@@ -512,6 +512,12 @@ export const enableInlineAiEditing = defineFlag({
   default: onInDev,
 });
 
+/** Checklist-style task editing. Unknown/unloaded remote flags stay off. */
+export const enableInlineTasks = defineFlag({
+  key: 'enable-inline-tasks',
+  env: 'ENABLE_INLINE_TASKS',
+});
+
 export const enableMultiInbox = defineFlag({
   key: 'enable-multi-inbox',
   env: 'ENABLE_MULTI_INBOX',

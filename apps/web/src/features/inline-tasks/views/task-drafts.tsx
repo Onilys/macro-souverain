@@ -1,5 +1,5 @@
-import { registerInlineTaskDraftPlugin } from '@core/component/LexicalMarkdown/plugins/inline-task-draft/inlineTaskDraftPlugin';
-import { focusNeighborTask, isPlainArrow } from '@core/component/inlineTaskNavigation';
+import { registerInlineTaskDraftPlugin } from '../primitives/task-draft-plugin';
+import { focusNeighborTask, isPlainArrow } from '../primitives/task-navigation';
 import { $createDocumentMentionNode } from '@macro-inc/lexical-core';
 import { PropertyValueIcon } from '@property/component/propertyValue/PropertyValueIcon';
 import { PROPERTY_OPTION_IDS } from '@property/constants';

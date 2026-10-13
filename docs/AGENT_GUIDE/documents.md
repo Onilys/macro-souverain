@@ -37,12 +37,26 @@ they do not show a success toast.
 
 ## Inline task checklist experiment (unverified)
 
-On branch `rahul/feat-inline-tasks`, task mentions show an editable status on the
-left instead of the task icon. Missing assignments show **No status**. Click the
-status to open its selector. Click or Tab-focus the title to rename it inline;
-Enter or blur saves and Escape cancels. Empty names show **Task name…**. The hover
-card still opens the task. Priority and assignee metadata remain on the right,
-without a duplicate status or trailing add-property button.
+The experiment is opt-in through the PostHog flag `enable-inline-tasks` or the
+local override `VITE_ENABLE_INLINE_TASKS=true`. Restart Vite after changing the
+override. Unknown or still-loading flags select standard behavior. Each open
+editor keeps its selected experience; refreshed flags apply when another editor
+is opened, not while a title, ghost, or task creation is active. PostHog can
+initially return cached flags, so disabling rollout is not an immediate kill
+switch for existing editors.
+
+With the flag disabled, task mentions retain their icon, underlined title,
+click-to-open navigation, trailing status/priority/assignee badges, and standard
+keyboard behavior. `/task` opens the existing composer. Other editor hosts keep
+that standard experience regardless of this rollout.
+
+With the inline experience enabled on branch `rahul/feat-inline-tasks`, task
+mentions show an editable status on the left instead of the task icon. Missing
+assignments show **No status**. Click the status to open its selector. Click or
+Tab-focus the title to rename it inline; Enter or blur saves and Escape cancels.
+Empty names show **Task name…**. The hover card still opens the task. Priority and
+assignee metadata remain on the right, without a duplicate status or trailing
+add-property button.
 
 In editable Markdown documents and task bodies, type `/task` and choose **Task**
 to focus an inline ghost draft instead of opening the composer. Other editor
