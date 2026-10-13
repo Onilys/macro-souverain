@@ -9,7 +9,7 @@ on:
         required: true
         type: string
       publish_android:
-        description: Attach verified Android APK and AAB artifacts to the existing release
+        description: Attach verified Android App Bundle artifacts to the existing release
         default: false
         type: boolean
 
@@ -22,7 +22,7 @@ env:
 
 jobs:
   build-android:
-    name: Build signed Android APK and App Bundle
+    name: Build signed Android App Bundle
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -72,7 +72,7 @@ jobs:
           bun scripts/android-release.ts signing "$RUNNER_TEMP/android-signing" \
             tauri/src-tauri/gen/android/keystore.properties
           bun scripts/android-firebase.ts build --doppler "$RUNNER_TEMP/android-google-services.json"
-      - name: Build production APK and App Bundle
+      - name: Build production App Bundle
         working-directory: apps/web
         env:
           VITE_SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY_PRODUCTION }}
@@ -88,11 +88,11 @@ jobs:
           export RUSTC_WRAPPER=""
           cargo tauri --version
           # Tauri has shipped both switch-only and value-taking APK/AAB flags.
-          # Nix and local installations can differ; build both with either CLI.
+          # Nix and local installations can differ; build only the AAB with either CLI.
           android_help=$(cargo tauri android build --help)
-          artifact_args=(--apk --aab)
+          artifact_args=(--aab)
           if [[ "$android_help" == *'--apk <APK>'* ]]; then
-            artifact_args=(--apk true --aab true)
+            artifact_args=(--apk false --aab true)
           fi
           just android-build --firebase-config "$RUNNER_TEMP/android-google-services.json" \
             "${artifact_args[@]}" --ci --config "$RUNNER_TEMP/android-release.json" \
@@ -105,27 +105,10 @@ jobs:
           path: ${{ runner.temp }}/android-build.log
           if-no-files-found: warn
           retention-days: 7
-      - name: Verify and collect APK
-        working-directory: apps/web
-        env:
-          APK_FILENAME: ${{ steps.metadata.outputs.filename }}
-        run: |
-          set -euo pipefail
-          mapfile -t apks < <(find tauri/src-tauri/gen/android/app/build/outputs/apk -type f -name '*-release.apk')
-          if [ "${#apks[@]}" -ne 1 ]; then
-            echo "Expected exactly one signed ARM64 release APK, found ${#apks[@]}" >&2
-            exit 1
-          fi
-          bun scripts/android-release.ts verify "$RELEASE_TAG" "${apks[0]}" \
-            "$ANDROID_HOME/build-tools/36.0.0" "$RUNNER_TEMP/android-signing/certificate-sha256"
-          mkdir -p "$GITHUB_WORKSPACE/android-artifacts"
-          cp "${apks[0]}" "$GITHUB_WORKSPACE/android-artifacts/$APK_FILENAME"
-          \cd "$GITHUB_WORKSPACE/android-artifacts"
-          sha256sum "$APK_FILENAME" > "$APK_FILENAME.sha256"
       - name: Verify and collect App Bundle
         working-directory: apps/web
         env:
-          APK_FILENAME: ${{ steps.metadata.outputs.filename }}
+          RELEASE_FILENAME: ${{ steps.metadata.outputs.filename }}
         run: |
           set -euo pipefail
           curl --fail --location --retry 3 \
@@ -139,7 +122,9 @@ jobs:
           fi
           bun scripts/android-bundle.ts "$RELEASE_TAG" "${bundles[0]}" \
             "$RUNNER_TEMP/bundletool.jar" "$RUNNER_TEMP/android-signing/certificate-sha256"
-          bundle_filename="${APK_FILENAME%.apk}.aab"
+          # Recovery builds can check out older tags whose metadata names an APK.
+          bundle_filename="${RELEASE_FILENAME%.*}.aab"
+          mkdir -p "$GITHUB_WORKSPACE/android-artifacts"
           cp "${bundles[0]}" "$GITHUB_WORKSPACE/android-artifacts/$bundle_filename"
           # R8 mapping belongs to this exact binary; preserve it for Play crash reports.
           bundle_variant=$(basename "$(dirname "${bundles[0]}")")
@@ -148,7 +133,7 @@ jobs:
             echo "Missing R8 mapping for bundle variant $bundle_variant" >&2
             exit 1
           fi
-          mapping_filename="${APK_FILENAME%.apk}-mapping.txt"
+          mapping_filename="${bundle_filename%.aab}-mapping.txt"
           cp "$mapping" "$GITHUB_WORKSPACE/android-artifacts/$mapping_filename"
           \cd "$GITHUB_WORKSPACE/android-artifacts"
           sha256sum "$bundle_filename" > "$bundle_filename.sha256"

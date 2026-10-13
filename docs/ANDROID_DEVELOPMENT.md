@@ -37,7 +37,7 @@ From `apps/web`, using an available frontend port:
 ```sh
 PORT=3004 just android-dev
 just android-build --debug --apk true --aab false
-just android-build --apk true --aab true
+just android-build --apk false --aab true
 ```
 
 Development uses the deployed **dev** backend, builds required WebAssembly assets,
@@ -110,7 +110,7 @@ normal debug certificate. No signing secrets belong in Gradle source or logs.
 For local qualification of the embedded frontend, disable OTA updates:
 
 ```sh
-just android-build --apk true --aab true -- --no-default-features
+just android-build --apk true --aab false -- --no-default-features
 ```
 
 This still uses production services/Firebase, release optimization, and R8.
@@ -130,14 +130,14 @@ its fingerprint to production associations before testing Play-installed links.
 
 ### Production release artifacts
 
-`.github/workflows/release-production.yml` builds an ARM64 signed APK and AAB alongside
+`.github/workflows/release-production.yml` builds an ARM64 signed AAB alongside
 each production deployment, from the release commit. It uses production services,
 the pinned production Firebase config, and the normal OTA-enabled release build.
 The GitHub Actions `ANDROID_RELEASE_DOPPLER_TOKEN` secret must have read access to
 `android-release/prd`, including both the signing JSON and pinned Firebase secret.
 CI passes this dedicated read-only service token as `DOPPLER_TOKEN` only during
 configuration retrieval. Signing files live in the runner's temporary directory
-and are removed even when the build fails. Only APK, AAB, R8 mapping, and checksum
+and are removed even when the build fails. Only AAB, R8 mapping, and checksum
 files are attached to the release; the separate `android-build-log` Actions artifact is retained for
 seven days, including on failed builds.
 
@@ -180,16 +180,16 @@ so retire them rather than relying on it to exclude those test installs.
 When moving to Google Play, keep this same counter for AAB builds across all
 tracks (internal testing, closed testing, and production). Promote the same
 uploaded artifact between tracks; allocate a new code for a new binary. The
-existing `just android-build --aab` path uses the same Tauri config. CI builds both
-formats; the Google Play workflow below uploads the AAB to internal testing. Use
+existing `just android-build --apk false --aab true` path uses the same Tauri config.
+CI builds only the AAB; the Google Play workflow below uploads it to internal testing. Use
 [Play App Signing](https://developer.android.com/studio/publish/app-signing) and
 preserve its app-signing key once
 Play distribution starts; the upload key and installed-app signing key are
 separate roles.
 
 Before publishing artifacts, CI verifies the signing certificate, package/version,
-ARM64 ABI, and non-debuggable manifest for both formats, checks the AAB structure
-with a checksum-pinned bundletool, and checks APK 16 KiB ZIP alignment. Publishing
+ARM64 ABI, and non-debuggable manifest, and checks the AAB structure
+with a checksum-pinned bundletool. Publishing
 waits for the web, cloud-storage, sync-service, and AI editing worker deployments. Android failures
 fail their job without blocking web/backend rollout. CI verification does not
 replace the device qualification described above.
@@ -210,13 +210,11 @@ cache mount. Do not invoke the shared `teardown-nix` cache-volume action there:
 its `fuser -km /nix` can kill the runner when `/nix` is on the root filesystem,
 preventing GitHub from receiving the build logs. Let the hosted VM be discarded.
 
-The public GitHub release receives `macro-<tag>-android-arm64.apk`,
-`macro-<tag>-android-arm64.aab`, `macro-<tag>-android-arm64-mapping.txt`, and a
-`.sha256` checksum for each. Share the APK's release download link;
-recipients do not need GitHub access. They open the downloaded APK and allow
-installation from that browser/file manager when Android prompts. Subsequent
-APKs install as updates when the certificate matches and the version increases.
-Play Store migration must preserve app-signing compatibility with these APKs.
+The public GitHub release receives `macro-<tag>-android-arm64.aab`,
+`macro-<tag>-android-arm64-mapping.txt`, and a `.sha256` checksum for each.
+Release CI does not build or attach APKs. Testers install through Google Play's
+internal testing track after the bundle is uploaded; an AAB cannot be installed
+directly on a device.
 
 ### Google Play publishing
 
@@ -463,7 +461,7 @@ the build before Cargo starts. Existing local config files are not a fallback:
 they cannot silently change which Firebase configuration a commit builds with.
 The config is fetched on each invocation, so the default path requires network
 access. The lock file pins Firebase configuration, not every input needed for
-byte-identical APKs; the toolchain, dependencies, frontend configuration, and
+byte-identical Android artifacts; the toolchain, dependencies, frontend configuration, and
 release signing must also be supplied consistently.
 
 For CI, install the Doppler CLI and provide a read-only Doppler service token for
