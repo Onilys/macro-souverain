@@ -9,10 +9,29 @@ import { mountReplyComposer } from '../tests/reply';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
-it.each(['standalone', 'reply'] as const)(
-  'retains restoration preceding delayed send completion: %s',
-  async (kind) => {
+it.each([
+  ['standalone', false],
+  ['reply', false],
+  ['standalone', true],
+  ['reply', true],
+] as const)(
+  'retains restoration and the current send phase: %s, preparing another send: %s',
+  async (kind, sendAgain) => {
     const context = createComposeContext();
+    context.delivery.queueActive = () => true;
+    context.drafts.saveLocalDraft = vi.fn(async (input) => ({
+      key: input.draft.db_id ?? input.clientHandles?.draftId ?? 'draft',
+      draftId: input.draft.db_id ?? input.clientHandles?.draftId ?? 'draft',
+      threadId: 'thread',
+      accountId: 'owner',
+      generation: 'original',
+      revision: 1,
+      acknowledgedRevision: 0,
+      status: 'dirty' as const,
+      updatedAt: Date.now(),
+      content: input.draft,
+      attachments: [],
+    }));
     let listener: ((event: EmailDraftRestoration) => void) | undefined;
     context.drafts.watchRestorations = (changed) => {
       listener = changed;
@@ -70,6 +89,23 @@ it.each(['standalone', 'reply'] as const)(
       expect(root.editor.read(() => $getRoot().getTextContent())).toBe(
         'Restored body'
       );
+      expect(
+        'state' in root ? root.state.context.disabled() : root.editingDisabled()
+      ).toBe(false);
+      if (sendAgain) {
+        context.drafts.saveLocalDraft = vi.fn(
+          () => new Promise<never>(() => {})
+        );
+        if ('state' in root) root.state.context.onSend();
+        else void root.sendEmail();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(context.drafts.saveLocalDraft).toHaveBeenCalledOnce();
+        expect(
+          'state' in root
+            ? root.state.context.disabled()
+            : root.editingDisabled()
+        ).toBe(true);
+      }
       finish?.();
       await vi.advanceTimersByTimeAsync(0);
       expect('state' in root ? root.state.draftId() : root.savedDraftId()).toBe(
@@ -80,7 +116,7 @@ it.each(['standalone', 'reply'] as const)(
       );
       expect(
         'state' in root ? root.state.context.disabled() : root.editingDisabled()
-      ).toBe(false);
+      ).toBe(sendAgain);
     } finally {
       root.dispose();
     }

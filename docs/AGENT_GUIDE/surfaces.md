@@ -991,8 +991,14 @@ uploads block Send and Schedule send until they have durable URLs or are removed
 Queued sends survive query-cache recovery in independent account-scoped storage,
 retaining their original attempt IDs, frozen bodies, attachments and cancellation
 requests. After cache loss, status reconciliation must reuse that attempt identity;
-it must not create a second delivery. Cancel and Restore must win over a delayed Send
-completion in both composers. Resizing media must stop immediately when an editor
+it must not create a second delivery. Repeat after restarting between a persisted
+Cancel or Restore decision and its queued request: recovery must finish that decision
+even when the original cache row survived. An already queued cancellation or restoration
+must keep its request rather than being replaced on every status poll.
+Cancel and Restore must win over a delayed Send completion in both composers. Start
+another send after restoration, delay its preparation, then release the old response:
+the newer send must remain locked until its own preparation and delivery finish.
+Resizing media must stop immediately when an editor
 locks, including an active drag and a pending debounced resize.
 
 With GraphQL Mail enabled, discarding the last draft in a thread must remove the

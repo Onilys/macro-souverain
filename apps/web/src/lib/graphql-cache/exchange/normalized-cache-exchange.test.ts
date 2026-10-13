@@ -303,7 +303,7 @@ function makeFakeHost(): FakeHost {
     },
     seedQueued: (args, serverFailureCount = 0) => {
       queue.push({
-        transactionId: `restored-${queue.length + 1}`,
+        transactionId: String(++nextTransaction),
         args,
         attemptCount: 0,
         serverFailureCount,
@@ -382,7 +382,7 @@ function makeFakeHost(): FakeHost {
         data: args.data,
         linkPatches: args.linkPatches,
       });
-      const transactionId = `txn-${++nextTransaction}`;
+      const transactionId = String(++nextTransaction);
       queue.push({
         transactionId,
         args,
@@ -393,6 +393,7 @@ function makeFakeHost(): FakeHost {
       const mutation = claimQueueHead(claim.nowMs, claim.leaseExpiresAtMs);
       return {
         transactionId,
+        requestGeneration: '0',
         revision: INITIAL_CACHE_REVISION,
         revisionAdvanced: true,
         changed: [],
@@ -2890,7 +2891,7 @@ describe('normalizedCacheExchange', () => {
         }
         await tick();
         expect(host.commits).toEqual([]);
-        expect(host.rollbacks).toEqual([replay ? 'restored-1' : 'txn-1']);
+        expect(host.rollbacks).toEqual([replay ? '1' : '1']);
       }
     );
 
@@ -2914,7 +2915,7 @@ describe('normalizedCacheExchange', () => {
                     extensions: {
                       normalizedCacheMutationDisposition: {
                         kind: 'queued',
-                        transactionId: 'tx',
+                        transactionId: '1',
                       },
                     },
                   };
@@ -2951,7 +2952,7 @@ describe('normalizedCacheExchange', () => {
           op.kind === 'mutation' ? { data: context.optimisticResponse } : {}
         );
         await tick();
-        expect(host.commits[0]?.transactionId).toBe('restored-1');
+        expect(host.commits[0]?.transactionId).toBe('1');
         expect(vi.mocked(client.query)).toHaveBeenCalledTimes(2);
         expect(
           vi.mocked(client.query).mock.calls.map((call) => call[1])
@@ -2974,10 +2975,10 @@ describe('normalizedCacheExchange', () => {
       await tick();
 
       expect(host.begins).toHaveLength(0);
-      expect(host.claims).toEqual(['restored-1']);
+      expect(host.claims).toEqual(['1']);
       expect(forwarded.map((op) => op.kind)).toEqual(['mutation']);
       expect(forwarded[0]?.context.fetch).toBeTypeOf('function');
-      expect(host.commits[0]?.transactionId).toBe('restored-1');
+      expect(host.commits[0]?.transactionId).toBe('1');
     });
 
     it.each(['rejects', 'hangs'] as const)(
@@ -3039,9 +3040,9 @@ describe('normalizedCacheExchange', () => {
             expect.anything(),
             false
           );
-          expect(host.rollbacks).toEqual(['restored-1']);
+          expect(host.rollbacks).toEqual(['1']);
           expect(host.defers).toHaveLength(0);
-          expect(host.commits).toMatchObject([{ transactionId: 'restored-2' }]);
+          expect(host.commits).toMatchObject([{ transactionId: '2' }]);
           expect(forwarded).toHaveLength(2);
         } finally {
           vi.useRealTimers();
@@ -3071,7 +3072,7 @@ describe('normalizedCacheExchange', () => {
           });
           await vi.advanceTimersByTimeAsync(4_010);
           expect(forwarded).toHaveLength(1);
-          expect(host.commits).toMatchObject([{ transactionId: 'restored-1' }]);
+          expect(host.commits).toMatchObject([{ transactionId: '1' }]);
           expect(warning).toHaveBeenCalled();
         } finally {
           warning.mockRestore();
@@ -3116,12 +3117,12 @@ describe('normalizedCacheExchange', () => {
             onMutationAttemptResult,
           });
           await vi.advanceTimersByTimeAsync(2_010);
-          expect(host.rollbacks).toEqual(['restored-1']);
+          expect(host.rollbacks).toEqual(['1']);
           expect(host.defers).toHaveLength(0);
-          expect(host.commits).toMatchObject([{ transactionId: 'restored-2' }]);
+          expect(host.commits).toMatchObject([{ transactionId: '2' }]);
           expect(forwarded).toHaveLength(1);
           expect(onMutationAttemptResult).toHaveBeenCalledWith(
-            expect.objectContaining({ transactionId: 'restored-1' }),
+            expect.objectContaining({ transactionId: '1' }),
             expect.objectContaining({
               error: expect.objectContaining({
                 message: expect.stringContaining('Unable to prepare'),
@@ -3145,7 +3146,7 @@ describe('normalizedCacheExchange', () => {
       await vi.waitFor(() => expect(results).toHaveLength(1));
       expect(forwarded).toHaveLength(0);
       expect(host.defers).toHaveLength(0);
-      expect(host.rollbacks).toEqual(['txn-1']);
+      expect(host.rollbacks).toEqual(['1']);
       expect(optimisticMutationDispositionOf(results[0])).toMatchObject({
         kind: 'permanently-failed',
         error: results[0]?.error,
@@ -3223,9 +3224,9 @@ describe('normalizedCacheExchange', () => {
           await vi.advanceTimersByTimeAsync(10);
           expect(forwarded).toHaveLength(2);
           expect(host.defers).toHaveLength(0);
-          expect(host.rollbacks).toEqual(['restored-1']);
+          expect(host.rollbacks).toEqual(['1']);
           expect(host.commits).toMatchObject([
-            { transactionId: 'restored-2', data: readResult },
+            { transactionId: '2', data: readResult },
           ]);
         } finally {
           vi.useRealTimers();
@@ -3291,7 +3292,7 @@ describe('normalizedCacheExchange', () => {
           }
           await vi.advanceTimersByTimeAsync(0);
           expect(host.begins).toHaveLength(0);
-          expect(host.claims).toEqual(['restored-1']);
+          expect(host.claims).toEqual(['1']);
           expect(host.rollbacks).toHaveLength(outcome === 'retryable' ? 0 : 1);
           expect(host.defers).toHaveLength(outcome === 'retryable' ? 1 : 0);
           const repairs =
@@ -3329,7 +3330,7 @@ describe('normalizedCacheExchange', () => {
         const claimNext = host.claimNextMutation.bind(host);
         host.claimNextMutation = async (...args) => {
           const claimed = await claimNext(...args);
-          if (claimed?.transactionId === 'restored-1') {
+          if (claimed?.transactionId === '1') {
             claimed.superseded = true;
             if (requiresConfirmation === undefined) {
               // Old deployed hosts have no flag. They must also recover.
@@ -3344,8 +3345,8 @@ describe('normalizedCacheExchange', () => {
         const { forwarded } = harness(host, undefined, { onCacheError });
         await vi.waitFor(() =>
           expect(host.commits.map((commit) => commit.transactionId)).toEqual([
-            'restored-1',
-            'restored-2',
+            '1',
+            '2',
           ])
         );
         expect(forwarded.map((op) => op.variables?.input.version)).toEqual([
@@ -3408,7 +3409,7 @@ describe('normalizedCacheExchange', () => {
           await vi.advanceTimersByTimeAsync(1);
           expect(host.commits).toEqual([
             {
-              transactionId: 'txn-1',
+              transactionId: '1',
               query: stringifyDocument(MUTATION),
               data: newData,
             },
@@ -3476,7 +3477,7 @@ describe('normalizedCacheExchange', () => {
           await vi.advanceTimersByTimeAsync(1);
 
           expect(forwarded.map((op) => op.kind)).toEqual(['mutation']);
-          expect(host.claims).toEqual(['restored-1']);
+          expect(host.claims).toEqual(['1']);
           expect(host.commits).toHaveLength(1);
           expect(host.rollbacks).toEqual([]);
           expect(claimsBeforeReady).toBe(0);
@@ -3504,7 +3505,7 @@ describe('normalizedCacheExchange', () => {
         expect(claim).not.toHaveBeenCalled();
         expect(forwarded).toEqual([]);
         await vi.advanceTimersByTimeAsync(1);
-        expect(host.claims).toEqual(['restored-1']);
+        expect(host.claims).toEqual(['1']);
         expect(host.commits).toHaveLength(1);
         expect(forwarded.map((op) => op.kind)).toEqual(['mutation']);
       });
@@ -3527,7 +3528,7 @@ describe('normalizedCacheExchange', () => {
         );
         const { forwarded } = harness(host);
         await vi.advanceTimersByTimeAsync(0);
-        expect(host.claims).toEqual(['restored-1']);
+        expect(host.claims).toEqual(['1']);
         host.resetStorage();
         // The replacement database can reuse the old transaction ID.
         host.seedQueued({
@@ -3656,7 +3657,7 @@ describe('normalizedCacheExchange', () => {
             await vi.advanceTimersByTimeAsync(1);
           }
 
-          expect(host.claims).toEqual(['restored-1']);
+          expect(host.claims).toEqual(['1']);
           expect(host.commits).toHaveLength(1);
           expect(forwarded.map((op) => op.kind)).toEqual(['mutation']);
         }
@@ -3708,7 +3709,7 @@ describe('normalizedCacheExchange', () => {
             optimisticMutationDispositionOf(
               results.find((result) => result.operation.key === 1)!
             )
-          ).toEqual({ kind: 'queued', transactionId: 'txn-1' });
+          ).toEqual({ kind: 'queued', transactionId: '1' });
           // A runnable successor is sent immediately, but an unsettled head's
           // existing lease must never be stolen or its network call duplicated.
           expect(forwarded).toHaveLength(committed ? 2 : 1);
@@ -3726,7 +3727,7 @@ describe('normalizedCacheExchange', () => {
           expect(forwarded).toHaveLength(2);
           expect(
             host.commits.map(({ transactionId }) => transactionId)
-          ).toEqual(['txn-1', committed ? 'restored-1' : 'restored-2']);
+          ).toEqual(['1', '2']);
         }
       );
 
@@ -3779,21 +3780,21 @@ describe('normalizedCacheExchange', () => {
         await vi.advanceTimersByTimeAsync(300_000);
 
         expect(events).toEqual([
-          'admit txn-1',
-          'result txn-1',
-          'commit failed txn-1',
+          'admit 1',
+          'result 1',
+          'commit failed 1',
           // Re-applied without sending again or asking admission to veto it.
-          'result txn-1',
-          'commit txn-1',
-          'admit txn-2',
-          'rollback txn-2 LOCAL_SUPERSEDED',
+          'result 1',
+          'commit 1',
+          'admit 2',
+          'rollback 2 LOCAL_SUPERSEDED',
         ]);
         expect(forwarded).toHaveLength(1);
         expect(host.commits).toMatchObject([
-          { transactionId: 'txn-1', data: { from: 'network' } },
+          { transactionId: '1', data: { from: 'network' } },
         ]);
         const confirmedResult = [
-          expect.objectContaining({ transactionId: 'txn-1' }),
+          expect.objectContaining({ transactionId: '1' }),
           expect.objectContaining({ data: { from: 'network' } }),
           false,
         ];
@@ -3803,7 +3804,7 @@ describe('normalizedCacheExchange', () => {
         ]);
       });
 
-      // The replacement queue reuses transaction id txn-1 and lease
+      // The replacement queue reuses transaction id 1 and lease
       // generation 1, so an unfenced stale attempt would discard the new head.
       it('fences a recovery-failure rollback after storage resets', async () => {
         const recording = deferred<void>();
@@ -3849,7 +3850,7 @@ describe('normalizedCacheExchange', () => {
       );
       await tick();
 
-      expect(host.rollbacks).toEqual(['restored-1']);
+      expect(host.rollbacks).toEqual(['1']);
     });
 
     it.each(['foreground', 'restored', 'unhandled replay'] as const)(
@@ -3897,14 +3898,14 @@ describe('normalizedCacheExchange', () => {
         }
         await tick();
         expect(rollback).toHaveBeenCalledExactlyOnceWith(
-          path === 'foreground' ? 'txn-1' : 'restored-1',
+          path === 'foreground' ? '1' : '1',
           expect.any(Object),
           rejection.message,
           'DRAFT_ALREADY_SENT'
         );
         expect(host.begins).toHaveLength(path === 'foreground' ? 1 : 0);
         if (path === 'restored') {
-          expect(host.claims).toEqual(['restored-1']);
+          expect(host.claims).toEqual(['1']);
           expect(forwarded[0]?.variables).toEqual(variables);
           expect(optimisticContextOf(forwarded[0])).toBeUndefined();
         }
@@ -4050,7 +4051,7 @@ describe('normalizedCacheExchange', () => {
       expect(forwarded).toHaveLength(0);
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-1',
+        transactionId: '1',
       });
     });
 
@@ -4147,13 +4148,13 @@ describe('normalizedCacheExchange', () => {
       ops.next(makeMutationOp(2, optimistic));
       await tick();
 
-      expect(host.claims[0]).toBe('restored-1');
+      expect(host.claims[0]).toBe('1');
       expect(forwarded[0]?.kind).toBe('mutation');
       const liveResult = results.find((result) => result.operation.key === 2);
       expect(liveResult).toBeDefined();
       expect(optimisticMutationDispositionOf(liveResult!)).toEqual({
         kind: 'queued',
-        transactionId: 'txn-1',
+        transactionId: '2',
       });
     });
 
@@ -4172,7 +4173,7 @@ describe('normalizedCacheExchange', () => {
       expect(forwarded).toHaveLength(0);
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-1',
+        transactionId: '1',
       });
     });
 
@@ -4198,7 +4199,7 @@ describe('normalizedCacheExchange', () => {
       );
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-1',
+        transactionId: '1',
       });
     });
 
@@ -4425,7 +4426,7 @@ describe('normalizedCacheExchange', () => {
       await tick();
 
       expect(host.commits).toHaveLength(1);
-      expect(host.commits[0]?.transactionId).toBe('txn-1');
+      expect(host.commits[0]?.transactionId).toBe('1');
       expect(host.commits[0]?.data).toEqual({ from: 'network' });
       expect(host.rollbacks).toHaveLength(0);
       // Only the real network result reaches the caller.
@@ -4444,7 +4445,7 @@ describe('normalizedCacheExchange', () => {
       host.commitOptimisticWrite = async (transactionId, claim, args) => ({
         ...(await commit(transactionId, claim, args)),
         kind: 'committed-superseded',
-        replacementTransactionId: 'txn-2',
+        replacementTransactionId: '2',
       });
       const { ops, results } = harness(host);
 
@@ -4455,7 +4456,7 @@ describe('normalizedCacheExchange', () => {
       expect(results[0]?.data).toBeUndefined();
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-2',
+        transactionId: '2',
       });
     });
 
@@ -4581,7 +4582,7 @@ describe('normalizedCacheExchange', () => {
       host.commitOptimisticWrite = async (transactionId, claim, args) => ({
         ...(await commit(transactionId, claim, args)),
         kind: 'committed-superseded',
-        replacementTransactionId: 'txn-2',
+        replacementTransactionId: '2',
         revalidations: [
           {
             query: stringifyDocument(QUERY),
@@ -4611,7 +4612,7 @@ describe('normalizedCacheExchange', () => {
       expect(results[0]?.data).toBeUndefined();
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-2',
+        transactionId: '2',
       });
     });
 
@@ -4654,8 +4655,8 @@ describe('normalizedCacheExchange', () => {
     it.each([
       { replacementTransactionId: undefined, callbackThrows: false },
       { replacementTransactionId: undefined, callbackThrows: true },
-      { replacementTransactionId: 'txn-2', callbackThrows: false },
-      { replacementTransactionId: 'txn-2', callbackThrows: true },
+      { replacementTransactionId: '2', callbackThrows: false },
+      { replacementTransactionId: '2', callbackThrows: true },
     ])(
       'settles an identity failure without replaying the failed attempt (replacement $replacementTransactionId, callback throws=$callbackThrows)',
       async ({ replacementTransactionId, callbackThrows }) => {
@@ -4864,7 +4865,7 @@ describe('normalizedCacheExchange', () => {
       ops.next(makeMutationOp(1, optimistic));
       await tick();
 
-      expect(host.rollbacks).toEqual(['txn-1']);
+      expect(host.rollbacks).toEqual(['1']);
       expect(host.commits).toHaveLength(0);
       expect(results[0]?.error).toBe(error);
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
@@ -4915,7 +4916,7 @@ describe('normalizedCacheExchange', () => {
           await vi.advanceTimersByTimeAsync(1_000);
           expect(attempts).toBe(2);
           expect(rollback).toHaveBeenCalledExactlyOnceWith(
-            'txn-1',
+            '1',
             expect.any(Object),
             rejection.message,
             expected
@@ -4939,7 +4940,7 @@ describe('normalizedCacheExchange', () => {
 
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-1',
+        transactionId: '1',
       });
     });
 
@@ -4953,7 +4954,7 @@ describe('normalizedCacheExchange', () => {
       ops.next(makeMutationOp(1, optimistic));
       await tick();
 
-      expect(host.rollbacks).toEqual(['txn-1']);
+      expect(host.rollbacks).toEqual(['1']);
       expect(host.commits).toHaveLength(0);
     });
 
@@ -4972,14 +4973,14 @@ describe('normalizedCacheExchange', () => {
 
       expect(shouldRetryMutation).toHaveBeenCalledWith(error);
       expect(host.defers).toEqual([
-        { transactionId: 'txn-1', error: error.message },
+        { transactionId: '1', error: error.message },
       ]);
       expect(host.rollbacks).toHaveLength(0);
       expect(results[0]?.error).toBeUndefined();
       expect(results[0]?.data).toEqual(optimistic);
       expect(optimisticMutationDispositionOf(results[0])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-1',
+        transactionId: '1',
       });
     });
 
@@ -5035,7 +5036,7 @@ describe('normalizedCacheExchange', () => {
           expect(host.commits).toHaveLength(0);
           if (failures === 0) {
             expect(defer).toHaveBeenCalledExactlyOnceWith(
-              'txn-1',
+              '1',
               expect.any(Object),
               expect.any(Number),
               expect.stringContaining(String(status)),
@@ -5044,12 +5045,12 @@ describe('normalizedCacheExchange', () => {
             expect(host.rollbacks).toHaveLength(0);
             expect(optimisticMutationDispositionOf((await pending)!)).toEqual({
               kind: 'queued',
-              transactionId: 'txn-1',
+              transactionId: '1',
             });
           } else {
             expect(host.defers).toHaveLength(0);
             expect(rollback).toHaveBeenCalledExactlyOnceWith(
-              'restored-1',
+              '1',
               expect.any(Object),
               expect.stringContaining('10 server failures'),
               'MUTATION_RETRY_EXHAUSTED'
@@ -5162,13 +5163,13 @@ describe('normalizedCacheExchange', () => {
           await vi.advanceTimersByTimeAsync(1);
           expect(host.defers).toHaveLength(9);
           expect(rollback).toHaveBeenCalledExactlyOnceWith(
-            'txn-1',
+            '1',
             expect.any(Object),
             expect.stringContaining('10 server failures'),
             'MUTATION_RETRY_EXHAUSTED'
           );
           expect(host.commits.map((entry) => entry.transactionId)).toEqual([
-            'txn-2',
+            '2',
           ]);
           expect(forwarded).toHaveLength(11);
           expect(
@@ -5223,7 +5224,7 @@ describe('normalizedCacheExchange', () => {
         }
         expect(attempts).toBe(34);
         expect(host.defers).toHaveLength(33);
-        expect(host.rollbacks).toEqual(['txn-1']);
+        expect(host.rollbacks).toEqual(['1']);
       } finally {
         vi.clearAllTimers();
         vi.useRealTimers();
@@ -5256,14 +5257,14 @@ describe('normalizedCacheExchange', () => {
       await tick();
       expect(host.defers).toHaveLength(0);
       expect(rollback).toHaveBeenCalledExactlyOnceWith(
-        'restored-1',
+        '1',
         expect.any(Object),
         expect.stringContaining('10 server failures'),
         'MUTATION_RETRY_EXHAUSTED'
       );
       expect(onMutationAttemptResult).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({
-          transactionId: 'restored-1',
+          transactionId: '1',
           serverFailureCount: 9,
         }),
         expect.objectContaining({
@@ -5332,7 +5333,7 @@ describe('normalizedCacheExchange', () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(attempts).toBe(1);
-        expect(host.rollbacks).toEqual(['txn-1']);
+        expect(host.rollbacks).toEqual(['1']);
         expect(host.defers).toHaveLength(0);
         expect(results[0]?.error).toBe(error);
         expect(optimisticMutationDispositionOf(results[0])).toEqual({
@@ -5358,11 +5359,11 @@ describe('normalizedCacheExchange', () => {
         expect(host.begins).toHaveLength(2);
         expect(host.commits).toEqual([
           expect.objectContaining({
-            transactionId: 'txn-2',
+            transactionId: '2',
             data: saved,
           }),
         ]);
-        expect(host.rollbacks).toEqual(['txn-1']);
+        expect(host.rollbacks).toEqual(['1']);
       } finally {
         vi.useRealTimers();
       }
@@ -5389,7 +5390,7 @@ describe('normalizedCacheExchange', () => {
       ops.next(makeMutationOp(2, secondOptimistic));
       await tick();
 
-      expect(host.claims).toEqual(['txn-1']);
+      expect(host.claims).toEqual(['1']);
       expect(forwarded.map((op) => op.key)).toEqual([1]);
       expect(host.begins.map((begin) => begin.data)).toEqual([
         firstOptimistic,
@@ -5402,7 +5403,7 @@ describe('normalizedCacheExchange', () => {
       expect(results[1]?.data).toEqual(secondOptimistic);
       expect(optimisticMutationDispositionOf(results[1])).toEqual({
         kind: 'queued',
-        transactionId: 'txn-2',
+        transactionId: '2',
       });
     });
 
@@ -5412,15 +5413,15 @@ describe('normalizedCacheExchange', () => {
       ops.next(makeMutationOp(2, optimistic));
       await tick();
 
-      expect(host.claims).toEqual(['txn-1', 'txn-2']);
+      expect(host.claims).toEqual(['1', '2']);
       // The second caller was released as queued while the first attempt was
       // in flight, so its eventual send is reconstructed from durable data.
       expect(forwarded).toHaveLength(2);
       expect(forwarded[0]?.key).toBe(1);
       expect(forwarded[1]?.kind).toBe('mutation');
       expect(host.commits.map((entry) => entry.transactionId)).toEqual([
-        'txn-1',
-        'txn-2',
+        '1',
+        '2',
       ]);
     });
 

@@ -293,3 +293,83 @@ fn exclusive_attempted_cancellation_releases_only_after_confirmed_cancel() {
         }
     });
 }
+
+async fn enqueue_with_initial_claim(
+    engine: &mut Engine<InMemoryStorage>,
+    uuid: &str,
+    replace: bool,
+    defer: bool,
+) -> (u64, u64, Option<(u64, u64)>) {
+    let result = engine
+        .enqueue_optimistic_mutation(
+            None,
+            BeginOptimisticWrite {
+                client_metadata: None,
+                uuid,
+                query: QUERY,
+                operation_name: Some("SetEntityProperty"),
+                variables: json!({"input": {"entityId": "doc", "value": {"string": "value"}}})
+                    .as_object().unwrap(),
+                data: &json!({"setEntityProperty": {"id": "property", "displayName": "value"}, "__durableIntent": {"kind": "test", "replace": replace, "deferInitialClaim": defer}}),
+                link_patches: &[],
+                revalidations: &[],
+                identity_bindings: &[],
+                created_at_ms: 1,
+            },
+            MutationClaimRequest {
+                owner: "runner".into(),
+                now_ms: 1,
+                lease_expires_at_ms: 1000,
+            },
+        )
+        .await.unwrap();
+    let initial = match result.initial_claim {
+        cache_core::engine::InitialClaimOutcome::Claimed(claimed) => {
+            Some((claimed.queued.id, claimed.lease_generation))
+        }
+        cache_core::engine::InitialClaimOutcome::NotRunnable => None,
+        cache_core::engine::InitialClaimOutcome::Failed(error) => panic!("claim failed: {error}"),
+    };
+    (result.transaction_id, result.request_generation, initial)
+}
+
+#[test]
+fn enqueue_exposes_request_fence_even_when_replacement_is_not_claimed() {
+    block_on(async {
+        let mut engine = Engine::new(InMemoryStorage::new());
+        let (id, generation, initial) =
+            enqueue_with_initial_claim(&mut engine, UUID, false, false).await;
+        assert_eq!(generation, 0);
+        assert_eq!(initial, Some((id, 1)));
+        let (cancel, generation, initial) =
+            enqueue_with_initial_claim(&mut engine, UUID, true, true).await;
+        assert_eq!(cancel, id);
+        assert_eq!(generation, 2);
+        assert_eq!(initial, None);
+        assert_eq!(claim(&mut engine).await.generation, 3);
+        let (_, generation, initial) =
+            enqueue_with_initial_claim(&mut engine, UUID, true, true).await;
+        assert_eq!(generation, 4);
+        assert_eq!(initial, None);
+        let mut reopened = Engine::new(engine.into_storage());
+        assert_eq!(claim(&mut reopened).await.generation, 5);
+    });
+}
+
+#[test]
+fn enqueue_request_fence_belongs_to_the_enqueued_tail_not_the_claimed_head() {
+    block_on(async {
+        let mut engine = Engine::new(InMemoryStorage::new());
+        let (head, _, _) = enqueue_with_initial_claim(&mut engine, UUID, false, true).await;
+        let (tail, generation, initial) = enqueue_with_initial_claim(
+            &mut engine,
+            "00000000-0000-4000-8000-000000000002",
+            false,
+            false,
+        )
+        .await;
+        assert_ne!(head, tail);
+        assert_eq!(generation, 0);
+        assert_eq!(initial, Some((head, 1)));
+    });
+}

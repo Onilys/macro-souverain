@@ -418,6 +418,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     'idle' | 'preparing' | 'sending'
   >('idle');
   const submitting = () => sendPhase() !== 'idle';
+  let sendOperationVersion = 0;
   const [discarding, setDiscarding] = createSignal(false);
   const [completed, setCompleted] = createSignal(false);
   const [terminalState, setTerminalState] = createSignal<
@@ -464,6 +465,8 @@ export function createEmailComposer(props: EmailComposerOptions) {
     version: () => `${identityVersion}:${editVersion}:${session.epoch()}`,
     cancelPendingSave: () => {
       identityVersion += 1;
+      sendOperationVersion += 1;
+      setSendPhase('idle');
       autosave.cancel();
     },
     setPending: setRestoring,
@@ -796,6 +799,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     }
 
     setSendPhase('preparing');
+    const sendOperation = ++sendOperationVersion;
     const sendGeneration = identityVersion;
     try {
       // Durable sends need the latest local copy, without waiting for a server save.
@@ -925,7 +929,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       props.notices.reportError(error);
       if (!completed()) props.notices.feedback.failure('Failed to send email');
     } finally {
-      setSendPhase('idle');
+      if (sendOperation === sendOperationVersion) setSendPhase('idle');
     }
   };
 

@@ -214,6 +214,8 @@ pub enum InitialClaimOutcome<E> {
 pub struct EnqueueOptimisticMutationResult<E> {
     /// Engine-assigned id of the newly enqueued optimistic mutation.
     pub transaction_id: OptimisticTransactionId,
+    /// Fence of the newly persisted request, before the initial lease claim.
+    pub request_generation: u64,
     /// How the caller UUID changed the queue.
     pub upsert_kind: MutationUpsertKind,
     /// Visible cache changes caused by the newly published optimistic layer.
@@ -321,6 +323,7 @@ struct OptimisticLayer {
 
 struct BegunOptimisticWrite {
     transaction_id: OptimisticTransactionId,
+    request_generation: u64,
     upsert_kind: MutationUpsertKind,
     write_result: WriteResult,
 }
@@ -2027,6 +2030,7 @@ impl<S: Storage> Engine<S> {
                 uncertainty: projection.uncertainty,
             })
             .collect();
+        let request_generation = entry.mutation.lease_generation;
         let upsert = self
             .storage
             .upsert_mutation_with_shadow(
@@ -2070,6 +2074,7 @@ impl<S: Storage> Engine<S> {
         );
         Ok(BegunOptimisticWrite {
             transaction_id: upsert.id,
+            request_generation,
             upsert_kind: upsert.kind,
             write_result: WriteResult {
                 field_changes: Some(crate::field_changes::between(&before, &after)),
@@ -2153,6 +2158,7 @@ impl<S: Storage> Engine<S> {
         };
         Ok(EnqueueOptimisticMutationResult {
             transaction_id: begun.transaction_id,
+            request_generation: begun.request_generation,
             upsert_kind: begun.upsert_kind,
             write_result: begun.write_result,
             initial_claim,

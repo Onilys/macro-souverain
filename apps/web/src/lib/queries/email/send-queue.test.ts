@@ -4,12 +4,13 @@ import { CombinedError, createClient, type Operation } from '@urql/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { map, pipe } from 'wonka';
 import type { GraphqlSaveEmailDraftArgs } from './graphql/draft';
-import { persistLocalEmailSend } from './local-drafts';
+import { persistLocalEmailSend, readLocalEmailSends } from './local-drafts';
 import {
   cancelEmailSendQueued,
   type EmailSendIntent,
   emailSendLocked,
   emailSendQueueSelected,
+  readEmailSendIntents,
   recoverEmailSendIntent,
   restoreCancelledEmailSend,
   sendEmailQueued,
@@ -92,6 +93,8 @@ const draft: GraphqlSaveEmailDraftArgs = {
 let operations: Operation[];
 beforeEach(() => {
   mocks.restored.mockClear();
+  vi.mocked(readLocalEmailSends).mockResolvedValue([]);
+  mocks.save.mockClear();
   mocks.cacheEnabled.mockReturnValue(true);
   mocks.rolloutEnabled.mockReturnValue(true);
   operations = [];
@@ -439,3 +442,96 @@ it('cache recovery never automatically retries a permanently failed send', async
     operations.filter((operation) => operation.kind === 'mutation')
   ).toEqual([]);
 });
+
+it.each(['pending', 'committed', 'failed'] as const)(
+  'recovers a durable cancellation when the original %s Send catalog survived',
+  async (phase) => {
+    const intent = await send();
+    mocks.intents.mockResolvedValue([{ ...intent, phase }]);
+    vi.mocked(readLocalEmailSends).mockResolvedValue([
+      { ...intent, cancellationRequested: true },
+    ]);
+    const [recovered] = await readEmailSendIntents();
+    expect(recovered.cacheMissing).toBeUndefined();
+    expect(recovered.recoveryRequired).toBe(true);
+    operations = [];
+    await recoverEmailSendIntent(recovered);
+    expect(operations).toHaveLength(1);
+    expect(operations[0].variables?.input).toEqual(
+      intent.metadata.payload.input.attempt
+    );
+    expect(optimisticContextOf(operations[0])?.durableIntent?.replace).toBe(
+      true
+    );
+  }
+);
+
+it.each(['pending', 'committed', 'failed'] as const)(
+  'does not replace an already recorded %s cancellation during recovery polling',
+  async (phase) => {
+    const intent = await send();
+    mocks.intents.mockResolvedValue([
+      { ...intent, phase, metadata: { ...intent.metadata, replace: true } },
+    ]);
+    vi.mocked(readLocalEmailSends).mockResolvedValue([
+      { ...intent, cancellationRequested: true },
+    ]);
+    const [recovered] = await readEmailSendIntents();
+    expect(recovered.recoveryRequired).toBe(false);
+    operations = [];
+    await recoverEmailSendIntent(recovered);
+    expect(operations).toEqual([]);
+  }
+);
+
+it.each([false, true])(
+  'recovers restoration when the old Cancel catalog survives, local copy saved: %s',
+  async (saved) => {
+    const intent = await send();
+    const cancelled = {
+      ...intent,
+      locallyCancelled: true,
+      metadata: { ...intent.metadata, replace: true },
+    };
+    mocks.intents.mockResolvedValue([cancelled]);
+    const backup: EmailSendIntent = {
+      ...cancelled,
+      metadata: {
+        ...cancelled.metadata,
+        payload: {
+          ...cancelled.metadata.payload,
+          restoring: true,
+          draft: { ...draft, bodyText: 'Restored body' },
+          restorationVersion: saved
+            ? {
+                key: String(draft.draftId),
+                generation: 'restored',
+                revision: 2,
+              }
+            : undefined,
+        },
+      },
+    };
+    vi.mocked(readLocalEmailSends).mockResolvedValue([backup]);
+    const [recovered] = await readEmailSendIntents();
+    expect(recovered.cacheMissing).toBeUndefined();
+    expect(recovered.recoveryRequired).toBe(true);
+    await recoverEmailSendIntent(recovered);
+    expect(mocks.save).toHaveBeenCalledOnce();
+    expect(mocks.save).toHaveBeenCalledWith({
+      args: expect.objectContaining({
+        mutationUuid: intent.uuid,
+        durableIntent: expect.objectContaining({
+          replace: true,
+          payload: expect.objectContaining({ restoring: true }),
+        }),
+      }),
+    });
+    // Once Save is in the catalog, subsequent polling must not replace it.
+    mocks.intents.mockResolvedValue([backup]);
+    const [recorded] = await readEmailSendIntents();
+    expect(recorded.recoveryRequired).toBe(false);
+    await recoverEmailSendIntent(recorded);
+    expect(mocks.save).toHaveBeenCalledOnce();
+  }
+);

@@ -192,6 +192,7 @@ struct JsEnqueueOptimisticMutationResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     field_changes: Option<Vec<cache_core::field_changes::RecordFieldChange>>,
     transaction_id: String,
+    request_generation: String,
     upsert_kind: JsMutationUpsertKind,
     revision: String,
     revision_advanced: bool,
@@ -1953,6 +1954,7 @@ impl CacheEngine {
             to_js(&JsEnqueueOptimisticMutationResult {
                 field_changes: result.write_result.field_changes,
                 transaction_id: result.transaction_id.to_string(),
+                request_generation: result.request_generation.to_string(),
                 upsert_kind: result.upsert_kind.into(),
                 revision: result.write_result.revision.to_string(),
                 revision_advanced: result.write_result.revision_advanced,

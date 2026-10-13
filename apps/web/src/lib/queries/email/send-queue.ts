@@ -66,6 +66,8 @@ export type EmailSendIntent = {
   cancellationRequested?: boolean;
   /** The disposable cache lost this record; reconcile before replaying it. */
   cacheMissing?: boolean;
+  /** The catalog survived, but has not recorded the durable Cancel/Restore decision. */
+  recoveryRequired?: boolean;
   /** Resolved through cache aliases on each durable journal read. */
   resolvedDraftId?: string;
   resolvedThreadId?: string;
@@ -175,14 +177,25 @@ export async function readEmailSendIntents(): Promise<EmailSendIntent[]> {
         backup?.metadata.payload.restoring && !next.metadata.payload.restoring
       ) &&
       (!backup ||
-        JSON.stringify({ ...backup, cacheMissing: undefined }) !==
-          JSON.stringify(next))
+        JSON.stringify({
+          ...backup,
+          cacheMissing: undefined,
+          recoveryRequired: undefined,
+        }) !== JSON.stringify(next))
     )
       next = await persistLocalEmailSend(next);
     rows.push(
       backup?.metadata.payload.restoring && !next.metadata.payload.restoring
-        ? backup
-        : next
+        ? { ...backup, recoveryRequired: true }
+        : {
+            ...next,
+            recoveryRequired:
+              !!backup?.cancellationRequested &&
+              !intent.metadata.replace &&
+              !intent.locallyCancelled &&
+              !intent.response?.cancelEmailSend &&
+              settledSendAttempt(intent)?.status !== 'CANCELLED',
+          }
     );
   }
   for (const backup of backups)
@@ -555,11 +568,11 @@ export async function retireEmailSendIntent(
   return true;
 }
 
-/** A cache rebuild reuses the original idempotency key and honors durable cancellation. */
+/** Reconcile missing requests, including a decision persisted before cache replacement. */
 export async function recoverEmailSendIntent(
   intent: EmailSendIntent
 ): Promise<void> {
-  if (!intent.cacheMissing) return;
+  if (!intent.cacheMissing && !intent.recoveryRequired) return;
   if (intent.metadata.payload.restoring) {
     if (!intent.metadata.payload.restorationVersion) {
       await restoreCancelledEmailSend(intent);
@@ -574,6 +587,10 @@ export async function recoverEmailSendIntent(
     });
     if (outcome.kind === 'rejected')
       throw new Error('Unable to recover the restored draft');
+    return;
+  }
+  if (intent.recoveryRequired) {
+    await cancelEmailSendQueued(intent);
     return;
   }
   const attempt = await fetchEmailSendStatus(intent);

@@ -353,6 +353,12 @@ export function createMutationQueueRunner(
   const liveQueuedOps = new Map<string, LiveQueuedOperation>();
   let storageGeneration = 0;
   let activeAttempt: AttemptToken | undefined;
+  // Queue IDs advance in order; replacements and retries advance their lease.
+  // Keep the watermark after settlement so a late claim cannot revive an old head.
+  let latestClaim:
+    | Pick<ClaimedMutation, 'transactionId' | 'leaseGeneration'>
+    | undefined;
+  const requestGenerations = new Map<string, bigint>();
   // The durable queue is strictly ordered. A confirmed head keeps its server
   // response until local settlement succeeds, without repeating a server
   // effect after a cache failure. Process loss still requires server-side
@@ -364,6 +370,27 @@ export function createMutationQueueRunner(
   let drainRequested = false;
   let deferredUntil: number | undefined;
   let drainTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function isNewClaim(claim: ClaimedMutation): boolean {
+    const known = requestGenerations.get(claim.transactionId);
+    if (known !== undefined && BigInt(claim.leaseGeneration) <= known)
+      return false;
+    if (!latestClaim) return true;
+    const id = BigInt(claim.transactionId);
+    const previousId = BigInt(latestClaim.transactionId);
+    return (
+      id > previousId ||
+      (id === previousId &&
+        BigInt(claim.leaseGeneration) > BigInt(latestClaim.leaseGeneration))
+    );
+  }
+
+  function rememberGeneration(id: string, generation: string): void {
+    const next = BigInt(generation);
+    const previous = requestGenerations.get(id);
+    if (previous === undefined || next > previous)
+      requestGenerations.set(id, next);
+  }
 
   function isCurrent(token: StorageEpoch | AttemptToken): boolean {
     if (token.storageGeneration !== storageGeneration) return false;
@@ -428,7 +455,12 @@ export function createMutationQueueRunner(
       serverFailureCount: claimed.serverFailureCount ?? 0,
       storageGeneration: epoch.storageGeneration,
     };
-    if (!isCurrent(epoch)) return;
+    if (!isCurrent(epoch) || !isNewClaim(claimed)) return;
+    latestClaim = claimed;
+    rememberGeneration(claimed.transactionId, claimed.leaseGeneration);
+    for (const id of requestGenerations.keys())
+      if (BigInt(id) < BigInt(claimed.transactionId))
+        requestGenerations.delete(id);
     activeAttempt = attempt;
     const confirmed = confirmedOf(head);
     if (
@@ -719,6 +751,19 @@ export function createMutationQueueRunner(
     enqueue: EnqueueOptimisticMutationResult,
     epoch: StorageEpoch
   ): Promise<OperationResult | undefined> {
+    notifyOptimisticMutationEnqueued(op);
+    const previousGeneration = requestGenerations.get(enqueue.transactionId);
+    const stale =
+      enqueue.initialClaim.kind === 'claimed'
+        ? !isNewClaim(enqueue.initialClaim.mutation)
+        : (latestClaim !== undefined &&
+            BigInt(enqueue.transactionId) <
+              BigInt(latestClaim.transactionId)) ||
+          (previousGeneration !== undefined &&
+            BigInt(enqueue.requestGeneration) <= previousGeneration);
+    if (!isCurrent(epoch) || stale)
+      return queuedMutationResult(op, enqueue.transactionId);
+    rememberGeneration(enqueue.transactionId, enqueue.requestGeneration);
     if (enqueue.upsertKind.kind === 'replaced-pending') {
       const removedId = enqueue.upsertKind.removedTransactionId;
       if (
@@ -748,7 +793,6 @@ export function createMutationQueueRunner(
         resolveRoute: resolve,
       });
     });
-    notifyOptimisticMutationEnqueued(op);
     try {
       await match(enqueue.initialClaim)
         .with({ kind: 'claimed' }, ({ mutation }) =>
@@ -981,6 +1025,8 @@ export function createMutationQueueRunner(
   function resetStorage(): void {
     storageGeneration += 1;
     activeAttempt = undefined;
+    latestClaim = undefined;
+    requestGenerations.clear();
     head = IDLE;
     deferredUntil = undefined;
     resolveLiveOperationsAsQueued();

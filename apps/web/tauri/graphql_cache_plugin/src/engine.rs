@@ -123,6 +123,8 @@ pub struct EnqueueOptimisticMutationResultWire {
     /// Engine-assigned id; settle with commit/rollback. A string because JS
     /// numbers lose precision past 2^53 (same as the wasm shell).
     pub transaction_id: String,
+    /// Persisted request fence before the initial lease claim; JS-safe decimal.
+    pub request_generation: String,
     /// How the caller UUID changed the queue.
     pub upsert_kind: MutationUpsertKindWire,
     /// Visible composed-view changes caused by the new optimistic layer.
@@ -849,6 +851,7 @@ impl EngineHandle {
         };
         Ok(EnqueueOptimisticMutationResultWire {
             transaction_id: result.transaction_id.to_string(),
+            request_generation: result.request_generation.to_string(),
             upsert_kind: result.upsert_kind.into(),
             result: wire_write_result(ops, result.write_result),
             initial_claim,

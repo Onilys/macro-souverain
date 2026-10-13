@@ -500,6 +500,7 @@ export function createReplyComposer(
     'idle' | 'preparing' | 'sending'
   >('idle');
   const submitting = () => sendPhase() !== 'idle';
+  let sendOperationVersion = 0;
   const [pendingDeletion, setPendingDeletion] = createSignal(false);
 
   function collectDraft(forDelivery = false) {
@@ -698,6 +699,8 @@ export function createReplyComposer(
     version: () => `${identityVersion}:${editVersion}:${session.epoch()}`,
     cancelPendingSave: () => {
       identityVersion += 1;
+      sendOperationVersion += 1;
+      setSendPhase('idle');
       autosave.cancel();
     },
     setPending: setRestoring,
@@ -1009,6 +1012,7 @@ export function createReplyComposer(
     const willMarkDone = markDone || currentThread.inbox_visible;
 
     setSendPhase('preparing');
+    const sendOperation = ++sendOperationVersion;
     const sendGeneration = identityVersion;
     try {
       // Ensure draft is saved before sending so undo-send always has a draft to restore
@@ -1250,7 +1254,7 @@ export function createReplyComposer(
     } catch (error) {
       props.notices.reportError(error);
     } finally {
-      setSendPhase('idle');
+      if (sendOperation === sendOperationVersion) setSendPhase('idle');
     }
   };
 

@@ -52,7 +52,7 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
       if (reconcile && navigator.onLine) {
         await Promise.all(
           active.map(async (row) => {
-            if (row.cacheMissing) {
+            if (row.cacheMissing || row.recoveryRequired) {
               try {
                 await recoverEmailSendIntent(row);
               } catch {
