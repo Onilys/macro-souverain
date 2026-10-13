@@ -2210,7 +2210,9 @@ afterwards in **Settings → Billing**, where Guest users can buy Premium or Max
 ## Import from connected apps
 
 With `enable-connector-import` on (on in dev) and the Pipedream connector stack
-enabled, the Drive, Tasks, and Customers sidebars end with an import card:
+enabled, the Drive, Tasks, and Customers sidebars end with an import card (the
+Chat sidebar's Slack card is the same component under the Slack import gates;
+see [channels](channels.md#imported-slack-history)):
 overlapping provider logos, a two-line pitch, and **Import files**, **Import
 tasks**, or **Import customers**. Customers shows it only to team members. **Dismiss import files** (or tasks, customers) hides that card
 for the user in this browser; a server-confirmed native import also hides it.
@@ -2222,12 +2224,15 @@ disconnected row offers **Connect** (`Connect <App>`), which opens Pipedream's
 Connect UI inside the dialog. A connected row shows a check and **Import**
 (`Import from <App>`).
 
-- **Notion** and **Linear** import natively. Connecting either opens **Import
-  from <App>** and starts discovery (`POST /import/runs/<source>/discover`)
-  unless rows are already staged; a gather agent stages recent pages or issues.
-  Click a title to select it, then **Import N**. Rows spin while importing and
-  then link to the created document or task. **Search again** rediscovers;
-  **Back to apps** returns to the list.
+- **Notion**, **Linear**, and **Slack** import natively. Connecting one opens
+  **Import from <App>** and starts discovery
+  (`POST /import/runs/<source>/discover`) unless rows are already staged: a
+  gather agent stages recent pages or issues, and Slack discovery stages every
+  visible public channel. Click a title to select it, then **Import N**. Lists
+  longer than eight rows get a filter; selections hidden by the filter still
+  import. Rows spin while importing and then link to the created document,
+  task, or channel. **Search again** rediscovers; **Back to apps** returns to
+  the list.
 - Every other app is labelled "with the agent". **Import** closes the dialog
   and opens an agent chat with an unsent prompt such as "Import my most recent
   issues and tasks from Jira into Macro tasks.". Private instructions tell the

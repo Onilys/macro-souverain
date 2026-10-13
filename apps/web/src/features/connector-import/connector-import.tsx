@@ -1,5 +1,6 @@
 import { openChatWithInput } from '@app/features/chat/ChatWithAgentButton';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { pipedreamAppAvailableInEnv } from '@core/component/AI/constant/mcpServers';
 import { enableConnectorImport } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { usePipedreamMcpFlag } from '@core/pipedream/flag';
@@ -78,22 +79,40 @@ export function ConnectorImportSidebar(props: {
   const pipedream = usePipedreamMcpFlag();
   return (
     <Show when={flag().enabled && pipedream()}>
-      <ConnectorImportSidebarContent {...props} />
+      <ConnectorImportPromotion {...props} />
     </Show>
   );
 }
 
-function ConnectorImportSidebarContent(props: {
+/**
+ * The card and dialog without the connector-import rollout gate, for hosts
+ * that gate on their own flag. Connector rows need the Pipedream stack; with
+ * none available the card opens the alternative directly.
+ */
+export function ConnectorImportPromotion(props: {
   category: ImportCategory;
   alternative?: ImportAlternative;
   class?: string;
 }): JSX.Element {
   const userId = useUserId();
+  const pipedream = usePipedreamMcpFlag();
   const context = useProductionContext();
   const config = () => IMPORT_CATEGORIES[props.category];
+  const dialogConfig = () => ({
+    ...config(),
+    providers: pipedream()
+      ? config().providers.filter((provider) =>
+          pipedreamAppAvailableInEnv(provider.appSlug)
+        )
+      : [],
+  });
   const [open, setOpen] = createSignal(false);
-  const [opener, setOpener] = createSignal<HTMLElement>();
+  const [opener, setOpener] = createSignal<HTMLButtonElement>();
   const hide = () => hideImportPromotion(userId(), props.category);
+  const alternative = (): ImportAlternative | undefined => {
+    const base = props.alternative;
+    return base && { ...base, onSelect: () => base.onSelect(opener()) };
+  };
 
   return (
     <ConnectorImportProvider context={context}>
@@ -103,7 +122,9 @@ function ConnectorImportSidebarContent(props: {
             config={config()}
             onOpen={(trigger) => {
               setOpener(trigger);
-              setOpen(true);
+              const direct = alternative();
+              if (!dialogConfig().providers.length && direct) direct.onSelect();
+              else setOpen(true);
             }}
             onDismiss={hide}
           />
@@ -111,11 +132,11 @@ function ConnectorImportSidebarContent(props: {
       </Show>
       {/* Outside the card's Show: a finished import hides the card, not the dialog. */}
       <ConnectorImportDialog
-        config={config()}
+        config={dialogConfig()}
         open={open()}
         onOpenChange={setOpen}
         opener={opener()}
-        alternative={props.alternative}
+        alternative={alternative()}
         onImported={hide}
       />
     </ConnectorImportProvider>

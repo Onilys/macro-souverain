@@ -17,7 +17,8 @@ export type ImportAlternative = {
   icon: (props: JSX.SvgSVGAttributes<SVGSVGElement>) => JSX.Element;
   label: string;
   description: string;
-  onSelect(): void;
+  /** `opener` is the card button, for the next dialog to return focus to. */
+  onSelect(opener?: HTMLButtonElement): void;
 };
 
 type NativeProvider = ImportProvider & { native: ImportSource };

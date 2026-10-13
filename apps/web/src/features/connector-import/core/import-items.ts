@@ -5,6 +5,7 @@ import type {
   ImportSource,
   ImportState,
 } from '@service-cognition/import';
+import { match } from 'ts-pattern';
 
 /** One discovered item, as the native import list shows it. */
 export type ImportItem = {
@@ -25,11 +26,27 @@ function text(value: unknown): string | undefined {
 export function toImportItem(entity: ImportEntity): ImportItem | undefined {
   if (entity.status === 'discarded') return undefined;
   const meta = entity.metadata;
-  const title = text(meta.title) ?? text(meta.name) ?? entity.foreign_id;
-  const detail =
-    entity.source === 'linear'
-      ? [text(meta.identifier), text(meta.status)].filter(Boolean).join(' · ')
-      : text(meta.summary);
+  const title =
+    entity.source === 'slack'
+      ? `#${text(meta.name)?.replace(/^#/, '') ?? entity.foreign_id}`
+      : (text(meta.title) ?? text(meta.name) ?? entity.foreign_id);
+  const detail = match(entity.source)
+    .with('linear', () =>
+      [text(meta.identifier), text(meta.status)].filter(Boolean).join(' · ')
+    )
+    .with('notion', () => text(meta.summary))
+    .with('slack', () =>
+      [
+        meta.archived === true ? 'Archived' : undefined,
+        text(meta.purpose),
+        typeof meta.member_count === 'number'
+          ? `${meta.member_count} members`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    )
+    .exhaustive();
   return {
     id: entity.id,
     title,

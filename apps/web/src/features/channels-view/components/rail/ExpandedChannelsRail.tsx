@@ -1108,9 +1108,6 @@ export function ExpandedChannelsRail(props: { search: ChannelRailSearch }) {
   return (
     <>
       <ExpandedHeader search={props.search} />
-      <Suspense>
-        <SlackImportSidebar />
-      </Suspense>
       <ChannelsLiveCallsSidebar />
       <div class="flex min-h-0 flex-1 flex-col">
         <div
@@ -1138,6 +1135,10 @@ export function ExpandedChannelsRail(props: { search: ChannelRailSearch }) {
             </Match>
           </Switch>
         </div>
+        {/* Bottom of the rail, like the Drive, Tasks, and CRM import cards. */}
+        <Suspense>
+          <SlackImportSidebar />
+        </Suspense>
         <Show when={!props.search.isOpen() && rail.tab() === 'browse'}>
           <footer class="flex h-9 shrink-0 items-center justify-start gap-1 border-t border-edge-muted px-4 text-xxs text-ink-extra-muted">
             <span>Use</span>

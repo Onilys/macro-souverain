@@ -1,3 +1,4 @@
+import { SearchBar } from '@app/components/view-shell';
 import { toast } from '@core/component/Toast/Toast';
 import ArrowLeftIcon from '@phosphor/arrow-left.svg';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
@@ -20,6 +21,8 @@ import { useConnectorImport } from '../context/connector-import-context';
 import { importItems, importRun, needsDiscovery } from '../core/import-items';
 import type { ImportProvider } from '../core/providers';
 
+const FILTER_THRESHOLD = 8;
+
 /**
  * Pick-and-import for a provider the import pipeline copies natively:
  * discovery stages candidates, the user selects, accepted rows import live.
@@ -35,7 +38,17 @@ export function NativeImportPane(props: {
   const source = () => props.provider.native;
   const run = () => importRun(importState.state(), source());
   const items = createMemo(() => importItems(importState.state(), source()));
-  const staged = () => items().filter((item) => item.status === 'staged');
+  const [filter, setFilter] = createSignal('');
+  // Slack discovery lists every visible channel; long lists get a filter.
+  const filterable = () => items().length > FILTER_THRESHOLD;
+  const visible = createMemo(() => {
+    const query = filter().trim().toLowerCase();
+    if (!query) return items();
+    return items().filter((item) =>
+      `${item.title} ${item.detail ?? ''}`.toLowerCase().includes(query)
+    );
+  });
+  const staged = () => visible().filter((item) => item.status === 'staged');
   const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set());
   const [submitted, setSubmitted] = createSignal<ReadonlySet<string>>(
     new Set()
@@ -44,10 +57,11 @@ export function NativeImportPane(props: {
   const [importing, setImporting] = createSignal(false);
   const searching = () => discovering() || run()?.status === 'running' || false;
   // Status changes can make a selected row no longer importable.
+  // Selections stay importable while the filter hides them.
   const importIds = () =>
-    staged()
-      .map((item) => item.id)
-      .filter((id) => selected().has(id));
+    items()
+      .filter((item) => item.status === 'staged' && selected().has(item.id))
+      .map((item) => item.id);
   const allSelected = () =>
     staged().length > 0 && staged().every((item) => selected().has(item.id));
 
@@ -165,24 +179,38 @@ export function NativeImportPane(props: {
         </Switch>
 
         <Show when={items().length}>
+          <Show when={filterable()}>
+            <SearchBar
+              label={`Filter ${props.provider.detail.toLowerCase()}`}
+              placeholder={`Filter ${props.provider.detail.toLowerCase()}`}
+              value={filter()}
+              onValueChange={setFilter}
+            />
+          </Show>
           <Show when={staged().length > 1}>
             <Button
               variant="ghost"
               size="xs"
               disabled={importing()}
-              onClick={() =>
-                setSelected(
-                  allSelected()
-                    ? new Set<string>()
-                    : new Set(staged().map((item) => item.id))
-                )
-              }
+              onClick={() => {
+                // Only the rows the filter shows; hidden selections stay.
+                const shown = staged().map((item) => item.id);
+                const clear = allSelected();
+                setSelected((previous) => {
+                  const next = new Set(previous);
+                  for (const id of shown) {
+                    if (clear) next.delete(id);
+                    else next.add(id);
+                  }
+                  return next;
+                });
+              }}
             >
               {allSelected() ? 'Clear selection' : 'Select all'}
             </Button>
           </Show>
           <ImportItemList
-            items={items()}
+            items={visible()}
             selected={selected()}
             disabled={importing()}
             onSelect={select}

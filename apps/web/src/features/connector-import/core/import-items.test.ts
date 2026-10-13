@@ -34,6 +34,18 @@ describe('import items', () => {
     });
   });
 
+  it('labels Slack channels with a hash, purpose, and member count', () => {
+    expect(
+      toImportItem(
+        importEntity({
+          id: 'c',
+          source: 'slack',
+          metadata: { name: 'eng', purpose: 'Builds', member_count: 4 },
+        })
+      )
+    ).toMatchObject({ title: '#eng', detail: 'Builds · 4 members' });
+  });
+
   it('keeps one source, drops discarded rows, and lists staged first', () => {
     const items = importItems(
       {

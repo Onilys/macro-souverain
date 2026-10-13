@@ -33,6 +33,14 @@ function page(id: string, title: string, summary: string) {
   };
 }
 
+function channel(id: string, name: string, purpose: string) {
+  return {
+    ...page(id, name, ''),
+    source: 'slack' as const,
+    metadata: { name, purpose, member_count: 12 },
+  };
+}
+
 const context: ConnectorImportContext = {
   createConnections: () => ({ connected, ready: () => true }),
   createImportState: () => ({ state, ready: () => true }),
@@ -53,10 +61,20 @@ const context: ConnectorImportContext = {
           runs: [
             { source, status: 'ready', auto_import: false, updated_at: now },
           ],
-          entities: [
-            page('p1', 'Q4 planning', 'Goals and owners for the quarter'),
-            page('p2', 'Onboarding guide', 'How new teammates get set up'),
-          ],
+          entities:
+            source === 'slack'
+              ? [
+                  channel('c1', 'general', 'Company-wide announcements'),
+                  channel('c2', 'eng', 'Engineering discussion'),
+                ]
+              : [
+                  page('p1', 'Q4 planning', 'Goals and owners for the quarter'),
+                  page(
+                    'p2',
+                    'Onboarding guide',
+                    'How new teammates get set up'
+                  ),
+                ],
         }),
       400
     );
@@ -118,7 +136,15 @@ function Sidebar(props: { category: ImportCategory }) {
                 description: 'Import companies from a spreadsheet export.',
                 onSelect: () => {},
               }
-            : undefined
+            : props.category === 'channels'
+              ? {
+                  icon: () => null,
+                  label: 'Import with history',
+                  description:
+                    'Upload a Slack export from a workspace owner or admin.',
+                  onSelect: () => setHandoff('Slack export upload'),
+                }
+              : undefined
         }
       />
     </aside>
@@ -129,7 +155,7 @@ function Fixture() {
   return (
     <ConnectorImportProvider context={context}>
       <main class="flex min-h-screen gap-6 bg-page p-6">
-        <For each={['files', 'tasks', 'crm'] as const}>
+        <For each={['files', 'tasks', 'crm', 'channels'] as const}>
           {(category) => <Sidebar category={category} />}
         </For>
         <output aria-label="Agent handoff" class="text-xs text-ink-muted">

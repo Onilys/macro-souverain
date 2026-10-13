@@ -14,6 +14,7 @@ import IconSalesforce from '@icon/import/salesforce.svg';
 import IconTrello from '@icon/import/trello.svg';
 import IconGithub from '@icon/mcp-github.svg';
 import IconLinear from '@icon/mcp-linear.svg';
+import IconSlack from '@icon/slack-color.svg';
 import type {
   ImportCategory,
   ImportCategoryConfig,
@@ -157,6 +158,26 @@ export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
         name: 'Airtable',
         detail: 'Records from a base',
         icon: IconAirtable as ImportIcon,
+      },
+    ],
+  },
+  channels: {
+    category: 'channels',
+    headline: 'Bring Slack to Macro',
+    pitch:
+      'Import Slack channels and members, with or without your full message history.',
+    action: 'Import from Slack',
+    dialogDescription:
+      'Connect Slack to pick channels, or upload an export to bring history.',
+    items: 'channels',
+    destination: 'Macro channels',
+    providers: [
+      {
+        appSlug: 'slack',
+        name: 'Slack',
+        detail: 'Channels',
+        icon: IconSlack as ImportIcon,
+        native: 'slack',
       },
     ],
   },

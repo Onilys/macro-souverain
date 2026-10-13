@@ -3,8 +3,8 @@ import type { Component, JSX } from 'solid-js';
 
 export type ImportIcon = Component<JSX.SvgSVGAttributes<SVGSVGElement>>;
 
-/** The Macro surface an import fills: Drive, Tasks, or the CRM. */
-export type ImportCategory = 'files' | 'tasks' | 'crm';
+/** The Macro surface an import fills: Drive, Tasks, the CRM, or Channels. */
+export type ImportCategory = 'files' | 'tasks' | 'crm' | 'channels';
 
 export type ImportProvider = {
   /** Pipedream app slug the provider connects through. */

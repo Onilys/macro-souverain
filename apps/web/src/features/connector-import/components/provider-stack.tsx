@@ -4,7 +4,7 @@ import { Dynamic } from 'solid-js/web';
 import type { ImportProvider } from '../core/providers';
 
 const SIZES = {
-  sm: { pill: 'size-7', icon: 'size-4', overlap: '-space-x-2' },
+  sm: { pill: 'size-6', icon: 'size-3.5', overlap: '-space-x-1.5' },
   md: { pill: 'size-9', icon: 'size-5', overlap: '-space-x-2.5' },
 };
 

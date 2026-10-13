@@ -26,6 +26,11 @@ function createWith(config: ImportCategoryConfig): string {
       () =>
         'Check ListCompanies first so nothing is duplicated, then use CreateCompany and CreateContact. Set stage, owner, and other properties with SetEntityProperty when the source has them.'
     )
+    .with(
+      'channels',
+      () =>
+        'Create each channel with CreateChannel, keeping its name and purpose.'
+    )
     .exhaustive();
 }
 
