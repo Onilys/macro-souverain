@@ -60,6 +60,10 @@ const RoutePrivacy = lazy(() =>
 const RouteDpa = lazy(() =>
   import('../routes/RouteDpa').then((module) => ({ default: module.RouteDpa }))
 );
+const RouteDeleteAccount = lazy(async () => {
+  const module = await import('../routes/RouteDeleteAccount');
+  return { default: module.RouteDeleteAccount };
+});
 const RouteTest = lazy(() =>
   import('../routes/RouteTest').then((module) => ({
     default: module.RouteTest,
@@ -280,6 +284,7 @@ export const App: Component<{
       <Route path="/jobs" component={RouteJobs} />
       <Route path="/terms" component={RouteTerms} />
       <Route path="/privacy" component={RoutePrivacy} />
+      <Route path="/delete-account" component={RouteDeleteAccount} />
       <Route path="/dpa" component={RouteDpa} />
       <Route path="/posts" component={PostsIndex} />
       <Route path="/posts/:slug" component={PostPage} />

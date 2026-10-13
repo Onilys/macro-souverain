@@ -140,6 +140,14 @@ repository's `just check` and verify user-visible behavior in a browser.
 
 ## SEO and deployment
 
+`/delete-account` is a public, prerendered account-deletion help page linked from
+the footer. It offers an email request path without requiring sign-in or an app
+installation, plus instructions for the in-app deletion flow. Keep its data and
+retention descriptions aligned with the deletion services and the Privacy Policy.
+The seven-day cleanup window is a target after verification, not a guarantee;
+shared-content and legal/backup retention exceptions are described separately.
+Verify the email link, direct navigation, and readability on desktop and mobile.
+
 See [the migration audit and cutover checklist](seo/MIGRATION.md). The committed
 `seo/migration-baseline.json` records the indexable URLs and schema types on
 macro.com. Keep the baseline when adding pages; do not remove a URL from it to
