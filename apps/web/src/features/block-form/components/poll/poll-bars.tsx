@@ -96,7 +96,7 @@ export function PollBars(props: {
                     aria-hidden="true"
                     class={cn(
                       'absolute inset-y-0 left-0 transition-[width] duration-300 motion-reduce:transition-none',
-                      bar().mine ? 'bg-accent-bg' : 'bg-active'
+                      bar().mine ? 'bg-accent/20' : 'bg-ink/10'
                     )}
                     style={{ width: `${bar().percent}%` }}
                   />
@@ -124,7 +124,10 @@ export function PollBars(props: {
                     <span class="sr-only">
                       {bar().count === 1 ? ' vote' : ' votes'}
                     </span>
-                    <span aria-hidden="true" class="w-8 text-right font-medium">
+                    <span
+                      aria-hidden="true"
+                      class="min-w-8 text-right font-medium whitespace-nowrap"
+                    >
                       {bar().percent}%
                     </span>
                   </span>
