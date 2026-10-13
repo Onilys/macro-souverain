@@ -61,9 +61,8 @@ vi.mock('../document-location', () => ({
 vi.mock('../../client', async () => {
   const { QueryClient } = await import('@tanstack/solid-query');
   const { setupQueryPersistence } = await import('../../persistence');
-  const { createQueryPersistenceScopes } = await import(
-    '../../persistence-scopes'
-  );
+  const { createQueryPersistenceScopes } =
+    await import('../../persistence-scopes');
   const { authKeys } = await import('../../auth/keys');
   const userInfoScope = createQueryPersistenceScopes('test').find((scope) =>
     scope.shouldPersist(authKeys.userInfo.queryKey)

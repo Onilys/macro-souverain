@@ -160,9 +160,8 @@ const Block: Component = () => {
     setOpeningChat(true);
     // A locked model gets the picker's treatment: the chat opens on the plan's
     // model and the paywall says why.
-    const canUseDatabaseModel = modelsForPlan(hasPaidAccess()).includes(
-      DATABASE_MODEL
-    );
+    const canUseDatabaseModel =
+      modelsForPlan(hasPaidAccess()).includes(DATABASE_MODEL);
     const chat = databaseChat(toQuerySchema(current, activeTableId()));
     try {
       await openChatWithInput(chat.input, {

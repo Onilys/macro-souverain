@@ -86,21 +86,18 @@ export function useUpcomingCalendarEventsSource(options: SourceOptions) {
       });
     });
     const events = createMemo(() =>
-      calendarEvents().map(
-        (event): UpcomingCalendarEvent => ({
-          id: event.id,
-          title: event.title,
-          color: event.calendar.color,
-          url:
-            calendarMacroCallUrl(event) ??
-            safeConferenceUrl(event.conferenceUrl),
-          start: event.start,
-          end: event.end,
-          allDay: event.allDay,
-          eventId: event.eventId,
-          occurrenceKey: event.occurrenceKey,
-        })
-      )
+      calendarEvents().map((event): UpcomingCalendarEvent => ({
+        id: event.id,
+        title: event.title,
+        color: event.calendar.color,
+        url:
+          calendarMacroCallUrl(event) ?? safeConferenceUrl(event.conferenceUrl),
+        start: event.start,
+        end: event.end,
+        allDay: event.allDay,
+        eventId: event.eventId,
+        occurrenceKey: event.occurrenceKey,
+      }))
     );
     windows.push({ query, enabled, events, calendarEvents });
   }

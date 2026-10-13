@@ -18,8 +18,8 @@ export const MagicChip: Component<
   const selected = () =>
     Boolean(
       props.key &&
-        wrapper?.selection?.type === 'node' &&
-        wrapper.selection.nodeKeys.has(props.key)
+      wrapper?.selection?.type === 'node' &&
+      wrapper.selection.nodeKeys.has(props.key)
     );
   const selectNode = () => {
     const key = props.key;

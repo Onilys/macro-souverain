@@ -6,5 +6,4 @@
  */
 import type { CalendarEventSearchOccurrence } from './calendarEventSearchOccurrence';
 
-export type CalendarEventMetadataOccurrence =
-  null | CalendarEventSearchOccurrence;
+export type CalendarEventMetadataOccurrence = null | CalendarEventSearchOccurrence;

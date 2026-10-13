@@ -6,5 +6,4 @@
  */
 import type { AgentPullRequestState } from './agentPullRequestState';
 
-export type SoupAgentSessionSoupPropertiesFieldAllOfTwoPullRequestState =
-  null | AgentPullRequestState;
+export type SoupAgentSessionSoupPropertiesFieldAllOfTwoPullRequestState = null | AgentPullRequestState;

@@ -178,9 +178,9 @@ describe.each([
       reactions: [{ emoji: '👍', users: ['macro|a@example.com'] }],
     };
     applyMessage(edit, 'edited');
-    const root = testQueryClient.getQueryData<MessageTimelineData>(
-      timelineKey()
-    )!.pages[0].items[0];
+    const root =
+      testQueryClient.getQueryData<MessageTimelineData>(timelineKey())!.pages[0]
+        .items[0];
     expect(root.thread.reply_count).toBe(1);
     expect(root.thread.preview).toEqual([expect.objectContaining(edit)]);
     expect(
@@ -595,9 +595,9 @@ describe.each([
     expect(mocks.thread).toHaveBeenCalledTimes(1);
 
     // The timeline preview mirrors the reply while the thread settles.
-    const root = testQueryClient.getQueryData<MessageTimelineData>(
-      timelineKey()
-    )!.pages[0].items[0];
+    const root =
+      testQueryClient.getQueryData<MessageTimelineData>(timelineKey())!.pages[0]
+        .items[0];
     expect(root.thread.reply_count).toBe(1);
     expect(root.thread.preview).toEqual([
       expect.objectContaining({ id: 'reply' }),

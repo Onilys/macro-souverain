@@ -10,8 +10,10 @@ import {
   type PropertySaveFn,
 } from './context';
 
-interface PropertyRootProps
-  extends Omit<JSX.HTMLAttributes<HTMLDivElement>, 'onSave' | 'property'> {
+interface PropertyRootProps extends Omit<
+  JSX.HTMLAttributes<HTMLDivElement>,
+  'onSave' | 'property'
+> {
   property: Property;
   canEdit?: boolean;
   onSave?: PropertySaveFn;

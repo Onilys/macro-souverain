@@ -9,5 +9,4 @@ import type { ElicitationAnswerOneOfContentAnyOf } from './elicitationAnswerOneO
 /**
  * Form: the submitted values keyed by property. URL: omitted.
  */
-export type ElicitationAnswerOneOfContent =
-  ElicitationAnswerOneOfContentAnyOf | null;
+export type ElicitationAnswerOneOfContent = ElicitationAnswerOneOfContentAnyOf | null;

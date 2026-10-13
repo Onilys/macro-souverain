@@ -234,8 +234,7 @@ export type CollectionExtensions = {
   };
 };
 
-export interface SoupViewContextProviderProps
-  extends SoupViewInitializeOptions {
+export interface SoupViewContextProviderProps extends SoupViewInitializeOptions {
   extensions?: CollectionExtensions;
   soup?: SoupState;
   initialEnabled?: boolean;

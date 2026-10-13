@@ -86,37 +86,35 @@ describe('cached GraphQL history', () => {
   });
 
   it('browses the indexed recent projection and materializes only final keys', async () => {
-    const search = vi.fn(
-      async (): Promise<SearchCachePage> => ({
-        documents: [
-          {
-            profile: 'quick-access-v1',
-            recordKey: 'GraphqlSoupDocument:document-newest',
-            bucket: 'note',
-            searchText: 'newest document',
-            timestampMs: Date.parse('2025-01-05T00:00:00.000Z'),
-            sourceHash: 'one',
-          },
-          {
-            profile: 'quick-access-v1',
-            recordKey: 'GraphqlSoupChat:chat-middle',
-            bucket: 'chat',
-            searchText: 'middle chat',
-            timestampMs: Date.parse('2025-01-04T00:00:00.000Z'),
-            sourceHash: 'two',
-          },
-          {
-            profile: 'quick-access-v1',
-            recordKey: 'GraphqlSoupDocument:document-task',
-            bucket: 'task',
-            searchText: 'task document',
-            timestampMs: Date.parse('2025-01-03T00:00:00.000Z'),
-            sourceHash: 'three',
-          },
-        ],
-        nextCursor: null,
-      })
-    );
+    const search = vi.fn(async (): Promise<SearchCachePage> => ({
+      documents: [
+        {
+          profile: 'quick-access-v1',
+          recordKey: 'GraphqlSoupDocument:document-newest',
+          bucket: 'note',
+          searchText: 'newest document',
+          timestampMs: Date.parse('2025-01-05T00:00:00.000Z'),
+          sourceHash: 'one',
+        },
+        {
+          profile: 'quick-access-v1',
+          recordKey: 'GraphqlSoupChat:chat-middle',
+          bucket: 'chat',
+          searchText: 'middle chat',
+          timestampMs: Date.parse('2025-01-04T00:00:00.000Z'),
+          sourceHash: 'two',
+        },
+        {
+          profile: 'quick-access-v1',
+          recordKey: 'GraphqlSoupDocument:document-task',
+          bucket: 'task',
+          searchText: 'task document',
+          timestampMs: Date.parse('2025-01-03T00:00:00.000Z'),
+          sourceHash: 'three',
+        },
+      ],
+      nextCursor: null,
+    }));
     const readRecordsByKeys = vi.fn(async (args: ReadRecordsByKeysArgs) =>
       args.keys.map((recordKey) => {
         const isChat = recordKey === 'GraphqlSoupChat:chat-middle';
@@ -239,21 +237,19 @@ describe('cached GraphQL history', () => {
   });
 
   it('omits keys whose minimal name projection is incomplete', async () => {
-    const search = vi.fn(
-      async (): Promise<SearchCachePage> => ({
-        documents: [
-          {
-            profile: 'quick-access-v1',
-            recordKey: 'GraphqlSoupDocument:missing-name',
-            bucket: 'document',
-            searchText: 'fallback text',
-            timestampMs: 1,
-            sourceHash: 'hash',
-          },
-        ],
-        nextCursor: null,
-      })
-    );
+    const search = vi.fn(async (): Promise<SearchCachePage> => ({
+      documents: [
+        {
+          profile: 'quick-access-v1',
+          recordKey: 'GraphqlSoupDocument:missing-name',
+          bucket: 'document',
+          searchText: 'fallback text',
+          timestampMs: 1,
+          sourceHash: 'hash',
+        },
+      ],
+      nextCursor: null,
+    }));
     const readRecordsByKeys = vi.fn(async () => []);
 
     await expect(

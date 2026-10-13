@@ -513,8 +513,8 @@ export function SpreadsheetComments(props: {
                   .map((thread) => thread.id)}
               >
                 {(id) =>
-                  renderThread(
-                    () => threads().find((thread) => thread.id === id)!
+                  renderThread(() =>
+                    threads().find((thread) => thread.id === id)!
                   )
                 }
               </For>

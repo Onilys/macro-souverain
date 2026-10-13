@@ -6,5 +6,4 @@
  */
 import type { GithubPullRequestReviewDecision } from './githubPullRequestReviewDecision';
 
-export type StoredGithubPullRequestReviewDecision =
-  null | GithubPullRequestReviewDecision;
+export type StoredGithubPullRequestReviewDecision = null | GithubPullRequestReviewDecision;

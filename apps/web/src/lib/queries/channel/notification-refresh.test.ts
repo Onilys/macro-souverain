@@ -9,7 +9,13 @@ import {
   disposeChannelNotificationRefresh,
 } from './notification-refresh';
 
-const document = gql`query Notifications($id: String!) { channel(id: $id) { id } }`;
+const document = gql`
+  query Notifications($id: String!) {
+    channel(id: $id) {
+      id
+    }
+  }
+`;
 const descriptor = (id = 'a'): QueryRevalidation => ({
   document,
   variables: { id },

@@ -24,16 +24,14 @@ export function ToolQueryResults(props: {
   const [chosenDisplay, setDisplay] = createSignal<DatabaseQueryDisplayMode>();
   const rowCount = () => props.answer.rows.length;
   const modes = createMemo(() =>
-    availableDisplayModes(props.answer).map(
-      (value): DisplayOption => ({
-        value,
-        label: match(value)
-          .with('scalar', () => 'Answer')
-          .with('table', () => 'Table')
-          .with(P.union(...DATABASE_QUERY_CHART_MODES), chartModeLabel)
-          .exhaustive(),
-      })
-    )
+    availableDisplayModes(props.answer).map((value): DisplayOption => ({
+      value,
+      label: match(value)
+        .with('scalar', () => 'Answer')
+        .with('table', () => 'Table')
+        .with(P.union(...DATABASE_QUERY_CHART_MODES), chartModeLabel)
+        .exhaustive(),
+    }))
   );
   const current = () =>
     modes().find(

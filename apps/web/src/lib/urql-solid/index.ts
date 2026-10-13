@@ -1,10 +1,6 @@
 /** Application-local Solid bindings for urql query operations. */
 
-export {
-  UrqlProvider,
-  type UrqlProviderProps,
-  useUrqlClient,
-} from './context';
+export { UrqlProvider, type UrqlProviderProps, useUrqlClient } from './context';
 export { createUrqlInfiniteQuery } from './create-urql-infinite-query';
 export { createUrqlMutation } from './create-urql-mutation';
 export { createUrqlQuery } from './create-urql-query';

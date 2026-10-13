@@ -13,8 +13,9 @@ import { createEmailEditor, setEmailEditorText } from '../tests/editor';
 /** Real controller and toast UI, with an injected durable-save transport. */
 function RecoveryEditor() {
   const [saved, setSaved] = createSignal<SaveEmailDraft[]>([]);
-  let changed: Parameters<NonNullable<EmailDraftStorage['watchDrafts']>>[0] =
-    () => {};
+  let changed: Parameters<
+    NonNullable<EmailDraftStorage['watchDrafts']>
+  >[0] = () => {};
   const editor = createEmailEditor();
   const state = createEmailComposer({
     drafts: {

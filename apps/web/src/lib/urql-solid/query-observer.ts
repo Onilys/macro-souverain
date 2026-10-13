@@ -47,12 +47,10 @@ export class QueryObserver<
   QueryData,
   Variables extends AnyVariables,
   Data = QueryData,
-> implements
-    UrqlObserver<
-      UrqlQueryOptions<QueryData, Variables, Data>,
-      UrqlQueryResult<Data, Variables, QueryData>
-    >
-{
+> implements UrqlObserver<
+  UrqlQueryOptions<QueryData, Variables, Data>,
+  UrqlQueryResult<Data, Variables, QueryData>
+> {
   private client: Client;
   private options: UrqlQueryOptions<QueryData, Variables, Data>;
   private execution: QueryExecution<QueryData, Variables, Data> | undefined;

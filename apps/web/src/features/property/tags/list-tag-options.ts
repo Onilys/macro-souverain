@@ -20,15 +20,13 @@ export function listTagOptions(
     .flatMap((set) =>
       [...set.options]
         .sort((a, b) => a.displayOrder - b.displayOrder)
-        .map(
-          (option): TagOptionSummary => ({
-            id: option.id,
-            label:
-              option.value.type === 'string' ? option.value.value : option.id,
-            color: option.color ?? undefined,
-            scope: set.scope,
-            propertyDefinitionId: option.propertyDefinitionId,
-          })
-        )
+        .map((option): TagOptionSummary => ({
+          id: option.id,
+          label:
+            option.value.type === 'string' ? option.value.value : option.id,
+          color: option.color ?? undefined,
+          scope: set.scope,
+          propertyDefinitionId: option.propertyDefinitionId,
+        }))
     );
 }

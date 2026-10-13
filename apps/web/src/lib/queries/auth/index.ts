@@ -1,9 +1,5 @@
 // Re-export user context hooks for backwards compatibility
-export {
-  useIsAuthenticated,
-  useUserId,
-  useUserInfo,
-} from '@core/context/user';
+export { useIsAuthenticated, useUserId, useUserInfo } from '@core/context/user';
 export {
   invalidateAiBillingSummary,
   useAiBillingPlansQuery,

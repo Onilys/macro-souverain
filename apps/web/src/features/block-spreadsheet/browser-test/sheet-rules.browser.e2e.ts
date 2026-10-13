@@ -76,7 +76,9 @@ async function importTracker(page: Page) {
     .getByRole('button', { name: 'Import and export', exact: true })
     .click();
   await page.getByRole('menuitem', { name: 'Import…', exact: true }).click();
-  await (await chooser).setFiles({
+  await (
+    await chooser
+  ).setFiles({
     name: 'tracker.xlsx',
     mimeType:
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

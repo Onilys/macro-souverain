@@ -67,20 +67,18 @@ export function useEmailSearchMention(
     if (emailSearchQuery.status !== 'success') return [];
     return emailSearchQuery.data
       .filter((e) => e.type === 'email')
-      .map(
-        (e): EntityItem => ({
-          kind: 'entity',
-          id: e.id,
-          bucket: 'email',
-          searchText: e.name ?? 'No Subject',
-          sortTimestamp: e.updatedAt ? new Date(e.updatedAt).getTime() : 0,
-          timestamps: {
-            updatedAt: e.updatedAt ?? null,
-            createdAt: e.createdAt ?? null,
-          },
-          data: e as unknown as EntityItem['data'],
-        })
-      );
+      .map((e): EntityItem => ({
+        kind: 'entity',
+        id: e.id,
+        bucket: 'email',
+        searchText: e.name ?? 'No Subject',
+        sortTimestamp: e.updatedAt ? new Date(e.updatedAt).getTime() : 0,
+        timestamps: {
+          updatedAt: e.updatedAt ?? null,
+          createdAt: e.createdAt ?? null,
+        },
+        data: e as unknown as EntityItem['data'],
+      }));
   });
 
   const emailSearch = createFreshSearch<EntityItem>({

@@ -270,13 +270,11 @@ export const BulkMoveToProjectView = (props: {
         .filter((project: Project) =>
           project.name.toLowerCase().includes(query)
         )
-        .map(
-          (item: Project): ProjectWithDepth => ({
-            ...item,
-            depth: 0,
-            path: getProjectPath(item.id),
-          })
-        );
+        .map((item: Project): ProjectWithDepth => ({
+          ...item,
+          depth: 0,
+          path: getProjectPath(item.id),
+        }));
       setFlattenedProjects({ items: searchResults });
       newItems = searchResults;
     } else {

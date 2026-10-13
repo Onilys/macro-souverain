@@ -156,9 +156,8 @@ const { Router, Route } = SplitRouter;
 /** Debug views stay behind the registry's lazy import. */
 function debugView(componentId: string) {
   return lazy(async () => {
-    const { resolveComponent } = await import(
-      '@components/app/split-layout/componentRegistry'
-    );
+    const { resolveComponent } =
+      await import('@components/app/split-layout/componentRegistry');
     return { default: () => resolveComponent(componentId).element() };
   });
 }

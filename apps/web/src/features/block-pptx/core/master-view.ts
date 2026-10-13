@@ -60,7 +60,7 @@ export function masterDeck(
 export function slideRanges(numbers: number[]): string {
   const sorted = [...new Set(numbers)].sort((a, b) => a - b);
   const parts: string[] = [];
-  for (let i = 0; i < sorted.length; ) {
+  for (let i = 0; i < sorted.length;) {
     let j = i;
     while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
     parts.push(j === i ? String(sorted[i]) : `${sorted[i]}-${sorted[j]}`);

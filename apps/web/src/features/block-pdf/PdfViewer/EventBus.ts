@@ -45,8 +45,7 @@ export enum FindState {
   NOT_FOUND = _FindState.NOT_FOUND, // 3
 }
 
-export interface IUpdateFindControlStateEvent
-  extends IUpdateFindMatchesCountEvent {
+export interface IUpdateFindControlStateEvent extends IUpdateFindMatchesCountEvent {
   /** FindState.{FOUND,WRAPPED,NOT_FOUND,PENDING} */
   state: FindState;
   /** true if searching backward, false otherwise */

@@ -6,5 +6,4 @@
  */
 import type { ApiPropertyEntityType } from './apiPropertyEntityType';
 
-export type ApiGroupByFieldOneOfPropertyEntityType =
-  null | ApiPropertyEntityType;
+export type ApiGroupByFieldOneOfPropertyEntityType = null | ApiPropertyEntityType;

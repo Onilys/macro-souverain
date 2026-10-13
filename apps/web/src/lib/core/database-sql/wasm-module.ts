@@ -30,10 +30,7 @@ export interface DatabaseSqlQuery {
 interface DatabaseSqlWasmModule {
   default: (input?: { module_or_path?: unknown }) => Promise<unknown>;
   /** Compiles a statement. Throws an `EngineError` when it does not compile. */
-  Query: new (
-    catalog: Catalog,
-    sql: string
-  ) => DatabaseSqlQuery;
+  Query: new (catalog: Catalog, sql: string) => DatabaseSqlQuery;
   /** The catalog a statement run from `scope` sees. Throws an `EngineError`. */
   buildCatalog: (schema: Schema, scope: string | undefined) => Catalog;
   /** The rows a view shows, as a query to drive. Throws an `EngineError`. */

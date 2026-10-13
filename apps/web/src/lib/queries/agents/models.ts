@@ -19,12 +19,10 @@ export function buildAgentModelTargets(
   if (claudeCloudEnabled) targets.push({ harness: 'claude-cloud' });
   if (cursorRegistered) targets.push({ harness: 'cursor' });
   targets.push(
-    ...harnesses.map(
-      (harness): AgentModelTarget => ({
-        harness: 'macrod',
-        harnessId: harness.id,
-      })
-    )
+    ...harnesses.map((harness): AgentModelTarget => ({
+      harness: 'macrod',
+      harnessId: harness.id,
+    }))
   );
   return targets;
 }

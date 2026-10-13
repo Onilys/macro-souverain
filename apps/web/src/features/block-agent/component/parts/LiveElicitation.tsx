@@ -96,18 +96,15 @@ function createFormDraft(schema: ElicitationSchema): FormDraft {
 /** The question's state; call it once per request, under a reactive owner. */
 export function createLiveQuestion(request: LiveQuestionRequest): LiveQuestion {
   return match(request)
-    .with(
-      { kind: 'form' },
-      ({ schema }): LiveQuestion => ({
-        kind: 'form',
-        draft: createFormDraft(schema),
-      })
-    )
+    .with({ kind: 'form' }, ({ schema }): LiveQuestion => ({
+      kind: 'form',
+      draft: createFormDraft(schema),
+    }))
     .with({ kind: 'url' }, ({ url }): LiveQuestion => ({ kind: 'url', url }))
-    .with(
-      { kind: 'unrecognized' },
-      ({ mode }): LiveQuestion => ({ kind: 'unrecognized', mode })
-    )
+    .with({ kind: 'unrecognized' }, ({ mode }): LiveQuestion => ({
+      kind: 'unrecognized',
+      mode,
+    }))
     .exhaustive();
 }
 

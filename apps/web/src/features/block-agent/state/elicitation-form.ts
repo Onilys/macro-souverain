@@ -74,36 +74,23 @@ function initialValue(field: ElicitationPropertySchema): FieldValue {
             : { kind: 'option', value: select.default },
       })
     )
-    .with(
-      { type: 'string' },
-      (text): FieldValue => ({
-        kind: 'text',
-        text: text.default ?? '',
-      })
-    )
-    .with(
-      { type: 'number' },
-      { type: 'integer' },
-      (number): FieldValue => ({
-        kind: 'text',
-        text: number.default == null ? '' : String(number.default),
-      })
-    )
-    .with(
-      { type: 'boolean' },
-      (flag): FieldValue => ({
-        kind: 'boolean',
-        checked: flag.default ?? false,
-      })
-    )
-    .with(
-      { type: 'multi_select' },
-      (multi): FieldValue => ({
-        kind: 'multi_select',
-        values: [...multi.default],
-        custom: undefined,
-      })
-    )
+    .with({ type: 'string' }, (text): FieldValue => ({
+      kind: 'text',
+      text: text.default ?? '',
+    }))
+    .with({ type: 'number' }, { type: 'integer' }, (number): FieldValue => ({
+      kind: 'text',
+      text: number.default == null ? '' : String(number.default),
+    }))
+    .with({ type: 'boolean' }, (flag): FieldValue => ({
+      kind: 'boolean',
+      checked: flag.default ?? false,
+    }))
+    .with({ type: 'multi_select' }, (multi): FieldValue => ({
+      kind: 'multi_select',
+      values: [...multi.default],
+      custom: undefined,
+    }))
     .with({ type: 'unrecognized' }, (): FieldValue => ({ kind: 'unsupported' }))
     .exhaustive();
 }

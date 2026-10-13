@@ -84,9 +84,8 @@ export const Placeable: Component<{
   const [mouseDown, _setMouseDown] = createSignal(false);
   const [placeableIntersectsViewer, setPlaceableIntersectsViewer] =
     createSignal(true);
-  const [intersectingPage, setIntersectingPage] = createSignal<number>(
-    parentId()
-  );
+  const [intersectingPage, setIntersectingPage] =
+    createSignal<number>(parentId());
   const [pdfPageRects, setPdfPageRects] = createSignal<Record<string, DOMRect>>(
     {}
   );

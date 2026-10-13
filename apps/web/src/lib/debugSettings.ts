@@ -56,9 +56,8 @@ function persist(settings: Record<string, boolean>): void {
   }
 }
 
-const [settings, setSettings] = createSignal<Record<string, boolean>>(
-  readPersisted()
-);
+const [settings, setSettings] =
+  createSignal<Record<string, boolean>>(readPersisted());
 
 /** Reactive accessor for the full debug-settings map. */
 export { settings as debugSettings };

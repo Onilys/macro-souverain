@@ -49,30 +49,28 @@ export function useReminderEmailSource(
   const ready = () => tagFacetReady(state.facets, options.tagSetsReady());
   const active = () =>
     state.tab === 'reminders' && enabled().enabled && ready();
-  const filters = createMemo(
-    (): ListEmailRemindersParams => ({
-      inboxIds: state.inboxIds,
-      noInboxes: state.inboxIds?.length === 0,
-      done:
-        state.facets.done?.length === 1
-          ? state.facets.done[0] === 'done'
-          : undefined,
-      read:
-        state.facets.read?.length === 1
-          ? state.facets.read[0] === 'read'
-          : undefined,
-      calendar: state.facets.calendar?.includes('has-calendar-invite'),
-      tags: (state.facets.tags ?? [])
-        .flatMap((id) => {
-          const property = tagContext().tagPropertyDefinitionByOptionId.get(id);
-          return property ? [`${property}:${id}`] : [];
-        })
-        .sort(),
-      attachments: (state.facets.attachments ?? [])
-        .map((id) => id.replace('attachment-', ''))
-        .sort(),
-    })
-  );
+  const filters = createMemo((): ListEmailRemindersParams => ({
+    inboxIds: state.inboxIds,
+    noInboxes: state.inboxIds?.length === 0,
+    done:
+      state.facets.done?.length === 1
+        ? state.facets.done[0] === 'done'
+        : undefined,
+    read:
+      state.facets.read?.length === 1
+        ? state.facets.read[0] === 'read'
+        : undefined,
+    calendar: state.facets.calendar?.includes('has-calendar-invite'),
+    tags: (state.facets.tags ?? [])
+      .flatMap((id) => {
+        const property = tagContext().tagPropertyDefinitionByOptionId.get(id);
+        return property ? [`${property}:${id}`] : [];
+      })
+      .sort(),
+    attachments: (state.facets.attachments ?? [])
+      .map((id) => id.replace('attachment-', ''))
+      .sort(),
+  }));
   const collection = useEmailReminderCollection(() => ({
     userId: userId(),
     enabled: active(),

@@ -333,7 +333,9 @@ describe('worker CacheHost coordinator integration', () => {
           return this.delegate.onmessageerror;
         }
 
-        set onmessageerror(value: IntegrationDedicatedWorker['onmessageerror'],) {
+        set onmessageerror(
+          value: IntegrationDedicatedWorker['onmessageerror']
+        ) {
           this.delegate.onmessageerror = value;
         }
 

@@ -18,7 +18,4 @@ export {
   removeSoupEntitiesFromQueriesReferencing,
   restoreSoupEntityToDoneFilteredQueries,
 } from './operations';
-export type {
-  SoupEntityTag,
-  SoupTransaction,
-} from './types';
+export type { SoupEntityTag, SoupTransaction } from './types';

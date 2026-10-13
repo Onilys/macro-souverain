@@ -13,9 +13,8 @@ it('defaults production Projects to off while allowing PostHog rollout', async (
   vi.stubEnv('MODE', 'production');
   vi.stubEnv('DEV', false);
   vi.stubEnv('VITE_ENABLE_PROJECTS', undefined);
-  const { enableProjects, isFeatureEnabled } = await import(
-    '../constant/featureFlags'
-  );
+  const { enableProjects, isFeatureEnabled } =
+    await import('../constant/featureFlags');
   expect(enableProjects).toEqual({
     key: 'enable-projects',
     override: undefined,
@@ -35,9 +34,8 @@ it.each([false, true])(
     vi.stubEnv('MODE', 'development');
     vi.stubEnv('DEV', true);
     vi.stubEnv('VITE_ENABLE_PROJECTS', String(enabled));
-    const { enableProjects, isFeatureEnabled } = await import(
-      '../constant/featureFlags'
-    );
+    const { enableProjects, isFeatureEnabled } =
+      await import('../constant/featureFlags');
     expect(enableProjects.override).toBe(enabled);
     expect(isFeatureEnabled(enableProjects)).toBe(enabled);
     expect(posthog.isFeatureEnabled).not.toHaveBeenCalled();
@@ -48,9 +46,8 @@ it('enables Projects by default in development', async () => {
   vi.stubEnv('MODE', 'development');
   vi.stubEnv('DEV', true);
   vi.stubEnv('VITE_ENABLE_PROJECTS', undefined);
-  const { enableProjects, isFeatureEnabled } = await import(
-    '../constant/featureFlags'
-  );
+  const { enableProjects, isFeatureEnabled } =
+    await import('../constant/featureFlags');
   expect(enableProjects.override).toBe(true);
   expect(isFeatureEnabled(enableProjects)).toBe(true);
   expect(posthog.isFeatureEnabled).not.toHaveBeenCalled();

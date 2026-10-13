@@ -16,7 +16,9 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('[data-address="B4"]')).toHaveText('30');
   const chooser = page.waitForEvent('filechooser');
   await menu(page, 'Import and export', 'Import…');
-  await (await chooser).setFiles(
+  await (
+    await chooser
+  ).setFiles(
     fileURLToPath(
       new URL('../core/xlsx-fixtures/chart-types.xlsx', import.meta.url)
     )

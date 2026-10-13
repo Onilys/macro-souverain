@@ -1,8 +1,4 @@
-export {
-  compileToAst,
-  defineQueryFilters,
-  queryStateFrom,
-} from './compile';
+export { compileToAst, defineQueryFilters, queryStateFrom } from './compile';
 export type {
   DocumentFieldFilters,
   DocumentFilterClause,

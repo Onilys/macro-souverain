@@ -772,7 +772,9 @@ type NotifEventMember<Tag extends NotifEvent['tag']> = Extract<
 // Accept legacy notification projections that omitted optional presentation
 // fields alongside full notification reads. Keep required event data typed.
 type GraphqlNotificationMetadata = {
-  [Name in SoupNotificationNavigationMetadataFieldsFragment['__typename']]: Extract<
+  [
+    Name in SoupNotificationNavigationMetadataFieldsFragment['__typename']
+  ]: Extract<
     SoupNotificationNavigationMetadataFieldsFragment,
     { __typename: Name }
   > &

@@ -62,7 +62,9 @@ type ArgumentPathFor<
  */
 export type EntityResolverConfig = {
   [Parent in keyof GeneratedEntityResolverSchema]?: {
-    [Field in keyof GeneratedEntityResolverSchema[Parent]]?: EntityFromArgumentDescriptor<
+    [
+      Field in keyof GeneratedEntityResolverSchema[Parent]
+    ]?: EntityFromArgumentDescriptor<
       TargetFor<Parent, Field>,
       ArgumentPathFor<Parent, Field>
     >;

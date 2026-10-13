@@ -6,5 +6,4 @@
  */
 import type { CrmPermissionRole } from './crmPermissionRole';
 
-export type UpdateCrmTeamSettingsRequestEditStagesRole =
-  null | CrmPermissionRole;
+export type UpdateCrmTeamSettingsRequestEditStagesRole = null | CrmPermissionRole;

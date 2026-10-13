@@ -6,5 +6,4 @@
  */
 import type { SoupReminderReference } from './soupReminderReference';
 
-export type SoupReminderSoupPropertiesFieldAllOfTwoReferencedEntity =
-  null | SoupReminderReference;
+export type SoupReminderSoupPropertiesFieldAllOfTwoReferencedEntity = null | SoupReminderReference;

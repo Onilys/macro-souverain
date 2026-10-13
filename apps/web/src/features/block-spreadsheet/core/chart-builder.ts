@@ -163,7 +163,7 @@ export function dataRegion(
     !columnFilled(area.left + 1, area.top, area.bottom)
   )
     return;
-  for (let changed = true; changed; ) {
+  for (let changed = true; changed;) {
     changed = false;
     if (
       area.top > 0 &&

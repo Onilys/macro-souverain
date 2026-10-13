@@ -26,12 +26,10 @@ export function createCrmPermissions(
     return team.members.find((member) => member.user_id === uid)?.role;
   });
 
-  const permissions = createMemo(
-    (): CrmPermissions => ({
-      ...DEFAULT_CRM_PERMISSIONS,
-      ...config().permissions,
-    })
-  );
+  const permissions = createMemo((): CrmPermissions => ({
+    ...DEFAULT_CRM_PERMISSIONS,
+    ...config().permissions,
+  }));
 
   return {
     role,

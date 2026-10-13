@@ -83,15 +83,13 @@ export function buildChannelRailRows(
   if (tab === 'threads') {
     return [
       { kind: 'all-threads', id: ALL_THREADS_ROW_ID },
-      ...items.threads.map(
-        (channel, localIndex): ChannelRailRow => ({
-          kind: 'conversation',
-          id: rowKeyForChannel(channel.id),
-          scope: 'threads',
-          localIndex,
-          channel,
-        })
-      ),
+      ...items.threads.map((channel, localIndex): ChannelRailRow => ({
+        kind: 'conversation',
+        id: rowKeyForChannel(channel.id),
+        scope: 'threads',
+        localIndex,
+        channel,
+      })),
     ];
   }
 
@@ -114,14 +112,12 @@ export function buildChannelRailRows(
     });
     if (expandedGroups.favorites) {
       rows.push(
-        ...items.favorites.map(
-          (favorite): ChannelRailRow => ({
-            kind: 'favorite',
-            id: rowKeyForFavorite(favorite),
-            group: 'favorites',
-            favorite,
-          })
-        )
+        ...items.favorites.map((favorite): ChannelRailRow => ({
+          kind: 'favorite',
+          id: rowKeyForFavorite(favorite),
+          group: 'favorites',
+          favorite,
+        }))
       );
     }
   }
@@ -133,25 +129,24 @@ export function buildChannelRailRows(
   });
   if (expandedGroups.channels) {
     rows.push(
-      ...channelSectionRows.map(
-        (row, localIndex): ChannelRailRow =>
-          row.kind === 'label'
-            ? {
-                kind: 'label',
-                id: rowKeyForLabel(row.label.id),
-                group: 'channels',
-                localIndex,
-                label: row.label,
-              }
-            : {
-                kind: 'conversation',
-                id: rowKeyForChannel(row.channel.id, row.labelId),
-                group: 'channels',
-                scope: 'channels',
-                localIndex,
-                channel: row.channel,
-                labelId: row.labelId,
-              }
+      ...channelSectionRows.map((row, localIndex): ChannelRailRow =>
+        row.kind === 'label'
+          ? {
+              kind: 'label',
+              id: rowKeyForLabel(row.label.id),
+              group: 'channels',
+              localIndex,
+              label: row.label,
+            }
+          : {
+              kind: 'conversation',
+              id: rowKeyForChannel(row.channel.id, row.labelId),
+              group: 'channels',
+              scope: 'channels',
+              localIndex,
+              channel: row.channel,
+              labelId: row.labelId,
+            }
       )
     );
   }
@@ -163,16 +158,14 @@ export function buildChannelRailRows(
   });
   if (expandedGroups.direct_messages) {
     rows.push(
-      ...items.direct_messages.map(
-        (channel, localIndex): ChannelRailRow => ({
-          kind: 'conversation',
-          id: `channel:${channel.id}`,
-          group: 'direct_messages',
-          scope: 'direct_messages',
-          localIndex,
-          channel,
-        })
-      )
+      ...items.direct_messages.map((channel, localIndex): ChannelRailRow => ({
+        kind: 'conversation',
+        id: `channel:${channel.id}`,
+        group: 'direct_messages',
+        scope: 'direct_messages',
+        localIndex,
+        channel,
+      }))
     );
   }
 

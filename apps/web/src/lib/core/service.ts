@@ -331,9 +331,7 @@ export function withFetchErrors<const T extends string>(
 type AnyZodType = z.core.SomeType;
 
 type UnionToIntersection<U> = (
-  U extends unknown
-    ? (value: U) => void
-    : never
+  U extends unknown ? (value: U) => void : never
 ) extends (value: infer I) => void
   ? I
   : never;

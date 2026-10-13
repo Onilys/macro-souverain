@@ -16,7 +16,13 @@ function register(query: Parameters<typeof registerActiveGraphqlSoupQuery>[0]) {
 
 describe('active GraphQL Soup queries', () => {
   it('snapshots and deduplicates live descriptors, excluding disabled and unmounted readers', () => {
-    const document = gql`query Soup($input: SoupInput!) { soup(input: $input) { nextCursor } }`;
+    const document = gql`
+      query Soup($input: SoupInput!) {
+        soup(input: $input) {
+          nextCursor
+        }
+      }
+    `;
     const initial = { document, variables: { input: { initial: {} } } };
     const continuation = { document, variables: { input: { cursor: 'next' } } };
     let enabled = true;
@@ -48,7 +54,14 @@ describe('active GraphQL Soup queries', () => {
   it('keeps channel descriptors scoped to the owning client before deduplication', () => {
     const first = { query: vi.fn() } as unknown as Client;
     const second = { query: vi.fn() } as unknown as Client;
-    const descriptor = { document: gql`query Channel { id }`, variables: {} };
+    const descriptor = {
+      document: gql`
+        query Channel {
+          id
+        }
+      `,
+      variables: {},
+    };
     onTestFinished(
       registerGraphqlSoupRevalidations(
         () => [descriptor],

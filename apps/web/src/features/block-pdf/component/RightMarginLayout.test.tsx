@@ -53,9 +53,8 @@ vi.mock('../context/pdf-document-context', () => ({
 }));
 
 vi.mock('@core/comments/Thread', async () => {
-  const { createContext, createEffect, onCleanup, onMount } = await import(
-    'solid-js'
-  );
+  const { createContext, createEffect, onCleanup, onMount } =
+    await import('solid-js');
 
   return {
     baseCommentTheme: { text: { base: '' } },

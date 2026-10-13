@@ -62,45 +62,33 @@ export function buildEntityData(
 
   return (
     match<BlockName | BlockAlias, EntityData | undefined>(blockName)
-      .with(
-        'task',
-        (): TaskEntity => ({
-          ...base,
-          type: 'document',
-          fileType: 'md',
-          subType: { type: 'task', is_completed: args.isCompleted ?? false },
-          projectId: args.projectId,
-        })
-      )
-      .with(
-        'snippet',
-        (): SnippetEntity => ({
-          ...base,
-          type: 'document',
-          fileType: 'md',
-          subType: { type: 'snippet' },
-          projectId: args.projectId,
-        })
-      )
-      .with(
-        'skill',
-        (): SkillEntity => ({
-          ...base,
-          type: 'document',
-          fileType: 'md',
-          subType: { type: 'skill' },
-          projectId: args.projectId,
-        })
-      )
-      .with(
-        'md',
-        (): DocumentEntity => ({
-          ...base,
-          type: 'document',
-          fileType: 'md',
-          projectId: args.projectId,
-        })
-      )
+      .with('task', (): TaskEntity => ({
+        ...base,
+        type: 'document',
+        fileType: 'md',
+        subType: { type: 'task', is_completed: args.isCompleted ?? false },
+        projectId: args.projectId,
+      }))
+      .with('snippet', (): SnippetEntity => ({
+        ...base,
+        type: 'document',
+        fileType: 'md',
+        subType: { type: 'snippet' },
+        projectId: args.projectId,
+      }))
+      .with('skill', (): SkillEntity => ({
+        ...base,
+        type: 'document',
+        fileType: 'md',
+        subType: { type: 'skill' },
+        projectId: args.projectId,
+      }))
+      .with('md', (): DocumentEntity => ({
+        ...base,
+        type: 'document',
+        fileType: 'md',
+        projectId: args.projectId,
+      }))
       .with(
         'pdf',
         'write',
@@ -120,22 +108,16 @@ export function buildEntityData(
           projectId: args.projectId,
         })
       )
-      .with(
-        'chat',
-        (): ChatEntity => ({
-          ...base,
-          type: 'chat',
-          projectId: args.projectId,
-        })
-      )
-      .with(
-        'project',
-        (): ProjectEntity => ({
-          ...base,
-          type: 'project',
-          projectId: args.projectId,
-        })
-      )
+      .with('chat', (): ChatEntity => ({
+        ...base,
+        type: 'chat',
+        projectId: args.projectId,
+      }))
+      .with('project', (): ProjectEntity => ({
+        ...base,
+        type: 'project',
+        projectId: args.projectId,
+      }))
       .with('channel', (): ChannelEntity | undefined => {
         if (!args.channelType) return undefined;
         return {
@@ -147,17 +129,14 @@ export function buildEntityData(
             : { isParticipant: args.isParticipant }),
         };
       })
-      .with(
-        'email',
-        (): EmailEntity => ({
-          ...base,
-          type: 'email',
-          isRead: args.isRead ?? true,
-          isDraft: args.isDraft ?? false,
-          isImportant: args.isImportant ?? false,
-          done: args.done ?? false,
-        })
-      )
+      .with('email', (): EmailEntity => ({
+        ...base,
+        type: 'email',
+        isRead: args.isRead ?? true,
+        isDraft: args.isDraft ?? false,
+        isImportant: args.isImportant ?? false,
+        done: args.done ?? false,
+      }))
       .with('routine', (): RoutineEntity | undefined => {
         if (!args.cron) return undefined;
         return {

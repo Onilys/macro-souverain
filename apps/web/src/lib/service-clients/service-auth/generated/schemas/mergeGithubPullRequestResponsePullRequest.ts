@@ -6,5 +6,4 @@
  */
 import type { EnrichedGithubPullRequest } from './enrichedGithubPullRequest';
 
-export type MergeGithubPullRequestResponsePullRequest =
-  null | EnrichedGithubPullRequest;
+export type MergeGithubPullRequestResponsePullRequest = null | EnrichedGithubPullRequest;

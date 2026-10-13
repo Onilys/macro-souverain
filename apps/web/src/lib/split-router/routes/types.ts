@@ -212,14 +212,16 @@ type MergeRouteParams<TParent, TLocal> = TParent extends unknown
   ? TLocal extends unknown
     ? Simplify<
         {
-          [K in
-            | RequiredParamKeys<TParent>
-            | RequiredParamKeys<TLocal>]: MergedParam<TParent, TLocal, K>;
+          [
+            K in RequiredParamKeys<TParent> | RequiredParamKeys<TLocal>
+          ]: MergedParam<TParent, TLocal, K>;
         } & {
-          [K in Exclude<
-            keyof TParent | keyof TLocal,
-            RequiredParamKeys<TParent> | RequiredParamKeys<TLocal>
-          >]?: MergedParam<TParent, TLocal, K>;
+          [
+            K in Exclude<
+              keyof TParent | keyof TLocal,
+              RequiredParamKeys<TParent> | RequiredParamKeys<TLocal>
+            >
+          ]?: MergedParam<TParent, TLocal, K>;
         }
       >
     : never
@@ -303,11 +305,13 @@ export type InferSplitRouteNavigationParams<TRoute> = TRoute extends {
 type BranchParams<TParams> =
   TParams extends Record<string, never>
     ? {
-        [K in keyof TParams as string extends K
-          ? never
-          : number extends K
+        [
+          K in keyof TParams as string extends K
             ? never
-            : K]: TParams[K];
+            : number extends K
+              ? never
+              : K
+        ]: TParams[K];
       }
     : TParams;
 

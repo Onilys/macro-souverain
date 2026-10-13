@@ -198,18 +198,15 @@ async function serve(request: DocxRequest): Promise<Served> {
       install(docKey, doc, source);
       return opened(id, doc);
     })
-    .with(
-      { kind: 'collabState' },
-      ({ docKey }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'collabState',
-          state: documentFor(docKey).collabState(),
-        },
-        [],
-      ]
-    )
+    .with({ kind: 'collabState' }, ({ docKey }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'collabState',
+        state: documentFor(docKey).collabState(),
+      },
+      [],
+    ])
     .with({ kind: 'close' }, ({ docKey }): Served => {
       documents.get(docKey)?.doc.free();
       documents.delete(docKey);
@@ -290,129 +287,100 @@ async function serve(request: DocxRequest): Promise<Served> {
         return [{ id, ok: true, kind: 'render', bitmap, millis }, [bitmap]];
       }
     )
-    .with(
-      { kind: 'hitTest' },
-      ({ docKey, page, x, y }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'pos',
-          pos: JSON.parse(
-            documentFor(docKey).hitTest(page, x, y)
-          ) as Pos | null,
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'caretAt' },
-      ({ docKey, pos }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'caret',
-          caret: JSON.parse(
-            documentFor(docKey).caretAt(JSON.stringify(pos))
-          ) as CaretRect | null,
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'rangeRects' },
-      ({ docKey, from, to }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'rects',
-          rects: JSON.parse(
-            documentFor(docKey).rangeRects(
-              JSON.stringify(from),
-              JSON.stringify(to)
-            )
-          ) as PageRect[],
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'copySelection' },
-      ({ docKey }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'clip',
-          clip: JSON.parse(documentFor(docKey).copySelection()) as Clip,
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'find' },
-      ({ docKey, query, options }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'find',
-          result: JSON.parse(
-            documentFor(docKey).find(query, JSON.stringify(options))
-          ) as FindResult,
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'selectedText' },
-      ({ docKey }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'text',
-          text: documentFor(docKey).selectedText(),
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'documentComments' },
-      ({ docKey }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'comments',
-          comments: JSON.parse(
-            documentFor(docKey).documentComments()
-          ) as DocComment[],
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'paragraphs' },
-      ({ docKey }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'paragraphs',
-          paragraphs: JSON.parse(
-            documentFor(docKey).paragraphs()
-          ) as ParagraphText[],
-        },
-        [],
-      ]
-    )
-    .with(
-      { kind: 'styles' },
-      ({ docKey }): Served => [
-        {
-          id,
-          ok: true,
-          kind: 'styles',
-          styles: JSON.parse(documentFor(docKey).styles()) as StyleInfo[],
-        },
-        [],
-      ]
-    )
+    .with({ kind: 'hitTest' }, ({ docKey, page, x, y }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'pos',
+        pos: JSON.parse(documentFor(docKey).hitTest(page, x, y)) as Pos | null,
+      },
+      [],
+    ])
+    .with({ kind: 'caretAt' }, ({ docKey, pos }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'caret',
+        caret: JSON.parse(
+          documentFor(docKey).caretAt(JSON.stringify(pos))
+        ) as CaretRect | null,
+      },
+      [],
+    ])
+    .with({ kind: 'rangeRects' }, ({ docKey, from, to }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'rects',
+        rects: JSON.parse(
+          documentFor(docKey).rangeRects(
+            JSON.stringify(from),
+            JSON.stringify(to)
+          )
+        ) as PageRect[],
+      },
+      [],
+    ])
+    .with({ kind: 'copySelection' }, ({ docKey }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'clip',
+        clip: JSON.parse(documentFor(docKey).copySelection()) as Clip,
+      },
+      [],
+    ])
+    .with({ kind: 'find' }, ({ docKey, query, options }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'find',
+        result: JSON.parse(
+          documentFor(docKey).find(query, JSON.stringify(options))
+        ) as FindResult,
+      },
+      [],
+    ])
+    .with({ kind: 'selectedText' }, ({ docKey }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'text',
+        text: documentFor(docKey).selectedText(),
+      },
+      [],
+    ])
+    .with({ kind: 'documentComments' }, ({ docKey }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'comments',
+        comments: JSON.parse(
+          documentFor(docKey).documentComments()
+        ) as DocComment[],
+      },
+      [],
+    ])
+    .with({ kind: 'paragraphs' }, ({ docKey }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'paragraphs',
+        paragraphs: JSON.parse(
+          documentFor(docKey).paragraphs()
+        ) as ParagraphText[],
+      },
+      [],
+    ])
+    .with({ kind: 'styles' }, ({ docKey }): Served => [
+      {
+        id,
+        ok: true,
+        kind: 'styles',
+        styles: JSON.parse(documentFor(docKey).styles()) as StyleInfo[],
+      },
+      [],
+    ])
     .with({ kind: 'save' }, ({ docKey }): Served => {
       const saved = documentFor(docKey).save();
       const bytes = saved.buffer.slice(

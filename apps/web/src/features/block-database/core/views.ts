@@ -41,12 +41,10 @@ export function layoutColumns(
 function tableLayout(entries: readonly LayoutColumn[]): ViewLayout {
   return {
     kind: 'table',
-    columns: entries.map(
-      (entry): ViewColumn => ({
-        column: entry.column.id,
-        width: entry.width,
-      })
-    ),
+    columns: entries.map((entry): ViewColumn => ({
+      column: entry.column.id,
+      width: entry.width,
+    })),
   };
 }
 

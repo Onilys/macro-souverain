@@ -173,7 +173,7 @@ function registerTextPastePlugin(
             const clipboard = event.clipboardData;
             const isRichClipboard = Boolean(
               clipboard?.getData('application/x-lexical-editor') ||
-                clipboard?.getData('text/html')
+              clipboard?.getData('text/html')
             );
             if (
               !isRichClipboard &&

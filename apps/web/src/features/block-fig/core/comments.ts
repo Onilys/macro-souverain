@@ -151,7 +151,7 @@ export function mentionParts(
   const names = [...people].sort((a, b) => b.name.length - a.name.length);
   const parts: { text: string; mention?: FigPerson }[] = [];
   let plain = '';
-  for (let i = 0; i < text.length; ) {
+  for (let i = 0; i < text.length;) {
     const person =
       text[i] === '@'
         ? names.find((p) => text.startsWith(`@${p.name}`, i))

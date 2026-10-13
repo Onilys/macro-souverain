@@ -269,12 +269,10 @@ export default function MarkdownParseTestPage() {
   const [inputType, setInputType] = createSignal<'markdown' | 'lexical-json'>(
     getSavedInputType()
   );
-  const [themeType, setThemeType] = createSignal<ThemeType>(
-    getSavedThemeType()
-  );
-  const [singleLine, setSingleLine] = createSignal<boolean>(
-    getSavedSingleLine()
-  );
+  const [themeType, setThemeType] =
+    createSignal<ThemeType>(getSavedThemeType());
+  const [singleLine, setSingleLine] =
+    createSignal<boolean>(getSavedSingleLine());
 
   const debouncedLocalSave = debounce(() => {
     const content = rawContent();

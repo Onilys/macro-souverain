@@ -40,7 +40,7 @@ export function NotificationDescription(props: NotificationDescriptionProps) {
   const isSingleNotification = () => {
     return Boolean(
       props.notification ||
-        (props.stack && props.stack.notifications.length === 1)
+      (props.stack && props.stack.notifications.length === 1)
     );
   };
 

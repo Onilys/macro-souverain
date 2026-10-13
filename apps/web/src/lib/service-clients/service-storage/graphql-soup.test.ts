@@ -453,9 +453,8 @@ describe('legacy channel list notifications', () => {
 
   it('preserves mention and reply thread membership and message targets', async () => {
     const { mapGraphqlNotification } = await import('./graphql-soup');
-    const { scopeChannelNotificationsForEntity } = await import(
-      '../../../features/soup/entity-notifications'
-    );
+    const { scopeChannelNotificationsForEntity } =
+      await import('../../../features/soup/entity-notifications');
     const mapped = [
       notification({
         __typename: 'GraphqlChannelMessageSendMetadata',
@@ -750,9 +749,8 @@ describe('GraphQL Soup browser cache session gate', () => {
       const report =
         mocks.normalizedCacheExchange.mock.calls[0]?.[1]?.onCacheError;
 
-      const { CacheNavigationError } = await import(
-        '@graphql-cache/host/navigation-error'
-      );
+      const { CacheNavigationError } =
+        await import('@graphql-cache/host/navigation-error');
       report?.(new CacheNavigationError(), operation);
       report?.(
         Object.assign(new Error('owner lock is held by another context'), {

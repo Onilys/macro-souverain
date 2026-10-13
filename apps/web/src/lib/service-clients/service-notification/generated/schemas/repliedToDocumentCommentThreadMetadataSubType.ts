@@ -6,5 +6,4 @@
  */
 import type { NotificationDocumentSubType } from './notificationDocumentSubType';
 
-export type RepliedToDocumentCommentThreadMetadataSubType =
-  null | NotificationDocumentSubType;
+export type RepliedToDocumentCommentThreadMetadataSubType = null | NotificationDocumentSubType;

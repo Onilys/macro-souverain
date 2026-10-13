@@ -62,10 +62,10 @@ import {
 } from './use-callkit';
 
 type LivekitJsCallController = ReturnType<
-  typeof import('./LivekitJsCallController')['createLivekitJsCallController']
+  (typeof import('./LivekitJsCallController'))['createLivekitJsCallController']
 >;
 type LivekitJsCallControllerOptions = Parameters<
-  typeof import('./LivekitJsCallController')['createLivekitJsCallController']
+  (typeof import('./LivekitJsCallController'))['createLivekitJsCallController']
 >[0];
 
 export type CallParticipantInfo = {
@@ -778,9 +778,8 @@ function createCallState() {
       if (room() !== r || !isLiveLocalTrack(camTrack)) return true;
 
       // Create and attach a new processor.
-      const { BackgroundProcessor, ProcessorWrapper } = await import(
-        '@livekit/track-processors'
-      );
+      const { BackgroundProcessor, ProcessorWrapper } =
+        await import('@livekit/track-processors');
       if (!ProcessorWrapper.isSupported) return false;
       if (room() !== r || !isLiveLocalTrack(camTrack)) return true;
 

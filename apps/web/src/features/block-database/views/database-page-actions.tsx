@@ -58,10 +58,9 @@ export function DatabasePageActions(props: {
     const read =
       file.size > MAX_CSV_BYTES
         ? errAsync<string, CsvImportFailure>({ kind: 'too-large' })
-        : ResultAsync.fromPromise(
-            file.text(),
-            (): CsvImportFailure => ({ kind: 'unreadable' })
-          );
+        : ResultAsync.fromPromise(file.text(), (): CsvImportFailure => ({
+            kind: 'unreadable',
+          }));
     const parsed = await read.andThen(parseDatabaseCsv);
     setReading(false);
     if (fileInput) fileInput.value = '';

@@ -6,5 +6,4 @@
  */
 import type { NotificationDocumentSubType } from './notificationDocumentSubType';
 
-export type CommentedOnDocumentMetadataSubType =
-  null | NotificationDocumentSubType;
+export type CommentedOnDocumentMetadataSubType = null | NotificationDocumentSubType;

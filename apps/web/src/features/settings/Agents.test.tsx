@@ -1148,9 +1148,9 @@ describe('Agents', () => {
       defaultOptions: { queries: { retry: false } },
     });
     const queryKey = ['refreshed-harnesses'];
-    const fetchHarnesses = vi.fn(
-      async (): Promise<Harness[]> => [{ ...MACROD_HARNESS }]
-    );
+    const fetchHarnesses = vi.fn(async (): Promise<Harness[]> => [
+      { ...MACROD_HARNESS },
+    ]);
     vi.mocked(useHarnessesQuery).mockImplementationOnce(() =>
       useQuery(() => ({
         queryKey,

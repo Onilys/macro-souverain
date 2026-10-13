@@ -22,9 +22,8 @@ describe('clearRegisteredCaches', () => {
     localStorage.setItem('graphql-soup-backfill:v7:user-1:email', '{}');
     localStorage.setItem('unrelated', 'keep');
     const clear = vi.fn().mockResolvedValue(undefined);
-    const { clearRegisteredCaches, registerCacheHost } = await import(
-      './lifecycle'
-    );
+    const { clearRegisteredCaches, registerCacheHost } =
+      await import('./lifecycle');
     registerCacheHost(hostWithClear(clear));
 
     await clearRegisteredCaches();
@@ -63,9 +62,8 @@ describe('clearRegisteredCaches', () => {
         ),
       },
     });
-    const { clearRegisteredCaches, registerCacheHost } = await import(
-      './lifecycle'
-    );
+    const { clearRegisteredCaches, registerCacheHost } =
+      await import('./lifecycle');
     registerCacheHost(
       hostWithClear(async () => await Promise.reject(new Error('wipe failed')))
     );
@@ -94,9 +92,8 @@ describe('clearRegisteredCaches', () => {
     const failedClear = vi
       .fn()
       .mockRejectedValue(new Error('durable wipe failed'));
-    const { clearRegisteredCaches, registerCacheHost } = await import(
-      './lifecycle'
-    );
+    const { clearRegisteredCaches, registerCacheHost } =
+      await import('./lifecycle');
     registerCacheHost(hostWithClear(successfulClear));
     registerCacheHost(hostWithClear(failedClear));
 

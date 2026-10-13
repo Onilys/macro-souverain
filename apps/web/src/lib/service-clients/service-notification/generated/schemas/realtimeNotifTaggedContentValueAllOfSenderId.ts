@@ -6,5 +6,4 @@
  */
 import type { MacroUserIdStr } from './macroUserIdStr';
 
-export type RealtimeNotifTaggedContentValueAllOfSenderId =
-  null | MacroUserIdStr;
+export type RealtimeNotifTaggedContentValueAllOfSenderId = null | MacroUserIdStr;

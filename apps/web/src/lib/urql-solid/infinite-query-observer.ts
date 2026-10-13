@@ -111,12 +111,10 @@ export class InfiniteQueryObserver<
   Variables extends AnyVariables,
   PageParam,
   SelectedData = UrqlInfiniteData<PageData, PageParam>,
-> implements
-    UrqlObserver<
-      InfiniteOptions<PageData, Variables, PageParam, SelectedData>,
-      InfiniteResult<PageData, Variables, PageParam, SelectedData>
-    >
-{
+> implements UrqlObserver<
+  InfiniteOptions<PageData, Variables, PageParam, SelectedData>,
+  InfiniteResult<PageData, Variables, PageParam, SelectedData>
+> {
   private client: Client;
   private options: InfiniteOptions<
     PageData,

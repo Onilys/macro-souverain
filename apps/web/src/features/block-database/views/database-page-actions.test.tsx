@@ -47,8 +47,8 @@ afterEach(() => {
 
 function setup(
   grant: DatabaseDetail['grant'] = 'owner',
-  remove = vi.fn(
-    (): ResultAsync<void, DatabaseEntityFailure> => okAsync(undefined)
+  remove = vi.fn((): ResultAsync<void, DatabaseEntityFailure> =>
+    okAsync(undefined)
   )
 ) {
   let editTitle: (() => void) | undefined;

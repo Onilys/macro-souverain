@@ -89,8 +89,8 @@ export function useTasksDataSource(
   const attachNotifications = (entity: TaskEntityWithProperties) =>
     withEntityNotifications(entity, notificationSource);
 
-  const facetContext = createMemo(
-    (): TaskFacetContext => createTagFacetContext(options.tagSets())
+  const facetContext = createMemo((): TaskFacetContext =>
+    createTagFacetContext(options.tagSets())
   );
   const facetOptionsReady = () =>
     (options.enabled?.() ?? true) &&

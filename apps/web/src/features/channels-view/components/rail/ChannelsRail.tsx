@@ -419,15 +419,13 @@ export function ChannelsRail(props: ChannelsRailProps) {
 
   const visibleRows = createMemo(() => {
     if (props.searchOpen) {
-      return searchResults().map(
-        (channel, localIndex): ChannelRailRow => ({
-          kind: 'conversation',
-          id: rowKeyForChannel(channel.id),
-          scope: 'search',
-          localIndex,
-          channel,
-        })
-      );
+      return searchResults().map((channel, localIndex): ChannelRailRow => ({
+        kind: 'conversation',
+        id: rowKeyForChannel(channel.id),
+        scope: 'search',
+        localIndex,
+        channel,
+      }));
     }
 
     return buildChannelRailRows(

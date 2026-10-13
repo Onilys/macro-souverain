@@ -61,12 +61,10 @@ export class MutationObserver<
   Variables extends AnyVariables,
   Input = Variables,
   OnMutateResult = void,
-> implements
-    UrqlObserver<
-      MutationOptions<MutationData, Variables, Input, OnMutateResult>,
-      MutationResult<MutationData, Variables, Input, OnMutateResult>
-    >
-{
+> implements UrqlObserver<
+  MutationOptions<MutationData, Variables, Input, OnMutateResult>,
+  MutationResult<MutationData, Variables, Input, OnMutateResult>
+> {
   private client: Client;
   private options: MutationOptions<
     MutationData,

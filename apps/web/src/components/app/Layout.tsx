@@ -84,9 +84,8 @@ import { SwipeDownDismissKeyboard } from './mobile/SwipeDownDismissKeyboard';
 import { useAppSquishHandlers } from './useAppSquishHandlers';
 
 const StarterDatabase = lazy(async () => {
-  const module = await import(
-    '@app/features/block-database/views/starter-database'
-  );
+  const module =
+    await import('@app/features/block-database/views/starter-database');
   return { default: module.StarterDatabase };
 });
 

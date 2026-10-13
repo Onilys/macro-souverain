@@ -8,7 +8,8 @@ type LoadedDatabase = DatabaseDetail & { userAccessLevel: AccessLevel };
 /** Load transport only when opening a database, not while discovering block types. */
 export async function loadDatabase(id: string) {
   const result = await storageServiceClient.databases.get({ id });
-  return result.map(
-    (detail): LoadedDatabase => ({ ...detail, userAccessLevel: detail.grant })
-  );
+  return result.map((detail): LoadedDatabase => ({
+    ...detail,
+    userAccessLevel: detail.grant,
+  }));
 }

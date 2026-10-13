@@ -47,9 +47,8 @@ it('publishes account-scoped meeting resolutions locally and across tabs', async
 });
 
 it('accepts storage fallback delivery and rejects malformed resolutions', async () => {
-  const { subscribeToMeetingInvitationResolutions } = await import(
-    '../meeting-invitation-resolution'
-  );
+  const { subscribeToMeetingInvitationResolutions } =
+    await import('../meeting-invitation-resolution');
   const listener = vi.fn();
   const unsubscribe = subscribeToMeetingInvitationResolutions(listener);
   BroadcastChannelStub.instance?.handler?.({

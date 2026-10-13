@@ -73,13 +73,10 @@ const toIdle = (command: Command): Result => ({
 /** Rows every phase shares; any other report comes from a phase already left. */
 function anyPhase(s: Running, e: Event): Result {
   return match(e)
-    .with(
-      { t: 'navigate' },
-      (e): Result => ({
-        state: { t: 'guards', navigation: e.navigation },
-        commands: [cancel(s.navigation, 'superseded')],
-      })
-    )
+    .with({ t: 'navigate' }, (e): Result => ({
+      state: { t: 'guards', navigation: e.navigation },
+      commands: [cancel(s.navigation, 'superseded')],
+    }))
     .with({ t: 'abort' }, (e) => toIdle(cancel(s.navigation, e.reason)))
     .with({ t: 'failed' }, () => toIdle(cancel(s.navigation, 'failed')))
     .otherwise(() => undefined);

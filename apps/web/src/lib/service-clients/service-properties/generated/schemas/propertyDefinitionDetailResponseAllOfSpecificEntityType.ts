@@ -6,5 +6,4 @@
  */
 import type { EntityType } from './entityType';
 
-export type PropertyDefinitionDetailResponseAllOfSpecificEntityType =
-  null | EntityType;
+export type PropertyDefinitionDetailResponseAllOfSpecificEntityType = null | EntityType;

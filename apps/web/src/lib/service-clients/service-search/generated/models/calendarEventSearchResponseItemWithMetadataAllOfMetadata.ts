@@ -6,5 +6,4 @@
  */
 import type { CalendarEventMetadata } from './calendarEventMetadata';
 
-export type CalendarEventSearchResponseItemWithMetadataAllOfMetadata =
-  null | CalendarEventMetadata;
+export type CalendarEventSearchResponseItemWithMetadataAllOfMetadata = null | CalendarEventMetadata;

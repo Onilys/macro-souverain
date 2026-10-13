@@ -9,7 +9,13 @@ import {
 } from './notification-refresh';
 import { registerChannelNotificationRefresh } from './register-notification-refresh';
 
-const document = gql`query Channel($id: ID!) { channel(id: $id) { id } }`;
+const document = gql`
+  query Channel($id: ID!) {
+    channel(id: $id) {
+      id
+    }
+  }
+`;
 const descriptor: QueryRevalidation = { document, variables: { id: 'a' } };
 const cleanups: (() => void)[] = [];
 beforeEach(() => {

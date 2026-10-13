@@ -15,7 +15,9 @@ test('GETPIVOTDATA reads an imported pivot table and follows its cells', async (
   await expect(page.locator('[data-address="B4"]')).toHaveText('30');
   const chooser = page.waitForEvent('filechooser');
   await menu(page, 'Import and export', 'Import…');
-  await (await chooser).setFiles(
+  await (
+    await chooser
+  ).setFiles(
     fileURLToPath(
       new URL(
         '../core/xlsx-fixtures/real-world/zenodo-ccs-cement-post-tax-dcf-model.xlsx',
@@ -60,7 +62,9 @@ test('pivot tables over another workbook download with the data Excel saved', as
   await expect(page.locator('[data-address="B4"]')).toHaveText('30');
   const chooser = page.waitForEvent('filechooser');
   await menu(page, 'Import and export', 'Import…');
-  await (await chooser).setFiles(
+  await (
+    await chooser
+  ).setFiles(
     fileURLToPath(
       new URL(
         '../core/xlsx-fixtures/real-world/figshare-ucl-social-enterprise-financial-sustainability-model.xlsx',

@@ -32,9 +32,8 @@ describe('call resolution signaling', () => {
   });
 
   it('publishes to this tab and both cross-tab transports', async () => {
-    const { publishCallResolution, subscribeToCallResolutions } = await import(
-      '../call-resolution'
-    );
+    const { publishCallResolution, subscribeToCallResolutions } =
+      await import('../call-resolution');
     const handler = vi.fn();
     const unsubscribe = subscribeToCallResolutions(handler);
     const resolution = {
@@ -98,9 +97,8 @@ describe('call resolution signaling', () => {
 
   it('createCallResolutionsEffect unsubscribes when its owner is disposed', async () => {
     const { createRoot } = await import('solid-js');
-    const { createCallResolutionsEffect, publishCallResolution } = await import(
-      '../call-resolution'
-    );
+    const { createCallResolutionsEffect, publishCallResolution } =
+      await import('../call-resolution');
     const handler = vi.fn();
     const whileMounted = {
       type: 'ended' as const,

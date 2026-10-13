@@ -24,29 +24,27 @@ function cacheHost(
 }
 
 it('reads recent channels and DMs from the cache projection', async () => {
-  const search = vi.fn(
-    async (): Promise<SearchCachePage> => ({
-      documents: [
-        {
-          profile: 'quick-access-v1',
-          recordKey: 'GraphqlSoupChannel:channel-1',
-          bucket: 'channel',
-          searchText: 'general',
-          timestampMs: 2,
-          sourceHash: 'channel-hash',
-        },
-        {
-          profile: 'quick-access-v1',
-          recordKey: 'GraphqlSoupChannel:dm-1',
-          bucket: 'dm',
-          searchText: 'direct message',
-          timestampMs: 1,
-          sourceHash: 'dm-hash',
-        },
-      ],
-      nextCursor: null,
-    })
-  );
+  const search = vi.fn(async (): Promise<SearchCachePage> => ({
+    documents: [
+      {
+        profile: 'quick-access-v1',
+        recordKey: 'GraphqlSoupChannel:channel-1',
+        bucket: 'channel',
+        searchText: 'general',
+        timestampMs: 2,
+        sourceHash: 'channel-hash',
+      },
+      {
+        profile: 'quick-access-v1',
+        recordKey: 'GraphqlSoupChannel:dm-1',
+        bucket: 'dm',
+        searchText: 'direct message',
+        timestampMs: 1,
+        sourceHash: 'dm-hash',
+      },
+    ],
+    nextCursor: null,
+  }));
   const readRecordsByKeys = vi.fn(async (args: ReadRecordsByKeysArgs) =>
     args.keys.map((recordKey) => ({
       recordKey,

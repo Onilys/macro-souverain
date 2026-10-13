@@ -45,9 +45,7 @@ export interface FoldStream {
 interface AgentFoldWasmModule {
   default: (input?: { module_or_path?: unknown }) => Promise<unknown>;
   /** Opens a fold for one session. Throws when the id is not a UUID. */
-  FoldStream: new (
-    sessionId: string
-  ) => FoldStream;
+  FoldStream: new (sessionId: string) => FoldStream;
 }
 
 let modulePromise: Promise<AgentFoldWasmModule> | undefined;

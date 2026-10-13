@@ -25,8 +25,9 @@ interface _IPromiseCapability<T = undefined> {
   reject: (reason?: any) => void;
 }
 
-interface IPromiseCapability<T = undefined>
-  extends Readonly<_IPromiseCapability<T>> {}
+interface IPromiseCapability<T = undefined> extends Readonly<
+  _IPromiseCapability<T>
+> {}
 
 function createPromiseCapability<T = undefined>(): IPromiseCapability<T> {
   const result: _IPromiseCapability<T> = Object.create(null);

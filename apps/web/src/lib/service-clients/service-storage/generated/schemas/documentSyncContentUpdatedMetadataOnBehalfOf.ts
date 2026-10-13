@@ -6,5 +6,4 @@
  */
 import type { MacroUserIdStr } from './macroUserIdStr';
 
-export type DocumentSyncContentUpdatedMetadataOnBehalfOf =
-  null | MacroUserIdStr;
+export type DocumentSyncContentUpdatedMetadataOnBehalfOf = null | MacroUserIdStr;

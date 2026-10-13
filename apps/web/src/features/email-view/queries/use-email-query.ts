@@ -119,18 +119,16 @@ export function useEmailDataSource(
   );
   const favoriteIds = createMemo(() => new Set(favoriteThreadIds()));
 
-  const facetContext = createMemo(
-    (): EmailFacetContext => createTagFacetContext(options.tagSets())
+  const facetContext = createMemo((): EmailFacetContext =>
+    createTagFacetContext(options.tagSets())
   );
 
-  const queryContext = createMemo(
-    (): EmailQueryContext => ({
-      tab: state.tab,
-      inboxIds: state.inboxIds === undefined ? undefined : [...state.inboxIds],
-      facets: state.facets,
-      facetContext: facetContext(),
-    })
-  );
+  const queryContext = createMemo((): EmailQueryContext => ({
+    tab: state.tab,
+    inboxIds: state.inboxIds === undefined ? undefined : [...state.inboxIds],
+    facets: state.facets,
+    facetContext: facetContext(),
+  }));
 
   // Discovery must apply read status before pagination, not scan through
   // pages of read mail to find an unread thread.

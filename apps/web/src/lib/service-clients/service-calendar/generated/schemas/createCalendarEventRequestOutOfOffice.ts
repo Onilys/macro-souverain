@@ -6,5 +6,4 @@
  */
 import type { OutOfOfficeProperties } from './outOfOfficeProperties';
 
-export type CreateCalendarEventRequestOutOfOffice =
-  null | OutOfOfficeProperties;
+export type CreateCalendarEventRequestOutOfOffice = null | OutOfOfficeProperties;

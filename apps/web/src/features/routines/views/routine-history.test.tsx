@@ -74,18 +74,14 @@ function entity(
 }
 function sources() {
   return {
-    createChatMetadata: vi.fn(
-      (id: string) => (): HistoryMetadata => ({
-        status: 'ready',
-        entity: entity('chat', id, `Chat ${id}`),
-      })
-    ),
-    createAgentMetadata: vi.fn(
-      (id: string) => (): HistoryMetadata => ({
-        status: 'ready',
-        entity: entity('agent', id, `Agent ${id}`),
-      })
-    ),
+    createChatMetadata: vi.fn((id: string) => (): HistoryMetadata => ({
+      status: 'ready',
+      entity: entity('chat', id, `Chat ${id}`),
+    })),
+    createAgentMetadata: vi.fn((id: string) => (): HistoryMetadata => ({
+      status: 'ready',
+      entity: entity('agent', id, `Agent ${id}`),
+    })),
     onOpen: vi.fn(),
   };
 }

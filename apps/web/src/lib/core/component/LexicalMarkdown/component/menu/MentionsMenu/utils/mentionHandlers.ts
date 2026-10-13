@@ -38,9 +38,9 @@ function tracksMentions(dependencies: HandlerDependencies): boolean {
   const { blockId, blockName, disableMentionTracking } = dependencies;
   return Boolean(
     blockId &&
-      blockName !== 'channel' &&
-      blockName !== 'chat' &&
-      !disableMentionTracking
+    blockName !== 'channel' &&
+    blockName !== 'chat' &&
+    !disableMentionTracking
   );
 }
 

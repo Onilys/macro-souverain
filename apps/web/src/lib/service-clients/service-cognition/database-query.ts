@@ -24,9 +24,10 @@ export function generateDatabaseQuery(
       ...databaseCompletionRequest(input),
     })
   )
-    .mapErr(
-      (errors): DatabaseGenerationFailure => ({ kind: 'service', errors })
-    )
+    .mapErr((errors): DatabaseGenerationFailure => ({
+      kind: 'service',
+      errors,
+    }))
     .andThen((response) =>
       match(response.outcome)
         .returnType<Result<unknown, DatabaseGenerationFailure>>()

@@ -6,5 +6,4 @@
  */
 import type { UpdateSharePermissionRequestV2 } from './updateSharePermissionRequestV2';
 
-export type EditCallRecordRequestSharePermission =
-  null | UpdateSharePermissionRequestV2;
+export type EditCallRecordRequestSharePermission = null | UpdateSharePermissionRequestV2;

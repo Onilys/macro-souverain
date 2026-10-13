@@ -474,9 +474,8 @@ function RampEditor(props: { tokens: readonly string[] }) {
           (index + 1) / (props.tokens.length - 1),
       ])
     );
-  const [positions, setPositions] = createSignal<Record<string, number>>(
-    defaultPositions()
-  );
+  const [positions, setPositions] =
+    createSignal<Record<string, number>>(defaultPositions());
   const [overwrite, setOverwrite] = createSignal(false);
 
   createEffect(() => {

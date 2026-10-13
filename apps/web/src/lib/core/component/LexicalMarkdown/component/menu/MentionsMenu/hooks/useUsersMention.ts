@@ -112,13 +112,11 @@ export function useUsersMention(
 
     const term = searchTerm().toLowerCase();
 
-    return GROUPS.filter((g) => g.match(term)).map(
-      (g): GroupMentionItem => ({
-        kind: 'group',
-        id: g.alias,
-        data: { id: g.alias, groupAlias: g.alias },
-      })
-    );
+    return GROUPS.filter((g) => g.match(term)).map((g): GroupMentionItem => ({
+      kind: 'group',
+      id: g.alias,
+      data: { id: g.alias, groupAlias: g.alias },
+    }));
   };
 
   const usersAndGroups = createLazyMemo((): (UserItem | GroupMentionItem)[] => {

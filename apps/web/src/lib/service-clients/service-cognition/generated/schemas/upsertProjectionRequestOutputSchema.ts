@@ -11,5 +11,4 @@ import type { UpsertProjectionRequestOutputSchemaAnyOf } from './upsertProjectio
 `data` holds the JSON serialization of a conforming value. Enforcement
 is prompted (non-strict), so it works across providers.
  */
-export type UpsertProjectionRequestOutputSchema =
-  UpsertProjectionRequestOutputSchemaAnyOf | null;
+export type UpsertProjectionRequestOutputSchema = UpsertProjectionRequestOutputSchemaAnyOf | null;

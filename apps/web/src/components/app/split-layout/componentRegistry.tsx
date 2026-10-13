@@ -534,9 +534,7 @@ if (DEV_MODE_ENV) {
     'md-parse',
     lazy(
       () =>
-        import(
-          '@core/component/LexicalMarkdown/component/debug/MarkdownParseTestPage'
-        )
+        import('@core/component/LexicalMarkdown/component/debug/MarkdownParseTestPage')
     )
   );
   registerComponent(

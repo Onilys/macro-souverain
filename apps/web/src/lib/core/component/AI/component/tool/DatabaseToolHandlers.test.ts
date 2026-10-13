@@ -23,9 +23,8 @@ vi.mock('./DatabaseTools', () => {
   };
 });
 
-const { isToolShown, lazyDatabaseToolHandlers } = await import(
-  './DatabaseToolHandlers'
-);
+const { isToolShown, lazyDatabaseToolHandlers } =
+  await import('./DatabaseToolHandlers');
 
 const savedView = {
   chat_id: 'chat',

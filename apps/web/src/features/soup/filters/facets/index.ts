@@ -1,9 +1,4 @@
-export type {
-  BackendAstMap,
-  BackendAstNode,
-  Leaf,
-  TargetExpr,
-} from './clause';
+export type { BackendAstMap, BackendAstNode, Leaf, TargetExpr } from './clause';
 export { and, clause, combine, eq, literal, not, or } from './clause';
 export {
   compileClause,

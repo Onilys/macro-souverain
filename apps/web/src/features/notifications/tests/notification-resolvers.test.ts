@@ -28,9 +28,8 @@ vi.stubGlobal(
   }
 );
 
-const { DefaultDocumentNameResolver } = await import(
-  '../notification-resolvers'
-);
+const { DefaultDocumentNameResolver } =
+  await import('../notification-resolvers');
 
 describe('DefaultDocumentNameResolver', () => {
   beforeEach(() => {

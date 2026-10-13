@@ -287,7 +287,9 @@ test('imports independent XLSX through the file picker and exports real formulas
 }) => {
   const chooser = page.waitForEvent('filechooser');
   await menu(page, 'Import and export', 'Import…');
-  await (await chooser).setFiles(
+  await (
+    await chooser
+  ).setFiles(
     fileURLToPath(
       new URL('../core/xlsx-fixtures/openpyxl-reference.xlsx', import.meta.url)
     )
@@ -334,7 +336,9 @@ test('undo restores the original workbook after replacing it with an Excel impor
   await edit(page, 'C2', 'Keep this work');
   const chooser = page.waitForEvent('filechooser');
   await menu(page, 'Import and export', 'Import…');
-  await (await chooser).setFiles(
+  await (
+    await chooser
+  ).setFiles(
     fileURLToPath(
       new URL('../core/xlsx-fixtures/openpyxl-reference.xlsx', import.meta.url)
     )
@@ -416,7 +420,9 @@ test('a full workbook keeps sheet navigation and footer controls within a narrow
       .getCell('A1').value = index;
   const chooser = page.waitForEvent('filechooser');
   await menu(page, 'Import and export', 'Import…');
-  await (await chooser).setFiles({
+  await (
+    await chooser
+  ).setFiles({
     name: 'Forecast.xlsx',
     mimeType:
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -596,7 +602,9 @@ test('imports, edits and exports an independent financial workbook using real wo
 }) => {
   const chooser = page.waitForEvent('filechooser');
   await menu(page, 'Import and export', 'Import…');
-  await (await chooser).setFiles(
+  await (
+    await chooser
+  ).setFiles(
     fileURLToPath(
       new URL('../core/xlsx-fixtures/financial-model.xlsx', import.meta.url)
     )

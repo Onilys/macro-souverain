@@ -157,7 +157,10 @@ const api = {
     const host = requireOwner();
     const mutation = gql`
       mutation CacheLifecycleMutation($input: SetEntityPropertyInput!) {
-        setEntityProperty(input: $input) { id displayName }
+        setEntityProperty(input: $input) {
+          id
+          displayName
+        }
       }
     `;
     const response = {

@@ -166,13 +166,10 @@ function reverting(s: Reverting, e: Event): Result {
   return match(e)
     .with({ t: 'start' }, (e) => queueRevert(s, e))
     .with({ t: 'revert-landed' }, () => revertLanded(s))
-    .with(
-      { t: 'dispose' },
-      (): Result => ({
-        state: DISPOSED,
-        commands: [OPENED],
-      })
-    )
+    .with({ t: 'dispose' }, (): Result => ({
+      state: DISPOSED,
+      commands: [OPENED],
+    }))
     .with({ t: 'action' }, { t: 'settled' }, () => undefined)
     .exhaustive();
 }
@@ -188,20 +185,14 @@ function open(e: Event): Result {
 
 function disposed(e: Event): Result {
   return match(e)
-    .with(
-      { t: 'start' },
-      (e): Result => ({
-        state: DISPOSED,
-        commands: [abort(e.navigation, 'disposed')],
-      })
-    )
-    .with(
-      { t: 'action' },
-      (): Result => ({
-        state: DISPOSED,
-        commands: [OPENED],
-      })
-    )
+    .with({ t: 'start' }, (e): Result => ({
+      state: DISPOSED,
+      commands: [abort(e.navigation, 'disposed')],
+    }))
+    .with({ t: 'action' }, (): Result => ({
+      state: DISPOSED,
+      commands: [OPENED],
+    }))
     .otherwise(() => undefined);
 }
 

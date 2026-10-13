@@ -219,13 +219,11 @@ function MentionsMenuInner(props: MentionsMenuProps) {
 
   const dateOptions = useDateSearch({ query: searchTerm });
   const dates = createLazyMemo((): DateMentionItem[] => {
-    return dateOptions().map(
-      (option): DateMentionItem => ({
-        kind: 'date',
-        id: `date-${option.id}`,
-        data: option,
-      })
-    );
+    return dateOptions().map((option): DateMentionItem => ({
+      kind: 'date',
+      id: `date-${option.id}`,
+      data: option,
+    }));
   });
 
   const currentBlockId = useMaybeBlockId();

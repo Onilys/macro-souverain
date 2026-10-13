@@ -1451,11 +1451,11 @@ export class CoordinatorRouter {
     const state = this.coreValue?.state;
     return Boolean(
       state &&
-        state.kind !== 'waiting-for-tab' &&
-        state.kind !== 'resetting-after-loss' &&
-        state.kind !== 'failed' &&
-        state.tabId === tabId &&
-        state.ownerEpoch === ownerEpoch
+      state.kind !== 'waiting-for-tab' &&
+      state.kind !== 'resetting-after-loss' &&
+      state.kind !== 'failed' &&
+      state.tabId === tabId &&
+      state.ownerEpoch === ownerEpoch
     );
   }
 

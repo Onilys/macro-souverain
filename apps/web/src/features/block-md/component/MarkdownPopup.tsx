@@ -371,9 +371,9 @@ export function MarkdownPopup(props: {
   const shouldShowCheckboxToTaskButton = () => {
     return Boolean(
       isCheckboxToTaskPluginEnabled(editor) &&
-        hasCheckboxes() &&
-        canEdit() &&
-        currentUserId()
+      hasCheckboxes() &&
+      canEdit() &&
+      currentUserId()
     );
   };
 

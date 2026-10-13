@@ -100,7 +100,7 @@ function decodePath(bytes: Uint8Array): string {
 
 function checkExtra(bytes: Uint8Array): void {
   const data = view(bytes);
-  for (let offset = 0; offset < bytes.length; ) {
+  for (let offset = 0; offset < bytes.length;) {
     if (offset + 4 > bytes.length) throw new ArchiveError('invalid_zip');
     const kind = data.getUint16(offset, true);
     const size = data.getUint16(offset + 2, true);

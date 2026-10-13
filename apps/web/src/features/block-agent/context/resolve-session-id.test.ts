@@ -112,9 +112,8 @@ vi.mock('@core/agent-session/AgentSession', () => ({
 }));
 
 const { startPendingSession } = await import('./pending-session');
-const { agentHarnessServiceClient } = await import(
-  '@service-agent-harness/client'
-);
+const { agentHarnessServiceClient } =
+  await import('@service-agent-harness/client');
 const { resolveSessionId } = await import('./resolve-session-id');
 
 /** Let the mocked create's `.then` run. */

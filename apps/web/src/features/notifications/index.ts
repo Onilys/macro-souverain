@@ -95,10 +95,7 @@ export {
 } from './notification-stacking';
 export { fetchNotificationsForEntities } from './queries/entities-notifications-query';
 export { createMutedEntitiesQuery } from './queries/muted-entities-query';
-export type {
-  CompositeEntity,
-  UnifiedNotification,
-} from './types';
+export type { CompositeEntity, UnifiedNotification } from './types';
 export { compositeEntity, notificationEntity } from './types';
 export {
   handleNotificationUpdate,

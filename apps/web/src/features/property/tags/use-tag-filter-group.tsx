@@ -13,16 +13,14 @@ export type TagFilterGroup = ListFilterGroup<typeof TAG_FACET_ID, string>;
 export function useTagFilterGroup(): Accessor<TagFilterGroup> {
   const tagOptions = useTagOptions();
 
-  return createMemo(
-    (): TagFilterGroup => ({
-      id: TAG_FACET_ID,
-      label: 'Tags',
-      searchPlaceholder: 'Filter by tag...',
-      options: tagOptions().map((tag) => ({
-        id: tag.id,
-        label: tag.label,
-        icon: () => <TagDot color={tag.color} />,
-      })),
-    })
-  );
+  return createMemo((): TagFilterGroup => ({
+    id: TAG_FACET_ID,
+    label: 'Tags',
+    searchPlaceholder: 'Filter by tag...',
+    options: tagOptions().map((tag) => ({
+      id: tag.id,
+      label: tag.label,
+      icon: () => <TagDot color={tag.color} />,
+    })),
+  }));
 }

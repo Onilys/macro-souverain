@@ -6,5 +6,4 @@
  */
 import type { ApiMessageListVisibility } from './apiMessageListVisibility';
 
-export type ApiMessageLabelMessageListVisibility =
-  null | ApiMessageListVisibility;
+export type ApiMessageLabelMessageListVisibility = null | ApiMessageListVisibility;

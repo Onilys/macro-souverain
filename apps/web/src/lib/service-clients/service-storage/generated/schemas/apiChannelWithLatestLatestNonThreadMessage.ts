@@ -6,5 +6,4 @@
  */
 import type { ApiChannelListMessage } from './apiChannelListMessage';
 
-export type ApiChannelWithLatestLatestNonThreadMessage =
-  null | ApiChannelListMessage;
+export type ApiChannelWithLatestLatestNonThreadMessage = null | ApiChannelListMessage;

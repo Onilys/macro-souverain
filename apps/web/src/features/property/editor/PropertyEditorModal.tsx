@@ -255,7 +255,7 @@ export function PropertyEditorModal() {
     const createdDefinitionId = propertyDefinition.id;
     const shouldNotifySelectedEntity = Boolean(
       hasPropertyEditorPropertyAddedHandler() &&
-        propertyEditorState.selectedEntities.length === 1
+      propertyEditorState.selectedEntities.length === 1
     );
 
     if (shouldNotifySelectedEntity) {
@@ -1746,9 +1746,9 @@ function EntityPropertyEditor(props: {
   const canGroupMultiValues = () =>
     Boolean(
       props.property?.isMultiSelect &&
-        props.selectedEntityCount === 1 &&
-        props.property &&
-        'value' in props.property
+      props.selectedEntityCount === 1 &&
+      props.property &&
+      'value' in props.property
     );
 
   const localSelectedIds = createMemo(

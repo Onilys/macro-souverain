@@ -60,12 +60,10 @@ describe('durable draft identity', () => {
   it('starts observation when the queue activates and ignores reads after it deactivates', async () => {
     const [enabled, setEnabled] = createSignal(false);
     const pending = Promise.withResolvers<ReadResult>();
-    const read = vi.fn(
-      async (): Promise<ReadResult> => ({
-        draft: message('server'),
-        persistence: 'committed',
-      })
-    );
+    const read = vi.fn(async (): Promise<ReadResult> => ({
+      draft: message('server'),
+      persistence: 'committed',
+    }));
     const unsubscribe = vi.fn();
     let changed!: () => void;
     const watch = vi.fn((callback: () => void) => {
@@ -133,17 +131,15 @@ describe('durable draft identity', () => {
   });
 
   it('adopts settlement IDs and unblocks send without repeatedly reading the cache', async () => {
-    const read = vi.fn(
-      async (): Promise<ReadResult> => ({
-        draft: message('server', {
-          thread_db_id: 'server-thread',
-          link_id: 'server-inbox',
-          is_draft: true,
-        }),
-        persistence: 'committed',
-        mutationUuid: 'local',
-      })
-    );
+    const read = vi.fn(async (): Promise<ReadResult> => ({
+      draft: message('server', {
+        thread_db_id: 'server-thread',
+        link_id: 'server-inbox',
+        is_draft: true,
+      }),
+      persistence: 'committed',
+      mutationUuid: 'local',
+    }));
     const root = mount(read);
     expect(root.session.serverConfirmed()).toBe(false);
     await vi.waitFor(() => expect(root.session.serverConfirmed()).toBe(true));

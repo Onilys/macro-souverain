@@ -6,5 +6,4 @@
  */
 import type { SoupDocumentSubType } from './soupDocumentSubType';
 
-export type SoupDocumentSoupPropertiesFieldAllOfTwoSubType =
-  null | SoupDocumentSubType;
+export type SoupDocumentSoupPropertiesFieldAllOfTwoSubType = null | SoupDocumentSubType;

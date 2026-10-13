@@ -23,9 +23,8 @@ vi.mock('../call-audio-receiver-stats', () => ({
   startReceiverStatsSampling: () => () => undefined,
 }));
 
-const { createLivekitJsCallController } = await import(
-  '../LivekitJsCallController'
-);
+const { createLivekitJsCallController } =
+  await import('../LivekitJsCallController');
 
 const token = {
   callId: 'call-1',

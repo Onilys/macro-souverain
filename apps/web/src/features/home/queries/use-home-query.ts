@@ -133,15 +133,13 @@ export function useHomeEntitiesQuery(
     snippets: isFeatureEnabled(enableSnippets),
   });
 
-  const viewContext = createMemo(
-    (): HomeViewContext => ({
-      tab: state.tab,
-      facets: state.facets,
-      facetContext: facetContext(),
-      capabilities: capabilities(),
-      userId: userId(),
-    })
-  );
+  const viewContext = createMemo((): HomeViewContext => ({
+    tab: state.tab,
+    facets: state.facets,
+    facetContext: facetContext(),
+    capabilities: capabilities(),
+    userId: userId(),
+  }));
 
   const queryArgs = createMemo(() => buildHomeQuery(viewContext()));
 
