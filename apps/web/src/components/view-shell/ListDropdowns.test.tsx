@@ -9,7 +9,6 @@ import {
 import { createSignal, For, type JSX, type ParentProps } from 'solid-js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SearchableMultiSelect } from '../../features/next-soup/soup-view/filters-bar/searchable-multi-select';
-import { Dropdown } from '../ui/components/Dropdown';
 import type { AiFilterOutcome } from './AiFilterInput';
 import { ListFilterDropdown } from './ListDropdowns';
 
@@ -98,11 +97,8 @@ function setup(single = false, searchable = false) {
   return { selected, open, setOpen };
 }
 
-function selectOption(element: HTMLElement, shiftKey = false) {
-  fireEvent(
-    element,
-    new MouseEvent('pointerup', { button: 0, bubbles: true, shiftKey })
-  );
+function selectOption(element: HTMLElement) {
+  fireEvent(element, new MouseEvent('pointerup', { button: 0, bubbles: true }));
 }
 
 async function openSubmenu() {
@@ -111,164 +107,94 @@ async function openSubmenu() {
   fireEvent.keyDown(trigger, { key: 'ArrowRight' });
 }
 
-it('keeps multi-select menus open with Shift while adding and removing filters', async () => {
-  const { selected, open } = setup();
-  await openSubmenu();
-  selectOption(
-    await screen.findByRole('menuitemcheckbox', { name: 'Alice' }),
-    true
-  );
-  expect(selected()).toEqual(['alice']);
-  expect(open()).toBe(true);
-  expect(
-    screen
-      .getByRole('menuitemcheckbox', { name: 'Alice' })
-      .getAttribute('aria-checked')
-  ).toBe('true');
-  selectOption(screen.getByRole('menuitemcheckbox', { name: 'Bob' }), true);
-  expect(selected()).toEqual(['alice', 'bob']);
-  selectOption(screen.getByRole('menuitemcheckbox', { name: 'Alice' }), true);
-  expect(selected()).toEqual(['bob']);
-  expect(open()).toBe(true);
-});
-
 it.each(['pointer', 'keyboard'])(
-  'closes multi-select menus after releasing Shift (%s)',
+  'keeps multi-select menus open while adding and removing filters (%s)',
   async (input) => {
     const { selected, open } = setup();
     await openSubmenu();
-    const alice = await screen.findByRole('menuitemcheckbox', {
-      name: 'Alice',
-    });
-    if (input === 'pointer') selectOption(alice, true);
-    else fireEvent.keyDown(alice, { key: 'Enter', shiftKey: true });
+    const toggle = (name: string) => {
+      const option = screen.getByRole('menuitemcheckbox', { name });
+      if (input === 'pointer') selectOption(option);
+      else fireEvent.keyDown(option, { key: 'Enter' });
+    };
+    await screen.findByRole('menuitemcheckbox', { name: 'Alice' });
+    toggle('Alice');
+    toggle('Bob');
     await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(selected()).toEqual(['alice', 'bob']);
     expect(open()).toBe(true);
-    expect(selected()).toEqual(['alice']);
-    if (input === 'pointer') selectOption(alice);
-    else fireEvent.keyDown(alice, { key: 'Enter' });
-    await waitFor(() => expect(open()).toBe(false));
-    expect(selected()).toEqual([]);
+    toggle('Alice');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(selected()).toEqual(['bob']);
+    expect(open()).toBe(true);
+    expect(
+      screen
+        .getByRole('menuitemcheckbox', { name: 'Bob' })
+        .getAttribute('aria-checked')
+    ).toBe('true');
   }
 );
 
-function clickSearchOption(element: HTMLElement, shiftKey: boolean) {
+function clickSearchOption(element: HTMLElement) {
   for (const type of ['pointerdown', 'pointerup', 'click']) {
     const event = new MouseEvent(type, {
       button: 0,
       bubbles: true,
       cancelable: true,
-      shiftKey,
     });
     Object.defineProperty(event, 'pointerType', { value: 'mouse' });
     fireEvent(element, event);
   }
 }
 
-it('Shift-click toggles individual searchable options without selecting a range', async () => {
+it('keeps searchable submenus open while toggling several options', async () => {
   const { selected, open } = setup(false, true);
   await openSubmenu();
-  const alice = await screen.findByRole('option', { name: 'Alice' });
-  clickSearchOption(alice, true);
+  clickSearchOption(await screen.findByRole('option', { name: 'Alice' }));
   await waitFor(() => expect(selected()).toEqual(['alice']));
-  clickSearchOption(screen.getByRole('option', { name: 'Carol' }), true);
+  clickSearchOption(screen.getByRole('option', { name: 'Carol' }));
   await waitFor(() => expect(selected()).toEqual(['alice', 'carol']));
-  expect(open()).toBe(true);
-  clickSearchOption(screen.getByRole('option', { name: 'Alice' }), true);
+  clickSearchOption(screen.getByRole('option', { name: 'Alice' }));
   await waitFor(() => expect(selected()).toEqual(['carol']));
   expect(open()).toBe(true);
-  clickSearchOption(screen.getByRole('option', { name: 'Carol' }), false);
-  await waitFor(() => expect(open()).toBe(false));
-  expect(selected()).toEqual([]);
+  expect(screen.getByPlaceholderText('Search assignees...')).toBeTruthy();
 });
 
-it('Enter closes the entire searchable filter menu after applying the selection', async () => {
-  const { selected, open } = setup(false, true);
-  await openSubmenu();
-  const input = await screen.findByPlaceholderText('Search assignees...');
-  await waitFor(() => expect(document.activeElement).toBe(input));
-  fireEvent.input(input, { target: { value: 'Alice' } });
-  fireEvent.keyDown(input, { key: 'ArrowDown' });
-  fireEvent.keyDown(input, { key: 'Enter' });
-  await waitFor(() => expect(open()).toBe(false));
-  expect(selected()).toEqual(['alice']);
-});
-
-it.each(['pointer', 'keyboard'])(
-  'standalone searchable filters keep Shift selections open and close on a normal selection (%s)',
-  async (method) => {
-    const [selected, setSelected] = createSignal<string[]>([]);
-    const [open, setOpen] = createSignal(true);
-    render(() => (
-      <SearchableMultiSelect
-        options={() => [
-          { id: 'alice', label: 'Alice' },
-          { id: 'bob', label: 'Bob' },
-        ]}
-        activeIds={selected}
-        onChange={setSelected}
-        open={open}
-        onOpenChange={setOpen}
-      >
-        <Combobox.Trigger>People</Combobox.Trigger>
-      </SearchableMultiSelect>
-    ));
-    const input = await screen.findByPlaceholderText('Search...');
-    if (method === 'keyboard') {
-      input.focus();
-      fireEvent.input(input, { target: { value: 'Alice' } });
-      fireEvent.keyDown(input, { key: 'ArrowDown' });
-      fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
-    } else
-      clickSearchOption(
-        await screen.findByRole('option', { name: 'Alice' }),
-        true
-      );
-    await waitFor(() => expect(selected()).toEqual(['alice']));
-    expect(open()).toBe(true);
-    if (method === 'keyboard') {
-      // Choosing an option clears the search; highlight the next choice again.
-      fireEvent.keyDown(input, { key: 'ArrowDown' });
-      fireEvent.keyDown(input, { key: 'Enter' });
-    } else
-      clickSearchOption(screen.getByRole('option', { name: 'Alice' }), false);
-    await waitFor(() => expect(open()).toBe(false));
-    expect(selected()).toEqual([]);
-  }
-);
-
-it('shared checkbox filters support Shift+Enter and close after ordinary Enter', async () => {
-  const [checked, setChecked] = createSignal(false);
+it('standalone searchable filters stay open while toggling options', async () => {
+  const [selected, setSelected] = createSignal<string[]>([]);
   const [open, setOpen] = createSignal(true);
   render(() => (
-    <Dropdown open={open()} onOpenChange={setOpen}>
-      <Dropdown.Trigger>Options</Dropdown.Trigger>
-      <Dropdown.Content>
-        <Dropdown.CheckboxItem
-          closeOnSelect="unless-shift"
-          checked={checked()}
-          onChange={setChecked}
-        >
-          Accepted
-        </Dropdown.CheckboxItem>
-      </Dropdown.Content>
-    </Dropdown>
+    <SearchableMultiSelect
+      options={() => [
+        { id: 'alice', label: 'Alice' },
+        { id: 'bob', label: 'Bob' },
+      ]}
+      activeIds={selected}
+      onChange={setSelected}
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <Combobox.Trigger>People</Combobox.Trigger>
+    </SearchableMultiSelect>
   ));
-  const option = await screen.findByRole('menuitemcheckbox', {
-    name: 'Accepted',
-  });
-  await waitFor(() => expect(document.activeElement).toBe(option));
-  fireEvent.keyDown(option, { key: 'Enter', shiftKey: true });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(checked()).toBe(true);
+  clickSearchOption(await screen.findByRole('option', { name: 'Alice' }));
+  await waitFor(() => expect(selected()).toEqual(['alice']));
+  clickSearchOption(screen.getByRole('option', { name: 'Bob' }));
+  await waitFor(() => expect(selected()).toEqual(['alice', 'bob']));
   expect(open()).toBe(true);
-  fireEvent.keyDown(option, { key: 'Enter' });
-  await waitFor(() => expect(open()).toBe(false));
-  expect(checked()).toBe(false);
 });
 
-function mousePointer(element: HTMLElement, type: string) {
-  const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+function mousePointer(
+  element: HTMLElement,
+  type: string,
+  at: { clientX: number; clientY: number } = { clientX: 0, clientY: 0 }
+) {
+  const event = new MouseEvent(type, {
+    // Like the browser, enter/leave do not bubble to the menu or document.
+    bubbles: type !== 'pointerenter' && type !== 'pointerleave',
+    cancelable: true,
+    ...at,
+  });
   Object.defineProperty(event, 'pointerType', { value: 'mouse' });
   fireEvent(element, event);
 }
@@ -281,35 +207,113 @@ function crossMenuPadding() {
   trigger.closest<HTMLElement>('[role="menu"]')!.focus();
 }
 
-it.each([false, true])(
-  'switches immediately to a hovered sibling instead of preserving the old submenu (searchable: %s)',
-  async (searchable) => {
-    setup(false, searchable);
-    await openSubmenu();
-    if (searchable) {
-      const input = await screen.findByPlaceholderText('Search assignees...');
-      await waitFor(() => expect(document.activeElement).toBe(input));
-    } else await screen.findByRole('menuitemcheckbox', { name: 'Alice' });
-
-    crossMenuPadding();
-    const files = screen.getByRole('menuitem', { name: 'Files' });
-    mousePointer(files, 'pointerenter');
-    // Kobalte may suppress pointermove while inside the old submenu's grace
-    // polygon. Entering Files must work even without a subsequent pointermove.
-    expect(files.getAttribute('aria-expanded')).toBe('true');
+/**
+ * Opens Assignee, lays its submenu out to the left of the menu (where the
+ * Tasks and Home menus open them at the window's right edge), and leaves the
+ * Assignee row heading left, toward that submenu.
+ */
+async function leaveTowardAssigneeSubmenu(searchable: boolean) {
+  setup(false, searchable);
+  await openSubmenu();
+  const submenuChild = searchable
+    ? await screen.findByPlaceholderText('Search assignees...')
+    : await screen.findByRole('menuitemcheckbox', { name: 'Alice' });
+  const submenu = submenuChild.closest<HTMLElement>('[role="menu"]')!;
+  // jsdom has no viewport, so the submenu flips to the left once positioned.
+  await waitFor(() =>
     expect(
-      screen
-        .getByRole('menuitem', { name: 'Assignee' })
-        .getAttribute('aria-expanded')
-    ).toBe('false');
+      submenu
+        .closest<HTMLElement>('[data-popper-positioner]')!
+        .style.getPropertyValue('--kb-popper-content-transform-origin')
+    ).toMatch(/^right/)
+  );
+  if (searchable)
+    await waitFor(() => expect(document.activeElement).toBe(submenuChild));
+  vi.spyOn(submenu, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(0, 0, 100, 200)
+  );
+  const assignee = screen.getByRole('menuitem', { name: 'Assignee' });
+  const menu = assignee.closest<HTMLElement>('[role="menu"]')!;
+  mousePointer(menu, 'pointermove', { clientX: 200, clientY: 20 });
+  mousePointer(menu, 'pointermove', { clientX: 150, clientY: 20 });
+  mousePointer(assignee, 'pointerleave', { clientX: 150, clientY: 20 });
+  return { assignee, menu };
+}
+
+it.each([false, true])(
+  'keeps the open submenu while the mouse crosses a sibling toward it, then switches once it rests there (searchable: %s)',
+  async (searchable) => {
+    const { assignee } = await leaveTowardAssigneeSubmenu(searchable);
+    const files = screen.getByRole('menuitem', { name: 'Files' });
+    mousePointer(files, 'pointerenter', { clientX: 140, clientY: 30 });
+    mousePointer(files, 'pointermove', { clientX: 140, clientY: 30 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(assignee.getAttribute('aria-expanded')).toBe('true');
+    expect(files.getAttribute('aria-expanded')).toBe('false');
+
+    // Kobalte suppresses pointermove inside the old submenu's grace polygon,
+    // so a mouse that stops on Files must still switch to it.
+    await waitFor(() =>
+      expect(files.getAttribute('aria-expanded')).toBe('true')
+    );
+    expect(assignee.getAttribute('aria-expanded')).toBe('false');
     expect(
       await screen.findByRole('menuitemradio', { name: 'All files' })
     ).toBeTruthy();
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(files.getAttribute('aria-expanded')).toBe('true');
     expect(screen.queryByPlaceholderText('Search assignees...')).toBeNull();
   }
 );
+
+it('switches to a sibling straight away when the mouse moves away from the open submenu', async () => {
+  const { assignee, menu } = await leaveTowardAssigneeSubmenu(false);
+  const files = screen.getByRole('menuitem', { name: 'Files' });
+  for (const clientX of [160, 170, 180])
+    mousePointer(menu, 'pointermove', { clientX, clientY: 30 });
+  mousePointer(files, 'pointerenter', { clientX: 190, clientY: 30 });
+  mousePointer(files, 'pointermove', { clientX: 190, clientY: 30 });
+  expect(assignee.getAttribute('aria-expanded')).toBe('false');
+  await waitFor(() => expect(files.getAttribute('aria-expanded')).toBe('true'));
+});
+
+it.each([false, true])(
+  'keeps following a slow mouse into the open submenu after Kobalte’s grace expires (searchable: %s)',
+  async (searchable) => {
+    const { assignee, menu } = await leaveTowardAssigneeSubmenu(searchable);
+    // Kobalte drops its grace polygon 300 ms after the mouse leaves Assignee.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const files = screen.getByRole('menuitem', { name: 'Files' });
+    mousePointer(menu, 'pointermove', { clientX: 145, clientY: 25 });
+    mousePointer(files, 'pointerenter', { clientX: 140, clientY: 30 });
+    mousePointer(files, 'pointermove', { clientX: 140, clientY: 30 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    mousePointer(files, 'pointermove', { clientX: 125, clientY: 35 });
+    mousePointer(files, 'pointerleave', { clientX: 110, clientY: 40 });
+    mousePointer(menu, 'pointermove', { clientX: 110, clientY: 40 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(files.getAttribute('aria-expanded')).toBe('false');
+    expect(assignee.getAttribute('aria-expanded')).toBe('true');
+
+    const submenu = document.getElementById(
+      assignee.getAttribute('aria-controls')!
+    )!;
+    mousePointer(submenu, 'pointerenter', { clientX: 95, clientY: 45 });
+    mousePointer(submenu, 'pointermove', { clientX: 95, clientY: 45 });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(assignee.getAttribute('aria-expanded')).toBe('true');
+  }
+);
+
+it('closes the open submenu once the mouse stops short of it', async () => {
+  const { assignee, menu } = await leaveTowardAssigneeSubmenu(false);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  mousePointer(menu, 'pointermove', { clientX: 145, clientY: 25 });
+  // Kobalte focuses the menu when the mouse leaves a row outside its grace.
+  menu.focus();
+  expect(assignee.getAttribute('aria-expanded')).toBe('true');
+  await waitFor(() =>
+    expect(assignee.getAttribute('aria-expanded')).toBe('false')
+  );
+});
 
 it('keeps a submenu open while crossing padding, cancelling dismissal on entry', async () => {
   setup();
@@ -398,7 +402,7 @@ it('focuses searchable submenus on opening and reopening and supports keyboard s
     await waitFor(() => expect(document.activeElement).toBe(input));
     fireEvent.input(input, { target: { value: attempt ? 'Bob' : 'Alice' } });
     fireEvent.keyDown(input, { key: 'ArrowDown' });
-    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() =>
       expect(selected()).toEqual(attempt ? ['alice', 'bob'] : ['alice'])
     );

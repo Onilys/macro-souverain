@@ -148,7 +148,7 @@ export function CalendarSearchFilters(props: {
                 <For each={STATUSES}>
                   {(option) => (
                     <Dropdown.CheckboxItem
-                      closeOnSelect="unless-shift"
+                      closeOnSelect={false}
                       checked={props.value.statuses.includes(option.value)}
                       onChange={(checked) =>
                         updateFilters({

@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 it.each(['pointer', 'keyboard'])(
-  'keeps the Drive Type submenu mounted while Shift-selecting and deselecting file types (%s)',
+  'keeps the Drive Type submenu mounted while selecting and deselecting file types (%s)',
   async (input) => {
     const [value, setValue] = createSignal<DriveState>({
       location: { kind: 'tab', tab: 'owned' },
@@ -105,15 +105,11 @@ it.each(['pointer', 'keyboard'])(
     const select = (element: HTMLElement) => {
       if (input === 'keyboard') {
         element.focus();
-        fireEvent.keyDown(element, { key: 'Enter', shiftKey: true });
+        fireEvent.keyDown(element, { key: 'Enter' });
       } else
         fireEvent(
           element,
-          new MouseEvent('pointerup', {
-            button: 0,
-            bubbles: true,
-            shiftKey: true,
-          })
+          new MouseEvent('pointerup', { button: 0, bubbles: true })
         );
     };
 
@@ -129,9 +125,9 @@ it.each(['pointer', 'keyboard'])(
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(markdown.isConnected).toBe(true);
-    pdf.focus();
-    fireEvent.keyDown(pdf, { key: 'Enter' });
-    await waitFor(() => expect(pdf.isConnected).toBe(false));
+    select(pdf);
     expect(value().facets.type).toBeUndefined();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pdf.isConnected).toBe(true);
   }
 );

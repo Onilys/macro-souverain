@@ -750,7 +750,6 @@ export const UnifiedFilterDropdown = (
                 <>
                   <Show when={isDocumentsView() && showTagsFilter()}>
                     <SearchableFilterSubmenu
-                      onSelectionComplete={() => setOpen(false)}
                       label="Tags"
                       options={tagFilter.options}
                       activeIds={tagFilter.activeIds}
@@ -766,9 +765,7 @@ export const UnifiedFilterDropdown = (
                         options={category.options}
                         isSelected={isOptionActive}
                         onSelect={toggleFilter}
-                        closeOnSelect={
-                          category.multiple ? 'unless-shift' : true
-                        }
+                        closeOnSelect={!category.multiple}
                       />
                     )}
                   </For>
@@ -776,7 +773,6 @@ export const UnifiedFilterDropdown = (
                   {/* Assignee filter for tasks view */}
                   <Show when={isTasksView()}>
                     <SearchableFilterSubmenu
-                      onSelectionComplete={() => setOpen(false)}
                       label="Assignee"
                       options={assigneeOptions}
                       activeIds={assigneeFilter}
@@ -787,7 +783,6 @@ export const UnifiedFilterDropdown = (
 
                   <Show when={showCreatedByFilter()}>
                     <SearchableFilterSubmenu
-                      onSelectionComplete={() => setOpen(false)}
                       label="Created by"
                       options={createdByOptions}
                       activeIds={createdByIds}
@@ -799,7 +794,6 @@ export const UnifiedFilterDropdown = (
                   <For each={selectFilters}>
                     {(filter) => (
                       <SearchableFilterSubmenu
-                        onSelectionComplete={() => setOpen(false)}
                         label={filter.label}
                         active={filter.active?.()}
                         options={filter.options}
@@ -823,9 +817,7 @@ export const UnifiedFilterDropdown = (
                       icon={option.icon}
                       active={active()}
                       onSelect={() => toggleFilter(option.id)}
-                      closeOnSelect={
-                        categories()[0]!.multiple ? 'unless-shift' : true
-                      }
+                      closeOnSelect={!categories()[0]!.multiple}
                     />
                   );
                 }}
@@ -834,7 +826,6 @@ export const UnifiedFilterDropdown = (
 
             <Show when={!isDocumentsView() && showTagsFilter()}>
               <SearchableFilterSubmenu
-                onSelectionComplete={() => setOpen(false)}
                 label="Tags"
                 options={tagFilter.options}
                 activeIds={tagFilter.activeIds}
