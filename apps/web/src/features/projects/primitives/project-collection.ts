@@ -71,7 +71,7 @@ export function createProjectCollection(capabilities: {
   );
   const disclosure = createDisclosureState({
     defaultExpanded: true,
-    initialToggledKeys: initial?.collapsedGroupIds,
+    initialToggledKeys: buildInitialToggledKeys(),
   });
   const source = capabilities.createSource(() => ({
     query: query().trim() || undefined,
@@ -178,7 +178,7 @@ export function createProjectCollection(capabilities: {
   });
   const list = createListController<ProjectListItem, ProjectListActivation>({
     items,
-    initialFocusKey: initial?.focusKey,
+    initialFocusKey: buildInitialFocusKey(),
     getKey: (row) => row.id,
     selection: {
       getKey: (row) => (row.kind === 'entity' ? row.entity.id : row.id),
@@ -234,4 +234,12 @@ export function createProjectCollection(capabilities: {
     loadMore: source.loadMore,
     loadingMore: source.loadingMore,
   };
+
+  function buildInitialToggledKeys(): Iterable<string> | undefined {
+    return initial?.collapsedGroupIds;
+  }
+
+  function buildInitialFocusKey(): string | undefined {
+    return initial?.focusKey;
+  }
 }

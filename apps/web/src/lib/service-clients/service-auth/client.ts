@@ -204,14 +204,21 @@ const cursorApiKeyErrorResponseHandler: ErrorResponseHandler<'CURSOR_API_KEY_ERR
   async function handleCursorApiKeyErrorResponse(response) {
     // Falls back to the status when the body is not the shape we expect: a
     // failure to parse an error must not replace the error.
-    const message = await response
-      .json()
-      .then((body: unknown) =>
-        typeof body === 'object' && body !== null && 'message' in body
+
+    const settleJson = async () => {
+      try {
+        const settleJsonValue = await response.json();
+        const body: unknown = settleJsonValue;
+        return await (typeof body === 'object' &&
+        body !== null &&
+        'message' in body
           ? String((body as { message: unknown }).message)
-          : undefined
-      )
-      .catch(() => undefined);
+          : undefined);
+      } catch {
+        return await undefined;
+      }
+    };
+    const message = await settleJson();
 
     return {
       code: 'CURSOR_API_KEY_ERROR',
@@ -1176,10 +1183,16 @@ export const authServiceClient = {
         // verbatim.
         errorResponseHandler: async (response) => {
           if (response.status === 400) {
-            const message = await response
-              .json()
-              .then((body) => body?.message)
-              .catch(() => undefined);
+            const settleJsonResult = async () => {
+              try {
+                const settleJsonResultValue = await response.json();
+                const body = settleJsonResultValue;
+                return await body?.message;
+              } catch {
+                return await undefined;
+              }
+            };
+            const message = await settleJsonResult();
             return {
               code: 'GENERIC_DOMAIN_NOT_ALLOWED',
               message:

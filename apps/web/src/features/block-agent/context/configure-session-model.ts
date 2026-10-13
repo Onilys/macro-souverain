@@ -1,4 +1,4 @@
-import type { AgentSession } from '@core/agent-session/AgentSession';
+import type { AgentSession } from '@app/lib/queries/agent-session/agent-session';
 import {
   type EffortSelection,
   effortConfigOption,

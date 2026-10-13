@@ -23,18 +23,18 @@
  */
 
 import { handleAiUsageLimitError } from '@app/features/paywall/ai-usage-limit-handling';
-import { AgentSession } from '@core/agent-session/AgentSession';
+import { AgentSession } from '@app/lib/queries/agent-session/agent-session';
 import {
   type PromptSubmitSurface,
   PromptTrace,
 } from '@core/agent-session/prompt-telemetry';
 import { markSessionCreated } from '@core/agent-session/recently-created';
+import { createAgentSession } from '@queries/agent-session/requests';
 import {
   replenishWarmAgentSession,
   takeWarmAgentSession,
 } from '@queries/agent-session/warm';
 import { refetchSoupEntity } from '@queries/soup/normalized-cache';
-import { agentHarnessServiceClient } from '@service-agent-harness/client';
 import type {
   CreateAgentSessionRequest,
   PromptAttachment,
@@ -176,7 +176,7 @@ export function startPendingSession(
     trace ? trace.run(operation) : operation();
 
   const create = (sessionId: string) =>
-    agentHarnessServiceClient.create({
+    createAgentSession({
       id: sessionId,
       ...(options.botId ? { botId: options.botId } : {}),
       ...(options.modelOverride ? { model: options.modelOverride } : {}),
@@ -192,9 +192,12 @@ export function startPendingSession(
     return warmId && result.isErr() ? await create(uuidv7()) : result;
   };
 
-  void traced(() =>
-    createWithFallback()
-      .then(async (result) => {
+  void traced(() => {
+    const settleCreateWithFallback = async () => {
+      try {
+        const settleCreateWithFallbackValue = await createWithFallback();
+        const result = settleCreateWithFallbackValue;
+
         if (result.isErr()) {
           handleAiUsageLimitError(result.error);
           fail(
@@ -249,30 +252,10 @@ export function startPendingSession(
             // fast POST cannot destroy the fold before that view mounts.
             if (!disposed) navigation = AgentSession.acquire(created);
             setSessionId(created);
-            if (prompt || options.attachments?.length) {
-              const delivered = await issueSessionAction(
-                session,
-                {
-                  type: 'prompt',
-                  prompt,
-                  ...(options.attachments?.length
-                    ? { attachments: options.attachments }
-                    : {}),
-                },
-                {
-                  userId: options.userId ?? result.value.session.ownerId,
-                  trace,
-                }
-              );
-              if (delivered.isErr()) {
-                fail(
-                  delivered.error.map((error) => error.message).join(' ') ||
-                    'The first message could not be sent.'
-                );
-              } else {
-                options.onDelivered?.();
-              }
-            }
+            await updateSettleCreateWithFallback(
+              session,
+              result.value.session.ownerId
+            );
           } catch (error) {
             fail(
               error instanceof Error
@@ -286,14 +269,48 @@ export function startPendingSession(
         } else {
           setSessionId(created);
         }
-      })
-      .catch((error: unknown) =>
-        fail(
+
+        return;
+      } catch (settleCreateWithFallbackError) {
+        const error: unknown = settleCreateWithFallbackError;
+        return await fail(
           'Could not reach the agent service. Check your connection and try again.',
           error
-        )
-      )
-  );
+        );
+      }
+
+      async function updateSettleCreateWithFallback(
+        session: AgentSession,
+        ownerId: string
+      ) {
+        if (prompt || options.attachments?.length) {
+          const delivered = await issueSessionAction(
+            session,
+            {
+              type: 'prompt',
+              prompt,
+              ...(options.attachments?.length
+                ? { attachments: options.attachments }
+                : {}),
+            },
+            {
+              userId: options.userId ?? ownerId,
+              trace,
+            }
+          );
+          if (delivered.isErr()) {
+            fail(
+              delivered.error.map((error) => error.message).join(' ') ||
+                'The first message could not be sent.'
+            );
+          } else {
+            options.onDelivered?.();
+          }
+        }
+      }
+    };
+    return settleCreateWithFallback();
+  });
 
   return id;
 }

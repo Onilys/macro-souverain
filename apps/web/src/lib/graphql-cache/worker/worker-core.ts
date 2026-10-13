@@ -230,6 +230,21 @@ export class CacheWorkerCore {
   }
 
   async handleRequest(port: PortLike, request: CacheRequest): Promise<void> {
+    const updateHandleRequest = (
+      revisionCategory: ReturnType<typeof revisionAdvancementCategory>,
+      revisionAdvanced: boolean
+    ) => {
+      if (revisionCategory !== undefined && revisionAdvanced) {
+        this.telemetry.record({
+          name: 'graphql_cache.revision_advance',
+          operationCategory: category,
+          outcome: 'success',
+          errorCode: 'none',
+          revisionCategory,
+        });
+      }
+    };
+
     const respond = (response: CacheResponse) => port.postMessage(response);
     const startedAt = this.now();
     const category = operationCategoryForRequest(request);
@@ -259,15 +274,7 @@ export class CacheWorkerCore {
         result === null ||
         !('revisionAdvanced' in result) ||
         result.revisionAdvanced !== false;
-      if (revisionCategory !== undefined && revisionAdvanced) {
-        this.telemetry.record({
-          name: 'graphql_cache.revision_advance',
-          operationCategory: category,
-          outcome: 'success',
-          errorCode: 'none',
-          revisionCategory,
-        });
-      }
+      updateHandleRequest(revisionCategory, revisionAdvanced);
       this.telemetry.record({
         name: 'graphql_cache.engine_request',
         operationCategory: category,
@@ -286,10 +293,7 @@ export class CacheWorkerCore {
       }
       if (
         (request.kind === 'write' || request.kind === 'hydrate') &&
-        typeof result === 'object' &&
-        result !== null &&
-        'reset' in result &&
-        result.reset === true
+        isResetResult(result)
       ) {
         this.telemetry.record({
           name: 'graphql_cache.logical_reset',
@@ -358,7 +362,15 @@ export class CacheWorkerCore {
     ) {
       await new Promise<void>((resolve) => this.drainWaiters.add(resolve));
     }
-    if (this.initPromise) await this.initPromise.catch(() => undefined);
+
+    const settleInitPromise = async () => {
+      try {
+        return await this.initPromise;
+      } catch {
+        return await undefined;
+      }
+    };
+    if (this.initPromise) await settleInitPromise();
     const engine = this.engine;
     if (!engine) return;
     this.recordCachedQueueDiagnostics();
@@ -447,24 +459,39 @@ export class CacheWorkerCore {
     const [queued] = this.queue.splice(index, 1);
     if (!queued) return;
     this.running = true;
-    void this.dispatch(queued.request)
-      .then(
-        async (result) => {
-          // Resolve the cache result before the bounded observation checkpoint.
-          for (const waiter of queued.waiters) waiter.resolve(result);
-          if (isStorageTransactionRequest(queued.request)) {
-            await this.refreshQueueDiagnostics(false);
-          }
-        },
-        (error) => {
+    const settleDispatchFinally = async () => {
+      this.running = false;
+      this.drainQueue();
+      this.resolveDrainWaitersIfIdle();
+
+      return;
+    };
+    const settleDispatch = async () => {
+      try {
+        let settleDispatchValue;
+        try {
+          settleDispatchValue = await this.dispatch(queued.request);
+        } catch (settleDispatchError) {
+          const error = settleDispatchError;
+
           for (const waiter of queued.waiters) waiter.reject(error);
+
+          return;
         }
-      )
-      .finally(() => {
-        this.running = false;
-        this.drainQueue();
-        this.resolveDrainWaitersIfIdle();
-      });
+        const result = settleDispatchValue;
+
+        // Resolve the cache result before the bounded observation checkpoint.
+        for (const waiter of queued.waiters) waiter.resolve(result);
+        if (isStorageTransactionRequest(queued.request)) {
+          await this.refreshQueueDiagnostics(false);
+        }
+
+        return;
+      } finally {
+        await settleDispatchFinally();
+      }
+    };
+    void settleDispatch();
   }
 
   private async dispatch(request: CacheRequest): Promise<unknown> {
@@ -864,12 +891,16 @@ export class CacheWorkerCore {
       cancel = () => resolve({ kind: 'cancelled' });
     });
     this.cancelQueueDiagnostics = cancel;
-    const attempt = Promise.resolve()
-      .then(() => queueDiagnostics())
-      .then(
-        (value) => ({ kind: 'result' as const, value }),
-        (error: unknown) => ({ kind: 'error' as const, error })
-      );
+    const readDiagnostics = async () => {
+      await Promise.resolve();
+      try {
+        const value = await queueDiagnostics();
+        return { kind: 'result' as const, value };
+      } catch (error) {
+        return { kind: 'error' as const, error };
+      }
+    };
+    const attempt = readDiagnostics();
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const timedOut = new Promise<{ kind: 'timeout' }>((resolve) => {
       timeout = setTimeout(
@@ -916,7 +947,36 @@ export class CacheWorkerCore {
         outcome.value.oldestCreatedAtMs === null
           ? undefined
           : BigInt(outcome.value.oldestCreatedAtMs);
-      this.latestQueueDiagnostics = {
+      this.latestQueueDiagnostics = buildRefreshQueueDiagnostics(
+        depthInteger,
+        maxSafe,
+        oldestInteger
+      );
+      this.recordCachedQueueDiagnostics();
+    } catch (error) {
+      // Parsing a malformed diagnostic is an observation failure only.
+      this.telemetry.record({
+        name: 'graphql_cache.queue_diagnostics',
+        operationCategory: 'queue',
+        outcome: 'error',
+        errorCode: classifyCacheError(error),
+        queueDiagnosticsAvailability: this.latestQueueDiagnostics
+          ? 'available'
+          : 'unavailable',
+      });
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+      if (this.cancelQueueDiagnostics === cancel) {
+        this.cancelQueueDiagnostics = undefined;
+      }
+    }
+
+    function buildRefreshQueueDiagnostics(
+      depthInteger: bigint,
+      maxSafe: bigint,
+      oldestInteger: bigint | undefined
+    ): { depth: number; oldestCreatedAtMs?: number } | undefined {
+      return {
         depth: Number(
           depthInteger < 0n
             ? 0n
@@ -936,23 +996,6 @@ export class CacheWorkerCore {
               ),
             }),
       };
-      this.recordCachedQueueDiagnostics();
-    } catch (error) {
-      // Parsing a malformed diagnostic is an observation failure only.
-      this.telemetry.record({
-        name: 'graphql_cache.queue_diagnostics',
-        operationCategory: 'queue',
-        outcome: 'error',
-        errorCode: classifyCacheError(error),
-        queueDiagnosticsAvailability: this.latestQueueDiagnostics
-          ? 'available'
-          : 'unavailable',
-      });
-    } finally {
-      if (timeout !== undefined) clearTimeout(timeout);
-      if (this.cancelQueueDiagnostics === cancel) {
-        this.cancelQueueDiagnostics = undefined;
-      }
     }
   }
 
@@ -1150,4 +1193,13 @@ export class CacheWorkerCore {
     }
     return this.engine;
   }
+}
+
+function isResetResult(result: unknown): boolean {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'reset' in result &&
+    result.reset === true
+  );
 }

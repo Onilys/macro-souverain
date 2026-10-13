@@ -255,11 +255,23 @@ export function createLivekitJsCallController(
     // run failed-join cleanup, which calls DELETE /call/:channel and kicks the
     // user out. Run the non-critical setup in the background instead.
     const setupVersion = options.nextMediaSetupVersion();
-    void options
-      .finishLocalMediaSetup(targetRoom, setupVersion, prejoinTracks)
-      .catch((e) => {
+
+    const settleFinishLocalMediaSetup = async () => {
+      try {
+        return await options.finishLocalMediaSetup(
+          targetRoom,
+          setupVersion,
+          prejoinTracks
+        );
+      } catch (settleFinishLocalMediaSetupError) {
+        const e = settleFinishLocalMediaSetupError;
+
         console.error('failed to finish local call media setup', e);
-      });
+
+        return;
+      }
+    };
+    void settleFinishLocalMediaSetup();
     return undefined;
   }
 

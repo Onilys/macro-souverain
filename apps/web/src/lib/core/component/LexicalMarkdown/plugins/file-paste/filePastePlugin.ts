@@ -38,13 +38,21 @@ function registerFilePastePlugin(
           shouldUseMobileClipboardImageRecovery(data)
         ) {
           event.preventDefault();
-          void recoverMobileClipboardImageEntries().then((entries) => {
+
+          const settleRecoverMobileClipboardImageEntries = async () => {
+            const settleRecoverMobileClipboardImageEntriesValue =
+              await recoverMobileClipboardImageEntries();
+            const entries = settleRecoverMobileClipboardImageEntriesValue;
+
             if (entries.length > 0) {
               props.onPasteFilesAndDirs(entries, []);
             } else if (fileEntries.length > 0) {
               props.onPasteFilesAndDirs(fileEntries, []);
             }
-          });
+
+            return;
+          };
+          void settleRecoverMobileClipboardImageEntries();
           return true;
         }
 

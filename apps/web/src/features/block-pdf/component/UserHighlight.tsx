@@ -138,9 +138,18 @@ export function UserHighlight(props: VoidProps<IHighlightObj>) {
     }
 
     if (copiedText) {
-      navigator.clipboard.writeText(copiedText).catch((err) => {
-        console.error('Failed to copy text: ', err);
-      });
+      const settleWriteText = async () => {
+        try {
+          return await navigator.clipboard.writeText(copiedText);
+        } catch (settleWriteTextError) {
+          const err = settleWriteTextError;
+
+          console.error('Failed to copy text: ', err);
+
+          return;
+        }
+      };
+      settleWriteText();
     }
   };
 

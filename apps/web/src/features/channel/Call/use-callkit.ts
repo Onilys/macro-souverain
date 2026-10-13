@@ -5,8 +5,12 @@ import { useChannelsContext } from '@core/context/channels';
 import { isPlatform, isTauri } from '@core/util/platform';
 import { useUserNamesQuery } from '@queries/auth';
 import { invalidateActiveCallQueries } from '@queries/call/call';
+import {
+  registerPushDevice,
+  unregisterPushDevice,
+} from '@queries/notification/device-registration';
 import type { UserName } from '@service-auth/generated/schemas/userName';
-import { notificationServiceClient } from '@service-notification/client';
+
 import type { DeviceType } from '@service-notification/generated/schemas/deviceType';
 import { raceTimeout } from '@solid-primitives/promise';
 import { addPluginListener, Channel, invoke } from '@tauri-apps/api/core';
@@ -32,7 +36,7 @@ async function getCachedVoipToken(): Promise<string | null> {
 }
 
 async function registerVoipToken(token: string): Promise<void> {
-  const res = await notificationServiceClient.registerDevice({
+  const res = await registerPushDevice({
     token,
     deviceType: DEVICE_TYPE_IOS_VOIP,
   });
@@ -58,7 +62,7 @@ async function syncVoipRegistration(): Promise<void> {
 async function unregisterVoipForLogout(): Promise<void> {
   const token = await getCachedVoipToken();
   if (!token) return;
-  const res = await notificationServiceClient.unregisterDevice({
+  const res = await unregisterPushDevice({
     token,
     deviceType: DEVICE_TYPE_IOS_VOIP,
   });
@@ -123,9 +127,18 @@ type NativeParticipantDisplayNames =
     };
 
 function refreshActiveCallQueriesAfterLeave() {
-  void invalidateActiveCallQueries().catch((err) =>
-    console.error('[callkit] failed to refresh active call state', err)
-  );
+  const settleInvalidateActiveCallQueries = async () => {
+    try {
+      return await invalidateActiveCallQueries();
+    } catch (settleInvalidateActiveCallQueriesError) {
+      const err = settleInvalidateActiveCallQueriesError;
+      return await console.error(
+        '[callkit] failed to refresh active call state',
+        err
+      );
+    }
+  };
+  void settleInvalidateActiveCallQueries();
 }
 
 // Call setup has legitimate windows where JS already tracks a call but native
@@ -271,11 +284,16 @@ export function useCallKitSetup() {
     const channelWatchers: Array<Channel<unknown>> = [];
     onCleanup(() => {
       cleaned = true;
-      unregisters.forEach((u) =>
-        u().catch((err) =>
-          console.error('[callkit] failed to unregister listener', err)
-        )
-      );
+
+      const unregisterListener = async (unregister: () => Promise<void>) => {
+        try {
+          return await unregister();
+        } catch (settleUError) {
+          const err = settleUError;
+          return console.error('[callkit] failed to unregister listener', err);
+        }
+      };
+      unregisters.forEach((unregister) => void unregisterListener(unregister));
       unregisters.length = 0;
       channelWatchers.length = 0;
     });
@@ -284,19 +302,38 @@ export function useCallKitSetup() {
       promise: Promise<{ unregister: () => Promise<void> }>,
       label: string
     ) {
-      promise
-        .then((l) => {
+      const settlePromise = async () => {
+        try {
+          const settlePromiseValue = await promise;
+          const l = settlePromiseValue;
+
           if (cleaned) {
-            l.unregister().catch((err) =>
-              console.error(`[callkit] failed to unregister ${label}`, err)
-            );
+            const settleUnregister = async () => {
+              try {
+                return await l.unregister();
+              } catch (settleUnregisterError) {
+                const err = settleUnregisterError;
+                return await console.error(
+                  `[callkit] failed to unregister ${label}`,
+                  err
+                );
+              }
+            };
+            settleUnregister();
             return;
           }
           unregisters.push(() => l.unregister());
-        })
-        .catch((err) =>
-          console.error(`[callkit] failed to register ${label}`, err)
-        );
+
+          return;
+        } catch (settlePromiseError) {
+          const err = settlePromiseError;
+          return await console.error(
+            `[callkit] failed to register ${label}`,
+            err
+          );
+        }
+      };
+      settlePromise();
     }
 
     function registerChannelWatcher<T>(
@@ -309,11 +346,21 @@ export function useCallKitSetup() {
         handler(payload);
       });
       channelWatchers.push(channel as Channel<unknown>);
-      invoke(`plugin:call-kit|${command}`, { channel })
-        .then(() => console.info(`[callkit] ${label} watcher registered`))
-        .catch((err) =>
-          console.error(`[callkit] failed to register ${label} watcher`, err)
-        );
+
+      const settleInvoke = async () => {
+        try {
+          await invoke(`plugin:call-kit|${command}`, { channel });
+
+          return await console.info(`[callkit] ${label} watcher registered`);
+        } catch (settleInvokeError) {
+          const err = settleInvokeError;
+          return await console.error(
+            `[callkit] failed to register ${label} watcher`,
+            err
+          );
+        }
+      };
+      settleInvoke();
     }
 
     // Token rotation: PushKit can hand us a new token at any point at runtime.
@@ -325,9 +372,19 @@ export function useCallKitSetup() {
           console.info('[callkit] received VoIP token update', {
             tokenLength: token.length,
           });
-          await registerVoipToken(token).catch((err) =>
-            console.error('[callkit] failed to register VoIP token', err)
-          );
+
+          const settleRegisterVoipToken = async () => {
+            try {
+              return await registerVoipToken(token);
+            } catch (settleRegisterVoipTokenError) {
+              const err = settleRegisterVoipTokenError;
+              return await console.error(
+                '[callkit] failed to register VoIP token',
+                err
+              );
+            }
+          };
+          await settleRegisterVoipToken();
         }
       ),
       'voip-token-updated'
@@ -335,9 +392,19 @@ export function useCallKitSetup() {
 
     // Cold start: drain any token that arrived from PushKit before the
     // listener above was registered.
-    syncVoipRegistration().catch((err) =>
-      console.error('[callkit] failed to register cached VoIP token', err)
-    );
+
+    const settleSyncVoipRegistration = async () => {
+      try {
+        return await syncVoipRegistration();
+      } catch (settleSyncVoipRegistrationError) {
+        const err = settleSyncVoipRegistrationError;
+        return await console.error(
+          '[callkit] failed to register cached VoIP token',
+          err
+        );
+      }
+    };
+    settleSyncVoipRegistration();
 
     // Account switch: rebind on login and remove on logout so the previous account's calls stop ringing this device. Registrations are idempotent upserts, so overlap between these three triggers is harmless.
     const removeVoipLifecycle = registerPushRegistrationLifecycle({
@@ -368,9 +435,19 @@ export function useCallKitSetup() {
       });
       markNativeCallActivity();
       nativeCall.setBootstrapChannelId(channelId);
-      joinChannelCallWhenReady(channelId, nativeMedia).catch((err) =>
-        console.error('[callkit] joinChannelCallWhenReady failed', err)
-      );
+
+      const settleJoinChannelCallWhenReady = async () => {
+        try {
+          return await joinChannelCallWhenReady(channelId, nativeMedia);
+        } catch (settleJoinChannelCallWhenReadyError) {
+          const err = settleJoinChannelCallWhenReadyError;
+          return await console.error(
+            '[callkit] joinChannelCallWhenReady failed',
+            err
+          );
+        }
+      };
+      settleJoinChannelCallWhenReady();
     };
 
     registerChannelWatcher<CallAnsweredPayload>(
@@ -380,10 +457,14 @@ export function useCallKitSetup() {
     );
 
     const drainPendingAnsweredCall = () => {
-      invoke<GetPendingAnsweredCallResponse>(
-        'plugin:call-kit|get_pending_answered_call'
-      )
-        .then(({ channelId, nativeMedia }) => {
+      const settleInvokeResult = async () => {
+        try {
+          const settleInvokeResultValue =
+            await invoke<GetPendingAnsweredCallResponse>(
+              'plugin:call-kit|get_pending_answered_call'
+            );
+          const { channelId, nativeMedia } = settleInvokeResultValue;
+
           console.info('[callkit] drained pending answered call', {
             channelId,
             nativeMedia,
@@ -393,10 +474,17 @@ export function useCallKitSetup() {
             { channelId, nativeMedia: nativeMedia ?? false },
             'pending'
           );
-        })
-        .catch((err) =>
-          console.error('[callkit] get_pending_answered_call failed', err)
-        );
+
+          return;
+        } catch (settleInvokeResultError) {
+          const err = settleInvokeResultError;
+          return await console.error(
+            '[callkit] get_pending_answered_call failed',
+            err
+          );
+        }
+      };
+      settleInvokeResult();
     };
 
     drainPendingAnsweredCall();
@@ -434,9 +522,19 @@ export function useCallKitSetup() {
           );
           return;
         }
-        Promise.resolve(handler(payload)).catch((err) =>
-          console.error('[callkit] failed to handle ended call', err)
-        );
+
+        const settleResolve = async () => {
+          try {
+            return await Promise.resolve(handler(payload));
+          } catch (settleResolveError) {
+            const err = settleResolveError;
+            return await console.error(
+              '[callkit] failed to handle ended call',
+              err
+            );
+          }
+        };
+        settleResolve();
       }
     );
 
@@ -466,18 +564,34 @@ export function useCallKitSetup() {
         });
         markNativeCallActivity();
         nativeCall.setBootstrapChannelId(channelId);
-        joinChannelCallWhenReady(channelId, true).catch((err) =>
-          console.error(
-            '[callkit] joinChannelCallWhenReady (drawer opened) failed',
-            err
-          )
-        );
+
+        const settleJoinChannelCallWhenReadyResult = async () => {
+          try {
+            return await joinChannelCallWhenReady(channelId, true);
+          } catch (settleJoinChannelCallWhenReadyResultError) {
+            const err = settleJoinChannelCallWhenReadyResultError;
+            return await console.error(
+              '[callkit] joinChannelCallWhenReady (drawer opened) failed',
+              err
+            );
+          }
+        };
+        settleJoinChannelCallWhenReadyResult();
       }
     );
 
-    syncNativeCallState(nativeCall).catch((err) =>
-      console.error('[callkit] initial native call state sync failed', err)
-    );
+    const settleSyncNativeCallState = async () => {
+      try {
+        return await syncNativeCallState(nativeCall);
+      } catch (settleSyncNativeCallStateError) {
+        const err = settleSyncNativeCallStateError;
+        return await console.error(
+          '[callkit] initial native call state sync failed',
+          err
+        );
+      }
+    };
+    settleSyncNativeCallState();
 
     // The webview misses connection-state/call-ended channel events while iOS
     // has it suspended, leaving whatever call state existed at suspension
@@ -485,9 +599,19 @@ export function useCallKitSetup() {
     // the foreground so an ended call can never keep rendering as active.
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return;
-      syncNativeCallState(nativeCall).catch((err) =>
-        console.error('[callkit] foreground native call state sync failed', err)
-      );
+
+      const settleSyncNativeCallStateResult = async () => {
+        try {
+          return await syncNativeCallState(nativeCall);
+        } catch (settleSyncNativeCallStateResultError) {
+          const err = settleSyncNativeCallStateResultError;
+          return await console.error(
+            '[callkit] foreground native call state sync failed',
+            err
+          );
+        }
+      };
+      settleSyncNativeCallStateResult();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     onCleanup(() =>
@@ -641,9 +765,19 @@ function useCallKitNativeMetadataSync() {
 
       if (syncValue === null) {
         if (previousSyncValue === null) return;
-        setNativeCallKitChannelTitle(null).catch((err) =>
-          console.error('[callkit] failed to clear native channel title', err)
-        );
+
+        const settleSetNativeCallKitChannelTitle = async () => {
+          try {
+            return await setNativeCallKitChannelTitle(null);
+          } catch (settleSetNativeCallKitChannelTitleError) {
+            const err = settleSetNativeCallKitChannelTitleError;
+            return await console.error(
+              '[callkit] failed to clear native channel title',
+              err
+            );
+          }
+        };
+        settleSetNativeCallKitChannelTitle();
         return;
       }
 
@@ -655,9 +789,19 @@ function useCallKitNativeMetadataSync() {
       }
 
       console.info('[callkit] syncing native channel title', syncValue);
-      setNativeCallKitChannelTitle(syncValue.channelTitle).catch((err) =>
-        console.error('[callkit] failed to sync native channel title', err)
-      );
+
+      const settleSetNativeCallKitChannelTitleResult = async () => {
+        try {
+          return await setNativeCallKitChannelTitle(syncValue.channelTitle);
+        } catch (settleSetNativeCallKitChannelTitleResultError) {
+          const err = settleSetNativeCallKitChannelTitleResultError;
+          return await console.error(
+            '[callkit] failed to sync native channel title',
+            err
+          );
+        }
+      };
+      settleSetNativeCallKitChannelTitleResult();
     })
   );
 
@@ -786,12 +930,21 @@ function syncNativeParticipantDisplayNames(
   displayNames: Record<string, string>
 ) {
   for (const [identity, displayName] of Object.entries(displayNames)) {
-    setNativeCallKitParticipantDisplayName(identity, displayName).catch((err) =>
-      console.error(
-        '[callkit] failed to sync native participant display name',
-        err
-      )
-    );
+    const settleSetNativeCallKitParticipantDisplayName = async () => {
+      try {
+        return await setNativeCallKitParticipantDisplayName(
+          identity,
+          displayName
+        );
+      } catch (settleSetNativeCallKitParticipantDisplayNameError) {
+        const err = settleSetNativeCallKitParticipantDisplayNameError;
+        return await console.error(
+          '[callkit] failed to sync native participant display name',
+          err
+        );
+      }
+    };
+    settleSetNativeCallKitParticipantDisplayName();
   }
 }
 
@@ -845,9 +998,16 @@ function fallbackParticipantName(identity: string): string {
  */
 export async function endCallKitCall(): Promise<void> {
   if (!isNativeIosCallKitEnabled()) return;
-  await invoke('plugin:call-kit|end_active_call').catch((err) =>
-    console.error('[callkit] failed to end active call', err)
-  );
+
+  const settleInvokeResultResult = async () => {
+    try {
+      return await invoke('plugin:call-kit|end_active_call');
+    } catch (settleInvokeResultResultError) {
+      const err = settleInvokeResultResultError;
+      return await console.error('[callkit] failed to end active call', err);
+    }
+  };
+  await settleInvokeResultResult();
 }
 
 export async function startNativeCallKitOutgoingCall(
@@ -869,21 +1029,40 @@ export async function setNativeCallKitVideoOverlayMode(
   mode: NativeCallSnapshot['videoOverlayMode']
 ): Promise<void> {
   if (!isNativeIosCallKitEnabled()) return;
-  await invoke('plugin:call-kit|set_video_overlay_mode', { mode }).catch(
-    (err) =>
-      console.error('[callkit] failed to set native video overlay mode', err)
-  );
+
+  const settleInvokeResultResultResult = async () => {
+    try {
+      return await invoke('plugin:call-kit|set_video_overlay_mode', { mode });
+    } catch (settleInvokeResultResultResultError) {
+      const err = settleInvokeResultResultResultError;
+      return await console.error(
+        '[callkit] failed to set native video overlay mode',
+        err
+      );
+    }
+  };
+  await settleInvokeResultResultResult();
 }
 
 async function setNativeCallKitChannelTitle(
   channelTitle: string | null
 ): Promise<void> {
   if (!isNativeIosCallKitEnabled()) return;
-  await invoke('plugin:call-kit|set_call_drawer_channel_title', {
-    channelTitle,
-  }).catch((err) =>
-    console.error('[callkit] failed to set native channel title', err)
-  );
+
+  const settleInvokeResultResultResultResult = async () => {
+    try {
+      return await invoke('plugin:call-kit|set_call_drawer_channel_title', {
+        channelTitle,
+      });
+    } catch (settleInvokeResultResultResultResultError) {
+      const err = settleInvokeResultResultResultResultError;
+      return await console.error(
+        '[callkit] failed to set native channel title',
+        err
+      );
+    }
+  };
+  await settleInvokeResultResultResultResult();
 }
 
 async function setNativeCallKitParticipantDisplayName(
@@ -891,13 +1070,20 @@ async function setNativeCallKitParticipantDisplayName(
   displayName: string | null
 ): Promise<void> {
   if (!isNativeIosCallKitEnabled()) return;
-  await invoke('plugin:call-kit|set_participant_display_name', {
-    identity,
-    displayName,
-  }).catch((err) =>
-    console.error(
-      '[callkit] failed to set native participant display name',
-      err
-    )
-  );
+
+  const settleInvokeResultResultResultResultResult = async () => {
+    try {
+      return await invoke('plugin:call-kit|set_participant_display_name', {
+        identity,
+        displayName,
+      });
+    } catch (settleInvokeResultResultResultResultResultError) {
+      const err = settleInvokeResultResultResultResultResultError;
+      return await console.error(
+        '[callkit] failed to set native participant display name',
+        err
+      );
+    }
+  };
+  await settleInvokeResultResultResultResultResult();
 }

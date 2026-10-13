@@ -8,6 +8,7 @@ import {
   type DataValidation,
   sqrefContains,
 } from '@macro-inc/spreadsheet/sheet-rules';
+import { match as matchBranch } from 'ts-pattern';
 import { formatCellAddress, parseCellAddress } from './spreadsheet-document';
 
 /** The validation rule of a cell: Excel applies one rule per cell. */
@@ -134,31 +135,39 @@ function compare(
   first: number,
   second: number | undefined
 ) {
-  switch (operator) {
-    case 'between':
+  return matchBranch(operator)
+    .with('between', () => {
       return (
         second !== undefined &&
         value >= Math.min(first, second) &&
         value <= Math.max(first, second)
       );
-    case 'notBetween':
+    })
+    .with('notBetween', () => {
       return (
         second !== undefined &&
         (value < Math.min(first, second) || value > Math.max(first, second))
       );
-    case 'equal':
+    })
+    .with('equal', () => {
       return value === first;
-    case 'notEqual':
+    })
+    .with('notEqual', () => {
       return value !== first;
-    case 'greaterThan':
+    })
+    .with('greaterThan', () => {
       return value > first;
-    case 'lessThan':
+    })
+    .with('lessThan', () => {
       return value < first;
-    case 'greaterThanOrEqual':
+    })
+    .with('greaterThanOrEqual', () => {
       return value >= first;
-    case 'lessThanOrEqual':
+    })
+    .with('lessThanOrEqual', () => {
       return value <= first;
-  }
+    })
+    .exhaustive();
 }
 
 /**
@@ -199,14 +208,20 @@ export function validateInput(
       compare(value, operator, first, second);
   }
   if (valid) return { valid: true };
-  return {
-    valid: false,
-    style: rule.errorStyle ?? 'stop',
-    ...(rule.errorTitle && { title: rule.errorTitle }),
-    message:
-      rule.error ??
-      "This value doesn't match the data validation restrictions defined for this cell.",
-  };
+  return buildValidateInput(rule);
+
+  function buildValidateInput(
+    ruleInput: NonNullable<typeof rule>
+  ): ValidationOutcome {
+    return {
+      valid: false,
+      style: ruleInput.errorStyle ?? 'stop',
+      ...(ruleInput.errorTitle && { title: ruleInput.errorTitle }),
+      message:
+        ruleInput.error ??
+        "This value doesn't match the data validation restrictions defined for this cell.",
+    };
+  }
 }
 
 /** Addresses of a range, for reading its values. */

@@ -1,6 +1,6 @@
+import { useEntitySubscription } from '@queries/connection/tracked-entities';
 import { invalidateDatabase } from '@queries/storage/databases';
 import { useDatabaseTableChangedSync } from '@queries/storage/databases-sync';
-import { useEntitySubscription } from '@service-connection/client';
 
 /**
  * Related tables can live outside the open database; retain their gateway

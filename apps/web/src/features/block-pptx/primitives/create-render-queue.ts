@@ -51,12 +51,28 @@ export function createRenderQueue(): RenderQueue {
             return;
           }
           backgroundInFlight++;
-          task()
-            .then(resolve, reject)
-            .finally(() => {
-              backgroundInFlight--;
-              pump();
-            });
+          const settleTaskHandler0 = reject;
+          const settleTaskHandler1 = resolve;
+          const settleTaskFinally = async () => {
+            backgroundInFlight--;
+            pump();
+
+            return;
+          };
+          const settleTask = async () => {
+            try {
+              let settleTaskValue;
+              try {
+                settleTaskValue = await task();
+              } catch (settleTaskError) {
+                return await settleTaskHandler0(settleTaskError);
+              }
+              return await settleTaskHandler1(settleTaskValue);
+            } finally {
+              await settleTaskFinally();
+            }
+          };
+          settleTask();
         });
         pump();
       });

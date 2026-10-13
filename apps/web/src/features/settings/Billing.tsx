@@ -12,10 +12,11 @@ import {
   useCreateCheckoutSessionMutation,
   useSubscriptionStatusQuery,
 } from '@queries/auth';
+import { createBillingPortalSession } from '@queries/auth/billing-portal';
 import { queryReadyGate } from '@queries/gate';
 import { useCurrentTeamQuery } from '@queries/team/teams';
 import type { PaidPlan } from '@service-auth/ai-billing-types';
-import { stripeServiceClient } from '@service-stripe/client';
+
 import { createMemo, type JSX, Suspense } from 'solid-js';
 import { BillingSettingsView } from './components/billing-settings-view';
 import {
@@ -138,7 +139,7 @@ function LiveBilling(props: { controls?: JSX.Element }) {
 
   const handleManage = async () => {
     try {
-      const url = await stripeServiceClient.createPortalSession();
+      const url = await createBillingPortalSession();
       window.location.href = url;
     } catch (error) {
       console.error(error);

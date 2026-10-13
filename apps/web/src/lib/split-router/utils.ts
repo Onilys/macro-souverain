@@ -51,7 +51,12 @@ export function mapMaybe<T, R>(
 ): MaybePromise<R> {
   if (!isPromise(value)) return fn(value);
 
-  return value.then(fn);
+  const settleValueHandler0 = fn;
+  const settleValue = async () => {
+    const settleValueValue = await value;
+    return await settleValueHandler0(settleValueValue);
+  };
+  return settleValue();
 }
 
 /** Runs `run`, turning a synchronous throw or a rejection into `onError`'s result. */
@@ -69,7 +74,15 @@ export function settleMaybe<T>(
 
   if (!isPromise(value)) return value;
 
-  return value.catch(onError);
+  const settleValueResultHandler0 = onError;
+  const settleValueResult = async () => {
+    try {
+      return await value;
+    } catch (settleValueResultError) {
+      return await settleValueResultHandler0(settleValueResultError);
+    }
+  };
+  return settleValueResult();
 }
 
 export const CANCELLED: unique symbol = Symbol('split-router.cancelled');

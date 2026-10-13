@@ -376,13 +376,7 @@ export function QuestionField(props: {
             type="number"
             inputmode="decimal"
             step="any"
-            value={
-              numberDraft() ??
-              (props.value?.type === 'number' &&
-              Number.isFinite(props.value.value)
-                ? String(props.value.value)
-                : '')
-            }
+            value={getQuestionFieldValue()}
             placeholder="Number"
             disabled={props.disabled}
             aria-describedby={describedBy()}
@@ -408,7 +402,7 @@ export function QuestionField(props: {
         <Match when={kind().type === 'boolean'}>
           <Checkbox
             id={id()}
-            checked={props.value?.type === 'boolean' && props.value.value}
+            checked={getQuestionFieldChecked()}
             disabled={props.disabled}
             validationState={invalid() ? 'invalid' : 'valid'}
             class="flex min-h-9 gap-3 rounded-lg px-2 text-sm text-ink hover:bg-hover"
@@ -431,11 +425,7 @@ export function QuestionField(props: {
           <input
             id={id()}
             type="date"
-            value={
-              props.value?.type === 'date'
-                ? dateInputFromInstant(props.value.value)
-                : ''
-            }
+            value={getQuestionFieldValue3()}
             disabled={props.disabled}
             aria-describedby={describedBy()}
             aria-invalid={invalid()}
@@ -457,11 +447,7 @@ export function QuestionField(props: {
           <input
             id={id()}
             type="datetime-local"
-            value={
-              props.value?.type === 'date'
-                ? localInputFromInstant(props.value.value)
-                : ''
-            }
+            value={getQuestionFieldValue4()}
             disabled={props.disabled}
             aria-describedby={describedBy()}
             aria-invalid={invalid()}
@@ -496,9 +482,7 @@ export function QuestionField(props: {
             type="url"
             inputmode="url"
             placeholder="https://"
-            value={
-              props.value?.type === 'link' ? (props.value.value[0] ?? '') : ''
-            }
+            value={getQuestionFieldValue2()}
             disabled={props.disabled}
             aria-describedby={describedBy()}
             aria-invalid={invalid()}
@@ -514,12 +498,7 @@ export function QuestionField(props: {
             }}
           />
         </Match>
-        <Match
-          when={
-            (kind().type === 'select' || kind().type === 'select_number') &&
-            props.widget === 'dropdown'
-          }
-        >
+        <Match when={getQuestionFieldWhen()}>
           <select
             id={id()}
             disabled={props.disabled}
@@ -599,4 +578,40 @@ export function QuestionField(props: {
       </Show>
     </div>
   );
+
+  function getQuestionFieldValue4(): string | number | string[] | undefined {
+    return props.value?.type === 'date'
+      ? localInputFromInstant(props.value.value)
+      : '';
+  }
+
+  function getQuestionFieldValue3(): string | number | string[] | undefined {
+    return props.value?.type === 'date'
+      ? dateInputFromInstant(props.value.value)
+      : '';
+  }
+
+  function getQuestionFieldWhen(): boolean | null | undefined {
+    return (
+      (kind().type === 'select' || kind().type === 'select_number') &&
+      props.widget === 'dropdown'
+    );
+  }
+
+  function getQuestionFieldChecked(): boolean | undefined {
+    return props.value?.type === 'boolean' && props.value.value;
+  }
+
+  function getQuestionFieldValue2(): string | number | string[] | undefined {
+    return props.value?.type === 'link' ? (props.value.value[0] ?? '') : '';
+  }
+
+  function getQuestionFieldValue(): string | number | string[] | undefined {
+    return (
+      numberDraft() ??
+      (props.value?.type === 'number' && Number.isFinite(props.value.value)
+        ? String(props.value.value)
+        : '')
+    );
+  }
 }

@@ -1,7 +1,6 @@
 import { useUserContext } from '@core/context/user';
+import { useOwnUserName } from '@queries/auth/user-name-self';
 import { useInstructionsMdTextQuery } from '@queries/storage/instructions-md';
-import { authServiceClient } from '@service-auth/client';
-import { createResource } from 'solid-js';
 import { getOpenEntitiesPrompt } from './openEntitiesPrompt';
 
 const ABOUT_MACRO = `
@@ -30,10 +29,7 @@ Internal terminology and knowledge
 export function useAdditionalInstructions() {
   const userInstructionsQuery = useInstructionsMdTextQuery();
   const { email } = useUserContext();
-  const [userName] = createResource(async () => {
-    const response = await authServiceClient.getUserName();
-    return response.isOk() ? response.value : null;
-  });
+  const userName = useOwnUserName();
   return (currentChatId?: string) => {
     let prompt = ABOUT_MACRO;
     const name = userName();

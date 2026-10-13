@@ -164,10 +164,19 @@ function drive(
   source: RowSource,
   trace: DatabaseSqlRunTrace
 ): ResultAsync<Outcome, DatabaseSqlFailure> {
-  return ResultAsync.fromPromise(opened(), engineFailure).andThen(
-    (query) =>
-      new ResultAsync(steps(query, source, trace).finally(() => query.free()))
-  );
+  return ResultAsync.fromPromise(opened(), engineFailure).andThen((query) => {
+    const settleStepsFinally = async () => {
+      return await query.free();
+    };
+    const settleSteps = async () => {
+      try {
+        return await steps(query, source, trace);
+      } finally {
+        await settleStepsFinally();
+      }
+    };
+    return new ResultAsync(settleSteps());
+  });
 }
 
 /** Run a read-only statement to its outcome; a write is refused. */

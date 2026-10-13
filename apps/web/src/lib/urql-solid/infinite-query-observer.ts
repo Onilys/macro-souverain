@@ -348,14 +348,30 @@ export class InfiniteQueryObserver<
 
     const signal = this.actionController.signal;
     const pendingRefetch = this.refetchPromise;
+
+    const settlePendingRefetch = async () => {
+      await pendingRefetch;
+
+      return await this.runFetchNextPage(refetchOptions, signal);
+    };
     const action = pendingRefetch
-      ? pendingRefetch.then(() => this.runFetchNextPage(refetchOptions, signal))
+      ? settlePendingRefetch()
       : this.runFetchNextPage(refetchOptions, signal);
-    const trackedAction = action.finally(() => {
+    const settleActionFinally = async () => {
       if (this.fetchNextPromise === trackedAction) {
         this.fetchNextPromise = undefined;
       }
-    });
+
+      return;
+    };
+    const settleAction = async () => {
+      try {
+        return await action;
+      } finally {
+        await settleActionFinally();
+      }
+    };
+    const trackedAction = settleAction();
 
     this.fetchNextPromise = trackedAction;
 
@@ -369,14 +385,30 @@ export class InfiniteQueryObserver<
 
     const signal = this.actionController.signal;
     const pendingFetchNext = this.fetchNextPromise;
+
+    const settlePendingFetchNext = async () => {
+      await pendingFetchNext;
+
+      return await this.runRefetch(refetchOptions, signal);
+    };
     const action = pendingFetchNext
-      ? pendingFetchNext.then(() => this.runRefetch(refetchOptions, signal))
+      ? settlePendingFetchNext()
       : this.runRefetch(refetchOptions, signal);
-    const trackedAction = action.finally(() => {
+    const settleActionResultFinally = async () => {
       if (this.refetchPromise === trackedAction) {
         this.refetchPromise = undefined;
       }
-    });
+
+      return;
+    };
+    const settleActionResult = async () => {
+      try {
+        return await action;
+      } finally {
+        await settleActionResultFinally();
+      }
+    };
+    const trackedAction = settleActionResult();
 
     this.refetchPromise = trackedAction;
 
@@ -651,7 +683,11 @@ export class InfiniteQueryObserver<
     refetchOptions: UrqlQueryRefetchOptions,
     signal: AbortSignal
   ): Promise<InfiniteResult<PageData, Variables, PageParam, SelectedData>> {
-    if (signal.aborted || this.destroyed || !this.state.enabled) {
+    const hasAborted = () => {
+      return signal.aborted || this.destroyed || !this.state.enabled;
+    };
+
+    if (hasAborted()) {
       return this.actionResult();
     }
 

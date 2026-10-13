@@ -2237,26 +2237,28 @@ describe('createGraphqlSoupAstItemsQuery', () => {
         );
 
         expect(fake.executions).toHaveLength(1);
-        void vi
-          .waitFor(() => {
+
+        const settleWaitFor = async () => {
+          await vi.waitFor(() => {
             expect(query.isPlaceholderData()).toBe(false);
             expect(query.isLoading()).toBe(false);
             expect(query.data()?.entities[0]?.name).toBe('Local task');
-          })
-          .then(() => {
-            fake.executions[0]?.next(
-              graphqlSoupPage({
-                items: [
-                  { id: 'task-1', type: 'document', name: 'Network task' },
-                ],
-                next_cursor: null,
-              })
-            );
-            expect(query.isPlaceholderData()).toBe(false);
-            expect(query.data()?.entities[0]?.name).toBe('Network task');
-            dispose();
-            resolve();
           });
+
+          fake.executions[0]?.next(
+            graphqlSoupPage({
+              items: [{ id: 'task-1', type: 'document', name: 'Network task' }],
+              next_cursor: null,
+            })
+          );
+          expect(query.isPlaceholderData()).toBe(false);
+          expect(query.data()?.entities[0]?.name).toBe('Network task');
+          dispose();
+          resolve();
+
+          return;
+        };
+        void settleWaitFor();
       });
     });
     expect(entityFilterMock).toHaveBeenCalled();
@@ -2318,32 +2320,33 @@ describe('createGraphqlSoupAstItemsQuery', () => {
           () => ({ enabled: true })
         );
 
-        void vi
-          .waitFor(() => {
+        const settleWaitForResult = async () => {
+          await vi.waitFor(() => {
             expect(query.data()?.entities[0]?.name).toBe('Optimistic task');
             expect(query.isPlaceholderData()).toBe(false);
-          })
-          .then(async () => {
-            fake.executions[0]?.next(
-              graphqlSoupPage({
-                items: [
-                  { id: 'task-1', type: 'document', name: 'Network task' },
-                ],
-                next_cursor: null,
-              })
-            );
-            expect(query.data()?.entities[0]?.name).toBe('Network task');
-
-            currentRevision = REVISION_2;
-            notifyCacheChanged(REVISION_2);
-            await vi.waitFor(() => {
-              expect(entityFilterMock).toHaveBeenCalledTimes(2);
-              expect(query.data()?.entities[0]?.name).toBe('Network task');
-              expect(query.isPlaceholderData()).toBe(false);
-            });
-            dispose();
-            resolve();
           });
+
+          fake.executions[0]?.next(
+            graphqlSoupPage({
+              items: [{ id: 'task-1', type: 'document', name: 'Network task' }],
+              next_cursor: null,
+            })
+          );
+          expect(query.data()?.entities[0]?.name).toBe('Network task');
+
+          currentRevision = REVISION_2;
+          notifyCacheChanged(REVISION_2);
+          await vi.waitFor(() => {
+            expect(entityFilterMock).toHaveBeenCalledTimes(2);
+            expect(query.data()?.entities[0]?.name).toBe('Network task');
+            expect(query.isPlaceholderData()).toBe(false);
+          });
+          dispose();
+          resolve();
+
+          return;
+        };
+        void settleWaitForResult();
       });
     });
   });

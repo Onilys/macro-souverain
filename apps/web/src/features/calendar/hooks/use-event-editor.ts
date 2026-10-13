@@ -11,7 +11,13 @@ import {
   useCreateMeetingMutation,
   useUpdateMeetingMutation,
 } from '@queries/call/meetings';
+import type {
+  ConferenceChange,
+  EventTime,
+  OutOfOfficeProperties,
+} from '@service-calendar/generated/schemas';
 import type { CalendarUpdateScope } from '@service-email/client';
+import type { EventReminders } from '@service-storage/generated/schemas';
 import { type Accessor, createMemo, createSignal } from 'solid-js';
 import { match } from 'ts-pattern';
 import {
@@ -209,16 +215,9 @@ export function useEventEditor(props: UseEventEditorProps) {
     const event = props.event();
     const existingMeetingUrl = event ? calendarMacroCallUrl(event) : undefined;
     const cleanContent = removeCalendarMacroCall(values, existingMeetingUrl);
-    const wantsMacroCall =
-      values.conferenceChoice === 'macro' &&
-      !values.outOfOffice &&
-      event?.eventType !== 'out_of_office';
+    const wantsMacroCall = buildWantsMacroCall();
     const needsCall = () => props.macroCallsEnabled() && wantsMacroCall;
-    const canManageCall =
-      !event ||
-      (!event.isReadOnly &&
-        editsPrimaryCopy(event) &&
-        viewerCanEditGuests(event));
+    const canManageCall = buildCanManageCall();
     if (
       needsCall() &&
       canManageCall &&
@@ -232,36 +231,12 @@ export function useEventEditor(props: UseEventEditorProps) {
     }
     // Older events can carry both a generated Macro link and provider
     // conferencing. Use the saved provider state when clearing either choice.
-    const conference =
-      values.conference ??
-      (canManageCall &&
-      !values.outOfOffice &&
-      event?.eventType !== 'out_of_office' &&
-      event?.conferenceUrl &&
-      (values.conferenceChoice === 'macro' ||
-        values.conferenceChoice === 'none')
-        ? 'none'
-        : undefined);
+    const conference = buildConference();
     let calendarSaved = false;
 
     try {
       if (!event) {
-        const eventValues = {
-          title: values.title,
-          time: values.time,
-          calendarId: values.calendarId,
-          recurrenceLines: values.recurrenceLines ?? [],
-          location:
-            cleanContent.location === '' ? undefined : cleanContent.location,
-          description:
-            cleanContent.description === ''
-              ? undefined
-              : cleanContent.description,
-          attendees: values.guestEmails.map((email) => ({ email })),
-          ...(conference ? { conference } : {}),
-          ...(values.reminders ? { reminders: values.reminders } : {}),
-          ...(values.outOfOffice ? { outOfOffice: values.outOfOffice } : {}),
-        };
+        const eventValues = buildEventValues();
         let created = createdEvent();
         if (created) {
           await update.mutateAsync({
@@ -283,22 +258,7 @@ export function useEventEditor(props: UseEventEditorProps) {
         }
         calendarSaved = true;
 
-        if (needsCall()) {
-          const meetingUrl = await createScheduledMeeting(values);
-          const linkedContent = attachCalendarMacroCall(
-            cleanContent,
-            meetingUrl
-          );
-          if (needsCall())
-            await update.mutateAsync({
-              eventId: created.id,
-              calendarId: created.calendarId ?? values.calendarId,
-              patch: {
-                location: linkedContent.location,
-                description: linkedContent.description,
-              },
-            });
-        }
+        await updateSave3(created);
         props.onSaved();
         return;
       }
@@ -306,23 +266,7 @@ export function useEventEditor(props: UseEventEditorProps) {
       const effectiveScope: CalendarUpdateScope = scope ?? 'all';
       const targetsOneOccurrence = effectiveScope === 'this_event';
       const initialContent = removeCalendarMacroCall(event, existingMeetingUrl);
-      const content =
-        event.eventType === 'out_of_office' ||
-        (existingMeetingUrl &&
-          wantsMacroCall &&
-          cleanContent.location === initialContent.location &&
-          cleanContent.description === initialContent.description)
-          ? {
-              location: event.location ?? '',
-              description: event.description ?? '',
-            }
-          : existingMeetingUrl && wantsMacroCall
-            ? attachCalendarMacroCall(
-                cleanContent,
-                existingMeetingUrl,
-                existingMeetingUrl
-              )
-            : cleanContent;
+      const content = buildContent(initialContent, event);
 
       // A single occurrence has no recurrence of its own, and the provider
       // rejects a recurrence-carrying patch scoped to one event, so recurrence
@@ -335,59 +279,44 @@ export function useEventEditor(props: UseEventEditorProps) {
         values.recurrenceLines !== undefined &&
         values.recurrenceLines.join('\n') !== initialLines().join('\n');
 
-      const updateArgs = {
-        eventId: event.eventId,
-        calendarId: event.calendarId,
-        scope: effectiveScope,
-        recurrenceId: targetsOneOccurrence
-          ? (event.recurrenceId ?? event.occurrenceKey)
-          : undefined,
-        occurrenceKey: targetsOneOccurrence ? event.occurrenceKey : undefined,
-        patch: {
-          ...(values.title !== event.title ? { title: values.title } : {}),
-          ...(hasTimeChanged(event, values.time) ? { time: values.time } : {}),
-          ...(content.location !== (event.location ?? '')
-            ? { location: content.location }
-            : {}),
-          ...(content.description !== (event.description ?? '')
-            ? { description: content.description }
-            : {}),
-          ...(recurrenceChanged
-            ? { recurrenceLines: values.recurrenceLines }
-            : {}),
-          ...(guestListChanged(event, values.guestEmails)
-            ? {
-                attendees: values.guestEmails.map((email) => ({ email })),
-              }
-            : {}),
-          ...(conference ? { conference } : {}),
-          ...(values.reminders ? { reminders: values.reminders } : {}),
-          ...(values.outOfOffice ? { outOfOffice: values.outOfOffice } : {}),
-        },
-      };
+      const updateArgs = buildUpdateArgs(
+        effectiveScope,
+        targetsOneOccurrence,
+        content,
+        recurrenceChanged,
+        event
+      );
       if (Object.keys(updateArgs.patch).length > 0) {
         await update.mutateAsync(updateArgs);
       }
       calendarSaved = true;
 
-      if (needsCall() && canManageCall && !existingMeetingUrl) {
+      await updateSave(updateArgs);
+      props.onSaved();
+    } catch (error) {
+      const subtext = error instanceof Error ? error.message : undefined;
+      updateSave2(subtext);
+    } finally {
+      setPending(false);
+    }
+
+    async function updateSave3(created: { id: string; calendarId?: string }) {
+      if (needsCall()) {
         const meetingUrl = await createScheduledMeeting(values);
         const linkedContent = attachCalendarMacroCall(cleanContent, meetingUrl);
         if (needsCall())
           await update.mutateAsync({
-            ...updateArgs,
+            eventId: created.id,
+            calendarId: created.calendarId ?? values.calendarId,
             patch: {
               location: linkedContent.location,
               description: linkedContent.description,
             },
           });
-      } else if (needsCall() && canManageCall && existingMeetingUrl) {
-        const shareToken = getMeetingShareToken(existingMeetingUrl);
-        if (shareToken) await syncScheduledMeeting(shareToken, values);
       }
-      props.onSaved();
-    } catch (error) {
-      const subtext = error instanceof Error ? error.message : undefined;
+    }
+
+    function updateSave2(subtext: string | undefined) {
       if (calendarSaved) {
         if (existingMeetingUrl) {
           toast.alert('Event saved, but call details could not be updated');
@@ -403,8 +332,159 @@ export function useEventEditor(props: UseEventEditorProps) {
           { subtext }
         );
       }
-    } finally {
-      setPending(false);
+    }
+
+    function buildWantsMacroCall() {
+      return (
+        values.conferenceChoice === 'macro' &&
+        !values.outOfOffice &&
+        event?.eventType !== 'out_of_office'
+      );
+    }
+
+    function buildCanManageCall() {
+      return (
+        !event ||
+        (!event.isReadOnly &&
+          editsPrimaryCopy(event) &&
+          viewerCanEditGuests(event))
+      );
+    }
+
+    function buildEventValues() {
+      return {
+        title: values.title,
+        time: values.time,
+        calendarId: values.calendarId,
+        recurrenceLines: values.recurrenceLines ?? [],
+        location:
+          cleanContent.location === '' ? undefined : cleanContent.location,
+        description:
+          cleanContent.description === ''
+            ? undefined
+            : cleanContent.description,
+        attendees: values.guestEmails.map((email) => ({ email })),
+        ...(conference ? { conference } : {}),
+        ...(values.reminders ? { reminders: values.reminders } : {}),
+        ...(values.outOfOffice ? { outOfOffice: values.outOfOffice } : {}),
+      };
+    }
+
+    async function updateSave(updateArgs: {
+      eventId: string;
+      calendarId: string | undefined;
+      scope: CalendarUpdateScope;
+      recurrenceId: string | undefined;
+      occurrenceKey: string | undefined;
+      patch: {
+        outOfOffice?: OutOfOfficeProperties | undefined;
+        reminders?: EventReminders | undefined;
+        conference?: ConferenceChange | undefined;
+        attendees?: { email: string }[] | undefined;
+        recurrenceLines?: string[] | undefined;
+        description?: string | undefined;
+        location?: string | undefined;
+        time?: EventTime | undefined;
+        title?: string | undefined;
+      };
+    }) {
+      if (needsCall() && canManageCall && !existingMeetingUrl) {
+        const meetingUrl = await createScheduledMeeting(values);
+        const linkedContent = attachCalendarMacroCall(cleanContent, meetingUrl);
+        if (needsCall())
+          await update.mutateAsync({
+            ...updateArgs,
+            patch: {
+              location: linkedContent.location,
+              description: linkedContent.description,
+            },
+          });
+      } else if (needsCall() && canManageCall && existingMeetingUrl) {
+        const shareToken = getMeetingShareToken(existingMeetingUrl);
+        if (shareToken) await syncScheduledMeeting(shareToken, values);
+      }
+    }
+
+    function buildContent(
+      initialContent: {
+        description: string;
+        location: string;
+      },
+      eventValue: NonNullable<typeof event>
+    ) {
+      return eventValue.eventType === 'out_of_office' ||
+        (existingMeetingUrl &&
+          wantsMacroCall &&
+          cleanContent.location === initialContent.location &&
+          cleanContent.description === initialContent.description)
+        ? {
+            location: eventValue.location ?? '',
+            description: eventValue.description ?? '',
+          }
+        : existingMeetingUrl && wantsMacroCall
+          ? attachCalendarMacroCall(
+              cleanContent,
+              existingMeetingUrl,
+              existingMeetingUrl
+            )
+          : cleanContent;
+    }
+
+    function buildConference() {
+      return (
+        values.conference ??
+        (canManageCall &&
+        !values.outOfOffice &&
+        event?.eventType !== 'out_of_office' &&
+        event?.conferenceUrl &&
+        (values.conferenceChoice === 'macro' ||
+          values.conferenceChoice === 'none')
+          ? 'none'
+          : undefined)
+      );
+    }
+
+    function buildUpdateArgs(
+      effectiveScope: CalendarUpdateScope,
+      targetsOneOccurrence: boolean,
+      content: { description: string; location: string },
+      recurrenceChanged: boolean,
+      eventValue: NonNullable<typeof event>
+    ) {
+      return {
+        eventId: eventValue.eventId,
+        calendarId: eventValue.calendarId,
+        scope: effectiveScope,
+        recurrenceId: targetsOneOccurrence
+          ? (eventValue.recurrenceId ?? eventValue.occurrenceKey)
+          : undefined,
+        occurrenceKey: targetsOneOccurrence
+          ? eventValue.occurrenceKey
+          : undefined,
+        patch: {
+          ...(values.title !== eventValue.title ? { title: values.title } : {}),
+          ...(hasTimeChanged(eventValue, values.time)
+            ? { time: values.time }
+            : {}),
+          ...(content.location !== (eventValue.location ?? '')
+            ? { location: content.location }
+            : {}),
+          ...(content.description !== (eventValue.description ?? '')
+            ? { description: content.description }
+            : {}),
+          ...(recurrenceChanged
+            ? { recurrenceLines: values.recurrenceLines }
+            : {}),
+          ...(guestListChanged(eventValue, values.guestEmails)
+            ? {
+                attendees: values.guestEmails.map((email) => ({ email })),
+              }
+            : {}),
+          ...(conference ? { conference } : {}),
+          ...(values.reminders ? { reminders: values.reminders } : {}),
+          ...(values.outOfOffice ? { outOfOffice: values.outOfOffice } : {}),
+        },
+      };
     }
   };
 

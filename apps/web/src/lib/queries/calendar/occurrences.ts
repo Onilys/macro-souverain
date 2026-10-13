@@ -251,9 +251,18 @@ export function useCalendarOccurrencesQuery(
 export async function invalidateCalendarOccurrences() {
   const controller = activeCalendarSyncController();
   if (controller?.answering()) {
-    await controller.runDelta().catch((error) => {
-      console.warn('Calendar delta sync failed', error);
-    });
+    const settleRunDelta = async () => {
+      try {
+        return await controller.runDelta();
+      } catch (settleRunDeltaError) {
+        const error = settleRunDeltaError;
+
+        console.warn('Calendar delta sync failed', error);
+
+        return;
+      }
+    };
+    await settleRunDelta();
   }
   return queryClient.invalidateQueries({
     queryKey: calendarKeys.occurrences._def,

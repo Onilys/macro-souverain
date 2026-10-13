@@ -254,7 +254,16 @@ export function createPresentationSession(
     const delay = options.autosaveDelay ?? 1500;
     if (delay <= 0) return;
     clearTimeout(timer);
-    timer = setTimeout(() => void save().catch(() => {}), delay);
+    timer = setTimeout(() => {
+      const settleSaveResultResult = async () => {
+        try {
+          return await save();
+        } catch {
+          return;
+        }
+      };
+      return void settleSaveResultResult();
+    }, delay);
   }
 
   async function settle(outcome: EditOutcome): Promise<EditResult | null> {
@@ -370,15 +379,32 @@ export function createPresentationSession(
   const unsubscribeRemote = engine.onRemoteChange?.((result, state) => {
     if (disposed) return;
     setHistory(state);
-    void absorb(result).catch((error: unknown) => {
-      console.error('[pptx] could not show a change made elsewhere', error);
-    });
+
+    const settleAbsorb = async () => {
+      try {
+        return await absorb(result);
+      } catch (settleAbsorbError) {
+        const error: unknown = settleAbsorbError;
+
+        console.error('[pptx] could not show a change made elsewhere', error);
+
+        return;
+      }
+    };
+    void settleAbsorb();
   });
 
   // Unsaved work is flushed when the tab is hidden and when the editor closes.
   const onHide = () => {
     if (document.visibilityState === 'hidden' && changeCount !== savedCount) {
-      void save().catch(() => {});
+      const settleSave = async () => {
+        try {
+          return await save();
+        } catch {
+          return;
+        }
+      };
+      void settleSave();
     }
   };
   document.addEventListener('visibilitychange', onHide);
@@ -388,7 +414,15 @@ export function createPresentationSession(
     replacedListeners.clear();
     document.removeEventListener('visibilitychange', onHide);
     clearTimeout(timer);
-    if (changeCount !== savedCount) void save().catch(() => {});
+
+    const settleSaveResult = async () => {
+      try {
+        return await save();
+      } catch {
+        return;
+      }
+    };
+    if (changeCount !== savedCount) void settleSaveResult();
     disposed = true;
   });
 
@@ -408,10 +442,16 @@ export function createPresentationSession(
     undo: () => run(() => engine.undo()),
     redo: () => run(() => engine.redo()),
     breakGroup: () => {
-      void engine
-        .breakGroup()
-        .then((o) => setHistory(o.history))
-        .catch(() => {});
+      const settleBreakGroup = async () => {
+        try {
+          const settleBreakGroupValue = await engine.breakGroup();
+          const o = settleBreakGroupValue;
+          return await setHistory(o.history);
+        } catch {
+          return;
+        }
+      };
+      void settleBreakGroup();
     },
     save,
     refresh,

@@ -65,35 +65,42 @@ export function createDraftSyncStatus(options: {
       if (!draft && !saved.latest?.draft) return;
       return {
         message: 'Draft saved',
-        savedVersion:
-          disk === 'saved' && options.acknowledgeSaved()
-            ? draft
-              ? `${draft.generation}:${draft.revision}`
-              : saved.latest?.draft?.updated_at
-            : undefined,
+        savedVersion: buildSavedVersion(),
         failed: false,
         canKeepEditing: false,
       };
     }
-    return {
-      message:
-        disk === 'failed'
-          ? 'Changes could not be saved on this device'
-          : 'Draft could not be synced',
-      detail:
-        disk === 'failed'
-          ? 'Keep this editor open until saving succeeds.'
-          : deletePending()
-            ? 'Discard could not be confirmed.'
-            : draft?.status === 'unconfirmed'
-              ? 'The last save could not be confirmed.'
-              : draft?.status === 'failed'
-                ? 'The server could not save this draft.'
-                : undefined,
-      failed,
-      action: deletePending() ? 'retry-discard' : 'retry',
-      canKeepEditing: deletePending(),
-    };
+    return buildCreateMemo();
+
+    function buildSavedVersion(): string | undefined {
+      return disk === 'saved' && options.acknowledgeSaved()
+        ? draft
+          ? `${draft.generation}:${draft.revision}`
+          : saved.latest?.draft?.updated_at
+        : undefined;
+    }
+
+    function buildCreateMemo(): DraftSyncViewState | undefined {
+      return {
+        message:
+          disk === 'failed'
+            ? 'Changes could not be saved on this device'
+            : 'Draft could not be synced',
+        detail:
+          disk === 'failed'
+            ? 'Keep this editor open until saving succeeds.'
+            : deletePending()
+              ? 'Discard could not be confirmed.'
+              : draft?.status === 'unconfirmed'
+                ? 'The last save could not be confirmed.'
+                : draft?.status === 'failed'
+                  ? 'The server could not save this draft.'
+                  : undefined,
+        failed,
+        action: deletePending() ? 'retry-discard' : 'retry',
+        canKeepEditing: deletePending(),
+      };
+    }
   });
   const run = async (action: () => Promise<unknown>) => {
     if (busy()) return;

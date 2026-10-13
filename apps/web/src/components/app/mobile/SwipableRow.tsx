@@ -341,39 +341,65 @@ export function SwipableRowProvider(
       touchState.isSwipeGesture = Math.abs(dx) > Math.abs(dy);
     }
 
-    if (touchState.isSwipeGesture) {
-      e.preventDefault();
+    updateCurrentX(touchState.id, touchState.elements);
 
-      touchState.currentX = touch.clientX;
+    function updateCurrentX(
+      id: string,
+      elements: NonNullable<typeof touchState.elements>
+    ) {
+      if (touchState.isSwipeGesture) {
+        e.preventDefault();
 
-      const allowRight = canSwipeRight(touchState.id);
-      const allowLeft = canSwipeLeft(touchState.id);
+        touchState.currentX = touch.clientX;
 
-      // Constrain dx based on available callbacks
-      let constrainedDx = dx;
-      if (dx > 0 && !allowRight) {
-        constrainedDx = dx * 0.1;
-      } else if (dx < 0 && !allowLeft) {
-        constrainedDx = dx * 0.1;
+        const allowRight = canSwipeRight(id);
+        const allowLeft = canSwipeLeft(id);
+
+        // Constrain dx based on available callbacks
+        let constrainedDx = dx;
+        if (dx > 0 && !allowRight) {
+          constrainedDx = dx * 0.1;
+        } else if (dx < 0 && !allowLeft) {
+          constrainedDx = dx * 0.1;
+        }
+
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          if (!touchState.elements) return;
+          touchState.elements.contentEl.style.transform = `translateX(${constrainedDx}px)`;
+          rafId = null;
+        });
+
+        // set activation state
+        const phase = stateById()[id]?.phase ?? 'idle';
+        const thesholdCrossed =
+          (allowRight && dx > SWIPE_ACTIVATION_DISTANCE) ||
+          (allowLeft && dx < -SWIPE_ACTIVATION_DISTANCE);
+
+        updateOnTouchMove(thesholdCrossed, phase, id);
+
+        // Auto-activate swipe if threshold is reached
+        const containerWidth = elements.swipeEl.clientWidth;
+        if (allowRight && dx > containerWidth * AUTO_ACTIVATION_PERCENTAGE) {
+          handleSwipe(id);
+        } else if (
+          allowLeft &&
+          dx < -containerWidth * AUTO_ACTIVATION_PERCENTAGE
+        ) {
+          handleSwipe(id);
+        }
       }
+    }
 
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        if (!touchState.elements) return;
-        touchState.elements.contentEl.style.transform = `translateX(${constrainedDx}px)`;
-        rafId = null;
-      });
-
-      // set activation state
-      const phase = stateById()[touchState.id]?.phase ?? 'idle';
-      const thesholdCrossed =
-        (allowRight && dx > SWIPE_ACTIVATION_DISTANCE) ||
-        (allowLeft && dx < -SWIPE_ACTIVATION_DISTANCE);
-
+    function updateOnTouchMove(
+      thesholdCrossed: boolean,
+      phase: string,
+      id: string
+    ) {
       if (thesholdCrossed) {
         if (phase !== 'threshold') {
           hapticImpact('light');
-          setState(touchState.id, {
+          setState(id, {
             direction: dx > 0 ? 'right' : 'left',
             phase: 'threshold',
           });
@@ -383,22 +409,11 @@ export function SwipableRowProvider(
           if (phase === 'threshold') {
             hapticImpact('light');
           }
-          setState(touchState.id, {
+          setState(id, {
             direction: dx > 0 ? 'right' : 'left',
             phase: 'dragging',
           });
         }
-      }
-
-      // Auto-activate swipe if threshold is reached
-      const containerWidth = touchState.elements.swipeEl.clientWidth;
-      if (allowRight && dx > containerWidth * AUTO_ACTIVATION_PERCENTAGE) {
-        handleSwipe(touchState.id);
-      } else if (
-        allowLeft &&
-        dx < -containerWidth * AUTO_ACTIVATION_PERCENTAGE
-      ) {
-        handleSwipe(touchState.id);
       }
     }
   };

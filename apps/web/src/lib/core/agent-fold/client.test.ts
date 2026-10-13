@@ -101,7 +101,15 @@ describe('agent fold preloading', () => {
 
     workers[0]!.dispatchEvent(new ErrorEvent('error', { message: '' }));
 
-    const error = await pushed.catch((reason: unknown) => reason);
+    const settlePushed = async () => {
+      try {
+        return await pushed;
+      } catch (settlePushedError) {
+        const reason: unknown = settlePushedError;
+        return await reason;
+      }
+    };
+    const error = await settlePushed();
     expect(error).toBeInstanceOf(AgentFoldWorkerUnavailable);
     expect((error as Error).message).not.toContain('no longer served');
     expect((error as Error).message).toContain('fold.worker');
@@ -117,7 +125,15 @@ describe('agent fold preloading', () => {
       new ErrorEvent('error', { message: 'Uncaught Error: wasm exploded' })
     );
 
-    const error = await pushed.catch((reason: unknown) => reason);
+    const settlePushedResult = async () => {
+      try {
+        return await pushed;
+      } catch (settlePushedResultError) {
+        const reason: unknown = settlePushedResultError;
+        return await reason;
+      }
+    };
+    const error = await settlePushedResult();
     expect(error).not.toBeInstanceOf(AgentFoldWorkerUnavailable);
     expect((error as Error).message).toContain('wasm exploded');
   });
@@ -130,10 +146,25 @@ describe('agent fold preloading', () => {
     workers[0]!.dispatchEvent(new ErrorEvent('error', { message: '' }));
 
     // One cause, two reports: why a single failure looks like many in Datadog.
-    const [a, b] = await Promise.all([
-      first.catch((reason: unknown) => reason),
-      second.catch((reason: unknown) => reason),
-    ]);
+
+    const settleFirst = async () => {
+      try {
+        return await first;
+      } catch (settleFirstError) {
+        const reason: unknown = settleFirstError;
+        return await reason;
+      }
+    };
+
+    const settleSecond = async () => {
+      try {
+        return await second;
+      } catch (settleSecondError) {
+        const reason: unknown = settleSecondError;
+        return await reason;
+      }
+    };
+    const [a, b] = await Promise.all([settleFirst(), settleSecond()]);
     expect((a as Error).name).toBe('AgentFoldWorkerUnavailable');
     expect((b as Error).name).toBe('AgentFoldWorkerUnavailable');
   });

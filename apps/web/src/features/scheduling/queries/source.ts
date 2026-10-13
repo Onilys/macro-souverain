@@ -1,4 +1,3 @@
-import { getDisplayNameParts, type MacroId } from '@core/user';
 import { throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
 import { schedulingClient } from '@service-email/scheduling';
@@ -115,13 +114,13 @@ export function useManageBookingMutation() {
 
 async function createDefaultBookingLinkIfNeeded(
   profile: SchedulingProfile,
-  userId: string
+  userId: string,
+  firstName: string
 ): Promise<SchedulingProfile | null> {
   if (profile.revision !== 0 || profile.eventTypes.length > 0) {
     return null;
   }
 
-  const { firstName } = getDisplayNameParts(userId as MacroId);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const schedule = newSchedule(timeZone);
   const bookingLink = newDefaultBookingLink(schedule.id, userId, firstName);
@@ -143,22 +142,24 @@ async function createDefaultBookingLinkIfNeeded(
   }
 }
 
-export function useSchedulingProfileWithAutoSetupQuery(
-  scope: Accessor<SchedulingScope>,
-  userId: Accessor<string>
+function profileWithAutoSetupOptions(
+  scope: SchedulingScope,
+  userId: string,
+  firstName: string
 ) {
-  return useQuery(() => ({
-    queryKey: schedulingKeys.settings(scope().id).queryKey,
+  return {
+    queryKey: schedulingKeys.settings(scope.id).queryKey,
     queryFn: async () => {
       const result = await throwOnErr(() =>
-        schedulingClient.settings(scope().teamId)
+        schedulingClient.settings(scope.teamId)
       );
       const profile = result.profile;
 
-      if (!scope().teamId && userId()) {
+      if (!scope.teamId && userId) {
         const updated = await createDefaultBookingLinkIfNeeded(
           profile,
-          userId()
+          userId,
+          firstName
         );
         if (updated) {
           return updated;
@@ -168,5 +169,15 @@ export function useSchedulingProfileWithAutoSetupQuery(
       return profile;
     },
     retry: false,
-  }));
+  };
+}
+
+export function useSchedulingProfileWithAutoSetupQuery(
+  scope: Accessor<SchedulingScope>,
+  userId: Accessor<string>,
+  firstName: Accessor<string>
+) {
+  return useQuery(() =>
+    profileWithAutoSetupOptions(scope(), userId(), firstName())
+  );
 }

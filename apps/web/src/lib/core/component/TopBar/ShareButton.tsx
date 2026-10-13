@@ -59,6 +59,10 @@ import {
   useCallRecordQuery,
 } from '@queries/call/call';
 import {
+  fetchChatPermissions,
+  updateChatPermissions,
+} from '@queries/cognition/requests';
+import {
   fetchInitiativeSharePermissions,
   updateInitiativeSharePermissions,
 } from '@queries/initiative/share-permissions';
@@ -70,15 +74,20 @@ import {
   getFormSharePermissions,
   updateFormSharePermissions,
 } from '@queries/storage/forms';
-import { useCurrentTeamQuery } from '@queries/team/teams';
-import { cognitionApiServiceClient } from '@service-cognition/client';
 import {
-  blockNameToItemType,
-  storageServiceClient,
-} from '@service-storage/client';
+  editDocument,
+  editProject,
+  editThread,
+  fetchChannelPreviews,
+  fetchDocumentPermissions,
+  fetchProjectPermissions,
+} from '@queries/storage/requests';
+import { useCurrentTeamQuery } from '@queries/team/teams';
+
 import type { AccessLevel } from '@service-storage/generated/schemas/accessLevel';
 import type { LinkShare } from '@service-storage/generated/schemas/linkShare';
 import type { SharePermissionV2ChannelSharePermissions } from '@service-storage/generated/schemas/sharePermissionV2ChannelSharePermissions';
+import { blockNameToItemType } from '@service-storage/itemType';
 import { createCallback } from '@solid-primitives/rootless';
 import { useNavigate } from '@solidjs/router';
 import {
@@ -171,16 +180,16 @@ async function fetchSharePermissions(id: string, itemType: ShareItemType) {
   if (itemType === 'database') return getDatabaseSharePermissions(id);
   if (itemType === 'form') return getFormSharePermissions(id);
   if (itemType === 'chat') {
-    return cognitionApiServiceClient.getChatPermissions({ id });
+    return fetchChatPermissions({ id });
   }
   if (itemType === 'document') {
-    return storageServiceClient.getDocumentPermissions({ document_id: id });
+    return fetchDocumentPermissions({ document_id: id });
   }
   if (itemType === 'project') {
     if (id === 'trash') {
       return;
     }
-    return storageServiceClient.projects.getPermissions({ id });
+    return fetchProjectPermissions({ id });
   }
 }
 
@@ -870,7 +879,7 @@ export function ShareModal(props: ShareModalProps) {
       );
       return { channel_ids };
     },
-    storageServiceClient.getBatchChannelPreviews,
+    fetchChannelPreviews,
     { initialValue: undefined }
   );
 
@@ -976,7 +985,7 @@ export function ShareModal(props: ShareModalProps) {
         });
       }
     } else if (props.itemType === 'chat') {
-      const result = await cognitionApiServiceClient.updateChatPermissions({
+      const result = await updateChatPermissions({
         chat_id: props.id,
         sharePermission: {
           channelSharePermissions: [
@@ -999,7 +1008,7 @@ export function ShareModal(props: ShareModalProps) {
         console.error(result);
       }
     } else if (props.itemType === 'document') {
-      const result = await storageServiceClient.editDocument({
+      const result = await editDocument({
         documentId: props.id,
         sharePermission: {
           channelSharePermissions: [
@@ -1022,7 +1031,7 @@ export function ShareModal(props: ShareModalProps) {
         console.error(result);
       }
     } else if (props.itemType === 'project') {
-      const result = await storageServiceClient.projects.edit({
+      const result = await editProject({
         id: props.id,
         sharePermission: {
           channelSharePermissions: [
@@ -1084,7 +1093,7 @@ export function ShareModal(props: ShareModalProps) {
           ],
         });
       } else if (props.itemType === 'chat') {
-        result = await cognitionApiServiceClient.updateChatPermissions({
+        result = await updateChatPermissions({
           sharePermission: {
             channelSharePermissions: [
               {
@@ -1097,7 +1106,7 @@ export function ShareModal(props: ShareModalProps) {
           chat_id: props.id,
         });
       } else if (props.itemType === 'document') {
-        result = await storageServiceClient.editDocument({
+        result = await editDocument({
           sharePermission: {
             channelSharePermissions: [
               {
@@ -1110,7 +1119,7 @@ export function ShareModal(props: ShareModalProps) {
           documentId: props.id,
         });
       } else if (props.itemType === 'project') {
-        result = await storageServiceClient.projects.edit({
+        result = await editProject({
           sharePermission: {
             channelSharePermissions: [
               {
@@ -1123,7 +1132,7 @@ export function ShareModal(props: ShareModalProps) {
           id: props.id,
         });
       } else if (props.itemType === 'email') {
-        result = await storageServiceClient.editThread({
+        result = await editThread({
           sharePermission: {
             channelSharePermissions: [
               {
@@ -1216,19 +1225,19 @@ export function ShareModal(props: ShareModalProps) {
           sharePermission
         );
       } else if (props.itemType === 'chat') {
-        result = await cognitionApiServiceClient.updateChatPermissions({
+        result = await updateChatPermissions({
           sharePermission,
           chat_id: props.id,
         });
       } else if (props.itemType === 'call') {
         result = await updateCallTeamShare(props.id, shared);
       } else if (props.itemType === 'project') {
-        result = await storageServiceClient.projects.edit({
+        result = await editProject({
           id: props.id,
           sharePermission,
         });
       } else {
-        result = await storageServiceClient.editDocument({
+        result = await editDocument({
           sharePermission,
           documentId: props.id,
         });
@@ -1305,17 +1314,17 @@ export function ShareModal(props: ShareModalProps) {
           sharePermission
         );
       } else if (props.itemType === 'chat') {
-        result = await cognitionApiServiceClient.updateChatPermissions({
+        result = await updateChatPermissions({
           sharePermission,
           chat_id: props.id,
         });
       } else if (props.itemType === 'document') {
-        result = await storageServiceClient.editDocument({
+        result = await editDocument({
           sharePermission,
           documentId: props.id,
         });
       } else if (props.itemType === 'project') {
-        result = await storageServiceClient.projects.edit({
+        result = await editProject({
           sharePermission,
           id: props.id,
         });

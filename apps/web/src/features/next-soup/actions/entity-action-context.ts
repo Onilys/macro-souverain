@@ -179,13 +179,11 @@ export function toEntityActionListState<TItem, TMetadata>(
 
     const shouldSkip = (row: SoupRow) =>
       navigationOptions?.skip?.(row) ?? false;
-    const currentIndex = focusedRow()?.row.index ?? -1;
+    const currentIndex = buildCurrentIndex();
 
     if (offset === 0) {
       const current = allRows[currentIndex];
-      return current && !shouldSkip(current.row)
-        ? { row: current.row, index: currentIndex }
-        : undefined;
+      return buildPeekOffset(current);
     }
 
     const direction = offset > 0 ? 1 : -1;
@@ -203,10 +201,10 @@ export function toEntityActionListState<TItem, TMetadata>(
 
     let remaining = Math.abs(offset);
     let cursor = currentIndex;
-    let lastValid = shouldSkip(allRows[currentIndex]?.row) ? -1 : currentIndex;
+    let lastValid = buildLastValid();
     let iterations = 0;
     const iterationLimit = allRows.length * remaining;
-    const shouldWrap = navigationOptions?.wrapNavigation ?? false;
+    const shouldWrap = buildShouldWrap();
 
     while (remaining > 0 && iterations < iterationLimit) {
       iterations += 1;
@@ -226,6 +224,26 @@ export function toEntityActionListState<TItem, TMetadata>(
 
     const result = allRows[lastValid];
     return result ? { row: result.row, index: lastValid } : undefined;
+
+    function buildPeekOffset(
+      current: AdaptedRow
+    ): { row: SoupRow; index: number } | undefined {
+      return current && !shouldSkip(current.row)
+        ? { row: current.row, index: currentIndex }
+        : undefined;
+    }
+
+    function buildLastValid() {
+      return shouldSkip(allRows[currentIndex]?.row) ? -1 : currentIndex;
+    }
+
+    function buildShouldWrap() {
+      return navigationOptions?.wrapNavigation ?? false;
+    }
+
+    function buildCurrentIndex() {
+      return focusedRow()?.row.index ?? -1;
+    }
   };
 
   const collapseCallback = () => {

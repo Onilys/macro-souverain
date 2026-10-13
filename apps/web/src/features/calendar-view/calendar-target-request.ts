@@ -47,10 +47,16 @@ export async function resolveTargetRequestFromPreview(
   }
   const occurrenceKey =
     typeof params.occurrenceKey === 'string' ? params.occurrenceKey : undefined;
-  const event = await fetchCalendarMentionPreview(
-    params.eventId,
-    occurrenceKey
-  ).catch(() => null);
+
+  const eventId = params.eventId;
+  const settleFetchCalendarMentionPreview = async () => {
+    try {
+      return await fetchCalendarMentionPreview(eventId, occurrenceKey);
+    } catch {
+      return await null;
+    }
+  };
+  const event = await settleFetchCalendarMentionPreview();
   // A channel-shared meeting is on none of the viewer's calendars, so there
   // is no event of theirs for the block to focus.
   if (!event?.viewerEventId) return undefined;
@@ -131,9 +137,18 @@ export function createCalendarTargetAim(options: {
       return;
     }
     if (typeof params.eventId === 'string' && params.eventId.length > 0) {
-      resolveFromPreview(params, requestId).then((resolved) => {
+      const settleResolveFromPreview = async () => {
+        const settleResolveFromPreviewValue = await resolveFromPreview(
+          params,
+          requestId
+        );
+        const resolved = settleResolveFromPreviewValue;
+
         applyResolvedTarget(requestId, resolved);
-      });
+
+        return;
+      };
+      settleResolveFromPreview();
       return;
     }
     applyResolvedTarget(requestId, undefined);

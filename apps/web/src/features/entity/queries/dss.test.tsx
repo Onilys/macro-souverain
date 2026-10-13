@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   failure: vi.fn(),
 }));
-vi.mock('@core/component/FileList/itemOperations', () => ({
+vi.mock('@app/lib/queries/items/operations', () => ({
   deleteItem: mocks.deleteItem,
   copyItem: mocks.copyItem,
   moveToFolder: mocks.moveToFolder,

@@ -287,9 +287,21 @@ function cachedUserId(): string | undefined {
 }
 
 function runGraphqlPreviewWrite(write: Promise<void>) {
-  void write.catch((error) => {
-    console.error('[graphql-preview] failed to update normalized cache', error);
-  });
+  const settleWrite = async () => {
+    try {
+      return await write;
+    } catch (settleWriteError) {
+      const error = settleWriteError;
+
+      console.error(
+        '[graphql-preview] failed to update normalized cache',
+        error
+      );
+
+      return;
+    }
+  };
+  void settleWrite();
 }
 
 function getPreviewData(itemId: string): PreviewItem | undefined {

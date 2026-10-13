@@ -5,7 +5,7 @@ import {
   partitionAttachments,
 } from '@channel/Media/media-items';
 import { ItemPreview } from '@core/component/ItemPreview';
-import { stringToItemType } from '@service-storage/client';
+import { stringToItemType } from '@service-storage/itemType';
 import { cn } from '@ui';
 import { createMemo, For, Show } from 'solid-js';
 import { useMessage } from './context';

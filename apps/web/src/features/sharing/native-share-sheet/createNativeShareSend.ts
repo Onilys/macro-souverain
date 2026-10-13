@@ -12,24 +12,34 @@ export function createNativeShareSend<T>(options: {
     if (pending) return pending;
     if (state() === 'sent') return Promise.resolve();
     setState('sending');
-    pending = (async () => {
-      try {
-        await options.send(snapshot);
-      } catch (error) {
-        setState('idle');
-        throw error;
-      }
-      // A failed acknowledgement must never make a delivered message sendable,
-      // nor report the delivered message as a failed send.
-      setState('sent');
-      try {
-        await options.clear();
-      } catch (error) {
-        console.error('Unable to acknowledge the shared batch', error);
-      }
-    })().finally(() => {
+    const settleOperationFinally = async () => {
       pending = undefined;
-    });
+
+      return;
+    };
+    const settleOperation = async () => {
+      try {
+        return await (async () => {
+          try {
+            await options.send(snapshot);
+          } catch (error) {
+            setState('idle');
+            throw error;
+          }
+          // A failed acknowledgement must never make a delivered message sendable,
+          // nor report the delivered message as a failed send.
+          setState('sent');
+          try {
+            await options.clear();
+          } catch (error) {
+            console.error('Unable to acknowledge the shared batch', error);
+          }
+        })();
+      } finally {
+        await settleOperationFinally();
+      }
+    };
+    pending = settleOperation();
     return pending;
   };
 

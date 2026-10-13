@@ -37,8 +37,14 @@ export function SlideShow(props: {
     deck: () => props.deck,
     start: props.start,
     onExit: (index) => {
-      if (document.fullscreenElement)
-        void document.exitFullscreen().catch(() => {});
+      const settleExitFullscreen = async () => {
+        try {
+          return await document.exitFullscreen();
+        } catch {
+          return;
+        }
+      };
+      if (document.fullscreenElement) void settleExitFullscreen();
       props.onExit(index);
     },
   });
@@ -126,7 +132,14 @@ export function SlideShow(props: {
 
   onMount(() => {
     root.focus();
-    void root.requestFullscreen?.().catch(() => {});
+    const enterFullscreen = async () => {
+      try {
+        await root.requestFullscreen?.();
+      } catch {
+        // Browser policy can keep the slideshow in its existing window.
+      }
+    };
+    void enterFullscreen();
     const onResize = () =>
       setSize({ w: window.innerWidth, h: window.innerHeight });
     const onFullscreen = () => {

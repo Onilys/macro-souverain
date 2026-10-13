@@ -782,9 +782,15 @@ describe('notification mutations', () => {
 
       const TestComponent = () => {
         const mutation = useMarkNotificationsAsSeenMutation();
-        mutatePromise = mutation
-          .mutateAsync({ notificationIds: ['n1'] })
-          .catch(() => {});
+
+        const settleMutateAsync = async () => {
+          try {
+            return await mutation.mutateAsync({ notificationIds: ['n1'] });
+          } catch {
+            return;
+          }
+        };
+        mutatePromise = settleMutateAsync();
         return null;
       };
 
@@ -908,9 +914,15 @@ describe('notification mutations', () => {
 
       const TestComponent = () => {
         const mutation = useMarkNotificationsAsDoneMutation();
-        mutatePromise = mutation
-          .mutateAsync({ notificationIds: ['n1'] })
-          .catch(() => {});
+
+        const settleMutateAsyncResult = async () => {
+          try {
+            return await mutation.mutateAsync({ notificationIds: ['n1'] });
+          } catch {
+            return;
+          }
+        };
+        mutatePromise = settleMutateAsyncResult();
         return null;
       };
 

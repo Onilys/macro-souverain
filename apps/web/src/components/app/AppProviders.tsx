@@ -20,12 +20,12 @@ import {
 } from '@notifications';
 import { maybeHandlePlatformNotification } from '@notifications/notification-platform';
 import { useChatRenameWebsocketSync } from '@queries/chat';
-import { useQuerySync } from '@queries/sync/use-query-sync';
-import { MutationUndoProvider } from '@queries/undo';
 import {
   useRefreshTrackedEntitiesOnFocus,
   useReopenTrackedEntitiesOnReconnect,
-} from '@service-connection/client';
+} from '@queries/connection/tracked-entities';
+import { useQuerySync } from '@queries/sync/use-query-sync';
+import { MutationUndoProvider } from '@queries/undo';
 import { ws as connectionGatewayWebsocket } from '@service-connection/websocket';
 import type { ParentProps } from 'solid-js';
 

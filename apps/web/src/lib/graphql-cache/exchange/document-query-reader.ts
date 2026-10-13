@@ -2,6 +2,7 @@ import type { CacheHost, CacheReadArgs } from '../host/types';
 import {
   type CacheRevision,
   parseCacheRevision,
+  type QueryUpdate,
   type ReadResult,
 } from '../protocol';
 import { isQueryObject } from './live-query';
@@ -55,30 +56,12 @@ export function createDocumentQueryReader(
           : undefined;
         if (
           state.latest &&
-          (revision !== undefined && state.latest.revision !== undefined
-            ? BigInt(revision) < BigInt(state.latest.revision) ||
-              (revision === state.latest.revision && sequence < state.accepted)
-            : sequence < state.accepted)
+          isOlderThanLatest(revision, state.accepted, state.latest)
         )
           return state.latest.result;
-        if (
-          base &&
-          revision !== undefined &&
-          BigInt(revision) < BigInt(base.revision)
-        )
-          throw new Error('query revision moved backwards');
-        const data =
-          update?.kind === 'patch'
-            ? base
-              ? applyQueryPatches(base.data, update.patches)
-              : undefined
-            : update?.kind === 'hit'
-              ? update.data
-              : fallback?.kind === 'hit'
-                ? fallback.data
-                : undefined;
-        if (update?.kind === 'patch' && !base)
-          throw new Error('query patch has no snapshot');
+        updateRead2(revision);
+        const data = buildData(update, fallback);
+        updateRead(update);
         const result: ReadResult =
           update?.kind === 'miss' || fallback?.kind === 'miss'
             ? { kind: 'miss' }
@@ -91,9 +74,53 @@ export function createDocumentQueryReader(
         state.latest = { revision, result };
         return result;
       } catch (error) {
-        if (states.get(key) === state && sequence >= state.accepted)
-          state.snapshot = undefined;
+        updateSnapshot(state);
         throw error;
+      }
+
+      function updateSnapshot(stateInput: NonNullable<typeof state>) {
+        if (states.get(key) === stateInput && sequence >= stateInput.accepted)
+          stateInput.snapshot = undefined;
+      }
+
+      function updateRead2(revision: CacheRevision | undefined) {
+        if (
+          base &&
+          revision !== undefined &&
+          BigInt(revision) < BigInt(base.revision)
+        )
+          throw new Error('query revision moved backwards');
+      }
+
+      function isOlderThanLatest(
+        revision: CacheRevision | undefined,
+        accepted: number,
+        latest: NonNullable<State['latest']>
+      ) {
+        return revision !== undefined && latest.revision !== undefined
+          ? BigInt(revision) < BigInt(latest.revision) ||
+              (revision === latest.revision && sequence < accepted)
+          : sequence < accepted;
+      }
+
+      function updateRead(update: QueryUpdate | undefined) {
+        if (update?.kind === 'patch' && !base)
+          throw new Error('query patch has no snapshot');
+      }
+
+      function buildData(
+        update: QueryUpdate | undefined,
+        fallback: ReadResult | undefined
+      ) {
+        return update?.kind === 'patch'
+          ? base
+            ? applyQueryPatches(base.data, update.patches)
+            : undefined
+          : update?.kind === 'hit'
+            ? update.data
+            : fallback?.kind === 'hit'
+              ? fallback.data
+              : undefined;
       }
     },
   };

@@ -98,8 +98,13 @@ export function AnimationPane(props: {
           disabled={ro() || (anim.picked() ?? 0) === 0}
           onClick={() => {
             const i = anim.picked();
-            if (i !== undefined)
-              void c.moveAnimation(i, -1).then(() => anim.pick(i - 1));
+
+            const settleMoveAnimation = async (i: number) => {
+              await c.moveAnimation(i, -1);
+
+              return await anim.pick(i - 1);
+            };
+            if (i !== undefined) void settleMoveAnimation(i);
           }}
         >
           <ArrowUp />
@@ -116,8 +121,13 @@ export function AnimationPane(props: {
           }
           onClick={() => {
             const i = anim.picked();
-            if (i !== undefined)
-              void c.moveAnimation(i, 1).then(() => anim.pick(i + 1));
+
+            const settleMoveAnimationResult = async (i: number) => {
+              await c.moveAnimation(i, 1);
+
+              return await anim.pick(i + 1);
+            };
+            if (i !== undefined) void settleMoveAnimationResult(i);
           }}
         >
           <ArrowDown />
@@ -148,8 +158,13 @@ export function AnimationPane(props: {
                   props.onSelectShape(a.shapeId);
                 }}
                 onKeyDown={(e) => {
+                  const settleRemoveAnimations = async () => {
+                    await c.removeAnimations([i()]);
+
+                    return await anim.pick();
+                  };
                   if ((e.key === 'Delete' || e.key === 'Backspace') && !ro())
-                    void c.removeAnimations([i()]).then(() => anim.pick());
+                    void settleRemoveAnimations();
                 }}
               >
                 <span class="w-4 shrink-0 text-right text-ink-muted tabular-nums">
@@ -173,7 +188,13 @@ export function AnimationPane(props: {
                     data-testid="pptx-animation-remove"
                     onClick={(e) => {
                       e.stopPropagation();
-                      void c.removeAnimations([i()]).then(() => anim.pick());
+
+                      const settleRemoveAnimationsResult = async () => {
+                        await c.removeAnimations([i()]);
+
+                        return await anim.pick();
+                      };
+                      void settleRemoveAnimationsResult();
                     }}
                   >
                     <Trash class="size-3" />

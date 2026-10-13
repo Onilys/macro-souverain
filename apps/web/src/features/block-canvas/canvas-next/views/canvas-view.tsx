@@ -251,12 +251,7 @@ export function CanvasView(props: {
                 >
                   <div class="border-b border-edge-muted px-3 py-3">
                     <h1 class="text-xs font-medium capitalize">
-                      {state.selection().length > 1
-                        ? `${state.selection().length} selected`
-                        : (selectedItem()?.type ??
-                          (state.tool() === 'select' || state.tool() === 'pan'
-                            ? 'Canvas'
-                            : state.tool()))}
+                      {getCanvasViewContent()}
                     </h1>
                   </div>
 
@@ -348,14 +343,7 @@ export function CanvasView(props: {
                       onChange={state.connector.style}
                     />
                   </Show>
-                  <Show
-                    when={
-                      state.tool() === 'text' ||
-                      state.text.draft() ||
-                      state.shapes().some((item) => item.type === 'text') ||
-                      labelSelection()
-                    }
-                  >
+                  <Show when={getCanvasViewWhen()}>
                     <TextInspector
                       label={
                         state.text.isLabel() ||
@@ -506,12 +494,7 @@ export function CanvasView(props: {
                     detachConnector();
                   };
                 }}
-                hideSelection={
-                  !!state.embeds.active() ||
-                  !!state.text.draft() ||
-                  state.isConnectorTool() ||
-                  !!state.connector.gesture()
-                }
+                hideSelection={getCanvasViewHideSelection()}
                 documentPreview={
                   state.inspector.document() ??
                   state.eraser.preview() ??
@@ -647,4 +630,31 @@ export function CanvasView(props: {
       </main>
     </div>
   );
+
+  function getCanvasViewWhen() {
+    return (
+      state.tool() === 'text' ||
+      state.text.draft() ||
+      state.shapes().some((item) => item.type === 'text') ||
+      labelSelection()
+    );
+  }
+
+  function getCanvasViewHideSelection(): boolean | undefined {
+    return (
+      !!state.embeds.active() ||
+      !!state.text.draft() ||
+      state.isConnectorTool() ||
+      !!state.connector.gesture()
+    );
+  }
+
+  function getCanvasViewContent() {
+    return state.selection().length > 1
+      ? `${state.selection().length} selected`
+      : (selectedItem()?.type ??
+          (state.tool() === 'select' || state.tool() === 'pan'
+            ? 'Canvas'
+            : state.tool()));
+  }
 }

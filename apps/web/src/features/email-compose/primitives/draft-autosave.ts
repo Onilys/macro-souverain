@@ -48,7 +48,17 @@ export function createDraftAutosave<Snapshot, Result>(options: {
       }
     };
     // A failed disk write must not prevent the next edit from trying again.
-    localWrites = localWrites.then(writeNewestSnapshot, writeNewestSnapshot);
+    const settleLocalWritesHandler0 = writeNewestSnapshot;
+    const settleLocalWritesHandler1 = writeNewestSnapshot;
+    const settleLocalWrites = async () => {
+      try {
+        await localWrites;
+      } catch {
+        return await settleLocalWritesHandler0();
+      }
+      return await settleLocalWritesHandler1();
+    };
+    localWrites = settleLocalWrites();
     return flushLocal();
   };
   const cancel = () => {
@@ -61,7 +71,17 @@ export function createDraftAutosave<Snapshot, Result>(options: {
       await local;
       return await options.persist(snapshot);
     };
-    queue = queue.then(write, write);
+    const settleQueueHandler0 = write;
+    const settleQueueHandler1 = write;
+    const settleQueue = async () => {
+      try {
+        await queue;
+      } catch {
+        return await settleQueueHandler0();
+      }
+      return await settleQueueHandler1();
+    };
+    queue = settleQueue();
     return queue;
   };
   const save = (
@@ -75,17 +95,32 @@ export function createDraftAutosave<Snapshot, Result>(options: {
   const scheduled = debounce(() => {
     setInputIdle(true);
     if (options.paused()) return;
-    void save().catch((error) => options.onError?.(error));
+
+    const settleSave = async () => {
+      try {
+        return await save();
+      } catch (settleSaveError) {
+        const error = settleSaveError;
+        return await options.onError?.(error);
+      }
+    };
+    void settleSave();
   }, 500);
   onCleanup(() => {
     const flush = pending;
     cancel();
     // Reading the live thread/editor here can reenter Solid's disposal of
     // that same view. The last edit already captured and queued its local copy.
-    if (flush && !options.paused())
-      void enqueue(flush.snapshot, flushLocal()).catch((error) =>
-        options.onError?.(error)
-      );
+
+    const settleEnqueue = async (snapshot: Snapshot) => {
+      try {
+        return await enqueue(snapshot, flushLocal());
+      } catch (settleEnqueueError) {
+        const error = settleEnqueueError;
+        return await options.onError?.(error);
+      }
+    };
+    if (flush && !options.paused()) void settleEnqueue(flush.snapshot);
   });
   return {
     save,
@@ -100,7 +135,16 @@ export function createDraftAutosave<Snapshot, Result>(options: {
       setInputIdle(false);
       const snapshot = options.capture();
       pending = { snapshot };
-      void saveLocally(snapshot).catch((error) => options.onError?.(error));
+
+      const settleSaveLocally = async () => {
+        try {
+          return await saveLocally(snapshot);
+        } catch (settleSaveLocallyError) {
+          const error = settleSaveLocallyError;
+          return await options.onError?.(error);
+        }
+      };
+      void settleSaveLocally();
       scheduled();
     },
   };

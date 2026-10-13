@@ -70,7 +70,14 @@ export function registerServiceWorker(): void {
     return;
   }
   if (optedOut()) {
-    void unregister().catch(() => {});
+    const settleUnregister = async () => {
+      try {
+        return await unregister();
+      } catch {
+        return;
+      }
+    };
+    void settleUnregister();
     return;
   }
 
@@ -84,12 +91,20 @@ export function registerServiceWorker(): void {
 
   // Registration installs the worker, which fetches the shell and entry
   // assets; keep that off the critical path of this load.
-  const register = () =>
-    navigator.serviceWorker
-      .register(`${ROUTER_BASE_CONCAT}sw.js`, { scope: ROUTER_BASE_CONCAT })
-      .catch((error: unknown) =>
-        console.warn('Service worker registration failed', error)
-      );
+  const register = () => {
+    const settleRegister = async () => {
+      try {
+        return await navigator.serviceWorker.register(
+          `${ROUTER_BASE_CONCAT}sw.js`,
+          { scope: ROUTER_BASE_CONCAT }
+        );
+      } catch (settleRegisterError) {
+        const error: unknown = settleRegisterError;
+        return await console.warn('Service worker registration failed', error);
+      }
+    };
+    return settleRegister();
+  };
   const whenIdle = () =>
     'requestIdleCallback' in window
       ? window.requestIdleCallback(register, { timeout: 5000 })

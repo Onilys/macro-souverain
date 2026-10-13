@@ -134,9 +134,7 @@ export function createCrmWorkspace(
 
       // `groupBy: null` in a shared view records an explicit "no grouping",
       // which the grouping store expresses as `undefined`.
-      const initialGroupBy = initialCrmView
-        ? (initialCrmView.groupBy ?? undefined)
-        : (persistedGroupBy ?? preset?.groupBy);
+      const initialGroupBy = buildInitialGroupBy();
 
       let initialSortIds = initialCrmView?.sort ?? sortPref();
       if (initialSortIds.length === 0) {
@@ -158,20 +156,30 @@ export function createCrmWorkspace(
 
       soupView.setActiveTab(initialActiveTab);
 
-      if (initialCrmView) {
-        // Stage/owner sub-filters ride separate signals plus a client
-        // predicate that must be active iff the selection is non-empty
-        // (same rule as handleStageChange/handleOwnerChange in
-        // unified-filter-dropdown).
-        const stages = initialCrmView.stageFilter ?? [];
-        soupView.setStageFilter(stages);
-        if (stages.length > 0 !== soup.predicates.isActive('company-stage')) {
-          soup.predicates.toggle({ and: ['company-stage'] });
-        }
-        const owners = initialCrmView.ownerFilter ?? [];
-        soupView.setOwnerFilter(owners);
-        if (owners.length > 0 !== soup.predicates.isActive('company-owner')) {
-          soup.predicates.toggle({ and: ['company-owner'] });
+      updateBatch();
+
+      function buildInitialGroupBy() {
+        return initialCrmView
+          ? (initialCrmView.groupBy ?? undefined)
+          : (persistedGroupBy ?? preset?.groupBy);
+      }
+
+      function updateBatch() {
+        if (initialCrmView) {
+          // Stage/owner sub-filters ride separate signals plus a client
+          // predicate that must be active iff the selection is non-empty
+          // (same rule as handleStageChange/handleOwnerChange in
+          // unified-filter-dropdown).
+          const stages = initialCrmView.stageFilter ?? [];
+          soupView.setStageFilter(stages);
+          if (stages.length > 0 !== soup.predicates.isActive('company-stage')) {
+            soup.predicates.toggle({ and: ['company-stage'] });
+          }
+          const owners = initialCrmView.ownerFilter ?? [];
+          soupView.setOwnerFilter(owners);
+          if (owners.length > 0 !== soup.predicates.isActive('company-owner')) {
+            soup.predicates.toggle({ and: ['company-owner'] });
+          }
         }
       }
     });

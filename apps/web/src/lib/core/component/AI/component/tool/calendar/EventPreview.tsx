@@ -31,11 +31,18 @@ import {
   expandCalendarToolPreviewEvents,
 } from './event-preview-model';
 
-const CalendarEmbed = lazy(() =>
-  import('@app/features/calendar/components/CalendarEmbed').then((module) => ({
-    default: module.CalendarEmbed,
-  }))
-);
+const CalendarEmbed = lazy(() => {
+  const settleOperation = async () => {
+    const settleOperationValue = await import(
+      '@app/features/calendar/components/CalendarEmbed'
+    );
+    const module = settleOperationValue;
+    return await {
+      default: module.CalendarEmbed,
+    };
+  };
+  return settleOperation();
+});
 
 const MAX_EXISTING_PREVIEW_EVENTS = 50;
 const PREVIEW_MONTH_YEAR_FORMAT = new Intl.DateTimeFormat(undefined, {

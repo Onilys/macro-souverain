@@ -4,12 +4,19 @@ import { AGENT_INPUT_TEXT_AREA_ID } from '@app/features/block-agent/ui/AgentInpu
 import { createAiDocument } from '@app/features/block-ai/queries/create-ai';
 import { createFigDocument } from '@app/features/block-fig/queries/create-fig';
 import { createPsdDocument } from '@app/features/block-psd/queries/create-psd';
-import { useSpreadsheetAccess } from '@app/features/block-spreadsheet/primitives/use-spreadsheet-access';
 import { createSpreadsheetDocument } from '@app/features/block-spreadsheet/queries/create-spreadsheet';
 import { isSpreadsheetEnabledForCurrentUser } from '@app/features/block-spreadsheet/queries/spreadsheet-access';
+import { useSpreadsheetAccess } from '@app/features/block-spreadsheet/use-spreadsheet-access';
 import { EMAIL_COMPOSE_TO_INPUT_ID } from '@app/features/email-compose/core/constants';
 import { useQuickCallsFlag } from '@app/features/meetings/use-quick-calls-flag';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import {
+  createCanvasFileFromJsonString,
+  createChat,
+  createCodeFileFromText,
+  createMarkdownFile,
+  createSnippet,
+} from '@app/lib/queries/items/create';
 import {
   endTrackedDocumentSpan,
   registerDocumentSpan,
@@ -43,13 +50,6 @@ import { pressedKeys } from '@core/hotkey/state';
 import { TOKENS } from '@core/hotkey/tokens';
 import type { ValidHotkey } from '@core/hotkey/types';
 import { isMobile } from '@core/mobile/isMobile';
-import {
-  createCanvasFileFromJsonString,
-  createChat,
-  createCodeFileFromText,
-  createMarkdownFile,
-  createSnippet,
-} from '@core/util/create';
 import { createControlledOpenSignal } from '@core/util/createControlledOpenSignal';
 import { Dialog } from '@kobalte/core/dialog';
 import { getMarkdownGoldenBytes } from '@macro-inc/lexical-core/markdown-golden';
@@ -83,6 +83,7 @@ import {
 } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Dynamic } from 'solid-js/web';
+import { match as matchBranch } from 'ts-pattern';
 import type { CreateMenuSection } from './core/create-menu-details';
 import {
   launcherItemKey,
@@ -259,35 +260,43 @@ export function runCreateAction(
   // projects.ts); `source` just attributes which surface initiated it.
   const source = options.source ?? 'create_menu';
 
-  switch (blockName) {
-    case 'md': {
-      const span = startDocumentSpan('doc.create');
-      span.setAttr('doc.type', 'md');
-      span.setAttr('doc.source', source);
-      void span
-        .run(() =>
-          createBlock({
-            blockName: 'md',
-            loading: true,
-            span,
-            createFn: () =>
-              createMarkdownFile({
-                title: '',
-                content: '',
-                projectId: options.projectId,
-                source,
-              }),
-            shouldInsert,
-          })
-        )
-        .catch((error) => {
-          span.error(error);
-          endTrackedDocumentSpan(span);
-          throw error;
-        });
-      return;
-    }
-    case 'spreadsheet':
+  return matchBranch(blockName)
+    .with('md', () => {
+      {
+        const span = startDocumentSpan('doc.create');
+        span.setAttr('doc.type', 'md');
+        span.setAttr('doc.source', source);
+
+        const settleRun = async () => {
+          try {
+            return await span.run(() =>
+              createBlock({
+                blockName: 'md',
+                loading: true,
+                span,
+                createFn: () =>
+                  createMarkdownFile({
+                    title: '',
+                    content: '',
+                    projectId: options.projectId,
+                    source,
+                  }),
+                shouldInsert,
+              })
+            );
+          } catch (settleRunError) {
+            const error = settleRunError;
+
+            span.error(error);
+            endTrackedDocumentSpan(span);
+            throw error;
+          }
+        };
+        void settleRun();
+        return;
+      }
+    })
+    .with('spreadsheet', () => {
       if (!isSpreadsheetEnabledForCurrentUser()) return;
       void createBlock({
         blockName: 'spreadsheet',
@@ -300,7 +309,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'psd':
+    })
+    .with('psd', () => {
       if (!isFeatureEnabled(enablePsdEditor)) return;
       createBlock({
         blockName: 'psd',
@@ -310,7 +320,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'fig':
+    })
+    .with('fig', () => {
       if (!isFeatureEnabled(enableFigViewer)) return;
       createBlock({
         blockName: 'fig',
@@ -320,7 +331,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'ai':
+    })
+    .with('ai', () => {
       if (!isFeatureEnabled(enableAiEditor)) return;
       createBlock({
         blockName: 'ai',
@@ -330,7 +342,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'canvas':
+    })
+    .with('canvas', () => {
       createBlock({
         blockName: 'canvas',
         loading: true,
@@ -347,20 +360,23 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'task':
+    })
+    .with('task', () => {
       createComponent({
         componentId: 'task-compose',
         asPopover: true,
       });
       return;
-    case 'initiative':
+    })
+    .with('initiative', () => {
       if (!isFeatureEnabled(enableProjects)) return;
       createComponent({
         componentId: 'project-compose',
         asPopover: true,
       });
       return;
-    case 'snippet':
+    })
+    .with('snippet', () => {
       createBlock({
         blockName: 'snippet',
         loading: true,
@@ -374,9 +390,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'email':
-      // Focus the "To" field within this gesture so the iOS keyboard opens;
-      // the compose mounts asynchronously, so this waits for the input.
+    })
+    .with('email', () => {
       triggerFocusInput(() =>
         document.getElementById(EMAIL_COMPOSE_TO_INPUT_ID)
       );
@@ -385,21 +400,20 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'channel':
+    })
+    .with('channel', () => {
       createComponent({
         componentId: 'channel-compose',
         shouldInsert,
       });
       return;
-    case 'chat':
+    })
+    .with('chat', () => {
       if (isFeatureEnabled(enableChatV3Agents)) {
         setCreateMenuOpen(false, false);
         openAgentComposer(useSplitLayout(), shouldInsert);
         return;
       }
-      // On mobile the chat input doesn't autofocus on mount, so arm focus
-      // within this gesture (iOS only raises the keyboard for a synchronous
-      // focus). The chat mounts asynchronously, so this waits for the input.
       if (isMobile()) {
         triggerFocusInput(() =>
           document
@@ -419,7 +433,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'project':
+    })
+    .with('project', () => {
       createComponent({
         componentId: 'folder-compose',
         asPopover: true,
@@ -430,7 +445,8 @@ export function runCreateAction(
         },
       });
       return;
-    case 'database':
+    })
+    .with('database', () => {
       if (!isFeatureEnabled(enableDatabases)) return;
       createBlock({
         blockName: 'database',
@@ -449,7 +465,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'form':
+    })
+    .with('form', () => {
       if (!isFeatureEnabled(enableForms)) return;
       createBlock({
         blockName: 'form',
@@ -468,7 +485,8 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'code':
+    })
+    .with('code', () => {
       createBlock({
         blockName: 'code',
         loading: true,
@@ -486,49 +504,54 @@ export function runCreateAction(
         shouldInsert,
       });
       return;
-    case 'routine':
+    })
+    .with('routine', () => {
       createComponent({ componentId: 'routine-compose', asPopover: true });
       return;
-    case 'skill':
+    })
+    .with('skill', () => {
       createComponent({
         componentId: 'skill-compose',
         asPopover: true,
       });
       return;
-    case 'agent': {
-      if (isFeatureEnabled(enableChatV3Agents)) {
+    })
+    .with('agent', () => {
+      {
+        if (isFeatureEnabled(enableChatV3Agents)) {
+          setCreateMenuOpen(false, false);
+          openAgentComposer(useSplitLayout(), shouldInsert);
+          return;
+        }
+        // Without the composer there is nothing to ask for: a managed session's
+        // bot, repository and workspace are all deployment configuration, so
+        // this opens one straight away.
+        //
+        // Opened against a placeholder rather than awaited: the create does not
+        // answer until its sandbox has booted and cloned the repo, and no one
+        // should watch a spinner for that. The block mounts now — composer live,
+        // prompts queueing — and adopts the real id when it lands
+        // (`block-agent/context/pending-session.ts`).
+        const { openWithSplit } = useSplitLayout();
         setCreateMenuOpen(false, false);
-        openAgentComposer(useSplitLayout(), shouldInsert);
+        // On mobile the agent input doesn't autofocus on mount, so arm focus
+        // within this gesture (iOS only raises the keyboard for a synchronous
+        // focus). The block mounts asynchronously, so this waits for the input.
+        if (isMobile()) {
+          triggerFocusInput(() =>
+            document
+              .getElementById(AGENT_INPUT_TEXT_AREA_ID)
+              ?.querySelector<HTMLElement>('[contenteditable="true"]')
+          );
+        }
+        openWithSplit(
+          { type: 'agent', id: startPendingSession() },
+          { referredFrom: 'launcher', preferNewSplit: shouldInsert }
+        );
         return;
       }
-      // Without the composer there is nothing to ask for: a managed session's
-      // bot, repository and workspace are all deployment configuration, so
-      // this opens one straight away.
-      //
-      // Opened against a placeholder rather than awaited: the create does not
-      // answer until its sandbox has booted and cloned the repo, and no one
-      // should watch a spinner for that. The block mounts now — composer live,
-      // prompts queueing — and adopts the real id when it lands
-      // (`block-agent/context/pending-session.ts`).
-      const { openWithSplit } = useSplitLayout();
-      setCreateMenuOpen(false, false);
-      // On mobile the agent input doesn't autofocus on mount, so arm focus
-      // within this gesture (iOS only raises the keyboard for a synchronous
-      // focus). The block mounts asynchronously, so this waits for the input.
-      if (isMobile()) {
-        triggerFocusInput(() =>
-          document
-            .getElementById(AGENT_INPUT_TEXT_AREA_ID)
-            ?.querySelector<HTMLElement>('[contenteditable="true"]')
-        );
-      }
-      openWithSplit(
-        { type: 'agent', id: startPendingSession() },
-        { referredFrom: 'launcher', preferNewSplit: shouldInsert }
-      );
-      return;
-    }
-  }
+    })
+    .otherwise(() => undefined);
 }
 
 export type { CreatableBlock, CreatableName } from './types';

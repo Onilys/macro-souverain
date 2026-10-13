@@ -12,8 +12,8 @@ import { toPropertyDefinitionDomain } from '@property/utils/transforms';
 import { useListPropertiesQuery } from '@queries/properties/definitions';
 import { useBulkSaveEntityPropertiesMutation } from '@queries/properties/entity';
 import { useDocumentAccessLevelsQuery } from '@queries/storage/document-metadata';
-import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { initiativeClient } from '@service-storage/initiative';
+import type { Client } from '@urql/core';
 import { type Accessor, createMemo, createSignal, mapArray } from 'solid-js';
 import { TASK_SORT_DEFINITIONS } from '../constants';
 import type { TaskBoardActions } from '../context/task-board';
@@ -30,6 +30,7 @@ import type { TasksDataSourceItem } from './use-tasks-query';
 
 /** Adapts shared query caches to the board's narrow read/write capabilities. */
 export function createTaskBoardQueries(options: {
+  client: () => Client;
   rows: Accessor<readonly TasksDataSourceItem[]>;
   grouping: Accessor<TaskBoardGrouping>;
   searching: Accessor<boolean>;
@@ -128,7 +129,7 @@ export function createTaskBoardQueries(options: {
   });
 
   const projects = mapArray(projectIds, (id) =>
-    createProjectDetailQuery(getGraphqlSoupClient, options.userId, () => id)
+    createProjectDetailQuery(options.client, options.userId, () => id)
   );
 
   const projectMap = createMemo(() => {

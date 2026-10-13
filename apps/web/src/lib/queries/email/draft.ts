@@ -40,25 +40,49 @@ export function useSaveDraftMutation(
         },
         onSuccess(data, vars) {
           try {
-            void queryClient
-              .invalidateQueries({
-                queryKey: emailKeys.previews._def,
-              })
-              .catch(Telemetry.error);
+            const settleInvalidateQueriesHandler0 = Telemetry.error;
+            const settleInvalidateQueries = async () => {
+              try {
+                return await queryClient.invalidateQueries({
+                  queryKey: emailKeys.previews._def,
+                });
+              } catch (settleInvalidateQueriesError) {
+                return await settleInvalidateQueriesHandler0(
+                  settleInvalidateQueriesError
+                );
+              }
+            };
+            void settleInvalidateQueries();
             const threadId = data.draft.thread_db_id;
             if (!threadId) return;
             if (!vars.skipSoupRefetch) {
-              void refetchSoupEntity(threadId, 'emailThread').catch(
-                Telemetry.error
-              );
+              const settleRefetchSoupEntityHandler0 = Telemetry.error;
+              const settleRefetchSoupEntity = async () => {
+                try {
+                  return await refetchSoupEntity(threadId, 'emailThread');
+                } catch (settleRefetchSoupEntityError) {
+                  return await settleRefetchSoupEntityHandler0(
+                    settleRefetchSoupEntityError
+                  );
+                }
+              };
+              void settleRefetchSoupEntity();
             }
             // Reopening the thread reads the messages cache; drop it so the
             // saved draft body isn't served stale.
-            void queryClient
-              .invalidateQueries({
-                queryKey: emailKeys.threadMessages(threadId).queryKey,
-              })
-              .catch(Telemetry.error);
+            const settleInvalidateQueriesResultHandler0 = Telemetry.error;
+            const settleInvalidateQueriesResult = async () => {
+              try {
+                return await queryClient.invalidateQueries({
+                  queryKey: emailKeys.threadMessages(threadId).queryKey,
+                });
+              } catch (settleInvalidateQueriesResultError) {
+                return await settleInvalidateQueriesResultHandler0(
+                  settleInvalidateQueriesResultError
+                );
+              }
+            };
+            void settleInvalidateQueriesResult();
           } catch (error) {
             Telemetry.error(error);
           }
@@ -102,19 +126,36 @@ export function useDeleteDraftMutation(
             if (vars.threadId) {
               await refreshEmailThreadCache(vars.threadId);
             }
-            void queryClient
-              .invalidateQueries({
-                queryKey: emailKeys.previews._def,
-              })
-              .catch(Telemetry.error);
+            const settleInvalidateQueriesResultResultHandler0 = Telemetry.error;
+            const settleInvalidateQueriesResultResult = async () => {
+              try {
+                return await queryClient.invalidateQueries({
+                  queryKey: emailKeys.previews._def,
+                });
+              } catch (settleInvalidateQueriesResultResultError) {
+                return await settleInvalidateQueriesResultResultHandler0(
+                  settleInvalidateQueriesResultResultError
+                );
+              }
+            };
+            void settleInvalidateQueriesResultResult();
             if (vars.skipSoupRefetch) return;
             // Refetch the thread (not the deleted draft) so its draft-derived
             // fields settle. No-op for compose drafts, whose thread is deleted
             // along with the draft, so the refetch finds nothing to update.
             if (vars.threadId) {
-              void refetchSoupEntity(vars.threadId, 'emailThread').catch(
-                Telemetry.error
-              );
+              const threadId = vars.threadId;
+              const settleRefetchSoupEntityResultHandler0 = Telemetry.error;
+              const settleRefetchSoupEntityResult = async () => {
+                try {
+                  return await refetchSoupEntity(threadId, 'emailThread');
+                } catch (settleRefetchSoupEntityResultError) {
+                  return await settleRefetchSoupEntityResultHandler0(
+                    settleRefetchSoupEntityResultError
+                  );
+                }
+              };
+              void settleRefetchSoupEntityResult();
             }
             // Discarding a draft changes view membership — the thread leaves
             // Signal/Drafts and a noise thread re-enters Noise — which a

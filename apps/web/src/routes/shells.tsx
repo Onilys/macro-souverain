@@ -101,10 +101,22 @@ function warmRouteViews(views: readonly PreloadableView[]): void {
   const next = () => {
     const view = disposed ? undefined : queue.shift();
     if (!view) return;
-    void view
-      .preload()
-      .catch(() => {})
-      .finally(schedule);
+    const settlePreloadHandler0 = schedule;
+    const settlePreloadFinally = async () => {
+      return await settlePreloadHandler0();
+    };
+    const settlePreload = async () => {
+      try {
+        try {
+          return await view.preload();
+        } catch {
+          return;
+        }
+      } finally {
+        await settlePreloadFinally();
+      }
+    };
+    void settlePreload();
   };
   function schedule() {
     if (disposed || queue.length === 0) return;

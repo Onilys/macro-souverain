@@ -204,7 +204,7 @@ export function AnimationsTab() {
           label="Effect options"
           text="Effect Options"
           icon={<Sliders />}
-          disabled={ro() || !current() || (!info()?.options && !textShape())}
+          disabled={getAnimationsTabDisabled2()}
           testId="pptx-animation-options"
         >
           {(close) => (
@@ -364,7 +364,13 @@ export function AnimationsTab() {
           onClick={() => {
             const i = anim.current();
             if (i === undefined) return;
-            void c.moveAnimation(i, -1).then(() => anim.pick(i - 1));
+
+            const settleMoveAnimation = async () => {
+              await c.moveAnimation(i, -1);
+
+              return await anim.pick(i - 1);
+            };
+            void settleMoveAnimation();
           }}
         >
           <ArrowUp />
@@ -373,15 +379,17 @@ export function AnimationsTab() {
           label="Move later"
           tooltip="Move Later"
           data-testid="pptx-animation-later"
-          disabled={
-            ro() ||
-            anim.current() === undefined ||
-            anim.current()! >= (env.slide()?.animations?.length ?? 0) - 1
-          }
+          disabled={getAnimationsTabDisabled()}
           onClick={() => {
             const i = anim.current();
             if (i === undefined) return;
-            void c.moveAnimation(i, 1).then(() => anim.pick(i + 1));
+
+            const settleMoveAnimationResult = async () => {
+              await c.moveAnimation(i, 1);
+
+              return await anim.pick(i + 1);
+            };
+            void settleMoveAnimationResult();
           }}
         >
           <ArrowDown />
@@ -389,4 +397,16 @@ export function AnimationsTab() {
       </RibbonGroup>
     </>
   );
+
+  function getAnimationsTabDisabled2(): boolean | undefined {
+    return ro() || !current() || (!info()?.options && !textShape());
+  }
+
+  function getAnimationsTabDisabled(): boolean | undefined {
+    return (
+      ro() ||
+      anim.current() === undefined ||
+      anim.current()! >= (env.slide()?.animations?.length ?? 0) - 1
+    );
+  }
 }

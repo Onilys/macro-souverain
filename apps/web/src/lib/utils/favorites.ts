@@ -13,8 +13,8 @@ import {
   isAccessiblePreviewItem,
   useItemPreview,
 } from '@queries/preview';
-import { ChannelTypeEnum } from '@service-storage/client';
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
+import { ChannelTypeEnum } from '@service-storage/itemType';
 import { type Accessor, createMemo } from 'solid-js';
 
 /** Icon and legacy block name for a favorite; hosted details use their own route. */

@@ -48,10 +48,22 @@ export function ChannelCallAutoJoin(props: {
         return;
       }
 
-      call
-        .joinCall()
-        .catch((e) => console.error('Auto-join call failed', e))
-        .finally(() => props.onHandled());
+      const settleJoinCallFinally = async () => {
+        return await props.onHandled();
+      };
+      const settleJoinCall = async () => {
+        try {
+          try {
+            return await call.joinCall();
+          } catch (settleJoinCallError) {
+            const e = settleJoinCallError;
+            return await console.error('Auto-join call failed', e);
+          }
+        } finally {
+          await settleJoinCallFinally();
+        }
+      };
+      settleJoinCall();
     });
   });
 

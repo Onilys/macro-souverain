@@ -88,15 +88,23 @@ export function createFigComments(options: {
         setBounds(new Map());
         return;
       }
-      engine
-        .geometry(page, ids)
-        .then((list) => {
+
+      const settleGeometry = async () => {
+        try {
+          const settleGeometryValue = await engine.geometry(page, ids);
+          const list = settleGeometryValue;
+
           if (r === request)
             setBounds(new Map(list.map((g) => [g.id, g.bounds])));
-        })
-        .catch(() => {
+
+          return;
+        } catch {
           if (r === request) setBounds(new Map());
-        });
+
+          return;
+        }
+      };
+      settleGeometry();
     })
   );
 

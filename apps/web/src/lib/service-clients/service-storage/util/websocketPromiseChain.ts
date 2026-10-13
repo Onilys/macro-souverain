@@ -70,9 +70,19 @@ export function createWebsocketPromiseChain<
         }
       }, timeoutMs);
     }) as PromiseHandler;
-    promise.finally(() => {
+    const settlePromiseFinally = async () => {
       promise.resolved = true;
-    });
+
+      return;
+    };
+    const settlePromise = async () => {
+      try {
+        return await promise;
+      } finally {
+        await settlePromiseFinally();
+      }
+    };
+    settlePromise();
 
     return Object.assign(promise, {
       resolve: resolvePromise!,
@@ -133,17 +143,26 @@ export function createWebsocketPromiseChain<
 
     ws.addEventListener('message', messageHandler);
     ws.addEventListener('close', closeHandler);
-    Promise.allSettled(results).then(() => {
+
+    const settleAllSettled = async () => {
+      await Promise.allSettled(results);
+
       ws.removeEventListener('message', messageHandler);
       ws.removeEventListener('close', closeHandler);
-    });
+
+      return;
+    };
+    settleAllSettled();
 
     let maybeInputData = getInputData(...args);
     if (!(maybeInputData instanceof Promise)) {
       maybeInputData = Promise.resolve(maybeInputData);
     }
 
-    maybeInputData.then((inputData: any) => {
+    const settleMaybeInputData = async () => {
+      const settleMaybeInputDataValue = await maybeInputData;
+      const inputData: any = settleMaybeInputDataValue;
+
       if (ws.readyState !== WebSocket.OPEN) {
         console.error(
           `${jobType} failed: WebSocket is not open (readyState: ${ws.readyState})`
@@ -161,7 +180,10 @@ export function createWebsocketPromiseChain<
           data: inputData,
         })
       );
-    });
+
+      return;
+    };
+    settleMaybeInputData();
 
     return results as Results;
   };

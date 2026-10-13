@@ -158,8 +158,16 @@ export function PresenterView(props: {
   /** A click on a clip in the audience window plays or pauses it. */
   const toggleClip = (id: number) => {
     const el = audienceClip();
+
+    const settlePlay = async (el: HTMLMediaElement) => {
+      try {
+        return await el.play();
+      } catch {
+        return;
+      }
+    };
     if (!isPlaying(id)) setPlaying(id);
-    else if (el?.paused) void el.play().catch(() => {});
+    else if (el?.paused) void settlePlay(el);
     else el?.pause();
   };
   const boxIn = (shape: ShapeOutline, s: number) => ({
@@ -202,8 +210,13 @@ export function PresenterView(props: {
       e.preventDefault();
       show.go(-1);
     };
-    const onFull = () =>
-      void win.document.documentElement.requestFullscreen?.().catch(() => {});
+    const onFull = async () => {
+      try {
+        await win.document.documentElement.requestFullscreen?.();
+      } catch {
+        // The presentation remains available in its window.
+      }
+    };
     const onResize = () =>
       setAudienceSize({ w: win.innerWidth, h: win.innerHeight });
     const onGone = () => setPopup(null);

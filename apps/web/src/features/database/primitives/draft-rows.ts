@@ -155,7 +155,17 @@ export function createDraftRows(writer: Writer) {
         ? flushAccepted(id, writes)
         : saved;
     }
-    const request = drain(id, writes).finally(() => requests.delete(id));
+    const settleDrainFinally = async () => {
+      return await requests.delete(id);
+    };
+    const settleDrain = async () => {
+      try {
+        return await drain(id, writes);
+      } finally {
+        await settleDrainFinally();
+      }
+    };
+    const request = settleDrain();
     requests.set(id, request);
     return request;
   }

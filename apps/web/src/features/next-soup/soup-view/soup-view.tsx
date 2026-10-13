@@ -991,7 +991,17 @@ const SoupViewListContent = (props: SoupViewListProps) => {
 
   const pullRefresh = () => {
     setIsPullRefreshing(true);
-    return source.refresh().finally(() => setIsPullRefreshing(false));
+    const settleRefreshFinally = async () => {
+      return await setIsPullRefreshing(false);
+    };
+    const settleRefresh = async () => {
+      try {
+        return await source.refresh();
+      } finally {
+        await settleRefreshFinally();
+      }
+    };
+    return settleRefresh();
   };
 
   // Shared by the empty-state <Match> and the pull-to-refresh target so the
@@ -1008,7 +1018,14 @@ const SoupViewListContent = (props: SoupViewListProps) => {
     });
 
   const retryLoad = () => {
-    void source.refresh().catch(() => undefined);
+    const settleRefreshResult = async () => {
+      try {
+        return await source.refresh();
+      } catch {
+        return await undefined;
+      }
+    };
+    void settleRefreshResult();
   };
 
   const entityById = createMemo(

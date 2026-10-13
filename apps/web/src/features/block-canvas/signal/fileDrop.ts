@@ -115,58 +115,94 @@ export const useCanvasFileDrop = () => {
     height: number = 0
   ) => {
     for (const child of svg.children) {
-      const el = child as Element;
-      let elOffset = offset.clone();
-      let elScale = scale;
-      const newStyleContext = { ...styleContext };
+      const processChild = () => {
+        const el = child as Element;
+        let elOffset = offset.clone();
+        let elScale = scale;
+        const newStyleContext = { ...styleContext };
 
-      const transform = el.getAttribute('transform');
-      if (transform) {
-        elOffset = elOffset.add(parseTranslate(transform).multiply(scale));
-        elScale *= parseScale(transform);
-      }
-
-      for (const styleEntry of svgEntityStyles) {
-        let val: any = el.getAttribute(styleEntry.svgAttribute);
-        if (val) {
-          if (val && styleEntry.type === 'number') {
-            val = parseInt(val);
-            if (styleEntry.applyScale) {
-              val *= elScale;
-            }
-          }
-          newStyleContext[styleEntry.styleProperty] = val;
+        const transform = el.getAttribute('transform');
+        if (transform) {
+          elOffset = elOffset.add(parseTranslate(transform).multiply(scale));
+          elScale *= parseScale(transform);
         }
-      }
 
-      const x = parseInt(el.getAttribute('x') || '0');
-      const y = parseInt(el.getAttribute('y') || '0');
-      elOffset = elOffset.add(vec2(x, y).multiply(scale));
+        for (const styleEntry of svgEntityStyles) {
+          let val: any = el.getAttribute(styleEntry.svgAttribute);
+          if (val) {
+            if (val && styleEntry.type === 'number') {
+              val = parseInt(val);
+              if (styleEntry.applyScale) {
+                val *= elScale;
+              }
+            }
+            newStyleContext[styleEntry.styleProperty] = val;
+          }
+        }
 
-      const newWidth = el.getAttribute('width');
-      const newHeight = el.getAttribute('height');
-      if (newWidth) {
-        width = newWidth.includes('%')
-          ? width * parseInt(newWidth) * 0.01
-          : parseInt(newWidth);
-      }
-      if (newHeight) {
-        height = newHeight.includes('%')
-          ? height * parseInt(newHeight) * 0.01
-          : parseInt(newHeight);
-      }
+        const x = parseInt(el.getAttribute('x') || '0');
+        const y = parseInt(el.getAttribute('y') || '0');
+        elOffset = elOffset.add(vec2(x, y).multiply(scale));
 
-      if (el.tagName === 'text') {
-        createTextNode(el.textContent || '', elOffset, {
-          ...newStyleContext,
-          strokeColor: newStyleContext.fillColor,
-        });
-      }
+        const newWidth = el.getAttribute('width');
+        const newHeight = el.getAttribute('height');
+        if (newWidth) {
+          width = newWidth.includes('%')
+            ? width * parseInt(newWidth) * 0.01
+            : parseInt(newWidth);
+        }
+        if (newHeight) {
+          height = newHeight.includes('%')
+            ? height * parseInt(newHeight) * 0.01
+            : parseInt(newHeight);
+        }
 
-      if (el.tagName === 'rect') {
-        createShapeNode(elOffset, width, height, newStyleContext, 'rectangle');
-      }
+        if (el.tagName === 'text') {
+          createTextNode(el.textContent || '', elOffset, {
+            ...newStyleContext,
+            strokeColor: newStyleContext.fillColor,
+          });
+        }
 
+        if (el.tagName === 'rect') {
+          createShapeNode(
+            elOffset,
+            width,
+            height,
+            newStyleContext,
+            'rectangle'
+          );
+        }
+
+        elOffset = updateElOffset(el, elOffset, newStyleContext);
+        parseSVGDocToNodes(
+          el,
+          { ...newStyleContext },
+          elOffset,
+          elScale,
+          width,
+          height
+        );
+      };
+      processChild();
+    }
+
+    function updateElOffset(
+      el: Element,
+      elOffset: Vector2,
+      newStyleContext: {
+        fillColor?: string | undefined;
+        strokeColor?: string | undefined;
+        strokeWidth?: number | undefined;
+        cornerRadius?: number | undefined;
+        opacity?: number | undefined;
+        textSize?: number | undefined;
+        fromEndStyle?: number | undefined;
+        toEndStyle?: number | undefined;
+        connectionStyle?: number | undefined;
+        importedColor?: boolean | undefined;
+      }
+    ) {
       if (el.tagName === 'ellipse') {
         const rx = parseInt(el.getAttribute('rx') || '0');
         const ry = parseInt(el.getAttribute('ry') || '0');
@@ -178,14 +214,7 @@ export const useCanvasFileDrop = () => {
           createShapeNode(elOffset, rx * 2, ry * 2, newStyleContext, 'ellipse');
         }
       }
-      parseSVGDocToNodes(
-        el,
-        { ...newStyleContext },
-        elOffset,
-        elScale,
-        width,
-        height
-      );
+      return elOffset;
     }
   };
 

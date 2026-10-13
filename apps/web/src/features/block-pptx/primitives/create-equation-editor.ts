@@ -399,7 +399,14 @@ export function createEquationEditor(options: EquationEditorOptions) {
     const key = `${ink()}|${text}`;
     let found = thumbnails.get(key);
     if (!found) {
-      found = render(text, THUMBNAIL_SIZE, false).catch(() => undefined);
+      const settleRender = async () => {
+        try {
+          return await render(text, THUMBNAIL_SIZE, false);
+        } catch {
+          return await undefined;
+        }
+      };
+      found = settleRender();
       thumbnails.set(key, found);
     }
     return found;
@@ -409,8 +416,14 @@ export function createEquationEditor(options: EquationEditorOptions) {
     if (timer) clearTimeout(timer);
     const picture = preview();
     if (picture) URL.revokeObjectURL(picture.url);
-    for (const p of thumbnails.values())
-      void p.then((picture) => picture && URL.revokeObjectURL(picture.url));
+    for (const p of thumbnails.values()) {
+      const settleP = async () => {
+        const settlePValue = await p;
+        const picture = settlePValue;
+        return await (picture && URL.revokeObjectURL(picture.url));
+      };
+      void settleP();
+    }
   });
 
   return {

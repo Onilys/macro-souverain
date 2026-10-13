@@ -177,21 +177,7 @@ export function createCalculation(
       let changed = false;
       const patches: CalculationSheetPatch[] = sheets.map((sheet) => {
         const pivots = sheetPivotLayouts(sheet.metadata?.pivotTables);
-        const descriptor = {
-          id: sheet.id,
-          name: sheet.name,
-          rowCount: sheet.layout.rowCount,
-          metadata: {
-            definedNames: sheet.metadata?.definedNames,
-            arrayFormulas: sheet.metadata?.arrayFormulas,
-            // SUBTOTAL(101-111) and AGGREGATE can leave hidden rows out.
-            hiddenRows: sheet.metadata?.hiddenRows,
-            conditionalFormats: sheet.metadata?.conditionalFormats,
-          },
-          // Where pivot tables show their values, for GETPIVOTDATA; the
-          // tables themselves are too large to send with every edit.
-          ...(pivots.length && { pivots }),
-        };
+        const descriptor = buildDescriptor();
         const previous = sent.get(sheet.id);
         if (
           !previous ||
@@ -225,6 +211,24 @@ export function createCalculation(
           changed = true;
         }
         return { ...descriptor, changes: delta };
+
+        function buildDescriptor() {
+          return {
+            id: sheet.id,
+            name: sheet.name,
+            rowCount: sheet.layout.rowCount,
+            metadata: {
+              definedNames: sheet.metadata?.definedNames,
+              arrayFormulas: sheet.metadata?.arrayFormulas,
+              // SUBTOTAL(101-111) and AGGREGATE can leave hidden rows out.
+              hiddenRows: sheet.metadata?.hiddenRows,
+              conditionalFormats: sheet.metadata?.conditionalFormats,
+            },
+            // Where pivot tables show their values, for GETPIVOTDATA; the
+            // tables themselves are too large to send with every edit.
+            ...(pivots.length && { pivots }),
+          };
+        }
       });
       for (const id of sent.keys())
         if (!sheets.some((sheet) => sheet.id === id)) {
@@ -283,52 +287,67 @@ export function createCalculation(
       let cells = 0;
       for (const keys of sent.values()) cells += keys.size;
       const current = ++generation;
-      void calculator
-        .run(
-          { type: 'update-workbook', sheets: patches },
-          // Entering a large workbook takes longer than recalculating it
-          // after an edit, which still reevaluates every formula.
-          CALCULATION_TIMEOUT_MS +
-            Math.min(60_000, entered / 20) +
-            Math.min(30_000, cells / 100)
-        )
-        .then((response) => {
-          if (current !== generation || response.type !== 'update-workbook')
-            return;
-          for (const id of response.replaced) results[id] = {};
-          for (const [id, delta] of Object.entries(response.values)) {
-            results[id] ??= {};
-            const target = results[id];
-            for (const [address, value] of Object.entries(delta)) {
-              if (value) target[address] = value;
-              else delete target[address];
+      const settleRunFinally = async () => {
+        if (current !== generation) return;
+        running = false;
+        if (queued) {
+          queued = false;
+          run();
+        } else setBusy(false);
+
+        return;
+      };
+      const settleRun = async () => {
+        try {
+          try {
+            const settleRunValue = await calculator.run(
+              { type: 'update-workbook', sheets: patches },
+              // Entering a large workbook takes longer than recalculating it
+              // after an edit, which still reevaluates every formula.
+              CALCULATION_TIMEOUT_MS +
+                Math.min(60_000, entered / 20) +
+                Math.min(30_000, cells / 100)
+            );
+            const response = settleRunValue;
+
+            if (current !== generation || response.type !== 'update-workbook')
+              return;
+            for (const id of response.replaced) results[id] = {};
+            for (const [id, delta] of Object.entries(response.values)) {
+              results[id] ??= {};
+              const target = results[id];
+              for (const [address, value] of Object.entries(delta)) {
+                if (value) target[address] = value;
+                else delete target[address];
+              }
             }
+            for (const id of Object.keys(results))
+              if (!workbookOptions.workbook().some((sheet) => sheet.id === id))
+                delete results[id];
+            setWorkbookValues(results);
+            scheduleMidnight();
+
+            return;
+          } catch (settleRunError) {
+            const cause: unknown = settleRunError;
+
+            if (current !== generation) return;
+            // A failed revision must not present old values as current after
+            // the pending indicator disappears.
+            for (const id of Object.keys(results)) delete results[id];
+            setWorkbookValues(results);
+            sent.clear();
+            setError(
+              cause instanceof Error ? cause.message : 'Unable to calculate.'
+            );
+
+            return;
           }
-          for (const id of Object.keys(results))
-            if (!workbookOptions.workbook().some((sheet) => sheet.id === id))
-              delete results[id];
-          setWorkbookValues(results);
-          scheduleMidnight();
-        })
-        .catch((cause: unknown) => {
-          if (current !== generation) return;
-          // A failed revision must not present old values as current after
-          // the pending indicator disappears.
-          for (const id of Object.keys(results)) delete results[id];
-          setWorkbookValues(results);
-          sent.clear();
-          setError(
-            cause instanceof Error ? cause.message : 'Unable to calculate.'
-          );
-        })
-        .finally(() => {
-          if (current !== generation) return;
-          running = false;
-          if (queued) {
-            queued = false;
-            run();
-          } else setBusy(false);
-        });
+        } finally {
+          await settleRunFinally();
+        }
+      };
+      void settleRun();
     };
     goalSeek = async (request) => {
       // Share the calculator worker, which already holds the workbook, and

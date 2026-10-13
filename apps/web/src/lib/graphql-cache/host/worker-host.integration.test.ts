@@ -398,7 +398,15 @@ describe('worker CacheHost coordinator integration', () => {
     const slowRejected = expect(slowRead).rejects.toMatchObject({
       errorCode: 'owner-epoch-lost',
     });
-    void slowRead.catch(() => order.push('old-request-rejected'));
+
+    const settleSlowRead = async () => {
+      try {
+        return await slowRead;
+      } catch {
+        return await order.push('old-request-rejected');
+      }
+    };
+    void settleSlowRead();
     await vi.waitFor(() =>
       expect(
         logs.filter(

@@ -211,31 +211,48 @@ export function useReminderEmailSource(
     const requestScope = scope();
     setLoadingMore(true);
     setLoadError(undefined);
-    inFlight = Promise.resolve()
-      .then(async () => {
-        const retries = failed();
-        if (retries.length) {
-          await Promise.all(retries.map((query) => query.refresh()));
-        } else if (
-          !pending() &&
-          collection.hasNextPage &&
-          !collection.isFetchingNextPage
-        ) {
-          const result = await collection.fetchNextPage();
-          if (result?.error) setLoadError(result.error);
+    const settleResolveFinally = async () => {
+      inFlight = undefined;
+      setLoadingMore(false);
+
+      return;
+    };
+    const settleResolve = async () => {
+      try {
+        try {
+          await Promise.resolve();
+
+          const retries = failed();
+          if (retries.length) {
+            await Promise.all(retries.map((query) => query.refresh()));
+          } else if (
+            !pending() &&
+            collection.hasNextPage &&
+            !collection.isFetchingNextPage
+          ) {
+            const result = await collection.fetchNextPage();
+            if (result?.error) setLoadError(result.error);
+          }
+          await waitForHydration(requestScope);
+
+          return;
+        } catch (settleResolveError) {
+          const cause = settleResolveError;
+
+          if (scope() !== requestScope || disposed()) throw cause;
+          setLoadError(
+            cause instanceof Error
+              ? cause
+              : new Error('Email couldn’t be loaded')
+          );
+
+          return;
         }
-        await waitForHydration(requestScope);
-      })
-      .catch((cause) => {
-        if (scope() !== requestScope || disposed()) throw cause;
-        setLoadError(
-          cause instanceof Error ? cause : new Error('Email couldn’t be loaded')
-        );
-      })
-      .finally(() => {
-        inFlight = undefined;
-        setLoadingMore(false);
-      });
+      } finally {
+        await settleResolveFinally();
+      }
+    };
+    inFlight = settleResolve();
     return inFlight;
   };
 

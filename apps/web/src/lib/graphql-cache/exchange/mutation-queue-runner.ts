@@ -42,10 +42,14 @@ import { type DocumentNode, Kind, parse } from 'graphql';
 import { match } from 'ts-pattern';
 import type { CacheHost } from '../host/types';
 import type {
+  CacheRevision,
   ClaimedMutation,
   EnqueueOptimisticMutationResult,
+  HydrationSearchChanges,
   MutationClaim,
   QueryRevalidationWire,
+  RecordFieldChange,
+  RollbackOptimisticWriteResult,
 } from '../protocol';
 import type { NormalizedCacheExchangeOptions } from './normalized-cache-exchange';
 import {
@@ -400,7 +404,7 @@ export function createMutationQueueRunner(
       leaseOwner: owner,
       leaseGeneration: claimed.leaseGeneration,
       attemptCount: claimed.attemptCount,
-      serverFailureCount: claimed.serverFailureCount ?? 0,
+      serverFailureCount: buildServerFailureCount(),
       storageGeneration: epoch.storageGeneration,
     };
     const confirmed = confirmedOf(head);
@@ -448,10 +452,9 @@ export function createMutationQueueRunner(
     // recover its identity before sending the newer edit or discard.
     // Older hosts omit this flag: conservatively replay rather than loop
     // forever asking the engine to discard a write it must retain.
-    const discard =
-      claimed.superseded && claimed.requiresConfirmation === false;
+    const discard = buildDiscard();
     // preparing → idle (discard) or in-flight (send).
-    if (!transition(attempt, discard ? IDLE : IN_FLIGHT)) return;
+    if (!transition(attempt, buildRouteClaimedMutation())) return;
     deferredUntil = undefined;
     if (discard) {
       const discarded = await host.deferOptimisticWrite(
@@ -492,14 +495,21 @@ export function createMutationQueueRunner(
             [QUEUE_ATTEMPT_CONTEXT_KEY]: attempt,
           }
         );
-        await replay.toPromise().then((result) => {
+
+        const settleToPromise = async () => {
+          const settleToPromiseValue = await replay.toPromise();
+          const result = settleToPromiseValue;
+
           replayOperation = result.operation;
           // Normal exchange results settle the attempt in writeThrough
           // before resolving. Reject only an otherwise-unhandled error.
           if (result.error && isActive(head)) {
-            return Promise.reject(result.error);
+            return await Promise.reject(result.error);
           }
-        });
+
+          return;
+        };
+        await settleToPromise();
       } catch (error) {
         try {
           // in-flight → settling → idle: the replay never reached settlement.
@@ -507,18 +517,11 @@ export function createMutationQueueRunner(
           const rolledBack = await host.rollbackOptimisticWrite(
             claimed.transactionId,
             claimOf(attempt),
-            error instanceof Error ? error.message : String(error),
-            error instanceof CombinedError
-              ? mutationErrorCode(error)
-              : undefined
+            mutationFailureMessage(error),
+            mutationFailureCode(error)
           );
           if (!isCurrent(attempt)) return;
-          if (rolledBack.kind === 'rolled-back') {
-            void deps.revalidate(
-              rolledBack.revalidations ?? [],
-              replayOperation
-            );
-          }
+          updateRouteClaimedMutation(rolledBack, replayOperation);
         } finally {
           if (transition(attempt, IDLE)) scheduleDrain();
         }
@@ -526,6 +529,29 @@ export function createMutationQueueRunner(
     }
     // Any other live operation is ordered behind the claimed head.
     resolveLiveOperationsAsQueued();
+
+    function buildDiscard() {
+      return claimed.superseded && claimed.requiresConfirmation === false;
+    }
+
+    function buildServerFailureCount(): number {
+      return claimed.serverFailureCount ?? 0;
+    }
+
+    function buildRouteClaimedMutation():
+      | HeadState
+      | ((head: HeadState) => HeadState) {
+      return discard ? IDLE : IN_FLIGHT;
+    }
+
+    function updateRouteClaimedMutation(
+      rolledBack: RollbackOptimisticWriteResult,
+      replayOperation: Parameters<typeof deps.revalidate>[1]
+    ) {
+      if (rolledBack.kind === 'rolled-back') {
+        void deps.revalidate(rolledBack.revalidations ?? [], replayOperation);
+      }
+    }
   }
 
   /** preparing → settling → idle for a head whose recovery state failed. */
@@ -754,8 +780,8 @@ export function createMutationQueueRunner(
       | 'superseded'
       | 'permanently-failed' = 'queued';
     try {
-      const response = result.error?.response ?? attempt.response;
-      const httpServerFailure = (response?.status ?? 0) >= 500;
+      const response = buildResponse();
+      const httpServerFailure = isHttpServerFailure(response);
       // A valid GraphQL payload can arrive over HTTP 5xx without an
       // urql error. Never commit it or bypass the retry policy.
       if (httpServerFailure && !result.error) {
@@ -769,75 +795,8 @@ export function createMutationQueueRunner(
         };
       }
       if (result.error || result.data == null) {
-        let retry = false;
-        if (result.error && options.shouldRetryMutation) {
-          try {
-            retry = await options.shouldRetryMutation(result.error);
-          } catch (error) {
-            options.onCacheError?.(error, op);
-          }
-        }
-        if (!isCurrent(attempt)) return detachedResult();
-        // urql represents HTTP 5xx as networkError too. Count actual
-        // server responses, never connection failures or timeouts.
-        const serverFailure =
-          httpServerFailure || (result.error?.graphQLErrors.length ?? 0) > 0;
-        if (
-          retry &&
-          serverFailure &&
-          attempt.serverFailureCount + 1 >= MAX_MUTATION_SERVER_FAILURES
-        ) {
-          retry = false;
-          result = {
-            ...result,
-            error: new CombinedError({
-              graphQLErrors: [
-                {
-                  message: `Mutation stopped after ${MAX_MUTATION_SERVER_FAILURES} server failures: ${result.error?.message}`,
-                  extensions: { code: 'MUTATION_RETRY_EXHAUSTED' },
-                },
-              ],
-              response: result.error?.response,
-            }),
-          };
-        }
-        await recordAttemptResult(attempt, result, retry);
-        if (!isCurrent(attempt)) return detachedResult();
-        if (retry) {
-          retryAt = Date.now() + retryDelayMs(attempt.attemptCount);
-          const deferred = await host.deferOptimisticWrite(
-            attempt.transactionId,
-            claim,
-            retryAt,
-            result.error?.message ?? 'mutation returned no data',
-            serverFailure
-          );
-          if (!isCurrent(attempt)) return detachedResult();
-          settled = true;
-          if (deferred.kind === 'discarded-superseded') {
-            retryAt = undefined;
-            replacementTransactionId = deferred.replacementTransactionId;
-            disposition = 'superseded';
-          } else {
-            disposition = 'queued';
-          }
-        } else {
-          const rolledBack = await host.rollbackOptimisticWrite(
-            attempt.transactionId,
-            claim,
-            result.error?.message ?? 'mutation returned no data',
-            mutationErrorCode(result.error)
-          );
-          if (!isCurrent(attempt)) return detachedResult();
-          settled = true;
-          if (rolledBack.kind === 'discarded-superseded') {
-            replacementTransactionId = rolledBack.replacementTransactionId;
-            disposition = 'superseded';
-          } else {
-            disposition = 'permanently-failed';
-            void deps.revalidate(rolledBack.revalidations ?? [], op);
-          }
-        }
+        const detached = await settleFailure(httpServerFailure);
+        if (detached) return detached;
       } else {
         const confirmed = { transactionId: attempt.transactionId, result };
         if (!transition(attempt, confirm(confirmed))) return detachedResult();
@@ -850,13 +809,7 @@ export function createMutationQueueRunner(
         );
         if (!transition(attempt, forgetConfirmed)) return detachedResult();
         settled = true;
-        for (const error of committed.identityErrors ?? []) {
-          try {
-            options.onCacheError?.(new Error(error), op);
-          } catch {
-            // A diagnostic callback cannot undo confirmed settlement.
-          }
-        }
+        recordCommittedIdentityErrors(committed.identityErrors);
         if (committed.kind === 'failed') {
           const error = new Error(committed.error);
           try {
@@ -870,12 +823,8 @@ export function createMutationQueueRunner(
             error: new CombinedError({ networkError: error }),
           };
           replacementTransactionId = committed.replacementTransactionId;
-          disposition = replacementTransactionId
-            ? 'superseded'
-            : 'permanently-failed';
-          if (!replacementTransactionId) {
-            void deps.revalidate(committed.revalidations ?? [], op);
-          }
+          disposition = buildSettle2();
+          updateSettle2(committed);
         } else if (committed.kind === 'committed-superseded') {
           replacementTransactionId = committed.replacementTransactionId;
           disposition = 'superseded';
@@ -888,8 +837,7 @@ export function createMutationQueueRunner(
             isCurrent(attempt)
           );
           if (replay) await replay;
-          if (isCurrent(attempt))
-            await deps.revalidate(committed.revalidations ?? [], op);
+          await updateSettle(committed);
         }
       }
     } catch (error) {
@@ -898,24 +846,22 @@ export function createMutationQueueRunner(
       } catch {
         // Reporting cannot discard the retained response or stop retries.
       }
-      if (!settled && isCurrent(attempt)) {
-        retryAt = Date.now() + QUEUE_LEASE_MS;
-        // A lost acknowledgement may hide a completed transaction.
-        // Preserve optimism and let a fresh durable claim decide.
-        disposition = 'queued';
-      }
+      updateRetryAt();
     } finally {
-      if (transition(attempt, release)) {
-        liveQueuedOps.delete(attempt.transactionId);
-        deferredUntil = retryAt;
-        scheduleDrain(
-          retryAt === undefined ? 0 : Math.max(0, retryAt - Date.now())
-        );
-      }
+      updateDeferredUntil();
     }
-    return withOptimisticMutationDisposition(
-      result,
-      disposition === 'superseded'
+    return withOptimisticMutationDisposition(result, buildSettle());
+
+    function buildSettle2():
+      | 'committed'
+      | 'superseded'
+      | 'permanently-failed'
+      | 'queued' {
+      return replacementTransactionId ? 'superseded' : 'permanently-failed';
+    }
+
+    function buildSettle(): import('./optimistic').OptimisticMutationDispositionMetadata {
+      return disposition === 'superseded'
         ? {
             kind: 'superseded',
             transactionId: attempt.transactionId,
@@ -925,8 +871,182 @@ export function createMutationQueueRunner(
         : {
             kind: disposition,
             transactionId: attempt.transactionId,
-          }
-    );
+          };
+    }
+
+    function updateReplacementTransactionId(
+      rolledBack: RollbackOptimisticWriteResult
+    ) {
+      if (rolledBack.kind === 'discarded-superseded') {
+        replacementTransactionId = rolledBack.replacementTransactionId;
+        disposition = 'superseded';
+      } else {
+        disposition = 'permanently-failed';
+        void deps.revalidate(rolledBack.revalidations ?? [], op);
+      }
+    }
+
+    function updateRetryAt() {
+      if (!settled && isCurrent(attempt)) {
+        retryAt = Date.now() + QUEUE_LEASE_MS;
+        // A lost acknowledgement may hide a completed transaction.
+        // Preserve optimism and let a fresh durable claim decide.
+        disposition = 'queued';
+      }
+    }
+
+    function updateDeferredUntil() {
+      if (transition(attempt, release)) {
+        liveQueuedOps.delete(attempt.transactionId);
+        deferredUntil = retryAt;
+        scheduleDrain(
+          retryAt === undefined ? 0 : Math.max(0, retryAt - Date.now())
+        );
+      }
+    }
+
+    async function buildRolledBack() {
+      return await host.rollbackOptimisticWrite(
+        attempt.transactionId,
+        claim,
+        result.error?.message ?? 'mutation returned no data',
+        mutationErrorCode(result.error)
+      );
+    }
+
+    async function buildDeferred(serverFailure: boolean, retryAt: number) {
+      return await host.deferOptimisticWrite(
+        attempt.transactionId,
+        claim,
+        retryAt,
+        result.error?.message ?? 'mutation returned no data',
+        serverFailure
+      );
+    }
+
+    function updateSettle2(
+      committed: HydrationSearchChanges & {
+        fieldChanges?: RecordFieldChange[];
+        identityErrors?: string[];
+        mutationUuid?: string;
+        revision: CacheRevision;
+        revisionAdvanced: boolean;
+        changed: string[];
+        affectedOps: string[];
+        reset: boolean;
+        revalidations?: QueryRevalidationWire[];
+      } & { kind: 'failed'; error: string; replacementTransactionId?: string }
+    ) {
+      if (!replacementTransactionId) {
+        void deps.revalidate(committed.revalidations ?? [], op);
+      }
+    }
+
+    async function updateSettle(
+      committed: HydrationSearchChanges & {
+        fieldChanges?: RecordFieldChange[];
+        identityErrors?: string[];
+        mutationUuid?: string;
+        revision: CacheRevision;
+        revisionAdvanced: boolean;
+        changed: string[];
+        affectedOps: string[];
+        reset: boolean;
+        revalidations?: QueryRevalidationWire[];
+      } & { kind: 'committed' }
+    ) {
+      if (isCurrent(attempt))
+        await deps.revalidate(committed.revalidations ?? [], op);
+    }
+
+    function isHttpServerFailure(response: ReturnType<typeof buildResponse>) {
+      return (response?.status ?? 0) >= 500;
+    }
+
+    function recordCommittedIdentityErrors(errors: string[] | undefined) {
+      for (const error of errors ?? []) {
+        try {
+          options.onCacheError?.(new Error(error), op);
+        } catch {
+          /* Diagnostics cannot undo confirmed settlement. */
+        }
+      }
+    }
+
+    async function settleFailure(
+      httpServerFailure: boolean
+    ): Promise<OperationResult | undefined> {
+      let retry = false;
+      retry = await updateRetry2(retry);
+      if (!isCurrent(attempt)) return detachedResult();
+      // urql represents HTTP 5xx as networkError too. Count actual
+      // server responses, never connection failures or timeouts.
+      const serverFailure = buildServerFailure(httpServerFailure);
+      retry = updateRetry(retry, serverFailure);
+      await recordAttemptResult(attempt, result, retry);
+      if (!isCurrent(attempt)) return detachedResult();
+      if (retry) {
+        retryAt = Date.now() + retryDelayMs(attempt.attemptCount);
+        const deferred = await buildDeferred(serverFailure, retryAt);
+        if (!isCurrent(attempt)) return detachedResult();
+        settled = true;
+        if (deferred.kind === 'discarded-superseded') {
+          retryAt = undefined;
+          replacementTransactionId = deferred.replacementTransactionId;
+          disposition = 'superseded';
+        } else {
+          disposition = 'queued';
+        }
+      } else {
+        const rolledBack = await buildRolledBack();
+        if (!isCurrent(attempt)) return detachedResult();
+        settled = true;
+        updateReplacementTransactionId(rolledBack);
+      }
+      return undefined;
+    }
+
+    function buildResponse() {
+      return result.error?.response ?? attempt.response;
+    }
+
+    function buildServerFailure(httpServerFailure: boolean) {
+      return httpServerFailure || (result.error?.graphQLErrors.length ?? 0) > 0;
+    }
+
+    async function updateRetry2(retry: boolean) {
+      if (result.error && options.shouldRetryMutation) {
+        try {
+          retry = await options.shouldRetryMutation(result.error);
+        } catch (error) {
+          options.onCacheError?.(error, op);
+        }
+      }
+      return retry;
+    }
+
+    function updateRetry(retry: boolean, serverFailure: boolean) {
+      if (
+        retry &&
+        serverFailure &&
+        attempt.serverFailureCount + 1 >= MAX_MUTATION_SERVER_FAILURES
+      ) {
+        retry = false;
+        result = {
+          ...result,
+          error: new CombinedError({
+            graphQLErrors: [
+              {
+                message: `Mutation stopped after ${MAX_MUTATION_SERVER_FAILURES} server failures: ${result.error?.message}`,
+                extensions: { code: 'MUTATION_RETRY_EXHAUSTED' },
+              },
+            ],
+            response: result.error?.response,
+          }),
+        };
+      }
+      return retry;
+    }
   }
 
   function resetStorage(): void {
@@ -945,4 +1065,11 @@ export function createMutationQueueRunner(
     wake: wakeDrain,
     resetStorage,
   };
+}
+
+function mutationFailureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+function mutationFailureCode(error: unknown): string | undefined {
+  return error instanceof CombinedError ? mutationErrorCode(error) : undefined;
 }

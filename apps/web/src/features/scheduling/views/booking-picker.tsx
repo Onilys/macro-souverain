@@ -7,12 +7,17 @@ import {
   on,
   Show,
 } from 'solid-js';
+import {
+  Field,
+  TextArea,
+  TextInput,
+  TimeZoneInput,
+} from '../components/fields';
 import type { BookingReceipt, PublicEvent, PublicProfile } from '../core/types';
 import {
   type BookingSource,
   createBookingFlow,
 } from '../primitives/booking-flow';
-import { Field, TextArea, TextInput, TimeZoneInput } from './fields';
 
 function dateKey(date: Date) {
   return date.toISOString().slice(0, 10);

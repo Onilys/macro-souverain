@@ -46,9 +46,19 @@ export function useTauriNavigationEffect() {
       // On a cold open, the deep-link handler emits `navigate` during
       // startup, before this listener exists, and the event is lost — pull
       // the launch deep link now that we can receive it.
-      invoke('flush_launch_deep_link').catch((e) => {
-        console.error('failed to flush launch deep link', e);
-      });
+
+      const settleInvoke = async () => {
+        try {
+          return await invoke('flush_launch_deep_link');
+        } catch (settleInvokeError) {
+          const e = settleInvokeError;
+
+          console.error('failed to flush launch deep link', e);
+
+          return;
+        }
+      };
+      settleInvoke();
     }
     inner();
 

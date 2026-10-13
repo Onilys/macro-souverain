@@ -125,11 +125,19 @@ export function EmailThread(props: EmailThreadProps) {
     'email',
     (notification) => {
       const meta = notification.notification_metadata;
+      const settleRefreshHandler0 = compose.notices.reportError;
+      const settleRefresh = async () => {
+        try {
+          return await source.refresh();
+        } catch (settleRefreshError) {
+          return await settleRefreshHandler0(settleRefreshError);
+        }
+      };
       if (
         meta.tag === 'new_email' &&
         meta.content.threadId === source.thread()?.db_id
       )
-        void source.refresh().catch(compose.notices.reportError);
+        void settleRefresh();
     }
   );
   createEffect(() => {

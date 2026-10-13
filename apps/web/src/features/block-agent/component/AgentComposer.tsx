@@ -364,49 +364,53 @@ export function AgentComposer(props: {
           focusInput = focus;
         }}
         registerQuoteInsert={registerQuoteInsert}
-        modelControl={
-          <div class="flex min-w-0 items-center gap-1">
-            <ModelSelector
-              model={metadata()?.model ?? null}
-              changingTo={changingModel(messages(), metadata()?.model ?? null)}
-              options={metadata()?.supportedModels ?? []}
-              effortLabel={effortLabel(effort(), changingEffort())}
-              disabled={
-                loadFailed() ||
-                readOnly() ||
-                pending() ||
-                configuring() ||
-                changingEffort() !== undefined
-              }
-              onSelect={(model) => void chooseModel(model)}
-              modelRow={(row) => (
-                <AgentModelMenuItem
-                  {...row}
-                  harness={session()?.harness}
-                  effort={
-                    row.option.id === metadata()?.model ? effort() : undefined
-                  }
-                  effortValue={
-                    row.option.id === metadata()?.model
-                      ? changingEffort()
-                      : undefined
-                  }
-                  onSelectEffort={(selection) =>
-                    void chooseModel(row.option.id, selection)
-                  }
-                />
-              )}
-            />
-            <Show
-              when={metadata()?.configOptions.some(
-                (option) => option.id === 'speed'
-              )}
-            >
-              <SpeedToggle model={metadata()?.model ?? ''} />
-            </Show>
-          </div>
-        }
+        modelControl={getAgentComposerModelControl()}
       />
     </>
   );
+
+  function getAgentComposerModelControl() {
+    return (
+      <div class="flex min-w-0 items-center gap-1">
+        <ModelSelector
+          model={metadata()?.model ?? null}
+          changingTo={changingModel(messages(), metadata()?.model ?? null)}
+          options={metadata()?.supportedModels ?? []}
+          effortLabel={effortLabel(effort(), changingEffort())}
+          disabled={
+            loadFailed() ||
+            readOnly() ||
+            pending() ||
+            configuring() ||
+            changingEffort() !== undefined
+          }
+          onSelect={(model) => void chooseModel(model)}
+          modelRow={(row) => (
+            <AgentModelMenuItem
+              {...row}
+              harness={session()?.harness}
+              effort={
+                row.option.id === metadata()?.model ? effort() : undefined
+              }
+              effortValue={
+                row.option.id === metadata()?.model
+                  ? changingEffort()
+                  : undefined
+              }
+              onSelectEffort={(selection) =>
+                void chooseModel(row.option.id, selection)
+              }
+            />
+          )}
+        />
+        <Show
+          when={metadata()?.configOptions.some(
+            (option) => option.id === 'speed'
+          )}
+        >
+          <SpeedToggle model={metadata()?.model ?? ''} />
+        </Show>
+      </div>
+    );
+  }
 }

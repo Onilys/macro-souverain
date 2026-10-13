@@ -371,9 +371,17 @@ export function loadCacheWasm(): Promise<CacheWasmModule> {
       }
     })();
     modulePromise = initialization;
-    void initialization.catch(() => {
-      if (modulePromise === initialization) modulePromise = undefined;
-    });
+
+    const settleInitialization = async () => {
+      try {
+        return await initialization;
+      } catch {
+        if (modulePromise === initialization) modulePromise = undefined;
+
+        return;
+      }
+    };
+    void settleInitialization();
   }
   return modulePromise;
 }

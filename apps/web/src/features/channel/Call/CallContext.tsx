@@ -543,14 +543,7 @@ function createCallState() {
       micReadyState: mediaStreamTrack?.readyState,
       hasProcessor: !!micTrack?.getProcessor(),
       constraintMismatch,
-      settings: {
-        autoGainControl: settings?.autoGainControl,
-        echoCancellation: settings?.echoCancellation,
-        noiseSuppression: settings?.noiseSuppression,
-        voiceIsolation: settings?.voiceIsolation,
-        channelCount: settings?.channelCount,
-        sampleRate: settings?.sampleRate,
-      },
+      settings: buildSettings(),
       constraints: {
         autoGainControl: constraints?.autoGainControl,
         echoCancellation: constraints?.echoCancellation,
@@ -577,6 +570,17 @@ function createCallState() {
       sampleRate: settings?.sampleRate,
       ...extra,
     });
+
+    function buildSettings() {
+      return {
+        autoGainControl: settings?.autoGainControl,
+        echoCancellation: settings?.echoCancellation,
+        noiseSuppression: settings?.noiseSuppression,
+        voiceIsolation: settings?.voiceIsolation,
+        channelCount: settings?.channelCount,
+        sampleRate: settings?.sampleRate,
+      };
+    }
   }
 
   // --- internal helpers ---
@@ -589,11 +593,23 @@ function createCallState() {
   let micProcessingQueue: Promise<void> = Promise.resolve();
 
   function enqueueMicProcessing<T>(task: () => Promise<T>): Promise<T> {
-    const run = micProcessingQueue.then(task);
-    micProcessingQueue = run.then(
-      () => {},
-      () => {}
-    );
+    const settleMicProcessingQueueHandler0 = task;
+    const settleMicProcessingQueue = async () => {
+      await micProcessingQueue;
+      return await settleMicProcessingQueueHandler0();
+    };
+    const run = settleMicProcessingQueue();
+
+    const settleRun = async () => {
+      try {
+        await run;
+      } catch {
+        return;
+      }
+
+      return;
+    };
+    micProcessingQueue = settleRun();
     return run;
   }
 
@@ -636,7 +652,15 @@ function createCallState() {
     // Resolve Krisp before deciding whether the persisted preference can be
     // honored. Import/load failures intentionally fall back to browser-native
     // processing instead of failing call setup.
-    await loadKrisp().catch(() => null);
+
+    const settleLoadKrisp = async () => {
+      try {
+        return await loadKrisp();
+      } catch {
+        return await null;
+      }
+    };
+    await settleLoadKrisp();
     if (room() !== r || !isLiveLocalTrack(micTrack)) return;
 
     const krispModule = getKrisp();
@@ -652,59 +676,66 @@ function createCallState() {
       return;
     }
 
-    const existing = krispFilter();
-    if (existing && micTrack.getProcessor() === existing) {
-      await applyNativeAudioProcessingToMicTrack(r, 'krisp');
-      if (room() !== r || !isLiveLocalTrack(micTrack)) return;
-      await existing.setEnabled(true);
-      setStore('noiseSuppressionMode', 'krisp');
-      logMicAudioProcessing('krisp-noise-suppression-reused', r);
-      return;
-    }
+    await attachKrispToLiveTrack(micTrack, krispModule);
 
-    // Krisp should be the only noise suppression layer. Disable native browser
-    // NS / voice isolation / AGC before attaching it to avoid cascaded filters.
-    await applyNativeAudioProcessingToMicTrack(r, 'krisp');
-    if (room() !== r || !isLiveLocalTrack(micTrack)) return;
-
-    try {
-      await detachKrispFromMicTrack(r);
-      if (room() !== r || !isLiveLocalTrack(micTrack)) return;
-
-      // `quality` is model size/CPU cost, not suppression strength. The default
-      // medium model avoids the CPU pressure/dropouts that made voices sound
-      // muddy on busy machines while still enabling Krisp when supported.
-      const krisp = krispModule.KrispNoiseFilter({ quality: 'medium' });
-      setKrispFilter(krisp);
-      await micTrack.setProcessor(krisp);
-      if (room() !== r || !isLiveLocalTrack(micTrack)) {
-        // The room/track went away mid-attach. Destroying a processor that
-        // is still wired into the track's audio graph leaves a dead node in
-        // the pipeline — detach it via stopProcessor() instead (which
-        // destroys the processor internally).
-        if (micTrack.getProcessor() === krisp) {
-          await micTrack.stopProcessor();
-        } else {
-          await krisp.destroy();
-        }
-        if (krispFilter() === krisp) setKrispFilter(null);
+    async function attachKrispToLiveTrack(
+      micTrack: NonNullable<ReturnType<typeof getLocalMicTrack>>,
+      krispModule: NonNullable<ReturnType<typeof getKrisp>>
+    ) {
+      const existing = krispFilter();
+      if (existing && micTrack.getProcessor() === existing) {
+        await applyNativeAudioProcessingToMicTrack(r, 'krisp');
+        if (room() !== r || !isLiveLocalTrack(micTrack)) return;
+        await existing.setEnabled(true);
+        setStore('noiseSuppressionMode', 'krisp');
+        logMicAudioProcessing('krisp-noise-suppression-reused', r);
         return;
       }
-      await krisp.setEnabled(true);
-      setStore('noiseSuppressionMode', 'krisp');
-      logMicAudioProcessing('krisp-noise-suppression-attached', r);
-    } catch (e) {
-      if (room() !== r) return;
-      console.error('failed to re-attach Krisp noise filter', e);
-      // Fall back to a single browser-native layer if Krisp fails.
-      await detachKrispFromMicTrack(r);
-      if (room() !== r) return;
-      setStore('noiseSuppressionMode', 'browser');
-      await applyNativeAudioProcessingToMicTrack(r, 'browser');
-      if (room() !== r) return;
-      logMicAudioProcessing('browser-noise-suppression-fallback', r, {
-        reason: 'krisp-attach-failed',
-      });
+
+      // Krisp should be the only noise suppression layer. Disable native browser
+      // NS / voice isolation / AGC before attaching it to avoid cascaded filters.
+      await applyNativeAudioProcessingToMicTrack(r, 'krisp');
+      if (room() !== r || !isLiveLocalTrack(micTrack)) return;
+
+      try {
+        await detachKrispFromMicTrack(r);
+        if (room() !== r || !isLiveLocalTrack(micTrack)) return;
+
+        // `quality` is model size/CPU cost, not suppression strength. The default
+        // medium model avoids the CPU pressure/dropouts that made voices sound
+        // muddy on busy machines while still enabling Krisp when supported.
+        const krisp = krispModule.KrispNoiseFilter({ quality: 'medium' });
+        setKrispFilter(krisp);
+        await micTrack.setProcessor(krisp);
+        if (room() !== r || !isLiveLocalTrack(micTrack)) {
+          // The room/track went away mid-attach. Destroying a processor that
+          // is still wired into the track's audio graph leaves a dead node in
+          // the pipeline — detach it via stopProcessor() instead (which
+          // destroys the processor internally).
+          if (micTrack.getProcessor() === krisp) {
+            await micTrack.stopProcessor();
+          } else {
+            await krisp.destroy();
+          }
+          if (krispFilter() === krisp) setKrispFilter(null);
+          return;
+        }
+        await krisp.setEnabled(true);
+        setStore('noiseSuppressionMode', 'krisp');
+        logMicAudioProcessing('krisp-noise-suppression-attached', r);
+      } catch (e) {
+        if (room() !== r) return;
+        console.error('failed to re-attach Krisp noise filter', e);
+        // Fall back to a single browser-native layer if Krisp fails.
+        await detachKrispFromMicTrack(r);
+        if (room() !== r) return;
+        setStore('noiseSuppressionMode', 'browser');
+        await applyNativeAudioProcessingToMicTrack(r, 'browser');
+        if (room() !== r) return;
+        logMicAudioProcessing('browser-noise-suppression-fallback', r, {
+          reason: 'krisp-attach-failed',
+        });
+      }
     }
   }
 
@@ -836,17 +867,36 @@ function createCallState() {
   function destroyRoomProcessors() {
     const krisp = krispFilter();
     if (krisp) {
-      krisp.destroy().catch((e) => {
-        console.error('failed to destroy Krisp noise filter', e);
-      });
+      const settleDestroy = async () => {
+        try {
+          return await krisp.destroy();
+        } catch (settleDestroyError) {
+          const e = settleDestroyError;
+
+          console.error('failed to destroy Krisp noise filter', e);
+
+          return;
+        }
+      };
+      settleDestroy();
       setKrispFilter(null);
     }
     const blur = blurProcessor();
     if (blur) {
       // Fire and forget — we're tearing down the room regardless.
-      blur.destroy().catch((e) => {
-        console.error('failed to destroy background blur processor', e);
-      });
+
+      const settleDestroyResult = async () => {
+        try {
+          return await blur.destroy();
+        } catch (settleDestroyResultError) {
+          const e = settleDestroyResultError;
+
+          console.error('failed to destroy background blur processor', e);
+
+          return;
+        }
+      };
+      settleDestroyResult();
       setBlurProcessor(null);
     }
   }
@@ -1306,21 +1356,27 @@ function createCallState() {
   function getLivekitJsController(): Promise<LivekitJsCallController> {
     if (livekitJsPromise) return livekitJsPromise;
 
-    livekitJsPromise = Promise.all([
-      import('./LivekitJsCallController'),
-      loadLivekit(),
-    ])
-      .then(([module]) => {
+    const settleAll = async () => {
+      try {
+        const settleAllValue = await Promise.all([
+          import('./LivekitJsCallController'),
+          loadLivekit(),
+        ]);
+        const [module] = settleAllValue;
+
         if (disposed) {
           throw new Error('Call provider disposed while LiveKit was loading');
         }
         livekitJs = module.createLivekitJsCallController(livekitJsOptions);
-        return livekitJs;
-      })
-      .catch((error: unknown) => {
+        return await livekitJs;
+      } catch (settleAllError) {
+        const error: unknown = settleAllError;
+
         livekitJsPromise = null;
         throw error;
-      });
+      }
+    };
+    livekitJsPromise = settleAll();
 
     return livekitJsPromise;
   }

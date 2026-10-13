@@ -95,9 +95,18 @@ export function createClipboard(options: ClipboardOptions) {
       pastes: 0,
       slide: s.id,
     };
-    current.payload.catch(() => {
-      options.notifyError('Those shapes could not be copied.');
-    });
+
+    const payload = current.payload;
+    const settlePayload = async () => {
+      try {
+        return await payload;
+      } catch {
+        options.notifyError('Those shapes could not be copied.');
+
+        return;
+      }
+    };
+    settlePayload();
     write(data, token, shapesText());
     return true;
   }
@@ -113,20 +122,21 @@ export function createClipboard(options: ClipboardOptions) {
       return;
     }
     // Called from a button: no copy event to write into.
-    try {
-      void navigator.clipboard
-        ?.write([
+    const writeSystemClipboard = async () => {
+      try {
+        await navigator.clipboard?.write([
           new ClipboardItem({
             'text/plain': new Blob([text], { type: 'text/plain' }),
             'text/html': new Blob([markerHtml(token, text)], {
               type: 'text/html',
             }),
           }),
-        ])
-        .catch(() => {});
-    } catch {
-      // The in-tab clipboard still works.
-    }
+        ]);
+      } catch {
+        // The in-tab clipboard still works.
+      }
+    };
+    void writeSystemClipboard();
   }
 
   async function cut(data?: DataTransfer | null) {

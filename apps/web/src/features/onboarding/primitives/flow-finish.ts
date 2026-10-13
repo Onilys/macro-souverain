@@ -65,9 +65,15 @@ export function createFlowFinish(
   }) => {
     if (finishing()) return;
     setFinishing(true);
-    const result = await context
-      .completeOnboarding({ skipped: input.skipped })
-      .catch((): CompletionResult => ({ t: 'failed' }));
+
+    const settleCompleteOnboarding = async (): Promise<CompletionResult> => {
+      try {
+        return await context.completeOnboarding({ skipped: input.skipped });
+      } catch {
+        return await { t: 'failed' };
+      }
+    };
+    const result = await settleCompleteOnboarding();
     if (result.t === 'failed') {
       context.notifyFailure("Couldn't finish setup — please try again");
       setFinishing(false);

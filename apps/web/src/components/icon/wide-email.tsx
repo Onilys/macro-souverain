@@ -36,7 +36,14 @@ const EASING = 'ease-in-out';
 // Bake the current animated value into inline style then remove the animation.
 // Swallows the finished-promise rejection that cancel() triggers.
 function cancelAnim(a: Animation) {
-  a.finished.catch(() => {});
+  const settleFinished = async () => {
+    try {
+      return await a.finished;
+    } catch {
+      return;
+    }
+  };
+  settleFinished();
   try {
     a.commitStyles();
     a.cancel();
@@ -70,7 +77,14 @@ export const AnimatedEmailIcon = (props: {
       // The new animation's fill:'both' immediately applies opacity:0, overriding
       // any residual inline opacity before the next paint.
       if (cutoutAnim) {
-        cutoutAnim.finished.catch(() => {});
+        const settleFinishedResult = async (animation: Animation) => {
+          try {
+            return await animation.finished;
+          } catch {
+            return;
+          }
+        };
+        void settleFinishedResult(cutoutAnim);
         try {
           cutoutAnim.cancel();
         } catch (_) {}
@@ -99,12 +113,20 @@ export const AnimatedEmailIcon = (props: {
       });
 
       // Bake morph shapes when they finish; leave cutoutAnim alive to reverse later.
-      Promise.all(morphAnims.map((a) => a.finished))
-        .then(() => {
+
+      const settleAll = async () => {
+        try {
+          await Promise.all(morphAnims.map((a) => a.finished));
+
           for (const a of morphAnims) cancelAnim(a);
           morphAnims = [];
-        })
-        .catch(() => {});
+
+          return;
+        } catch {
+          return;
+        }
+      };
+      settleAll();
     } else {
       // ── Reverse morphs ────────────────────────────────────────────────────
       const isActive = (a: Animation) => a.playState === 'running';
@@ -136,7 +158,15 @@ export const AnimatedEmailIcon = (props: {
         const inDelayPhase = Number(cutoutAnim.currentTime ?? 0) < DURATION; // delay === DURATION
         if (inDelayPhase) {
           // fill:'both' is holding opacity:0; just cancel.
-          cutoutAnim.finished.catch(() => {});
+
+          const settleFinishedResultResult = async (animation: Animation) => {
+            try {
+              return await animation.finished;
+            } catch {
+              return;
+            }
+          };
+          void settleFinishedResultResult(cutoutAnim);
           try {
             cutoutAnim.cancel();
           } catch (_) {}
@@ -157,16 +187,23 @@ export const AnimatedEmailIcon = (props: {
         ...(cutoutToWatch ? [cutoutToWatch] : []),
       ];
 
-      Promise.all(allToWatch.map((a) => a.finished))
-        .then(() => {
+      const settleAllResult = async () => {
+        try {
+          await Promise.all(allToWatch.map((a) => a.finished));
+
           for (const a of morphsToWatch) cancelAnim(a);
           if (cutoutToWatch) cancelAnim(cutoutToWatch);
           morphAnims = [];
           // Only null cutoutAnim if it hasn't been replaced by a newer animation
           if (cutoutAnim === cutoutToWatch) cutoutAnim = null;
           flapEl.setAttribute('stroke-linejoin', 'round');
-        })
-        .catch(() => {});
+
+          return;
+        } catch {
+          return;
+        }
+      };
+      settleAllResult();
     }
   });
 

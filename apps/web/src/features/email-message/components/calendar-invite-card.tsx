@@ -301,12 +301,7 @@ export function CalendarInviteCard(props: {
                 </div>
               </Show>
               <div class="flex items-center gap-2">
-                <Show
-                  when={
-                    props.actions?.resolution?.kind === 'disconnected' &&
-                    props.actions.connectCalendar
-                  }
-                >
+                <Show when={getCalendarInviteCardWhen()}>
                   <Button
                     variant="ghost"
                     class="h-10 border border-edge px-3.5 text-sm font-semibold text-ink"
@@ -315,7 +310,7 @@ export function CalendarInviteCard(props: {
                     Connect calendar
                   </Button>
                 </Show>
-                <Show when={conference() && props.actions?.openExternal}>
+                <Show when={getCalendarInviteCardWhen4()}>
                   <Button
                     variant="ghost"
                     class="h-10 gap-1.5 bg-accent px-3.5 text-sm font-semibold text-accent-contrast"
@@ -338,14 +333,14 @@ export function CalendarInviteCard(props: {
                 </Show>
               </div>
             </div>
-            <Show when={canRespond() || props.actions?.showDay}>
+            <Show when={getCalendarInviteCardWhen2()}>
               <p class="flex flex-wrap items-center gap-x-1 text-xs text-ink-subtle">
                 <Show when={canRespond()}>
                   <span class="break-words [overflow-wrap:anywhere]">
                     Responding as {resolved()?.respondingEmail}
                   </span>
                 </Show>
-                <Show when={canRespond() && props.actions?.showDay}>
+                <Show when={getCalendarInviteCardWhen3()}>
                   <span aria-hidden="true">·</span>
                 </Show>
                 <Show when={props.actions?.showDay}>
@@ -365,15 +360,55 @@ export function CalendarInviteCard(props: {
               aria-live="polite"
               class="text-xs text-ink-muted empty:hidden"
             >
-              {props.actions?.pending
-                ? 'Saving response…'
-                : props.actions?.error}
+              {getCalendarInviteCardContent()}
             </p>
           </div>
         </Show>
       </section>
     </Show>
   );
+
+  function getCalendarInviteCardWhen4():
+    | false
+    | ''
+    | ((url: string) => void)
+    | null
+    | undefined {
+    return conference() && props.actions?.openExternal;
+  }
+
+  function getCalendarInviteCardWhen3():
+    | false
+    | (() => void)
+    | null
+    | undefined {
+    return canRespond() && props.actions?.showDay;
+  }
+
+  function getCalendarInviteCardWhen2():
+    | false
+    | ((
+        response: import('../core/calendar-invitation').InvitationResponse
+      ) => void)
+    | null
+    | undefined {
+    return canRespond() || props.actions?.showDay;
+  }
+
+  function getCalendarInviteCardWhen():
+    | false
+    | (() => void)
+    | null
+    | undefined {
+    return (
+      props.actions?.resolution?.kind === 'disconnected' &&
+      props.actions.connectCalendar
+    );
+  }
+
+  function getCalendarInviteCardContent(): JSX.Element {
+    return props.actions?.pending ? 'Saving response…' : props.actions?.error;
+  }
 }
 
 /** Replies and counter-proposals: who responded and what they said, never RSVP or Join. */

@@ -120,15 +120,27 @@ export function ImagePreview(props: ImagePreviewProps) {
   createEffect(() => {
     if (!props.isDss) return;
 
-    getDssImageBlob(props.image.id)
-      .then((blob) => {
+    const settleGetDssImageBlob = async () => {
+      try {
+        const settleGetDssImageBlobValue = await getDssImageBlob(
+          props.image.id
+        );
+        const blob = settleGetDssImageBlobValue;
+
         if (!blob) throw new Error('Failed to download DSS image');
         setImageBlob(blob);
         setObjectUrl(URL.createObjectURL(blob));
-      })
-      .catch((err) => {
+
+        return;
+      } catch (settleGetDssImageBlobError) {
+        const err = settleGetDssImageBlobError;
+
         props.onError?.(err);
-      });
+
+        return;
+      }
+    };
+    settleGetDssImageBlob();
   });
 
   onCleanup(() => {
@@ -139,7 +151,13 @@ export function ImagePreview(props: ImagePreviewProps) {
   // Thumbnail menu actions
   const getBlob = (): Promise<Blob | undefined> => {
     if (props.isDss) return Promise.resolve(imageBlob());
-    return platformFetch(sfsImageUrl()).then((r) => r.blob());
+
+    const settlePlatformFetch = async () => {
+      const settlePlatformFetchValue = await platformFetch(sfsImageUrl());
+      const r = settlePlatformFetchValue;
+      return await r.blob();
+    };
+    return settlePlatformFetch();
   };
 
   const copyToClipboard = () => copyImageToClipboard(getBlob, sfsImageUrl());

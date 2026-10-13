@@ -67,8 +67,12 @@ function flushPendingUserNameRequests() {
   pendingUserNameFlush = undefined;
 
   const userIds = Array.from(requestsById.keys());
-  fetchUserNames(userIds)
-    .then((names) => {
+
+  const settleFetchUserNames = async () => {
+    try {
+      const settleFetchUserNamesValue = await fetchUserNames(userIds);
+      const names = settleFetchUserNamesValue;
+
       const namesById = new Map<string, UserName>();
       for (const name of names) {
         const normalizedId = normalizeUserNameQueryId(name.id);
@@ -79,12 +83,19 @@ function flushPendingUserNameRequests() {
         const userName = namesById.get(userId) ?? null;
         for (const request of requests) request.resolve(userName);
       }
-    })
-    .catch((error) => {
+
+      return;
+    } catch (settleFetchUserNamesError) {
+      const error = settleFetchUserNamesError;
+
       for (const requests of requestsById.values()) {
         for (const request of requests) request.reject(error);
       }
-    });
+
+      return;
+    }
+  };
+  settleFetchUserNames();
 }
 
 async function fetchUserName(userId: string): Promise<UserName | null> {

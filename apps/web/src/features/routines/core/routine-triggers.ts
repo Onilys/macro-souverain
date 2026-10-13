@@ -1,4 +1,4 @@
-import { getDefaultTimezone } from '@core/util/cron';
+import { getDefaultTimezone } from '@app/lib/utils/cron';
 import { match } from 'ts-pattern';
 import { z } from 'zod';
 
@@ -234,23 +234,13 @@ export function validateTriggers(
     }
     if (trigger.frequency === 'custom') {
       const parts = trigger.cron.trim().split(/\s+/);
-      if (
-        parts.length < 6 ||
-        parts.length > 7 ||
-        parts.some((part) => !/^[-\w*/?,]+$/.test(part))
-      )
+      if (isInvalidCron(parts))
         return 'Use a cron expression with seconds, minutes, hours, day, month, weekday, and an optional year.';
     } else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(trigger.time))
       return 'Choose a valid time.';
     if (trigger.frequency === 'week' && !trigger.daysOfWeek.length)
       return 'Select at least one day for the weekly trigger.';
-    if (
-      trigger.frequency === 'month' &&
-      (!/^\d+$/.test(trigger.dayOfMonth) ||
-        Number(trigger.dayOfMonth) < 1 ||
-        Number(trigger.dayOfMonth) > 31)
-    )
-      return 'Choose a day between 1 and 31.';
+    if (hasFrequency(trigger)) return 'Choose a day between 1 and 31.';
     try {
       new Intl.DateTimeFormat(undefined, { timeZone: trigger.timezone });
     } catch {
@@ -258,6 +248,33 @@ export function validateTriggers(
     }
   }
   return null;
+
+  function isInvalidCron(parts: string[]) {
+    return (
+      parts.length < 6 ||
+      parts.length > 7 ||
+      parts.some((part) => !/^[-\w*/?,]+$/.test(part))
+    );
+  }
+
+  function hasFrequency(trigger: {
+    id: string;
+    kind: 'schedule';
+    frequency: 'hour' | 'day' | 'week' | 'month' | 'once' | 'custom';
+    time: string;
+    daysOfWeek: string[];
+    dayOfMonth: string;
+    timezone: string;
+    onceAt: string;
+    cron: string;
+  }) {
+    return (
+      trigger.frequency === 'month' &&
+      (!/^\d+$/.test(trigger.dayOfMonth) ||
+        Number(trigger.dayOfMonth) < 1 ||
+        Number(trigger.dayOfMonth) > 31)
+    );
+  }
 }
 export function describeTriggers(triggers: RoutineTriggerDraft[]): string {
   return triggers

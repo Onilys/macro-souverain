@@ -63,10 +63,15 @@ export function createDatabaseUndo(capabilities: DatabaseUndoCapabilities) {
     direction: UndoDirection,
     entry: DatabaseUndoEntry
   ): Promise<void> {
-    queue = queue.then(async () => {
+    const settleQueue = async () => {
+      await queue;
+
       const result = await revert(entry);
       setStack((current) => settle(current, direction, entry, result));
-    });
+
+      return;
+    };
+    queue = settleQueue();
     return queue;
   }
 

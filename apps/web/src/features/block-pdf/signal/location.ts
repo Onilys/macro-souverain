@@ -497,14 +497,23 @@ function useGoToPdfLocation() {
         });
 
         // Wait for the find controller to be ready
-        const findControllerStateEvent = await waitForSignal(
-          findControllerStateEventSignal,
-          (val) =>
-            val?.state === FindState.FOUND || val?.state === FindState.NOT_FOUND
-        ).catch((_e) => {
-          console.error('search timed out');
-          return undefined;
-        });
+
+        const settleWaitForSignal = async () => {
+          try {
+            return await waitForSignal(
+              findControllerStateEventSignal,
+              (val) =>
+                val?.state === FindState.FOUND ||
+                val?.state === FindState.NOT_FOUND
+            );
+          } catch (settleWaitForSignalError) {
+            const _e = settleWaitForSignalError;
+
+            console.error('search timed out');
+            return await undefined;
+          }
+        };
+        const findControllerStateEvent = await settleWaitForSignal();
 
         if (!findControllerStateEvent) {
           return;
@@ -594,17 +603,28 @@ const useGoToPreviousLocation = () => {
   return async () => {
     const rootViewer = viewer();
 
-    await waitForSignal(
-      pdf.persistedViewLocation,
-      (location) => !!location,
-      300
-    ).then((prevLocationHash) => {
-      waitForSignal(isViewerReady).then(() => {
+    const settleWaitForSignalResultResult = async () => {
+      const settleWaitForSignalResultResultValue = await waitForSignal(
+        pdf.persistedViewLocation,
+        (location) => !!location,
+        300
+      );
+      const prevLocationHash = settleWaitForSignalResultResultValue;
+
+      const settleWaitForSignalResult = async () => {
+        await waitForSignal(isViewerReady);
+
         if (rootViewer && prevLocationHash) {
           rootViewer.goToLocationHash(prevLocationHash);
         }
-      });
-    });
+
+        return;
+      };
+      settleWaitForSignalResult();
+
+      return;
+    };
+    await settleWaitForSignalResultResult();
   };
 };
 

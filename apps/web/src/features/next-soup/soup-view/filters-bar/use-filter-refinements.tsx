@@ -37,6 +37,7 @@ import type { SearchableOption } from './searchable-multi-select';
 import { useTagFilter } from './tag-filter';
 import {
   buildContactLabel,
+  type FilterCategory,
   VIEW_FILTER_CATEGORIES,
 } from './unified-filter-dropdown';
 
@@ -417,24 +418,15 @@ export function useFilterRefinements() {
       const presetOptionIds = [...presetAndOptionIds, ...presetOrOptionIds];
       const isMyTasksDefaultStatus =
         view === 'tasks' && tab === 'my-tasks' && category.id === 'status';
-      if (
-        activeValues.length > 0 &&
-        (isMyTasksDefaultStatus ||
-          hasFilterCategoryRefinement(
-            activeValues.map((value) => value.id),
-            presetOptionIds
-          ))
-      ) {
-        categoryGroups.set(category.id, {
-          label: category.label,
-          labelPlural: category.labelPlural,
-          allOptions,
-          multiple: category.multiple ?? true,
-          showTabDefaults: isMyTasksDefaultStatus,
-          presetAndOptionIds,
-          presetOrOptionIds,
-        });
-      }
+      updateCreateMemo(
+        activeValues,
+        isMyTasksDefaultStatus,
+        presetOptionIds,
+        category,
+        allOptions,
+        presetAndOptionIds,
+        presetOrOptionIds
+      );
     }
 
     // Build consolidated chips for each category group
@@ -782,6 +774,35 @@ export function useFilterRefinements() {
     }
 
     return filters;
+
+    function updateCreateMemo(
+      activeValues: FilterValue[],
+      isMyTasksDefaultStatus: boolean,
+      presetOptionIds: FilterID[],
+      category: FilterCategory,
+      allOptions: FilterValue[],
+      presetAndOptionIds: FilterID[],
+      presetOrOptionIds: FilterID[]
+    ) {
+      if (
+        activeValues.length > 0 &&
+        (isMyTasksDefaultStatus ||
+          hasFilterCategoryRefinement(
+            activeValues.map((value) => value.id),
+            presetOptionIds
+          ))
+      ) {
+        categoryGroups.set(category.id, {
+          label: category.label,
+          labelPlural: category.labelPlural,
+          allOptions,
+          multiple: category.multiple ?? true,
+          showTabDefaults: isMyTasksDefaultStatus,
+          presetAndOptionIds,
+          presetOrOptionIds,
+        });
+      }
+    }
   });
 
   const getFilterContext = (): FilterContext => ({

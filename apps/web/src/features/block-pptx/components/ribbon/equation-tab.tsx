@@ -37,9 +37,16 @@ export function EquationThumb(props: {
   });
   onMount(() => {
     matchInk(props.editor, el);
-    void props.editor.thumbnail(props.latex).then((p) => {
+
+    const settleThumbnail = async () => {
+      const settleThumbnailValue = await props.editor.thumbnail(props.latex);
+      const p = settleThumbnailValue;
+
       if (alive) setPicture(p);
-    });
+
+      return;
+    };
+    void settleThumbnail();
   });
   return (
     <span ref={el} class="flex min-h-6 items-center justify-center text-ink">

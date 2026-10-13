@@ -1,11 +1,11 @@
 import { toast } from '@core/component/Toast/Toast';
 import { useReferralCode } from '@core/context/user';
-
 import { getWebOrigin } from '@core/util/webOrigin';
 import ClipboardIcon from '@phosphor/clipboard.svg';
 import CloseIcon from '@phosphor/x.svg';
-import { authServiceClient } from '@service-auth/client';
-import { contactsClient } from '@service-contacts/client';
+import { sendReferralInvite } from '@queries/auth/requests';
+import { addContact } from '@queries/contacts/requests';
+
 import { Button, Dialog, Panel } from '@ui';
 import { createSignal, Show } from 'solid-js';
 
@@ -45,9 +45,9 @@ export const InviteModal = () => {
     if (!emails.length) return;
     setSending(true);
     for (const email of emails) {
-      const result = await authServiceClient.sendReferralInvite(email);
+      const result = await sendReferralInvite(email);
       if (result.isOk()) {
-        contactsClient.addContact(`macro|${email.toLowerCase()}`);
+        addContact(`macro|${email.toLowerCase()}`);
       }
     }
     setValue('');

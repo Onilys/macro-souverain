@@ -260,44 +260,57 @@ async function persistLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
             old.uploaded)),
     });
   }
-  return await localDraftStore.save(
-    owner,
-    {
-      key,
-      expectedRevision: input.expectedRevision ?? previous?.revision ?? 0,
-      accountId: owner.accountId,
-      generation:
-        input.expectedGeneration ??
-        previous?.generation ??
-        (await localDraftStore.generation(owner, key)),
-      draftId: previous?.draftId ?? id,
-      threadId:
-        previous?.threadId ??
-        input.clientHandles?.threadId ??
-        input.draft.thread_db_id ??
-        undefined,
-      serverDraftId:
-        previous?.serverDraftId ??
-        (input.clientHandles ? undefined : (input.draft.db_id ?? undefined)),
-      serverThreadId: previous?.serverThreadId,
-      inboxId: input.inboxId,
-      senderEmail: input.senderEmail,
-      content: structuredClone({
-        ...input.draft,
-        replying_to_id:
-          input.draft.replying_to_id ?? previous?.content.replying_to_id,
-        provider_id: input.draft.provider_id ?? previous?.content.provider_id,
-        provider_thread_id:
-          input.draft.provider_thread_id ??
-          previous?.content.provider_thread_id,
-        thread_db_id:
-          input.draft.thread_db_id ?? previous?.content.thread_db_id,
-      }),
-      attachments,
-      status: 'dirty',
-    },
-    files
-  );
+  return await buildPersistLocalDraft(id);
+
+  async function buildPersistLocalDraft(
+    id: string
+  ): Promise<Awaited<LocalDraft | PromiseLike<LocalDraft>>> {
+    return await localDraftStore.save(
+      owner,
+      {
+        key,
+        expectedRevision: input.expectedRevision ?? previous?.revision ?? 0,
+        accountId: owner.accountId,
+        generation:
+          input.expectedGeneration ??
+          previous?.generation ??
+          (await localDraftStore.generation(owner, key)),
+        draftId: previous?.draftId ?? id,
+        threadId: buildThreadId(),
+        serverDraftId:
+          previous?.serverDraftId ??
+          (input.clientHandles ? undefined : (input.draft.db_id ?? undefined)),
+        serverThreadId: previous?.serverThreadId,
+        inboxId: input.inboxId,
+        senderEmail: input.senderEmail,
+        content: buildContent(),
+        attachments,
+        status: 'dirty',
+      },
+      files
+    );
+  }
+
+  function buildThreadId(): string | undefined {
+    return (
+      previous?.threadId ??
+      input.clientHandles?.threadId ??
+      input.draft.thread_db_id ??
+      undefined
+    );
+  }
+
+  function buildContent(): import('../../../features/email-compose/core/email-draft').EmailDraft {
+    return structuredClone({
+      ...input.draft,
+      replying_to_id:
+        input.draft.replying_to_id ?? previous?.content.replying_to_id,
+      provider_id: input.draft.provider_id ?? previous?.content.provider_id,
+      provider_thread_id:
+        input.draft.provider_thread_id ?? previous?.content.provider_thread_id,
+      thread_db_id: input.draft.thread_db_id ?? previous?.content.thread_db_id,
+    });
+  }
 }
 
 export async function restoreLocalAttachments(
@@ -543,66 +556,7 @@ export function localDraftQueueLifecycle(
     if (!id) throw new Error('Queued email draft has no recoverable identity');
     let draft = await localDraftStore.read(owner, id);
     let revision = 0;
-    if (
-      mutation.operationName === 'SaveEmailDraft' &&
-      (!draft || migrated.get(id) === draft.revision)
-    ) {
-      const optimistic = object(object(mutation.optimisticData).saveEmailDraft);
-      const message = object(optimistic.draft);
-      const attachments: LocalDraftAttachment[] = [
-        ...objects(message.attachmentsDraft).map(
-          (attachment): LocalDraftAttachment => ({
-            type: 'remote',
-            attachmentId: String(attachment.id),
-            fileName: String(attachment.fileName ?? ''),
-            contentType: String(attachment.contentType ?? ''),
-            fileSize: Number(attachment.size ?? 0),
-            url: String(attachment.s3Key ?? ''),
-          })
-        ),
-        ...objects(message.attachmentsForwarded).map(
-          (attachment): LocalDraftAttachment => ({
-            type: 'forwarded',
-            attachmentId: String(attachment.attachmentId),
-            fileName: String(attachment.filename ?? ''),
-            mimeType: String(attachment.mimeType ?? ''),
-            fileSize: Number(attachment.sizeBytes ?? 0),
-          })
-        ),
-      ];
-      const contacts = (value: unknown) =>
-        objects(value).map((entry) => ({
-          email: String(entry.email ?? ''),
-          name: text(entry.name),
-          photo_url: text(entry.photoUrl),
-        }));
-      draft = await localDraftStore.save(owner, {
-        expectedRevision: draft?.revision ?? 0,
-        key: draft?.key ?? id,
-        accountId: owner.accountId,
-        generation: draft?.generation ?? crypto.randomUUID(),
-        draftId: draft?.draftId ?? id,
-        threadId: text(input.threadDbId),
-        inboxId: text(input.linkId) ?? text(message.linkId),
-        senderEmail: text(object(message.from).email),
-        content: {
-          subject: String(input.subject ?? ''),
-          body_html: text(input.bodyHtml),
-          body_text: text(input.bodyText),
-          body_macro: text(input.bodyMacro),
-          replying_to_id: text(input.replyingToId),
-          provider_id: text(input.providerId),
-          provider_thread_id: text(input.providerThreadId),
-          to: contacts(input.to),
-          cc: contacts(input.cc),
-          bcc: contacts(input.bcc),
-        },
-        attachments,
-        status: 'queued',
-      });
-      migrated.set(id, draft.revision);
-      revision = draft.revision;
-    }
+    await updateDraft(id);
     if (!draft) return;
     const attempt: DraftAttempt = {
       kind: 'email-draft',
@@ -620,9 +574,10 @@ export function localDraftQueueLifecycle(
       transactionId: mutation.transactionId,
       storageGeneration,
     });
+    const draftRevision = draft.revision;
     if (revision || !draft.latestAttemptId)
       await localDraftStore.update(owner, draft.key, (current) =>
-        current.revision !== draft.revision
+        current.revision !== draftRevision
           ? current
           : {
               ...current,
@@ -633,6 +588,71 @@ export function localDraftQueueLifecycle(
       );
     legacy.set(mutation.transactionId, attempt);
     return attempt;
+
+    async function updateDraft(id: string) {
+      if (
+        mutation.operationName === 'SaveEmailDraft' &&
+        (!draft || migrated.get(id) === draft.revision)
+      ) {
+        const optimistic = object(
+          object(mutation.optimisticData).saveEmailDraft
+        );
+        const message = object(optimistic.draft);
+        const attachments: LocalDraftAttachment[] = [
+          ...objects(message.attachmentsDraft).map(
+            (attachment): LocalDraftAttachment => ({
+              type: 'remote',
+              attachmentId: String(attachment.id),
+              fileName: String(attachment.fileName ?? ''),
+              contentType: String(attachment.contentType ?? ''),
+              fileSize: Number(attachment.size ?? 0),
+              url: String(attachment.s3Key ?? ''),
+            })
+          ),
+          ...objects(message.attachmentsForwarded).map(
+            (attachment): LocalDraftAttachment => ({
+              type: 'forwarded',
+              attachmentId: String(attachment.attachmentId),
+              fileName: String(attachment.filename ?? ''),
+              mimeType: String(attachment.mimeType ?? ''),
+              fileSize: Number(attachment.sizeBytes ?? 0),
+            })
+          ),
+        ];
+        const contacts = (value: unknown) =>
+          objects(value).map((entry) => ({
+            email: String(entry.email ?? ''),
+            name: text(entry.name),
+            photo_url: text(entry.photoUrl),
+          }));
+        draft = await localDraftStore.save(owner, {
+          expectedRevision: draft?.revision ?? 0,
+          key: draft?.key ?? id,
+          accountId: owner.accountId,
+          generation: draft?.generation ?? crypto.randomUUID(),
+          draftId: draft?.draftId ?? id,
+          threadId: text(input.threadDbId),
+          inboxId: text(input.linkId) ?? text(message.linkId),
+          senderEmail: text(object(message.from).email),
+          content: {
+            subject: String(input.subject ?? ''),
+            body_html: text(input.bodyHtml),
+            body_text: text(input.bodyText),
+            body_macro: text(input.bodyMacro),
+            replying_to_id: text(input.replyingToId),
+            provider_id: text(input.providerId),
+            provider_thread_id: text(input.providerThreadId),
+            to: contacts(input.to),
+            cc: contacts(input.cc),
+            bcc: contacts(input.bcc),
+          },
+          attachments,
+          status: 'queued',
+        });
+        migrated.set(id, draft.revision);
+        revision = draft.revision;
+      }
+    }
   }
   async function prepare() {
     const owner = await session();
@@ -778,21 +798,25 @@ async function settleDraftAttempt(
       draft.acknowledgedRevision,
       attempt.revision
     );
-    return {
-      ...draft,
-      acknowledgedRevision,
-      serverDraftId: payload?.draftId ?? draft.serverDraftId,
-      serverThreadId: payload?.thread?.id ?? draft.serverThreadId,
-      status:
-        latest && !draftSyncPaused(draft) && draft.status !== 'deleting'
-          ? draft.revision !== attempt.revision ||
-            draft.attachments.some(
-              (attachment) =>
-                attachment.type === 'local' && !attachment.uploaded
-            )
-            ? 'dirty'
-            : 'synced'
-          : draft.status,
-    };
+    return buildUpdate();
+
+    function buildUpdate(): LocalDraft | undefined {
+      return {
+        ...draft,
+        acknowledgedRevision,
+        serverDraftId: payload?.draftId ?? draft.serverDraftId,
+        serverThreadId: payload?.thread?.id ?? draft.serverThreadId,
+        status:
+          latest && !draftSyncPaused(draft) && draft.status !== 'deleting'
+            ? draft.revision !== attempt.revision ||
+              draft.attachments.some(
+                (attachment) =>
+                  attachment.type === 'local' && !attachment.uploaded
+              )
+              ? 'dirty'
+              : 'synced'
+            : draft.status,
+      };
+    }
   });
 }

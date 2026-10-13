@@ -11,10 +11,14 @@ const [catalog, setCatalog] = createSignal<EmojiCatalog>();
 let catalogLoad: Promise<EmojiCatalog> | undefined;
 
 function loadEmojiCatalog(): Promise<EmojiCatalog> {
-  catalogLoad ??= import('./emoji-catalog').then((module) => {
+  const settleOperation = async () => {
+    const settleOperationValue = await import('./emoji-catalog');
+    const module = settleOperationValue;
+
     setCatalog(() => module);
-    return module;
-  });
+    return await module;
+  };
+  catalogLoad ??= settleOperation();
   return catalogLoad;
 }
 

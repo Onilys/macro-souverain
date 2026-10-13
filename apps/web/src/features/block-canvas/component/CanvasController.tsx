@@ -1,3 +1,4 @@
+import { trackMention } from '@app/lib/queries/storage/mentions';
 import { useCanvasFileDrop } from '@block-canvas/signal/fileDrop';
 import type { BlockName } from '@core/block';
 import { FileDropOverlay } from '@core/component/FileDropOverlay';
@@ -17,7 +18,6 @@ import { HEIC_EXTENSIONS, HEIC_MIME_TYPES } from '@core/heic/constants';
 import { registerHotkey } from '@core/hotkey/hotkeys';
 import { TOKENS } from '@core/hotkey/tokens';
 import { HOTKEY_PRIORITY_HIGH } from '@core/hotkey/types';
-import { trackMention } from '@core/signal/mention';
 import type { EntityDragEvent } from '@entity';
 import TrashSimple from '@phosphor/trash-simple.svg';
 import Clipboard from '@phosphor-icons/core/regular/clipboard.svg?component-solid';

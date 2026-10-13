@@ -1,4 +1,5 @@
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { trackMention } from '@app/lib/queries/storage/mentions';
 import { useHasPaidAccess } from '@core/auth';
 import {
   createFilesReadyHandler,
@@ -15,7 +16,6 @@ import { PaywallKey, usePaywallState } from '@core/constant/PaywallState';
 import { useEmail, useUserContext, useUserId } from '@core/context/user';
 import { isMobile } from '@core/mobile/isMobile';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
-import { trackMention } from '@core/signal/mention';
 import { useCombinedRecipients } from '@core/signal/useCombinedRecipient';
 import { getDisplayName, tryMacroId } from '@core/user';
 import { deviceLooksOffline } from '@core/util/connectivity';
@@ -83,7 +83,10 @@ import {
   type EmailComposeContext,
   type SaveEmailDraft,
 } from './context/compose-capabilities';
-import { localDraftReadyForDelivery } from './core/local-draft';
+import {
+  type LocalDraft,
+  localDraftReadyForDelivery,
+} from './core/local-draft';
 import { readDroppedEmailFiles, withVideoAttachments } from './editor-adapter';
 import { makeAttachmentPublic } from './make-attachment-public';
 import {
@@ -160,24 +163,40 @@ export function createEmailComposeContext(
   const refreshThread = (threadId: string | undefined) => {
     if (!threadId) return;
     if (isFeatureEnabled(enableGraphqlSoup)) {
-      void (async () => {
-        const result = await fetchAndCacheThread(threadId);
-        if (result.isErr())
-          reportError(
-            new Error(
-              `Failed to refresh email thread ${threadId}: ${result.error
-                .map((error) => `${error.code}: ${error.message}`)
-                .join(', ')}`
-            )
-          );
-      })().catch(reportError);
+      const settleOperationHandler0 = reportError;
+      const settleOperation = async () => {
+        try {
+          return await (async () => {
+            const result = await fetchAndCacheThread(threadId);
+            if (result.isErr())
+              reportError(
+                new Error(
+                  `Failed to refresh email thread ${threadId}: ${result.error
+                    .map((error) => `${error.code}: ${error.message}`)
+                    .join(', ')}`
+                )
+              );
+          })();
+        } catch (settleOperationError) {
+          return await settleOperationHandler0(settleOperationError);
+        }
+      };
+      void settleOperation();
       return;
     }
-    void queryClient
-      .invalidateQueries({
-        queryKey: emailKeys.threadMessages(threadId).queryKey,
-      })
-      .catch(reportError);
+    const settleInvalidateQueriesHandler0 = reportError;
+    const settleInvalidateQueries = async () => {
+      try {
+        return await queryClient.invalidateQueries({
+          queryKey: emailKeys.threadMessages(threadId).queryKey,
+        });
+      } catch (settleInvalidateQueriesError) {
+        return await settleInvalidateQueriesHandler0(
+          settleInvalidateQueriesError
+        );
+      }
+    };
+    void settleInvalidateQueries();
   };
 
   // Queued writes address a draft by handles: the composer's minted ones, or a
@@ -201,7 +220,15 @@ export function createEmailComposeContext(
     draftLifecycle: emailDraftLifecycleSource,
     recipientName: (id) => getDisplayName(tryMacroId(id)),
     recordMention: (sourceId, targetId) => {
-      void trackMention(sourceId, 'document', targetId).catch(reportError);
+      const settleTrackMentionHandler0 = reportError;
+      const settleTrackMention = async () => {
+        try {
+          return await trackMention(sourceId, 'document', targetId);
+        } catch (settleTrackMentionError) {
+          return await settleTrackMentionHandler0(settleTrackMentionError);
+        }
+      };
+      void settleTrackMention();
     },
     accounts: {
       ...inboxSource,
@@ -318,31 +345,7 @@ export function createEmailComposeContext(
           const local = await readLocalDraft(handles.draftId);
           const senderLinkId = local?.inboxId ?? inboxId ?? primaryId() ?? '';
           const outcome = await saveEmailDraftQueued({
-            args: {
-              ...queuedDraftSaveArgs({
-                draft: local?.content ?? input.draft,
-                handles: local
-                  ? {
-                      draftId: local.draftId,
-                      threadId: local.threadId ?? handles.threadId,
-                    }
-                  : handles,
-                senderLinkId,
-                senderAccount: accounts.isSuccess
-                  ? accounts.data?.links.find(
-                      (link) => link.id === senderLinkId
-                    )
-                  : undefined,
-                senderEmail:
-                  inboxSource
-                    .inboxes()
-                    .find((inbox) => inbox.id === senderLinkId)
-                    ?.email_address ??
-                  viewerEmail() ??
-                  '',
-              }),
-              localRevision: local?.revision,
-            },
+            args: buildArgs(local, senderLinkId, handles),
             completingThread,
             previousThreadId,
           });
@@ -372,9 +375,17 @@ export function createEmailComposeContext(
           if (previousThreadId && previousThreadId !== threadId) {
             markThreadDraftSaved(previousThreadId);
             invalidateSoupEntity(previousThreadId);
-            void refetchSoupEntity(previousThreadId, 'emailThread').catch(
-              reportError
-            );
+            const settleRefetchSoupEntityHandler0 = reportError;
+            const settleRefetchSoupEntity = async () => {
+              try {
+                return await refetchSoupEntity(previousThreadId, 'emailThread');
+              } catch (settleRefetchSoupEntityError) {
+                return await settleRefetchSoupEntityHandler0(
+                  settleRefetchSoupEntityError
+                );
+              }
+            };
+            void settleRefetchSoupEntity();
           }
         } catch (error) {
           reportError(error);
@@ -384,6 +395,34 @@ export function createEmailComposeContext(
           threadId: result.draft.thread_db_id ?? undefined,
           inboxId: result.draft.link_id,
         };
+
+        function buildArgs(
+          local: LocalDraft | undefined,
+          senderLinkId: string,
+          handlesValue: NonNullable<typeof handles>
+        ): import('../../lib/queries/email/graphql/draft').GraphqlSaveEmailDraftArgs {
+          return {
+            ...queuedDraftSaveArgs({
+              draft: local?.content ?? input.draft,
+              handles: local
+                ? {
+                    draftId: local.draftId,
+                    threadId: local.threadId ?? handlesValue.threadId,
+                  }
+                : handlesValue,
+              senderLinkId,
+              senderAccount: accounts.isSuccess
+                ? accounts.data?.links.find((link) => link.id === senderLinkId)
+                : undefined,
+              senderEmail:
+                inboxSource.inboxes().find((inbox) => inbox.id === senderLinkId)
+                  ?.email_address ??
+                viewerEmail() ??
+                '',
+            }),
+            localRevision: local?.revision,
+          };
+        }
       },
       async deleteDraft({ completingThread, inboxId, ...input }) {
         assertEmailDraftQueueAvailable();
@@ -494,11 +533,19 @@ export function createEmailComposeContext(
         try {
           publishDraftLifecycleChange(draftId, inboxId);
           refreshThread(threadId);
-          void queryClient
-            .invalidateQueries({
-              queryKey: emailKeys.scheduledMessages._def,
-            })
-            .catch(reportError);
+          const settleInvalidateQueriesResultHandler0 = reportError;
+          const settleInvalidateQueriesResult = async () => {
+            try {
+              return await queryClient.invalidateQueries({
+                queryKey: emailKeys.scheduledMessages._def,
+              });
+            } catch (settleInvalidateQueriesResultError) {
+              return await settleInvalidateQueriesResultHandler0(
+                settleInvalidateQueriesResultError
+              );
+            }
+          };
+          void settleInvalidateQueriesResult();
         } catch (error) {
           // Cache and cross-tab notifications are post-commit UI work. A
           // failure here must not make a successful schedule retryable.
@@ -536,10 +583,22 @@ export function createEmailComposeContext(
               await recordLocalAttachment(draftId, file, id, true);
           },
           onAttachmentUploadFailed: (file) => {
-            if (queueActive())
-              void recordLocalAttachment(draftId, file, undefined, false).catch(
-                reportError
-              );
+            const settleRecordLocalAttachmentHandler0 = reportError;
+            const settleRecordLocalAttachment = async () => {
+              try {
+                return await recordLocalAttachment(
+                  draftId,
+                  file,
+                  undefined,
+                  false
+                );
+              } catch (settleRecordLocalAttachmentError) {
+                return await settleRecordLocalAttachmentHandler0(
+                  settleRecordLocalAttachmentError
+                );
+              }
+            };
+            if (queueActive()) void settleRecordLocalAttachment();
             input.onAttachmentUploadFailed?.(file);
           },
         }),

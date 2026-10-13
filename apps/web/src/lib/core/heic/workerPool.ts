@@ -112,7 +112,9 @@ export class HeicWorkerPool {
     this.taskQueue = [];
     this.availableWorkers = [];
 
-    this.checkWebCodecsSupport().then(() => {
+    const settleCheckWebCodecsSupport = async () => {
+      await this.checkWebCodecsSupport();
+
       const supported =
         this.webCodecsSupportedMimeTypes &&
         this.webCodecsSupportedMimeTypes.length > 0;
@@ -124,7 +126,10 @@ export class HeicWorkerPool {
       } else {
         HeicLogger.info('WebCodecs support not available');
       }
-    });
+
+      return;
+    };
+    settleCheckWebCodecsSupport();
     this.initialize();
   }
 

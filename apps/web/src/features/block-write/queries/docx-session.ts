@@ -272,9 +272,15 @@ export function createDocxSession(options: DocxSessionOptions): DocxSession {
 
   async function hydrate() {
     await wal.ready();
-    const cached = await loadCachedState(manager, snapshots, walStore).catch(
-      () => false
-    );
+
+    const settleLoadCachedState = async () => {
+      try {
+        return await loadCachedState(manager, snapshots, walStore);
+      } catch {
+        return await false;
+      }
+    };
+    const cached = await settleLoadCachedState();
     if (disposed) return;
     if (cached && isDocxSeeded(manager.doc)) await start();
     else if (!(await options.exists()) && !(await seed())) return;
@@ -283,17 +289,28 @@ export function createDocxSession(options: DocxSessionOptions): DocxSession {
     setConnection(opened);
     opened.source.listen((event) => {
       for (const listener of liveListeners) listener(event);
-      if (event.type === 'reconnect')
-        accept(event)
-          .then(() => wal.flush())
-          .catch((cause: unknown) => {
-            console.error('DOCX session failed to resync', cause);
-            if (!disposed)
-              setState({
-                t: 'error',
-                message: 'Unable to open this document.',
-              });
-          });
+
+      const settleAccept = async (
+        event: Extract<SyncSourceEvent, { type: 'reconnect' }>
+      ) => {
+        try {
+          await accept(event);
+
+          return await wal.flush();
+        } catch (settleAcceptError) {
+          const cause: unknown = settleAcceptError;
+
+          console.error('DOCX session failed to resync', cause);
+          if (!disposed)
+            setState({
+              t: 'error',
+              message: 'Unable to open this document.',
+            });
+
+          return;
+        }
+      };
+      if (event.type === 'reconnect') settleAccept(event);
     });
     if (peerId !== undefined) opened.source.registerPeerId(peerId);
     const initial = await opened.doInitialSync();
@@ -309,11 +326,20 @@ export function createDocxSession(options: DocxSessionOptions): DocxSession {
     await accept(initial.value);
   }
 
-  hydrate().catch((cause: unknown) => {
-    console.error('DOCX session failed to open', cause);
-    if (!disposed)
-      setState({ t: 'error', message: 'Unable to open this document.' });
-  });
+  const settleHydrate = async () => {
+    try {
+      return await hydrate();
+    } catch (settleHydrateError) {
+      const cause: unknown = settleHydrateError;
+
+      console.error('DOCX session failed to open', cause);
+      if (!disposed)
+        setState({ t: 'error', message: 'Unable to open this document.' });
+
+      return;
+    }
+  };
+  settleHydrate();
 
   onCleanup(() => {
     disposed = true;

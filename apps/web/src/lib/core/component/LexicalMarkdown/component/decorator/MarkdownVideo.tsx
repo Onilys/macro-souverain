@@ -94,11 +94,15 @@ export function MarkdownVideo(props: VideoDecoratorProps) {
       setVideoUrl(props.url);
       return;
     }
-    getMediaUrl({
-      type: props.srcType,
-      id: props.id,
-      url: props.url,
-    }).then((maybeUrl) => {
+
+    const settleGetMediaUrl = async () => {
+      const settleGetMediaUrlValue = await getMediaUrl({
+        type: props.srcType,
+        id: props.id,
+        url: props.url,
+      });
+      const maybeUrl = settleGetMediaUrlValue;
+
       if (maybeUrl.isErr()) {
         setState('error');
         if (
@@ -126,7 +130,10 @@ export function MarkdownVideo(props: VideoDecoratorProps) {
           { discrete: true, tag: 'historic' }
         );
       }
-    });
+
+      return;
+    };
+    settleGetMediaUrl();
   });
 
   const isSelectedAsNode = () => {
@@ -301,13 +308,7 @@ export function MarkdownVideo(props: VideoDecoratorProps) {
         </Show>
         <video
           crossorigin="anonymous"
-          class={cn(
-            'h-full object-contain',
-            (state() === 'loading' || state() === 'error') && 'invisible',
-            state() === 'loading' &&
-              !videoDims()[0] &&
-              'absolute inset-0 size-0'
-          )}
+          class={getMarkdownVideoClass()}
           draggable={true}
           ref={videoRef}
           src={videoUrl()}
@@ -391,4 +392,12 @@ export function MarkdownVideo(props: VideoDecoratorProps) {
       </Dialog.Portal>
     </Dialog>
   );
+
+  function getMarkdownVideoClass(): string | undefined {
+    return cn(
+      'h-full object-contain',
+      (state() === 'loading' || state() === 'error') && 'invisible',
+      state() === 'loading' && !videoDims()[0] && 'absolute inset-0 size-0'
+    );
+  }
 }

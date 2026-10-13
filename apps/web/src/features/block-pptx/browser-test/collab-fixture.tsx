@@ -61,7 +61,13 @@ export function CollabFixture(props: {
   const readonly = props.params.has('readonly');
   const [engine, setEngine] = createSignal<PresentationEngine>();
   const [errors, setErrors] = createSignal<string[]>([]);
-  const deckBytes = fetch(props.deckUrl).then((r) => r.arrayBuffer());
+
+  const settleFetch = async () => {
+    const settleFetchValue = await fetch(props.deckUrl);
+    const r = settleFetchValue;
+    return await r.arrayBuffer();
+  };
+  const deckBytes = settleFetch();
 
   const session = createPresentationCollabSession({
     documentId,
@@ -147,12 +153,22 @@ export function CollabFixture(props: {
           <Match when={doc()} keyed>
             {(ready) => {
               let closed = false;
-              void openCollaborativePresentation(ready, {
-                storedFile: new ArrayBuffer(0),
-              }).then(
-                (e) => (closed ? e.close() : setEngine(e)),
-                (e: unknown) => setErrors((list) => [...list, String(e)])
-              );
+
+              const settleOpenCollaborativePresentation = async () => {
+                let settleOpenCollaborativePresentationValue;
+                try {
+                  settleOpenCollaborativePresentationValue =
+                    await openCollaborativePresentation(ready, {
+                      storedFile: new ArrayBuffer(0),
+                    });
+                } catch (settleOpenCollaborativePresentationError) {
+                  const e: unknown = settleOpenCollaborativePresentationError;
+                  return await setErrors((list) => [...list, String(e)]);
+                }
+                const e = settleOpenCollaborativePresentationValue;
+                return await (closed ? e.close() : setEngine(e));
+              };
+              void settleOpenCollaborativePresentation();
               onCleanup(() => {
                 closed = true;
                 engine()?.close();

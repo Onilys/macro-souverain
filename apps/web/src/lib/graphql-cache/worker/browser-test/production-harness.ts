@@ -257,10 +257,18 @@ const run = async (): Promise<Record<string, unknown>> => {
     (tabId) => tabId !== first.tabId && tabId !== second.tabId
   );
   assert(requester, 'missing production abrupt requester');
-  const slow = command(requester, { kind: 'slow-read' }).then(
-    () => '',
-    (error: unknown) => (error instanceof Error ? error.message : String(error))
-  );
+
+  const settleCommand = async () => {
+    try {
+      await command(requester, { kind: 'slow-read' });
+    } catch (settleCommandError) {
+      const error: unknown = settleCommandError;
+      return await (error instanceof Error ? error.message : String(error));
+    }
+
+    return await '';
+  };
+  const slow = settleCommand();
   await waitUntil('production slow request admission', () =>
     telemetry.some(
       (event) =>
@@ -375,14 +383,24 @@ function expectProductionMiss(value: unknown): void {
   );
 }
 
-void run().then(
-  (result) => {
-    resultElement.dataset.status = 'passed';
-    resultElement.textContent = JSON.stringify(result, null, 2);
-  },
-  (error: unknown) => {
+const settleRun = async () => {
+  let settleRunValue;
+  try {
+    settleRunValue = await run();
+  } catch (settleRunError) {
+    const error: unknown = settleRunError;
+
     resultElement.dataset.status = 'failed';
     resultElement.textContent =
       error instanceof Error ? (error.stack ?? error.message) : String(error);
+
+    return;
   }
-);
+  const result = settleRunValue;
+
+  resultElement.dataset.status = 'passed';
+  resultElement.textContent = JSON.stringify(result, null, 2);
+
+  return;
+};
+void settleRun();

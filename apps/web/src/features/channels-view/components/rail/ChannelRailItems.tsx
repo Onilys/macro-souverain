@@ -4,6 +4,7 @@ import {
   toEntityActionListState,
 } from '@app/features/next-soup/actions';
 import { SoupEntityContextMenu } from '@app/features/soup/SoupEntityContextMenu';
+import type { MacroId } from '@app/lib/identity/macro-id';
 import { joinChannelCall } from '@channel/Call/join-channel-call';
 import { ChannelMutedIndicator } from '@channel/components/ChannelMutedIndicator';
 import { StaticMarkdown } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
@@ -12,7 +13,6 @@ import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { getDisplayName, tryMacroId } from '@core/user';
-import type { MacroId } from '@core/user/macroId';
 import { type ChannelEntity, Entity } from '@entity';
 import ReplyIcon from '@phosphor/arrow-bend-up-left.svg';
 import AtIcon from '@phosphor/at.svg';
@@ -181,10 +181,20 @@ export function IncomingCallActions(props: {
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              void joinChannelCall(props.channelId).catch((error) => {
-                console.error('Failed to join call', error);
-                toast.failure('Failed to join call');
-              });
+
+              const settleJoinChannelCall = async () => {
+                try {
+                  return await joinChannelCall(props.channelId);
+                } catch (settleJoinChannelCallError) {
+                  const error = settleJoinChannelCallError;
+
+                  console.error('Failed to join call', error);
+                  toast.failure('Failed to join call');
+
+                  return;
+                }
+              };
+              void settleJoinChannelCall();
             }}
           >
             <PhoneIncomingIcon class="incoming-call-shake size-3" />

@@ -62,79 +62,19 @@ function filterDataToQueryFilters(data: QueryState): EntityFilters {
   }
 
   // Document filters
-  if (
-    include.documentId?.length ||
-    include.fileType?.length ||
-    include.subType?.length ||
-    include.projectId?.length ||
-    include.documentOwnerId?.length
-  ) {
-    filters.document_filters = {
-      document_ids: include.documentId,
-      file_types: include.fileType,
-      sub_types: include.subType,
-      project_ids: include.projectId,
-      owners: include.documentOwnerId,
-    };
-  }
+  updateDocumentFilters();
 
   // Email filters
-  if (
-    include.threadId?.length ||
-    include.emailSender?.length ||
-    include.emailShared ||
-    include.emailImportance !== undefined ||
-    include.emailLinkId?.length
-  ) {
-    filters.email_filters = {
-      email_thread_ids: include.threadId,
-      senders: include.emailSender,
-      shared: include.emailShared,
-      importance: include.emailImportance,
-      link_ids: include.emailLinkId,
-    };
-  }
+  updateEmailFilters();
 
   // Channel filters
-  if (
-    include.channelId?.length ||
-    include.channelType?.length ||
-    include.channelSenderId?.length ||
-    include.channelMessageThreadId?.length
-  ) {
-    filters.channel_filters = {
-      channel_ids: include.channelId,
-      channel_types: include.channelType,
-      sender_ids: include.channelSenderId,
-      thread_ids: include.channelMessageThreadId,
-    };
-  }
+  updateChannelFilters();
 
   // Channel thread filters
-  if (
-    include.channelThreadId?.length ||
-    include.channelThreadRootSenderId?.length ||
-    include.channelThreadParticipantId?.length
-  ) {
-    filters.channel_thread_filters = {
-      thread_ids: include.channelThreadId,
-      root_sender_ids: include.channelThreadRootSenderId,
-      participant_ids: include.channelThreadParticipantId,
-    };
-  }
+  updateChannelThreadFilters();
 
   // Chat filters
-  if (
-    include.chatId?.length ||
-    include.chatOwnerId?.length ||
-    include.chatProjectId?.length
-  ) {
-    filters.chat_filters = {
-      chat_ids: include.chatId,
-      owners: include.chatOwnerId,
-      project_ids: include.chatProjectId,
-    };
-  }
+  updateChatFilters();
 
   // Project/folder filters
   if (include.folderId?.length || include.folderOwnerId?.length) {
@@ -145,22 +85,7 @@ function filterDataToQueryFilters(data: QueryState): EntityFilters {
   }
 
   // Call filters
-  if (
-    include.callId?.length ||
-    include.callChannelId?.length ||
-    include.callSpeakerId?.length ||
-    include.callStatus !== undefined ||
-    include.callAttended !== undefined
-  ) {
-    filters.call_filters = {
-      call_ids: include.callId,
-      channel_ids: include.callChannelId,
-      speaker_ids: include.callSpeakerId,
-      status: include.callStatus,
-      attended:
-        include.callStatus === undefined ? include.callAttended : undefined,
-    };
-  }
+  updateCallFilters();
 
   // Foreign entity filters
   if (
@@ -190,6 +115,105 @@ function filterDataToQueryFilters(data: QueryState): EntityFilters {
   }
 
   return filters;
+
+  function updateChannelThreadFilters() {
+    if (
+      include.channelThreadId?.length ||
+      include.channelThreadRootSenderId?.length ||
+      include.channelThreadParticipantId?.length
+    ) {
+      filters.channel_thread_filters = {
+        thread_ids: include.channelThreadId,
+        root_sender_ids: include.channelThreadRootSenderId,
+        participant_ids: include.channelThreadParticipantId,
+      };
+    }
+  }
+
+  function updateChatFilters() {
+    if (
+      include.chatId?.length ||
+      include.chatOwnerId?.length ||
+      include.chatProjectId?.length
+    ) {
+      filters.chat_filters = {
+        chat_ids: include.chatId,
+        owners: include.chatOwnerId,
+        project_ids: include.chatProjectId,
+      };
+    }
+  }
+
+  function updateEmailFilters() {
+    if (
+      include.threadId?.length ||
+      include.emailSender?.length ||
+      include.emailShared ||
+      include.emailImportance !== undefined ||
+      include.emailLinkId?.length
+    ) {
+      filters.email_filters = {
+        email_thread_ids: include.threadId,
+        senders: include.emailSender,
+        shared: include.emailShared,
+        importance: include.emailImportance,
+        link_ids: include.emailLinkId,
+      };
+    }
+  }
+
+  function updateChannelFilters() {
+    if (
+      include.channelId?.length ||
+      include.channelType?.length ||
+      include.channelSenderId?.length ||
+      include.channelMessageThreadId?.length
+    ) {
+      filters.channel_filters = {
+        channel_ids: include.channelId,
+        channel_types: include.channelType,
+        sender_ids: include.channelSenderId,
+        thread_ids: include.channelMessageThreadId,
+      };
+    }
+  }
+
+  function updateCallFilters() {
+    if (
+      include.callId?.length ||
+      include.callChannelId?.length ||
+      include.callSpeakerId?.length ||
+      include.callStatus !== undefined ||
+      include.callAttended !== undefined
+    ) {
+      filters.call_filters = {
+        call_ids: include.callId,
+        channel_ids: include.callChannelId,
+        speaker_ids: include.callSpeakerId,
+        status: include.callStatus,
+        attended:
+          include.callStatus === undefined ? include.callAttended : undefined,
+      };
+    }
+  }
+
+  function updateDocumentFilters() {
+    if (
+      include.documentId?.length ||
+      include.fileType?.length ||
+      include.subType?.length ||
+      include.projectId?.length ||
+      include.documentOwnerId?.length
+    ) {
+      filters.document_filters = {
+        document_ids: include.documentId,
+        file_types: include.fileType,
+        sub_types: include.subType,
+        project_ids: include.projectId,
+        owners: include.documentOwnerId,
+      };
+    }
+  }
 }
 
 interface CreateSearchStateArgs {

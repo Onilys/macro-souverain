@@ -5,7 +5,7 @@ import { useChannelName, useChannelType } from '@core/context/channels';
 import { isMobile } from '@core/mobile/isMobile';
 import PhoneIcon from '@phosphor/phone-call.svg';
 import { useActiveCallQuery } from '@queries/call/call';
-import { ChannelTypeEnum } from '@service-storage/client';
+import { ChannelTypeEnum } from '@service-storage/itemType';
 import { cn, confirmDialog } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { getOwner, Show } from 'solid-js';

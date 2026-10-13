@@ -149,6 +149,7 @@ fn biome_check() -> Job {
         .add_step(steps::setup_nix())
         .add_step(steps::setup_dev_shell())
         .add_step(run_biome())
+        .add_step(run_oxlint())
         .add_step(run_collaboration_biome())
         .add_step(steps::teardown_nix())
 }
@@ -368,6 +369,12 @@ fn test_lexical_service() -> Step<Run> {
 fn run_biome() -> Step<Run> {
     Step::new("Run Biome")
         .run("biome ci --changed --no-errors-on-unmatched --error-on-warnings")
+        .working_directory(xtask_paths::repo_dir!("apps/web"))
+}
+
+fn run_oxlint() -> Step<Run> {
+    Step::new("Run Frontend Oxlint")
+        .run("bunx --yes oxlint@1.73.0 --deny-warnings")
         .working_directory(xtask_paths::repo_dir!("apps/web"))
 }
 

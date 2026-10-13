@@ -1,3 +1,4 @@
+import { match as matchBranch } from 'ts-pattern';
 /**
  * What the tools do with the pointer on the canvas, as Photoshop does it:
  * the Move tool drags layers (picking the one under the pointer), the
@@ -640,18 +641,12 @@ export function createCanvasTools(options: CanvasToolsOptions) {
       refreshOverlay();
       return;
     }
-    if (
-      PAINT_TOOLS.has(tool) ||
-      tool === 'move' ||
-      tool === 'type' ||
-      tool === 'rectangle' ||
-      tool === 'ellipse'
-    ) {
+    if (toolRequiresEditPermission()) {
       if (!editable()) return;
     }
     const mode = selectModeFor({ shift: p.shift, alt: p.alt });
-    switch (tool) {
-      case 'move': {
+    return matchBranch(tool)
+      .with('move', () => {
         gesture = {
           kind: 'move',
           start: p.at,
@@ -662,9 +657,8 @@ export function createCanvasTools(options: CanvasToolsOptions) {
           key: gestureKey('move', ++gestureCount),
         };
         return;
-      }
-      case 'marqueeRect':
-      case 'marqueeEllipse':
+      })
+      .with('marqueeRect', 'marqueeEllipse', (tool) => {
         gesture = {
           kind: 'marquee',
           shape: tool === 'marqueeRect' ? 'rect' : 'ellipse',
@@ -676,21 +670,25 @@ export function createCanvasTools(options: CanvasToolsOptions) {
           screenStart: p.screen,
         };
         return;
-      case 'lasso':
+      })
+      .with('lasso', () => {
         gesture = { kind: 'lasso', points: [p.at], mode };
         refreshOverlay();
         return;
-      case 'polygonLasso': {
-        const poly = polygon();
-        if (!poly) {
-          setPolygon({ points: [p.at], mode });
-        } else if (closesPolygon(poly.points, p.at, CLOSE_SLOP / zoom())) {
-          void finishPolygon(true);
-        } else setPolygon({ ...poly, points: [...poly.points, p.at] });
-        refreshOverlay();
-        return;
-      }
-      case 'wand':
+      })
+      .with('polygonLasso', () => {
+        {
+          const poly = polygon();
+          if (!poly) {
+            setPolygon({ points: [p.at], mode });
+          } else if (closesPolygon(poly.points, p.at, CLOSE_SLOP / zoom())) {
+            void finishPolygon(true);
+          } else setPolygon({ ...poly, points: [...poly.points, p.at] });
+          refreshOverlay();
+          return;
+        }
+      })
+      .with('wand', () => {
         void editor.select({
           type: 'wand',
           x: Math.floor(p.at.x),
@@ -703,46 +701,50 @@ export function createCanvasTools(options: CanvasToolsOptions) {
           mode,
         });
         return;
-      case 'eyedropper':
+      })
+      .with('eyedropper', () => {
         gesture = { kind: 'eyedropper' };
         void sampleColor(p);
         return;
-      case 'brush':
-      case 'pencil':
-      case 'eraser':
+      })
+      .with('brush', 'pencil', 'eraser', () => {
         if (startStroke(p)) gesture = { kind: 'paint' };
         return;
-      case 'bucket': {
-        const t = fillTarget();
-        if (!t) return;
-        void editor.apply([
-          {
-            op: 'bucket',
-            id: t.id,
-            target: t.target,
-            x: Math.floor(p.at.x),
-            y: Math.floor(p.at.y),
-            color: view.foreground(),
-            opacity: 1,
-            tolerance: view.toolOptions().tolerance,
-            contiguous: view.toolOptions().contiguous,
-            antialias: view.toolOptions().antialias,
-            sampleAll: view.toolOptions().sampleAll,
-          },
-        ]);
-        return;
-      }
-      case 'gradient':
+      })
+      .with('bucket', () => {
+        {
+          const t = fillTarget();
+          if (!t) return;
+          void editor.apply([
+            {
+              op: 'bucket',
+              id: t.id,
+              target: t.target,
+              x: Math.floor(p.at.x),
+              y: Math.floor(p.at.y),
+              color: view.foreground(),
+              opacity: 1,
+              tolerance: view.toolOptions().tolerance,
+              contiguous: view.toolOptions().contiguous,
+              antialias: view.toolOptions().antialias,
+              sampleAll: view.toolOptions().sampleAll,
+            },
+          ]);
+          return;
+        }
+      })
+      .with('gradient', () => {
         if (!fillTarget()) return;
         gesture = { kind: 'gradient', from: p.at, to: p.at };
         refreshOverlay();
         return;
-      case 'type':
+      })
+      .with('type', () => {
         options.onTypeStart?.();
         void typeAt(p);
         return;
-      case 'rectangle':
-      case 'ellipse':
+      })
+      .with('rectangle', 'ellipse', (tool) => {
         gesture = {
           kind: 'shape',
           shape: tool,
@@ -751,11 +753,23 @@ export function createCanvasTools(options: CanvasToolsOptions) {
           startMods: { shift: p.shift, alt: p.alt },
         };
         return;
-      case 'zoom':
+      })
+      .with('zoom', () => {
         gesture = { kind: 'zoom', start: p.at, screenStart: p.screen };
         return;
-      default:
+      })
+      .otherwise(() => {
         return;
+      });
+
+    function toolRequiresEditPermission() {
+      return (
+        PAINT_TOOLS.has(tool) ||
+        tool === 'move' ||
+        tool === 'type' ||
+        tool === 'rectangle' ||
+        tool === 'ellipse'
+      );
     }
   };
 
@@ -765,18 +779,7 @@ export function createCanvasTools(options: CanvasToolsOptions) {
     const g = gesture;
     if (!g) {
       const t = transform();
-      if (t) {
-        const part = hitTransform(t.box, p.at, HANDLE_SLOP / zoom());
-        setCursorOverride(part ? partCursor(part) : undefined);
-      } else if (crop() && view.tool() === 'crop') {
-        const c = crop();
-        const part = c
-          ? hitTransform({ ...c, angle: 0 }, p.at, HANDLE_SLOP / zoom())
-          : undefined;
-        setCursorOverride(
-          part && part.kind !== 'rotate' ? partCursor(part) : undefined
-        );
-      } else setCursorOverride(undefined);
+      updateMove(t);
       refreshOverlay();
       return;
     }
@@ -840,6 +843,25 @@ export function createCanvasTools(options: CanvasToolsOptions) {
         return;
     }
     refreshOverlay();
+
+    function updateMove(
+      t:
+        | { box: FreeTransform; ids: number[]; images: TransformImage[] }
+        | undefined
+    ) {
+      if (t) {
+        const part = hitTransform(t.box, p.at, HANDLE_SLOP / zoom());
+        setCursorOverride(part ? partCursor(part) : undefined);
+      } else if (crop() && view.tool() === 'crop') {
+        const c = crop();
+        const part = c
+          ? hitTransform({ ...c, angle: 0 }, p.at, HANDLE_SLOP / zoom())
+          : undefined;
+        setCursorOverride(
+          part && part.kind !== 'rotate' ? partCursor(part) : undefined
+        );
+      } else setCursorOverride(undefined);
+    }
   };
 
   const moveBox = (
@@ -862,33 +884,36 @@ export function createCanvasTools(options: CanvasToolsOptions) {
     const g = gesture;
     gesture = undefined;
     if (!g) return;
-    switch (g.kind) {
-      case 'move':
+    matchBranch(g)
+      .with({ kind: 'move' }, (g) => {
         g.want = {
           dx: Math.round(p.at.x - g.start.x),
           dy: Math.round(p.at.y - g.start.y),
         };
         flushMove();
-        break;
-      case 'marquee': {
-        const rect = marqueeFor({ ...g, current: p.at });
-        if (!g.dragged || rect.w < 1 || rect.h < 1) {
-          // A click deselects (unless it adds to or subtracts from it).
-          if (g.mode === 'replace') void editor.select({ type: 'none' });
-          break;
+        return;
+      })
+      .with({ kind: 'marquee' }, (g) => {
+        {
+          const rect = marqueeFor({ ...g, current: p.at });
+          if (!g.dragged || rect.w < 1 || rect.h < 1) {
+            // A click deselects (unless it adds to or subtracts from it).
+            if (g.mode === 'replace') void editor.select({ type: 'none' });
+            return;
+          }
+          void editor.select({
+            type: g.shape,
+            ...rect,
+            mode: g.mode,
+            feather: view.toolOptions().feather,
+            ...(g.shape === 'ellipse'
+              ? { antialias: view.toolOptions().antialias }
+              : {}),
+          });
+          return;
         }
-        void editor.select({
-          type: g.shape,
-          ...rect,
-          mode: g.mode,
-          feather: view.toolOptions().feather,
-          ...(g.shape === 'ellipse'
-            ? { antialias: view.toolOptions().antialias }
-            : {}),
-        });
-        break;
-      }
-      case 'lasso':
+      })
+      .with({ kind: 'lasso' }, (g) => {
         if (g.points.length >= 3)
           void editor.select({
             type: 'polygon',
@@ -898,63 +923,73 @@ export function createCanvasTools(options: CanvasToolsOptions) {
             antialias: view.toolOptions().antialias,
           });
         else if (g.mode === 'replace') void editor.select({ type: 'none' });
-        break;
-      case 'gradient': {
-        const t = fillTarget();
-        if (!t) break;
-        const to = p.shift ? snapLine(g.from, p.at) : p.at;
-        if (Math.hypot(to.x - g.from.x, to.y - g.from.y) < 1) break;
-        void editor.apply([
-          {
-            op: 'gradient',
-            id: t.id,
-            target: t.target,
-            gradient: {
-              ...twoColorGradient(
-                view.foreground(),
-                view.background(),
-                'Foreground to Background',
-                view.toolOptions().gradientMethod
-              ),
-              kind: view.toolOptions().gradient,
+        return;
+      })
+      .with({ kind: 'gradient' }, (g) => {
+        {
+          const t = fillTarget();
+          if (!t) return;
+          const to = p.shift ? snapLine(g.from, p.at) : p.at;
+          if (Math.hypot(to.x - g.from.x, to.y - g.from.y) < 1) return;
+          void editor.apply([
+            {
+              op: 'gradient',
+              id: t.id,
+              target: t.target,
+              gradient: {
+                ...twoColorGradient(
+                  view.foreground(),
+                  view.background(),
+                  'Foreground to Background',
+                  view.toolOptions().gradientMethod
+                ),
+                kind: view.toolOptions().gradient,
+              },
+              from: [g.from.x, g.from.y],
+              to: [to.x, to.y],
+              opacity: 1,
             },
-            from: [g.from.x, g.from.y],
-            to: [to.x, to.y],
-            opacity: 1,
-          },
-        ]);
-        break;
-      }
-      case 'shape': {
-        const rect = shapeRectFor({ ...g, current: p.at });
-        if (rect.w < 2 || rect.h < 2) break;
-        void editor.apply([
-          newLayerOp(
-            editor.activeRow(),
-            shapeLayer(g.shape, rect, view.foreground())
-          ),
-        ]);
-        break;
-      }
-      case 'paint':
-        endStroke();
-        break;
-      case 'zoom': {
-        const out = p.alt;
-        view.zoomStep(out ? -1 : 1, p.screen);
-        break;
-      }
-      case 'crop-draw': {
-        const c = crop();
-        if (c && (Math.abs(c.w) < 2 || Math.abs(c.h) < 2)) {
-          setCrop(startTransform(canvasRect()));
-          cropFresh = true;
+          ]);
+          return;
         }
-        break;
-      }
-      default:
-        break;
-    }
+      })
+      .with({ kind: 'shape' }, (g) => {
+        {
+          const rect = shapeRectFor({ ...g, current: p.at });
+          if (rect.w < 2 || rect.h < 2) return;
+          void editor.apply([
+            newLayerOp(
+              editor.activeRow(),
+              shapeLayer(g.shape, rect, view.foreground())
+            ),
+          ]);
+          return;
+        }
+      })
+      .with({ kind: 'paint' }, () => {
+        endStroke();
+        return;
+      })
+      .with({ kind: 'zoom' }, () => {
+        {
+          const out = p.alt;
+          view.zoomStep(out ? -1 : 1, p.screen);
+          return;
+        }
+      })
+      .with({ kind: 'crop-draw' }, () => {
+        {
+          const c = crop();
+          if (c && (Math.abs(c.w) < 2 || Math.abs(c.h) < 2)) {
+            setCrop(startTransform(canvasRect()));
+            cropFresh = true;
+          }
+          return;
+        }
+      })
+      .otherwise(() => {
+        return;
+      });
     refreshOverlay();
   };
 

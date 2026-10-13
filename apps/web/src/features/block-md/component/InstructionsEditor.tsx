@@ -280,7 +280,12 @@ export function InstructionsEditor(props: {
     const source = documentSource();
     if (source.type !== 'dss') return;
 
-    source.file.arrayBuffer().then(setFileArrayBuffer);
+    const settleArrayBufferHandler0 = setFileArrayBuffer;
+    const settleArrayBuffer = async () => {
+      const settleArrayBufferValue = await source.file.arrayBuffer();
+      return await settleArrayBufferHandler0(settleArrayBufferValue);
+    };
+    settleArrayBuffer();
   });
 
   createEffect(() => {

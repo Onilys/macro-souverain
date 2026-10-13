@@ -228,10 +228,7 @@ function $applyChildren(
   // Remove nodes that arent present in the newChildren array first
   for (let i = oldChildren.length - 1; i >= 0; i--) {
     const id = getNodeId(oldChildren[i]);
-    if (!id || !newIdToIndex.has(id)) {
-      const oldSize = parent.getChildrenSize();
-      if (i < oldSize) parent.splice(i, 1, []);
-    }
+    removeMissingChild(id, i, parent);
   }
 
   for (let newIndex = 0; newIndex < newChildren.length; newIndex++) {
@@ -276,24 +273,39 @@ function $applyChildren(
       }
 
       // Recurse all children if they exist
-      if (hasChildren(newChild)) {
-        const oldIdx = oldIdToIndex.get(id!);
-        if (oldIdx !== undefined && hasChildren(oldChildren[oldIdx])) {
-          $applyChildren(
-            editor,
-            mapping,
-            oldChildren[oldIdx] as NodeWithChildren,
-            newChild as NodeWithChildren,
-            oldParentMap,
-            newParentMap,
-            peerId
-          );
-        }
-      }
+      reconcileExistingChild(newChild, id);
     } else {
       // Insert new node
       const newNodeInstance = $parseSerializedNode(newChild);
       parent.splice(newIndex, 0, [newNodeInstance]);
+    }
+  }
+
+  function reconcileExistingChild(newChild: SerializedLexicalNode, id: string) {
+    if (hasChildren(newChild)) {
+      const oldIdx = oldIdToIndex.get(id!);
+      if (oldIdx !== undefined && hasChildren(oldChildren[oldIdx])) {
+        $applyChildren(
+          editor,
+          mapping,
+          oldChildren[oldIdx] as NodeWithChildren,
+          newChild as NodeWithChildren,
+          oldParentMap,
+          newParentMap,
+          peerId
+        );
+      }
+    }
+  }
+
+  function removeMissingChild(
+    id: string | undefined,
+    i: number,
+    parentInput: ElementNode
+  ) {
+    if (!id || !newIdToIndex.has(id)) {
+      const oldSize = parentInput.getChildrenSize();
+      if (i < oldSize) parentInput.splice(i, 1, []);
     }
   }
 }

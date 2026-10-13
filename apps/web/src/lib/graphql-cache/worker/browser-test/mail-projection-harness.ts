@@ -115,16 +115,19 @@ async function refresh(append = false) {
     if (page.revision !== selected.revision) throw new Error('stale page');
     if (!append) rows.replaceChildren();
     for (const { recordKey, record } of selected.records) {
-      const email = materializeMailView(
-        record as MailItemFieldsFragment,
-        select('view').value as CachedMailView,
-        page.sortTimestamps[page.keys.indexOf(recordKey)]
-      );
-      if (!email || email.__typename !== 'GraphqlSoupEmailThread')
-        throw new Error('missing canonical preview');
-      const li = document.createElement('li');
-      li.textContent = `${email.emailName} — ${email.inboxVisible ? 'Not Done' : 'Done'}`;
-      rows.append(li);
+      const processRecordKeyrecord = () => {
+        const email = materializeMailView(
+          record as MailItemFieldsFragment,
+          select('view').value as CachedMailView,
+          page.sortTimestamps[page.keys.indexOf(recordKey)]
+        );
+        if (!email || email.__typename !== 'GraphqlSoupEmailThread')
+          throw new Error('missing canonical preview');
+        const li = document.createElement('li');
+        li.textContent = `${email.emailName} — ${email.inboxVisible ? 'Not Done' : 'Done'}`;
+        rows.append(li);
+      };
+      processRecordKeyrecord();
     }
     nextCursor = page.nextCursor ?? undefined;
     more.disabled = !nextCursor;

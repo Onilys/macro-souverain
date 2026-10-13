@@ -173,10 +173,6 @@ await page.route('**/*', async (route) => {
   if (url.origin !== origin) return route.abort();
   if (path.startsWith('/app') || path === '/') return route.continue();
   if (path === '/auth/jwt/refresh') return respond({});
-  if (!connected && path === '/email/email/links')
-    return respond({ links: [] });
-  if (!connected && path === '/calendar/calendars')
-    return respond({ calendars: [] });
   if (path === '/auth/team')
     return member
       ? respond({
@@ -197,58 +193,8 @@ await page.route('**/*', async (route) => {
           })),
         })
       : respond({}, 404);
-  if (path === '/auth/user/get_names_with_email')
-    return respond({
-      names: [
-        { id: USER_ID, first_name: 'Offline', last_name: 'Fixture' },
-        { id: ALICE, first_name: 'Alice', last_name: 'Fixture' },
-        { id: BOB, first_name: 'Bob', last_name: 'Fixture' },
-      ],
-    });
-  if (path === '/calendar/team-sharing') {
-    if (request.method() === 'PUT') {
-      sharing = request.postDataJSON().sharing;
-      mutations.push(request.postDataJSON());
-    }
-    return respond({ sharing });
-  }
-  if (path === '/calendar/availability-calendars')
-    return respond({
-      calendars: [
-        {
-          calendarId: 'primary',
-          name: 'My primary',
-          isPrimary: true,
-          contributesToAvailability: true,
-        },
-        {
-          calendarId: 'followed',
-          name: 'Subscribed coworker',
-          isPrimary: false,
-          contributesToAvailability: included,
-        },
-      ],
-    });
-  if (path === '/calendar/availability-calendars/followed') {
-    included = request.postDataJSON().contributesToAvailability;
-    mutations.push(request.postDataJSON());
-    return route.fulfill({ status: 204 });
-  }
-  if (path === '/calendar/calendars')
-    return respond({
-      calendars: [
-        {
-          id: 'primary',
-          emailAddress: 'offline@example.com',
-          emailLinkId: '00000000-0000-0000-0000-000000001000',
-          name: 'My primary',
-          isPrimary: true,
-          isWritable: true,
-          isSubscription: false,
-          defaultReminders: [],
-        },
-      ],
-    });
+  const accountResponse = respondToAccountRequest();
+  if (accountResponse) return accountResponse;
   if (path === '/dss/calendar-events/team') {
     teamReadLimits.push(url.searchParams.get('limit') ?? 'default');
     if (hangTeamRequests) return new Promise<void>(() => {});
@@ -256,7 +202,7 @@ await page.route('**/*', async (route) => {
       ? respond({ message: 'Access revoked' }, 403)
       : respond({
           members: teamMembers,
-          items: url.searchParams.get('limit') === '0' ? [] : items,
+          items: buildItems2(),
           nextCursor: null,
         });
   }
@@ -273,7 +219,7 @@ await page.route('**/*', async (route) => {
   }
   if (path === '/dss/calendar-events')
     return respond({
-      items: connected ? [ownPoint] : [],
+      items: buildItems(),
       hasMore: false,
       nextCursor: null,
       syncStatus: 'ready',
@@ -282,6 +228,75 @@ await page.route('**/*', async (route) => {
   if (fixture) return respond(fixture.body, fixture.status);
   unknown.push(`${request.method()} ${path}`);
   return respond({}, 404);
+
+  function respondToAccountRequest() {
+    if (!connected && path === '/email/email/links')
+      return respond({ links: [] });
+    if (!connected && path === '/calendar/calendars')
+      return respond({ calendars: [] });
+
+    if (path === '/auth/user/get_names_with_email')
+      return respond({
+        names: [
+          { id: USER_ID, first_name: 'Offline', last_name: 'Fixture' },
+          { id: ALICE, first_name: 'Alice', last_name: 'Fixture' },
+          { id: BOB, first_name: 'Bob', last_name: 'Fixture' },
+        ],
+      });
+    if (path === '/calendar/team-sharing') {
+      if (request.method() === 'PUT') {
+        sharing = request.postDataJSON().sharing;
+        mutations.push(request.postDataJSON());
+      }
+      return respond({ sharing });
+    }
+    if (path === '/calendar/availability-calendars')
+      return respond({
+        calendars: [
+          {
+            calendarId: 'primary',
+            name: 'My primary',
+            isPrimary: true,
+            contributesToAvailability: true,
+          },
+          {
+            calendarId: 'followed',
+            name: 'Subscribed coworker',
+            isPrimary: false,
+            contributesToAvailability: included,
+          },
+        ],
+      });
+    if (path === '/calendar/availability-calendars/followed') {
+      included = request.postDataJSON().contributesToAvailability;
+      mutations.push(request.postDataJSON());
+      return route.fulfill({ status: 204 });
+    }
+    if (path === '/calendar/calendars')
+      return respond({
+        calendars: [
+          {
+            id: 'primary',
+            emailAddress: 'offline@example.com',
+            emailLinkId: '00000000-0000-0000-0000-000000001000',
+            name: 'My primary',
+            isPrimary: true,
+            isWritable: true,
+            isSubscription: false,
+            defaultReminders: [],
+          },
+        ],
+      });
+    return undefined;
+  }
+
+  function buildItems2() {
+    return url.searchParams.get('limit') === '0' ? [] : items;
+  }
+
+  function buildItems() {
+    return connected ? [ownPoint] : [];
+  }
 });
 
 async function expectRevealedCalendar() {

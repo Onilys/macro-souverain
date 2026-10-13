@@ -86,7 +86,14 @@ export function createFigReview(options: {
 
   /** Presents from `frame`, else from the selection's screen or the flow. */
   const present = async (frame?: string) => {
-    const info = await engine.prototype(viewer.page()).catch(() => undefined);
+    const settlePrototype = async () => {
+      try {
+        return await engine.prototype(viewer.page());
+      } catch {
+        return await undefined;
+      }
+    };
+    const info = await settlePrototype();
     if (!info) return;
     const start = frame ?? presentStart(info, await selectedScreen());
     if (!start) {
@@ -100,7 +107,14 @@ export function createFigReview(options: {
   /** Opens the page holding `frame` and presents it (a frame link). */
   const presentFrame = async (frame: string) => {
     for (let p = 0; p < viewer.pages.length; p++) {
-      const info = await engine.prototype(p).catch(() => undefined);
+      const settlePrototypeResult = async () => {
+        try {
+          return await engine.prototype(p);
+        } catch {
+          return await undefined;
+        }
+      };
+      const info = await settlePrototypeResult();
       if (!info?.frames.some((f) => f.id === frame)) continue;
       if (p !== viewer.page()) await viewer.openPage(p);
       setPresenting({ info, page: p, start: frame });
@@ -169,7 +183,14 @@ export function createFigReview(options: {
     ];
     // Figma starts a flow at the screen a page's first connection leaves.
     if (edited && flowsOf(info).length === 0) {
-      const chain = await engine.ancestry(viewer.page(), id).catch(() => []);
+      const settleAncestry = async () => {
+        try {
+          return await engine.ancestry(viewer.page(), id);
+        } catch {
+          return await [];
+        }
+      };
+      const chain = await settleAncestry();
       const screen = chain[0]?.id;
       if (screen && info.frames.some((f) => f.id === screen))
         ops.push({ op: 'setFlowStart', id: screen, name: 'Flow 1' });

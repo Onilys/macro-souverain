@@ -1,8 +1,8 @@
-import { useUnfurl } from '@core/signal/unfurl';
+import { useUnfurl } from '@app/lib/queries/unfurl/unfurl';
 import { openExternalUrl } from '@core/util/url';
 import LinkIcon from '@phosphor/link.svg';
 import DeleteIcon from '@phosphor/x.svg';
-import { proxyResource } from '@service-unfurl/client';
+import { proxyResource } from '@service-unfurl/proxy-resource';
 import { type Component, createSignal, For, Show } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { useProperty } from '../../core/context';
@@ -13,9 +13,6 @@ import {
   hasValue,
   isLinkProperty,
 } from '../../utils';
-
-const ADD_BUTTON_CLASS =
-  'text-ink-muted hover:text-ink hover:bg-hover px-2 py-0.5 inline-block shrink-0 rounded-sm cursor-default';
 
 // Inline URL collection editor for LINK properties. Supports multi-select
 // (chip list with add button) and single (one slot). Unfurl preview pulls
@@ -158,7 +155,9 @@ export function InlineLinkEditor() {
             <Show when={property().isMultiSelect || links().length === 0}>
               <button
                 type="button"
-                class={ADD_BUTTON_CLASS}
+                class={
+                  'text-ink-muted hover:text-ink hover:bg-hover px-2 py-0.5 inline-block shrink-0 rounded-sm cursor-default'
+                }
                 onClick={startAdding}
                 disabled={isSaving()}
               >

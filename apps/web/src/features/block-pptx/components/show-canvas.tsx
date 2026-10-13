@@ -152,7 +152,14 @@ export function ShowCanvas(props: {
             .map((a) => a.shapeId)
         );
         for (const id of built) {
-          const layout = await props.engine.textLayout(i, id).catch(() => null);
+          const settleTextLayout = async () => {
+            try {
+              return await props.engine.textLayout(i, id);
+            } catch {
+              return await null;
+            }
+          };
+          const layout = await settleTextLayout();
           if (layout) boxes.set(id, paragraphBoxes(layout));
         }
         const timeline = buildTimeline(slide, boxes);
@@ -164,7 +171,15 @@ export function ShowCanvas(props: {
         return { kind: 'layered', timeline, bitmaps };
       })();
       cache.set(key, hit);
-      hit.catch(() => cache.delete(key));
+
+      const settleHit = async () => {
+        try {
+          return await hit;
+        } catch {
+          return await cache.delete(key);
+        }
+      };
+      settleHit();
     }
     return hit;
   };
@@ -179,13 +194,24 @@ export function ShowCanvas(props: {
     let hit = morphs.get(key);
     if (hit) morphs.delete(key);
     else {
-      hit = prepareMorph(props.engine, props.deck, from, to, width).catch(
-        () => null
-      );
+      const settlePrepareMorph = async () => {
+        try {
+          return await prepareMorph(props.engine, props.deck, from, to, width);
+        } catch {
+          return await null;
+        }
+      };
+      hit = settlePrepareMorph();
       while (morphs.size >= 3) {
         const [oldest, scene] = morphs.entries().next().value!;
         morphs.delete(oldest);
-        void scene.then((s) => s && closeMorph(s));
+
+        const settleScene = async () => {
+          const settleSceneValue = await scene;
+          const s = settleSceneValue;
+          return await (s && closeMorph(s));
+        };
+        void settleScene();
       }
     }
     morphs.set(key, hit);
@@ -202,17 +228,29 @@ export function ShowCanvas(props: {
 
   onCleanup(() => {
     morphRun?.cancel();
-    for (const scene of morphs.values())
-      void scene.then((s) => s && closeMorph(s));
+    for (const scene of morphs.values()) {
+      const settleSceneResult = async () => {
+        const settleSceneResultValue = await scene;
+        const s = settleSceneResultValue;
+        return await (s && closeMorph(s));
+      };
+      void settleSceneResult();
+    }
     for (const m of mounted) stop(m);
-    for (const p of cache.values())
-      void p
-        .then((r) =>
-          r.kind === 'flat'
+    for (const p of cache.values()) {
+      const settleP = async () => {
+        try {
+          const settlePValue = await p;
+          const r = settlePValue;
+          return await (r.kind === 'flat'
             ? r.bitmap.close()
-            : r.bitmaps.forEach((b) => b.close())
-        )
-        .catch(() => {});
+            : r.bitmaps.forEach((b) => b.close()));
+        } catch {
+          return;
+        }
+      };
+      void settleP();
+    }
   });
 
   const canvasFor = (bitmap: ImageBitmap) => {
@@ -301,14 +339,22 @@ export function ShowCanvas(props: {
       if (Number.isFinite(timed.iterations)) finite.push(anim.finished);
       else endless = true;
     }
-    void Promise.all(finite)
-      .then(() => {
+
+    const settleAll = async () => {
+      try {
+        await Promise.all(finite);
+
         if (m.token !== token) return;
         // Endless repeats keep going until the next click.
         if (endless) rest(m, group);
         else settleAt(m, group);
-      })
-      .catch(() => {});
+
+        return;
+      } catch {
+        return;
+      }
+    };
+    void settleAll();
   };
 
   /** Puts a prepared slide into a slot. */
@@ -381,14 +427,8 @@ export function ShowCanvas(props: {
       const step = props.step ?? Number.POSITIVE_INFINITY;
       const appearing = previous === null || changed;
       const t = props.deck.slides[value.i]?.transition;
-      const morph =
-        changed && value.morph?.from === previous?.index
-          ? value.morph?.scene
-          : undefined;
-      const frames =
-        changed && props.transitions !== false && !morph
-          ? transitionFrames(t?.kind ?? 'none', t?.direction)
-          : null;
+      const morph = buildMorph(value);
+      const frames = buildFrames();
       const duration = frames || morph ? (t?.durationMs ?? 500) : 0;
       if (appearing && step === 0 && value.prepared.kind === 'layered') {
         // What plays as the slide appears starts after its transition.
@@ -400,45 +440,69 @@ export function ShowCanvas(props: {
       } else {
         settleAt(m, step);
       }
-      if (changed && previous) {
-        const incoming = slots[target];
-        const outgoing = slots[active];
-        const onTop =
-          !!frames &&
-          (['uncover', 'pull', 'reveal'].includes(t?.kind ?? '') ||
-            (t?.kind === 'zoom' && t.direction === 'out'));
-        incoming.style.zIndex = onTop ? '0' : '1';
-        outgoing.style.zIndex = onTop ? '1' : '0';
-        incoming.style.visibility = 'visible';
-        // The Morph scene covers both slots while it plays.
-        if (morph) morphRun = playMorph(wrapper, morph, k(), duration);
-        const timing = { duration, easing: 'ease-in-out' };
-        if (frames?.incoming) incoming.animate(frames.incoming, timing);
-        if (frames) {
-          const leaving = outgoing.animate(
-            frames.outgoing ?? [{ opacity: 1 }, { opacity: 1 }],
-            timing
-          );
-          leaving.onfinish = () => {
-            if (mounted[1 - target] === previous) {
-              outgoing.style.visibility = 'hidden';
-              stop(previous);
-            }
-          };
-        } else {
-          outgoing.style.visibility = 'hidden';
-          stop(previous);
-        }
-        active = target;
-      } else {
-        slots[target].style.visibility = 'visible';
-      }
+      updateZIndex();
       if (props.preload !== undefined) {
-        void prepare(props.preload, pixelWidth(), layered()).catch(() => {});
+        const preload = props.preload;
+        const settlePrepare = async () => {
+          try {
+            return await prepare(preload, pixelWidth(), layered());
+          } catch {
+            return;
+          }
+        };
+        void settlePrepare();
         if (props.preload !== value.i && morphInto(props.preload))
           void prepareMorphFor(value.i, props.preload, pixelWidth());
       }
       props.onShown?.(value.i);
+
+      function buildMorph(valueValue: NonNullable<typeof value>) {
+        return changed && valueValue.morph?.from === previous?.index
+          ? valueValue.morph?.scene
+          : undefined;
+      }
+
+      function buildFrames() {
+        return changed && props.transitions !== false && !morph
+          ? transitionFrames(t?.kind ?? 'none', t?.direction)
+          : null;
+      }
+
+      function updateZIndex() {
+        if (changed && previous) {
+          const incoming = slots[target];
+          const outgoing = slots[active];
+          const onTop =
+            !!frames &&
+            (['uncover', 'pull', 'reveal'].includes(t?.kind ?? '') ||
+              (t?.kind === 'zoom' && t.direction === 'out'));
+          incoming.style.zIndex = onTop ? '0' : '1';
+          outgoing.style.zIndex = onTop ? '1' : '0';
+          incoming.style.visibility = 'visible';
+          // The Morph scene covers both slots while it plays.
+          if (morph) morphRun = playMorph(wrapper, morph, k(), duration);
+          const timing = { duration, easing: 'ease-in-out' };
+          if (frames?.incoming) incoming.animate(frames.incoming, timing);
+          if (frames) {
+            const leaving = outgoing.animate(
+              frames.outgoing ?? [{ opacity: 1 }, { opacity: 1 }],
+              timing
+            );
+            leaving.onfinish = () => {
+              if (mounted[1 - target] === previous) {
+                outgoing.style.visibility = 'hidden';
+                stop(previous);
+              }
+            };
+          } else {
+            outgoing.style.visibility = 'hidden';
+            stop(previous);
+          }
+          active = target;
+        } else {
+          slots[target].style.visibility = 'visible';
+        }
+      }
     })
   );
 

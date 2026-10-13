@@ -152,35 +152,60 @@ function Fixture() {
       reads: (id) => memory()?.reads(id) ?? 0,
     };
     const library = params.get('library') ?? 'design-system.fig';
-    void Promise.all([
-      fetch(`${__FIG_CORPUS_URL__}${library}`).then((r) => r.arrayBuffer()),
-      FigEngine.blank('App'),
-    ])
-      .then(([lib, app]) => {
+
+    const settleFetch = async () => {
+      const settleFetchValue = await fetch(`${__FIG_CORPUS_URL__}${library}`);
+      const r = settleFetchValue;
+      return await r.arrayBuffer();
+    };
+
+    const settleAll = async () => {
+      try {
+        const settleAllValue = await Promise.all([
+          settleFetch(),
+          FigEngine.blank('App'),
+        ]);
+        const [lib, app] = settleAllValue;
+
         setMemory(
           createMemoryLibraries([
             { id: 'design-system', name: 'Design system', bytes: lib },
             { id: 'app', name: 'App', bytes: app.slice().buffer },
           ])
         );
-        return openDesign(params.get('open') ?? 'design-system');
-      })
-      .catch((e: unknown) => setError(String(e)));
+        return await openDesign(params.get('open') ?? 'design-system');
+      } catch (settleAllError) {
+        const e: unknown = settleAllError;
+        return await setError(String(e));
+      }
+    };
+    void settleAll();
   }
 
   const file = params.get('file');
   if (params.has('new')) {
-    void FigEngine.blank('Untitled')
-      .then((bytes) => open(bytes.slice().buffer, 'Untitled'))
-      .catch((e: unknown) => setError(String(e)));
+    const settleBlank = async () => {
+      try {
+        const settleBlankValue = await FigEngine.blank('Untitled');
+        const bytes = settleBlankValue;
+        return await open(bytes.slice().buffer, 'Untitled');
+      } catch (settleBlankError) {
+        const e: unknown = settleBlankError;
+        return await setError(String(e));
+      }
+    };
+    void settleBlank();
   } else if (file) {
-    void fetch(`${__FIG_CORPUS_URL__}${file}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`${file}: ${r.status}`);
-        return r.arrayBuffer();
-      })
-      .then((bytes) => open(bytes, file))
-      .catch((e: unknown) => setError(String(e)));
+    const openCorpusFile = async () => {
+      try {
+        const response = await fetch(`${__FIG_CORPUS_URL__}${file}`);
+        if (!response.ok) throw new Error(`${file}: ${response.status}`);
+        await open(await response.arrayBuffer(), file);
+      } catch (error) {
+        setError(String(error));
+      }
+    };
+    void openCorpusFile();
   }
 
   return (
@@ -254,10 +279,14 @@ function Fixture() {
                   fonts,
                   libraries: design && store ? store.source(design) : undefined,
                   save: async (bytes) => {
-                    if (params.has('reload'))
-                      await FigEngine.open(bytes.slice().buffer).then((e) =>
-                        e.close()
+                    const settleOpen = async () => {
+                      const settleOpenValue = await FigEngine.open(
+                        bytes.slice().buffer
                       );
+                      const e = settleOpenValue;
+                      return await e.close();
+                    };
+                    if (params.has('reload')) await settleOpen();
                     if (design) store?.store(design, bytes);
                     setSaves((x) => [...x, bytes]);
                   },

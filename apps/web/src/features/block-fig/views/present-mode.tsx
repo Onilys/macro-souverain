@@ -64,11 +64,15 @@ function createFrameImages(engine: FigEngine, page: number) {
     const key = `${frame}@${s}`;
     let url = cache.get(key);
     if (!url) {
-      url = engine.exportPng(page, frame, s).then((blob) => {
+      const settleExportPng = async () => {
+        const settleExportPngValue = await engine.exportPng(page, frame, s);
+        const blob = settleExportPngValue;
+
         const u = URL.createObjectURL(blob);
         urls.push(u);
-        return u;
-      });
+        return await u;
+      };
+      url = settleExportPng();
       cache.set(key, url);
     }
     return url;
@@ -404,9 +408,16 @@ export function PresentMode(props: {
     const [src, setSrc] = createSignal<string>();
     const scale = () => fit() * dpr();
     const load = (s: number) => {
-      void images(p.frame.id, s)
-        .then(setSrc)
-        .catch(() => setSrc(undefined));
+      const settleImagesHandler0 = setSrc;
+      const settleImages = async () => {
+        try {
+          const settleImagesValue = await images(p.frame.id, s);
+          return await settleImagesHandler0(settleImagesValue);
+        } catch {
+          return await setSrc(undefined);
+        }
+      };
+      void settleImages();
     };
     // The image comes from the engine (an external system).
     createEffect(on(scale, load));

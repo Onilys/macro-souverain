@@ -1581,41 +1581,31 @@ export function createSplitLayout(
       // Fire-and-forget so it covers every open path (fresh mount or
       // duplicate activation). The block-handle proxy waits for the block
       // and method to register before invoking.
-      void orchestrator
-        .getBlockHandle(content.id)
-        .then((handle) => handle?.goToLatest())
-        .catch((e) => console.error('openWithSplit: goToLatest failed', e));
+
+      const settleGetBlockHandle = async () => {
+        try {
+          const settleGetBlockHandleValue = await orchestrator.getBlockHandle(
+            content.id
+          );
+          const handle = settleGetBlockHandleValue;
+          return await handle?.goToLatest();
+        } catch (settleGetBlockHandleError) {
+          const e = settleGetBlockHandleError;
+          return await console.error('openWithSplit: goToLatest failed', e);
+        }
+      };
+      void settleGetBlockHandle();
     }
 
     // Entity views are always reused; only shell components may be duplicated.
-    const canDuplicateShell =
-      options.allowDuplicate && existing?.content.type === 'component';
+    const canDuplicateShell = buildCanDuplicateShell();
 
     if (existing && !canDuplicateShell) {
       const existingSplit = existing.topLevelSplit;
       // Preserve per-entry state when the owning split replaces its current entry.
-      if (
-        existingSplit &&
-        options.mergeHistory &&
-        options.handle?.id === existingSplit.id
-      ) {
-        existingSplit.captureEntryState();
-        const currentState = existingSplit.currentEntryState();
-        const nextContent =
-          currentState || content.state
-            ? {
-                ...content,
-                state: { ...currentState, ...content.state },
-              }
-            : content;
-        existingSplit.replace({
-          next: nextContent,
-          referredFrom: options.referredFrom ?? null,
-          mergeHistory: true,
-        });
-      }
+      updateOpenWithSplit(existingSplit);
 
-      if (options.activate !== false) existing.activate?.();
+      updateOpenWithSplit2(existing);
       return {
         status: 'reused',
         owner: existing.owner,
@@ -1662,6 +1652,39 @@ export function createSplitLayout(
       return split
         ? { status: 'opened', split, sourceOwner }
         : { status: 'unavailable', sourceOwner };
+    }
+
+    function buildCanDuplicateShell() {
+      return options.allowDuplicate && existing?.content.type === 'component';
+    }
+
+    function updateOpenWithSplit2(existingInput: NonNullable<typeof existing>) {
+      if (options.activate !== false) existingInput.activate?.();
+    }
+
+    function updateOpenWithSplit(
+      existingSplit: SplitHandle<ComponentMeta> | undefined
+    ) {
+      if (
+        existingSplit &&
+        options.mergeHistory &&
+        options.handle?.id === existingSplit.id
+      ) {
+        existingSplit.captureEntryState();
+        const currentState = existingSplit.currentEntryState();
+        const nextContent =
+          currentState || content.state
+            ? {
+                ...content,
+                state: { ...currentState, ...content.state },
+              }
+            : content;
+        existingSplit.replace({
+          next: nextContent,
+          referredFrom: options.referredFrom ?? null,
+          mergeHistory: true,
+        });
+      }
     }
   }
 

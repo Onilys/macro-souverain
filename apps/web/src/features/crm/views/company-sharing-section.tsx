@@ -9,9 +9,6 @@ import {
   useSetEmailSyncMutation,
 } from './use-crm';
 
-const TOGGLE_BUTTON_CLASS =
-  'inline-flex items-center gap-2 rounded-md h-7 px-2.5 text-xs select-none w-fit border border-ink-muted/[0.08] bg-ink-muted/[0.025] text-ink hover:bg-ink-muted/[0.06]';
-
 export function CompanySharingSection(props: {
   company?: CrmCompanyEntity;
   onHidden?: () => void;
@@ -89,7 +86,9 @@ export function CompanySharingSection(props: {
                   aria-checked={isShared()}
                   disabled={shareDisabled()}
                   onClick={() => void handleToggleShare(company(), !isShared())}
-                  class={cn(TOGGLE_BUTTON_CLASS)}
+                  class={cn(
+                    'inline-flex items-center gap-2 rounded-md h-7 px-2.5 text-xs select-none w-fit border border-ink-muted/[0.08] bg-ink-muted/[0.025] text-ink hover:bg-ink-muted/[0.06]'
+                  )}
                 >
                   <InlineCheckbox checked={isShared()} />
                   <span class="whitespace-nowrap">Visible in CRM</span>
@@ -111,7 +110,7 @@ export function CompanySharingSection(props: {
                   void handleToggleEmailSync(company(), !isSyncing())
                 }
                 class={cn(
-                  TOGGLE_BUTTON_CLASS,
+                  'inline-flex items-center gap-2 rounded-md h-7 px-2.5 text-xs select-none w-fit border border-ink-muted/[0.08] bg-ink-muted/[0.025] text-ink hover:bg-ink-muted/[0.06]',
                   !isTeamAdmin() && 'pointer-events-none opacity-50'
                 )}
               >

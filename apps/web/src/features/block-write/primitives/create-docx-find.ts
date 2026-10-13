@@ -4,7 +4,7 @@ import type {
   FindOptions,
   FindResult,
   Pos,
-} from '@core/docx-engine/types';
+} from '@app/lib/docx/types';
 import {
   type Accessor,
   batch,
@@ -81,9 +81,12 @@ export function createDocxFind(deps: DocxFindDeps) {
     }
     timer = setTimeout(() => {
       const previous = currentMatch();
-      deps
-        .search(query(), options())
-        .then((next) => {
+
+      const settleSearch = async () => {
+        try {
+          const settleSearchValue = await deps.search(query(), options());
+          const next = settleSearchValue;
+
           if (mine !== token) return;
           // Stay on the match being looked at while the document changes,
           // unless a replace moved the selection on.
@@ -99,8 +102,13 @@ export function createDocxFind(deps: DocxFindDeps) {
           });
           const match = index === undefined ? undefined : next.matches[index];
           if (reveal && match) deps.reveal(match);
-        })
-        .catch(() => {});
+
+          return;
+        } catch {
+          return;
+        }
+      };
+      settleSearch();
     }, delay);
   }
 
@@ -147,16 +155,24 @@ export function createDocxFind(deps: DocxFindDeps) {
         if (withReplace) setReplacing(true);
         setFocusRequest((n) => n + 1);
       });
-      deps
-        .selectedText()
-        .then((text) => {
+
+      const settleSelectedText = async () => {
+        try {
+          const settleSelectedTextValue = await deps.selectedText();
+          const text = settleSelectedTextValue;
+
           if (text && text.length <= 200 && !/[\n\r]/.test(text)) {
             setReplaced(undefined);
             setQuerySignal(text);
             search(0, true);
           } else if (!wasOpen) search(0, true);
-        })
-        .catch(() => {});
+
+          return;
+        } catch {
+          return;
+        }
+      };
+      settleSelectedText();
     },
     /** Closes the bar; the current match stays selected. */
     close() {

@@ -228,9 +228,15 @@ it.each(['fetchOlder', 'refresh'] as const)(
     }));
     try {
       let completed = false;
-      const completion = source[operation]().then(() => {
+
+      const settleOperation = async () => {
+        await source[operation]();
+
         completed = true;
-      });
+
+        return;
+      };
+      const completion = settleOperation();
       await Promise.resolve();
       expect(completed).toBe(false);
       finish();

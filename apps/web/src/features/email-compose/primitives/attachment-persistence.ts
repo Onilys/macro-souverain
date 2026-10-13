@@ -119,16 +119,29 @@ export function createAttachmentPersistence(options: {
             if (stillCurrent()) options.attachments.clearAttachmentId(file);
           },
         });
-        const settled = run.then(
-          () => undefined,
-          () => undefined
-        );
+
+        const settleRun = async () => {
+          try {
+            await run;
+          } catch {
+            return await undefined;
+          }
+
+          return await undefined;
+        };
+        const settled = settleRun();
         inFlight.add(settled);
         setUploading(true);
-        void settled.then(() => {
+
+        const settleSettled = async () => {
+          await settled;
+
           inFlight.delete(settled);
           setUploading(inFlight.size > 0);
-        });
+
+          return;
+        };
+        void settleSettled();
       }
       while (inFlight.size) await Promise.all([...inFlight]);
       // All work has settled; rethrow this save's own upload failure.
@@ -179,9 +192,16 @@ export function createAttachmentPersistence(options: {
         state.removeForwarded(attachment.attachmentId);
       else state.removeById(attachment.attachmentId);
       if (!options.confirmRemoval && request) {
-        void operation(request).catch(() => {
-          // Preserve the existing REST composer's optimistic removal behavior.
-        });
+        const settleOperation = async () => {
+          try {
+            return await operation(request);
+          } catch {
+            // Preserve the existing REST composer's optimistic removal behavior.
+
+            return;
+          }
+        };
+        void settleOperation();
       }
       return true;
     },

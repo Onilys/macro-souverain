@@ -72,7 +72,7 @@ import {
 } from '@queries/messages/timeline';
 import { timelineEntryKey } from '@queries/messages/timeline-entries';
 import { usePostTypingUpdateMutation } from '@queries/messages/typing';
-import { ChannelTypeEnum } from '@service-storage/client';
+import { ChannelTypeEnum } from '@service-storage/itemType';
 import { useBeforeLeave } from '@solidjs/router';
 import { tourTarget } from '@ui/components/Tour';
 import {

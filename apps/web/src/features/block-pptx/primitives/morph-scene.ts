@@ -199,9 +199,25 @@ export async function prepareMorph(
       !upright(pair.to)
     )
       return undefined;
+
+    const settleTextLayout = async () => {
+      try {
+        return await engine.textLayout(from, pair.from.id);
+      } catch {
+        return await null;
+      }
+    };
+
+    const settleTextLayoutResult = async () => {
+      try {
+        return await engine.textLayout(to, pair.to.id);
+      } catch {
+        return await null;
+      }
+    };
     const [la, lb] = await Promise.all([
-      engine.textLayout(from, pair.from.id).catch(() => null),
-      engine.textLayout(to, pair.to.id).catch(() => null),
+      settleTextLayout(),
+      settleTextLayoutResult(),
     ]);
     if (!la || !lb) return undefined;
     const ua = textUnits(la, by);
@@ -416,8 +432,16 @@ export function playMorph(
     if (done) onDone?.();
     overlay.remove();
   };
-  void Promise.all(running.map((a) => a.finished))
-    .then(() => end(true))
-    .catch(() => {});
+
+  const settleAll = async () => {
+    try {
+      await Promise.all(running.map((a) => a.finished));
+
+      return await end(true);
+    } catch {
+      return;
+    }
+  };
+  void settleAll();
   return { finish: () => end(true), cancel: () => end(false) };
 }

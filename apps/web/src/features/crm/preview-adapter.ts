@@ -1,12 +1,12 @@
-import { storageServiceClient } from '@service-storage/client';
+import { fetchCompany, fetchContact } from '@queries/storage/requests';
 import {
   fetchCrmContactPreviews as fetchContacts,
   fetchCrmCompanyPreviews as fetchPreviews,
 } from './queries/previews';
 export function fetchCrmCompanyPreviews(ids: string[]) {
-  return fetchPreviews((input) => storageServiceClient.getCompany(input), ids);
+  return fetchPreviews(fetchCompany, ids);
 }
 
 export function fetchCrmContactPreviews(ids: string[]) {
-  return fetchContacts((input) => storageServiceClient.getContact(input), ids);
+  return fetchContacts(fetchContact, ids);
 }

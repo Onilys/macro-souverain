@@ -130,7 +130,15 @@ describe('Shared Mail scope refresh', () => {
       );
       const abort = new AbortController();
       if (mode === 'cancel') abort.abort();
-      await scan(input, { signal: abort.signal }).catch(() => undefined);
+
+      const settleScan = async () => {
+        try {
+          return await scan(input, { signal: abort.signal });
+        } catch {
+          return await undefined;
+        }
+      };
+      await settleScan();
       expect(cache.invalidate).not.toHaveBeenCalled();
     }
   });

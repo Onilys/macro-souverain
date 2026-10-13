@@ -108,11 +108,15 @@ export function MarkdownImage(props: ImageDecoratorProps) {
       setImageUrl(props.url);
       return;
     }
-    getMediaUrl({
-      type: props.srcType,
-      id: props.id,
-      url: props.url,
-    }).then((maybeUrl) => {
+
+    const settleGetMediaUrl = async () => {
+      const settleGetMediaUrlValue = await getMediaUrl({
+        type: props.srcType,
+        id: props.id,
+        url: props.url,
+      });
+      const maybeUrl = settleGetMediaUrlValue;
+
       if (maybeUrl.isErr()) {
         setState('error');
         if (
@@ -140,7 +144,10 @@ export function MarkdownImage(props: ImageDecoratorProps) {
           { discrete: true, tag: 'historic' }
         );
       }
-    });
+
+      return;
+    };
+    settleGetMediaUrl();
   });
 
   const isSelectedAsNode = () => {
@@ -266,14 +273,7 @@ export function MarkdownImage(props: ImageDecoratorProps) {
     <Dialog open={viewerOpen()} onOpenChange={setViewerOpen}>
       <div
         ref={containerRef}
-        class={cn(
-          'relative max-w-full my-4 grid place-items-center',
-          isSelectedAsNode() && 'ring-3 ring-edge-muted',
-          state() === 'error' && 'pattern-edge-muted pattern-diagonal-8',
-          state() === 'error' && !effectiveDims()[0] && 'min-h-44',
-          // If there are no constrained dimensions, center the image
-          !props.constrainedWidth && !props.constrainedHeight && 'mx-auto'
-        )}
+        class={getMarkdownImageClass()}
         style={{
           width: effectiveDims()[0] ? '100%' : undefined,
           'max-width': `${effectiveDims()[0] ? effectiveDims()[0] * scale() : 640}px`,
@@ -316,14 +316,7 @@ export function MarkdownImage(props: ImageDecoratorProps) {
         </Show>
         <img
           crossorigin="anonymous"
-          class={cn(
-            'h-full object-contain',
-            effectiveDims()[0] > 0 && 'absolute inset-0 size-full',
-            (state() === 'loading' || state() === 'error') && 'invisible',
-            state() === 'loading' &&
-              !effectiveDims()[0] &&
-              'absolute inset-0 size-0'
-          )}
+          class={getMarkdownImageClass2()}
           draggable={true}
           use:internalDrag={true}
           ref={imageRef}
@@ -390,4 +383,24 @@ export function MarkdownImage(props: ImageDecoratorProps) {
       </Dialog.Portal>
     </Dialog>
   );
+
+  function getMarkdownImageClass2(): string | undefined {
+    return cn(
+      'h-full object-contain',
+      effectiveDims()[0] > 0 && 'absolute inset-0 size-full',
+      (state() === 'loading' || state() === 'error') && 'invisible',
+      state() === 'loading' && !effectiveDims()[0] && 'absolute inset-0 size-0'
+    );
+  }
+
+  function getMarkdownImageClass(): string | undefined {
+    return cn(
+      'relative max-w-full my-4 grid place-items-center',
+      isSelectedAsNode() && 'ring-3 ring-edge-muted',
+      state() === 'error' && 'pattern-edge-muted pattern-diagonal-8',
+      state() === 'error' && !effectiveDims()[0] && 'min-h-44',
+      // If there are no constrained dimensions, center the image
+      !props.constrainedWidth && !props.constrainedHeight && 'mx-auto'
+    );
+  }
 }

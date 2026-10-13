@@ -4,8 +4,8 @@ import { QueryClientProvider } from '@tanstack/solid-query';
 import { err, ok } from 'neverthrow';
 import { render } from 'solid-js/web';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { scheduledActionKeys } from './keys';
-import { useSetScheduleEnabledMutation } from './schedules';
+import { scheduledActionKeys } from '../queries/keys';
+import { useSetScheduleEnabledMutation } from '../queries/schedules';
 
 const setEnabled = vi.hoisted(() => vi.fn());
 vi.mock('@service-scheduled-action/client', () => ({

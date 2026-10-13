@@ -326,7 +326,15 @@ describe('call team sharing helpers', () => {
     resolveFetch(
       record({ callId: 'call-live', isActive: true, shareWithTeam: false })
     );
-    await fetchResult.catch(() => undefined);
+
+    const settleFetchResult = async () => {
+      try {
+        return await fetchResult;
+      } catch {
+        return await undefined;
+      }
+    };
+    await settleFetchResult();
 
     expect(queryClient.getQueryData<CallRecord>(key)).toMatchObject({
       shareWithTeam: true,

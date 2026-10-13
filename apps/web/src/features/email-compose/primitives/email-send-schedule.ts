@@ -225,11 +225,7 @@ export function createEmailSendSchedule(options: {
               })
             : await options.reconcile?.();
         const matchesCapturedIdentity =
-          authoritative?.draftId === input.draftId &&
-          (input.threadId === undefined ||
-            authoritative.threadId === input.threadId) &&
-          (input.inboxId === undefined ||
-            authoritative.inboxId === input.inboxId);
+          buildMatchesCapturedIdentity(authoritative);
         if (matchesCapturedIdentity && authoritative?.type === 'editing') {
           // A lost cancellation response is still a successful undo.
         } else if (matchesCapturedIdentity && authoritative?.type === 'sent') {
@@ -269,6 +265,17 @@ export function createEmailSendSchedule(options: {
         'Schedule cancelled, but the draft could not be reopened. Check Drafts.'
       );
     }
+
+    function buildMatchesCapturedIdentity(
+      authoritative: EmailDraftLifecycleState | undefined
+    ) {
+      return (
+        authoritative?.draftId === input.draftId &&
+        (input.threadId === undefined ||
+          authoritative.threadId === input.threadId) &&
+        (input.inboxId === undefined || authoritative.inboxId === input.inboxId)
+      );
+    }
   };
 
   const submit = async (): Promise<'scheduled' | 'updated' | false> => {
@@ -293,7 +300,7 @@ export function createEmailSendSchedule(options: {
     const generation = options.generation();
     const inboxId = options.inboxId();
     deferredLifecycleObservation = undefined;
-    setOperation(action === 'update' ? 'updating' : 'committing');
+    setOperation(buildSubmit3());
     try {
       let draftId: string | undefined;
       if (action === 'schedule') {
@@ -308,23 +315,14 @@ export function createEmailSendSchedule(options: {
         // rewrite the draft body through the ordinary autosave endpoint.
         draftId = options.draftId() ?? undefined;
       }
-      if (
-        revision !== selectionRevision ||
-        generation !== options.generation() ||
-        inboxId !== options.inboxId()
-      ) {
+      if (submissionIdentityChanged()) {
         return false;
       }
       if (!draftId) {
-        notices.feedback.failure(
-          action === 'update'
-            ? 'Failed to update schedule'
-            : 'Failed to schedule email',
-          {
-            subtext:
-              'Draft is not ready to schedule. Resolve any save or connection errors and try again',
-          }
-        );
+        notices.feedback.failure(scheduleFailureLabel(), {
+          subtext:
+            'Draft is not ready to schedule. Resolve any save or connection errors and try again',
+        });
         return false;
       }
 
@@ -332,7 +330,7 @@ export function createEmailSendSchedule(options: {
         await delivery.schedule(
           {
             draftId,
-            threadId: options.threadId() ?? undefined,
+            threadId: buildThreadId(),
             sendTime: requested.toISOString(),
             includeSignature: options.includeSignature(),
           },
@@ -341,41 +339,29 @@ export function createEmailSendSchedule(options: {
       } catch (error) {
         notices.reportError(error);
         if (!(await reconcileScheduleFailure(requested))) {
-          notices.feedback.failure(
-            action === 'update'
-              ? 'Failed to update schedule'
-              : 'Failed to schedule email'
-          );
+          notices.feedback.failure(scheduleFailureLabel());
           return false;
         }
       }
 
-      if (
-        revision !== selectionRevision ||
-        generation !== options.generation() ||
-        inboxId !== options.inboxId()
-      ) {
-        await options.reconcile?.().catch(notices.reportError);
+      if (submissionIdentityChanged()) {
+        const settleReconcileHandler0 = notices.reportError;
+        const settleReconcile = async () => {
+          try {
+            return await options.reconcile?.();
+          } catch (settleReconcileError) {
+            return await settleReconcileHandler0(settleReconcileError);
+          }
+        };
+        await settleReconcile();
         return false;
       }
 
       applyScheduled(requested, true);
       const threadId = options.threadId();
       let markedDone = false;
-      const inInbox = options.threadInInbox
-        ? options.threadInInbox() === true
-        : true;
-      if (threadId && inInbox) {
-        try {
-          await delivery.archive({ threadId, value: true }, inboxId);
-          markedDone = true;
-        } catch (error) {
-          notices.reportError(error);
-          notices.feedback.failure(
-            'Email scheduled, but unable to mark thread done'
-          );
-        }
-      }
+      const inInbox = buildInInbox();
+      markedDone = await updateMarkedDone(threadId, inInbox, markedDone);
       try {
         // The title stays terse so it never truncates; the time is the subtext.
         let toastId: number | undefined;
@@ -428,16 +414,8 @@ export function createEmailSendSchedule(options: {
         const actions = [...undoAction, ...viewAction];
         dismissScheduledNotice();
         toastId = notices.feedback.success(
-          action === 'update' ? 'Email rescheduled' : 'Email scheduled',
-          {
-            subtext: `Sends ${format(
-              requested,
-              isThisYear(requested)
-                ? "EEE, MMM d 'at' h:mm a"
-                : "EEE, MMM d, yyyy 'at' h:mm a"
-            )}`,
-            ...(actions.length > 0 ? { actions, duration: 8_000 } : {}),
-          }
+          buildSubmit4(),
+          buildSubmit(actions, requested)
         );
         notice = { toastId };
         scheduledNotices.set(draftId, notice);
@@ -448,9 +426,88 @@ export function createEmailSendSchedule(options: {
       }
       ignoredLifecycleObservation =
         deferredLifecycleObservation ?? options.lifecycleState?.();
-      return action === 'update' ? 'updated' : 'scheduled';
+      return buildSubmit2();
     } finally {
       setOperation('idle');
+    }
+
+    function scheduleFailureLabel(): string {
+      return action === 'update'
+        ? 'Failed to update schedule'
+        : 'Failed to schedule email';
+    }
+
+    function buildInInbox() {
+      return options.threadInInbox ? options.threadInInbox() === true : true;
+    }
+
+    function buildSubmit4(): string {
+      return action === 'update' ? 'Email rescheduled' : 'Email scheduled';
+    }
+
+    function buildSubmit3():
+      | 'updating'
+      | 'committing'
+      | ((
+          prev: 'updating' | 'committing' | 'idle' | 'cancelling'
+        ) => 'updating' | 'committing') {
+      return action === 'update' ? 'updating' : 'committing';
+    }
+
+    function buildSubmit2():
+      | false
+      | 'updated'
+      | 'scheduled'
+      | PromiseLike<false | 'updated' | 'scheduled'> {
+      return action === 'update' ? 'updated' : 'scheduled';
+    }
+
+    function buildThreadId(): string | undefined {
+      return options.threadId() ?? undefined;
+    }
+
+    function submissionIdentityChanged() {
+      return (
+        revision !== selectionRevision ||
+        generation !== options.generation() ||
+        inboxId !== options.inboxId()
+      );
+    }
+
+    function buildSubmit(
+      actions: { label: string; onClick: () => void }[],
+      requested: Date
+    ):
+      | import('../context/compose-capabilities').ComposeNoticeOptions
+      | undefined {
+      return {
+        subtext: `Sends ${format(
+          requested,
+          isThisYear(requested)
+            ? "EEE, MMM d 'at' h:mm a"
+            : "EEE, MMM d, yyyy 'at' h:mm a"
+        )}`,
+        ...(actions.length > 0 ? { actions, duration: 8000 } : {}),
+      };
+    }
+
+    async function updateMarkedDone(
+      threadId: string | null | undefined,
+      inInbox: boolean,
+      markedDone: boolean
+    ) {
+      if (threadId && inInbox) {
+        try {
+          await delivery.archive({ threadId, value: true }, inboxId);
+          markedDone = true;
+        } catch (error) {
+          notices.reportError(error);
+          notices.feedback.failure(
+            'Email scheduled, but unable to mark thread done'
+          );
+        }
+      }
+      return markedDone;
     }
   };
 
@@ -488,7 +545,17 @@ export function createEmailSendSchedule(options: {
         generation !== options.generation() ||
         inboxId !== options.inboxId()
       ) {
-        await options.reconcile?.().catch(notices.reportError);
+        const settleReconcileResultHandler0 = notices.reportError;
+        const settleReconcileResult = async () => {
+          try {
+            return await options.reconcile?.();
+          } catch (settleReconcileResultError) {
+            return await settleReconcileResultHandler0(
+              settleReconcileResultError
+            );
+          }
+        };
+        await settleReconcileResult();
         return false;
       }
       ignoredLifecycleObservation =

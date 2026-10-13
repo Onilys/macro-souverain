@@ -56,10 +56,16 @@ import {
   SessionLoadTrace,
   traceAcquire,
   transcriptSize,
-} from './load-telemetry';
-import { frameDelivery, PromptTrace } from './prompt-telemetry';
-import { createdRecently, forgetSessionCreated } from './recently-created';
-import { publishSessionTurn } from './session-turn';
+} from '../../core/agent-session/load-telemetry';
+import {
+  frameDelivery,
+  PromptTrace,
+} from '../../core/agent-session/prompt-telemetry';
+import {
+  createdRecently,
+  forgetSessionCreated,
+} from '../../core/agent-session/recently-created';
+import { publishSessionTurn } from '../../core/agent-session/session-turn';
 
 export type AgentSessionListener = (events: FoldedStreamEvent[]) => void;
 
@@ -288,7 +294,15 @@ export class AgentSession {
     // A surface rendering the cached log has not called `load` yet when a
     // fast failure lands, and an unobserved rejection is reported as
     // unhandled. The failure still reaches every caller of `load`.
-    this.loading.catch(() => undefined);
+
+    const settleLoading = async () => {
+      try {
+        return await this.loading;
+      } catch {
+        return await undefined;
+      }
+    };
+    settleLoading();
   }
 
   /**
@@ -539,7 +553,12 @@ export class AgentSession {
    * than a message it already holds.
    */
   snapshot(): Promise<SessionFoldSnapshot> {
-    return this.chain.then(() => readSession(this.id));
+    const settleChain = async () => {
+      await this.chain;
+
+      return await readSession(this.id);
+    };
+    return settleChain();
   }
 
   /** Observe mounted answer DOM only while this tab awaits that prompt's paint. */
@@ -581,15 +600,20 @@ export class AgentSession {
     const readStartedAt = performance.now();
     // The cached log carries no session row, so the (small) row fetch is
     // part of warming: the transcript can show only inside a session.
+
+    const settleCached = async () => {
+      const settleCachedValue = await this.watch.cached;
+      const cached = settleCachedValue;
+
+      this.trace.cacheRead(
+        readStartedAt,
+        cached && { rows: cached.rows.length },
+        this.watch.cacheMiss()
+      );
+      return await cached;
+    };
     const [cached, session] = await Promise.all([
-      this.watch.cached.then((cached) => {
-        this.trace.cacheRead(
-          readStartedAt,
-          cached && { rows: cached.rows.length },
-          this.watch.cacheMiss()
-        );
-        return cached;
-      }),
+      settleCached(),
       this.sessionRow,
     ]);
     // `settled` is set in the same tick as the fetched snapshot's push, so
@@ -616,12 +640,13 @@ export class AgentSession {
   }
 
   private startLoad(): Promise<AgentSessionRecord> {
-    return this.fetchFoldAndSettle().then(
-      (record) => {
-        this.trace.end('loaded');
-        return record;
-      },
-      (error: unknown) => {
+    const settleFetchFoldAndSettle = async () => {
+      let settleFetchFoldAndSettleValue;
+      try {
+        settleFetchFoldAndSettleValue = await this.fetchFoldAndSettle();
+      } catch (settleFetchFoldAndSettleError) {
+        const error: unknown = settleFetchFoldAndSettleError;
+
         this.loadFailed = true;
         this.trace.end(
           error instanceof AgentSessionReleased ? 'released' : 'failed',
@@ -629,7 +654,12 @@ export class AgentSession {
         );
         throw error;
       }
-    );
+      const record = settleFetchFoldAndSettleValue;
+
+      this.trace.end('loaded');
+      return await record;
+    };
+    return settleFetchFoldAndSettle();
   }
 
   /**
@@ -683,15 +713,29 @@ export class AgentSession {
 
   private async fetchAndFold(): Promise<AgentSessionRecord> {
     const fetchStartedAt = performance.now();
+
+    const settleSessionRow = async () => {
+      const settleSessionRowValue = await this.sessionRow;
+      const session = settleSessionRowValue;
+
+      this.trace.stage('session_fetch', fetchStartedAt);
+      return await session;
+    };
+
+    const settleFetched = async () => {
+      let settleFetchedValue;
+      try {
+        settleFetchedValue = await this.watch.fetched;
+      } catch (settleFetchedError) {
+        const error: unknown = settleFetchedError;
+        return await { ok: false as const, error };
+      }
+      const log = settleFetchedValue;
+      return await { ok: true as const, log };
+    };
     const [session, log] = await Promise.all([
-      this.sessionRow.then((session) => {
-        this.trace.stage('session_fetch', fetchStartedAt);
-        return session;
-      }),
-      this.watch.fetched.then(
-        (log) => ({ ok: true as const, log }),
-        (error: unknown) => ({ ok: false as const, error })
-      ),
+      settleSessionRow(),
+      settleFetched(),
     ]);
     // Released mid-fetch: the stopped watch answers with a failure that is
     // not one.
@@ -742,9 +786,19 @@ export class AgentSession {
   /** The viewer was refused: nothing cached may render for them again. */
   private forgetCached(): void {
     this.warming = Promise.resolve(undefined);
-    void forgetAgentSessionLog(this.id).catch((error: unknown) => {
-      console.warn('[agent-session] cached log could not be removed', error);
-    });
+
+    const settleForgetAgentSessionLog = async () => {
+      try {
+        return await forgetAgentSessionLog(this.id);
+      } catch (settleForgetAgentSessionLogError) {
+        const error: unknown = settleForgetAgentSessionLogError;
+
+        console.warn('[agent-session] cached log could not be removed', error);
+
+        return;
+      }
+    };
+    void settleForgetAgentSessionLog();
   }
 
   /**
@@ -830,7 +884,10 @@ export class AgentSession {
       pushed.length > 0
         ? frameDelivery('socket', pushed)
         : snapshot && frameDelivery('snapshot', snapshot.rows);
-    const run = this.chain.then(async () => {
+
+    const settleChainResult = async () => {
+      await this.chain;
+
       if (this.closed) return;
       const events = await pushSession(this.id, inputs);
       if (this.closed || events.length === 0) return;
@@ -841,11 +898,24 @@ export class AgentSession {
         if (prompt.ended) this.prompts.delete(prompt);
       }
       for (const listener of this.listeners) listener(events);
-    });
+
+      return;
+    };
+    const run = settleChainResult();
     // A failed push must not poison the chain for every input after it.
-    this.chain = run.catch((error: unknown) => {
-      console.error('[agent-session] fold input could not be applied', error);
-    });
+
+    const settleRun = async () => {
+      try {
+        return await run;
+      } catch (settleRunError) {
+        const error: unknown = settleRunError;
+
+        console.error('[agent-session] fold input could not be applied', error);
+
+        return;
+      }
+    };
+    this.chain = settleRun();
     return this.chain;
   }
 }

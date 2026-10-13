@@ -11,6 +11,7 @@ import { initiativeToolHandlers } from './Initiatives';
 
 const open = vi.hoisted(() => vi.fn());
 const refreshProjects = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const graphqlClient = vi.hoisted(() => ({}));
 const [projectsEnabled, setProjectsEnabled] = createSignal(true);
 vi.mock('@app/lib/analytics/posthog', () => ({
   useFeatureFlag: () => () => ({ enabled: projectsEnabled() }),
@@ -21,6 +22,9 @@ vi.mock('@core/constant/featureFlags', () => ({
 }));
 vi.mock('@app/features/projects/queries/project-revalidation', () => ({
   refreshProjectQueries: refreshProjects,
+}));
+vi.mock('@service-storage/graphql-soup', () => ({
+  getGraphqlSoupClient: () => graphqlClient,
 }));
 vi.mock('@components/app/split-layout/layout', () => ({
   useSplitLayout: () => ({ openWithSplit: open }),
@@ -133,6 +137,7 @@ it('reports a failed project deletion truthfully', () => {
 it('refreshes live project queries after a completed tool mutation', async () => {
   await initiativeToolHandlers.CreateInitiative.handleResponse?.({} as never);
   expect(refreshProjects).toHaveBeenCalledOnce();
+  expect(refreshProjects).toHaveBeenCalledWith(graphqlClient);
 });
 
 it('keeps historical results readable while disabling project navigation', () => {

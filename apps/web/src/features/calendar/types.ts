@@ -242,38 +242,44 @@ export function mapCalendarOccurrence(
     DEFAULT_CALENDAR_SOURCE;
   const visibleCalendars = shown.map(({ calendar }) => calendar);
 
-  return {
-    ...range,
-    id: JSON.stringify([event.id, occurrence.occurrenceKey]),
-    eventId: event.id,
-    occurrenceKey: occurrence.occurrenceKey,
-    recurrenceId: occurrence.recurrenceId ?? undefined,
-    recurrenceLines: event.recurrenceLines ?? [],
-    isCancelled: occurrence.isCancelled,
-    isReadOnly: content.isReadOnly,
-    conferenceUrl: event.conferenceUrl ?? undefined,
-    conferenceProvider:
-      (event.conferenceProvider as ConferenceProvider | null | undefined) ??
-      undefined,
-    organizerName: event.organizerName ?? undefined,
-    organizerEmail: event.organizerEmail ?? undefined,
-    creatorName: optionalText(content.creatorName),
-    creatorEmail: optionalText(content.creatorEmail),
-    attendees: event.attendees ?? [],
-    reminders: canonical.reminders ?? undefined,
-    reminderCalendarId: canonical.calendarId ?? undefined,
-    reminderEventType: canonical.eventType ?? undefined,
-    eventType: content.eventType ?? undefined,
-    transparency: content.transparency,
-    calendarId,
-    sourceCalendarIds: sources.map((candidate) => candidate.calendarId),
-    timeZone: time.kind === 'timed' ? (time.timeZone ?? undefined) : undefined,
-    title: content.title,
-    calendar: source,
-    visibleCalendars: visibleCalendars.length > 0 ? visibleCalendars : [source],
-    location: content.location ?? undefined,
-    description: content.description ?? undefined,
-  };
+  return buildMapCalendarOccurrence();
+
+  function buildMapCalendarOccurrence(): CalendarEvent {
+    return {
+      ...range,
+      id: JSON.stringify([event.id, occurrence.occurrenceKey]),
+      eventId: event.id,
+      occurrenceKey: occurrence.occurrenceKey,
+      recurrenceId: occurrence.recurrenceId ?? undefined,
+      recurrenceLines: event.recurrenceLines ?? [],
+      isCancelled: occurrence.isCancelled,
+      isReadOnly: content.isReadOnly,
+      conferenceUrl: event.conferenceUrl ?? undefined,
+      conferenceProvider:
+        (event.conferenceProvider as ConferenceProvider | null | undefined) ??
+        undefined,
+      organizerName: event.organizerName ?? undefined,
+      organizerEmail: event.organizerEmail ?? undefined,
+      creatorName: optionalText(content.creatorName),
+      creatorEmail: optionalText(content.creatorEmail),
+      attendees: event.attendees ?? [],
+      reminders: canonical.reminders ?? undefined,
+      reminderCalendarId: canonical.calendarId ?? undefined,
+      reminderEventType: canonical.eventType ?? undefined,
+      eventType: content.eventType ?? undefined,
+      transparency: content.transparency,
+      calendarId,
+      sourceCalendarIds: sources.map((candidate) => candidate.calendarId),
+      timeZone:
+        time.kind === 'timed' ? (time.timeZone ?? undefined) : undefined,
+      title: content.title,
+      calendar: source,
+      visibleCalendars:
+        visibleCalendars.length > 0 ? visibleCalendars : [source],
+      location: content.location ?? undefined,
+      description: content.description ?? undefined,
+    };
+  }
 }
 
 /** Maps calendar event data into FullCalendar's rendering contract. */

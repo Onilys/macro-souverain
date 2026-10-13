@@ -8,7 +8,6 @@ import {
   useNavigate,
   useParams,
 } from '@app/lib/split-router';
-import { useEntryState } from '@components/app/split-layout/entry-state';
 import deepEqual from 'fast-deep-equal';
 import {
   type Accessor,
@@ -89,18 +88,10 @@ const routeSearch = ({
 /** Restored entry state supplies UI state; the current URL always wins selection. */
 export function createDriveViewState(
   route: DriveRouteState,
-  onRouteChange: () => void
+  onRouteChange: () => void,
+  persistence: [Accessor<DriveState>, Setter<DriveState>]
 ) {
-  const [saved, setSaved] = useEntryState<DriveState>('drive.view.v2', {
-    default: {
-      ...route.selection(),
-      search: '',
-      expandedFolderIds: [],
-      favoritesOpen: true,
-      rootOpen: true,
-      tagsOpen: true,
-    },
-  });
+  const [saved, setSaved] = persistence;
   const value = (): DriveState => ({ ...saved(), ...route.selection() });
   const update = (next: DriveState, options: NavigationOptions = {}) => {
     const previous = value();

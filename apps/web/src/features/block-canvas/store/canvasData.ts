@@ -372,18 +372,22 @@ export const useUpdateEdge = sharedInstance(() => {
           });
         }
       }
-      if (updates.to?.type === 'connected' && edge.to.type === 'free') {
-        const toNode = getNode(updates.to.node);
-        if (toNode) {
-          updateNode(toNode.id, {
-            edges: [...toNode.edges, id],
-          });
-        }
-      }
+      updateCreateCallback();
 
       setStore(id, { ...store[id], ...updates });
       setPendingUpdates(true);
       if (opts?.autosave) saveCanvasData();
+
+      function updateCreateCallback() {
+        if (updates.to?.type === 'connected' && edge.to.type === 'free') {
+          const toNode = getNode(updates.to.node);
+          if (toNode) {
+            updateNode(toNode.id, {
+              edges: [...toNode.edges, id],
+            });
+          }
+        }
+      }
     }
   );
 });

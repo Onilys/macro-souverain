@@ -1,5 +1,5 @@
+import { useUnfurl } from '@app/lib/queries/unfurl/unfurl';
 import { UserIcon } from '@core/component/UserIcon';
-import { useUnfurl } from '@core/signal/unfurl';
 import LinkIcon from '@phosphor/link.svg';
 import { usePropertyEntityDisplay } from '@property/hooks';
 import type { Property } from '@property/types';
@@ -17,7 +17,7 @@ import {
   hasValue as propertyHasValue,
 } from '@property/utils';
 import type { EntityReference } from '@service-properties/generated/schemas/entityReference';
-import { proxyResource } from '@service-unfurl/client';
+import { proxyResource } from '@service-unfurl/proxy-resource';
 import {
   createSignal,
   For,

@@ -54,17 +54,23 @@ export function createThumbnails(options: {
     });
     const wanted = () =>
       options.session.outline()?.slides.some((s) => s.id === slide.id) ?? false;
-    void options.queue
-      .background(async () => {
-        // The slide may have moved since it was queued.
-        const index =
-          options.session
-            .outline()
-            ?.slides.findIndex((s) => s.id === slide.id) ?? -1;
-        if (index < 0) return undefined;
-        return options.engine.render(index, width);
-      }, wanted)
-      .then((bitmap) => {
+
+    const settleBackground = async () => {
+      try {
+        const settleBackgroundValue = await options.queue.background(
+          async () => {
+            // The slide may have moved since it was queued.
+            const index =
+              options.session
+                .outline()
+                ?.slides.findIndex((s) => s.id === slide.id) ?? -1;
+            if (index < 0) return undefined;
+            return options.engine.render(index, width);
+          },
+          wanted
+        );
+        const bitmap = settleBackgroundValue;
+
         const current = entries().get(slide.id);
         update(slide.id, {
           version,
@@ -79,8 +85,9 @@ export function createThumbnails(options: {
             ?.slides.find((s) => s.id === slide.id);
           if (latest) request(latest);
         }
-      })
-      .catch(() => {
+
+        return;
+      } catch {
         const current = entries().get(slide.id);
         update(slide.id, {
           version,
@@ -88,7 +95,11 @@ export function createThumbnails(options: {
           width: current?.width ?? 0,
           pending: false,
         });
-      });
+
+        return;
+      }
+    };
+    void settleBackground();
   }
 
   onCleanup(() => {

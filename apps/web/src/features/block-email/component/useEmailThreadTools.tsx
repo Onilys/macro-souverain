@@ -160,19 +160,33 @@ export function useEmailThreadTools(props: EmailThreadToolsOptions) {
           icon: ArrowCounterClockwise,
           onClick: () => {
             if (toastId != null) toast.dismiss(toastId);
-            handle.undo().then(
-              () => toast.success('Restored from Trash'),
-              () => toast.failure('Failed to restore from Trash')
-            );
+
+            const settleUndo = async () => {
+              try {
+                await handle.undo();
+              } catch {
+                return await toast.failure('Failed to restore from Trash');
+              }
+
+              return await toast.success('Restored from Trash');
+            };
+            settleUndo();
           },
         },
       ],
       duration: 10_000,
     });
 
-    handle.done.catch(() => {
-      toast.failure('Failed to move to Trash');
-    });
+    const settleDone = async () => {
+      try {
+        return await handle.done;
+      } catch {
+        toast.failure('Failed to move to Trash');
+
+        return;
+      }
+    };
+    settleDone();
   };
 
   const shareTool: BlockTool = {

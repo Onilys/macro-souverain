@@ -1,4 +1,4 @@
-import { BookingPicker } from '@app/features/scheduling/components/booking-picker';
+import { BookingPicker } from '@app/features/scheduling/views/booking-picker';
 import Check from '@phosphor/check-circle.svg';
 import Eye from '@phosphor/eye.svg';
 import { Match, Show, Switch } from 'solid-js';

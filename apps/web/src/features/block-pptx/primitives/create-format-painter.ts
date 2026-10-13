@@ -60,9 +60,15 @@ export function createFormatPainter(options: {
     const shape = editor.selectedShape();
     if (!shape || shape.kind === 'table' || shape.kind === 'chart')
       return false;
-    const layout = shape.textEditable
-      ? await engine.textLayout(slide.index, shape.id).catch(() => null)
-      : null;
+
+    const settleTextLayout = async () => {
+      try {
+        return await engine.textLayout(slide.index, shape.id);
+      } catch {
+        return await null;
+      }
+    };
+    const layout = shape.textEditable ? await settleTextLayout() : null;
     const paragraph = layout?.styles[0];
     setSource({
       slide: slide.id,

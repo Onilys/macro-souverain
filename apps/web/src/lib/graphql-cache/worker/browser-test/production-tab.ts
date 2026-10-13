@@ -175,14 +175,19 @@ const handleCommand = (command: ProductionHarnessCommand): void => {
       });
     })
     .with({ kind: 'graceful-close' }, (value) => {
-      void adapter.dispose({ graceful: true }).then(() => {
+      const settleDispose = async () => {
+        await adapter.dispose({ graceful: true });
+
         report({
           kind: 'command-result',
           commandId: value.commandId,
           ok: true,
         });
         setTimeout(() => window.close());
-      });
+
+        return;
+      };
+      void settleDispose();
     })
     .with({ kind: 'crash-worker' }, (value) => {
       if (!currentWorker) {
@@ -251,4 +256,10 @@ channel.onmessage = (event: MessageEvent<ProductionHarnessEnvelope>) => {
 };
 
 adapter.postMessage({ id: nextRequestId++, kind: 'init', scope });
-void adapter.start().then(() => report({ kind: 'registered' }));
+
+const settleStart = async () => {
+  await adapter.start();
+
+  return await report({ kind: 'registered' });
+};
+void settleStart();

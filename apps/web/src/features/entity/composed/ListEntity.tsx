@@ -215,27 +215,7 @@ export function ListEntity(props: ListEntityProps) {
         props.onClick?.(e);
       }}
       ref={mergeRefs(props.ref, draggable)}
-      class={cn(
-        // The row family class carries the --soup-row-* geometry (ListEntity.css)
-        // that the layouts below and the soup group headers both read, so it has
-        // to track which layout the Switch actually renders.
-        isWide() ? SOUP_ROW_CLASS.wide : SOUP_ROW_CLASS.narrow,
-        'soup-list-entity rounded-xl @container/entity w-[calc(100%-0.5rem)] mr-1 relative group/narrow flex flex-col py-0.5',
-        {
-          'min-h-10 mx-(--soup-row-gutter)':
-            !isMobile() && !usesCondensedNarrowLayout(),
-          'min-h-9 mx-(--soup-row-gutter)':
-            !isMobile() && usesCondensedNarrowLayout(),
-          'bg-list-selected': props.checked,
-          'bg-list-selected-highlighted': props.checked && props.highlighted,
-          'bg-list-highlighted':
-            props.highlighted && !props.checked && !isTouchDevice(),
-          'hover:bg-list-hover':
-            !props.highlighted && !props.checked && !isTouchDevice(),
-          'focus-within:bg-list-hover':
-            !!rowActions() && !props.highlighted && !props.checked,
-        }
-      )}
+      class={getListEntityClass()}
       onMouseMove={props.onMouseMove}
     >
       <Switch>
@@ -326,4 +306,28 @@ export function ListEntity(props: ListEntityProps) {
       </Show>
     </Entity.Root>
   );
+
+  function getListEntityClass(): string | undefined {
+    return cn(
+      // The row family class carries the --soup-row-* geometry (ListEntity.css)
+      // that the layouts below and the soup group headers both read, so it has
+      // to track which layout the Switch actually renders.
+      isWide() ? SOUP_ROW_CLASS.wide : SOUP_ROW_CLASS.narrow,
+      'soup-list-entity rounded-xl @container/entity w-[calc(100%-0.5rem)] mr-1 relative group/narrow flex flex-col py-0.5',
+      {
+        'min-h-10 mx-(--soup-row-gutter)':
+          !isMobile() && !usesCondensedNarrowLayout(),
+        'min-h-9 mx-(--soup-row-gutter)':
+          !isMobile() && usesCondensedNarrowLayout(),
+        'bg-list-selected': props.checked,
+        'bg-list-selected-highlighted': props.checked && props.highlighted,
+        'bg-list-highlighted':
+          props.highlighted && !props.checked && !isTouchDevice(),
+        'hover:bg-list-hover':
+          !props.highlighted && !props.checked && !isTouchDevice(),
+        'focus-within:bg-list-hover':
+          !!rowActions() && !props.highlighted && !props.checked,
+      }
+    );
+  }
 }

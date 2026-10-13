@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { message } from '../../email-message/tests/messages';
 import type {
   EmailComposeContext,
+  EmailUndoHandle,
   PersistedEmailIdentity,
 } from '../context/compose-capabilities';
 import { decodeBase64Utf8 } from '../core/decode-base64';
@@ -96,6 +97,35 @@ function composerWithLifecycleQuery(
 }
 
 describe('send and schedule ordering', () => {
+  it('undoes mark-done when its handle arrives after sending finishes', async () => {
+    const context = createComposeContext();
+    let acceptHandle: ((handle: EmailUndoHandle) => void) | undefined;
+    const undo = vi.fn(async () => {});
+    const onMarkDone = vi.fn((options) => {
+      acceptHandle = options.onUndoHandle;
+    });
+    vi.mocked(context.delivery.undoSend).mockImplementation(
+      async ({ onUndone }) => {
+        await onUndone();
+      }
+    );
+    const state = mountReplyComposer(context, undefined, { onMarkDone });
+    try {
+      await state.sendEmail(true);
+      expect(onMarkDone).toHaveBeenCalledOnce();
+      const sentNotice = vi
+        .mocked(context.notices.feedback.success)
+        .mock.calls.find(([text]) => text === 'Email sent');
+      await Promise.resolve();
+      acceptHandle?.({ id: 'late-done', undo, dispose() {} });
+      sentNotice?.[1]?.actions?.[0].onClick();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(undo).toHaveBeenCalledOnce();
+    } finally {
+      state.dispose();
+    }
+  });
+
   it.each(['standalone', 'reply'] as const)(
     '%s does not report a syncing failure after delivery invalidates a pending schedule save',
     async (kind) => {

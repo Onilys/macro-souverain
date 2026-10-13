@@ -118,51 +118,55 @@ export function compileSearchQuery(state: SearchFiltersState): Query {
   Object.assign(include, seed.include);
   Object.assign(exclude, seed.exclude);
 
-  if (state.type === 'email') {
-    if (state.email.importance !== undefined) {
-      include.emailImportance = state.email.importance;
-    }
-    if (state.email.inboxIds !== undefined) {
-      include.emailLinkId = state.email.inboxIds.length
-        ? state.email.inboxIds
-        : [NIL_UUID];
-    }
-  } else if (state.type === 'channels') {
-    if (state.channels.in.length) include.channelId = state.channels.in;
-    if (state.channels.from.length) {
-      include.channelSenderId = state.channels.from;
-    }
-  } else if (state.type === 'calls') {
-    if (state.calls.in.length) include.callChannelId = state.calls.in;
-    if (state.calls.from.length) include.callSpeakerId = state.calls.from;
-    if (state.calls.status !== undefined) {
-      include.callStatus = state.calls.status;
-    }
-  } else if (state.type === 'task') {
-    const properties: PropertyFilter[] = [
-      ...state.task.status.map((value) => ({
-        propertyId: SYSTEM_PROPERTY_IDS.STATUS,
-        type: 'select' as const,
-        value,
-      })),
-      ...state.task.priority.map((value) => ({
-        propertyId: SYSTEM_PROPERTY_IDS.PRIORITY,
-        type: 'select' as const,
-        value,
-      })),
-      ...state.task.assignees.map((value) => ({
-        propertyId: SYSTEM_PROPERTY_IDS.ASSIGNEES,
-        type: 'entity' as const,
-        value,
-      })),
-    ];
-    if (properties.length) include.properties = properties;
-    if (state.task.createdBy.length) {
-      include.documentOwnerId = state.task.createdBy;
-    }
-  }
+  updateEmailImportance();
 
   return { include, exclude };
+
+  function updateEmailImportance() {
+    if (state.type === 'email') {
+      if (state.email.importance !== undefined) {
+        include.emailImportance = state.email.importance;
+      }
+      if (state.email.inboxIds !== undefined) {
+        include.emailLinkId = state.email.inboxIds.length
+          ? state.email.inboxIds
+          : [NIL_UUID];
+      }
+    } else if (state.type === 'channels') {
+      if (state.channels.in.length) include.channelId = state.channels.in;
+      if (state.channels.from.length) {
+        include.channelSenderId = state.channels.from;
+      }
+    } else if (state.type === 'calls') {
+      if (state.calls.in.length) include.callChannelId = state.calls.in;
+      if (state.calls.from.length) include.callSpeakerId = state.calls.from;
+      if (state.calls.status !== undefined) {
+        include.callStatus = state.calls.status;
+      }
+    } else if (state.type === 'task') {
+      const properties: PropertyFilter[] = [
+        ...state.task.status.map((value) => ({
+          propertyId: SYSTEM_PROPERTY_IDS.STATUS,
+          type: 'select' as const,
+          value,
+        })),
+        ...state.task.priority.map((value) => ({
+          propertyId: SYSTEM_PROPERTY_IDS.PRIORITY,
+          type: 'select' as const,
+          value,
+        })),
+        ...state.task.assignees.map((value) => ({
+          propertyId: SYSTEM_PROPERTY_IDS.ASSIGNEES,
+          type: 'entity' as const,
+          value,
+        })),
+      ];
+      if (properties.length) include.properties = properties;
+      if (state.task.createdBy.length) {
+        include.documentOwnerId = state.task.createdBy;
+      }
+    }
+  }
 }
 
 /**

@@ -103,15 +103,30 @@ export function createContextMenu(
       middleware.unshift(offsetMiddleware);
     }
 
-    computePosition(referenceEl, contextMenu.ref, {
-      placement: 'bottom-start',
-      strategy: 'absolute',
-      middleware,
-    }).then(({ x, y, middlewareData: { hide } }) => {
-      if (hide?.referenceHidden) return closeContextMenu();
+    const target = contextMenu.ref;
+    const settleComputePosition = async () => {
+      const settleComputePositionValue = await computePosition(
+        referenceEl,
+        target,
+        {
+          placement: 'bottom-start',
+          strategy: 'absolute',
+          middleware,
+        }
+      );
+      const {
+        x,
+        y,
+        middlewareData: { hide },
+      } = settleComputePositionValue;
+
+      if (hide?.referenceHidden) return await closeContextMenu();
 
       setContextMenu({ x, y });
-    });
+
+      return;
+    };
+    settleComputePosition();
   };
 
   createEffect(() => {

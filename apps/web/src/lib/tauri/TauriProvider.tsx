@@ -89,9 +89,15 @@ function TauriProvider(props: { children: JSX.Element }) {
   let hasShownNativeAppUpdateRequiredDialog = false;
 
   function performBundleUpdate() {
-    invoke<boolean>('perform_update').catch((e) =>
-      console.error('[bundle-update] perform_update failed', e)
-    );
+    const settleInvoke = async () => {
+      try {
+        return await invoke<boolean>('perform_update');
+      } catch (settleInvokeError) {
+        const e = settleInvokeError;
+        return await console.error('[bundle-update] perform_update failed', e);
+      }
+    };
+    settleInvoke();
   }
 
   createEffect(() => {
@@ -125,18 +131,41 @@ function TauriProvider(props: { children: JSX.Element }) {
       }
     );
     if (LOADED_BUNDLE_BUILD !== undefined) {
-      invoke<boolean>('ack_bundle_update_reload', {
-        loadedBundleBuild: LOADED_BUNDLE_BUILD,
-      }).catch((e) =>
-        console.error('[bundle-update] ack_bundle_update_reload failed', e)
-      );
+      const settleInvokeResult = async () => {
+        try {
+          return await invoke<boolean>('ack_bundle_update_reload', {
+            loadedBundleBuild: LOADED_BUNDLE_BUILD,
+          });
+        } catch (settleInvokeResultError) {
+          const e = settleInvokeResultError;
+          return await console.error(
+            '[bundle-update] ack_bundle_update_reload failed',
+            e
+          );
+        }
+      };
+      settleInvokeResult();
     }
     // Fetch current status since events emitted before the listener registered are missed
-    invoke<BundleUpdateStatus>('get_bundle_update_status').then((status) => {
+
+    const settleInvokeResultResult = async () => {
+      const settleInvokeResultResultValue = await invoke<BundleUpdateStatus>(
+        'get_bundle_update_status'
+      );
+      const status = settleInvokeResultResultValue;
+
       setBundleUpdateStatus(status);
-    });
+
+      return;
+    };
+    settleInvokeResultResult();
     onCleanup(() => {
-      unlistenPromise.then((unlisten) => unlisten());
+      const settleUnlistenPromise = async () => {
+        const settleUnlistenPromiseValue = await unlistenPromise;
+        const unlisten = settleUnlistenPromiseValue;
+        return await unlisten();
+      };
+      settleUnlistenPromise();
     });
 
     document.body.classList.add('tauri');

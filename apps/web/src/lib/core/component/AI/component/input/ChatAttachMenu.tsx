@@ -160,20 +160,24 @@ export function ChatAttachMenu(props: ChatAttachMenuProps) {
         break;
       default:
         // Handle regular typing - add to search input
-        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          e.preventDefault();
-          const currentInput = input();
-          const newInput = currentInput + e.key;
-          setInput(newInput);
-          // Focus the search input to continue typing naturally
-          const inputRef = searchInputRef();
-          if (inputRef) {
-            inputRef.focus();
-            // Set cursor to end of input
-            inputRef.setSelectionRange(newInput.length, newInput.length);
-          }
-        }
+        updateHandleKeyDown();
         break;
+    }
+
+    function updateHandleKeyDown() {
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        const currentInput = input();
+        const newInput = currentInput + e.key;
+        setInput(newInput);
+        // Focus the search input to continue typing naturally
+        const inputRef = searchInputRef();
+        if (inputRef) {
+          inputRef.focus();
+          // Set cursor to end of input
+          inputRef.setSelectionRange(newInput.length, newInput.length);
+        }
+      }
     }
   };
 

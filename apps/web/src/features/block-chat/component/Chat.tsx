@@ -56,7 +56,8 @@ import { useCanEdit } from '@core/signal/permissions';
 import { markMessageSent } from '@core/util/message-send-motion';
 import { createRenameDssEntityMutation } from '@entity';
 import { invalidateUserQuota } from '@queries/auth';
-import { cognitionApiServiceClient } from '@service-cognition/client';
+import { stopChatStream } from '@queries/cognition/requests';
+
 import { createCallback } from '@solid-primitives/rootless';
 import { createEffect, createSignal, getOwner, Show, Suspense } from 'solid-js';
 
@@ -245,7 +246,7 @@ function ChatInner(props: {
     if (!chat.isGenerating()) return;
     const streamId = chat.stream()?.id()?.stream_id;
     if (!streamId) return;
-    await cognitionApiServiceClient.stopChatStream({
+    await stopChatStream({
       chat_id: chat.chatId(),
       stream_id: streamId,
     });

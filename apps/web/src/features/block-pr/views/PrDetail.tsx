@@ -26,11 +26,7 @@ import {
   PrTimelineSkeleton,
   PrTitleSkeleton,
 } from '../component/PrSkeletons';
-import {
-  PR_PILL_CLASS,
-  PrStatusChip,
-  PrStatusIcon,
-} from '../component/PrStatus';
+import { PrStatusChip, PrStatusIcon } from '../component/PrStatus';
 import { PrTimeline } from '../component/PrTimeline';
 import { PrSidePanelSections } from '../component/sidepanel/PrSidePanelSections';
 import { createPrDiscussionSource } from '../data/prDiscussionSource';
@@ -281,7 +277,10 @@ function PrMetadata(props: {
               href={`https://github.com/${githubDisplayLogin(authorLogin())}`}
               target="_blank"
               rel="noreferrer"
-              class={cn(PR_PILL_CLASS, 'text-ink-muted hover:bg-hover')}
+              class={cn(
+                'inline-flex items-center gap-1.5 min-w-0 border border-edge-muted px-2 py-1 leading-tight text-left rounded-full bg-surface',
+                'text-ink-muted hover:bg-hover'
+              )}
             >
               <img
                 src={githubAvatarUrl(authorLogin())}
@@ -299,7 +298,10 @@ function PrMetadata(props: {
           href={props.pullRequest?.url}
           target="_blank"
           rel="noreferrer"
-          class={cn(PR_PILL_CLASS, 'text-ink-muted hover:bg-hover')}
+          class={cn(
+            'inline-flex items-center gap-1.5 min-w-0 border border-edge-muted px-2 py-1 leading-tight text-left rounded-full bg-surface',
+            'text-ink-muted hover:bg-hover'
+          )}
         >
           {prDisplayName(props.prRef)}
         </a>
@@ -311,22 +313,12 @@ function PrMetadata(props: {
         }
       >
         <Layer depth={2}>
-          <Show
-            when={changes?.available()}
-            fallback={
-              <span class={PR_PILL_CLASS}>
-                <span class="text-success">
-                  +{props.pullRequest?.additions ?? 0}
-                </span>
-                <span class="text-failure">
-                  −{props.pullRequest?.deletions ?? 0}
-                </span>
-              </span>
-            }
-          >
+          <Show when={changes?.available()} fallback={getPrMetadataFallback()}>
             <button
               type="button"
-              class={PR_PILL_CLASS}
+              class={
+                'inline-flex items-center gap-1.5 min-w-0 border border-edge-muted px-2 py-1 leading-tight text-left rounded-full bg-surface'
+              }
               aria-label="Open Changes pane"
               aria-expanded={changes?.layout.changesVisible()}
               onClick={() => changes?.layout.open()}
@@ -354,6 +346,19 @@ function PrMetadata(props: {
       />
     </div>
   );
+
+  function getPrMetadataFallback() {
+    return (
+      <span
+        class={
+          'inline-flex items-center gap-1.5 min-w-0 border border-edge-muted px-2 py-1 leading-tight text-left rounded-full bg-surface'
+        }
+      >
+        <span class="text-success">+{props.pullRequest?.additions ?? 0}</span>
+        <span class="text-failure">−{props.pullRequest?.deletions ?? 0}</span>
+      </span>
+    );
+  }
 }
 
 function PrDescription(props: { pullRequest?: GithubPullRequestWithDetails }) {

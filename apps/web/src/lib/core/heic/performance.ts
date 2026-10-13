@@ -84,9 +84,19 @@ export class PerformanceMonitor {
 
   static measureAsync<T>(key: string, fn: () => Promise<T>): Promise<T> {
     this.startMeasurement(key);
-    return fn().finally(() => {
+    const settleFnFinally = async () => {
       const duration = this.endMeasurement(key);
       console.debug(`[HEIC Performance] ${key}: ${duration.toFixed(2)}ms`);
-    });
+
+      return;
+    };
+    const settleFn = async () => {
+      try {
+        return await fn();
+      } finally {
+        await settleFnFinally();
+      }
+    };
+    return settleFn();
   }
 }

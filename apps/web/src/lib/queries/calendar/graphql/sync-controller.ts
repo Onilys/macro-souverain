@@ -88,9 +88,19 @@ export class CalendarSyncController {
     if (this.timer !== undefined) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = undefined;
-      this.runDelta().catch((error) => {
-        console.warn('Calendar delta sync failed', error);
-      });
+
+      const settleRunDelta = async () => {
+        try {
+          return await this.runDelta();
+        } catch (settleRunDeltaError) {
+          const error = settleRunDeltaError;
+
+          console.warn('Calendar delta sync failed', error);
+
+          return;
+        }
+      };
+      settleRunDelta();
     }, this.debounceMs);
   }
 

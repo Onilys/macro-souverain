@@ -1,6 +1,6 @@
 /** Feature-owned session state and its provider/consumer boundary. */
 
-import type { IssueResult } from '@core/agent-session/AgentSession';
+import type { IssueResult } from '@app/lib/queries/agent-session/agent-session';
 import type {
   FoldedMessage,
   SessionMetadata,

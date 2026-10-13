@@ -11,7 +11,6 @@
  */
 
 import { match } from 'ts-pattern';
-import type { DocxRequest, DocxResponse } from './protocol';
 import type {
   CaretRect,
   Clip,
@@ -23,7 +22,8 @@ import type {
   ParagraphText,
   Pos,
   StyleInfo,
-} from './types';
+} from '../../docx/types';
+import type { DocxRequest, DocxResponse } from './protocol';
 import {
   discardDocxEngineWasm,
   isWasmTrap,
@@ -426,14 +426,24 @@ async function serve(request: DocxRequest): Promise<Served> {
 
 scope.addEventListener('message', (event: MessageEvent<DocxRequest>) => {
   const request = event.data;
-  queue = queue.then(async () => {
+
+  const settleQueue = async () => {
+    await queue;
+
     try {
       const [response, transfer] = await serve(request);
       scope.postMessage(response, transfer);
     } catch (error) {
       let message = error instanceof Error ? error.message : String(error);
       if (isWasmTrap(error)) {
-        await recover().catch(() => {});
+        const settleRecover = async () => {
+          try {
+            return await recover();
+          } catch {
+            return;
+          }
+        };
+        await settleRecover();
         message =
           'The document engine hit a problem with this request and was restarted. Your changes are kept.';
       }
@@ -444,5 +454,8 @@ scope.addEventListener('message', (event: MessageEvent<DocxRequest>) => {
       };
       scope.postMessage(response);
     }
-  });
+
+    return;
+  };
+  queue = settleQueue();
 });

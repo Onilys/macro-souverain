@@ -13,8 +13,9 @@ import {
   AgentSessionAccessDenied,
   type AgentSessionRecord,
   type IssueResult,
-} from '@core/agent-session/AgentSession';
+} from '@app/lib/queries/agent-session/agent-session';
 import type { AgentSessionRenamedEvent } from '@queries/agent-session/realtime-protocol';
+import { fetchAgentSession } from '@queries/agent-session/requests';
 import {
   subscribeAgentSessionRenamed,
   subscribeAgentSessionUpdated,
@@ -25,7 +26,6 @@ import type {
   SessionMetadata,
   TurnState,
 } from '@service-agent-fold/generated/types';
-import { agentHarnessServiceClient } from '@service-agent-harness/client';
 import type {
   AgentAction,
   AgentSessionResponse,
@@ -299,23 +299,30 @@ export function createAgentSession(
     subscribeAgentSessionRenamed((event) => {
       if (event.agentSessionId !== sessionId()) return;
       const run = ++renameRefresh;
-      void agentHarnessServiceClient
-        .get(event.agentSessionId)
-        .then((session) => {
-          if (
-            session.isErr() ||
-            run !== renameRefresh ||
-            event.agentSessionId !== sessionId()
-          )
-            return;
-          latestRename = {
-            agentSessionId: event.agentSessionId,
-            name: session.value.name,
-          };
-          mutate((current) =>
-            current ? { ...current, name: session.value.name } : current
-          );
-        });
+
+      const settleFetchAgentSession = async () => {
+        const settleFetchAgentSessionValue = await fetchAgentSession(
+          event.agentSessionId
+        );
+        const session = settleFetchAgentSessionValue;
+
+        if (
+          session.isErr() ||
+          run !== renameRefresh ||
+          event.agentSessionId !== sessionId()
+        )
+          return;
+        latestRename = {
+          agentSessionId: event.agentSessionId,
+          name: session.value.name,
+        };
+        mutate((current) =>
+          current ? { ...current, name: session.value.name } : current
+        );
+
+        return;
+      };
+      void settleFetchAgentSession();
     })
   );
 
@@ -325,9 +332,7 @@ export function createAgentSession(
       if (event.agentSessionId !== sessionId()) return;
       const run = ++updateRefresh;
       void (async () => {
-        const session = await agentHarnessServiceClient.get(
-          event.agentSessionId
-        );
+        const session = await fetchAgentSession(event.agentSessionId);
         if (
           session.isErr() ||
           run !== updateRefresh ||

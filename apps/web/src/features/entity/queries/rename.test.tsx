@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
   soup: vi.fn(),
   toast: vi.fn(),
 }));
-vi.mock('@core/component/FileList/itemOperations', () => ({
+vi.mock('@app/lib/queries/items/operations', () => ({
   renameItem: vi.fn(),
 }));
 vi.mock('@core/component/Toast/Toast', () => ({

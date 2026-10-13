@@ -52,11 +52,6 @@ import type { ChannelJoinCodeResponse } from './generated/schemas/channelJoinCod
 import type { ChannelLabel } from './generated/schemas/channelLabel';
 import type { ChannelLabelRule } from './generated/schemas/channelLabelRule';
 import type { ChannelLabelsList } from './generated/schemas/channelLabelsList';
-import { ChannelType } from './generated/schemas/channelType';
-import {
-  type CloudStorageItemType,
-  CloudStorageItemType as CloudStorageItemTypeMap,
-} from './generated/schemas/cloudStorageItemType';
 import type { CreateAgentRequest } from './generated/schemas/createAgentRequest';
 import type { CreateChannelLabelRequest } from './generated/schemas/createChannelLabelRequest';
 import type { CreateChannelRequest } from './generated/schemas/createChannelRequest';
@@ -186,7 +181,9 @@ import type { ItemType } from './itemType';
 export type { HistoryItemType, ItemType } from './itemType';
 export {
   blockNameToItemType,
+  ChannelTypeEnum,
   DEFAULT_ITEM_TYPE,
+  isCloudStorageItem,
   itemTypeToReferenceEntityType,
   stringToItemType,
 } from './itemType';
@@ -365,19 +362,6 @@ type CreateBotTokenResponse = {
 type WithMentionId = { mention_id: string };
 type WithEntity = { entity_type: string; entity_id: string };
 export type ChannelAttachmentType = 'static' | 'dss';
-
-export const ChannelTypeEnum = {
-  Public: ChannelType.public,
-  Private: ChannelType.private,
-  DirectMessage: ChannelType.direct_message,
-  Team: ChannelType.team,
-} as const satisfies Record<string, ChannelType>;
-
-export function isCloudStorageItem(
-  item: ItemType
-): item is CloudStorageItemType {
-  return Object.values(CloudStorageItemTypeMap).includes(item as any);
-}
 
 export type ProcessingResultResponseType<T extends ProcessingResultType> =
   T extends 'PREPROCESS'
@@ -1373,7 +1357,14 @@ export const storageServiceClient = {
       // hardcoding the number. 403 is preserved explicitly; other statuses keep
       // the HTTP_ERROR shape callers branch on.
       errorResponseHandler: async (response) => {
-        const body = (await response.json().catch(() => null)) as {
+        const settleJson = async () => {
+          try {
+            return await response.json();
+          } catch {
+            return await null;
+          }
+        };
+        const body = (await settleJson()) as {
           code?: string;
           maxLength?: number;
         } | null;
@@ -1576,7 +1567,7 @@ export const storageServiceClient = {
     if (!response.ok) {
       try {
         console.error('Failed to fetch raw snippet', await response.text());
-      } catch (_e) {
+      } catch {
         console.error('Failed to fetch raw snippet');
       }
       throw new Error('Failed to fetch raw snippet');

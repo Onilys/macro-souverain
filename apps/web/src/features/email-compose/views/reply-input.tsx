@@ -19,7 +19,6 @@ import { Button, cn, SendButton, Surface, Tooltip } from '@ui';
 import type { LexicalEditor } from 'lexical';
 import { $getRoot } from 'lexical';
 import { createResource, createSignal, For, onMount, Show } from 'solid-js';
-import { createAttachmentViewer } from '../components/attachment-viewer';
 import { DraftSyncStatus } from '../components/draft-sync-status';
 import { EmailDateSelector } from '../components/email-date-selector';
 import {
@@ -35,6 +34,7 @@ import { decodeBase64Utf8 } from '../core/decode-base64';
 import { plainTextToHtml } from '../core/plain-text-to-html';
 import { createDraftSyncStatus } from '../primitives/draft-sync-status';
 import { registerToggleAppendedThread } from '../primitives/prepare-email-body';
+import { createAttachmentViewer } from './attachment-viewer';
 import { ReplyEnvelope } from './reply-envelope';
 
 false && fileFolderDrop;
@@ -238,11 +238,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
         });
       },
     });
-  if (isIOS || isNativeMobilePlatform()) {
-    editorConfig.use(
-      iosCursorScrollPlugin({ scrollContainer: state.scrollContainer })
-    );
-  }
+  updateLoadedReplyInputView();
   const markdownHandle = editorConfig.buildHandle();
   setEditor(markdownHandle.lexical);
   // Set up hotkey scope for the compose message component
@@ -467,14 +463,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
           replyType={state.replyType}
           disabled={editingDisabled}
         />
-        <div
-          class={cn(
-            isMobileDrawer()
-              ? 'relative flex-1 flex flex-col'
-              : 'size-full flex flex-col min-h-0',
-            state.recipients.showExpandedRecipients() && 'mt-4'
-          )}
-        >
+        <div class={getLoadedReplyInputViewClass()}>
           <div
             ref={setScrollContainer}
             class={cn(
@@ -605,13 +594,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
               </Button>
             </div>
           </Show>
-          <Show
-            when={
-              props.replyingTo() &&
-              // The collapse pill above already covers this state
-              !(form.replyAppended() && quoteCollapsed())
-            }
-          >
+          <Show when={getLoadedReplyInputViewWhen()}>
             <div
               class="shrink-0 pt-1"
               data-corvu-no-drag=""
@@ -720,4 +703,29 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
       </Show>
     </>
   );
+
+  function getLoadedReplyInputViewClass(): string | undefined {
+    return cn(
+      isMobileDrawer()
+        ? 'relative flex-1 flex flex-col'
+        : 'size-full flex flex-col min-h-0',
+      state.recipients.showExpandedRecipients() && 'mt-4'
+    );
+  }
+
+  function getLoadedReplyInputViewWhen(): boolean | null | undefined {
+    return (
+      props.replyingTo() &&
+      // The collapse pill above already covers this state
+      !(form.replyAppended() && quoteCollapsed())
+    );
+  }
+
+  function updateLoadedReplyInputView() {
+    if (isIOS || isNativeMobilePlatform()) {
+      editorConfig.use(
+        iosCursorScrollPlugin({ scrollContainer: state.scrollContainer })
+      );
+    }
+  }
 }

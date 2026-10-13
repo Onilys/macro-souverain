@@ -341,9 +341,15 @@ describe('createGraphqlGroupedSoupQueries', () => {
       groupedSoupInputKey(initialInput)
     );
     let firstASettled = false;
-    void firstA.then(() => {
+
+    const settleFirstA = async () => {
+      await firstA;
+
       firstASettled = true;
-    });
+
+      return;
+    };
+    void settleFirstA();
     fake.executions[1]?.next(
       page([group('a', ['a-2'], 'a-cursor-2')], [item('a-2')]),
       { stale: true }

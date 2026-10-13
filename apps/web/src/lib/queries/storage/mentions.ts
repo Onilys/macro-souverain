@@ -2,8 +2,9 @@ import { ENABLE_MENTION_TRACKING } from '@core/constant/featureFlags';
 import { queryClient } from '@queries/client';
 import { attachmentReferencesKeys } from '@queries/storage/keys';
 
-import { type ItemType, storageServiceClient } from '@service-storage/client';
-import { getPermissionToken } from './token';
+import { storageServiceClient } from '@service-storage/client';
+import type { ItemType } from '@service-storage/itemType';
+import { getPermissionToken } from './permission-token';
 
 type MentionId = string;
 

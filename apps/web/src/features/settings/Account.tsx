@@ -1,6 +1,11 @@
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import type { AccountDeletionReason } from '@app/lib/analytics/app-events';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import {
+  type ProfilePictureItem,
+  useProfilePictureUrl,
+} from '@app/lib/queries/auth/profile-pictures';
+import { createStaticFile } from '@app/lib/queries/items/create';
 import { useLogout } from '@core/auth/logout';
 import { toast } from '@core/component/Toast/Toast';
 import { UserIcon } from '@core/component/UserIcon';
@@ -18,11 +23,6 @@ import { staticFileIdEndpoint } from '@core/constant/servers';
 import { useEmail, useUserId } from '@core/context/user';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
-import {
-  type ProfilePictureItem,
-  useProfilePictureUrl,
-} from '@core/signal/profilePicture';
-import { createStaticFile } from '@core/util/create';
 import { openFilePicker } from '@core/util/upload';
 import {
   type BundleUpdateStatus,
@@ -41,10 +41,12 @@ import WarningCircleIcon from '@phosphor/warning-circle.svg';
 import SignOutIcon from '@phosphor-icons/core/regular/sign-out.svg?component-solid';
 import IconUpload from '@phosphor-icons/core/regular/upload-simple.svg?component-solid';
 import {
-  invalidateOwnUserName,
-  useOwnUserName,
-} from '@queries/auth/user-name-self';
-import { authServiceClient } from '@service-auth/client';
+  deleteAccount,
+  updateProfilePicture,
+  updateUserName,
+} from '@queries/auth/requests';
+import { useOwnUserName } from '@queries/auth/user-name-self';
+
 import { invoke } from '@tauri-apps/api/core';
 import { Button, Dialog, Dropdown, Panel, ToggleSwitch, Tooltip } from '@ui';
 import {
@@ -86,7 +88,7 @@ async function uploadProfilePicture(
   try {
     const id = await createStaticFile(file);
     const url = staticFileIdEndpoint(id);
-    const response = await authServiceClient.putProfilePicture({ url });
+    const response = await updateProfilePicture({ url });
     if (response.isErr()) {
       return toast.failure('Failed to upload profile picture');
     }
@@ -98,7 +100,7 @@ async function uploadProfilePicture(
 
 async function removeProfilePicture(): Promise<boolean> {
   try {
-    const response = await authServiceClient.putProfilePicture({ url: '' });
+    const response = await updateProfilePicture({ url: '' });
     if (response.isErr()) {
       toast.failure('Failed to remove profile picture');
       return false;
@@ -151,14 +153,13 @@ async function saveUserName(
 ): Promise<boolean> {
   setValue(value); // optimistic
   try {
-    const res = await authServiceClient.putUserName(
+    const res = await updateUserName(
       field === 'first_name' ? { first_name: value } : { last_name: value }
     );
     if (res.isErr()) {
       setValue(prev); // rollback on a returned error
       return false;
     }
-    void invalidateOwnUserName();
     return true;
   } catch {
     setValue(prev); // rollback if the call throws before returning a Result
@@ -394,7 +395,7 @@ export function Account() {
           );
           setDeleteFeedbackCaptured(true);
         },
-        deleteUser: () => authServiceClient.deleteUser(),
+        deleteUser: () => deleteAccount(),
         logout,
       });
 
@@ -798,8 +799,17 @@ function NameInput(props: {
 function bundleUpdateAction(
   status: BundleUpdateStatus
 ): { label: string; action: () => void } | null {
-  const grantBundleUpdate = () =>
-    invoke('grant_bundle_update', { approved: true }).catch(console.error);
+  const grantBundleUpdate = () => {
+    const settleInvokeHandler0 = console.error;
+    const settleInvoke = async () => {
+      try {
+        return await invoke('grant_bundle_update', { approved: true });
+      } catch (settleInvokeError) {
+        return await settleInvokeHandler0(settleInvokeError);
+      }
+    };
+    return settleInvoke();
+  };
 
   switch (status.status) {
     case 'Idle':
@@ -830,12 +840,19 @@ type BundleDebugInfo = {
 
 function BundleVersionRow() {
   if (!isNativeMobilePlatform()) return null;
-  const [bundleDebugInfo] = createResource(() =>
-    invoke<BundleDebugInfo>('get_bundle_debug_info').catch((error) => {
-      console.error('[bundle-update] get_bundle_debug_info failed', error);
-      return null;
-    })
-  );
+  const [bundleDebugInfo] = createResource(() => {
+    const settleInvokeResult = async () => {
+      try {
+        return await invoke<BundleDebugInfo>('get_bundle_debug_info');
+      } catch (settleInvokeResultError) {
+        const error = settleInvokeResultError;
+
+        console.error('[bundle-update] get_bundle_debug_info failed', error);
+        return await null;
+      }
+    };
+    return settleInvokeResult();
+  });
 
   return (
     <Show when={bundleDebugInfo()}>

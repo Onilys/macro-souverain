@@ -146,9 +146,12 @@ export function createEditorCommands(options: EditorCommandsOptions) {
     editor.editing() ? undefined : options.tableTarget();
   const runs = (props: RunPatch) => {
     if (cellRange()) return formatCells(props);
-    return editor
-      .formatWith((t, range) => formatCommand(t, range, props))
-      .then(options.refocus);
+    const settleFormatWithHandler0 = options.refocus;
+    const settleFormatWith = async () => {
+      await editor.formatWith((t, range) => formatCommand(t, range, props));
+      return await settleFormatWithHandler0();
+    };
+    return settleFormatWith();
   };
   const paragraphs = (props: ParaPatch) => {
     if (cellRange())
@@ -161,9 +164,12 @@ export function createEditorCommands(options: EditorCommandsOptions) {
           props,
         }))
       );
-    return editor
-      .formatWith((t, range) => paragraphCommand(t, range, props))
-      .then(options.refocus);
+    const settleFormatWithResultHandler0 = options.refocus;
+    const settleFormatWithResult = async () => {
+      await editor.formatWith((t, range) => paragraphCommand(t, range, props));
+      return await settleFormatWithResultHandler0();
+    };
+    return settleFormatWithResult();
   };
 
   const toggle = (key: TextToggle) => runs({ [key]: !format()[key] });
@@ -1207,11 +1213,25 @@ export function createEditorCommands(options: EditorCommandsOptions) {
   const serial =
     <A extends unknown[], T>(edit: (...args: A) => Promise<T>) =>
     (...args: A): Promise<T> => {
-      const next = animationQueue.then(
-        () => edit(...args),
-        () => edit(...args)
-      );
-      animationQueue = next.catch(() => {});
+      const settleAnimationQueue = async () => {
+        try {
+          await animationQueue;
+        } catch {
+          return await edit(...args);
+        }
+
+        return await edit(...args);
+      };
+      const next = settleAnimationQueue();
+
+      const settleNext = async () => {
+        try {
+          return await next;
+        } catch {
+          return;
+        }
+      };
+      animationQueue = settleNext();
       return next;
     };
   /**

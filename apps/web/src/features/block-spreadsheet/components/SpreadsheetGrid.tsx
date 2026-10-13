@@ -52,7 +52,6 @@ import {
   type SpreadsheetCells,
 } from '../core/spreadsheet-document';
 import type { SpreadsheetCursor } from '../core/spreadsheet-presence';
-import type { CompleteFormula } from '../primitives/create-formula-assistance';
 import { CellListMenu } from './CellListMenu';
 import { ConditionalIcon } from './ConditionalIcon';
 import {
@@ -61,6 +60,7 @@ import {
   cellForeground,
   dataBarBackground,
 } from './cell-colors';
+import type { CompleteFormula } from './create-formula-assistance';
 import { FormulaInput } from './FormulaInput';
 import { type DrawingRect, SheetDrawingLayer } from './SheetDrawingLayer';
 import { type CellAction, SpreadsheetCellMenu } from './SpreadsheetCellMenu';
@@ -392,6 +392,26 @@ export function SpreadsheetGrid(props: {
       const pixels = fontPixels(cell, defaultFontSize());
       const lineHeight = pixels * CELL_LINE_HEIGHT;
       let lines = 1;
+      lines = updateFont(cell, pixels, lines, address, position, lineHeight);
+      heights[position.row] = Math.max(
+        heights[position.row],
+        Math.min(MAX_ROW_HEIGHT, Math.ceil(lines * lineHeight + verticalInset))
+      );
+    }
+    const hidden = hiddenRows();
+    const zoom = scale();
+    for (let row = 0; row < heights.length; row++)
+      heights[row] = hidden.has(row) ? 0 : heights[row] * zoom;
+    return heights;
+
+    function updateFont(
+      cell: SpreadsheetCell,
+      pixels: number,
+      lines: number,
+      address: string,
+      position: { row: number; column: number },
+      lineHeight: number
+    ) {
       if (cell.wrap) {
         if (context)
           context.font = `${cell.italic ? 'italic ' : ''}${cell.bold ? 600 : 400} ${pixels}px ${fontFamily(cell)}`;
@@ -403,16 +423,8 @@ export function SpreadsheetGrid(props: {
           Math.ceil((MAX_ROW_HEIGHT - verticalInset) / lineHeight)
         );
       }
-      heights[position.row] = Math.max(
-        heights[position.row],
-        Math.min(MAX_ROW_HEIGHT, Math.ceil(lines * lineHeight + verticalInset))
-      );
+      return lines;
     }
-    const hidden = hiddenRows();
-    const zoom = scale();
-    for (let row = 0; row < heights.length; row++)
-      heights[row] = hidden.has(row) ? 0 : heights[row] * zoom;
-    return heights;
   });
   const rowOffsets = createMemo(() => {
     const offsets = [headerHeight()];
@@ -648,27 +660,7 @@ export function SpreadsheetGrid(props: {
     if (touchGesture && event.pointerId !== touchGesture.pointerId) return;
     const gesture = touchGesture;
     stopTouchGesture();
-    if (
-      gesture?.kind === 'tap' &&
-      !gesture.moved &&
-      Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) <=
-        TOUCH_SLOP
-    ) {
-      tapCell(gesture.position, event.timeStamp);
-    } else if (
-      gesture &&
-      gesture.kind !== 'tap' &&
-      !gesture.moved &&
-      gesture.tapPosition &&
-      Math.hypot(
-        event.clientX - gesture.startX,
-        event.clientY - gesture.startY
-      ) <= TOUCH_SLOP
-    ) {
-      // The accessible grip extends over nearby cells. A tap in its invisible
-      // padding should still select that cell; only a drag claims the grip.
-      tapCell(gesture.tapPosition, event.timeStamp);
-    }
+    updateEndPointer();
     dragging = false;
     headerDrag = undefined;
     props.onReferenceEnd?.();
@@ -678,9 +670,19 @@ export function SpreadsheetGrid(props: {
     if (source && target && !props.readonly) {
       const generation = ++fillGeneration;
       // Keep the preview until formula relocation has committed the new cells.
-      void Promise.resolve(props.onFill?.(source, target)).finally(() => {
+      const settleResolveFinally = async () => {
         if (generation === fillGeneration) setFillTarget(undefined);
-      });
+
+        return;
+      };
+      const settleResolve = async () => {
+        try {
+          return await Promise.resolve(props.onFill?.(source, target));
+        } finally {
+          await settleResolveFinally();
+        }
+      };
+      void settleResolve();
     }
     const resize = resizing();
     if (resize && !props.readonly)
@@ -692,6 +694,30 @@ export function SpreadsheetGrid(props: {
       props.onResizeRow?.(rowResize.row, rowResize.height);
     setResizingRow(undefined);
     rowResizeStart = undefined;
+
+    function updateEndPointer() {
+      if (
+        gesture?.kind === 'tap' &&
+        !gesture.moved &&
+        Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) <=
+          TOUCH_SLOP
+      ) {
+        tapCell(gesture.position, event.timeStamp);
+      } else if (
+        gesture &&
+        gesture.kind !== 'tap' &&
+        !gesture.moved &&
+        gesture.tapPosition &&
+        Math.hypot(
+          event.clientX - gesture.startX,
+          event.clientY - gesture.startY
+        ) <= TOUCH_SLOP
+      ) {
+        // The accessible grip extends over nearby cells. A tap in its invisible
+        // padding should still select that cell; only a drag claims the grip.
+        tapCell(gesture.tapPosition, event.timeStamp);
+      }
+    }
   }
 
   function cancelPointer() {
@@ -1238,12 +1264,7 @@ export function SpreadsheetGrid(props: {
               if (first) revealDrawing(first.id);
               return;
             }
-            if (
-              event.altKey &&
-              event.key === 'ArrowDown' &&
-              !props.readonly &&
-              props.listItems?.length
-            ) {
+            if (hasAltKey()) {
               event.preventDefault();
               setListOpenAt(cellAddress(props.selection.anchor));
               return;
@@ -1255,13 +1276,26 @@ export function SpreadsheetGrid(props: {
             props.onKeyDown(event);
             // Select all ends at the last cell; revealing it would scroll away
             // from the cells the user is looking at.
-            if (
-              !selectsAll &&
-              !props.editing &&
-              (previous.row !== props.selection.focus.row ||
-                previous.column !== props.selection.focus.column)
-            )
-              revealSelection();
+            updateOnKeyDown();
+
+            function hasAltKey() {
+              return (
+                event.altKey &&
+                event.key === 'ArrowDown' &&
+                !props.readonly &&
+                props.listItems?.length
+              );
+            }
+
+            function updateOnKeyDown() {
+              if (
+                !selectsAll &&
+                !props.editing &&
+                (previous.row !== props.selection.focus.row ||
+                  previous.column !== props.selection.focus.column)
+              )
+                revealSelection();
+            }
           }}
           onCopy={(event) => {
             if (!isInput(event.target)) copyCells(event);
@@ -1641,18 +1675,7 @@ export function SpreadsheetGrid(props: {
                           aria-label={`${address}${display(address) ? `: ${display(address)}` : ''}`}
                           aria-selected={selected()}
                           data-address={address}
-                          aria-description={
-                            [
-                              props.comments?.hasComment(address)
-                                ? 'Has comments'
-                                : '',
-                              props.notes?.[address]
-                                ? `Note: ${props.notes[address]}`
-                                : '',
-                            ]
-                              .filter(Boolean)
-                              .join('. ') || undefined
-                          }
+                          aria-description={getSpreadsheetGridAriaDescription()}
                           onMouseEnter={(event) => {
                             if (
                               !props.editing &&
@@ -1665,59 +1688,8 @@ export function SpreadsheetGrid(props: {
                               );
                           }}
                           onMouseLeave={() => props.comments?.leave()}
-                          title={
-                            value()?.error ??
-                            value()?.warning ??
-                            (decorated()
-                              ? undefined
-                              : cellPlainText(
-                                  props.cells[address]?.value ?? ''
-                                ).replace(/^'/, ''))
-                          }
-                          style={{
-                            width: width(column),
-                            left: `${columnOffsets()[column]}px`,
-                            'scroll-margin-top': `${headerHeight()}px`,
-                            'scroll-margin-left': `${headerWidth()}px`,
-                            'border-top': border('Top'),
-                            'border-right':
-                              border('Right') ?? gridline('Right'),
-                            'border-bottom':
-                              border('Bottom') ?? gridline('Bottom'),
-                            'border-left': border('Left'),
-                            'background-color': cellBackground(fill()),
-                            color: cellForeground(
-                              look()?.textColor ?? cell()?.textColor,
-                              fill()
-                            ),
-                            'font-family': fontFamily(cell()),
-                            'font-size': `${fontPixels(cell(), defaultFontSize()) * scale()}px`,
-                            'font-style':
-                              (look()?.italic ?? cell()?.italic)
-                                ? 'italic'
-                                : undefined,
-                            'text-decoration-line':
-                              [
-                                (look()?.underline ?? cell()?.underline)
-                                  ? 'underline'
-                                  : '',
-                                (look()?.strikethrough ?? cell()?.strikethrough)
-                                  ? 'line-through'
-                                  : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ') || undefined,
-                            'text-align': horizontalAlign(),
-                            'justify-content':
-                              cell()?.verticalAlign === 'top'
-                                ? 'flex-start'
-                                : cell()?.verticalAlign === 'bottom'
-                                  ? 'flex-end'
-                                  : 'center',
-                            'padding-block':
-                              'var(--spreadsheet-cell-padding-y)',
-                            'line-height': CELL_LINE_HEIGHT,
-                          }}
+                          title={getSpreadsheetGridTitle()}
+                          style={getSpreadsheetGridStyle()}
                           class="absolute top-0 bottom-0 flex flex-col border-b border-r border-edge-muted bg-panel text-ink select-none"
                           classList={{
                             'font-semibold': look()?.bold ?? cell()?.bold,
@@ -1805,46 +1777,7 @@ export function SpreadsheetGrid(props: {
                           </Show>
                           <Show
                             when={active() && props.editing}
-                            fallback={
-                              <div
-                                class="relative w-full min-h-0 overflow-hidden text-ellipsis px-[var(--spreadsheet-cell-padding)]"
-                                classList={{ 'pl-5': !!look()?.icon }}
-                                style={{
-                                  'white-space': cell()?.wrap
-                                    ? 'pre-wrap'
-                                    : 'nowrap',
-                                  'overflow-wrap': cell()?.wrap
-                                    ? 'anywhere'
-                                    : undefined,
-                                }}
-                              >
-                                <Show
-                                  when={!pending()}
-                                  fallback={
-                                    // Results are usually figures, so default to the right.
-                                    <div
-                                      class="skeleton-shimmer h-2 w-1/2 max-w-16 rounded-full bg-skeleton"
-                                      classList={{
-                                        'ml-auto':
-                                          cell()?.horizontalAlign !== 'left',
-                                        'mr-auto':
-                                          cell()?.horizontalAlign === 'left' ||
-                                          cell()?.horizontalAlign === 'center',
-                                      }}
-                                      aria-hidden="true"
-                                    />
-                                  }
-                                >
-                                  {look()?.showValue === false
-                                    ? ''
-                                    : decorated()
-                                      ? props.mentions!.renderText(
-                                          cell()!.value.replace(/^'/, '')
-                                        )
-                                      : display(address)}
-                                </Show>
-                              </div>
-                            }
+                            fallback={getSpreadsheetGridFallback()}
                           >
                             <FormulaInput
                               mentions={props.mentions}
@@ -1943,6 +1876,128 @@ export function SpreadsheetGrid(props: {
                           </Show>
                         </div>
                       );
+
+                      function getSpreadsheetGridAriaDescription():
+                        | string
+                        | undefined {
+                        return (
+                          [
+                            props.comments?.hasComment(address)
+                              ? 'Has comments'
+                              : '',
+                            props.notes?.[address]
+                              ? `Note: ${props.notes[address]}`
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join('. ') || undefined
+                        );
+                      }
+
+                      function getSpreadsheetGridTitle(): string | undefined {
+                        return (
+                          value()?.error ??
+                          value()?.warning ??
+                          (decorated()
+                            ? undefined
+                            : cellPlainText(
+                                props.cells[address]?.value ?? ''
+                              ).replace(/^'/, ''))
+                        );
+                      }
+
+                      function getSpreadsheetGridStyle() {
+                        return {
+                          width: width(column),
+                          left: `${columnOffsets()[column]}px`,
+                          'scroll-margin-top': `${headerHeight()}px`,
+                          'scroll-margin-left': `${headerWidth()}px`,
+                          'border-top': border('Top'),
+                          'border-right': border('Right') ?? gridline('Right'),
+                          'border-bottom':
+                            border('Bottom') ?? gridline('Bottom'),
+                          'border-left': border('Left'),
+                          'background-color': cellBackground(fill()),
+                          color: cellForeground(
+                            look()?.textColor ?? cell()?.textColor,
+                            fill()
+                          ),
+                          'font-family': fontFamily(cell()),
+                          'font-size': `${fontPixels(cell(), defaultFontSize()) * scale()}px`,
+                          'font-style':
+                            (look()?.italic ?? cell()?.italic)
+                              ? 'italic'
+                              : undefined,
+                          'text-decoration-line': buildTextdecorationline(),
+                          'text-align': horizontalAlign(),
+                          'justify-content':
+                            cell()?.verticalAlign === 'top'
+                              ? 'flex-start'
+                              : cell()?.verticalAlign === 'bottom'
+                                ? 'flex-end'
+                                : 'center',
+                          'padding-block': 'var(--spreadsheet-cell-padding-y)',
+                          'line-height': CELL_LINE_HEIGHT,
+                        };
+                      }
+
+                      function buildTextdecorationline() {
+                        return (
+                          [
+                            (look()?.underline ?? cell()?.underline)
+                              ? 'underline'
+                              : '',
+                            (look()?.strikethrough ?? cell()?.strikethrough)
+                              ? 'line-through'
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ') || undefined
+                        );
+                      }
+
+                      function getSpreadsheetGridFallback() {
+                        return (
+                          <div
+                            class="relative w-full min-h-0 overflow-hidden text-ellipsis px-[var(--spreadsheet-cell-padding)]"
+                            classList={{ 'pl-5': !!look()?.icon }}
+                            style={{
+                              'white-space': cell()?.wrap
+                                ? 'pre-wrap'
+                                : 'nowrap',
+                              'overflow-wrap': cell()?.wrap
+                                ? 'anywhere'
+                                : undefined,
+                            }}
+                          >
+                            <Show
+                              when={!pending()}
+                              fallback={
+                                // Results are usually figures, so default to the right.
+                                <div
+                                  class="skeleton-shimmer h-2 w-1/2 max-w-16 rounded-full bg-skeleton"
+                                  classList={{
+                                    'ml-auto':
+                                      cell()?.horizontalAlign !== 'left',
+                                    'mr-auto':
+                                      cell()?.horizontalAlign === 'left' ||
+                                      cell()?.horizontalAlign === 'center',
+                                  }}
+                                  aria-hidden="true"
+                                />
+                              }
+                            >
+                              {look()?.showValue === false
+                                ? ''
+                                : decorated()
+                                  ? props.mentions!.renderText(
+                                      cell()!.value.replace(/^'/, '')
+                                    )
+                                  : display(address)}
+                            </Show>
+                          </div>
+                        );
+                      }
                     }}
                   </For>
                 </div>

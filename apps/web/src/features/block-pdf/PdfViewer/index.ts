@@ -275,7 +275,10 @@ export class PDFViewer extends InternalPDFViewer {
     this._viewer._setScale(scale, true);
 
     const hash = this.#savedPosition;
-    this._viewer._pagesCapability.promise.then(() => {
+
+    const settlePromise = async () => {
+      await this._viewer._pagesCapability.promise;
+
       if (hash) {
         const hashNoNull = hash.includes('zoom=null')
           ? hash.replace('zoom=null', 'zoom=auto')
@@ -284,7 +287,10 @@ export class PDFViewer extends InternalPDFViewer {
       }
       this.#savedScale = undefined;
       this.#savedPosition = undefined;
-    });
+
+      return;
+    };
+    settlePromise();
   }
 
   // The page width/height is used for a lot of calculations, for things like placeables,

@@ -1,7 +1,8 @@
 import { SERVER_HOSTS } from '@core/constant/servers';
 import { platformFetch } from '@core/util/platformFetch';
 import { WebsocketConnectionState } from '@macro-inc/collaboration/websocket';
-import { connectionGatewayClient } from '@service-connection/client';
+import { trackEntity } from '@queries/connection/requests';
+
 import {
   state as connectionState,
   createConnectionWebsocketEffect,
@@ -32,7 +33,7 @@ export default function HttpStreamDebug() {
     const id = chatId();
     const connected = connectionState() === WebsocketConnectionState.Open;
     if (id && connected) {
-      connectionGatewayClient.trackEntity({
+      trackEntity({
         entity_type: 'chat',
         entity_id: id,
         action: 'open',
@@ -118,7 +119,7 @@ export default function HttpStreamDebug() {
         setChatId(data.chat_id);
       }
       // Subscribe to the chat entity so the connection gateway routes messages to us
-      connectionGatewayClient.trackEntity({
+      trackEntity({
         entity_type: 'chat',
         entity_id: data.chat_id || chatId(),
         action: 'open',

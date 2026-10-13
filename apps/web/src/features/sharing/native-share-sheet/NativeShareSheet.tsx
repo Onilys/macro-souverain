@@ -308,12 +308,21 @@ function NativeShareSheetComposer(props: { handleCancel: () => void }) {
     hasSendableInputContent(inputState.view());
 
   const handleHeaderSend = () => {
-    void inputState.commands.send().catch((error) => {
-      console.error(
-        'failed to send from native share sheet header action',
-        error
-      );
-    });
+    const settleSend = async () => {
+      try {
+        return await inputState.commands.send();
+      } catch (settleSendError) {
+        const error = settleSendError;
+
+        console.error(
+          'failed to send from native share sheet header action',
+          error
+        );
+
+        return;
+      }
+    };
+    void settleSend();
   };
 
   return (

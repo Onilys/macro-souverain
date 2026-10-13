@@ -1185,13 +1185,22 @@ export function StaticMarkdown(props: {
     const editor = currentEditor();
 
     // Handle citations without affecting mentions
-    replaceCitations(props.markdown).then((content: string) => {
+
+    const settleReplaceCitations = async () => {
+      const settleReplaceCitationsValue = await replaceCitations(
+        props.markdown
+      );
+      const content: string = settleReplaceCitationsValue;
+
       setEditorStateFromMarkdown(editor, content, props.target);
       if (props.singleLine) {
         forceSingleLine(editor);
       }
       setEditorState(editor.getEditorState());
-    });
+
+      return;
+    };
+    settleReplaceCitations();
   });
 
   const domTree = createMemo(() => {

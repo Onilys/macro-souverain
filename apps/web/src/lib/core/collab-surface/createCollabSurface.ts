@@ -11,11 +11,12 @@ import {
   LORO_WAL_DB_NAME,
 } from '@macro-inc/collaboration/collab/wal';
 import { MARKDOWN_LORO_SCHEMA } from '@macro-inc/lexical-core/markdown-loro-schema';
-import { storageServiceClient } from '@service-storage/client';
+import { ensureCollabSurface } from '@queries/storage/requests';
+
 import type { CollabSurfaceResponse } from '@service-storage/service';
 import { createCollabSurfaceSource } from '@service-sync/source';
 import { type Accessor, createSignal } from 'solid-js';
-import { getCollabSurfaceToken } from './token';
+import { getCollabSurfaceToken } from '../../queries/storage/collab-surface-token';
 
 export type CollabSurfaceLoroManager = LoroManager<typeof MARKDOWN_LORO_SCHEMA>;
 
@@ -122,23 +123,40 @@ export function createCollabSurfaceSession(
 
   const optimisticSnapshot = opts.optimisticSnapshot;
   if (optimisticSnapshot) {
-    void loroManager
-      .ingest({ kind: 'optimistic', snapshot: optimisticSnapshot })
-      .catch((error) => {
+    const settleIngest = async () => {
+      try {
+        return await loroManager.ingest({
+          kind: 'optimistic',
+          snapshot: optimisticSnapshot,
+        });
+      } catch (settleIngestError) {
+        const error = settleIngestError;
+
         console.error('collab surface: optimistic ingest failed', error);
-      });
+
+        return;
+      }
+    };
+    void settleIngest();
   }
 
-  void ingestLocalSnapshot(loroManager, snapshotStore, walStore).catch(
-    (error) => {
+  const settleIngestLocalSnapshot = async () => {
+    try {
+      return await ingestLocalSnapshot(loroManager, snapshotStore, walStore);
+    } catch (settleIngestLocalSnapshotError) {
+      const error = settleIngestLocalSnapshotError;
+
       console.error('collab surface: local snapshot ingest failed', error);
+
+      return;
     }
-  );
+  };
+  void settleIngestLocalSnapshot();
 
   void (async () => {
     // Load-or-create. Idempotent on the backend, so mounting the same
     // surface in several places (or racing another client) is fine.
-    const ensured = await storageServiceClient.collabSurfaces.ensure({
+    const ensured = await ensureCollabSurface({
       id: surfaceId,
       parentEntityType: opts.parent.entityType,
       parentEntityId: opts.parent.entityId,

@@ -104,17 +104,27 @@ export const ImageGalleryPreview: Component<ImageGalleryPreviewProps> = (
   // Thumbnail menu actions (operate on a specific image by ID)
   const copyToClipboardById = (id: string) => {
     const url = getImageUrl(id);
-    return copyImageToClipboard(
-      () => platformFetch(url).then((r) => r.blob()),
-      url
-    );
+    return copyImageToClipboard(() => {
+      const settlePlatformFetch = async () => {
+        const settlePlatformFetchValue = await platformFetch(url);
+        const r = settlePlatformFetchValue;
+        return await r.blob();
+      };
+      return settlePlatformFetch();
+    }, url);
   };
 
   const downloadImageById = (id: string) =>
-    downloadImage(
-      () => platformFetch(getImageUrl(id)).then((r) => r.blob()),
-      id
-    );
+    downloadImage(() => {
+      const settlePlatformFetchResult = async () => {
+        const settlePlatformFetchResultValue = await platformFetch(
+          getImageUrl(id)
+        );
+        const r = settlePlatformFetchResultValue;
+        return await r.blob();
+      };
+      return settlePlatformFetchResult();
+    }, id);
 
   return (
     <Dialog

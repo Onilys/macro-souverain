@@ -299,20 +299,33 @@ export function createCallLifecycle(options: {
             options.setError(null);
             settled = true;
             request.resolve();
-            const connected = call ?? {
-              channelId: request.channelId,
-              callId: null,
-            };
+            const connected = buildConnected(call);
             dispatch({ t: 'connected', call: connected });
             try {
               const current = machine.getState();
-              if (current.t === 'active' && sameCall(current.call, connected))
-                options.onJoined(connected);
+              updateConnect(current, connected);
             } catch (error) {
               options.reportError(error);
             }
           } catch (error) {
             fail(error);
+          }
+
+          function buildConnected(call: CallIdentity | undefined) {
+            return (
+              call ?? {
+                channelId: request.channelId,
+                callId: null,
+              }
+            );
+          }
+
+          function updateConnect(
+            current: CallLifecycleState,
+            connected: CallIdentity
+          ) {
+            if (current.t === 'active' && sameCall(current.call, connected))
+              options.onJoined(connected);
           }
         }
         void connect();

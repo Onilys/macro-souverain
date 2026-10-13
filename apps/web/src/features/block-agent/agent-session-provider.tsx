@@ -1,6 +1,6 @@
 /** App-facing composition for the agent session and its controllers. */
 
-import { AgentSession } from '@core/agent-session/AgentSession';
+import { AgentSession } from '@app/lib/queries/agent-session/agent-session';
 import { toast } from '@core/component/Toast/Toast';
 import { isCodexBotId } from '@core/constant/codexAgent';
 import { isCursorBotId } from '@core/constant/cursorAgent';

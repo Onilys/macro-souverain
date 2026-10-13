@@ -280,11 +280,17 @@ export function ColorPicker(props: {
             testId="pptx-eyedropper"
             onClick={() => {
               const Ctor = EyeDropper();
-              new Ctor()
-                .open()
-                .then(({ sRGBHex }) => pickCustom(sRGBHex))
-                // Escape cancels the pick.
-                .catch(() => {});
+
+              const settleOpen = async () => {
+                try {
+                  const settleOpenValue = await new Ctor().open();
+                  const { sRGBHex } = settleOpenValue;
+                  return await pickCustom(sRGBHex);
+                } catch {
+                  return;
+                }
+              };
+              settleOpen();
             }}
           />
         )}

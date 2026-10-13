@@ -102,18 +102,27 @@ function PresentationHost(props: {
   onMount(() => {
     let disposed = false;
     // A copy is transferred, so a remount can open the original again.
-    (props.open?.() ?? openWorkerPresentation(props.bytes.slice(0)))
-      .then((e) => {
+
+    const settleOperation = async () => {
+      try {
+        const settleOperationValue = await (props.open?.() ??
+          openWorkerPresentation(props.bytes.slice(0)));
+        const e = settleOperationValue;
+
         if (disposed) {
           e.close();
           return;
         }
         setEngine(e);
         props.onEngine(e);
-      })
-      .catch((e: unknown) =>
-        setFailure(e instanceof Error ? e.message : String(e))
-      );
+
+        return;
+      } catch (settleOperationError) {
+        const e: unknown = settleOperationError;
+        return await setFailure(e instanceof Error ? e.message : String(e));
+      }
+    };
+    settleOperation();
     onCleanup(() => {
       disposed = true;
       engine()?.close();

@@ -140,7 +140,17 @@ export function createWebSocketJob<T, R, D, U>({
           return;
         }
 
-        handleSuccess(currentResult).then(resolve).catch(reject);
+        const settleHandleSuccessHandler0 = resolve;
+        const settleHandleSuccessHandler1 = reject;
+        const settleHandleSuccess = async () => {
+          try {
+            const settleHandleSuccessValue = await handleSuccess(currentResult);
+            return await settleHandleSuccessHandler0(settleHandleSuccessValue);
+          } catch (settleHandleSuccessError) {
+            return await settleHandleSuccessHandler1(settleHandleSuccessError);
+          }
+        };
+        settleHandleSuccess();
         return;
       }
 

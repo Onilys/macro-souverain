@@ -1,7 +1,7 @@
+import { trackMention } from '@app/lib/queries/storage/mentions';
 import { globalSplitManager } from '@app/signal/splitLayout';
 import type { ComposeTaskSuccess } from '@block-md/component/ComposeTask';
 import { enableDatabases, isFeatureEnabled } from '@core/constant/featureFlags';
-import { trackMention } from '@core/signal/mention';
 import { LinkNode } from '@lexical/link';
 import { ListNode } from '@lexical/list';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';

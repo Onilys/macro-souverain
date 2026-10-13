@@ -57,7 +57,12 @@ describe('createPdfPersistence', () => {
       () => true
     );
     const finished = vi.fn();
-    const waiting = persistence.waitForSaves().then(finished);
+    const settleWaitForSavesHandler0 = finished;
+    const settleWaitForSaves = async () => {
+      const settleWaitForSavesValue = await persistence.waitForSaves();
+      return await settleWaitForSavesHandler0(settleWaitForSavesValue);
+    };
+    const waiting = settleWaitForSaves();
     await Promise.resolve();
     expect(finished).not.toHaveBeenCalled();
     deferred.resolve();

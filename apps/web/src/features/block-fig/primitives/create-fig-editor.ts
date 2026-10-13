@@ -269,15 +269,21 @@ export function createFigEditor(options: FigEditorOptions) {
   let clipboard: string[] = [];
   /** Whether the page may read the system clipboard without asking. */
   let clipboardReadable = false;
-  void navigator.permissions
-    ?.query({ name: 'clipboard-read' as PermissionName })
-    .then((status) => {
+  const watchClipboardPermission = async () => {
+    if (!navigator.permissions) return;
+    try {
+      const status = await navigator.permissions.query({
+        name: 'clipboard-read' as PermissionName,
+      });
       clipboardReadable = status.state === 'granted';
       status.onchange = () => {
         clipboardReadable = status.state === 'granted';
       };
-    })
-    .catch(() => {});
+    } catch {
+      // Unsupported permission queries leave the clipboard unreadable.
+    }
+  };
+  void watchClipboardPermission();
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let saving: Promise<void> | undefined;
   let dirtySinceSave = false;
@@ -431,13 +437,19 @@ export function createFigEditor(options: FigEditorOptions) {
     if (pushTimer) return;
     pushTimer = setTimeout(() => {
       pushTimer = undefined;
-      queue = queue.then(async () => {
+
+      const settleQueue = async () => {
+        await queue;
+
         try {
           await sharing?.push();
         } catch (e) {
           options.notifyError(e instanceof Error ? e.message : String(e));
         }
-      });
+
+        return;
+      };
+      queue = settleQueue();
     }, GESTURE_PUSH_MS);
   };
   onCleanup(() => clearTimeout(pushTimer));
@@ -446,14 +458,20 @@ export function createFigEditor(options: FigEditorOptions) {
   const unsubscribeIncoming = sharing?.onIncoming(() => {
     if (pullQueued) return;
     pullQueued = true;
-    queue = queue.then(async () => {
+
+    const settleQueueResult = async () => {
+      await queue;
+
       pullQueued = false;
       try {
         await pullShared();
       } catch (e) {
         options.notifyError(e instanceof Error ? e.message : String(e));
       }
-    });
+
+      return;
+    };
+    queue = settleQueueResult();
   });
   onCleanup(() => unsubscribeIncoming?.());
 
@@ -470,13 +488,16 @@ export function createFigEditor(options: FigEditorOptions) {
   ) => {
     if (!enabled() || (Array.isArray(ops) && ops.length === 0))
       return Promise.resolve(undefined);
-    const run = queue.then(async () => {
+
+    const settleQueueResultResult = async () => {
+      await queue;
+
       try {
         // Other people's changes that arrived first apply first.
         await pullShared();
         const page = viewer.page();
         const resolved = typeof ops === 'function' ? await ops(page) : ops;
-        if (resolved.length === 0) return undefined;
+        if (resolved.length === 0) return await undefined;
         const before = viewer.selected();
         const result = await engine.apply(page, resolved, coalesce);
         // A drag's later steps coalesce into its first: keep that one's.
@@ -491,19 +512,23 @@ export function createFigEditor(options: FigEditorOptions) {
         if (coalesce) pushSoon();
         else await pushNow();
         await settle(result, quiet);
-        return result;
+        return await result;
       } catch (e) {
         options.notifyError(e instanceof Error ? e.message : String(e));
-        return undefined;
+        return await undefined;
       }
-    });
+    };
+    const run = settleQueueResultResult();
     queue = run;
     return run;
   };
 
   const history = (action: 'undo' | 'redo'): Promise<unknown> => {
     if (!enabled()) return Promise.resolve();
-    queue = queue.then(async () => {
+
+    const settleQueueResultResultResult = async () => {
+      await queue;
+
       try {
         await pullShared();
         const step = action === 'undo' ? undoStep : redoStep;
@@ -525,7 +550,10 @@ export function createFigEditor(options: FigEditorOptions) {
       } catch (e) {
         options.notifyError(e instanceof Error ? e.message : String(e));
       }
-    });
+
+      return;
+    };
+    queue = settleQueueResultResultResult();
     return queue;
   };
 
@@ -636,18 +664,22 @@ export function createFigEditor(options: FigEditorOptions) {
    */
   const importLibrary = async (pkg: LibraryPackage, spec: LibrarySpec) => {
     if (!enabled()) return undefined;
-    const run = queue.then(async () => {
+
+    const settleQueueResultResultResultResult = async () => {
+      await queue;
+
       try {
         await pullShared();
         const result = await engine.importLibrary(viewer.page(), pkg, spec);
         await pushNow();
         await settle(result);
-        return result;
+        return await result;
       } catch (e) {
         options.notifyError(e instanceof Error ? e.message : String(e));
-        return undefined;
+        return await undefined;
       }
-    });
+    };
+    const run = settleQueueResultResultResultResult();
     queue = run;
     const result = await run;
     await selectCreated(result);
@@ -753,19 +785,30 @@ export function createFigEditor(options: FigEditorOptions) {
       dataType: 'scene',
       ids,
     };
-    const html = engine
-      .copy(viewer.page(), ids)
-      .then(
-        (copied) =>
-          new Blob([encodeClipboard({ meta, copied })], { type: 'text/html' })
-      );
+
+    const settleCopy = async () => {
+      const settleCopyValue = await engine.copy(viewer.page(), ids);
+      const copied = settleCopyValue;
+      return await new Blob([encodeClipboard({ meta, copied })], {
+        type: 'text/html',
+      });
+    };
+    const html = settleCopy();
     // The item is handed over now, inside the key press, and filled in
     // when the engine has written the layers.
     try {
       if (typeof ClipboardItem === 'undefined') return;
-      void navigator.clipboard
-        .write([new ClipboardItem({ 'text/html': html })])
-        .catch(() => {});
+
+      const settleWrite = async () => {
+        try {
+          return await navigator.clipboard.write([
+            new ClipboardItem({ 'text/html': html }),
+          ]);
+        } catch {
+          return;
+        }
+      };
+      void settleWrite();
     } catch {
       // No clipboard access: pasting here still works.
     }
@@ -824,17 +867,7 @@ export function createFigEditor(options: FigEditorOptions) {
               selection.map((s) => s.id)
             )
           : [];
-      const sameFile =
-        !payload ||
-        (!!payload.meta && payload.meta.fileKey === (options.fileKey ?? ''));
-      parent = pasteParent(
-        selection.map((s) => ({
-          ...s,
-          type: rows.find((r) => r.id === s.id)?.type ?? 'GROUP',
-        })),
-        page.id,
-        sameFile ? (payload ? (payload.meta?.ids ?? []) : own) : []
-      );
+      parent = selectedPasteParent(selection, rows);
     }
     const c = viewer.camera();
     const v = viewer.viewport();
@@ -844,7 +877,10 @@ export function createFigEditor(options: FigEditorOptions) {
       ...(place && 'at' in place ? { at: place.at } : {}),
       ...(place && 'replace' in place ? { replace: place.replace } : {}),
     };
-    const run = queue.then(async () => {
+
+    const settleQueueResultResultResultResultResult = async () => {
+      await queue;
+
       try {
         const copied =
           payload?.copied ?? (await engine.copy(viewer.page(), own));
@@ -853,14 +889,32 @@ export function createFigEditor(options: FigEditorOptions) {
         const result = await engine.paste(viewer.page(), copied, spec);
         await pushNow();
         await settle(result);
-        return result;
+        return await result;
       } catch (e) {
         options.notifyError(e instanceof Error ? e.message : String(e));
-        return undefined;
+        return await undefined;
       }
-    });
+    };
+    const run = settleQueueResultResultResultResultResult();
     queue = run;
     await selectCreated(await run);
+
+    function selectedPasteParent(
+      selection: Selected[],
+      rows: Awaited<ReturnType<FigEngine['rows']>>
+    ) {
+      const sameFile =
+        !payload ||
+        (!!payload.meta && payload.meta.fileKey === (options.fileKey ?? ''));
+      return pasteParent(
+        selection.map((s) => ({
+          ...s,
+          type: rows.find((r) => r.id === s.id)?.type ?? 'GROUP',
+        })),
+        page.id,
+        sameFile ? (payload ? (payload.meta?.ids ?? []) : own) : []
+      );
+    }
   };
 
   /** ⌘V (`html` from the paste event) and the menus' Paste. */

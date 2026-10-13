@@ -46,7 +46,12 @@ function scan(formula: string): Piece[] {
       }
       pieces.push({ kind: 'bracket', text: formula.slice(index, end + 1) });
       index = end + 1;
-    } else if (/[\p{L}\p{N}_$\\.]/u.test(character)) {
+    } else updateEnd(character);
+  }
+  return pieces;
+
+  function updateEnd(character: string) {
+    if (/[\p{L}\p{N}_$\\.]/u.test(character)) {
       let end = index + 1;
       while (end < formula.length && /[\p{L}\p{N}_$\\.?]/u.test(formula[end]))
         end++;
@@ -66,7 +71,6 @@ function scan(formula: string): Piece[] {
       index++;
     }
   }
-  return pieces;
 }
 
 const cellReference = /^(\$?)([A-Z]{1,3})(\$?)([1-9]\d{0,6})$/i;
@@ -135,14 +139,37 @@ export function translateFormula(
     ) {
       const left = shiftColumn(leftColumn[1], leftColumn[2]);
       const right = shiftColumn(rightColumn[1], rightColumn[2]);
-      output[index] = left && right ? left : '#REF!';
-      output[index + 2] = left && right ? right : '';
+      output[index] = buildTranslateFormula2(left, right);
+      output[index + 2] = buildTranslateFormula(left, right);
       if (!left || !right) output[index + 1] = '';
       index += 2;
       continue;
     }
     const leftRow = rowReference.exec(piece.text);
     const rightRow = rowReference.exec(colon.text);
+    index = updateTranslateFormula(leftRow, rightRow, index);
+  }
+  return output.join('');
+
+  function buildTranslateFormula2(
+    left: string | undefined,
+    right: string | undefined
+  ): string {
+    return left && right ? left : '#REF!';
+  }
+
+  function buildTranslateFormula(
+    left: string | undefined,
+    right: string | undefined
+  ): string {
+    return left && right ? right : '';
+  }
+
+  function updateTranslateFormula(
+    leftRow: RegExpExecArray | null,
+    rightRow: RegExpExecArray | null,
+    index: number
+  ) {
     if (leftRow && rightRow) {
       const top = shiftRow(leftRow[1], leftRow[2]);
       const bottom = shiftRow(rightRow[1], rightRow[2]);
@@ -151,8 +178,8 @@ export function translateFormula(
       if (!top || !bottom) output[index + 1] = '';
       index += 2;
     }
+    return index;
   }
-  return output.join('');
 }
 
 /** Excel stores post-2007 functions with `_xlfn.` (and `_xlws.`) prefixes. */
@@ -255,12 +282,7 @@ export function expandSheetRanges(
       if (names.length !== 2) continue;
       [first, last] = names;
       bang = index + 1;
-    } else if (
-      piece.kind === 'word' &&
-      pieces[index + 1]?.text === ':' &&
-      pieces[index + 2]?.kind === 'word' &&
-      pieces[index + 3]?.text === '!'
-    ) {
+    } else if (isUnquotedSheetRangeStart(pieces, index)) {
       [first, last] = [piece.text, pieces[index + 2].text];
       bang = index + 3;
     } else continue;
@@ -398,37 +420,17 @@ function rangeOperands(pieces: Piece[], rangeNames: ReadonlySet<string>) {
     const piece = pieces[index];
     if (piece.kind === 'other') {
       const top = frames.at(-1);
-      if (piece.text === '(') {
-        const previous = pieces[index - 1];
-        frames.push({
-          argument: 0,
-          ...(previous?.kind === 'word' && {
-            name: previous.text.toUpperCase(),
-          }),
-        });
-      } else if (piece.text === '{') frames.push({ argument: 0, brace: true });
-      else if (piece.text === ')' || piece.text === '}') frames.pop();
-      else if (piece.text === ',' && top) top.argument++;
+      updateArgument(piece, index, top);
       continue;
     }
     if (frames.at(-1)?.brace) continue;
     // A sheet-qualified reference starts at its sheet name.
     let start = index;
     let referenceIndex = index;
-    if (
-      (piece.kind === 'quoted' || piece.kind === 'word') &&
-      pieces[index + 1]?.text === '!'
-    )
-      referenceIndex = index + 2;
+    referenceIndex = updateReferenceIndex(piece, index, referenceIndex);
     let end: number | undefined;
     let range = false;
-    const name =
-      referenceIndex === index &&
-      piece.kind === 'word' &&
-      rangeNames.has(piece.text.toLowerCase()) &&
-      pieces[index + 1]?.text !== '(' &&
-      pieces[index + 1]?.kind !== 'bracket' &&
-      pieces[index - 1]?.text !== '!';
+    const name = buildName(referenceIndex, index, piece);
     if (name) {
       end = index;
       range = true;
@@ -444,11 +446,7 @@ function rangeOperands(pieces: Piece[], rangeNames: ReadonlySet<string>) {
       const last = pieces[end].text.replaceAll('$', '').toUpperCase();
       // A1:A1 is one cell; A:A and 1:1 are whole columns and rows. A function
       // named like a cell (LOG10) is not a reference.
-      range =
-        end !== referenceIndex &&
-        (first !== last || !/^[A-Z]+\d+$/.test(first)) &&
-        pieces[end + 1]?.text !== '(' &&
-        pieces[referenceIndex + 1]?.text !== '(';
+      range = isRangeOperandsAllowed(end, referenceIndex, first, last);
       if (!referenceContext(pieces, end)) range = false;
     }
     if (!range) {
@@ -472,22 +470,78 @@ function rangeOperands(pieces: Piece[], rangeNames: ReadonlySet<string>) {
     let intersects: boolean;
     if (arrayContext || combines(before, 'left') || combines(after, 'right'))
       intersects = false;
-    else if (
-      (before.piece?.text === '(' || before.piece?.text === ',') &&
-      (after.piece?.text === ')' || after.piece?.text === ',')
-    ) {
-      if (top?.name) intersects = argumentClass(top.name, top.argument) === 'V';
-      // A comma inside plain parentheses is a union of references, and a
-      // parenthesized reference stays a reference.
-      else
-        intersects =
-          before.piece?.text === '(' &&
-          after.piece?.text === ')' &&
-          (!named?.name || argumentClass(named.name, named.argument) === 'V');
-    } else intersects = true;
+    else intersects = updateIntersects(before, after, top, named);
     operands.push({ start, end, marked, intersects });
     // ROW(A1:A3) and COLUMN(A1:A3) return arrays; outside an array argument
     // a legacy formula reads their first value, as `@ROW(A1:A3)` does.
+    updateRangeOperands(marked, top, before, after, arrayContext);
+    index = end;
+  }
+  return operands;
+
+  function isRangeOperandsAllowed(
+    end: number,
+    referenceIndex: number,
+    first: string,
+    last: string
+  ): boolean {
+    return (
+      end !== referenceIndex &&
+      (first !== last || !/^[A-Z]+\d+$/.test(first)) &&
+      pieces[end + 1]?.text !== '(' &&
+      pieces[referenceIndex + 1]?.text !== '('
+    );
+  }
+
+  function updateReferenceIndex(
+    piece: Piece,
+    index: number,
+    referenceIndex: number
+  ) {
+    if (
+      (piece.kind === 'quoted' || piece.kind === 'word') &&
+      pieces[index + 1]?.text === '!'
+    )
+      referenceIndex = index + 2;
+    return referenceIndex;
+  }
+
+  function updateArgument(
+    piece: { kind: 'string' | 'quoted' | 'bracket' | 'other'; text: string },
+    index: number,
+    top: { name?: string; argument: number; brace?: boolean } | undefined
+  ) {
+    if (piece.text === '(') {
+      const previous = pieces[index - 1];
+      frames.push({
+        argument: 0,
+        ...(previous?.kind === 'word' && {
+          name: previous.text.toUpperCase(),
+        }),
+      });
+    } else if (piece.text === '{') frames.push({ argument: 0, brace: true });
+    else if (piece.text === ')' || piece.text === '}') frames.pop();
+    else if (piece.text === ',' && top) top.argument++;
+  }
+
+  function buildName(referenceIndex: number, index: number, piece: Piece) {
+    return (
+      referenceIndex === index &&
+      piece.kind === 'word' &&
+      rangeNames.has(piece.text.toLowerCase()) &&
+      pieces[index + 1]?.text !== '(' &&
+      pieces[index + 1]?.kind !== 'bracket' &&
+      pieces[index - 1]?.text !== '!'
+    );
+  }
+
+  function updateRangeOperands(
+    marked: boolean,
+    top: { name?: string; argument: number; brace?: boolean } | undefined,
+    before: { at: number; piece: Piece | undefined; spaced: boolean },
+    after: { at: number; piece: Piece | undefined; spaced: boolean },
+    arrayContext: boolean
+  ) {
     if (
       !marked &&
       top?.name &&
@@ -503,9 +557,30 @@ function rangeOperands(pieces: Piece[], rangeNames: ReadonlySet<string>) {
         intersects: !arrayContext,
       });
     }
-    index = end;
   }
-  return operands;
+
+  function updateIntersects(
+    before: { at: number; piece: Piece | undefined; spaced: boolean },
+    after: { at: number; piece: Piece | undefined; spaced: boolean },
+    top: { name?: string; argument: number; brace?: boolean } | undefined,
+    named: { name?: string; argument: number; brace?: boolean } | undefined
+  ) {
+    let intersects: boolean;
+    if (
+      (before.piece?.text === '(' || before.piece?.text === ',') &&
+      (after.piece?.text === ')' || after.piece?.text === ',')
+    ) {
+      if (top?.name) intersects = argumentClass(top.name, top.argument) === 'V';
+      // A comma inside plain parentheses is a union of references, and a
+      // parenthesized reference stays a reference.
+      else
+        intersects =
+          before.piece?.text === '(' &&
+          after.piece?.text === ')' &&
+          (!named?.name || argumentClass(named.name, named.argument) === 'V');
+    } else intersects = true;
+    return intersects;
+  }
 }
 
 /** Add Excel's `@` where a formula saved without dynamic-array evaluation
@@ -780,22 +855,7 @@ function structuredRange(
   // `Table1[...]` brackets wrap either one item or a list of bracketed items.
   const inner = specifier.slice(1, -1).trim();
   const items: string[] = [];
-  if (inner.startsWith('[')) {
-    for (const match of inner.matchAll(/\[((?:'.|[^\]])*)\]|(:)|,/g))
-      items.push(match[2] ?? match[1] ?? ',');
-  } else if (inner.startsWith('@')) {
-    items.push('#This Row');
-    const rest = inner.slice(1).trim();
-    if (rest) items.push(rest.replace(/^\[(.*)\]$/, '$1'));
-  } else if (inner) items.push(inner);
-  let rows:
-    | 'data'
-    | 'all'
-    | 'headers'
-    | 'totals'
-    | 'this'
-    | 'data-totals'
-    | 'headers-data' = 'data';
+  updateStructuredRange();
   const area = new Set<string>();
   const columnNames: string[] = [];
   let span = false;
@@ -810,12 +870,7 @@ function structuredRange(
     else if (lower === '@') area.add('#this row');
     else columnNames.push(columnSpecifier(item));
   }
-  if (area.has('#all')) rows = 'all';
-  else if (area.has('#this row')) rows = 'this';
-  else if (area.has('#headers') && area.has('#data')) rows = 'headers-data';
-  else if (area.has('#data') && area.has('#totals')) rows = 'data-totals';
-  else if (area.has('#headers')) rows = 'headers';
-  else if (area.has('#totals')) rows = 'totals';
+  const rows = resolveRows();
   const firstData = table.top + table.headerRows;
   const lastData = table.bottom - table.totalsRows;
   const [top, bottom] = {
@@ -827,13 +882,7 @@ function structuredRange(
     'data-totals': [firstData, table.bottom],
     this: [row, row],
   }[rows];
-  if (
-    (rows === 'headers' && !table.headerRows) ||
-    (rows === 'totals' && !table.totalsRows) ||
-    (rows === 'this' && (row < firstData || row > lastData)) ||
-    top > bottom
-  )
-    return;
+  if (isStructuredRangeAllowed()) return;
   const index = (name: string) =>
     table.columns.findIndex((column) => column.toLowerCase() === name);
   let left = table.left;
@@ -851,6 +900,43 @@ function structuredRange(
   const start = `$${columnLetters(left + 1)}${rowText(top)}`;
   const end = `$${columnLetters(right + 1)}${rowText(bottom)}`;
   return `${prefix}${start === end ? start : `${start}:${end}`}`;
+
+  function isStructuredRangeAllowed() {
+    return (
+      (rows === 'headers' && !table.headerRows) ||
+      (rows === 'totals' && !table.totalsRows) ||
+      (rows === 'this' && (row < firstData || row > lastData)) ||
+      top > bottom
+    );
+  }
+
+  function updateStructuredRange() {
+    if (inner.startsWith('[')) {
+      for (const match of inner.matchAll(/\[((?:'.|[^\]])*)\]|(:)|,/g))
+        items.push(match[2] ?? match[1] ?? ',');
+    } else if (inner.startsWith('@')) {
+      items.push('#This Row');
+      const rest = inner.slice(1).trim();
+      if (rest) items.push(rest.replace(/^\[(.*)\]$/, '$1'));
+    } else if (inner) items.push(inner);
+  }
+
+  function resolveRows():
+    | 'all'
+    | 'data'
+    | 'this'
+    | 'headers-data'
+    | 'data-totals'
+    | 'headers'
+    | 'totals' {
+    if (area.has('#all')) return 'all';
+    if (area.has('#this row')) return 'this';
+    if (area.has('#headers') && area.has('#data')) return 'headers-data';
+    if (area.has('#data') && area.has('#totals')) return 'data-totals';
+    if (area.has('#headers')) return 'headers';
+    if (area.has('#totals')) return 'totals';
+    return 'data';
+  }
 }
 
 /** Replace structured table references with equivalent A1 references.
@@ -907,4 +993,16 @@ export function resolveStructuredReferences(
     output.push(piece.text);
   }
   return output.join('');
+}
+
+function isUnquotedSheetRangeStart(
+  pieces: ReturnType<typeof scan>,
+  index: number
+): boolean {
+  return (
+    pieces[index].kind === 'word' &&
+    pieces[index + 1]?.text === ':' &&
+    pieces[index + 2]?.kind === 'word' &&
+    pieces[index + 3]?.text === '!'
+  );
 }

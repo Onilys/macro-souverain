@@ -179,7 +179,7 @@ TypeScript · `[ui]` UI / UX conventions
 - **FE-01** `[data]` Never call a service client outside the `queries` package — UI code
   calling an endpoint directly is usually re-fetching data an existing query already
   caches. (#3750, #3961 · enforced: ast-grep `ts-no-service-client-outside-queries` +
-  `tsx-no-service-client-outside-queries`, warning · also: AGENTS.md)
+  `tsx-no-service-client-outside-queries`, error · also: AGENTS.md)
 - **FE-02** `[data]` Every query module has a `keys.ts` structured like the existing
   ones. (#3710)
 - **FE-03** `[data]` Conditional fetching uses a debounced signal passed to TanStack
@@ -207,11 +207,12 @@ TypeScript · `[ui]` UI / UX conventions
 - **FE-11** `[solid]` Check `solid-primitives` before writing a custom reactive utility.
   (also: AGENTS.md)
 - **FE-12** `[async]` `async`/`await` with `try`/`catch`, not `.then()`/`.catch()`
-  chains. (#3716, #3781 · enforced: oxlint `promise/prefer-await-to-then` —
+  chains. (#3716, #3781 · enforced: oxlint `promise/prefer-await-to-then`, error —
   `bun run lint:oxlint` from the repository root)
 - **FE-13** `[async]` Extract multi-step async coordination into named helper functions,
   and make intentionally-unawaited promises explicit — no bare floating promises.
-  (#3781)
+  Keep each function at or below McCabe complexity 20 (enforced: oxlint `complexity`,
+  error). (#3781)
 - **FE-14** `[async]` Keep neverthrow `Result`/`ResultAsync` intact end-to-end — use the
   existing helpers (`ResultAsync`, `throwOnError` in `queryOptions`, `catchToResult`)
   instead of ad hoc `Promise <-> Result` conversions. (#3781, #4373)
@@ -244,7 +245,7 @@ TypeScript · `[ui]` UI / UX conventions
 - **FE-26** `[ui]` Prefer composition over configurability; keep reusable components
   small and free of queries/complex state. (also: AGENTS.md)
 - **FE-27** `[ui]` Don't add `cursor-pointer` to clickable elements. (enforced: ast-grep
-  `tsx-no-cursor-pointer`, warning · also: AGENTS.md)
+  `tsx-no-cursor-pointer`, CI error · also: AGENTS.md)
 - **FE-28** `[ui]` Dialogs rely on Kobalte's default autofocus: make the intended
   target the first tabbable element and preserve focus ownership for restoration.
   Override `onOpenAutoFocus` only for a proven lifecycle requirement, and verify
@@ -260,9 +261,9 @@ TypeScript · `[ui]` UI / UX conventions
   (`const DAY_CELL_CLASS = '...'`) — shared markup+styling is a component; a class
   string can't carry structure, props, or behavior. Extract a component, or inline the
   literal at its single use; styling variants are component props, not exported
-  strings. (enforced: ast-grep `tsx-no-class-string-consts`, warning)
+  strings. (enforced: ast-grep `tsx-no-class-string-consts`, CI error)
 - **FE-31** `[ts]` Never cast a string to `ItemType` — parse it with `stringToItemType`
-  from `@service-storage/client`, the one owner of entity-type spellings (email
+  from `@service-storage/itemType`, the one owner of entity-type spellings (email
   threads alone are stored as `email`, `thread`, and `email_thread`). (#6043 ·
   enforced: ast-grep `ts-no-item-type-cast` + `tsx-no-item-type-cast`, CI error)
 - **FE-32** `[ui]` Prefer styling in the component (Tailwind on the markup). Reserve
@@ -300,9 +301,9 @@ TypeScript · `[ui]` UI / UX conventions
   The detailed document covers layer responsibilities, narrow reference exceptions,
   adoption, and review.
   Register adopting feature paths in both language variants of every feature
-  rule. (enforced: ast-grep `ts-/tsx-feature-core-pure`,
-  `ts-/tsx-feature-components-presentational`, `ts-/tsx-feature-data-no-ui`,
-  `ts-/tsx-feature-layers-use-context`, warning; currently scoped to activity.
+  rule. (enforced: ast-grep `ts-/tsx-feature-components-presentational`,
+  `ts-/tsx-feature-data-no-ui`, `ts-/tsx-feature-core-pure`, and
+  `ts-/tsx-feature-layers-use-context`, CI error; scoped to registered features.
   Separate production composition and source-contract inversion still require
   explicit review; the existing rules do not enforce them.)
 - **FE-34** `[arch]` Treat the legacy block state system as adapter-boundary code,

@@ -172,8 +172,7 @@ function registerTextPastePlugin(
             // clipboards, and only when the cursor is a collapsed selection.
             const clipboard = event.clipboardData;
             const isRichClipboard = Boolean(
-              clipboard?.getData('application/x-lexical-editor') ||
-                clipboard?.getData('text/html')
+              isRegisterCommandAllowed(clipboard)
             );
             if (
               !isRichClipboard &&
@@ -214,6 +213,15 @@ function registerTextPastePlugin(
           return true;
         }
         return false;
+
+        function isRegisterCommandAllowed(
+          clipboard: DataTransfer | null
+        ): string | undefined {
+          return (
+            clipboard?.getData('application/x-lexical-editor') ||
+            clipboard?.getData('text/html')
+          );
+        }
       },
       COMMAND_PRIORITY_HIGH
     )

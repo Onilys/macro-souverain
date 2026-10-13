@@ -89,14 +89,6 @@ import { SimilarTasksSection } from './TaskDuplicateList';
 
 type ComposerTagLayoutMode = 'bottom' | 'title';
 
-/**
- * Wrapper for controls that sit beside the composer title (the inline tags
- * pill) so they stay centered on the title's *first* line rather than drifting
- * to the middle of a title that wraps onto several lines. `h-7` matches the
- * `text-xl/7` line box of {@link ComposeTaskTitleEditor}; keep the two in sync.
- */
-export const COMPOSER_TITLE_LINE_CLASS = 'flex h-7 shrink-0 items-center';
-
 function composerTitleNavigationPlugin(
   bodyEditor: Accessor<LexicalEditor | undefined>,
   ignoreNavigation: Accessor<boolean>
@@ -921,7 +913,8 @@ export function ComposeTask(props: ComposeTaskProps) {
       <EntityComposer.Main>
         <EntityComposer.Title>
           <Show when={tagLayoutMode() === 'title'}>
-            <div class={COMPOSER_TITLE_LINE_CLASS}>
+            {/* Match the title editor's first line, including when its text wraps. */}
+            <div class={'flex h-7 shrink-0 items-center'}>
               <InlineTagsPill
                 docTags={composerTags}
                 showPlaceholder

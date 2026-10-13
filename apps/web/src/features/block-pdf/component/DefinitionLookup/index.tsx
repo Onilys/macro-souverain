@@ -119,11 +119,18 @@ export function DefinitionLookup(props: IProps) {
   const updatePosition = () => {
     if (!props.anchorRef || !termRef) return;
 
-    computePosition(props.anchorRef, termRef, {
-      placement: 'bottom',
-      strategy: 'absolute',
-      middleware: [offset(props.index === 0 ? 2 : 8), shift({ padding: 8 })],
-    }).then(setCoord);
+    const anchor = props.anchorRef;
+    const target = termRef;
+    const settleComputePositionHandler0 = setCoord;
+    const settleComputePosition = async () => {
+      const settleComputePositionValue = await computePosition(anchor, target, {
+        placement: 'bottom',
+        strategy: 'absolute',
+        middleware: [offset(props.index === 0 ? 2 : 8), shift({ padding: 8 })],
+      });
+      return await settleComputePositionHandler0(settleComputePositionValue);
+    };
+    settleComputePosition();
   };
   createEffect((prevPageWidth) => {
     const newPageWidth = pageWidth();

@@ -244,6 +244,67 @@ async function activate(
             if (!parsed.ok) return;
             const message: CoordinatorToEngineEnvelope = parsed.value;
             if (message.ownerEpoch !== activation.ownerEpoch) return;
+            const settleQueueFinally = async () => {
+              return await requestShutdown?.();
+            };
+            const settleQueue = async () => {
+              try {
+                return await queue;
+              } finally {
+                await settleQueueFinally();
+              }
+            };
+
+            const settleQueueResult = async (
+              message: Extract<
+                CoordinatorToEngineEnvelope,
+                { kind: 'engine-request' }
+              >
+            ) => {
+              await queue;
+
+              let response: CacheResponse;
+              try {
+                response = await execute(
+                  activeDatabase,
+                  message.request,
+                  engineState
+                );
+              } catch (error) {
+                response = {
+                  id: message.request.id,
+                  ok: false,
+                  error: error instanceof Error ? error.message : String(error),
+                };
+              }
+              sendEngine(
+                withVersion<EngineToCoordinatorEnvelope>({
+                  kind: 'engine-response',
+                  ownerEpoch: activation.ownerEpoch,
+                  routeId: message.routeId,
+                  response,
+                })
+              );
+              if (
+                response.ok &&
+                (message.request.kind === 'write' ||
+                  message.request.kind === 'clear')
+              ) {
+                sendEngine(
+                  withVersion<EngineToCoordinatorEnvelope>({
+                    kind: 'engine-push',
+                    ownerEpoch: activation.ownerEpoch,
+                    push: {
+                      kind: 'cache-changed',
+                      revision:
+                        engineState.revision.toString() as typeof INITIAL_CACHE_REVISION,
+                    },
+                  })
+                );
+              }
+
+              return;
+            };
             switch (message.kind) {
               case 'heartbeat':
                 if (!ignoreHeartbeats) {
@@ -259,7 +320,7 @@ async function activate(
               case 'drain-engine':
                 if (draining) return;
                 draining = true;
-                void queue.finally(() => requestShutdown?.());
+                void settleQueue();
                 break;
               case 'engine-request':
                 if (draining) return;
@@ -274,48 +335,7 @@ async function activate(
                     message.request.kind === 'read' &&
                     message.request.query.includes('Slow'),
                 });
-                queue = queue.then(async () => {
-                  let response: CacheResponse;
-                  try {
-                    response = await execute(
-                      activeDatabase,
-                      message.request,
-                      engineState
-                    );
-                  } catch (error) {
-                    response = {
-                      id: message.request.id,
-                      ok: false,
-                      error:
-                        error instanceof Error ? error.message : String(error),
-                    };
-                  }
-                  sendEngine(
-                    withVersion<EngineToCoordinatorEnvelope>({
-                      kind: 'engine-response',
-                      ownerEpoch: activation.ownerEpoch,
-                      routeId: message.routeId,
-                      response,
-                    })
-                  );
-                  if (
-                    response.ok &&
-                    (message.request.kind === 'write' ||
-                      message.request.kind === 'clear')
-                  ) {
-                    sendEngine(
-                      withVersion<EngineToCoordinatorEnvelope>({
-                        kind: 'engine-push',
-                        ownerEpoch: activation.ownerEpoch,
-                        push: {
-                          kind: 'cache-changed',
-                          revision:
-                            engineState.revision.toString() as typeof INITIAL_CACHE_REVISION,
-                        },
-                      })
-                    );
-                  }
-                });
+                queue = settleQueueResult(message);
                 break;
             }
           };

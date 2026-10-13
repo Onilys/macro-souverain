@@ -16,9 +16,15 @@ export const makeRemoveFromProjectAction = () => {
 
   const execute = async (entities: EntityData[]): Promise<boolean> => {
     // Failure toast is shown by the mutation
-    const result = await removeMutation
-      .mutateAsync({ entities })
-      .catch(() => null);
+
+    const settleMutateAsync = async () => {
+      try {
+        return await removeMutation.mutateAsync({ entities });
+      } catch {
+        return await null;
+      }
+    };
+    const result = await settleMutateAsync();
     if (!result) return false;
     toast.success(
       entities.length > 1

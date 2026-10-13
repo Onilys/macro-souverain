@@ -84,7 +84,15 @@ it.each(['accepted', 'rejected'] as const)(
         expect(returnToList).toHaveBeenCalledOnce();
       } else {
         pending.reject(new Error('Deletion failed'));
-        await pending.promise.catch(() => {});
+
+        const settlePromise = async () => {
+          try {
+            return await pending.promise;
+          } catch {
+            return;
+          }
+        };
+        await settlePromise();
         expect(view.getByText('Delete draft')).toBeTruthy();
         expect(returnToList).not.toHaveBeenCalled();
       }

@@ -1,3 +1,4 @@
+import { match as matchBranch } from 'ts-pattern';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   CacheRequest,
@@ -40,49 +41,74 @@ const EMPTY_WRITE: WriteResult = {
 };
 
 function responseFor(request: CacheRequest): unknown {
-  switch (request.kind) {
-    case 'current-revision':
+  return matchBranch(request)
+    .with({ kind: 'current-revision' }, (): unknown => {
       return INITIAL_CACHE_REVISION;
-    case 'current-storage-generation':
+    })
+    .with({ kind: 'current-storage-generation' }, (): unknown => {
       return STORAGE_GENERATION;
-    case 'read':
+    })
+    .with({ kind: 'read' }, (): unknown => {
       return { kind: 'miss' };
-    case 'read-records-by-keys':
+    })
+    .with({ kind: 'read-records-by-keys' }, (): unknown => {
       return { revision: INITIAL_CACHE_REVISION, records: [] };
-    case 'search':
+    })
+    .with({ kind: 'search' }, (): unknown => {
       return { documents: [], nextCursor: null };
-    case 'hydrate':
+    })
+    .with({ kind: 'hydrate' }, (): unknown => {
       return {
         kind: 'data',
         data: { cursor: 'next' },
         revision: INITIAL_CACHE_REVISION,
       };
-    case 'write':
-    case 'commit-optimistic-write':
-    case 'rollback-optimistic-write':
-      return EMPTY_WRITE;
-    case 'enqueue-optimistic-mutation':
+    })
+    .with(
+      { kind: 'write' },
+      { kind: 'commit-optimistic-write' },
+      { kind: 'rollback-optimistic-write' },
+      (): unknown => {
+        return EMPTY_WRITE;
+      }
+    )
+    .with({ kind: 'enqueue-optimistic-mutation' }, (): unknown => {
       return {
         ...EMPTY_WRITE,
         transactionId: '1',
         initialClaim: { kind: 'not-runnable' },
       };
-    case 'inspect-mutations':
-    case 'inspect-query':
-    case 'inspect-query-variants':
-      return [];
-    case 'claim-next-mutation':
+    })
+    .with(
+      { kind: 'inspect-mutations' },
+      { kind: 'inspect-query' },
+      { kind: 'inspect-query-variants' },
+      (): unknown => {
+        return [];
+      }
+    )
+    .with({ kind: 'claim-next-mutation' }, (): unknown => {
       return undefined;
-    case 'invalidate':
-    case 'delete-records':
-      return { revision: INITIAL_CACHE_REVISION, affectedOps: request.keys };
-    case 'init':
-    case 'defer-optimistic-write':
-    case 'teardown':
-      return null;
-    case 'clear':
+    })
+    .with(
+      { kind: 'invalidate' },
+      { kind: 'delete-records' },
+      (request): unknown => {
+        return { revision: INITIAL_CACHE_REVISION, affectedOps: request.keys };
+      }
+    )
+    .with(
+      { kind: 'init' },
+      { kind: 'defer-optimistic-write' },
+      { kind: 'teardown' },
+      (): unknown => {
+        return null;
+      }
+    )
+    .with({ kind: 'clear' }, (): unknown => {
       return INITIAL_CACHE_REVISION;
-  }
+    })
+    .otherwise(() => undefined);
 }
 
 class FakePageAdapter {
@@ -926,14 +952,21 @@ describe('createWorkerCacheHost', () => {
       'cache worker timeout: read'
     );
     let mutationSettled = false;
-    void mutation.then(
-      () => {
+
+    const settleMutation = async () => {
+      try {
+        await mutation;
+      } catch {
         mutationSettled = true;
-      },
-      () => {
-        mutationSettled = true;
+
+        return;
       }
-    );
+
+      mutationSettled = true;
+
+      return;
+    };
+    void settleMutation();
 
     await vi.advanceTimersByTimeAsync(11);
     await readResult;
@@ -1748,10 +1781,18 @@ describe('createWorkerCacheHost', () => {
     await host.clear();
     const adapter = requireAdapter();
     const read = host.readQuery({ query: 'query Slow { slow }' });
-    const readOutcome = read.then(
-      () => undefined,
-      (error: unknown) => error
-    );
+
+    const settleRead = async () => {
+      try {
+        await read;
+      } catch (settleReadError) {
+        const error: unknown = settleReadError;
+        return await error;
+      }
+
+      return await undefined;
+    };
+    const readOutcome = settleRead();
     await Promise.resolve();
     expect(adapter.requests.filter(({ kind }) => kind === 'read')).toHaveLength(
       1

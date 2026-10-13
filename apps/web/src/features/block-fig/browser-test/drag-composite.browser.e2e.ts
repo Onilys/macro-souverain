@@ -98,12 +98,22 @@ test('an unliftable corpus layer drags as complete frames', async ({
           pending++;
           const started = performance.now();
           const job = engine.render(request);
+          const settlePromiseFinally = async () => {
+            pending--;
+            if (dragging) frameTimes.push(performance.now() - started);
+
+            return;
+          };
+          const settlePromise = async () => {
+            try {
+              return await job.promise;
+            } finally {
+              await settlePromiseFinally();
+            }
+          };
           return {
             id: job.id,
-            promise: job.promise.finally(() => {
-              pending--;
-              if (dragging) frameTimes.push(performance.now() - started);
-            }),
+            promise: settlePromise(),
           };
         },
         cancel: (ids: number[]) => engine.cancel(ids),

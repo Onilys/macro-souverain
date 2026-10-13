@@ -32,7 +32,7 @@ vi.hoisted(() => {
   vi.stubGlobal('WebSocket', FakeWebSocket);
 });
 
-vi.mock('@core/signal/mention', () => ({
+vi.mock('@app/lib/queries/storage/mentions', () => ({
   untrackMention: vi.fn(),
 }));
 

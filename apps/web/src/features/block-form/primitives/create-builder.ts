@@ -363,21 +363,32 @@ export function createBuilder(options: BuilderOptions) {
         .filter((write) => write.written)
         .map((write) => write.sequence)
     );
-    reading = (async () => {
+    const settleOperationHandler0 = settleIdle;
+    const settleOperationFinally = async () => {
+      return await settleOperationHandler0();
+    };
+    const settleOperation = async () => {
       try {
-        await options.refetch();
-        setPendingWrites((current) =>
-          current.filter((write) => !covered.has(write.sequence))
-        );
-      } catch {
-        // The read failed: the landed writes stay shown, they are the truth.
-        return;
+        return await (async () => {
+          try {
+            await options.refetch();
+            setPendingWrites((current) =>
+              current.filter((write) => !covered.has(write.sequence))
+            );
+          } catch {
+            // The read failed: the landed writes stay shown, they are the truth.
+            return;
+          } finally {
+            reading = undefined;
+          }
+          // Writes that landed during the read need a read of their own.
+          if (pendingWrites().some((write) => write.written)) reconcile();
+        })();
       } finally {
-        reading = undefined;
+        await settleOperationFinally();
       }
-      // Writes that landed during the read need a read of their own.
-      if (pendingWrites().some((write) => write.written)) reconcile();
-    })().finally(settleIdle);
+    };
+    reading = settleOperation();
   }
 
   /**

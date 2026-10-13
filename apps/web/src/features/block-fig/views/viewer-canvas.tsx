@@ -624,10 +624,20 @@ export function ViewerCanvas(props: {
     hoverPending = true;
     const run = () => {
       const target = hoverNext;
-      void viewer.hoverAt(target, props.deepHeld()).finally(() => {
+      const settleHoverAtFinally = async () => {
         hoverPending = false;
         if (hoverNext !== target) hoverAt(hoverNext);
-      });
+
+        return;
+      };
+      const settleHoverAt = async () => {
+        try {
+          return await viewer.hoverAt(target, props.deepHeld());
+        } finally {
+          await settleHoverAtFinally();
+        }
+      };
+      void settleHoverAt();
     };
     run();
   };
@@ -660,7 +670,7 @@ export function ViewerCanvas(props: {
   /** The resize handle (or edge) of the selection under a point. */
   const handleAt = (p: Point): Handle | undefined => {
     if (!transformable()) return undefined;
-    const info = props.info?.();
+    const info = buildInfo();
     if (viewer.selected().length === 1 && !isAxisAligned(info?.rotation ?? 0))
       return undefined;
     const box = screenBox();
@@ -668,16 +678,14 @@ export function ViewerCanvas(props: {
     const { b, x0, y0, x1, y1 } = box;
     const c = viewer.camera();
     const near = (a: number, v: number) => Math.abs(a - v) <= HANDLE_SLOP;
-    const inX = p.x >= x0 - HANDLE_SLOP && p.x <= x1 + HANDLE_SLOP;
-    const inY = p.y >= y0 - HANDLE_SLOP && p.y <= y1 + HANDLE_SLOP;
-    const w = near(p.x, x0) && inY;
-    const e = near(p.x, x1) && inY;
-    const n = near(p.y, y0) && inX;
-    const s = near(p.y, y1) && inX;
-    if (n && w) return 'nw';
-    if (n && e) return 'ne';
-    if (s && w) return 'sw';
-    if (s && e) return 'se';
+    const inX = buildInX();
+    const inY = buildInY();
+    const w = buildW();
+    const e = buildE();
+    const n = buildN();
+    const s = buildS();
+    const corner = cornerHandle();
+    if (corner) return corner;
     // Edges only when the box is big enough to grab inside it.
     if (b.w * c.zoom < 12 || b.h * c.zoom < 12) return undefined;
     if (n) return 'n';
@@ -685,6 +693,42 @@ export function ViewerCanvas(props: {
     if (w) return 'w';
     if (e) return 'e';
     return undefined;
+
+    function cornerHandle(): Handle | undefined {
+      if (n && w) return 'nw';
+      if (n && e) return 'ne';
+      if (s && w) return 'sw';
+      if (s && e) return 'se';
+      return undefined;
+    }
+
+    function buildInY() {
+      return p.y >= y0 - HANDLE_SLOP && p.y <= y1 + HANDLE_SLOP;
+    }
+
+    function buildInX() {
+      return p.x >= x0 - HANDLE_SLOP && p.x <= x1 + HANDLE_SLOP;
+    }
+
+    function buildS() {
+      return near(p.y, y1) && inX;
+    }
+
+    function buildN() {
+      return near(p.y, y0) && inX;
+    }
+
+    function buildE() {
+      return near(p.x, x1) && inY;
+    }
+
+    function buildW() {
+      return near(p.x, x0) && inY;
+    }
+
+    function buildInfo() {
+      return props.info?.();
+    }
   };
 
   /** Whether a point is just beyond a corner of a single selection. */
@@ -731,13 +775,13 @@ export function ViewerCanvas(props: {
       };
       return;
     }
-    if (e.button === 1 || panning() || e.pointerType === 'touch') {
+    if (isPanPress()) {
       e.preventDefault();
       drag = { kind: 'pan', last: p };
       return;
     }
     if (e.button !== 0) return;
-    const guide = props.aids?.press(p);
+    const guide = buildGuide();
     if (guide) {
       drag = { kind: 'guide', guide };
       props.aids?.move(guide, p);
@@ -746,33 +790,14 @@ export function ViewerCanvas(props: {
     const tool = viewer.tool();
     const editor = props.editor;
     if (editing() && tool === 'pen' && editor) {
-      const at = pageAt(p);
-      const points = editor.penPath() ?? [];
-      const reach = PEN_CLOSE / viewer.camera().zoom;
-      if (closesPath(points, at, reach)) {
-        penCursor = undefined;
-        void editor.penFinish(true);
-        return;
-      }
-      // Pressing the last point again (a double-click) ends the path.
-      if (endsPath(points, at, reach)) {
-        if (points.length > 1) {
-          penCursor = undefined;
-          void editor.penFinish(false);
-        }
-        return;
-      }
-      const point = { x: Math.round(at.x), y: Math.round(at.y) };
-      editor.penAdd({ ...point, handle: { x: 0, y: 0 } });
-      drag = { kind: 'pen', start: point };
-      return;
+      return startPenStroke(editor);
     }
     if (editing() && tool === 'pencil' && editor) {
       drag = { kind: 'pencil', points: [pageAt(p)] };
       requestOverlayDraw();
       return;
     }
-    const edit = editor?.vectorEdit();
+    const edit = buildEdit();
     if (editing() && edit && editor) {
       const hit = hitVector(
         edit.network,
@@ -798,42 +823,12 @@ export function ViewerCanvas(props: {
       return;
     }
     const label = frameLabelAt(p);
-    const handle = label ? undefined : handleAt(p);
-    const info = props.info?.();
+    const handle = buildHandle();
+    const info = buildInfo2();
     const bounds = viewer.selectionBounds();
-    if (handle && bounds && props.editor) {
-      drag = {
-        kind: 'resize',
-        handle,
-        start: bounds,
-        resizer: props.editor.startResize(
-          viewer.selected().map((s) => s.id),
-          bounds,
-          info
-        ),
-        lines: props.aids?.linesNear(bounds),
-      };
-      return;
-    }
-    if (!label && rotateAt(p) && info && bounds && props.editor) {
-      const center = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
-      const at = pageAt(p);
-      drag = {
-        kind: 'rotate',
-        center,
-        startAngle: Math.atan2(at.y - center.y, at.x - center.x),
-        startRotation: info.rotation,
-        rotator: props.editor.startRotate(info.id),
-      };
-      return;
-    }
+    if (startSelectionTransform()) return;
     const additive = e.shiftKey;
-    const pressed = label
-      ? pressFrameLabel(label, additive)
-      : viewer.pressAt(p, {
-          deep: IS_MAC ? e.metaKey : e.ctrlKey,
-          additive,
-        });
+    const pressed = buildPressed();
     const press: Extract<Drag, { kind: 'press' }> = {
       kind: 'press',
       start: p,
@@ -844,7 +839,11 @@ export function ViewerCanvas(props: {
       additive,
     };
     drag = press;
-    void pressed.then((r) => {
+
+    const settlePressed = async () => {
+      const settlePressedValue = await pressed;
+      const r = settlePressedValue;
+
       press.resolved = r;
       // What a drag from here would move, lifted ahead of it.
       if (r && editing() && !r.row.locked && !additive && props.editor) {
@@ -852,7 +851,103 @@ export function ViewerCanvas(props: {
         if (ids.length > 0 && drag === press && !press.active)
           press.prepared = prepareMove(ids);
       }
-    });
+
+      return;
+    };
+    void settlePressed();
+
+    function isPanPress() {
+      return e.button === 1 || panning() || e.pointerType === 'touch';
+    }
+
+    function startSelectionTransform(): boolean {
+      if (handle && bounds && props.editor) {
+        drag = {
+          kind: 'resize',
+          handle,
+          start: bounds,
+          resizer: props.editor.startResize(
+            viewer.selected().map((s) => s.id),
+            bounds,
+            info
+          ),
+          lines: buildLines(bounds),
+        };
+        return true;
+      }
+      if (!label && rotateAt(p) && info && bounds && props.editor) {
+        const center = {
+          x: bounds.x + bounds.w / 2,
+          y: bounds.y + bounds.h / 2,
+        };
+        const at = pageAt(p);
+        drag = {
+          kind: 'rotate',
+          center,
+          startAngle: Math.atan2(at.y - center.y, at.x - center.x),
+          startRotation: info.rotation,
+          rotator: props.editor.startRotate(info.id),
+        };
+        return true;
+      }
+      return false;
+    }
+
+    function buildHandle() {
+      return label ? undefined : handleAt(p);
+    }
+
+    function buildLines(bounds: Rect): SnapLines | undefined {
+      return props.aids?.linesNear(bounds);
+    }
+
+    function buildPoints(editorInput: NonNullable<typeof editor>) {
+      return editorInput.penPath() ?? [];
+    }
+
+    function buildEdit() {
+      return editor?.vectorEdit();
+    }
+
+    function buildGuide() {
+      return props.aids?.press(p);
+    }
+
+    function buildInfo2() {
+      return props.info?.();
+    }
+
+    function buildPressed() {
+      return label
+        ? pressFrameLabel(label, additive)
+        : viewer.pressAt(p, {
+            deep: IS_MAC ? e.metaKey : e.ctrlKey,
+            additive,
+          });
+    }
+
+    function startPenStroke(editorInput: NonNullable<typeof editor>) {
+      const at = pageAt(p);
+      const points = buildPoints(editorInput);
+      const reach = PEN_CLOSE / viewer.camera().zoom;
+      if (closesPath(points, at, reach)) {
+        penCursor = undefined;
+        void editorInput.penFinish(true);
+        return;
+      }
+      // Pressing the last point again (a double-click) ends the path.
+      if (endsPath(points, at, reach)) {
+        if (points.length > 1) {
+          penCursor = undefined;
+          void editorInput.penFinish(false);
+        }
+        return;
+      }
+      const point = { x: Math.round(at.x), y: Math.round(at.y) };
+      editorInput.penAdd({ ...point, handle: { x: 0, y: 0 } });
+      drag = { kind: 'pen', start: point };
+      return;
+    }
   };
 
   const pressFrameLabel = async (
@@ -1013,7 +1108,14 @@ export function ViewerCanvas(props: {
       return;
     }
     if (start) {
-      const targets = await snapTargets(ids).catch(() => []);
+      const settleSnapTargets = async () => {
+        try {
+          return await snapTargets(ids);
+        } catch {
+          return await [];
+        }
+      };
+      const targets = await settleSnapTargets();
       press.snap = { start, targets, lines: props.aids?.linesNear(start) };
     }
   };
@@ -1080,89 +1182,151 @@ export function ViewerCanvas(props: {
       }
       return;
     }
-    if (drag.kind === 'pinch' && pointers.size >= 2) {
-      const [a, b] = [...pointers.values()];
-      const distance = Math.hypot(a.x - b.x, a.y - b.y);
-      const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      viewer.pan(center.x - drag.center.x, center.y - drag.center.y);
-      if (drag.distance > 0) viewer.zoomBy(distance / drag.distance, center);
-      drag = { kind: 'pinch', distance, center };
-    } else if (drag.kind === 'pan') {
-      viewer.pan(p.x - drag.last.x, p.y - drag.last.y);
-      drag = { kind: 'pan', last: p };
-    } else if (drag.kind === 'create') {
-      drag.current = p;
-      if (isLineTool(drag.tool))
-        linePreview = [drag.start, lineEnd(drag.start, p, e.shiftKey)];
-      else marquee = shapeRect(drag.start, p, e.shiftKey);
-      requestOverlayDraw();
-    } else if (drag.kind === 'pen') {
-      props.editor?.penHandle(
-        dragHandle(drag.start, pageAt(p), PEN_DRAG / viewer.camera().zoom)
-      );
-      requestOverlayDraw();
-    } else if (drag.kind === 'pencil') {
-      const at = pageAt(p);
-      const last = drag.points[drag.points.length - 1];
-      // A point per screen pixel or so is plenty to smooth.
-      if (Math.hypot(at.x - last.x, at.y - last.y) * viewer.camera().zoom >= 1)
-        drag.points.push(at);
-      requestOverlayDraw();
-    } else if (drag.kind === 'vector') {
-      const edit = props.editor?.vectorEdit();
-      if (edit) {
-        const at = pageAt(p);
-        const round = (v: number) => Math.round(v * 100) / 100;
-        drag.mover.to(
-          drag.hit.kind === 'vertex'
-            ? moveVertex(edit.network, drag.hit.index, {
-                x: round(at.x),
-                y: round(at.y),
-              })
-            : moveHandle(edit.network, drag.hit, at, drag.mirror)
+    updateDrag(drag);
+
+    function updateDrag(
+      dragInput: Extract<
+        NonNullable<typeof drag>,
+        {
+          kind:
+            | 'pan'
+            | 'press'
+            | 'create'
+            | 'resize'
+            | 'rotate'
+            | 'pinch'
+            | 'pen'
+            | 'pencil'
+            | 'guide'
+            | 'vector';
+        }
+      >
+    ) {
+      if (dragInput.kind === 'pinch' && pointers.size >= 2) {
+        const [a, b] = [...pointers.values()];
+        const distance = Math.hypot(a.x - b.x, a.y - b.y);
+        const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        viewer.pan(
+          center.x - dragInput.center.x,
+          center.y - dragInput.center.y
         );
-      }
-    } else if (drag.kind === 'guide') {
-      props.aids?.move(drag.guide, p);
-    } else if (drag.kind === 'resize') {
-      const free = resizeRect(drag.start, drag.handle, pageAt(p), e.shiftKey);
-      const rect =
-        drag.lines && !e.shiftKey
-          ? snapResize(free, drag.handle, drag.lines, 5 / viewer.camera().zoom)
-          : free;
-      drag.resizer.to(rect);
-    } else if (drag.kind === 'rotate') {
-      const at = pageAt(p);
-      const angle = Math.atan2(at.y - drag.center.y, at.x - drag.center.x);
-      drag.rotator.to(
-        rotationFor(drag.startRotation, drag.startAngle, angle, e.shiftKey)
-      );
-    } else if (drag.kind === 'press') {
-      const press = drag;
-      press.current = p;
-      const moved =
-        Math.hypot(p.x - press.start.x, p.y - press.start.y) > DRAG_THRESHOLD;
-      if (!press.active && moved) {
-        press.active = true;
-        const decide = (r: Pressed) => {
-          // A press on a layer drags it (when editable and unlocked);
-          // anywhere else draws a marquee.
-          if (r && editing() && !r.row.locked && !press.additive)
-            void beginMove(press, e.altKey);
-          else press.marquee = true;
-        };
-        if ('resolved' in press) decide(press.resolved);
-        else void press.pressed.then(decide);
-      }
-      if (press.marquee) {
-        marquee = {
-          x: Math.min(press.start.x, p.x),
-          y: Math.min(press.start.y, p.y),
-          w: Math.abs(p.x - press.start.x),
-          h: Math.abs(p.y - press.start.y),
-        };
+        if (dragInput.distance > 0)
+          viewer.zoomBy(distance / dragInput.distance, center);
+        drag = { kind: 'pinch', distance, center };
+      } else if (dragInput.kind === 'pan') {
+        viewer.pan(p.x - dragInput.last.x, p.y - dragInput.last.y);
+        drag = { kind: 'pan', last: p };
+      } else if (dragInput.kind === 'create') {
+        dragInput.current = p;
+        if (isLineTool(dragInput.tool))
+          linePreview = [
+            dragInput.start,
+            lineEnd(dragInput.start, p, e.shiftKey),
+          ];
+        else marquee = shapeRect(dragInput.start, p, e.shiftKey);
         requestOverlayDraw();
-      } else movePress(press, p, e.shiftKey);
+      } else if (dragInput.kind === 'pen') {
+        props.editor?.penHandle(
+          dragHandle(
+            dragInput.start,
+            pageAt(p),
+            PEN_DRAG / viewer.camera().zoom
+          )
+        );
+        requestOverlayDraw();
+      } else updateCurrent(dragInput);
+    }
+
+    function updateCurrent(dragInput: NonNullable<typeof drag>) {
+      if (dragInput.kind === 'pencil') {
+        const at = pageAt(p);
+        const last = dragInput.points[dragInput.points.length - 1];
+        // A point per screen pixel or so is plenty to smooth.
+        if (
+          Math.hypot(at.x - last.x, at.y - last.y) * viewer.camera().zoom >=
+          1
+        )
+          dragInput.points.push(at);
+        requestOverlayDraw();
+      } else if (dragInput.kind === 'vector') {
+        const edit = props.editor?.vectorEdit();
+        if (edit) {
+          const at = pageAt(p);
+          const round = (v: number) => Math.round(v * 100) / 100;
+          dragInput.mover.to(
+            dragInput.hit.kind === 'vertex'
+              ? moveVertex(edit.network, dragInput.hit.index, {
+                  x: round(at.x),
+                  y: round(at.y),
+                })
+              : moveHandle(edit.network, dragInput.hit, at, dragInput.mirror)
+          );
+        }
+      } else if (dragInput.kind === 'guide') {
+        props.aids?.move(dragInput.guide, p);
+      } else if (dragInput.kind === 'resize') {
+        const free = resizeRect(
+          dragInput.start,
+          dragInput.handle,
+          pageAt(p),
+          e.shiftKey
+        );
+        const rect =
+          dragInput.lines && !e.shiftKey
+            ? snapResize(
+                free,
+                dragInput.handle,
+                dragInput.lines,
+                5 / viewer.camera().zoom
+              )
+            : free;
+        dragInput.resizer.to(rect);
+      } else if (dragInput.kind === 'rotate') {
+        const at = pageAt(p);
+        const angle = Math.atan2(
+          at.y - dragInput.center.y,
+          at.x - dragInput.center.x
+        );
+        dragInput.rotator.to(
+          rotationFor(
+            dragInput.startRotation,
+            dragInput.startAngle,
+            angle,
+            e.shiftKey
+          )
+        );
+      } else if (dragInput.kind === 'press') {
+        const press = dragInput;
+        press.current = p;
+        const moved =
+          Math.hypot(p.x - press.start.x, p.y - press.start.y) > DRAG_THRESHOLD;
+        if (!press.active && moved) {
+          press.active = true;
+          const decide = (r: Pressed) => {
+            // A press on a layer drags it (when editable and unlocked);
+            // anywhere else draws a marquee.
+            if (r && editing() && !r.row.locked && !press.additive)
+              void beginMove(press, e.altKey);
+            else press.marquee = true;
+          };
+          const settlePressedResultHandler0 = decide;
+          const settlePressedResult = async () => {
+            const settlePressedResultValue = await press.pressed;
+            return await settlePressedResultHandler0(settlePressedResultValue);
+          };
+          if ('resolved' in press) decide(press.resolved);
+          else void settlePressedResult();
+        }
+        if (press.marquee) {
+          marquee = {
+            x: Math.min(press.start.x, p.x),
+            y: Math.min(press.start.y, p.y),
+            w: Math.abs(p.x - press.start.x),
+            h: Math.abs(p.y - press.start.y),
+          };
+          requestOverlayDraw();
+        } else movePress(press, p, e.shiftKey);
+      }
     }
   };
 
@@ -1265,10 +1429,17 @@ export function ViewerCanvas(props: {
         requestOverlayDraw();
       } else if (!ended.active) {
         // A click on one layer of a multi-selection selects just it.
-        void ended.pressed.then((r) => {
+
+        const settlePressedResultResult = async () => {
+          const settlePressedResultResultValue = await ended.pressed;
+          const r = settlePressedResultResultValue;
+
           if (r?.wasSelected && !ended.additive && viewer.selected().length > 1)
             void viewer.selectIds([r.row.id]);
-        });
+
+          return;
+        };
+        void settlePressedResultResult();
       }
     }
   };
@@ -1387,18 +1558,26 @@ export function ViewerCanvas(props: {
         if (drop && data && editing()) {
           e.preventDefault();
           const at = pageAt(local(e));
-          void viewer
-            .containerAt(at)
-            .then((parent) => drop.onDrop(data, at, parent));
+
+          const settleContainerAt = async () => {
+            const settleContainerAtValue = await viewer.containerAt(at);
+            const parent = settleContainerAtValue;
+            return await drop.onDrop(data, at, parent);
+          };
+          void settleContainerAt();
           return;
         }
         const files = [...(e.dataTransfer?.files ?? [])];
         if (!editing() || files.length === 0) return;
         e.preventDefault();
         const at = pageAt(local(e));
-        void viewer
-          .containerAt(at)
-          .then((parent) => props.editor?.importImages(files, at, parent));
+
+        const settleContainerAtResult = async () => {
+          const settleContainerAtResultValue = await viewer.containerAt(at);
+          const parent = settleContainerAtResultValue;
+          return await props.editor?.importImages(files, at, parent);
+        };
+        void settleContainerAtResult();
       }}
       onContextMenu={(e) => e.preventDefault()}
     >

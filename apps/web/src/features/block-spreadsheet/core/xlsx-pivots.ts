@@ -220,12 +220,8 @@ export function readSheetPivotTables(options: {
   for (const relation of relationships(archive, options.sheetPath).values()) {
     if (relation.type !== 'pivotTable' || relation.external) continue;
     const tableBytes = archive.read(relation.target);
-    const cacheTarget = [
-      ...relationships(archive, relation.target).values(),
-    ].find(
-      (entry) => entry.type === 'pivotCacheDefinition' && !entry.external
-    )?.target;
-    const cacheBytes = cacheTarget && archive.read(cacheTarget);
+    const cacheTarget = buildCacheTarget(relation);
+    const cacheBytes = buildCacheBytes(cacheTarget);
     if (!tableBytes || !cacheTarget || !cacheBytes) {
       skipped = true;
       continue;
@@ -236,65 +232,22 @@ export function readSheetPivotTables(options: {
     // A source Macro does not hold: the cache keeps what Excel saved of it.
     let workbook: string | undefined;
     let connection: string | undefined;
-    if (source.kind === 'workbook') {
-      const link = cacheRelations.get(source.link);
-      // Excel marks a link whose file it could not find as missing; the
-      // download links it as usual, for Excel to look for it again.
-      if (
-        link?.external &&
-        (link.type === 'externalLinkPath' || link.type === 'xlPathMissing') &&
-        link.target
-      )
-        workbook = link.target;
-    } else if (source.kind === 'connection') {
-      const found = workbookConnections(archive).get(source.id);
-      if (found && !internalConnection(found)) {
-        const cleaned = withoutPasswords(found);
-        // Export numbers connections anew.
-        connection = cleaned.connection.replace(
-          /^(<[^>]*?\s)id="[^"]*"/,
-          '$1id="0"'
-        );
-        if (cleaned.removed) removedPasswords = true;
-      }
-    }
-    const cached = workbook !== undefined || connection !== undefined;
-    if (source.kind === 'range')
-      reference = sourceReference(
-        source.sheet ?? options.sheetName,
-        source.ref
-      );
-    else if (source.kind === 'name') {
-      // Tables become ordinary cells, so a table source becomes its range.
-      const table = options.tables.find(
-        (entry) => entry.name.toLowerCase() === source.name.toLowerCase()
-      );
-      if (table?.headerRows)
-        reference = sourceReference(
-          table.sheet,
-          `${formatCellAddress(table.top, table.left)}:${formatCellAddress(table.bottom - table.totalsRows, table.right)}`
-        );
-    }
+    ({ workbook, connection } = updateWorkbook(
+      source,
+      cacheRelations,
+      workbook,
+      connection
+    ));
+    const cached = buildCached(workbook, connection);
+    reference = updateReference(source, reference);
     let table = text(tableBytes);
     let cache = text(cacheBytes);
     const tablePrefix = mainPrefix(table, 'pivotTableDefinition');
     const cachePrefix = mainPrefix(cache, 'pivotCacheDefinition');
-    const location = new RegExp(
-      `<${tablePrefix ?? ''}location\\b[^>]*\\sref="([^"]+)"`
-    ).exec(table)?.[1];
-    const [start, end = start] = (location ?? '').split(':');
-    const first = parseCellAddress(start);
-    const last = parseCellAddress(end);
+    const location = buildLocation(tablePrefix, table);
+    const { first, last } = pivotLocationBounds(location);
     if (
-      source.kind === 'unsupported' ||
-      ((source.kind === 'workbook' || source.kind === 'connection') &&
-        !cached) ||
-      (source.kind === 'range' && !reference) ||
-      (source.kind === 'name' &&
-        !reference &&
-        options.tables.some(
-          (entry) => entry.name.toLowerCase() === source.name.toLowerCase()
-        )) ||
+      isUnsupportedSource(source, cached, reference) ||
       tablePrefix === undefined ||
       cachePrefix === undefined ||
       !first ||
@@ -333,32 +286,16 @@ export function readSheetPivotTables(options: {
     // Without its records, Excel reads the source again when the file opens.
     // A source Macro does not hold keeps the records Excel saved, when they
     // fit, and Excel refreshes it only when asked to.
-    const relationshipPrefix = new RegExp(
-      `xmlns:([A-Za-z_][\\w.-]*)="${RELATIONSHIPS}"`
-    ).exec(cache)?.[1];
+    const relationshipPrefix = buildRelationshipPrefix(cache);
     let records: string | undefined;
-    if (cached) {
-      const target = [...cacheRelations.values()].find(
-        (entry) => entry.type === 'pivotCacheRecords' && !entry.external
-      )?.target;
-      const bytes = target && archive.read(target);
-      const saved = bytes && text(bytes);
-      if (saved && saved.length <= MAX_PIVOT_PART_LENGTH) records = saved;
-      else if (saved) warnings.add(PIVOT_RECORDS_WARNING);
-    }
-    cache = withRootAttributes(cache, `${cachePrefix}pivotCacheDefinition`, {
-      ...(relationshipPrefix && { [`${relationshipPrefix}:id`]: undefined }),
-      ...(!cached && { refreshOnLoad: '1' }),
-      ...(!records && { saveData: '0' }),
-    });
+    records = updateRecords(cached, cacheRelations, records);
+    cache = withRootAttributes(
+      cache,
+      `${cachePrefix}pivotCacheDefinition`,
+      buildReadSheetPivotTables2(relationshipPrefix, cached, records)
+    );
     // Export writes the link to the other workbook anew.
-    if (workbook && relationshipPrefix)
-      cache = cache.replace(
-        new RegExp(
-          `(<${cachePrefix}worksheetSource\\b[^>]*?)\\s${relationshipPrefix}:id="[^"]*"`
-        ),
-        '$1'
-      );
+    cache = updateCache2(workbook, relationshipPrefix, cache, cachePrefix);
     // Custom number formats are numbered in order of use, as export
     // numbers them again; unknown ones show as General.
     const formats: Record<string, string> = {};
@@ -391,29 +328,28 @@ export function readSheetPivotTables(options: {
         (_, start: string) => `${start}0"`
       );
     // The source as export writes it: tables become their cells.
-    if (reference) cache = withSource(cache, cachePrefix, reference) ?? cache;
-    if (
-      table.length > MAX_PIVOT_PART_LENGTH ||
-      cache.length > MAX_PIVOT_PART_LENGTH ||
-      pivots.length >= MAX_SHEET_PIVOT_TABLES
-    ) {
+    cache = updateCache(reference, cache, cachePrefix);
+    if (isOversizedPivot(table, cache)) {
       skipped = true;
       continue;
     }
     const from = formatCellAddress(first.row, first.column);
     const to = formatCellAddress(last.row, last.column);
-    const cells = from === to ? from : `${from}:${to}`;
-    pivots.push({
-      table: withLocation(table, tablePrefix, cells),
-      cache,
-      location: cells,
-      ...(reference && { source: reference }),
-      ...(records && { records }),
-      ...(workbook && { workbook }),
-      ...(connection && { connection }),
-      ...(Object.keys(formats).length && { formats }),
-      ...(styles.length && { styles }),
-    });
+    const cells = buildCells(from, to);
+    pivots.push(
+      buildReadSheetPivotTables(
+        table,
+        tablePrefix,
+        cells,
+        cache,
+        reference,
+        records,
+        workbook,
+        connection,
+        formats,
+        styles
+      )
+    );
   }
   if (pivots.some((pivot) => !pivot.workbook && !pivot.connection))
     warnings.add(
@@ -429,6 +365,205 @@ export function readSheetPivotTables(options: {
     );
   if (skipped) warnings.add(PIVOT_VALUES_WARNING);
   return pivots;
+
+  function buildCacheTarget(relation: {
+    target: string;
+    type: string;
+    external: boolean;
+  }) {
+    return [...relationships(archive, relation.target).values()].find(
+      (entry) => entry.type === 'pivotCacheDefinition' && !entry.external
+    )?.target;
+  }
+
+  function buildRelationshipPrefix(cache: string) {
+    return new RegExp(`xmlns:([A-Za-z_][\\w.-]*)="${RELATIONSHIPS}"`).exec(
+      cache
+    )?.[1];
+  }
+
+  function buildCached(
+    workbook: string | undefined,
+    connection: string | undefined
+  ) {
+    return workbook !== undefined || connection !== undefined;
+  }
+
+  function buildCacheBytes(cacheTarget: string | undefined) {
+    return cacheTarget && archive.read(cacheTarget);
+  }
+
+  function buildCells(from: string, to: string) {
+    return from === to ? from : `${from}:${to}`;
+  }
+
+  function updateCache2(
+    workbook: string | undefined,
+    relationshipPrefix: string | undefined,
+    cache: string,
+    cachePrefix: string
+  ) {
+    if (workbook && relationshipPrefix)
+      cache = cache.replace(
+        new RegExp(
+          `(<${cachePrefix}worksheetSource\\b[^>]*?)\\s${relationshipPrefix}:id="[^"]*"`
+        ),
+        '$1'
+      );
+    return cache;
+  }
+
+  function isUnsupportedSource(
+    source: ReturnType<typeof cacheSource>,
+    cached: boolean,
+    reference: string | undefined
+  ): boolean {
+    return (
+      source.kind === 'unsupported' ||
+      ((source.kind === 'workbook' || source.kind === 'connection') &&
+        !cached) ||
+      (source.kind === 'range' && !reference) ||
+      (source.kind === 'name' &&
+        !reference &&
+        options.tables.some(
+          (entry) => entry.name.toLowerCase() === source.name.toLowerCase()
+        ))
+    );
+  }
+
+  function isOversizedPivot(table: string, cache: string): boolean {
+    return (
+      table.length > MAX_PIVOT_PART_LENGTH ||
+      cache.length > MAX_PIVOT_PART_LENGTH ||
+      pivots.length >= MAX_SHEET_PIVOT_TABLES
+    );
+  }
+
+  function buildLocation(tablePrefix: string | undefined, table: string) {
+    return new RegExp(
+      `<${tablePrefix ?? ''}location\\b[^>]*\\sref="([^"]+)"`
+    ).exec(table)?.[1];
+  }
+
+  function updateCache(
+    reference: string | undefined,
+    cache: string,
+    cachePrefix: string
+  ) {
+    if (reference) cache = withSource(cache, cachePrefix, reference) ?? cache;
+    return cache;
+  }
+
+  function buildReadSheetPivotTables2(
+    relationshipPrefix: string | undefined,
+    cached: boolean,
+    records: string | undefined
+  ): Record<string, string | undefined> {
+    return {
+      ...(relationshipPrefix && { [`${relationshipPrefix}:id`]: undefined }),
+      ...(!cached && { refreshOnLoad: '1' }),
+      ...(!records && { saveData: '0' }),
+    };
+  }
+
+  function buildReadSheetPivotTables(
+    table: string,
+    tablePrefix: string,
+    cells: string,
+    cache: string,
+    reference: string | undefined,
+    records: string | undefined,
+    workbook: string | undefined,
+    connection: string | undefined,
+    formats: Record<string, string>,
+    styles: ConditionalStyle[]
+  ): SheetPivotTable {
+    return {
+      table: withLocation(table, tablePrefix, cells),
+      cache,
+      location: cells,
+      ...(reference && { source: reference }),
+      ...(records && { records }),
+      ...(workbook && { workbook }),
+      ...(connection && { connection }),
+      ...(Object.keys(formats).length && { formats }),
+      ...(styles.length && { styles }),
+    };
+  }
+
+  function updateReference(source: CacheSource, reference: string | undefined) {
+    if (source.kind === 'range')
+      reference = sourceReference(
+        source.sheet ?? options.sheetName,
+        source.ref
+      );
+    else if (source.kind === 'name') {
+      // Tables become ordinary cells, so a table source becomes its range.
+      const table = options.tables.find(
+        (entry) => entry.name.toLowerCase() === source.name.toLowerCase()
+      );
+      if (table?.headerRows)
+        reference = sourceReference(
+          table.sheet,
+          `${formatCellAddress(table.top, table.left)}:${formatCellAddress(table.bottom - table.totalsRows, table.right)}`
+        );
+    }
+    return reference;
+  }
+
+  function updateRecords(
+    cached: boolean,
+    cacheRelations: Map<
+      string,
+      { target: string; type: string; external: boolean }
+    >,
+    records: string | undefined
+  ) {
+    if (cached) {
+      const target = [...cacheRelations.values()].find(
+        (entry) => entry.type === 'pivotCacheRecords' && !entry.external
+      )?.target;
+      const bytes = target && archive.read(target);
+      const saved = bytes && text(bytes);
+      if (saved && saved.length <= MAX_PIVOT_PART_LENGTH) records = saved;
+      else if (saved) warnings.add(PIVOT_RECORDS_WARNING);
+    }
+    return records;
+  }
+
+  function updateWorkbook(
+    source: CacheSource,
+    cacheRelations: Map<
+      string,
+      { target: string; type: string; external: boolean }
+    >,
+    workbook: string | undefined,
+    connection: string | undefined
+  ) {
+    if (source.kind === 'workbook') {
+      const link = cacheRelations.get(source.link);
+      // Excel marks a link whose file it could not find as missing; the
+      // download links it as usual, for Excel to look for it again.
+      if (
+        link?.external &&
+        (link.type === 'externalLinkPath' || link.type === 'xlPathMissing') &&
+        link.target
+      )
+        workbook = link.target;
+    } else if (source.kind === 'connection') {
+      const found = workbookConnections(archive).get(source.id);
+      if (found && !internalConnection(found)) {
+        const cleaned = withoutPasswords(found);
+        // Export numbers connections anew.
+        connection = cleaned.connection.replace(
+          /^(<[^>]*?\s)id="[^"]*"/,
+          '$1id="0"'
+        );
+        if (cleaned.removed) removedPasswords = true;
+      }
+    }
+    return { workbook, connection };
+  }
 }
 
 /** Split an absolute source reference into `worksheetSource` attributes. */
@@ -574,9 +709,7 @@ export function pivotParts(
   if (records || link) {
     // Relationship ids need the namespace; an imported cache may not
     // declare it with this prefix.
-    const declared = new RegExp(`\\sxmlns:r="${RELATIONSHIPS}"`).test(
-      /^[^>]*>/.exec(cache)?.[0] ?? ''
-    );
+    const declared = buildDeclared();
     if (!declared && /^[^>]*\sxmlns:r="/.test(cache)) return;
     cache = withRootAttributes(cache, `${cachePrefix}pivotCacheDefinition`, {
       ...(!declared && { 'xmlns:r': RELATIONSHIPS }),
@@ -605,6 +738,12 @@ export function pivotParts(
     ...(pivot.records && { records: `${declaration}${pivot.records}` }),
     relationships,
   };
+
+  function buildDeclared() {
+    return new RegExp(`\\sxmlns:r="${RELATIONSHIPS}"`).test(
+      /^[^>]*>/.exec(cache)?.[0] ?? ''
+    );
+  }
 }
 
 /**
@@ -618,4 +757,9 @@ export function connectionsPart(connections: string[]): string {
       connection.replace(/^(<[^>]*?\s)id="[^"]*"/, `$1id="${index + 1}"`)
     )
     .join('')}</connections>`;
+}
+
+function pivotLocationBounds(location: string | undefined) {
+  const [start, end = start] = (location ?? '').split(':');
+  return { first: parseCellAddress(start), last: parseCellAddress(end) };
 }

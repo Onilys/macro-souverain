@@ -190,7 +190,15 @@ export function watchAgentSessionLog(
     rejectFetched = reject;
   });
   // A rejection nobody has awaited yet must not be reported as unhandled.
-  fetched.catch(() => undefined);
+
+  const settleFetchedResult = async () => {
+    try {
+      return await fetched;
+    } catch {
+      return await undefined;
+    }
+  };
+  settleFetchedResult();
 
   const appender = follow ? createAppender(sessionId) : undefined;
   const unsubscribeFollow = follow
@@ -349,12 +357,21 @@ function createAppender(sessionId: string): Appender {
     if (rows.length === 0) return;
     pending = [];
     const startedAt = performance.now();
-    void appendAgentSessionLogRows(sessionId, rows).then(
-      () => traceCacheWrite(sessionId, startedAt, rows.length),
-      (error: unknown) => {
+
+    const settleAppendAgentSessionLogRows = async () => {
+      try {
+        await appendAgentSessionLogRows(sessionId, rows);
+      } catch (settleAppendAgentSessionLogRowsError) {
+        const error: unknown = settleAppendAgentSessionLogRowsError;
+
         console.warn('[agent-session] log rows could not be cached', error);
+
+        return;
       }
-    );
+
+      return await traceCacheWrite(sessionId, startedAt, rows.length);
+    };
+    void settleAppendAgentSessionLogRows();
   };
   const schedule = () => {
     if (timer !== undefined) return;

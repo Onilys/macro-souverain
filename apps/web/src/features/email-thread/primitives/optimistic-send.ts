@@ -60,18 +60,19 @@ export function createOptimisticThreadSend(
     return {
       token: Symbol('send'),
       originalId: draft.db_id,
-      message: {
+      message: buildMessage(current, draft.db_id),
+    };
+
+    function buildMessage(
+      currentInput: NonNullable<typeof current>,
+      draftId: string
+    ): EmailMessage {
+      return {
         ...existing,
-        db_id: draft.db_id,
-        thread_db_id: current.db_id,
-        link_id: inbox?.id ?? current.link_id,
-        from: inbox
-          ? {
-              email: inbox.email_address,
-              name: inbox.displayName,
-              photo_url: inbox.photo_url,
-            }
-          : (existing?.from ?? { email: compose.viewerEmail() ?? '' }),
+        db_id: draftId,
+        thread_db_id: currentInput.db_id,
+        link_id: inbox?.id ?? currentInput.link_id,
+        from: buildFrom(),
         to: draft.to ?? [],
         cc: draft.cc ?? [],
         bcc: draft.bcc ?? [],
@@ -96,8 +97,21 @@ export function createOptimisticThreadSend(
           existing?.labels.filter(
             (label) => label.provider_label_id !== 'DRAFT'
           ) ?? [],
-      },
-    };
+      };
+    }
+
+    function buildFrom():
+      | import('../../email-message/core/email-message').EmailContact
+      | null
+      | undefined {
+      return inbox
+        ? {
+            email: inbox.email_address,
+            name: inbox.displayName,
+            photo_url: inbox.photo_url,
+          }
+        : (existing?.from ?? { email: compose.viewerEmail() ?? '' });
+    }
   }
 
   const thread = () => {

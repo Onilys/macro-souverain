@@ -32,10 +32,15 @@ export function createMediaUrls(engine: PresentationEngine) {
     const part = media.part;
     let url = urls.get(part);
     if (!url) {
-      url = read(part).catch(() => {
-        urls.delete(part);
-        return undefined;
-      });
+      const settleRead = async () => {
+        try {
+          return await read(part);
+        } catch {
+          urls.delete(part);
+          return await undefined;
+        }
+      };
+      url = settleRead();
       urls.set(part, url);
     }
     return url;

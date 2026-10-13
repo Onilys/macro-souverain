@@ -628,8 +628,11 @@ async function promise<T>(
   );
   setActiveToastId(region, toastId);
 
-  return promiseArg
-    .then((result) => {
+  const settlePromiseArg = async () => {
+    try {
+      const settlePromiseArgValue = await promiseArg;
+      const result = settlePromiseArgValue;
+
       toaster.dismiss(toastId);
 
       if (options.success) {
@@ -646,9 +649,10 @@ async function promise<T>(
         });
       }
 
-      return result;
-    })
-    .catch((error) => {
+      return await result;
+    } catch (settlePromiseArgError) {
+      const error = settlePromiseArgError;
+
       toaster.dismiss(toastId);
       if (options.error) {
         const errorMessage =
@@ -658,7 +662,9 @@ async function promise<T>(
         failure(errorMessage, { hideOnMobile: options.hideOnMobile });
       }
       throw error;
-    });
+    }
+  };
+  return settlePromiseArg();
 }
 
 // ─── createToast (internal) ──────────────────────────────────────────────────

@@ -36,7 +36,7 @@ import {
   type AccessiblePreviewItem,
   isAccessiblePreviewItem,
 } from '@queries/preview';
-import { blockNameToItemType } from '@service-storage/client';
+import { blockNameToItemType } from '@service-storage/itemType';
 import { createCallback } from '@solid-primitives/rootless';
 import { debounce } from '@solid-primitives/scheduled';
 import { Card, cn, Dropdown, Item } from '@ui';

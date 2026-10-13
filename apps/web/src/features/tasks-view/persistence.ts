@@ -4,6 +4,7 @@ import type {
   MakePersistedStateOptions,
   PersistenceStorage,
 } from '@app/lib/persistence';
+import { schemaWithFallback } from '@app/lib/utils/schema-fallback';
 import {
   createEntryPersistenceStorage,
   type EntryPersistenceHandle,
@@ -16,9 +17,10 @@ import type { TasksViewState } from './types';
 export const TASKS_ENTRY_STATE_KEY = 'tasks.view';
 export const TASKS_LIST_ENTRY_STATE_KEY = 'tasks.listState';
 
-const taskTabSchema = z
-  .enum(['my-tasks', 'created-by-me', 'team-tasks', 'projects'])
-  .catch('my-tasks');
+const taskTabSchema = schemaWithFallback(
+  z.enum(['my-tasks', 'created-by-me', 'team-tasks', 'projects']),
+  'my-tasks'
+);
 
 const taskGroupBySchema = z.enum([
   'none',
@@ -40,7 +42,7 @@ const taskFacetsSchema = z.record(z.string(), z.array(z.string()));
 
 const tasksEntryStateSchemaWithDefaults = z.object({
   version: z.literal(1).default(1),
-  layout: z.enum(['list', 'board']).catch('list').default('list'),
+  layout: schemaWithFallback(z.enum(['list', 'board']), 'list').default('list'),
   tab: taskTabSchema.default('my-tasks'),
   search: z.string().default(''),
   groupBy: taskGroupBySchema.default('priority'),

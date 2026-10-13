@@ -68,14 +68,17 @@ import {
 import { supportsStoreReconciliation } from '../../urql-solid/reactive-selection';
 import type { CacheHost } from '../host/types';
 import {
+  type AffectedOperationsResult,
   type CacheRevision,
   type ClaimedMutation,
   type EnqueueOptimisticMutationResult,
+  type HydrationResult,
   isAdmittedEnqueueUncertainError,
   isCacheRevision,
   isOwnerEpochLostError,
   isOwnerLockUnavailableError,
   type QueryRevalidationWire,
+  type WriteResult,
 } from '../protocol';
 import { createDeferredQueryRereads } from './deferred-query-rereads';
 import { createDocumentQueryReader } from './document-query-reader';
@@ -545,58 +548,69 @@ export function normalizedCacheExchange(
       retained.readyPending = true;
       if (retained.recovering || state.networkBoundQueries > 0) return;
       retained.recovering = true;
-      const recovery = (async () => {
-        while (
-          queryStates.get(key) === state &&
-          state.retainedReplacementFallback === retained &&
-          !retained.invalidated &&
-          retained.readyPending
-        ) {
-          retained.readyPending = false;
-          try {
-            await host.writeQuery({
-              ...retained.writeArgs,
-              registerDependencies: true,
-            });
-            if (
-              queryStates.get(key) !== state ||
-              state.retainedReplacementFallback !== retained ||
-              retained.invalidated ||
-              !activeOps.has(key)
+
+      const settleOperation = async () => {
+        try {
+          return await (async () => {
+            while (
+              queryStates.get(key) === state &&
+              state.retainedReplacementFallback === retained &&
+              !retained.invalidated &&
+              retained.readyPending
             ) {
-              return;
+              retained.readyPending = false;
+              try {
+                await host.writeQuery({
+                  ...retained.writeArgs,
+                  registerDependencies: true,
+                });
+                if (
+                  queryStates.get(key) !== state ||
+                  state.retainedReplacementFallback !== retained ||
+                  retained.invalidated ||
+                  !activeOps.has(key)
+                ) {
+                  return;
+                }
+                if (
+                  queryStates.get(key) !== state ||
+                  state.retainedReplacementFallback !== retained ||
+                  retained.invalidated
+                ) {
+                  return;
+                }
+                state.retainedReplacementFallback = undefined;
+                state.replacementFallback = false;
+                state.deferredAffected = false;
+                state.completedReplacementFallback = false;
+                state.networkRegistrationSatisfied = false;
+                return;
+              } catch (error) {
+                if (
+                  queryStates.get(key) !== state ||
+                  state.retainedReplacementFallback !== retained ||
+                  retained.invalidated
+                ) {
+                  return;
+                }
+                const active = activeOps.get(key);
+                if (active) options.onCacheError?.(error, active);
+                // Preserve the successful payload for a later replacement-ready
+                // notification. A notification received during this attempt sets
+                // readyPending and safely drives exactly one subsequent attempt.
+              }
             }
-            if (
-              queryStates.get(key) !== state ||
-              state.retainedReplacementFallback !== retained ||
-              retained.invalidated
-            ) {
-              return;
-            }
-            state.retainedReplacementFallback = undefined;
-            state.replacementFallback = false;
-            state.deferredAffected = false;
-            state.completedReplacementFallback = false;
-            state.networkRegistrationSatisfied = false;
-            return;
-          } catch (error) {
-            if (
-              queryStates.get(key) !== state ||
-              state.retainedReplacementFallback !== retained ||
-              retained.invalidated
-            ) {
-              return;
-            }
-            const active = activeOps.get(key);
-            if (active) options.onCacheError?.(error, active);
-            // Preserve the successful payload for a later replacement-ready
-            // notification. A notification received during this attempt sets
-            // readyPending and safely drives exactly one subsequent attempt.
-          }
+          })();
+        } catch {
+          return await undefined;
         }
-      })().catch(() => undefined);
+      };
+      const recovery = settleOperation();
       retained.recoveryPromise = recovery;
-      void recovery.then(() => {
+
+      const settleRecovery = async () => {
+        await recovery;
+
         if (retained.recoveryPromise === recovery) {
           retained.recoveryPromise = undefined;
         }
@@ -611,14 +625,27 @@ export function normalizedCacheExchange(
         } else if (retained.readyPending) {
           recoverRetainedReplacementFallback(key);
         }
-      });
+
+        return;
+      };
+      void settleRecovery();
     };
 
     const pendingAffectedReads = new Set<Promise<void>>();
     const trackAffectedRead = (read: Promise<void>): void => {
       pendingAffectedReads.add(read);
       const settled = () => pendingAffectedReads.delete(read);
-      void read.then(settled, settled);
+      const settleReadHandler0 = settled;
+      const settleReadHandler1 = settled;
+      const settleRead = async () => {
+        try {
+          await read;
+        } catch {
+          return await settleReadHandler0();
+        }
+        return await settleReadHandler1();
+      };
+      void settleRead();
     };
 
     const emitAffectedWhileNetworkBound = async (
@@ -632,16 +659,21 @@ export function normalizedCacheExchange(
       // finishes first; only teardown/remount may discard that update.
       state.cacheReadVersion += 1;
       const generation = cacheGeneration;
-      await documentReader
-        .read({
-          opKey: operation.key,
-          query: queryText(operation),
-          operationName: operationName(operation),
-          variables: operation.variables as Record<string, unknown> | undefined,
-          priority: 'user-visible',
-          entityResolvers,
-        })
-        .then((read) => {
+
+      const settleReadResult = async () => {
+        try {
+          const settleReadResultValue = await documentReader.read({
+            opKey: operation.key,
+            query: queryText(operation),
+            operationName: operationName(operation),
+            variables: operation.variables as
+              | Record<string, unknown>
+              | undefined,
+            priority: 'user-visible',
+            entityResolvers,
+          });
+          const read = settleReadResultValue;
+
           const active = activeOps.get(key);
           if (
             generation !== cacheGeneration ||
@@ -661,8 +693,14 @@ export function normalizedCacheExchange(
               'affected-cache-reread'
             )
           );
-        })
-        .catch((error) => options.onCacheError?.(error, operation));
+
+          return;
+        } catch (settleReadResultError) {
+          const error = settleReadResultError;
+          return await options.onCacheError?.(error, operation);
+        }
+      };
+      await settleReadResult();
     };
 
     // Deliver cache changes directly. Reexecuting through urql first replays
@@ -1003,8 +1041,12 @@ export function normalizedCacheExchange(
             return cacheResult(op, undefined, false);
           }
         }
-        if (!networkForwarded && !registrationOnly) enqueueQueryForward(op);
+        updateReadThenRoute();
         return undefined;
+
+        function updateReadThenRoute() {
+          if (!networkForwarded && !registrationOnly) enqueueQueryForward(op);
+        }
       }
 
       /** Durably queues optimism before allowing the ordered runner to send. */
@@ -1213,18 +1255,20 @@ export function normalizedCacheExchange(
                   invalidated: false,
                 }
               : undefined;
-          if (retained && state.replacementFallback) {
-            state.retainedReplacementFallback = retained;
-          }
+          updateRetainedReplacementFallback(retained);
           try {
             const write = await host.writeQuery(writeArgs);
             const deletion = await deleteReportedRecords(result);
             state.networkRegistrationSatisfied = writeArgs.registerDependencies;
             if (host.watchQuery && isActive()) {
               const generation = cacheGeneration;
-              void documentReader
-                .read(writeArgs)
-                .then((read) => {
+              const settleReadResultResultHandler0 = reportError;
+              const settleReadResultResult = async () => {
+                try {
+                  const settleReadResultResultValue =
+                    await documentReader.read(writeArgs);
+                  const read = settleReadResultResultValue;
+
                   const live = liveQueries.get(op.key);
                   if (
                     generation === cacheGeneration &&
@@ -1237,13 +1281,20 @@ export function normalizedCacheExchange(
                   ) {
                     live.view.replace(read.data);
                   }
-                })
-                .catch(reportError);
+
+                  return;
+                } catch (settleReadResultResultError) {
+                  return await settleReadResultResultHandler0(
+                    settleReadResultResultError
+                  );
+                }
+              };
+              void settleReadResultResult();
             }
             if (state.retainedReplacementFallback === retained) {
               state.retainedReplacementFallback = undefined;
             }
-            return deletion?.revision ?? write.revision;
+            return buildPersistQueryResult(deletion, write);
           } catch (error) {
             reportError(error);
             // An old-owner failure can arrive after this write started. Retain
@@ -1275,6 +1326,30 @@ export function normalizedCacheExchange(
             releaseTurn();
           }
         }
+
+        function updateRetainedReplacementFallback(
+          retained:
+            | {
+                version: number;
+                writeArgs: Parameters<CacheHost['writeQuery']>[0];
+                readyPending: boolean;
+                recovering: boolean;
+                invalidated: boolean;
+                recoveryPromise?: Promise<void>;
+              }
+            | undefined
+        ) {
+          if (retained && state.replacementFallback) {
+            state.retainedReplacementFallback = retained;
+          }
+        }
+
+        function buildPersistQueryResult(
+          deletion: AffectedOperationsResult | undefined,
+          write: WriteResult
+        ): CacheRevision | PromiseLike<CacheRevision | undefined> | undefined {
+          return deletion?.revision ?? write.revision;
+        }
       }
 
       async function deleteReportedRecords(result: OperationResult) {
@@ -1292,35 +1367,28 @@ export function normalizedCacheExchange(
         result: OperationResult
       ): Promise<OperationResult | undefined> {
         const op = result.operation;
-        if (
-          op.kind === 'mutation' &&
-          result.data != null &&
-          !result.error &&
-          !result.hasNext
-        ) {
-          mutationVersion += 1;
-        }
-        const output =
-          op.kind === 'query'
-            ? withResultMetadata(result, { source: 'live-network' })
-            : result;
+        updateMutationVersion();
+        const output = buildOutput();
         if (op.kind === 'subscription' && result.data != null) {
           // Serialize effects across every emission for this operation, as
           // well as within buffered payloads, so a slower earlier write cannot
           // overtake a later delete. Subscribers still receive each original
           // result after its effects settle.
-          const previousEffects =
-            subscriptionEffectChains.get(op.key) ?? Promise.resolve(true);
+          const previousEffects = buildPreviousEffects();
           const generation = subscriptionGenerations.get(op.key);
-          const effects = previousEffects.then(() =>
-            applyOperationCacheEffects(
+
+          const settlePreviousEffects = async () => {
+            await previousEffects;
+
+            return await applyOperationCacheEffects(
               op,
               operationCacheEffects(result.data),
               () =>
                 generation !== undefined &&
                 subscriptionGenerations.get(op.key) === generation
-            )
-          );
+            );
+          };
+          const effects = settlePreviousEffects();
           subscriptionEffectChains.set(op.key, effects);
           try {
             const cacheEffectsApplied = await effects;
@@ -1335,9 +1403,7 @@ export function normalizedCacheExchange(
           }
         } else if (op.kind === 'query' && isHydrateOnly(op)) {
           if (predatesMutation(op)) {
-            if (!result.hasNext && hydrationRequests.has(op.key)) {
-              enqueueHydrationForward(op);
-            }
+            updateWriteThrough();
             return undefined;
           }
           if (!result.hasNext) hydrationRequests.delete(op.key);
@@ -1349,20 +1415,11 @@ export function normalizedCacheExchange(
               operationName: operationName(op),
               variables: op.variables as Record<string, unknown> | undefined,
               data: result.data,
-              identity: options.extractIdentity?.(result.data),
+              identity: buildIdentity(),
               entityResolvers,
             });
             const deletion = await deleteReportedRecords(result);
-            return withResultMetadata(
-              {
-                ...result,
-                data: hydration.kind === 'data' ? hydration.data : undefined,
-              },
-              {
-                source: 'live-network',
-                revision: deletion?.revision ?? hydration.revision,
-              }
-            );
+            return buildWriteThrough(hydration, deletion);
           } catch (error) {
             options.onCacheError?.(error, op);
             return {
@@ -1377,14 +1434,7 @@ export function normalizedCacheExchange(
         } else if (op.kind === 'query') {
           const state = queryState(op.key);
           if (predatesMutation(op)) {
-            if (result.hasNext !== true) {
-              state.networkRequestsInFlight = Math.max(
-                0,
-                state.networkRequestsInFlight - 1
-              );
-              refreshObsoleteQuery(op);
-              finishNetworkQuery(op.key, state, false);
-            }
+            finishObsoleteQuery(state);
             return undefined;
           }
           const version = ++state.networkResultVersion;
@@ -1397,7 +1447,7 @@ export function normalizedCacheExchange(
           state.networkError = result.error;
           // Publication, not persistence, supersedes an older cache snapshot.
           // A failed network request still permits a slower offline cache hit.
-          if (result.data != null && !result.error) state.cacheReadVersion += 1;
+          updateCacheReadVersion(state);
           const persistence = persistQueryResult(result, state, version);
           return withResultMetadata(result, {
             source: 'live-network',
@@ -1408,7 +1458,7 @@ export function normalizedCacheExchange(
           if (attempt) return await mutationQueue.settle(result, attempt);
 
           const optimistic = optimisticContextOf(op);
-          if (result.data != null && !result.error) {
+          if (mutationSucceeded()) {
             await applyOperationCacheEffects(
               op,
               operationCacheEffects(result.data)
@@ -1417,14 +1467,100 @@ export function normalizedCacheExchange(
           }
           if (optimistic) {
             return withOptimisticMutationDisposition(result, {
-              kind:
-                result.data != null && !result.error
-                  ? 'committed'
-                  : 'permanently-failed',
+              kind: buildKind(),
             });
           }
         }
         return output;
+
+        function buildOutput() {
+          return op.kind === 'query'
+            ? withResultMetadata(result, { source: 'live-network' })
+            : result;
+        }
+
+        function buildPreviousEffects() {
+          return subscriptionEffectChains.get(op.key) ?? Promise.resolve(true);
+        }
+
+        function buildIdentity(): string | undefined {
+          return options.extractIdentity?.(result.data);
+        }
+
+        function mutationSucceeded() {
+          return result.data != null && !result.error;
+        }
+
+        function updateWriteThrough() {
+          if (!result.hasNext && hydrationRequests.has(op.key)) {
+            enqueueHydrationForward(op);
+          }
+        }
+
+        function buildKind(): 'committed' | 'permanently-failed' {
+          return mutationSucceeded() ? 'committed' : 'permanently-failed';
+        }
+
+        function finishObsoleteQuery(state: ReturnType<typeof queryState>) {
+          if (result.hasNext !== true) {
+            state.networkRequestsInFlight = Math.max(
+              0,
+              state.networkRequestsInFlight - 1
+            );
+            refreshObsoleteQuery(op);
+            finishNetworkQuery(op.key, state, false);
+          }
+        }
+
+        function updateCacheReadVersion(state: {
+          /** Includes background persistence for dependency/replacement ordering. */
+          networkBoundQueries: number;
+          networkRequestsInFlight: number;
+          replacementFallback: boolean;
+          deferredAffected: boolean;
+          completedReplacementFallback: boolean;
+          networkRegistrationSatisfied: boolean;
+          retainedReplacementFallback?: {
+            version: number;
+            writeArgs: Parameters<CacheHost['writeQuery']>[0];
+            readyPending: boolean;
+            recovering: boolean;
+            invalidated: boolean;
+            recoveryPromise?: Promise<void>;
+          };
+          networkResultVersion: number;
+          cacheReadVersion: number;
+          networkError?: CombinedError;
+        }) {
+          if (result.data != null && !result.error) state.cacheReadVersion += 1;
+        }
+
+        function buildWriteThrough(
+          hydration: HydrationResult,
+          deletion: AffectedOperationsResult | undefined
+        ) {
+          return withResultMetadata(
+            {
+              ...result,
+              data: hydration.kind === 'data' ? hydration.data : undefined,
+            },
+            {
+              source: 'live-network',
+              revision: deletion?.revision ?? hydration.revision,
+            }
+          );
+        }
+
+        function updateMutationVersion() {
+          if (
+            op.kind === 'mutation' &&
+            result.data != null &&
+            !result.error &&
+            !result.hasNext
+          ) {
+            mutationVersion += 1;
+          }
+        }
       }
 
       const cacheResults$ = pipe(
@@ -1472,7 +1608,15 @@ export function normalizedCacheExchange(
             documentReader.forget(op.key);
             queryStates.delete(op.key);
             affectedRereads.forget(op.key);
-            host.teardown(op.key).catch(() => undefined);
+
+            const settleTeardown = async () => {
+              try {
+                return await host.teardown(op.key);
+              } catch {
+                return await undefined;
+              }
+            };
+            settleTeardown();
           }
         })
       );

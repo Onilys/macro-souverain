@@ -22,5 +22,10 @@ async function acquireFetch() {
 // wrapper around window.fetch which just forwards args to fetch on the web.
 // In tauri environments this forwards requests into the tauri http client
 export const platformFetch: typeof window.fetch = (url, opts) => {
-  return acquireFetch().then((f) => f(url, opts));
+  const settleAcquireFetch = async () => {
+    const settleAcquireFetchValue = await acquireFetch();
+    const f = settleAcquireFetchValue;
+    return await f(url, opts);
+  };
+  return settleAcquireFetch();
 };

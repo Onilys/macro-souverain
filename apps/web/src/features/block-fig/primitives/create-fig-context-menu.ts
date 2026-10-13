@@ -49,11 +49,25 @@ export function createFigContextMenu(options: {
   const selectionFacts = async (): Promise<SelectionFacts> => {
     const ids = viewer.selected().map((s) => s.id);
     const page = viewer.page();
+
+    const settleRows = async () => {
+      try {
+        return await engine.rows(page, ids);
+      } catch {
+        return await [];
+      }
+    };
+
+    const settleNodeInfo = async () => {
+      try {
+        return await engine.nodeInfo(page, ids[0]);
+      } catch {
+        return await undefined;
+      }
+    };
     const [rows, info] = await Promise.all([
-      engine.rows(page, ids).catch(() => []),
-      ids.length === 1
-        ? engine.nodeInfo(page, ids[0]).catch(() => undefined)
-        : Promise.resolve(undefined),
+      settleRows(),
+      ids.length === 1 ? settleNodeInfo() : Promise.resolve(undefined),
     ]);
     return {
       count: ids.length,

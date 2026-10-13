@@ -14,9 +14,15 @@ describe('loadBlockDataAfterComponentPreload', () => {
 
     const result = loadBlockDataAfterComponentPreload(load, preload);
     let settled = false;
-    void result.then(() => {
+
+    const settleResult = async () => {
+      await result;
+
       settled = true;
-    });
+
+      return;
+    };
+    void settleResult();
 
     await Promise.resolve();
     expect(load).toHaveBeenCalledOnce();

@@ -4,7 +4,11 @@ import {
   uploadNativeStagedFileToPresignedUrl,
 } from '@core/mobile/nativeStagedUpload';
 import { invalidateUserQuota } from '@queries/auth';
-import { staticFileClient } from '@service-static-files/client';
+import {
+  createUploadUrl,
+  uploadFileContent,
+} from '@queries/static-files/requests';
+
 import { contentHash } from './hash';
 import { resolveUploadContentType } from './uploadContentType';
 
@@ -67,7 +71,7 @@ export async function createStaticUploadFile(
   file: UploadFile
 ): Promise<string> {
   const contentType = resolveUploadContentType(file);
-  const result = await staticFileClient.makePresignedUrl({
+  const result = await createUploadUrl({
     file_name: file.name,
     content_type: contentType,
   });
@@ -80,7 +84,7 @@ export async function createStaticUploadFile(
     return id;
   }
 
-  const uploadResult = await staticFileClient.uploadToPresignedUrl({
+  const uploadResult = await uploadFileContent({
     url: upload_url,
     blob: file.file,
     contentType,

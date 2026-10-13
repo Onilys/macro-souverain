@@ -51,18 +51,34 @@ function serializeSnapshotOperation<T>(
   documentId: string,
   operation: () => Promise<T>
 ): Promise<T> {
-  const pending = (
-    snapshotOperations.get(documentId) ?? Promise.resolve()
-  ).then(operation);
-  const settled = pending.then(
-    () => {},
-    () => {}
-  );
+  const settleOperationHandler0 = operation;
+  const settleOperation = async () => {
+    await (snapshotOperations.get(documentId) ?? Promise.resolve());
+    return await settleOperationHandler0();
+  };
+  const pending = settleOperation();
+
+  const settlePending = async () => {
+    try {
+      await pending;
+    } catch {
+      return;
+    }
+
+    return;
+  };
+  const settled = settlePending();
   snapshotOperations.set(documentId, settled);
-  void settled.then(() => {
+
+  const settleSettled = async () => {
+    await settled;
+
     if (snapshotOperations.get(documentId) === settled)
       snapshotOperations.delete(documentId);
-  });
+
+    return;
+  };
+  void settleSettled();
   return pending;
 }
 

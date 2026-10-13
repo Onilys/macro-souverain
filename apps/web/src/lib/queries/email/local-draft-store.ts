@@ -284,46 +284,7 @@ export function createLocalDraftStore(
                   }
                   const { expectedRevision: _expectedRevision, ...snapshot } =
                     input;
-                  const draft: StoredDraft = {
-                    ...snapshot,
-                    epoch: session.epoch,
-                    latestAttemptId: previous?.latestAttemptId,
-                    queuedAttemptId: previous?.queuedAttemptId,
-                    attachments: input.attachments.map((attachment) => {
-                      if (attachment.type !== 'local') return attachment;
-                      const receipt = previous?.attachments.find(
-                        (saved) =>
-                          saved.type === 'local' && saved.id === attachment.id
-                      );
-                      // Upload callbacks can commit while file bytes are being copied.
-                      // The working-copy snapshot must not erase a newer receipt.
-                      return receipt?.type === 'local'
-                        ? {
-                            ...attachment,
-                            attachmentId:
-                              receipt.attachmentId ??
-                              (attachment.uploaded
-                                ? attachment.attachmentId
-                                : undefined),
-                            uploaded:
-                              receipt.uploaded ||
-                              (attachment.uploaded &&
-                                (!receipt.attachmentId ||
-                                  receipt.attachmentId ===
-                                    attachment.attachmentId)),
-                          }
-                        : attachment;
-                    }),
-                    serverDraftId:
-                      previous?.serverDraftId ?? input.serverDraftId,
-                    serverThreadId:
-                      previous?.serverThreadId ?? input.serverThreadId,
-                    revision: (previous?.revision ?? 0) + 1,
-                    acknowledgedRevision: previous?.acknowledgedRevision ?? 0,
-                    status: paused ? previous.status : 'dirty',
-                    errorCode: paused ? previous.errorCode : undefined,
-                    updatedAt: Date.now(),
-                  };
+                  const draft: StoredDraft = buildDraft();
                   for (const [id, blob] of files)
                     tx.objectStore('files').put(blob, [input.key, id]);
                   const retained = new Set(
@@ -342,6 +303,49 @@ export function createLocalDraftStore(
                       ]);
                   drafts.put(draft, input.key);
                   finish(draft);
+
+                  function buildDraft(): StoredDraft {
+                    return {
+                      ...snapshot,
+                      epoch: session.epoch,
+                      latestAttemptId: previous?.latestAttemptId,
+                      queuedAttemptId: previous?.queuedAttemptId,
+                      attachments: input.attachments.map((attachment) => {
+                        if (attachment.type !== 'local') return attachment;
+                        const receipt = previous?.attachments.find(
+                          (saved) =>
+                            saved.type === 'local' && saved.id === attachment.id
+                        );
+                        // Upload callbacks can commit while file bytes are being copied.
+                        // The working-copy snapshot must not erase a newer receipt.
+                        return receipt?.type === 'local'
+                          ? {
+                              ...attachment,
+                              attachmentId:
+                                receipt.attachmentId ??
+                                (attachment.uploaded
+                                  ? attachment.attachmentId
+                                  : undefined),
+                              uploaded:
+                                receipt.uploaded ||
+                                (attachment.uploaded &&
+                                  (!receipt.attachmentId ||
+                                    receipt.attachmentId ===
+                                      attachment.attachmentId)),
+                            }
+                          : attachment;
+                      }),
+                      serverDraftId:
+                        previous?.serverDraftId ?? input.serverDraftId,
+                      serverThreadId:
+                        previous?.serverThreadId ?? input.serverThreadId,
+                      revision: (previous?.revision ?? 0) + 1,
+                      acknowledgedRevision: previous?.acknowledgedRevision ?? 0,
+                      status: paused ? previous.status : 'dirty',
+                      errorCode: paused ? previous.errorCode : undefined,
+                      updatedAt: Date.now(),
+                    };
+                  }
                 };
               };
             },

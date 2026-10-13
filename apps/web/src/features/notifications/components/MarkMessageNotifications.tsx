@@ -70,14 +70,27 @@ export function MarkMessageNotifications(props: {
     if (attempts >= MAX_MARK_ATTEMPTS) return;
     attempts += 1;
     setInFlight(true);
-    void notificationSource
-      .bulkMarkAsRead(unread)
-      .catch((error) => {
-        console.error('Failed to mark message notifications as read', error);
-      })
-      .finally(() => {
-        setInFlight(false);
-      });
+    const settleBulkMarkAsReadFinally = async () => {
+      setInFlight(false);
+
+      return;
+    };
+    const settleBulkMarkAsRead = async () => {
+      try {
+        try {
+          return await notificationSource.bulkMarkAsRead(unread);
+        } catch (settleBulkMarkAsReadError) {
+          const error = settleBulkMarkAsReadError;
+
+          console.error('Failed to mark message notifications as read', error);
+
+          return;
+        }
+      } finally {
+        await settleBulkMarkAsReadFinally();
+      }
+    };
+    void settleBulkMarkAsRead();
   });
 
   return props.children;

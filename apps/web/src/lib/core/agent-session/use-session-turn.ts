@@ -5,7 +5,7 @@
 
 import type { TurnState } from '@service-agent-fold/generated/types';
 import { type Accessor, createMemo, createSignal, onCleanup } from 'solid-js';
-import { AgentSession } from './AgentSession';
+import { AgentSession } from '../../queries/agent-session/agent-session';
 import {
   hasSessionActivity,
   isWorkingTurn,
@@ -40,7 +40,15 @@ export function useSessionTurn(
     // A row follows a session to show its turn and renders nothing from the
     // load, so a load it abandons by unmounting is not this caller's problem.
     // Left floating it surfaced as an unhandled rejection on every scroll.
-    void session.load().catch(() => undefined);
+
+    const settleLoad = async () => {
+      try {
+        return await session.load();
+      } catch {
+        return await undefined;
+      }
+    };
+    void settleLoad();
     onCleanup(() => session.release());
   });
 

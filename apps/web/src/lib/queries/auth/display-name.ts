@@ -3,8 +3,11 @@ import { debounce } from '@core/util/debounce';
 import { authServiceClient } from '@service-auth/client';
 import { batch } from 'solid-js';
 import { createStore, unwrap } from 'solid-js/store';
-import { type MacroId, macroIdToEmail } from './macroId';
-import type { UserNameItem, UserNamePreviewFetcher } from './types';
+import type {
+  UserNameItem,
+  UserNamePreviewFetcher,
+} from '../../core/user/types';
+import { type MacroId, macroIdToEmail } from '../../identity/macro-id';
 
 /**
  * Initials from a structured name, falling back to the email's first letter.

@@ -17,8 +17,13 @@ import {
   subscribeAgentSessionQueue,
   subscribeSocketSessionStarted,
 } from '@queries/agent-session/queue-sync';
+import {
+  editQueuedAgentAction,
+  fetchAgentQueue,
+  removeQueuedAgentAction,
+  steerQueuedAgentAction,
+} from '@queries/agent-session/requests';
 import type { FoldedMessage } from '@service-agent-fold/generated/types';
-import { agentHarnessServiceClient } from '@service-agent-harness/client';
 import type { QueuedActionDto } from '@service-agent-harness/generated/schemas';
 import {
   type Accessor,
@@ -72,9 +77,15 @@ export function createQueueController(options: {
   const baseline = async () => {
     const sessionId = untrack(options.sessionId);
     if (!sessionId) return;
-    const result = await agentHarnessServiceClient
-      .queue(sessionId)
-      .catch(() => undefined);
+
+    const settleFetchAgentQueue = async () => {
+      try {
+        return await fetchAgentQueue(sessionId);
+      } catch {
+        return await undefined;
+      }
+    };
+    const result = await settleFetchAgentQueue();
     // Discarded when an event beat it here, or when it answers for a session
     // this block no longer shows. A failed baseline keeps the last known
     // entries; the next socket event or reconnect supersedes it anyway.
@@ -125,7 +136,7 @@ export function createQueueController(options: {
   });
 
   const isDispatched = (
-    result: Awaited<ReturnType<typeof agentHarnessServiceClient.removeQueued>>
+    result: Awaited<ReturnType<typeof removeQueuedAgentAction>>
   ) =>
     result.isErr() && result.error.some((error) => error.code === 'NOT_FOUND');
 
@@ -135,9 +146,15 @@ export function createQueueController(options: {
   const edit = async (actionId: string, prompt: string) => {
     const sessionId = untrack(options.sessionId);
     if (!sessionId) return;
-    const result = await agentHarnessServiceClient
-      .editQueued(sessionId, actionId, prompt)
-      .catch(() => undefined);
+
+    const settleEditQueuedAgentAction = async () => {
+      try {
+        return await editQueuedAgentAction(sessionId, actionId, prompt);
+      } catch {
+        return await undefined;
+      }
+    };
+    const result = await settleEditQueuedAgentAction();
     if (result === undefined || (result.isErr() && !isDispatched(result))) {
       toast.failure('The queued message could not be edited');
     }
@@ -146,9 +163,15 @@ export function createQueueController(options: {
   const remove = async (actionId: string) => {
     const sessionId = untrack(options.sessionId);
     if (!sessionId) return;
-    const result = await agentHarnessServiceClient
-      .removeQueued(sessionId, actionId)
-      .catch(() => undefined);
+
+    const settleRemoveQueuedAgentAction = async () => {
+      try {
+        return await removeQueuedAgentAction(sessionId, actionId);
+      } catch {
+        return await undefined;
+      }
+    };
+    const result = await settleRemoveQueuedAgentAction();
     if (result === undefined || (result.isErr() && !isDispatched(result))) {
       toast.failure('The queued message could not be removed');
     }
@@ -157,9 +180,15 @@ export function createQueueController(options: {
   const steer = async (actionId: string) => {
     const sessionId = untrack(options.sessionId);
     if (!sessionId) return false;
-    const result = await agentHarnessServiceClient
-      .steerQueued(sessionId, actionId)
-      .catch(() => undefined);
+
+    const settleSteerQueuedAgentAction = async () => {
+      try {
+        return await steerQueuedAgentAction(sessionId, actionId);
+      } catch {
+        return await undefined;
+      }
+    };
+    const result = await settleSteerQueuedAgentAction();
     if (result === undefined || result.isErr()) {
       if (result === undefined || !isDispatched(result)) {
         toast.failure('The queued message could not be steered');

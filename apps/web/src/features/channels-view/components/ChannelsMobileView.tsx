@@ -46,9 +46,7 @@ const MOBILE_CHANNEL_TABS: PillTabItem<ChannelsQueryScope>[] = [
   { value: 'channels', label: 'Channels' },
   { value: 'direct_messages', label: 'DMs' },
 ];
-const MOBILE_TAB_STRIP_CLASS =
-  '-ml-(--mobile-chrome-gutter) w-[100cqw] max-w-none flex-none';
-const MOBILE_TAB_CONTENT_CLASS = 'px-(--mobile-chrome-gutter)';
+
 const MOBILE_CHANNEL_BUFFER_SIZE = CONVERSATION_CARD_HEIGHT * 6;
 const LOAD_MORE_THRESHOLD = 300;
 
@@ -147,8 +145,10 @@ export function ChannelsMobileView(props: {
         <div class="flex h-full w-full min-w-0 flex-1 items-center">
           <PillTabs
             scrollable
-            class={MOBILE_TAB_STRIP_CLASS}
-            contentClass={MOBILE_TAB_CONTENT_CLASS}
+            class={
+              '-ml-(--mobile-chrome-gutter) w-[100cqw] max-w-none flex-none'
+            }
+            contentClass={'px-(--mobile-chrome-gutter)'}
             items={MOBILE_CHANNEL_TABS}
             value={props.tab}
             onChange={selectTab}

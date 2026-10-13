@@ -497,13 +497,7 @@ export function FloatingMenu() {
       )}
     >
       <div
-        class={cn(
-          'flex bg-surface rounded-lg border border-edge shadow-lg',
-          isMobileWidth() ? 'flex-row p-2 mr-2' : 'flex-col w-54 p-3',
-          selectedNodes().length + selectedEdges().length <= 1 &&
-            validMenus().size === 0 &&
-            'hidden'
-        )}
+        class={getFloatingMenuClass4()}
         ref={ref}
         oncontextmenu={(e) => {
           e.preventDefault();
@@ -511,16 +505,7 @@ export function FloatingMenu() {
         }}
       >
         <Show when={validMenus().has('strokeColor')}>
-          <div
-            class={cn(
-              'flex justify-center items-center',
-              isMobileWidth() &&
-                (validMenus().has('strokeWidth') ||
-                  validMenus().has('textSize') ||
-                  selectedNodes().length + selectedEdges().length > 1) &&
-                'mr-4'
-            )}
-          >
+          <div class={getFloatingMenuClass()}>
             <SwatchColorPicker
               onClick={(color) => applyUnfiedColor(color)}
               fillColor={sharedStyles().get('fillColor')}
@@ -676,15 +661,7 @@ export function FloatingMenu() {
           >
             <Divider />
           </Show>
-          <div
-            class={cn(
-              'flex',
-              isMobileWidth() ? 'flex-row' : 'flex-col',
-              isMobileWidth() &&
-                selectedNodes().length + selectedEdges().length > 1 &&
-                'hidden'
-            )}
-          >
+          <div class={getFloatingMenuClass3()}>
             <div class="flex flex-row">
               <Show when={validMenus().has('strokeWidth')}>
                 <div class={cn(!isMobileWidth() && 'mr-3.5')}>
@@ -779,14 +756,7 @@ export function FloatingMenu() {
             </div>
             <Show when={validMenus().has('textSize')}>
               <Divider />
-              <div
-                class={cn(
-                  isMobileWidth() &&
-                    (validMenus().has('strokeWidth') ||
-                      validMenus().has('cornerRadius')) &&
-                    'ml-2'
-                )}
-              >
+              <div class={getFloatingMenuClass2()}>
                 <CanvasSlidableNumberInput
                   label={'Font size'}
                   labelPosition="top"
@@ -835,4 +805,43 @@ export function FloatingMenu() {
       <MobileDeleteButton />
     </div>
   );
+
+  function getFloatingMenuClass4(): string | undefined {
+    return cn(
+      'flex bg-surface rounded-lg border border-edge shadow-lg',
+      isMobileWidth() ? 'flex-row p-2 mr-2' : 'flex-col w-54 p-3',
+      selectedNodes().length + selectedEdges().length <= 1 &&
+        validMenus().size === 0 &&
+        'hidden'
+    );
+  }
+
+  function getFloatingMenuClass3(): string | undefined {
+    return cn(
+      'flex',
+      isMobileWidth() ? 'flex-row' : 'flex-col',
+      isMobileWidth() &&
+        selectedNodes().length + selectedEdges().length > 1 &&
+        'hidden'
+    );
+  }
+
+  function getFloatingMenuClass2(): string | undefined {
+    return cn(
+      isMobileWidth() &&
+        (validMenus().has('strokeWidth') || validMenus().has('cornerRadius')) &&
+        'ml-2'
+    );
+  }
+
+  function getFloatingMenuClass(): string | undefined {
+    return cn(
+      'flex justify-center items-center',
+      isMobileWidth() &&
+        (validMenus().has('strokeWidth') ||
+          validMenus().has('textSize') ||
+          selectedNodes().length + selectedEdges().length > 1) &&
+        'mr-4'
+    );
+  }
 }

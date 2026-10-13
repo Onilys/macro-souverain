@@ -3,7 +3,7 @@ import type {
   PageRect,
   ParagraphText,
   Pos,
-} from '@core/docx-engine/types';
+} from '@app/lib/docx/types';
 import type { MessageListItem } from '@service-storage/messages';
 import type { LoroDoc } from 'loro-crdt';
 import {
@@ -111,14 +111,29 @@ export function createDocxComments(options: {
     on(options.geometry.revision, () => {
       clearTimeout(textTimer);
       textTimer = setTimeout(() => {
-        options.geometry
-          .paragraphs()
-          .then(setParagraphs)
-          .catch(() => {});
-        options.geometry
-          .documentComments()
-          .then(setWordComments)
-          .catch(() => {});
+        const settleParagraphsHandler0 = setParagraphs;
+        const settleParagraphs = async () => {
+          try {
+            const settleParagraphsValue = await options.geometry.paragraphs();
+            return await settleParagraphsHandler0(settleParagraphsValue);
+          } catch {
+            return;
+          }
+        };
+        settleParagraphs();
+        const settleDocumentCommentsHandler0 = setWordComments;
+        const settleDocumentComments = async () => {
+          try {
+            const settleDocumentCommentsValue =
+              await options.geometry.documentComments();
+            return await settleDocumentCommentsHandler0(
+              settleDocumentCommentsValue
+            );
+          } catch {
+            return;
+          }
+        };
+        settleDocumentComments();
       }, 120);
     })
   );
@@ -198,27 +213,39 @@ export function createDocxComments(options: {
   createEffect(
     on([placement, options.geometry.revision], ([{ threads }]) => {
       const current = ++generation;
-      Promise.all(
-        threads.map(async (thread) => {
-          const range = thread.word
-            ? wordRange(thread.word.comment)
-            : {
-                from: { block: thread.mark.block, offset: thread.mark.start },
-                to: {
-                  block: thread.mark.block,
-                  offset: thread.mark.start + thread.mark.length,
-                },
+
+      const settleAll = async () => {
+        try {
+          const settleAllValue = await Promise.all(
+            threads.map(async (thread) => {
+              const range = thread.word
+                ? wordRange(thread.word.comment)
+                : {
+                    from: {
+                      block: thread.mark.block,
+                      offset: thread.mark.start,
+                    },
+                    to: {
+                      block: thread.mark.block,
+                      offset: thread.mark.start + thread.mark.length,
+                    },
+                  };
+              return {
+                ...thread,
+                rects: await options.geometry.rangeRects(range.from, range.to),
               };
-          return {
-            ...thread,
-            rects: await options.geometry.rangeRects(range.from, range.to),
-          };
-        })
-      )
-        .then((next) => {
+            })
+          );
+          const next = settleAllValue;
+
           if (current === generation) setLocated(next);
-        })
-        .catch(() => {});
+
+          return;
+        } catch {
+          return;
+        }
+      };
+      settleAll();
     })
   );
 

@@ -36,13 +36,18 @@ export function createCollapsedInputState(options: {
 
   const attach = () => {
     if (isPlatform('ios')) {
-      void pickNativePhotoLibraryMedia().then((files) => {
+      const settlePickNativePhotoLibraryMedia = async () => {
+        const settlePickNativePhotoLibraryMediaValue =
+          await pickNativePhotoLibraryMedia();
+        const files = settlePickNativePhotoLibraryMediaValue;
+
         if (files === null) {
           filePickerRef?.click();
           return;
         }
-        return attachFiles(files);
-      });
+        return await attachFiles(files);
+      };
+      void settlePickNativePhotoLibraryMedia();
       return;
     }
     filePickerRef?.click();

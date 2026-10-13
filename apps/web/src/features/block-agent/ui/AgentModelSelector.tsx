@@ -44,8 +44,6 @@ import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import { groupOptions, withoutRedundantGroups } from './model-groups';
 
 /** Compact ghost pill — same size as the short-list trigger and chat's selector. */
-const PILL_TRIGGER_CLASS =
-  'h-6 w-auto max-w-[9rem] min-w-0 justify-start gap-1 rounded-full border-transparent bg-ink/5 px-2 text-left text-sm text-ink-subtle hover:bg-ink/10';
 
 /** Height of one model row — `h-7` on the item, so the cap is exact. */
 const ROW_HEIGHT_PX = 28;
@@ -215,7 +213,9 @@ export function AgentModelSelector(props: AgentModelSelectorProps) {
       <Dropdown.Trigger
         variant="ghost"
         size="sm"
-        class={PILL_TRIGGER_CLASS}
+        class={
+          'h-6 w-auto max-w-[9rem] min-w-0 justify-start gap-1 rounded-full border-transparent bg-ink/5 px-2 text-left text-sm text-ink-subtle hover:bg-ink/10'
+        }
         disabled={props.disabled}
       >
         <ModelIcon model={shown()} class="size-3.5" />
@@ -270,7 +270,9 @@ export function AgentModelSelector(props: AgentModelSelectorProps) {
             disabled={props.disabled}
             ariaLabel="Agent model"
             searchPlaceholder="Search models"
-            triggerClass={PILL_TRIGGER_CLASS}
+            triggerClass={
+              'h-6 w-auto max-w-[9rem] min-w-0 justify-start gap-1 rounded-full border-transparent bg-ink/5 px-2 text-left text-sm text-ink-subtle hover:bg-ink/10'
+            }
             contentClass="overflow-hidden"
             placement="top-start"
           />

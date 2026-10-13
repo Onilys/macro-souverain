@@ -278,33 +278,51 @@ export function createRecordActions(options: {
   /** Start typing in the first record, or the blank row; a board opens its first card. */
   function focusFirstCell(): Promise<void> {
     if (firstCellRequest) return firstCellRequest;
-    firstCellRequest = (async () => {
-      if (options.source.loading()) {
-        const ready = until(() => !options.source.loading());
-        cancelFirstCellWait = ready.dispose;
-        await ready.catch(() => undefined);
-        cancelFirstCellWait = undefined;
-      }
-      if (
-        disposed ||
-        !options.canEdit() ||
-        options.source.error() ||
-        !options.source.snapshot()
-      )
-        return;
-      const field = options.visibleColumns().find(canEditCell);
-      if (!field) return;
-      const table = options.layout() === 'table';
-      const row = table ? draftRows.project(rows())[0] : rows()[0];
-      if (row) {
-        if (table) options.editCell(row.rowId, field.id);
-        else open(row.rowId);
-      } else if (table) {
-        focusBlankRow();
-      }
-    })().finally(() => {
+    const settleOperationFinally = async () => {
       firstCellRequest = undefined;
-    });
+
+      return;
+    };
+    const settleOperation = async () => {
+      try {
+        return await (async () => {
+          if (options.source.loading()) {
+            const ready = until(() => !options.source.loading());
+            cancelFirstCellWait = ready.dispose;
+
+            const settleReady = async () => {
+              try {
+                return await ready;
+              } catch {
+                return await undefined;
+              }
+            };
+            await settleReady();
+            cancelFirstCellWait = undefined;
+          }
+          if (
+            disposed ||
+            !options.canEdit() ||
+            options.source.error() ||
+            !options.source.snapshot()
+          )
+            return;
+          const field = options.visibleColumns().find(canEditCell);
+          if (!field) return;
+          const table = options.layout() === 'table';
+          const row = table ? draftRows.project(rows())[0] : rows()[0];
+          if (row) {
+            if (table) options.editCell(row.rowId, field.id);
+            else open(row.rowId);
+          } else if (table) {
+            focusBlankRow();
+          }
+        })();
+      } finally {
+        await settleOperationFinally();
+      }
+    };
+    firstCellRequest = settleOperation();
     return firstCellRequest;
   }
   /** Where focus goes back when the delete dialog closes. */

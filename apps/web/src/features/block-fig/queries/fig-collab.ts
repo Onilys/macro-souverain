@@ -118,7 +118,15 @@ class TrackedWALSyncer extends WALSyncer<Uint8Array> {
 
   override append(update: Uint8Array): Promise<void> {
     const appended = super.append(update);
-    this.lastAppend = appended.catch(() => {});
+
+    const settleAppended = async () => {
+      try {
+        return await appended;
+      } catch {
+        return;
+      }
+    };
+    this.lastAppend = settleAppended();
     return appended;
   }
 }
@@ -286,9 +294,15 @@ export function createDesignCollabSession(
 
   async function hydrate() {
     await wal.ready();
-    const cached = await loadCachedState(manager, snapshots, walStore).catch(
-      () => false
-    );
+
+    const settleLoadCachedState = async () => {
+      try {
+        return await loadCachedState(manager, snapshots, walStore);
+      } catch {
+        return await false;
+      }
+    };
+    const cached = await settleLoadCachedState();
     if (disposed) return;
     if (cached && designFormat(manager.doc) !== undefined) await start();
     else if (!(await options.exists()) && !(await seed())) return;

@@ -3,16 +3,12 @@ import { toast } from '@core/component/Toast/Toast';
 import { useKeyedPersistentToasts } from '@core/component/Toast/useKeyedPersistentToasts';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { useReauthenticateGithubMutation } from '@queries/auth';
-import { authServiceClient } from '@service-auth/client';
+import { fetchGithubLinkStatus } from '@queries/auth/github-link';
+
 import { createSignal, onCleanup, onMount } from 'solid-js';
 
 async function checkGithubReauthenticationStatus(): Promise<boolean> {
-  const response = await authServiceClient.checkGithubLinkStatus();
-  return response.isOk()
-    ? response.value.reauthentication_required
-    : response.error.some(
-        (error) => error.code === 'REAUTHENTICATION_REQUIRED'
-      );
+  return (await fetchGithubLinkStatus()).status === 'reauthentication_required';
 }
 
 /**
@@ -43,7 +39,15 @@ export function GithubReauthenticationPrompt() {
   }
 
   onMount(() => {
-    void checkGithubReauthenticationStatus().then(setNeedsReauth);
+    const settleCheckGithubReauthenticationStatusHandler0 = setNeedsReauth;
+    const settleCheckGithubReauthenticationStatus = async () => {
+      const settleCheckGithubReauthenticationStatusValue =
+        await checkGithubReauthenticationStatus();
+      return await settleCheckGithubReauthenticationStatusHandler0(
+        settleCheckGithubReauthenticationStatusValue
+      );
+    };
+    void settleCheckGithubReauthenticationStatus();
     if (isNativeMobilePlatform()) return;
 
     async function onPageShow(event: PageTransitionEvent) {

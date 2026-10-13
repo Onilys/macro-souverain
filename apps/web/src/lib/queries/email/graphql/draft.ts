@@ -29,6 +29,7 @@ import {
   CombinedError,
   type OperationResult,
 } from '@urql/core';
+import { match as matchBranch } from 'ts-pattern';
 import {
   createDraftThread,
   type DraftThread,
@@ -113,16 +114,20 @@ export type SaveEmailDraftOutcome =
 export function draftFailureCode(
   code: unknown
 ): Exclude<SaveEmailDraftFailureCode, 'NETWORK'> {
-  switch (code) {
-    case 'DRAFT_ALREADY_SENT':
-    case 'NOT_FOUND':
-    case 'INBOX_NOT_FOUND':
-    case 'UNAUTHORIZED':
-    case 'INVALID':
-      return code;
-    default:
+  return matchBranch(code)
+    .with(
+      'DRAFT_ALREADY_SENT',
+      'NOT_FOUND',
+      'INBOX_NOT_FOUND',
+      'UNAUTHORIZED',
+      'INVALID',
+      (code): Exclude<SaveEmailDraftFailureCode, 'NETWORK'> => {
+        return code;
+      }
+    )
+    .otherwise((): Exclude<SaveEmailDraftFailureCode, 'NETWORK'> => {
       return 'INTERNAL';
-  }
+    });
 }
 
 /**
@@ -195,36 +200,73 @@ function optimisticDraftEntity(
   return {
     __typename: 'GraphqlSoupEmailMessage',
     id: String(args.draftId),
-    providerId: args.providerId ?? existing?.providerId ?? null,
+    providerId: buildProviderId(),
     threadId: args.threadDbId,
     replyingToId: args.replyingToId != null ? String(args.replyingToId) : null,
     linkId: args.senderLinkId,
     subject: args.subject,
-    snippet: args.bodyText?.trim().slice(0, 200) ?? existing?.snippet ?? null,
+    snippet: buildSnippet(),
     internalDateTs: existing?.internalDateTs ?? null,
-    sentAt: existing?.sentAt ?? null,
+    sentAt: buildSentAt(),
     isRead: true,
     isStarred: existing?.isStarred ?? false,
     isSent: false,
     isDraft: true,
     hasAttachments: existing?.hasAttachments ?? false,
-    scheduledSendTime: args.sendTime ?? existing?.scheduledSendTime ?? null,
+    scheduledSendTime: buildScheduledSendTime(),
     bodyText: args.bodyText ?? null,
     bodyHtmlSanitized: args.optimisticBodyHtml,
     bodyMacro: args.bodyMacro ?? null,
     bodyReplyless: null,
     calendarInvitations: existing?.calendarInvitations ?? [],
-    createdAt: existing?.createdAt ?? now,
+    createdAt: buildCreatedAt(),
     updatedAt: now,
     from: { email: args.senderEmail, name: null, photoUrl: null },
     to: (args.to ?? []).map(optimisticContact),
     cc: (args.cc ?? []).map(optimisticContact),
     bcc: (args.bcc ?? []).map(optimisticContact),
-    labels: existing?.labels ?? [],
-    attachments: existing?.attachments ?? [],
+    labels: buildLabels(),
+    attachments: buildAttachments(),
     attachmentsDraft: existing?.attachmentsDraft ?? [],
     attachmentsForwarded: existing?.attachmentsForwarded ?? [],
   };
+
+  function buildAttachments(): {
+    __typename: 'GraphqlSoupEmailMessageAttachment';
+    id: string;
+    providerId: string | null;
+    filename: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    sfsId: string | null;
+    contentId: string | null;
+  }[] {
+    return existing?.attachments ?? [];
+  }
+
+  function buildCreatedAt(): string {
+    return existing?.createdAt ?? now;
+  }
+
+  function buildSentAt(): string | null {
+    return existing?.sentAt ?? null;
+  }
+
+  function buildLabels(): { providerLabelId: string; name: string }[] {
+    return existing?.labels ?? [];
+  }
+
+  function buildScheduledSendTime(): string | null {
+    return args.sendTime ?? existing?.scheduledSendTime ?? null;
+  }
+
+  function buildProviderId(): string | null {
+    return args.providerId ?? existing?.providerId ?? null;
+  }
+
+  function buildSnippet(): string | null {
+    return args.bodyText?.trim().slice(0, 200) ?? existing?.snippet ?? null;
+  }
 }
 
 /**

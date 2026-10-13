@@ -28,9 +28,25 @@ export function whenSplitManagerReady(
       );
     }
 
-    wait
-      .then(resolve, reject)
-      .finally(() => abortSignal.removeEventListener('abort', onAbort));
+    const settleWaitHandler0 = reject;
+    const settleWaitHandler1 = resolve;
+    const settleWaitFinally = async () => {
+      return await abortSignal.removeEventListener('abort', onAbort);
+    };
+    const settleWait = async () => {
+      try {
+        let settleWaitValue;
+        try {
+          settleWaitValue = await wait;
+        } catch (settleWaitError) {
+          return await settleWaitHandler0(settleWaitError);
+        }
+        return await settleWaitHandler1(settleWaitValue);
+      } finally {
+        await settleWaitFinally();
+      }
+    };
+    settleWait();
 
     if (abortSignal.aborted) {
       onAbort();

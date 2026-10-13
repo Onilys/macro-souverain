@@ -440,7 +440,14 @@ async function activate(
             )
           );
           drainFiber.addObserver(() => {
-            void closeLifecycle().catch(() => undefined);
+            const settleCloseLifecycle = async () => {
+              try {
+                return await closeLifecycle();
+              } catch {
+                return await undefined;
+              }
+            };
+            void settleCloseLifecycle();
           });
         })
         .with({ kind: 'heartbeat' }, ({ heartbeatId }) => {

@@ -654,11 +654,21 @@ export async function handleFolderSelect(
   const groups = groupPickedFolderFiles(files);
 
   const zipEntryPromises = Array.from(groups.entries()).map(
-    ([folderName, group]) =>
-      zipFiles(folderName, group.files, group.details).then((zip) => ({
-        file: zip,
-        isFolder: true,
-      }))
+    ([folderName, group]) => {
+      const settleZipFiles = async () => {
+        const settleZipFilesValue = await zipFiles(
+          folderName,
+          group.files,
+          group.details
+        );
+        const zip = settleZipFilesValue;
+        return await {
+          file: zip,
+          isFolder: true,
+        };
+      };
+      return settleZipFiles();
+    }
   );
 
   const resultPromise = Promise.allSettled(zipEntryPromises);

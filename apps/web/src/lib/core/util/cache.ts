@@ -80,11 +80,17 @@ export function cache<Fn extends (...args: any[]) => Promise<any>>(
       expiresAt,
     };
 
-    result.then((value) => {
+    const settleResult = async () => {
+      const settleResultValue = await result;
+      const value = settleResultValue;
+
       if (value.isErr()) {
         cache.delete(key);
       }
-    });
+
+      return;
+    };
+    settleResult();
 
     cache.set(key, cacheEntry);
     return result;

@@ -69,16 +69,7 @@ export async function readEmailDraft(
     selected &&
     (!selected.record.isDraft || !local || local.status === 'synced')
   ) {
-    return {
-      draft: selected.record.isDraft
-        ? mapGraphqlEmailMessage(selected.record)
-        : undefined,
-      persistence: selected.identity?.pending
-        ? ('queued' as const)
-        : ('committed' as const),
-      mutationUuid: local?.key ?? selected.identity?.mutationUuid ?? undefined,
-      local: selected.record.isDraft ? local : undefined,
-    };
+    return buildReadEmailDraft(selected);
   }
   const admittedDelete =
     local?.status === 'deleting' &&
@@ -102,15 +93,33 @@ export async function readEmailDraft(
     };
   }
   if (!selected) return;
-  return {
-    draft: selected.record.isDraft
-      ? mapGraphqlEmailMessage(selected.record)
-      : undefined,
-    persistence: selected.identity?.pending
-      ? ('queued' as const)
-      : ('committed' as const),
-    mutationUuid: selected.identity?.mutationUuid ?? undefined,
-  };
+  return buildReadEmailDraft2(selected);
+
+  function buildReadEmailDraft2(selectedValue: NonNullable<typeof selected>) {
+    return {
+      draft: selectedValue.record.isDraft
+        ? mapGraphqlEmailMessage(selectedValue.record)
+        : undefined,
+      persistence: selectedValue.identity?.pending
+        ? ('queued' as const)
+        : ('committed' as const),
+      mutationUuid: selectedValue.identity?.mutationUuid ?? undefined,
+    };
+  }
+
+  function buildReadEmailDraft(selectedValue: NonNullable<typeof selected>) {
+    return {
+      draft: selectedValue.record.isDraft
+        ? mapGraphqlEmailMessage(selectedValue.record)
+        : undefined,
+      persistence: selectedValue.identity?.pending
+        ? ('queued' as const)
+        : ('committed' as const),
+      mutationUuid:
+        local?.key ?? selectedValue.identity?.mutationUuid ?? undefined,
+      local: selectedValue.record.isDraft ? local : undefined,
+    };
+  }
 }
 
 /** Subscribers read durable state; missing a notification is harmless on remount. */
@@ -207,7 +216,17 @@ function rejection(
   if (code === 'DRAFT_ALREADY_SENT') {
     markThreadDraftSaved(threadId);
     invalidateSoupEntity(threadId);
-    void refetchSoupEntity(threadId, 'emailThread').catch(reportError);
+    const settleRefetchSoupEntityHandler0 = reportError;
+    const settleRefetchSoupEntity = async () => {
+      try {
+        return await refetchSoupEntity(threadId, 'emailThread');
+      } catch (settleRefetchSoupEntityError) {
+        return await settleRefetchSoupEntityHandler0(
+          settleRefetchSoupEntityError
+        );
+      }
+    };
+    void settleRefetchSoupEntity();
     void fetchAndCacheThread(threadId);
   } else {
     toast.failure(message);
@@ -316,17 +335,34 @@ export async function saveEmailDraftQueued(input: {
   try {
     markThreadDraftSaved(outcome.threadId);
     if (input.previousThreadId && input.previousThreadId !== outcome.threadId) {
+      const previousThreadId = input.previousThreadId;
       markThreadDraftSaved(input.previousThreadId);
       invalidateSoupEntity(input.previousThreadId);
-      void refetchSoupEntity(input.previousThreadId, 'emailThread').catch(
-        reportError
-      );
+      const settleRefetchSoupEntityResultHandler0 = reportError;
+      const settleRefetchSoupEntityResult = async () => {
+        try {
+          return await refetchSoupEntity(previousThreadId, 'emailThread');
+        } catch (settleRefetchSoupEntityResultError) {
+          return await settleRefetchSoupEntityResultHandler0(
+            settleRefetchSoupEntityResultError
+          );
+        }
+      };
+      void settleRefetchSoupEntityResult();
     }
     void queryClient.invalidateQueries({ queryKey: emailKeys.previews._def });
     if (!input.completingThread) {
-      void refetchSoupEntity(outcome.threadId, 'emailThread').catch(
-        reportError
-      );
+      const settleRefetchSoupEntityResultResultHandler0 = reportError;
+      const settleRefetchSoupEntityResultResult = async () => {
+        try {
+          return await refetchSoupEntity(outcome.threadId, 'emailThread');
+        } catch (settleRefetchSoupEntityResultResultError) {
+          return await settleRefetchSoupEntityResultResultHandler0(
+            settleRefetchSoupEntityResultResultError
+          );
+        }
+      };
+      void settleRefetchSoupEntityResultResult();
     }
     void queryClient.invalidateQueries({
       queryKey: emailKeys.threadMessages(outcome.threadId).queryKey,
@@ -381,7 +417,17 @@ export async function deleteEmailDraftQueued(input: {
     markThreadDraftSaved(input.threadId);
     void queryClient.invalidateQueries({ queryKey: emailKeys.previews._def });
     if (!input.completingThread) {
-      void refetchSoupEntity(input.threadId, 'emailThread').catch(reportError);
+      const settleRefetchSoupEntityResultResultResultHandler0 = reportError;
+      const settleRefetchSoupEntityResultResultResult = async () => {
+        try {
+          return await refetchSoupEntity(input.threadId, 'emailThread');
+        } catch (settleRefetchSoupEntityResultResultResultError) {
+          return await settleRefetchSoupEntityResultResultResultHandler0(
+            settleRefetchSoupEntityResultResultResultError
+          );
+        }
+      };
+      void settleRefetchSoupEntityResultResultResult();
       invalidateAllSoup();
     }
   } catch (error) {

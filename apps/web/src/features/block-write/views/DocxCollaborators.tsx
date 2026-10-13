@@ -1,4 +1,4 @@
-import type { CaretRect, Pos } from '@core/docx-engine/types';
+import type { CaretRect, Pos } from '@app/lib/docx/types';
 import {
   type Accessor,
   createEffect,
@@ -27,21 +27,30 @@ export function DocxCollaboratorCarets(props: {
   createEffect(
     on([() => props.peers, props.revision], ([peers]) => {
       const current = ++generation;
-      Promise.all(
-        peers.map(async (peer) => {
-          const caret = await props.caretAt({
-            block: peer.selection.block,
-            offset: peer.selection.offset,
-          });
-          return caret
-            ? [{ peer, name: props.displayName(peer.userId), caret }]
-            : [];
-        })
-      )
-        .then((found) => {
+
+      const settleAll = async () => {
+        try {
+          const settleAllValue = await Promise.all(
+            peers.map(async (peer) => {
+              const caret = await props.caretAt({
+                block: peer.selection.block,
+                offset: peer.selection.offset,
+              });
+              return caret
+                ? [{ peer, name: props.displayName(peer.userId), caret }]
+                : [];
+            })
+          );
+          const found = settleAllValue;
+
           if (current === generation) setCarets(found.flat());
-        })
-        .catch(() => {});
+
+          return;
+        } catch {
+          return;
+        }
+      };
+      settleAll();
     })
   );
 

@@ -1,7 +1,7 @@
 import { useAiDataConsent } from '@core/context/user';
 import CloseIcon from '@phosphor/x.svg';
-import { invalidateUserInfo } from '@queries/auth/user-info';
-import { authServiceClient } from '@service-auth/client';
+import { updateAiDataConsent } from '@queries/auth/requests';
+
 import { Button, Dialog, Surface } from '@ui';
 import { createSignal } from 'solid-js';
 
@@ -17,8 +17,7 @@ export function useAiDataConsentGate() {
   }
 
   async function grantConsent() {
-    await authServiceClient.patchAiConsent({ aiDataConsent: true });
-    await invalidateUserInfo();
+    await updateAiDataConsent({ aiDataConsent: true });
     setOpen(false);
     const cb = storedCallback;
     storedCallback = undefined;

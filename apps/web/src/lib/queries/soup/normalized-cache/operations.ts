@@ -504,22 +504,25 @@ export function restoreSoupEntityToDoneFilteredQueries(
   for (const [key, prev] of queryClient.getQueriesData<SoupItemsInfiniteData>({
     queryKey: soupKeys.items._def,
   })) {
-    if (!shouldRestore(key)) continue;
-    if (!prev?.pages?.length) continue;
-    if (prev.pages.some((page) => containsEntity(page.items))) continue;
+    const processKeyprev = () => {
+      if (!shouldRestore(key)) return;
+      if (!prev?.pages?.length) return;
+      if (prev.pages.some((page) => containsEntity(page.items))) return;
 
-    const flatMeta = metaFor(key);
-    if (flatMeta.itemFilter && !flatMeta.itemFilter(item)) continue;
-    if (flatMeta.insertFilter && !flatMeta.insertFilter(item)) continue;
+      const flatMeta = metaFor(key);
+      if (flatMeta.itemFilter && !flatMeta.itemFilter(item)) return;
+      if (flatMeta.insertFilter && !flatMeta.insertFilter(item)) return;
 
-    cancelQuery(key);
-    queryClient.setQueryData<SoupItemsInfiniteData>(key, {
-      ...prev,
-      pages: prev.pages.map((page, index) =>
-        index === 0 ? { ...page, items: [item, ...page.items] } : page
-      ),
-    });
-    retainRestoredSoupItem(queryClient, key, item);
+      cancelQuery(key);
+      queryClient.setQueryData<SoupItemsInfiniteData>(key, {
+        ...prev,
+        pages: prev.pages.map((page, index) =>
+          index === 0 ? { ...page, items: [item, ...page.items] } : page
+        ),
+      });
+      retainRestoredSoupItem(queryClient, key, item);
+    };
+    processKeyprev();
   }
 
   for (const [
@@ -883,9 +886,16 @@ export function optimisticUpdateSoupItemViewedAt(itemId: string) {
   const now = new Date().toISOString();
 
   // Lazy import to break circular dependency
-  import('../recently-viewed').then(({ updateRecentlyViewedItem }) => {
+
+  const settleOperation = async () => {
+    const settleOperationValue = await import('../recently-viewed');
+    const { updateRecentlyViewedItem } = settleOperationValue;
+
     updateRecentlyViewedItem(itemId, now);
-  });
+
+    return;
+  };
+  settleOperation();
 
   const current = getSoupEntityById(itemId);
   if (!current) return;

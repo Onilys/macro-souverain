@@ -400,20 +400,25 @@ export function DatabaseTable(props: DatabaseTableProps) {
     const column = columns()[columnIndex - 1];
     const nextControl = row && column ? control(row.id, column.id) : undefined;
     // Stepping down onto the new-record row starts typing there, like a spreadsheet.
-    if (
-      nextControl &&
-      delta[0] === 1 &&
-      props.canEdit &&
-      column &&
-      canEditCell(column) &&
-      props.isUnsavedRow?.(row.id)
-    )
-      nextControl.edit();
-    else if (nextControl) nextControl.focus();
-    else
-      (
-        next.querySelector<HTMLElement>('button, input, [tabindex]') ?? next
-      ).focus();
+    updateMoveFocus(next);
+
+    function updateMoveFocus(nextValue: NonNullable<typeof next>) {
+      if (
+        nextControl &&
+        delta[0] === 1 &&
+        props.canEdit &&
+        column &&
+        canEditCell(column) &&
+        props.isUnsavedRow?.(row.id)
+      )
+        nextControl.edit();
+      else if (nextControl) nextControl.focus();
+      else
+        (
+          nextValue.querySelector<HTMLElement>('button, input, [tabindex]') ??
+          nextValue
+        ).focus();
+    }
   }
   // One menu for every row: right-click (or a long press) picks its row and cell.
   const [contextTarget, setContextTarget] = createSignal<{

@@ -13,7 +13,7 @@ import {
 import { useBlockAliasedName, useBlockId, useBlockName } from '@core/block';
 import { BlockLiveIndicators } from '@core/component/LiveIndicators';
 import { useBlockDocumentName } from '@core/util/currentBlockDocumentName';
-import { blockNameToItemType } from '@service-storage/client';
+import { blockNameToItemType } from '@service-storage/itemType';
 import { type Accessor, Show } from 'solid-js';
 import { useMarkdownDocumentTools } from './useMarkdownDocumentTools';
 

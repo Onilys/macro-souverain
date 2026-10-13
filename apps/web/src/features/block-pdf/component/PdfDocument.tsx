@@ -209,7 +209,13 @@ function PdfDocumentBehavior(props: PdfDocumentProps) {
     debounce,
     (event: BeforeLeaveEventArgs) => {
       event.preventDefault();
-      void savePdf().then(() => event.retry(true));
+
+      const settleSavePdf = async () => {
+        await savePdf();
+
+        return await event.retry(true);
+      };
+      void settleSavePdf();
     },
     500
   );

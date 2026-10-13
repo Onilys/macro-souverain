@@ -151,7 +151,15 @@ function playRingSound(): RingSound | undefined {
   let stopped = false;
   const timeoutId = window.setTimeout(() => {
     stopped = true;
-    void ctx.close().catch(() => {});
+
+    const settleClose = async () => {
+      try {
+        return await ctx.close();
+      } catch {
+        return;
+      }
+    };
+    void settleClose();
   }, totalMs);
 
   return {
@@ -160,7 +168,15 @@ function playRingSound(): RingSound | undefined {
       if (stopped) return;
       stopped = true;
       window.clearTimeout(timeoutId);
-      void ctx.close().catch(() => {});
+
+      const settleCloseResult = async () => {
+        try {
+          return await ctx.close();
+        } catch {
+          return;
+        }
+      };
+      void settleCloseResult();
     },
   };
 }

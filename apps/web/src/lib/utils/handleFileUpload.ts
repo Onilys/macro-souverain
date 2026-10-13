@@ -27,7 +27,10 @@ export function useHandleFileUpload(options: { projectId?: string } = {}) {
     // Refetch soup for folders once pending uploads are done, and show a success
     // toast with an action to open the created folder/project.
     for (const upload of pendingUploads) {
-      upload.projectId.then((createdProjectId) => {
+      const settleProjectId = async () => {
+        const settleProjectIdValue = await upload.projectId;
+        const createdProjectId = settleProjectIdValue;
+
         if (!createdProjectId) return;
 
         refetchSoupEntity(createdProjectId, 'project', { includeRoot: true });
@@ -46,7 +49,10 @@ export function useHandleFileUpload(options: { projectId?: string } = {}) {
             },
           ],
         });
-      });
+
+        return;
+      };
+      settleProjectId();
     }
 
     // refetch soup for uploaded docs

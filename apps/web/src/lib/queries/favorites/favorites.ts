@@ -165,20 +165,25 @@ export function invalidateFavorites() {
     return refreshActiveGraphqlFavoritesQueries();
   }
 
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: favoriteKeys.list._def }),
-    queryClient.invalidateQueries({
-      queryKey: soupKeys._def,
-      predicate: (query) =>
-        query.queryKey.some(
-          (part) =>
-            part !== null &&
-            typeof part === 'object' &&
-            'favorites_only' in part &&
-            part.favorites_only === true
-        ),
-    }),
-  ]).then(() => undefined);
+  const settleAll = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: favoriteKeys.list._def }),
+      queryClient.invalidateQueries({
+        queryKey: soupKeys._def,
+        predicate: (query) =>
+          query.queryKey.some(
+            (part) =>
+              part !== null &&
+              typeof part === 'object' &&
+              'favorites_only' in part &&
+              part.favorites_only === true
+          ),
+      }),
+    ]);
+
+    return await undefined;
+  };
+  return settleAll();
 }
 
 function updateSoupFavorite(entityId: string, favorite: boolean) {

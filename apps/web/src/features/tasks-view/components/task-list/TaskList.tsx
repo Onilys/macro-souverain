@@ -144,7 +144,11 @@ export function TaskList(props: TaskListProps) {
 
     if (item.kind === 'load-more' && item.groupId !== undefined) {
       const focusIndex = list.items.indexOf(item.id);
-      void source.loadMoreGroup(item.groupId).then(() => {
+
+      const groupId = item.groupId;
+      const settleLoadMoreGroup = async () => {
+        await source.loadMoreGroup(groupId);
+
         if (list.focus.requestedKey() !== item.id) return;
 
         list.focus.restore(item.id, {
@@ -152,7 +156,10 @@ export function TaskList(props: TaskListProps) {
           nearestIndex: focusIndex,
           retainUnavailable: false,
         });
-      });
+
+        return;
+      };
+      void settleLoadMoreGroup();
 
       return;
     }

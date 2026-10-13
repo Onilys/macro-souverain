@@ -136,17 +136,20 @@ const errorMessage = (error: unknown): string =>
 const resetReasonForOpenOutcome = (
   outcome: EngineOpenOutcome
 ): CacheResetReason => {
-  switch (outcome) {
-    case 'reset-incompatible':
+  return match(outcome)
+    .with('reset-incompatible', (): CacheResetReason => {
       return 'namespace-mismatch';
-    case 'reset-corrupt':
+    })
+    .with('reset-corrupt', (): CacheResetReason => {
       return 'integrity-failure';
-    case 'reset-storage-uncertain':
+    })
+    .with('reset-storage-uncertain', (): CacheResetReason => {
       return 'storage-reset-required';
-    case 'opened-existing':
-    case 'opened-new':
+    })
+    .with('opened-existing', 'opened-new', (): CacheResetReason => {
       return 'unknown';
-  }
+    })
+    .exhaustive();
 };
 
 type WithoutVersion<T> = T extends unknown
@@ -187,22 +190,30 @@ export function watchTabLivenessLock(
   onReleased: () => void
 ): CancelLivenessWatch {
   const abortController = new AbortController();
-  void navigator.locks
-    .request(
-      lockName,
-      { mode: 'exclusive', signal: abortController.signal },
-      (lock) => {
-        if (lock) onReleased();
-      }
-    )
-    .catch((error: unknown) => {
+
+  const settleRequest = async () => {
+    try {
+      return await navigator.locks.request(
+        lockName,
+        { mode: 'exclusive', signal: abortController.signal },
+        (lock) => {
+          if (lock) onReleased();
+        }
+      );
+    } catch (settleRequestError) {
+      const error: unknown = settleRequestError;
+
       if (
         !abortController.signal.aborted &&
         (!(error instanceof DOMException) || error.name !== 'AbortError')
       ) {
         console.error('[graphql-cache] tab liveness watch failed');
       }
-    });
+
+      return;
+    }
+  };
+  void settleRequest();
   return () => abortController.abort();
 }
 
@@ -405,6 +416,21 @@ export class CoordinatorRouter {
     port: CoordinatorMessagePort,
     message: Extract<TabToCoordinatorEnvelope, { kind: 'register-tab' }>
   ): Promise<void> {
+    const hasCoreValue = () => {
+      return (
+        this.coreValue &&
+        (this.coreValue.scope !== message.scope ||
+          this.hotCapacity !== message.hotCapacity)
+      );
+    };
+
+    const updateRegister = () => {
+      if (!actions.some((action) => action.kind === 'elect-owner')) {
+        const progress = this.startupProgress();
+        if (progress) this.postToTab(message.tabId, progress);
+      }
+    };
+
     if (this.portTabs.has(port) || this.pendingRegistrations.has(port)) {
       this.postProtocolError(port, 'MessagePort already registered');
       return;
@@ -476,11 +502,7 @@ export class CoordinatorRouter {
       port.close();
       return;
     }
-    if (
-      this.coreValue &&
-      (this.coreValue.scope !== message.scope ||
-        this.hotCapacity !== message.hotCapacity)
-    ) {
+    if (hasCoreValue()) {
       this.postProtocolError(port, 'coordinator registration raced a mismatch');
       port.close();
       return;
@@ -518,10 +540,7 @@ export class CoordinatorRouter {
     const actions = this.coreValue.registerTab(message.tabId);
     this.applyActions(actions);
     // Late joiners must use the same startup budget as the elected owner.
-    if (!actions.some((action) => action.kind === 'elect-owner')) {
-      const progress = this.startupProgress();
-      if (progress) this.postToTab(message.tabId, progress);
-    }
+    updateRegister();
   }
 
   private attachEnginePort(
@@ -582,7 +601,15 @@ export class CoordinatorRouter {
     }
     route = { tabId, ownerEpoch, transport };
     this.engineRoute = route;
-    void transport.ready.catch(() => undefined);
+
+    const settleReady = async () => {
+      try {
+        return await transport.ready;
+      } catch {
+        return await undefined;
+      }
+    };
+    void settleReady();
   }
 
   private handleEngineMessage(route: EngineRoute, rawMessage: unknown): void {
@@ -610,8 +637,8 @@ export class CoordinatorRouter {
       return;
     }
 
-    switch (message.kind) {
-      case 'engine-assets-ready': {
+    match(message)
+      .with({ kind: 'engine-assets-ready' }, (message) => {
         // The engine now tries to take the owner lock without touching
         // storage, and gives up by itself if another context keeps it.
         if (!core.beginOwnerLockWait(message.tabId, message.ownerEpoch)) {
@@ -620,19 +647,19 @@ export class CoordinatorRouter {
             message.ownerEpoch,
             'unexpected engine asset readiness'
           );
-          break;
+          return;
         }
         this.armStartupWatchdog(message.tabId, message.ownerEpoch);
-        break;
-      }
-      case 'owner-lock-acquired': {
+        return;
+      })
+      .with({ kind: 'owner-lock-acquired' }, (message) => {
         if (!core.beginEngineOpen(message.tabId, message.ownerEpoch)) {
           this.failOwner(
             message.tabId,
             message.ownerEpoch,
             'unexpected owner lock acquisition'
           );
-          break;
+          return;
         }
         this.clearTakeover();
         this.armStartupWatchdog(message.tabId, message.ownerEpoch);
@@ -643,141 +670,153 @@ export class CoordinatorRouter {
             ownerEpoch: message.ownerEpoch,
           })
         );
-        break;
-      }
-      case 'owner-lock-busy':
+        return;
+      })
+      .with({ kind: 'owner-lock-busy' }, () => {
         void this.checkBusyOwnerLock(route);
-        break;
-      case 'owner-lock-unavailable':
+        return;
+      })
+      .with({ kind: 'owner-lock-unavailable' }, () => {
         this.closeUnavailable(
           route.tabId,
           route.ownerEpoch,
           'the engine stopped retrying'
         );
-        break;
-      case 'engine-ready': {
-        const actions = core.engineReady({
-          ...message,
-          expectedOwnerLockName: databaseOwnerLockName(core.scope),
-        });
-        const violated = actions.some(
-          (action) => action.kind === 'protocol-violation'
-        );
-        this.applyActions(actions);
-        if (violated) {
-          if (this.isCurrentOwner(route.tabId, route.ownerEpoch)) {
+        return;
+      })
+      .with({ kind: 'engine-ready' }, (message) => {
+        {
+          const actions = core.engineReady({
+            ...message,
+            expectedOwnerLockName: databaseOwnerLockName(core.scope),
+          });
+          const violated = actions.some(
+            (action) => action.kind === 'protocol-violation'
+          );
+          this.applyActions(actions);
+          if (violated) {
+            if (this.isCurrentOwner(route.tabId, route.ownerEpoch)) {
+              this.failOwner(
+                route.tabId,
+                route.ownerEpoch,
+                'engine readiness proof was rejected'
+              );
+            } else {
+              this.postTerminateEngine(
+                route.tabId,
+                route.ownerEpoch,
+                'engine readiness proof was rejected'
+              );
+            }
+            return;
+          }
+          if (
+            core.state.kind === 'active' &&
+            core.state.ownerEpoch === message.ownerEpoch
+          ) {
+            const recoveryResetReason = this.pendingRecoveryResetEpochs.get(
+              message.ownerEpoch
+            );
+            if (recoveryResetReason !== undefined) {
+              this.pendingRecoveryResetEpochs.delete(message.ownerEpoch);
+              this.recordLogicalResetAndWipe(
+                recoveryResetReason,
+                message.openOutcome
+              );
+            } else if (message.openOutcome.startsWith('reset-')) {
+              const resetReason = resetReasonForOpenOutcome(
+                message.openOutcome
+              );
+              this.recordStorageResetRequired(
+                message.ownerEpoch,
+                resetReason,
+                message.openOutcome
+              );
+              this.recordLogicalResetAndWipe(
+                resetReason,
+                message.openOutcome,
+                false
+              );
+            }
+            const startedAt = this.activationStarted.get(message.ownerEpoch);
+            this.activationStarted.delete(message.ownerEpoch);
+            this.telemetry.record({
+              name: 'graphql_cache.owner',
+              operationCategory: 'lifecycle',
+              outcome: 'success',
+              ownerEvent: 'activated',
+              durationMs:
+                startedAt === undefined ? undefined : this.now() - startedAt,
+            });
+            this.clearActivationTimer();
+            this.resetRecoveryRetries();
+            this.scheduleHeartbeat(message.ownerEpoch);
+            void this.allowStaleDatabaseRemoval(route);
+          }
+          return;
+        }
+      })
+      .with({ kind: 'engine-response' }, (message) => {
+        {
+          const timing = this.routeStarted.get(message.routeId);
+          this.routeStarted.delete(message.routeId);
+          if (timing) {
+            this.telemetry.record({
+              name: 'graphql_cache.coordinator_request',
+              operationCategory: timing.category,
+              outcome: message.response.ok ? 'success' : 'error',
+              errorCode: message.response.ok
+                ? 'none'
+                : classifyCacheError(message.response.error),
+              durationMs: this.now() - timing.startedAt,
+            });
+          }
+          this.applyActions(
+            core.engineResponse(
+              message.ownerEpoch,
+              message.routeId,
+              message.response
+            )
+          );
+          return;
+        }
+      })
+      .with({ kind: 'engine-push' }, (message) => {
+        this.applyActions(core.enginePush(message.ownerEpoch, message.push));
+        return;
+      })
+      .with({ kind: 'engine-drained' }, (message) => {
+        {
+          const actions = core.engineDrained(message.tabId, message.ownerEpoch);
+          if (actions.some((action) => action.kind === 'protocol-violation')) {
+            this.applyActions(actions);
             this.failOwner(
               route.tabId,
               route.ownerEpoch,
-              'engine readiness proof was rejected'
+              'unexpected engine-drained from current direct route'
             );
-          } else {
-            this.postTerminateEngine(
-              route.tabId,
-              route.ownerEpoch,
-              'engine readiness proof was rejected'
-            );
+            return;
           }
-          break;
-        }
-        if (
-          core.state.kind === 'active' &&
-          core.state.ownerEpoch === message.ownerEpoch
-        ) {
-          const recoveryResetReason = this.pendingRecoveryResetEpochs.get(
-            message.ownerEpoch
-          );
-          if (recoveryResetReason !== undefined) {
-            this.pendingRecoveryResetEpochs.delete(message.ownerEpoch);
-            this.recordLogicalResetAndWipe(
-              recoveryResetReason,
-              message.openOutcome
-            );
-          } else if (message.openOutcome.startsWith('reset-')) {
-            const resetReason = resetReasonForOpenOutcome(message.openOutcome);
-            this.recordStorageResetRequired(
-              message.ownerEpoch,
-              resetReason,
-              message.openOutcome
-            );
-            this.recordLogicalResetAndWipe(
-              resetReason,
-              message.openOutcome,
-              false
-            );
-          }
-          const startedAt = this.activationStarted.get(message.ownerEpoch);
-          this.activationStarted.delete(message.ownerEpoch);
           this.telemetry.record({
             name: 'graphql_cache.owner',
             operationCategory: 'lifecycle',
-            outcome: 'success',
-            ownerEvent: 'activated',
-            durationMs:
-              startedAt === undefined ? undefined : this.now() - startedAt,
+            outcome: 'graceful',
+            ownerEvent: 'graceful-drain-completed',
           });
-          this.clearActivationTimer();
-          this.resetRecoveryRetries();
-          this.scheduleHeartbeat(message.ownerEpoch);
-          void this.allowStaleDatabaseRemoval(route);
-        }
-        break;
-      }
-      case 'engine-response': {
-        const timing = this.routeStarted.get(message.routeId);
-        this.routeStarted.delete(message.routeId);
-        if (timing) {
-          this.telemetry.record({
-            name: 'graphql_cache.coordinator_request',
-            operationCategory: timing.category,
-            outcome: message.response.ok ? 'success' : 'error',
-            errorCode: message.response.ok
-              ? 'none'
-              : classifyCacheError(message.response.error),
-            durationMs: this.now() - timing.startedAt,
-          });
-        }
-        this.applyActions(
-          core.engineResponse(
-            message.ownerEpoch,
-            message.routeId,
-            message.response
-          )
-        );
-        break;
-      }
-      case 'engine-push':
-        this.applyActions(core.enginePush(message.ownerEpoch, message.push));
-        break;
-      case 'engine-drained': {
-        const actions = core.engineDrained(message.tabId, message.ownerEpoch);
-        if (actions.some((action) => action.kind === 'protocol-violation')) {
           this.applyActions(actions);
-          this.failOwner(
-            route.tabId,
-            route.ownerEpoch,
-            'unexpected engine-drained from current direct route'
-          );
-          break;
+          return;
         }
-        this.telemetry.record({
-          name: 'graphql_cache.owner',
-          operationCategory: 'lifecycle',
-          outcome: 'graceful',
-          ownerEvent: 'graceful-drain-completed',
-        });
-        this.applyActions(actions);
-        break;
-      }
-      case 'engine-fatal':
+      })
+      .with({ kind: 'engine-fatal' }, (message) => {
         this.failOwner(
           message.tabId,
           message.ownerEpoch,
           message.reason,
           message.fatalCode
         );
-        break;
-      case 'activation-failed':
+        return;
+      })
+      .with({ kind: 'activation-failed' }, (message) => {
         if (message.failureCode === 'storage-busy') {
           this.closeUnavailable(
             route.tabId,
@@ -785,7 +824,7 @@ export class CoordinatorRouter {
             message.reason,
             'storage-busy'
           );
-          break;
+          return;
         }
         this.failOwner(
           message.tabId,
@@ -794,19 +833,21 @@ export class CoordinatorRouter {
           undefined,
           message.failureCode
         );
-        break;
-      case 'heartbeat-ack':
+        return;
+      })
+      .with({ kind: 'heartbeat-ack' }, (message) => {
         this.acceptHeartbeat(message.ownerEpoch, message.heartbeatId);
-        break;
-    }
+        return;
+      })
+      .otherwise(() => {});
   }
 
   private applyActions(actions: CoordinatorAction[]): void {
     const core = this.coreValue;
     if (!core) return;
     for (const action of actions) {
-      switch (action.kind) {
-        case 'elect-owner':
+      match(action)
+        .with({ kind: 'elect-owner' }, (action) => {
           this.clearEngineWatchdogs();
           this.activationStarted.set(action.ownerEpoch, this.now());
           this.telemetry.record({
@@ -835,49 +876,54 @@ export class CoordinatorRouter {
               hotCapacity: this.hotCapacity,
             })
           );
-          break;
-        case 'route-request': {
-          this.routeStarted.set(action.routeId, {
-            startedAt: this.now(),
-            ownerEpoch: action.ownerEpoch,
-            category: operationCategoryForRequest(action.request),
-          });
-          const route = this.engineRoute;
-          if (
-            !route ||
-            route.tabId !== action.ownerTabId ||
-            route.ownerEpoch !== action.ownerEpoch
-          ) {
-            this.failOwner(
-              action.ownerTabId,
-              action.ownerEpoch,
-              'direct engine MessagePort is missing'
-            );
-            break;
-          }
-          this.sendToEngine(
-            route,
-            envelope<CoordinatorToEngineEnvelope>({
-              kind: 'engine-request',
+          return;
+        })
+        .with({ kind: 'route-request' }, (action) => {
+          {
+            this.routeStarted.set(action.routeId, {
+              startedAt: this.now(),
               ownerEpoch: action.ownerEpoch,
-              routeId: action.routeId,
-              request: action.request,
-            })
-          );
-          break;
-        }
-        case 'deliver-response':
+              category: operationCategoryForRequest(action.request),
+            });
+            const route = this.engineRoute;
+            if (
+              !route ||
+              route.tabId !== action.ownerTabId ||
+              route.ownerEpoch !== action.ownerEpoch
+            ) {
+              this.failOwner(
+                action.ownerTabId,
+                action.ownerEpoch,
+                'direct engine MessagePort is missing'
+              );
+              return;
+            }
+            this.sendToEngine(
+              route,
+              envelope<CoordinatorToEngineEnvelope>({
+                kind: 'engine-request',
+                ownerEpoch: action.ownerEpoch,
+                routeId: action.routeId,
+                request: action.request,
+              })
+            );
+            return;
+          }
+        })
+        .with({ kind: 'deliver-response' }, (action) => {
           this.postCacheResponse(action.tabId, action.response);
-          break;
-        case 'broadcast-push':
+          return;
+        })
+        .with({ kind: 'broadcast-push' }, (action) => {
           this.broadcast(
             envelope<CoordinatorToTabEnvelope>({
               kind: 'cache-message',
               message: action.push,
             })
           );
-          break;
-        case 'reject-request':
+          return;
+        })
+        .with({ kind: 'reject-request' }, (action) => {
           this.postCacheResponse(action.tabId, {
             id: action.requestId,
             ok: false,
@@ -886,38 +932,41 @@ export class CoordinatorRouter {
               ? {}
               : { errorCode: action.errorCode }),
           });
-          break;
-        case 'drain-owner': {
-          this.telemetry.record({
-            name: 'graphql_cache.owner',
-            operationCategory: 'lifecycle',
-            outcome: 'graceful',
-            ownerEvent: 'graceful-drain-started',
-          });
-          this.clearHeartbeatTimers();
-          const route = this.engineRoute;
-          if (
-            !route ||
-            route.tabId !== action.tabId ||
-            route.ownerEpoch !== action.ownerEpoch
-          ) {
-            this.failOwner(
-              action.tabId,
-              action.ownerEpoch,
-              'direct engine MessagePort disappeared before drain'
+          return;
+        })
+        .with({ kind: 'drain-owner' }, (action) => {
+          {
+            this.telemetry.record({
+              name: 'graphql_cache.owner',
+              operationCategory: 'lifecycle',
+              outcome: 'graceful',
+              ownerEvent: 'graceful-drain-started',
+            });
+            this.clearHeartbeatTimers();
+            const route = this.engineRoute;
+            if (
+              !route ||
+              route.tabId !== action.tabId ||
+              route.ownerEpoch !== action.ownerEpoch
+            ) {
+              this.failOwner(
+                action.tabId,
+                action.ownerEpoch,
+                'direct engine MessagePort disappeared before drain'
+              );
+              return;
+            }
+            this.sendToEngine(
+              route,
+              envelope<CoordinatorToEngineEnvelope>({
+                kind: 'drain-engine',
+                ownerEpoch: action.ownerEpoch,
+              })
             );
-            break;
+            return;
           }
-          this.sendToEngine(
-            route,
-            envelope<CoordinatorToEngineEnvelope>({
-              kind: 'drain-engine',
-              ownerEpoch: action.ownerEpoch,
-            })
-          );
-          break;
-        }
-        case 'close-engine-route':
+        })
+        .with({ kind: 'close-engine-route' }, (action) => {
           this.clearEngineWatchdogs();
           if (
             this.engineRoute?.tabId === action.tabId &&
@@ -925,15 +974,23 @@ export class CoordinatorRouter {
           ) {
             const route = this.engineRoute;
             this.engineRoute = undefined;
-            void Effect.runPromise(route.transport.close()).catch(
-              () => undefined
-            );
+
+            const settleRunPromise = async () => {
+              try {
+                return await Effect.runPromise(route.transport.close());
+              } catch {
+                return await undefined;
+              }
+            };
+            void settleRunPromise();
           }
-          break;
-        case 'drop-tab':
+          return;
+        })
+        .with({ kind: 'drop-tab' }, (action) => {
           this.removeTabConnection(action.tabId);
-          break;
-        case 'retire-tab':
+          return;
+        })
+        .with({ kind: 'retire-tab' }, (action) => {
           this.postToTab(
             action.tabId,
             envelope<CoordinatorToTabEnvelope>({
@@ -943,27 +1000,31 @@ export class CoordinatorRouter {
             })
           );
           this.removeTabConnection(action.tabId);
-          break;
-        case 'schedule-reset-activation':
+          return;
+        })
+        .with({ kind: 'schedule-reset-activation' }, () => {
           this.scheduleResetActivation();
-          break;
-        case 'broadcast-cache-unavailable':
+          return;
+        })
+        .with({ kind: 'broadcast-cache-unavailable' }, (action) => {
           this.broadcast(
             envelope<CoordinatorToTabEnvelope>({
               kind: 'cache-unavailable',
               reason: action.reason,
             })
           );
-          break;
-        case 'broadcast-cache-superseded':
+          return;
+        })
+        .with({ kind: 'broadcast-cache-superseded' }, (action) => {
           this.broadcast(
             envelope<CoordinatorToTabEnvelope>({
               kind: 'cache-superseded',
               reason: action.reason,
             })
           );
-          break;
-        case 'notify-cache-unavailable':
+          return;
+        })
+        .with({ kind: 'notify-cache-unavailable' }, (action) => {
           this.postToTab(
             action.tabId,
             envelope<CoordinatorToTabEnvelope>({
@@ -971,8 +1032,9 @@ export class CoordinatorRouter {
               reason: action.reason,
             })
           );
-          break;
-        case 'broadcast-engine-replaced':
+          return;
+        })
+        .with({ kind: 'broadcast-engine-replaced' }, (action) => {
           this.telemetry.record({
             name: 'graphql_cache.owner',
             operationCategory: 'lifecycle',
@@ -986,8 +1048,9 @@ export class CoordinatorRouter {
               openOutcome: action.openOutcome,
             })
           );
-          break;
-        case 'drop-stale-engine-message':
+          return;
+        })
+        .with({ kind: 'drop-stale-engine-message' }, () => {
           this.telemetry.record({
             name: 'graphql_cache.stale_drop',
             operationCategory: 'lifecycle',
@@ -995,8 +1058,9 @@ export class CoordinatorRouter {
             errorCode: 'owner-lost',
             count: 1,
           });
-          break;
-        case 'protocol-violation':
+          return;
+        })
+        .with({ kind: 'protocol-violation' }, (action) => {
           this.telemetry.record({
             name: 'graphql_cache.owner',
             operationCategory: 'lifecycle',
@@ -1014,8 +1078,9 @@ export class CoordinatorRouter {
               error: action.error,
             })
           );
-          break;
-        case 'terminal-failure':
+          return;
+        })
+        .with({ kind: 'terminal-failure' }, (action) => {
           this.broadcast(
             envelope<CoordinatorToTabEnvelope>({
               kind: 'terminal-error',
@@ -1023,8 +1088,9 @@ export class CoordinatorRouter {
               ...(action.storageUntouched ? { storageUntouched: true } : {}),
             })
           );
-          break;
-      }
+          return;
+        })
+        .otherwise(() => {});
     }
   }
 

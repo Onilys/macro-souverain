@@ -763,7 +763,14 @@ describe('createNotificationSource', () => {
       dispose,
     }));
     try {
-      const first = source.markAsRead(row).catch(() => {});
+      const settleMarkAsRead = async () => {
+        try {
+          return await source.markAsRead(row);
+        } catch {
+          return;
+        }
+      };
+      const first = settleMarkAsRead();
       await source.markAsRead(row);
       rejectFirst(new Error('older request failed'));
       await first;

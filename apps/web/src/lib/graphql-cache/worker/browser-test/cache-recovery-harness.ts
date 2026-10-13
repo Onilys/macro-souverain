@@ -379,18 +379,24 @@ async function runFaultKind(kind: MutatingRequestKind) {
       (event) =>
         event.kind === 'mutation-block-armed' && event.requestKind === kind
     );
-    const oldRequest = session
-      .command('fault-tab', {
-        kind: 'request',
-        request: blockedRequest(kind, seed),
-      })
-      .then(
-        () => ({ rejected: false, error: '' }),
-        (error: unknown) => ({
+
+    const settleCommand = async () => {
+      try {
+        await session.command('fault-tab', {
+          kind: 'request',
+          request: blockedRequest(kind, seed),
+        });
+      } catch (settleCommandError) {
+        const error: unknown = settleCommandError;
+        return await {
           rejected: true,
           error: error instanceof Error ? error.message : String(error),
-        })
-      );
+        };
+      }
+
+      return await { rejected: false, error: '' };
+    };
+    const oldRequest = settleCommand();
     await waitUntil('request admitted and blocked before core', () =>
       session.runtimeTelemetry.some(
         (event) =>

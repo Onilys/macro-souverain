@@ -95,7 +95,15 @@ export async function getDocxExpandedParts(
               console.warn(
                 `Part ${p.path}'s content does not exist but is expected to exist`
               );
-              await opfsDocHandle.removePart(p.path, p.sha).catch(() => {});
+
+              const settleRemovePart = async () => {
+                try {
+                  return await opfsDocHandle.removePart(p.path, p.sha);
+                } catch {
+                  return;
+                }
+              };
+              await settleRemovePart();
               return null;
             }
             return { sha: p.sha, path: p.path, content: buffer };

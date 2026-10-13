@@ -43,24 +43,39 @@ export async function sendEmailCode(input: {
   }
 
   const referral_code = referralCode();
-  const response = await platformFetch(
-    `${SERVER_HOSTS['auth-service']}/login/passwordless`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        redirect_uri: REDIRECT_URI,
-        email,
-        ...(referral_code && { referral_code }),
-      }),
+
+  const settlePlatformFetch = async () => {
+    try {
+      return await platformFetch(
+        `${SERVER_HOSTS['auth-service']}/login/passwordless`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            redirect_uri: REDIRECT_URI,
+            email,
+            ...(referral_code && { referral_code }),
+          }),
+        }
+      );
+    } catch {
+      return await undefined;
     }
-  ).catch(() => undefined);
+  };
+  const response = await settlePlatformFetch();
   if (!response) return { t: 'failed', message: 'Unable to reach Macro.' };
   if (!response.ok) return { t: 'failed', message: await response.text() };
 
   // 202: the address must sign in through its organization's identity provider.
   if (response.status === 202) {
-    const body: unknown = await response.json().catch(() => undefined);
+    const settleJson = async () => {
+      try {
+        return await response.json();
+      } catch {
+        return await undefined;
+      }
+    };
+    const body: unknown = await settleJson();
     if (
       !body ||
       typeof body !== 'object' ||
@@ -82,9 +97,14 @@ export async function sendEmailCode(input: {
 
   // Local backends return the code so seeded persona logins skip the inbox.
   if (import.meta.env.DEV) {
-    const body = (await response.json().catch(() => undefined)) as
-      | { code?: string }
-      | undefined;
+    const settleJsonResult = async () => {
+      try {
+        return await response.json();
+      } catch {
+        return await undefined;
+      }
+    };
+    const body = (await settleJsonResult()) as { code?: string } | undefined;
     if (body?.code) return { t: 'code-sent', autoCode: body.code };
   }
   return { t: 'code-sent' };

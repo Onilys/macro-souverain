@@ -6,7 +6,7 @@ const mock = vi.hoisted(() => ({
   properties: vi.fn(),
   failure: vi.fn(),
 }));
-vi.mock('@core/util/create', () => ({
+vi.mock('@app/lib/queries/items/create', () => ({
   createTaskWithInitialSnapshot: mock.create,
 }));
 vi.mock('@queries/properties/entity', () => ({

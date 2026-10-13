@@ -4,7 +4,7 @@ import type {
   EditResult,
   RemoteChange,
   Selection,
-} from '@core/docx-engine/types';
+} from '@app/lib/docx/types';
 import { type LoroDoc, type LoroEventBatch, UndoManager } from 'loro-crdt';
 import { transform } from './delta';
 import {
@@ -120,8 +120,26 @@ export class DocxCollab {
   }
 
   private serial<T>(run: () => Promise<T>): Promise<T> {
-    const next = this.chain.then(run, run);
-    this.chain = next.catch(() => {});
+    const settleChainHandler0 = run;
+    const settleChainHandler1 = run;
+    const settleChain = async () => {
+      try {
+        await this.chain;
+      } catch {
+        return await settleChainHandler0();
+      }
+      return await settleChainHandler1();
+    };
+    const next = settleChain();
+
+    const settleNext = async () => {
+      try {
+        return await next;
+      } catch {
+        return;
+      }
+    };
+    this.chain = settleNext();
     return next;
   }
 
@@ -214,10 +232,17 @@ export class DocxCollab {
       }
       return result;
     });
-    void run.then(
-      () => this.flushSoon(),
-      () => this.flushSoon()
-    );
+
+    const settleRun = async () => {
+      try {
+        await run;
+      } catch {
+        return await this.flushSoon();
+      }
+
+      return await this.flushSoon();
+    };
+    void settleRun();
     return run;
   }
 
@@ -227,13 +252,23 @@ export class DocxCollab {
     if (this.pending.blocks.size === 0 && this.pending.entries.size === 0)
       return;
     this.flushing = true;
-    void this.serial(async () => {
-      this.flushing = false;
-      await this.flushPending();
-    }).catch((error: unknown) => {
-      this.flushing = false;
-      this.options.onError?.(error);
-    });
+
+    const settleSerial = async () => {
+      try {
+        return await this.serial(async () => {
+          this.flushing = false;
+          await this.flushPending();
+        });
+      } catch (settleSerialError) {
+        const error: unknown = settleSerialError;
+
+        this.flushing = false;
+        this.options.onError?.(error);
+
+        return;
+      }
+    };
+    void settleSerial();
   }
 
   /** Hands the engine every remote change it has not seen (serialized). */
@@ -256,7 +291,12 @@ export class DocxCollab {
 
   /** Resolves once every queued engine call has finished. */
   idle(): Promise<void> {
-    return this.chain.then(() => undefined);
+    const settleChainResult = async () => {
+      await this.chain;
+
+      return await undefined;
+    };
+    return settleChainResult();
   }
 
   /** Undoes this peer's last step in the shared document. */

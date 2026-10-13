@@ -1,5 +1,5 @@
+import { emailToMacroId } from '@app/lib/identity/macro-id';
 import { UserIcon } from '@core/component/UserIcon';
-import { emailToMacroId } from '@core/user/macroId';
 import type { IUser } from '@core/user/types';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import SearchIcon from '@phosphor/magnifying-glass.svg';

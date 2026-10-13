@@ -184,26 +184,34 @@ export const agentHarnessServiceClient = {
   },
 
   rename(sessionId: string, name: string) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/name`,
-      {
+    const settleFetchWithToken = async () => {
+      const settleFetchWithTokenValue = await fetchWithToken<
+        Record<string, never>
+      >(`${agentHarnessHost}/agent-sessions/${sessionId}/name`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
-      }
-    ).then((result) => result.map(() => undefined));
+      });
+      const result = settleFetchWithTokenValue;
+      return await result.map(() => undefined);
+    };
+    return settleFetchWithToken();
   },
 
   setArchived(sessionId: string, isArchived: boolean) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/archived`,
-      {
+    const settleFetchWithTokenResult = async () => {
+      const settleFetchWithTokenResultValue = await fetchWithToken<
+        Record<string, never>
+      >(`${agentHarnessHost}/agent-sessions/${sessionId}/archived`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isArchived }),
         errorResponseHandler: sessionError,
-      }
-    ).then((result) => result.map(() => undefined));
+      });
+      const result = settleFetchWithTokenResultValue;
+      return await result.map(() => undefined);
+    };
+    return settleFetchWithTokenResult();
   },
 
   /**
@@ -237,14 +245,18 @@ export const agentHarnessServiceClient = {
    * is not a prompt.
    */
   editQueued(sessionId: string, actionId: string, prompt: string) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/queue/${actionId}`,
-      {
+    const settleFetchWithTokenResultResult = async () => {
+      const settleFetchWithTokenResultResultValue = await fetchWithToken<
+        Record<string, never>
+      >(`${agentHarnessHost}/agent-sessions/${sessionId}/queue/${actionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
-      }
-    ).then((result) => result.map(() => undefined));
+      });
+      const result = settleFetchWithTokenResultResultValue;
+      return await result.map(() => undefined);
+    };
+    return settleFetchWithTokenResultResult();
   },
 
   /**
@@ -252,10 +264,16 @@ export const agentHarnessServiceClient = {
    * once the action has dispatched — there is no un-sending.
    */
   removeQueued(sessionId: string, actionId: string) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/queue/${actionId}`,
-      { method: 'DELETE' }
-    ).then((result) => result.map(() => undefined));
+    const settleFetchWithTokenResultResultResult = async () => {
+      const settleFetchWithTokenResultResultResultValue = await fetchWithToken<
+        Record<string, never>
+      >(`${agentHarnessHost}/agent-sessions/${sessionId}/queue/${actionId}`, {
+        method: 'DELETE',
+      });
+      const result = settleFetchWithTokenResultResultResultValue;
+      return await result.map(() => undefined);
+    };
+    return settleFetchWithTokenResultResultResult();
   },
 
   /**
@@ -264,17 +282,29 @@ export const agentHarnessServiceClient = {
    * (`NOT_FOUND`) once the action has dispatched.
    */
   steerQueued(sessionId: string, actionId: string) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/queue/${actionId}/steer`,
-      { method: 'POST' }
-    ).then((result) => result.map(() => undefined));
+    const settleFetchWithTokenResultResultResultResult = async () => {
+      const settleFetchWithTokenResultResultResultResultValue =
+        await fetchWithToken<Record<string, never>>(
+          `${agentHarnessHost}/agent-sessions/${sessionId}/queue/${actionId}/steer`,
+          { method: 'POST' }
+        );
+      const result = settleFetchWithTokenResultResultResultResultValue;
+      return await result.map(() => undefined);
+    };
+    return settleFetchWithTokenResultResultResultResult();
   },
 
   delete(sessionId: string) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}`,
-      { method: 'DELETE' }
-    ).then((result) => result.map(() => undefined));
+    const settleFetchWithTokenResultResultResultResultResult = async () => {
+      const settleFetchWithTokenResultResultResultResultResultValue =
+        await fetchWithToken<Record<string, never>>(
+          `${agentHarnessHost}/agent-sessions/${sessionId}`,
+          { method: 'DELETE' }
+        );
+      const result = settleFetchWithTokenResultResultResultResultResultValue;
+      return await result.map(() => undefined);
+    };
+    return settleFetchWithTokenResultResultResultResultResult();
   },
 
   getSandboxSize() {
@@ -358,23 +388,39 @@ export const agentHarnessServiceClient = {
 
   /** Link the pull request at `url` to a session the caller can edit. */
   linkPullRequest(sessionId: string, url: string) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/pull-requests`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-        errorResponseHandler: sessionError,
-      }
-    ).then((result) => result.map(() => undefined));
+    const settleFetchWithTokenResultResultResultResultResultResult =
+      async () => {
+        const settleFetchWithTokenResultResultResultResultResultResultValue =
+          await fetchWithToken<Record<string, never>>(
+            `${agentHarnessHost}/agent-sessions/${sessionId}/pull-requests`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+              errorResponseHandler: sessionError,
+            }
+          );
+        const result =
+          settleFetchWithTokenResultResultResultResultResultResultValue;
+        return await result.map(() => undefined);
+      };
+    return settleFetchWithTokenResultResultResultResultResultResult();
   },
 
   /** Unlink a pull request a person linked; the agent's own stays linked. */
   unlinkPullRequest(sessionId: string, url: string) {
-    return fetchWithToken<Record<string, never>>(
-      `${agentHarnessHost}/agent-sessions/${sessionId}/pull-requests?${new URLSearchParams({ url })}`,
-      { method: 'DELETE', errorResponseHandler: sessionError }
-    ).then((result) => result.map(() => undefined));
+    const settleFetchWithTokenResultResultResultResultResultResultResult =
+      async () => {
+        const settleFetchWithTokenResultResultResultResultResultResultResultValue =
+          await fetchWithToken<Record<string, never>>(
+            `${agentHarnessHost}/agent-sessions/${sessionId}/pull-requests?${new URLSearchParams({ url })}`,
+            { method: 'DELETE', errorResponseHandler: sessionError }
+          );
+        const result =
+          settleFetchWithTokenResultResultResultResultResultResultResultValue;
+        return await result.map(() => undefined);
+      };
+    return settleFetchWithTokenResultResultResultResultResultResultResult();
   },
 
   /**

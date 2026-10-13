@@ -22,6 +22,7 @@ import TagIcon from '@phosphor/tag-simple.svg';
 import UserIconPhosphor from '@phosphor/user.svg';
 import UsersThreeIcon from '@phosphor/users-three.svg';
 import { type Component, createMemo } from 'solid-js';
+import { match } from 'ts-pattern';
 import { useHasPermission } from '../context/user';
 import { isMobile } from '../mobile/isMobile';
 import { isNativeMobilePlatform } from '../mobile/isNativeMobilePlatform';
@@ -294,62 +295,45 @@ export const useSettingsTabAvailable = () => {
   const notificationSettingsFlag = useFeatureFlag(enableNotificationSettings);
   const hasAdminPanel = useHasPermission(PERMISSION_IDS.WRITE_ADMIN_PANEL);
 
-  return (tab: SettingsTab): boolean => {
-    switch (tab) {
-      case 'Appearance':
-      case 'Account':
-      case 'Usage':
-      case 'Billing':
-        return true;
-      case 'Email':
-        return ENABLE_EMAIL;
-      case 'Calendar':
-      case 'Booking links':
-        return calendarSchedulingFlag().enabled;
+  return (tab: SettingsTab): boolean =>
+    match(tab)
+      .with(
+        'Appearance',
+        'Account',
+        'Usage',
+        'Billing',
+        'Team',
+        'Tags',
+        'Connected',
+        'Connections',
+        () => true
+      )
+      .with('Email', () => ENABLE_EMAIL)
+      .with('Calendar', 'Booking links', () => calendarSchedulingFlag().enabled)
       // Issuing and copying a key is desk work, and the mobile sheet has no
       // good place for a one-time secret.
-      case 'API Keys':
-        return !isMobile();
-      case 'Notifications':
-        return notificationSettingsFlag().enabled;
-      case 'Team':
-      case 'Tags':
-        return true;
-      // CRM is still rolling out (Macro-internal only); keep the settings tab
-      // behind the same enable-crm gate as every other CRM surface so it never
-      // leaks into teams that can't actually use the CRM.
-      case 'CRM':
-        return crmFlag().enabled;
-      case 'Connected':
-      case 'Connections':
-        return true;
-      case 'Shortcuts':
-        return !isTouchDevice();
-      case 'Mobile App':
-        return ENABLE_APP_STORE_QR_CODE && !isNativeMobilePlatform();
-      case 'Desktop App':
-        return (
+      .with('API Keys', () => !isMobile())
+      .with('Notifications', () => notificationSettingsFlag().enabled)
+      // Keep CRM settings behind the same gate as other CRM surfaces.
+      .with('CRM', () => crmFlag().enabled)
+      .with('Shortcuts', () => !isTouchDevice())
+      .with(
+        'Mobile App',
+        () => ENABLE_APP_STORE_QR_CODE && !isNativeMobilePlatform()
+      )
+      .with(
+        'Desktop App',
+        () =>
           isPlatform('desktop') ||
           (isPlatform('web') && desktopAppFlag().enabled)
-        );
-      case 'Agent':
-        return !isNativeMobilePlatform();
-      // Configurable agents are still rolling out; keep both tabs behind the
-      // same enable-chat-v3-agents gate as the channel mention surfaces, so
-      // settings never advertises agents to a user who cannot mention one.
-      case 'Harness':
-      case 'Agents':
-        return chatV3AgentsFlag().enabled;
-      case 'Bots':
-        return botManagementFlag().enabled;
-      case 'Mobile':
-        return isNativeMobilePlatform() && DEV_MODE_ENV;
-      case 'Admin':
-        return hasAdminPanel();
-      default:
-        return false;
-    }
-  };
+      )
+      .with('Agent', () => !isNativeMobilePlatform())
+      // Settings must use the same gate as agent mentions.
+      .with('Harness', 'Agents', () => chatV3AgentsFlag().enabled)
+      .with('Bots', () => botManagementFlag().enabled)
+      .with('Mobile', () => isNativeMobilePlatform() && DEV_MODE_ENV)
+      .with('Admin', () => hasAdminPanel())
+      .otherwise(() => false);
 };
 
 /**

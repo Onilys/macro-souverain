@@ -12,7 +12,7 @@ import type { InteractionController } from '@app/features/block-agent/context/in
 import { createInteractionController } from '@app/features/block-agent/primitives/create-interaction-controller';
 import { issueSessionAction } from '@app/features/block-agent/queries/issue-session-action';
 import { describeToolCall } from '@app/features/block-agent/state/tool-approval-wording';
-import { AgentSession } from '@core/agent-session/AgentSession';
+import { AgentSession } from '@app/lib/queries/agent-session/agent-session';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
 import {

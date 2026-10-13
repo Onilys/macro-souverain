@@ -15,7 +15,15 @@ export async function readClipboardAsDataTransfer(): Promise<DataTransfer | null
   if (!clipboard) return null;
 
   const dataTransfer = new DataTransfer();
-  const items = await clipboard.read().catch(() => []);
+
+  const settleRead = async () => {
+    try {
+      return await clipboard.read();
+    } catch {
+      return await [];
+    }
+  };
+  const items = await settleRead();
   for (const item of items) {
     for (const type of item.types) {
       if (type !== 'text/html' && type !== 'text/plain') continue;
@@ -25,7 +33,14 @@ export async function readClipboardAsDataTransfer(): Promise<DataTransfer | null
   }
 
   if (dataTransfer.types.length === 0) {
-    const text = await clipboard.readText().catch(() => '');
+    const settleReadText = async () => {
+      try {
+        return await clipboard.readText();
+      } catch {
+        return await '';
+      }
+    };
+    const text = await settleReadText();
     if (text) dataTransfer.setData('text/plain', text);
   }
 
@@ -56,17 +71,30 @@ export async function writeClipboardData(
     if (html !== undefined) {
       items['text/html'] = new Blob([html], { type: 'text/html' });
     }
-    const wrote = await clipboard
-      .write([new ClipboardItem(items)])
-      .then(() => true)
-      .catch(() => false);
+
+    const settleWrite = async () => {
+      try {
+        await clipboard.write([new ClipboardItem(items)]);
+
+        return await true;
+      } catch {
+        return await false;
+      }
+    };
+    const wrote = await settleWrite();
     if (wrote) return true;
   }
 
-  return clipboard
-    .writeText(text)
-    .then(() => true)
-    .catch(() => false);
+  const settleWriteText = async () => {
+    try {
+      await clipboard.writeText(text);
+
+      return await true;
+    } catch {
+      return await false;
+    }
+  };
+  return settleWriteText();
 }
 
 const EMPTY_RESULT: ExtractedEntries = {

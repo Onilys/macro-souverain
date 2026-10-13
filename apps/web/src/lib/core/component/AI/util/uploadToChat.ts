@@ -157,8 +157,11 @@ export function useUploadAttachment(): UploadQueue {
 
     // Wire up completions
     for (const item of items) {
-      item.upload
-        .then((result) => {
+      const settleUpload = async () => {
+        try {
+          const settleUploadValue = await item.upload;
+          const result = settleUploadValue;
+
           // Remove from uploading
           setUploading((prev) => prev.filter((u) => u !== item));
 
@@ -177,8 +180,11 @@ export function useUploadAttachment(): UploadQueue {
           // Append to complete
           setComplete((prev) => [...prev, result]);
           setUpdate((p) => p + 1);
-        })
-        .catch((error) => {
+
+          return;
+        } catch (settleUploadError) {
+          const error = settleUploadError;
+
           // Remove from uploading on error
           setUploading((prev) => prev.filter((u) => u !== item));
 
@@ -186,10 +192,14 @@ export function useUploadAttachment(): UploadQueue {
 
           // Show error toast
           toast.failure(
-            `Failed to upload ${filename}: ${error.message || 'Unknown error'}`
+            `Failed to upload ${filename}: ${error instanceof Error && error.message ? error.message : 'Unknown error'}`
           );
           console.error('Upload error:', error);
-        });
+
+          return;
+        }
+      };
+      settleUpload();
     }
   };
 

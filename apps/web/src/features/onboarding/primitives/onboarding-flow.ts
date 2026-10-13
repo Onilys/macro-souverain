@@ -124,9 +124,17 @@ export function createOnboardingFlow(
     )
       return;
     repairing = true;
-    context.repairTutorial().catch(() => {
-      repairing = false;
-    });
+
+    const settleRepairTutorial = async () => {
+      try {
+        return await context.repairTutorial();
+      } catch {
+        repairing = false;
+
+        return;
+      }
+    };
+    settleRepairTutorial();
   });
 
   const status = (): FlowStatus => {

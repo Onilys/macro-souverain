@@ -9,8 +9,6 @@
  * transcript that let each message decide showed every one of them working.
  */
 
-import { useUserId } from '@core/context/user';
-import { idToDisplayName } from '@core/user/util';
 import { messageSendMotion } from '@core/util/message-send-motion';
 import { openExternalUrl } from '@core/util/url';
 import type {
@@ -229,12 +227,13 @@ function workingLabel(message: FoldedMessage): string {
  * than the viewer. A session is shared, so a prompt may be another
  * participant's; one's own prompts (and unattributed ones) need no byline,
  * matching the queued-prompt list in `AgentComposer`. Attribution waits
- * until the viewer id is known — `useUserId` is undefined while user-info
+ * until the viewer id is known — the session's viewer is undefined while user-info
  * is still loading, and a missing viewer must not look like another person.
  */
 function promptAuthorName(
   author: FoldedMessage['author'],
-  viewerId: string | undefined
+  viewerId: string | undefined,
+  displayName: (id: string) => string
 ): string | undefined {
   if (
     author.kind !== 'user' ||
@@ -242,9 +241,7 @@ function promptAuthorName(
     viewerId === undefined
   )
     return undefined;
-  return author.userId === viewerId
-    ? undefined
-    : idToDisplayName(author.userId);
+  return author.userId === viewerId ? undefined : displayName(author.userId);
 }
 
 const AGENT_CONTEXT_OPEN = '<m-agent-context>';
@@ -257,8 +254,15 @@ const PENDING_AGENT_CONTEXT = `${AGENT_CONTEXT_OPEN}{"version":1,"text":""}</m-a
  * participant sent carries their name above the bubble.
  */
 function UserMessage(props: { message: FoldedMessage }) {
-  const userId = useUserId();
-  const authorName = () => promptAuthorName(props.message.author, userId());
+  const session = useOptionalAgentSession();
+  const authorName = () =>
+    session
+      ? promptAuthorName(
+          props.message.author,
+          session.userId(),
+          session.displayName
+        )
+      : undefined;
   // The harness puts context before every prompt it delivers. Until the log
   // confirms this one, an empty stand-in renders where it will, through the
   // same markdown, so nothing moves when the real one arrives.

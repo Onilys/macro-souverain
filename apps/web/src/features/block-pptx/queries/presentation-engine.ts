@@ -199,8 +199,26 @@ export async function openCollaborativePresentation(
 
   /** Runs worker calls and document writes strictly one after another. */
   function serial<T>(task: () => Promise<T>): Promise<T> {
-    const run = tail.then(task, task);
-    tail = run.catch(() => {});
+    const settleTailHandler0 = task;
+    const settleTailHandler1 = task;
+    const settleTail = async () => {
+      try {
+        await tail;
+      } catch {
+        return await settleTailHandler0();
+      }
+      return await settleTailHandler1();
+    };
+    const run = settleTail();
+
+    const settleRun = async () => {
+      try {
+        return await run;
+      } catch {
+        return;
+      }
+    };
+    tail = settleRun();
     return run;
   }
 
@@ -237,12 +255,22 @@ export async function openCollaborativePresentation(
       });
     // Undo and redo flush their own changes and report the result.
     if (capturing) return;
-    void serial(async () => {
-      const result = await flushPending();
-      if (result) notify(result);
-    }).catch((error: unknown) => {
-      console.error('[pptx] remote change could not be applied', error);
-    });
+
+    const settleSerial = async () => {
+      try {
+        return await serial(async () => {
+          const result = await flushPending();
+          if (result) notify(result);
+        });
+      } catch (settleSerialError) {
+        const error: unknown = settleSerialError;
+
+        console.error('[pptx] remote change could not be applied', error);
+
+        return;
+      }
+    };
+    void settleSerial();
   });
 
   function closeGroup() {

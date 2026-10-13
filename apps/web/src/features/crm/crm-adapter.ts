@@ -21,7 +21,6 @@ import {
   useIsTeamAdmin,
 } from '@queries/team/teams';
 import { patchTeamCrmSettings } from '@service-auth/crm';
-import { storageServiceClient } from '@service-storage/client';
 import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { useQueryClient } from '@tanstack/solid-query';
 import { createMemo, lazy } from 'solid-js';
@@ -59,6 +58,7 @@ import {
   useSetContactHiddenMutation,
   useSetContactNameMutation,
 } from './queries/contacts';
+import { createCrmQueryDependencies } from './queries/dependencies';
 import { fetchCrmExportCompanies } from './queries/export';
 import { useCrmLists } from './queries/lists';
 import { createPipelinesSource } from './queries/pipelines';
@@ -146,11 +146,7 @@ function withReadyGate<T>(query: CrmQuery<T>): CrmQuery<T> {
 
 /** Only this app-facing adapter constructs production capabilities. */
 export function createAppCrmContext(): CrmContext {
-  const deps = {
-    client: useQueryClient(),
-    storage: storageServiceClient,
-    feedback: toast,
-  };
+  const deps = createCrmQueryDependencies(useQueryClient(), toast);
   const userId = useUserId();
   const createSettings = () => useTeamCrmConfig(deps);
   return {

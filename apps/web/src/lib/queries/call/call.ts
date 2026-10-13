@@ -216,9 +216,13 @@ export function sharePermissionFromCallRecord(
 }
 
 export function fetchCallSharePermission(callId: string) {
-  return callServiceClient
-    .getCallRecord(callId)
-    .then((result) => result.map(sharePermissionFromCallRecord));
+  const settleGetCallRecord = async () => {
+    const settleGetCallRecordValue =
+      await callServiceClient.getCallRecord(callId);
+    const result = settleGetCallRecordValue;
+    return await result.map(sharePermissionFromCallRecord);
+  };
+  return settleGetCallRecord();
 }
 
 /** The `sharePermission` patch that shares a call with the team, or revokes it. */

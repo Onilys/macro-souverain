@@ -84,9 +84,19 @@ export function useCalendarCache(active: Accessor<boolean>): void {
     const poll = setInterval(() => {
       if (latestCalendarSyncStatus() !== CalendarSyncStatus.syncing) return;
       controller.markStale('syncing');
-      refreshSyncStatus().catch((error) => {
-        console.warn('Calendar sync status refresh failed', error);
-      });
+
+      const settleRefreshSyncStatus = async () => {
+        try {
+          return await refreshSyncStatus();
+        } catch (settleRefreshSyncStatusError) {
+          const error = settleRefreshSyncStatusError;
+
+          console.warn('Calendar sync status refresh failed', error);
+
+          return;
+        }
+      };
+      settleRefreshSyncStatus();
     }, SYNCING_POLL_MS);
     onCleanup(() => {
       clearInterval(poll);
@@ -107,11 +117,21 @@ export function useCalendarCache(active: Accessor<boolean>): void {
     if (!cacheHost || !active() || !isLeader()) return;
     generation();
     const abort = new AbortController();
-    runCalendarBackfill(cacheHost, { signal: abort.signal }).catch((error) => {
-      if (!abort.signal.aborted) {
-        console.warn('Calendar backfill stopped', error);
+
+    const settleRunCalendarBackfill = async () => {
+      try {
+        return await runCalendarBackfill(cacheHost, { signal: abort.signal });
+      } catch (settleRunCalendarBackfillError) {
+        const error = settleRunCalendarBackfillError;
+
+        if (!abort.signal.aborted) {
+          console.warn('Calendar backfill stopped', error);
+        }
+
+        return;
       }
-    });
+    };
+    settleRunCalendarBackfill();
     onCleanup(() => abort.abort());
   });
 }

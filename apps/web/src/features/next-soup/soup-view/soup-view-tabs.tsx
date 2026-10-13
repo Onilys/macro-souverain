@@ -26,6 +26,7 @@ import { TabsInset } from '@core/component/TabsInset';
 import { TabsInsetDropdown } from '@core/component/TabsInsetDropdown';
 import { useUserContext } from '@core/context/user';
 import { useIsTeamAdmin } from '@queries/team/teams';
+import type { Params } from '@service-storage/generated/schemas';
 import { batch, createMemo, For, Match, Switch } from 'solid-js';
 
 const useCurrentListView = () => {
@@ -107,10 +108,7 @@ export const useApplyPreset = () => {
         presetContext
       );
 
-      const currentFilterIds: FilterID[] = [
-        ...(currentPreset?.clientFilters.and ?? []),
-        ...(currentPreset?.clientFilters.or ?? []),
-      ];
+      const currentFilterIds: FilterID[] = buildCurrentFilterIds(currentPreset);
 
       const nextAndIds = (soup.predicates.andIds() as FilterID[]).filter(
         (id) => !currentFilterIds.includes(id)
@@ -151,8 +149,7 @@ export const useApplyPreset = () => {
       // own owner scope (e.g. Files → Owned) into another tab.
       const currentCreatorIds =
         queryFilters.state.include.documentOwnerId ?? [];
-      const presetCreatorIds =
-        currentPreset?.filters.include?.documentOwnerId ?? [];
+      const presetCreatorIds = buildPresetCreatorIds(currentPreset);
       const isExplicitCreatorFilter =
         currentCreatorIds.length !== presetCreatorIds.length ||
         currentCreatorIds.some((id) => !presetCreatorIds.includes(id));
@@ -202,6 +199,115 @@ export const useApplyPreset = () => {
     ) {
     }
     return true;
+
+    function buildPresetCreatorIds(
+      currentPreset:
+        | {
+            filters: Query;
+            clientFilters: { and?: FilterID[]; or?: FilterID[] };
+            groupBy?: string;
+            sortDirection?: 'asc' | 'desc';
+            sortMethod?: Exclude<
+              NonNullable<Params['sort_method']>,
+              'frecency'
+            >;
+          }
+        | undefined
+    ) {
+      return currentPreset?.filters.include?.documentOwnerId ?? [];
+    }
+
+    function buildCurrentFilterIds(
+      currentPreset:
+        | {
+            filters: Query;
+            clientFilters: { and?: FilterID[]; or?: FilterID[] };
+            groupBy?: string;
+            sortDirection?: 'asc' | 'desc';
+            sortMethod?: Exclude<
+              NonNullable<Params['sort_method']>,
+              'frecency'
+            >;
+          }
+        | undefined
+    ): (
+      | 'inbox'
+      | 'done'
+      | 'email'
+      | 'document'
+      | 'routine'
+      | 'noise'
+      | 'explicit-noise'
+      | 'unread'
+      | 'read'
+      | 'not-done'
+      | 'channels'
+      | 'file-folder'
+      | 'folders'
+      | 'active-agent'
+      | 'email-drafts'
+      | 'no-drafts'
+      | 'has-calendar-invite'
+      | 'has-attachment'
+      | 'attachment-pdf'
+      | 'attachment-image'
+      | 'attachment-document'
+      | 'shared-entity'
+      | 'owned-entity'
+      | 'assigned-to'
+      | 'assignee'
+      | 'task'
+      | 'my-tasks'
+      | 'not-task'
+      | 'document-or-file'
+      | 'active-task'
+      | 'calendar'
+      | 'calls'
+      | 'call-external'
+      | 'call-internal'
+      | 'crm-company'
+      | 'crm-company-active'
+      | 'crm-company-hidden'
+      | 'crm-contact-active'
+      | 'company-owner'
+      | 'company-needs-follow-up'
+      | 'company-recently-active'
+      | 'company-stage'
+      | 'email-attachments'
+      | 'in-folder'
+      | 'search-supported'
+      | 'agent'
+      | 'people'
+      | 'teams'
+      | 'file'
+      | 'github-pr'
+      | 'task-not-started'
+      | 'task-in-progress'
+      | 'task-in-review'
+      | 'task-completed'
+      | 'task-canceled'
+      | 'task-urgent'
+      | 'task-high-priority'
+      | 'task-medium-priority'
+      | 'task-low-priority'
+      | 'task-no-priority'
+      | 'doc-markdown'
+      | 'doc-snippet'
+      | 'doc-skill'
+      | 'doc-canvas'
+      | 'doc-spreadsheet'
+      | 'file-code'
+      | 'file-image'
+      | 'file-pdf'
+      | 'file-docx'
+      | 'file-video'
+      | 'file-other'
+    )[] {
+      return [
+        ...(currentPreset?.clientFilters.and ?? []),
+        ...(currentPreset?.clientFilters.or ?? []),
+      ];
+    }
   };
 
   return { applyTabPreset };
@@ -313,9 +419,6 @@ export const MobileSoupViewTabs = () => {
 // flex sizing and span the header container itself (100cqw resolves against
 // @container/split-header = the panel width): -ml cancels the row gutter so
 // the strip runs device edge to device edge, over the scrollbar.
-const MOBILE_TAB_STRIP_CLASS =
-  '-ml-(--mobile-chrome-gutter) w-[100cqw] max-w-none flex-none';
-const MOBILE_TAB_CONTENT_CLASS = 'px-(--mobile-chrome-gutter)';
 
 const MobileViewTabs = (props: { view: TabbedListView }) => {
   const { applyTabPreset } = useApplyPreset();
@@ -326,8 +429,8 @@ const MobileViewTabs = (props: { view: TabbedListView }) => {
   return (
     <PillTabs
       scrollable
-      class={MOBILE_TAB_STRIP_CLASS}
-      contentClass={MOBILE_TAB_CONTENT_CLASS}
+      class={'-ml-(--mobile-chrome-gutter) w-[100cqw] max-w-none flex-none'}
+      contentClass={'px-(--mobile-chrome-gutter)'}
       leading={<MobileFilterDrawer />}
       items={visibleViewTabs(props.view)}
       value={activeValue()}

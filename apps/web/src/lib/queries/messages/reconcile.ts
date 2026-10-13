@@ -117,22 +117,33 @@ export function insertMessageIntoTargetCaches(
         queryKey: getThreadRepliesQueryKey(parent, target.threadId),
         exact: true,
       })?.promise;
-      if (inFlight)
-        void inFlight
-          .catch(() => {})
-          .finally(() => {
-            const preview = findTopLevelMessageInMessageTimeline(
-              parent,
-              target.threadId
-            )?.thread.preview;
-            if (preview?.length)
-              setThreadRepliesData(parent, target.threadId, (prev) =>
-                preview.reduce<EntityMessage[] | undefined>(
-                  (replies, reply) => insertThreadReply(replies, reply),
-                  prev
-                )
-              );
-          });
+      const settleInFlightFinally = async () => {
+        const preview = findTopLevelMessageInMessageTimeline(
+          parent,
+          target.threadId
+        )?.thread.preview;
+        if (preview?.length)
+          setThreadRepliesData(parent, target.threadId, (prev) =>
+            preview.reduce<EntityMessage[] | undefined>(
+              (replies, reply) => insertThreadReply(replies, reply),
+              prev
+            )
+          );
+
+        return;
+      };
+      const settleInFlight = async () => {
+        try {
+          try {
+            return await inFlight;
+          } catch {
+            return;
+          }
+        } finally {
+          await settleInFlightFinally();
+        }
+      };
+      if (inFlight) void settleInFlight();
     }
     return;
   }

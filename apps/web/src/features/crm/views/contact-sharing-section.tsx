@@ -4,9 +4,6 @@ import { Show } from 'solid-js';
 import type { CrmContact as CrmContactResponse } from '../core/contact';
 import { useSetContactHiddenMutation } from './use-crm';
 
-const TOGGLE_BUTTON_CLASS =
-  'inline-flex items-center gap-2 rounded-md h-7 px-2.5 text-xs select-none w-fit border border-ink-muted/[0.08] bg-ink-muted/[0.025] text-ink hover:bg-ink-muted/[0.06]';
-
 /**
  * Admin-only (the parent gates the whole section on `useIsTeamAdmin`):
  * if a non-admin can see the contact at all, it's already visible to them.
@@ -49,7 +46,9 @@ export function ContactSharingSection(props: { contact?: CrmContactResponse }) {
                 aria-checked={isShared()}
                 disabled={hiddenMutation.isPending}
                 onClick={() => void handleToggle(contact(), !isShared())}
-                class={cn(TOGGLE_BUTTON_CLASS)}
+                class={cn(
+                  'inline-flex items-center gap-2 rounded-md h-7 px-2.5 text-xs select-none w-fit border border-ink-muted/[0.08] bg-ink-muted/[0.025] text-ink hover:bg-ink-muted/[0.06]'
+                )}
               >
                 <InlineCheckbox checked={isShared()} />
                 <span class="whitespace-nowrap">Visible in CRM</span>

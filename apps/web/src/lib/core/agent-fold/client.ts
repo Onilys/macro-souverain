@@ -168,9 +168,16 @@ export async function readSession(
 
 /** Drop a session's machine once nothing is watching it. */
 export function closeSession(sessionId: string): void {
-  void request((id) => ({ id, kind: 'close', sessionId })).catch(
-    (error: unknown) => {
+  const settleRequest = async () => {
+    try {
+      return await request((id) => ({ id, kind: 'close', sessionId }));
+    } catch (settleRequestError) {
+      const error: unknown = settleRequestError;
+
       console.warn('[agent-fold] session could not be closed', error);
+
+      return;
     }
-  );
+  };
+  void settleRequest();
 }

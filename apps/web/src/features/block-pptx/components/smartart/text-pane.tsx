@@ -60,8 +60,26 @@ export function SmartArtTextPane(props: {
   /** Pane edits run one after another, in the order they were made. */
   let chain: Promise<unknown> = Promise.resolve();
   const enqueue = <T,>(task: () => Promise<T>): Promise<T> => {
-    const next = chain.then(task, task);
-    chain = next.catch(() => undefined);
+    const settleChainHandler0 = task;
+    const settleChainHandler1 = task;
+    const settleChain = async () => {
+      try {
+        await chain;
+      } catch {
+        return await settleChainHandler0();
+      }
+      return await settleChainHandler1();
+    };
+    const next = settleChain();
+
+    const settleNext = async () => {
+      try {
+        return await next;
+      } catch {
+        return await undefined;
+      }
+    };
+    chain = settleNext();
     return next;
   };
 
@@ -265,10 +283,16 @@ export function SmartArtTextPane(props: {
                   }}
                   onBlur={(e) => {
                     const el = e.currentTarget;
-                    void commit(id, el.value).then(() => {
+
+                    const settleCommit = async () => {
+                      await commit(id, el.value);
+
                       if (document.activeElement !== el)
                         setDraft(id, undefined);
-                    });
+
+                      return;
+                    };
+                    void settleCommit();
                   }}
                   onKeyDown={(e) => onKeyDown(e, id)}
                 />

@@ -1,5 +1,5 @@
+import { untrackMention } from '@app/lib/queries/storage/mentions';
 import { verifyBlockName } from '@core/constant/allBlocks';
-import { untrackMention } from '@core/signal/mention';
 import { $wrapNodeInElement, mergeRegister } from '@lexical/utils';
 import type { PeerIdValidator } from '@macro-inc/lexical-core';
 import {
@@ -50,7 +50,7 @@ import {
 } from '@macro-inc/lexical-core';
 import { $getId } from '@macro-inc/lexical-core/plugins/nodeIdPlugin';
 import type { MentionNode } from '@macro-inc/lexical-core/utils/mentions';
-import { blockNameToItemType, type ItemType } from '@service-storage/client';
+import { blockNameToItemType, type ItemType } from '@service-storage/itemType';
 import {
   $createParagraphNode,
   $createTextNode,
@@ -202,49 +202,13 @@ function $mentionItemFromNode(node: MentionNode): ItemMention {
       fileType = 'md';
       itemType = 'skill';
     } else if (blockName === 'csv') fileType = 'csv';
-    else if (blockName === 'canvas') fileType = 'canvas';
-    else if (blockName === 'code') {
-      const blockParams = node.getBlockParams();
-      fileType = blockParams?.fileType || 'txt';
-    } else if (blockName === 'image') {
-      fileType = 'png'; // Default to png
-    } else if (blockName === 'channel') {
-      fileType = 'channel';
-      itemType = 'channel';
-    } else if (blockName === 'project') {
-      fileType = 'project';
-      itemType = 'project';
-    } else if (blockName === 'form') {
-      // A form reference: posting it grants the channel View on the form.
-      fileType = 'form';
-      itemType = 'form';
-    } else if (blockName === 'initiative') {
-      // A task project, never a document id.
-      fileType = 'initiative';
-      itemType = 'initiative';
-    } else if (blockName === 'chat') {
-      fileType = 'chat';
-      itemType = 'chat';
-    } else if (blockName === 'rss') {
-      fileType = 'rss';
-    } else if (blockName === 'email') {
-      fileType = 'email';
-      itemType = 'thread';
-    } else if (blockName === 'call') {
-      fileType = 'call';
-      itemType = 'call';
-    } else if (blockName === 'calendar') {
-      fileType = 'calendar_event';
-      itemType = 'calendar_event';
-    } else if (blockName === 'company') {
-      fileType = 'company';
-      itemType = 'crm_company';
-    } else if (blockName === 'contact') {
-      fileType = 'contact';
-      itemType = 'crm_contact';
-    } else if (blockName === 'unknown') {
-      fileType = 'unknown';
-    }
+    else
+      ({ fileType, itemType } = updateFileType(
+        blockName,
+        fileType,
+        itemType,
+        node
+      ));
     return {
       itemType: itemType,
       itemId: node.getDocumentId(),
@@ -286,6 +250,58 @@ function $mentionItemFromNode(node: MentionNode): ItemMention {
       itemType: 'date',
       itemId: node.getDate(),
     };
+  }
+
+  function updateFileType(
+    blockName: string,
+    fileType: string,
+    itemType: ItemMention['itemType'],
+    nodeInput: DocumentMentionNode
+  ) {
+    if (blockName === 'canvas') fileType = 'canvas';
+    else if (blockName === 'code') {
+      const blockParams = nodeInput.getBlockParams();
+      fileType = blockParams?.fileType || 'txt';
+    } else if (blockName === 'image') {
+      fileType = 'png'; // Default to png
+    } else if (blockName === 'channel') {
+      fileType = 'channel';
+      itemType = 'channel';
+    } else if (blockName === 'project') {
+      fileType = 'project';
+      itemType = 'project';
+    } else if (blockName === 'form') {
+      // A form reference: posting it grants the channel View on the form.
+      fileType = 'form';
+      itemType = 'form';
+    } else if (blockName === 'initiative') {
+      // A task project, never a document id.
+      fileType = 'initiative';
+      itemType = 'initiative';
+    } else if (blockName === 'chat') {
+      fileType = 'chat';
+      itemType = 'chat';
+    } else if (blockName === 'rss') {
+      fileType = 'rss';
+    } else if (blockName === 'email') {
+      fileType = 'email';
+      itemType = 'thread';
+    } else if (blockName === 'call') {
+      fileType = 'call';
+      itemType = 'call';
+    } else if (blockName === 'calendar') {
+      fileType = 'calendar_event';
+      itemType = 'calendar_event';
+    } else if (blockName === 'company') {
+      fileType = 'company';
+      itemType = 'crm_company';
+    } else if (blockName === 'contact') {
+      fileType = 'contact';
+      itemType = 'crm_contact';
+    } else if (blockName === 'unknown') {
+      fileType = 'unknown';
+    }
+    return { fileType, itemType };
   }
 }
 

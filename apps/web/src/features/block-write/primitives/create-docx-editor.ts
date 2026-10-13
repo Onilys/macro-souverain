@@ -1,4 +1,3 @@
-import * as engine from '@core/docx-engine/client';
 import type {
   EditOp,
   EditResult,
@@ -7,7 +6,8 @@ import type {
   Pos,
   Selection,
   StyleInfo,
-} from '@core/docx-engine/types';
+} from '@app/lib/docx/types';
+import * as engine from '@core/docx-engine/client';
 import type { LoroDoc } from 'loro-crdt';
 import { createSignal, onCleanup } from 'solid-js';
 import { DocxCollab } from '../core/docx-collab';
@@ -130,18 +130,27 @@ export function createDocxEditor(options: DocxEditorOptions) {
       if (docxFormatVersion(doc) !== DOCX_FORMAT_VERSION) return;
       unsubscribe();
       stopMigrationWatch = undefined;
-      void (async () => {
-        if (disposed) return;
-        const reopened = await engine.openCollabDocument(
-          docKey,
-          readCollabState(doc),
-          Math.floor(Math.random() * 2 ** 48)
-        );
-        if (disposed) return;
-        follow(doc);
-        show(reopened);
-        renderer.invalidate();
-      })().catch((error: unknown) => options.onError?.(error));
+
+      const settleOperation = async () => {
+        try {
+          return await (async () => {
+            if (disposed) return;
+            const reopened = await engine.openCollabDocument(
+              docKey,
+              readCollabState(doc),
+              Math.floor(Math.random() * 2 ** 48)
+            );
+            if (disposed) return;
+            follow(doc);
+            show(reopened);
+            renderer.invalidate();
+          })();
+        } catch (settleOperationError) {
+          const error: unknown = settleOperationError;
+          return await options.onError?.(error);
+        }
+      };
+      void settleOperation();
     });
     // Runs after an await, outside the owner: the editor's own cleanup
     // stops it.
@@ -260,14 +269,30 @@ export function createDocxEditor(options: DocxEditorOptions) {
     take(await engine.setMarkup(docKey, next));
   }
 
-  open().catch((error: unknown) => options.onError?.(error));
+  const settleOpen = async () => {
+    try {
+      return await open();
+    } catch (settleOpenError) {
+      const error: unknown = settleOpenError;
+      return await options.onError?.(error);
+    }
+  };
+  settleOpen();
 
   onCleanup(() => {
     disposed = true;
     stopMigrationWatch?.();
     collab?.dispose();
     renderer.dispose();
-    void engine.closeDocument(docKey).catch(() => {});
+
+    const settleCloseDocument = async () => {
+      try {
+        return await engine.closeDocument(docKey);
+      } catch {
+        return;
+      }
+    };
+    void settleCloseDocument();
   });
 
   return {

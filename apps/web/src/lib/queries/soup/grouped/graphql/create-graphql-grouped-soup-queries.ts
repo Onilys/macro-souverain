@@ -342,13 +342,23 @@ export function createGraphqlGroupedSoupQueries(
 
       const trackFirstPage = (action: Promise<unknown>): Promise<void> => {
         setIsFetchingFirstPage(true);
-        const tracked = action
-          .then(() => undefined)
-          .finally(() => {
-            if (firstPagePromise !== tracked) return;
-            firstPagePromise = undefined;
-            setIsFetchingFirstPage(false);
-          });
+        const settleActionFinally = async () => {
+          if (firstPagePromise !== tracked) return;
+          firstPagePromise = undefined;
+          setIsFetchingFirstPage(false);
+
+          return;
+        };
+        const settleAction = async () => {
+          try {
+            await action;
+
+            return await undefined;
+          } finally {
+            await settleActionFinally();
+          }
+        };
+        const tracked = settleAction();
         firstPagePromise = tracked;
         return tracked;
       };

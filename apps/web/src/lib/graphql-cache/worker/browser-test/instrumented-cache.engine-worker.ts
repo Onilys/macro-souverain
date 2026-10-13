@@ -19,15 +19,17 @@ globalThis.fetch = async (...argumentsList: Parameters<typeof fetch>) => {
         : input.url;
   if (/\/cache_wasm_bg(?:-[\w-]+)?\.wasm(?:[?#]|$)/.test(requestUrl)) {
     wasmFetchCount++;
-    wasmSha256 = response
-      .clone()
-      .arrayBuffer()
-      .then(async (bytes) => {
-        const digest = await crypto.subtle.digest('SHA-256', bytes);
-        return [...new Uint8Array(digest)]
-          .map((byte) => byte.toString(16).padStart(2, '0'))
-          .join('');
-      });
+
+    const settleArrayBuffer = async () => {
+      const settleArrayBufferValue = await response.clone().arrayBuffer();
+      const bytes = settleArrayBufferValue;
+
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return await [...new Uint8Array(digest)]
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+    };
+    wasmSha256 = settleArrayBuffer();
   }
   return response;
 };

@@ -70,7 +70,14 @@ export const callServiceClient = {
         {
           errorResponseHandler: async (response) => {
             if (response.status === 400) {
-              const body = await response.json().catch(() => undefined);
+              const settleJson = async () => {
+                try {
+                  return await response.json();
+                } catch {
+                  return await undefined;
+                }
+              };
+              const body = await settleJson();
               // Older servers route the literal "meetings" as a channel UUID.
               if (body?.message === 'Bad request: Invalid channel ID format')
                 return {

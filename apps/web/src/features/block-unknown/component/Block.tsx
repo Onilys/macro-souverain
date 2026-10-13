@@ -25,7 +25,7 @@ import {
 } from 'solid-js';
 import { SpreadsheetSkeleton } from '../../block-spreadsheet/components/SpreadsheetSkeleton';
 import { isUploadedWorkbook } from '../../block-spreadsheet/core/uploaded-workbook';
-import { useSpreadsheetAccess } from '../../block-spreadsheet/primitives/use-spreadsheet-access';
+import { useSpreadsheetAccess } from '../../block-spreadsheet/use-spreadsheet-access';
 import {
   legacyOfficeUpgradeTarget,
   pollForLegacyUpgrade,
@@ -141,10 +141,17 @@ function useLegacyOfficeUpgrade(documentId: string) {
       }
       // Word content becomes readable once the DOCX pipeline processes it.
       if (target === 'docx') {
-        await waitForDocumentContentReady({
-          documentId,
-          timeoutMs: 60_000,
-        }).catch(() => undefined);
+        const settleWaitForDocumentContentReady = async () => {
+          try {
+            return await waitForDocumentContentReady({
+              documentId,
+              timeoutMs: 60_000,
+            });
+          } catch {
+            return await undefined;
+          }
+        };
+        await settleWaitForDocumentContentReady();
         if (controller.signal.aborted) return;
       }
       const blockName = fileTypeToBlockName(upgraded.fileType);

@@ -17,7 +17,7 @@ import EyeSlashDuo from '@phosphor/eye-slash.svg';
 import LoadingSpinner from '@phosphor/spinner.svg';
 import TrashSimple from '@phosphor/trash-simple.svg';
 import { isAccessiblePreviewItem, useItemPreview } from '@queries/preview';
-import { blockNameToItemType } from '@service-storage/client';
+import { blockNameToItemType } from '@service-storage/itemType';
 import { createCallback } from '@solid-primitives/rootless';
 import { COMMAND_PRIORITY_NORMAL, KEY_ENTER_COMMAND } from 'lexical';
 import type { JSX } from 'solid-js';

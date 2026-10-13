@@ -18,21 +18,33 @@ function isExpired(token: string) {
 let macroApiTokenPromise: Promise<string> | null = null;
 
 function requestMacroApiToken() {
-  const promise = authServiceClient.macroApiToken().then((result) => {
+  const settleMacroApiToken = async () => {
+    const settleMacroApiTokenValue = await authServiceClient.macroApiToken();
+    const result = settleMacroApiTokenValue;
+
     if (result.isErr()) {
       throw result.error;
     }
-    return result.value.macro_api_token;
-  });
+    return await result.value.macro_api_token;
+  };
+  const promise = settleMacroApiToken();
 
   macroApiTokenPromise = promise;
-  void promise.catch(() => {
-    // A failed request must not poison the cache permanently. Keep the
-    // identity check so an older rejection cannot clear a newer request.
-    if (macroApiTokenPromise === promise) {
-      macroApiTokenPromise = null;
+
+  const settlePromise = async () => {
+    try {
+      return await promise;
+    } catch {
+      // A failed request must not poison the cache permanently. Keep the
+      // identity check so an older rejection cannot clear a newer request.
+      if (macroApiTokenPromise === promise) {
+        macroApiTokenPromise = null;
+      }
+
+      return;
     }
-  });
+  };
+  void settlePromise();
   return promise;
 }
 

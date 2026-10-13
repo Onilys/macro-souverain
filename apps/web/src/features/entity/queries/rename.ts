@@ -1,4 +1,4 @@
-import { renameItem } from '@core/component/FileList/itemOperations';
+import { renameItem } from '@app/lib/queries/items/operations';
 import { toast } from '@core/component/Toast/Toast';
 import {
   enableGraphqlSoup,
@@ -451,14 +451,21 @@ const bulkRenameMutationFn = async (
     );
   }
 
+  const settlePerformGraphqlRenames = async () => {
+    try {
+      return await performGraphqlRenames(
+        graphqlOperations.map(({ operation }) => operation)
+      );
+    } catch (settlePerformGraphqlRenamesError) {
+      const error = settlePerformGraphqlRenamesError;
+
+      console.error('GraphQL rename batch failed', error);
+      return await graphqlOperations.map(() => ({ success: false }));
+    }
+  };
   const [graphqlResults, legacyResults] = await Promise.all([
     graphqlOperations.length > 0
-      ? performGraphqlRenames(
-          graphqlOperations.map(({ operation }) => operation)
-        ).catch((error) => {
-          console.error('GraphQL rename batch failed', error);
-          return graphqlOperations.map(() => ({ success: false }));
-        })
+      ? settlePerformGraphqlRenames()
       : Promise.resolve([]),
     Promise.all(
       legacyOperations.map(async ({ operation }) => {

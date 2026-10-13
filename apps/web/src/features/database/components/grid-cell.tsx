@@ -514,118 +514,128 @@ function TextCell(props: {
   const formatted = () => formatCellValue(props.column, value());
   const hint = () =>
     props.onOpen ? 'Click to open' : props.editable ? 'Click to edit' : '';
-  return (
-    <button
-      ref={props.ref}
-      type="button"
-      class="flex min-h-9 w-full min-w-0 items-center rounded px-2.5 py-1.5 text-left text-[13px] leading-5 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ink/50"
-      classList={{
-        'text-ink-muted': !props.editable,
-        'text-ink-placeholder': value() === null && !props.mentionPreview,
-        'font-medium': props.column.dataType === 'STRING',
-      }}
-      aria-label={
-        props.hasResolvedMentionLabel
-          ? undefined
-          : `${props.column.name}: ${props.mentionPreview?.mention.label || formatted() || props.emptyLabel || 'Empty'}${hint() ? `. ${hint()}` : ''}`
-      }
-      aria-description={
-        props.hasResolvedMentionLabel && hint() ? hint() : undefined
-      }
-      aria-readonly={!props.editable}
-      title={
-        props.mentionPreview?.mention.label ||
-        (!props.isEntity && formatted()) ||
-        undefined
-      }
-      onClick={(event) => {
-        if (props.onOpen) props.onOpen();
-        else if (props.editable) props.onBeginEdit(undefined, event);
-      }}
-      onKeyDown={(event) => {
-        if (
-          props.onOpen &&
-          event.key === 'Enter' &&
-          !isComposingKey(event) &&
-          !event.metaKey &&
-          !event.ctrlKey &&
-          !event.altKey
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-          props.onOpen();
-          return;
+  return buildTextCell();
+
+  function buildTextCell() {
+    return (
+      <button
+        ref={props.ref}
+        type="button"
+        class="flex min-h-9 w-full min-w-0 items-center rounded px-2.5 py-1.5 text-left text-[13px] leading-5 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ink/50"
+        classList={{
+          'text-ink-muted': !props.editable,
+          'text-ink-placeholder': value() === null && !props.mentionPreview,
+          'font-medium': props.column.dataType === 'STRING',
+        }}
+        aria-label={getTextCellAriaLabel()}
+        aria-description={
+          props.hasResolvedMentionLabel && hint() ? hint() : undefined
         }
-        if (!props.editable) return;
-        if (isComposingKey(event)) {
-          props.onBeginEdit('', event);
-          return;
+        aria-readonly={!props.editable}
+        title={
+          props.mentionPreview?.mention.label ||
+          (!props.isEntity && formatted()) ||
+          undefined
         }
-        navigateOnTab(event, props.onNavigate);
-        if (
-          event.defaultPrevented ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.altKey
-        )
-          return;
-        if (
-          props.isEntity &&
-          (event.key === 'Backspace' || event.key === 'Delete')
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-          props.onClearEntity();
-        } else if (event.key === 'Enter' || event.key === 'F2') {
-          event.preventDefault();
-          event.stopPropagation();
-          props.onBeginEdit(undefined, event);
-        } else if (
-          event.key.length === 1 ||
-          event.key === 'Backspace' ||
-          event.key === 'Delete'
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-          props.onBeginEdit(event.key.length === 1 ? event.key : '', event);
-        }
-      }}
-    >
-      <Show when={props.hasResolvedMentionLabel}>
-        <span class="sr-only">{props.column.name}: </span>
-      </Show>
-      <span class="truncate">
-        <Switch
-          fallback={
-            (props.column.dataType === 'STRING' &&
-            typeof value() === 'string' &&
-            props.renderTextValue
-              ? props.renderTextValue(String(value()))
-              : formatted()) || (
-              <span class="opacity-40">{props.emptyLabel || '—'}</span>
-            )
+        onClick={(event) => {
+          if (props.onOpen) props.onOpen();
+          else if (props.editable) props.onBeginEdit(undefined, event);
+        }}
+        onKeyDown={(event) => {
+          if (
+            props.onOpen &&
+            event.key === 'Enter' &&
+            !isComposingKey(event) &&
+            !event.metaKey &&
+            !event.ctrlKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            props.onOpen();
+            return;
           }
-        >
-          <Match when={props.mentionPreview}>
-            {(preview) => preview().mention.label}
-          </Match>
-          <Match
-            when={
+          if (!props.editable) return;
+          if (isComposingKey(event)) {
+            props.onBeginEdit('', event);
+            return;
+          }
+          navigateOnTab(event, props.onNavigate);
+          if (
+            event.defaultPrevented ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.altKey
+          )
+            return;
+          updateOnKeyDown();
+
+          function updateOnKeyDown() {
+            if (
               props.isEntity &&
+              (event.key === 'Backspace' || event.key === 'Delete')
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              props.onClearEntity();
+            } else if (event.key === 'Enter' || event.key === 'F2') {
+              event.preventDefault();
+              event.stopPropagation();
+              props.onBeginEdit(undefined, event);
+            } else if (
+              event.key.length === 1 ||
+              event.key === 'Backspace' ||
+              event.key === 'Delete'
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              props.onBeginEdit(event.key.length === 1 ? event.key : '', event);
+            }
+          }
+        }}
+      >
+        <Show when={props.hasResolvedMentionLabel}>
+          <span class="sr-only">{props.column.name}: </span>
+        </Show>
+        <span class="truncate">
+          <Switch
+            fallback={
+              (props.column.dataType === 'STRING' &&
               typeof value() === 'string' &&
-              props.renderMentionValue
-                ? props.column.specificEntityType
-                : undefined
+              props.renderTextValue
+                ? props.renderTextValue(String(value()))
+                : formatted()) || (
+                <span class="opacity-40">{props.emptyLabel || '—'}</span>
+              )
             }
           >
-            {(entityType) => (
-              <>{props.renderMentionValue?.(String(value()), entityType())}</>
-            )}
-          </Match>
-        </Switch>
-      </span>
-    </button>
-  );
+            <Match when={props.mentionPreview}>
+              {(preview) => preview().mention.label}
+            </Match>
+            <Match
+              when={
+                props.isEntity &&
+                typeof value() === 'string' &&
+                props.renderMentionValue
+                  ? props.column.specificEntityType
+                  : undefined
+              }
+            >
+              {(entityType) => (
+                <>{props.renderMentionValue?.(String(value()), entityType())}</>
+              )}
+            </Match>
+          </Switch>
+        </span>
+      </button>
+    );
+  }
+
+  function getTextCellAriaLabel(): string | undefined {
+    return props.hasResolvedMentionLabel
+      ? undefined
+      : `${props.column.name}: ${props.mentionPreview?.mention.label || formatted() || props.emptyLabel || 'Empty'}${hint() ? `. ${hint()}` : ''}`;
+  }
 }
 
 function InlineEditor(props: {
@@ -710,11 +720,7 @@ function InlineEditor(props: {
       finishing = true;
       props.onClose();
     }
-    if (event.key === 'Tab') {
-      if (!commit(false)) event.preventDefault();
-      else if (props.onNavigate?.(event.shiftKey ? -1 : 1))
-        event.preventDefault();
-    }
+    updateOnKeyDown2();
     if (
       (event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
       !event.shiftKey &&
@@ -725,6 +731,14 @@ function InlineEditor(props: {
       if (!caretOnEdgeLine(event.currentTarget, direction)) return;
       event.preventDefault();
       if (commit(false)) props.onNavigateRow(direction);
+    }
+
+    function updateOnKeyDown2() {
+      if (event.key === 'Tab') {
+        if (!commit(false)) event.preventDefault();
+        else if (props.onNavigate?.(event.shiftKey ? -1 : 1))
+          event.preventDefault();
+      }
     }
   };
   return (

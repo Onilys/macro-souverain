@@ -66,8 +66,6 @@ function nextDisplayOrder(options: PropertyOptionResponse[]): number {
 }
 
 const MAX_LIST_HEIGHT = 192;
-const tagActionButtonClass =
-  'size-5 shrink-0 p-0.5 text-ink-extra-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [&_:where(svg)]:size-3.5';
 
 export type TagPickerSourceProps =
   | { docTags: DocTags; createDocTags?: never }
@@ -917,7 +915,9 @@ function TagPickerRow(props: {
               noTouchResize
               tooltip="View tagged items"
               aria-label={`View all items with tag ${label()}`}
-              class={tagActionButtonClass}
+              class={
+                'size-5 shrink-0 p-0.5 text-ink-extra-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [&_:where(svg)]:size-3.5'
+              }
               onMouseDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -937,7 +937,9 @@ function TagPickerRow(props: {
               noTouchResize
               tooltip="Edit tag"
               aria-label={`Edit ${label()}`}
-              class={tagActionButtonClass}
+              class={
+                'size-5 shrink-0 p-0.5 text-ink-extra-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [&_:where(svg)]:size-3.5'
+              }
               onMouseDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();

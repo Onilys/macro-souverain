@@ -293,9 +293,15 @@ export function createPsdCollabSession(
 
   async function hydrate() {
     await wal.ready();
-    const cached = await loadCachedState(manager, snapshots, walStore).catch(
-      () => false
-    );
+
+    const settleLoadCachedState = async () => {
+      try {
+        return await loadCachedState(manager, snapshots, walStore);
+      } catch {
+        return await false;
+      }
+    };
+    const cached = await settleLoadCachedState();
     if (disposed) return;
     if (cached && documentFormat(manager.doc) !== undefined) await start();
     else if (!(await options.exists()) && !(await seed())) return;

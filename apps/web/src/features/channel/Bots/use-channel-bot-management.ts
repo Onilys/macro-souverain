@@ -12,7 +12,7 @@ import { createHotkeyGroup, registerHotkey } from '@core/hotkey/hotkeys';
 import CopyIcon from '@phosphor/copy.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import RobotIcon from '@phosphor/robot.svg';
-import { ChannelTypeEnum } from '@service-storage/client';
+import { ChannelTypeEnum } from '@service-storage/itemType';
 import { createSignal, onCleanup } from 'solid-js';
 
 type UseChannelBotManagementOptions = {

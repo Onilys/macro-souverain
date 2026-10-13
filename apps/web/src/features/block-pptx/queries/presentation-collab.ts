@@ -266,9 +266,15 @@ export function createPresentationCollabSession(
 
   async function hydrate() {
     await wal.ready();
-    const cached = await loadCachedState(manager, snapshots, walStore).catch(
-      () => false
-    );
+
+    const settleLoadCachedState = async () => {
+      try {
+        return await loadCachedState(manager, snapshots, walStore);
+      } catch {
+        return await false;
+      }
+    };
+    const cached = await settleLoadCachedState();
     if (disposed) return;
     if (cached && presentationFormat(manager.doc) !== undefined) await start();
     else if (!(await options.exists()) && !(await seed())) return;
@@ -278,17 +284,28 @@ export function createPresentationCollabSession(
     setConnection(opened);
     opened.source.listen((event) => {
       for (const listener of liveListeners) listener(event);
-      if (event.type === 'reconnect')
-        accept(event)
-          .then(() => wal.flush())
-          .catch((cause: unknown) => {
-            console.error('[pptx] collaboration failed to resync', cause);
-            if (!disposed)
-              setState({
-                t: 'error',
-                message: 'This presentation could not be opened.',
-              });
-          });
+
+      const settleAccept = async (
+        event: Extract<SyncSourceEvent, { type: 'reconnect' }>
+      ) => {
+        try {
+          await accept(event);
+
+          return await wal.flush();
+        } catch (settleAcceptError) {
+          const cause: unknown = settleAcceptError;
+
+          console.error('[pptx] collaboration failed to resync', cause);
+          if (!disposed)
+            setState({
+              t: 'error',
+              message: 'This presentation could not be opened.',
+            });
+
+          return;
+        }
+      };
+      if (event.type === 'reconnect') settleAccept(event);
     });
     if (peerId !== undefined) opened.source.registerPeerId(peerId);
     const initial = await opened.doInitialSync();
@@ -304,11 +321,20 @@ export function createPresentationCollabSession(
     await accept(initial.value);
   }
 
-  hydrate().catch((cause: unknown) => {
-    console.error('[pptx] collaboration failed to open', cause);
-    if (!disposed)
-      setState({ t: 'error', message: 'Unable to open this presentation.' });
-  });
+  const settleHydrate = async () => {
+    try {
+      return await hydrate();
+    } catch (settleHydrateError) {
+      const cause: unknown = settleHydrateError;
+
+      console.error('[pptx] collaboration failed to open', cause);
+      if (!disposed)
+        setState({ t: 'error', message: 'Unable to open this presentation.' });
+
+      return;
+    }
+  };
+  settleHydrate();
 
   onCleanup(() => {
     disposed = true;

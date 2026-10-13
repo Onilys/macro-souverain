@@ -428,13 +428,7 @@ export function RespondView(props: {
                       : 'overflow-hidden rounded-xl border border-edge bg-surface shadow-xs divide-y divide-edge-divider'
                   }
                 >
-                  <Show
-                    when={
-                      answering().total > 1 ||
-                      answering().section?.title ||
-                      answering().section?.description
-                    }
-                  >
+                  <Show when={getRespondViewWhen(answering())}>
                     <div
                       class={
                         props.compact
@@ -646,4 +640,14 @@ export function RespondView(props: {
       </div>
     </div>
   );
+
+  function getRespondViewWhen(
+    answering: Extract<ReturnType<typeof respond.view>, { kind: 'answering' }>
+  ): string | boolean | null | undefined {
+    return (
+      answering.total > 1 ||
+      answering.section?.title ||
+      answering.section?.description
+    );
+  }
 }

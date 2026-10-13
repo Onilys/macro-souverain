@@ -455,16 +455,7 @@ export function CreateChannelModal() {
                     if (step() === 'invite') void finishInvites();
                   }}
                   variant="strong"
-                  disabled={
-                    (step() !== 'invite' && !channelName()) ||
-                    createChannelMutation.isPending ||
-                    patchChannelMutation.isPending ||
-                    addParticipantsMutation.isPending ||
-                    addAgentMutation.isPending ||
-                    (step() === 'visibility' &&
-                      visibility() === 'team' &&
-                      !team())
-                  }
+                  disabled={getCreateChannelModalDisabled()}
                 >
                   {step() === 'name'
                     ? 'Next'
@@ -515,4 +506,15 @@ export function CreateChannelModal() {
       </Panel>
     </Dialog>
   );
+
+  function getCreateChannelModalDisabled(): boolean | undefined {
+    return (
+      (step() !== 'invite' && !channelName()) ||
+      createChannelMutation.isPending ||
+      patchChannelMutation.isPending ||
+      addParticipantsMutation.isPending ||
+      addAgentMutation.isPending ||
+      (step() === 'visibility' && visibility() === 'team' && !team())
+    );
+  }
 }

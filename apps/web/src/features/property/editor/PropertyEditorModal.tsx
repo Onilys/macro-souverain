@@ -235,9 +235,19 @@ export function PropertyEditorModal() {
         : count + ' entities'
     }`;
 
-    saveProperties(selectedEntities, targetProperty, value).then((success) => {
+    const settleSaveProperties = async () => {
+      const settleSavePropertiesValue = await saveProperties(
+        selectedEntities,
+        targetProperty,
+        value
+      );
+      const success = settleSavePropertiesValue;
+
       if (success) toast.success(message);
-    });
+
+      return;
+    };
+    settleSaveProperties();
     if (!event?.shiftKey) closePropertyEditor();
   };
 

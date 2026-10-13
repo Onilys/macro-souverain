@@ -94,7 +94,17 @@ export async function upload(
     const result = await uploadWithProgress(file, name, options, progress);
     if (result.type === 'folder') {
       // The server keeps unpacking the folder after the zip is sent.
-      void result.projectId.finally(() => progress?.done());
+      const settleProjectIdFinally = async () => {
+        return await progress?.done();
+      };
+      const settleProjectId = async () => {
+        try {
+          return await result.projectId;
+        } finally {
+          await settleProjectIdFinally();
+        }
+      };
+      void settleProjectId();
     } else {
       progress?.done();
     }
@@ -145,15 +155,12 @@ async function uploadWithProgress(
   const { type: mimeType } = file;
 
   // Determine file type and mime type
-  let fileTypeOrExtension =
-    options?.fileType || blockAcceptedMimetypeToFileExtension[mimeType];
+  let fileTypeOrExtension = buildFileTypeOrExtension();
   const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
   // Many file types have "" as the mimeType on upload
   // In that case, we default to the file extension as the fileType
-  if (!fileTypeOrExtension) {
-    fileTypeOrExtension = fileExtension ?? '';
-  }
+  updateFileTypeOrExtension();
   const isZip = fileTypeOrExtension === 'zip';
 
   if (!options?.skipAnalytics) {
@@ -201,7 +208,7 @@ async function uploadWithProgress(
     }
   };
 
-  if (isZip && options?.unzipFolder) {
+  if (isUploadWithProgressAllowed()) {
     const res = await storageServiceClient.projects.createUploadZipRequest({
       sha,
       name,
@@ -213,23 +220,25 @@ async function uploadWithProgress(
 
     const { presignedUrl, requestId } = res.value;
 
-    if (
-      !presignedUrl ||
-      !requestId ||
-      !(await putFile(presignedUrl, 'application/zip'))
-    ) {
+    if (await isUploadWithProgressAllowed3(presignedUrl, requestId)) {
       return handleUploadError('Failed to upload zip file');
     }
 
     const projectIdPromise = waitBulkUploadStatus(requestId);
 
-    projectIdPromise.then((projectId) => {
+    const settleProjectIdPromise = async () => {
+      const settleProjectIdPromiseValue = await projectIdPromise;
+      const projectId = settleProjectIdPromiseValue;
+
       if (projectId) {
         toast.success(`Uploaded ${name}`);
       } else {
         toast.failure(`Failed to upload ${name}`);
       }
-    });
+
+      return;
+    };
+    settleProjectIdPromise();
 
     return {
       type: 'folder',
@@ -252,8 +261,7 @@ async function uploadWithProgress(
       console.error('failed to upload docx', sha);
       return handleUploadError('Failed to upload docx file');
     }
-    if (!options?.skipWaitForDocxProcessing)
-      docxProcessingPromise = processingPromise;
+    updateDocxProcessingPromise(processingPromise);
   }
 
   // Create document
@@ -277,9 +285,7 @@ async function uploadWithProgress(
         | MimeType
         | undefined)
     : undefined;
-  const resolvedContentType = (contentType ||
-    fallbackMime ||
-    'application/octet-stream') as MimeType;
+  const resolvedContentType = isUploadWithProgressAllowed2() as MimeType;
 
   if (!(await putFile(presignedUrl, resolvedContentType))) {
     console.error('failed to upload', documentId, 'removing...');
@@ -290,21 +296,7 @@ async function uploadWithProgress(
   // Document upload finalization is owned by the backend S3 ObjectCreated
   // pipeline. The event finalizer marks object-storage documents uploaded and
   // initializes markdown documents in sync-service.
-  if (fileType !== 'docx') {
-    const readyLocation = await waitForDocumentContentReady({
-      documentId,
-      versionId: documentVersionId,
-    }).catch((error) => {
-      console.warn('failed while waiting for document upload readiness', error);
-      return undefined;
-    });
-    if (readyLocation?.content.state !== 'ready') {
-      console.warn('document upload did not become ready before timeout', {
-        documentId,
-        fileType,
-      });
-    }
-  }
+  await updateUploadWithProgress();
 
   if (docxProcessingPromise) {
     await docxProcessingPromise;
@@ -316,4 +308,68 @@ async function uploadWithProgress(
     documentId,
     fileType,
   };
+
+  async function isUploadWithProgressAllowed3(
+    presignedUrl: string,
+    requestId: string
+  ) {
+    return (
+      !presignedUrl ||
+      !requestId ||
+      !(await putFile(presignedUrl, 'application/zip'))
+    );
+  }
+
+  function updateDocxProcessingPromise(
+    processingPromise: Promise<boolean | undefined>
+  ) {
+    if (!options?.skipWaitForDocxProcessing)
+      docxProcessingPromise = processingPromise;
+  }
+
+  function updateFileTypeOrExtension() {
+    if (!fileTypeOrExtension) {
+      fileTypeOrExtension = fileExtension ?? '';
+    }
+  }
+
+  function buildFileTypeOrExtension() {
+    return options?.fileType || blockAcceptedMimetypeToFileExtension[mimeType];
+  }
+
+  function isUploadWithProgressAllowed2(): MimeType {
+    return contentType || fallbackMime || 'application/octet-stream';
+  }
+
+  function isUploadWithProgressAllowed() {
+    return isZip && options?.unzipFolder;
+  }
+
+  async function updateUploadWithProgress() {
+    if (fileType !== 'docx') {
+      const settleWaitForDocumentContentReady = async () => {
+        try {
+          return await waitForDocumentContentReady({
+            documentId,
+            versionId: documentVersionId,
+          });
+        } catch (settleWaitForDocumentContentReadyError) {
+          const error = settleWaitForDocumentContentReadyError;
+
+          console.warn(
+            'failed while waiting for document upload readiness',
+            error
+          );
+          return await undefined;
+        }
+      };
+      const readyLocation = await settleWaitForDocumentContentReady();
+      if (readyLocation?.content.state !== 'ready') {
+        console.warn('document upload did not become ready before timeout', {
+          documentId,
+          fileType,
+        });
+      }
+    }
+  }
 }

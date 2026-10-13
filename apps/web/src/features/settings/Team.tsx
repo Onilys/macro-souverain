@@ -804,7 +804,6 @@ function EmptyTeamState() {
  *  Narrows on mobile so the field + Save/Cancel cluster fits a phone width. */
 /** Width for the editable Name/Slug fields; pairs with the shared `settings-input`
  *  utility. Narrows on mobile so the field + Save/Cancel cluster fits a phone. */
-const TEAM_FIELD_CLASS = 'settings-input w-56 mobile:w-32';
 
 /** Disabled field shown to non-owners, with a tooltip explaining why it's locked.
  *  The muted look comes from `settings-input`'s `:disabled` styling. */
@@ -815,7 +814,7 @@ function ReadOnlyField(props: { value: string; tooltip: string }) {
         type="text"
         value={props.value}
         disabled
-        class={TEAM_FIELD_CLASS}
+        class={'settings-input w-56 mobile:w-32'}
       />
     </Tooltip>
   );
@@ -1264,7 +1263,7 @@ function TeamManagement(props: {
                       }
                     }}
                     placeholder="Enter team name"
-                    class={TEAM_FIELD_CLASS}
+                    class={'settings-input w-56 mobile:w-32'}
                   />
                   <Show when={hasTeamNameChanged()}>
                     <SaveCancelButtons
@@ -1312,7 +1311,7 @@ function TeamManagement(props: {
                         }
                       }}
                       placeholder="Enter team slug"
-                      class={TEAM_FIELD_CLASS}
+                      class={'settings-input w-56 mobile:w-32'}
                       aria-invalid={!!teamSlugError()}
                     />
                     <Show when={teamSlugError()}>
@@ -1584,12 +1583,7 @@ function TeamManagement(props: {
           </Show>
         </SettingsSection>
 
-        <Show
-          when={
-            (isOwner() || allowNonAdminInvites()) &&
-            (invitesQuery.data?.invites?.length ?? 0) > 0
-          }
-        >
+        <Show when={getTeamManagementWhen()}>
           <SettingsSection title="Pending invites">
             <SettingsCard>
               <For each={invitesQuery.data?.invites ?? []}>
@@ -1747,6 +1741,13 @@ function TeamManagement(props: {
       </Dialog>
     </>
   );
+
+  function getTeamManagementWhen(): boolean | null | undefined {
+    return (
+      (isOwner() || allowNonAdminInvites()) &&
+      (invitesQuery.data?.invites?.length ?? 0) > 0
+    );
+  }
 }
 
 function TeamContent() {

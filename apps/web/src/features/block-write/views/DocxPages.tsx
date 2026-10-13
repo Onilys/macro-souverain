@@ -4,7 +4,7 @@ import type {
   EditOp,
   PageRect,
   Pos,
-} from '@core/docx-engine/types';
+} from '@app/lib/docx/types';
 import {
   type Accessor,
   createEffect,
@@ -17,6 +17,7 @@ import {
   onMount,
   Show,
 } from 'solid-js';
+import { match as matchBranch } from 'ts-pattern';
 import { clipboardHtml, readClipboardHtml } from '../core/clipboard';
 import { keyAction } from '../core/keymap';
 import { type DocxEditor, PX_PER_PT } from '../primitives/create-docx-editor';
@@ -285,12 +286,19 @@ export function DocxPages(props: DocxPagesProps) {
       return;
     }
     clipTimer = setTimeout(() => {
-      editor
-        .copySelection()
-        .then((clip) => {
+      const settleCopySelection = async () => {
+        try {
+          const settleCopySelectionValue = await editor.copySelection();
+          const clip = settleCopySelectionValue;
+
           if (selectionKey() === key) clipboard = { key, clip };
-        })
-        .catch(() => {});
+
+          return;
+        } catch {
+          return;
+        }
+      };
+      settleCopySelection();
     }, 120);
   });
 
@@ -464,16 +472,24 @@ export function DocxPages(props: DocxPagesProps) {
     touchSelecting = true;
     held = true;
     input.focus({ preventScroll: true });
-    presses = presses
-      .then(async () => {
+
+    const settlePresses = async () => {
+      try {
+        await presses;
+
         const pos = await editor.hitTest(point.page, point.x, point.y);
         if (!pos) return;
         editor.run([{ op: 'selectWord', at: pos }]);
         await editor.idle();
         const selection = editor.state()?.selection;
         if (held && selection) dragAnchor = selection.anchor;
-      })
-      .catch(() => {});
+
+        return;
+      } catch {
+        return;
+      }
+    };
+    presses = settlePresses();
   }
 
   function touchUp(event: PointerEvent) {
@@ -493,9 +509,17 @@ export function DocxPages(props: DocxPagesProps) {
     // Focus inside the tap's own handler, so mobile browsers open the
     // keyboard.
     input.focus({ preventScroll: true });
-    presses = presses
-      .then(() => press(point, double ? 2 : 1, false))
-      .catch(() => {});
+
+    const settlePressesResult = async () => {
+      try {
+        await presses;
+
+        return await press(point, double ? 2 : 1, false);
+      } catch {
+        return;
+      }
+    };
+    presses = settlePressesResult();
   }
 
   /** Ends any press or drag (also when the browser takes the pointer over
@@ -531,7 +555,17 @@ export function DocxPages(props: DocxPagesProps) {
     const shift = event.shiftKey;
     held = true;
     column.setPointerCapture(event.pointerId);
-    presses = presses.then(() => press(point, clicks, shift)).catch(() => {});
+
+    const settlePressesResultResult = async () => {
+      try {
+        await presses;
+
+        return await press(point, clicks, shift);
+      } catch {
+        return;
+      }
+    };
+    presses = settlePressesResultResult();
   }
 
   async function press(
@@ -618,40 +652,50 @@ export function DocxPages(props: DocxPagesProps) {
     const action = keyAction(event, isMac);
     if (!action) return;
     event.preventDefault();
-    switch (action.kind) {
-      case 'ops':
+    matchBranch(action)
+      .with({ kind: 'ops' }, (action) => {
         run(action.ops, action.group);
-        break;
-      case 'undo':
+        return;
+      })
+      .with({ kind: 'undo' }, () => {
         void editor.undo();
-        break;
-      case 'redo':
+        return;
+      })
+      .with({ kind: 'redo' }, () => {
         void editor.redo();
-        break;
-      case 'comment':
+        return;
+      })
+      .with({ kind: 'comment' }, () => {
         props.onComment?.();
-        break;
-      case 'find':
+        return;
+      })
+      .with({ kind: 'find' }, (action) => {
         props.onFind?.(action.replace);
-        break;
-      case 'findNext':
+        return;
+      })
+      .with({ kind: 'findNext' }, (action) => {
         props.onFindNext?.(action.forward);
-        break;
-      case 'page':
+        return;
+      })
+      .with({ kind: 'page' }, (action) => {
         void pageMove(action.forward, action.extend);
-        break;
-      case 'tab': {
-        const state = editor.state();
-        const selection = state?.selection;
-        const spans =
-          selection && selection.anchor.block !== selection.focus.block;
-        const atListStart = state?.format.list && selection?.focus.offset === 0;
-        if (spans || atListStart || !action.forward)
-          run([{ op: 'indent', forward: action.forward }]);
-        else run([{ op: 'insertText', text: '\t' }], 'typing');
-        break;
-      }
-    }
+        return;
+      })
+      .with({ kind: 'tab' }, (action) => {
+        {
+          const state = editor.state();
+          const selection = state?.selection;
+          const spans =
+            selection && selection.anchor.block !== selection.focus.block;
+          const atListStart =
+            state?.format.list && selection?.focus.offset === 0;
+          if (spans || atListStart || !action.forward)
+            run([{ op: 'indent', forward: action.forward }]);
+          else run([{ op: 'insertText', text: '\t' }], 'typing');
+          return;
+        }
+      })
+      .otherwise(() => {});
   }
 
   function typeText(text: string) {
@@ -718,16 +762,30 @@ export function DocxPages(props: DocxPagesProps) {
     }
     // Not fetched yet: the clipboard API takes the content when it is.
     const clip = editor.copySelection();
-    const blob = (type: string, data: (c: Clip) => string) =>
-      clip.then((c) => new Blob([data(c)], { type }));
-    void navigator.clipboard
-      ?.write([
-        new ClipboardItem({
-          'text/plain': blob('text/plain', (c) => c.text),
-          'text/html': blob('text/html', (c) => clipboardHtml(c, documentId())),
-        }),
-      ])
-      .catch(() => {});
+    const blob = (type: string, data: (c: Clip) => string) => {
+      const settleClip = async () => {
+        const settleClipValue = await clip;
+        const c = settleClipValue;
+        return await new Blob([data(c)], { type });
+      };
+      return settleClip();
+    };
+
+    const settleWrite = async () => {
+      try {
+        return await navigator.clipboard?.write([
+          new ClipboardItem({
+            'text/plain': blob('text/plain', (c) => c.text),
+            'text/html': blob('text/html', (c) =>
+              clipboardHtml(c, documentId())
+            ),
+          }),
+        ]);
+      } catch {
+        return;
+      }
+    };
+    void settleWrite();
     return true;
   }
 

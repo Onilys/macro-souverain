@@ -1,8 +1,10 @@
 import { ShowFeatureFlag } from '@app/lib/analytics/posthog';
+import { tryMacroId } from '@app/lib/identity/macro-id';
 import { toast } from '@core/component/Toast/Toast';
 import { enableCalendarScheduling } from '@core/constant/featureFlags';
 import { useSettingsState } from '@core/constant/SettingsState';
 import { useUserId } from '@core/context/user';
+import { getDisplayNameParts } from '@core/user';
 import { writeClipboardData } from '@core/util/dataTransfer';
 import { getWebOrigin } from '@core/util/webOrigin';
 import { DropdownMenu } from '@kobalte/core/dropdown-menu';
@@ -23,7 +25,11 @@ function Actions() {
       name: 'Personal',
       canEdit: true,
     }),
-    () => user() ?? ''
+    () => user() ?? '',
+    () => {
+      const id = tryMacroId(user() ?? '');
+      return id ? getDisplayNameParts(id).firstName : '';
+    }
   );
 
   const enabledLinks = () => {

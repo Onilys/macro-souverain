@@ -147,11 +147,19 @@ function BrowserFormat(props: { notification: UnifiedNotification }) {
 
   createEffect(() => {
     if (hasData()) {
-      toPlatformNotificationData(
-        props.notification,
-        DefaultUserNameResolver,
-        DefaultDocumentNameResolver
-      ).then(setBrowserNotif);
+      const settleToPlatformNotificationDataHandler0 = setBrowserNotif;
+      const settleToPlatformNotificationData = async () => {
+        const settleToPlatformNotificationDataValue =
+          await toPlatformNotificationData(
+            props.notification,
+            DefaultUserNameResolver,
+            DefaultDocumentNameResolver
+          );
+        return await settleToPlatformNotificationDataHandler0(
+          settleToPlatformNotificationDataValue
+        );
+      };
+      settleToPlatformNotificationData();
     } else {
       setBrowserNotif(null);
     }

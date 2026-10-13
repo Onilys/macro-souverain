@@ -24,9 +24,6 @@ function VideoViewerContent(props: {
   indexLabel?: Accessor<string>;
   navigationHidden?: boolean;
 }) {
-  const navButtonClass =
-    'absolute top-1/2 -translate-y-1/2 bg-surface backdrop-blur-sm rounded-lg border border-edge p-2 shadow-md hover:bg-surface transition-colors disabled:cursor-not-allowed disabled:opacity-50';
-
   let swipeTouchStartX = 0;
   let swipeTouchEndX = 0;
   let isSwiping = false;
@@ -96,7 +93,10 @@ function VideoViewerContent(props: {
 
         <Show when={!isMobile() && !props.navigationHidden}>
           <button
-            class={cn(navButtonClass, 'left-4')}
+            class={cn(
+              'absolute top-1/2 -translate-y-1/2 bg-surface backdrop-blur-sm rounded-lg border border-edge p-2 shadow-md hover:bg-surface transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+              'left-4'
+            )}
             style={{ 'z-index': 'calc(var(--z-index-modal) + 1)' }}
             onClick={props.onPrevious}
             disabled={!props.onPrevious}
@@ -106,7 +106,10 @@ function VideoViewerContent(props: {
           </button>
 
           <button
-            class={cn(navButtonClass, 'right-4')}
+            class={cn(
+              'absolute top-1/2 -translate-y-1/2 bg-surface backdrop-blur-sm rounded-lg border border-edge p-2 shadow-md hover:bg-surface transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+              'right-4'
+            )}
             style={{ 'z-index': 'calc(var(--z-index-modal) + 1)' }}
             onClick={props.onNext}
             disabled={!props.onNext}

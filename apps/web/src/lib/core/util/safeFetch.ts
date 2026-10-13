@@ -280,7 +280,7 @@ export async function safeFetch<
 ): Promise<Result<T, ResultError<BaseFetchErrorCode | CustomErrorCode>[]>> {
   const { retry, trace, ...fetchInit } = init || {};
   const maxTries = retry?.maxTries ?? 1;
-  const delay = retry?.delay ?? 0;
+  const delay = buildDelay();
   type ErrorCode = BaseFetchErrorCode | CustomErrorCode;
   const fetchErr = (errors: ResultError<ErrorCode>[]) =>
     err<T, ResultError<ErrorCode>[]>(errors);
@@ -292,17 +292,7 @@ export async function safeFetch<
         input,
         {
           ...fetchInit,
-          headers: {
-            ...(fetchInit?.method !== 'GET' &&
-              fetchInit?.method !== 'HEAD' &&
-              !(fetchInit?.body instanceof FormData) && {
-                'Content-Type':
-                  (fetchInit?.headers as Record<string, string> | undefined)?.[
-                    'Content-Type'
-                  ] ?? 'application/json',
-              }),
-            ...fetchInit?.headers,
-          } as Record<string, string>,
+          headers: buildHeaders(),
         },
         trace
       );
@@ -369,6 +359,24 @@ export async function safeFetch<
       },
     ])
   );
+
+  function buildDelay() {
+    return retry?.delay ?? 0;
+  }
+
+  function buildHeaders(): (HeadersInit | undefined) & Record<string, string> {
+    return {
+      ...(fetchInit?.method !== 'GET' &&
+        fetchInit?.method !== 'HEAD' &&
+        !(fetchInit?.body instanceof FormData) && {
+          'Content-Type':
+            (fetchInit?.headers as Record<string, string> | undefined)?.[
+              'Content-Type'
+            ] ?? 'application/json',
+        }),
+      ...fetchInit?.headers,
+    } as Record<string, string>;
+  }
 }
 function calculateDelay(
   delay: 'exponential' | number,

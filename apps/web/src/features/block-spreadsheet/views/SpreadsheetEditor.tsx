@@ -587,7 +587,24 @@ export function SpreadsheetEditor(props: {
           )
         );
         setResize({ sheetId: sheet.id, axis, start, end });
-      } else if (action === 'hide' || action === 'unhide') {
+      } else await updateNext(action);
+    } catch (error) {
+      actions.setNotice(
+        error instanceof Error
+          ? error.message
+          : 'Unable to change rows or columns.'
+      );
+    } finally {
+      setStructureBusy(false);
+    }
+
+    async function updateNext(
+      action: Exclude<
+        HeaderAction,
+        'copy' | 'insert-before' | 'insert-after' | 'delete' | 'resize'
+      >
+    ) {
+      if (action === 'hide' || action === 'unhide') {
         const key = axis === 'row' ? 'hiddenRows' : 'hiddenColumns';
         const hidden =
           action === 'unhide'
@@ -623,14 +640,6 @@ export function SpreadsheetEditor(props: {
       } else if (action === 'sort-asc' || action === 'sort-desc') {
         await actions.sort(action === 'sort-desc', start);
       } else command(action);
-    } catch (error) {
-      actions.setNotice(
-        error instanceof Error
-          ? error.message
-          : 'Unable to change rows or columns.'
-      );
-    } finally {
-      setStructureBusy(false);
     }
   }
 
@@ -746,7 +755,7 @@ export function SpreadsheetEditor(props: {
           onKeyDown={(event) => event.stopPropagation()}
         >
           <SpreadsheetDialog.Title class="font-semibold">
-            Resize {resize()?.axis}s
+            Resize {getSpreadsheetEditorContent()}s
           </SpreadsheetDialog.Title>
           <SpreadsheetDialog.Description class="my-3 text-ink-muted">
             Enter the size in pixels.
@@ -755,8 +764,8 @@ export function SpreadsheetEditor(props: {
             aria-label="Size in pixels"
             type="number"
             required
-            min={resize()?.axis === 'row' ? 21 : 64}
-            max={resize()?.axis === 'row' ? 400 : 640}
+            min={getSpreadsheetEditorMin()}
+            max={getSpreadsheetEditorMax()}
             value={resizeSize()}
             onInput={(event) => setResizeSize(event.currentTarget.value)}
             onFocus={(event) => event.currentTarget.select()}
@@ -807,8 +816,8 @@ export function SpreadsheetEditor(props: {
       </Show>
       <SpreadsheetToolbar
         onComment={props.comments ? addComment : undefined}
-        canComment={props.comments?.canComment()}
-        readonly={!editable() || actions.pending() || !!workbookActions.busy()}
+        canComment={getSpreadsheetEditorCanComment()}
+        readonly={isEditorReadonly()}
         canUndo={props.store.canUndo()}
         canRedo={props.store.canRedo()}
         cell={{
@@ -832,19 +841,7 @@ export function SpreadsheetEditor(props: {
           drawingActions.insertChart(type);
         }}
         onInsertImage={() => imageInput.click()}
-        onSelectDrawings={
-          props.store.activeSheet().metadata?.drawings?.length
-            ? () => {
-                const [first] = [
-                  ...(props.store.activeSheet().metadata?.drawings ?? []),
-                ].sort(
-                  (a, b) =>
-                    a.from.row - b.from.row || a.from.column - b.from.column
-                );
-                if (first) showDrawing(first.id);
-              }
-            : undefined
-        }
+        onSelectDrawings={getSpreadsheetEditorOnSelectDrawings()}
       />
       <input
         ref={imageInput}
@@ -870,23 +867,14 @@ export function SpreadsheetEditor(props: {
           void importFile(file);
         }}
       />
-      <Show
-        when={
-          showFormulaBar() ||
-          grid.editing() === 'formula' ||
-          (isTouchDevice() && !!grid.editing())
-        }
-      >
+      <Show when={getSpreadsheetEditorWhen()}>
         <FormulaBar
           mentions={props.mentions}
           editing={!!grid.editing()}
           complete={calculation.complete}
           selectionRequest={grid.editorSelection()}
           references={grid.draftReferences()}
-          pickingReference={
-            grid.pickingReference() ||
-            (isTouchDevice() && !!grid.referenceSelection())
-          }
+          pickingReference={getSpreadsheetEditorPickingReference()}
           onSelectionChange={grid.setTextSelection}
           address={
             grid.editing()
@@ -999,10 +987,7 @@ export function SpreadsheetEditor(props: {
           comments={props.comments}
           selection={grid.selection()}
           editing={grid.editing() === 'cell' && grid.isEditingActiveSheet()}
-          formulaEditing={
-            !!grid.editing() &&
-            (grid.editing() === 'formula' || !grid.isEditingActiveSheet())
-          }
+          formulaEditing={getSpreadsheetEditorFormulaEditing()}
           editorSelection={grid.editorSelection()}
           referenceSelection={grid.referenceSelection()}
           referenceHighlights={grid.referenceHighlights()}
@@ -1105,15 +1090,7 @@ export function SpreadsheetEditor(props: {
           }}
           onDelete={(id) => workbookActions.openSheetDialog('delete', id)}
           onMove={workbookActions.moveSheet}
-          onAddRows={
-            editable() && props.store.rowCount() < SPREADSHEET_MAX_ROWS
-              ? () => {
-                  grid.commit();
-                  props.store.appendRows(100);
-                  focusGrid();
-                }
-              : undefined
-          }
+          onAddRows={getSpreadsheetEditorOnAddRows()}
           addRowsLabel={`Add ${Math.min(100, SPREADSHEET_MAX_ROWS - props.store.rowCount())} rows`}
         />
         <span class="hidden shrink-0 whitespace-nowrap xl:inline">
@@ -1237,16 +1214,8 @@ export function SpreadsheetEditor(props: {
         </div>
         <div class="shrink-0 border-l border-edge-muted pl-1 max-sm:order-1">
           <SpreadsheetFileMenu
-            readonly={
-              !editable() || actions.pending() || !!workbookActions.busy()
-            }
-            canExport={
-              props.store.ready() &&
-              !calculation.busy() &&
-              !calculation.error() &&
-              !grid.editing() &&
-              !workbookActions.busy()
-            }
+            readonly={isEditorReadonly()}
+            canExport={getSpreadsheetEditorCanExport()}
             onCommand={menuCommand}
             onRestoreFocus={restoreEditorFocus}
           />
@@ -1357,4 +1326,79 @@ export function SpreadsheetEditor(props: {
       />
     </section>
   );
+
+  function getSpreadsheetEditorCanComment(): boolean | undefined {
+    return props.comments?.canComment();
+  }
+
+  function getSpreadsheetEditorContent() {
+    return resize()?.axis;
+  }
+
+  function getSpreadsheetEditorOnAddRows(): (() => void) | undefined {
+    return editable() && props.store.rowCount() < SPREADSHEET_MAX_ROWS
+      ? () => {
+          grid.commit();
+          props.store.appendRows(100);
+          focusGrid();
+        }
+      : undefined;
+  }
+
+  function getSpreadsheetEditorFormulaEditing(): boolean | undefined {
+    return (
+      !!grid.editing() &&
+      (grid.editing() === 'formula' || !grid.isEditingActiveSheet())
+    );
+  }
+
+  function getSpreadsheetEditorPickingReference(): boolean | undefined {
+    return (
+      grid.pickingReference() ||
+      (isTouchDevice() && !!grid.referenceSelection())
+    );
+  }
+
+  function isEditorReadonly(): boolean {
+    return !editable() || actions.pending() || !!workbookActions.busy();
+  }
+
+  function getSpreadsheetEditorMax(): string | number | undefined {
+    return resize()?.axis === 'row' ? 400 : 640;
+  }
+
+  function getSpreadsheetEditorMin(): string | number | undefined {
+    return resize()?.axis === 'row' ? 21 : 64;
+  }
+
+  function getSpreadsheetEditorOnSelectDrawings(): (() => void) | undefined {
+    return props.store.activeSheet().metadata?.drawings?.length
+      ? () => {
+          const [first] = [
+            ...(props.store.activeSheet().metadata?.drawings ?? []),
+          ].sort(
+            (a, b) => a.from.row - b.from.row || a.from.column - b.from.column
+          );
+          if (first) showDrawing(first.id);
+        }
+      : undefined;
+  }
+
+  function getSpreadsheetEditorWhen(): boolean | null | undefined {
+    return (
+      showFormulaBar() ||
+      grid.editing() === 'formula' ||
+      (isTouchDevice() && !!grid.editing())
+    );
+  }
+
+  function getSpreadsheetEditorCanExport(): boolean {
+    return (
+      props.store.ready() &&
+      !calculation.busy() &&
+      !calculation.error() &&
+      !grid.editing() &&
+      !workbookActions.busy()
+    );
+  }
 }

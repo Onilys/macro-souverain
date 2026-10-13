@@ -2,6 +2,7 @@ import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils'
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { useUserId } from '@core/context/user';
 import { usePropertyUserDisplay } from '@property/hooks/usePropertyUserDisplay';
+import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import type { Accessor } from 'solid-js';
 import { toTaskBoardGrouping } from './core/task-board';
 import { createTaskBoardQueries } from './queries/task-board-queries';
@@ -13,6 +14,7 @@ export function TasksBoard(props: { ref?: (element: HTMLDivElement) => void }) {
   const { state, source, openTask, projectsEnabled } = useTasksView();
   const panel = useSplitPanelOrThrow();
   const queries = createTaskBoardQueries({
+    client: getGraphqlSoupClient,
     rows: source.boardRows ?? source.items,
     grouping: () => toTaskBoardGrouping(state.groupBy),
     searching: source.boardSearching ?? (() => !!state.search.trim()),

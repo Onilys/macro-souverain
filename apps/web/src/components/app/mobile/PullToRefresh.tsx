@@ -82,14 +82,26 @@ export function PullToRefresh(props: {
   let attempt: Promise<'ok' | 'failed'> | undefined;
 
   const startRefresh = () => {
-    const started = props.onRefresh().then(
-      () => 'ok' as const,
-      () => 'failed' as const
-    );
+    const settleOnRefresh = async () => {
+      try {
+        await props.onRefresh();
+      } catch {
+        return await ('failed' as const);
+      }
+
+      return await ('ok' as const);
+    };
+    const started = settleOnRefresh();
     attempt = started;
-    void started.then(() => {
+
+    const settleStarted = async () => {
+      await started;
+
       if (attempt === started) attempt = undefined;
-    });
+
+      return;
+    };
+    void settleStarted();
     return started;
   };
 
@@ -110,23 +122,27 @@ export function PullToRefresh(props: {
     // gesture's own target element out from under it.
     const pending = attempt ?? startRefresh();
 
-    void Promise.all([Promise.race([pending, cap]), minSpin]).then(
-      ([outcome]) => {
-        // Report a failure only when nothing reached the wire. A refresh
-        // still running at the cap says nothing either way, so it stays
-        // quiet unless the native monitor is certain there is no path out
-        // — that case is indistinguishable from success otherwise.
-        if (outcome === 'failed') {
-          toast.failure('Failed to refresh');
-        } else if (
-          outcome === 'pending' &&
-          nativeNetworkStatus() === 'offline'
-        ) {
-          toast.failure("You're offline");
-        }
-        retract();
+    const settleAll = async () => {
+      const settleAllValue = await Promise.all([
+        Promise.race([pending, cap]),
+        minSpin,
+      ]);
+      const [outcome] = settleAllValue;
+
+      // Report a failure only when nothing reached the wire. A refresh
+      // still running at the cap says nothing either way, so it stays
+      // quiet unless the native monitor is certain there is no path out
+      // — that case is indistinguishable from success otherwise.
+      if (outcome === 'failed') {
+        toast.failure('Failed to refresh');
+      } else if (outcome === 'pending' && nativeNetworkStatus() === 'offline') {
+        toast.failure("You're offline");
       }
-    );
+      retract();
+
+      return;
+    };
+    void settleAll();
   };
 
   const onTouchStart = (e: TouchEvent) => {

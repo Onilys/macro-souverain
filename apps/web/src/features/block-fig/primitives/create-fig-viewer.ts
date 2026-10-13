@@ -512,7 +512,9 @@ export function createFigViewer(options: FigViewerOptions) {
   };
 
   const revealLayer = (id: string) => {
-    void selectIds([id]).then(() => {
+    const settleSelectIds = async () => {
+      await selectIds([id]);
+
       const g = selectionGeometry()[0];
       if (!g) return;
       const v = viewport();
@@ -530,7 +532,10 @@ export function createFigViewer(options: FigViewerOptions) {
         b.x + b.w <= visible.x + visible.w &&
         b.y + b.h <= visible.y + visible.h;
       if (!inView) setCamera(centerOn(c, b, v));
-    });
+
+      return;
+    };
+    void settleSelectIds();
   };
 
   return {

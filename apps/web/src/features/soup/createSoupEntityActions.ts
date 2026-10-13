@@ -176,61 +176,12 @@ export function createSoupEntityActions(
     // Also what the reminder's own mark-done advances on, further down.
     const marksDoneOnThisView = viewContext.supportsMarkDone;
 
-    if (marksDoneOnThisView) {
-      // A fully-done selection (e.g. archived threads in mail "All") gets the
-      // reverse action; anything else gets Mark Done.
-      if (canExecuteAll(markNotDone.canExecute)) {
-        topItems.push({
-          id: 'mark-not-done',
-          label: 'Mark Not Done',
-          hotkeyToken: TOKENS.entity.action.markNotDone,
-          onClick: handle(markNotDone.executeWithSoup),
-        });
-      } else if (canExecuteAll(markDone.canExecute)) {
-        topItems.push({
-          id: 'mark-done',
-          label: 'Mark Done',
-          hotkeyToken: TOKENS.entity.action.markDone,
-          onClick: () =>
-            markDone.executeWithSoup(
-              entities,
-              soup,
-              createActionNavigationHandler?.()
-            ),
-        });
-      }
-    }
+    updateBuildActionGroups5();
 
     // Email selections keep their thread read-state toggle. Other entities
     // can mark their attached notifications read; that action skips entities
     // and notifications that are already read.
-    if (canExecuteAll(markUnread.canExecute)) {
-      topItems.push({
-        id: 'mark-unread',
-        label: 'Mark Unread',
-        hotkeyToken: TOKENS.entity.action.markUnread,
-        onClick: handle(markUnread.executeWithSoup),
-      });
-    } else if (
-      entities.every((e) => e.type === 'email') &&
-      entities.some(markRead.canExecute)
-    ) {
-      topItems.push({
-        id: 'mark-read',
-        label: 'Mark Read',
-        hotkeyToken: TOKENS.entity.action.markRead,
-        onClick: handle(markRead.executeWithSoup),
-      });
-    } else if (
-      entities.every((entity) => entity.type !== 'email') &&
-      entities.some(markNotificationsRead.canExecute)
-    ) {
-      topItems.push({
-        id: 'mark-notifications-read',
-        label: 'Mark Read',
-        onClick: handle(markNotificationsRead.executeWithSoup),
-      });
-    }
+    updateBuildActionGroups();
 
     /**
      * The single entity these open actions apply to, if any.
@@ -278,17 +229,7 @@ export function createSoupEntityActions(
       });
     };
 
-    if (viewContext.supportsOpenInNewSplit && openableEntity()) {
-      topItems.push({
-        id: 'open-in-split',
-        label: 'Open in new split',
-        shortcut: 'shift+enter',
-        // A layout with no room for another split cannot honor this: the open
-        // would fall back to replacing a split instead of adding one.
-        disabled: !globalSplitManager()?.canAppendSplit(),
-        onClick: openEntity({ openInNewSplit: true }),
-      });
-    }
+    updateBuildActionGroups4();
 
     // Middle group: Rename, Move to folder, Duplicate, Copy Link, Copy Branch Name, Share
     const middleItems: SoupEntityActionItem[] = [];
@@ -347,27 +288,9 @@ export function createSoupEntityActions(
       });
     }
 
-    if (entities.length === 1 && openTagPicker) {
-      middleItems.push({
-        id: 'add-tag',
-        label: 'Add tag',
-        onClick: openTagPicker,
-      });
-    }
+    updateBuildActionGroups6();
 
-    if (
-      projectsFlag().enabled &&
-      openProjectPicker &&
-      canExecuteAll(isTaskEntity)
-    ) {
-      middleItems.push({
-        id: 'set-initiative',
-        label: 'Add to project…',
-        onClick: () => {
-          if (isFeatureEnabled(enableProjects)) openProjectPicker();
-        },
-      });
-    }
+    updateBuildActionGroups3();
 
     if (canExecuteAll(moveToProjectAction.canExecute)) {
       middleItems.push({
@@ -395,39 +318,7 @@ export function createSoupEntityActions(
       });
     }
 
-    if (entities.length === 1) {
-      if (copyLinkAction.canExecute(entities[0])) {
-        middleItems.push({
-          id: 'copy-link',
-          label: 'Copy Link',
-          hotkeyToken: TOKENS.entity.action.copyLink,
-          onClick: handle(copyLinkAction.executeWithSoup),
-        });
-      }
-
-      if (copyBranchNameAction.canExecute(entities[0])) {
-        middleItems.push({
-          id: 'copy-branch-name',
-          label: 'Copy Branch Name',
-          hotkeyToken: TOKENS.entity.action.copyBranchName,
-          onClick: handle(copyBranchNameAction.executeWithSoup),
-        });
-      }
-
-      middleItems.push({
-        id: 'copy-entity-id',
-        label: 'Copy ID',
-        onClick: handle(copyEntityIdAction.executeWithSoup),
-      });
-
-      if (shareAction.canExecute(entities[0])) {
-        middleItems.push({
-          id: 'share',
-          label: 'Share',
-          onClick: handle(shareAction.executeWithSoup),
-        });
-      }
-    }
+    updateBuildActionGroups2();
 
     // Sender group: Sender → Signal, Sender → Noise, Block Sender
     const senderItems: SoupEntityActionItem[] = [];
@@ -482,6 +373,139 @@ export function createSoupEntityActions(
     return [topItems, middleItems, senderItems, crmItems, deleteItems]
       .filter((items) => items.length > 0)
       .map((items) => ({ items }));
+
+    function updateBuildActionGroups6() {
+      if (entities.length === 1 && openTagPicker) {
+        middleItems.push({
+          id: 'add-tag',
+          label: 'Add tag',
+          onClick: openTagPicker,
+        });
+      }
+    }
+
+    function updateBuildActionGroups5() {
+      if (marksDoneOnThisView) {
+        // A fully-done selection (e.g. archived threads in mail "All") gets the
+        // reverse action; anything else gets Mark Done.
+        if (canExecuteAll(markNotDone.canExecute)) {
+          topItems.push({
+            id: 'mark-not-done',
+            label: 'Mark Not Done',
+            hotkeyToken: TOKENS.entity.action.markNotDone,
+            onClick: handle(markNotDone.executeWithSoup),
+          });
+        } else if (canExecuteAll(markDone.canExecute)) {
+          topItems.push({
+            id: 'mark-done',
+            label: 'Mark Done',
+            hotkeyToken: TOKENS.entity.action.markDone,
+            onClick: () =>
+              markDone.executeWithSoup(
+                entities,
+                soup,
+                createActionNavigationHandler?.()
+              ),
+          });
+        }
+      }
+    }
+
+    function updateBuildActionGroups4() {
+      if (viewContext.supportsOpenInNewSplit && openableEntity()) {
+        topItems.push({
+          id: 'open-in-split',
+          label: 'Open in new split',
+          shortcut: 'shift+enter',
+          // A layout with no room for another split cannot honor this: the open
+          // would fall back to replacing a split instead of adding one.
+          disabled: !globalSplitManager()?.canAppendSplit(),
+          onClick: openEntity({ openInNewSplit: true }),
+        });
+      }
+    }
+
+    function updateBuildActionGroups3() {
+      if (
+        projectsFlag().enabled &&
+        openProjectPicker &&
+        canExecuteAll(isTaskEntity)
+      ) {
+        middleItems.push({
+          id: 'set-initiative',
+          label: 'Add to project…',
+          onClick: () => {
+            if (isFeatureEnabled(enableProjects)) openProjectPicker();
+          },
+        });
+      }
+    }
+
+    function updateBuildActionGroups2() {
+      if (entities.length === 1) {
+        if (copyLinkAction.canExecute(entities[0])) {
+          middleItems.push({
+            id: 'copy-link',
+            label: 'Copy Link',
+            hotkeyToken: TOKENS.entity.action.copyLink,
+            onClick: handle(copyLinkAction.executeWithSoup),
+          });
+        }
+
+        if (copyBranchNameAction.canExecute(entities[0])) {
+          middleItems.push({
+            id: 'copy-branch-name',
+            label: 'Copy Branch Name',
+            hotkeyToken: TOKENS.entity.action.copyBranchName,
+            onClick: handle(copyBranchNameAction.executeWithSoup),
+          });
+        }
+
+        middleItems.push({
+          id: 'copy-entity-id',
+          label: 'Copy ID',
+          onClick: handle(copyEntityIdAction.executeWithSoup),
+        });
+
+        if (shareAction.canExecute(entities[0])) {
+          middleItems.push({
+            id: 'share',
+            label: 'Share',
+            onClick: handle(shareAction.executeWithSoup),
+          });
+        }
+      }
+    }
+
+    function updateBuildActionGroups() {
+      if (canExecuteAll(markUnread.canExecute)) {
+        topItems.push({
+          id: 'mark-unread',
+          label: 'Mark Unread',
+          hotkeyToken: TOKENS.entity.action.markUnread,
+          onClick: handle(markUnread.executeWithSoup),
+        });
+      } else if (
+        entities.every((e) => e.type === 'email') &&
+        entities.some(markRead.canExecute)
+      ) {
+        topItems.push({
+          id: 'mark-read',
+          label: 'Mark Read',
+          hotkeyToken: TOKENS.entity.action.markRead,
+          onClick: handle(markRead.executeWithSoup),
+        });
+      } else if (
+        entities.every((entity) => entity.type !== 'email') &&
+        entities.some(markNotificationsRead.canExecute)
+      ) {
+        topItems.push({
+          id: 'mark-notifications-read',
+          label: 'Mark Read',
+          onClick: handle(markNotificationsRead.executeWithSoup),
+        });
+      }
+    }
   };
 
   return { buildActionGroups, isFavorited: favoriteAction.isFavorited };

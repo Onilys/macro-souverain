@@ -49,11 +49,19 @@ export function createProjectDescriptionSession<Access>(
       const access = await transport.authorize(surfaceId, authorization.signal);
       if (disposed) return;
       // Local cache failures must not prevent a fresh server snapshot.
-      void ingestLocalSnapshot(
-        loroManager,
-        new IDBSnapshotStore<RawUpdate>(LORO_SNAPSHOT_DB_NAME, surfaceId),
-        new BrowserWALStore<RawUpdate>(LORO_WAL_DB_NAME, surfaceId)
-      ).catch(() => {});
+
+      const settleIngestLocalSnapshot = async () => {
+        try {
+          return await ingestLocalSnapshot(
+            loroManager,
+            new IDBSnapshotStore<RawUpdate>(LORO_SNAPSHOT_DB_NAME, surfaceId),
+            new BrowserWALStore<RawUpdate>(LORO_WAL_DB_NAME, surfaceId)
+          );
+        } catch {
+          return;
+        }
+      };
+      void settleIngestLocalSnapshot();
       const connection = runWithOwner(owner, () =>
         transport.connect(surfaceId, access)
       );

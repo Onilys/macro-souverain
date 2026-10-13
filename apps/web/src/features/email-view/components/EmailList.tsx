@@ -97,11 +97,21 @@ export function EmailList(props: EmailListProps) {
       ? persistSoupNavigationTouchHighlight(options.event)
       : undefined;
 
-    void openEntityInSplitFromUnifiedList(entity, {
-      splitHandle: panel.handle,
-      referredFrom: 'mail',
-      openInNewSplit: options.openInNewSplit,
-    }).finally(() => finishTouchHighlight?.());
+    const settleOpenEntityInSplitFromUnifiedListFinally = async () => {
+      return await finishTouchHighlight?.();
+    };
+    const settleOpenEntityInSplitFromUnifiedList = async () => {
+      try {
+        return await openEntityInSplitFromUnifiedList(entity, {
+          splitHandle: panel.handle,
+          referredFrom: 'mail',
+          openInNewSplit: options.openInNewSplit,
+        });
+      } finally {
+        await settleOpenEntityInSplitFromUnifiedListFinally();
+      }
+    };
+    void settleOpenEntityInSplitFromUnifiedList();
   }
 
   function onActivate({
@@ -109,7 +119,14 @@ export function EmailList(props: EmailListProps) {
     metadata,
   }: ListActivation<EmailDataSourceItem, EmailListActivationMetadata>) {
     if (item.kind === 'load-more') {
-      if (!item.isLoading) void source.loadMore().catch(() => {});
+      const settleLoadMore = async () => {
+        try {
+          return await source.loadMore();
+        } catch {
+          return;
+        }
+      };
+      if (!item.isLoading) void settleLoadMore();
 
       return;
     }
@@ -252,7 +269,14 @@ export function EmailList(props: EmailListProps) {
 
         if (distanceFromEnd > 3) return;
 
-        void source.loadMore().catch(() => {});
+        const settleLoadMoreResult = async () => {
+          try {
+            return await source.loadMore();
+          } catch {
+            return;
+          }
+        };
+        void settleLoadMoreResult();
       },
     },
     activation: {
@@ -427,7 +451,14 @@ export function EmailList(props: EmailListProps) {
     const distance =
       handle.scrollSize - handle.scrollOffset - handle.viewportSize;
     if (distance < 300 && !source.isLoadingMore()) {
-      void source.loadMore().catch(() => {});
+      const settleLoadMoreResultResult = async () => {
+        try {
+          return await source.loadMore();
+        } catch {
+          return;
+        }
+      };
+      void settleLoadMoreResultResult();
     }
   }
 

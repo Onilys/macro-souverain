@@ -243,15 +243,25 @@ export function Document() {
 
     pdfViewer.detachListeners();
 
-    rootViewer
-      .destroy()
-      .then(() => {})
-      .finally(() => {
-        popupViewer = undefined;
-        rootViewer = undefined;
-        pdfViewer.clearPair();
-        setDestroying(false);
-      });
+    const viewer = rootViewer;
+    const settleDestroyFinally = async () => {
+      popupViewer = undefined;
+      rootViewer = undefined;
+      pdfViewer.clearPair();
+      setDestroying(false);
+
+      return;
+    };
+    const settleDestroy = async () => {
+      try {
+        await viewer.destroy();
+
+        return;
+      } finally {
+        await settleDestroyFinally();
+      }
+    };
+    settleDestroy();
   });
 
   const saveModificationData = useSaveModificationData();
@@ -272,7 +282,12 @@ export function Document() {
       const annotationsPromise = loadAnnotations(documentProxy);
 
       if (updateModificationDataOnLoad()) {
-        annotationsPromise.then(() => saveModificationData());
+        const settleAnnotationsPromise = async () => {
+          await annotationsPromise;
+
+          return await saveModificationData();
+        };
+        settleAnnotationsPromise();
       }
 
       const documentId = pdf.documentId();
@@ -533,7 +548,12 @@ export function Document() {
       const revision = currentRevision();
       if (revision <= savedRevision()) return;
 
-      saveModificationData().then(() => setSavedRevision(revision));
+      const settleSaveModificationData = async () => {
+        await saveModificationData();
+
+        return await setSavedRevision(revision);
+      };
+      settleSaveModificationData();
     });
   }
 

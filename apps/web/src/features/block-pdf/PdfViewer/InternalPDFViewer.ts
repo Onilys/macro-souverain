@@ -289,13 +289,18 @@ export class InternalPDFViewer {
       mountpoint.appendChild(this.#buildPopupOpenInNewTabButton());
     }
 
-    this._viewer._firstPageCapability.promise.then(() => {
+    const settlePromise = async () => {
+      await this._viewer._firstPageCapability.promise;
+
       // if the page views aren't ready, then the zoom/scale value won't be calculated
       if (this._popupViewer != null) {
         this._viewer._setScale('auto', true);
         this.#scalePopupToRootScale();
       }
-    });
+
+      return;
+    };
+    settlePromise();
   }
 
   unmount() {
@@ -492,9 +497,15 @@ export class InternalPDFViewer {
       scale = null;
     }
     const popupViewer = this._popupViewer;
-    popupViewer._viewer._pagesCapability.promise.then(() => {
+
+    const settlePromiseResult = async () => {
+      await popupViewer._viewer._pagesCapability.promise;
+
       popupViewer._viewer._setScale(scale || 'auto', false);
-    });
+
+      return;
+    };
+    settlePromiseResult();
   }
 
   #showPopup(_target?: HTMLElement) {
@@ -560,10 +571,13 @@ export class InternalPDFViewer {
           evt.stopImmediatePropagation();
 
           const popupViewer = this._popupViewer;
-          popupViewer?._viewer._pagesCapability.promise.then(() => {
+          const openPopup = async () => {
+            if (!popupViewer) return;
+            await popupViewer._viewer._pagesCapability.promise;
             popupViewer._linkService.goToDestination(destination);
             this.showPopupAt(el);
-          });
+          };
+          void openPopup();
         };
       });
   }

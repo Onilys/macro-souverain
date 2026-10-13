@@ -56,15 +56,29 @@ export function createImageActions(input: ImageActionsInput) {
 
       setCachedBlob(undefined);
       setIsPrefetching(true);
-      untrack(() => fetchBlob())
-        .then((blob) => {
-          if (isStale || input.src() !== currentSrc) return;
-          if (blob) setCachedBlob(blob);
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (!isStale && input.src() === currentSrc) setIsPrefetching(false);
-        });
+      const settleUntrackFinally = async () => {
+        if (!isStale && input.src() === currentSrc) setIsPrefetching(false);
+
+        return;
+      };
+      const settleUntrack = async () => {
+        try {
+          try {
+            const settleUntrackValue = await untrack(() => fetchBlob());
+            const blob = settleUntrackValue;
+
+            if (isStale || input.src() !== currentSrc) return;
+            if (blob) setCachedBlob(blob);
+
+            return;
+          } catch {
+            return;
+          }
+        } finally {
+          await settleUntrackFinally();
+        }
+      };
+      settleUntrack();
     });
   }
   const fetchBlobCached = (): Promise<Blob | undefined> => {

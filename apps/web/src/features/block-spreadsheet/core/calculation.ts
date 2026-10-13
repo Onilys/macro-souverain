@@ -10,12 +10,17 @@ export * from '@macro-inc/spreadsheet/calculation';
 // Browser-specific WASM loading stays here; calculation is shared with AI tools.
 let initialization: Promise<unknown> | undefined;
 export async function createSpreadsheetCalculator(): Promise<SpreadsheetCalculator> {
-  initialization ??= initializeIronCalc({ module_or_path: wasmUrl }).catch(
-    (error) => {
+  const settleInitializeIronCalc = async () => {
+    try {
+      return await initializeIronCalc({ module_or_path: wasmUrl });
+    } catch (settleInitializeIronCalcError) {
+      const error = settleInitializeIronCalcError;
+
       initialization = undefined;
       throw error;
     }
-  );
+  };
+  initialization ??= settleInitializeIronCalc();
   await initialization;
   return createInitializedSpreadsheetCalculator();
 }

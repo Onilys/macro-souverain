@@ -5,7 +5,7 @@ import {
   copyItem,
   deleteItem,
   moveToFolder,
-} from '@core/component/FileList/itemOperations';
+} from '@app/lib/queries/items/operations';
 import { toast } from '@core/component/Toast/Toast';
 import {
   enableGraphqlSoup,
@@ -126,14 +126,22 @@ export function createBulkDeleteDssItemsMutation() {
           return true;
         }
         if (e.type === 'call') {
-          return throwOnErr(() =>
-            callServiceClient.deleteCallRecord(e.id)
-          ).then(() => true);
+          const settleThrowOnErr = async () => {
+            await throwOnErr(() => callServiceClient.deleteCallRecord(e.id));
+
+            return await true;
+          };
+          return settleThrowOnErr();
         }
         if (e.type === 'routine') {
-          return throwOnErr(() =>
-            scheduledActionClient.deleteSchedule({ scheduleId: e.id })
-          ).then(() => true);
+          const settleThrowOnErrResult = async () => {
+            await throwOnErr(() =>
+              scheduledActionClient.deleteSchedule({ scheduleId: e.id })
+            );
+
+            return await true;
+          };
+          return settleThrowOnErrResult();
         }
         return deleteItem({ id: e.id, itemType: e.type });
       });

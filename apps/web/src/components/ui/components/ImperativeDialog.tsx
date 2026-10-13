@@ -185,9 +185,15 @@ export function useImperativeDialog<P extends ManagedDialogProps>(
 
     const next = openDialog(component, props, { owner });
     setHandle(next);
-    void next.closed.then(() => {
+
+    const settleClosed = async () => {
+      await next.closed;
+
       if (handle() === next) setHandle(undefined);
-    });
+
+      return;
+    };
+    void settleClosed();
     return next;
   };
 

@@ -22,13 +22,13 @@ import { useSendMessageToPeople } from '@core/util/channels';
 import { getDestinationFromOptions } from '@core/util/destination';
 import CheckIcon from '@phosphor/check.svg?component-solid';
 import PaperPlaneTilt from '@phosphor/paper-plane-tilt.svg';
-import {
-  blockNameToItemType,
-  itemTypeToReferenceEntityType,
-} from '@service-storage/client';
 import type { AccessLevel } from '@service-storage/generated/schemas/accessLevel';
 import type { NewAttachment } from '@service-storage/generated/schemas/newAttachment';
 import type { SharePermissionV2ChannelSharePermissions } from '@service-storage/generated/schemas/sharePermissionV2ChannelSharePermissions';
+import {
+  blockNameToItemType,
+  itemTypeToReferenceEntityType,
+} from '@service-storage/itemType';
 import { Button, cn, Hotkey } from '@ui';
 import {
   type Accessor,

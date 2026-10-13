@@ -1,9 +1,9 @@
+import { untrackMention } from '@app/lib/queries/storage/mentions';
 import {
   type CanvasNode,
   isEntityMentionNode,
 } from '@block-canvas/model/CanvasModel';
 import { useTextNodeEditors } from '@block-canvas/store/textNodeEditors';
-import { untrackMention } from '@core/signal/mention';
 import {
   $isDocumentMentionNode,
   type DocumentMentionNode,

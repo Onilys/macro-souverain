@@ -153,10 +153,17 @@ export function ChannelSurface(props: ParentProps<ChannelSurfaceProps>) {
         setResolvedTarget(undefined);
         if (request.kind !== 'message') return;
         void (async () => {
-          const resolved = await fetchResolvedChannelMessage(
-            { type: 'channel', id: channelId },
-            request.messageId
-          ).catch(() => undefined);
+          const settleFetchResolvedChannelMessage = async () => {
+            try {
+              return await fetchResolvedChannelMessage(
+                { type: 'channel', id: channelId },
+                request.messageId
+              );
+            } catch {
+              return await undefined;
+            }
+          };
+          const resolved = await settleFetchResolvedChannelMessage();
           if (props.targetRequest !== request) return;
           setResolvedTarget(
             resolved?.kind === 'thread_reply'

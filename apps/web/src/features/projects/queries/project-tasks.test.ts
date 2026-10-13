@@ -80,15 +80,22 @@ it('scopes tasks to the Project property and disables the shared source immediat
       });
       setProject(undefined);
       expect(mock.options?.enabled?.()).toBe(false);
-      source
-        .refresh()
-        .then(() => {
+      const settleRefreshHandler0 = reject;
+      const settleRefresh = async () => {
+        try {
+          await source.refresh();
+
           expect(refresh).toHaveBeenCalledOnce();
           expect(mock.refresh).not.toHaveBeenCalled();
           dispose();
           resolve();
-        })
-        .catch(reject);
+
+          return;
+        } catch (settleRefreshError) {
+          return await settleRefreshHandler0(settleRefreshError);
+        }
+      };
+      settleRefresh();
     })
   );
 });

@@ -99,6 +99,7 @@ import {
   type EmailArchiveDisposition,
 } from '@queries/email/integration';
 import { emailKeys } from '@queries/email/keys';
+import { fetchEmailLabels } from '@queries/email/link-requests';
 import { fetchAndCacheThread } from '@queries/email/thread';
 import {
   type NotificationEntityRef,
@@ -119,7 +120,7 @@ import {
   removeSoupEntitiesFromDoneFilteredQueries,
 } from '@queries/soup/cache';
 import { refreshActiveGraphqlSoupQueries } from '@queries/soup/graphql/active-queries';
-import { emailClient } from '@service-email/client';
+
 import { isAfter } from 'date-fns';
 import { match } from 'ts-pattern';
 import { applyGraphqlDoneOptimistic } from './actions/graphql-done-optimism';
@@ -648,25 +649,7 @@ export const openEntityInSplitFromUnifiedList = async (
   }
 
   if (isGithubPrEntity(entity)) {
-    if (USE_MACRO_PR_SUMMARY_BLOCK) {
-      const content = { type: 'pr' as const, id: entity.id };
-      const result = splitManager.openWithSplit(
-        reviewsHostedContent(content) ?? content,
-        {
-          referredFrom: options.referredFrom,
-          activate: true,
-          preferNewSplit: openInNewSplit,
-          handle: splitHandle,
-          mergeHistory,
-          allowDuplicate: true,
-        }
-      );
-      if (result.status === 'reused' && result.owner !== result.sourceOwner) {
-        toast.alert('Content already open');
-      }
-    } else {
-      openExternalUrl(entity.metadata.url);
-    }
+    updateOpenEntityInSplitFromUnifiedList2(splitManager, entity.metadata.url);
     return;
   }
   if (entity.type === 'foreign') return;
@@ -688,12 +671,7 @@ export const openEntityInSplitFromUnifiedList = async (
   // Latest opens do not need notifications to choose their destination. Snapshot
   // the list row before navigation can dispose its Solid store, and hydrate only
   // after the open is accepted. Inbox notification-targeted opens still wait.
-  const deferredChannel =
-    entity.type === 'channel' &&
-    entity.unreadNotifications !== undefined &&
-    options.channelNavigation === 'latest'
-      ? { ...entity }
-      : undefined;
+  const deferredChannel = buildDeferredChannel();
   if (
     entity.type === 'channel' &&
     entity.unreadNotifications !== undefined &&
@@ -716,8 +694,7 @@ export const openEntityInSplitFromUnifiedList = async (
   const channelTarget = getChannelEntityTarget(entity, {
     channelNavigation: options.channelNavigation,
   });
-  const channelMessageTarget =
-    channelTarget?.kind === 'message' ? channelTarget : undefined;
+  const channelMessageTarget = buildChannelMessageTarget();
   const openChannelAtLatest = channelTarget?.kind === 'latest';
 
   const target =
@@ -729,18 +706,11 @@ export const openEntityInSplitFromUnifiedList = async (
           threadId: channelMessageTarget.threadId,
         }
       : undefined);
-  const commentParams =
-    !target && entity.type === 'document'
-      ? getDocumentCommentTarget(entity)?.params
-      : undefined;
+  const commentParams = buildCommentParams();
 
-  const sourceContent =
-    splitHandle?.content() ?? splitManager.activeSplit()?.content();
+  const sourceContent = buildSourceContent(splitManager);
 
-  const sourceListView =
-    sourceContent?.type === 'component' && isListViewID(sourceContent.id)
-      ? sourceContent.id
-      : undefined;
+  const sourceListView = buildSourceListView();
   const referredFrom = options.referredFrom ?? sourceListView;
 
   // Construct hosted content before opening the split so details do not mount
@@ -754,9 +724,7 @@ export const openEntityInSplitFromUnifiedList = async (
     ...content,
     params: commentParams,
   };
-  if (splitHandle && referredFrom && isListViewID(referredFrom)) {
-    splitContent = withListNavigationSource(splitContent, splitHandle);
-  }
+  updateSplitContent();
 
   const hydrateNotificationsAndMarkSeen = async (
     channel: ChannelEntity,
@@ -798,37 +766,114 @@ export const openEntityInSplitFromUnifiedList = async (
       channelReadScope: options.channelReadScope,
     });
   };
-  const result = splitManager.openWithSplit(splitContent, {
-    search: target ? searchLocationUpdates(content.id, target) : undefined,
-    onApplied: markNotificationsSeen,
-    referredFrom,
-    activate: true,
-    preferNewSplit: openInNewSplit,
-    handle: splitHandle,
-    mergeHistory,
-    // Hosted details have distinct routes even when they share a component identity.
-    allowDuplicate: allowDuplicate || hostedContent !== undefined,
-    reopen:
-      entity.type === 'channel' && !location && openChannelAtLatest
-        ? 'latest'
-        : undefined,
-  });
-  if (result.status === 'reused' && result.owner !== result.sourceOwner) {
-    toast.alert('Content already open');
+  const result = buildResult(splitManager);
+  updateOpenEntityInSplitFromUnifiedList4();
+
+  updateOpenEntityInSplitFromUnifiedList3();
+
+  await updateOpenEntityInSplitFromUnifiedList();
+
+  function updateOpenEntityInSplitFromUnifiedList4() {
+    if (result.status === 'reused' && result.owner !== result.sourceOwner) {
+      toast.alert('Content already open');
+    }
   }
 
-  if (result.status === 'opened' || result.status === 'reused') {
-    markNotificationsSeen();
+  function updateOpenEntityInSplitFromUnifiedList3() {
+    if (result.status === 'opened' || result.status === 'reused') {
+      markNotificationsSeen();
+    }
   }
 
-  if (commentParams && entity.type === 'document') {
-    // An already-open document ignores new split params.
-    await navigateDocumentEntityToComment(entity, blockOrchestrator);
-  } else if (!target && openChannelAtLatest) {
-    // Force the scroll-to-bottom even when the channel is already open in a
-    // (preview) split, where reopen: 'latest' only reactivates the parked
-    // split without re-pinning it to the newest message.
-    await goToChannelLatest(blockOrchestrator, content.id);
+  function buildChannelMessageTarget() {
+    return channelTarget?.kind === 'message' ? channelTarget : undefined;
+  }
+
+  function buildDeferredChannel() {
+    return entity.type === 'channel' &&
+      entity.unreadNotifications !== undefined &&
+      options.channelNavigation === 'latest'
+      ? { ...entity }
+      : undefined;
+  }
+
+  function updateSplitContent() {
+    if (splitHandle && referredFrom && isListViewID(referredFrom)) {
+      splitContent = withListNavigationSource(splitContent, splitHandle);
+    }
+  }
+
+  function buildSourceListView() {
+    return sourceContent?.type === 'component' && isListViewID(sourceContent.id)
+      ? sourceContent.id
+      : undefined;
+  }
+
+  function buildCommentParams() {
+    return !target && entity.type === 'document'
+      ? getDocumentCommentTarget(entity)?.params
+      : undefined;
+  }
+
+  function buildSourceContent(
+    splitManagerInput: NonNullable<typeof splitManager>
+  ) {
+    return splitHandle?.content() ?? splitManagerInput.activeSplit()?.content();
+  }
+
+  function updateOpenEntityInSplitFromUnifiedList2(
+    splitManagerValue: NonNullable<typeof splitManager>,
+    url: string
+  ) {
+    if (USE_MACRO_PR_SUMMARY_BLOCK) {
+      const content = { type: 'pr' as const, id: entity.id };
+      const result = splitManagerValue.openWithSplit(
+        reviewsHostedContent(content) ?? content,
+        {
+          referredFrom: options.referredFrom,
+          activate: true,
+          preferNewSplit: openInNewSplit,
+          handle: splitHandle,
+          mergeHistory,
+          allowDuplicate: true,
+        }
+      );
+      if (result.status === 'reused' && result.owner !== result.sourceOwner) {
+        toast.alert('Content already open');
+      }
+    } else {
+      openExternalUrl(url);
+    }
+  }
+
+  async function updateOpenEntityInSplitFromUnifiedList() {
+    if (commentParams && entity.type === 'document') {
+      // An already-open document ignores new split params.
+      await navigateDocumentEntityToComment(entity, blockOrchestrator);
+    } else if (!target && openChannelAtLatest) {
+      // Force the scroll-to-bottom even when the channel is already open in a
+      // (preview) split, where reopen: 'latest' only reactivates the parked
+      // split without re-pinning it to the newest message.
+      await goToChannelLatest(blockOrchestrator, content.id);
+    }
+  }
+
+  function buildResult(splitManagerValue: NonNullable<typeof splitManager>) {
+    return splitManagerValue.openWithSplit(splitContent, {
+      search: target ? searchLocationUpdates(content.id, target) : undefined,
+      onApplied: markNotificationsSeen,
+      referredFrom,
+      activate: true,
+      preferNewSplit: openInNewSplit,
+      handle: splitHandle,
+      mergeHistory,
+      // Hosted details have distinct routes even when they share a component identity.
+      allowDuplicate: allowDuplicate || hostedContent !== undefined,
+      reopen:
+        entity.type === 'channel' && !location && openChannelAtLatest
+          ? 'latest'
+          : undefined,
+    });
   }
 };
 
@@ -867,9 +912,18 @@ export function markChannelNotificationsSeenOnOpen(
   );
   if (notifications.length === 0) return;
 
-  void notificationSource.bulkMarkAsRead(notifications).catch((error) => {
-    console.error('Failed to mark channel notifications as read', error);
-  });
+  const settleBulkMarkAsRead = async () => {
+    try {
+      return await notificationSource.bulkMarkAsRead(notifications);
+    } catch (settleBulkMarkAsReadError) {
+      const error = settleBulkMarkAsReadError;
+
+      console.error('Failed to mark channel notifications as read', error);
+
+      return;
+    }
+  };
+  void settleBulkMarkAsRead();
 }
 
 /** Mark calendar-event notifications seen when opening their occurrence. */
@@ -1036,7 +1090,7 @@ async function _archiveEmail(
   let disposition: EmailArchiveDisposition | undefined;
   try {
     disposition = await archiveEmailThread({ value: options.archive, id });
-  } catch (_err) {
+  } catch {
     soupTxn.rollback();
     for (const [key, data] of previousEmail) {
       queryClient.setQueryData(key, data);
@@ -1176,8 +1230,7 @@ export function trashEmails(targets: TrashEmailTarget[]): TrashEmailsHandle {
     try {
       const labelsData = await queryClient.fetchQuery({
         queryKey: emailKeys.labels.queryKey,
-        queryFn: async () =>
-          throwOnErr(async () => await emailClient.getUserLabels()),
+        queryFn: async () => throwOnErr(async () => await fetchEmailLabels()),
         staleTime: 5 * 60 * 1000,
       });
       const trashLabels =

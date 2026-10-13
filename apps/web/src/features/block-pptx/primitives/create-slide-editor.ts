@@ -1,3 +1,4 @@
+import { match as matchBranch } from 'ts-pattern';
 /**
  * Interaction state for the slide on screen: rendering, shape selection,
  * move/resize/rotate drags, nudging, and in-place text editing.
@@ -317,7 +318,15 @@ export function createSlideEditor(options: SlideEditorOptions) {
     if (!s || !edit) return;
     if (!result.structureChanged && !result.changedSlides.includes(s.id))
       return;
-    void renderLayers(edit.shape, true).catch(() => {});
+
+    const settleRenderLayers = async () => {
+      try {
+        return await renderLayers(edit.shape, true);
+      } catch {
+        return;
+      }
+    };
+    void settleRenderLayers();
     void refreshEditing();
   });
   onCleanup(() => unsubscribeRemote?.());
@@ -382,21 +391,7 @@ export function createSlideEditor(options: SlideEditorOptions) {
       const inside = box && boxContains(box, at, 2);
       if (inside && edit.layout) {
         const pos = positionAt(edit.layout, at);
-        if (pos) {
-          if (opts.detail >= 3) {
-            setEditingSelection(selectAll_(edit.layout));
-          } else if (opts.detail === 2) {
-            const [a, b] = wordAt(edit.layout, pos);
-            setEditingSelection({ anchor: a, focus: b });
-          } else {
-            setEditingSelection(
-              opts.shift
-                ? { anchor: edit.selection.anchor, focus: pos }
-                : { anchor: pos, focus: pos }
-            );
-          }
-          textDragAnchor = opts.detail === 1 && !opts.shift ? pos : null;
-        }
+        updateTextDragAnchor(pos, edit, edit.layout);
         return;
       }
       stopEditing();
@@ -423,6 +418,28 @@ export function createSlideEditor(options: SlideEditorOptions) {
     }
     select(hit.id);
     if (options.canEdit()) beginDrag('move', [hit], at);
+
+    function updateTextDragAnchor(
+      pos: TextPos | null,
+      editInput: NonNullable<typeof edit>,
+      layout: NonNullable<NonNullable<typeof edit>['layout']>
+    ) {
+      if (pos) {
+        if (opts.detail >= 3) {
+          setEditingSelection(selectAll_(layout));
+        } else if (opts.detail === 2) {
+          const [a, b] = wordAt(layout, pos);
+          setEditingSelection({ anchor: a, focus: b });
+        } else {
+          setEditingSelection(
+            opts.shift
+              ? { anchor: editInput.selection.anchor, focus: pos }
+              : { anchor: pos, focus: pos }
+          );
+        }
+        textDragAnchor = opts.detail === 1 && !opts.shift ? pos : null;
+      }
+    }
   }
 
   let textDragAnchor: TextPos | null = null;
@@ -455,45 +472,7 @@ export function createSlideEditor(options: SlideEditorOptions) {
       void renderLayers(d.shape!, true);
     }
     let current = at;
-    if (d.kind === 'move' && active) {
-      let dx = at.x - d.start.x;
-      let dy = at.y - d.start.y;
-      // Shift keeps the move horizontal or vertical.
-      if (opts.shift) {
-        if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
-        else dx = 0;
-      }
-      // Alt turns smart guides and the grid off, as in PowerPoint.
-      const deck = session.outline();
-      const bounds = unionBounds(d.shapes.map((x) => x.origin));
-      const snapping = options.snap?.() ?? { guides: true };
-      if (
-        !opts.alt &&
-        deck &&
-        bounds &&
-        (snapping.guides ||
-          snapping.grid !== undefined ||
-          snapping.drawingGuides !== undefined)
-      ) {
-        const moving = new Set(d.shapes.map((x) => x.id));
-        const others = shapes()
-          .filter((x) => !x.hidden && !moving.has(x.id))
-          .map((x) => boundsOf(boxOf(x)));
-        const snap = snapMove(
-          { ...bounds, x: bounds.x + dx, y: bounds.y + dy },
-          others,
-          { w: deck.width, h: deck.height },
-          5 * options.pointsPerPixel(),
-          snapping
-        );
-        dx += opts.shift && dx === 0 ? 0 : snap.dx;
-        dy += opts.shift && dy === 0 ? 0 : snap.dy;
-        setGuides(snap.guides);
-      } else {
-        setGuides(null);
-      }
-      current = { x: d.start.x + dx, y: d.start.y + dy };
-    }
+    updateDy(d);
     setDrag({
       ...d,
       current,
@@ -509,6 +488,48 @@ export function createSlideEditor(options: SlideEditorOptions) {
         ...images,
         layerOffset: { x: current.x - d.start.x, y: current.y - d.start.y },
       }));
+    }
+
+    function updateDy(dInput: NonNullable<typeof d>) {
+      if (dInput.kind === 'move' && active) {
+        let dx = at.x - dInput.start.x;
+        let dy = at.y - dInput.start.y;
+        // Shift keeps the move horizontal or vertical.
+        if (opts.shift) {
+          if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+          else dx = 0;
+        }
+        // Alt turns smart guides and the grid off, as in PowerPoint.
+        const deck = session.outline();
+        const bounds = unionBounds(dInput.shapes.map((x) => x.origin));
+        const snapping = options.snap?.() ?? { guides: true };
+        if (
+          !opts.alt &&
+          deck &&
+          bounds &&
+          (snapping.guides ||
+            snapping.grid !== undefined ||
+            snapping.drawingGuides !== undefined)
+        ) {
+          const moving = new Set(dInput.shapes.map((x) => x.id));
+          const others = shapes()
+            .filter((x) => !x.hidden && !moving.has(x.id))
+            .map((x) => boundsOf(boxOf(x)));
+          const snap = snapMove(
+            { ...bounds, x: bounds.x + dx, y: bounds.y + dy },
+            others,
+            { w: deck.width, h: deck.height },
+            5 * options.pointsPerPixel(),
+            snapping
+          );
+          dx += opts.shift && dx === 0 ? 0 : snap.dx;
+          dy += opts.shift && dy === 0 ? 0 : snap.dy;
+          setGuides(snap.guides);
+        } else {
+          setGuides(null);
+        }
+        current = { x: dInput.start.x + dx, y: dInput.start.y + dy };
+      }
     }
   }
 
@@ -725,8 +746,15 @@ export function createSlideEditor(options: SlideEditorOptions) {
       });
     });
     editReady = (async () => {
+      const settleTextLayout = async () => {
+        try {
+          return await engine.textLayout(index(), shapeId, cell?.ref);
+        } catch {
+          return await null;
+        }
+      };
       const [layout] = await Promise.all([
-        engine.textLayout(index(), shapeId, cell?.ref).catch(() => null),
+        settleTextLayout(),
         renderLayers(shapeId, true),
       ]);
       const pos = layout && at ? positionAt(layout, at) : null;
@@ -773,8 +801,16 @@ export function createSlideEditor(options: SlideEditorOptions) {
         refreshAgain = false;
         const edit = editing();
         if (!edit) break;
+
+        const settleTextLayoutResult = async () => {
+          try {
+            return await engine.textLayout(index(), edit.shape, edit.cell);
+          } catch {
+            return await null;
+          }
+        };
         const [layout] = await Promise.all([
-          engine.textLayout(index(), edit.shape, edit.cell).catch(() => null),
+          settleTextLayoutResult(),
           renderLayers(edit.shape, false),
         ]);
         // A layout fetched while later keystrokes are still in flight is
@@ -820,7 +856,15 @@ export function createSlideEditor(options: SlideEditorOptions) {
       }
       await refreshEditing();
     })();
-    lastText = done.catch(() => {});
+
+    const settleDone = async () => {
+      try {
+        return await done;
+      } catch {
+        return;
+      }
+    };
+    lastText = settleDone();
     await done;
   }
 
@@ -894,34 +938,36 @@ export function createSlideEditor(options: SlideEditorOptions) {
     }
     let focus = selection.focus;
     let goalX: number | undefined;
-    switch (key) {
-      case 'left':
-      case 'right': {
-        const dir = key === 'left' ? -1 : 1;
-        focus = opts.line
-          ? lineEdge(layout, focus, dir > 0)
-          : opts.word
-            ? moveWord(layout, focus, dir)
-            : moveHorizontal(layout, focus, dir);
-        break;
-      }
-      case 'up':
-      case 'down': {
-        const moved = moveVertical(
-          layout,
-          focus,
-          key === 'up' ? -1 : 1,
-          edit.goalX
-        );
-        focus = moved.pos;
-        goalX = moved.goalX;
-        break;
-      }
-      case 'home':
-      case 'end':
+    matchBranch(key)
+      .with('left', 'right', (key) => {
+        {
+          const dir = key === 'left' ? -1 : 1;
+          focus = opts.line
+            ? lineEdge(layout, focus, dir > 0)
+            : opts.word
+              ? moveWord(layout, focus, dir)
+              : moveHorizontal(layout, focus, dir);
+          return;
+        }
+      })
+      .with('up', 'down', (key) => {
+        {
+          const moved = moveVertical(
+            layout,
+            focus,
+            key === 'up' ? -1 : 1,
+            edit.goalX
+          );
+          focus = moved.pos;
+          goalX = moved.goalX;
+          return;
+        }
+      })
+      .with('home', 'end', (key) => {
         focus = lineEdge(layout, focus, key === 'end');
-        break;
-    }
+        return;
+      })
+      .otherwise(() => {});
     setEditingSelection(
       { anchor: opts.extend ? selection.anchor : focus, focus },
       goalX

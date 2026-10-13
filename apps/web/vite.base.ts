@@ -57,13 +57,19 @@ function gitBranchHmrPlugin(): Plugin {
       }
       const headPath = resolve(gitDir, 'HEAD');
       const emit = () => {
-        readGitBranchAsync().then((branch) => {
+        const settleReadGitBranchAsync = async () => {
+          const settleReadGitBranchAsyncValue = await readGitBranchAsync();
+          const branch = settleReadGitBranchAsyncValue;
+
           server.ws.send({
             type: 'custom',
             event: 'git-branch:update',
             data: branch,
           });
-        });
+
+          return;
+        };
+        settleReadGitBranchAsync();
       };
       watchFile(headPath, { interval: 100 }, emit);
       server.ws.on('connection', emit);

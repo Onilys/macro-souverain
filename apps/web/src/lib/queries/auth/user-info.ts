@@ -77,7 +77,15 @@ export function invalidateAllAfterLogin() {
   // exercised the fresh session — registering earlier can race auth state
   // that is still settling. Fire-and-forget so login isn't blocked on the
   // notification service.
-  void invalidated.catch(() => {}).then(() => syncPushRegistrations());
+  const refreshPushRegistration = async () => {
+    try {
+      await invalidated;
+    } catch {
+      // Push registration also retries after a failed identity refresh.
+    }
+    await syncPushRegistrations();
+  };
+  void refreshPushRegistration();
   return invalidated;
 }
 

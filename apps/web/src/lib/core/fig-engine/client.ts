@@ -238,17 +238,24 @@ export class FigEngine {
     // the open, so it never misses one.
     this.starting.add(helper);
     const copy = bytes.slice(0);
-    helper
-      .request({ kind: 'open', bytes: copy, module }, [copy])
-      .then(() => {
+
+    const settleRequest = async () => {
+      try {
+        await helper.request({ kind: 'open', bytes: copy, module }, [copy]);
+
         this.starting.delete(helper);
         if (this.closed) helper.terminate();
         else this.helpers.push(helper);
-      })
-      .catch(() => {
+
+        return;
+      } catch {
         this.starting.delete(helper);
         helper.terminate();
-      });
+
+        return;
+      }
+    };
+    settleRequest();
   }
 
   private async query<T>(
@@ -278,17 +285,31 @@ export class FigEngine {
     const id = nextId++;
     worker.renders++;
     this.placed.set(id, worker);
-    const promise = worker
-      .requestWithId(id, { kind: 'render', ...tile })
-      .then((r) => {
+    const settleRequestWithIdFinally = async () => {
+      worker.renders--;
+      this.placed.delete(id);
+
+      return;
+    };
+    const settleRequestWithId = async () => {
+      try {
+        const settleRequestWithIdValue = await worker.requestWithId(id, {
+          kind: 'render',
+          ...tile,
+        });
+        const r = settleRequestWithIdValue;
+
         if (r.kind === 'render')
-          return { bitmap: r.bitmap, millis: r.millis } satisfies TileResult;
-        return null;
-      })
-      .finally(() => {
-        worker.renders--;
-        this.placed.delete(id);
-      });
+          return await ({
+            bitmap: r.bitmap,
+            millis: r.millis,
+          } satisfies TileResult);
+        return await null;
+      } finally {
+        await settleRequestWithIdFinally();
+      }
+    };
+    const promise = settleRequestWithId();
     return { id, promise };
   }
 
@@ -468,9 +489,18 @@ export class FigEngine {
   ): Promise<RegisteredFace[]> {
     for (const h of [...this.helpers, ...this.starting]) {
       const copy = bytes.slice(0);
-      h.request({ kind: 'registerFont', bytes: copy, family: family ?? null }, [
-        copy,
-      ]).catch(() => {});
+
+      const settleRequestResult = async () => {
+        try {
+          return await h.request(
+            { kind: 'registerFont', bytes: copy, family: family ?? null },
+            [copy]
+          );
+        } catch {
+          return;
+        }
+      };
+      settleRequestResult();
     }
     const copy = bytes.slice(0);
     const r = await this.primary.request(
@@ -548,13 +578,21 @@ export class FigEngine {
     // Every worker holds the same document, so an edit the engine rejects
     // fails in all of them; a helper is dropped only when its result
     // differs from the primary's.
-    const fanned = [...this.helpers, ...this.starting].map((h) => ({
-      h,
-      done: request(h).then(
-        () => true,
-        () => false
-      ),
-    }));
+    const fanned = [...this.helpers, ...this.starting].map((h) => {
+      const settleRequestResultResultResult = async () => {
+        try {
+          await request(h);
+        } catch {
+          return await false;
+        }
+
+        return await true;
+      };
+      return {
+        h,
+        done: settleRequestResultResultResult(),
+      };
+    });
     const drop = (h: EngineWorker) => {
       const at = this.helpers.indexOf(h);
       if (at >= 0) this.helpers.splice(at, 1);
@@ -564,10 +602,24 @@ export class FigEngine {
     try {
       r = await request(this.primary);
     } catch (error) {
-      for (const { h, done } of fanned) void done.then((ok) => ok && drop(h));
+      for (const { h, done } of fanned) {
+        const settleDone = async () => {
+          const settleDoneValue = await done;
+          const ok = settleDoneValue;
+          return await (ok && drop(h));
+        };
+        void settleDone();
+      }
       throw error;
     }
-    for (const { h, done } of fanned) void done.then((ok) => !ok && drop(h));
+    for (const { h, done } of fanned) {
+      const settleDoneResult = async () => {
+        const settleDoneResultValue = await done;
+        const ok = settleDoneResultValue;
+        return await (!ok && drop(h));
+      };
+      void settleDoneResult();
+    }
     if (r.kind !== 'edit') throw new Error('unexpected response');
     return JSON.parse(r.json) as EditResult;
   }
@@ -661,8 +713,16 @@ export class FigEngine {
     session: number,
     baseBlobs: number | null
   ): Promise<EntryChange[]> {
-    for (const h of [...this.helpers, ...this.starting])
-      h.request({ kind: 'enableCollab', session, baseBlobs }).catch(() => {});
+    for (const h of [...this.helpers, ...this.starting]) {
+      const settleRequestResultResultResultResult = async () => {
+        try {
+          return await h.request({ kind: 'enableCollab', session, baseBlobs });
+        } catch {
+          return;
+        }
+      };
+      settleRequestResultResultResultResult();
+    }
     const r = await this.primary.request({
       kind: 'enableCollab',
       session,
@@ -702,9 +762,17 @@ export class FigEngine {
       .join('');
     for (const h of [...this.helpers, ...this.starting]) {
       const copy = bytes.slice(0);
-      h.request({ kind: 'addImage', hash, bytes: copy }, [copy]).catch(
-        () => {}
-      );
+
+      const settleRequestResultResult = async () => {
+        try {
+          return await h.request({ kind: 'addImage', hash, bytes: copy }, [
+            copy,
+          ]);
+        } catch {
+          return;
+        }
+      };
+      settleRequestResultResult();
     }
     const copy = bytes.slice(0);
     const r = await this.primary.request(
@@ -740,15 +808,30 @@ export class FigEngine {
    */
   retain(work: Promise<unknown>) {
     this.holds.add(work);
-    void work.finally(() => this.holds.delete(work));
+    const settleWorkFinally = async () => {
+      return await this.holds.delete(work);
+    };
+    const settleWork = async () => {
+      try {
+        return await work;
+      } finally {
+        await settleWorkFinally();
+      }
+    };
+    void settleWork();
   }
 
   close() {
     this.closed = true;
     const primary = this.primary;
+
+    const settleAllSettled = async () => {
+      await Promise.allSettled([...this.holds]);
+
+      return await primary.terminate();
+    };
     if (this.holds.size === 0) primary.terminate();
-    else
-      void Promise.allSettled([...this.holds]).then(() => primary.terminate());
+    else void settleAllSettled();
     for (const h of this.helpers) h.terminate();
     for (const h of this.starting) h.terminate();
     this.helpers.length = 0;

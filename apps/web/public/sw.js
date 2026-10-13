@@ -32,7 +32,15 @@ const HASHED_ASSET =
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   // Warm the shell for the next tab; a failure only means a cold next tab.
-  event.waitUntil(refreshShell(new Request(SCOPE_PATH)).catch(() => {}));
+
+  const settleRefreshShell = async () => {
+    try {
+      return await refreshShell(new Request(SCOPE_PATH));
+    } catch {
+      return;
+    }
+  };
+  event.waitUntil(settleRefreshShell());
 });
 
 self.addEventListener('activate', (event) => {
@@ -69,7 +77,15 @@ self.addEventListener('fetch', (event) => {
 async function serveShell(event) {
   const cache = await caches.open(SHELL_CACHE);
   const cached = await cache.match(SHELL_KEY);
-  const refreshed = refreshShell(event.request).catch(() => undefined);
+
+  const settleRefreshShellResult = async () => {
+    try {
+      return await refreshShell(event.request);
+    } catch {
+      return await undefined;
+    }
+  };
+  const refreshed = settleRefreshShellResult();
   if (cached && (await shellAssetsCached(cached))) {
     event.waitUntil(refreshed);
     return cached;
@@ -167,7 +183,15 @@ async function serveAsset(request) {
   if (response.ok && response.type === 'basic') {
     const shell = await (await caches.open(SHELL_CACHE)).match(SHELL_KEY);
     const build = shell?.headers.get(BUILD_HEADER) ?? '';
-    cache.put(request, tagged(response.clone(), build)).catch(() => {});
+
+    const settlePut = async () => {
+      try {
+        return await cache.put(request, tagged(response.clone(), build));
+      } catch {
+        return;
+      }
+    };
+    settlePut();
   }
   return response;
 }

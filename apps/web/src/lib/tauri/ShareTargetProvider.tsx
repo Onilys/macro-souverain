@@ -69,11 +69,19 @@ async function popSharedFiles(
   return Promise.all(
     results.map(async ({ token, name, mime_type, size, preview_path }) => {
       const isSharedText = isSharedTextMimeType(mime_type);
+
+      const settleReadSharedFileText = async () => {
+        try {
+          return await readSharedFileText(token);
+        } catch (settleReadSharedFileTextError) {
+          const error = settleReadSharedFileTextError;
+
+          console.error('failed to read shared text', { token, error });
+          return await undefined;
+        }
+      };
       const sharedText = isSharedText
-        ? await readSharedFileText(token).catch((error) => {
-            console.error('failed to read shared text', { token, error });
-            return undefined;
-          })
+        ? await settleReadSharedFileText()
         : undefined;
 
       return {
@@ -164,7 +172,14 @@ export function ShareTargetProvider(props: {
     setPendingShareFileNames([]);
 
     if (files.length > 0) {
-      void clearSharedFiles(files.map((file) => file.token)).catch(() => {});
+      const settleClearSharedFiles = async () => {
+        try {
+          return await clearSharedFiles(files.map((file) => file.token));
+        } catch {
+          return;
+        }
+      };
+      void settleClearSharedFiles();
     }
   };
 
@@ -204,9 +219,16 @@ export function ShareTargetProvider(props: {
         setPendingShareFiles(files);
         setPendingShareFileNames(filenames);
         if (previousFiles.length > 0 && !isSamePendingShare) {
-          void clearSharedFiles(previousFiles.map((file) => file.token)).catch(
-            () => {}
-          );
+          const settleClearSharedFilesResult = async () => {
+            try {
+              return await clearSharedFiles(
+                previousFiles.map((file) => file.token)
+              );
+            } catch {
+              return;
+            }
+          };
+          void settleClearSharedFilesResult();
         }
       } catch (error) {
         if (requestId !== nextRequestId) return;
@@ -230,7 +252,14 @@ export function ShareTargetProvider(props: {
       }
     })();
 
-    onCleanup(() => void unlisten.then((fn) => fn()));
+    onCleanup(() => {
+      const settleUnlisten = async () => {
+        const settleUnlistenValue = await unlisten;
+        const fn = settleUnlistenValue;
+        return await fn();
+      };
+      return void settleUnlisten();
+    });
   });
 
   const value: ShareTargetContextValue = {

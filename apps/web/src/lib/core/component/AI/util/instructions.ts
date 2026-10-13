@@ -33,11 +33,17 @@ export function useOpenInstructionsMd() {
 
     // needs to be created
     if (id === null) {
-      createInstructionsMd().then((id) => {
+      const settleCreateInstructionsMd = async () => {
+        const settleCreateInstructionsMdValue = await createInstructionsMd();
+        const id = settleCreateInstructionsMdValue;
+
         const success = open(id);
         if (success) return;
         showFailToast();
-      });
+
+        return;
+      };
+      settleCreateInstructionsMd();
       return;
     }
 

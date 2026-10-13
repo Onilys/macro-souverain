@@ -42,11 +42,6 @@ import {
   eventKindOf,
 } from './out-of-office';
 
-const PROPERTY_TRIGGER_CLASS =
-  'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink';
-const PROPERTY_VALUE_CLASS =
-  'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink';
-
 export type EventComposerSelectOption = {
   value: string;
   label: string;
@@ -133,7 +128,10 @@ function ReadOnlyEventComposerGuestsPill(props: EventComposerGuestsPillProps) {
         disabled={props.disabled}
         aria-label="Guests"
         aria-readonly="true"
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48 overflow-hidden')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48 overflow-hidden'
+        )}
       >
         <Show when={!props.hideIcon}>
           <UsersIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
@@ -141,7 +139,7 @@ function ReadOnlyEventComposerGuestsPill(props: EventComposerGuestsPillProps) {
         <span
           class={cn(
             'min-w-0 truncate',
-            PROPERTY_VALUE_CLASS,
+            'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink',
             props.selected.length > 0 ? 'text-current' : 'text-ink-extra-muted'
           )}
         >
@@ -228,7 +226,10 @@ function GuestsPillTrigger(props: EventComposerGuestsPillProps) {
       aria-label="Guests"
       aria-expanded={ctx.editorOpen()}
       data-expanded={ctx.editorOpen() ? '' : undefined}
-      class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48 overflow-hidden')}
+      class={cn(
+        'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+        'max-w-48 overflow-hidden'
+      )}
     >
       <Show when={!props.hideIcon}>
         <UsersIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
@@ -236,7 +237,7 @@ function GuestsPillTrigger(props: EventComposerGuestsPillProps) {
       <span
         class={cn(
           'min-w-0 truncate',
-          PROPERTY_VALUE_CLASS,
+          'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink',
           props.selected.length > 0 ? 'text-current' : 'text-ink-extra-muted'
         )}
       >
@@ -320,7 +321,10 @@ export function EventComposerLocationPill(
       <Popover.Trigger
         disabled={props.disabled}
         aria-label="Location"
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48 overflow-hidden')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48 overflow-hidden'
+        )}
       >
         <Show when={!props.hideIcon}>
           <MapPinIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
@@ -328,7 +332,7 @@ export function EventComposerLocationPill(
         <span
           class={cn(
             'min-w-0 truncate',
-            PROPERTY_VALUE_CLASS,
+            'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink',
             props.value ? 'text-current' : 'text-ink-extra-muted'
           )}
         >
@@ -420,7 +424,10 @@ export function EventComposerConferencePill(
     >
       <Select.Trigger
         aria-label="Video conferencing"
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48 overflow-hidden')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48 overflow-hidden'
+        )}
       >
         <VideoCameraIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
         <Select.Value<EventComposerConferenceOption>>
@@ -428,7 +435,7 @@ export function EventComposerConferencePill(
             <span
               class={cn(
                 'truncate',
-                PROPERTY_VALUE_CLASS,
+                'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink',
                 props.value === 'none' && 'text-ink-extra-muted'
               )}
             >
@@ -545,12 +552,20 @@ export function EventComposerRemindersPill(
     >
       <Select.Trigger
         aria-label="Notifications"
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48 overflow-hidden')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48 overflow-hidden'
+        )}
       >
         <BellSimpleIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
         <Select.Value<EventComposerSelectOption>>
           {(selectState) => (
-            <span class={cn('truncate', PROPERTY_VALUE_CLASS)}>
+            <span
+              class={cn(
+                'truncate',
+                'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink'
+              )}
+            >
               {reminderPropertyLabel(
                 selectState
                   .selectedOptions()
@@ -604,7 +619,10 @@ export function EventComposerRecurrencePill(
       <Select.Trigger
         aria-label="Repeats"
         aria-readonly={props.readOnly || undefined}
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48'
+        )}
       >
         <Show when={!props.hideIcon}>
           <RepeatIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
@@ -649,7 +667,10 @@ export function EventComposerCalendarPill(
       <Select.Trigger
         aria-label="Calendar"
         aria-readonly={props.readOnly || undefined}
-        class={cn(PROPERTY_TRIGGER_CLASS, 'w-40')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'w-40'
+        )}
       >
         <CalendarDotsIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
         <Select.Value<EventEditorCalendarOption>>
@@ -715,7 +736,10 @@ export function EventComposerKindPill(props: EventComposerKindPillProps) {
       <Select.Trigger
         aria-label="Event kind"
         aria-readonly={props.readOnly || undefined}
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48'
+        )}
       >
         <SquaresFourIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
         <Select.Value<EventComposerKindOption>>
@@ -779,12 +803,20 @@ export function EventComposerDeclinePill(props: EventComposerDeclinePillProps) {
     >
       <Select.Trigger
         aria-label="Decline meetings"
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48 overflow-hidden')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48 overflow-hidden'
+        )}
       >
         <CalendarXIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
         <Select.Value<EventComposerDeclineOption>>
           {(selectState) => (
-            <span class={cn('truncate', PROPERTY_VALUE_CLASS)}>
+            <span
+              class={cn(
+                'truncate',
+                'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink'
+              )}
+            >
               {selectState.selectedOption().label}
             </span>
           )}
@@ -823,13 +855,16 @@ export function EventComposerDeclineMessagePill(
       <Popover.Trigger
         disabled={props.disabled}
         aria-label="Decline message"
-        class={cn(PROPERTY_TRIGGER_CLASS, 'max-w-48 overflow-hidden')}
+        class={cn(
+          'group flex h-7 items-center justify-between gap-1.5 rounded-full border border-edge-muted bg-control px-2 py-1 text-left text-xs leading-tight text-ink-muted hover:bg-hover hover:text-ink focus-visible:bg-active focus-visible:text-ink focus-visible:ring-accent/10 data-expanded:bg-hover data-expanded:text-ink',
+          'max-w-48 overflow-hidden'
+        )}
       >
         <ChatTextIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
         <span
           class={cn(
             'min-w-0 truncate',
-            PROPERTY_VALUE_CLASS,
+            'group-hover:text-ink group-focus-visible:text-ink group-data-expanded:text-ink',
             props.value ? 'text-current' : 'text-ink-extra-muted'
           )}
         >

@@ -305,8 +305,12 @@ export function createGridController(source: GridSource) {
         source.setSheetCells(target.sheetId, edits);
       else source.setCells(edits);
     }
-    if (target && target.sheetId !== source.sheetId?.())
-      source.setActiveSheet?.(target.sheetId);
+    updateCommit();
+
+    function updateCommit() {
+      if (target && target.sheetId !== source.sheetId?.())
+        source.setActiveSheet?.(target.sheetId);
+    }
   }
 
   function select(position: CellPosition, extend = false) {
@@ -688,31 +692,35 @@ export function createGridController(source: GridSource) {
     } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       move(event.key === 'ArrowDown' ? 1 : -1, 0, event.shiftKey);
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-      event.preventDefault();
-      move(0, event.key === 'ArrowRight' ? 1 : -1, event.shiftKey);
-    } else if (event.key === 'Tab') {
-      event.preventDefault();
-      move(0, event.shiftKey ? -1 : 1);
-    } else if (event.key === 'Enter' || event.key === 'F2') {
-      event.preventDefault();
-      beginEdit('cell');
-    } else if (event.key === 'Backspace' || event.key === 'Delete') {
-      event.preventDefault();
-      clear();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      if (editing()) cancel();
-      else select(selection().anchor);
-    } else if (event.key === 'Home') {
-      event.preventDefault();
-      select(
-        { row: command ? 0 : selection().anchor.row, column: 0 },
-        event.shiftKey
-      );
-    } else if (!command && !event.altKey && event.key.length === 1) {
-      event.preventDefault();
-      beginEdit('cell', event.key);
+    } else updateKeyDown();
+
+    function updateKeyDown() {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        move(0, event.key === 'ArrowRight' ? 1 : -1, event.shiftKey);
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        move(0, event.shiftKey ? -1 : 1);
+      } else if (event.key === 'Enter' || event.key === 'F2') {
+        event.preventDefault();
+        beginEdit('cell');
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        clear();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        if (editing()) cancel();
+        else select(selection().anchor);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        select(
+          { row: command ? 0 : selection().anchor.row, column: 0 },
+          event.shiftKey
+        );
+      } else if (!command && !event.altKey && event.key.length === 1) {
+        event.preventDefault();
+        beginEdit('cell', event.key);
+      }
     }
   }
 

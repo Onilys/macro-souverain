@@ -1,6 +1,7 @@
 import CircleHalf from '@phosphor/circle-half.svg';
 import CornersOut from '@phosphor/corners-out.svg';
 import List from '@phosphor/list.svg';
+import type { Accessor } from 'solid-js';
 import { InspectorSelect } from './inspector-select';
 /**
  * The right panel: the selected layer's properties as Figma's design panel
@@ -554,7 +555,7 @@ export function DesignPanel(props: {
                       <NumberField
                         label={<CornersOut class="size-3.5" />}
                         ariaLabel="Corner radius"
-                        value={info().cornerRadius?.top_left ?? 0}
+                        value={getDesignPanelValue(info)}
                         min={0}
                         mixed={
                           !!info().cornerRadius &&
@@ -826,6 +827,10 @@ export function DesignPanel(props: {
       </Tabs.Content>
     </Tabs>
   );
+
+  function getDesignPanelValue(info: Accessor<NodeInfo>): number {
+    return info().cornerRadius?.top_left ?? 0;
+  }
 }
 
 function CodeTab(props: { info: NodeInfo; onCopy: (text: string) => void }) {

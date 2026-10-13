@@ -1,5 +1,5 @@
+import { trackMention } from '@app/lib/queries/storage/mentions';
 import { DEV_MODE_ENV } from '@core/constant/featureFlags';
-import { trackMention } from '@core/signal/mention';
 import { copiedItem } from '@core/state/clipboard';
 import { unwrap } from 'solid-js/store';
 import { OPERATION_LOGGING, Tools } from '../constants';

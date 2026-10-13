@@ -153,14 +153,19 @@ const handleCommand = (command: BrowserHarnessCommand): void => {
       });
     })
     .with({ kind: 'graceful-close' }, (value) => {
-      void adapter.dispose({ graceful: true }).then(() => {
+      const settleDispose = async () => {
+        await adapter.dispose({ graceful: true });
+
         report({
           kind: 'command-result',
           commandId: value.commandId,
           ok: true,
         });
         setTimeout(() => window.close());
-      });
+
+        return;
+      };
+      void settleDispose();
     })
     .with({ kind: 'crash-worker' }, (value) => {
       if (!currentWorker) {
@@ -212,4 +217,10 @@ channel.onmessage = (event: MessageEvent<BrowserHarnessEnvelope>) => {
 // First cache use starts liveness registration. Every page deliberately uses
 // request id 1, proving the coordinator must rewrite ids before engine routing.
 adapter.postMessage({ id: nextRequestId++, kind: 'init', scope });
-void adapter.start().then(() => report({ kind: 'registered' }));
+
+const settleStart = async () => {
+  await adapter.start();
+
+  return await report({ kind: 'registered' });
+};
+void settleStart();

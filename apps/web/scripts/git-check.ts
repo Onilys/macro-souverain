@@ -95,4 +95,9 @@ async function main() {
   return 0;
 }
 
-main().then(process.exit);
+const settleMainHandler0 = process.exit;
+const settleMain = async () => {
+const settleMainValue = await main();
+return await (settleMainHandler0(settleMainValue));
+};
+settleMain();

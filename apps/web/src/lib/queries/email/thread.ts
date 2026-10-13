@@ -666,24 +666,48 @@ export function useSendMessageMutation(
           try {
             const threadID = data.message.thread_db_id;
             if (threadID) {
-              void queryClient
-                .invalidateQueries({
-                  queryKey: emailKeys.threadMessages(threadID).queryKey,
-                })
-                .catch(Telemetry.error);
+              const settleInvalidateQueriesHandler0 = Telemetry.error;
+              const settleInvalidateQueries = async () => {
+                try {
+                  return await queryClient.invalidateQueries({
+                    queryKey: emailKeys.threadMessages(threadID).queryKey,
+                  });
+                } catch (settleInvalidateQueriesError) {
+                  return await settleInvalidateQueriesHandler0(
+                    settleInvalidateQueriesError
+                  );
+                }
+              };
+              void settleInvalidateQueries();
               // Refresh the thread's soup item so inbox views stop showing it
               // as a draft once the message is sent.
               if (!vars.skipSoupRefetch) {
-                void refetchSoupEntity(threadID, 'emailThread').catch(
-                  Telemetry.error
-                );
+                const settleRefetchSoupEntityHandler0 = Telemetry.error;
+                const settleRefetchSoupEntity = async () => {
+                  try {
+                    return await refetchSoupEntity(threadID, 'emailThread');
+                  } catch (settleRefetchSoupEntityError) {
+                    return await settleRefetchSoupEntityHandler0(
+                      settleRefetchSoupEntityError
+                    );
+                  }
+                };
+                void settleRefetchSoupEntity();
               }
             }
-            void queryClient
-              .invalidateQueries({
-                queryKey: emailKeys.previews._def,
-              })
-              .catch(Telemetry.error);
+            const settleInvalidateQueriesResultHandler0 = Telemetry.error;
+            const settleInvalidateQueriesResult = async () => {
+              try {
+                return await queryClient.invalidateQueries({
+                  queryKey: emailKeys.previews._def,
+                });
+              } catch (settleInvalidateQueriesResultError) {
+                return await settleInvalidateQueriesResultHandler0(
+                  settleInvalidateQueriesResultError
+                );
+              }
+            };
+            void settleInvalidateQueriesResult();
           } catch (error) {
             Telemetry.error(error);
           }
@@ -768,16 +792,33 @@ export function useUnscheduleMessageMutation(
       {
         onSuccess: () => {
           try {
-            void queryClient
-              .invalidateQueries({
-                queryKey: emailKeys.previews._def,
-              })
-              .catch(Telemetry.error);
-            void queryClient
-              .invalidateQueries({
-                queryKey: emailKeys.scheduledMessages._def,
-              })
-              .catch(Telemetry.error);
+            const settleInvalidateQueriesResultResultHandler0 = Telemetry.error;
+            const settleInvalidateQueriesResultResult = async () => {
+              try {
+                return await queryClient.invalidateQueries({
+                  queryKey: emailKeys.previews._def,
+                });
+              } catch (settleInvalidateQueriesResultResultError) {
+                return await settleInvalidateQueriesResultResultHandler0(
+                  settleInvalidateQueriesResultResultError
+                );
+              }
+            };
+            void settleInvalidateQueriesResultResult();
+            const settleInvalidateQueriesResultResultResultHandler0 =
+              Telemetry.error;
+            const settleInvalidateQueriesResultResultResult = async () => {
+              try {
+                return await queryClient.invalidateQueries({
+                  queryKey: emailKeys.scheduledMessages._def,
+                });
+              } catch (settleInvalidateQueriesResultResultResultError) {
+                return await settleInvalidateQueriesResultResultResultHandler0(
+                  settleInvalidateQueriesResultResultResultError
+                );
+              }
+            };
+            void settleInvalidateQueriesResultResultResult();
           } catch (error) {
             Telemetry.error(error);
           }

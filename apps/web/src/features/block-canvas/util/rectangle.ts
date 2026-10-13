@@ -1,4 +1,5 @@
 import type { JSX } from 'solid-js';
+import { match as matchBranch } from 'ts-pattern';
 import { type Anchor, Corners, type Edge, Edges } from '../constants';
 import type { CanvasNode, PencilNode } from '../model/CanvasModel';
 import { lineSegmentIntersection } from './intersect';
@@ -287,36 +288,44 @@ export const Rect = {
   ): Rectangle {
     let { x, y, w, h } = rect;
 
-    switch (anchor) {
-      case Edges.Top:
+    matchBranch(anchor)
+      .with(Edges.Top, () => {
         h = rect.h + rect.y - point.y;
-        break;
-      case Edges.Right:
+        return;
+      })
+      .with(Edges.Right, () => {
         w = point.x - rect.x;
-        break;
-      case Edges.Bottom:
+        return;
+      })
+      .with(Edges.Bottom, () => {
         h = point.y - rect.y;
-        break;
-      case Edges.Left:
+        return;
+      })
+      .with(Edges.Left, () => {
         w = rect.w + rect.x - point.x;
-        break;
-      case Corners.TopLeft:
+        return;
+      })
+      .with(Corners.TopLeft, () => {
         w = rect.w + rect.x - point.x;
         h = rect.h + rect.y - point.y;
-        break;
-      case Corners.TopRight:
+        return;
+      })
+      .with(Corners.TopRight, () => {
         h = rect.h + rect.y - point.y;
         w = point.x - rect.x;
-        break;
-      case Corners.BottomRight:
+        return;
+      })
+      .with(Corners.BottomRight, () => {
         w = point.x - rect.x;
         h = point.y - rect.y;
-        break;
-      case Corners.BottomLeft:
+        return;
+      })
+      .with(Corners.BottomLeft, () => {
         w = rect.w + rect.x - point.x;
         h = point.y - rect.y;
-        break;
-    }
+        return;
+      })
+      .otherwise(() => {});
 
     let wRatio = w / rect.w;
     let hRatio = h / rect.h;
@@ -347,56 +356,64 @@ export const Rect = {
         y: 'center',
       });
     } else {
-      switch (anchor) {
-        case Edges.Top:
+      matchBranch(anchor)
+        .with(Edges.Top, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'center',
             y: 'bottom',
           });
-          break;
-        case Edges.Right:
+          return;
+        })
+        .with(Edges.Right, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'left',
             y: 'center',
           });
-          break;
-        case Edges.Bottom:
+          return;
+        })
+        .with(Edges.Bottom, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'center',
             y: 'top',
           });
-          break;
-        case Edges.Left:
+          return;
+        })
+        .with(Edges.Left, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'right',
             y: 'center',
           });
-          break;
-        case Corners.TopLeft:
+          return;
+        })
+        .with(Corners.TopLeft, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'right',
             y: 'bottom',
           });
-          break;
-        case Corners.TopRight:
+          return;
+        })
+        .with(Corners.TopRight, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'left',
             y: 'bottom',
           });
-          break;
-        case Corners.BottomRight:
+          return;
+        })
+        .with(Corners.BottomRight, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'left',
             y: 'top',
           });
-          break;
-        case Corners.BottomLeft:
+          return;
+        })
+        .with(Corners.BottomLeft, () => {
           transformedRect = transformedRect.alignToTarget(rect, {
             x: 'right',
             y: 'top',
           });
-          break;
-      }
+          return;
+        })
+        .otherwise(() => {});
     }
 
     return transformedRect;

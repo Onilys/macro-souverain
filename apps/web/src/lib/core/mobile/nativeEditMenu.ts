@@ -15,11 +15,21 @@ export function hasNativeEditMenu(): boolean {
  */
 export function setNativeEditMenuSuppressed(suppressed: boolean): void {
   if (!hasNativeEditMenu()) return;
-  void invoke('plugin:edit-menu|set_native_menu_suppressed', {
-    suppressed,
-  }).catch((error) => {
-    console.error('failed to toggle native edit menu suppression', error);
-  });
+
+  const settleInvoke = async () => {
+    try {
+      return await invoke('plugin:edit-menu|set_native_menu_suppressed', {
+        suppressed,
+      });
+    } catch (settleInvokeError) {
+      const error = settleInvokeError;
+
+      console.error('failed to toggle native edit menu suppression', error);
+
+      return;
+    }
+  };
+  void settleInvoke();
 }
 
 /**

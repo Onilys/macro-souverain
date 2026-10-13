@@ -40,6 +40,7 @@ import {
   SPREADSHEET_MAX_COLUMNS,
   SPREADSHEET_MAX_ROWS,
   SPREADSHEET_ROWS,
+  type SpreadsheetCell,
   type SpreadsheetCellEdits,
   type SpreadsheetCells,
   type SpreadsheetEntryReader,
@@ -319,23 +320,7 @@ export function createSpreadsheetStore(options: {
     const changed: SpreadsheetChanges = new Map();
     const touched = new Set<string>();
     let order = workbook().map((sheet) => sheet.id);
-    if (changes.registry) {
-      const registry = readSpreadsheetSheets(doc);
-      order = registry.map((sheet) => sheet.id);
-      // Each new sheet reads from one decoding of the cell maps.
-      let readEntries: SpreadsheetEntryReader | undefined;
-      for (const sheet of registry) {
-        const current = sheets.get(sheet.id);
-        if (!current) {
-          readEntries ??= createSpreadsheetEntryReader(doc);
-          sheets.set(sheet.id, readSheet(doc, sheet, readEntries));
-          changed.set(sheet.id, undefined);
-        } else if (current.name !== sheet.name) {
-          sheets.set(sheet.id, { ...current, name: sheet.name });
-          touched.add(sheet.id);
-        }
-      }
-    }
+    updateOrder();
     const extents = new Map<string, { rows: number; columns: number }>();
     for (const [map, entries] of changes.cells) {
       for (const [key, value] of entries) {
@@ -363,12 +348,7 @@ export function createSpreadsheetStore(options: {
         extent.columns = Math.max(extent.columns, position.column + 1);
         extents.set(sheetId, extent);
         // A deleted edge cell may shrink an occupied extent; recompute it.
-        if (
-          !next &&
-          (position.row + 1 >= sheet.layout.rowCount ||
-            position.column + 1 >= sheet.layout.columnCount)
-        )
-          changes.layout.add(sheetId);
+        updateApply(next, position, sheet, sheetId);
       }
     }
     for (const id of changes.layout) {
@@ -380,18 +360,7 @@ export function createSpreadsheetStore(options: {
     for (const [id, extent] of extents) {
       const sheet = sheets.get(id);
       if (!sheet || changes.layout.has(id)) continue;
-      if (
-        extent.rows > sheet.layout.rowCount ||
-        extent.columns > sheet.layout.columnCount
-      )
-        sheets.set(id, {
-          ...sheet,
-          layout: {
-            ...sheet.layout,
-            rowCount: Math.max(sheet.layout.rowCount, extent.rows),
-            columnCount: Math.max(sheet.layout.columnCount, extent.columns),
-          },
-        });
+      updateApply2(extent, sheet, id);
     }
     for (const id of changes.metadata) {
       const sheet = sheets.get(id);
@@ -407,6 +376,59 @@ export function createSpreadsheetStore(options: {
     if (!changes.registry && !touched.size) return changed;
     setWorkbook(order.flatMap((id) => sheets.get(id) ?? []));
     return changed;
+
+    function updateApply2(
+      extent: { rows: number; columns: number },
+      sheet: SpreadsheetWorkbookSheet,
+      id: string
+    ) {
+      if (
+        extent.rows > sheet.layout.rowCount ||
+        extent.columns > sheet.layout.columnCount
+      )
+        sheets.set(id, {
+          ...sheet,
+          layout: {
+            ...sheet.layout,
+            rowCount: Math.max(sheet.layout.rowCount, extent.rows),
+            columnCount: Math.max(sheet.layout.columnCount, extent.columns),
+          },
+        });
+    }
+
+    function updateApply(
+      next: SpreadsheetCell | undefined,
+      position: { row: number; column: number },
+      sheet: SpreadsheetWorkbookSheet,
+      sheetId: string
+    ) {
+      if (
+        !next &&
+        (position.row + 1 >= sheet.layout.rowCount ||
+          position.column + 1 >= sheet.layout.columnCount)
+      )
+        changes.layout.add(sheetId);
+    }
+
+    function updateOrder() {
+      if (changes.registry) {
+        const registry = readSpreadsheetSheets(doc);
+        order = registry.map((sheet) => sheet.id);
+        // Each new sheet reads from one decoding of the cell maps.
+        let readEntries: SpreadsheetEntryReader | undefined;
+        for (const sheet of registry) {
+          const current = sheets.get(sheet.id);
+          if (!current) {
+            readEntries ??= createSpreadsheetEntryReader(doc);
+            sheets.set(sheet.id, readSheet(doc, sheet, readEntries));
+            changed.set(sheet.id, undefined);
+          } else if (current.name !== sheet.name) {
+            sheets.set(sheet.id, { ...current, name: sheet.name });
+            touched.add(sheet.id);
+          }
+        }
+      }
+    }
   };
 
   const refresh = () => {

@@ -101,8 +101,6 @@ export type DropdownSubProps = ComponentProps<typeof KobalteDropdownMenu.Sub>;
 
 // Text size is inherited from `Dropdown.Content` (defaults to `text-sm`) so a
 // menu can be resized by passing a `text-*` class to the content.
-const ROW_CLASS =
-  'group rounded-lg w-full flex items-center gap-1.5 p-1.5 px-2 text-left font-normal cursor-default outline-none data-highlighted:bg-ink/5 data-disabled:opacity-50 data-disabled:cursor-not-allowed';
 
 function resolvePortalMount(
   searchRef: HTMLElement | undefined,
@@ -344,7 +342,10 @@ function DropdownCheckboxItem(props: DropdownCheckboxItemProps) {
   ]);
   return (
     <KobalteDropdownMenu.CheckboxItem
-      class={cn(ROW_CLASS, local.class)}
+      class={cn(
+        'group rounded-lg w-full flex items-center gap-1.5 p-1.5 px-2 text-left font-normal cursor-default outline-none data-highlighted:bg-ink/5 data-disabled:opacity-50 data-disabled:cursor-not-allowed',
+        local.class
+      )}
       {...rest}
       ref={(element) => {
         selection.track(element);
@@ -376,7 +377,11 @@ function DropdownSubTrigger(props: DropdownSubTriggerProps) {
   const [local, rest] = splitProps(props, ['class']);
   return (
     <KobalteDropdownMenu.SubTrigger
-      class={cn(ROW_CLASS, 'justify-between', local.class)}
+      class={cn(
+        'group rounded-lg w-full flex items-center gap-1.5 p-1.5 px-2 text-left font-normal cursor-default outline-none data-highlighted:bg-ink/5 data-disabled:opacity-50 data-disabled:cursor-not-allowed',
+        'justify-between',
+        local.class
+      )}
       {...rest}
     />
   );
@@ -386,7 +391,10 @@ function DropdownRadioItem(props: DropdownRadioItemProps) {
   const [local, rest] = splitProps(props, ['class']);
   return (
     <KobalteDropdownMenu.RadioItem
-      class={cn(ROW_CLASS, local.class)}
+      class={cn(
+        'group rounded-lg w-full flex items-center gap-1.5 p-1.5 px-2 text-left font-normal cursor-default outline-none data-highlighted:bg-ink/5 data-disabled:opacity-50 data-disabled:cursor-not-allowed',
+        local.class
+      )}
       {...rest}
     />
   );
@@ -401,7 +409,10 @@ function DropdownItem(props: DropdownItemProps) {
   const [local, rest] = splitProps(props, ['class', 'ref', 'closeOnSelect']);
   return (
     <KobalteDropdownMenu.Item
-      class={cn(ROW_CLASS, local.class)}
+      class={cn(
+        'group rounded-lg w-full flex items-center gap-1.5 p-1.5 px-2 text-left font-normal cursor-default outline-none data-highlighted:bg-ink/5 data-disabled:opacity-50 data-disabled:cursor-not-allowed',
+        local.class
+      )}
       {...rest}
       ref={(element) => {
         selection.track(element);

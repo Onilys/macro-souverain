@@ -9,7 +9,7 @@ import type {
 import { cleanup, render } from '@solidjs/testing-library';
 import { createSignal, type JSX, onMount } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Message } from './AgentMessage';
 
 const renderTelemetry = vi.hoisted(() => ({
@@ -29,12 +29,11 @@ vi.mock('@core/util/message-send-motion', () => ({
 const viewerId = vi.hoisted(() => ({
   current: 'macro|me@macro.com' as string | undefined,
 }));
-vi.mock('@core/context/user', () => ({
-  useUserId: () => () => viewerId.current,
-}));
-vi.mock('@core/user/util', () => ({
-  idToDisplayName: (id: string) => id.replace(/^macro\|/, ''),
-}));
+const viewer = {
+  userId: () => viewerId.current,
+  displayName: (id: string) => id.replace(/^macro\|/, ''),
+};
+beforeEach(() => renderTelemetry.context.mockReturnValue(viewer));
 vi.mock('@ui', () => ({
   UserMessageBubble: (props: { children: JSX.Element }) => (
     <div data-testid="bubble">{props.children}</div>
@@ -171,6 +170,7 @@ const message = (
 describe('Message tool grouping', () => {
   it('observes only agent answer DOM on the existing session and matching turn', () => {
     renderTelemetry.context.mockReturnValue({
+      ...viewer,
       observeRenderedText: renderTelemetry.observe,
     });
     const answer = message([text('Hello')]);

@@ -157,10 +157,20 @@ export function DSSMedia(props: { node: MediaNode; mode: RenderMode }) {
 
     if (videoRef.paused) {
       setVideoIsPlaying(() => true);
-      videoRef.play().catch((error: Error) => {
-        setVideoIsPlaying(() => false);
-        console.error('Failed to play video:', error);
-      });
+
+      const settlePlay = async () => {
+        try {
+          return await videoRef.play();
+        } catch (settlePlayError) {
+          const error = settlePlayError;
+
+          setVideoIsPlaying(() => false);
+          console.error('Failed to play video:', error);
+
+          return;
+        }
+      };
+      settlePlay();
     } else {
       setVideoIsPlaying(() => false);
       videoRef.pause();

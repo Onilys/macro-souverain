@@ -5,7 +5,7 @@
  * promotes the speculation in place.
  */
 
-import type { IssueResult } from '@core/agent-session/AgentSession';
+import type { IssueResult } from '@app/lib/queries/agent-session/agent-session';
 import type { TurnState } from '@service-agent-fold/generated/types';
 import type {
   AgentAction,
@@ -47,9 +47,12 @@ export function createSendNext(session: {
     const head = session.entries()[0];
     if (!head) return;
     const action = actionForQueuedEntry(head);
-    void session.issue({ type: 'stop' })?.then((result) => {
-      if (result.isErr()) session.retract(head.actionId);
-    });
+    const stopping = session.issue({ type: 'stop' });
+    const retractRejectedStop = async () => {
+      const result = await stopping;
+      if (result?.isErr()) session.retract(head.actionId);
+    };
+    void retractRejectedStop();
     if (action) session.expect(head.actionId, action);
   };
 }

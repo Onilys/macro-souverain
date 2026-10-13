@@ -8,6 +8,7 @@ import { setEditorStateFromHtml } from '@core/component/LexicalMarkdown/utils/se
 import { getUploadFileSize } from '@core/mobile/nativeStagedUpload';
 import { plural } from '@core/util/string';
 import { $generateHtmlFromNodes } from '@lexical/html';
+import type { DocumentMentionInfo } from '@macro-inc/lexical-core';
 import {
   $appendWatermarkNodeToLast,
   $removeAllWatermarkNodes,
@@ -170,7 +171,7 @@ export function createReplyComposer(
         : undefined
   );
   const sourceEntityId = props.sourceEntityId;
-  const undoKey = `${sourceEntityId}:${replyTarget?.db_id ?? draftSeed?.replying_to_id ?? draftSeed?.db_id ?? 'new'}`;
+  const undoKey = buildUndoKey();
   const userEmail = props.viewerEmail;
 
   const primaryInboxId = props.accounts.primaryId;
@@ -289,7 +290,15 @@ export function createReplyComposer(
     () => {
       if (scheduleBlocked() || schedule.state().type === 'scheduled') return;
       if (props.drafts.retryDraft) {
-        void retryDraft().catch(props.notices.reportError);
+        const settleRetryDraftHandler0 = props.notices.reportError;
+        const settleRetryDraft = async () => {
+          try {
+            return await retryDraft();
+          } catch (settleRetryDraftError) {
+            return await settleRetryDraftHandler0(settleRetryDraftError);
+          }
+        };
+        void settleRetryDraft();
       } else detachFromObsoleteDraft('Saving your edits as a new draft.');
     },
     handleAlreadySent
@@ -478,6 +487,10 @@ export function createReplyComposer(
   >('idle');
   const submitting = () => sendPhase() !== 'idle';
   const [pendingDeletion, setPendingDeletion] = createSignal(false);
+
+  function buildUndoKey() {
+    return `${sourceEntityId}:${replyTarget?.db_id ?? draftSeed?.replying_to_id ?? draftSeed?.db_id ?? 'new'}`;
+  }
 
   function collectDraft(forDelivery = false) {
     if (!forDelivery) $removeAllWatermarkNodes(editor());
@@ -794,54 +807,9 @@ export function createReplyComposer(
   const hasPaidAccess = props.hasPaidAccess;
 
   const sendEmail = async (markDone = false) => {
-    if (scheduling() || movingInbox() || terminalState()) return;
-    if (submitting() || pendingDeletion()) return;
-
-    const to = form.recipients().to.map(convertEmailRecipientToContactInfo);
-    const cc = form.recipients().cc.map(convertEmailRecipientToContactInfo);
-    const bcc = form.recipients().bcc.map(convertEmailRecipientToContactInfo);
-
-    if ((to?.length ?? 0) + (cc?.length ?? 0) + (bcc?.length ?? 0) === 0) {
-      props.notices.feedback.failure(
-        'Email failed to send. No recipients provided'
-      );
-      return;
-    }
-
-    const currentThread = thread();
-    if (!currentThread) {
-      props.notices.reportError(
-        new Error("Can't send email, no email thread found")
-      );
-      props.notices.feedback.failure('Email failed to send');
-      return;
-    }
-
-    let inboxId = activeInboxId();
-    if (!inboxId) {
-      if (props.accounts.loading()) {
-        props.notices.feedback.alert('Loading email accounts...');
-        return;
-      }
-
-      if (props.accounts.failed()) {
-        props.notices.feedback.failure(
-          'Email failed to send: Could not load email accounts'
-        );
-        props.notices.reportError('Failed to load email links');
-        return;
-      }
-
-      const inboxes = props.accounts.inboxes();
-      if (inboxes.length < 1) {
-        props.notices.feedback.failure(
-          'Email failed to send: No email account connected'
-        );
-        props.notices.reportError('No links found');
-        return;
-      }
-      inboxId = primaryInboxId() ?? inboxes[0].id;
-    }
+    const context = prepareReplyContext();
+    if (!context) return;
+    const { to, cc, bcc, currentThread, inboxId } = context;
 
     const offline = sendRefusalBeforeSave(props.connectivity);
     if (offline) return refuseSend(props.notices, offline);
@@ -877,26 +845,12 @@ export function createReplyComposer(
     };
     const scheduleAction = schedule.action();
     if (scheduleAction === 'unavailable') {
-      props.notices.feedback.alert(
-        `This email is scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`
-      );
+      props.notices.feedback.alert(buildSendEmail3());
       return;
     }
     if (scheduleAction === 'schedule' || scheduleAction === 'update') {
       const result = await schedule.submit();
-      if (result === 'scheduled') {
-        const scheduledDraftId = savedDraftId();
-        rememberCurrentReply();
-        try {
-          resetState();
-          clearDraftState();
-        } catch (error) {
-          props.notices.reportError(error);
-        }
-        void Promise.resolve(
-          props.sideEffectOnSend?.(scheduledDraftId ?? null)
-        ).catch(props.notices.reportError);
-      }
+      updateSendEmail3(result);
       return;
     }
     if (attachmentPersistence.uploading()) return;
@@ -904,7 +858,7 @@ export function createReplyComposer(
     // Sending a reply marks the thread done. Gated on inbox_visible because
     // onMarkDone (archiveThread) toggles: an already-archived thread (e.g.
     // replying from search or the sent view) would be unarchived.
-    const willMarkDone = markDone || currentThread.inbox_visible;
+    const willMarkDone = buildWillMarkDone(currentThread);
 
     setSendPhase('preparing');
     const sendGeneration = identityVersion;
@@ -918,12 +872,7 @@ export function createReplyComposer(
         if (session.isStale(epochBeforeSave)) return;
         return refuseSend(props.notices, 'draft-not-saved');
       }
-      if (
-        sendGeneration !== identityVersion ||
-        session.isStale(epochBeforeSave) ||
-        terminalState()
-      )
-        return;
+      if (isSendEmailAllowed3(epochBeforeSave)) return;
       const refusal = sendRefusalAfterSave({
         identity: session.identity(),
         autosaveAllowed: session.autosaveAllowed(),
@@ -944,19 +893,14 @@ export function createReplyComposer(
       // leave orphaned watermark nodes in the editor tree.
       const cleanupWatermark = $appendWatermarkNodeToLast(
         currentEditor,
-        !hasPaidAccess() ? MACRO_EMAIL_SIGNATURE : undefined
+        buildSendEmail()
       );
 
       const replyingTo = replyTarget;
 
       const prepared = prepareEmailBody(
         currentEditor,
-        replyingTo
-          ? {
-              replyType: form.replyType(),
-              replyingTo,
-            }
-          : undefined
+        buildSendEmail2(replyingTo)
       );
       if (!prepared) {
         cleanupWatermark();
@@ -969,45 +913,24 @@ export function createReplyComposer(
 
       setSendPhase('sending');
       const pendingSend = props.delivery.sendMessage({
-        message: {
-          db_id: currentDraftId,
-          bcc,
-          body_html: prepared.bodyHtml,
-          body_macro: processedMacroBody,
-          body_text: prepared.bodyText,
-          cc,
-          provider_id: draftSeed?.provider_id,
-          provider_thread_id: currentThread.provider_id,
-          replying_to_id: replyTarget?.db_id,
-          subject: form.subject(),
-          thread_db_id: currentThread.db_id,
-          to,
-          // Replies/forwards follow the inbox's "add to replies & forwards"
-          // setting on the backend; only signal an explicit per-reply dismiss.
-          include_signature: includeSignature() ? undefined : false,
-        },
+        message: buildMessage(
+          currentDraftId,
+          prepared,
+          processedMacroBody,
+          currentThread
+        ),
         inboxId,
         completingThread: willMarkDone,
       });
 
       // Reset immediately while this task owns completion, including after unmount.
-      try {
-        resetState();
-        clearDraftState();
-      } catch (error) {
-        props.notices.reportError(error);
-      } finally {
-        cleanupWatermark();
-      }
+      clearSentReply(cleanupWatermark);
       let result;
       try {
         result = await pendingSend;
       } catch (error) {
         autosave.cancel();
-        if (mounted && currentDraftId) {
-          const snapshot = replyUndo.peek(currentDraftId);
-          if (snapshot) restoreMountedReply(snapshot);
-        }
+        updateSendEmail(currentDraftId);
         props.notices.reportError(error);
         props.notices.feedback.failure('Failed to send email');
         return;
@@ -1037,38 +960,244 @@ export function createReplyComposer(
         });
       try {
         const toastId = props.notices.feedback.success('Email sent', {
-          actions: draftId
-            ? [
-                {
-                  label: 'Undo',
-                  onClick: () => {
-                    if (toastId != null)
-                      props.notices.feedback.dismiss(toastId);
-                    void undoSend(draftId).catch(props.notices.reportError);
-                  },
-                },
-              ]
-            : undefined,
+          actions: buildActions(draftId, () => toastId, undoSend),
           duration: 5_000,
         });
       } catch (error) {
         props.notices.reportError(error);
       }
-      for (const mention of prepared.mentions) {
+      recordSentMentions(prepared.mentions, sourceEntityId);
+      markThreadDone((handle) => {
+        markDoneUndoHandle = handle;
+      });
+      try {
+        // Presentation refresh must not keep a successfully sent or undone reply disabled.
+        const settleResolveResultHandler0 = props.notices.reportError;
+        const settleResolveResult = async () => {
+          try {
+            return await Promise.resolve(
+              props.sideEffectOnSend?.(draftId ?? null)
+            );
+          } catch (settleResolveResultError) {
+            return await settleResolveResultHandler0(settleResolveResultError);
+          }
+        };
+        void settleResolveResult();
+      } catch (error) {
+        props.notices.reportError(error);
+      }
+    } catch (error) {
+      props.notices.reportError(error);
+    } finally {
+      setSendPhase('idle');
+    }
+
+    function recordSentMentions(
+      mentions: readonly { documentId: string }[],
+      sourceEntityId: string
+    ) {
+      for (const mention of mentions) {
         try {
           props.recordMention(sourceEntityId, mention.documentId);
         } catch (error) {
           props.notices.reportError(error);
         }
       }
+    }
+
+    function clearSentReply(cleanupWatermark: () => void) {
+      try {
+        resetState();
+        clearDraftState();
+      } catch (error) {
+        props.notices.reportError(error);
+      } finally {
+        cleanupWatermark();
+      }
+    }
+
+    function prepareReplyContext() {
+      if (isSendEmailAllowed2()) return;
+      if (submitting() || pendingDeletion()) return;
+
+      const to = form.recipients().to.map(convertEmailRecipientToContactInfo);
+      const cc = form.recipients().cc.map(convertEmailRecipientToContactInfo);
+      const bcc = form.recipients().bcc.map(convertEmailRecipientToContactInfo);
+
+      if (to.length + cc.length + bcc.length === 0) {
+        props.notices.feedback.failure(
+          'Email failed to send. No recipients provided'
+        );
+        return;
+      }
+
+      const currentThread = thread();
+      if (!currentThread) {
+        props.notices.reportError(
+          new Error("Can't send email, no email thread found")
+        );
+        props.notices.feedback.failure('Email failed to send');
+        return;
+      }
+
+      let inboxId = activeInboxId();
+      if (!inboxId) {
+        if (props.accounts.loading()) {
+          props.notices.feedback.alert('Loading email accounts...');
+          return;
+        }
+
+        if (props.accounts.failed()) {
+          props.notices.feedback.failure(
+            'Email failed to send: Could not load email accounts'
+          );
+          props.notices.reportError('Failed to load email links');
+          return;
+        }
+
+        const inboxes = props.accounts.inboxes();
+        if (inboxes.length < 1) {
+          props.notices.feedback.failure(
+            'Email failed to send: No email account connected'
+          );
+          props.notices.reportError('No links found');
+          return;
+        }
+        inboxId = primaryInboxId() ?? inboxes[0].id;
+      }
+
+      return { to, cc, bcc, currentThread, inboxId };
+    }
+
+    function buildActions(
+      draftId: string | undefined,
+      getToastId: () => number | undefined,
+      undoSend: (draftId: string) => Promise<void>
+    ):
+      | { label: string; onClick: () => void; kind?: 'undo' | 'open' }[]
+      | undefined {
+      return draftId
+        ? [
+            {
+              label: 'Undo',
+              onClick: () => {
+                const toastId = getToastId();
+                if (toastId != null) props.notices.feedback.dismiss(toastId);
+                const settleUndoSendHandler0 = props.notices.reportError;
+                const settleUndoSend = async () => {
+                  try {
+                    return await undoSend(draftId);
+                  } catch (settleUndoSendError) {
+                    return await settleUndoSendHandler0(settleUndoSendError);
+                  }
+                };
+                void settleUndoSend();
+              },
+            },
+          ]
+        : undefined;
+    }
+
+    function buildSendEmail3(): string {
+      return `This email is scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`;
+    }
+
+    function buildSendEmail2(replyingTo: EmailMessage | undefined):
+      | {
+          replyType: import('../core/reply-type').ReplyType | undefined;
+          replyingTo: EmailMessage;
+        }
+      | undefined {
+      return replyingTo
+        ? {
+            replyType: form.replyType(),
+            replyingTo,
+          }
+        : undefined;
+    }
+
+    function buildSendEmail(): string | undefined {
+      return !hasPaidAccess() ? MACRO_EMAIL_SIGNATURE : undefined;
+    }
+
+    function buildWillMarkDone(
+      currentThreadInput: NonNullable<typeof currentThread>
+    ) {
+      return markDone || currentThreadInput.inbox_visible;
+    }
+
+    function updateSendEmail3(result: string | boolean) {
+      if (result === 'scheduled') {
+        const scheduledDraftId = savedDraftId();
+        rememberCurrentReply();
+        try {
+          resetState();
+          clearDraftState();
+        } catch (error) {
+          props.notices.reportError(error);
+        }
+        const settleResolveHandler0 = props.notices.reportError;
+        const settleResolve = async () => {
+          try {
+            return await Promise.resolve(
+              props.sideEffectOnSend?.(scheduledDraftId ?? null)
+            );
+          } catch (settleResolveError) {
+            return await settleResolveHandler0(settleResolveError);
+          }
+        };
+        void settleResolve();
+      }
+    }
+
+    function isSendEmailAllowed3(epochBeforeSave: number) {
+      return (
+        sendGeneration !== identityVersion ||
+        session.isStale(epochBeforeSave) ||
+        terminalState()
+      );
+    }
+
+    function isSendEmailAllowed2() {
+      return scheduling() || movingInbox() || terminalState();
+    }
+
+    function buildMessage(
+      currentDraftId: string | undefined,
+      prepared: {
+        bodyHtml: string;
+        bodyText: string;
+        mentions: DocumentMentionInfo[];
+      },
+      processedMacroBody: string,
+      currentThreadInput: NonNullable<typeof currentThread>
+    ): EmailDraft {
+      return {
+        db_id: currentDraftId,
+        bcc,
+        body_html: prepared.bodyHtml,
+        body_macro: processedMacroBody,
+        body_text: prepared.bodyText,
+        cc,
+        provider_id: draftSeed?.provider_id,
+        provider_thread_id: currentThreadInput.provider_id,
+        replying_to_id: replyTarget?.db_id,
+        subject: form.subject(),
+        thread_db_id: currentThreadInput.db_id,
+        to,
+        // Replies/forwards follow the inbox's "add to replies & forwards"
+        // setting on the backend; only signal an explicit per-reply dismiss.
+        include_signature: includeSignature() ? undefined : false,
+      };
+    }
+
+    function markThreadDone(onUndoHandle: (handle: EmailUndoHandle) => void) {
       if (willMarkDone) {
         try {
           // Sending a reply stays on the thread; explicit Mark done advances.
           props.onMarkDone?.({
             silent: true,
-            onUndoHandle: (handle) => {
-              markDoneUndoHandle = handle;
-            },
+            onUndoHandle,
             navigate: false,
           });
         } catch (error) {
@@ -1078,18 +1207,13 @@ export function createReplyComposer(
           );
         }
       }
-      try {
-        // Presentation refresh must not keep a successfully sent or undone reply disabled.
-        void Promise.resolve(props.sideEffectOnSend?.(draftId ?? null)).catch(
-          props.notices.reportError
-        );
-      } catch (error) {
-        props.notices.reportError(error);
+    }
+
+    function updateSendEmail(currentDraftId: string | undefined) {
+      if (mounted && currentDraftId) {
+        const snapshot = replyUndo.peek(currentDraftId);
+        if (snapshot) restoreMountedReply(snapshot);
       }
-    } catch (error) {
-      props.notices.reportError(error);
-    } finally {
-      setSendPhase('idle');
     }
   };
 
@@ -1121,8 +1245,23 @@ export function createReplyComposer(
     setPendingDeletion(true);
     autosave.cancel();
     try {
-      await autosave.settled().catch(() => {});
-      await autosave.flushLocal().catch(props.notices.reportError);
+      const settleSettled = async () => {
+        try {
+          return await autosave.settled();
+        } catch {
+          return;
+        }
+      };
+      await settleSettled();
+      const settleFlushLocalHandler0 = props.notices.reportError;
+      const settleFlushLocal = async () => {
+        try {
+          return await autosave.flushLocal();
+        } catch (settleFlushLocalError) {
+          return await settleFlushLocalHandler0(settleFlushLocalError);
+        }
+      };
+      await settleFlushLocal();
       const draftId = savedDraftId();
       if (draftId) {
         try {
@@ -1139,7 +1278,15 @@ export function createReplyComposer(
         } catch (error) {
           await reportPersistenceFailure(error, 'delete');
           setPendingDeletion(false);
-          void lifecycle.refresh().catch(props.notices.reportError);
+          const settleRefreshHandler0 = props.notices.reportError;
+          const settleRefresh = async () => {
+            try {
+              return await lifecycle.refresh();
+            } catch (settleRefreshError) {
+              return await settleRefreshHandler0(settleRefreshError);
+            }
+          };
+          void settleRefresh();
           throw error;
         }
       }
@@ -1267,7 +1414,15 @@ export function createReplyComposer(
         'Previously saved attachments could not be copied to the new draft. Please attach those files again.'
       );
     }
-    void autosave.save().catch(() => {});
+
+    const settleSave = async () => {
+      try {
+        return await autosave.save();
+      } catch {
+        return;
+      }
+    };
+    void settleSave();
   };
 
   let lastScheduledTime = schedule.confirmedTime()?.toISOString();
@@ -1293,15 +1448,9 @@ export function createReplyComposer(
           return;
         }
         const nextTime = new Date(state.sendTime);
-        const changedElsewhere =
-          !schedule.confirmedTime() ||
-          schedule.confirmedTime()?.getTime() !== nextTime.getTime();
+        const changedElsewhere = buildChangedElsewhere(nextTime);
         schedule.observe(state);
-        if (changedElsewhere && lastScheduledTime !== state.sendTime) {
-          props.notices.feedback.alert(
-            `Email scheduled for ${nextTime.toLocaleString()}. Cancel the schedule to edit.`
-          );
-        }
+        updateOn(changedElsewhere, nextTime, state);
         lastScheduledTime = state.sendTime;
         return;
       }
@@ -1346,6 +1495,25 @@ export function createReplyComposer(
         else props.notices.feedback.alert('This email was already sent');
       } else {
         props.notices.feedback.alert('This draft is no longer available.');
+      }
+
+      function updateOn(
+        changedElsewhere: boolean,
+        nextTime: Date,
+        stateInput: Extract<NonNullable<typeof state>, { type: 'scheduled' }>
+      ) {
+        if (changedElsewhere && lastScheduledTime !== stateInput.sendTime) {
+          props.notices.feedback.alert(
+            `Email scheduled for ${nextTime.toLocaleString()}. Cancel the schedule to edit.`
+          );
+        }
+      }
+
+      function buildChangedElsewhere(nextTime: Date) {
+        return (
+          !schedule.confirmedTime() ||
+          schedule.confirmedTime()?.getTime() !== nextTime.getTime()
+        );
       }
     })
   );
@@ -1403,7 +1571,17 @@ export function createReplyComposer(
   async function retryDraft() {
     if (scheduleBlocked() || schedule.state().type === 'scheduled') return;
     // Finish this editor's last write before checking the shared revision.
-    await autosave.flushLocal().catch(props.notices.reportError);
+    const settleFlushLocalResultHandler0 = props.notices.reportError;
+    const settleFlushLocalResult = async () => {
+      try {
+        return await autosave.flushLocal();
+      } catch (settleFlushLocalResultError) {
+        return await settleFlushLocalResultHandler0(
+          settleFlushLocalResultError
+        );
+      }
+    };
+    await settleFlushLocalResult();
     await persistence.retry();
     await autosave.save();
   }

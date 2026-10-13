@@ -1,5 +1,6 @@
 import { MACRO_EMAIL_SIGNATURE } from '@app/features/email-compose/core/constants';
 import { $generateHtmlFromNodes } from '@lexical/html';
+import type { DocumentMentionInfo } from '@macro-inc/lexical-core';
 import {
   $appendWatermarkNodeToLast,
   $removeAllWatermarkNodes,
@@ -59,7 +60,7 @@ import {
   deleteDraftForDiscard,
 } from './draft-persistence';
 import { createDraftSaveNotice } from './draft-save-notice';
-import { createDraftSession } from './draft-session';
+import { createDraftSession, type DraftIdentity } from './draft-session';
 import { createEmailSendSchedule } from './email-send-schedule';
 import {
   refuseSend,
@@ -181,16 +182,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   const [content, setContent] = createSignal('');
   // The selected sender can change before the server migrates the draft.
   // Lifecycle reads always use one complete persisted identity.
-  const session = createDraftSession(
-    initialDraftId
-      ? {
-          draftId: initialDraftId,
-          threadId: restoredSnapshot?.threadId ?? props.draft?.thread_db_id,
-          persistence: props.draftPersistence,
-          inboxId: restoredSnapshot?.inboxId ?? props.draft?.link_id,
-        }
-      : undefined
-  );
+  const session = buildSession();
   if (
     props.localDraft &&
     ['failed', 'unconfirmed', 'delete-failed'].includes(props.localDraft.status)
@@ -209,7 +201,15 @@ export function createEmailComposer(props: EmailComposerOptions) {
     () => {
       if (persistencePaused()) return;
       if (props.drafts.retryDraft) {
-        void retryDraft().catch(props.notices.reportError);
+        const settleRetryDraftHandler0 = props.notices.reportError;
+        const settleRetryDraft = async () => {
+          try {
+            return await retryDraft();
+          } catch (settleRetryDraftError) {
+            return await settleRetryDraftHandler0(settleRetryDraftError);
+          }
+        };
+        void settleRetryDraft();
       } else detachFromObsoleteDraft('Saving your edits as a new draft.');
     },
     handleAlreadySent
@@ -265,6 +265,19 @@ export function createEmailComposer(props: EmailComposerOptions) {
           invalid: !EmailValidator.validate(email),
         },
       }))
+    );
+  }
+
+  function buildSession() {
+    return createDraftSession(
+      initialDraftId
+        ? {
+            draftId: initialDraftId,
+            threadId: restoredSnapshot?.threadId ?? props.draft?.thread_db_id,
+            persistence: props.draftPersistence,
+            inboxId: restoredSnapshot?.inboxId ?? props.draft?.link_id,
+          }
+        : undefined
     );
   }
 
@@ -613,9 +626,19 @@ export function createEmailComposer(props: EmailComposerOptions) {
                 label: 'Undo',
                 onClick: () => {
                   if (toastId != null) props.notices.feedback.dismiss(toastId);
-                  void undoSend(draftId, threadId ?? undefined, inboxId).catch(
-                    props.notices.reportError
-                  );
+                  const settleUndoSendHandler0 = props.notices.reportError;
+                  const settleUndoSend = async () => {
+                    try {
+                      return await undoSend(
+                        draftId,
+                        threadId ?? undefined,
+                        inboxId
+                      );
+                    } catch (settleUndoSendError) {
+                      return await settleUndoSendHandler0(settleUndoSendError);
+                    }
+                  };
+                  void settleUndoSend();
                 },
               },
             ]
@@ -633,16 +656,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   };
 
   const onSubmit = async () => {
-    if (
-      attachmentPersistence.removing() ||
-      schedule.pending() ||
-      submitting() ||
-      discarding() ||
-      movingInbox() ||
-      completed() ||
-      terminalState()
-    )
-      return;
+    if (isOnSubmitAllowed()) return;
     setValidationError(null);
 
     const currentEditor = editor();
@@ -692,17 +706,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     }
     if (scheduleAction === 'schedule' || scheduleAction === 'update') {
       const result = await schedule.submit();
-      if (result === 'scheduled') {
-        const scheduledDraftId = currentDraftId();
-        if (scheduledDraftId) rememberForUndo(scheduledDraftId, currentLink.id);
-        setCompleted(true);
-        const threadId = currentThreadId();
-        try {
-          if (threadId) props.host?.showThread?.(threadId);
-        } catch (error) {
-          props.notices.reportError(error);
-        }
-      }
+      updateOnSubmit(result, currentLink);
       return;
     }
 
@@ -729,16 +733,9 @@ export function createEmailComposer(props: EmailComposerOptions) {
       });
       if (refusal) return refuseSend(props.notices, refusal);
 
-      if (
-        sendGeneration !== identityVersion ||
-        completed() ||
-        terminalState() ||
-        schedule.pending() ||
-        schedule.action() !== 'send'
-      )
-        return;
+      if (isOnSubmitAllowed2()) return;
 
-      const draftId = identity.kind === 'server' ? identity.draftId : undefined;
+      const draftId = buildDraftId(identity);
       // Snapshot editor state before watermark so undo-send can restore it
       if (draftId) rememberForUndo(draftId, currentLink.id);
 
@@ -746,7 +743,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       // leave orphaned watermark nodes in the editor tree.
       const cleanupWatermark = $appendWatermarkNodeToLast(
         currentEditor,
-        !hasPaidAccess() ? MACRO_EMAIL_SIGNATURE : undefined
+        buildOnSubmit()
       );
 
       const prepared = prepareEmailBody(currentEditor);
@@ -760,25 +757,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       try {
         setSendPhase('sending');
         const result = await props.delivery.sendMessage({
-          message: {
-            to: convertToContactInfoArray(recipients.to),
-            cc:
-              recipients.cc.length > 0
-                ? convertToContactInfoArray(recipients.cc)
-                : [],
-            bcc:
-              recipients.bcc.length > 0
-                ? convertToContactInfoArray(recipients.bcc)
-                : [],
-            subject: form.subject(),
-            body_text: prepared.bodyText,
-            body_html: prepared.bodyHtml,
-            body_macro: bodyMacro,
-            db_id: draftId,
-            // Backend includes the signature by default for new emails; only signal
-            // an explicit dismiss. Omitting it falls through to the backend default.
-            include_signature: includeSignature() ? undefined : false,
-          },
+          message: buildMessage(prepared, bodyMacro, draftId),
           inboxId: activeInboxId(),
         });
 
@@ -793,6 +772,84 @@ export function createEmailComposer(props: EmailComposerOptions) {
       if (!completed()) props.notices.feedback.failure('Failed to send email');
     } finally {
       setSendPhase('idle');
+    }
+
+    function buildDraftId(identity: DraftIdentity) {
+      return identity.kind === 'server' ? identity.draftId : undefined;
+    }
+
+    function buildOnSubmit(): string | undefined {
+      return !hasPaidAccess() ? MACRO_EMAIL_SIGNATURE : undefined;
+    }
+
+    function buildMessage(
+      prepared: {
+        bodyHtml: string;
+        bodyText: string;
+        mentions: DocumentMentionInfo[];
+      },
+      bodyMacro: string,
+      draftId: string | undefined
+    ): import('../core/email-draft').EmailDraft {
+      return {
+        to: convertToContactInfoArray(recipients.to),
+        cc:
+          recipients.cc.length > 0
+            ? convertToContactInfoArray(recipients.cc)
+            : [],
+        bcc:
+          recipients.bcc.length > 0
+            ? convertToContactInfoArray(recipients.bcc)
+            : [],
+        subject: form.subject(),
+        body_text: prepared.bodyText,
+        body_html: prepared.bodyHtml,
+        body_macro: bodyMacro,
+        db_id: draftId,
+        // Backend includes the signature by default for new emails; only signal
+        // an explicit dismiss. Omitting it falls through to the backend default.
+        include_signature: includeSignature() ? undefined : false,
+      };
+    }
+
+    function isOnSubmitAllowed2() {
+      return (
+        sendGeneration !== identityVersion ||
+        completed() ||
+        terminalState() ||
+        schedule.pending() ||
+        schedule.action() !== 'send'
+      );
+    }
+
+    function isOnSubmitAllowed() {
+      return (
+        attachmentPersistence.removing() ||
+        schedule.pending() ||
+        submitting() ||
+        discarding() ||
+        movingInbox() ||
+        completed() ||
+        terminalState()
+      );
+    }
+
+    function updateOnSubmit(
+      result: string | boolean,
+      currentLinkValue: NonNullable<typeof currentLink>
+    ) {
+      if (result === 'scheduled') {
+        const scheduledDraftId = currentDraftId();
+        if (scheduledDraftId)
+          rememberForUndo(scheduledDraftId, currentLinkValue.id);
+        setCompleted(true);
+        const threadId = currentThreadId();
+        try {
+          if (threadId) props.host?.showThread?.(threadId);
+        } catch (error) {
+          props.notices.reportError(error);
+        }
+      }
     }
   };
 
@@ -832,8 +889,24 @@ export function createEmailComposer(props: EmailComposerOptions) {
     try {
       // A first save may still be creating the draft. Delete its returned ID
       // after it settles so discard cannot leave an orphan behind.
-      await autosave.settled().catch(() => {});
-      await autosave.flushLocal().catch(props.notices.reportError);
+
+      const settleSettled = async () => {
+        try {
+          return await autosave.settled();
+        } catch {
+          return;
+        }
+      };
+      await settleSettled();
+      const settleFlushLocalHandler0 = props.notices.reportError;
+      const settleFlushLocal = async () => {
+        try {
+          return await autosave.flushLocal();
+        } catch (settleFlushLocalError) {
+          return await settleFlushLocalHandler0(settleFlushLocalError);
+        }
+      };
+      await settleFlushLocal();
       const draftId = currentDraftId();
       if (draftId) {
         try {
@@ -850,7 +923,15 @@ export function createEmailComposer(props: EmailComposerOptions) {
         } catch (error) {
           await reportPersistenceFailure(error, 'delete');
           setDiscarding(false);
-          void lifecycle.refresh().catch(props.notices.reportError);
+          const settleRefreshHandler0 = props.notices.reportError;
+          const settleRefresh = async () => {
+            try {
+              return await lifecycle.refresh();
+            } catch (settleRefreshError) {
+              return await settleRefreshHandler0(settleRefreshError);
+            }
+          };
+          void settleRefresh();
           throw error;
         }
       }
@@ -881,7 +962,15 @@ export function createEmailComposer(props: EmailComposerOptions) {
         'Previously saved attachments could not be copied to the new draft. Please attach those files again.'
       );
     }
-    void autosave.save().catch(() => {});
+
+    const settleSave = async () => {
+      try {
+        return await autosave.save();
+      } catch {
+        return;
+      }
+    };
+    void settleSave();
   };
 
   let lastScheduledTime = schedule.confirmedTime()?.toISOString();
@@ -912,15 +1001,9 @@ export function createEmailComposer(props: EmailComposerOptions) {
           return;
         }
         const nextTime = new Date(state.sendTime);
-        const changedElsewhere =
-          !schedule.confirmedTime() ||
-          schedule.confirmedTime()?.getTime() !== nextTime.getTime();
+        const changedElsewhere = buildChangedElsewhere(nextTime);
         schedule.observe(state);
-        if (changedElsewhere && lastScheduledTime !== state.sendTime) {
-          props.notices.feedback.alert(
-            `Email scheduled for ${nextTime.toLocaleString()}. Cancel the schedule to edit.`
-          );
-        }
+        updateOn2(changedElsewhere, nextTime, state);
         lastScheduledTime = state.sendTime;
         return;
       }
@@ -961,14 +1044,37 @@ export function createEmailComposer(props: EmailComposerOptions) {
       schedule.detach();
       setCompleted(true);
       setTerminalState(state.type);
-      if (state.type === 'sent') {
-        if (wasScheduled)
-          props.notices.feedback.success('Scheduled email sent');
-        else props.notices.feedback.alert('This email was already sent');
-        props.host?.showThread?.(state.threadId);
-      } else {
-        props.notices.feedback.alert('This draft is no longer available.');
-        props.host?.goBack?.();
+      updateOn(state);
+
+      function updateOn2(
+        changedElsewhere: boolean,
+        nextTime: Date,
+        stateInput: Extract<NonNullable<typeof state>, { type: 'scheduled' }>
+      ) {
+        if (changedElsewhere && lastScheduledTime !== stateInput.sendTime) {
+          props.notices.feedback.alert(
+            `Email scheduled for ${nextTime.toLocaleString()}. Cancel the schedule to edit.`
+          );
+        }
+      }
+
+      function buildChangedElsewhere(nextTime: Date) {
+        return (
+          !schedule.confirmedTime() ||
+          schedule.confirmedTime()?.getTime() !== nextTime.getTime()
+        );
+      }
+
+      function updateOn(stateValue: NonNullable<typeof state>) {
+        if (stateValue.type === 'sent') {
+          if (wasScheduled)
+            props.notices.feedback.success('Scheduled email sent');
+          else props.notices.feedback.alert('This email was already sent');
+          props.host?.showThread?.(stateValue.threadId);
+        } else {
+          props.notices.feedback.alert('This draft is no longer available.');
+          props.host?.goBack?.();
+        }
       }
     })
   );
@@ -1083,7 +1189,16 @@ export function createEmailComposer(props: EmailComposerOptions) {
 
     // Actions
     onSend: () => void onSubmit(),
-    onDelete: () => void deleteDraftAndReset().catch(() => {}),
+    onDelete: () => {
+      const settleDeleteDraftAndReset = async () => {
+        try {
+          return await deleteDraftAndReset();
+        } catch {
+          return;
+        }
+      };
+      return void settleDeleteDraftAndReset();
+    },
     schedule: {
       state: schedule.state,
       selectedTime: schedule.selectedTime,
@@ -1159,7 +1274,17 @@ export function createEmailComposer(props: EmailComposerOptions) {
   async function retryDraft() {
     if (persistencePaused()) return;
     // Finish this editor's last write before checking the shared revision.
-    await autosave.flushLocal().catch(props.notices.reportError);
+    const settleFlushLocalResultHandler0 = props.notices.reportError;
+    const settleFlushLocalResult = async () => {
+      try {
+        return await autosave.flushLocal();
+      } catch (settleFlushLocalResultError) {
+        return await settleFlushLocalResultHandler0(
+          settleFlushLocalResultError
+        );
+      }
+    };
+    await settleFlushLocalResult();
     await persistence.retry();
     await autosave.save();
   }

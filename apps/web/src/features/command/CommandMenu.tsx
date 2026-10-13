@@ -6,7 +6,13 @@ import { getSearchSplit } from '@app/features/next-soup/soup-view/search-control
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { globalSplitManager } from '@app/signal/splitLayout';
+import type { ComponentMeta } from '@components/app/split-layout/componentRegistry';
 import { useSplitLayout } from '@components/app/split-layout/layout';
+import type {
+  SplitContent,
+  SplitHandle,
+  SplitManager,
+} from '@components/app/split-layout/layoutManager';
 import { toast } from '@core/component/Toast/Toast';
 import { itemToBlockName } from '@core/constant/allBlocks';
 import {
@@ -31,6 +37,7 @@ import Macro from '@icon/macro-logo.svg';
 import ArrowLeft from '@phosphor/arrow-left.svg';
 import { useGetOrCreateDirectMessageMutation } from '@queries/channel/get-or-create-dm';
 import { useDatabaseDiscoverySync } from '@queries/storage/databases';
+import type { Params } from '@service-storage/generated/schemas';
 import {
   Badge,
   CommandMenuEmptyState,
@@ -57,6 +64,9 @@ import {
   Switch,
 } from 'solid-js';
 import { type VirtualizerHandle, VList } from 'virtua/solid';
+import type { FilterID } from '../next-soup/filters';
+import type { Query } from '../next-soup/filters/filter-store';
+import type { SetPredicatesInput } from '../next-soup/filters/filter-store/predicates-store';
 import { projectRouteId } from '../projects/core/route';
 import { CommandItem } from './CommandItem';
 import { getCategorySearchFilters } from './category-search-filters';
@@ -324,6 +334,211 @@ export function CommandMenuInner(props: {
     analytics.track('command_menu_use', { itemType: item.bucket });
 
     if (isCommandItem(item)) {
+      return executeSelectedCommand(item);
+    }
+
+    if (item.kind === 'new-project') {
+      CommandState.close();
+      CommandState.setQuery('');
+      popoverSplit({ type: 'component', id: 'project-compose' });
+      return;
+    }
+
+    if (item.kind === 'initiative') {
+      openWithSplit(
+        {
+          type: 'component',
+          id: projectRouteId({ id: item.id, section: 'overview' }),
+        },
+        { preferNewSplit: openInNewSplit }
+      );
+      CommandState.close();
+      CommandState.setQuery('');
+      return;
+    }
+
+    // Handle entity items (documents, channels, chats, etc.)
+    if (isEntityItem(item)) {
+      if (isGithubPrEntity(item.data)) {
+        openPullRequest(item.data.id, item.data.metadata.url);
+        CommandState.close();
+        CommandState.setQuery('');
+        return;
+      }
+
+      updateHandleItemAction(item.data);
+      CommandState.close();
+      CommandState.setQuery('');
+      return;
+    }
+
+    if (isUserItem(item)) {
+      void openDirectMessage(item.id, openInNewSplit);
+      CommandState.close();
+      CommandState.setQuery('');
+      return;
+    }
+
+    if (isAskAiItem(item)) {
+      // Opens a new agent session and sends the query when ready.
+      void openChatWithMessage(item.query);
+      CommandState.close();
+      CommandState.setQuery('');
+      return;
+    }
+
+    if (isSearchItem(item)) {
+      // Fall back to the search preset (not `{}`) so uncategorized searches
+      // keep the search view's baseline exclusions (foreign entities, CRM).
+      const preset = getViewPreset('search');
+      const overrides = getCategorySearchFilters(item.category);
+      const filters = buildFilters(overrides, preset);
+      const clientFilters = buildClientFilters(overrides, preset);
+      const splitManager = globalSplitManager();
+      const active = buildActive(splitManager);
+      const activeContent = buildActiveContent(active);
+      const activeIsSearch = buildActiveIsSearch(activeContent);
+
+      if (!openInNewSplit && activeIsSearch && active) {
+        const controller = getSearchSplit(active.id);
+        if (controller) {
+          controller.applyOverrides({
+            query: item.query,
+            filters,
+            clientFilters,
+          });
+          active.activate();
+          CommandState.close();
+          CommandState.setQuery('');
+          return;
+        }
+      }
+
+      openWithSplit(
+        {
+          type: 'component',
+          id: 'search',
+          // Opening search into an existing split otherwise drops these params
+          // and the field mounts empty. Entry state still wins on back/forward.
+          preserveParams: true,
+          params: {
+            initialQuery: item.query,
+            initialFilters: filters,
+            initialClientFilters: clientFilters,
+          },
+        },
+        {
+          referredFrom: 'kommand-menu',
+          preferNewSplit: openInNewSplit,
+          allowDuplicate: true,
+        }
+      );
+      CommandState.close();
+      CommandState.setQuery('');
+      return;
+    }
+
+    CommandState.close();
+    CommandState.setQuery('');
+
+    function buildActive(splitManager: SplitManager | undefined) {
+      return splitManager?.activeSplit();
+    }
+
+    function buildActiveContent(
+      active: SplitHandle<ComponentMeta> | undefined
+    ) {
+      return active?.content();
+    }
+
+    function buildActiveIsSearch(activeContent: SplitContent | undefined) {
+      return (
+        activeContent?.type === 'component' && activeContent.id === 'search'
+      );
+    }
+
+    function openPullRequest(id: string, url: string) {
+      if (USE_MACRO_PR_SUMMARY_BLOCK) {
+        const result = openWithSplit(
+          { type: 'pr', id },
+          {
+            referredFrom: 'kommand-menu',
+            preferNewSplit: openInNewSplit,
+          }
+        );
+        if (result.status === 'reused' && result.owner !== result.sourceOwner) {
+          toast.alert('Content already open');
+        }
+      } else {
+        openExternalUrl(url);
+      }
+    }
+
+    function buildClientFilters(
+      overrides:
+        | { filters: Query; clientFilters: SetPredicatesInput<string> }
+        | undefined,
+      preset:
+        | {
+            filters: Query;
+            clientFilters: { and?: FilterID[]; or?: FilterID[] };
+            groupBy?: string;
+            sortDirection?: 'asc' | 'desc';
+            sortMethod?: Exclude<
+              NonNullable<Params['sort_method']>,
+              'frecency'
+            >;
+          }
+        | undefined
+    ) {
+      return overrides?.clientFilters ?? preset?.clientFilters ?? {};
+    }
+
+    function buildFilters(
+      overrides:
+        | { filters: Query; clientFilters: SetPredicatesInput<string> }
+        | undefined,
+      preset:
+        | {
+            filters: Query;
+            clientFilters: { and?: FilterID[]; or?: FilterID[] };
+            groupBy?: string;
+            sortDirection?: 'asc' | 'desc';
+            sortMethod?: Exclude<
+              NonNullable<Params['sort_method']>,
+              'frecency'
+            >;
+          }
+        | undefined
+    ) {
+      return overrides?.filters ?? preset?.filters ?? {};
+    }
+
+    function updateHandleItemAction(data: EntityData) {
+      if (data.type !== 'foreign') {
+        const blockName = itemToBlockName(data);
+        if (blockName) {
+          const result = openWithSplit(
+            { type: blockName, id: item.id },
+            {
+              referredFrom: 'kommand-menu',
+              preferNewSplit: openInNewSplit,
+              reopen: blockName === 'channel' ? 'latest' : undefined,
+            }
+          );
+          if (
+            result.status === 'reused' &&
+            result.owner !== result.sourceOwner
+          ) {
+            toast.alert('Content already open');
+          }
+        }
+      }
+    }
+
+    function executeSelectedCommand(
+      item: Extract<CommandMenuItem, { kind: 'command' }>
+    ) {
       const command = item.data;
       trackCommandUsage(item.id);
 
@@ -369,146 +584,6 @@ export function CommandMenuInner(props: {
       runCommand(command);
       return;
     }
-
-    if (item.kind === 'new-project') {
-      CommandState.close();
-      CommandState.setQuery('');
-      popoverSplit({ type: 'component', id: 'project-compose' });
-      return;
-    }
-
-    if (item.kind === 'initiative') {
-      openWithSplit(
-        {
-          type: 'component',
-          id: projectRouteId({ id: item.id, section: 'overview' }),
-        },
-        { preferNewSplit: openInNewSplit }
-      );
-      CommandState.close();
-      CommandState.setQuery('');
-      return;
-    }
-
-    // Handle entity items (documents, channels, chats, etc.)
-    if (isEntityItem(item)) {
-      if (isGithubPrEntity(item.data)) {
-        if (USE_MACRO_PR_SUMMARY_BLOCK) {
-          const result = openWithSplit(
-            { type: 'pr', id: item.data.id },
-            {
-              referredFrom: 'kommand-menu',
-              preferNewSplit: openInNewSplit,
-            }
-          );
-          if (
-            result.status === 'reused' &&
-            result.owner !== result.sourceOwner
-          ) {
-            toast.alert('Content already open');
-          }
-        } else {
-          openExternalUrl(item.data.metadata.url);
-        }
-        CommandState.close();
-        CommandState.setQuery('');
-        return;
-      }
-
-      if (item.data.type !== 'foreign') {
-        const blockName = itemToBlockName(item.data);
-        if (blockName) {
-          const result = openWithSplit(
-            { type: blockName, id: item.id },
-            {
-              referredFrom: 'kommand-menu',
-              preferNewSplit: openInNewSplit,
-              reopen: blockName === 'channel' ? 'latest' : undefined,
-            }
-          );
-          if (
-            result.status === 'reused' &&
-            result.owner !== result.sourceOwner
-          ) {
-            toast.alert('Content already open');
-          }
-        }
-      }
-      CommandState.close();
-      CommandState.setQuery('');
-      return;
-    }
-
-    if (isUserItem(item)) {
-      void openDirectMessage(item.id, openInNewSplit);
-      CommandState.close();
-      CommandState.setQuery('');
-      return;
-    }
-
-    if (isAskAiItem(item)) {
-      // Opens a new agent session and sends the query when ready.
-      void openChatWithMessage(item.query);
-      CommandState.close();
-      CommandState.setQuery('');
-      return;
-    }
-
-    if (isSearchItem(item)) {
-      // Fall back to the search preset (not `{}`) so uncategorized searches
-      // keep the search view's baseline exclusions (foreign entities, CRM).
-      const preset = getViewPreset('search');
-      const overrides = getCategorySearchFilters(item.category);
-      const filters = overrides?.filters ?? preset?.filters ?? {};
-      const clientFilters =
-        overrides?.clientFilters ?? preset?.clientFilters ?? {};
-      const splitManager = globalSplitManager();
-      const active = splitManager?.activeSplit();
-      const activeContent = active?.content();
-      const activeIsSearch =
-        activeContent?.type === 'component' && activeContent.id === 'search';
-
-      if (!openInNewSplit && activeIsSearch && active) {
-        const controller = getSearchSplit(active.id);
-        if (controller) {
-          controller.applyOverrides({
-            query: item.query,
-            filters,
-            clientFilters,
-          });
-          active.activate();
-          CommandState.close();
-          CommandState.setQuery('');
-          return;
-        }
-      }
-
-      openWithSplit(
-        {
-          type: 'component',
-          id: 'search',
-          // Opening search into an existing split otherwise drops these params
-          // and the field mounts empty. Entry state still wins on back/forward.
-          preserveParams: true,
-          params: {
-            initialQuery: item.query,
-            initialFilters: filters,
-            initialClientFilters: clientFilters,
-          },
-        },
-        {
-          referredFrom: 'kommand-menu',
-          preferNewSplit: openInNewSplit,
-          allowDuplicate: true,
-        }
-      );
-      CommandState.close();
-      CommandState.setQuery('');
-      return;
-    }
-
-    CommandState.close();
-    CommandState.setQuery('');
   }
 
   const navDownHotkey = registerHotkey({

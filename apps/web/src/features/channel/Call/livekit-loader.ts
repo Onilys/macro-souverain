@@ -21,16 +21,22 @@ let krisp: KrispModule | null = null;
 let krispPromise: Promise<KrispModule> | null = null;
 
 export function loadLivekit(): Promise<LivekitModule> {
-  livekitPromise ??= import('livekit-client')
-    .then((module) => {
+  const settleOperation = async () => {
+    try {
+      const settleOperationValue = await import('livekit-client');
+      const module = settleOperationValue;
+
       livekit = module;
-      return module;
-    })
-    .catch((error: unknown) => {
+      return await module;
+    } catch (settleOperationError) {
+      const error: unknown = settleOperationError;
+
       // A transient chunk/network failure must not poison every later retry.
       livekitPromise = null;
       throw error;
-    });
+    }
+  };
+  livekitPromise ??= settleOperation();
   return livekitPromise;
 }
 
@@ -39,15 +45,23 @@ export function getLivekit(): LivekitModule | null {
 }
 
 export function loadKrisp(): Promise<KrispModule> {
-  krispPromise ??= import('@livekit/krisp-noise-filter')
-    .then((module) => {
+  const settleOperationResult = async () => {
+    try {
+      const settleOperationResultValue = await import(
+        '@livekit/krisp-noise-filter'
+      );
+      const module = settleOperationResultValue;
+
       krisp = module;
-      return module;
-    })
-    .catch((error: unknown) => {
+      return await module;
+    } catch (settleOperationResultError) {
+      const error: unknown = settleOperationResultError;
+
       krispPromise = null;
       throw error;
-    });
+    }
+  };
+  krispPromise ??= settleOperationResult();
   return krispPromise;
 }
 

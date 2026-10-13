@@ -149,9 +149,18 @@ export async function applyCollabChanges(
 
 /** Releases a presentation's worker memory. */
 export function closePresentation(docKey: string): void {
-  void request({ kind: 'close', docKey }, 'close').catch((error: unknown) => {
-    console.warn('[pptx-engine] presentation could not be closed', error);
-  });
+  const settleRequest = async () => {
+    try {
+      return await request({ kind: 'close', docKey }, 'close');
+    } catch (settleRequestError) {
+      const error: unknown = settleRequestError;
+
+      console.warn('[pptx-engine] presentation could not be closed', error);
+
+      return;
+    }
+  };
+  void settleRequest();
 }
 
 /** Slides, shapes, text, and layouts of the whole deck. */

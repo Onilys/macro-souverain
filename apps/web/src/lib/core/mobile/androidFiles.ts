@@ -46,8 +46,15 @@ export async function exportAndroidFile(
     });
   } finally {
     // Cleanup failures must not mask the export result or its error.
-    await invoke('plugin:android-mobile|discardExport', { token }).catch(
-      (error) => console.error('Unable to discard Android export', error)
-    );
+
+    const settleInvoke = async () => {
+      try {
+        return await invoke('plugin:android-mobile|discardExport', { token });
+      } catch (settleInvokeError) {
+        const error = settleInvokeError;
+        return await console.error('Unable to discard Android export', error);
+      }
+    };
+    await settleInvoke();
   }
 }

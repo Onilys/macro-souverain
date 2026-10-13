@@ -161,71 +161,108 @@ export function createTauriCacheHost(options: TauriHostOptions): CacheHost {
             reject(new Error(`graphql cache ipc timeout: ${command}`));
           }, requestTimeoutMs)
         : undefined;
-      invoke<T>(command, args).then(
-        (value) => {
-          if (timer !== undefined) clearTimeout(timer);
-          resolve(value);
-        },
-        (error) => {
+
+      const settleInvoke = async () => {
+        let settleInvokeValue;
+        try {
+          settleInvokeValue = await invoke<T>(command, args);
+        } catch (settleInvokeError) {
+          const error = settleInvokeError;
+
           if (timer !== undefined) clearTimeout(timer);
           // Command errors cross the boundary as strings; normalize to
           // Error for parity with worker-host rejections.
           reject(error instanceof Error ? error : new Error(String(error)));
+
+          return;
         }
-      );
+        const value = settleInvokeValue;
+
+        if (timer !== undefined) clearTimeout(timer);
+        resolve(value);
+
+        return;
+      };
+      settleInvoke();
     });
   }
 
   // Failure tolerated: reads/writes still work, only push-driven
   // re-execution is lost — same degradation as a broken worker port.
-  const unlistenOps: Promise<UnlistenFn | undefined> =
-    listen<OpsAffectedPayload>(OPS_AFFECTED_EVENT, (event) => {
-      const prefix = `${clientId}:`;
-      const opKeys = event.payload.opIds
-        .filter((id) => id.startsWith(prefix))
-        .map((id) => Number(id.slice(prefix.length)))
-        .filter((n) => Number.isFinite(n));
-      if (opKeys.length > 0) {
-        for (const cb of affectedSubscribers) {
-          if (isRecordFieldChanges(event.payload.fieldChanges))
-            cb(opKeys, event.payload.fieldChanges);
-          else cb(opKeys);
-        }
-      }
-    }).catch((error) => {
-      console.warn('graphql cache ops-affected listener failed', error);
-      return undefined;
-    });
-  const unlistenSettlements: Promise<UnlistenFn | undefined> =
-    listen<MutationSettlement>(MUTATION_SETTLED_EVENT, (event) => {
-      for (const cb of settlementSubscribers) cb(event.payload);
-    }).catch((error) => {
-      console.warn('graphql cache mutation-settled listener failed', error);
-      return undefined;
-    });
 
-  const unlistenCacheChanges: Promise<UnlistenFn | undefined> =
-    listen<CacheChangedPayload>(CACHE_CHANGED_EVENT, (event) => {
-      const revision = parseCacheRevision(event.payload.revision);
-      observeRevision(revision);
-      if (event.payload.reset) {
-        for (const cb of generationChangeSubscribers) cb({ storage: 'reset' });
-      }
-      for (const cb of cacheChangeSubscribers) {
-        if (
-          event.payload.reset ||
-          event.payload.searchChangedBuckets === undefined
-        )
-          cb(revision);
-        else
-          cb(revision, {
-            searchChangedBuckets: event.payload.searchChangedBuckets,
-          });
-      }
-    }).catch((error) => {
+  const settleListen = async () => {
+    try {
+      return await listen<OpsAffectedPayload>(OPS_AFFECTED_EVENT, (event) => {
+        const prefix = `${clientId}:`;
+        const opKeys = event.payload.opIds
+          .filter((id) => id.startsWith(prefix))
+          .map((id) => Number(id.slice(prefix.length)))
+          .filter((n) => Number.isFinite(n));
+        if (opKeys.length > 0) {
+          for (const cb of affectedSubscribers) {
+            if (isRecordFieldChanges(event.payload.fieldChanges))
+              cb(opKeys, event.payload.fieldChanges);
+            else cb(opKeys);
+          }
+        }
+      });
+    } catch (settleListenError) {
+      const error = settleListenError;
+
+      console.warn('graphql cache ops-affected listener failed', error);
+      return await undefined;
+    }
+  };
+  const unlistenOps: Promise<UnlistenFn | undefined> = settleListen();
+
+  const settleListenResult = async () => {
+    try {
+      return await listen<MutationSettlement>(
+        MUTATION_SETTLED_EVENT,
+        (event) => {
+          for (const cb of settlementSubscribers) cb(event.payload);
+        }
+      );
+    } catch (settleListenResultError) {
+      const error = settleListenResultError;
+
+      console.warn('graphql cache mutation-settled listener failed', error);
+      return await undefined;
+    }
+  };
+  const unlistenSettlements: Promise<UnlistenFn | undefined> =
+    settleListenResult();
+
+  const settleListenResultResult = async () => {
+    try {
+      return await listen<CacheChangedPayload>(CACHE_CHANGED_EVENT, (event) => {
+        const revision = parseCacheRevision(event.payload.revision);
+        observeRevision(revision);
+        if (event.payload.reset) {
+          for (const cb of generationChangeSubscribers)
+            cb({ storage: 'reset' });
+        }
+        for (const cb of cacheChangeSubscribers) {
+          if (
+            event.payload.reset ||
+            event.payload.searchChangedBuckets === undefined
+          )
+            cb(revision);
+          else
+            cb(revision, {
+              searchChangedBuckets: event.payload.searchChangedBuckets,
+            });
+        }
+      });
+    } catch (settleListenResultResultError) {
+      const error = settleListenResultResultError;
+
       console.warn('graphql cache change listener failed', error);
-      return undefined;
-    });
+      return await undefined;
+    }
+  };
+  const unlistenCacheChanges: Promise<UnlistenFn | undefined> =
+    settleListenResultResult();
 
   async function listenForHydration(): Promise<UnlistenFn | undefined> {
     try {
@@ -677,10 +714,28 @@ export function createTauriCacheHost(options: TauriHostOptions): CacheHost {
       hydrationSubscribers.clear();
       generationChangeSubscribers.clear();
       settlementSubscribers.clear();
-      void unlistenOps.then((fn) => fn?.());
-      void unlistenCacheChanges.then((fn) => fn?.());
+
+      const settleUnlistenOps = async () => {
+        const settleUnlistenOpsValue = await unlistenOps;
+        const fn = settleUnlistenOpsValue;
+        return await fn?.();
+      };
+      void settleUnlistenOps();
+
+      const settleUnlistenCacheChanges = async () => {
+        const settleUnlistenCacheChangesValue = await unlistenCacheChanges;
+        const fn = settleUnlistenCacheChangesValue;
+        return await fn?.();
+      };
+      void settleUnlistenCacheChanges();
       void removeHydrationListener();
-      void unlistenSettlements.then((fn) => fn?.());
+
+      const settleUnlistenSettlements = async () => {
+        const settleUnlistenSettlementsValue = await unlistenSettlements;
+        const fn = settleUnlistenSettlementsValue;
+        return await fn?.();
+      };
+      void settleUnlistenSettlements();
     },
   };
 }

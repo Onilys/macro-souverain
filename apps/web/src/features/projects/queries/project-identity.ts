@@ -6,7 +6,6 @@ import {
   InitiativeDocument,
   type InitiativeQuery,
 } from '@service-storage/graphql/generated/graphql';
-import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { mapInitiativeDetail } from '@service-storage/initiative';
 import { type Client, stringifyDocument } from '@urql/core';
 import { type Accessor, createMemo } from 'solid-js';
@@ -116,10 +115,11 @@ export function createProjectDetailQuery(
 
 /** Authorizes native project previews without exposing backing document identity. */
 export function useProjectIdentityQuery(
+  client: () => Client,
   id: Accessor<string>,
   userId: Accessor<string | undefined>
 ) {
-  const query = createProjectDetailQuery(getGraphqlSoupClient, userId, id);
+  const query = createProjectDetailQuery(client, userId, id);
   return {
     get isSuccess() {
       return query.isSuccess;

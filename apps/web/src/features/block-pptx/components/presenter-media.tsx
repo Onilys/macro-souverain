@@ -51,11 +51,27 @@ export function AudienceClip(props: {
   const start = (el: HTMLMediaElement) => {
     props.onElement(el);
     // This window never saw a click, so a browser may refuse sound.
-    void el.play().catch(() => {
-      el.muted = true;
-      props.onMuted();
-      void el.play().catch(() => {});
-    });
+
+    const settlePlayResult = async () => {
+      try {
+        return await el.play();
+      } catch {
+        el.muted = true;
+        props.onMuted();
+
+        const settlePlay = async () => {
+          try {
+            return await el.play();
+          } catch {
+            return;
+          }
+        };
+        void settlePlay();
+
+        return;
+      }
+    };
+    void settlePlayResult();
   };
   onCleanup(() => props.onElement(undefined));
   return (
@@ -132,8 +148,16 @@ export function ConsoleClip(props: {
       if (!mirror) return;
       if (Math.abs(mirror.currentTime - el.currentTime) > 0.3)
         mirror.currentTime = el.currentTime;
+
+      const settlePlayResultResult = async () => {
+        try {
+          return await mirror.play();
+        } catch {
+          return;
+        }
+      };
       if (el.paused && !mirror.paused) mirror.pause();
-      else if (!el.paused && mirror.paused) void mirror.play().catch(() => {});
+      else if (!el.paused && mirror.paused) void settlePlayResultResult();
     };
     const events = [
       'play',
@@ -153,7 +177,15 @@ export function ConsoleClip(props: {
   const toggle = () => {
     const el = primary();
     if (!el) return;
-    if (el.paused) void el.play().catch(() => {});
+
+    const settlePlayResultResultResult = async () => {
+      try {
+        return await el.play();
+      } catch {
+        return;
+      }
+    };
+    if (el.paused) void settlePlayResultResultResult();
     else el.pause();
   };
   const stop = (e: Event) => e.stopPropagation();

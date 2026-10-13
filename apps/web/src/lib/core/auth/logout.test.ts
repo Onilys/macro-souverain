@@ -95,9 +95,20 @@ describe('logout notification cache isolation', () => {
     const transport = new Promise<{ owner: string }>((resolve) => {
       resolveTransport = resolve;
     });
-    const request = queryClient
-      .fetchQuery({ queryKey, queryFn: () => transport, retry: false })
-      .catch((error: unknown) => error);
+
+    const settleFetchQuery = async () => {
+      try {
+        return await queryClient.fetchQuery({
+          queryKey,
+          queryFn: () => transport,
+          retry: false,
+        });
+      } catch (settleFetchQueryError) {
+        const error: unknown = settleFetchQueryError;
+        return await error;
+      }
+    };
+    const request = settleFetchQuery();
     expect(queryClient.getQueryState(queryKey)?.fetchStatus).toBe('fetching');
 
     await clearLocalAuthSession();

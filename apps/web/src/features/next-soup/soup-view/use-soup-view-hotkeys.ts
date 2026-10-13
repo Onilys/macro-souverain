@@ -177,12 +177,19 @@ export const useSoupViewHotkeys = (options: UseSoupViewHotkeysOptions) => {
       // If focused on a load more row, trigger load more and stay at same index
       if (focusedRow.getIsLoadMore() && focusedRow.group) {
         const currentIndex = focusedRow.index;
-        fetchNextGroupPage(focusedRow.group.key).then(() => {
+
+        const groupKey = focusedRow.group.key;
+        const settleFetchNextGroupPage = async () => {
+          await fetchNextGroupPage(groupKey);
+
           soup.navigate.toIndex(currentIndex);
           virtualizerHandle()?.scrollToIndex(currentIndex, {
             align: 'nearest',
           });
-        });
+
+          return;
+        };
+        settleFetchNextGroupPage();
         return true;
       }
 

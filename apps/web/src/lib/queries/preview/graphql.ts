@@ -70,24 +70,32 @@ function normalizedItemType(item: ItemEntity): ItemType {
 }
 
 function graphqlEntityType(type: GraphqlPreviewType): EntityType {
-  switch (type) {
-    case 'document':
+  return match(type)
+    .with('document', (): EntityType => {
       return 'DOCUMENT';
-    case 'chat':
+    })
+    .with('chat', (): EntityType => {
       return 'CHAT';
-    case 'project':
+    })
+    .with('project', (): EntityType => {
       return 'PROJECT';
-    case 'email':
+    })
+    .with('email', (): EntityType => {
       return 'THREAD';
-    case 'channel':
+    })
+    .with('channel', (): EntityType => {
       return 'CHANNEL';
-    case 'call':
+    })
+    .with('call', (): EntityType => {
       return 'CALL_RECORD';
-    case 'crm_company':
+    })
+    .with('crm_company', (): EntityType => {
       return 'COMPANY';
-    case 'initiative':
+    })
+    .with('initiative', (): EntityType => {
       return 'INITIATIVE';
-  }
+    })
+    .exhaustive();
 }
 
 export function isGraphqlPreviewItem(
@@ -160,132 +168,168 @@ function documentSubType(
 export function graphqlRecordToPreview(
   record: ItemPreviewFieldsFragment | ItemPreviewDetailsFieldsFragment
 ): PreviewItem | undefined {
-  switch (record.__typename) {
-    case 'GraphqlSoupDocument':
-      return {
-        id: record.id,
-        type: 'document',
-        access: 'access',
-        loading: false,
-        rawName: record.displayName ?? record.documentName,
-        name: record.displayName ?? record.documentName,
-        fileType: (record.fileType ?? undefined) as FileType | undefined,
-        subType: documentSubType(record.subType),
-        ...('properties' in record
-          ? {
-              documentMetadata: {
-                properties: mapGraphqlProperties(record.properties).flatMap(
-                  (property) => {
-                    try {
-                      const mapped = soupPropertyToProperty(property);
-                      return mapped.isMetadata ? [] : [mapped];
-                    } catch (error) {
-                      console.warn(
-                        'Skipping unsupported preview property',
-                        error
-                      );
-                      return [];
+  return match(record)
+    .with(
+      { __typename: 'GraphqlSoupDocument' },
+      (record): PreviewItem | undefined => {
+        return {
+          id: record.id,
+          type: 'document',
+          access: 'access',
+          loading: false,
+          rawName: record.displayName ?? record.documentName,
+          name: record.displayName ?? record.documentName,
+          fileType: (record.fileType ?? undefined) as FileType | undefined,
+          subType: documentSubType(record.subType),
+          ...('properties' in record
+            ? {
+                documentMetadata: {
+                  properties: mapGraphqlProperties(record.properties).flatMap(
+                    (property) => {
+                      try {
+                        const mapped = soupPropertyToProperty(property);
+                        return mapped.isMetadata ? [] : [mapped];
+                      } catch (error) {
+                        console.warn(
+                          'Skipping unsupported preview property',
+                          error
+                        );
+                        return [];
+                      }
                     }
-                  }
-                ),
-                canEdit:
-                  record.viewerPermission?.__typename ===
-                    'GraphqlAccessLevelPermission' &&
-                  (record.viewerPermission.accessLevel === 'EDIT' ||
-                    record.viewerPermission.accessLevel === 'OWNER'),
-              },
-            }
-          : {}),
-      };
-    case 'GraphqlSoupChat':
-      return {
-        id: record.id,
-        type: 'chat',
-        access: 'access',
-        loading: false,
-        rawName: record.displayName ?? record.chatName,
-        name: record.displayName ?? record.chatName,
-      };
-    case 'GraphqlSoupProject':
-      return {
-        id: record.id,
-        type: 'project',
-        access: 'access',
-        loading: false,
-        rawName: record.displayName ?? record.projectName,
-        name: record.displayName ?? record.projectName,
-      };
-    case 'GraphqlSoupEmailThread': {
-      const name = record.displayName ?? record.emailName ?? 'No Subject';
-      return {
-        id: record.id,
-        type: 'email',
-        access: 'access',
-        loading: false,
-        rawName: name,
-        name,
-        owner: record.senderEmail ?? record.senderName ?? undefined,
-      };
-    }
-    case 'GraphqlSoupInitiative':
-      return {
-        id: record.id,
-        type: 'initiative',
-        access: 'access',
-        loading: false,
-        rawName: record.displayName ?? '',
-        name: record.displayName ?? '',
-      };
-    case 'GraphqlSoupChannel': {
-      const name = record.displayName ?? record.channelDisplayName;
-      if (
-        record.channelType.toLowerCase() === 'direct_message' &&
-        name == null
-      ) {
-        return undefined;
+                  ),
+                  canEdit:
+                    record.viewerPermission?.__typename ===
+                      'GraphqlAccessLevelPermission' &&
+                    (record.viewerPermission.accessLevel === 'EDIT' ||
+                      record.viewerPermission.accessLevel === 'OWNER'),
+                },
+              }
+            : {}),
+        };
       }
-      return {
-        id: record.id,
-        type: 'channel',
-        access: 'access',
-        loading: false,
-        rawName: name ?? '',
-        name: name ?? '',
-        channelType: record.channelType.toLowerCase() as Extract<
-          PreviewItem,
-          { type: 'channel'; access: 'access' }
-        >['channelType'],
-      };
-    }
-    case 'GraphqlSoupCall': {
-      const name = record.customName ?? record.channelName ?? '';
-      return {
-        id: record.id,
-        type: 'call',
-        access: 'access',
-        loading: false,
-        rawName: name,
-        name: name || 'Unknown Call',
-      };
-    }
-    case 'GraphqlSoupCrmCompany': {
-      const name =
-        record.displayName ??
-        record.companyName ??
-        record.domains[0] ??
-        'Unknown Company';
-      return {
-        id: record.id,
-        type: 'crm_company',
-        access: 'access',
-        loading: false,
-        rawName: name,
-        name,
-      };
-    }
-    default:
+    )
+    .with(
+      { __typename: 'GraphqlSoupChat' },
+      (record): PreviewItem | undefined => {
+        return {
+          id: record.id,
+          type: 'chat',
+          access: 'access',
+          loading: false,
+          rawName: record.displayName ?? record.chatName,
+          name: record.displayName ?? record.chatName,
+        };
+      }
+    )
+    .with(
+      { __typename: 'GraphqlSoupProject' },
+      (record): PreviewItem | undefined => {
+        return {
+          id: record.id,
+          type: 'project',
+          access: 'access',
+          loading: false,
+          rawName: record.displayName ?? record.projectName,
+          name: record.displayName ?? record.projectName,
+        };
+      }
+    )
+    .with(
+      { __typename: 'GraphqlSoupEmailThread' },
+      (record): PreviewItem | undefined => {
+        {
+          const name = record.displayName ?? record.emailName ?? 'No Subject';
+          return {
+            id: record.id,
+            type: 'email',
+            access: 'access',
+            loading: false,
+            rawName: name,
+            name,
+            owner: record.senderEmail ?? record.senderName ?? undefined,
+          };
+        }
+      }
+    )
+    .with(
+      { __typename: 'GraphqlSoupInitiative' },
+      (record): PreviewItem | undefined => {
+        return {
+          id: record.id,
+          type: 'initiative',
+          access: 'access',
+          loading: false,
+          rawName: record.displayName ?? '',
+          name: record.displayName ?? '',
+        };
+      }
+    )
+    .with(
+      { __typename: 'GraphqlSoupChannel' },
+      (record): PreviewItem | undefined => {
+        {
+          const name = record.displayName ?? record.channelDisplayName;
+          if (
+            record.channelType.toLowerCase() === 'direct_message' &&
+            name == null
+          ) {
+            return undefined;
+          }
+          return {
+            id: record.id,
+            type: 'channel',
+            access: 'access',
+            loading: false,
+            rawName: name ?? '',
+            name: name ?? '',
+            channelType: record.channelType.toLowerCase() as Extract<
+              PreviewItem,
+              { type: 'channel'; access: 'access' }
+            >['channelType'],
+          };
+        }
+      }
+    )
+    .with(
+      { __typename: 'GraphqlSoupCall' },
+      (record): PreviewItem | undefined => {
+        {
+          const name = record.customName ?? record.channelName ?? '';
+          return {
+            id: record.id,
+            type: 'call',
+            access: 'access',
+            loading: false,
+            rawName: name,
+            name: name || 'Unknown Call',
+          };
+        }
+      }
+    )
+    .with(
+      { __typename: 'GraphqlSoupCrmCompany' },
+      (record): PreviewItem | undefined => {
+        {
+          const name =
+            record.displayName ??
+            record.companyName ??
+            record.domains[0] ??
+            'Unknown Company';
+          return {
+            id: record.id,
+            type: 'crm_company',
+            access: 'access',
+            loading: false,
+            rawName: name,
+            name,
+          };
+        }
+      }
+    )
+    .otherwise((): PreviewItem | undefined => {
       return undefined;
-  }
+    });
 }
 
 function previewFromQuery(
@@ -577,12 +621,16 @@ function startPreviewBatch(
     if (host) {
       // One keyed read for the entire batch. Minimal cached titles can render
       // while the richer selection loads, without spawning child queries.
-      void readRecordsByKeys(
-        host,
-        previewSelection,
-        items.map((item) => normalizedRecordKey(item)!)
-      )
-        .then(({ records }) => {
+
+      const settleReadRecordsByKeys = async () => {
+        try {
+          const settleReadRecordsByKeysValue = await readRecordsByKeys(
+            host,
+            previewSelection,
+            items.map((item) => normalizedRecordKey(item)!)
+          );
+          const { records } = settleReadRecordsByKeysValue;
+
           if (disposed) return;
           const previews = new Map<string, PreviewItem>();
           for (const { recordKey, record } of records) {
@@ -590,8 +638,13 @@ function startPreviewBatch(
             if (preview) previews.set(recordKey, preview);
           }
           setCached(previews);
-        })
-        .catch(() => undefined);
+
+          return;
+        } catch {
+          return await undefined;
+        }
+      };
+      void settleReadRecordsByKeys();
     }
     let refreshing: Promise<void> | undefined;
     const refresh = () => {
@@ -600,12 +653,21 @@ function startPreviewBatch(
       if (disposed) return Promise.resolve();
       // Re-register cache dependencies as well as forcing a network refresh,
       // so a failed/offline refresh does not disconnect later optimistic edits.
-      refreshing ??= result
-        .refetch({ requestPolicy: 'cache-and-network' })
-        .then(() => undefined)
-        .finally(() => {
-          refreshing = undefined;
-        });
+      const settleRefetchFinally = async () => {
+        refreshing = undefined;
+
+        return;
+      };
+      const settleRefetch = async () => {
+        try {
+          await result.refetch({ requestPolicy: 'cache-and-network' });
+
+          return await undefined;
+        } finally {
+          await settleRefetchFinally();
+        }
+      };
+      refreshing ??= settleRefetch();
       return refreshing;
     };
     return { value: { result, cached, refresh }, dispose };

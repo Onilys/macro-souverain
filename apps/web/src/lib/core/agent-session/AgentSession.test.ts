@@ -161,7 +161,7 @@ import {
   AgentSession,
   AgentSessionAccessDenied,
   AgentSessionReleased,
-} from './AgentSession';
+} from '../../queries/agent-session/agent-session';
 import { forgetSessionCreated, markSessionCreated } from './recently-created';
 import { resetSessionTurns, sessionTurn } from './session-turn';
 
@@ -872,7 +872,16 @@ describe('AgentSession', () => {
       harness.get.mockResolvedValue(err([{ code: 'UNAUTHORIZED' }]));
 
       const live = AgentSession.acquire(SESSION);
-      const settled = live.load().catch((error: unknown) => error);
+
+      const settleLoad = async () => {
+        try {
+          return await live.load();
+        } catch (settleLoadError) {
+          const error: unknown = settleLoadError;
+          return await error;
+        }
+      };
+      const settled = settleLoad();
       // Past every retry, but still inside the window in which this tab's
       // creates are given the benefit of the doubt.
       await vi.advanceTimersByTimeAsync(20_000);

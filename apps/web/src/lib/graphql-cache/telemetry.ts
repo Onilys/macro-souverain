@@ -1,3 +1,16 @@
+const resetReasonForErrorBycode = new Map<
+  string,
+  | 'quota-failure'
+  | 'integrity-failure'
+  | 'namespace-mismatch'
+  | 'abrupt-owner-loss'
+>([
+  ['opfs-quota', 'quota-failure'],
+  ['integrity', 'integrity-failure'],
+  ['schema', 'namespace-mismatch'],
+  ['owner-lost', 'abrupt-owner-loss'],
+]);
+
 import { match } from 'ts-pattern';
 import type { CacheRequest } from './protocol';
 
@@ -228,33 +241,13 @@ function sanitizeObservation(
 
   return {
     name: input.name,
-    ...(input.name === 'graphql_cache.aggregate' &&
-    input.aggregatedEventName !== undefined &&
-    HIGH_VOLUME_NAMES.has(input.aggregatedEventName)
-      ? { aggregatedEventName: input.aggregatedEventName }
-      : {}),
+    ...buildSanitizeObservation3(),
     operationCategory: input.operationCategory,
-    ...(input.outcome !== undefined &&
-    CACHE_TELEMETRY_OUTCOMES.includes(input.outcome)
-      ? { outcome: input.outcome }
-      : {}),
-    ...(input.errorCode !== undefined &&
-    CACHE_ERROR_CODES.includes(input.errorCode)
-      ? { errorCode: input.errorCode }
-      : {}),
-    ...(input.resetReason !== undefined &&
-    CACHE_RESET_REASONS.includes(input.resetReason)
-      ? { resetReason: input.resetReason }
-      : {}),
-    ...(input.ownerEvent !== undefined &&
-    CACHE_OWNER_EVENTS.includes(input.ownerEvent)
-      ? { ownerEvent: input.ownerEvent }
-      : {}),
-    ...(input.persistence === 'granted' ||
-    input.persistence === 'denied' ||
-    input.persistence === 'unknown'
-      ? { persistence: input.persistence }
-      : {}),
+    ...buildSanitizeObservation4(),
+    ...buildSanitizeObservation5(),
+    ...buildSanitizeObservation7(),
+    ...buildSanitizeObservation6(),
+    ...buildSanitizeObservation(),
     ...(input.openOutcome !== undefined &&
     CACHE_OPEN_OUTCOMES.includes(input.openOutcome)
       ? { openOutcome: input.openOutcome }
@@ -277,11 +270,7 @@ function sanitizeObservation(
     ...(boundedNumber(input.durationMs, 3_600_000) !== undefined
       ? { durationMs: boundedNumber(input.durationMs, 3_600_000) }
       : {}),
-    ...(input.name === 'graphql_cache.slow_query' &&
-    typeof input.queryFingerprint === 'string' &&
-    /^[0-9a-f]{16}$/.test(input.queryFingerprint)
-      ? { queryFingerprint: input.queryFingerprint }
-      : {}),
+    ...buildSanitizeObservation2(),
     ...(boundedNumber(input.bytes) !== undefined
       ? { bytes: boundedNumber(input.bytes) }
       : {}),
@@ -310,6 +299,58 @@ function sanitizeObservation(
       ? { oldestAgeMs: boundedNumber(input.oldestAgeMs, 31_536_000_000) }
       : {}),
   };
+
+  function buildSanitizeObservation7(): Partial<CacheTelemetryObservation> {
+    return input.resetReason !== undefined &&
+      CACHE_RESET_REASONS.includes(input.resetReason)
+      ? { resetReason: input.resetReason }
+      : {};
+  }
+
+  function buildSanitizeObservation6(): Partial<CacheTelemetryObservation> {
+    return input.ownerEvent !== undefined &&
+      CACHE_OWNER_EVENTS.includes(input.ownerEvent)
+      ? { ownerEvent: input.ownerEvent }
+      : {};
+  }
+
+  function buildSanitizeObservation5(): Partial<CacheTelemetryObservation> {
+    return input.errorCode !== undefined &&
+      CACHE_ERROR_CODES.includes(input.errorCode)
+      ? { errorCode: input.errorCode }
+      : {};
+  }
+
+  function buildSanitizeObservation4(): Partial<CacheTelemetryObservation> {
+    return input.outcome !== undefined &&
+      CACHE_TELEMETRY_OUTCOMES.includes(input.outcome)
+      ? { outcome: input.outcome }
+      : {};
+  }
+
+  function buildSanitizeObservation3(): Partial<CacheTelemetryObservation> {
+    return input.name === 'graphql_cache.aggregate' &&
+      input.aggregatedEventName !== undefined &&
+      HIGH_VOLUME_NAMES.has(input.aggregatedEventName)
+      ? { aggregatedEventName: input.aggregatedEventName }
+      : {};
+  }
+
+  function buildSanitizeObservation2(): Partial<CacheTelemetryObservation> {
+    return input.name === 'graphql_cache.slow_query' &&
+      typeof input.queryFingerprint === 'string' &&
+      /^[0-9a-f]{16}$/.test(input.queryFingerprint)
+      ? { queryFingerprint: input.queryFingerprint }
+      : {};
+  }
+
+  function buildSanitizeObservation(): Partial<CacheTelemetryObservation> {
+    return input.persistence === 'granted' ||
+      input.persistence === 'denied' ||
+      input.persistence === 'unknown'
+      ? { persistence: input.persistence }
+      : {};
+  }
 }
 
 type Aggregate = {
@@ -553,49 +594,44 @@ export function isStorageTransactionRequest(
 
 /** Classifies an error without retaining or exporting its message. */
 export function classifyCacheError(error: unknown): CacheErrorCode {
-  const message =
-    error instanceof Error
+  const message = buildMessage();
+  const cases: { code: CacheErrorCode; matches: () => boolean }[] = [
+    { code: 'timeout', matches: () => /timeout/.test(message) },
+    { code: 'opfs-quota', matches: () => /quota|\bfull\b/.test(message) },
+    {
+      code: 'opfs-unavailable',
+      matches: () =>
+        message.includes('opfs') && message.includes('unavailable'),
+    },
+    { code: 'opfs-io', matches: () => /opfs|wal/.test(message) },
+    { code: 'lock', matches: () => /lock/.test(message) },
+    {
+      code: 'owner-lost',
+      matches: () => /owner epoch|owner-lost/.test(message),
+    },
+    { code: 'protocol', matches: () => /protocol|envelope/.test(message) },
+    { code: 'transport', matches: () => /transport|messageport/.test(message) },
+    { code: 'schema', matches: () => /schema|namespace/.test(message) },
+    { code: 'integrity', matches: () => /integrity|corrupt/.test(message) },
+    { code: 'storage-reset', matches: () => /reset required/.test(message) },
+    { code: 'wasm-instantiate', matches: () => /wasm/.test(message) },
+    { code: 'initialization', matches: () => /initializ|open/.test(message) },
+  ];
+  return cases.find((entry) => entry.matches())?.code ?? 'unknown';
+
+  function buildMessage() {
+    return error instanceof Error
       ? error.message.toLowerCase()
       : typeof error === 'string'
         ? error.toLowerCase()
         : '';
-  if (message.includes('timeout')) return 'timeout';
-  if (message.includes('quota') || /\bfull\b/.test(message))
-    return 'opfs-quota';
-  if (message.includes('opfs') && message.includes('unavailable')) {
-    return 'opfs-unavailable';
   }
-  if (message.includes('opfs') || message.includes('wal')) return 'opfs-io';
-  if (message.includes('lock')) return 'lock';
-  if (message.includes('owner epoch') || message.includes('owner-lost')) {
-    return 'owner-lost';
-  }
-  if (message.includes('protocol') || message.includes('envelope')) {
-    return 'protocol';
-  }
-  if (message.includes('transport') || message.includes('messageport')) {
-    return 'transport';
-  }
-  if (message.includes('schema') || message.includes('namespace')) {
-    return 'schema';
-  }
-  if (message.includes('integrity') || message.includes('corrupt')) {
-    return 'integrity';
-  }
-  if (message.includes('reset required')) return 'storage-reset';
-  if (message.includes('wasm')) return 'wasm-instantiate';
-  if (message.includes('initializ') || message.includes('open')) {
-    return 'initialization';
-  }
-  return 'unknown';
 }
 
 export function resetReasonForError(error: unknown): CacheResetReason {
   const code = classifyCacheError(error);
-  if (code === 'opfs-quota') return 'quota-failure';
-  if (code === 'integrity') return 'integrity-failure';
-  if (code === 'schema') return 'namespace-mismatch';
-  if (code === 'owner-lost') return 'abrupt-owner-loss';
+  const mappedValue = resetReasonForErrorBycode.get(code);
+  if (mappedValue !== undefined) return mappedValue;
   return 'storage-reset-required';
 }
 

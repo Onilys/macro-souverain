@@ -57,9 +57,17 @@ export function loadSpeller(): Promise<Speller> {
     );
   })();
   // A failed load (offline) may be retried.
-  loading.catch(() => {
-    loading = undefined;
-  });
+
+  const settleLoading = async () => {
+    try {
+      return await loading;
+    } catch {
+      loading = undefined;
+
+      return;
+    }
+  };
+  settleLoading();
   return loading;
 }
 
@@ -133,9 +141,18 @@ export function createSpellCheck(options: SpellCheckOptions) {
 
   onMount(() => {
     const timer = setTimeout(() => {
-      ready().catch((error: unknown) =>
-        console.error('[pptx] the spelling dictionary did not load', error)
-      );
+      const settleReady = async () => {
+        try {
+          return await ready();
+        } catch (settleReadyError) {
+          const error: unknown = settleReadyError;
+          return await console.error(
+            '[pptx] the spelling dictionary did not load',
+            error
+          );
+        }
+      };
+      settleReady();
     }, LOAD_DELAY_MS);
     onCleanup(() => clearTimeout(timer));
   });
@@ -170,9 +187,15 @@ export function createSpellCheck(options: SpellCheckOptions) {
     const version = session.slideVersion(slideId);
     const cached = layouts.get(key);
     if (cached && cached.version === version) return cached.layout;
-    const layout = await engine
-      .textLayout(index, source.shape, source.cell)
-      .catch(() => null);
+
+    const settleTextLayout = async () => {
+      try {
+        return await engine.textLayout(index, source.shape, source.cell);
+      } catch {
+        return await null;
+      }
+    };
+    const layout = await settleTextLayout();
     layouts.set(key, { version, layout });
     return layout;
   }

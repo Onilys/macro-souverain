@@ -6,6 +6,7 @@ import { syncLoginStorage } from '@core/util/cookies';
 import { clearPostLoginRedirect } from '@core/util/postLoginRedirect';
 import { clearRegisteredCaches } from '@graphql-cache/lifecycle';
 import { rotateCacheScope } from '@graphql-cache/scope';
+import { endAuthSession } from '@queries/auth/requests';
 import { authKeys, type UserInfoData } from '@queries/auth/user-info';
 import { clearTeamCalendarQueries } from '@queries/calendar/team-cache';
 import { queryClient, queryPersistence } from '@queries/client';
@@ -17,7 +18,7 @@ import {
 import { resetGraphqlSoupDoneSession } from '@queries/soup/graphql/done-session';
 import { clearDocumentQueryCache } from '@queries/storage/document-cache';
 import { clearOfflineDocumentContexts } from '@queries/storage/documentLoad/offline-context-runtime';
-import { authServiceClient } from '@service-auth/client';
+
 import { raceTimeout } from '@solid-primitives/promise';
 import { createCallback } from '@solid-primitives/rootless';
 import { useNavigate } from '@solidjs/router';
@@ -51,8 +52,13 @@ export async function clearLocalAuthSession() {
   clearDocumentQueryCache(queryClient);
   clearTeamCalendarQueries();
   // Start every wipe before waiting, including stores not hydrated this session.
+  const settleResolveHandler0 = clearComposerStorage;
+  const settleResolve = async () => {
+    await Promise.resolve();
+    return await settleResolveHandler0();
+  };
   const results = await Promise.allSettled([
-    Promise.resolve().then(clearComposerStorage),
+    settleResolve(),
     documentContextsCleared,
     clearRegisteredCaches(),
     queryPersistence.clear(),
@@ -114,16 +120,23 @@ export function useLogout() {
     // authenticated. Time-boxed so a hung request can't block logout.
     await raceTimeout(unregisterPushRegistrationsForLogout(), 3000);
     await clearLocalAuthSession();
-    await authServiceClient.logout();
+    await endAuthSession();
     analytics.track('sign_out');
     analytics.reset();
 
     if (isNativeMobilePlatform()) {
-      await fetch(SERVER_HOSTS['auth-logout'], {
-        credentials: 'include',
-        mode: 'no-cors',
-        redirect: 'manual',
-      }).catch(() => {});
+      const settleFetch = async () => {
+        try {
+          return await fetch(SERVER_HOSTS['auth-logout'], {
+            credentials: 'include',
+            mode: 'no-cors',
+            redirect: 'manual',
+          });
+        } catch {
+          return;
+        }
+      };
+      await settleFetch();
       navigate('/login');
       // Native login reuses this WebView. End the document lifetime so queued
       // editor callbacks can never adopt the next account's draft session.

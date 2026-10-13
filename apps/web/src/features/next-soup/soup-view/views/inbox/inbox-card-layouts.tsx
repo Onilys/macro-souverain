@@ -82,7 +82,6 @@ export interface InboxCardLayoutProps {
 
 /** Glyph size inside the card's avatar bubble — grows with the circle on
  * mobile, matching the narrow rows' icon factor (see InboxCard.Icon). */
-const AVATAR_GLYPH_CLASS = 'size-4 mobile:size-6';
 
 type NotificationTag = ReturnType<typeof getNotificationTag>;
 
@@ -218,53 +217,67 @@ const tagBubbleIcon = (tag: NotificationTag) =>
   match(tag)
     .with('new_email', () => () => (
       <EntityIcon
-        class={AVATAR_GLYPH_CLASS}
+        class={'size-4 mobile:size-6'}
         targetType="email"
         theme="monochrome"
         size="fill"
       />
     ))
     .with('task_assigned', () => () => (
-      <EntityIcon class={AVATAR_GLYPH_CLASS} targetType="task" size="fill" />
+      <EntityIcon
+        class={'size-4 mobile:size-6'}
+        targetType="task"
+        size="fill"
+      />
     ))
     .with('ai_response', () => () => (
-      <EntityIcon class={AVATAR_GLYPH_CLASS} targetType="chat" size="fill" />
+      <EntityIcon
+        class={'size-4 mobile:size-6'}
+        targetType="chat"
+        size="fill"
+      />
     ))
-    .with('channel_mention', () => () => <AtIcon class={AVATAR_GLYPH_CLASS} />)
+    .with('channel_mention', () => () => (
+      <AtIcon class={'size-4 mobile:size-6'} />
+    ))
     .with(
       'mentioned_in_document_comment',
       'replied_to_document_comment_thread',
       'commented_on_document',
-      () => () => <ChatTeardropIcon class={AVATAR_GLYPH_CLASS} />
+      () => () => <ChatTeardropIcon class={'size-4 mobile:size-6'} />
     )
     .with('document_mention', () => () => (
-      <FilesIcon class={AVATAR_GLYPH_CLASS} />
+      <FilesIcon class={'size-4 mobile:size-6'} />
     ))
     .with('channel_message_reaction', () => () => (
-      <SmileyIcon class={AVATAR_GLYPH_CLASS} />
+      <SmileyIcon class={'size-4 mobile:size-6'} />
     ))
     .with('channel_message_reply', () => () => (
-      <ArrowBendUpLeftIcon class={AVATAR_GLYPH_CLASS} />
+      <ArrowBendUpLeftIcon class={'size-4 mobile:size-6'} />
     ))
     .with('channel_message_send', () => () => (
-      <ChatTextIcon class={AVATAR_GLYPH_CLASS} />
+      <ChatTextIcon class={'size-4 mobile:size-6'} />
     ))
     .with('channel_invite', 'invite_to_team', () => () => (
-      <UserPlusIcon class={AVATAR_GLYPH_CLASS} />
+      <UserPlusIcon class={'size-4 mobile:size-6'} />
     ))
-    .with('call_started', () => () => <PhoneIcon class={AVATAR_GLYPH_CLASS} />)
+    .with('call_started', () => () => (
+      <PhoneIcon class={'size-4 mobile:size-6'} />
+    ))
     .with('agent_session_settled', () => () => (
-      <AgentIcon class={AVATAR_GLYPH_CLASS} />
+      <AgentIcon class={'size-4 mobile:size-6'} />
     ))
     .with('agent_session_waiting_for_input', () => () => (
-      <QuestionIcon class={AVATAR_GLYPH_CLASS} />
+      <QuestionIcon class={'size-4 mobile:size-6'} />
     ))
     .with('agent_session_mentioned', () => () => (
-      <AtIcon class={AVATAR_GLYPH_CLASS} />
+      <AtIcon class={'size-4 mobile:size-6'} />
     ))
-    .with('reminder', () => () => <BellSimpleIcon class={AVATAR_GLYPH_CLASS} />)
+    .with('reminder', () => () => (
+      <BellSimpleIcon class={'size-4 mobile:size-6'} />
+    ))
     .with('calendar_event_reminder', () => () => (
-      <CalendarBlankIcon class={AVATAR_GLYPH_CLASS} />
+      <CalendarBlankIcon class={'size-4 mobile:size-6'} />
     ))
     .with(
       'github_pr_status_changed',
@@ -273,11 +286,11 @@ const tagBubbleIcon = (tag: NotificationTag) =>
       'github_pr_comment',
       'github_pr_mention',
       'github_pr_review',
-      () => () => <GithubIcon class={AVATAR_GLYPH_CLASS} />
+      () => () => <GithubIcon class={'size-4 mobile:size-6'} />
     )
     .with(
       P.when((value) => value?.startsWith('github_') ?? false),
-      () => () => <GithubIcon class={AVATAR_GLYPH_CLASS} />
+      () => () => <GithubIcon class={'size-4 mobile:size-6'} />
     )
     .otherwise(() => undefined);
 
@@ -301,19 +314,21 @@ function GithubStatusIcon(props: { status?: string }) {
   };
 
   return (
-    <span class={cn('grid place-items-center', AVATAR_GLYPH_CLASS)}>
+    <span class={cn('grid place-items-center', 'size-4 mobile:size-6')}>
       <Show
         when={props.status === 'merged'}
         fallback={
           <Show
             when={props.status === 'open' || props.status === 'closed'}
-            fallback={<GithubIcon class={AVATAR_GLYPH_CLASS} />}
+            fallback={<GithubIcon class={'size-4 mobile:size-6'} />}
           >
-            <GitPullRequestIcon class={cn(AVATAR_GLYPH_CLASS, statusClass())} />
+            <GitPullRequestIcon
+              class={cn('size-4 mobile:size-6', statusClass())}
+            />
           </Show>
         }
       >
-        <GitMergeIcon class={cn(AVATAR_GLYPH_CLASS, 'text-note')} />
+        <GitMergeIcon class={cn('size-4 mobile:size-6', 'text-note')} />
       </Show>
     </span>
   );
@@ -692,7 +707,7 @@ export function ChannelCardLayout(props: InboxCardLayoutProps) {
           fallback={<InboxAvatar senderId={senderAvatarId()} />}
         >
           <EntityIcon
-            class={AVATAR_GLYPH_CLASS}
+            class={'size-4 mobile:size-6'}
             targetType={getEntityIconType(entity())}
             size="fill"
             theme="monochrome"
@@ -1010,7 +1025,7 @@ export function DocumentCardLayout(props: InboxCardLayoutProps) {
           when={props.item.notification}
           fallback={
             <EntityIcon
-              class={AVATAR_GLYPH_CLASS}
+              class={'size-4 mobile:size-6'}
               targetType={getEntityIconType(props.item.entity)}
               size="fill"
             />
@@ -1074,7 +1089,7 @@ export function TaskCardLayout(props: InboxCardLayoutProps) {
           when={props.item.notification}
           fallback={
             <EntityIcon
-              class={AVATAR_GLYPH_CLASS}
+              class={'size-4 mobile:size-6'}
               size="fill"
               targetType={getEntityIconType(props.item.entity)}
             />
@@ -1119,7 +1134,7 @@ export function AiCardLayout(props: InboxCardLayoutProps) {
           when={props.item.notification}
           fallback={
             <EntityIcon
-              class={AVATAR_GLYPH_CLASS}
+              class={'size-4 mobile:size-6'}
               targetType={getEntityIconType(props.item.entity)}
               size="fill"
             />
@@ -1176,7 +1191,7 @@ export function AgentSessionCardLayout(props: InboxCardLayoutProps) {
           when={props.item.notification}
           fallback={
             <EntityIcon
-              class={AVATAR_GLYPH_CLASS}
+              class={'size-4 mobile:size-6'}
               targetType={getEntityIconType(props.item.entity)}
               size="fill"
             />
@@ -1433,7 +1448,7 @@ export function CallCardLayout(props: InboxCardLayoutProps) {
       {...props}
       icon={
         <EntityIcon
-          class={AVATAR_GLYPH_CLASS}
+          class={'size-4 mobile:size-6'}
           targetType="call"
           size="fill"
           theme="monochrome"
@@ -1500,7 +1515,7 @@ export function CalendarEventCardLayout(props: InboxCardLayoutProps) {
   return (
     <BaseCard
       {...props}
-      icon={<CalendarBlankIcon class={AVATAR_GLYPH_CLASS} />}
+      icon={<CalendarBlankIcon class={'size-4 mobile:size-6'} />}
       title={props.item.entity.name || '(No title)'}
     >
       <Show when={datePreview()}>
@@ -1531,7 +1546,7 @@ export function GenericCardLayout(props: InboxCardLayoutProps) {
       {...props}
       icon={
         <EntityIcon
-          class={AVATAR_GLYPH_CLASS}
+          class={'size-4 mobile:size-6'}
           targetType={getEntityIconType(props.item.entity)}
           size="fill"
           theme="monochrome"

@@ -143,13 +143,20 @@ Check that the load function does not return a preload source when the intent is
     if (!isNested && data && props.definition.openTrackingEnabled !== false) {
       const trackOpened = () => {
         // we need to pass in a client accessor since the mutation is dynamically imported outside a query context provider
-        import('./trackBlockOpened').then(({ track }) => {
+
+        const settleOperation = async () => {
+          const settleOperationValue = await import('./trackBlockOpened');
+          const { track } = settleOperationValue;
+
           track({
             itemId: props.id,
             blockName: data.__block,
             client: useQueryClient,
           });
-        });
+
+          return;
+        };
+        settleOperation();
 
         analytics.pageView(data.__block);
         analytics.track('open_entity', {

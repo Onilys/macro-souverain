@@ -791,10 +791,8 @@ function MentionsMenuInner(props: MentionsMenuProps) {
                 setIndex={setSelectedIndexFromMouse}
                 setOpen={setMenuOpen}
                 maxHeight={contentMaxHeight()}
-                hasMore={activeViewAllBucket()?.hasMore?.() ?? false}
-                isLoadingMore={
-                  activeViewAllBucket()?.isLoadingMore?.() ?? false
-                }
+                hasMore={getMentionsMenuInnerHasMore()}
+                isLoadingMore={getMentionsMenuInnerIsLoadingMore()}
                 onEndReached={() => {
                   void activeViewAllBucket()?.loadMore?.();
                 }}
@@ -805,6 +803,14 @@ function MentionsMenuInner(props: MentionsMenuProps) {
       </ScopedPortal>
     </Show>
   );
+
+  function getMentionsMenuInnerIsLoadingMore(): boolean {
+    return activeViewAllBucket()?.isLoadingMore?.() ?? false;
+  }
+
+  function getMentionsMenuInnerHasMore(): boolean {
+    return activeViewAllBucket()?.hasMore?.() ?? false;
+  }
 }
 
 function VirtualizedItemList(props: {

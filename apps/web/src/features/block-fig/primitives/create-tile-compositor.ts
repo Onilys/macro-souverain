@@ -285,8 +285,12 @@ export function createTileCompositor(options: TileCompositorOptions) {
       if (!entry.bitmap && !entry.pending && home.get(id) === entry)
         home.delete(id);
     };
-    pending.promise
-      .then((result: TileResult | null) => {
+    const settlePromiseHandler0 = settleEmpty;
+    const settlePromise = async () => {
+      try {
+        const settlePromiseValue = await pending.promise;
+        const result: TileResult | null = settlePromiseValue;
+
         // Cancelled, or (when not current) superseded by an edit.
         const current = entry.pending?.id === pending.id;
         if (!result) {
@@ -317,8 +321,13 @@ export function createTileCompositor(options: TileCompositorOptions) {
         }
         if (!part) evict();
         options.onTile();
-      })
-      .catch(settleEmpty);
+
+        return;
+      } catch {
+        return await settlePromiseHandler0();
+      }
+    };
+    settlePromise();
   };
 
   const request = (key: TileKey, priority: number, pinned = false) => {
@@ -711,8 +720,7 @@ export function createTileCompositor(options: TileCompositorOptions) {
 
     /** Draws available tiles; returns whether content (or an empty page) is ready. */
     draw(ctx: CanvasRenderingContext2D, view: ViewState) {
-      if (!interactive && (preview || previewPending) && sharp(view))
-        clearPreview();
+      updateDraw();
       if (preview) {
         const { camera, viewport, dpr } = view;
         const old = preview.view;
@@ -763,10 +771,13 @@ export function createTileCompositor(options: TileCompositorOptions) {
       // only in the gaps.
       const present = new Map<number, Set<string>>();
       for (const e of cache.values()) {
-        if (!e.bitmap) continue;
-        const set = present.get(e.key.scale) ?? new Set<string>();
-        present.set(e.key.scale, set);
-        set.add(`${e.key.ix}:${e.key.iy}`);
+        const processE = () => {
+          if (!e.bitmap) return;
+          const set = present.get(e.key.scale) ?? new Set<string>();
+          present.set(e.key.scale, set);
+          set.add(`${e.key.ix}:${e.key.iy}`);
+        };
+        processE();
       }
       const sharper: number[] = [];
       const draws: {
@@ -777,41 +788,40 @@ export function createTileCompositor(options: TileCompositorOptions) {
         size: number;
       }[] = [];
       for (let k = ordered.length - 1; k >= 0; k--) {
-        const scale = ordered[k];
-        const exact = scale === target;
-        for (const e of cache.values()) {
-          if (!e.bitmap || e.key.scale !== scale) continue;
-          const r = tileRect(e.key);
-          if (
-            r.x > camera.x + viewW ||
-            r.x + r.w < camera.x ||
-            r.y > camera.y + viewH ||
-            r.y + r.h < camera.y
-          )
-            continue;
-          e.lastUsed = ++clock;
-          let x = (r.x - camera.x) * unit;
-          let y = (r.y - camera.y) * unit;
-          let size = r.w * unit;
-          if (exact) {
-            // Pixel-aligned at the exact scale: a 1:1 copy, perfectly crisp,
-            // and positioned from the tile grid so neighbors never gap.
-            x = e.key.ix * TILE - Math.round(camera.x * scale);
-            y = e.key.iy * TILE - Math.round(camera.y * scale);
-            size = TILE;
+        const processEntry = () => {
+          const scale = ordered[k];
+          const exact = scale === target;
+          for (const e of cache.values()) {
+            if (!e.bitmap || e.key.scale !== scale) continue;
+            const r = tileRect(e.key);
+            if (hasX(r)) continue;
+            e.lastUsed = ++clock;
+            let x = (r.x - camera.x) * unit;
+            let y = (r.y - camera.y) * unit;
+            let size = r.w * unit;
+            if (exact) {
+              // Pixel-aligned at the exact scale: a 1:1 copy, perfectly crisp,
+              // and positioned from the tile grid so neighbors never gap.
+              x = e.key.ix * TILE - Math.round(camera.x * scale);
+              y = e.key.iy * TILE - Math.round(camera.y * scale);
+              size = TILE;
+            }
+            const shown = {
+              x: Math.max(r.x, camera.x),
+              y: Math.max(r.y, camera.y),
+              w:
+                Math.min(r.x + r.w, camera.x + viewW) - Math.max(r.x, camera.x),
+              h:
+                Math.min(r.y + r.h, camera.y + viewH) - Math.max(r.y, camera.y),
+            };
+            const hidden = sharper.some((s) =>
+              tilesCover(shown, s, present.get(s) ?? new Set(), page?.content)
+            );
+            if (!hidden) draws.push({ bitmap: e.bitmap, exact, x, y, size });
           }
-          const shown = {
-            x: Math.max(r.x, camera.x),
-            y: Math.max(r.y, camera.y),
-            w: Math.min(r.x + r.w, camera.x + viewW) - Math.max(r.x, camera.x),
-            h: Math.min(r.y + r.h, camera.y + viewH) - Math.max(r.y, camera.y),
-          };
-          const hidden = sharper.some((s) =>
-            tilesCover(shown, s, present.get(s) ?? new Set(), page?.content)
-          );
-          if (!hidden) draws.push({ bitmap: e.bitmap, exact, x, y, size });
-        }
-        sharper.push(scale);
+          sharper.push(scale);
+        };
+        processEntry();
       }
       for (let k = draws.length - 1; k >= 0; k--) {
         const d = draws[k];
@@ -823,12 +833,30 @@ export function createTileCompositor(options: TileCompositorOptions) {
       }
       for (const l of landing) drawLift(ctx, view, l);
       if (lift) drawLift(ctx, view, lift);
-      return (
-        draws.length > 0 ||
-        !page.content ||
-        page.content.w <= 0 ||
-        page.content.h <= 0
-      );
+      return hasLength(page);
+
+      function hasX(r: Rect) {
+        return (
+          r.x > camera.x + viewW ||
+          r.x + r.w < camera.x ||
+          r.y > camera.y + viewH ||
+          r.y + r.h < camera.y
+        );
+      }
+
+      function hasLength(pageInput: NonNullable<typeof page>) {
+        return (
+          draws.length > 0 ||
+          !pageInput.content ||
+          pageInput.content.w <= 0 ||
+          pageInput.content.h <= 0
+        );
+      }
+
+      function updateDraw() {
+        if (!interactive && (preview || previewPending) && sharp(view))
+          clearPreview();
+      }
     },
 
     /**

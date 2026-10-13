@@ -135,7 +135,15 @@ describe('TitleCard', () => {
   it('keeps a rejected save as a visible, invalid draft without an unhandled rejection', async () => {
     const failure = Promise.reject(new Error('Connection lost'));
     // Observe the test-owned promise too; the field must handle its rejection.
-    const settled = failure.catch(() => undefined);
+
+    const settleFailure = async () => {
+      try {
+        return await failure;
+      } catch {
+        return await undefined;
+      }
+    };
+    const settled = settleFailure();
     render(() => (
       <TitleCard
         name="Workshop ideas"

@@ -1,14 +1,14 @@
+import { createMarkdownFile } from '@app/lib/queries/items/create';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { ChatMessageMarkdown } from '@core/component/AI/component/message/ChatMessageMarkdown';
 import { replaceCitations } from '@core/component/LexicalMarkdown/citationsUtils';
 import { ENABLE_TTFT } from '@core/constant/featureFlags';
-import { createMarkdownFile } from '@core/util/create';
 import { PulsingStar } from '@entity/components/PulsingStar';
 import WideFileMd from '@phosphor/file.svg';
 import CheckIcon from '@phosphor-icons/core/bold/check-bold.svg?component-solid';
 import ClipboardIcon from '@phosphor-icons/core/bold/clipboard-bold.svg?component-solid';
 import LoadingIcon from '@phosphor-icons/core/bold/spinner-gap-bold.svg?component-solid';
-import { generateTitle } from '@service-cognition/client';
+import { generateTitle } from '@queries/cognition/title';
 import type { ChatMessageContent } from '@service-cognition/generated/schemas/chatMessageContent';
 import type { ChatMessageWithAttachments } from '@service-cognition/generated/schemas/chatMessageWithAttachments';
 import { createCallback } from '@solid-primitives/rootless';

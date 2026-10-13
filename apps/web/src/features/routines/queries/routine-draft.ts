@@ -11,7 +11,7 @@ import {
 
 export { onceFromCron } from './routine-trigger-mapping';
 
-import { getDefaultTimezone } from '@core/util/cron';
+import { getDefaultTimezone } from '@app/lib/utils/cron';
 import type {
   CreateScheduledAction,
   ScheduledAction,
@@ -166,15 +166,7 @@ export function draftToUpdateBody(
     };
   if (!trigger) return;
   const parsed = parseCron(trigger.schedule);
-  const scheduleChanged =
-    draft.frequency !==
-      (onceFromCron(trigger.schedule, trigger.timezone)?.frequency ??
-        parsed.frequency) ||
-    draft.onceAt !== onceFromCron(trigger.schedule, trigger.timezone)?.onceAt ||
-    (draft.timezone !== undefined && draft.timezone !== trigger.timezone) ||
-    draft.time !== parsed.time ||
-    draft.dayOfMonth !== parsed.dayOfMonth ||
-    draft.daysOfWeek.join(',') !== parsed.daysOfWeek.join(',');
+  const scheduleChanged = buildScheduleChanged(trigger);
   return {
     name:
       draft.name === previous.name
@@ -186,6 +178,21 @@ export function draftToUpdateBody(
     kind: previous.kind,
     task,
   };
+
+  function buildScheduleChanged(triggerValue: NonNullable<typeof trigger>) {
+    return (
+      draft.frequency !==
+        (onceFromCron(triggerValue.schedule, triggerValue.timezone)
+          ?.frequency ?? parsed.frequency) ||
+      draft.onceAt !==
+        onceFromCron(triggerValue.schedule, triggerValue.timezone)?.onceAt ||
+      (draft.timezone !== undefined &&
+        draft.timezone !== triggerValue.timezone) ||
+      draft.time !== parsed.time ||
+      draft.dayOfMonth !== parsed.dayOfMonth ||
+      draft.daysOfWeek.join(',') !== parsed.daysOfWeek.join(',')
+    );
+  }
 }
 
 export function scheduleToDuplicateBody(
