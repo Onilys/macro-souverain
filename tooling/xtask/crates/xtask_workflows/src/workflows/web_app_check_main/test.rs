@@ -280,6 +280,16 @@ fn web_tooling_changes_do_not_replace_shared_package_biome() {
     let yaml = web_app_check_main().to_string().expect("workflow yaml");
     assert!(yaml.contains("name: Check Web Formatting and Lint"));
     assert!(yaml.contains("run: bun run lint:ci"));
+    let biome = yaml
+        .split("\n  biome-check:\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n  test:").next())
+        .expect("Biome job");
+    let dependencies = biome
+        .find(".github/actions/setup-reqs-web")
+        .expect("install pinned web tooling");
+    let lint = biome.find("run: bun run lint:ci").expect("web lint step");
+    assert!(dependencies < lint);
     let step = yaml
         .split("name: Run Collaboration Package Biome")
         .nth(1)
@@ -297,6 +307,9 @@ fn runtime_cycles_keep_the_original_biome_policy_check() {
         .nth(1)
         .and_then(|rest| rest.split("\n  build:").next())
         .expect("cycles job");
+    let dependencies = cycles
+        .find(".github/actions/setup-reqs-web")
+        .expect("install pinned Knip dependencies");
     let biome = cycles
         .find("--only=suspicious/noImportCycles")
         .expect("Biome cycle check");
@@ -304,6 +317,7 @@ fn runtime_cycles_keep_the_original_biome_policy_check() {
         .find("Knip Runtime Cycles (advisory)")
         .expect("Knip cycle check");
     assert!(biome < knip);
+    assert!(dependencies < biome);
     assert!(cycles.contains("run: bun run cycles"));
 }
 
