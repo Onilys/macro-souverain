@@ -1,0 +1,29 @@
+{
+  "$schema": "../../node_modules/oxfmt/configuration_schema.json",
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 80,
+  "singleQuote": true,
+  "jsxSingleQuote": false,
+  "quoteProps": "as-needed",
+  "trailingComma": "es5",
+  "semi": true,
+  "arrowParens": "always",
+  "bracketSameLine": false,
+  "bracketSpacing": true,
+  "ignorePatterns": [
+    "src/lib/animate/**",
+    "**/*.d.ts",
+    "chrome-extension-vite/**",
+    "infra/web-app/output/**",
+    "scripts/**",
+    ".direnv/**",
+    "src/lib/service-clients/service-storage/graphql/generated/**",
+    "src/lib/filesystem/**",
+    "packages/_app-mobile/**",
+    "wireframe/**",
+    "dist/**",
+    "build/**",
+    "**/node_modules/**"
+  ]
+}

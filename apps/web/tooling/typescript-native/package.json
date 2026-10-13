@@ -1,0 +1,12 @@
+{
+  "name": "@macro-inc/typescript-native",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tsgo": "cli.mjs"
+  },
+  "dependencies": {
+    "typescript": "7.0.2"
+  }
+}

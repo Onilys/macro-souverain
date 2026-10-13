@@ -1,0 +1,17 @@
+{
+  "plugins": ["promise"],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "promise/prefer-await-to-then": "warn",
+    "complexity": "warn"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/generated/**",
+    "**/*.gen.ts",
+    "**/patches/**"
+  ]
+}

@@ -1,28 +1,29 @@
 {
-  // oxlint runs ALONGSIDE Biome, scoped to rules Biome cannot express.
-  // Enforces FE-12 (and eventually FE-13) from docs/STYLE_GUIDE.md.
-  //
-  // Run: bun run lint:oxlint (from the repository root), or `bunx oxlint` from apps/web.
-  //
-  // typescript/no-floating-promises additionally needs type information:
-  // install `bun add -d oxlint oxlint-tsgolint` and run `oxlint --type-aware`
-  // (requires access to the repo's private git dependencies to update the
-  // lockfile, so it is not wired up yet).
+  // First-stage migration: keep Biome's existing correctness/Solid enforcement
+  // until the rule and suppression mapping is complete. New JS-plugin findings
+  // are advisory; enabling the entire Oxlint preset adds thousands of findings.
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
   "plugins": ["promise"],
+  "jsPlugins": ["eslint-plugin-solid", "eslint-plugin-unused-imports"],
   "categories": {
     "correctness": "off"
   },
   "rules": {
     "promise/prefer-await-to-then": "warn",
-    // eslint/complexity — McCabe cyclomatic complexity, default max 20.
-    // https://oxc.rs/docs/guide/usage/linter/rules/eslint/complexity
-    "complexity": "warn"
+    "complexity": "warn",
+    "solid/jsx-uses-vars": "warn",
+    "solid/reactivity": "warn",
+    "solid/no-destructure": "warn",
+    "solid/prefer-for": "warn",
+    "unused-imports/no-unused-imports": "warn"
   },
   "ignorePatterns": [
     "**/node_modules/**",
     "**/dist/**",
     "**/generated/**",
     "**/*.gen.ts",
-    "**/patches/**"
+    "**/patches/**",
+    "scripts/**",
+    "src/lib/filesystem/**"
   ]
 }
