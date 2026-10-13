@@ -77,6 +77,5 @@ Darwin hash, so an unverified cross-generated hash was not substituted.
 
 ## Validation
 
-`bun run test scripts/typescript.test.ts scripts/check-tooling.test.ts` verifies
-compiler isolation, CLI errors, filenames containing spaces, and web-only
-changed-file checks. `tsconfig.tooling.json` type-checks those scripts too.
+`bun run check` validates schemas, native app and tooling-script types,
+formatting, import organization, and the lint compatibility gates.

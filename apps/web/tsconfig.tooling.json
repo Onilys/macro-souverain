@@ -2,9 +2,7 @@
   "extends": "./tsconfig.json",
   "include": [
     "scripts/typescript.ts",
-    "scripts/typescript.test.ts",
-    "scripts/check-tooling.ts",
-    "scripts/check-tooling.test.ts"
+    "scripts/check-tooling.ts"
   ],
   "compilerOptions": {
     "types": ["bun", "node"],
