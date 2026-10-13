@@ -9,6 +9,8 @@ match its name, including databases with no view history.
 
 Creating from Home immediately shows the table selector with its **+** menu, **Database
 actions**, and **AI** in the top bar; no reload is needed to use them.
+A successful create opens its new editor while database discovery refreshes in
+the background; a slow discovery refresh must not delay the new database card.
 Databases open at
 `/app/database/<uuid>`. A database contains tables; records belong to a table and
 its properties describe each record. The database name in the split header is an
