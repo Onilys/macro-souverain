@@ -42,6 +42,7 @@ type DocumentTypeOptionId =
   | 'file-image'
   | 'file-pdf'
   | 'file-docx'
+  | 'file-fig'
   | 'file-video'
   | 'doc-snippet'
   | 'doc-skill'
@@ -113,6 +114,11 @@ const TYPE_OPTIONS: DriveFacetOption[] = [
     (entity) => entity.type === 'document' && entity.fileType === 'docx'
   ),
   typeOption(
+    'file-fig',
+    clause.eq('fileType', 'fig'),
+    (entity) => entity.type === 'document' && entity.fileType === 'fig'
+  ),
+  typeOption(
     'file-video',
     clause.eq('fileAssoc', 'assoc:video'),
     (entity) =>
@@ -133,6 +139,7 @@ const TYPE_OPTIONS: DriveFacetOption[] = [
     'file-other',
     clause.and(
       clause.eq('fileAssoc', 'assoc:other'),
+      clause.not(clause.eq('fileType', 'fig')),
       clause.not(
         clause.or(
           clause.eq('fileAssoc', 'assoc:document'),
@@ -146,7 +153,9 @@ const TYPE_OPTIONS: DriveFacetOption[] = [
 
       const fileType = entity.fileType ?? '';
 
-      if (['md', 'canvas', 'spreadsheet', 'pdf', 'docx'].includes(fileType)) {
+      if (
+        ['md', 'canvas', 'spreadsheet', 'pdf', 'docx', 'fig'].includes(fileType)
+      ) {
         return false;
       }
       if ((codeFileExtensions as readonly string[]).includes(fileType)) {
@@ -174,6 +183,7 @@ const SEARCH_FILE_TYPES: Record<string, readonly string[] | undefined> = {
   'file-image': IMAGE_EXTENSIONS,
   'file-pdf': ['pdf'],
   'file-docx': ['docx'],
+  'file-fig': ['fig'],
   'file-video': VIDEO_EXTENSIONS,
 };
 

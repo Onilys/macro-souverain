@@ -1165,9 +1165,11 @@ A folder's Share dialog, when the owner belongs to a team, has Team access
 Favorites use the same open actions and **Remove from favorites** menu as Tasks.
 The **Filter** menu uses the same controls as Tasks: **Type**, searchable **Tags**,
 and **Created by** submenus alongside **Files** for Default, All files, and Email
-attachments. Options within a group match any selected option; different groups
-combine to narrow the results. Created by is hidden while My Files
-is restricted to your own files. Recent offers only file-scope filtering.
+attachments. Type includes Figma (`.fig`) as its own option, including on
+**Shared with me**; Other no longer matches Figma files. Options within a group
+match any selected option; different groups combine to narrow the results.
+Created by is hidden while My Files is restricted to your own files. Recent
+offers only file-scope filtering.
 Hold Shift while selecting or deselecting Type options to keep the submenu open
 and combine several file types without reopening it. Desktop filter submenus allow a
 250 ms grace period when the mouse crosses the parent menu's padding; entering

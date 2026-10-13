@@ -68,6 +68,17 @@ describe('buildDriveQuery', () => {
     });
   });
 
+  it('filters Shared with me to Figma files', () => {
+    const sharedFig = request({
+      ...selection,
+      location: { kind: 'tab', tab: 'shared' },
+      facets: { type: ['file-fig'] },
+    });
+
+    expect(JSON.stringify(sharedFig.body.df)).toContain('"ft":"fig"');
+    expect(JSON.stringify(sharedFig.body.df)).toContain('"!":{"l":{"o":"me"}}');
+  });
+
   it('keeps shared exclusion when a creator facet is selected', () => {
     const shared = request({
       ...selection,

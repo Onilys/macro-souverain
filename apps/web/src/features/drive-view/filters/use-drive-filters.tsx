@@ -20,6 +20,7 @@ const typeOptions = [
   { id: 'file-image', label: 'Images', type: 'image' },
   { id: 'file-pdf', label: 'PDFs', type: 'pdf' },
   { id: 'file-docx', label: 'DOCX', type: 'write' },
+  { id: 'file-fig', label: 'Figma', type: 'fig' },
   { id: 'file-video', label: 'Videos', type: 'video' },
   { id: 'doc-snippet', label: 'Snippets', type: 'snippet' },
   { id: 'doc-skill', label: 'Skills', type: 'skill' },
