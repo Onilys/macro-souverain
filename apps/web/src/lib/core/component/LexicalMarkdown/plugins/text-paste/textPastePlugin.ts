@@ -1,19 +1,41 @@
 import {
+  type PrRef,
+  prDisplayName,
+  prHtmlUrl,
+  toGithubKey,
+} from '@app/features/block-pr/util/prKey';
+import {
   type BlockAlias,
   BlockAliasRegistry,
   type BlockName,
   BlockRegistry,
 } from '@core/block';
 import { isValidMacroAppHostname } from '@core/util/macroAppUrl';
-import { mergeRegister } from '@lexical/utils';
-import { $createPasteNode, PasteNode } from '@macro-inc/lexical-core';
+import { $isCodeNode } from '@lexical/code';
+import { $createLinkNode, $isLinkNode, LinkNode } from '@lexical/link';
+import { $findMatchingParent, mergeRegister } from '@lexical/utils';
+import {
+  $createPasteNode,
+  $createPullRequestMentionNode,
+  $isCustomCodeNode,
+  HISTORY_MERGE_TAG,
+  PasteNode,
+  PullRequestMentionNode,
+} from '@macro-inc/lexical-core';
+import {
+  fetchPullRequestByGithubKey,
+  getCachedPullRequestByGithubKey,
+} from '@queries/storage/pr-mention';
 import { convertThemev2v3 } from '@theme/utils/themeMigrations';
 import {
   parseThemeV2Json,
   parseThemeV3Json,
 } from '@theme/utils/themeValidation';
 import {
+  $createTextNode,
+  $getNodeByKey,
   $getSelection,
+  $insertNodes,
   $isRangeSelection,
   COMMAND_PRIORITY_HIGH,
   type LexicalEditor,
@@ -129,6 +151,133 @@ export function resolvePastedMacroAppUrl(
   return legacy.isValid ? legacy : resolveAppLink?.(text);
 }
 
+const GITHUB_HOSTNAMES = new Set(['github.com', 'www.github.com']);
+const GITHUB_PR_PATH_PATTERN =
+  /^\/([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)\/pull\/([1-9][0-9]*)(?:\/.*)?$/;
+
+/**
+ * Parse a pasted github.com pull request URL, including its subpages such as
+ * `/files`. Text with anything besides the URL is not a PR link paste.
+ */
+export function parsePastedGithubPrUrl(text: string): PrRef | null {
+  const trimmed = text.trim();
+  if (!trimmed || /\s/.test(trimmed)) return null;
+
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+  if (!GITHUB_HOSTNAMES.has(url.hostname)) return null;
+
+  const match = url.pathname.match(GITHUB_PR_PATH_PATTERN);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2], number: Number(match[3]) };
+}
+
+function $isSelectionInCode(): boolean {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection)) return false;
+  return (
+    $findMatchingParent(
+      selection.anchor.getNode(),
+      (node) => $isCodeNode(node) || $isCustomCodeNode(node)
+    ) !== null
+  );
+}
+
+/**
+ * Insert a pasted GitHub pull request URL as a PR mention. A PR already in the
+ * cache becomes a mention immediately; otherwise the URL is inserted as a link
+ * and upgraded once the lookup finds a synced PR. PRs Macro has not synced
+ * stay links.
+ */
+function $insertPastedGithubPullRequest(
+  editor: LexicalEditor,
+  url: string,
+  ref: PrRef
+) {
+  const githubKey = toGithubKey(ref);
+  const label = prDisplayName(ref);
+  // The canonical URL, not a pasted subpage, so agents reading the mention
+  // get the pull request itself.
+  const prUrl = prHtmlUrl(ref);
+
+  const cached = getCachedPullRequestByGithubKey(githubKey);
+  if (cached) {
+    editor.dispatchCommand(INSERT_PR_MENTION_COMMAND, {
+      id: cached.id,
+      label,
+      url: prUrl,
+    });
+    return;
+  }
+
+  const placeholder = editor.hasNode(LinkNode)
+    ? $createLinkNode(url).append($createTextNode(url))
+    : $createTextNode(url);
+  $insertNodes([placeholder]);
+  const placeholderKey = placeholder.getKey();
+
+  const upgradePlaceholder = async () => {
+    const entity = await fetchPullRequestByGithubKey(githubKey);
+    if (!entity) return;
+    editor.update(
+      () => {
+        const node = $getNodeByKey(placeholderKey);
+        if (!node || !node.isAttached() || node.getTextContent() !== url) {
+          return;
+        }
+        if ($isLinkNode(node) && node.getURL() !== url) return;
+
+        const selection = $getSelection();
+        const caretInPlaceholder =
+          $isRangeSelection(selection) &&
+          selection.isCollapsed() &&
+          (selection.anchor.key === placeholderKey ||
+            node.isParentOf(selection.anchor.getNode()));
+
+        const mention = $createPullRequestMentionNode({
+          id: entity.id,
+          label,
+          url: prUrl,
+        });
+        node.replace(mention);
+        if (caretInPlaceholder) mention.selectEnd();
+      },
+      { tag: HISTORY_MERGE_TAG }
+    );
+  };
+  void upgradePlaceholder();
+}
+
+function $insertLargePlainTextPaste(
+  editor: LexicalEditor,
+  event: ClipboardEvent,
+  pastedText: string
+): boolean {
+  // Defer rich clipboards to their handlers; collapse only genuine plain text.
+  const clipboard = event.clipboardData;
+  const isRichClipboard = Boolean(
+    clipboard?.getData('application/x-lexical-editor') ||
+      clipboard?.getData('text/html')
+  );
+  if (
+    isRichClipboard ||
+    !editor.hasNode(PasteNode) ||
+    pastedText.length <= LARGE_PASTE_CHAR_THRESHOLD
+  ) {
+    return false;
+  }
+  const selection = $getSelection();
+  if ($isRangeSelection(selection) && !selection.isCollapsed()) return false;
+  event.preventDefault();
+  $insertNodesAndSplitList([$createPasteNode({ content: pastedText })]);
+  return true;
+}
+
 function registerTextPastePlugin(
   editor: LexicalEditor,
   resolveAppLink?: MentionLinkResolver
@@ -161,35 +310,28 @@ function registerTextPastePlugin(
             return true;
           }
 
+          const githubPr = parsePastedGithubPrUrl(pastedText);
+          if (githubPr && editor.hasNode(PullRequestMentionNode)) {
+            const selection = $getSelection();
+            if (
+              !$isRangeSelection(selection) ||
+              !selection.isCollapsed() ||
+              $isSelectionInCode()
+            ) {
+              return false;
+            }
+
+            event.preventDefault();
+            $insertPastedGithubPullRequest(editor, pastedText.trim(), githubPr);
+            return true;
+          }
+
           const parsedMacroAppUrl = resolvePastedMacroAppUrl(
             pastedText,
             resolveAppLink
           );
           if (!parsedMacroAppUrl?.id || !parsedMacroAppUrl.block) {
-            // Large plain-text pastes collapse into a block-level PasteNode
-            // (Anthropic-style "pasted" chip). Only handle genuine plain text
-            // pastes: defer to the richer paste handlers for HTML / Lexical
-            // clipboards, and only when the cursor is a collapsed selection.
-            const clipboard = event.clipboardData;
-            const isRichClipboard = Boolean(
-              isRegisterCommandAllowed(clipboard)
-            );
-            if (
-              !isRichClipboard &&
-              editor.hasNode(PasteNode) &&
-              pastedText.length > LARGE_PASTE_CHAR_THRESHOLD
-            ) {
-              const selection = $getSelection();
-              if ($isRangeSelection(selection) && !selection.isCollapsed()) {
-                return false;
-              }
-              event.preventDefault();
-              $insertNodesAndSplitList([
-                $createPasteNode({ content: pastedText }),
-              ]);
-              return true;
-            }
-            return false;
+            return $insertLargePlainTextPaste(editor, event, pastedText);
           }
 
           const selection = $getSelection();
@@ -213,15 +355,6 @@ function registerTextPastePlugin(
           return true;
         }
         return false;
-
-        function isRegisterCommandAllowed(
-          clipboard: DataTransfer | null
-        ): string | undefined {
-          return (
-            clipboard?.getData('application/x-lexical-editor') ||
-            clipboard?.getData('text/html')
-          );
-        }
       },
       COMMAND_PRIORITY_HIGH
     )

@@ -273,6 +273,7 @@ describe('ViewShell aside resize preference', () => {
 function Workspace(props: {
   app: string;
   asideRequired?: boolean;
+  asidePinned?: boolean;
   mounted?: () => void;
 }) {
   function Content() {
@@ -284,6 +285,7 @@ function Workspace(props: {
       <ViewShell.Root
         asidePreferenceKey={props.app}
         asideRequired={props.asideRequired}
+        asidePinned={props.asidePinned}
       >
         <ViewShell.Aside>
           <ViewSidebar.Header>
@@ -392,12 +394,52 @@ it('reopens automatic narrow collapse as a dismissible overlay', () => {
   ).toBeNull();
 });
 
-describe('required navigation', () => {
-  const asideDocked = () =>
-    !document
-      .querySelector('[data-view-shell-aside]')!
-      .parentElement!.classList.contains('hidden');
+const asideDocked = () =>
+  !document
+    .querySelector('[data-view-shell-aside]')!
+    .parentElement!.classList.contains('hidden');
 
+describe('pinned navigation', () => {
+  it('docks wide navigation without a collapse control, even when saved hidden', () => {
+    const unpinned = render(() => <Workspace app="settings" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Hide navigation' }));
+    expect(asideDocked()).toBe(false);
+    unpinned.unmount();
+
+    render(() => <Workspace app="settings" asidePinned />);
+    expect(asideDocked()).toBe(true);
+    expect(
+      screen.queryByRole('button', { name: 'Hide navigation' })
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Show navigation' })
+    ).toBeNull();
+  });
+
+  it('collapses only into the narrow overlay, which starts closed', () => {
+    const [width, setWidth] = createSignal(1000);
+    measurement.width = width;
+    render(() => <Workspace app="settings" asidePinned />);
+
+    setWidth(600);
+    expect(
+      screen.queryByRole('button', { name: 'Close navigation backdrop' })
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide navigation' }));
+    expect(
+      screen.queryByRole('button', { name: 'Close navigation backdrop' })
+    ).toBeNull();
+
+    setWidth(1000);
+    expect(asideDocked()).toBe(true);
+    expect(
+      screen.queryByRole('button', { name: 'Hide navigation' })
+    ).toBeNull();
+  });
+});
+
+describe('required navigation', () => {
   it('docks a hidden wide sidebar without a collapse control until a selection returns', () => {
     const [required, setRequired] = createSignal(false);
     render(() => <Workspace app="channels" asideRequired={required()} />);

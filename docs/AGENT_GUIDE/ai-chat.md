@@ -15,8 +15,11 @@ not establish that the requested action is supported.
 For a suitable unconnected app, the assistant offers **Connect <app>**. Clicking
 it opens the hosted authorization flow over the agent transcript. After the
 backend verifies and registers the connection, the agent session sends a visible
-continuation message in the same conversation. The native Macro runtime refreshes
-the session’s permitted connector tools before the next turn. The unsent draft
+continuation message in the same conversation. Before that message reaches the
+agent, the harness hands the live session its permitted connector servers again
+(a `session/resume`), so the next turn can use the new app. The native Macro
+runtime and sandboxed coding sessions support this; a runtime that cannot resume
+a session picks the app up when it next attaches. The unsent draft
 is preserved. Closing authorization or a failed registration sends no message.
 If the conversation changed or was closed during auth, there is no automatic
 continuation; the connected app remains available for the next request.
@@ -979,6 +982,22 @@ storage and sends their bytes to the model. The provider does not need access to
 the stack's private hostname. This also applies to images in earlier turns when
 resuming a conversation after a service restart.
 
+A long conversation with the in-memory agent stays within its model's context by
+itself. Once it fills 60% of the model's window, a summary of all but the latest
+turns is written in the background, with each image described, and the agent reads
+that summary in place of those turns from then on. The transcript keeps every
+message and shows a "Context compacted" line where the summary landed. The agent
+does not pause to summarize unless the conversation would otherwise not fit its
+model, as after switching to a model with a smaller window, or the message that
+crosses 60% is itself long (a tenth of the window or more), as a large paste is:
+that message waits for the summary so it has room at once. To recover an exact
+detail from the summarized part, the agent runs a **ContentSearch** step scoped to
+its own session. A message that alone takes more than half of the model's
+window is refused with "This message is too long. Split it into smaller messages
+or attach it as a file." `/compact` is an ordinary message to every agent: the
+transcript shows it as sent, followed by the agent's reply; a "Context compacted"
+line appears only when the agent reports a compaction.
+
 Cursor walkthrough files the run re-hosts appear in the transcript after the
 answer: screenshots as images, recordings as video players, and `.txt` / `.log`
 files as an inline `txt` code block (not a download link). Larger or non-UTF-8
@@ -1614,11 +1633,12 @@ choose a vision model or start a conversation without images.
 ## Accelerated model speed
 
 The lightning button beside the model selector enables Ultrafast for GPT-6 Astra
-and GPT-6.1 Sol (6× token pricing), or Fast for Claude Opus 5.5 (2× token pricing).
-Its tooltip shows the mode, state, and usage multiplier before sending. Other
-models keep standard speed. The preference is saved in browser local storage and
-shared by legacy chat and native Macro agent composers. External coding agents
-use their own speed controls.
+and GPT-6.1 Sol (6× token pricing). Its tooltip shows the mode, state, and usage
+multiplier before sending. Claude models, including Opus 5.5, stay on standard
+speed until Anthropic approves fast mode for this account. Other models keep
+standard speed. The preference is saved in browser local storage and shared by
+legacy chat and native Macro agent composers. External coding agents use their
+own speed controls.
 
 Preview the controls at `/app/debug/ui?ui=speed-toggle`.
 Click the bolt and verify its brief scale/rotation animation and highlighted state.

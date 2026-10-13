@@ -1,6 +1,5 @@
-import { useEntitySubscription } from '@queries/connection/tracked-entities';
-import { invalidateDatabase } from '@queries/storage/databases';
 import { useDatabaseTableChangedSync } from '@queries/storage/databases-sync';
+import { useDatabaseSubscription } from './database-subscription';
 
 /**
  * Related tables can live outside the open database; retain their gateway
@@ -11,11 +10,5 @@ export function useRelatedDatabaseSync(
   refreshRows: () => void
 ) {
   useDatabaseTableChangedSync(() => databaseId);
-  useEntitySubscription(
-    () => ({ entity_type: 'database', entity_id: databaseId }),
-    () => {
-      void invalidateDatabase(databaseId);
-      refreshRows();
-    }
-  );
+  useDatabaseSubscription(databaseId, refreshRows);
 }

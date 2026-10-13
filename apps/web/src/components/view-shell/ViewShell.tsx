@@ -144,6 +144,13 @@ export type ViewShellRootProps = Omit<
    * open the overlay, which stays dismissible.
    */
   asideRequired?: boolean;
+  /**
+   * Keep navigation docked in wide layouts, for views that are unusable
+   * without it. Like `asideRequired`, it withholds the collapse control and
+   * ignores the saved preference there; narrow layouts still start with the
+   * overlay closed.
+   */
+  asidePinned?: boolean;
   main?: Partial<MainLayout>;
   detail?: Partial<DetailLayout>;
   /** Controlled detail open state. Omit for uncontrolled. */
@@ -168,6 +175,7 @@ function Root(props: ViewShellRootProps) {
     'aside',
     'asidePreferenceKey',
     'asideRequired',
+    'asidePinned',
     'main',
     'detail',
     'detailOpen',
@@ -252,7 +260,8 @@ function Root(props: ViewShellRootProps) {
   );
   // Only a docked aside can be pinned open: a pinned overlay would hide Main
   // behind a backdrop with no way to dismiss it.
-  const asidePinned = () => asideRequired() && !atLayoutBreakpoint();
+  const asidePinned = () =>
+    (asideRequired() || (local.asidePinned ?? false)) && !atLayoutBreakpoint();
 
   const asideMode = (): AsideMode =>
     local.aside === false ||
@@ -679,7 +688,7 @@ function TopBar(props: JSX.HTMLAttributes<HTMLDivElement>) {
         {...rest}
         ref={mergeRefs(local.ref, tourTarget(VIEW_SHELL_TOUR.topBar))}
         class={cn(
-          '@container/split-header flex h-12 min-w-0 shrink-0 items-center gap-1 px-2 py-3 not-touch:pl-[13px] touch:hidden',
+          '@container/split-header flex h-12 min-w-0 shrink-0 items-center gap-1 px-2 py-3 not-touch:pl-3 touch:hidden',
           local.class
         )}
         data-view-shell-top-bar=""

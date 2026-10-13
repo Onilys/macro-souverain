@@ -58,7 +58,7 @@ either = { version = "1", features = ["serde", "use_std"] }
 elliptic-curve = { version = "0.13", default-features = false, features = ["ecdh", "hazmat", "pem", "std"] }
 event-listener = { version = "5" }
 fastrand = { version = "2" }
-flate2 = { version = "1", features = ["zlib-rs"] }
+flate2 = { version = "1", features = ["zlib", "zlib-rs"] }
 foldhash = { version = "0.2" }
 form_urlencoded = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
@@ -89,6 +89,7 @@ itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-5ef9efb8ec2df382 = { package = "itertools", version = "0.12" }
 lazy_static = { version = "1", default-features = false, features = ["spin_no_std"] }
 libc = { version = "0.2", features = ["extra_traits"] }
+libz-sys = { version = "1", features = ["static"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 mime_guess = { version = "2" }
@@ -211,7 +212,7 @@ either = { version = "1", features = ["serde", "use_std"] }
 elliptic-curve = { version = "0.13", default-features = false, features = ["ecdh", "hazmat", "pem", "std"] }
 event-listener = { version = "5" }
 fastrand = { version = "2" }
-flate2 = { version = "1", features = ["zlib-rs"] }
+flate2 = { version = "1", features = ["zlib", "zlib-rs"] }
 foldhash = { version = "0.2" }
 form_urlencoded = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
@@ -242,6 +243,7 @@ itertools-594e8ee84c453af0 = { package = "itertools", version = "0.13" }
 itertools-5ef9efb8ec2df382 = { package = "itertools", version = "0.12" }
 lazy_static = { version = "1", default-features = false, features = ["spin_no_std"] }
 libc = { version = "0.2", features = ["extra_traits"] }
+libz-sys = { version = "1", features = ["static"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 mime_guess = { version = "2" }

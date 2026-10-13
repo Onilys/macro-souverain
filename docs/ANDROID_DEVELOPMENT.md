@@ -37,7 +37,7 @@ From `apps/web`, using an available frontend port:
 ```sh
 PORT=3004 just android-dev
 just android-build --debug --apk true --aab false
-just android-build --apk true --aab true
+just android-build --apk false --aab true
 ```
 
 Development uses the deployed **dev** backend, builds required WebAssembly assets,
@@ -110,7 +110,7 @@ normal debug certificate. No signing secrets belong in Gradle source or logs.
 For local qualification of the embedded frontend, disable OTA updates:
 
 ```sh
-just android-build --apk true --aab true -- --no-default-features
+just android-build --apk true --aab false -- --no-default-features
 ```
 
 This still uses production services/Firebase, release optimization, and R8.
@@ -128,17 +128,30 @@ The upload certificate identifies locally signed artifacts. When Google creates
 the Play App Signing key, Play-delivered APKs use that separate certificate; add
 its fingerprint to production associations before testing Play-installed links.
 
-### Production release APKs
+### Production release artifacts
 
-`.github/workflows/release-production.yml` builds an ARM64 signed APK alongside
-each production deployment, from the release commit. It uses production services,
-the pinned production Firebase config, and the normal OTA-enabled release build.
+`.github/workflows/release-production.yml` builds an ARM64 signed AAB from the
+release commit only when `apps/web/tauri/` differs from the closest ancestor
+release with a complete AAB, R8 mapping, and checksums. The first release without
+such a baseline builds an AAB. Frontend-only releases skip native builds and Play
+uploads; their app updates use the bundle updater. The comparison covers the
+entire Tauri directory, including Android, iOS, Rust, and native config files.
+Changes outside that directory do not trigger a native release. If an external
+dependency or build-script change needs a new binary, bump the native version code
+in the Tauri directory as part of that change.
+
+Failed/incomplete artifact uploads do not advance the baseline. A rerun whose
+release already has complete artifacts skips rebuilding; retry a failed Play
+upload through the publishing workflow after checking Console.
+
+The native build uses production services, the pinned production Firebase config,
+and the normal OTA-enabled release build.
 The GitHub Actions `ANDROID_RELEASE_DOPPLER_TOKEN` secret must have read access to
 `android-release/prd`, including both the signing JSON and pinned Firebase secret.
 CI passes this dedicated read-only service token as `DOPPLER_TOKEN` only during
 configuration retrieval. Signing files live in the runner's temporary directory
-and are removed even when the build fails. Only APK/checksum files are attached
-to the release; the separate `android-build-log` Actions artifact is retained for
+and are removed even when the build fails. Only AAB, R8 mapping, and checksum
+files are attached to the release; the separate `android-build-log` Actions artifact is retained for
 seven days, including on failed builds.
 
 Android's native release identity lives in
@@ -149,8 +162,8 @@ counter. Local Tauri builds and CI use the same values. Release tags may be
 identify source and artifact filenames, and do not determine either Android
 version field.
 
-The first release using this counter is build **1**. Before each subsequent
-native release (including a new binary with the same marketing version), run
+Build **1** was the manual Play bootstrap bundle. The next native release uses
+build **2**. Before each subsequent native release (including a new binary with the same marketing version), run
 from `apps/web`:
 
 ```sh
@@ -159,6 +172,8 @@ just android-bump
 
 Commit the changed config before tagging the release. This increments only
 `versionCode`; edit `version` separately when changing the marketing version.
+CI rejects native changes whose code is not greater than the last published AAB
+baseline. No version bump is needed for frontend-only bundle updates.
 Builds never increment the counter implicitly, so retries of the same release
 retain its identity. Never distribute different releases with the same code or
 reuse a code already uploaded to Google Play. Keep the signing key for upgrades.
@@ -180,15 +195,17 @@ so retire them rather than relying on it to exclude those test installs.
 When moving to Google Play, keep this same counter for AAB builds across all
 tracks (internal testing, closed testing, and production). Promote the same
 uploaded artifact between tracks; allocate a new code for a new binary. The
-existing `just android-build --aab` path uses the same Tauri config. The workflow
-below still publishes APKs; Play upload, signing enrollment, and track promotion
-are a separate setup. Use [Play App Signing](https://developer.android.com/studio/publish/app-signing) and preserve its app-signing key once
+existing `just android-build --apk false --aab true` path uses the same Tauri config.
+CI builds only the AAB; the Google Play workflow below uploads it to internal testing. Use
+[Play App Signing](https://developer.android.com/studio/publish/app-signing) and
+preserve its app-signing key once
 Play distribution starts; the upload key and installed-app signing key are
 separate roles.
 
-Before upload, CI verifies the signing certificate, package/version, ARM64 ABI,
-non-debuggable manifest, and 16 KiB ZIP alignment. Publishing waits for the web,
-cloud-storage, sync-service, and AI editing worker deployments. Android failures
+Before publishing artifacts, CI verifies the signing certificate, package/version,
+ARM64 ABI, and non-debuggable manifest, and checks the AAB structure
+with a checksum-pinned bundletool. Publishing
+waits for the web, cloud-storage, sync-service, and AI editing worker deployments. Android failures
 fail their job without blocking web/backend rollout. CI verification does not
 replace the device qualification described above.
 
@@ -196,8 +213,10 @@ To recover an Android artifact without redeploying production, manually run
 `release-production.yml` with `release_tag` set to an existing published
 production release. The source is checked out from that tag; web/backend jobs
 are skipped. `publish_android` defaults to false so the first run can validate
-the build and leave the APK in the `android-release` Actions artifact. Set it to
-true to attach the verified APK and checksum to the selected release:
+the build and leave the files in the `android-release` Actions artifact. Set it to
+true to attach the verified artifacts and checksums to the selected release.
+This explicit recovery path bypasses change detection and does not automatically
+upload to Play:
 
 ```sh
 gh workflow run release-production.yml --ref main -f release_tag=v2026.9.30.0 -f publish_android=true
@@ -208,12 +227,214 @@ cache mount. Do not invoke the shared `teardown-nix` cache-volume action there:
 its `fuser -km /nix` can kill the runner when `/nix` is on the root filesystem,
 preventing GitHub from receiving the build logs. Let the hosted VM be discarded.
 
-The public GitHub release receives `macro-<tag>-android-arm64.apk` and
-`macro-<tag>-android-arm64.apk.sha256`. Share the APK's release download link;
-recipients do not need GitHub access. They open the downloaded APK and allow
-installation from that browser/file manager when Android prompts. Subsequent
-APKs install as updates when the certificate matches and the version increases.
-Play Store migration must preserve app-signing compatibility with these APKs.
+The public GitHub release receives `macro-<tag>-android-arm64.aab`,
+`macro-<tag>-android-arm64-mapping.txt`, and a `.sha256` checksum for each.
+Release CI does not build or attach APKs. Testers install through Google Play's
+internal testing track after the bundle is uploaded; an AAB cannot be installed
+directly on a device.
+
+### Google Play publishing
+
+`.github/workflows/publish-android-play.yml` runs from `main`. After a native
+release has passed verification, completed backend/web rollout, and attached its
+artifacts to GitHub, the production release workflow dispatches it automatically
+with `operation=upload-internal` and `status=completed`. Testers receive the new
+version subject to Google Play checks. Frontend-only releases do not dispatch it.
+The separate workflow result reports whether the Play upload succeeded; queuing
+it does not mean Play has accepted the release. Manual upload remains available
+for recovery and Console-review drafts.
+It downloads the verified AAB and R8 mapping from a published GitHub release,
+checks their checksums, authenticates with short-lived Google credentials, and
+uploads to the **internal testing** track for `com.macro.workspace.mobile`.
+Its separate `promote-production` operation submits an existing tested version
+for a full production rollout without rebuilding or uploading the binary again.
+All Play edits use one concurrency group, including uploads and promotions.
+Production promotion remains manual, after device qualification of the
+Play-installed internal build. The dispatcher runs the publishing workflow on
+`main` so the existing Google OIDC restrictions remain valid; its GitHub token
+has `actions: write` for the workflow dispatch.
+
+#### First bundle (one time)
+
+The Play app must already exist, and its first AAB must be uploaded manually
+before the publishing API can find the package. See the
+[upload action's setup guide](https://github.com/r0adkll/upload-google-play#faq).
+
+1. Merge the AAB build changes, then publish a release containing them. Recovery
+   builds check out the selected release tag, so a tag predating
+   `scripts/android-bundle.ts` cannot use the new verification step. For an older
+   release, build the AAB locally from the intended source and verify it
+   using the release signing procedure above.
+2. Download `macro-<tag>-android-arm64.aab` and its checksum from the release (or
+   from the `android-release` Actions artifact for a build-only run). Verify the
+   checksum before upload.
+3. In Play Console, open Macro → **Testing → Internal testing**, create a release,
+   and enroll in [Play App Signing](https://developer.android.com/studio/publish/app-signing).
+   Decide the installed-app signing key before enrollment: a Google-generated
+   signing key differs from the existing sideloaded APK certificate. Updating
+   those installs in place requires preserving their signing identity. The
+   existing Doppler key remains the upload key; do not replace it for CI.
+4. Upload the AAB, add release notes and testers, and complete the Console's
+   required app setup. Save a draft or roll out to internal testers as permitted
+   by the app's current state. The API cannot complete account agreements or
+   app-content declarations for you.
+5. Add the **Play app-signing** SHA-256 certificate to Firebase and the production
+   App Links associations below. Test an installation from the Play opt-in link,
+   including sign-in, notifications, links, and upgrades.
+
+The first manual upload consumes its version code. For the next binary, run
+`just android-bump` in `apps/web` and commit before tagging. Do not upload the
+bootstrap bundle again through CI.
+
+#### Keyless publishing credentials (one time)
+
+Use [Workload Identity Federation through a service account](https://github.com/google-github-actions/auth#workload-identity-federation-through-a-service-account).
+The workflow uses GitHub's OIDC identity, so no Google JSON private key is needed
+in GitHub or Doppler. The existing Doppler token still supplies Android build
+signing and Firebase configuration.
+
+In Google Cloud project `macro-435922`, enable `androidpublisher.googleapis.com`,
+`iamcredentials.googleapis.com`, and `sts.googleapis.com`. Create a dedicated
+service account named `google-play-publisher`. It does not need a broad
+Google Cloud project role. In **Play Console → Users and permissions**, invite
+its email and grant app access only to `com.macro.workspace.mobile`, with
+**View app information (read-only)**, **Release apps to testing tracks**, and
+**Release to production, exclude devices, and use Play App Signing**. The last
+permission is required for production promotion. No account-wide or billing
+permissions are needed. See
+[Google's API access instructions](https://developers.google.com/android-publisher/getting_started).
+
+Create a GitHub Actions workload identity pool/provider. Map:
+
+```text
+google.subject=assertion.sub
+attribute.repository_id=assertion.repository_id
+```
+
+Use issuer `https://token.actions.githubusercontent.com`. Restrict the provider's
+attribute condition to the numeric repository and owner IDs (available from
+`gh api repos/macro-inc/macro --jq '{repository: .id, owner: .owner.id}'`), the
+publishing workflow on `main`, and its branch identity:
+
+```text
+assertion.repository_id == '1092407718' &&
+assertion.repository_owner_id == '65687018' &&
+assertion.workflow_ref == 'macro-inc/macro/.github/workflows/publish-android-play.yml@refs/heads/main' &&
+assertion.sub == 'repo:macro-inc/macro:ref:refs/heads/main'
+```
+
+On the publishing service account, grant `roles/iam.workloadIdentityUser` to:
+
+```text
+principalSet://iam.googleapis.com/projects/1024168288732/locations/global/workloadIdentityPools/github-play/attribute.repository_id/1092407718
+```
+
+In GitHub → Settings → Secrets and variables → Actions → Variables, add these
+**repository variables**, which contain identifiers, not secrets. The workflow
+checks its branch, and the Google provider independently enforces both the branch
+and workflow identity:
+
+| Variable | Value |
+| --- | --- |
+| `GOOGLE_PLAY_WORKLOAD_IDENTITY_PROVIDER` | `projects/1024168288732/locations/global/workloadIdentityPools/github-play/providers/macro` |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` | `google-play-publisher@macro-435922.iam.gserviceaccount.com` |
+
+For a project administrator completing the initial identity setup, these are the
+commands for this repository (the publishing service account and required APIs
+have already been created/enabled). Pool creation requires
+`roles/iam.workloadIdentityPoolAdmin`; binding the service account also requires
+permission to update that account's IAM policy. These commands create the pool
+and provider once; inspect existing resources before rerunning them.
+
+```sh
+gcloud iam workload-identity-pools create github-play \
+  --project=macro-435922 --location=global \
+  --display-name='GitHub Play publishing'
+
+gcloud iam workload-identity-pools providers create-oidc macro \
+  --project=macro-435922 --location=global \
+  --workload-identity-pool=github-play \
+  --issuer-uri=https://token.actions.githubusercontent.com \
+  --attribute-mapping='google.subject=assertion.sub,attribute.repository_id=assertion.repository_id' \
+  --attribute-condition="assertion.repository_id == '1092407718' && assertion.repository_owner_id == '65687018' && assertion.workflow_ref == 'macro-inc/macro/.github/workflows/publish-android-play.yml@refs/heads/main' && assertion.sub == 'repo:macro-inc/macro:ref:refs/heads/main'"
+
+gcloud iam service-accounts add-iam-policy-binding \
+  google-play-publisher@macro-435922.iam.gserviceaccount.com \
+  --project=macro-435922 --role=roles/iam.workloadIdentityUser \
+  --member='principalSet://iam.googleapis.com/projects/1024168288732/locations/global/workloadIdentityPools/github-play/attribute.repository_id/1092407718'
+```
+
+After those succeed, configure the repository variables:
+
+```sh
+gh variable set GOOGLE_PLAY_WORKLOAD_IDENTITY_PROVIDER --repo macro-inc/macro \
+  --body projects/1024168288732/locations/global/workloadIdentityPools/github-play/providers/macro
+gh variable set GOOGLE_PLAY_SERVICE_ACCOUNT --repo macro-inc/macro \
+  --body google-play-publisher@macro-435922.iam.gserviceaccount.com
+```
+
+#### Routine upload and recovery
+
+After the first manual upload and credentials setup, native production releases
+automatically upload to internal testing with `status=completed`. For a manual
+upload or retry, select **Publish Android to Google Play** in Actions, run from
+`main`, select `operation=upload-internal`, and supply a published release tag
+that contains Android artifacts.
+`status=draft` (the default) saves a release for Console review. Select
+`status=completed` to release to internal testers, subject to Play's checks:
+
+```sh
+gh workflow run publish-android-play.yml --ref main \
+  -f operation=upload-internal -f release_tag=v2026.10.9 -f status=completed
+```
+
+If Play specifically requires manual review submission, set
+`changes_not_sent_for_review=true`, then submit in Console. This input does not
+bypass review or make a draft available to testers.
+
+If a run fails, inspect Console before retrying: a completed upload may already
+have consumed the version code. Complete or promote an existing draft there
+instead of re-uploading it to change status. A new binary needs a new code. Avoid
+editing the same app in Console while a CI upload is in progress; committing
+another edit invalidates the upload's pending edit. Missing AAB or mapping assets
+must be recovered with the build workflow before publishing.
+
+#### Promote a tested version to production
+
+After qualifying the Play-installed internal build, manually run the same
+**Publish Android to Google Play** workflow from `main` with
+`operation=promote-production` and its exact Android `version_code`. Use the code
+shown in Play Console; this is not the release tag or marketing version. Leave
+`release_tag` empty; `status` applies only to internal uploads.
+
+```sh
+gh workflow run publish-android-play.yml --ref main \
+  -f operation=promote-production -f version_code=7
+```
+
+The promotion script requires that exact version to be a completed, single-version
+release currently active in `internal`. It copies its release name, notes, and
+update priority into a `completed` production release, validates the edit, and
+commits it. This requests a **full rollout**; Google review, production eligibility,
+and managed publishing still apply. It does not change the internal track or
+upload another AAB. See the [Google Play track API](https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks).
+
+The workflow refuses to replace a draft, staged, or halted production release,
+and refuses to promote a version older than production. Resolve those states in
+Play Console first. Repeating an already-completed promotion is a no-op, provided
+that version is still active in internal testing. A newer internal release can
+replace the earlier one, so qualify and promote a candidate before uploading the
+next candidate. Staged rollouts and their progress are managed in Console.
+
+`changes_not_sent_for_review=true` also applies to promotion if Play requires
+manual review submission. Check Console after any ambiguous API failure before
+retrying. Failed or no-op attempts discard their pending edit when possible;
+commits are never automatically retried. The workflow summary reports submission,
+not confirmation that the release is already available to users.
+
+Promotion remains a separate manual action; building a GitHub release or uploading
+to internal testing never triggers production promotion. It uses the existing
+workflow identity, so no Google identity-provider changes are required.
 
 ## Firebase
 
@@ -268,7 +489,7 @@ the build before Cargo starts. Existing local config files are not a fallback:
 they cannot silently change which Firebase configuration a commit builds with.
 The config is fetched on each invocation, so the default path requires network
 access. The lock file pins Firebase configuration, not every input needed for
-byte-identical APKs; the toolchain, dependencies, frontend configuration, and
+byte-identical Android artifacts; the toolchain, dependencies, frontend configuration, and
 release signing must also be supplied consistently.
 
 For CI, install the Doppler CLI and provide a read-only Doppler service token for

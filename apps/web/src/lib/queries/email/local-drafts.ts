@@ -6,6 +6,7 @@ import type {
 } from '@app/features/email-compose/core/local-draft';
 import type { DraftFormAttachment } from '@app/features/email-compose/primitives/email-form-state';
 import type { EmailMessage } from '@app/features/email-message/core/email-message';
+import { analytics } from '@app/lib/analytics';
 import { getNativeStagedUpload } from '@core/mobile/nativeStagedUpload';
 import type { NormalizedCacheExchangeOptions } from '@graphql-cache/exchange/normalized-cache-exchange';
 import type { CacheHost } from '@graphql-cache/host/types';
@@ -19,7 +20,18 @@ import type { UserInfoData } from '../auth/user-info';
 import { queryClient } from '../client';
 import { createLocalDraftStore } from './local-draft-store';
 
-export const localDraftStore = createLocalDraftStore();
+export const localDraftStore = createLocalDraftStore(undefined, (event) => {
+  const context = {
+    storage: 'email-working-copies',
+    visibility: document.visibilityState,
+    online: navigator.onLine,
+  };
+  if (event.type === 'failed') {
+    analytics.posthog.captureException(event.error, context);
+  } else {
+    analytics.track('email_draft_storage_' + event.type, context);
+  }
+});
 const fileIds = new WeakMap<File, string>();
 const fileCopies = new WeakMap<File, Promise<Blob>>();
 const pendingWrites = new Set<Promise<LocalDraft>>();

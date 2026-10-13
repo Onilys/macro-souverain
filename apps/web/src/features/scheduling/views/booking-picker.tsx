@@ -13,7 +13,12 @@ import {
   TextInput,
   TimeZoneInput,
 } from '../components/fields';
-import type { BookingReceipt, PublicEvent, PublicProfile } from '../core/types';
+import {
+  type BookingReceipt,
+  meetingPlaceLabel,
+  type PublicEvent,
+  type PublicProfile,
+} from '../core/types';
 import {
   type BookingSource,
   createBookingFlow,
@@ -118,9 +123,7 @@ export function BookingPicker(props: {
           <p class="text-sm text-ink-muted">{props.profile.name}</p>
           <h2 class="mt-3 text-2xl font-semibold">{event().title}</h2>
           <p class="mt-5 text-sm">◷ {event().durationMinutes} minutes</p>
-          <p class="mt-3 text-sm">
-            {event().googleMeet ? 'Google Meet' : event().location || 'Meeting'}
-          </p>
+          <p class="mt-3 text-sm">{meetingPlaceLabel(event())}</p>
           <p class="mt-5 whitespace-pre-wrap text-sm leading-relaxed text-ink-muted">
             {event().description}
           </p>

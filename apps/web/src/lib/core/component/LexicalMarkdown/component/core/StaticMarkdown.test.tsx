@@ -17,6 +17,12 @@ vi.mock('../decorator/AgentSessionMention', () => ({
   },
 }));
 
+vi.mock('../decorator/PullRequestMention', () => ({
+  PullRequestMention: (props: { id: string; url?: string; label?: string }) => (
+    <span data-pr-chip={props.id || props.url}>{props.label}</span>
+  ),
+}));
+
 vi.mock('@service-connection/websocket', () => ({
   ws: { send() {}, addEventListener() {}, removeEventListener() {} },
   state: () => 'closed',
@@ -160,6 +166,33 @@ describe('static agent session previews', () => {
       preview
     );
     expect(agentPreview.mounted).toHaveBeenCalledTimes(mounts);
+    rendered.unmount();
+  });
+});
+
+describe('static pull request mentions', () => {
+  it.each([
+    [
+      'a Macro id',
+      '<m-pr-mention>{"id":"foreign-1","label":"macro-inc/macro#7956"}</m-pr-mention>',
+      'foreign-1',
+    ],
+    [
+      'a GitHub URL',
+      '<m-pr-mention>{"url":"https://github.com/macro-inc/macro/pull/7956","label":""}</m-pr-mention>',
+      'https://github.com/macro-inc/macro/pull/7956',
+    ],
+  ])('renders a PR chip from %s', (_, markdown, target) => {
+    const rendered = render(() => (
+      <StaticMarkdownContext>
+        <StaticMarkdown markdown={markdown} target="internal" lazy={false} />
+      </StaticMarkdownContext>
+    ));
+    expect(
+      rendered.container
+        .querySelector('[data-pr-chip]')
+        ?.getAttribute('data-pr-chip')
+    ).toBe(target);
     rendered.unmount();
   });
 });

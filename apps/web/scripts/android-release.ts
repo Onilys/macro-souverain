@@ -43,7 +43,7 @@ export function androidReleaseMetadata(tag: string, config: unknown) {
   return {
     version: release.version,
     versionCode: release.bundle.android.versionCode,
-    filename: `macro-${tag}-android-arm64.apk`,
+    filename: `macro-${tag}-android-arm64.aab`,
   };
 }
 

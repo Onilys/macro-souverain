@@ -81,6 +81,8 @@ tests do not verify real invitations, OAuth, or Meet creation.
   timestamp, partial recovery index, and bounded per-profile request budgets.
 - Leave the production PostHog flag `enable-calendar-scheduling` disabled until the
   connected-account checks below pass. An absent flag is also off in production.
+  A flag request that gets no answer (blocked, offline, or a PostHog outage) leaves
+  public booking pages available; only an answer of "off" hides them.
   Scheduling is on by default in dev; set `VITE_ENABLE_CALENDAR_SCHEDULING=false`
   to test the disabled state locally. The flag gates the Calendar settings tab,
   calendar booking shortcuts, and public booking/receipt pages before their queries mount.

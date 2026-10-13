@@ -37,7 +37,6 @@ import {
   enableCalendarScheduling,
   enableChatV3Agents,
   enableCrm,
-  enableNotificationSettings,
 } from './featureFlags';
 import { PERMISSION_IDS } from './permissions';
 import type { SettingsTab } from './SettingsState';
@@ -292,7 +291,6 @@ export const useSettingsTabAvailable = () => {
   const chatV3AgentsFlag = useFeatureFlag(enableChatV3Agents);
   const crmFlag = useFeatureFlag(enableCrm);
   const desktopAppFlag = useFeatureFlag(desktopApp);
-  const notificationSettingsFlag = useFeatureFlag(enableNotificationSettings);
   const hasAdminPanel = useHasPermission(PERMISSION_IDS.WRITE_ADMIN_PANEL);
 
   return (tab: SettingsTab): boolean =>
@@ -300,6 +298,7 @@ export const useSettingsTabAvailable = () => {
       .with(
         'Appearance',
         'Account',
+        'Notifications',
         'Usage',
         'Billing',
         'Team',
@@ -313,7 +312,6 @@ export const useSettingsTabAvailable = () => {
       // Issuing and copying a key is desk work, and the mobile sheet has no
       // good place for a one-time secret.
       .with('API Keys', () => !isMobile())
-      .with('Notifications', () => notificationSettingsFlag().enabled)
       // Keep CRM settings behind the same gate as other CRM surfaces.
       .with('CRM', () => crmFlag().enabled)
       .with('Shortcuts', () => !isTouchDevice())

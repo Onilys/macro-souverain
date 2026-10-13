@@ -1787,9 +1787,12 @@ export const storageServiceClient = {
   }: {
     id: string;
   }): Promise<Result<ForeignEntity, ResultError<FetchWithTokenErrorCode>[]>> {
-    return await dssFetch<ForeignEntity>(`/foreign_entity/${id}`, {
-      method: 'GET',
-    });
+    return await dssFetch<ForeignEntity>(
+      `/foreign_entity/${encodeURIComponent(id)}`,
+      {
+        method: 'GET',
+      }
+    );
   },
 
   /**
