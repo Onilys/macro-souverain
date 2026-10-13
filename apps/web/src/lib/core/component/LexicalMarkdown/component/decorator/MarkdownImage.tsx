@@ -390,9 +390,13 @@ export function MarkdownImage(props: ImageDecoratorProps) {
 
         <Show when={state() === 'loading'}>
           <Show
-            when={effectiveDims()[0] > 0}
+            when={effectiveDims()[0] > 0 && props.width && props.height}
             fallback={
-              <MediaLoadingPlaceholder kind="image" label={props.alt} />
+              <MediaLoadingPlaceholder
+                kind="image"
+                label={props.alt}
+                fill={effectiveDims()[0] > 0}
+              />
             }
           >
             <div class="absolute top-0 left-0 size-full flex flex-col justify-center items-center gap-2 text-ink-extra-muted bg-hover/50">

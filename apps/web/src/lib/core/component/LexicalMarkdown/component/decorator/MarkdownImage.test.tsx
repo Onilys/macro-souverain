@@ -72,12 +72,15 @@ describe('markdown media loading', () => {
       });
       vi.advanceTimersByTime(100);
 
-      expect(frame.querySelector('[data-media-loading]')).toBeNull();
+      const card = frame.querySelector('[data-media-loading]')!;
+      expect(card.className).toContain('absolute inset-0');
+      expect(card.className).not.toContain('aspect-video');
       expect(frame.style.aspectRatio).toBe('1.6');
       expect(frame.style.width).toBe('100%');
       const loadingStyle = frame.getAttribute('style');
       fireEvent.load(image);
       expect(frame.getAttribute('style')).toBe(loadingStyle);
+      expect(frame.querySelector('[data-media-loading]')).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -101,8 +104,10 @@ describe('markdown media loading', () => {
       <MarkdownImage {...unsetMedia} key="second" url={url} alt="remount.png" />
     ));
     const frame = second.container.querySelector('img')!.parentElement!;
-    expect(frame.querySelector('[data-media-loading]')).toBeNull();
     expect(frame.getAttribute('style')).toBe(loadedStyle);
+    expect(
+      frame.querySelector('[data-media-loading]')!.className
+    ).not.toContain('aspect-video');
   });
 
   it('keeps known dimensions on load and failure, including short images', () => {
