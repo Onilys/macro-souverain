@@ -1326,7 +1326,7 @@ describe("another writer's change", () => {
       }),
     } satisfies Pick<
       CacheHost,
-      'onCacheChanged' | 'entityFilter' | 'readRecordsByKeys'
+      'onCacheChanged' | 'entityFilter' | 'readRecordsByKeys' | 'readQuery'
     >;
     const since = vi.fn((_version: number) =>
       okAsync({
