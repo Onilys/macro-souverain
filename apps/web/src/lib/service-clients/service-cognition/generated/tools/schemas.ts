@@ -9297,6 +9297,8 @@ export const ListEntities = z.object({
       z.null(),
     ])
     .optional(),
+  fileTypes: z.union([z.array(z.string()), z.null()]).optional(),
+  sharedWithMe: z.boolean().optional(),
   favoritesOnly: z.boolean().optional(),
   sortBy: z
     .any()

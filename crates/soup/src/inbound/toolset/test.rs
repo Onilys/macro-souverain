@@ -95,7 +95,57 @@ fn test_macro_task_completed_assigned_to_me_filter_deserializes() {
 fn test_default_values() {
     let list = ListEntities::default();
     assert!(list.include_types.is_none());
+    assert!(!list.shared_with_me);
+    assert!(list.file_types.is_none());
     assert!(matches!(list.sort_by, SortBy::RecentlyUpdated));
+}
+
+#[test]
+fn test_list_entities_schema_guides_shared_figma_files() {
+    let validated = generate_validated_input_schema::<ListEntities>().unwrap();
+    let schema_json = serde_json::to_string(&validated.schema).unwrap();
+    let description = &validated.description;
+
+    assert!(
+        description.contains("figma") || schema_json.contains("figma"),
+        "schema should tell agents that figma is a file type alias"
+    );
+    assert!(
+        schema_json.contains("sharedWithMe") || description.contains("sharedWithMe"),
+        "schema should expose sharedWithMe for Drive Shared with me"
+    );
+}
+
+#[test]
+fn test_figma_files_shared_with_me_filter() {
+    let list: ListEntities = serde_json::from_value(serde_json::json!({
+        "fileTypes": ["figma"],
+        "sharedWithMe": true
+    }))
+    .unwrap();
+
+    let viewer = model_owner::Owner::from_principal_str("macro|seamus@macro.com").unwrap();
+    let ast = list.entity_filter_ast_for(None, Some(&viewer)).unwrap();
+    let json = serde_json::to_string(&ast.document_filter).unwrap();
+
+    assert_eq!(
+        list.effective_include_types(),
+        Some(vec![ItemType::Document])
+    );
+    assert!(json.contains("\"ft\":\"fig\""));
+    assert!(json.contains("\"!\""));
+    assert!(json.contains("macro|seamus@macro.com"));
+}
+
+#[test]
+fn test_unknown_file_type_fails_loudly() {
+    let list: ListEntities = serde_json::from_value(serde_json::json!({
+        "fileTypes": ["not-a-real-type"]
+    }))
+    .unwrap();
+
+    let error = list.entity_filter_ast_for(None, None).unwrap_err();
+    assert!(error.contains("not-a-real-type"));
 }
 
 #[test]

@@ -20,13 +20,14 @@ use item_filters::{
         channel::{ChannelLiteral, ChannelThreadLiteral},
         chat::ChatLiteral,
         crm_company::CrmCompanyLiteral,
-        document::DocumentLiteral,
+        document::{self, DocumentLiteral},
         email::EmailLiteral,
         foreign_entity::ForeignEntityLiteral,
         project::ProjectLiteral,
         properties::{PropertiesLiteral, PropertyMatchValue},
     },
 };
+use model_owner::Owner;
 use models_pagination::{SimpleSortMethod, TypeEraseCursor};
 use models_properties::DataType;
 use models_properties::service::property_value::PropertyValue;
@@ -393,7 +394,7 @@ pub struct ListEntitiesResponse {
 #[serde(rename_all = "camelCase")]
 #[schemars(
     title = "ListEntities",
-    description = "Browse the user's Macro workspace to see recent items they have access to. Returns Macro documents, AI conversations, projects, emails, chat channels, call records, and foreign entities. Use this to get an overview of what the user has been working on or to find items by type. Start here for activity-summary questions such as \"what happened today\", \"what's going on\", \"catch me up\", or \"what happened in standup today\"; apply precise time, type, channel, or mailbox filters when the user gives that scope. For Macro task requests such as \"list my tasks\", \"tasks assigned to me\", or \"tasks I completed yesterday\", prefer this tool over external task trackers such as Linear unless the user explicitly asks for Linear. Macro tasks are document items with df subtype {\"l\":{\"dst\":\"task\"}} and includeTypes [\"document\"]. Filter task Status and Assignees through propf using entity_type TASK: Status property 00000001-0000-0000-0000-000000000002, Completed option 00000001-0000-0000-0002-000000000004, Assignees property 00000001-0000-0000-0000-000000000001. The current user's assignee entity id is their Macro user id, usually macro|<their email address from context>. For \"completed yesterday\", combine status Completed, assigned-to-me, and a df updatedAt yesterday window with ua gte/lt ISO timestamps. Returned documents, AI chats, projects, emails, and call records include the tags visible to the user as {label, scope} pairs. To filter by tag (e.g. \"my items tagged bug-report\"), pass the tag labels in the tags argument — ListTags shows which tags exist. For finding specific items by name or content, use the search tool instead."
+    description = "Browse the user's Macro workspace to see recent items they have access to. Returns Macro documents, AI conversations, projects, emails, chat channels, call records, and foreign entities. Use this to get an overview of what the user has been working on or to find items by type. Start here for activity-summary questions such as \"what happened today\", \"what's going on\", \"catch me up\", or \"what happened in standup today\"; apply precise time, type, channel, or mailbox filters when the user gives that scope. For files shared with the user (Drive's Shared with me), set sharedWithMe=true. For a file type such as Figma, pass fileTypes: [\"fig\"] or [\"figma\"]. \"Find Figma files shared with me\" is includeTypes [\"document\"], fileTypes [\"figma\"], sharedWithMe true — do not hand-build a df owner/file-type tree for that request. For Macro task requests such as \"list my tasks\", \"tasks assigned to me\", or \"tasks I completed yesterday\", prefer this tool over external task trackers such as Linear unless the user explicitly asks for Linear. Macro tasks are document items with df subtype {\"l\":{\"dst\":\"task\"}} and includeTypes [\"document\"]. Filter task Status and Assignees through propf using entity_type TASK: Status property 00000001-0000-0000-0000-000000000002, Completed option 00000001-0000-0000-0002-000000000004, Assignees property 00000001-0000-0000-0000-000000000001. The current user's assignee entity id is their Macro user id, usually macro|<their email address from context>. For \"completed yesterday\", combine status Completed, assigned-to-me, and a df updatedAt yesterday window with ua gte/lt ISO timestamps. Returned documents, AI chats, projects, emails, and call records include the tags visible to the user as {label, scope} pairs. To filter by tag (e.g. \"my items tagged bug-report\"), pass the tag labels in the tags argument — ListTags shows which tags exist. For finding specific items by name or content, use the search tool instead."
 )]
 pub struct ListEntities {
     /// Filter returned items to specific item types.
@@ -402,6 +403,20 @@ pub struct ListEntities {
     )]
     #[serde(default)]
     pub include_types: Option<Vec<ItemType>>,
+
+    /// Restrict documents to these file types.
+    #[schemars(
+        description = "Restrict document results to these file types. Accepts extensions (fig, pdf, md, docx) and common aliases (figma → fig). Multiple values match any of them. Defaults includeTypes to document when omitted. Use with sharedWithMe for Drive's Shared with me, e.g. fileTypes: [\"figma\"], sharedWithMe: true."
+    )]
+    #[serde(default)]
+    pub file_types: Option<Vec<String>>,
+
+    /// Show only documents someone else shared with the user.
+    #[schemars(
+        description = "When true, return only documents the user can access that they do not own — Drive's Shared with me. Defaults includeTypes to document when omitted. Combine with fileTypes for requests like \"Figma files shared with me\"."
+    )]
+    #[serde(default)]
+    pub shared_with_me: bool,
 
     /// Restrict results to the user's favorites.
     #[schemars(
@@ -545,10 +560,20 @@ one. Ignored unless tags is set.")]
 }
 
 impl ListEntities {
+    #[cfg(test)]
     pub(super) fn entity_filter_ast(
         &self,
         tag_filter: Option<Expr<PropertiesLiteral>>,
     ) -> EntityFilterAst {
+        self.entity_filter_ast_for(tag_filter, None)
+            .expect("fileTypes in unit tests must be recognized extensions")
+    }
+
+    pub(super) fn entity_filter_ast_for(
+        &self,
+        tag_filter: Option<Expr<PropertiesLiteral>>,
+        viewer: Option<&Owner>,
+    ) -> Result<EntityFilterAst, String> {
         // A resolved tag filter ANDs with any explicit propf tree.
         let properties_filter = match (self.properties_filter.clone(), tag_filter) {
             (Some(existing), Some(tags)) => Some(Arc::new(Expr::and((*existing).clone(), tags))),
@@ -556,10 +581,15 @@ impl ListEntities {
             (existing, None) => existing,
         };
 
+        let document_filter = merge_document_filters(
+            self.document_filter.clone(),
+            self.convenience_document_filter(viewer)?,
+        );
+
         let ast = EntityFilterAst {
             favorites_only: self.favorites_only.then_some(true),
             calendar_event_filter: None,
-            document_filter: self.document_filter.clone(),
+            document_filter,
             project_filter: self.project_filter.clone(),
             chat_filter: self.chat_filter.clone(),
             // Toolset doesn't (yet) expose CRM scope; the tool surface stays
@@ -588,7 +618,54 @@ impl ListEntities {
             properties_filter,
         };
 
-        self.apply_include_types_to_ast(ast)
+        Ok(self.apply_include_types_to_ast(ast))
+    }
+
+    fn convenience_document_filter(
+        &self,
+        viewer: Option<&Owner>,
+    ) -> Result<Option<Expr<DocumentLiteral>>, String> {
+        let file_types = self.file_type_filter()?;
+        let shared = viewer
+            .filter(|_| self.shared_with_me)
+            .map(|owner| Expr::is_not(Expr::val(DocumentLiteral::Owner(owner.clone()))));
+
+        Ok(match (file_types, shared) {
+            (Some(file_types), Some(shared)) => Some(Expr::and(file_types, shared)),
+            (Some(file_types), None) => Some(file_types),
+            (None, Some(shared)) => Some(shared),
+            (None, None) => None,
+        })
+    }
+
+    fn file_type_filter(&self) -> Result<Option<Expr<DocumentLiteral>>, String> {
+        let Some(types) = self.file_types.as_ref().filter(|types| !types.is_empty()) else {
+            return Ok(None);
+        };
+
+        let mut resolved = Vec::new();
+        let mut unknown = Vec::new();
+        for raw in types {
+            let found = document::resolve_file_types(raw);
+            if found.is_empty() {
+                unknown.push(raw.as_str());
+            } else {
+                resolved.extend(found);
+            }
+        }
+
+        if !unknown.is_empty() {
+            return Err(format!(
+                "Unknown file type(s): {}. Use extensions such as fig, figma, pdf, md, or docx.",
+                unknown.join(", ")
+            ));
+        }
+
+        Ok(resolved
+            .into_iter()
+            .map(DocumentLiteral::FileType)
+            .map(Expr::val)
+            .reduce(Expr::or))
     }
 
     fn tag_filters(&self) -> &[TagFilter] {
@@ -680,9 +757,31 @@ impl ListEntities {
     }
 
     pub(super) fn effective_include_types(&self) -> Option<Vec<ItemType>> {
-        self.include_types
-            .clone()
-            .or_else(|| self.email_preset.is_some().then_some(vec![ItemType::Email]))
+        self.include_types.clone().or_else(|| {
+            if self.email_preset.is_some() {
+                Some(vec![ItemType::Email])
+            } else if self.shared_with_me
+                || self
+                    .file_types
+                    .as_ref()
+                    .is_some_and(|types| !types.is_empty())
+            {
+                Some(vec![ItemType::Document])
+            } else {
+                None
+            }
+        })
+    }
+}
+
+fn merge_document_filters(
+    existing: LiteralTree<DocumentLiteral>,
+    extra: Option<Expr<DocumentLiteral>>,
+) -> LiteralTree<DocumentLiteral> {
+    match (existing, extra) {
+        (Some(existing), Some(extra)) => Some(Arc::new(Expr::and((*existing).clone(), extra))),
+        (None, Some(extra)) => Some(Arc::new(extra)),
+        (existing, None) => existing,
     }
 }
 
@@ -753,7 +852,13 @@ where
             expr
         };
 
-        let filters = self.entity_filter_ast(tag_filter_expr);
+        let viewer = Owner::User(request_context.user_id.clone());
+        let filters = self
+            .entity_filter_ast_for(tag_filter_expr, Some(&viewer))
+            .map_err(|description| ToolCallError {
+                description,
+                internal_error: anyhow::anyhow!("invalid ListEntities file type filter"),
+            })?;
         let email_preview_view = self.email_view()?;
         let limit = self
             .limit
