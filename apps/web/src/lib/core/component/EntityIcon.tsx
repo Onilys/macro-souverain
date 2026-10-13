@@ -504,6 +504,7 @@ export function isArchiveType(ext: string): boolean {
 
 function validateEntity(entity: string): EntityWithValidIcon {
   if (entity === 'automation') return 'routine';
+  if (entity === 'ics') return 'calendar';
   if (entity in ENTITY_ICON_CONFIGS) {
     return entity as EntityWithValidIcon;
   } else if (isBlockAlias(entity)) {
@@ -660,6 +661,7 @@ export function getEntityIconType(entity: EntityIconData): EntityWithValidIcon {
     .with({ type: 'document' }, (e) => {
       if (e.subType?.type === 'task') return 'task';
       if (e.fileType === 'spreadsheet') return 'spreadsheet';
+      if (e.fileType === 'ics') return 'calendar';
       if (e.fileType && isArchiveType(e.fileType)) return 'archive';
       const blockName = itemToBlockName(e, true);
       return blockName === 'unknown' ? 'document' : blockName;

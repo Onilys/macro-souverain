@@ -144,12 +144,15 @@ github_pull_requests = { path = "../../crates/github_pull_requests", default-fea
   "service",
 ] }
 graphql_soup = { path = "../../crates/graphql_soup" }
+graphql_crm = { path = "../../crates/graphql_crm" }
 graphql_initiative = { path = "../../crates/graphql_initiative" }
 graphql_calendar = { path = "../../crates/graphql_calendar" }
 graphql_scheduled_action = { path = "../../crates/graphql_scheduled_action" }
 harnesses = { path = "../../crates/harnesses" }
 hex = { workspace = true }
 http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 import = { path = "../../crates/import" }
 initiative = { path = "../../crates/initiative", features = ["inbound", "postgres", "resources"] }
 jsonwebtoken = { workspace = true }
@@ -260,6 +263,8 @@ task_dedup = { path = "../../crates/task_dedup" }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }
 tokio-util = { workspace = true, features = ["rt"] }
+tokio-tungstenite-signal = { workspace = true }
+tungstenite-signal = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["compression-gzip"] }
 tracing = { workspace = true }
@@ -283,6 +288,7 @@ zip = { workspace = true }
 
 [dev-dependencies]
 cool_asserts = "2"
+flate2 = "1"
 frecency = { path = "../../crates/frecency", features = ["mock"] }
 macro_auth = { path = "../../crates/macro_auth", features = ["testing"] }
 ordered-float = { workspace = true }

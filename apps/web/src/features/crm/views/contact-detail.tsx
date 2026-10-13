@@ -24,8 +24,10 @@ export function Contact(props: {
   section?: ContactSection;
   headerToggle?: boolean;
   onOpenCompany?: (companyId: string) => boolean;
+  onOpenPipeline?: (pipelineId: string) => void;
 }) {
   const context = useCrmContext();
+  const pipelinesEnabled = context.pipelinesEnabled();
   const contactQuery = useContactQuery(() => props.contactId);
   const contact = () => contactQuery.data;
   const isTeamAdmin = useIsTeamAdmin();
@@ -61,6 +63,12 @@ export function Contact(props: {
                     contact={contact()}
                     onOpenCompany={props.onOpenCompany}
                   />
+                  <Show when={pipelinesEnabled()}>
+                    <context.PipelineEntries
+                      record={{ type: 'contact', id: props.contactId }}
+                      onOpenPipeline={props.onOpenPipeline}
+                    />
+                  </Show>
                   <ContactDiscussionSection contactId={props.contactId} />
                 </div>
               </div>

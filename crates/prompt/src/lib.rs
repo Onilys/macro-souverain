@@ -12,6 +12,7 @@ pub mod channel_mention;
 pub mod citations;
 pub mod coding_agents;
 pub mod connected_toolsets;
+pub mod crm_pipelines;
 pub mod databases;
 pub mod deferred_tools;
 pub mod do_not;
@@ -47,6 +48,7 @@ pub static BASE_PROMPT: ComposedPrompt = tone::PROMPT
 pub static DIRECT_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
     .compose(&tool_usage::PROMPT)
     .compose(&databases::PROMPT)
+    .compose(&crm_pipelines::PROMPT)
     .compose(&skills::PROMPT)
     .compose(&document_content_links::PROMPT)
     .compose(&email::PROMPT);
@@ -58,6 +60,7 @@ pub static DIRECT_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
 pub static TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
     .compose(&tool_usage::PROMPT)
     .compose(&databases::PROMPT)
+    .compose(&crm_pipelines::PROMPT)
     .compose(&user_tools::PROMPT)
     .compose(&skills::PROMPT)
     .compose(&document_content_links::PROMPT)
@@ -70,6 +73,7 @@ pub static TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
 pub static SESSION_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
     .compose(&tool_usage::PROMPT)
     .compose(&databases::PROMPT)
+    .compose(&crm_pipelines::PROMPT)
     .compose(&user_tools::SESSION_PROMPT)
     .compose(&skills::PROMPT)
     .compose(&document_content_links::PROMPT)
@@ -100,6 +104,7 @@ static MCP_STATIC_INSTRUCTIONS: ComposedPrompt = citations::PROMPT
     .compose(&do_not::PROMPT)
     .compose(&about_macro::PROMPT)
     .compose(&databases::PROMPT)
+    .compose(&crm_pipelines::PROMPT)
     .compose(&document_content_links::PROMPT);
 
 /// Builds the instructions surfaced to external MCP clients via the server
@@ -283,6 +288,16 @@ mod tests {
         const TAG: &str = r#"<m-document-mention>{"documentId":"{id}","documentName":"","blockName":"md","blockParams":{}}</m-document-mention>"#;
         assert!(mentions::PROMPT.instructions.contains(TAG));
         assert!(document_content_links::PROMPT.instructions.contains(TAG));
+    }
+
+    #[test]
+    fn mentions_and_document_content_links_share_the_github_pr_mention_tag() {
+        // GitHub PRs are mentioned by URL in-app and over MCP alike; the two
+        // sections must hand the model the same tag shape.
+        const TAG: &str = r#"<m-pr-mention>{"url":"https://github.com/{owner}/{repo}/pull/{number}","label":""}</m-pr-mention>"#;
+        assert!(mentions::PROMPT.instructions.contains(TAG));
+        assert!(document_content_links::PROMPT.instructions.contains(TAG));
+        assert!(mcp_instructions("https://macro.com").contains(TAG));
     }
 
     #[test]

@@ -67,7 +67,7 @@ Already an ACP *agent* backed by the Cursor Cloud Agents API, written sans-io:
   `TurnAlreadyActive` — which happens to match Cursor's own `409 agent_busy`.
 - `domain/ports.rs` — `CursorAgents`, `RunStream`, `SessionNotifier`, `RepoResolver`.
 - `domain/translate.rs` — `TranslateMachine`, SSE events → ACP `SessionUpdate`.
-- `cursor/` — the HTTP/SSE client. `CursorClient::new` validates a `crsr_` prefix.
+- `cursor/` — the HTTP/SSE client. `CursorClient::new` validates a `grok_` or `crsr_` prefix.
 - `inbound/acp.rs` — stdio JSON-RPC adapter. Handles `initialize`,
   `authenticate`, `session/new`, `session/prompt`.
 - `replay.rs` + `fixtures/real/*.sse` + insta snapshots — recorded real sessions
@@ -87,7 +87,7 @@ associated type, resolved once.
 ### 1. Settings → Agents → Harness
 
 A field to enter a Cursor API key. On submit we validate it before storing:
-`GET /v1/me` with the key. A `crsr_`-prefixed key that authenticates is stored;
+`GET /v1/me` with the key. A `grok_`- or `crsr_`-prefixed key that authenticates is stored;
 anything else is rejected with a useful message rather than silently saved.
 
 The stored record is per Macro user. Deleting it is supported and revokes
@@ -172,7 +172,7 @@ docs, which are wrong about the first:
   combinations as `variants`, one flagged `isDefault`.
 
 So a mid-session model change needs no new agent and no second credential — it is
-a field on the next run, reachable with the user's own scoped `crsr_` key. There
+a field on the next run, reachable with the user's own scoped API key. There
 is no agent-level model update: `PATCH`/`PUT`/`POST` on `/v1/agents/{id}` do not
 exist.
 
@@ -326,7 +326,7 @@ Two existing precedents in the repo, one generation apart:
   deliberately opaque errors. This is the considered one.
 
 **Recommendation: direct KMS `Encrypt`/`Decrypt`, not the envelope.** KMS handles
-plaintexts up to 4 KB directly and a `crsr_` key is ~60 bytes, so the envelope's
+plaintexts up to 4 KB directly and a Cursor key is ~60 bytes, so the envelope's
 benefits do not apply: we are not over 4 KB, we make one KMS round trip either
 way, KMS manages its own nonces so there is no GCM nonce-reuse bound to dodge,
 and CMK auto-rotation keeps old ciphertext readable so nothing gets re-encrypted.

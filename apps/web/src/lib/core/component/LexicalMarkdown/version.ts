@@ -31,5 +31,7 @@
  * Version 7.0 - Oct 2026. Added TaskListNode: replaces ListNode at runtime, serializes as
  *   `task-list` with the `list` wire shape plus optional `$.taskListView` node state
  *   (persisted check-list task filters).
+ * Version 7.1 - Oct 2026. PullRequestMentionNode: optional GitHub `url`; `id` may be empty
+ *   when an agent mentions a PR by URL, and the decorator resolves the synced PR.
  */
-export const MARKDOWN_VERSION_COUNTER = 7.0;
+export const MARKDOWN_VERSION_COUNTER = 7.1;

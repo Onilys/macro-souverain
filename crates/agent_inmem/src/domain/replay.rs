@@ -20,7 +20,9 @@ use agent::types::AssistantMessagePart;
 use agent_client_protocol::schema::v1::{
     ContentBlock, PromptRequest, SessionNotification, SessionUpdate, ToolCallStatus,
 };
-use agent_client_protocol::schema::v1::{Response, SessionConfigKind, SessionConfigOption};
+use agent_client_protocol::schema::v1::{
+    RequestId, Response, SessionConfigKind, SessionConfigOption,
+};
 use agent_client_protocol::{JsonRpcMessage, RawJsonRpcMessage, RawJsonRpcParams};
 use agent_runtime_protocol::domain::schema::v0::{ToRuntimeMessage, ToServerMessage};
 use agent_session::domain::model::Message;
@@ -29,7 +31,8 @@ use std::collections::HashSet;
 
 use crate::domain::agent::close_dangling_tool_calls;
 use crate::domain::model_options::REASONING_EFFORT_CONFIG_ID;
-use crate::domain::session::{HistoryEntry, UserPrompt};
+use crate::domain::session::{HistoryEntry, UserPrompt, end_of_turn, splice_summary};
+use agent_runtime_protocol::domain::context::ContextSummaryNotification;
 
 #[cfg(test)]
 mod test;
@@ -48,17 +51,32 @@ pub trait FrameSource: Send + Sync + 'static {
     ) -> BoxFuture<'_, Vec<Message>>;
 }
 
+/// A turn replay has opened and not yet closed.
+struct OpenTurn {
+    /// The `session/prompt` request that opened it. The agent's response to
+    /// it closes the turn, and the turn is known by its id.
+    id: RequestId,
+    prompt: UserPrompt,
+    parts: Vec<AssistantMessagePart>,
+}
+
 /// Rebuild the conversation the log's frames recorded, oldest first.
 ///
-/// User prompts open turns and `session/update` notifications fill them in,
-/// mirroring what the live agent pushed into its history as the turn ran. A
-/// `/compact` prompt drops everything recorded before it, exactly as the live
-/// agent's compact handling cleared its history - and, by the same rule, a
-/// `/compact` that carried files is a turn like any other.
+/// User prompts open turns, `session/update` notifications fill them in, and
+/// the agent's response closes them, mirroring what the live agent pushed
+/// into its history as each turn ran. A prompt the agent refused never
+/// entered it. A summary lands where the live one did: the log records it
+/// ([`ContextSummaryNotification`]) at the point the live agent spliced it
+/// in, naming the last turn it covers, so it replaces the same turns.
+///
+/// The rebuilt entries are not always the live ones, which is why a summary
+/// goes by turn rather than by count. A prompt stopped before it ran is in
+/// the log but never entered the live history; a turn that failed before
+/// any output carries the error the agent said; reasoning is not replayed.
 #[must_use]
 pub fn replay_history(frames: impl IntoIterator<Item = Message>) -> Vec<HistoryEntry> {
     let mut history = Vec::new();
-    let mut open: Option<(UserPrompt, Vec<AssistantMessagePart>)> = None;
+    let mut open: Option<OpenTurn> = None;
 
     for frame in frames {
         match frame {
@@ -73,20 +91,51 @@ pub fn replay_history(frames: impl IntoIterator<Item = Message>) -> Vec<HistoryE
                 else {
                     continue;
                 };
-                let prompt = UserPrompt::from_blocks(&prompt.prompt);
                 close_turn(&mut history, &mut open);
-                if prompt.is_compact_command() {
-                    // Compaction dropped everything before it from the
-                    // model's context; replaying it back would undo that.
-                    history.clear();
-                } else {
-                    open = Some((prompt, Vec::new()));
-                }
+                open = Some(OpenTurn {
+                    id: request.id.clone(),
+                    prompt: UserPrompt::from_blocks(&prompt.prompt),
+                    parts: Vec::new(),
+                });
             }
             Message::ToServer(ToServerMessage::Acp(acp)) => {
+                if let Some(id) = acp.0.response_id()
+                    && open.as_ref().is_some_and(|turn| &turn.id == id)
+                {
+                    // The live agent answers a prompt it will not run - over
+                    // its owner's budget, too long - before keeping it.
+                    let refused =
+                        matches!(acp.0, RawJsonRpcMessage::Response(Response::Error { .. }))
+                            && open.as_ref().is_some_and(|turn| turn.parts.is_empty());
+                    if refused {
+                        open = None;
+                    } else {
+                        close_turn(&mut history, &mut open);
+                    }
+                    continue;
+                }
                 let RawJsonRpcMessage::Notification(notification) = &acp.0 else {
                     continue;
                 };
+                if ContextSummaryNotification::matches_method(&notification.method) {
+                    if let Some(summary) = deserialize_params::<ContextSummaryNotification>(
+                        notification.params.as_ref(),
+                    ) {
+                        // A log from before summaries named their last turn
+                        // says only how many live entries one replaced. One
+                        // whose last turn the log does not hold is left out:
+                        // the conversation stays whole rather than losing
+                        // turns it never covered.
+                        let end = match &summary.through {
+                            Some(through) => end_of_turn(&history, through),
+                            None => Some(summary.replaces),
+                        };
+                        if let Some(end) = end {
+                            splice_summary(&mut history, summary.text, end);
+                        }
+                    }
+                    continue;
+                }
                 if !SessionNotification::matches_method(&notification.method) {
                     continue;
                 }
@@ -95,10 +144,10 @@ pub fn replay_history(frames: impl IntoIterator<Item = Message>) -> Vec<HistoryE
                 else {
                     continue;
                 };
-                // An update outside any turn (the compact acknowledgement,
-                // status chatter) is presentation, not conversation.
-                if let Some((_, parts)) = open.as_mut() {
-                    apply_update(parts, notification.update);
+                // An update outside any turn (status chatter) is
+                // presentation, not conversation.
+                if let Some(turn) = open.as_mut() {
+                    apply_update(&mut turn.parts, notification.update);
                 }
             }
             _ => {}
@@ -266,16 +315,39 @@ fn unanswered_call_name(parts: &[AssistantMessagePart], id: &str) -> Option<Stri
     })
 }
 
+/// The command that cleared the model's context before summaries kept it
+/// bounded, and what the agent answered it with. Logs from then still carry
+/// both; a `/compact` sent since is a message like any other.
+const OLD_COMPACT_COMMAND: &str = "/compact";
+const CLEARED_CONTEXT: &str =
+    "Compacted: the earlier conversation is no longer in the model's context.";
+
 /// Push the open turn into the history, closing whatever it left dangling.
-fn close_turn(
-    history: &mut Vec<HistoryEntry>,
-    open: &mut Option<(UserPrompt, Vec<AssistantMessagePart>)>,
-) {
-    let Some((prompt, mut parts)) = open.take() else {
+fn close_turn(history: &mut Vec<HistoryEntry>, open: &mut Option<OpenTurn>) {
+    let Some(OpenTurn {
+        id,
+        prompt,
+        mut parts,
+    }) = open.take()
+    else {
         return;
     };
+    let cleared = prompt.text.trim() == OLD_COMPACT_COMMAND
+        && prompt.attachments.is_empty()
+        && matches!(
+            parts.as_slice(),
+            [AssistantMessagePart::Text { text }] if text == CLEARED_CONTEXT
+        );
+    if cleared {
+        // What the live agent cleared then stays cleared.
+        history.clear();
+        return;
+    }
     let _ = close_dangling_tool_calls(&mut parts);
-    history.push(HistoryEntry::User(prompt));
+    history.push(HistoryEntry::User {
+        prompt,
+        request_id: id,
+    });
     if !parts.is_empty() {
         history.push(HistoryEntry::Assistant(parts));
     }

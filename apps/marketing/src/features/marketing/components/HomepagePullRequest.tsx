@@ -62,7 +62,7 @@ export default function HomepagePullRequest() {
           },
           {
             person: 'cursor',
-            text: '',
+            text: 'On it. I’ll work on your branch, fix the failures, and run the tests.',
             reply: (
               <>
                 <div class="homepage-agent-chip">

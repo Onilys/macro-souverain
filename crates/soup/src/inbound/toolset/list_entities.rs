@@ -403,6 +403,13 @@ pub struct ListEntities {
     #[serde(default)]
     pub include_types: Option<Vec<ItemType>>,
 
+    /// Restrict results to the user's favorites.
+    #[schemars(
+        description = "Only return items the user has favorited (starred). Use for requests like \"my favorites\" or \"what have I starred\". Combine with includeTypes and the other filters as usual. Favorite or unfavorite an item with SetFavorite."
+    )]
+    #[serde(default)]
+    pub favorites_only: bool,
+
     /// Sort order for returned items.
     #[schemars(
         description = "How to sort results: recently_viewed, recently_updated (default to this), or recently_created. Use recently_updated for updated_at-style soup results."
@@ -550,7 +557,7 @@ impl ListEntities {
         };
 
         let ast = EntityFilterAst {
-            favorites_only: None,
+            favorites_only: self.favorites_only.then_some(true),
             calendar_event_filter: None,
             document_filter: self.document_filter.clone(),
             project_filter: self.project_filter.clone(),

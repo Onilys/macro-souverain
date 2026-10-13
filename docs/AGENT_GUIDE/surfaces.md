@@ -584,6 +584,12 @@ native offline archive support therefore requires a full app build, not just OTA
 
 ### Cached Mail filtering
 
+The per-query caches for email threads, channels, and native offline document
+context reopen closed IndexedDB connections. Verify a cached read and a subsequent
+write after closing the connection, then clear/logout during recovery: old-account
+entries must not return. Only transaction creation retries automatically; persistent
+storage failures still follow the existing cache fallback behavior.
+
 Performance check: switch Signal → All twice against a large synchronized cache.
 Dense local pages use bounded sort-index candidates rather than sorting the entire
 mailbox. Sparse filters and large timestamp ties retain the exact fallback plan.
@@ -735,6 +741,15 @@ when delivery fails. Later edits can show it again after the usual pause.
 Verify the label does not cycle through saving/syncing text on each edit and
 that retry remains accessible beside the actions on mobile. Editing while failed
 continues saving locally without repeatedly submitting the rejected request.
+Local draft storage reopens unexpectedly closed IndexedDB connections. If creating
+a transaction fails because the connection is closing, it retries once before
+running any writes. Verify by closing the draft database connection, then editing:
+the latest content must persist locally and server autosave must continue without
+reloading. Repeat across background/resume on an iPhone. A transaction that has
+already started is never automatically replayed. Persistent failures still block
+server autosave; copy unsaved content before restarting. Storage failures and
+recovery report current page visibility and network state without draft content.
+
 Repeated local-save failures show one persistent warning per composer; recovery
 or closing that composer dismisses it. A later failure shows a new warning.
 Retry preserves the original draft handle. An already-sent rejection drops the
@@ -1171,9 +1186,10 @@ is restricted to your own files. Recent offers only file-scope filtering.
 Hold Shift while selecting or deselecting Type options to keep the submenu open
 and combine several file types without reopening it. Desktop filter submenus allow a
 250 ms grace period when the mouse crosses the parent menu's padding; entering
-the submenu cancels the pending close. Hovering another category immediately
-switches to that category, including when the submenu opens to the left.
-Escape and outside clicks still dismiss immediately.
+the submenu cancels the pending close. While the mouse heads toward an open
+submenu, including one that opens to the left, the categories it crosses on the
+way do not take over. A category the mouse moves to directly, or rests on for
+300 ms, opens in its place. Escape and outside clicks still dismiss immediately.
 `Sort files` offers modified, created, and viewed dates.
 Recent uses the viewer's own interaction order and does not offer a sort override.
 The New menu and drag/drop uploads target the selected folder. **New → Folder**
@@ -1323,18 +1339,19 @@ Calendar scheduling is on by default in dev. Production uses the PostHog flag
 While off, the Calendar settings tab and calendar booking shortcuts are hidden;
 public booking and receipt links show an unavailable page without fetching
 scheduling data. When enabling a production rollout, include anonymous visitors
-so invitees can open those links.
+so invitees can open those links. A public booking link stays available when
+the flag request gets no answer, for example when a browser blocks it.
 
 Calendar connections live in **Settings → Calendar** (`/app/settings/calendar`).
 Scheduling lives in the separate **Settings → Booking links** item
-(`/app/settings/booking-links`), with Booking links, Availability, Booking pages,
-Teams, Bookings, and Insights in one scrolling page. The calendar toolbar’s
-booking actions open Booking links; email and integration connection shortcuts
-continue to open Calendar.
-There is no second sidebar or global owner switch. Personal and team booking links
-appear together with ownership badges. New booking link and New schedule ask which
-owner to create for when multiple editable owners are available, then open inline editors;
-event options are stacked sections. Save changes or Cancel returns to the list.
+(`/app/settings/booking-links`). Use the owner menu at the top right to choose
+**Personal** or **Team · team name**,
+then use **Links**, **Availability**, **Booking page**, **Bookings**, or **Insights**.
+Every section and creation action applies to that selected owner. The default is
+Personal. **Manage teams** in that menu opens team settings. The calendar toolbar’s booking
+actions open Booking links; connection shortcuts continue to open Calendar.
+**New booking link** and **New schedule** create for the selected owner and open
+inline editors. Save changes or Cancel returns to that owner's list.
 Connected calendars offers Connect account (the existing Google consent flow),
 Connect calendar for accounts missing calendar permission, and Disconnect with
 confirmation. Disconnect removes calendar access/data, not the Gmail connection.
@@ -1350,11 +1367,15 @@ Booking status filters use the same segmented control as the CRM sidebar.
 In Availability, each weekday has an enable switch, time ranges, an add button,
 and a copy-hours menu; select target days and Apply before saving the schedule.
 Date overrides and the searchable timezone picker sit below the weekly hours.
-Ownership badges identify Personal or Team · team name on links and availability.
-Public booking pages, bookings, and insights are grouped by owner and remain visible
-together; editing one owner does not switch the rest of the page. Search booking
-links by title, slug, or owner. Team owners/admins can edit team links; ordinary members can view them. `Event types` creates, edits,
-pauses, duplicates, previews, and copies booking links. Event settings include
+The header shows the selected owner; team owners have an explicit **Team** label.
+Links and availability use flat rows, with actions beside each item.
+Booking pages, bookings, and insights show only the selected owner. Search filters
+that owner’s links and clears when switching owners. Team owners/admins can edit
+team links; ordinary members can view them. `Links` creates, edits, pauses,
+duplicates, previews, and copies booking links. Event settings include a
+video choice. New links default to a Macro call, which is created when
+someone books and attached to the calendar invitation. Google Meet and no
+video link remain available. Event settings also include
 weekly availability, collective/all-host or round-robin/one-host assignment,
 notice, buffers, booking horizon, daily limits, and custom questions. New event
 types stay paused until `Accept bookings` is selected and changes are saved.
@@ -1362,8 +1383,8 @@ types stay paused until `Accept bookings` is selected and changes are saved.
 zone. Set a default schedule for new event types; a schedule cannot be deleted
 until its event types use another one. Collective and round-robin team meetings
 respect each host’s personal default hours when configured, plus busy calendars.
-`Teams` summarizes connected teams and links to team settings; the member roster
-lives in team settings. Choose hosts for a team booking link inside its editor.
+**Manage teams** opens team settings, where the member roster lives. Choose hosts
+for a team booking link inside its editor.
 `Booking page` edits the public name and description. `Bookings` shows
 upcoming, unconfirmed, past, and cancelled meetings; admins can confirm requests,
 reschedule, or cancel them. Choose From/Through dates to load bookings (initially 30 days before and after today), then search by guest/title/email and filter by event type. Dates use your browser time zone; shorten the range if more than 5,000 bookings match.
@@ -1384,7 +1405,10 @@ Oversized result sets return an error instead of silently truncating insights.
 
 The calendar header includes `Copy booking link` and `Open calendar scheduling
 settings`. Copy opens settings when no active personal link exists. Public
-`/app/book/:profile/:slug?` pages accept bookings without Macro sign-in. Uncertain
+`/app/book/:profile/:slug?` pages accept bookings without Macro sign-in. The website
+opens them in its own dialog; framed there, a booking page and its receipt drop their
+Macro heading and footer, and the booking page tells the website when a booking is
+made. Only macro.com can frame them. Uncertain
 calendar writes retain the booking and show its private receipt while automatic recovery runs.
 After a network response cannot be verified, `Check booking status` retries the original request;
 do not create a replacement booking. Receipt pages poll while the calendar update is pending. Visitors
@@ -1776,11 +1800,12 @@ a `Channels` section listing channels seen in loaded calls, and `Tags`. Choosing
 a type, channel, or tag shows only that one; choosing it again clears it. These
 refinements carry across the three views. Sort, group, filter, and `New call`
 sit in the list's top bar. Phones keep pill tabs and the header search.
-`New call` offers `Call a channel or contact`
-and, with `enable-quick-calls` enabled, `Manage call links`. Create Quick Calls
-with `New Call` beside Calendar's
-`New event`, or with `Create` → `Call` (`C C`). Scheduled calls are created through
-Calendar and can be shared with people who do not have a Macro account.
+With `enable-quick-calls` enabled, `New call` opens a menu with `Start an instant
+call`, `Call a channel or contact`, and `Manage call links`; without the flag it
+opens the recipient picker directly. `Start an instant call` opens `/app/meet/new`
+without creating a meeting, the same setup reached from `New Call` beside
+Calendar's `New event` or `Create` → `Call` (`C C`). Scheduled calls are created
+through Calendar and can be shared with people who do not have a Macro account.
 The channel/contact option opens the recipient picker.
 Recordings, transcriptions
 and summaries appear here; empty state notes "Calls are available to agents."
@@ -2006,8 +2031,14 @@ available in the embedded company and contact breadcrumb header.
 A company is laid out like a project. Its split header or embedded breadcrumb
 header shows inset `Overview`, `Team`, `Emails`, `Files`, `Tasks`, and `Calls`
 tabs, collapsing to icons when narrow. Overview shows the name, pills
-for each domain and `Last interacted`, the generated description and the
-Discussion. Team lists the contacts with `Add contact`. Emails keeps the
+for each domain and `Last interacted`, the generated description, a
+**Pipelines** section and the Discussion. Pipelines stacks one full-width card
+per row of a pipeline you can open that references the record. A card's header
+strip names the pipeline (a lock marks a private one); below it, the row's first
+four fields sit side by side, label over value, and the rest wait behind
+`Show N more`. Cells edit like the pipeline table's when you can edit that
+pipeline. Inside Customers, the header's `Open <pipeline>` button opens it. The
+section is absent when the record is in no pipeline. Team lists the contacts with `Add contact`. Emails keeps the
 `Signal`/`All` and `Team`/`Me` toggles. Files lists non-task documents whose
 `Companies` property references the company, plus attachments of emails with
 its domains. Tasks is the Tasks list scoped to the `Companies` property; its
@@ -2016,7 +2047,7 @@ company, including those linked automatically from their participants. The side
 panel keeps Properties and Sharing.
 A contact has the same layout with `Overview`, `Emails`, `Files`, `Tasks` and
 `Calls`: Overview pills show the email, the company (opens it) and `Last
-interacted`. Files and Calls match on the contact's `Contacts` property and, for
+interacted`, followed by the contact's Pipelines cards. Files and Calls match on the contact's `Contacts` property and, for
 files, attachments of emails with its address. Tasks created from a contact also
 reference its company. The side panel keeps Sharing (admins only).
 
@@ -2203,6 +2234,13 @@ afterwards in **Settings → Billing**, where Guest users can buy Premium or Max
 ## Settings — `/app/settings/<section>`
 
 ### Slack archive import
+
+Temporary message storage recovers closed IndexedDB connections without restarting
+the import or deleting staged history. Verify closure between staging batches and
+between cursor pages: all messages must remain ordered, deduplicated, and within
+the original byte limit. Cancellation and cleanup still work during recovery.
+Deleted or replaced scratch databases fail the old import instead of silently
+continuing with incomplete history; its cleanup must leave a replacement intact.
 
 In **Team → Connections**, **Import from Slack** appears only for team admins
 and owners with `enable-slack-archive-import` enabled. Production rollout stays
@@ -2546,7 +2584,8 @@ Team members who cannot manage billing see the notice without its action.
 and admins/owners can move a seat between Pro and Max with the `Seat plan`
 menu; Max upgrades are immediate and prorated, Pro downgrades start at renewal.
 **Keep Max** appears only for a confirmed pending downgrade and cancels it;
-failed scheduled-plan reads offer **Try again**). CRM (enable/disable; once enabled, a `Deal stages` section
+failed scheduled-plan reads offer **Try again**, while teams without applicable
+scheduled plans show no retry notice). CRM (enable/disable; once enabled, a `Deal stages` section
 with `Customize stages`, inline rename, reorder by drag handle or arrow keys (up/down
 buttons on touch), delete, `Add stage`, `Reset to defaults`, and `Closed stages`
 checkboxes, editable by the role set as `edit_stages_role`)
@@ -2578,6 +2617,17 @@ a separate section. Discover offers featured providers, a searchable catalog,
 and `Add custom MCP`. Slack discovery retains its development-only gate.
 Provider Back returns to the tab that opened it; navigation is local to each
 Connections page and starts at Connected on a fresh visit.
+
+Macro agents and external AI clients using Macro's MCP server can run
+`ImportNotionPage` and the shared import ledger tools against the user's
+connections saved in Macro.
+Verify a Notion import returns a document and a repeated import returns the
+existing document; Linear imports recorded with `CreateImportEntity` should
+appear in `ListImportEntities`. These calls must not report that import tracking
+is unavailable.
+On hosts without Pipedream credentials, saved Pipedream accounts must not hide
+native Notion, Linear, or Slack connections when selecting import tools.
+
 Provider and custom-server More menus contain Disable, Reconnect, and Disconnect;
 custom servers also offer Rename. Disabled grants show Enable. Unauthenticated
 custom servers show Connect and Remove. Disconnect/Remove require confirmation.
@@ -2650,9 +2700,9 @@ session were not exercised by that UI check.
 ## Notifications
 
 In the desktop app, **Settings → Notifications → Delivery → Desktop notifications**
-controls system notification delivery for this installation. When the Notifications
-page is disabled by its feature flag, the existing **Account → Notifications**
-switch controls the same preference.
+controls system notification delivery for this installation. The Notifications
+page is always present, in the same place on web, desktop, and mobile; Account
+has no notification switch.
 Turning it off takes effect immediately and persists across app restarts; turning
 it on requests permission and resumes delivery when authorized. On macOS the
 switch reads the actual system authorization, and enabling it requests macOS

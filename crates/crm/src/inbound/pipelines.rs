@@ -231,6 +231,7 @@ pub async fn apply_ops<P: PipelineService, E: EntityAccessService, A: MacroAutho
             .service
             .apply_ops(
                 receipt::<EditAccessLevel, _, _>(&*state.access, auth, id).await?,
+                None,
                 batch,
             )
             .await?,

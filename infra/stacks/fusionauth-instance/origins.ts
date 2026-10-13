@@ -27,6 +27,7 @@ export const ALLOWED_ORIGINS = () => {
         'https://chatgpt.com',
         'https://chat.openai.com',
         'https://cursor.com',
+        'https://www.cursor.com',
       ];
     case 'dev':
       return [
@@ -51,6 +52,7 @@ export const ALLOWED_ORIGINS = () => {
         'https://chatgpt.com',
         'https://chat.openai.com',
         'https://cursor.com',
+        'https://www.cursor.com',
       ];
     case 'prod':
       return [
@@ -66,6 +68,7 @@ export const ALLOWED_ORIGINS = () => {
         'https://chatgpt.com',
         'https://chat.openai.com',
         'https://cursor.com',
+        'https://www.cursor.com',
       ];
   }
 

@@ -406,6 +406,7 @@ export function CrmWorkspaceView(props: {
               record={record}
               viewName={activePipeline()?.name ?? title()}
               onClose={closeRecord}
+              onOpenPipeline={selectPipeline}
               navigation={
                 <NavigationToggle onExpand={() => setCollapsed(false)}>
                   <Suspense>{sidebar()}</Suspense>

@@ -405,6 +405,7 @@ dependencies = [
 name = "agent_harness_service"
 version = "0.1.0"
 dependencies = [
+ "agent",
  "agent-client-protocol",
  "agent_changes",
  "agent_egress",
@@ -419,6 +420,7 @@ dependencies = [
  "ai_toolset",
  "ai_usage",
  "anyhow",
+ "async-trait",
  "authentication_service_client",
  "aws-sdk-kms",
  "aws-sdk-secretsmanager",
@@ -962,6 +964,7 @@ dependencies = [
  "entity_access_management",
  "entity_registry",
  "entity_registry_db_utils",
+ "favorites",
  "foreign_entity",
  "forms",
  "frecency",
@@ -1132,9 +1135,9 @@ checksum = "c880a97d28a3681c0267bd29cff89621202715b065127cd445fa0f0fe0aa2880"
 
 [[package]]
 name = "ammonia"
-version = "4.1.4"
+version = "4.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc6d763210e2eb7670d1a5183a08bebefa3f97db2a738a684f2ce00bd49f681d"
+checksum = "36322ccf536de7b7afd259098615203e4cc5caca1b78482b58334a720c66e40a"
 dependencies = [
  "cssparser 0.37.0",
  "html5ever 0.39.0",
@@ -3606,6 +3609,7 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "wiremock",
  "workspace-hack",
 ]
 
@@ -4483,9 +4487,12 @@ dependencies = [
  "async-graphql",
  "async-stream",
  "axum",
+ "bot_id",
  "bots",
  "calendar_events",
  "chrono",
+ "crm",
+ "databases",
  "email",
  "entity_access",
  "entity_mutation",
@@ -4494,6 +4501,7 @@ dependencies = [
  "graphql_calendar",
  "graphql_channel",
  "graphql_common",
+ "graphql_crm",
  "graphql_email",
  "graphql_entity_mutation",
  "graphql_favorite",
@@ -5034,6 +5042,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "bot_id",
  "call",
  "chrono",
  "databases",
@@ -6270,6 +6279,7 @@ dependencies = [
  "entity_registry",
  "entity_registry_db_utils",
  "favorites",
+ "flate2",
  "foreign_entity",
  "forms",
  "frecency",
@@ -6277,12 +6287,15 @@ dependencies = [
  "github",
  "github_pull_requests",
  "graphql_calendar",
+ "graphql_crm",
  "graphql_initiative",
  "graphql_scheduled_action",
  "graphql_soup",
  "harnesses",
  "hex",
  "http-body-util",
+ "hyper 1.9.0",
+ "hyper-util",
  "import",
  "initiative",
  "initiative_description",
@@ -6362,10 +6375,12 @@ dependencies = [
  "teams",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-tungstenite 0.27.0",
  "tokio-util",
  "tower 0.5.3",
  "tower-http",
  "tracing",
+ "tungstenite 0.27.0",
  "unicode-segmentation",
  "urlencoding",
  "user_api_key",
@@ -7659,7 +7674,9 @@ checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
 name = "favorites"
 version = "0.1.0"
 dependencies = [
+ "ai_toolset",
  "anyhow",
+ "async-trait",
  "axum",
  "axum-extra",
  "chrono",
@@ -7674,6 +7691,7 @@ dependencies = [
  "model-error-response",
  "model_user",
  "rootcause",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "sqlx",
@@ -7699,6 +7717,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
+]
+
+[[package]]
+name = "feature_flags"
+version = "0.1.0"
+dependencies = [
+ "macro_user_id",
+ "reqwest 0.13.4",
+ "rootcause",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "wiremock",
 ]
 
 [[package]]
@@ -7789,6 +7821,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
+ "libz-sys",
  "miniz_oxide",
  "zlib-rs",
 ]
@@ -8624,6 +8657,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "graphql_crm"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "chrono",
+ "crm",
+ "databases",
+ "entity_access",
+ "graphql_common",
+ "graphql_properties",
+ "macro_user_id",
+ "models_databases",
+ "models_properties",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
+ "workspace-hack",
+]
+
+[[package]]
 name = "graphql_email"
 version = "0.1.0"
 dependencies = [
@@ -8788,8 +8842,10 @@ dependencies = [
 name = "graphql_soup"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-graphql",
  "async-stream",
+ "async-trait",
  "axum",
  "axum-extra",
  "chrono",
@@ -8820,6 +8876,7 @@ dependencies = [
  "soup",
  "soup-filter-projection",
  "soup_realtime",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "uuid",
@@ -12032,6 +12089,7 @@ dependencies = [
  "futures",
  "github_pull_requests",
  "http 1.4.0",
+ "import",
  "lexical_client",
  "macro_auth",
  "macro_aws_config",
@@ -12044,7 +12102,10 @@ dependencies = [
  "macro_service_urls",
  "macro_user_id",
  "mcp_auth_proxy",
+ "mcp_client",
+ "mcp_select",
  "notification",
+ "pipedream_mcp",
  "prompt",
  "readonly_pool",
  "redis",
@@ -16494,9 +16555,9 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "ruzstd"
-version = "0.8.3"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7c1c839d570d835527c9a5e4db7cb2198683a988cb9d7293fc8674e6bd58fc8"
+checksum = "69e4ce4a039f42bf25920b95667e4d789e98749ab11bbb8d2c2936f788421bb5"
 
 [[package]]
 name = "ryu"
@@ -19437,6 +19498,18 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "489a59b6730eda1b0171fcfda8b121f4bee2b35cba8645ca35c5f7ba3eb736c1"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.27.0",
+]
+
+[[package]]
+name = "tokio-tungstenite"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
@@ -19877,6 +19950,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "911e93158bf80bbc94bad533b2b16e3d711e1132d69a6a6980c3920a63422c19"
 dependencies = [
  "unicode-width 0.2.0",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.27.0"
+source = "git+https://github.com/signalapp/tungstenite-rs?rev=a1837ccfe96b6895a57352d7f0112e4557516c27#a1837ccfe96b6895a57352d7f0112e4557516c27"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "flate2",
+ "headers",
+ "http 1.4.0",
+ "httparse",
+ "log",
+ "rand 0.9.4",
+ "sha1 0.10.6",
+ "thiserror 2.0.18",
+ "utf-8",
 ]
 
 [[package]]
@@ -21748,6 +21839,7 @@ dependencies = [
  "itertools 0.13.0",
  "lazy_static",
  "libc",
+ "libz-sys",
  "linux-raw-sys 0.12.1",
  "log",
  "memchr",

@@ -166,10 +166,40 @@ impl<'de> XmlTaggedParsed<'de> for ParsedAgentSessionMention<'de> {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ParsedPullRequestMention<'a> {
-    #[serde(borrow)]
+    /// The Macro foreign entity id. Empty when an agent mentioned the PR by
+    /// its GitHub `url` alone.
+    #[serde(borrow, default)]
     pub id: Cow<'a, str>,
     #[serde(borrow, default)]
     pub label: Option<Cow<'a, str>>,
+    /// The pull request's github.com URL.
+    #[serde(borrow, default)]
+    pub url: Option<Cow<'a, str>>,
+}
+
+impl ParsedPullRequestMention<'_> {
+    /// `owner/repo#123` from the mention's GitHub URL, if it has one. Agents
+    /// sometimes write that URL in `id`, so it is read from there too.
+    pub fn github_ref(&self) -> Option<String> {
+        let url = self
+            .url
+            .as_deref()
+            .filter(|url| !url.is_empty())
+            .unwrap_or(&self.id);
+        let path = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))?;
+        let path = path.strip_prefix("www.").unwrap_or(path);
+        let mut parts = path.strip_prefix("github.com/")?.split('/');
+        let (owner, repo, pull, number) =
+            (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+        let number = number
+            .split(['?', '#'])
+            .next()
+            .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))?;
+        (pull == "pull" && !owner.is_empty() && !repo.is_empty())
+            .then(|| format!("{owner}/{repo}#{number}"))
+    }
 }
 
 impl<'de> XmlTaggedParsed<'de> for ParsedPullRequestMention<'de> {
@@ -436,14 +466,14 @@ impl XmlFormatter for PlainTextFormatter {
         pr: &ParsedPullRequestMention<'_>,
         f: &mut Formatter<'_>,
     ) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            pr.label
-                .as_deref()
-                .filter(|label| !label.is_empty())
-                .unwrap_or("Pull request")
-        )
+        match pr.label.as_deref().filter(|label| !label.is_empty()) {
+            Some(label) => write!(f, "{label}"),
+            None => write!(
+                f,
+                "{}",
+                pr.github_ref().as_deref().unwrap_or("Pull request")
+            ),
+        }
     }
 }
 

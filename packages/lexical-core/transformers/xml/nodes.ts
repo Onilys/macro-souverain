@@ -206,6 +206,7 @@ export type PullRequestMentionNode = Id & {
   version: number;
   id: string;
   label: string;
+  url?: string;
 };
 
 export type ThemeMentionNode = Id & {

@@ -402,6 +402,10 @@ impl McpUpstream for PipedreamClient {
 }
 
 impl McpConnection for PipedreamClient {
+    fn is_configured(&self) -> bool {
+        true
+    }
+
     #[tracing::instrument(skip_all, err, fields(app = %record.app_slug, user_id = %record.user_id))]
     async fn connect(&self, record: &PipedreamConnection) -> anyhow::Result<McpServer> {
         let upstream = self.upstream(record).await?;
