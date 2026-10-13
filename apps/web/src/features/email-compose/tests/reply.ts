@@ -15,7 +15,11 @@ export function mountReplyComposer(
   replyingTo = () => message('parent'),
   callbacks: Pick<
     ReplyComposerOptions,
-    'draft' | 'sideEffectOnSend' | 'onMarkDone' | 'setShowReply'
+    | 'draft'
+    | 'preloadedHtml'
+    | 'sideEffectOnSend'
+    | 'onMarkDone'
+    | 'setShowReply'
   > = {},
   thread: {
     inboxVisible?: boolean;

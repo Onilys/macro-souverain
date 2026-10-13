@@ -329,6 +329,7 @@ export function createReplyComposer(
   // Consume the undo-send snapshot so a later composer mount doesn't restore
   // it again. Use bodyHtml as initialHtml for the editor, restore attachments
   // on mount.
+  const [restoredBodyHtml, setRestoredBodyHtml] = createSignal<string>();
   const restoreEnvelope = (snapshot: UndoReplySnapshot) => {
     form.setSelectedInbox(snapshot.inboxId);
     form.setSubject(snapshot.draftRestore.subject);
@@ -379,6 +380,7 @@ export function createReplyComposer(
       inboxId: snapshot.inboxId,
     });
     restoreEnvelope(snapshot);
+    setRestoredBodyHtml(snapshot.bodyHtml ?? plainTextToHtml(''));
     const currentEditor = editor();
     if (currentEditor && snapshot.bodyHtml) {
       setEditorStateFromHtml(currentEditor, snapshot.bodyHtml);
@@ -396,7 +398,8 @@ export function createReplyComposer(
     unregisterUndo();
   });
 
-  const initialHtml = () => restoredSnapshot?.bodyHtml ?? props.preloadedHtml;
+  const initialHtml = () =>
+    restoredBodyHtml() ?? restoredSnapshot?.bodyHtml ?? props.preloadedHtml;
   const [editorConnected, setEditorConnected] = createSignal(false);
   const handleEditorConnect = () => {
     const currentEditor = editor();
@@ -716,14 +719,12 @@ export function createReplyComposer(
       form.restoreDraft(draft);
       if (attachments) form.attachments.replace(attachments);
       setIncludeSignature(change.includeSignature !== false);
+      const bodyHtml = draft.body_html_sanitized
+        ? decodeBase64Utf8(draft.body_html_sanitized)
+        : plainTextToHtml(draft.body_text ?? '');
+      setRestoredBodyHtml(bodyHtml);
       const currentEditor = editor();
-      if (currentEditor)
-        setEditorStateFromHtml(
-          currentEditor,
-          draft.body_html_sanitized
-            ? decodeBase64Utf8(draft.body_html_sanitized)
-            : plainTextToHtml(draft.body_text ?? '')
-        );
+      if (currentEditor) setEditorStateFromHtml(currentEditor, bodyHtml);
       setQuoteCollapsed(!form.replyAppended());
       hasLocalChanges = false;
       setTerminalState(undefined);
@@ -1259,6 +1260,7 @@ export function createReplyComposer(
   };
 
   const resetState = () => {
+    setRestoredBodyHtml(plainTextToHtml(''));
     clearEmailBody(editor());
     setBodyMacro('');
     session.dispatch({ type: 'reset' });
@@ -1337,18 +1339,10 @@ export function createReplyComposer(
   };
 
   const handleAddAttachments = async (files: File[]) => {
-    if (
-      submitting() ||
-      pendingDeletion() ||
-      movingInbox() ||
-      scheduling() ||
-      schedule.state().type === 'scheduled' ||
-      terminalState() ||
-      sendLocked()
-    )
-      return;
+    if (editingDisabled()) return;
     if (await refuseAttachmentsOffline(props.connectivity, props.notices))
       return;
+    if (editingDisabled()) return;
     const currentAttachments = form.attachments.list();
 
     const attachmentsToAddByteSize = files.reduce(
@@ -1390,16 +1384,7 @@ export function createReplyComposer(
   };
 
   const handleRemoveAttachment = async (attachment: DraftFormAttachment) => {
-    if (
-      submitting() ||
-      pendingDeletion() ||
-      movingInbox() ||
-      scheduling() ||
-      schedule.state().type === 'scheduled' ||
-      terminalState() ||
-      sendLocked()
-    )
-      return;
+    if (editingDisabled()) return;
     try {
       if (!(await attachmentPersistence.remove(attachment))) return;
       scheduleDraftSave();

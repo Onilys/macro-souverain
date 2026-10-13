@@ -183,6 +183,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   const [editor, setEditor] = createSignal<LexicalEditor | undefined>();
   const [content, setContent] = createSignal('');
   const [restoring, setRestoring] = createSignal(false);
+  const [restoredBodyHtml, setRestoredBodyHtml] = createSignal<string>();
   // The selected sender can change before the server migrates the draft.
   // Lifecycle reads always use one complete persisted identity.
   const session = createDraftSession(
@@ -482,14 +483,12 @@ export function createEmailComposer(props: EmailComposerOptions) {
       form.restoreDraft(draft);
       if (attachments) form.attachments.replace(attachments);
       setIncludeSignature(change.includeSignature !== false);
+      const bodyHtml = draft.body_html_sanitized
+        ? decodeBase64Utf8(draft.body_html_sanitized)
+        : plainTextToHtml(draft.body_text ?? '');
+      setRestoredBodyHtml(bodyHtml);
       const currentEditor = editor();
-      if (currentEditor)
-        setEditorStateFromHtml(
-          currentEditor,
-          draft.body_html_sanitized
-            ? decodeBase64Utf8(draft.body_html_sanitized)
-            : plainTextToHtml(draft.body_text ?? '')
-        );
+      if (currentEditor) setEditorStateFromHtml(currentEditor, bodyHtml);
       setDraftDirty(false);
       setSentDraftId(undefined);
       setCompleted(false);
@@ -951,6 +950,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
 
   const resetState = () => {
     setSentDraftId(undefined);
+    setRestoredBodyHtml(plainTextToHtml(''));
     clearEmailBody(editor());
     setContent('');
     session.dispatch({ type: 'reset' });
@@ -1159,6 +1159,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   // --- Derived state ---
 
   const initialHtml = () => {
+    if (restoredBodyHtml() !== undefined) return restoredBodyHtml();
     if (restoredSnapshot) {
       return restoredSnapshot.bodyHtml;
     }

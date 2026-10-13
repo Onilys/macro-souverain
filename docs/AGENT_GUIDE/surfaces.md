@@ -1013,6 +1013,13 @@ must keep its request rather than being replaced on every status poll.
 Cancel and Restore must win over a delayed Send completion in both composers. Start
 another send after restoration, delay its preparation, then release the old response:
 the newer send must remain locked until its own preparation and delivery finish.
+Restore while an editor is still connecting and verify that its text, HTML, or
+empty body survives initialization. Leave a reply attachment picker open, start
+restoration, then finish picking a file: the delayed callback must not change
+attachments until restoration completes. Existing attachments must stay intact.
+Trashing a thread may cancel unsubmitted scheduled drafts, but must preserve
+submitted and delivery-unconfirmed claims. It must not make either send appear
+cancelled or allow a second delivery while the original outcome is unresolved.
 Resizing media must stop immediately when an editor
 locks, including an active drag and a pending debounced resize.
 

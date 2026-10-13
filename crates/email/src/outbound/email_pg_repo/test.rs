@@ -11,6 +11,7 @@ mod project;
 mod project_scope_dynamic_query;
 mod reminder_collection;
 mod scheduled;
+mod scheduled_trash;
 mod send_attempt;
 mod settings;
 mod signal_flag;

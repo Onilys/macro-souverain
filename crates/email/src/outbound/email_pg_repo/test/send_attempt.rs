@@ -5,6 +5,7 @@ use crate::domain::{
 };
 
 mod preparation_cancel;
+mod trash;
 
 fn actor() -> MacroUserIdStr<'static> {
     MacroUserIdStr::parse_from_str("macro|user1@test.com").unwrap()

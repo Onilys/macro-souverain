@@ -423,8 +423,10 @@ pub trait EmailRepo: Send + Sync + 'static {
         link_id: Uuid,
     ) -> impl Future<Output = Result<Vec<LinkLabel>, Self::Err>> + Send;
 
-    /// Delete unsent scheduled messages for a batch of draft message IDs.
-    /// Returns the message ids that actually had a pending scheduled send.
+    /// Cancel scheduled deliveries for currently unsent drafts under the
+    /// message -> schedule lock order. Preserve submitted, unconfirmed and
+    /// ambiguous legacy claims; managed preparation may be revoked before
+    /// submission. Returns only the message IDs actually cancelled.
     fn delete_scheduled_messages_batch(
         &self,
         message_ids: &[Uuid],
