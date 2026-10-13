@@ -109,3 +109,13 @@ fn illustrator_documents_keep_their_extension_and_media_type() {
     assert_eq!(FileType::Ai.mime_type(), "application/postscript");
     assert_eq!(FileType::Ai.macro_app_path().to_string(), "vector");
 }
+
+#[test]
+fn figma_is_an_alias_for_fig() {
+    assert_eq!(FileType::from_str("figma").unwrap(), FileType::Fig);
+    assert_eq!(FileType::from_str(".FIGMA").unwrap(), FileType::Fig);
+    assert_eq!(FileType::from_str("fig").unwrap(), FileType::Fig);
+    assert_eq!(FileType::Fig.as_str(), "fig");
+    assert_eq!(FileType::Fig.mime_type(), "application/x-figma");
+    assert_eq!(serde_json::to_string(&FileType::Fig).unwrap(), "\"fig\"");
+}

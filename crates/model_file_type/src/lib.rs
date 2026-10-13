@@ -65,6 +65,7 @@ macro_rules! generate_file_types {
                 let lowercase = Lowercase::new(file_type.trim_start_matches('.')); // remove leading dot
 
                 match lowercase.0.as_ref() {
+                    "figma" => Ok(FileType::Fig),
                     $(
                         $str_name => Ok(FileType::$variant),
                     )*

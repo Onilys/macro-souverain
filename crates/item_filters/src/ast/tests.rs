@@ -235,6 +235,12 @@ fn native_spreadsheets_have_an_explicit_filter_and_are_not_other_files() {
 }
 
 #[test]
+fn figma_resolves_to_the_fig_file_type() {
+    assert_eq!(document::resolve_file_types("figma"), vec![FileType::Fig]);
+    assert_eq!(document::resolve_file_types("fig"), vec![FileType::Fig]);
+}
+
+#[test]
 fn it_expands_email_thread_ids() {
     let thread_id = Uuid::new_v4();
     let f = EntityFilters {
