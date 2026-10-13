@@ -11,3 +11,7 @@ which renders the real card and dialog over an in-memory import pipeline.
 
 Live Pipedream authorization and agent imports are not shown: the hosted dev
 connection requires a signed-in account.
+
+- [Trailer](trailer.mp4): a 21-second walkthrough of the import cards, the Files
+  dialog, a Notion import, and the Home, Calendar, and Pull request setup cards.
+  Rendered from the same fixture captures.
