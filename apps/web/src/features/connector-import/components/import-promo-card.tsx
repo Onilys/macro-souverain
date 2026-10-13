@@ -32,7 +32,6 @@ export function ImportPromoCard(props: {
       <p class="mt-1 text-xs leading-relaxed text-ink-muted">
         {props.config.pitch}
       </p>
-      <SecurityNote class="mt-2" />
       <Button
         variant="outline"
         size="sm"
@@ -41,6 +40,7 @@ export function ImportPromoCard(props: {
       >
         {props.config.action}
       </Button>
+      <SecurityNote class="mt-2 items-center justify-center text-[11px] leading-4 [&>svg]:mt-0" />
     </section>
   );
 }

@@ -40,5 +40,4 @@ export type ImportCategoryConfig = ImportCategoryCopy & {
 };
 
 /** Shown on every card and dialog; grounded in Macro's security page. */
-export const IMPORT_SECURITY_NOTE =
-  'Encrypted in transit and at rest. You choose what comes over.';
+export const IMPORT_SECURITY_NOTE = 'Encrypted in transit and at rest.';

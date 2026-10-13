@@ -7,13 +7,13 @@ import IconDropbox from '@icon/import/dropbox.svg';
 import IconGoogleDrive from '@icon/import/google-drive.svg';
 import IconHubSpot from '@icon/import/hubspot.svg';
 import IconJira from '@icon/import/jira.svg';
-import IconLinear from '@icon/mcp-linear.svg';
 import IconMonday from '@icon/import/monday.svg';
 import IconNotion from '@icon/import/notion.svg';
 import IconOneDrive from '@icon/import/onedrive.svg';
 import IconSalesforce from '@icon/import/salesforce.svg';
 import IconTrello from '@icon/import/trello.svg';
 import IconGithub from '@icon/mcp-github.svg';
+import IconLinear from '@icon/mcp-linear.svg';
 import type {
   ImportCategory,
   ImportCategoryConfig,
