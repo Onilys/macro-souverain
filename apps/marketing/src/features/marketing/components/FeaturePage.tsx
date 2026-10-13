@@ -18,14 +18,12 @@ const scopedUi = uiStyles
 
 export function FeaturePage(props: {
   children: JSX.Element;
-  light?: boolean;
   productSpacing?: boolean;
 }) {
   return (
     <main
       class="feature-page"
       data-product-spacing={props.productSpacing ? 'true' : undefined}
-      data-theme-light={props.light ? 'true' : 'false'}
     >
       <style>{uiProperties}</style>
       <style>{`@scope (.feature-page) { ${scopedUi} ${palette.replaceAll(':root', ':scope')} }`}</style>

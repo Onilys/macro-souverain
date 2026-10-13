@@ -32,10 +32,12 @@ export function Company(props: {
   headerToggle?: boolean;
   onHidden?: () => void;
   onOpenContact?: (contact: CompanyContact) => void;
+  onOpenPipeline?: (pipelineId: string) => void;
 }) {
   const context = useCrmContext();
   const openCreateContactModal = context.openCreateContact;
   const listsEnabled = context.listsEnabled();
+  const pipelinesEnabled = context.pipelinesEnabled();
   const { company, contacts } = useCompanyQuery(() => props.companyId);
   const section = () => props.section ?? 'overview';
   const scope = createMemo(
@@ -65,6 +67,12 @@ export function Company(props: {
               <div class="h-full overflow-y-auto px-6 pb-12 pt-12 scrollbar-hidden touch:pt-6">
                 <div class="mx-auto flex max-w-3xl min-w-0 flex-col gap-6">
                   <CompanyHeader company={company()} />
+                  <Show when={pipelinesEnabled()}>
+                    <context.PipelineEntries
+                      record={{ type: 'company', id: props.companyId }}
+                      onOpenPipeline={props.onOpenPipeline}
+                    />
+                  </Show>
                   <CompanyDiscussionSection companyId={props.companyId} />
                 </div>
               </div>

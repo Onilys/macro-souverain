@@ -267,8 +267,17 @@ it('shared checkbox filters support Shift+Enter and close after ordinary Enter',
   expect(checked()).toBe(false);
 });
 
-function mousePointer(element: HTMLElement, type: string) {
-  const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+function mousePointer(
+  element: HTMLElement,
+  type: string,
+  at: { clientX: number; clientY: number } = { clientX: 0, clientY: 0 }
+) {
+  const event = new MouseEvent(type, {
+    // Like the browser, enter/leave do not bubble to the menu or document.
+    bubbles: type !== 'pointerenter' && type !== 'pointerleave',
+    cancelable: true,
+    ...at,
+  });
   Object.defineProperty(event, 'pointerType', { value: 'mouse' });
   fireEvent(element, event);
 }
@@ -281,35 +290,113 @@ function crossMenuPadding() {
   trigger.closest<HTMLElement>('[role="menu"]')!.focus();
 }
 
-it.each([false, true])(
-  'switches immediately to a hovered sibling instead of preserving the old submenu (searchable: %s)',
-  async (searchable) => {
-    setup(false, searchable);
-    await openSubmenu();
-    if (searchable) {
-      const input = await screen.findByPlaceholderText('Search assignees...');
-      await waitFor(() => expect(document.activeElement).toBe(input));
-    } else await screen.findByRole('menuitemcheckbox', { name: 'Alice' });
-
-    crossMenuPadding();
-    const files = screen.getByRole('menuitem', { name: 'Files' });
-    mousePointer(files, 'pointerenter');
-    // Kobalte may suppress pointermove while inside the old submenu's grace
-    // polygon. Entering Files must work even without a subsequent pointermove.
-    expect(files.getAttribute('aria-expanded')).toBe('true');
+/**
+ * Opens Assignee, lays its submenu out to the left of the menu (where the
+ * Tasks and Home menus open them at the window's right edge), and leaves the
+ * Assignee row heading left, toward that submenu.
+ */
+async function leaveTowardAssigneeSubmenu(searchable: boolean) {
+  setup(false, searchable);
+  await openSubmenu();
+  const submenuChild = searchable
+    ? await screen.findByPlaceholderText('Search assignees...')
+    : await screen.findByRole('menuitemcheckbox', { name: 'Alice' });
+  const submenu = submenuChild.closest<HTMLElement>('[role="menu"]')!;
+  // jsdom has no viewport, so the submenu flips to the left once positioned.
+  await waitFor(() =>
     expect(
-      screen
-        .getByRole('menuitem', { name: 'Assignee' })
-        .getAttribute('aria-expanded')
-    ).toBe('false');
+      submenu
+        .closest<HTMLElement>('[data-popper-positioner]')!
+        .style.getPropertyValue('--kb-popper-content-transform-origin')
+    ).toMatch(/^right/)
+  );
+  if (searchable)
+    await waitFor(() => expect(document.activeElement).toBe(submenuChild));
+  vi.spyOn(submenu, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(0, 0, 100, 200)
+  );
+  const assignee = screen.getByRole('menuitem', { name: 'Assignee' });
+  const menu = assignee.closest<HTMLElement>('[role="menu"]')!;
+  mousePointer(menu, 'pointermove', { clientX: 200, clientY: 20 });
+  mousePointer(menu, 'pointermove', { clientX: 150, clientY: 20 });
+  mousePointer(assignee, 'pointerleave', { clientX: 150, clientY: 20 });
+  return { assignee, menu };
+}
+
+it.each([false, true])(
+  'keeps the open submenu while the mouse crosses a sibling toward it, then switches once it rests there (searchable: %s)',
+  async (searchable) => {
+    const { assignee } = await leaveTowardAssigneeSubmenu(searchable);
+    const files = screen.getByRole('menuitem', { name: 'Files' });
+    mousePointer(files, 'pointerenter', { clientX: 140, clientY: 30 });
+    mousePointer(files, 'pointermove', { clientX: 140, clientY: 30 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(assignee.getAttribute('aria-expanded')).toBe('true');
+    expect(files.getAttribute('aria-expanded')).toBe('false');
+
+    // Kobalte suppresses pointermove inside the old submenu's grace polygon,
+    // so a mouse that stops on Files must still switch to it.
+    await waitFor(() =>
+      expect(files.getAttribute('aria-expanded')).toBe('true')
+    );
+    expect(assignee.getAttribute('aria-expanded')).toBe('false');
     expect(
       await screen.findByRole('menuitemradio', { name: 'All files' })
     ).toBeTruthy();
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(files.getAttribute('aria-expanded')).toBe('true');
     expect(screen.queryByPlaceholderText('Search assignees...')).toBeNull();
   }
 );
+
+it('switches to a sibling straight away when the mouse moves away from the open submenu', async () => {
+  const { assignee, menu } = await leaveTowardAssigneeSubmenu(false);
+  const files = screen.getByRole('menuitem', { name: 'Files' });
+  for (const clientX of [160, 170, 180])
+    mousePointer(menu, 'pointermove', { clientX, clientY: 30 });
+  mousePointer(files, 'pointerenter', { clientX: 190, clientY: 30 });
+  mousePointer(files, 'pointermove', { clientX: 190, clientY: 30 });
+  expect(assignee.getAttribute('aria-expanded')).toBe('false');
+  await waitFor(() => expect(files.getAttribute('aria-expanded')).toBe('true'));
+});
+
+it.each([false, true])(
+  'keeps following a slow mouse into the open submenu after Kobalte’s grace expires (searchable: %s)',
+  async (searchable) => {
+    const { assignee, menu } = await leaveTowardAssigneeSubmenu(searchable);
+    // Kobalte drops its grace polygon 300 ms after the mouse leaves Assignee.
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const files = screen.getByRole('menuitem', { name: 'Files' });
+    mousePointer(menu, 'pointermove', { clientX: 145, clientY: 25 });
+    mousePointer(files, 'pointerenter', { clientX: 140, clientY: 30 });
+    mousePointer(files, 'pointermove', { clientX: 140, clientY: 30 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    mousePointer(files, 'pointermove', { clientX: 125, clientY: 35 });
+    mousePointer(files, 'pointerleave', { clientX: 110, clientY: 40 });
+    mousePointer(menu, 'pointermove', { clientX: 110, clientY: 40 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(files.getAttribute('aria-expanded')).toBe('false');
+    expect(assignee.getAttribute('aria-expanded')).toBe('true');
+
+    const submenu = document.getElementById(
+      assignee.getAttribute('aria-controls')!
+    )!;
+    mousePointer(submenu, 'pointerenter', { clientX: 95, clientY: 45 });
+    mousePointer(submenu, 'pointermove', { clientX: 95, clientY: 45 });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(assignee.getAttribute('aria-expanded')).toBe('true');
+  }
+);
+
+it('closes the open submenu once the mouse stops short of it', async () => {
+  const { assignee, menu } = await leaveTowardAssigneeSubmenu(false);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  mousePointer(menu, 'pointermove', { clientX: 145, clientY: 25 });
+  // Kobalte focuses the menu when the mouse leaves a row outside its grace.
+  menu.focus();
+  expect(assignee.getAttribute('aria-expanded')).toBe('true');
+  await waitFor(() =>
+    expect(assignee.getAttribute('aria-expanded')).toBe('false')
+  );
+});
 
 it('keeps a submenu open while crossing padding, cancelling dismissal on entry', async () => {
   setup();

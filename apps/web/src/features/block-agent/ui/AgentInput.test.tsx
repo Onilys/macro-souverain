@@ -14,6 +14,7 @@ import {
 import { preloadAgentFold } from '@core/agent-fold/client';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
+import { Portal } from 'solid-js/web';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AGENT_INPUT_TEXT_AREA_ID, AgentInput } from './AgentInput';
 
@@ -91,6 +92,10 @@ vi.mock('@core/component/LexicalMarkdown/builder/MarkdownShell', () => ({
   MarkdownShell: (props: { disabled?: boolean; initialValue?: string }) => (
     <div data-testid="agent-input-editor" data-disabled={props.disabled}>
       {props.initialValue}
+      {/* Decorators portal their popups (the paste viewer) out of the editor. */}
+      <Portal>
+        <pre data-testid="portaled-text">Pasted text</pre>
+      </Portal>
     </div>
   ),
 }));
@@ -391,6 +396,22 @@ describe('attachments', () => {
     render(() => <AgentInput onSend={vi.fn()} onAttachFiles={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Attach files' })).toBeTruthy();
   });
+});
+
+it('leaves presses in portaled editor popups to the browser so their text can be selected', () => {
+  const { container } = render(() => <AgentInput onSend={vi.fn()} />);
+  const press = (target: Element, type: string) => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  const padding = container.querySelector('[data-composer-compact]')!;
+  const portaled = screen.getByTestId('portaled-text');
+  expect(container.contains(portaled)).toBe(false);
+  for (const type of ['pointerdown', 'mousedown']) {
+    expect(press(padding, type)).toBe(true);
+    expect(press(portaled, type)).toBe(false);
+  }
 });
 
 it('expands for a short quote and collapses when replaced with a paragraph', () => {

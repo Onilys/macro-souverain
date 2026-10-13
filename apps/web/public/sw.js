@@ -57,6 +57,9 @@ self.addEventListener('fetch', (event) => {
   if (!url.pathname.startsWith(SCOPE_PATH)) return;
 
   if (request.mode === 'navigate') {
+    // The cached shell carries the app's frame options. A framed page (a
+    // booking link in the website's dialog) needs the ones served for its path.
+    if (request.destination === 'iframe') return;
     // Mirror the routing lambda: paths that look like files are not the app.
     const leaf = url.pathname.split('/').pop() ?? '';
     if (leaf.includes('.') && !url.pathname.includes('@')) return;

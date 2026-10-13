@@ -135,7 +135,6 @@ impl FoldState {
             prompt_id: Some(prompt_id.clone()),
             agent: None,
             plan_position: None,
-            expects_reply: true,
         });
 
         closed.into_iter().chain(changed).collect()
@@ -229,9 +228,6 @@ impl FoldState {
         let turn = self.turn.take()?;
         let (message, changed) = match turn.agent {
             Some(message) => (message, Changed::updated(message)),
-            // A turn a control opened is skipped by those readers, so an
-            // empty agent bubble under its line would be noise, not a fix.
-            None if !turn.expects_reply => return None,
             None => self.mint_agent_message(turn.id),
         };
         self.messages[message].stop = Some(stop);
@@ -278,7 +274,6 @@ impl FoldState {
             prompt_id: None,
             agent: None,
             plan_position: None,
-            expects_reply: true,
         });
     }
 }

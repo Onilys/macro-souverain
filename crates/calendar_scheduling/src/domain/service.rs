@@ -211,6 +211,7 @@ impl<R: Repository, C: Calendars, D: Directory> Service<R, C, D> {
                     description: e.description,
                     duration_minutes: e.duration_minutes,
                     location: e.location,
+                    macro_call: e.macro_call,
                     google_meet: e.google_meet,
                     questions: e.questions,
                     requires_confirmation: e.requires_confirmation,

@@ -9,6 +9,11 @@ match its name, including databases with no view history.
 
 Creating from Home immediately shows the table selector with its **+** menu, **Database
 actions**, and **AI** in the top bar; no reload is needed to use them.
+`/database` immediately shows **Creating database…** at the insertion point while
+the creation module loads. Moving the caret keeps that insertion anchored; removing
+it before the module loads cancels creation.
+A successful create opens its new editor while database discovery refreshes in
+the background; a slow discovery refresh must not delay the new database card.
 Databases open at
 `/app/database/<uuid>`. A database contains tables; records belong to a table and
 its properties describe each record. The database name in the split header is an
@@ -19,6 +24,9 @@ split header's `viewer` badge instead.
 Reopening a loaded table or view shows its cached rows while a background read
 checks for changes. Wait for refreshing to finish before asserting server
 reconciliation; visible rows alone do not mean the network read has completed.
+Concurrent cache-only misses must not fail an outstanding network row read. A
+successful background read clears an earlier refresh warning; a genuine failed
+read keeps the warning and its Refresh action.
 
 **AI** in the split header opens an agent chat about the database. Its composer
 starts with a mention of the database; the schema and table guidance go to the
@@ -44,7 +52,7 @@ PostHog unless the variable was set when it was built. With the flag off:
 - `/app/database/<uuid>` and a `~/database/<uuid>` split show the 404 view. The
   database block's code is never fetched and no database request is made.
 - **Create → Database**, its **C → L** shortcut, the command palette entry and
-  the slash menu's **Database** action are absent, and no starter database is
+  the slash menu's **Database** and **Query** actions are absent, and no starter database is
   created.
 - The sidebar, mentions, search and Quick Access list no databases; Activity
   and the ReadActivity tool leave out database rows.
@@ -102,6 +110,21 @@ fixture (`features/crm/browser-test/editor.html`) covers the real pipeline API
 adapter and shared provider against local test responses.
 Pipelines poll every five seconds. A poll that returns unchanged data must not
 remount company previews or request them again.
+
+### Pipelines from AI chat
+
+Chats and agent sessions manage pipelines with their own tools, not the database
+tools: `ListPipelines`, `FindPipelineEntries`, `AddToPipeline`,
+`UpdatePipelineEntries`, `RemoveFromPipeline`, `CreatePipeline`, and `EditPipeline`.
+They address entries by the company or contact they track, fields by name, and
+stages by label, so "move Acme to Negotiation in Sales" or "how many deals are in
+Demo?" work without ids. Each tool row shows a kanban icon and expands to the
+entries it read or changed; an update lists every field before and after.
+To verify, ask a chat to move a company between stages and check that the pipeline
+row (within the five-second poll) and the company page's **Pipelines** card both
+show the new stage. The company's own Stage, Owner and Revenue properties in the
+side panel are a separate field these tools do not change. A pipeline created or
+renamed from chat appears in the CRM sidebar as soon as the tool finishes.
 
 ## Properties and records
 
@@ -458,8 +481,10 @@ offers **Open view**, which opens that database/table and selects the created vi
 The same tools are exposed to agent sessions through the Macro MCP server.
 
 In a document, channel composer, or the task/document creation composer,
-`/database` → **Database** opens the question box with the AI prompt focused
-immediately. The empty input rotates through example questions; a selected database
+`/query` → **Query** opens the question box with the AI prompt focused
+immediately. New draft questions bypass the saved-answer viewport gate; a cold
+module load shows **Opening database…** until the question input is ready. Saved
+answers still load when they approach the viewport. The empty input rotates through example questions; a selected database
 uses its actual table and column names. Typing hides these hints, and reduced-motion
 preferences keep them static. Use the searchable source picker below the question to
 choose a database; the entire chosen database is in scope, without a table
@@ -562,6 +587,13 @@ its optimistic state when no newer cache update has replaced it, then refreshes.
 A slow or failed refresh is not a reason to resend a successful mutation.
 
 ### Embedded database editors
+
+In a document, `/database` creates a database and inserts its expanded editor.
+Selecting an existing database from `@` inserts a compact chip. Its expand icon
+opens the editor. **Collapse** returns it to a small mention. Cell and schema
+edits use the same database grid and authorization as the standalone app. The
+document stores only the database reference and selected table/view, never a
+copy of its rows. See [Databases in documents](documents.md#databases-in-documents).
 
 The shared editor also runs under a host's `DatabaseProvider`, using schema reads,
 row queries and operation batches from that host's API. Verify cell edits and
