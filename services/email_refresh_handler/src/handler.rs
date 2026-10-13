@@ -7,6 +7,7 @@ use lambda_runtime::{
 };
 use macro_env::Environment;
 use models_email::email::service::pubsub::{DeletionReason, LinkManagerMessage};
+use rand::seq::SliceRandom;
 use sqlx::types::uuid;
 use sqlx::{Pool, Postgres, Type};
 
@@ -148,14 +149,15 @@ async fn send_refresh_messages(ctx: &context::Context) -> Result<(), Error> {
 
 /// delete unused and inactive links from our database
 async fn send_delete_messages(ctx: &context::Context) -> Result<(), Error> {
-    let unused_links = fetch_unused_link_ids(&ctx.db, ctx.config.delete_unused_after_days as i32)
-        .await
-        .unwrap_or_else(|e| {
-            tracing::error!(error=?e, "Error fetching unused links for deletion");
-            Vec::new()
-        });
+    let mut unused_links =
+        fetch_unused_link_ids(&ctx.db, ctx.config.delete_unused_after_days as i32)
+            .await
+            .unwrap_or_else(|e| {
+                tracing::error!(error=?e, "Error fetching unused links for deletion");
+                Vec::new()
+            });
 
-    let inactive_links =
+    let mut inactive_links =
         fetch_inactive_link_ids(&ctx.db, ctx.config.delete_inactive_after_days as i32)
             .await
             .unwrap_or_else(|e| {
@@ -164,6 +166,13 @@ async fn send_delete_messages(ctx: &context::Context) -> Result<(), Error> {
             });
 
     let (unused_count, inactive_count) = (unused_links.len(), inactive_links.len());
+    // Random picks keep links whose deletes keep failing, or are still running from the
+    // previous hour, from holding the same capped slots every run.
+    {
+        let mut rng = rand::rng();
+        unused_links.shuffle(&mut rng);
+        inactive_links.shuffle(&mut rng);
+    }
     let planned = plan_delete_batch(unused_links, inactive_links);
 
     tracing::info!(

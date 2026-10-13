@@ -7063,6 +7063,7 @@ dependencies = [
  "macro_queues",
  "model",
  "models_email",
+ "rand 0.9.4",
  "sqlx",
  "sqs_client",
  "tokio",
