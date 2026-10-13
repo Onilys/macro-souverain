@@ -347,7 +347,7 @@ describe('Harness', () => {
 
     expect(mocks.save).not.toHaveBeenCalled();
     expect(mocks.toastFailure).toHaveBeenCalledWith(
-      'Cursor API keys start with crsr_'
+      'Cursor API keys start with crsr_ or grok_'
     );
 
     fireEvent.input(apiKeyInput, { target: { value: '  crsr_example  ' } });
@@ -355,6 +355,22 @@ describe('Harness', () => {
 
     await waitFor(() => {
       expect(mocks.save).toHaveBeenCalledWith('crsr_example');
+      expect(mocks.toastSuccess).toHaveBeenCalledWith('Cursor connected');
+      expect(apiKeyInput).toHaveProperty('value', '');
+    });
+  });
+
+  it('also accepts the grok_ prefix for Cursor API keys', async () => {
+    render(() => <Harness />);
+
+    const apiKeyInput = screen.getByLabelText('API key');
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+
+    fireEvent.input(apiKeyInput, { target: { value: '  grok_example  ' } });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mocks.save).toHaveBeenCalledWith('grok_example');
       expect(mocks.toastSuccess).toHaveBeenCalledWith('Cursor connected');
       expect(apiKeyInput).toHaveProperty('value', '');
     });

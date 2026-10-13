@@ -171,7 +171,13 @@ fn key_parsing_accepts_pasted_keys_and_rejects_the_rest() {
             .expose(),
         "crsr_abc"
     );
-    for rejected in ["", "crsr_", "sk-ant-abc", "abc_crsr_abc"] {
+    assert_eq!(
+        CursorApiKey::parse("  \"grok_abc\"\n")
+            .expect("grok_ prefix accepted")
+            .expose(),
+        "grok_abc"
+    );
+    for rejected in ["", "crsr_", "grok_", "sk-ant-abc", "abc_crsr_abc"] {
         assert!(
             CursorApiKey::parse(rejected).is_err(),
             "{rejected:?} should be rejected"

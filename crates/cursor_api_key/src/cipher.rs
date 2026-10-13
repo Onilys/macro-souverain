@@ -41,8 +41,9 @@ pub const ENCRYPTION_VERSION: i16 = 1;
 /// feature cannot be decrypted as a Cursor key even under the same KMS key.
 const ENCRYPTION_PURPOSE: &str = "cursor-api-key";
 
-/// The prefix every Cursor API key carries.
-const CURSOR_KEY_PREFIX: &str = "crsr_";
+/// The prefixes Cursor API keys carry. `crsr_` is the legacy prefix; `grok_`
+/// is the newer prefix introduced with the Grok and Cursor unification.
+const CURSOR_KEY_PREFIXES: &[&str] = &["crsr_", "grok_"];
 
 /// A Cursor API key in plaintext.
 ///
@@ -68,10 +69,13 @@ impl CursorApiKey {
         let trimmed = supplied
             .trim()
             .trim_matches(|character| character == '"' || character == '\'');
-        if !trimmed.starts_with(CURSOR_KEY_PREFIX) {
+        let matched_prefix = CURSOR_KEY_PREFIXES
+            .iter()
+            .find(|prefix| trimmed.starts_with(*prefix));
+        let Some(prefix) = matched_prefix else {
             return Err(MalformedCursorApiKey);
-        }
-        if trimmed.len() <= CURSOR_KEY_PREFIX.len() {
+        };
+        if trimmed.len() <= prefix.len() {
             return Err(MalformedCursorApiKey);
         }
         Ok(Self(Zeroizing::new(trimmed.to_owned())))
