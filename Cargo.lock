@@ -7251,8 +7251,10 @@ name = "email_utils"
 version = "0.1.0"
 dependencies = [
  "ammonia",
+ "cssparser 0.31.2",
  "ego-tree",
  "html2text",
+ "html5ever 0.26.0",
  "lazy_static",
  "regex",
  "scraper",
@@ -8665,6 +8667,7 @@ dependencies = [
  "entity_access",
  "futures",
  "graphql_common",
+ "macro_service_urls",
  "macro_user_id",
  "serde_json",
  "tokio",
@@ -16758,6 +16761,7 @@ dependencies = [
  "ego-tree",
  "getopts",
  "html5ever 0.26.0",
+ "indexmap 2.14.0",
  "once_cell",
  "selectors 0.25.0",
  "tendril 0.4.3",
