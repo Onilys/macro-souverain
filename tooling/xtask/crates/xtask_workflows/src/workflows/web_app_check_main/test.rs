@@ -144,3 +144,48 @@ fn test_job_runs_signup_browser_tests_after_vitest() {
         "the Test job installs Playwright's Chromium: {test_job}"
     );
 }
+
+#[test]
+fn web_typecheck_uses_the_native_compiler_script() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let step = yaml
+        .split("name: Check Types\n")
+        .nth(1)
+        .and_then(|rest| rest.split("- name:").next())
+        .expect("web typecheck step");
+    assert!(step.contains("run: bun run type-check"));
+    assert!(step.contains("working-directory: apps/web"));
+    assert!(!step.contains("--silent tsc"));
+}
+
+#[test]
+fn web_tooling_changes_do_not_replace_shared_package_biome() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    assert!(yaml.contains("name: Check Web Formatting and Lint"));
+    assert!(yaml.contains("run: bun run lint:ci"));
+    let step = yaml
+        .split("name: Run Collaboration Package Biome")
+        .nth(1)
+        .and_then(|rest| rest.split("- name:").next())
+        .expect("collaboration lint step");
+    assert!(step.contains("biome ci --changed --no-errors-on-unmatched --error-on-warnings"));
+    assert!(step.contains("working-directory: packages/collaboration"));
+}
+
+#[test]
+fn runtime_cycles_keep_the_original_biome_policy_check() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let cycles = yaml
+        .split("\n  cycles:\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n  build:").next())
+        .expect("cycles job");
+    let biome = cycles
+        .find("--only=suspicious/noImportCycles")
+        .expect("Biome cycle check");
+    let knip = cycles
+        .find("Knip Runtime Cycles (advisory)")
+        .expect("Knip cycle check");
+    assert!(biome < knip);
+    assert!(cycles.contains("run: bun run cycles"));
+}

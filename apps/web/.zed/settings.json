@@ -1,0 +1,35 @@
+{
+  "languages": {
+    "TypeScript": {
+      "prettier": { "allowed": false },
+      "formatter": {
+        "external": {
+          "command": "bun",
+          "arguments": [
+            "x",
+            "--no-install",
+            "oxfmt",
+            "--stdin-filepath",
+            "{buffer_path}"
+          ]
+        }
+      }
+    },
+    "TSX": {
+      "prettier": { "allowed": false },
+      "formatter": {
+        "external": {
+          "command": "bun",
+          "arguments": [
+            "x",
+            "--no-install",
+            "oxfmt",
+            "--stdin-filepath",
+            "{buffer_path}"
+          ]
+        }
+      }
+    }
+  },
+  "use_on_type_format": false
+}

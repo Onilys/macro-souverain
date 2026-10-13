@@ -95,7 +95,7 @@ fn biome_check() -> Job {
         .add_step(steps::mount_nix_cache_volume())
         .add_step(steps::setup_nix())
         .add_step(steps::setup_dev_shell())
-        .add_step(run_biome())
+        .add_step(run_web_tooling())
         .add_step(run_collaboration_biome())
         .add_step(steps::teardown_nix())
 }
@@ -118,6 +118,7 @@ fn cycles() -> Job {
         .add_step(steps::setup_nix())
         .add_step(steps::setup_dev_shell())
         .add_step(cycles_import_check())
+        .add_step(knip_runtime_cycles())
         .add_step(collaboration_cycles_import_check())
         .add_step(steps::teardown_nix())
 }
@@ -237,7 +238,7 @@ fn show_sccache_stats() -> Step<Run> {
 
 fn check_types() -> Step<Run> {
     Step::new("Check Types")
-        .run("bun run --bun --silent tsc --project ./tsconfig.json")
+        .run("bun run type-check")
         .working_directory(xtask_paths::repo_dir!("apps/web"))
 }
 
@@ -265,9 +266,9 @@ fn test_lexical_service() -> Step<Run> {
         .working_directory(xtask_paths::repo_dir!("services/lexical-service"))
 }
 
-fn run_biome() -> Step<Run> {
-    Step::new("Run Biome")
-        .run("biome ci --changed --no-errors-on-unmatched --error-on-warnings")
+fn run_web_tooling() -> Step<Run> {
+    Step::new("Check Web Formatting and Lint")
+        .run("bun run lint:ci")
         .working_directory(xtask_paths::repo_dir!("apps/web"))
 }
 
@@ -297,6 +298,11 @@ fn cycles_import_check() -> Step<Run> {
         .working_directory(xtask_paths::repo_dir!("apps/web"))
 }
 
+fn knip_runtime_cycles() -> Step<Run> {
+    Step::new("Knip Runtime Cycles (advisory)")
+        .run("bun run cycles")
+        .working_directory(xtask_paths::repo_dir!("apps/web"))
+}
 fn collaboration_cycles_import_check() -> Step<Run> {
     Step::new("Collaboration Package Cycles Import Check")
         .run("biome lint --changed --no-errors-on-unmatched --only=suspicious/noImportCycles")

@@ -260,16 +260,17 @@ async function main() {
 		process.env.NIX_PATH !== undefined ||
 		((await Bun.file("/etc/os-release").exists()) &&
 			(await Bun.file("/etc/os-release").text()).includes("NixOS"));
-	const biomeStart = performance.now();
-	console.log("\nRunning biome check...");
-	if (isNixOS) {
-		const systemBiomePath =
-			await $`bash -c 'PATH=$(echo "$PATH" | tr ":" "\n" | grep -v node_modules | tr "\n" ":") which biome'`.text();
-		await $`${systemBiomePath.trim()} check --write --unsafe src/lib/service-clients/`;
-	} else {
-		await $`biome check --write --unsafe src/lib/service-clients/`;
-	}
-	console.log(`Biome check finished (${elapsed(biomeStart)})`);
+		const toolingStart = performance.now();
+		console.log("\nNormalizing generated clients...");
+		if (isNixOS) {
+			const systemBiomePath =
+				await $`bash -c 'PATH=$(echo "$PATH" | tr ":" "\n" | grep -v node_modules | tr "\n" ":") which biome'`.text();
+			await $`${systemBiomePath.trim()} check --write --unsafe --formatter-enabled=false src/lib/service-clients/`;
+		} else {
+			await $`biome check --write --unsafe --formatter-enabled=false src/lib/service-clients/`;
+		}
+		await $`oxfmt --write 'src/lib/service-clients/**/*.{ts,tsx,js,jsx}' 'src/lib/service-clients/**/openapi.json'`;
+		console.log(`Client normalization finished (${elapsed(toolingStart)})`);
 
 	// In check mode, verify no uncommitted changes
 	if (checkMode) {

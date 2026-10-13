@@ -124,7 +124,7 @@ jobs:
       run: bun run check-dynamic-ui-schema
       working-directory: apps/web
     - name: Check Types
-      run: bun run --bun --silent tsc --project ./tsconfig.json
+      run: bun run type-check
       working-directory: apps/web
     - name: Check Collaboration Package Types
       run: bun run type-check
@@ -158,8 +158,8 @@ jobs:
       uses: './.github/actions/setup-nix'
     - name: Setup Nix dev shell
       uses: './.github/actions/setup-nix-dev-shell'
-    - name: Run Biome
-      run: biome ci --changed --no-errors-on-unmatched --error-on-warnings
+    - name: Check Web Formatting and Lint
+      run: bun run lint:ci
       working-directory: apps/web
     - name: Run Collaboration Package Biome
       run: biome ci --changed --no-errors-on-unmatched --error-on-warnings
@@ -217,6 +217,9 @@ jobs:
       uses: './.github/actions/setup-nix-dev-shell'
     - name: Cycles Import Check
       run: biome lint --changed --no-errors-on-unmatched --only=suspicious/noImportCycles
+      working-directory: apps/web
+    - name: Knip Runtime Cycles (advisory)
+      run: bun run cycles
       working-directory: apps/web
     - name: Collaboration Package Cycles Import Check
       run: biome lint --changed --no-errors-on-unmatched --only=suspicious/noImportCycles

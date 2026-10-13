@@ -1,10 +1,11 @@
 ## Development Commands
-- Use `bun` as the package manager and script runner (`bun run build`, `bunx tsc`).
-- `bun run test`: run tests 
-- `bun run check`: check typescript changes 
-- `bun run lint`: lint with biome 
-- `bun run format`: format changes with biome 
-- `bun run knip`: to check for dead code
+- Use `bun` as the package manager and script runner (`bun run build`).
+- `bun run test`: run tests.
+- `bun run check`: schemas, native TypeScript, Oxfmt, imports, and lint.
+- `bun run lint`: Oxlint plus the Biome compatibility gate.
+- `bun run format`: format changes with Oxfmt; `bun run fix` also fixes imports/lint.
+- `bun run knip`: check for dead code; `bun run cycles`: runtime-cycle warnings.
+- See [Web tooling](TOOLING.md) for compiler isolation, compatibility gates, and editor setup.
 - Email rendering is isolated in `packages/email-renderer` at the repository root. Run `just test-email-rendering` for its Node and Chromium suites. Add fixtures under `packages/email-renderer/tests/fixtures`, run `just test-email-rendering-update`, and review changed images. These are renderer tests, not inbox e2e.
 
 ## Verifying a change in a real browser

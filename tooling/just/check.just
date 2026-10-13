@@ -5,8 +5,8 @@
 # ast-grep rule ids map to docs/STYLE_GUIDE.md (its `severity: error` rules fail
 # the run, warnings/hints only print; oxlint is warn-only for now).
 #
-#   just check        fast: rustfmt + biome + oxlint + ast-grep   (~seconds)
-#   just check full   also runs tsc + clippy                      (~minutes)
+#   just check        fast: rustfmt + web tooling / biome + ast-grep
+#   just check full   also runs native web TypeScript + clippy
 #
 # Override the diff base with CHECK_BASE=<ref> (useful in shallow clones,
 # where no origin/main merge-base exists and the scope silently narrows to
@@ -39,16 +39,28 @@ check *ARGS:
         || { echo "   fix: cargo fmt"; fail=1; }
     fi
     if [ -n "$js" ]; then
-      # Both tools run in apps/web. Absolute paths also reach package and
-      # service files; quoted arguments preserve literal path characters.
-      js_paths=()
-      while IFS= read -r f; do js_paths+=("$PWD/$f"); done <<<"$js"
-      echo "── biome (changed JS/TS format + lint, same flags as CI)"
-      (cd apps/web && bunx --bun @biomejs/biome ci --colors=off --no-errors-on-unmatched \
-          --error-on-warnings "${js_paths[@]}") \
-        || { echo "   fix: bun run fix, then re-check"; fail=1; }
-      echo "── oxlint (warn-only; docs/STYLE_GUIDE.md FE-12)"
-      (cd apps/web && bunx --yes oxlint@1.73.0 "${js_paths[@]}") || fail=1
+      web_paths=()
+      shared_paths=()
+      while IFS= read -r f; do
+        if [[ "$f" == apps/web/* ]]; then
+          web_paths+=("$PWD/$f")
+        else
+          shared_paths+=("$PWD/$f")
+        fi
+      done <<<"$js"
+      if [ "${#web_paths[@]}" -gt 0 ]; then
+        echo "── web tooling (Oxfmt + import organization + lint)"
+        (\cd apps/web && bun run check:tooling --files "${web_paths[@]}") \
+          || { echo "   fix: bun run --cwd apps/web fix, then re-check"; fail=1; }
+      fi
+      if [ "${#shared_paths[@]}" -gt 0 ]; then
+        echo "── biome (non-web JS/TS; unchanged tooling)"
+        (\cd apps/web && bunx --bun @biomejs/biome ci --colors=off --no-errors-on-unmatched \
+            --error-on-warnings "${shared_paths[@]}") \
+          || { echo "   fix: run Biome check --write in the owning package, then re-check"; fail=1; }
+        echo "── oxlint (non-web FE-12 checks; warn-only)"
+        bunx --yes oxlint@1.73.0 --config .oxlintrc.shared.json "${shared_paths[@]}" || fail=1
+      fi
     fi
     if [ -n "$sg" ]; then
       echo "── ast-grep code rules (rule ids map to docs/STYLE_GUIDE.md)"
@@ -56,7 +68,7 @@ check *ARGS:
     fi
     if [ "{{ ARGS }}" = "full" ]; then
       if [ -n "$js" ]; then
-        echo "── tsc (apps/web)"
+        echo "── native TypeScript (apps/web)"
         bun run check || fail=1
       fi
       if [ -n "$rs" ]; then

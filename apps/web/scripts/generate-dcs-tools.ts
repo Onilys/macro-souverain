@@ -279,18 +279,7 @@ await generateSchemasFile(schema);
 await generateToolsFile(schema);
 await generateToolTypesFile(schema);
 
-// On NixOS, the npm-installed biome binary doesn't work due to dynamic linking issues.
-const isNixOS =
-  process.env.NIX_PATH !== undefined ||
-  ((await Bun.file('/etc/os-release').exists()) &&
-    (await Bun.file('/etc/os-release').text()).includes('NixOS'));
-if (isNixOS) {
-  const systemBiomePath =
-    await $`bash -c 'PATH=$(echo "$PATH" | tr ":" "\n" | grep -v node_modules | tr "\n" ":") which biome'`.text();
-  await $`${systemBiomePath.trim()} format --write --no-errors-on-unmatched ${toolFile} ${schemasFile} ${typesFile}`;
-} else {
-  await $`biome format --write --no-errors-on-unmatched ${toolFile} ${schemasFile} ${typesFile}`;
-}
+await $`oxfmt --write --no-error-on-unmatched-pattern ${toolFile} ${schemasFile} ${typesFile}`;
 
 console.log(`Generated AI tools types at: ${outputDir}`);
 console.log('✅ AI tools types generation completed successfully');

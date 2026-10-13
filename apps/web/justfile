@@ -191,10 +191,10 @@ preview-prod:
     MODE=production NODE_ENV=production bun run preview:prod
 
 lint-staged:
-    bunx --bun biome lint --staged
+    bun run lint:staged
 
 lint-ci:
-    bunx --bun biome ci --changed
+    bun run lint:ci
 
 storybook:
     cd src/components/ui && bun run storybook
@@ -230,12 +230,16 @@ clean-env:
 fix-lock:
     cd {{ justfile_directory() }}/../.. && git fetch origin dev:dev && git checkout dev -- bun.lock && bun i && git add bun.lock
 
-# Analysis
+# Knip reports runtime cycles; retain Biome for graph-policy parity during rollout.
 cycles:
-    bunx --bun biome lint --only=suspicious/noImportCycles
+    bun run cycles
+
+cycles-biome:
+    bun run cycles:biome
 
 cycles-ci:
-    bunx --bun biome lint --changed --only=suspicious/noImportCycles
+    bunx --bun biome lint --changed --no-errors-on-unmatched --only=suspicious/noImportCycles
+    bun run cycles
 
 # Build the GraphQL cache wasm module into src/lib/graphql-cache/wasm
 # (gitignored). Unconditional — CI app builds must never skip it (schema or
@@ -370,20 +374,18 @@ ensure-fig-engine-wasm:
 # Regenerate src/lib/service-clients/service-agent-fold/generated/types.ts
 # from agent_fold's Rust wire types with specta. Run after changing anything
 # under crates/folds/agent_fold/src/inbound/wire.rs. Specta's own output is tabs and
-# commas, not this project's style, so biome reformats it in place - without
-# that, every regeneration would be a diff-format mismatch even with no real
-# change.
+# commas, not this project's style, so Oxfmt reformats it in place.
 gen-agent-fold-types:
     cargo run -p agent_fold --bin export_types
-    bunx biome format --write {{justfile_directory()}}/src/lib/service-clients/service-agent-fold/generated/types.ts
+    bunx --bun oxfmt --write {{justfile_directory()}}/src/lib/service-clients/service-agent-fold/generated/types.ts
 
 # Regenerate src/lib/core/database-sql/generated/types.ts from the
 # database_sql engine's wire types with specta. Run after changing any type
-# that crosses the wasm boundary (see crates/database_sql/src/wasm.rs); biome
+# that crosses the wasm boundary (see crates/database_sql/src/wasm.rs); Oxfmt
 # reformats specta's output for the same reason as gen-agent-fold-types.
 gen-database-sql-types:
     cargo run -p database_sql --features cli --bin database_sql_types
-    bunx biome format --write {{justfile_directory()}}/src/lib/core/database-sql/generated/types.ts
+    bunx --bun oxfmt --write {{justfile_directory()}}/src/lib/core/database-sql/generated/types.ts
 
 # Dev fast path: build the wasm pkg only when missing or its version drifts
 # from client/cache-wasm/Cargo.toml (bump that version to push a rebuild to
