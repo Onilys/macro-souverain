@@ -70,26 +70,6 @@ existing database or apply this release over an earlier mixed-scope development
 migration. Retain any existing source/data snapshots independently of the release.
 See [running locally](RUNNING_LOCALLY.md) for stack setup and port allocation.
 
-## Release checklist
-
-Keep code, local verification, and live-provider evidence separate. A compiled
-client, fixture receipt, or screenshot does not establish real delivery.
-
-| Requirement | Implemented | Locally verified | Live-provider verified |
-| --- | --- | --- | --- |
-| Settings connection and account lifecycle for both providers | Complete | Actual Settings UI; authorization/subscription HTTP tests | WhatsApp test number and Instagram OAuth/subscription connected in the actual Settings UI |
-| Inbound text persisted once in native channels | Complete | Both HTTP and native adapter/DB workflows pass | Real WhatsApp and Instagram text and forwarded images received |
-| Explicit external reply and delivery result for both providers | Complete | Both HTTP workflows; native browser views; failed-reply restoration | Both providers: real text and image replies confirmed read. WhatsApp document delivered and approved template read |
-| Account-scoped customer identity and channel permissions | Complete | Isolation, private-channel, quote scope, external sender and denied-access tests | Both real provider channels/private attachments: owner allowed, uninvited teammate denied, cross-account delivery lookup excluded |
-| WhatsApp templates and provider reply policies | Complete for supported formats below | Policy and real HTTP adapter tests against local provider stub | Meta-approved hello_world delivered from Macro |
-| Coexistence phone-app echo reconciliation | Complete | Live/echo processing, unrequested-history rejection, explicit imports and duplicate/reordering tests | Requires eligible coexistence account; test numbers do not qualify |
-| Common attachments through Macro storage and access checks | Complete for supported formats below | Actual WhatsApp/Instagram UI uploads and private object bytes; owner allowed/uninvited user denied; resumable storage and source-scoped reference tests | Both: PNG out and JPEG in, native private viewers verified. WhatsApp plain-text document delivered. Other supported formats remain local-test coverage |
-| Accepted-send recovery and lost-lease detection | Complete | Restart, acceptance-before-native, fencing and publication revision tests | Actual failed send, explicit retry after verification, worker restart, and WhatsApp disconnect/reconnect exercised. Crash injection remains local-test coverage |
-| Native UI and existing channel flows | Complete | WhatsApp/Instagram native channels, single customer composer, provider identity, Settings and failed-send recovery | Real WhatsApp channel, per-message statuses and private image viewer exercised; fixture channels remain explicitly synthetic |
-| Optional history import | Complete | Signed-webhook → native channel, paged API → native channel, explicit consent, permissions, no-send/window changes, duplicate and restart tests | Instagram import completed through the real Settings UI after Meta account confirmation: five existing messages reused one channel, with no duplicates, sends or reply-window change. Real WhatsApp coexistence import still requires a qualifying Business-app account |
-| Ordinary Macro agent reads | Existing behavior retained | Existing channel access boundary and sender/mention regressions pass | Configured-agent exercise not run |
-| Required checks, migrations and generated API contracts | Revision-specific gate | Rerun on the reviewed source; older passing runs do not cover subsequent edits. Fresh isolated migrations, workspace SQLx preparation, full web type check, production build and affected tests are required | Not applicable |
-
 ## Meta setup dependencies
 
 Use Meta directly with Graph API **v26.0**, the version examined for this release.
@@ -126,10 +106,9 @@ passwordless local stack publicly. Provide local secret-file paths rather than
 pasting secrets into chat or committing them. Real test sends require authorized
 test recipients; no shared deployment or customer messaging is implied.
 
-## Provider evidence
+## Provider references
 
-Reviewed October 6, 2026 using Meta's primary documentation (official redirects
-followed). Recheck before changing versions or supported sending rules.
+Recheck Meta’s documentation before changing versions or supported sending rules.
 
 - [WhatsApp coexistence](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users/)
 - [Tech Provider onboarding](https://developers.facebook.com/documentation/business-messaging/whatsapp/solution-providers/get-started-for-tech-providers/)
@@ -295,7 +274,9 @@ NODE_OPTIONS=--max-old-space-size=12288 bun run type-check
 
 The HTTP integration tests use real Axum routes, access services, PostgreSQL and
 native message/channel adapters. Only Meta transport and credential encryption
-are simulated there. They cannot establish live Meta delivery or coexistence.
+are simulated there. They cannot establish live Meta delivery or coexistence. A configured-agent live
+exercise also remains unqualified; existing channel access regressions cover the
+permission boundary.
 
 A deliberately ignored `create_local_browser_fixture` test creates conspicuously
 labeled synthetic native conversations for browser verification. It requires
@@ -368,49 +349,6 @@ Open `https://localhost:33009/app/`. Trust the existing local CA through the
 browser/OS if needed. Settings → Integrations → Accounts shows both providers. Open Connect or Manage
 for setup, import and recovery. Missing server setup is explained before connection.
 
-## Live verification and remaining qualification
-
-Verified October 12, 2026 with dedicated test accounts and an isolated local stack.
-Meta business verification was completed for the test business. WhatsApp test-number text, image, document and
-approved-template sends have real provider delivery receipts; text, image and
-template reads were confirmed by Meta. A real customer text and forwarded JPEG
-were persisted and displayed in the native channel. The JPEG opens in Macro's
-private file viewer, and an uninvited teammate cannot retrieve it.
-
-Disconnecting the WhatsApp account removed its credential and the server rejected
-an explicit reply. Reconnecting retained the same account and conversation. The
-failed pre-verification send remains accurately marked failed; successful retries
-are separate human actions. Internal notes create no external send record.
-
-Instagram OAuth and account subscription succeed for the dedicated Business
-account. A real customer DM created its native channel, and text and PNG replies
-received real read receipts. A forwarded JPEG was downloaded and opened in the
-native private viewer. Its original failed receipt recovered on the saved retry
-without creating another message after the provider client gained an identifying
-User-Agent header; Meta's CDN redirects empty-User-Agent requests away from media.
-
-The outgoing Instagram PNG used a 15-minute capability URL allowing exactly one
-harmless test file. It was revoked after the send, and both document-download
-origins were restored to localhost. The gateway is callback-only again. Repeating
-arbitrary Instagram outbound-file tests needs stable, signed public media hosting;
-the current local private document URL is not reachable by Meta. Production uses
-Macro's existing signed document URLs. Do not expose the local storage bucket.
-
-Live testing covered media publication, Instagram authorization/subscriptions,
-CDN downloads, and per-message delivery rendering in grouped rows. Durable send rows remain visible
-until their native messages arrive. Local document download URLs now use the
-same trusted localhost origin as the app.
-
-The temporary callback gateway exposes only the two webhooks and Instagram OAuth
-callback; app, auth and management paths return 404, and unsigned webhooks return
-403. Credential files and resumable setup state remain outside the repository.
-Use the testing walkthrough for the current live checkpoint.
-
-Test WhatsApp coexistence separately with an eligible Business app number; the
-provided test number cannot establish phone-app synchronization. Complete Meta's
-production permissions/access review before onboarding unrelated businesses.
-No shared Macro deployment or real-customer messaging has occurred.
-
 ## UI and refresh behavior
 
 Customer conversations show the full customer name and a small provider logo.
@@ -442,23 +380,6 @@ later attachment revisions and business replies do not create customer notificat
 These presentation events do not publish message topics that trigger agents or routines.
 Background query rereads resume on visibility changes; a new channel should appear
 without reloading when its tab is visible.
-
-## Latest account recovery verification
-
-On October 12, 2026, Meta account confirmation restored the Instagram API. The real
-Settings import completed with all five API-visible messages already present in
-one customer channel: no duplicate content, external sends or window changes.
-A fresh Instagram reply from the native composer was accepted by Meta and linked
-to its native message. A fresh WhatsApp reply after test-token renewal was confirmed
-delivered by Meta. Both connections returned to Connected with cleared health errors.
-These sends used only the previously authorized test recipients.
-
-The shared-WABA disconnect and concurrent-connect fixes are verified through real
-Macro HTTP/domain/SQL workflows with the external provider simulated. Real multi-number
-coexistence onboarding and phone-app synchronization remain a separate live test.
-Temporary test tokens and the local callback tunnel do not replace production
-credentials, approved Embedded Signup configuration, stable callback/media hosting,
-or Meta access review for serving other businesses.
 
 ## Production rollout gates
 

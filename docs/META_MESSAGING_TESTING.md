@@ -1,46 +1,7 @@
 # Your first real WhatsApp and Instagram test
 
-## Live setup checkpoint — October 11–12, 2026
-
-The Meta test app is published and the business is verified. The isolated Macro
-instance is connected to Meta's WhatsApp test number and the dedicated Instagram
-Business account. Credentials and resumable setup state are private and outside
-the repository.
-
-WhatsApp now passes the real phone → native channel → phone workflow. Meta has
-confirmed delivery/read for text, PNG and the approved hello_world template, plus
-delivery of a plain-text document. A forwarded JPEG arrived, was stored privately
-and opens in Macro's native image viewer. An uninvited teammate cannot fetch it.
-The UI now has one customer composer; older notes and private agent work are not forwarded. Failed-send recovery does not auto-send, and actual
-disconnect/reconnect retains the channel while server-side sending is blocked
-during disconnection.
-
-Instagram also passes the real customer → native channel → customer workflow.
-Text and PNG replies received real read receipts. A forwarded JPEG recovered on
-its saved retry after fixing the provider User-Agent and opened in Macro's native
-private image viewer. Exactly four native messages remained (two in, two out).
-The owner could fetch both real channels/files; an uninvited teammate could not.
-
-The Instagram outgoing-image test used a 15-minute URL allowing only the harmless
-test image. That URL is now revoked and the local document origin is private again.
-For repeat Instagram outbound-media tests, configure stable signed public media
-hosting. The callback-only gateway must not expose the entire local storage bucket.
-
-Live testing fixed an attachment event arriving as an edit before its first
-publication, grouped delivery badges disappearing during lazy rendering, and
-Instagram token-response/subscription compatibility. Local file URLs use
-`https://localhost:33009`, matching the trusted browser origin.
-
-The temporary gateway exposes only the two webhooks and Instagram OAuth callback.
-It rejects unsigned events and blocks app/auth/account-management paths. Keep
-both the local stack and gateway running for phone tests. If the tunnel hostname
-changes, update the callbacks in Meta and the private local configuration.
-The general steps below describe a fresh setup; this checkpoint records the
-completed configuration of this instance.
-
-Start with **Meta’s WhatsApp test number and accounts you control**. The Macro UI
-is running at `https://localhost:33009/app/`. The conversations labeled
-`LOCAL FIXTURE` are demonstrations; use a newly connected account for the real test.
+Use Meta’s WhatsApp test number and accounts you control. Synthetic fixture
+conversations are not evidence of real delivery.
 
 ## 1. Get the Meta accounts ready
 
@@ -110,13 +71,10 @@ be active. Macro subscribes the connected account as part of connection. The
 dashboard verification check or a synthetic webhook test alone does not prove
 that real customer messages will be forwarded.
 
-Before the phone test, read the **published/unpublished notice on each product’s
-Webhooks page**. Recent WhatsApp developers report a dashboard notice that real
-inbound events are withheld until the Meta app is published, even for testers.
-If your app shows that notice, complete its Publish/Live requirements first using
-the app’s real privacy/data-deletion information. Meta app publication, Advanced
-Access review, and deploying Macro are separate operations.
-[WhatsApp developer report](https://www.reddit.com/r/WhatsappBusinessAPI/comments/1qq6fo2/messages_to_test_number_never_delivered_to_test/)
+Before the phone test, check the published/unpublished notice on each product’s
+Webhooks page. If it requires publication for real inbound events, complete those
+requirements using the app’s actual privacy/data-deletion information. Meta app
+publication, Advanced Access review, and deploying Macro are separate operations.
 
 ## What appears after connection
 
@@ -137,13 +95,10 @@ business to disconnect Business Platform on the phone and complete setup again.
 
 For Instagram, approve the two existing messaging scopes and ensure the app has
 API access. Only the most recent 20 messages per conversation are retrievable;
-Requests inactive over 30 days are absent. On 2026-10-12 the configured test account's
-Conversations endpoint initially returned OAuth code 200, “API access blocked”.
-The developer dashboard requested account confirmation; the email was in Spam.
-After confirmation, access recovered and the actual Settings import completed:
-five existing messages, one reused channel, no duplicates or external sends, and
-no reply-window changes. A working OAuth login alone does not establish current
-Conversations API access; verify the actual import after resolving account checks.
+Requests inactive over 30 days are absent. A working OAuth login alone does not
+establish Conversations API access. If the API reports access blocked, resolve
+any developer-account confirmation in Meta’s dashboard, then retry the import.
+Check Spam if a required confirmation email does not arrive.
 
 Meta's current WhatsApp setup navigation is **Use cases → WhatsApp → Basic setup →
 Step 1. Try it out** (older dashboards label this **API Setup**). Generate a fresh
@@ -160,6 +115,11 @@ and revoke account/admin access. No duplicate chats, external sends, or unauthor
 attachment access should result. Progress must settle or expose a recovery message.
 
 ## 3. Do this on your phone and in Macro
+
+Keep the local stack, frontend and callback gateway running. In Settings, confirm
+both accounts are Connected and credentials have not expired. Use a fresh customer
+message to establish a reply window. Start with text; Instagram outbound media
+also requires the signed public attachment URLs described above.
 
 1. From your verified personal WhatsApp number, send “Hi Macro” to Meta’s test
    number. From your second Instagram account, DM the connected professional
@@ -178,36 +138,22 @@ attachment access should result. Progress must settle or expose a recovery messa
    an explanation beside it. **Edit and retry** restores the customer draft; it never sends
    automatically. For **Delivery not confirmed**, check the phone before resending.
 
-## Common setup traps found in current developer reports
+## Troubleshooting
 
-These are troubleshooting reports, not replacements for Meta’s rules:
-
-- **WhatsApp accepts the request but nothing arrives.** Developers report this
-  when delivery later fails. Inspect the status webhook and confirm receipt on
-  the phone; an API message ID is not a delivery receipt.
-  [Discussion](https://www.reddit.com/r/WhatsappBusinessAPI/comments/1oa4ftw/whatsapp_test_number_fails_to_deliver_messages/)
-- **Test number missing / recipient error 131030.** Recent reports describe an
-  empty test-number dropdown even when the number exists in WhatsApp Manager.
-  Verify the app/WABA and recipient list; resolve that dashboard issue before
-  debugging Macro’s send path or moving a real number.
-  [Discussion](https://www.reddit.com/r/WhatsappBusinessAPI/comments/1vwjexd/anyone_else_new_meta_panel_wont_show_the_whatsapp/)
-- **Instagram dashboard tests arrive but real DMs do not.** Check tester roles,
+- **WhatsApp accepts a reply but nothing arrives:** inspect its status webhook
+  and confirm receipt on the phone; an API message ID is not a delivery receipt.
+- **Test number missing or recipient error 131030:** verify the app/WABA, token
+  and verified recipient list before debugging Macro’s send path.
+- **Synthetic Instagram events arrive but real DMs do not:** check tester roles,
   permissions, account subscriptions, message requests and the Webhooks page’s
-  published/unpublished notice. Recent developers report dashboards that withhold
-  real events until the Meta app is published, including tester events. Follow
-  the notice on your app; adding a tester is not always sufficient. Publishing
-  the Meta app and obtaining Advanced Access through review are separate steps.
-  [Discussion](https://www.reddit.com/r/webdev/comments/1ryispa/cant_receive_instagram_message_webhooks_from_real/)
+  publication notice. App publication and Advanced Access review are separate.
+- **Events stop arriving:** keep the local stack and callback gateway running.
+  If the public hostname changes, update Meta’s callbacks and local configuration.
 
-Do not mix Instagram Login instructions with older Facebook Login / Page-token
-instructions. For onboarding other businesses, complete the required Meta
-permissions/access review. Test WhatsApp **coexistence separately** with an eligible
-Business app number through Embedded Signup. A successful test-number conversation
-does not prove synchronization with the WhatsApp phone app.
-
-Reviewed October 11, 2026 using Meta’s published API references and the linked
-developer reports. Some main Meta documentation URLs returned rate-limit errors;
-their published Postman references were used where accessible.
+Do not mix Instagram Login with older Facebook Login / Page-token instructions.
+Test WhatsApp coexistence separately with an eligible Business-app number through
+Embedded Signup; test-number delivery does not prove phone-app synchronization.
+For other businesses, complete the [production rollout requirements](META_MESSAGING.md#production-rollout-gates).
 
 ## Account lifecycle regressions
 
@@ -222,43 +168,3 @@ Health tests exercise the real service and API response for authorization expiry
 Meta access denial, Macro administrator removal, temporary errors, setup errors
 and successful recovery. In the browser, check the message both in Settings and
 above the customer composer, with the draft preserved and sending disabled.
-
-
-## Live founder demo
-
-Use the existing authorized test recipients; no new business setup is needed.
-
-1. Keep the `macro-whatsapp` stack, frontend, and public callback tunnel running.
-   Open Settings → Integrations → Accounts → Manage and confirm both accounts
-   are Connected. Refresh the temporary WhatsApp developer token before it expires;
-   load it into the ignored local environment, recreate DSS, and reconnect the
-   same test number. Never put the token in source or presentation material.
-2. Put the native Macro customer channel beside the **customer-side** Instagram
-   account or WhatsApp screen. For Instagram, send from the second account to
-   `@dqniaf1`. For WhatsApp, send from the authorized personal phone to Meta's
-   test number `+1 555-643-5162`; do not migrate the personal number.
-3. Send a fresh greeting into each provider first to establish the current reply
-   window. Watch it appear in Macro without refreshing, then reply from Macro
-   and watch the original app. A short text exchange is the simplest demo.
-4. Existing private attachment handling is implemented and verified, but outbound
-   Instagram media on this localhost stack also requires the documented temporary
-   public media capability. Do not use an image as the first rehearsal step.
-
-An iPhone can be shown beside Macro with Apple's iPhone Mirroring (the phone stays
-locked and is controlled from the Mac), or with a cable and QuickTime's connected-
-device screen capture while operating the phone itself. Enable a quiet notification
-mode before screen sharing. See [Apple's iPhone Mirroring guide](https://support.apple.com/en-us/120421)
-and [QuickTime connected-device recording](https://support.apple.com/guide/quicktime-player/record-a-movie-qtp356b55534/mac).
-
-The October 12 text checks measured 1.62 seconds from Macro enqueue to Instagram
-acceptance/native persistence, and 5.22 seconds to WhatsApp's delivered receipt.
-These are individual observations, not a percentile or guarantee of screen latency.
-Normal incoming examples reached native storage in roughly 1–3 seconds; one delayed
-message took two minutes during earlier testing. Provider delays, restarts and
-recovery can take longer. Rehearse once on the network used for the presentation.
-
-CEO framing: customer conversations now live inside Macro's native channels.
-A team connects its business account, shares each customer conversation through
-normal permissions, and replies from Macro while the customer stays in WhatsApp
-or Instagram. This is a working local integration; production Meta onboarding,
-real WhatsApp coexistence qualification and normal engineering review remain.
