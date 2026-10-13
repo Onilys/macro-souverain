@@ -218,13 +218,15 @@ installation from that browser/file manager when Android prompts. Subsequent
 APKs install as updates when the certificate matches and the version increases.
 Play Store migration must preserve app-signing compatibility with these APKs.
 
-### Google Play internal testing
+### Google Play publishing
 
 `.github/workflows/publish-android-play.yml` is a manual deployment from `main`.
 It downloads the verified AAB and R8 mapping from a published GitHub release,
 checks their checksums, authenticates with short-lived Google credentials, and
 uploads to the **internal testing** track for `com.macro.workspace.mobile`.
-It does not rebuild the binary. All Play edits use one concurrency group.
+Its separate `promote-production` operation submits an existing tested version
+for a full production rollout without rebuilding or uploading the binary again.
+All Play edits use one concurrency group, including uploads and promotions.
 Normal production releases continue to build artifacts; publishing to Play is a
 separate action after backend rollout and device qualification.
 
@@ -272,8 +274,10 @@ In Google Cloud project `macro-435922`, enable `androidpublisher.googleapis.com`
 service account named `google-play-publisher`. It does not need a broad
 Google Cloud project role. In **Play Console → Users and permissions**, invite
 its email and grant app access only to `com.macro.workspace.mobile`, with
-**View app information (read-only)** and **Release apps to testing tracks**.
-Do not grant production-release or billing permissions for this workflow. See
+**View app information (read-only)**, **Release apps to testing tracks**, and
+**Release to production, exclude devices, and use Play App Signing**. The last
+permission is required for production promotion. No account-wide or billing
+permissions are needed. See
 [Google's API access instructions](https://developers.google.com/android-publisher/getting_started).
 
 Create a GitHub Actions workload identity pool/provider. Map:
@@ -348,19 +352,19 @@ gh variable set GOOGLE_PLAY_SERVICE_ACCOUNT --repo macro-inc/macro \
 #### Routine upload and recovery
 
 After the first manual upload and credentials setup, select **Publish Android to
-Google Play** in Actions, run from `main`, and supply the published release tag.
+Google Play** in Actions, run from `main`, select `operation=upload-internal`,
+and supply the published release tag.
 `status=draft` (the default) saves a release for Console review. Select
 `status=completed` to release to internal testers, subject to Play's checks:
 
 ```sh
 gh workflow run publish-android-play.yml --ref main \
-  -f release_tag=v2026.10.9 -f status=completed
+  -f operation=upload-internal -f release_tag=v2026.10.9 -f status=completed
 ```
 
 If Play specifically requires manual review submission, set
 `changes_not_sent_for_review=true`, then submit in Console. This input does not
-bypass review or make a draft available to testers. Promote the tested version
-to other tracks in Console; this workflow always targets `internal`.
+bypass review or make a draft available to testers.
 
 If a run fails, inspect Console before retrying: a completed upload may already
 have consumed the version code. Complete or promote an existing draft there
@@ -368,6 +372,43 @@ instead of re-uploading it to change status. A new binary needs a new code. Avoi
 editing the same app in Console while a CI upload is in progress; committing
 another edit invalidates the upload's pending edit. Missing AAB or mapping assets
 must be recovered with the build workflow before publishing.
+
+#### Promote a tested version to production
+
+After qualifying the Play-installed internal build, manually run the same
+**Publish Android to Google Play** workflow from `main` with
+`operation=promote-production` and its exact Android `version_code`. Use the code
+shown in Play Console; this is not the release tag or marketing version. Leave
+`release_tag` empty; `status` applies only to internal uploads.
+
+```sh
+gh workflow run publish-android-play.yml --ref main \
+  -f operation=promote-production -f version_code=7
+```
+
+The promotion script requires that exact version to be a completed, single-version
+release currently active in `internal`. It copies its release name, notes, and
+update priority into a `completed` production release, validates the edit, and
+commits it. This requests a **full rollout**; Google review, production eligibility,
+and managed publishing still apply. It does not change the internal track or
+upload another AAB. See the [Google Play track API](https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks).
+
+The workflow refuses to replace a draft, staged, or halted production release,
+and refuses to promote a version older than production. Resolve those states in
+Play Console first. Repeating an already-completed promotion is a no-op, provided
+that version is still active in internal testing. A newer internal release can
+replace the earlier one, so qualify and promote a candidate before uploading the
+next candidate. Staged rollouts and their progress are managed in Console.
+
+`changes_not_sent_for_review=true` also applies to promotion if Play requires
+manual review submission. Check Console after any ambiguous API failure before
+retrying. Failed or no-op attempts discard their pending edit when possible;
+commits are never automatically retried. The workflow summary reports submission,
+not confirmation that the release is already available to users.
+
+Promotion remains a separate manual action; building a GitHub release or uploading
+to internal testing never triggers production promotion. It uses the existing
+workflow identity, so no Google identity-provider changes are required.
 
 ## Firebase
 
