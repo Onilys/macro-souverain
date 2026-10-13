@@ -9,7 +9,7 @@ on:
         required: true
         type: string
       publish_android:
-        description: Attach the verified APK to the existing release
+        description: Attach verified Android APK and AAB artifacts to the existing release
         default: false
         type: boolean
 
@@ -22,7 +22,7 @@ env:
 
 jobs:
   build-android:
-    name: Build signed Android APK
+    name: Build signed Android APK and App Bundle
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -72,7 +72,7 @@ jobs:
           bun scripts/android-release.ts signing "$RUNNER_TEMP/android-signing" \
             tauri/src-tauri/gen/android/keystore.properties
           bun scripts/android-firebase.ts build --doppler "$RUNNER_TEMP/android-google-services.json"
-      - name: Build production APK
+      - name: Build production APK and App Bundle
         working-directory: apps/web
         env:
           VITE_SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY_PRODUCTION }}
@@ -88,14 +88,14 @@ jobs:
           export RUSTC_WRAPPER=""
           cargo tauri --version
           # Tauri has shipped both switch-only and value-taking APK/AAB flags.
-          # Nix and local installations can differ; select APK-only with either CLI.
+          # Nix and local installations can differ; build both with either CLI.
           android_help=$(cargo tauri android build --help)
-          apk_args=(--apk)
+          artifact_args=(--apk --aab)
           if [[ "$android_help" == *'--apk <APK>'* ]]; then
-            apk_args=(--apk true --aab false)
+            artifact_args=(--apk true --aab true)
           fi
           just android-build --firebase-config "$RUNNER_TEMP/android-google-services.json" \
-            "${apk_args[@]}" --ci --config "$RUNNER_TEMP/android-release.json" \
+            "${artifact_args[@]}" --ci --config "$RUNNER_TEMP/android-release.json" \
             2>&1 | tee "$RUNNER_TEMP/android-build.log"
       - name: Preserve Android build log
         if: always()
@@ -122,6 +122,37 @@ jobs:
           cp "${apks[0]}" "$GITHUB_WORKSPACE/android-artifacts/$APK_FILENAME"
           \cd "$GITHUB_WORKSPACE/android-artifacts"
           sha256sum "$APK_FILENAME" > "$APK_FILENAME.sha256"
+      - name: Verify and collect App Bundle
+        working-directory: apps/web
+        env:
+          APK_FILENAME: ${{ steps.metadata.outputs.filename }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar \
+            --output "$RUNNER_TEMP/bundletool.jar"
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $RUNNER_TEMP/bundletool.jar" | sha256sum --check
+          mapfile -t bundles < <(find tauri/src-tauri/gen/android/app/build/outputs/bundle -type f -name '*-release.aab')
+          if [ "${#bundles[@]}" -ne 1 ]; then
+            echo "Expected exactly one signed release AAB, found ${#bundles[@]}" >&2
+            exit 1
+          fi
+          bun scripts/android-bundle.ts "$RELEASE_TAG" "${bundles[0]}" \
+            "$RUNNER_TEMP/bundletool.jar" "$RUNNER_TEMP/android-signing/certificate-sha256"
+          bundle_filename="${APK_FILENAME%.apk}.aab"
+          cp "${bundles[0]}" "$GITHUB_WORKSPACE/android-artifacts/$bundle_filename"
+          # R8 mapping belongs to this exact binary; preserve it for Play crash reports.
+          bundle_variant=$(basename "$(dirname "${bundles[0]}")")
+          mapping="tauri/src-tauri/gen/android/app/build/outputs/mapping/$bundle_variant/mapping.txt"
+          if [[ ! -s "$mapping" ]]; then
+            echo "Missing R8 mapping for bundle variant $bundle_variant" >&2
+            exit 1
+          fi
+          mapping_filename="${APK_FILENAME%.apk}-mapping.txt"
+          cp "$mapping" "$GITHUB_WORKSPACE/android-artifacts/$mapping_filename"
+          \cd "$GITHUB_WORKSPACE/android-artifacts"
+          sha256sum "$bundle_filename" > "$bundle_filename.sha256"
+          sha256sum "$mapping_filename" > "$mapping_filename.sha256"
       - name: Upload verified Android artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -156,7 +187,7 @@ jobs:
         with:
           name: android-release
           path: android-artifacts
-      - name: Attach APK and checksum to release
+      - name: Attach Android artifacts and checksums to release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ inputs.release_tag || github.event.release.tag_name }}
