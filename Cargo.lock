@@ -6163,6 +6163,7 @@ dependencies = [
  "macro_middleware",
  "macro_queues",
  "macro_service_urls",
+ "macro_tower_layers",
  "macro_user_id",
  "macro_uuid",
  "mcp_client",

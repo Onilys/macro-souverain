@@ -476,7 +476,7 @@ offers **Open view**, which opens that database/table and selects the created vi
 The same tools are exposed to agent sessions through the Macro MCP server.
 
 In a document, channel composer, or the task/document creation composer,
-`/query` → **Query** opens the question box with the AI prompt focused
+`/query` (also `/database`) → **Database** opens the question box with the AI prompt focused
 immediately. New draft questions bypass the saved-answer viewport gate; a cold
 module load shows **Opening database…** until the question input is ready. Saved
 answers still load when they approach the viewport. The empty input rotates through example questions; a selected database
@@ -484,14 +484,21 @@ uses its actual table and column names. Typing hides these hints, and reduced-mo
 preferences keep them static. Use the searchable source picker below the question to
 choose a database; the entire chosen database is in scope, without a table
 prerequisite. **Automatic** finds a relevant accessible database from the question
-with the discovery tools and inspects all its tables. The answer's `QueryDatabase`
-runs with view access only, so asking a question never changes data, even for an
-editor. Both discovery and final answer formatting receive the registered database
-tool reference, including the current SQL dialect. Verify an Automatic question
-that needs ListDatabases, DescribeDatabase, and QueryDatabase completes with live
-results; repeat with an explicit source and an aggregate using an AS alias. The
-formatting step must preserve tool-call/result names and ids without another tool
-execution. If matching sources are
+with permission-checked schema discovery and inspects all its tables. Only schema
+discovery tools are available to the question agent. The host's SQL engine refuses
+writes, so asking a question never changes data, even for an editor. Document questions use the specialized `/cognition/database-query` endpoint.
+An explicit source with a loaded schema proposes SQL in one model call; the browser's
+read-only engine validates and executes it. Automatic discovery reuses the agent's
+final JSON when valid, avoiding a second formatting call. Both paths receive the
+shared SQL dialect reference, including the current SQL dialect. A parse or
+name-resolution failure gets at most one repair using the engine error; network and
+permission failures are never retried by the question composer. Verify Automatic
+completes with live results; repeat with an explicit source and an aggregate using
+an AS alias. Verify a failed repair keeps the previous saved answer. Each endpoint
+request has a 90-second deadline. In DevTools, `[database-query]` summaries separate
+generation, catalog loading, and browser reads; `[database-sql]` shows row fetches
+and engine time. Backend spans record source mode, model, tool count, discovery and
+formatting durations, and whether formatting fell back to another model call. If matching sources are
 ambiguous, the assistant asks for clarification. Type to search the
 source menu, use the arrow keys and Enter to choose, or Escape to return without
 changing it. The displayed source is checked against the query's actual table

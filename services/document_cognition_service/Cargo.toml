@@ -24,6 +24,7 @@ local_queue = []
 
 
 [dependencies]
+macro_tower_layers = { path = "../../crates/macro_tower_layers" }
 agent = { path = "../../crates/agent", features = ["debug-messages"] }
 ai_projections = { path = "../../crates/ai_projections", features = ["agent"] }
 ai_billing = { path = "../../crates/ai_billing" }

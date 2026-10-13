@@ -4,10 +4,11 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::post;
 use context::GLOBAL_CONTEXT;
+use macro_tower_layers::MacroRequestIdAndTracingLayer;
 use model::version::{ServiceNameState, VersionedApiServiceName, validate_api_version};
+use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -24,6 +25,7 @@ pub mod utils;
 
 mod attachments;
 mod chats;
+mod database_query;
 pub mod structured_completion;
 pub(crate) mod tool_selection;
 
@@ -52,7 +54,9 @@ pub async fn setup_and_serve(state: ApiContext) -> anyhow::Result<()> {
             .layer(RequestBodyLimitLayer::new(1024 * 1024 * 1024))
             .layer(
                 ServiceBuilder::new()
-                    .layer(TraceLayer::new_for_http())
+                    .layer(
+                        MacroRequestIdAndTracingLayer::new(Duration::from_millis(200)).into_inner(),
+                    )
                     .layer(axum::middleware::from_fn_with_state(
                         ServiceNameState {
                             service_name: VersionedApiServiceName::DocumentCognitionService,
@@ -117,6 +121,7 @@ fn api_router(api_context: ApiContext) -> Router {
             post(structured_completion::structured_completion),
         )
         .route("/chat/completions", post(completions::handler))
+        .route("/database-query", post(database_query::handler))
         .nest("/attachments", attachments::router())
         .nest("/citations", citations::router())
         .nest("/preview", preview::router())
