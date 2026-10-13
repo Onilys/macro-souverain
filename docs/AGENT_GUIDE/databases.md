@@ -476,7 +476,7 @@ offers **Open view**, which opens that database/table and selects the created vi
 The same tools are exposed to agent sessions through the Macro MCP server.
 
 In a document, channel composer, or the task/document creation composer,
-`/query` (also `/database`) → **Database** opens the question box with the AI prompt focused
+`/query` → **Query** opens the question box with the AI prompt focused
 immediately. New draft questions bypass the saved-answer viewport gate; a cold
 module load shows **Opening database…** until the question input is ready. Saved
 answers still load when they approach the viewport. The empty input rotates through example questions; a selected database
