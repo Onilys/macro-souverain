@@ -71,11 +71,10 @@ Use the installed native compiler's `--lsp` mode only with a compatible client.
 
 ## Nix dependency cache
 
-The Linux Nix dependency hash is refreshed and builds successfully. The Darwin
-hash is intentionally a bootstrap hash, not the obsolete pre-migration value.
-Run `just update-node-modules-hash` on an Apple Silicon Mac before using the
-Nix frontend shell there. A Linux cross-install did not reproduce the previous
-Darwin hash, so an unverified cross-generated hash was not substituted.
+Both platform hashes are refreshed. The Linux derivation builds locally and in
+CI; the Darwin hash comes from the native Apple Silicon CI runner, not a Linux
+cross-install. Run `just update-node-modules-hash` on each matching platform
+when the workspace dependencies or native compiler wrapper change.
 
 ## Validation
 
