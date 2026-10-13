@@ -108,12 +108,15 @@ pub async fn process_message(
             link_id,
             idle_before,
         } => {
+            let lock = retention::lock_link(&ctx, link_id).await?;
             let link = get_link_or_skip(&ctx, message, link_id).await?;
             let Some(link) = link else { return Ok(()) };
 
             retention::handle_pause(&ctx, &link, idle_before).await?;
+            lock.release().await;
         }
         LinkManagerMessage::ResumeSync { link_id } => {
+            let lock = retention::lock_link(&ctx, link_id).await?;
             let link = get_link_or_skip(&ctx, message, link_id).await?;
             let Some(link) = link else { return Ok(()) };
 
@@ -131,6 +134,7 @@ pub async fn process_message(
             } else {
                 tracing::debug!(link_id=%link.id, "Link is no longer sync-active; skipping resume");
             }
+            lock.release().await;
         }
     }
 

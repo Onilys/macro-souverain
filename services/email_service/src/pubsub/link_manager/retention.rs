@@ -1,14 +1,17 @@
 use crate::pubsub::inbox_sync::operations::gmail_message::schedule_recovery_backfill;
 use crate::pubsub::link_manager::context::LinkManagerContext;
 use crate::pubsub::link_manager::process::{retry_teardown, settle_reauth_fetch};
+use crate::util::redis::lock::RedisLock;
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use email_api_client::domain::models::{EmailApiError, SyncCursor};
-use models_email::email::service::pubsub::{DeletionReason, LinkManagerMessage};
+use models_email::email::service::pubsub::DeletionReason;
 use models_email::gmail::inbox_sync::{
     GmailMessagePayload, InboxSyncOperation, InboxSyncPubsubMessage,
 };
 use models_email::service::link::{Link, UserProvider};
+use std::time::Duration;
+use uuid::Uuid;
 
 #[cfg(test)]
 mod test;
@@ -16,6 +19,14 @@ mod test;
 /// How many of the most recent threads a resumed link re-syncs when its Gmail history
 /// no longer reaches back to when it was paused.
 const RESUME_RESYNC_THREAD_LIMIT: i32 = 500;
+
+/// Outlives a transition's provider calls, including teardown retries, so the lock
+/// only lapses if a worker dies mid-transition.
+const RETENTION_LOCK_TTL: Duration = Duration::from_secs(120);
+
+/// How long a transition waits for the other one to finish before the message is
+/// left for redelivery.
+const RETENTION_LOCK_WAIT: Duration = Duration::from_secs(15);
 
 /// How a resumed link catches up on the mail it missed while paused.
 #[derive(Debug, PartialEq, Eq)]
@@ -72,23 +83,26 @@ pub(super) async fn handle_pause(
         .inspect_err(|error| tracing::warn!(error=?error, "Gmail call to stop watch failed"))
         .ok();
 
-    // Activity during the teardown resumes the link, and that resume may have renewed
-    // the watch this just stopped. Resume again so the link ends with a live watch.
-    let resumed_meanwhile = email_db_client::links::get::fetch_link_by_id(&ctx.db, link.id)
-        .await
-        .context("Failed to re-read paused link")?
-        .is_some_and(|current| current.is_sync_active);
-    if resumed_meanwhile {
-        tracing::info!("Link was resumed while pausing; re-running resume");
-        ctx.sqs_client
-            .enqueue_link_manager_notification(LinkManagerMessage::ResumeSync { link_id: link.id })
-            .await
-            .context("Failed to enqueue resume for link resumed while pausing")?;
-        return Ok(());
-    }
-
     tracing::info!("Paused sync for idle link");
     Ok(())
+}
+
+/// Serializes pause and resume for one link, so a pause's job cancellation and
+/// watch teardown can never interleave with a resume's recovery job, watch
+/// registration and cursor write. Hold it across reading the link and the whole
+/// transition. Failing to acquire it errors so the message is redelivered.
+pub(super) async fn lock_link(
+    ctx: &LinkManagerContext,
+    link_id: Uuid,
+) -> anyhow::Result<RedisLock> {
+    ctx.redis_client
+        .acquire_lock(
+            &format!("email_link_retention:{link_id}"),
+            RETENTION_LOCK_TTL,
+            RETENTION_LOCK_WAIT,
+        )
+        .await
+        .context("Failed to acquire link retention lock")
 }
 
 /// Whether a delete should go ahead. Retention deletes (unused or inactive) are
