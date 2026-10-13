@@ -163,10 +163,10 @@ export const enableSlackArchiveImport = defineFlag({
   default: onInDev,
 });
 
-/** Drive, Tasks, and CRM sidebar cards that import from connected apps. */
-export const enableConnectorImport = defineFlag({
-  key: 'enable-connector-import',
-  env: 'ENABLE_CONNECTOR_IMPORT',
+/** Sidebar prompt cards: imports, calendars, repositories, and Home setup. */
+export const enableSidebarPromotions = defineFlag({
+  key: 'enable-sidebar-promotions',
+  env: 'ENABLE_SIDEBAR_PROMOTIONS',
   default: onInDev,
 });
 

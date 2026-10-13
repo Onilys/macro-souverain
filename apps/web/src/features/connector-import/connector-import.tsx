@@ -1,7 +1,8 @@
 import { openChatWithInput } from '@app/features/chat/ChatWithAgentButton';
+import { SidebarPromotion } from '@app/features/sidebar-promotion/sidebar-promotion';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { pipedreamAppAvailableInEnv } from '@core/component/AI/constant/mcpServers';
-import { enableConnectorImport } from '@core/constant/featureFlags';
+import { enableSidebarPromotions } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { usePipedreamMcpFlag } from '@core/pipedream/flag';
 import { buildSimpleEntityUrl } from '@core/util/url';
@@ -15,17 +16,12 @@ import {
   connectPipedreamApp,
   usePipedreamConnectedSlugs,
 } from '@queries/pipedream-connectors';
-import { cn } from '@ui';
 import { createSignal, type JSX, Show } from 'solid-js';
-import { ImportPromoCard } from './components/import-promo-card';
 import { ConnectorImportProvider } from './context/connector-import-context';
 import type { ConnectorImportContext } from './context/contracts';
 import { IMPORT_CATEGORIES } from './core/catalog';
 import type { ImportCategory } from './core/providers';
-import {
-  hideImportPromotion,
-  isImportPromotionHidden,
-} from './primitives/promotion';
+import { hideImportPromotion, importPromotionId } from './primitives/promotion';
 import {
   ConnectorImportDialog,
   type ImportAlternative,
@@ -75,7 +71,7 @@ export function ConnectorImportSidebar(props: {
   alternative?: ImportAlternative;
   class?: string;
 }): JSX.Element {
-  const flag = useFeatureFlag(enableConnectorImport);
+  const flag = useFeatureFlag(enableSidebarPromotions);
   const pipedream = usePipedreamMcpFlag();
   return (
     <Show when={flag().enabled && pipedream()}>
@@ -116,21 +112,23 @@ export function ConnectorImportPromotion(props: {
 
   return (
     <ConnectorImportProvider context={context}>
-      <Show when={!isImportPromotionHidden(userId(), props.category)}>
-        <div class={cn('shrink-0', props.class)}>
-          <ImportPromoCard
-            config={config()}
-            onOpen={(trigger) => {
-              setOpener(trigger);
-              const direct = alternative();
-              if (!dialogConfig().providers.length && direct) direct.onSelect();
-              else setOpen(true);
-            }}
-            onDismiss={hide}
-          />
-        </div>
-      </Show>
-      {/* Outside the card's Show: a finished import hides the card, not the dialog. */}
+      <SidebarPromotion
+        id={importPromotionId(props.category)}
+        logos={config().providers}
+        headline={config().headline}
+        pitch={config().pitch}
+        class={props.class}
+        action={{
+          label: config().action,
+          onClick: (trigger) => {
+            setOpener(trigger);
+            const direct = alternative();
+            if (!dialogConfig().providers.length && direct) direct.onSelect();
+            else setOpen(true);
+          },
+        }}
+      />
+      {/* Beside the card: a finished import hides the card, not the dialog. */}
       <ConnectorImportDialog
         config={dialogConfig()}
         open={open()}

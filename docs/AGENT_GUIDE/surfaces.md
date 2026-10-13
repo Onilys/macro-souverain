@@ -2209,7 +2209,7 @@ afterwards in **Settings → Billing**, where Guest users can buy Premium or Max
 
 ## Import from connected apps
 
-With `enable-connector-import` on (on in dev) and the Pipedream connector stack
+With `enable-sidebar-promotions` on (on in dev) and the Pipedream connector stack
 enabled, the Drive, Tasks, and Customers sidebars end with an import card (the
 Chat sidebar's Slack card is the same component under the Slack import gates;
 see [channels](channels.md#imported-slack-history)):
@@ -2242,6 +2242,25 @@ Connect UI inside the dialog. A connected row shows a check and **Import**
 
 `src/features/connector-import/browser-test/` exercises both paths without a
 backend.
+
+## Sidebar setup cards
+
+The same flag puts a dismissible card (`src/features/sidebar-promotion`) at
+the bottom of three more sidebars. Each **Dismiss …** button hides its card
+for the user in this browser.
+
+- **Home** (desktop): "Make Macro your home base". **Connect tools** opens
+  Settings → Connections; **Invite team** opens Settings → Team.
+- **Calendar**: "Connect more calendars", shown only with multi-inbox enabled.
+  **Connect a calendar** starts the same Google consent as **Connect another
+  account** in the calendar settings menu. The card hides once two of your
+  accounts have calendar access.
+- **Pull requests**: "Bring in more repositories". Without a linked GitHub
+  account the button is **Connect GitHub** (the GitHub OAuth flow); once linked
+  it is **Add repositories**, which opens the GitHub App install page
+  (`/github/install-sync`) in a new tab to choose orgs and repositories.
+
+`src/features/sidebar-promotion/browser-test/` renders all three cards.
 
 ## Settings — `/app/settings/<section>`
 

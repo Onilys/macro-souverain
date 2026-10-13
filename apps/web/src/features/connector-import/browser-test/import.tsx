@@ -1,9 +1,9 @@
 import '@app/index.css';
+import { PromoCard } from '@app/features/sidebar-promotion/components/promo-card';
 import { applyTheme } from '@app/features/theme/utils/themeUtils';
 import type { ImportState } from '@service-cognition/import';
 import { createSignal, For } from 'solid-js';
 import { render } from 'solid-js/web';
-import { ImportPromoCard } from '../components/import-promo-card';
 import { ConnectorImportProvider } from '../context/connector-import-context';
 import type { ConnectorImportContext } from '../context/contracts';
 import { IMPORT_CATEGORIES } from '../core/catalog';
@@ -116,9 +116,12 @@ function Sidebar(props: { category: ImportCategory }) {
       <p class="px-2 text-sm font-semibold text-ink">{config.action}</p>
       <div class="mt-auto">
         {hidden() ? null : (
-          <ImportPromoCard
-            config={config}
-            onOpen={() => setOpen(true)}
+          <PromoCard
+            logos={config.providers}
+            headline={config.headline}
+            pitch={config.pitch}
+            action={{ label: config.action, onClick: () => setOpen(true) }}
+            dismissLabel={`Dismiss ${config.action.toLowerCase()}`}
             onDismiss={() => setHidden(true)}
           />
         )}

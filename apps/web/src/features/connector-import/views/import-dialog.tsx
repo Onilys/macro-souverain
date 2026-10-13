@@ -1,3 +1,4 @@
+import { LogoStack } from '@app/features/sidebar-promotion/components/logo-stack';
 import { toast } from '@core/component/Toast/Toast';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import type { ImportSource } from '@service-cognition/import';
@@ -5,7 +6,6 @@ import { ActionDialogShell, Dialog } from '@ui';
 import { createSignal, For, type JSX, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { ProviderRow, type ProviderRowState } from '../components/provider-row';
-import { ProviderStack } from '../components/provider-stack';
 import { SecurityNote } from '../components/security-note';
 import { useConnectorImport } from '../context/connector-import-context';
 import { agentImportHandoff } from '../core/agent-handoff';
@@ -133,10 +133,10 @@ function ImportDialogBody(props: {
           <ActionDialogShell class="max-h-[85dvh]">
             <ActionDialogShell.Body class="space-y-4">
               <ActionDialogShell.Header>
-                <ProviderStack
-                  providers={props.config.providers}
+                <LogoStack
+                  logos={props.config.providers}
                   size="md"
-                  class="mb-3 [--provider-stack-separator:var(--color-surface)]"
+                  class="mb-3 [--logo-stack-separator:var(--color-surface)]"
                 />
                 <ActionDialogShell.Title>
                   {props.config.action}
