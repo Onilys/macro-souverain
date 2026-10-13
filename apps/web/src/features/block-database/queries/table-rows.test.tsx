@@ -1316,6 +1316,7 @@ describe("another writer's change", () => {
     let name = 'Ada';
     const engineRead = engine(() => guests([{ id: 'record', name }]));
     const host = {
+      readQuery: async () => ({ kind: 'miss' as const }),
       // The view's rerun must not wait on a cache notification.
       onCacheChanged: () => () => {},
       entityFilter: async () => ({ kind: 'unsupported' as const }),

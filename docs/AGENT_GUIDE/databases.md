@@ -19,6 +19,9 @@ split header's `viewer` badge instead.
 Reopening a loaded table or view shows its cached rows while a background read
 checks for changes. Wait for refreshing to finish before asserting server
 reconciliation; visible rows alone do not mean the network read has completed.
+Concurrent cache-only misses must not fail an outstanding network row read. A
+successful background read clears an earlier refresh warning; a genuine failed
+read keeps the warning and its Refresh action.
 
 **AI** in the split header opens an agent chat about the database. Its composer
 starts with a mention of the database; the schema and table guidance go to the
@@ -474,7 +477,9 @@ The same tools are exposed to agent sessions through the Macro MCP server.
 
 In a document, channel composer, or the task/document creation composer,
 `/query` → **Query** opens the question box with the AI prompt focused
-immediately. The empty input rotates through example questions; a selected database
+immediately. New draft questions bypass the saved-answer viewport gate; a cold
+module load shows **Opening database…** until the question input is ready. Saved
+answers still load when they approach the viewport. The empty input rotates through example questions; a selected database
 uses its actual table and column names. Typing hides these hints, and reduced-motion
 preferences keep them static. Use the searchable source picker below the question to
 choose a database; the entire chosen database is in scope, without a table
