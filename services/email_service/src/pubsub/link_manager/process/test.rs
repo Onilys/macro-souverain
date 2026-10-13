@@ -123,3 +123,35 @@ async fn renewing_while_skips_renewal_for_quick_work() {
 
     assert_eq!(renewals.load(Ordering::SeqCst), 0);
 }
+
+#[tokio::test(start_paused = true)]
+async fn renewing_while_finishes_work_even_if_renewal_hangs() {
+    let output = renewing_while(
+        async {
+            tokio::time::sleep(LINK_DELETE_LOCK_RENEW_INTERVAL * 2).await;
+            "deleted"
+        },
+        LINK_DELETE_LOCK_RENEW_INTERVAL,
+        std::future::pending::<()>,
+    )
+    .await;
+
+    assert_eq!(output, "deleted");
+}
+
+#[test]
+fn only_refresh_handler_deletes_drop_their_duplicates() {
+    assert!(rescheduled_by_refresh_handler(&DeletionReason::Unused));
+    assert!(rescheduled_by_refresh_handler(&DeletionReason::Inactive));
+    for user_initiated in [
+        DeletionReason::ManuallyDisabled,
+        DeletionReason::UserDeleted,
+        DeletionReason::AccessRevoked,
+    ] {
+        assert!(
+            !rescheduled_by_refresh_handler(&user_initiated),
+            "{} deletes are enqueued once and must be retried",
+            user_initiated.as_str()
+        );
+    }
+}
