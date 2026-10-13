@@ -34,19 +34,42 @@ function ConnectCalendarsCard(props: { class?: string }) {
   const startAddInbox = useAddInboxFlow();
   const calendarAccounts = () =>
     accounts().filter((account) => account.action === 'turnOff').length;
+  // An account already connected without (working) calendar access comes
+  // first: the same consent the calendar settings menu runs for it.
+  const needsAttention = () =>
+    accounts().find((account) => account.action !== 'turnOff');
+  const action = () => {
+    const account = needsAttention();
+    if (!account)
+      return {
+        label: COPY.action,
+        // A brand-new account needs the mailbox scopes alongside calendar.
+        onClick: () => void startAddInbox({ scopes: 'gmail_and_calendar' }),
+      };
+    return {
+      label:
+        account.action === 'reconnect'
+          ? COPY.reconnectAction
+          : COPY.enableAction,
+      onClick: () =>
+        void startAddInbox({
+          scopes: account.consentScopes,
+          emailAddress: account.emailAddress,
+        }),
+    };
+  };
   return (
     <SidebarPromotion
       id={COPY.id}
       logos={COPY.logos}
       headline={COPY.headline}
       pitch={COPY.pitch}
-      satisfied={calendarAccounts() >= ENOUGH_CALENDAR_ACCOUNTS}
+      satisfied={
+        !needsAttention() && calendarAccounts() >= ENOUGH_CALENDAR_ACCOUNTS
+      }
       class={props.class}
-      action={{
-        label: COPY.action,
-        // A brand-new account needs the mailbox scopes alongside calendar.
-        onClick: () => void startAddInbox({ scopes: 'gmail_and_calendar' }),
-      }}
+      dismissLabel="Dismiss connect more calendars"
+      action={action()}
     />
   );
 }

@@ -335,12 +335,14 @@ export function CrmWorkspaceView(props: {
             <ConnectorImportSidebar
               category="crm"
               class="mt-auto"
-              alternative={{
-                icon: FileCsvIcon,
-                label: 'Upload a CSV',
-                description: 'Import companies from a spreadsheet export.',
-                onSelect: () => setImporting(true),
-              }}
+              alternatives={[
+                {
+                  icon: FileCsvIcon,
+                  label: 'Upload a CSV',
+                  description: 'Import companies from a spreadsheet export.',
+                  onSelect: () => setImporting(true),
+                },
+              ]}
             />
           </Suspense>
         </Show>

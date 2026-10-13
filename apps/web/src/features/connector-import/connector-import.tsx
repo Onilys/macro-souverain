@@ -68,7 +68,7 @@ function useProductionContext(): ConnectorImportContext {
  */
 export function ConnectorImportSidebar(props: {
   category: ImportCategory;
-  alternative?: ImportAlternative;
+  alternatives?: readonly ImportAlternative[];
   class?: string;
 }): JSX.Element {
   const flag = useFeatureFlag(enableSidebarPromotions);
@@ -83,11 +83,11 @@ export function ConnectorImportSidebar(props: {
 /**
  * The card and dialog without the connector-import rollout gate, for hosts
  * that gate on their own flag. Connector rows need the Pipedream stack; with
- * none available the card opens the alternative directly.
+ * none available and a single alternative, the card opens it directly.
  */
 export function ConnectorImportPromotion(props: {
   category: ImportCategory;
-  alternative?: ImportAlternative;
+  alternatives?: readonly ImportAlternative[];
   class?: string;
 }): JSX.Element {
   const userId = useUserId();
@@ -105,10 +105,12 @@ export function ConnectorImportPromotion(props: {
   const [open, setOpen] = createSignal(false);
   const [opener, setOpener] = createSignal<HTMLButtonElement>();
   const hide = () => hideImportPromotion(userId(), props.category);
-  const alternative = (): ImportAlternative | undefined => {
-    const base = props.alternative;
-    return base && { ...base, onSelect: () => base.onSelect(opener()) };
-  };
+  // Alternatives open their own dialogs; hand them the card button for focus.
+  const alternatives = (): ImportAlternative[] =>
+    (props.alternatives ?? []).map((base) => ({
+      ...base,
+      onSelect: () => base.onSelect(opener()),
+    }));
 
   return (
     <ConnectorImportProvider context={context}>
@@ -122,8 +124,9 @@ export function ConnectorImportPromotion(props: {
           label: config().action,
           onClick: (trigger) => {
             setOpener(trigger);
-            const direct = alternative();
-            if (!dialogConfig().providers.length && direct) direct.onSelect();
+            const [direct, ...others] = alternatives();
+            if (!dialogConfig().providers.length && direct && !others.length)
+              direct.onSelect();
             else setOpen(true);
           },
         }}
@@ -134,7 +137,7 @@ export function ConnectorImportPromotion(props: {
         open={open()}
         onOpenChange={setOpen}
         opener={opener()}
-        alternative={alternative()}
+        alternatives={alternatives()}
         onImported={hide}
       />
     </ConnectorImportProvider>

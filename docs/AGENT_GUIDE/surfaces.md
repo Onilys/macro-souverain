@@ -2214,8 +2214,10 @@ enabled, the Drive, Tasks, and Customers sidebars end with an import card (the
 Chat sidebar's Slack card is the same component under the Slack import gates;
 see [channels](channels.md#imported-slack-history)):
 overlapping provider logos, a two-line pitch, and **Import files**, **Import
-tasks**, or **Import customers**. Customers shows it only to team members. **Dismiss import files** (or tasks, customers) hides that card
-for the user in this browser; a server-confirmed native import also hides it.
+tasks**, or **Import customers**. Customers shows it only to team members.
+**Dismiss import files** (or tasks, customers) hides that card for good; a
+server-confirmed native import also hides it. See
+[Dismissing cards](#dismissing-cards).
 
 The button opens a dialog listing that category's apps (Files: Notion, Google
 Drive, Dropbox, OneDrive, Box, Confluence; Tasks: Linear, Jira, Asana, GitHub,
@@ -2238,7 +2240,9 @@ Connect UI inside the dialog. A connected row shows a check and **Import**
   issues and tasks from Jira into Macro tasks.". Private instructions tell the
   agent to list candidates and ask before creating anything, and never to
   write to the source.
-- Customers also offers **Upload a CSV**, which opens the existing CSV import.
+- Files also offers **Upload files** and **Upload a folder** (Drive's own
+  uploads), and Customers offers **Upload a CSV** (the existing CSV import).
+  Each closes the dialog first.
 
 `src/features/connector-import/browser-test/` exercises both paths without a
 backend.
@@ -2246,21 +2250,38 @@ backend.
 ## Sidebar setup cards
 
 The same flag puts a dismissible card (`src/features/sidebar-promotion`) at
-the bottom of three more sidebars. Each **Dismiss …** button hides its card
-for the user in this browser.
+the bottom of three more sidebars.
 
 - **Home** (desktop): "Make Macro your home base". **Connect tools** opens
-  Settings → Connections; **Invite team** opens Settings → Team.
+  Settings → Connections; **Invite team** opens Settings → Team. **Invite
+  team** is hidden for members of a team that limits invites to admins
+  (Settings → Team would offer nothing to do).
 - **Calendar**: "Connect more calendars", shown only with multi-inbox enabled.
-  **Connect a calendar** starts the same Google consent as **Connect another
-  account** in the calendar settings menu. The card hides once two of your
-  accounts have calendar access.
+  If a connected account lacks calendar access the button is **Turn on
+  calendar**, and if its grant expired, **Reconnect calendar**; both rerun that
+  account's consent like the calendar settings menu. Otherwise **Connect a
+  calendar** adds another Google account (mail and calendar, like **Connect
+  another account**; plans without multi-inbox see the paywall). The card
+  hides once two accounts have working calendar access.
 - **Pull requests**: "Bring in more repositories". Without a linked GitHub
-  account the button is **Connect GitHub** (the GitHub OAuth flow); once linked
-  it is **Add repositories**, which opens the GitHub App install page
-  (`/github/install-sync`) in a new tab to choose orgs and repositories.
+  account the button is **Connect GitHub**; with an expired link it is
+  **Reconnect GitHub** (the same reauthentication as Settings → GitHub). Once
+  linked it is **Add repositories**, which opens the GitHub App install page
+  (`/github/install-sync`) in a new tab, where GitHub asks which orgs and
+  repositories to grant.
 
 `src/features/sidebar-promotion/browser-test/` renders all three cards.
+
+### Dismissing cards
+
+Every card (import, Slack, and setup) has a close button. Dismissing is
+permanent and per account: `POST /onboarding/prompts/<id>/dismiss` stores it
+server-side, so the card stays gone on every device and browser. Cards wait
+for `GET /onboarding/prompts` before showing, so a card dismissed elsewhere
+never flashes; if that request fails, the browser's own record of dismissals
+is used. Ids are `import:<files|tasks|crm|channels>`, `home-setup`,
+`calendar-accounts`, and `pull-request-repositories`. Account deletion removes
+them.
 
 ## Settings — `/app/settings/<section>`
 

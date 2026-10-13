@@ -1,7 +1,11 @@
 import { createUserScopedStorage } from '@core/util/userScopedStorage';
+import { dismissPromptEverywhere } from '@queries/prompt-dismissals';
 import { createSignal } from 'solid-js';
 
-// Keep every mounted card in sync, including when local storage is unavailable.
+// Dismissals live on the server (see `@queries/prompt-dismissals`) so they
+// follow the user across devices. This local mirror hides a card instantly,
+// keeps it hidden while the server list loads or is unreachable, and keeps
+// every mounted card in sync even when local storage is unavailable.
 const [hiddenScopes, setHiddenScopes] = createSignal<ReadonlySet<string>>(
   new Set()
 );
@@ -16,7 +20,8 @@ function scope(userId: string, id: string): string {
   return JSON.stringify([userId, id]);
 }
 
-export function isPromotionHidden(
+/** Whether this browser already knows `id` is dismissed for the user. */
+export function isPromotionHiddenLocally(
   userId: string | undefined,
   id: string
 ): boolean {
@@ -27,9 +32,10 @@ export function isPromotionHidden(
   );
 }
 
-/** Used by explicit dismissal and by hosts once the prompt is fulfilled. */
+/** Dismiss everywhere. Used by the close button and by fulfilled prompts. */
 export function hidePromotion(userId: string | undefined, id: string): void {
-  if (!userId || isPromotionHidden(userId, id)) return;
+  if (!userId || isPromotionHiddenLocally(userId, id)) return;
   storage(id).write(userId, 'hidden');
   setHiddenScopes((previous) => new Set(previous).add(scope(userId, id)));
+  dismissPromptEverywhere(id);
 }

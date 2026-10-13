@@ -1,18 +1,8 @@
-import {
-  hidePromotion,
-  isPromotionHidden,
-} from '@app/features/sidebar-promotion/primitives/promotion';
+import { hidePromotion } from '@app/features/sidebar-promotion/primitives/promotion';
 import type { ImportCategory } from '../core/providers';
 
 export function importPromotionId(category: ImportCategory): string {
   return `import:${category}`;
-}
-
-export function isImportPromotionHidden(
-  userId: string | undefined,
-  category: ImportCategory
-): boolean {
-  return isPromotionHidden(userId, importPromotionId(category));
 }
 
 /** Used by a confirmed import; dismissal goes through the card itself. */

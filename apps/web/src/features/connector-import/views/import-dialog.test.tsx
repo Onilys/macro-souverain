@@ -55,13 +55,15 @@ function setup(
         open={open()}
         onOpenChange={setOpen}
         onImported={onImported}
-        alternative={
-          options?.alternative && {
-            icon: () => <svg />,
-            label: 'Upload a CSV',
-            description: 'From a spreadsheet.',
-            onSelect: options.alternative,
-          }
+        alternatives={
+          options?.alternative && [
+            {
+              icon: () => <svg />,
+              label: 'Upload a CSV',
+              description: 'From a spreadsheet.',
+              onSelect: options.alternative,
+            },
+          ]
         }
       />
     </ConnectorImportProvider>

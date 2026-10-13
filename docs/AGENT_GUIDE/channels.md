@@ -22,7 +22,8 @@ then discovers channels for a filterable pick list (**Import N**), and
 **Import with history** closes it and opens the archive upload below. Without
 an available Slack connector (Slack's Pipedream app is dev-only), the card opens
 the archive upload directly. **Dismiss import from slack** hides the card for
-that user in this browser; successful archive imports (including partial
+that user on every device (see
+[Dismissing cards](surfaces.md#dismissing-cards)); successful archive imports (including partial
 imports with a completed channel) and server-confirmed channel imports also
 hide it. Failed or cancelled imports do not. Dismissing or completing an import
 keeps the Settings entry available; completion does not close an open progress

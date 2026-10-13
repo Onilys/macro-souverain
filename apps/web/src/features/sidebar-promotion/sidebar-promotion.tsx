@@ -1,16 +1,21 @@
 import { useUserId } from '@core/context/user';
+import { usePromptDismissalsQuery } from '@queries/prompt-dismissals';
 import { cn } from '@ui';
 import { type JSX, Show } from 'solid-js';
 import type { PromotionLogo } from './components/logo-stack';
 import { type PromoAction, PromoCard } from './components/promo-card';
-import { hidePromotion, isPromotionHidden } from './primitives/promotion';
+import {
+  hidePromotion,
+  isPromotionHiddenLocally,
+} from './primitives/promotion';
 
 export type { PromotionLogo } from './components/logo-stack';
 export type { PromoAction } from './components/promo-card';
 
 /**
- * A view sidebar's dismissible prompt card. Dismissal is remembered per user
- * in this browser under `id`; hosts gate rollout and supply the actions.
+ * A view sidebar's dismissible prompt card. Dismissal is stored on the
+ * server under `id`, so it holds on every device; hosts gate rollout and
+ * supply the actions.
  */
 export function SidebarPromotion(props: {
   id: string;
@@ -26,8 +31,17 @@ export function SidebarPromotion(props: {
   class?: string;
 }): JSX.Element {
   const userId = useUserId();
+  const dismissals = usePromptDismissalsQuery();
+  // Wait for the server's answer so a card dismissed elsewhere never flashes.
+  // If it is unreachable, fall back to what this browser remembers.
+  const hidden = () => {
+    if (isPromotionHiddenLocally(userId(), props.id)) return true;
+    if (dismissals.isError) return false;
+    if (!dismissals.isSuccess) return true;
+    return dismissals.data.dismissed.includes(props.id);
+  };
   return (
-    <Show when={!props.satisfied && !isPromotionHidden(userId(), props.id)}>
+    <Show when={!props.satisfied && !hidden()}>
       <div class={cn('shrink-0', props.class)}>
         <PromoCard
           logos={props.logos}

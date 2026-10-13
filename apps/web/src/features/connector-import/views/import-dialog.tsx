@@ -33,7 +33,8 @@ export function ConnectorImportDialog(props: {
   onOpenChange(open: boolean): void;
   /** Focus returns here on close; the card sits outside Dialog's trigger. */
   opener?: HTMLElement;
-  alternative?: ImportAlternative;
+  /** Ways in that skip connectors, e.g. a CSV or local upload. */
+  alternatives?: readonly ImportAlternative[];
   onImported(): void;
 }): JSX.Element {
   let content: HTMLDivElement | undefined;
@@ -56,7 +57,7 @@ export function ConnectorImportDialog(props: {
         <ImportDialogBody
           config={props.config}
           container={() => content}
-          alternative={props.alternative}
+          alternatives={props.alternatives}
           onClose={() => props.onOpenChange(false)}
           onImported={props.onImported}
         />
@@ -68,7 +69,8 @@ export function ConnectorImportDialog(props: {
 function ImportDialogBody(props: {
   config: ImportCategoryConfig;
   container: () => HTMLElement | undefined;
-  alternative?: ImportAlternative;
+  /** Ways in that skip connectors, e.g. a CSV or local upload. */
+  alternatives?: readonly ImportAlternative[];
   onClose(): void;
   onImported(): void;
 }): JSX.Element {
@@ -165,35 +167,39 @@ function ImportDialogBody(props: {
                   )}
                 </For>
               </ul>
-              <Show when={props.alternative}>
-                {(alternative) => (
-                  <button
-                    type="button"
-                    class="flex w-full items-center gap-3 rounded-lg border border-edge-muted p-3 text-left hover:bg-ink/4 focus-visible:outline-accent"
-                    onClick={() => {
-                      props.onClose();
-                      alternative().onSelect();
-                    }}
-                  >
-                    <Dynamic
-                      component={alternative().icon}
-                      class="size-5 shrink-0 text-ink-muted"
-                      aria-hidden="true"
-                    />
-                    <span class="min-w-0 flex-1">
-                      <span class="block text-sm font-medium text-ink">
-                        {alternative().label}
-                      </span>
-                      <span class="block text-xs text-ink-muted">
-                        {alternative().description}
-                      </span>
-                    </span>
-                    <CaretRightIcon
-                      class="size-4 text-ink-extra-muted"
-                      aria-hidden="true"
-                    />
-                  </button>
-                )}
+              <Show when={props.alternatives?.length}>
+                <div class="flex flex-col gap-2">
+                  <For each={props.alternatives}>
+                    {(alternative) => (
+                      <button
+                        type="button"
+                        class="flex w-full items-center gap-3 rounded-lg border border-edge-muted p-3 text-left hover:bg-ink/4 focus-visible:outline-accent"
+                        onClick={() => {
+                          props.onClose();
+                          alternative.onSelect();
+                        }}
+                      >
+                        <Dynamic
+                          component={alternative.icon}
+                          class="size-5 shrink-0 text-ink-muted"
+                          aria-hidden="true"
+                        />
+                        <span class="min-w-0 flex-1">
+                          <span class="block text-sm font-medium text-ink">
+                            {alternative.label}
+                          </span>
+                          <span class="block text-xs text-ink-muted">
+                            {alternative.description}
+                          </span>
+                        </span>
+                        <CaretRightIcon
+                          class="size-4 text-ink-extra-muted"
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
+                  </For>
+                </div>
               </Show>
               <SecurityNote />
             </ActionDialogShell.Body>

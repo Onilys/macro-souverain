@@ -1,6 +1,10 @@
 import '@app/index.css';
 import { PromoCard } from '@app/features/sidebar-promotion/components/promo-card';
 import { applyTheme } from '@app/features/theme/utils/themeUtils';
+import FileCsvIcon from '@phosphor/file-csv.svg';
+import FileZipIcon from '@phosphor/file-zip.svg';
+import FolderIcon from '@phosphor/folder.svg';
+import UploadIcon from '@phosphor/upload-simple.svg';
 import type { ImportState } from '@service-cognition/import';
 import { createSignal, For } from 'solid-js';
 import { render } from 'solid-js/web';
@@ -131,24 +135,43 @@ function Sidebar(props: { category: ImportCategory }) {
         open={open()}
         onOpenChange={setOpen}
         onImported={() => setHidden(true)}
-        alternative={
-          props.category === 'crm'
-            ? {
-                icon: () => null,
-                label: 'Upload a CSV',
-                description: 'Import companies from a spreadsheet export.',
-                onSelect: () => {},
-              }
-            : props.category === 'channels'
+        alternatives={(() => {
+          const alternative =
+            props.category === 'crm'
               ? {
-                  icon: () => null,
-                  label: 'Import with history',
-                  description:
-                    'Upload a Slack export from a workspace owner or admin.',
-                  onSelect: () => setHandoff('Slack export upload'),
+                  icon: FileCsvIcon,
+                  label: 'Upload a CSV',
+                  description: 'Import companies from a spreadsheet export.',
+                  onSelect: () => {},
                 }
-              : undefined
-        }
+              : props.category === 'channels'
+                ? {
+                    icon: FileZipIcon,
+                    label: 'Import with history',
+                    description:
+                      'Upload a Slack export from a workspace owner or admin.',
+                    onSelect: () => setHandoff('Slack export upload'),
+                  }
+                : undefined;
+          return alternative
+            ? [alternative]
+            : props.category === 'files'
+              ? [
+                  {
+                    icon: UploadIcon,
+                    label: 'Upload files',
+                    description: 'Choose files from this computer.',
+                    onSelect: () => setHandoff('Upload files'),
+                  },
+                  {
+                    icon: FolderIcon,
+                    label: 'Upload a folder',
+                    description: 'Bring over a folder and everything in it.',
+                    onSelect: () => setHandoff('Upload a folder'),
+                  },
+                ]
+              : undefined;
+        })()}
       />
     </aside>
   );

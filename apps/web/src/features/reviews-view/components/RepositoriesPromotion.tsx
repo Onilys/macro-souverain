@@ -8,8 +8,10 @@ import { SERVER_HOSTS } from '@core/constant/servers';
 import {
   useGithubLinkStatusQuery,
   useInitGithubLinkMutation,
+  useReauthenticateGithubMutation,
 } from '@queries/auth';
 import { Show } from 'solid-js';
+import { match } from 'ts-pattern';
 
 /** The GitHub App install page, where orgs and repositories are chosen. */
 const GITHUB_APP_INSTALL_URL = `${SERVER_HOSTS['document-storage-service']}/github/install-sync`;
@@ -25,20 +27,46 @@ export function RepositoriesPromotion(props: { class?: string }) {
     enabled: () => promotions().enabled,
   });
   const initGithubLink = useInitGithubLinkMutation();
+  const reauthenticateGithub = useReauthenticateGithubMutation();
   // Gate the status read so a pending query never suspends the sidebar.
-  const linked = () =>
-    githubLink.isSuccess && githubLink.data?.status === 'linked';
+  const status = () =>
+    githubLink.isSuccess ? (githubLink.data?.status ?? 'unlinked') : 'unlinked';
 
-  const connectGithub = async () => {
+  // Settings → GitHub runs the same two grants; an expired link must be
+  // reauthenticated rather than linked again.
+  const authorize = async (reconnect: boolean) => {
     try {
       await authorizeGithub(
-        (callbackUrl) => initGithubLink.mutateAsync(callbackUrl),
-        'Failed to connect GitHub'
+        (callbackUrl) =>
+          reconnect
+            ? reauthenticateGithub.mutateAsync(callbackUrl)
+            : initGithubLink.mutateAsync(callbackUrl),
+        reconnect ? 'Failed to reconnect GitHub' : 'Failed to connect GitHub'
       );
     } catch {
-      toast.failure('Failed to start GitHub connect flow');
+      toast.failure(
+        reconnect
+          ? 'Failed to start GitHub reconnect flow'
+          : 'Failed to start GitHub connect flow'
+      );
     }
   };
+
+  const action = () =>
+    match(status())
+      .with('linked', () => ({
+        label: COPY.action,
+        onClick: () =>
+          window.open(GITHUB_APP_INSTALL_URL, '_blank', 'noopener'),
+      }))
+      .with('reauthentication_required', () => ({
+        label: COPY.reconnectAction,
+        onClick: () => void authorize(true),
+      }))
+      .otherwise(() => ({
+        label: COPY.connectAction,
+        onClick: () => void authorize(false),
+      }));
 
   return (
     <Show when={promotions().enabled && githubLink.isSuccess}>
@@ -49,14 +77,7 @@ export function RepositoriesPromotion(props: { class?: string }) {
         pitch={COPY.pitch}
         class={props.class}
         dismissLabel={`Dismiss ${COPY.headline.toLowerCase()}`}
-        action={{
-          label: linked() ? COPY.action : COPY.connectAction,
-          onClick: () => {
-            if (linked())
-              window.open(GITHUB_APP_INSTALL_URL, '_blank', 'noopener');
-            else void connectGithub();
-          },
-        }}
+        action={action()}
       />
     </Show>
   );

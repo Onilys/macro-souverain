@@ -71,3 +71,18 @@ test('picks Slack channels or hands history to the archive upload', async ({
     'Slack export upload'
   );
 });
+
+test('offers local file and folder uploads in the Files dialog', async ({
+  page,
+}) => {
+  const sidebar = page.getByRole('complementary', { name: 'files sidebar' });
+  await sidebar
+    .getByRole('button', { name: 'Import files', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /Upload a folder/ }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('status', { name: 'Agent handoff' })).toHaveText(
+    'Upload a folder'
+  );
+});

@@ -11,7 +11,7 @@ const host = vi.hoisted(() => ({
     | undefined
     | {
         category: string;
-        alternative: { label: string; onSelect(opener?: unknown): void };
+        alternatives: { label: string; onSelect(opener?: unknown): void }[];
       },
   slackImport: undefined as undefined | { historyOnly?: boolean },
 }));
@@ -53,9 +53,9 @@ describe('Slack import sidebar', () => {
     expect(screen.getByText('Shared import card')).toBeTruthy();
     expect(host.promotion?.category).toBe('channels');
     expect(host.slackImport?.historyOnly).toBe(true);
-    expect(host.promotion?.alternative.label).toBe('Import with history');
+    expect(host.promotion?.alternatives[0]?.label).toBe('Import with history');
     const opener = document.createElement('button');
-    host.promotion?.alternative.onSelect(opener);
+    host.promotion?.alternatives[0]?.onSelect(opener);
     expect(host.openHistory).toHaveBeenCalledWith(opener);
   });
 

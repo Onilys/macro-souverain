@@ -37,15 +37,17 @@ export function SlackImportSidebar() {
             <ConnectorImportPromotion
               category="channels"
               class="px-(--sidebar-gutter) py-2"
-              alternative={{
-                icon: FileZipIcon,
-                label: 'Import with history',
-                description:
-                  'Upload a Slack export from a workspace owner or admin.',
-                onSelect: (opener) => {
-                  if (opener) openHistory?.(opener);
+              alternatives={[
+                {
+                  icon: FileZipIcon,
+                  label: 'Import with history',
+                  description:
+                    'Upload a Slack export from a workspace owner or admin.',
+                  onSelect: (opener) => {
+                    if (opener) openHistory?.(opener);
+                  },
                 },
-              }}
+              ]}
             />
           </>
         );

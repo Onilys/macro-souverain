@@ -47,7 +47,11 @@ export const CALENDAR_ACCOUNTS_PROMOTION = {
   pitch:
     'Add another Google account to see work and personal calendars side by side.',
   action: 'Connect a calendar',
-} satisfies PromotionCopy;
+  /** Shown instead while one of your accounts lacks calendar access. */
+  enableAction: 'Turn on calendar',
+  /** Shown instead while a calendar grant has expired. */
+  reconnectAction: 'Reconnect calendar',
+} satisfies PromotionCopy & { enableAction: string; reconnectAction: string };
 
 export const PULL_REQUEST_REPOSITORIES_PROMOTION = {
   id: 'pull-request-repositories',
@@ -58,4 +62,6 @@ export const PULL_REQUEST_REPOSITORIES_PROMOTION = {
   action: 'Add repositories',
   /** Shown instead while no GitHub account is linked. */
   connectAction: 'Connect GitHub',
-} satisfies PromotionCopy & { connectAction: string };
+  /** Shown instead while the GitHub link has expired. */
+  reconnectAction: 'Reconnect GitHub',
+} satisfies PromotionCopy & { connectAction: string; reconnectAction: string };

@@ -7,6 +7,14 @@ const host = vi.hoisted(() => ({
   authorize: vi.fn(async () => false),
 }));
 vi.mock('@core/context/user', () => ({ useUserId: () => () => 'user' }));
+vi.mock('@queries/prompt-dismissals', () => ({
+  usePromptDismissalsQuery: () => ({
+    isSuccess: true,
+    isError: false,
+    data: { dismissed: [] },
+  }),
+  dismissPromptEverywhere: vi.fn(),
+}));
 vi.mock('@app/lib/analytics/posthog', () => ({
   useFeatureFlag: () => () => ({ enabled: true }),
 }));
@@ -21,6 +29,7 @@ vi.mock('@queries/auth', () => ({
     },
   }),
   useInitGithubLinkMutation: () => ({ mutateAsync: vi.fn() }),
+  useReauthenticateGithubMutation: () => ({ mutateAsync: vi.fn() }),
 }));
 
 beforeEach(() => {
@@ -49,6 +58,18 @@ describe('RepositoriesPromotion', () => {
     render(() => <RepositoriesPromotion />);
     fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
     expect(host.authorize).toHaveBeenCalled();
+    expect(window.open).not.toHaveBeenCalled();
+    host.status = 'linked';
+  });
+
+  it('reconnects an expired GitHub link instead of opening the install page', () => {
+    host.status = 'reauthentication_required';
+    render(() => <RepositoriesPromotion />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect GitHub' }));
+    expect(host.authorize).toHaveBeenCalledWith(
+      expect.any(Function),
+      'Failed to reconnect GitHub'
+    );
     expect(window.open).not.toHaveBeenCalled();
     host.status = 'linked';
   });
