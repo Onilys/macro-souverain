@@ -9,6 +9,9 @@ match its name, including databases with no view history.
 
 Creating from Home immediately shows the table selector with its **+** menu, **Database
 actions**, and **AI** in the top bar; no reload is needed to use them.
+`/database` immediately shows **Creating database…** at the insertion point while
+the creation module loads. Moving the caret keeps that insertion anchored; removing
+it before the module loads cancels creation.
 A successful create opens its new editor while database discovery refreshes in
 the background; a slow discovery refresh must not delay the new database card.
 Databases open at

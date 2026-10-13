@@ -1,12 +1,17 @@
 import { registerRichText } from '@lexical/rich-text';
 import {
+  $createAwaitNode,
   $isDocumentCardNode,
+  AwaitNode,
   SupportedNodeTypes,
 } from '@macro-inc/lexical-core';
 import {
   $createParagraphNode,
   $createTextNode,
+  $getNodeByKey,
   $getRoot,
+  $insertNodes,
+  $nodesOfType,
   createEditor,
 } from 'lexical';
 import { err, ok, type Result } from 'neverthrow';
@@ -83,6 +88,63 @@ describe('creating a database in a document', () => {
       expect(card.getMentionUuid()).toBe('mention-1');
     });
   });
+
+  it('uses the placeholder already shown while the creation module loaded', async () => {
+    const editor = documentEditor();
+    let key!: string;
+    editor.update(
+      () => {
+        const placeholder = $createAwaitNode({
+          awaitId: 'pending',
+          text: 'Creating database…',
+        });
+        $insertNodes([placeholder]);
+        key = placeholder.getKey();
+      },
+      { discrete: true }
+    );
+    let finish!: (result: Result<string, unknown>) => void;
+    mocks.create.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    const creating = insertNewDatabase(editor, undefined, key);
+    expect(editor.read(() => $nodesOfType(AwaitNode))).toHaveLength(1);
+    finish(ok('db-1'));
+    await creating;
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(
+      editor.read(() => $getRoot().getChildren().filter($isDocumentCardNode))
+    ).toHaveLength(1);
+  });
+
+  it.each(['removed', 'read-only'] as const)(
+    'does not create if the pending insert became %s while its module loaded',
+    async (state) => {
+      const editor = documentEditor();
+      let key!: string;
+      editor.update(
+        () => {
+          const placeholder = $createAwaitNode({
+            awaitId: 'pending',
+            text: 'Creating database…',
+          });
+          $insertNodes([placeholder]);
+          key = placeholder.getKey();
+        },
+        { discrete: true }
+      );
+      if (state === 'removed')
+        editor.update(() => $getNodeByKey(key)?.remove(), { discrete: true });
+      else editor.setEditable(false);
+      await insertNewDatabase(editor, undefined, key);
+      expect(mocks.create).not.toHaveBeenCalled();
+      expect(editor.read(() => $getRoot().getTextContent())).toBe(
+        'Before. After.'
+      );
+    }
+  );
 
   it('does not insert elsewhere when the placeholder was removed during creation', async () => {
     let finish!: (result: Result<string, unknown>) => void;
