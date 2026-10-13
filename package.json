@@ -43,7 +43,8 @@
 		"@lexical/table@0.45.0": "apps/web/patches/@lexical%2Ftable@0.45.0.patch",
 		"ai-fallback@2.0.1": "apps/web/patches/ai-fallback@2.0.1.patch",
 		"@tanstack/virtual-core@3.17.8": "apps/web/patches/@tanstack%2Fvirtual-core@3.17.8.patch",
-		"@tauri-apps/plugin-http@2.5.9": "apps/web/patches/@tauri-apps%2Fplugin-http@2.5.9.patch"
+		"@tauri-apps/plugin-http@2.5.9": "apps/web/patches/@tauri-apps%2Fplugin-http@2.5.9.patch",
+		"@kobalte/utils@0.9.2": "apps/web/patches/@kobalte%2Futils@0.9.2.patch"
 	},
 	"private": true,
 	"scripts": {

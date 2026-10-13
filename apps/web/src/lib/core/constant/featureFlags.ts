@@ -780,16 +780,6 @@ export const enableRecentView = defineFlag({
   default: onInDev,
 });
 
-// Settings › Notifications: the dedicated preferences tab (delivery, per-type
-// opt-outs, muted items). When off, the tab is hidden and Account keeps the
-// existing desktop/mobile toggle. PostHog-gated with a dev-mode default;
-// override with VITE_ENABLE_NOTIFICATION_SETTINGS.
-export const enableNotificationSettings = defineFlag({
-  key: 'enable-notification-settings',
-  env: 'ENABLE_NOTIFICATION_SETTINGS',
-  default: onInDev,
-});
-
 /**
  * The in-browser PowerPoint editor (`block-pptx`). Off shows uploaded
  * `.pptx` files as before: download only. On in dev; deployed environments

@@ -23,6 +23,8 @@ To click through by hand, start the fixture and open `http://127.0.0.1:3021/`:
 bunx vite --config src/features/onboarding/browser-test/vite.config.ts
 ```
 
+- Add `&theme=cream` or `&theme=dark` to preview either palette. Without an override,
+  the fixture follows the system color scheme. Overrides survive simulated redirects.
 - `/?view=signup` shows the signed-out slides; Google sign-up continues into the flow.
 - `/?view=flow&next=/channel/x` shows the signed-in flow with a deep link.
 

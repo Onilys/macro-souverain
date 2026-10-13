@@ -22,6 +22,7 @@ import {
 } from '@queries/team/teams';
 import { patchTeamCrmSettings } from '@service-auth/crm';
 import { storageServiceClient } from '@service-storage/client';
+import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { useQueryClient } from '@tanstack/solid-query';
 import { createMemo, lazy } from 'solid-js';
 import type { CrmContext } from './context/crm-context';
@@ -38,6 +39,7 @@ import {
   createAppCrmNavigation,
 } from './navigation-adapter';
 import { PipelineDatabaseEditor, PipelineShare } from './pipeline-adapter';
+import { createCrmPipelineEntries } from './pipeline-entries-adapter';
 import {
   createClosedStageIds,
   createCrmPermissions,
@@ -154,6 +156,10 @@ export function createAppCrmContext(): CrmContext {
   return {
     createPipelines: (teamId) => createPipelinesSource(deps, teamId),
     PipelineEditor: PipelineDatabaseEditor,
+    PipelineEntries: createCrmPipelineEntries({
+      graphql: getGraphqlSoupClient,
+      storage: deps.storage,
+    }),
     PipelineSharing: PipelineShare,
     feedback: toast,
     downloadCsv: downloadCrmCsv,

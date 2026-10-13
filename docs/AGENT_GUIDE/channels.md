@@ -10,6 +10,13 @@
 Team channels are always discoverable to the team. Private channels can only be viewed or joined by invitation. A DM is a channel between two users.
 An external email can be selected as a channel participant. For an unregistered recipient, clicking `Add` sends an email invite.
 
+The first message in a DM to an unregistered recipient sends an email saying
+`<sender email> sent you a message on Macro`, with the message and a **View message**
+button leading to signup. It must not invite the recipient to `#<their own name>`.
+Named-channel invites still show `#<channel name>` and **Join channel**.
+Verify both emails in local Mailpit using distinct, unregistered test addresses;
+repeat with a plus-addressed DM recipient to check the email-name fallback.
+
 ## Imported Slack history
 
 Import starts from the **Import from Slack** chip below the Chat sidebar tabs,
@@ -158,6 +165,10 @@ attachment, delete-reply, and send controls have their own space.
 Attachment controls use a paperclip in both expanded and collapsed composers,
 including the iOS media picker. Input action and formatting buttons show the
 app tooltip without a second native browser tooltip.
+On desktop, select draft text to open the floating formatting toolbar. Its
+compact frame uses 4px outer padding with concentric button corners, a white
+light-mode background, a thin border, and a soft downward shadow. Check
+Bold and the text-style dropdown in both light and dark mode.
 When checking this transition, type a long draft without pressing Enter, then
 shorten it and resize the pane. It should expand when the text no longer fits
 beside the buttons and collapse when it fits again, without flickering between
@@ -175,6 +186,12 @@ An `@` inside a word stays literal text. Check hardware-keyboard input too;
 it should open only one menu.
 The same software-keyboard check applies to `:` for emoji and `/` for formatting
 commands: type a search and tap a result without sending the draft.
+
+Closed mention menus do not gather, rank, or paginate candidates. When checking
+channel-switch performance, include touch navigation back to the list and reopening
+a cached channel without typing `@`. Then open mentions, search, close, and reopen:
+results must reflect current people and entities, and scrolling or keyboard
+navigation must still load more results. Check both mobile and desktop.
 
 The shared `@` menu also offers `Recent agent sessions` after Channels and
 before Companies (the latest 500 accessible sessions, searchable by title or
@@ -1113,7 +1130,7 @@ Members see the picture without editing controls. One-to-one direct messages
 continue to show the other person's user picture.
 
 Opening the slash menu with `/` lists Normal Text, headings, and the other
-Markdown options before Database. Typing `/database` filters to the Database
-action.
+Markdown options before Query and Database. Typing `/query` filters to the Query
+action; `/database` creates a new database and inserts its editable card.
 
-When Databases is enabled, type `/database` in a channel message or thread reply and choose **Database** to insert a live question. Ask with Enter or the Ask button, then accept the answer before sending the message. Enter in the question box belongs to the question and must not send the channel draft. Recipients can read the live answer subject to their database access.
+When Databases is enabled, type `/query` in a channel message or thread reply and choose **Query** to insert a live question. Ask with Enter or the Ask button, then accept the answer before sending the message. Enter in the question box belongs to the question and must not send the channel draft. Recipients can read the live answer subject to their database access. Database @ mentions in message composers remain compact; **Expand** turns one into an editable database card.

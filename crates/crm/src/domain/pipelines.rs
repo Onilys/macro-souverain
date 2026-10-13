@@ -4,14 +4,15 @@
 mod test;
 
 use super::{auth::CrmTeamReceipt, stages::StageDefinitionStore};
+use bot_id::BotId;
 use chrono::{DateTime, Utc};
 use databases::domain::{
     models::{
-        AppliedOps, ColumnId, ColumnProtection, DatabaseId, OpBatch, RowId, TableDetail, TableId,
-        Viewer,
+        AppliedOps, ColumnDetail, ColumnId, ColumnProtection, DatabaseId, OpBatch, RowId,
+        TableDetail, TableId, Viewer,
     },
     provisioning::{ProvisionedColumn, StorageBlueprint},
-    storage::{DatabaseStorageService, StorageRows, StorageRowsQuery},
+    storage::{DatabaseStorageService, StorageRow, StorageRows, StorageRowsQuery},
 };
 use entity_access::domain::{
     models::{
@@ -21,14 +22,16 @@ use entity_access::domain::{
     ports::{AccessiblePipelines, EntityAccessService},
 };
 use macro_user_id::user_id::MacroUserIdStr;
-use models_properties::service::property_option::PropertyOptionValue;
+use models_properties::service::{
+    property_option::PropertyOptionValue, property_value::PropertyValue,
+};
 use models_properties::{DataType, EntityType as PropertyEntityType};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 
 /// Which CRM entity each row references. Fixed when a pipeline is created.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PipelineRecordType {
     /// Company memberships.
@@ -111,7 +114,7 @@ pub struct Pipeline {
 }
 
 /// Metadata together with the caller's effective grant.
-#[derive(Debug, Serialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessiblePipeline {
     /// Pipeline metadata.
@@ -119,6 +122,32 @@ pub struct AccessiblePipeline {
     pub pipeline: Pipeline,
     /// Highest effective access.
     pub grant: AccessLevel,
+}
+
+/// A pipeline row and the company or contact its primary column references.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PipelineReference {
+    /// The pipeline holding the row.
+    pub pipeline_id: Uuid,
+    /// The row.
+    pub row_id: RowId,
+    /// The referenced company or contact.
+    pub record_id: Uuid,
+}
+
+/// A row of a pipeline the viewer can see, for the company or contact it references.
+#[derive(Debug, Clone)]
+pub struct PipelineEntry {
+    /// The row.
+    pub row_id: RowId,
+    /// The referenced company or contact.
+    pub record_id: Uuid,
+    /// The pipeline and the viewer's grant on it, shared by its entries.
+    pub pipeline: Arc<AccessiblePipeline>,
+    /// The pipeline's columns in display order, shared by its entries.
+    pub columns: Arc<[ColumnDetail]>,
+    /// Populated cells by column.
+    pub cells: HashMap<ColumnId, PropertyValue>,
 }
 
 /// All records needed for atomic provisioning.
@@ -190,6 +219,13 @@ pub trait PipelineRepo: Send + Sync + 'static {
         &self,
         ids: &[Uuid],
     ) -> impl Future<Output = Result<Vec<Pipeline>, Self::Error>> + Send;
+    /// Rows of these live pipelines whose primary column references one of
+    /// `records`, grouped by pipeline in each one's row order.
+    fn referencing_rows(
+        &self,
+        pipelines: &[Uuid],
+        records: &[Uuid],
+    ) -> impl Future<Output = Result<Vec<PipelineReference>, Self::Error>> + Send;
     /// Insert metadata, backing database and grants atomically.
     fn create(
         &self,
@@ -216,6 +252,15 @@ pub trait PipelineService: Send + Sync + 'static {
         &self,
         team: CrmTeamReceipt<MemberTeamRole>,
     ) -> impl Future<Output = Result<Vec<AccessiblePipeline>, PipelineError>> + Send;
+    /// Rows referencing these companies or contacts, from the live pipelines
+    /// of that record type the viewer can see. Pipeline grants are the whole
+    /// boundary: the rows are what those pipelines already show the viewer.
+    fn entries(
+        &self,
+        viewer: &MacroUserIdStr<'static>,
+        record_type: PipelineRecordType,
+        records: &[Uuid],
+    ) -> impl Future<Output = Result<Vec<PipelineEntry>, PipelineError>> + Send;
     /// Read a pipeline by identity.
     fn get(
         &self,
@@ -238,11 +283,27 @@ pub trait PipelineService: Send + Sync + 'static {
         receipt: EntityAccessReceipt<ViewAccessLevel>,
         query: StorageRowsQuery,
     ) -> impl Future<Output = Result<StorageRows, PipelineError>> + Send;
+    /// The cells of those of `rows` that are this pipeline's, in row order.
+    fn read_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        rows: &[RowId],
+    ) -> impl Future<Output = Result<Vec<StorageRow>, PipelineError>> + Send;
+    /// This pipeline's rows whose primary column references one of
+    /// `records`, in row order.
+    fn record_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        records: &[Uuid],
+    ) -> impl Future<Output = Result<Vec<PipelineReference>, PipelineError>> + Send;
 
     /// Validate pipeline policy, then use the shared storage operation planner.
+    /// `acting_bot` is the agent making the change for the receipt's user,
+    /// recorded for attribution only.
     fn apply_ops(
         &self,
         receipt: EntityAccessReceipt<EditAccessLevel>,
+        acting_bot: Option<BotId>,
         batch: OpBatch,
     ) -> impl Future<Output = Result<AppliedOps, PipelineError>> + Send;
     /// Rename pipeline metadata.
@@ -488,6 +549,84 @@ where
             .collect())
     }
 
+    async fn entries(
+        &self,
+        viewer: &MacroUserIdStr<'static>,
+        record_type: PipelineRecordType,
+        records: &[Uuid],
+    ) -> Result<Vec<PipelineEntry>, PipelineError> {
+        if records.is_empty() {
+            return Ok(Vec::new());
+        }
+        let grants: HashMap<_, _> = self
+            .access
+            .accessible_pipelines(viewer)
+            .await?
+            .into_iter()
+            .collect();
+        if grants.is_empty() {
+            return Ok(Vec::new());
+        }
+        let ids = grants.keys().copied().collect::<Vec<_>>();
+        let pipelines: HashMap<_, _> = self
+            .repo
+            .get_many(&ids)
+            .await
+            .map_err(storage)?
+            .into_iter()
+            .filter(|p| p.trashed_at.is_none() && p.record_type == record_type)
+            .map(|p| (p.id, p))
+            .collect();
+        let live = pipelines.keys().copied().collect::<Vec<_>>();
+        let references = self
+            .repo
+            .referencing_rows(&live, records)
+            .await
+            .map_err(storage)?;
+        let mut entries = Vec::with_capacity(references.len());
+        for references in references.chunk_by(|a, b| a.pipeline_id == b.pipeline_id) {
+            let Some(pipeline) = pipelines.get(&references[0].pipeline_id) else {
+                continue;
+            };
+            // A pipeline trashed since the lookup has no entries.
+            let Some(_guard) = self.repo.lock_live(pipeline.id).await.map_err(storage)? else {
+                continue;
+            };
+            let Some(table) = self
+                .databases
+                .storage_tables(pipeline.database_id)
+                .await?
+                .into_iter()
+                .find(|table| table.table.id == pipeline.table_id)
+            else {
+                continue;
+            };
+            let rows = references.iter().map(|r| r.row_id).collect::<Vec<_>>();
+            let cells: HashMap<_, _> = self
+                .databases
+                .storage_row_cells(pipeline.database_id, pipeline.table_id, &rows)
+                .await?
+                .into_iter()
+                .map(|row| (row.row_id, row.cells))
+                .collect();
+            let shared = Arc::new(AccessiblePipeline {
+                pipeline: pipeline.clone(),
+                grant: grants[&pipeline.id],
+            });
+            let columns: Arc<[ColumnDetail]> = table.columns.into();
+            entries.extend(references.iter().filter_map(|reference| {
+                Some(PipelineEntry {
+                    row_id: reference.row_id,
+                    record_id: reference.record_id,
+                    pipeline: shared.clone(),
+                    columns: columns.clone(),
+                    cells: cells.get(&reference.row_id)?.clone(),
+                })
+            }));
+        }
+        Ok(entries)
+    }
+
     async fn get(
         &self,
         receipt: EntityAccessReceipt<ViewAccessLevel>,
@@ -605,9 +744,46 @@ where
             .await?)
     }
 
+    async fn read_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        rows: &[RowId],
+    ) -> Result<Vec<StorageRow>, PipelineError> {
+        let pipeline = self.pipeline(&receipt).await?;
+        let _guard = self
+            .repo
+            .lock_live(pipeline.id)
+            .await
+            .map_err(storage)?
+            .ok_or(PipelineError::NotFound)?;
+        Ok(self
+            .databases
+            .storage_row_cells(pipeline.database_id, pipeline.table_id, rows)
+            .await?)
+    }
+
+    async fn record_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        records: &[Uuid],
+    ) -> Result<Vec<PipelineReference>, PipelineError> {
+        let pipeline = self.pipeline(&receipt).await?;
+        if pipeline.trashed_at.is_some() {
+            return Err(PipelineError::NotFound);
+        }
+        if records.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.repo
+            .referencing_rows(&[pipeline.id], records)
+            .await
+            .map_err(storage)
+    }
+
     async fn apply_ops(
         &self,
         receipt: EntityAccessReceipt<EditAccessLevel>,
+        acting_bot: Option<BotId>,
         batch: OpBatch,
     ) -> Result<AppliedOps, PipelineError> {
         use models_databases::{DatabaseOp, TableChange};
@@ -632,7 +808,7 @@ where
         }
         let viewer = Viewer {
             user_id: actor(&receipt)?,
-            acting_bot: None,
+            acting_bot,
         };
         // A pipeline grant does not grant access to the records it references.
         // The editor may reference records from any team they can access.

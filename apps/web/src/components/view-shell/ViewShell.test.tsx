@@ -76,9 +76,10 @@ it('moves navigation into the host and follows the active split', () => {
       <SplitPanelContext.Provider
         value={
           {
+            handle: { isFirst: () => true },
             isPanelActive: () => active() === props.id,
             splitHotkeyScope: props.id,
-          } as SplitPanelContextType
+          } as unknown as SplitPanelContextType
         }
       >
         <ViewShell.Root asidePreferenceKey={props.id}>
@@ -342,6 +343,33 @@ it('restores visibility per app after remount and persists reopening', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }));
   second.unmount();
   render(() => <Workspace app="email" />);
+  expect(screen.getByRole('button', { name: 'Hide navigation' })).toBeTruthy();
+});
+
+it('opens secondary splits without navigation and leaves the preference alone', () => {
+  function InSplit(props: { app: string; first: boolean }) {
+    return (
+      <SplitPanelContext.Provider
+        value={
+          {
+            handle: { isFirst: () => props.first },
+            isPanelActive: () => false,
+            splitHotkeyScope: props.app,
+          } as unknown as SplitPanelContextType
+        }
+      >
+        <Workspace app={props.app} />
+      </SplitPanelContext.Provider>
+    );
+  }
+  const split = render(() => <InSplit app="email" first={false} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }));
+  expect(screen.getByRole('button', { name: 'Hide navigation' })).toBeTruthy();
+  split.unmount();
+  const reopened = render(() => <InSplit app="email" first={false} />);
+  expect(screen.getByRole('button', { name: 'Show navigation' })).toBeTruthy();
+  reopened.unmount();
+  render(() => <InSplit app="email" first />);
   expect(screen.getByRole('button', { name: 'Hide navigation' })).toBeTruthy();
 });
 

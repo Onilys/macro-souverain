@@ -347,17 +347,31 @@ describe('Harness', () => {
 
     expect(mocks.save).not.toHaveBeenCalled();
     expect(mocks.toastFailure).toHaveBeenCalledWith(
-      'Cursor API keys start with crsr_'
+      'Cursor API keys start with grok_ or crsr_'
     );
 
-    fireEvent.input(apiKeyInput, { target: { value: '  crsr_example  ' } });
+    fireEvent.input(apiKeyInput, { target: { value: '  grok_example  ' } });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(mocks.save).toHaveBeenCalledWith('crsr_example');
+      expect(mocks.save).toHaveBeenCalledWith('grok_example');
       expect(mocks.toastSuccess).toHaveBeenCalledWith('Cursor connected');
       expect(apiKeyInput).toHaveProperty('value', '');
     });
+  });
+
+  it('still accepts a Cursor API key minted with the older crsr_ prefix', async () => {
+    render(() => <Harness />);
+
+    fireEvent.input(screen.getByLabelText('API key'), {
+      target: { value: 'crsr_example' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mocks.save).toHaveBeenCalledWith('crsr_example');
+    });
+    expect(mocks.toastFailure).not.toHaveBeenCalled();
   });
 
   it('shows connection status, the default model picker, and disconnect for connected Cursor', async () => {
