@@ -6,6 +6,7 @@ import type {
 } from '@app/features/email-compose/core/local-draft';
 import type { DraftFormAttachment } from '@app/features/email-compose/primitives/email-form-state';
 import type { EmailMessage } from '@app/features/email-message/core/email-message';
+import { analytics } from '@app/lib/analytics';
 import { getNativeStagedUpload } from '@core/mobile/nativeStagedUpload';
 import { isTauri } from '@core/util/platform';
 import type { NormalizedCacheExchangeOptions } from '@graphql-cache/exchange/normalized-cache-exchange';
@@ -22,7 +23,18 @@ import { createLocalDraftStore } from './local-draft-store';
 
 import type { EmailSendIntent } from './send-queue';
 
-export const localDraftStore = createLocalDraftStore();
+export const localDraftStore = createLocalDraftStore(undefined, (event) => {
+  const context = {
+    storage: 'email-working-copies',
+    visibility: document.visibilityState,
+    online: navigator.onLine,
+  };
+  if (event.type === 'failed') {
+    analytics.posthog.captureException(event.error, context);
+  } else {
+    analytics.track('email_draft_storage_' + event.type, context);
+  }
+});
 const fileIds = new WeakMap<File, string>();
 const fileCopies = new WeakMap<File, Promise<Blob>>();
 const nativeUploadLocks = new Map<string, Promise<void>>();
@@ -231,6 +243,9 @@ async function persistLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
   const files = new Map<string, Blob>();
   const attachments: LocalDraftAttachment[] = [];
   for (const attachment of input.attachments) {
+    // Document attachments exist only in the AI draft composer, which keeps no
+    // local draft.
+    if (attachment.type === 'document') continue;
     if (attachment.type !== 'local') {
       attachments.push({ ...attachment });
       continue;

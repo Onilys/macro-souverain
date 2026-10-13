@@ -962,6 +962,7 @@ dependencies = [
  "entity_access_management",
  "entity_registry",
  "entity_registry_db_utils",
+ "favorites",
  "foreign_entity",
  "forms",
  "frecency",
@@ -1132,9 +1133,9 @@ checksum = "c880a97d28a3681c0267bd29cff89621202715b065127cd445fa0f0fe0aa2880"
 
 [[package]]
 name = "ammonia"
-version = "4.1.4"
+version = "4.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc6d763210e2eb7670d1a5183a08bebefa3f97db2a738a684f2ce00bd49f681d"
+checksum = "36322ccf536de7b7afd259098615203e4cc5caca1b78482b58334a720c66e40a"
 dependencies = [
  "cssparser 0.37.0",
  "html5ever 0.39.0",
@@ -3551,6 +3552,7 @@ dependencies = [
  "async-trait",
  "aws-sdk-sqs",
  "axum",
+ "call",
  "chrono",
  "chrono-tz",
  "futures",
@@ -4482,9 +4484,12 @@ dependencies = [
  "async-graphql",
  "async-stream",
  "axum",
+ "bot_id",
  "bots",
  "calendar_events",
  "chrono",
+ "crm",
+ "databases",
  "email",
  "entity_access",
  "entity_mutation",
@@ -4493,6 +4498,7 @@ dependencies = [
  "graphql_calendar",
  "graphql_channel",
  "graphql_common",
+ "graphql_crm",
  "graphql_email",
  "graphql_entity_mutation",
  "graphql_favorite",
@@ -4642,7 +4648,6 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-opentelemetry",
- "tungstenite 0.28.0",
  "url",
  "utoipa",
  "utoipa-swagger-ui",
@@ -4758,6 +4763,7 @@ dependencies = [
  "aws-sdk-sqs",
  "axum",
  "axum-extra",
+ "futures",
  "http-body-util",
  "macro_authorization",
  "macro_db_migrator",
@@ -4772,6 +4778,7 @@ dependencies = [
  "tokio",
  "tower 0.5.3",
  "tracing",
+ "urlencoding",
  "utoipa",
  "uuid",
  "workspace-hack",
@@ -5032,6 +5039,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "bot_id",
  "call",
  "chrono",
  "databases",
@@ -6275,6 +6283,7 @@ dependencies = [
  "github",
  "github_pull_requests",
  "graphql_calendar",
+ "graphql_crm",
  "graphql_initiative",
  "graphql_scheduled_action",
  "graphql_soup",
@@ -6423,6 +6432,7 @@ dependencies = [
  "chrono",
  "lambda_runtime",
  "macro_aws_config",
+ "macro_db_migrator",
  "macro_entrypoint",
  "macro_env_var",
  "mockall",
@@ -6890,6 +6900,7 @@ dependencies = [
  "async-trait",
  "attachment",
  "authentication_service_client",
+ "aws-sdk-s3",
  "axum",
  "axum-extra",
  "base64 0.22.1",
@@ -7173,6 +7184,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "unfurl",
+ "unicode-segmentation",
  "url",
  "urlencoding",
  "utoipa",
@@ -7657,7 +7669,9 @@ checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
 name = "favorites"
 version = "0.1.0"
 dependencies = [
+ "ai_toolset",
  "anyhow",
+ "async-trait",
  "axum",
  "axum-extra",
  "chrono",
@@ -7672,6 +7686,7 @@ dependencies = [
  "model-error-response",
  "model_user",
  "rootcause",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "sqlx",
@@ -8622,6 +8637,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "graphql_crm"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "chrono",
+ "crm",
+ "databases",
+ "entity_access",
+ "graphql_common",
+ "graphql_properties",
+ "macro_user_id",
+ "models_databases",
+ "models_properties",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
+ "workspace-hack",
+]
+
+[[package]]
 name = "graphql_email"
 version = "0.1.0"
 dependencies = [
@@ -8786,8 +8822,10 @@ dependencies = [
 name = "graphql_soup"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-graphql",
  "async-stream",
+ "async-trait",
  "axum",
  "axum-extra",
  "chrono",
@@ -8818,6 +8856,7 @@ dependencies = [
  "soup",
  "soup-filter-projection",
  "soup_realtime",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "uuid",
@@ -11468,6 +11507,7 @@ dependencies = [
  "tokio",
  "tower 0.5.3",
  "tracing",
+ "tracing-subscriber",
  "urlencoding",
  "uuid",
  "workspace-hack",
@@ -12029,6 +12069,7 @@ dependencies = [
  "futures",
  "github_pull_requests",
  "http 1.4.0",
+ "import",
  "lexical_client",
  "macro_auth",
  "macro_aws_config",
@@ -12041,7 +12082,10 @@ dependencies = [
  "macro_service_urls",
  "macro_user_id",
  "mcp_auth_proxy",
+ "mcp_client",
+ "mcp_select",
  "notification",
+ "pipedream_mcp",
  "prompt",
  "readonly_pool",
  "redis",
@@ -19141,6 +19185,7 @@ dependencies = [
  "url",
  "utoipa",
  "uuid",
+ "wiremock",
  "workspace-hack",
 ]
 

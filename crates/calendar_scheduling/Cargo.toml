@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [features]
+client = ["dep:reqwest"]
 default = []
 ai_tools = ["dep:ai_toolset", "dep:async-trait", "dep:schemars", "dep:anyhow"]
 postgres = ["dep:sqlx"]
@@ -12,6 +13,7 @@ inbound = ["dep:axum", "dep:macro_authorization"]
 calendar = ["dep:calendar_events", "dep:teams", "dep:macro_user_id"]
 
 [dependencies]
+reqwest = { workspace = true, optional = true }
 ai_toolset = { path = "../ai_toolset", optional = true }
 async-trait = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }

@@ -28,6 +28,8 @@ use agent_session::domain::ports::{
     NoOpAgentSessionNameGenerator, NoOpTurnObserver, NoopLifecyclePublisher,
 };
 
+mod summary;
+
 /// Instructions long enough to be unmistakable in an assertion, and shaped
 /// like something a real session would carry.
 const INSTRUCTIONS: &str = "Answer in one sentence. Never open a pull request.";

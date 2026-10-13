@@ -1,4 +1,5 @@
 use crate::api::context::{ApiContext, AuthorizationService};
+use crate::api::folders_query::DssFoldersQueryReader;
 use agent_session::outbound::postgres::PgAgentSessionRepo;
 use async_graphql::{
     Data,
@@ -169,6 +170,9 @@ fn insert_graphql_context_data(
     data.insert(state.graphql_entity_mutation_service.clone());
     data.insert(state.favorites_mutation_service.clone());
     data.insert(state.favorites_service.clone());
+    data.insert(graphql_soup::FoldersQuery::new(DssFoldersQueryReader(
+        state.projects_state.service.clone(),
+    )));
     data.insert(state.channel_service.clone());
     data.insert(state.graphql_initiative_context.clone());
     data.insert(state.graphql_scheduled_action_context.clone());
@@ -183,6 +187,10 @@ fn insert_graphql_context_data(
     ));
     data.insert(graphql_initiative::initiative_summary_loader(
         state.graphql_initiative_context.clone(),
+        macro_user_id.clone(),
+    ));
+    data.insert(graphql_crm::pipeline_entries_loader(
+        state.graphql_crm_context.clone(),
         macro_user_id.clone(),
     ));
     data.insert(state.graphql_notification_reader.clone());

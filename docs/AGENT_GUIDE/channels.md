@@ -10,10 +10,36 @@
 Team channels are always discoverable to the team. Private channels can only be viewed or joined by invitation. A DM is a channel between two users.
 An external email can be selected as a channel participant. For an unregistered recipient, clicking `Add` sends an email invite.
 
+The first message in a DM to an unregistered recipient sends an email saying
+`<sender email> sent you a message on Macro`, with the message and a **View message**
+button leading to signup. It must not invite the recipient to `#<their own name>`.
+Named-channel invites still show `#<channel name>` and **Join channel**.
+Verify both emails in local Mailpit using distinct, unregistered test addresses;
+repeat with a plus-addressed DM recipient to check the email-name fallback.
+
 ## Imported Slack history
 
-Import starts in **Settings → Team → Connections → Import from Slack**, not the
-channel composer. Only explicitly selected Slack IDs create work. Slack public
+Import starts from the **Import from Slack** chip below the Chat sidebar tabs,
+or **Settings → Team → Connections → Import from Slack**. The chip is visible
+to team admins and owners when Slack archive import is enabled, and opens the
+same dialog without leaving Chat. Its **Dismiss Slack import** button hides the
+card and remembers the choice in this browser for that user and Macro team.
+Successful archive imports (including partial imports with a completed channel)
+and server-confirmed channel-only imports also hide it. Failed or cancelled
+imports do not. Dismissing or completing an import keeps the Settings entry
+available; completion does not close an open progress dialog. Check persistence
+after reload and confirm dismissal does not affect another user or team.
+Closing the dialog returns focus to the chip when it is still visible.
+The dialog offers **Import with history** (recommended) and **Import channels
+without history**. The first needs a ZIP export provided by a Slack workspace
+owner or admin; its upload screen links to Slack's export instructions. Files
+and attachments are excluded. The second opens a dedicated channel import flow:
+it reuses an enabled Pipedream Slack connection or requests authorization, then
+automatically discovers public channels. Select channels and click **Import N
+channels** to create their names and matching Macro teammates. It requires no
+Slack admin role, but workspace app-approval policies still apply. Neither method
+sets up ongoing message sync. Previous ZIP imports are collapsed under a disclosure.
+Only explicitly selected Slack IDs create work. Slack public
 channels become Team channels with automatic team joining off; private channels
 and group DMs become Private. Two-person DMs keep exactly their mapped pair and
 never gain the importing admin as a third participant. Existing names, roles,
@@ -139,6 +165,10 @@ attachment, delete-reply, and send controls have their own space.
 Attachment controls use a paperclip in both expanded and collapsed composers,
 including the iOS media picker. Input action and formatting buttons show the
 app tooltip without a second native browser tooltip.
+On desktop, select draft text to open the floating formatting toolbar. Its
+compact frame uses 4px outer padding with concentric button corners, a white
+light-mode background, a thin border, and a soft downward shadow. Check
+Bold and the text-style dropdown in both light and dark mode.
 When checking this transition, type a long draft without pressing Enter, then
 shorten it and resize the pane. It should expand when the text no longer fits
 beside the buttons and collapse when it fits again, without flickering between
@@ -156,6 +186,12 @@ An `@` inside a word stays literal text. Check hardware-keyboard input too;
 it should open only one menu.
 The same software-keyboard check applies to `:` for emoji and `/` for formatting
 commands: type a search and tap a result without sending the draft.
+
+Closed mention menus do not gather, rank, or paginate candidates. When checking
+channel-switch performance, include touch navigation back to the list and reopening
+a cached channel without typing `@`. Then open mentions, search, close, and reopen:
+results must reflect current people and entities, and scrolling or keyboard
+navigation must still load more results. Check both mobile and desktop.
 
 The shared `@` menu also offers `Recent agent sessions` after Channels and
 before Companies (the latest 500 accessible sessions, searchable by title or
@@ -196,7 +232,13 @@ event without attendees creates the event right away (unlike AI chat, where crea
 for the user to confirm a composer card). For an event with attendees the bot is prompted to
 ask for confirmation in the thread first, since Google sends the invitations the moment the
 event is created — no invitation goes out from the initial request. It cannot draft or send
-email at all. The bot's prompt carries the current date and time in the mentioning user's
+email at all. When that reply links something the rest of the channel may not already open
+(a calendar event, document, or similar chip), it ends by asking "Do you want me to share this
+with the members of the channel?" A yes in the thread — "yes", "please", "go ahead" — is
+enough: the bot replies "Okay." and grants current members access. It does not share before
+that yes unless the request already asked it to. A decline is not shared. Private and
+confidential calendar events stay unshared, and a calendar event can only be shared by
+someone who holds it on their own calendar. The bot's prompt carries the current date and time in the mentioning user's
 own time zone (their primary calendar's), so it resolves relative times ("tomorrow at 4",
 "EOD") without asking; when no calendar is connected the prompt falls back to UTC and the
 bot asks before scheduling a specific clock time. Within the rollout, `@Macro` — plus
@@ -735,6 +777,11 @@ list errors do not affect an active search.
 Collapsing a section does not discard its loaded pages. Recent has its own
 pagination cursor. Each list is virtualized, so offscreen conversations may not
 exist in the DOM.
+Verify Recent in a visible browser with a latest-message preview containing an
+agent-session mention. Let its title resolve, scroll the preview out of view and
+back, then switch to All. The title should update without repeatedly remounting
+the mention, and scrolling and navigation must remain responsive; a headless
+browser alone can miss this regression.
 Channels and DMs each have a sort action before their create action. They can be
 sorted by last viewed, last updated, or date created, and each choice persists
 independently as a user preference.
@@ -1034,6 +1081,14 @@ the chime. Closing the audible tab lets the other take over while the call is
 still ringing. Answering or dismissing stops ringing across tabs. An unanswered
 call stops ringing after 30 seconds, including after a tab takes over.
 
+Declining is per user and per device set, not per tab: the sidebar `X` and the
+rail `Decline` button send `POST /call/record/{call_id}/decline`, and every other
+signed-in device of the same user (other browsers, the iPhone's CallKit ring)
+stops ringing via `call_declined`. Declining on the iPhone lock screen does the
+same for the browser. Other channel members keep ringing, and the call stays
+active for them. Closing only the browser notification toast silences the chime
+without declining.
+
 ## Onboarding channel
 
 New users get `Macro Support x <name>` seeded with a welcome message that @mentions them —
@@ -1075,7 +1130,7 @@ Members see the picture without editing controls. One-to-one direct messages
 continue to show the other person's user picture.
 
 Opening the slash menu with `/` lists Normal Text, headings, and the other
-Markdown options before Database. Typing `/database` filters to the Database
-action.
+Markdown options before Query and Database. Typing `/query` filters to the Query
+action; `/database` creates a new database and inserts its editable card.
 
-When Databases is enabled, type `/database` in a channel message or thread reply and choose **Database** to insert a live question. Ask with Enter or the Ask button, then accept the answer before sending the message. Enter in the question box belongs to the question and must not send the channel draft. Recipients can read the live answer subject to their database access.
+When Databases is enabled, type `/query` in a channel message or thread reply and choose **Query** to insert a live question. Ask with Enter or the Ask button, then accept the answer before sending the message. Enter in the question box belongs to the question and must not send the channel draft. Recipients can read the live answer subject to their database access. Database @ mentions in message composers remain compact; **Expand** turns one into an editable database card.

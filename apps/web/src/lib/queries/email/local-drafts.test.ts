@@ -11,6 +11,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const auth = vi.hoisted(() => ({ user: { authenticated: true, id: 'owner' } }));
 const native = vi.hoisted(() => ({ active: false }));
 vi.mock('@core/util/platform', () => ({ isTauri: () => native.active }));
+const telemetry = vi.hoisted(() => ({
+  track: vi.fn(),
+  posthog: { captureException: vi.fn() },
+}));
+vi.mock('@app/lib/analytics', () => ({ analytics: telemetry }));
 const stagedUpload = vi.hoisted(() =>
   vi.fn<() => { previewSrc: string; size: number } | undefined>()
 );
@@ -65,12 +70,15 @@ beforeEach(async () => {
   auth.user = { authenticated: true, id: 'owner' };
   stagedUpload.mockReset();
   native.active = false;
+  telemetry.track.mockClear();
+  telemetry.posthog.captureException.mockClear();
   runtime = await import('./local-drafts');
   await runtime.localDraftStore.clear();
 });
 afterEach(async () => {
   vi.unstubAllGlobals();
   await runtime.localDraftStore.close();
+  vi.restoreAllMocks();
 });
 
 describe('draft queue recovery', () => {
@@ -243,6 +251,31 @@ describe('draft queue recovery', () => {
       })
     ).toBe(false);
     expect(await runtime.readLocalDraft('local')).toBeUndefined();
+  });
+  it('reports caught storage failures and recovery with lifecycle context, without draft content', async () => {
+    const error = new DOMException('Storage unavailable', 'UnknownError');
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementationOnce(
+      () => {
+        throw error;
+      }
+    );
+    await expect(runtime.saveLocalDraft(input('Private content'))).rejects.toBe(
+      error
+    );
+    const context = {
+      storage: 'email-working-copies',
+      visibility: document.visibilityState,
+      online: navigator.onLine,
+    };
+    expect(telemetry.posthog.captureException).toHaveBeenCalledExactlyOnceWith(
+      error,
+      context
+    );
+    await runtime.saveLocalDraft(input('Private content'));
+    expect(telemetry.track).toHaveBeenCalledExactlyOnceWith(
+      'email_draft_storage_recovered',
+      context
+    );
   });
   it('rejects an old editor generation after discard and Undo reuse the server identity', async () => {
     const serverInput = (subject: string) => ({

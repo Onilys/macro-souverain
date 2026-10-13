@@ -31,6 +31,7 @@ import {
   type MagicChipNode,
   normalizedLanguage,
   type PasteNode,
+  type PullRequestMentionNode,
   type ReplyTargetNode,
   type SnapshotNode,
   SupportedNodeTypes,
@@ -101,6 +102,7 @@ import { MagicChip as MagicChipDecorator } from '../decorator/MagicChip';
 import { MarkdownImage as ImageDecorator } from '../decorator/MarkdownImage';
 import { MarkdownVideo as VideoDecorator } from '../decorator/MarkdownVideo';
 import { PasteNode as PasteNodeDecorator } from '../decorator/PasteNode';
+import { PullRequestMention as PullRequestMentionDecorator } from '../decorator/PullRequestMention';
 import { ReplyTarget as ReplyTargetDecorator } from '../decorator/ReplyTarget';
 import { Snapshot as SnapshotDecorator } from '../decorator/Snapshot';
 import { TagMention as TagMentionDecorator } from '../decorator/TagMention';
@@ -246,6 +248,7 @@ function getTextClassName(
     | UserMentionNode
     | DocumentMentionNode
     | AgentSessionMentionNode
+    | PullRequestMentionNode
     | ContactMentionNode
     | DateMentionNode
     | WatermarkNode,
@@ -411,11 +414,25 @@ const AgentSessionMention: TypedRenderableEntity<AgentSessionMentionNode> = {
     node.__type === 'agent-session-mention',
   render: (props) => (
     <span class={getTextClassName(props.node, props.theme)}>
-      {AgentSessionMentionDecorator({
-        ...props.node.exportComponentProps(),
-        key: props.node.getKey(),
-        theme: props.theme,
-      })}
+      <AgentSessionMentionDecorator
+        {...props.node.exportComponentProps()}
+        key={props.node.getKey()}
+        theme={props.theme}
+      />
+    </span>
+  ),
+};
+
+const PullRequestMention: TypedRenderableEntity<PullRequestMentionNode> = {
+  guard: (node: LexicalNode): node is PullRequestMentionNode =>
+    node.__type === 'pr-mention',
+  render: (props) => (
+    <span class={getTextClassName(props.node, props.theme)}>
+      <PullRequestMentionDecorator
+        {...props.node.exportComponentProps()}
+        key={props.node.getKey()}
+        theme={props.theme}
+      />
     </span>
   ),
 };
@@ -974,6 +991,7 @@ const InlineEntities: RenderableEntity[] = [
   eraseRenderableEntity(UserMention),
   eraseRenderableEntity(DocumentMention),
   eraseRenderableEntity(AgentSessionMention),
+  eraseRenderableEntity(PullRequestMention),
   eraseRenderableEntity(DocumentCard),
   eraseRenderableEntity(ContactMention),
   eraseRenderableEntity(DateMention),

@@ -12,6 +12,7 @@ import {
   type LexicalEditor,
 } from 'lexical';
 import { createSignal } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RepositoryPicker } from '../views/RepositoryPicker';
 import { ChatComposer, ChatSessionInput } from './ChatComposer';
@@ -97,7 +98,13 @@ vi.mock(
 
 vi.mock('@core/component/LexicalMarkdown/builder/MarkdownShell', () => ({
   MarkdownShell: (props: { placeholder?: string }) => (
-    <div data-testid="editor">{props.placeholder}</div>
+    <div data-testid="editor">
+      {props.placeholder}
+      {/* Decorators portal their popups (the paste viewer) out of the editor. */}
+      <Portal>
+        <pre data-testid="portaled-text">Pasted text</pre>
+      </Portal>
+    </div>
   ),
 }));
 
@@ -438,6 +445,22 @@ describe('Chat session input', () => {
     });
     screen.getByRole('textbox', { name: 'Filter models' }).dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('leaves presses in portaled editor popups to the browser so their text can be selected', () => {
+    render(() => <ChatSessionInput onSend={vi.fn()} />);
+    const press = (target: Element, type: string) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+      target.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const surface = document.querySelector('[data-agent-composer="chat"]')!;
+    const portaled = screen.getByTestId('portaled-text');
+    expect(surface.contains(portaled)).toBe(false);
+    for (const type of ['pointerdown', 'mousedown']) {
+      expect(press(surface, type)).toBe(true);
+      expect(press(portaled, type)).toBe(false);
+    }
   });
 });
 

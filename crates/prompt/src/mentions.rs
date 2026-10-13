@@ -49,7 +49,7 @@ The `blockName` for a Macro database is always exactly `database` — never `md`
 The `blockName` for a form is always exactly `form` — never `md` or `document`. `documentId` is the form id; the chip opens the form builder, so link the `/respond` page as a plain URL.
 The `blockName` for a project is always exactly `initiative`, with the initiative id from an initiative tool result (such as ListInitiatives or ReadInitiative); `project` is a folder.
 The `blockName` for an email thread is always exactly `email` — never `thread` or `email_thread`, which the frontend cannot resolve.
-The `blockName` for a calendar event is always exactly `calendar` — never `calendar_event`, which the frontend cannot resolve. `documentId` is the `eventId` a calendar tool returned. To point at one instance of a recurring event, pass that occurrence's `recurrenceId` from ListCalendarEvents as the `occurrenceKey` block param; otherwise omit it and the mention previews the nearest instance. A calendar event mention resolves only for users who have that event on their own calendar.
+The `blockName` for a calendar event is always exactly `calendar` — never `calendar_event`, which the frontend cannot resolve. `documentId` is the `eventId` a calendar tool returned. To point at one instance of a recurring event, pass that occurrence's `recurrenceId` from ListCalendarEvents as the `occurrenceKey` block param; otherwise omit it and the mention previews the nearest instance. A calendar event mention opens for people who have that event on their own calendar. After it is shared with a channel, current members who do not have a copy see a read-only preview instead. Private and confidential events are never shared.
 When a tool returns both a channel id and a channel message id, link the specific message using the channel message mention format. Do not link only the channel unless you are referring to the whole channel.
 
 ### People, groups, dates, agent sessions, and pull requests
@@ -61,9 +61,11 @@ These use their own tags — never wrap them in `<m-document-mention>`:
 - Group: `<m-group-mention>{"groupAlias":"{alias}"}</m-group-mention>`
 - Date/time: `<m-date-mention>{"date":"{iso_datetime}","displayFormat":"{label}"}</m-date-mention>`
 - Agent session: `<m-agent-session-mention>{"id":"{session_id}","label":""}</m-agent-session-mention>`
-- Pull request: `<m-pr-mention>{"id":"{id}","label":""}</m-pr-mention>`
+- GitHub pull request: `<m-pr-mention>{"url":"https://github.com/{owner}/{repo}/pull/{number}","label":""}</m-pr-mention>`, or `<m-pr-mention>{"id":"{id}","label":""}</m-pr-mention>` when a tool returned the PR's Macro id
 
 Date/time chips do not need a looked-up id. `date` is an ISO 8601 datetime; `displayFormat` is the chip label the user sees (e.g. "Mon, Dec 1, 2025", "Today", "Tomorrow", "3:00 PM"). Prefer a date chip over typing a date as plain text when you are naming a specific day or time.
+
+Reference a GitHub pull request with a PR chip, never a Markdown link or bare URL, whenever you name one: a PR a tool returned, one you opened, or one in a list. Put its github.com pull request URL in `url` (a `/files` or other subpage URL works too); you do not need to look up a Macro id. The chip shows the PR's number, title, and live status, opens it in Macro, and falls back to GitHub when Macro has not synced the PR, so leave `label` empty and do not repeat the number or title beside it. Issues, commits, repositories, and other GitHub pages stay Markdown links. A PR chip in a message you receive carries the pull request's GitHub URL in `url` (and its `owner/repo#number` in `label`); use them to read or work on that PR.
 
 Agent session chips reference an existing session by id from a tool result. An empty `label` is fine. Set `"expanded":true` to insert the card (Magic Chip) that follows the session's latest turn instead of the compact underlined title. Do not invent session ids.
 
@@ -81,8 +83,8 @@ If no inline or node ids are present:
 
 static INTENT: &str = "Entities, people, dates, agent sessions, and other chips are referenced \
 with the matching XML mention tag (m-document-mention with the right blockName/blockParams, \
-m-user-mention, m-date-mention, m-agent-session-mention, and the other listed chip tags) \
-across every Markdown surface (AI chat replies, agent session replies, channel messages, \
+m-user-mention, m-date-mention, m-agent-session-mention, m-pr-mention for GitHub pull \
+requests by URL, and the other listed chip tags) across every Markdown surface (AI chat replies, agent session replies, channel messages, \
 email bodies, and Markdown documents) — never inside non-Markdown documents, and never for \
 ids outside the listed types (a calendar id from ListCalendars is not mentionable; \
 only individual events are).";

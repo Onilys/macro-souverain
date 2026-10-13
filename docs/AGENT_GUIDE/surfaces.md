@@ -584,6 +584,12 @@ native offline archive support therefore requires a full app build, not just OTA
 
 ### Cached Mail filtering
 
+The per-query caches for email threads, channels, and native offline document
+context reopen closed IndexedDB connections. Verify a cached read and a subsequent
+write after closing the connection, then clear/logout during recovery: old-account
+entries must not return. Only transaction creation retries automatically; persistent
+storage failures still follow the existing cache fallback behavior.
+
 Performance check: switch Signal → All twice against a large synchronized cache.
 Dense local pages use bounded sort-index candidates rather than sorting the entire
 mailbox. Sparse filters and large timestamp ties retain the exact fallback plan.
@@ -735,6 +741,15 @@ when delivery fails. Later edits can show it again after the usual pause.
 Verify the label does not cycle through saving/syncing text on each edit and
 that retry remains accessible beside the actions on mobile. Editing while failed
 continues saving locally without repeatedly submitting the rejected request.
+Local draft storage reopens unexpectedly closed IndexedDB connections. If creating
+a transaction fails because the connection is closing, it retries once before
+running any writes. Verify by closing the draft database connection, then editing:
+the latest content must persist locally and server autosave must continue without
+reloading. Repeat across background/resume on an iPhone. A transaction that has
+already started is never automatically replayed. Persistent failures still block
+server autosave; copy unsaved content before restarting. Storage failures and
+recovery report current page visibility and network state without draft content.
+
 Repeated local-save failures show one persistent warning per composer; recovery
 or closing that composer dismisses it. A later failure shows a new warning.
 Retry preserves the original draft handle. An already-sent rejection drops the
@@ -1435,14 +1450,14 @@ so invitees can open those links.
 
 Calendar connections live in **Settings → Calendar** (`/app/settings/calendar`).
 Scheduling lives in the separate **Settings → Booking links** item
-(`/app/settings/booking-links`), with Booking links, Availability, Booking pages,
-Teams, Bookings, and Insights in one scrolling page. The calendar toolbar’s
-booking actions open Booking links; email and integration connection shortcuts
-continue to open Calendar.
-There is no second sidebar or global owner switch. Personal and team booking links
-appear together with ownership badges. New booking link and New schedule ask which
-owner to create for when multiple editable owners are available, then open inline editors;
-event options are stacked sections. Save changes or Cancel returns to the list.
+(`/app/settings/booking-links`). Use the owner menu at the top right to choose
+**Personal** or **Team · team name**,
+then use **Links**, **Availability**, **Booking page**, **Bookings**, or **Insights**.
+Every section and creation action applies to that selected owner. The default is
+Personal. **Manage teams** in that menu opens team settings. The calendar toolbar’s booking
+actions open Booking links; connection shortcuts continue to open Calendar.
+**New booking link** and **New schedule** create for the selected owner and open
+inline editors. Save changes or Cancel returns to that owner's list.
 Connected calendars offers Connect account (the existing Google consent flow),
 Connect calendar for accounts missing calendar permission, and Disconnect with
 confirmation. Disconnect removes calendar access/data, not the Gmail connection.
@@ -1458,11 +1473,12 @@ Booking status filters use the same segmented control as the CRM sidebar.
 In Availability, each weekday has an enable switch, time ranges, an add button,
 and a copy-hours menu; select target days and Apply before saving the schedule.
 Date overrides and the searchable timezone picker sit below the weekly hours.
-Ownership badges identify Personal or Team · team name on links and availability.
-Public booking pages, bookings, and insights are grouped by owner and remain visible
-together; editing one owner does not switch the rest of the page. Search booking
-links by title, slug, or owner. Team owners/admins can edit team links; ordinary members can view them. `Event types` creates, edits,
-pauses, duplicates, previews, and copies booking links. Event settings include
+The header shows the selected owner; team owners have an explicit **Team** label.
+Links and availability use flat rows, with actions beside each item.
+Booking pages, bookings, and insights show only the selected owner. Search filters
+that owner’s links and clears when switching owners. Team owners/admins can edit
+team links; ordinary members can view them. `Links` creates, edits, pauses,
+duplicates, previews, and copies booking links. Event settings include
 weekly availability, collective/all-host or round-robin/one-host assignment,
 notice, buffers, booking horizon, daily limits, and custom questions. New event
 types stay paused until `Accept bookings` is selected and changes are saved.
@@ -1470,8 +1486,8 @@ types stay paused until `Accept bookings` is selected and changes are saved.
 zone. Set a default schedule for new event types; a schedule cannot be deleted
 until its event types use another one. Collective and round-robin team meetings
 respect each host’s personal default hours when configured, plus busy calendars.
-`Teams` summarizes connected teams and links to team settings; the member roster
-lives in team settings. Choose hosts for a team booking link inside its editor.
+**Manage teams** opens team settings, where the member roster lives. Choose hosts
+for a team booking link inside its editor.
 `Booking page` edits the public name and description. `Bookings` shows
 upcoming, unconfirmed, past, and cancelled meetings; admins can confirm requests,
 reschedule, or cancel them. Choose From/Through dates to load bookings (initially 30 days before and after today), then search by guest/title/email and filter by event type. Dates use your browser time zone; shorten the range if more than 5,000 bookings match.
@@ -1702,6 +1718,12 @@ Editing or rescheduling an owned event retains and updates its selected Macro ca
 Selecting `Macro call` on an owned editable event without one adds a call on save;
 choosing another option removes its generated Macro link from the invitation.
 Removing the link or deleting the calendar event does not revoke the reusable call.
+The AI's `CreateCalendarEvent` composer (chat, agent sessions, channel review cards)
+offers the same selector under the same quick-calls flag; `Macro call` there maps to
+the tool's `addMacroCall`, and the call is created when the tool executes, before the
+event is written, so the single invitation already carries the link. The MCP server
+and channel bot accept `addMacroCall` directly. `addMacroCall` and `addGoogleMeet`
+are mutually exclusive, and out-of-office entries accept neither.
 
 The sidebar's `Calendars` section folds each connected account into a collapsible
 group: a caret plus the account address header with a checkbox that shows or hides all of
@@ -1768,11 +1790,13 @@ that date. Coverage depends on each teammate having connected their own calendar
 Google's out-of-office event type.
 
 A calendar event mentioned in a channel message opens the calendar focused on the viewer's
-own copy of the meeting. When the sender holds the event on their own calendar, the mention
-also shares it read-only with the channel's current members: a member without a copy of their
-own sees the mention's title and time, and its hover card adds a `Shared with you · not on
+own copy of the meeting. When a person holds the event on their own calendar and posts the
+mention, it is shared read-only with the channel's current members: a member without a copy of
+their own sees the mention's title and time, and its hover card adds a `Shared with you · not on
 your calendar` line with no open action. Clicking such a mention shows that hover card
-instead of opening the calendar. Private and confidential events are never shared this way.
+instead of opening the calendar. A classic `@Macro` reply that mentions an event does not share
+it by posting the chip. It asks whether to share with the channel, and a yes in that thread
+writes the same channel grant. Private and confidential events are never shared this way.
 Every calendar mention's hover card shows the schedule, location, organizer and attendee
 count, plus the first lines of the event description (its links open), and no last-updated
 byline.
@@ -1876,11 +1900,12 @@ a `Channels` section listing channels seen in loaded calls, and `Tags`. Choosing
 a type, channel, or tag shows only that one; choosing it again clears it. These
 refinements carry across the three views. Sort, group, filter, and `New call`
 sit in the list's top bar. Phones keep pill tabs and the header search.
-`New call` offers `Call a channel or contact`
-and, with `enable-quick-calls` enabled, `Manage call links`. Create Quick Calls
-with `New Call` beside Calendar's
-`New event`, or with `Create` → `Call` (`C C`). Scheduled calls are created through
-Calendar and can be shared with people who do not have a Macro account.
+With `enable-quick-calls` enabled, `New call` opens a menu with `Start an instant
+call`, `Call a channel or contact`, and `Manage call links`; without the flag it
+opens the recipient picker directly. `Start an instant call` opens `/app/meet/new`
+without creating a meeting, the same setup reached from `New Call` beside
+Calendar's `New event` or `Create` → `Call` (`C C`). Scheduled calls are created
+through Calendar and can be shared with people who do not have a Macro account.
 The channel/contact option opens the recipient picker.
 Recordings, transcriptions
 and summaries appear here; empty state notes "Calls are available to agents."
@@ -2106,8 +2131,14 @@ available in the embedded company and contact breadcrumb header.
 A company is laid out like a project. Its split header or embedded breadcrumb
 header shows inset `Overview`, `Team`, `Emails`, `Files`, `Tasks`, and `Calls`
 tabs, collapsing to icons when narrow. Overview shows the name, pills
-for each domain and `Last interacted`, the generated description and the
-Discussion. Team lists the contacts with `Add contact`. Emails keeps the
+for each domain and `Last interacted`, the generated description, a
+**Pipelines** section and the Discussion. Pipelines stacks one full-width card
+per row of a pipeline you can open that references the record. A card's header
+strip names the pipeline (a lock marks a private one); below it, the row's first
+four fields sit side by side, label over value, and the rest wait behind
+`Show N more`. Cells edit like the pipeline table's when you can edit that
+pipeline. Inside Customers, the header's `Open <pipeline>` button opens it. The
+section is absent when the record is in no pipeline. Team lists the contacts with `Add contact`. Emails keeps the
 `Signal`/`All` and `Team`/`Me` toggles. Files lists non-task documents whose
 `Companies` property references the company, plus attachments of emails with
 its domains. Tasks is the Tasks list scoped to the `Companies` property; its
@@ -2116,7 +2147,7 @@ company, including those linked automatically from their participants. The side
 panel keeps Properties and Sharing.
 A contact has the same layout with `Overview`, `Emails`, `Files`, `Tasks` and
 `Calls`: Overview pills show the email, the company (opens it) and `Last
-interacted`. Files and Calls match on the contact's `Contacts` property and, for
+interacted`, followed by the contact's Pipelines cards. Files and Calls match on the contact's `Contacts` property and, for
 files, attachments of emails with its address. Tasks created from a contact also
 reference its company. The side panel keeps Sharing (admins only).
 
@@ -2303,6 +2334,13 @@ afterwards in **Settings → Billing**, where Guest users can buy Premium or Max
 ## Settings — `/app/settings/<section>`
 
 ### Slack archive import
+
+Temporary message storage recovers closed IndexedDB connections without restarting
+the import or deleting staged history. Verify closure between staging batches and
+between cursor pages: all messages must remain ordered, deduplicated, and within
+the original byte limit. Cancellation and cleanup still work during recovery.
+Deleted or replaced scratch databases fail the old import instead of silently
+continuing with incomplete history; its cleanup must leave a replacement intact.
 
 In **Team → Connections**, **Import from Slack** appears only for team admins
 and owners with `enable-slack-archive-import` enabled. Production rollout stays
@@ -2524,7 +2562,18 @@ editing. **Usage Credits** shows the dollar balance and `Add more`, which opens
 **Need more usage?** with `$25` / `$50` / `$100` / `Other`. Supported amounts
 redirect to Stripe Checkout; unsupported custom amounts are disabled. Free
 accounts see `View plans` instead of purchase or reload controls; paid team
-members who are not the payer cannot manage billing.
+members who are not the payer see only “Usage credits are managed by your team.”
+Their credit balance and automatic reload row are hidden, with no
+credit-purchase action.
+Team owners who pay for their team's seats manage the shared credit balance and
+automatic reload here in Usage, including purchases, balance thresholds, the
+monthly reload cap, and payment methods. Team payers see **Team Usage
+Credits**, “Credits are shared by your entire team.” and **Shared team balance**.
+The purchase and auto-reload dialogs also identify the team-wide credit balance.
+Team settings manages seats. Included
+usage remains per seat: the owner's Monthly limit meter describes their own
+usage, not the sum of the team's allowances. Team payers with a finite
+allowance see “This is your personal monthly usage limit.” beneath the meter.
 Unlimited enterprise plans show `Unlimited` and do not offer credit purchases
 or automatic reload. The development paid-plan preview can still display
 those controls, with purchases disabled.
@@ -2536,9 +2585,11 @@ and the automatic-charge warning. The dialog saves for paid payers:
 `Turn on auto-reload` enables automatic credit purchases with those thresholds,
 `Save` updates them while on, and `Turn off` disables automatic reload. The monthly
 limit caps reload purchases per UTC calendar month. The **Automatic reload**
-switch reflects the saved state. Paid team members who are not the payer see
+switch reflects the saved state and is the billing opt-in indicator. Paid team
+members who are not the payer see
 `Only the account that pays for this plan can change automatic reload.` and
-cannot save. After a failed automatic reload the dialog shows `Your last
+cannot save. After a failed automatic reload the Usage row shows
+`Paused — payment failed` while preserving the enabled setting. The dialog shows `Your last
 automatic reload could not be charged. Update your payment method, then save to
 try again.`; saving retries. Extra usage is funded entirely by prepaid credits.
 If the reload budget runs out or payment fails, uncovered usage cannot trigger a
@@ -2558,6 +2609,34 @@ Usage controls, including usage-limit dialogs. Dev tools remain interactive:
 Free and paid previews can be combined with this state, and `Reset preview`
 restores the normal dev view.
 
+Local **Developer tools → Open Billing Lab** opens `/billing-lab.html`, a
+standalone simulator with no login or billing API calls. Its 20 presets include
+Max with a pending Pro downgrade, exhausted allowances, credits, payment
+failures, team roles, loading, and errors. Select **Max → Pro at renewal**
+to start with a scheduled downgrade, and choose **Advance to
+renewal**: Max stays active until renewal, then Pro becomes active and included
+usage resets. Billing displays the scheduled downgrade and effective date;
+**Keep Max plan** cancels it and preserves the active plan and usage. The
+timeline also offers **Cancel scheduled change**. Purchases open a simulated checkout with explicit completion;
+**Fail the next billing request** enables error and retry checks. Scenario links
+restore the preset, not edits. **Monthly reload limit reached** opens Usage with
+a notice banner: **Monthly auto-reload $50 limit reached**, with **resets Nov 1**
+on the right. **Adjust limit** opens Auto-Reload; **Add credits** opens credit purchase.
+Manual credits do not count toward the monthly reload cap, which resets at the
+UTC month boundary. Live Usage shows this same banner from the API's monthly
+reload commitments and reset date, including when remaining cap room is below
+the minimum reload charge. Paid/pending reloads and failed invoices that can
+still collect count toward the cap. Older backends without these facts show no notice.
+The **Teams** scenario group opens Usage directly. **Mixed-plan team owner**
+previews shared credits and enabled reload for one Max and three Pro seats;
+**Team credits exhausted**, **Team reload paused**, and **Team monthly reload
+limit** exercise the owner's purchase, payment-recovery, and cap controls through
+the same Usage dialogs. Credit purchases add to the shared balance, while the
+included-usage meter remains scoped to the viewer's own seat. **Team-paid Max
+member** previews the notice-only member view. The simulator does not meter
+other members' activity or perform automatic charges.
+See [Billing Lab setup and boundaries](../../apps/web/src/features/billing-lab/README.md).
+
 `Billing` shows the current plan and `Manage`. Free users see separate Pro
 (`Get Pro`) and Max (`Get Max`) cards, side by side when the panel is wide enough
 and stacked on narrow panels. The Pro card shows `Free for one month!` for Free
@@ -2568,7 +2647,7 @@ Ineligible accounts see the rejection reason and are not silently charged.
 `per seat / month` for team accounts. Each card puts its button beside the price when wide enough and below
 the price when narrow. Free lists 2 connected email accounts; Pro and Max list
 unlimited connected email accounts. Pro users see a Max card (`Upgrade to Max`); Max
-users see a Pro card (`Switch to Pro`). Cards appear only for users who can
+users keep their current plan. Cards appear only for users who can
 manage their subscription. Team-paid members see no plan options, including
 on Free seats. Member options stay hidden until the billing summary confirms
 they pay for their own seat. On a team, a plan change moves only the viewer's
@@ -2596,9 +2675,17 @@ with the selection preserved. `Manage plan` returns to the selected Billing prev
 the signed-in account. State is not persisted and resets on leaving Billing.
 These controls are excluded from deployed builds, including dev.macro.com.
 
+Billing shows the current billing period end and any scheduled downgrade date.
+Max stays active until renewal; **Keep Max plan** cancels a pending downgrade
+without resetting usage. Failed renewal-detail reads offer **Try again**.
+Team members who cannot manage billing see the notice without its action.
+
 `Team` (members list; on a paid team each row shows the seat's plan,
-and admins/owners can move a seat between Premium and Max with the `Seat plan`
-menu; moves are prorated at once). CRM (enable/disable; once enabled, a `Deal stages` section
+and admins/owners can move a seat between Pro and Max with the `Seat plan`
+menu; Max upgrades are immediate and prorated, Pro downgrades start at renewal.
+**Keep Max** appears only for a confirmed pending downgrade and cancels it;
+failed scheduled-plan reads offer **Try again**, while teams without applicable
+scheduled plans show no retry notice). CRM (enable/disable; once enabled, a `Deal stages` section
 with `Customize stages`, inline rename, reorder by drag handle or arrow keys (up/down
 buttons on touch), delete, `Add stage`, `Reset to defaults`, and `Closed stages`
 checkboxes, editable by the role set as `edit_stages_role`)
@@ -2630,6 +2717,17 @@ a separate section. Discover offers featured providers, a searchable catalog,
 and `Add custom MCP`. Slack discovery retains its development-only gate.
 Provider Back returns to the tab that opened it; navigation is local to each
 Connections page and starts at Connected on a fresh visit.
+
+Macro agents and external AI clients using Macro's MCP server can run
+`ImportNotionPage` and the shared import ledger tools against the user's
+connections saved in Macro.
+Verify a Notion import returns a document and a repeated import returns the
+existing document; Linear imports recorded with `CreateImportEntity` should
+appear in `ListImportEntities`. These calls must not report that import tracking
+is unavailable.
+On hosts without Pipedream credentials, saved Pipedream accounts must not hide
+native Notion, Linear, or Slack connections when selecting import tools.
+
 Provider and custom-server More menus contain Disable, Reconnect, and Disconnect;
 custom servers also offer Rename. Disabled grants show Enable. Unauthenticated
 custom servers show Connect and Remove. Disconnect/Remove require confirmation.
@@ -2702,9 +2800,9 @@ session were not exercised by that UI check.
 ## Notifications
 
 In the desktop app, **Settings → Notifications → Delivery → Desktop notifications**
-controls system notification delivery for this installation. When the Notifications
-page is disabled by its feature flag, the existing **Account → Notifications**
-switch controls the same preference.
+controls system notification delivery for this installation. The Notifications
+page is always present, in the same place on web, desktop, and mobile; Account
+has no notification switch.
 Turning it off takes effect immediately and persists across app restarts; turning
 it on requests permission and resumes delivery when authorized. On macOS the
 switch reads the actual system authorization, and enabling it requests macOS

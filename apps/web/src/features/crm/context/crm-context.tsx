@@ -31,6 +31,7 @@ import type {
 } from './crm-sources';
 import type {
   PipelineEditor,
+  PipelineEntriesView,
   PipelineSharing,
   PipelinesSource,
 } from './pipelines';
@@ -38,6 +39,7 @@ import type {
 export type CrmContext = {
   createPipelines(teamId: Accessor<string | undefined>): PipelinesSource;
   PipelineEditor: PipelineEditor;
+  PipelineEntries: PipelineEntriesView;
   PipelineSharing: PipelineSharing;
   downloadCsv(content: string, filename: string): Promise<{ saved: boolean }>;
   contactInitials(name: string | null | undefined, email: string): string;

@@ -260,17 +260,21 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(pool.clone())),
         PgGithubPullRequestRepo::new(pool.clone()),
     );
-    let soup_service = Arc::new(SoupImpl::new(
-        PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool.clone())),
-        frecency_service,
-        ReadonlyEmailPreviewAdapter(email_service),
-        channels_service,
-        call::domain::service::CallRecordQueryServiceImpl::new(
-            call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
-        ),
-        crm::domain::service::NoOpCrmService,
-        github_pull_request_service,
-    ));
+    let favorites_service = ai_tools::build_favorites_service(pool.clone());
+    let soup_service = Arc::new(
+        SoupImpl::new(
+            PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool.clone())),
+            frecency_service,
+            ReadonlyEmailPreviewAdapter(email_service),
+            channels_service,
+            call::domain::service::CallRecordQueryServiceImpl::new(
+                call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
+            ),
+            crm::domain::service::NoOpCrmService,
+            github_pull_request_service,
+        )
+        .with_favorites(favorites_service.clone()),
+    );
 
     let ingress_queue = SqsQueue::new(
         aws_sdk_sqs::Client::from_conf(sqs_config.clone()),
@@ -462,11 +466,19 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         soup_service.clone(),
         pool.clone(),
     );
+    let crm_tool_context = ai_tools::build_crm_tool_context(pool.clone());
+    let pipeline_tool_context = ai_tools::build_pipeline_tool_context(
+        pool.clone(),
+        &databases_tool_context,
+        &crm_tool_context,
+    );
 
     let calendar_tool_context = ai_tools::build_calendar_tool_context(
         pool.clone(),
         macro_service_urls::ServiceUrl::owned("http://localhost:0").into(),
         "test-internal-api-key".to_string(),
+        call_tool_context.service.clone(),
+        macro_service_urls::AppServiceUrl::local(),
     );
     let forms_tool_context = ai_tools::build_forms_tool_context(
         pool.clone(),
@@ -499,6 +511,11 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         properties_tool_context: properties_tool_context.clone(),
         email_tool_context: email_tool_context.clone(),
         call_tool_context: call_tool_context.clone(),
+        booking_management_tool_context: ai_tools::build_booking_management_tool_context(
+            macro_service_urls::ServiceUrl::owned("http://localhost:0").into(),
+            "test-internal-api-key".to_string(),
+            macro_env::Environment::Local,
+        ),
         booking_link_tool_context: ai_tools::build_booking_link_tool_context(
             pool.clone(),
             macro_env::Environment::Local,
@@ -507,9 +524,13 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
             pool.clone(),
             macro_service_urls::ServiceUrl::owned("http://localhost:0").into(),
             "test-internal-api-key".to_string(),
+            call_tool_context.service.clone(),
+            macro_service_urls::AppServiceUrl::local(),
         ),
         team_calendar_tool_context: ai_tools::build_team_calendar_tool_context(pool.clone(), true),
         notification_tool_context: notification_tool_context.clone(),
+        item_notification_preference_tool_context:
+            ai_tools::build_item_notification_preference_tool_context(pool.clone()),
         databases_tool_context,
         forms_tool_context,
         databases_sql_tool_context,
@@ -532,9 +553,14 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         )
         .expect("valid test coding agent context"),
         project_tool_context,
+        favorites_tool_context: ai_tools::build_favorites_tool_context(
+            favorites_service,
+            entity_access_service.clone(),
+        ),
         initiative_tool_context,
         team_tool_context: ai_tools::build_team_tool_context(pool.clone()),
-        crm_tool_context: ai_tools::build_crm_tool_context(pool.clone()),
+        crm_tool_context,
+        pipeline_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),

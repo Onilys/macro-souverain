@@ -65,6 +65,7 @@ members = [
   "crates/graphql_email",
   "crates/graphql_entity_mutation",
   "crates/graphql_favorite",
+  "crates/graphql_crm",
   "crates/graphql_initiative",
   "crates/graphql_notification",
   "crates/graphql_permission",
@@ -438,7 +439,7 @@ strum_macros = "0.27.1"
 unicode-segmentation = "1.9.0"
 url = "2.5.0"
 zip = "=2.4.2"
-ammonia = "4.1.4"
+ammonia = "4.1.7"
 html-escape = "0.2"
 subtle = "2.6.1"
 

@@ -15,8 +15,11 @@ not establish that the requested action is supported.
 For a suitable unconnected app, the assistant offers **Connect <app>**. Clicking
 it opens the hosted authorization flow over the agent transcript. After the
 backend verifies and registers the connection, the agent session sends a visible
-continuation message in the same conversation. The native Macro runtime refreshes
-the session’s permitted connector tools before the next turn. The unsent draft
+continuation message in the same conversation. Before that message reaches the
+agent, the harness hands the live session its permitted connector servers again
+(a `session/resume`), so the next turn can use the new app. The native Macro
+runtime and sandboxed coding sessions support this; a runtime that cannot resume
+a session picks the app up when it next attaches. The unsent draft
 is preserved. Closing authorization or a failed registration sends no message.
 If the conversation changed or was closed during auth, there is no automatic
 continuation; the connected app remains available for the next request.
@@ -99,6 +102,19 @@ another split. **Result data** reveals the complete returned response. Successfu
 mutations refresh the project views.
 Deleting a project shows its result without a link to the deleted project.
 Failed project deletions show `Not deleted`.
+
+## Acting on items
+
+The assistant can take the same item actions as the app's menus. Messages
+and comments: edit, delete, or react to channel messages; edit or delete
+document comments; open a DM. Items: move to trash, duplicate, rename, change
+sharing, favorite, and mute or snooze notifications. Also: create CRM companies
+and contacts, rename or delete calls, create skills, and run or delete routines.
+Edits and deletes act as the message or comment's author, so the assistant
+changes its own messages as itself and the user's as the user. Reactions are
+always the user's. Each row names the item with a chip that opens it; edit and
+sharing rows expand to show the new text or settings. Verify with throwaway
+items, since these mutate real data.
 
 ## Phones with new agents enabled
 
@@ -799,6 +815,18 @@ as email blocks: an opaque background, subtle border and shadow, and a raised
 rim in dark mode. The recipients, subject, body, and send controls stay inside
 that card. Touch-device styling is unchanged.
 
+A drafted email can carry attachments. The agent attaches uploaded Macro files
+(PDFs, images, spreadsheets, Word documents; a Word document is attached as its
+PDF rendering) through `SendEmail`'s `attachments`, and each appears as a
+removable file pill under the body once its name resolves. The card's paperclip
+`Attach` control and dropping files onto the body add more: each file is first
+uploaded as a Macro document, shown as a pill while it uploads, and `Send email`
+stays disabled until every upload finishes. Macro-native documents written in the
+editor have no file and cannot be attached; the send reports which document
+could not be attached. Attachments together may total 18 MB. The sent and
+saved-draft rows read `with N attachments`, and the expanded sent card shows
+the pills read-only.
+
 The reliable completion signal is the disappearance of the `Stop generating` button — poll
 with `evaluate_script`. Do not wait on response text: the page displays
 `Time to first token: N s` and doc content that easily false-matches `wait_for` patterns.
@@ -953,6 +981,20 @@ On a local stack, the in-memory agent reads uploaded image attachments from loca
 storage and sends their bytes to the model. The provider does not need access to
 the stack's private hostname. This also applies to images in earlier turns when
 resuming a conversation after a service restart.
+
+A long conversation with the in-memory agent stays within its model's context by
+itself. Once it fills 40% of the model's window, a summary of all but the latest
+turns is written in the background, with each image described, and the agent reads
+that summary in place of those turns from then on. The transcript keeps every
+message and shows a "Context compacted" line where the summary landed. The agent
+does not pause to summarize unless the conversation would otherwise not fit its
+model, as after switching to a model with a smaller window. To recover an exact
+detail from the summarized part, the agent runs a **ContentSearch** step scoped to
+its own session. A message that alone takes more than a quarter of the model's
+window is refused with "This message is too long. Split it into smaller messages
+or attach it as a file." `/compact` is an ordinary message to every agent: the
+transcript shows it as sent, followed by the agent's reply; a "Context compacted"
+line appears only when the agent reports a compaction.
 
 Cursor walkthrough files the run re-hosts appear in the transcript after the
 answer: screenshots as images, recordings as video players, and `.txt` / `.log`
@@ -1118,6 +1160,9 @@ choose **Reply to this** above the selection. The composer inserts a single-line
 **Replying to** preview with the same quote-reply styling as channel replies.
 Click the preview to open the full **Referenced text** viewer. While editable,
 hover the preview for its menu: **Copy**, **Convert to text**, or **Delete**.
+A plain-text paste over 1500 characters collapses into a **pasted** chip that
+opens the same viewer, titled **Pasted text**. Text in either viewer can be
+drag-selected and copied, from the composer and from sent messages.
 Selecting text in the composer or outside the transcript must not show the reply
 button; clearing the transcript selection dismisses it.
 
@@ -1586,11 +1631,12 @@ choose a vision model or start a conversation without images.
 ## Accelerated model speed
 
 The lightning button beside the model selector enables Ultrafast for GPT-6 Astra
-and GPT-6.1 Sol (6× token pricing), or Fast for Claude Opus 5.5 (2× token pricing).
-Its tooltip shows the mode, state, and usage multiplier before sending. Other
-models keep standard speed. The preference is saved in browser local storage and
-shared by legacy chat and native Macro agent composers. External coding agents
-use their own speed controls.
+and GPT-6.1 Sol (6× token pricing). Its tooltip shows the mode, state, and usage
+multiplier before sending. Claude models, including Opus 5.5, stay on standard
+speed until Anthropic approves fast mode for this account. Other models keep
+standard speed. The preference is saved in browser local storage and shared by
+legacy chat and native Macro agent composers. External coding agents use their
+own speed controls.
 
 Preview the controls at `/app/debug/ui?ui=speed-toggle`.
 Click the bolt and verify its brief scale/rotation animation and highlighted state.
@@ -1603,3 +1649,29 @@ a rejected configuration must retain the unsent draft and attachments.
 Usage records follow the provider's delivered speed for each call, including tool
 loops. OpenAI prompts exceeding 272,000 tokens use the long-context rate for that
 call. Standard and accelerated rates have separate pricing keys.
+
+### Booking settings, meetings, and reporting through MCP
+
+All AI hosts, including MCP, also provide:
+
+- `ReadBookingSettings`: full personal/team page, shared schedules, default hours,
+  link settings and revision. Discover team IDs with `ListBookingLinks`.
+- `UpdateBookingSettings`: save a complete profile at the read revision. Preserve
+  unrelated settings; explain the proposal and quote the user’s later approving
+  reply in `userConfirmation`, as with link authoring. Supports page text,
+  schedule CRUD, default hours, link schedule assignments, duplication, deletion
+  and enabled state. Shared-hours
+  changes affect all referencing links; deleting a link keeps existing meetings.
+  Use the existing confirmed create/edit tools for ordinary link authoring.
+- `ListBookings`: complete meetings and answers in a half-open timestamp range.
+  Narrow the range on overflow; do not treat an error as an empty report.
+- `GetBookingRescheduleSlots` and `ChangeBooking`: discover replacements, move or
+  cancel meetings, approve legacy pending requests, and record/clear attendance.
+  Rescheduling requires the personal owner or team admin. Attendance also allows
+  assigned hosts after confirmed meetings end. Changes can notify attendees.
+- `GetBookingInsights`: inclusive local dates, IANA time zone, optional link/host
+  filters, current and previous period metrics, daily/hourly trends, and link/host
+  counts. Uses the same definitions as the visual Insights page. Meeting minutes
+  measure scheduled duration; completion does not claim verified attendance.
+
+These tools use the same domain permissions and booking lifecycle as the UI.

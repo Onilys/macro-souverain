@@ -566,3 +566,60 @@ pub(super) async fn upsert_recipients(
 
     Ok(())
 }
+
+/// Record a staged attachment on a draft. The insert selects through the
+/// draft row under `link_id`, so a draft that belongs to another inbox (or
+/// does not exist) records nothing instead of leaking a cross-inbox row,
+/// and that is reported as [`sqlx::Error::RowNotFound`]: a send that went
+/// ahead would otherwise go out without the attachment.
+pub(super) async fn insert_draft_attachment(
+    pool: &PgPool,
+    link_id: Uuid,
+    attachment: &AttachmentDraft,
+) -> Result<(), sqlx::Error> {
+    // Match send admission's lock order, then read scheduling in a fresh statement.
+    let mut tx = pool.begin().await?;
+    let state = sqlx::query!(
+        "SELECT is_draft, is_sent FROM email_messages WHERE id = $1 AND link_id = $2 FOR UPDATE",
+        attachment.draft_id,
+        link_id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if state.is_none_or(|state| !state.is_draft || state.is_sent) {
+        return Err(sqlx::Error::RowNotFound);
+    }
+    let scheduled = sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id = $1 AND link_id = $2) AS "scheduled!""#,
+        attachment.draft_id,
+        link_id
+    ).fetch_one(&mut *tx).await?;
+    if scheduled {
+        return Err(sqlx::Error::RowNotFound);
+    }
+    let result = sqlx::query!(
+        r#"
+        INSERT INTO email_attachments_drafts (
+            id, draft_id, file_name, content_type, sha, size, s3_key
+        )
+        SELECT $1, $2, $3, $4, $5, $6, $7
+        FROM email_messages m
+        WHERE m.id = $2 AND m.link_id = $8
+        "#,
+        attachment.id,
+        attachment.draft_id,
+        attachment.file_name,
+        attachment.content_type,
+        attachment.sha,
+        attachment.size,
+        attachment.s3_key,
+        link_id,
+    )
+    .execute(&mut *tx)
+    .await?;
+    if result.rows_affected() == 0 {
+        return Err(sqlx::Error::RowNotFound);
+    }
+    tx.commit().await?;
+    Ok(())
+}

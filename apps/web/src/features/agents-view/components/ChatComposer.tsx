@@ -217,6 +217,10 @@ export function ChatComposer(props: {
       target.closest('[data-composer-controls], button, input, select, a')
     )
       return;
+    // Solid delegates events from popups the editor portals out of the
+    // composer (the paste viewer) through here; cancelling them blocks
+    // selecting their text.
+    if (!(event.currentTarget as Node).contains(target)) return;
     if (editor.lexical.getRootElement()?.contains(target)) return;
     event.preventDefault();
     if (event.type === 'pointerdown') editor.controls.focus();

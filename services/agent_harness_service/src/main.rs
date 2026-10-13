@@ -21,7 +21,6 @@ mod model_providers;
 mod permission_policy;
 mod routine_sessions;
 mod runtime_commands;
-mod session_mcp;
 mod trigger;
 
 #[cfg(test)]
@@ -145,7 +144,7 @@ use macro_event_broker::{
 };
 use macro_service_urls::{
     AgentHarnessEgressUrl, ConnectionGatewayUrl, LexicalServiceUrl, McpServiceUrl,
-    StaticFileServiceUrl,
+    StaticFilePublicUrl, StaticFileServiceUrl,
 };
 use mcp_client::domain::models::AesKey;
 use mcp_client::outbound::pg_server_repo::PgServerRepo;
@@ -512,17 +511,10 @@ async fn run() -> anyhow::Result<()> {
     // server's session for the life of the egress token, so a replaced agent
     // task and the catalog's listing reuse the handshake instead of opening
     // a second set of clients and dropping them when the listing ends.
-    let mcp_connector = Arc::new(
-        AcpMcpConnector::new(EgressMcpClient::new(Arc::clone(&egress), &egress_base_url))
-            .with_source(Arc::new(session_mcp::SessionConnectors {
-                sessions: session_repo.clone(),
-                provisioner: Arc::new(EgressProvisioner::new(
-                    Arc::clone(&mcp_connections),
-                    Arc::clone(&mcp_servers),
-                    &egress_base_url,
-                )),
-            })),
-    );
+    let mcp_connector = Arc::new(AcpMcpConnector::new(EgressMcpClient::new(
+        Arc::clone(&egress),
+        &egress_base_url,
+    )));
     let tool_catalog: Arc<dyn agent_session::domain::ports::SessionToolCatalog> =
         Arc::new(McpToolCatalog::new(Arc::clone(&mcp_connector)));
     let sessions = sessions.with_tool_catalog(Arc::clone(&tool_catalog));
@@ -557,7 +549,7 @@ async fn run() -> anyhow::Result<()> {
     // Normalize uploaded images before any provider sees them. In addition to
     // making local URLs reachable, this supplies the MIME type Gemini requires
     // and decodes formats that providers cannot consume directly.
-    let public_base = url::Url::parse(config::StaticFileServiceUrl::new()?.as_ref())?;
+    let public_base = StaticFilePublicUrl::new()?.parse_url()?;
     let cdn_base = match (&config.environment, macro_aws_config::LocalAwsUrl::new()) {
         (Environment::Local, Some(local_aws)) => format!(
             "{}/{}",

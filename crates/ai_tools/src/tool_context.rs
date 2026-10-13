@@ -13,13 +13,14 @@ use call::inbound::toolset::CallToolContext;
 use call::outbound::pg_call_repo::PgCallRepo;
 use call::outbound::s3_recording_storage::S3RecordingStorage;
 use channels::domain::ports::ChannelEventDispatcher;
-use channels::domain::service::{NoopChannelEventDispatcher, NoopChannelReferenceSharePermissions};
+use channels::domain::service::NoopChannelEventDispatcher;
 use channels::domain::side_effects::{ChannelSideEffectService, SpawnedChannelEventDispatcher};
 use channels::domain::{list_service::ChannelListServiceImpl, service::ChannelServiceImpl};
 use channels::inbound::toolset::ChannelToolContext;
 use channels::outbound::{
     connection_gateway_realtime::ConnectionGatewayChannelRealtimePublisher,
     contacts_dispatcher::ContactsChannelDispatcher, notification_sender::NotificationChannelSender,
+    pg_channel_reference_share_permissions::PgChannelReferenceSharePermissions,
     pg_channels_repo::PgChannelsRepo, pg_side_effect_context::PgChannelSideEffectContext,
 };
 use chat::domain::service::ChatServiceImpl;
@@ -206,12 +207,12 @@ pub type ToolCommsService = ChannelListServiceImpl<
 /// hosts without the side-effect clients.
 pub type ToolChannelEventDispatcher = std::sync::Arc<dyn ChannelEventDispatcher>;
 
+/// Channel reference-sharing adapter used by AI tools, including `ShareWithChannel`.
+pub type ToolChannelSharePermissions = PgChannelReferenceSharePermissions<ToolEntityAccessService>;
+
 /// Type alias for the channel messages service implementation used by AI tools.
-pub type ToolChannelMessagesService = ChannelServiceImpl<
-    PgChannelsRepo,
-    ToolChannelEventDispatcher,
-    NoopChannelReferenceSharePermissions,
->;
+pub type ToolChannelMessagesService =
+    ChannelServiceImpl<PgChannelsRepo, ToolChannelEventDispatcher, ToolChannelSharePermissions>;
 
 /// Type alias for the channel AI tool context.
 pub type ToolChannelToolContext =
@@ -420,16 +421,17 @@ pub fn build_channel_tool_context_with_dispatcher(
     dispatcher: ToolChannelEventDispatcher,
     messages: Arc<dyn messages::domain::api::MessageServiceApi>,
 ) -> ToolChannelToolContext {
+    let access = entity_access::domain::service::EntityAccessServiceImpl::new(
+        entity_access::outbound::PgAccessRepository::new(pool.clone()),
+    );
     ChannelToolContext::new(
         messages,
         ChannelServiceImpl::with_dependencies(
             PgChannelsRepo::new(pool.clone()),
             dispatcher,
-            NoopChannelReferenceSharePermissions,
+            PgChannelReferenceSharePermissions::new(pool, Arc::new(access.clone())),
         ),
-        entity_access::domain::service::EntityAccessServiceImpl::new(
-            entity_access::outbound::PgAccessRepository::new(pool),
-        ),
+        access,
     )
 }
 
@@ -446,9 +448,18 @@ pub type ToolCalendarReadService = calendar_events::domain::service::CalendarSer
 pub type ToolCalendarMutationService =
     calendar_events::outbound::calendar_service_mutations::CalendarServiceMutations;
 
+/// Type alias for the meeting-link provider used by AI tools. Macro calls
+/// attached to events are minted through the same call service the call
+/// tools run on, owned by the requesting user.
+pub type ToolCalendarMeetingLinks =
+    calendar_events::outbound::call_meeting_links::CallServiceMeetingLinks<ToolCallService>;
+
 /// Type alias for the calendar AI tool context.
-pub type ToolCalendarToolContext =
-    CalendarToolContext<ToolCalendarMutationService, ToolCalendarReadService>;
+pub type ToolCalendarToolContext = CalendarToolContext<
+    ToolCalendarMutationService,
+    ToolCalendarReadService,
+    ToolCalendarMeetingLinks,
+>;
 
 /// Source-scoped team calendar domain service for read-only AI availability.
 pub type ToolTeamCalendarService = calendar_events::domain::team::CalendarTeamServiceImpl<
@@ -473,11 +484,15 @@ pub fn build_team_calendar_tool_context(
 
 /// Build the calendar AI tool context: reads query the local occurrence
 /// projections from `pool`; mutations call the calendar service at
-/// `calendar_service_url` with the shared internal API key.
+/// `calendar_service_url` with the shared internal API key; Macro calls
+/// attached to new events are minted through `call_service` and linked on
+/// `app_url`, the browser origin users open meetings on.
 pub fn build_calendar_tool_context(
     pool: sqlx::PgPool,
     calendar_service_url: macro_service_urls::CalendarServiceUrl,
     internal_api_key: String,
+    call_service: Arc<ToolCallService>,
+    app_url: macro_service_urls::AppServiceUrl,
 ) -> ToolCalendarToolContext {
     CalendarToolContext::new(
         Arc::new(
@@ -489,6 +504,12 @@ pub fn build_calendar_tool_context(
         Arc::new(calendar_events::domain::service::CalendarService::new(
             calendar_events::outbound::pg::PgCalendarRepository::new(pool),
         )),
+        Arc::new(
+            calendar_events::outbound::call_meeting_links::CallServiceMeetingLinks::new(
+                call_service,
+                app_url.as_str(),
+            ),
+        ),
     )
 }
 
@@ -523,6 +544,27 @@ pub fn build_booking_link_tool_context(
     }
 }
 
+/// Booking administration is executed by the calendar service, including provider recovery.
+pub type ToolBookingManagementToolContext =
+    calendar_scheduling::inbound::toolset::BookingManagementToolContext<
+        calendar_scheduling::outbound::administration_client::SchedulingAdministrationClient,
+    >;
+/// Construct the authenticated scheduling client at the host composition root.
+pub fn build_booking_management_tool_context(
+    calendar_url: macro_service_urls::CalendarServiceUrl,
+    internal_api_key: String,
+    environment: macro_env::Environment,
+) -> ToolBookingManagementToolContext {
+    calendar_scheduling::inbound::toolset::BookingManagementToolContext {
+        service: Arc::new(calendar_scheduling::outbound::administration_client::SchedulingAdministrationClient::new(calendar_url.to_string(), internal_api_key)),
+        public_origin: match environment {
+            macro_env::Environment::Production => "https://macro.com",
+            macro_env::Environment::Develop => "https://dev.macro.com",
+            macro_env::Environment::Local => "",
+        }.into(),
+    }
+}
+
 /// Type alias for the CRM AI tool context.
 pub type ToolCrmToolContext =
     CrmToolContext<ToolCrmService, ToolEntityAccessService, ToolPropertiesService>;
@@ -544,6 +586,61 @@ pub fn build_crm_tool_context(pool: sqlx::PgPool) -> ToolCrmToolContext {
         )),
         entity_access_service,
         properties,
+    }
+}
+
+/// CRM pipelines over the databases service and access the database tools
+/// use, so a pipeline write reaches open clients the same way.
+pub type ToolPipelineService = crm::domain::pipelines::PipelineServiceImpl<
+    crm::outbound::pipelines::PgPipelineRepo<
+        databases::outbound::pg_cell_store::PgCellStore<properties::PropertiesPgRepo>,
+    >,
+    ToolDatabasesService,
+    ToolEntityAccessService,
+    crm::outbound::stage_definitions::PropertiesStageDefinitionStore<ToolPropertiesService>,
+>;
+
+/// Pipeline workflows: entries by record and fields by name, for agents.
+pub type ToolPipelineWorkflows = crm::domain::pipeline_workflows::PipelineWorkflowServiceImpl<
+    ToolPipelineService,
+    ToolCrmService,
+    ToolEntityAccessService,
+>;
+
+/// Type alias for the CRM pipeline AI tool context.
+pub type ToolPipelineToolContext =
+    crm::inbound::toolset::pipelines::PipelineToolContext<ToolPipelineWorkflows>;
+
+/// Build the pipeline tools over the database tools' service and access and
+/// the CRM tools' records and stage template.
+pub fn build_pipeline_tool_context(
+    pool: sqlx::PgPool,
+    databases: &ToolDatabasesToolContext,
+    crm: &ToolCrmToolContext,
+) -> ToolPipelineToolContext {
+    let pipelines = crm::domain::pipelines::PipelineServiceImpl::new(
+        crm::outbound::pipelines::PgPipelineRepo::new(
+            pool.clone(),
+            databases::outbound::pg_cell_store::PgCellStore::new(
+                pool.clone(),
+                properties::PropertiesPgRepo::new(pool),
+            ),
+        ),
+        databases.service.clone(),
+        databases.entity_access_service.clone(),
+        crm::outbound::stage_definitions::PropertiesStageDefinitionStore::new(
+            crm.properties.clone(),
+        ),
+    );
+    crm::inbound::toolset::pipelines::PipelineToolContext {
+        service: Arc::new(
+            crm::domain::pipeline_workflows::PipelineWorkflowServiceImpl::new(
+                Arc::new(pipelines),
+                crm.service.clone(),
+                databases.entity_access_service.clone(),
+            ),
+        ),
+        actor: databases.actor,
     }
 }
 
@@ -1120,6 +1217,21 @@ pub type ToolNotificationService = notification::domain::service::NotificationRe
 /// Type alias for the notification tool context.
 pub type ToolNotificationToolContext = NotificationToolContext<ToolNotificationService>;
 
+/// Type alias for the user's per-item notification mute and snooze tool context.
+pub type ToolItemNotificationPreferenceToolContext =
+    notification::inbound::ai_tool::ItemNotificationPreferenceToolContext<
+        notification::outbound::item_preferences::PgItemNotificationPreferenceRepository,
+    >;
+
+/// Build the per-item notification preference tool context.
+pub fn build_item_notification_preference_tool_context(
+    pool: sqlx::PgPool,
+) -> ToolItemNotificationPreferenceToolContext {
+    notification::inbound::ai_tool::ItemNotificationPreferenceToolContext::new(
+        notification::outbound::item_preferences::PgItemNotificationPreferenceRepository(pool),
+    )
+}
+
 /// Table-changed fan-out for AI tool hosts, the databases crate's publisher.
 pub use databases::outbound::gateway_event_publisher::MaybeGatewayTableEventPublisher as ToolTableEventPublisher;
 
@@ -1253,6 +1365,41 @@ pub fn build_project_tool_context(
         chat_service,
         email_service,
     )
+}
+
+/// Type alias for the favorites service used by AI tools and soup's
+/// favorites-only filter.
+pub type ToolFavoritesService = favorites::domain::service::FavoritesServiceImpl<
+    favorites::outbound::pg_favorites_repo::PgFavoritesRepo,
+>;
+
+/// Type alias for the favorites tool context.
+pub type ToolFavoritesToolContext = favorites::inbound::toolset::FavoritesToolContext<
+    favorites::domain::mutation_service::FavoritesMutationServiceImpl<
+        ToolFavoritesService,
+        ToolEntityAccessService,
+    >,
+>;
+
+/// Build the favorites service shared by the favorites tools and soup.
+pub fn build_favorites_service(pool: sqlx::PgPool) -> Arc<ToolFavoritesService> {
+    Arc::new(favorites::domain::service::FavoritesServiceImpl::new(
+        favorites::outbound::pg_favorites_repo::PgFavoritesRepo::new(pool),
+    ))
+}
+
+/// Build the favorites tool context, authorizing favorites with the same
+/// entity access service as the other tools.
+pub fn build_favorites_tool_context(
+    favorites: Arc<ToolFavoritesService>,
+    entity_access_service: Arc<ToolEntityAccessService>,
+) -> ToolFavoritesToolContext {
+    favorites::inbound::toolset::FavoritesToolContext::new(Arc::new(
+        favorites::domain::mutation_service::FavoritesMutationServiceImpl::new(
+            favorites,
+            entity_access_service,
+        ),
+    ))
 }
 
 /// Type alias for the chat tool context
@@ -1552,9 +1699,7 @@ pub type ToolImportService = import::domain::service::ImportServiceImpl<
     import::outbound::mcp_slack_source::McpSlackSource<ToolMcpSelector>,
 >;
 
-/// Type alias for the import tool context. Built `unwired` by the shared
-/// context builder; hosts that can run the import pipeline (DCS) replace it
-/// with a wired one after constructing the import service.
+/// Type alias for the import tool context, wired by hosts with connector access.
 pub type ToolImportToolContext = import::inbound::toolset::ImportToolContext<ToolImportService>;
 
 pub type ToolActivityToolContext = activity::inbound::toolset::ActivityToolContext<
@@ -1618,7 +1763,11 @@ pub struct ToolServiceContext {
     pub calendar_tool_context: ToolCalendarToolContext,
     pub team_calendar_tool_context: ToolTeamCalendarToolContext,
     pub booking_link_tool_context: ToolBookingLinkToolContext,
+    /// Calendar-service-backed booking administration.
+    pub booking_management_tool_context: ToolBookingManagementToolContext,
     pub notification_tool_context: ToolNotificationToolContext,
+    /// The user's own per-item notification mutes and snoozes.
+    pub item_notification_preference_tool_context: ToolItemNotificationPreferenceToolContext,
     pub databases_tool_context: ToolDatabasesToolContext,
     pub forms_tool_context: ToolFormsToolContext,
     pub databases_sql_tool_context: ToolDatabasesSqlToolContext,
@@ -1634,10 +1783,14 @@ pub struct ToolServiceContext {
     pub bot_tool_context: ToolBotToolContext,
     pub coding_agent_tool_context: ToolCodingAgentToolContext,
     pub project_tool_context: ToolProjectToolContext,
+    /// Favorite toggles; the same favorites back `soup_service`'s favorites filter.
+    pub favorites_tool_context: ToolFavoritesToolContext,
     /// Native task project lifecycle, properties, sharing and history.
     pub initiative_tool_context: ToolInitiativeToolContext,
     pub team_tool_context: ToolTeamToolContext,
     pub crm_tool_context: ToolCrmToolContext,
+    /// CRM pipelines: deals by record, fields by name.
+    pub pipeline_tool_context: ToolPipelineToolContext,
     pub skill_tool_context: ToolSkillToolContext,
     pub schedule_tool_context: RoutineToolContext,
     #[from_ref(skip)]
@@ -1707,6 +1860,7 @@ impl ToolServiceContext {
         self.channel_tool_context = self.channel_tool_context.with_actor(actor);
         self.databases_tool_context = self.databases_tool_context.with_actor(actor);
         self.forms_tool_context.actor = actor;
+        self.pipeline_tool_context.actor = actor;
         self.databases_sql_tool_context = self.databases_sql_tool_context.with_actor(actor);
         self
     }

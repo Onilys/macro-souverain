@@ -44,7 +44,7 @@ PostHog unless the variable was set when it was built. With the flag off:
 - `/app/database/<uuid>` and a `~/database/<uuid>` split show the 404 view. The
   database block's code is never fetched and no database request is made.
 - **Create → Database**, its **C → L** shortcut, the command palette entry and
-  the slash menu's **Database** action are absent, and no starter database is
+  the slash menu's **Database** and **Query** actions are absent, and no starter database is
   created.
 - The sidebar, mentions, search and Quick Access list no databases; Activity
   and the ReadActivity tool leave out database rows.
@@ -102,6 +102,21 @@ fixture (`features/crm/browser-test/editor.html`) covers the real pipeline API
 adapter and shared provider against local test responses.
 Pipelines poll every five seconds. A poll that returns unchanged data must not
 remount company previews or request them again.
+
+### Pipelines from AI chat
+
+Chats and agent sessions manage pipelines with their own tools, not the database
+tools: `ListPipelines`, `FindPipelineEntries`, `AddToPipeline`,
+`UpdatePipelineEntries`, `RemoveFromPipeline`, `CreatePipeline`, and `EditPipeline`.
+They address entries by the company or contact they track, fields by name, and
+stages by label, so "move Acme to Negotiation in Sales" or "how many deals are in
+Demo?" work without ids. Each tool row shows a kanban icon and expands to the
+entries it read or changed; an update lists every field before and after.
+To verify, ask a chat to move a company between stages and check that the pipeline
+row (within the five-second poll) and the company page's **Pipelines** card both
+show the new stage. The company's own Stage, Owner and Revenue properties in the
+side panel are a separate field these tools do not change. A pipeline created or
+renamed from chat appears in the CRM sidebar as soon as the tool finishes.
 
 ## Properties and records
 
@@ -458,7 +473,7 @@ offers **Open view**, which opens that database/table and selects the created vi
 The same tools are exposed to agent sessions through the Macro MCP server.
 
 In a document, channel composer, or the task/document creation composer,
-`/database` → **Database** opens the question box with the AI prompt focused
+`/query` → **Query** opens the question box with the AI prompt focused
 immediately. The empty input rotates through example questions; a selected database
 uses its actual table and column names. Typing hides these hints, and reduced-motion
 preferences keep them static. Use the searchable source picker below the question to
@@ -562,6 +577,13 @@ its optimistic state when no newer cache update has replaced it, then refreshes.
 A slow or failed refresh is not a reason to resend a successful mutation.
 
 ### Embedded database editors
+
+In a document, `/database` creates a database and inserts its expanded editor.
+Selecting an existing database from `@` inserts a compact chip. Its expand icon
+opens the editor. **Collapse** returns it to a small mention. Cell and schema
+edits use the same database grid and authorization as the standalone app. The
+document stores only the database reference and selected table/view, never a
+copy of its rows. See [Databases in documents](documents.md#databases-in-documents).
 
 The shared editor also runs under a host's `DatabaseProvider`, using schema reads,
 row queries and operation batches from that host's API. Verify cell edits and

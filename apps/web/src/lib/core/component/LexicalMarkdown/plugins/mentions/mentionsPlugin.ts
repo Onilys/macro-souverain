@@ -184,6 +184,11 @@ function $isMentionNode(
   );
 }
 
+/** A PR mention authored from a GitHub URL alone has no entity to track. */
+function $isUntrackedPullRequestMention(node: LexicalNode): boolean {
+  return $isPullRequestMentionNode(node) && !node.getId();
+}
+
 function $mentionItemFromNode(node: MentionNode): ItemMention {
   if ($isDocumentMentionNode(node)) {
     let fileType = '';
@@ -218,6 +223,9 @@ function $mentionItemFromNode(node: MentionNode): ItemMention {
       // A form reference: posting it grants the channel View on the form.
       fileType = 'form';
       itemType = 'form';
+    } else if (blockName === 'database') {
+      fileType = 'database';
+      itemType = 'database';
     } else if (blockName === 'initiative') {
       // A task project, never a document id.
       fileType = 'initiative';
@@ -398,16 +406,42 @@ function registerMentionsPlugin(
     const mentions: ItemMention[] = [];
     editor.read(() => {
       $traverseNodes($getRoot(), (node) => {
-        if ($isMentionNode(node)) {
+        if ($isMentionNode(node) && !$isUntrackedPullRequestMention(node)) {
           mentions.push($mentionItemFromNode(node));
+        } else if (
+          node instanceof DocumentCardNode &&
+          node.getBlockName() === 'database'
+        ) {
+          mentions.push({
+            itemType: 'database',
+            itemId: node.getDocumentId(),
+            documentName: node.getDocumentName(),
+          });
         }
       });
     });
     props.setMentions(mentions);
   }
 
+  // Expansion/collapse replaces the node but preserves its tracked reference UUID.
+  // Untrack only when neither representation remains in the committed editor state.
+  function databaseReferenceRemains(mentionUuid: string) {
+    return editor.read(() => {
+      let remains = false;
+      $traverseNodes($getRoot(), (node) => {
+        if (
+          (node instanceof DocumentCardNode || $isDocumentMentionNode(node)) &&
+          node.getBlockName() === 'database' &&
+          node.getMentionUuid() === mentionUuid
+        )
+          remains = true;
+      });
+      return remains;
+    });
+  }
+
   return mergeRegister(
-    // A form's card references the form exactly as its mention did;
+    // A form or database card references its entity exactly as its mention did;
     // converting one to the other removes one reference and creates the other.
     editor.registerMutationListener(
       DocumentCardNode,
@@ -420,19 +454,33 @@ function registerMentionsPlugin(
               : editor.getEditorState(),
             nodeKey
           );
-          // Only a form's card is a reference here (RFC 03); other cards'
+          // Form and database cards are references; other cards'
           // sharing stays as it was.
           if (!(node instanceof DocumentCardNode)) continue;
-          if (node.getBlockName() !== 'form') continue;
+          if (
+            node.getBlockName() !== 'form' &&
+            node.getBlockName() !== 'database'
+          )
+            continue;
           const card = {
             itemType: blockItemType(node.getBlockName()),
             itemId: node.getDocumentId(),
             documentName: node.getDocumentName(),
           };
           if (mutation === 'created') onCreateMention?.(card);
-          else
+          else {
+            const uuid = node.getMentionUuid();
+            if (
+              node.getBlockName() === 'database' &&
+              uuid &&
+              sourceDocumentId &&
+              !databaseReferenceRemains(uuid)
+            )
+              void untrackMention(sourceDocumentId, uuid);
             onRemoveMention?.({ itemType: card.itemType, itemId: card.itemId });
+          }
         }
+        updateMentionsSignal();
       }
     ),
     editor.registerCommand(
@@ -459,10 +507,9 @@ function registerMentionsPlugin(
           if ($isRangeSelection(selection) && !selection.isCollapsed()) {
             $collapseSelection(selection);
             $insertNodes([$createTextNode(' '), mentionNode]);
-            mentionNode.selectEnd();
-            return true;
+          } else {
+            $insertNodes([mentionNode]);
           }
-          $insertNodes([mentionNode]);
           if ($isRootOrShadowRoot(mentionNode.getParentOrThrow())) {
             $wrapNodeInElement(mentionNode, $createParagraphNode);
           }
@@ -862,7 +909,12 @@ function registerMentionsPlugin(
               // unsetDocumenentionPreviewCache(nodeId);
             }
             const mentionUuid = node.getMentionUuid();
-            if (mentionUuid && sourceDocumentId) {
+            if (
+              mentionUuid &&
+              sourceDocumentId &&
+              (node.getBlockName() !== 'database' ||
+                !databaseReferenceRemains(mentionUuid))
+            ) {
               untrackMention(sourceDocumentId, mentionUuid);
             }
             if (onRemoveMention) {
@@ -1034,7 +1086,7 @@ function registerMentionsPlugin(
             nodeKey
           ) as PullRequestMentionNode | null;
 
-          if (!node) continue;
+          if (!node || $isUntrackedPullRequestMention(node)) continue;
 
           if (mutation === 'destroyed') {
             const mentionUuid = node.getMentionUuid();

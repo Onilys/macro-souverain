@@ -70,7 +70,7 @@ export function OtpInput(props: {
           {(_, index) => (
             <div
               class={cn(
-                'flex h-13 flex-1 items-center justify-center rounded-lg border bg-surface text-lg font-medium tabular-nums text-ink transition-colors',
+                'flex h-13 flex-1 items-center justify-center rounded-2xl border bg-input text-lg font-medium tabular-nums text-ink transition-colors',
                 focused() && index === activeIndex()
                   ? 'border-accent'
                   : 'border-edge'

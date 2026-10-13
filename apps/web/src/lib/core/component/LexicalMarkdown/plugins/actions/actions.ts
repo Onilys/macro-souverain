@@ -1,5 +1,6 @@
 import { globalSplitManager } from '@app/signal/splitLayout';
 import type { ComposeTaskSuccess } from '@block-md/component/ComposeTask';
+import { toast } from '@core/component/Toast/Toast';
 import { enableDatabases, isFeatureEnabled } from '@core/constant/featureFlags';
 import { trackMention } from '@core/signal/mention';
 import { LinkNode } from '@lexical/link';
@@ -12,12 +13,14 @@ import {
   AwaitNode,
   CustomCodeNode,
   DatabaseQueryNode,
+  DocumentCardNode,
   DocumentMentionNode,
   EquationNode,
   HorizontalRuleNode,
   ImageNode,
   VideoNode,
 } from '@macro-inc/lexical-core';
+import { Telemetry } from '@macro-inc/observability';
 import CheckSquare from '@phosphor/check-square.svg';
 import CodeBlock from '@phosphor/code-block.svg';
 import FileText from '@phosphor/file-text.svg';
@@ -341,16 +344,8 @@ export const ACTIONS: Action[] = [
   },
   {
     id: 'database-query',
-    name: 'Database',
-    keywords: [
-      'query',
-      'query-database',
-      'ask',
-      'database',
-      'live',
-      'answer',
-      'sql',
-    ],
+    name: 'Query',
+    keywords: ['query', 'query-database', 'ask', 'live', 'answer', 'sql'],
     category: ActionCategory.MEDIA,
     icon: LightningIcon,
     dependencies: [DatabaseQueryNode],
@@ -367,6 +362,26 @@ export const ACTIONS: Action[] = [
           ]);
         })
       );
+    },
+  },
+  {
+    id: 'database',
+    name: 'Database',
+    keywords: ['database', 'new database', 'editable', 'records'],
+    category: ActionCategory.MEDIA,
+    icon: TableIcon,
+    dependencies: [AwaitNode, DocumentMentionNode, DocumentCardNode],
+    action: (editor, context) => {
+      if (!isFeatureEnabled(enableDatabases)) return;
+      queueMicrotask(async () => {
+        try {
+          const { insertNewDatabase } = await import('./insert-database');
+          await insertNewDatabase(editor, context);
+        } catch (error: unknown) {
+          Telemetry.error('database.insert.failed', { error: String(error) });
+          toast.failure('The database could not be inserted. Try again.');
+        }
+      });
     },
   },
 ];

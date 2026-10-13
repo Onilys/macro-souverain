@@ -5,6 +5,12 @@ It shares the repository with the authenticated application, but has its own
 package manifest, Vite entry points, TypeScript aliases, styles, assets, and UI
 components. Application UI changes must not alter the website.
 
+The public site, product pages, blog, sample workspace, and signup introduction
+follow the visitor's system color scheme. `?theme=cream` and `?theme=dark` pin a
+palette. `features/setup/cream-preview.css` owns the light palette; the shared
+router applies it across navigation, and each HTML entry applies it before
+first paint. Check both palettes when changing a shared demo or surface.
+
 ## Ownership and dependency boundary
 
 - `src/features/marketing/`: homepage, feature demonstrations, navigation, and
@@ -133,6 +139,14 @@ missing assets, and compiled app artifacts fail. After changes, also run the
 repository's `just check` and verify user-visible behavior in a browser.
 
 ## SEO and deployment
+
+`/delete-account` is a public, prerendered account-deletion help page linked from
+the footer. It offers an email request path without requiring sign-in or an app
+installation, plus instructions for the in-app deletion flow. Keep its data and
+retention descriptions aligned with the deletion services and the Privacy Policy.
+The seven-day cleanup window is a target after verification, not a guarantee;
+shared-content and legal/backup retention exceptions are described separately.
+Verify the email link, direct navigation, and readability on desktop and mobile.
 
 See [the migration audit and cutover checklist](seo/MIGRATION.md). The committed
 `seo/migration-baseline.json` records the indexable URLs and schema types on
