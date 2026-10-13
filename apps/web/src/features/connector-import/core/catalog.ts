@@ -22,12 +22,13 @@ import type {
 
 // Order is promotion order: the sidebar card shows these left to right and
 // its copy names the first few. Natively imported sources lead.
+// Each pitch fills one line and most of a second at the default sidebar width.
 export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
   files: {
     category: 'files',
     headline: 'Bring your files to Macro',
     pitch:
-      'Import docs and files from Notion, Google Drive, Dropbox, and more.',
+      'Import docs and files from Notion, Google Drive, Dropbox, OneDrive, and more.',
     action: 'Import files',
     dialogDescription:
       'Connect an app, then pick what to bring into your Drive.',
@@ -76,7 +77,8 @@ export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
   tasks: {
     category: 'tasks',
     headline: 'Bring your tasks to Macro',
-    pitch: 'Import issues and tasks from Linear, Jira, Asana, and more.',
+    pitch:
+      'Import your issues and tasks from Linear, Jira, Asana, GitHub, Trello, and more.',
     action: 'Import tasks',
     dialogDescription: 'Connect an app, then pick which tasks to bring over.',
     items: 'issues and tasks',
@@ -124,7 +126,8 @@ export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
   crm: {
     category: 'crm',
     headline: 'Bring your customers to Macro',
-    pitch: 'Import companies and contacts from HubSpot, Salesforce, and more.',
+    pitch:
+      'Import your companies and contacts from HubSpot, Salesforce, Close, and more.',
     action: 'Import customers',
     dialogDescription:
       'Connect an app, then bring its companies and contacts into your CRM.',

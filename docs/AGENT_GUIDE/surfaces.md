@@ -2211,9 +2211,8 @@ afterwards in **Settings → Billing**, where Guest users can buy Premium or Max
 
 With `enable-connector-import` on (on in dev) and the Pipedream connector stack
 enabled, the Drive, Tasks, and Customers sidebars end with an import card:
-overlapping provider logos, a short pitch, **Import files**, **Import tasks**,
-or **Import customers**, and a small centered encryption note below the button.
-Customers shows it only to team members. **Dismiss import files** (or tasks, customers) hides that card
+overlapping provider logos, a two-line pitch, and **Import files**, **Import
+tasks**, or **Import customers**. Customers shows it only to team members. **Dismiss import files** (or tasks, customers) hides that card
 for the user in this browser; a server-confirmed native import also hides it.
 
 The button opens a dialog listing that category's apps (Files: Notion, Google

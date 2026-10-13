@@ -92,7 +92,7 @@ function Sidebar(props: { category: ImportCategory }) {
   const config = IMPORT_CATEGORIES[props.category];
   return (
     <aside
-      class="flex h-[440px] w-60 flex-col bg-panel px-2 py-3"
+      class="flex h-[440px] w-64 flex-col bg-panel px-2 py-3"
       aria-label={`${props.category} sidebar`}
     >
       <p class="px-2 text-sm font-semibold text-ink">{config.action}</p>

@@ -2,7 +2,6 @@ import XIcon from '@phosphor/x.svg';
 import { Button } from '@ui';
 import type { ImportCategoryConfig } from '../core/providers';
 import { ProviderStack } from './provider-stack';
-import { SecurityNote } from './security-note';
 
 /** The sidebar prompt to bring a category's data over from other apps. */
 export function ImportPromoCard(props: {
@@ -29,7 +28,7 @@ export function ImportPromoCard(props: {
       <h2 class="mt-2.5 text-xs font-medium text-ink">
         {props.config.headline}
       </h2>
-      <p class="mt-1 text-xs leading-relaxed text-ink-muted">
+      <p class="mt-1 text-[11px] leading-4 text-ink-muted" data-pitch="">
         {props.config.pitch}
       </p>
       <Button
@@ -40,7 +39,6 @@ export function ImportPromoCard(props: {
       >
         {props.config.action}
       </Button>
-      <SecurityNote class="mt-2 items-center justify-center text-[11px] leading-4 [&>svg]:mt-0" />
     </section>
   );
 }
