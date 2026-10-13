@@ -29,6 +29,8 @@ This file is the shared entry point: `AGENTS.md` symlinks to `CLAUDE.md`. Edit
 
 | Task | Guide |
 | --- | --- |
+| Reusing database storage or separating it from an app entity | [Database core skill](.agents/skills/database-core/SKILL.md) |
+| Adding collaborative markdown to a feature | [Collab surface core skill](.agents/skills/collab-surface-core/SKILL.md) |
 | Rust code, builds, or tests | [Rust development](docs/RUST_DEVELOPMENT.md) |
 | SQLx queries, migrations, DB tests, or cache errors | [Database development](docs/DATABASE_DEVELOPMENT.md) |
 | Web frontend | [Web agent guide](apps/web/AGENTS.md) |
@@ -61,6 +63,12 @@ This file is the shared entry point: `AGENTS.md` symlinks to `CLAUDE.md`. Edit
 
 ## Before handing off
 
+- Always use Conventional Commit syntax for PR titles: `type(scope): description`
+  (scope optional), for example `fix(onboarding): preserve team inputs`.
+- Open pull requests ready for review. If one is created as a draft, mark it
+  ready for review before handing off.
+- Get CI passing before handing off. A pull request whose checks are failing
+  or still running is not done.
 - Test the affected packages/services individually before committing. Use the
   relevant guide for setup; there is no root `just test` recipe.
 - For code changes, run `just check` (format/lint/code rules scoped to changes).

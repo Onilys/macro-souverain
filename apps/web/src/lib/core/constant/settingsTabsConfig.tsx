@@ -5,8 +5,10 @@ import BuildingsIcon from '@phosphor/buildings.svg';
 import CalendarIcon from '@phosphor/calendar-blank.svg';
 import CpuIcon from '@phosphor/cpu.svg';
 import CreditCardIcon from '@phosphor/credit-card.svg';
+import DesktopIcon from '@phosphor/desktop.svg';
 import DeviceMobileIcon from '@phosphor/device-mobile-speaker.svg';
 import EmailIcon from '@phosphor/envelope-simple.svg';
+import GaugeIcon from '@phosphor/gauge.svg';
 import HardDrivesIcon from '@phosphor/hard-drives.svg';
 import KeyIcon from '@phosphor/key.svg';
 import KeyboardIcon from '@phosphor/keyboard.svg';
@@ -24,15 +26,16 @@ import { useHasPermission } from '../context/user';
 import { isMobile } from '../mobile/isMobile';
 import { isNativeMobilePlatform } from '../mobile/isNativeMobilePlatform';
 import { isTouchDevice } from '../mobile/isTouchDevice';
+import { isPlatform } from '../util/platform';
 import {
   botManagement,
   DEV_MODE_ENV,
+  desktopApp,
   ENABLE_APP_STORE_QR_CODE,
   ENABLE_EMAIL,
   enableCalendarScheduling,
   enableChatV3Agents,
   enableCrm,
-  enableNotificationSettings,
 } from './featureFlags';
 import { PERMISSION_IDS } from './permissions';
 import type { SettingsTab } from './SettingsState';
@@ -129,10 +132,22 @@ export const SETTINGS_TAB_GROUPS: SettingsTabGroup[] = [
         keywords: ['keyboard', 'hotkey', 'keybinding'],
       },
       {
+        tab: 'Usage',
+        label: 'Usage',
+        icon: GaugeIcon,
+        keywords: ['ai', 'limit', 'credits', 'reload', 'usage'],
+      },
+      {
         tab: 'Billing',
         label: 'Billing',
         icon: CreditCardIcon,
         keywords: ['payment', 'subscription', 'invoice', 'plan'],
+      },
+      {
+        tab: 'Desktop App',
+        label: 'Desktop App',
+        icon: DesktopIcon,
+        keywords: ['download', 'mac', 'macos', 'linux', 'version', 'update'],
       },
       {
         tab: 'Mobile App',
@@ -216,6 +231,7 @@ const SETTINGS_TAB_SLUGS: Record<SettingsTab, string> = {
   Account: 'account',
   'API Keys': 'api-keys',
   Notifications: 'notifications',
+  Usage: 'usage',
   Billing: 'billing',
   Subscription: 'subscription',
   Organization: 'organization',
@@ -225,6 +241,7 @@ const SETTINGS_TAB_SLUGS: Record<SettingsTab, string> = {
   Inbox: 'inbox',
   Shortcuts: 'shortcuts',
   'Mobile App': 'mobile-app',
+  'Desktop App': 'desktop-app',
   Agent: 'mcp-server',
   Agents: 'agents',
   Harness: 'runtimes',
@@ -272,13 +289,15 @@ export const useSettingsTabAvailable = () => {
   const botManagementFlag = useFeatureFlag(botManagement);
   const chatV3AgentsFlag = useFeatureFlag(enableChatV3Agents);
   const crmFlag = useFeatureFlag(enableCrm);
-  const notificationSettingsFlag = useFeatureFlag(enableNotificationSettings);
+  const desktopAppFlag = useFeatureFlag(desktopApp);
   const hasAdminPanel = useHasPermission(PERMISSION_IDS.WRITE_ADMIN_PANEL);
 
   return (tab: SettingsTab): boolean => {
     switch (tab) {
       case 'Appearance':
       case 'Account':
+      case 'Notifications':
+      case 'Usage':
       case 'Billing':
         return true;
       case 'Email':
@@ -290,8 +309,6 @@ export const useSettingsTabAvailable = () => {
       // good place for a one-time secret.
       case 'API Keys':
         return !isMobile();
-      case 'Notifications':
-        return notificationSettingsFlag().enabled;
       case 'Team':
       case 'Tags':
         return true;
@@ -307,6 +324,11 @@ export const useSettingsTabAvailable = () => {
         return !isTouchDevice();
       case 'Mobile App':
         return ENABLE_APP_STORE_QR_CODE && !isNativeMobilePlatform();
+      case 'Desktop App':
+        return (
+          isPlatform('desktop') ||
+          (isPlatform('web') && desktopAppFlag().enabled)
+        );
       case 'Agent':
         return !isNativeMobilePlatform();
       // Configurable agents are still rolling out; keep both tabs behind the

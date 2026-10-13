@@ -31,6 +31,7 @@ import {
   type MagicChipNode,
   normalizedLanguage,
   type PasteNode,
+  type PullRequestMentionNode,
   type ReplyTargetNode,
   type SnapshotNode,
   SupportedNodeTypes,
@@ -69,7 +70,9 @@ import {
 } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { replaceCitations } from '../../citationsUtils';
+import { MarkdownHostContext } from '../../context/MarkdownHostContext';
 import '../../styles.css';
+import type { BlockName } from '@core/block';
 import {
   ENABLE_STATIC_DOCUMENT_CARDS,
   ENABLE_SVG_PREVIEW,
@@ -99,6 +102,7 @@ import { MagicChip as MagicChipDecorator } from '../decorator/MagicChip';
 import { MarkdownImage as ImageDecorator } from '../decorator/MarkdownImage';
 import { MarkdownVideo as VideoDecorator } from '../decorator/MarkdownVideo';
 import { PasteNode as PasteNodeDecorator } from '../decorator/PasteNode';
+import { PullRequestMention as PullRequestMentionDecorator } from '../decorator/PullRequestMention';
 import { ReplyTarget as ReplyTargetDecorator } from '../decorator/ReplyTarget';
 import { Snapshot as SnapshotDecorator } from '../decorator/Snapshot';
 import { TagMention as TagMentionDecorator } from '../decorator/TagMention';
@@ -244,6 +248,7 @@ function getTextClassName(
     | UserMentionNode
     | DocumentMentionNode
     | AgentSessionMentionNode
+    | PullRequestMentionNode
     | ContactMentionNode
     | DateMentionNode
     | WatermarkNode,
@@ -409,11 +414,25 @@ const AgentSessionMention: TypedRenderableEntity<AgentSessionMentionNode> = {
     node.__type === 'agent-session-mention',
   render: (props) => (
     <span class={getTextClassName(props.node, props.theme)}>
-      {AgentSessionMentionDecorator({
-        ...props.node.exportComponentProps(),
-        key: props.node.getKey(),
-        theme: props.theme,
-      })}
+      <AgentSessionMentionDecorator
+        {...props.node.exportComponentProps()}
+        key={props.node.getKey()}
+        theme={props.theme}
+      />
+    </span>
+  ),
+};
+
+const PullRequestMention: TypedRenderableEntity<PullRequestMentionNode> = {
+  guard: (node: LexicalNode): node is PullRequestMentionNode =>
+    node.__type === 'pr-mention',
+  render: (props) => (
+    <span class={getTextClassName(props.node, props.theme)}>
+      <PullRequestMentionDecorator
+        {...props.node.exportComponentProps()}
+        key={props.node.getKey()}
+        theme={props.theme}
+      />
     </span>
   ),
 };
@@ -641,7 +660,14 @@ const Video: TypedRenderableEntity<VideoNode> = {
 const Paragraph: TypedRenderableElement<ParagraphNode> = {
   guard: (node: LexicalNode): node is ParagraphNode =>
     node.__type === 'paragraph',
-  render: (props) => <p class={props.theme.paragraph}>{props.children}</p>,
+  render: (props) => (
+    <p
+      class={props.theme.paragraph}
+      style={{ 'text-align': props.node.getFormatType() || undefined }}
+    >
+      {props.children}
+    </p>
+  ),
 };
 
 const Heading: TypedRenderableElement<HeadingNode> = {
@@ -652,6 +678,7 @@ const Heading: TypedRenderableElement<HeadingNode> = {
       <Dynamic
         component={tag}
         class={props.theme.heading?.[tag]}
+        style={{ 'text-align': props.node.getFormatType() || undefined }}
         children={props.children}
       />
     );
@@ -710,14 +737,26 @@ const ListItem: TypedRenderableElement<ListItemNode> = {
       .filter(Boolean)
       .join(' ');
 
-    return <li class={classes}>{props.children}</li>;
+    return (
+      <li
+        class={classes}
+        style={{ 'text-align': props.node.getFormatType() || undefined }}
+      >
+        {props.children}
+      </li>
+    );
   },
 };
 
 const Quote: TypedRenderableElement<QuoteNode> = {
   guard: (node: LexicalNode): node is QuoteNode => node.__type === 'quote',
   render: (props) => (
-    <blockquote class={props.theme.quote}>{props.children}</blockquote>
+    <blockquote
+      class={props.theme.quote}
+      style={{ 'text-align': props.node.getFormatType() || undefined }}
+    >
+      {props.children}
+    </blockquote>
   ),
 };
 
@@ -844,7 +883,10 @@ const DocumentCard: TypedRenderableEntity<DocumentCardNode> = {
   guard: (node: LexicalNode): node is DocumentCardNode =>
     node.__type === 'document-card',
   render: (props) => {
-    if (ENABLE_STATIC_DOCUMENT_CARDS) {
+    // A form's card is its body (RFC 03), for every recipient: the forms
+    // flag gates authoring only, and the service decides who may respond.
+    const isForm = props.node.getBlockName() === 'form';
+    if (ENABLE_STATIC_DOCUMENT_CARDS || isForm) {
       return DocumentCardDecorator({
         ...props.node.exportComponentProps(),
         key: props.node.getKey(),
@@ -949,6 +991,7 @@ const InlineEntities: RenderableEntity[] = [
   eraseRenderableEntity(UserMention),
   eraseRenderableEntity(DocumentMention),
   eraseRenderableEntity(AgentSessionMention),
+  eraseRenderableEntity(PullRequestMention),
   eraseRenderableEntity(DocumentCard),
   eraseRenderableEntity(ContactMention),
   eraseRenderableEntity(DateMention),
@@ -1067,6 +1110,24 @@ const context = createContext<{
   lazy: Accessor<boolean>;
 }>({ editor: null, theme: () => baseTheme, lazy: () => true });
 
+/** Render a saved Lexical tree directly, preserving formats absent from Markdown. */
+export function StaticLexical(props: { serializedState: string }) {
+  const inherited = useContext(context);
+  const editor =
+    inherited.editor ?? newStaticRenderingEditor({ theme: inherited.theme() });
+  const tree = createMemo(() => {
+    const state = editor.parseEditorState(props.serializedState);
+    return state.read(() =>
+      Document({
+        rootNode: $getRoot(),
+        theme: inherited.theme(),
+        lazy: false,
+      })
+    );
+  });
+  return <>{tree()}</>;
+}
+
 export function StaticMarkdown(props: {
   markdown: string;
   parentEditor?: LexicalEditor;
@@ -1169,6 +1230,8 @@ export function StaticMarkdownContext(props: {
   children: JSX.Element;
   theme?: EditorThemeClasses;
   lazy?: boolean;
+  /** The surface outside any block, e.g. a channel in the channels shell. */
+  host?: BlockName;
 }) {
   const mergedTheme = () => {
     if (!props.theme) return baseTheme;
@@ -1187,7 +1250,9 @@ export function StaticMarkdownContext(props: {
         lazy: () => props.lazy ?? true,
       }}
     >
-      {props.children}
+      <MarkdownHostContext.Provider value={props.host}>
+        {props.children}
+      </MarkdownHostContext.Provider>
     </context.Provider>
   );
 }

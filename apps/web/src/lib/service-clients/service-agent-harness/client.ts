@@ -1,6 +1,10 @@
 import { SERVER_HOSTS } from '@core/constant/servers';
 import { fetchWithToken } from '@core/util/fetchWithToken';
 import type { ErrorResponseHandler } from '@core/util/safeFetch';
+import {
+  type AI_USAGE_LIMIT_ERROR,
+  readAiUsageLimitError,
+} from '../ai-usage-limit';
 import type {
   AgentRepositoriesResponse,
   AgentRepositoryBranchesResponse,
@@ -10,6 +14,7 @@ import type {
   AgentSessionQueueResponse,
   AgentSessionResponse,
   AnswerToolApprovalResponse,
+  CodingPreferencesBody,
   ControlRequest,
   ControlResponse,
   CreateAgentSessionRequest,
@@ -20,15 +25,17 @@ import type {
   LoadAgentModelsResponse,
   PreviewAgentSessionsResponse,
   PullRequestSessionsResponse,
+  PullRequestsSessionsResponse,
   SandboxSize,
   SandboxSizeBody,
   SessionPullRequestsResponse,
   SharePermissionV2,
   ToolApprovalAnswerDto,
   UpdateSharePermissionRequestV2,
+  WarmAgentSessionResponse,
 } from './generated/schemas';
 
-export type { SandboxSize, SandboxSizeBody };
+export type { CodingPreferencesBody, SandboxSize, SandboxSizeBody };
 
 const agentHarnessHost = SERVER_HOSTS['agent-harness'];
 
@@ -45,6 +52,11 @@ const sessionError: ErrorResponseHandler<never> = async (response) => {
         : message || `Agent request failed (HTTP ${response.status}).`,
   };
 };
+
+const sessionAiError: ErrorResponseHandler<
+  typeof AI_USAGE_LIMIT_ERROR
+> = async (response) =>
+  (await readAiUsageLimitError(response)) ?? (await sessionError(response));
 
 /** Authenticated client for controlling live agent sessions. */
 export const agentHarnessServiceClient = {
@@ -86,16 +98,29 @@ export const agentHarnessServiceClient = {
     );
   },
 
-  create(request: CreateAgentSessionRequest) {
-    return fetchWithToken<CreateAgentSessionResponse>(
-      `${agentHarnessHost}/agent-sessions`,
+  /** Prepare a hidden, unprompted in-memory session for this browser. */
+  warm(id: string, signal?: AbortSignal) {
+    return fetchWithToken<WarmAgentSessionResponse>(
+      `${agentHarnessHost}/agent-sessions/warm`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-        errorResponseHandler: sessionError,
+        body: JSON.stringify({ id }),
+        signal,
       }
     );
+  },
+
+  create(request: CreateAgentSessionRequest) {
+    return fetchWithToken<
+      CreateAgentSessionResponse,
+      typeof AI_USAGE_LIMIT_ERROR
+    >(`${agentHarnessHost}/agent-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      errorResponseHandler: sessionAiError,
+    });
   },
 
   /**
@@ -187,13 +212,13 @@ export const agentHarnessServiceClient = {
    * out (`sent`) or waits in the session's queue (`queued`).
    */
   control(sessionId: string, request: ControlRequest) {
-    return fetchWithToken<ControlResponse>(
+    return fetchWithToken<ControlResponse, typeof AI_USAGE_LIMIT_ERROR>(
       `${agentHarnessHost}/agent-sessions/${sessionId}/control`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
-        errorResponseHandler: sessionError,
+        errorResponseHandler: sessionAiError,
       }
     );
   },
@@ -272,6 +297,26 @@ export const agentHarnessServiceClient = {
     );
   },
 
+  getCodingPreferences() {
+    return fetchWithToken<CodingPreferencesBody>(
+      `${agentHarnessHost}/agent-coding-preferences`,
+      {
+        method: 'GET',
+      }
+    );
+  },
+
+  setCodingPreferences(preferences: CodingPreferencesBody) {
+    return fetchWithToken<CodingPreferencesBody>(
+      `${agentHarnessHost}/agent-coding-preferences`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preferences),
+      }
+    );
+  },
+
   /**
    * The session's latest captured changes: changed files with statuses and
    * line counts, plus how the latest capture attempt went.
@@ -330,6 +375,21 @@ export const agentHarnessServiceClient = {
       `${agentHarnessHost}/agent-sessions/${sessionId}/pull-requests?${new URLSearchParams({ url })}`,
       { method: 'DELETE', errorResponseHandler: sessionError }
     ).then((result) => result.map(() => undefined));
+  },
+
+  /**
+   * The sessions linked to each pull request in `urls` (at most 100) that the
+   * caller can view, with the thread each session was started from.
+   */
+  sessionsForPullRequests(urls: string[]) {
+    return fetchWithToken<PullRequestsSessionsResponse>(
+      `${agentHarnessHost}/agent-sessions/by-pull-requests`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls }),
+      }
+    );
   },
 
   /** The sessions linked to the pull request at `url` that the caller can view. */

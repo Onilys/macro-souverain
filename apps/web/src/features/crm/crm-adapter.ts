@@ -3,7 +3,10 @@ import { withEntityNotifications } from '@app/features/soup/entity-notifications
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { toast } from '@core/component/Toast/Toast';
-import { enableCrmLists } from '@core/constant/featureFlags';
+import {
+  enableCrmLists,
+  enableCrmPipelines,
+} from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { getInitialsFromName } from '@core/user';
 import { idToEmail } from '@core/user/util';
@@ -19,6 +22,7 @@ import {
 } from '@queries/team/teams';
 import { patchTeamCrmSettings } from '@service-auth/crm';
 import { storageServiceClient } from '@service-storage/client';
+import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { useQueryClient } from '@tanstack/solid-query';
 import { createMemo, lazy } from 'solid-js';
 import type { CrmContext } from './context/crm-context';
@@ -34,10 +38,11 @@ import {
   copyCrmViewLink,
   createAppCrmNavigation,
 } from './navigation-adapter';
+import { PipelineDatabaseEditor, PipelineShare } from './pipeline-adapter';
+import { createCrmPipelineEntries } from './pipeline-entries-adapter';
 import {
   createClosedStageIds,
   createCrmPermissions,
-  createCrmUnavailable,
 } from './primitives/team-config';
 import {
   useCompanyQuery,
@@ -56,6 +61,7 @@ import {
 } from './queries/contacts';
 import { fetchCrmExportCompanies } from './queries/export';
 import { useCrmLists } from './queries/lists';
+import { createPipelinesSource } from './queries/pipelines';
 import {
   useRecordCallsQuery,
   useRecordFilesQuery,
@@ -148,6 +154,13 @@ export function createAppCrmContext(): CrmContext {
   const userId = useUserId();
   const createSettings = () => useTeamCrmConfig(deps);
   return {
+    createPipelines: (teamId) => createPipelinesSource(deps, teamId),
+    PipelineEditor: PipelineDatabaseEditor,
+    PipelineEntries: createCrmPipelineEntries({
+      graphql: getGraphqlSoupClient,
+      storage: deps.storage,
+    }),
+    PipelineSharing: PipelineShare,
     feedback: toast,
     downloadCsv: downloadCrmCsv,
     contactInitials: getInitialsFromName,
@@ -157,6 +170,10 @@ export function createAppCrmContext(): CrmContext {
     copyViewLink: copyCrmViewLink,
     listsEnabled() {
       const flag = useFeatureFlag(enableCrmLists);
+      return () => flag().enabled;
+    },
+    pipelinesEnabled() {
+      const flag = useFeatureFlag(enableCrmPipelines);
       return () => flag().enabled;
     },
     createCompanyEmails: (...args) =>
@@ -232,7 +249,6 @@ export function createAppCrmContext(): CrmContext {
     createCapabilities: () =>
       createCrmPermissions(userId, useCurrentTeamQuery(), createSettings()),
     createDealStages: createAppDealStages,
-    createUnavailable: () => createCrmUnavailable(useCurrentTeamQuery()),
     createClosedStageIds: (stages) =>
       createClosedStageIds(createSettings(), stages),
     createPersonalViews: () => usePersonalCrmViews(deps),

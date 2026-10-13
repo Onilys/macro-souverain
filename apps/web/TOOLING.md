@@ -29,6 +29,8 @@ Oxlint rules. CI uses the same web commands and keeps its existing job IDs.
 
 The workspace's default `tsc` and `import ts from 'typescript'` stay on 5.9.3.
 The UI audit and shared compiler-API consumers therefore keep working.
+Collaboration retains main's native TypeScript check through the same isolated
+`tsgo` wrapper, without an npm alias replacing the legacy `tsc` binary.
 
 The private `tooling/typescript-native` workspace depends on TypeScript 7.0.2 and
 exposes `tsgo`. Web scripts resolve its launcher explicitly, independent of

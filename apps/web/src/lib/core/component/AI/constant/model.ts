@@ -18,6 +18,7 @@ export const Model = {
   opus55: 'anthropic/claude-opus-5-5',
   haiku45: 'anthropic/claude-haiku-4-5',
   gpt6Astra: 'openai/gpt-6-astra',
+  gpt61Sol: 'openai/gpt-6.1-sol',
   gpt56: 'openai/gpt-5.6',
   gpt56Mini: 'openai/gpt-5.6-mini',
   gemini38Flash: 'google/gemini-3.8-flash',
@@ -37,6 +38,7 @@ export const MODEL_PRETTYNAME: ExhaustiveMap = {
   'anthropic/claude-opus-5-5': 'Opus 5.5',
   'anthropic/claude-haiku-4-5': 'Haiku 4.5',
   'openai/gpt-6-astra': 'GPT-6 Astra',
+  'openai/gpt-6.1-sol': 'GPT-6.1 Sol',
   'openai/gpt-5.6': 'GPT-5.6',
   'openai/gpt-5.6-mini': 'GPT-5.6 mini',
   'google/gemini-3.8-flash': 'Gemini 3.8 Flash',
@@ -47,64 +49,35 @@ export const MODEL_PROVIDER_ICON: ExhaustiveMap = {
   'anthropic/claude-opus-5-5': ClaudeIcon,
   'anthropic/claude-haiku-4-5': ClaudeIcon,
   'openai/gpt-6-astra': OpenAiIcon,
+  'openai/gpt-6.1-sol': OpenAiIcon,
   'openai/gpt-5.6': OpenAiIcon,
   'openai/gpt-5.6-mini': OpenAiIcon,
   'google/gemini-3.8-flash': GoogleIcon,
 };
-
-/**
- * How fast each model draws down a paid plan's included AI, relative to the
- * default model (Sonnet 5.5 = 1). Mirrors the per-token rates in `ai_pricing`
- * (output price, which dominates chat cost): Haiku $5, Sonnet $10, Opus $25,
- * GPT-6 Astra $50, GPT-5.6 $30, GPT-5.6 mini $4.50, Gemini 3.8 Flash $3.75
- * per million tokens. Shown in the picker so choosing a heavy model is a
- * deliberate trade.
- */
-export const MODEL_USAGE_MULTIPLIER: { [K in TModel]: number } = {
-  'anthropic/claude-sonnet-5-5': 1,
-  'anthropic/claude-opus-5-5': 2.5,
-  'anthropic/claude-haiku-4-5': 0.5,
-  'openai/gpt-6-astra': 5,
-  'openai/gpt-5.6': 3,
-  'openai/gpt-5.6-mini': 0.45,
-  'google/gemini-3.8-flash': 0.375,
-};
-
-/**
- * The picker's usage hint for a model: "2.5× usage" for models that burn the
- * allowance faster than the default, nothing for the default and cheaper.
- */
-export function modelUsageHint(model: TModel): string | undefined {
-  const multiplier = MODEL_USAGE_MULTIPLIER[model];
-  if (multiplier <= 1) return undefined;
-  return `${Number.isInteger(multiplier) ? multiplier : multiplier.toFixed(1)}× usage`;
-}
 
 /** Default model for paid users. */
 export const DEFAULT_MODEL: TModel = Model.sonnet55;
 
 /**
  * Default model for free users. Free users aren't entitled to the premium
- * models (which the backend rejects with a 403), so they start on Haiku.
+ * models (which the backend rejects with a 403), so they start on Gemini Flash.
  */
-export const FREE_DEFAULT_MODEL: TModel = Model.haiku45;
+export const FREE_DEFAULT_MODEL: TModel = Model.gemini38Flash;
 
 /** Models a paid user may select. */
 export const PAID_MODELS: readonly TModel[] = Object.values(Model);
 
 /**
  * Model for database AI: question answering, the database assistant, and chats
- * opened from a database. Paid-only, like every model but {@link FREE_DEFAULT_MODEL}.
+ * opened from a database. Available on both free and paid plans.
  */
 export const DATABASE_MODEL: TModel = Model.gemini38Flash;
 
 /**
- * Models a free user may select. Free users only get Haiku
+ * Models a free user may select. Free users only get Gemini Flash
  * (`FREE_DEFAULT_MODEL`); every other model is paid-only and shows locked in
  * the selector, where selecting one opens the paywall instead of being sent
- * and rejected by the backend. The heavy models (Opus, GPT-6 Astra) are on
- * every paid plan; they just draw the included AI down faster, see
- * `MODEL_USAGE_MULTIPLIER`.
+ * and rejected by the backend.
  */
 export const FREE_MODELS: readonly TModel[] = [FREE_DEFAULT_MODEL];
 
@@ -131,6 +104,7 @@ export const MODEL_PROVIDER: ExhaustiveMap = {
   'anthropic/claude-opus-5-5': 'anthropic',
   'anthropic/claude-haiku-4-5': 'anthropic',
   'openai/gpt-6-astra': 'openai',
+  'openai/gpt-6.1-sol': 'openai',
   'openai/gpt-5.6': 'openai',
   'openai/gpt-5.6-mini': 'openai',
   'google/gemini-3.8-flash': 'google',

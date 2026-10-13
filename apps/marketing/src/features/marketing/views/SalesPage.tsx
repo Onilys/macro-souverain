@@ -2,6 +2,7 @@ import { handleDemoClick } from '../../../app/utils/utilCta';
 import { setPageSeo } from '../../../app/utils/utilSeo';
 import { FeatureConstellation } from '../../setup/components/FeatureOverview';
 import { WelcomeStep } from '../../setup/components/WelcomeSteps';
+import { createSitePalette } from '../../setup/sitePalette';
 import { FeaturePage } from '../components/FeaturePage';
 import { HomepageTrustBadges } from '../components/HomepageTrustBadges';
 import { DemoBookingEmbed } from '../components/sales/DemoBookingEmbed';
@@ -11,6 +12,7 @@ import { MACRO_SEAT_CENTS } from '../core/savings-calculator';
 import '../components/homepage-scroll-cue.css';
 import '../components/homepage-unification.css';
 import '../components/workspace-story.css';
+import '../../setup/cream-preview.css';
 import './sales-page.css';
 
 /** `OnboardingShell`'s palette, which the homepage hero is drawn in. */
@@ -54,6 +56,8 @@ export function RouteTour() {
     path: '/tour',
     noindex: true,
   });
+  const palette = createSitePalette();
+  const cream = () => palette() === 'cream';
 
   return (
     <FeaturePage>
@@ -149,7 +153,7 @@ export function RouteTour() {
               title="See how to grow your business faster."
               description="A 30-minute call with our CEO or a member of our team. Pick a time below."
             />
-            <DemoBookingEmbed id="tour-booking" />
+            <DemoBookingEmbed id="tour-booking" cream={cream()} />
           </section>
 
           <footer class="tour-footer">

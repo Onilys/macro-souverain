@@ -12,7 +12,6 @@ import {
   disableAutoUpdateUi,
   ENABLE_PROFILE_PICTURES,
   enableAutoUpdateUiOverride,
-  enableNotificationSettings,
 } from '@core/constant/featureFlags';
 import { staticFileIdEndpoint } from '@core/constant/servers';
 import { useEmail, useUserId } from '@core/context/user';
@@ -24,11 +23,11 @@ import {
 } from '@core/signal/profilePicture';
 import { createStaticFile } from '@core/util/create';
 import { openFilePicker } from '@core/util/upload';
-import { type BundleUpdateStatus, useTauri } from '@macro/tauri';
 import {
-  type SupportedNotificationSettings,
-  useNotificationSettings,
-} from '@notifications';
+  type BundleUpdateStatus,
+  nativeUpdateDescription,
+  useTauri,
+} from '@macro/tauri';
 import CheckIcon from '@phosphor/check.svg';
 import PencilIcon from '@phosphor/pencil-simple.svg';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
@@ -42,7 +41,7 @@ import {
 } from '@queries/auth/user-name-self';
 import { authServiceClient } from '@service-auth/client';
 import { invoke } from '@tauri-apps/api/core';
-import { Button, Dialog, Dropdown, Panel, ToggleSwitch, Tooltip } from '@ui';
+import { Button, Dialog, Dropdown, Panel, Tooltip } from '@ui';
 import {
   createEffect,
   createMemo,
@@ -319,7 +318,6 @@ export function Account() {
   const autoUpdateUIEnabled = createMemo(
     () => enableAutoUpdateUiOverride ?? !disableAutoUpdateUIFlag().enabled
   );
-  const notificationSettingsFlag = useFeatureFlag(enableNotificationSettings);
   const [showDeleteModal, setShowDeleteModal] = createSignal<boolean>(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] =
     createSignal<boolean>(false);
@@ -330,8 +328,7 @@ export function Account() {
   const [isDeleting, setIsDeleting] = createSignal(false);
 
   // The shared own-name cache entry (the one saveUserName invalidates), so
-  // this panel and other readers (e.g. the Getting Started checklist) can't
-  // drift.
+  // this panel and other readers can't drift.
   const userName = useOwnUserName();
   const [updatedFirstName, setUpdatedFirstName] = createSignal<
     string | undefined
@@ -451,13 +448,10 @@ export function Account() {
             />
           </Row>
 
+          <NativeUpdateRow />
           <Show when={autoUpdateUIEnabled()}>
             <BundleVersionRow />
             <BundleUpdateRow />
-          </Show>
-
-          <Show when={!notificationSettingsFlag().enabled}>
-            <NotificationToggle />
           </Show>
         </SettingsCard>
       </SettingsSection>
@@ -649,48 +643,6 @@ function Row(props: { label: string; children?: JSX.Element }) {
   return <SettingsRow label={props.label}>{props.children}</SettingsRow>;
 }
 
-function NotificationToggle() {
-  const settings = useNotificationSettings();
-
-  return (
-    <Show
-      when={settings.isSupported && settings}
-      fallback={<NotificationNotSupported />}
-    >
-      {(s) => <NotificationSettings settings={s()} />}
-    </Show>
-  );
-}
-
-function NotificationSettings(props: {
-  settings: SupportedNotificationSettings;
-}) {
-  const analytics = useAnalytics();
-
-  const handleToggle = (checked: boolean) => {
-    analytics.track('notifications_toggled');
-    props.settings.toggle(checked);
-  };
-
-  return (
-    <Row label="Notifications">
-      <ToggleSwitch
-        size="md"
-        checked={props.settings.isEnabled()}
-        onChange={handleToggle}
-      />
-    </Row>
-  );
-}
-
-function NotificationNotSupported() {
-  return (
-    <Row label="Notifications">
-      <span class="text-sm text-ink-muted">Not supported on this device</span>
-    </Row>
-  );
-}
-
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 function NameInput(props: {
@@ -868,5 +820,30 @@ function BundleUpdateRow() {
         </Show>
       </div>
     </Row>
+  );
+}
+
+function NativeUpdateRow() {
+  const tauri = useTauri();
+  return (
+    <Show when={tauri && tauri.nativeUpdateStatus().status !== 'Disabled'}>
+      <Row label="Desktop app update">
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-ink-muted">
+            {tauri && nativeUpdateDescription(tauri.nativeUpdateStatus())}
+          </span>
+          <Show when={tauri?.nativeUpdateStatus().status === 'Ready'}>
+            <Button
+              variant="accent"
+              size="sm"
+              depth={3}
+              onClick={() => void tauri?.restartNativeUpdate()}
+            >
+              Restart to update
+            </Button>
+          </Show>
+        </div>
+      </Row>
+    </Show>
   );
 }

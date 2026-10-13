@@ -8,6 +8,10 @@ import {
 } from '@urql/core';
 import type { UrqlObserver } from './observer';
 import { QueryObserver } from './query-observer';
+import {
+  createReactiveSelection,
+  type ReactiveSelection,
+} from './reactive-selection';
 import type {
   UrqlInfiniteData,
   UrqlInfiniteQueryOptions,
@@ -69,8 +73,7 @@ type SelectionCache<PageData, PageParam, SelectedData> = {
     SelectedData
   >['select'];
   previousData: SelectedData | undefined;
-  data: SelectedData | undefined;
-  error: CombinedError | null;
+  selection: ReactiveSelection<SelectedData>;
 };
 
 function sameReferences<T>(left: readonly T[], right: readonly T[]): boolean {
@@ -139,8 +142,8 @@ export class InfiniteQueryObserver<
     SelectedData
   >;
   private readonly result = new ObserverResult(() => this.getCurrentResult());
-  // urql page data is immutable; unchanged references therefore represent the
-  // same selector input across fetching/stale-only observer emissions.
+  // Keep selector scopes across status-only emissions. Live field dependencies
+  // invalidate the selection even when its page references remain unchanged.
   private selectionCache:
     | SelectionCache<PageData, PageParam, SelectedData>
     | undefined;
@@ -246,6 +249,8 @@ export class InfiniteQueryObserver<
     infiniteData: UrqlInfiniteData<PageData, PageParam>
   ): { data: SelectedData | undefined; error: CombinedError | null } {
     if (infiniteData.pages.length === 0) {
+      this.selectionCache?.selection.dispose();
+      this.selectionCache = undefined;
       return { data: this.state.previousData, error: null };
     }
 
@@ -258,27 +263,40 @@ export class InfiniteQueryObserver<
       sameReferences(cached.pages, infiniteData.pages) &&
       sameReferences(cached.pageParams, infiniteData.pageParams)
     ) {
-      return { data: cached.data, error: cached.error };
+      const selected = cached.selection.current();
+      return {
+        ...selected,
+        data:
+          selected.error && selected.data === undefined
+            ? this.state.previousData
+            : selected.data,
+      };
     }
 
-    let data = this.state.previousData;
-    let error: CombinedError | null = null;
-    try {
-      data = select ? select(infiniteData) : (infiniteData as SelectedData);
-    } catch (cause) {
-      error = toCombinedError(cause);
-    }
+    cached?.selection.dispose();
+    const selection = createReactiveSelection(
+      () => (select ? select(infiniteData) : (infiniteData as SelectedData)),
+      () => {
+        if (!this.destroyed) this.emit();
+      }
+    );
 
     this.selectionCache = {
       pages: infiniteData.pages,
       pageParams: infiniteData.pageParams,
       select,
       previousData: this.state.previousData,
-      data,
-      error,
+      selection,
     };
 
-    return { data, error };
+    const selected = selection.current();
+    return {
+      ...selected,
+      data:
+        selected.error && selected.data === undefined
+          ? this.state.previousData
+          : selected.data,
+    };
   }
 
   setReference(
@@ -306,6 +324,7 @@ export class InfiniteQueryObserver<
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.selectionCache?.selection.dispose();
     this.cancelActions();
     this.destroyPages();
     this.result.clear();

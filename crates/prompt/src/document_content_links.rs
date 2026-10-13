@@ -29,6 +29,8 @@ For Markdown document content, link to other Macro documents, channels, chats, p
 
 The same Markdown parser also renders the other in-app chip tags: `<m-date-mention>` for a day or time, `<m-agent-session-mention>` for an agent session (add `"expanded":true` for the card that follows the latest turn), `<m-user-mention>` / `<m-contact-mention>` / `<m-group-mention>` for people and groups, and `<m-pr-mention>` for a pull request. Use those tags in document content the same way you would in a chat reply.
 
+Reference a GitHub pull request with a PR chip rather than a Markdown link or bare URL: `<m-pr-mention>{"url":"https://github.com/{owner}/{repo}/pull/{number}","label":""}</m-pr-mention>`. Put the PR's github.com URL in `url`; no Macro id is needed. This applies to Markdown document content and to `SendChannelMessage` content, which uses the same Markdown syntax. The chip shows the PR's number, title, and live status and opens it in Macro, so leave `label` empty and do not repeat the number or title beside it. Issues, commits, and other GitHub pages stay Markdown links. Your own chat replies to the MCP client still link pull requests as plain Markdown URLs.
+
 This holds true even when `CreateDocument` is called through the MCP server, where you are otherwise told to link items in your own chat replies as plain Markdown URLs — that rule is about your conversational responses to the MCP client, not about content you write into a Macro document. Do NOT use plain Markdown links or bare URLs to reference other Macro items inside document content; only `<m-document-mention>` tags (and the other chip tags above) render as working links there.
 
 The same applies to `EditDocument`: when its `instructions` ask for a mention chip (person, date/time, document, agent session, and so on) or a document-card, include the referenced item's ids and details so the editing worker can construct the correct in-app markup itself. Date chips need an ISO datetime and displayFormat; they do not need a looked-up id.
@@ -36,7 +38,8 @@ The same applies to `EditDocument`: when its `instructions` ask for a mention ch
 
 static INTENT: &str = "Content written into Markdown documents via CreateDocument or EditDocument \
 links other Macro items with `<m-document-mention>` XML tags and the other in-app chip tags \
-(dates, agent sessions, people) — never plain Markdown URLs — \
+(dates, agent sessions, people, and `<m-pr-mention>` by URL for GitHub pull requests, also in \
+SendChannelMessage content) — never plain Markdown URLs — \
 regardless of whether the tool call arrived in-app or over MCP, while non-Markdown documents carry \
 no Markdown syntax or mention tags at all.";
 

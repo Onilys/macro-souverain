@@ -41,9 +41,12 @@ check *ARGS:
     if [ -n "$js" ]; then
       web_paths=()
       shared_paths=()
+      sdk_paths=()
       while IFS= read -r f; do
         if [[ "$f" == apps/web/* ]]; then
           web_paths+=("$PWD/$f")
+        elif [[ "$f" == packages/sdk/* ]]; then
+          sdk_paths+=("$PWD/$f")
         else
           shared_paths+=("$PWD/$f")
         fi
@@ -58,8 +61,21 @@ check *ARGS:
         (\cd apps/web && bunx --bun @biomejs/biome ci --colors=off --no-errors-on-unmatched \
             --error-on-warnings "${shared_paths[@]}") \
           || { echo "   fix: run Biome check --write in the owning package, then re-check"; fail=1; }
+      fi
+      if [ "${#sdk_paths[@]}" -gt 0 ]; then
+        echo "── biome (SDK-owned configuration and version)"
+        if [ ! -x packages/sdk/node_modules/.bin/biome ]; then
+          echo "   install SDK tooling: (\cd packages/sdk && bun install --frozen-lockfile)"
+          fail=1
+        else
+          (\cd packages/sdk && ./node_modules/.bin/biome ci --colors=off --no-errors-on-unmatched \
+              --error-on-warnings "${sdk_paths[@]}") \
+            || { echo "   fix: (\cd packages/sdk && bun run format && bun run lint), then re-check"; fail=1; }
+        fi
+      fi
+      if [ "${#shared_paths[@]}" -gt 0 ] || [ "${#sdk_paths[@]}" -gt 0 ]; then
         echo "── oxlint (non-web FE-12 checks; warn-only)"
-        bunx --yes oxlint@1.73.0 --config .oxlintrc.shared.json "${shared_paths[@]}" || fail=1
+        bunx --yes oxlint@1.73.0 --config .oxlintrc.shared.json "${shared_paths[@]}" "${sdk_paths[@]}" || fail=1
       fi
     fi
     if [ -n "$sg" ]; then

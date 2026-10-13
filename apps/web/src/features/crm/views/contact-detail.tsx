@@ -1,5 +1,5 @@
 import { SidePanel } from '@components/app/side-panel';
-import { createMemo, type JSX, Match, Show, Suspense, Switch } from 'solid-js';
+import { createMemo, Match, Show, Suspense, Switch } from 'solid-js';
 import { useCrmContext } from '../context/crm-context';
 import {
   type ContactSection,
@@ -23,10 +23,11 @@ export function Contact(props: {
   contactId: string;
   section?: ContactSection;
   headerToggle?: boolean;
-  navigation?: JSX.Element;
   onOpenCompany?: (companyId: string) => boolean;
+  onOpenPipeline?: (pipelineId: string) => void;
 }) {
   const context = useCrmContext();
+  const pipelinesEnabled = context.pipelinesEnabled();
   const contactQuery = useContactQuery(() => props.contactId);
   const contact = () => contactQuery.data;
   const isTeamAdmin = useIsTeamAdmin();
@@ -53,7 +54,6 @@ export function Contact(props: {
       defaultOpen={false}
     >
       <div class="flex size-full min-h-0 min-w-0 flex-col">
-        {props.navigation}
         <div class="min-h-0 min-w-0 flex-1">
           <Switch>
             <Match when={section() === 'overview'}>
@@ -63,6 +63,12 @@ export function Contact(props: {
                     contact={contact()}
                     onOpenCompany={props.onOpenCompany}
                   />
+                  <Show when={pipelinesEnabled()}>
+                    <context.PipelineEntries
+                      record={{ type: 'contact', id: props.contactId }}
+                      onOpenPipeline={props.onOpenPipeline}
+                    />
+                  </Show>
                   <ContactDiscussionSection contactId={props.contactId} />
                 </div>
               </div>

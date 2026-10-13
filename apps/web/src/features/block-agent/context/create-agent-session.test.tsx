@@ -35,10 +35,11 @@ vi.mock('@queries/agent-session/log', () => ({
   AgentSessionLogUnavailable: class extends Error {},
   watchAgentSessionLog: () => ({
     cached: logSource.cached(),
+    cacheMiss: () => undefined,
     fetched: logSource.fetched(),
     stop: () => {},
   }),
-  appendAgentSessionLogRows: vi.fn(async () => undefined),
+  canFollowAgentSessionLog: () => false,
   forgetAgentSessionLog: vi.fn(async () => undefined),
 }));
 vi.mock('@queries/agent-session/session-metadata-sync', () => ({

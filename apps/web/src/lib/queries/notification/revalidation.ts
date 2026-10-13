@@ -1,5 +1,6 @@
 import type { QueryRevalidation } from '@graphql-cache/exchange/optimistic';
 import {
+  ChannelDetailSoupDocument,
   ChannelListSoupDocument,
   ChannelUnreadPresenceDocument,
   GroupSoupDocument,
@@ -18,6 +19,7 @@ type NotificationReader = {
 
 const notificationReaders = new Set<NotificationReader>();
 const notificationDocuments = new Set<QueryRevalidation['document']>([
+  ChannelDetailSoupDocument,
   ChannelListSoupDocument,
   ChannelUnreadPresenceDocument,
   GroupSoupDocument,

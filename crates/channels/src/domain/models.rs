@@ -667,6 +667,8 @@ pub enum ReferencedShareItemType {
     Call,
     /// Calendar event entity: one owner's projection of a meeting.
     CalendarEvent,
+    /// Form entity: posting one lets the channel respond to it.
+    Form,
 }
 
 impl ReferencedShareItemType {
@@ -681,6 +683,7 @@ impl ReferencedShareItemType {
             "thread" | "email" | "email_thread" => Some(Self::EmailThread),
             "call" => Some(Self::Call),
             "calendar_event" => Some(Self::CalendarEvent),
+            "form" => Some(Self::Form),
             _ => None,
         }
     }
@@ -696,6 +699,7 @@ impl ReferencedShareItemType {
             Self::EmailThread => "thread",
             Self::Call => "call",
             Self::CalendarEvent => "calendar_event",
+            Self::Form => "form",
         }
     }
 
@@ -748,6 +752,26 @@ impl ReferencedShareItem {
     pub fn entity_type(&self) -> ReferencedShareItemType {
         self.entity_type
     }
+}
+
+/// Whether a referenced item was granted to a channel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReferenceShareOutcome {
+    /// A channel grant exists. An existing direct grant is left as it was.
+    Shared,
+    /// The actor's access is below what sharing this kind of item requires.
+    NotPermitted,
+}
+
+/// One referenced item and whether it was shared with the channel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReferenceShareResult {
+    /// Referenced entity id.
+    pub entity_id: String,
+    /// Referenced entity type.
+    pub entity_type: ReferencedShareItemType,
+    /// Grant outcome.
+    pub outcome: ReferenceShareOutcome,
 }
 
 /// Request to add participants.

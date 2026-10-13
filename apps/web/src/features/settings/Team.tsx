@@ -1,10 +1,3 @@
-import {
-  formatIncludedAi,
-  type IncludedAiCentsByTier,
-  PLANS,
-  type Plan,
-  type PlanTier,
-} from '@app/features/paywall/plans';
 import { SlackImport } from '@app/features/slack-import/slack-import';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { toast } from '@core/component/Toast/Toast';
@@ -16,6 +9,7 @@ import {
 } from '@core/component/TopBar/linkShare';
 import { UserIcon } from '@core/component/UserIcon';
 import { enableAiUsageBilling } from '@core/constant/featureFlags';
+import { useSettingsState } from '@core/constant/SettingsState';
 import { SERVER_HOSTS } from '@core/constant/servers';
 import { useUserId } from '@core/context/user';
 import { getDisplayName, macroIdToEmail, tryMacroId } from '@core/user';
@@ -41,7 +35,6 @@ import XIcon from '@phosphor/x.svg';
 import {
   useAiBillingSummaryQuery,
   useGithubLinkStatusQuery,
-  useIncludedAiCentsByTier,
 } from '@queries/auth';
 import {
   useJoinTeamMutation,
@@ -93,6 +86,8 @@ import {
   Switch,
 } from 'solid-js';
 import { z } from 'zod';
+import { TeamSeatPlanSelect } from './components/team-seat-plan-select';
+import { ConnectAction } from './integration-ui';
 import {
   IntegrationRow,
   SettingsCard,
@@ -164,104 +159,21 @@ function RoleSelect(props: {
         <CaretDownIcon class="size-3 text-ink-muted shrink-0" />
       </Select.Trigger>
       <Select.Portal>
-        <Select.Content class="z-action-menu border border-edge bg-surface rounded shadow-lg min-w-25 p-1">
+        <Select.Content class="menu-surface z-action-menu min-w-25 p-1">
           <Select.Listbox />
         </Select.Content>
       </Select.Portal>
     </Select>
-  );
-}
-
-type PlanOption = { value: PaidPlan; label: string; description: string };
-
-/** "$40 · $20 of AI" once the catalog has the allowance, otherwise "$40". */
-function planOption(plan: Plan, includedAi: string | undefined): PlanOption {
-  return {
-    value: plan.tier as PaidPlan,
-    label: plan.name,
-    description: includedAi
-      ? `$${plan.price} · ${includedAi} of AI`
-      : `$${plan.price}`,
-  };
-}
-
-/** Every paid plan a seat can be moved to, cheapest first. */
-function planOptionsFor(
-  includedAi: IncludedAiCentsByTier,
-  aiUsageBilling: boolean
-): PlanOption[] {
-  const allowance = (tier: PlanTier) =>
-    aiUsageBilling ? formatIncludedAi(includedAi[tier]) : undefined;
-  return PLANS.flatMap((plan) =>
-    plan.tier === 'free' ? [] : [planOption(plan, allowance(plan.tier))]
   );
 }
 
 /**
  * The plan a member's seat is billed at. Until the generated `TeamMember`
- * schema carries `plan`, read it defensively; every seat starts on Premium.
+ * schema carries `plan`, read it defensively; every seat starts on Pro.
  */
 function memberPlan(member: TeamMember): PaidPlan {
   const plan = (member as TeamMember & { plan?: PaidPlan }).plan;
   return plan === 'max' ? 'max' : 'premium';
-}
-
-function PlanSelect(props: {
-  value: PaidPlan;
-  onChange: (plan: PaidPlan) => void;
-  disabled?: boolean;
-}) {
-  const includedAi = useIncludedAiCentsByTier();
-  const aiUsageBilling = useFeatureFlag(enableAiUsageBilling);
-  const options = () => planOptionsFor(includedAi(), aiUsageBilling().enabled);
-  const selectedOption = () =>
-    options().find((option) => option.value === props.value) ?? options()[0];
-
-  return (
-    <Select<PlanOption>
-      options={options()}
-      value={selectedOption()}
-      onChange={(opt) => opt && props.onChange(opt.value)}
-      optionValue="value"
-      optionTextValue="label"
-      gutter={4}
-      placement="bottom-end"
-      disabled={props.disabled}
-      itemComponent={(itemProps: { item: CollectionNode<PlanOption> }) => (
-        <Select.Item
-          item={itemProps.item}
-          class="flex items-center justify-between gap-3 px-2 py-1.5 text-sm rounded-xs hover:bg-hover outline-none data-highlighted:bg-hover"
-        >
-          <Select.ItemLabel class="flex flex-col">
-            <span>{itemProps.item.rawValue.label}</span>
-            <span class="text-xs text-ink-muted">
-              {itemProps.item.rawValue.description}
-            </span>
-          </Select.ItemLabel>
-          <Select.ItemIndicator>
-            <CheckIcon class="size-3" />
-          </Select.ItemIndicator>
-        </Select.Item>
-      )}
-    >
-      <Select.Trigger
-        as={Button}
-        class="rounded-xs px-1 py-0.5 text-xs -ml-1 data-expanded:bg-ink/10"
-        disabled={props.disabled}
-        aria-label="Seat plan"
-      >
-        <Select.Value<PlanOption>>
-          {(state) => state.selectedOption().label}
-        </Select.Value>
-        <CaretDownIcon class="size-3 text-ink-muted shrink-0" />
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Content class="z-action-menu border border-edge bg-surface rounded shadow-lg min-w-40 p-1">
-          <Select.Listbox />
-        </Select.Content>
-      </Select.Portal>
-    </Select>
-  );
 }
 
 const emailSchema = z.string().email();
@@ -434,10 +346,12 @@ function MemberRow(props: {
   showPlan: boolean;
   canEditPlan: boolean;
   planPending: boolean;
+  pendingDowngrade: boolean;
   onRemove: () => void;
   onRoleChange: (role: TeamRole) => void;
   onPlanChange: (plan: PaidPlan) => void;
 }) {
+  const aiUsageBilling = useFeatureFlag(enableAiUsageBilling);
   const displayName = () => getDisplayName(tryMacroId(props.member.user_id));
   const isMemberOwner = () => props.member.role === TeamRole.owner;
   const email = () => {
@@ -477,10 +391,12 @@ function MemberRow(props: {
               </span>
             }
           >
-            <PlanSelect
+            <TeamSeatPlanSelect
               value={memberPlan(props.member)}
               onChange={props.onPlanChange}
               disabled={props.planPending}
+              aiUsageBilling={aiUsageBilling().enabled}
+              pendingDowngrade={props.pendingDowngrade}
             />
           </Show>
         </Show>
@@ -951,6 +867,7 @@ function TeamManagement(props: {
   const teamQuery = useTeamQuery(() => props.teamId);
   const invitesQuery = useTeamInvitesQuery(() => props.teamId);
   const githubLink = useGithubLinkStatusQuery();
+  const { openSettings } = useSettingsState();
 
   const deleteInviteMutation = useDeleteTeamInviteMutation();
   const removeUserMutation = useRemoveUserFromTeamMutation();
@@ -1495,8 +1412,8 @@ function TeamManagement(props: {
         </SettingsSection>
 
         <SettingsSection title="Connections">
-          <SlackImport teamId={props.teamId} isAdmin={isAdminOrOwner()} />
           <SettingsCard>
+            <SlackImport teamId={props.teamId} isAdmin={isAdminOrOwner()} />
             <IntegrationRow
               icon={<GithubIcon />}
               title="GitHub App"
@@ -1504,15 +1421,21 @@ function TeamManagement(props: {
             >
               {/* The install callback rejects users without a linked GitHub
                   account, so don't offer the flow until they've connected one
-                  in their personal settings. */}
+                  on the Integrations page. */}
               <Show
                 when={githubLink.data?.status === 'linked'}
                 fallback={
-                  <span class="text-xs text-ink-muted">
-                    {githubLink.isLoading
-                      ? 'Loading…'
-                      : 'Connect your GitHub account first'}
-                  </span>
+                  <Show
+                    when={!githubLink.isLoading}
+                    fallback={
+                      <span class="text-xs text-ink-muted">Loading…</span>
+                    }
+                  >
+                    <ConnectAction
+                      label="Connect your GitHub account first"
+                      onClick={() => openSettings('Connected')}
+                    />
+                  </Show>
                 }
               >
                 <a
@@ -1570,6 +1493,31 @@ function TeamManagement(props: {
           </Show>
 
           <Show
+            when={
+              teamQuery.isSuccess &&
+              showSeatPlans() &&
+              isAdminOrOwner() &&
+              !teamQuery.data?.team.enterprise &&
+              // A successful team response omits this field only on lookup failure.
+              teamQuery.data?.scheduled_seat_plans == null
+            }
+          >
+            <div
+              class="flex items-center gap-2 text-xs text-ink-muted"
+              role="status"
+            >
+              <span>Couldn't load scheduled plan changes.</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => teamQuery.refetch()}
+              >
+                Try again
+              </Button>
+            </div>
+          </Show>
+
+          <Show
             when={!teamQuery.isLoading}
             fallback={
               <SettingsCard>
@@ -1603,9 +1551,12 @@ function TeamManagement(props: {
                       showPlan={showSeatPlans()}
                       canEditPlan={isAdminOrOwner()}
                       planPending={planMovePending()}
+                      pendingDowngrade={
+                        teamQuery.data?.scheduled_seat_plans?.[member.user_id]
+                          ?.plan === 'premium'
+                      }
                       onPlanChange={(plan) => {
-                        if (!props.teamId || plan === memberPlan(member))
-                          return;
+                        if (!props.teamId) return;
                         setMemberPlanMutation.mutate({
                           teamId: props.teamId,
                           userId: member.user_id,

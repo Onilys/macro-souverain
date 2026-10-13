@@ -21,6 +21,7 @@ type UseUsersMentionOptions = {
 };
 
 type UseUsersMentionResult = {
+  availableUsers: Accessor<UserItem[]>;
   users: Accessor<UserItem[]>;
   currentUserDomain: Accessor<string | undefined>;
   groups: Accessor<GroupMentionItem[]>;
@@ -124,6 +125,7 @@ export function useUsersMention(
   });
 
   return {
+    availableUsers: usersList,
     users,
     currentUserDomain,
     groups,

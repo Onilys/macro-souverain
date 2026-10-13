@@ -41,7 +41,8 @@ export type QuoteNode = EleBase & {
 };
 
 export type ListNode = EleBase & {
-  type: 'list';
+  /** `task-list` is the runtime ListNode replacement; identical wire shape. */
+  type: 'list' | 'task-list';
   children: SerNode[];
   listType: 'bullet' | 'number' | 'check';
   start: number;
@@ -205,6 +206,7 @@ export type PullRequestMentionNode = Id & {
   version: number;
   id: string;
   label: string;
+  url?: string;
 };
 
 export type ThemeMentionNode = Id & {

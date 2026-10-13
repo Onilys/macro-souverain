@@ -1,7 +1,7 @@
 import { SidePanel } from '@components/app/side-panel';
 import PlusIcon from '@phosphor/plus.svg';
 import { Button } from '@ui';
-import { createMemo, type JSX, Match, Show, Suspense, Switch } from 'solid-js';
+import { createMemo, Match, Show, Suspense, Switch } from 'solid-js';
 import { RecordSection } from '../components/record-section';
 import { useCrmContext } from '../context/crm-context';
 import type { CrmContact as CompanyContact } from '../core/contact';
@@ -30,13 +30,14 @@ export function Company(props: {
   companyId: string;
   section?: CompanySection;
   headerToggle?: boolean;
-  navigation?: JSX.Element;
   onHidden?: () => void;
   onOpenContact?: (contact: CompanyContact) => void;
+  onOpenPipeline?: (pipelineId: string) => void;
 }) {
   const context = useCrmContext();
   const openCreateContactModal = context.openCreateContact;
   const listsEnabled = context.listsEnabled();
+  const pipelinesEnabled = context.pipelinesEnabled();
   const { company, contacts } = useCompanyQuery(() => props.companyId);
   const section = () => props.section ?? 'overview';
   const scope = createMemo(
@@ -60,13 +61,18 @@ export function Company(props: {
       defaultOpen={false}
     >
       <div class="flex size-full min-h-0 min-w-0 flex-col">
-        {props.navigation}
         <div class="min-h-0 min-w-0 flex-1">
           <Switch>
             <Match when={section() === 'overview'}>
               <div class="h-full overflow-y-auto px-6 pb-12 pt-12 scrollbar-hidden touch:pt-6">
                 <div class="mx-auto flex max-w-3xl min-w-0 flex-col gap-6">
                   <CompanyHeader company={company()} />
+                  <Show when={pipelinesEnabled()}>
+                    <context.PipelineEntries
+                      record={{ type: 'company', id: props.companyId }}
+                      onOpenPipeline={props.onOpenPipeline}
+                    />
+                  </Show>
                   <CompanyDiscussionSection companyId={props.companyId} />
                 </div>
               </div>
@@ -84,7 +90,10 @@ export function Company(props: {
                     onClick={() => {
                       const domain = company()?.domains[0]?.domain;
                       if (domain)
-                        openCreateContactModal(props.companyId, domain);
+                        openCreateContactModal({
+                          companyId: props.companyId,
+                          domain,
+                        });
                     }}
                   >
                     <PlusIcon class="size-3.5" />

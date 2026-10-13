@@ -20,7 +20,10 @@ import { DateMentionNode } from '../nodes/DateMentionNode';
 import { DocumentCardNode } from '../nodes/DocumentCardNode';
 import { DocumentMentionNode } from '../nodes/DocumentMentionNode';
 import { GroupMentionNode } from '../nodes/GroupMentionNode';
-import { PullRequestMentionNode } from '../nodes/PullRequestMentionNode';
+import {
+  isGithubPullRequestUrl,
+  PullRequestMentionNode,
+} from '../nodes/PullRequestMentionNode';
 import { TagMentionNode } from '../nodes/TagMentionNode';
 import { ThemeMentionNode } from '../nodes/ThemeMentionNode';
 import { UserMentionNode } from '../nodes/UserMentionNode';
@@ -318,19 +321,28 @@ export const I_PR_MENTION: TextMatchTransformer = {
       id: node.getId(),
       label: node.getLabel(),
       mentionUuid: node.getMentionUuid(),
+      url: node.getUrl(),
     });
     return `<m-pr-mention>${data}</m-pr-mention>`;
   },
   replace: (node: TextNode, match: RegExpMatchArray) => {
     try {
       const data = JSON.parse(match[1]);
-      if (!('id' in data) || typeof data.id !== 'string') {
-        throw new Error('Missing field id');
+      // Agents often know only a PR's GitHub URL; the decorator resolves the
+      // Macro entity from it, so either field identifies the PR.
+      const id = typeof data.id === 'string' ? data.id : '';
+      const url =
+        typeof data.url === 'string' && isGithubPullRequestUrl(data.url)
+          ? data.url
+          : undefined;
+      if (!id && !url) {
+        throw new Error('Missing field id or url');
       }
       const prMentionNode = new PullRequestMentionNode(
-        data.id,
+        id,
         typeof data.label === 'string' ? data.label : undefined,
-        typeof data.mentionUuid === 'string' ? data.mentionUuid : undefined
+        typeof data.mentionUuid === 'string' ? data.mentionUuid : undefined,
+        url
       );
       node.replace(prMentionNode);
     } catch (e) {
@@ -350,9 +362,12 @@ export const E_PR_MENTION: ElementTransformer = {
     if (!(node instanceof PullRequestMentionNode)) return null;
 
     const id = node.getId();
-    if (!id) return null;
-
     const label = node.getLabel() || 'Pull request';
+    if (!id) {
+      const url = node.getUrl();
+      return url ? `[${label}](${url})` : null;
+    }
+
     const hostname = currentBrowserHostname();
     if (!hostname) return label;
 

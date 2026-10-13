@@ -32,8 +32,9 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
+use trigger_context::TriggerContext;
 
-use super::model::AnnounceOrigin;
+use super::model::{AnnounceOrigin, HeldToolCall};
 
 #[cfg(test)]
 mod test;
@@ -56,6 +57,8 @@ pub struct QueuedEntry {
     /// Where to announce the prompt at dispatch, when it came from somewhere
     /// the session should answer back into.
     pub announce: Option<AnnounceOrigin>,
+    /// Why the agent is being asked, composed into the prompt at dispatch.
+    pub context: Option<TriggerContext>,
     /// The chip message, once posted. Set by the dispatch that posts it and
     /// carried through a requeue, so a dispatch that fails *after*
     /// announcing retries without posting a second chip.
@@ -94,6 +97,9 @@ pub struct InFlightTurn {
     /// turn hours old with nothing streaming is the shape of a wedged
     /// session, and without this it looks exactly like a long one.
     pub dispatched_at: DateTime<Utc>,
+    /// Tool calls this turn made that wait on the owner's approval, oldest
+    /// first. The reply names the oldest while any wait.
+    pub held_tool_calls: Vec<HeldToolCall>,
 }
 
 impl InFlightTurn {
@@ -153,6 +159,7 @@ impl QueuedEntry {
                 .map(serde_json::to_value)
                 .transpose()?,
             announced_message_id: self.announced,
+            context: self.context.clone(),
         })
     }
 
@@ -164,6 +171,7 @@ impl QueuedEntry {
             actor: stored.actor,
             announce: stored.announce.map(serde_json::from_value).transpose()?,
             announced: stored.announced_message_id,
+            context: stored.context,
             created_at: stored.created_at,
         })
     }
