@@ -21,8 +21,36 @@ env:
   MODE: "production"
 
 jobs:
+  android-changes:
+    name: Check for native Android changes
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    outputs:
+      build: ${{ steps.changes.outputs.build || steps.recovery.outputs.build }}
+    steps:
+      - name: Allow explicit recovery build
+        id: recovery
+        if: github.event_name == 'workflow_dispatch'
+        run: echo 'build=true' >> "$GITHUB_OUTPUT"
+      - name: Checkout release history
+        if: github.event_name == 'release'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compare Tauri with last published Android bundle
+        id: changes
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node apps/web/scripts/android-release-needed.mjs
+
   build-android:
     name: Build signed Android App Bundle
+    needs: [android-changes]
+    if: needs.android-changes.outputs.build == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -166,6 +194,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Download verified Android artifact
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
@@ -178,6 +207,18 @@ jobs:
           tag_name: ${{ inputs.release_tag || github.event.release.tag_name }}
           files: android-artifacts/*
           fail_on_unmatched_files: true
+      - name: Release to Google Play internal testers
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # Dispatch from main to retain the existing restricted Google OIDC identity.
+          gh workflow run publish-android-play.yml --repo "$GITHUB_REPOSITORY" --ref main \
+            -f operation=upload-internal -f release_tag="$RELEASE_TAG" -f status=completed
+          printf 'Queued Google Play internal testing upload for `%s`. Check the Publish Android to Google Play workflow for its result.\n' \
+            "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
   deploy-cloud-storage:
     if: github.event_name == 'release'
