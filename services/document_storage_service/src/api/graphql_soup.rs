@@ -17,9 +17,7 @@ use bots::outbound::pg_bots_repo::PgBotsRepo;
 use complete_graph::GraphqlRequestParts;
 use entity_registry::OwnerGrantPolicy;
 use entity_registry_db_utils::OwnedEntityRegistrar;
-use graphql_soup::{
-    SoupReplicaFallback, email_mutation_thread_loader, soup_item_loader_with_team_access,
-};
+use graphql_soup::{email_mutation_thread_loader, soup_item_loader_with_team_access};
 use macro_authorization::{
     OptionalMacroAuthorizationExtractor, UserOrInternalService, UserOrInternalServiceAuthorization,
 };
@@ -153,14 +151,10 @@ fn insert_graphql_context_data(
         state.entity_access_service.clone(),
     );
     // Ordinary queries and subscription hydration use the replica-backed
-    // Soup reader, falling back to the primary only for a batch the replica
+    // Soup reader, falling back to the primary only for a read the replica
     // cancels. The mutation-only loader below retains the primary reader.
     let soup_item_loader = soup_item_loader_with_team_access(
-        state.soup_router_state.service(),
-        SoupReplicaFallback::new(
-            state.primary_entity_soup.clone(),
-            soup::outbound::is_replica_read_conflict,
-        ),
+        state.graphql_soup_service.clone(),
         state.soup_router_state.email_service(),
         state.entity_access_service.as_ref().clone(),
     );

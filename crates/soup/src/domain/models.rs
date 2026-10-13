@@ -81,7 +81,7 @@ pub struct SimpleSortRequest<'a> {
 }
 
 /// Parameters for grouped soup queries.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupedSortRequest<'a> {
     /// the limit of the number of items to return
     pub limit: u16,
@@ -159,7 +159,7 @@ pub struct AdvancedSortParams<'a> {
 }
 
 /// Cursor or initial-sort query for a soup request.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SoupQuery<T> {
     /// Query sorted by a simple timestamp-based method.
     Simple(SimpleQueryInner<T>),
@@ -196,11 +196,11 @@ impl<T> SoupQuery<T> {
 }
 
 /// the inner private type for [SoupQuery::Simple]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleQueryInner<T>(pub(crate) Query<Uuid, SimpleSortMethod, T>);
 
 /// the inner private type for [SoupQuery::Frecency]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FrecencyQueryInner<T>(pub(crate) Query<Uuid, Frecency, T>);
 
 /// the inner private type for [SoupQuery::Touched]
@@ -209,7 +209,7 @@ pub struct FrecencyQueryInner<T>(pub(crate) Query<Uuid, Frecency, T>);
 /// activity log's TEXT `entity_id` column, and the raw string must survive
 /// the cursor round-trip byte-for-byte (see
 /// [`TouchedPagePosition::entity_id`]).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TouchedQueryInner<T>(pub(crate) Query<String, TouchedByMe, T>);
 
 /// the inner private type for [SoupQuery::Notified]
@@ -217,7 +217,7 @@ pub struct TouchedQueryInner<T>(pub(crate) Query<String, TouchedByMe, T>);
 /// The id is a [String] for the same reason as [`TouchedQueryInner`]: the
 /// keyset compares it byte-for-byte against `notification.event_item_id`,
 /// an unconstrained TEXT column.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NotifiedQueryInner<T>(pub(crate) Query<String, NotifiedAt, T>);
 
 impl<T> SoupQuery<T> {
@@ -316,7 +316,7 @@ impl SoupQuery<EntityFilters> {
 }
 
 /// Request to fetch a page of soup items for a user.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SoupRequest<T> {
     /// Whether to return expanded or unexpanded soup items.
     pub soup_type: SoupType,

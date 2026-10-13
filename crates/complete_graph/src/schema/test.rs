@@ -1864,6 +1864,57 @@ async fn soup_passes_team_receipt_to_frecency_enriched_path() {
 }
 
 #[tokio::test]
+async fn soup_list_reruns_a_replica_cancelled_read_on_the_primary() {
+    use soup::domain::{models::SoupErr, replica_fallback::ReplicaFallbackSoupService};
+
+    let harness = harness();
+    let primary = CountingSoupService::default();
+    let document_id = Uuid::from_u128(77);
+    primary.set_raw_response(vec![soup_document(document_id)]);
+    let schema: SoupSchema<
+        ReplicaFallbackSoupService<CountingSoupService>,
+        NoOpSoupRealtimeSubscriptionService,
+        NoopWebSocketNotificationSubscriptionService,
+        graphql_activity::NoOpActivitySubscriptionService,
+        CountingEmailService,
+        CountingEntityAccessService,
+        FakeAuthorizationService,
+        TestState,
+        NoOpEntityPropertyWriter,
+        UnavailableEntityMutationService,
+        graphql_favorite::NoOpFavoriteMutationService,
+        NoOpChannelActivityMutationService,
+        NoOpNotificationMutationService,
+        NoOpSoupNotificationEdgeReader,
+        NoOpEntityPropertyReader,
+        RecordingEmailContentReader,
+        graphql_favorite::NoOpEntityFavoriteEdgeReader,
+        graphql_permission::NoOpEntityPermissionEdgeReader,
+        RecordingActivityReader,
+    > = build_schema_with_service(ReplicaFallbackSoupService::new(
+        harness.soup_service.clone(),
+        primary.clone(),
+        |error| matches!(error, SoupErr::SoupDbErr(_)),
+    ));
+
+    let response = schema
+        .execute(harness.request(
+            "{ user { soup(input: {initial: {}}) { items { id } } } }",
+            authenticated_parts(),
+        ))
+        .await;
+
+    assert!(response.errors.is_empty(), "{:?}", response.errors);
+    let data = response.data.into_json().unwrap();
+    assert_eq!(
+        data["user"]["soup"]["items"][0]["id"],
+        document_id.to_string()
+    );
+    assert_eq!(harness.raw_soup_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(primary.raw_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn group_soup_nests_items_in_bins_and_reuses_cached_authorization() {
     let harness = harness();
 

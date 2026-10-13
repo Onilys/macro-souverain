@@ -165,7 +165,8 @@ use scheduled_action::domain::read_service::ScheduledActionReadServiceImpl;
 use scheduled_action::outbound::pg_scheduled_action_repo::PgScheduledActionRepo;
 use secretsmanager_client::SecretManager;
 use soup::{
-    domain::service::SoupImpl, inbound::axum_router::SoupRouterState,
+    domain::{replica_fallback::ReplicaFallbackSoupService, service::SoupImpl},
+    inbound::axum_router::SoupRouterState,
     outbound::pg_soup_repo::PgSoupRepo,
 };
 use soup_realtime::{
@@ -1951,6 +1952,15 @@ pub async fn run() -> anyhow::Result<()> {
         entity_access_service.clone(),
     ));
 
+    // GraphQL reads (lists, grouped lists, subscription hydration and the work
+    // feed) rerun a read the replica cancels for WAL replay on the primary.
+    // REST keeps the plain replica reader.
+    let graphql_soup_service = Arc::new(ReplicaFallbackSoupService::new(
+        soup_service.clone(),
+        primary_entity_soup.clone(),
+        soup::outbound::is_replica_read_conflict,
+    ));
+
     // Home's work feed: Soup candidates over the replica, notification
     // acknowledgement on the primary, and live updates recomputed from the
     // viewer's notification, activity and Soup streams. Done publishes a
@@ -1959,7 +1969,7 @@ pub async fn run() -> anyhow::Result<()> {
     let graphql_work_feed_context = complete_graph::WorkFeedGraphqlContext::new(
         work_feed::domain::service::WorkFeedServiceImpl::new(
             work_feed::outbound::source::SoupWorkFeedSource::new(
-                soup_service.clone(),
+                graphql_soup_service.clone(),
                 Arc::new(email_service.clone()),
             ),
             work_feed::outbound::notifications::ReaderWorkFeedNotifications::new(
@@ -2022,12 +2032,9 @@ pub async fn run() -> anyhow::Result<()> {
             ),
         ),
         graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader(
-            graphql_soup::soup_item_loader(
-                primary_entity_soup.clone(),
-                Arc::new(email_service.clone()),
-            ),
+            graphql_soup::soup_item_loader(primary_entity_soup, Arc::new(email_service.clone())),
         ),
-        primary_entity_soup,
+        graphql_soup_service: graphql_soup_service.clone(),
         graphql_initiative_context: graphql_initiative::InitiativeGraphqlContext::new(
             initiative_service.clone(),
             entity_access_service.clone(),
@@ -2068,7 +2075,7 @@ pub async fn run() -> anyhow::Result<()> {
             authorization_state.clone(),
         ),
         graphql_soup_schema: complete_graph::build_schema_from_arcs(
-            soup_service,
+            graphql_soup_service,
             soup_realtime_service,
             websocket_notification_consumer_service,
             activity_realtime_service,

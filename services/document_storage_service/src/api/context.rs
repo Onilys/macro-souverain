@@ -138,7 +138,8 @@ use reminders::{
 };
 use search_service::SearchHandlerState;
 use soup::{
-    domain::service::SoupImpl, inbound::axum_router::SoupRouterState,
+    domain::{replica_fallback::ReplicaFallbackSoupService, service::SoupImpl},
+    inbound::axum_router::SoupRouterState,
     outbound::pg_soup_repo::PgSoupRepo,
 };
 use soup_realtime::{
@@ -218,6 +219,10 @@ pub(crate) type DssSoupService = SoupImpl<
     GithubPullRequestServiceType,
 >;
 
+/// Replica-backed Soup reader for GraphQL that reruns a read the replica
+/// cancels on the primary.
+pub(crate) type DssGraphqlSoupService = ReplicaFallbackSoupService<Arc<DssSoupService>>;
+
 type DssSoupState =
     SoupRouterState<DssSoupService, DssEmailService, EntityAccessService, AuthorizationService>;
 
@@ -241,7 +246,7 @@ pub(crate) type DssActivityRealtimeService =
 /// parameter lets GraphQL resolvers run the same axum extractors as the REST
 /// routes, lazily, against the stored request parts.
 pub(crate) type DssGraphqlSoupSchema = complete_graph::SharedSoupSchema<
-    DssSoupService,
+    DssGraphqlSoupService,
     DssSoupRealtimeService,
     DssNotificationRealtimeService,
     DssActivityRealtimeService,
@@ -834,9 +839,9 @@ pub(crate) struct ApiContext {
     pub graphql_work_feed_context: complete_graph::WorkFeedGraphqlContext,
     pub graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader,
     pub graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader,
-    /// Primary-backed Soup reader; Soup lists and realtime hydration stay on
-    /// the replica reader in `soup_router_state`.
-    pub primary_entity_soup: Arc<DssSoupService>,
+    /// Soup reader behind GraphQL subscription hydration; see
+    /// [`DssGraphqlSoupService`].
+    pub graphql_soup_service: Arc<DssGraphqlSoupService>,
     pub databases_state: DssDatabasesState,
     pub forms_state: DssFormsState,
     pub database_starter_state: DssDatabaseStarterState,

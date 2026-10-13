@@ -89,7 +89,7 @@ impl Sortable for NotifiedAt {
 }
 
 /// the possible values of the cursor when sorting by frecency
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum FrecencyValue {
     /// the frecency score of the item
     FrecencyScore(f64),
