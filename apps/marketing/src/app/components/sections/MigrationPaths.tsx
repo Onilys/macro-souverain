@@ -234,7 +234,7 @@ export function MigrationPaths(props: { helpHref: string }) {
         .migration-row-icon { display: inline-flex; flex: none; color: var(--c4); padding-top: 2px; }
         .migration-row-icon > svg { width: 19px; height: 19px; }
         .migration-path-section { display: grid; grid-template-columns: 205px minmax(0, 1fr); gap: 28px; border-top: 1px solid color-mix(in srgb, var(--c4) 14%, transparent); padding-top: 24px; }
-        .migration-path h3 { color: var(--c1); font-family: display; font-size: 32px; font-weight: 315; line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 20px; }
+        .migration-path h3 { color: var(--c1); font-family: display; font-size: 32px; font-weight: calc(315 + var(--cream-slab-weight-increase, 0)); line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 20px; }
         .migration-path p { color: var(--c4); font-size: 15px; line-height: 1.7; margin: 0; text-wrap: pretty; }
         .migration-path-instructions { display: grid; gap: 24px; margin-top: 32px; }
         .migration-path h4 { display: flex; gap: 12px; align-items: flex-start; color: var(--c1); font-size: 16px; font-weight: 600; line-height: 1.5; margin: 0 0 8px; }

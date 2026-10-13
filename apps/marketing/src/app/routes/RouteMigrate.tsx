@@ -17,10 +17,9 @@ import { HomeHeroBackdrop } from '../components/sections/HomeAppPreview';
 import { HomeSectionRule } from '../components/sections/HomeSectionRule';
 import { MigrationPaths } from '../components/sections/MigrationPaths';
 import { SectionMoreFeatures } from '../components/sections/SectionMoreFeatures';
-import { buildCalLinkWithAttribution } from '../utils/utilAnalytic';
 import { APP_BASE_URL } from '../utils/utilBaseUrl';
 import { viewportWidth } from '../utils/utilBreakpoint';
-import { ctaHref, handleCtaClick } from '../utils/utilCta';
+import { ctaHref, demoHref, handleCtaClick } from '../utils/utilCta';
 import { setPageSeo } from '../utils/utilSeo';
 
 const mobile = () => viewportWidth() < 700;
@@ -31,9 +30,7 @@ const desyncVideoUrl = isLocalhost
   ? '/video/desync.mp4'
   : new URL('/video/desync.mp4', APP_BASE_URL).toString();
 
-const DEMO_CALL_HREF = buildCalLinkWithAttribution(
-  'https://cal.com/team/macro/macro-demo-call'
-);
+const DEMO_CALL_HREF = demoHref();
 
 const DOCS = 'https://docs.macro.com';
 const DOCS_SWITCH = `${DOCS}/switch-to-macro`;
@@ -179,7 +176,7 @@ function SectionHeading(props: {
           color: 'var(--c1)',
           'font-family': 'display',
           'font-size': mobile() ? '30px' : '42px',
-          'font-weight': '315',
+          'font-weight': 'calc(315 + var(--cream-slab-weight-increase, 0))',
           'letter-spacing': '-0.015em',
           'line-height': 1.1,
           margin: 0,
@@ -704,7 +701,7 @@ export const RouteMigrate: Component = () => {
         .migrate-hero-graphic .supermodule-cta-headline { font-size: 26px; letter-spacing: 0.03em; }
         .migrate-page :focus-visible { outline: 2px solid var(--c1); outline-offset: 4px; }
         .migrate-full-comparison { width: 100%; max-width: 980px; min-width: 0; }
-        .migrate-full-comparison h2 { font-family: display; font-size: clamp(28px, 4vw, 40px); font-weight: 315; letter-spacing: -0.015em; margin: 0 0 16px; }
+        .migrate-full-comparison h2 { font-family: display; font-size: clamp(28px, 4vw, 40px); font-weight: calc(315 + var(--cream-slab-weight-increase, 0)); letter-spacing: -0.015em; margin: 0 0 16px; }
         .migrate-full-comparison-content { display: grid; gap: 24px; padding-top: 20px; min-width: 0; }
         .migrate-connected-tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; width: 100%; max-width: 760px; justify-items: center; }
         .migrate-agent-prompt { max-width: 660px; margin: 0; padding: 4px 0 4px 24px; border-left: 2px solid var(--c4); color: var(--c2); font: 400 20px/1.55 Inter, body; text-wrap: pretty; }
@@ -835,7 +832,7 @@ export const RouteMigrate: Component = () => {
           color: var(--c1);
           font-family: display, serif;
           font-size: 32px;
-          font-weight: 400;
+          font-weight: calc(400 + var(--cream-slab-weight-increase, 0));
           letter-spacing: -0.025em;
           line-height: 1.1;
           margin: 0 0 6px;
@@ -1087,7 +1084,8 @@ export const RouteMigrate: Component = () => {
               style={{
                 'font-family': 'display',
                 'font-size': mobile() ? 'clamp(42px, 11.5vw, 58px)' : '52.36px',
-                'font-weight': '315',
+                'font-weight':
+                  'calc(315 + var(--cream-slab-weight-increase, 0))',
                 'letter-spacing': '-0.012em',
                 'line-height': 1.12,
                 margin: '0',
@@ -1297,7 +1295,8 @@ export const RouteMigrate: Component = () => {
               style={{
                 'font-family': 'display',
                 'font-size': mobile() ? '36px' : '48px',
-                'font-weight': '315',
+                'font-weight':
+                  'calc(315 + var(--cream-slab-weight-increase, 0))',
                 'letter-spacing': '-0.015em',
                 'line-height': 1.08,
                 margin: '0',

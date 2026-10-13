@@ -31,6 +31,7 @@ import {
   Show,
   Switch,
   splitProps,
+  untrack,
   useContext,
 } from 'solid-js';
 import { Portal } from 'solid-js/web';
@@ -131,7 +132,10 @@ export type ViewShellRootProps = Omit<
   resizable?: boolean;
   /** Set to false when the workspace has no navigation region. */
   aside?: false | Partial<AsideLayout>;
-  /** Sticky navigation visibility, scoped to this app type rather than an entry. */
+  /**
+   * Sticky navigation visibility, scoped to this app type rather than an entry.
+   * Only the first split uses it; other splits start collapsed.
+   */
   asidePreferenceKey?: string;
   /**
    * Keep navigation open while true, e.g. while Main has nothing selected and
@@ -171,12 +175,20 @@ function Root(props: ViewShellRootProps) {
     'onDetailOpenChange',
   ]);
 
-  const [wideAsideCollapsed, setWideAsideCollapsed] = local.asidePreferenceKey
-    ? usePreference(
-        `macro:pref:view-sidebar:collapsed:${local.asidePreferenceKey}`,
-        { default: false }
-      )
-    : createSignal(false);
+  const panel = useContext(SplitPanelContext);
+  // A view opened beside another split starts without navigation; only the
+  // primary split follows, and writes, the saved preference.
+  const secondarySplit =
+    local.asidePreferenceKey !== undefined &&
+    panel !== undefined &&
+    !untrack(panel.handle.isFirst);
+  const [wideAsideCollapsed, setWideAsideCollapsed] =
+    local.asidePreferenceKey && !secondarySplit
+      ? usePreference(
+          `macro:pref:view-sidebar:collapsed:${local.asidePreferenceKey}`,
+          { default: false }
+        )
+      : createSignal(secondarySplit);
   const id = createUniqueId();
   const [root, setRoot] = createSignal<HTMLDivElement>();
   const animateSidebar = createSidebarMotion(root);
@@ -326,7 +338,6 @@ function Root(props: ViewShellRootProps) {
     },
   };
 
-  const panel = useContext(SplitPanelContext);
   const navigationSlot = useContext(ViewNavigationSlotContext);
   if (panel) {
     registerHotkey({
@@ -668,7 +679,7 @@ function TopBar(props: JSX.HTMLAttributes<HTMLDivElement>) {
         {...rest}
         ref={mergeRefs(local.ref, tourTarget(VIEW_SHELL_TOUR.topBar))}
         class={cn(
-          '@container/split-header flex h-12 min-w-0 shrink-0 items-center gap-1 px-2 py-3 not-touch:pl-[13px] touch:hidden',
+          '@container/split-header flex h-12 min-w-0 shrink-0 items-center gap-1 px-2 py-3 not-touch:pl-3 touch:hidden',
           local.class
         )}
         data-view-shell-top-bar=""

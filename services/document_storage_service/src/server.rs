@@ -2035,6 +2035,7 @@ pub async fn run() -> anyhow::Result<()> {
             graphql_soup::soup_item_loader(primary_entity_soup, Arc::new(email_service.clone())),
         ),
         graphql_soup_service: graphql_soup_service.clone(),
+        graphql_crm_context: graphql_crm::CrmGraphqlContext::new(pipeline_service.clone()),
         graphql_initiative_context: graphql_initiative::InitiativeGraphqlContext::new(
             initiative_service.clone(),
             entity_access_service.clone(),

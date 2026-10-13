@@ -867,7 +867,8 @@ export const authServiceClient = {
    * Stores a Cursor API key for the signed-in user, replacing any existing one.
    *
    * The key is validated on shape alone, so a typo that still starts with
-   * `crsr_` is accepted here and only fails when a session tries to use it.
+   * `grok_` or `crsr_` is accepted here and only fails when a session tries to
+   * use it.
    */
   async putCursorApiKey(apiKey: string) {
     return (

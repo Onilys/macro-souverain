@@ -618,8 +618,12 @@ export function createDatabaseRowsSource(props: {
         : undefined;
     },
     loading: () => !rowsQuery.outcome() && rowsQuery.error() === undefined,
-    refreshing: rowsQuery.loading,
-    error: rowsQuery.error,
+    refreshing: () =>
+      rowsQuery.loading() ||
+      (retainedRowIds().length > 0 && retainedQuery.loading()),
+    error: () =>
+      rowsQuery.error() ??
+      (retainedRowIds().length > 0 ? retainedQuery.error() : undefined),
     refresh,
     addOption: props.addOption,
     retain: (rowIds) => setRetainedIds(() => rowIds),

@@ -30,7 +30,8 @@ import { ConnectAction, HarnessIcon, StatusDot } from './integration-ui';
 import { SettingsCard, SettingsPage } from './primitives';
 import { RuntimePairingPage } from './RuntimePairingPage';
 
-const CURSOR_KEY_PREFIX = 'crsr_';
+// Cursor now mints `grok_` keys; the `crsr_` keys minted before that still work.
+const CURSOR_KEY_PREFIXES = ['grok_', 'crsr_'];
 
 function failureMessage(error: unknown, fallback: string): string {
   return (error instanceof ThrownResultError && error.message) || fallback;
@@ -136,8 +137,10 @@ export function Harness(
 
   const handleSaveCursorApiKey = async () => {
     const apiKey = cursorApiKey().trim();
-    if (!apiKey.startsWith(CURSOR_KEY_PREFIX)) {
-      toast.failure(`Cursor API keys start with ${CURSOR_KEY_PREFIX}`);
+    if (!CURSOR_KEY_PREFIXES.some((prefix) => apiKey.startsWith(prefix))) {
+      toast.failure(
+        `Cursor API keys start with ${CURSOR_KEY_PREFIXES.join(' or ')}`
+      );
       return;
     }
 
@@ -265,7 +268,7 @@ export function Harness(
                               autocomplete="off"
                               spellcheck={false}
                               class="settings-input ph-no-capture min-w-0 flex-1"
-                              placeholder={`${CURSOR_KEY_PREFIX}…`}
+                              placeholder="grok_…"
                               value={cursorApiKey()}
                               onInput={(event) =>
                                 setCursorApiKey(event.currentTarget.value)

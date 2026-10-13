@@ -554,9 +554,9 @@ export class Sdk extends HeyApiClient {
     }
     
     /**
-     * Enrolls a mobile lead in the Loops nurture sequence, which sends the welcome
-     * email inviting them to register on desktop. No-ops if the address was already
-     * enrolled, and rejects blocked addresses.
+     * Emails a mobile lead a link to continue onboarding on desktop and enrolls
+     * them in the Loops welcome sequence. No-ops if the address was already
+     * captured, and rejects blocked addresses.
      */
     public sendMobileWelcomeEmail<ThrowOnError extends boolean = false>(options: Options<SendMobileWelcomeEmailData, ThrowOnError>): RequestResult<SendMobileWelcomeEmailResponses, SendMobileWelcomeEmailErrors, ThrowOnError> {
         return (options.client ?? this.client).post<SendMobileWelcomeEmailResponses, SendMobileWelcomeEmailErrors, ThrowOnError>({

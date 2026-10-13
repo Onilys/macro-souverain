@@ -16,6 +16,7 @@ import {
   TaskGithubDemo,
 } from '../../features/marketing/components/tasks/TaskStories';
 import { TasksComparison } from '../../features/marketing/components/tasks/TasksComparison';
+import { DEMO_BOOKING_URL } from '../../features/marketing/core/navigation';
 import '../../features/marketing/components/tasks/tasks-page.css';
 import { setPageSeo } from '../utils/utilSeo';
 
@@ -53,10 +54,8 @@ const tasksFaq = [
         You can import Linear issues or task CSVs. The route depends on what
         you’re bringing from your current tool.{' '}
         <a href="/migrate">See your migration options</a> or{' '}
-        <a href="https://cal.com/team/macro/macro-demo-call">
-          talk to our team
-        </a>{' '}
-        about moving your company.
+        <a href={DEMO_BOOKING_URL}>talk to our team</a> about moving your
+        company.
       </>
     ),
   },

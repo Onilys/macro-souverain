@@ -2588,7 +2588,7 @@
     "/mobile-welcome-email": {
       "post": {
         "tags": ["mobile_welcome_email"],
-        "summary": "Enrolls a mobile lead in the Loops nurture sequence, which sends the welcome\nemail inviting them to register on desktop. No-ops if the address was already\nenrolled, and rejects blocked addresses.",
+        "summary": "Emails a mobile lead a link to continue onboarding on desktop and enrolls\nthem in the Loops welcome sequence. No-ops if the address was already\ncaptured, and rejects blocked addresses.",
         "operationId": "send_mobile_welcome_email",
         "requestBody": {
           "content": {
@@ -6838,7 +6838,7 @@
         "properties": {
           "apiKey": {
             "type": "string",
-            "description": "A `crsr_…` Cursor API key."
+            "description": "A Cursor API key: `grok_…`, or `crsr_…` for older keys."
           }
         }
       },
@@ -7192,7 +7192,7 @@
           },
           "scheduled_seat_plans": {
             "type": ["object", "null"],
-            "description": "Provider-confirmed pending seat changes, keyed by member user ID.\nOnly available to paid-team admins and owners; empty means no pending changes.",
+            "description": "Provider-confirmed pending seat changes, keyed by member user ID.\nEmpty when no changes apply to this viewer; absent when the lookup fails.",
             "additionalProperties": {
               "$ref": "#/components/schemas/ScheduledSeatPlan"
             },

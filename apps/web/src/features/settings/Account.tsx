@@ -12,7 +12,6 @@ import {
   disableAutoUpdateUi,
   ENABLE_PROFILE_PICTURES,
   enableAutoUpdateUiOverride,
-  enableNotificationSettings,
 } from '@core/constant/featureFlags';
 import { staticFileIdEndpoint } from '@core/constant/servers';
 import { useEmail, useUserId } from '@core/context/user';
@@ -29,10 +28,6 @@ import {
   nativeUpdateDescription,
   useTauri,
 } from '@macro/tauri';
-import {
-  type SupportedNotificationSettings,
-  useNotificationSettings,
-} from '@notifications';
 import CheckIcon from '@phosphor/check.svg';
 import PencilIcon from '@phosphor/pencil-simple.svg';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
@@ -46,7 +41,7 @@ import {
 } from '@queries/auth/user-name-self';
 import { authServiceClient } from '@service-auth/client';
 import { invoke } from '@tauri-apps/api/core';
-import { Button, Dialog, Dropdown, Panel, ToggleSwitch, Tooltip } from '@ui';
+import { Button, Dialog, Dropdown, Panel, Tooltip } from '@ui';
 import {
   createEffect,
   createMemo,
@@ -323,7 +318,6 @@ export function Account() {
   const autoUpdateUIEnabled = createMemo(
     () => enableAutoUpdateUiOverride ?? !disableAutoUpdateUIFlag().enabled
   );
-  const notificationSettingsFlag = useFeatureFlag(enableNotificationSettings);
   const [showDeleteModal, setShowDeleteModal] = createSignal<boolean>(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] =
     createSignal<boolean>(false);
@@ -458,10 +452,6 @@ export function Account() {
           <Show when={autoUpdateUIEnabled()}>
             <BundleVersionRow />
             <BundleUpdateRow />
-          </Show>
-
-          <Show when={!notificationSettingsFlag().enabled}>
-            <NotificationToggle />
           </Show>
         </SettingsCard>
       </SettingsSection>
@@ -651,48 +641,6 @@ export function Account() {
 
 function Row(props: { label: string; children?: JSX.Element }) {
   return <SettingsRow label={props.label}>{props.children}</SettingsRow>;
-}
-
-function NotificationToggle() {
-  const settings = useNotificationSettings();
-
-  return (
-    <Show
-      when={settings.isSupported && settings}
-      fallback={<NotificationNotSupported />}
-    >
-      {(s) => <NotificationSettings settings={s()} />}
-    </Show>
-  );
-}
-
-function NotificationSettings(props: {
-  settings: SupportedNotificationSettings;
-}) {
-  const analytics = useAnalytics();
-
-  const handleToggle = (checked: boolean) => {
-    analytics.track('notifications_toggled');
-    props.settings.toggle(checked);
-  };
-
-  return (
-    <Row label="Notifications">
-      <ToggleSwitch
-        size="md"
-        checked={props.settings.isEnabled()}
-        onChange={handleToggle}
-      />
-    </Row>
-  );
-}
-
-function NotificationNotSupported() {
-  return (
-    <Row label="Notifications">
-      <span class="text-sm text-ink-muted">Not supported on this device</span>
-    </Row>
-  );
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
