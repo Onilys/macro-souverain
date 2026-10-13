@@ -6,6 +6,10 @@ new routines/proactive automation, and Support ticketing are deferred. Ordinary
 agent reads retain the channel's existing permissions; agent output and notes
 are internal unless a human deliberately submits an external reply.
 
+See [message content coverage](META_MESSAGE_CONTENT.md) for the bounded follow-up:
+Instagram share previews/links, story reply context, edit/unsend reconciliation,
+readable WhatsApp structured content and deliberate remaining limitations.
+
 For the first real phone-to-Macro test, follow [the practical testing walkthrough](META_MESSAGING_TESTING.md).
 
 Connecting receives **new activity only by default**. A new customer message or

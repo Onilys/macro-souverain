@@ -68,7 +68,10 @@ where
             }
             _ => return Ok(()),
         };
-        if effect.first_publication && effect.provenance != Provenance::OnboardingHistory {
+        if effect.first_publication
+            && effect.provenance != Provenance::OnboardingHistory
+            && message.deleted_at.is_none()
+        {
             // Use the owning domain's activity mapping and stable source identity.
             // Retry inserts/announcements retain one activity, even after a crash.
             self.activity

@@ -11,6 +11,7 @@ use crate::domain::{
     models::{DeliveryState, MessagingError, Provenance, Provider, ProviderId},
 };
 
+mod content;
 #[cfg(test)]
 mod test;
 
@@ -18,6 +19,7 @@ mod test;
 pub const MAX_WEBHOOK_BYTES: usize = 4 * 1024 * 1024;
 /// Maximum decoded facts per receipt, bounding worker transactions.
 pub const MAX_EVENTS: usize = 20_000;
+const MAX_SHARE_TITLE_CHARS: usize = 2000;
 
 /// Authenticate exact raw bytes using Meta's SHA-256 signature. Malformed,
 /// missing and incorrect signatures all fail closed, using constant-time MAC verification.
@@ -154,6 +156,15 @@ fn whatsapp(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), Messag
                 "messages"
             },
         ) {
+            if message["type"] == "reaction" {
+                // A reaction is a revision, never a new customer message/window.
+                // Native external-author reaction storage is deliberately deferred.
+                events.push(IncomingEvent::Unsupported {
+                    account_id: Some(account.clone()),
+                    field: "reaction".into(),
+                });
+                continue;
+            }
             let customer = if provenance == Provenance::PhoneEcho {
                 id(message, "to")?
             } else {
@@ -199,6 +210,9 @@ fn whatsapp(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), Messag
             for thread in optional_array(chunk, "threads") {
                 let customer = id(thread, "id")?;
                 for message in array(thread, "messages")? {
+                    if message["type"] == "reaction" {
+                        continue;
+                    }
                     let direction = if string(message, "from")? == customer.as_str() {
                         Direction::Inbound
                     } else {
@@ -261,24 +275,21 @@ fn wa_message(
             });
             optional_string(source, "caption").unwrap_or_default()
         }
-        "location" => format!(
-            "[Location] {}",
-            serde_json::to_string(&message["location"])
-                .map_err(|_| MessagingError::Invalid("invalid location"))?
-        ),
-        "contacts" => format!(
-            "[Shared contact] {}",
-            serde_json::to_string(&message["contacts"])
-                .map_err(|_| MessagingError::Invalid("invalid contacts"))?
-        ),
+        "location" => content::whatsapp_location(&message["location"]),
+        "contacts" => content::whatsapp_contacts(&message["contacts"]),
+        "button" => {
+            content::label(&message["button"], "text").unwrap_or_else(|| "Selected a button".into())
+        }
+        "interactive" => content::whatsapp_selection(&message["interactive"]),
         "media_placeholder" => {
             "Attachment not provided by WhatsApp. View it in the original app.".to_owned()
         }
-        "unsupported" => {
-            "[Unsupported WhatsApp content. Open WhatsApp Business to view it.]".to_owned()
-        }
-        other => format!("[WhatsApp {other} event; view the original in WhatsApp Business]"),
+        _ => "Content unavailable".to_owned(),
     };
+    let mut content = content;
+    if let Some(headline) = content::label(&message["referral"], "headline") {
+        append_content(&mut content, &format!("From an ad: {headline}"));
+    }
     Ok(IncomingMessage {
         provider: Provider::Whatsapp,
         account_id,
@@ -303,8 +314,42 @@ fn wa_message(
 fn instagram(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), MessagingError> {
     let account = id(entry, "id")?;
     for event in optional_array(entry, "messaging") {
+        if let Some(edit) = event.get("message_edit") {
+            let number = edit["num_edit"]
+                .as_u64()
+                .or_else(|| edit["num_edit"].as_str()?.parse().ok())
+                .and_then(|n| u32::try_from(n).ok())
+                .filter(|n| *n > 0);
+            let text = edit["text"].as_str().filter(|s| s.len() <= 64 * 1024);
+            if let (Some(number), Some(text)) = (number, text) {
+                push_instagram_revision(
+                    events,
+                    &account,
+                    instagram_revision(
+                        &account,
+                        event,
+                        edit,
+                        MessageRevision::Edited {
+                            text: text.to_owned(),
+                            number,
+                        },
+                    ),
+                );
+            } else {
+                events.push(IncomingEvent::Unsupported {
+                    account_id: Some(account.clone()),
+                    field: "invalid_message_edit".into(),
+                });
+            }
+            continue;
+        }
         let Some(message) = event.get("message") else {
-            if let Some(mid) = event.get("read").and_then(|r| id(r, "mid").ok()) {
+            if event.get("reaction").is_some() {
+                events.push(IncomingEvent::Unsupported {
+                    account_id: Some(account.clone()),
+                    field: "reaction".into(),
+                });
+            } else if let Some(mid) = event.get("read").and_then(|r| id(r, "mid").ok()) {
                 events.push(IncomingEvent::Status {
                     account_id: account.clone(),
                     message_id: mid,
@@ -320,6 +365,14 @@ fn instagram(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), Messa
             }
             continue;
         };
+        if message["is_deleted"] == true {
+            push_instagram_revision(
+                events,
+                &account,
+                instagram_revision(&account, event, message, MessageRevision::Deleted),
+            );
+            continue;
+        }
         let echo = message["is_echo"].as_bool().unwrap_or(false);
         let sender = id(&event["sender"], "id")?;
         let recipient = id(&event["recipient"], "id")?;
@@ -330,42 +383,109 @@ fn instagram(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), Messa
         }
         let customer = if echo { recipient } else { sender };
         let mut media = Vec::new();
-        let mut unsupported = Vec::new();
+        let mut content = optional_string(message, "text").unwrap_or_default();
+        let mut share_type = None;
+        if let Some(story) = message.get("reply_to").and_then(|r| r.get("story")) {
+            let url = optional_string(story, "url");
+            append_content(
+                &mut content,
+                if url.is_some() {
+                    "Reply to Instagram story · Preview"
+                } else {
+                    "Reply to Instagram story · Content unavailable"
+                },
+            );
+            if let Some(url) = url {
+                media.push(IncomingMedia {
+                    kind: MediaKind::Image,
+                    id: id(story, "id").ok(),
+                    url: Some(url),
+                    mime_type: None,
+                    filename: Some("Instagram story preview".into()),
+                    sha256: None,
+                });
+            }
+        }
         for attachment in optional_array(message, "attachments") {
-            let kind = string(attachment, "type")?;
+            let kind = attachment["type"].as_str().unwrap_or_default();
+            let payload = &attachment["payload"];
+            if matches!(kind, "ig_post" | "ig_reel") {
+                share_type = Some(kind);
+                // The provider CDN URL is a media preview, not a post permalink.
+                // Native storage verifies the MIME and bytes, including video.
+                let url = optional_string(payload, "url");
+                let permalink = url.as_deref().and_then(instagram_permalink);
+                let label = if kind == "ig_reel" {
+                    "Shared Instagram reel"
+                } else {
+                    "Shared Instagram post"
+                };
+                append_content(
+                    &mut content,
+                    &if url.is_some() && permalink.is_none() {
+                        format!("{label} · Preview")
+                    } else {
+                        label.to_owned()
+                    },
+                );
+                if let Some(title) = optional_string(payload, "title") {
+                    content.push('\n');
+                    content.extend(title.chars().take(MAX_SHARE_TITLE_CHARS));
+                }
+                if let Some(permalink) = permalink {
+                    append_content(&mut content, permalink);
+                } else if let Some(url) = url.filter(|_| media.len() < 10) {
+                    media.push(IncomingMedia {
+                        kind: MediaKind::Image,
+                        id: id(
+                            payload,
+                            if kind == "ig_reel" {
+                                "reel_video_id"
+                            } else {
+                                "ig_post_media_id"
+                            },
+                        )
+                        .ok(),
+                        url: Some(url),
+                        mime_type: None,
+                        filename: Some(
+                            if kind == "ig_reel" {
+                                "Instagram reel preview"
+                            } else {
+                                "Instagram post preview"
+                            }
+                            .into(),
+                        ),
+                        sha256: None,
+                    });
+                }
+                continue;
+            }
             let media_kind = match kind {
                 "image" => MediaKind::Image,
                 "audio" => MediaKind::Audio,
                 "video" => MediaKind::Video,
                 "file" => MediaKind::Document,
                 _ => {
-                    unsupported.push(kind.to_owned());
+                    append_content(&mut content, "Content unavailable");
                     continue;
                 }
+            };
+            let Some(url) = optional_string(payload, "url").filter(|_| media.len() < 10) else {
+                append_content(&mut content, "Attachment unavailable");
+                continue;
             };
             media.push(IncomingMedia {
                 kind: media_kind,
                 id: None,
-                url: Some(string(&attachment["payload"], "url")?.to_owned()),
+                url: Some(url),
                 mime_type: None,
                 filename: None,
                 sha256: None,
             });
         }
-        if media.len() > 10 {
-            return Err(MessagingError::Invalid("too many Instagram attachments"));
-        }
-        let mut content = optional_string(message, "text").unwrap_or_default();
-        if message["is_deleted"] == true {
-            content = "[Message deleted on Instagram]".to_owned();
-        }
-        for kind in unsupported {
-            content.push_str(&format!(
-                "\n[Unsupported Instagram {kind}; view it in Instagram]"
-            ));
-        }
         if content.is_empty() && media.is_empty() {
-            content = "[Unsupported Instagram content]".to_owned();
+            content = "Content unavailable".to_owned();
         }
         events.push(IncomingEvent::Message(IncomingMessage {
             provider: Provider::Instagram,
@@ -386,12 +506,7 @@ fn instagram(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), Messa
             } else {
                 Provenance::Customer
             },
-            message_type: if message["is_deleted"] == true {
-                "deleted"
-            } else {
-                "message"
-            }
-            .to_owned(),
+            message_type: share_type.unwrap_or("message").to_owned(),
             reply_to: message.get("reply_to").and_then(|r| id(r, "mid").ok()),
             media,
         }));
@@ -403,4 +518,52 @@ fn instagram(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), Messa
         });
     }
     Ok(())
+}
+
+fn instagram_revision(
+    account: &ProviderId,
+    event: &Value,
+    payload: &Value,
+    change: MessageRevision,
+) -> Result<IncomingRevision, MessagingError> {
+    let sender = id(&event["sender"], "id")?;
+    let recipient = id(&event["recipient"], "id")?;
+    let (customer_id, direction) = if &recipient == account && &sender != account {
+        (sender, Direction::Inbound)
+    } else if &sender == account && &recipient != account {
+        (recipient, Direction::Outbound)
+    } else {
+        return Err(MessagingError::Invalid(
+            "Instagram revision account does not match envelope",
+        ));
+    };
+    Ok(IncomingRevision {
+        account_id: account.clone(),
+        customer_id,
+        message_id: id(payload, "mid")?,
+        direction,
+        timestamp: timestamp(&event["timestamp"], true)?,
+        change,
+    })
+}
+
+fn push_instagram_revision(
+    events: &mut Vec<IncomingEvent>,
+    account: &ProviderId,
+    revision: Result<IncomingRevision, MessagingError>,
+) {
+    events.push(match revision {
+        Ok(revision) => IncomingEvent::Revision(revision),
+        Err(_) => IncomingEvent::Unsupported {
+            account_id: Some(account.clone()),
+            field: "invalid_message_revision".into(),
+        },
+    });
+}
+
+fn append_content(content: &mut String, part: &str) {
+    if !content.is_empty() {
+        content.push_str("\n\n");
+    }
+    content.push_str(part);
 }

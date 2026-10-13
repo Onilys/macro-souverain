@@ -47,7 +47,7 @@ use sqlx::PgPool;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use uuid::Uuid;
 
-use super::native::{access_error, error, plain_markdown};
+use super::native::{access_error, error, plain_markdown, render_message_content};
 use crate::api::context::{DocumentService, EntityAccessService};
 
 const MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
@@ -65,7 +65,7 @@ pub(super) trait MessageFiles: Send + Sync {
         &self,
         connection: &Connection,
         message: &IncomingMessage,
-        files: Vec<MediaBytes>,
+        files: Vec<Option<MediaBytes>>,
     ) -> PortResult<()>;
     async fn outgoing(
         &self,
@@ -257,7 +257,7 @@ impl MessageFiles for NativeFiles {
         &self,
         c: &Connection,
         m: &IncomingMessage,
-        files: Vec<MediaBytes>,
+        files: Vec<Option<MediaBytes>>,
     ) -> PortResult<()> {
         if files.len() != m.media.len() || files.len() > 10 {
             return Err(MessagingError::Invalid(
@@ -287,8 +287,20 @@ impl MessageFiles for NativeFiles {
         if stored.deleted_at.is_some() {
             return Err(MessagingError::NotFound.into());
         }
+        let mut first_error = None;
+        let mut complete = true;
         for (index, file) in files.into_iter().enumerate() {
-            let kind = received_type(&file)?;
+            let Some(file) = file else {
+                complete = false;
+                continue;
+            };
+            let kind = match received_type(&file) {
+                Ok(kind) => kind,
+                Err(error) => {
+                    first_error.get_or_insert(error.into());
+                    continue;
+                }
+            };
             let digest = Sha256::digest(&file.bytes);
             let sha = digest
                 .iter()
@@ -381,8 +393,17 @@ impl MessageFiles for NativeFiles {
             if let Err(error) = result {
                 repo.release_attachment(c.id, m.message_id.as_str(), &reservation)
                     .await?;
-                return Err(error);
+                if matches!(error.current_context(), MessagingError::Conflict) {
+                    return Err(error);
+                }
+                first_error.get_or_insert(error);
             }
+        }
+        if let Some(error) = first_error {
+            return Err(error);
+        }
+        if !complete {
+            return Ok(());
         }
         let mut tx = self.pool.begin().await.map_err(error)?;
         PgMessageRepository::external_media_notice_in(
@@ -391,7 +412,7 @@ impl MessageFiles for NativeFiles {
             message,
             c.id,
             m.message_id.as_str(),
-            &plain_markdown(&m.content),
+            &render_message_content(m),
         )
         .await
         .map_err(error)?;

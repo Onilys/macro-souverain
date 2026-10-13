@@ -61,22 +61,34 @@ impl MessagingService {
                 let token = self.token(connection).await?;
                 let mut media = Vec::new();
                 let mut total = 0_usize;
+                let mut download_error = None;
                 for source in &message.media {
                     if !self.renew_ingestion(lease).await? {
                         return Err(MessagingError::Conflict.into());
                     }
-                    let file = self.provider.download(connection, &token, source).await?;
+                    let file = match self.provider.download(connection, &token, source).await {
+                        Ok(file) => file,
+                        Err(error) => {
+                            download_error.get_or_insert(error);
+                            media.push(None);
+                            continue;
+                        }
+                    };
                     total = total.saturating_add(file.bytes.len());
                     if total > 50 * 1024 * 1024 {
-                        return Err(MessagingError::Invalid(
-                            "message attachments exceed the 50 MiB limit",
-                        )
-                        .into());
+                        download_error.get_or_insert(
+                            MessagingError::Invalid("message attachments exceed the 50 MiB limit")
+                                .into(),
+                        );
+                        media.push(None);
+                        continue;
                     }
-                    media.push(file);
+                    media.push(Some(file));
                 }
-                self.native.ingest(connection, message, media).await?;
-                Ok(())
+                if media.iter().any(Option::is_some) {
+                    self.native.ingest(connection, message, media).await?;
+                }
+                download_error.map_or(Ok(()), Err)
             }
             .await;
             if let Err(error) = result {
@@ -148,6 +160,26 @@ impl MessagingService {
 
     async fn process_event(&self, work: &ReceiptWork, event: IncomingEvent) -> PortResult<()> {
         match event {
+            IncomingEvent::Revision(revision) => {
+                let connection = self
+                    .repository
+                    .account(work.provider, &revision.account_id)
+                    .await?
+                    .ok_or(MessagingError::Unavailable)?;
+                if matches!(
+                    connection.status,
+                    ConnectionStatus::Disconnected | ConnectionStatus::Revoked
+                ) || connection
+                    .connected_at
+                    .is_some_and(|at| work.received_at < at)
+                {
+                    return Ok(());
+                }
+                self.native
+                    .require_admin(connection.team_id, &connection.user_id)
+                    .await?;
+                self.native.revise(&connection, &revision).await?;
+            }
             IncomingEvent::Message(mut message) => {
                 let historical = message.provenance == Provenance::OnboardingHistory;
                 let account = self
@@ -256,7 +288,10 @@ impl MessagingService {
                 }
             }
             IncomingEvent::Unsupported { ref field, .. }
-                if matches!(field.as_str(), "history" | "smb_app_state_sync") => {}
+                if matches!(
+                    field.as_str(),
+                    "history" | "smb_app_state_sync" | "reaction"
+                ) => {}
             IncomingEvent::Unsupported {
                 account_id: Some(account),
                 field,

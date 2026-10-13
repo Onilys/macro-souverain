@@ -101,7 +101,7 @@ impl PgMessagingRepository {
         message: &str,
         stored: bool,
     ) -> PortResult<()> {
-        sqlx::query!("UPDATE meta_messaging_message SET media_state=CASE WHEN $3 THEN 'stored' ELSE 'failed' END,effect_revision=effect_revision+1,event_published_at=NULL,native_retry_at=now() WHERE connection_id=$1 AND provider_message_id=$2",connection,message,stored).execute(&mut **tx).await.map_err(failure)?;
+        sqlx::query!("UPDATE meta_messaging_message m SET media_state=CASE WHEN $3 THEN 'stored' ELSE 'failed' END,effect_revision=effect_revision+1,event_published_at=NULL,native_retry_at=now() WHERE connection_id=$1 AND provider_message_id=$2 AND NOT EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=m.connection_id AND r.customer_id=m.customer_id AND r.provider_message_id=m.provider_message_id AND r.direction=m.direction AND r.deleted_at IS NOT NULL)",connection,message,stored).execute(&mut **tx).await.map_err(failure)?;
         Ok(())
     }
 }

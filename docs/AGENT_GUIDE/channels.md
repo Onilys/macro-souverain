@@ -91,6 +91,17 @@ must be checked again after leaving and returning to that composer.
 Local preview conversations contain sample data; their statuses are simulated.
 They do not verify live Meta delivery. See [setup and verification](../META_MESSAGING.md).
 
+Shared Instagram posts show the provider title and a native private attachment
+labelled as a preview, or an authentic supplied content link. A reel link does not
+promise in-app playback; a CDN preview does not imply a complete carousel. Story
+replies keep the customer text and story preview together. Unknown or unavailable
+parts have concise fallback text while supported parts remain visible. WhatsApp
+locations, contacts and selections use readable labels instead of provider JSON.
+Instagram edits update the original native message; unsends remove its visible
+body and attachment references. Neither is a new message or a new reply window.
+Reactions and provider quote composer actions remain deferred; ordinary Macro
+threads do not become external quoted replies. See [content coverage](../META_MESSAGE_CONTENT.md).
+
 ## Imported Slack history
 
 Import starts in **Settings → Team → Connections → Import from Slack**, not the

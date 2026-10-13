@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 mod external;
+pub use external::ExternalMessageRevision;
 mod historical;
 mod timeline;
 

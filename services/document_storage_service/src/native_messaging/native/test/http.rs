@@ -1,5 +1,6 @@
 //! Real Axum routes, access checks, database and native adapters; Meta alone is simulated.
 use super::*;
+mod content;
 mod history;
 mod lifecycle;
 use axum::{
@@ -195,6 +196,13 @@ impl MetaProvider for ProviderFixture {
         {
             return Err(MessagingError::ProviderRejected.into());
         }
+        if media.url.as_deref() == Some("https://scontent.cdninstagram.com/healthy-test.png") {
+            return Ok(MediaBytes {
+                filename: "healthy.png".into(),
+                mime_type: "image/png".into(),
+                bytes: b"\x89PNG\r\n\x1a\nfixture".to_vec(),
+            });
+        }
         panic!("text workflow")
     }
 }
@@ -293,7 +301,19 @@ struct Fixture {
 }
 
 async fn fixture(pool: &PgPool, provider: Provider, new_account: Option<&str>) -> Fixture {
-    let (native, c, outsider) = setup(pool, provider).await;
+    fixture_with_files(pool, provider, new_account, None).await
+}
+
+async fn fixture_with_files(
+    pool: &PgPool,
+    provider: Provider,
+    new_account: Option<&str>,
+    files: Option<Arc<dyn super::super::super::files::MessageFiles>>,
+) -> Fixture {
+    let (mut native, c, outsider) = setup(pool, provider).await;
+    if let Some(files) = files {
+        native.files = files;
+    }
     let native = Arc::new(native);
     let repo = Arc::new(PgMessagingRepository::new(pool.clone()));
     let remote = Arc::new(ProviderFixture {

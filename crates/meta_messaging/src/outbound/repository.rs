@@ -13,6 +13,7 @@ mod history;
 pub mod media;
 pub mod native;
 mod receipts;
+pub mod revisions;
 mod sends;
 mod subscription;
 #[cfg(test)]

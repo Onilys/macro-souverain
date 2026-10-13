@@ -389,6 +389,8 @@ pub trait CredentialCipher: Send + Sync {
 /// boundary never constructs repositories from another crate's outbound module.
 #[async_trait]
 pub trait NativeMessaging: Send + Sync {
+    /// Retain and apply a source-scoped revision without creating a message.
+    async fn revise(&self, connection: &Connection, revision: &IncomingRevision) -> PortResult<()>;
     /// Stage a human-selected file privately through the owning document service.
     async fn upload_attachment(
         &self,
@@ -402,11 +404,13 @@ pub trait NativeMessaging: Send + Sync {
     async fn require_send(&self, team: Uuid, channel: Uuid, user: &str) -> PortResult<()>;
     /// Commit channel/mapping/message atomically, with deduplication and silent
     /// history semantics. Live facts go into durable post-commit publication.
+    /// Media slots retain provider ordinals; unavailable items cannot renumber or
+    /// prevent storing healthy attachments from the same message.
     async fn ingest(
         &self,
         connection: &Connection,
         message: &IncomingMessage,
-        media: Vec<MediaBytes>,
+        media: Vec<Option<MediaBytes>>,
     ) -> PortResult<()>;
     /// Persist a visible unavailable-media notice without losing the source text.
     async fn media_unavailable(

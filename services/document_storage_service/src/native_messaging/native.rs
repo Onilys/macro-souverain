@@ -26,7 +26,8 @@ use messages::{
     },
     outbound::{
         connection_gateway::ConnectionGatewayMessages,
-        entity_access_audience::EntityAccessMessageAudience, pg_message_repo::PgMessageRepository,
+        entity_access_audience::EntityAccessMessageAudience,
+        pg_message_repo::{ExternalMessageRevision, PgMessageRepository},
     },
 };
 use meta_messaging::{
@@ -124,12 +125,12 @@ impl NativeChannels {
             let content = if m.content.trim().is_empty()
                 && (!m.media.is_empty() || m.message_type == "macro_media_reply")
             {
-                "Loading attachment…"
+                "Loading attachment…".to_owned()
             } else {
-                &m.content
+                render_message_content(m)
             };
             PgMessageRepository::insert_historical_in(&mut tx,&HistoricalBatch{channel_id:reservation.channel_id,messages:vec![HistoricalMessage{
-                id:reservation.message_id,thread_id:None,sender:author,imported_author:Some(label),content:plain_markdown(content),created_at:m.timestamp.trunc_subsecs(6),updated_at:m.timestamp.trunc_subsecs(6),edited_at:None,
+                id:reservation.message_id,thread_id:None,sender:author,imported_author:Some(label),content,created_at:m.timestamp.trunc_subsecs(6),updated_at:m.timestamp.trunc_subsecs(6),edited_at:None,
                 import_metadata:serde_json::json!({"source":c.provider,"connection_id":c.id,"provider_message_id":m.message_id,"provenance":m.provenance,"direction":m.direction}),import_order:0,reactions:vec![],mentions:vec![],
             }]}).await.map_err(error)?;
             advance_historical_activity(&mut tx, reservation.channel_id, m.timestamp)
@@ -137,6 +138,28 @@ impl NativeChannels {
                 .map_err(error)?;
         }
         PgMessagingRepository::finish_message_in(&mut tx, c, m, &reservation, send).await?;
+        if !reservation.create_message && matches!(m.message_type.as_str(), "ig_post" | "ig_reel") {
+            let placeholder = plain_markdown(&format!(
+                "[Unsupported Instagram {}; view it in Instagram]",
+                m.message_type
+            ));
+            if PgMessageRepository::repair_external_placeholder_in(
+                &mut tx,
+                reservation.channel_id,
+                reservation.message_id,
+                c.id,
+                m.message_id.as_str(),
+                &[placeholder, plain_markdown(&m.content)],
+                &render_message_content(m),
+            )
+            .await
+            .map_err(error)?
+            {
+                PgMessagingRepository::revision_applied_in(&mut tx, reservation.message_id, false)
+                    .await?;
+            }
+        }
+        apply_revision(&mut tx, c.id, &m.customer_id, &m.message_id, m.direction).await?;
         tx.commit().await.map_err(error)?;
         Ok(())
     }
@@ -177,8 +200,44 @@ pub(super) fn plain_markdown(text: &str) -> String {
     out
 }
 
+// Native read-only messages do not auto-link plain URLs. Use the existing link
+// node only for validated public content URLs; all other provider text is inert.
+pub(super) fn render_message_content(message: &IncomingMessage) -> String {
+    if message.provider != Provider::Instagram
+        || !matches!(message.message_type.as_str(), "ig_post" | "ig_reel")
+    {
+        return plain_markdown(&message.content);
+    }
+    message
+        .content
+        .split('\n')
+        .map(|line| {
+            if let Some(url) = instagram_permalink(line) {
+                let link = serde_json::json!({"url":url,"text":url,"title":""});
+                format!("<m-link>{link}</m-link>")
+            } else {
+                plain_markdown(line)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[async_trait]
 impl NativeMessaging for NativeChannels {
+    async fn revise(&self, c: &Connection, revision: &IncomingRevision) -> PortResult<()> {
+        let mut tx = self.pool.begin().await.map_err(error)?;
+        PgMessagingRepository::record_revision_in(&mut tx, c, revision).await?;
+        apply_revision(
+            &mut tx,
+            c.id,
+            &revision.customer_id,
+            &revision.message_id,
+            revision.direction,
+        )
+        .await?;
+        tx.commit().await.map_err(error)
+    }
     async fn upload_attachment(
         &self,
         user: &str,
@@ -226,7 +285,7 @@ impl NativeMessaging for NativeChannels {
         &self,
         c: &Connection,
         m: &IncomingMessage,
-        media: Vec<MediaBytes>,
+        media: Vec<Option<MediaBytes>>,
     ) -> PortResult<()> {
         self.persist(c, m, None, None).await?;
         if !media.is_empty() {
@@ -237,12 +296,12 @@ impl NativeMessaging for NativeChannels {
     async fn media_unavailable(&self, c: &Connection, m: &IncomingMessage) -> PortResult<()> {
         let repo = PgMessagingRepository::new(self.pool.clone());
         let (channel, message) = repo.message_target(c.id, m.message_id.as_str()).await?;
-        let notice = if m.provenance == Provenance::OnboardingHistory {
-            "Attachment unavailable. View it in the original app."
+        let notice = if m.media.len() > 1 {
+            "Some attachments are unavailable."
         } else {
-            "Attachment unavailable. Macro retries temporary failures. You can also view this attachment in the original app."
+            "Attachment unavailable."
         };
-        let body = format!("{}\n\n> {notice}", plain_markdown(&m.content));
+        let body = format!("{}\n\n> {notice}", render_message_content(m));
         let mut tx = self.pool.begin().await.map_err(error)?;
         PgMessageRepository::external_media_notice_in(
             &mut tx,
@@ -326,6 +385,44 @@ impl NativeMessaging for NativeChannels {
         }
         first_error.map_or(Ok(()), Err)
     }
+}
+
+async fn apply_revision(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    connection: Uuid,
+    customer: &ProviderId,
+    message: &ProviderId,
+    direction: Direction,
+) -> PortResult<()> {
+    if let Some(revision) =
+        PgMessagingRepository::revision_in(tx, connection, customer, message, direction).await?
+    {
+        let content = revision.content.as_deref().map(plain_markdown);
+        if PgMessageRepository::revise_external_in(
+            tx,
+            ExternalMessageRevision {
+                channel: revision.channel_id,
+                message: revision.message_id,
+                connection,
+                provider_message: message.as_str(),
+                content: content.as_deref(),
+                number: revision.edit_number,
+                edited_at: revision.edited_at,
+                deleted_at: revision.deleted_at,
+            },
+        )
+        .await
+        .map_err(error)?
+        {
+            PgMessagingRepository::revision_applied_in(
+                tx,
+                revision.message_id,
+                revision.deleted_at.is_some(),
+            )
+            .await?;
+        }
+    }
+    Ok(())
 }
 
 impl NativeChannels {

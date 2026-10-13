@@ -40,7 +40,8 @@ pub enum MediaKind {
 pub struct IncomingMedia {
     /// Media category.
     pub kind: MediaKind,
-    /// WhatsApp media ID, resolved afresh for expiring download URLs.
+    /// Stable provider resource ID when supplied. WhatsApp resolves this afresh
+    /// for downloads; an Instagram numeric media ID is not a public permalink.
     pub id: Option<ProviderId>,
     /// Instagram CDN URL, never exposed as a permanent Macro attachment.
     pub url: Option<String>,
@@ -95,6 +96,8 @@ pub struct IncomingMessage {
 pub enum IncomingEvent {
     /// A message, echo or historical message.
     Message(IncomingMessage),
+    /// Edit or unsend of a scoped message; never new customer activity.
+    Revision(IncomingRevision),
     /// Delivery/read/failure status; may arrive before the message.
     Status {
         /// Business account's provider ID.
@@ -131,4 +134,54 @@ pub enum IncomingEvent {
         /// Field/type name only, never unbounded message content.
         field: String,
     },
+}
+
+/// Provider-authorized change to the original author's message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct IncomingRevision {
+    /// Receiving business account.
+    pub account_id: ProviderId,
+    /// Customer paired with that account.
+    pub customer_id: ProviderId,
+    /// Original message identifier.
+    pub message_id: ProviderId,
+    /// Original author's side of the conversation.
+    pub direction: Direction,
+    /// Provider time; does not advance reply windows.
+    pub timestamp: DateTime<Utc>,
+    /// A deletion or an ordered edit.
+    pub change: MessageRevision,
+}
+
+/// Monotonic message revisions exposed by Instagram's webhook.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum MessageRevision {
+    /// Source text, with Meta's per-message edit counter.
+    Edited {
+        /// Plain, untrusted provider text.
+        text: String,
+        /// Positive monotonic counter, not receipt arrival order.
+        number: u32,
+    },
+    /// Permanent unsend; late edits and original delivery cannot resurrect it.
+    Deleted,
+}
+
+/// Only a supplied public content link may be shown as a post/reel destination.
+/// CDN resources and generic inbox/profile links are not content permalinks.
+pub fn instagram_permalink(url: &str) -> Option<&str> {
+    let path = url
+        .strip_prefix("https://www.instagram.com/")
+        .or_else(|| url.strip_prefix("https://instagram.com/"))?;
+    let (kind, shortcode) = path.trim_end_matches('/').split_once('/')?;
+    (matches!(kind, "p" | "reel" | "tv")
+        && !shortcode.is_empty()
+        && shortcode.len() <= 64
+        && shortcode
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-')))
+    .then_some(url)
 }

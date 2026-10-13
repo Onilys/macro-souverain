@@ -1,5 +1,6 @@
 use super::*;
 mod http;
+mod revisions;
 use entity_access::{
     domain::{models::MemberParticipantRole, service::EntityAccessServiceImpl},
     outbound::PgAccessRepository,
@@ -30,7 +31,7 @@ impl super::super::files::MessageFiles for TextOnlyFiles {
         &self,
         _: &Connection,
         _: &IncomingMessage,
-        _: Vec<MediaBytes>,
+        _: Vec<Option<MediaBytes>>,
     ) -> PortResult<()> {
         panic!("text workflow must not request file storage")
     }
