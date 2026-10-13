@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO meta_messaging_receipt (id,provider,body_sha256,payload) VALUES ($1,$2,$3,$4) ON CONFLICT (provider,body_sha256) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bytea",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "aa96e3edaf296b56def725824824e6fea9413445c7c64b5234216bb51cdd8064"
+}

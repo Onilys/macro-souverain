@@ -1,0 +1,576 @@
+/** @vitest-environment jsdom */
+
+import type { MetaConversationView } from '@service-storage/generated/schemas/metaConversationView';
+import type { MetaSendProgress } from '@service-storage/generated/schemas/metaSendProgress';
+import type { MetaTemplate } from '@service-storage/generated/schemas/metaTemplate';
+import type { MetaUploadedAttachment } from '@service-storage/generated/schemas/metaUploadedAttachment';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@solidjs/testing-library';
+import { createSignal } from 'solid-js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChannelMessagingComposer } from './channel-composer';
+
+const fixture = vi.hoisted(() => ({
+  account: undefined as MetaConversationView | undefined,
+  reply: vi.fn(),
+  internal: vi.fn(),
+  isError: false,
+  touch: false,
+  userId: (): string => 'macro|owner@fixture.test',
+  templates: [] as MetaTemplate[],
+  upload: vi.fn(),
+  selectFiles: undefined as ((files: File[]) => Promise<void>) | undefined,
+  recover: undefined as ((send: MetaSendProgress) => void) | undefined,
+}));
+vi.mock('@core/context/user', () => ({
+  useUserId: () => () => fixture.userId(),
+}));
+vi.mock('@core/mobile/isTouchDevice', () => ({
+  isTouchDevice: () => fixture.touch,
+}));
+vi.mock('@core/util/upload', () => ({
+  openFilePicker: (_: unknown, onSelect: (files: File[]) => Promise<void>) => {
+    fixture.selectFiles = onSelect;
+    return () => {};
+  },
+}));
+vi.mock('@queries/meta-messaging', () => ({
+  useMetaConversation: () => ({
+    get data() {
+      return fixture.account;
+    },
+    get isError() {
+      return fixture.isError;
+    },
+    isSuccess: true,
+    isPending: false,
+    refetch: vi.fn(),
+  }),
+  useMetaReply: () => ({ mutateAsync: fixture.reply, isPending: false }),
+  useMetaTemplates: () => ({
+    isSuccess: true,
+    isError: false,
+    recover: undefined as ((send: MetaSendProgress) => void) | undefined,
+    get data() {
+      return fixture.templates;
+    },
+    refetch: vi.fn(),
+  }),
+  useMetaUpload: () => ({ isPending: false, mutateAsync: fixture.upload }),
+}));
+function account(
+  provider: 'whatsapp' | 'instagram' = 'whatsapp'
+): MetaConversationView {
+  return {
+    can_reply: true,
+    text_limit: provider === 'whatsapp' ? 4096 : 1000,
+    text_limit_in_bytes: provider === 'instagram',
+    media: [],
+    provider,
+    account_name: 'Fixture business',
+    status: 'connected',
+    developer_account: false,
+    human_agent_approved: false,
+    sends: [],
+    conversation: {
+      channel_id: 'channel-one',
+      connection_id: 'account-one',
+      customer_id: 'customer-one',
+      customer_display_name: 'Customer One',
+      last_customer_message_at: new Date().toISOString(),
+      standard_window_until: new Date(Date.now() + 3600000).toISOString(),
+    },
+  };
+}
+function mount(channel: () => string = () => 'channel-one') {
+  render(() => (
+    <ChannelMessagingComposer
+      channelId={channel()}
+      account={fixture.account}
+      unavailable={fixture.isError}
+      onRefresh={() => {}}
+      onRecoverReady={(recover) => {
+        fixture.recover = recover;
+        return () => {
+          fixture.recover = undefined;
+        };
+      }}
+    >
+      <button type="button" onClick={fixture.internal}>
+        Post internal note
+      </button>
+    </ChannelMessagingComposer>
+  ));
+}
+beforeEach(() => {
+  localStorage.clear();
+  fixture.account = account();
+  fixture.reply.mockReset().mockResolvedValue({});
+  fixture.internal.mockReset();
+  fixture.isError = false;
+  fixture.touch = false;
+  fixture.userId = () => 'macro|owner@fixture.test';
+  fixture.templates = [];
+  fixture.upload.mockReset();
+  fixture.selectFiles = undefined;
+});
+afterEach(cleanup);
+
+function failedReply(
+  message: MetaSendProgress['payload']['message']
+): MetaSendProgress {
+  return {
+    id: 'failed-draft',
+    channel_id: 'channel-one',
+    user_id: 'macro|owner@fixture.test',
+    state: 'failed',
+    created_at: new Date().toISOString(),
+    payload: { idempotency_key: 'old-intent', message },
+  };
+}
+
+function enableImages() {
+  fixture.account!.media = [
+    {
+      kind: 'image',
+      caption_limit: 1024,
+      max_bytes: 100000,
+      mime_types: ['image/png'],
+    },
+  ];
+}
+
+describe('native external-reply boundary', () => {
+  it('returns focus to the reply field after sending from the button', async () => {
+    mount();
+    const input = screen.getByRole('textbox', {
+      name: 'External customer reply',
+    });
+    fireEvent.input(input, { target: { value: 'Continue the conversation' } });
+    const button = screen.getByRole('button', {
+      name: 'Send reply via WhatsApp',
+    });
+    button.focus();
+    fireEvent.click(button);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    expect(input).toHaveProperty('value', '');
+  });
+  it('sends with Enter while Shift+Enter and IME composition keep the draft', async () => {
+    mount();
+    const input = screen.getByRole('textbox', {
+      name: 'External customer reply',
+    });
+    fireEvent.input(input, { target: { value: 'Shortcut reply' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(fixture.reply).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+  });
+  it('has exactly one customer composer and no internal-note controls', () => {
+    mount();
+    expect(
+      screen.getByRole('textbox', { name: 'External customer reply' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Post internal note' })
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Internal note' })).toBeNull();
+    expect(fixture.reply).not.toHaveBeenCalled();
+  });
+  it('does not expose the ordinary composer while channel identity is unresolved', () => {
+    render(() => (
+      <ChannelMessagingComposer
+        channelId="loading-channel"
+        loading
+        unavailable={false}
+        onRefresh={() => {}}
+        onRecoverReady={() => () => {}}
+      >
+        <button>Post internal note</button>
+      </ChannelMessagingComposer>
+    ));
+    expect(
+      screen.queryByRole('button', { name: 'Post internal note' })
+    ).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+  it('preserves the ordinary composer in a non-messaging Macro channel', () => {
+    fixture.account = undefined;
+    mount();
+    expect(
+      screen.queryByRole('textbox', { name: 'External customer reply' })
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Post internal note' }));
+    expect(fixture.internal).toHaveBeenCalledOnce();
+  });
+  it('keeps separate drafts for each customer and restores them on return', () => {
+    const [channel, setChannel] = createSignal('channel-one');
+    mount(channel);
+    fireEvent.input(
+      screen.getByRole('textbox', { name: 'External customer reply' }),
+      { target: { value: 'Only for customer one' } }
+    );
+    setChannel('channel-two');
+    expect(
+      screen.getByRole('textbox', { name: 'External customer reply' })
+    ).toHaveProperty('value', '');
+    expect(fixture.reply).not.toHaveBeenCalled();
+    fireEvent.input(
+      screen.getByRole('textbox', { name: 'External customer reply' }),
+      { target: { value: 'Only for customer two' } }
+    );
+    setChannel('channel-one');
+    expect(
+      screen.getByRole('textbox', { name: 'External customer reply' })
+    ).toHaveProperty('value', 'Only for customer one');
+    setChannel('channel-two');
+    expect(
+      screen.getByRole('textbox', { name: 'External customer reply' })
+    ).toHaveProperty('value', 'Only for customer two');
+  });
+  it('does not expose one signed-in user’s draft to another user in the same channel', () => {
+    const [user, setUser] = createSignal('macro|owner@fixture.test');
+    fixture.userId = user;
+    mount();
+    fireEvent.input(screen.getByRole('textbox'), {
+      target: { value: 'Private owner draft' },
+    });
+    setUser('macro|teammate@fixture.test');
+    expect(screen.getByRole('textbox')).toHaveProperty('value', '');
+    fireEvent.input(screen.getByRole('textbox'), {
+      target: { value: 'Teammate draft' },
+    });
+    setUser('macro|owner@fixture.test');
+    expect(screen.getByRole('textbox')).toHaveProperty(
+      'value',
+      'Private owner draft'
+    );
+    expect(fixture.reply).not.toHaveBeenCalled();
+  });
+  it('reuses the intent key after a network error', async () => {
+    fixture.reply.mockRejectedValueOnce(new Error('Network interrupted'));
+    mount();
+    fireEvent.input(
+      screen.getByRole('textbox', { name: 'External customer reply' }),
+      { target: { value: 'Deliberate reply' } }
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+    );
+    await screen.findByRole('alert');
+    cleanup();
+    mount();
+    expect(screen.getByRole('textbox')).toHaveProperty(
+      'value',
+      'Deliberate reply'
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+    );
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledTimes(2));
+    expect(fixture.reply.mock.calls[1][0].idempotency_key).toBe(
+      fixture.reply.mock.calls[0][0].idempotency_key
+    );
+    cleanup();
+    mount();
+    expect(screen.getByRole('textbox')).toHaveProperty('value', '');
+  });
+  it('restores a staged attachment and caption after remount', async () => {
+    enableImages();
+    mount();
+    fixture.recover!(
+      failedReply({
+        type: 'media',
+        kind: 'image',
+        document_id: 'private-file',
+        caption: 'Saved caption',
+      })
+    );
+    cleanup();
+    mount();
+    expect(screen.getByText('Previously attached file')).toBeTruthy();
+    expect(screen.getByRole('textbox')).toHaveProperty(
+      'value',
+      'Saved caption'
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+    );
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+    expect(fixture.reply.mock.calls[0][0].message).toEqual({
+      type: 'media',
+      kind: 'image',
+      document_id: 'private-file',
+      caption: 'Saved caption',
+    });
+  });
+  it('restores template selection and parameters after remount', async () => {
+    fixture.templates = [
+      {
+        id: 'approved-template',
+        language: 'en_US',
+        name: 'Welcome',
+        components: [],
+        parameter_labels: ['customer'],
+      },
+    ];
+    mount();
+    fixture.recover!(
+      failedReply({
+        type: 'template',
+        template_id: 'approved-template',
+        language: 'en_US',
+        parameters: ['Avery'],
+      })
+    );
+    cleanup();
+    mount();
+    expect(screen.getByRole('combobox')).toHaveProperty(
+      'value',
+      'approved-template'
+    );
+    expect(screen.getByLabelText('customer')).toHaveProperty('value', 'Avery');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+    );
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+    expect(fixture.reply.mock.calls[0][0].message).toEqual({
+      type: 'template',
+      template_id: 'approved-template',
+      language: 'en_US',
+      parameters: ['Avery'],
+    });
+  });
+  it('preserves an Instagram human-support draft through remount', () => {
+    fixture.account = account('instagram');
+    fixture.account.human_agent_approved = true;
+    fixture.account.conversation.standard_window_until = new Date(
+      Date.now() - 1000
+    ).toISOString();
+    mount();
+    fireEvent.input(screen.getByRole('textbox'), {
+      target: { value: 'Support follow-up' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    cleanup();
+    mount();
+    expect(screen.getByRole('textbox')).toHaveProperty(
+      'value',
+      'Support follow-up'
+    );
+    expect(screen.getByRole('checkbox')).toHaveProperty('checked', true);
+    expect(
+      screen.getByRole('button', { name: 'Send reply via Instagram' })
+    ).toHaveProperty('disabled', false);
+  });
+  it('ignores a late send completion after returning and writing a newer draft', async () => {
+    let resolveReply!: (value: unknown) => void;
+    fixture.reply.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveReply = resolve;
+        })
+    );
+    const [channel, setChannel] = createSignal('channel-one');
+    mount(channel);
+    fireEvent.input(screen.getByRole('textbox'), {
+      target: { value: 'In-flight reply' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+    );
+    setChannel('channel-two');
+    setChannel('channel-one');
+    fireEvent.input(screen.getByRole('textbox'), {
+      target: { value: 'Newer draft' },
+    });
+    resolveReply({});
+    await Promise.resolve();
+    expect(screen.getByRole('textbox')).toHaveProperty('value', 'Newer draft');
+    cleanup();
+    mount();
+    expect(screen.getByRole('textbox')).toHaveProperty('value', 'Newer draft');
+  });
+  it('ignores an old upload after navigation and a newer attachment selection', async () => {
+    enableImages();
+    let resolveUpload!: (file: MetaUploadedAttachment) => void;
+    fixture.upload.mockImplementationOnce(
+      () =>
+        new Promise<MetaUploadedAttachment>((resolve) => {
+          resolveUpload = resolve;
+        })
+    );
+    const [channel, setChannel] = createSignal('channel-one');
+    mount(channel);
+    const image = new File(['fixture'], 'photo.png', { type: 'image/png' });
+    fireEvent.click(screen.getByRole('button', { name: 'Attach file' }));
+    const oldUpload = fixture.selectFiles!([image]);
+    setChannel('channel-two');
+    setChannel('channel-one');
+    fixture.upload.mockResolvedValueOnce({
+      document_id: 'new-file',
+      filename: 'new.png',
+      kind: 'image',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Attach file' }));
+    await fixture.selectFiles!([image]);
+    resolveUpload({
+      document_id: 'old-file',
+      filename: 'old.png',
+      kind: 'image',
+    });
+    await oldUpload;
+    expect(screen.getByText('new.png')).toBeTruthy();
+    expect(screen.queryByText('old.png')).toBeNull();
+    cleanup();
+    mount();
+    expect(screen.getByText('new.png')).toBeTruthy();
+  });
+  it('requires checking the original app before resending an uncertain outcome', async () => {
+    fixture.account!.sends = [
+      {
+        id: 'intent',
+        channel_id: 'channel-one',
+        user_id: 'macro|owner@fixture.test',
+        state: 'unknown',
+        created_at: new Date().toISOString(),
+        payload: {
+          idempotency_key: 'old-key',
+          message: { type: 'text', text: 'Possibly delivered' },
+          human_support: false,
+        },
+      },
+    ];
+    mount();
+    fixture.recover!(fixture.account!.sends[0]);
+    const send = screen.getByRole('button', {
+      name: 'Send reply via WhatsApp',
+    });
+    expect(send).toHaveProperty('disabled', true);
+    expect(fixture.reply).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(send).toHaveProperty('disabled', false);
+    cleanup();
+    mount();
+    const reopenedSend = screen.getByRole('button', {
+      name: 'Send reply via WhatsApp',
+    });
+    expect(screen.getByRole('textbox')).toHaveProperty(
+      'value',
+      'Possibly delivered'
+    );
+    expect(screen.getByRole('checkbox')).toHaveProperty('checked', false);
+    expect(reopenedSend).toHaveProperty('disabled', true);
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(reopenedSend);
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+    expect(fixture.reply.mock.calls[0][0].idempotency_key).not.toBe('old-key');
+  });
+  it('enforces Instagram byte limits and disables sends when server status is unavailable', () => {
+    fixture.account = account('instagram');
+    mount();
+    fireEvent.input(
+      screen.getByRole('textbox', { name: 'External customer reply' }),
+      { target: { value: 'é'.repeat(501) } }
+    );
+    expect(
+      screen.getByRole('button', { name: 'Send reply via Instagram' })
+    ).toHaveProperty('disabled', true);
+    cleanup();
+    fixture.isError = true;
+    mount();
+    fireEvent.input(
+      screen.getByRole('textbox', { name: 'External customer reply' }),
+      { target: { value: 'Preserved draft' } }
+    );
+    expect(
+      screen.getByRole('button', { name: 'Send reply via Instagram' })
+    ).toHaveProperty('disabled', true);
+    expect(fixture.reply).not.toHaveBeenCalled();
+  });
+  it('restores from the message row, opens customer reply, and protects an existing draft', () => {
+    mount();
+    const failed: MetaSendProgress = {
+      id: 'failed',
+      channel_id: 'channel-one',
+      user_id: 'macro|owner@fixture.test',
+      state: 'failed',
+      created_at: new Date().toISOString(),
+      payload: {
+        idempotency_key: 'failed-key',
+        message: { type: 'text', text: 'Saved reply' },
+      },
+    };
+    fixture.recover!(failed);
+    expect(
+      screen.getByRole('textbox', { name: 'External customer reply' })
+    ).toHaveProperty('value', 'Saved reply');
+    fixture.recover!({
+      ...failed,
+      payload: {
+        ...failed.payload,
+        message: { type: 'text', text: 'Another reply' },
+      },
+    });
+    expect(
+      screen.getByRole('textbox', { name: 'External customer reply' })
+    ).toHaveProperty('value', 'Saved reply');
+    expect(screen.getByRole('alert').textContent).toContain('current draft');
+    expect(fixture.reply).not.toHaveBeenCalled();
+  });
+  it('does not display raw server errors or a delivery history inside the composer', async () => {
+    fixture.reply.mockRejectedValueOnce(
+      new Error('Meta credential encryption is not configured')
+    );
+    mount();
+    fireEvent.input(
+      screen.getByRole('textbox', { name: 'External customer reply' }),
+      { target: { value: 'Hello' } }
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'administrator'
+    );
+    expect(screen.queryByText(/credential encryption/)).toBeNull();
+  });
+});
+
+it('shows Meta account confirmation errors in the conversation while preserving drafts', () => {
+  fixture.account = {
+    ...account('instagram'),
+    status: 'error',
+    health_error: 'meta_access_required',
+  };
+  mount();
+  expect(screen.getByText(/Meta is blocking this app/).textContent).toContain(
+    'account confirmation'
+  );
+  const input = screen.getByRole('textbox', {
+    name: 'External customer reply',
+  });
+  fireEvent.input(input, { target: { value: 'Keep my draft' } });
+  expect(input).toHaveProperty('value', 'Keep my draft');
+  expect(
+    screen.getByRole('button', { name: 'Send reply via Instagram' })
+  ).toHaveProperty('disabled', true);
+  expect(fixture.reply).not.toHaveBeenCalled();
+});
+
+it('keeps mobile Return as a newline, matching the native channel input', () => {
+  fixture.touch = true;
+  mount();
+  const input = screen.getByRole('textbox', {
+    name: 'External customer reply',
+  });
+  fireEvent.input(input, { target: { value: 'Mobile draft' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(fixture.reply).not.toHaveBeenCalled();
+});

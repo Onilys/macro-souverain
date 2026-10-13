@@ -124,14 +124,19 @@ const ChannelInviteAcceptance = lazyNamed(
   () => import('@app/features/channel-invitations/ChannelInviteAcceptance'),
   'ChannelInviteAcceptance'
 );
+// Parent and detail routes preload together. Share the import promise so older
+// Safari loaders cannot expose the same asynchronous module before it evaluates.
+const loadChannelViews = (() => {
+  let pending:
+    | Promise<typeof import('@app/features/channels-view/route-views')>
+    | undefined;
+  return () => (pending ??= import('@app/features/channels-view/route-views'));
+})();
 const ChannelDetailRouteView = lazyNamed(
-  () => import('@app/features/channels-view/channels-view'),
+  loadChannelViews,
   'ChannelDetailRouteView'
 );
-const ChannelsRouteView = lazyNamed(
-  () => import('@app/features/channels-view/route-views'),
-  'ChannelsRouteView'
-);
+const ChannelsRouteView = lazyNamed(loadChannelViews, 'ChannelsRouteView');
 const CompaniesRouteView = lazyNamed(
   () => import('@app/features/crm/route-views'),
   'CompaniesRouteView'

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_receipt SET lease_until = now() + interval '5 minutes' WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND status = 'processing'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eb88f58210f334771fd33e334e3efa561ea318839d5f2dccc3a8c647c981bd4c"
+}

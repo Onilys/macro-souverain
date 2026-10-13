@@ -2,7 +2,7 @@ import type { MessageEditor } from '@channel/Channel/create-message-editor';
 import type { NewMessageCheckable } from '@channel/Channel/util';
 import type { InputHandle, InputSnapshot } from '@channel/Input';
 import type { MessageListItem, MessageParent } from '@service-storage/messages';
-import type { Accessor, Setter } from 'solid-js';
+import type { Accessor, JSX, Setter } from 'solid-js';
 import type {
   ChannelMessageListMeta,
   MessageActions,
@@ -54,6 +54,7 @@ export type ThreadTargetNavigation = {
 
 export type ThreadProps = {
   data: Accessor<MessageListItem>;
+  delivery?: () => JSX.Element;
   parent: Accessor<MessageParent>;
   /** The enclosing view owns a floating input only in unified mode. */
   inputMode?: 'inline' | 'unified';

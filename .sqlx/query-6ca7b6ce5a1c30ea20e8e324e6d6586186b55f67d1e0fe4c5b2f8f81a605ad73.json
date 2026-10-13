@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_receipt SET status='failed',error_code='interrupted_receipt_retries_exhausted',lease_id=NULL,lease_until=NULL WHERE status='processing' AND attempts>=20 AND lease_until<=now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "6ca7b6ce5a1c30ea20e8e324e6d6586186b55f67d1e0fe4c5b2f8f81a605ad73"
+}

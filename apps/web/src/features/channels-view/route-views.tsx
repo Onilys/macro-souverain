@@ -10,6 +10,8 @@ import { Show } from 'solid-js';
 import { channelsSearch } from './channels-route';
 import { ChannelsView } from './channels-view';
 
+export { ChannelDetailRouteView } from './channels-view';
+
 function ChannelsLegacyRouteView() {
   const params = useParams<{ channelId?: string }>();
   const [search] = createSearchParams(channelsSearch);

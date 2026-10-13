@@ -1,0 +1,134 @@
+//! Canonical provider facts. None of these carry a Macro authorization capability.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+use super::models::{DeliveryState, Provenance, Provider, ProviderId};
+
+/// Direction belongs to the provider account, independent of the Macro viewer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", schema(as = MetaDirection))]
+pub enum Direction {
+    /// Customer to business.
+    Inbound,
+    /// Business to customer.
+    Outbound,
+}
+
+/// Supported attachment categories; provider limits remain explicit in the sender.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", schema(as = MetaMediaKind))]
+pub enum MediaKind {
+    /// Still image or supported sticker.
+    Image,
+    /// Audio or voice note.
+    Audio,
+    /// Video clip.
+    Video,
+    /// Document file.
+    Document,
+}
+
+/// A remote resource awaiting a bounded download into Macro's authorized storage.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "schema", schema(as = MetaIncomingMedia))]
+pub struct IncomingMedia {
+    /// Media category.
+    pub kind: MediaKind,
+    /// WhatsApp media ID, resolved afresh for expiring download URLs.
+    pub id: Option<ProviderId>,
+    /// Instagram CDN URL, never exposed as a permanent Macro attachment.
+    pub url: Option<String>,
+    /// Provider-supplied MIME type; verify bytes and enforce size during download.
+    pub mime_type: Option<String>,
+    /// Optional original display name; never used as a filesystem path.
+    pub filename: Option<String>,
+    /// Expected SHA-256, when supplied by WhatsApp.
+    pub sha256: Option<String>,
+}
+
+/// One provider message with a stable connection-scoped identity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "schema", schema(as = MetaIncomingMessage))]
+pub struct IncomingMessage {
+    /// Official API producing this message.
+    pub provider: Provider,
+    /// Connected phone-number ID or Instagram professional account ID.
+    pub account_id: ProviderId,
+    /// Customer's account-scoped stable identifier.
+    pub customer_id: ProviderId,
+    /// Stable provider message identifier, shared by echoes and history.
+    pub message_id: ProviderId,
+    /// Display label, not identity or authorization.
+    pub author_name: Option<String>,
+    /// Mutable Instagram handle, for display only and scoped to the connected account.
+    #[serde(default)]
+    pub author_handle: Option<String>,
+    /// Server-decoded body or explicit unavailable/unsupported representation.
+    pub content: String,
+    /// Provider time, never replaced with processing time.
+    pub timestamp: DateTime<Utc>,
+    /// Whether the business or customer sent the message.
+    pub direction: Direction,
+    /// Source path used to determine reply-window eligibility.
+    pub provenance: Provenance,
+    /// Original provider message type for recovery and unsupported-content UI.
+    pub message_type: String,
+    /// Referenced provider message; scoped to the same connection/customer.
+    pub reply_to: Option<ProviderId>,
+    /// Media to materialize, bounded by the inbound transport.
+    pub media: Vec<IncomingMedia>,
+}
+
+/// Normalized facts received from the provider. Unknown facts remain visible in
+/// connection health rather than silently disappearing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(feature = "schema", schema(as = MetaIncomingEvent))]
+pub enum IncomingEvent {
+    /// A message, echo or historical message.
+    Message(IncomingMessage),
+    /// Delivery/read/failure status; may arrive before the message.
+    Status {
+        /// Business account's provider ID.
+        account_id: ProviderId,
+        /// Provider message being reconciled.
+        message_id: ProviderId,
+        /// Observed state.
+        state: DeliveryState,
+        /// Source event timestamp.
+        timestamp: DateTime<Utc>,
+        /// Provider error code, without potentially private error details.
+        error_code: Option<String>,
+    },
+    /// Provider-reported onboarding progress, applied only to an explicit import.
+    HistoryProgress {
+        /// Phone-number ID.
+        account_id: ProviderId,
+        /// Provider-reported percentage.
+        progress: Option<u8>,
+        /// Business explicitly declined history sharing.
+        declined: bool,
+    },
+    /// Disconnection/revocation of a WhatsApp messaging account or IG account.
+    Disconnected {
+        /// Provider account or WhatsApp messaging-account ID.
+        account_id: ProviderId,
+        /// Whether this ID is the parent WhatsApp messaging account.
+        business_account: bool,
+    },
+    /// A known conversation received a provider event that needs visible handling.
+    Unsupported {
+        /// Account receiving the event, if identifiable.
+        account_id: Option<ProviderId>,
+        /// Field/type name only, never unbounded message content.
+        field: String,
+    },
+}

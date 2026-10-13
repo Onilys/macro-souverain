@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_send SET state='sending',lease_id=$2,lease_until=now()+interval '5 minutes',attempts=1 WHERE id=$1 AND connection_id=$3 AND state='pending'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "514f3ffcb5fad61a4f023310cbfa6a05596f058f1ce84cec7c1fdb62850720db"
+}

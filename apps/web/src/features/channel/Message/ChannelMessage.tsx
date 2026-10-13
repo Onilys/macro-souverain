@@ -16,6 +16,8 @@ type ChannelMessageProps = {
   parent: MessageParent;
   inputMode?: 'inline' | 'unified';
   message: MessageData;
+  /** Use-case metadata rendered beside this message, e.g. external delivery. */
+  delivery?: () => JSX.Element;
   actions?: MessageActions;
   listMeta?: ChannelMessageListMeta;
   messageEditor?: MessageEditor;
@@ -67,12 +69,16 @@ function MessageContentSlot(props: {
   );
 }
 
-function MessageFooter(props: { messageEditor?: MessageEditor }) {
+function MessageFooter(props: {
+  messageEditor?: MessageEditor;
+  delivery?: () => JSX.Element;
+}) {
   const message = useMessage();
 
   return (
     <Show when={!isEditingMessage(props.messageEditor, message().id)}>
       <Message.Attachments />
+      {props.delivery?.()}
       <Message.Reactions />
     </Show>
   );
@@ -113,6 +119,7 @@ function RegularMessageLayout(props: {
   parent: MessageParent;
   inputMode?: 'inline' | 'unified';
   messageEditor?: MessageEditor;
+  delivery?: () => JSX.Element;
 }) {
   return (
     <Message.Layout class="pt-(--regular-message-padding-t)">
@@ -122,6 +129,7 @@ function RegularMessageLayout(props: {
       <Message.Slot placement="header" class="flex flex-col gap-0.5 min-w-0">
         <div class="flex items-baseline gap-1 min-w-0">
           <Message.SenderName />
+          <Message.ExternalBadge />
           <Message.AgentBadge />
           <Message.Timestamp
             class="shrink-0"
@@ -143,7 +151,10 @@ function RegularMessageLayout(props: {
         placement="footer"
         class="ph-no-capture flex flex-col min-w-0"
       >
-        <MessageFooter messageEditor={props.messageEditor} />
+        <MessageFooter
+          messageEditor={props.messageEditor}
+          delivery={props.delivery}
+        />
       </Message.Slot>
       <MessageActionsSlot messageEditor={props.messageEditor} />
     </Message.Layout>
@@ -154,6 +165,7 @@ function GroupedMessageLayout(props: {
   parent: MessageParent;
   inputMode?: 'inline' | 'unified';
   messageEditor?: MessageEditor;
+  delivery?: () => JSX.Element;
 }) {
   return (
     <Message.Layout>
@@ -177,7 +189,10 @@ function GroupedMessageLayout(props: {
         placement="footer"
         class="ph-no-capture flex flex-col min-w-0"
       >
-        <MessageFooter messageEditor={props.messageEditor} />
+        <MessageFooter
+          messageEditor={props.messageEditor}
+          delivery={props.delivery}
+        />
       </Message.Slot>
       {/* Grouped rows have no header timestamp; the hover toolbar carries it. */}
       <MessageActionsSlot messageEditor={props.messageEditor} showTimestamp />
@@ -219,6 +234,7 @@ export function ChannelMessage(props: ChannelMessageProps) {
           </Match>
           <Match when={isGrouped()}>
             <GroupedMessageLayout
+              delivery={props.delivery}
               parent={props.parent}
               inputMode={props.inputMode}
               messageEditor={props.messageEditor}
@@ -226,6 +242,7 @@ export function ChannelMessage(props: ChannelMessageProps) {
           </Match>
           <Match when={true}>
             <RegularMessageLayout
+              delivery={props.delivery}
               parent={props.parent}
               inputMode={props.inputMode}
               messageEditor={props.messageEditor}

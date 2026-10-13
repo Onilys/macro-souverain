@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_send SET payload=jsonb_set(payload,'{rendered_text}',to_jsonb($3::text)),lease_until=now()+interval '5 minutes' WHERE id=$1 AND lease_id=$2 AND lease_until>now() AND state='sending' AND connection_id=$4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "20706058109b0a22da553251967afa5cdd96e3291a2db7841eca44a6280ad38b"
+}

@@ -3904,7 +3904,6 @@ name = "channel_sender"
 version = "0.1.0"
 dependencies = [
  "bot_id",
- "either",
  "macro_user_id",
  "serde",
  "serde_json",
@@ -6173,7 +6172,9 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "async-graphql-axum",
+ "async-trait",
  "aws-sdk-dynamodb",
+ "aws-sdk-kms",
  "aws-sdk-s3",
  "aws-sdk-secretsmanager",
  "aws-sdk-sns",
@@ -6190,6 +6191,7 @@ dependencies = [
  "call",
  "channel_bots",
  "channel_labels",
+ "channel_sender",
  "channels",
  "chat",
  "chrono",
@@ -6228,6 +6230,7 @@ dependencies = [
  "graphql_soup",
  "harnesses",
  "hex",
+ "hmac 0.12.1",
  "http-body-util",
  "import",
  "initiative",
@@ -6244,6 +6247,7 @@ dependencies = [
  "macro_config",
  "macro_cors",
  "macro_db_client",
+ "macro_db_migrator",
  "macro_entrypoint",
  "macro_env",
  "macro_env_var",
@@ -6257,6 +6261,7 @@ dependencies = [
  "macro_user_id",
  "macro_uuid",
  "messages",
+ "meta_messaging",
  "mockall",
  "model",
  "model-entity",
@@ -6294,6 +6299,7 @@ dependencies = [
  "secretsmanager_client",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "slack_integration",
  "soup",
  "soup_realtime",
@@ -12071,6 +12077,36 @@ dependencies = [
  "utoipa",
  "uuid",
  "workspace-hack",
+]
+
+[[package]]
+name = "meta_messaging"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-sdk-kms",
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "entity_access",
+ "hmac 0.12.1",
+ "macro_authorization",
+ "macro_db_migrator",
+ "messages",
+ "reqwest 0.13.4",
+ "rootcause",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "url",
+ "utoipa",
+ "uuid",
+ "workspace-hack",
+ "zeroize",
 ]
 
 [[package]]

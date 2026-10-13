@@ -1,5 +1,6 @@
 import { ViewShell } from '@app/components/view-shell';
 import { ChatWithAgentButton } from '@app/features/chat/ChatWithAgentButton';
+import { ChannelMessagingIdentity } from '@app/features/meta-messaging/views/channel-identity';
 import { ChannelAttachmentsTab } from '@channel/Attachments/ChannelAttachmentsTab';
 import { useChannelBotManagement } from '@channel/Bots/use-channel-bot-management';
 import { useCallContextOptional } from '@channel/Call/CallContext';
@@ -101,11 +102,13 @@ export function ChannelDetailTitle(props: ChannelDetailHeaderProps) {
 
   return (
     <div class="ph-no-capture flex min-w-0 shrink items-center gap-2">
-      <ChannelTopIcon
-        channelId={props.channelId}
-        channelType={channelType()}
-        participants={participants()}
-      />
+      <ChannelMessagingIdentity channelId={props.channelId}>
+        <ChannelTopIcon
+          channelId={props.channelId}
+          channelType={channelType()}
+          participants={participants()}
+        />
+      </ChannelMessagingIdentity>
       <span class="truncate text-sm font-semibold">
         {channelName() ?? 'New Channel'}
       </span>
