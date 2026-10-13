@@ -426,7 +426,10 @@ the shimmer.
   list in place and a **Recommended** row at the top goes back.
 - Chat agents' empty input cycles tips about connectors, skills, mentions, and
   agents; coding agents show **Describe what you want to build**. Type `@` for
-  mentions and `/` for skills.
+  mentions and `/` for skills and MCPs. The **MCPs** section lists the enabled
+  connections the AI's tools come from: Pipedream connectors when the user has
+  any, otherwise authenticated native servers. Selecting one inserts plain text
+  naming it (`Linear MCP `) to steer the model toward that server's tools.
   Check `/` with the Android software keyboard too: the skills menu should open
   and filter while typing, without sending the draft.
 - Opening a conversation updates the URL based on that conversation's kind:
@@ -957,10 +960,10 @@ An agent session is `/app/agent/<uuid>`. The composer placeholder is
 **`Message the agent, @mention anything`**. Creating one (`c` then `a`, or
 `Create` → `Agent`) leaves that composer focused — on mobile that is the same
 Create-menu `triggerFocusInput` as chat, so the keyboard opens. Type `/` to
-open sections for **Skills**, **Pull requests**, and **Commands**. Skills are
-available even before the connected agent advertises commands. Select a skill
-to insert its mention, a pull request to reference it, or a harness command
-to insert `/name` as text. Search filters all sections; arrow keys move across
+open sections for **Skills**, **MCPs**, **Pull requests**, and **Commands**.
+Skills are available even before the connected agent advertises commands.
+Select a skill to insert its mention, an MCP to name it as text, a pull
+request to reference it, or a harness command to insert `/name` as text. Search filters all sections; arrow keys move across
 sections and Enter selects the highlighted item. Saved skills have an **Edit**
 button that opens their document editor; skills you own also have **Delete**,
 which opens the usual deletion confirmation. Built-in skills have no edit or
