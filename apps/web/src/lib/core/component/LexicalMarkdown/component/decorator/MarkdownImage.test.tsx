@@ -51,6 +51,60 @@ describe('markdown media loading', () => {
     expect(card.className).toContain('aspect-video');
   });
 
+  it('reserves the loaded image box once the browser knows its size', () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(() => (
+        <MarkdownImage
+          {...unsetMedia}
+          key="early-size"
+          url="https://files.macro.com/early-size.png"
+          alt="early-size.png"
+        />
+      ));
+      const image = view.container.querySelector('img')!;
+      const frame = image.parentElement!;
+      expect(frame.querySelector('[data-media-loading]')).toBeTruthy();
+
+      Object.defineProperties(image, {
+        naturalWidth: { value: 2560 },
+        naturalHeight: { value: 1600 },
+      });
+      vi.advanceTimersByTime(100);
+
+      expect(frame.querySelector('[data-media-loading]')).toBeNull();
+      expect(frame.style.aspectRatio).toBe('1.6');
+      expect(frame.style.width).toBe('100%');
+      const loadingStyle = frame.getAttribute('style');
+      fireEvent.load(image);
+      expect(frame.getAttribute('style')).toBe(loadingStyle);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reserves the remembered box when the same image remounts', () => {
+    const url = 'https://files.macro.com/remount.png';
+    const first = render(() => (
+      <MarkdownImage {...unsetMedia} key="first" url={url} alt="remount.png" />
+    ));
+    const firstImage = first.container.querySelector('img')!;
+    Object.defineProperties(firstImage, {
+      naturalWidth: { value: 1200 },
+      naturalHeight: { value: 600 },
+    });
+    fireEvent.load(firstImage);
+    const loadedStyle = firstImage.parentElement!.getAttribute('style');
+    first.unmount();
+
+    const second = render(() => (
+      <MarkdownImage {...unsetMedia} key="second" url={url} alt="remount.png" />
+    ));
+    const frame = second.container.querySelector('img')!.parentElement!;
+    expect(frame.querySelector('[data-media-loading]')).toBeNull();
+    expect(frame.getAttribute('style')).toBe(loadedStyle);
+  });
+
   it('keeps known dimensions on load and failure, including short images', () => {
     const view = render(() => (
       <MarkdownImage
