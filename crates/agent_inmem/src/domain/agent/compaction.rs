@@ -8,7 +8,8 @@
 //! log records it ([`ContextSummaryNotification`]) and it takes the place of
 //! the entries it covers; whatever was said meanwhile stays as it was. A turn
 //! waits for its summary only when the conversation would leave it too
-//! little room otherwise ([`WAIT_AT`]).
+//! little room otherwise ([`WAIT_AT`]), or when its own message is long
+//! ([`LONG_MESSAGE_AT`]), so that a paste has room at once.
 //!
 //! A summary that fails leaves the history as it was, and the next is not
 //! tried until the conversation has grown by another [`RETRY_AFTER`] percent
@@ -34,18 +35,24 @@ pub(crate) const SUMMARY_MODEL: &str = "google/gemini-3.8-flash";
 
 /// The share of the session model's context window, in percent, at which a
 /// summary starts.
-const SUMMARIZE_AT: u64 = 40;
+const SUMMARIZE_AT: u64 = 60;
 /// The share at which a turn waits for its summary: past it, the turn's own
 /// work could run out of room.
 const WAIT_AT: u64 = 75;
+/// The share from which a message counts as long. A long message that
+/// brings the conversation to [`SUMMARIZE_AT`] waits for its summary rather
+/// than running on the whole history, so what was pasted has room at once.
+const LONG_MESSAGE_AT: u64 = 10;
 /// The share the latest turns may take and still stay word for word, two
 /// turns at most.
 const RETAIN_UP_TO: u64 = 10;
 /// The share the conversation grows by, after a summary failed, before
 /// another is tried.
 const RETRY_AFTER: u64 = 10;
-/// The share one message may take.
-const MESSAGE_UP_TO: u64 = 25;
+/// The share one message may take. A long one compacts the conversation
+/// before it runs, so it needs room only beside a summary and the latest
+/// turns.
+const MESSAGE_UP_TO: u64 = 50;
 /// The window of a model the catalog has none for.
 const UNKNOWN_WINDOW: u64 = 128_000;
 /// Bytes of conversation per token. Low, since tool results are JSON full
@@ -177,7 +184,7 @@ pub(super) struct Stopped;
 
 /// Before a turn on `prompt`: start a summary if the conversation has grown
 /// to need one, and wait for it if the conversation would otherwise leave
-/// the turn too little room.
+/// the turn too little room, or if `prompt` is long.
 ///
 /// A summary already running covers only what was said before it started,
 /// so once it lands the conversation can still be too long: then one more
@@ -212,7 +219,8 @@ pub(super) async fn before_turn(
 
 /// Start a summary if the conversation with `prompt` has grown to need one,
 /// none is being written, and the last did not fail at nearly this size.
-/// The summary to wait for when the turn would not fit without it.
+/// The summary to wait for when the turn would not fit without it or its
+/// message is long.
 fn start_summary(
     state: &Arc<AgentState>,
     connection: &ConnectionTo<Client>,
@@ -251,7 +259,8 @@ fn start_summary(
                 start = Some((covered, through, total, summary_cancel, settle));
             }
         }
-        (total >= share(window, WAIT_AT))
+        let long = prompt_tokens(prompt) >= share(window, LONG_MESSAGE_AT);
+        (long || total >= share(window, WAIT_AT))
             .then(|| {
                 session
                     .summarizing

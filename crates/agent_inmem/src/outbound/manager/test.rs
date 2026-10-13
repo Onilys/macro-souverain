@@ -801,6 +801,32 @@ async fn teardown_releases_pooled_mcp_sessions_for_the_egress_token() {
     );
 }
 
+/// A resume that rotates the credential leaves the old token unaccepted, so
+/// the MCP sessions pooled under it are released; the same token again is
+/// still in use and keeps them.
+#[tokio::test]
+async fn attaching_with_a_new_token_releases_the_replaced_one() {
+    let repo = InMemoryAgentSessionRepo::new();
+    let mcp = Arc::new(RecordingRelease {
+        released: std::sync::Mutex::new(Vec::new()),
+    });
+    let manager = InMemAgentManager::new(
+        Arc::new(ScriptedEngine::new(Vec::new())),
+        Arc::new(LogFrameSource::new(repo.clone())),
+        mcp.clone(),
+        Arc::new(crate::testing::TestModelAccess::paid()),
+    );
+    let id = AgentSessionId::new();
+    let _spawned = manager.attach(facts(id), Some("spawned".to_owned())).await;
+    let _same = manager.attach(facts(id), Some("spawned".to_owned())).await;
+    assert!(mcp.released.lock().expect("lock").is_empty());
+
+    let _rotated = manager.attach(facts(id), Some("rotated".to_owned())).await;
+
+    assert_eq!(manager.session_token(id).as_deref(), Some("rotated"));
+    assert_eq!(mcp.released.lock().expect("lock").as_slice(), ["spawned"]);
+}
+
 /// Records [`McpToolConnector::release`] so teardown can be seen doing it.
 struct RecordingRelease {
     released: std::sync::Mutex<Vec<String>>,

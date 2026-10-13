@@ -154,9 +154,15 @@ async fn a_restarted_manager_reads_a_summary_in_place_of_the_turns_it_covered() 
         .await
         .expect("the transport should attach");
 
-    // The second message starts a summary of the first turn and runs
-    // without waiting for it.
-    for (sent, text) in [(1, "a".repeat(90_000)), (2, "b".repeat(90_000))] {
+    // The fourth message, short of a long one, brings the conversation to
+    // 86,000 tokens: a summary of the first two turns starts, and the
+    // message runs without waiting for it.
+    for (sent, text) in [
+        (1, "a".repeat(150_000)),
+        (2, "b".repeat(36_000)),
+        (3, "c".repeat(36_000)),
+        (4, "d".repeat(36_000)),
+    ] {
         sessions
             .send_action(
                 id,
@@ -208,7 +214,9 @@ async fn a_restarted_manager_reads_a_summary_in_place_of_the_turns_it_covered() 
         [
             SUMMARY_PREAMBLE,
             "SUMMARY",
-            "b x90000",
+            "c x36000",
+            "ok",
+            "d x36000",
             "ok",
             "after the restart"
         ]

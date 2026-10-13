@@ -983,14 +983,16 @@ the stack's private hostname. This also applies to images in earlier turns when
 resuming a conversation after a service restart.
 
 A long conversation with the in-memory agent stays within its model's context by
-itself. Once it fills 40% of the model's window, a summary of all but the latest
+itself. Once it fills 60% of the model's window, a summary of all but the latest
 turns is written in the background, with each image described, and the agent reads
 that summary in place of those turns from then on. The transcript keeps every
 message and shows a "Context compacted" line where the summary landed. The agent
 does not pause to summarize unless the conversation would otherwise not fit its
-model, as after switching to a model with a smaller window. To recover an exact
+model, as after switching to a model with a smaller window, or the message that
+crosses 60% is itself long (a tenth of the window or more), as a large paste is:
+that message waits for the summary so it has room at once. To recover an exact
 detail from the summarized part, the agent runs a **ContentSearch** step scoped to
-its own session. A message that alone takes more than a quarter of the model's
+its own session. A message that alone takes more than half of the model's
 window is refused with "This message is too long. Split it into smaller messages
 or attach it as a file." `/compact` is an ordinary message to every agent: the
 transcript shows it as sent, followed by the agent's reply; a "Context compacted"

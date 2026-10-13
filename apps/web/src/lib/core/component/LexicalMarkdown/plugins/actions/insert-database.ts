@@ -22,18 +22,31 @@ import type { ActionContext } from './types';
 /** Keep the insertion anchored while creation runs, even if the caret moves. */
 export async function insertNewDatabase(
   editor: LexicalEditor,
-  context?: ActionContext
+  context?: ActionContext,
+  placeholderKey?: NodeKey
 ) {
-  if (!editor.isEditable()) return;
-  let placeholderKey: NodeKey | undefined;
-  editor.update(() => {
-    const placeholder = $createAwaitNode({
-      awaitId: nanoid(),
-      text: 'Creating database…',
+  const pendingKey = placeholderKey;
+  if (!editor.isEditable()) {
+    if (pendingKey)
+      editor.update(() => {
+        const placeholder = $getNodeByKey(pendingKey);
+        if ($isAwaitNode(placeholder)) placeholder.remove();
+      });
+    return;
+  }
+  if (pendingKey) {
+    // The user can remove the pending insert while this module downloads.
+    if (!editor.read(() => $isAwaitNode($getNodeByKey(pendingKey)))) return;
+  } else {
+    editor.update(() => {
+      const placeholder = $createAwaitNode({
+        awaitId: nanoid(),
+        text: 'Creating database…',
+      });
+      $insertNodes([placeholder]);
+      placeholderKey = placeholder.getKey();
     });
-    $insertNodes([placeholder]);
-    placeholderKey = placeholder.getKey();
-  });
+  }
 
   let mentionUuid: string | undefined;
   let inserted = false;

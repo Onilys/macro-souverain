@@ -1990,8 +1990,12 @@ Pasting a bare GitHub pull request URL (`github.com/<owner>/<repo>/pull/<n>`,
 including subpages such as `/files`) inserts a link that becomes a PR mention
 once Macro finds the synced PR, usually within a moment. Hovering the mention
 shows its status, diff size, comments, and checks; clicking opens the PR in a
-split. A PR Macro has not synced stays an ordinary link, and pasting inside a
-code block or over a selection keeps the default behavior.
+split. A PR mention always stays on one line: a long title truncates with an
+ellipsis before the `#N`, so read the full title from the hover card. In a sent
+message, a mention an agent wrote by URL alone shows `owner/repo#N` until its
+title loads and keeps the same width either way. A PR Macro has not synced
+stays an ordinary link, and pasting inside a code block or over a selection
+keeps the default behavior.
 
 1. `Create` → `Document D`. The app navigates to `/app/md/<uuid>` with the **title field
    focused**.

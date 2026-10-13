@@ -17,27 +17,110 @@ import {
   type SearchableOption,
 } from './searchable-multi-select';
 
-/** Keep a submenu alive while the mouse crosses the parent menu's padding. */
+const mouseTrail: { x: number; y: number; time: number }[] = [];
+let mouseTrailUsers = 0;
+const recordMouse = (event: PointerEvent) => {
+  if (event.pointerType !== 'mouse') return;
+  mouseTrail.push({
+    x: event.clientX,
+    y: event.clientY,
+    time: performance.now(),
+  });
+  if (mouseTrail.length > 4) mouseTrail.shift();
+};
+function trackMouseTrail() {
+  if (mouseTrailUsers++ === 0)
+    window.addEventListener('pointermove', recordMouse, true);
+  onCleanup(() => {
+    if (--mouseTrailUsers > 0) return;
+    window.removeEventListener('pointermove', recordMouse, true);
+    mouseTrail.length = 0;
+  });
+}
+
+/**
+ * Whether the mouse's latest movement points into `content`, so a submenu
+ * stays open while the mouse crosses other rows on the way to it. Unlike
+ * Kobalte's grace polygon, this follows the mouse instead of expiring 300 ms
+ * after it leaves the trigger.
+ */
+function isMouseHeadingInto(content: Element) {
+  const from = mouseTrail[0];
+  const to = mouseTrail.at(-1);
+  if (!from || !to || performance.now() - to.time > 100) return false;
+  const rect = content.getBoundingClientRect();
+  const edge =
+    to.x <= rect.left ? rect.left : to.x >= rect.right ? rect.right : null;
+  if (edge === null) return false;
+  const slack = 16;
+  const top = { x: edge - from.x, y: rect.top - slack - from.y };
+  const bottom = { x: edge - from.x, y: rect.bottom + slack - from.y };
+  const move = { x: to.x - from.x, y: to.y - from.y };
+  const cross = (a: typeof move, b: typeof move) => a.x * b.y - a.y * b.x;
+  const side = Math.sign(cross(top, bottom));
+  return (
+    side !== 0 &&
+    Math.sign(cross(top, move)) === side &&
+    Math.sign(cross(move, bottom)) === side
+  );
+}
+
+/** The content of another open submenu in the same menu as `trigger`. */
+function openSiblingContent(trigger: HTMLElement) {
+  const sibling = [
+    ...(trigger
+      .closest('[role="menu"]')
+      ?.querySelectorAll('[aria-haspopup][aria-expanded="true"]') ?? []),
+  ].find((element) => element !== trigger);
+  const id = sibling?.getAttribute('aria-controls');
+  return id ? document.getElementById(id) : null;
+}
+
+/**
+ * Keep a submenu alive while the mouse crosses the parent menu's padding or
+ * other rows on its way into the submenu.
+ */
 function createFilterSubmenuHover(
   options: {
     open?: Accessor<boolean>;
     onOpenChange?: (open: boolean) => void;
   } = {}
 ) {
+  trackMouseTrail();
   const [internalOpen, setInternalOpen] = createSignal(false);
   const open = () => options.open?.() ?? internalOpen();
+  let content: HTMLElement | undefined;
   let leavingWithMouse = false;
+  let switchingTrigger = false;
+  const headingIntoContent = () =>
+    !!content?.isConnected && isMouseHeadingInto(content);
   const commitOpen = (value: boolean) => {
     setInternalOpen(value);
     options.onOpenChange?.(value);
   };
-  const closeAfterGap = debounce(() => commitOpen(false), 250);
+  const closeAfterGap = debounce(
+    () => (headingIntoContent() ? closeAfterGap() : commitOpen(false)),
+    250
+  );
+  // Kobalte ignores a sibling row while the mouse heads toward an open sub,
+  // but only re-checks on pointermove: a mouse resting on the row would leave
+  // the old sub stuck open, so switch once it has rested there.
+  const openAfterRest = debounce((trigger: HTMLElement) => {
+    if (open()) return;
+    trigger.focus({ preventScroll: true });
+    setOpen(true);
+  }, 300);
   const cancelGrace = () => {
     leavingWithMouse = false;
     closeAfterGap.clear();
+    openAfterRest.clear();
   };
   const setOpen = (value: boolean) => {
-    if (!value && leavingWithMouse) {
+    if (
+      !value &&
+      !switchingTrigger &&
+      (leavingWithMouse || headingIntoContent())
+    ) {
       closeAfterGap();
       return;
     }
@@ -53,13 +136,17 @@ function createFilterSubmenuHover(
         event: PointerEvent & { currentTarget: HTMLElement }
       ) => {
         cancelGrace();
+        if (event.pointerType === 'mouse') openAfterRest(event.currentTarget);
+      },
+      onPointerMove: (event: PointerEvent & { currentTarget: HTMLElement }) => {
         if (event.pointerType !== 'mouse') return;
-        // Entering a sibling row is an explicit switch, even when Kobalte's
-        // grace polygon still considers the pointer headed toward the old sub.
-        event.currentTarget.focus({ preventScroll: true });
-        if (!open()) setOpen(true);
+        const sibling = openSiblingContent(event.currentTarget);
+        // Kobalte skips its hover switch for a prevented pointermove.
+        if (sibling && isMouseHeadingInto(sibling)) event.preventDefault();
+        openAfterRest(event.currentTarget);
       },
       onPointerLeave: (event: PointerEvent) => {
+        openAfterRest.clear();
         // Kobalte's remaining pointerleave handler can focus the parent menu
         // and synchronously close this sub when outside its grace polygon.
         // Delay only those closes; later keyboard/focus changes stay immediate.
@@ -72,14 +159,22 @@ function createFilterSubmenuHover(
       onPointerDown: cancelGrace,
     },
     contentProps: {
+      ref: (element: HTMLElement) => {
+        content = element;
+      },
       onPointerEnter: cancelGrace,
       onFocusOutside: (event: Event) => {
         // Padding gets a grace period; switching submenu triggers does not.
         if (
           event.target instanceof Element &&
           event.target.closest('[role="menuitem"][aria-haspopup]')
-        )
+        ) {
           cancelGrace();
+          switchingTrigger = true;
+          queueMicrotask(() => {
+            switchingTrigger = false;
+          });
+        }
       },
       onKeyDown: cancelGrace,
       onEscapeKeyDown: cancelGrace,

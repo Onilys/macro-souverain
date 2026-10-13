@@ -4,6 +4,7 @@ import {
   ChannelListSoupDocument,
   ChannelUnreadPresenceDocument,
   GroupSoupDocument,
+  HomeUnreadPresenceDocument,
   SoupDocument,
   SoupNotificationsDocument,
 } from '@service-storage/graphql/generated/graphql';
@@ -23,6 +24,7 @@ const notificationDocuments = new Set<QueryRevalidation['document']>([
   ChannelListSoupDocument,
   ChannelUnreadPresenceDocument,
   GroupSoupDocument,
+  HomeUnreadPresenceDocument,
   SoupDocument,
   SoupNotificationsDocument,
 ]);

@@ -30,6 +30,18 @@
       };
       gitRev = inputs.self.shortRev or inputs.self.dirtyShortRev or "unknown";
 
+      # Vite inlines `import.meta.env.VITE_*` at build time, so the desktop
+      # bundle only reaches PostHog — and therefore only resolves feature
+      # flags — when this key is present while the frontend derivation builds.
+      # Evaluation is pure by default and `builtins.getEnv` then returns "", so
+      # the release workflows export the key and build with `--impure` (see
+      # `xtask_workflows/.../scripts/build_appimage.sh` and `build_dmg.sh`).
+      # An empty value stays a warning-free flag-less build: that is what ad-hoc
+      # local `nix build .#tauri-desktop-*` runs get. The value is a PostHog
+      # *project* key, public by design — it ships inside every web and mobile
+      # bundle already — so embedding it in the derivation is not a new exposure.
+      posthogApiKey = builtins.getEnv "VITE_POSTHOG_API_KEY";
+
       rustToolchain = fenix.packages.${system}.fromToolchainFile {
         file = ../rust-toolchain.toml;
         sha256 = "sha256-qqF33vNuAdU5vua96VKVIwuc43j4EFeEXbjQ6+l4mO4=";
@@ -119,6 +131,10 @@
 
         dontConfigure = true;
 
+        # Vite reads prefixed variables straight off the build environment, the
+        # same way `just build-prod` picks them up in the web and Android jobs.
+        VITE_POSTHOG_API_KEY = posthogApiKey;
+
         buildPhase = ''
             runHook preBuild
 
@@ -143,6 +159,16 @@
               printf '${appVersion}+${gitRev}\n' > dist/semver.txt
               BUNDLE_BUILD_NUMBER=${toString desktopRelease.bundleBuild} MIN_NATIVE_BUILD=0 bun scripts/write-bundle-manifest.mjs
             )
+
+            # A supplied key that never reaches the bundle means PostHog — and
+            # every feature flag behind it — is silently off in the shipped app.
+            # Fail the build instead, the way the signed DMG fails on a missing
+            # signing identity.
+            if [ -n "''${VITE_POSTHOG_API_KEY:-}" ] \
+              && ! grep -rqF -- "$VITE_POSTHOG_API_KEY" apps/web/dist; then
+              echo "VITE_POSTHOG_API_KEY was set but Vite did not inline it into apps/web/dist" >&2
+              exit 1
+            fi
 
             runHook postBuild
         '';

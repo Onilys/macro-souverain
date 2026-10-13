@@ -8,8 +8,10 @@ import { ListNode } from '@lexical/list';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { INSERT_TABLE_COMMAND, TableNode } from '@lexical/table';
 import {
+  $createAwaitNode,
   $createDatabaseQueryNode,
   $createDocumentMentionNode,
+  $isAwaitNode,
   AwaitNode,
   CustomCodeNode,
   DatabaseQueryNode,
@@ -39,8 +41,8 @@ import TextH1 from '@phosphor/text-h-one.svg';
 import TextH3 from '@phosphor/text-h-three.svg';
 import TextH2 from '@phosphor/text-h-two.svg';
 import TextT from '@phosphor/text-t.svg';
-import type { LexicalEditor } from 'lexical';
-import { $insertNodes } from 'lexical';
+import type { LexicalEditor, NodeKey } from 'lexical';
+import { $getNodeByKey, $insertNodes } from 'lexical';
 import { nanoid } from 'nanoid';
 import { INSERT_HORIZONTAL_RULE_COMMAND } from '..';
 import {
@@ -374,10 +376,30 @@ export const ACTIONS: Action[] = [
     action: (editor, context) => {
       if (!isFeatureEnabled(enableDatabases)) return;
       queueMicrotask(async () => {
+        let placeholderKey: NodeKey | undefined;
         try {
+          if (!editor.isEditable()) return;
+          // Anchor and show feedback before the creation module downloads.
+          editor.update(
+            () => {
+              const placeholder = $createAwaitNode({
+                awaitId: nanoid(),
+                text: 'Creating database…',
+              });
+              $insertNodes([placeholder]);
+              placeholderKey = placeholder.getKey();
+            },
+            { discrete: true }
+          );
           const { insertNewDatabase } = await import('./insert-database');
-          await insertNewDatabase(editor, context);
+          await insertNewDatabase(editor, context, placeholderKey);
         } catch (error: unknown) {
+          editor.update(() => {
+            const placeholder = placeholderKey
+              ? $getNodeByKey(placeholderKey)
+              : null;
+            if ($isAwaitNode(placeholder)) placeholder.remove();
+          });
           Telemetry.error('database.insert.failed', { error: String(error) });
           toast.failure('The database could not be inserted. Try again.');
         }

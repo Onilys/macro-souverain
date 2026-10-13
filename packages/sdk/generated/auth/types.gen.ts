@@ -1391,7 +1391,7 @@ export type PublicGtmInviteLink = {
  */
 export type PutCursorApiKeyRequest = {
     /**
-     * A `crsr_…` Cursor API key.
+     * A Cursor API key: `grok_…`, or `crsr_…` for older keys.
      */
     apiKey: string;
 };

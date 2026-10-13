@@ -9,6 +9,11 @@ match its name, including databases with no view history.
 
 Creating from Home immediately shows the table selector with its **+** menu, **Database
 actions**, and **AI** in the top bar; no reload is needed to use them.
+`/database` immediately shows **Creating database…** at the insertion point while
+the creation module loads. Moving the caret keeps that insertion anchored; removing
+it before the module loads cancels creation.
+A successful create opens its new editor while database discovery refreshes in
+the background; a slow discovery refresh must not delay the new database card.
 Databases open at
 `/app/database/<uuid>`. A database contains tables; records belong to a table and
 its properties describe each record. The database name in the split header is an
@@ -19,6 +24,9 @@ split header's `viewer` badge instead.
 Reopening a loaded table or view shows its cached rows while a background read
 checks for changes. Wait for refreshing to finish before asserting server
 reconciliation; visible rows alone do not mean the network read has completed.
+Concurrent cache-only misses must not fail an outstanding network row read. A
+successful background read clears an earlier refresh warning; a genuine failed
+read keeps the warning and its Refresh action.
 
 **AI** in the split header opens an agent chat about the database. Its composer
 starts with a mention of the database; the schema and table guidance go to the
@@ -474,7 +482,9 @@ The same tools are exposed to agent sessions through the Macro MCP server.
 
 In a document, channel composer, or the task/document creation composer,
 `/query` → **Query** opens the question box with the AI prompt focused
-immediately. The empty input rotates through example questions; a selected database
+immediately. New draft questions bypass the saved-answer viewport gate; a cold
+module load shows **Opening database…** until the question input is ready. Saved
+answers still load when they approach the viewport. The empty input rotates through example questions; a selected database
 uses its actual table and column names. Typing hides these hints, and reduced-motion
 preferences keep them static. Use the searchable source picker below the question to
 choose a database; the entire chosen database is in scope, without a table

@@ -863,8 +863,8 @@ fn big(bytes: usize) -> String {
 
 /// Run the session on `model` from here on. `other-model` is one the
 /// catalog has no window for, so it gets the 128k-token fallback: a summary
-/// starts at 51,200 tokens, a turn waits from 96,000, and one message may
-/// take 32,000.
+/// starts at 76,800 tokens, a turn waits from 96,000 or on a message of
+/// 12,800, and one message may take 64,000.
 fn use_model(state: &AgentState, model: &str) {
     state
         .store
@@ -925,62 +925,106 @@ async fn a_long_conversation_is_summarized_in_the_background_while_its_message_r
     let engine = Arc::new(CondensingEngine::new());
     let recorded = with_summaries(Arc::clone(&engine), async |connection, session, state| {
         use_model(&state, "other-model");
-        prompt(&connection, &session, &big(90_000)).await;
-        let first_prompt = match state
+        // Six messages of 12,000 tokens each: under a long message, and
+        // 72,000 tokens in all, short of a summary.
+        for _ in 0..6 {
+            prompt(&connection, &session, &big(36_000)).await;
+        }
+        let fifth_prompt = match state
             .store
             .get(&state.session_id)
             .expect("the session")
             .history
-            .first()
+            .get(8)
         {
             Some(HistoryEntry::User { request_id, .. }) => Some(request_id.clone()),
             _ => None,
         };
-        // 60,000 tokens with this one: the summary starts, and the message
+        // 84,000 tokens with this one: the summary starts, and the message
         // does not wait for it.
-        prompt(&connection, &session, &big(90_000)).await;
+        prompt(&connection, &session, &big(36_000)).await;
         summary_settled(&state).await;
         prompt(&connection, &session, "continue").await;
         let session = state.store.get(&state.session_id).expect("the session");
-        (session.summarizing.pending.is_none(), first_prompt)
+        (session.summarizing.pending.is_none(), fifth_prompt)
     })
     .await;
 
     let turns = engine.turns.requests();
+    let mut whole = Vec::new();
+    for _ in 0..6 {
+        whole.extend([big(36_000), "ok".to_owned()]);
+    }
+    whole.push(big(36_000));
     assert_eq!(
-        turns[1].messages,
-        [big(90_000), "ok".to_owned(), big(90_000)],
+        turns[6].messages, whole,
         "the message that started the summary ran on the whole history"
     );
     let summaries = engine.summaries.requests();
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0].model, compaction::SUMMARY_MODEL);
     assert_eq!(summaries[0].purpose, TurnPurpose::Summary);
-    assert!(summaries[0].messages[0].contains(&big(90_000)));
+    assert!(summaries[0].messages[0].contains(&big(36_000)));
     assert!(
-        summaries[0].messages[0].len() < 100_000,
-        "the latest message is not in its own summary"
+        summaries[0].messages[0].len() < 6 * 36_000,
+        "the latest turn stays word for word, and the latest message is not in its own summary"
     );
     assert_eq!(
-        turns[2].messages,
+        turns[7].messages,
         [
             crate::domain::session::SUMMARY_PREAMBLE.to_owned(),
             "SUMMARY".to_owned(),
-            big(90_000),
+            big(36_000),
+            "ok".to_owned(),
+            big(36_000),
             "ok".to_owned(),
             "continue".to_owned()
         ],
-        "the next message reads the summary in place of the first turn"
+        "the next message reads the summary in place of the first five turns"
     );
     assert_eq!(recorded.summaries.len(), 1, "the log records the summary");
     assert_eq!(recorded.summaries[0].text, "SUMMARY");
-    assert_eq!(recorded.summaries[0].replaces, 2);
-    let (free, first_prompt) = recorded.out;
+    assert_eq!(recorded.summaries[0].replaces, 10);
+    let (free, fifth_prompt) = recorded.out;
     assert!(free, "the slot is free once the summary lands");
-    assert!(first_prompt.is_some());
+    assert!(fifth_prompt.is_some());
     assert_eq!(
-        recorded.summaries[0].through, first_prompt,
+        recorded.summaries[0].through, fifth_prompt,
         "the log names the summary's last turn by its prompt's request"
+    );
+}
+
+/// A long paste compacts the conversation before it runs, rather than in
+/// the background, so it has room at once.
+#[tokio::test]
+async fn a_long_message_waits_for_the_summary_it_starts() {
+    let mut engine = CondensingEngine::new();
+    // Long enough that a turn not waiting would run first.
+    engine.delay = std::time::Duration::from_millis(200);
+    let engine = Arc::new(engine);
+    with_summaries(Arc::clone(&engine), async |connection, session, state| {
+        use_model(&state, "other-model");
+        // 60,000 tokens in messages short of a long one.
+        for _ in 0..5 {
+            prompt(&connection, &session, &big(36_000)).await;
+        }
+        // 20,000 tokens, past 12,800: long, and with it the conversation
+        // reaches 80,000, past where a summary starts.
+        prompt(&connection, &session, &big(60_000)).await;
+    })
+    .await;
+
+    assert_eq!(engine.summaries.requests().len(), 1);
+    assert_eq!(
+        engine.turns.requests()[5].messages,
+        [
+            crate::domain::session::SUMMARY_PREAMBLE.to_owned(),
+            "SUMMARY".to_owned(),
+            big(36_000),
+            "ok".to_owned(),
+            big(60_000)
+        ],
+        "the long message ran on the summary of the first four turns"
     );
 }
 
@@ -1063,9 +1107,11 @@ async fn a_failed_summary_is_tried_again_only_once_the_conversation_has_grown() 
     let engine = Arc::new(FailedSummaryEngine::new());
     let recorded = with_summaries(Arc::clone(&engine), async |connection, session, state| {
         use_model(&state, "other-model");
-        prompt(&connection, &session, &big(90_000)).await;
-        // 60,000 tokens: a summary starts, and fails.
-        prompt(&connection, &session, &big(90_000)).await;
+        for _ in 0..6 {
+            prompt(&connection, &session, &big(36_000)).await;
+        }
+        // 84,000 tokens: a summary starts, and fails.
+        prompt(&connection, &session, &big(36_000)).await;
         summary_settled(&state).await;
         prompt(&connection, &session, "continue").await;
         summary_settled(&state).await;
@@ -1087,15 +1133,14 @@ async fn a_failed_summary_is_tried_again_only_once_the_conversation_has_grown() 
         "one that grew it by a tenth of the window does"
     );
     assert!(recorded.summaries.is_empty(), "nothing landed to record");
+    let mut whole = Vec::new();
+    for _ in 0..7 {
+        whole.extend([big(36_000), "noted".to_owned()]);
+    }
+    whole.push("continue".to_owned());
     assert_eq!(
-        engine.turns.requests()[2].messages,
-        [
-            big(90_000),
-            "noted".to_owned(),
-            big(90_000),
-            "noted".to_owned(),
-            "continue".to_owned()
-        ],
+        engine.turns.requests()[7].messages,
+        whole,
         "the message ran on the whole history"
     );
 }
@@ -1138,8 +1183,9 @@ async fn a_summary_that_runs_long_lands_cut_at_its_limit() {
     let engine = Arc::new(engine);
     let recorded = with_summaries(Arc::clone(&engine), async |connection, session, state| {
         use_model(&state, "other-model");
-        prompt(&connection, &session, &big(90_000)).await;
-        prompt(&connection, &session, &big(90_000)).await;
+        for _ in 0..7 {
+            prompt(&connection, &session, &big(36_000)).await;
+        }
         summary_settled(&state).await;
     })
     .await;
@@ -1217,7 +1263,8 @@ async fn images_count_toward_the_context_and_are_each_read_for_the_summary() {
     let engine = Arc::new(CondensingEngine::new());
     with_summaries(Arc::clone(&engine), async |connection, session, state| {
         use_model(&state, "other-model");
-        for batch in 0..3 {
+        // The fourth brings the conversation to 76,800 tokens.
+        for batch in 0..4 {
             show_images(&connection, &session, batch * 12, 12).await;
         }
         summary_settled(&state).await;
@@ -1225,14 +1272,14 @@ async fn images_count_toward_the_context_and_are_each_read_for_the_summary() {
     .await;
 
     let reads = engine.reads.requests();
-    assert_eq!(reads.len(), 24, "one read per image the summary covers");
+    assert_eq!(reads.len(), 36, "one read per image the summary covers");
     assert!(reads.iter().all(|read| read.images.len() == 1
         && read.model == compaction::SUMMARY_MODEL
         && read.purpose == TurnPurpose::Summary));
     let summaries = engine.summaries.requests();
     assert_eq!(summaries.len(), 1);
     assert!(summaries[0].messages[0].contains("IMAGE photo-0.png: a red square"));
-    assert!(summaries[0].messages[0].contains("IMAGE photo-23.png: a red square"));
+    assert!(summaries[0].messages[0].contains("IMAGE photo-35.png: a red square"));
     assert!(
         summaries[0].images.is_empty(),
         "the summary reads the descriptions, not the images"
@@ -1247,37 +1294,38 @@ async fn images_a_failed_summary_read_are_not_read_again() {
     });
     with_summaries(Arc::clone(&engine), async |connection, session, state| {
         use_model(&state, "other-model");
-        // A summary of the first 24 images reads them all, then fails.
-        for batch in 0..3 {
+        // A summary of the first 36 images reads them all, then fails.
+        for batch in 0..4 {
             show_images(&connection, &session, batch * 12, 12).await;
         }
         summary_settled(&state).await;
         // Nine more grow the conversation past a tenth of the window, and
-        // the next summary covers 36.
-        show_images(&connection, &session, 36, 9).await;
+        // the next summary covers 48.
+        show_images(&connection, &session, 48, 9).await;
         summary_settled(&state).await;
     })
     .await;
 
     assert_eq!(
         engine.reads.requests().len(),
-        36,
-        "the 24, then only the 12 the failed summary had not read"
+        48,
+        "the 36, then only the 12 the failed summary had not read"
     );
     let summaries = engine.summaries.requests();
     assert_eq!(summaries.len(), 1, "the second summary landed");
     assert!(summaries[0].messages[0].contains("IMAGE photo-0.png: a red square"));
-    assert!(summaries[0].messages[0].contains("IMAGE photo-35.png: a red square"));
+    assert!(summaries[0].messages[0].contains("IMAGE photo-47.png: a red square"));
 }
 
 #[tokio::test]
 async fn a_conversation_longer_than_one_summary_call_reads_is_summarized_in_parts() {
     let engine = Arc::new(CondensingEngine::new());
     with_summaries(Arc::clone(&engine), async |connection, session, state| {
-        // Gemini's window: a summary starts at 419,430 tokens, past the
-        // 400,000 one summary call reads.
+        // Gemini's window: a summary starts at 629,145 tokens, and covers
+        // the three messages before the fourth, past the 400,000 one summary
+        // call reads.
         use_model(&state, chat::domain::models::FREE_MODEL);
-        for _ in 0..3 {
+        for _ in 0..4 {
             prompt(&connection, &session, &big(610_000)).await;
         }
         summary_settled(&state).await;
@@ -1296,16 +1344,16 @@ async fn a_message_is_too_long_by_its_model_s_window() {
         Arc::clone(&engine),
         Arc::new(DisabledAiAdmissionService),
         async |connection, session, state| {
-            // 33,334 tokens: past a quarter of a 128k window.
+            // 66,667 tokens: past half of a 128k window.
             use_model(&state, "other-model");
             let error = connection
-                .send_request(text_prompt(&session, &big(100_000)))
+                .send_request(text_prompt(&session, &big(200_000)))
                 .block_task()
                 .await
                 .expect_err("too long for this model");
             assert!(format!("{error:?}").contains("This message is too long"));
             use_model(&state, "anthropic/claude-sonnet-5-5");
-            prompt(&connection, &session, &big(100_000)).await;
+            prompt(&connection, &session, &big(200_000)).await;
         },
     )
     .await;

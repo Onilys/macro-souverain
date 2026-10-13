@@ -248,12 +248,21 @@ const RootLayout: ParentComponent = (props) => {
                 width: 'calc(100vw / var(--site-scale, 1))',
               }}
             >
-              <BaseHeader
-                ctaActive={headerCtaActive()}
-                hideOpenApp={
-                  location.pathname.replace(/\/$/, '') === '/download'
+              {/* The phone signup pages are only the email capture. */}
+              <Show
+                when={
+                  ![MOBILE_SIGNUP_PATH, MOBILE_SIGNUP_SENT_PATH].includes(
+                    location.pathname.replace(/\/$/, '')
+                  )
                 }
-              />
+              >
+                <BaseHeader
+                  ctaActive={headerCtaActive()}
+                  hideOpenApp={
+                    location.pathname.replace(/\/$/, '') === '/download'
+                  }
+                />
+              </Show>
               <UtilWrap>{props.children}</UtilWrap>
             </div>
             <PageVignette />

@@ -17,10 +17,9 @@ import { HomeHeroBackdrop } from '../components/sections/HomeAppPreview';
 import { HomeSectionRule } from '../components/sections/HomeSectionRule';
 import { MigrationPaths } from '../components/sections/MigrationPaths';
 import { SectionMoreFeatures } from '../components/sections/SectionMoreFeatures';
-import { buildCalLinkWithAttribution } from '../utils/utilAnalytic';
 import { APP_BASE_URL } from '../utils/utilBaseUrl';
 import { viewportWidth } from '../utils/utilBreakpoint';
-import { ctaHref, handleCtaClick } from '../utils/utilCta';
+import { ctaHref, demoHref, handleCtaClick } from '../utils/utilCta';
 import { setPageSeo } from '../utils/utilSeo';
 
 const mobile = () => viewportWidth() < 700;
@@ -31,9 +30,7 @@ const desyncVideoUrl = isLocalhost
   ? '/video/desync.mp4'
   : new URL('/video/desync.mp4', APP_BASE_URL).toString();
 
-const DEMO_CALL_HREF = buildCalLinkWithAttribution(
-  'https://cal.com/team/macro/macro-demo-call'
-);
+const DEMO_CALL_HREF = demoHref();
 
 const DOCS = 'https://docs.macro.com';
 const DOCS_SWITCH = `${DOCS}/switch-to-macro`;

@@ -1,14 +1,11 @@
 use crate::api::context::{ApiContext, AuthorizationService};
 use crate::api::folders_query::DssFoldersQueryReader;
 use agent_session::outbound::postgres::PgAgentSessionRepo;
-use async_graphql::{
-    Data,
-    http::{ALL_WEBSOCKET_PROTOCOLS, GraphiQLSource},
-};
-use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, GraphQLWebSocket};
+use async_graphql::{Data, http::GraphiQLSource};
+use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     Router,
-    extract::{OriginalUri, State, WebSocketUpgrade},
+    extract::{OriginalUri, State},
     http::{StatusCode, request::Parts},
     response::{Html, IntoResponse, Response},
     routing::get,
@@ -23,6 +20,10 @@ use macro_authorization::{
     OptionalMacroAuthorizationExtractor, UserOrInternalService, UserOrInternalServiceAuthorization,
 };
 use macro_user_id::user_id::MacroUserIdStr;
+
+mod websocket;
+
+use websocket::GraphqlWebSocketUpgrade;
 
 const GRAPHQL_PATH: &str = "/soup/graphql";
 const GRAPHQL_SUBSCRIPTION_PATH: &str = "/soup/graphql/ws";
@@ -76,8 +77,7 @@ async fn subscription_handler(
     Cached(auth): Cached<
         OptionalMacroAuthorizationExtractor<AuthorizationService, UserOrInternalService>,
     >,
-    protocol: GraphQLProtocol,
-    upgrade: WebSocketUpgrade,
+    upgrade: GraphqlWebSocketUpgrade,
 ) -> Response {
     let Some(acting_user) = auth
         .authorization
@@ -95,15 +95,7 @@ async fn subscription_handler(
 
     let schema = state.graphql_soup_schema.clone();
     let data = graphql_subscription_context_data(&state, macro_user_id, organization_id);
-    upgrade
-        .protocols(ALL_WEBSOCKET_PROTOCOLS)
-        .on_upgrade(move |socket| async move {
-            GraphQLWebSocket::new(socket, schema, protocol)
-                .with_data(data)
-                .serve()
-                .await;
-        })
-        .into_response()
+    upgrade.serve(schema, data)
 }
 
 fn graphql_subscription_context_data(

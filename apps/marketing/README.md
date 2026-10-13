@@ -212,14 +212,14 @@ Retain FAQ class markers so prerendering emits matching FAQPage structured data.
 page. It is prerendered, `noindex`, out of the sitemap, and not linked from the
 navigation. It has four parts, top to bottom: the homepage hero markup
 (`WelcomeStep` with `ContextScene`), the expanded `FeatureConstellation`, a
-savings calculator, and an inline cal.com booker for the Macro demo call.
+savings calculator, and a closing "Pick a time" button.
 
 `core/sales-savings.ts` reduces the pricing calculator to one plan tier for all
 tools and reads prices from `core/savings-calculator.ts`; update prices there,
-not on the page. "Book a demo" buttons scroll to the booker, which loads
-`embed.js` only as the visitor approaches it and appends Meta attribution to
-the booking. Verify at phone width: no horizontal scroll, calculator steppers
-and toggles, and that the booker loads.
+not on the page. "Book a demo" and "Pick a time" are demo links: they open the
+Macro team booking link in `DemoBookingDialog`, which reports a booking made
+there to Meta. Verify at phone width: no horizontal scroll, calculator steppers
+and toggles, and that the dialog opens.
 
 ## Blog presentation
 

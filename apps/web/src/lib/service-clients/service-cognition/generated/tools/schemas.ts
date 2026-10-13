@@ -1762,6 +1762,7 @@ export const CreateBookingLink = z
             description: z.string(),
             durationMinutes: z.number().int().gte(0).lte(65535),
             location: z.string(),
+            macroCall: z.boolean().optional(),
             googleMeet: z.boolean(),
             enabled: z.boolean(),
             mode: z.any().superRefine((x, ctx) => {
@@ -1847,6 +1848,7 @@ export const BookingLinkResult = z.object({
           description: z.string(),
           durationMinutes: z.number().int().gte(0).lte(65535),
           location: z.string(),
+          macroCall: z.boolean().optional(),
           googleMeet: z.boolean(),
           enabled: z.boolean(),
           mode: z.any().superRefine((x, ctx) => {
@@ -4493,6 +4495,7 @@ export const EditBookingLink = z
             description: z.string(),
             durationMinutes: z.number().int().gte(0).lte(65535),
             location: z.string(),
+            macroCall: z.boolean().optional(),
             googleMeet: z.boolean(),
             enabled: z.boolean(),
             mode: z.any().superRefine((x, ctx) => {
@@ -8917,6 +8920,7 @@ export const ListBookingLinksResult = z.object({
               description: z.string(),
               durationMinutes: z.number().int().gte(0).lte(65535),
               location: z.string(),
+              macroCall: z.boolean().optional(),
               googleMeet: z.boolean(),
               enabled: z.boolean(),
               mode: z.any().superRefine((x, ctx) => {
@@ -11003,6 +11007,7 @@ export const BookingSettingsResult = z.object({
         description: z.string(),
         durationMinutes: z.number().int().gte(0).lte(65535),
         location: z.string(),
+        macroCall: z.boolean().optional(),
         googleMeet: z.boolean(),
         enabled: z.boolean(),
         scheduleId: z.string().uuid(),
@@ -14711,6 +14716,7 @@ export const UpdateBookingSettings = z
           description: z.string(),
           durationMinutes: z.number().int().gte(0).lte(65535),
           location: z.string(),
+          macroCall: z.boolean().optional(),
           googleMeet: z.boolean(),
           enabled: z.boolean(),
           scheduleId: z.string().uuid(),
