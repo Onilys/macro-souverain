@@ -204,14 +204,42 @@ async-trait = "0.1.86"
 automod = "1"
 aws-config = { version = "1.8.16", features = ["behavior-version-latest"] }
 aws-msk-iam-sasl-signer = "1.0.1"
-aws-sdk-dynamodb = "1.111.0"
-aws-sdk-kms = "1.104.0"
-aws-sdk-lambda = "1.122.0"
-aws-sdk-s3 = "1.132.0"
-aws-sdk-secretsmanager = "1.104.0"
-aws-sdk-sesv2 = "1.118.0"
-aws-sdk-sns = "1.99.0"
-aws-sdk-sqs = "1.98.0"
+# Keep the modern HTTPS client and omit the deprecated rustls 0.21 connector.
+aws-sdk-dynamodb = { version = "1.111.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-kms = { version = "1.104.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-lambda = { version = "1.122.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-s3 = { version = "1.132.0", default-features = false, features = [
+  "sigv4a",
+  "http-1x",
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-secretsmanager = { version = "1.104.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-sesv2 = { version = "1.118.0", default-features = false, features = [
+  "sigv4a",
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-sns = { version = "1.99.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
+aws-sdk-sqs = { version = "1.98.0", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
 aws-smithy-types = "1.4.7"
 aws-types = "1"
 aws_lambda_events = { version = "0.16.0", default-features = false }
@@ -428,7 +456,7 @@ worker = "0.8.1"
 async-stripe = { version = "0.41", default-features = false, features = [
   "billing",
   "checkout",
-  "runtime-tokio-hyper-rustls-webpki",
+  "runtime-tokio-hyper",
 ] }
 axum-macros = "0.5"
 bytes = "1.11.1"
