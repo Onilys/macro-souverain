@@ -102,6 +102,7 @@ export const enableCanvasNext = defineFlag({
 export const enableCarouselCreateMenu = defineFlag({
   key: 'enable-carousel-create-menu',
   env: 'ENABLE_CAROUSEL_CREATE_MENU',
+  default: LOCAL_ONLY || undefined,
 });
 
 /**
@@ -537,11 +538,12 @@ export const enableSoupGroupBy = defineFlag({
   default: onInDev,
 });
 
-// Persist soup filters, predicates and tabs across reloads. PostHog controls
-// production rollout; VITE_ENABLE_SOUP_FILTER_PERSISTENCE overrides locally.
+// Persist soup filters, predicates and tabs across reloads. On under local
+// HMR; deployed environments follow PostHog.
 export const enableSoupFilterPersistence = defineFlag({
   key: 'enable-soup-filter-persistence',
   env: 'ENABLE_SOUP_FILTER_PERSISTENCE',
+  default: LOCAL_ONLY || undefined,
 });
 
 export const enableTaskDuplicates = defineFlag({
@@ -569,9 +571,11 @@ export const enableInboxNotifiedSort = defineFlag({
   default: onInDev,
 });
 
+/** On under local HMR; deployed environments follow PostHog. */
 export const enableGraphqlSoup = defineFlag({
   key: 'enable-graphql-soup',
   env: 'ENABLE_GRAPHQL_SOUP',
+  default: LOCAL_ONLY || undefined,
 });
 
 /** Serves calendar reads from the normalized cache; requires GraphQL Soup. */
@@ -646,26 +650,22 @@ export const enableCalendarScheduling = defineFlag({
   default: onInDev,
 });
 
-// The "Enable calendar" prompt on phones. Off by default everywhere,
-// including dev: the mobile toast layout drops the body and the close button,
-// so the prompt lands as an undismissable one-line bar over the composer.
-// Settings › Email keeps a per-inbox "Enable calendar" button, so nothing
-// becomes unreachable while this is off. Flip it on in PostHog once the
-// mobile layout is fixed, or locally with
-// VITE_ENABLE_CALENDAR_PROMPT_MOBILE=true.
+// The "Enable calendar" prompt on phones. Settings › Email keeps a per-inbox
+// "Enable calendar" button, so nothing becomes unreachable while this is off.
+// On under local HMR; deployed environments follow PostHog.
 export const enableCalendarPromptMobile = defineFlag({
   key: 'enable-calendar-prompt-mobile',
   env: 'ENABLE_CALENDAR_PROMPT_MOBILE',
+  default: LOCAL_ONLY || undefined,
 });
 
 // The "Enable calendar" prompt on desktop/web, the counterpart to
-// `enable-calendar-prompt-mobile`. Off by default everywhere, including dev,
-// until the PostHog rollout is raised; Settings › Email keeps a per-inbox
-// "Enable calendar" button, so nothing becomes unreachable while this is off.
-// Override locally with VITE_ENABLE_CALENDAR_PROMPT_WEB=true.
+// `enable-calendar-prompt-mobile`. On under local HMR; deployed environments
+// follow PostHog.
 export const enableCalendarPromptWeb = defineFlag({
   key: 'enable-calendar-prompt-web',
   env: 'ENABLE_CALENDAR_PROMPT_WEB',
+  default: LOCAL_ONLY || undefined,
 });
 
 // Team out of office: the calendar side panel's "Team out of office" section
@@ -755,11 +755,12 @@ export const enableCursorAgents = defineFlag({
   default: onInDev,
 });
 
-// Codex composer choices also require enableChatV3Agents.
-// Override with VITE_ENABLE_CODEX_AGENTS.
+// Codex composer choices also require enableChatV3Agents. On under local HMR;
+// deployed environments follow PostHog. Override with VITE_ENABLE_CODEX_AGENTS.
 export const enableCodexAgents = defineFlag({
   key: 'enable-codex-agents',
   env: 'ENABLE_CODEX_AGENTS',
+  default: LOCAL_ONLY || undefined,
 });
 
 // Yes/no conditions on routine event triggers, checked by the Jev classifier
@@ -825,10 +826,22 @@ export const enableAiEditor = defineFlag({
   default: onInDev,
 });
 
-// PostHog controls the internal pilot and team targeting in every environment.
+// PostHog controls the internal pilot and team targeting in deployed
+// environments; on under local HMR.
 export const enableSpreadsheets = defineFlag({
   key: 'enable-spreadsheets',
   env: 'ENABLE_SPREADSHEETS',
+  default: LOCAL_ONLY || undefined,
+});
+
+/**
+ * Batch sync-service wakeups for documents that lists and previews show. On
+ * under local HMR; deployed environments follow PostHog.
+ */
+export const enableBulkDocumentWakeup = defineFlag({
+  key: 'enable-bulk-document-wakeup',
+  env: 'ENABLE_BULK_DOCUMENT_WAKEUP',
+  default: LOCAL_ONLY || undefined,
 });
 
 /**
