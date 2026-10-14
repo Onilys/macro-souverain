@@ -67,6 +67,7 @@ function BookingPageContent(params: BookingPageParams) {
     </Show>
   );
 }
+
 /**
  * A booking page on its own, as the standalone booking page serves it: the
  * scheduling service decides which links exist and take bookings.

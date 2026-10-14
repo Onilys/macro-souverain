@@ -152,27 +152,6 @@ function loroAsyncWasm(): Plugin {
   };
 }
 
-/** Hashed assets the first screen needs; index.html requests them while it parses. */
-const HTML_PRELOADS = [
-  // The app waits for Loro to initialize before rendering.
-  {
-    file: /(^|\/)loro_wasm_bg-[\w-]+\.wasm$/,
-    as: 'fetch',
-    type: 'application/wasm',
-  },
-  // The UI font; otherwise it starts downloading only once text renders.
-  {
-    file: /(^|\/)inter-latin-wght-normal-[\w-]+\.woff2$/,
-    as: 'font',
-    type: 'font/woff2',
-  },
-] as const;
-
-/**
- * Adds `<link rel="preload">` for HTML_PRELOADS, so their downloads start with
- * the HTML instead of after the entry runs. The service worker caches preloads
- * with the shell.
- */
 /** Public booking pages and receipts, which booking.html serves apart from the app. */
 const BOOKING_PAGE_PATH = /^(?:\/app)?\/(?:book|booking)\//;
 
@@ -194,6 +173,27 @@ function bookingPageDevRoute(): Plugin {
   };
 }
 
+/** Hashed assets the first screen needs; index.html requests them while it parses. */
+const HTML_PRELOADS = [
+  // The app waits for Loro to initialize before rendering.
+  {
+    file: /(^|\/)loro_wasm_bg-[\w-]+\.wasm$/,
+    as: 'fetch',
+    type: 'application/wasm',
+  },
+  // The UI font; otherwise it starts downloading only once text renders.
+  {
+    file: /(^|\/)inter-latin-wght-normal-[\w-]+\.woff2$/,
+    as: 'font',
+    type: 'font/woff2',
+  },
+] as const;
+
+/**
+ * Adds `<link rel="preload">` for HTML_PRELOADS, so their downloads start with
+ * the HTML instead of after the entry runs. The service worker caches preloads
+ * with the shell.
+ */
 function htmlPreloads(): Plugin {
   let base = '/';
   return {

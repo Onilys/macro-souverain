@@ -4,8 +4,8 @@ import { Runtime } from '@pulumi/aws/lambda';
 import * as command from '@pulumi/command';
 import * as datadog from '@pulumi/datadog';
 import * as pulumi from '@pulumi/pulumi';
-import { hasItems } from '../../packages/utils';
 import * as datadogEntity from './datadog-entity.json';
+import { hasItems } from '../../packages/utils';
 
 // Import the program's configuration
 const config = new pulumi.Config();
