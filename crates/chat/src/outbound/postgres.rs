@@ -244,16 +244,24 @@ impl<B: BotFacts + 'static> ChatRepo for PgChatRepo<B> {
 
     #[tracing::instrument(err, skip(self))]
     async fn revert_delete(&self, chat_id: &str, project_id: Option<&str>) -> Result<()> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| ChatErr::Unknown(e.into()))?;
-        queries::revert_delete_chat::revert_delete_chat(&mut tx, chat_id, project_id)
-            .await
-            .map_err(to_chat_err)?;
-        tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
-        Ok(())
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut tx = self
+                    .pool
+                    .begin()
+                    .await
+                    .map_err(|e| ChatErr::Unknown(e.into()))?;
+                queries::revert_delete_chat::revert_delete_chat(&mut tx, chat_id, project_id)
+                    .await
+                    .map_err(to_chat_err)?;
+                tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
+                Ok(())
+            },
+            |error: &ChatErr| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
@@ -270,30 +278,46 @@ impl<B: BotFacts + 'static> ChatRepo for PgChatRepo<B> {
 
     #[tracing::instrument(err, skip(self))]
     async fn delete(&self, chat_id: &str) -> Result<()> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| ChatErr::Unknown(e.into()))?;
-        queries::soft_delete_chat::soft_delete_chat(&mut tx, chat_id)
-            .await
-            .map_err(to_chat_err)?;
-        tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
-        Ok(())
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut tx = self
+                    .pool
+                    .begin()
+                    .await
+                    .map_err(|e| ChatErr::Unknown(e.into()))?;
+                queries::soft_delete_chat::soft_delete_chat(&mut tx, chat_id)
+                    .await
+                    .map_err(to_chat_err)?;
+                tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
+                Ok(())
+            },
+            |error: &ChatErr| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
     async fn permanently_delete(&self, chat_id: &str) -> Result<()> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| ChatErr::Unknown(e.into()))?;
-        queries::permanently_delete_chat::permanently_delete_chat(&mut tx, chat_id)
-            .await
-            .map_err(to_chat_err)?;
-        tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
-        Ok(())
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut tx = self
+                    .pool
+                    .begin()
+                    .await
+                    .map_err(|e| ChatErr::Unknown(e.into()))?;
+                queries::permanently_delete_chat::permanently_delete_chat(&mut tx, chat_id)
+                    .await
+                    .map_err(to_chat_err)?;
+                tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
+                Ok(())
+            },
+            |error: &ChatErr| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self, args))]
@@ -303,43 +327,51 @@ impl<B: BotFacts + 'static> ChatRepo for PgChatRepo<B> {
         chat_id: &str,
         args: PatchChatRepoArgs,
     ) -> Result<()> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| ChatErr::Unknown(e.into()))?;
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut tx = self
+                    .pool
+                    .begin()
+                    .await
+                    .map_err(|e| ChatErr::Unknown(e.into()))?;
 
-        // Canonical team sharing first: it takes the shared guard before any
-        // `SharePermission` row lock and refuses an unauthorized team level.
-        team_share::apply_team_share(
-            &mut tx,
-            chat_id,
-            args.share_permission.as_ref(),
-            args.team_share.as_ref(),
-        )
-        .await?;
+                // Canonical team sharing first: it takes the shared guard before any
+                // `SharePermission` row lock and refuses an unauthorized team level.
+                team_share::apply_team_share(
+                    &mut tx,
+                    chat_id,
+                    args.share_permission.as_ref(),
+                    args.team_share.as_ref(),
+                )
+                .await?;
 
-        queries::patch_chat::patch_chat(
-            &mut tx,
-            chat_id,
-            args.name.as_deref(),
-            args.project_id.as_deref(),
+                queries::patch_chat::patch_chat(
+                    &mut tx,
+                    chat_id,
+                    args.name.as_deref(),
+                    args.project_id.as_deref(),
+                )
+                .await
+                .map_err(to_chat_err)?;
+
+                if let Some(ref share_permission) = args.share_permission {
+                    queries::edit_share_permission::edit_chat_permission(
+                        &mut tx,
+                        chat_id,
+                        share_permission,
+                    )
+                    .await
+                    .map_err(to_chat_err)?;
+                }
+
+                tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
+                Ok(())
+            },
+            |error: &ChatErr| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
         )
         .await
-        .map_err(to_chat_err)?;
-
-        if let Some(ref share_permission) = args.share_permission {
-            queries::edit_share_permission::edit_chat_permission(
-                &mut tx,
-                chat_id,
-                share_permission,
-            )
-            .await
-            .map_err(to_chat_err)?;
-        }
-
-        tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
-        Ok(())
     }
 
     #[tracing::instrument(err, skip(self))]

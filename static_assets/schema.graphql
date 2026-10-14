@@ -5232,6 +5232,12 @@ input GraphqlNotificationFilter {
 	Only notifications about top-level channel messages, including mentions but excluding reactions.
 	"""
 	topLevelMessagesOnly: Boolean
+	"""
+	Scope channel edges to their feed row rather than thread/mention stacks.
+	Scoping includes active seen reasons. Other entity edges are unchanged.
+	Applied before the edge limit.
+	"""
+	channelFeedOnly: Boolean
 }
 
 """
@@ -8310,6 +8316,13 @@ type GraphqlUser {
 	restricted by entity type and entity id.
 	"""
 	favorites(filter: FavoritesFilterInput): [GraphqlFavorite!]!
+	"""
+	Non-deleted projects the authenticated user can access, as a flat list.
+	
+	Clients build the Drive sidebar tree from `parentId`. Membership is
+	gated by `entity_access` (not view history).
+	"""
+	folders: [GraphqlSoupProject!]!
 	"""
 	A page of the authenticated user's own activity, newest first.
 	Delegated actions performed on the user's behalf are included.

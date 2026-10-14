@@ -18,7 +18,7 @@ focus while you type even if the pointer drifts over the rows; ArrowDown moves i
 the rows and hovering a submenu hands focus to it as usual. The mobile drawer has no
 AI box.
 Task creation is available from the `New` button in the Tasks sidebar. With Projects
-enabled, `My projects` appears below the tabs and favorites, above Tags. It lists
+enabled, `My projects` appears below the tabs and favorites. It lists
 accessible projects by most recently updated, with a capped height and its own scroll
 area. Click a project to open its overview within the current Tasks view, keeping
 the sidebar mounted, or Shift-click to open it in a new split.
@@ -41,10 +41,8 @@ editor initializes; the project title, properties, and discussion stay visible.
 Project task lists automatically fetch all matching pages in every group, without
 per-group `Load More` rows. A failed continuation stops automatic requests and shows
 `Try again` above the list; already fetched group rows remain available.
-The sidebar also has a collapsible `Tags` section listing every personal and team tag, with a
-`New tag` button beside the heading. Clicking a tag narrows the current tab to tasks
-carrying it (the same selection as the `Tags` group of the `Filter` menu); clicking it again
-clears it, and switching tabs clears it like any other filter. On mobile, the tabs
+The sidebar has no Tags section: filter by tag from the `Tags` group of the `Filter` menu,
+and switching tabs clears it like any other filter. On mobile, the tabs
 are pills and the leading sliders button opens one drawer containing Sort, Group, and
 Filters (including Tags). The mobile bottom dock has the Ask AI input, a separate **+ Task**
 button, and Search.
@@ -679,7 +677,8 @@ message.
 
 ### Nested sidebar tags
 
-Tag names containing `/` render with one child level (for example, `Work/Urgent`).
+In the Email and Calls sidebar Tags sections, tag names containing `/` render with
+one child level (for example, `Work/Urgent`).
 Deeper paths remain in the child label: `Work/Customers/Acme` appears as
 `Customers/Acme` under `Work`, alongside any actual `Customers` tag.
 Use the caret to expand or collapse a branch. A folder-only parent expands without

@@ -207,6 +207,59 @@ impl<B: BotFacts + 'static> ProjectRepo for PgProjectRepo<B> {
     }
 
     #[tracing::instrument(err, skip(self))]
+    async fn get_accessible_projects_for_user(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<Project>, Self::Err> {
+        sqlx::query!(
+            r#"
+            WITH user_source_ids AS (
+                SELECT cp.channel_id::text AS source_id
+                FROM comms_channel_participants cp
+                WHERE cp.user_id = $1 AND cp.left_at IS NULL
+                UNION ALL
+                SELECT t.team_id::text
+                FROM team_user t
+                WHERE t.user_id = $1
+                UNION ALL
+                SELECT $1
+            )
+            SELECT
+                p.id,
+                p.name,
+                p."userId" AS "user_id",
+                p."parentId" AS "parent_id",
+                p."createdAt"::timestamptz AS "created_at",
+                p."updatedAt"::timestamptz AS "updated_at",
+                p."deletedAt"::timestamptz AS "deleted_at"
+            FROM "Project" p
+            WHERE p."deletedAt" IS NULL
+                AND p.id IN (
+                    SELECT ea.entity_id::text
+                    FROM entity_access ea
+                    JOIN user_source_ids us ON us.source_id = ea.source_id
+                    WHERE ea.entity_type = 'project'
+                )
+            ORDER BY p."updatedAt" DESC
+            "#,
+            user_id,
+        )
+        .try_map(|row| {
+            map_project(
+                row.id,
+                row.name,
+                row.user_id,
+                row.parent_id,
+                row.created_at,
+                row.updated_at,
+                row.deleted_at,
+            )
+        })
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    #[tracing::instrument(err, skip(self))]
     async fn get_pending_root_projects(
         &self,
         user_id: &str,
@@ -350,19 +403,27 @@ impl<B: BotFacts + 'static> ProjectRepo for PgProjectRepo<B> {
 
     #[tracing::instrument(err, skip(self, args))]
     async fn edit_project(&self, args: EditProjectArgs) -> Result<Project, ProjectError> {
-        let mut transaction = self.pool.begin().await?;
-        // Canonical team sharing first: it takes the shared guard before any
-        // `SharePermission` row lock and refuses an unauthorized team level.
-        team_share::apply_team_share(
-            &mut transaction,
-            &args.project_id,
-            args.share_permission.as_ref(),
-            args.team_share.as_ref(),
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                // Canonical team sharing first: it takes the shared guard before any
+                // `SharePermission` row lock and refuses an unauthorized team level.
+                team_share::apply_team_share(
+                    &mut transaction,
+                    &args.project_id,
+                    args.share_permission.as_ref(),
+                    args.team_share.as_ref(),
+                )
+                .await?;
+                let project = edit::edit_project(&mut transaction, &args).await?;
+                transaction.commit().await?;
+                Ok(project)
+            },
+            |error: &ProjectError| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
         )
-        .await?;
-        let project = edit::edit_project(&mut transaction, &args).await?;
-        transaction.commit().await?;
-        Ok(project)
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
@@ -377,10 +438,18 @@ impl<B: BotFacts + 'static> ProjectRepo for PgProjectRepo<B> {
 
     #[tracing::instrument(err, skip(self))]
     async fn soft_delete_project(&self, project_id: &str) -> Result<SoftDeleteResult, Self::Err> {
-        let mut transaction = self.pool.begin().await?;
-        let result = delete::soft_delete_project(&mut transaction, project_id).await?;
-        transaction.commit().await?;
-        Ok(result)
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                let result = delete::soft_delete_project(&mut transaction, project_id).await?;
+                transaction.commit().await?;
+                Ok(result)
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
@@ -388,10 +457,19 @@ impl<B: BotFacts + 'static> ProjectRepo for PgProjectRepo<B> {
         &self,
         project_id: &str,
     ) -> Result<PurgedProjectTree, Self::Err> {
-        let mut transaction = self.pool.begin().await?;
-        let result = delete::purge_deleted_project_tree(&mut transaction, project_id).await?;
-        transaction.commit().await?;
-        Ok(result)
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                let result =
+                    delete::purge_deleted_project_tree(&mut transaction, project_id).await?;
+                transaction.commit().await?;
+                Ok(result)
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
@@ -400,15 +478,23 @@ impl<B: BotFacts + 'static> ProjectRepo for PgProjectRepo<B> {
         project_id: &str,
         previous_parent_id: Option<String>,
     ) -> Result<RevertDeleteResult, Self::Err> {
-        let mut transaction = self.pool.begin().await?;
-        let result = revert_delete::revert_delete_project(
-            &mut transaction,
-            project_id,
-            previous_parent_id.as_deref(),
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                let result = revert_delete::revert_delete_project(
+                    &mut transaction,
+                    project_id,
+                    previous_parent_id.as_deref(),
+                )
+                .await?;
+                transaction.commit().await?;
+                Ok(result)
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
         )
-        .await?;
-        transaction.commit().await?;
-        Ok(result)
+        .await
     }
 
     #[tracing::instrument(err, skip(self, args))]
@@ -428,10 +514,18 @@ impl<B: BotFacts + 'static> ProjectRepo for PgProjectRepo<B> {
         project_ids: &[String],
         document_ids: &[String],
     ) -> Result<(), Self::Err> {
-        let mut transaction = self.pool.begin().await?;
-        delete::delete_uploaded_tree(&mut transaction, project_ids, document_ids).await?;
-        transaction.commit().await?;
-        Ok(())
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                delete::delete_uploaded_tree(&mut transaction, project_ids, document_ids).await?;
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]

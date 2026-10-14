@@ -17,6 +17,8 @@ export type EventType = {
   description: string;
   durationMinutes: number;
   location: string;
+  /** Create a Macro call and attach its join link when someone books. */
+  macroCall: boolean;
   googleMeet: boolean;
   enabled: boolean;
   scheduleId: string;
@@ -78,6 +80,7 @@ export type PublicEvent = Pick<
   | 'description'
   | 'durationMinutes'
   | 'location'
+  | 'macroCall'
   | 'googleMeet'
   | 'questions'
   | 'requiresConfirmation'
@@ -137,7 +140,8 @@ export function newEventType(
     description: '',
     durationMinutes: 30,
     location: '',
-    googleMeet: true,
+    macroCall: true,
+    googleMeet: false,
     enabled: false,
     scheduleId,
     mode: team ? 'collective' : 'individual',
@@ -167,7 +171,8 @@ export function newDefaultBookingLink(
     description: `Book a meeting with ${displayName}`,
     durationMinutes: 30,
     location: '',
-    googleMeet: true,
+    macroCall: true,
+    googleMeet: false,
     enabled: true,
     scheduleId,
     mode: 'individual',
@@ -181,6 +186,17 @@ export function newDefaultBookingLink(
     requiresConfirmation: false,
     questions: [],
   };
+}
+
+/** What guests see as the meeting place before a join link exists. */
+export function meetingPlaceLabel(event: {
+  macroCall?: boolean;
+  googleMeet: boolean;
+  location: string;
+}): string {
+  if (event.macroCall) return 'Macro call';
+  if (event.googleMeet) return 'Google Meet';
+  return event.location || 'Meeting';
 }
 
 export function slugify(value: string): string {

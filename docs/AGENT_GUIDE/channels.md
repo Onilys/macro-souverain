@@ -10,6 +10,13 @@
 Team channels are always discoverable to the team. Private channels can only be viewed or joined by invitation. A DM is a channel between two users.
 An external email can be selected as a channel participant. For an unregistered recipient, clicking `Add` sends an email invite.
 
+The first message in a DM to an unregistered recipient sends an email saying
+`<sender email> sent you a message on Macro`, with the message and a **View message**
+button leading to signup. It must not invite the recipient to `#<their own name>`.
+Named-channel invites still show `#<channel name>` and **Join channel**.
+Verify both emails in local Mailpit using distinct, unregistered test addresses;
+repeat with a plus-addressed DM recipient to check the email-name fallback.
+
 ## Imported Slack history
 
 Import starts from the **Import from Slack** chip below the Chat sidebar tabs,
@@ -180,6 +187,12 @@ it should open only one menu.
 The same software-keyboard check applies to `:` for emoji and `/` for formatting
 commands: type a search and tap a result without sending the draft.
 
+Closed mention menus do not gather, rank, or paginate candidates. When checking
+channel-switch performance, include touch navigation back to the list and reopening
+a cached channel without typing `@`. Then open mentions, search, close, and reopen:
+results must reflect current people and entities, and scrolling or keyboard
+navigation must still load more results. Check both mobile and desktop.
+
 The shared `@` menu also offers `Recent agent sessions` after Channels and
 before Companies (the latest 500 accessible sessions, searchable by title or
 persona). These inline chips show the shared
@@ -274,13 +287,18 @@ Draft PRs, PRs with no checks, and PRs whose checks are still running or failing
 show no Merge button. Merged and closed PRs show no Merge button. Expanded session mentions retain their
 collapse control. The card never expands in place.
 
-`@codex` and `@claude` are offered to every user before account setup. The built-in
-`@cursor` entry requires the `enable-cursor-agents` rollout flag (local override:
-`VITE_ENABLE_CURSOR_AGENTS`). Custom agents keep their channel visibility rules
+Built-in provider agents are offered before account setup, each within its own
+rollout: `@cursor` requires the `enable-cursor-agents` flag (local override:
+`VITE_ENABLE_CURSOR_AGENTS`), `@claude` requires the `claude-cloud` flag
+(local override: `VITE_CLAUDE_CLOUD`), and `@codex` requires both
+`enable-chat-v3-agents` and `enable-codex-agents` (local override:
+`VITE_ENABLE_CODEX_AGENTS`). Outside a rollout the entry is absent from
+the mention menu and from task agent assignees, even when that bot is already a
+channel participant. Custom agents keep their channel visibility rules
 regardless of which harness they use.
 A mention without a connected account creates no session and replies in the thread
 with a **Connect Cursor**, **Connect Codex**, or **Connect Claude** chip. Each chip
-opens Settings → Agents → Runtimes, where all three connection cards are visible. The same
+opens Settings → Agents → Runtimes, where the connection cards in the reader's rollout are visible. The same
 chip reads **connected** after setup; mention the bot again to start a session.
 Codex also prompts for a cloud environment when ChatGPT is connected but no
 environment has been saved. New sessions use that environment on
@@ -1117,7 +1135,7 @@ Members see the picture without editing controls. One-to-one direct messages
 continue to show the other person's user picture.
 
 Opening the slash menu with `/` lists Normal Text, headings, and the other
-Markdown options before Database. Typing `/database` filters to the Database
-action.
+Markdown options before Query and Database. Typing `/query` filters to the Query
+action; `/database` creates a new database and inserts its editable card.
 
-When Databases is enabled, type `/database` in a channel message or thread reply and choose **Database** to insert a live question. Ask with Enter or the Ask button, then accept the answer before sending the message. Enter in the question box belongs to the question and must not send the channel draft. Recipients can read the live answer subject to their database access.
+When Databases is enabled, type `/query` in a channel message or thread reply and choose **Query** to insert a live question. Ask with Enter or the Ask button, then accept the answer before sending the message. Enter in the question box belongs to the question and must not send the channel draft. Recipients can read the live answer subject to their database access. Database @ mentions in message composers remain compact; **Expand** turns one into an editable database card.

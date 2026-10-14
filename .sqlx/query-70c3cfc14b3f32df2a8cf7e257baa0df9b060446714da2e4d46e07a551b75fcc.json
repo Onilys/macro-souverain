@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DO $$ BEGIN RAISE EXCEPTION 'retry test' USING ERRCODE = '40001'; END $$",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "70c3cfc14b3f32df2a8cf7e257baa0df9b060446714da2e4d46e07a551b75fcc"
+}

@@ -203,6 +203,7 @@ async fn write(
 ) -> Result<Vec<OpResult>, PipelineError> {
     s.apply_ops(
         access(a, p.id, EntityType::CrmPipeline, OWNER).await,
+        None,
         ops.into(),
     )
     .await

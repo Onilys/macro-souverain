@@ -8,6 +8,7 @@ mod test;
 pub mod channel_share;
 pub mod source_grants;
 pub mod team_share;
+pub mod transaction_retry;
 
 pub use channel_share::get_direct_channel_grants;
 use macro_user_id::user_id::MacroUserIdStr;

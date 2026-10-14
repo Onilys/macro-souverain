@@ -170,8 +170,9 @@ export const enableTasksReviews = defineFlag({
   default: onInDev,
 });
 
-// Claude Cloud demo onboarding and harness/model discovery. Off until PostHog
-// enables it, including in dev; override locally with VITE_CLAUDE_CLOUD.
+// Claude Cloud: the built-in @claude mention and agent assignee, its Runtimes
+// connection card, and harness/model discovery. Off until PostHog enables it,
+// including in dev; override locally with VITE_CLAUDE_CLOUD.
 export const claudeCloud = defineFlag({
   key: 'claude-cloud',
   env: 'CLAUDE_CLOUD',
@@ -777,16 +778,6 @@ export const enableRoutineConditions = defineFlag({
 export const enableRecentView = defineFlag({
   key: 'enable-recent-view',
   env: 'ENABLE_RECENT_VIEW',
-  default: onInDev,
-});
-
-// Settings › Notifications: the dedicated preferences tab (delivery, per-type
-// opt-outs, muted items). When off, the tab is hidden and Account keeps the
-// existing desktop/mobile toggle. PostHog-gated with a dev-mode default;
-// override with VITE_ENABLE_NOTIFICATION_SETTINGS.
-export const enableNotificationSettings = defineFlag({
-  key: 'enable-notification-settings',
-  env: 'ENABLE_NOTIFICATION_SETTINGS',
   default: onInDev,
 });
 

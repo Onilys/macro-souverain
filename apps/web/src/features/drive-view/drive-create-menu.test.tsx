@@ -94,6 +94,26 @@ it('opens a folder composer inside the current folder', async () => {
   });
 });
 
+it('offers the same menu from the list header toolbar', async () => {
+  render(() => <DriveCreateMenu presentation="toolbar" />);
+  const trigger = screen.getByRole('button', {
+    name: 'New file or folder in Wireframes',
+  });
+  expect(trigger.textContent).toContain('New');
+  fireEvent.keyDown(trigger, { key: 'Enter' });
+  const menu = await screen.findByRole('menu');
+  expect(menu.textContent).toContain('Wireframes');
+  fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Document' }), {
+    key: 'Enter',
+  });
+
+  expect(host.runCreateAction).toHaveBeenCalledWith('md', {
+    projectId: 'child',
+    source: 'drive',
+    destination: 'Wireframes',
+  });
+});
+
 it('opens a folder composer at the Drive root outside a folder', async () => {
   setProjectId(undefined);
   render(() => <DriveCreateMenu />);

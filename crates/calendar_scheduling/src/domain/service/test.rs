@@ -288,6 +288,7 @@ fn profile(team: Option<Uuid>) -> Profile {
         description: String::new(),
         duration_minutes: 30,
         location: String::new(),
+        macro_call: false,
         google_meet: false,
         enabled: true,
         schedule_id: schedule.id,

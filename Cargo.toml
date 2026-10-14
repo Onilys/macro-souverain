@@ -52,6 +52,7 @@ members = [
   "crates/entity_registry/entity_registry_db_utils",
   "crates/entity_registry/shared_entity_registry",
   "crates/favorites",
+  "crates/feature_flags",
   "crates/foreign_entity",
   "crates/genai_telemetry",
   "crates/generic_email_domains",
@@ -255,6 +256,8 @@ http = "1"
 http-body = "1.0.1"
 http-body-util = "0.1.2"
 httpdate = "1"
+hyper = "1"
+hyper-util = { version = "0.1", features = ["tokio"] }
 image = "0.25"
 image-webp = "0.2"
 indexmap = "2"
@@ -337,7 +340,7 @@ rustix = { version = "1", default-features = false, features = ["process", "std"
 rootcause-tracing = "0.12.1"
 schemars = { version = "1.0.4", features = ["chrono04", "uuid1"] }
 semver = { version = "1", features = ["serde"] }
-ruzstd = { version = "0.8", default-features = false, features = ["std"] }
+ruzstd = { version = "0.9", default-features = false, features = ["std"] }
 serde = { version = "1.0.214", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
@@ -376,6 +379,10 @@ tokio-tungstenite = { version = "0.28", default-features = false, features = [
   "connect",
   "rustls-tls-webpki-roots",
 ] }
+# Signal's compression fork is based on tungstenite 0.27. Keep its Tokio
+# adapter separate from the upstream sockets used elsewhere in the workspace.
+tokio-tungstenite-signal = { package = "tokio-tungstenite", version = "0.27", default-features = false, features = ["handshake"] }
+tungstenite-signal = { package = "tungstenite", version = "0.27", default-features = false, features = ["handshake", "deflate"] }
 tokio-util = "0.7.13"
 tower = { version = "0.5.1", features = ["util"] }
 tower-http = { version = "0.6.1", features = [
@@ -442,6 +449,10 @@ zip = "=2.4.2"
 ammonia = "4.1.7"
 html-escape = "0.2"
 subtle = "2.6.1"
+
+[patch.crates-io]
+# Only replaces tungstenite 0.27 (GraphQL subscriptions); 0.28/0.29 stay upstream.
+tungstenite = { git = "https://github.com/signalapp/tungstenite-rs", rev = "a1837ccfe96b6895a57352d7f0112e4557516c27" }
 
 # cache-turso's storage tests load thousands of rows into the embedded SQL engine
 # to assert VM step budgets. Unoptimized, the engine made them the slowest tests

@@ -31,6 +31,7 @@ import {
 } from '@graphql-cache/protocol';
 import { getBrowserTursoCacheRolloutDecision } from '@graphql-cache/rollout';
 import { getOrCreateCacheScope } from '@graphql-cache/scope';
+import { TauriWebSocketWrapper } from '@macro-inc/collaboration/websocket/platform/tauri-websocket';
 import { Telemetry } from '@macro-inc/observability';
 import { notificationStateFromGraphql } from '@notifications/notification-state';
 import { localDraftQueueLifecycle } from '@queries/email/local-drafts';
@@ -97,6 +98,7 @@ import {
   createGraphqlSoupWebSocketUrlResolver,
   SOUP_GRAPHQL_WEBSOCKET_RETRY_ATTEMPTS,
   shouldRetryGraphqlSoupWebSocket,
+  waitToRetryGraphqlSoupWebSocket,
 } from './graphql-soup-websocket';
 
 const dssHost = SERVER_HOSTS['document-storage-service'];
@@ -224,11 +226,19 @@ function legacyProjectionRequest(
   }
 }
 
+// Matches the JSON-encoded body, where the field's quotes are escaped.
+const LEGACY_PROJECTION_ERROR_TEXT =
+  /(?:Cannot query|Unknown) field \\?["']cacheProjection/;
+
 async function isLegacyProjectionValidationError(
   response: Response
 ): Promise<boolean> {
   try {
-    const payload: unknown = await response.clone().json();
+    // Every projection response passes through here and urql parses the body
+    // again, so only parse one whose text names the rejected field.
+    const text = await response.clone().text();
+    if (!LEGACY_PROJECTION_ERROR_TEXT.test(text)) return false;
+    const payload: unknown = JSON.parse(text);
     if (
       payload === null ||
       typeof payload !== 'object' ||
@@ -293,10 +303,14 @@ export async function dssGraphqlFetch(
       span.setAttr('graphql.response_headers_ms', performance.now() - started);
       span.setAttr('http.response.status_code', response.status);
       span.event('response_headers');
-      const legacyInit = legacyProjectionRequest(transportInit);
-      if (legacyInit === undefined) return response;
+      if (
+        typeof transportInit?.body !== 'string' ||
+        !transportInit.body.includes('cacheProjection')
+      ) {
+        return response;
+      }
 
-      // This includes body delivery and JSON parsing, not just validation CPU.
+      // This includes body delivery and the text scan, not just validation CPU.
       const inspectStarted = performance.now();
       const legacy = await isLegacyProjectionValidationError(response);
       span.setAttr(
@@ -304,8 +318,11 @@ export async function dssGraphqlFetch(
         performance.now() - inspectStarted
       );
       span.event('response_inspected');
-      span.setAttr('graphql.legacy_retry', legacy);
-      if (!legacy) return response;
+      const legacyInit = legacy
+        ? legacyProjectionRequest(transportInit)
+        : undefined;
+      span.setAttr('graphql.legacy_retry', legacyInit !== undefined);
+      if (legacyInit === undefined) return response;
 
       // A mixed deployment remains network-correct: retry without the additive
       // metadata field and suppress v2 local authority for this session. Backfill
@@ -355,16 +372,18 @@ function createGraphqlSoupWebSocketClient(
     dssHost,
     bearerTokenAuth: ENABLE_BEARER_TOKEN_AUTH,
     getApiToken: getMacroApiToken,
-    refreshCookieAuth: async () => {
-      const result = await fetchToken();
-      if (result.isErr()) {
-        throw new Error('Unable to refresh GraphQL websocket cookie');
-      }
-    },
+    refreshCookieAuth: fetchToken,
   });
   return createGraphqlWsClient({
     url: resolveWebSocketUrl,
+    // Session cookies live in the native HTTP client's jar, which the WebView's
+    // own WebSocket cannot send; the native socket forwards them.
+    webSocketImpl:
+      isTauri() && !ENABLE_BEARER_TOKEN_AUTH
+        ? TauriWebSocketWrapper
+        : undefined,
     retryAttempts: SOUP_GRAPHQL_WEBSOCKET_RETRY_ATTEMPTS,
+    retryWait: waitToRetryGraphqlSoupWebSocket,
     on: {
       connected: () => {
         onConnected();

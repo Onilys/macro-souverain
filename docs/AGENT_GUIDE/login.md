@@ -10,7 +10,10 @@
    response carries the one-time code and the frontend auto-verifies it, so you are logged in
    immediately — no code entry step ever appears. A code email is still sent and visible in
    Mailpit. Against a real deployment, expect a code-entry step instead: fetch the code from
-   the user's inbox (locally: Mailpit).
+   the user's inbox (locally: Mailpit). The sixth digit submits the code. A rejected code
+   clears the boxes and refocuses them for retyping. The auth service allows five code
+   checks a minute per address; past that the step shows "Too many attempts. Wait a minute,
+   then try again." and keeps the code. Requesting a new code does not lift that wait.
 5. First login auto-creates the user, seeds onboarding content (a "Macro Support x <name>"
    channel, a "Macro how to guide" doc favorite, three sample tasks), and lands on
    `/app/home`. The starter documents share a personal `docs` tag; the

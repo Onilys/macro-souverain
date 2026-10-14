@@ -13,6 +13,7 @@ Browse the user's Macro workspace to see recent items they have access to. Retur
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `includeTypes` | (`"calendar_event"` \| `"document"` \| `"ai_chat"` \| `"project"` \| `"email"` \| `"channel"` \| `"channel_thread"` \| `"call"` \| `"foreign_entity"`)[] | No | Filter returned items to specific item types. If not provided, returns all types. Example: ["document", "email"] returns only documents and emails. Macro tasks are returned as document items, so use includeTypes=["document"] with df subtype task for task requests. This is folded into the AST and applied as part of cursor-level filtering. |
+| `favoritesOnly` | boolean | No | Only return items the user has favorited (starred). Use for requests like "my favorites" or "what have I starred". Combine with includeTypes and the other filters as usual. Favorite or unfavorite an item with SetFavorite. |
 | `sortBy` | `"recently_viewed"` \| `"recently_updated"` \| `"recently_created"` | No | Sort order for the list entities AI tool. |
 | `df` | any | No | Full soup AST document filter (df). Use the same shape as /items/soup/ast, e.g. \{"l":\{"id":"..."}}. For Macro tasks, use \{"l":\{"dst":"task"}}; for skills, \{"l":\{"dst":"skill"}}. For "completed yesterday", AND the task subtype with updatedAt bounds, e.g. \{"&":[\{"l":\{"dst":"task"}},\{"&":[\{"l":\{"ua":\{"gte":"\<start>"}}},\{"l":\{"ua":\{"lt":"\<end>"}}}]}]} using ISO timestamps. |
 | `pf` | any | No | Full soup AST project filter (pf). |

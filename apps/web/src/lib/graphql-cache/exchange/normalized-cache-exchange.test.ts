@@ -48,6 +48,8 @@ import {
   type MutationClaim,
   type MutationSettlement,
   OWNER_LOCK_UNAVAILABLE_ERROR_CODE,
+  parseCacheRevision,
+  type QueryUpdate,
   type ReadResult,
   type WriteResult,
 } from '../protocol';
@@ -1569,6 +1571,63 @@ describe('normalizedCacheExchange', () => {
       expect(onCacheError).toHaveBeenCalledTimes(outcome === 'error' ? 1 : 0);
     }
   );
+
+  it.each(['teardown', 'generation change'] as const)(
+    'does not report a cache read cancelled by %s',
+    async (cancel) => {
+      const read = deferred<ReadResult>();
+      host.readQuery = vi.fn(() => read.promise);
+      const onCacheError = vi.fn();
+      const { ops, results } = harness(host, undefined, { onCacheError });
+      const op = makeOp(1);
+      ops.next(op);
+      await tick();
+
+      if (cancel === 'teardown') ops.next(teardownOf(op));
+      else host.pushGeneration({ storage: 'preserved' });
+      read.resolve({ kind: 'hit', data: { from: 'cache' } });
+      await tick();
+
+      expect(onCacheError).not.toHaveBeenCalled();
+      expect(results.filter((r) => r.operation.kind === 'query')).toEqual([]);
+    }
+  );
+
+  it('does not report a watched reread cancelled by teardown', async () => {
+    const reread = deferred<QueryUpdate>();
+    host.watchQuery = vi
+      .fn()
+      .mockResolvedValueOnce({
+        kind: 'hit',
+        revision: parseCacheRevision('1'),
+        data: { from: 'cache' },
+      })
+      .mockReturnValueOnce(reread.promise);
+    const onCacheError = vi.fn();
+    const { ops, results } = harness(host, undefined, { onCacheError });
+    const op = makeOp(1);
+    ops.next(op);
+    await tick();
+    expect(results.map((result) => result.data)).toEqual([{ from: 'cache' }]);
+
+    host.pushAffected([1]);
+    await tick();
+    expect(host.watchQuery).toHaveBeenCalledTimes(2);
+    ops.next(teardownOf(op));
+    reread.resolve({
+      kind: 'hit',
+      revision: parseCacheRevision('2'),
+      data: { from: 'newer cache' },
+    });
+    await tick();
+
+    expect(onCacheError).not.toHaveBeenCalled();
+    expect(
+      results
+        .filter((r) => r.operation.kind === 'query')
+        .map((result) => result.data)
+    ).toEqual([{ from: 'cache' }]);
+  });
 
   it.each(['miss', 'error'] as const)(
     'does not forward twice when a concurrent cache read returns %s first',

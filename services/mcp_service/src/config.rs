@@ -11,6 +11,9 @@ pub use macro_auth::InternalApiKey;
 pub use macro_env::Environment;
 use macro_env_var::{env_vars, maybe_env_vars};
 
+#[cfg(test)]
+mod test;
+
 maybe_env_vars! {
     /// Browser-reachable FusionAuth origin used for OAuth authorization redirects.
     pub struct FusionauthPublicUrl;
@@ -32,8 +35,13 @@ maybe_env_vars! {
 /// origins the FusionAuth application already allows. A host absent from this
 /// list cannot be used as a redirect destination, which is what stops an
 /// attacker from registering a client pointing at a callback they control.
-pub const DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS: [&str; 4] =
-    ["claude.ai", "chatgpt.com", "chat.openai.com", "cursor.com"];
+pub const DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS: [&str; 5] = [
+    "claude.ai",
+    "chatgpt.com",
+    "chat.openai.com",
+    "cursor.com",
+    "www.cursor.com",
+];
 
 env_vars! {
     /// Auth key used by the document storage / search / lexical clients.

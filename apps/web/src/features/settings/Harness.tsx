@@ -1,3 +1,5 @@
+import { useClaudeAgentsAccess } from '@core/claude/flag';
+import { useCodexAgentsAccess } from '@core/codex/flag';
 import { ModelCatalogPicker } from '@core/component/AI/component/input/ModelCatalogPicker';
 import { isLargeModelCatalog } from '@core/component/AI/component/input/modelCatalog';
 import { toast } from '@core/component/Toast/Toast';
@@ -30,7 +32,8 @@ import { ConnectAction, HarnessIcon, StatusDot } from './integration-ui';
 import { SettingsCard, SettingsPage } from './primitives';
 import { RuntimePairingPage } from './RuntimePairingPage';
 
-const CURSOR_KEY_PREFIX = 'crsr_';
+// Cursor now mints `grok_` keys; the `crsr_` keys minted before that still work.
+const CURSOR_KEY_PREFIXES = ['grok_', 'crsr_'];
 
 function failureMessage(error: unknown, fallback: string): string {
   return (error instanceof ThrownResultError && error.message) || fallback;
@@ -46,6 +49,8 @@ function lastConnectedText(harness: RegisteredHarness): string {
 export function Harness(
   props: { navigation?: JSX.Element; startPairing?: boolean } = {}
 ) {
+  const canUseClaude = useClaudeAgentsAccess();
+  const canUseCodex = useCodexAgentsAccess();
   const [cursorApiKey, setCursorApiKey] = createSignal('');
   const cursorStatus = useCursorApiKeyStatusQuery();
   const saveCursorApiKey = useSaveCursorApiKey();
@@ -136,8 +141,10 @@ export function Harness(
 
   const handleSaveCursorApiKey = async () => {
     const apiKey = cursorApiKey().trim();
-    if (!apiKey.startsWith(CURSOR_KEY_PREFIX)) {
-      toast.failure(`Cursor API keys start with ${CURSOR_KEY_PREFIX}`);
+    if (!CURSOR_KEY_PREFIXES.some((prefix) => apiKey.startsWith(prefix))) {
+      toast.failure(
+        `Cursor API keys start with ${CURSOR_KEY_PREFIXES.join(' or ')}`
+      );
       return;
     }
 
@@ -214,7 +221,9 @@ export function Harness(
                 </div>
               </section>
 
-              <ClaudeConnection />
+              <Show when={canUseClaude()}>
+                <ClaudeConnection />
+              </Show>
 
               <section class="flex gap-4 px-6 py-5">
                 <HarnessIcon>
@@ -265,7 +274,7 @@ export function Harness(
                               autocomplete="off"
                               spellcheck={false}
                               class="settings-input ph-no-capture min-w-0 flex-1"
-                              placeholder={`${CURSOR_KEY_PREFIX}…`}
+                              placeholder="grok_…"
                               value={cursorApiKey()}
                               onInput={(event) =>
                                 setCursorApiKey(event.currentTarget.value)
@@ -403,7 +412,9 @@ export function Harness(
                 </div>
               </section>
 
-              <CodexHarness />
+              <Show when={canUseCodex()}>
+                <CodexHarness />
+              </Show>
             </SettingsCard>
           </div>
 

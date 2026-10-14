@@ -44,7 +44,8 @@ and highlights.
   **New** menu.
 - **Calendar:** calendar sources and copy availability (beacon on the sidebar
   toggle while the sidebar is collapsed), calendar periods, then event details.
-- **Tasks:** also offers Import from Linear, which opens the CSV importer.
+- **Tasks:** the sidebar, task details, then tags in the **Filter** menu. Also
+  offers Import from Linear, which opens the CSV importer.
 
 Connection suggestions open Email or Connected settings. Home, Email, Documents,
 Tasks, Channels, Customers, and Calls include a video from Macro's YouTube
