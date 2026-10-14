@@ -63,7 +63,12 @@ composer are staged privately; selecting a file alone never sends it.
 
 New customer activity refreshes the server-owned reply window immediately;
 internal messages and older history do not trigger that refresh.
-The composer follows the server's provider limits and reply window. WhatsApp
+The composer follows the server's implemented capabilities and current eligibility.
+Local expiry disables sending; it cannot grant permission. While a channel binding
+is unknown, loading or error states keep native mutations disabled. Once a channel
+is known to be internal, a messaging-metadata refresh failure keeps its normal
+composer usable. External drafts remain editable through connection errors.
+WhatsApp
 requires an approved template outside its standard window. Instagram's extended
 human-support mode is offered only with configured app approval and requires an
 explicit human-support selection. Unsupported template inputs are disabled.

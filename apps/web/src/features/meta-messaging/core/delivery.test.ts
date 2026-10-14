@@ -63,8 +63,14 @@ describe('native message and send-attempt timeline', () => {
     expect(ids.length).toBeLessThanOrEqual(100);
   });
   const messages = [
-    { id: 'first', created_at: '2026-10-11T10:00:00Z' },
-    { id: 'last', created_at: '2026-10-11T12:00:00Z' },
+    {
+      key: 'first',
+      position: { id: 'first', createdAt: '2026-10-11T10:00:00Z' },
+    },
+    {
+      key: 'last',
+      position: { id: 'last', createdAt: '2026-10-11T12:00:00Z' },
+    },
   ];
   const send = {
     id: 'attempt',
@@ -93,8 +99,8 @@ describe('native message and send-attempt timeline', () => {
   });
   it('preserves activity rows while replacing an accepted attempt with its native message', () => {
     const activity = {
-      id: 'activity:joined',
-      created_at: '2026-10-11T10:30:00Z',
+      key: 'activity:joined',
+      position: { id: 'joined', createdAt: '2026-10-11T10:30:00Z' },
     };
     const entries = [messages[0], activity, messages[1]];
     const accepted = { ...send, message_id: 'native-reply' };
@@ -110,7 +116,10 @@ describe('native message and send-attempt timeline', () => {
         [
           messages[0],
           activity,
-          { id: 'native-reply', created_at: send.created_at },
+          {
+            key: 'native-reply',
+            position: { id: 'native-reply', createdAt: send.created_at },
+          },
           messages[1],
         ],
         [accepted],
@@ -127,7 +136,10 @@ describe('native message and send-attempt timeline', () => {
     ]);
     const loaded = [
       ...messages,
-      { id: 'native-reply', created_at: send.created_at },
+      {
+        key: 'native-reply',
+        position: { id: 'native-reply', createdAt: send.created_at },
+      },
     ];
     const keys = deliveryTimelineKeys('a', loaded, [accepted], true);
     expect(keys).toContain('native-reply');
@@ -158,4 +170,31 @@ it('distinguishes Meta app access from Macro channel permissions', () => {
   expect(messagingError('forbidden', 'instagram')).toContain(
     'channel and account access'
   );
+});
+
+it('keeps native activity ordering and microseconds when inserting pending sends', () => {
+  const entries = [
+    {
+      key: 'activity:0b',
+      position: { id: '0b', createdAt: '2026-10-14T10:00:00.000001Z' },
+    },
+    {
+      key: '0a',
+      position: { id: '0a', createdAt: '2026-10-14T10:00:00.000003Z' },
+    },
+  ];
+  expect(
+    deliveryTimelineKeys(
+      'a',
+      entries,
+      [
+        {
+          id: 'attempt',
+          channel_id: 'a',
+          created_at: '2026-10-14T10:00:00.000002Z',
+        },
+      ],
+      true
+    )
+  ).toEqual(['activity:0b', 'external-send:attempt', '0a']);
 });

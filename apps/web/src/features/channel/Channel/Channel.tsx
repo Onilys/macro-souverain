@@ -147,7 +147,7 @@ import {
 import type { UnreadThread } from './unread-thread-navigation';
 
 const ChannelMessagingComposer = lazyNamed(
-  () => import('../../meta-messaging/views/channel-composer'),
+  () => import('../../meta-messaging/channel-messaging'),
   'ChannelMessagingComposer'
 );
 
@@ -278,15 +278,16 @@ export function Channel(props: ChannelProps) {
     messages,
     entries: () =>
       messageIndex.entries.map((entry) => ({
-        id: timelineEntryKey(entry),
-        created_at:
+        key: timelineEntryKey(entry),
+        position:
           entry.type === 'message'
-            ? entry.message.created_at
-            : entry.activity.occurred_at,
+            ? { id: entry.message.id, createdAt: entry.message.created_at }
+            : { id: entry.activity.id, createdAt: entry.activity.occurred_at },
       })),
     includesLatest: () => !messagesQuery.hasPreviousPage,
     visibleRange: () => threadListScrollState()?.visibleRange,
   });
+  const internalInteraction = () => messaging.interaction().kind === 'internal';
   const unread = createChannelUnreadNavigation({
     channelId: props.channelId,
     messages,
@@ -528,7 +529,7 @@ export function Channel(props: ChannelProps) {
     const actions = nativeMessageActions(message);
     // Customer conversations have one external composer. These native mutations
     // would only change Macro, so do not present them as customer-facing actions.
-    return messaging.account() || messaging.loading() || messaging.unavailable()
+    return !internalInteraction()
       ? {
           ...actions,
           onReply: undefined,
@@ -696,8 +697,7 @@ export function Channel(props: ChannelProps) {
   });
 
   const onSend: ChannelInputProps['onSend'] = (snapshot) => {
-    if (messaging.account() || messaging.loading() || messaging.unavailable())
-      return;
+    if (!internalInteraction()) return;
     const senderId = userId();
     if (!senderId) return;
     const payload = buildPostMessageSendPayload({
@@ -949,14 +949,11 @@ export function Channel(props: ChannelProps) {
                                           isExpanded={state.isExpanded}
                                           setIsExpanded={state.setIsExpanded}
                                           isReplying={() =>
-                                            !messaging.account() &&
+                                            internalInteraction() &&
                                             state.isReplying()
                                           }
                                           setIsReplying={(value) => {
-                                            if (
-                                              !messaging.account() &&
-                                              !messaging.loading()
-                                            )
+                                            if (internalInteraction())
                                               state.setIsReplying(value);
                                           }}
                                           replyInputState={
@@ -1041,9 +1038,7 @@ export function Channel(props: ChannelProps) {
                       <Switch>
                         <Match
                           when={
-                            !messaging.account() &&
-                            !messaging.loading() &&
-                            !messaging.unavailable() &&
+                            internalInteraction() &&
                             isUnifiedInputMode() &&
                             messageEditor.state()?.messageId
                           }
@@ -1064,9 +1059,7 @@ export function Channel(props: ChannelProps) {
                         </Match>
                         <Match
                           when={
-                            !messaging.account() &&
-                            !messaging.loading() &&
-                            !messaging.unavailable() &&
+                            internalInteraction() &&
                             isUnifiedInputMode() &&
                             unifiedInput.replyTarget()?.threadId
                           }
@@ -1106,9 +1099,7 @@ export function Channel(props: ChannelProps) {
                           <Suspense>
                             <ChannelMessagingComposer
                               channelId={props.channelId}
-                              account={messaging.account()}
-                              unavailable={messaging.unavailable()}
-                              loading={messaging.loading()}
+                              interaction={messaging.interaction()}
                               onRefresh={messaging.refresh}
                               onRecoverReady={messaging.registerRecovery}
                             >

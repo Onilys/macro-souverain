@@ -1,5 +1,15 @@
-type TimelineMessage = { id: string; created_at: string };
-type SendIntent = TimelineMessage & {
+import {
+  compareTimelinePositions,
+  type TimelinePosition,
+} from '@core/util/message-timeline';
+
+export type MessagingTimelineEntry = {
+  key: string;
+  position: TimelinePosition;
+};
+type SendIntent = {
+  id: string;
+  created_at: string;
   channel_id: string;
   message_id?: string | null;
 };
@@ -25,37 +35,34 @@ export function visibleDeliveryIds(
     .sort();
 }
 
-/** Keep the durable attempt until its native message actually reaches the view. */
+/** Merge attempts into the native oldest-first timeline using its exact ordering. */
 export function deliveryTimelineKeys(
   channelId: string,
-  messages: readonly TimelineMessage[],
+  entries: readonly MessagingTimelineEntry[],
   sends: readonly SendIntent[],
   includesLatest: boolean
 ): string[] {
-  const times = messages.map((message) => Date.parse(message.created_at));
-  const nativeIds = new Set(messages.map((message) => message.id));
-  const start = times.length ? Math.min(...times) : -Infinity;
-  const end = includesLatest ? Infinity : Math.max(...times);
+  const nativeIds = new Set(entries.map((entry) => entry.key));
+  const first = entries[0]?.position;
+  const last = entries.at(-1)?.position;
   const attempts = sends.filter((send) => {
-    const time = Date.parse(send.created_at);
+    const position = { id: send.id, createdAt: send.created_at };
     return (
       send.channel_id === channelId &&
       (!send.message_id || !nativeIds.has(send.message_id)) &&
-      time >= start &&
-      time <= end
+      (!first || compareTimelinePositions(position, first) >= 0) &&
+      (includesLatest ||
+        (!!last && compareTimelinePositions(position, last) <= 0))
     );
   });
-  if (!attempts.length) return messages.map((message) => message.id);
+  if (!attempts.length) return entries.map((entry) => entry.key);
   return [
-    ...messages.map((message) => ({
-      key: message.id,
-      time: Date.parse(message.created_at),
-    })),
+    ...entries,
     ...attempts.map((send) => ({
       key: sendRowKey(send.id),
-      time: Date.parse(send.created_at),
+      position: { id: send.id, createdAt: send.created_at },
     })),
   ]
-    .sort((a, b) => a.time - b.time || a.key.localeCompare(b.key))
-    .map((row) => row.key);
+    .sort((a, b) => compareTimelinePositions(a.position, b.position))
+    .map((entry) => entry.key);
 }

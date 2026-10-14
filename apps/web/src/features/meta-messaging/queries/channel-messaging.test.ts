@@ -8,7 +8,8 @@ import { replyOptions } from '../tests/reply-options';
 import { createChannelMessaging } from './channel-messaging';
 
 const fixture = vi.hoisted(() => ({
-  account: () => undefined as MetaConversationView | undefined,
+  account: () => undefined as MetaConversationView | null | undefined,
+  error: (): boolean => false,
   history: [] as MetaSendProgress[],
   readHistory: undefined as (() => string[]) | undefined,
   refetch: vi.fn(),
@@ -16,14 +17,16 @@ const fixture = vi.hoisted(() => ({
 vi.mock('@queries/meta-messaging', () => ({
   useMetaConversation: () => ({
     get isPending() {
-      return !fixture.account();
+      return fixture.account() === undefined;
     },
     get data() {
-      if (!fixture.account())
+      if (fixture.account() === undefined)
         throw new Error('Pending resource must not be read');
       return fixture.account();
     },
-    isError: false,
+    get isError() {
+      return fixture.error();
+    },
     refetch: fixture.refetch,
   }),
   useMetaDelivery: (_: unknown, ids: () => string[]) => {
@@ -83,21 +86,27 @@ const account = (sends = [send()]): MetaConversationView => ({
     customer_id: 'customer',
   },
 });
-function setup(initial?: MetaConversationView) {
+function setup(initial?: MetaConversationView | null) {
   return createRoot((cleanup) => {
     dispose = cleanup;
     const [value, setAccount] = createSignal(initial);
     fixture.account = value;
+    const [error, setError] = createSignal(false);
+    fixture.error = error;
     const [channelId, setChannel] = createSignal('one');
     const [messages, setMessages] = createSignal<MessageData[]>([]);
     const state = createChannelMessaging({
       channelId,
       messages,
-      entries: messages,
+      entries: () =>
+        messages().map((message) => ({
+          key: message.id,
+          position: { id: message.id, createdAt: message.created_at },
+        })),
       includesLatest: () => true,
       visibleRange: () => undefined,
     });
-    return { state, setAccount, setChannel, setMessages };
+    return { state, setAccount, setChannel, setMessages, setError };
   });
 }
 it('never reads a pending resource and hands an accepted send to its native row without a gap', () => {
@@ -156,4 +165,27 @@ it('refreshes reply eligibility for new customer activity without polling on int
     { ...customer, id: 'customer-two', created_at: '2026-10-12T05:01:00Z' },
   ]);
   expect(fixture.refetch).toHaveBeenCalledOnce();
+});
+
+it('uses one safe interaction contract across unknown, internal and external bindings', () => {
+  const { state, setAccount, setError, setChannel } = setup();
+  expect(state.interaction().kind).toBe('loading');
+  setError(true);
+  expect(state.interaction().kind).toBe('error');
+  setError(false);
+  setAccount(null);
+  expect(state.interaction().kind).toBe('internal');
+  setError(true);
+  expect(state.interaction().kind).toBe('internal');
+  setError(false);
+  setAccount(account());
+  expect(state.interaction().kind).toBe('external');
+  setError(true);
+  expect(state.interaction()).toMatchObject({
+    kind: 'external',
+    available: false,
+  });
+  setAccount(undefined);
+  setChannel('two');
+  expect(state.interaction().kind).toBe('error');
 });

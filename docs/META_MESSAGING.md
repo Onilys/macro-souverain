@@ -48,6 +48,27 @@ Provider limits verified against Meta's [WhatsApp coexistence guide](https://dev
 [history webhook reference](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/history), and
 [Instagram Conversations API](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/conversations-api).
 
+## Code boundaries
+
+`meta_messaging::domain::service` owns native conversation access, explicit human
+send authority, durable intents, dispatch fencing and accepted-message recovery.
+Its ports use account identity, team, health and authorization generation; they
+carry no Meta configuration or credentials. `domain::meta` owns account lifecycle,
+subscriptions, credentials and explicit history. Meta reply policy and transport
+implement the shared ports, including preparation before the final access/policy
+recheck. Provider acceptance is recorded before native materialization; recovery
+never resends an accepted or uncertain intent.
+
+The composer receives implemented capabilities and current server eligibility
+through a feature-owned reply source. Native Channel consumes one interaction
+state: internal, external, loading or error. Provider content is normalized into
+plain text and validated supplied links before native rendering; private files,
+source-scoped repair and revisions retain their existing owning-domain paths.
+Database schemas, queued requests, intent hashes, IDs, callbacks and v1 draft keys
+remain unchanged. Conversation responses add capabilities/eligibility while
+retaining old fields for older clients. Deploy the server response before the new
+composer; a missing capability contract keeps the new client disabled.
+
 ## Account and team model
 
 A connected WhatsApp number or Instagram professional account belongs to one Macro

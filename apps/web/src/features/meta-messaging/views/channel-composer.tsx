@@ -1,56 +1,58 @@
 import { Layout } from '@channel/Input/Layout';
-import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { openFilePicker } from '@core/util/upload';
 import PaperclipIcon from '@phosphor/paperclip.svg';
 import TemplateIcon from '@phosphor/text-align-left.svg';
-import {
-  useMetaReply,
-  useMetaTemplates,
-  useMetaUpload,
-} from '@queries/meta-messaging';
-import type { MetaConversationView } from '@service-storage/generated/schemas/metaConversationView';
-import type { MetaSendProgress } from '@service-storage/generated/schemas/metaSendProgress';
-import type { MetaSendReply } from '@service-storage/generated/schemas/metaSendReply';
 import { Button, ComposerSurface, SendButton } from '@ui';
 import {
   createSignal,
   For,
   type JSX,
+  Match,
   onCleanup,
   onMount,
   Show,
   Suspense,
+  Switch,
 } from 'solid-js';
 import { match } from 'ts-pattern';
+import type { ReplySource } from '../context/reply-source';
 import { accountHealthMessage } from '../core/account-health';
-import { messagingError } from '../core/delivery';
+import type {
+  ChannelInteraction,
+  ConversationAccount,
+  ReplyRequest,
+  ReplyAttempt as SendAttempt,
+} from '../core/conversation';
+import { messagingError, providerName } from '../core/delivery';
 import { createReplyDraft, emptyReplyDraft } from '../primitives/reply-draft';
+import { createReplyEligibility } from '../primitives/reply-eligibility';
 
-type MessagingComposerProps = {
+export type MessagingComposerProps = {
   channelId: string;
   children: JSX.Element;
-  account?: MetaConversationView | null;
-  unavailable: boolean;
-  loading?: boolean;
+  interaction: ChannelInteraction;
+  userId: string | undefined;
+  createSource: (channelId: string) => ReplySource;
   onRefresh: () => void;
-  onRecoverReady: (recover: (send: MetaSendProgress) => void) => () => void;
+  onRecoverReady: (recover: (send: SendAttempt) => void) => () => void;
 };
 
 /** Customer channels expose one external composer; ordinary Macro channels keep their native input. */
 export function ChannelMessagingComposer(props: MessagingComposerProps) {
-  const userId = useUserId();
   return (
     <Show
-      when={props.channelId && JSON.stringify([userId(), props.channelId])}
+      when={props.channelId && JSON.stringify([props.userId, props.channelId])}
       keyed
     >
       {(_identity) => {
         const channelId = props.channelId;
-        const draftUserId = userId();
+        const draftUserId = props.userId;
         return (
           <Suspense
-            fallback={<div class="h-16" aria-label="Loading conversation" />}
+            fallback={
+              <div class="w-full h-16" aria-label="Loading conversation" />
+            }
           >
             <MessagingComposer
               {...props}
@@ -69,54 +71,51 @@ export function ChannelMessagingComposer(props: MessagingComposerProps) {
 function MessagingComposer(
   props: MessagingComposerProps & { draftUserId: string | undefined }
 ) {
+  const external = () =>
+    props.interaction.kind === 'external' ? props.interaction : undefined;
   return (
-    <Show
-      when={!props.loading}
-      fallback={<div class="h-16" aria-label="Loading conversation" />}
-    >
-      <Show
-        when={props.account}
-        fallback={
-          <Show
-            when={!props.unavailable}
-            fallback={
-              <p role="status" class="px-3 py-2 text-sm text-ink-muted">
-                Conversation unavailable.{' '}
-                <button class="underline" onClick={props.onRefresh}>
-                  Try again
-                </button>
-              </p>
-            }
-          >
-            {props.children}
-          </Show>
-        }
-      >
-        {(account) => (
+    <Switch>
+      <Match when={props.interaction.kind === 'loading'}>
+        <div class="w-full h-16" aria-label="Loading conversation" />
+      </Match>
+      <Match when={props.interaction.kind === 'error'}>
+        <p role="status" class="px-3 py-2 text-sm text-ink-muted">
+          Conversation unavailable.{' '}
+          <button class="underline" onClick={props.onRefresh}>
+            Try again
+          </button>
+        </p>
+      </Match>
+      <Match when={props.interaction.kind === 'internal'}>
+        {props.children}
+      </Match>
+      <Match when={external()}>
+        {(interaction) => (
           <ExternalReply
             channelId={props.channelId}
             userId={props.draftUserId}
-            account={account()}
-            available={!props.unavailable}
+            account={interaction().account}
+            available={interaction().available}
+            createSource={props.createSource}
             onRecoverReady={props.onRecoverReady}
           />
         )}
-      </Show>
-    </Show>
+      </Match>
+    </Switch>
   );
 }
 
 function ExternalReply(props: {
   channelId: string;
   userId: string | undefined;
-  account: MetaConversationView;
+  account: ConversationAccount;
   available: boolean;
-  onRecoverReady: (recover: (send: MetaSendProgress) => void) => () => void;
+  createSource: (channelId: string) => ReplySource;
+  onRecoverReady: (recover: (send: SendAttempt) => void) => () => void;
 }) {
-  const mutation = useMetaReply(() => props.channelId);
+  const source = props.createSource(props.channelId);
   const [draft, setDraft] = createReplyDraft(props.userId, props.channelId);
   const [checkedOriginalApp, setCheckedOriginalApp] = createSignal(false);
-  const upload = useMetaUpload(() => props.channelId);
   let active = true;
   let closePicker: (() => void) | undefined;
   let textInput: HTMLTextAreaElement | undefined;
@@ -131,58 +130,57 @@ function ExternalReply(props: {
   });
   onMount(() => onCleanup(props.onRecoverReady(restoreReply)));
   const [error, setError] = createSignal('');
-  const [now, setNow] = createSignal(Date.now());
-  onMount(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    onCleanup(() => window.clearInterval(timer));
-  });
-  const until = () =>
-    props.account.conversation.standard_window_until
-      ? Date.parse(props.account.conversation.standard_window_until)
-      : 0;
-  const open = () => until() > now();
-  const whatsapp = () => props.account.provider === 'whatsapp';
-  const needsTemplate = () => whatsapp() && (!open() || draft.templateMode);
+  const eligible = createReplyEligibility(() => props.account.eligibility);
+  const supports = (mode: 'approved_template' | 'human_support') =>
+    props.account.capabilities.modes.includes(mode);
+  const open = () => eligible('free_form');
+  const needsTemplate = () =>
+    supports('approved_template') &&
+    (draft.templateMode || (!open() && eligible('approved_template')));
   const connected = () => props.account.status === 'connected';
   const mediaCapability = () =>
-    props.account.media.find((c) => c.kind === draft.attachment?.kind);
-  const templates = useMetaTemplates(
-    () => props.channelId,
+    props.account.capabilities.media.find(
+      (c) => c.kind === draft.attachment?.kind
+    );
+  const templates = source.templates(
     () =>
       props.available &&
       props.account.can_reply &&
       connected() &&
       needsTemplate()
   );
-  const approved = () => (templates.isSuccess ? templates.data : []);
+  const approved = templates.items;
   const selected = () => approved().find((t) => t.id === draft.templateId);
   const parameterLabels = () => selected()?.parameter_labels ?? [];
   const withinHumanWindow = () =>
-    props.account.human_agent_approved &&
-    !!props.account.conversation.last_customer_message_at &&
-    Date.parse(props.account.conversation.last_customer_message_at) +
-      7 * 86400_000 >
-      now();
+    supports('human_support') && eligible('human_support');
+  const mode = () =>
+    needsTemplate()
+      ? 'approved_template'
+      : supports('human_support') && draft.humanSupport
+        ? 'human_support'
+        : 'free_form';
   const allowed = () =>
     props.available &&
     connected() &&
     props.account.can_reply &&
-    !upload.isPending &&
+    !source.isUploading() &&
     (!draft.uncertainReply || checkedOriginalApp()) &&
+    props.account.capabilities.modes.includes(mode()) &&
+    eligible(mode()) &&
+    (!draft.attachment || !!mediaCapability()) &&
     (needsTemplate()
       ? !!selected() &&
         !selected()?.unsupported_reason &&
         draft.parameters.length === parameterLabels().length &&
         draft.parameters.every((p) => p.trim())
-      : (open() ||
-          (!whatsapp() && draft.humanSupport && withinHumanWindow())) &&
-        (!!draft.text.trim() || !!draft.attachment));
+      : !!draft.text.trim() || !!draft.attachment);
   const limit = () =>
     draft.attachment
       ? (mediaCapability()?.caption_limit ?? 0)
-      : props.account.text_limit;
+      : props.account.capabilities.text_limit;
   const length = () =>
-    draft.attachment || !props.account.text_limit_in_bytes
+    draft.attachment || !props.account.capabilities.text_limit_in_bytes
       ? [...draft.text].length
       : new TextEncoder().encode(draft.text).length;
   const changeText = (value: string) => {
@@ -197,7 +195,9 @@ function ExternalReply(props: {
     closePicker = openFilePicker(
       {
         multiple: false,
-        acceptedMimeTypes: props.account.media.flatMap((c) => c.mime_types),
+        acceptedMimeTypes: props.account.capabilities.media.flatMap(
+          (c) => c.mime_types
+        ),
       },
       async (files) => {
         if (!active) return;
@@ -209,7 +209,7 @@ function ExternalReply(props: {
             : file.type === 'audio/x-wav'
               ? 'audio/wav'
               : file.type;
-        const capability = props.account.media.find((c) =>
+        const capability = props.account.capabilities.media.find((c) =>
           c.mime_types.includes(type)
         );
         if (!capability || file.size > capability.max_bytes) {
@@ -226,7 +226,7 @@ function ExternalReply(props: {
         }
         setError('');
         try {
-          const uploaded = await upload.mutateAsync(file);
+          const uploaded = await source.upload(file);
           if (!active) return;
           setDraft('attachment', uploaded);
           setDraft('intent', undefined);
@@ -243,7 +243,7 @@ function ExternalReply(props: {
     );
   }
 
-  function restoreReply(send: MetaSendProgress) {
+  function restoreReply(send: SendAttempt) {
     if (
       !active ||
       send.user_id !== props.userId ||
@@ -288,16 +288,16 @@ function ExternalReply(props: {
   }
 
   async function send() {
-    if (!active || !allowed() || mutation.isPending || length() > limit())
+    if (!active || !allowed() || source.isSending() || length() > limit())
       return;
     const focusAtSend = document.activeElement;
     const id = draft.intent ?? crypto.randomUUID();
     setDraft('intent', id);
     setError('');
     const template = selected();
-    const request: MetaSendReply = {
+    const request: ReplyRequest = {
       idempotency_key: id,
-      human_support: !whatsapp() && draft.humanSupport,
+      human_support: mode() === 'human_support',
       message:
         needsTemplate() && template
           ? {
@@ -316,7 +316,7 @@ function ExternalReply(props: {
             : { type: 'text', text: draft.text },
     };
     try {
-      await mutation.mutateAsync(request);
+      await source.send(request);
       if (!active) return;
       setDraft({
         ...emptyReplyDraft(),
@@ -379,13 +379,13 @@ function ExternalReply(props: {
               <label class="flex items-start gap-2 text-xs">
                 <input
                   type="checkbox"
-                  disabled={mutation.isPending}
+                  disabled={source.isSending()}
                   checked={checkedOriginalApp()}
                   onChange={(e) =>
                     setCheckedOriginalApp(e.currentTarget.checked)
                   }
                 />
-                I checked {whatsapp() ? 'WhatsApp' : 'Instagram'} and want to
+                I checked {providerName(props.account.provider)} and want to
                 send this again. The previous reply may already have arrived.
               </label>
             </Show>
@@ -438,7 +438,7 @@ function ExternalReply(props: {
                           void send();
                         }
                       }}
-                      disabled={mutation.isPending}
+                      disabled={source.isSending()}
                     />
                   </Show>
                   <Show when={draft.attachment}>
@@ -450,7 +450,7 @@ function ExternalReply(props: {
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={mutation.isPending}
+                          disabled={source.isSending()}
                           onClick={() => {
                             setDraft('attachment', undefined);
                             setDraft('intent', undefined);
@@ -462,12 +462,12 @@ function ExternalReply(props: {
                     )}
                   </Show>
 
-                  <Show when={!open() && !whatsapp()}>
+                  <Show when={!open() && !needsTemplate()}>
                     <Show
                       when={withinHumanWindow()}
                       fallback={
                         <p class="text-xs text-ink-muted">
-                          Instagram’s reply window is closed. Wait for a new
+                          This account’s reply window is closed. Wait for a new
                           customer message.
                         </p>
                       }
@@ -475,7 +475,7 @@ function ExternalReply(props: {
                       <label class="flex items-start gap-2 text-xs">
                         <input
                           type="checkbox"
-                          disabled={mutation.isPending}
+                          disabled={source.isSending()}
                           checked={draft.humanSupport}
                           onChange={(e) => {
                             setDraft('humanSupport', e.currentTarget.checked);
@@ -495,11 +495,9 @@ function ExternalReply(props: {
                     <p class="text-xs text-ink-muted" aria-live="polite">
                       {length() > limit()
                         ? 'This reply is too long. Shorten it before sending.'
-                        : whatsapp()
+                        : !props.account.capabilities.text_limit_in_bytes
                           ? `${length()}/${limit()}`
-                          : length() > limit() * 0.8
-                            ? 'You’re close to Instagram’s message limit.'
-                            : ''}
+                          : 'You’re close to this account’s message limit.'}
                     </p>
                   </Show>
                 </>
@@ -508,14 +506,14 @@ function ExternalReply(props: {
               <p class="text-sm text-ink-muted">
                 {open()
                   ? 'Select an approved template for this account.'
-                  : 'WhatsApp’s free-form reply window is closed. Select an approved template for this account.'}
+                  : 'The free-form reply window is closed. Select an approved template for this account.'}
               </p>
               <label class="text-xs">
                 Approved template
                 <select
                   class="mt-1 w-full bg-input border border-edge-muted rounded p-2 text-sm"
-                  aria-label="Approved WhatsApp template"
-                  disabled={mutation.isPending}
+                  aria-label={`Approved ${providerName(props.account.provider)} template`}
+                  disabled={source.isSending()}
                   value={draft.templateId}
                   onChange={(e) => {
                     setDraft('templateId', e.currentTarget.value);
@@ -537,7 +535,7 @@ function ExternalReply(props: {
               <Show when={selected()}>
                 {(t) => (
                   <pre class="whitespace-pre-wrap break-words text-xs text-ink-muted max-h-32 overflow-auto">
-                    {templatePreview(t().components)}
+                    {t().preview}
                   </pre>
                 )}
               </Show>
@@ -546,7 +544,7 @@ function ExternalReply(props: {
                   <label class="text-xs capitalize">
                     {label}
                     <input
-                      disabled={mutation.isPending}
+                      disabled={source.isSending()}
                       class="mt-1 w-full bg-input border border-edge-muted rounded p-2 text-sm"
                       value={draft.parameters[index()] ?? ''}
                       onInput={(e) => {
@@ -559,17 +557,17 @@ function ExternalReply(props: {
                   </label>
                 )}
               </For>
-              <Show when={templates.isSuccess && approved().length === 0}>
+              <Show when={templates.ready() && approved().length === 0}>
                 <p class="text-xs text-ink-muted">
                   No approved templates are available for this account.
                 </p>
               </Show>
-              <Show when={templates.isError}>
+              <Show when={templates.failed()}>
                 <p role="alert" class="text-xs text-ink-muted">
                   Templates could not load.{' '}
                   <button
                     class="underline"
-                    onClick={() => void templates.refetch()}
+                    onClick={() => void templates.refresh()}
                   >
                     Retry
                   </button>
@@ -585,26 +583,32 @@ function ExternalReply(props: {
           </Layout.Editor>
         </Layout.Body>
         <Layout.ActionsLeft>
-          <Show when={!needsTemplate()}>
+          <Show
+            when={
+              !needsTemplate() &&
+              props.account.capabilities.max_attachments > 0 &&
+              props.account.capabilities.media.length > 0
+            }
+          >
             <Button
               variant="ghost"
               size="icon-composer"
               aria-label={
-                upload.isPending ? 'Uploading attachment' : 'Attach file'
+                source.isUploading() ? 'Uploading attachment' : 'Attach file'
               }
               title="Attach file"
               disabled={
                 !connected() ||
                 !props.account.can_reply ||
-                upload.isPending ||
-                mutation.isPending
+                source.isUploading() ||
+                source.isSending()
               }
               onClick={chooseAttachment}
             >
               <PaperclipIcon class="size-4" aria-hidden="true" />
             </Button>
           </Show>
-          <Show when={whatsapp() && open()}>
+          <Show when={supports('approved_template') && open()}>
             <Button
               variant="ghost"
               size="icon-composer"
@@ -614,7 +618,7 @@ function ExternalReply(props: {
               title={
                 draft.templateMode ? 'Use text reply' : 'Use approved template'
               }
-              disabled={mutation.isPending}
+              disabled={source.isSending()}
               onClick={() => {
                 setDraft('templateMode', !draft.templateMode);
                 setDraft('intent', undefined);
@@ -629,14 +633,14 @@ function ExternalReply(props: {
             appearance="composer"
             class="touch:rounded-full"
             aria-label={
-              mutation.isPending
+              source.isSending()
                 ? 'Sending reply'
-                : `Send reply via ${whatsapp() ? 'WhatsApp' : 'Instagram'}`
+                : `Send reply via ${providerName(props.account.provider)}`
             }
             tooltip="Send message"
             shortcut="enter"
             aria-keyshortcuts="Enter Control+Enter Meta+Enter"
-            disabled={!allowed() || mutation.isPending || length() > limit()}
+            disabled={!allowed() || source.isSending() || length() > limit()}
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => void send()}
           />
@@ -644,18 +648,4 @@ function ExternalReply(props: {
       </Layout>
     </ComposerSurface>
   );
-}
-
-function templatePreview(components: unknown): string {
-  if (!Array.isArray(components)) return '';
-  return components
-    .flatMap((part: unknown) =>
-      part &&
-      typeof part === 'object' &&
-      'text' in part &&
-      typeof part.text === 'string'
-        ? [part.text]
-        : []
-    )
-    .join('\n');
 }

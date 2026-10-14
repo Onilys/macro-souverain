@@ -12,7 +12,10 @@ export type DeliveryState =
   | 'unknown';
 
 export const providerName = (provider: MessagingProvider) =>
-  provider === 'whatsapp' ? 'WhatsApp' : 'Instagram';
+  match(provider)
+    .with('whatsapp', () => 'WhatsApp')
+    .with('instagram', () => 'Instagram')
+    .exhaustive();
 
 /** Translate known failures; never expose a provider response or server detail. */
 export function messagingError(

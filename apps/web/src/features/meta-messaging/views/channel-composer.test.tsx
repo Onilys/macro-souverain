@@ -13,8 +13,8 @@ import {
 } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChannelMessagingComposer } from '../channel-messaging';
 import { replyOptions } from '../tests/reply-options';
-import { ChannelMessagingComposer } from './channel-composer';
 
 const fixture = vi.hoisted(() => ({
   account: undefined as MetaConversationView | undefined,
@@ -93,8 +93,17 @@ function mount(channel: () => string = () => 'channel-one') {
   render(() => (
     <ChannelMessagingComposer
       channelId={channel()}
-      account={fixture.account}
-      unavailable={fixture.isError}
+      interaction={
+        fixture.account
+          ? {
+              kind: 'external',
+              account: fixture.account,
+              available: !fixture.isError,
+            }
+          : fixture.isError
+            ? { kind: 'error' }
+            : { kind: 'internal' }
+      }
       onRefresh={() => {}}
       onRecoverReady={(recover) => {
         fixture.recover = recover;
@@ -137,7 +146,7 @@ function failedReply(
 }
 
 function enableImages() {
-  fixture.account!.media = [
+  fixture.account!.capabilities.media = [
     {
       kind: 'image',
       caption_limit: 1024,
@@ -189,8 +198,7 @@ describe('native external-reply boundary', () => {
     render(() => (
       <ChannelMessagingComposer
         channelId="loading-channel"
-        loading
-        unavailable={false}
+        interaction={{ kind: 'loading' }}
         onRefresh={() => {}}
         onRecoverReady={() => () => {}}
       >
@@ -351,10 +359,14 @@ describe('native external-reply boundary', () => {
   });
   it('preserves an Instagram human-support draft through remount', () => {
     fixture.account = account('instagram');
-    fixture.account.human_agent_approved = true;
-    fixture.account.conversation.standard_window_until = new Date(
-      Date.now() - 1000
-    ).toISOString();
+    fixture.account.eligibility.modes = [
+      { mode: 'free_form', allowed: false, reason: 'window_closed' },
+      {
+        mode: 'human_support',
+        allowed: true,
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      },
+    ];
     mount();
     fireEvent.input(screen.getByRole('textbox'), {
       target: { value: 'Support follow-up' },
@@ -574,5 +586,38 @@ it('keeps mobile Return as a newline, matching the native channel input', () => 
   });
   fireEvent.input(input, { target: { value: 'Mobile draft' } });
   fireEvent.keyDown(input, { key: 'Enter' });
+  expect(fixture.reply).not.toHaveBeenCalled();
+});
+
+it('uses implemented capabilities instead of inferring controls from provider branding', () => {
+  fixture.account = account('whatsapp');
+  fixture.account.capabilities.modes = ['free_form'];
+  fixture.account.capabilities.text_limit = 3;
+  fixture.account.capabilities.text_limit_in_bytes = true;
+  mount();
+  expect(
+    screen.queryByRole('button', { name: 'Use approved template' })
+  ).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Attach file' })).toBeNull();
+  fireEvent.input(screen.getByRole('textbox'), { target: { value: 'éé' } });
+  expect(
+    screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+  ).toHaveProperty('disabled', true);
+});
+
+it('server denial stays disabled despite legacy window and approval fields', () => {
+  fixture.account = account('instagram');
+  fixture.account.human_agent_approved = true;
+  fixture.account.eligibility.modes = [
+    { mode: 'free_form', allowed: false, reason: 'forbidden' },
+  ];
+  mount();
+  fireEvent.input(screen.getByRole('textbox'), {
+    target: { value: 'Keep this draft' },
+  });
+  expect(
+    screen.getByRole('button', { name: 'Send reply via Instagram' })
+  ).toHaveProperty('disabled', true);
+  expect(screen.queryByRole('checkbox')).toBeNull();
   expect(fixture.reply).not.toHaveBeenCalled();
 });

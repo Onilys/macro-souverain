@@ -9,8 +9,13 @@ import {
   createSignal,
   on,
 } from 'solid-js';
+import type {
+  ChannelInteraction,
+  ConversationAccount,
+} from '../core/conversation';
 import {
   deliveryTimelineKeys,
+  type MessagingTimelineEntry,
   sendRowKey,
   visibleDeliveryIds,
 } from '../core/timeline';
@@ -19,16 +24,38 @@ import {
 export function createChannelMessaging(options: {
   channelId: Accessor<string>;
   messages: Accessor<readonly MessageData[]>;
-  entries: Accessor<readonly { id: string; created_at: string }[]>;
+  entries: Accessor<readonly MessagingTimelineEntry[]>;
   includesLatest: Accessor<boolean>;
   visibleRange: Accessor<{ first: string; last: string } | undefined>;
 }) {
   const messagingQuery = useMetaConversation(() => options.channelId());
-  const messaging = () =>
-    queryReadyGate(messagingQuery) &&
-    messagingQuery.data?.conversation.channel_id === options.channelId()
-      ? messagingQuery.data
-      : undefined;
+  const binding = createMemo<
+    { channelId: string; account: typeof messagingQuery.data } | undefined
+  >((previous) => {
+    const channelId = options.channelId();
+    if (!messagingQuery.isError && queryReadyGate(messagingQuery)) {
+      const account = messagingQuery.data;
+      if (account && account.conversation.channel_id !== channelId)
+        return undefined;
+      return { channelId, account };
+    }
+    return previous?.channelId === channelId ? previous : undefined;
+  });
+  const messaging = () => binding()?.account ?? undefined;
+  const interaction = (): ChannelInteraction => {
+    const known = binding();
+    if (known) {
+      if (!known.account) return { kind: 'internal' };
+      if (!known.account.capabilities || !known.account.eligibility)
+        return { kind: 'error' };
+      return {
+        kind: 'external',
+        account: toConversationAccount(known.account),
+        available: !messagingQuery.isError,
+      };
+    }
+    return { kind: messagingQuery.isError ? 'error' : 'loading' };
+  };
   const latestCustomerMessage = createMemo(() => {
     if (!options.includesLatest()) return undefined;
     let latest: MessageData | undefined;
@@ -129,8 +156,7 @@ export function createChannelMessaging(options: {
 
   return {
     account: messaging,
-    unavailable: () => messagingQuery.isError,
-    loading: () => messagingQuery.isPending,
+    interaction,
     refresh: () => void messagingQuery.refetch(),
     timelineKeys,
     attemptsByKey,
@@ -143,6 +169,29 @@ export function createChannelMessaging(options: {
         if (recoverExternalReply() === recover)
           setRecoverExternalReply(undefined);
       };
+    },
+  };
+}
+
+/** Keep wire compatibility fields out of the common composer's contract. */
+function toConversationAccount(
+  account: NonNullable<ReturnType<typeof useMetaConversation>['data']>
+): ConversationAccount {
+  return {
+    provider: account.provider,
+    account_name: account.account_name,
+    status: account.status,
+    health_error: account.health_error,
+    can_reply: account.can_reply,
+    capabilities: account.capabilities,
+    eligibility: account.eligibility,
+    conversation: {
+      channel_id: account.conversation.channel_id,
+      connection_id: account.conversation.connection_id,
+      customer_id: account.conversation.customer_id,
+      customer_display_name: account.conversation.customer_display_name,
+      customer_handle: account.conversation.customer_handle,
+      customer_phone: account.conversation.customer_phone,
     },
   };
 }
