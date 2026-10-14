@@ -1,5 +1,6 @@
 use super::*;
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
+use rootcause::compat::IntoRootcause;
 use sqlx::PgPool;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::Barrier;
@@ -40,7 +41,7 @@ async fn returns_the_final_error_after_bounded_serialization_retries(
         |error| is_transaction_conflict(error),
     )
     .await;
-    assert!(is_transaction_conflict(&result.unwrap_err()));
+    assert_wrapped_conflict(result.unwrap_err(), true);
     assert_eq!(attempts.load(Ordering::Relaxed), 4);
     Ok(())
 }
@@ -124,5 +125,26 @@ async fn delete_test_grant(connection: &mut sqlx::PgConnection) -> Result<(), sq
     sqlx::query!("DELETE FROM entity_access WHERE source_id = 'other-team'")
         .execute(connection)
         .await?;
+    Ok(())
+}
+
+fn assert_wrapped_conflict(error: sqlx::Error, expected: bool) {
+    assert_eq!(is_transaction_conflict(&error), expected);
+    let report = rootcause::Report::new_sendsync(error).context("sharing write failed");
+    let wrapped: anyhow::Error = report.into();
+    let wrapped = wrapped.context("repository operation failed");
+    assert_eq!(is_transaction_conflict(wrapped.as_ref()), expected);
+    let nested: anyhow::Error = wrapped.into_rootcause().context("adapter failed").into();
+    assert_eq!(is_transaction_conflict(nested.as_ref()), expected);
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn does_not_retry_wrapped_constraint_violations(pool: PgPool) -> anyhow::Result<()> {
+    let error =
+        sqlx::query!("DO $$ BEGIN RAISE EXCEPTION 'retry test' USING ERRCODE = '23505'; END $$")
+            .execute(&pool)
+            .await
+            .unwrap_err();
+    assert_wrapped_conflict(error, false);
     Ok(())
 }

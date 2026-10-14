@@ -1436,3 +1436,18 @@ async fn get_permissions_reads_link_share_columns(pool: Pool<Postgres>) {
     assert_eq!(permission.link_share, Some(LinkShare::Team));
     assert_eq!(permission.link_share_access_level, Some(AccessLevel::Edit));
 }
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn classifies_reported_transaction_conflicts(pool: Pool<Postgres>) {
+    let error =
+        sqlx::query!("DO $$ BEGIN RAISE EXCEPTION 'retry test' USING ERRCODE = '40001'; END $$")
+            .execute(&pool)
+            .await
+            .unwrap_err();
+    let report = rootcause::Report::new_sendsync(error).context("sharing write failed");
+    let error = ChatErr::Unknown(report.into());
+    assert!(super::is_transaction_conflict(&error));
+    assert!(!super::is_transaction_conflict(&ChatErr::Conflict(
+        "stale share revision".into()
+    )));
+}

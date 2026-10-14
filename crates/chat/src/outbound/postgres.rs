@@ -36,6 +36,16 @@ fn to_chat_err(e: anyhow::Error) -> ChatErr {
     }
 }
 
+fn is_transaction_conflict(error: &ChatErr) -> bool {
+    match error {
+        // This transparent variant can skip the opaque rootcause wrapper in source().
+        ChatErr::Unknown(error) => {
+            entity_access_db_utils::transaction_retry::is_transaction_conflict(error.as_ref())
+        }
+        error => entity_access_db_utils::transaction_retry::is_transaction_conflict(error),
+    }
+}
+
 /// Insert a chat row for `owner` with its share permission and recency rows,
 /// returning the chat id and its registry uuid.
 async fn insert_owned_chat(
@@ -257,9 +267,7 @@ impl<B: BotFacts + 'static> ChatRepo for PgChatRepo<B> {
                 tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
                 Ok(())
             },
-            |error: &ChatErr| {
-                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
-            },
+            is_transaction_conflict,
         )
         .await
     }
@@ -291,9 +299,7 @@ impl<B: BotFacts + 'static> ChatRepo for PgChatRepo<B> {
                 tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
                 Ok(())
             },
-            |error: &ChatErr| {
-                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
-            },
+            is_transaction_conflict,
         )
         .await
     }
@@ -313,9 +319,7 @@ impl<B: BotFacts + 'static> ChatRepo for PgChatRepo<B> {
                 tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
                 Ok(())
             },
-            |error: &ChatErr| {
-                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
-            },
+            is_transaction_conflict,
         )
         .await
     }
@@ -367,9 +371,7 @@ impl<B: BotFacts + 'static> ChatRepo for PgChatRepo<B> {
                 tx.commit().await.map_err(|e| ChatErr::Unknown(e.into()))?;
                 Ok(())
             },
-            |error: &ChatErr| {
-                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
-            },
+            is_transaction_conflict,
         )
         .await
     }

@@ -16,6 +16,27 @@ pub fn is_transaction_conflict(mut error: &(dyn Error + 'static)) -> bool {
         if let Some(database) = error.downcast_ref::<sqlx::postgres::PgDatabaseError>() {
             return matches!(database.code(), "40P01" | "40001");
         }
+        // ReportAsError deliberately has no std::error::Error source chain.
+        // Canonical sharing carries SQLx errors inside these report contexts.
+        if let Some(wrapper) = error.downcast_ref::<rootcause::compat::ReportAsError>() {
+            return wrapper.0.iter_reports().any(|context| {
+                context
+                    .downcast_current_context::<sqlx::Error>()
+                    .is_some_and(|error| is_transaction_conflict(error))
+                    || context
+                        .downcast_current_context::<sqlx::postgres::PgDatabaseError>()
+                        .is_some_and(|error| is_transaction_conflict(error))
+                    || context
+                        .downcast_current_context::<anyhow::Error>()
+                        .is_some_and(|error| is_transaction_conflict(error.as_ref()))
+                    || context
+                        .downcast_current_context::<rootcause::compat::ReportAsError>()
+                        .is_some_and(|error| is_transaction_conflict(error))
+                    || context
+                        .current_context_error_source()
+                        .is_some_and(is_transaction_conflict)
+            });
+        }
         match error.source() {
             Some(source) => error = source,
             None => return false,
