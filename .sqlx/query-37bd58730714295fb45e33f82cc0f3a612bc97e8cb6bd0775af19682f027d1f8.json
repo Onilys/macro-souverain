@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO \"Project\" (id, name, \"userId\", \"parentId\") VALUES ('child', 'Child', 'owner', 'parent')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "37bd58730714295fb45e33f82cc0f3a612bc97e8cb6bd0775af19682f027d1f8"
+}

@@ -67,6 +67,12 @@ pub async fn delete_chat(db: sqlx::PgPool, chat_id: &str) -> anyhow::Result<()> 
 
             entity_registry_db_utils::delete_entity(&mut transaction, chat_uuid).await?;
 
+            source_items::sync_one(
+                transaction.as_mut(),
+                entity_access_db_utils::EntityType::Chat,
+                chat_id,
+            )
+            .await?;
             transaction.commit().await?;
 
             Ok(())

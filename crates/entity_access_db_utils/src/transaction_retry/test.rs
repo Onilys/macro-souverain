@@ -88,7 +88,7 @@ async fn retries_either_victim_and_rolls_back_its_first_attempt(
                 barrier.wait().await;
             }
             delete_test_grant(transaction.as_mut()).await?;
-            // Also exercises the cycle before the projection triggers are installed.
+            // Exercise a canonical-row lock cycle independently of projection maintenance.
             sqlx::query!(
                 r#"UPDATE "Document" SET name = name || '-revoke' WHERE id = $1"#,
                 "20000000-0000-0000-0000-000000000002",

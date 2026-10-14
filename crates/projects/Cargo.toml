@@ -45,6 +45,7 @@ ports = ["dep:tokio"]
 service = ["dep:entity_access_management", "dep:shared_entity_registry", "ports"]
 
 [dependencies]
+source_items = { path = "../source_items" }
 activity = { path = "../activity", default-features = false }
 # Core
 anyhow = { workspace = true }

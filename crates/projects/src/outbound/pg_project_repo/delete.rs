@@ -91,6 +91,8 @@ async fn delete_items(
     document_ids: &[String],
     chat_ids: &[String],
 ) -> Result<(), sqlx::Error> {
+    let cascade_targets =
+        source_items::project_deletion::capture(transaction.as_mut(), project_ids).await?;
     let all_ids = project_ids
         .iter()
         .chain(document_ids)
@@ -127,16 +129,18 @@ async fn delete_items(
     )
     .execute(transaction.as_mut())
     .await?;
-    sqlx::query!(
+    let removed_grants = sqlx::query!(
         r#"
         DELETE FROM entity_access
         WHERE entity_id::text = ANY($1)
            OR "granted_from_project_id" = ANY($2)
+        RETURNING entity_type, entity_id::text AS "entity_id!"
         "#,
         &all_ids,
         project_ids,
     )
-    .execute(transaction.as_mut())
+    .map(|row| (row.entity_type, row.entity_id))
+    .fetch_all(transaction.as_mut())
     .await?;
     delete_registered_entities(transaction, &all_ids).await?;
     sqlx::query!(r#"DELETE FROM "Document" WHERE id = ANY($1)"#, document_ids)
@@ -148,6 +152,20 @@ async fn delete_items(
     sqlx::query!(r#"DELETE FROM "Project" WHERE id = ANY($1)"#, project_ids)
         .execute(transaction.as_mut())
         .await?;
+    source_items::sync_rows(transaction.as_mut(), &removed_grants).await?;
+    source_items::sync_rows(transaction.as_mut(), &cascade_targets).await?;
+    source_items::sync_many(
+        transaction.as_mut(),
+        model_entity::EntityType::Document,
+        document_ids,
+    )
+    .await?;
+    source_items::sync_many(
+        transaction.as_mut(),
+        model_entity::EntityType::Chat,
+        chat_ids,
+    )
+    .await?;
     Ok(())
 }
 
@@ -227,6 +245,25 @@ pub(super) async fn soft_delete_project(
     .execute(transaction.as_mut())
     .await?;
     mark_registered_entities_deleted(transaction, &all_ids, deleted_at).await?;
+
+    source_items::sync_many(
+        transaction.as_mut(),
+        model_entity::EntityType::Document,
+        &document_ids,
+    )
+    .await?;
+    source_items::sync_many(
+        transaction.as_mut(),
+        model_entity::EntityType::Chat,
+        &chat_ids,
+    )
+    .await?;
+    source_items::sync_many(
+        transaction.as_mut(),
+        model_entity::EntityType::Project,
+        &project_ids,
+    )
+    .await?;
 
     Ok(SoftDeleteResult {
         project_ids,

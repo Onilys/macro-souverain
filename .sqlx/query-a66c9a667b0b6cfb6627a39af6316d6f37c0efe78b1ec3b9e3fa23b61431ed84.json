@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO entity_access (entity_id, entity_type, source_id, source_type, access_level)\n           SELECT id::uuid, 'document', 'owner', 'user', 'owner' FROM \"Document\"",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a66c9a667b0b6cfb6627a39af6316d6f37c0efe78b1ec3b9e3fa23b61431ed84"
+}

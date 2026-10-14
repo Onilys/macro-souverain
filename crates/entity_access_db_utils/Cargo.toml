@@ -5,6 +5,7 @@ publish = false
 version = "0.1.0"
 
 [dependencies]
+source_items = { path = "../source_items" }
 # Core
 anyhow = { workspace = true }
 macro_uuid = { path = "../macro_uuid" }

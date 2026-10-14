@@ -1,5 +1,5 @@
--- Fixture for the soup feed that reads source_items. It loads with triggers on, so source_items
--- holds what its triggers derived.
+-- Canonical fixture for source-item query parity. Tests explicitly reconcile
+-- the projection after loading the canonical rows.
 --
 -- user-1 is the subject and sees items through their own id, team T1 and channel C1. They left
 -- channel C2 and are not in team T2, so items granted only to those, or only to user-2, stay

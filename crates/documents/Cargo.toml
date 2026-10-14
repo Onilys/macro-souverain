@@ -102,6 +102,7 @@ service = [
 ]
 
 [dependencies]
+source_items = { path = "../source_items" }
 macro_db_client = { path = "../macro_db_client", optional = true }
 macro_sha_count_client = { path = "../macro_sha_count_client", optional = true }
 sqs_client = { path = "../sqs_client", optional = true }

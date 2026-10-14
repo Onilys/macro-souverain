@@ -7,41 +7,55 @@ pub async fn soft_delete_chat(
     db: &sqlx::Pool<sqlx::Postgres>,
     chat_id: &str,
 ) -> anyhow::Result<()> {
-    let mut transaction = db.begin().await?;
+    entity_access_db_utils::transaction_retry::on_conflict(
+        || async {
+            let mut transaction = db.begin().await?;
 
-    // Delete pins
-    sqlx::query!(
-        r#"
-        DELETE FROM "Pin" WHERE "pinnedItemId" = $1 AND "pinnedItemType" = $2
-        "#,
-        chat_id,
-        "chat",
+            // Delete pins
+            sqlx::query!(
+                r#"
+                DELETE FROM "Pin" WHERE "pinnedItemId" = $1 AND "pinnedItemType" = $2
+                "#,
+                chat_id,
+                "chat",
+            )
+            .execute(&mut *transaction)
+            .await?;
+
+            // Delete user history
+            sqlx::query!(
+                r#"
+                DELETE FROM "UserHistory" WHERE "itemId" = $1 AND "itemType" = $2
+                "#,
+                chat_id,
+                "chat",
+            )
+            .execute(&mut *transaction)
+            .await?;
+
+            sqlx::query!(
+                r#"
+                UPDATE "Chat" SET "deletedAt" = NOW() WHERE id = $1"#,
+                chat_id
+            )
+            .execute(&mut *transaction)
+            .await?;
+
+            source_items::sync_one(
+                transaction.as_mut(),
+                model_entity::EntityType::Chat,
+                chat_id,
+            )
+            .await?;
+            transaction.commit().await?;
+
+            Ok(())
+        },
+        |error: &anyhow::Error| {
+            entity_access_db_utils::transaction_retry::is_transaction_conflict(error.as_ref())
+        },
     )
-    .execute(&mut *transaction)
-    .await?;
-
-    // Delete user history
-    sqlx::query!(
-        r#"
-        DELETE FROM "UserHistory" WHERE "itemId" = $1 AND "itemType" = $2
-        "#,
-        chat_id,
-        "chat",
-    )
-    .execute(&mut *transaction)
-    .await?;
-
-    sqlx::query!(
-        r#"
-        UPDATE "Chat" SET "deletedAt" = NOW() WHERE id = $1"#,
-        chat_id
-    )
-    .execute(&mut *transaction)
-    .await?;
-
-    transaction.commit().await?;
-
-    Ok(())
+    .await
 }
 
 /// Bulk deletes chats
@@ -105,6 +119,13 @@ pub async fn delete_chat_bulk_tsx(
         chat_ids
     )
     .execute(transaction.as_mut())
+    .await?;
+
+    source_items::sync_many(
+        transaction.as_mut(),
+        model_entity::EntityType::Chat,
+        chat_ids,
+    )
     .await?;
 
     Ok(())
@@ -178,6 +199,12 @@ pub async fn delete_chat(db: &sqlx::Pool<sqlx::Postgres>, chat_id: &str) -> anyh
             .execute(&mut *transaction)
             .await?;
 
+            source_items::sync_one(
+                transaction.as_mut(),
+                model_entity::EntityType::Chat,
+                chat_id,
+            )
+            .await?;
             transaction.commit().await?;
 
             Ok(())

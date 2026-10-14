@@ -135,6 +135,7 @@ impl EntityAccessManagementRepository for PgRepository {
                     qb.build().execute(transaction.as_mut()).await?;
                 }
 
+                source_items::sync_one(transaction.as_mut(), entity_type, &entity_id.to_string()).await?;
                 transaction.commit().await?;
 
                 Ok(())
@@ -178,6 +179,12 @@ impl EntityAccessManagementRepository for PgRepository {
                     .execute(transaction.as_mut())
                     .await?;
 
+                    source_items::sync_one(
+                        transaction.as_mut(),
+                        entity_type,
+                        &entity_id.to_string(),
+                    )
+                    .await?;
                     transaction.commit().await?;
                 }
 
@@ -280,6 +287,8 @@ impl EntityAccessManagementRepository for PgRepository {
                     }
                 }
 
+                let affected = project_entities.iter().map(|item| (item.entity_type.clone(), item.entity_id.clone())).collect::<Vec<_>>();
+                source_items::sync_rows(transaction.as_mut(), &affected).await?;
                 transaction.commit().await?;
 
                 Ok(())

@@ -15,6 +15,7 @@ outbound = [
 ports = []
 
 [dependencies]
+source_items = { path = "../source_items" }
 # Core
 anyhow = { workspace = true }
 serde = { workspace = true }

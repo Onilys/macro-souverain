@@ -542,12 +542,28 @@ impl<B: BotFacts + 'static> ProjectRepo for PgProjectRepo<B> {
 
     #[tracing::instrument(err, skip(self))]
     async fn update_project_modified(&self, project_id: &str) -> Result<(), Self::Err> {
-        sqlx::query!(
-            r#"UPDATE "Project" SET "updatedAt" = NOW() WHERE id = $1"#,
-            project_id,
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                sqlx::query!(
+                    r#"UPDATE "Project" SET "updatedAt" = NOW() WHERE id = $1"#,
+                    project_id,
+                )
+                .execute(transaction.as_mut())
+                .await?;
+                source_items::sync_one(
+                    transaction.as_mut(),
+                    model_entity::EntityType::Project,
+                    project_id,
+                )
+                .await?;
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
         )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        .await
     }
 }

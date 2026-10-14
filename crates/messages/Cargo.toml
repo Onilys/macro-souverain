@@ -33,6 +33,7 @@ schema = ["channel_sender/schema", "dep:utoipa", "activity/schema"]
 test-utils = ["dep:mockall", "ports"]
 
 [dependencies]
+source_items = { path = "../source_items" }
 activity = { path = "../activity", default-features = false }
 async-trait = { workspace = true, optional = true }
 axum = { workspace = true, optional = true }

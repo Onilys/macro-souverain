@@ -45,6 +45,8 @@ ports = ["crm/ports", "dep:tokio", "frecency/ports"]
 s3 = ["dep:aws-sdk-s3", "ports"]
 
 [dependencies]
+entity_access_db_utils = { path = "../entity_access_db_utils" }
+source_items = { path = "../source_items" }
 calendar_events = { path = "../calendar_events", optional = true }
 ical = { version = "0.11", default-features = false, features = ["ical"], optional = true }
 chrono-tz = { workspace = true, optional = true }

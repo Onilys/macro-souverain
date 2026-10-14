@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT bool_and(s.sort_ts IS NOT DISTINCT FROM p.\"updatedAt\")\n           FROM source_items s JOIN \"Project\" p ON p.id = s.entity_id\n           WHERE s.entity_type = 'project' AND s.entity_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bool_and",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "95ee38fa1da3b96b2e8e37c40ddbb69c41458d727ad6c724baefba790750a2e7"
+}

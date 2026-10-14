@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM \"Project\" WHERE id = 'parent'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "4dae7341596e775fa1eb782c0267890f1d38def6fda02c5457d7f4f5f3aa4508"
+}

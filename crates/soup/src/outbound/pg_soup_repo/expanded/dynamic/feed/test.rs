@@ -600,6 +600,7 @@ fn shapes_reach_every_driver_and_phase() {
     migrator = "MACRO_DB_MIGRATIONS"
 )]
 async fn source_items_pages_like_the_item_tables(pool: PgPool) -> anyhow::Result<()> {
+    source_items::backfill::run(&pool).await?;
     assert_source_items_match_grants(&pool).await?;
     let everything = assert_pages_match_item_tables(&pool).await?;
 
@@ -636,7 +637,8 @@ async fn source_items_pages_like_the_item_tables(pool: PgPool) -> anyhow::Result
     ),
     migrator = "MACRO_DB_MIGRATIONS"
 )]
-async fn source_items_follow_writes(pool: PgPool) -> anyhow::Result<()> {
+async fn source_items_pages_match_after_reconciliation(pool: PgPool) -> anyhow::Result<()> {
+    source_items::backfill::run(&pool).await?;
     assert_source_items_match_grants(&pool).await?;
     let everything = assert_pages_match_item_tables(&pool).await?;
 

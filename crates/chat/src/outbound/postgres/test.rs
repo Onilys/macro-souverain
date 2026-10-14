@@ -1451,3 +1451,70 @@ async fn classifies_reported_transaction_conflicts(pool: Pool<Postgres>) {
         "stale share revision".into()
     )));
 }
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "fixtures", scripts("users"))
+)]
+async fn chat_writes_maintain_source_items_without_triggers(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let repo = test_repo(pool.clone());
+    let id = create_test_chat(&repo, "Projected chat").await;
+    assert_eq!(
+        sqlx::query_scalar!("SELECT grants FROM source_items WHERE entity_id = $1", id)
+            .fetch_one(&pool)
+            .await?,
+        1
+    );
+    let now = Utc::now();
+    crate::domain::ports::MessageRepo::create(
+        &repo,
+        &id,
+        NewChatMessage {
+            id: None,
+            content: ChatMessageContent::Text("hello".to_owned()),
+            role: Role::User,
+            attachments: None,
+            model: "test-model".to_owned(),
+            created_at: now,
+            updated_at: now,
+        },
+    )
+    .await?;
+    let current = sqlx::query_scalar!(
+        r#"SELECT bool_and(s.sort_ts IS NOT DISTINCT FROM c."updatedAt")
+           FROM source_items s JOIN "Chat" c ON c.id = s.entity_id
+           WHERE s.entity_type = 'chat' AND s.entity_id = $1"#,
+        id,
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(current, Some(true));
+    repo.delete(&id).await?;
+    assert!(
+        sqlx::query_scalar!(
+            "SELECT sort_ts IS NULL AS \"deleted!\" FROM source_items WHERE entity_id = $1",
+            id
+        )
+        .fetch_one(&pool)
+        .await?
+    );
+    repo.revert_delete(&id, None).await?;
+    assert!(
+        !sqlx::query_scalar!(
+            "SELECT sort_ts IS NULL AS \"deleted!\" FROM source_items WHERE entity_id = $1",
+            id
+        )
+        .fetch_one(&pool)
+        .await?
+    );
+    repo.permanently_delete(&id).await?;
+    assert_eq!(
+        sqlx::query_scalar!("SELECT count(*) FROM source_items WHERE entity_id = $1", id)
+            .fetch_one(&pool)
+            .await?,
+        Some(0)
+    );
+    Ok(())
+}

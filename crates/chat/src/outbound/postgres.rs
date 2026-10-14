@@ -103,15 +103,21 @@ impl<B: BotFacts + 'static> PgChatRepo<B> {
         content: &ChatMessageContent,
         bump_chat_recency: bool,
     ) -> Result<()> {
-        queries::update_message_content::update_message_content(
-            &self.pool,
-            chat_id,
-            message_id,
-            content,
-            bump_chat_recency,
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                queries::update_message_content::update_message_content(
+                    &self.pool,
+                    chat_id,
+                    message_id,
+                    content,
+                    bump_chat_recency,
+                )
+                .await
+                .map_err(to_chat_err)
+            },
+            is_transaction_conflict,
         )
         .await
-        .map_err(to_chat_err)
     }
 
     /// Store a resolved message without going through the trait.

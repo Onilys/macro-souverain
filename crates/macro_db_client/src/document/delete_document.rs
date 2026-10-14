@@ -64,6 +64,12 @@ pub async fn delete_document(db: &Pool<Postgres>, document_id: &str) -> anyhow::
                 entity_registry_db_utils::delete_entity(&mut transaction, document_uuid).await?;
             }
 
+            source_items::sync_one(
+                transaction.as_mut(),
+                model_entity::EntityType::Document,
+                document_id,
+            )
+            .await?;
             if let Err(e) = transaction.commit().await {
                 tracing::error!(error=?e, "unable to commit transaction");
                 return Err(anyhow::Error::from(e));
@@ -144,6 +150,13 @@ pub async fn delete_document_bulk_tsx(
     for document_uuid in document_uuids {
         entity_registry_db_utils::delete_entity(transaction, document_uuid).await?;
     }
+
+    source_items::sync_many(
+        transaction.as_mut(),
+        model_entity::EntityType::Document,
+        &document_ids,
+    )
+    .await?;
 
     Ok(())
 }

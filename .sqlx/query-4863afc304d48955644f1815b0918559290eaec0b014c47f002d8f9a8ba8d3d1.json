@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT grants FROM source_items WHERE source_id = 'viewer'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "grants",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4863afc304d48955644f1815b0918559290eaec0b014c47f002d8f9a8ba8d3d1"
+}

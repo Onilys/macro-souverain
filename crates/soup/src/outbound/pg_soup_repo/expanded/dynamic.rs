@@ -2095,6 +2095,9 @@ pub(crate) async fn expanded_dynamic_cursor_soup(
     db: &PgPool,
     args: ExpandedDynamicCursorArgs<'_>,
 ) -> Result<Vec<SoupItem<()>>, sqlx::Error> {
+    // Query tests write canonical SQL fixtures directly. Prepare their projection
+    // explicitly; repository tests separately verify application maintenance.
+    source_items::backfill::run(db).await?;
     Ok(
         expanded_dynamic_cursor_soup_hydrated(db, args, ItemSource::SourceItems)
             .await?

@@ -44,6 +44,7 @@ pub async fn share_link_shared_document_with_mentioned_users(
             // Insert one access row per mentioned user when the document has a PUBLIC
             // or TEAM link. The query deliberately does not filter recipients by team
             // membership. `DO NOTHING` preserves pre-existing (possibly higher) access.
+            let mut transaction = db.begin().await?;
             sqlx::query!(
                 r#"
                 INSERT INTO entity_access (entity_id, entity_type, source_id, source_type, access_level)
@@ -61,9 +62,11 @@ pub async fn share_link_shared_document_with_mentioned_users(
                 document_id,
                 user_ids.as_slice(),
             )
-            .execute(db)
+            .execute(transaction.as_mut())
             .await?;
 
+            source_items::sync_one(transaction.as_mut(), model_entity::EntityType::Document, document_id).await?;
+            transaction.commit().await?;
             Ok(())
         },
         |error: &anyhow::Error| entity_access_db_utils::transaction_retry::is_transaction_conflict(error.as_ref()),

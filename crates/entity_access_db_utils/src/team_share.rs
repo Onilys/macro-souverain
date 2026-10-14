@@ -52,8 +52,9 @@ pub async fn ensure_owner_direct(
         entity_type.as_ref(),
         owner.as_ref(),
     )
-    .fetch_optional(connection)
+    .fetch_optional(&mut *connection)
     .await?;
+    source_items::sync_one(connection, entity_type, &entity_id.to_string()).await?;
     Ok(row.is_some())
 }
 
@@ -96,8 +97,9 @@ pub async fn upsert_direct(
         team_id.to_string(),
         level as _,
     )
-    .execute(connection)
+    .execute(&mut *connection)
     .await?;
+    source_items::sync_one(connection, entity_type, &entity_id.to_string()).await?;
     Ok(())
 }
 
@@ -116,8 +118,9 @@ pub async fn delete_direct(
         entity_type.as_ref(),
         managed_team_id.to_string(),
     )
-    .execute(connection)
+    .execute(&mut *connection)
     .await?;
+    source_items::sync_one(connection, entity_type, &entity_id.to_string()).await?;
     Ok(())
 }
 
@@ -141,16 +144,19 @@ pub async fn replace_project_contributions(
 ) -> Result<(), sqlx::Error> {
     let project_id_str = project_id.to_string();
     if let Some(previous_team_id) = previous_team_id {
-        sqlx::query!(
+        let removed = sqlx::query!(
             r#"DELETE FROM entity_access
             WHERE granted_from_project_id = $1
               AND source_type = 'team'
-              AND source_id = $2"#,
+              AND source_id = $2
+            RETURNING entity_type, entity_id::text AS "entity_id!""#,
             project_id_str,
             previous_team_id.to_string(),
         )
-        .execute(transaction.as_mut())
+        .map(|row| (row.entity_type, row.entity_id))
+        .fetch_all(transaction.as_mut())
         .await?;
+        source_items::sync_rows(transaction.as_mut(), &removed).await?;
     }
     let Some((team_id, level)) = target else {
         return Ok(());
@@ -188,5 +194,10 @@ pub async fn replace_project_contributions(
         );
         query.build().execute(transaction.as_mut()).await?;
     }
+    let affected = rows
+        .iter()
+        .map(|(id, kind)| (kind.clone(), id.to_string()))
+        .collect::<Vec<_>>();
+    source_items::sync_rows(transaction.as_mut(), &affected).await?;
     Ok(())
 }

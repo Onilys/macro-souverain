@@ -105,18 +105,34 @@ impl<B: BotFacts + 'static> PgDocumentRepo<B> {
 }
 
 async fn update_document_modified(pool: &PgPool, document_id: &str) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        r#"
-        UPDATE "Document"
-        SET "updatedAt" = NOW()
-        WHERE id = $1
-        "#,
-        document_id,
-    )
-    .execute(pool)
-    .await?;
+    entity_access_db_utils::transaction_retry::on_conflict(
+        || async {
+            let mut transaction = pool.begin().await?;
+            sqlx::query!(
+                r#"
+                UPDATE "Document"
+                SET "updatedAt" = NOW()
+                WHERE id = $1
+                "#,
+                document_id,
+            )
+            .execute(transaction.as_mut())
+            .await?;
 
-    Ok(())
+            source_items::sync_one(
+                transaction.as_mut(),
+                model_entity::EntityType::Document,
+                document_id,
+            )
+            .await?;
+            transaction.commit().await?;
+            Ok(())
+        },
+        |error: &sqlx::Error| {
+            entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+        },
+    )
+    .await
 }
 
 fn registry_protocol_error(
@@ -332,47 +348,65 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
 
     #[tracing::instrument(err, skip(self))]
     async fn soft_delete_document(&self, document_id: &str) -> Result<(), Self::Err> {
-        let mut transaction = self.pool.begin().await?;
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
 
-        sqlx::query!(
-            r#"
-            DELETE FROM "Pin" WHERE "pinnedItemId" = $1 AND "pinnedItemType" = $2
-            "#,
-            document_id,
-            "document",
+                sqlx::query!(
+                    r#"
+                    DELETE FROM "Pin" WHERE "pinnedItemId" = $1 AND "pinnedItemType" = $2
+                    "#,
+                    document_id,
+                    "document",
+                )
+                .execute(&mut *transaction)
+                .await?;
+
+                sqlx::query!(
+                    r#"
+                    DELETE FROM "UserHistory" WHERE "itemId" = $1 AND "itemType" = $2
+                    "#,
+                    document_id,
+                    "document",
+                )
+                .execute(&mut *transaction)
+                .await?;
+
+                sqlx::query!(
+                    r#"
+                    UPDATE "Document"
+                    SET "deletedAt" = NOW()
+                    WHERE id = $1
+                    "#,
+                    document_id,
+                )
+                .execute(&mut *transaction)
+                .await?;
+
+                if let Ok(id) = macro_uuid::string_to_uuid(document_id) {
+                    entity_registry_db_utils::mark_deleted(
+                        &mut transaction,
+                        id,
+                        chrono::Utc::now(),
+                    )
+                    .await
+                    .map_err(registry_protocol_error)?;
+                }
+
+                source_items::sync_one(
+                    transaction.as_mut(),
+                    model_entity::EntityType::Document,
+                    document_id,
+                )
+                .await?;
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
         )
-        .execute(&mut *transaction)
-        .await?;
-
-        sqlx::query!(
-            r#"
-            DELETE FROM "UserHistory" WHERE "itemId" = $1 AND "itemType" = $2
-            "#,
-            document_id,
-            "document",
-        )
-        .execute(&mut *transaction)
-        .await?;
-
-        sqlx::query!(
-            r#"
-            UPDATE "Document"
-            SET "deletedAt" = NOW()
-            WHERE id = $1
-            "#,
-            document_id,
-        )
-        .execute(&mut *transaction)
-        .await?;
-
-        if let Ok(id) = macro_uuid::string_to_uuid(document_id) {
-            entity_registry_db_utils::mark_deleted(&mut transaction, id, chrono::Utc::now())
-                .await
-                .map_err(registry_protocol_error)?;
-        }
-
-        transaction.commit().await?;
-        Ok(())
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
@@ -721,53 +755,99 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
 
     #[tracing::instrument(err, skip(self))]
     async fn update_project_modified(&self, project_id: &str) -> Result<(), Self::Err> {
-        sqlx::query!(
-            r#"UPDATE "Project" SET "updatedAt" = NOW() WHERE id = $1"#,
-            project_id,
-        )
-        .execute(&self.pool)
-        .await?;
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                sqlx::query!(
+                    r#"UPDATE "Project" SET "updatedAt" = NOW() WHERE id = $1"#,
+                    project_id,
+                )
+                .execute(transaction.as_mut())
+                .await?;
 
-        Ok(())
+                source_items::sync_one(
+                    transaction.as_mut(),
+                    model_entity::EntityType::Project,
+                    project_id,
+                )
+                .await?;
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
     async fn delete_document_by_id(&self, document_id: &str) -> Result<(), Self::Err> {
-        let mut transaction = self.pool.begin().await?;
-        sqlx::query!(r#"DELETE FROM "Document" WHERE id = $1"#, document_id)
-            .execute(&mut *transaction)
-            .await?;
-        if let Ok(id) = macro_uuid::string_to_uuid(document_id) {
-            entity_registry_db_utils::delete_entity(&mut transaction, id)
-                .await
-                .map_err(registry_protocol_error)?;
-        }
-        transaction.commit().await?;
-        Ok(())
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                sqlx::query!(r#"DELETE FROM "Document" WHERE id = $1"#, document_id)
+                    .execute(&mut *transaction)
+                    .await?;
+                if let Ok(id) = macro_uuid::string_to_uuid(document_id) {
+                    entity_registry_db_utils::delete_entity(&mut transaction, id)
+                        .await
+                        .map_err(registry_protocol_error)?;
+                }
+                source_items::sync_one(
+                    transaction.as_mut(),
+                    model_entity::EntityType::Document,
+                    document_id,
+                )
+                .await?;
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
     #[allow(clippy::disallowed_methods, reason = "legacy code. fix later")]
     async fn mark_document_uploaded(&self, document_id: &str) -> Result<(), Self::Err> {
-        let result = sqlx::query(
-            r#"
-            UPDATE "Document"
-            SET "uploaded" = true,
-                "contentState" = 'ready',
-                "contentLocation" = COALESCE("contentLocation", 'unknown'),
-                "updatedAt" = NOW()
-            WHERE id = $1
-            "#,
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let mut transaction = self.pool.begin().await?;
+                let result = sqlx::query!(
+                    r#"
+                    UPDATE "Document"
+                    SET "uploaded" = true,
+                        "contentState" = 'ready',
+                        "contentLocation" = COALESCE("contentLocation", 'unknown'),
+                        "updatedAt" = NOW()
+                    WHERE id = $1
+                    "#,
+                    document_id,
+                )
+                .execute(transaction.as_mut())
+                .await?;
+
+                if result.rows_affected() == 0 {
+                    return Err(sqlx::Error::RowNotFound);
+                }
+
+                source_items::sync_one(
+                    transaction.as_mut(),
+                    model_entity::EntityType::Document,
+                    document_id,
+                )
+                .await?;
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
         )
-        .bind(document_id)
-        .execute(&self.pool)
-        .await?;
-
-        if result.rows_affected() == 0 {
-            return Err(sqlx::Error::RowNotFound);
-        }
-
-        Ok(())
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]
@@ -804,29 +884,46 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
         document_id: &str,
         content: DocumentContent,
     ) -> Result<(), Self::Err> {
-        let uploaded = content.state == DocumentContentState::Ready;
-        let result = sqlx::query(
-            r#"
-            UPDATE "Document"
-            SET "uploaded" = $2,
-                "contentState" = $3,
-                "contentLocation" = $4,
-                "updatedAt" = NOW()
-            WHERE id = $1
-            "#,
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                let content = content.clone();
+                let mut transaction = self.pool.begin().await?;
+                let uploaded = content.state == DocumentContentState::Ready;
+                let result = sqlx::query!(
+                    r#"
+                    UPDATE "Document"
+                    SET "uploaded" = $2,
+                        "contentState" = $3,
+                        "contentLocation" = $4,
+                        "updatedAt" = NOW()
+                    WHERE id = $1
+                    "#,
+                    document_id,
+                    uploaded,
+                    content.state_db_value(),
+                    content.location_db_value(),
+                )
+                .execute(transaction.as_mut())
+                .await?;
+
+                if result.rows_affected() == 0 {
+                    return Err(sqlx::Error::RowNotFound);
+                }
+
+                source_items::sync_one(
+                    transaction.as_mut(),
+                    model_entity::EntityType::Document,
+                    document_id,
+                )
+                .await?;
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &sqlx::Error| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
         )
-        .bind(document_id)
-        .bind(uploaded)
-        .bind(content.state_db_value())
-        .bind(content.location_db_value())
-        .execute(&self.pool)
-        .await?;
-
-        if result.rows_affected() == 0 {
-            return Err(sqlx::Error::RowNotFound);
-        }
-
-        Ok(())
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]

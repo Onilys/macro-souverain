@@ -35,6 +35,8 @@ pub async fn delete_projects_bulk_tsx(
     if project_ids.is_empty() {
         return Ok(());
     }
+    let cascade_targets =
+        source_items::project_deletion::capture(transaction.as_mut(), project_ids).await?;
     sqlx::query!(
         r#"
         DELETE FROM "Pin" WHERE "pinnedItemId" = ANY($1) AND "pinnedItemType" = $2
@@ -95,5 +97,6 @@ pub async fn delete_projects_bulk_tsx(
     .await
     .context("unable to delete projects")?;
 
+    source_items::sync_rows(transaction.as_mut(), &cascade_targets).await?;
     Ok(())
 }

@@ -1,6 +1,7 @@
--- Writes on top of source_items_feed.sql that reach source_items through each of its triggers,
--- plus history, frecency, notification and channel changes that only the read path sees. Items
--- are numbered as in source_items_feed.sql.
+-- Canonical mutations on top of source_items_feed.sql. The query-parity test
+-- explicitly reconciles the projection after this fixture; live application
+-- maintenance is covered by the repository and source_items tests. Item numbers
+-- follow source_items_feed.sql.
 
 ---------------------------------------------------
 --  GRANTS
