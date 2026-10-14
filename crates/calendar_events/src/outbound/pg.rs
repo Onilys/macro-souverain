@@ -213,11 +213,11 @@ impl PgCalendarRepository {
 
     /// Lock the inbox row for a reauth transition, returning its prior
     /// `needs_reauth`. Returns `None` when the inbox is gone or has sync turned
-    /// off: it is being deleted, its calendar rows cascade away with it, and the
-    /// deletion holds this row lock for its whole cascade. Link deletion commits
-    /// sync-off before deleting, so the `is_sync_active` filter skips the row
-    /// without waiting. A live inbox whose row stays locked past the timeout
-    /// returns an error so the delivery retries.
+    /// off: it is being deleted and its calendar rows cascade away with it.
+    /// Marking a link deleting commits sync-off before the purge, so the
+    /// `is_sync_active` filter skips the row without waiting on the purge's row
+    /// lock. A live inbox whose row stays locked past the timeout returns an
+    /// error so the delivery retries.
     async fn lock_link_for_reauth(
         tx: &mut Transaction<'_, Postgres>,
         email_link_id: Uuid,

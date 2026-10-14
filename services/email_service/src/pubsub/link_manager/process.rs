@@ -341,9 +341,9 @@ async fn handle_delete(
         .context("Failed to purge link in background task")?;
 
     // Revoke credentials only once the rows are gone. Sync and calendar work still
-    // running against the link during the long delete would otherwise hit token errors
-    // and try to mark the link for reauth while the delete holds its row lock. A failed
-    // delete returns above, so the retry still finds the link and revokes then.
+    // running against the link during the purge would otherwise hit token errors and
+    // try to mark it for reauth. A failed purge returns above, so the retry still finds
+    // the link and revokes then.
 
     // delete cached access token, in case user re-enables within cache window
     ctx.redis_client

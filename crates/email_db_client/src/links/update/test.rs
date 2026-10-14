@@ -102,7 +102,7 @@ async fn set_needs_reauth_does_not_wait_on_link_being_deleted(
     pool: Pool<Postgres>,
 ) -> anyhow::Result<()> {
     let id = insert_test_link(&pool, "deleting@reauth.test").await?;
-    update_link_sync_status(&pool, id, false).await?;
+    crate::links::delete::mark_link_deleting(&pool, id).await?;
 
     // An uncommitted delete holds the row lock, like the cascading link delete.
     let mut deleting = pool.begin().await?;

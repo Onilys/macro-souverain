@@ -46,9 +46,9 @@ fn is_lock_not_available(error: &sqlx::Error) -> bool {
 /// needs-reauth, letting callers fire a one-time notification on that edge.
 ///
 /// Returns `false` without writing when the link is already flagged, gone, has
-/// sync turned off (it is being deleted), or its row stays locked past a short
-/// lock timeout. A link deletion holds the row lock for its whole cascade, so
-/// this must not queue behind it; the next token failure retries the mark.
+/// sync turned off, or its row stays locked past a short lock timeout. Marking a
+/// link deleting also turns its sync off, so a deleting link is skipped without
+/// waiting on the purge's row lock; the next token failure retries the mark.
 #[tracing::instrument(skip(pool), err)]
 pub async fn set_link_needs_reauth(pool: &PgPool, link_id: Uuid) -> anyhow::Result<bool> {
     let mut tx = pool.begin().await?;
