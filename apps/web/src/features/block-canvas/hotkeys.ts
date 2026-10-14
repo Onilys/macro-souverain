@@ -108,6 +108,15 @@ export function registerCanvasNextHotkeys(
     true
   );
   register('cmd+z', 'Undo', editor.undo, TOKENS.canvas.undo);
+  register(
+    'shift+cmd+v',
+    'Paste in place',
+    () => {
+      void clipboard.paste(true);
+    },
+    undefined,
+    true
+  );
   register(['shift+cmd+z', 'cmd+y'], 'Redo', editor.redo, TOKENS.canvas.redo);
   register(
     ['delete', 'backspace'],

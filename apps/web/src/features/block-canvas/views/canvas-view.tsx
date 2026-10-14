@@ -29,6 +29,7 @@ import type { CanvasClipboard } from '../clipboard';
 import { ConnectorInspector } from '../components/connector-inspector';
 import type { CanvasEmbedViewProps } from '../components/embed-view';
 import { EraserTrail } from '../components/eraser-trail';
+import { MediaUploadPreviews } from '../components/media-upload-previews';
 import { SelectionLayoutInspector } from '../components/selection-layout-inspector';
 import { StyleInspector } from '../components/style-inspector';
 import { TextInspector } from '../components/text-inspector';
@@ -605,6 +606,10 @@ export function CanvasView(props: {
                 }
               >
                 <EraserTrail points={state.eraser.trail()} />
+                <MediaUploadPreviews
+                  previews={props.assets.previews()}
+                  camera={state.camera()}
+                />
                 <Show
                   when={
                     (state.isConnectorTool() || state.connector.gesture()) &&

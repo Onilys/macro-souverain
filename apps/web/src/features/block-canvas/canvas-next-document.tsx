@@ -80,6 +80,7 @@ export default function CanvasNextDocument(
       <Show when={!savedLocation.loading}>
         <CanvasAncestry.Provider value={[...ancestors, documentId]}>
           <CanvasNextEditor
+            documentId={documentId}
             initial={initial}
             canEdit={props.canEdit}
             isEmbedded={props.isNested}

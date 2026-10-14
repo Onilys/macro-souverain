@@ -74,6 +74,7 @@ uses full opacity. Other style choices and existing shapes are preserved.
 | Move horizontally / vertically | Hold Shift while dragging; follows the dominant world axis |
 | Select inside a group | Cmd/Ctrl-click |
 | Copy / cut / paste | Cmd/Ctrl+C / X / V |
+| Paste in place | Shift+Cmd/Ctrl+V |
 | Duplicate | Cmd/Ctrl+D, or Option/Alt-drag |
 | Select all | Cmd/Ctrl+A |
 | Nudge | Arrows: one snap unit; Shift+arrows: ten snap units |
@@ -89,7 +90,11 @@ Native clipboard events own the actual copy/cut/paste keystrokes; proxied Macro
 commands expose those actions in the command UI without double handling.
 Clipboard context-menu actions use the browser clipboard API and report denied
 access. Fragments include whole selected subtrees, fresh IDs on insertion, stable
-relative order and world placement. Pasting repeatedly offsets by another 24 units.
+relative order and world placement. Copies include the source canvas ID: pasting
+within that canvas offsets each repeat by another 24 units. Fragments from another
+canvas (or without source metadata), including Excalidraw imports, are centered as
+a whole in the current viewport, accounting for pan and zoom. Shift+Cmd/Ctrl+V
+and **Paste in place** preserve original world coordinates without grid snapping.
 Canvas Next fragments preserve rich text. Plain text and HTML pasted onto the canvas
 create a wrapped text shape; pasting inside the editor belongs to Lexical. Image
 clipboard data uploads through the media adapter. Legacy Canvas clipboard format
@@ -314,7 +319,12 @@ sized, fitted within 640 × 480 world units, and inserted in one undo step per b
 Uploading/loading is host-owned; only stable static-file or document references
 enter the scene. Reset/unmount invalidates pending insertion. Saved Canvas Next
 documents retain stable uploaded references;
-uploads use the existing static file service. Existing workspace file selection
+uploads use the existing static file service. Pasted and dropped files show local
+blob previews at their insertion positions while uploads finish. These previews
+are not editable scene items; failures, reset, and unmount release their URLs.
+Image nodes reserve their full bounds with the shared `skeleton-shimmer` and
+`bg-skeleton` classes until the browser loads the image, including in read-only
+canvases. Existing workspace file selection
 does not create a new file.
 
 Image/video shape definitions own validation, bounds, hit testing and resizing in

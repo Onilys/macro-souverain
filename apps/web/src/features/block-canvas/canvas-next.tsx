@@ -23,6 +23,7 @@ import { CanvasView } from './views/canvas-view';
 import { createCanvasTextMeasurer } from './views/text-content';
 
 export function CanvasNextEditor(props: {
+  documentId: string;
   initial: CanvasFile;
   canEdit: boolean;
   isEmbedded?: boolean;
@@ -46,6 +47,7 @@ export function CanvasNextEditor(props: {
         }
       >
         <EditableCanvasNext
+          documentId={props.documentId}
           editor={editor}
           measureText={measurement.measure}
           fitOnLoad={props.fitOnLoad}
@@ -60,6 +62,7 @@ export function CanvasNextEditor(props: {
 }
 
 function EditableCanvasNext(props: {
+  documentId: string;
   editor: GraphicsEditor;
   measureText: TextMeasurer;
   fitOnLoad?: boolean;
@@ -93,7 +96,8 @@ function EditableCanvasNext(props: {
     },
     (files) => {
       void assets.files(files, center());
-    }
+    },
+    { canvasId: props.documentId, center }
   );
   const [attachScope, scopeId] = useHotkeyDOMScope('canvas-next');
   registerCanvasNextHotkeys(scopeId, state, clipboard, props.canEdit);

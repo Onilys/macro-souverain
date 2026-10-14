@@ -50,6 +50,23 @@ records and unknown versions show an error without changing the saved file.
 To verify migration, open a supported legacy canvas, edit it, then reopen it and
 check that its shapes, text, and connectors remain intact.
 
+Canvas spatial paste keeps the layout of the copied selection. Copying from another
+canvas, or pasting Excalidraw data, centers the selection in the current viewport
+at the current pan/zoom. Same-canvas copies retain the cumulative 24-unit paste
+offset, including copies from another tab of that document. Shift+Cmd/Ctrl+V (or
+**Paste in place** in the context menu) keeps original world coordinates and
+bypasses grid snapping. Verify cross-canvas, same-canvas repeated paste, and
+Shift-paste with a grouped selection; ordinary text/editor paste is unchanged.
+
+Pasting or dropping image files shows local previews while the static-file upload
+finishes. Previews become selectable image nodes after upload and remote loading
+succeed; a failed upload removes its preview and reports the failure. Verify with
+a slow upload, then undo/redo the inserted batch and reopen the canvas. Blob URLs
+must never enter the saved scene. When opening a canvas, image nodes show a
+`skeleton-shimmer bg-skeleton` placeholder at their saved size until the image
+loads; this also applies to read-only embeds. Failed image requests display
+“Media unavailable” instead of an indefinite skeleton.
+
 Canvas embeds are read-only: **Select** selects shapes without moving them,
 and **Hand** pans the canvas. The toolbar contains only those two tools; property
 inspector details and drawing/editing controls are absent. Check toolbar clicks,
