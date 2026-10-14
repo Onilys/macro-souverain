@@ -41,6 +41,8 @@ mod logging;
 mod macos_notification_permission;
 mod share_target;
 mod staged_upload;
+#[cfg(desktop)]
+mod window_state;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AppEnvironment {
@@ -153,15 +155,35 @@ pub fn run() {
     let embedded_bundle_build = embedded_bundle_build();
     let bundle_routes = BundleRoutes::new(embedded_bundle_build);
     let bundle_asset_resolver = BundleAssetResolver::new(bundle_routes.clone(), FileSystem);
+    let context = tauri::generate_context!();
+    #[cfg(desktop)]
+    let (context, startup_windows) = {
+        let mut context = context;
+        // Install the popup handler before the first page loads. Leave mobile
+        // window creation to Tauri and preserve all configured window options.
+        let mut windows = Vec::new();
+        for config in &mut context.config_mut().app.windows {
+            if config.create {
+                windows.push(config.clone());
+                config.create = false;
+            }
+        }
+        (context, windows)
+    };
+    let navigation = MacroNavigationPlugin::new(ALLOWED_DOMAINS)
+        .expect("Domains must be valid urls")
+        .with_app_link_hosts(APP_LINK_HOSTS);
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
     {
         // single instance plugin should always be the first registered
         tracing::debug!("register single instance plugin");
-        builder = builder.plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
-            tracing::debug!("single instance callback with argv: {argv:?}");
-        }))
+        builder = builder
+            .plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
+                tracing::debug!("single instance callback with argv: {argv:?}");
+            }))
+            .plugin(window_state::plugin());
     }
 
     #[cfg(target_os = "ios")]
@@ -206,12 +228,14 @@ pub fn run() {
                 .merge_header_callback(Box::new(merge_header_callback))
                 .build(),
         )
-        .plugin(tauri_plugin_opener::init())
         .plugin(
-            MacroNavigationPlugin::new(ALLOWED_DOMAINS)
-                .expect("Domains must be valid urls")
-                .with_app_link_hosts(APP_LINK_HOSTS),
+            tauri_plugin_opener::Builder::new()
+                // Desktop handles actual webview navigation, not bubbling DOM
+                // clicks. Mobile does not support Tauri's on_new_window hook.
+                .open_js_links_on_click(cfg!(mobile))
+                .build(),
         )
+        .plugin(navigation.clone())
         .plugin(
             macro_bundle_updater_plugin::inbound::plugin::MacroBundleUpdaterPlugin::new(
                 AppEnvironment::current()
@@ -280,6 +304,8 @@ pub fn run() {
             macos_notification_permission::get_macos_notification_permission,
             #[cfg(target_os = "macos")]
             macos_notification_permission::request_macos_notification_permission,
+            #[cfg(target_os = "macos")]
+            macos_notification_permission::send_macos_notification,
             graphql_cache_plugin::commands::graphql_cache_init,
             graphql_cache_plugin::commands::graphql_cache_init_with_schema,
             graphql_cache_plugin::commands::graphql_cache_current_revision,
@@ -324,6 +350,14 @@ pub fn run() {
         ])
         .setup(move |app| {
             #[cfg(desktop)]
+            for config in &startup_windows {
+                let navigation = navigation.clone();
+                let handle = app.handle().clone();
+                tauri::WebviewWindowBuilder::from_config(app, config)?
+                    .on_new_window(move |url, _features| navigation.on_new_window(&handle, &url))
+                    .build()?;
+            }
+            #[cfg(desktop)]
             desktop_update::setup(app, recording)?;
             diagnostics::setup(app, diagnostics);
             #[cfg(any(target_os = "linux", all(windows, debug_assertions)))]
@@ -340,7 +374,7 @@ pub fn run() {
 
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application")
         .run(move |app_handle, event| match &event {
             RunEvent::Ready if !recording => {
@@ -399,6 +433,7 @@ pub fn run() {
             }
             #[cfg(desktop)]
             RunEvent::ExitRequested { api, .. } => {
+                window_state::save(app_handle);
                 desktop_update::on_exit_requested(app_handle, api)
             }
             RunEvent::Exit => {

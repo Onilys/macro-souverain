@@ -205,9 +205,12 @@ A select or multi-select cell opens a compact option picker with its search fiel
 focused (**Search or create…**). Typing filters the options; when the typed name is
 not an option yet, a **Create “…”** row adds it, picks it, and keeps focus (on the
 cell for a single select, in the search for a multi-select, which stays open). Arrow
-keys move through the rows and Enter picks; **Clear value** empties the cell.
-From a freshly opened picker, Down starts at the first row and Up starts at the
-last; both wrap around at the ends.
+keys move through the rows and Enter picks. The **Clear value** Button sits on the
+right of a separate, bottom-padded footer below the option list. It sizes to its
+label and empties the cell; it stays available while searching.
+From a freshly opened picker, Down starts at the first option and Up starts at the
+last. With no search text, Down after the last option focuses **Clear value** when present; Enter clears.
+From that button, Up returns to the last option and Down returns to the first.
 Multi-select pickers toggle each option and keep the others.
 
 Each option row has a **⋯** button (`Edit <option>`) that opens the option editor:
@@ -216,8 +219,8 @@ picker tags use) recolour it, and **Delete option** asks for confirmation ("Cell
 using “X” will be cleared.") before removing it and clearing it from every cell.
 When the column's property is used outside this database, the editor says
 **Changes everywhere this property is used.** The same editor opens from a column
-header's **Edit options** menu item and from a board lane header. Changes show at
-once and are rolled back if the server refuses them.
+header's **Edit options** menu item. Board lanes expose name and color editing
+directly in the header. Changes show at once and roll back if the server refuses them.
 
 **+ → New table**, at the right edge of the table selector in the split header,
 adds an inline name field to the tab strip and focuses it immediately. Enter a
@@ -253,8 +256,11 @@ directly. Type on a selected select cell to search its options; Enter chooses a
 match, and Tab chooses the highlighted option or typed match before moving on.
 Number cells display thousands separators (for example, `100,000`); opening an
 editor shows the raw number for editing. Invalid numbers and integers outside the
-safe integer range stay in the editor with **Enter a valid number** instead of
-saving a rounded value. Signed decimals and scientific notation remain supported.
+safe integer range stay in the editor with a failure outline instead of saving a
+rounded value. **Enter a valid number** appears in an opaque, focus-only hint. Leaving
+the field hides the hint but keeps the draft and outline; other fields remain
+editable, including through Tab or Shift+Tab. Correct the value or press Escape to
+cancel. Signed decimals and scientific notation remain supported.
 
 Date cells open Macro's date selector (the one tasks use): type a date or phrase
 such as `tomorrow`, `3d`, or `feb 17` and press Enter, or pick **Custom date...**
@@ -383,28 +389,66 @@ column each card is headed by, the table's first by default), the **Card fields*
 a card shows, **Hide empty lanes**, and **Hidden lanes**, whose **Show …** items
 bring a hidden lane back.
 
+Boards use the Tasks board layout, with virtualized lanes and cards. Scroll
+horizontally to reach more lanes; each lane scrolls vertically on its own. A card
+or lane being dragged stays mounted while scrolling. After a card move, its
+destination is revealed. Starting a new card reveals the lane's draft at the
+bottom and focuses its title, including after the lane was offscreen.
+
+Lane headers show a color or type icon, a name, and an adjacent record count.
+Cards use the Tasks board's header and compact, wrapping property layout rather than
+stacked field rows. Cards without fields do not render an empty property area.
+Title editing keeps the displayed title's typography, wrapping, and spacing.
+Cards have a six-dot drag handle; their custom fields share a CSS grid with the title
+and align below its left edge. **Open record details** (the expand
+icon) and **Move** controls appear on hover or keyboard focus and stay visible on touch
+screens. Lane fills contrast with the surrounding panel in light and dark themes,
+with a subtle outline.
+The Group by, Filter, Sort, Search, and Board menu controls use the same rounded
+medium-size icon buttons as Drive. View tabs and New use the shared Button styling.
+
 A board has a lane per option (or person). Records without a grouping value are
 currently omitted from the board; they remain available in the table. Drag a card within
 a lane or into another lane; it moves at once, and moving it to another lane also
 sets its Select value. The order is saved for everyone and survives a reload. A
 sorted board keeps the sort's order, so dragging a card asks **Remove sort to
 arrange cards manually?**; **Remove sort** clears the sort and then places the
-card. Drag a lane header to reorder lanes. A lane header shows the option's **⋯**
-editor and a lane menu with **Hide lane** and **Hide empty lanes**. The card's
-**Move …** menu offers the same moves without dragging. Click a card’s title or
-field to edit it in place using the same editors as the table. Empty configured
-fields are editable too. Use the card’s **Open** icon to open the full record;
+card. The insertion marker stays visible above the first card when reordering
+within a lane. Drag a lane header to reorder lanes. Click an editable option lane's name to
+rename it in place; the field keeps the title's typography, height, and position,
+and grows with the draft up to the available header width. Enter or leaving the
+field saves, and Escape cancels and returns focus to the name. Click its dot to
+pick a color. The lane's **⋯** menu contains **Hide lane** and **Delete group**.
+Deletion opens a confirmation dialog explaining that cells using the option will
+be cleared, but records will not be deleted; **Delete group** uses danger styling.
+**Hide empty lanes** remains only in the board's **Board menu**, with a right-side
+checkmark when enabled. The card's **Move …** menu offers the same moves without
+dragging. Click a card’s title or field to edit it in place using the same editors
+as the table. Card-field inline editors fill the value area beside their icon and
+keep its width, height, and typography; longer drafts scroll inside rather than
+pushing neighboring fields.
+Inline field edits save on Enter or leaving the field. Each save changes only that
+field. Invalid drafts stay local, and saving another field or refreshing column
+snapshots keeps their draft and failure outline until corrected or cancelled. Card
+field inputs have no separate outline; validation outlines the entire field pill,
+including its icon, and remains visible after blur.
+Empty configured fields are editable too. Text and number fields reserve a small
+minimum width so empty editors do not shrink to the dash. Use the card’s expand
+icon to open the record-details dialog with all fields and previous/next controls;
 field controls do not start a card drag.
 
-**+ New** at the bottom of a lane (or the lane header's **+**) puts an empty,
+The taller **+ New** button at the bottom of a lane (or the lane header's **+**) puts an empty,
 focused card title in that lane; nothing opens. Enter creates the card with the
 lane's value and opens another empty card below it, so several can be typed in a
 row; each appears in place while it saves. Shift+Enter creates the card and opens
 its record. Escape, or leaving an empty title, cancels; leaving a typed title
 saves it. From the keyboard, press **n** with focus on any card or control in a
 lane, or Enter on a focused lane header, to start a card there. The toolbar's
-**New** starts one in the first lane. **New group** at the end of a board adds
-another option and lane, coloured with the next palette colour.
+**New** starts one in the first lane. The dashed **New group** panel at the end
+of the board matches Tasks' hidden-lanes panel. Its **New group** button opens a
+name field. Its right-aligned actions show **Cancel** followed by a filled **Add
+group** button, which adds another option and lane with the next palette colour.
+Escape cancels; validation and save failures keep the draft for retry.
 
 Creating or changing a record can make it fall outside the current
 filters. A saved-record notice offers **Open record** to inspect it without
@@ -546,7 +590,7 @@ link. **Share** and viewer avatars (other people currently looking at the
 database) sit at the right of the split header, like other entities.
 
 The toolbar's **Database actions** (`…`) menu, beside **AI**, contains **Rename**,
-**Import CSV**, **Download**, and owner-only **Delete**. Rename focuses the inline
+**Import CSV**, **Webhooks**, **Download**, and owner-only **Delete**. Rename focuses the inline
 title in the split header; Delete opens the standard confirmation dialog.
 **Download** offers **Current table as CSV**.
 Exports contain all records, regardless of the current filters. CSV uses column
@@ -560,6 +604,15 @@ values remain Text, preserving leading zeros and large identifiers; use a column
 type menu afterward to convert it. The limit is 8 MB, 100 columns, and 10,000 rows.
 A failed response offers **Retry import** with the same request, so retrying a
 completed import does not create a second table.
+
+**Webhooks** (editors only) opens a dialog for the current table. **Create
+webhook** shows its URL once, with a copy button and a `curl` example built from
+the table's columns; the list below shows each webhook's token prefix and a
+delete button. POSTing a JSON object to the URL inserts one row (an array inserts
+one per object, up to 100). Keys name columns, ignoring case; `null` leaves a
+cell empty; unknown keys or values that do not fit refuse the whole call with a
+400 listing every problem. The row is written as the webhook's creator, and the
+webhook stops working if they lose edit access.
 
 ## Side panel and activity
 

@@ -26,6 +26,15 @@ outline surface and border with semibold text, without inverted colors. Disabled
 and pending primary actions retain the strong variant. Mobile confirmation drawers
 use the same action hierarchy.
 
+## List-item sharing
+
+Right-click a shareable list row and choose **Share**. The sharing dialog must
+remain open after the context menu closes, with recipient selection and the
+optional message available. Dismiss it with Cancel, then reopen Share on the
+same row and confirm focus enters the recipient selector again. Opening or
+cancelling the dialog does not change access; do not submit shares on real dev
+data unless authorized.
+
 ## User cards
 
 Avatar and user-mention cards open on hover on pointer devices and as a bottom
@@ -400,9 +409,8 @@ longer notifies the thread. Settings → notifications lists them under `AI`.
 ## Tasks — `/app/component/tasks`
 
 Task navigation uses `My Tasks`, `All Tasks`, and `Created by me`. The desktop
-sidebar has a full-width `New task` action, a collapsible list of task favorites,
-and a collapsible list of tags. Selecting a tag filters the current task view;
-selecting it again clears that tag filter. Favorite rows open their tasks.
+sidebar has a full-width `New task` action and a collapsible list of task favorites;
+tag filtering lives in the `Filter` menu. Favorite rows open their tasks.
 Normal row and favorite activation replaces the list with the editable task
 document; its originating-tab breadcrumb returns to the list and its
 header exposes Share and the task Details/Properties panel. Shift-click opens
@@ -425,10 +433,10 @@ The mobile task drawer retains its existing layout.
 
 ## Email — `/app/component/mail`
 
-Email's Tags sidebar uses the same [nested tag tree as Tasks](tasks.md#nested-sidebar-tags).
+Email's Tags sidebar uses the [nested tag tree](tasks.md#nested-sidebar-tags).
 Carets and folder-only parents expand branches; actual tags select their exact ID
 and switch the mailbox to All. Parent selection does not include descendant tags.
-Unlike Tasks and Drive, it lists only personal tags; team-shared tags are hidden,
+Unlike Calls, it lists only personal tags; team-shared tags are hidden,
 and its `New tag` action creates a personal tag with no Team sharing option.
 
 Full email client. Tabs: `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled` / `Calendar` / `Drafts` / `Shared` /
@@ -1256,13 +1264,9 @@ touch uses the global search overlay and creation uses the dock's New button.
 The **Folders** pill opens the folder overview and stays highlighted inside
 any folder; tapping it from inside a folder returns to the overview, and
 selecting another pill leaves the folder tree. The sidebar contains `New file or folder`, `My Files`, `Recent`,
-`Shared with me`, collapsible Favorites, a searchable folder hierarchy, and a
-collapsible Tags section beneath the folders. Tags lists every tag you can apply,
-nested by `/` in the tag name, with a `New tag` action in its header. Choosing a
-tag shows only that tag's files within the current tab or folder and exits any
-inline file detail; choosing the highlighted tag again clears it, and the same
-selection appears under the **Filter** menu's Tags submenu. Navigating to another
-tab or folder clears tag filters. A folder with no files matching the active tag
+`Shared with me`, collapsible Favorites, and a searchable folder hierarchy. Filter
+by tag from the **Filter** menu's Tags submenu; navigating to another tab or folder
+clears tag filters. A folder with no files matching the active tag
 shows the list's no-match state rather than `This folder is empty`.
 Drive omits split-history back/forward buttons in both wide and narrow layouts;
 the split close button remains available when multiple splits are open.
@@ -1494,8 +1498,10 @@ Date overrides and the searchable timezone picker sit below the weekly hours.
 The header shows the selected owner; team owners have an explicit **Team** label.
 Links and availability use flat rows, with actions beside each item.
 Booking pages, bookings, and insights show only the selected owner. Search filters
-that owner’s links and clears when switching owners. Team owners/admins can edit
-team links; ordinary members can view them. `Links` creates, edits, pauses,
+that owner’s links and clears when switching owners. Any team member can edit
+team links. Hosts can cancel or reschedule the meetings they host; team
+owners/admins can also manage teammates’ bookings and approve pending ones.
+`Links` creates, edits, pauses,
 duplicates, previews, and copies booking links. Event settings include a
 video choice. New links default to a Macro call, which is created when
 someone books and attached to the calendar invitation. Google Meet and no
@@ -2162,18 +2168,50 @@ strip names the pipeline (a lock marks a private one); below it, the row's first
 four fields sit side by side, label over value, and the rest wait behind
 `Show N more`. Cells edit like the pipeline table's when you can edit that
 pipeline. Inside Customers, the header's `Open <pipeline>` button opens it. The
-section is absent when the record is in no pipeline. Team lists the contacts with `Add contact`. Emails keeps the
-`Signal`/`All` and `Team`/`Me` toggles. Files lists non-task documents whose
-`Companies` property references the company, plus attachments of emails with
-its domains. Tasks is the Tasks list scoped to the `Companies` property; its
-`New task` composer pre-fills the company. Calls lists calls linked to the
-company, including those linked automatically from their participants. The side
-panel keeps Properties and Sharing.
+`Pipelines` caret header collapses and expands the cards, like the Discussion
+header; both start expanded on each visit. The
+section is absent when the record is in no pipeline.
+Team lists the contacts with `Add contact`. Emails keeps the
+`Signal`/`All` and `Team`/`Me` toggles; `Team` shows teammates' threads even to
+a viewer with no connected mailbox. Files, Tasks, and Calls list items
+*associated* with the company: its `Companies` property names the company, its
+`Contacts` property names one of the company's contacts, or it @mentions (or a
+message attaches) the company or one of those contacts. Contacts beyond the Team
+tab's first page count, hidden contacts count only for team admins and owners,
+and an item matching several ways appears once. Files lists non-task documents
+plus attachments of emails with the company's domains. Tasks is the Tasks list
+with that scope, grouping, and Load more; `Search tasks` matches task names
+within the scope (not content). Its `New task` composer pre-fills the company.
+Calls includes calls linked automatically from their participants and calls
+whose thread mentions the company. The side panel keeps Properties and Sharing,
+and adds **References**: associated items of any type (documents, tasks,
+channel messages, email threads and calls with the property, events, chats,
+projects, and companies or contacts whose properties or Discussion name the
+company) as compact icon-and-name rows, paged as it scrolls. A channel message
+row opens its thread; a reply surfaces as its thread's row. A document
+Discussion message makes its document the item. Initiatives and database rows
+are not listed.
+When a record list fails to refresh (for example, the record became
+inaccessible), it replaces its rows with `Couldn't load this list.` and
+`Retry` reloads it; a failed later page keeps the rows and shows `Couldn't
+load more.`
 A contact has the same layout with `Overview`, `Emails`, `Files`, `Tasks` and
 `Calls`: Overview pills show the email, the company (opens it) and `Last
-interacted`, followed by the contact's Pipelines cards. Files and Calls match on the contact's `Contacts` property and, for
-files, attachments of emails with its address. Tasks created from a contact also
-reference its company. The side panel keeps Sharing (admins only).
+interacted`, followed by the contact's Pipelines cards. Its Files, Tasks, Calls,
+and References show items associated with the contact itself (its `Contacts`
+property or an @mention of it), not everything associated with its company;
+Files also includes attachments of emails with its address. Tasks created from a
+contact also reference its company. The side panel keeps Sharing (admins only)
+and adds References.
+
+Mentioning a company or contact with `@` in a document or task records it as a
+reference of that record (removing the chip removes it) without sharing the
+document, inviting anyone, or notifying the contact; channel and Discussion
+messages record their CRM mentions when sent or edited. Open record lists
+refresh after a CRM mention or a `Companies`/`Contacts` property changes. To
+verify, mention a contact in a document, then check the contact's and its
+company's References and Files without reloading; remove the chip and confirm it
+drops out.
 
 Company and contact pages have a **Discussion** section built from the same
 message conversation as a document's Discussion: threaded replies, reactions,
@@ -2509,10 +2547,12 @@ split view: the rail's gear button (or `Ctrl ;`) opens it in the active split
 like any other rail item, and Shift-click opens it in a new split.
 `/app/settings/<tab>` opens it as the only split with the app rail still
 visible, and `/app/home/~/settings/<tab>` places it beside Home. Its inner
-sidebar matches Email and Tasks: a **Settings** title bar with the
-**Hide navigation** toggle (`Cmd .`), a rounded **Search settings** field, the
-grouped section pills, and **Log out** pinned to the bottom. Below 720px the
-sidebar becomes an overlay opened from **Show navigation**. Escape closes a
+sidebar matches Email and Tasks: a **Settings** title bar, a rounded
+**Search settings** field, the grouped section pills, and **Log out** pinned to
+the bottom. Unlike other views, it cannot be hidden at desktop widths: there is
+no **Hide navigation** toggle and `Cmd .` does nothing, even if it was hidden
+before. Below 720px the sidebar becomes an overlay opened from **Show
+navigation** (or `Cmd .`), which starts closed. Escape closes a
 settings split that shares the layout, or steps back to the previous view when
 it is the only split (Home when there is none). Leave settings by picking any
 other rail item; there is no separate back or fullscreen control.
@@ -2543,6 +2583,10 @@ local persistence; active calls, uploads, and imports must finish first. A ready
 update also installs on normal app quit. Closing a window only triggers
 installation if it exits the app. Browser, mobile, and development builds do not
 show this native updater row.
+
+Below Profile, **Account** shows a card naming the current plan (**Free plan**,
+**Pro plan**, or **Max plan**; **Loading plan…** until the billing summary
+arrives). Clicking it opens **Billing** settings.
 
 Left nav (feature and platform gates still apply):
 
@@ -2738,7 +2782,9 @@ With `pipedream-mcp` enabled, Connections (in Agents or Settings) has `Connected
 tabs. Connected groups GitHub, Linear, Notion, and Slack tool grants by provider,
 lists other catalog connections alongside them, and puts custom MCP servers in
 a separate section. Discover offers featured providers, a searchable catalog,
-and `Add custom MCP`. Slack discovery retains its development-only gate.
+and `Add custom MCP`. Pipedream Slack OAuth is available in production and
+development from the featured Slack provider. Connecting Slack here grants tool
+access; channel import is a separate action where the user chooses channels.
 Provider Back returns to the tab that opened it; navigation is local to each
 Connections page and starts at Connected on a fresh visit.
 
@@ -2795,7 +2841,7 @@ New macrod sessions use the agent's saved model before sending the first prompt.
 Changing that default applies to new sessions; existing sessions keep their selected model.
 If the runtime rejects the saved model, the prompt fails instead of using a different model.
 
-The `Runtimes` section shows built-in Macro, Cursor, Claude, and Codex configuration, followed by paired macrod runtimes. The “Bring your own agent” card sits above the Agents / Runtimes navigation and is visible on both sections. It rotates Claude Code, OpenCode, OpenClaw, and Hermes; reduced motion keeps a static name. Its `New runtime` action opens the full-page pairing flow from either section: enter the code, look up the request, review the machine, name, sharing and permission consent, then Approve and Done. Back/Cancel returns to the runtime list. Destructive removal still requires confirmation. `/settings/runtimes` opens this section; legacy `/settings/harness?pair=…` links remain supported.
+The `Runtimes` section shows built-in Macro, Cursor, Claude, and Codex configuration, followed by paired macrod runtimes. Claude's card appears only with the `claude-cloud` flag, and Codex's only within the agents and Codex rollouts. The “Bring your own agent” card sits above the Agents / Runtimes navigation and is visible on both sections. It rotates Claude Code, OpenCode, OpenClaw, and Hermes; reduced motion keeps a static name. Its `New runtime` action opens the full-page pairing flow from either section: enter the code, look up the request, review the machine, name, sharing and permission consent, then Approve and Done. Back/Cancel returns to the runtime list. Destructive removal still requires confirmation. `/settings/runtimes` opens this section; legacy `/settings/harness?pair=…` links remain supported.
 Connection chips in agent replies open this page, including before any account is connected. Cursor's default-model picker uses
 the same live model discovery and retains its existing save action.
 
@@ -2917,6 +2963,9 @@ A newly arrived scheduling update shows RSVP and Join only once its calendar sta
 been checked. A series invitation shows its current or next live occurrence.
 
 A connected, resolved invitation shows the responding address and Yes / Maybe / No.
+Calendars connected through a linked inbox also resolve here, using that inbox's
+address for responses. Access is limited to the delegated inbox; another inbox owned
+by the same account stays private, and removing the link removes invitation access.
 Local verification requires both email and calendar services: email supplies saved
 snapshots and resolves them against the synced calendar, while calendar service handles
 the RSVP write. With calendar service's `CALENDAR_SYNC_ENABLED` off, its RSVP route is

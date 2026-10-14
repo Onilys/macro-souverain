@@ -149,7 +149,8 @@ describe('mentionsPlugin', () => {
     discrete(editor, () => $getRoot().clear());
     expect(untrackMention).toHaveBeenCalledExactlyOnceWith(
       'doc-1',
-      'reference-1'
+      'reference-1',
+      'database'
     );
   });
   it('sends an inline form mention as a form reference, and drops it when the mention is removed', () => {

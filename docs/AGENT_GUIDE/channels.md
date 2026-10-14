@@ -162,9 +162,14 @@ wrapping paragraph should stay expanded without briefly collapsing; check this
 after reopening the channel with a draft already saved. Open reply composers always place the editor
 above the action row, including for empty and single-line drafts, so the
 attachment, delete-reply, and send controls have their own space.
-Attachment controls use a paperclip in both expanded and collapsed composers,
-including the iOS media picker. Input action and formatting buttons show the
-app tooltip without a second native browser tooltip.
+Both the expanded and collapsed composers start with a `+` button (`Add`). It
+opens a menu on desktop and a bottom drawer on mobile: `Mention` (opens the `@` typeahead), `Attach files` (the file
+picker; the iOS media picker on iOS), then under `Create` the same actions as
+`/task`, `/poll`, `/form` and `/document` (poll and form only with forms on),
+then `Ask Macro` (inserts an `@Macro` mention) and, in a channel, `Start a call`
+(`Join call` while one is live).
+Input action and formatting buttons show the app tooltip without a second
+native browser tooltip.
 On desktop, select draft text to open the floating formatting toolbar. Its
 compact frame uses 4px outer padding with concentric button corners, a white
 light-mode background, a thin border, and a soft downward shadow. Check
@@ -287,13 +292,18 @@ Draft PRs, PRs with no checks, and PRs whose checks are still running or failing
 show no Merge button. Merged and closed PRs show no Merge button. Expanded session mentions retain their
 collapse control. The card never expands in place.
 
-`@codex` and `@claude` are offered to every user before account setup. The built-in
-`@cursor` entry requires the `enable-cursor-agents` rollout flag (local override:
-`VITE_ENABLE_CURSOR_AGENTS`). Custom agents keep their channel visibility rules
+Built-in provider agents are offered before account setup, each within its own
+rollout: `@cursor` requires the `enable-cursor-agents` flag (local override:
+`VITE_ENABLE_CURSOR_AGENTS`), `@claude` requires the `claude-cloud` flag
+(local override: `VITE_CLAUDE_CLOUD`), and `@codex` requires both
+`enable-chat-v3-agents` and `enable-codex-agents` (local override:
+`VITE_ENABLE_CODEX_AGENTS`). Outside a rollout the entry is absent from
+the mention menu and from task agent assignees, even when that bot is already a
+channel participant. Custom agents keep their channel visibility rules
 regardless of which harness they use.
 A mention without a connected account creates no session and replies in the thread
 with a **Connect Cursor**, **Connect Codex**, or **Connect Claude** chip. Each chip
-opens Settings → Agents → Runtimes, where all three connection cards are visible. The same
+opens Settings → Agents → Runtimes, where the connection cards in the reader's rollout are visible. The same
 chip reads **connected** after setup; mention the bot again to start a session.
 Codex also prompts for a cloud environment when ChatGPT is connected but no
 environment has been saved. New sessions use that environment on

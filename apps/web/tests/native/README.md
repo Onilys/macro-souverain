@@ -74,6 +74,24 @@ not pointer hit-testing: WebKitWebDriver's native clicks can land on an adjacent
 row in the Tauri window, and All is now beyond the numeric tab shortcuts.
 Assertions compare exact row identities, not just counts.
 
+## Native external-link regression
+
+After rebuilding the native binary, run `bun run native:e2e:links` inside the
+same `.#tauri-e2e` shell. This focused suite serves a small HTML fixture instead
+of the full frontend; it uses the real app's window creation, navigation plugin,
+Tauri event IPC, and Linux WebKit. No login, backend, or frontend WASM is used at
+runtime. A disposable `xdg-open` executable records launches at the OS process
+boundary so no real browser or external network request is started.
+
+Checks include the plain PR anchor inside a propagation-stopping panel, pointer
+and keyboard activation, a normal `_blank` link, same-frame external navigation,
+`window.open`, and absolute/relative Macro app links. Each external activation
+must launch exactly once and retain the original webview. Prevented clicks and
+browser-only/local-file popup URLs must not launch anything. The desktop JS click
+interceptor must be absent. Artifacts are under `test-results/native/links-*`.
+This is Linux coverage; macOS/Windows native popup handling and the unchanged
+mobile JS fallback need platform-specific verification.
+
 ## Exhaustive filter-selection matrix
 
 ```sh
@@ -194,6 +212,8 @@ bun run native:e2e:check      # standalone harness TypeScript check
 ```
 
 - Missing WebKitWebDriver/Xvfb: enter `.#tauri-e2e`, not the default shell.
+  This shell also pins the software EGL renderer to the same Nix package set;
+  loading a newer host Mesa can otherwise abort WebKit with `EGL_BAD_PARAMETER`.
 - `unshare: Operation not permitted`: the host/CI runner must permit unprivileged
   user namespaces. Fail closed; do not remove isolation or run against hosted data.
 - Startup timeout: inspect Vite/native logs and request errors first. Never reset

@@ -50,18 +50,20 @@ function NewMeetingMenu(props: NewMeetingActions) {
           <CaretDownIcon class="size-3" />
         </Dropdown.Trigger>
         <Dropdown.Content class="min-w-60" blockingBackdrop>
-          <Dropdown.Item closeOnSelect onSelect={props.onInstantCall}>
-            <PhoneIcon class="size-4 shrink-0" />
-            <span>Start an instant call</span>
-          </Dropdown.Item>
-          <Dropdown.Item closeOnSelect onSelect={props.onChannelCall}>
-            <UsersIcon class="size-4 shrink-0" />
-            <span>Call a channel or contact</span>
-          </Dropdown.Item>
-          <Dropdown.Item closeOnSelect onSelect={() => setManaging(true)}>
-            <VideoCameraIcon class="size-4 shrink-0" />
-            <span>Manage call links</span>
-          </Dropdown.Item>
+          <Dropdown.Group>
+            <Dropdown.Item closeOnSelect onSelect={props.onInstantCall}>
+              <PhoneIcon class="size-4 shrink-0" />
+              <span>Start an instant call</span>
+            </Dropdown.Item>
+            <Dropdown.Item closeOnSelect onSelect={props.onChannelCall}>
+              <UsersIcon class="size-4 shrink-0" />
+              <span>Call a channel or contact</span>
+            </Dropdown.Item>
+            <Dropdown.Item closeOnSelect onSelect={() => setManaging(true)}>
+              <VideoCameraIcon class="size-4 shrink-0" />
+              <span>Manage call links</span>
+            </Dropdown.Item>
+          </Dropdown.Group>
         </Dropdown.Content>
       </Dropdown>
       <Show when={managing()}>

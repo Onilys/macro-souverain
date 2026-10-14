@@ -10,9 +10,17 @@ export type BillingInput = {
   pending: boolean;
 };
 
+/** The billing summary's tier wins; without it, paid access implies Pro. */
+export function resolvePlanTier(
+  summaryTier: PlanTier | undefined,
+  hasPaid: boolean
+): PlanTier {
+  return summaryTier ?? (hasPaid ? 'premium' : 'free');
+}
+
 /** Shared presentation policy for live billing and local previews. */
 export function getBillingState(input: BillingInput) {
-  const tier = input.summary?.tier ?? (input.hasPaid ? 'premium' : 'free');
+  const tier = resolvePlanTier(input.summary?.tier, input.hasPaid);
   const billedThroughTeam = input.summary?.canManageBilling === false;
   const isOwnerOrSolo =
     !input.teamRole ||

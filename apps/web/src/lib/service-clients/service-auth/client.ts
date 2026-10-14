@@ -372,12 +372,17 @@ export const authServiceClient = {
     });
   },
   async passwordlessCallback({ code, email }: { code: string; email: string }) {
-    const result = await safeFetch<UserTokensResponse>(
+    const result = await safeFetch<UserTokensResponse, 'RATE_LIMITED'>(
       `${authHost}/oauth/passwordless/${code}?email=${encodeURIComponent(email)}&disable_redirect=true`,
       { cache: 'no-store', credentials: 'include' },
       async (response) => {
-        const message = await response.text();
-        return { code: 'UNAUTHORIZED' as const, message };
+        if (response.status === 401) {
+          return { code: 'UNAUTHORIZED', message: await response.text() };
+        }
+        if (response.status === 429) {
+          return { code: 'RATE_LIMITED', message: 'Rate limit exceeded' };
+        }
+        return statusError(response.status);
       }
     );
     if (result.isOk()) {

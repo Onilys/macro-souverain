@@ -18,7 +18,7 @@ focus while you type even if the pointer drifts over the rows; ArrowDown moves i
 the rows and hovering a submenu hands focus to it as usual. The mobile drawer has no
 AI box.
 Task creation is available from the `New` button in the Tasks sidebar. With Projects
-enabled, `My projects` appears below the tabs and favorites, above Tags. It lists
+enabled, `My projects` appears below the tabs and favorites. It lists
 accessible projects by most recently updated, with a capped height and its own scroll
 area. Click a project to open its overview within the current Tasks view, keeping
 the sidebar mounted, or Shift-click to open it in a new split.
@@ -41,19 +41,22 @@ editor initializes; the project title, properties, and discussion stay visible.
 Project task lists automatically fetch all matching pages in every group, without
 per-group `Load More` rows. A failed continuation stops automatic requests and shows
 `Try again` above the list; already fetched group rows remain available.
-The sidebar also has a collapsible `Tags` section listing every personal and team tag, with a
-`New tag` button beside the heading. Clicking a tag narrows the current tab to tasks
-carrying it (the same selection as the `Tags` group of the `Filter` menu); clicking it again
-clears it, and switching tabs clears it like any other filter. On mobile, the tabs
+The sidebar has no Tags section: filter by tag from the `Tags` group of the `Filter` menu,
+and switching tabs clears it like any other filter. On mobile, the tabs
 are pills and the leading sliders button opens one drawer containing Sort, Group, and
 Filters (including Tags). The mobile bottom dock has the Ask AI input, a separate **+ Task**
 button, and Search.
 Mobile does not show the separate layout, sort, group, and filter toolbar.
 Use the compact sliders drawer for task-list controls; project task lists use the
-same drawer. Mobile supports List only. Opening a Board link or restoring a Board
-entry automatically selects List and replaces that host's layout URL parameter,
-without adding a history entry or clearing search, sorting, grouping, or filters.
-The desktop Board layout remains available.
+same drawer. Mobile supports List only. Opening a Board or Gantt link, or
+restoring either layout, automatically selects List and replaces that host's
+layout URL parameter without adding history or clearing search, sorting,
+grouping, or filters. Desktop supports List and Board, plus Gantt when the
+PostHog `enable-gantt` flag is enabled. This flag also gates project-task and
+Projects collection timelines. When the flag is disabled or still loading,
+saved Gantt layouts and Gantt URLs render List without clearing the selected
+layout, so enabling the flag restores Gantt. The local override is
+`VITE_ENABLE_GANTT=true` (or `false` to force it off).
 
 **Keyboard:** **H** and **←** collapse the focused item or its parent group.
 On a focused group header, **H** collapses only that group; pressing it again
@@ -89,6 +92,144 @@ For tags, include a task with no prior tag assignment. Delay
 should appear immediately and stay visible through both responses in the list,
 task header, side panel, and a reopened picker. A rejected save should remove only
 the optimistic tag. Repeat with an existing assignment and with removal.
+
+## Gantt layout
+
+Choose **Gantt** from the **Task layout** dropdown to see task timelines.
+The same option is available in a project's Tasks section. The timeline uses
+Created at as the start and Due date as the end; no separate Start date is
+created or saved. Bars without a due date fade to transparent at the right edge.
+The fade affects only the bar fill; labels remain visible.
+Their displayed tail is a visual placeholder, not a saved deadline. Invalid or
+missing start dates and due dates before creation are identified rather than
+silently displayed as valid intervals.
+The calendar fills the available pane width and height, including empty space
+below loaded rows. Zooming, pane resizing, and loading earlier items preserve the
+visible calendar position. On first load, the chart centers on today after its
+viewport is measurable. Refetches and later resizes do not reset the scroll.
+Bars use the app's neutral depth-two surface without an outline, with a small
+status-colored indicator. In light mode, bars have a stronger solid neutral fill,
+and item panels have a subtle neutral fill and clearer border.
+Dark-mode base surfaces stay unchanged. Active items due within seven calendar
+days use a danger-color background gradient at the due-date edge, blending into
+the neutral fill toward the left and strengthening as the deadline approaches.
+Due-today and overdue items use the strongest tint; completed, canceled, and
+undated items stay neutral.
+Deadline tints and the Today marker refresh at local midnight and when a tab
+becomes visible or focused again.
+The tint only appears when the actual end is inside the calendar range.
+Bar text stays inside the visible portion of its bar as you scroll, zoom, or
+open the item drawer, and truncates in narrow segments.
+The full-width date header stays visible during vertical scrolling; the pointer's
+date label stays in that header, and the vertical scrollbar begins below it.
+Timeline-edge fades stay within the date header, beneath its floating buttons.
+Fades start at the calendar edges, span up to 128px, and shrink in narrow calendars.
+The floating item list uses separate rounded, bordered, low-contrast panels for
+consecutive groups. Items clip inside their panels and use the same height and
+padding as bars, with transparent backgrounds and hover-only highlighting.
+Group headers match the normal list's rounded surfaces, status tints, disclosure
+controls, and count pills.
+The list starts expanded in wide panes and collapses automatically below 640px
+until you explicitly choose open or closed. That choice stays in effect across
+pane resizes while the chart is mounted. Use the top-left toggle to change it.
+The drawer slides in and out, respecting reduced motion, and shares vertical
+scrolling with the bars without shifting dates or reserving calendar width.
+Clicking or focusing the calendar keeps the list open.
+Escape or the toggle closes it; focus returns to the toggle when closing a focused
+item. Closed drawer items are not focusable.
+Task and project context menus remain available on drawer items. **Today** and
+timeline settings are separate floating buttons at the top right.
+Hold **Ctrl** or **Cmd** and scroll to zoom between 4 and 80 pixels per day, keeping the date
+under the pointer in place. Hold the middle mouse button and drag to pan both axes,
+including from bars or item panels, without changing dates or grouping properties.
+Release the button, press Escape, or move focus away from the window to stop panning.
+Ordinary scrolling is unchanged. Period presets in the settings menu also set zoom;
+calendar labels adapt to the zoom level.
+Floating controls at the chart's bottom right zoom out/in around the visible
+calendar's center. The percentage/reset button stays visible; adjacent minus/plus
+buttons sit to its left and appear on hover, keyboard focus, or during Ctrl/Cmd scroll zoom.
+Minus/plus controls have no invisible hit area while auto-hidden; when revealed,
+they remain visible but disabled at zoom limits or during edits.
+The reset/value button matches the zoom buttons' height and has a fixed width
+for the full percentage range. Click it to reset to 100%; the same zoom limits apply.
+Controls stay fixed during scrolling and are disabled during date drags.
+
+**Today** smoothly centers the current day, except when reduced motion is enabled;
+initial centering is immediate. Its line extends into the calendar header, stays
+behind bars, and clips outside the left item panels, including their gaps and
+rounded corners, until the drawer finishes sliding closed. Only items and bars
+have hover feedback, not full calendar rows.
+The settings menu
+changes the displayed period (Day, Week, Month), toggles calendar lines, and
+changes their spacing (Daily, Weekly, Monthly) and
+style (Solid, Dashed). Grid settings do not change item dates. Compact bold month
+names share the main date band and switch from abbreviated names at Month zoom
+to full names at Week/Day zoom. The pinned month always includes its year; other
+months show the year after January only, when a new year starts. Unpinned month
+text is centered on its date mark; a trailing year does not shift that center.
+Short, higher-contrast date marks stay anchored to their calendar dates, even
+when month text hides an overlapping day number. Marks do not move with the sticky month
+labels, so daily gaps stay equal across month boundaries. Month/year labels fade
+as the next month pushes them toward the left edge, before the expand/collapse
+button.
+Week-scale date marks divide each month into four near-even calendar-day sections,
+not Monday-based weeks. Weekly grid lines use the same sections. Day spacing and
+month widths still follow the real calendar, including leap-year February.
+Labels remain visible during horizontal scrolling,
+and the date header remains visible during vertical scrolling. The calendar
+extends as you approach either horizontal edge, even during continuous scrolling.
+Left-edge rebasing preserves the current visible date immediately; right-edge
+extension does not write the scroll position. Click a task label or bar to open
+the task; right-click either for the same actions as its list item.
+
+Timeline dates are read-only: bars have no resize handles or end-date editing.
+Created at stays fixed, and moving a bar between groups does not shift its dates.
+
+When grouped by Status, Priority, Assignee, or Project, drag a task's list item or
+bar into another visible group to change that property. Projects support Status,
+Priority, and Assignee moves. Move at least 10px to start a drag; ordinary clicks
+still open items. The drag overlay snapshots the visible item or bar; the original
+placement dims, and a dashed ghost reserves the destination's sorted row. Drag
+sources stay mounted during virtual scrolling and immutable row updates.
+If the item already belongs to the destination assignee group, its existing row
+becomes the ghost instead of creating a duplicate. Drop on a group's header
+(including collapsed groups) or its rows. The active sort determines the resulting order; same-group reordering is
+not supported. Assignee moves replace only the source assignee and preserve other
+assignments. Unassigned accepts only a sole-assignee item; mixed-assignee drops
+are rejected so they cannot clear other assignments. Creation-date grouping
+and ungrouped views do not accept group moves. Membership and destination checks
+run again on release. Escape cancels, failed saves show an error, and neither
+Created at nor Due date changes during a group move. Active filters still apply.
+Task group moves follow the task list's editing policy: no task or destination
+permission prefetch is required before attempting a save. The backend authorizes
+property writes; rejected saves roll back, show an error, and release the task lock.
+Project Gantt also shows empty Status/Priority destinations from property options,
+Unassigned when allowed, and assignees already seen in the current collection
+scope. An emptied assignee group remains available for another drop. The ordinary
+project list still shows only its loaded groups.
+
+Drag horizontally across empty calendar space to open the task composer with
+Due date prefilled and visible. Past dates and permission-disabled creation remain
+unavailable, without a diagonal-line pattern.
+This works with no loaded rows too. Release opens the composer rather than
+immediately creating a task; Escape cancels the selection.
+In a project's Tasks section, creation preserves that project and its edit gate.
+The Projects collection offers the same interaction with the project composer.
+There is no Start date property, so the selection sets only Due date; Created at
+remains automatic. New selections begin today or later, so creation never produces
+an end before Created at. Existing overdue items remain unchanged.
+
+The timeline reuses the list's filtered, sorted, grouped rows and collapsed
+state. Sidebar items fill the list's inset width and share vertical scrolling with
+bars. Compact group headers show the grouping's icon and span both the list and
+calendar; they remain visible when the list is collapsed.
+Pagination remains available in the item list and as a quiet, labeled action at
+the visible calendar's left edge outside the open list, even after horizontal
+panning. Group pagination stays after its group; the global continuation appears
+once after the loaded rows. Loading shows a spinner and disables both actions;
+pagination and group headers do not start range creation.
+The chart contains loaded results, not an implied complete schedule. Selecting
+Gantt persists in `tasks.layout` or `projectTasks.layout`, just like List and Board.
 
 ## Board layout
 
@@ -148,15 +289,15 @@ An icon-only status pill appears before the task title, and an icon-only assigne
 pill appears to its right in every grouping. The lower row omits status, assignee,
 and the grouping property. The remaining properties use standard pill controls
 and icons. Priority uses a compact icon-only pill; due date and project appear
-when set. Read-only tasks keep passive property pills.
+when set. Metadata properties stay read-only, and pending writes disable editing.
 A task assigned to multiple people appears in each person's column. Moving it
 from Alice to Bob replaces Alice while keeping the other assignees. Moving to
 **Unassigned** clears all assignees. Project moves change the task's Project
 property (an initiative), never its legacy folder.
 
-Only editable tasks can move. Access checks and property definitions can keep
-moves unavailable while loading. A destination project also requires edit
-access. A pending move disables further moves of the same task in every column;
+Task moves and property pills follow the list's editing policy without permission
+prefetches. Property definitions and valid destinations must still be available.
+A pending move disables further moves of the same task in every column;
 failed writes use the shared property mutation's rollback and show an error.
 A valid destination highlights and shows the sort overlay only while dragging
 inside that column, not in gaps or outside the board. Drops move the card
@@ -401,6 +542,16 @@ Search and filters apply before pagination. Scrolling or navigating near the
 end loads more projects; `Load more projects` also continues the list.
 Keyboard movement changes focus; Enter opens the focused project and
 Shift-selection opens it in a new split. Folders remain separate in Files.
+
+On desktop, **Project layout** offers **List** and **Gantt**. Gantt shows one
+bar per visible project from Created at to Due date, using the same search,
+filters, sort, grouping, and pagination as the project list. Click a project
+label or bar to open its overview. Right-click either for its project list menu.
+The same timeline settings and read-only dates apply as in task Gantt.
+**Load more projects** continues the chart.
+The selection persists in `projects.layout` and restores with the navigation
+entry. Projects without a due date have explicitly open-ended bars. Mobile
+continues to render the project list.
 
 Right-click a project row for its context menu; the row takes focus, as in
 Tasks. Every project offers `Open in new split` (disabled when no split fits),
@@ -679,7 +830,8 @@ message.
 
 ### Nested sidebar tags
 
-Tag names containing `/` render with one child level (for example, `Work/Urgent`).
+In the Email and Calls sidebar Tags sections, tag names containing `/` render with
+one child level (for example, `Work/Urgent`).
 Deeper paths remain in the child label: `Work/Customers/Acme` appears as
 `Customers/Acme` under `Work`, alongside any actual `Customers` tag.
 Use the caret to expand or collapse a branch. A folder-only parent expands without

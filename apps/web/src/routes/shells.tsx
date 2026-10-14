@@ -3,6 +3,7 @@ import { dismissBootShell } from '@components/app/boot-shell';
 import { AppChrome, PageContent } from '@components/app/Layout';
 import { SplitLayout } from '@components/app/split-layout/SplitLayout';
 import { useIsAuthenticated } from '@core/auth';
+import { ImperativeDialogHost } from '@ui';
 import { type JSX, onCleanup, onMount, type ParentProps, Show } from 'solid-js';
 import { LIKELY_NEXT_VIEWS } from './lazy-route-views';
 
@@ -16,6 +17,7 @@ export function AuthShell(): JSX.Element {
   useDismissBootShell();
   return (
     <PageContent>
+      <ImperativeDialogHost />
       <SplitRouter.Outlet />
     </PageContent>
   );
@@ -25,6 +27,7 @@ function FocusedPage(props: ParentProps) {
   useDismissBootShell();
   return (
     <div class="min-h-0 flex-1 overflow-y-auto bg-page text-ink">
+      <ImperativeDialogHost />
       {props.children}
     </div>
   );
@@ -70,6 +73,7 @@ export function withMeetingShell(Page: () => JSX.Element) {
     useDismissBootShell();
     return (
       <PageContent>
+        <ImperativeDialogHost />
         <Page />
       </PageContent>
     );

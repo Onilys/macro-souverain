@@ -34,9 +34,7 @@ import {
   untrack,
   useContext,
 } from 'solid-js';
-import { Portal } from 'solid-js/web';
 import { createSidebarMotion } from './create-sidebar-motion';
-import { ViewNavigationSlotContext } from './navigation-slot';
 import { VIEW_SHELL_TOUR } from './tour';
 import {
   type AsideLayout,
@@ -144,6 +142,13 @@ export type ViewShellRootProps = Omit<
    * open the overlay, which stays dismissible.
    */
   asideRequired?: boolean;
+  /**
+   * Keep navigation docked in wide layouts, for views that are unusable
+   * without it. Like `asideRequired`, it withholds the collapse control and
+   * ignores the saved preference there; narrow layouts still start with the
+   * overlay closed.
+   */
+  asidePinned?: boolean;
   main?: Partial<MainLayout>;
   detail?: Partial<DetailLayout>;
   /** Controlled detail open state. Omit for uncontrolled. */
@@ -168,6 +173,7 @@ function Root(props: ViewShellRootProps) {
     'aside',
     'asidePreferenceKey',
     'asideRequired',
+    'asidePinned',
     'main',
     'detail',
     'detailOpen',
@@ -252,7 +258,8 @@ function Root(props: ViewShellRootProps) {
   );
   // Only a docked aside can be pinned open: a pinned overlay would hide Main
   // behind a backdrop with no way to dismiss it.
-  const asidePinned = () => asideRequired() && !atLayoutBreakpoint();
+  const asidePinned = () =>
+    (asideRequired() || (local.asidePinned ?? false)) && !atLayoutBreakpoint();
 
   const asideMode = (): AsideMode =>
     local.aside === false ||
@@ -338,7 +345,6 @@ function Root(props: ViewShellRootProps) {
     },
   };
 
-  const navigationSlot = useContext(ViewNavigationSlotContext);
   if (panel) {
     registerHotkey({
       hotkey: 'cmd+.',
@@ -356,29 +362,6 @@ function Root(props: ViewShellRootProps) {
 
   return (
     <ViewShellContext.Provider value={value}>
-      <Show
-        when={
-          navigationSlot?.() &&
-          panel?.isPanelActive() &&
-          value.aside.canCollapse()
-        }
-      >
-        <Portal mount={navigationSlot?.()}>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            label={
-              value.aside.isCollapsed() ? 'Show navigation' : 'Hide navigation'
-            }
-            hotkey={TOKENS.workspace.toggleNavigation}
-            aria-expanded={!value.aside.isCollapsed()}
-            ref={tourTarget(VIEW_SHELL_TOUR.sidebarToggle)}
-            onClick={value.aside.toggle}
-          >
-            <SidebarIcon class="size-4" />
-          </Button>
-        </Portal>
-      </Show>
       <div
         {...rest}
         ref={setRoot}
@@ -571,13 +554,10 @@ export function ViewSidebarCloseButton(
 /** Safe outside a shell so block preview headers can share this control. */
 export function ViewSidebarToggle(props: { action: 'collapse' | 'expand' }) {
   const ws = useContext(ViewShellContext);
-  const navigationSlot = useContext(ViewNavigationSlotContext);
-  const panel = useContext(SplitPanelContext);
   // A conditional expression as `ref` is dropped by the Solid compiler, so
   // only the expand toggle registers, from inside the callback.
   const toggleTarget = tourTarget(VIEW_SHELL_TOUR.sidebarToggle);
   const visible = () =>
-    !(navigationSlot?.() && panel) &&
     ws?.aside.canCollapse() &&
     (props.action === 'expand'
       ? ws.aside.isCollapsed() || ws.aside.isOverlay()
