@@ -1,55 +1,61 @@
-import type { BlockTool } from '@components/app/ResponsiveBlockToolbar';
+import { DocumentTitleHoverCard } from '@app/components/entity-detail/DocumentTitleHoverCard';
+import type { FileDetailContext } from '@app/components/entity-detail/file-detail-context';
+import { getFileDocumentBlob } from '@app/features/drive-view/queries/file-document';
+import { documentDownloadName } from '@app/features/drive-view/util/document-download-name';
+import { SidePanel } from '@components/app/side-panel';
 import {
-  ResponsiveBlockToolbar,
-  ResponsivePermissionsBadge,
-} from '@components/app/ResponsiveBlockToolbar';
-import type { FileOperation } from '@components/app/split-layout/components/SplitFileMenu';
-import { SplitHeaderLeft } from '@components/app/split-layout/components/SplitHeader';
-import { BlockItemSplitLabel } from '@components/app/split-layout/components/SplitLabel';
-import { useBlockId } from '@core/block';
+  type FileOperation,
+  SplitFileMenu,
+} from '@components/app/split-layout/components/SplitFileMenu';
+import {
+  SplitHeaderLeft,
+  SplitHeaderRight,
+} from '@components/app/split-layout/components/SplitHeader';
+import {
+  SplitHeaderBadge,
+  SplitTitleFileMenu,
+  StaticSplitLabel,
+} from '@components/app/split-layout/components/SplitLabel';
+import {
+  getPermissions,
+  hasPermissions,
+  Permissions,
+} from '@core/component/SharePermissions';
 import { toast } from '@core/component/Toast/Toast';
-import type { ShareHostProps } from '@core/component/TopBar/ShareButton';
 import {
   getShareDrawerRecipientInput,
   ShareTrigger,
 } from '@core/component/TopBar/ShareButton';
 import { useShareModal } from '@core/component/TopBar/shareModal';
-import { blockMetadataSignal } from '@core/signal/load';
-import { useGetPermissions } from '@core/signal/permissions';
-import {
-  useBlockDocumentDownloadName,
-  useBlockDocumentName,
-} from '@core/util/currentBlockDocumentName';
 import { downloadFile } from '@filesystem/download';
 import IconShared from '@icon/share.svg';
 import Download from '@phosphor/download.svg';
 import Spinner from '@phosphor/spinner.svg';
 import { createCallback } from '@solid-primitives/rootless';
-import { createSignal } from 'solid-js';
-import { useGetFileBlob } from '../signal/blockData';
+import { createSignal, Show } from 'solid-js';
 
-export function TopBar(props: ShareHostProps) {
-  const blockId = useBlockId();
-  const name = useBlockDocumentName();
-  const downloadName = useBlockDocumentDownloadName();
-  const getBlob = useGetFileBlob();
-
-  const permissions = useGetPermissions();
+export function TopBar(props: {
+  documentId: string;
+  context: FileDetailContext<unknown>;
+}) {
+  const metadata = () => props.context.documentMetadata;
+  const name = () => metadata().documentName || 'Untitled';
+  const permissions = () => getPermissions(props.context.userAccessLevel);
+  const canEdit = () => hasPermissions(permissions(), Permissions.CAN_EDIT);
+  const canComment = () =>
+    hasPermissions(permissions(), Permissions.CAN_COMMENT);
   const openShare = useShareModal(() => ({
-    id: blockId,
+    id: props.documentId,
     blockAlias: 'video',
-    sharePermissions: props.sharePermissions,
-    permissionOptions: props.permissionOptions,
+    permissionOptions: { edit: false },
     itemType: 'document',
-    name: name() ?? '',
+    name: name(),
     userPermissions: permissions(),
-    owner: blockMetadataSignal()?.owner,
+    owner: metadata().owner,
   }));
-
   const downloadDocument = createCallback(async () => {
-    const fileName = downloadName();
+    const fileName = documentDownloadName(metadata());
     const [progress, setProgress] = createSignal({ loaded: 0, total: 0 });
-
     const toastId = toast.custom(
       {
         title: `Downloading ${fileName}`,
@@ -59,19 +65,23 @@ export function TopBar(props: ShareHostProps) {
       },
       { persistent: true }
     );
-
     try {
-      const blob = await getBlob({ onProgress: setProgress });
+      const blob = await getFileDocumentBlob(
+        {
+          documentId: props.documentId,
+          documentVersionId: metadata().documentVersionId,
+        },
+        { onProgress: setProgress }
+      );
       toast.dismiss(toastId);
       const { saved } = await downloadFile(blob, fileName);
       if (saved) toast.success(`Downloaded ${fileName}`);
-    } catch (e) {
+    } catch (error) {
       toast.dismiss(toastId);
-      console.error('error downloading file', e);
+      console.error('error downloading file', error);
       toast.failure('Error downloading file');
     }
   });
-
   const ops: FileOperation[] = [
     { op: 'rename' },
     { op: 'copy' },
@@ -84,40 +94,54 @@ export function TopBar(props: ShareHostProps) {
     },
     { op: 'delete' },
   ];
-
-  const tools: BlockTool[] = [
+  const tools = [
     {
-      group: 'sharing',
+      group: 'sharing' as const,
       label: 'Share',
       icon: IconShared,
       action: openShare,
-      buttonComponent: () => (
-        <ShareTrigger
-          id={blockId}
-          blockType={'video'}
-          sharePermissions={props.sharePermissions}
-          onClick={openShare}
-        />
-      ),
       focusTarget: getShareDrawerRecipientInput,
     },
   ];
-
   return (
     <>
       <SplitHeaderLeft>
-        <BlockItemSplitLabel />
+        <DocumentTitleHoverCard
+          documentId={props.documentId}
+          name={name()}
+          ownerId={metadata().owner}
+          createdAt={metadata().createdAt}
+          updatedAt={metadata().updatedAt}
+        >
+          <StaticSplitLabel label={name()} iconType="video" colorIcon />
+        </DocumentTitleHoverCard>
       </SplitHeaderLeft>
-
-      <ResponsivePermissionsBadge />
-
-      <ResponsiveBlockToolbar
-        tools={tools}
-        ops={ops}
-        id={blockId}
-        itemType="document"
-        name={name()}
-      />
+      <SplitHeaderRight>
+        <Show when={!canEdit()}>
+          <SplitHeaderBadge
+            text={canComment() ? 'comment only' : 'viewer'}
+            tooltip={canComment() ? 'Comment Only' : 'View Only'}
+          />
+        </Show>
+        <SidePanel.HeaderActionsOutlet />
+        <ShareTrigger
+          id={props.documentId}
+          blockType="video"
+          onClick={openShare}
+        />
+        <SidePanel.Toggle />
+      </SplitHeaderRight>
+      <SplitTitleFileMenu>
+        <SplitFileMenu
+          id={props.documentId}
+          name={name()}
+          itemType="document"
+          entityKind="video"
+          permissions={permissions()}
+          ops={ops}
+          tools={tools}
+        />
+      </SplitTitleFileMenu>
     </>
   );
 }

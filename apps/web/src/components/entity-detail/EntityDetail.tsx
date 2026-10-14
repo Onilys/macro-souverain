@@ -39,19 +39,37 @@ import { PreviewPanel } from '@components/app/PreviewPanel';
 import type { PreviewRouteOwner } from '@components/app/preview-panel-context';
 import { previewBlockTarget } from '@components/app/previewTarget';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
-import { ENABLE_VIDEO_BLOCK } from '@core/constant/featureFlags';
+import {
+  ENABLE_VIDEO_BLOCK,
+  USE_MACRO_PR_SUMMARY_BLOCK,
+} from '@core/constant/featureFlags';
 import {
   children,
   createMemo,
   type JSX,
+  lazy,
   Match,
+  Show,
   Switch,
   untrack,
 } from 'solid-js';
+
 import type { EntityDetailTarget } from './entity-detail-target';
 import { FileEntityDetail } from './FileEntityDetail';
 import type { FileDetailContext } from './file-detail-context';
 
+const PrDetail = lazy(() => import('@block-pr/component/Block'));
+const Routine = lazy(async () => ({
+  default: (await import('@app/features/routines/routine-detail')).Routine,
+}));
+// Route-backed Drive details supply their own chrome through children. Local
+// previews and stacked file modals keep headers around the same file details.
+const StandaloneVideo = lazy(
+  () => import('@app/features/block-video/component/Block')
+);
+const StandaloneUnknown = lazy(
+  () => import('@app/features/block-unknown/component/Block')
+);
 type DocumentDetailContext =
   | MarkdownDetailContext
   | CodeDetailContext
@@ -71,6 +89,7 @@ export type EntityDetailProps = {
   navigationRequest?: number | string;
   /** Only a host whose route names this target grants route-search ownership. */
   routeOwner?: PreviewRouteOwner;
+  /** For Video/Unknown, route hosts provide chrome; local hosts use standalone headers. */
   children?: (context: EntityDetailContext) => JSX.Element;
 };
 
@@ -188,6 +207,18 @@ export function EntityDetail(props: EntityDetailProps) {
 
   return (
     <Switch>
+      <Match when={props.target.type === 'routine'}>
+        <Routine scheduleId={props.target.id} />
+      </Match>
+      <Match
+        when={
+          props.target.type === 'foreign' &&
+          props.target.foreignSource === 'github_pull_request' &&
+          USE_MACRO_PR_SUMMARY_BLOCK
+        }
+      >
+        <PrDetail foreignEntityId={props.target.id} />
+      </Match>
       <Match
         when={
           blockType() === 'md' ||
@@ -235,9 +266,14 @@ export function EntityDetail(props: EntityDetailProps) {
         </ImageBlock>
       </Match>
       <Match when={blockType() === 'video'}>
-        <VideoDetail documentId={props.target.id}>
-          {(context) => <>{renderChildren(context)}</>}
-        </VideoDetail>
+        <Show
+          when={Boolean(props.children)}
+          fallback={<StandaloneVideo documentId={props.target.id} />}
+        >
+          <VideoDetail documentId={props.target.id}>
+            {(context) => <>{renderChildren(context)}</>}
+          </VideoDetail>
+        </Show>
       </Match>
       <Match when={blockType() === 'pdf'}>
         <PdfDetail documentId={props.target.id}>
@@ -245,9 +281,14 @@ export function EntityDetail(props: EntityDetailProps) {
         </PdfDetail>
       </Match>
       <Match when={blockType() === 'unknown'}>
-        <UnknownDetail documentId={props.target.id}>
-          {(context) => <>{renderChildren(context)}</>}
-        </UnknownDetail>
+        <Show
+          when={Boolean(props.children)}
+          fallback={<StandaloneUnknown documentId={props.target.id} />}
+        >
+          <UnknownDetail documentId={props.target.id}>
+            {(context) => <>{renderChildren(context)}</>}
+          </UnknownDetail>
+        </Show>
       </Match>
       <Match when={channelTarget()}>
         {(channel) => (

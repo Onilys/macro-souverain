@@ -1059,6 +1059,17 @@ title and navigation goes through the hamburger overlay. Location, search,
 filters, expanded folders, list focus, and scroll position are restored when
 returning from an opened file.
 
+Video and unrecognized-file links open as Drive document subroutes, including on
+touch: `/app/drive/video/<uuid>` and `/app/drive/unknown/<uuid>`. Folder and tab
+details keep their Drive location. Check playback, Download, Share, permissions,
+and the details toggle in panes, previews, and popovers. Previews and popovers
+retain their file headers while sharing Drive's file detail content. Opening a
+second popover keeps the first mounted underneath. Pane navigation must still
+open the Drive detail when the same file is already in a popover, without
+reordering the modals. Legacy `/app/video/<uuid>` and `/app/unknown/<uuid>` links
+resolve into Drive. Uploaded workbooks retain the workbook preview and
+**Edit in Macro** action when spreadsheet access is enabled.
+
 ## Calendar — `/app/calendar/<month-or-week-or-day>`
 
 Event composer dropdown triggers and date/time inputs use the theme control
@@ -1492,6 +1503,9 @@ Old `/app/pr/<foreignEntityId>` links redirect to Reviews. Check a copied link,
 a PR opened from a list or agent session, a second split, breadcrumb return,
 side-panel toggle, and phone layout. If no GitHub data loads, the detail shows
 an error banner with a Retry button; pressing it refetches the PR in place.
+Check inline PR previews and popovers as well as the Reviews detail. Reopening
+the same PR must reuse its existing host; changing an inline preview's PR must
+release the previous host instead of keeping a hidden duplicate.
 
 ## Calls — `/app/component/calls`
 

@@ -550,6 +550,8 @@ creator, or model/agent, or press **Cmd/Ctrl+F** to focus it. **Create Routine**
 to the right of search. Click a row to open its settings in the same pane. Toggle
 the **Enabled** checkbox property directly in the list to pause or resume it.
 Open the routine and use its **Run History** tab to see past runs.
+Check direct routine links, inline previews, and popovers. Switching routines must
+not carry the previous routine's draft into the next detail.
 
 **Create → Routine** (U) and **Create Routine** open the same popover host as task
 and project creation. Enter a name and instructions, then choose a model or agent

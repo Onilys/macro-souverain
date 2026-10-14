@@ -8,18 +8,63 @@ import {
   useMaybePreviewPanel,
 } from './PreviewPanel';
 import { previewOwnsRoute } from './preview-panel-context';
-import type {
-  PreviewBlockTarget,
-  PreviewPanelSelection,
+import {
+  type PreviewBlockTarget,
+  type PreviewPanelSelection,
+  previewBlockTarget,
+  previewSelectionFromTarget,
 } from './previewTarget';
 
+vi.mock('@components/app/GlobalAppState', () => ({
+  useGlobalBlockOrchestrator: () => undefined,
+}));
+vi.mock('@app/features/next-soup/utils', () => ({
+  getChannelEntityTarget: () => undefined,
+  getDocumentCommentTarget: () => undefined,
+  calendarViewTargetForEntity: () => undefined,
+}));
+vi.mock('@app/features/drive-view/views/CanvasDetail', () => ({
+  CanvasDetail: () => null,
+}));
+vi.mock('@app/features/drive-view/views/CodeDetail', () => ({
+  CodeDetail: () => null,
+}));
+vi.mock('@app/features/drive-view/views/MarkdownDetail', () => ({
+  MarkdownDetail: () => null,
+}));
+vi.mock('@app/features/drive-view/views/PdfDetail', () => ({
+  PdfDetail: () => null,
+}));
+vi.mock('@app/features/drive-view/views/VideoDetail', () => ({
+  VideoDetail: () => null,
+}));
+vi.mock('@app/features/drive-view/views/UnknownDetail', () => ({
+  UnknownDetail: () => null,
+}));
+vi.mock('@channel/Channel/ChannelDetail', () => ({
+  ChannelDetail: () => null,
+  ChannelDetailTopBar: () => null,
+}));
 const mocks = vi.hoisted(() => ({
   mounts: vi.fn(),
   unmounts: vi.fn(),
   imageMounts: vi.fn(),
   imageUnmounts: vi.fn(),
+  featureMounts: vi.fn(),
+  featureUnmounts: vi.fn(),
+  videoEnabled: true,
+  prSummaryEnabled: true,
 }));
 
+vi.mock('@core/constant/featureFlags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@core/constant/featureFlags')>()),
+  get ENABLE_VIDEO_BLOCK() {
+    return mocks.videoEnabled;
+  },
+  get USE_MACRO_PR_SUMMARY_BLOCK() {
+    return mocks.prSummaryEnabled;
+  },
+}));
 vi.mock('@core/hotkey/hotkeys', () => ({
   useHotkeyDOMScope: () => [() => {}, 'preview-scope'],
 }));
@@ -78,17 +123,74 @@ vi.mock('./side-panel', () => ({
   SidePanel: { Root: (props: { children: unknown }) => props.children },
 }));
 
+function FeaturePreviewMock(props: { kind: string; id: string }) {
+  const preview = useMaybePreviewPanel();
+  const kind = props.kind;
+  const id = props.id;
+  onMount(() => mocks.featureMounts(kind, id));
+  onCleanup(() => mocks.featureUnmounts(kind, id));
+  return (
+    <div>
+      <span data-testid="feature">
+        {props.kind}:{props.id}
+      </span>
+      <span data-testid="feature-request">{preview?.navigationRequest()}</span>
+      <span data-testid="feature-scope">{useHotkeyScope()}</span>
+      <input aria-label="Feature draft" />
+    </div>
+  );
+}
+vi.mock('@block-pr/component/Block', () => ({
+  default: (props: { foreignEntityId: string }) => (
+    <FeaturePreviewMock kind="pr" id={props.foreignEntityId} />
+  ),
+}));
+vi.mock('@app/features/routines/routine-detail', () => ({
+  Routine: (props: { scheduleId: string }) => (
+    <FeaturePreviewMock kind="routine" id={props.scheduleId} />
+  ),
+}));
+vi.mock('@block-video/component/Block', () => ({
+  default: (props: { documentId: string }) => (
+    <FeaturePreviewMock kind="video" id={props.documentId} />
+  ),
+}));
+vi.mock('@block-unknown/component/Block', () => ({
+  default: (props: { documentId: string }) => (
+    <FeaturePreviewMock kind="unknown" id={props.documentId} />
+  ),
+}));
 afterEach(() => {
+  mocks.videoEnabled = true;
+  mocks.prSummaryEnabled = true;
   cleanup();
   vi.clearAllMocks();
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+it('does not infer a document host for unsupported direct preview types', () => {
+  expect(
+    previewSelectionFromTarget({
+      blockType: 'chat',
+      blockId: 'chat-id',
+      aliasContext: undefined,
+    })
+  ).toBeUndefined();
+  expect(
+    previewSelectionFromTarget({
+      blockType: 'spreadsheet',
+      blockId: 'sheet-id',
+      aliasContext: undefined,
+    })
+  ).toBeUndefined();
+});
+
 function setup(
   initial: PreviewBlockTarget,
   entity?: PreviewPanelSelection,
-  routeOwner?: PreviewPanelProps['routeOwner']
+  routeOwner?: PreviewPanelProps['routeOwner'],
+  withoutOrchestrator = false
 ) {
   const [target, setTarget] = createSignal(initial);
   const [selectedEntity, setSelectedEntity] = createSignal(entity);
@@ -125,7 +227,7 @@ function setup(
         selectedEntity={selectedEntity()}
         routeOwner={routeOwner}
         navigationRequest={navigationRequest()}
-        orchestrator={orchestrator}
+        orchestrator={withoutOrchestrator ? undefined : orchestrator}
         splitPanelContext={{} as PreviewPanelProps['splitPanelContext']}
         onFocusOut={onFocusOut}
       />
@@ -334,4 +436,117 @@ describe('direct image previews', () => {
       expect.any(Object)
     );
   });
+});
+
+describe('feature-owned previews', () => {
+  it('disposes the previous host when switching between direct and legacy features', async () => {
+    const target = {
+      blockType: 'pr' as const,
+      blockId: 'shared',
+      aliasContext: undefined,
+    };
+    const view = setup(target);
+    await flush();
+    const draft = await view.findByLabelText('Feature draft');
+
+    view.setTarget({ ...target, blockType: 'video' });
+    await flush();
+    expect((await view.findByTestId('feature')).textContent).toBe(
+      'video:shared'
+    );
+    expect(view.getByLabelText('Feature draft')).not.toBe(draft);
+    expect(mocks.featureUnmounts).toHaveBeenCalledWith('pr', 'shared');
+
+    view.setTarget(channel('shared'));
+    await flush();
+    expect(view.getByTestId('block').textContent).toBe('shared');
+    expect(mocks.featureUnmounts).toHaveBeenCalledWith('video', 'shared');
+    expect(view.createBlockInstance).toHaveBeenCalledTimes(1);
+
+    view.setTarget({ ...target, blockType: 'unknown' });
+    await flush();
+    expect((await view.findByTestId('feature')).textContent).toBe(
+      'unknown:shared'
+    );
+    expect(view.queryByTestId('block')).toBeNull();
+    expect(mocks.unmounts).toHaveBeenCalledOnce();
+    expect(view.createBlockInstance).toHaveBeenCalledTimes(1);
+  });
+  it('keeps the unknown-file fallback for PR previews when summaries are disabled', async () => {
+    mocks.prSummaryEnabled = false;
+    const selection: PreviewPanelSelection = {
+      type: 'foreign',
+      id: 'disabled-pr',
+      foreignSource: 'github_pull_request',
+    };
+    const view = setup(
+      previewBlockTarget(selection),
+      selection,
+      undefined,
+      true
+    );
+    expect((await view.findByTestId('feature')).textContent).toBe(
+      'unknown:disabled-pr'
+    );
+    expect(view.createBlockInstance).not.toHaveBeenCalled();
+  });
+  it('uses the unknown-file host when video playback is disabled', async () => {
+    mocks.videoEnabled = false;
+    const view = setup(
+      {
+        blockType: 'video',
+        blockId: 'disabled-video',
+        aliasContext: undefined,
+      },
+      undefined,
+      undefined,
+      true
+    );
+    await flush();
+    expect((await view.findByTestId('feature')).textContent).toBe(
+      'unknown:disabled-video'
+    );
+    expect(view.createBlockInstance).not.toHaveBeenCalled();
+  });
+  it.each(['routine', 'pr', 'video', 'unknown'] as const)(
+    'keeps %s drafts for repeated navigation and disposes the previous entity',
+    async (blockType) => {
+      const target: PreviewBlockTarget = {
+        blockType,
+        blockId: 'first',
+        aliasContext: undefined,
+      };
+      const view = setup(target, undefined, undefined, true);
+      await flush();
+      expect((await view.findByTestId('feature')).textContent).toBe(
+        `${blockType}:first`
+      );
+      expect(view.getByTestId('feature-scope').textContent).toBe(
+        'preview-scope'
+      );
+      const draft = view.getByLabelText('Feature draft') as HTMLInputElement;
+      fireEvent.input(draft, { target: { value: 'Keep my draft' } });
+
+      view.setTarget({ ...target });
+      view.requestNavigation();
+      await flush();
+      expect(view.getByLabelText('Feature draft')).toBe(draft);
+      expect(draft.value).toBe('Keep my draft');
+      expect(view.getByTestId('feature-request').textContent).toBe('1');
+      expect(mocks.featureMounts).toHaveBeenCalledTimes(1);
+      expect(mocks.featureUnmounts).not.toHaveBeenCalled();
+      expect(view.createBlockInstance).not.toHaveBeenCalled();
+
+      view.setTarget({ ...target, blockId: 'second' });
+      await flush();
+      expect((await view.findByTestId('feature')).textContent).toBe(
+        `${blockType}:second`
+      );
+      expect(view.getByLabelText('Feature draft')).not.toBe(draft);
+      expect(mocks.featureUnmounts).toHaveBeenCalledWith(blockType, 'first');
+      expect(mocks.featureMounts).toHaveBeenCalledTimes(2);
+      view.unmount();
+      expect(mocks.featureUnmounts).toHaveBeenCalledWith(blockType, 'second');
+    }
+  );
 });

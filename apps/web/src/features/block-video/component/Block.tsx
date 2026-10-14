@@ -1,39 +1,31 @@
+import { VideoDetail } from '@app/features/drive-view/views/VideoDetail';
 import { useBlockEntityCommands } from '@app/features/next-soup/actions';
-import { FileSidePanelSections, SidePanel } from '@components/app/side-panel';
-import { useBlockId } from '@core/block';
-import { DocumentBlockContainer } from '@core/component/DocumentBlockContainer';
+import { SidePanel } from '@components/app/side-panel';
 import { HotkeyScope, useHotkeyScopeOrCreate } from '@core/hotkey/HotkeyScope';
-import { blockData } from '../signal/blockData';
 import { TopBar } from './TopBar';
-import { VideoContent } from './VideoContent';
 
-export default function BlockVideo() {
-  const documentId = useBlockId();
+/** Standalone chrome around the same file detail used by Drive. */
+export default function BlockVideo(props: { documentId: string }) {
   const [attachHotkeyScope, hotkeyScope] = useHotkeyScopeOrCreate('video');
   useBlockEntityCommands({
-    id: () => documentId,
+    id: () => props.documentId,
     scopeId: () => hotkeyScope,
   });
   return (
     <HotkeyScope scope={hotkeyScope}>
-      <DocumentBlockContainer attachHotkeyScope={attachHotkeyScope}>
-        <div class="size-full select-none overscroll-none overflow-hidden flex flex-col relative">
-          <SidePanel.Layout defaultOpen={false} floating>
-            <FileSidePanelSections />
-            <div class="flex size-full min-w-0 flex-col overflow-hidden">
-              <div class="relative">
-                <TopBar permissionOptions={{ edit: false }} />
-              </div>
-              <div class="w-full grow relative overflow-hidden">
-                <VideoContent
-                  videoUrl={blockData()?.videoUrl}
-                  fileType={blockData()?.documentMetadata.fileType}
-                />
-              </div>
-            </div>
-          </SidePanel.Layout>
-        </div>
-      </DocumentBlockContainer>
+      <div ref={attachHotkeyScope} class="size-full">
+        <SidePanel.Root
+          defaultOpen={false}
+          persistKey={`video:${props.documentId}`}
+          floating
+        >
+          <VideoDetail documentId={props.documentId}>
+            {(context) => (
+              <TopBar documentId={props.documentId} context={context} />
+            )}
+          </VideoDetail>
+        </SidePanel.Root>
+      </div>
     </HotkeyScope>
   );
 }

@@ -15,7 +15,7 @@ import {
   settingsRoute,
 } from '@app/routes/routes';
 import type { BlockOrchestrator } from '@core/orchestrator';
-import { createRoot } from 'solid-js';
+import { createRoot, onCleanup } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSplitLayout, type SplitContent } from '../layoutManager';
 import { createMobilePaneStack } from '../mobile/createMobilePaneStack';
@@ -24,7 +24,7 @@ import {
   resolveContentLocation,
   splitContentFromLocation,
 } from '../split-router/legacy-route';
-import { routeFor } from './fixtures';
+import { createRoutedDetailLayout, routeFor } from './fixtures';
 
 vi.mock('../componentRegistry', () => ({
   resolveComponent: vi.fn((id: string, params: Record<string, string>) => ({
@@ -231,5 +231,57 @@ describe('stacked panes', () => {
       eventId: ['event'],
       occurrenceKey: ['occurrence'],
     });
+  });
+});
+
+it('creates legacy fallbacks on render and retains adopted identity after remounting', () => {
+  const orchestrator = {
+    createBlockInstance: vi.fn((type: string, id: string) => ({
+      type,
+      id,
+      element: () => null,
+    })),
+    rekeyBlockInstance: vi.fn(),
+  };
+  createRoot((disposeRoot) => {
+    dispose = disposeRoot;
+    const { manager } = createRoutedDetailLayout(
+      orchestrator as unknown as BlockOrchestrator,
+      '/md/placeholder'
+    );
+    const split = manager.splits()[0]!;
+    expect(orchestrator.createBlockInstance).not.toHaveBeenCalled();
+    let closeFallback = () => {};
+    onCleanup(() => closeFallback());
+    const renderFallback = () =>
+      createRoot((disposeFallback) => {
+        split.mount.element();
+        return disposeFallback;
+      });
+    closeFallback = renderFallback();
+    expect(orchestrator.createBlockInstance).toHaveBeenCalledOnce();
+    manager
+      .getSplit(split.id)!
+      .adoptContentId({ type: 'md', nextId: 'document' });
+    expect(manager.splits()[0]!.mount).toBe(split.mount);
+    expect(orchestrator.rekeyBlockInstance).toHaveBeenCalledExactlyOnceWith(
+      'md',
+      'placeholder',
+      'document'
+    );
+    closeFallback();
+    expect(
+      split.mount.kind === 'block' ? split.mount.handle : undefined
+    ).toBeUndefined();
+    closeFallback = renderFallback();
+    expect(orchestrator.createBlockInstance).toHaveBeenLastCalledWith(
+      'md',
+      'document',
+      {
+        aliasContext: undefined,
+        params: undefined,
+      }
+    );
+    expect(orchestrator.createBlockInstance).toHaveBeenCalledTimes(2);
   });
 });

@@ -48,7 +48,12 @@ function redirectLegacyRoutes(
 
   if (rootId === 'drive' && isTouch) {
     const { documentType, documentId } = routeParams(route);
-    if (typeof documentType === 'string' && typeof documentId === 'string') {
+    if (
+      typeof documentType === 'string' &&
+      typeof documentId === 'string' &&
+      documentType !== 'video' &&
+      documentType !== 'unknown'
+    ) {
       return redirect(
         `/${driveDocumentBlockType(documentType)}/${encodeURIComponent(documentId)}`
       );
@@ -84,6 +89,12 @@ function redirectLegacyRoutes(
     )
     .with({ type: 'component' }, ({ id }) =>
       routes.byId.has(`view-${id}`) ? `/${id}` : undefined
+    )
+    .with({ type: 'video' }, { type: 'unknown' }, (content) =>
+      drivePath(
+        { kind: 'tab', tab: 'owned' },
+        { type: content.type, id: content.id }
+      )
     )
     .when(
       () => isTouch,

@@ -140,3 +140,24 @@ export function previewCalendarTarget(
 ): CalendarViewTarget {
   return untrack(() => calendarViewTargetForEntity(entity));
 }
+
+/** Recover only the feature identities supported by direct previews and popovers. */
+export function previewSelectionFromTarget(
+  target: PreviewBlockTarget
+): PreviewPanelSelection | undefined {
+  if (target.blockType === 'routine')
+    return { type: 'routine', id: target.blockId };
+  if (target.blockType === 'pr')
+    return {
+      type: 'foreign',
+      id: target.blockId,
+      foreignSource: 'github_pull_request',
+    };
+  if (target.blockType === 'video' || target.blockType === 'unknown')
+    return {
+      type: 'document',
+      id: target.blockId,
+      fileType: target.blockType,
+      subType: undefined,
+    };
+}

@@ -10,11 +10,9 @@ import {
   createSignal,
   type JSX,
   lazy,
-  Match,
   on,
   Show,
   Suspense,
-  Switch,
 } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { ViewShell } from '../view-shell/ViewShell';
@@ -26,6 +24,7 @@ import type {
   PreviewBlockTarget,
   PreviewPanelSelection,
 } from './previewTarget';
+import { previewSelectionFromTarget } from './previewTarget';
 import { SidePanel } from './side-panel';
 import {
   createPriorityCollapseController,
@@ -35,6 +34,11 @@ import {
   SplitPanelContext,
   type SplitPanelContextType,
 } from './split-layout/context';
+
+const EntityDetail = lazy(async () => ({
+  default: (await import('@app/components/entity-detail/EntityDetail'))
+    .EntityDetail,
+}));
 
 const ImageBlock = lazy(async () => ({
   default: (await import('@app/features/block-image/ImageBlock')).ImageBlock,
@@ -195,7 +199,21 @@ function sameLocation(left: PreviewBlockTarget, right: PreviewBlockTarget) {
   );
 }
 
-function PreviewBlock(
+/** Equivalent targets preserve interaction state; explicit navigation resets focus. */
+function createPreviewNavigation(
+  props: PreviewPanelProps & { target: PreviewBlockTarget }
+) {
+  return createMemo(
+    () => ({ target: props.target, request: props.navigationRequest ?? 0 }),
+    undefined,
+    {
+      equals: (a, b) =>
+        a.request === b.request && sameLocation(a.target, b.target),
+    }
+  );
+}
+
+function LegacyPreviewContent(
   props: PreviewPanelProps & { target: PreviewBlockTarget }
 ) {
   const orchestrator = props.orchestrator;
@@ -217,19 +235,18 @@ function PreviewBlock(
     });
   });
 
-  // Fresh objects for the same block and params are not a navigation. Only a
-  // new block or a new location should drive the block or reset focus.
-  const location = createMemo(() => props.target, undefined, {
-    equals: sameLocation,
-  });
-  const navigation = createMemo(
-    () => ({ target: location(), request: props.navigationRequest ?? 0 }),
-    undefined,
-    {
-      equals: (a, b) =>
-        a.request === b.request && sameLocation(a.target, b.target),
-    }
+  return (
+    <Show when={blockInstance()}>
+      {(instance) => <Dynamic component={instance().element} />}
+    </Show>
   );
+}
+
+function PreviewBlock(
+  props: PreviewPanelProps & { target: PreviewBlockTarget }
+) {
+  const navigation = createPreviewNavigation(props);
+  const detailTarget = () => previewSelectionFromTarget(props.target);
 
   return (
     <PreviewFrame
@@ -246,8 +263,18 @@ function PreviewBlock(
         previewEntity={props.selectedEntity}
         onFocusOut={props.onFocusOut}
       >
-        <Show when={blockInstance()}>
-          {(instance) => <Dynamic component={instance().element} />}
+        <Show
+          when={detailTarget()}
+          fallback={<LegacyPreviewContent {...props} />}
+        >
+          {(target) => (
+            <Show
+              when={`${props.target.blockType}:${props.target.blockId}`}
+              keyed
+            >
+              {(_key) => <EntityDetail target={target()} />}
+            </Show>
+          )}
         </Show>
       </PreviewPanelContext>
     </PreviewFrame>
@@ -257,14 +284,7 @@ function PreviewBlock(
 function ImagePreview(
   props: PreviewPanelProps & { target: PreviewBlockTarget }
 ) {
-  const navigation = createMemo(
-    () => ({ target: props.target, request: props.navigationRequest ?? 0 }),
-    undefined,
-    {
-      equals: (a, b) =>
-        a.request === b.request && sameLocation(a.target, b.target),
-    }
-  );
+  const navigation = createPreviewNavigation(props);
 
   return (
     <PreviewFrame
@@ -315,14 +335,12 @@ export function PreviewPanel(props: PreviewPanelProps) {
     <div class="flex size-full min-h-0">
       <Show when={props.target}>
         {(target) => (
-          <Switch>
-            <Match when={target().blockType === 'image'}>
-              <ImagePreview {...props} target={target()} />
-            </Match>
-            <Match when={true}>
-              <PreviewBlock {...props} target={target()} />
-            </Match>
-          </Switch>
+          <Show
+            when={target().blockType === 'image'}
+            fallback={<PreviewBlock {...props} target={target()} />}
+          >
+            <ImagePreview {...props} target={target()} />
+          </Show>
         )}
       </Show>
     </div>

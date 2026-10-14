@@ -1,12 +1,14 @@
 import { openAgentsPage } from '@app/features/agents-view/primitives/open-page';
 import { openBulkEditModal } from '@app/features/entity/bulk-edit/BulkEditEntityModal';
+import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
-import { useBlockId } from '@core/block';
 import { DEFAULT_MODEL } from '@core/component/AI/constant';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
 import { writeClipboardData } from '@core/util/dataTransfer';
+import { useQueryClient } from '@queries/client';
+import { track } from '@queries/history/track-block-opened';
 import { onMount, Show } from 'solid-js';
 import { getErrorMessage } from './core/routine-draft';
 import {
@@ -19,18 +21,29 @@ import { RoutinePromptEditor } from './routine-prompt-editor';
 import { RoutineTriggers } from './routine-triggers';
 import { RoutineDetailView } from './views/routine-detail';
 
-export function Routine() {
-  const scheduleId = useBlockId();
+export function Routine(props: { scheduleId: string }) {
   const layout = useSplitLayout();
+  const analytics = useAnalytics();
+  const client = useQueryClient();
   onMount(() => {
-    if (scheduleId === 'new') {
+    track({
+      itemId: props.scheduleId,
+      blockName: 'routine',
+      client: () => client,
+    });
+    analytics.pageView('routine');
+    analytics.track('open_entity', {
+      entityType: 'routine',
+      entityId: props.scheduleId,
+    });
+    if (props.scheduleId === 'new') {
       layout.popoverSplit({ type: 'component', id: 'routine-compose' });
       openAgentsPage(layout, 'routines');
     }
   });
   return (
-    <Show when={scheduleId !== 'new'}>
-      <RoutineDetail scheduleId={scheduleId} />
+    <Show when={props.scheduleId !== 'new'}>
+      <RoutineDetail scheduleId={props.scheduleId} />
     </Show>
   );
 }

@@ -70,7 +70,11 @@ vi.mock('./queries/routines', () => ({
 vi.mock('./routine-triggers', () => ({
   RoutineTriggers: () => <div>Triggers</div>,
 }));
-vi.mock('@core/block', () => ({ useBlockId: () => 'routine-id' }));
+vi.mock('@app/lib/analytics/analytics-context', () => ({
+  useAnalytics: () => ({ pageView: vi.fn(), track: vi.fn() }),
+}));
+vi.mock('@queries/client', () => ({ useQueryClient: () => ({}) }));
+vi.mock('@queries/history/track-block-opened', () => ({ track: vi.fn() }));
 vi.mock('@core/component/AI/constant', () => ({
   DEFAULT_MODEL: 'claude-sonnet-4-6',
 }));
@@ -354,7 +358,7 @@ function deferredSave(): {
 
 describe('routine execution target autosave', () => {
   it('copies the current prompt, including unsaved edits, from the run menu', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changePrompt('Use my latest instructions');
     openRunOptions();
     fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Copy prompt' }), {
@@ -371,7 +375,7 @@ describe('routine execution target autosave', () => {
 
   it('reports when the prompt could not be copied', async () => {
     mocks.writeClipboardData.mockResolvedValueOnce(false);
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     openRunOptions();
     fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Copy prompt' }), {
       key: 'Enter',
@@ -393,7 +397,7 @@ describe('routine execution target autosave', () => {
       },
     };
     setSchedules([saved]);
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(selectedTarget()).toEqual(agentTarget);
     openActions();
     fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Duplicate' }), {
@@ -407,7 +411,7 @@ describe('routine execution target autosave', () => {
   it('disables immediate Run now until the latest target has saved', async () => {
     const save = deferredSave();
     mocks.update.mockReturnValueOnce(save.promise);
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changeTarget({ kind: 'model', model: 'first-choice' });
     mocks.changeTarget(agentTarget);
     expect(runButton().disabled).toBe(true);
@@ -438,7 +442,7 @@ describe('routine execution target autosave', () => {
     mocks.update
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(last.promise);
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changeTarget(agentTarget);
     await vi.advanceTimersByTimeAsync(300);
     mocks.changeTarget({ kind: 'model', model: 'intermediate' });
@@ -473,7 +477,7 @@ describe('routine execution target autosave', () => {
 
   it('keeps a failed target visibly unsaved and blocks Run now until retry succeeds', async () => {
     mocks.update.mockRejectedValueOnce(new Error('Agent unavailable'));
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changeTarget(agentTarget);
     await vi.advanceTimersByTimeAsync(300);
     expect(selectedTarget()).toEqual(agentTarget);
@@ -490,7 +494,7 @@ describe('routine execution target autosave', () => {
   });
 
   it('invalid edits cancel a queued valid save and keep Run now disabled', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changeTarget(agentTarget);
     mocks.changePrompt('');
     await vi.advanceTimersByTimeAsync(300);
@@ -499,7 +503,7 @@ describe('routine execution target autosave', () => {
   });
 
   it('pauses a routine with an invalid draft without saving the draft', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changePrompt('');
     expect(screen.getByText('Instructions are required.')).toBeTruthy();
     fireEvent.keyDown(activationItem(), { key: 'Enter' });
@@ -512,7 +516,7 @@ describe('routine execution target autosave', () => {
   });
 
   it('keeps a queued target through a cached-data refetch error', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changeTarget(agentTarget);
     setStatus('error');
     expect(selectedTarget()).toEqual(agentTarget);
@@ -531,7 +535,7 @@ describe('routine execution target autosave', () => {
     vi.setSystemTime(new Date('2026-09-28T12:00:00Z'));
     const claimed = '2026-09-28T11:55:00Z';
     setSchedules([{ ...cron, claimed }]);
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(
       screen.getByText(/Configuration cannot be changed while running/)
     ).toBeTruthy();
@@ -548,7 +552,7 @@ describe('routine execution target autosave', () => {
   });
 
   it('shows a paused routine and still runs it on demand', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(activationItem().textContent).toContain('Disable routine');
     expect(screen.getByText(/Next run/)).toBeTruthy();
     setSchedules([{ ...cron, enabled: false }]);
@@ -563,7 +567,7 @@ describe('routine execution target autosave', () => {
   });
 
   it('disables activation while a request is pending', () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(activationItem().getAttribute('aria-disabled')).not.toBe('true');
     setActivationPending(true);
     expect(activationItem().getAttribute('aria-disabled')).toBe('true');
@@ -574,7 +578,7 @@ describe('routine execution target autosave', () => {
     async () => {
       const first = deferredSave();
       mocks.update.mockReturnValueOnce(first.promise);
-      const { unmount } = render(() => <Routine />);
+      const { unmount } = render(() => <Routine scheduleId="routine-id" />);
       mocks.changeTarget(agentTarget);
       await vi.advanceTimersByTimeAsync(300);
       mocks.changeTarget({ kind: 'model', model: 'queued' });
@@ -603,7 +607,7 @@ describe('routine history integration', () => {
 
   it('keeps mixed history navigation stable while switching model to agent and back', async () => {
     mixedHistory();
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     for (const target of [
       agentTarget,
       { kind: 'model', model: 'new-model' } satisfies RoutineTarget,
@@ -644,7 +648,7 @@ describe('routine history integration', () => {
       mocks.agentMetadata = () => {
         throw new Error('Unsafe agent data read');
       };
-      render(() => <Routine />);
+      render(() => <Routine scheduleId="routine-id" />);
       expect(
         screen.getByRole('textbox', { name: 'Instructions' })
       ).toBeTruthy();
@@ -662,7 +666,7 @@ describe('routine history integration', () => {
     mixedHistory();
     mocks.chatMetadata = () => ({});
     mocks.agentMetadata = () => undefined;
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     fireEvent.click(screen.getByRole('tab', { name: 'Run History' }));
     const unavailable = screen.getAllByText('Run unavailable');
     expect(unavailable).toHaveLength(2);
@@ -673,7 +677,7 @@ describe('routine history integration', () => {
 
 describe('routine editor triggers', () => {
   it('refreshes clean settings when a cached cron is replaced by an event configuration', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     setSchedules([{ ...events, configuration_revision: 2 }]);
     mocks.changePrompt('Keep the newer events');
     await vi.advanceTimersByTimeAsync(300);
@@ -684,7 +688,7 @@ describe('routine editor triggers', () => {
   });
 
   it('does not overwrite a newer remote trigger while a local edit is queued', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     mocks.changePrompt('Unsaved local instructions');
     setSchedules([{ ...events, configuration_revision: 2 }]);
     await vi.advanceTimersByTimeAsync(300);
@@ -703,7 +707,7 @@ describe('routine editor triggers', () => {
   });
 
   it('supports keyboard switching between settings and run history', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     const settings = screen.getByRole('tab', { name: 'Overview' });
     settings.focus();
     fireEvent.keyDown(settings, { key: 'ArrowRight' });
@@ -719,7 +723,7 @@ describe('routine editor triggers', () => {
   it('edits an event routine and retains its filters through autosave and refetch errors', async () => {
     setSchedules([events]);
     setStatus('error');
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     const editor = screen.getByRole('textbox', { name: 'Instructions' });
     fireEvent.input(editor, { target: { value: 'New event instructions' } });
     await vi.advanceTimersByTimeAsync(300);
@@ -736,7 +740,7 @@ describe('routine editor triggers', () => {
     expect(screen.getByText('Run transcript')).toBeTruthy();
   });
   it('retains cron editing, duplication, run-now, and history navigation', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     fireEvent.input(screen.getByRole('textbox', { name: 'Instructions' }), {
       target: { value: 'New instructions' },
     });
@@ -779,7 +783,7 @@ describe('routine editor triggers', () => {
   });
 
   it('cancels pending saves when the editor unmounts', async () => {
-    const { unmount } = render(() => <Routine />);
+    const { unmount } = render(() => <Routine scheduleId="routine-id" />);
     mocks.changePrompt('Unsaved');
     unmount();
     await vi.advanceTimersByTimeAsync(500);
@@ -791,21 +795,21 @@ describe('routine editor triggers', () => {
     mocks.readSchedules = () => {
       throw new Error('Pending data read');
     };
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(screen.getByText('Loading…')).toBeTruthy();
   });
 
   it('renders a load error rather than spinning forever', () => {
     setStatus('error');
     setSchedules([]);
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(
       screen.getByText('Unable to load routine. Please try again.')
     ).toBeTruthy();
   });
 
   it('preserves the cron editor and queued save after a background refetch error', async () => {
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     const editor = screen.getByRole('textbox', { name: 'Instructions' });
     fireEvent.input(editor, { target: { value: 'Queued during refetch' } });
     setStatus('error');
@@ -823,13 +827,13 @@ describe('routine editor triggers', () => {
 
   it('initializes the editor from cached data even when mounted after a refetch error', () => {
     setStatus('error');
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(screen.getByRole('textbox', { name: 'Instructions' })).toBeTruthy();
   });
 
   it('distinguishes a missing action from a backend-managed event', () => {
     setSchedules([]);
-    render(() => <Routine />);
+    render(() => <Routine scheduleId="routine-id" />);
     expect(screen.getByText('Routine not found.')).toBeTruthy();
   });
 });

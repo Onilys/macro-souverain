@@ -1,11 +1,13 @@
 import { SoupContextProvider } from '@app/features/next-soup/soup-context';
+import { resolveBlockAlias } from '@app/lib/constants/file-metadata';
 import { ContentLoading } from '@components/app/ContentLoading';
 import { MobileDrawer } from '@components/app/mobile/MobileDrawer';
+import { previewSelectionFromTarget } from '@components/app/previewTarget';
 import { HotkeyScope } from '@core/hotkey/HotkeyScope';
 import { registerHotkey, useHotkeyDOMScope } from '@core/hotkey/hotkeys';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { Dialog, Panel } from '@ui';
-import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
+import { createMemo, createSignal, For, lazy, Show, Suspense } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
   type SplitFileMenuActionGroups,
@@ -21,6 +23,11 @@ import type {
 } from '../layoutManager';
 import { createOwnedSlots } from '../utils/createOwnedSlots';
 import { focusPopoverInput } from '../utils/focusPopoverInput';
+
+const EntityDetail = lazy(async () => ({
+  default: (await import('@app/components/entity-detail/EntityDetail'))
+    .EntityDetail,
+}));
 
 false;
 
@@ -57,6 +64,15 @@ function PopoverSplitModal(props: {
   popover: PopoverSplitData;
   onClose: () => void;
 }) {
+  const detailTarget = () => {
+    const content = props.popover.content;
+    if (content.type === 'component') return;
+    return previewSelectionFromTarget({
+      blockType: resolveBlockAlias(content.type),
+      blockId: content.id,
+      aliasContext: content.aliasContext,
+    });
+  };
   const [panelRef, setPanelRef] = createSignal<HTMLElement | null>(null);
   const [displayName, setDisplayName] = createSignal(props.popover.content.id);
   const [contentOffsetTop, setContentOffsetTop] = createSignal(0);
@@ -164,7 +180,12 @@ function PopoverSplitModal(props: {
           <Show when={props.popover.mount}>
             <Panel.Body>
               <Suspense fallback={<ContentLoading />}>
-                <Dynamic component={props.popover.mount.element} />
+                <Show
+                  when={detailTarget()}
+                  fallback={<Dynamic component={props.popover.mount.element} />}
+                >
+                  {(target) => <EntityDetail target={target()} />}
+                </Show>
               </Suspense>
             </Panel.Body>
           </Show>

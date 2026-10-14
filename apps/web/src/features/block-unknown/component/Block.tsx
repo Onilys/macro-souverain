@@ -1,95 +1,51 @@
-import { FileSidePanelSections, SidePanel } from '@components/app/side-panel';
-import { useBlockId } from '@core/block';
-import { DocumentBlockContainer } from '@core/component/DocumentBlockContainer';
-import { toast } from '@core/component/Toast/Toast';
+import type { UnknownDetailContext } from '@app/features/drive-view/views/UnknownDetail';
+import { UnknownDetail } from '@app/features/drive-view/views/UnknownDetail';
+import { useBlockEntityCommands } from '@app/features/next-soup/actions';
+import { SidePanel } from '@components/app/side-panel';
+import { getPermissions } from '@core/component/SharePermissions';
 import { useShareModal } from '@core/component/TopBar/shareModal';
 import { HotkeyScope, useHotkeyScopeOrCreate } from '@core/hotkey/HotkeyScope';
-import { blockMetadataSignal } from '@core/signal/load';
-import { useGetPermissions } from '@core/signal/permissions';
-import {
-  useBlockDocumentDownloadName,
-  useBlockDocumentName,
-} from '@core/util/currentBlockDocumentName';
-import { downloadFile } from '@filesystem/download';
-import { createCallback } from '@solid-primitives/rootless';
-import { lazy, Show, Suspense } from 'solid-js';
-import { SpreadsheetSkeleton } from '../../block-spreadsheet/components/SpreadsheetSkeleton';
-import { isUploadedWorkbook } from '../../block-spreadsheet/core/uploaded-workbook';
-import { useSpreadsheetAccess } from '../../block-spreadsheet/primitives/use-spreadsheet-access';
-import { useGetFileBlob } from '../signal/blockData';
 import { TopBar } from './TopBar';
-import { UnknownContent } from './UnknownContent';
 
-const UploadedWorkbook = lazy(
-  () => import('../../block-spreadsheet/views/UploadedWorkbook')
-);
-
-export default function BlockUnknown() {
-  const [attachHotkeyScope, hotkeyScope] = useHotkeyScopeOrCreate('unknown');
+function UnknownHeader(props: {
+  documentId: string;
+  context: UnknownDetailContext;
+}) {
+  const openShare = useShareModal(() => ({
+    id: props.documentId,
+    blockAlias: 'unknown',
+    itemType: 'document',
+    name: props.context.documentMetadata.documentName,
+    userPermissions: getPermissions(props.context.userAccessLevel),
+    owner: props.context.documentMetadata.owner,
+  }));
   return (
-    <HotkeyScope scope={hotkeyScope}>
-      <DocumentBlockContainer attachHotkeyScope={attachHotkeyScope}>
-        <div class="size-full select-none overscroll-none overflow-hidden flex flex-col relative">
-          <BlockUnknownContent />
-        </div>
-      </DocumentBlockContainer>
-    </HotkeyScope>
+    <TopBar
+      documentId={props.documentId}
+      context={props.context}
+      onShare={openShare}
+    />
   );
 }
 
-function BlockUnknownContent() {
-  const enabled = useSpreadsheetAccess();
-  const spreadsheet = () =>
-    enabled() && isUploadedWorkbook(blockMetadataSignal.get()?.fileType);
-  const fileName = useBlockDocumentName();
-  const downloadName = useBlockDocumentDownloadName();
-  const blockId = useBlockId();
-  const permissions = useGetPermissions();
-  const openShare = useShareModal(() => ({
-    id: blockId,
-    blockAlias: 'unknown',
-    permissionOptions: { edit: false },
-    itemType: 'document',
-    name: fileName() ?? '',
-    userPermissions: permissions(),
-    owner: blockMetadataSignal()?.owner,
-  }));
-  const getBlob = useGetFileBlob();
-
-  const downloadDocument = createCallback(async () => {
-    try {
-      const blob = await getBlob();
-      downloadFile(blob, downloadName());
-    } catch (error) {
-      console.error('error downloading file', error);
-      toast.failure('Error downloading file');
-    }
+/** Standalone chrome around the same file detail used by Drive. */
+export default function BlockUnknown(props: { documentId: string }) {
+  const [attachHotkeyScope, hotkeyScope] = useHotkeyScopeOrCreate('unknown');
+  useBlockEntityCommands({
+    id: () => props.documentId,
+    scopeId: () => hotkeyScope,
   });
-
   return (
-    <SidePanel.Layout defaultOpen={!spreadsheet()} floating>
-      <FileSidePanelSections />
-      <div class="flex size-full min-w-0 flex-col overflow-hidden">
-        <div class="relative">
-          <TopBar onShare={openShare} permissionOptions={{ edit: false }} />
-        </div>
-        <div class="w-full grow relative overflow-hidden">
-          <Show
-            when={spreadsheet()}
-            fallback={
-              <UnknownContent
-                fileName={fileName()}
-                onShare={openShare}
-                onDownload={() => void downloadDocument()}
-              />
-            }
-          >
-            <Suspense fallback={<SpreadsheetSkeleton />}>
-              <UploadedWorkbook />
-            </Suspense>
-          </Show>
-        </div>
+    <HotkeyScope scope={hotkeyScope}>
+      <div ref={attachHotkeyScope} class="size-full">
+        <SidePanel.Root floating persistKey={`unknown:${props.documentId}`}>
+          <UnknownDetail documentId={props.documentId}>
+            {(context) => (
+              <UnknownHeader documentId={props.documentId} context={context} />
+            )}
+          </UnknownDetail>
+        </SidePanel.Root>
       </div>
-    </SidePanel.Layout>
+    </HotkeyScope>
   );
 }

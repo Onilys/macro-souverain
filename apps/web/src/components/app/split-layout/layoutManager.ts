@@ -142,7 +142,7 @@ type BlockMount = {
   kind: 'block';
   type: string;
   id: string;
-  handle: BlockInstanceHandle;
+  handle?: BlockInstanceHandle;
   element: ElementFn;
   aliasContext?: BlockAliasContext;
 };
@@ -555,19 +555,29 @@ function createPinnedMount(
     };
   }
   const blockType = resolveBlockAlias(content.type);
-  const handle = orchestrator.createBlockInstance(blockType, content.id, {
-    aliasContext: content.aliasContext,
-    params: content.params,
-  });
-
-  return {
+  let handle: BlockInstanceHandle | undefined;
+  const mount: BlockMount = {
     kind: 'block',
     type: content.type,
     id: content.id,
-    handle,
-    element: handle.element,
     aliasContext: content.aliasContext,
+    get handle() {
+      return handle;
+    },
+    element: () => {
+      // Registered route components never render this legacy fallback.
+      const instance = orchestrator.createBlockInstance(blockType, mount.id, {
+        aliasContext: mount.aliasContext,
+        params: mount.id === content.id ? content.params : undefined,
+      });
+      handle = instance;
+      onCleanup(() => {
+        if (handle === instance) handle = undefined;
+      });
+      return createComponent(instance.element, {});
+    },
   };
+  return mount;
 }
 
 function contentIdentity(content: SplitContent) {
@@ -988,7 +998,17 @@ export function createSplitLayout(
 
     const current = split.content;
     if (current.type !== type || current.id === nextId) return;
-    const next: SplitContent = { ...current, id: nextId, params: undefined };
+    if (split.mount.kind === 'block' && !split.mount.handle) {
+      throw new Error(
+        `Content "${current.type}" does not support identity adoption`
+      );
+    }
+    const next: SplitContent = {
+      ...current,
+      id: nextId,
+      params: undefined,
+      entryMetadata: undefined,
+    };
     if (!canOpenContent(next, id)) {
       openWithSplit(next);
       return;
@@ -1006,21 +1026,21 @@ export function createSplitLayout(
     const current = split.content;
 
     batch(() => {
-      setState('splits', (splits) => {
-        const index = splits.findIndex((s) => s.id === split.id);
-        if (index < 0) return splits;
-        const previous = splits[index];
-        return splits.with(index, {
-          ...previous,
-          content: next,
-          mount:
-            previous.mount.kind === 'block'
-              ? { ...previous.mount, id: next.id }
-              : previous.mount,
-          lastNavigationCause: 'replace',
-        });
-      });
-      if (current.type !== 'component') {
+      setState(
+        'splits',
+        produce((splits) => {
+          const previous = splits.find((entry) => entry.id === split.id);
+          if (!previous) return;
+          previous.content = next;
+          if (previous.mount.kind === 'block') previous.mount.id = next.id;
+          previous.lastNavigationCause = 'replace';
+        })
+      );
+      if (
+        current.type !== 'component' &&
+        split.mount.kind === 'block' &&
+        split.mount.handle
+      ) {
         orchestrator.rekeyBlockInstance(
           resolveBlockAlias(current.type),
           current.id,
@@ -1610,10 +1630,13 @@ export function createSplitLayout(
     }
     const existing = findOpenView(content);
 
-    if (options.reopen === 'latest') {
-      // Fire-and-forget so it covers every open path (fresh mount or
-      // duplicate activation). The block-handle proxy waits for the block
-      // and method to register before invoking.
+    if (
+      options.reopen === 'latest' &&
+      content.type !== 'component' &&
+      orchestrator.isBlockMounted(resolveBlockAlias(content.type), content.id)
+    ) {
+      // Fresh fallbacks initialize from their entry; only mounted legacy views
+      // need an imperative reset. The proxy still waits for method registration.
       void orchestrator
         .getBlockHandle(content.id)
         .then((handle) => handle?.goToLatest())

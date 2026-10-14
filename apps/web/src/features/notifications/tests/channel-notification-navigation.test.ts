@@ -248,9 +248,8 @@ it.each(['split', 'closed'] as const)(
     );
     await router.settled();
 
-    if (location === 'split')
-      expect(createBlockInstance).toHaveBeenCalledOnce();
-    else expect(createBlockInstance).not.toHaveBeenCalled();
+    // Legacy instances initialize when their outlet fallback renders, not on navigation.
+    expect(createBlockInstance).not.toHaveBeenCalled();
     if (location === 'split') expect(layout.activeSplitId()).toBe(first.id);
     expect(toast.alert).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();

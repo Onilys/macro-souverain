@@ -128,6 +128,14 @@ function legacyLocation(type: string, id: string): SplitLocation | undefined {
     return { route: paneRoute({ id: 'drive', params: {} }) };
   }
 
+  if (type === 'video' || type === 'unknown') {
+    return {
+      route: paneRoute(
+        { id: 'drive', params: {} },
+        { id: 'drive-document', params: { documentType: type, documentId: id } }
+      ),
+    };
+  }
   if (!decodeLegacyPair(type, id)) return;
 
   return { route: paneRoute({ id: 'legacy-content', params: { type, id } }) };
@@ -280,6 +288,17 @@ export function splitLocationFromContent(
     };
   }
 
+  if (content.type === 'video' || content.type === 'unknown') {
+    return {
+      route: paneRoute(
+        { id: 'drive', params: {} },
+        {
+          id: 'drive-document',
+          params: { documentType: content.type, documentId: content.id },
+        }
+      ),
+    };
+  }
   if (content.type === 'pr') {
     return {
       route: paneRoute({

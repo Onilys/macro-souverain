@@ -1,8 +1,12 @@
 import { FileDetailLayout } from '@app/components/entity-detail/FileEntityDetail';
 import type { FileDetailContext } from '@app/components/entity-detail/file-detail-context';
 import { downloadFileOperation } from '@app/components/entity-detail/file-detail-operations';
+import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { VideoContent } from '@block-video/component/VideoContent';
+import { useQueryClient } from '@queries/client';
+import { track } from '@queries/history/track-block-opened';
 import type { JSX } from 'solid-js';
+import { onMount } from 'solid-js';
 import { FileDetailLoadGate } from '../components/FileDetail';
 import { getFileDocumentBlob } from '../queries/file-document';
 import {
@@ -60,6 +64,20 @@ export function VideoDetail(props: {
   documentId: string;
   children?: (context: VideoDetailContext) => JSX.Element;
 }) {
+  const analytics = useAnalytics();
+  const client = useQueryClient();
+  onMount(() => {
+    track({
+      itemId: props.documentId,
+      blockName: 'video',
+      client: () => client,
+    });
+    analytics.pageView('video');
+    analytics.track('open_entity', {
+      entityType: 'video',
+      entityId: props.documentId,
+    });
+  });
   return (
     <FileDetailLoadGate
       documentId={props.documentId}
