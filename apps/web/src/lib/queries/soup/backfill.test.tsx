@@ -789,6 +789,44 @@ describe('runSoupBackfills', () => {
     }
   });
 
+  it('fails a page that never settles so the owner retries its lane', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    let stalledSignal: AbortSignal | undefined;
+    graphqlMocks.hydrateGraphqlSoup
+      .mockImplementationOnce(
+        (_document, _variables, options: { signal: AbortSignal }) => {
+          stalledSignal = options.signal;
+          return new Promise(() => {});
+        }
+      )
+      .mockResolvedValue({ nextCursor: null });
+
+    const rendered = render(() => <BackfillRunner userId="user-1" />);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(graphqlMocks.hydrateGraphqlSoup).toHaveBeenCalledOnce();
+
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(graphqlMocks.hydrateGraphqlSoup).toHaveBeenCalledOnce();
+
+      // The stalled Core page times out; later lanes still run.
+      await vi.advanceTimersByTimeAsync(1);
+      expect(stalledSignal?.aborted).toBe(true);
+      await vi.waitFor(() =>
+        expect(
+          loadSoupBackfillCheckpoint('user-1', 'auxiliary-entities').completed
+        ).toBe(true)
+      );
+      expect(loadSoupBackfillCheckpoint('user-1').completed).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(loadSoupBackfillCheckpoint('user-1').completed).toBe(true);
+    } finally {
+      rendered.unmount();
+    }
+  });
+
   it('resumes a failed backfill as soon as the app returns to the foreground', async () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);

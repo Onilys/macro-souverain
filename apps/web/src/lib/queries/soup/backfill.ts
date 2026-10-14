@@ -35,6 +35,9 @@ const PAGE_LIMIT = 100;
 // Five threads × twenty messages reaches the backend's 100-message cap.
 const EMAIL_CONTENT_PAGE_LIMIT = 5;
 const PAGE_DELAY_MS = 2_000;
+// Backfill pages are exempt from the foreground read deadline. A page that
+// never settles must still fail its lane so the backfill owner retries it.
+const PAGE_TIMEOUT = '60 seconds';
 const CACHE_HOST_RETRY_COUNT = 6;
 const CACHE_HOST_RETRY_SCHEDULE = Schedule.exponential('100 millis');
 const BACKFILL_PROGRESS_PAGE_INTERVAL = 10;
@@ -524,9 +527,10 @@ export const runSoupBackfill = Effect.fn('runSoupBackfill')(function* (
       : { initial: passInput };
     // Hydration returns only the cursor projection. Cache-only entity
     // payloads are persisted without being materialized back into this page.
+    // Timing out interrupts the fetch, which aborts its signal.
     const page = yield* Effect.tryPromise((signal) =>
       fetchPage(input, { signal })
-    );
+    ).pipe(Effect.timeout(PAGE_TIMEOUT));
     const afterFetchGeneration = yield* Effect.tryPromise(() =>
       host.currentStorageGeneration()
     );
