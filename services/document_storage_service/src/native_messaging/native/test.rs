@@ -237,9 +237,10 @@ async fn workflow(pool: PgPool, provider: Provider) {
         .unwrap();
     let pending = repo.accepted_sends().await.unwrap();
     assert_eq!(pending.len(), 1);
+    let scope = (&c).into();
     let (a, b) = tokio::join!(
-        native.sent(&pending[0].0, &conversation, &c, &provider_id),
-        native.sent(&pending[0].0, &conversation, &c, &provider_id)
+        native.sent(&pending[0].0, &conversation, &scope, &provider_id),
+        native.sent(&pending[0].0, &conversation, &scope, &provider_id)
     );
     a.unwrap();
     b.unwrap();
@@ -678,7 +679,7 @@ async fn create_local_browser_fixture() {
                 .sent(
                     &work,
                     &repo.conversation(channel).await.unwrap().unwrap(),
-                    &c,
+                    &(&c).into(),
                     &sent,
                 )
                 .await

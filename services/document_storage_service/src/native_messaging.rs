@@ -11,9 +11,9 @@ use crate::api::context::{
 use messages::outbound::connection_gateway::ConnectionGatewayMessages;
 use meta_messaging::{
     domain::{
+        meta::MetaService,
         models::{DeliveryState, MessagingError},
         ports::*,
-        service::MessagingService,
     },
     inbound::{router::MessagingRouterState, webhook},
     outbound::{repository::PgMessagingRepository, storage::KmsCredentialCipher},
@@ -76,7 +76,7 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         ),
         notifications: (*notifications).clone(),
     });
-    let service = Arc::new(MessagingService::new(
+    let service = Arc::new(MetaService::new(
         Arc::new(PgMessagingRepository::new(pool.clone())),
         Arc::new(settings.provider),
         cipher,
@@ -120,7 +120,7 @@ impl CredentialCipher for UnconfiguredCipher {
     }
 }
 
-fn spawn(service: Arc<MessagingService>) {
+fn spawn(service: Arc<MetaService>) {
     let history = service.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
@@ -196,7 +196,7 @@ fn spawn(service: Arc<MessagingService>) {
             }
         }
     });
-    let sends = service.clone();
+    let sends = service.messaging.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -228,7 +228,7 @@ fn spawn(service: Arc<MessagingService>) {
             }
         }
     });
-    let recovery = service.clone();
+    let recovery = service.messaging.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);

@@ -319,6 +319,10 @@ pub struct SendProgress {
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "schema", schema(as = MetaConversationView))]
 pub struct ConversationView {
+    /// Implemented send operations and content limits.
+    pub capabilities: super::replies::ReplyCapabilities,
+    /// Current account, user and provider eligibility, evaluated by the server.
+    pub eligibility: super::replies::ReplyEligibility,
     /// Current caller may deliberately reply through this account and channel.
     pub can_reply: bool,
     /// Maximum text units, counted by the provider's rule below.

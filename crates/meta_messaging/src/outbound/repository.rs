@@ -312,10 +312,6 @@ impl MessagingRepository for PgMessagingRepository {
         self.record_status_impl(connection, message, state, at, error)
             .await
     }
-    async fn conversation(&self, channel: Uuid) -> PortResult<Option<Conversation>> {
-        sqlx::query!("SELECT to_jsonb(c) AS \"data!\" FROM meta_messaging_conversation c WHERE channel_id = $1",channel)
-            .fetch_optional(&self.pool).await.map_err(failure)?.map(|r| decode(r.data)).transpose()
-    }
     async fn customer_profile(
         &self,
         connection: Uuid,
@@ -323,15 +319,29 @@ impl MessagingRepository for PgMessagingRepository {
     ) -> PortResult<Option<CustomerProfile>> {
         Ok(sqlx::query!("SELECT customer_display_name,customer_handle FROM meta_messaging_conversation WHERE connection_id=$1 AND customer_id=$2",connection,customer.as_str()).fetch_optional(&self.pool).await.map_err(failure)?.map(|r|CustomerProfile{name:r.customer_display_name,handle:r.customer_handle}))
     }
+    async fn media_stored(&self, connection: Uuid, message: &ProviderId) -> PortResult<bool> {
+        Ok(sqlx::query_scalar!("SELECT media_state='stored' AS \"stored!\" FROM meta_messaging_message WHERE connection_id=$1 AND provider_message_id=$2",connection,message.as_str()).fetch_optional(&self.pool).await.map_err(failure)?.unwrap_or(false))
+    }
+}
+
+#[async_trait]
+impl ConversationRepository for PgMessagingRepository {
+    async fn account_scope(
+        &self,
+        id: Uuid,
+    ) -> PortResult<Option<crate::domain::replies::AccountScope>> {
+        Ok(self.connection(id).await?.as_ref().map(Into::into))
+    }
+    async fn conversation(&self, channel: Uuid) -> PortResult<Option<Conversation>> {
+        sqlx::query!("SELECT to_jsonb(c) AS \"data!\" FROM meta_messaging_conversation c WHERE channel_id = $1",channel)
+            .fetch_optional(&self.pool).await.map_err(failure)?.map(|r| decode(r.data)).transpose()
+    }
     async fn has_message(
         &self,
         conversation: &Conversation,
         message: &ProviderId,
     ) -> PortResult<bool> {
         sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_message WHERE connection_id=$1 AND customer_id=$2 AND provider_message_id=$3) AS \"exists!\"",conversation.connection_id,conversation.customer_id.as_str(),message.as_str()).fetch_one(&self.pool).await.map_err(failure)
-    }
-    async fn media_stored(&self, connection: Uuid, message: &ProviderId) -> PortResult<bool> {
-        Ok(sqlx::query_scalar!("SELECT media_state='stored' AS \"stored!\" FROM meta_messaging_message WHERE connection_id=$1 AND provider_message_id=$2",connection,message.as_str()).fetch_optional(&self.pool).await.map_err(failure)?.unwrap_or(false))
     }
     async fn enqueue_send(
         &self,
@@ -370,13 +380,13 @@ impl MessagingRepository for PgMessagingRepository {
     async fn prepare_send(
         &self,
         lease: &Lease,
-        c: &Connection,
+        c: &crate::domain::replies::AccountScope,
         rendered_text: &str,
     ) -> PortResult<()> {
         let mut tx = self.pool.begin().await.map_err(failure)?;
         // Share the connection row lock with lifecycle changes. This commit is
         // the dispatch boundary, so a prior disconnect/reconnect wins atomically.
-        let active = sqlx::query_scalar!("SELECT id FROM meta_messaging_connection WHERE id=$1 AND team_id=$2 AND connected_at=$3 AND status='connected' FOR UPDATE",c.id,c.team_id,c.connected_at)
+        let active = sqlx::query_scalar!("SELECT id FROM meta_messaging_connection WHERE id=$1 AND team_id=$2 AND connected_at=$3 AND status='connected' FOR UPDATE",c.id,c.team_id,c.generation)
             .fetch_optional(&mut *tx).await.map_err(failure)?;
         if active.is_none() {
             return Err(MessagingError::Disconnected.into());

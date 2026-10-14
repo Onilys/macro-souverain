@@ -388,7 +388,11 @@ async fn send_dispatch_fences_lifecycle_changes_and_keeps_inflight_acceptance(po
     let dispatch_lease = work.lease.clone();
     let mut dispatch = tokio::spawn(async move {
         dispatch_repo
-            .prepare_send(&dispatch_lease, &dispatch_connection, "Rendered body")
+            .prepare_send(
+                &dispatch_lease,
+                &(&dispatch_connection).into(),
+                "Rendered body",
+            )
             .await
     });
     assert!(
@@ -414,13 +418,13 @@ async fn send_dispatch_fences_lifecycle_changes_and_keeps_inflight_acceptance(po
         .unwrap();
     assert_eq!(
         *repo
-            .prepare_send(&work.lease, &c, "Stale body")
+            .prepare_send(&work.lease, &(&c).into(), "Stale body")
             .await
             .unwrap_err()
             .current_context(),
         MessagingError::Disconnected
     );
-    repo.prepare_send(&work.lease, &fresh, "Rendered body")
+    repo.prepare_send(&work.lease, &(&fresh).into(), "Rendered body")
         .await
         .unwrap();
     repo.disconnect(team, c.id).await.unwrap();

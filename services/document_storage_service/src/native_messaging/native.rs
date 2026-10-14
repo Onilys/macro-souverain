@@ -138,18 +138,20 @@ impl NativeChannels {
                 .map_err(error)?;
         }
         PgMessagingRepository::finish_message_in(&mut tx, c, m, &reservation, send).await?;
-        if !reservation.create_message && matches!(m.message_type.as_str(), "ig_post" | "ig_reel") {
-            let placeholder = plain_markdown(&format!(
-                "[Unsupported Instagram {}; view it in Instagram]",
-                m.message_type
-            ));
+        let normalized = meta_messaging::domain::meta_content::normalize(m);
+        if !reservation.create_message && !normalized.legacy_placeholders.is_empty() {
+            let placeholders = normalized
+                .legacy_placeholders
+                .iter()
+                .map(|text| plain_markdown(text))
+                .collect::<Vec<_>>();
             if PgMessageRepository::repair_external_placeholder_in(
                 &mut tx,
                 reservation.channel_id,
                 reservation.message_id,
                 c.id,
                 m.message_id.as_str(),
-                &[placeholder, plain_markdown(&m.content)],
+                &placeholders,
                 &render_message_content(m),
             )
             .await
@@ -203,20 +205,16 @@ pub(super) fn plain_markdown(text: &str) -> String {
 // Native read-only messages do not auto-link plain URLs. Use the existing link
 // node only for validated public content URLs; all other provider text is inert.
 pub(super) fn render_message_content(message: &IncomingMessage) -> String {
-    if message.provider != Provider::Instagram
-        || !matches!(message.message_type.as_str(), "ig_post" | "ig_reel")
-    {
-        return plain_markdown(&message.content);
-    }
-    message
-        .content
-        .split('\n')
-        .map(|line| {
-            if let Some(url) = instagram_permalink(line) {
+    use meta_messaging::domain::content::ContentLine;
+    meta_messaging::domain::meta_content::normalize(message)
+        .lines
+        .into_iter()
+        .map(|line| match line {
+            ContentLine::Text(text) => plain_markdown(text),
+            ContentLine::Link(url) => {
+                let url = url.as_str();
                 let link = serde_json::json!({"url":url,"text":url,"title":""});
                 format!("<m-link>{link}</m-link>")
-            } else {
-                plain_markdown(line)
             }
         })
         .collect::<Vec<_>>()
@@ -238,14 +236,6 @@ impl NativeMessaging for NativeChannels {
         .await?;
         tx.commit().await.map_err(error)
     }
-    async fn upload_attachment(
-        &self,
-        user: &str,
-        channel: Uuid,
-        file: MediaBytes,
-    ) -> PortResult<UploadedAttachment> {
-        self.files.upload(user, channel, file).await
-    }
     async fn require_admin(&self, team: Uuid, user: &str) -> PortResult<()> {
         let user = MacroUserIdStr::try_from(user).map_err(|_| MessagingError::Forbidden)?;
         self.access
@@ -254,28 +244,6 @@ impl NativeMessaging for NativeChannels {
                 None,
                 &team.to_string(),
                 EntityType::Team,
-            )
-            .await
-            .map_err(access_error)?;
-        Ok(())
-    }
-    async fn require_send(&self, team: Uuid, channel: Uuid, user: &str) -> PortResult<()> {
-        let user = MacroUserIdStr::try_from(user).map_err(|_| MessagingError::Forbidden)?;
-        self.access
-            .generate_entity_access_receipt::<MemberTeamRole>(
-                &user.0,
-                None,
-                &team.to_string(),
-                EntityType::Team,
-            )
-            .await
-            .map_err(access_error)?;
-        self.access
-            .generate_entity_access_receipt::<MessageWrite>(
-                &user.0,
-                None,
-                &channel.to_string(),
-                EntityType::Channel,
             )
             .await
             .map_err(access_error)?;
@@ -315,75 +283,6 @@ impl NativeMessaging for NativeChannels {
         .map_err(error)?;
         PgMessagingRepository::media_state_in(&mut tx, c.id, m.message_id.as_str(), false).await?;
         tx.commit().await.map_err(error)
-    }
-    async fn outgoing_media(
-        &self,
-        user: &str,
-        channel: Uuid,
-        document: Uuid,
-    ) -> PortResult<OutboundMedia> {
-        self.files.outgoing(user, channel, document).await
-    }
-    async fn sent(
-        &self,
-        work: &SendWork,
-        conversation: &Conversation,
-        c: &Connection,
-        id: &ProviderId,
-    ) -> PortResult<()> {
-        let content = work
-            .rendered_text
-            .clone()
-            .unwrap_or_else(|| match &work.request.message {
-                ReplyContent::Text { text } => text.clone(),
-                ReplyContent::Template { parameters, .. } => {
-                    format!("[WhatsApp template]\n{}", parameters.join("\n"))
-                }
-                ReplyContent::Media { caption, .. } => caption.clone().unwrap_or_default(),
-            });
-        let sender = ChannelSender::new_from_user(
-            MacroUserIdStr::try_from(work.user_id.clone())
-                .map_err(|_| MessagingError::Forbidden)?,
-        );
-        let m = IncomingMessage {
-            provider: c.provider,
-            account_id: c.account_id.clone(),
-            customer_id: conversation.customer_id.clone(),
-            message_id: id.clone(),
-            author_handle: None,
-            author_name: Some(c.display_name.clone()),
-            content,
-            timestamp: work.created_at,
-            direction: Direction::Outbound,
-            provenance: Provenance::MacroReply,
-            message_type: if matches!(work.request.message, ReplyContent::Media { .. }) {
-                "macro_media_reply"
-            } else {
-                "macro_reply"
-            }
-            .into(),
-            reply_to: work.request.reply_to.clone(),
-            media: vec![],
-        };
-        self.persist(c, &m, Some(sender), Some(work.lease.id))
-            .await?;
-        self.files.attach_sent(work, c, id).await
-    }
-    async fn reconcile_effects(&self) -> PortResult<()> {
-        let repo = PgMessagingRepository::new(self.pool.clone());
-        let mut first_error = None;
-        for effect in repo.pending_native_effects().await? {
-            let (message, revision) = (effect.message_id, effect.revision);
-            if let Err(error) = self.reconcile_effect(&repo, effect).await {
-                // A failed publication stays pending, but cannot hold up the
-                // other customer conversations in this batch.
-                first_error.get_or_insert(error);
-                if let Err(error) = repo.defer_native_effect(message, revision).await {
-                    first_error.get_or_insert(error);
-                }
-            }
-        }
-        first_error.map_or(Ok(()), Err)
     }
 }
 
@@ -492,5 +391,114 @@ impl NativeChannels {
             .map_err(error)?;
         repo.native_effects_complete(id, revision).await?;
         Ok(())
+    }
+}
+
+#[async_trait]
+impl NativeConversation for NativeChannels {
+    async fn upload_attachment(
+        &self,
+        user: &str,
+        channel: Uuid,
+        file: MediaBytes,
+    ) -> PortResult<UploadedAttachment> {
+        self.files.upload(user, channel, file).await
+    }
+    async fn require_send(&self, team: Uuid, channel: Uuid, user: &str) -> PortResult<()> {
+        let user = MacroUserIdStr::try_from(user).map_err(|_| MessagingError::Forbidden)?;
+        self.access
+            .generate_entity_access_receipt::<MemberTeamRole>(
+                &user.0,
+                None,
+                &team.to_string(),
+                EntityType::Team,
+            )
+            .await
+            .map_err(access_error)?;
+        self.access
+            .generate_entity_access_receipt::<MessageWrite>(
+                &user.0,
+                None,
+                &channel.to_string(),
+                EntityType::Channel,
+            )
+            .await
+            .map_err(access_error)?;
+        Ok(())
+    }
+    async fn outgoing_media(
+        &self,
+        user: &str,
+        channel: Uuid,
+        document: Uuid,
+    ) -> PortResult<OutboundMedia> {
+        self.files.outgoing(user, channel, document).await
+    }
+    async fn sent(
+        &self,
+        work: &SendWork,
+        conversation: &Conversation,
+        scope: &meta_messaging::domain::replies::AccountScope,
+        id: &ProviderId,
+    ) -> PortResult<()> {
+        let connection = PgMessagingRepository::new(self.pool.clone())
+            .connection(scope.id)
+            .await?
+            .filter(|connection| connection.team_id == scope.team_id)
+            .ok_or(MessagingError::NotFound)?;
+        let c = &connection;
+        let content = work
+            .rendered_text
+            .clone()
+            .unwrap_or_else(|| match &work.request.message {
+                ReplyContent::Text { text } => text.clone(),
+                ReplyContent::Template { parameters, .. } => {
+                    format!("[WhatsApp template]\n{}", parameters.join("\n"))
+                }
+                ReplyContent::Media { caption, .. } => caption.clone().unwrap_or_default(),
+            });
+        let sender = ChannelSender::new_from_user(
+            MacroUserIdStr::try_from(work.user_id.clone())
+                .map_err(|_| MessagingError::Forbidden)?,
+        );
+        let m = IncomingMessage {
+            provider: c.provider,
+            account_id: c.account_id.clone(),
+            customer_id: conversation.customer_id.clone(),
+            message_id: id.clone(),
+            author_handle: None,
+            author_name: Some(c.display_name.clone()),
+            content,
+            timestamp: work.created_at,
+            direction: Direction::Outbound,
+            provenance: Provenance::MacroReply,
+            message_type: if matches!(work.request.message, ReplyContent::Media { .. }) {
+                "macro_media_reply"
+            } else {
+                "macro_reply"
+            }
+            .into(),
+            reply_to: work.request.reply_to.clone(),
+            media: vec![],
+        };
+        self.persist(c, &m, Some(sender), Some(work.lease.id))
+            .await?;
+        self.files.attach_sent(work, c, id).await
+    }
+    async fn reconcile_effects(&self) -> PortResult<()> {
+        let repo = PgMessagingRepository::new(self.pool.clone());
+        let mut first_error = None;
+        for effect in repo.pending_native_effects().await? {
+            let (message, revision) = (effect.message_id, effect.revision);
+            if let Err(error) = self.reconcile_effect(&repo, effect).await {
+                // A failed publication stays pending, but cannot hold up the
+                // other customer conversations in this batch.
+                first_error.get_or_insert(error);
+                if let Err(error) = repo.defer_native_effect(message, revision).await {
+                    first_error.get_or_insert(error);
+                }
+            }
+        }
+        first_error.map_or(Ok(()), Err)
     }
 }

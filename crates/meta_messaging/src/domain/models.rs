@@ -1,6 +1,5 @@
 //! Durable identity and message provenance shared by ingestion and sending.
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// The official API used for an account. Personal accounts are not supported.
@@ -121,19 +120,6 @@ impl DeliveryState {
             _ => Pending,
         }
     }
-}
-
-/// Server-observed reply-window facts. Echoes and history never update this.
-#[derive(Debug, Clone)]
-pub struct ReplyWindow {
-    /// Official API of the sending account.
-    pub provider: Provider,
-    /// Whether access and the account subscription are currently usable.
-    pub connected: bool,
-    /// Latest eligible customer message, taking max across reordered arrivals.
-    pub last_customer_message_at: Option<DateTime<Utc>>,
-    /// Instagram HUMAN_AGENT permission was verified for this connection.
-    pub human_agent_approved: bool,
 }
 
 /// Sanitized failures safe to expose in the native UI. Infrastructure causes are

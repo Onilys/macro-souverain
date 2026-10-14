@@ -13,6 +13,7 @@ import {
 } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { replyOptions } from '../tests/reply-options';
 import { ChannelMessagingComposer } from './channel-composer';
 
 const fixture = vi.hoisted(() => ({
@@ -67,6 +68,7 @@ function account(
   provider: 'whatsapp' | 'instagram' = 'whatsapp'
 ): MetaConversationView {
   return {
+    ...replyOptions(provider),
     can_reply: true,
     text_limit: provider === 'whatsapp' ? 4096 : 1000,
     text_limit_in_bytes: provider === 'instagram',

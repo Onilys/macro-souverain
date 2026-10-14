@@ -11,6 +11,8 @@ import type { MetaConversationViewHealthError } from './metaConversationViewHeal
 import type { MetaMediaCapability } from './metaMediaCapability';
 import type { MetaProvider } from './metaProvider';
 import type { MetaSendProgress } from './metaSendProgress';
+import type { ReplyCapabilities } from './replyCapabilities';
+import type { ReplyEligibility } from './replyEligibility';
 
 /**
  * Metadata rendered with an authorized native channel, without management secrets.
@@ -20,10 +22,14 @@ export interface MetaConversationView {
   account_name: string;
   /** Current caller may deliberately reply through this account and channel. */
   can_reply: boolean;
+  /** Implemented send operations and content limits. */
+  capabilities: ReplyCapabilities;
   /** Persisted account-scoped customer identity. */
   conversation: MetaConversation;
   /** Whether this connection uses an explicitly configured developer number. */
   developer_account: boolean;
+  /** Current account, user and provider eligibility, evaluated by the server. */
+  eligibility: ReplyEligibility;
   /** Sanitized account-health reason, so channel users see the correct recovery action. */
   health_error?: MetaConversationViewHealthError;
   /** Server-observed eligibility for Instagram's human-support mode. */

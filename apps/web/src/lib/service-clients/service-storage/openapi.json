@@ -32479,6 +32479,8 @@
         "type": "object",
         "description": "Metadata rendered with an authorized native channel, without management secrets.",
         "required": [
+          "capabilities",
+          "eligibility",
           "can_reply",
           "text_limit",
           "text_limit_in_bytes",
@@ -32500,6 +32502,10 @@
             "type": "boolean",
             "description": "Current caller may deliberately reply through this account and channel."
           },
+          "capabilities": {
+            "$ref": "#/components/schemas/ReplyCapabilities",
+            "description": "Implemented send operations and content limits."
+          },
           "conversation": {
             "$ref": "#/components/schemas/MetaConversation",
             "description": "Persisted account-scoped customer identity."
@@ -32507,6 +32513,10 @@
           "developer_account": {
             "type": "boolean",
             "description": "Whether this connection uses an explicitly configured developer number."
+          },
+          "eligibility": {
+            "$ref": "#/components/schemas/ReplyEligibility",
+            "description": "Current account, user and provider eligibility, evaluated by the server."
           },
           "health_error": {
             "type": ["string", "null"],
@@ -32934,6 +32944,37 @@
           "kind": {
             "$ref": "#/components/schemas/MetaMediaKind",
             "description": "Verified attachment category."
+          }
+        }
+      },
+      "ModeEligibility": {
+        "type": "object",
+        "description": "Current server decision for one implemented sending mode.",
+        "required": ["mode", "allowed"],
+        "properties": {
+          "allowed": {
+            "type": "boolean",
+            "description": "True only when every current server-side condition is satisfied."
+          },
+          "expires_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "An allowed control may expire locally; the browser cannot extend permission."
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ReplyMode",
+            "description": "Explicit operation whose eligibility was evaluated."
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReplyBlockReason",
+                "description": "Stable explanation when blocked."
+              }
+            ]
           }
         }
       },
@@ -35217,6 +35258,85 @@
             "description": "Stages first to last."
           }
         }
+      },
+      "ReplyBlockReason": {
+        "type": "string",
+        "description": "Stable reason a supported operation cannot run now.",
+        "enum": [
+          "forbidden",
+          "disconnected",
+          "window_closed",
+          "template_required",
+          "human_support_required",
+          "unsupported"
+        ]
+      },
+      "ReplyCapabilities": {
+        "type": "object",
+        "description": "Operations implemented by this integration, independently of current permission.",
+        "required": [
+          "modes",
+          "text_limit",
+          "text_limit_in_bytes",
+          "media",
+          "max_attachments"
+        ],
+        "properties": {
+          "max_attachments": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum files in one implemented send operation.",
+            "minimum": 0
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetaMediaCapability"
+            },
+            "description": "Supported private attachment categories and effective limits."
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplyMode"
+            },
+            "description": "Supported explicit sending modes."
+          },
+          "text_limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Maximum text units.",
+            "minimum": 0
+          },
+          "text_limit_in_bytes": {
+            "type": "boolean",
+            "description": "Whether text is counted in UTF-8 bytes instead of Unicode characters."
+          }
+        }
+      },
+      "ReplyEligibility": {
+        "type": "object",
+        "description": "Eligibility is a snapshot, re-evaluated before dispatch.",
+        "required": ["evaluated_at", "modes"],
+        "properties": {
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Server time used to evaluate every mode in this response."
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModeEligibility"
+            },
+            "description": "Current decisions, separate from static implemented support."
+          }
+        }
+      },
+      "ReplyMode": {
+        "type": "string",
+        "description": "Policy mode of the requested send.",
+        "enum": ["free_form", "approved_template", "human_support"]
       },
       "RequestedHarnessScope": {
         "type": "string",

@@ -2,7 +2,7 @@
 use super::*;
 use crate::domain::history::*;
 
-impl MessagingService {
+impl MetaService {
     pub(super) async fn require_history_consent(
         &self,
         c: &Connection,

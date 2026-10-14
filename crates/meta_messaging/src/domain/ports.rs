@@ -61,7 +61,7 @@ pub trait SubscriptionGuard: Send {}
 /// Meta-owned durable state. All mutations preserve account/team bindings and
 /// compare lease tokens/expiry for worker transitions.
 #[async_trait]
-pub trait MessagingRepository: Send + Sync {
+pub trait MessagingRepository: ConversationRepository {
     /// Try to serialize lifecycle operations across every connection using this subscription.
     /// A busy scope returns None, so queued callers cannot exhaust database connections.
     async fn lock_subscription(
@@ -199,66 +199,14 @@ pub trait MessagingRepository: Send + Sync {
         occurred_at: DateTime<Utc>,
         error: Option<&str>,
     ) -> PortResult<()>;
-    /// Find the real channel mapping.
-    async fn conversation(&self, channel: Uuid) -> PortResult<Option<Conversation>>;
     /// Existing account-scoped identity, to avoid a provider profile lookup per message.
     async fn customer_profile(
         &self,
         connection: Uuid,
         customer: &ProviderId,
     ) -> PortResult<Option<CustomerProfile>>;
-    /// Check a quoted provider message against this exact account and customer.
-    async fn has_message(
-        &self,
-        conversation: &Conversation,
-        message: &ProviderId,
-    ) -> PortResult<bool>;
     /// Whether all media for this message was already materialized.
     async fn media_stored(&self, connection: Uuid, message: &ProviderId) -> PortResult<bool>;
-    /// Persist intentional send; same key/payload replays, changed payload conflicts.
-    async fn enqueue_send(
-        &self,
-        connection: Uuid,
-        channel: Uuid,
-        user: &str,
-        request: &SendReply,
-        digest: &[u8],
-    ) -> PortResult<SendProgress>;
-    /// Channel-scoped status feed for native message/composer UI.
-    async fn sends(&self, channel: Uuid) -> PortResult<Vec<SendProgress>>;
-    /// Delivery for explicitly requested native messages, including older history.
-    async fn sends_for_messages(
-        &self,
-        channel: Uuid,
-        messages: &[Uuid],
-    ) -> PortResult<Vec<SendProgress>>;
-    /// Lease an unattempted/rejected-retry send. Expired Sending becomes Unknown.
-    async fn claim_send(&self) -> PortResult<Option<SendWork>>;
-    /// Accepted replies missing native materialization. Recovery never sends them again.
-    async fn accepted_sends(&self) -> PortResult<Vec<(SendWork, ProviderId)>>;
-    /// Back off failed native recovery without altering provider acceptance or resending.
-    async fn defer_accepted_send(
-        &self,
-        work: &SendWork,
-        provider_id: &ProviderId,
-    ) -> PortResult<()>;
-    /// Atomically fence dispatch against disconnect/reconnect and retain the sent body.
-    /// Once this succeeds the attempt is in flight; later disconnect cannot recall it.
-    async fn prepare_send(
-        &self,
-        lease: &Lease,
-        connection: &Connection,
-        rendered_text: &str,
-    ) -> PortResult<()>;
-    /// Persist provider result; ambiguous outcomes never automatically retry.
-    async fn settle_send(
-        &self,
-        lease: &Lease,
-        state: DeliveryState,
-        provider_id: Option<&ProviderId>,
-        error: Option<&str>,
-        retry_seconds: Option<u32>,
-    ) -> PortResult<()>;
 }
 
 /// Official Meta calls. Transport adapters never decide send authorization.
@@ -388,20 +336,11 @@ pub trait CredentialCipher: Send + Sync {
 /// Owning Macro domain services are supplied at the composition root. This
 /// boundary never constructs repositories from another crate's outbound module.
 #[async_trait]
-pub trait NativeMessaging: Send + Sync {
+pub trait NativeMessaging: NativeConversation {
     /// Retain and apply a source-scoped revision without creating a message.
     async fn revise(&self, connection: &Connection, revision: &IncomingRevision) -> PortResult<()>;
-    /// Stage a human-selected file privately through the owning document service.
-    async fn upload_attachment(
-        &self,
-        user: &str,
-        channel: Uuid,
-        file: MediaBytes,
-    ) -> PortResult<UploadedAttachment>;
     /// Revalidate the current management role before background work.
     async fn require_admin(&self, team: Uuid, user: &str) -> PortResult<()>;
-    /// Revalidate current channel posting access plus account team membership.
-    async fn require_send(&self, team: Uuid, channel: Uuid, user: &str) -> PortResult<()>;
     /// Commit channel/mapping/message atomically, with deduplication and silent
     /// history semantics. Live facts go into durable post-commit publication.
     /// Media slots retain provider ordinals; unavailable items cannot renumber or
@@ -418,6 +357,79 @@ pub trait NativeMessaging: Send + Sync {
         connection: &Connection,
         message: &IncomingMessage,
     ) -> PortResult<()>;
+}
+
+/// Shared native mappings and durable send state, with lease and account fencing.
+#[async_trait]
+pub trait ConversationRepository: Send + Sync {
+    /// Current account scope without provider configuration or credentials.
+    async fn account_scope(&self, id: Uuid) -> PortResult<Option<super::replies::AccountScope>>;
+    /// Find the real channel mapping.
+    async fn conversation(&self, channel: Uuid) -> PortResult<Option<Conversation>>;
+    /// Check a quoted provider message against this exact account and customer.
+    async fn has_message(
+        &self,
+        conversation: &Conversation,
+        message: &ProviderId,
+    ) -> PortResult<bool>;
+    /// Persist intentional send; same key/payload replays, changed payload conflicts.
+    async fn enqueue_send(
+        &self,
+        connection: Uuid,
+        channel: Uuid,
+        user: &str,
+        request: &SendReply,
+        digest: &[u8],
+    ) -> PortResult<SendProgress>;
+    /// Channel-scoped status feed for native message/composer UI.
+    async fn sends(&self, channel: Uuid) -> PortResult<Vec<SendProgress>>;
+    /// Delivery for explicitly requested native messages, including older history.
+    async fn sends_for_messages(
+        &self,
+        channel: Uuid,
+        messages: &[Uuid],
+    ) -> PortResult<Vec<SendProgress>>;
+    /// Lease an unattempted/rejected-retry send. Expired Sending becomes Unknown.
+    async fn claim_send(&self) -> PortResult<Option<SendWork>>;
+    /// Accepted replies missing native materialization. Recovery never sends them again.
+    async fn accepted_sends(&self) -> PortResult<Vec<(SendWork, ProviderId)>>;
+    /// Back off failed native recovery without altering provider acceptance or resending.
+    async fn defer_accepted_send(
+        &self,
+        work: &SendWork,
+        provider_id: &ProviderId,
+    ) -> PortResult<()>;
+    /// Atomically fence dispatch against disconnect/reconnect and retain the sent body.
+    /// Once this succeeds the attempt is in flight; later disconnect cannot recall it.
+    async fn prepare_send(
+        &self,
+        lease: &Lease,
+        connection: &super::replies::AccountScope,
+        rendered_text: &str,
+    ) -> PortResult<()>;
+    /// Persist provider result; ambiguous outcomes never automatically retry.
+    async fn settle_send(
+        &self,
+        lease: &Lease,
+        state: DeliveryState,
+        provider_id: Option<&ProviderId>,
+        error: Option<&str>,
+        retry_seconds: Option<u32>,
+    ) -> PortResult<()>;
+}
+
+/// Native authorization, private files and publication needed by shared sends.
+#[async_trait]
+pub trait NativeConversation: Send + Sync {
+    /// Stage a human-selected file privately through the owning document service.
+    async fn upload_attachment(
+        &self,
+        user: &str,
+        channel: Uuid,
+        file: MediaBytes,
+    ) -> PortResult<UploadedAttachment>;
+    /// Revalidate current channel posting access plus account team membership.
+    async fn require_send(&self, team: Uuid, channel: Uuid, user: &str) -> PortResult<()>;
     /// Read bytes only with current document and channel permissions.
     async fn outgoing_media(
         &self,
@@ -430,10 +442,50 @@ pub trait NativeMessaging: Send + Sync {
         &self,
         work: &SendWork,
         conversation: &Conversation,
-        connection: &Connection,
+        connection: &super::replies::AccountScope,
         provider_id: &ProviderId,
     ) -> PortResult<()>;
     /// Publish pending new-message facts and reconcile search using existing
     /// Macro infrastructure; history never becomes live events.
     async fn reconcile_effects(&self) -> PortResult<()>;
+}
+
+/// Provider domain rules evaluated using small, generation-bound account scopes.
+#[async_trait]
+pub trait ReplyPolicy: Send + Sync {
+    /// Implemented capabilities and current provider eligibility, before Macro restrictions.
+    async fn evaluate(
+        &self,
+        account: &super::replies::AccountScope,
+        conversation: &Conversation,
+        now: DateTime<Utc>,
+    ) -> PortResult<super::replies::ReplyOptions>;
+    /// Validate provider-owned inputs such as current approved template parameters.
+    async fn validate_content(
+        &self,
+        account: &super::replies::AccountScope,
+        request: &SendReply,
+    ) -> PortResult<()>;
+}
+
+/// Prepare transport work without sending; the shared service performs the final checks.
+#[async_trait]
+pub trait ReplyTransport: Send + Sync {
+    /// Resolve provider inputs using already authorized native media.
+    async fn prepare(
+        &self,
+        account: &super::replies::AccountScope,
+        conversation: &Conversation,
+        request: &SendReply,
+        media: Option<&OutboundMedia>,
+    ) -> PortResult<Box<dyn PreparedSend>>;
+}
+
+/// Single-use prepared transport; credentials remain inside the provider implementation.
+#[async_trait]
+pub trait PreparedSend: Send + Sync {
+    /// Exact native display text retained durably before dispatch.
+    fn rendered_text(&self) -> &str;
+    /// Send once after the shared service's permission/policy checks and durable fence.
+    async fn dispatch(self: Box<Self>) -> PortResult<ProviderSendResult>;
 }

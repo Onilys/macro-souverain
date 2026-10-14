@@ -14,7 +14,7 @@ use macro_authorization::{
     MacroAuthorizationState,
 };
 use meta_messaging::{
-    domain::service::MessagingService,
+    domain::meta::MetaService,
     inbound::{
         router::{self, MessagingRouterState, WebhookConfiguration, WebhookCredentials},
         webhook,
@@ -261,7 +261,7 @@ async fn signed(app: &Router, provider: Provider, payload: Value, valid: bool) -
         .unwrap()
         .status()
 }
-async fn drain(service: &MessagingService) {
+async fn drain(service: &MetaService) {
     while let Some(receipt) = service.repository.claim_receipt().await.unwrap() {
         let events = webhook::decode(receipt.provider, &receipt.payload).unwrap();
         service.process_receipt(&receipt, events).await.unwrap();
@@ -294,7 +294,7 @@ async fn connected_time(repo: &PgMessagingRepository, connection: Uuid) -> chron
 
 struct Fixture {
     app: Router,
-    service: Arc<MessagingService>,
+    service: Arc<MetaService>,
     repo: Arc<PgMessagingRepository>,
     remote: Arc<ProviderFixture>,
     c: Connection,
@@ -334,7 +334,7 @@ async fn fixture_with_files(
         history_requests: AtomicUsize::new(0),
         history_pages: Default::default(),
     });
-    let service = Arc::new(MessagingService::new(
+    let service = Arc::new(MetaService::new(
         repo.clone(),
         remote.clone(),
         Arc::new(TestCipher),
@@ -458,7 +458,7 @@ async fn workflow(pool: PgPool, provider: Provider) {
     let (_, duplicate) = request(&app, "POST", &path, Some("owner"), reply).await;
     assert_eq!(intent["id"], duplicate["id"]);
     let work = repo.claim_send().await.unwrap().unwrap();
-    service.process_send(&work).await.unwrap();
+    service.messaging.process_send(&work).await.unwrap();
     assert!(repo.claim_send().await.unwrap().is_none());
     assert_eq!(remote.sends.load(Ordering::SeqCst), 1);
     repo.record_status(
@@ -489,6 +489,20 @@ async fn workflow(pool: PgPool, provider: Provider) {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(view["messaging"]["sends"][0]["state"], "read");
+    let messaging = &view["messaging"];
+    let expected_modes = match provider {
+        Provider::Whatsapp => json!(["free_form", "approved_template"]),
+        Provider::Instagram => json!(["free_form", "human_support"]),
+    };
+    assert_eq!(messaging["capabilities"]["modes"], expected_modes);
+    assert_eq!(
+        messaging["capabilities"]["text_limit"],
+        messaging["text_limit"]
+    );
+    assert_eq!(messaging["capabilities"]["media"], messaging["media"]);
+    assert_eq!(messaging["eligibility"]["modes"][0]["allowed"], true);
+    assert!(messaging["eligibility"]["evaluated_at"].is_string());
+
     assert_eq!(
         view["messaging"]["conversation"]["customer_display_name"],
         "Customer"

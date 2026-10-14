@@ -93,12 +93,7 @@ impl PgMessagingRepository {
         r: &MessageReservation,
         send: Option<Uuid>,
     ) -> PortResult<()> {
-        let eligible = m.provenance == Provenance::Customer
-            && m.direction == Direction::Inbound
-            && m.message_type != "deleted"
-            && c.connected_at
-                .is_some_and(|at| m.timestamp.timestamp() >= at.timestamp())
-            && m.timestamp <= Utc::now() + chrono::Duration::minutes(1);
+        let window_until = crate::domain::meta_policy::customer_window_until(c, m, Utc::now());
         let phone = if c.provider == Provider::Whatsapp
             && m.customer_id.as_str().bytes().all(|b| b.is_ascii_digit())
         {
@@ -117,8 +112,8 @@ impl PgMessagingRepository {
             None
         };
         sqlx::query!("INSERT INTO meta_messaging_conversation (connection_id,customer_id,channel_id,external_sender_id,customer_display_name,customer_phone,customer_handle) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (connection_id,customer_id) DO UPDATE SET customer_display_name = COALESCE(EXCLUDED.customer_display_name,meta_messaging_conversation.customer_display_name),customer_handle=COALESCE(EXCLUDED.customer_handle,meta_messaging_conversation.customer_handle)",c.id,m.customer_id.as_str(),r.channel_id,r.sender_id,customer_name,phone,customer_handle).execute(&mut **tx).await.map_err(failure)?;
-        if eligible {
-            sqlx::query!("UPDATE meta_messaging_conversation SET last_customer_message_at = GREATEST(last_customer_message_at,$3),standard_window_until = GREATEST(standard_window_until,$3 + interval '24 hours') WHERE connection_id = $1 AND customer_id = $2",c.id,m.customer_id.as_str(),m.timestamp).execute(&mut **tx).await.map_err(failure)?;
+        if let Some(window_until) = window_until {
+            sqlx::query!("UPDATE meta_messaging_conversation SET last_customer_message_at = GREATEST(last_customer_message_at,$3),standard_window_until = GREATEST(standard_window_until,$4) WHERE connection_id = $1 AND customer_id = $2",c.id,m.customer_id.as_str(),m.timestamp,window_until).execute(&mut **tx).await.map_err(failure)?;
         }
         if r.create_message {
             let states=sqlx::query_scalar!("SELECT state FROM meta_messaging_status WHERE connection_id = $1 AND provider_message_id = $2",c.id,m.message_id.as_str()).fetch_all(&mut **tx).await.map_err(failure)?;

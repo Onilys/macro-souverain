@@ -3,8 +3,8 @@
 use crate::domain::{
     connection::*,
     history::HistoryImportView,
+    meta::MetaService,
     models::{MessagingError, Provider},
-    service::MessagingService,
 };
 use axum::{
     Json, Router,
@@ -44,7 +44,7 @@ pub struct WebhookConfiguration {
 /// Native authorization capabilities and domain use cases supplied by DSS.
 pub struct MessagingRouterState<Eas, Auth> {
     /// Messaging use-case service.
-    pub service: Arc<MessagingService>,
+    pub service: Arc<MetaService>,
     /// Existing entity access authority.
     pub entity_access_service: Arc<Eas>,
     /// Existing authentication authority.
@@ -258,11 +258,12 @@ async fn import_history<Eas: EntityAccessService, Auth: MacroAuthorizationServic
 async fn conversation<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
     a: ChannelAccessLevelExtractor<MessageView, Eas, Auth>,
+    headers: HeaderMap,
 ) -> Result<Json<ConversationResponse>, ApiError> {
     Ok(Json(ConversationResponse {
         messaging: s
             .service
-            .conversation_view(&a.entity_access_receipt)
+            .conversation_view(&a.entity_access_receipt, send_authority(&headers))
             .await?,
     }))
 }
@@ -274,6 +275,7 @@ async fn delivery<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
 ) -> Result<Json<Vec<SendProgress>>, ApiError> {
     Ok(Json(
         s.service
+            .messaging
             .message_delivery(&a.entity_access_receipt, &message_ids)
             .await?,
     ))
@@ -295,16 +297,21 @@ async fn reply<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
 ) -> Result<Json<SendProgress>, ApiError> {
     // This records the authentication mechanism, not a client-supplied actor flag.
     // User API keys are automation credentials even when they resolve to a user.
-    let authority = if headers.contains_key(macro_authorization::USER_API_KEY_HEADER) {
-        crate::domain::policy::SendAuthority::DraftOnly
-    } else {
-        crate::domain::policy::SendAuthority::Human
-    };
+    let authority = send_authority(&headers);
     Ok(Json(
         s.service
+            .messaging
             .send_reply(&a.entity_access_receipt, body, authority)
             .await?,
     ))
+}
+
+fn send_authority(headers: &HeaderMap) -> crate::domain::policy::SendAuthority {
+    if headers.contains_key(macro_authorization::USER_API_KEY_HEADER) {
+        crate::domain::policy::SendAuthority::DraftOnly
+    } else {
+        crate::domain::policy::SendAuthority::Human
+    }
 }
 
 /// Multipart private-file staging contract.
@@ -358,6 +365,7 @@ async fn upload<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     }
     Ok(Json(
         s.service
+            .messaging
             .upload_attachment(
                 &a.entity_access_receipt,
                 crate::domain::ports::MediaBytes {

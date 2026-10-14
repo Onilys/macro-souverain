@@ -4,6 +4,7 @@ import type { MetaConversationView } from '@service-storage/generated/schemas/me
 import type { MetaSendProgress } from '@service-storage/generated/schemas/metaSendProgress';
 import { createRoot, createSignal } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
+import { replyOptions } from '../tests/reply-options';
 import { createChannelMessaging } from './channel-messaging';
 
 const fixture = vi.hoisted(() => ({
@@ -65,6 +66,7 @@ const message = (id: string): MessageData => ({
   reactions: [],
 });
 const account = (sends = [send()]): MetaConversationView => ({
+  ...replyOptions(),
   provider: 'whatsapp',
   account_name: 'Business',
   status: 'connected',

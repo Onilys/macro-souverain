@@ -131,7 +131,7 @@ impl HttpMetaProvider {
             ReplyContent::Media { kind, caption, .. } => {
                 let media =
                     media.ok_or(MessagingError::Invalid("authorized attachment is missing"))?;
-                crate::domain::media::validate(
+                crate::domain::meta_policy::media::validate(
                     c.provider,
                     *kind,
                     &media.file.mime_type,

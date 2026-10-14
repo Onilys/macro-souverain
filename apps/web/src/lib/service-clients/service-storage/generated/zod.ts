@@ -47711,6 +47711,14 @@ export const metaConversationParams = zod.object({
   channel_id: zod.uuid(),
 });
 
+export const metaConversationResponseMessagingCapabilitiesMaxAttachmentsMin = 0;
+
+export const metaConversationResponseMessagingCapabilitiesMediaItemCaptionLimitMin = 0;
+
+export const metaConversationResponseMessagingCapabilitiesMediaItemMaxBytesMin = 0;
+
+export const metaConversationResponseMessagingCapabilitiesTextLimitMin = 0;
+
 export const metaConversationResponseMessagingMediaItemCaptionLimitMin = 0;
 
 export const metaConversationResponseMessagingMediaItemMaxBytesMin = 0;
@@ -47733,6 +47741,73 @@ export const metaConversationResponse = zod
               .boolean()
               .describe(
                 'Current caller may deliberately reply through this account and channel.'
+              ),
+            capabilities: zod
+              .object({
+                max_attachments: zod
+                  .number()
+                  .min(
+                    metaConversationResponseMessagingCapabilitiesMaxAttachmentsMin
+                  )
+                  .describe('Maximum files in one implemented send operation.'),
+                media: zod
+                  .array(
+                    zod
+                      .object({
+                        caption_limit: zod
+                          .number()
+                          .min(
+                            metaConversationResponseMessagingCapabilitiesMediaItemCaptionLimitMin
+                          )
+                          .nullish()
+                          .describe(
+                            'Maximum caption characters, absent when text must be sent separately.'
+                          ),
+                        kind: zod
+                          .enum(['image', 'audio', 'video', 'document'])
+                          .describe(
+                            'Supported attachment categories; provider limits remain explicit in the sender.'
+                          ),
+                        max_bytes: zod
+                          .number()
+                          .min(
+                            metaConversationResponseMessagingCapabilitiesMediaItemMaxBytesMin
+                          )
+                          .describe('Effective provider and Macro byte limit.'),
+                        mime_types: zod
+                          .array(zod.string())
+                          .describe(
+                            'Allowed MIME types for the selected account.'
+                          ),
+                      })
+                      .describe(
+                        'One currently supported provider attachment category.'
+                      )
+                  )
+                  .describe(
+                    'Supported private attachment categories and effective limits.'
+                  ),
+                modes: zod
+                  .array(
+                    zod
+                      .enum(['free_form', 'approved_template', 'human_support'])
+                      .describe('Policy mode of the requested send.')
+                  )
+                  .describe('Supported explicit sending modes.'),
+                text_limit: zod
+                  .number()
+                  .min(
+                    metaConversationResponseMessagingCapabilitiesTextLimitMin
+                  )
+                  .describe('Maximum text units.'),
+                text_limit_in_bytes: zod
+                  .boolean()
+                  .describe(
+                    'Whether text is counted in UTF-8 bytes instead of Unicode characters.'
+                  ),
+              })
+              .describe(
+                'Operations implemented by this integration, independently of current permission.'
               ),
             conversation: zod
               .object({
@@ -47777,6 +47852,64 @@ export const metaConversationResponse = zod
               .boolean()
               .describe(
                 'Whether this connection uses an explicitly configured developer number.'
+              ),
+            eligibility: zod
+              .object({
+                evaluated_at: zod.iso
+                  .datetime({})
+                  .describe(
+                    'Server time used to evaluate every mode in this response.'
+                  ),
+                modes: zod
+                  .array(
+                    zod
+                      .object({
+                        allowed: zod
+                          .boolean()
+                          .describe(
+                            'True only when every current server-side condition is satisfied.'
+                          ),
+                        expires_at: zod.iso
+                          .datetime({})
+                          .nullish()
+                          .describe(
+                            'An allowed control may expire locally; the browser cannot extend permission.'
+                          ),
+                        mode: zod
+                          .enum([
+                            'free_form',
+                            'approved_template',
+                            'human_support',
+                          ])
+                          .describe('Policy mode of the requested send.'),
+                        reason: zod
+                          .union([
+                            zod.null(),
+                            zod
+                              .enum([
+                                'forbidden',
+                                'disconnected',
+                                'window_closed',
+                                'template_required',
+                                'human_support_required',
+                                'unsupported',
+                              ])
+                              .describe(
+                                'Stable reason a supported operation cannot run now.'
+                              ),
+                          ])
+                          .optional(),
+                      })
+                      .describe(
+                        'Current server decision for one implemented sending mode.'
+                      )
+                  )
+                  .describe(
+                    'Current decisions, separate from static implemented support.'
+                  ),
+              })
+              .describe(
+                'Eligibility is a snapshot, re-evaluated before dispatch.'
               ),
             health_error: zod
               .string()
