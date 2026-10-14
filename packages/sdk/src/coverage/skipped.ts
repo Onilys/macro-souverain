@@ -400,6 +400,9 @@ export const storageExcluded = [
 ] as const satisfies readonly (keyof StorageSdk)[];
 
 export const storageBacklog = [
+  // CRM email privacy settings are available through the generated client.
+  'getCrmEmailPrivacy',
+  'updateCrmEmailPrivacy',
   // Email follow-ups are available through the generated client.
   'getEmailFollowup',
   'setEmailFollowup',
