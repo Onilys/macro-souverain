@@ -60,7 +60,7 @@ async fn source_items_rollout_defaults_to_existing_records(pool: PgPool) -> anyh
     };
     let legacy = PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool.clone()));
     let projection =
-        PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool)).with_source_items_enabled(true);
+        PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool.clone())).with_source_items_enabled(true);
     let existing = legacy.expanded_generic_cursor_soup(request()).await?;
     let pending = projection.expanded_generic_cursor_soup(request()).await?;
     assert!(
@@ -68,6 +68,19 @@ async fn source_items_rollout_defaults_to_existing_records(pool: PgPool) -> anyh
         "disabled rollout must use domain records"
     );
     assert!(pending.is_empty(), "enabled rollout must use source_items");
+
+    // The writer-only deployment must also work before the projection exists.
+    sqlx::query!("ALTER TABLE source_items RENAME TO source_items_pending_rollout")
+        .execute(&pool)
+        .await?;
+    let before_migration = legacy.expanded_generic_cursor_soup(request()).await?;
+    assert_eq!(
+        before_migration
+            .iter()
+            .map(|item| item.id())
+            .collect::<Vec<_>>(),
+        existing.iter().map(|item| item.id()).collect::<Vec<_>>()
+    );
     Ok(())
 }
 

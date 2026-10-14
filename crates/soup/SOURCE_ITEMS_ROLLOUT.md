@@ -7,12 +7,21 @@ the same committed transaction. It does not replace authorization policy.
 
 ## Release order
 
-1. **Deploy transaction retries first.** Deploy the prerequisite service change
-   to every affected writer, including document storage and the chat deletion
-   worker. Confirm old instances and in-flight jobs have drained before applying
-   the projection migrations. Grant changes acquire item locks in their triggers;
+First bring the target environment through this PR's base revision using its
+normal rollout. All unrelated earlier migrations must already be applied before
+predeploying this PR's service binaries. Keep projection reads disabled.
+
+1. **Deploy transaction retries first from this PR.** Before merging into `main`
+   or publishing a production release, use the existing migration-free
+   [Deploy Service (Generic)](../../.github/workflows/deploy-service-generic.yml)
+   workflow to deploy the reviewed revision to every affected writer, including
+   document storage and the chat deletion worker. Its reusable service workflow
+   builds and deploys the selected service without running database migrations.
+   Confirm each workflow deployed the reviewed commit, and that old instances
+   and in-flight jobs have drained before applying the projection migrations.
+   Grant changes acquire item locks in their triggers;
    existing item-first edits can deadlock with grant-first revocations. PostgreSQL
-   rolls back one participant. The prerequisite retries complete transactions on
+   rolls back one participant. The writer changes retry complete transactions on
    `40P01` and `40001`, at most four attempts, with bounded backoff. It never retries
    ambiguous connection/commit failures or repeats external cleanup.
 2. **Install the table and triggers, then backfill.** Keep
@@ -34,9 +43,46 @@ the same committed transaction. It does not replace authorization policy.
    and audit counts before expanding. Retain the old read path through rollout.
    Other `PgSoupRepo` consumers stay on item-table reads unless explicitly enabled.
 
-The prerequisite and projection changes must be separate releases. Migrations
-run before new service code, so merging both into a single release does not
-protect the old writers.
+This is one PR with two deployment phases. The normal `main` push pipeline
+runs migrations before deploying services to dev; production releases use the
+same ordering. Complete the writer-only phase in each environment before its
+normal pipeline can apply these migrations. Keep the reviewed branch unchanged
+while the writer deployments run; new writer changes require redeployment.
+Coordinate the deployment window so an older main/release deployment cannot
+replace those writers before migration. Do not run the standalone
+`Migrate Macro Database` workflow for this revision during that window either.
+Recheck deployed revisions immediately before merging or releasing.
+
+A conservative inventory of enabled services whose resolved binary dependencies
+include the retry implementation is listed below. Recheck this inventory if the
+service configuration changes. Dispatch these service deployments from the
+reviewed branch, then wait for all of them to finish and verify their commit IDs:
+
+```sh
+ROLLOUT_REF=synoet/soup-source-items-e837
+ROLLOUT_ENV=dev
+for service in \
+  agent-harness-service agent-schedule-service authentication-service \
+  calendar-service deleted-item-poller document-cognition-service \
+  document-storage-service email-service search-processing-service \
+  email-suppression mcp-server
+do
+  gh workflow run deploy-service-generic.yml --repo macro-inc/macro \
+    --ref "$ROLLOUT_REF" -f service="$service" -f environment="$ROLLOUT_ENV"
+done
+
+gh workflow run deploy-pulumi-stack.yml --repo macro-inc/macro \
+  --ref "$ROLLOUT_REF" -f pulumi-service-name=preview-gateway \
+  -f environment="$ROLLOUT_ENV"
+```
+
+`preview-gateway` uses the existing generic Pulumi workflow because it is absent
+from the service workflow's choice list; that path also deploys without database
+migrations. Set `ROLLOUT_ENV=prod` for the production phase. The document-storage
+service's artifact set includes `delete_chat_handler` and the Slack import
+worker. Check any separately operated writers as well. Only proceed to the
+normal migration-bearing rollout once the full writer set is running the
+reviewed revision and old work has drained.
 
 ## Backfill and recovery
 
@@ -51,6 +97,15 @@ An interrupted backfill is safe to rerun: it replaces each item's projected
 state rather than incrementing existing counts. Keep reads disabled until the
 migration finishes successfully and the audit passes. Resolve persistent hot-row
 contention instead of treating an incomplete backfill as ready.
+
+Before enabling reads, verify `source_items_read`,
+`idx_document_owner_updated_live`, and `idx_user_history_user_type_updated_item`
+are present with both `pg_index.indisready` and `pg_index.indisvalid` true. An
+interrupted concurrent build can leave an invalid index that `IF NOT EXISTS`
+will skip. Drop only that invalid index with `DROP INDEX CONCURRENTLY`, outside
+any transaction, then rerun that migration's `CREATE INDEX CONCURRENTLY`
+statement while projection reads remain disabled. Do not edit migration history
+to repair an index.
 
 For a read regression, set `SOUP_SOURCE_ITEMS_ENABLED=false` and restart the
 affected service instances. This restores item-table queries while maintenance
@@ -75,7 +130,8 @@ kinds.
 
 The integration tests compare complete paginated results with item-table reads
 across filters, sorts, and mutations. The rollout test verifies that default
-repositories still return authoritative records with an empty projection. The
+repositories still return authoritative records with an empty projection and
+with the projection table absent, as it is during the writer deployment. The
 transaction retry tests force a real item/grant deadlock and verify that both
 operations complete with each effect committed once, and that ambiguous failures
 are not retried.

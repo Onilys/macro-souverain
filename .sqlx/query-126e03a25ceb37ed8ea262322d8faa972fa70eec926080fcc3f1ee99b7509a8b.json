@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "ALTER TABLE source_items RENAME TO source_items_pending_rollout",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "126e03a25ceb37ed8ea262322d8faa972fa70eec926080fcc3f1ee99b7509a8b"
+}
