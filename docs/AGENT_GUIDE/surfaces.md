@@ -1959,9 +1959,28 @@ joining a standalone call never makes its content available to the wider team.
 
 ## Customers (CRM) — `/app/component/companies`
 
+CRM is available to every team member without contributing email. The 20px
+banner **Your emails aren’t contributing to CRM** opens **Review and opt in**.
+The dialog shows the connected primary mailbox, **Team blacklist**, and
+**My blacklist** before **Share my emails with CRM**. Opt-in shares full content
+from all available historical and future messages, excluding blocked threads.
+The same controls are in CRM settings and **Email sharing settings** on a company.
+
+Any member can add a team domain; only team admins/owners can remove one. Personal
+domains affect only that member's mailbox. Domains include their subdomains; a
+blocked participant in To/Cc/Bcc or the sender excludes the whole thread. Adding a
+block hides previously shared matching threads on subsequent CRM reads. Another
+teammate's permitted copy may still appear when only a personal block applies.
+**Stop sharing my emails** withdraws that mailbox's CRM contributions. Company and
+contact records, kanban, and pipelines remain usable. Both **Team** and **Me** email
+tabs honor consent and exclusions; normal inbox access remains available.
+
+For browser checks, use a local fixture for opt-in and blacklist mutations: these
+change real sharing permissions when run against a hosted backend.
+
 On desktop, the local sidebar uses the same navigation primitives as Email and Tasks.
 Its **New** menu creates a **Company**, a **Contact**, or a **Pipeline** (Pipeline
-only when pipelines are enabled; disabled until the team's CRM is enabled). The
+only when pipelines are enabled; requires team membership). The
 **Records** section lists **Companies** and **People**; Pipelines and Lists follow.
 There are no built-in company views or Board/List layout: Companies and People
 are plain soup lists with the shared pagination. Existing personal/team saved
@@ -1973,7 +1992,7 @@ on, or hide Owner or Revenue, under **Display options**. Its toolbar holds
 sort, group, filter, display options, saved views, and **New company** at the
 right end.
 
-People lists contacts across every CRM-enabled team the viewer belongs to, from
+People lists contacts across every team the viewer belongs to, from
 the same Soup query with only CRM contacts opted in (`crmf`). The server collapses
 duplicate full email addresses (case-insensitive) to one contact. Hidden contacts
 and contacts under hidden companies are excluded. Columns are Person (name and
@@ -2068,10 +2087,10 @@ The sidebar's Records and Lists sections can also collapse independently.
 **Pipelines** in the CRM sidebar hold company or contact entries in the shared
 records editor. They have their own identity, ownership and sharing; their
 storage does not appear as a separate database in navigation.
-**New pipeline** is disabled until the team's CRM is enabled. For a new team,
-use **Open CRM settings** in the empty state to enable CRM, then return to
+**New pipeline** is available as soon as the user belongs to a team; email
+contribution consent is not required. Return to
 Customers to create a pipeline. Verify this with a newly created team as well as
-an existing CRM-enabled team.
+an existing team.
 Choose **New pipeline**, enter a name in the dialog's first row, pick
 **Companies** (the default) or **Contacts** from the record-type pill, and tick
 **Share with my team** to share it (unticked keeps it private). **Create
@@ -2133,7 +2152,7 @@ message and keep the last saved membership. With no lists, create one in the CRM
 and `domain` columns (1–100 rows, at most 1 MB). The explicit Import button writes the
 previewed companies. Partial failures retain only failed rows for retry. Use preview
 and cancel for browser checks against hosted dev data. `CRM settings` opens the existing
-settings panel. Requires a team with CRM enabled.
+settings panel. Requires team membership.
 
 `Export` opens options for companies. Choose Current view
 (respects filters/search) or All records across views (each visible record once), then
@@ -2588,7 +2607,7 @@ and admins/owners can move a seat between Pro and Max with the `Seat plan`
 menu; Max upgrades are immediate and prorated, Pro downgrades start at renewal.
 **Keep Max** appears only for a confirmed pending downgrade and cancels it;
 failed scheduled-plan reads offer **Try again**, while teams without applicable
-scheduled plans show no retry notice). CRM (enable/disable; once enabled, a `Deal stages` section
+scheduled plans show no retry notice). CRM (individual email contribution and blacklists; a `Deal stages` section
 with `Customize stages`, inline rename, reorder by drag handle or arrow keys (up/down
 buttons on touch), delete, `Add stage`, `Reset to defaults`, and `Closed stages`
 checkboxes, editable by the role set as `edit_stages_role`)

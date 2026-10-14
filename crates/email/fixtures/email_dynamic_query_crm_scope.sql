@@ -52,6 +52,11 @@ VALUES
     ('a0000002-0000-0000-0000-000000000002', 'macro|bob@team.com',   'fa_bob',   'bob@team.com',   'GMAIL', true, NOW(), NOW()),
     ('a0000003-0000-0000-0000-000000000003', 'macro|carol@team.com', 'fa_carol', 'carol@team.com', 'GMAIL', true, NOW(), NOW());
 
+-- Each team contributor has explicitly consented to this primary mailbox.
+INSERT INTO crm_email_consent (team_id, user_id, link_id, enabled)
+SELECT tu.team_id, tu.user_id, l.id, TRUE FROM team_user tu
+JOIN email_links l ON l.macro_id = tu.user_id AND l.is_primary;
+
 -- == Contacts ==
 -- Each link has its own row for the SAME external address. This is the
 -- multi-id case the new resolution path is designed to handle.

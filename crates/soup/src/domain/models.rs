@@ -344,7 +344,7 @@ pub struct SoupRequest<T> {
     pub email_preview_view: PreviewView,
     /// Every inbox the caller can read (own + delegated via macro_user_links).
     /// Empty when the caller has no inboxes — `build_email_request` returns
-    /// `None` so the email branch is skipped.
+    /// `None` so the email branch is skipped, unless the request is CRM-scoped.
     pub link_ids: Vec<Uuid>,
 }
 
@@ -424,7 +424,10 @@ impl SoupRequest<Option<EntityFilterAst>> {
         let entity_ast = self.entity_ast();
         let crm_scope = entity_ast.and_then(|a| a.email_filter.crm_scope.clone());
 
-        if self.link_ids.is_empty() {
+        // CRM access is separate from mailbox contribution: a viewer without a
+        // mailbox still reads team-contributed threads, which email authorizes
+        // against the CRM scope and filters by consent and exclusions.
+        if self.link_ids.is_empty() && crm_scope.is_none() {
             return None;
         }
         // CRM-scoped requests must still reach email's authorization precheck,

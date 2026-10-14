@@ -226,6 +226,31 @@ impl EntityAccessService for FakeEntityAccessService {
 #[derive(Clone)]
 struct FakeCrmService;
 
+impl crate::domain::email_privacy::EmailPrivacyService for FakeCrmService {
+    async fn contribution_mailbox(
+        &self,
+        _: Uuid,
+        _: &str,
+    ) -> Result<Option<crate::domain::email_privacy::EmailContributionMailbox>, CrmError> {
+        panic!("unexpected contribution_mailbox call")
+    }
+
+    async fn email_privacy(
+        &self,
+        _: &CrmTeamReceipt<MemberTeamRole>,
+    ) -> Result<crate::domain::email_privacy::EmailPrivacySettings, CrmError> {
+        panic!("unexpected email_privacy call")
+    }
+
+    async fn change_email_privacy(
+        &self,
+        _: &CrmTeamReceipt<MemberTeamRole>,
+        _: crate::domain::email_privacy::EmailPrivacyChange,
+    ) -> Result<crate::domain::email_privacy::EmailPrivacySettings, CrmError> {
+        panic!("unexpected change_email_privacy call")
+    }
+}
+
 impl CrmService for FakeCrmService {
     async fn list_contacts_for_soup(
         &self,

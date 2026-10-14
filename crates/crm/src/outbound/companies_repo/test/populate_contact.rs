@@ -7,33 +7,58 @@ use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+#[allow(clippy::too_many_arguments)]
+async fn deliver(
+    pool: &PgPool,
+    service: &CrmServiceImpl<CompaniesRepositoryImpl, NoOpCompanyMetadataResolver>,
+    team: &Uuid,
+    link: &Uuid,
+    user_email: &str,
+    email: &str,
+    name: Option<&str>,
+    first: chrono::DateTime<chrono::Utc>,
+    last: chrono::DateTime<chrono::Utc>,
+    sent: bool,
+) -> anyhow::Result<()> {
+    insert_interaction(pool, *link, email, first, sent).await?;
+    if last != first {
+        insert_interaction(pool, *link, email, last, sent).await?;
+    }
+    service
+        .populate_contact(team, link, user_email, email, name, first, last, sent)
+        .await?;
+    Ok(())
+}
+
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn service_populate_contact_skips_when_domain_matches_user_domain(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let service = CrmServiceImpl::new(
         CompaniesRepositoryImpl::new(pool.clone()),
         NoOpCompanyMetadataResolver,
     );
 
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "colleague@macro.com",
-            None,
-            chrono::Utc::now(),
-            chrono::Utc::now(),
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "colleague@macro.com",
+        None,
+        chrono::Utc::now(),
+        chrono::Utc::now(),
+        true,
+    )
+    .await?;
 
     assert_eq!(
         count_companies_for_domain(&pool, team_id, "macro.com").await?,
@@ -48,28 +73,30 @@ async fn service_populate_contact_same_domain_check_is_case_insensitive(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "User@MACRO.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let service = CrmServiceImpl::new(
         CompaniesRepositoryImpl::new(pool.clone()),
         NoOpCompanyMetadataResolver,
     );
 
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "User@MACRO.com",
-            "colleague@macro.com",
-            None,
-            chrono::Utc::now(),
-            chrono::Utc::now(),
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "User@MACRO.com",
+        "colleague@macro.com",
+        None,
+        chrono::Utc::now(),
+        chrono::Utc::now(),
+        true,
+    )
+    .await?;
 
     assert_eq!(
         count_companies_for_domain(&pool, team_id, "macro.com").await?,
@@ -83,10 +110,11 @@ async fn service_populate_contact_refreshes_existing_company_and_contact_updated
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let old_updated_at: chrono::DateTime<chrono::Utc> =
         sqlx::query_scalar(r#"SELECT now() - INTERVAL '1 hour'"#)
@@ -134,18 +162,19 @@ async fn service_populate_contact_refreshes_existing_company_and_contact_updated
         NoOpCompanyMetadataResolver,
     );
 
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            Some("Alice"),
-            chrono::Utc::now(),
-            chrono::Utc::now(),
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        Some("Alice"),
+        chrono::Utc::now(),
+        chrono::Utc::now(),
+        true,
+    )
+    .await?;
 
     let company_updated_at = fetch_company_updated_at(&pool, company_id)
         .await?
@@ -162,28 +191,30 @@ async fn service_populate_contact_refreshes_existing_company_and_contact_updated
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn service_populate_contact_writes_when_domain_differs(pool: PgPool) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let service = CrmServiceImpl::new(
         CompaniesRepositoryImpl::new(pool.clone()),
         NoOpCompanyMetadataResolver,
     );
 
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            chrono::Utc::now(),
-            chrono::Utc::now(),
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        chrono::Utc::now(),
+        chrono::Utc::now(),
+        true,
+    )
+    .await?;
 
     assert_eq!(
         count_companies_for_domain(&pool, team_id, "acme.com").await?,
@@ -193,9 +224,9 @@ async fn service_populate_contact_writes_when_domain_differs(pool: PgPool) -> an
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn precheck_reports_killswitch_off_when_settings_missing(pool: PgPool) -> anyhow::Result<()> {
+async fn precheck_is_available_when_legacy_settings_missing(pool: PgPool) -> anyhow::Result<()> {
     let team = Uuid::now_v7();
-    let owner = "macro|owner@test.com";
+    let owner = "macro|user@macro.com";
     seed_team(&pool, team, owner).await?;
     // intentionally no team_crm_settings row
 
@@ -203,11 +234,8 @@ async fn precheck_reports_killswitch_off_when_settings_missing(pool: PgPool) -> 
     let result = repo
         .crm_scope_precheck(&team, &["acme.com".to_string()], &[])
         .await?;
-    // Killswitch off short-circuits: the email service rejects with
-    // CrmDisabledForTeam regardless of per-input state, so the probes
-    // are skipped and per-input rows come back empty.
-    assert!(!result.crm_enabled);
-    assert!(result.domains.is_empty());
+    assert!(result.crm_enabled);
+    assert_eq!(result.domains.len(), 1);
     assert!(result.addresses.is_empty());
     Ok(())
 }
@@ -215,7 +243,7 @@ async fn precheck_reports_killswitch_off_when_settings_missing(pool: PgPool) -> 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn precheck_resolves_domain_with_company_state(pool: PgPool) -> anyhow::Result<()> {
     let team = Uuid::now_v7();
-    let owner = "macro|owner@test.com";
+    let owner = "macro|user@macro.com";
     seed_team(&pool, team, owner).await?;
     enable_crm_for_team(&pool, team).await?;
     insert_company(&pool, team, true, &["acme.com"]).await?;
@@ -254,7 +282,7 @@ async fn precheck_reports_hidden_and_email_sync_disabled_companies(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team = Uuid::now_v7();
-    let owner = "macro|owner@test.com";
+    let owner = "macro|user@macro.com";
     seed_team(&pool, team, owner).await?;
     enable_crm_for_team(&pool, team).await?;
     let hidden_co = insert_company(&pool, team, false, &["hidden.com"]).await?;
@@ -277,7 +305,7 @@ async fn precheck_reports_hidden_and_email_sync_disabled_companies(
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn precheck_address_resolves_contact_within_team(pool: PgPool) -> anyhow::Result<()> {
     let team = Uuid::now_v7();
-    let owner = "macro|owner@test.com";
+    let owner = "macro|user@macro.com";
     seed_team(&pool, team, owner).await?;
     enable_crm_for_team(&pool, team).await?;
     let company = insert_company(&pool, team, true, &["acme.com"]).await?;
@@ -340,10 +368,11 @@ async fn precheck_address_does_not_leak_other_team_contacts(pool: PgPool) -> any
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn populate_contact_is_sent_false_skips_when_no_company(pool: PgPool) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let service = CrmServiceImpl::new(
         CompaniesRepositoryImpl::new(pool.clone()),
@@ -351,18 +380,19 @@ async fn populate_contact_is_sent_false_skips_when_no_company(pool: PgPool) -> a
     );
 
     let now = chrono::Utc::now();
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            now,
-            now,
-            false,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        now,
+        now,
+        false,
+    )
+    .await?;
 
     assert_eq!(
         count_companies_for_domain(&pool, team_id, "acme.com").await?,
@@ -380,10 +410,11 @@ async fn populate_contact_insert_seeds_first_and_last_from_payload(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let first: chrono::DateTime<chrono::Utc> = "2020-01-01T00:00:00Z".parse()?;
     let last: chrono::DateTime<chrono::Utc> = "2024-06-15T00:00:00Z".parse()?;
@@ -393,18 +424,19 @@ async fn populate_contact_insert_seeds_first_and_last_from_payload(
         NoOpCompanyMetadataResolver,
     );
 
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            first,
-            last,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        first,
+        last,
+        true,
+    )
+    .await?;
 
     let company_id = fetch_company_for_domain(&pool, team_id, "acme.com")
         .await?
@@ -435,10 +467,11 @@ async fn populate_contact_is_sent_true_merges_first_least_and_last_greatest(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let initial: chrono::DateTime<chrono::Utc> = "2022-06-01T00:00:00Z".parse()?;
     let older: chrono::DateTime<chrono::Utc> = "2020-01-01T00:00:00Z".parse()?;
@@ -450,18 +483,19 @@ async fn populate_contact_is_sent_true_merges_first_least_and_last_greatest(
     );
 
     // First populate establishes the row at `initial`.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            initial,
-            initial,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        initial,
+        initial,
+        true,
+    )
+    .await?;
 
     let company_id = fetch_company_for_domain(&pool, team_id, "acme.com")
         .await?
@@ -471,18 +505,19 @@ async fn populate_contact_is_sent_true_merges_first_least_and_last_greatest(
         .expect("contact");
 
     // A backfilled older message should pull first_interaction back via LEAST.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            older,
-            older,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        older,
+        older,
+        true,
+    )
+    .await?;
 
     let (company_first, company_last) = fetch_company_interactions(&pool, company_id)
         .await?
@@ -497,18 +532,19 @@ async fn populate_contact_is_sent_true_merges_first_least_and_last_greatest(
 
     // A newer message should push last_interaction forward via GREATEST,
     // leaving first_interaction at `older`.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            newer,
-            newer,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        newer,
+        newer,
+        true,
+    )
+    .await?;
 
     let (company_first, company_last) = fetch_company_interactions(&pool, company_id)
         .await?
@@ -527,10 +563,11 @@ async fn populate_contact_is_sent_false_leaves_first_interaction_unchanged(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let baseline: chrono::DateTime<chrono::Utc> = "2022-06-01T00:00:00Z".parse()?;
     let older: chrono::DateTime<chrono::Utc> = "2020-01-01T00:00:00Z".parse()?;
@@ -542,18 +579,19 @@ async fn populate_contact_is_sent_false_leaves_first_interaction_unchanged(
     );
 
     // Sent populate seeds the row at `baseline`.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            baseline,
-            baseline,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        baseline,
+        baseline,
+        true,
+    )
+    .await?;
 
     let company_id = fetch_company_for_domain(&pool, team_id, "acme.com")
         .await?
@@ -564,18 +602,19 @@ async fn populate_contact_is_sent_false_leaves_first_interaction_unchanged(
 
     // Received populate with an older timestamp must NOT pull
     // first_interaction backwards on either row.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            older,
-            older,
-            false,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        older,
+        older,
+        false,
+    )
+    .await?;
 
     let (company_first, _) = fetch_company_interactions(&pool, company_id)
         .await?
@@ -593,18 +632,19 @@ async fn populate_contact_is_sent_false_leaves_first_interaction_unchanged(
     );
 
     // Received populate with a newer timestamp still bumps last_interaction.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            newer,
-            newer,
-            false,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        newer,
+        newer,
+        false,
+    )
+    .await?;
 
     let (_, company_last) = fetch_company_interactions(&pool, company_id)
         .await?
@@ -626,10 +666,11 @@ async fn populate_contact_is_sent_false_inserts_contact_at_existing_company(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let baseline: chrono::DateTime<chrono::Utc> = "2022-06-01T00:00:00Z".parse()?;
     let received_at: chrono::DateTime<chrono::Utc> = "2024-09-15T00:00:00Z".parse()?;
@@ -640,18 +681,19 @@ async fn populate_contact_is_sent_false_inserts_contact_at_existing_company(
     );
 
     // Sent populate establishes the company via alice@acme.com.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            baseline,
-            baseline,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        baseline,
+        baseline,
+        true,
+    )
+    .await?;
 
     let company_id = fetch_company_for_domain(&pool, team_id, "acme.com")
         .await?
@@ -660,18 +702,19 @@ async fn populate_contact_is_sent_false_inserts_contact_at_existing_company(
 
     // Received-direction populate for a *new* address at the same
     // company creates a contact row + source row.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "bob@acme.com",
-            Some("Bob"),
-            received_at,
-            received_at,
-            false,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "bob@acme.com",
+        Some("Bob"),
+        received_at,
+        received_at,
+        false,
+    )
+    .await?;
 
     assert_eq!(
         count_contacts(&pool, company_id).await?,
@@ -694,18 +737,16 @@ async fn populate_contact_is_sent_false_inserts_contact_at_existing_company(
     Ok(())
 }
 
-/// Team-level CRM killswitch (`team_crm_settings.crm_enabled = false`
-/// or missing) short-circuits populate in both directions before any
-/// rows are written.
+/// Missing individual consent short-circuits populate in both directions
+/// before any rows are written.
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn populate_contact_team_killswitch_off_noops_both_directions(
+async fn populate_contact_without_consent_noops_both_directions(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
-    // Intentionally do NOT enable_crm_for_team — team_crm_settings row is
-    // missing, which is treated as crm_enabled = false.
+    // No explicit mailbox consent, regardless of legacy team settings.
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
 
     let service = CrmServiceImpl::new(
@@ -715,52 +756,49 @@ async fn populate_contact_team_killswitch_off_noops_both_directions(
 
     let now = chrono::Utc::now();
 
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            now,
-            now,
-            true,
-        )
-        .await?;
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            now,
-            now,
-            false,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        now,
+        now,
+        true,
+    )
+    .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        now,
+        now,
+        false,
+    )
+    .await?;
 
     assert_eq!(
         count_companies_for_domain(&pool, team_id, "acme.com").await?,
         0,
-        "team killswitch must short-circuit both directions"
+        "missing personal consent must short-circuit both directions"
     );
     Ok(())
 }
 
-/// `email_sync = false` no longer gates populate. The flag is now
-/// purely a visibility/permission check consumed at read time
-/// (soup, email permissions). Populate updates interaction columns
-/// and writes contact / source rows just like it would with
-/// `email_sync = true`, so re-enabling sync exposes the full history
-/// with zero backfill.
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn populate_contact_runs_regardless_of_email_sync_flag(pool: PgPool) -> anyhow::Result<()> {
+async fn populate_contact_respects_legacy_company_block(pool: PgPool) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     // Seed a sync-off company. Baseline timestamp parsed from a string
     // (no sub-microsecond precision — Postgres `TIMESTAMPTZ` only
@@ -784,29 +822,28 @@ async fn populate_contact_runs_regardless_of_email_sync_flag(pool: PgPool) -> an
     );
 
     let later: chrono::DateTime<chrono::Utc> = "2024-01-08T00:00:00Z".parse()?;
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            later,
-            later,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        later,
+        later,
+        true,
+    )
+    .await?;
 
-    // Company `last_interaction` advances; first_interaction
-    // LEAST-merges on is_sent=true so it stays at the earlier
-    // baseline. Contact + source rows land regardless of email_sync.
+    // A company block prevents ingestion while keeping the existing company.
     let (first, last) = fetch_company_interactions(&pool, company_id)
         .await?
         .expect("company");
     assert_eq!(first, baseline);
-    assert_eq!(last, later);
-    assert_eq!(count_contacts(&pool, company_id).await?, 1);
-    assert_eq!(count_sources_for_company(&pool, company_id).await?, 1);
+    assert_eq!(last, baseline);
+    assert_eq!(count_contacts(&pool, company_id).await?, 0);
+    assert_eq!(count_sources_for_company(&pool, company_id).await?, 0);
     // email_sync itself is unchanged — populate never touches it.
     assert_eq!(fetch_email_sync(&pool, company_id).await?, Some(false));
     Ok(())
@@ -821,10 +858,11 @@ async fn populate_contact_seed_style_range_merges_into_existing(
     pool: PgPool,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let baseline: chrono::DateTime<chrono::Utc> = "2022-06-01T00:00:00Z".parse()?;
 
@@ -834,18 +872,19 @@ async fn populate_contact_seed_style_range_merges_into_existing(
     );
 
     // Establish the rows at `baseline`.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            baseline,
-            baseline,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        baseline,
+        baseline,
+        true,
+    )
+    .await?;
 
     let company_id = fetch_company_for_domain(&pool, team_id, "acme.com")
         .await?
@@ -859,18 +898,19 @@ async fn populate_contact_seed_style_range_merges_into_existing(
     // first_interaction earlier AND push last_interaction later.
     let seed_first: chrono::DateTime<chrono::Utc> = "2010-03-15T00:00:00Z".parse()?;
     let seed_last: chrono::DateTime<chrono::Utc> = "2024-12-31T00:00:00Z".parse()?;
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            seed_first,
-            seed_last,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        seed_first,
+        seed_last,
+        true,
+    )
+    .await?;
 
     let (company_first, company_last) = fetch_company_interactions(&pool, company_id)
         .await?
@@ -886,18 +926,17 @@ async fn populate_contact_seed_style_range_merges_into_existing(
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn email_sync_disable_then_re_enable_preserves_full_history_with_no_backfill(
+async fn email_sync_disable_then_re_enable_requires_eligible_backfill(
     pool: PgPool,
 ) -> anyhow::Result<()> {
-    // Regression: the whole point of decoupling populate from
-    // email_sync. While sync is OFF, new emails arriving for this
-    // company must still write CRM rows. Re-enabling sync must surface
-    // the complete history without any explicit backfill step.
+    // Blocking preserves old rows but stops new ingestion; unblocking queues
+    // backfill, whose consumer rechecks the eligible stored history.
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let service = CrmServiceImpl::new(
         CompaniesRepositoryImpl::new(pool.clone()),
@@ -907,18 +946,19 @@ async fn email_sync_disable_then_re_enable_preserves_full_history_with_no_backfi
 
     // Phase 1: sync ON. First contact lands normally.
     let t1: chrono::DateTime<chrono::Utc> = "2024-01-01T00:00:00Z".parse()?;
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            t1,
-            t1,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        t1,
+        t1,
+        true,
+    )
+    .await?;
     let company_id = fetch_company_for_domain(&pool, team_id, "acme.com")
         .await?
         .expect("company");
@@ -929,10 +969,37 @@ async fn email_sync_disable_then_re_enable_preserves_full_history_with_no_backfi
     assert_eq!(count_contacts(&pool, company_id).await?, 1);
     assert_eq!(count_sources_for_company(&pool, company_id).await?, 1);
 
-    // Phase 3: a new email arrives during the sync-off window. This
-    // is the critical assertion — populate must still write the new
-    // contact + source so there's no gap to backfill later.
+    // Phase 3: a new email during the block must not contribute a CRM contact.
     let t2: chrono::DateTime<chrono::Utc> = "2024-02-15T00:00:00Z".parse()?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "bob@acme.com",
+        None,
+        t2,
+        t2,
+        true,
+    )
+    .await?;
+    assert_eq!(count_contacts(&pool, company_id).await?, 1);
+    assert_eq!(count_sources_for_company(&pool, company_id).await?, 1);
+    assert_eq!(fetch_email_sync(&pool, company_id).await?, Some(false));
+
+    // Phase 4: unblocking schedules backfill without fabricating contact rows.
+    repo.set_email_sync(&team_id, &company_id, true).await?;
+    assert_eq!(fetch_email_sync(&pool, company_id).await?, Some(true));
+    assert_eq!(count_contacts(&pool, company_id).await?, 1);
+    assert_eq!(count_sources_for_company(&pool, company_id).await?, 1);
+    let queued = sqlx::query_scalar!(
+        "SELECT count(*) FROM crm_email_backfill_outbox WHERE team_id = $1",
+        team_id
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(queued, Some(1));
     service
         .populate_contact(
             &team_id,
@@ -946,15 +1013,6 @@ async fn email_sync_disable_then_re_enable_preserves_full_history_with_no_backfi
         )
         .await?;
     assert_eq!(count_contacts(&pool, company_id).await?, 2);
-    assert_eq!(count_sources_for_company(&pool, company_id).await?, 2);
-    assert_eq!(fetch_email_sync(&pool, company_id).await?, Some(false));
-
-    // Phase 4: admin re-enables sync. No backfill is run — but the
-    // history written during the off-window is already there.
-    repo.set_email_sync(&team_id, &company_id, true).await?;
-    assert_eq!(fetch_email_sync(&pool, company_id).await?, Some(true));
-    assert_eq!(count_contacts(&pool, company_id).await?, 2);
-    assert_eq!(count_sources_for_company(&pool, company_id).await?, 2);
     Ok(())
 }
 
@@ -969,10 +1027,11 @@ async fn populate_contact_into_hidden_company_inserts_hidden_contact(
     // team-level CRM killswitch is on), so this is the only line of
     // defense.
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
     let company_id = insert_company(&pool, team_id, true, &["acme.com"]).await?;
     sqlx::query(r#"UPDATE crm_companies SET hidden = TRUE WHERE id = $1"#)
         .bind(company_id)
@@ -984,18 +1043,19 @@ async fn populate_contact_into_hidden_company_inserts_hidden_contact(
         NoOpCompanyMetadataResolver,
     );
     let now: chrono::DateTime<chrono::Utc> = "2024-01-15T00:00:00Z".parse()?;
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            now,
-            now,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        now,
+        now,
+        true,
+    )
+    .await?;
 
     let alice = fetch_contact_id(&pool, company_id, "alice@acme.com")
         .await?
@@ -1012,10 +1072,11 @@ async fn populate_contact_upsert_does_not_overwrite_individual_hide(
     // existing `hidden` so individual `set_contact_hidden` actions
     // survive subsequent email activity.
     let team_id = Uuid::now_v7();
-    let owner_id = "macro|owner@test.com";
+    let owner_id = "macro|user@macro.com";
     seed_team(&pool, team_id, owner_id).await?;
     enable_crm_for_team(&pool, team_id).await?;
     let link_id = insert_email_link(&pool, owner_id, "user@macro.com").await?;
+    consent_to_mailbox(&pool, team_id, link_id).await?;
 
     let service = CrmServiceImpl::new(
         CompaniesRepositoryImpl::new(pool.clone()),
@@ -1025,18 +1086,19 @@ async fn populate_contact_upsert_does_not_overwrite_individual_hide(
     let later: chrono::DateTime<chrono::Utc> = "2024-02-01T00:00:00Z".parse()?;
 
     // Seed the contact via a normal populate.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            first_at,
-            first_at,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        first_at,
+        first_at,
+        true,
+    )
+    .await?;
     let company_id = fetch_company_for_domain(&pool, team_id, "acme.com")
         .await?
         .expect("company");
@@ -1050,18 +1112,19 @@ async fn populate_contact_upsert_does_not_overwrite_individual_hide(
     assert_eq!(fetch_contact_hidden(&pool, alice).await?, Some(true));
 
     // A later populate (new email from alice) must NOT un-hide her.
-    service
-        .populate_contact(
-            &team_id,
-            &link_id,
-            "user@macro.com",
-            "alice@acme.com",
-            None,
-            later,
-            later,
-            true,
-        )
-        .await?;
+    deliver(
+        &pool,
+        &service,
+        &team_id,
+        &link_id,
+        "user@macro.com",
+        "alice@acme.com",
+        None,
+        later,
+        later,
+        true,
+    )
+    .await?;
 
     assert_eq!(fetch_contact_hidden(&pool, alice).await?, Some(true));
     Ok(())

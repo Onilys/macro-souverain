@@ -118,21 +118,20 @@ async fn create_company_allows_same_domain_on_another_team(pool: PgPool) -> anyh
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn create_company_requires_crm_enabled(pool: PgPool) -> anyhow::Result<()> {
+async fn create_company_is_available_without_email_consent(pool: PgPool) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
     seed_team(&pool, team_id, "macro|owner@test.com").await?;
-    // No team_crm_settings row: killswitch defaults to off.
+    // CRM records are available without a legacy settings row or email consent.
 
     let repo = CompaniesRepositoryImpl::new(pool.clone());
-    let err = repo
+    let company = repo
         .create_company_for_team(&team_id, "acme.com", "Acme", Utc::now())
-        .await
-        .unwrap_err();
-    assert!(matches!(err, CrmError::CrmDisabledForTeam));
+        .await?;
+    assert_eq!(company.company.team_id, team_id);
 
     assert_eq!(
         count_companies_for_domain(&pool, team_id, "acme.com").await?,
-        0
+        1
     );
     Ok(())
 }
@@ -153,6 +152,8 @@ async fn populate_reuses_manually_created_company(pool: PgPool) -> anyhow::Resul
     // A later populate for the same domain attaches its contact to the
     // manually created company instead of inserting a second one.
     let now = Utc::now();
+    consent_to_mailbox(&pool, team_id, link_id).await?;
+    insert_interaction(&pool, link_id, "jane@acme.com", now, true).await?;
     repo.populate_contact(
         &team_id,
         &link_id,

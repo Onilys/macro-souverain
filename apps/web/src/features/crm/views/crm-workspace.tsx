@@ -44,6 +44,7 @@ import { useCrmWorkspace } from '../context/workspace-context';
 import { CRM_RECORDS } from '../core/navigation';
 import { createCrmExportLoader } from '../primitives/export-source';
 import { useApplyCrmView } from './apply-view';
+import { CrmEmailOptInBanner } from './email-privacy';
 import { CrmExport } from './export-companies';
 import { CrmImport } from './import-companies';
 import { PipelineView } from './pipeline';
@@ -242,9 +243,7 @@ export function CrmWorkspaceView(props: {
     teamQuery.isSuccess ? teamQuery.data?.team.id : undefined;
   const pipelinesEnabled = useCrmContext().pipelinesEnabled();
   const canCreatePipeline = () =>
-    pipelinesEnabled() &&
-    teamQuery.isSuccess &&
-    teamQuery.data?.team.crm_enabled === true;
+    pipelinesEnabled() && teamQuery.isSuccess && !!teamQuery.data;
   const pipelines = useCrmContext().createPipelines(() =>
     pipelinesEnabled() ? teamId() : undefined
   );
@@ -374,6 +373,9 @@ export function CrmWorkspaceView(props: {
         </Suspense>
       </ViewShell.Aside>
       <ViewShell.Main>
+        <Suspense>
+          <CrmEmailOptInBanner />
+        </Suspense>
         <Show when={isTouchDevice() && !selectedRecord()}>
           <ViewShell.Header>
             <CrmMobileTabs

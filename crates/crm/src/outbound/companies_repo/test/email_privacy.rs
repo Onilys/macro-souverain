@@ -1,0 +1,344 @@
+use super::helpers::*;
+use crate::domain::companies_repo::CompaniesRepository;
+use crate::domain::email_privacy::{EmailBlockScope, EmailPrivacyChange, EmailPrivacyRepository};
+use crate::outbound::companies_repo::CompaniesRepositoryImpl;
+use chrono::Utc;
+use macro_db_migrator::MACRO_DB_MIGRATIONS;
+use sqlx::PgPool;
+use uuid::Uuid;
+
+const OWNER: &str = "macro|owner@example.com";
+
+#[sqlx::test(migrations = false)]
+async fn rollout_and_rollback_preserve_records_and_do_not_inherit_consent(
+    pool: PgPool,
+) -> anyhow::Result<()> {
+    // This schema is owned by the disposable sqlx test database.
+    sqlx::raw_sql("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+        .execute(&pool)
+        .await?;
+    let before_privacy = sqlx::migrate::Migrator {
+        migrations: std::borrow::Cow::Owned(
+            MACRO_DB_MIGRATIONS
+                .iter()
+                .filter(|m| m.version < 20261007224236)
+                .cloned()
+                .collect(),
+        ),
+        ..sqlx::migrate::Migrator::DEFAULT
+    };
+    before_privacy.run(&pool).await?;
+    let team = Uuid::now_v7();
+    seed_team(&pool, team, OWNER).await?;
+    enable_crm_for_team(&pool, team).await?;
+    let company = insert_company(&pool, team, false, &["acme.com"]).await?;
+    insert_contact(&pool, company, "pat@acme.com").await?;
+    MACRO_DB_MIGRATIONS.run(&pool).await?;
+    assert!(
+        !sqlx::query_scalar!(
+            "SELECT crm_enabled FROM team_crm_settings WHERE team_id = $1",
+            team
+        )
+        .fetch_one(&pool)
+        .await?
+    );
+    assert_eq!(
+        sqlx::query_scalar!("SELECT count(*) FROM crm_email_consent")
+            .fetch_one(&pool)
+            .await?,
+        Some(0)
+    );
+    assert_eq!(count_contacts(&pool, company).await?, 1);
+    assert_eq!(fetch_company_hidden(&pool, company).await?, Some(false));
+    sqlx::raw_sql(include_str!("../../../../../macro_db_client/migrations/20261007224236_crm_email_consent_and_blocklists.down.sql")).execute(&pool).await?;
+    assert_eq!(count_contacts(&pool, company).await?, 1);
+    Ok(())
+}
+
+async fn setup(pool: &PgPool) -> anyhow::Result<(CompaniesRepositoryImpl, Uuid, Uuid)> {
+    let team = Uuid::now_v7();
+    seed_team(pool, team, OWNER).await?;
+    sqlx::query!(
+        "INSERT INTO team_user (team_id, user_id, team_role) VALUES ($1, $2, 'owner')",
+        team,
+        OWNER
+    )
+    .execute(pool)
+    .await?;
+    let link = insert_email_link(pool, OWNER, "owner@example.com").await?;
+    Ok((CompaniesRepositoryImpl::new(pool.clone()), team, link))
+}
+
+async fn allowed(pool: &PgPool, team: Uuid, thread: Uuid) -> anyhow::Result<bool> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT crm_email_thread_allowed($1, $2) AS "allowed!""#,
+        team,
+        thread
+    )
+    .fetch_one(pool)
+    .await?)
+}
+
+async fn deliver(
+    repo: &CompaniesRepositoryImpl,
+    team: Uuid,
+    link: Uuid,
+    email: &str,
+) -> anyhow::Result<()> {
+    repo.populate_contact(
+        &team,
+        &link,
+        email.split('@').nth(1).unwrap(),
+        email,
+        None,
+        Utc::now(),
+        Utc::now(),
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn consent_controls_ingestion_and_reads_without_deleting_records(
+    pool: PgPool,
+) -> anyhow::Result<()> {
+    let (repo, team, link) = setup(&pool).await?;
+    let thread = insert_interaction(&pool, link, "pat@acme.com", Utc::now(), true).await?;
+    assert!(!repo.email_privacy(team, OWNER).await?.enabled);
+    assert!(!allowed(&pool, team, thread).await?);
+    deliver(&repo, team, link, "pat@acme.com").await?;
+    assert_eq!(
+        count_companies_for_domain(&pool, team, "acme.com").await?,
+        0
+    );
+
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::SetConsent { enabled: true },
+    )
+    .await?;
+    assert!(allowed(&pool, team, thread).await?);
+    assert_eq!(
+        sqlx::query_scalar!(
+            "SELECT count(*) FROM crm_email_backfill_outbox WHERE team_id = $1 AND user_id = $2",
+            team,
+            OWNER
+        )
+        .fetch_one(&pool)
+        .await?,
+        Some(1),
+        "consent commits its historical backfill request"
+    );
+    deliver(&repo, team, link, "pat@acme.com").await?;
+    let company = fetch_company_for_domain(&pool, team, "acme.com")
+        .await?
+        .unwrap();
+    assert_eq!(count_contacts(&pool, company).await?, 1);
+
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::SetConsent { enabled: false },
+    )
+    .await?;
+    assert!(!allowed(&pool, team, thread).await?);
+    assert!(repo.contribution_mailbox(team, OWNER).await?.is_none());
+    insert_interaction(&pool, link, "new@acme.com", Utc::now(), true).await?;
+    deliver(&repo, team, link, "new@acme.com").await?;
+    assert_eq!(
+        count_contacts(&pool, company).await?,
+        1,
+        "stale job after withdrawal must not write"
+    );
+    assert!(
+        fetch_company_for_domain(&pool, team, "acme.com")
+            .await?
+            .is_some()
+    );
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn blocklist_is_retroactive_and_blocks_untracked_domains_and_subdomains(
+    pool: PgPool,
+) -> anyhow::Result<()> {
+    let (repo, team, link) = setup(&pool).await?;
+    consent_to_mailbox(&pool, team, link).await?;
+    let acme = insert_interaction(&pool, link, "pat@acme.com", Utc::now(), true).await?;
+    let sub = insert_interaction(&pool, link, "pat@sales.acme.com", Utc::now(), true).await?;
+    let similar = insert_interaction(&pool, link, "pat@notacme.com", Utc::now(), true).await?;
+    deliver(&repo, team, link, "pat@acme.com").await?;
+    let company = fetch_company_for_domain(&pool, team, "acme.com")
+        .await?
+        .unwrap();
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::AddDomain {
+            scope: EmailBlockScope::Team,
+            domain: "acme.com".into(),
+        },
+    )
+    .await?;
+    assert!(!allowed(&pool, team, acme).await?);
+    assert!(!allowed(&pool, team, sub).await?);
+    assert!(allowed(&pool, team, similar).await?);
+    deliver(&repo, team, link, "pat@sales.acme.com").await?;
+    assert_eq!(
+        count_companies_for_domain(&pool, team, "sales.acme.com").await?,
+        0
+    );
+    assert_eq!(count_contacts(&pool, company).await?, 1);
+    assert_eq!(fetch_company_hidden(&pool, company).await?, Some(false));
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::RemoveDomain {
+            scope: EmailBlockScope::Team,
+            domain: "acme.com".into(),
+        },
+    )
+    .await?;
+    assert!(allowed(&pool, team, sub).await?);
+    deliver(&repo, team, link, "pat@sales.acme.com").await?;
+    assert_eq!(
+        count_companies_for_domain(&pool, team, "sales.acme.com").await?,
+        1
+    );
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn one_blocked_bcc_participant_excludes_the_entire_thread_and_its_timestamps(
+    pool: PgPool,
+) -> anyhow::Result<()> {
+    let (repo, team, link) = setup(&pool).await?;
+    consent_to_mailbox(&pool, team, link).await?;
+    let safe_at = "2025-01-01T00:00:00Z".parse()?;
+    let blocked_at = "2026-01-01T00:00:00Z".parse()?;
+    let safe = insert_interaction(&pool, link, "pat@acme.com", safe_at, true).await?;
+    let mixed = insert_interaction(&pool, link, "pat@acme.com", blocked_at, true).await?;
+    let contact = Uuid::now_v7();
+    sqlx::query!("INSERT INTO email_contacts (id, link_id, email_address) VALUES ($1, $2, 'secret@private.com')", contact, link).execute(&pool).await?;
+    sqlx::query!("INSERT INTO email_message_recipients (message_id, contact_id, recipient_type) SELECT id, $2, 'BCC' FROM email_messages WHERE thread_id = $1", mixed, contact).execute(&pool).await?;
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::AddDomain {
+            scope: EmailBlockScope::Personal,
+            domain: "private.com".into(),
+        },
+    )
+    .await?;
+    assert!(allowed(&pool, team, safe).await?);
+    assert!(!allowed(&pool, team, mixed).await?);
+    deliver(&repo, team, link, "pat@acme.com").await?;
+    let company = fetch_company_for_domain(&pool, team, "acme.com")
+        .await?
+        .unwrap();
+    assert_eq!(
+        fetch_company_interactions(&pool, company).await?,
+        Some((safe_at, safe_at))
+    );
+    deliver(&repo, team, link, "secret@private.com").await?;
+    assert_eq!(
+        count_companies_for_domain(&pool, team, "private.com").await?,
+        0
+    );
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn personal_blocks_only_affect_the_contributors_mailbox(pool: PgPool) -> anyhow::Result<()> {
+    let (repo, team, link) = setup(&pool).await?;
+    consent_to_mailbox(&pool, team, link).await?;
+    let other = "macro|colleague@example.com";
+    let user = Uuid::now_v7();
+    sqlx::query!(
+        "INSERT INTO macro_user (id, username, email, stripe_customer_id) VALUES ($1, $2, $2, $2)",
+        user,
+        other
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query!(
+        r#"INSERT INTO "User" (id, email, macro_user_id) VALUES ($1, $1, $2)"#,
+        other,
+        user
+    )
+    .execute(&pool)
+    .await?;
+    let other_link = insert_email_link(&pool, other, "colleague@example.com").await?;
+    consent_to_mailbox(&pool, team, other_link).await?;
+    let mine = insert_interaction(&pool, link, "pat@acme.com", Utc::now(), true).await?;
+    let theirs = insert_interaction(&pool, other_link, "pat@acme.com", Utc::now(), true).await?;
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::AddDomain {
+            scope: EmailBlockScope::Personal,
+            domain: "acme.com".into(),
+        },
+    )
+    .await?;
+    assert!(!allowed(&pool, team, mine).await?);
+    assert!(allowed(&pool, team, theirs).await?);
+    assert!(
+        repo.email_privacy(team, other)
+            .await?
+            .personal_domains
+            .is_empty()
+    );
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::AddDomain {
+            scope: EmailBlockScope::Team,
+            domain: "acme.com".into(),
+        },
+    )
+    .await?;
+    assert!(!allowed(&pool, team, theirs).await?);
+    repo.change_email_privacy(
+        team,
+        OWNER,
+        EmailPrivacyChange::RemoveDomain {
+            scope: EmailBlockScope::Team,
+            domain: "acme.com".into(),
+        },
+    )
+    .await?;
+    assert!(!allowed(&pool, team, mine).await?, "personal block remains");
+    assert!(allowed(&pool, team, theirs).await?);
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn consent_does_not_extend_to_secondary_mailboxes_or_survive_team_removal(
+    pool: PgPool,
+) -> anyhow::Result<()> {
+    let (repo, team, link) = setup(&pool).await?;
+    consent_to_mailbox(&pool, team, link).await?;
+    let secondary = insert_email_link(&pool, OWNER, "secondary@example.com").await?;
+    let thread = insert_interaction(&pool, secondary, "pat@acme.com", Utc::now(), true).await?;
+    assert!(!allowed(&pool, team, thread).await?);
+    deliver(&repo, team, secondary, "pat@acme.com").await?;
+    assert_eq!(
+        count_companies_for_domain(&pool, team, "acme.com").await?,
+        0
+    );
+    let primary = insert_interaction(&pool, link, "pat@acme.com", Utc::now(), true).await?;
+    assert!(allowed(&pool, team, primary).await?);
+    sqlx::query!(
+        "DELETE FROM team_user WHERE team_id = $1 AND user_id = $2",
+        team,
+        OWNER
+    )
+    .execute(&pool)
+    .await?;
+    assert!(!allowed(&pool, team, primary).await?);
+    assert!(repo.contribution_mailbox(team, OWNER).await?.is_none());
+    Ok(())
+}

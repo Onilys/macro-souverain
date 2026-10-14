@@ -1,23 +1,17 @@
 import { toast } from '@core/component/Toast/Toast';
 import type { CrmCompanyEntity } from '@entity';
-import { cn, InlineCheckbox } from '@ui';
-import { Show } from 'solid-js';
+import { Button, InlineCheckbox } from '@ui';
+import { createSignal, Show } from 'solid-js';
 import { useCrmContext } from '../context/crm-context';
-import {
-  useIsTeamAdmin,
-  useSetCompanyHiddenMutation,
-  useSetEmailSyncMutation,
-} from './use-crm';
-
-const TOGGLE_BUTTON_CLASS =
-  'inline-flex items-center gap-2 rounded-md h-7 px-2.5 text-xs select-none w-fit border border-ink-muted/[0.08] bg-ink-muted/[0.025] text-ink hover:bg-ink-muted/[0.06]';
+import { CrmEmailPrivacyDialog } from './email-privacy';
+import { useIsTeamAdmin, useSetCompanyHiddenMutation } from './use-crm';
 
 export function CompanySharingSection(props: {
   company?: CrmCompanyEntity;
   onHidden?: () => void;
 }) {
   const hideMutation = useSetCompanyHiddenMutation();
-  const emailSyncMutation = useSetEmailSyncMutation();
+  const [privacyOpen, setPrivacyOpen] = createSignal(false);
   const { showCompanies } = useCrmContext().createNavigation();
   const isTeamAdmin = useIsTeamAdmin();
 
@@ -44,21 +38,6 @@ export function CompanySharingSection(props: {
     }
   };
 
-  const handleToggleEmailSync = async (
-    company: CrmCompanyEntity,
-    nextEmailSync: boolean
-  ) => {
-    try {
-      await emailSyncMutation.mutateAsync({
-        companyId: company.id,
-        emailSync: nextEmailSync,
-      });
-    } catch (error) {
-      console.error('failed to update company email sync', error);
-      toast.failure('Could not update email sync');
-    }
-  };
-
   return (
     <Show
       when={props.company}
@@ -66,16 +45,7 @@ export function CompanySharingSection(props: {
     >
       {(company) => {
         const isShared = () => !company().hidden;
-        // The detail query always supplies a real boolean; `?? false` only
-        // covers the type-level "not loaded" case (search-derived entities).
-        const isSyncing = () => company().emailSync ?? false;
-        // Disable interaction during pending mutations, when the backend
-        // would reject (409 CompanyHidden on re-enabling sync for a hidden
-        // company — un-share first), or for non-admins. The greyed-out
-        // visual is reserved for the non-admin case only.
         const shareDisabled = () => hideMutation.isPending || !isTeamAdmin();
-        const syncDisabled = () =>
-          emailSyncMutation.isPending || company().hidden || !isTeamAdmin();
 
         return (
           <div class="flex flex-col gap-4 text-xs">
@@ -89,7 +59,7 @@ export function CompanySharingSection(props: {
                   aria-checked={isShared()}
                   disabled={shareDisabled()}
                   onClick={() => void handleToggleShare(company(), !isShared())}
-                  class={cn(TOGGLE_BUTTON_CLASS)}
+                  class="inline-flex items-center gap-2 rounded-md h-7 px-2.5 text-xs select-none w-fit border border-ink-muted/[0.08] bg-ink-muted/[0.025] text-ink hover:bg-ink-muted/[0.06]"
                 >
                   <InlineCheckbox checked={isShared()} />
                   <span class="whitespace-nowrap">Visible in CRM</span>
@@ -102,30 +72,22 @@ export function CompanySharingSection(props: {
             </Show>
 
             <div class="flex flex-col gap-2">
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={isSyncing()}
-                disabled={syncDisabled()}
-                onClick={() =>
-                  void handleToggleEmailSync(company(), !isSyncing())
-                }
-                class={cn(
-                  TOGGLE_BUTTON_CLASS,
-                  !isTeamAdmin() && 'pointer-events-none opacity-50'
-                )}
+              <Button
+                variant="outline"
+                size="sm"
+                class="w-fit"
+                onClick={() => setPrivacyOpen(true)}
               >
-                <InlineCheckbox checked={isSyncing()} />
-                <span class="whitespace-nowrap">Sync Emails</span>
-              </button>
+                Email sharing settings
+              </Button>
               <p class="text-ink-muted leading-5">
-                Lets everyone on your team see each other's emails with this
-                company.
-                <Show when={!isTeamAdmin()}>
-                  {' '}
-                  Contact a team admin or owner to toggle.
-                </Show>
+                Email sharing follows each teammate’s consent and the team and
+                personal blacklists. Blocking emails keeps this company visible.
               </p>
+              <CrmEmailPrivacyDialog
+                open={privacyOpen()}
+                onOpenChange={setPrivacyOpen}
+              />
             </div>
           </div>
         );

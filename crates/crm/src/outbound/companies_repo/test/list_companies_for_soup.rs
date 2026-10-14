@@ -6,11 +6,13 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn list_for_soup_returns_empty_when_killswitch_missing(pool: PgPool) -> anyhow::Result<()> {
+async fn list_for_soup_includes_companies_without_legacy_settings(
+    pool: PgPool,
+) -> anyhow::Result<()> {
     let team = Uuid::now_v7();
     let owner = "macro|owner@test.com";
     seed_team(&pool, team, owner).await?;
-    // No team_crm_settings row → killswitch defaults to off.
+    // Viewing company records does not require email contribution consent.
     insert_company(&pool, team, true, &["acme.com"]).await?;
 
     let repo = CompaniesRepositoryImpl::new(pool);
@@ -25,15 +27,12 @@ async fn list_for_soup_returns_empty_when_killswitch_missing(pool: PgPool) -> an
             100,
         )
         .await?;
-    assert!(
-        result.is_empty(),
-        "killswitch missing must short-circuit to empty list even when companies exist"
-    );
+    assert_eq!(result.len(), 1);
     Ok(())
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn list_for_soup_returns_empty_when_killswitch_off(pool: PgPool) -> anyhow::Result<()> {
+async fn list_for_soup_includes_companies_when_legacy_flag_off(pool: PgPool) -> anyhow::Result<()> {
     let team = Uuid::now_v7();
     let owner = "macro|owner@test.com";
     seed_team(&pool, team, owner).await?;
@@ -55,7 +54,7 @@ async fn list_for_soup_returns_empty_when_killswitch_off(pool: PgPool) -> anyhow
             100,
         )
         .await?;
-    assert!(result.is_empty());
+    assert_eq!(result.len(), 1);
     Ok(())
 }
 

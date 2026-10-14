@@ -180,10 +180,10 @@ async fn links_companies_by_domain_and_contacts_by_address(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn skips_teams_without_the_crm_enabled(pool: PgPool) {
+async fn links_records_without_email_contribution_consent(pool: PgPool) {
     let team_id = seed_team(&pool, false).await;
     let acme = insert_company(&pool, team_id, "acme.com", false).await;
-    insert_contact(&pool, acme, "ada@acme.com").await;
+    let ada = insert_contact(&pool, acme, "ada@acme.com").await;
     let call_record_id = Uuid::now_v7();
 
     linker(&pool)
@@ -191,15 +191,13 @@ async fn skips_teams_without_the_crm_enabled(pool: PgPool) {
         .await
         .unwrap();
 
-    assert!(
-        linked_ids(&pool, call_record_id, SystemPropertyKey::Companies)
-            .await
-            .is_empty()
+    assert_eq!(
+        linked_ids(&pool, call_record_id, SystemPropertyKey::Companies).await,
+        vec![acme.to_string()]
     );
-    assert!(
-        linked_ids(&pool, call_record_id, SystemPropertyKey::Contacts)
-            .await
-            .is_empty()
+    assert_eq!(
+        linked_ids(&pool, call_record_id, SystemPropertyKey::Contacts).await,
+        vec![ada.to_string()]
     );
 }
 

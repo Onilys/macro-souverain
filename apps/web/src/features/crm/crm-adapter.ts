@@ -10,6 +10,7 @@ import {
 import { useUserId } from '@core/context/user';
 import { getInitialsFromName } from '@core/user';
 import { idToEmail } from '@core/user/util';
+import { usePrimaryEmailLinkId } from '@queries/email/link';
 import { queryReadyGate } from '@queries/gate';
 import { useListPropertiesQuery } from '@queries/properties/definitions';
 import { useBulkSaveEntityPropertiesMutation } from '@queries/properties/entity';
@@ -22,6 +23,7 @@ import {
 } from '@queries/team/teams';
 import { patchTeamCrmSettings } from '@service-auth/crm';
 import { storageServiceClient } from '@service-storage/client';
+import { crmEmailPrivacyClient } from '@service-storage/crm-email-privacy';
 import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { useQueryClient } from '@tanstack/solid-query';
 import { createMemo, lazy } from 'solid-js';
@@ -59,6 +61,7 @@ import {
   useSetContactHiddenMutation,
   useSetContactNameMutation,
 } from './queries/contacts';
+import { createEmailPrivacySource } from './queries/email-privacy';
 import { fetchCrmExportCompanies } from './queries/export';
 import { useCrmLists } from './queries/lists';
 import { createPipelinesSource } from './queries/pipelines';
@@ -154,6 +157,14 @@ export function createAppCrmContext(): CrmContext {
   const userId = useUserId();
   const createSettings = () => useTeamCrmConfig(deps);
   return {
+    createEmailPrivacy: () => {
+      const team = useCurrentTeamQuery();
+      return createEmailPrivacySource(
+        { ...deps, privacy: crmEmailPrivacyClient },
+        () => (team.isSuccess ? team.data?.team.id : undefined),
+        userId
+      );
+    },
     createPipelines: (teamId) => createPipelinesSource(deps, teamId),
     PipelineEditor: PipelineDatabaseEditor,
     PipelineEntries: createCrmPipelineEntries({
@@ -178,11 +189,19 @@ export function createAppCrmContext(): CrmContext {
     },
     createCompanyEmails: (...args) =>
       withRowNotifications(
-        useCompanyEmailsQuery(useSoupAstItemsQuery, ...args)
+        useCompanyEmailsQuery(
+          useSoupAstItemsQuery,
+          ...args,
+          usePrimaryEmailLinkId()
+        )
       ),
     createContactEmails: (...args) =>
       withRowNotifications(
-        useContactEmailsQuery(useSoupAstItemsQuery, ...args)
+        useContactEmailsQuery(
+          useSoupAstItemsQuery,
+          ...args,
+          usePrimaryEmailLinkId()
+        )
       ),
     createRecordFiles: (scope) =>
       withRowNotifications(useRecordFilesQuery(useSoupAstItemsQuery, scope)),

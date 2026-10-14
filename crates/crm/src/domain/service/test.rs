@@ -4,6 +4,10 @@
 
 use super::*;
 use crate::domain::contact_listing::{CrmContactListQuery, CrmContactListScope};
+use crate::domain::email_privacy::{
+    EmailBlockScope, EmailContributionMailbox, EmailPrivacyChange, EmailPrivacyRepository,
+    EmailPrivacyService, EmailPrivacySettings,
+};
 use crate::domain::model::CrmPermissionRole;
 use crate::outbound::no_op_resolver::NoOpCompanyMetadataResolver;
 use entity_access::domain::models::{
@@ -17,7 +21,54 @@ use std::sync::{Arc, Mutex};
 /// empty store; everything else panics.
 #[derive(Clone, Default)]
 struct StubRepo {
+    privacy_changes: Arc<Mutex<Vec<(uuid::Uuid, String, EmailPrivacyChange)>>>,
     contact_calls: Arc<Mutex<Vec<ContactListCall>>>,
+}
+
+impl EmailPrivacyRepository for StubRepo {
+    async fn contribution_mailbox(
+        &self,
+        _: uuid::Uuid,
+        _: &str,
+    ) -> Result<Option<EmailContributionMailbox>, CrmError> {
+        Ok(None)
+    }
+
+    async fn may_contribute_contact(
+        &self,
+        _: uuid::Uuid,
+        _: uuid::Uuid,
+        _: &str,
+    ) -> Result<bool, CrmError> {
+        Ok(false)
+    }
+
+    async fn email_privacy(
+        &self,
+        _: uuid::Uuid,
+        _: &str,
+    ) -> Result<EmailPrivacySettings, CrmError> {
+        Ok(EmailPrivacySettings {
+            enabled: false,
+            mailbox_email: None,
+            team_domains: vec![],
+            personal_domains: vec![],
+            can_remove_team_domains: false,
+        })
+    }
+
+    async fn change_email_privacy(
+        &self,
+        team: uuid::Uuid,
+        user: &str,
+        change: EmailPrivacyChange,
+    ) -> Result<(), CrmError> {
+        self.privacy_changes
+            .lock()
+            .unwrap()
+            .push((team, user.to_owned(), change));
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -274,6 +325,139 @@ impl CompaniesRepository for StubRepo {
 
 fn service() -> CrmServiceImpl<StubRepo, NoOpCompanyMetadataResolver> {
     CrmServiceImpl::new(StubRepo::default(), NoOpCompanyMetadataResolver)
+}
+
+#[tokio::test]
+async fn members_can_add_team_blocks_but_only_admins_can_remove_them() {
+    let svc = service();
+    let member = receipt_with_role(TeamRole::Member);
+    let settings = svc
+        .change_email_privacy(
+            &member,
+            EmailPrivacyChange::AddDomain {
+                scope: EmailBlockScope::Team,
+                domain: " Acme.COM ".into(),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(!settings.can_remove_team_domains);
+    let recorded = svc
+        .companies_repository
+        .privacy_changes
+        .lock()
+        .unwrap()
+        .clone();
+    assert_eq!(
+        recorded,
+        vec![(
+            member.team_id(),
+            "macro|user@example.com".into(),
+            EmailPrivacyChange::AddDomain {
+                scope: EmailBlockScope::Team,
+                domain: "acme.com".into()
+            }
+        )]
+    );
+    let remove = EmailPrivacyChange::RemoveDomain {
+        scope: EmailBlockScope::Team,
+        domain: "acme.com".into(),
+    };
+    assert!(matches!(
+        svc.change_email_privacy(&member, remove.clone()).await,
+        Err(CrmError::AdminRoleRequired)
+    ));
+    assert_eq!(
+        svc.companies_repository
+            .privacy_changes
+            .lock()
+            .unwrap()
+            .len(),
+        1
+    );
+    for role in [TeamRole::Admin, TeamRole::Owner] {
+        assert!(
+            svc.change_email_privacy(&receipt_with_role(role), remove.clone())
+                .await
+                .unwrap()
+                .can_remove_team_domains
+        );
+    }
+}
+
+#[tokio::test]
+async fn personal_consent_and_exclusions_are_bound_to_the_authenticated_caller() {
+    let svc = service();
+    let member = receipt_with_role(TeamRole::Member);
+    for change in [
+        EmailPrivacyChange::SetConsent { enabled: true },
+        EmailPrivacyChange::SetConsent { enabled: false },
+        EmailPrivacyChange::RemoveDomain {
+            scope: EmailBlockScope::Personal,
+            domain: "acme.com".into(),
+        },
+    ] {
+        svc.change_email_privacy(&member, change).await.unwrap();
+    }
+    let calls = svc.companies_repository.privacy_changes.lock().unwrap();
+    assert_eq!(calls.len(), 3);
+    assert!(
+        calls
+            .iter()
+            .all(|(team, user, _)| *team == member.team_id() && user == "macro|user@example.com")
+    );
+}
+
+#[tokio::test]
+async fn invalid_blocklist_domains_are_rejected_before_persistence() {
+    let svc = service();
+    let member = receipt_with_role(TeamRole::Member);
+    for domain in [
+        "",
+        "*",
+        "acme..com",
+        "-acme.com",
+        "acme-.com",
+        "acme_com.test",
+    ] {
+        assert!(
+            svc.change_email_privacy(
+                &member,
+                EmailPrivacyChange::AddDomain {
+                    scope: EmailBlockScope::Personal,
+                    domain: domain.into()
+                }
+            )
+            .await
+            .is_err(),
+            "accepted {domain}"
+        );
+    }
+    assert!(
+        svc.companies_repository
+            .privacy_changes
+            .lock()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn unconsented_ingestion_stops_before_metadata_or_contact_writes() {
+    // All metadata/write methods on this stub panic; only admission returns false.
+    service()
+        .populate_contact(
+            &uuid::Uuid::now_v7(),
+            &uuid::Uuid::now_v7(),
+            "owner@example.com",
+            "person@acme.com",
+            None,
+            Utc::now(),
+            Utc::now(),
+            true,
+        )
+        .await
+        .unwrap();
 }
 
 fn receipt_with_role(role: TeamRole) -> CrmTeamReceipt<MemberTeamRole> {

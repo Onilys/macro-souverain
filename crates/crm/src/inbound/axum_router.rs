@@ -44,6 +44,9 @@ pub mod create_contact;
 /// team saved views).
 pub mod team_settings;
 
+/// Individual email consent and domain blocklists.
+pub mod email_privacy;
+
 /// The team's deal stage set, gated on `edit_stages_role`.
 pub mod stages;
 
@@ -130,6 +133,11 @@ where
     S: Send + Sync + 'static,
 {
     Router::new()
+        .route(
+            "/email-privacy",
+            get(email_privacy::get_handler::<C, St, Eas, Auth>)
+                .put(email_privacy::update_handler::<C, St, Eas, Auth>),
+        )
         .route(
             "/companies",
             post(create_company::handler::<C, St, Eas, Auth>),
@@ -260,7 +268,7 @@ impl IntoResponse for CrmError {
             CrmError::CrmDisabledForTeam => (
                 StatusCode::FORBIDDEN,
                 Json(ErrorResponse {
-                    message: "crm is not enabled for this team".into(),
+                    message: "crm is unavailable for this team".into(),
                 }),
             ),
             CrmError::InvalidTeamId | CrmError::StorageLayerError(_) => (

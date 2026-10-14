@@ -4661,6 +4661,103 @@ export const setCrmContactNameBody = zod
   .describe('Request body for `PUT \/contacts\/{contact_id}\/name`.');
 
 /**
+ * @summary Read the caller's mailbox consent and both exclusion lists.
+ */
+export const getCrmEmailPrivacyResponse = zod
+  .object({
+    can_remove_team_domains: zod
+      .boolean()
+      .describe('Whether the caller can remove a team exclusion.'),
+    enabled: zod
+      .boolean()
+      .describe(
+        'Whether this exact mailbox has explicit contribution consent.'
+      ),
+    mailbox_email: zod
+      .string()
+      .nullish()
+      .describe(
+        'The primary mailbox that would contribute; absent before email connection.'
+      ),
+    personal_domains: zod
+      .array(zod.string())
+      .describe("Domains excluded only for the caller's contributions."),
+    team_domains: zod
+      .array(zod.string())
+      .describe(
+        'Domains excluded across the team, including legacy company exclusions.'
+      ),
+  })
+  .describe('Current consent and exclusions, readable by any team member.');
+
+/**
+ * @summary Apply one consent or domain-exclusion change as the authenticated member.
+ */
+export const updateCrmEmailPrivacyBody = zod
+  .union([
+    zod
+      .object({
+        action: zod.enum(['set_consent']),
+        enabled: zod
+          .boolean()
+          .describe(
+            "False withdraws this mailbox's CRM contribution without deleting records."
+          ),
+      })
+      .describe(
+        'Consent covers all available past and future emails in the primary mailbox.'
+      ),
+    zod
+      .object({
+        action: zod.enum(['add_domain']),
+        domain: zod.string().describe('Bare company domain.'),
+        scope: zod
+          .enum(['team', 'personal'])
+          .describe('The audience affected by a domain exclusion.'),
+      })
+      .describe('Add a domain and its subdomains to an exclusion list.'),
+    zod
+      .object({
+        action: zod.enum(['remove_domain']),
+        domain: zod.string().describe('Bare company domain.'),
+        scope: zod
+          .enum(['team', 'personal'])
+          .describe('The audience affected by a domain exclusion.'),
+      })
+      .describe('Remove an exclusion; other exclusions still apply.'),
+  ])
+  .describe(
+    'One explicit privacy change, avoiding lost updates to whole blocklists.'
+  );
+
+export const updateCrmEmailPrivacyResponse = zod
+  .object({
+    can_remove_team_domains: zod
+      .boolean()
+      .describe('Whether the caller can remove a team exclusion.'),
+    enabled: zod
+      .boolean()
+      .describe(
+        'Whether this exact mailbox has explicit contribution consent.'
+      ),
+    mailbox_email: zod
+      .string()
+      .nullish()
+      .describe(
+        'The primary mailbox that would contribute; absent before email connection.'
+      ),
+    personal_domains: zod
+      .array(zod.string())
+      .describe("Domains excluded only for the caller's contributions."),
+    team_domains: zod
+      .array(zod.string())
+      .describe(
+        'Domains excluded across the team, including legacy company exclusions.'
+      ),
+  })
+  .describe('Current consent and exclusions, readable by any team member.');
+
+/**
  * @summary List the caller's live pipelines in their CRM.
  */
 export const listCrmPipelinesResponseItem = zod
@@ -9171,7 +9268,7 @@ export const getCrmTeamSettingsResponse = zod
       ),
   })
   .describe(
-    "The team's CRM configuration (everything on `team_crm_settings`\nexcept the `crm_enabled` killswitch, which is managed via\n`PATCH \/team\/crm` on the auth service)."
+    "The team's CRM configuration (everything on `team_crm_settings`\nexcept the retired `crm_enabled` flag). Email contribution consent and\nexclusions are managed separately through `\/crm\/email-privacy`."
   );
 
 /**
@@ -9276,7 +9373,7 @@ export const putCrmTeamSettingsResponse = zod
       ),
   })
   .describe(
-    "The team's CRM configuration (everything on `team_crm_settings`\nexcept the `crm_enabled` killswitch, which is managed via\n`PATCH \/team\/crm` on the auth service)."
+    "The team's CRM configuration (everything on `team_crm_settings`\nexcept the retired `crm_enabled` flag). Email contribution consent and\nexclusions are managed separately through `\/crm\/email-privacy`."
   );
 
 /**

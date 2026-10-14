@@ -3,6 +3,8 @@
 #[cfg(test)]
 mod test;
 
+mod email_privacy;
+
 use crate::domain::{
     auth::{CrmCompanyReceipt, CrmContactReceipt, CrmTeamReceipt},
     companies_repo::{CompaniesRepository, CrmCompanyListSort, CrmCompanySoupCursor},
@@ -18,7 +20,7 @@ use entity_access::domain::models::{EditAccessLevel, MemberTeamRole, ViewAccessL
 
 /// The CrmService exposes operations over CRM records (companies, their
 /// domains and contacts).
-pub trait CrmService: Clone + Send + Sync + 'static {
+pub trait CrmService: super::email_privacy::EmailPrivacyService {
     /// List the viewer's accessible contacts, collapsed by normalized email.
     /// Team-scoped bot receipts remain restricted to their authorized team.
     fn list_contacts_for_soup(
@@ -28,15 +30,10 @@ pub trait CrmService: Clone + Send + Sync + 'static {
         query: super::contact_listing::CrmContactListQuery,
     ) -> impl Future<Output = Result<Vec<super::contact_listing::CrmContactForSoup>, CrmError>> + Send;
 
-    /// Idempotently records that `email` was seen from the mailbox
-    /// identified by `link_id`, for the team `team_id`. Upserts
-    /// `crm_companies` (+ `crm_domains`), `crm_contacts`, and
-    /// `crm_contact_sources` in a single transaction. The call is a
-    /// no-op only when the team-level
-    /// `team_crm_settings.crm_enabled = false` killswitch is engaged.
-    /// The per-company `email_sync` flag is a visibility gate only —
-    /// populate writes regardless, so re-enabling sync exposes the
-    /// full history with no backfill.
+    /// Contribute eligible stored history from an explicitly consented mailbox.
+    /// Team and personal exclusions (including mixed-thread participants) apply
+    /// before enrichment and again inside the writer transaction. Queued work
+    /// after withdrawal or blocking is safely acknowledged without ingestion.
     ///
     /// `name` is the display name observed for `email` on this user's
     /// link — typically `email_contacts.name`, which the caller looks up
@@ -58,27 +55,10 @@ pub trait CrmService: Clone + Send + Sync + 'static {
     /// own transaction so the populate tx never holds locks across an
     /// HTTP fetch.
     ///
-    /// `first_at` / `last_at` are the contact's known activity range
-    /// for this populate. Per-message paths pass the message's
-    /// `internal_date_ts` as both (single message = single endpoint).
-    /// The historical seed (`populate_crm_for_user`) pre-aggregates
-    /// MIN/MAX over the contact's matching messages and passes the
-    /// real range, so a single populate per contact stamps the CRM
-    /// rows with the full span. Callers without a real timestamp pass
-    /// `Utc::now()`. `created_at` / `updated_at` keep their
-    /// row-lifecycle semantics (DEFAULT `now()` /
-    /// `set_crm_updated_at` trigger).
-    ///
-    /// `is_sent` flags whether the populating message was sent by the
-    /// user. The write matrix:
-    ///
-    /// | `is_sent` | No `crm_companies` row | Existing `crm_companies` row |
-    /// |---|---|---|
-    /// | `true`  | INSERT company + contact + source; `first_interaction = $first_at`, `last_interaction = $last_at`. | UPDATE company `first=LEAST(stored, $first_at), last=GREATEST(stored, $last_at)` + upsert contact (same merge) + upsert source. |
-    /// | `false` | **No-op** — no domain-metadata resolve, no inserts. | UPDATE company `last=GREATEST(stored, $last_at)` only (do NOT touch `first_interaction`) + upsert contact (INSERT sets both endpoints; ON CONFLICT bumps `last` only) + upsert source. |
-    ///
-    /// `email_sync` is *not* consulted by this method — it's purely a
-    /// read-side visibility gate.
+    /// The historical range/direction on the job are compatibility hints.
+    /// Persistence derives the interaction range from currently eligible stored
+    /// messages. Sent history may create a company; received-only history updates
+    /// an existing company. Company blocks are enforced on writes and reads.
     #[allow(clippy::too_many_arguments)]
     fn populate_contact(
         &self,
@@ -178,8 +158,7 @@ pub trait CrmService: Clone + Send + Sync + 'static {
     /// (never in the shared directory — it's global across teams) and
     /// overrides the directory name on every read path.
     ///
-    /// Returns [`CrmError::CrmDisabledForTeam`] when the team-level
-    /// killswitch is off and [`CrmError::CompanyAlreadyExistsForTeam`]
+    /// Returns [`CrmError::CompanyAlreadyExistsForTeam`]
     /// when the team already tracks the domain. See
     /// [`crate::domain::companies_repo::CompaniesRepository::create_company_for_team`].
     fn create_company(
@@ -203,9 +182,7 @@ pub trait CrmService: Clone + Send + Sync + 'static {
     /// enforced in the repository against the company's `crm_domains`
     /// set ([`CrmError::ContactEmailDomainMismatch`] otherwise).
     ///
-    /// Returns [`CrmError::CrmDisabledForTeam`] when the team-level
-    /// killswitch is off and
-    /// [`CrmError::ContactAlreadyExistsForCompany`] when the company
+    /// Returns [`CrmError::ContactAlreadyExistsForCompany`] when the company
     /// already tracks the email. See
     /// [`crate::domain::companies_repo::CompaniesRepository::create_contact_for_company`].
     fn create_contact(
@@ -215,11 +192,9 @@ pub trait CrmService: Clone + Send + Sync + 'static {
         email: &str,
     ) -> impl Future<Output = Result<CrmContact, CrmError>> + Send;
 
-    /// Toggle `email_sync` for the company addressed by `access`. Purely
-    /// a visibility/permission flag — populate continues to write CRM
-    /// rows regardless. Requires an admin/owner role on the receipt;
-    /// returns [`CrmError::AdminRoleRequired`] otherwise. See
-    /// [`crate::domain::companies_repo::CompaniesRepository::set_email_sync`].
+    /// Legacy company exclusion switch. Any member may block; only an admin
+    /// or owner may unblock. Blocks apply to ingestion and CRM email access,
+    /// while company and contact records remain available.
     fn set_email_sync(
         &self,
         access: &CrmCompanyReceipt<EditAccessLevel>,
@@ -584,6 +559,14 @@ where
         // directory entry was written when its first sent message
         // populated; if it isn't tracked, this call will no-op in the
         // repo anyway.
+        if !self
+            .companies_repository
+            .may_contribute_contact(*team_id, *link_id, email)
+            .await?
+        {
+            return Ok(());
+        }
+
         if is_sent
             && self
                 .companies_repository
@@ -730,7 +713,7 @@ where
         access: &CrmCompanyReceipt<EditAccessLevel>,
         email_sync: bool,
     ) -> Result<(), CrmError> {
-        if !access.has_admin_role() {
+        if email_sync && !access.has_admin_role() {
             return Err(CrmError::AdminRoleRequired);
         }
         let team_id = access.team_id();

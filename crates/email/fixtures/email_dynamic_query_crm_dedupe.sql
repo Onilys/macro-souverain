@@ -46,6 +46,11 @@ VALUES
     ('d0000001-0000-0000-0000-000000000001', 'macro|dave@beta.com', 'fa_dave', 'dave@beta.com', 'GMAIL', true, NOW(), NOW()),
     ('d0000002-0000-0000-0000-000000000002', 'macro|erin@beta.com', 'fa_erin', 'erin@beta.com', 'GMAIL', true, NOW(), NOW());
 
+-- Each team contributor has explicitly consented to this primary mailbox.
+INSERT INTO crm_email_consent (team_id, user_id, link_id, enabled)
+SELECT tu.team_id, tu.user_id, l.id, TRUE FROM team_user tu
+JOIN email_links l ON l.macro_id = tu.user_id AND l.is_primary;
+
 -- == Contacts — vendor@acme.com, one row per link ==
 INSERT INTO email_contacts (id, link_id, email_address, name, created_at, updated_at)
 VALUES

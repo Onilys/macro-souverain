@@ -199,14 +199,14 @@ async fn create_contact_hidden_company_semantics(pool: PgPool) -> anyhow::Result
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn create_contact_requires_crm_enabled(pool: PgPool) -> anyhow::Result<()> {
+async fn create_contact_is_available_without_email_consent(pool: PgPool) -> anyhow::Result<()> {
     let team_id = Uuid::now_v7();
     seed_team(&pool, team_id, "macro|owner@test.com").await?;
-    // Company exists but no team_crm_settings row: killswitch off.
+    // No legacy settings row or email consent is needed to manage records.
     let company_id = insert_company(&pool, team_id, true, &["acme.com"]).await?;
 
     let repo = CompaniesRepositoryImpl::new(pool.clone());
-    let err = repo
+    let contact = repo
         .create_contact_for_company(
             &team_id,
             &company_id,
@@ -215,9 +215,8 @@ async fn create_contact_requires_crm_enabled(pool: PgPool) -> anyhow::Result<()>
             Utc::now(),
             false,
         )
-        .await
-        .unwrap_err();
-    assert!(matches!(err, CrmError::CrmDisabledForTeam));
+        .await?;
+    assert_eq!(contact.company_id, company_id);
     Ok(())
 }
 
@@ -245,6 +244,8 @@ async fn populate_merges_into_manual_contact(pool: PgPool) -> anyhow::Result<()>
     // A populate for the same email upserts onto the manual row: the
     // manual name wins (first non-NULL), no second contact appears.
     let now = Utc::now();
+    consent_to_mailbox(&pool, team_id, link_id).await?;
+    insert_interaction(&pool, link_id, "jane@acme.com", Utc::now(), true).await?;
     repo.populate_contact(
         &team_id,
         &link_id,

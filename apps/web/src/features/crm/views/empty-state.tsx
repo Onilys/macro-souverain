@@ -2,15 +2,13 @@ import EmptyStateCompaniesGraphic from '@design/empty-state-companies.svg';
 import { EmptyStatePanel } from '@ui';
 import { Match, Switch } from 'solid-js';
 import { useCrmWorkspace } from '../context/workspace-context';
-import { useCurrentTeamQuery, useIsTeamAdmin } from './use-crm';
+import { useCurrentTeamQuery } from './use-crm';
 
 export function CrmEmptyState() {
   const { host, activeTab, queryFilters } = useCrmWorkspace();
   const peopleSearch = () => queryFilters.state.include.crmContactSearch;
   const teamQuery = useCurrentTeamQuery();
-  const isTeamAdmin = useIsTeamAdmin();
   const teamResolved = () => teamQuery.data !== undefined;
-  const crmEnabled = () => teamQuery.data?.team.crm_enabled ?? false;
   const hasNoTeam = () => teamQuery.data === null;
   return (
     <Switch>
@@ -27,26 +25,6 @@ export function CrmEmptyState() {
             label: 'Open team settings',
             onClick: () => host.openTeamSettings(),
           }}
-        />
-      </Match>
-      <Match when={!crmEnabled()}>
-        <EmptyStatePanel
-          centered
-          graphic={EmptyStateCompaniesGraphic}
-          title="CRM is disabled"
-          description={
-            isTeamAdmin()
-              ? 'Enable CRM in Settings > CRM to start tracking your customers.'
-              : 'Team owners and admins can enable CRM in Settings > CRM.'
-          }
-          primaryAction={
-            isTeamAdmin()
-              ? {
-                  label: 'Open CRM settings',
-                  onClick: () => host.openSettings(),
-                }
-              : undefined
-          }
         />
       </Match>
       <Match when={activeTab() === 'people'}>
@@ -72,7 +50,7 @@ export function CrmEmptyState() {
           }
           description={
             !activeTab() || activeTab() === 'active'
-              ? 'Customers your team emails will appear here.'
+              ? 'Add a company, or opt in to discover companies from eligible emails.'
               : activeTab()?.startsWith('list:')
                 ? 'Use Edit list to add companies to this collection.'
                 : 'Companies that match this view will appear here.'

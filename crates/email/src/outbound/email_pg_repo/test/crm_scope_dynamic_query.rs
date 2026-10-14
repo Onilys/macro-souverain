@@ -719,13 +719,7 @@ async fn crm_scope_pagination_across_team_links(pool: Pool<Postgres>) -> anyhow:
     Ok(())
 }
 
-// 16. Killswitch race: if team_crm_settings.crm_enabled flips to FALSE
-//     between the pre-check and the dynamic query, the candidate-source
-//     JOIN drops every team link out of the candidate set. This is the
-//     belt-and-suspenders gate; the typical entry point (validate_crm_scope)
-//     would already reject the request with CrmDisabledForTeam, but this
-//     test exercises the JOIN-level guard directly by calling the dynamic
-//     query with team_id = Some after flipping the flag.
+// Withdrawing consent after scope resolution must close every candidate source.
 #[sqlx::test(
     migrator = "MACRO_DB_MIGRATIONS",
     fixtures(
@@ -734,15 +728,17 @@ async fn crm_scope_pagination_across_team_links(pool: Pool<Postgres>) -> anyhow:
     )
 )]
 #[allow(clippy::disallowed_methods, reason = "legacy code. fix later")]
-async fn crm_scope_collapses_to_empty_when_killswitch_off(
+async fn crm_scope_collapses_to_empty_when_consent_withdrawn(
     pool: Pool<Postgres>,
 ) -> anyhow::Result<()> {
     let team_id = Uuid::parse_str(TEAM_ALPHA_ID)?;
-    // Flip the killswitch off after the fixture (which sets it ON).
-    sqlx::query("UPDATE team_crm_settings SET crm_enabled = FALSE WHERE team_id = $1")
-        .bind(team_id)
-        .execute(&pool)
-        .await?;
+    // Withdraw both contributors after the scope was resolved.
+    sqlx::query!(
+        "UPDATE crm_email_consent SET enabled = FALSE WHERE team_id = $1",
+        team_id
+    )
+    .execute(&pool)
+    .await?;
 
     let filter = Arc::new(Expr::Literal(EmailLiteral::Sender(Email::Domain(
         "acme.com".to_string(),
@@ -750,9 +746,73 @@ async fn crm_scope_collapses_to_empty_when_killswitch_off(
     let ids = run_and_collect_ids(&pool, filter, Some(team_id)).await?;
     assert!(
         ids.is_empty(),
-        "candidate set must be empty when crm_enabled = FALSE, got: {:?}",
+        "candidate set must be empty after withdrawal, got: {:?}",
         ids
     );
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(
+        path = "../../../../fixtures",
+        scripts("email_dynamic_query_crm_scope")
+    )
+)]
+async fn crm_scope_honors_contributor_blocks_while_ordinary_inbox_is_unchanged(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let team = Uuid::parse_str(TEAM_ALPHA_ID)?;
+    let filter = Arc::new(Expr::Literal(EmailLiteral::Sender(Email::Domain(
+        "acme.com".into(),
+    ))));
+    sqlx::query!("INSERT INTO crm_personal_email_blocklist (team_id, user_id, domain) VALUES ($1, 'macro|alice@team.com', 'acme.com')", team).execute(&pool).await?;
+    let shared = run_and_collect_ids(&pool, filter.clone(), Some(team)).await?;
+    assert!(!shared.contains(TA1_ALICE_INBOX_ACME));
+    assert!(shared.contains(TB1_BOB_INBOX_ACME));
+    let inbox = run_and_collect_ids(&pool, filter.clone(), None).await?;
+    assert!(inbox.contains(TA1_ALICE_INBOX_ACME));
+    sqlx::query!(
+        "INSERT INTO crm_team_email_blocklist (team_id, domain) VALUES ($1, 'acme.com')",
+        team
+    )
+    .execute(&pool)
+    .await?;
+    assert!(
+        run_and_collect_ids(&pool, filter, Some(team))
+            .await?
+            .is_empty()
+    );
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(
+        path = "../../../../fixtures",
+        scripts("email_dynamic_query_crm_scope")
+    )
+)]
+async fn crm_scope_excludes_a_mixed_thread_with_an_untracked_blocked_bcc(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let team = Uuid::parse_str(TEAM_ALPHA_ID)?;
+    let bob = Uuid::parse_str(TB1_BOB_INBOX_ACME)?;
+    let contact = Uuid::now_v7();
+    sqlx::query!("INSERT INTO email_contacts (id, link_id, email_address) SELECT $1, link_id, 'secret@sub.private.com' FROM email_threads WHERE id = $2", contact, bob).execute(&pool).await?;
+    sqlx::query!("INSERT INTO email_message_recipients (message_id, contact_id, recipient_type) SELECT id, $1, 'BCC' FROM email_messages WHERE thread_id = $2", contact, bob).execute(&pool).await?;
+    sqlx::query!(
+        "INSERT INTO crm_team_email_blocklist (team_id, domain) VALUES ($1, 'private.com')",
+        team
+    )
+    .execute(&pool)
+    .await?;
+    let filter = Arc::new(Expr::Literal(EmailLiteral::Sender(Email::Domain(
+        "acme.com".into(),
+    ))));
+    let shared = run_and_collect_ids(&pool, filter, Some(team)).await?;
+    assert!(shared.contains(TA1_ALICE_INBOX_ACME));
+    assert!(!shared.contains(TB1_BOB_INBOX_ACME));
     Ok(())
 }
 
