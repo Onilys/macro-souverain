@@ -5776,6 +5776,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aws_lambda_events",
+ "entity_access_db_utils",
  "entity_registry_db_utils",
  "lambda_runtime",
  "macro_db_migrator",
@@ -12297,6 +12298,7 @@ dependencies = [
  "chrono",
  "connection_gateway_client",
  "entity_access",
+ "entity_access_db_utils",
  "futures",
  "initiative",
  "macro_authorization",

@@ -613,74 +613,86 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
 
     #[tracing::instrument(err, skip(self, args))]
     async fn edit_document(&self, args: EditDocumentRepoArgs) -> Result<(), DocumentError> {
-        use share_permission_db_utils::team_share;
+        entity_access_db_utils::transaction_retry::on_conflict(
+            || async {
+                use share_permission_db_utils::team_share;
 
-        let mut transaction = self.pool.begin().await?;
-        if let Some(command) = &args.team_share {
-            if command.expected().entity.entity_type != EntityType::Document
-                || command.expected().entity.entity_id != args.document_id
-                || args
+                let mut transaction = self.pool.begin().await?;
+                if let Some(command) = &args.team_share {
+                    if command.expected().entity.entity_type != EntityType::Document
+                        || command.expected().entity.entity_id != args.document_id
+                        || args
+                            .share_permission
+                            .as_ref()
+                            .and_then(|p| p.team_share_access_level)
+                            != Some(command.target().map(|grant| grant.level.into()))
+                    {
+                        return Err(DocumentError::BadRequest(
+                            "team-share command does not match edit".to_string(),
+                        ));
+                    }
+                    team_share::apply(&mut transaction, command)
+                        .await
+                        .map_err(share::map_team_share_error)?;
+                } else if args
                     .share_permission
                     .as_ref()
-                    .and_then(|p| p.team_share_access_level)
-                    != Some(command.target().map(|grant| grant.level.into()))
-            {
-                return Err(DocumentError::BadRequest(
-                    "team-share command does not match edit".to_string(),
-                ));
-            }
-            team_share::apply(&mut transaction, command)
-                .await
-                .map_err(share::map_team_share_error)?;
-        } else if args
-            .share_permission
-            .as_ref()
-            .is_some_and(|p| p.team_share_access_level.is_some())
-        {
-            return Err(DocumentError::Unauthorized);
-        }
+                    .is_some_and(|p| p.team_share_access_level.is_some())
+                {
+                    return Err(DocumentError::Unauthorized);
+                }
 
-        use crate::domain::models::FileTypeUpdate;
-        let file_type_db = args.file_type.map(|update| match update {
-            FileTypeUpdate::Set(ft) => Some(ft.to_string()),
-            FileTypeUpdate::Clear => None,
-        });
+                use crate::domain::models::FileTypeUpdate;
+                let file_type_db = args.file_type.as_ref().map(|update| match update {
+                    FileTypeUpdate::Set(ft) => Some(ft.to_string()),
+                    FileTypeUpdate::Clear => None,
+                });
 
-        edit::update_document_metadata(
-            &mut transaction,
-            &args.document_id,
-            args.document_name.as_deref(),
-            args.project_id.as_deref(),
-            file_type_db,
-        )
-        .await?;
-
-        if let Some(ref share_permission) = args.share_permission {
-            edit::update_share_permission(&mut transaction, &args.document_id, share_permission)
+                edit::update_document_metadata(
+                    &mut transaction,
+                    &args.document_id,
+                    args.document_name.as_deref(),
+                    args.project_id.as_deref(),
+                    file_type_db,
+                )
                 .await?;
-        }
 
-        if args.revoke_non_owner_user_access {
-            let owner = Owner::from_principal_str(
-                &edit::get_document_owner(&mut transaction, &args.document_id).await?,
-            )
-            .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
-            let owner_principal = owner.principal_id();
+                if let Some(ref share_permission) = args.share_permission {
+                    edit::update_share_permission(
+                        &mut transaction,
+                        &args.document_id,
+                        share_permission,
+                    )
+                    .await?;
+                }
 
-            // SAFETY: document IDs are UUID strings.
-            let entity_id = macro_uuid::string_to_uuid(&args.document_id).unwrap();
+                if args.revoke_non_owner_user_access {
+                    let owner = Owner::from_principal_str(
+                        &edit::get_document_owner(&mut transaction, &args.document_id).await?,
+                    )
+                    .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
+                    let owner_principal = owner.principal_id();
 
-            entity_access_db_utils::remove_non_owner_user_entity_access(
-                &mut transaction,
-                &entity_id,
-                EntityType::Document,
-                &owner_principal,
-            )
-            .await?;
-        }
+                    // SAFETY: document IDs are UUID strings.
+                    let entity_id = macro_uuid::string_to_uuid(&args.document_id).unwrap();
 
-        transaction.commit().await?;
-        Ok(())
+                    entity_access_db_utils::remove_non_owner_user_entity_access(
+                        &mut transaction,
+                        &entity_id,
+                        EntityType::Document,
+                        &owner_principal,
+                    )
+                    .await?;
+                }
+
+                transaction.commit().await?;
+                Ok(())
+            },
+            |error: &DocumentError| {
+                entity_access_db_utils::transaction_retry::is_transaction_conflict(error)
+            },
+        )
+        .await
     }
 
     #[tracing::instrument(err, skip(self))]

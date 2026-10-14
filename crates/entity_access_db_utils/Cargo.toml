@@ -11,6 +11,7 @@ macro_uuid = { path = "../macro_uuid" }
 serde = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
 
 macro_user_id = { path = "../macro_user_id" }
 model-entity = { path = "../model-entity" }
