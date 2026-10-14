@@ -5,6 +5,7 @@ import {
   ReplyAttempt,
 } from '@app/features/meta-messaging/views/delivery-message';
 import { createActivityTracker } from '@channel/activity-tracker';
+import { useStartChannelCall } from '@channel/Call/use-start-channel-call';
 import { DebugSuspense } from '@channel/DebugSuspense';
 import {
   ChannelInput,
@@ -34,6 +35,7 @@ import {
 import { FindBar } from '@core/component/FindBar';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
 import { toast } from '@core/component/Toast/Toast';
+import { ENABLE_CALLS } from '@core/constant/featureFlags';
 import {
   useChannelActivity,
   useChannelName,
@@ -178,6 +180,7 @@ export type ChannelHandle = {
 export function Channel(props: ChannelProps) {
   const userId = useUserId();
   const splitPanel = useSplitPanel();
+  const channelCall = useStartChannelCall(() => props.channelId);
 
   // Full-frame mobile/tablet: the thread list spans the whole screen and messages
   // scroll behind the floating header islands (top) and the floating
@@ -1131,6 +1134,12 @@ export function Channel(props: ChannelProps) {
                                   void setChannelInputSnapshot(snapshot)
                                 }
                                 onSend={onSend}
+                                onStartCall={
+                                  ENABLE_CALLS && !channelCall.isInThisChannel()
+                                    ? () => void channelCall.start()
+                                    : undefined
+                                }
+                                callInProgress={channelCall.isCallInProgress()}
                                 onStartTyping={() =>
                                   typingMutation.mutate({
                                     parent: {

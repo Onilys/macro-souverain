@@ -21,7 +21,9 @@ Pipedream compatibility. Live verification remains a release prerequisite.
 
 ## Slug decision
 
-Canonical slug: `slack` (unverified fallback; retain until dev evidence supports `slack_v2`).
+New-connection slug: `slack_v2`, the OAuth app slug published in
+[Pipedream's Slack connector metadata](https://pipedream.com/apps/slack-v2).
+Existing connections retain the selection order `slack`, then `slack_v2`.
 
 | Evidence | `slack` | `slack_v2` |
 | --- | --- | --- |
@@ -30,11 +32,10 @@ Canonical slug: `slack` (unverified fallback; retain until dev evidence supports
 | Hosted Connect UI account slug | Unknown | Unknown |
 | Dev `pipedream_mcp_connections.app_slug` rows | Not queried | Not queried |
 
-Do not migrate existing rows or change the new-connection slug based on the
-synthetic tool names. Treat both slugs as potential Slack aliases. Switch the
-canonical slug to `slack_v2` only after verifying that it exists and that accounts
-created by hosted Connect use it. Account app slugs and action-name prefixes are
-separate facts; a `slack_v2-*` tool name alone is not that evidence.
+Do not migrate existing rows based on synthetic tool names. Both slugs remain
+recognized Slack connection aliases. The new-connection slug comes from
+Pipedream's published app metadata, not action-name prefixes. The authenticated
+API and hosted Connect observations in the table remain unverified.
 
 ## Tool contract: provisional, not observed
 
@@ -152,7 +153,7 @@ that production handling is implemented by this documentation-only task.
    text, and other user content with synthetic values while preserving structure
    and cross-fixture identity relationships. If arrays must be sampled to meet
    the size budget, document sampling separately from upstream truncation.
-   Update the evidence tables, exact tool schemas, and canonical-slug decision.
+   Update the evidence tables and exact tool schemas.
 
 ## Verified behaviour
 
@@ -245,8 +246,8 @@ gates, not successful observations:
   Any connected team member may import; the importer owns the new channel.
 - This is channel shape only: no messages, files, ongoing membership sync, or
   invitation flow. The ZIP-archive feature's authorization and behavior remain
-  separate. MCP compatibility and canonical new-connection slug remain
-  provisional until the live checks above succeed.
+  separate. New connections use the slug in Pipedream's published metadata;
+  live MCP compatibility remains provisional until the checks above succeed.
 
 ## Fixture checks
 

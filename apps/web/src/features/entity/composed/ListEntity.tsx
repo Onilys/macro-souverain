@@ -221,18 +221,23 @@ export function ListEntity(props: ListEntityProps) {
         // to track which layout the Switch actually renders.
         isWide() ? SOUP_ROW_CLASS.wide : SOUP_ROW_CLASS.narrow,
         'soup-list-entity rounded-xl @container/entity w-[calc(100%-0.5rem)] mr-1 relative group/narrow flex flex-col py-0.5',
+        // Keep avatar-group separators in sync with the row background so they
+        // blend into it instead of creating visible rings.
+        '[--avatar-group-separator:var(--color-panel)]',
         {
           'min-h-10 mx-(--soup-row-gutter)':
             !isMobile() && !usesCondensedNarrowLayout(),
           'min-h-9 mx-(--soup-row-gutter)':
             !isMobile() && usesCondensedNarrowLayout(),
-          'bg-list-selected': props.checked,
-          'bg-list-selected-highlighted': props.checked && props.highlighted,
-          'bg-list-highlighted':
+          'bg-list-selected [--avatar-group-separator:var(--color-list-selected)]':
+            props.checked,
+          'bg-list-selected-highlighted [--avatar-group-separator:var(--color-list-selected-highlighted)]':
+            props.checked && props.highlighted,
+          'bg-list-highlighted [--avatar-group-separator:var(--color-list-highlighted)]':
             props.highlighted && !props.checked && !isTouchDevice(),
-          'hover:bg-list-hover':
+          'hover:bg-list-hover hover:[--avatar-group-separator:var(--color-list-hover)]':
             !props.highlighted && !props.checked && !isTouchDevice(),
-          'focus-within:bg-list-hover':
+          'focus-within:bg-list-hover focus-within:[--avatar-group-separator:var(--color-list-hover)]':
             !!rowActions() && !props.highlighted && !props.checked,
         }
       )}

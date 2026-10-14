@@ -326,9 +326,6 @@ describe('Harness', () => {
     ).toBeTruthy();
     expect(screen.getByLabelText('Anthropic')).toBeTruthy();
     expect(
-      screen.getByRole('heading', { name: 'Bring your agent to Macro' })
-    ).toBeTruthy();
-    expect(
       screen.getByText(/Uses official Macro tools and MCPs to get the job done/)
     ).toBeTruthy();
   });
@@ -414,7 +411,7 @@ describe('Harness', () => {
     expect(screen.queryByLabelText('API key')).toBeNull();
   });
 
-  it('hides the empty paired runtimes section and keeps the setup guide', () => {
+  it('hides the empty paired runtimes section', () => {
     render(() => <Harness />);
 
     expect(screen.queryByText('No paired runtimes yet')).toBeNull();
@@ -424,28 +421,24 @@ describe('Harness', () => {
     expect(
       screen.queryByRole('button', { name: 'Enter pairing code' })
     ).toBeNull();
-    expect(screen.getByRole('link', { name: /Setup guide/ })).toHaveProperty(
-      'href',
-      'https://docs.macro.com/AI/bring-your-own'
-    );
   });
 
-  it('opens pairing from the bring-your-own card', () => {
+  it('opens pairing from New runtime and returns to the runtimes list', () => {
     render(() => <Harness />);
 
-    expect(screen.getAllByRole('button', { name: 'New runtime' })).toHaveLength(
-      2
-    );
-    const card = screen
-      .getByRole('heading', { name: 'Bring your agent to Macro' })
-      .closest('section')!;
-    fireEvent.click(within(card).getByRole('button', { name: 'New runtime' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New runtime' }));
     expect(screen.getByRole('region', { name: 'New runtime' })).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(
-      screen.getByRole('heading', { name: 'Bring your agent to Macro' })
-    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Runtimes' })).toBeTruthy();
+  });
+
+  it('goes back to Agents from the runtimes page', () => {
+    const onBack = vi.fn();
+    render(() => <Harness onBack={onBack} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agents' }));
+    expect(onBack).toHaveBeenCalledOnce();
   });
 
   it('renders a registered harness row', () => {

@@ -205,6 +205,34 @@ impl<'de> XmlTaggedParsed<'de> for ParsedPullRequestMention<'de> {
     const TAG_NAME: &'static str = "m-pr-mention";
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct ParsedBookingLinkMention<'a> {
+    #[serde(borrow, default)]
+    pub profile_id: Cow<'a, str>,
+    #[serde(borrow, default)]
+    pub slug: Option<Cow<'a, str>>,
+    #[serde(borrow, default)]
+    pub label: Option<Cow<'a, str>>,
+    #[serde(borrow, default)]
+    pub url: Cow<'a, str>,
+}
+
+impl ParsedBookingLinkMention<'_> {
+    pub fn display_label(&self) -> &str {
+        self.label
+            .as_deref()
+            .filter(|label| !label.is_empty())
+            .or_else(|| self.slug.as_deref().filter(|slug| !slug.is_empty()))
+            .unwrap_or("Booking link")
+    }
+}
+
+impl<'de> XmlTaggedParsed<'de> for ParsedBookingLinkMention<'de> {
+    const TAG_NAME: &'static str = "m-booking-link-mention";
+}
+
 #[derive(Debug)]
 pub enum XmlTag<'de> {
     Link(ParsedLink<'de>),
@@ -215,6 +243,7 @@ pub enum XmlTag<'de> {
     Group(ParsedGroupMention<'de>),
     AgentSession(ParsedAgentSessionMention<'de>),
     PullRequest(ParsedPullRequestMention<'de>),
+    BookingLink(ParsedBookingLinkMention<'de>),
 }
 
 fn parse_xml_tag(s: &str) -> IResult<&str, XmlTag<'_>> {
@@ -227,6 +256,7 @@ fn parse_xml_tag(s: &str) -> IResult<&str, XmlTag<'_>> {
         ParsedGroupMention::parse.map(XmlTag::Group),
         ParsedAgentSessionMention::parse.map(XmlTag::AgentSession),
         ParsedPullRequestMention::parse.map(XmlTag::PullRequest),
+        ParsedBookingLinkMention::parse.map(XmlTag::BookingLink),
     ))
     .parse(s)
 }
@@ -241,6 +271,7 @@ fn is_recognized_tag_name(name: &str) -> bool {
         ParsedGroupMention::TAG_NAME,
         ParsedAgentSessionMention::TAG_NAME,
         ParsedPullRequestMention::TAG_NAME,
+        ParsedBookingLinkMention::TAG_NAME,
     ]
     .iter()
     .any(|recognized| recognized.eq_ignore_ascii_case(name))
@@ -325,6 +356,10 @@ pub trait XmlFormatter: Sized {
         pr: &ParsedPullRequestMention<'_>,
         f: &mut Formatter<'_>,
     ) -> std::fmt::Result;
+    fn format_booking_link(
+        link: &ParsedBookingLinkMention<'_>,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result;
 
     fn format_xml_text(text: ParsedXmlText<'_>) -> ReformattedXmlText<Self> {
         use std::fmt::Display;
@@ -392,6 +427,13 @@ pub trait XmlFormatter: Sized {
                         acc,
                         "{}",
                         Adapter(|f: &mut Formatter<'_>| Self::format_pull_request(&p, f))
+                    )
+                }
+                TextSegment::Xml(XmlTag::BookingLink(b)) => {
+                    write!(
+                        acc,
+                        "{}",
+                        Adapter(|f: &mut Formatter<'_>| Self::format_booking_link(&b, f))
                     )
                 }
                 TextSegment::Plain(s) => {
@@ -477,6 +519,13 @@ impl XmlFormatter for PlainTextFormatter {
             ),
         }
     }
+
+    fn format_booking_link(
+        link: &ParsedBookingLinkMention<'_>,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        write!(f, "{}", link.display_label())
+    }
 }
 
 /// xml formatter which completely removes the inner text of all xml tags
@@ -523,6 +572,13 @@ impl XmlFormatter for NullXmlFormatter {
 
     fn format_pull_request(
         _pr: &ParsedPullRequestMention<'_>,
+        f: &mut Formatter<'_>,
+    ) -> std::fmt::Result {
+        write!(f, "")
+    }
+
+    fn format_booking_link(
+        _link: &ParsedBookingLinkMention<'_>,
         f: &mut Formatter<'_>,
     ) -> std::fmt::Result {
         write!(f, "")

@@ -26,7 +26,8 @@ export function TasksControls() {
 
 function DesktopTasksControls() {
   const panel = useSplitPanelOrThrow();
-  const { state, setPrimarySort, setState, projectsEnabled } = useTasksView();
+  const { state, setPrimarySort, setState, projectsEnabled, ganttEnabled } =
+    useTasksView();
   const filters = useTaskFilters();
   const [openMenu, setOpenMenu] = createSignal<'filters' | 'sort'>();
   let filterTrigger: HTMLButtonElement | undefined;
@@ -81,6 +82,9 @@ function DesktopTasksControls() {
       <ViewLayoutDropdown
         label="Task layout"
         value={state.layout}
+        layouts={
+          ganttEnabled() ? ['list', 'board', 'gantt'] : ['list', 'board']
+        }
         onChange={(layout) => setState('layout', layout)}
       />
       <Show

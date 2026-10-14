@@ -31,6 +31,9 @@ fn soup_response_schema_exposes_frontend_fields() {
         "attachments: [GraphqlSoupEmailAttachment!]!",
         "labels: [GraphqlSoupEmailLabel!]!",
         "type GraphqlEmailLink {",
+        "sendAs: [GraphqlEmailSendAsAddress!]",
+        "type GraphqlEmailSendAsAddress {",
+        "displayName: String",
         "macroId: String!",
         "emailAddress: String!",
         "photoUrl: String",
@@ -107,6 +110,13 @@ fn soup_response_schema_exposes_frontend_fields() {
         "markEmailThreadSeen(input: MarkEmailThreadSeenInput!): GraphqlSoupEmailThread!",
         "updateEmailThreadLabel(input: UpdateEmailThreadLabelInput!): GraphqlSoupEmailThread!",
         "saveEmailDraft(input: SaveEmailDraftInput!): SaveEmailDraftPayload!",
+        "sendEmailMessage(input: SendEmailMessageInput!): SendEmailMessagePayload!",
+        "input SendEmailMessageInput {",
+        "draft: SaveEmailDraftInput!",
+        "includeSignature: Boolean",
+        "type SendEmailMessagePayload {",
+        "messageId: ID!",
+        "senderEmail: String",
         "deleteEmailDraft(input: DeleteEmailDraftInput!): DeleteEmailDraftPayload!",
         "input MarkEmailThreadSeenInput {",
         "input UpdateEmailThreadLabelInput {",
@@ -554,6 +564,30 @@ fn crm_records_carry_their_pipeline_entries() {
     let pipeline = block("type GraphqlCrmPipeline {");
     assert_sdl_line(&pipeline, "id: ID!");
     assert_sdl_line(&pipeline, "canEdit: Boolean!");
+}
+
+#[test]
+fn crm_associations_scope_soup_and_compose_in_document_trees() {
+    let sdl = crate::build_schema().sdl();
+    let block = |declaration: &str| {
+        sdl.split_once(declaration)
+            .unwrap_or_else(|| panic!("schema has no `{declaration}`"))
+            .1
+            .split_once("\n}")
+            .unwrap()
+            .0
+            .to_owned()
+    };
+    assert_sdl_line(
+        &block("input GraphqlEntityFilterAst {"),
+        "crmAssociation: GraphqlCrmAssociation",
+    );
+    let document = block("input GraphqlDocumentLiteral @oneOf {");
+    assert_sdl_line(&document, "crmAssociated: GraphqlCrmAssociation");
+    assert_sdl_line(&document, "nameContains: String");
+    let association = block("input GraphqlCrmAssociation @oneOf {");
+    assert_sdl_line(&association, "company: ID");
+    assert_sdl_line(&association, "contact: ID");
 }
 
 #[test]

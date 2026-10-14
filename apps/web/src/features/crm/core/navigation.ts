@@ -4,6 +4,20 @@ export const CRM_RECORDS = [
   { id: 'people', label: 'People' },
 ] as const;
 
+const PIPELINE_TAB_PREFIX = 'pipeline:';
+
+/** The workspace tab that shows a pipeline. */
+export function pipelineTab(pipelineId: string): string {
+  return `${PIPELINE_TAB_PREFIX}${pipelineId}`;
+}
+
+/** The pipeline a workspace tab shows, if any. */
+export function pipelineIdOfTab(tab: string | undefined): string | undefined {
+  return tab?.startsWith(PIPELINE_TAB_PREFIX)
+    ? tab.slice(PIPELINE_TAB_PREFIX.length)
+    : undefined;
+}
+
 export type CrmListConfig = {
   kind: 'crm-list';
   teamId: string;

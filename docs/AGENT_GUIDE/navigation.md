@@ -6,9 +6,10 @@ double-click it to toggle zoom. The loading shell uses the same inset; browser,
 Windows, Linux, and mobile layouts do not add this space.
 
 Native desktop content keeps its rounded split frame even with only one split,
-and the app icon rail has no right divider. On macOS, the sidebar icon beside the
-traffic lights toggles navigation for the active split; it replaces the controls
-inside the workspace. The top-right split icon opens another Home split, even
+and the app icon rail has no right divider. On macOS, Back and Forward arrows
+beside the traffic lights navigate the active split's history. Each arrow is
+disabled when its direction has no entry. Sidebar controls remain inside each
+workspace. The top-right split icon opens another Home split, even
 when Home is already open, and is disabled when there is no room for a new split.
 Its tooltip is “New Split” and displays the registered new-split shortcut (`\`).
 
@@ -17,6 +18,22 @@ an update toast on every launch. Relative bundled assets such as Loro's WASM
 must load through the webview, not native HTTP. A `vite:preloadError` with
 `scheme tauri not supported` indicates an asset-routing failure; reloading the
 same bundle does not resolve it.
+
+## External links in the native app
+
+Desktop external links open in the system browser, whether activated by a normal
+anchor, a `target="_blank"` anchor, or `window.open(url)`. Native webview navigation
+handles this, not a window-level DOM click listener. Each activation should open
+exactly once, without replacing the app or creating another app window. Macro app
+links (including same-origin popup links) route inside the existing SPA.
+
+Verify the `owner/repo#number` footer link in a pull request's floating details
+panel with both a click and keyboard activation. The panel stops click propagation;
+that must not prevent the link from opening or dismiss the panel. Also verify a
+prevented click does nothing. Browser-only URLs such as `about:blank`, `data:`,
+`blob:` and `javascript:` must not launch an external handler. Web browser anchor
+behavior is unchanged. iOS/Android retain their existing JS opener fallback because
+Tauri's native popup callback is desktop-only.
 
 ## Returning from another page
 
@@ -814,7 +831,7 @@ restart rules still apply.
 - In any text surface: `@` mentions (bidirectional links), `#` tags, `/` block commands,
   `:` emoji. Clicking a rendered tag opens a Search split filtered to that tag.
 
-Settings → Agents → Agents / Runtimes render while their requests are pending.
+Settings → Agents, its Cursor guide, and Runtimes render while their requests are pending.
 A pending Cursor model catalog shows `Loading models…` beside a disabled model
 picker; a failed catalog shows an inline error. The rest of settings stays usable.
 Settings → Agents → Agents ends with **Coding sessions**: per-user **Create
@@ -822,8 +839,8 @@ tasks** and **Open pull requests** switches, both off by default. Each saves on
 toggle and reverts with a toast if the save fails.
 
 With the `claude-cloud` feature flag enabled, Claude Cloud connection setup is in
-Settings → Agents → Runtimes, above Cursor, with the
-Anthropic logo. Settings → Agents → Agents selects an agent's runtime but does not host
+Settings → Agents → Runtimes (Manage on Bring your own agent), above Cursor, with the
+Anthropic logo. The agent editor's Where it runs offers In Claude Code but does not host
 Claude's connection form. **Connect Claude** starts authorization and opens sign-in
 on the first click; a fallback link remains if the browser blocks the tab.
 Approve on Claude's page, copy the complete `code#state`, then use **Finish

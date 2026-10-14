@@ -355,12 +355,6 @@ function GroupedBoard(
                       changeLayout(withLaneHidden(props.layout, lane, true))
                   : undefined
               }
-              onHideEmptyLanes={
-                props.onViewChange
-                  ? (hideEmptyLanes) =>
-                      changeLayout({ ...props.layout, hideEmptyLanes })
-                  : undefined
-              }
               onCreate={create}
               onAddGroup={addGroup()}
               controlsRef={props.controlsRef}

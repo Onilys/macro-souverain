@@ -3,6 +3,7 @@ import {
   AgentContextNode,
   AgentSessionMentionNode,
   AwaitNode,
+  BookingLinkMentionNode,
   ConnectAppNode,
   ContactMentionNode,
   CursorSystemNotificationNode,
@@ -37,6 +38,7 @@ import { createComponent, Suspense } from 'solid-js';
 import { AgentContext } from './component/decorator/AgentContext';
 import { AgentSessionMention } from './component/decorator/AgentSessionMention';
 import { Await } from './component/decorator/Await';
+import { BookingLinkMention } from './component/decorator/BookingLinkMention';
 import { ConnectApp } from './component/decorator/ConnectApp';
 import { ContactMention } from './component/decorator/ContactMention';
 import { CursorSystemNotification } from './component/decorator/CursorSystemNotification';
@@ -88,6 +90,7 @@ export function initializeLexical() {
   setDecorator(DocumentCardNode, DocumentCard);
   setDecorator(PasteNodeClass, PasteNode);
   setDecorator(PullRequestMentionNode, PullRequestMention);
+  setDecorator(BookingLinkMentionNode, BookingLinkMention);
   setDecorator(AgentSessionMentionNode, AgentSessionMention);
   setDecorator(ReplyTargetNode, ReplyTarget);
   setDecorator(ContactMentionNode, ContactMention);

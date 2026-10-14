@@ -36,7 +36,8 @@ and highlights.
 
 - **Agents:** the Work / Code switch (beacon on the sidebar toggle), then the
   agent and model picker (beacon on New conversation), then the
-  agents and Runtimes tabs (beacon on Agents), then Create for automations.
+  Your agents list and the Cursor / Bring your own agent strips (beacon on
+  Agents), then Create for automations.
 - **Channels:** channels and DMs, creation, then threads, @mentions, and calls,
   which wait on the channel list until a conversation is open. No Slack action.
 - **Email:** Signal/Noise, tags, then keyboard shortcuts.

@@ -210,7 +210,10 @@
         cargoLock = ../apps/web/tauri/Cargo.lock;
         # cache-core's build script generates metadata from the GraphQL schema.
         # Non-Cargo inputs must be added explicitly to crane's app fileset.
-        extraFileset = ../static_assets/schema.graphql;
+        extraFileset = lib.fileset.unions [
+          ../static_assets/schema.graphql
+          ../apps/web/tauri/src-tauri/tauri.macos.conf.json
+        ];
         inherit frontend;
 
         craneArgs = {

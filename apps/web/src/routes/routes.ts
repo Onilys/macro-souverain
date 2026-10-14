@@ -9,6 +9,7 @@ import {
 } from '@app/features/calendar-view/calendar-url';
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { changesSearch } from '@app/features/changes/changes-search';
+import { crmViewReference } from '@app/features/crm/crm-route';
 import { driveDetailTrailSchema } from '@app/features/drive-view/primitives/drive-detail-trail';
 import {
   DRIVE_DOCUMENT_TYPES,
@@ -596,6 +597,7 @@ export const companiesRoute = defineRoute({
   search: '*' as const,
   externalSearch: ['crmView'],
   claim: () => ({ namespace: 'component', id: 'companies' }),
+  toReference: (_, query) => crmViewReference(query),
 });
 
 export const foldersRoute = defineRoute({

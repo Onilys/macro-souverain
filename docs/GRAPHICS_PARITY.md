@@ -1,7 +1,7 @@
 # Graphics and Canvas parity
 
 Canvas Next implements the shared graphics foundation and the main local editing
-flows. It opens supported saved documents behind the Canvas Next rollout, migrates
+flows. It is the editor for all saved canvases and embeds, migrates
 older JSON at the host boundary, and writes the current versioned format.
 
 ## Current coverage
@@ -24,7 +24,7 @@ migration, sharing, and product rollout.
 
 ## Remaining priorities
 
-1. Finish and validate the bidirectional legacy bridge with explicit diagnostics.
+1. Expand legacy import coverage with explicit diagnostics for unsupported records.
 2. Lock down durable artwork colors separately from theme-driven application UI.
 3. Integrate production collaboration, offline recovery, and permission handling.
 4. Add high-value whiteboard gaps such as snapping, touch, crop, frames, export,
@@ -39,4 +39,4 @@ identity.
 See the [Canvas architecture](CANVAS_ARCHITECTURE.md),
 [legacy bridge](CANVAS_LEGACY_BRIDGE.md),
 [graphics README](../packages/graphics/README.md), and
-[Canvas Next README](../apps/web/src/features/block-canvas/canvas-next/README.md).
+[Canvas Next README](../apps/web/src/features/block-canvas/README.md).

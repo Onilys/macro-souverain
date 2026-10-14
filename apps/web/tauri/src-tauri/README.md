@@ -5,6 +5,25 @@ single Vite build that runs identically for web, desktop, iOS, and Android — t
 platform is detected at runtime via `getPlatform()` rather than baked into the
 bundle.
 
+## macOS app icon
+
+The macOS icon reuses the iOS marketing artwork through the Icon Composer source
+in `icons/macos/Macro.icon`. The macOS-only Tauri configuration bundles its
+compiled `Assets.car` and `Macro.icns`, and merges the generated icon names into
+Info.plist. Tahoe uses the icon composition; older macOS uses the generated
+fallback. The mobile artwork has no baked-in rounded tile or transparent border
+for macOS to place inside another enclosure.
+
+After changing the mobile artwork or composition, regenerate with Xcode 26.2:
+
+```sh
+bash icons/macos/regenerate.sh
+```
+
+Commit the source and generated files together. They are checked in so desktop
+release builds do not need Icon Composer. Verify Finder and Dock rendering at
+both 1× and 2× display scale on Tahoe, and on a pre-Tahoe Mac.
+
 ## Running in development
 
 ```sh
@@ -199,6 +218,15 @@ this frontend as an OTA bundle. The frontend probes this command before claiming
 or enqueueing mutations. An older binary uses the existing uncached fallback and
 shows an update-required notice; its existing mutation queue stays intact until
 the user installs the native update.
+
+## Desktop window state
+
+The desktop window reopens at its last size, position, maximized, and
+fullscreen state (`src/window_state.rs`, backed by `tauri-plugin-window-state`).
+The `tauri.conf.json` window size only applies to the first launch. A saved
+position that no longer lands on a connected monitor is ignored and the OS
+places the window. State is written to `.window-state.json` in the app config
+directory on quit; delete that file to reset. Mobile is unaffected.
 
 ## Desktop native updates
 

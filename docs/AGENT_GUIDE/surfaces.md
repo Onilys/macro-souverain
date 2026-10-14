@@ -26,6 +26,15 @@ outline surface and border with semibold text, without inverted colors. Disabled
 and pending primary actions retain the strong variant. Mobile confirmation drawers
 use the same action hierarchy.
 
+## List-item sharing
+
+Right-click a shareable list row and choose **Share**. The sharing dialog must
+remain open after the context menu closes, with recipient selection and the
+optional message available. Dismiss it with Cancel, then reopen Share on the
+same row and confirm focus enters the recipient selector again. Opening or
+cancelling the dialog does not change access; do not submit shares on real dev
+data unless authorized.
+
 ## User cards
 
 Avatar and user-mention cards open on hover on pointer devices and as a bottom
@@ -1011,6 +1020,33 @@ search field, filter menu and preview control. The sidebar lists the inboxes abo
 `Connect another account` starts the add-inbox flow from its own row below the
 scrolling list. `New email` prefills From with the selected inbox, or the primary
 inbox when All inboxes is selected; reopening a draft keeps its saved sender.
+The From menu groups each connected inbox with its verified Gmail send-as aliases.
+Replies default to an address on the thread's own inbox: preserve an outgoing
+message's From, otherwise match To before Cc/Bcc (prefer an alias within each
+recipient group). A manual choice or saved draft takes precedence over late
+account refreshes. Reply-all excludes the inbox's primary address and its aliases.
+Aliases are scoped to their owning inbox, even when two inboxes share an address.
+A failed alias lookup for one inbox does not hide other inboxes' aliases. An
+invalid or unavailable selected alias is rejected on save/send, never silently
+replaced with the primary address.
+
+The sidebar and mobile inbox picker also list aliases beneath their inbox.
+Selecting one scopes mail to that inbox and the exact address in From/To/Cc/Bcc;
+search candidates are checked against the same GraphQL scope. Search and Reminders
+automatically advance nonmatching candidate pages until a match or exhaustion;
+while alias membership is loading, wait rather than treating it as an empty inbox.
+Refresh retries both search and alias membership. A failed retained membership
+lookup shows an error without discarding already-confirmed rows. If a saved alias
+disappears from the catalog, the primary address must not look selected; use
+`All inboxes` or choose an available address to clear that scope. Scheduled mail
+matches its saved sender. `All inboxes` clears both the inbox and alias selection,
+and the selection survives reloads. With one inbox **and aliases**, the All row
+and address pickers remain available. To check without sending real mail, open
+both pickers, select an alias, switch to the primary address, reopen a saved alias
+draft, and confirm the address remains unchanged. Alias discovery uses
+`MailAccounts`, draft saves use `saveEmailDraft`, and delivery uses
+`sendEmailMessage` in GraphQL; the existing undo-send window still applies.
+
 If an explicitly selected sending inbox is unavailable, Send reports
 `Unable to find linked email account. Select a sending inbox.` without delivering
 through another account. The From picker stays available as `Select sending inbox`,
@@ -1020,7 +1056,7 @@ sending; the picker never displays another inbox as selected before that choice.
 With no explicit selection, an unavailable primary still falls back to
 the first linked inbox.
 Sidebar rows, including `All inboxes`, replace their icon with an accent-colored checkmark when
-selected. With exactly one connected inbox, only its address appears as the selected
+selected. With exactly one connected inbox and no aliases, only its address appears as the selected
 row, followed by `Connect another account`; there is no `All inboxes` row, title
 inbox dropdown, or inbox section in the mobile filter drawer. The inbox section shows up to four rows (including `All inboxes`), then
 scrolls independently without overscroll so the email tabs stay in place. With many
@@ -1365,8 +1401,10 @@ Date overrides and the searchable timezone picker sit below the weekly hours.
 The header shows the selected owner; team owners have an explicit **Team** label.
 Links and availability use flat rows, with actions beside each item.
 Booking pages, bookings, and insights show only the selected owner. Search filters
-that owner’s links and clears when switching owners. Team owners/admins can edit
-team links; ordinary members can view them. `Links` creates, edits, pauses,
+that owner’s links and clears when switching owners. Any team member can edit
+team links. Hosts can cancel or reschedule the meetings they host; team
+owners/admins can also manage teammates’ bookings and approve pending ones.
+`Links` creates, edits, pauses,
 duplicates, previews, and copies booking links. Event settings include a
 video choice. New links default to a Macro call, which is created when
 someone books and attached to the calendar invitation. Google Meet and no
@@ -2035,18 +2073,48 @@ four fields sit side by side, label over value, and the rest wait behind
 pipeline. Inside Customers, the header's `Open <pipeline>` button opens it. The
 `Pipelines` caret header collapses and expands the cards, like the Discussion
 header; both start expanded on each visit. The
-section is absent when the record is in no pipeline. Team lists the contacts with `Add contact`. Emails keeps the
-`Signal`/`All` and `Team`/`Me` toggles. Files lists non-task documents whose
-`Companies` property references the company, plus attachments of emails with
-its domains. Tasks is the Tasks list scoped to the `Companies` property; its
-`New task` composer pre-fills the company. Calls lists calls linked to the
-company, including those linked automatically from their participants. The side
-panel keeps Properties and Sharing.
+section is absent when the record is in no pipeline.
+Team lists the contacts with `Add contact`. Emails keeps the
+`Signal`/`All` and `Team`/`Me` toggles; `Team` shows teammates' threads even to
+a viewer with no connected mailbox. Files, Tasks, and Calls list items
+*associated* with the company: its `Companies` property names the company, its
+`Contacts` property names one of the company's contacts, or it @mentions (or a
+message attaches) the company or one of those contacts. Contacts beyond the Team
+tab's first page count, hidden contacts count only for team admins and owners,
+and an item matching several ways appears once. Files lists non-task documents
+plus attachments of emails with the company's domains. Tasks is the Tasks list
+with that scope, grouping, and Load more; `Search tasks` matches task names
+within the scope (not content). Its `New task` composer pre-fills the company.
+Calls includes calls linked automatically from their participants and calls
+whose thread mentions the company. The side panel keeps Properties and Sharing,
+and adds **References**: associated items of any type (documents, tasks,
+channel messages, email threads and calls with the property, events, chats,
+projects, and companies or contacts whose properties or Discussion name the
+company) as compact icon-and-name rows, paged as it scrolls. A channel message
+row opens its thread; a reply surfaces as its thread's row. A document
+Discussion message makes its document the item. Initiatives and database rows
+are not listed.
+When a record list fails to refresh (for example, the record became
+inaccessible), it replaces its rows with `Couldn't load this list.` and
+`Retry` reloads it; a failed later page keeps the rows and shows `Couldn't
+load more.`
 A contact has the same layout with `Overview`, `Emails`, `Files`, `Tasks` and
 `Calls`: Overview pills show the email, the company (opens it) and `Last
-interacted`, followed by the contact's Pipelines cards. Files and Calls match on the contact's `Contacts` property and, for
-files, attachments of emails with its address. Tasks created from a contact also
-reference its company. The side panel keeps Sharing (admins only).
+interacted`, followed by the contact's Pipelines cards. Its Files, Tasks, Calls,
+and References show items associated with the contact itself (its `Contacts`
+property or an @mention of it), not everything associated with its company;
+Files also includes attachments of emails with its address. Tasks created from a
+contact also reference its company. The side panel keeps Sharing (admins only)
+and adds References.
+
+Mentioning a company or contact with `@` in a document or task records it as a
+reference of that record (removing the chip removes it) without sharing the
+document, inviting anyone, or notifying the contact; channel and Discussion
+messages record their CRM mentions when sent or edited. Open record lists
+refresh after a CRM mention or a `Companies`/`Contacts` property changes. To
+verify, mention a contact in a document, then check the contact's and its
+company's References and Files without reloading; remove the chip and confirm it
+drops out.
 
 Company and contact pages have a **Discussion** section built from the same
 message conversation as a document's Discussion: threaded replies, reactions,
@@ -2080,7 +2148,9 @@ editable table. Team members can edit shared pipelines; the creator owns them
 and can change access later through the standard **Share** dialog. Under
 **Team access**, choose **Edit** to share with the team or **None** to make the
 pipeline private. **Copy Link** copies a CRM link that opens this pipeline for
-anyone who has access. On mobile, team access is in the **Team** tab.
+anyone who has access; pasted into an editor it becomes a pipeline mention (see
+[CRM pipeline mentions](documents.md#crm-pipeline-mentions)). On mobile, team
+access is in the **Team** tab.
 
 The first column is a required company/contact reference. Clicking a filled
 reference, or pressing Enter on it, opens that company or contact; on desktop it
@@ -2617,7 +2687,9 @@ With `pipedream-mcp` enabled, Connections (in Agents or Settings) has `Connected
 tabs. Connected groups GitHub, Linear, Notion, and Slack tool grants by provider,
 lists other catalog connections alongside them, and puts custom MCP servers in
 a separate section. Discover offers featured providers, a searchable catalog,
-and `Add custom MCP`. Slack discovery retains its development-only gate.
+and `Add custom MCP`. Pipedream Slack OAuth is available in production and
+development from the featured Slack provider. Connecting Slack here grants tool
+access; channel import is a separate action where the user chooses channels.
 Provider Back returns to the tab that opened it; navigation is local to each
 Connections page and starts at Connected on a fresh visit.
 
@@ -2796,6 +2868,9 @@ A newly arrived scheduling update shows RSVP and Join only once its calendar sta
 been checked. A series invitation shows its current or next live occurrence.
 
 A connected, resolved invitation shows the responding address and Yes / Maybe / No.
+Calendars connected through a linked inbox also resolve here, using that inbox's
+address for responses. Access is limited to the delegated inbox; another inbox owned
+by the same account stays private, and removing the link removes invitation access.
 Local verification requires both email and calendar services: email supplies saved
 snapshots and resolves them against the synced calendar, while calendar service handles
 the RSVP write. With calendar service's `CALENDAR_SYNC_ENABLED` off, its RSVP route is

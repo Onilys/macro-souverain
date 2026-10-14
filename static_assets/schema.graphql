@@ -282,6 +282,11 @@ type CompleteMutationRoot {
 	"""
 	updateEmailThreadLabel(input: UpdateEmailThreadLabelInput!): GraphqlSoupEmailThread!
 	"""
+	Enqueue a message from a caller-accessible inbox using a verified sender.
+	Delivery uses the existing undo window and worker, not the offline mutation queue.
+	"""
+	sendEmailMessage(input: SendEmailMessageInput!): SendEmailMessagePayload!
+	"""
 	Create or update an email draft and return its thread's authoritative
 	cache record. The client-generated handle resolves through a
 	caller-scoped mapping to a server-minted row, so a save replayed from
@@ -2666,6 +2671,20 @@ type GraphqlCommentedOnDocumentMetadata {
 }
 
 """
+GraphQL input naming the CRM record an association filter restricts to.
+"""
+input GraphqlCrmAssociation @oneOf {
+	"""
+	Items associated with the company or any of its contacts.
+	"""
+	company: ID
+	"""
+	Items associated with the contact.
+	"""
+	contact: ID
+}
+
+"""
 The two operands of a recursive `CrmCompanyFilterExpr` binary expression.
 """
 input GraphqlCrmCompanyBinaryExpr {
@@ -3159,6 +3178,16 @@ input GraphqlDocumentLiteral @oneOf {
 	Uploaded from an email attachment sent by, or to, a matching address.
 	"""
 	emailAttachmentParticipant: GraphqlEmailValue
+	"""
+	Associated with a CRM record through its Companies or Contacts
+	property or a reference to the record. Requires an expanded,
+	timestamp-sorted query.
+	"""
+	crmAssociated: GraphqlCrmAssociation
+	"""
+	Case-insensitive substring of the document name.
+	"""
+	nameContains: String
 }
 
 """
@@ -3355,6 +3384,11 @@ type GraphqlEmailLink {
 	Link last-updated timestamp in RFC 3339 format.
 	"""
 	updatedAt: String!
+	"""
+	Verified sender addresses. Nullable so one unavailable grant does not
+	hide the inbox or aliases belonging to other inboxes.
+	"""
+	sendAs: [GraphqlEmailSendAsAddress!]
 }
 
 """
@@ -3449,6 +3483,21 @@ enum GraphqlEmailProvider {
 	Google Gmail.
 	"""
 	GMAIL
+}
+
+"""
+A verified provider sender, embedded under the inbox that authorizes it.
+An address alone is not a global identity: two inboxes may send as it.
+"""
+type GraphqlEmailSendAsAddress {
+	"""
+	Address to use in the outgoing From header.
+	"""
+	emailAddress: String!
+	"""
+	Provider-configured display name.
+	"""
+	displayName: String
 }
 
 """
@@ -3573,6 +3622,11 @@ input GraphqlEntityFilterAst {
 	Restrict results to the authenticated viewer's favorites when true.
 	"""
 	favoritesOnly: Boolean
+	"""
+	Restrict every entity type to items associated with this CRM record.
+	Requires an expanded, timestamp-sorted query.
+	"""
+	crmAssociation: GraphqlCrmAssociation
 	"""
 	The calendar event filter to apply.
 	"""
@@ -8837,6 +8891,10 @@ existing draft.
 """
 input SaveEmailDraftInput {
 	"""
+	Verified sender address for the selected inbox. Absent selects its primary address.
+	"""
+	senderEmail: String
+	"""
 	Draft handle: a client-generated ID, or a server ID from a fetched
 	draft. Resolved scoped to the caller's inboxes, and bound to the
 	server row the save settles on, so replays converge on one draft.
@@ -8922,6 +8980,44 @@ type SaveEmailDraftPayload {
 	The draft's thread, reloaded as its authoritative cache record.
 	"""
 	thread: GraphqlSoupEmailThread!
+}
+
+"""
+Online delivery command. The draft handle is required so a response lost
+after enqueue cannot turn a retry into a second, unrelated message.
+"""
+input SendEmailMessageInput {
+	"""
+	Complete latest draft revision, including inbox and sender address.
+	"""
+	draft: SaveEmailDraftInput!
+	"""
+	Per-message override for the inbox's signature policy.
+	"""
+	includeSignature: Boolean
+}
+
+"""
+Confirmed delivery identity. These fields describe an operation result, not
+a globally normalized entity; there is deliberately no `id` field.
+"""
+type SendEmailMessagePayload {
+	"""
+	Persisted message queued for delivery.
+	"""
+	messageId: ID!
+	"""
+	Persisted thread containing the message.
+	"""
+	threadId: ID!
+	"""
+	Authorized inbox used for delivery.
+	"""
+	linkId: ID!
+	"""
+	End of the undo-send window, in RFC 3339 format.
+	"""
+	sendTime: String
 }
 
 """
