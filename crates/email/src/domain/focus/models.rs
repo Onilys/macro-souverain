@@ -8,15 +8,14 @@ use uuid::Uuid;
 
 use super::questions::FocusQuestion;
 
-/// Why a thread is in or out of Focus. The first five are Focus categories;
-/// the rest name the reason a thread was left out.
+/// Why a thread is in or out of Focus. The first four are Focus categories;
+/// the rest name the reason a thread was left out. None depends on the owner's
+/// line of work: who the mail is from comes from their own history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Display, EnumString)]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum FocusCategory {
-    /// A specific, credible vulnerability report.
-    Security,
-    /// A customer or user asking for help or giving feedback.
+    /// A customer, client or user asking for help or giving feedback.
     Customer,
     /// Mail from someone at the owner's own company.
     Team,
@@ -26,10 +25,8 @@ pub enum FocusCategory {
     Other,
     /// A calendar invite, update or RSVP.
     Calendar,
-    /// An unsolicited pitch.
-    ColdPitch,
-    /// An unsolicited job application.
-    JobApplication,
+    /// Unsolicited outreach: a pitch, recruiting or a job application.
+    Outreach,
     /// Automated, bulk or templated mail.
     Automated,
     /// Nothing marks the thread as relevant.
@@ -41,18 +38,12 @@ pub enum FocusCategory {
 pub struct FocusAnswers {
     /// Would the owner want this in a short Focus inbox?
     pub focus: f32,
-    /// Is it an unsolicited pitch from a stranger?
-    pub cold_pitch: f32,
+    /// Is it unsolicited outreach from a stranger?
+    pub outreach: f32,
     /// Is it automated, bulk or templated mail?
     pub automated: f32,
-    /// Is it an unsolicited job application?
-    pub job_application: f32,
-    /// Is it a customer or user asking for help or giving feedback?
+    /// Is it a customer, client or user asking for help or giving feedback?
     pub customer: f32,
-    /// Is it a specific, credible vulnerability report?
-    pub security_report: f32,
-    /// Does the mail itself show an existing relationship?
-    pub existing_relationship: f32,
     /// Is it only a calendar invite, update or RSVP?
     pub calendar_rsvp: f32,
     /// Does it ask for a decision only the owner can make?
@@ -68,12 +59,9 @@ impl FocusAnswers {
     pub fn from_probabilities(probabilities: &[f32]) -> Option<Self> {
         let [
             focus,
-            cold_pitch,
+            outreach,
             automated,
-            job_application,
             customer,
-            security_report,
-            existing_relationship,
             calendar_rsvp,
             needs_decision,
             needs_response,
@@ -81,12 +69,9 @@ impl FocusAnswers {
         ] = <[f32; FocusQuestion::ALL.len()]>::try_from(probabilities).ok()?;
         Some(Self {
             focus,
-            cold_pitch,
+            outreach,
             automated,
-            job_application,
             customer,
-            security_report,
-            existing_relationship,
             calendar_rsvp,
             needs_decision,
             needs_response,

@@ -75,7 +75,7 @@ const EMAILS = [
   ),
   email(
     'report',
-    { importance: 93, category: 'SECURITY' },
+    { importance: 93, category: 'OTHER' },
     {
       sortTs: '2026-10-05T10:00:00Z',
       linkId: 'inbox-b',
@@ -153,8 +153,8 @@ describe('selectFocusEmails', () => {
     expect(select({ facets: { focus: ['focus-follow-up'] } })).toEqual([
       'plan',
     ]);
-    expect(select({ facets: { focus: ['focus-security'] } })).toEqual([
-      'report',
+    expect(select({ facets: { focus: ['focus-customer'] } })).toEqual([
+      'invoice',
     ]);
     expect(select({ facets: { focus: ['focus-known'] } })).toEqual([]);
   });

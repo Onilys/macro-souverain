@@ -132,7 +132,7 @@ impl FocusClassifier for FakeClassifier {
 
 /// Focus yes, reply needed, everything else no.
 fn relevant() -> Vec<f32> {
-    vec![0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8, 0.0, 0.0, 0.9, 0.0]
+    vec![0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.9, 0.0]
 }
 
 fn thread(owner_email: &str) -> FocusThread {

@@ -3,7 +3,7 @@ use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use sqlx::{Pool, Postgres};
 
 use super::*;
-use crate::domain::focus::{FocusAnswers, FocusThread, FocusVerdict};
+use crate::domain::focus::{FocusAnswers, FocusQuestion, FocusThread, FocusVerdict};
 
 const OWNER_LINK: Uuid = uuid::uuid!("00000000-0000-0000-0000-000000000f01");
 const OTHER_LINK: Uuid = uuid::uuid!("00000000-0000-0000-0000-000000000f02");
@@ -42,7 +42,7 @@ fn record(thread_id: Uuid, message_id: Uuid, at: DateTime<Utc>, importance: u8) 
             needs_follow_up: false,
             importance,
         },
-        answers: FocusAnswers::from_probabilities(&[0.5; 11]).unwrap(),
+        answers: FocusAnswers::from_probabilities(&[0.5; FocusQuestion::ALL.len()]).unwrap(),
         model: "jev-test".to_owned(),
         classified_at: Utc::now(),
     }

@@ -126,11 +126,6 @@ const EMAIL_FOCUS_OPTIONS: EmailFacetOption[] = [
     'Customers',
     (focus) => focus.category === 'CUSTOMER'
   ),
-  focusOption(
-    'focus-security',
-    'Security',
-    (focus) => focus.category === 'SECURITY'
-  ),
   focusOption('focus-team', 'Team', (focus) => focus.category === 'TEAM'),
   focusOption(
     'focus-known',

@@ -6,6 +6,10 @@ use super::models::{FocusAnswers, FocusCategory, FocusSignals, FocusVerdict};
 const YES: f32 = 0.5;
 /// The lower Focus bar for threads from people the owner corresponds with.
 const CONTACT_FOCUS: f32 = 0.3;
+/// The higher Focus bar for unsolicited outreach from strangers. Only a
+/// profile that asks for such mail (a recruiter's applications) clears it;
+/// on the experiment's founder inbox no stranger outreach scored above 0.5.
+const OUTREACH_FOCUS: f32 = 0.6;
 /// Jev's calendar answer only vetoes a thread when it is this sure; below it,
 /// it flagged real conversations that merely mentioned an invite.
 const CALENDAR: f32 = 0.7;
@@ -46,34 +50,33 @@ pub fn is_calendar_subject(subject: &str) -> bool {
 
 /// Decide whether a thread belongs in Focus, why, and how important it is.
 ///
-/// A thread is left out when it is a calendar notice, automated mail nobody
-/// vouches for, or an application from a stranger. Otherwise it is in when Jev
-/// says it belongs, when it is a customer or a vulnerability report, or when it
-/// is from a contact Jev finds at least somewhat relevant and not a pitch.
+/// A thread is left out when it is a calendar notice or automated mail nobody
+/// vouches for. Otherwise it is in when Jev says the owner, as their profile
+/// describes them, would want it. Unsolicited outreach from strangers needs a
+/// firmer yes. Customers, and contacts Jev finds at least somewhat relevant,
+/// need less, unless the mail is outreach.
 pub fn decide(answers: &FocusAnswers, signals: &FocusSignals) -> FocusVerdict {
     let calendar = signals.calendar_subject || answers.calendar_rsvp >= CALENDAR;
     let customer = answers.customer >= YES;
-    let security = answers.security_report >= YES;
-    let needs_owner = customer || security;
+    let outreach = answers.outreach >= YES;
     let vouched = signals.contact && answers.focus >= YES;
-    let automated = answers.automated >= YES && !needs_owner && !signals.replied && !vouched;
-    let stranger_application =
-        answers.job_application >= YES && !signals.contact && !signals.replied;
-    let pitch = answers.cold_pitch >= YES || answers.job_application >= YES;
+    let automated = answers.automated >= YES && !customer && !signals.replied && !vouched;
+    let stranger = !signals.contact && !signals.replied;
+    let focus_bar = if outreach && stranger {
+        OUTREACH_FOCUS
+    } else {
+        YES
+    };
 
     let is_focus = !calendar
         && !automated
-        && !stranger_application
-        && (answers.focus >= YES
-            || needs_owner
-            || (signals.contact && answers.focus >= CONTACT_FOCUS && !pitch));
+        && (answers.focus >= focus_bar
+            || (!outreach && (customer || (signals.contact && answers.focus >= CONTACT_FOCUS))));
     let needs_reply = is_focus && !signals.latest_from_owner && answers.needs_response >= FLAG;
     let needs_follow_up = is_focus && answers.needs_follow_up >= FLAG;
 
     let category = if is_focus {
-        if security {
-            FocusCategory::Security
-        } else if customer {
+        if customer {
             FocusCategory::Customer
         } else if signals.teammate {
             FocusCategory::Team
@@ -84,10 +87,8 @@ pub fn decide(answers: &FocusAnswers, signals: &FocusSignals) -> FocusVerdict {
         }
     } else if calendar {
         FocusCategory::Calendar
-    } else if answers.cold_pitch >= YES {
-        FocusCategory::ColdPitch
-    } else if answers.job_application >= YES {
-        FocusCategory::JobApplication
+    } else if outreach {
+        FocusCategory::Outreach
     } else if automated {
         FocusCategory::Automated
     } else {

@@ -860,20 +860,16 @@ export type GraphqlEmailFocusCategory =
   | 'AUTOMATED'
   /** A calendar invite, update or RSVP. */
   | 'CALENDAR'
-  /** An unsolicited pitch. */
-  | 'COLD_PITCH'
-  /** A customer or user asking for help or giving feedback. */
+  /** A customer, client or user asking for help or giving feedback. */
   | 'CUSTOMER'
-  /** An unsolicited job application. */
-  | 'JOB_APPLICATION'
   /** Mail from someone the owner corresponds with. */
   | 'KNOWN'
   /** Nothing marks the thread as relevant. */
   | 'LOW_RELEVANCE'
   /** Relevant mail that fits no narrower category. */
   | 'OTHER'
-  /** A specific, credible vulnerability report. */
-  | 'SECURITY'
+  /** Unsolicited outreach: a pitch, recruiting or a job application. */
+  | 'OUTREACH'
   /** Mail from someone at the owner's own company. */
   | 'TEAM';
 

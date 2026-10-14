@@ -71,7 +71,6 @@ export function EmailFocusNarrowScore(props: { focus: EmailFocus }) {
 const LABEL_TONES = {
   warning: 'var(--color-warning)',
   blue: 'var(--color-blue)',
-  red: 'var(--color-red)',
   green: 'var(--color-green)',
   violet: 'var(--color-violet)',
 } as const;
@@ -83,7 +82,6 @@ const categoryLabel = (
   category: EmailFocusCategory
 ): { label: string; tone: LabelTone } | undefined =>
   match(category)
-    .with('SECURITY', () => ({ label: 'Security', tone: 'red' as const }))
     .with('CUSTOMER', () => ({ label: 'Customer', tone: 'green' as const }))
     .with('TEAM', () => ({ label: 'Team', tone: 'violet' as const }))
     .otherwise(() => undefined);

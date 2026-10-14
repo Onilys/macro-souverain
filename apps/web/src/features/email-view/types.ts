@@ -24,7 +24,6 @@ export type EmailFilterOptionId =
   | 'focus-reply-needed'
   | 'focus-follow-up'
   | 'focus-customer'
-  | 'focus-security'
   | 'focus-team'
   | 'focus-known';
 

@@ -58,9 +58,7 @@ pub struct EmailFocusContext(pub Arc<dyn EmailFocusReader>);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
 #[graphql(name = "GraphqlEmailFocusCategory")]
 pub enum GraphqlEmailFocusCategory {
-    /// A specific, credible vulnerability report.
-    Security,
-    /// A customer or user asking for help or giving feedback.
+    /// A customer, client or user asking for help or giving feedback.
     Customer,
     /// Mail from someone at the owner's own company.
     Team,
@@ -70,10 +68,8 @@ pub enum GraphqlEmailFocusCategory {
     Other,
     /// A calendar invite, update or RSVP.
     Calendar,
-    /// An unsolicited pitch.
-    ColdPitch,
-    /// An unsolicited job application.
-    JobApplication,
+    /// Unsolicited outreach: a pitch, recruiting or a job application.
+    Outreach,
     /// Automated, bulk or templated mail.
     Automated,
     /// Nothing marks the thread as relevant.
@@ -83,14 +79,12 @@ pub enum GraphqlEmailFocusCategory {
 impl From<FocusCategory> for GraphqlEmailFocusCategory {
     fn from(category: FocusCategory) -> Self {
         match category {
-            FocusCategory::Security => Self::Security,
             FocusCategory::Customer => Self::Customer,
             FocusCategory::Team => Self::Team,
             FocusCategory::Known => Self::Known,
             FocusCategory::Other => Self::Other,
             FocusCategory::Calendar => Self::Calendar,
-            FocusCategory::ColdPitch => Self::ColdPitch,
-            FocusCategory::JobApplication => Self::JobApplication,
+            FocusCategory::Outreach => Self::Outreach,
             FocusCategory::Automated => Self::Automated,
             FocusCategory::LowRelevance => Self::LowRelevance,
         }

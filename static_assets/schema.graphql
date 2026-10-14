@@ -3292,11 +3292,7 @@ Why a thread is in or out of Focus.
 """
 enum GraphqlEmailFocusCategory {
 	"""
-	A specific, credible vulnerability report.
-	"""
-	SECURITY
-	"""
-	A customer or user asking for help or giving feedback.
+	A customer, client or user asking for help or giving feedback.
 	"""
 	CUSTOMER
 	"""
@@ -3316,13 +3312,9 @@ enum GraphqlEmailFocusCategory {
 	"""
 	CALENDAR
 	"""
-	An unsolicited pitch.
+	Unsolicited outreach: a pitch, recruiting or a job application.
 	"""
-	COLD_PITCH
-	"""
-	An unsolicited job application.
-	"""
-	JOB_APPLICATION
+	OUTREACH
 	"""
 	Automated, bulk or templated mail.
 	"""

@@ -54,7 +54,7 @@ fn user() -> MacroUserIdStr<'static> {
 fn focus(importance: u8) -> ThreadFocus {
     ThreadFocus {
         is_focus: true,
-        category: FocusCategory::ColdPitch,
+        category: FocusCategory::Outreach,
         importance,
         needs_reply: true,
         needs_follow_up: false,
@@ -117,7 +117,7 @@ async fn focus_edge_maps_stored_classifications() {
         .await;
     assert!(response.errors.is_empty(), "{:?}", response.errors);
     let data = response.data.into_json().unwrap();
-    assert_eq!(data["focus"][0]["category"], "COLD_PITCH");
+    assert_eq!(data["focus"][0]["category"], "OUTREACH");
     assert_eq!(data["focus"][0]["importance"], 87);
     assert_eq!(data["focus"][0]["needsReply"], true);
     assert_eq!(

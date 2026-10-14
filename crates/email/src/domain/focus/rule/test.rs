@@ -1,8 +1,10 @@
 use super::*;
+use crate::domain::focus::FocusQuestion;
 
 /// Jev's recorded answers (the shipped questions, with the owner's memory as
-/// context) and the owner's signals for 643 real signal threads, with the
-/// verdicts of the experiment's reference implementation. No email content.
+/// context) and the owner's signals for 643 real signal threads from one
+/// founder's inbox, with the verdicts of the experiment's reference
+/// implementation. No email content.
 const EXPERIMENT: &str = include_str!("experiment.csv");
 
 fn flag(value: &str) -> bool {
@@ -15,36 +17,35 @@ fn flag(value: &str) -> bool {
 
 fn parse_row(line: &str) -> (FocusAnswers, FocusSignals, (bool, bool, bool)) {
     let cells = line.split(',').collect::<Vec<_>>();
-    assert_eq!(cells.len(), 19, "bad fixture row: {line}");
-    let probabilities = cells
+    let answer_count = FocusQuestion::ALL.len();
+    assert_eq!(cells.len(), answer_count + 8, "bad fixture row: {line}");
+    let (probabilities, rest) = cells.split_at(answer_count);
+    let probabilities = probabilities
         .iter()
-        .take(11)
         .map(|cell| cell.parse::<f32>().expect("probability"))
         .collect::<Vec<_>>();
-    let answers = FocusAnswers::from_probabilities(&probabilities).expect("11 answers");
+    let answers =
+        FocusAnswers::from_probabilities(&probabilities).expect("one answer per question");
     let signals = FocusSignals {
-        contact: flag(cells[11]),
-        replied: flag(cells[12]),
-        teammate: flag(cells[13]),
-        latest_from_owner: flag(cells[14]),
-        calendar_subject: flag(cells[15]),
+        contact: flag(rest[0]),
+        replied: flag(rest[1]),
+        teammate: flag(rest[2]),
+        latest_from_owner: flag(rest[3]),
+        calendar_subject: flag(rest[4]),
     };
     (
         answers,
         signals,
-        (flag(cells[16]), flag(cells[17]), flag(cells[18])),
+        (flag(rest[5]), flag(rest[6]), flag(rest[7])),
     )
 }
 
 fn answers(focus: f32) -> FocusAnswers {
     FocusAnswers {
         focus,
-        cold_pitch: 0.0,
+        outreach: 0.0,
         automated: 0.0,
-        job_application: 0.0,
         customer: 0.0,
-        security_report: 0.0,
-        existing_relationship: 0.0,
         calendar_rsvp: 0.0,
         needs_decision: 0.0,
         needs_response: 0.0,
@@ -74,7 +75,7 @@ fn reproduces_the_experiment_verdicts() {
         reply += usize::from(verdict.needs_reply);
         follow_up += usize::from(verdict.needs_follow_up);
     }
-    assert_eq!((total, focus, reply, follow_up), (643, 83, 25, 29));
+    assert_eq!((total, focus, reply, follow_up), (643, 84, 27, 25));
 }
 
 #[test]
@@ -120,13 +121,18 @@ fn calendar_notices_stay_out_even_when_relevant() {
 }
 
 #[test]
-fn applications_from_strangers_stay_out() {
+fn outreach_from_strangers_needs_a_firmer_yes() {
     let mut application = answers(0.55);
-    application.job_application = 0.96;
+    application.outreach = 0.96;
     let stranger = decide(&application, &FocusSignals::default());
     assert!(!stranger.is_focus);
-    assert_eq!(stranger.category, FocusCategory::JobApplication);
+    assert_eq!(stranger.category, FocusCategory::Outreach);
 
+    // A profile that asks for this kind of mail clears the higher bar.
+    application.focus = 0.6;
+    assert!(decide(&application, &FocusSignals::default()).is_focus);
+
+    application.focus = 0.55;
     let replied = FocusSignals {
         replied: true,
         contact: true,
@@ -148,7 +154,7 @@ fn contacts_get_a_lower_bar_unless_it_is_a_pitch() {
     assert_eq!(verdict.category, FocusCategory::Known);
 
     let mut pitch = borderline;
-    pitch.cold_pitch = 0.8;
+    pitch.outreach = 0.8;
     assert!(!decide(&pitch, &contact).is_focus);
 }
 
@@ -199,14 +205,14 @@ fn reply_needed_clears_once_the_owner_answers() {
 #[test]
 fn flags_only_apply_inside_focus() {
     let mut pitch = answers(0.1);
-    pitch.cold_pitch = 0.95;
+    pitch.outreach = 0.95;
     pitch.needs_response = 0.9;
     pitch.needs_follow_up = 0.9;
     let verdict = decide(&pitch, &FocusSignals::default());
     assert!(!verdict.is_focus);
     assert!(!verdict.needs_reply);
     assert!(!verdict.needs_follow_up);
-    assert_eq!(verdict.category, FocusCategory::ColdPitch);
+    assert_eq!(verdict.category, FocusCategory::Outreach);
 }
 
 #[test]
@@ -231,16 +237,18 @@ fn importance_weights_reply_decision_and_relationship() {
 }
 
 #[test]
-fn security_outranks_other_focus_categories() {
-    let mut report = answers(0.7);
-    report.security_report = 0.8;
-    report.customer = 0.6;
+fn customers_outrank_other_focus_categories() {
+    let mut request = answers(0.7);
+    request.customer = 0.6;
     let teammate = FocusSignals {
         teammate: true,
         contact: true,
         ..FocusSignals::default()
     };
-    assert_eq!(decide(&report, &teammate).category, FocusCategory::Security);
+    assert_eq!(
+        decide(&request, &teammate).category,
+        FocusCategory::Customer
+    );
     assert_eq!(
         decide(&answers(0.7), &teammate).category,
         FocusCategory::Team
