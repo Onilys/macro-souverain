@@ -1332,8 +1332,8 @@ Calendar scheduling is on by default in dev. Production uses the PostHog flag
 `enable-calendar-scheduling` and stays off unless enabled remotely. Set
 `VITE_ENABLE_CALENDAR_SCHEDULING=false` to test the disabled state locally.
 While off, the Calendar settings tab and calendar booking shortcuts are hidden.
-Public booking and receipt links do not read the flag: the scheduling service
-decides which links exist and take bookings.
+The standalone booking page (below) does not read the flag: the scheduling
+service decides which links exist and take bookings.
 
 Calendar connections live in **Settings → Calendar** (`/app/settings/calendar`).
 Scheduling lives in the separate **Settings → Booking links** item
