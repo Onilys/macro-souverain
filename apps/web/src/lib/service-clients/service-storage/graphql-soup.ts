@@ -92,6 +92,7 @@ import {
   type SoupQuery,
 } from './graphql/generated/graphql';
 import { shouldRetryGraphqlMutation } from './graphql-mutation-retry';
+import { readDeadlineExchange, toPromiseWithSignal } from './graphql-read';
 import {
   createGraphqlSoupSubscriptionsLifecycle,
   createGraphqlSoupWebSocketUrlResolver,
@@ -322,7 +323,11 @@ export async function dssGraphqlFetch(
 
 const graphqlSoupClient = createClient({
   url: `${dssHost}/items/soup/graphql`,
-  exchanges: [networkRevalidationExchange(), fetchExchange],
+  exchanges: [
+    networkRevalidationExchange(),
+    readDeadlineExchange,
+    fetchExchange,
+  ],
   fetch: dssGraphqlFetch,
   // urql's default ("within-url-limit") sends small documents as GET, but
   // GET on the DSS GraphQL path serves the GraphiQL IDE — only POST
@@ -420,6 +425,7 @@ function getUncachedRealtimeClient(): Client {
     exchanges: [
       networkRevalidationExchange(),
       graphqlSoupSubscriptionExchange(websocketClient),
+      readDeadlineExchange,
       fetchExchange,
     ],
     fetch: dssGraphqlFetch,
@@ -647,6 +653,7 @@ export function getGraphqlSoupClient(): Client {
             delegateRevalidation: delegateChannelNotificationRefresh,
           }),
           graphqlSoupSubscriptionExchange(graphqlWsClient),
+          readDeadlineExchange,
           fetchExchange,
         ],
         fetch: dssGraphqlFetch,
@@ -1947,17 +1954,17 @@ export async function hydrateGraphqlSoup<
   if (!getGraphqlCacheHost()) {
     throw new Error('GraphQL cache hydration requires an active cache');
   }
-  const result = await client
-    .query<SoupBackfillResult, Variables>(
+  const result = await toPromiseWithSignal(
+    client.query<SoupBackfillResult, Variables>(
       document as DocumentInput<SoupBackfillResult, Variables>,
       variables,
       {
         requestPolicy: 'network-only',
         [HYDRATE_ONLY_CONTEXT_KEY]: true,
-        ...(options.signal ? { fetchOptions: { signal: options.signal } } : {}),
       }
-    )
-    .toPromise();
+    ),
+    options.signal
+  );
 
   if (result.error) throw result.error;
   if (!result.data) {
@@ -1987,12 +1994,14 @@ export async function fetchGraphqlSoup<
   const useCache = graphqlCacheEnabled();
   const requestPolicy =
     options.requestPolicy ?? (useCache ? 'cache-and-network' : undefined);
-  const result = await client
-    .query<Data, Variables>(document, variables, {
-      ...(requestPolicy ? { requestPolicy } : {}),
-      ...(options.signal ? { fetchOptions: { signal: options.signal } } : {}),
-    })
-    .toPromise();
+  const result = await toPromiseWithSignal(
+    client.query<Data, Variables>(
+      document,
+      variables,
+      requestPolicy ? { requestPolicy } : {}
+    ),
+    options.signal
+  );
 
   if (result.error) {
     // Offline replay: a network failure falls back to the last cached page.
@@ -2026,16 +2035,14 @@ export async function fetchGraphqlGroupedSoup(
   const client = getGraphqlSoupClient();
   const useCache = graphqlCacheEnabled();
   const variables = { input };
-  const result = await client
-    .query<GroupSoupQuery, GroupSoupQueryVariables>(
+  const result = await toPromiseWithSignal(
+    client.query<GroupSoupQuery, GroupSoupQueryVariables>(
       GroupSoupQueryDocument,
       variables,
-      {
-        ...(useCache ? { requestPolicy: 'cache-and-network' as const } : {}),
-        ...(options.signal ? { fetchOptions: { signal: options.signal } } : {}),
-      }
-    )
-    .toPromise();
+      useCache ? { requestPolicy: 'cache-and-network' } : {}
+    ),
+    options.signal
+  );
 
   if (result.error) {
     if (
