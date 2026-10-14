@@ -39,6 +39,8 @@ struct Memory {
     materializations: usize,
     fail_native: bool,
     unknown: bool,
+    fail_settle: Option<DeliveryState>,
+    unavailable_checks: usize,
 }
 struct Fixture(Mutex<Memory>);
 struct Transport(Arc<Fixture>);
@@ -78,6 +80,8 @@ fn fixture() -> (MessagingService, Arc<Fixture>) {
         materializations: 0,
         fail_native: false,
         unknown: false,
+        fail_settle: None,
+        unavailable_checks: 0,
     })));
     let service = MessagingService::new(
         fixture.clone(),
@@ -235,6 +239,13 @@ impl ConversationRepository for Fixture {
         _: Option<u32>,
     ) -> PortResult<()> {
         let mut memory = self.0.lock().unwrap();
+        if memory
+            .fail_settle
+            .take_if(|failing| *failing == state)
+            .is_some()
+        {
+            return Err(MessagingError::Unavailable.into());
+        }
         memory.state = state;
         memory.provider_id = provider.cloned();
         Ok(())
@@ -329,7 +340,12 @@ impl PreparedSend for Prepared {
 #[async_trait]
 impl NativeConversation for Fixture {
     async fn require_send(&self, _: Uuid, _: Uuid, _: &str) -> PortResult<()> {
-        if !self.0.lock().unwrap().access {
+        let mut memory = self.0.lock().unwrap();
+        if memory.unavailable_checks > 0 {
+            memory.unavailable_checks -= 1;
+            return Err(MessagingError::Unavailable.into());
+        }
+        if !memory.access {
             return Err(MessagingError::Forbidden.into());
         }
         Ok(())
@@ -465,7 +481,44 @@ async fn preparation_cannot_bypass_current_access_policy_generation_or_lease() {
         let memory = fixture.0.lock().unwrap();
         assert_eq!(memory.preparations, 1);
         assert_eq!((memory.fences, memory.dispatches), (0, 0));
+        // Nothing reached the provider, so the service may settle this as failed.
+        assert_eq!(memory.state, DeliveryState::Failed);
     }
+}
+
+#[tokio::test]
+async fn transient_failures_before_the_fence_retry_without_dispatching() {
+    let (service, fixture) = fixture();
+    service
+        .send_reply(&receipt(&fixture), request(), SendAuthority::Human)
+        .await
+        .unwrap();
+    fixture.0.lock().unwrap().unavailable_checks = 1;
+    let work = fixture.claim_send().await.unwrap().unwrap();
+    service.process_send(&work).await.unwrap();
+    assert_eq!(fixture.0.lock().unwrap().state, DeliveryState::Pending);
+    assert_eq!(fixture.0.lock().unwrap().dispatches, 0);
+    let work = fixture.claim_send().await.unwrap().unwrap();
+    service.process_send(&work).await.unwrap();
+    let memory = fixture.0.lock().unwrap();
+    assert_eq!((memory.dispatches, memory.state), (1, DeliveryState::Sent));
+}
+
+#[tokio::test]
+async fn unrecorded_acceptance_is_never_settled_as_a_failed_send() {
+    let (service, fixture) = fixture();
+    service
+        .send_reply(&receipt(&fixture), request(), SendAuthority::Human)
+        .await
+        .unwrap();
+    fixture.0.lock().unwrap().fail_settle = Some(DeliveryState::Accepted);
+    // Exercise the worker entry point, which owns the failure fallback.
+    assert!(service.process_next_send().await.is_err());
+    let memory = fixture.0.lock().unwrap();
+    assert_eq!(memory.dispatches, 1);
+    // The attempt stays leased; expiry records Unknown, so no resend is offered.
+    assert_eq!(memory.state, DeliveryState::Sending);
+    assert_eq!(memory.provider_id, None);
 }
 
 #[tokio::test]

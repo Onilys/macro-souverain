@@ -487,5 +487,6 @@ pub trait PreparedSend: Send + Sync {
     /// Exact native display text retained durably before dispatch.
     fn rendered_text(&self) -> &str;
     /// Send once after the shared service's permission/policy checks and durable fence.
+    /// An error means the outcome is unknown, so it is never treated as a rejection.
     async fn dispatch(self: Box<Self>) -> PortResult<ProviderSendResult>;
 }

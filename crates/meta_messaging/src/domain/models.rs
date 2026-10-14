@@ -144,8 +144,8 @@ pub enum MessagingError {
     /// WhatsApp's standard window has closed.
     #[error("choose an approved WhatsApp template to reply outside the customer service window")]
     TemplateRequired,
-    /// Instagram no longer permits this send.
-    #[error("the Instagram reply window is closed")]
+    /// The provider's reply window no longer permits this send.
+    #[error("the reply window is closed")]
     ReplyWindowClosed,
     /// HUMAN_AGENT cannot be used for automated messages or without approval.
     #[error("human support requires an approved account and a human-authored support reply")]

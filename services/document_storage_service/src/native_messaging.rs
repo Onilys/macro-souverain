@@ -10,11 +10,7 @@ use crate::api::context::{
 };
 use messages::outbound::connection_gateway::ConnectionGatewayMessages;
 use meta_messaging::{
-    domain::{
-        meta::MetaService,
-        models::{DeliveryState, MessagingError},
-        ports::*,
-    },
+    domain::{meta::MetaService, models::MessagingError, ports::*},
     inbound::{router::MessagingRouterState, webhook},
     outbound::{repository::PgMessagingRepository, storage::KmsCredentialCipher},
 };
@@ -202,28 +198,9 @@ fn spawn(service: Arc<MetaService>) {
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             interval.tick().await;
-            let result: PortResult<()> = async {
-                let Some(work) = sends.repository.claim_send().await? else {
-                    return Ok(());
-                };
-                if let Err(error) = sends.process_send(&work).await {
-                    // A provider acceptance may already have been stored. The lease
-                    // CAS rejects this transition in that case, preserving acceptance.
-                    sends
-                        .repository
-                        .settle_send(
-                            &work.lease,
-                            DeliveryState::Failed,
-                            None,
-                            Some(&error.current_context().to_string()),
-                            None,
-                        )
-                        .await?;
-                }
-                Ok(())
-            }
-            .await;
-            if let Err(error) = result {
+            // The service settles each outcome; it never marks a possibly
+            // dispatched attempt failed.
+            if let Err(error) = sends.process_next_send().await {
                 tracing::warn!(error=?error.current_context(),"Meta send worker will reconcile its durable result");
             }
         }

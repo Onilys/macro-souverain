@@ -227,14 +227,18 @@ impl PreparedSend for MetaPreparedSend {
             .provider
             .send(&self.connection, &self.token, &self.prepared)
             .await;
-        if matches!(&result, ProviderSendResult::Rejected(code) if code == "provider_error_190") {
-            self.repository
+        if matches!(&result, ProviderSendResult::Rejected(code) if code == "provider_error_190")
+            && let Err(error) = self
+                .repository
                 .health(
                     &self.connection,
                     ConnectionStatus::Revoked,
                     Some("access_revoked_reconnect"),
                 )
-                .await?;
+                .await
+        {
+            // Account maintenance rechecks health; the provider result stays definitive.
+            tracing::warn!(error=?error.current_context(),"revoked Meta authorization could not be recorded");
         }
         Ok(result)
     }
