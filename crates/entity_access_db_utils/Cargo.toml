@@ -9,6 +9,7 @@ version = "0.1.0"
 anyhow = { workspace = true }
 macro_uuid = { path = "../macro_uuid" }
 serde = { workspace = true }
+rootcause = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
