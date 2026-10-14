@@ -1633,10 +1633,10 @@ export function createSplitLayout(
     if (
       options.reopen === 'latest' &&
       content.type !== 'component' &&
-      orchestrator.isBlockMounted(resolveBlockAlias(content.type), content.id)
+      orchestrator.hasBlockHandle(resolveBlockAlias(content.type), content.id)
     ) {
-      // Fresh fallbacks initialize from their entry; only mounted legacy views
-      // need an imperative reset. The proxy still waits for method registration.
+      // Fresh views initialize from their entry; native views also expose handles.
+      // The proxy still waits for method registration.
       void orchestrator
         .getBlockHandle(content.id)
         .then((handle) => handle?.goToLatest())

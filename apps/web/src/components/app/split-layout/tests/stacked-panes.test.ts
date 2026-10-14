@@ -285,3 +285,36 @@ it('creates legacy fallbacks on render and retains adopted identity after remoun
     expect(orchestrator.createBlockInstance).toHaveBeenCalledTimes(2);
   });
 });
+
+it.each([true, false])(
+  'sends latest requests only to registered handles without legacy instances (registered: %s)',
+  async (registered) => {
+    const goToLatest = vi.fn();
+    const orchestrator = {
+      isBlockMounted: vi.fn(() => false),
+      hasBlockHandle: vi.fn(() => registered),
+      getBlockHandle: vi.fn(async () => ({ goToLatest })),
+      createBlockInstance: vi.fn(),
+    };
+    const { manager, router } = createRoot((disposeRoot) => {
+      dispose = disposeRoot;
+      return createRoutedDetailLayout(
+        orchestrator as unknown as BlockOrchestrator,
+        '/channels/channel'
+      );
+    });
+    await router.settled();
+
+    manager.openWithSplit(
+      { type: 'channel', id: 'channel' },
+      { reopen: 'latest' }
+    );
+    await router.settled();
+
+    expect(goToLatest).toHaveBeenCalledTimes(registered ? 1 : 0);
+    expect(orchestrator.getBlockHandle).toHaveBeenCalledTimes(
+      registered ? 1 : 0
+    );
+    expect(orchestrator.createBlockInstance).not.toHaveBeenCalled();
+  }
+);

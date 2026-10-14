@@ -312,6 +312,8 @@ type CreateBlockInstanceFn = (
 export type BlockOrchestrator = {
   /** Whether a managed block is currently mounted in any surface. */
   isBlockMounted: (type: BlockName, id: string) => boolean;
+  /** Whether managed or native content currently exposes a registered handle. */
+  hasBlockHandle: (type: BlockName, id: string) => boolean;
   /** Get a publicly accessible handle to a block instance */
   getBlockHandle: GetBlockHandleFn;
   /**
@@ -512,6 +514,7 @@ export function createBlockOrchestrator(): BlockOrchestrator {
   return {
     isBlockMounted: (type, id) =>
       instances.get(keyOf(type, id))?.isMounted() ?? false,
+    hasBlockHandle: (type, id) => unwrap(blocks)[id]?.type === type,
     getBlockHandle,
     createBlockInstance: createManagedBlockInstance,
     rekeyBlockInstance,

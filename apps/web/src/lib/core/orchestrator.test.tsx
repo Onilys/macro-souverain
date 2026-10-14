@@ -40,6 +40,7 @@ it('keeps one live mount and preserves its handle when a duplicate unmounts', as
   expect(duplicateView.container.textContent).toBe('Content already open.');
   expect(firstView.container.textContent).toBe('Channel content');
   expect(orchestrator.isBlockMounted('channel', 'channel-1')).toBe(true);
+  expect(orchestrator.hasBlockHandle('channel', 'channel-1')).toBe(true);
 
   duplicateView.unmount();
   const handle = await orchestrator.getBlockHandle('channel-1', 'channel');
@@ -48,6 +49,7 @@ it('keeps one live mount and preserves its handle when a duplicate unmounts', as
 
   firstView.unmount();
   expect(orchestrator.isBlockMounted('channel', 'channel-1')).toBe(false);
+  expect(orchestrator.hasBlockHandle('channel', 'channel-1')).toBe(false);
   const reopened = orchestrator.createBlockInstance('channel', 'channel-1');
   const reopenedView = render(reopened.element);
   expect(reopenedView.container.textContent).toBe('Channel content');
@@ -57,9 +59,13 @@ it('keeps one live mount and preserves its handle when a duplicate unmounts', as
 it('exposes a handle for content mounted outside a block container until its owner disposes', async () => {
   const orchestrator = createBlockOrchestrator();
   const navigate = vi.fn();
+  expect(orchestrator.hasBlockHandle('channel', 'channel-1')).toBe(false);
   const dispose = createRoot((dispose) => {
     const handle = orchestrator.registerBlockHandle('channel', 'channel-1');
     handle?.registerMethod('goToLocationFromParams', navigate);
+    expect(orchestrator.hasBlockHandle('channel', 'channel-1')).toBe(true);
+    expect(orchestrator.hasBlockHandle('md', 'channel-1')).toBe(false);
+    expect(orchestrator.isBlockMounted('channel', 'channel-1')).toBe(false);
     expect(
       orchestrator.registerBlockHandle('channel', 'channel-1')
     ).toBeUndefined();
@@ -71,6 +77,7 @@ it('exposes a handle for content mounted outside a block container until its own
   expect(navigate).toHaveBeenCalledWith({ message: 'message-1' });
 
   dispose();
+  expect(orchestrator.hasBlockHandle('channel', 'channel-1')).toBe(false);
   const mounted = orchestrator.createBlockInstance('channel', 'channel-1');
   const view = render(mounted.element);
   expect(view.container.textContent).toBe('Channel content');
