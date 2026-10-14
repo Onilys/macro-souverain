@@ -36,7 +36,8 @@ and highlights.
 
 - **Agents:** the Work / Code switch (beacon on the sidebar toggle), then the
   agent and model picker (beacon on New conversation), then the
-  agents and Runtimes tabs (beacon on Agents), then Create for automations.
+  Your agents list and the Cursor / Bring your own agent strips (beacon on
+  Agents), then Create for automations.
 - **Channels:** channels and DMs, creation, then threads, @mentions, and calls,
   which wait on the channel list until a conversation is open. No Slack action.
 - **Email:** Signal/Noise, tags, then keyboard shortcuts.
@@ -44,7 +45,8 @@ and highlights.
   **New** menu.
 - **Calendar:** calendar sources and copy availability (beacon on the sidebar
   toggle while the sidebar is collapsed), calendar periods, then event details.
-- **Tasks:** also offers Import from Linear, which opens the CSV importer.
+- **Tasks:** the sidebar, task details, then tags in the **Filter** menu. Also
+  offers Import from Linear, which opens the CSV importer.
 
 Connection suggestions open Email or Connected settings. Home, Email, Documents,
 Tasks, Channels, Customers, and Calls include a video from Macro's YouTube

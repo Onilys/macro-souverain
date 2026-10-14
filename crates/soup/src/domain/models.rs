@@ -344,7 +344,7 @@ pub struct SoupRequest<T> {
     pub email_preview_view: PreviewView,
     /// Every inbox the caller can read (own + delegated via macro_user_links).
     /// Empty when the caller has no inboxes — `build_email_request` returns
-    /// `None` so the email branch is skipped.
+    /// `None` so the email branch is skipped, unless the request is CRM-scoped.
     pub link_ids: Vec<Uuid>,
 }
 
@@ -424,7 +424,9 @@ impl SoupRequest<Option<EntityFilterAst>> {
         let entity_ast = self.entity_ast();
         let crm_scope = entity_ast.and_then(|a| a.email_filter.crm_scope.clone());
 
-        if self.link_ids.is_empty() {
+        // A CRM scope reads teammates' threads, which email authorizes against
+        // the scope, so a viewer without a mailbox of their own still sees them.
+        if self.link_ids.is_empty() && crm_scope.is_none() {
             return None;
         }
         // CRM-scoped requests must still reach email's authorization precheck,
@@ -1093,6 +1095,15 @@ fn map_properties_to_call(expr: &Expr<PropertiesLiteral>) -> Expr<CallLiteral> {
     }
 }
 
+/// An entity whose Companies or Contacts property names a CRM record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CrmPropertyEdge {
+    /// The entity type the property row is stored under.
+    pub entity_type: models_properties::EntityType,
+    /// The entity id the property row is stored under.
+    pub entity_id: String,
+}
+
 /// Parameters for fetching CRM companies to fold into the soup feed.
 #[derive(Debug)]
 pub struct GetCrmCompaniesRequest {
@@ -1305,6 +1316,9 @@ pub enum SoupErr {
     /// role is below admin/owner.
     #[error("Querying hidden CRM companies requires admin/owner team role")]
     CrmAdminRequired,
+    /// The filter is restricted to a CRM record the caller cannot see.
+    #[error("CRM record not found")]
+    CrmRecordNotFound,
     /// GitHub pull request listing failed.
     #[error(transparent)]
     GithubPullRequestErr(#[from] GithubPullRequestError),

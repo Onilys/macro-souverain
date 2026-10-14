@@ -16,12 +16,12 @@ import { Show } from 'solid-js';
 import { match } from 'ts-pattern';
 import { RecordSection } from './components/record-section';
 import type { CrmRecordScope } from './core/record';
-import { crmRecordPropertyId } from './queries/record-items';
 
 /**
- * The record's Tasks tab: the production Tasks list, scoped to tasks whose
- * Companies or Contacts property references the record. It owns its tag
- * sets because a standalone record has no list provider above it.
+ * The record's Tasks tab: the production Tasks list, scoped to tasks
+ * associated with the record through its Companies or Contacts property or a
+ * reference (for a company, also through any of its contacts). It owns its
+ * tag sets because a standalone record has no list provider above it.
  */
 export function CrmRecordTasks(props: { scope: CrmRecordScope }) {
   const layout = useSplitLayout();
@@ -44,10 +44,7 @@ export function CrmRecordTasks(props: { scope: CrmRecordScope }) {
             sourceFactory={(state, options) =>
               useTasksDataSource(state, {
                 ...options,
-                reference: () => ({
-                  propertyDefinitionId: crmRecordPropertyId(scope),
-                  entityId: scope.id,
-                }),
+                crm: () => ({ type: scope.type, id: scope.id }),
               })
             }
           >

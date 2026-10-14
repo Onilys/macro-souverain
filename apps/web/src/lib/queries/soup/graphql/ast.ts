@@ -7,6 +7,7 @@ import type {
   GraphqlChannelLiteral as GraphqlChannelLiteralInput,
   GraphqlChannelThreadLiteral as GraphqlChannelThreadLiteralInput,
   GraphqlChatLiteral as GraphqlChatLiteralInput,
+  GraphqlCrmAssociation,
   GraphqlCrmCompanyLiteral as GraphqlCrmCompanyLiteralInput,
   GraphqlCrmContactLiteral,
   GraphqlDateLiteral as GraphqlDateLiteralInput,
@@ -71,6 +72,7 @@ type TargetAstKey =
 
 type AstBody = Partial<Record<TargetAstKey, RestAst>> & {
   favorites_only?: SoupAstBody['favorites_only'];
+  crma?: SoupAstBody['crma'];
   /** CRM-address and CRM-domain filters are REST-only today. */
   eca?: string[];
   ecd?: string[];
@@ -307,9 +309,20 @@ function mapDocumentLiteral(literal: unknown): GraphqlDocumentLiteralInput {
       return { property: mapPropertiesLiteral(value) };
     case 'eap':
       return { emailAttachmentParticipant: mapEmailValue(value) };
+    case 'crm':
+      return { crmAssociated: mapCrmAssociation(value) };
+    case 'nc':
+      return { nameContains: mapString(value, 'nameContains') };
     default:
       unsupported(`document literal ${field}`);
   }
+}
+
+function mapCrmAssociation(value: unknown): GraphqlCrmAssociation {
+  const [field, id] = singleLiteralField(value);
+  if (field === 'company') return { company: mapString(id, 'company') };
+  if (field === 'contact') return { contact: mapString(id, 'contact') };
+  unsupported(`CRM association ${field}`);
 }
 
 function mapProjectLiteral(literal: unknown): GraphqlProjectLiteralInput {
@@ -690,6 +703,7 @@ function makeGraphqlFilters(body: AstBody): GraphqlEntityFilterAstInput {
   const filters: GraphqlEntityFilterAstInput = {};
   if (body.favorites_only !== undefined)
     filters.favoritesOnly = body.favorites_only;
+  if (body.crma) filters.crmAssociation = mapCrmAssociation(body.crma);
 
   if (body.calf) {
     filters.calendarEventFilter = compileExpr(

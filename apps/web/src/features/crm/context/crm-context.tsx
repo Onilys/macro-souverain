@@ -81,6 +81,10 @@ export type CrmContext = {
   createRecordCalls(
     scope: Accessor<CrmRecordScope | undefined>
   ): ItemListSource;
+  /** Items associated with the record through properties or references. */
+  createRecordReferences(
+    scope: Accessor<CrmRecordScope | undefined>
+  ): ItemListSource;
   /** The record's Tasks tab, scoped to tasks associated with it. */
   RecordTasks: Component<{ scope: CrmRecordScope }>;
   createPropertyCommands(): PropertyCommands;

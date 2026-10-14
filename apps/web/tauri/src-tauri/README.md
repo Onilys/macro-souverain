@@ -178,6 +178,14 @@ Deploy the updated native_app_service before publishing schema 3 archives;
 an old server returns the legacy minimum and the client rejects the mismatch.
 Never lower a minimum to force an incompatible update to apply.
 
+macOS notification delivery requires `send_macos_notification`, which uses
+UserNotifications for both authorization and delivery. Ship a full macOS native
+release containing this command; a frontend-only update cannot repair the legacy
+sender. Before publishing this frontend in a desktop OTA archive, set
+`MIN_NATIVE_BUILD` to the first native release containing the command. Older
+binaries show an update-required notice instead of falling back to the legacy
+notification API, which macOS rejects after UserNotifications has been used.
+
 Extraction writes a sibling `<directory>.complete` record only after checksum,
 extraction, manifest, and entrypoint validation succeed. Directories without a
 matching completion record cannot be reused or restored. Previously cached OTA
@@ -191,6 +199,15 @@ this frontend as an OTA bundle. The frontend probes this command before claiming
 or enqueueing mutations. An older binary uses the existing uncached fallback and
 shows an update-required notice; its existing mutation queue stays intact until
 the user installs the native update.
+
+## Desktop window state
+
+The desktop window reopens at its last size, position, maximized, and
+fullscreen state (`src/window_state.rs`, backed by `tauri-plugin-window-state`).
+The `tauri.conf.json` window size only applies to the first launch. A saved
+position that no longer lands on a connected monitor is ignored and the OS
+places the window. State is written to `.window-state.json` in the app config
+directory on quit; delete that file to reset. Mobile is unaffected.
 
 ## Desktop native updates
 

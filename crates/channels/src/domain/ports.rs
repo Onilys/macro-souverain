@@ -13,7 +13,7 @@ use crate::domain::models::{
 use crate::domain::models::{
     ChannelMessage, ChannelWithLatest, ChannelWithParticipants, GetChannelsParams,
     GetChannelsRequest, GetThreadReplyRowsParams, GetThreadReplyRowsRequest, LatestMessage,
-    UserName,
+    ReferenceSource, ReferenceTarget, UserName,
 };
 use crate::domain::side_effects::{
     ChannelDocumentMention, ChannelNotificationEffect, ChannelRealtimeEffect,
@@ -63,6 +63,14 @@ pub trait ChannelListRepo: Send + Sync + 'static {
         &self,
         req: GetThreadReplyRowsParams,
     ) -> impl Future<Output = Result<Vec<ChannelMessage>, rootcause::Report>> + Send;
+
+    /// Distinct documents and undeleted messages that currently mention or
+    /// attach any of `targets`. Unauthorized: callers must apply the reading
+    /// user's access to every returned source.
+    fn get_reference_sources(
+        &self,
+        targets: &[ReferenceTarget],
+    ) -> impl Future<Output = Result<Vec<ReferenceSource>, rootcause::Report>> + Send;
 }
 
 /// Repository for user display names needed by channel list rendering.
@@ -95,6 +103,15 @@ pub trait ChannelListService: Send + Sync + 'static {
         &self,
         req: GetThreadReplyRowsRequest,
     ) -> impl Future<Output = Result<Vec<ChannelMessage>, rootcause::Report>> + Send;
+
+    /// Distinct documents and undeleted messages that currently mention or
+    /// attach any of `targets`. The result is not authorized for any user:
+    /// callers must apply the reader's access to each source before
+    /// exposing it.
+    fn get_reference_sources(
+        &self,
+        targets: &[ReferenceTarget],
+    ) -> impl Future<Output = Result<Vec<ReferenceSource>, rootcause::Report>> + Send;
 
     /// Fetch names for user ids.
     fn get_names(

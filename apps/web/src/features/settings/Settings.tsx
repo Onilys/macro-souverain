@@ -231,6 +231,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
           <SplitPanel.Body>
             <ViewShell.Root
               asidePreferenceKey="settings"
+              asidePinned
               resizable
               aside={{ preserveDuringResize: false }}
               main={{ preferredWidth: 960 }}

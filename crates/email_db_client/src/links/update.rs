@@ -81,12 +81,11 @@ pub async fn clear_link_needs_reauth(pool: &PgPool, link_id: Uuid) -> anyhow::Re
 /// Updates the sync active status for a link by its ID.
 /// Also updates the updated_at timestamp to the current time.
 ///
-/// An explicit status change supersedes a retention pause, so a link being torn
-/// down can no longer be resumed by user activity.
+/// An explicit status change supersedes a retention pause, so user activity can
+/// no longer resume the link.
 ///
-/// A no-op when the status already matches, so a redelivered delete message
-/// returns immediately instead of queueing behind the row lock held by the
-/// first delivery's cascading `DELETE FROM email_links`.
+/// A no-op when the status already matches, so a repeat call never rewrites
+/// the row. Never re-enables sync on a link that is being deleted.
 #[tracing::instrument(skip(pool), err)]
 pub async fn update_link_sync_status(
     pool: &PgPool,
@@ -99,6 +98,7 @@ pub async fn update_link_sync_status(
         SET is_sync_active = $2, sync_paused_at = NULL, updated_at = NOW()
         WHERE id = $1
           AND (is_sync_active IS DISTINCT FROM $2 OR sync_paused_at IS NOT NULL)
+          AND (NOT $2 OR deleting_at IS NULL)
         "#,
         link_id,
         is_sync_active

@@ -1,7 +1,7 @@
 # Canvas legacy bridge
 
-The legacy bridge converts between legacy Canvas records and the Canvas Next
-document model. It belongs to the Canvas application layer, not
+The legacy migration imports version 1 Canvas records into the Canvas Next
+version 2 document model. The old editor and downgrade path are not available. It belongs to the Canvas application layer, not
 `@macro-inc/graphics`, because it understands old schemas, Lexical payloads,
 Macro entities, and product rollout policy.
 
@@ -26,13 +26,15 @@ chrome and must be resolved before crossing the document boundary. Import should
 preserve legacy color and alpha values exactly; export must report values the old
 format cannot represent.
 
-## Rollout
+## Loading and saving
 
-Build the bridge behind the existing Canvas Next rollout boundary. Compare both
-renderers on representative fixtures, make diagnostics visible to the host, and
-only enable write-back for documents whose supported subset round-trips without
-silent loss.
+Canvas Next opens all saved canvases without a rollout flag. Supported legacy
+files migrate in memory and retain their original JSON in migration metadata.
+The first committed edit saves version 2; opening a file alone does not save it.
+Unsupported records and unknown versions show an error without changing the
+saved document. Validate any expanded import support against representative
+fixtures before allowing write-back.
 
 See the [architecture overview](CANVAS_ARCHITECTURE.md),
 [parity plan](GRAPHICS_PARITY.md), and
-[Canvas Next format notes](../apps/web/src/features/block-canvas/canvas-next/README.md).
+[Canvas Next format notes](../apps/web/src/features/block-canvas/README.md).

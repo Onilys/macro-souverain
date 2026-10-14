@@ -10,11 +10,19 @@ import {
 } from '@tauri-apps/plugin-notification';
 import { type as osType } from '@tauri-apps/plugin-os';
 
+export class MacOSNotificationUpdateRequiredError extends Error {
+  constructor(cause: unknown) {
+    super('Update Macro to receive desktop notifications.', { cause });
+    this.name = 'MacOSNotificationUpdateRequiredError';
+  }
+}
+
 export function createTauriNotificationInterface(
   setDisabled: () => Promise<void>,
   shouldSend: () => boolean = () => true
 ): PlatformNotificationInterface {
-  let hasMacOSPermissionCommands = osType() === 'macos';
+  const isMacOS = osType() === 'macos';
+  let hasMacOSPermissionCommands = isMacOS;
 
   async function getCur(): Promise<NotificationPermission> {
     // The notification plugin always reports permission as granted on desktop.
@@ -59,6 +67,23 @@ export function createTauriNotificationInterface(
       // is in flight. Check the current preference just before dispatching.
       if (granted !== 'granted' || !shouldSend()) {
         return 'not-granted';
+      }
+
+      if (isMacOS) {
+        try {
+          await invoke<void>('send_macos_notification', {
+            title: data.title,
+            body: data.options?.body,
+          });
+        } catch (error) {
+          // OTA frontend updates can reach an older native app. Its legacy
+          // sender silently drops notifications, so require a native update.
+          if (error === 'Command send_macos_notification not found') {
+            throw new MacOSNotificationUpdateRequiredError(error);
+          }
+          throw error;
+        }
+        return createTauriNotification();
       }
 
       if (!data.options) {

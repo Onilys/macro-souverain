@@ -9,6 +9,7 @@ import { createStore, reconcile, unwrap } from 'solid-js/store';
 import { match } from 'ts-pattern';
 import type { EmailFormContextInputs } from '../context/email-form-inputs';
 import { decodeBase64Utf8 } from '../core/decode-base64';
+import { forwardedAttachments } from '../core/forwarded-attachments';
 import {
   convertContactInfoToEmailRecipient,
   getReplyAllRecipients,
@@ -235,16 +236,16 @@ export function createEmailFormState(
 
       if (next === 'forward') {
         setState('withQuotedText', true);
-        // Populate forwarded attachments from original message (skip inline images)
-        const fwdAttachments: DraftFormAttachment[] = (msg.attachments ?? [])
-          .filter((a) => !a.content_id)
-          .map((a) => ({
-            type: 'forwarded' as const,
-            attachmentId: a.db_id,
-            fileName: a.filename ?? 'attachment',
-            mimeType: a.mime_type ?? 'application/octet-stream',
-            fileSize: a.size_bytes ?? 0,
-          }));
+        // Populate forwarded attachments from original message (skip inline images linked in the quote)
+        const fwdAttachments: DraftFormAttachment[] = forwardedAttachments(
+          msg
+        ).map((a) => ({
+          type: 'forwarded' as const,
+          attachmentId: a.db_id,
+          fileName: a.filename ?? 'attachment',
+          mimeType: a.mime_type ?? 'application/octet-stream',
+          fileSize: a.size_bytes ?? 0,
+        }));
         setAttachments((prev) => [...prev, ...fwdAttachments]);
       }
     }

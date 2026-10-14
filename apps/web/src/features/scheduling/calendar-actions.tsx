@@ -22,6 +22,7 @@ function Actions() {
       id: user() ?? 'me',
       name: 'Personal',
       canEdit: true,
+      canManageBookings: true,
     }),
     () => user() ?? ''
   );
@@ -65,12 +66,13 @@ function Actions() {
         fallback={
           <Button
             variant="ghost"
-            size="sm"
+            size="lg"
+            class="w-9 px-0 text-sm lg:w-auto lg:px-3"
             label="Copy booking link"
             disabled={source.isPending}
             onClick={() => void handleClick()}
           >
-            <LinkIcon class="size-3.5" />
+            <LinkIcon class="size-5 mobile:size-6 lg:size-4" />
             <span class="hidden lg:inline">Booking link</span>
           </Button>
         }
@@ -79,13 +81,14 @@ function Actions() {
           <DropdownMenu.Trigger
             as={Button}
             variant="ghost"
-            size="sm"
+            size="lg"
+            class="px-2 text-sm lg:px-3"
             label="Copy booking link"
             disabled={source.isPending}
           >
-            <LinkIcon class="size-3.5" />
+            <LinkIcon class="size-5 mobile:size-6 lg:size-4" />
             <span class="hidden lg:inline">Booking link</span>
-            <CaretDownIcon class="size-3" />
+            <CaretDownIcon class="size-4" />
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content class="z-action-menu min-w-48 rounded-xl border border-edge-muted bg-menu p-1 text-sm shadow-lg">
@@ -105,11 +108,11 @@ function Actions() {
       </Show>
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon-lg"
         label="Open booking link settings"
         onClick={() => settings.openSettings('Booking links')}
       >
-        <GearIcon class="size-3.5" />
+        <GearIcon class="size-5 mobile:size-6" />
       </Button>
     </div>
   );
