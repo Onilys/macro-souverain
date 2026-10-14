@@ -9,12 +9,15 @@ import { fetchToken } from '@core/util/fetchWithToken';
 import { isTauri } from '@core/util/platform';
 import { platformFetch } from '@core/util/platformFetch';
 import { reloadForNewerBuild } from '@core/util/reloadForNewerBuild';
+import { networkRevalidationExchange } from '@graphql-cache/exchange/network-revalidation-exchange';
 import {
   HYDRATE_ONLY_CONTEXT_KEY,
   normalizedCacheExchange,
 } from '@graphql-cache/exchange/normalized-cache-exchange';
+import { optimisticResolversExchange } from '@graphql-cache/exchange/optimistic-resolvers';
 import { CacheNavigationError } from '@graphql-cache/host/navigation-error';
 import { createRetirableCacheHost } from '@graphql-cache/host/retirable-host';
+import { NativeCacheUpgradeRequiredError } from '@graphql-cache/host/tauri-host';
 import type { CacheHost } from '@graphql-cache/host/types';
 import {
   createTauriCacheHost,
@@ -22,11 +25,16 @@ import {
   entityFromArgument,
 } from '@graphql-cache/index';
 import { registerCacheHost } from '@graphql-cache/lifecycle';
-import { isOwnerLockUnavailableError } from '@graphql-cache/protocol';
+import {
+  isAdmittedEnqueueUncertainError,
+  isOwnerLockUnavailableError,
+} from '@graphql-cache/protocol';
 import { getBrowserTursoCacheRolloutDecision } from '@graphql-cache/rollout';
 import { getOrCreateCacheScope } from '@graphql-cache/scope';
+import { TauriWebSocketWrapper } from '@macro-inc/collaboration/websocket/platform/tauri-websocket';
 import { Telemetry } from '@macro-inc/observability';
 import { notificationStateFromGraphql } from '@notifications/notification-state';
+import { localDraftQueueLifecycle } from '@queries/email/local-drafts';
 import { getMacroApiToken } from '@service-auth/fetch';
 import type { ApiUserNotification } from '@service-notification/generated/schemas/apiUserNotification';
 import type { ChannelType } from '@service-notification/generated/schemas/channelType';
@@ -48,7 +56,13 @@ import {
   type RequestPolicy,
   subscriptionExchange,
 } from '@urql/core';
-import { type DocumentNode, parse, print, visit } from 'graphql';
+import {
+  type DocumentNode,
+  getOperationAST,
+  parse,
+  print,
+  visit,
+} from 'graphql';
 import {
   createClient as createGraphqlWsClient,
   type Client as GraphqlWsClient,
@@ -56,6 +70,7 @@ import {
 import { createSignal } from 'solid-js';
 import { match } from 'ts-pattern';
 import { delegateChannelNotificationRefresh } from '../../queries/channel/notification-refresh';
+import { soupOptimisticResolvers } from '../../queries/optimistic-resolvers';
 import { emailCacheDeletionKeys } from './email-cache-deletions';
 import type { SoupApiItem } from './generated/schemas/soupApiItem';
 import type { SoupCalendarEventSoupPropertiesField } from './generated/schemas/soupCalendarEventSoupPropertiesField';
@@ -83,6 +98,7 @@ import {
   createGraphqlSoupWebSocketUrlResolver,
   SOUP_GRAPHQL_WEBSOCKET_RETRY_ATTEMPTS,
   shouldRetryGraphqlSoupWebSocket,
+  waitToRetryGraphqlSoupWebSocket,
 } from './graphql-soup-websocket';
 
 const dssHost = SERVER_HOSTS['document-storage-service'];
@@ -210,11 +226,19 @@ function legacyProjectionRequest(
   }
 }
 
+// Matches the JSON-encoded body, where the field's quotes are escaped.
+const LEGACY_PROJECTION_ERROR_TEXT =
+  /(?:Cannot query|Unknown) field \\?["']cacheProjection/;
+
 async function isLegacyProjectionValidationError(
   response: Response
 ): Promise<boolean> {
   try {
-    const payload: unknown = await response.clone().json();
+    // Every projection response passes through here and urql parses the body
+    // again, so only parse one whose text names the rejected field.
+    const text = await response.clone().text();
+    if (!LEGACY_PROJECTION_ERROR_TEXT.test(text)) return false;
+    const payload: unknown = JSON.parse(text);
     if (
       payload === null ||
       typeof payload !== 'object' ||
@@ -245,6 +269,31 @@ export async function dssGraphqlFetch(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
+  // Even an in-flight cached client can fall back after queue initialization
+  // fails. Check at transport time so it cannot overtake preserved mutations.
+  if (graphqlDraftQueueBlocked() && typeof init?.body === 'string') {
+    const payload = JSON.parse(init.body) as {
+      query?: string;
+      operationName?: string;
+    };
+    if (typeof payload.query === 'string') {
+      const operation = getOperationAST(
+        parse(payload.query),
+        payload.operationName
+      );
+      if (
+        operation?.operation === 'mutation' &&
+        operation.selectionSet.selections.some(
+          (selection) =>
+            selection.kind === 'Field' &&
+            ['saveEmailDraft', 'deleteEmailDraft'].includes(
+              selection.name.value
+            )
+        )
+      )
+        assertEmailDraftQueueAvailable();
+    }
+  }
   return Telemetry.span('graphql.transport', async (span) => {
     const started = performance.now();
     try {
@@ -254,10 +303,14 @@ export async function dssGraphqlFetch(
       span.setAttr('graphql.response_headers_ms', performance.now() - started);
       span.setAttr('http.response.status_code', response.status);
       span.event('response_headers');
-      const legacyInit = legacyProjectionRequest(transportInit);
-      if (legacyInit === undefined) return response;
+      if (
+        typeof transportInit?.body !== 'string' ||
+        !transportInit.body.includes('cacheProjection')
+      ) {
+        return response;
+      }
 
-      // This includes body delivery and JSON parsing, not just validation CPU.
+      // This includes body delivery and the text scan, not just validation CPU.
       const inspectStarted = performance.now();
       const legacy = await isLegacyProjectionValidationError(response);
       span.setAttr(
@@ -265,8 +318,11 @@ export async function dssGraphqlFetch(
         performance.now() - inspectStarted
       );
       span.event('response_inspected');
-      span.setAttr('graphql.legacy_retry', legacy);
-      if (!legacy) return response;
+      const legacyInit = legacy
+        ? legacyProjectionRequest(transportInit)
+        : undefined;
+      span.setAttr('graphql.legacy_retry', legacyInit !== undefined);
+      if (legacyInit === undefined) return response;
 
       // A mixed deployment remains network-correct: retry without the additive
       // metadata field and suppress v2 local authority for this session. Backfill
@@ -283,7 +339,7 @@ export async function dssGraphqlFetch(
 
 const graphqlSoupClient = createClient({
   url: `${dssHost}/items/soup/graphql`,
-  exchanges: [fetchExchange],
+  exchanges: [networkRevalidationExchange(), fetchExchange],
   fetch: dssGraphqlFetch,
   // urql's default ("within-url-limit") sends small documents as GET, but
   // GET on the DSS GraphQL path serves the GraphiQL IDE — only POST
@@ -316,16 +372,18 @@ function createGraphqlSoupWebSocketClient(
     dssHost,
     bearerTokenAuth: ENABLE_BEARER_TOKEN_AUTH,
     getApiToken: getMacroApiToken,
-    refreshCookieAuth: async () => {
-      const result = await fetchToken();
-      if (result.isErr()) {
-        throw new Error('Unable to refresh GraphQL websocket cookie');
-      }
-    },
+    refreshCookieAuth: fetchToken,
   });
   return createGraphqlWsClient({
     url: resolveWebSocketUrl,
+    // Session cookies live in the native HTTP client's jar, which the WebView's
+    // own WebSocket cannot send; the native socket forwards them.
+    webSocketImpl:
+      isTauri() && !ENABLE_BEARER_TOKEN_AUTH
+        ? TauriWebSocketWrapper
+        : undefined,
     retryAttempts: SOUP_GRAPHQL_WEBSOCKET_RETRY_ATTEMPTS,
+    retryWait: waitToRetryGraphqlSoupWebSocket,
     on: {
       connected: () => {
         onConnected();
@@ -379,6 +437,7 @@ function getUncachedRealtimeClient(): Client {
     url: `${dssHost}/items/soup/graphql`,
     preferGetMethod: false,
     exchanges: [
+      networkRevalidationExchange(),
       graphqlSoupSubscriptionExchange(websocketClient),
       fetchExchange,
     ],
@@ -415,6 +474,23 @@ let cachedCacheHost: CacheHost | undefined;
 let cachedCacheCleanup: (() => void) | undefined;
 let browserCacheClientActivated = false;
 
+/** An unavailable queue may still hold older writes; never bypass its ordering. */
+export function graphqlDraftQueueBlocked(): boolean {
+  cacheAvailability();
+  return (
+    cacheInitializationFailed ||
+    !!(cachedCacheHost && (cachedCacheHost.disabled || !graphqlCacheEnabled()))
+  );
+}
+
+export function assertEmailDraftQueueAvailable(): void {
+  if (graphqlDraftQueueBlocked()) {
+    throw new Error(
+      'Draft sync is unavailable while queued changes are preserved. Reload or update Macro to resume the queue before saving or discarding.'
+    );
+  }
+}
+
 function fallbackAfterInitializationFailure(): void {
   const cleanup = cachedCacheCleanup;
   cachedCacheCleanup = undefined;
@@ -444,7 +520,8 @@ export function getGraphqlCacheHost(): CacheHost | undefined {
  * needed (or wanted) here: user↔cache consistency is enforced inside the
  * engine by the identity witness on `QueryRoot.user.id` (a response for a
  * different user wipes and rebinds the cache). See @graphql-cache/scope.
- * Any failure falls back to the plain fetch client for the session.
+ * Failures fall back to uncached reads. Draft mutations remain blocked until
+ * a reload or native update can resume the preserved queue.
  */
 export function getGraphqlSoupClient(): Client {
   const native = isTauri();
@@ -468,11 +545,14 @@ export function getGraphqlSoupClient(): Client {
       operationKind?: Operation['kind']
     ) => {
       try {
-        // Navigation deliberately rejects outstanding reads, and a tab on
-        // another deployed build can own the database. Neither is an error;
-        // unexpected disposal still reports.
+        // Navigation cancels outstanding work. Admitted enqueues retain their
+        // uncertainty code to prevent unsafe retries, but preserve navigation
+        // as their cause. Only that expected cancellation is quiet; uncertain
+        // transport failures and unexpected disposal must still report.
         if (
           error instanceof CacheNavigationError ||
+          (isAdmittedEnqueueUncertainError(error) &&
+            error.cause instanceof CacheNavigationError) ||
           isOwnerLockUnavailableError(error)
         )
           return;
@@ -518,9 +598,17 @@ export function getGraphqlSoupClient(): Client {
       }
       reportCacheError(error, 'initialization');
       fallbackAfterInitializationFailure();
-      toast.failure('Local cache unavailable', {
-        subtext: 'Macro will continue without local caching for this session.',
-      });
+      toast.failure(
+        error instanceof NativeCacheUpgradeRequiredError
+          ? 'Macro update required'
+          : 'Local cache unavailable',
+        {
+          subtext:
+            error instanceof NativeCacheUpgradeRequiredError
+              ? error.message
+              : 'Macro will continue without local caching for this session.',
+        }
+      );
       console.warn(
         'graphql cache async init failed; using uncached client',
         error
@@ -548,7 +636,10 @@ export function getGraphqlSoupClient(): Client {
         // See graphqlSoupClient: GET serves GraphiQL on this path.
         preferGetMethod: false,
         exchanges: [
+          optimisticResolversExchange(soupOptimisticResolvers),
+          networkRevalidationExchange(() => host?.disabled === true),
           normalizedCacheExchange(host, {
+            ...localDraftQueueLifecycle(host),
             deletedRecordKeys: emailCacheDeletionKeys,
             onCacheError: (error, operation) => {
               // Initialization failure already reports before retiring the host;
@@ -570,8 +661,7 @@ export function getGraphqlSoupClient(): Client {
             extractIdentity: (data) =>
               (data as Partial<SoupQuery | GroupSoupQuery> | undefined)?.user
                 ?.id,
-            // Preserve the optimistic layer on transport failures and on
-            // application failures the server explicitly allows us to retry.
+            // Preserve optimistic intent only while transport failures retry.
             shouldRetryMutation: shouldRetryGraphqlMutation,
             delegateRevalidation: delegateChannelNotificationRefresh,
           }),

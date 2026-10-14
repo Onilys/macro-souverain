@@ -10,7 +10,10 @@
    response carries the one-time code and the frontend auto-verifies it, so you are logged in
    immediately — no code entry step ever appears. A code email is still sent and visible in
    Mailpit. Against a real deployment, expect a code-entry step instead: fetch the code from
-   the user's inbox (locally: Mailpit).
+   the user's inbox (locally: Mailpit). The sixth digit submits the code. A rejected code
+   clears the boxes and refocuses them for retyping. The auth service allows five code
+   checks a minute per address; past that the step shows "Too many attempts. Wait a minute,
+   then try again." and keeps the code. Requesting a new code does not lift that wait.
 5. First login auto-creates the user, seeds onboarding content (a "Macro Support x <name>"
    channel, a "Macro how to guide" doc favorite, three sample tasks), and lands on
    `/app/home`. The starter documents share a personal `docs` tag; the
@@ -114,10 +117,21 @@ button. The chosen accent and work step survive the OAuth
 redirect; after authentication the accent is saved to the user's theme and setup
 resumes at work email. Regular `/app/login` retains the direct sign-in screen.
 
+Onboarding follows the app's light/dark setting. Light mode uses the marketing
+cream background, black headings, muted warm text, and brighter ivory inputs and
+integration tiles. Dark mode retains its black palette. Verify both modes at
+desktop and mobile widths, including the below-fold security and pricing details.
+For a safe local walkthrough with simulated connections and billing, use the real
+view fixture documented in `apps/web/src/features/onboarding/browser-test/README.md`;
+`/?view=flow&theme=cream` forces its cream preview without changing account settings.
+
 The steps are workspace color, feature interests, security, work Google account,
 personal Google account, tools, team, and plan selection. Color selection forks
 the default Macro Light or Macro Dark theme for the current mode and pins the
-custom accent palette; it does not modify a built-in theme. Interests are visual
+custom accent palette; it does not modify a built-in theme. Cream mode hides
+Pearl and centers the remaining five swatches. A selected Pearl falls back to Mint
+when entering cream mode; Pearl stays available in dark mode. Cream slab headings use weight 330
+(15 above dark mode) with the same sizing and line breaks. Interests are visual
 preferences only. Security and Google steps have a Read more section below the fold.
 
 Work and personal account buttons use the existing Gmail linking flow. Skipping
@@ -145,10 +159,12 @@ finish must not show "Couldn't finish setup — please try again", including whe
 a background session refresh overlaps it.
 
 The final screen keeps the “Free Claude & GPT for 30 days” headline and trial
-button above the fold. The “Continue with Free” scroll cue opens the pricing grid
+button above the fold. The “See more” scroll cue opens the pricing grid
 below, comparing Free, Pro, and Max. The grid loads monthly subscription prices
 from the billing catalog and describes Max as 10× Pro usage, without displaying
-dollar-denominated included AI allowances. Free completes onboarding without a
+dollar-denominated included AI allowances. Monthly prices use the compact
+`/usr/mo` unit on one line; Free email branding reads “Sent with Macro”.
+Free completes onboarding without a
 card. Pro returns to the trial offer; Max starts standard paid checkout.
 The trial button requests 30 days free through Stripe Checkout, with no coupon
 required. Stripe collects the payment method for billing after the trial. Only a

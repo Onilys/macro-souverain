@@ -2,6 +2,7 @@ import CheckIcon from '@phosphor/check.svg';
 import MinusIcon from '@phosphor/minus.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import { createSignal, For, Show } from 'solid-js';
+import { demoHref } from '../../../../app/utils/utilCta';
 import {
   formatWholeUsd,
   SALES_DEFAULT_SEATS,
@@ -156,19 +157,18 @@ export function SalesCalculator(props: { onBook: () => void }) {
               <span>every year</span>
             </p>
           </Show>
-          <button
-            type="button"
-            class="site-nav-start homepage-hero-cta"
+          <a
+            class="site-nav-start homepage-hero-cta tour-cta"
+            href={demoHref()}
             onClick={() => props.onBook()}
           >
             Book a demo
-          </button>
+          </a>
         </div>
       </div>
       <p class="sales-calc-note">
         Monthly per-seat prices, billed yearly, from each tool’s pricing page in{' '}
-        {PRICES_CHECKED}. Macro is $40 a seat per month for your first 5 seats,
-        then $80.
+        {PRICES_CHECKED}. Macro is priced at Pro, $40 a seat per month.
       </p>
     </div>
   );

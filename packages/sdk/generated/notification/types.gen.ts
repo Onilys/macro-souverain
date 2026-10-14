@@ -253,6 +253,11 @@ export type ChannelInviteMetadata = {
      */
     invitedBy: string;
     /**
+     * Whether this is a direct message rather than a channel invitation.
+     * Older notification payloads retain channel-invitation wording.
+     */
+    isDirectMessage?: boolean;
+    /**
      * Message content to show in the invite email, when the invite was triggered by a message.
      */
     messageContent?: string | null;
@@ -532,7 +537,7 @@ export type Entity = {
 /**
  * The type of an entity in Macro
  */
-export type EntityType = 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row';
+export type EntityType = 'user' | 'chat' | 'channel' | 'channel_message' | 'document' | 'project' | 'email_thread' | 'calendar_event' | 'team' | 'call' | 'foreign_entity' | 'static_file' | 'crm_company' | 'crm_contact' | 'crm_pipeline' | 'reminder' | 'skill' | 'agent_session' | 'scheduled_action' | 'initiative' | 'database' | 'database_row' | 'form';
 
 /**
  * A plain old json error response for use with axum.

@@ -19,6 +19,7 @@ import {
 export function createChannelMessaging(options: {
   channelId: Accessor<string>;
   messages: Accessor<readonly MessageData[]>;
+  entries: Accessor<readonly { id: string; created_at: string }[]>;
   includesLatest: Accessor<boolean>;
   visibleRange: Accessor<{ first: string; last: string } | undefined>;
 }) {
@@ -78,7 +79,7 @@ export function createChannelMessaging(options: {
   const timelineKeys = createMemo(() =>
     deliveryTimelineKeys(
       options.channelId(),
-      options.messages(),
+      options.entries(),
       messaging()?.sends ?? [],
       options.includesLatest()
     )

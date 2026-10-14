@@ -91,6 +91,33 @@ describe('native message and send-attempt timeline', () => {
       )
     ).toEqual(['first', 'last']);
   });
+  it('preserves activity rows while replacing an accepted attempt with its native message', () => {
+    const activity = {
+      id: 'activity:joined',
+      created_at: '2026-10-11T10:30:00Z',
+    };
+    const entries = [messages[0], activity, messages[1]];
+    const accepted = { ...send, message_id: 'native-reply' };
+    expect(deliveryTimelineKeys('a', entries, [accepted], true)).toEqual([
+      'first',
+      'activity:joined',
+      'external-send:attempt',
+      'last',
+    ]);
+    expect(
+      deliveryTimelineKeys(
+        'a',
+        [
+          messages[0],
+          activity,
+          { id: 'native-reply', created_at: send.created_at },
+          messages[1],
+        ],
+        [accepted],
+        true
+      )
+    ).toEqual(['first', 'activity:joined', 'native-reply', 'last']);
+  });
   it('keeps an accepted reply visible while the native event is delayed', () => {
     const accepted = { ...send, message_id: 'native-reply' };
     expect(deliveryTimelineKeys('a', messages, [accepted], true)).toEqual([

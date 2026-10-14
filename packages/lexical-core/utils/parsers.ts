@@ -82,11 +82,24 @@ export function parsePullRequestMentions(text: string): string {
   return text.replace(/<m-pr-mention>(.*?)<\/m-pr-mention>/g, (_, json) => {
     try {
       const data = JSON.parse(json);
-      return data.label || data.id || '';
+      return (
+        data.label ||
+        data.id ||
+        (typeof data.url === 'string' ? githubPullRequestRef(data.url) : '') ||
+        ''
+      );
     } catch {
       return '';
     }
   });
+}
+
+/** `owner/repo#123` for a github.com pull request URL. */
+function githubPullRequestRef(url: string): string | undefined {
+  const match = url.match(
+    /github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)\/pull\/([1-9][0-9]*)/
+  );
+  return match ? `${match[1]}/${match[2]}#${match[3]}` : undefined;
 }
 
 /** `<m-connect-app>` chips read as their call to action. */
@@ -400,11 +413,13 @@ export function markdownToEmbeddingText(markdown: string): string {
   );
   text = replaceJsonTag(text, 'm-document-mention', documentRefToEmbeddingText);
   text = replaceJsonTag(text, 'm-document-card', documentRefToEmbeddingText);
-  text = replaceJsonTag(text, 'm-pr-mention', (data) =>
-    data.id
-      ? `[${data.label || 'Pull request'}](pr:${data.id})`
-      : data.label || ''
-  );
+  text = replaceJsonTag(text, 'm-pr-mention', (data) => {
+    if (data.id) return `[${data.label || 'Pull request'}](pr:${data.id})`;
+    if (data.url) {
+      return `[${data.label || githubPullRequestRef(data.url) || 'Pull request'}](${data.url})`;
+    }
+    return data.label || '';
+  });
   text = replaceJsonTag(text, 'm-link', (data) =>
     data.url ? `[${data.text || data.url}](${data.url})` : data.text || ''
   );

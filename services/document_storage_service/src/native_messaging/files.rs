@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use channels::{
     domain::{
-        models::{ReferencedShareItem, ReferencedShareItemType},
+        models::{ReferenceShareOutcome, ReferencedShareItem, ReferencedShareItemType},
         ports::{ChannelReferenceSharePermissions, ChannelRepo},
     },
     outbound::{
@@ -117,17 +117,22 @@ impl NativeFiles {
         channel: Uuid,
         document: Uuid,
     ) -> PortResult<()> {
-        PgChannelReferenceSharePermissions::new(self.pool.clone(), self.access.clone())
-            .update_channel_share_permissions_for_referenced_items(
-                user,
-                channel,
-                vec![ReferencedShareItem::new(
-                    document.to_string(),
-                    ReferencedShareItemType::Document,
-                )],
-            )
-            .await
-            .map_err(error)
+        let results =
+            PgChannelReferenceSharePermissions::new(self.pool.clone(), self.access.clone())
+                .update_channel_share_permissions_for_referenced_items(
+                    user,
+                    channel,
+                    vec![ReferencedShareItem::new(
+                        document.to_string(),
+                        ReferencedShareItemType::Document,
+                    )],
+                )
+                .await
+                .map_err(error)?;
+        match results.as_slice() {
+            [result] if result.outcome == ReferenceShareOutcome::Shared => Ok(()),
+            _ => Err(MessagingError::Forbidden.into()),
+        }
     }
     async fn read_url(&self, url: &str) -> PortResult<Vec<u8>> {
         let url = macro_aws_config::transform_aws_url_for_internal_fetch(url);

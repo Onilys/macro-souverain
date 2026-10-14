@@ -9,6 +9,7 @@ import {
 import { Show } from 'solid-js';
 import { channelsSearch } from './channels-route';
 import { ChannelsView } from './channels-view';
+import { ChannelsViewSkeleton } from './channels-view-skeleton';
 
 export { ChannelDetailRouteView } from './channels-view';
 
@@ -43,4 +44,4 @@ export const ChannelsRouteView = withAuth(() => {
       <ChannelsView />
     </AppView>
   );
-});
+}, ChannelsViewSkeleton);

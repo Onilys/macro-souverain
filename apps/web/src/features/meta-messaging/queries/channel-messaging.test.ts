@@ -91,6 +91,7 @@ function setup(initial?: MetaConversationView) {
     const state = createChannelMessaging({
       channelId,
       messages,
+      entries: messages,
       includesLatest: () => true,
       visibleRange: () => undefined,
     });

@@ -11,7 +11,7 @@
     ·
     <a href="https://docs.macro.com">Docs</a>
     ·
-    <a href="https://cal.com/team/macro/macro-demo-call?metadata%5Bfbp%5D=fb.1.1778954074516.817396687896036613">Book demo</a>
+    <a href="https://macro.com/app/book/6de4003c-15e4-549f-b5a9-0e930bbf56e4/demo">Book demo</a>
     ·
     <a href="https://macro.com">Website</a>
     ·

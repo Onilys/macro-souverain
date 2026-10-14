@@ -48,6 +48,11 @@
   `list_network_requests` (resourceTypes xhr/fetch), then `get_network_request` on the
   suspicious reqid for headers/body. Pairing the console error with the failing request
   localizes the fault in one step.
+- If the app root is empty, include `script` requests: a 502 for a Vite module
+  prevents the entry module from rendering, even when `/app/` returns 200. Check
+  proxy logs for Docker-to-host dial timeouts. The generated Vite proxy limits
+  upstream connections to 16 to avoid exhausting the host listener during module
+  loading; reload after updating and restarting only the affected proxy.
 - `net::ERR_NETWORK_CHANGED` spam means the environment's network flapped: verify the stack
   with curl from the shell, then `navigate_page` reload.
 - Full-screen "Something went terribly wrong" dialogs: `Home` recovers navigation-level
@@ -56,6 +61,19 @@
   "browser was restarted" notes, `list_pages`, re-select, and expect to re-login.
 - Every backend request carries a `traceparent` header and returns `x-request-id` — grab them
   from `get_network_request` for backend correlation (see observability.md).
+
+## GraphQL subscription compression
+
+- For `/soup/graphql/ws`, check the **response** handshake header
+  `Sec-WebSocket-Extensions` for `permessage-deflate`. The browser's request
+  offering it is not proof the server accepted it. On a native `WebSocket`
+  object, `socket.extensions` reports the negotiated extension after `open`.
+- Both `graphql-transport-ws` and legacy `graphql-ws` support compression. The
+  browser decompresses messages before delivering `message` events; keep using
+  normal JSON parsing. DevTools' decoded message payloads do not show wire savings.
+- No extension in the response means an uncompressed fallback, not a failed
+  subscription. This change is specific to GraphQL; don't expect the connection
+  gateway or agent sockets to negotiate compression.
 
 ## Hygiene
 

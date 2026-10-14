@@ -74,6 +74,7 @@ const DEFAULT_DOCUMENT_BUCKETS: EntityBucket[] = [
   'project',
   'chat',
   'database',
+  'form',
   'initiative',
 ];
 
@@ -102,6 +103,8 @@ type MentionsMenuProps = {
   includeGroups?: boolean;
   /** Disable CRM references for fields that only store Macro user identities. */
   includeContacts?: boolean;
+  /** Repeated cell editing opens immediately instead of animating each picker. */
+  animate?: boolean;
 } & (
   | { editor: LexicalEditor; onPick?: never }
   | { editor?: never; anchor: HTMLElement; onPick: (item: MentionItem) => void }
@@ -320,6 +323,10 @@ function MentionsMenuInner(props: MentionsMenuProps) {
   });
 
   const bucketConfigs = createLazyMemo((): BucketConfig[] => {
+    // Binning and pagination read these eagerly, outside the menu's Show.
+    // Keep closed composers from gathering and ranking mention candidates.
+    if (!menuOpen()) return [];
+
     if (isMobile()) {
       return [
         {
@@ -682,7 +689,8 @@ function MentionsMenuInner(props: MentionsMenuProps) {
     <Show when={menuOpen()}>
       <ScopedPortal scope={props.portalScope}>
         <div
-          class="w-96 max-w-[calc(100cqw-1rem-2px)] cursor-default select-none z-modal-content menu-open-animation"
+          class="w-96 max-w-[calc(100cqw-1rem-2px)] cursor-default select-none z-modal-content"
+          classList={{ 'menu-open-animation': props.animate !== false }}
           on:touchstart={(e) => e.stopPropagation()}
           onPointerDown={(event) => {
             if (props.onPick) event.preventDefault();
