@@ -8,12 +8,15 @@ import { useActiveCallQuery } from '@queries/call/call';
 import { ChannelTypeEnum } from '@service-storage/client';
 import { cn, confirmDialog } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
-import { getOwner, Show } from 'solid-js';
+import { getOwner, type JSX, Show } from 'solid-js';
 import { CHANNEL_TOUR } from '../tour';
 import { getCallJoinTab, getCallLeaveTab } from './call-tabs';
 import { useCall } from './use-call';
 
-export function ChannelCallButton(props: { channelId: string }) {
+export function ChannelCallButton(props: {
+  channelId: string;
+  trailing?: JSX.Element;
+}) {
   const { setActiveTab } = useChannelTab();
   const call = useCall(() => props.channelId, {
     onJoin: () => setActiveTab(getCallJoinTab()),
@@ -100,9 +103,11 @@ export function ChannelCallButton(props: { channelId: string }) {
         onClick={handleClick}
         tooltip={tooltip()}
         label={label()}
+        textOnly
         icon={<PhoneIcon />}
         class={cn(isCallInProgress() && 'text-success')}
       />
+      {props.trailing}
     </Show>
   );
 }

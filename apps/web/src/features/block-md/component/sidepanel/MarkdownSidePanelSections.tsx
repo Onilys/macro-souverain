@@ -65,7 +65,7 @@ export function MarkdownSidePanelSections() {
   return (
     <>
       <SidePanel.HeaderActions>
-        <div class="flex shrink-0 items-center gap-1">
+        <div class="flex shrink-0 items-center gap-0.5">
           <Show when={isTask() && !isMobile()}>
             <DispatchAgentButton showPrimaryLabel />
           </Show>
@@ -77,6 +77,7 @@ export function MarkdownSidePanelSections() {
               fileType: 'md',
             }}
           />
+          <span aria-hidden="true" class="h-4 w-px bg-ink/10" />
         </div>
       </SidePanel.HeaderActions>
       <SidePanel.Footer>

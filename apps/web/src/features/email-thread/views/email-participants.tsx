@@ -3,7 +3,7 @@ import { UserIcon, type UserIconProps } from '@core/component/UserIcon';
 import { emailToMacroId } from '@core/user/macroId';
 import { Key } from '@solid-primitives/keyed';
 import { Badge, Button, badgeTriggerClasses } from '@ui';
-import { createMemo, createSignal, Show } from 'solid-js';
+import { createMemo, createSignal, type JSX, Show } from 'solid-js';
 import { useEmailThreadState } from '../context/email-thread-state-context';
 import { useEmailThreadViewContext } from '../context/email-thread-view-context';
 
@@ -15,7 +15,7 @@ interface Participant {
 
 const DEFAULT_VISIBLE_COUNT = 5;
 
-export function EmailParticipants() {
+export function EmailParticipants(props: { leading?: JSX.Element }) {
   const context = useEmailThreadState();
   const viewContext = useEmailThreadViewContext();
   const currentUserEmail = viewContext.thread.viewerEmail;
@@ -78,6 +78,13 @@ export function EmailParticipants() {
 
   return (
     <div class="flex flex-wrap items-center gap-2" role="list">
+      <Show when={props.leading}>
+        {(leading) => (
+          <div role="listitem" class="inline-flex">
+            {leading()}
+          </div>
+        )}
+      </Show>
       <Show
         when={context.permissions().isOwner && viewContext.rendering.renderTags}
       >

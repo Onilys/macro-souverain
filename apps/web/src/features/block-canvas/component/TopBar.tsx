@@ -91,7 +91,7 @@ export function TopBar(props: { state: CanvasDocumentChrome }) {
 
   const tools: BlockTool[] = [
     {
-      label: 'Ask Macro',
+      label: 'Ask AI',
       icon: ChatWithAgentIcon,
       action: () =>
         openChatWithAgent({

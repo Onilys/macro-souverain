@@ -555,7 +555,7 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
                   <Show when={canOpenInChat()}>
                     <Dropdown.Item onSelect={handleOpenInChat}>
                       <Sparkle class="size-4 shrink-0" />
-                      <span class="flex-1 truncate">Ask Macro</span>
+                      <span class="flex-1 truncate">Ask AI</span>
                     </Dropdown.Item>
                   </Show>
                   <Dropdown.Item onSelect={handleCopy}>

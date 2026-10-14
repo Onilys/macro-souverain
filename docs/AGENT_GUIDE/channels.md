@@ -1005,14 +1005,15 @@ cancellation, and focus restoration before sending invites.
 
 Inset tabs sit in the channel header:
 `Messages` / `Attachments` / `Calls` / `Participants`.
-`Ask Macro`, `Invite`, and `Call` actions remain in the header. On narrow desktop
+`Invite`, `Call`, and `Ask AI` use text-only header buttons with faint separators.
+On narrow desktop
 panes, the tabs collapse from text labels to icons. Standalone mobile channels
 keep view selection in the title menu. In both a single channel and an adjacent
 channel split, the message composer stays fully visible at the bottom. The
 `Calls` tab lists
 recordings for that channel
 (same rows as the Calls soup view, filtered to this channel). The live `Call` tab
-appears while a call is in progress. `Ask Macro` opens a new chat pane with the channel
+appears while a call is in progress. `Ask AI` opens a new chat pane with the channel
 already @mentioned as context (see ai-chat.md). On mobile it lives in the channel title's
 `...` drawer instead. Clicking the radio input can time out — click the adjacent label text
 instead.
@@ -1021,7 +1022,7 @@ In the Chat workspace — and wherever a channel opens inline inside another
 view's detail stack (a channel mention followed from the email view, say) — the
 conversation renders an inline detail whose top bar holds the channel avatar
 and name, the same inset tab strip, live viewer avatars, and the `Call` and
-`Ask Macro` buttons. In Chat an ellipsis follows the name and opens the same
+`Ask AI` buttons. In Chat an ellipsis follows the name and opens the same
 entity actions as right-clicking the conversation's rail row — `Open in new
 split`, `Rename`, `Favorite`/`Unfavorite`, `Snooze notifications…`, `Mute
 notifications`, `Remind me`, `Copy Link`, `Copy ID` — so a channel can be

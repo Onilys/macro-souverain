@@ -26,25 +26,27 @@ export function CrmCreateMenu(props: {
         </ViewSidebar.Trailing>
       </Dropdown.Trigger>
       <Dropdown.Content class="min-w-48">
-        <Dropdown.Item onSelect={props.onCreateCompany}>
-          <BuildingsIcon aria-hidden="true" class="size-4 shrink-0" />
-          <span>Company</span>
-        </Dropdown.Item>
-        <Dropdown.Item onSelect={props.onCreateContact}>
-          <UserIcon aria-hidden="true" class="size-4 shrink-0" />
-          <span>Contact</span>
-        </Dropdown.Item>
-        <Show when={props.pipeline}>
-          {(pipeline) => (
-            <Dropdown.Item
-              disabled={pipeline().disabled}
-              onSelect={() => pipeline().onCreate()}
-            >
-              <TableIcon aria-hidden="true" class="size-4 shrink-0" />
-              <span>Pipeline</span>
-            </Dropdown.Item>
-          )}
-        </Show>
+        <Dropdown.Group>
+          <Dropdown.Item onSelect={props.onCreateCompany}>
+            <BuildingsIcon aria-hidden="true" class="size-4 shrink-0" />
+            <span>Company</span>
+          </Dropdown.Item>
+          <Dropdown.Item onSelect={props.onCreateContact}>
+            <UserIcon aria-hidden="true" class="size-4 shrink-0" />
+            <span>Contact</span>
+          </Dropdown.Item>
+          <Show when={props.pipeline}>
+            {(pipeline) => (
+              <Dropdown.Item
+                disabled={pipeline().disabled}
+                onSelect={() => pipeline().onCreate()}
+              >
+                <TableIcon aria-hidden="true" class="size-4 shrink-0" />
+                <span>Pipeline</span>
+              </Dropdown.Item>
+            )}
+          </Show>
+        </Dropdown.Group>
       </Dropdown.Content>
     </Dropdown>
   );

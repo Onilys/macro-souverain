@@ -65,7 +65,7 @@ import { blockNameToItemType } from '@service-storage/client';
 import { fetchBinary } from '@service-storage/util/fetchBinary';
 import { createCallback } from '@solid-primitives/rootless';
 import { useNavigate } from '@solidjs/router';
-import { Card, cn, Dropdown, Item } from '@ui';
+import { Card, cn, Dropdown, Item, Surface } from '@ui';
 import type { Component, JSX } from 'solid-js';
 import {
   createEffect,
@@ -762,7 +762,7 @@ export function DocumentPreviewContent(props: DocumentPreviewContentProps) {
             <Show when={canOpenInChat()}>
               <Dropdown.Item onSelect={handleOpenInChat}>
                 <SparkleIcon class="size-4" />
-                Ask Macro
+                Ask AI
               </Dropdown.Item>
             </Show>
             <Dropdown.Item onSelect={handleCopy}>
@@ -1024,8 +1024,8 @@ export function DocumentPreviewContent(props: DocumentPreviewContentProps) {
 /**
  * Floating hover-card preview for document references. This is the shell used by
  * {@link import('./ItemPreview').ItemPreview} hover cards: a fixed-width,
- * floating, rounded filled card with a semantic border and drop
- * shadow, plus mouse-enter/leave handling to keep the card alive while hovered.
+ * floating card using the shared menu surface, plus mouse-enter/leave handling
+ * to keep the card alive while hovered.
  *
  * The reusable body lives in {@link DocumentPreviewContent}; this component only
  * adds the floating/highlight chrome around it.
@@ -1042,11 +1042,7 @@ export function PopupPreview(
       onMouseEnter={props.mouseEnter}
       onMouseLeave={props.mouseLeave}
     >
-      <Card
-        variant="filled"
-        depth={2}
-        class="rounded-xl shadow-lg shadow-drop-shadow"
-      >
+      <Surface depth={2} class="menu-surface rounded-xl size-auto" hideBorder>
         <Suspense fallback={<DocumentPreviewSkeleton />}>
           <DocumentPreviewContent
             delete={props.delete}
@@ -1057,7 +1053,7 @@ export function PopupPreview(
             useFallbackData={props.useFallbackData}
           />
         </Suspense>
-      </Card>
+      </Surface>
     </div>
   );
 }

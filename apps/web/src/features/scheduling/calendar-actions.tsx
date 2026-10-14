@@ -9,7 +9,7 @@ import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import GearIcon from '@icon/system/regular/gear.svg';
 import LinkIcon from '@icon/system/regular/link.svg';
 import { DropdownMenu } from '@kobalte/core/dropdown-menu';
-import { Button } from '@ui';
+import { Button, ButtonGroup } from '@ui';
 import { For, Show, Suspense } from 'solid-js';
 import type { EventType } from './core/types';
 import { useSchedulingProfileWithAutoSetupQuery } from './queries/source';
@@ -60,7 +60,7 @@ function Actions() {
   };
 
   return (
-    <div class="flex shrink-0 items-center gap-1">
+    <ButtonGroup variant="ghost" size="lg" class="shrink-0">
       <Show
         when={enabledLinks().length > 1}
         fallback={
@@ -106,6 +106,7 @@ function Actions() {
           </DropdownMenu.Portal>
         </DropdownMenu>
       </Show>
+      <ButtonGroup.Divider />
       <Button
         variant="ghost"
         size="icon-lg"
@@ -114,7 +115,7 @@ function Actions() {
       >
         <GearIcon class="size-5 mobile:size-6" />
       </Button>
-    </div>
+    </ButtonGroup>
   );
 }
 export function CalendarSchedulingActions() {

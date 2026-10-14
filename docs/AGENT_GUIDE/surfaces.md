@@ -10,7 +10,7 @@ keeps loaded items visible. Wait for real rows before navigating or selecting.
 ## Top bars
 
 Low-emphasis right-aligned split-header actions (including Calendar's touch/preview
-New event and Channel's idle Call and Ask Macro) are borderless with a rounded-xl
+New event and Channel's idle Call and Ask AI) are borderless with a rounded-xl
 background on hover. Emphasized variants retain their treatment, including an
 active call's green ink and outline frame. Channel, company, contact, and project
 content tabs use inset controls in the top bar. Button sizes do not change variant colors or framing; individual
@@ -429,6 +429,12 @@ Carets and folder-only parents expand branches; actual tags select their exact I
 and switch the mailbox to All. Parent selection does not include descendant tags.
 Unlike Calls, it lists only personal tags; team-shared tags are hidden,
 and its `New tag` action creates a personal tag with no Team sharing option.
+
+On desktop, an open email thread has previous/next navigation followed by text-only
+Ask AI, New Task, and Share actions in the top right, beside the side-panel
+toggle. Below the subject, reminder, read state, and done controls come before
+the tags and participants in the same wrapping row. Touch devices retain their
+compact header and reply controls.
 
 Full email client. Tabs: `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled` / `Calendar` / `Drafts` / `Shared` /
 `Archived` / `All`. Compose via the `Email` button (or `Create` → `Email E`). On a fresh local user it
@@ -1229,6 +1235,11 @@ returning from an opened file.
 
 ## Calendar — `/app/calendar/<month-or-week-or-day>`
 
+Open **Calendar settings** from the gear beside the month title in the top bar
+(on touch and preview layouts, beside the month picker). The sidebar has no
+settings footer. The **Booking link** action and its settings gear share a
+segmented control; that gear opens **Settings → Booking links**.
+
 Event composer dropdown triggers and date/time inputs use the theme control
 surface, so they blend with the dialog instead of using the darker page fill.
 Their menus stay inside the composer's portal scope. Verify that calendar,
@@ -1418,7 +1429,8 @@ write invitations/Google Meet through the existing calendar service.
 
 The standalone Calendar view has a left navigation sidebar. The `New` menu
 above the mini calendar offers `Event`, feature-gated `Call`, and feature-gated
-`Reminder`. An icon-only shortcut in the `Upcoming events` header opens the
+`Booking link`. `Booking link` opens Settings → Booking links directly in a new
+personal booking-link editor. The compact calendar menu offers the same actions. An icon-only shortcut in the `Upcoming events` header opens the
 availability dialog. Start/end time selectors and a weekend switch sit above
 copy ranges that wrap on narrow screens. The dialog checks all ranges using one
 calendar-occurrence query; ranges without free time are disabled, show an X
@@ -2840,8 +2852,8 @@ contracts and test coverage.
 
 Actions live in the top bar immediately before Share, with consistent compact
 buttons (labels collapse on narrow headers). There are no Actions sections in
-information panels. Markdown/tasks include Ask Macro and document/task dispatch; email
-includes Ask Macro and Create task; PDF and calls include Ask Macro. Native
+information panels. Markdown/tasks include Ask AI and document/task dispatch; email
+includes Ask AI and Create task; PDF and calls include Ask AI. Native
 projects put Delete in the `Project actions` menu after the project title.
 
 Standard metadata is quiet, non-collapsible text at the bottom of each panel,

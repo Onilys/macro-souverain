@@ -88,11 +88,11 @@ export const TopBar: Component<{
 
   const tools: BlockTool[] = [
     {
-      label: 'Ask Macro',
+      label: 'Ask AI',
       icon: ChatWithAgentIcon,
       action: () => openChatWithAgent(chatEntity()),
       buttonComponent: () => (
-        <ChatWithAgentButton entity={chatEntity()} label="Ask Macro" />
+        <ChatWithAgentButton entity={chatEntity()} label="Ask AI" />
       ),
     },
     {

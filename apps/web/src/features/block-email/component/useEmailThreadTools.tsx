@@ -42,6 +42,8 @@ export type EmailThreadToolsOptions = {
   id: string;
   title: string;
   isDraft?: boolean;
+  hotkeyScope?: string;
+  textOnlyActions?: boolean;
   onCreateTask?: () => void;
   onMarkedUnread?: () => void;
   onDeleted?: () => void;
@@ -182,7 +184,13 @@ export function useEmailThreadTools(props: EmailThreadToolsOptions) {
     action: openShare,
     condition: () => ENABLE_EMAIL_SHARING,
     buttonComponent: () => (
-      <ShareTrigger onClick={openShare} id={props.id} blockType="email" />
+      <ShareTrigger
+        onClick={openShare}
+        id={props.id}
+        blockType="email"
+        hotkeyScope={props.hotkeyScope}
+        textOnly={props.textOnlyActions}
+      />
     ),
     focusTarget: getShareDrawerRecipientInput,
   };
@@ -218,7 +226,7 @@ export function useEmailThreadTools(props: EmailThreadToolsOptions) {
       hotkeyToken: TOKENS.entity.action.markRead,
     },
     {
-      label: 'Ask Macro',
+      label: 'Ask AI',
       icon: ChatWithAgentIcon,
       action: () => {
         const threadId = emailCtx.thread()?.db_id;
@@ -294,6 +302,7 @@ export function useEmailThreadTools(props: EmailThreadToolsOptions) {
     emailEntity,
     permissions: () => getPermissions(emailCtx.thread()?.access_level),
     tools,
+    shareTool,
     menuTools: emailActions,
     controls: {
       get reminder() {

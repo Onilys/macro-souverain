@@ -82,7 +82,7 @@ export function MergePullRequestButton(props: {
       })}
     >
       <Button
-        variant="success"
+        variant="outline"
         size={props.size ?? 'sm'}
         noTouchResize
         class={cn('shrink-0', props.class)}

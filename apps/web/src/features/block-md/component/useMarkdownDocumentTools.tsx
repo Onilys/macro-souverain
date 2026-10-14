@@ -151,7 +151,7 @@ export function useMarkdownDocumentTools() {
         element()?.querySelector<HTMLElement>('[data-history-close]') ?? null,
     },
     {
-      label: 'Ask Macro',
+      label: 'Ask AI',
       icon: ChatWithAgentIcon,
       action: () => openChatWithAgent(chatEntity()),
     },

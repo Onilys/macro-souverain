@@ -85,6 +85,7 @@ function DriveDetailTopBar() {
         <Show when={activeDetail()}>
           {(detail) => (
             <ShareTrigger
+              textOnly
               onClick={openShare}
               id={detail().target.id}
               blockType={detail().blockType}

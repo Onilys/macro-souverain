@@ -5,7 +5,6 @@ import {
 } from '@app/components/view-shell';
 import { CopyAvailabilityButton } from '@app/features/calendar/availability/CopyAvailabilityButton';
 import { useCalendarPager } from '@app/features/calendar/components/CalendarPagerContext';
-import { CalendarSettingsDropdown } from '@app/features/calendar/components/CalendarSettingsDropdown';
 import { useCalendarView } from '@app/features/calendar/components/CalendarViewContext';
 import { SourceControls } from '@app/features/calendar/components/SourceControls';
 import {
@@ -38,6 +37,7 @@ import {
 import { CalendarCallSidebar } from '../calendar-call-sidebar';
 import { CALENDAR_TOUR } from '../tour';
 import {
+  CalendarCreateBookingLinkItem,
   CalendarCreateCallItem,
   CalendarCreateEventItem,
 } from './CalendarCreateItems';
@@ -312,6 +312,7 @@ export function CalendarSidebar() {
         >
           <CalendarCreateEventItem onSelect={closeOverlay} />
           <CalendarCreateCallItem onSelect={closeOverlay} />
+          <CalendarCreateBookingLinkItem onSelect={closeOverlay} />
         </CalendarCreateMenu>
       </ViewSidebar.Primary>
       <ViewSidebar.Content class="pt-2">
@@ -323,11 +324,6 @@ export function CalendarSidebar() {
           <CalendarTeamOooSection />
         </ShowFeatureFlag>
       </ViewSidebar.Content>
-      <ViewSidebar.Footer class="border-0">
-        <ViewSidebar.Nav aria-label="Calendar tools">
-          <CalendarSettingsDropdown sidebar />
-        </ViewSidebar.Nav>
-      </ViewSidebar.Footer>
     </ViewSidebar.Root>
   );
 }

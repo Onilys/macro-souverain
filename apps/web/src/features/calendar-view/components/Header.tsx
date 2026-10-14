@@ -37,6 +37,7 @@ import {
 } from 'solid-js';
 import { CALENDAR_TOUR } from '../tour';
 import {
+  CalendarCreateBookingLinkItem,
   CalendarCreateCallItem,
   CalendarCreateEventItem,
 } from './CalendarCreateItems';
@@ -163,6 +164,7 @@ export function Header(props: { presentation: 'workspace' | 'preview' }) {
     <>
       <CalendarCreateEventItem />
       <CalendarCreateCallItem />
+      <CalendarCreateBookingLinkItem />
     </>
   );
   const headerCreateMenu = () => (
@@ -255,6 +257,7 @@ export function Header(props: { presentation: 'workspace' | 'preview' }) {
               </Button>
             </Show>
             <MonthDrawer month={currentDate()} />
+            <CalendarSettingsDropdown isNarrow={isNarrow()} />
             {todayButton(isTouchDevice())}
             <Show when={props.presentation === 'preview'}>
               <CalendarCreateMenu
@@ -289,9 +292,6 @@ export function Header(props: { presentation: 'workspace' | 'preview' }) {
                 <CalendarSearch />
               </Show>
               <CalendarSchedulingActions />
-              <Show when={props.presentation === 'preview' || isMobile()}>
-                <CalendarSettingsDropdown isNarrow={isNarrow()} />
-              </Show>
             </div>
           </HeaderIsland>
         </SplitHeaderRight>
@@ -310,6 +310,7 @@ export function Header(props: { presentation: 'workspace' | 'preview' }) {
             >
               {dateTitle()}
             </h1>
+            <CalendarSettingsDropdown isNarrow={isNarrow()} />
             <div
               onTransitionEnd={handleSearchTransitionEnd}
               class={cn(

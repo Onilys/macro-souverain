@@ -27,7 +27,7 @@ export function EmailAttachmentPill(props: EmailAttachmentPillProps) {
   return (
     <div
       ref={parentDiv}
-      class="items-center text-xs flex flex-row p-2 w-36 rounded-lg border border-ink-muted/8 bg-ink-muted/2.5 hover:bg-ink-muted/6"
+      class="items-center text-xs flex flex-row p-2 w-36 rounded-lg bg-transparent hover:bg-hover focus-within:bg-hover"
       classList={{
         'pl-2': props.removable,
       }}

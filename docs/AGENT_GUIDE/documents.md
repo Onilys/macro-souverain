@@ -1,8 +1,9 @@
 # Documents
 
-The document header has separate Share, Copy Share Link, and Side Panel buttons.
-They are borderless with a soft rounded background on hover. Share opens the
-sharing dialog; copying a link is a separate action.
+The Drive document header has text-only Ask AI and Share actions, separated by a
+faint divider, followed by the Side Panel toggle. They are borderless with a soft
+rounded background on hover. Share opens the sharing dialog, where Copy Link is
+available as a separate action.
 
 Both **Edit with AI** and selected-text AI edits open the shared usage-limit dialog
 when the backend refuses a request with a usage-limit code. Free users can choose
@@ -150,7 +151,7 @@ document permissions continue to control access to each workbook.
 
 Choose **Create → Spreadsheet**, or **New → Spreadsheet** in Files or a folder.
 Native workbooks open at `/app/spreadsheet/<uuid>` and use the normal document
-title bar with **Ask Macro** and **Share** at the top right. The **File actions**
+title bar with **Ask AI** and **Share** at the top right. The **File actions**
 ellipsis beside the title uses the same menu as documents, including rename,
 favorite, move, copy, and permission-appropriate file actions. Native spreadsheets
 use a green grid icon in file lists and search. The grid fills
@@ -498,16 +499,16 @@ Comment-only access can post/reply; view-only access can read. Edit/delete appli
 to the author's own comments, and failures retain the input draft. Draft demos
 must be saved before persistent comments are available.
 
-## Ask Macro about a spreadsheet
+## Ask AI about a spreadsheet
 
-**Ask Macro** sits immediately left of **Share**. Select the relevant cells, then
+**Ask AI** sits immediately left of **Share**. Select the relevant cells, then
 click it to open a new agent session in a split beside the workbook. The composer starts
 with the workbook mention followed by one space; nothing sends automatically.
 The mention captures the active sheet ID/name and normalized selected range at
 click time. Changing the selection later does not change that draft attachment.
 A viewer can ask questions; editing still requires edit permission.
 
-In the local spreadsheet demo, Ask Macro first saves the entire workbook and
+In the local spreadsheet demo, Ask AI first saves the entire workbook and
 waits for acknowledgement. A failed save leaves the draft editable and supports
 retry, without opening an empty chat. This path needs the updated native-document
 backend, just like Share.
@@ -520,7 +521,7 @@ row additions, column resizing, and sheet creation/rename/duplication/deletion.
 Edits require a revision from a fresh read; a concurrent change rejects the entire
 batch so the AI can reread. Tool rows expand to show the actual results and warnings.
 
-Verify with a saved workbook: select B4:E9, click Ask Macro, check the adjacent
+Verify with a saved workbook: select B4:E9, click Ask AI, check the adjacent
 chat's mention and trailing space, and ask for a total or a what-if calculation.
 The workbook should stay unchanged for scratch calculations. Ask for an edit and
 check both source/formula and displayed result in the sheet and another connected
@@ -1078,7 +1079,7 @@ and as colored dots on the thumbnails of slides they are on. A viewer who opens
 a deck nobody has shared yet, or anyone when the sync service is unreachable,
 gets the stored file read-only.
 
-**Ask Macro**, in the header beside **Share**, opens a new agent session in a
+**Ask AI**, in the header beside **Share**, opens a new agent session in a
 split with the deck mentioned in the composer (nothing sends automatically).
 Macro AI reads decks with `ReadPresentation` (slides, layouts, theme colors,
 sections, transitions, header and footer, and every shape with its id, kind,
@@ -2206,7 +2207,7 @@ Status and detail slots share one TaskPropertiesPreviewProvider per card:
 GraphQL preview data is reused, and REST fallback property/access queries are
 owned once, not separately by each slot. Non-task cards do not load task properties.
 Use the title to open the referenced document and the
-actions menu for the same applicable actions as a mention: Copy Link, Ask Macro
+actions menu for the same applicable actions as a mention: Copy Link, Ask AI
 for supported document types outside chat, Copy Branch Name for tasks, and
 Open in New Split when the reference is not already open. Editable cards also
 offer Convert to Inline Mention and Delete; these actions update when the editor
@@ -2474,7 +2475,7 @@ updates live and shows each collaborator's caret with their name
   `addComment` ones) are.
 - The stored upload is not rewritten yet. Search, the PDF export and AI
   `ReadContent` still see the original file.
-- **Ask Macro**, in the header beside **Share**, opens a new agent session in
+- **Ask AI**, in the header beside **Share**, opens a new agent session in
   a split with the document mentioned in the composer (nothing sends
   automatically).
 - AI `ReadWordDocument` and `EditWordDocument` read and edit the live copy, so
@@ -2501,7 +2502,7 @@ independently, and other app splits remain available.
 
 Right side of a doc (toggle with `Hide/Show Side Panel`):
 
-- `Actions` → `Ask Macro` (opens a doc-scoped AI chat, see ai-chat.md), and on
+- `Actions` → `Ask AI` (opens a doc-scoped AI chat, see ai-chat.md), and on
   desktop a `Copy as prompt` pill for documents and tasks. Its primary button
   runs the last-used agent action; the `Agent options` caret lists `Copy as
   prompt`, `MCP setup instructions`, and an `Open in` group (Claude Code Web,

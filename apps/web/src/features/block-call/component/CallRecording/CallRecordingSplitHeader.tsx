@@ -77,7 +77,7 @@ export function CallRecordingSplitHeader(props: { record: CallRecord }) {
 
   const tools: BlockTool[] = [
     {
-      label: 'Ask Macro',
+      label: 'Ask AI',
       icon: ChatWithAgentIcon,
       action: () =>
         openChatWithAgent({
@@ -114,7 +114,7 @@ export function CallRecordingSplitHeader(props: { record: CallRecord }) {
 
   const menuTools: BlockTool[] = [
     {
-      label: 'Ask Macro',
+      label: 'Ask AI',
       icon: ChatWithAgentIcon,
       action: () =>
         openChatWithAgent({

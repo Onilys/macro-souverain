@@ -1676,6 +1676,7 @@ export function ShareTrigger(props: {
   blockType?: ShareBlockType;
   hotkeyScope?: string;
   copyLink?: () => void;
+  textOnly?: boolean;
 }) {
   const isAuthenticated = useIsAuthenticated();
   const inBlock = isInBlock();
@@ -1779,6 +1780,7 @@ export function ShareTrigger(props: {
       >
         <HeaderActionButton
           label="Share"
+          textOnly
           icon={<IconShared />}
           onClick={() => {
             if (!isAuthenticated()) {
@@ -1791,14 +1793,16 @@ export function ShareTrigger(props: {
         />
       </Tooltip>
 
-      <CopyButton
-        variant="ghost"
-        tooltip="Copy Share Link"
-        size="icon-md"
-        onClick={ShareLinkAction().action}
-      >
-        <Dynamic component={ShareLinkAction().icon} class="size-3.5!" />
-      </CopyButton>
+      <Show when={!props.textOnly}>
+        <CopyButton
+          variant="ghost"
+          tooltip="Copy Share Link"
+          size="icon-md"
+          onClick={ShareLinkAction().action}
+        >
+          <Dynamic component={ShareLinkAction().icon} class="size-3.5!" />
+        </CopyButton>
+      </Show>
     </div>
   );
 }
