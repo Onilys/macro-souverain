@@ -49,8 +49,23 @@ async function browserTelemetryEnabled(hasExporter: boolean): Promise<boolean> {
   });
 }
 
-/** Initialize browser telemetry and its application-level lifecycle hooks. */
+/**
+ * Initialize browser telemetry and its application-level lifecycle hooks.
+ * Error listeners attach synchronously; callers need not await the rest.
+ */
 export async function initializeBrowserObservability(): Promise<void> {
+  window.addEventListener('pagehide', () => void Telemetry.flush());
+  window.addEventListener('error', (event) => {
+    Telemetry.error(event.error ?? event.message, {
+      'error.source': 'window',
+    });
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    Telemetry.error(event.reason, {
+      'error.source': 'unhandledrejection',
+    });
+  });
+
   let browserEnabled = false;
   const desktop = await readDesktopDiagnostics();
   const recording = desktop?.identity.recordingId
@@ -107,16 +122,4 @@ export async function initializeBrowserObservability(): Promise<void> {
     const disposeUiTelemetry = initializeUiOperationTelemetry();
     import.meta.hot?.dispose(disposeUiTelemetry);
   }
-
-  window.addEventListener('pagehide', () => void Telemetry.flush());
-  window.addEventListener('error', (event) => {
-    Telemetry.error(event.error ?? event.message, {
-      'error.source': 'window',
-    });
-  });
-  window.addEventListener('unhandledrejection', (event) => {
-    Telemetry.error(event.reason, {
-      'error.source': 'unhandledrejection',
-    });
-  });
 }

@@ -72,6 +72,26 @@ it('explicit native recording overrides the normal enablement gate and exporter 
   });
 });
 
+it('listens for errors while optional native diagnostics are still pending', () => {
+  vi.mocked(readDesktopDiagnostics).mockReturnValue(new Promise(() => {}));
+  const listen = vi.spyOn(window, 'addEventListener');
+  void initializeBrowserObservability();
+
+  const listeners = new Map(listen.mock.calls.map(([type, fn]) => [type, fn]));
+  listen.mockRestore();
+  expect(Telemetry.init).not.toHaveBeenCalled();
+  expect([...listeners.keys()]).toEqual(
+    expect.arrayContaining(['pagehide', 'error', 'unhandledrejection'])
+  );
+
+  const error = new Error('startup failure');
+  const onError = listeners.get('error') as (event: ErrorEvent) => void;
+  onError(new ErrorEvent('error', { error }));
+  expect(Telemetry.error).toHaveBeenCalledWith(error, {
+    'error.source': 'window',
+  });
+});
+
 it('an older binary without diagnostics still obeys the normal telemetry gate', async () => {
   vi.mocked(readDesktopDiagnostics).mockResolvedValue(undefined);
   await initializeBrowserObservability();
