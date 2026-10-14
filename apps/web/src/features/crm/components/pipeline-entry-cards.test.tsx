@@ -59,6 +59,25 @@ it('shows each pipeline row as a card that collapses past four fields', () => {
   ).not.toContain('more');
 });
 
+it('collapses and expands the section from its header', () => {
+  render(() => (
+    <PipelineEntryCards
+      entries={[entry('Sales', true, ['Stage']), entry('Partners', true, [])]}
+      renderCell={(_, cell) => cell().value}
+    />
+  ));
+  const toggle = screen.getByRole('button', { name: 'Pipelines' });
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getAllByRole('article')).toHaveLength(2);
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(screen.queryAllByRole('article')).toHaveLength(0);
+  expect(screen.getByRole('region', { name: 'Pipelines' })).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getAllByRole('article')).toHaveLength(2);
+});
+
 it('opens a card’s pipeline when the host can show it', () => {
   const onOpenPipeline = vi.fn();
   render(() => (

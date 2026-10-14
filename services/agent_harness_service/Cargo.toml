@@ -33,6 +33,7 @@ agent_inmem = { path = "../../crates/agent_inmem" }
 ai_tools = { path = "../../crates/ai_tools" }
 agent_runtime_protocol = { path = "../../crates/agent_runtime_protocol", features = ["utoipa"] }
 agent_session = { path = "../../crates/agent_session", features = ["ai_tools"] }
+agent_session_realtime = { path = "../../crates/agent_session_realtime" }
 ai_toolset = { path = "../../crates/ai_toolset" }
 rmcp = { workspace = true }
 agent_trigger = { path = "../../crates/agent_trigger", features = ["outbound"] }

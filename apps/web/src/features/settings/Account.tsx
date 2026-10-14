@@ -1,6 +1,7 @@
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import type { AccountDeletionReason } from '@app/lib/analytics/app-events';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { useHasPaidAccess } from '@core/auth';
 import { useLogout } from '@core/auth/logout';
 import { toast } from '@core/component/Toast/Toast';
 import { UserIcon } from '@core/component/UserIcon';
@@ -13,7 +14,9 @@ import {
   ENABLE_PROFILE_PICTURES,
   enableAutoUpdateUiOverride,
 } from '@core/constant/featureFlags';
+import { useSettingsState } from '@core/constant/SettingsState';
 import { staticFileIdEndpoint } from '@core/constant/servers';
+import { useSettingsTabAvailable } from '@core/constant/settingsTabsConfig';
 import { useEmail, useUserId } from '@core/context/user';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
@@ -35,6 +38,7 @@ import TrashIcon from '@phosphor/trash.svg';
 import WarningCircleIcon from '@phosphor/warning-circle.svg';
 import SignOutIcon from '@phosphor-icons/core/regular/sign-out.svg?component-solid';
 import IconUpload from '@phosphor-icons/core/regular/upload-simple.svg?component-solid';
+import { useAiBillingSummaryQuery } from '@queries/auth';
 import {
   invalidateOwnUserName,
   useOwnUserName,
@@ -61,6 +65,8 @@ import {
   buildAccountDeletionFeedbackPayload,
   performAccountDeletion,
 } from './account-deletion-feedback';
+import { CurrentPlanCard } from './components/current-plan-card';
+import { resolvePlanTier } from './core/billing-state';
 import {
   SettingsCard,
   SettingsPage,
@@ -308,12 +314,32 @@ function ProfilePictureRow(props: { userId: string }) {
   );
 }
 
+function AccountPlanCard() {
+  const { openSettings } = useSettingsState();
+  const hasPaid = useHasPaidAccess();
+  const summary = useAiBillingSummaryQuery();
+  // Wait for the summary before falling back to the license, so a Max plan
+  // doesn't flash as Pro while it loads.
+  const tier = () =>
+    summary.isFetching && !summary.isSuccess
+      ? undefined
+      : resolvePlanTier(
+          summary.isSuccess ? summary.data.tier : undefined,
+          hasPaid()
+        );
+
+  return (
+    <CurrentPlanCard tier={tier()} onOpen={() => openSettings('Billing')} />
+  );
+}
+
 // Not accessible if user is not authenticated
 export function Account() {
   const analytics = useAnalytics();
   const email = useEmail();
   const userId = useUserId();
   const logout = useLogout();
+  const isSettingsTabAvailable = useSettingsTabAvailable();
   const disableAutoUpdateUIFlag = useFeatureFlag(disableAutoUpdateUi);
   const autoUpdateUIEnabled = createMemo(
     () => enableAutoUpdateUiOverride ?? !disableAutoUpdateUIFlag().enabled
@@ -455,6 +481,10 @@ export function Account() {
           </Show>
         </SettingsCard>
       </SettingsSection>
+
+      <Show when={isSettingsTabAvailable('Billing')}>
+        <AccountPlanCard />
+      </Show>
 
       <Show when={isTouchDevice()}>
         <SettingsSection>

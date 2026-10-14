@@ -143,8 +143,8 @@ fn insert_graphql_context_data(
         state.soup_router_state.email_service(),
         state.entity_access_service.clone(),
     );
-    // Ordinary queries and subscription hydration use the replica-backed
-    // Soup reader. The mutation-only loader below retains the primary reader.
+    // Ordinary queries use the replica-backed Soup reader. Subscription
+    // hydration and the mutation-only loader below read the primary.
     let soup_item_loader = soup_item_loader_with_team_access(
         state.soup_router_state.service(),
         state.soup_router_state.email_service(),
@@ -173,6 +173,7 @@ fn insert_graphql_context_data(
     data.insert(state.graphql_work_feed_context.clone());
     data.insert(state.graphql_initiative_entity_loader.clone());
     data.insert(state.graphql_agent_session_entity_loader.clone());
+    data.insert(state.graphql_soup_update_hydration_loader.clone());
     data.insert(graphql_initiative::initiative_detail_loader(
         state.graphql_initiative_context.clone(),
         macro_user_id.clone(),

@@ -525,8 +525,8 @@ function PullRequestMentionContent(props: PullRequestMentionDecoratorProps) {
       data-pr-id={props.id}
       data-pr-label={label()}
       class={cn(
-        'pointer-events-auto inline-flex max-w-[min(20em,100%)] items-baseline',
-        reservesTitleWidth() && 'w-[20em]'
+        'pointer-events-auto inline-flex max-w-[min(32em,100%)] items-baseline',
+        reservesTitleWidth() && 'w-[32em]'
       )}
     >
       <span class="relative top-[0.125em] size-[1em] shrink-0 inline-flex mx-1">

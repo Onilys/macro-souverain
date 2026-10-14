@@ -1,5 +1,12 @@
 import { cn } from '@ui';
-import { createSignal, Index, onCleanup, onMount } from 'solid-js';
+import {
+  createEffect,
+  createSignal,
+  Index,
+  on,
+  onCleanup,
+  onMount,
+} from 'solid-js';
 
 /**
  * Segmented one-time-code input: one visible box per digit, backed by a
@@ -34,6 +41,18 @@ export function OtpInput(props: {
     };
     focusWhenConnected();
   });
+
+  // Disabling the input while a code is checked drops its focus, and with it
+  // the phone keyboard; take it back so a rejected code can be retyped.
+  createEffect(
+    on(
+      () => props.disabled,
+      (disabled, wasDisabled) => {
+        if (wasDisabled && !disabled) inputEl?.focus({ preventScroll: true });
+      },
+      { defer: true }
+    )
+  );
 
   const activeIndex = () => Math.min(props.value.length, length() - 1);
 

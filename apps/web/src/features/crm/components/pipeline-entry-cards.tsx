@@ -1,4 +1,6 @@
 import ArrowUpRightIcon from '@phosphor/arrow-up-right.svg';
+import CaretDownIcon from '@phosphor/caret-down.svg';
+import CaretRightIcon from '@phosphor/caret-right.svg';
 import LockIcon from '@phosphor/lock-simple.svg';
 import TableIcon from '@phosphor/table.svg';
 import { Key } from '@solid-primitives/keyed';
@@ -36,25 +38,42 @@ export function PipelineEntryCards(props: {
   ) => JSX.Element;
   onOpenPipeline?: (pipelineId: string) => void;
 }) {
+  const [expanded, setExpanded] = createSignal(true);
   return (
     <Show when={props.entries.length > 0}>
       <section class="flex flex-col gap-2.5" aria-label="Pipelines">
-        <h2 class="text-[13px] font-medium text-ink-muted">Pipelines</h2>
-        <div class="flex flex-col gap-3">
-          <Key each={props.entries} by="rowId">
-            {(entry) => (
-              <PipelineEntryCard
-                entry={entry()}
-                renderCell={(cell) => props.renderCell(entry, cell)}
-                onOpenPipeline={
-                  props.onOpenPipeline
-                    ? () => props.onOpenPipeline?.(entry().pipeline.id)
-                    : undefined
-                }
-              />
+        <h2 class="flex">
+          <button
+            type="button"
+            class="flex items-center gap-1"
+            aria-expanded={expanded()}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            {expanded() ? (
+              <CaretDownIcon class="size-3" />
+            ) : (
+              <CaretRightIcon class="size-3" />
             )}
-          </Key>
-        </div>
+            <span class="text-xs">Pipelines</span>
+          </button>
+        </h2>
+        <Show when={expanded()}>
+          <div class="flex flex-col gap-3">
+            <Key each={props.entries} by="rowId">
+              {(entry) => (
+                <PipelineEntryCard
+                  entry={entry()}
+                  renderCell={(cell) => props.renderCell(entry, cell)}
+                  onOpenPipeline={
+                    props.onOpenPipeline
+                      ? () => props.onOpenPipeline?.(entry().pipeline.id)
+                      : undefined
+                  }
+                />
+              )}
+            </Key>
+          </div>
+        </Show>
       </section>
     </Show>
   );

@@ -60,6 +60,7 @@
           # WASM sources. Avoid recompiling both for AppImage-only changes.
           rel != "nix"
           && !(lib.hasPrefix "nix/" rel)
+          && !(lib.hasPrefix "nix-support/appimage-" rel)
           && !(lib.hasPrefix "node_modules/" rel)
           && !(lib.hasPrefix "apps/web/node_modules/" rel)
           && !(lib.hasPrefix "apps/web/dist/" rel)
@@ -311,10 +312,13 @@
       };
 
       tauriBundlerSource = pkgs.cargo-tauri.src;
-      tauriAppRun = pkgs.fetchurl {
+      tauriAppRunSource = pkgs.fetchurl {
         url = "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64";
         hash = "sha256-8wFApDoKWeRtshve/fdJuenyxpRukq+rus+YuK5z+08=";
       };
+      tauriAppRun = pkgs.runCommand "tauri-apprun" { } ''
+        ${pkgs.python3}/bin/python3 ${./appimage/patch_apprun.py} ${tauriAppRunSource} "$out"
+      '';
       tauriLinuxdeployWrapper = pkgs.stdenv.mkDerivation {
         pname = "tauri-linuxdeploy-wrapper";
         version = "1";
@@ -383,13 +387,13 @@
               return 1;
             }
 
-            char *hook_path = malloc(strlen(hooks_dir) + strlen("/macro-gio-tls.sh") + 2);
+            char *hook_path = malloc(strlen(hooks_dir) + strlen("/00-macro-runtime.sh") + 2);
             if (hook_path == NULL) {
               perror("malloc TLS hook path");
               free(hooks_dir);
               return 1;
             }
-            sprintf(hook_path, "%s/macro-gio-tls.sh", hooks_dir);
+            sprintf(hook_path, "%s/00-macro-runtime.sh", hooks_dir);
 
             FILE *hook = fopen(hook_path, "w");
             if (hook == NULL) {
@@ -400,17 +404,7 @@
             }
 
             int failed = 0;
-            if (fputs("#! /usr/bin/env bash\n"
-                      "export APPDIR=\"''${APPDIR:-\"$(dirname \"$(realpath \"$0\")\")\"}\"\n"
-                      "export WEBKIT_INJECTED_BUNDLE_PATH=\"$APPDIR/usr/lib\"\n"
-                      "gio_modules=\"$APPDIR/usr/lib/gio/modules\"\n"
-                      "if [ -d \"$gio_modules\" ]; then\n"
-                      "  case \":''${GIO_EXTRA_MODULES:-}:\" in\n"
-                      "    *:\"$gio_modules\":*) ;;\n"
-                      "    *) export GIO_EXTRA_MODULES=\"$gio_modules''${GIO_EXTRA_MODULES:+:$GIO_EXTRA_MODULES}\" ;;\n"
-                      "  esac\n"
-                      "fi\n",
-                      hook) == EOF) {
+            if (fputs(${builtins.toJSON (builtins.readFile ./appimage/runtime-hook.sh)}, hook) == EOF) {
               perror("write TLS hook");
               failed = 1;
             }
@@ -461,9 +455,9 @@
               "--executable", "${pkgs.webkitgtk_4_1}/libexec/webkit2gtk-4.1/WebKitNetworkProcess",
               "--executable", "${pkgs.webkitgtk_4_1}/libexec/webkit2gtk-4.1/WebKitGPUProcess",
               "--library", "${pkgs.webkitgtk_4_1}/lib/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so",
-              "--library", "${gioTlsModulePath}/libgiognutls.so",
-              "--library", "${gioTlsModulePath}/libgiognomeproxy.so",
-              "--library", "${gioTlsModulePath}/libgiolibproxy.so",
+              "--library", "${appimageGioModulePath}/libgiognutls.so",
+              "--library", "${appimageGioModulePath}/libgiognomeproxy.so",
+              "--library", "${appimageGioModulePath}/libgiolibproxy.so",
             };
             size_t runtime_argc = sizeof(runtime_args) / sizeof(runtime_args[0]);
             char **args = calloc((size_t)argc + runtime_argc + 1, sizeof(char *));
@@ -512,6 +506,11 @@
         version = "1-alpha-20250213-1";
         src = tauriLinuxdeployAppimagePluginSource;
       };
+      tauriPortableLibproxy = pkgs.callPackage ../nix-support/appimage-libproxy.nix { };
+      tauriPortableGlibNetworking = pkgs.callPackage ../nix-support/appimage-glib-networking.nix {
+        libproxy = tauriPortableLibproxy;
+      };
+      appimageGioModulePath = "${tauriPortableGlibNetworking}/lib/gio/modules";
       tauriLinuxdeployAppimagePlugin = pkgs.stdenvNoCC.mkDerivation {
         pname = "linuxdeploy-plugin-appimage-patched";
         version = "1-alpha-20250213-1";
@@ -534,6 +533,9 @@
             shift
           done
           if [ -n "$appdir" ]; then
+            # Same libproxy version/ABI and dependencies, but without nixpkgs'
+            # hardcoded schema lookup. Replace the backend before ELF relocation.
+            install -m0755 ${tauriPortableLibproxy}/lib/libproxy/libpxbackend-1.0.so "$appdir/usr/lib/libpxbackend-1.0.so"
             export PATH="${lib.makeBinPath [ pkgs.patchelf ]}:$PATH"
             ${pkgs.python3}/bin/python3 ${./appimage/relocate.py} "$appdir"
           fi
@@ -562,7 +564,7 @@
         pkgs.gst_all_1.gst-plugins-bad
         pkgs.gst_all_1.gst-libav
         pkgs.openssl
-        pkgs.glib-networking
+        tauriPortableGlibNetworking
       ];
       tauriRuntimeLibraryPath = lib.makeLibraryPath tauriRuntimeLibraries;
       tauriRuntimeClosure = pkgs.closureInfo {
@@ -581,6 +583,34 @@
           ]
         );
       };
+      # xkeyboard-config's compatibility path is a symlink. Tauri preserves
+      # symlinks when copying directories, so stage a self-contained data tree.
+      tauriXkbData = pkgs.runCommand "tauri-appimage-xkb-data" { } ''
+        cp -rL ${pkgs.xkeyboard-config}/share/X11/xkb "$out"
+      '';
+      tauriXdgUtils = pkgs.callPackage ../nix-support/appimage-xdg-utils.nix { };
+      tauriGsettingsSchemas =
+        pkgs.runCommand "tauri-appimage-gsettings-schemas"
+          {
+            nativeBuildInputs = [ pkgs.glib.dev ];
+            schemaDirs =
+              lib.concatMapStringsSep " " (p: "${p}/share/gsettings-schemas/${p.name}/glib-2.0/schemas")
+                [
+                  pkgs.gsettings-desktop-schemas
+                  pkgs.gtk3
+                ];
+          }
+          ''
+            mkdir -p "$out"
+            shopt -s nullglob
+            for schema_dir in $schemaDirs; do
+              cp "$schema_dir/"*.xml "$out/"
+              for override in "$schema_dir/"*.gschema.override; do
+                cp "$override" "$out/"
+              done
+            done
+            glib-compile-schemas --strict "$out"
+          '';
       tauriAppImageConfig = builtins.toJSON {
         version = appVersion;
         plugins = desktopPlugins;
@@ -594,12 +624,15 @@
           useLocalToolsDir = true;
           linux.appimage.bundleMediaFramework = true;
           linux.appimage.files = {
-            "/usr/bin/xdg-mime" = "${pkgs.xdg-utils}/bin/xdg-mime";
-            "/usr/bin/xdg-open" = "${pkgs.xdg-utils}/bin/xdg-open";
-            "/usr/lib/gio/modules/giomodule.cache" = "${pkgs.glib-networking}/lib/gio/modules/giomodule.cache";
-            "/usr/lib/gio/modules/libgiognomeproxy.so" = "${pkgs.glib-networking}/lib/gio/modules/libgiognomeproxy.so";
-            "/usr/lib/gio/modules/libgiognutls.so" = "${pkgs.glib-networking}/lib/gio/modules/libgiognutls.so";
-            "/usr/lib/gio/modules/libgiolibproxy.so" = "${pkgs.glib-networking}/lib/gio/modules/libgiolibproxy.so";
+            "/usr/bin/xdg-mime" = "${tauriXdgUtils}/bin/xdg-mime";
+            "/usr/bin/xdg-open" = "${tauriXdgUtils}/bin/xdg-open";
+            "/usr/libexec/macro" = "${tauriXdgUtils}/libexec/macro";
+            "/usr/share/X11/xkb" = "${tauriXkbData}";
+            "/usr/share/glib-2.0/schemas" = "${tauriGsettingsSchemas}";
+            "/usr/lib/gio/modules/giomodule.cache" = "${appimageGioModulePath}/giomodule.cache";
+            "/usr/lib/gio/modules/libgiognomeproxy.so" = "${appimageGioModulePath}/libgiognomeproxy.so";
+            "/usr/lib/gio/modules/libgiognutls.so" = "${appimageGioModulePath}/libgiognutls.so";
+            "/usr/lib/gio/modules/libgiolibproxy.so" = "${appimageGioModulePath}/libgiolibproxy.so";
           };
         };
       };
@@ -858,11 +891,20 @@
               pkgs.python3
               pkgs.patchelf
               pkgs.stdenv.cc
+              pkgs.pkg-config
+            ];
+            buildInputs = [
+              pkgs.libxkbcommon
+              pkgs.glib
             ];
           }
           ''
             export PYTHONDONTWRITEBYTECODE=1
             python3 -m unittest discover -s ${./appimage} -v
+            bash ${./appimage}/test_runtime.sh \
+              ${tauriXkbData} ${tauriGsettingsSchemas} ${appimageGioModulePath} ${tauriAppRun} \
+              ${tauriPortableLibproxy} ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+            bash ${./appimage}/test_xdg.sh ${tauriXdgUtils}
             # GStreamer's default Nix output is bin; its scanner and core plugins
             # live in the library output. Do not silently ship an empty helper dir.
             test -x ${lib.getLib pkgs.gst_all_1.gstreamer}/libexec/gstreamer-1.0/gst-plugin-scanner

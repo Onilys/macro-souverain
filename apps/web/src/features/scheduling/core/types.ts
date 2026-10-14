@@ -46,7 +46,10 @@ export type SchedulingScope = {
   id: string;
   name: string;
   teamId?: string;
+  /** May change booking links, schedules, and the booking page. */
   canEdit: boolean;
+  /** May cancel, reschedule, and record attendance for any host's bookings. */
+  canManageBookings: boolean;
 };
 export type SchedulingMember = { id: string; name: string; email: string };
 export type BookingAttendance =

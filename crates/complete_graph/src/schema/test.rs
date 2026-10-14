@@ -1298,7 +1298,10 @@ async fn soup_updates_subscribes_as_the_authenticated_user() {
     let document_id = Uuid::from_u128(42);
     let deleted_document_id = Uuid::from_u128(43);
     soup_service.set_raw_response(vec![soup_document(document_id)]);
-    let loader = graphql_soup::soup_item_loader(soup_service.clone(), Arc::new(NoOpEmailService));
+    let loader = graphql_soup::SoupUpdateHydrationLoader(graphql_soup::soup_item_loader(
+        soup_service.clone(),
+        Arc::new(NoOpEmailService),
+    ));
     let schema: SoupSchema<
         CountingSoupService,
         TestRealtimeSubscriptionService,

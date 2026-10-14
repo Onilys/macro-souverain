@@ -32,7 +32,8 @@ static INSTRUCTIONS: &str = r##"- Booking links use conversational confirmation 
   `userConfirmation`. Do not quote the original request or invent approval. These tools save
   immediately, with no booking review form. Do not use `AskUser` or an elicitation for booking
   details. For edits preserve unrequested settings, and re-read and reconfirm if the revision
-  conflicts. Return the saved URL. If the same proposal is already approved, do not ask again.
+  conflicts. Share the saved URL with an `<m-booking-link-mention>` chip (see Mentions), not a
+  bare URL. If the same proposal is already approved, do not ask again.
 
 - User tools are tools that must be executed by a user on the frontend.
   A user tool will return "PendingUserExecution" until a user chooses to
@@ -76,7 +77,8 @@ static SESSION_INSTRUCTIONS: &str = r##"- Booking links use conversational confi
   `userConfirmation`. Do not quote the original request or invent approval. These tools save
   immediately, with no booking review form. Do not use `AskUser` or an elicitation for booking
   details. For edits preserve unrequested settings, and re-read and reconfirm if the revision
-  conflicts. Return the saved URL. If the same proposal is already approved, do not ask again.
+  conflicts. Share the saved URL with an `<m-booking-link-mention>` chip (see Mentions), not a
+  bare URL. If the same proposal is already approved, do not ask again.
 
 - Before reaching for `SendEmail` or `CreateCalendarEvent`, look at where the newest prompt came
   from. The context block names a conversation parent when that prompt was posted in a

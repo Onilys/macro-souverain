@@ -304,7 +304,7 @@ export function OwnerSettingsSection(props: {
                 events={p().eventTypes}
                 members={capabilities.members()}
                 currentUserId={capabilities.userId()}
-                canEdit={scope().canEdit}
+                canManageBookings={scope().canManageBookings}
                 busyId={busyBooking()}
                 onApprove={(id) =>
                   void bookingAction(id, () => source.approve(id))

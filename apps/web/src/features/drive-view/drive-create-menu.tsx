@@ -10,19 +10,50 @@ import FolderIcon from '@phosphor/folder.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import UploadIcon from '@phosphor/upload-simple.svg';
 import { Dropdown } from '@ui';
-import { For } from 'solid-js';
+import { For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { useDriveView } from './context/drive-context';
 import { driveCreateDestinationLabel } from './core/location-label';
 
+function SidebarTrigger(props: { label: string }) {
+  return (
+    <Dropdown.Trigger as={ViewSidebar.Action} aria-label={props.label}>
+      <ViewSidebar.Icon>
+        <PlusIcon class="size-4" />
+      </ViewSidebar.Icon>
+      <span class="truncate">New</span>
+      <ViewSidebar.Trailing>
+        <CaretDownIcon class="size-3 shrink-0" />
+      </ViewSidebar.Trailing>
+    </Dropdown.Trigger>
+  );
+}
+
+function ToolbarTrigger(props: { label: string }) {
+  return (
+    <Dropdown.Trigger variant="outline" size="md" aria-label={props.label}>
+      <PlusIcon class="size-4" />
+      <span>New</span>
+      <CaretDownIcon class="size-3" />
+    </Dropdown.Trigger>
+  );
+}
+
 /** Launcher integration for the current Drive folder. */
-export function DriveCreateMenu() {
+export function DriveCreateMenu(props: {
+  /** `toolbar` is a compact button for the list header's control row. */
+  presentation?: 'sidebar' | 'toolbar';
+}) {
   const { state, sidebar, actions } = useDriveView();
 
   const isEnabled = useCreatableEnabled();
 
+  const isToolbar = () => props.presentation === 'toolbar';
+
   const destination = () =>
     driveCreateDestinationLabel(state.projectId(), sidebar.folders());
+
+  const label = () => `New file or folder in ${destination()}`;
 
   const options = () =>
     CREATABLE_BLOCKS.filter(
@@ -52,19 +83,10 @@ export function DriveCreateMenu() {
   };
 
   return (
-    <Dropdown placement="bottom-start">
-      <Dropdown.Trigger
-        as={ViewSidebar.Action}
-        aria-label={`New file or folder in ${destination()}`}
-      >
-        <ViewSidebar.Icon>
-          <PlusIcon class="size-4" />
-        </ViewSidebar.Icon>
-        <span class="truncate">New</span>
-        <ViewSidebar.Trailing>
-          <CaretDownIcon class="size-3 shrink-0" />
-        </ViewSidebar.Trailing>
-      </Dropdown.Trigger>
+    <Dropdown placement={isToolbar() ? 'bottom-end' : 'bottom-start'}>
+      <Show when={isToolbar()} fallback={<SidebarTrigger label={label()} />}>
+        <ToolbarTrigger label={label()} />
+      </Show>
       <Dropdown.Content class="min-w-48 max-w-72">
         <Dropdown.Group>
           <Dropdown.GroupLabel class="min-w-0 gap-1.5">
