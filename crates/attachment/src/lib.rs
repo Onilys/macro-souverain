@@ -11,10 +11,13 @@ use non_empty::NonEmpty;
 
 mod attachable;
 mod attributes;
+pub mod file;
 pub mod fmt;
 pub mod image;
 mod macros;
 mod models;
+
+pub use file::{EntityFile, EntityFileService};
 
 #[cfg(feature = "provider")]
 pub mod provider;

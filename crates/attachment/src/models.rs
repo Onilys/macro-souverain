@@ -20,6 +20,14 @@ pub enum AttachmentError {
     /// Resolved with no content
     #[error("no content")]
     NoContent,
+    /// The entity has no file form, so it cannot be projected into an
+    /// [`EntityFile`](crate::file::EntityFile). Distinct from
+    /// [`UnsupportedFileType`](Self::UnsupportedFileType), which is a file
+    /// whose *type* we cannot handle: this is a kind of thing that is not a
+    /// file at all (a chat, a calendar event), or a Macro-native format with
+    /// no server-side exporter yet (a spreadsheet, a presentation).
+    #[error("{0} has no file form that can be attached")]
+    NotFileBacked(EntityType),
     /// An internal error occurred while resolving the attachment.
     #[error(transparent)]
     Internal(#[from] anyhow::Error),

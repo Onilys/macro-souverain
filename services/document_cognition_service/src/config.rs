@@ -31,6 +31,11 @@ env_vars!(
 
 maybe_env_vars!(
     pub struct DocumentBatchLimit;
+    /// The bucket `email_service` writes draft attachments to, shared with it
+    /// so `SendEmail` can attach a Macro entity. Optional: unset, the service
+    /// still boots and still sends mail, and an attachment request is refused
+    /// with a clear message rather than silently dropped.
+    pub struct AttachmentBucket;
     /// Rollout gate for entities owned by bots or teams.
     pub struct EnableNonUserOwners;
     /// OAuth client ID for the Pipedream API (Pipedream project settings).
@@ -155,6 +160,8 @@ pub struct Config {
     pub kafka_brokers: KafkaBrokers,
     /// Lets a team-scoped bot with no acting user own the chats it creates.
     pub enable_non_user_owners: EnableNonUserOwners,
+    /// Bucket for draft attachments; enables `SendEmail`'s entity attachments.
+    pub attachment_bucket: AttachmentBucket,
 }
 
 fn default_mcp_public_url(environment: Environment) -> &'static str {
@@ -258,6 +265,7 @@ impl Config {
             document_permission_jwt: DocumentPermissionJwt::Comptime("DOCUMENT_PERMISSION_JWT"),
             kafka_brokers: KafkaBrokers::Comptime("localhost:9092"),
             enable_non_user_owners: EnableNonUserOwners::Unset,
+            attachment_bucket: AttachmentBucket::Unset,
         }
     }
 }

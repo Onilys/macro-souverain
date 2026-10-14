@@ -30,6 +30,7 @@ ai_tools = [
 ]
 attachment = [
   "dep:ai_toolset",
+  "dep:async-trait",
   "dep:attachment",
   "dep:lexical_client",
   "dep:model_file_type",

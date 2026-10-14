@@ -15,6 +15,25 @@ use uuid::Uuid;
 
 use super::EmailToolContext;
 
+/// A Macro entity to attach to an email, as the user would have @-mentioned it.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailAttachmentRef {
+    /// The entity's ID.
+    pub entity_id: String,
+    /// The entity's type.
+    #[schemars(
+        description = "The kind of entity. Only things that are already files can be attached: `document` (an uploaded PDF, image, Word file, deck or design, or a Macro markdown document, which is attached as .md) and `static_file`. Macro spreadsheets and canvases, and non-file things like chats, channels, email threads, calendar events and tasks, have no file to send - describe or link those in the body instead."
+    )]
+    pub entity_type: String,
+    /// Display label for the review card. Never the name the recipient sees.
+    #[serde(default)]
+    #[schemars(
+        description = "The entity's name as you know it, for the review card to show the user before they send. Display only - the file the recipient receives is named from the entity itself, so a wrong or missing value here cannot mislabel the attachment."
+    )]
+    pub name: Option<String>,
+}
+
 /// A recipient for an email.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -69,6 +88,12 @@ pub struct SendEmail {
     /// excludes the signature for this one email.
     #[serde(default)]
     pub include_signature: Option<bool>,
+    /// Macro entities to attach as files (optional).
+    #[serde(default)]
+    #[schemars(
+        description = "Macro entities to send as file attachments, in order. Use this whenever the user asks for something they referenced to be attached, sent, or included - do not claim a file is attached unless it is listed here. Each entry is attached as a real file: an uploaded document keeps its own bytes and name, and a Macro markdown document is exported as .md. Attaching is all-or-nothing - if any entry cannot be turned into a file the tool fails without sending, and you must tell the user which one and why rather than quietly sending the email without it. Combined attachments must stay under 18MB."
+    )]
+    pub attachments: Vec<EmailAttachmentRef>,
 }
 
 /// Response from the SendEmail tool.
@@ -116,6 +141,13 @@ where
 
         let body = service_context.render_body(&self.body).await?;
 
+        // Resolve before anything is written: a reference that cannot become a
+        // file must fail the call, not produce an email that silently omits
+        // what the user asked for.
+        let files = service_context
+            .resolve_attachment_files(acting_user.clone(), &self.attachments)
+            .await?;
+
         let input = CreateDraftInput {
             db_id: None,
             provider_id: None,
@@ -137,6 +169,34 @@ where
             actor: Some(acting_user),
             draft_client_binding: None,
             thread_client_binding: None,
+        };
+
+        // With no attachments this is the one-step send it has always been.
+        // With them, the draft has to exist before a file can be hung off it,
+        // so the send becomes draft -> attach -> send on the same row. If
+        // either later step fails the draft survives as a draft and nothing
+        // is delivered, which is the failure the user can act on.
+        let input = if files.is_empty() {
+            input
+        } else {
+            let draft = service_context
+                .service
+                .create_draft(&link, std::slice::from_ref(&link), input.clone())
+                .await
+                .map_err(|e| ToolCallError {
+                    description: format!("Failed to prepare the email: {e}"),
+                    internal_error: e.into(),
+                })?;
+
+            service_context
+                .attach_files(link.id, draft.db_id, files)
+                .await?;
+
+            CreateDraftInput {
+                db_id: Some(draft.db_id),
+                thread_db_id: draft.thread_db_id.into(),
+                ..input
+            }
         };
 
         let sent = service_context

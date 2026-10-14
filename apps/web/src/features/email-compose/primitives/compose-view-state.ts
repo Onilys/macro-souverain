@@ -98,4 +98,9 @@ export interface ComposeState {
   // composer and the AI chat composer (ChatCompose); the reply/forward input
   // renders its own preview and omits this slot.
   signaturePreview?: () => JSX.Element;
+  // Attachments that do not exist yet, rendered beside the real ones.
+  // The AI review card uses this: its draft is still a pending tool call, so
+  // its attachments are entity references the send will resolve into files,
+  // with no id, size or content to hand `attachments()`.
+  pendingAttachments?: () => JSX.Element;
 }

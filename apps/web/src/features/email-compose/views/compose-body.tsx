@@ -195,6 +195,7 @@ export function ComposeBody(props: {
               />
             )}
           </For>
+          {ctx.pendingAttachments?.()}
         </div>
         <attachmentViewer.Viewer />
       </div>

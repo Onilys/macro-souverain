@@ -270,3 +270,139 @@ fn leading_whitespace_before_the_tag_still_counts_as_html() {
 
     assert!(decode_composer_html(&encoded).is_some());
 }
+
+mod attachments {
+    use super::super::{collect_resolved_attachments, parse_attachment_refs};
+    use crate::domain::models::MAX_RAW_ATTACHMENTS_SIZE_BYTES;
+    use crate::inbound::toolset::EmailAttachmentRef;
+    use attachment::{AttachmentError, EntityFile, ResolutionError};
+    use model_entity::EntityType;
+
+    fn reference(entity_type: &str, id: &str) -> EmailAttachmentRef {
+        EmailAttachmentRef {
+            entity_id: id.to_owned(),
+            entity_type: entity_type.to_owned(),
+            name: None,
+        }
+    }
+
+    fn file(name: &str, size: usize) -> EntityFile {
+        EntityFile {
+            reference: EntityType::Document.with_entity_string("d".to_owned()),
+            file_name: name.to_owned(),
+            content_type: "application/pdf".to_owned(),
+            bytes: vec![0; size],
+        }
+    }
+
+    fn failure(entity_type: EntityType, id: &str, error: AttachmentError) -> ResolutionError {
+        ResolutionError::new(entity_type.with_entity_string(id.to_owned()), error)
+    }
+
+    #[test]
+    fn parses_known_entity_types() {
+        let parsed =
+            parse_attachment_refs(&[reference("document", "d1"), reference("static_file", "s1")])
+                .expect("both types are known");
+
+        assert_eq!(parsed[0].entity_type, EntityType::Document);
+        assert_eq!(parsed[0].entity_id, "d1");
+        assert_eq!(parsed[1].entity_type, EntityType::StaticFile);
+    }
+
+    /// A type the model invented must be caught before any fetch happens, and
+    /// the message has to name the reference so the model can correct itself.
+    #[test]
+    fn rejects_an_unknown_entity_type_naming_the_reference() {
+        let err = parse_attachment_refs(&[reference("spreadsheet_file", "d1")])
+            .expect_err("not an EntityType");
+
+        assert!(err.description.contains("spreadsheet_file"));
+        assert!(err.description.contains("d1"));
+    }
+
+    #[test]
+    fn resolved_files_become_attachments_in_order() {
+        let attachments =
+            collect_resolved_attachments(vec![Ok(file("a.pdf", 10)), Ok(file("b.md", 20))], 2)
+                .expect("both resolved");
+
+        assert_eq!(attachments.len(), 2);
+        assert_eq!(attachments[0].file_name, "a.pdf");
+        assert_eq!(attachments[1].file_name, "b.md");
+    }
+
+    /// The whole point of the feature: one unattachable reference stops the
+    /// send rather than producing an email that quietly lacks it.
+    #[test]
+    fn one_failure_fails_the_whole_call() {
+        let err = collect_resolved_attachments(
+            vec![
+                Ok(file("a.pdf", 10)),
+                Err(failure(
+                    EntityType::Chat,
+                    "c1",
+                    AttachmentError::NotFileBacked(EntityType::Chat),
+                )),
+            ],
+            2,
+        )
+        .expect_err("a chat has no file form");
+
+        assert!(err.description.contains("chat"));
+        assert!(err.description.contains("c1"));
+        assert!(err.description.contains("not sent"));
+    }
+
+    /// Every failure is named at once, so the user hears the full story in a
+    /// single turn instead of one reference per retry.
+    #[test]
+    fn every_failure_is_named_in_one_error() {
+        let err = collect_resolved_attachments(
+            vec![
+                Err(failure(
+                    EntityType::Document,
+                    "d1",
+                    AttachmentError::UnsupportedFileType("spreadsheet".to_owned()),
+                )),
+                Err(failure(
+                    EntityType::CalendarEvent,
+                    "e1",
+                    AttachmentError::NotFileBacked(EntityType::CalendarEvent),
+                )),
+            ],
+            2,
+        )
+        .expect_err("neither resolves");
+
+        assert!(err.description.contains("d1"));
+        assert!(err.description.contains("spreadsheet"));
+        assert!(err.description.contains("e1"));
+        assert!(err.description.contains("2 of 2"));
+    }
+
+    #[test]
+    fn attachments_over_the_size_ceiling_are_refused() {
+        let err = collect_resolved_attachments(
+            vec![
+                Ok(file("big.pdf", MAX_RAW_ATTACHMENTS_SIZE_BYTES)),
+                Ok(file("one-more.pdf", 1)),
+            ],
+            2,
+        )
+        .expect_err("one byte over the ceiling");
+
+        assert!(err.description.contains("18MB"));
+    }
+
+    #[test]
+    fn attachments_exactly_at_the_ceiling_are_allowed() {
+        let attachments = collect_resolved_attachments(
+            vec![Ok(file("big.pdf", MAX_RAW_ATTACHMENTS_SIZE_BYTES))],
+            1,
+        )
+        .expect("the ceiling is inclusive");
+
+        assert_eq!(attachments.len(), 1);
+    }
+}

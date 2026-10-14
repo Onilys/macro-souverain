@@ -78,6 +78,11 @@ maybe_env_var! {
         EnableEmailScheduledQueue,
         EnableGmailOpsQueue,
         EnableNotificationQueue,
+        // The bucket `email_service` writes draft attachments to. Optional so
+        // a host without it still boots: `SendEmail` then refuses an
+        // attachment request with a clear message instead of sending the
+        // email without the file.
+        AttachmentBucket,
     }
 }
 
@@ -275,7 +280,7 @@ pub async fn build_tool_service_context_from_env(
         env.document_storage_bucket.to_string(),
     );
     let s3_upload_adapter = S3UploadUrlAdapter::new(
-        s3_client,
+        s3_client.clone(),
         env.document_storage_bucket.to_string(),
         env.docx_document_upload_bucket.to_string(),
     );
@@ -387,8 +392,43 @@ pub async fn build_tool_service_context_from_env(
         Arc::new(EntityAccessServiceImpl::new(PgAccessRepository::new(
             pool.clone(),
         ))),
-        Arc::new(lexical_client),
+        Arc::new(lexical_client.clone()),
     );
+
+    // `SendEmail` can attach Macro entities only where both halves exist: a
+    // resolver that turns an entity into bytes, and a bucket to put them in.
+    // Without ATTACHMENT_BUCKET the tool still runs and still sends mail — it
+    // just refuses attachment requests out loud.
+    let email_tool_context = match maybe_env
+        .attachment_bucket
+        .as_ref()
+        .and_then(|v| v.value())
+        .filter(|bucket| !bucket.trim().is_empty())
+    {
+        Some(bucket) => email_tool_context.with_attachments(
+            Arc::new(attachment::provider::EntityFileProvider {
+                document: documents::inbound::attachment::DocumentAttachmentService::new(
+                    document_tool_context.service.clone(),
+                    document_tool_context.entity_access_service.clone(),
+                    Arc::new(lexical_client),
+                ),
+                static_file: static_file::inbound::attachment::StaticFileAttachmentService::new(
+                    Arc::new(static_file::outbound::CdnStaticFileRepo::new(
+                        macro_service_urls::StaticFileServiceUrl::new()?.to_string(),
+                    )),
+                ),
+            }),
+            Arc::new(email::outbound::S3DraftAttachmentStore::new(
+                pool.clone(),
+                s3_client::S3::new(s3_client),
+                bucket.to_string(),
+            )),
+        ),
+        None => {
+            tracing::warn!("ATTACHMENT_BUCKET is not set; SendEmail cannot attach Macro entities");
+            email_tool_context
+        }
+    };
 
     let call_service = call::domain::service::CallServiceImpl::new(
         call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),

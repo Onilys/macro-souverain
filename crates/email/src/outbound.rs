@@ -1,3 +1,5 @@
+#[cfg(feature = "draft_attachment_store")]
+mod draft_attachment_store;
 #[cfg(feature = "outbound")]
 mod email_pg_repo;
 #[cfg(feature = "http_client")]
@@ -7,6 +9,8 @@ mod gmail_token_provider;
 #[cfg(feature = "outbound")]
 pub mod invitation_pg;
 
+#[cfg(feature = "draft_attachment_store")]
+pub use draft_attachment_store::S3DraftAttachmentStore;
 #[cfg(feature = "outbound")]
 pub use email_pg_repo::EmailPgRepo;
 #[cfg(feature = "http_client")]

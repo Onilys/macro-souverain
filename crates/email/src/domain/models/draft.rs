@@ -59,6 +59,39 @@ pub struct CreateDraftInput {
     pub thread_client_binding: Option<Uuid>,
 }
 
+/// A file to attach to a draft, already resolved to bytes.
+///
+/// The HTTP attachment endpoint takes the name, size and hash from the client
+/// and hands back a presigned URL for the browser to upload to. A caller that
+/// already holds the bytes server-side (the AI tools, attaching a Macro
+/// entity) has nothing to hand that round trip, so it supplies the file
+/// itself and the store does both halves.
+pub struct NewDraftAttachment {
+    /// File name including extension, as the recipient will see it.
+    pub file_name: String,
+    /// MIME type.
+    pub content_type: String,
+    /// The file's contents.
+    pub bytes: Vec<u8>,
+}
+
+// Manual impl: the bytes must never reach a log line.
+impl std::fmt::Debug for NewDraftAttachment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NewDraftAttachment")
+            .field("file_name", &self.file_name)
+            .field("content_type", &self.content_type)
+            .field("bytes", &format_args!("[{} bytes]", self.bytes.len()))
+            .finish()
+    }
+}
+
+/// The ceiling the attachment endpoint enforces on a draft's combined
+/// attachments: 25MB is Gmail's encoded limit and base64 adds about a third,
+/// so the safe raw budget is ~18MB. Kept in step with
+/// `email_service`'s `MAX_RAW_TOTAL_SIZE_BYTES`.
+pub const MAX_RAW_ATTACHMENTS_SIZE_BYTES: usize = 18_000_000;
+
 /// A draft input with all IDs resolved, ready for database insertion.
 /// Created from `CreateDraftInput` after validation and ID generation.
 #[derive(Debug, Clone)]

@@ -9,6 +9,7 @@ provider = ["dep:futures"]
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 macro_user_id = { path = "../macro_user_id" }
@@ -20,3 +21,6 @@ model_file_type = { path = "../model_file_type" }
 model-entity = { path = "../model-entity" }
 webp = "0.3.1"
 workspace-hack = { version = "0.1", path = "../workspace-hack" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

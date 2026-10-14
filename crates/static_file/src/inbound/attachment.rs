@@ -23,6 +23,13 @@ impl<R> StaticFileAttachmentService<R> {
     pub fn new(repo: Arc<R>) -> Self {
         Self { repo }
     }
+
+    /// The backing store, for the sibling [`EntityFileService`] projection.
+    ///
+    /// [`EntityFileService`]: attachment::EntityFileService
+    pub(super) fn repo(&self) -> &R {
+        &self.repo
+    }
 }
 
 impl<R: StaticFileRepo> AttachmentService for StaticFileAttachmentService<R> {

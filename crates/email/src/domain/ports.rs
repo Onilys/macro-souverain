@@ -3,9 +3,9 @@ use crate::domain::models::{
     CreatedDraft, DeletedUserDraft, DraftDeletion, EmailErr, EmailFilter, EmailInboxDetails,
     EmailThreadMailProjection, EmailThreadMetadata, EmailThreadPreview, EnrichedEmailThreadPreview,
     GetEmailsRequest, Label, Link, LinkLabel, Message, MessageAttachment, MessageLabel, MessageRow,
-    MessageTimestamps, ParsedAddresses, ParsedMessage, ParsedThread, PreviewCursorQuery,
-    RecipientType, ResolvedDraftInput, SavedUserDraft, SenderPolicy, SettledDraftIds,
-    SimpleMessage, SimpleMessageInfo, Thread, ThreadRow, UpdateThreadLabelsResult,
+    MessageTimestamps, NewDraftAttachment, ParsedAddresses, ParsedMessage, ParsedThread,
+    PreviewCursorQuery, RecipientType, ResolvedDraftInput, SavedUserDraft, SenderPolicy,
+    SettledDraftIds, SimpleMessage, SimpleMessageInfo, Thread, ThreadRow, UpdateThreadLabelsResult,
     UpsertEmailFilterInput, UpsertedContacts, UserEmailLink, UserProvider,
 };
 use chrono::{DateTime, Utc};
@@ -1103,4 +1103,32 @@ pub trait FirstInboxProvisioner: Send + Sync + 'static {
         &self,
         access_token: &str,
     ) -> impl Future<Output = anyhow::Result<FirstInboxProvisionOutcome>> + Send;
+}
+
+/// Port for putting a file on a draft: the bytes into object storage, and the
+/// row that makes the send path pick them up.
+///
+/// The scheduled-delivery adapter builds a message's MIME parts from
+/// `email_attachments_drafts` rows plus their S3 objects, so a draft that has
+/// both is sent with its attachments without any further wiring. This port is
+/// how a server-side caller — the AI tools attaching a Macro entity — puts
+/// them there.
+///
+/// Dyn-compatible: the tool context holds one as `Arc<dyn
+/// DraftAttachmentStore>` rather than re-generifying the email service, which
+/// already carries six type parameters across twenty impl blocks.
+#[async_trait::async_trait]
+pub trait DraftAttachmentStore: Send + Sync + 'static {
+    /// Store `file` against `draft_id` and return the new attachment's ID.
+    ///
+    /// Implementations write the bytes before recording the row, so a row
+    /// never names an object that is not there — the send path reads the row
+    /// and would fail the whole message on a missing object. The reverse
+    /// leaves an orphaned object, which costs storage and nothing else.
+    async fn attach_to_draft(
+        &self,
+        link_id: Uuid,
+        draft_id: Uuid,
+        file: NewDraftAttachment,
+    ) -> anyhow::Result<Uuid>;
 }

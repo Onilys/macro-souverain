@@ -10389,6 +10389,10 @@ export interface SendConfirmedEmail {
    */
   includeSignature?: boolean | null;
   /**
+   * Macro entities to send as file attachments, in order. Use this whenever the user asks for something they referenced to be attached, sent, or included - do not claim a file is attached unless it is listed here. Each entry is attached as a real file: an uploaded document keeps its own bytes and name, and a Macro markdown document is exported as .md. Attaching is all-or-nothing - if any entry cannot be turned into a file the tool fails without sending, and you must tell the user which one and why rather than quietly sending the email without it. Combined attachments must stay under 18MB.
+   */
+  attachments?: EmailAttachmentRef[];
+  /**
    * The user's own message approving this specific email, quoted verbatim - for example their "yes, send it" in reply to the email you wrote out for them. It is a reply to your draft, never the earlier request that asked you to write one: if the user has not yet seen this email, there is nothing to quote here and the tool must not be called. Required: do not paraphrase it, and never supply it yourself.
    */
   userConfirmation: string;
@@ -10403,6 +10407,23 @@ export interface EmailRecipient {
   email: string;
   /**
    * The recipient's display name (optional).
+   */
+  name?: string | null;
+}
+/**
+ * A Macro entity to attach to an email, as the user would have @-mentioned it.
+ */
+export interface EmailAttachmentRef {
+  /**
+   * The entity's ID.
+   */
+  entityId: string;
+  /**
+   * The kind of entity. Only things that are already files can be attached: `document` (an uploaded PDF, image, Word file, deck or design, or a Macro markdown document, which is attached as .md) and `static_file`. Macro spreadsheets and canvases, and non-file things like chats, channels, email threads, calendar events and tasks, have no file to send - describe or link those in the body instead.
+   */
+  entityType: string;
+  /**
+   * The entity's name as you know it, for the review card to show the user before they send. Display only - the file the recipient receives is named from the entity itself, so a wrong or missing value here cannot mislabel the attachment.
    */
   name?: string | null;
 }
@@ -10445,6 +10466,10 @@ export interface SendEmail {
    * excludes the signature for this one email.
    */
   includeSignature?: boolean | null;
+  /**
+   * Macro entities to send as file attachments, in order. Use this whenever the user asks for something they referenced to be attached, sent, or included - do not claim a file is attached unless it is listed here. Each entry is attached as a real file: an uploaded document keeps its own bytes and name, and a Macro markdown document is exported as .md. Attaching is all-or-nothing - if any entry cannot be turned into a file the tool fails without sending, and you must tell the user which one and why rather than quietly sending the email without it. Combined attachments must stay under 18MB.
+   */
+  attachments?: EmailAttachmentRef[];
 }
 /**
  * Set or update a property value on an entity. Tasks are targeted as entity_type='document'. Projects in the Tasks UI are entity_type='initiative'; entity_type='project' still means a folder. Initiatives share the Assignees, Status, Priority and Due Date definitions below and their clearing behavior. Project Status accepts only Not Started (00000001-0000-0000-0002-000000000001), In Progress (...0002), and Completed (...0004); In Review and Canceled are task-only options. Provide the property_definition_id and exactly one value field matching the property's data type.

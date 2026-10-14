@@ -24,6 +24,8 @@ ai_schema = ["dep:schemars"]
 ai_tools = [
   "dep:ai_toolset",
   "dep:async-trait",
+  # `SendEmail` resolves the entities it attaches through `EntityFileService`.
+  "dep:attachment",
   "dep:schemars",
   "ports",
 ]
@@ -39,7 +41,21 @@ gmail_token = ["dep:authentication_service_client", "dep:google_token", "dep:red
 http_client = ["dep:reqwest", "ports"]
 inbound = ["ports"]
 outbound = ["dep:sqlx", "ports"]
-ports = ["crm/ports", "dep:tokio", "frecency/ports"]
+# The S3 + Postgres `DraftAttachmentStore`, for hosts that attach files to a
+# draft server-side (the AI tools). Separate from `outbound` so services that
+# only read email do not pull in an S3 client.
+draft_attachment_store = [
+  "dep:async-trait",
+  "dep:email_db_client",
+  "dep:hex",
+  "dep:models_email",
+  "dep:s3_client",
+  "dep:sha2",
+  "dep:sqlx",
+  "ports",
+]
+# `async-trait` is required by the dyn-compatible `DraftAttachmentStore` port.
+ports = ["crm/ports", "dep:async-trait", "dep:tokio", "frecency/ports"]
 
 [dependencies]
 calendar_events = { path = "../calendar_events", optional = true }
@@ -47,6 +63,10 @@ ical = { version = "0.11", default-features = false, features = ["ical"], option
 chrono-tz = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
+email_db_client = { path = "../email_db_client", optional = true }
+hex = { workspace = true, optional = true }
+models_email = { path = "../models_email", optional = true }
+s3_client = { path = "../s3_client", optional = true }
 activity = { path = "../activity", default-features = false }
 ai_toolset = { path = "../ai_toolset", optional = true }
 attachment = { path = "../attachment", optional = true }

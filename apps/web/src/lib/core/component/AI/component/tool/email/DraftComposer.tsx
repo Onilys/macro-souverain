@@ -22,6 +22,7 @@ import type { DraftFormAttachment } from '@app/features/email-compose/primitives
 import { prepareEmailBody } from '@app/features/email-compose/primitives/prepare-email-body';
 import { ComposeLayout } from '@app/features/email-compose/views/compose-layout';
 import { EmailComposeToolbar } from '@app/features/email-compose/views/compose-toolbar';
+import { EmailAttachmentPill } from '@app/features/email-message/components/attachment-pill';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { toast } from '@core/component/Toast/Toast';
 import { enableEmailSignatures } from '@core/constant/featureFlags';
@@ -37,6 +38,7 @@ import {
   type ComponentProps,
   createMemo,
   createSignal,
+  For,
   type JSX,
   onCleanup,
   Show,
@@ -134,6 +136,12 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
     ),
   });
   const [subject, setSubject] = createSignal(props.initialData.subject ?? '');
+  // The entities the agent asked to attach. Still references at this point —
+  // the send resolves them into files — so they are held as the tool wrote
+  // them and handed straight back in collectArgs.
+  const [attachments, setAttachments] = createSignal(
+    props.initialData.attachments ?? []
+  );
   const [isSending, setIsSending] = createSignal(false);
   const [editor, setEditor] = createSignal<LexicalEditor>();
   const [validationErrors, setValidationErrors] = createSignal<
@@ -151,6 +159,10 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
       replyingToId: props.initialData.replyingToId,
       // Omit to use the backend default policy; false only when dismissed.
       includeSignature: includeSignature() ? undefined : false,
+      // Carried through every edit. collectArgs replaces the tool's arguments
+      // wholesale, so leaving this out would drop the attachments on the first
+      // keystroke and send the email without them.
+      attachments: attachments(),
     };
   }
 
@@ -240,8 +252,33 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
     onContentChange: () => {
       scheduleUpdate();
     },
+    // Adding a file from disk would have nowhere to go: this draft is a
+    // pending tool call, not a saved draft with an id to upload against. The
+    // paperclip stays hidden and these stay inert; the agent's entity
+    // attachments render through `pendingAttachments` instead.
     onAddAttachments: (_: DraftFormAttachment[]) => {},
     onRemoveAttachment: (_: DraftFormAttachment) => {},
+    pendingAttachments: () => (
+      <For each={attachments()}>
+        {(attachment) => (
+          <EmailAttachmentPill
+            attachment={{
+              fileName: attachment.name ?? attachment.entityId,
+              // The real type is known only once the entity resolves at send
+              // time; the pill falls back to a generic file icon.
+              mimeType: '',
+            }}
+            removable={!uiDisabled()}
+            onRemove={() => {
+              setAttachments((prev) =>
+                prev.filter((a) => a.entityId !== attachment.entityId)
+              );
+              scheduleUpdate();
+            }}
+          />
+        )}
+      </For>
+    ),
     captureEditor: setEditor,
     onEditorInitialized: (editor) => {
       props.onBodyInitialized?.(prepareEmailBody(editor)?.bodyHtml ?? '');

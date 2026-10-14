@@ -970,6 +970,7 @@ dependencies = [
  "reqwest 0.13.4",
  "rootcause",
  "routines",
+ "s3_client",
  "schemars 1.2.1",
  "search_service_client",
  "secretsmanager_client",
@@ -1868,6 +1869,7 @@ name = "attachment"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "base64 0.22.1",
  "futures",
  "image",
@@ -1877,6 +1879,7 @@ dependencies = [
  "non_empty",
  "serde",
  "thiserror 2.0.18",
+ "tokio",
  "webp",
  "workspace-hack",
 ]
@@ -6106,6 +6109,7 @@ dependencies = [
  "reminders",
  "reqwest 0.13.4",
  "roles_and_permissions",
+ "s3_client",
  "schemars 1.2.1",
  "search_service_client",
  "secretsmanager_client",
@@ -6817,6 +6821,7 @@ dependencies = [
  "frecency",
  "futures",
  "google_token",
+ "hex",
  "ical",
  "item_filters",
  "lexical_client",
@@ -6829,12 +6834,14 @@ dependencies = [
  "macro_uuid",
  "model-entity",
  "model-error-response",
+ "models_email",
  "models_pagination",
  "non_empty",
  "recursion",
  "redis",
  "reqwest 0.13.4",
  "rootcause",
+ "s3_client",
  "schemars 1.2.1",
  "scraper",
  "serde",
@@ -18244,6 +18251,7 @@ name = "static_file"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "attachment",
  "futures",
  "macro_user_id",

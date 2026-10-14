@@ -281,7 +281,7 @@ async fn main() -> anyhow::Result<()> {
         config.document_storage_bucket.to_string(),
     );
     let s3_upload_adapter = S3UploadUrlAdapter::new(
-        s3_client,
+        s3_client.clone(),
         config.document_storage_bucket.to_string(),
         config.docx_document_upload_bucket.to_string(),
     );
@@ -443,6 +443,40 @@ async fn main() -> anyhow::Result<()> {
         ))),
         lexical_client.clone(),
     );
+
+    // `SendEmail` can attach Macro entities only where both halves exist: a
+    // resolver that turns an entity into bytes, and a bucket to put them in.
+    // Without ATTACHMENT_BUCKET the tool still runs and still sends mail — it
+    // just refuses attachment requests out loud.
+    let email_tool_context = match config
+        .attachment_bucket
+        .value()
+        .filter(|bucket| !bucket.trim().is_empty())
+    {
+        Some(bucket) => email_tool_context.with_attachments(
+            Arc::new(attachment::provider::EntityFileProvider {
+                document: documents::inbound::attachment::DocumentAttachmentService::new(
+                    document_tool_context.service.clone(),
+                    document_tool_context.entity_access_service.clone(),
+                    document_tool_context.lexical_client.clone(),
+                ),
+                static_file: static_file::inbound::attachment::StaticFileAttachmentService::new(
+                    Arc::new(static_file::outbound::CdnStaticFileRepo::new(
+                        StaticFileServiceUrl::new()?.to_string(),
+                    )),
+                ),
+            }),
+            Arc::new(email::outbound::S3DraftAttachmentStore::new(
+                db.clone(),
+                s3_client::S3::new(s3_client.clone()),
+                bucket.to_string(),
+            )),
+        ),
+        None => {
+            tracing::warn!("ATTACHMENT_BUCKET is not set; SendEmail cannot attach Macro entities");
+            email_tool_context
+        }
+    };
 
     tracing::info!("initialized email tool context");
 
