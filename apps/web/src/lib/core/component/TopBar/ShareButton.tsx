@@ -37,17 +37,17 @@ import { buildSimpleEntityUrl } from '@core/util/url';
 import { useCopyLink } from '@core/util/useCopyLink';
 import { OwnerLabel } from '@entity/owner/owner-display';
 import IconShared from '@icon/share.svg';
+import ChevronDownIcon from '@icon/system/regular/caret-down.svg';
+import IconComment from '@icon/system/regular/chat-teardrop.svg';
+import CheckIcon from '@icon/system/regular/check.svg';
+import CopyIcon from '@icon/system/regular/copy.svg';
+import IconEye from '@icon/system/regular/eye.svg';
+import IconLink from '@icon/system/regular/link.svg';
+import IconEdit from '@icon/system/regular/pencil.svg';
+import UserCircle from '@icon/system/regular/user-circle.svg';
+import UsersIcon from '@icon/system/regular/users.svg';
+import IconX from '@icon/system/regular/x.svg';
 import { Dialog } from '@kobalte/core/dialog';
-import ChevronDownIcon from '@phosphor/caret-down.svg';
-import IconComment from '@phosphor/chat-teardrop.svg';
-import CheckIcon from '@phosphor/check.svg';
-import CopyIcon from '@phosphor/copy.svg';
-import IconEye from '@phosphor/eye.svg';
-import IconLink from '@phosphor/link.svg';
-import IconEdit from '@phosphor/pencil.svg';
-import UserCircle from '@phosphor/user-circle.svg';
-import UsersIcon from '@phosphor/users.svg';
-import IconX from '@phosphor/x.svg';
 import {
   fetchAgentSessionSharePermissions,
   updateAgentSessionSharePermissions,

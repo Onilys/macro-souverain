@@ -1,7 +1,7 @@
 import { SearchBar, ViewSidebar } from '@app/components/view-shell';
 import type { SettingsTab } from '@core/constant/SettingsState';
 import type { SettingsTabGroup } from '@core/constant/settingsTabsConfig';
-import SignOutIcon from '@phosphor/sign-out.svg';
+import SignOutIcon from '@icon/system/regular/sign-out.svg';
 import { pressHandlers } from '@ui';
 import { For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
@@ -86,7 +86,6 @@ export function SettingsSidebar(props: {
                       {(item) => (
                         <ViewSidebar.Item
                           active={props.isItemActive(item.tab)}
-                          class="text-ink"
                           {...pressHandlers(() => props.onSelect(item.tab))}
                         >
                           <ViewSidebar.Icon>

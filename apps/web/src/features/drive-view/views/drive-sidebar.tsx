@@ -6,8 +6,8 @@ import {
 import { FavoriteContextMenu } from '@app/features/favorites/FavoriteContextMenu';
 import { FavoriteIcon } from '@app/features/favorites/FavoriteIcon';
 import { useFavoriteDisplayName } from '@app/util/favorites';
-import FolderIcon from '@phosphor/folder.svg';
-import SearchIcon from '@phosphor/magnifying-glass.svg';
+import FolderIcon from '@icon/system/regular/folder.svg';
+import SearchIcon from '@icon/system/regular/magnifying-glass.svg';
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
 import { Button } from '@ui';
 import { createMemo, createSignal, For, Show } from 'solid-js';

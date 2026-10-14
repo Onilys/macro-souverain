@@ -12,7 +12,7 @@ import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { SplitPanel } from '@components/app/split-panel';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
 import { ListEntityMetadataQueryProvider } from '@entity';
-import SpinnerIcon from '@phosphor/spinner.svg';
+import SpinnerIcon from '@icon/system/regular/spinner.svg';
 import {
   createContext,
   createMemo,

@@ -13,7 +13,7 @@ import { useHotkeyDOMScope } from '@core/hotkey/hotkeys';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { getSafeAreaInset } from '@core/mobile/safeAreaInsets';
 import { isPlatform } from '@core/util/platform';
-import CloseIcon from '@phosphor/x.svg';
+import CloseIcon from '@icon/system/regular/x.svg';
 import { createElementSize } from '@solid-primitives/resize-observer';
 import { Button, cn, Panel } from '@ui';
 import { createEffect, createSignal, Show, Suspense } from 'solid-js';

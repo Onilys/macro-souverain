@@ -1,9 +1,9 @@
 import { ViewSidebar } from '@app/components/view-shell';
-import BuildingsIcon from '@phosphor/buildings.svg';
-import CaretDownIcon from '@phosphor/caret-down.svg';
-import PlusIcon from '@phosphor/plus.svg';
-import TableIcon from '@phosphor/table.svg';
-import UserIcon from '@phosphor/user.svg';
+import BuildingsIcon from '@icon/system/regular/buildings.svg';
+import CaretDownIcon from '@icon/system/regular/caret-down.svg';
+import PlusIcon from '@icon/system/regular/plus.svg';
+import TableIcon from '@icon/system/regular/table.svg';
+import UserIcon from '@icon/system/regular/user.svg';
 import { Dropdown } from '@ui';
 import { Show } from 'solid-js';
 

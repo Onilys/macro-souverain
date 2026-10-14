@@ -8,15 +8,15 @@ import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { lazyNamed } from '@core/util/lazyNamed';
 import EmptyStateNoSearchMatchGraphic from '@design/empty-state-no-search-match.svg';
 import { type ChannelEntity, Entity } from '@entity';
-import CaretDownIcon from '@phosphor/caret-down.svg';
-import ChatCircleIcon from '@phosphor/chat-circle.svg';
-import ChatsCircleIcon from '@phosphor/chats-circle.svg';
-import CheckIcon from '@phosphor/check.svg';
-import HashIcon from '@phosphor/hash.svg';
-import MagnifyingGlassIcon from '@phosphor/magnifying-glass.svg';
-import PlusIcon from '@phosphor/plus.svg';
-import SortIcon from '@phosphor/sort-ascending.svg';
-import XIcon from '@phosphor/x.svg';
+import CaretDownIcon from '@icon/system/regular/caret-down.svg';
+import ChatCircleIcon from '@icon/system/regular/chat-circle.svg';
+import ChatsCircleIcon from '@icon/system/regular/chats-circle.svg';
+import CheckIcon from '@icon/system/regular/check.svg';
+import HashIcon from '@icon/system/regular/hash.svg';
+import MagnifyingGlassIcon from '@icon/system/regular/magnifying-glass.svg';
+import PlusIcon from '@icon/system/regular/plus.svg';
+import SortIcon from '@icon/system/regular/sort-ascending.svg';
+import XIcon from '@icon/system/regular/x.svg';
 import {
   createDraggable,
   createDroppable,

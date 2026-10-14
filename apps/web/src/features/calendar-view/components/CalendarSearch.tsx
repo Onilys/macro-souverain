@@ -22,13 +22,13 @@ import { debouncedDependent } from '@core/util/debounce';
 import { openExternalUrl } from '@core/util/url';
 import EmptyStateCalendarSearchGraphic from '@design/empty-state-calendar-search.svg';
 import type { EntityData, WithSearch } from '@entity';
+import CaretLeftIcon from '@icon/system/regular/caret-left.svg';
+import SearchIcon from '@icon/system/regular/magnifying-glass.svg';
+import QuotesIcon from '@icon/system/regular/quotes.svg';
+import RepeatIcon from '@icon/system/regular/repeat.svg';
+import VideoCameraIcon from '@icon/system/regular/video-camera.svg';
+import XIcon from '@icon/system/regular/x.svg';
 import { Popover } from '@kobalte/core/popover';
-import CaretLeftIcon from '@phosphor/caret-left.svg';
-import SearchIcon from '@phosphor/magnifying-glass.svg';
-import QuotesIcon from '@phosphor/quotes.svg';
-import RepeatIcon from '@phosphor/repeat.svg';
-import VideoCameraIcon from '@phosphor/video-camera.svg';
-import XIcon from '@phosphor/x.svg';
 import {
   useCalendarMentionPreviewQuery,
   useCalendarSearchPreviewsQuery,

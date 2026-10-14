@@ -1,7 +1,7 @@
 import { LIST_VIEW_ID } from '@app/constants/list-views';
 import { globalSplitManager } from '@app/signal/splitLayout';
 import { TOKENS } from '@core/hotkey/tokens';
-import ColumnsPlusIcon from '@phosphor/columns-plus-right.svg';
+import ColumnsPlusIcon from '@icon/system/regular/columns-plus-right.svg';
 import { Button } from '@ui';
 import { Show } from 'solid-js';
 

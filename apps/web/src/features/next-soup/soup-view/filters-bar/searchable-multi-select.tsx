@@ -1,8 +1,8 @@
 import { useSelectedFirst } from '@core/util/useSelectedFirst';
+import CheckIcon from '@icon/system/regular/check.svg';
+import SearchIcon from '@icon/system/regular/magnifying-glass.svg';
 import type { CollectionNode } from '@kobalte/core';
 import { Combobox, useComboboxContext } from '@kobalte/core/combobox';
-import CheckIcon from '@phosphor/check.svg';
-import SearchIcon from '@phosphor/magnifying-glass.svg';
 import { makeEventListener } from '@solid-primitives/event-listener';
 import { cn, Layer } from '@ui';
 import { createSelectionDismissal } from '@ui/utils/selectionDismissal';

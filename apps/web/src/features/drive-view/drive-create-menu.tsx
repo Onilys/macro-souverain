@@ -5,10 +5,10 @@ import {
   runCreateAction,
   useCreatableEnabled,
 } from '@app/features/command/Launcher';
-import CaretDownIcon from '@phosphor/caret-down.svg';
-import FolderIcon from '@phosphor/folder.svg';
-import PlusIcon from '@phosphor/plus.svg';
-import UploadIcon from '@phosphor/upload-simple.svg';
+import CaretDownIcon from '@icon/system/regular/caret-down.svg';
+import FolderIcon from '@icon/system/regular/folder.svg';
+import PlusIcon from '@icon/system/regular/plus.svg';
+import UploadIcon from '@icon/system/regular/upload-simple.svg';
 import { Dropdown } from '@ui';
 import { For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';

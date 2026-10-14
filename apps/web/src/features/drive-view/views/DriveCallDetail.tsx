@@ -7,7 +7,7 @@ import {
   useCallDetail,
 } from '@block-call/views/CallDetailView';
 import { SplitPanel } from '@components/app/split-panel';
-import PhoneCallIcon from '@phosphor/phone-call.svg';
+import PhoneCallIcon from '@icon/system/regular/phone-call.svg';
 import { onMount, Show } from 'solid-js';
 import { DriveBreadcrumbsOutlet } from '../components/DriveBreadcrumbs';
 import { useDriveView } from '../context/drive-context';

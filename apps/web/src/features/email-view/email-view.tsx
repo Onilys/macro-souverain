@@ -10,7 +10,7 @@ import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component
 import { enableReminders } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { ListEntityMetadataQueryProvider } from '@entity';
-import SpinnerIcon from '@phosphor/spinner.svg';
+import SpinnerIcon from '@icon/system/regular/spinner.svg';
 import {
   createSignal,
   onMount,

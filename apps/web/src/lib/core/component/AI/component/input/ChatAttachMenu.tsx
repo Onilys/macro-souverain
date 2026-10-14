@@ -20,9 +20,9 @@ import {
   offset,
   shift,
 } from '@floating-ui/dom';
-import DeviceMobileIcon from '@phosphor/device-mobile-speaker.svg';
-import LaptopIcon from '@phosphor/laptop.svg';
-import SearchIcon from '@phosphor/magnifying-glass.svg';
+import DeviceMobileIcon from '@icon/system/regular/device-mobile-speaker.svg';
+import LaptopIcon from '@icon/system/regular/laptop.svg';
+import SearchIcon from '@icon/system/regular/magnifying-glass.svg';
 import type { HistoryItem } from '@queries/history/history';
 import {
   createEffect,

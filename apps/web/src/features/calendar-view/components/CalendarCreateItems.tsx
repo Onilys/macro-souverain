@@ -1,6 +1,6 @@
 import { useQuickCallsFlag } from '@app/features/meetings/use-quick-calls-flag';
-import CalendarIcon from '@phosphor/calendar-blank.svg';
-import PhoneIcon from '@phosphor/phone.svg';
+import CalendarIcon from '@icon/system/regular/calendar-blank.svg';
+import PhoneIcon from '@icon/system/regular/phone.svg';
 import { useNavigate } from '@solidjs/router';
 import { Dropdown } from '@ui';
 import { Show } from 'solid-js';

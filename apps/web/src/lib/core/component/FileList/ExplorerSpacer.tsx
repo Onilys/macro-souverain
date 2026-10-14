@@ -1,4 +1,4 @@
-import CaretRight from '@phosphor/caret-right.svg';
+import CaretRight from '@icon/system/regular/caret-right.svg';
 import { cn } from '@ui';
 import { createMemo, Index } from 'solid-js';
 import {

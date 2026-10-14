@@ -2,7 +2,7 @@ import { ViewShell } from '@app/components/view-shell';
 import { DebugSuspense } from '@channel/DebugSuspense';
 import { MessageThread, threadListItem } from '@core/messages/MessageThread';
 import type { ChannelEntity, ChannelThreadEntity } from '@entity';
-import ArrowSquareOutIcon from '@phosphor/arrow-square-out.svg';
+import ArrowSquareOutIcon from '@icon/system/regular/arrow-square-out.svg';
 import { useMessageThreadQuery } from '@queries/messages/thread-replies';
 import { Button, cn, Scroll } from '@ui';
 import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';

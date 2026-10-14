@@ -1,9 +1,9 @@
-import OpenIcon from '@phosphor/arrow-square-out.svg';
-import CaretDownIcon from '@phosphor/caret-down.svg';
-import CheckIcon from '@phosphor/check.svg';
-import GripIcon from '@phosphor/dots-six-vertical.svg';
-import DotsIcon from '@phosphor/dots-three.svg';
-import PlusIcon from '@phosphor/plus.svg';
+import OpenIcon from '@icon/system/regular/arrow-square-out.svg';
+import CaretDownIcon from '@icon/system/regular/caret-down.svg';
+import CheckIcon from '@icon/system/regular/check.svg';
+import GripIcon from '@icon/system/regular/dots-six-vertical.svg';
+import DotsIcon from '@icon/system/regular/dots-three.svg';
+import PlusIcon from '@icon/system/regular/plus.svg';
 import type { DatabaseOpsError } from '@service-storage/databases';
 import type { ViewLayout } from '@service-storage/generated/schemas/viewLayout';
 import { Key } from '@solid-primitives/keyed';

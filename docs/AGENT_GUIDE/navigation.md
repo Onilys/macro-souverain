@@ -115,6 +115,7 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/settings/account` | Settings (also `/app/settings/api-keys`, `/mcp-server`, `/shortcuts`, etc.) |
 | `/app/debug/ui?ui=invert-util` | UI gallery, including the inverted Markdown demo on the InvertUtil page |
 | `/app/debug/create-menu-demo` | Inline create-menu comparison: classic list, minimal carousel, and details on the left. Each has independent search and selection; choosing an item only updates the preview status and creates no data. |
+| `/app/debug/icon-gallery` | Original Macro icon specimen: filter by name, compare regular/filled/bold variants at 14/16/20/24 px on light and dark surfaces, and select navigation icons to inspect their filled state. The Legacy animated icons tab preserves the earlier gallery. These controls only change the specimen. |
 | `/app/debug/<component>` | Registered debug views (for example `icon-gallery`, `md`, or `agent-ui`); existing environment gates apply. `/app/component/<component>` remains a compatibility alias for these views |
 
 Each `~`-separated part of an app URL is a split (`/app/home/~/drive`). The

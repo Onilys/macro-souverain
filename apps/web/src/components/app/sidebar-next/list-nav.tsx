@@ -9,7 +9,7 @@ import {
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { MenuItem, MenuSeparator } from '@core/component/ContextMenu';
 import { TOKENS } from '@core/hotkey/tokens';
-import PhoneCallIcon from '@phosphor-fill/phone-call-fill.svg';
+import PhoneCallIcon from '@icon/system/fill/phone-call-fill.svg';
 import { useLocation } from '@solidjs/router';
 import { Button, cn } from '@ui';
 import { createSignal, onCleanup, Show } from 'solid-js';

@@ -6,10 +6,10 @@ import { useCombinedRecipients } from '@core/signal/useCombinedRecipient';
 import { recipientEntityMapper, type WithCustomUserInput } from '@core/user';
 import { useFocusLock } from '@core/util/createControlledOpenSignal';
 import { getDestinationFromOptions } from '@core/util/destination';
-import HashIcon from '@phosphor/hash.svg';
-import InfoIcon from '@phosphor/info.svg';
-import LockIcon from '@phosphor/lock.svg';
-import XIcon from '@phosphor/x.svg';
+import HashIcon from '@icon/system/regular/hash.svg';
+import InfoIcon from '@icon/system/regular/info.svg';
+import LockIcon from '@icon/system/regular/lock.svg';
+import XIcon from '@icon/system/regular/x.svg';
 import { useAgentsQuery } from '@queries/agents/agents';
 import { useAddBotToChannelMutation } from '@queries/channel/channel-bots';
 import {

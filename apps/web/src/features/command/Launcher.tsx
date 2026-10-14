@@ -51,12 +51,12 @@ import {
   createSnippet,
 } from '@core/util/create';
 import { createControlledOpenSignal } from '@core/util/createControlledOpenSignal';
+import ChatIcon from '@icon/system/regular/chat.svg';
+import MagnifyingGlassIcon from '@icon/system/regular/magnifying-glass.svg';
+import PlusIcon from '@icon/system/regular/plus.svg';
 import { Dialog } from '@kobalte/core/dialog';
 import { getMarkdownGoldenBytes } from '@macro-inc/lexical-core/markdown-golden';
 import type { Span } from '@macro-inc/observability';
-import ChatIcon from '@phosphor/chat.svg';
-import MagnifyingGlassIcon from '@phosphor/magnifying-glass.svg';
-import PlusIcon from '@phosphor/plus.svg';
 import { createDatabase } from '@queries/storage/databases';
 import { createForm } from '@queries/storage/forms';
 import { makePersisted } from '@solid-primitives/storage';

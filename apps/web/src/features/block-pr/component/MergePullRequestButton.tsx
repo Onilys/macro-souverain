@@ -1,4 +1,4 @@
-import GitMerge from '@phosphor/git-merge.svg';
+import GitMerge from '@icon/system/regular/git-merge.svg';
 import { Button, type ButtonSize, cn, confirmDialog } from '@ui';
 import { getOwner, type Owner, Show } from 'solid-js';
 import {

@@ -2,7 +2,7 @@ import { GithubPullRequestStatusIcon } from '@components/app/side-panel';
 import { TOKENS } from '@core/hotkey/tokens';
 import { copyBranchNameToClipboard } from '@core/util/branchName';
 import GithubIcon from '@icon/mcp-github.svg';
-import GitBranch from '@phosphor/git-branch.svg';
+import GitBranch from '@icon/system/regular/git-branch.svg';
 import { useDocumentGithubPullRequestsQuery } from '@queries/storage/github-pull-requests';
 import type { GithubPullRequest } from '@service-storage/generated/schemas';
 import { badgeTriggerClasses, CopyButton, Layer } from '@ui';

@@ -27,7 +27,7 @@ import {
 } from '@core/util/currentBlockDocumentName';
 import { downloadFile } from '@filesystem/download';
 import IconShared from '@icon/share.svg';
-import Download from '@phosphor/download-simple.svg';
+import Download from '@icon/system/regular/download-simple.svg';
 import { createCallback } from '@solid-primitives/rootless';
 import type { Component } from 'solid-js';
 import { Show } from 'solid-js';

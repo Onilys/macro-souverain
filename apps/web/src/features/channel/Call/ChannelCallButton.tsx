@@ -3,7 +3,7 @@ import { useChannelTab } from '@channel/Channel/ChannelTabContext';
 import { HeaderActionButton } from '@components/app/HeaderActionButton';
 import { useChannelName, useChannelType } from '@core/context/channels';
 import { isMobile } from '@core/mobile/isMobile';
-import PhoneIcon from '@phosphor/phone-call.svg';
+import PhoneIcon from '@icon/system/regular/phone-call.svg';
 import { useActiveCallQuery } from '@queries/call/call';
 import { ChannelTypeEnum } from '@service-storage/client';
 import { cn, confirmDialog } from '@ui';

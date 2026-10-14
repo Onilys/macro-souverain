@@ -1,4 +1,4 @@
-import Copy from '@phosphor/copy.svg';
+import Copy from '@icon/system/regular/copy.svg';
 import { Button } from '@ui';
 
 export function MeetingLink(props: {

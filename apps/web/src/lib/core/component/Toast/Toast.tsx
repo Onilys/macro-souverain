@@ -1,9 +1,9 @@
 import { isMobile } from '@core/mobile/isMobile';
+import CheckIcon from '@icon/system/regular/check.svg';
+import ExclamationIcon from '@icon/system/regular/exclamation-mark.svg';
+import Spinner from '@icon/system/regular/spinner.svg';
+import XIcon from '@icon/system/regular/x.svg';
 import { Toast, toaster } from '@kobalte/core/toast';
-import CheckIcon from '@phosphor/check.svg';
-import ExclamationIcon from '@phosphor/exclamation-mark.svg';
-import Spinner from '@phosphor/spinner.svg';
-import XIcon from '@phosphor/x.svg';
 import { Button, cn, Surface } from '@ui';
 import type { Component, JSX } from 'solid-js';
 import {

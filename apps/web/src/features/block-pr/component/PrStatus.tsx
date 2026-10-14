@@ -1,5 +1,5 @@
-import GitMerge from '@phosphor/git-merge.svg';
-import GitPullRequest from '@phosphor/git-pull-request.svg';
+import GitMerge from '@icon/system/regular/git-merge.svg';
+import GitPullRequest from '@icon/system/regular/git-pull-request.svg';
 import { cn, Layer } from '@ui';
 import { Show } from 'solid-js';
 
@@ -28,11 +28,11 @@ export function PrStatusIcon(props: { status: string; class?: string }) {
       when={props.status === 'merged'}
       fallback={
         <GitPullRequest
-          class={cn('size-3.5', STATUS_ICON_CLASS[props.status], props.class)}
+          class={cn('size-4', STATUS_ICON_CLASS[props.status], props.class)}
         />
       }
     >
-      <GitMerge class={cn('size-3.5 text-note', props.class)} />
+      <GitMerge class={cn('size-4 text-note', props.class)} />
     </Show>
   );
 }
@@ -48,7 +48,7 @@ export function PrStatusChip(props: { status: string; class?: string }) {
           props.class
         )}
       >
-        <PrStatusIcon status={props.status} class="size-3 shrink-0" />
+        <PrStatusIcon status={props.status} class="size-4 shrink-0" />
         {capitalize(props.status)}
       </span>
     </Layer>

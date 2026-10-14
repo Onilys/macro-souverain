@@ -30,8 +30,8 @@ import {
   Permissions,
 } from '@core/component/SharePermissions';
 import { openLoginModal } from '@core/component/TopBar/LoginButton';
-import DownloadIcon from '@phosphor/download-simple.svg';
-import Printer from '@phosphor/printer.svg';
+import DownloadIcon from '@icon/system/regular/download-simple.svg';
+import Printer from '@icon/system/regular/printer.svg';
 import { useSearchParams } from '@solidjs/router';
 import type { JSX } from 'solid-js';
 import { Show } from 'solid-js';

@@ -5,8 +5,8 @@
  */
 
 import type { TextDirection } from '@core/pptx-engine/types';
+import X from '@icon/system/regular/x.svg';
 import { Popover } from '@kobalte/core/popover';
-import X from '@phosphor/x.svg';
 import { Button } from '@ui/components/Button';
 import { createSignal, For, type JSX, Show } from 'solid-js';
 import { boxOf } from '../core/geometry';

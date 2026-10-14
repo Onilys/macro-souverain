@@ -9,7 +9,7 @@ import {
 } from '@core/component/AI/util/chatAttachmentMention';
 import { toast } from '@core/component/Toast/Toast';
 import { fileTypeToBlockName } from '@core/constant/allBlocks';
-import AgentIcon from '@phosphor/sparkle.svg';
+import AgentIcon from '@icon/system/regular/sparkle.svg';
 import type { ChannelType } from '@service-cognition/generated/schemas/channelType';
 import { createSignal } from 'solid-js';
 

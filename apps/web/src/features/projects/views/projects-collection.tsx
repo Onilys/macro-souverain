@@ -18,9 +18,9 @@ import { TaskGroupHeader } from '@app/features/tasks-view/components/task-list/T
 import { taskGridColumnCount } from '@app/features/tasks-view/components/task-list/task-grid-template';
 import { toast } from '@core/component/Toast/Toast';
 import { EntitySelectionToolbarModal } from '@entity/EntitySelectionToolbarModal';
-import CalendarIcon from '@phosphor/calendar.svg';
-import PlusIcon from '@phosphor/plus.svg';
-import SpinnerIcon from '@phosphor/spinner.svg';
+import CalendarIcon from '@icon/system/regular/calendar.svg';
+import PlusIcon from '@icon/system/regular/plus.svg';
+import SpinnerIcon from '@icon/system/regular/spinner.svg';
 import { PropertyValueIcon } from '@property/component/propertyValue';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import type { Property, PropertyApiValues } from '@property/types';

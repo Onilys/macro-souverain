@@ -1,5 +1,5 @@
 import { SplitHeaderContextMenu } from '@components/app/split-layout/components/SplitHeaderContextMenu';
-import CaretDownIcon from '@phosphor/caret-down.svg';
+import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import { Button, type ButtonProps, cn } from '@ui';
 import { CollapseTransition } from '@ui/components/CollapseTransition';
 import type { JSX } from 'solid-js';

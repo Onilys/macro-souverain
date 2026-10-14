@@ -2,13 +2,13 @@ import {
   SettingsButton as Button,
   SettingsSheetContext,
 } from '@app/features/settings/primitives';
+import CaretDown from '@icon/system/regular/caret-down.svg';
+import Check from '@icon/system/regular/check.svg';
+import Plus from '@icon/system/regular/plus.svg';
+import User from '@icon/system/regular/user.svg';
+import Users from '@icon/system/regular/users.svg';
 import { DropdownMenu } from '@kobalte/core/dropdown-menu';
 import { Tabs } from '@kobalte/core/tabs';
-import CaretDown from '@phosphor/caret-down.svg';
-import Check from '@phosphor/check.svg';
-import Plus from '@phosphor/plus.svg';
-import User from '@phosphor/user.svg';
-import Users from '@phosphor/users.svg';
 import {
   createMemo,
   createSignal,

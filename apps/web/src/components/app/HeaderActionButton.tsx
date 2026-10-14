@@ -24,7 +24,7 @@ export function HeaderActionButton(props: {
       disabled={props.disabled}
       aria-busy={props.busy}
       class={cn(
-        '@max-[600px]/split-header:w-8 @max-[600px]/split-header:p-0',
+        '[&>svg]:size-4 @max-[600px]/split-header:w-8 @max-[600px]/split-header:p-0',
         props.class
       )}
     >
