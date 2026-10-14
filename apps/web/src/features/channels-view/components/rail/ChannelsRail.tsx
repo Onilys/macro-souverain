@@ -60,20 +60,25 @@ import {
 } from 'solid-js';
 import type { VirtualizerHandle } from 'virtua/solid';
 import { useChannelsView } from '../../channels-view-context';
+import { CHANNELS_LIST_SECTIONS } from '../../constants';
 import {
   canLabelChannel,
   filterChannelLabelMembers,
 } from '../../core/channel-label-eligibility';
+import { channelListSection } from '../../core/channel-sections';
 import { resolveChannelLabelMemberships } from '../../core/smart-tags';
 import {
-  type ChannelsSourceScope,
   type ChannelsSources,
   deduplicateChannels,
   resolveReferencedChannels,
+  sourceScopeForList,
   useChannelsByIdsQuery,
+  useTeamRoster,
 } from '../../queries';
 import type {
-  ChannelsQueryScope,
+  ChannelsChannelSection,
+  ChannelsListSection,
+  ChannelsRailList,
   ChannelsRailSection,
   ChannelsTab,
 } from '../../types';
@@ -104,13 +109,13 @@ export { buildChannelRailRows } from './build-channel-rail-rows';
 import { useChannelCalls } from './hooks/useChannelCalls';
 import { useChannelRailActivity } from './hooks/useChannelRailActivity';
 
-const CHANNEL_RAIL_SECTIONS: ChannelsRailSection[] = [
-  'favorites',
-  'channels',
-  'direct_messages',
-];
 const LABEL_KEY_PREFIX = 'label:';
 const BROWSE_QUERY_SCOPES = ['channels', 'direct_messages'] as const;
+/** Sections that stay in the rail even with nothing in them. */
+const ALWAYS_VISIBLE_SECTIONS: readonly ChannelsListSection[] = [
+  'team_channels',
+  'direct_messages',
+];
 const CHANNEL_TAB_IDS: ChannelsTab[] = ['browse', 'recents'];
 const CHANNEL_TAB_IDS_WITH_THREADS: ChannelsTab[] = [
   ...CHANNEL_TAB_IDS,
@@ -268,7 +273,7 @@ export function ChannelsRail(props: ChannelsRailProps) {
 
   const [listRoot, setListRoot] = createSignal<HTMLDivElement>();
   const [virtualizers, setVirtualizers] = createSignal<
-    Partial<Record<ChannelsSourceScope, VirtualizerHandle>>
+    Partial<Record<ChannelsRailList, VirtualizerHandle>>
   >({});
 
   const searchQuery = () => props.searchQuery;
@@ -393,7 +398,47 @@ export function ChannelsRail(props: ChannelsRailProps) {
     channelsById().get(channelId) ??
     referencedChannels().find((channel) => channel.id === channelId);
 
-  const channelActivity = useChannelRailActivity(allChannels, channelCalls);
+  // Externality is a property of who is in a channel, which no server filter
+  // expresses, so the one Channels query is split into its three sections here.
+  const teamRoster = useTeamRoster();
+  const sectionOf = (channel: ChannelEntity) =>
+    channelListSection(channel, teamRoster());
+  const channelSections = createMemo(() => {
+    const sections: Record<ChannelsChannelSection, ChannelEntity[]> = {
+      team_channels: [],
+      private_channels: [],
+      external_channels: [],
+    };
+    for (const channel of deduplicateChannels([
+      props.sources.channels.items(),
+      labelledChannels(),
+    ])) {
+      const section = sectionOf(channel);
+      if (section !== 'direct_messages') sections[section].push(channel);
+    }
+    return sections;
+  });
+  const sectionItems = (section: ChannelsListSection) =>
+    section === 'direct_messages'
+      ? props.sources.direct_messages.items()
+      : channelSections()[section];
+  // Private and External are specialist sections; most teams have neither, so
+  // they appear only once they hold something. Keep them while the source is
+  // still loading so a settled empty section is the only one that disappears.
+  const visibleSections = createMemo<readonly ChannelsListSection[]>(() =>
+    CHANNELS_LIST_SECTIONS.filter(
+      (section) =>
+        ALWAYS_VISIBLE_SECTIONS.includes(section) ||
+        sectionItems(section).length > 0 ||
+        props.sources.channels.isLoading()
+    )
+  );
+
+  const channelActivity = useChannelRailActivity(
+    allChannels,
+    channelCalls,
+    sectionOf
+  );
 
   const isLabelOpen = (labelId: string) =>
     !state.collapsedLabels.includes(labelId);
@@ -401,10 +446,7 @@ export function ChannelsRail(props: ChannelsRailProps) {
   const channelSectionRows = createMemo(() =>
     buildChannelSectionRows({
       labels: labels(),
-      channels: deduplicateChannels([
-        props.sources.channels.items(),
-        labelledChannels(),
-      ]),
+      channels: channelSections().team_channels,
       channelsById: channelsById(),
       isLabelOpen,
     })
@@ -435,12 +477,14 @@ export function ChannelsRail(props: ChannelsRailProps) {
       state.expandedGroups,
       {
         favorites: favorites(),
-        channels: props.sources.channels.items(),
-        direct_messages: props.sources.direct_messages.items(),
+        private_channels: sectionItems('private_channels'),
+        external_channels: sectionItems('external_channels'),
+        direct_messages: sectionItems('direct_messages'),
         recents: props.sources.recents.items(),
         threads: props.sources.threads.items(),
       },
-      channelSectionRows()
+      channelSectionRows(),
+      visibleSections()
     );
   });
 
@@ -523,7 +567,7 @@ export function ChannelsRail(props: ChannelsRailProps) {
 
       if (row.kind === 'conversation' || row.kind === 'label') {
         const virtualizer =
-          virtualizers()[row.kind === 'label' ? 'channels' : row.scope];
+          virtualizers()[row.kind === 'label' ? 'team_channels' : row.scope];
         if (virtualizer) {
           virtualizer.scrollToIndex(row.localIndex, options);
           return;
@@ -554,20 +598,25 @@ export function ChannelsRail(props: ChannelsRailProps) {
     },
   };
 
-  const scrollScopeToSelectedOrStart = (scope: ChannelsQueryScope) => {
-    // The Channels section renders label headings between channels, so its
-    // indexes come from the rendered rows rather than the source.
-    const rendered =
-      scope === 'channels'
-        ? channelSectionRows().map((row) =>
-            row.kind === 'conversation' ? row.channel.id : undefined
-          )
-        : props.sources[scope].items().map((channel) => channel.id);
+  /** Row ids of a rendered list, in the order the rail draws them. */
+  const renderedChannelIds = (list: ChannelsRailList) =>
+    list === 'team_channels'
+      ? // Label headings sit between channels, so indexes come from the
+        // rendered rows rather than the source.
+        channelSectionRows().map((row) =>
+          row.kind === 'conversation' ? row.channel.id : undefined
+        )
+      : (list === 'recents' || list === 'search' || list === 'threads'
+          ? props.sources[list].items()
+          : sectionItems(list)
+        ).map((channel) => channel.id);
 
+  const scrollScopeToSelectedOrStart = (list: ChannelsRailList) => {
+    const rendered = renderedChannelIds(list);
     const selectedIndex = rendered.indexOf(selectedChannel()?.id ?? '');
 
     const targetIndex = selectedIndex >= 0 ? selectedIndex : 0;
-    const virtualizer = virtualizers()[scope];
+    const virtualizer = virtualizers()[list];
 
     if (virtualizer && rendered.length > 0) {
       virtualizer.scrollToIndex(targetIndex, {
@@ -577,7 +626,9 @@ export function ChannelsRail(props: ChannelsRailProps) {
     }
 
     const scrollRoot =
-      scope === 'recents' ? listRoot() : sectionScrollRoots()[scope];
+      list === 'recents' || list === 'search'
+        ? listRoot()
+        : sectionScrollRoots()[list];
     if (scrollRoot?.isConnected) scrollRoot.scrollTop = 0;
   };
 
@@ -660,8 +711,8 @@ export function ChannelsRail(props: ChannelsRailProps) {
         scrollThreadsToSelectedOrStart();
       } else {
         scrollFavoritesToSelectedOrStart();
-        for (const scope of BROWSE_QUERY_SCOPES) {
-          scrollScopeToSelectedOrStart(scope);
+        for (const section of visibleSections()) {
+          scrollScopeToSelectedOrStart(section);
         }
       }
       setRestoreListScroll(false);
@@ -707,11 +758,8 @@ export function ChannelsRail(props: ChannelsRailProps) {
           const row = current?.item;
           if (direction !== 1 || row?.kind !== 'conversation') return true;
 
-          const source = props.sources[row.scope];
-          const renderedCount =
-            row.scope === 'channels'
-              ? channelSectionRows().length
-              : source.items().length;
+          const source = props.sources[sourceScopeForList(row.scope)];
+          const renderedCount = renderedChannelIds(row.scope).length;
           if (row.localIndex < renderedCount - 1) return true;
 
           if (!source.isLoadingMore()) {
@@ -801,9 +849,10 @@ export function ChannelsRail(props: ChannelsRailProps) {
   const jumpToSection = (offset: 1 | -1) => {
     const currentGroup = list.focus.item()?.group;
 
-    const sections = CHANNEL_RAIL_SECTIONS.filter((section) =>
-      section === 'favorites' ? favorites().length > 0 : true
-    );
+    const sections: ChannelsRailSection[] = [
+      ...(favorites().length > 0 ? (['favorites'] as const) : []),
+      ...visibleSections(),
+    ];
 
     const currentIndex = currentGroup ? sections.indexOf(currentGroup) : -1;
     const origin = currentIndex === -1 ? (offset === 1 ? -1 : 0) : currentIndex;
@@ -912,7 +961,7 @@ export function ChannelsRail(props: ChannelsRailProps) {
             name,
             channelIds,
           });
-          setGroupOpen('channels', true);
+          setGroupOpen('team_channels', true);
           setLabelOpen(created.id, true);
         },
       },
@@ -943,7 +992,7 @@ export function ChannelsRail(props: ChannelsRailProps) {
             rule,
             channelIds: [],
           });
-          setGroupOpen('channels', true);
+          setGroupOpen('team_channels', true);
           setLabelOpen(created.id, true);
           toast.success(`Created “${name}”`);
         },
@@ -1150,7 +1199,7 @@ export function ChannelsRail(props: ChannelsRailProps) {
   });
 
   const registerVirtualizer = (
-    scope: ChannelsSourceScope,
+    scope: ChannelsRailList,
     handle: VirtualizerHandle
   ) => {
     setVirtualizers((current) => ({ ...current, [scope]: handle }));
@@ -1172,6 +1221,8 @@ export function ChannelsRail(props: ChannelsRailProps) {
     tab,
     selectTab,
     sources: props.sources,
+    sectionItems,
+    visibleSections,
     favorites,
     channelById,
     selectedChannel,

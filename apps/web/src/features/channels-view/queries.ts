@@ -12,16 +12,20 @@ import {
   isChannelEntity,
   isChannelThreadEntity,
 } from '@entity';
+import { queryReadyGate } from '@queries/gate';
 import {
   type SoupAstItemsQueryArgs,
   type SoupAstParams,
   useSoupAstItemsQuery,
 } from '@queries/soup/items';
+import { useCurrentTeamQuery } from '@queries/team/teams';
 import { type Accessor, createEffect, createMemo } from 'solid-js';
+import { type TeamRoster, teamRosterOf } from './core/channel-sections';
 import { channelThreadsQueryArgs } from './core/channel-threads-query';
 import type {
   ChannelListSort,
   ChannelsQueryScope,
+  ChannelsRailList,
   ChannelsSortGroup,
 } from './types';
 import { channelHasMessages, isDirectMessage } from './utils';
@@ -53,6 +57,20 @@ type ChannelsListScope = ChannelsQueryScope | 'search';
 export type ChannelsSourceScope = ChannelsListScope | 'threads';
 
 export type ChannelsSources = Record<ChannelsSourceScope, ChannelsDataSource>;
+
+/**
+ * The paginated source a rendered list reads from. Team, Private, and External
+ * are slices of the one `channels` query, so they page it together.
+ */
+export function sourceScopeForList(
+  list: ChannelsRailList
+): ChannelsSourceScope {
+  return list === 'team_channels' ||
+    list === 'private_channels' ||
+    list === 'external_channels'
+    ? 'channels'
+    : list;
+}
 
 export const CHANNELS_QUERY_DEFINITIONS = {
   recents: {
@@ -417,6 +435,20 @@ export function useChannelsSources(
       () => sortBy('threads')
     ),
   };
+}
+
+/**
+ * The current team's member ids, for telling teammates from outside guests.
+ * Undefined until the roster is known — before that no channel reads as
+ * external, so a channel never starts in External and moves out.
+ */
+export function useTeamRoster(): Accessor<TeamRoster> {
+  const teamQuery = useCurrentTeamQuery();
+
+  return () =>
+    queryReadyGate(teamQuery) && teamQuery.data
+      ? teamRosterOf(teamQuery.data.members.map((member) => member.user_id))
+      : undefined;
 }
 
 export function useChannelByIdQuery(

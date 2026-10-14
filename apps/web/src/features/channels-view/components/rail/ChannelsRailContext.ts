@@ -7,10 +7,11 @@ import type { Favorite } from '@service-storage/generated/schemas/favorite';
 import type { ContextProviderProps } from '@solid-primitives/context';
 import type { Accessor } from 'solid-js';
 import type { VirtualizerHandle } from 'virtua/solid';
-import type { ChannelsSourceScope, ChannelsSources } from '../../queries';
+import type { ChannelsSources } from '../../queries';
 import type {
   ChannelListSort,
-  ChannelsGroup,
+  ChannelsListSection,
+  ChannelsRailList,
   ChannelsRailSection,
   ChannelsSortGroup,
   ChannelsTab,
@@ -40,22 +41,23 @@ export type ChannelRailRow =
       favorite: Favorite;
     }
   | {
-      /** A team channel label heading inside the Channels section. */
+      /** A team channel label heading inside the Team channels section. */
       kind: 'label';
       id: `label:${string}`;
-      group: 'channels';
-      /** Index in the Channels section's rendered rows (labels and channels). */
+      group: 'team_channels';
+      /** Index in the section's rendered rows (labels and channels). */
       localIndex: number;
       label: ChannelLabel;
     }
   | {
       kind: 'conversation';
       id: `channel:${string}`;
-      group?: ChannelsGroup;
-      scope: ChannelsSourceScope;
+      group?: ChannelsListSection;
+      scope: ChannelsRailList;
       /**
-       * Index in the scope's rendered list. For `channels` that list mixes
-       * label headings and channels, so it is not an index into the source.
+       * Index in the list this row is rendered in. For `team_channels` that
+       * list mixes label headings and channels, so it is not an index into
+       * the source.
        */
       localIndex: number;
       channel: ChannelEntity;
@@ -64,7 +66,7 @@ export type ChannelRailRow =
     };
 
 /**
- * One rendered row of the Channels section: a label heading or a channel,
+ * One rendered row of the Team channels section: a label heading or a channel,
  * nested (`labelId` set) or in the plain list below the labels.
  */
 export type ChannelSectionRow =
@@ -124,6 +126,13 @@ export type ChannelsRailContext = {
   tab: Accessor<ChannelsTab>;
   selectTab: (tab: ChannelsTab) => void;
   sources: ChannelsSources;
+  /** The conversations in a section, already split out of its source. */
+  sectionItems: (section: ChannelsListSection) => readonly ChannelEntity[];
+  /**
+   * The conversation sections the All tab renders, top to bottom. Private and
+   * External drop out while empty, so an ordinary team sees two sections.
+   */
+  visibleSections: Accessor<readonly ChannelsListSection[]>;
   favorites: Accessor<readonly Favorite[]>;
   /**
    * A channel the rail has loaded, from its sections or fetched by id for a
@@ -147,7 +156,7 @@ export type ChannelsRailContext = {
   labelsUnavailableReason: Accessor<string>;
   isLabelOpen: (labelId: string) => boolean;
   toggleLabel: (labelId: string) => void;
-  /** The Channels section's rendered rows: label headings and channels. */
+  /** The Team channels section's rendered rows: label headings and channels. */
   channelSectionRows: Accessor<readonly ChannelSectionRow[]>;
   /** Number of channels in the label with unread activity. */
   labelUnreadCount: (label: ChannelLabel) => number;
@@ -177,7 +186,7 @@ export type ChannelsRailContext = {
     element: HTMLDivElement
   ) => void;
   registerVirtualizer: (
-    scope: ChannelsSourceScope,
+    list: ChannelsRailList,
     handle: VirtualizerHandle
   ) => () => void;
   channelActivity: ChannelRailActivity;

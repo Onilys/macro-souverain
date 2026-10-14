@@ -1,13 +1,9 @@
 import type { DateValue } from '@core/util/date';
 import type { ChannelEntity } from '@entity';
-import type { ChannelsGroup, ChannelsTab } from './types';
+import type { ChannelsTab } from './types';
 
 export function isDirectMessage(channel: ChannelEntity) {
   return channel.channelType === 'direct_message';
-}
-
-export function channelGroup(channel: ChannelEntity): ChannelsGroup {
-  return isDirectMessage(channel) ? 'direct_messages' : 'channels';
 }
 
 export function channelHasMessages(channel: ChannelEntity) {

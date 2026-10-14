@@ -30,6 +30,7 @@ import {
   Switch,
 } from 'solid-js';
 import { Virtualizer, type VirtualizerHandle } from 'virtua/solid';
+import { channelListSection } from '../core/channel-sections';
 import type { ChannelsDataSource } from '../queries';
 import type { ChannelsQueryScope } from '../types';
 import { channelMentionsUser } from '../utils';
@@ -73,7 +74,14 @@ export function ChannelsMobileView(props: {
   const listId = createUniqueId();
   const channelCalls = useChannelCalls();
   const visibleChannels = createMemo(() => props.source.items());
-  const channelActivity = useChannelRailActivity(visibleChannels, channelCalls);
+  // The mobile list is flat behind pill tabs, so only the per-channel
+  // indicators are read here. Classify without a team roster rather than
+  // paying for one: section-level counts and targets go unused.
+  const channelActivity = useChannelRailActivity(
+    visibleChannels,
+    channelCalls,
+    (channel) => channelListSection(channel, undefined)
+  );
   const actionController = createListController({
     items: visibleChannels,
     getKey: (channel) => channel.id,

@@ -22,6 +22,7 @@ import { type Accessor, createEffect, createMemo, on } from 'solid-js';
 import { createStore, type Store } from 'solid-js/store';
 import { channelsSearch, channelsSearchCodec } from './channels-route';
 import {
+  CHANNELS_DEFAULT_EXPANDED_GROUPS,
   CHANNELS_DEFAULT_RAIL_WIDTH,
   CHANNELS_DEFAULT_SORT_BY,
   clampChannelsRailWidth,
@@ -68,6 +69,17 @@ export type ChannelsViewContext = {
   setAsideWidth: (width: number) => void;
 };
 
+function expandedGroupsFrom(
+  overrides: ChannelsViewStateOptions['expandedGroups'] = {}
+): ChannelsViewState['expandedGroups'] {
+  const groups = { ...CHANNELS_DEFAULT_EXPANDED_GROUPS };
+  for (const section of Object.keys(groups) as ChannelsRailSection[]) {
+    const override = overrides[section];
+    if (override !== undefined) groups[section] = override;
+  }
+  return groups;
+}
+
 function createInitialState(
   initial: ChannelsViewStateOptions
 ): ChannelsViewState {
@@ -75,11 +87,7 @@ function createInitialState(
     tab: initial.tab ?? 'browse',
     mobileTab:
       initial.mobileTab ?? (initial.tab === 'recents' ? 'recents' : 'channels'),
-    expandedGroups: {
-      favorites: initial.expandedGroups?.favorites ?? true,
-      channels: initial.expandedGroups?.channels ?? true,
-      direct_messages: initial.expandedGroups?.direct_messages ?? true,
-    },
+    expandedGroups: expandedGroupsFrom(initial.expandedGroups),
     collapsedLabels: initial.collapsedLabels ?? [],
     threadsChannelId: initial.threadsChannelId,
     sortBy: {

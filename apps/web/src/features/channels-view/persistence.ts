@@ -10,6 +10,7 @@ import { createUserScopedStorage } from '@core/util/userScopedStorage';
 import type { Accessor } from 'solid-js';
 import { z } from 'zod';
 import {
+  CHANNELS_DEFAULT_EXPANDED_GROUPS,
   CHANNELS_DEFAULT_RAIL_WIDTH,
   CHANNELS_DEFAULT_SORT_BY,
   clampChannelsRailWidth,
@@ -31,17 +32,33 @@ const channelsExpandedGroupsSchema = z.preprocess(
     }
 
     const groups = value as Record<string, unknown>;
+    // Two renames are carried here: `direct-messages` → `direct_messages`, and
+    // the single `channels` section that the team/private/external sections
+    // replaced — a user who had it collapsed keeps all three collapsed.
     return {
       ...groups,
+      team_channels: groups.team_channels ?? groups.channels,
+      private_channels: groups.private_channels ?? groups.channels,
+      external_channels: groups.external_channels ?? groups.channels,
       direct_messages: groups.direct_messages ?? groups['direct-messages'],
     };
   },
   z.object({
     favorites: z.boolean().default(true),
-    channels: z.boolean().default(true),
+    team_channels: z.boolean().default(true),
+    private_channels: z.boolean().default(true),
+    external_channels: z.boolean().default(true),
     direct_messages: z.boolean().default(true),
   })
 );
+
+/** Read a stored collapse map, migrations and defaults applied. */
+export function parseChannelsExpandedGroups(
+  stored: unknown
+): ChannelsViewState['expandedGroups'] {
+  const result = channelsExpandedGroupsSchema.safeParse(stored);
+  return result.success ? result.data : CHANNELS_DEFAULT_EXPANDED_GROUPS;
+}
 
 const channelsEntryStateSchemaWithDefaults = z.object({
   version: z.literal(1).default(1),
@@ -49,11 +66,9 @@ const channelsEntryStateSchemaWithDefaults = z.object({
   mobileTab: z
     .enum(['channels', 'direct_messages', 'recents'])
     .default('channels'),
-  expandedGroups: channelsExpandedGroupsSchema.default({
-    favorites: true,
-    channels: true,
-    direct_messages: true,
-  }),
+  expandedGroups: channelsExpandedGroupsSchema.default(
+    CHANNELS_DEFAULT_EXPANDED_GROUPS
+  ),
   collapsedLabels: z.array(z.string()).default([]),
   threadsChannelId: z.string().optional(),
 });
@@ -64,11 +79,7 @@ const DEFAULT_CHANNELS_ENTRY_STATE = {
   version: 1,
   tab: 'browse',
   mobileTab: 'channels',
-  expandedGroups: {
-    favorites: true,
-    channels: true,
-    direct_messages: true,
-  },
+  expandedGroups: CHANNELS_DEFAULT_EXPANDED_GROUPS,
   collapsedLabels: [],
   threadsChannelId: undefined,
 } satisfies ChannelsEntryState;

@@ -34,11 +34,12 @@ import {
 } from 'solid-js';
 import { Virtualizer, type VirtualizerHandle } from 'virtua/solid';
 import { canLabelChannel } from '../../core/channel-label-eligibility';
+import { channelsSortGroupForSection } from '../../core/channel-sections';
 import { ChannelsLiveCallsSidebar } from '../../live-calls-sidebar';
 import { CHANNELS_TOUR } from '../../tour';
 import type {
   ChannelListSort,
-  ChannelsGroup,
+  ChannelsListSection,
   ChannelsSortGroup,
 } from '../../types';
 import { channelMentionsUser, formatDetailedTimestamp } from '../../utils';
@@ -69,6 +70,7 @@ import {
   useChannelsRail,
 } from './ChannelsRailContext';
 import {
+  COLLAPSED_SECTION_HEIGHT,
   CollapsibleSection,
   CreateRailAction,
   RailListError,
@@ -105,29 +107,38 @@ type ChannelRailSearch = {
 };
 
 type GroupConfig = {
-  group: ChannelsGroup;
   label: string;
   emptyLabel: string;
-  createLabel: string;
-  onCreate: () => void;
+  /** The section's `+` action; omitted where there is nothing to create. */
+  create?: { label: string; onCreate: () => void };
 };
 
-const GROUPS: GroupConfig[] = [
-  {
-    group: 'channels',
-    label: 'Channels',
-    emptyLabel: 'No channels',
-    createLabel: 'Create channel',
-    onCreate: openNewChannelModal,
+const GROUPS: Record<ChannelsListSection, GroupConfig> = {
+  team_channels: {
+    label: 'Team channels',
+    emptyLabel: 'No team channels',
+    create: { label: 'Create channel', onCreate: openNewChannelModal },
   },
-  {
-    group: 'direct_messages',
+  private_channels: {
+    label: 'Private channels',
+    emptyLabel: 'No private channels',
+    create: { label: 'Create channel', onCreate: openNewChannelModal },
+  },
+  external_channels: {
+    // Nothing to create: a channel lands here by having a guest in it, so the
+    // way to add one is to invite someone from outside into a private channel.
+    label: 'External channels',
+    emptyLabel: 'No channels with people outside your team',
+  },
+  direct_messages: {
     label: 'DMs',
     emptyLabel: 'No direct messages',
-    createLabel: 'Start direct message',
-    onCreate: () => runCreateAction('channel'),
+    create: {
+      label: 'Start direct message',
+      onCreate: () => runCreateAction('channel'),
+    },
   },
-];
+};
 
 const CHANNEL_SORT_OPTIONS: {
   value: ChannelListSort;
@@ -649,44 +660,45 @@ function ChannelHeadingDropTarget(props: { element: HTMLElement }) {
   return null;
 }
 
-function ExpandedGroupSection(props: { config: GroupConfig }) {
+function ExpandedGroupSection(props: {
+  group: ChannelsListSection;
+  /** The share of the column an open section may claim. */
+  maxHeight: string;
+}) {
   // A conditional expression as `ref` is dropped by the Solid compiler, so
   // the target is chosen inside the callback.
   const createTarget = tourTarget(CHANNELS_TOUR.create);
   const rail = useChannelsRail();
   const [scrollRoot, setScrollRoot] = createSignal<HTMLDivElement>();
   const [headerElement, setHeaderElement] = createSignal<HTMLElement>();
-  const { state: section } = useChannelRailSectionState(
-    () => props.config.group
-  );
-  const pagination = useChannelRailVirtualizer(() => props.config.group);
+  const config = () => GROUPS[props.group];
+  const isTeamSection = () => props.group === 'team_channels';
+  const { state: section } = useChannelRailSectionState(() => props.group);
+  const pagination = useChannelRailVirtualizer(() => props.group);
   const registerScrollRef = (element: HTMLDivElement) => {
     setScrollRoot(element);
-    rail.registerScrollRef(props.config.group, element);
+    rail.registerScrollRef(props.group, element);
   };
 
   return (
     <CollapsibleSection.Root
       open={section().open}
-      sizing={section().fillAvailable ? 'fill' : 'half'}
+      sizing={section().fillAvailable ? 'fill' : 'share'}
+      maxHeight={props.maxHeight}
     >
       <CollapsibleSection.Header
         focused={section().focused}
         focusWithin={section().containsFocus}
         class={cn(
           rail.channelTagsEnabled() &&
-            props.config.group === 'channels' &&
+            isTeamSection() &&
             rail.activeDropTarget()?.kind === 'unlabelled' &&
             'bg-selected ring-1 ring-inset ring-accent'
         )}
         ref={setHeaderElement}
       >
         <Show
-          when={
-            rail.channelTagsEnabled() &&
-            props.config.group === 'channels' &&
-            headerElement()
-          }
+          when={rail.channelTagsEnabled() && isTeamSection() && headerElement()}
           keyed
         >
           {(element) => <ChannelHeadingDropTarget element={element} />}
@@ -701,10 +713,10 @@ function ExpandedGroupSection(props: { config: GroupConfig }) {
           onMouseDown={(event) => {
             if (!isPrimaryMouseDown(event)) return;
             event.preventDefault();
-            rail.toggleGroup(props.config.group);
+            rail.toggleGroup(props.group);
           }}
         >
-          <span class="min-w-0 truncate">{props.config.label}</span>
+          <span class="min-w-0 truncate">{config().label}</span>
           <CaretDownIcon
             class={cn(
               'size-2.5 shrink-0 opacity-0 transition-[opacity,rotate] duration-200 motion-reduce:transition-none group-hover/sidebar-section:opacity-100',
@@ -719,22 +731,26 @@ function ExpandedGroupSection(props: { config: GroupConfig }) {
         </button>
         <div
           ref={(element) => {
-            if (props.config.group === 'channels') createTarget(element);
+            if (isTeamSection()) createTarget(element);
           }}
           data-section-action=""
           class="flex items-center gap-0.5"
         >
           <ChannelSortDropdown
-            group={props.config.group}
-            label={props.config.label}
+            group={channelsSortGroupForSection(props.group)}
+            label={config().label}
           />
           <Show
-            when={props.config.group === 'channels'}
+            when={isTeamSection()}
             fallback={
-              <CreateRailAction
-                label={props.config.createLabel}
-                onClick={props.config.onCreate}
-              />
+              <Show when={config().create}>
+                {(create) => (
+                  <CreateRailAction
+                    label={create().label}
+                    onClick={create().onCreate}
+                  />
+                )}
+              </Show>
             }
           >
             <ChannelsCreateMenu />
@@ -775,7 +791,7 @@ function ExpandedGroupSection(props: { config: GroupConfig }) {
                 scrollRoot={scrollRoot()}
                 keepMounted={section().keepMounted}
                 onScroll={pagination.loadMoreNearEnd}
-                emptyLabel={props.config.emptyLabel}
+                emptyLabel={config().emptyLabel}
               >
                 <Show when={section().source.isLoadingMore()}>
                   <RailListLoadingMore variant="channel" />
@@ -820,7 +836,7 @@ function ExpandedGroupSection(props: { config: GroupConfig }) {
           </Match>
           <Match when={true}>
             <div class="px-2 py-2 text-xs text-ink-extra-muted">
-              {props.config.emptyLabel}
+              {config().emptyLabel}
             </div>
           </Match>
         </Switch>
@@ -844,6 +860,18 @@ function ExpandedBrowse() {
     !rail.sources.direct_messages.isLoading() &&
     !rail.sources.channels.error() &&
     !rail.sources.direct_messages.error();
+  // Open sections share the column evenly. Without a cap flex shrinks every
+  // sibling by the same proportion, so one long list would squash the rest to
+  // a sliver; the collapsed headers and the gaps come off the top first.
+  const openSections = () =>
+    rail.visibleSections().filter((section) => rail.isGroupOpen(section));
+  const sectionMaxHeight = () => {
+    const total = rail.visibleSections().length;
+    const open = openSections().length;
+    if (open === 0) return '100%';
+    const collapsed = total - open;
+    return `calc((100% - ${collapsed} * ${COLLAPSED_SECTION_HEIGHT}px - ${Math.max(0, total - 1)} * var(--sidebar-section-gap)) / ${open})`;
+  };
 
   return (
     <Switch>
@@ -853,12 +881,17 @@ function ExpandedBrowse() {
       <Match when={true}>
         <ViewSidebar.Content class="h-full overflow-hidden">
           <ChannelFavoritesSection />
-          {/* The groups split the height left after favorites between them.
-              Their half-height caps resolve against this column, not the
-              whole sidebar, so favorites is never squeezed out. */}
+          {/* The sections split the height left after favorites between them.
+              Their caps resolve against this column, not the whole sidebar,
+              so favorites is never squeezed out. */}
           <div class="flex min-h-0 flex-1 flex-col gap-(--sidebar-section-gap)">
-            <For each={GROUPS}>
-              {(config) => <ExpandedGroupSection config={config} />}
+            <For each={rail.visibleSections()}>
+              {(group) => (
+                <ExpandedGroupSection
+                  group={group}
+                  maxHeight={sectionMaxHeight()}
+                />
+              )}
             </For>
           </div>
         </ViewSidebar.Content>

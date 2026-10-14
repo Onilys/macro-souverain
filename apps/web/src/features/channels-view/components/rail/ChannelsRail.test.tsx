@@ -9,6 +9,7 @@ import {
   waitFor,
 } from '@solidjs/testing-library';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CHANNELS_DEFAULT_EXPANDED_GROUPS } from '../../constants';
 import type { ChannelsSources } from '../../queries';
 import type { ChannelRailRow } from './ChannelsRailContext';
 
@@ -57,7 +58,7 @@ vi.mock('@app/components/list', () => ({
           : {
               kind: 'conversation',
               id: 'channel:one',
-              scope: 'channels',
+              scope: 'team_channels',
               localIndex: 0,
               channel: mocks.row!,
             },
@@ -158,7 +159,7 @@ vi.mock('../../channels-view-context', () => ({
   useChannelsView: () => ({
     state: {
       tab: 'browse',
-      expandedGroups: { channels: true, direct_messages: true },
+      expandedGroups: CHANNELS_DEFAULT_EXPANDED_GROUPS,
       collapsedLabels: [],
     },
     tab: () => 'browse',
@@ -174,6 +175,11 @@ vi.mock('../../queries', () => ({
     ).values(),
   ],
   useChannelsByIdsQuery: () => ({ isEnabled: false }),
+  useTeamRoster: () => () => undefined,
+  sourceScopeForList: (list: string) =>
+    list.endsWith('_channels') && list !== 'direct_messages'
+      ? 'channels'
+      : list,
   // What the real helper answers for the disabled lookup above.
   resolveReferencedChannels: (previous: ChannelEntity[]) => previous,
 }));

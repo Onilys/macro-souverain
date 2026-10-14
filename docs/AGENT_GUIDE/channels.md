@@ -482,8 +482,8 @@ slide-over opens on its own and closes once a conversation is picked; the
 backdrop or `Escape` still dismisses it. There is no separate skinny sidebar mode.
 
 On desktop, the Chat rail has `All` and `Recent` tabs. All contains an
-optional `Favorites` section and the
-independently paginated `Channels` and `DMs` sections. Favorites appears when
+optional `Favorites` section and, below it, `Team channels`, `Private channels`,
+`External channels`, and `DMs`, in that order. Favorites appears when
 the user has channel favorites and only lists channels. Channel favorites open
 in the shared channel detail. Shift-clicking a favorite, channel, or DM opens that
 conversation in a new split instead. Shift-click refreshes the notification
@@ -500,6 +500,21 @@ flash **Couldn’t load conversations** while awaiting reconciliation. Changing
 filters or resetting the cache must not use older rows to hide a new-query error.
 Cache misses, HTTP/GraphQL failures, and failures to load an uncached continuation
 still show errors and retry controls; background refresh retries continue.
+
+Each section has its own collapse caret, scroll area, and `+` control, and the
+choice to collapse one is remembered per user across reloads. `Team channels`
+holds channels of the viewer's team; `External channels` holds the rest that
+have a participant from outside the team; `Private channels` holds the rest.
+A DM is always a DM, whoever is in it, and a team channel is never external.
+`Private channels` and `External channels` are hidden while they are empty, so
+a team with neither sees only `Team channels` and `DMs`. Externality is decided
+from the loaded participant lists, so a channel on a page the rail has not
+reached yet is not classified until scrolling loads it; until the viewer's team
+roster resolves, nothing reads as external. The three channel sections are
+slices of one paginated query: they share a sort choice, and scrolling to the
+end of any of them pages all three. `External channels` has no `+`, because a
+channel lands there by having a guest in it. `[` / `]` jump between the section
+headings that are showing.
 
 Right-clicking a favorite opens the same menu as its channel's row in the
 sections below — `Mark Read`, `Unfavorite`, `Mute notifications`, `Copy Link`,
@@ -557,7 +572,7 @@ dialog and cancel to check the controls without changing shared data. The
 creation, assignment, and persistence checks below require the label backend
 and an account where those changes are safe.
 
-Labels group channels inside the `Channels` section. Team members share the
+Labels group channels inside the `Team channels` section. Team members share the
 same labels and can create, rename, delete, or move their channels between them.
 Users without a team have labels private to their account. The naming and delete
 dialogs explain which scope applies. Collapse/expand state is per user.
@@ -576,7 +591,7 @@ row has an unread count, a `···` menu (`Rename`, `Mark all as read`, `Delete 
 Clicking the row or pressing Enter toggles it; `h` / `l` on a label or one of its
 channels collapses or expands that label. `[` / `]` jump between section headings.
 
-Creating: use the `Channels` heading's `+` → `New label`, including when the
+Creating: use the `Team channels` heading's `+` → `New label`, including when the
 account has no team. The name field receives focus on opening and reopening.
 Enter or `Create label` saves; Escape or Cancel dismisses without saving.
 The dialog stays open while saving and shows a failure inline, preserving the
@@ -588,7 +603,7 @@ private ones. Channels remain accessible after deleting their label.
 Moving: right-click a team channel for `Add to label` / `Move to label`, including a
 `New label…` option, or use `Ungroup from “<label>”`. Drag a channel onto a label
 heading or one of its channels to move in. Drag a grouped channel onto a plain
-team channel, the Channels heading, or empty space below the list to ungroup it.
+team channel, the Team channels heading, or empty space below the list to ungroup it.
 Dragging one ungrouped team channel onto another opens a name dialog; saving creates
 the label with both channels atomically. A failed save changes neither channel.
 Dropping on the source channel or its current label does nothing; Escape from
@@ -603,7 +618,7 @@ and persistence after reload. Grouping in one Chat rail must not trigger a
 second dialog in another rail. If the label service cannot be reached, the
 UI reports the failure instead of claiming the group was saved.
 
-Smart labels: use `Channels` → `+` → `New smart label`. Enter a label name and a
+Smart labels: use `Team channels` → `+` → `New smart label`. Enter a label name and a
 `Name contains` pattern. Matching ignores capitalization and treats punctuation
 literally; it does not use wildcards or regular expressions. The creation dialog
 shows up to five matching channels as you type, followed by `+N more channels
@@ -626,9 +641,10 @@ Deleting a smart label preserves channels, other labels, and manual assignments.
 
 Verify overlapping rules, collapsed labels, no matches, overflow, and quickly
 changing patterns (an older response must not replace the latest preview).
-Check public and private channels with matching names: they stay in the normal
-list, have no label actions, and cannot be dragged into labels or used as a
-second channel when grouping by drop. Team channels still support these actions.
+Check public and private channels with matching names: they stay in their own
+`Private channels` or `External channels` section, have no label actions, and
+cannot be dragged into labels or used as a second channel when grouping by drop.
+Team channels still support these actions.
 Open the same matched channel from two labels and verify keyboard focus remains
 on the chosen row. Check rule edits and persistence after reload.
 

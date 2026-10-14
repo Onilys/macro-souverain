@@ -4,8 +4,9 @@ import type { ChannelLabel } from '@service-storage/generated/schemas/channelLab
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
 import { type Accessor, createMemo, createSignal, onCleanup } from 'solid-js';
 import type { VirtualizerHandle } from 'virtua/solid';
-import type { ChannelsSourceScope } from '../../../queries';
-import type { ChannelsGroup, ChannelsQueryScope } from '../../../types';
+import { isChannelsListSection } from '../../../core/channel-sections';
+import { sourceScopeForList } from '../../../queries';
+import type { ChannelsListSection, ChannelsRailList } from '../../../types';
 import {
   type ChannelRailRow,
   domIdForRow,
@@ -89,30 +90,29 @@ export function useChannelRailFavoritesState() {
   });
 }
 
-export function useChannelRailScopeState(
-  scope: Accessor<ChannelsQueryScope | 'threads'>
-) {
+export function useChannelRailScopeState(scope: Accessor<ChannelsRailList>) {
   const rail = useChannelsRail();
 
   return createMemo(() => {
     const currentScope = scope();
-    const source = rail.sources[currentScope];
-    const items = source.items();
-    // The Channels section renders label headings between its channels, so
-    // its virtualizer indexes come from those rows, not the source.
+    const source = rail.sources[sourceScopeForList(currentScope)];
+    const items = isChannelsListSection(currentScope)
+      ? rail.sectionItems(currentScope)
+      : source.items();
+    // The Team channels section renders label headings between its channels,
+    // so its virtualizer indexes come from those rows, not the source.
     const rows =
-      currentScope === 'channels' ? rail.channelSectionRows() : undefined;
+      currentScope === 'team_channels' ? rail.channelSectionRows() : undefined;
     const focusedRow = rail.list.focus.item();
     const focusedIndex =
       (focusedRow?.kind === 'conversation' &&
         focusedRow.scope === currentScope) ||
-      (focusedRow?.kind === 'label' && currentScope === 'channels')
+      (focusedRow?.kind === 'label' && currentScope === 'team_channels')
         ? focusedRow.localIndex
         : -1;
-    const targetChannelId =
-      currentScope === 'recents' || currentScope === 'threads'
-        ? undefined
-        : rail.channelActivity.targetChannelId(currentScope);
+    const targetChannelId = isChannelsListSection(currentScope)
+      ? rail.channelActivity.targetChannelId(currentScope)
+      : undefined;
     const activityIndex =
       targetChannelId === undefined
         ? -1
@@ -138,9 +138,7 @@ export function useChannelRailScopeState(
   });
 }
 
-export function useChannelRailVirtualizer(
-  scope: Accessor<ChannelsSourceScope>
-) {
+export function useChannelRailVirtualizer(scope: Accessor<ChannelsRailList>) {
   const rail = useChannelsRail();
   const [virtualizer, setVirtualizer] = createSignal<VirtualizerHandle>();
   let unregister: (() => void) | undefined;
@@ -161,7 +159,7 @@ export function useChannelRailVirtualizer(
     const handle = virtualizer();
     if (!handle) return;
 
-    const source = rail.sources[scope()];
+    const source = rail.sources[sourceScopeForList(scope())];
     const distance =
       handle.scrollSize - handle.viewportSize - (offset ?? handle.scrollOffset);
     if (
@@ -178,19 +176,26 @@ export function useChannelRailVirtualizer(
   return { registerVirtualizer, loadMoreNearEnd };
 }
 
-export function useChannelRailSectionState(group: Accessor<ChannelsGroup>) {
+export function useChannelRailSectionState(
+  group: Accessor<ChannelsListSection>
+) {
   const rail = useChannelsRail();
   const scope = useChannelRailScopeState(group);
   const state = createMemo(() => {
     const section = group();
     const rowId = rowKeyForSection(section);
     const targetChannelId = rail.channelActivity.targetChannelId(section);
+    // Sections take the height their rows need and shrink when the column runs
+    // out; the bottom-most open one grows so no slack is left under it.
+    const lastOpen = rail
+      .visibleSections()
+      .filter((candidate) => rail.isGroupOpen(candidate))
+      .at(-1);
 
     return {
       ...scope(),
       open: rail.isGroupOpen(section),
-      fillAvailable:
-        section === 'direct_messages' && !rail.isGroupOpen('channels'),
+      fillAvailable: lastOpen === section,
       focused: rail.list.focus.key() === rowId,
       containsFocus: rail.list.focus.item()?.group === section,
       domId: domIdForRow(rail.railId, rowId),

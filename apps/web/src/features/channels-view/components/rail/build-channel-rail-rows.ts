@@ -1,9 +1,10 @@
 import type { ChannelEntity } from '@entity';
 import type { ChannelLabel } from '@service-storage/generated/schemas/channelLabel';
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
+import { CHANNELS_LIST_SECTIONS } from '../../constants';
 import { canLabelChannel } from '../../core/channel-label-eligibility';
 import type {
-  ChannelsQueryScope,
+  ChannelsListSection,
   ChannelsRailSection,
   ChannelsTab,
 } from '../../types';
@@ -14,12 +15,18 @@ import {
   rowKeyForChannel,
   rowKeyForFavorite,
   rowKeyForLabel,
+  rowKeyForSection,
 } from './ChannelsRailContext';
 
+/**
+ * The conversations each rendered list holds. The team-channels section is
+ * absent: it renders `channelSectionRows`, which interleaves label headings.
+ */
 export type ChannelRailItemsByScope = Record<
-  ChannelsQueryScope | 'threads',
+  'private_channels' | 'external_channels' | 'direct_messages' | 'recents',
   readonly ChannelEntity[]
 > & {
+  threads: readonly ChannelEntity[];
   favorites: readonly Favorite[];
 };
 
@@ -28,7 +35,7 @@ const compareChannelName = (left: ChannelEntity, right: ChannelEntity) =>
   left.id.localeCompare(right.id);
 
 /**
- * Lay out the Channels section: each label in saved order with the
+ * Lay out the Team channels section: each label in saved order with the
  * channels the user can see in it (A→Z, the same for everyone), then the
  * channels in no label in the section's own sort. Empty labels stay visible as drop targets; a collapsed label hides its channels.
  *
@@ -70,15 +77,70 @@ export function buildChannelSectionRows(options: {
   return rows;
 }
 
+/** The rows one conversation section contributes, heading first. */
+function sectionRows(
+  section: ChannelsListSection,
+  expanded: boolean,
+  items: ChannelRailItemsByScope,
+  channelSectionRows: readonly ChannelSectionRow[]
+): ChannelRailRow[] {
+  const rows: ChannelRailRow[] = [
+    { kind: 'section', id: rowKeyForSection(section), group: section },
+  ];
+  if (!expanded) return rows;
+
+  if (section === 'team_channels') {
+    rows.push(
+      ...channelSectionRows.map(
+        (row, localIndex): ChannelRailRow =>
+          row.kind === 'label'
+            ? {
+                kind: 'label',
+                id: rowKeyForLabel(row.label.id),
+                group: 'team_channels',
+                localIndex,
+                label: row.label,
+              }
+            : {
+                kind: 'conversation',
+                id: rowKeyForChannel(row.channel.id, row.labelId),
+                group: 'team_channels',
+                scope: 'team_channels',
+                localIndex,
+                channel: row.channel,
+                labelId: row.labelId,
+              }
+      )
+    );
+    return rows;
+  }
+
+  rows.push(
+    ...items[section].map(
+      (channel, localIndex): ChannelRailRow => ({
+        kind: 'conversation',
+        id: rowKeyForChannel(channel.id),
+        group: section,
+        scope: section,
+        localIndex,
+        channel,
+      })
+    )
+  );
+  return rows;
+}
+
 /**
  * The keyboard-navigable rows of the All tab (or the flat Recent list), in
- * visual order. Collapsed sections contribute only their heading.
+ * visual order. Collapsed sections contribute only their heading, and
+ * `sections` leaves out the ones the rail is not rendering.
  */
 export function buildChannelRailRows(
   tab: ChannelsTab,
   expandedGroups: Record<ChannelsRailSection, boolean>,
   items: ChannelRailItemsByScope,
-  channelSectionRows: readonly ChannelSectionRow[]
+  channelSectionRows: readonly ChannelSectionRow[],
+  sections: readonly ChannelsListSection[] = CHANNELS_LIST_SECTIONS
 ): ChannelRailRow[] {
   if (tab === 'threads') {
     return [
@@ -98,7 +160,7 @@ export function buildChannelRailRows(
   if (tab === 'recents') {
     return items.recents.map((channel, localIndex) => ({
       kind: 'conversation',
-      id: `channel:${channel.id}`,
+      id: rowKeyForChannel(channel.id),
       scope: 'recents',
       localIndex,
       channel,
@@ -109,7 +171,7 @@ export function buildChannelRailRows(
   if (items.favorites.length > 0) {
     rows.push({
       kind: 'section',
-      id: 'section:favorites',
+      id: rowKeyForSection('favorites'),
       group: 'favorites',
     });
     if (expandedGroups.favorites) {
@@ -126,52 +188,13 @@ export function buildChannelRailRows(
     }
   }
 
-  rows.push({
-    kind: 'section',
-    id: 'section:channels',
-    group: 'channels',
-  });
-  if (expandedGroups.channels) {
+  for (const section of sections) {
     rows.push(
-      ...channelSectionRows.map(
-        (row, localIndex): ChannelRailRow =>
-          row.kind === 'label'
-            ? {
-                kind: 'label',
-                id: rowKeyForLabel(row.label.id),
-                group: 'channels',
-                localIndex,
-                label: row.label,
-              }
-            : {
-                kind: 'conversation',
-                id: rowKeyForChannel(row.channel.id, row.labelId),
-                group: 'channels',
-                scope: 'channels',
-                localIndex,
-                channel: row.channel,
-                labelId: row.labelId,
-              }
-      )
-    );
-  }
-
-  rows.push({
-    kind: 'section',
-    id: 'section:direct_messages',
-    group: 'direct_messages',
-  });
-  if (expandedGroups.direct_messages) {
-    rows.push(
-      ...items.direct_messages.map(
-        (channel, localIndex): ChannelRailRow => ({
-          kind: 'conversation',
-          id: `channel:${channel.id}`,
-          group: 'direct_messages',
-          scope: 'direct_messages',
-          localIndex,
-          channel,
-        })
+      ...sectionRows(
+        section,
+        expandedGroups[section],
+        items,
+        channelSectionRows
       )
     );
   }

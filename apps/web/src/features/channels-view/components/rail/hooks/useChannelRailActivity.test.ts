@@ -15,7 +15,12 @@ vi.mock('@entity/utils/notification', () => ({
   notificationIsRead: (n: { state: string }) => n.state !== 'unseen',
 }));
 
+import { channelListSection } from '../../../core/channel-sections';
 import { useChannelRailActivity } from './useChannelRailActivity';
+
+/** The fixtures are private channels with no participants listed. */
+const sectionOf = (channel: ChannelEntity) =>
+  channelListSection(channel, undefined);
 
 const row = (
   id: string,
@@ -66,11 +71,12 @@ describe('bounded channel unread indicators', () => {
       dispose = cleanup;
       return useChannelRailActivity(
         () => [row('reply', undefined), row('root', undefined)],
-        calls
+        calls,
+        sectionOf
       );
     });
     expect([...activity.unreadChannelIds()]).toEqual(['root']);
-    expect(activity.unreadCount('channels')).toBe(1);
+    expect(activity.unreadCount('private_channels')).toBe(1);
   });
 
   it.each(['seen', 'done'] as const)(
@@ -91,23 +97,23 @@ describe('bounded channel unread indicators', () => {
       ];
       const activity = createRoot((cleanup) => {
         dispose = cleanup;
-        return useChannelRailActivity(channels, calls);
+        return useChannelRailActivity(channels, calls, sectionOf);
       });
       expect([...activity.unreadChannelIds()]).toEqual(['one', 'dm']);
       setLocalState(state);
       expect([...activity.unreadChannelIds()]).toEqual([]);
-      expect(activity.unreadCount('channels')).toBe(0);
+      expect(activity.unreadCount('private_channels')).toBe(0);
       expect(activity.unreadCount('direct_messages')).toBe(0);
-      expect(activity.targetChannelId('channels')).toBeUndefined();
+      expect(activity.targetChannelId('private_channels')).toBeUndefined();
       expect(activity.targetChannelId('direct_messages')).toBeUndefined();
-      expect(activity.targetLabel('channels')).toBeUndefined();
+      expect(activity.targetLabel('private_channels')).toBeUndefined();
 
       // A failed write rolls back only local intent, without any list refresh.
       setLocalState(undefined);
       expect([...activity.unreadChannelIds()]).toEqual(['one', 'dm']);
-      expect(activity.unreadCount('channels')).toBe(1);
+      expect(activity.unreadCount('private_channels')).toBe(1);
       expect(activity.unreadCount('direct_messages')).toBe(1);
-      expect(activity.targetChannelId('channels')).toBe('one');
+      expect(activity.targetChannelId('private_channels')).toBe('one');
       expect(activity.targetChannelId('direct_messages')).toBe('dm');
       expect(source.notifications).not.toHaveBeenCalled();
     }
@@ -126,15 +132,15 @@ describe('bounded channel unread indicators', () => {
     const [channels, setChannels] = createSignal([row('one', [witness])]);
     const activity = createRoot((cleanup) => {
       dispose = cleanup;
-      return useChannelRailActivity(channels, calls);
+      return useChannelRailActivity(channels, calls, sectionOf);
     });
     setReadIds(new Set(['n1']));
-    expect(activity.unreadCount('channels')).toBe(0);
+    expect(activity.unreadCount('private_channels')).toBe(0);
     setChannels([row('one', [{ ...witness }])]);
-    expect(activity.unreadCount('channels')).toBe(0);
+    expect(activity.unreadCount('private_channels')).toBe(0);
     setChannels([row('one', [{ ...witness, id: 'n2' }])]);
-    expect(activity.unreadCount('channels')).toBe(1);
-    expect(activity.targetChannelId('channels')).toBe('one');
+    expect(activity.unreadCount('private_channels')).toBe(1);
+    expect(activity.targetChannelId('private_channels')).toBe('one');
     expect(source.notifications).not.toHaveBeenCalled();
   });
 
@@ -145,26 +151,26 @@ describe('bounded channel unread indicators', () => {
     ]);
     const activity = createRoot((cleanup) => {
       dispose = cleanup;
-      return useChannelRailActivity(channels, calls);
+      return useChannelRailActivity(channels, calls, sectionOf);
     });
     expect([...activity.unreadChannelIds()]).toEqual(['one']);
-    expect(activity.unreadCount('channels')).toBe(1);
-    expect(activity.targetChannelId('channels')).toBe('one');
+    expect(activity.unreadCount('private_channels')).toBe(1);
+    expect(activity.targetChannelId('private_channels')).toBe('one');
     expect(source.notifications).not.toHaveBeenCalled();
     // A mark-read can update the linked record before the bounded edge refresh.
     setChannels([
       row('one', [{ id: 'n1', state: 'seen', createdAt: '2026-01-01' }]),
       row('two', []),
     ]);
-    expect(activity.unreadCount('channels')).toBe(0);
+    expect(activity.unreadCount('private_channels')).toBe(0);
     // The refreshed edge finds another unread notification; then clears finally.
     setChannels([
       row('one', [{ id: 'older', state: 'unseen', createdAt: '2025-12-01' }]),
       row('two', []),
     ]);
-    expect(activity.unreadCount('channels')).toBe(1);
+    expect(activity.unreadCount('private_channels')).toBe(1);
     setChannels([row('one', []), row('two', [])]);
-    expect(activity.unreadCount('channels')).toBe(0);
+    expect(activity.unreadCount('private_channels')).toBe(0);
     expect(source.notifications).not.toHaveBeenCalled();
   });
 });

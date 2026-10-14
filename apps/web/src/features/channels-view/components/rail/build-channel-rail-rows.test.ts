@@ -1,6 +1,7 @@
 import type { ChannelEntity } from '@entity';
 import type { ChannelLabel } from '@service-storage/generated/schemas/channelLabel';
 import { describe, expect, it } from 'vitest';
+import { CHANNELS_DEFAULT_EXPANDED_GROUPS } from '../../constants';
 import {
   buildChannelRailRows,
   buildChannelSectionRows,
@@ -170,20 +171,20 @@ describe('buildChannelSectionRows', () => {
 });
 
 describe('buildChannelRailRows', () => {
-  const expanded = {
-    favorites: true,
-    channels: true,
-    direct_messages: true,
-  };
+  const expanded = CHANNELS_DEFAULT_EXPANDED_GROUPS;
 
   it('lists channels once in their section and source order', () => {
+    const dm = channel('dm', 'Bob', 'direct_message');
+    const secret = channel('secret', 'secret', 'private');
+    const guests = channel('guests', 'guests', 'private');
     const rows = buildChannelRailRows(
       'browse',
       expanded,
       {
         favorites: [],
-        channels: [acme, zeta],
-        direct_messages: [],
+        private_channels: [secret],
+        external_channels: [guests],
+        direct_messages: [dm],
         recents: [],
         threads: [],
       },
@@ -196,11 +197,75 @@ describe('buildChannelRailRows', () => {
     );
 
     expect(rows.map((row) => row.id)).toEqual([
-      'section:channels',
+      'section:team_channels',
       'channel:acme',
       'channel:zeta',
+      'section:private_channels',
+      'channel:secret',
+      'section:external_channels',
+      'channel:guests',
+      'section:direct_messages',
+      'channel:dm',
+    ]);
+    expect(rows.map((row) => row.kind === 'conversation' && row.scope)).toEqual(
+      [
+        false,
+        'team_channels',
+        'team_channels',
+        false,
+        'private_channels',
+        false,
+        'external_channels',
+        false,
+        'direct_messages',
+      ]
+    );
+  });
+
+  it('renders only the sections it is given, headings and all', () => {
+    const rows = buildChannelRailRows(
+      'browse',
+      expanded,
+      {
+        favorites: [],
+        private_channels: [channel('secret', 'secret', 'private')],
+        external_channels: [],
+        direct_messages: [],
+        recents: [],
+        threads: [],
+      },
+      [],
+      ['team_channels', 'direct_messages']
+    );
+
+    expect(rows.map((row) => row.id)).toEqual([
+      'section:team_channels',
       'section:direct_messages',
     ]);
+  });
+
+  it('drops a collapsed section’s rows but keeps its heading', () => {
+    const rows = buildChannelRailRows(
+      'browse',
+      { ...expanded, team_channels: false },
+      {
+        favorites: [],
+        private_channels: [],
+        external_channels: [],
+        direct_messages: [],
+        recents: [],
+        threads: [],
+      },
+      buildChannelSectionRows({
+        labels: [],
+        channels: [acme],
+        channelsById: byId,
+        isLabelOpen: () => true,
+      }),
+      ['team_channels']
+    );
+
+    expect(rows.map((row) => row.id)).toEqual(['section:team_channels']);
   });
 
   it('gives label headings and nested channels indexes into the rendered section', () => {
@@ -215,7 +280,8 @@ describe('buildChannelRailRows', () => {
       expanded,
       {
         favorites: [],
-        channels: [deals],
+        private_channels: [],
+        external_channels: [],
         direct_messages: [],
         recents: [],
         threads: [],
@@ -230,7 +296,7 @@ describe('buildChannelRailRows', () => {
         id: 'channel:acme:label:l1',
         localIndex: 1,
         labelId: 'l1',
-        scope: 'channels',
+        scope: 'team_channels',
       }),
       expect.objectContaining({
         kind: 'conversation',
@@ -247,7 +313,8 @@ describe('buildChannelRailRows', () => {
       expanded,
       {
         favorites: [],
-        channels: [acme],
+        private_channels: [],
+        external_channels: [],
         direct_messages: [],
         recents: [zeta, acme],
         threads: [],
@@ -264,7 +331,8 @@ describe('buildChannelRailRows', () => {
       expanded,
       {
         favorites: [],
-        channels: [acme],
+        private_channels: [],
+        external_channels: [],
         direct_messages: [],
         recents: [],
         threads: [dm, acme],
@@ -310,10 +378,11 @@ it('renders a channel in every matching smart tag with unique navigation IDs, ex
   ).toEqual(['deals']);
   const rows = buildChannelRailRows(
     'browse',
-    { favorites: true, channels: true, direct_messages: true },
+    CHANNELS_DEFAULT_EXPANDED_GROUPS,
     {
       favorites: [],
-      channels: [acme, zeta, deals],
+      private_channels: [],
+      external_channels: [],
       direct_messages: [],
       recents: [],
       threads: [],
