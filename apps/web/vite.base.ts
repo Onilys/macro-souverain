@@ -153,7 +153,7 @@ function loroAsyncWasm(): Plugin {
 }
 
 /** Public booking pages and receipts, which booking.html serves apart from the app. */
-const BOOKING_PAGE_PATH = /^(?:\/app)?\/(?:book|booking)\//;
+const BOOKING_PAGE_PATH = /^\/app\/(?:book|booking)\//;
 
 /**
  * Serves booking.html for booking paths in development, as the app's route
