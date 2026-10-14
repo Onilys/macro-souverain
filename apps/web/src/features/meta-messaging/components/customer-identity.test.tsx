@@ -12,7 +12,6 @@ it('keeps contact and account details behind one accessible provider icon', asyn
       name="Jamie Chen"
       phone="+1 202 555 0147"
       accountName="Macro"
-      testAccount={false}
     />
   ));
   const button = screen.getByRole('button', {
@@ -33,7 +32,6 @@ it('shows the full Instagram name and handle rather than forcing a first name', 
       name="Jamie Chen"
       handle="jamie.chen"
       accountName="macro"
-      testAccount
     />
   ));
   fireEvent.click(
@@ -41,5 +39,5 @@ it('shows the full Instagram name and handle rather than forcing a first name', 
   );
   expect(await screen.findByText('@jamie.chen')).toBeTruthy();
   expect(screen.getByText('Jamie Chen')).toBeTruthy();
-  expect(screen.getByText('Development test account')).toBeTruthy();
+  expect(screen.queryByText(/test account/i)).toBeNull();
 });

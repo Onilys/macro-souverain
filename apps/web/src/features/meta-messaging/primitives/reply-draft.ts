@@ -36,8 +36,12 @@ export function createReplyDraft(
         if (!userId) return;
         const raw = storage.read(userId);
         if (!raw) return;
-        const result = replyDraftSchema.safeParse(JSON.parse(raw));
-        return result.success ? result.data : undefined;
+        try {
+          const result = replyDraftSchema.safeParse(JSON.parse(raw));
+          return result.success ? result.data : undefined;
+        } catch {
+          return;
+        }
       },
       write: (value) => {
         if (userId) storage.write(userId, JSON.stringify(value));

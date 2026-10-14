@@ -102,7 +102,10 @@ export function ChannelDetailTitle(props: ChannelDetailHeaderProps) {
 
   return (
     <div class="ph-no-capture flex min-w-0 shrink items-center gap-2">
-      <ChannelMessagingIdentity channelId={props.channelId}>
+      <ChannelMessagingIdentity
+        channelId={props.channelId}
+        channelType={channelType()}
+      >
         <ChannelTopIcon
           channelId={props.channelId}
           channelType={channelType()}

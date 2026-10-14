@@ -9,9 +9,10 @@ import {
   createSignal,
   on,
 } from 'solid-js';
-import type {
-  ChannelInteraction,
-  ConversationAccount,
+import {
+  type ChannelInteraction,
+  type ConversationAccount,
+  mayHaveExternalBinding,
 } from '../core/conversation';
 import {
   deliveryTimelineKeys,
@@ -23,17 +24,25 @@ import {
 /** Own the external send feed and its handoff to the native message timeline. */
 export function createChannelMessaging(options: {
   channelId: Accessor<string>;
+  channelType: Accessor<string | undefined>;
   messages: Accessor<readonly MessageData[]>;
   entries: Accessor<readonly MessagingTimelineEntry[]>;
   includesLatest: Accessor<boolean>;
   visibleRange: Accessor<{ first: string; last: string } | undefined>;
 }) {
-  const messagingQuery = useMetaConversation(() => options.channelId());
+  const possible = () => mayHaveExternalBinding(options.channelType());
+  const messagingQuery = useMetaConversation(
+    () => options.channelId(),
+    possible
+  );
   const binding = createMemo<
     { channelId: string; account: typeof messagingQuery.data } | undefined
   >((previous) => {
     const channelId = options.channelId();
-    if (!messagingQuery.isError && queryReadyGate(messagingQuery)) {
+    if (!possible()) return { channelId, account: null };
+    // Cached data stays authoritative after a failed refetch; external sends
+    // remain unavailable until the server answers again.
+    if (queryReadyGate(messagingQuery)) {
       const account = messagingQuery.data;
       if (account && account.conversation.channel_id !== channelId)
         return undefined;

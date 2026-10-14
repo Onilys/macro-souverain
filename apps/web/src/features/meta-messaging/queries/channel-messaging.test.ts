@@ -15,7 +15,10 @@ const fixture = vi.hoisted(() => ({
   refetch: vi.fn(),
 }));
 vi.mock('@queries/meta-messaging', () => ({
-  useMetaConversation: () => ({
+  useMetaConversation: (_: unknown, enabled: () => boolean) => ({
+    get enabled() {
+      return enabled();
+    },
     get isPending() {
       return fixture.account() === undefined;
     },
@@ -86,7 +89,10 @@ const account = (sends = [send()]): MetaConversationView => ({
     customer_id: 'customer',
   },
 });
-function setup(initial?: MetaConversationView | null) {
+function setup(
+  initial?: MetaConversationView | null,
+  channelType: string | undefined = 'private'
+) {
   return createRoot((cleanup) => {
     dispose = cleanup;
     const [value, setAccount] = createSignal(initial);
@@ -97,6 +103,7 @@ function setup(initial?: MetaConversationView | null) {
     const [messages, setMessages] = createSignal<MessageData[]>([]);
     const state = createChannelMessaging({
       channelId,
+      channelType: () => channelType,
       messages,
       entries: () =>
         messages().map((message) => ({
@@ -188,4 +195,26 @@ it('uses one safe interaction contract across unknown, internal and external bin
   setAccount(undefined);
   setChannel('two');
   expect(state.interaction().kind).toBe('error');
+});
+
+it('keeps a cached internal binding when a remounted channel cannot refresh it', () => {
+  const { state, setError } = setup(null);
+  setError(true);
+  dispose();
+  const remounted = setup(null);
+  remounted.setError(true);
+  expect(remounted.state.interaction().kind).toBe('internal');
+  expect(state.interaction().kind).toBe('internal');
+});
+
+it('never makes direct messages or public channels depend on messaging lookups', () => {
+  for (const type of ['direct_message', 'public']) {
+    const { state, setError } = setup(undefined, type);
+    setError(true);
+    expect(state.interaction().kind).toBe('internal');
+    expect(state.account()).toBeUndefined();
+    dispose();
+  }
+  const { state } = setup(undefined, 'team');
+  expect(state.interaction().kind).toBe('loading');
 });

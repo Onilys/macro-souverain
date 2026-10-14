@@ -5,7 +5,7 @@ import type { MetaConversationView } from '@service-storage/generated/schemas/me
 import type { MetaProvider } from '@service-storage/generated/schemas/metaProvider';
 import type { MetaSendReply } from '@service-storage/generated/schemas/metaSendReply';
 import { metaMessagingClient } from '@service-storage/meta-messaging';
-import { useMutation, useQuery } from '@tanstack/solid-query';
+import { queryOptions, useMutation, useQuery } from '@tanstack/solid-query';
 import type { Accessor } from 'solid-js';
 import { queryClient } from '../client';
 import { metaMessagingKeys } from './keys';
@@ -23,10 +23,14 @@ export function useMetaConnections(
   teamId: Accessor<string>,
   enabled: Accessor<boolean>
 ) {
-  return useQuery(() => ({
-    queryKey: metaMessagingKeys.connections(teamId()).queryKey,
+  return useQuery(() => connectionsQueryOptions(teamId(), enabled()));
+}
+
+function connectionsQueryOptions(teamId: string, enabled: boolean) {
+  return queryOptions({
+    queryKey: metaMessagingKeys.connections(teamId).queryKey,
     queryFn: () => throwOnErr(() => metaMessagingClient.connections()),
-    enabled: enabled() && !!teamId(),
+    enabled: enabled && !!teamId,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
@@ -35,19 +39,26 @@ export function useMetaConnections(
       query.state.data?.some((account) => account.status === 'connecting')
         ? 3_000
         : 30_000,
-  }));
+  });
 }
 
-export function useMetaConversation(channelId: Accessor<string>) {
-  return useQuery(() => ({
-    queryKey: metaMessagingKeys.conversation(channelId()).queryKey,
+export function useMetaConversation(
+  channelId: Accessor<string>,
+  enabled: Accessor<boolean> = () => true
+) {
+  return useQuery(() => conversationQueryOptions(channelId(), enabled()));
+}
+
+function conversationQueryOptions(channelId: string, enabled: boolean) {
+  return queryOptions({
+    queryKey: metaMessagingKeys.conversation(channelId).queryKey,
     queryFn: async (): Promise<MetaConversationView | null> => {
       const result = await throwOnErr(() =>
-        metaMessagingClient.conversation(channelId())
+        metaMessagingClient.conversation(channelId)
       );
       return result.messaging ?? null;
     },
-    enabled: !!channelId(),
+    enabled: !!channelId && enabled,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
@@ -58,19 +69,23 @@ export function useMetaConversation(channelId: Accessor<string>) {
           ? 30_000
           : deliveryPollInterval(query.state.data.sends) || 30_000
         : false,
-  }));
+  });
 }
 
 export function useMetaTemplates(
   channelId: Accessor<string>,
   enabled: Accessor<boolean>
 ) {
-  return useQuery(() => ({
-    queryKey: metaMessagingKeys.templates(channelId()).queryKey,
-    queryFn: () => throwOnErr(() => metaMessagingClient.templates(channelId())),
-    enabled: enabled(),
+  return useQuery(() => templatesQueryOptions(channelId(), enabled()));
+}
+
+function templatesQueryOptions(channelId: string, enabled: boolean) {
+  return queryOptions({
+    queryKey: metaMessagingKeys.templates(channelId).queryKey,
+    queryFn: () => throwOnErr(() => metaMessagingClient.templates(channelId)),
+    enabled,
     staleTime: 30_000,
-  }));
+  });
 }
 
 /** Fetch only visible history absent from the recent send feed. */
@@ -80,22 +95,28 @@ export function useMetaDelivery(
 ) {
   const fingerprint = () => `${channelId()}:${messageIds().join(',')}`;
   const settled = debouncedDependent(fingerprint, 150);
-  return useQuery(() => {
-    const channel = channelId();
-    const ids = messageIds();
-    return {
-      queryKey: metaMessagingKeys.delivery(channel, ids).queryKey,
-      queryFn: () =>
-        throwOnErr(() => metaMessagingClient.delivery(channel, ids)),
-      enabled: !!channel && ids.length > 0 && fingerprint() === settled(),
-      staleTime: 30_000,
-      refetchOnWindowFocus: true,
-      refetchIntervalInBackground: false,
-      refetchInterval: (query) =>
-        query.state.status === 'error'
-          ? false
-          : deliveryPollInterval(query.state.data ?? []),
-    };
+  return useQuery(() =>
+    deliveryQueryOptions(channelId(), messageIds(), fingerprint() === settled())
+  );
+}
+
+function deliveryQueryOptions(
+  channelId: string,
+  messageIds: string[],
+  settled: boolean
+) {
+  return queryOptions({
+    queryKey: metaMessagingKeys.delivery(channelId, messageIds).queryKey,
+    queryFn: () =>
+      throwOnErr(() => metaMessagingClient.delivery(channelId, messageIds)),
+    enabled: !!channelId && messageIds.length > 0 && settled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    refetchInterval: (query) =>
+      query.state.status === 'error'
+        ? false
+        : deliveryPollInterval(query.state.data ?? []),
   });
 }
 

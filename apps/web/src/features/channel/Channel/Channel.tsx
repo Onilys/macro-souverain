@@ -273,8 +273,10 @@ export function Channel(props: ChannelProps) {
   const messageById = () => messageIndex.byId;
   // Loaded messages, oldest first; activity rows are not unread targets.
   const messages = createMemo(() => [...messageIndex.byId.values()]);
+  const channelType = useChannelType(props.channelId);
   const messaging = createChannelMessaging({
     channelId: () => props.channelId,
+    channelType,
     messages,
     entries: () =>
       messageIndex.entries.map((entry) => ({
@@ -402,7 +404,6 @@ export function Channel(props: ChannelProps) {
   });
 
   const channelName = useChannelName(props.channelId);
-  const channelType = useChannelType(props.channelId);
   const { popoverSplit } = useSplitLayout();
 
   // Placeholder name: channels render as "#name"; a 1:1 DM named "First Last"

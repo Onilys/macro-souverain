@@ -13,7 +13,6 @@ export function CustomerIdentity(props: {
   phone?: string | null;
   handle?: string | null;
   accountName: string;
-  testAccount: boolean;
 }) {
   return (
     <Popover placement="bottom-start" gutter={8}>
@@ -43,9 +42,6 @@ export function CustomerIdentity(props: {
             {providerName(props.provider)} messages sent from{' '}
             {displayAuthorName(props.accountName)}.
           </Popover.Description>
-          <Show when={props.testAccount}>
-            <p class="mt-2 text-xs text-ink-muted">Development test account</p>
-          </Show>
         </Popover.Content>
       </Popover.Portal>
     </Popover>
