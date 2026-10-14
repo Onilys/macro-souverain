@@ -400,9 +400,8 @@ longer notifies the thread. Settings → notifications lists them under `AI`.
 ## Tasks — `/app/component/tasks`
 
 Task navigation uses `My Tasks`, `All Tasks`, and `Created by me`. The desktop
-sidebar has a full-width `New task` action, a collapsible list of task favorites,
-and a collapsible list of tags. Selecting a tag filters the current task view;
-selecting it again clears that tag filter. Favorite rows open their tasks.
+sidebar has a full-width `New task` action and a collapsible list of task favorites;
+tag filtering lives in the `Filter` menu. Favorite rows open their tasks.
 Normal row and favorite activation replaces the list with the editable task
 document; its originating-tab breadcrumb returns to the list and its
 header exposes Share and the task Details/Properties panel. Shift-click opens
@@ -425,10 +424,10 @@ The mobile task drawer retains its existing layout.
 
 ## Email — `/app/component/mail`
 
-Email's Tags sidebar uses the same [nested tag tree as Tasks](tasks.md#nested-sidebar-tags).
+Email's Tags sidebar uses the [nested tag tree](tasks.md#nested-sidebar-tags).
 Carets and folder-only parents expand branches; actual tags select their exact ID
 and switch the mailbox to All. Parent selection does not include descendant tags.
-Unlike Tasks and Drive, it lists only personal tags; team-shared tags are hidden,
+Unlike Calls, it lists only personal tags; team-shared tags are hidden,
 and its `New tag` action creates a personal tag with no Team sharing option.
 
 Full email client. Tabs: `Focus` (flagged) / `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled` / `Calendar` / `Drafts` / `Shared` /
@@ -602,6 +601,12 @@ native offline archive support therefore requires a full app build, not just OTA
 
 ### Cached Mail filtering
 
+The per-query caches for email threads, channels, and native offline document
+context reopen closed IndexedDB connections. Verify a cached read and a subsequent
+write after closing the connection, then clear/logout during recovery: old-account
+entries must not return. Only transaction creation retries automatically; persistent
+storage failures still follow the existing cache fallback behavior.
+
 Performance check: switch Signal → All twice against a large synchronized cache.
 Dense local pages use bounded sort-index candidates rather than sorting the entire
 mailbox. Sparse filters and large timestamp ties retain the exact fallback plan.
@@ -753,6 +758,15 @@ when delivery fails. Later edits can show it again after the usual pause.
 Verify the label does not cycle through saving/syncing text on each edit and
 that retry remains accessible beside the actions on mobile. Editing while failed
 continues saving locally without repeatedly submitting the rejected request.
+Local draft storage reopens unexpectedly closed IndexedDB connections. If creating
+a transaction fails because the connection is closing, it retries once before
+running any writes. Verify by closing the draft database connection, then editing:
+the latest content must persist locally and server autosave must continue without
+reloading. Repeat across background/resume on an iPhone. A transaction that has
+already started is never automatically replayed. Persistent failures still block
+server autosave; copy unsaved content before restarting. Storage failures and
+recovery report current page visibility and network state without draft content.
+
 Repeated local-save failures show one persistent warning per composer; recovery
 or closing that composer dismisses it. A later failure shows a new warning.
 Retry preserves the original draft handle. An already-sent rejection drops the
@@ -1135,13 +1149,9 @@ touch uses the global search overlay and creation uses the dock's New button.
 The **Folders** pill opens the folder overview and stays highlighted inside
 any folder; tapping it from inside a folder returns to the overview, and
 selecting another pill leaves the folder tree. The sidebar contains `New file or folder`, `My Files`, `Recent`,
-`Shared with me`, collapsible Favorites, a searchable folder hierarchy, and a
-collapsible Tags section beneath the folders. Tags lists every tag you can apply,
-nested by `/` in the tag name, with a `New tag` action in its header. Choosing a
-tag shows only that tag's files within the current tab or folder and exits any
-inline file detail; choosing the highlighted tag again clears it, and the same
-selection appears under the **Filter** menu's Tags submenu. Navigating to another
-tab or folder clears tag filters. A folder with no files matching the active tag
+`Shared with me`, collapsible Favorites, and a searchable folder hierarchy. Filter
+by tag from the **Filter** menu's Tags submenu; navigating to another tab or folder
+clears tag filters. A folder with no files matching the active tag
 shows the list's no-match state rather than `This folder is empty`.
 Drive omits split-history back/forward buttons in both wide and narrow layouts;
 the split close button remains available when multiple splits are open.
@@ -1189,9 +1199,10 @@ is restricted to your own files. Recent offers only file-scope filtering.
 Hold Shift while selecting or deselecting Type options to keep the submenu open
 and combine several file types without reopening it. Desktop filter submenus allow a
 250 ms grace period when the mouse crosses the parent menu's padding; entering
-the submenu cancels the pending close. Hovering another category immediately
-switches to that category, including when the submenu opens to the left.
-Escape and outside clicks still dismiss immediately.
+the submenu cancels the pending close. While the mouse heads toward an open
+submenu, including one that opens to the left, the categories it crosses on the
+way do not take over. A category the mouse moves to directly, or rests on for
+300 ms, opens in its place. Escape and outside clicks still dismiss immediately.
 `Sort files` offers modified, created, and viewed dates.
 Recent uses the viewer's own interaction order and does not offer a sort override.
 The New menu and drag/drop uploads target the selected folder. **New → Folder**
@@ -1341,7 +1352,8 @@ Calendar scheduling is on by default in dev. Production uses the PostHog flag
 While off, the Calendar settings tab and calendar booking shortcuts are hidden;
 public booking and receipt links show an unavailable page without fetching
 scheduling data. When enabling a production rollout, include anonymous visitors
-so invitees can open those links.
+so invitees can open those links. A public booking link stays available when
+the flag request gets no answer, for example when a browser blocks it.
 
 Calendar connections live in **Settings → Calendar** (`/app/settings/calendar`).
 Scheduling lives in the separate **Settings → Booking links** item
@@ -1373,7 +1385,10 @@ Links and availability use flat rows, with actions beside each item.
 Booking pages, bookings, and insights show only the selected owner. Search filters
 that owner’s links and clears when switching owners. Team owners/admins can edit
 team links; ordinary members can view them. `Links` creates, edits, pauses,
-duplicates, previews, and copies booking links. Event settings include
+duplicates, previews, and copies booking links. Event settings include a
+video choice. New links default to a Macro call, which is created when
+someone books and attached to the calendar invitation. Google Meet and no
+video link remain available. Event settings also include
 weekly availability, collective/all-host or round-robin/one-host assignment,
 notice, buffers, booking horizon, daily limits, and custom questions. New event
 types stay paused until `Accept bookings` is selected and changes are saved.
@@ -1403,7 +1418,10 @@ Oversized result sets return an error instead of silently truncating insights.
 
 The calendar header includes `Copy booking link` and `Open calendar scheduling
 settings`. Copy opens settings when no active personal link exists. Public
-`/app/book/:profile/:slug?` pages accept bookings without Macro sign-in. Uncertain
+`/app/book/:profile/:slug?` pages accept bookings without Macro sign-in. The website
+opens them in its own dialog; framed there, a booking page and its receipt drop their
+Macro heading and footer, and the booking page tells the website when a booking is
+made. Only macro.com can frame them. Uncertain
 calendar writes retain the booking and show its private receipt while automatic recovery runs.
 After a network response cannot be verified, `Check booking status` retries the original request;
 do not create a replacement booking. Receipt pages poll while the calendar update is pending. Visitors
@@ -1795,11 +1813,12 @@ a `Channels` section listing channels seen in loaded calls, and `Tags`. Choosing
 a type, channel, or tag shows only that one; choosing it again clears it. These
 refinements carry across the three views. Sort, group, filter, and `New call`
 sit in the list's top bar. Phones keep pill tabs and the header search.
-`New call` offers `Call a channel or contact`
-and, with `enable-quick-calls` enabled, `Manage call links`. Create Quick Calls
-with `New Call` beside Calendar's
-`New event`, or with `Create` → `Call` (`C C`). Scheduled calls are created through
-Calendar and can be shared with people who do not have a Macro account.
+With `enable-quick-calls` enabled, `New call` opens a menu with `Start an instant
+call`, `Call a channel or contact`, and `Manage call links`; without the flag it
+opens the recipient picker directly. `Start an instant call` opens `/app/meet/new`
+without creating a meeting, the same setup reached from `New Call` beside
+Calendar's `New event` or `Create` → `Call` (`C C`). Scheduled calls are created
+through Calendar and can be shared with people who do not have a Macro account.
 The channel/contact option opens the recipient picker.
 Recordings, transcriptions
 and summaries appear here; empty state notes "Calls are available to agents."
@@ -2032,6 +2051,8 @@ strip names the pipeline (a lock marks a private one); below it, the row's first
 four fields sit side by side, label over value, and the rest wait behind
 `Show N more`. Cells edit like the pipeline table's when you can edit that
 pipeline. Inside Customers, the header's `Open <pipeline>` button opens it. The
+`Pipelines` caret header collapses and expands the cards, like the Discussion
+header; both start expanded on each visit. The
 section is absent when the record is in no pipeline. Team lists the contacts with `Add contact`. Emails keeps the
 `Signal`/`All` and `Team`/`Me` toggles. Files lists non-task documents whose
 `Companies` property references the company, plus attachments of emails with
@@ -2229,6 +2250,13 @@ afterwards in **Settings → Billing**, where Guest users can buy Premium or Max
 
 ### Slack archive import
 
+Temporary message storage recovers closed IndexedDB connections without restarting
+the import or deleting staged history. Verify closure between staging batches and
+between cursor pages: all messages must remain ordered, deduplicated, and within
+the original byte limit. Cancellation and cleanup still work during recovery.
+Deleted or replaced scratch databases fail the old import instead of silently
+continuing with incomplete history; its cleanup must leave a replacement intact.
+
 In **Team → Connections**, **Import from Slack** appears only for team admins
 and owners with `enable-slack-archive-import` enabled. Production rollout stays
 off until explicitly enabled. Select an export ZIP, filter the grouped conversation
@@ -2372,10 +2400,12 @@ split view: the rail's gear button (or `Ctrl ;`) opens it in the active split
 like any other rail item, and Shift-click opens it in a new split.
 `/app/settings/<tab>` opens it as the only split with the app rail still
 visible, and `/app/home/~/settings/<tab>` places it beside Home. Its inner
-sidebar matches Email and Tasks: a **Settings** title bar with the
-**Hide navigation** toggle (`Cmd .`), a rounded **Search settings** field, the
-grouped section pills, and **Log out** pinned to the bottom. Below 720px the
-sidebar becomes an overlay opened from **Show navigation**. Escape closes a
+sidebar matches Email and Tasks: a **Settings** title bar, a rounded
+**Search settings** field, the grouped section pills, and **Log out** pinned to
+the bottom. Unlike other views, it cannot be hidden at desktop widths: there is
+no **Hide navigation** toggle and `Cmd .` does nothing, even if it was hidden
+before. Below 720px the sidebar becomes an overlay opened from **Show
+navigation** (or `Cmd .`), which starts closed. Escape closes a
 settings split that shares the layout, or steps back to the previous view when
 it is the only split (Home when there is none). Leave settings by picking any
 other rail item; there is no separate back or fullscreen control.
@@ -2406,6 +2436,10 @@ local persistence; active calls, uploads, and imports must finish first. A ready
 update also installs on normal app quit. Closing a window only triggers
 installation if it exits the app. Browser, mobile, and development builds do not
 show this native updater row.
+
+Below Profile, **Account** shows a card naming the current plan (**Free plan**,
+**Pro plan**, or **Max plan**; **Loading plan…** until the billing summary
+arrives). Clicking it opens **Billing** settings.
 
 Left nav (feature and platform gates still apply):
 
@@ -2571,7 +2605,8 @@ Team members who cannot manage billing see the notice without its action.
 and admins/owners can move a seat between Pro and Max with the `Seat plan`
 menu; Max upgrades are immediate and prorated, Pro downgrades start at renewal.
 **Keep Max** appears only for a confirmed pending downgrade and cancels it;
-failed scheduled-plan reads offer **Try again**). CRM (enable/disable; once enabled, a `Deal stages` section
+failed scheduled-plan reads offer **Try again**, while teams without applicable
+scheduled plans show no retry notice). CRM (enable/disable; once enabled, a `Deal stages` section
 with `Customize stages`, inline rename, reorder by drag handle or arrow keys (up/down
 buttons on touch), delete, `Add stage`, `Reset to defaults`, and `Closed stages`
 checkboxes, editable by the role set as `edit_stages_role`)
@@ -2686,9 +2721,9 @@ session were not exercised by that UI check.
 ## Notifications
 
 In the desktop app, **Settings → Notifications → Delivery → Desktop notifications**
-controls system notification delivery for this installation. When the Notifications
-page is disabled by its feature flag, the existing **Account → Notifications**
-switch controls the same preference.
+controls system notification delivery for this installation. The Notifications
+page is always present, in the same place on web, desktop, and mobile; Account
+has no notification switch.
 Turning it off takes effect immediately and persists across app restarts; turning
 it on requests permission and resumes delivery when authorized. On macOS the
 switch reads the actual system authorization, and enabling it requests macOS

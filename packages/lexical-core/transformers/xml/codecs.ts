@@ -376,6 +376,7 @@ export function serializeNode(node: SerNode): FxpNode {
         nodeAttrs(n, {
           ...(n.id && { prId: n.id }),
           ...(n.label && { label: n.label }),
+          ...(n.url && { url: n.url }),
         })
       )
     )

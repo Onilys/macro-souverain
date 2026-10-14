@@ -149,6 +149,49 @@ fn project_workflows_are_available_in_every_host_alongside_folder_and_property_t
     }
 }
 
+/// Every host, including MCP, can take the item actions the app's menus
+/// offer: editing channel messages and comments, trashing, duplicating,
+/// renaming, sharing, favoriting, and muting items, DMs, CRM records, calls,
+/// skills, and routines.
+#[test]
+fn app_item_actions_are_available_in_every_host() {
+    let names = [
+        "EditChannelMessage",
+        "DeleteChannelMessage",
+        "ReactToChannelMessage",
+        "OpenDirectMessage",
+        "EditDocumentComment",
+        "DeleteDocumentComment",
+        "CreateSkill",
+        "MoveToTrash",
+        "DuplicateItem",
+        "RenameItem",
+        "UpdateSharing",
+        "SetFavorite",
+        "MuteNotifications",
+        "RunRoutine",
+        "DeleteRoutine",
+        "CreateCompany",
+        "CreateContact",
+        "UpdateCallRecord",
+        "DeleteCallRecord",
+    ];
+    for host in [
+        AiHost::Chat,
+        AiHost::AgentSession,
+        AiHost::ChannelBot,
+        AiHost::Mcp,
+    ] {
+        let tools = tools_for(host);
+        for name in names {
+            assert!(
+                tools.toolset.tools.contains_key(name),
+                "{host:?} must expose {name}"
+            );
+        }
+    }
+}
+
 /// Every host reads the design files the native engines open, and its
 /// prompt says which tool reads which format.
 #[test]

@@ -6457,6 +6457,11 @@
       "crates/remote_env_var",
       "crates/workspace-hack"
     ],
+    "feature_flags": [
+      "crates/cowlike",
+      "crates/feature_flags",
+      "crates/macro_user_id"
+    ],
     "fig_engine": [
       "crates/fig_engine"
     ],

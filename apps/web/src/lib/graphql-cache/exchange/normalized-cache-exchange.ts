@@ -78,7 +78,10 @@ import {
   type QueryRevalidationWire,
 } from '../protocol';
 import { createDeferredQueryRereads } from './deferred-query-rereads';
-import { createDocumentQueryReader } from './document-query-reader';
+import {
+  createDocumentQueryReader,
+  QueryReadInvalidatedError,
+} from './document-query-reader';
 import {
   compileEntityResolvers,
   type EntityResolverConfig,
@@ -417,6 +420,12 @@ export function normalizedCacheExchange(
     /** Operations registered with the host, for push-driven re-execution. */
     const activeOps = new Map<number, Operation>();
     const documentReader = createDocumentQueryReader(host);
+    // Teardown and generation changes cancel document reads in flight. The
+    // read is already stale then, so the cancellation is not a cache failure.
+    const reportReadError = (error: unknown, op: Operation): void => {
+      if (!(error instanceof QueryReadInvalidatedError))
+        options.onCacheError?.(error, op);
+    };
     let cacheGeneration = 0;
     let mutationVersion = 0;
     host.onMutationSettled((settlement) => {
@@ -662,7 +671,7 @@ export function normalizedCacheExchange(
             )
           );
         })
-        .catch((error) => options.onCacheError?.(error, operation));
+        .catch((error) => reportReadError(error, operation));
     };
 
     // Deliver cache changes directly. Reexecuting through urql first replays
@@ -689,7 +698,7 @@ export function normalizedCacheExchange(
           return;
         }
       } catch (error) {
-        options.onCacheError?.(error, operation);
+        reportReadError(error, operation);
         if (!isCurrent()) return;
       }
       reexecuteAffected(key);
@@ -988,7 +997,7 @@ export function normalizedCacheExchange(
             return cacheResult(op, undefined, false);
           }
         } catch (error) {
-          options.onCacheError?.(error, op);
+          reportReadError(error, op);
           if (
             isOwnerEpochLostError(error) &&
             queryStates.get(op.key) === readState &&
@@ -1238,7 +1247,10 @@ export function normalizedCacheExchange(
                     live.view.replace(read.data);
                   }
                 })
-                .catch(reportError);
+                .catch((error) => {
+                  if (!(error instanceof QueryReadInvalidatedError))
+                    reportError(error);
+                });
             }
             if (state.retainedReplacementFallback === retained) {
               state.retainedReplacementFallback = undefined;

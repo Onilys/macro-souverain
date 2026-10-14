@@ -213,7 +213,8 @@ headings. Tags and folders have a separate disclosure button on the **right** of
 the row: clicking the label selects the destination; clicking Expand/Collapse
 only opens or closes its children. Selecting a Drive folder or tab closes an
 inline detail into that destination; it does not navigate back to Drive's root.
-Drive's **New** menu (sidebar, or the header in narrow layouts) is headed
+Drive's **New** menu (in the sidebar and after the header's Sort and Filter
+buttons; beside the title in narrow layouts) is headed
 **Create in &lt;folder&gt;** and creates everything in the open folder; on a tab or
 the Drive root it reads **Create in Drive**. **Folder** opens a **New folder**
 dialog with `Untitled folder` preselected; creating keeps Drive where it is, adds
@@ -269,6 +270,8 @@ Shrinking again starts with the overlay closed. Chat is the exception while no
 conversation is selected: its navigation stays docked with no **Hide
 navigation** control, and narrow Chat opens the overlay on its own (see
 [Chat navigation rail](channels.md#chat-navigation-rail)).
+Settings navigation always stays docked at desktop width with no **Hide
+navigation** control; only its narrow overlay opens and closes.
 The overlay never contains the split's **Close** button. Mobile keeps
 its existing navigation controls. Block detail panels (including Calendar) have
 **Hide side panel** in their own header and a hamburger **Show side panel** beside
@@ -338,8 +341,18 @@ use the standard 400 ms hover delay and 300 ms grace period between items. Home,
 Email, and Chat show a small accent dot when the loaded data contains an unread
 item. Home uses Signal; Email uses Important across all linked inboxes.
 Noise does not light either dot. These are presence indicators, not counts; they
-do not fetch additional pages to find every unread item. Opening a view alone does
-not clear its dot — reading or completing the represented items does. The button's
+do not fetch additional pages to find every unread item. With GraphQL enabled,
+Home uses `HomeUnreadPresence` over its existing 100-item Signal/unread candidate
+page, with one state-only notification witness per entity (plus one reminder
+witness for email). It must not fetch full notification history just to draw the
+dot. Channel/thread scoping happens before the witness limit; seen thread reasons
+still affect that scoping. Reading or completing a witness refreshes the bounded
+edge so an older unread item can keep the dot lit. These witnesses must never be
+used as the complete mark-read/done input. The experimental notification-time
+sort remains on its existing REST path; disabling GraphQL or enabling that sort
+must not construct an unsupported GraphQL input or blank the app shell.
+Opening a view alone does not clear its dot — reading or completing the represented
+items does. The button's
 accessible description is `Unread items` while its dot is active.
 The Home dot stops checking rows at the first eligible unread item, using the
 same Signal membership, channel/thread scoping, and local read/done overrides as

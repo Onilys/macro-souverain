@@ -62,6 +62,19 @@
 - Every backend request carries a `traceparent` header and returns `x-request-id` — grab them
   from `get_network_request` for backend correlation (see observability.md).
 
+## GraphQL subscription compression
+
+- For `/soup/graphql/ws`, check the **response** handshake header
+  `Sec-WebSocket-Extensions` for `permessage-deflate`. The browser's request
+  offering it is not proof the server accepted it. On a native `WebSocket`
+  object, `socket.extensions` reports the negotiated extension after `open`.
+- Both `graphql-transport-ws` and legacy `graphql-ws` support compression. The
+  browser decompresses messages before delivering `message` events; keep using
+  normal JSON parsing. DevTools' decoded message payloads do not show wire savings.
+- No extension in the response means an uncompressed fallback, not a failed
+  subscription. This change is specific to GraphQL; don't expect the connection
+  gateway or agent sockets to negotiate compression.
+
 ## Hygiene
 
 - Work in the user-visible tab (no isolated contexts) when a human is watching via VNC.

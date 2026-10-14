@@ -1,7 +1,7 @@
 use ::crm::domain::{auth::CrmTeamReceipt, pipelines::*};
 use databases::domain::{
     models::{AppliedOps, OpBatch, RowId, TableDetail},
-    storage::{StorageRows, StorageRowsQuery},
+    storage::{StorageRow, StorageRows, StorageRowsQuery},
 };
 use entity_access::domain::models::{
     EditAccessLevel, MemberTeamRole, OwnerAccessLevel, ViewAccessLevel,
@@ -68,9 +68,24 @@ impl PipelineService for RecordingPipelines {
     ) -> Result<StorageRows, PipelineError> {
         unimplemented!()
     }
+    async fn read_rows(
+        &self,
+        _: EntityAccessReceipt<ViewAccessLevel>,
+        _: &[RowId],
+    ) -> Result<Vec<StorageRow>, PipelineError> {
+        unimplemented!()
+    }
+    async fn record_rows(
+        &self,
+        _: EntityAccessReceipt<ViewAccessLevel>,
+        _: &[Uuid],
+    ) -> Result<Vec<PipelineReference>, PipelineError> {
+        unimplemented!()
+    }
     async fn apply_ops(
         &self,
         _: EntityAccessReceipt<EditAccessLevel>,
+        _: Option<bot_id::BotId>,
         _: OpBatch,
     ) -> Result<AppliedOps, PipelineError> {
         unimplemented!()

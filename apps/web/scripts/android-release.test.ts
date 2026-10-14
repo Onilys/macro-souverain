@@ -50,7 +50,7 @@ describe('Android release versions', () => {
       expect(androidReleaseMetadata(tag, releaseConfig)).toEqual({
         version: '2.5.0',
         versionCode: 7,
-        filename: `macro-${tag}-android-arm64.apk`,
+        filename: `macro-${tag}-android-arm64.aab`,
       });
     }
   );

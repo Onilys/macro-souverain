@@ -269,17 +269,21 @@ pub async fn build_tool_service_context_from_env(
         ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(pool.clone())),
         PgGithubPullRequestRepo::new(pool.clone()),
     );
-    let soup_service = Arc::new(SoupImpl::new(
-        PgSoupRepo::new(ReadOnlyPool(pool.clone())),
-        frecency_service,
-        ReadonlyEmailPreviewAdapter(email_service),
-        channels_service,
-        call::domain::service::CallRecordQueryServiceImpl::new(
-            call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
-        ),
-        crm::domain::service::NoOpCrmService,
-        github_pull_request_service,
-    ));
+    let favorites_service = crate::tool_context::build_favorites_service(pool.clone());
+    let soup_service = Arc::new(
+        SoupImpl::new(
+            PgSoupRepo::new(ReadOnlyPool(pool.clone())),
+            frecency_service,
+            ReadonlyEmailPreviewAdapter(email_service),
+            channels_service,
+            call::domain::service::CallRecordQueryServiceImpl::new(
+                call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
+            ),
+            crm::domain::service::NoOpCrmService,
+            github_pull_request_service,
+        )
+        .with_favorites(favorites_service.clone()),
+    );
 
     let s3_client = macro_aws_config::s3_client().await;
     let document_files = documents::outbound::s3_document_files::S3DocumentFiles::new(
@@ -506,6 +510,12 @@ pub async fn build_tool_service_context_from_env(
         soup_service.clone(),
         pool.clone(),
     );
+    let crm_tool_context = crate::tool_context::build_crm_tool_context(pool.clone());
+    let pipeline_tool_context = crate::tool_context::build_pipeline_tool_context(
+        pool.clone(),
+        &databases_tool_context,
+        &crm_tool_context,
+    );
 
     let forms_tool_context = crate::tool_context::build_forms_tool_context(
         pool.clone(),
@@ -618,6 +628,8 @@ pub async fn build_tool_service_context_from_env(
             environment,
         ),
         notification_tool_context,
+        item_notification_preference_tool_context:
+            crate::tool_context::build_item_notification_preference_tool_context(pool.clone()),
         databases_tool_context,
         forms_tool_context,
         databases_sql_tool_context,
@@ -636,9 +648,14 @@ pub async fn build_tool_service_context_from_env(
             env.internal_api_key.to_string(),
         )?,
         project_tool_context,
+        favorites_tool_context: crate::tool_context::build_favorites_tool_context(
+            favorites_service,
+            entity_access_service.clone(),
+        ),
         initiative_tool_context,
         team_tool_context: crate::tool_context::build_team_tool_context(pool.clone()),
-        crm_tool_context: crate::tool_context::build_crm_tool_context(pool.clone()),
+        crm_tool_context,
+        pipeline_tool_context,
         skill_tool_context,
         schedule_tool_context: crate::build_routine_tool_context()?,
         anthropic_tool_context,

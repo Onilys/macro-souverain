@@ -10,13 +10,13 @@ import { HomeSectionRule } from '../components/sections/HomeSectionRule';
 import { type FaqItem, SectionFaq } from '../components/sections/SectionFaq';
 import { SectionMoreFeatures } from '../components/sections/SectionMoreFeatures';
 import { buildCalLinkWithAttribution } from '../utils/utilAnalytic';
+import { demoHref } from '../utils/utilCta';
 import { setPageSeo } from '../utils/utilSeo';
 import '../../routes/posts/posts-shell.css';
 import './partners-hero.css';
 
 const SUPPORT_EMAIL = 'support@macro.com';
 const KICKOFF_URL = 'https://cal.com/team/macro/partnerships-program';
-const DEMO_URL = 'https://cal.com/team/macro/macro-demo-call';
 
 const partnerFaq: FaqItem[] = [
   {
@@ -493,11 +493,7 @@ export const RoutePartners: Component = () => {
             <li>
               <span>
                 Book a partner screening call with our team{' '}
-                <a
-                  href={buildCalLinkWithAttribution(DEMO_URL)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={demoHref()} target="_blank" rel="noreferrer">
                   here
                 </a>
                 .

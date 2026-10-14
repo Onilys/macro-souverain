@@ -4,6 +4,7 @@
 mod test;
 
 use super::{auth::CrmTeamReceipt, stages::StageDefinitionStore};
+use bot_id::BotId;
 use chrono::{DateTime, Utc};
 use databases::domain::{
     models::{
@@ -11,7 +12,7 @@ use databases::domain::{
         TableDetail, TableId, Viewer,
     },
     provisioning::{ProvisionedColumn, StorageBlueprint},
-    storage::{DatabaseStorageService, StorageRows, StorageRowsQuery},
+    storage::{DatabaseStorageService, StorageRow, StorageRows, StorageRowsQuery},
 };
 use entity_access::domain::{
     models::{
@@ -282,11 +283,27 @@ pub trait PipelineService: Send + Sync + 'static {
         receipt: EntityAccessReceipt<ViewAccessLevel>,
         query: StorageRowsQuery,
     ) -> impl Future<Output = Result<StorageRows, PipelineError>> + Send;
+    /// The cells of those of `rows` that are this pipeline's, in row order.
+    fn read_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        rows: &[RowId],
+    ) -> impl Future<Output = Result<Vec<StorageRow>, PipelineError>> + Send;
+    /// This pipeline's rows whose primary column references one of
+    /// `records`, in row order.
+    fn record_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        records: &[Uuid],
+    ) -> impl Future<Output = Result<Vec<PipelineReference>, PipelineError>> + Send;
 
     /// Validate pipeline policy, then use the shared storage operation planner.
+    /// `acting_bot` is the agent making the change for the receipt's user,
+    /// recorded for attribution only.
     fn apply_ops(
         &self,
         receipt: EntityAccessReceipt<EditAccessLevel>,
+        acting_bot: Option<BotId>,
         batch: OpBatch,
     ) -> impl Future<Output = Result<AppliedOps, PipelineError>> + Send;
     /// Rename pipeline metadata.
@@ -727,9 +744,46 @@ where
             .await?)
     }
 
+    async fn read_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        rows: &[RowId],
+    ) -> Result<Vec<StorageRow>, PipelineError> {
+        let pipeline = self.pipeline(&receipt).await?;
+        let _guard = self
+            .repo
+            .lock_live(pipeline.id)
+            .await
+            .map_err(storage)?
+            .ok_or(PipelineError::NotFound)?;
+        Ok(self
+            .databases
+            .storage_row_cells(pipeline.database_id, pipeline.table_id, rows)
+            .await?)
+    }
+
+    async fn record_rows(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+        records: &[Uuid],
+    ) -> Result<Vec<PipelineReference>, PipelineError> {
+        let pipeline = self.pipeline(&receipt).await?;
+        if pipeline.trashed_at.is_some() {
+            return Err(PipelineError::NotFound);
+        }
+        if records.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.repo
+            .referencing_rows(&[pipeline.id], records)
+            .await
+            .map_err(storage)
+    }
+
     async fn apply_ops(
         &self,
         receipt: EntityAccessReceipt<EditAccessLevel>,
+        acting_bot: Option<BotId>,
         batch: OpBatch,
     ) -> Result<AppliedOps, PipelineError> {
         use models_databases::{DatabaseOp, TableChange};
@@ -754,7 +808,7 @@ where
         }
         let viewer = Viewer {
             user_id: actor(&receipt)?,
-            acting_bot: None,
+            acting_bot,
         };
         // A pipeline grant does not grant access to the records it references.
         // The editor may reference records from any team they can access.

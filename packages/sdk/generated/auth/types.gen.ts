@@ -1391,7 +1391,7 @@ export type PublicGtmInviteLink = {
  */
 export type PutCursorApiKeyRequest = {
     /**
-     * A `crsr_…` Cursor API key.
+     * A Cursor API key: `grok_…`, or `crsr_…` for older keys.
      */
     apiKey: string;
 };
@@ -1661,7 +1661,7 @@ export type TeamWithMembers = {
     members: Array<TeamMember>;
     /**
      * Provider-confirmed pending seat changes, keyed by member user ID.
-     * Only available to paid-team admins and owners; empty means no pending changes.
+     * Empty when no changes apply to this viewer; absent when the lookup fails.
      */
     scheduled_seat_plans?: {
         [key: string]: ScheduledSeatPlan;

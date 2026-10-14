@@ -96,13 +96,39 @@ Markdown also needs a successful `/sync/document/.../connect` WebSocket upgrade.
 A 403 there indicates the sync origin check, which the local proxy handles for
 HTTPS machine hostnames; verify the proxy configuration before retrying.
 
-## Live database answers
+## Databases in documents
 
 Opening the slash menu with `/` lists Normal Text, headings, and the other
-Markdown options before Database. Typing `/database` filters to the Database
-action.
+Markdown options before Query and Database. Typing `/database` selects
+**Database**: it creates an Untitled database with its first table and Name
+column, then inserts its live editor at the command's position. Rename the
+database in the embedded header. A failed create clears its pending placeholder;
+removing the placeholder while creation runs does not insert elsewhere.
 
-With Databases on, type `/database` and choose **Database** to insert a live answer
+Selecting a database from `@` inserts a compact mention. Use its **Expand database**
+icon to open the inline editor. Databases created with `/database` start expanded.
+Edit cells, add rows or columns, select a table with the **Database table** picker,
+choose a saved view with **Database view** when the table has views, filter, and
+sort in the document using the same toolbar controls as the full database app.
+The **Filter** and **Sort** icons open their panels. The pickers support keyboard
+navigation and mark the selected table. Rows added or edited elsewhere, including
+by AI, appear through the database's gateway subscription. The editor catches up after
+reconnecting or returning to the tab after a long absence.
+Edits write to the original database. **Open** opens the full database.
+**Collapse** converts the editor to a small mention; **Expand** brings it back.
+Removing either reference leaves the database and its rows intact.
+
+Document permission controls changing the reference. Database permission controls
+editing its rows, columns and name, independently of document permission. An
+expanded editor in a read-only document can still edit a writable database;
+its collapse/expand is local to that reader. A database viewer sees read-only
+records. Sharing the document does not itself grant database access. Filters,
+sort order and widths are local to this visit; the selected table and view are
+saved in the Lexical node when the document is editable and sync to other readers.
+
+## Live database answers
+
+With Databases on, type `/query` and choose **Query** to insert a live answer
 to a question about a database. Answers run with each reader's database access and
 refresh when referenced tables change. See
 [Databases](databases.md#ai-questions-and-live-answers) for the question box, source
@@ -1959,6 +1985,17 @@ not the workspace path or pane-local search state. A copied multi-pane URL
 (`/app/.../~/...`) references its rightmost pane. If that pane has no supported
 entity, the URL remains an ordinary link. Project task comment targets, Home PRs,
 and agent chat links also convert to their respective entity mentions.
+
+Pasting a bare GitHub pull request URL (`github.com/<owner>/<repo>/pull/<n>`,
+including subpages such as `/files`) inserts a link that becomes a PR mention
+once Macro finds the synced PR, usually within a moment. Hovering the mention
+shows its status, diff size, comments, and checks; clicking opens the PR in a
+split. A PR mention always stays on one line: a long title truncates with an
+ellipsis before the `#N`, so read the full title from the hover card. In a sent
+message, a mention an agent wrote by URL alone shows `owner/repo#N` until its
+title loads and keeps the same width either way. A PR Macro has not synced
+stays an ordinary link, and pasting inside a code block or over a selection
+keeps the default behavior.
 
 1. `Create` → `Document D`. The app navigates to `/app/md/<uuid>` with the **title field
    focused**.

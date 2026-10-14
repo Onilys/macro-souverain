@@ -218,7 +218,6 @@ html[data-palette='cream'] .tour-page :is(.tour-hero, .tour-constellation, .tour
 }
 html[data-palette='cream'] .sales-calc-check svg { color: #f5f1e8; }
 html[data-palette='cream'] .sales-calc-tools button[aria-pressed=true] .sales-calc-check { color: #f5f1e8; }
-html[data-palette='cream'] .sales-booking-embed { background: #faf8f3; box-shadow: 0 0 0 1px #1d1c1a12; }
 
 /* The main site (App.tsx) runs applyTheme, which writes the b and c color inputs inline
    on <html>; only !important outranks inline declarations. */
