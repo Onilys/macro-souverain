@@ -166,13 +166,9 @@ impl MetaService {
                     .account(work.provider, &revision.account_id)
                     .await?
                     .ok_or(MessagingError::Unavailable)?;
-                if matches!(
-                    connection.status,
-                    ConnectionStatus::Disconnected | ConnectionStatus::Revoked
-                ) || connection
-                    .connected_at
-                    .is_some_and(|at| work.received_at < at)
-                {
+                // A replayed revision, such as an unsend, still applies after reconnect;
+                // the repository fences it to the current generation.
+                if !accepts_inbound(&connection)? {
                     return Ok(());
                 }
                 self.native
@@ -192,10 +188,7 @@ impl MetaService {
                     }
                     return Err(MessagingError::Unavailable.into());
                 };
-                if matches!(
-                    connection.status,
-                    ConnectionStatus::Disconnected | ConnectionStatus::Revoked
-                ) {
+                if !accepts_inbound(&connection)? {
                     return Ok(());
                 }
                 if historical
@@ -292,21 +285,15 @@ impl MetaService {
                     field.as_str(),
                     "history" | "smb_app_state_sync" | "reaction"
                 ) => {}
-            IncomingEvent::Unsupported {
-                account_id: Some(account),
-                field,
-            } => {
-                if let Some(connection) = self.repository.account(work.provider, &account).await? {
-                    let code = format!(
-                        "unsupported_event:{}",
-                        field.chars().take(64).collect::<String>()
-                    );
-                    self.repository
-                        .health(&connection, connection.status, Some(&code))
-                        .await?;
-                }
+            // Subscribed but unrendered activity (such as Instagram postbacks) says
+            // nothing about account health, so it must not replace a recovery code.
+            IncomingEvent::Unsupported { field, .. } => {
+                tracing::info!(
+                    receipt_id=?work.lease.id,
+                    field=%field.chars().take(64).collect::<String>(),
+                    "unsupported Meta event ignored"
+                );
             }
-            IncomingEvent::Unsupported { .. } => {}
         }
         Ok(())
     }
@@ -377,5 +364,15 @@ impl MetaService {
             }
         }
         Ok(())
+    }
+}
+
+/// An explicit disconnect stops receiving. Authorization that needs renewal keeps
+/// customer activity as failed work, which a reconnect replays.
+fn accepts_inbound(connection: &Connection) -> Result<bool, MessagingError> {
+    match connection.status {
+        ConnectionStatus::Disconnected => Ok(false),
+        ConnectionStatus::Revoked => Err(MessagingError::Disconnected),
+        _ => Ok(true),
     }
 }

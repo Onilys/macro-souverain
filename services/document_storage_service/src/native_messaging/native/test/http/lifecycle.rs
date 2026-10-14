@@ -377,3 +377,104 @@ async fn receipt_failure_does_not_hide_other_accounts_or_messages(pool: PgPool) 
             .is_err()
     );
 }
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn activity_received_while_revoked_is_replayed_after_reconnect(pool: PgPool) {
+    let f = fixture(&pool, Provider::Instagram, None).await;
+    let original = incoming(&f.c, "unsent-while-revoked");
+    fixture_native(&pool)
+        .await
+        .ingest(&f.c, &original, vec![])
+        .await
+        .unwrap();
+    let current = f.repo.connection(f.c.id).await.unwrap().unwrap();
+    f.repo
+        .health(
+            &current,
+            ConnectionStatus::Revoked,
+            Some("meta_authorization_expired_or_revoked"),
+        )
+        .await
+        .unwrap();
+    let at = connected_time(&f.repo, f.c.id).await;
+    let payload = json!({"object":"instagram","entry":[{"id":f.c.account_id,"messaging":[
+        {"sender":{"id":original.customer_id},"recipient":{"id":f.c.account_id},"timestamp":at.timestamp_millis(),"message":{"mid":"sent-while-revoked","text":"Are you still there?"}},
+        {"sender":{"id":original.customer_id},"recipient":{"id":f.c.account_id},"timestamp":at.timestamp_millis(),"message":{"mid":original.message_id,"is_deleted":true}}
+    ]}]});
+    assert_eq!(
+        signed(&f.app, Provider::Instagram, payload, true).await,
+        StatusCode::OK
+    );
+    let work = f.repo.claim_receipt().await.unwrap().unwrap();
+    let error = f
+        .service
+        .process_receipt(
+            &work,
+            webhook::decode(work.provider, &work.payload).unwrap(),
+        )
+        .await
+        .unwrap_err();
+    // Settle as the driver does: a non-transient error leaves replayable failed work.
+    f.repo
+        .settle_receipt(
+            &work.lease,
+            Some(&error.current_context().to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+    assert!(
+        f.repo
+            .message_target(f.c.id, "sent-while-revoked")
+            .await
+            .is_err()
+    );
+    f.repo
+        .connect(&f.c, b"renewed-token", Some(f.c.id))
+        .await
+        .unwrap();
+    drain(&f.service).await;
+    let messages = PgMessageRepository::new(pool);
+    let (channel, id) = f
+        .repo
+        .message_target(f.c.id, "sent-while-revoked")
+        .await
+        .unwrap();
+    let replayed = messages
+        .get(&MessageParent::Channel(channel), id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(replayed.content, "Are you still there?");
+    let (channel, id) = f
+        .repo
+        .message_target(f.c.id, original.message_id.as_str())
+        .await
+        .unwrap();
+    let unsent = messages
+        .get(&MessageParent::Channel(channel), id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(unsent.deleted_at.is_some());
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn subscribed_unrendered_events_do_not_change_account_health(pool: PgPool) {
+    let f = fixture(&pool, Provider::Instagram, None).await;
+    let current = f.repo.connection(f.c.id).await.unwrap().unwrap();
+    f.repo
+        .health(&current, ConnectionStatus::Connected, None)
+        .await
+        .unwrap();
+    let at = connected_time(&f.repo, f.c.id).await;
+    let payload = json!({"object":"instagram","entry":[{"id":f.c.account_id,"messaging":[{"sender":{"id":"customer"},"recipient":{"id":f.c.account_id},"timestamp":at.timestamp_millis(),"postback":{"title":"Get started","payload":"GET_STARTED"}}]}]});
+    assert_eq!(
+        signed(&f.app, Provider::Instagram, payload, true).await,
+        StatusCode::OK
+    );
+    drain(&f.service).await;
+    let c = f.repo.connection(f.c.id).await.unwrap().unwrap();
+    assert_eq!(c.status, ConnectionStatus::Connected);
+    assert_eq!(c.health_error, None);
+}
