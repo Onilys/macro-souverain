@@ -4,6 +4,21 @@
 -- this retired switch; no company/contact records are removed.
 UPDATE team_crm_settings SET crm_enabled = FALSE WHERE crm_enabled;
 
+-- Rolling deployments can still receive writes from the old enable endpoint.
+-- Keep its readers and workers disabled even if that endpoint is called again.
+CREATE FUNCTION crm_disable_legacy_email_sharing() RETURNS TRIGGER
+LANGUAGE plpgsql AS $$
+BEGIN
+    NEW.crm_enabled := FALSE;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER team_crm_settings_keep_email_sharing_disabled
+BEFORE INSERT OR UPDATE OF crm_enabled ON team_crm_settings
+FOR EACH ROW WHEN (NEW.crm_enabled)
+EXECUTE FUNCTION crm_disable_legacy_email_sharing();
+
 CREATE TABLE crm_email_consent (
     team_id UUID NOT NULL,
     user_id TEXT NOT NULL,

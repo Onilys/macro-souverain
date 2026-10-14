@@ -57,8 +57,10 @@ request. Other publishers skip locked requests and retry after a failed publicat
 
 The migration starts with no individual consents and turns off the retired
 `team_crm_settings.crm_enabled` switch to fail closed for older workers/readers.
+An insert/update trigger keeps that switch off if an older service tries to
+re-enable it during the rollout. The down migration removes this guard.
 It preserves all company/contact rows. Upgrade all email readers, writers, and API
-instances before exposing the new opt-in UI; do not leave old team-enable endpoints
+instances before exposing the new opt-in UI; do not leave old team-settings endpoints
 active during the cutover. The existing CRM product rollout feature flag is unchanged.
 
 Current team responses report CRM available. The old team-enable endpoint no-ops

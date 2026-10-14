@@ -42,6 +42,28 @@ async fn rollout_and_rollback_preserve_records_and_do_not_inherit_consent(
         .fetch_one(&pool)
         .await?
     );
+    let new_team = Uuid::now_v7();
+    seed_team(&pool, new_team, "macro|new-owner@example.com").await?;
+    for legacy_team in [team, new_team] {
+        assert!(
+            !sqlx::query_scalar!(
+                "INSERT INTO team_crm_settings (team_id, crm_enabled) VALUES ($1, TRUE) ON CONFLICT (team_id) DO UPDATE SET crm_enabled = EXCLUDED.crm_enabled RETURNING crm_enabled",
+                legacy_team
+            )
+            .fetch_one(&pool)
+            .await?,
+            "legacy inserts and upserts cannot restore team-wide email sharing"
+        );
+    }
+    assert!(
+        !sqlx::query_scalar!(
+            "UPDATE team_crm_settings SET crm_enabled = TRUE WHERE team_id = $1 RETURNING crm_enabled",
+            team
+        )
+        .fetch_one(&pool)
+        .await?,
+        "legacy updates cannot bypass individual consent"
+    );
     assert_eq!(
         sqlx::query_scalar!("SELECT count(*) FROM crm_email_consent")
             .fetch_one(&pool)
@@ -52,6 +74,15 @@ async fn rollout_and_rollback_preserve_records_and_do_not_inherit_consent(
     assert_eq!(fetch_company_hidden(&pool, company).await?, Some(false));
     sqlx::raw_sql(include_str!("../../../../../macro_db_client/migrations/20261007224236_crm_email_consent_and_blocklists.down.sql")).execute(&pool).await?;
     assert_eq!(count_contacts(&pool, company).await?, 1);
+    assert!(
+        sqlx::query_scalar!(
+            "UPDATE team_crm_settings SET crm_enabled = TRUE WHERE team_id = $1 RETURNING crm_enabled",
+            team
+        )
+        .fetch_one(&pool)
+        .await?,
+        "rollback removes the guard, allowing an explicit legacy enable decision"
+    );
     Ok(())
 }
 
