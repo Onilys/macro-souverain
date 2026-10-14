@@ -27,8 +27,11 @@ predeploying this PR's service binaries. Keep projection reads disabled.
 2. **Install the table and triggers, then backfill.** Keep
    `SOUP_SOURCE_ITEMS_ENABLED=false`. Register this optional setting in each
    document storage service configuration; omitted values default to false.
-   Apply the schema migration before the backfill migration. Ordinary writes
-   must use READ COMMITTED, as required by the trigger locking protocol.
+   The first migration installs the table, triggers, and an index on the empty
+   projection atomically, commits that installation, then backfills in batches.
+   The remaining two migrations build indexes on existing tables concurrently.
+   Ordinary writes must use READ COMMITTED, as required by the trigger locking
+   protocol.
 3. **Validate before switching reads.** Run
    [ops/validate_source_items.sql](ops/validate_source_items.sql) on the primary
    and any replica serving soup. Both counts must be zero. This is a full audit;
@@ -93,31 +96,41 @@ batches commit independently. It uses a 200 ms lock timeout for batch work.
 This avoids a long transaction over the full corpus, but hot rows can delay
 completion and the write/index load still needs monitoring.
 
-An interrupted backfill is safe to rerun: it replaces each item's projected
-state rather than incrementing existing counts. Keep reads disabled until the
-migration finishes successfully and the audit passes. Resolve persistent hot-row
-contention instead of treating an incomplete backfill as ready.
+An interrupted backfill is safe to rerun: a committed table means the complete
+installation is already present, so the migration skips DDL and restarts the
+backfill. Each batch replaces projected state instead of incrementing counts.
+An installation failure before its first commit rolls back that entire phase.
+Keep reads disabled until the migration finishes successfully and the audit
+passes. Resolve persistent hot-row contention instead of treating an incomplete
+backfill as ready.
 
 Before enabling reads, verify `source_items_read`,
 `idx_document_owner_updated_live`, and `idx_user_history_user_type_updated_item`
-are present with both `pg_index.indisready` and `pg_index.indisvalid` true. An
-interrupted concurrent build can leave an invalid index that `IF NOT EXISTS`
-will skip. Drop only that invalid index with `DROP INDEX CONCURRENTLY`, outside
-any transaction, then rerun that migration's `CREATE INDEX CONCURRENTLY`
-statement while projection reads remain disabled. Do not edit migration history
-to repair an index.
+are present with both `pg_index.indisready` and `pg_index.indisvalid` true.
+The projection index is created transactionally while its table is empty.
+An interrupted concurrent build of either existing-table index can leave an
+invalid index that `IF NOT EXISTS` will skip. Drop only that invalid index with
+`DROP INDEX CONCURRENTLY`, outside any transaction, then rerun that migration's
+`CREATE INDEX CONCURRENTLY` statement while projection reads remain disabled.
+Do not edit migration history to repair an index.
 
 For a read regression, set `SOUP_SOURCE_ITEMS_ENABLED=false` and restart the
 affected service instances. This restores item-table queries while maintenance
 continues. A read switch does not disable trigger work. If maintenance itself is
-causing unacceptable write failures, keep reads disabled and remove the new
-projection triggers using the reviewed schema rollback; the authoritative item
-and access tables must remain intact. Reinstallation requires another backfill
-and audit before reads can be enabled.
+causing unacceptable write failures, keep reads disabled and disable only the
+projection triggers in a separately reviewed maintenance operation; leave the
+authoritative item and access data intact. For a full rebuild after triggers
+were disabled, briefly pause affected writers, re-enable the projection triggers,
+and truncate only `source_items` in the reviewed maintenance transaction. Resume
+writers after it commits, then run the first migration's single `DO` statement
+directly and repeat the audit before enabling reads. Clearing the projection
+also removes rows for items hard-deleted while triggers were disabled. A completed
+migration is recorded, so `sqlx migrate run` alone will not rerun its backfill.
 
 Keep database backups/PITR and a tested restore procedure for schema changes.
 A schema-only dump documents the schema; it cannot recover deleted row data.
-The down migrations affect only the projection and its maintenance objects.
+These migrations are forward-only. Repair derived state without reverting
+migration history or changing authoritative records.
 
 ## Scope and validation
 
