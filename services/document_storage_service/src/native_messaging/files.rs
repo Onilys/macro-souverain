@@ -40,11 +40,12 @@ use meta_messaging::{
     },
     outbound::repository::PgMessagingRepository,
 };
-use model::document::FileType;
+use model::document::{FileType, MAX_DOCUMENT_NAME_GRAPHEMES};
 use models_permissions::share_permission::LinkShareState;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::{str::FromStr, sync::Arc, time::Duration};
+use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 use super::native::{access_error, error, plain_markdown, render_message_content};
@@ -198,11 +199,7 @@ impl MessageFiles for NativeFiles {
             .iter()
             .map(|b| format!("{b:02x}"))
             .collect::<String>();
-        let name = file
-            .filename
-            .rsplit_once('.')
-            .map_or(file.filename.as_str(), |(name, _)| name)
-            .to_owned();
+        let name = document_name(&file.filename);
         let prepared = self
             .documents
             .prepare_received_file(
@@ -328,11 +325,7 @@ impl MessageFiles for NativeFiles {
                     )
                     .await
                     .map_err(access_error)?;
-                let name = file
-                    .filename
-                    .rsplit_once('.')
-                    .map_or(file.filename.as_str(), |(name, _)| name)
-                    .to_owned();
+                let name = document_name(&file.filename);
                 let prepared = self
                     .documents
                     .prepare_received_file(
@@ -584,6 +577,17 @@ impl MessageFiles for NativeFiles {
         PgMessagingRepository::media_state_in(&mut tx, c.id, provider_id.as_str(), true).await?;
         tx.commit().await.map_err(error)
     }
+}
+
+/// A customer-supplied name must not make an otherwise valid file permanently unavailable.
+fn document_name(filename: &str) -> String {
+    let stem = filename.rsplit_once('.').map_or(filename, |(name, _)| name);
+    if stem.trim().is_empty() {
+        return "attachment".to_owned();
+    }
+    stem.graphemes(true)
+        .take(MAX_DOCUMENT_NAME_GRAPHEMES)
+        .collect()
 }
 
 fn received_type(file: &MediaBytes) -> Result<FileType, MessagingError> {

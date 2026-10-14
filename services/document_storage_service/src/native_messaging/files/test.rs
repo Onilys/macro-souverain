@@ -33,3 +33,14 @@ fn unsupported_active_formats_and_empty_files_are_explicit_errors() {
         );
     }
 }
+
+#[test]
+fn customer_file_names_always_fit_a_document_name() {
+    assert_eq!(document_name("   .pdf"), "attachment");
+    assert_eq!(document_name("invoice.final.pdf"), "invoice.final");
+    let long = format!("{}.pdf", "é".repeat(MAX_DOCUMENT_NAME_GRAPHEMES + 10));
+    assert_eq!(
+        document_name(&long).graphemes(true).count(),
+        MAX_DOCUMENT_NAME_GRAPHEMES
+    );
+}
