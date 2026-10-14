@@ -119,6 +119,66 @@ const CATALOG: Array<{ label: string; widget: Widget }> = [
     },
   },
   {
+    // A proposed ontology: none of these tags exist, so each shows as written.
+    // A tag with a tagId the viewer has shows its current name and colour.
+    label: 'tags',
+    widget: {
+      type: 'tags',
+      title: 'Engineering tags',
+      tags: [
+        {
+          label: 'Type',
+          description: 'What kind of work it is',
+          children: [
+            {
+              label: 'bug',
+              color: 'red',
+              description: 'Defects and regressions',
+            },
+            {
+              label: 'feature',
+              color: 'indigo',
+              description: 'New capabilities',
+            },
+            { label: 'chore', color: 'gray' },
+          ],
+        },
+        {
+          label: 'Area',
+          description: 'Where in the stack it lands',
+          children: [
+            {
+              label: 'Platform',
+              color: 'teal',
+              children: [
+                {
+                  label: 'infra',
+                  color: 'amber',
+                  description: 'Cloud, CI/CD and databases',
+                },
+                {
+                  label: 'security',
+                  color: 'green',
+                  description: 'Auth, audits and access',
+                },
+              ],
+            },
+            {
+              label: 'Product',
+              color: 'blue',
+              description: 'What users touch',
+            },
+          ],
+        },
+        {
+          label: 'docs',
+          color: 'blue',
+          description: 'Specs, guides and notes',
+        },
+      ],
+    },
+  },
+  {
     // Container demo: a row laying out two *different* widgets side by side.
     label: 'container',
     widget: {

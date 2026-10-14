@@ -24,3 +24,15 @@ export type AgendaEventRef = {
   eventId: string;
   occurrenceKey?: string;
 };
+
+/**
+ * A tag of an ontology a card shows, and the narrower tags under it. The
+ * colour is a palette name or hex; `tagId` names a tag that exists.
+ */
+export type OntologyTag = {
+  label: string;
+  color?: string;
+  description?: string;
+  tagId?: string;
+  children?: readonly OntologyTag[];
+};

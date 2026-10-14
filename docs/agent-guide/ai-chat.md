@@ -1229,8 +1229,11 @@ contains many file edits.
 `DisplayResults` renders its dynamic view directly in the reply and stays visible
 without opening a tool row. It breaks tool groups before and after itself,
 including while pending; later calls start a separate group.
-Its dashboard supports markdown, timelines, entity lists, and channel messages,
-using the same full-width view as AI chat. Incomplete arguments stay hidden while
+Its dashboard supports markdown, timelines, entity lists, calendar agendas, item
+cards, tags, and channel messages, using the same full-width view as AI chat.
+Tags nest to any depth, each with its colour and what it is for; a tag that exists
+shows its current name and opens the items tagged with it. A card of more than
+eight tags holds its height and offers **Show all**. Incomplete arguments stay hidden while
 streaming; a valid view updates as arguments arrive. Malformed completed views
 show **Couldn't render dashboard**; failed calls show a **Failed** summary row
 without a disclosure. Macro's built-in agents receive the complete view schema

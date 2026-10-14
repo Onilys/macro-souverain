@@ -5,6 +5,7 @@ import { ChannelMessage } from './widgets/ChannelMessage';
 import { Events } from './widgets/Events';
 import { List } from './widgets/List';
 import { Md } from './widgets/Md';
+import { Tags } from './widgets/Tags';
 import { Timeline } from './widgets/Timeline';
 
 /**
@@ -24,4 +25,5 @@ export const Widget = {
   List,
   Events,
   Cards,
+  Tags,
 };

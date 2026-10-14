@@ -14,6 +14,7 @@
  */
 
 import type { Query } from '@app/features/next-soup/filters/filter-store/types';
+import { TAG_COLOR_OPTIONS } from '@app/features/property/tags/tagColors';
 import { EntityType } from '@core/types';
 import { z } from 'zod';
 
@@ -154,6 +155,67 @@ export const CardsWidgetSchema = z
 export type CardsWidget = z.infer<typeof CardsWidgetSchema>;
 
 /**
+ * One tag of an ontology and the narrower tags under it, to any depth. A tag
+ * may exist already - its id shows its current name and colour - or be one
+ * the answer proposes.
+ *
+ * `TagNode` is recursive, so its type is declared explicitly and the schema
+ * annotated to match, as for {@link ContainerWidget}.
+ */
+export type TagNode = {
+  label: string;
+  /** A palette colour by name or hex. Any other value shows as gray. */
+  color?: string;
+  description?: string;
+  tagId?: string;
+  children?: TagNode[];
+};
+
+export const TagNodeSchema: z.ZodType<TagNode> = z.object({
+  label: z
+    .string()
+    .describe(
+      'The tag\'s name. Name a narrower tag on its own: "bug" under "Type", not "Type/bug".'
+    ),
+  // A colour written some other way shows as gray rather than failing the
+  // whole view, so this stays a string.
+  color: z
+    .string()
+    .optional()
+    .describe(
+      `One of the tag colours: ${TAG_COLOR_OPTIONS.map((option) => option.name.toLowerCase()).join(', ')}. Gray when omitted.`
+    ),
+  description: z
+    .string()
+    .optional()
+    .describe('What the tag is for, in a few words.'),
+  tagId: z
+    .string()
+    .optional()
+    .describe(
+      'For a tag that exists, the id ListTags or CreateTag returned: the tag then shows its current name and colour, and opens what is tagged with it.'
+    ),
+  get children() {
+    return z
+      .array(TagNodeSchema)
+      .optional()
+      .describe('The narrower tags under this one.');
+  },
+});
+
+/** Tags as coloured pills, nested to any depth. */
+export const TagsWidgetSchema = z
+  .object({
+    type: z.literal('tags'),
+    title: z.string().optional(),
+    tags: z.array(TagNodeSchema),
+  })
+  .describe(
+    "Tags as coloured pills, nested to any depth: the user's tags, a taxonomy the answer proposes, or any other ontology of tags, each with what it is for. Use it whenever an answer is about tags, instead of a table or a list in markdown."
+  );
+export type TagsWidget = z.infer<typeof TagsWidgetSchema>;
+
+/**
  * A nestable flex container. This is what makes real dashboards composable.
  *
  * `ContainerWidget` and `Widget` are mutually recursive, so their types are
@@ -192,6 +254,7 @@ export type Widget =
   | ChannelMessageWidget
   | EventsWidget
   | CardsWidget
+  | TagsWidget
   | ContainerWidget;
 
 export const WidgetSchema: z.ZodType<Widget> = z.union([
@@ -201,6 +264,7 @@ export const WidgetSchema: z.ZodType<Widget> = z.union([
   ChannelMessageWidgetSchema,
   EventsWidgetSchema,
   CardsWidgetSchema,
+  TagsWidgetSchema,
   ContainerWidgetSchema,
 ]);
 

@@ -6,6 +6,7 @@ const TITLED_TYPES: ReadonlySet<WidgetType> = new Set<WidgetType>([
   'events',
   'cards',
   'timeline',
+  'tags',
 ]);
 
 /**
