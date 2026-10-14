@@ -4,8 +4,8 @@ import { Runtime } from '@pulumi/aws/lambda';
 import * as command from '@pulumi/command';
 import * as datadog from '@pulumi/datadog';
 import * as pulumi from '@pulumi/pulumi';
-import * as datadogEntity from './datadog-entity.json';
 import { hasItems } from '../../packages/utils';
+import * as datadogEntity from './datadog-entity.json';
 
 // Import the program's configuration
 const config = new pulumi.Config();
@@ -106,11 +106,13 @@ new aws.s3.BucketObjectv2(
     dependsOn: [ownershipControls, publicAccessBlock],
   }
 );
-// Copy the index.html to the routing lambda
-execSync(
-  `cp ${shellQuote(`${buildOutputPath}/index.html`)} ./appRouteLambda/index.html`,
-  { stdio: 'inherit' }
-);
+// Copy the app's index.html and the booking page's booking.html to the routing lambda
+for (const page of ['index.html', 'booking.html']) {
+  execSync(
+    `cp ${shellQuote(`${buildOutputPath}/${page}`)} ./appRouteLambda/${page}`,
+    { stdio: 'inherit' }
+  );
+}
 
 const syncAssetsCommand = new command.local.Command(
   'sync-assets-command',

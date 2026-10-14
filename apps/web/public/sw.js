@@ -24,6 +24,7 @@ const SCOPE_PATH = new URL(self.registration.scope).pathname;
 const SHELL_KEY = `${SCOPE_PATH}__shell`;
 const BUILD_HEADER = 'x-macro-build';
 const ASSETS_HEADER = 'x-macro-shell-assets';
+const BOOKING_PAGE = /^(?:book|booking)\//;
 
 // Vite output names end in an 8-character base64url content hash.
 const HASHED_ASSET =
@@ -60,6 +61,8 @@ self.addEventListener('fetch', (event) => {
     // The cached shell carries the app's frame options. A framed page (a
     // booking link in the website's dialog) needs the ones served for its path.
     if (request.destination === 'iframe') return;
+    // Booking pages and receipts are their own page (booking.html), not the app.
+    if (BOOKING_PAGE.test(url.pathname.slice(SCOPE_PATH.length))) return;
     // Mirror the routing lambda: paths that look like files are not the app.
     const leaf = url.pathname.split('/').pop() ?? '';
     if (leaf.includes('.') && !url.pathname.includes('@')) return;
