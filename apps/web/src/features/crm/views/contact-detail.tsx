@@ -10,14 +10,18 @@ import { ContactDiscussionSection } from './contact-discussion-section';
 import { ContactEmailsSection } from './contact-emails-section';
 import { ContactHeader } from './contact-header';
 import { ContactSharingSection } from './contact-sharing-section';
-import { RecordCallsSection, RecordFilesSection } from './record-associations';
+import {
+  RecordCallsSection,
+  RecordFilesSection,
+  RecordReferencesSection,
+} from './record-associations';
 import { useContactQuery, useIsTeamAdmin } from './use-crm';
 
 /**
  * Root of the contact detail view, laid out like a project: the host's top
  * bar picks the section, Overview shows the contact and its discussion, and
- * the other sections list its emails, files, tasks and calls. Sharing stays
- * in the floating information panel.
+ * the other sections list its emails, files, tasks and calls. Sharing and
+ * references stay in the floating information panel.
  */
 export function Contact(props: {
   contactId: string;
@@ -113,8 +117,9 @@ export function Contact(props: {
           <ContactSharingSection contact={contact()} />
         </SidePanel.Section>
       </Show>
-      {/* TODO: add a References section (inbound channel messages + documents)
-          once the references backend supports the crm_contact entity type. */}
+      <SidePanel.Section id="contact-references" title="References" order={30}>
+        <RecordReferencesSection scope={scope()} />
+      </SidePanel.Section>
     </SidePanel.Layout>
   );
 }

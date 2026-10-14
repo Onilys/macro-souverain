@@ -14384,6 +14384,16 @@
               }
             }
           },
+          "404": {
+            "description": "The CRM record named by `crma` or a document `crm` literal is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "",
             "content": {
@@ -14436,6 +14446,16 @@
           },
           "403": {
             "description": "CRM-scoped queries require team membership, or requesting hidden CRM companies requires admin/owner team role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The CRM record named by `crma` or a document `crm` literal is not visible to the caller",
             "content": {
               "application/json": {
                 "schema": {
@@ -19029,6 +19049,17 @@
           },
           "chanf": {
             "description": "the filters that should be applied to the channel entity"
+          },
+          "crma": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CrmAssociation",
+                "description": "Restrict every entity type to items associated with this CRM record\n(wire key `crma`): its Companies or Contacts property names the\nrecord, or it references the record. A company also matches through\nits contacts. Unknown or inaccessible records answer 404; requests\nthat are not expanded or not timestamp-sorted answer 400."
+              }
+            ]
           },
           "crmf": {
             "description": "Opt-in filters for viewer-accessible CRM contacts (wire key `crmf`)."
@@ -24274,6 +24305,35 @@
             "description": "User-facing name."
           }
         }
+      },
+      "CrmAssociation": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Items associated with the company or with any of its contacts.",
+            "required": ["company"],
+            "properties": {
+              "company": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Items associated with the company or with any of its contacts."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Items associated with the contact.",
+            "required": ["contact"],
+            "properties": {
+              "contact": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Items associated with the contact."
+              }
+            }
+          }
+        ],
+        "description": "The CRM record an association filter names."
       },
       "CrmCompanyFilters": {
         "type": "object",

@@ -31845,6 +31845,33 @@ export const postItemsSoupAstBody = zod
       .unknown()
       .optional()
       .describe('the filters that should be applied to the channel entity'),
+    crma: zod
+      .union([
+        zod.null(),
+        zod
+          .union([
+            zod
+              .object({
+                company: zod
+                  .uuid()
+                  .describe(
+                    'Items associated with the company or with any of its contacts.'
+                  ),
+              })
+              .describe(
+                'Items associated with the company or with any of its contacts.'
+              ),
+            zod
+              .object({
+                contact: zod
+                  .uuid()
+                  .describe('Items associated with the contact.'),
+              })
+              .describe('Items associated with the contact.'),
+          ])
+          .describe('The CRM record an association filter names.'),
+      ])
+      .optional(),
     crmf: zod
       .unknown()
       .optional()
@@ -35941,6 +35968,33 @@ export const postItemsSoupAstGroupedBody = zod
           .unknown()
           .optional()
           .describe('the filters that should be applied to the channel entity'),
+        crma: zod
+          .union([
+            zod.null(),
+            zod
+              .union([
+                zod
+                  .object({
+                    company: zod
+                      .uuid()
+                      .describe(
+                        'Items associated with the company or with any of its contacts.'
+                      ),
+                  })
+                  .describe(
+                    'Items associated with the company or with any of its contacts.'
+                  ),
+                zod
+                  .object({
+                    contact: zod
+                      .uuid()
+                      .describe('Items associated with the contact.'),
+                  })
+                  .describe('Items associated with the contact.'),
+              ])
+              .describe('The CRM record an association filter names.'),
+          ])
+          .optional(),
         crmf: zod
           .unknown()
           .optional()
@@ -36121,6 +36175,33 @@ export const postItemsSoupAstGroupedBody = zod
           .unknown()
           .optional()
           .describe('the filters that should be applied to the channel entity'),
+        crma: zod
+          .union([
+            zod.null(),
+            zod
+              .union([
+                zod
+                  .object({
+                    company: zod
+                      .uuid()
+                      .describe(
+                        'Items associated with the company or with any of its contacts.'
+                      ),
+                  })
+                  .describe(
+                    'Items associated with the company or with any of its contacts.'
+                  ),
+                zod
+                  .object({
+                    contact: zod
+                      .uuid()
+                      .describe('Items associated with the contact.'),
+                  })
+                  .describe('Items associated with the contact.'),
+              ])
+              .describe('The CRM record an association filter names.'),
+          ])
+          .optional(),
         crmf: zod
           .unknown()
           .optional()

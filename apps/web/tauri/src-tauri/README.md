@@ -200,6 +200,15 @@ or enqueueing mutations. An older binary uses the existing uncached fallback and
 shows an update-required notice; its existing mutation queue stays intact until
 the user installs the native update.
 
+## Desktop window state
+
+The desktop window reopens at its last size, position, maximized, and
+fullscreen state (`src/window_state.rs`, backed by `tauri-plugin-window-state`).
+The `tauri.conf.json` window size only applies to the first launch. A saved
+position that no longer lands on a connected monitor is ignored and the OS
+places the window. State is written to `.window-state.json` in the app config
+directory on quit; delete that file to reset. Mobile is unaffected.
+
 ## Desktop native updates
 
 Release builds for macOS Apple Silicon and Linux AppImage check for native updates

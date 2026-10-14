@@ -6,9 +6,10 @@ double-click it to toggle zoom. The loading shell uses the same inset; browser,
 Windows, Linux, and mobile layouts do not add this space.
 
 Native desktop content keeps its rounded split frame even with only one split,
-and the app icon rail has no right divider. On macOS, the sidebar icon beside the
-traffic lights toggles navigation for the active split; it replaces the controls
-inside the workspace. The top-right split icon opens another Home split, even
+and the app icon rail has no right divider. On macOS, Back and Forward arrows
+beside the traffic lights navigate the active split's history. Each arrow is
+disabled when its direction has no entry. Sidebar controls remain inside each
+workspace. The top-right split icon opens another Home split, even
 when Home is already open, and is disabled when there is no room for a new split.
 Its tooltip is “New Split” and displays the registered new-split shortcut (`\`).
 

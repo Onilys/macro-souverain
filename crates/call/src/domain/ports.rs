@@ -18,8 +18,8 @@ use notification::domain::models::apple::VoipPushPayload;
 use models_permissions::share_permission::team_share::TeamShareFacts;
 
 use crate::domain::models::{
-    CallPeople, CustomSpeakerAssignment, DeletedCallRecordStorageKeys, EditCallRecordRepoArgs,
-    EditCallRecordRequest, EditCallTranscriptRequest,
+    CallPeople, CallRecordPage, CustomSpeakerAssignment, DeletedCallRecordStorageKeys,
+    EditCallRecordRepoArgs, EditCallRecordRequest, EditCallTranscriptRequest,
 };
 
 use super::meetings::{
@@ -436,12 +436,14 @@ pub trait CallRepository: Send + Sync + 'static {
     /// Fetch visible active and archived records, without transcripts. Status
     /// reflects the user's participation and current channel membership.
     /// Standalone calls require an individual user grant, never a group grant.
-    /// Apply `filter`, order by start time descending, and return at most `limit`.
+    /// Apply `filter`, order descending by `page`'s sort timestamp and call id,
+    /// seek past `page.after`, and return at most `limit`.
     fn get_call_records_by_user<'a>(
         &self,
         user_id: MacroUserIdStr<'a>,
         limit: u32,
         filter: &LiteralTree<CallLiteral>,
+        page: CallRecordPage,
     ) -> impl Future<Output = Result<Vec<CallRecord>, Self::Err>> + Send;
 
     /// Resolve the display name for a single channel.

@@ -41,6 +41,8 @@ mod logging;
 mod macos_notification_permission;
 mod share_target;
 mod staged_upload;
+#[cfg(desktop)]
+mod window_state;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AppEnvironment {
@@ -159,9 +161,11 @@ pub fn run() {
     {
         // single instance plugin should always be the first registered
         tracing::debug!("register single instance plugin");
-        builder = builder.plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
-            tracing::debug!("single instance callback with argv: {argv:?}");
-        }))
+        builder = builder
+            .plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
+                tracing::debug!("single instance callback with argv: {argv:?}");
+            }))
+            .plugin(window_state::plugin());
     }
 
     #[cfg(target_os = "ios")]
@@ -399,6 +403,7 @@ pub fn run() {
             }
             #[cfg(desktop)]
             RunEvent::ExitRequested { api, .. } => {
+                window_state::save(app_handle);
                 desktop_update::on_exit_requested(app_handle, api)
             }
             RunEvent::Exit => {

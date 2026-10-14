@@ -56,6 +56,17 @@ pub trait CompaniesRepository: super::email_privacy::EmailPrivacyRepository {
         query: &super::contact_listing::CrmContactListQuery,
     ) -> impl Future<Output = Result<Vec<super::contact_listing::CrmContactForSoup>, CrmError>> + Send;
 
+    /// Resolve `record` to the records its associated items match, under the
+    /// same visibility as the scope's contact listings: the viewer must belong
+    /// to the team, and hidden companies and contacts are visible only to its
+    /// admins and owners. Email consent and exclusions do not hide records.
+    /// `None` when the record is not visible.
+    fn resolve_association(
+        &self,
+        scope: super::contact_listing::CrmContactListScope<'_>,
+        record: super::association::CrmAssociation,
+    ) -> impl Future<Output = Result<Option<super::association::CrmRecordAssociation>, CrmError>> + Send;
+
     /// Idempotently ingest eligible stored mailbox history for a contact.
     /// The transaction rechecks current team membership, explicit consent for
     /// this exact primary mailbox, and both team and contributor exclusions.

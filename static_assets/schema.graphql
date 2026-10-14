@@ -2666,6 +2666,20 @@ type GraphqlCommentedOnDocumentMetadata {
 }
 
 """
+GraphQL input naming the CRM record an association filter restricts to.
+"""
+input GraphqlCrmAssociation @oneOf {
+	"""
+	Items associated with the company or any of its contacts.
+	"""
+	company: ID
+	"""
+	Items associated with the contact.
+	"""
+	contact: ID
+}
+
+"""
 The two operands of a recursive `CrmCompanyFilterExpr` binary expression.
 """
 input GraphqlCrmCompanyBinaryExpr {
@@ -3159,6 +3173,16 @@ input GraphqlDocumentLiteral @oneOf {
 	Uploaded from an email attachment sent by, or to, a matching address.
 	"""
 	emailAttachmentParticipant: GraphqlEmailValue
+	"""
+	Associated with a CRM record through its Companies or Contacts
+	property or a reference to the record. Requires an expanded,
+	timestamp-sorted query.
+	"""
+	crmAssociated: GraphqlCrmAssociation
+	"""
+	Case-insensitive substring of the document name.
+	"""
+	nameContains: String
 }
 
 """
@@ -3573,6 +3597,11 @@ input GraphqlEntityFilterAst {
 	Restrict results to the authenticated viewer's favorites when true.
 	"""
 	favoritesOnly: Boolean
+	"""
+	Restrict every entity type to items associated with this CRM record.
+	Requires an expanded, timestamp-sorted query.
+	"""
+	crmAssociation: GraphqlCrmAssociation
 	"""
 	The calendar event filter to apply.
 	"""

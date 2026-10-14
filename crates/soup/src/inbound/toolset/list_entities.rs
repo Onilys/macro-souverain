@@ -558,6 +558,7 @@ impl ListEntities {
 
         let ast = EntityFilterAst {
             favorites_only: self.favorites_only.then_some(true),
+            crm_association: None,
             calendar_event_filter: None,
             document_filter: self.document_filter.clone(),
             project_filter: self.project_filter.clone(),
@@ -605,6 +606,7 @@ impl ListEntities {
 
         EntityFilterAst {
             favorites_only: ast.favorites_only,
+            crm_association: ast.crm_association,
             calendar_event_filter: if include_types.contains(&ItemType::CalendarEvent) {
                 ast.calendar_event_filter
             } else {

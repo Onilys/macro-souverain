@@ -42,7 +42,7 @@ use crate::domain::events::{
     CallStartedMetadata,
 };
 use crate::domain::models::{
-    EditCallRecordRepoArgs, EditCallRecordRequest, EditCallTranscriptRequest,
+    CallRecordPage, EditCallRecordRepoArgs, EditCallRecordRequest, EditCallTranscriptRequest,
     VoipPushPayloadRequest,
 };
 
@@ -2422,8 +2422,9 @@ impl<R: CallRepository> CallRecordQueryService for CallRecordQueryServiceImpl<R>
         req: GetCallRecordsRequest,
     ) -> Result<Vec<CallRecord>, CallError> {
         let filter = req.query.filter();
+        let page = CallRecordPage::from_query(&req.query);
         self.repo
-            .get_call_records_by_user(req.user_id.copied(), req.limit, filter)
+            .get_call_records_by_user(req.user_id.copied(), req.limit, filter, page)
             .await
             .map_err(|e| CallError::Internal(e.into()))
     }

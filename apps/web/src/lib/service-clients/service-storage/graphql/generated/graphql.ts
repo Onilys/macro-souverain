@@ -641,6 +641,13 @@ export type GraphqlChatRole =
   /** The user option. */
   | 'USER';
 
+/** GraphQL input naming the CRM record an association filter restricts to. */
+export type GraphqlCrmAssociation =
+  {   /** Items associated with the company or any of its contacts. */
+  company: string | number; contact?: never; }
+  |  { company?: never;   /** Items associated with the contact. */
+  contact: string | number; };
+
 /** The two operands of a recursive `CrmCompanyFilterExpr` binary expression. */
 export type GraphqlCrmCompanyBinaryExpr = {
   /** Left expression. */
@@ -785,35 +792,43 @@ export type GraphqlDocumentExpr =
 /** GraphQL input representing the document literal. */
 export type GraphqlDocumentLiteral =
   {   /** The created at option. */
-  createdAt: GraphqlDateLiteral; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never;   /** Uploaded from an email attachment sent by, or to, a matching address. */
-  emailAttachmentParticipant: GraphqlEmailValue; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never;   /** The file assoc option. */
-  fileAssoc: string; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never;   /** The file type option. */
-  fileType: string; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never;   /** The id option. */
-  id: string | number; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never;   /** The importance option. */
-  importance: boolean; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never;   /** The include cbm atm nc option. */
-  includeCbmAtmNc: boolean; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never;   /** The is email attachment option. */
-  isEmailAttachment: boolean; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never;   /** Exact notification state for the requester. */
+  createdAt: GraphqlDateLiteral; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never;   /**
+   * Associated with a CRM record through its Companies or Contacts
+   * property or a reference to the record. Requires an expanded,
+   * timestamp-sorted query.
+   */
+  crmAssociated: GraphqlCrmAssociation; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never;   /** Uploaded from an email attachment sent by, or to, a matching address. */
+  emailAttachmentParticipant: GraphqlEmailValue; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never;   /** The file assoc option. */
+  fileAssoc: string; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never;   /** The file type option. */
+  fileType: string; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never;   /** The id option. */
+  id: string | number; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never;   /** The importance option. */
+  importance: boolean; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never;   /** The include cbm atm nc option. */
+  includeCbmAtmNc: boolean; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never;   /** The is email attachment option. */
+  isEmailAttachment: boolean; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never;   /** Case-insensitive substring of the document name. */
+  nameContains: string; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never;   /** Exact notification state for the requester. */
   notificationState: NotificationState; owner?: never; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never;   /**
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never;   /**
    * The owner principal option — a user (`macro|<email>`), a bot
    * (`bot|<uuid>`), or a team (a bare hyphenated uuid).
    */
   owner: string; projectId?: never; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never;   /** The project id option. */
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never;   /** The project id option. */
   projectId: string | number; property?: never; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never;   /** An entity-property condition on the document or task. */
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never;   /** An entity-property condition on the document or task. */
   property: GraphqlFilterPropertiesLiteral; subType?: never; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never;   /** The sub type option. */
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never;   /** The sub type option. */
   subType: GraphqlDocumentSubType; updatedAt?: never; }
-  |  { createdAt?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never;   /** The updated at option. */
+  |  { createdAt?: never; crmAssociated?: never; emailAttachmentParticipant?: never; fileAssoc?: never; fileType?: never; id?: never; importance?: never; includeCbmAtmNc?: never; isEmailAttachment?: never; nameContains?: never; notificationState?: never; owner?: never; projectId?: never; property?: never; subType?: never;   /** The updated at option. */
   updatedAt: GraphqlDateLiteral; };
 
 /** GraphQL input representing the document sub type. */
@@ -940,6 +955,11 @@ export type GraphqlEntityFilterAst = {
   channelThreadFilter?: GraphqlChannelThreadExpr | null | undefined;
   /** The chat filter to apply. */
   chatFilter?: GraphqlChatExpr | null | undefined;
+  /**
+   * Restrict every entity type to items associated with this CRM record.
+   * Requires an expanded, timestamp-sorted query.
+   */
+  crmAssociation?: GraphqlCrmAssociation | null | undefined;
   /** The crm company filter to apply. */
   crmCompanyFilter?: GraphqlCrmCompanyExpr | null | undefined;
   /**

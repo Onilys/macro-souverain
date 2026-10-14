@@ -2056,18 +2056,48 @@ four fields sit side by side, label over value, and the rest wait behind
 pipeline. Inside Customers, the header's `Open <pipeline>` button opens it. The
 `Pipelines` caret header collapses and expands the cards, like the Discussion
 header; both start expanded on each visit. The
-section is absent when the record is in no pipeline. Team lists the contacts with `Add contact`. Emails keeps the
-`Signal`/`All` and `Team`/`Me` toggles. Files lists non-task documents whose
-`Companies` property references the company, plus attachments of emails with
-its domains. Tasks is the Tasks list scoped to the `Companies` property; its
-`New task` composer pre-fills the company. Calls lists calls linked to the
-company, including those linked automatically from their participants. The side
-panel keeps Properties and Sharing.
+section is absent when the record is in no pipeline.
+Team lists the contacts with `Add contact`. Emails keeps the
+`Signal`/`All` and `Team`/`Me` toggles; `Team` shows teammates' threads even to
+a viewer with no connected mailbox. Files, Tasks, and Calls list items
+*associated* with the company: its `Companies` property names the company, its
+`Contacts` property names one of the company's contacts, or it @mentions (or a
+message attaches) the company or one of those contacts. Contacts beyond the Team
+tab's first page count, hidden contacts count only for team admins and owners,
+and an item matching several ways appears once. Files lists non-task documents
+plus attachments of emails with the company's domains. Tasks is the Tasks list
+with that scope, grouping, and Load more; `Search tasks` matches task names
+within the scope (not content). Its `New task` composer pre-fills the company.
+Calls includes calls linked automatically from their participants and calls
+whose thread mentions the company. The side panel keeps Properties and Sharing,
+and adds **References**: associated items of any type (documents, tasks,
+channel messages, email threads and calls with the property, events, chats,
+projects, and companies or contacts whose properties or Discussion name the
+company) as compact icon-and-name rows, paged as it scrolls. A channel message
+row opens its thread; a reply surfaces as its thread's row. A document
+Discussion message makes its document the item. Initiatives and database rows
+are not listed.
+When a record list fails to refresh (for example, the record became
+inaccessible), it replaces its rows with `Couldn't load this list.` and
+`Retry` reloads it; a failed later page keeps the rows and shows `Couldn't
+load more.`
 A contact has the same layout with `Overview`, `Emails`, `Files`, `Tasks` and
 `Calls`: Overview pills show the email, the company (opens it) and `Last
-interacted`, followed by the contact's Pipelines cards. Files and Calls match on the contact's `Contacts` property and, for
-files, attachments of emails with its address. Tasks created from a contact also
-reference its company. The side panel keeps Sharing (admins only).
+interacted`, followed by the contact's Pipelines cards. Its Files, Tasks, Calls,
+and References show items associated with the contact itself (its `Contacts`
+property or an @mention of it), not everything associated with its company;
+Files also includes attachments of emails with its address. Tasks created from a
+contact also reference its company. The side panel keeps Sharing (admins only)
+and adds References.
+
+Mentioning a company or contact with `@` in a document or task records it as a
+reference of that record (removing the chip removes it) without sharing the
+document, inviting anyone, or notifying the contact; channel and Discussion
+messages record their CRM mentions when sent or edited. Open record lists
+refresh after a CRM mention or a `Companies`/`Contacts` property changes. To
+verify, mention a contact in a document, then check the contact's and its
+company's References and Files without reloading; remove the chip and confirm it
+drops out.
 
 Company and contact pages have a **Discussion** section built from the same
 message conversation as a document's Discussion: threaded replies, reactions,
@@ -2638,7 +2668,9 @@ With `pipedream-mcp` enabled, Connections (in Agents or Settings) has `Connected
 tabs. Connected groups GitHub, Linear, Notion, and Slack tool grants by provider,
 lists other catalog connections alongside them, and puts custom MCP servers in
 a separate section. Discover offers featured providers, a searchable catalog,
-and `Add custom MCP`. Slack discovery retains its development-only gate.
+and `Add custom MCP`. Pipedream Slack OAuth is available in production and
+development from the featured Slack provider. Connecting Slack here grants tool
+access; channel import is a separate action where the user chooses channels.
 Provider Back returns to the tab that opened it; navigation is local to each
 Connections page and starts at Connected on a fresh visit.
 

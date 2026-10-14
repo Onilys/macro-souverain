@@ -72,9 +72,9 @@ team switch off, requiring an explicit decision before old sharing is re-enabled
 
 Verified on October 14, 2026 against current `main`:
 
-- 611 Rust unit/integration tests passed: CRM library 241 plus 19 integration
+- 639 Rust unit/integration tests passed: CRM library 247 plus 19 integration
   tests, teams 266, direct thread authorization 48, CRM email queries 28,
-  no-mailbox Soup regression 1, and email backfill outbox 8. The live Apollo test
+  Soup model and CRM association tests 23, and email backfill outbox 8. The live Apollo test
   remains ignored. Tests use a separately migrated local database and
   `RUST_TEST_THREADS=4`.
 - Privacy coverage includes empty consent on rollout, rollback, withdrawal,
@@ -82,7 +82,7 @@ Verified on October 14, 2026 against current `main`:
   mailboxes, membership removal, and stale ingestion jobs. Outbox coverage uses
   PostgreSQL and a local SQS test server for successful publication, retry,
   disconnected mailboxes, concurrent publishers, and withdrawal during publication.
-- Frontend CRM and contact tooltip suites: 108 passed, including cache invalidation,
+- Frontend CRM and contact tooltip suites: 112 passed, including cache invalidation,
   failed withdrawal, disconnected mailboxes, and responses arriving after an
   identity change. Whole-app TypeScript checking and `just check` passed.
 - Workspace SQLx preparation with all features and test queries passed. Static

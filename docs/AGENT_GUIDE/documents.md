@@ -2307,7 +2307,7 @@ Document comments are messages read and written through
 message components, as channels do.
 
 Below the editor, expand `Discussion` to see comments without a text anchor.
-Its `Leave a comment...` composer is the channel composer: `Attach files`,
+Its `Leave a comment...` composer is the channel composer: the `+` (`Add`) menu,
 formatting, mentions, and `Send message` (Enter also submits). Confirm
 completion by the new message appearing above the composer; a failed send
 retains the draft. The timeline initially loads a bounded page with up to three

@@ -162,9 +162,14 @@ wrapping paragraph should stay expanded without briefly collapsing; check this
 after reopening the channel with a draft already saved. Open reply composers always place the editor
 above the action row, including for empty and single-line drafts, so the
 attachment, delete-reply, and send controls have their own space.
-Attachment controls use a paperclip in both expanded and collapsed composers,
-including the iOS media picker. Input action and formatting buttons show the
-app tooltip without a second native browser tooltip.
+Both the expanded and collapsed composers start with a `+` button (`Add`). It
+opens a menu on desktop and a bottom drawer on mobile: `Mention` (opens the `@` typeahead), `Attach files` (the file
+picker; the iOS media picker on iOS), then under `Create` the same actions as
+`/task`, `/poll`, `/form` and `/document` (poll and form only with forms on),
+then `Ask Macro` (inserts an `@Macro` mention) and, in a channel, `Start a call`
+(`Join call` while one is live).
+Input action and formatting buttons show the app tooltip without a second
+native browser tooltip.
 On desktop, select draft text to open the floating formatting toolbar. Its
 compact frame uses 4px outer padding with concentric button corners, a white
 light-mode background, a thin border, and a soft downward shadow. Check

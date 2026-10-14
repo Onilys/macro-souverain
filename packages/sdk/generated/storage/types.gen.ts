@@ -759,6 +759,7 @@ export type ApiEntityFilterAst = {
      * the filters that should be applied to the channel entity
      */
     chanf?: unknown;
+    crma?: null | CrmAssociation;
     /**
      * Opt-in filters for viewer-accessible CRM contacts (wire key `crmf`).
      */
@@ -4429,6 +4430,21 @@ export type CreatedUserApiKey = {
      * User-facing name.
      */
     name: string;
+};
+
+/**
+ * The CRM record an association filter names.
+ */
+export type CrmAssociation = {
+    /**
+     * Items associated with the company or with any of its contacts.
+     */
+    company: string;
+} | {
+    /**
+     * Items associated with the contact.
+     */
+    contact: string;
 };
 
 /**
@@ -20656,6 +20672,10 @@ export type PostItemsSoupAstErrors = {
      * CRM-scoped queries require team membership, or requesting hidden CRM companies requires admin/owner team role
      */
     403: ErrorResponse;
+    /**
+     * The CRM record named by `crma` or a document `crm` literal is not visible to the caller
+     */
+    404: ErrorResponse;
     500: ErrorResponse;
 };
 
@@ -20684,6 +20704,10 @@ export type PostItemsSoupAstGroupedErrors = {
      * CRM-scoped queries require team membership, or requesting hidden CRM companies requires admin/owner team role
      */
     403: ErrorResponse;
+    /**
+     * The CRM record named by `crma` or a document `crm` literal is not visible to the caller
+     */
+    404: ErrorResponse;
     500: ErrorResponse;
 };
 

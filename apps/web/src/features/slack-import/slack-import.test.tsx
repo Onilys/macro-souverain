@@ -105,7 +105,7 @@ describe('Slack import production boundary', () => {
     await screen.findByText('Mounted import');
     host.props!.onConnect!();
     expect(host.requestConnect).toHaveBeenCalledWith(
-      'slack',
+      'slack_v2',
       'import-slack-channels'
     );
     expect(host.openSettings).toHaveBeenCalledWith('Connections');

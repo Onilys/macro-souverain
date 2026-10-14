@@ -47,6 +47,8 @@ export type GraphqlSoupAstItemsQuery = {
   isLoading: Accessor<boolean>;
   isFetching: Accessor<boolean>;
   isFetchingNextPage: Accessor<boolean>;
+  /** The current error came from loading a continuation page. */
+  isFetchNextPageError: Accessor<boolean>;
   isPlaceholderData: Accessor<boolean>;
   hasNextPage: Accessor<boolean>;
   fetchNextPage: () => Promise<void>;

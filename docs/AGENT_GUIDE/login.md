@@ -21,6 +21,10 @@
    failure does not block the remaining content; signup retries repair tags
    without resetting task priorities. The guide waits until its tag IDs resolve.
 
+Production Google/SSO and inbox/calendar connections may return to either
+`https://macro.com` or `https://www.macro.com`. Verify connections from both hosts;
+the inbox link flow returns to `/app/inbox-link-callback` on the originating host.
+
 ## Temporary open signup in Develop
 
 Once the temporary authentication-service override is deployed, Develop accepts

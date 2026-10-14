@@ -132,6 +132,7 @@ function makeQuery(initial: EntityData[], hasMore = true) {
     },
     isFetching: false,
     isFetchingNextPage: false,
+    isFetchNextPageError: false,
     isPlaceholderData: false,
     isEnabled: true,
     transport: 'rest',

@@ -1096,6 +1096,15 @@ fn map_properties_to_call(expr: &Expr<PropertiesLiteral>) -> Expr<CallLiteral> {
     }
 }
 
+/// An entity whose Companies or Contacts property names a CRM record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CrmPropertyEdge {
+    /// The entity type the property row is stored under.
+    pub entity_type: models_properties::EntityType,
+    /// The entity id the property row is stored under.
+    pub entity_id: String,
+}
+
 /// Parameters for fetching CRM companies to fold into the soup feed.
 #[derive(Debug)]
 pub struct GetCrmCompaniesRequest {
@@ -1308,6 +1317,9 @@ pub enum SoupErr {
     /// role is below admin/owner.
     #[error("Querying hidden CRM companies requires admin/owner team role")]
     CrmAdminRequired,
+    /// The filter is restricted to a CRM record the caller cannot see.
+    #[error("CRM record not found")]
+    CrmRecordNotFound,
     /// GitHub pull request listing failed.
     #[error(transparent)]
     GithubPullRequestErr(#[from] GithubPullRequestError),
