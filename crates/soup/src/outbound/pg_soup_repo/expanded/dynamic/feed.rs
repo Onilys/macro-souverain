@@ -17,11 +17,8 @@ mod test;
 use document_sub_type::DocumentSubType;
 use filter_ast::{Expr, ExprFrame};
 use item_filters::ast::{
-    chat::ChatLiteral,
-    date::DateLiteral,
-    document::DocumentLiteral,
-    project::ProjectLiteral,
-    properties::{PropertiesLiteral, PropertyEntityType},
+    chat::ChatLiteral, date::DateLiteral, document::DocumentLiteral, project::ProjectLiteral,
+    properties::PropertiesLiteral,
 };
 use models_pagination::SimpleSortMethod;
 use recursion::CollapsibleExt;
@@ -30,8 +27,7 @@ use sqlx::{Postgres, QueryBuilder};
 use super::{
     DOCUMENT_TASK_PROPERTY_JOINS, USER_HOLDS_GRANT_SOURCE, build_chat_filter,
     build_document_filter, build_project_filter, build_properties_filter,
-    document_filter_needs_task_property_joins, properties_filter_can_apply_to, push_not_inward,
-    push_union_separator,
+    document_filter_needs_task_property_joins, push_not_inward, push_union_separator,
 };
 
 /// The sort key main gives never-viewed items under `ViewedAt`.
@@ -156,11 +152,10 @@ impl FeedArm {
         properties: Option<&Expr<PropertiesLiteral>>,
         notified: bool,
     ) -> Self {
-        // A document's properties are stored as TASK exactly when it is a task,
-        // and its sub type is fixed when it is created.
-        let mut document =
-            properties_filter_can_apply_to(properties, &[PropertyEntityType::Document]);
-        let mut task = properties_filter_can_apply_to(properties, &[PropertyEntityType::Task]);
+        // Property rows retain their entity type when a document changes subtype.
+        // Only document predicates can narrow the current listing kind.
+        let mut document = true;
+        let mut task = true;
         let mut owner = false;
         let mut updated_at_bounds = Vec::new();
         for conjunct in Conjuncts::of(filter_ast).iter() {

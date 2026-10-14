@@ -1424,7 +1424,6 @@ enum ItemSource {
     /// `source_items`, under every sort it can order.
     SourceItems,
     /// The item tables, which `CreatedAt` always reads.
-    #[cfg(test)]
     ItemTables,
 }
 
@@ -2079,8 +2078,14 @@ async fn expanded_dynamic_cursor_soup_hydrated(
 pub(crate) async fn expanded_dynamic_cursor_soup_with_projection(
     db: &PgPool,
     args: ExpandedDynamicCursorArgs<'_>,
+    source_items_enabled: bool,
 ) -> Result<Vec<SoupProjectionHydration>, sqlx::Error> {
-    expanded_dynamic_cursor_soup_hydrated(db, args, ItemSource::SourceItems).await
+    let item_source = if source_items_enabled {
+        ItemSource::SourceItems
+    } else {
+        ItemSource::ItemTables
+    };
+    expanded_dynamic_cursor_soup_hydrated(db, args, item_source).await
 }
 
 /// Execute a flat expanded dynamic query without exposing projection metadata.

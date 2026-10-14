@@ -1,7 +1,11 @@
 use super::super::{
     ExpandedDynamicCursorArgs, ItemSource, build_query, expanded_dynamic_cursor_soup_hydrated,
 };
-use crate::domain::models::{SoupDocumentServerFacts, SoupProjectionHydration};
+use crate::domain::models::{
+    SimpleSortQuery, SimpleSortRequest, SoupDocumentServerFacts, SoupProjectionHydration,
+};
+use crate::domain::ports::SoupRepo;
+use crate::outbound::pg_soup_repo::PgSoupRepo;
 use chrono::{DateTime, TimeZone, Utc};
 use document_sub_type::DocumentSubType;
 use filter_ast::Expr;
@@ -37,6 +41,35 @@ const SORTS: [SimpleSortMethod; 3] = [
     SimpleSortMethod::ViewedUpdated,
     SimpleSortMethod::ViewedAt,
 ];
+
+#[sqlx::test(
+    fixtures(
+        path = "../../../../../../fixtures",
+        scripts("source_items_feed", "source_items_empty")
+    ),
+    migrator = "MACRO_DB_MIGRATIONS"
+)]
+async fn source_items_rollout_defaults_to_existing_records(pool: PgPool) -> anyhow::Result<()> {
+    let request = || SimpleSortRequest {
+        user_id: MacroUserIdStr::parse_from_str(USER).unwrap(),
+        limit: PAGE,
+        cursor: SimpleSortQuery::ItemsFilter(Query::Sort(
+            SimpleSortMethod::UpdatedAt,
+            EntityFilterAst::default(),
+        )),
+    };
+    let legacy = PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool.clone()));
+    let projection =
+        PgSoupRepo::new(readonly_pool::ReadOnlyPool(pool)).with_source_items_enabled(true);
+    let existing = legacy.expanded_generic_cursor_soup(request()).await?;
+    let pending = projection.expanded_generic_cursor_soup(request()).await?;
+    assert!(
+        !existing.is_empty(),
+        "disabled rollout must use domain records"
+    );
+    assert!(pending.is_empty(), "enabled rollout must use source_items");
+    Ok(())
+}
 
 fn numbered(prefix: &str, n: u32) -> Uuid {
     Uuid::parse_str(&format!("{prefix}-0000-4000-8000-{n:012}")).unwrap()

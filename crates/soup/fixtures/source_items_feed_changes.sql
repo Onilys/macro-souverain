@@ -80,7 +80,14 @@ WHERE "id" = 'aaaaaaaa-0000-4000-8000-000000000006';
 
 DELETE FROM public."Chat" WHERE "id" = '22222222-0000-4000-8000-000000000002';
 
--- Sub type changes, on documents without properties so their property rows keep their entity type.
+-- Subtype changes leave property rows under their original entity type.
+-- Cover both directions so kind pruning cannot discard matching properties.
+UPDATE public.document_sub_type SET "sub_type" = 'task'
+WHERE "document_id" = '11111111-0000-4000-8000-000000000010';
+
+UPDATE public.document_sub_type SET "sub_type" = 'skill'
+WHERE "document_id" = '11111111-0000-4000-8000-000000000016';
+
 -- Documents 2 and 9 become tasks, document 60 stops being one, and document 18 stays a document.
 INSERT INTO public.document_sub_type ("document_id", "sub_type")
 VALUES ('11111111-0000-4000-8000-000000000002', 'task');
