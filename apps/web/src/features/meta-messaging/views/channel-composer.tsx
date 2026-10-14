@@ -2,7 +2,6 @@ import { Layout } from '@channel/Input/Layout';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { openFilePicker } from '@core/util/upload';
 import PaperclipIcon from '@phosphor/paperclip.svg';
-import TemplateIcon from '@phosphor/text-align-left.svg';
 import { Button, ComposerSurface, SendButton } from '@ui';
 import {
   createSignal,
@@ -134,30 +133,39 @@ function ExternalReply(props: {
   const supports = (mode: 'approved_template' | 'human_support') =>
     props.account.capabilities.modes.includes(mode);
   const open = () => eligible('free_form');
-  const needsTemplate = () =>
-    supports('approved_template') &&
-    (draft.templateMode || (!open() && eligible('approved_template')));
   const connected = () => props.account.status === 'connected';
+  const replyable = () =>
+    props.available && connected() && props.account.can_reply;
+  // Templates are offered only when free-form replies are blocked; choosing one
+  // is explicit and never hides or discards the text draft.
+  const templateOffered = () =>
+    supports('approved_template') &&
+    !draft.templateMode &&
+    replyable() &&
+    !open() &&
+    eligible('approved_template');
+  const needsTemplate = () =>
+    supports('approved_template') && draft.templateMode;
+  const chooseTemplateMode = (templateMode: boolean) => {
+    setDraft('templateMode', templateMode);
+    setDraft('intent', undefined);
+    setError('');
+  };
   const mediaCapability = () =>
     props.account.capabilities.media.find(
       (c) => c.kind === draft.attachment?.kind
     );
-  const templates = source.templates(
-    () =>
-      props.available &&
-      props.account.can_reply &&
-      connected() &&
-      needsTemplate()
-  );
+  const templates = source.templates(() => replyable() && needsTemplate());
   const approved = templates.items;
   const selected = () => approved().find((t) => t.id === draft.templateId);
   const parameterLabels = () => selected()?.parameter_labels ?? [];
   const withinHumanWindow = () =>
     supports('human_support') && eligible('human_support');
+  // The human-support choice is visible, and applies, only outside the standard window.
   const mode = () =>
     needsTemplate()
       ? 'approved_template'
-      : supports('human_support') && draft.humanSupport
+      : !open() && withinHumanWindow() && draft.humanSupport
         ? 'human_support'
         : 'free_form';
   const allowed = () =>
@@ -318,9 +326,12 @@ function ExternalReply(props: {
     try {
       await source.send(request);
       if (!active) return;
+      // A template does not include the separate text draft; keep it for later.
+      const sentTemplate = request.message.type === 'template';
       setDraft({
         ...emptyReplyDraft(),
-        attachment: undefined,
+        text: sentTemplate ? draft.text : '',
+        attachment: sentTemplate ? draft.attachment : undefined,
         intent: undefined,
       });
       setCheckedOriginalApp(false);
@@ -462,9 +473,8 @@ function ExternalReply(props: {
                     )}
                   </Show>
 
-                  <Show when={!open() && !needsTemplate()}>
-                    <Show
-                      when={withinHumanWindow()}
+                  <Show when={replyable() && !open()}>
+                    <Switch
                       fallback={
                         <p class="text-xs text-ink-muted">
                           This account’s reply window is closed. Wait for a new
@@ -472,20 +482,36 @@ function ExternalReply(props: {
                         </p>
                       }
                     >
-                      <label class="flex items-start gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          disabled={source.isSending()}
-                          checked={draft.humanSupport}
-                          onChange={(e) => {
-                            setDraft('humanSupport', e.currentTarget.checked);
-                            setDraft('intent', undefined);
-                          }}
-                        />
-                        This is a human-authored reply to an unresolved support
-                        request. It is not automated or promotional.
-                      </label>
-                    </Show>
+                      <Match when={templateOffered()}>
+                        <p class="text-xs text-ink-muted">
+                          The reply window is closed. Send an approved template,
+                          or wait for a new customer message.{' '}
+                          <button
+                            type="button"
+                            class="underline"
+                            disabled={source.isSending()}
+                            onClick={() => chooseTemplateMode(true)}
+                          >
+                            Choose template
+                          </button>
+                        </p>
+                      </Match>
+                      <Match when={withinHumanWindow()}>
+                        <label class="flex items-start gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            disabled={source.isSending()}
+                            checked={draft.humanSupport}
+                            onChange={(e) => {
+                              setDraft('humanSupport', e.currentTarget.checked);
+                              setDraft('intent', undefined);
+                            }}
+                          />
+                          This is a human-authored reply to an unresolved
+                          support request. It is not automated or promotional.
+                        </label>
+                      </Match>
+                    </Switch>
                   </Show>
                   <Show
                     when={
@@ -505,8 +531,16 @@ function ExternalReply(props: {
             >
               <p class="text-sm text-ink-muted">
                 {open()
-                  ? 'Select an approved template for this account.'
-                  : 'The free-form reply window is closed. Select an approved template for this account.'}
+                  ? 'Send an approved template instead of a text reply.'
+                  : 'The reply window is closed. Only an approved template can be sent.'}{' '}
+                <button
+                  type="button"
+                  class="underline"
+                  disabled={source.isSending()}
+                  onClick={() => chooseTemplateMode(false)}
+                >
+                  Back to text reply
+                </button>
               </p>
               <label class="text-xs">
                 Approved template
@@ -524,7 +558,12 @@ function ExternalReply(props: {
                   <option value="">Choose a template and language</option>
                   <For each={approved()}>
                     {(t) => (
-                      <option value={t.id} disabled={!!t.unsupported_reason}>
+                      <option
+                        value={t.id}
+                        disabled={!!t.unsupported_reason}
+                        // Options load after a restored draft sets the select's value.
+                        selected={t.id === draft.templateId}
+                      >
                         {t.name} · {t.language}
                         {t.unsupported_reason ? ' · Unsupported format' : ''}
                       </option>
@@ -606,25 +645,6 @@ function ExternalReply(props: {
               onClick={chooseAttachment}
             >
               <PaperclipIcon class="size-4" aria-hidden="true" />
-            </Button>
-          </Show>
-          <Show when={supports('approved_template') && open()}>
-            <Button
-              variant="ghost"
-              size="icon-composer"
-              label={
-                draft.templateMode ? 'Use text reply' : 'Use approved template'
-              }
-              title={
-                draft.templateMode ? 'Use text reply' : 'Use approved template'
-              }
-              disabled={source.isSending()}
-              onClick={() => {
-                setDraft('templateMode', !draft.templateMode);
-                setDraft('intent', undefined);
-              }}
-            >
-              <TemplateIcon class="size-4" aria-hidden="true" />
             </Button>
           </Show>
         </Layout.ActionsLeft>

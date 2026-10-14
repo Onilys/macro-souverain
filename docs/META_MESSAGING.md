@@ -239,15 +239,20 @@ Approved WhatsApp templates support positional and named text parameters in
 headers/bodies, plus static supported buttons and footers. Templates needing
 media headers, dynamic buttons or other interactive inputs are visibly disabled.
 Approval is checked again at dispatch and resolved text is retained before the
-provider call, so restart recovery can display what was sent.
+provider call, so restart recovery can display what was sent. The composer offers
+templates only when the free-form window is closed, as an explicit choice that keeps
+any typed text as a draft; template drafts and failed template sends restore intact.
 
 Provider acceptance is persisted before native message creation. Recovery creates
 only the missing native message/attachment/effects and never repeats that provider
-send. Rate limits and failures during preparation may retry with bounded backoff.
-A timeout or interrupted network attempt is **Unknown**, because it may have been
-accepted. Restoring an unknown reply requires a person to check the original app
-and explicitly confirm sending again. Reconnect retains account/channel mappings
-and retries failed inbound work for that account; it never resets outbound sends.
+send. Rate limits, and temporary failures before the dispatch fence, retry a bounded
+number of times. Once dispatch starts, a failure is never recorded as Failed: a
+timeout, interrupted attempt or unrecorded acceptance becomes **Unknown**, because it
+may have been accepted. Restoring an unknown reply requires a person to check the
+original app and explicitly confirm sending again. Reconnect retains account/channel
+mappings and retries failed inbound work for that account, including customer
+messages and revisions received while its authorization needed renewal; it never
+resets outbound sends. An explicit disconnect stops receiving.
 Lease and publication-revision mismatches are errors, not successful settlement.
 
 Webhook events within one decoded batch are independent: an unavailable account or

@@ -64,6 +64,8 @@ let denied = false;
 let bindingError = false;
 let holdBinding = false;
 let unknownSend = false;
+let windowClosed = false;
+let failSend = false;
 const submissions: MetaSendReply[] = [];
 const sends = new Map<string, MetaSendProgress[]>();
 const seenNotifications = new Set<string>();
@@ -148,6 +150,12 @@ function conversation(channelId: string): MetaConversationView | null {
   const channel = channels.find((channel) => channel.id === channelId)!;
   if (!channel.provider) return null;
   const options = replyOptions(channel.provider);
+  if (windowClosed)
+    options.eligibility.modes[0] = {
+      mode: 'free_form',
+      allowed: false,
+      reason: 'template_required',
+    };
   if (denied)
     for (const mode of options.eligibility.modes) {
       mode.allowed = false;
@@ -159,7 +167,8 @@ function conversation(channelId: string): MetaConversationView | null {
     account_name: 'Test Business',
     status: 'connected',
     can_reply: !denied,
-    developer_account: false,
+    // Conversation details must not surface developer-only setup.
+    developer_account: true,
     human_agent_approved: false,
     text_limit: options.capabilities.text_limit,
     text_limit_in_bytes: options.capabilities.text_limit_in_bytes,
@@ -358,7 +367,18 @@ await page.route('**/*', async (route) => {
         : respond({ messaging: conversation(channel) });
     }
     if (meta[2] === 'delivery') return respond(sends.get(channel) ?? []);
-    if (meta[2] === 'templates') return respond([]);
+    if (meta[2] === 'templates')
+      return respond([
+        {
+          id: 'approved-template',
+          name: 'order_update',
+          language: 'en_US',
+          components: [
+            { type: 'BODY', text: 'Hello {{1}}, your order is ready.' },
+          ],
+          parameter_labels: ['body 1'],
+        },
+      ]);
     const payload = request.postDataJSON() as MetaSendReply;
     if (denied) return respond({}, 403);
     submissions.push(payload);
@@ -367,11 +387,12 @@ await page.route('**/*', async (route) => {
       channel_id: channel,
       user_id: activeUser,
       created_at: new Date().toISOString(),
-      state: unknownSend ? 'unknown' : 'pending',
+      state: unknownSend ? 'unknown' : failSend ? 'failed' : 'pending',
+      error_code: failSend ? 'provider_rejected' : null,
       payload,
     };
     sends.set(channel, [...(sends.get(channel) ?? []), attempt]);
-    if (!unknownSend)
+    if (!unknownSend && !failSend)
       setTimeout(() => {
         const native = message(
           channel,
@@ -602,7 +623,9 @@ try {
   await expect(input).toHaveValue('Saved WhatsApp draft');
   holdBinding = true;
   await page.reload();
-  await expect(page.getByLabel('Loading conversation')).toBeVisible();
+  await expect(
+    page.getByLabel('Loading conversation', { exact: true })
+  ).toBeVisible();
   await expect(input).toHaveCount(0);
   holdBinding = false;
   bindingError = true;
@@ -634,6 +657,69 @@ try {
   ).toBeEnabled();
   await page.reload();
   await expect(page.getByRole('checkbox')).not.toBeChecked();
+  unknownSend = false;
+
+  // Templates stay out of normal replies and appear only when required.
+  activeUser = 'macro|template-browser-user@example.com';
+  await page.reload();
+  await expect(input).toHaveValue('');
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /template/i })).toHaveCount(0);
+  await expect(page.getByText(/template/i)).toHaveCount(0);
+  await page
+    .getByRole('button', { name: 'WhatsApp conversation details' })
+    .click();
+  await expect(page.getByText('WhatsApp messages sent from')).toBeVisible();
+  await expect(page.getByText(/test account/i)).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.screenshot({ path: '/tmp/macro-messaging-browser-normal.png' });
+
+  windowClosed = true;
+  await page.reload();
+  await input.fill('Typed before the window closed');
+  const sendButton = page.getByRole('button', {
+    name: 'Send reply via WhatsApp',
+  });
+  await expect(sendButton).toBeDisabled();
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await expect(page.getByText('The reply window is closed.')).toBeVisible();
+  await page.screenshot({ path: '/tmp/macro-messaging-browser-closed.png' });
+  await page.getByRole('button', { name: 'Choose template' }).click();
+  const picker = page.getByRole('combobox', {
+    name: 'Approved WhatsApp template',
+  });
+  await picker.selectOption('approved-template');
+  await page.getByLabel('body 1').fill('Avery');
+  await page.reload();
+  await expect(picker).toHaveValue('approved-template');
+  await expect(page.getByLabel('body 1')).toHaveValue('Avery');
+  await page.screenshot({ path: '/tmp/macro-messaging-browser-template.png' });
+  await page.getByRole('button', { name: 'Back to text reply' }).click();
+  await expect(input).toHaveValue('Typed before the window closed');
+  await page.getByRole('button', { name: 'Choose template' }).click();
+  await expect(picker).toHaveValue('approved-template');
+  failSend = true;
+  await sendButton.click();
+  await expect(input).toHaveValue('Typed before the window closed');
+  assert.deepEqual(submissions.at(-1)?.message, {
+    type: 'template',
+    template_id: 'approved-template',
+    language: 'en_US',
+    parameters: ['Avery'],
+  });
+  failSend = false;
+  await input.fill('');
+  await page.getByRole('button', { name: 'Edit and retry' }).last().click();
+  await expect(picker).toHaveValue('approved-template');
+  await expect(page.getByLabel('body 1')).toHaveValue('Avery');
+  await expect(sendButton).toBeEnabled();
+  windowClosed = false;
+  await page.reload();
+  await expect(picker).toHaveValue('approved-template');
+  await page.getByRole('button', { name: 'Back to text reply' }).click();
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /template/i })).toHaveCount(0);
+  activeUser = USER_ID;
   await page.screenshot({
     path: '/tmp/macro-messaging-browser.png',
     fullPage: true,
@@ -651,6 +737,9 @@ try {
         'server denial',
         'unknown acknowledgement reset',
         'source edit/unsend display',
+        'no template controls or developer label in normal replies',
+        'explicit template only when the window is closed',
+        'template draft persistence and failed-template recovery',
       ],
       submissions: submissions.length,
     })

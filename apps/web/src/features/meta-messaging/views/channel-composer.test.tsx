@@ -357,6 +357,87 @@ describe('native external-reply boundary', () => {
       parameters: ['Avery'],
     });
   });
+  it('keeps template controls out of normal replies', () => {
+    fixture.templates = [
+      {
+        id: 'approved-template',
+        language: 'en_US',
+        name: 'Welcome',
+        components: [],
+        parameter_labels: [],
+      },
+    ];
+    mount();
+    expect(screen.getByRole('textbox')).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('button', { name: /template/i })).toBeNull();
+    expect(screen.queryByText(/template/i)).toBeNull();
+  });
+  it('offers a template only when the window is closed and keeps the typed draft', async () => {
+    fixture.templates = [
+      {
+        id: 'approved-template',
+        language: 'en_US',
+        name: 'Welcome',
+        components: [],
+        parameter_labels: ['customer'],
+      },
+    ];
+    fixture.account!.eligibility.modes = [
+      { mode: 'free_form', allowed: false, reason: 'template_required' },
+      { mode: 'approved_template', allowed: true },
+    ];
+    mount();
+    fireEvent.input(screen.getByRole('textbox'), {
+      target: { value: 'Typed before the window closed' },
+    });
+    const send = screen.getByRole('button', {
+      name: 'Send reply via WhatsApp',
+    });
+    expect(send).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('combobox')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to text reply' }));
+    expect(screen.getByRole('textbox')).toHaveProperty(
+      'value',
+      'Typed before the window closed'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'approved-template' },
+    });
+    fireEvent.input(screen.getByLabelText('customer'), {
+      target: { value: 'Avery' },
+    });
+    fireEvent.click(send);
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+    expect(fixture.reply.mock.calls[0][0].message).toEqual({
+      type: 'template',
+      template_id: 'approved-template',
+      language: 'en_US',
+      parameters: ['Avery'],
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('textbox')).toHaveProperty(
+        'value',
+        'Typed before the window closed'
+      )
+    );
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+  it('does not offer templates the server does not currently allow', () => {
+    fixture.account!.eligibility.modes = [
+      { mode: 'free_form', allowed: false, reason: 'template_required' },
+      { mode: 'approved_template', allowed: false, reason: 'forbidden' },
+    ];
+    mount();
+    expect(
+      screen.queryByRole('button', { name: 'Choose template' })
+    ).toBeNull();
+    expect(screen.getByText(/Wait for a new customer message/)).toBeTruthy();
+  });
   it('preserves an Instagram human-support draft through remount', () => {
     fixture.account = account('instagram');
     fixture.account.eligibility.modes = [
@@ -382,6 +463,27 @@ describe('native external-reply boundary', () => {
     expect(
       screen.getByRole('button', { name: 'Send reply via Instagram' })
     ).toHaveProperty('disabled', false);
+  });
+  it('does not send a hidden human-support choice after the window reopens', async () => {
+    fixture.account = account('instagram');
+    fixture.account.eligibility.modes = [
+      { mode: 'free_form', allowed: false, reason: 'window_closed' },
+      { mode: 'human_support', allowed: true },
+    ];
+    mount();
+    fireEvent.input(screen.getByRole('textbox'), {
+      target: { value: 'Support follow-up' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+    cleanup();
+    fixture.account = account('instagram');
+    mount();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send reply via Instagram' })
+    );
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+    expect(fixture.reply.mock.calls[0][0].human_support).toBe(false);
   });
   it('ignores a late send completion after returning and writing a newer draft', async () => {
     let resolveReply!: (value: unknown) => void;

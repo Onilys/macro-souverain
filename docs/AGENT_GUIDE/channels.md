@@ -69,7 +69,9 @@ is unknown, loading or error states keep native mutations disabled. Once a chann
 is known to be internal, a messaging-metadata refresh failure keeps its normal
 composer usable. External drafts remain editable through connection errors.
 WhatsApp
-requires an approved template outside its standard window. Instagram's extended
+requires an approved template outside its standard window. Normal replies show no
+template controls; once the window closes, **Choose template** opens the picker,
+any typed text stays as a draft, and **Back to text reply** returns to it. Instagram's extended
 human-support mode is offered only with configured app approval and requires an
 explicit human-support selection. Unsupported template inputs are disabled.
 
