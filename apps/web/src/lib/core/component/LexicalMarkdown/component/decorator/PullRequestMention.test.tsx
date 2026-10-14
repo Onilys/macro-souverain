@@ -109,12 +109,12 @@ describe('pull request mention face', () => {
     const [agentWritten, composed] =
       view.container.querySelectorAll('[data-pr-mention]');
     expect(agentWritten.textContent).toBe('macro-inc/macro#7956');
-    expect(agentWritten.classList.contains('w-[20em]')).toBe(true);
-    expect(composed.classList.contains('w-[20em]')).toBe(false);
+    expect(agentWritten.classList.contains('w-[32em]')).toBe(true);
+    expect(composed.classList.contains('w-[32em]')).toBe(false);
 
     setResolved(pullRequest);
 
     expect(agentWritten.textContent).toBe(`${title} #7956`);
-    expect(agentWritten.classList.contains('w-[20em]')).toBe(true);
+    expect(agentWritten.classList.contains('w-[32em]')).toBe(true);
   });
 });

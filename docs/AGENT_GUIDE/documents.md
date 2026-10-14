@@ -42,7 +42,15 @@ embeds and check that their preview bodies load; also check that a code or canva
 mention offers **Convert to Embed** in its preview menu.
 Drag an embed's bottom-right resize grip, then release and select the card. Its
 height should stay at the dragged size and persist after reopening the document.
-Canvas Next embeds are read-only: **Select** selects shapes without moving them,
+All canvases open in Canvas Next, including drive details and Markdown embeds;
+there is no rollout flag or legacy editor. Unversioned/version 1 files migrate
+in memory. Opening a file alone does not save the migration; the first edit saves
+version 2 while retaining the original JSON for recovery. Unsupported legacy
+records and unknown versions show an error without changing the saved file.
+To verify migration, open a supported legacy canvas, edit it, then reopen it and
+check that its shapes, text, and connectors remain intact.
+
+Canvas embeds are read-only: **Select** selects shapes without moving them,
 and **Hand** pans the canvas. The toolbar contains only those two tools; property
 inspector details and drawing/editing controls are absent. Check toolbar clicks,
 drag-to-pan, and the V/H shortcuts with focus inside the canvas. These interactions

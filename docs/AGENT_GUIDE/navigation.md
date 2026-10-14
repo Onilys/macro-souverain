@@ -814,7 +814,7 @@ restart rules still apply.
 - In any text surface: `@` mentions (bidirectional links), `#` tags, `/` block commands,
   `:` emoji. Clicking a rendered tag opens a Search split filtered to that tag.
 
-Settings → Agents → Agents / Runtimes render while their requests are pending.
+Settings → Agents, its Cursor guide, and Runtimes render while their requests are pending.
 A pending Cursor model catalog shows `Loading models…` beside a disabled model
 picker; a failed catalog shows an inline error. The rest of settings stays usable.
 Settings → Agents → Agents ends with **Coding sessions**: per-user **Create
@@ -822,8 +822,8 @@ tasks** and **Open pull requests** switches, both off by default. Each saves on
 toggle and reverts with a toast if the save fails.
 
 With the `claude-cloud` feature flag enabled, Claude Cloud connection setup is in
-Settings → Agents → Runtimes, above Cursor, with the
-Anthropic logo. Settings → Agents → Agents selects an agent's runtime but does not host
+Settings → Agents → Runtimes (Manage on Bring your own agent), above Cursor, with the
+Anthropic logo. The agent editor's Where it runs offers In Claude Code but does not host
 Claude's connection form. **Connect Claude** starts authorization and opens sign-in
 on the first click; a fallback link remains if the browser blocks the tab.
 Approve on Claude's page, copy the complete `code#state`, then use **Finish

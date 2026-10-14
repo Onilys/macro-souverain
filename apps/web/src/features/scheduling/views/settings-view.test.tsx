@@ -14,6 +14,7 @@ import {
   type SchedulingSource,
 } from '../context/scheduling-context';
 import {
+  type Booking,
   newEventType,
   newSchedule,
   type SchedulingProfile,
@@ -51,7 +52,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function fixture(teamEditable = true) {
+const future = (hours: number) =>
+  new Date(Date.now() + hours * 3_600_000).toISOString();
+
+/** A confirmed team meeting hosted by a teammate, not the signed-in user. */
+const teammateBooking: Booking = {
+  id: 'booking',
+  eventTypeId: 'same-event-id',
+  title: 'Team planning',
+  name: 'Guest',
+  email: 'guest@example.com',
+  startsAt: future(24),
+  endsAt: future(25),
+  timeZone: 'UTC',
+  hosts: ['teammate'],
+  status: 'confirmed',
+  attendance: 'unknown',
+  rescheduleCount: 0,
+  rescheduledAt: null,
+  location: '',
+  answers: {},
+};
+
+function fixture(team = { canEdit: true, canManageBookings: true }) {
   const sources = new Map<string, SchedulingSource>();
   const saves = vi.fn();
   const createSource: SchedulingCapabilities['createSource'] = (scope) => {
@@ -75,7 +98,18 @@ function fixture(teamEditable = true) {
     });
     const source: SchedulingSource = {
       profile,
-      bookings: () => [],
+      bookings: () =>
+        scope().teamId
+          ? [
+              teammateBooking,
+              {
+                ...teammateBooking,
+                id: 'hosted',
+                name: 'Own guest',
+                hosts: ['user'],
+              },
+            ]
+          : [],
       loading: () => false,
       error: () => undefined,
       saving: () => false,
@@ -96,8 +130,13 @@ function fixture(teamEditable = true) {
     <SchedulingProvider
       value={{
         scopes: () => [
-          { id: 'personal', name: 'Personal', canEdit: true },
-          { id: 'team', name: 'Design', teamId: 'team', canEdit: teamEditable },
+          {
+            id: 'personal',
+            name: 'Personal',
+            canEdit: true,
+            canManageBookings: true,
+          },
+          { id: 'team', name: 'Design', teamId: 'team', ...team },
         ],
         members: () => [],
         userId: () => 'user',
@@ -181,7 +220,7 @@ it('keeps page drafts across navigation and scopes each section', async () => {
 });
 
 it('preserves read-only access and clears search when switching owners', async () => {
-  fixture(false);
+  fixture({ canEdit: false, canManageBookings: false });
   fireEvent.input(
     screen.getByRole('searchbox', { name: 'Search booking links' }),
     { target: { value: 'no match' } }
@@ -197,6 +236,19 @@ it('preserves read-only access and clears search when switching owners', async (
   ).toBeNull();
   expect(screen.queryByRole('button', { name: 'New booking link' })).toBeNull();
   expect(
-    screen.getByText('Only team owners and admins can edit these settings.')
+    screen.getByText('Only team members can edit these settings.')
   ).toBeTruthy();
+});
+
+it('lets a team member edit booking links and manage only the meetings they host', async () => {
+  fixture({ canEdit: true, canManageBookings: false });
+  await selectOwner('Team · Design');
+  expect(screen.getByRole('button', { name: 'New booking link' })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Bookings' }));
+  expect(await screen.findByText('Guest')).toBeTruthy();
+  expect(screen.getByText('Own guest')).toBeTruthy();
+  // One Cancel and one Reschedule: the meeting they host, not the teammate's.
+  expect(screen.getAllByRole('button', { name: 'Cancel' })).toHaveLength(1);
+  expect(screen.getAllByRole('button', { name: 'Reschedule' })).toHaveLength(1);
 });

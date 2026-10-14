@@ -282,7 +282,7 @@ export function SchedulingSettingsView() {
                 <Show when={!owner.scope().canEdit}>
                   <p class="mt-4 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
                     <OwnerBadge scope={owner.scope()} />
-                    Only team owners and admins can edit these settings.
+                    Only team members can edit these settings.
                   </p>
                 </Show>
               </>
