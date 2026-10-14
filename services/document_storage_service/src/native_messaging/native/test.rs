@@ -246,6 +246,44 @@ async fn workflow(pool: PgPool, provider: Provider) {
     b.unwrap();
     assert!(repo.accepted_sends().await.unwrap().is_empty());
     assert!(repo.claim_send().await.unwrap().is_none());
+    // Finished recovery leaves the per-second scan; pending media keeps it there.
+    let retired = || async {
+        sqlx::query_scalar!(
+            r#"SELECT native_retry_at = 'infinity' AS "retired!" FROM meta_messaging_send WHERE id = $1"#,
+            work.lease.id
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    };
+    assert!(retired().await);
+    sqlx::query!(
+        "UPDATE meta_messaging_message SET media_state = 'pending' WHERE connection_id = $1 AND provider_message_id = $2",
+        c.id,
+        provider_id.as_str()
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        "UPDATE meta_messaging_send SET native_retry_at = now() WHERE id = $1",
+        work.lease.id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert_eq!(repo.accepted_sends().await.unwrap().len(), 1);
+    assert!(!retired().await);
+    sqlx::query!(
+        "UPDATE meta_messaging_message SET media_state = 'stored' WHERE connection_id = $1 AND provider_message_id = $2",
+        c.id,
+        provider_id.as_str()
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert!(repo.accepted_sends().await.unwrap().is_empty());
+    assert!(retired().await);
     assert_eq!(
         repo.conversation(channel)
             .await

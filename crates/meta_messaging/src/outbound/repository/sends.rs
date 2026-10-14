@@ -88,6 +88,10 @@ impl PgMessagingRepository {
         Ok(())
     }
     pub(super) async fn accepted_sends_impl(&self) -> PortResult<Vec<(SendWork, ProviderId)>> {
+        // Retire finished acceptances so this once-a-second scan stays proportional
+        // to recovery work rather than to every reply ever sent.
+        sqlx::query!("UPDATE meta_messaging_send SET native_retry_at='infinity' WHERE native_retry_at<=now() AND provider_message_id IS NOT NULL AND message_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM meta_messaging_message m WHERE m.message_id=meta_messaging_send.message_id AND m.media_state='pending') AND state IN ('accepted','sent','delivered','read','failed')")
+            .execute(&self.pool).await.map_err(failure)?;
         let rows=sqlx::query!("SELECT id, connection_id, channel_id, user_id, created_at, payload, provider_message_id, attempts FROM meta_messaging_send WHERE native_retry_at<=now() AND provider_message_id IS NOT NULL AND (message_id IS NULL OR EXISTS (SELECT 1 FROM meta_messaging_message m WHERE m.message_id=meta_messaging_send.message_id AND m.media_state='pending')) AND state IN ('accepted','sent','delivered','read','failed') ORDER BY native_retry_at,id LIMIT 50")
             .fetch_all(&self.pool).await.map_err(failure)?;
         rows.into_iter()
