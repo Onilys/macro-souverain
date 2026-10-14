@@ -1,7 +1,7 @@
 use super::*;
+use crate::links::delete::mark_link_deleting;
 use crate::links::get::fetch_link_by_id;
 use crate::links::insert::upsert_link;
-use crate::links::update::update_link_sync_status;
 use chrono::Duration;
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use macro_user_id::email::EmailStr;
@@ -107,7 +107,7 @@ async fn pause_redelivery_keeps_the_original_pause_time(
 async fn pause_skips_link_being_deleted(pool: Pool<Postgres>) -> anyhow::Result<()> {
     let id = insert_test_link(&pool, "deleting@retention.test").await?;
     set_last_active_days_ago(&pool, id, 8).await?;
-    update_link_sync_status(&pool, id, false).await?;
+    mark_link_deleting(&pool, id).await?;
 
     assert!(!pause_link_sync(&pool, id, week_ago()).await?);
     assert!(retention_state(&pool, id).await?.sync_paused_at.is_none());
@@ -164,7 +164,7 @@ async fn activity_does_not_resume_link_being_deleted(pool: Pool<Postgres>) -> an
     let id = insert_test_link(&pool, "torn-down@retention.test").await?;
     set_last_active_days_ago(&pool, id, 8).await?;
     pause_link_sync(&pool, id, week_ago()).await?;
-    update_link_sync_status(&pool, id, false).await?;
+    mark_link_deleting(&pool, id).await?;
 
     assert!(record_link_activity(&pool, &[id]).await?.is_empty());
     assert!(!retention_state(&pool, id).await?.is_sync_active);
@@ -192,7 +192,7 @@ async fn failed_resume_restores_pause_for_next_activity(
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn restore_pause_skips_link_being_deleted(pool: Pool<Postgres>) -> anyhow::Result<()> {
     let id = insert_test_link(&pool, "restore-deleting@retention.test").await?;
-    update_link_sync_status(&pool, id, false).await?;
+    mark_link_deleting(&pool, id).await?;
 
     assert!(!restore_link_pause(&pool, id).await?);
     assert!(retention_state(&pool, id).await?.sync_paused_at.is_none());
@@ -208,6 +208,7 @@ async fn retention_delete_claims_paused_link_and_blocks_resume(
     pause_link_sync(&pool, id, week_ago()).await?;
 
     assert!(claim_idle_link_for_deletion(&pool, id).await?);
+    mark_link_deleting(&pool, id).await?;
     assert!(
         claim_idle_link_for_deletion(&pool, id).await?,
         "a redelivered delete still proceeds"

@@ -14,6 +14,7 @@ mod test;
 ///
 /// Returns `true` when the link is paused, including when a previous delivery
 /// already paused it, so a redelivered message can finish the provider teardown.
+/// A link being deleted is never paused; its deletion owns the teardown.
 #[tracing::instrument(skip(pool), err)]
 pub async fn pause_link_sync(
     pool: &PgPool,
@@ -27,6 +28,7 @@ pub async fn pause_link_sync(
             sync_paused_at = COALESCE(sync_paused_at, NOW()),
             updated_at = NOW()
         WHERE id = $1
+          AND deleting_at IS NULL
           AND (sync_paused_at IS NOT NULL OR (is_sync_active AND last_active_at < $2))
         RETURNING id
         "#,
@@ -50,7 +52,7 @@ pub async fn restore_link_pause(pool: &PgPool, link_id: Uuid) -> anyhow::Result<
         SET is_sync_active = FALSE,
             sync_paused_at = NOW(),
             updated_at = NOW()
-        WHERE id = $1 AND is_sync_active AND sync_paused_at IS NULL
+        WHERE id = $1 AND is_sync_active AND sync_paused_at IS NULL AND deleting_at IS NULL
         RETURNING id
         "#,
         link_id,
@@ -89,8 +91,8 @@ pub async fn claim_idle_link_for_deletion(pool: &PgPool, link_id: Uuid) -> anyho
 /// the caller owns restarting their provider sync.
 ///
 /// Activity is written at most hourly per link, which is far finer than the
-/// retention windows. Links locked by an in-flight deletion are skipped rather
-/// than waited on.
+/// retention windows. Links being deleted are skipped, and so are links whose row
+/// is locked, rather than waited on.
 #[tracing::instrument(skip(pool), err)]
 pub async fn record_link_activity(pool: &PgPool, link_ids: &[Uuid]) -> anyhow::Result<Vec<Uuid>> {
     if link_ids.is_empty() {
@@ -103,6 +105,7 @@ pub async fn record_link_activity(pool: &PgPool, link_ids: &[Uuid]) -> anyhow::R
             SELECT id, sync_paused_at IS NOT NULL AS was_paused
             FROM email_links
             WHERE id = ANY($1)
+              AND deleting_at IS NULL
               AND (sync_paused_at IS NOT NULL OR last_active_at < NOW() - INTERVAL '1 hour')
             FOR UPDATE SKIP LOCKED
         )
