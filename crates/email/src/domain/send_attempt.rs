@@ -129,6 +129,8 @@ pub trait EmailSendRepo: Send + Sync {
         snapshot: Option<&SendSnapshot>,
     ) -> impl Future<Output = Result<Option<SendAttempt>, EmailErr>> + Send;
     /// Commit the attempt, message and schedule together, or return the prior attempt.
+    /// Once an editable message is admitted, atomically retire older revoked
+    /// attempts so their delayed cancellations cannot affect this send.
     fn admit_send(
         &self,
         actor: &MacroUserIdStr<'_>,

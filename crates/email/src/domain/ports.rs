@@ -426,7 +426,9 @@ pub trait EmailRepo: Send + Sync + 'static {
     /// Cancel scheduled deliveries for currently unsent drafts under the
     /// message -> schedule lock order. Preserve submitted, unconfirmed and
     /// ambiguous legacy claims; managed preparation may be revoked before
-    /// submission. Returns only the message IDs actually cancelled.
+    /// submission. Atomically retire the revoked sends' attempts so a delayed
+    /// cancellation cannot affect a replacement send. Returns only the message
+    /// IDs actually cancelled.
     fn delete_scheduled_messages_batch(
         &self,
         message_ids: &[Uuid],

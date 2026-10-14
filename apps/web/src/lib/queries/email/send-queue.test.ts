@@ -382,6 +382,9 @@ it('cache recovery replays the frozen send with the original attempt ID', async 
   const replay = operations.find((operation) => operation.kind === 'mutation')!;
   expect(replay.variables!.input).toEqual(intent.metadata.payload.input);
   expect(optimisticContextOf(replay)?.uuid).toBe(intent.uuid);
+  expect(
+    optimisticContextOf(replay)?.durableIntent?.requiresServerConfirmation
+  ).toBe(true);
 });
 it('cache recovery honors cancellation instead of recreating a send', async () => {
   const intent = await send();
@@ -397,6 +400,40 @@ it('cache recovery honors cancellation instead of recreating a send', async () =
     intent.metadata.payload.input.attempt
   );
   expect(optimisticContextOf(replay)?.uuid).toBe(intent.uuid);
+  expect(
+    optimisticContextOf(replay)?.durableIntent?.requiresServerConfirmation
+  ).toBe(true);
+});
+it('keeps recovered sends locked until the server confirms cancellation', async () => {
+  const intent = await send();
+  const recovered = {
+    ...intent,
+    locallyCancelled: true,
+    metadata: {
+      ...intent.metadata,
+      requiresServerConfirmation: true,
+    },
+  };
+  expect(emailSendLocked(recovered)).toBe(true);
+  await expect(restoreCancelledEmailSend(recovered)).rejects.toThrow(
+    'Confirm cancellation'
+  );
+  expect(
+    emailSendLocked({
+      ...recovered,
+      response: {
+        cancelEmailSend: {
+          attempt: {
+            attemptId: intent.uuid,
+            status: 'CANCELLED',
+            sendTime: null,
+            threadId: null,
+            message: null,
+          },
+        },
+      },
+    })
+  ).toBe(false);
 });
 it('cache recovery preserves restored content and its acknowledged revision', async () => {
   const intent = await send();

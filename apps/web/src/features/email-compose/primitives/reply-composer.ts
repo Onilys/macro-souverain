@@ -443,7 +443,8 @@ export function createReplyComposer(
       // fails. Consume it only after the authoritative restore succeeds.
       replyUndo.take(draftId);
       // Resolve the live registration after cache updates and unmounts settle.
-      setTimeout(() => replyUndo.restore(undoKey, snapshot), 0);
+      if (!draftRestored)
+        setTimeout(() => replyUndo.restore(undoKey, snapshot), 0);
       props.setShowReply?.(true);
     }
   };

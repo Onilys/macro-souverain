@@ -5,6 +5,7 @@ use crate::domain::{
 };
 
 mod preparation_cancel;
+mod provider_draft_trash;
 mod trash;
 
 fn actor() -> MacroUserIdStr<'static> {

@@ -76,6 +76,7 @@ export type EmailSendIntent = {
   metadata: {
     kind: 'email-send-v1';
     replace?: boolean;
+    requiresServerConfirmation?: DurableMutationIntent['requiresServerConfirmation'];
     exclusive?: DurableMutationIntent['exclusive'];
     payload: {
       restoring?: boolean;
@@ -133,7 +134,10 @@ export function settledSendAttempt(intent: EmailSendIntent) {
 
 /** A pending cancellation never unlocks an attempted send without confirmation. */
 export function emailSendLocked(intent: EmailSendIntent): boolean {
-  if (intent.locallyCancelled || intent.metadata.payload.restoring)
+  if (
+    (intent.locallyCancelled && !intent.metadata.requiresServerConfirmation) ||
+    intent.metadata.payload.restoring
+  )
     return false;
   return settledSendAttempt(intent)?.status !== 'CANCELLED';
 }
@@ -573,6 +577,16 @@ export async function recoverEmailSendIntent(
   intent: EmailSendIntent
 ): Promise<void> {
   if (!intent.cacheMissing && !intent.recoveryRequired) return;
+  if (intent.cacheMissing && !intent.metadata.payload.restoring) {
+    // A missing cache cannot prove the original HTTP request never started.
+    // Persist this before re-enqueueing so cancellation survives another reset.
+    intent = {
+      ...intent,
+      locallyCancelled: false,
+      metadata: { ...intent.metadata, requiresServerConfirmation: true },
+    };
+    await persistLocalEmailSend(intent);
+  }
   if (intent.metadata.payload.restoring) {
     if (!intent.metadata.payload.restorationVersion) {
       await restoreCancelledEmailSend(intent);

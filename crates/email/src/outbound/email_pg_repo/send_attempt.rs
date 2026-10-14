@@ -24,6 +24,24 @@ async fn lock_attempt(
     Ok(())
 }
 
+/// Caller holds message/schedule locks and has revoked the previous delivery.
+pub(super) async fn cancel_revoked_attempts(
+    tx: &mut PgConnection,
+    message_ids: &[Uuid],
+    link: Uuid,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"UPDATE email_send_attempts SET cancelled = true
+           WHERE message_id = ANY($1) AND link_id = $2
+             AND NOT cancelled AND NOT sent AND NOT delivery_unconfirmed"#,
+        message_ids,
+        link,
+    )
+    .execute(tx)
+    .await?;
+    Ok(())
+}
+
 async fn read_attempt(
     tx: &mut PgConnection,
     actor: &MacroUserIdStr<'_>,
@@ -147,6 +165,11 @@ impl EmailSendRepo for EmailPgRepo {
         )
         .await?
         .ok_or(EmailErr::MessageDeliveryConflict(prepared.message.db_id))?;
+        // Successful insertion proves the prior delivery was revoked. Retire
+        // orphaned attempts atomically so their delayed cancellations stay inert.
+        cancel_revoked_attempts(&mut tx, &[ids.message_db_id], link)
+            .await
+            .map_err(anyhow::Error::from)?;
         // The message lock serializes edits. Verify the approved attachment set
         // inside admission, never silently send missing or newly added files.
         let uploaded = sqlx::query_scalar!(

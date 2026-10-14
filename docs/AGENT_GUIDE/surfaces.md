@@ -1006,8 +1006,17 @@ uploads block Send and Schedule send until they have durable URLs or are removed
 Queued sends survive query-cache recovery in independent account-scoped storage,
 retaining their original attempt IDs, frozen bodies, attachments and cancellation
 requests. After cache loss, status reconciliation must reuse that attempt identity;
-it must not create a second delivery. Repeat after restarting between a persisted
-Cancel or Restore decision and its queued request: recovery must finish that decision
+it must not create a second delivery.
+Cancel a reconstructed send while its original HTTP request is delayed: the draft
+must stay locked until the server confirms cancellation, even if recovery's status
+lookup found no attempt. A fresh queue entry cannot prove the original was never tried.
+Repeat with an unrelated request ahead of the recovered Send in the queue.
+After durable reply Undo, delay the restored working-copy read until UI callbacks
+finish, then edit and send again. New edits must save using the restored generation.
+Repeat provider draft sync followed by trash and a new explicit Send: a delayed
+Undo for the trashed send must preserve the newer send's schedule and body.
+Repeat after restarting between a persisted Cancel or Restore decision and its queued
+request: recovery must finish that decision
 even when the original cache row survived. An already queued cancellation or restoration
 must keep its request rather than being replaced on every status poll.
 Cancel and Restore must win over a delayed Send completion in both composers. Start

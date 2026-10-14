@@ -423,6 +423,7 @@ pub(crate) async fn delete_scheduled_messages_batch(
     )
     .fetch_all(&mut *tx)
     .await?;
+    super::send_attempt::cancel_revoked_attempts(&mut tx, &deleted, link_id).await?;
     tx.commit().await?;
     Ok(deleted)
 }

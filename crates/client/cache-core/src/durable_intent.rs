@@ -176,11 +176,20 @@ pub fn values(record: Option<Record>) -> Vec<Json> {
 
 /// A cancellation of a cancellation must retain the original send's uncertainty.
 pub fn locally_cancelled(previous: Option<&str>, source: &str, attempt_count: u32) -> bool {
+    let metadata = source_metadata(source);
+    if metadata
+        .as_ref()
+        .and_then(|value| value.get("requiresServerConfirmation"))
+        .and_then(Json::as_bool)
+        == Some(true)
+    {
+        return false;
+    }
     let already_cancelled = previous
         .and_then(|value| serde_json::from_str::<Json>(value).ok())
         .and_then(|value| value.get("locallyCancelled").and_then(Json::as_bool))
         == Some(true);
-    let was_replacement = source_metadata(source)
+    let was_replacement = metadata
         .as_ref()
         .and_then(|value| value.get("replace"))
         .and_then(Json::as_bool)

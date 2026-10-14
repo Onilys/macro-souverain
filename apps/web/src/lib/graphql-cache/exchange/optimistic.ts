@@ -121,6 +121,8 @@ export type DurableMutationIntent = {
   payload: Record<string, unknown>;
   /** Fence and replace the same UUID's current request, including a live lease. */
   replace?: boolean;
+  /** Recovered requests may already be in flight; cancellation requires a server response. */
+  requiresServerConfirmation?: boolean;
   /** Atomically reserve one active intent for a normalized entity across tabs. */
   exclusive?: {
     entityKey: string;
