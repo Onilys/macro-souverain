@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- Locks the items a refresh rebuilds. Row locks come first: a writer that\n-- already updated an item holds its row lock, so taking the row lock before the\n-- advisory lock keeps one order for both. The advisory locks read the row-lock\n-- count, so they run only after every row lock is held.\nWITH documents AS MATERIALIZED (\n    SELECT id FROM \"Document\"\n    WHERE $1 = 'document' AND id = ANY($2)\n    ORDER BY id\n    FOR NO KEY UPDATE\n), chats AS MATERIALIZED (\n    SELECT id FROM \"Chat\"\n    WHERE $1 = 'chat' AND id = ANY($2)\n    ORDER BY id\n    FOR NO KEY UPDATE\n), projects AS MATERIALIZED (\n    SELECT id FROM \"Project\"\n    WHERE $1 = 'project' AND id = ANY($2)\n    ORDER BY id\n    FOR NO KEY UPDATE\n), locked AS MATERIALIZED (\n    SELECT (SELECT count(*) FROM documents)\n         + (SELECT count(*) FROM chats)\n         + (SELECT count(*) FROM projects) AS rows\n)\nSELECT current_setting('transaction_isolation') AS \"isolation!\"\nFROM locked\nCROSS JOIN LATERAL (\n    SELECT count(pg_advisory_xact_lock(hashtextextended($1 || ':' || ids.id, 7316))) AS keys\n    FROM (SELECT DISTINCT unnest($2::text[]) AS id ORDER BY id) ids\n    WHERE $3 AND locked.rows >= 0\n) advisory\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "isolation!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8663f2be338a68e9df353afc17d1e74b88f80cd26ba3e2237fb51f2d83dff138"
+}

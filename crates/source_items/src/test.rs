@@ -261,3 +261,80 @@ async fn backfill_crosses_batch_boundaries_without_skipping_keys(
     assert_eq!(count(&pool).await?, 1200);
     Ok(())
 }
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn refresh_before_update_does_not_deadlock_with_update_before_refresh(
+    pool: PgPool,
+) -> Result<(), sqlx::Error> {
+    seed(&pool).await?;
+    let barrier = Arc::new(tokio::sync::Barrier::new(2));
+    // Saving a document updates its row, then refreshes it.
+    let update_then_refresh = async {
+        let mut tx = pool.begin().await?;
+        sqlx::query!(
+            r#"UPDATE "Document" SET "updatedAt" = NOW() WHERE id = $1"#,
+            DOC
+        )
+        .execute(&mut *tx)
+        .await?;
+        barrier.wait().await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        sync_one(&mut tx, EntityType::Document, DOC).await?;
+        tx.commit().await
+    };
+    // Editing a document's team share refreshes it, then updates its row.
+    let refresh_then_update = async {
+        let mut tx = pool.begin().await?;
+        barrier.wait().await;
+        sync_one(&mut tx, EntityType::Document, DOC).await?;
+        sqlx::query!(
+            r#"UPDATE "Document" SET name = 'Renamed' WHERE id = $1"#,
+            DOC
+        )
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await
+    };
+    let (first, second) = tokio::time::timeout(Duration::from_secs(10), async {
+        tokio::join!(update_then_refresh, refresh_then_update)
+    })
+    .await
+    .unwrap();
+    first?;
+    second?;
+    assert_eq!(count(&pool).await?, 1);
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn bulk_refresh_relies_on_row_locks_alone(pool: PgPool) -> Result<(), sqlx::Error> {
+    let items = (ADVISORY_LOCK_LIMIT + 1) as i32;
+    sqlx::query!(
+        r#"INSERT INTO "Document" (id, name, owner)
+           SELECT '10000000-0000-4000-8000-' || lpad(n::text, 12, '0'), 'Document', 'owner'
+           FROM generate_series(1, $1) n"#,
+        items,
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query!(
+        r#"INSERT INTO entity_access (entity_id, entity_type, source_id, source_type, access_level)
+           SELECT id::uuid, 'document', 'owner', 'user', 'owner' FROM "Document""#,
+    )
+    .execute(&pool)
+    .await?;
+    let ids = sqlx::query_scalar!(r#"SELECT id FROM "Document""#)
+        .fetch_all(&pool)
+        .await?;
+    let mut tx = pool.begin().await?;
+    sync_many(&mut tx, EntityType::Document, &ids).await?;
+    let advisory = sqlx::query_scalar!(
+        "SELECT count(*) FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'advisory'"
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    assert_eq!(advisory, Some(0));
+    tx.commit().await?;
+    assert_eq!(count(&pool).await?, i64::from(items));
+    Ok(())
+}

@@ -3,6 +3,7 @@
 
 use model_entity::EntityType;
 use sqlx::{Connection, PgConnection};
+use std::collections::BTreeSet;
 
 pub mod backfill;
 pub mod project_deletion;
@@ -22,13 +23,22 @@ pub async fn sync_one(
     sync_many(connection, entity_type, &[entity_id.to_owned()]).await
 }
 
+/// The most ids one refresh also takes advisory locks for. Advisory locks
+/// occupy PostgreSQL's shared lock table until commit, so a refresh of a team's
+/// or a project tree's items relies on row locks alone.
+const ADVISORY_LOCK_LIMIT: usize = 1_000;
+
 /// Rebuild the named items from their current grants and item state.
 ///
 /// Call after all authoritative writes, inside the same READ COMMITTED
-/// transaction. Advisory locks serialize projection refreshes, including an
-/// insert racing a grant on an item not yet visible. The refresh is a separate
-/// statement so it sees the previous lock holder's committed canonical writes.
-/// Other entity types have no rows in this projection.
+/// transaction. The refresh locks each visible item's row, which serializes it
+/// with other refreshes and with writers that update the item. Row locks live
+/// in the rows, so a refresh of any size holds them without filling the lock
+/// table. Refreshes of at most [`ADVISORY_LOCK_LIMIT`] ids also take per-id
+/// advisory locks, which serialize a grant written for an item whose insert has
+/// not committed yet. The refresh is a separate statement so it sees the
+/// previous lock holder's committed canonical writes. Other entity types have
+/// no rows in this projection.
 pub async fn sync_many(
     connection: &mut PgConnection,
     entity_type: EntityType,
@@ -47,24 +57,19 @@ pub async fn sync_many(
             "source-item maintenance requires the authoritative write transaction".into(),
         ));
     }
-    let isolation = sqlx::query_scalar!("SELECT current_setting('transaction_isolation')")
-        .fetch_one(&mut *connection)
-        .await?;
-    if isolation.as_deref() != Some("read committed") {
+    let isolation = sqlx::query_file_scalar!(
+        "src/lock.sql",
+        entity_type.as_ref(),
+        entity_ids,
+        entity_ids.len() <= ADVISORY_LOCK_LIMIT,
+    )
+    .fetch_one(&mut *connection)
+    .await?;
+    if isolation != "read committed" {
         return Err(sqlx::Error::InvalidArgument(
             "source-item maintenance requires READ COMMITTED isolation".into(),
         ));
     }
-    sqlx::query!(
-        r#"WITH ids AS MATERIALIZED (
-            SELECT DISTINCT unnest($2::text[]) AS id ORDER BY id
-        )
-        SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || id, 7316)) FROM ids"#,
-        entity_type.as_ref(),
-        entity_ids,
-    )
-    .execute(&mut *connection)
-    .await?;
     sqlx::query_file!("src/sync.sql", entity_type.as_ref(), entity_ids,)
         .execute(&mut *connection)
         .await?;
@@ -73,7 +78,7 @@ pub async fn sync_many(
 
 /// Refresh database-returned `(entity_type, entity_id)` keys after a bulk grant
 /// mutation. Types outside the projection are ignored; each supported group is
-/// refreshed in a fixed order in the caller's existing transaction.
+/// refreshed once, in a fixed order, in the caller's existing transaction.
 pub async fn sync_rows(
     connection: &mut PgConnection,
     items: &[(String, String)],
@@ -83,6 +88,8 @@ pub async fn sync_rows(
             .iter()
             .filter(|(kind, _)| kind == entity_type.as_ref())
             .map(|(_, id)| id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
             .collect::<Vec<_>>();
         sync_many(connection, entity_type, &ids).await?;
     }
