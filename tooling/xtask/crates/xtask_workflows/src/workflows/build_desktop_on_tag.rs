@@ -12,7 +12,7 @@ use gh_workflow::{
     WorkflowDispatch, WorkflowDispatchInput,
 };
 
-use crate::workflows::{build_appimage_on_tag, build_dmg_on_tag, steps, vars};
+use crate::workflows::{build_appimage_on_tag, build_dmg_on_tag, runners, steps, vars};
 
 #[cfg(test)]
 mod test;
@@ -28,6 +28,7 @@ pub fn build_desktop_on_tag() -> Workflow {
                 .cancel_in_progress(true),
         )
         .add_job("resolve-ref", resolve_ref())
+        .add_job("diagnose-cloudkit-tcp-helper", diagnose_cloudkit_tcp_helper())
         .add_job(
             "build-appimage",
             build_appimage_on_tag::build_appimage_job(RESOLVED_REF).add_needs("resolve-ref"),
@@ -116,7 +117,7 @@ fn workflow_dispatch() -> WorkflowDispatch {
     inputs.insert(
         "ref".into(),
         WorkflowDispatchInput {
-            description: "Optional release tag override (v* or refs/tags/v*). Leave empty to build the branch or tag selected for this workflow run.".into(),
+            description: "Optional release tag override (v* or refs/tags/v*). Use diagnose-cloudkit-tcp-helper for the no-release stapling probe. Leave empty to build the workflow ref.".into(),
             required: false,
             input_type: "string".into(),
             default: None,
@@ -129,12 +130,50 @@ fn workflow_dispatch() -> WorkflowDispatch {
 fn resolve_ref() -> Job {
     Job::default()
         .cond(Expression::new(
-            "github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
+            "(github.event_name == 'workflow_dispatch' && inputs.ref != 'diagnose-cloudkit-tcp-helper') || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
         ))
         .name("Resolve build ref")
         .runs_on("ubuntu-latest")
         .add_output("ref", "${{ steps.resolve.outputs.ref }}")
         .add_step(resolve_ref_step())
+}
+
+fn diagnose_cloudkit_tcp_helper() -> Job {
+    Job::default()
+        .name("Probe production CloudKit TCP helper (12x28 with cache)")
+        .runs_on(vec![
+            format!("{}-with-cache", runners::Runner::MacOsArmLarge),
+            "nscloud-cache-tag-macro-desktop-macos".to_owned(),
+            "nscloud-cache-size-100gb".to_owned(),
+        ])
+        .cond(Expression::new(
+            "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-cloudkit-tcp-helper'",
+        ))
+        .timeout_minutes(30u32)
+        .permissions(Permissions::default().contents(Level::Read))
+        .add_step(
+            Step::new("Prepare exact production CloudKit TCP helper")
+                .run(format!(
+                    "set -euo pipefail\ncat > \"$RUNNER_TEMP/macro-cloudkit-tcp.sh\" <<'MACRO_CLOUDKIT_TCP'\n{}\nMACRO_CLOUDKIT_TCP\n",
+                    include_str!("scripts/cloudkit_tcp.sh")
+                ))
+                .shell("bash"),
+        )
+        .add_step(
+            Step::new("Restaple published DMG and updater app repeatedly")
+                .run(include_str!("scripts/probe_cloudkit_tcp_helper.sh"))
+                .shell("bash")
+                .add_env(("GH_TOKEN", "${{ github.token }}"))
+                .add_env(("GH_REPO", "${{ github.repository }}")),
+        )
+        .add_step(
+            steps::upload_artifact(
+                "cloudkit-tcp-helper-diagnostics",
+                xtask_paths::runtime_path!("cloudkit-tcp-helper-diagnostics/*"),
+            )
+            .if_condition(Expression::new("always()"))
+            .add_with(("if-no-files-found", "warn")),
+        )
 }
 
 fn resolve_ref_step() -> Step<Run> {
