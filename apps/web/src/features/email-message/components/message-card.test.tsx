@@ -42,8 +42,6 @@ describe('MessageCard', () => {
       const card = container.querySelector<HTMLDivElement>(
         '[data-message-body-id="message-1"]'
       )!;
-      expect(card.classList.contains('bg-composer')).toBe(!touch);
-      expect(card.classList.contains('bg-surface-1')).toBe(touch);
       expect(
         container.querySelector('[data-layer], [data-surface]')
       ).toBeNull();

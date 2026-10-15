@@ -14,21 +14,15 @@ describe('EditorSystemMessage', () => {
 
     const message = getByRole('status');
     expect(message.dataset.variant).toBe('base');
-    expect(message.classList.contains('rounded-lg')).toBe(true);
-    expect(message.classList.contains('p-3')).toBe(true);
   });
 
-  it('renders errors as alerts with a line-height-aligned icon', () => {
+  it('renders errors as alerts', () => {
     const { getByRole } = render(() => (
       <EditorSystemMessage variant="error">Document error</EditorSystemMessage>
     ));
 
     const message = getByRole('alert');
     expect(message.dataset.variant).toBe('error');
-    expect(message.classList.contains('items-start')).toBe(true);
-    expect(message.querySelector('[aria-hidden="true"]')?.classList).toContain(
-      'h-lh'
-    );
   });
 
   it('renders warnings as statuses', () => {

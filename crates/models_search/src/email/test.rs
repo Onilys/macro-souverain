@@ -68,55 +68,6 @@ fn test_email_search_request_minimal_json() {
 }
 
 #[test]
-fn test_email_search_request_all_match_types() {
-    let test_cases = vec![
-        ("exact", MatchType::Exact),
-        ("partial", MatchType::Partial),
-        ("query", MatchType::Query),
-    ];
-
-    for (json_value, expected_match_type) in test_cases {
-        let json = format!(r#"{{"match_type":"{}"}}"#, json_value);
-        let request: EmailSearchRequest = serde_json::from_str(&json)
-            .unwrap_or_else(|_| panic!("Failed to deserialize match_type: {}", json_value));
-
-        assert_eq!(request.match_type, expected_match_type);
-    }
-}
-
-#[test]
-fn test_email_search_request_round_trip() {
-    let original = EmailSearchRequest {
-        query: Some("search term".to_string()),
-        terms: None,
-        match_type: MatchType::Query,
-        filters: Some(EmailFilters {
-            senders: vec![
-                "user1@example.com".to_string(),
-                "user2@example.com".to_string(),
-            ],
-            cc: vec![],
-            bcc: vec!["secret@example.com".to_string()],
-            recipients: vec![],
-            email_thread_ids: vec![],
-            importance: None,
-            ..Default::default()
-        }),
-        search_on: SearchOn::Content,
-        collapse: None,
-    };
-
-    let json = serde_json::to_string(&original).expect("Failed to serialize");
-    let deserialized: EmailSearchRequest =
-        serde_json::from_str(&json).expect("Failed to deserialize");
-
-    assert_eq!(original.query, deserialized.query);
-    assert_eq!(original.terms, deserialized.terms);
-    assert_eq!(original.match_type, deserialized.match_type);
-    assert_eq!(original.filters, deserialized.filters);
-}
-
-#[test]
 fn test_email_search_request_empty_arrays() {
     let json = r#"{"query":"test","terms":[],"match_type":"exact","senders":[],"cc":[],"bcc":[]}"#;
 

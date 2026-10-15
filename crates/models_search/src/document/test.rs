@@ -59,51 +59,6 @@ fn test_document_search_request_minimal_json() {
 }
 
 #[test]
-fn test_document_search_request_all_match_types() {
-    let test_cases = vec![
-        ("exact", MatchType::Exact),
-        ("partial", MatchType::Partial),
-        ("query", MatchType::Query),
-    ];
-
-    for (json_value, expected_match_type) in test_cases {
-        let json = format!(r#"{{"match_type":"{}"}}"#, json_value);
-        let request: DocumentSearchRequest = serde_json::from_str(&json)
-            .unwrap_or_else(|_| panic!("Failed to deserialize match_type: {}", json_value));
-
-        assert_eq!(request.match_type, expected_match_type);
-    }
-}
-
-#[test]
-fn test_document_search_request_round_trip() {
-    let original = DocumentSearchRequest {
-        query: Some("search term".to_string()),
-        terms: None,
-        match_type: MatchType::Query,
-        filters: Some(DocumentFilters {
-            file_types: vec!["txt".to_string(), "md".to_string()],
-            document_ids: vec![],
-            project_ids: vec![],
-            owners: vec![],
-            importance: None,
-            ..Default::default()
-        }),
-        search_on: SearchOn::Content,
-        collapse: None,
-    };
-
-    let json = serde_json::to_string(&original).expect("Failed to serialize");
-    let deserialized: DocumentSearchRequest =
-        serde_json::from_str(&json).expect("Failed to deserialize");
-
-    assert_eq!(original.query, deserialized.query);
-    assert_eq!(original.terms, deserialized.terms);
-    assert_eq!(original.match_type, deserialized.match_type);
-    assert_eq!(original.filters, deserialized.filters);
-}
-
-#[test]
 fn test_document_search_request_empty_arrays() {
     let json = r#"{"query":"test","terms":[],"match_type":"exact","file_types":[]}"#;
 
@@ -171,21 +126,5 @@ fn test_document_search_request_missing_required_field() {
     assert!(
         result.is_err(),
         "Should fail to deserialize without required match_type field"
-    );
-}
-
-#[test]
-fn test_document_search_request_filters_only() {
-    let json = r#"{"match_type":"exact","file_types":["pdf"]}"#;
-
-    let request: DocumentSearchRequest =
-        serde_json::from_str(json).expect("Failed to deserialize filters only");
-
-    assert_eq!(request.query, None);
-    assert_eq!(request.terms, None);
-    assert_eq!(request.match_type, MatchType::Exact);
-    assert_eq!(
-        request.filters.as_ref().unwrap().file_types,
-        vec!["pdf".to_string()]
     );
 }

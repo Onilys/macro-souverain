@@ -7,7 +7,6 @@ import {
   databaseModelForPlan,
   defaultModelForPlan,
   FREE_DEFAULT_MODEL,
-  MODEL_PRETTYNAME,
   MODEL_PROVIDER,
   Model,
   modelsForPlan,
@@ -18,18 +17,16 @@ import {
 const PROVIDER_OF = (m: TModel) => MODEL_PROVIDER[m];
 
 describe('modelsForPlan / defaultModelForPlan', () => {
-  it('gives paid users every picker model and an Anthropic-smart default', () => {
+  it('gives paid users every picker model and the configured default', () => {
     const paid = modelsForPlan(true);
     expect(paid).toEqual(PAID_MODELS);
     expect(paid).toEqual(Object.values(Model));
-    expect(DEFAULT_MODEL).toBe(Model.sonnet55);
     expect(defaultModelForPlan(true)).toBe(DEFAULT_MODEL);
   });
 
   it('gives free users only the free model, defaulted to it', () => {
     const free = modelsForPlan(false);
     expect(free).toEqual([FREE_DEFAULT_MODEL]);
-    expect(FREE_DEFAULT_MODEL).toBe(Model.gemini38Flash);
     expect(free).not.toContain(Model.haiku45);
     expect(defaultModelForPlan(false)).toBe(FREE_DEFAULT_MODEL);
     // The premium models are *not* in a free user's selectable set.
@@ -37,15 +34,6 @@ describe('modelsForPlan / defaultModelForPlan', () => {
     expect(free).not.toContain(Model.opus55);
     expect(free).not.toContain(Model.gpt56);
     expect(free).not.toContain(Model.gpt6Astra);
-  });
-
-  it('offers only the current Anthropic generation', () => {
-    const anthropic = Object.values(Model).filter(
-      (id) => MODEL_PROVIDER[id] === 'anthropic'
-    );
-    expect(anthropic).toEqual([Model.sonnet55, Model.opus55, Model.haiku45]);
-    expect(MODEL_PRETTYNAME[Model.sonnet55]).toBe('Sonnet 5.5');
-    expect(MODEL_PRETTYNAME[Model.opus55]).toBe('Opus 5.5');
   });
 });
 

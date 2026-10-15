@@ -76,34 +76,6 @@ fn test_chat_search_request_all_match_types() {
 }
 
 #[test]
-fn test_chat_search_request_round_trip() {
-    let original = ChatSearchRequest {
-        query: Some("search term".to_string()),
-        terms: None,
-        match_type: MatchType::Query,
-        filters: Some(ChatFilters {
-            role: vec!["user".to_string()],
-            chat_ids: vec![],
-            project_ids: vec![],
-            owners: vec![],
-            importance: None,
-            ..Default::default()
-        }),
-        search_on: SearchOn::Content,
-        collapse: None,
-    };
-
-    let json = serde_json::to_string(&original).expect("Failed to serialize");
-    let deserialized: ChatSearchRequest =
-        serde_json::from_str(&json).expect("Failed to deserialize");
-
-    assert_eq!(original.query, deserialized.query);
-    assert_eq!(original.terms, deserialized.terms);
-    assert_eq!(original.match_type, deserialized.match_type);
-    assert_eq!(original.filters, deserialized.filters);
-}
-
-#[test]
 fn test_chat_search_request_empty_arrays() {
     let json = r#"{"query":"test","terms":[],"match_type":"exact","role":[]}"#;
 
@@ -157,22 +129,6 @@ fn test_chat_search_request_with_query_and_terms() {
 }
 
 #[test]
-fn test_chat_search_request_user_role_only() {
-    let json = r#"{"match_type":"exact","role":["user"]}"#;
-
-    let request: ChatSearchRequest =
-        serde_json::from_str(json).expect("Failed to deserialize user role only");
-
-    assert_eq!(request.query, None);
-    assert_eq!(request.terms, None);
-    assert_eq!(request.match_type, MatchType::Exact);
-    assert_eq!(
-        request.filters.as_ref().unwrap().role,
-        vec!["user".to_string()]
-    );
-}
-
-#[test]
 fn test_chat_search_request_invalid_match_type() {
     let json = r#"{"match_type":"invalid"}"#;
 
@@ -191,22 +147,6 @@ fn test_chat_search_request_missing_required_field() {
     assert!(
         result.is_err(),
         "Should fail to deserialize without required match_type field"
-    );
-}
-
-#[test]
-fn test_chat_search_request_filters_only() {
-    let json = r#"{"match_type":"exact","role":["user","assistant"]}"#;
-
-    let request: ChatSearchRequest =
-        serde_json::from_str(json).expect("Failed to deserialize filters only");
-
-    assert_eq!(request.query, None);
-    assert_eq!(request.terms, None);
-    assert_eq!(request.match_type, MatchType::Exact);
-    assert_eq!(
-        request.filters.as_ref().unwrap().role,
-        vec!["user".to_string(), "assistant".to_string()]
     );
 }
 

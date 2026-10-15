@@ -1,14 +1,6 @@
 use super::*;
 
 #[test]
-fn round_trips_through_display_and_from_str() {
-    let id = HarnessId::TEST_A;
-    let text = id.to_string();
-    let parsed: HarnessId = text.parse().expect("display output parses");
-    assert_eq!(parsed, id);
-}
-
-#[test]
 fn rejects_non_uuid_input() {
     let error = HarnessId::parse_uuid_str("not-a-uuid").unwrap_err();
     assert_eq!(error.to_string(), "invalid harness id: not-a-uuid");

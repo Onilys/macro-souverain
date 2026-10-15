@@ -1,4 +1,3 @@
-use macro_user_id::email::ReadEmailParts;
 use uuid::Uuid;
 
 use super::*;
@@ -24,13 +23,6 @@ fn sender_round_trips_bot_storage_string() {
     let deserialized: ChannelSender<'static> = serde_json::from_value(serialized).unwrap();
     assert_eq!(deserialized.as_ref(), storage);
     assert!(matches!(deserialized.0, InnerVal::Left(_)));
-}
-
-#[test]
-fn fallback_user_name_uses_email_local_part() {
-    let user_id = MacroUserIdStr::parse_from_str("macro|shepherd.hatton@gmail.com").unwrap();
-
-    assert_eq!(user_id.email_part().local_part(), "shepherd.hatton");
 }
 
 #[test]

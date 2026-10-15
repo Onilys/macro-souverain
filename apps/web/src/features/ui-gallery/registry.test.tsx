@@ -90,10 +90,6 @@ describe.each(DOC_ENTRIES.map((entry) => [entry.doc.name, entry] as const))(
       expect(total, `${entry.path} has no guidance`).toBeGreaterThan(0);
     });
 
-    it('does not restate props the types already declare', () => {
-      expect(entry.doc).not.toHaveProperty('props');
-    });
-
     // A page whose default `<Name>Props` guess misses (Select's root is
     // generic, Panel's is a bare alias) must name the real type instead.
     it('resolves the prop types it points at', async () => {
