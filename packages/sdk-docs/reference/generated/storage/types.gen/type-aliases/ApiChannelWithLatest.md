@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelWithLatest
 
-> **ApiChannelWithLatest** = \{ `auto_join_team`: `boolean`; `channel_type`: [`ApiChannelListType`](ApiChannelListType.md); `created_at`: `string`; `frecency_score?`: `number` \| `null`; `id`: `string`; `interacted_at?`: `string` \| `null`; `is_participant`: `boolean`; `latest_message?`: `null` \| [`ApiChannelListMessage`](ApiChannelListMessage.md); `latest_non_thread_message?`: `null` \| [`ApiChannelListMessage`](ApiChannelListMessage.md); `name?`: `string` \| `null`; `org_id?`: `number` \| `null`; `owner_id`: `string`; `participants`: [`ApiChannelListParticipant`](ApiChannelListParticipant.md)[]; `team_id?`: `string` \| `null`; `updated_at`: `string`; `viewed_at?`: `string` \| `null`; \}
+> **ApiChannelWithLatest** = \{ `agent_dm?`: `null` \| [`AgentDmProfile`](AgentDmProfile.md); `auto_join_team`: `boolean`; `channel_type`: [`ApiChannelListType`](ApiChannelListType.md); `created_at`: `string`; `frecency_score?`: `number` \| `null`; `id`: `string`; `interacted_at?`: `string` \| `null`; `is_participant`: `boolean`; `latest_message?`: `null` \| [`ApiChannelListMessage`](ApiChannelListMessage.md); `latest_non_thread_message?`: `null` \| [`ApiChannelListMessage`](ApiChannelListMessage.md); `name?`: `string` \| `null`; `org_id?`: `number` \| `null`; `owner_id`: `string`; `participants`: [`ApiChannelListParticipant`](ApiChannelListParticipant.md)[]; `team_id?`: `string` \| `null`; `updated_at`: `string`; `viewed_at?`: `string` \| `null`; \}
 
 Channel list response item.
 
@@ -8,6 +8,7 @@ Channel list response item.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
+| <a id="property-agent_dm"></a> `agent_dm?` | `null` \| [`AgentDmProfile`](AgentDmProfile.md) | - |
 | <a id="property-auto_join_team"></a> `auto_join_team` | `boolean` | Whether team members automatically join the channel. |
 | <a id="property-channel_type"></a> `channel_type` | [`ApiChannelListType`](ApiChannelListType.md) | Channel type. |
 | <a id="property-created_at"></a> `created_at` | `string` | Channel creation timestamp. |

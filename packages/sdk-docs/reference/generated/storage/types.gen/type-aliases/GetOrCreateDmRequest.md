@@ -8,4 +8,4 @@ Request to get or create a direct message channel.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-recipient_id"></a> `recipient_id` | `string` | Recipient user id. |
+| <a id="property-recipient_id"></a> `recipient_id` | `string` | Recipient user id (`macro\|...`) or agent persona id (`bot\|...`). |

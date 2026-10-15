@@ -1,6 +1,6 @@
 # Type Alias: MessageChange
 
-> **MessageChange** = \{ `mentions`: [`SimpleMention`](SimpleMention.md)[]; `message`: [`Message`](Message.md); `notification_policy`: [`PostMessageNotificationPolicy`](PostMessageNotificationPolicy.md); `type`: `"posted"`; \} \| \{ `mentions`: [`SimpleMention`](SimpleMention.md)[]; `message`: [`Message`](Message.md); `notification_policy`: [`PatchMessageNotificationPolicy`](PatchMessageNotificationPolicy.md); `previous_attachments`: [`MessageAttachment`](MessageAttachment.md)[]; `type`: `"edited"`; \} \| \{ `message`: [`Message`](Message.md); `type`: `"message_deleted"`; \} \| \{ `added`: `boolean`; `emoji`: `string`; `message`: [`Message`](Message.md); `type`: `"reaction_changed"`; \} \| \{ `state`: [`ThreadState`](ThreadState.md); `type`: `"thread_updated"`; \} \| \{ `active`: `boolean`; `thread_id?`: `string` \| `null`; `type`: `"typing"`; \}
+> **MessageChange** = \{ `mentions`: [`SimpleMention`](SimpleMention.md)[]; `message`: [`Message`](Message.md); `notification_policy`: [`PostMessageNotificationPolicy`](PostMessageNotificationPolicy.md); `type`: `"posted"`; \} \| \{ `mentions`: [`SimpleMention`](SimpleMention.md)[]; `message`: [`Message`](Message.md); `notification_policy`: [`PatchMessageNotificationPolicy`](PatchMessageNotificationPolicy.md); `previous_attachments`: [`MessageAttachment`](MessageAttachment.md)[]; `type`: `"edited"`; \} \| \{ `message`: [`Message`](Message.md); `type`: `"message_deleted"`; \} \| \{ `added`: `boolean`; `emoji`: `string`; `message`: [`Message`](Message.md); `type`: `"reaction_changed"`; \} \| \{ `state`: [`ThreadState`](ThreadState.md); `type`: `"thread_updated"`; \} \| \{ `active`: `boolean`; `agent?`: `null` \| [`AgentTyping`](AgentTyping.md); `thread_id?`: `string` \| `null`; `type`: `"typing"`; \}
 
 Kind of message change; notification policy only runs for posted messages.
 
@@ -70,10 +70,11 @@ Kind of message change; notification policy only runs for posted messages.
 
 ### Type Literal
 
-\{ `active`: `boolean`; `thread_id?`: `string` \| `null`; `type`: `"typing"`; \}
+\{ `active`: `boolean`; `agent?`: `null` \| [`AgentTyping`](AgentTyping.md); `thread_id?`: `string` \| `null`; `type`: `"typing"`; \}
 
 | Name | Type | Description |
 | ------ | ------ | ------ |
 | `active` | `boolean` | Whether the user is currently typing. |
+| `agent?` | `null` \| [`AgentTyping`](AgentTyping.md) | - |
 | `thread_id?` | `string` \| `null` | Root being replied to, or no root for the parent composer. |
 | `type` | `"typing"` | - |
