@@ -1,5 +1,7 @@
 [workspace]
 resolver = "2"
+# Patched third-party crates ([patch.crates-io]), not workspace members.
+exclude = ["vendor"]
 
 members = [
   "crates/routines",
@@ -462,6 +464,8 @@ subtle = "2.6.1"
 [patch.crates-io]
 # Only replaces tungstenite 0.27 (GraphQL subscriptions); 0.28/0.29 stay upstream.
 tungstenite = { git = "https://github.com/signalapp/tungstenite-rs", rev = "a1837ccfe96b6895a57352d7f0112e4557516c27" }
+# Writes a checkout-independent embed folder; see vendor/utoipa-swagger-ui/README-MACRO.md.
+utoipa-swagger-ui = { path = "vendor/utoipa-swagger-ui" }
 
 # Laptops and CI build with the same debug info, so kache entries one produces
 # are hits for the other. Dependencies skip it entirely (cuts compile, link and
