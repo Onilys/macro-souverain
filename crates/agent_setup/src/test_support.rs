@@ -218,7 +218,13 @@ impl FakeConnections {
     pub fn with(apps: &[&str]) -> Self {
         Self {
             connected: Mutex::new(apps.iter().map(|app| (*app).to_owned()).collect()),
-            directory: vec!["asana", "github", "hubspot"],
+            directory: vec![
+                "asana",
+                "github",
+                "google_drive",
+                "hubspot",
+                "salesforce_rest_api",
+            ],
         }
     }
 }

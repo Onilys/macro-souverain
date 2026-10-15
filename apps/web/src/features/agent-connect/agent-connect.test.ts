@@ -20,6 +20,17 @@ describe('agentConnectTarget', () => {
 
   it('names known and unknown apps for people', () => {
     expect(agentConnectTarget('notion')).toMatchObject({ name: 'Notion' });
+    expect(agentConnectTarget('slack_v2')).toMatchObject({
+      name: 'Slack',
+      connectSlug: 'slack_v2',
+    });
+    expect(agentConnectTarget('salesforce_rest_api')).toMatchObject({
+      name: 'Salesforce',
+      connectSlug: 'salesforce_rest_api',
+    });
+    expect(agentConnectTarget('microsoft_onedrive')).toMatchObject({
+      name: 'OneDrive',
+    });
     expect(agentConnectTarget('google_docs')).toMatchObject({
       name: 'Google Docs',
       connectSlug: 'google_docs',

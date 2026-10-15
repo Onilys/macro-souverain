@@ -185,7 +185,12 @@ async fn the_golden_path_walks_connect_discover_plan_import_report() {
         plan.plan_text
             .contains("**Leave out** (you can still bring these in later): OPS-2 Rotate keys")
     );
-    assert!(plan.plan_text.contains("Macro has no HubSpot importer yet"));
+    assert!(plan.plan_text.contains("**Not imported yet**"));
+    assert!(plan.plan_text.contains("Macro can't import HubSpot yet"));
+    assert!(
+        plan.plan_text
+            .contains("- **Gmail**: your inbox (founder@startup.example) is connected")
+    );
     assert!(
         plan.plan_text
             .contains("doesn't share anything, invite anyone")
@@ -339,31 +344,77 @@ async fn a_missing_inbox_is_connected_first_when_the_person_uses_gmail() {
 }
 
 #[tokio::test]
-async fn crms_and_unknown_tools_get_a_clear_answer_instead_of_a_link() {
+async fn tools_people_leave_or_keep_get_links_and_the_rest_a_clear_answer() {
     let fixture = golden();
 
     let connect = fixture
         .service
-        .connect(&user(), &apps(&["HubSpot", "Asana", "Basecamp Classic"]))
+        .connect(
+            &user(),
+            &apps(&[
+                "HubSpot",
+                "Salesforce",
+                "Asana",
+                "Google Drive",
+                "Google Calendar",
+                "Basecamp Classic",
+            ]),
+        )
         .await
         .expect("connect");
 
-    let hubspot = connect
-        .not_connectable
+    // Tools they're leaving without an importer, and tools they keep, are
+    // connected now: the leaving ones come in once Macro can import them.
+    let linked: Vec<&str> = connect
+        .handoffs
         .iter()
-        .find(|note| note.app == "hubspot")
-        .expect("hubspot");
-    assert!(hubspot.note.contains("no HubSpot importer"));
-    assert!(hubspot.note.contains("https://macro.com/app/companies"));
-    // Asana can be connected for agents to use, though nothing is imported.
-    assert_eq!(connect.handoffs.len(), 1);
-    assert_eq!(connect.handoffs[0].app, "asana");
-    let basecamp = connect
-        .not_connectable
-        .iter()
-        .find(|note| note.app == "basecamp_classic")
-        .expect("basecamp");
-    assert!(basecamp.note.contains("can't import Basecamp Classic"));
+        .map(|handoff| handoff.app.as_str())
+        .collect();
+    assert_eq!(linked, ["hubspot", "salesforce", "asana", "google_drive"]);
+    // The connect page connects the Pipedream slug.
+    assert!(
+        connect.handoffs[1]
+            .url
+            .starts_with("https://macro.com/app/connect/salesforce_rest_api?")
+    );
+
+    let note = |app: &str| {
+        connect
+            .not_connectable
+            .iter()
+            .find(|note| note.app == app)
+            .map(|note| note.note.clone())
+            .unwrap_or_else(|| panic!("{app} has no note"))
+    };
+    assert!(note("google_calendar").contains("Google account you signed in with"));
+    let state = fixture
+        .service
+        .state(&user(), &apps(&["Google Calendar"]))
+        .await
+        .expect("state");
+    assert!(!state.apps[0].connected);
+    assert_eq!(state.apps[0].stage, AppStage::NotApplicable);
+    assert!(note("basecamp_classic").contains("can't import Basecamp Classic"));
+    assert!(note("basecamp_classic").contains("can't be connected to Macro right now"));
+}
+
+#[tokio::test]
+async fn a_known_tool_the_directory_doesnt_offer_isnt_sent_to_connect() {
+    let fixture = golden();
+
+    let state = fixture
+        .service
+        .state(&user(), &apps(&["Jira"]))
+        .await
+        .expect("state");
+
+    assert_eq!(state.apps[0].support, SupportKind::ImportLater);
+    assert_eq!(state.apps[0].stage, AppStage::NotApplicable);
+    assert!(
+        !state.next_step.contains("SetupConnect"),
+        "{}",
+        state.next_step
+    );
 }
 
 #[tokio::test]
@@ -638,7 +689,7 @@ async fn a_workspace_is_set_up_once_onboarded_on_the_web_or_once_work_came_in() 
 }
 
 #[tokio::test]
-async fn tools_macro_cant_import_get_a_plain_no_and_a_pointer_to_what_it_can() {
+async fn unconnected_tools_people_leave_or_keep_are_connected_first() {
     let fixture = golden();
 
     let state = fixture
@@ -647,20 +698,50 @@ async fn tools_macro_cant_import_get_a_plain_no_and_a_pointer_to_what_it_can() {
         .await
         .expect("state");
 
-    assert!(
-        state
-            .next_step
-            .starts_with("Macro can't import Asana or Google Docs."),
-        "{}",
-        state.next_step
+    assert_eq!(state.apps[0].support, SupportKind::ImportLater);
+    assert_eq!(state.apps[1].support, SupportKind::Keep);
+    assert_eq!(
+        state.next_step,
+        "Call SetupConnect(apps: [\"asana\", \"google_drive\"]) and show the person every link \
+         in one message."
     );
-    assert!(
-        state
-            .next_step
-            .contains("Don't copy their files or records in yourself.")
+}
+
+#[tokio::test]
+async fn connected_tools_get_a_plain_answer_and_a_pointer_to_what_macro_imports() {
+    let fixture = golden();
+    connect_all(&fixture, &["asana", "google_drive"]);
+
+    let state = fixture
+        .service
+        .state(&user(), &apps(&["Asana", "Google Docs", "Basecamp"]))
+        .await
+        .expect("state");
+
+    assert_eq!(
+        state.next_step,
+        "Tell the person plainly: Google Drive stays where it is: Macro works with it live and \
+         copies nothing in. Macro can't import Asana yet; once connected, running setup again \
+         brings it in as soon as it can. Macro can't import Basecamp; give the alternative in \
+         each app's note. Macro imports Linear, Notion and Slack today; ask whether they use any \
+         of those. Don't copy their files or records in yourself."
     );
-    let note = state.apps[0].note.as_deref().unwrap_or_default();
-    assert!(note.contains("drag exported files into Macro yourself"));
+    let basecamp = state.apps[2].note.as_deref().unwrap_or_default();
+    assert!(basecamp.contains("drag exported files into Macro yourself"));
+
+    let report = fixture
+        .service
+        .status(&user(), &apps(&["Asana", "Google Docs"]), Duration::ZERO)
+        .await
+        .expect("status");
+    assert_eq!(report.stays_connected.len(), 1);
+    assert!(
+        report.stays_connected[0]
+            .note
+            .starts_with("Google Drive: stays where it is")
+    );
+    assert_eq!(report.not_covered.len(), 1);
+    assert_eq!(report.not_covered[0].app, "asana");
 }
 
 #[tokio::test]

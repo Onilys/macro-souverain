@@ -20,11 +20,17 @@ pub struct SetupId(pub String);
 pub enum SupportKind {
     /// The email inbox, connected through Google.
     Inbox,
-    /// Imported by Macro: connect, discover, plan, import.
+    /// A tool they're leaving that Macro imports: connect, discover, plan,
+    /// import.
     Import,
-    /// No importer yet; an alternative is offered.
-    NoImporter,
-    /// Can be connected so agents in Macro can use it, but nothing is imported.
+    /// A tool they're leaving that Macro can't import yet: connected now, so
+    /// it comes in once Macro can import it.
+    ImportLater,
+    /// A tool they keep: connected so Macro works with it live; nothing is
+    /// imported.
+    Keep,
+    /// A tool setup doesn't know: it can be connected so agents in Macro can
+    /// use it, but nothing is imported.
     ConnectOnly,
     /// Macro can neither import nor connect it.
     Unsupported,
@@ -150,7 +156,8 @@ pub struct Handoff {
     pub resume: String,
 }
 
-/// An app setup cannot connect, and why.
+/// A note about one app: why setup can't connect it and what to offer
+/// instead, or what happens with a tool the person keeps.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct AppNote {
     /// The app.
@@ -349,6 +356,8 @@ pub struct SetupReport {
     pub not_imported: Vec<ReportItem>,
     /// What setup does not bring over, with alternatives.
     pub not_covered: Vec<NotCovered>,
+    /// Tools the person keeps: connected, and Macro works with them live.
+    pub stays_connected: Vec<AppNote>,
     /// What to do next.
     pub next_step: String,
 }

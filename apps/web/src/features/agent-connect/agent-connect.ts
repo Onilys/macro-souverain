@@ -13,13 +13,17 @@ export type AgentConnectTarget =
   | { kind: 'inbox'; app: 'gmail'; name: 'Gmail' }
   | { kind: 'connector'; app: string; name: string; connectSlug: string };
 
+// Links carry the Pipedream slug; these don't title-case to the app's name.
 const KNOWN_NAMES: Record<string, string> = {
-  notion: 'Notion',
-  linear: 'Linear',
-  slack: 'Slack',
   slack_v2: 'Slack',
   github: 'GitHub',
   hubspot: 'HubSpot',
+  clickup: 'ClickUp',
+  monday: 'monday.com',
+  salesforce_rest_api: 'Salesforce',
+  zoho_crm: 'Zoho CRM',
+  microsoft_onedrive: 'OneDrive',
+  microsoft_outlook: 'Outlook',
 };
 
 function displayName(app: string): string {

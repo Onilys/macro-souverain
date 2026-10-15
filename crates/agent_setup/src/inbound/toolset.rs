@@ -405,9 +405,9 @@ impl AsyncTool<SetupToolContext> for SetupImport {
 #[schemars(
     title = "SetupGetStatus",
     description = "Import progress, then the final report: what came in (with links), what \
-                   didn't and why, and what setup doesn't cover with alternatives (Slack history, \
-                   CRM via CSV). Waits up to 20 seconds while items are still copying in. \
-                   Read-only."
+                   didn't and why, what stays connected, and what setup doesn't import yet with \
+                   alternatives (Slack history, CRM via CSV). Waits up to 20 seconds while items \
+                   are still copying in. Read-only."
 )]
 pub struct SetupGetStatus {
     /// The person's tools.

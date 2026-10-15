@@ -18,14 +18,14 @@ use macro_user_id::user_id::MacroUserIdStr;
 use sha2::{Digest, Sha256};
 
 use super::{
-    catalog::{self, App, KnownApp, Support},
+    catalog::{self, App, Kind, Support},
     models::{
         AccountSummary, AppDiscovery, AppNote, AppProgress, AppStage, AppSummary, ConnectResult,
         DiscoverResult, DiscoveryStatus, Handoff, HandoffKind, ImportStarted, InboxSummary,
         NotCovered, PlanRequest, ProposedPlan, ReportItem, ReportStatus, SetupId, SetupReport,
         SetupState, SupportKind,
     },
-    plan::{self, NotCoveredLine, PlanText, ResolvedApp},
+    plan::{self, Group, NotCoveredLine, PlanText, ResolvedApp},
     ports::{
         AccountStatus, Result, SetupAccounts, SetupConnections, SetupError, SetupImports,
         SetupInbox,
@@ -103,21 +103,22 @@ fn quoted_list(apps: &[String]) -> String {
 }
 
 fn support_kind(app: &App, connectable: bool) -> SupportKind {
-    match app {
-        App::Known(KnownApp {
-            support: Support::Inbox,
-            ..
-        }) => SupportKind::Inbox,
-        App::Known(KnownApp {
-            support: Support::Import(_),
-            ..
-        }) => SupportKind::Import,
-        App::Known(KnownApp {
-            support: Support::CrmNoImporter,
-            ..
-        }) => SupportKind::NoImporter,
-        App::Other(_) if connectable => SupportKind::ConnectOnly,
-        App::Other(_) => SupportKind::Unsupported,
+    match app.support() {
+        Some(Support::Inbox) => SupportKind::Inbox,
+        Some(Support::Import(_)) => SupportKind::Import,
+        Some(Support::ImportLater(_)) => SupportKind::ImportLater,
+        Some(Support::Keep | Support::KeepWithGoogle) => SupportKind::Keep,
+        None if connectable => SupportKind::ConnectOnly,
+        None => SupportKind::Unsupported,
+    }
+}
+
+/// Names joined for a sentence: "A", "A and B", "A, B and C".
+fn joined(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
 }
 
@@ -196,18 +197,13 @@ impl AgentSetupService {
     fn connect_handoff(&self, user: &MacroUserIdStr<'static>, app: &App) -> Handoff {
         let expires_at = (self.clock)()
             + chrono::Duration::from_std(self.config.handoff_ttl).unwrap_or_default();
-        let is_inbox = matches!(
-            app,
-            App::Known(KnownApp {
-                support: Support::Inbox,
-                ..
-            })
-        );
+        let is_inbox = app.support() == Some(Support::Inbox);
         let name = app.name();
+        // The connect page connects the slug in its path.
         let url = format!(
             "{}/app/connect/{}?account={}&expires={}",
             self.config.app_base_url,
-            app.id(),
+            app.connect_slug().unwrap_or(app.id()),
             urlencoding::encode(&Self::email(user)),
             expires_at.timestamp()
         );
@@ -249,15 +245,11 @@ impl AgentSetupService {
     ) -> Result<Vec<AppFacts<'a>>> {
         let mut facts = Vec::with_capacity(apps.len());
         for app in apps {
-            let connected = match &app {
-                App::Known(KnownApp {
-                    support: Support::Inbox,
-                    ..
-                }) => !inbox.is_empty(),
-                App::Known(KnownApp {
-                    support: Support::CrmNoImporter,
-                    ..
-                }) => false,
+            let connected = match app.support() {
+                Some(Support::Inbox) => !inbox.is_empty(),
+                // Calendar access is granted inside Macro, which setup can't
+                // see, so it never reports Calendar as connected.
+                Some(Support::KeepWithGoogle) => false,
                 _ => self.connections.is_connected(user, &app).await?,
             };
             let view = app
@@ -324,12 +316,7 @@ impl AgentSetupService {
 
         let mut summaries = Vec::with_capacity(facts.len());
         for fact in &facts {
-            let connectable = match &fact.app {
-                App::Other(slug) => {
-                    fact.connected || self.connections.directory_name(slug).await?.is_some()
-                }
-                App::Known(_) => true,
-            };
+            let connectable = self.connectable(&fact.app, fact.connected).await?;
             let counts = fact
                 .view
                 .as_ref()
@@ -338,8 +325,11 @@ impl AgentSetupService {
             let stage = match &fact.view {
                 Some(view) => stage(fact.connected, Some(view)),
                 None if fact.connected => AppStage::NotApplicable,
-                None => match support_kind(&fact.app, connectable) {
-                    SupportKind::Inbox | SupportKind::ConnectOnly => AppStage::NotConnected,
+                None => match fact.app.support() {
+                    Some(Support::Inbox) => AppStage::NotConnected,
+                    Some(Support::ImportLater(_) | Support::Keep) | None if connectable => {
+                        AppStage::NotConnected
+                    }
                     _ => AppStage::NotApplicable,
                 },
             };
@@ -381,6 +371,20 @@ impl AgentSetupService {
         })
     }
 
+    /// Whether the person can connect the app to Macro: import apps and the
+    /// Google account always; anything else when the connector directory
+    /// offers it.
+    async fn connectable(&self, app: &App, connected: bool) -> Result<bool> {
+        Ok(match app.support() {
+            Some(Support::Import(_) | Support::Inbox | Support::KeepWithGoogle) => true,
+            _ if connected => true,
+            _ => match app.connect_slug() {
+                Some(slug) => self.connections.directory_name(slug).await?.is_some(),
+                None => false,
+            },
+        })
+    }
+
     async fn hand_to_agent(&self, user: &MacroUserIdStr<'static>) -> Result<AccountStatus> {
         self.accounts.hand_to_agent(user).await
     }
@@ -412,11 +416,7 @@ impl AgentSetupService {
         let mut not_connectable = Vec::new();
         let mut looking = Vec::new();
         for app in apps {
-            let support = match &app {
-                App::Known(known) => Some(known.support),
-                App::Other(_) => None,
-            };
-            match support {
+            match app.support() {
                 Some(Support::Inbox) => {
                     if inbox.is_empty() {
                         handoffs.push(self.connect_handoff(user, &app));
@@ -424,10 +424,10 @@ impl AgentSetupService {
                         already_connected.push(app.id().to_owned());
                     }
                 }
-                Some(Support::CrmNoImporter) => not_connectable.push(AppNote {
+                Some(Support::KeepWithGoogle) => not_connectable.push(AppNote {
                     app: app.id().to_owned(),
                     note: plan::not_covered(&app, &self.config.app_base_url)
-                        .map(|line| format!("{}. Setup doesn't need it connected.", line.text))
+                        .map(|line| format!("{}. There is no link for it in setup.", line.text))
                         .unwrap_or_default(),
                 }),
                 Some(Support::Import(source)) => {
@@ -440,17 +440,20 @@ impl AgentSetupService {
                         handoffs.push(self.connect_handoff(user, &app));
                     }
                 }
-                None => {
+                Some(Support::ImportLater(_) | Support::Keep) | None => {
                     if self.connections.is_connected(user, &app).await? {
                         already_connected.push(app.id().to_owned());
-                    } else if self.connections.directory_name(app.id()).await?.is_some() {
+                    } else if self.connectable(&app, false).await? {
                         handoffs.push(self.connect_handoff(user, &app));
                     } else {
                         not_connectable.push(AppNote {
                             app: app.id().to_owned(),
                             note: plan::not_covered(&app, &self.config.app_base_url)
                                 .map(|line| {
-                                    format!("{}. It can't be connected to Macro either.", line.text)
+                                    format!(
+                                        "{}. It can't be connected to Macro right now.",
+                                        line.text
+                                    )
                                 })
                                 .unwrap_or_default(),
                         });
@@ -563,10 +566,10 @@ impl AgentSetupService {
         }
         let mut watched: Vec<ImportSource> = Vec::new();
         for app in &apps {
-            if let Some(source) = app.import_source() {
-                if self.connections.is_connected(user, app).await? {
-                    watched.push(source);
-                }
+            if let Some(source) = app.import_source()
+                && self.connections.is_connected(user, app).await?
+            {
+                watched.push(source);
             }
         }
         // A look-through that hasn't shown up yet may still be starting (the
@@ -608,11 +611,10 @@ impl AgentSetupService {
             note: None,
         };
         let Some(source) = app.import_source() else {
-            let note = match app {
-                App::Known(KnownApp {
-                    support: Support::Inbox,
-                    ..
-                }) => "Gmail is the inbox itself; there is nothing to discover.".to_owned(),
+            let note = match app.support() {
+                Some(Support::Inbox) => {
+                    "Gmail is the inbox itself; there is nothing to discover.".to_owned()
+                }
                 _ => plan::not_covered(app, &self.config.app_base_url)
                     .map(|line| line.text)
                     .unwrap_or_default(),
@@ -690,7 +692,7 @@ impl AgentSetupService {
             if resolved.iter().any(|app| app.source == source) {
                 return Err(SetupError::Actionable(format!(
                     "{} appears twice in the selections. Give one selection per app.",
-                    catalog::for_source(source).name
+                    catalog::source_name(source)
                 )));
             }
             let view = SourceView::of(state, user, source);
@@ -866,18 +868,26 @@ impl AgentSetupService {
         }
         imported.sort_by(|a, b| a.app.cmp(&b.app).then(a.title.cmp(&b.title)));
 
-        let not_covered = catalog::resolve_all(named_apps)
-            .iter()
-            .filter_map(|app| {
-                let line = plan::not_covered(app, &self.config.app_base_url)?;
-                Some(NotCovered {
+        let mut not_covered = Vec::new();
+        let mut stays_connected = Vec::new();
+        for app in catalog::resolve_all(named_apps) {
+            let Some(line) = plan::not_covered(&app, &self.config.app_base_url) else {
+                continue;
+            };
+            if line.group == Group::Keep {
+                stays_connected.push(AppNote {
+                    app: app.id().to_owned(),
+                    note: format!("{}: {}", line.name, line.text),
+                });
+            } else {
+                not_covered.push(NotCovered {
                     app: app.id().to_owned(),
                     name: line.name,
                     reason: line.text,
-                    alternative: self.alternative_handoff(app),
-                })
-            })
-            .collect::<Vec<_>>();
+                    alternative: self.alternative_handoff(&app),
+                });
+            }
+        }
 
         let importing: u32 = progress.iter().map(|app| app.importing).sum();
         let status = if importing > 0 {
@@ -896,8 +906,9 @@ impl AgentSetupService {
                 "Nothing has been imported yet. Call SetupGetState for the next step.".to_owned()
             }
             ReportStatus::Done => format!(
-                "Report to the person: what came in (a table with links), what didn't and why, and \
-                 the alternatives under not_covered. Don't offer to copy anything in yourself; \
+                "Report to the person: what came in (a table with links), what didn't and why, \
+                 what stays connected (stays_connected), and what isn't imported yet with the \
+                 alternatives under not_covered. Don't offer to copy anything in yourself; \
                  Macro's import does the copying. Looking through Notion or Linear again for more \
                  isn't available yet, so don't promise it; a specific Notion page can still come in \
                  by URL with ImportNotionPage. Then tell them their workspace is ready at {}.",
@@ -911,26 +922,21 @@ impl AgentSetupService {
             imported,
             not_imported,
             not_covered,
+            stays_connected,
             next_step,
         })
     }
 
     /// The Macro page for what setup does not cover, when there is one.
     fn alternative_handoff(&self, app: &App) -> Option<Handoff> {
-        let (kind, path, user_will_see) = match app {
-            App::Known(KnownApp {
-                support: Support::Import(ImportSource::Slack),
-                ..
-            }) => (
+        let (kind, path, user_will_see) = match app.support() {
+            Some(Support::Import(ImportSource::Slack)) => (
                 HandoffKind::UploadArchive,
                 "/app/settings/team",
                 "Macro's team settings, where a workspace admin uploads the ZIP from Slack's \
                  export page.",
             ),
-            App::Known(KnownApp {
-                support: Support::CrmNoImporter,
-                ..
-            }) => (
+            Some(Support::ImportLater(Kind::Crm)) => (
                 HandoffKind::CsvImport,
                 "/app/companies",
                 "Macro's CRM companies view, with an Import button that takes a CSV with name \
@@ -972,29 +978,34 @@ fn next_step(no_apps_named: bool, inbox: &[String], apps: &[AppSummary]) -> (Vec
         .iter()
         .filter(|app| {
             app.stage == AppStage::NotConnected
-                && matches!(app.support, SupportKind::Import | SupportKind::Inbox)
+                && matches!(
+                    app.support,
+                    SupportKind::Import
+                        | SupportKind::Inbox
+                        | SupportKind::ImportLater
+                        | SupportKind::Keep
+                )
         })
         .map(|app| app.app.clone())
         .collect();
-    let not_importable: Vec<String> = apps
-        .iter()
-        .filter(|app| {
-            matches!(
-                app.support,
-                SupportKind::NoImporter | SupportKind::ConnectOnly | SupportKind::Unsupported
-            )
-        })
-        .map(|app| app.name.clone())
-        .collect();
+    let names = |kinds: &[SupportKind]| -> Vec<String> {
+        apps.iter()
+            .filter(|app| kinds.contains(&app.support))
+            .map(|app| app.name.clone())
+            .collect()
+    };
+    let kept = names(&[SupportKind::Keep]);
+    let later = names(&[SupportKind::ImportLater]);
+    let not_importable = names(&[SupportKind::ConnectOnly, SupportKind::Unsupported]);
     let to_discover = ids(AppStage::Connected);
     let discovering = ids(AppStage::Discovering);
     let ready = ids(AppStage::ReadyForPlan);
     let importing = ids(AppStage::Importing);
 
     let step = if no_apps_named && apps.is_empty() {
-        "Find out which tools the person uses: check your other connected tools (Notion, Linear, \
-         Slack, Gmail, a CRM) and ask only if you can't tell. Then call SetupGetState(apps: [...]) \
-         with them."
+        "Find out which tools the person uses: check your other connected tools (docs, task \
+         trackers, chat, CRM, email, calendar, file storage) and ask only if you can't tell. Then \
+         call SetupGetState(apps: [...]) with them."
             .to_owned()
     } else if !to_connect.is_empty() {
         format!(
@@ -1026,12 +1037,41 @@ fn next_step(no_apps_named: bool, inbox: &[String], apps: &[AppSummary]) -> (Vec
     } else if apps.iter().any(|app| app.imported > 0 || app.failed > 0) {
         "Setup is done. Call SetupGetStatus for the final report and share it with the person."
             .to_owned()
-    } else if !not_importable.is_empty() {
+    } else if !kept.is_empty() || !later.is_empty() || !not_importable.is_empty() {
+        let mut told = Vec::new();
+        if !kept.is_empty() {
+            told.push(format!(
+                "{} {} where {} {}: Macro works with {} live and copies nothing in.",
+                joined(&kept),
+                if kept.len() == 1 { "stays" } else { "stay" },
+                if kept.len() == 1 { "it" } else { "they" },
+                if kept.len() == 1 { "is" } else { "are" },
+                if kept.len() == 1 { "it" } else { "them" },
+            ));
+        }
+        if !later.is_empty() {
+            told.push(format!(
+                "Macro can't import {} yet; once connected, running setup again brings {} in as \
+                 soon as it can.",
+                joined(&later),
+                if later.len() == 1 { "it" } else { "them" },
+            ));
+        }
+        if !not_importable.is_empty() {
+            told.push(format!(
+                "Macro can't import {}; give the alternative in each app's note.",
+                joined(&not_importable)
+            ));
+        }
+        let importable: Vec<String> = catalog::importable()
+            .into_iter()
+            .map(|app| App::Known(app).name())
+            .collect();
         format!(
-            "Macro can't import {}. Tell the person plainly, with the alternative in each app's \
-             note, and ask whether they also use Notion, Linear or Slack, which Macro can bring \
-             in. Don't copy their files or records in yourself.",
-            not_importable.join(" or ")
+            "Tell the person plainly: {} Macro imports {} today; ask whether they use any of \
+             those. Don't copy their files or records in yourself.",
+            told.join(" "),
+            joined(&importable)
         )
     } else {
         "Nothing is left to set up for these apps. Tell the person what's ready, and call \

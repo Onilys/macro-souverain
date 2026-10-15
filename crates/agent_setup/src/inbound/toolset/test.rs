@@ -50,7 +50,7 @@ fn reads_are_read_only_and_writes_are_idempotent_and_never_destructive() {
         assert_eq!(annotations.kind, ToolKind::Additive);
         assert!(annotations.idempotent);
     }
-    assert!(SetupImport::ANNOTATIONS.open_world);
+    const { assert!(SetupImport::ANNOTATIONS.open_world) };
 }
 
 #[tokio::test]

@@ -4,11 +4,30 @@
 //! "slack_v2"). This module turns those names into one canonical app and the
 //! one way setup handles it, so every tool result speaks about apps the same
 //! way.
+//!
+//! Tools people are leaving are imported once; tools they keep stay
+//! connected and Macro works with them live. Whether a tool they're leaving
+//! can be imported now is the import service's answer, not this list's: an
+//! app becomes importable here as soon as the import service has a source
+//! for it.
 
 #[cfg(test)]
 mod test;
 
 use import::domain::models::ImportSource;
+
+/// The kind of work a tool people are leaving holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// Pages and wikis.
+    Docs,
+    /// Issues and tasks.
+    Tasks,
+    /// Channels and messages.
+    Chat,
+    /// Companies and contacts.
+    Crm,
+}
 
 /// What setup can do with an app.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,32 +35,105 @@ pub enum Support {
     /// The person's email inbox. Connected through their Google account, not
     /// through a connector.
     Inbox,
-    /// Macro's import service brings it in: connect, discover, plan, import.
+    /// A tool they're leaving that Macro's import service brings in once:
+    /// connect, discover, plan, import.
     Import(ImportSource),
-    /// A CRM. No importer yet; companies come in from a CSV instead.
-    CrmNoImporter,
+    /// A tool they're leaving that Macro can't import yet. Connected now, so
+    /// it comes in once the import service can import it.
+    ImportLater(Kind),
+    /// A tool they keep. Connected so Macro works with it live; nothing is
+    /// imported.
+    Keep,
+    /// A tool they keep that comes with the Google account they sign in with
+    /// (Calendar). Nothing to connect during setup.
+    KeepWithGoogle,
 }
+
+/// What a listed app is to the person, before asking the import service.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Role {
+    Inbox,
+    Leaving(Kind),
+    Keep,
+    KeepWithGoogle,
+}
+
+/// How a plan counts an app's items: singular and plural.
+pub type Nouns = (&'static str, &'static str);
+
+const PAGES: Nouns = ("page", "pages");
+const ISSUES: Nouns = ("issue", "issues");
+const TASKS: Nouns = ("task", "tasks");
+const CHANNELS: Nouns = ("channel", "channels");
+const COMPANIES: Nouns = ("company", "companies");
+const ITEMS: Nouns = ("item", "items");
 
 /// An app setup knows by name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KnownApp {
     /// Canonical id used in every tool result, e.g. `notion`.
     pub id: &'static str,
-    /// Display name, e.g. `Notion`.
+    /// Display name, e.g. `Notion`. Empty for an import source this list
+    /// doesn't name yet; [`App::name`] derives one from the id.
     pub name: &'static str,
     /// The Pipedream app slug a connection uses, when it has one.
     pub connect_slug: Option<&'static str>,
     /// How setup handles it.
     pub support: Support,
+    /// What its items are called in a plan.
+    pub items: Nouns,
+}
+
+struct Entry {
+    id: &'static str,
+    name: &'static str,
+    connect_slug: Option<&'static str>,
+    role: Role,
+    items: Nouns,
     aliases: &'static [&'static str],
 }
 
-const KNOWN_APPS: &[KnownApp] = &[
-    KnownApp {
+const fn leaving(
+    id: &'static str,
+    name: &'static str,
+    connect_slug: &'static str,
+    kind: Kind,
+    items: Nouns,
+    aliases: &'static [&'static str],
+) -> Entry {
+    Entry {
+        id,
+        name,
+        connect_slug: Some(connect_slug),
+        role: Role::Leaving(kind),
+        items,
+        aliases,
+    }
+}
+
+const fn keep(
+    id: &'static str,
+    name: &'static str,
+    connect_slug: &'static str,
+    aliases: &'static [&'static str],
+) -> Entry {
+    Entry {
+        id,
+        name,
+        connect_slug: Some(connect_slug),
+        role: Role::Keep,
+        items: ITEMS,
+        aliases,
+    }
+}
+
+const ENTRIES: &[Entry] = &[
+    Entry {
         id: "gmail",
         name: "Gmail",
         connect_slug: None,
-        support: Support::Inbox,
+        role: Role::Inbox,
+        items: ITEMS,
         aliases: &[
             "gmail",
             "google_mail",
@@ -51,86 +143,214 @@ const KNOWN_APPS: &[KnownApp] = &[
             "google",
         ],
     },
-    KnownApp {
-        id: "notion",
-        name: "Notion",
-        connect_slug: Some("notion"),
-        support: Support::Import(ImportSource::Notion),
-        aliases: &["notion"],
+    Entry {
+        id: "google_calendar",
+        name: "Google Calendar",
+        connect_slug: None,
+        role: Role::KeepWithGoogle,
+        items: ITEMS,
+        aliases: &["google_calendar", "calendar", "gcal", "gcalendar"],
     },
-    KnownApp {
-        id: "linear",
-        name: "Linear",
-        connect_slug: Some("linear"),
-        support: Support::Import(ImportSource::Linear),
-        aliases: &["linear", "linear_app"],
-    },
-    KnownApp {
-        id: "slack",
-        name: "Slack",
-        connect_slug: Some("slack_v2"),
-        support: Support::Import(ImportSource::Slack),
-        aliases: &["slack", "slack_v2"],
-    },
-    KnownApp {
-        id: "hubspot",
-        name: "HubSpot",
-        connect_slug: Some("hubspot"),
-        support: Support::CrmNoImporter,
-        aliases: &["hubspot", "hub_spot"],
-    },
-    KnownApp {
-        id: "salesforce",
-        name: "Salesforce",
-        connect_slug: Some("salesforce_rest_api"),
-        support: Support::CrmNoImporter,
-        aliases: &["salesforce", "salesforce_rest_api", "sfdc"],
-    },
-    KnownApp {
-        id: "pipedrive",
-        name: "Pipedrive",
-        connect_slug: Some("pipedrive"),
-        support: Support::CrmNoImporter,
-        aliases: &["pipedrive"],
-    },
-    KnownApp {
-        id: "attio",
-        name: "Attio",
-        connect_slug: Some("attio"),
-        support: Support::CrmNoImporter,
-        aliases: &["attio"],
-    },
-    KnownApp {
-        id: "close",
-        name: "Close",
-        connect_slug: Some("close"),
-        support: Support::CrmNoImporter,
-        aliases: &["close", "close_crm", "close_io"],
-    },
-    KnownApp {
-        id: "zoho_crm",
-        name: "Zoho CRM",
-        connect_slug: Some("zoho_crm"),
-        support: Support::CrmNoImporter,
-        aliases: &["zoho_crm", "zoho"],
-    },
-    KnownApp {
-        id: "copper",
-        name: "Copper",
-        connect_slug: Some("copper"),
-        support: Support::CrmNoImporter,
-        aliases: &["copper", "copper_crm"],
-    },
+    // Tools people are leaving. Each comes in once its importer exists.
+    leaving("notion", "Notion", "notion", Kind::Docs, PAGES, &["notion"]),
+    leaving(
+        "confluence",
+        "Confluence",
+        "confluence",
+        Kind::Docs,
+        PAGES,
+        &["confluence", "atlassian_confluence"],
+    ),
+    leaving("coda", "Coda", "coda", Kind::Docs, PAGES, &["coda"]),
+    leaving(
+        "linear",
+        "Linear",
+        "linear",
+        Kind::Tasks,
+        ISSUES,
+        &["linear", "linear_app"],
+    ),
+    leaving(
+        "jira",
+        "Jira",
+        "jira",
+        Kind::Tasks,
+        ISSUES,
+        &["jira", "jira_software", "atlassian_jira"],
+    ),
+    leaving("asana", "Asana", "asana", Kind::Tasks, TASKS, &["asana"]),
+    leaving(
+        "clickup",
+        "ClickUp",
+        "clickup",
+        Kind::Tasks,
+        TASKS,
+        &["clickup", "click_up"],
+    ),
+    leaving(
+        "trello",
+        "Trello",
+        "trello",
+        Kind::Tasks,
+        TASKS,
+        &["trello"],
+    ),
+    leaving(
+        "monday",
+        "monday.com",
+        "monday",
+        Kind::Tasks,
+        TASKS,
+        &["monday", "monday_com", "mondaycom"],
+    ),
+    leaving(
+        "slack",
+        "Slack",
+        "slack_v2",
+        Kind::Chat,
+        CHANNELS,
+        &["slack", "slack_v2"],
+    ),
+    leaving(
+        "microsoft_teams",
+        "Microsoft Teams",
+        "microsoft_teams",
+        Kind::Chat,
+        CHANNELS,
+        &["microsoft_teams", "teams", "ms_teams"],
+    ),
+    leaving(
+        "hubspot",
+        "HubSpot",
+        "hubspot",
+        Kind::Crm,
+        COMPANIES,
+        &["hubspot", "hub_spot"],
+    ),
+    leaving(
+        "salesforce",
+        "Salesforce",
+        "salesforce_rest_api",
+        Kind::Crm,
+        COMPANIES,
+        &["salesforce", "salesforce_rest_api", "sfdc"],
+    ),
+    leaving(
+        "pipedrive",
+        "Pipedrive",
+        "pipedrive",
+        Kind::Crm,
+        COMPANIES,
+        &["pipedrive"],
+    ),
+    leaving("attio", "Attio", "attio", Kind::Crm, COMPANIES, &["attio"]),
+    leaving(
+        "close",
+        "Close",
+        "close",
+        Kind::Crm,
+        COMPANIES,
+        &["close", "close_crm", "close_io"],
+    ),
+    leaving(
+        "zoho_crm",
+        "Zoho CRM",
+        "zoho_crm",
+        Kind::Crm,
+        COMPANIES,
+        &["zoho_crm", "zoho"],
+    ),
+    leaving(
+        "copper",
+        "Copper",
+        "copper",
+        Kind::Crm,
+        COMPANIES,
+        &["copper", "copper_crm"],
+    ),
+    // Tools people keep. Connected so Macro works with them live.
+    keep(
+        "google_drive",
+        "Google Drive",
+        "google_drive",
+        &[
+            "google_drive",
+            "gdrive",
+            "drive",
+            "google_docs",
+            "google_sheets",
+            "google_slides",
+        ],
+    ),
+    keep("dropbox", "Dropbox", "dropbox", &["dropbox"]),
+    keep(
+        "onedrive",
+        "OneDrive",
+        "microsoft_onedrive",
+        &["onedrive", "microsoft_onedrive", "one_drive"],
+    ),
+    keep("box", "Box", "box", &["box"]),
+    keep("github", "GitHub", "github", &["github", "git_hub"]),
+    keep(
+        "outlook",
+        "Outlook",
+        "microsoft_outlook",
+        &["outlook", "microsoft_outlook", "outlook_mail"],
+    ),
 ];
+
+/// The import source the import service has for an app, if any.
+fn import_source_for(id: &str, connect_slug: Option<&str>) -> Option<ImportSource> {
+    ImportSource::all().into_iter().find(|source| {
+        source.as_ref() == id
+            || connect_slug.is_some_and(|slug| source.pipedream_app_slugs().contains(&slug))
+    })
+}
+
+impl Entry {
+    fn app(&self) -> KnownApp {
+        let support = match self.role {
+            Role::Inbox => Support::Inbox,
+            Role::Keep => Support::Keep,
+            Role::KeepWithGoogle => Support::KeepWithGoogle,
+            Role::Leaving(kind) => import_source_for(self.id, self.connect_slug)
+                .map_or(Support::ImportLater(kind), Support::Import),
+        };
+        KnownApp {
+            id: self.id,
+            name: self.name,
+            connect_slug: self.connect_slug,
+            support,
+            items: self.items,
+        }
+    }
+}
+
+/// An app for an import source this list doesn't name yet.
+fn unlisted_source(source: ImportSource) -> KnownApp {
+    let slug = source.pipedream_app_slugs().first().copied();
+    KnownApp {
+        id: slug.unwrap_or_default(),
+        name: "",
+        connect_slug: slug,
+        support: Support::Import(source),
+        items: match source.entity_type() {
+            "md" => PAGES,
+            "task" => TASKS,
+            "channel" => CHANNELS,
+            _ => ITEMS,
+        },
+    }
+}
 
 /// An app the person named, resolved.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum App {
     /// One setup knows.
     Known(KnownApp),
-    /// Anything else, as a normalized slug (`google_docs`). Setup cannot
-    /// import it; whether it can at least be connected depends on the
-    /// connector directory.
+    /// Anything else, as a normalized slug (`basecamp`). Setup cannot import
+    /// it; whether it can at least be connected depends on the connector
+    /// directory.
     Other(String),
 }
 
@@ -146,19 +366,35 @@ impl App {
     /// A display name.
     pub fn name(&self) -> String {
         match self {
-            Self::Known(app) => app.name.to_owned(),
+            Self::Known(app) if !app.name.is_empty() => app.name.to_owned(),
+            Self::Known(app) => display_name(app.id),
             Self::Other(slug) => display_name(slug),
+        }
+    }
+
+    /// How setup handles the app; `None` for apps it doesn't know.
+    pub fn support(&self) -> Option<Support> {
+        match self {
+            Self::Known(app) => Some(app.support),
+            Self::Other(_) => None,
         }
     }
 
     /// The import source behind the app, when Macro can import it.
     pub fn import_source(&self) -> Option<ImportSource> {
-        match self {
-            Self::Known(KnownApp {
-                support: Support::Import(source),
-                ..
-            }) => Some(*source),
+        match self.support() {
+            Some(Support::Import(source)) => Some(source),
             _ => None,
+        }
+    }
+
+    /// The slug a connector connection uses: the known app's Pipedream slug,
+    /// or an unknown app's own slug. `None` for apps that don't connect
+    /// through a connector.
+    pub fn connect_slug(&self) -> Option<&str> {
+        match self {
+            Self::Known(app) => app.connect_slug,
+            Self::Other(slug) => Some(slug),
         }
     }
 }
@@ -196,26 +432,40 @@ pub fn resolve(name: &str) -> Option<App> {
     if slug.is_empty() {
         return None;
     }
-    let known = KNOWN_APPS
+    if let Some(entry) = ENTRIES
         .iter()
-        .find(|app| app.aliases.contains(&slug.as_str()));
-    Some(match known {
-        Some(app) => App::Known(*app),
+        .find(|entry| entry.aliases.contains(&slug.as_str()))
+    {
+        return Some(App::Known(entry.app()));
+    }
+    Some(match import_source_for(&slug, Some(&slug)) {
+        Some(source) => App::Known(for_source(source)),
         None => App::Other(slug),
     })
 }
 
 /// The app an import source belongs to.
 pub fn for_source(source: ImportSource) -> KnownApp {
-    *KNOWN_APPS
+    ENTRIES
         .iter()
+        .map(Entry::app)
         .find(|app| app.support == Support::Import(source))
-        .expect("every import source has a known app")
+        .unwrap_or_else(|| unlisted_source(source))
+}
+
+/// The display name of the app an import source belongs to.
+pub fn source_name(source: ImportSource) -> String {
+    App::Known(for_source(source)).name()
+}
+
+/// The apps Macro can import from now, as the import service says.
+pub fn importable() -> Vec<KnownApp> {
+    ImportSource::all().into_iter().map(for_source).collect()
 }
 
 /// The Gmail app.
 pub fn gmail() -> KnownApp {
-    KNOWN_APPS[0]
+    ENTRIES[0].app()
 }
 
 /// Resolves a list of names, dropping blanks and duplicates while keeping the

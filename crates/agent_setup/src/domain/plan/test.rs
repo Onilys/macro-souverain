@@ -89,14 +89,57 @@ fn the_plan_text_caps_long_lists() {
 }
 
 #[test]
-fn not_covered_explains_crm_slack_history_and_unknown_tools() {
+fn not_covered_explains_later_kept_and_unknown_tools() {
     let base = "https://macro.com";
-    let crm = not_covered(&catalog::resolve("hubspot").unwrap(), base).unwrap();
+    let line = |name: &str| not_covered(&catalog::resolve(name).unwrap(), base);
+
+    let crm = line("hubspot").unwrap();
+    assert_eq!(crm.group, Group::Later);
+    assert!(crm.text.contains("Macro can't import HubSpot yet"));
     assert!(crm.text.contains("CSV"));
-    let slack = not_covered(&catalog::resolve("slack").unwrap(), base).unwrap();
+    let jira = line("Jira").unwrap();
+    assert_eq!(jira.group, Group::Later);
+    assert!(jira.text.contains("its issues can come in"));
+    assert!(!jira.text.contains("CSV"));
+
+    let drive = line("Google Drive").unwrap();
+    assert_eq!(drive.group, Group::Keep);
+    assert!(drive.text.contains("work with it live"));
+    let calendar = line("Google Calendar").unwrap();
+    assert_eq!(calendar.group, Group::Keep);
+    assert!(calendar.text.contains("Enable calendar"));
+
+    let slack = line("slack").unwrap();
+    assert_eq!(slack.group, Group::Other);
     assert!(slack.text.contains("export ZIP"));
-    let other = not_covered(&catalog::resolve("Trello").unwrap(), base).unwrap();
-    assert!(other.text.contains("can't import Trello yet"));
-    assert!(not_covered(&catalog::resolve("notion").unwrap(), base).is_none());
-    assert!(not_covered(&catalog::resolve("gmail").unwrap(), base).is_none());
+    let other = line("Basecamp").unwrap();
+    assert_eq!(other.group, Group::Other);
+    assert!(other.text.contains("can't import Basecamp yet"));
+
+    assert!(line("notion").is_none());
+    assert!(line("gmail").is_none());
+}
+
+#[test]
+fn the_plan_groups_what_stays_connected_and_what_comes_later() {
+    let base = "https://macro.com";
+    let not_covered: Vec<NotCoveredLine> = ["Jira", "Google Drive", "Basecamp"]
+        .iter()
+        .filter_map(|name| not_covered(&catalog::resolve(name).unwrap(), base))
+        .collect();
+    let text = render(&PlanText {
+        apps: &[],
+        scope_notes: None,
+        not_covered: &not_covered,
+        inbox: &["founder@startup.example".to_owned()],
+    });
+
+    let kept = text.find("**Stays connected**").expect("kept");
+    let later = text.find("**Not imported yet**").expect("later");
+    let other = text.find("**Not brought in by setup**").expect("other");
+    assert!(kept < later && later < other, "{text}");
+    assert!(text.contains("- **Gmail**: your inbox (founder@startup.example) is connected"));
+    assert!(text[kept..later].contains("**Google Drive**"));
+    assert!(text[later..other].contains("**Jira**"));
+    assert!(text[other..].contains("**Basecamp**"));
 }

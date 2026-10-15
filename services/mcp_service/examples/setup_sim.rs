@@ -24,7 +24,7 @@ use std::{
 
 use agent_setup::{
     domain::{
-        catalog::App,
+        catalog::{self, App},
         ports::{
             AccountStatus, Result as SetupResult, SetupAccounts, SetupConnections, SetupImports,
             SetupInbox,
@@ -523,14 +523,14 @@ impl SetupConnections for SimPorts {
     }
 
     async fn directory_name(&self, slug: &str) -> SetupResult<Option<String>> {
-        let directory = [
-            ("asana", "Asana"),
-            ("github", "GitHub"),
-            ("hubspot", "HubSpot"),
-            ("google_docs", "Google Docs"),
-            ("trello", "Trello"),
-        ];
-        Ok(directory
+        // Pipedream offers every app setup knows, plus a few it doesn't.
+        if let Some(app @ App::Known(_)) = catalog::resolve(slug)
+            && app.connect_slug() == Some(slug)
+        {
+            return Ok(Some(app.name()));
+        }
+        let others = [("figma", "Figma"), ("airtable_oauth", "Airtable")];
+        Ok(others
             .iter()
             .find(|(s, _)| *s == slug)
             .map(|(_, name)| (*name).to_owned()))
@@ -733,10 +733,10 @@ impl ServerHandler for Sim {
         request: GetPromptRequestParams,
         context: rmcp::service::RequestContext<rmcp::RoleServer>,
     ) -> Result<GetPromptResult, rmcp::ErrorData> {
-        if let Some(token) = bearer(&context) {
-            if let Some(a) = self.accounts.lock().expect("sim lock").get_mut(&token) {
-                a.record("prompt:setup", true);
-            }
+        if let Some(token) = bearer(&context)
+            && let Some(a) = self.accounts.lock().expect("sim lock").get_mut(&token)
+        {
+            a.record("prompt:setup", true);
         }
         let tools = request
             .arguments
@@ -782,11 +782,9 @@ impl ServerHandler for Sim {
                 Err(error) => CallToolResult::error(vec![Content::text(error.to_string())]),
             };
             let ok = result.is_error != Some(true);
-            self.accounts
-                .lock()
-                .expect("sim lock")
-                .get_mut(&token)
-                .map(|a| a.record(&name, ok));
+            if let Some(a) = self.accounts.lock().expect("sim lock").get_mut(&token) {
+                a.record(&name, ok);
+            }
             return Ok(result);
         }
 
@@ -874,16 +872,15 @@ async fn connect_page(
                     .to_owned(),
             );
         }
-    } else if !account.connected.contains(&app) {
-        account.connected.push(app.clone());
+    } else if let Some(resolved) = catalog::resolve(&app)
+        && !account.connected.iter().any(|id| id == resolved.id())
+    {
+        // The link carries the connector slug (`slack_v2`); connections are
+        // kept by app id (`slack`).
+        account.connected.push(resolved.id().to_owned());
         // The Pipedream completion hook: an agent-led account starts being
         // looked through as soon as the connection lands.
-        let source = match app.as_str() {
-            "notion" => Some(ImportSource::Notion),
-            "linear" => Some(ImportSource::Linear),
-            "slack" => Some(ImportSource::Slack),
-            _ => None,
-        };
+        let source = resolved.import_source();
         if let (Some(source), true) = (source, account.agent_led) {
             account.runs.entry(source_key(source)).or_insert_with(|| {
                 (
