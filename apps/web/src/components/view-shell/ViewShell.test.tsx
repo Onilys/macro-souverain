@@ -2,6 +2,7 @@ import {
   SplitPanelContext,
   type SplitPanelContextType,
 } from '@components/app/split-layout/context';
+import { SplitPanel } from '@components/app/split-panel';
 import {
   cleanup,
   fireEvent,
@@ -30,6 +31,7 @@ vi.mock('@solid-primitives/resize-observer', () => ({
 
 vi.mock('@ui', async () => ({
   ...(await import('../ui/utils/classname')),
+  ...(await import('../ui/utils/press')),
   Button: (
     props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { label?: string }
   ) => (
@@ -37,6 +39,7 @@ vi.mock('@ui', async () => ({
       aria-label={props.label}
       aria-expanded={props['aria-expanded']}
       onClick={props.onClick}
+      onMouseDown={props.onMouseDown}
     >
       {props.children}
     </button>
@@ -280,6 +283,7 @@ function Workspace(props: {
       >
         <ViewShell.Aside>
           <ViewSidebar.Header>
+            <ViewSidebar.CloseButton />
             <ViewSidebar.Title>{props.app}</ViewSidebar.Title>
           </ViewSidebar.Header>
         </ViewShell.Aside>
@@ -293,6 +297,52 @@ function Workspace(props: {
     </section>
   );
 }
+
+it.each([720, 600, 400])(
+  'keeps split close available in a %spx navigation overlay',
+  (width) => {
+    measurement.width = () => width;
+    const [canClose, setCanClose] = createSignal(true);
+    const panes = ['home', 'tasks', 'email'].map((app) => ({
+      app,
+      close: vi.fn(),
+    }));
+    render(() =>
+      panes.map((pane) => (
+        <SplitPanel.Root
+          controller={{
+            canClose,
+            close: pane.close,
+            canGoBack: () => false,
+            goBack: vi.fn(),
+            canGoForward: () => false,
+            goForward: vi.fn(),
+          }}
+        >
+          <Workspace app={pane.app} />
+        </SplitPanel.Root>
+      ))
+    );
+
+    for (const pane of panes) {
+      const workspace = within(screen.getByRole('region', { name: pane.app }));
+      fireEvent.click(
+        workspace.getByRole('button', { name: 'Show navigation' })
+      );
+      expect(workspace.getByRole('button', { name: 'Close' })).toBeTruthy();
+    }
+
+    const email = within(screen.getByRole('region', { name: 'email' }));
+    fireEvent.click(email.getByRole('button', { name: 'Close' }));
+    expect(panes[2].close).toHaveBeenCalledOnce();
+    expect(panes[0].close).not.toHaveBeenCalled();
+    expect(panes[1].close).not.toHaveBeenCalled();
+
+    setCanClose(false);
+    expect(email.queryByRole('button', { name: 'Close' })).toBeNull();
+    expect(email.getByRole('button', { name: 'Hide navigation' })).toBeTruthy();
+  }
+);
 
 it('hides only the owning split and keeps the current item mounted', () => {
   const mounted = vi.fn();

@@ -131,6 +131,11 @@ Files also includes attachments of emails with its address. Tasks created from a
 contact also reference its company. The side panel keeps Sharing (admins only)
 and adds References.
 
+In a company or contact's Tasks tab, clicking a task (or pressing Enter on its
+focused row) opens the task detail view at `/app/tasks/<task-id>`, including on
+mobile. Shift-click opens it in a separate split. Verify that the task's status
+and properties appear, rather than the regular Drive markdown editor.
+
 Mentioning a company or contact with `@` in a document or task records it as a
 reference of that record (removing the chip removes it) without sharing the
 document, inviting anyone, or notifying the contact; channel and Discussion

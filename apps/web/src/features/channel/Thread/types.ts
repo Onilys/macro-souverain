@@ -54,6 +54,12 @@ export type ThreadTargetNavigation = {
 };
 
 export type ThreadProps = {
+  /** Optional host-specific timeline decorations and live content. */
+  beforeMessage?: JSX.Element;
+  afterMessage?: JSX.Element;
+  renderMessageContent?: (content: JSX.Element) => JSX.Element;
+  /** See `hideTriggeredBy` on the channel message. */
+  hideTriggeredBy?: boolean;
   data: Accessor<MessageListItem>;
   delivery?: () => JSX.Element;
   parent: Accessor<MessageParent>;

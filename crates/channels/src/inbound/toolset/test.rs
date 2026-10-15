@@ -1678,7 +1678,10 @@ async fn open_direct_message_opens_a_one_to_one_dm_as_the_user() {
         panic!("expected one dm, got {}", dms.len());
     };
     assert_eq!(actor.as_user(), Some(&user_id()));
-    assert_eq!(request.recipient_id.as_ref(), "macro|teammate@example.com");
+    assert_eq!(
+        request.recipient_id.as_user().map(|id| id.as_ref()),
+        Some("macro|teammate@example.com"),
+    );
 }
 
 #[tokio::test]

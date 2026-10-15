@@ -66,6 +66,7 @@ import { useBlockId } from '@core/block';
 import { ENABLE_CALLS } from '@core/constant/featureFlags';
 import {
   useChannel,
+  useChannelCanCall,
   useChannelName,
   useChannelType,
 } from '@core/context/channels';
@@ -134,7 +135,8 @@ function NewTop(props: { channelId: string }) {
     channelId: () => props.channelId,
     channelType,
   });
-  const callsAllowed = () => messaging.interaction().kind === 'internal';
+  const callsAllowed = () =>
+    messaging.interaction().kind === 'internal' && !channel()?.agent_dm;
   const channel = useChannel(props.channelId);
   const userId = useUserId();
   const renameAction = makeRenameAction({ userId });
@@ -325,6 +327,8 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
   const canAutofocusSplitContent = useCanAutofocusSplitContent();
   const { navigatedFromJK } = useNavigatedFromJK();
   const channelId = useBlockId();
+  const conversationChannel = useChannel(channelId);
+  const canCall = useChannelCanCall(channelId);
   const blockHandle = blockHandleSignal.get;
   const [searchParams, setSearchParams] = useSearchParams();
   const [routeSearch] = createSearchParams(channelsSearch);
@@ -399,7 +403,9 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
     channelId: () => channelId,
     channelType,
   });
-  const callsAllowed = () => messaging.interaction().kind === 'internal';
+  const callsAllowed = () =>
+    messaging.interaction().kind === 'internal' &&
+    !conversationChannel()?.agent_dm;
   const [requestedTab, setActiveTabInternal] = createSignal<ChannelTabId>(
     initialChannelTab({
       wantsJoinCall,
@@ -409,7 +415,11 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
         : undefined,
     })
   );
-  const activeTab = () => normalizeChannelTab(requestedTab(), callsAllowed());
+  const activeTab = () =>
+    conversationChannel()?.agent_dm &&
+    ['call', 'calls', 'participants'].includes(requestedTab())
+      ? DEFAULT_CHANNEL_TAB
+      : normalizeChannelTab(requestedTab(), callsAllowed());
   const [joinRequested, setPendingJoinCall] = createSignal(wantsJoinCall);
   const pendingJoinCall = () => callsAllowed() && joinRequested();
 
@@ -422,7 +432,12 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
   let surfaceApi: ChannelSurfaceApi | undefined;
 
   const setActiveTab = (tab: ChannelTabId) => {
-    setActiveTabInternal(normalizeChannelTab(tab));
+    setActiveTabInternal(
+      conversationChannel()?.agent_dm &&
+        ['call', 'calls', 'participants'].includes(tab)
+        ? DEFAULT_CHANNEL_TAB
+        : normalizeChannelTab(tab)
+    );
   };
 
   createEffect(
@@ -542,6 +557,7 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
       <CallEventSync />
       <ChannelTabProvider activeTab={activeTab} setActiveTab={setActiveTab}>
         <ChannelCallAutoJoin
+          canCall={canCall}
           channelId={channelId}
           pendingJoinCall={pendingJoinCall}
           onHandled={() => setPendingJoinCall(false)}

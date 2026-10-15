@@ -19,16 +19,22 @@ The channel/contact option opens the recipient picker.
 Recordings, transcriptions
 and summaries appear here; empty state notes "Calls are available to agents."
 
-Opening a recording uses `/app/drive/call/<callId>` inside the Drive shell,
-with one breadcrumbed header (`My Files > <recording name>`) and a route back to
-Drive. The Drive file list does not include calls.
-Old copied `/app/call/<callId>` links redirect to the Drive detail without losing
-the transcript target. The detail shows a loading state, recording/transcript/summary,
-Share, and a call side panel below the breadcrumb header; a failed load shows Try again.
+Opening a recording uses `/app/calls/call/<callId>` inside the Calls view,
+with one breadcrumbed header (`Calls > <recording name>`). Choose `Calls` to
+return to the list with its search, filters, focus, and scroll position preserved.
+The desktop sidebar remains available; choosing a view or filter, or focusing
+search, returns to the list. Phones show the same detail and return breadcrumb
+instead of switching to Drive. Shift+Enter and Open in new split open
+the recording in a second Calls view.
+Old copied `/app/call/<callId>` links redirect to the Calls detail without losing
+the transcript target. Existing `/app/drive/call/<callId>` links still work.
+The detail shows a loading state, recording/transcript/summary, Share, and a call
+side panel below the breadcrumb header; a failed load shows Retry.
 `call_transcript_id=<segmentId>` seeks the matching video segment after loading.
-Check a direct link, an old copied link, a Calls-list click, a second split,
-the breadcrumb return, and clicking the same transcript search hit twice after
-playing elsewhere. On phones, recorded call headers omit **Call Again**.
+Check a direct link, both old link formats, a Calls-list click, a second split,
+the breadcrumb return, browser Back/Forward, and clicking the same transcript
+search hit twice after playing elsewhere. On phones, recorded call headers omit
+**Call Again**.
 
 A channel's `Calls` tab lists that channel's recordings with the same rows, filtered
 by the channel id. Its search field matches call names and transcripts in that

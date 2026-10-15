@@ -42,6 +42,10 @@ export const agentHarnessExcluded = [
 export const agentHarnessBacklog = [
   'answerAgentSessionToolApproval',
   'getAgentSessionPermissions',
+  // Agent conversation controls (DMs are flag-gated in the web app); not wrapped yet.
+  'listAgentConversations',
+  'retryAgentConversationTurn',
+  'startFreshAgentConversation',
   'updateAgentSessionPermissions',
 ] as const satisfies readonly (keyof AgentHarnessSdk)[];
 

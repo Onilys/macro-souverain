@@ -22,7 +22,7 @@ fn user_id(value: &str) -> MacroUserIdStr<'static> {
 }
 
 /// The fixed owner every [`new_session`] fixture uses.
-const OWNER: &str = "macro|agent-session-owner@example.com";
+pub(super) const OWNER: &str = "macro|agent-session-owner@example.com";
 
 /// Insert a `"User"` row (and its `macro_user` parent) for user-owned sessions
 /// and their user history.
@@ -91,7 +91,7 @@ pub(super) fn new_session(
     originating_message_id: Option<Uuid>,
 ) -> CreateAgentSessionParams {
     CreateAgentSessionParams {
-        warm: false,
+        purpose: crate::domain::model::SessionPurpose::Standalone,
         repo_branch: None,
         id: AgentSessionId::new(),
         owner_id: Owner::User(user_id(OWNER)),
@@ -262,7 +262,7 @@ async fn create_refuses_an_owner_that_is_not_a_user(pool: PgPool) {
     let repo = test_repo(&pool);
     let bot_id = create_test_bot(&pool).await;
     let params = CreateAgentSessionParams {
-        warm: false,
+        purpose: crate::domain::model::SessionPurpose::Standalone,
         owner_id: Owner::Bot(bot_id),
         ..new_session(bot_id, None, None)
     };
@@ -320,7 +320,7 @@ async fn create_rejects_an_unknown_user_owner(pool: PgPool) {
     let repo = test_repo(&pool);
     let bot_id = create_test_bot(&pool).await;
     let params = CreateAgentSessionParams {
-        warm: false,
+        purpose: crate::domain::model::SessionPurpose::Standalone,
         owner_id: Owner::User(user_id("macro|missing@example.com")),
         ..new_session(bot_id, None, None)
     };
@@ -418,7 +418,7 @@ async fn instructions_round_trip_on_every_read_path(pool: PgPool) {
     let (_channel_id, thread_id, originating_message_id) =
         insert_originating_thread_fixture(&pool).await;
     let params = CreateAgentSessionParams {
-        warm: false,
+        purpose: crate::domain::model::SessionPurpose::Standalone,
         instructions: Some(INSTRUCTIONS.to_owned()),
         egress_token_hash: Some("token-hash".to_owned()),
         ..new_session(bot_id, Some(thread_id), Some(originating_message_id))
@@ -473,7 +473,7 @@ async fn mcp_server_selection_round_trips_on_every_read_path(pool: PgPool) {
         ],
     };
     let params = CreateAgentSessionParams {
-        warm: false,
+        purpose: crate::domain::model::SessionPurpose::Standalone,
         mcp_servers: selection.clone(),
         egress_token_hash: Some("mcp-token-hash".to_owned()),
         ..new_session(bot_id, Some(thread_id), Some(originating_message_id))
@@ -1072,7 +1072,7 @@ async fn recent_for_owner_returns_the_owners_newest_sessions(pool: PgPool) {
     let someone_else = create_session(
         &repo,
         CreateAgentSessionParams {
-            warm: false,
+            purpose: crate::domain::model::SessionPurpose::Standalone,
             owner_id: Owner::User(user_id(OTHER_OWNER)),
             ..new_session(bot_id, None, None)
         },
@@ -3070,7 +3070,7 @@ async fn warm_sessions_are_hidden_and_claimed_only_once_by_the_owner(pool: PgPoo
     let bot = create_test_bot(&pool).await;
     let repo = test_repo(&pool);
     let mut params = new_session(bot, None, None);
-    params.warm = true;
+    params.purpose = crate::domain::model::SessionPurpose::Warm;
     let session = AgentSessionRepo::create(&repo, params)
         .await
         .expect("warm session");
@@ -3159,6 +3159,16 @@ async fn warm_sessions_are_hidden_and_claimed_only_once_by_the_owner(pool: PgPoo
             .len(),
         1
     );
+    assert!(
+        !sqlx::query_scalar!(
+            "SELECT for_warming FROM agent_session WHERE id = $1",
+            session.id.as_uuid()
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        "a successful claim clears the lifecycle marker"
+    );
     assert!(repo.expire().await.unwrap().is_empty());
 }
 
@@ -3168,7 +3178,7 @@ async fn expired_warm_sessions_cannot_be_claimed(pool: PgPool) {
     let bot = create_test_bot(&pool).await;
     let repo = test_repo(&pool);
     let mut params = new_session(bot, None, None);
-    params.warm = true;
+    params.purpose = crate::domain::model::SessionPurpose::Warm;
     let session = AgentSessionRepo::create(&repo, params).await.unwrap();
     sqlx::query!(
         "UPDATE agent_session SET created_at = NOW() - INTERVAL '11 minutes' WHERE id = $1",

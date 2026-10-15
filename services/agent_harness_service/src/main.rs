@@ -14,6 +14,7 @@ mod coding_agent;
 mod coding_agents;
 mod config;
 mod containers;
+mod conversation_admission;
 mod external_session_requests;
 mod harness_bindings;
 mod internal_mcp;
@@ -267,7 +268,12 @@ async fn run() -> anyhow::Result<()> {
     // it happen.
     let session_registrar =
         OwnedEntityRegistrar::new(OwnerGrantPolicy::new(PgBotsRepo::new(pool.clone())));
-    let session_repo = PgAgentSessionRepo::new(pool.clone(), session_registrar.clone());
+    let session_list_policy = agent_session::domain::list_visibility::SessionListPolicy {
+        hide_agent_dms: config.hide_agent_dm_sessions,
+    };
+    let session_repo = PgAgentSessionRepo::new(pool.clone(), session_registrar.clone())
+        .with_list_policy(session_list_policy);
+    session_list_policy.reconcile(&session_repo).await?;
     let entity_access = Arc::new(
         entity_access::domain::service::EntityAccessServiceImpl::new(
             entity_access::outbound::PgAccessRepository::new(pool.clone()),
@@ -1024,8 +1030,24 @@ async fn run() -> anyhow::Result<()> {
     // to speak through: it is the same service instance the harness routes
     // commands with, and a clone shares its replica identity.
     let draining_sessions = sessions.clone();
+    let conversation_turns = Arc::new(
+        agent_harness::outbound::conversation_turns::PgConversationTurnStore::new(pool.clone()),
+    );
+    let conversations_service = Arc::new(
+        agent_harness::domain::conversations::AgentConversationsService::new(
+            PgChannelsRepo::new(pool.clone()),
+            bots::domain::service::BotServiceImpl::new(
+                PgBotsRepo::new(pool.clone()),
+                macro_event_broker::NoopMacroEventBroker,
+            ),
+            PgBotsRepo::new(pool.clone()),
+            session_repo.clone(),
+        )
+        .with_turns(conversation_turns.clone()),
+    );
     let harness = Arc::new(
         AgentHarnessService::new(
+            Some(conversations_service.clone()),
             sessions,
             containers,
             announcer,
@@ -1057,16 +1079,24 @@ async fn run() -> anyhow::Result<()> {
             // notification ingress channel messages use.
             IngressAgentSessionNotifier::new(Arc::clone(&notifications)),
         )
+        .with_conversation_turns(conversation_turns)
         .with_admission(admission.clone())
         .with_repositories(open_repositories)
         .with_warm_sessions(Arc::new(session_repo.clone()), tool_catalog),
     );
     let warm_cleanup = Arc::clone(&harness);
+    let session_visibility_repo = session_repo.clone();
     tokio::spawn(async move {
         let mut ticks = tokio::time::interval(std::time::Duration::from_secs(60));
         loop {
             ticks.tick().await;
             warm_cleanup.reap_warm_sessions().await;
+            if let Err(error) = session_list_policy
+                .reconcile(&session_visibility_repo)
+                .await
+            {
+                tracing::warn!(?error, "could not reconcile agent DM session visibility");
+            }
         }
     });
     let model_probe_timeout = std::time::Duration::from_secs(10);
@@ -1320,6 +1350,12 @@ async fn run() -> anyhow::Result<()> {
             MacroAuthorizationState::new(Arc::new(authorization_service.clone())),
         ),
     );
+    let conversations = agent_harness::inbound::conversations::agent_conversation_router(
+        agent_harness::inbound::conversations::AgentConversationRouterState::new(
+            conversations_service,
+            MacroAuthorizationState::new(Arc::new(authorization_service.clone())),
+        ),
+    );
     let tool_approval_answers = tool_approvals_router(ToolApprovalsRouterState::new(
         tool_approvals,
         entity_access.clone(),
@@ -1339,6 +1375,7 @@ async fn run() -> anyhow::Result<()> {
             .with_claude_auth(claude_auth)
             .with_sharing(sharing)
             .with_routine_sessions(routine_sessions)
+            .with_conversations(conversations)
             .with_coding_agents(coding_agents)
             .with_capabilities(capabilities)
             .with_pull_requests(pull_requests)
@@ -1370,6 +1407,33 @@ async fn run() -> anyhow::Result<()> {
             }
             if let Err(error) = heartbeat_repo.heartbeat(replica, None).await {
                 tracing::warn!(error = ?error, %replica, "failed to heartbeat harness replica");
+            }
+        }
+    });
+
+    // Viewers drop a typing indicator nobody refreshes after a few seconds;
+    // every turn running here keeps its agent's indicator alive until it ends.
+    let typing_harness = harness.clone();
+    let typing_heartbeat = tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(3));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            ticker.tick().await;
+            typing_harness.refresh_typing().await;
+        }
+    });
+
+    let recovery_harness = harness.clone();
+    let dm_recovery = tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(10));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            ticker.tick().await;
+            if let Err(error) = recovery_harness.recover_conversations().await {
+                tracing::error!(
+                    ?error,
+                    "failed to reconcile durable agent conversation turns"
+                );
             }
         }
     });
@@ -1519,12 +1583,44 @@ async fn run() -> anyhow::Result<()> {
 
                     let pending = match routed {
                         RoutedTrigger::Command(session_id, command) => {
+                            let (session_id, command) = if let HarnessCommand::ConversationMessage(open) = command {
+                                let admitted = {
+                                    let (harness, open) = (&harness, &open);
+                                    conversation_admission::journal(
+                                        conversation_admission::ADMISSION_RETRIES,
+                                        move || harness.admit_conversation_message(session_id, open.clone()),
+                                    )
+                                    .await
+                                };
+                                let admitted = match admitted {
+                                    Ok(admitted) => admitted,
+                                    Err(error) => {
+                                        // Not returned: ending the consumer would stop every
+                                        // session this replica runs, and holding the event
+                                        // would hold every event behind it. A message the
+                                        // journal did record is still run by recovery.
+                                        record_span_error(&tracing::Span::current(), &error);
+                                        tracing::error!(error = ?error, %session_id, "acknowledging a conversation message the journal could not take");
+                                        commit_message(&consumer, kafka_message)?;
+                                        return Ok(None);
+                                    }
+                                };
+                                let Some((session_id, open)) = admitted else {
+                                    // Its conversation is gone, or its sender may not
+                                    // prompt it: every redelivery would be refused too.
+                                    tracing::warn!(%session_id, "dropping a conversation message that can no longer be admitted");
+                                    commit_message(&consumer, kafka_message)?;
+                                    return Ok(None);
+                                };
+                                (session_id, HarnessCommand::ConversationMessage(open))
+                            } else { (session_id, command) };
                             tracing::Span::current()
                                 .record("agent.session.id", tracing::field::display(session_id));
                             let event_type = match &command {
                                 HarnessCommand::Open(_) => "agent_trigger.new",
                                 HarnessCommand::Deliver(_) => "agent_trigger.existing",
                                 HarnessCommand::Delete => "agent_trigger.delete",
+                                HarnessCommand::ConversationMessage(_) => "agent_trigger.conversation_message",
                                 HarnessCommand::SetSandboxSize(_) => {
                                     "agent_trigger.set_sandbox_size"
                                 }
@@ -1581,8 +1677,8 @@ async fn run() -> anyhow::Result<()> {
                         }
                     };
 
-                    // Intentionally at-most-once: admission precedes commit, but
-                    // long-running harness work is independent of Kafka afterward.
+                    // Conversation messages are journaled before commit and recovered independently
+                    // of Kafka. Existing mention traffic keeps its admission policy.
                     commit_message(&consumer, kafka_message)?;
                     Ok(Some(pending))
                 }
@@ -1621,6 +1717,8 @@ async fn run() -> anyhow::Result<()> {
     trigger.abort();
     egress_http.abort();
     heartbeat.abort();
+    dm_recovery.abort();
+    typing_heartbeat.abort();
     recovery.abort();
     runtime_commands.abort();
     let stop_failures = container_shutdown.shutdown_all().await;

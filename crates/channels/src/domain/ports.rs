@@ -218,6 +218,13 @@ pub trait ChannelRepo: Send + Sync + 'static {
         channel_id: Uuid,
     ) -> impl Future<Output = Result<ChannelInfo, Self::Err>> + Send;
 
+    /// Whether a channel is a direct agent conversation: one user's private
+    /// channel with an agent persona.
+    fn is_direct_agent_conversation(
+        &self,
+        channel_id: Uuid,
+    ) -> impl Future<Output = Result<bool, Self::Err>> + Send;
+
     /// Atomically assign a channel join code if absent and return the persisted code.
     fn get_or_create_channel_join_code(
         &self,

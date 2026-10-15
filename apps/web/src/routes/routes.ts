@@ -587,6 +587,17 @@ export const callsRoute = defineRoute({
   claim: () => ({ namespace: 'component', id: 'calls' }),
 });
 
+export const callsCallRoute = defineRoute({
+  id: 'calls-call',
+  path: 'call/:callId',
+  params: z.object({ callId: z.string().min(1) }),
+  search: [callDetailSearch.namespace],
+  externalSearch: [CALL_URL_PARAMS.transcriptId, CALL_URL_PARAMS.messageId],
+  remountKey: ({ callId }) => callId,
+  claim: ({ callId }) => ({ namespace: 'block', id: `call:${callId}` }),
+  toReference: ({ callId }) => uuidRouteReference(callId, 'call'),
+});
+
 export const callDetailRoute = defineRoute({
   id: 'call-detail',
   path: 'call/:callId',

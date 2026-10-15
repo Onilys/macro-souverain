@@ -641,6 +641,8 @@ fn scheduled_actions_hang_off_the_authenticated_user() {
         "CHANNEL_MENTIONED",
         "CHANNEL_MESSAGE_PATCHED",
         "CHANNEL_MESSAGE_ATTACHMENT_CREATED",
+        "CALL_STARTED",
+        "CALL_ENDED",
     ] {
         assert_sdl_line(&sdl, value);
     }

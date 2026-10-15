@@ -23,6 +23,13 @@ for key in keys:
 for key in ['grafana_secret_key', 'otlp_token']:
     if len(values[key]) < 32:
         raise SystemExit(f'Secret too short: {key}')
+# Native remote-write uses HTTP Basic over TLS. Only the password hash reaches nginx.
+hashed = subprocess.run(
+    ['openssl', 'passwd', '-6', '-stdin'], input=values['otlp_token'] + '\n',
+    check=True, capture_output=True, text=True,
+).stdout.strip()
+values['metrics.htpasswd'] = 'metrics:' + hashed + '\n'
+keys.append('metrics.htpasswd')
 directory = Path('/run/macro-observability')
 directory.mkdir(mode=0o700, exist_ok=True)
 os.chown(directory, 0, 0)

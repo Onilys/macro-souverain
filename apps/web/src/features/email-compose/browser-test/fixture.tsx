@@ -17,6 +17,7 @@ import {
   EmailScheduleSummary,
 } from '../components/email-schedule-summary';
 import type { EmailScheduleState } from '../primitives/email-send-schedule';
+import { AndroidBackFixture } from './android-back-fixture';
 import { DraftOwnerFixture } from './draft-owner-fixture';
 import { DraftRecoveryFixture } from './draft-recovery-fixture';
 import { SenderFixture } from './sender-fixture';
@@ -341,6 +342,8 @@ render(
       <DraftOwnerFixture />
     ) : new URLSearchParams(location.search).has('recovery') ? (
       <DraftRecoveryFixture />
+    ) : new URLSearchParams(location.search).has('android-back') ? (
+      <AndroidBackFixture />
     ) : (
       <Fixture />
     ),

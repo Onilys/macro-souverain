@@ -1074,6 +1074,19 @@ pub trait CallRecordQueryService: Send + Sync + 'static {
     ) -> impl Future<Output = Result<CallPeople, CallError>> + Send;
 }
 
+/// Read-only port for one call record under its reader's access, for services
+/// that react to calls rather than manage them.
+pub trait CallRecordReader: Send + Sync + 'static {
+    /// The record the receipt authorizes, with its participants, guests and
+    /// transcript, and its channel named as the receipt's user sees it. The
+    /// receipt must be for `EntityType::Call`, keyed by the call's UUID.
+    /// Returns [`CallError::NotFound`] once the record is gone.
+    fn get_call_record(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+    ) -> impl Future<Output = Result<CallRecord, CallError>> + Send;
+}
+
 /// No-op implementation of [`CallRecordQueryService`] for services
 /// that do not have call infrastructure.
 pub struct NoOpCallRecordQueryService;

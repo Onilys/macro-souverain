@@ -1,0 +1,113 @@
+local.file "writer_dsn" {
+	filename  = sys.env("CREDENTIALS_DIRECTORY") + "/writer_dsn"
+	is_secret = true
+}
+
+local.file "replica_dsn" {
+	filename  = sys.env("CREDENTIALS_DIRECTORY") + "/replica_dsn"
+	is_secret = true
+}
+
+// A separate exporter per endpoint avoids upstream multi-DSN collector limitations.
+// Statement samples, SQL text and execution plans are deliberately a later pass.
+prometheus.exporter.postgres "writer" {
+	data_source_names  = [local.file.writer_dsn.content]
+	enabled_collectors = ["database", "locks", "replication", "replication_slot", "stat_bgwriter", "stat_database", "stat_progress_vacuum", "stat_user_tables", "statio_user_tables", "wal", "long_running_transactions", "stat_activity_autovacuum"]
+}
+
+prometheus.exporter.postgres "replica" {
+	data_source_names  = [local.file.replica_dsn.content]
+	enabled_collectors = ["database", "locks", "replication", "replication_slot", "stat_bgwriter", "stat_database", "stat_progress_vacuum", "stat_user_tables", "statio_user_tables", "wal", "long_running_transactions", "stat_activity_autovacuum", "stat_wal_receiver"]
+}
+
+discovery.relabel "writer" {
+	targets = prometheus.exporter.postgres.writer.targets
+
+	rule {
+		target_label = "db_instance"
+		replacement  = "macro-db-dev"
+	}
+
+	rule {
+		target_label = "db_role"
+		replacement  = "writer"
+	}
+}
+
+discovery.relabel "replica" {
+	targets = prometheus.exporter.postgres.replica.targets
+
+	rule {
+		target_label = "db_instance"
+		replacement  = "macro-db-dev-read-replica"
+	}
+
+	rule {
+		target_label = "db_role"
+		replacement  = "replica"
+	}
+}
+
+prometheus.scrape "postgres" {
+	targets         = array.concat(discovery.relabel.writer.output, discovery.relabel.replica.output)
+	job_name        = "integrations/postgres"
+	scrape_interval = "60s"
+	scrape_timeout  = "15s"
+	forward_to      = [prometheus.relabel.database.receiver]
+}
+
+prometheus.relabel "database" {
+	// Don't retain exporter connection strings as labels, even if redacted upstream.
+	rule {
+		action = "labeldrop"
+		regex  = "server"
+	}
+
+	rule {
+		source_labels = ["db_instance"]
+		target_label  = "instance"
+	}
+	forward_to = [prometheus.remote_write.ohio.receiver]
+}
+
+prometheus.exporter.self "collector" { }
+
+discovery.relabel "collector" {
+	targets = prometheus.exporter.self.collector.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "observability/database-collector"
+	}
+}
+
+prometheus.scrape "collector" {
+	targets         = discovery.relabel.collector.output
+	job_name        = "observability/database-collector"
+	scrape_interval = "30s"
+	forward_to      = [prometheus.remote_write.ohio.receiver]
+}
+
+prometheus.remote_write "ohio" {
+	external_labels = {deployment_environment = "dev", aws_region = "us-east-1"}
+
+	endpoint {
+		url = "https://otlp.macro-internal.com/api/v1/write"
+
+		basic_auth {
+			username      = "metrics"
+			password_file = sys.env("CREDENTIALS_DIRECTORY") + "/otlp_token"
+		}
+
+		queue_config {
+			max_shards           = 2
+			capacity             = 2500
+			max_samples_per_send = 1000
+		}
+	}
+
+	wal {
+		min_keepalive_time = "5m"
+		max_keepalive_time = "24h"
+	}
+}

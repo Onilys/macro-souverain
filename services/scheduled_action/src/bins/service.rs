@@ -303,6 +303,9 @@ fn event_content(
             Some(properties::PermissionServiceImpl::new(db.clone(), access)),
             None::<NoTaskNotifications>,
         ),
+        call::domain::service::CallRecordQueryServiceImpl::new(
+            call::outbound::pg_call_repo::PgCallRepo::new(db.clone()),
+        ),
         lexical_client::LexicalClient::new(
             config.internal_api_key.to_string(),
             LexicalServiceUrl::new()?.to_string(),

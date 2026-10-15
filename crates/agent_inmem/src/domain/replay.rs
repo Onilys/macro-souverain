@@ -40,15 +40,14 @@ mod test;
 /// Where a session's durable frames come from when its conversation has to
 /// be rebuilt - a cold attach in a process that has never served the session.
 ///
-/// Failures degrade to an empty history (the model's context starts over,
-/// which was every restart's behavior before replay existed) rather than
-/// failing the attach.
+/// A failed read must fail the attach. An unavailable log is not an empty
+/// conversation: silently forgetting it would misrepresent the agent's memory.
 pub trait FrameSource: Send + Sync + 'static {
     /// The session's logged frames, oldest first.
     fn frames(
         &self,
         session: agent_session::domain::model::AgentSessionId,
-    ) -> BoxFuture<'_, Vec<Message>>;
+    ) -> BoxFuture<'_, agent_session::domain::error::Result<Vec<Message>>>;
 }
 
 /// A turn replay has opened and not yet closed.

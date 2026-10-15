@@ -29,7 +29,12 @@ import {
 import type { PriorityCollapser } from '@components/app/split-layout/utils/createPriorityCollapser';
 import { TabsInset } from '@core/component/TabsInset';
 import { ENABLE_CALLS } from '@core/constant/featureFlags';
-import { useChannelName, useChannelType } from '@core/context/channels';
+import {
+  useChannel,
+  useChannelCanCall,
+  useChannelName,
+  useChannelType,
+} from '@core/context/channels';
 import { createMethodRegistration } from '@core/orchestrator';
 import { useChannelParticipantsQuery } from '@queries/channel/channel-participants';
 import {
@@ -149,6 +154,7 @@ export function ChannelDetailTabs(props: {
 }
 
 export function ChannelDetailActions(props: ChannelDetailHeaderProps) {
+  const channel = useChannel(props.channelId);
   const channelName = useChannelName(props.channelId, props.fallbackName);
   const channelType = useChannelType(props.channelId);
   const call = useCall(() => props.channelId);
@@ -156,7 +162,8 @@ export function ChannelDetailActions(props: ChannelDetailHeaderProps) {
     channelId: () => props.channelId,
     channelType,
   });
-  const callsAllowed = () => messaging.interaction().kind === 'internal';
+  const callsAllowed = () =>
+    messaging.interaction().kind === 'internal' && !channel()?.agent_dm;
 
   // Seed for "Ask Macro": a new chat with this channel @mentioned.
   const askMacroEntity = () => {
@@ -258,13 +265,17 @@ function ChannelDetailContent(props: ChannelDetailProps) {
   const panel = useSplitPanelOrThrow();
   const orchestrator = useGlobalBlockOrchestrator();
   const channelId = props.channelId;
+  const conversationChannel = useChannel(channelId);
+  const canCall = useChannelCanCall(channelId);
   const channelName = useChannelName(channelId, props.fallbackName);
   const channelType = useChannelType(channelId);
   const messaging = createChannelInteraction({
     channelId: () => channelId,
     channelType,
   });
-  const callsAllowed = () => messaging.interaction().kind === 'internal';
+  const callsAllowed = () =>
+    messaging.interaction().kind === 'internal' &&
+    !conversationChannel()?.agent_dm;
   useSplitDisplayName(() => channelName() ?? 'New Channel');
 
   const requestFromTarget = (
@@ -305,9 +316,18 @@ function ChannelDetailContent(props: ChannelDetailProps) {
   const [requestedTab, setActiveTabInternal] = createSignal<ChannelTabId>(
     normalizeChannelTab(hasActiveCallHere ? 'call' : DEFAULT_CHANNEL_TAB)
   );
-  const activeTab = () => normalizeChannelTab(requestedTab(), callsAllowed());
+  const activeTab = () =>
+    conversationChannel()?.agent_dm &&
+    ['call', 'calls', 'participants'].includes(requestedTab())
+      ? DEFAULT_CHANNEL_TAB
+      : normalizeChannelTab(requestedTab(), callsAllowed());
   const setActiveTab = (tab: ChannelTabId) => {
-    setActiveTabInternal(normalizeChannelTab(tab));
+    setActiveTabInternal(
+      conversationChannel()?.agent_dm &&
+        ['call', 'calls', 'participants'].includes(tab)
+        ? DEFAULT_CHANNEL_TAB
+        : normalizeChannelTab(tab)
+    );
   };
   const [joinRequested, setPendingJoinCall] = createSignal(false);
   const pendingJoinCall = () => callsAllowed() && joinRequested();
@@ -371,6 +391,7 @@ function ChannelDetailContent(props: ChannelDetailProps) {
       <ChannelTabProvider activeTab={activeTab} setActiveTab={setActiveTab}>
         <DebugSuspense name="ChannelDetail.auto-join">
           <ChannelCallAutoJoin
+            canCall={canCall}
             channelId={channelId}
             pendingJoinCall={pendingJoinCall}
             onHandled={() => setPendingJoinCall(false)}

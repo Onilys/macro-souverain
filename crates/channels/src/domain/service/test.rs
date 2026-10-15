@@ -41,6 +41,7 @@ struct FakeMutationRepoState {
     channel_name: Option<String>,
     channel_type: ChannelType,
     channel_team_id: Option<Uuid>,
+    direct_agent: bool,
     user_team_id: Option<Uuid>,
     user_team_id_lookups: usize,
     join_code: Option<Uuid>,
@@ -65,6 +66,7 @@ impl FakeMutationRepo {
                 channel_name: Some("Project".to_string()),
                 channel_type: ChannelType::Private,
                 channel_team_id: None,
+                direct_agent: false,
                 user_team_id: None,
                 user_team_id_lookups: 0,
                 join_code: None,
@@ -151,6 +153,10 @@ impl ChannelRepo for FakeMutationRepo {
             org_id: None,
             team_id: state.channel_team_id,
         })
+    }
+
+    async fn is_direct_agent_conversation(&self, _channel_id: Uuid) -> Result<bool, Self::Err> {
+        Ok(self.state.lock().unwrap().direct_agent)
     }
 
     async fn get_or_create_channel_join_code(&self, _channel_id: Uuid) -> Result<Uuid, Self::Err> {
@@ -914,7 +920,9 @@ async fn get_or_create_dm_rejects_self_pair() {
     let error = service
         .get_or_create_dm(
             Sender::new_from_user(user.clone()),
-            GetOrCreateDmRequest { recipient_id: user },
+            GetOrCreateDmRequest {
+                recipient_id: Sender::new_from_user(user),
+            },
         )
         .await
         .unwrap_err();
@@ -951,7 +959,7 @@ async fn get_or_create_dm_returns_get_for_existing_pair() {
         .get_or_create_dm(
             Sender::new_from_user(actor),
             GetOrCreateDmRequest {
-                recipient_id: recipient,
+                recipient_id: Sender::new_from_user(recipient),
             },
         )
         .await
@@ -1317,6 +1325,40 @@ async fn patch_team_channel_conversion_to_private_clears_team_settings() {
         Some(false)
     );
     assert_eq!(state.channel_patches[0].0.auto_join_team, Some(false));
+}
+
+#[tokio::test]
+async fn patch_channel_refuses_to_make_an_agent_dm_a_team_channel() {
+    let channel_id = Uuid::new_v4();
+    let repo = FakeMutationRepo::new(channel_id, "macro|sender@test.com");
+    {
+        let mut state = repo.state.lock().unwrap();
+        state.channel_type = ChannelType::DirectMessage;
+        state.direct_agent = true;
+        state.user_team_id = Some(Uuid::new_v4());
+    }
+    let svc = mutation_service(
+        repo.clone(),
+        FakeEvents::default(),
+        FakeReferenceSharing::default(),
+    );
+
+    let err = svc
+        .patch_channel(
+            patch_receipt("macro|sender@test.com", channel_id, AccessRole::Owner),
+            PatchChannelRequest {
+                channel_name: None,
+                convert_to_team_channel: Some(true),
+                auto_join_team: None,
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, ChannelMutationErr::BadRequest(_)));
+    let state = repo.state.lock().unwrap();
+    assert_eq!(state.user_team_id_lookups, 0);
+    assert!(state.channel_patches.is_empty());
 }
 
 #[tokio::test]

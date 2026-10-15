@@ -51,9 +51,12 @@ Switching tabs or navigating an in-app route is not a back/forward-cache restore
 ## Android system navigation and sharing
 
 In the Android app, Back first hides the keyboard, then dismisses the active
-menu/drawer, then returns through mobile pane history. Root Back backgrounds the
-app. Check that a canceled predictive Back gesture leaves the current screen and
-draft untouched. After changing orientation or window size, focused inputs and
+menu/drawer, then offers the press to the active view, then returns through
+mobile pane history. Root Back backgrounds the app. A view that claims Back gets
+it before history: in the mobile email composer, Back on an edited draft opens
+**Draft options** with **Delete Draft** and **Save Draft** rather than leaving,
+exactly as the pane's back button does. Check that a canceled predictive Back
+gesture leaves the current screen and draft untouched. After changing orientation or window size, focused inputs and
 sheet actions should stay above the keyboard without an extra blank keyboard-sized
 gap. Font-size and display-size changes should retain the active draft and update
 safe areas. Also change display size with the keyboard hidden: bottom composers
@@ -361,6 +364,21 @@ Touch devices retain the flag-gated Reviews tab in Tasks.
   split (Shift-click for a new split); there is no account menu. Log out lives
   at the bottom of the Settings sidebar, and the command menu is `Ctrl K`.
 
+The rail highlights the workspace shown by the **active split**, not every app
+named in the multi-split URL. Nested details keep their owning workspace selected
+(for example, a thread under Email or a document under Home). Selection changes
+when navigation commits; a pending preload or a refused leave guard does not
+select a destination that is not shown. Pressing the current workspace preserves
+its filters and nested detail; during a pending navigation, the same press
+cancels that navigation without adding a duplicate history step.
+A later ordinary rail press also cancels a new split still preloading from the
+active split's earlier Shift-press. Already-open splits and pending work from
+other splits remain intact.
+Verify rapid app presses, returning to the currently shown app while another app
+loads, split focus changes, closing a split, and split Back/Forward. The last
+requested destination must win, and a later return to an earlier view must not
+revive an old highlight.
+
 Start a new AI chat from the Agents workspace; the rail has no separate
 new-chat-in-a-new-split button. Its tooltips
 use the standard 400 ms hover delay and 300 ms grace period between items. Home,
@@ -421,8 +439,11 @@ Home's inner rail starts with a full-width **New chat** plus button that returns
 to Home's starting pane without creating a chat. Email and Tasks use the same
 pill styling and top placement for **New email** and **New task**, replacing
 the sidebar title bars. When multiple desktop splits are open, a **Close** (X)
-button appears beside each sidebar's New button and closes that split. The last
-logical split has no sidebar close button; mobile chrome is unchanged.
+button appears beside each sidebar's New button and closes that split, including
+when the sidebar is an overlay in a narrow split. Verify with three splits:
+open **Show navigation**, then use the sidebar's **Close** button without first
+hiding navigation; only its owning split closes. The last logical split has no
+sidebar close button; mobile chrome is unchanged.
 A lone non-list content split still shows a header X labeled **Return to list**,
 which returns that split to the most recent list in its history, preserving
 that list’s state. If there is no prior list, it replaces the current entry with
@@ -653,11 +674,14 @@ The event menu groups Macro activity triggers by surface:
 - **Documents:** **Document created** and **Document deleted**. Tasks are separate.
 - **Tasks:** **Task created**, **Status changed**, **Priority changed**, and **Any property changed**.
 - **Email:** **New email received** in the routine owner's inbox, excluding spam, trash, drafts, and historical imports.
+- **Calls:** **Call started**, for calls the routine owner starts (receives the call and who has joined so far); and **Call ended**, for channel calls and meetings the owner joined (receives participants and transcript, cut short for long calls).
 
 For messages, mentions, deletion, and task changes, choose specific accessible
 channels/documents/tasks or any accessible item in the same panel. Creation
-triggers cover newly created accessible items; email covers the owner's inbox.
-Mentions match only @ mentions of the routine owner. **Any property changed**
+triggers cover newly created accessible items; email covers the owner's inbox;
+**Call started** shows **Calls you start** and **Call ended** shows **Calls you
+join** — neither has an item picker. Calls the owner did not start never trigger
+**Call started**; calls they did not join never trigger **Call ended**. Mentions match only @ mentions of the routine owner. **Any property changed**
 also includes status and priority; overlapping selectors start only one run for
 the same event. These are Macro events, not incoming HTTP webhooks. Bot-authored
 or delegated changes do not retrigger routines. Saved legacy selectors remain
@@ -666,7 +690,7 @@ editable but are no longer offered in the new-trigger menu.
 When `enable-routine-conditions` is on, every activity trigger panel has an
 **Only run if** box for an optional yes/no question about each event, such as
 **Is this email an invoice or a receipt?** Before a run starts, the event's
-content (the email, channel message, document, or task, read as the routine
+content (the email, channel message, document, task, or call, read as the routine
 owner) is checked against it, and events answered no are skipped. The chip
 shows the question after **· if**. Saving a condition fails with "trigger
 conditions are not enabled" while the scheduled-action service has no
