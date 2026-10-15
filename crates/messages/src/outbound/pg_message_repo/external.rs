@@ -23,7 +23,53 @@ pub struct ExternalMessageRevision<'a> {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
+/// Provider acceptance that identifies an earlier business-account echo as a
+/// deliberate native human reply. The hosting domain verifies acceptance first.
+pub struct ExternalReplyAttribution<'a> {
+    /// Native channel.
+    pub channel: Uuid,
+    /// Existing native identity; never replaced by the send intent's UUID.
+    pub message: Uuid,
+    /// Account and provider message scope.
+    pub connection: Uuid,
+    /// Provider identifier from the acceptance.
+    pub provider_message: &'a str,
+    /// Authenticated original human sender.
+    pub sender: &'a ChannelSender<'static>,
+    /// Original prepared body, escaped for native rendering.
+    pub content: &'a str,
+}
+
 impl PgMessageRepository {
+    /// Upgrade an external business echo exactly once. Its downloaded preview
+    /// references are replaced by the original send's attachments by the caller.
+    /// Replays cannot overwrite a human edit or restore unsent content.
+    pub async fn attribute_accepted_reply_in(
+        tx: &mut Transaction<'_, Postgres>,
+        reply: ExternalReplyAttribution<'_>,
+    ) -> Result<bool, MessageError> {
+        let changed=sqlx::query!(r#"UPDATE comms_messages SET sender_id=$5,imported_author=NULL,
+            content=CASE WHEN deleted_at IS NULL AND edited_at IS NULL THEN $6 ELSE content END,
+            import_metadata=import_metadata||jsonb_build_object('provenance','macro_reply'),updated_at=GREATEST(updated_at,now())
+            WHERE id=$1 AND parent_entity_type='channel' AND parent_entity_id=$2
+              AND import_metadata->>'connection_id'=$3 AND import_metadata->>'provider_message_id'=$4
+              AND import_metadata->>'direction'='outbound'
+              AND import_metadata->>'provenance' IN ('phone_echo','onboarding_history')"#,
+            reply.message,reply.channel.to_string(),reply.connection.to_string(),reply.provider_message,
+            reply.sender.as_ref(),reply.content).execute(&mut **tx).await.map_err(database_error)?;
+        if changed.rows_affected() == 0 {
+            return Ok(false);
+        }
+        sqlx::query!(
+            "DELETE FROM comms_attachments WHERE message_id=$1",
+            reply.message
+        )
+        .execute(&mut **tx)
+        .await
+        .map_err(database_error)?;
+        Ok(true)
+    }
+
     /// Apply an ordered source edit or permanent unsend to its exact native
     /// message. Native human edits are preserved; unsends remove attached content.
     pub async fn revise_external_in(

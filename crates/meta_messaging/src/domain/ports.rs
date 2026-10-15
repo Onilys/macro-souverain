@@ -183,6 +183,9 @@ pub trait MessagingRepository: ConversationRepository {
     async fn claim_receipt(&self) -> PortResult<Option<ReceiptWork>>;
     /// Renew the exact receipt attempt while processing bounded event/media work.
     async fn heartbeat_receipt(&self, lease: &Lease) -> PortResult<bool>;
+    /// Retain syntax-failure diagnostics before processing valid siblings. This
+    /// monotonic count survives retries and never includes customer content.
+    async fn record_receipt_decode_failures(&self, lease: &Lease, failures: u32) -> PortResult<()>;
     /// Retry with bounded delay, or settle. Invalid fences cannot settle newer work.
     async fn settle_receipt(
         &self,

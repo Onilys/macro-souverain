@@ -17,8 +17,6 @@ mod test;
 
 /// Largest accepted raw notification body.
 pub const MAX_WEBHOOK_BYTES: usize = 4 * 1024 * 1024;
-/// Maximum decoded facts per receipt, bounding worker transactions.
-pub const MAX_EVENTS: usize = 20_000;
 const MAX_SHARE_TITLE_CHARS: usize = 2000;
 
 /// Authenticate exact raw bytes using Meta's SHA-256 signature. Malformed,
@@ -51,7 +49,7 @@ pub fn verify_signature(secret: &[u8], signature: &str, body: &[u8]) -> Result<(
 
 /// Translate only the selected official product's envelope. Retrying a malformed
 /// receipt cannot turn it into fabricated content or an external send.
-pub fn decode(provider: Provider, payload: &Value) -> Result<Vec<IncomingEvent>, MessagingError> {
+pub fn decode(provider: Provider, payload: &Value) -> Result<ReceiptBatch, MessagingError> {
     let expected = match provider {
         Provider::Whatsapp => "whatsapp_business_account",
         Provider::Instagram => "instagram",
@@ -62,17 +60,43 @@ pub fn decode(provider: Provider, payload: &Value) -> Result<Vec<IncomingEvent>,
         ));
     }
     let entries = array(payload, "entry")?;
-    let mut events = Vec::new();
+    let mut events = Decoder::default();
     for entry in entries {
-        match provider {
-            Provider::Whatsapp => whatsapp(entry, &mut events)?,
-            Provider::Instagram => instagram(entry, &mut events)?,
-        }
-        if events.len() > MAX_EVENTS {
-            return Err(MessagingError::Invalid("too many webhook events"));
+        events.capture(|events| match provider {
+            Provider::Whatsapp => whatsapp(entry, events),
+            Provider::Instagram => instagram(entry, events),
+        });
+    }
+    Ok(events.batch)
+}
+
+#[derive(Default)]
+struct Decoder {
+    batch: ReceiptBatch,
+}
+impl Decoder {
+    fn push(&mut self, event: IncomingEvent) {
+        // The authenticated raw envelope is bounded to 4 MiB, and persistence
+        // commits one item at a time. A count limit must not discard valid facts.
+        self.batch.events.push(event);
+    }
+    fn capture(&mut self, decode: impl FnOnce(&mut Self) -> Result<(), MessagingError>) {
+        if decode(self).is_err() {
+            self.batch.invalid_items = self.batch.invalid_items.saturating_add(1);
         }
     }
-    Ok(events)
+}
+
+// Missing optional collections are valid; malformed collections do not hide siblings.
+fn items<'a>(value: &'a Value, key: &str, decoder: &mut Decoder) -> &'a [Value] {
+    match value.get(key) {
+        None => &[],
+        Some(Value::Array(items)) => items,
+        Some(_) => {
+            decoder.batch.invalid_items = decoder.batch.invalid_items.saturating_add(1);
+            &[]
+        }
+    }
 }
 
 fn string<'a>(v: &'a Value, key: &str) -> Result<&'a str, MessagingError> {
@@ -117,131 +141,159 @@ fn optional_string(v: &Value, key: &str) -> Option<String> {
     v.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
-fn whatsapp(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), MessagingError> {
+fn whatsapp(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> {
     for change in array(entry, "changes")? {
-        let field = string(change, "field")?;
-        let value = &change["value"];
-        if field == "account_update" && value["event"] == "PARTNER_REMOVED" {
-            events.push(IncomingEvent::Disconnected {
-                account_id: id(entry, "id")?,
-                business_account: true,
-            });
-            continue;
-        }
-        let account = id(&value["metadata"], "phone_number_id").ok();
-        let Some(account) = account else {
-            events.push(IncomingEvent::Unsupported {
-                account_id: Some(id(entry, "id")?),
-                field: field.to_owned(),
-            });
-            continue;
-        };
-        let provenance = match field {
-            "messages" => Provenance::Customer,
-            "smb_message_echoes" => Provenance::PhoneEcho,
-            "history" => Provenance::OnboardingHistory,
-            _ => {
-                events.push(IncomingEvent::Unsupported {
-                    account_id: Some(account),
-                    field: field.to_owned(),
+        events.capture(|events| {
+            let field = string(change, "field")?;
+            let value = &change["value"];
+            if field == "account_update" && value["event"] == "PARTNER_REMOVED" {
+                events.push(IncomingEvent::Disconnected {
+                    account_id: id(entry, "id")?,
+                    business_account: true,
                 });
-                continue;
+                return Ok(());
             }
-        };
-        for message in optional_array(
-            value,
-            if field == "smb_message_echoes" {
-                "message_echoes"
-            } else {
-                "messages"
-            },
-        ) {
-            if message["type"] == "reaction" {
-                // A reaction is a revision, never a new customer message/window.
-                // Native external-author reaction storage is deliberately deferred.
-                events.push(IncomingEvent::Unsupported {
-                    account_id: Some(account.clone()),
-                    field: "reaction".into(),
-                });
-                continue;
-            }
-            let customer = if provenance == Provenance::PhoneEcho {
-                id(message, "to")?
-            } else {
-                id(message, "from")?
-            };
-            let name = optional_array(value, "contacts")
-                .iter()
-                .find(|contact| contact["wa_id"].as_str() == Some(customer.as_str()))
-                .and_then(|contact| optional_string(&contact["profile"], "name"));
-            let mut normalized =
-                wa_message(message, account.clone(), customer, provenance, name, None)?;
-            if provenance == Provenance::OnboardingHistory && !normalized.media.is_empty() {
-                normalized.message_type = "history_media".into();
-            }
-            events.push(IncomingEvent::Message(normalized));
-        }
-        for status in optional_array(value, "statuses") {
-            let state = match string(status, "status")? {
-                "sent" => DeliveryState::Sent,
-                "delivered" => DeliveryState::Delivered,
-                "read" => DeliveryState::Read,
-                "failed" => DeliveryState::Failed,
-                other => {
+            let account = match id(&value["metadata"], "phone_number_id") {
+                Ok(account) => account,
+                Err(error) if matches!(field, "messages" | "smb_message_echoes" | "history") => {
+                    return Err(error);
+                }
+                Err(_) => {
                     events.push(IncomingEvent::Unsupported {
-                        account_id: Some(account.clone()),
-                        field: format!("status:{other}"),
+                        account_id: Some(id(entry, "id")?),
+                        field: field.to_owned(),
                     });
-                    continue;
+                    return Ok(());
                 }
             };
-            events.push(IncomingEvent::Status {
-                account_id: account.clone(),
-                message_id: id(status, "id")?,
-                state,
-                timestamp: timestamp(&status["timestamp"], false)?,
-                error_code: optional_array(status, "errors")
-                    .first()
-                    .and_then(|e| e["code"].as_i64())
-                    .map(|c| c.to_string()),
-            });
-        }
-        for chunk in optional_array(value, "history") {
-            for thread in optional_array(chunk, "threads") {
-                let customer = id(thread, "id")?;
-                for message in array(thread, "messages")? {
-                    if message["type"] == "reaction" {
-                        continue;
-                    }
-                    let direction = if string(message, "from")? == customer.as_str() {
-                        Direction::Inbound
-                    } else {
-                        Direction::Outbound
-                    };
-                    events.push(IncomingEvent::Message(wa_message(
-                        message,
-                        account.clone(),
-                        customer.clone(),
-                        Provenance::OnboardingHistory,
-                        None,
-                        Some(direction),
-                    )?));
-                    if events.len() > MAX_EVENTS {
-                        return Err(MessagingError::Invalid("too many history events"));
-                    }
+            let provenance = match field {
+                "messages" => Provenance::Customer,
+                "smb_message_echoes" => Provenance::PhoneEcho,
+                "history" => Provenance::OnboardingHistory,
+                _ => {
+                    events.push(IncomingEvent::Unsupported {
+                        account_id: Some(account),
+                        field: field.to_owned(),
+                    });
+                    return Ok(());
                 }
+            };
+            for message in items(
+                value,
+                if field == "smb_message_echoes" {
+                    "message_echoes"
+                } else {
+                    "messages"
+                },
+                events,
+            ) {
+                events.capture(|events| {
+                    if message["type"] == "reaction" {
+                        // A reaction is a revision, never a new customer message/window.
+                        // Native external-author reaction storage is deliberately deferred.
+                        events.push(IncomingEvent::Unsupported {
+                            account_id: Some(account.clone()),
+                            field: "reaction".into(),
+                        });
+                        return Ok(());
+                    }
+                    let customer = if provenance == Provenance::PhoneEcho {
+                        id(message, "to")?
+                    } else {
+                        id(message, "from")?
+                    };
+                    let name = optional_array(value, "contacts")
+                        .iter()
+                        .find(|contact| contact["wa_id"].as_str() == Some(customer.as_str()))
+                        .and_then(|contact| optional_string(&contact["profile"], "name"));
+                    let mut normalized =
+                        wa_message(message, account.clone(), customer, provenance, name, None)?;
+                    if provenance == Provenance::OnboardingHistory && !normalized.media.is_empty() {
+                        normalized.message_type = "history_media".into();
+                    }
+                    events.push(IncomingEvent::Message(normalized));
+
+                    Ok(())
+                });
             }
-            events.push(IncomingEvent::HistoryProgress {
-                account_id: account.clone(),
-                progress: chunk["metadata"]["progress"]
-                    .as_u64()
-                    .and_then(|n| u8::try_from(n).ok())
-                    .filter(|n| *n <= 100),
-                declined: optional_array(chunk, "errors")
-                    .iter()
-                    .any(|e| e["code"] == 2593109),
-            });
-        }
+            for status in items(value, "statuses", events) {
+                events.capture(|events| {
+                    let state = match string(status, "status")? {
+                        "sent" => DeliveryState::Sent,
+                        "delivered" => DeliveryState::Delivered,
+                        "read" => DeliveryState::Read,
+                        "failed" => DeliveryState::Failed,
+                        other => {
+                            events.push(IncomingEvent::Unsupported {
+                                account_id: Some(account.clone()),
+                                field: format!("status:{other}"),
+                            });
+                            return Ok(());
+                        }
+                    };
+                    events.push(IncomingEvent::Status {
+                        account_id: account.clone(),
+                        message_id: id(status, "id")?,
+                        state,
+                        timestamp: timestamp(&status["timestamp"], false)?,
+                        error_code: optional_array(status, "errors")
+                            .first()
+                            .and_then(|e| e["code"].as_i64())
+                            .map(|c| c.to_string()),
+                    });
+
+                    Ok(())
+                });
+            }
+            for chunk in items(value, "history", events) {
+                events.capture(|events| {
+                    for thread in items(chunk, "threads", events) {
+                        events.capture(|events| {
+                            let customer = id(thread, "id")?;
+                            for message in array(thread, "messages")? {
+                                events.capture(|events| {
+                                    if message["type"] == "reaction" {
+                                        return Ok(());
+                                    }
+                                    let direction = if string(message, "from")? == customer.as_str()
+                                    {
+                                        Direction::Inbound
+                                    } else {
+                                        Direction::Outbound
+                                    };
+                                    events.push(IncomingEvent::Message(wa_message(
+                                        message,
+                                        account.clone(),
+                                        customer.clone(),
+                                        Provenance::OnboardingHistory,
+                                        None,
+                                        Some(direction),
+                                    )?));
+
+                                    Ok(())
+                                });
+                            }
+
+                            Ok(())
+                        });
+                    }
+                    events.push(IncomingEvent::HistoryProgress {
+                        account_id: account.clone(),
+                        progress: chunk["metadata"]["progress"]
+                            .as_u64()
+                            .and_then(|n| u8::try_from(n).ok())
+                            .filter(|n| *n <= 100),
+                        declined: optional_array(chunk, "errors")
+                            .iter()
+                            .any(|e| e["code"] == 2593109),
+                    });
+
+                    Ok(())
+                });
+            }
+
+            Ok(())
+        });
     }
     Ok(())
 }
@@ -311,210 +363,213 @@ fn wa_message(
     })
 }
 
-fn instagram(entry: &Value, events: &mut Vec<IncomingEvent>) -> Result<(), MessagingError> {
+fn instagram(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> {
     let account = id(entry, "id")?;
-    for event in optional_array(entry, "messaging") {
-        if let Some(edit) = event.get("message_edit") {
-            let number = edit["num_edit"]
-                .as_u64()
-                .or_else(|| edit["num_edit"].as_str()?.parse().ok())
-                .and_then(|n| u32::try_from(n).ok())
-                .filter(|n| *n > 0);
-            let text = edit["text"].as_str().filter(|s| s.len() <= 64 * 1024);
-            if let (Some(number), Some(text)) = (number, text) {
+    for event in items(entry, "messaging", events) {
+        events.capture(|events| {
+            if let Some(edit) = event.get("message_edit") {
+                let number = edit["num_edit"]
+                    .as_u64()
+                    .or_else(|| edit["num_edit"].as_str()?.parse().ok())
+                    .and_then(|n| u32::try_from(n).ok())
+                    .filter(|n| *n > 0);
+                let text = edit["text"].as_str().filter(|s| s.len() <= 64 * 1024);
+                if let (Some(number), Some(text)) = (number, text) {
+                    push_instagram_revision(
+                        events,
+                        instagram_revision(
+                            &account,
+                            event,
+                            edit,
+                            MessageRevision::Edited {
+                                text: text.to_owned(),
+                                number,
+                            },
+                        ),
+                    );
+                } else {
+                    return Err(MessagingError::Invalid("invalid Instagram message edit"));
+                }
+                return Ok(());
+            }
+            let Some(message) = event.get("message") else {
+                if event.get("reaction").is_some() {
+                    events.push(IncomingEvent::Unsupported {
+                        account_id: Some(account.clone()),
+                        field: "reaction".into(),
+                    });
+                } else if let Some(read) = event.get("read") {
+                    events.push(IncomingEvent::Status {
+                        account_id: account.clone(),
+                        message_id: id(read, "mid")?,
+                        state: DeliveryState::Read,
+                        timestamp: timestamp(&event["timestamp"], true)?,
+                        error_code: None,
+                    });
+                } else {
+                    events.push(IncomingEvent::Unsupported {
+                        account_id: Some(account.clone()),
+                        field: "instagram_messaging_event".to_owned(),
+                    });
+                }
+                return Ok(());
+            };
+            if message["is_deleted"] == true {
                 push_instagram_revision(
                     events,
-                    &account,
-                    instagram_revision(
-                        &account,
-                        event,
-                        edit,
-                        MessageRevision::Edited {
-                            text: text.to_owned(),
-                            number,
-                        },
-                    ),
+                    instagram_revision(&account, event, message, MessageRevision::Deleted),
                 );
-            } else {
-                events.push(IncomingEvent::Unsupported {
-                    account_id: Some(account.clone()),
-                    field: "invalid_message_edit".into(),
-                });
+                return Ok(());
             }
-            continue;
-        }
-        let Some(message) = event.get("message") else {
-            if event.get("reaction").is_some() {
-                events.push(IncomingEvent::Unsupported {
-                    account_id: Some(account.clone()),
-                    field: "reaction".into(),
-                });
-            } else if let Some(mid) = event.get("read").and_then(|r| id(r, "mid").ok()) {
-                events.push(IncomingEvent::Status {
-                    account_id: account.clone(),
-                    message_id: mid,
-                    state: DeliveryState::Read,
-                    timestamp: timestamp(&event["timestamp"], true)?,
-                    error_code: None,
-                });
-            } else {
-                events.push(IncomingEvent::Unsupported {
-                    account_id: Some(account.clone()),
-                    field: "instagram_messaging_event".to_owned(),
-                });
+            let echo = message["is_echo"].as_bool().unwrap_or(false);
+            let sender = id(&event["sender"], "id")?;
+            let recipient = id(&event["recipient"], "id")?;
+            if (!echo && recipient != account) || (echo && sender != account) {
+                return Err(MessagingError::Invalid(
+                    "Instagram message account does not match envelope",
+                ));
             }
-            continue;
-        };
-        if message["is_deleted"] == true {
-            push_instagram_revision(
-                events,
-                &account,
-                instagram_revision(&account, event, message, MessageRevision::Deleted),
-            );
-            continue;
-        }
-        let echo = message["is_echo"].as_bool().unwrap_or(false);
-        let sender = id(&event["sender"], "id")?;
-        let recipient = id(&event["recipient"], "id")?;
-        if (!echo && recipient != account) || (echo && sender != account) {
-            return Err(MessagingError::Invalid(
-                "Instagram message account does not match envelope",
-            ));
-        }
-        let customer = if echo { recipient } else { sender };
-        let mut media = Vec::new();
-        let mut content = optional_string(message, "text").unwrap_or_default();
-        let mut share_type = None;
-        if let Some(story) = message.get("reply_to").and_then(|r| r.get("story")) {
-            let url = optional_string(story, "url");
-            append_content(
-                &mut content,
-                if url.is_some() {
-                    "Reply to Instagram story · Preview"
-                } else {
-                    "Reply to Instagram story · Content unavailable"
-                },
-            );
-            if let Some(url) = url {
-                media.push(IncomingMedia {
-                    kind: MediaKind::Image,
-                    id: id(story, "id").ok(),
-                    url: Some(url),
-                    mime_type: None,
-                    filename: Some("Instagram story preview".into()),
-                    sha256: None,
-                });
-            }
-        }
-        for attachment in optional_array(message, "attachments") {
-            let kind = attachment["type"].as_str().unwrap_or_default();
-            let payload = &attachment["payload"];
-            if matches!(kind, "ig_post" | "ig_reel") {
-                share_type = Some(kind);
-                // The provider CDN URL is a media preview, not a post permalink.
-                // Native storage verifies the MIME and bytes, including video.
-                let url = optional_string(payload, "url");
-                let permalink = url.as_deref().and_then(instagram_permalink);
-                let label = if kind == "ig_reel" {
-                    "Shared Instagram reel"
-                } else {
-                    "Shared Instagram post"
-                };
+            let customer = if echo { recipient } else { sender };
+            let mut media = Vec::new();
+            let mut content = optional_string(message, "text").unwrap_or_default();
+            let mut share_type = None;
+            if let Some(story) = message.get("reply_to").and_then(|r| r.get("story")) {
+                let url = optional_string(story, "url");
                 append_content(
                     &mut content,
-                    &if url.is_some() && permalink.is_none() {
-                        format!("{label} · Preview")
+                    if url.is_some() {
+                        "Reply to Instagram story · Preview"
                     } else {
-                        label.to_owned()
+                        "Reply to Instagram story · Content unavailable"
                     },
                 );
-                if let Some(title) = optional_string(payload, "title") {
-                    content.push('\n');
-                    content.extend(title.chars().take(MAX_SHARE_TITLE_CHARS));
-                }
-                if let Some(permalink) = permalink {
-                    append_content(&mut content, permalink);
-                } else if let Some(url) = url.filter(|_| media.len() < 10) {
+                if let Some(url) = url {
                     media.push(IncomingMedia {
                         kind: MediaKind::Image,
-                        id: id(
-                            payload,
-                            if kind == "ig_reel" {
-                                "reel_video_id"
-                            } else {
-                                "ig_post_media_id"
-                            },
-                        )
-                        .ok(),
+                        id: id(story, "id").ok(),
                         url: Some(url),
                         mime_type: None,
-                        filename: Some(
-                            if kind == "ig_reel" {
-                                "Instagram reel preview"
-                            } else {
-                                "Instagram post preview"
-                            }
-                            .into(),
-                        ),
+                        filename: Some("Instagram story preview".into()),
                         sha256: None,
                     });
                 }
-                continue;
             }
-            let media_kind = match kind {
-                "image" => MediaKind::Image,
-                "audio" => MediaKind::Audio,
-                "video" => MediaKind::Video,
-                "file" => MediaKind::Document,
-                _ => {
-                    append_content(&mut content, "Content unavailable");
+            for attachment in optional_array(message, "attachments") {
+                let kind = attachment["type"].as_str().unwrap_or_default();
+                let payload = &attachment["payload"];
+                if matches!(kind, "ig_post" | "ig_reel") {
+                    share_type = Some(kind);
+                    // The provider CDN URL is a media preview, not a post permalink.
+                    // Native storage verifies the MIME and bytes, including video.
+                    let url = optional_string(payload, "url");
+                    let permalink = url.as_deref().and_then(instagram_permalink);
+                    let label = if kind == "ig_reel" {
+                        "Shared Instagram reel"
+                    } else {
+                        "Shared Instagram post"
+                    };
+                    append_content(
+                        &mut content,
+                        &if url.is_some() && permalink.is_none() {
+                            format!("{label} · Preview")
+                        } else {
+                            label.to_owned()
+                        },
+                    );
+                    if let Some(title) = optional_string(payload, "title") {
+                        content.push('\n');
+                        content.extend(title.chars().take(MAX_SHARE_TITLE_CHARS));
+                    }
+                    if let Some(permalink) = permalink {
+                        append_content(&mut content, permalink);
+                    } else if let Some(url) = url.filter(|_| media.len() < 10) {
+                        media.push(IncomingMedia {
+                            kind: MediaKind::Image,
+                            id: id(
+                                payload,
+                                if kind == "ig_reel" {
+                                    "reel_video_id"
+                                } else {
+                                    "ig_post_media_id"
+                                },
+                            )
+                            .ok(),
+                            url: Some(url),
+                            mime_type: None,
+                            filename: Some(
+                                if kind == "ig_reel" {
+                                    "Instagram reel preview"
+                                } else {
+                                    "Instagram post preview"
+                                }
+                                .into(),
+                            ),
+                            sha256: None,
+                        });
+                    }
                     continue;
                 }
-            };
-            let Some(url) = optional_string(payload, "url").filter(|_| media.len() < 10) else {
-                append_content(&mut content, "Attachment unavailable");
-                continue;
-            };
-            media.push(IncomingMedia {
-                kind: media_kind,
-                id: None,
-                url: Some(url),
-                mime_type: None,
-                filename: None,
-                sha256: None,
-            });
-        }
-        if content.is_empty() && media.is_empty() {
-            content = "Content unavailable".to_owned();
-        }
-        events.push(IncomingEvent::Message(IncomingMessage {
-            provider: Provider::Instagram,
-            account_id: account.clone(),
-            customer_id: customer,
-            message_id: id(message, "mid")?,
-            author_handle: None,
-            author_name: None,
-            content,
-            timestamp: timestamp(&event["timestamp"], true)?,
-            direction: if echo {
-                Direction::Outbound
-            } else {
-                Direction::Inbound
-            },
-            provenance: if echo {
-                Provenance::PhoneEcho
-            } else {
-                Provenance::Customer
-            },
-            message_type: share_type.unwrap_or("message").to_owned(),
-            reply_to: message.get("reply_to").and_then(|r| id(r, "mid").ok()),
-            media,
-        }));
+                let media_kind = match kind {
+                    "image" => MediaKind::Image,
+                    "audio" => MediaKind::Audio,
+                    "video" => MediaKind::Video,
+                    "file" => MediaKind::Document,
+                    _ => {
+                        append_content(&mut content, "Content unavailable");
+                        continue;
+                    }
+                };
+                let Some(url) = optional_string(payload, "url").filter(|_| media.len() < 10) else {
+                    append_content(&mut content, "Attachment unavailable");
+                    continue;
+                };
+                media.push(IncomingMedia {
+                    kind: media_kind,
+                    id: None,
+                    url: Some(url),
+                    mime_type: None,
+                    filename: None,
+                    sha256: None,
+                });
+            }
+            if content.is_empty() && media.is_empty() {
+                content = "Content unavailable".to_owned();
+            }
+            events.push(IncomingEvent::Message(IncomingMessage {
+                provider: Provider::Instagram,
+                account_id: account.clone(),
+                customer_id: customer,
+                message_id: id(message, "mid")?,
+                author_handle: None,
+                author_name: None,
+                content,
+                timestamp: timestamp(&event["timestamp"], true)?,
+                direction: if echo {
+                    Direction::Outbound
+                } else {
+                    Direction::Inbound
+                },
+                provenance: if echo {
+                    Provenance::PhoneEcho
+                } else {
+                    Provenance::Customer
+                },
+                message_type: share_type.unwrap_or("message").to_owned(),
+                reply_to: message.get("reply_to").and_then(|r| id(r, "mid").ok()),
+                media,
+            }));
+
+            Ok(())
+        });
     }
-    for change in optional_array(entry, "changes") {
-        events.push(IncomingEvent::Unsupported {
-            account_id: Some(account.clone()),
-            field: string(change, "field")?.to_owned(),
+    for change in items(entry, "changes", events) {
+        events.capture(|events| {
+            events.push(IncomingEvent::Unsupported {
+                account_id: Some(account.clone()),
+                field: string(change, "field")?.to_owned(),
+            });
+
+            Ok(())
         });
     }
     Ok(())
@@ -548,16 +603,12 @@ fn instagram_revision(
 }
 
 fn push_instagram_revision(
-    events: &mut Vec<IncomingEvent>,
-    account: &ProviderId,
+    events: &mut Decoder,
     revision: Result<IncomingRevision, MessagingError>,
 ) {
-    events.push(match revision {
-        Ok(revision) => IncomingEvent::Revision(revision),
-        Err(_) => IncomingEvent::Unsupported {
-            account_id: Some(account.clone()),
-            field: "invalid_message_revision".into(),
-        },
+    events.capture(|events| {
+        events.push(IncomingEvent::Revision(revision?));
+        Ok(())
     });
 }
 

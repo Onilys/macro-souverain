@@ -1,3 +1,4 @@
+mod fairness;
 use super::*;
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use sha2::{Digest, Sha256};

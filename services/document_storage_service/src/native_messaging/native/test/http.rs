@@ -3,6 +3,7 @@ use super::*;
 mod content;
 mod history;
 mod lifecycle;
+mod recovery;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -189,6 +190,15 @@ impl MetaProvider for ProviderFixture {
         _: &AccessToken,
         media: &IncomingMedia,
     ) -> PortResult<MediaBytes> {
+        if media
+            .id
+            .as_ref()
+            .is_some_and(|id| id.as_str() == "slow-test-media")
+        {
+            self.operation_entered.notify_one();
+            self.operation_release.notified().await;
+            return Err(MessagingError::ProviderRejected.into());
+        }
         if media
             .id
             .as_ref()

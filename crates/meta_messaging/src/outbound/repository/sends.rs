@@ -14,7 +14,16 @@ impl PgMessagingRepository {
     ) -> PortResult<SendProgress> {
         let payload = serde_json::to_value(request).map_err(failure)?;
         let mut tx = self.pool.begin().await.map_err(failure)?;
-        sqlx::query!("INSERT INTO meta_messaging_send (id,connection_id,channel_id,user_id,idempotency_key,request_sha256,payload) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (channel_id,user_id,idempotency_key) DO NOTHING",Uuid::now_v7(),connection,channel,user,request.idempotency_key,digest,payload).execute(&mut *tx).await.map_err(failure)?;
+        // Serialize enqueue commits for an account and assign DB time after the
+        // lock. A later committed intent cannot precede an invisible older insert.
+        sqlx::query!(
+            "SELECT id FROM meta_messaging_connection WHERE id=$1 FOR UPDATE",
+            connection
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(failure)?;
+        sqlx::query!("INSERT INTO meta_messaging_send (id,connection_id,channel_id,user_id,idempotency_key,request_sha256,payload,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,clock_timestamp()) ON CONFLICT (channel_id,user_id,idempotency_key) DO NOTHING",Uuid::now_v7(),connection,channel,user,request.idempotency_key,digest,payload).execute(&mut *tx).await.map_err(failure)?;
         let row = sqlx::query!("SELECT to_jsonb(s) AS \"data!\", request_sha256 FROM meta_messaging_send s WHERE channel_id = $1 AND user_id = $2 AND idempotency_key = $3 FOR UPDATE",channel,user,request.idempotency_key).fetch_one(&mut *tx).await.map_err(failure)?;
         if row.request_sha256 != digest {
             return Err(MessagingError::Conflict.into());
@@ -34,12 +43,43 @@ impl PgMessagingRepository {
         sqlx::query!("SELECT to_jsonb(s) AS \"data!\" FROM meta_messaging_message m JOIN meta_messaging_send s ON s.connection_id = m.connection_id AND s.provider_message_id = m.provider_message_id AND s.message_id = m.message_id WHERE s.channel_id = $1 AND m.message_id = ANY($2)", channel, messages).fetch_all(&self.pool).await.map_err(failure)?.into_iter().map(|row| decode(row.data)).collect()
     }
     pub(super) async fn claim_send_impl(&self) -> PortResult<Option<SendWork>> {
-        sqlx::query!("UPDATE meta_messaging_send SET state = 'unknown', error_code = 'interrupted_send_check_provider', lease_id = NULL, lease_until = NULL, updated_at = now() WHERE state = 'sending' AND lease_until < now()")
-            .execute(&self.pool).await.map_err(failure)?;
+        let mut tx = self.pool.begin().await.map_err(failure)?;
+        sqlx::query!("SELECT pg_advisory_xact_lock(1296389185, 2)")
+            .execute(&mut *tx)
+            .await
+            .map_err(failure)?;
+        // Uncertainty is terminal for dispatch. After a bounded lease it releases
+        // the conversation; delivered/read receipts are never needed to proceed.
+        sqlx::query!(r#"WITH expired AS (
+            SELECT id FROM meta_messaging_send WHERE state='sending' AND lease_until<now()
+            ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT 100
+        ) UPDATE meta_messaging_send s SET state='unknown',error_code='interrupted_send_check_provider',
+            lease_id=NULL,lease_until=NULL,updated_at=now() FROM expired WHERE s.id=expired.id"#)
+            .execute(&mut *tx).await.map_err(failure)?;
         let token = Uuid::now_v7();
-        let row = sqlx::query!(r#"WITH candidate AS (SELECT id FROM meta_messaging_send WHERE state = 'pending' AND available_at <= now() AND attempts < 20 ORDER BY available_at,id FOR UPDATE SKIP LOCKED LIMIT 1)
-            UPDATE meta_messaging_send s SET state = 'sending', lease_id = $1, lease_until = now() + interval '5 minutes', attempts = attempts + 1, updated_at = now()
-            FROM candidate c WHERE s.id = c.id RETURNING s.id,s.connection_id,s.channel_id,s.user_id,s.created_at,s.payload,s.attempts"#,token).fetch_optional(&self.pool).await.map_err(failure)?;
+        let row = sqlx::query!(
+            r#"WITH candidate AS (
+            SELECT s.id FROM meta_messaging_send s
+            WHERE s.state='pending' AND s.available_at<=now() AND s.attempts<20
+              AND NOT EXISTS (SELECT 1 FROM meta_messaging_send earlier
+                  WHERE earlier.connection_id=s.connection_id AND earlier.channel_id=s.channel_id
+                    AND earlier.state IN ('pending','sending')
+                    AND (earlier.created_at,earlier.id)<(s.created_at,s.id))
+              AND (SELECT count(*) FROM meta_messaging_send busy
+                  WHERE busy.connection_id=s.connection_id AND busy.state='sending'
+                    AND busy.lease_until>now()) < 2
+            ORDER BY s.created_at,s.id FOR UPDATE SKIP LOCKED LIMIT 1
+        ) UPDATE meta_messaging_send s SET state='sending',lease_id=$1,
+            lease_until=now()+interval '5 minutes',attempts=attempts+1,updated_at=now()
+          FROM candidate c WHERE s.id=c.id
+          RETURNING s.id,s.connection_id,s.channel_id,s.user_id,s.created_at,s.payload,s.attempts
+        "#,
+            token
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(failure)?;
+        tx.commit().await.map_err(failure)?;
         row.map(|r| {
             Ok(SendWork {
                 lease: Lease { id: r.id, token },

@@ -10,7 +10,7 @@ required-features = ["axum"]
 
 [features]
 default = []
-ports = ["dep:entity_access", "dep:messages"]
+ports = ["dep:entity_access", "dep:messages", "dep:futures"]
 outbound = ["ports", "dep:base64", "dep:sqlx", "dep:reqwest", "dep:aws-sdk-kms", "dep:zeroize", "dep:url", "dep:tokio"]
 axum = ["ports", "dep:axum", "dep:macro_authorization", "entity_access/inbound", "schema"]
 schema = ["dep:utoipa"]
@@ -22,6 +22,7 @@ axum = { workspace = true, features = ["multipart"], optional = true }
 aws-sdk-kms = { workspace = true, optional = true }
 chrono = { workspace = true }
 hmac = { workspace = true }
+futures = { workspace = true, optional = true }
 entity_access = { path = "../entity_access", default-features = false, features = ["ports"], optional = true }
 macro_authorization = { path = "../macro_authorization", default-features = false, features = ["axum"], optional = true }
 messages = { path = "../messages", default-features = false, features = ["ports"], optional = true }

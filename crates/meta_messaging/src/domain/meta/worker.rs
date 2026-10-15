@@ -2,6 +2,8 @@
 //! arbitrate duplicates. History requires separate, explicit account consent.
 
 use super::*;
+use futures::{StreamExt, stream};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy)]
 pub(super) enum IngestionLease<'a> {
@@ -126,9 +128,86 @@ impl MetaService {
         Ok(())
     }
 
-    /// Process decoded facts from one verified, durable receipt. The inbound
-    /// driver settles malformed envelopes without inventing message content.
+    /// Process and durably settle a claimed receipt. Account-state failures
+    /// keep retrying, independently of reconnect timing, until raw retention ends.
+    pub async fn process_receipt_attempt(
+        &self,
+        work: &ReceiptWork,
+        batch: ReceiptBatch,
+    ) -> PortResult<()> {
+        if batch.invalid_items > 0 {
+            self.repository
+                .record_receipt_decode_failures(&work.lease, batch.invalid_items)
+                .await?;
+        }
+        match self.process_receipt(work, batch).await {
+            Ok(()) => {
+                self.repository
+                    .settle_receipt(&work.lease, None, None)
+                    .await
+            }
+            Err(error) => {
+                let account_recovery = receipt_error_priority(error.current_context()) == 2;
+                let retry = if account_recovery {
+                    Some(30)
+                } else if matches!(error.current_context(), MessagingError::Unavailable)
+                    && work.attempts < 10
+                {
+                    Some(5_u32.saturating_mul(2_u32.pow(u32::from(work.attempts.min(8)))))
+                } else {
+                    None
+                };
+                let code = if account_recovery {
+                    "account_state_changed".to_owned()
+                } else {
+                    error.current_context().to_string()
+                };
+                self.repository
+                    .settle_receipt(&work.lease, Some(&code), retry)
+                    .await
+            }
+        }
+    }
+
+    /// Process every valid fact. Malformed siblings are retained for diagnosis
+    /// but never cause successful facts to be automatically replayed on their own.
     pub async fn process_receipt(
+        &self,
+        work: &ReceiptWork,
+        batch: impl Into<ReceiptBatch>,
+    ) -> PortResult<()> {
+        let batch = batch.into();
+        let mut failure = (batch.invalid_items > 0)
+            .then(|| MessagingError::Invalid("invalid_provider_payload").into());
+        if batch.invalid_items > 0 {
+            tracing::warn!(receipt_id=%work.lease.id, invalid_items=batch.invalid_items,
+                "provider receipt contains malformed items");
+        }
+        let mut indices = HashMap::new();
+        let mut groups: Vec<Vec<IncomingEvent>> = Vec::new();
+        for event in batch.events {
+            let index = *indices
+                .entry(event.account_id().cloned())
+                .or_insert_with(|| {
+                    groups.push(Vec::new());
+                    groups.len() - 1
+                });
+            groups[index].push(event);
+        }
+        // One slow account cannot hide a healthy sibling in the same envelope.
+        // Source order within an account is retained; no new scheduling layer.
+        let mut results = stream::iter(groups)
+            .map(|events| self.process_account_events(work, events))
+            .buffer_unordered(2);
+        while let Some(result) = results.next().await {
+            if let Err(error) = result {
+                retain_receipt_failure(&mut failure, error);
+            }
+        }
+        failure.map_or(Ok(()), Err)
+    }
+
+    async fn process_account_events(
         &self,
         work: &ReceiptWork,
         events: Vec<IncomingEvent>,
@@ -139,23 +218,15 @@ impl MetaService {
                 return Err(MessagingError::Conflict.into());
             }
             if let Err(error) = self.process_event(work, event).await {
-                // One unavailable account or attachment must not hide the other
-                // events in Meta's batch. Replaying successful events is idempotent.
                 if !self.repository.heartbeat_receipt(&work.lease).await? {
                     return Err(MessagingError::Conflict.into());
                 }
-                tracing::warn!(receipt_id=?work.lease.id,error=?error.current_context(),"Meta receipt event failed; processing the remaining events");
-                if failure.is_none()
-                    || matches!(error.current_context(), MessagingError::Unavailable)
-                {
-                    failure = Some(error);
-                }
+                tracing::warn!(receipt_id=%work.lease.id,error=?error.current_context(),
+                    "provider receipt item failed; continuing valid siblings");
+                retain_receipt_failure(&mut failure, error);
             }
         }
-        match failure {
-            Some(error) => Err(error),
-            None => Ok(()),
-        }
+        failure.map_or(Ok(()), Err)
     }
 
     async fn process_event(&self, work: &ReceiptWork, event: IncomingEvent) -> PortResult<()> {
@@ -374,5 +445,25 @@ fn accepts_inbound(connection: &Connection) -> Result<bool, MessagingError> {
         ConnectionStatus::Disconnected => Ok(false),
         ConnectionStatus::Revoked => Err(MessagingError::Disconnected),
         _ => Ok(true),
+    }
+}
+
+fn receipt_error_priority(error: &MessagingError) -> u8 {
+    match error {
+        MessagingError::Disconnected | MessagingError::Conflict | MessagingError::Forbidden => 2,
+        MessagingError::Unavailable => 1,
+        _ => 0,
+    }
+}
+
+fn retain_receipt_failure(
+    failure: &mut Option<rootcause::Report<MessagingError>>,
+    error: rootcause::Report<MessagingError>,
+) {
+    if failure.as_ref().is_none_or(|current| {
+        receipt_error_priority(error.current_context())
+            > receipt_error_priority(current.current_context())
+    }) {
+        *failure = Some(error);
     }
 }

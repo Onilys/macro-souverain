@@ -289,6 +289,13 @@ impl MessageFiles for NativeFiles {
         if stored.deleted_at.is_some() {
             return Err(MessagingError::NotFound.into());
         }
+        if m.direction == meta_messaging::domain::events::Direction::Outbound
+            && stored.sender_id.as_user().is_some()
+        {
+            // An early echo has since been matched to Macro's acceptance. Its
+            // source preview must not duplicate the deliberate send's document.
+            return Ok(());
+        }
         let mut first_error = None;
         let mut complete = true;
         for (index, file) in files.into_iter().enumerate() {
@@ -404,6 +411,11 @@ impl MessageFiles for NativeFiles {
             return Ok(());
         }
         let mut tx = self.pool.begin().await.map_err(error)?;
+        if !PgMessagingRepository::received_media_open_in(&mut tx, c.id, m.message_id.as_str())
+            .await?
+        {
+            return Ok(());
+        }
         PgMessageRepository::external_media_notice_in(
             &mut tx,
             channel,

@@ -12376,6 +12376,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "entity_access",
+ "futures",
  "hmac 0.12.1",
  "macro_authorization",
  "macro_db_migrator",

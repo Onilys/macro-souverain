@@ -87,6 +87,24 @@ pub struct IncomingMessage {
     pub media: Vec<IncomingMedia>,
 }
 
+/// Independently decoded items from a single verified provider envelope.
+#[derive(Debug, Clone, Default)]
+pub struct ReceiptBatch {
+    /// Valid facts, in source order. Malformed siblings do not discard them.
+    pub events: Vec<IncomingEvent>,
+    /// Number of malformed items; no customer content is copied into diagnostics.
+    pub invalid_items: u32,
+}
+
+impl From<Vec<IncomingEvent>> for ReceiptBatch {
+    fn from(events: Vec<IncomingEvent>) -> Self {
+        Self {
+            events,
+            invalid_items: 0,
+        }
+    }
+}
+
 /// Normalized facts received from the provider. Unknown facts remain visible in
 /// connection health rather than silently disappearing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,6 +152,21 @@ pub enum IncomingEvent {
         /// Field/type name only, never unbounded message content.
         field: String,
     },
+}
+
+impl IncomingEvent {
+    /// Account used to serialize facts within a receipt while allowing other
+    /// accounts in that delivery to progress independently.
+    pub fn account_id(&self) -> Option<&ProviderId> {
+        match self {
+            Self::Message(message) => Some(&message.account_id),
+            Self::Revision(revision) => Some(&revision.account_id),
+            Self::Status { account_id, .. }
+            | Self::HistoryProgress { account_id, .. }
+            | Self::Disconnected { account_id, .. } => Some(account_id),
+            Self::Unsupported { account_id, .. } => account_id.as_ref(),
+        }
+    }
 }
 
 /// Provider-authorized change to the original author's message.

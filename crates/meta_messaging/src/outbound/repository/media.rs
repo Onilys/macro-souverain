@@ -50,7 +50,9 @@ impl PgMessagingRepository {
             });
         }
         if row.leased {
-            return Err(MessagingError::Unavailable.into());
+            // A sibling owns this upload. This is contention, not evidence that
+            // the attachment is unavailable; the receipt can safely retry.
+            return Err(MessagingError::Conflict.into());
         }
         let lease = Uuid::now_v7();
         sqlx::query!("UPDATE meta_messaging_attachment SET lease_id=$4,lease_until=now()+interval '5 minutes' WHERE connection_id=$1 AND provider_message_id=$2 AND ordinal=$3",connection,message,ordinal,lease).execute(&mut *tx).await.map_err(failure)?;
@@ -73,7 +75,7 @@ impl PgMessagingRepository {
         let Some(lease) = reservation.lease else {
             return Ok(());
         };
-        let changed=sqlx::query!("UPDATE meta_messaging_attachment SET status='stored',lease_id=NULL,lease_until=NULL WHERE connection_id=$1 AND provider_message_id=$2 AND ordinal=$3 AND lease_id=$4 AND lease_until>now()",connection,message,reservation.ordinal,lease).execute(&mut **tx).await.map_err(failure)?;
+        let changed=sqlx::query!("UPDATE meta_messaging_attachment SET status='stored',lease_id=NULL,lease_until=NULL WHERE connection_id=$1 AND provider_message_id=$2 AND ordinal=$3 AND lease_id=$4 AND lease_until>now() AND EXISTS (SELECT 1 FROM meta_messaging_message m WHERE m.connection_id=$1 AND m.provider_message_id=$2 AND m.provenance<>'macro_reply' AND NOT EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=m.connection_id AND r.customer_id=m.customer_id AND r.provider_message_id=m.provider_message_id AND r.direction=m.direction AND r.deleted_at IS NOT NULL))",connection,message,reservation.ordinal,lease).execute(&mut **tx).await.map_err(failure)?;
         if changed.rows_affected() != 1 {
             return Err(MessagingError::Conflict.into());
         }
@@ -93,6 +95,17 @@ impl PgMessagingRepository {
         Ok(())
     }
 
+    /// Whether received-media work still belongs to this source. Serialize its
+    /// final mutation with stored media and accepted-reply reconciliation.
+    pub async fn received_media_open_in(
+        tx: &mut Transaction<'_, Postgres>,
+        connection: Uuid,
+        message: &str,
+    ) -> PortResult<bool> {
+        Ok(sqlx::query_scalar!("SELECT message_id FROM meta_messaging_message WHERE connection_id=$1 AND provider_message_id=$2 AND provenance<>'macro_reply' AND media_state<>'stored' FOR UPDATE", connection,message)
+            .fetch_optional(&mut **tx).await.map_err(failure)?.is_some())
+    }
+
     /// Dirty native delivery after media content changes. A revision prevents a
     /// concurrently completing old websocket/search pass from acknowledging new work.
     pub async fn media_state_in(
@@ -100,8 +113,8 @@ impl PgMessagingRepository {
         connection: Uuid,
         message: &str,
         stored: bool,
-    ) -> PortResult<()> {
-        sqlx::query!("UPDATE meta_messaging_message m SET media_state=CASE WHEN $3 THEN 'stored' ELSE 'failed' END,effect_revision=effect_revision+1,event_published_at=NULL,native_retry_at=now() WHERE connection_id=$1 AND provider_message_id=$2 AND NOT EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=m.connection_id AND r.customer_id=m.customer_id AND r.provider_message_id=m.provider_message_id AND r.direction=m.direction AND r.deleted_at IS NOT NULL)",connection,message,stored).execute(&mut **tx).await.map_err(failure)?;
-        Ok(())
+    ) -> PortResult<bool> {
+        let changed = sqlx::query!("UPDATE meta_messaging_message m SET media_state=CASE WHEN $3 THEN 'stored' ELSE 'failed' END,effect_revision=effect_revision+1,event_published_at=NULL,native_retry_at=now() WHERE connection_id=$1 AND provider_message_id=$2 AND ($3 OR m.media_state<>'stored') AND NOT EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=m.connection_id AND r.customer_id=m.customer_id AND r.provider_message_id=m.provider_message_id AND r.direction=m.direction AND r.deleted_at IS NOT NULL)",connection,message,stored).execute(&mut **tx).await.map_err(failure)?;
+        Ok(changed.rows_affected() == 1)
     }
 }

@@ -4,6 +4,7 @@ mod effects;
 mod files;
 mod native;
 mod settings;
+mod workers;
 
 use crate::api::context::{
     AuthorizationService, DssEventBroker, EntityAccessService, NotificationIngressType,
@@ -11,7 +12,7 @@ use crate::api::context::{
 use messages::outbound::connection_gateway::ConnectionGatewayMessages;
 use meta_messaging::{
     domain::{meta::MetaService, models::MessagingError, ports::*},
-    inbound::{router::MessagingRouterState, webhook},
+    inbound::router::MessagingRouterState,
     outbound::{repository::PgMessagingRepository, storage::KmsCredentialCipher},
 };
 use std::{sync::Arc, time::Duration};
@@ -135,76 +136,8 @@ fn spawn(service: Arc<MetaService>) {
             }
         }
     });
-    let receipts = service.clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(500));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            interval.tick().await;
-            let result: PortResult<()> = async {
-                let Some(work) = receipts.repository.claim_receipt().await? else {
-                    return Ok(());
-                };
-                let decoded = match webhook::decode(work.provider, &work.payload) {
-                    Ok(events) => events,
-                    Err(_) => {
-                        receipts
-                            .repository
-                            .settle_receipt(&work.lease, Some("invalid_provider_payload"), None)
-                            .await?;
-                        return Ok(());
-                    }
-                };
-                match receipts.process_receipt(&work, decoded).await {
-                    Ok(()) => {
-                        receipts
-                            .repository
-                            .settle_receipt(&work.lease, None, None)
-                            .await?
-                    }
-                    Err(error) => {
-                        let retry =
-                            if matches!(error.current_context(), MessagingError::Unavailable)
-                                && work.attempts < 10
-                            {
-                                Some(
-                                    5_u32
-                                        .saturating_mul(2_u32.pow(u32::from(work.attempts.min(8)))),
-                                )
-                            } else {
-                                None
-                            };
-                        receipts
-                            .repository
-                            .settle_receipt(
-                                &work.lease,
-                                Some(&error.current_context().to_string()),
-                                retry,
-                            )
-                            .await?;
-                    }
-                }
-                Ok(())
-            }
-            .await;
-            if let Err(error) = result {
-                tracing::warn!(error=?error.current_context(),"Meta receipt worker will recover durable work");
-            }
-        }
-    });
-    let sends = service.messaging.clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(500));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            interval.tick().await;
-            // The service settles each outcome; it never marks a possibly
-            // dispatched attempt failed.
-            if let Err(error) = sends.process_next_send().await {
-                tracing::warn!(error=?error.current_context(),"Meta send worker will reconcile its durable result");
-            }
-        }
-    });
+    tokio::spawn(workers::receipts(service.clone()));
+    tokio::spawn(workers::sends(service.messaging.clone()));
     let recovery = service.messaging.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));

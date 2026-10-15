@@ -293,6 +293,14 @@ impl MessagingRepository for PgMessagingRepository {
     async fn heartbeat_receipt(&self, lease: &Lease) -> PortResult<bool> {
         Ok(sqlx::query!("UPDATE meta_messaging_receipt SET lease_until = now() + interval '5 minutes' WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND status = 'processing'",lease.id,lease.token).execute(&self.pool).await.map_err(failure)?.rows_affected()==1)
     }
+    async fn record_receipt_decode_failures(&self, lease: &Lease, failures: u32) -> PortResult<()> {
+        let changed=sqlx::query!("UPDATE meta_messaging_receipt SET decode_failures=GREATEST(decode_failures,$3) WHERE id=$1 AND lease_id=$2 AND lease_until>now() AND status='processing'",lease.id,lease.token,failures.min(i32::MAX as u32) as i32)
+            .execute(&self.pool).await.map_err(failure)?;
+        if changed.rows_affected() != 1 {
+            return Err(MessagingError::Conflict.into());
+        }
+        Ok(())
+    }
     async fn settle_receipt(
         &self,
         lease: &Lease,

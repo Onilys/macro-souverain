@@ -1,5 +1,6 @@
 use super::*;
 mod http;
+mod reconciliation;
 mod revisions;
 use entity_access::{
     domain::{models::MemberParticipantRole, service::EntityAccessServiceImpl},
@@ -592,9 +593,10 @@ async fn quotes_media_leases_and_dirty_revisions_are_account_scoped(pool: PgPool
         .await
         .unwrap();
     tx.commit().await.unwrap();
-    let effects = repo.pending_native_effects().await.unwrap();
-    assert_eq!(effects[0].revision, 3);
-    assert!(!effects[0].first_publication);
+    assert!(
+        repo.pending_native_effects().await.unwrap().is_empty(),
+        "a failed duplicate cannot dirty already stored media"
+    );
 }
 
 async fn fixture_native(pool: &PgPool) -> NativeChannels {

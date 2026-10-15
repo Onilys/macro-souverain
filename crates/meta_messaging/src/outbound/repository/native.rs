@@ -66,11 +66,10 @@ impl PgMessagingRepository {
             || (Uuid::now_v7(), Uuid::now_v7(), true),
             |r| (r.channel_id, r.external_sender_id, false),
         );
-        let message=sqlx::query!("SELECT message_id,customer_id FROM meta_messaging_message WHERE connection_id = $1 AND provider_message_id = $2",c.id,m.message_id.as_str()).fetch_optional(&mut **tx).await.map_err(failure)?;
-        if message
-            .as_ref()
-            .is_some_and(|r| r.customer_id != m.customer_id.as_str())
-        {
+        let message=sqlx::query!("SELECT message_id,customer_id,direction FROM meta_messaging_message WHERE connection_id = $1 AND provider_message_id = $2",c.id,m.message_id.as_str()).fetch_optional(&mut **tx).await.map_err(failure)?;
+        if message.as_ref().is_some_and(|r| {
+            r.customer_id != m.customer_id.as_str() || r.direction != spelling(m.direction)
+        }) {
             return Err(MessagingError::Conflict.into());
         }
         Ok(MessageReservation {
@@ -124,6 +123,21 @@ impl PgMessagingRepository {
             sqlx::query!("INSERT INTO meta_messaging_message (connection_id,provider_message_id,message_id,customer_id,provenance,direction,provider_timestamp,reply_to_id,delivery_state,media_state,provider_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",c.id,m.message_id.as_str(),r.message_id,m.customer_id.as_str(),spelling(m.provenance),spelling(m.direction),m.timestamp,m.reply_to.as_ref().map(ProviderId::as_str),spelling(state),if m.media.is_empty()&&m.message_type!="macro_media_reply"{"none"}else{"pending"},m.message_type).execute(&mut **tx).await.map_err(failure)?;
         }
         if let Some(send) = send {
+            sqlx::query!(
+                r#"UPDATE meta_messaging_message SET provenance='macro_reply',provider_type=$4,
+                media_state=CASE WHEN EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=$1 AND r.provider_message_id=$2 AND r.deleted_at IS NOT NULL) THEN 'stored' WHEN $5 THEN 'pending' ELSE 'none' END,
+                effect_revision=effect_revision+1,event_published_at=NULL,native_retry_at=now()
+                WHERE connection_id=$1 AND provider_message_id=$2 AND message_id=$3
+                  AND direction='outbound' AND provenance<>'macro_reply'"#,
+                c.id,
+                m.message_id.as_str(),
+                r.message_id,
+                m.message_type,
+                m.message_type == "macro_media_reply"
+            )
+            .execute(&mut **tx)
+            .await
+            .map_err(failure)?;
             let changed=sqlx::query!("UPDATE meta_messaging_send SET message_id = $2,state = (SELECT delivery_state FROM meta_messaging_message WHERE message_id = $2),updated_at = now() WHERE id = $1 AND connection_id = $3 AND channel_id = $4 AND provider_message_id = $5 AND (message_id IS NULL OR message_id = $2)",send,r.message_id,c.id,r.channel_id,m.message_id.as_str()).execute(&mut **tx).await.map_err(failure)?;
             if changed.rows_affected() != 1 {
                 return Err(MessagingError::Conflict.into());

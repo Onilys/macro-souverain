@@ -27,7 +27,7 @@ use messages::{
     outbound::{
         connection_gateway::ConnectionGatewayMessages,
         entity_access_audience::EntityAccessMessageAudience,
-        pg_message_repo::{ExternalMessageRevision, PgMessageRepository},
+        pg_message_repo::{ExternalMessageRevision, ExternalReplyAttribution, PgMessageRepository},
     },
 };
 use meta_messaging::{
@@ -105,7 +105,7 @@ impl NativeChannels {
             .map_err(error)?;
         }
         if reservation.create_message {
-            let author = sender.unwrap_or_else(|| {
+            let author = sender.clone().unwrap_or_else(|| {
                 ChannelSender::new_external(if m.direction == Direction::Outbound {
                     c.id
                 } else {
@@ -136,6 +136,23 @@ impl NativeChannels {
             advance_historical_activity(&mut tx, reservation.channel_id, m.timestamp)
                 .await
                 .map_err(error)?;
+        }
+        if !reservation.create_message
+            && let (Some(_), Some(sender)) = (send, sender.as_ref())
+        {
+            PgMessageRepository::attribute_accepted_reply_in(
+                &mut tx,
+                ExternalReplyAttribution {
+                    channel: reservation.channel_id,
+                    message: reservation.message_id,
+                    connection: c.id,
+                    provider_message: m.message_id.as_str(),
+                    sender,
+                    content: &render_message_content(m),
+                },
+            )
+            .await
+            .map_err(error)?;
         }
         PgMessagingRepository::finish_message_in(&mut tx, c, m, &reservation, send).await?;
         let normalized = meta_messaging::domain::meta_content::normalize(m);
@@ -271,6 +288,11 @@ impl NativeMessaging for NativeChannels {
         };
         let body = format!("{}\n\n> {notice}", render_message_content(m));
         let mut tx = self.pool.begin().await.map_err(error)?;
+        if !PgMessagingRepository::received_media_open_in(&mut tx, c.id, m.message_id.as_str())
+            .await?
+        {
+            return Ok(());
+        }
         PgMessageRepository::external_media_notice_in(
             &mut tx,
             channel,
