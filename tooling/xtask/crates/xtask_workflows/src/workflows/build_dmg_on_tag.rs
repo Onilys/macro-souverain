@@ -33,11 +33,7 @@ pub fn build_dmg() -> Workflow {
 pub fn build_dmg_job(ref_expr: &str) -> Job {
     Job::default()
         .name("Build macOS DMG")
-        .runs_on(vec![
-            format!("{}-with-cache", runners::Runner::MacOsArmLarge),
-            "nscloud-cache-tag-macro-desktop-macos".to_owned(),
-            format!("nscloud-cache-size-{NIX_CACHE_SIZE_GB}gb"),
-        ])
+        .runs_on(macos_runner_labels(runners::Runner::MacOsArmLarge))
         .add_env(("DESKTOP_NIX_CACHE_SIZE_GB", NIX_CACHE_SIZE_GB.to_string()))
         .add_step(steps::checkout_ref(ref_expr))
         .add_step(assert_arm64())
@@ -56,6 +52,15 @@ pub fn build_dmg_job(ref_expr: &str) -> Job {
             "macro-dmg-${{ steps.metadata.outputs.safe_tag }}",
             xtask_paths::runtime_path!("artifacts/*"),
         ))
+}
+
+/// The desktop runner labels with its persisted cache volume.
+pub(crate) fn macos_runner_labels(runner: runners::Runner) -> Vec<String> {
+    vec![
+        format!("{runner}-with-cache"),
+        "nscloud-cache-tag-macro-desktop-macos".to_owned(),
+        format!("nscloud-cache-size-{NIX_CACHE_SIZE_GB}gb"),
+    ]
 }
 
 fn assert_arm64() -> Step<Run> {

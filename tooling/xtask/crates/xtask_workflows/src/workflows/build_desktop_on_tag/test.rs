@@ -21,6 +21,28 @@ fn desktop_release_uses_larger_isolated_runners() {
 }
 
 #[test]
+fn cloudkit_diagnostic_dispatch_skips_release_builds() {
+    let yaml = rendered_yaml();
+    assert!(yaml.contains("inputs.ref != 'diagnose-cloudkit'"), "{yaml}");
+    assert!(yaml.contains("CloudKit ticket lookup (6x14)"), "{yaml}");
+    assert!(yaml.contains("CloudKit ticket lookup (12x28)"), "{yaml}");
+    assert!(
+        yaml.contains("CloudKit ticket lookup (6x14 with cache)"),
+        "{yaml}"
+    );
+    assert!(
+        yaml.contains("CloudKit ticket lookup (12x28 with cache)"),
+        "{yaml}"
+    );
+    assert!(
+        yaml.contains(
+            "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-cloudkit'"
+        )
+    );
+    assert!(yaml.contains("inputs.ref == 'diagnose-cloudkit' && 'cloudkit-diagnostic-' || ''"));
+}
+
+#[test]
 fn installers_publish_without_waiting_on_updater_signing() {
     let yaml = rendered_yaml();
     let installers = yaml

@@ -12,7 +12,7 @@ use gh_workflow::{
     WorkflowDispatch, WorkflowDispatchInput,
 };
 
-use crate::workflows::{build_appimage_on_tag, build_dmg_on_tag, steps, vars};
+use crate::workflows::{build_appimage_on_tag, build_dmg_on_tag, runners, steps, vars};
 
 #[cfg(test)]
 mod test;
@@ -24,10 +24,42 @@ pub fn build_desktop_on_tag() -> Workflow {
     Workflow::new("Build Desktop on Tag")
         .on(desktop_events())
         .concurrency(
-            Concurrency::new(Expression::new("desktop-${{ inputs.ref || (github.event.ref_type == 'tag' && github.event.ref || github.ref_name) }}"))
+            Concurrency::new(Expression::new("${{ inputs.ref == 'diagnose-cloudkit' && 'cloudkit-diagnostic-' || '' }}desktop-${{ inputs.ref || (github.event.ref_type == 'tag' && github.event.ref || github.ref_name) }}"))
                 .cancel_in_progress(true),
         )
         .add_job("resolve-ref", resolve_ref())
+        .add_job(
+            "diagnose-cloudkit-small",
+            diagnose_cloudkit_job(
+                vec![runners::Runner::MacOsArm.to_string()],
+                "6x14",
+                "cloudkit-diagnostics-6x14",
+            ),
+        )
+        .add_job(
+            "diagnose-cloudkit-large",
+            diagnose_cloudkit_job(
+                vec![runners::Runner::MacOsArmLarge.to_string()],
+                "12x28",
+                "cloudkit-diagnostics-12x28",
+            ),
+        )
+        .add_job(
+            "diagnose-cloudkit-production",
+            diagnose_cloudkit_job(
+                build_dmg_on_tag::macos_runner_labels(runners::Runner::MacOsArmLarge),
+                "12x28 with cache",
+                "cloudkit-diagnostics-12x28-with-cache",
+            ),
+        )
+        .add_job(
+            "diagnose-cloudkit-previous",
+            diagnose_cloudkit_job(
+                build_dmg_on_tag::macos_runner_labels(runners::Runner::MacOsArm),
+                "6x14 with cache",
+                "cloudkit-diagnostics-6x14-with-cache",
+            ),
+        )
         .add_job(
             "build-appimage",
             build_appimage_on_tag::build_appimage_job(RESOLVED_REF).add_needs("resolve-ref"),
@@ -116,7 +148,7 @@ fn workflow_dispatch() -> WorkflowDispatch {
     inputs.insert(
         "ref".into(),
         WorkflowDispatchInput {
-            description: "Optional release tag override (v* or refs/tags/v*). Leave empty to build the branch or tag selected for this workflow run.".into(),
+            description: "Optional release tag override (v* or refs/tags/v*); use diagnose-cloudkit for read-only ticket checks. Leave empty to build the selected branch or tag.".into(),
             required: false,
             input_type: "string".into(),
             default: None,
@@ -129,12 +161,43 @@ fn workflow_dispatch() -> WorkflowDispatch {
 fn resolve_ref() -> Job {
     Job::default()
         .cond(Expression::new(
-            "github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
+            "(github.event_name == 'workflow_dispatch' && inputs.ref != 'diagnose-cloudkit') || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
         ))
         .name("Resolve build ref")
         .runs_on("ubuntu-latest")
         .add_output("ref", "${{ steps.resolve.outputs.ref }}")
         .add_step(resolve_ref_step())
+}
+
+fn diagnose_cloudkit_job(runner_labels: Vec<String>, size: &str, artifact_name: &str) -> Job {
+    Job::default()
+        .name(format!("CloudKit ticket lookup ({size})"))
+        .runs_on(runner_labels)
+        .cond(Expression::new(
+            "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-cloudkit'",
+        ))
+        .timeout_minutes(20u32)
+        .permissions(Permissions::default().contents(Level::Read))
+        .add_step(
+            Step::new("Download an already stapled DMG")
+                .run(include_str!("scripts/download_cloudkit_diagnostic_dmg.sh"))
+                .shell("bash")
+                .add_env(("GH_TOKEN", "${{ github.token }}"))
+                .add_env(("GH_REPO", "${{ github.repository }}")),
+        )
+        .add_step(
+            Step::new("Compare stapler and CloudKit requests")
+                .run(include_str!("scripts/probe_cloudkit_ticket.sh"))
+                .shell("bash"),
+        )
+        .add_step(
+            steps::upload_artifact(
+                artifact_name,
+                xtask_paths::runtime_path!("cloudkit-diagnostics/*"),
+            )
+            .if_condition(Expression::new("always()"))
+            .add_with(("if-no-files-found", "warn")),
+        )
 }
 
 fn resolve_ref_step() -> Step<Run> {
