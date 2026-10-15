@@ -47,7 +47,7 @@ ci-prebuild base="main":
         db="$(docker run -d --rm -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password \
             -e POSTGRES_DB=macrodb -p 127.0.0.1::5432 pgvector/pgvector:pg14)"
         trap 'rm -f "$outputs"; docker rm -f "$db" >/dev/null' EXIT
-        until docker exec "$db" pg_isready -q -U user -d macrodb; do sleep 1; done
+        until docker exec "$db" pg_isready -q -h 127.0.0.1 -U user -d macrodb; do sleep 1; done
         port="$(docker port "$db" 5432/tcp | head -1 | sed 's/.*://')"
         export DATABASE_URL="postgres://user:password@127.0.0.1:$port/macrodb"
         sqlx migrate run --source crates/macro_db_client/migrations
