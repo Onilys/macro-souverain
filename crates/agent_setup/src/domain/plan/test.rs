@@ -96,7 +96,7 @@ fn not_covered_explains_crm_slack_history_and_unknown_tools() {
     let slack = not_covered(&catalog::resolve("slack").unwrap(), base).unwrap();
     assert!(slack.text.contains("export ZIP"));
     let other = not_covered(&catalog::resolve("Trello").unwrap(), base).unwrap();
-    assert!(other.text.contains("can't import Trello"));
+    assert!(other.text.contains("can't import Trello yet"));
     assert!(not_covered(&catalog::resolve("notion").unwrap(), base).is_none());
     assert!(not_covered(&catalog::resolve("gmail").unwrap(), base).is_none());
 }

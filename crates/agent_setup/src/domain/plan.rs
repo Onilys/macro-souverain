@@ -302,8 +302,8 @@ pub fn not_covered(app: &App, base_url: &str) -> Option<NotCoveredLine> {
             ),
         },
         App::Other(_) => format!(
-            "Macro can't import {name}. Upload files you want to keep to Macro, or keep using \
-             {name} alongside it"
+            "Macro can't import {name} yet. You can drag exported files into Macro yourself, or \
+             keep using {name} alongside it"
         ),
     };
     Some(NotCoveredLine { name, text })

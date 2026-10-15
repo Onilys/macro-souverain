@@ -616,3 +616,29 @@ async fn a_workspace_is_set_up_once_onboarded_on_the_web_or_once_work_came_in() 
     );
     assert!(imported.service.is_set_up(&user()).await.unwrap());
 }
+
+#[tokio::test]
+async fn tools_macro_cant_import_get_a_plain_no_and_a_pointer_to_what_it_can() {
+    let fixture = golden();
+
+    let state = fixture
+        .service
+        .state(&user(), &apps(&["Asana", "Google Docs"]))
+        .await
+        .expect("state");
+
+    assert!(
+        state
+            .next_step
+            .starts_with("Macro can't import Asana or Google Docs."),
+        "{}",
+        state.next_step
+    );
+    assert!(
+        state
+            .next_step
+            .contains("Don't copy their files or records in yourself.")
+    );
+    let note = state.apps[0].note.as_deref().unwrap_or_default();
+    assert!(note.contains("drag exported files into Macro yourself"));
+}

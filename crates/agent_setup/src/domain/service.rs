@@ -640,7 +640,8 @@ impl AgentSetupService {
             )),
             DiscoveryStatus::Ready if source != ImportSource::Slack => Some(
                 "Macro's importer picks a starter set of the most relevant items; it doesn't list \
-                 everything in the workspace."
+                 everything in the workspace, and looking again for more isn't available yet. \
+                 Say so in the plan rather than promising more later."
                     .to_owned(),
             ),
             _ => None,
@@ -873,7 +874,10 @@ impl AgentSetupService {
             }
             ReportStatus::Done => format!(
                 "Report to the person: what came in (a table with links), what didn't and why, and \
-                 the alternatives under not_covered. Then tell them their workspace is ready at {}.",
+                 the alternatives under not_covered. Don't offer to copy anything in yourself; \
+                 Macro's import does the copying. Looking through Notion or Linear again for more \
+                 isn't available yet, so don't promise it; a specific Notion page can still come in \
+                 by URL with ImportNotionPage. Then tell them their workspace is ready at {}.",
                 self.link("/app")
             ),
         };
@@ -949,6 +953,16 @@ fn next_step(no_apps_named: bool, inbox: &[String], apps: &[AppSummary]) -> (Vec
         })
         .map(|app| app.app.clone())
         .collect();
+    let not_importable: Vec<String> = apps
+        .iter()
+        .filter(|app| {
+            matches!(
+                app.support,
+                SupportKind::NoImporter | SupportKind::ConnectOnly | SupportKind::Unsupported
+            )
+        })
+        .map(|app| app.name.clone())
+        .collect();
     let to_discover = ids(AppStage::Connected);
     let discovering = ids(AppStage::Discovering);
     let ready = ids(AppStage::ReadyForPlan);
@@ -985,6 +999,13 @@ fn next_step(no_apps_named: bool, inbox: &[String], apps: &[AppSummary]) -> (Vec
     } else if apps.iter().any(|app| app.imported > 0 || app.failed > 0) {
         "Setup is done. Call SetupGetStatus for the final report and share it with the person."
             .to_owned()
+    } else if !not_importable.is_empty() {
+        format!(
+            "Macro can't import {}. Tell the person plainly, with the alternative in each app's \
+             note, and ask whether they also use Notion, Linear or Slack, which Macro can bring \
+             in. Don't copy their files or records in yourself.",
+            not_importable.join(" or ")
+        )
     } else {
         "Nothing is left to set up for these apps. Tell the person what's ready, and call \
          SetupGetStatus for the report."
