@@ -1,5 +1,9 @@
 import { globalSplitManager } from '@app/signal/splitLayout';
 import {
+  enableCrmActivity,
+  isFeatureEnabled,
+} from '@core/constant/featureFlags';
+import {
   CRM_TASK_COMPOSER_RECORD_KEY,
   type CrmTaskRecord,
   crmTaskComposerContext,
@@ -11,6 +15,7 @@ import type { TaskComposerContext } from './core/context';
 export async function focusedTaskComposerContext(): Promise<
   TaskComposerContext | undefined
 > {
+  if (!isFeatureEnabled(enableCrmActivity)) return;
   const split = globalSplitManager()?.activeSplit();
   if (!split) return;
   const content = split.content();

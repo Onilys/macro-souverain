@@ -127,7 +127,16 @@ vi.mock('@app/signal/splitLayout', () => ({}));
 vi.mock('@block-calendar/components/EventComposerSplit', () => ({}));
 vi.mock('@block-channel/component/Compose', () => ({}));
 vi.mock('@block-md/component/ComposeSkill', () => ({}));
-vi.mock('@block-md/component/ComposeTask', () => ({}));
+vi.mock('@block-md/component/ComposeTask', () => ({
+  ComposeTask: (props: {
+    composerContext?: { key: string };
+    initialTitle?: string;
+  }) => (
+    <div>
+      {props.composerContext?.key ?? 'Standard'} composer: {props.initialTitle}
+    </div>
+  ),
+}));
 vi.mock('@app/features/crm/queries/saved-views', () => ({}));
 vi.mock('@core/context/user', () => ({}));
 vi.mock('@core/mobile/isTouchDevice', () => ({
@@ -228,6 +237,41 @@ describe('activity registration', () => {
     expect(state.mountActivity).toHaveBeenCalledOnce();
     expect(state.pageView).toHaveBeenCalledExactlyOnceWith('activity');
     expect(state.replace).not.toHaveBeenCalled();
+  });
+});
+
+describe('contextual task composer registration', () => {
+  it.each([false, true])(
+    'waits before resolving a restored task context (enabled: %s)',
+    async (enabled) => {
+      const [flagEnabled, setFlagEnabled] = createSignal(false);
+      const [loaded, setLoaded] = createSignal(false);
+      state.enabled = flagEnabled;
+      state.flagsLoaded = loaded;
+      const component = resolveComponent('task-compose', {
+        initialTitle: 'Follow up',
+        composerContext: { key: 'CRM', visiblePropertyIds: [] },
+      });
+      render(() => <Suspense>{component.element()}</Suspense>);
+      expect(screen.getByText('Authenticating')).toBeTruthy();
+      expect(screen.queryByText(/composer:/)).toBeNull();
+      setFlagEnabled(enabled);
+      setLoaded(true);
+      expect(
+        await screen.findByText(
+          `${enabled ? 'CRM' : 'Standard'} composer: Follow up`
+        )
+      ).toBeTruthy();
+    }
+  );
+
+  it('opens standard tasks without waiting for the CRM rollout', async () => {
+    state.flagsLoaded = () => false;
+    const component = resolveComponent('task-compose', {
+      initialTitle: 'Plan',
+    });
+    render(() => <Suspense>{component.element()}</Suspense>);
+    expect(await screen.findByText('Standard composer: Plan')).toBeTruthy();
   });
 });
 

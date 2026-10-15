@@ -11,6 +11,14 @@ There are no built-in company views or Board/List layout. Companies and People
 are plain soup lists with the shared pagination. Existing personal/team saved
 views stay in the toolbar's Views menu.
 
+**Rollout:** Tasks, Email, Notes, Calls and the contextual task composer require
+PostHog `enable-crm-activity` (off by default; local override:
+`VITE_ENABLE_CRM_ACTIVITY=true`). With it off, only Companies and People appear
+in Records, activity queries do not run, and activity deep links return to
+Companies after flags finish loading. Global task creation uses the standard
+composer; record-level New task still associates the new task with that record.
+With it on, the activity and contextual composer behavior below applies.
+
 The selected Customers tab is stored on the pane as `sN.crm.tab`. People uses
 `people`, activity tabs use `tasks`, `email`, `notes`, or `calls`, a pipeline uses
 `pipeline:<uuid>`, a list uses `list:<uuid>`, and hidden companies use `hidden`.

@@ -30,6 +30,8 @@ The root adapters construct production dependencies. `context` defines the
 capabilities; it does not import their implementations. Views consume these
 capabilities, primitives receive narrow inputs, and components render props.
 Core modules remain independent of Solid, service clients, and app state.
+UI rollout gates read `useFeatureFlag` directly where used; do not pass rollout
+booleans through component props or the CRM source contract.
 
 Shared entity representations, transport clients, property editors, and
 collection mechanics remain shared. CRM owns its record queries and cache updates.
@@ -45,6 +47,13 @@ Embedded record details register their current breadcrumb record with the
 workspace host. Global task creation captures that live identity before opening
 the composer and releases it when the details close; contact launches reuse the
 contact detail query to include the company without a duplicate request.
+
+`enable-crm-activity` gates both the workspace activity tabs and contextual task
+composition. It defaults off everywhere and can be overridden locally with
+`VITE_ENABLE_CRM_ACTIVITY=true`. Off hides activity navigation and skips activity
+queries; saved activity links wait for flag loading, then fall back to Companies.
+The standard record task action still associates the task with its record.
+The Soup and email SQL optimizations are independent of this frontend gate.
 
 The workspace activity feeds are CRM-linked, not unfiltered app shortcuts.
 `queries/activity.ts` loads all authorized companies and contacts before

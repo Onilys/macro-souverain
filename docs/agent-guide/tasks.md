@@ -519,11 +519,13 @@ filter sheets. Desktop uses the centered composer dialog.
    enables once there is a title). Dialog also offers `Continue editing in split` to open the
    task as a full document.
 
-The property row adapts to the launching view. In Customers, **Companies** and
-**Contacts** replace Status in the initial row; Status still starts as Not
-Started on the saved task. Record-level task creation prefills the company or
-contact (and its company). **Add property** searches other supported task
-properties and adds a pill without changing existing values. Tag selection
+With PostHog `enable-crm-activity` enabled, the property row adapts to the
+launching view. In Customers, **Companies** and **Contacts** replace Status in
+the initial row; Status still starts as Not Started on the saved task.
+Record-level task creation prefills the company or contact (and its company).
+When the flag is off, the standard property row and draft are used; record-level
+creation still associates the task with its record. **Add property** searches
+other supported task properties and adds a pill without changing existing values. Tag selection
 continues through its separate Tags picker. CRM drafts are isolated from the
 ordinary task draft and from other CRM records; reopening restores added
 properties as well as their values. **Clear Draft** restores that view's preset.

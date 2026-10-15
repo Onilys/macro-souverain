@@ -6,8 +6,10 @@ import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import {
+  enableCrmActivity,
   enableCrmLists,
   enableCrmPipelines,
+  isFeatureEnabled,
 } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { useProfilePictureUrl } from '@core/signal/profilePicture';
@@ -237,7 +239,11 @@ export function createAppCrmContext(): CrmContext {
       layout.popoverSplit({
         type: 'component',
         id: 'task-compose',
-        params: { composerContext: crmTaskComposerContext() },
+        params: {
+          composerContext: isFeatureEnabled(enableCrmActivity)
+            ? crmTaskComposerContext()
+            : undefined,
+        },
       }),
     createRecordFiles: (scope) =>
       withRowNotifications(useRecordFilesQuery(useSoupAstItemsQuery, scope)),

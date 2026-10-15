@@ -10,6 +10,7 @@ import { LoadingBlock } from '@core/component/LoadingBlock';
 import {
   DEV_MODE_ENV,
   enableChatV3Agents,
+  enableCrmActivity,
   enableProjects,
   isFeatureEnabled,
   LOCAL_ONLY,
@@ -24,6 +25,7 @@ import {
   onMount,
   type ParentProps,
   Show,
+  splitProps,
 } from 'solid-js';
 import { useSplitPanelOrThrow } from './layoutUtils';
 import {
@@ -420,7 +422,21 @@ registerComponent('document-compose', (params) => {
 
 registerComponent('task-compose', (params) => {
   usePageViewTracking('task-compose');
-  return <ComposeTask {...params} />;
+  const flag = useFeatureFlag(enableCrmActivity);
+  const [, standardParams] = splitProps(params, ['composerContext']);
+  return (
+    <Show
+      when={!params.composerContext || !flag().loading}
+      fallback={<LoadingBlock />}
+    >
+      <Show
+        when={!params.composerContext || flag().enabled}
+        fallback={<ComposeTask {...standardParams} />}
+      >
+        <ComposeTask {...params} />
+      </Show>
+    </Show>
+  );
 });
 // Restore old composer URLs into the shared Agents page.
 registerComponent('agent-session-compose', () => (

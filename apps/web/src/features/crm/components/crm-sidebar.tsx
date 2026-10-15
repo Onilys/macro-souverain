@@ -1,5 +1,7 @@
 import { CollapsibleSection, ViewSidebar } from '@app/components/view-shell';
+import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { getIconConfig } from '@core/component/EntityIcon';
+import { enableCrmActivity } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import BuildingsIcon from '@phosphor/buildings.svg';
 import ExportIcon from '@phosphor/download-simple.svg';
@@ -46,6 +48,7 @@ export function CrmSidebar(props: {
   onSettings: () => void;
   onCollapse: () => void;
 }) {
+  const activityFlag = useFeatureFlag(enableCrmActivity);
   const [recordsOpen, setRecordsOpen] = createSignal(true);
   const [listsOpen, setListsOpen] = createSignal(true);
   return (
@@ -91,7 +94,12 @@ export function CrmSidebar(props: {
               aria-label="CRM records"
               ref={tourTarget(COMPANIES_TOUR.records)}
             >
-              <For each={[...CRM_RECORDS, ...CRM_ACTIVITY_TABS]}>
+              <For
+                each={[
+                  ...CRM_RECORDS,
+                  ...(activityFlag().enabled ? CRM_ACTIVITY_TABS : []),
+                ]}
+              >
                 {(record) => (
                   <ViewSidebar.Item
                     active={props.active === record.id}

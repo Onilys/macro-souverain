@@ -14,7 +14,9 @@ import { SoupViewContextGroup } from '@app/features/next-soup/soup-view/filters-
 import { SoupViewContextSort } from '@app/features/next-soup/soup-view/filters-bar/soup-view-context-sort';
 import { UnifiedFilterDropdown } from '@app/features/next-soup/soup-view/filters-bar/unified-filter-dropdown';
 import { useFilterRefinements } from '@app/features/next-soup/soup-view/filters-bar/use-filter-refinements';
+import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { usePreference } from '@app/preferences/use-preference';
+import { enableCrmActivity } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { debounce } from '@core/util/debounce';
 import {
@@ -207,6 +209,7 @@ export function CrmWorkspaceView(props: {
     onOpenEntity?: (entity: EntityData) => boolean;
   }) => JSX.Element;
 }) {
+  const activityFlag = useFeatureFlag(enableCrmActivity);
   const {
     openCreateCompany: openCreateCompanyModal,
     openCreateContact: openCreateContactModal,
@@ -298,8 +301,10 @@ export function CrmWorkspaceView(props: {
   const peopleActive = () => active() === 'people';
   const activityTab = () => {
     const tab = active();
-    return isCrmActivityTab(tab) ? tab : undefined;
+    return activityFlag().enabled && isCrmActivityTab(tab) ? tab : undefined;
   };
+  const activityPending = () =>
+    isCrmActivityTab(active()) && activityFlag().loading;
   const [exporting, setExporting] = createSignal(false);
   const activeList = () =>
     lists.lists().find((list) => `list:${list.id}` === active());
@@ -340,6 +345,7 @@ export function CrmWorkspaceView(props: {
     'Companies';
   const navigate = (id: string) => {
     if (!listsEnabled() && id.startsWith('list:')) id = 'active';
+    if (!activityFlag().enabled && isCrmActivityTab(id)) id = 'active';
     closeRecord();
     if (isCrmActivityTab(id)) {
       view.setActiveTab(id);
@@ -379,6 +385,15 @@ export function CrmWorkspaceView(props: {
   onMount(() => {
     if (!listsEnabled() && active().startsWith('list:')) navigate('active');
   });
+  // Keep cold activity links intact until PostHog resolves; off falls back to Companies.
+  createEffect(
+    on(
+      () => [activityFlag().loading, activityFlag().enabled, active()] as const,
+      ([loading, enabled, tab]) => {
+        if (!loading && !enabled && isCrmActivityTab(tab)) navigate('active');
+      }
+    )
+  );
   const sidebar = () => (
     <CrmSidebar
       pipelines={
@@ -517,6 +532,9 @@ export function CrmWorkspaceView(props: {
             </Button>
           </div>
         </Show>
+        <Show when={!selectedRecord() && activityPending()}>
+          <div class="p-4 text-sm text-ink-muted">Loading CRM activity…</div>
+        </Show>
         <Show when={!selectedRecord() && activityTab()} keyed>
           {(tab) => (
             <>
@@ -542,7 +560,14 @@ export function CrmWorkspaceView(props: {
             </>
           )}
         </Show>
-        <Show when={!selectedRecord() && !pipelineId() && !activityTab()}>
+        <Show
+          when={
+            !selectedRecord() &&
+            !pipelineId() &&
+            !activityTab() &&
+            !activityPending()
+          }
+        >
           <Show when={!isTouchDevice() || peopleActive()}>
             <Show when={!isTouchDevice()}>
               <div class="flex h-12 shrink-0 items-center gap-3 px-4">
