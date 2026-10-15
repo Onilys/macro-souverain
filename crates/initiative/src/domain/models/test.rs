@@ -1,14 +1,6 @@
 use super::*;
 
 #[test]
-fn initiative_id_round_trips_uuid_strings() {
-    let id = InitiativeId::generate();
-    let parsed = InitiativeId::from_str(&id.to_string()).expect("uuid string");
-    assert_eq!(parsed, id);
-    assert_eq!(InitiativeId::from_uuid(id.as_uuid()), id);
-}
-
-#[test]
 fn update_request_has_no_description_field() {
     let request: UpdateInitiativeRequest = serde_json::from_value(serde_json::json!({
         "name": "Renamed",

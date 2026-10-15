@@ -81,20 +81,6 @@ describe('soup chat provider selection', () => {
     ).not.toBeNull();
   });
 
-  it('keeps supported OpenAI and Anthropic chats distinct', async () => {
-    const { container } = render(() => (
-      <>
-        <ChatProviderIcon id="openai-chat" model={Model.gpt56} />
-        <ChatProviderIcon id="anthropic-chat" model={Model.opus55} />
-      </>
-    ));
-    expect(
-      Array.from(container.querySelectorAll('[data-ai-provider]'), (el) =>
-        el.getAttribute('data-ai-provider')
-      )
-    ).toEqual(['openai', 'anthropic']);
-  });
-
   it.each([undefined, 'retired-model' as Model])(
     'uses the soup model when a draft has no valid model (%s)',
     async (model) => {

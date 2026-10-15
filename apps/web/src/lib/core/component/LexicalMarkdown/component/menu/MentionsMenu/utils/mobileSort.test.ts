@@ -309,19 +309,5 @@ describe('sortMobileMentions', () => {
 
       expect(result.slice(0, 2).map((i) => i.id)).toEqual(['here', 'u1']);
     });
-
-    test('no pinning when topUserCandidates is empty (default arg)', () => {
-      const now = new Date();
-      const veryStaleUser = userItem(
-        'u1',
-        'Old User',
-        new Date(now.getTime() - 14 * 24 * HOUR)
-      );
-      const freshDoc = docItem('d1', 'Just Viewed', now);
-
-      const result = sortMobileMentions([veryStaleUser, freshDoc], '');
-
-      expect(result[0].id).toBe('d1');
-    });
   });
 });

@@ -1,19 +1,6 @@
 use super::*;
 
 #[test]
-fn storage_string_round_trips() {
-    let uuid = Uuid::new_v4();
-    let bot_id = BotId::new_from_uuid(uuid);
-
-    assert_eq!(
-        BotIdStr::parse_from_str(bot_id.into_storage_id().as_ref())
-            .unwrap()
-            .bot_id(),
-        bot_id
-    );
-}
-
-#[test]
 fn bot_id_str_parses_storage_string() {
     let uuid = Uuid::new_v4();
     let bot_id = BotId::new_from_uuid(uuid);

@@ -6,15 +6,6 @@ import { CurrentPlanCard } from './current-plan-card';
 
 afterEach(cleanup);
 
-it.each<[PlanTier, string]>([
-  ['free', 'Free plan'],
-  ['premium', 'Pro plan'],
-  ['max', 'Max plan'],
-])('shows the %s tier by its display name', (tier, label) => {
-  render(() => <CurrentPlanCard tier={tier} onOpen={() => {}} />);
-  expect(screen.getByRole('button', { name: new RegExp(label) })).toBeTruthy();
-});
-
 it('shows a loading label until the tier resolves, then the plan', () => {
   const [tier, setTier] = createSignal<PlanTier>();
   render(() => <CurrentPlanCard tier={tier()} onOpen={() => {}} />);

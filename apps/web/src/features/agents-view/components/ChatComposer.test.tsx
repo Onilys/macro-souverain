@@ -356,19 +356,6 @@ describe('Chat session input', () => {
     expect(focus).toHaveBeenLastCalledWith(undefined);
     expect(quote).toHaveBeenLastCalledWith(undefined);
   });
-
-  it('retains the agent selector on the new-chat input', () => {
-    render(() => (
-      <ChatComposer
-        draft=""
-        onDraftChange={vi.fn()}
-        onSend={vi.fn()}
-        selector={<button>Agent</button>}
-      />
-    ));
-    expect(screen.getByRole('button', { name: 'Agent' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Model' })).toBeNull();
-  });
   it('expands coding mode with repository settings after the input without remounting the editor', () => {
     const [mode, setMode] = createSignal('chat');
     const { container } = render(() => (

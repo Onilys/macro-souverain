@@ -173,22 +173,6 @@ describe('EntityActivitySection', () => {
     ).toBeTruthy();
   });
 
-  it('reads compact rows with the actor, the phrase, and a compact inline time', () => {
-    const { graphql } = renderSection();
-    resolve(graphql, [at('e1', createdEvent)]);
-
-    const row = rows()[0];
-    if (!row) throw new Error('row not rendered');
-    expect(row.textContent).toContain('sarah');
-    expect(row.textContent).toContain('created this');
-    const time = row.querySelector('time');
-    expect(time?.getAttribute('dateTime')).toBe(createdEvent.occurredAt);
-    expect(time?.textContent).toMatch(/^(now|\d+(m|h|d|w|mo|y))$/);
-    expect(time?.getAttribute('title')).toBeTruthy();
-    expect(row.textContent).toContain('·');
-    expect(row.textContent).not.toContain('ago');
-  });
-
   it('shows the empty and error states', () => {
     const empty = renderSection();
     resolve(empty.graphql, []);

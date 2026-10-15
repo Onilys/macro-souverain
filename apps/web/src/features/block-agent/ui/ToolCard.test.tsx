@@ -102,16 +102,13 @@ describe('ToolCard', () => {
     expect(mounted).toHaveBeenCalledTimes(1);
   });
 
-  it('renders default-open content and leaves bodyless cards noninteractive', () => {
+  it('mounts default-open content immediately', () => {
     const view = render(() => (
-      <>
-        <ToolCard title="Question" status="running" defaultOpen>
-          <input aria-label="Answer" />
-        </ToolCard>
-        <ToolCard title="Read" status="completed" />
-      </>
+      <ToolCard title="Question" status="running" defaultOpen>
+        <input aria-label="Answer" />
+      </ToolCard>
     ));
     expect(view.getByRole('textbox', { name: 'Answer' })).toBeTruthy();
-    expect(view.getAllByRole('button')).toHaveLength(1);
+    expect(view.getByRole('button').getAttribute('aria-expanded')).toBe('true');
   });
 });

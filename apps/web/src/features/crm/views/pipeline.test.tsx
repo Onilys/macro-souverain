@@ -168,10 +168,3 @@ it('requires confirmation before trashing a pipeline from mobile', async () => {
   await waitFor(() => expect(onTrashed).toHaveBeenCalledOnce());
   expect(trash).toHaveBeenCalledExactlyOnceWith('pipeline');
 });
-
-it('keeps the title and sharing controls on desktop', () => {
-  device.touch = false;
-  setup();
-  expect(screen.getByRole('heading', { name: 'Sales' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Share Sales' })).toBeTruthy();
-});

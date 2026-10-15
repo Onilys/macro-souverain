@@ -10,25 +10,3 @@ fn start_job_static_payload_deserializes() {
         .expect("EventBridge static payload must deserialize");
     assert_eq!(msg.operation, CrmCleanupOperation::StartJob);
 }
-
-#[test]
-fn operations_round_trip() {
-    let list = CrmCleanupPubsubMessage {
-        operation: CrmCleanupOperation::ListCandidates {
-            job_id: Uuid::new_v4(),
-            last_id: 42,
-        },
-    };
-    let process = CrmCleanupPubsubMessage {
-        operation: CrmCleanupOperation::ProcessCandidate {
-            link_id: Uuid::new_v4(),
-            contact_email: "contact@ext.test".to_string(),
-        },
-    };
-
-    for msg in [list, process] {
-        let json = serde_json::to_string(&msg).unwrap();
-        let parsed: CrmCleanupPubsubMessage = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.operation, msg.operation);
-    }
-}

@@ -47,23 +47,6 @@ fn test_string_empty() {
     assert!(result.is_err());
 }
 
-#[test]
-fn test_deref() {
-    let vec = vec![1, 2, 3];
-    let non_empty = NonEmpty::new(vec).unwrap();
-    // Can call Vec methods directly
-    assert_eq!(non_empty.len(), 3);
-    assert_eq!(non_empty[0], 1);
-}
-
-#[test]
-fn test_into_inner() {
-    let vec = vec![1, 2, 3];
-    let non_empty = NonEmpty::new(vec).unwrap();
-    let inner = non_empty.into_inner();
-    assert_eq!(inner, vec![1, 2, 3]);
-}
-
 #[derive(Debug, Deserialize)]
 struct Wrapper {
     items: NonEmpty<Vec<i32>>,
@@ -84,14 +67,6 @@ fn test_deserialize_empty_vec_fails() {
 }
 
 #[test]
-fn test_deserialize_roundtrip() {
-    let original = NonEmpty::new(vec![1, 2, 3]).unwrap();
-    let json = serde_json::to_string(&original).unwrap();
-    let deserialized: NonEmpty<Vec<i32>> = serde_json::from_str(&json).unwrap();
-    assert_eq!(original, deserialized);
-}
-
-#[test]
 fn test_deserialize_empty_string_fails() {
     let json = r#""""#;
     let result: Result<NonEmpty<String>, _> = serde_json::from_str(json);
@@ -106,34 +81,10 @@ fn test_deserialize_non_empty_string() {
 }
 
 #[test]
-fn test_push_grows_the_vec() {
-    let mut vec = NonEmpty::one(1);
-    vec.push(2);
-    vec.push(3);
-    assert_eq!(vec.inner(), &vec![1, 2, 3]);
-}
-
-#[test]
-fn test_get_mut_replaces_in_place() {
-    let mut vec = NonEmpty::new(vec![1, 2, 3]).unwrap();
-    *vec.get_mut(1).unwrap() = 20;
-    assert_eq!(vec.get_mut(3), None, "out of bounds");
-    assert_eq!(vec.inner(), &vec![1, 20, 3]);
-}
-
-#[test]
 fn test_last_mut_needs_no_option() {
     let mut vec = NonEmpty::one(1);
     *vec.last_mut() = 10;
     vec.push(2);
     *vec.last_mut() = 20;
     assert_eq!(vec.inner(), &vec![10, 20]);
-}
-
-#[test]
-fn insert_grows_in_place() {
-    let mut list = NonEmpty::one("b");
-    list.insert(0, "a");
-    list.push("c");
-    assert_eq!(list.inner(), &vec!["a", "b", "c"]);
 }

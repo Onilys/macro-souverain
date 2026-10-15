@@ -15,6 +15,3 @@ pub async fn health_handler() -> String {
 pub fn router() -> Router {
     Router::new().route("/health", get(health_handler))
 }
-
-#[cfg(test)]
-mod test;

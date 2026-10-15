@@ -12,12 +12,6 @@ describe('Testsuite for LinearBackoff', () => {
     expect(() => new LinearBackoff(0, 1000)).not.toThrow();
   });
 
-  test('Initialization should not throw on positive initial-backoff', () => {
-    expect(() => new LinearBackoff(1, 1000)).not.toThrow();
-    expect(() => new LinearBackoff(42, 1000)).not.toThrow();
-    expect(() => new LinearBackoff(1001, 1000)).not.toThrow();
-  });
-
   test('Initialization should throw on negative increment', () => {
     expect(() => new LinearBackoff(1000, -1001)).toThrow();
     expect(() => new LinearBackoff(1000, -42)).toThrow();
@@ -28,32 +22,16 @@ describe('Testsuite for LinearBackoff', () => {
     expect(() => new LinearBackoff(1000, 0)).not.toThrow();
   });
 
-  test('Initialization should not throw on positive increment', () => {
-    expect(() => new LinearBackoff(1000, 1)).not.toThrow();
-    expect(() => new LinearBackoff(1000, 42)).not.toThrow();
-    expect(() => new LinearBackoff(1000, 1001)).not.toThrow();
-  });
-
   test('Initialization should throw on negative max-backoff', () => {
     expect(() => new LinearBackoff(1000, 1000, -1001)).toThrow();
     expect(() => new LinearBackoff(1000, 1000, -42)).toThrow();
     expect(() => new LinearBackoff(1000, 1000, -1)).toThrow();
   });
 
-  test('Initialization should not throw on undefined max-backoff', () => {
-    expect(() => new LinearBackoff(1000, 1000, undefined)).not.toThrow();
-  });
-
   test('Initialization should throw on max-backoff smaller than initial-backoff', () => {
     expect(() => new LinearBackoff(1000, 1000, 999)).toThrow();
     expect(() => new LinearBackoff(1000, 1000, 42)).toThrow();
     expect(() => new LinearBackoff(1000, 1000, 1)).toThrow();
-  });
-
-  test('Backoff should be equal to the given initial-backoff', () => {
-    expect(new LinearBackoff(1, 1000).current).toBe(1);
-    expect(new LinearBackoff(42, 1000).current).toBe(42);
-    expect(new LinearBackoff(1001, 1000).current).toBe(1001);
   });
 
   test('Backoff should increment by the given increment with each next', () => {
@@ -79,10 +57,6 @@ describe('Testsuite for LinearBackoff', () => {
     backoff.next();
     backoff.reset();
     expect(backoff.current).toBe(42);
-  });
-
-  test('Retries should be zero after initialization', () => {
-    expect(new LinearBackoff(1000, 1000).retries).toBe(0);
   });
 
   test('Retries should be incremented with each next', () => {

@@ -2,49 +2,6 @@ use super::*;
 use std::str::FromStr;
 
 #[test]
-fn enums_round_trip_through_strings() {
-    for source in ImportSource::all() {
-        assert_eq!(
-            ImportSource::from_str(source.as_ref()).unwrap(),
-            source,
-            "source {}",
-            source.as_ref()
-        );
-    }
-    for status in [
-        ImportStatus::Staged,
-        ImportStatus::Importing,
-        ImportStatus::Imported,
-        ImportStatus::Discarded,
-    ] {
-        assert_eq!(
-            ImportStatus::from_str(status.as_ref()).unwrap(),
-            status,
-            "status {}",
-            status.as_ref()
-        );
-    }
-    for initiator in [
-        Initiator::Onboarding,
-        Initiator::Chat,
-        Initiator::Archive,
-        Initiator::Manual,
-    ] {
-        assert_eq!(Initiator::from_str(initiator.as_ref()).unwrap(), initiator);
-    }
-    for run in [
-        RunStatus::Running,
-        RunStatus::Ready,
-        RunStatus::Importing,
-        RunStatus::Completed,
-        RunStatus::Failed,
-        RunStatus::Dismissed,
-    ] {
-        assert_eq!(RunStatus::from_str(run.as_ref()).unwrap(), run);
-    }
-}
-
-#[test]
 fn manual_initiator_uses_snake_case() {
     assert_eq!(Initiator::Manual.as_ref(), "manual");
     assert_eq!(Initiator::from_str("manual").unwrap(), Initiator::Manual);

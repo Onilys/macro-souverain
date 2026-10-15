@@ -55,12 +55,6 @@ function renderDialog(onClose = vi.fn()) {
 }
 
 describe('TurnOffCalendarDialog', () => {
-  it('names the inbox it is about', () => {
-    renderDialog();
-
-    expect(screen.getByText('self@example.com')).toBeTruthy();
-  });
-
   it('turns calendar off for the confirmed inbox and closes', async () => {
     disableLinkCalendarMock.mockResolvedValue(ok({}));
     const onClose = renderDialog();

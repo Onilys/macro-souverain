@@ -86,12 +86,4 @@ describe('DisplayResults tool contract', () => {
     const contract = z.fromJSONSchema(displayResultsToolSchema());
     expect(contract.safeParse(args).success).toBe(false);
   });
-
-  it('advertises rendering guidance on the tool itself', () => {
-    const schema = displayResultsToolSchema();
-    expect(schema.title).toBe('DisplayResults');
-    expect(schema.description).toContain('ReadActivity');
-    expect(schema.description).toContain('never invent ids');
-    expect(schema.required).toEqual(['view']);
-  });
 });

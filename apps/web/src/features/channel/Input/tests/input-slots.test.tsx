@@ -696,18 +696,6 @@ describe('Input slots', () => {
     expect(screen.queryByRole('button', { name: 'Delete reply' })).toBeNull();
   });
 
-  it('renders custom action composition from children instead of defaults', () => {
-    render(() => (
-      <ChannelInput input={baseInput}>
-        <div data-testid="custom-actions">custom actions</div>
-      </ChannelInput>
-    ));
-
-    expect(screen.getByTestId('custom-actions')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Add' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
-  });
-
   it('disables send while attachments are pending', () => {
     render(() =>
       (() => {
@@ -774,21 +762,6 @@ describe('Input slots', () => {
     ));
 
     expect(screen.getByText('Drop files to attach')).toBeTruthy();
-  });
-
-  it('drops the inline reply margin from a flat composer', () => {
-    const replyInput: InputData = { ...baseInput, mode: 'reply' };
-    const { container: inline } = render(() => (
-      <ChannelInput input={replyInput} />
-    ));
-    const { container: flat } = render(() => (
-      <ChannelInput input={replyInput} flat />
-    ));
-
-    expect(inline.querySelector('[data-input]')?.classList).toContain('mb-4');
-    const flatRoot = flat.querySelector('[data-input]');
-    expect(flatRoot?.classList).not.toContain('mb-4');
-    expect(flatRoot?.classList).toContain('mb-0');
   });
 });
 

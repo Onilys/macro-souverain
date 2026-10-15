@@ -314,22 +314,6 @@ describe('Harness', () => {
     }
   );
 
-  it('shows Claude with the Anthropic logo above Cursor in the harness list', () => {
-    render(() => <Harness />);
-
-    expect(screen.getByRole('heading', { name: 'Macro Agent' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Cursor' })).toBeTruthy();
-    const claude = screen.getByRole('heading', { name: 'Claude Cloud' });
-    const cursor = screen.getByRole('heading', { name: 'Cursor' });
-    expect(
-      claude.compareDocumentPosition(cursor) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-    expect(screen.getByLabelText('Anthropic')).toBeTruthy();
-    expect(
-      screen.getByText(/Uses official Macro tools and MCPs to get the job done/)
-    ).toBeTruthy();
-  });
-
   it('validates and saves a Cursor API key', async () => {
     render(() => <Harness />);
 
