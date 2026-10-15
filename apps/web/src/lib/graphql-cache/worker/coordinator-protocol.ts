@@ -627,6 +627,7 @@ export function isCacheRequest(value: unknown): value is CacheRequest {
         isSafeNonNegativeInteger(value.leaseExpiresAtMs)
       );
     case 'claim-next-mutation':
+    case 'claim-next-non-durable-mutation':
       return (
         hasOnlyKeys(value, [
           'id',

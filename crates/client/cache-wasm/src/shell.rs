@@ -2054,6 +2054,35 @@ impl CacheEngine {
         })
     }
 
+    /// Claims a non-durable strict head without attempting a durable send.
+    #[wasm_bindgen(js_name = claimNextNonDurableMutation)]
+    pub fn claim_next_non_durable_mutation(
+        &self,
+        owner: String,
+        now_ms: f64,
+        lease_expires_at_ms: f64,
+    ) -> js_sys::Promise {
+        let state = self.state.clone();
+        future_to_promise(async move {
+            let mut state = state.lock().await;
+            state.ensure_callable()?;
+            let request = MutationClaimRequest {
+                owner,
+                now_ms: parse_timestamp(now_ms, "claim timestamp")?,
+                lease_expires_at_ms: parse_timestamp(
+                    lease_expires_at_ms,
+                    "lease expiration timestamp",
+                )?,
+            };
+            let result = state
+                .engine_mut()?
+                .claim_next_non_durable_mutation(request)
+                .await;
+            let claimed = state.engine_result(result)?;
+            to_js(&claimed.map(JsClaimedMutation::try_from).transpose()?)
+        })
+    }
+
     /// Retains a retryable mutation and releases its queue lease.
     #[wasm_bindgen(js_name = deferOptimisticWrite)]
     pub fn defer_optimistic_write(

@@ -652,12 +652,6 @@ export function createMutationQueueRunner(
   }
 
   async function drainQueue(): Promise<void> {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      drainRequested = false;
-      resolveLiveOperationsAsQueued();
-      scheduleDrain(EMPTY_QUEUE_POLL_MS);
-      return;
-    }
     if (isActive(head)) {
       // Every newly enqueued operation is behind the claimed head. Its
       // caller can stop waiting; durable replay now owns the mutation.
@@ -683,7 +677,8 @@ export function createMutationQueueRunner(
       const claimed = await host.claimNextMutation(
         owner,
         now,
-        now + QUEUE_LEASE_MS
+        now + QUEUE_LEASE_MS,
+        !(typeof navigator !== 'undefined' && navigator.onLine === false)
       );
       if (!claimed) {
         resolveLiveOperationsAsQueued();

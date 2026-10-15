@@ -55,6 +55,8 @@ const intent: EmailSendIntent = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.recover.mockResolvedValue(undefined);
+  mocks.status.mockResolvedValue(null);
   vi.stubGlobal('navigator', { onLine: true });
   vi.stubGlobal('window', { addEventListener() {}, removeEventListener() {} });
 });
@@ -138,3 +140,25 @@ it('reports unavailable storage once until a read succeeds, while preserving rea
     dispose();
   }
 });
+
+it.each([false, true])(
+  'starts and cleans up polling only for an enabled observer: %s',
+  async (enabled) => {
+    const interval = vi.spyOn(globalThis, 'setInterval');
+    const clear = vi.spyOn(globalThis, 'clearInterval');
+    mocks.read.mockResolvedValue([]);
+    let dispose = () => {};
+    createRoot((cleanup) => {
+      dispose = cleanup;
+      useQueuedEmailSends(() => enabled);
+    });
+    await Promise.resolve();
+    if (enabled)
+      expect(interval).toHaveBeenCalledWith(expect.any(Function), 5_000);
+    else expect(interval).not.toHaveBeenCalled();
+    dispose();
+    if (enabled) expect(clear).toHaveBeenCalled();
+    interval.mockRestore();
+    clear.mockRestore();
+  }
+);

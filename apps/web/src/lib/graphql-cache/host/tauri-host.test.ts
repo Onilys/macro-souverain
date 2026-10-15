@@ -58,6 +58,24 @@ describe('createTauriCacheHost', () => {
     });
   });
 
+  it('uses a distinct native command for offline-safe claims and never falls back to an unrestricted claim', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'graphql_cache_claim_next_non_durable_mutation')
+        throw new Error('Command not found');
+      return null;
+    });
+    const host = createTauriCacheHost({ scope: 'offline-policy' });
+    await expect(
+      host.claimNextMutation('offline-runner', 10, 100, false)
+    ).rejects.toThrow('Command not found');
+    expect(
+      invokeMock.mock.calls.some(
+        ([command]) => command === 'graphql_cache_claim_next_mutation'
+      )
+    ).toBe(false);
+    host.dispose();
+  });
+
   it('reads the database generation after native initialization', async () => {
     const generation = '00000000-0000-4000-8000-000000000001';
     invokeMock.mockImplementation(async (command: string) =>

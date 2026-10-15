@@ -557,11 +557,14 @@ export function createTauriCacheHost(options: TauriHostOptions): CacheHost {
     async claimNextMutation(
       owner: string,
       nowMs: number,
-      leaseExpiresAtMs: number
+      leaseExpiresAtMs: number,
+      allowDurable = true
     ): Promise<ClaimedMutation | undefined> {
       await ready;
       return await request<ClaimedMutation | undefined>(
-        'graphql_cache_claim_next_mutation',
+        allowDurable
+          ? 'graphql_cache_claim_next_mutation'
+          : 'graphql_cache_claim_next_non_durable_mutation',
         { owner, nowMs, leaseExpiresAtMs }
       );
     },

@@ -525,6 +525,19 @@ pub async fn graphql_cache_claim_next_mutation(
         .await
 }
 
+/// Claims a non-durable strict head without attempting a durable send.
+#[tauri::command]
+pub async fn graphql_cache_claim_next_non_durable_mutation(
+    state: State<'_, CacheState>,
+    owner: String,
+    now_ms: i64,
+    lease_expires_at_ms: i64,
+) -> Result<Option<ClaimedMutationWire>, String> {
+    engine_handle(&state)?
+        .claim_next_non_durable_mutation(owner, now_ms, lease_expires_at_ms)
+        .await
+}
+
 /// Retains a retryable queued mutation and releases its lease.
 #[tauri::command]
 pub async fn graphql_cache_defer_optimistic_write<R: Runtime>(

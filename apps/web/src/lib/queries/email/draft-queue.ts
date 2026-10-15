@@ -253,13 +253,15 @@ export async function readCachedDraftAndThread(
     ]);
     if (draft.revision !== thread.revision) continue;
     const mutationUuid = draft.records[0]?.identity?.mutationUuid;
-    const ownsRecovery = intents.some(
-      (intent) =>
-        typeof intent === 'object' &&
-        intent !== null &&
-        'uuid' in intent &&
-        intent.uuid === mutationUuid
-    );
+    const ownsRecovery =
+      mutationUuid !== undefined &&
+      intents.some(
+        (intent) =>
+          typeof intent === 'object' &&
+          intent !== null &&
+          'uuid' in intent &&
+          intent.uuid === mutationUuid
+      );
     return {
       draftId: draft.records[0]?.record.id ?? draftId,
       threadDbId: thread.records[0]?.record.id ?? threadId,

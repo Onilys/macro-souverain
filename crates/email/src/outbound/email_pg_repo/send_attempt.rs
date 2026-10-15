@@ -66,7 +66,9 @@ async fn read_attempt(
         return Ok(None);
     };
     if let (Some(request), Some(snapshot)) = (row.request, snapshot)
-        && request != serde_json::to_value(snapshot).map_err(anyhow::Error::from)?
+        && !snapshot
+            .matches_approved_request(&request)
+            .map_err(anyhow::Error::from)?
     {
         return Err(EmailErr::SendAttemptConflict);
     }
@@ -218,7 +220,10 @@ impl EmailSendRepo for EmailPgRepo {
             },
         })
         .map_err(anyhow::Error::from)?;
-        let request = serde_json::to_value(&prepared.snapshot).map_err(anyhow::Error::from)?;
+        let request = prepared
+            .snapshot
+            .persisted_request()
+            .map_err(anyhow::Error::from)?;
         sqlx::query!(
             r#"INSERT INTO email_send_attempts (user_id, link_id, attempt_id, request, message_id, thread_id, send_time, restore_body_html, restore_body_text, restore_body_macro, prepared_content)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"#,

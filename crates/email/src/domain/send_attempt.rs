@@ -5,12 +5,15 @@ use macro_user_id::user_id::MacroUserIdStr;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+mod approval;
+
 use super::models::{
     ContactInfo, CreateDraftInput, EmailErr, ResolvedDraftInput, ThreadRow, UpsertedContacts,
 };
 
 /// Frozen delivery content after validation, sanitization and signature injection.
-/// The raw request remains separate for exact idempotency comparisons.
+/// The original request and its versioned replay fingerprint remain separate
+/// from prepared delivery content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreparedSendContent {
     /// Message content and identities as settled by admission.

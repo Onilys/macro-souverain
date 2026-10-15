@@ -891,6 +891,27 @@ impl EngineHandle {
             .transpose()
     }
 
+    /// Claims a non-durable strict head without attempting a durable send.
+    pub async fn claim_next_non_durable_mutation(
+        &self,
+        owner: String,
+        now_ms: i64,
+        lease_expires_at_ms: i64,
+    ) -> Result<Option<ClaimedMutationWire>, String> {
+        let mut state = self.inner.lock().await;
+        state
+            .engine
+            .claim_next_non_durable_mutation(MutationClaimRequest {
+                owner,
+                now_ms,
+                lease_expires_at_ms,
+            })
+            .await
+            .map_err(|e| e.to_string())?
+            .map(ClaimedMutationWire::try_from)
+            .transpose()
+    }
+
     /// Retains a retryable mutation and releases its claim.
     pub async fn defer_optimistic_write(
         &self,

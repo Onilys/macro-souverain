@@ -14,9 +14,9 @@ use cache_core::predicate::{
     StagedOptimisticProjectionOwner, apply_authoritative_projection_mutations,
 };
 use cache_core::queue::{
-    ClaimedMutation, MutationClaimRequest, MutationClaimToken, MutationId, MutationQueueSnapshot,
-    MutationRequest, MutationUpsertKind, MutationUpsertResult, NewQueuedMutation,
-    PersistedOptimisticLayer, QueuedMutation, StoredMutation,
+    ClaimedMutation, MutationClaimPolicy, MutationClaimRequest, MutationClaimToken, MutationId,
+    MutationQueueSnapshot, MutationRequest, MutationUpsertKind, MutationUpsertResult,
+    NewQueuedMutation, PersistedOptimisticLayer, QueuedMutation, StoredMutation,
 };
 use cache_core::search::{
     QUICK_ACCESS_PROJECTION_VERSION, QUICK_ACCESS_TYPENAMES, SearchCursor, SearchDocument,
@@ -1298,9 +1298,10 @@ impl Storage for TursoStorage {
         })
     }
 
-    async fn claim_next_mutation(
+    async fn claim_next_mutation_with_policy(
         &mut self,
         request: MutationClaimRequest,
+        policy: MutationClaimPolicy,
     ) -> Result<Option<ClaimedMutation>, Self::Error> {
         self.require_healthy()?;
         let result = {
@@ -1318,6 +1319,12 @@ impl Storage for TursoStorage {
                 }
                 let mut parsed = parse_queue_row(row)?;
                 let optimistic = parsed.optimistic.take().ok_or_else(invariant)?;
+                if policy == MutationClaimPolicy::NonDurable
+                    && cache_core::durable_intent::source_metadata(&optimistic.optimistic_data_json)
+                        .is_some()
+                {
+                    return Ok(None);
+                }
                 if parsed
                     .mutation
                     .next_attempt_at_ms

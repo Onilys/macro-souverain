@@ -1121,7 +1121,7 @@ export function createReplyComposer(
         forwardedAttachmentIds: form.attachments
           .list()
           .filter((a) => a.type === 'forwarded')
-          .map((a) => a.attachmentId!),
+          .flatMap((a) => (a.attachmentId ? [a.attachmentId] : [])),
         restoreBodyHtml: restoration?.bodyHtml,
         restoreBodyText: restoration?.bodyText,
         restoreBodyMacro: restoreMacro,
@@ -1551,6 +1551,7 @@ export function createReplyComposer(
     terminalState() !== undefined ||
     sendLocked();
   const sendUnavailableReason = () => {
+    if (sendLocked()) return 'Queued to send. Cancel the send before editing.';
     if (terminalState() === 'sent') return 'This email has already been sent.';
     if (terminalState() === 'missing')
       return 'This draft is no longer available.';

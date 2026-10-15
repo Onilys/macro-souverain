@@ -520,7 +520,9 @@ export function createEmailComposeContext(
                 : undefined,
               senderEmail:
                 inboxSource.inboxes().find((inbox) => inbox.id === senderLinkId)
-                  ?.email_address ?? '',
+                  ?.email_address ??
+                viewerEmail() ??
+                '',
             }),
             attachmentIds: input.attachmentIds ?? [],
             forwardedAttachmentIds: input.forwardedAttachmentIds ?? [],

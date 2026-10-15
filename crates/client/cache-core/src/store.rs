@@ -17,8 +17,9 @@ use crate::predicate::{
     StagedOptimisticProjectionOwner, apply_authoritative_projection_mutations,
 };
 use crate::queue::{
-    ClaimedMutation, MutationClaimRequest, MutationClaimToken, MutationId, MutationQueueSnapshot,
-    MutationUpsertKind, MutationUpsertResult, NewQueuedMutation, QueuedMutation,
+    ClaimedMutation, MutationClaimPolicy, MutationClaimRequest, MutationClaimToken, MutationId,
+    MutationQueueSnapshot, MutationUpsertKind, MutationUpsertResult, NewQueuedMutation,
+    QueuedMutation,
 };
 use crate::search::{SearchCursor, SearchDocument, SearchProfile, project_search_documents};
 use crate::value::{EntityKey, Record};
@@ -216,6 +217,16 @@ pub trait Storage: MaybeSend {
     fn claim_next_mutation(
         &mut self,
         request: MutationClaimRequest,
+    ) -> impl Future<Output = Result<Option<ClaimedMutation>, Self::Error>> + MaybeSend {
+        self.claim_next_mutation_with_policy(request, MutationClaimPolicy::Any)
+    }
+
+    /// Check policy and acquire the strict head in the same write transaction,
+    /// before incrementing attempt count or changing its lease.
+    fn claim_next_mutation_with_policy(
+        &mut self,
+        request: MutationClaimRequest,
+        policy: MutationClaimPolicy,
     ) -> impl Future<Output = Result<Option<ClaimedMutation>, Self::Error>> + MaybeSend;
 
     /// Retains a retryable mutation and its optimistic layer, releases its
@@ -707,13 +718,20 @@ impl Storage for InMemoryStorage {
         })
     }
 
-    async fn claim_next_mutation(
+    async fn claim_next_mutation_with_policy(
         &mut self,
         request: MutationClaimRequest,
+        policy: MutationClaimPolicy,
     ) -> Result<Option<ClaimedMutation>, Self::Error> {
         let Some((&id, queued)) = self.mutations.iter_mut().next() else {
             return Ok(None);
         };
+        if policy == MutationClaimPolicy::NonDurable
+            && crate::durable_intent::source_metadata(&queued.optimistic.optimistic_data_json)
+                .is_some()
+        {
+            return Ok(None);
+        }
         let mutation = &mut queued.mutation;
         if mutation
             .next_attempt_at_ms

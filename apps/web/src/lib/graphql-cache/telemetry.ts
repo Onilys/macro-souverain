@@ -513,6 +513,7 @@ export function operationCategoryForRequest(
     .with(
       'enqueue-optimistic-mutation',
       'claim-next-mutation',
+      'claim-next-non-durable-mutation',
       'defer-optimistic-write',
       'commit-optimistic-write',
       'rollback-optimistic-write',
@@ -544,6 +545,7 @@ export function isStorageTransactionRequest(
     'calendar-commit',
     'enqueue-optimistic-mutation',
     'claim-next-mutation',
+    'claim-next-non-durable-mutation',
     'defer-optimistic-write',
     'commit-optimistic-write',
     'rollback-optimistic-write',

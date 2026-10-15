@@ -810,7 +810,7 @@ export type CacheRequest = { id: number } & (
       leaseExpiresAtMs: number;
     }
   | {
-      kind: 'claim-next-mutation';
+      kind: 'claim-next-mutation' | 'claim-next-non-durable-mutation';
       owner: string;
       nowMs: number;
       leaseExpiresAtMs: number;

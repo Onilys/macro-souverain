@@ -2265,6 +2265,19 @@ impl<S: Storage> Engine<S> {
             .map_err(EngineError::Storage)
     }
 
+    /// Atomically leave a durable strict head unclaimed, preserving offline Undo.
+    /// A durable head blocks later mutations; this never skips queue order.
+    pub async fn claim_next_non_durable_mutation(
+        &mut self,
+        request: MutationClaimRequest,
+    ) -> Result<Option<ClaimedMutation>, EngineError<S::Error>> {
+        self.hydrate_optimistic().await?;
+        self.storage
+            .claim_next_mutation_with_policy(request, crate::queue::MutationClaimPolicy::NonDurable)
+            .await
+            .map_err(EngineError::Storage)
+    }
+
     /// Releases a retryable mutation, or discards it when a newer UUID match exists.
     pub async fn defer_optimistic_write(
         &mut self,

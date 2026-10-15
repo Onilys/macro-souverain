@@ -542,3 +542,63 @@ it('waits for durable storage before applying the initial Forward on a fresh com
     root.dispose();
   }
 });
+
+it('explains why a queued reply cannot be sent again', () => {
+  const context = createComposeContext();
+  const [locked, setLocked] = createSignal(true);
+  context.delivery.sendLocked = locked;
+  const root = mountReplyComposer(context);
+  try {
+    expect(root.sendActionDisabled()).toBe(true);
+    expect(root.sendUnavailableReason()).toBe(
+      'Queued to send. Cancel the send before editing.'
+    );
+    setLocked(false);
+    expect(root.sendUnavailableReason()).toBeUndefined();
+  } finally {
+    root.dispose();
+  }
+});
+
+it.each(['standalone', 'reply'] as const)(
+  'omits empty forwarded attachment identifiers from the %s send',
+  async (kind) => {
+    const context = createComposeContext();
+    const root =
+      kind === 'standalone'
+        ? mountEmailComposer(context)
+        : mountReplyComposer(context);
+    const forwarded: DraftFormAttachment[] = [
+      {
+        type: 'forwarded',
+        attachmentId: '',
+        fileName: 'Unavailable',
+        mimeType: 'text/plain',
+        fileSize: 1,
+      },
+      {
+        type: 'forwarded',
+        attachmentId: 'forwarded-id',
+        fileName: 'Available',
+        mimeType: 'text/plain',
+        fileSize: 1,
+      },
+    ];
+    try {
+      root.edit('Body with forwarded attachments');
+      if ('state' in root) {
+        await root.state.context.onAddAttachments(forwarded);
+        root.state.context.onSend();
+      } else {
+        for (const file of forwarded) root.form.attachments.add(file);
+        await root.sendEmail();
+      }
+      await vi.advanceTimersByTimeAsync(0);
+      expect(context.delivery.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ forwardedAttachmentIds: ['forwarded-id'] })
+      );
+    } finally {
+      root.dispose();
+    }
+  }
+);

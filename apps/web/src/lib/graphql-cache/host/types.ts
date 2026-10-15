@@ -185,7 +185,8 @@ export interface CacheHost {
   claimNextMutation(
     owner: string,
     nowMs: number,
-    leaseExpiresAtMs: number
+    leaseExpiresAtMs: number,
+    allowDurable?: boolean
   ): Promise<ClaimedMutation | undefined>;
   /** Retains a retryable mutation and releases its lease. */
   deferOptimisticWrite(

@@ -150,12 +150,15 @@ impl Storage for BrowserStorage {
         self.inner.queue_diagnostics().await
     }
 
-    async fn claim_next_mutation(
+    async fn claim_next_mutation_with_policy(
         &mut self,
         request: MutationClaimRequest,
+        policy: cache_core::queue::MutationClaimPolicy,
     ) -> Result<Option<ClaimedMutation>, Self::Error> {
         self.take(TestStorageFault::ClaimNextMutation)?;
-        self.inner.claim_next_mutation(request).await
+        self.inner
+            .claim_next_mutation_with_policy(request, policy)
+            .await
     }
 
     async fn defer_mutation(

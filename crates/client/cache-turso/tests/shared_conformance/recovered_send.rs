@@ -113,3 +113,70 @@ fn recovered_send_requires_server_cancellation_in_memory() {
 fn recovered_send_requires_server_cancellation_in_turso() {
     recovered_cancellation::<TursoFactory>();
 }
+
+fn offline_claim_policy<F: BackendFactory>() {
+    use cache_core::queue::MutationClaimPolicy;
+    block_on(async {
+        let (factory, mut storage) = F::create();
+        let ordinary = storage.enqueue_mutation(queued("Ordinary")).await.unwrap();
+        let mut send = queued("DurableSend");
+        send.optimistic.optimistic_data_json =
+            json!({"__durableIntent": {"kind": "test", "payload": {}}}).to_string();
+        let durable = storage.enqueue_mutation(send).await.unwrap();
+        storage
+            .enqueue_mutation(queued("LaterOrdinary"))
+            .await
+            .unwrap();
+        let claimed = storage
+            .claim_next_mutation_with_policy(
+                claim_request("offline", 1, 100),
+                MutationClaimPolicy::NonDurable,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(claimed.queued.id, ordinary);
+        storage
+            .complete_mutation(
+                ordinary,
+                token("offline", claimed.lease_generation),
+                Vec::new(),
+            )
+            .await
+            .unwrap();
+        // A different runner may have removed the ordinary head immediately
+        // before this claim. The durable head must still remain unattempted.
+        assert!(
+            storage
+                .claim_next_mutation_with_policy(
+                    claim_request("offline", 2, 100),
+                    MutationClaimPolicy::NonDurable,
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let queue = storage.load_mutation_queue().await.unwrap();
+        assert_eq!(queue[0].id, durable);
+        assert_eq!(queue[0].mutation.attempt_count, 0);
+        assert!(queue[0].mutation.lease_owner.is_none());
+        assert_eq!(queue[1].mutation.attempt_count, 0);
+        let claimed = storage
+            .claim_next_mutation(claim_request("online", 3, 100))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(claimed.queued.id, durable);
+        factory.finish(storage);
+    });
+}
+
+#[test]
+fn offline_claim_leaves_durable_head_unattempted_in_memory() {
+    offline_claim_policy::<InMemoryFactory>();
+}
+
+#[test]
+fn offline_claim_leaves_durable_head_unattempted_in_turso() {
+    offline_claim_policy::<TursoFactory>();
+}

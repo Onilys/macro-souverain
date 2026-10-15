@@ -882,7 +882,7 @@ async fn legacy_snapshot_without_sender_replays_the_original_attempt(
         .await?;
     // Model an attempt written before sender_email existed in the snapshot.
     sqlx::query!(
-        "UPDATE email_send_attempts SET request = request #- '{message,sender_email}' WHERE attempt_id = $1",
+        "UPDATE email_send_attempts SET request = (request - '_send_approval') #- '{message,sender_email}' WHERE attempt_id = $1",
         attempt.0,
     ).execute(&pool).await?;
     let raw = serde_json::to_value(snapshot())?;

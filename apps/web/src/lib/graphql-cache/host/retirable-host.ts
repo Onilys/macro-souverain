@@ -41,8 +41,7 @@ export function createRetirableCacheHost(inner: CacheHost): CacheHost {
     inspectMutations: () =>
       current.inspectMutations?.() ??
       Promise.reject(new Error('Queue inspection is unavailable')),
-    claimNextMutation: (owner, nowMs, leaseExpiresAtMs) =>
-      current.claimNextMutation(owner, nowMs, leaseExpiresAtMs),
+    claimNextMutation: (...args) => current.claimNextMutation(...args),
     deferOptimisticWrite: (
       transactionId,
       claim,

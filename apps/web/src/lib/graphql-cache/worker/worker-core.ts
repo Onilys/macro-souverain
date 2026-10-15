@@ -163,6 +163,7 @@ function requestPriority(request: CacheRequest): number {
     request.kind === 'calendar-commit' ||
     request.kind === 'enqueue-optimistic-mutation' ||
     request.kind === 'claim-next-mutation' ||
+    request.kind === 'claim-next-non-durable-mutation' ||
     request.kind === 'commit-optimistic-write' ||
     request.kind === 'rollback-optimistic-write' ||
     request.kind === 'invalidate' ||
@@ -669,14 +670,22 @@ export class CacheWorkerCore {
         { kind: 'inspect-mutations' },
         async () => await this.requireEngine().inspectMutations()
       )
-      .with({ kind: 'claim-next-mutation' }, async (request) => {
-        const engine = this.requireEngine();
-        return await engine.claimNextMutation(
-          request.owner,
-          request.nowMs,
-          request.leaseExpiresAtMs
-        );
-      })
+      .with(
+        { kind: 'claim-next-mutation' },
+        { kind: 'claim-next-non-durable-mutation' },
+        async (request) => {
+          const engine = this.requireEngine();
+          const claim =
+            request.kind === 'claim-next-non-durable-mutation'
+              ? engine.claimNextNonDurableMutation?.bind(engine)
+              : engine.claimNextMutation.bind(engine);
+          return await claim?.(
+            request.owner,
+            request.nowMs,
+            request.leaseExpiresAtMs
+          );
+        }
+      )
       .with({ kind: 'defer-optimistic-write' }, async (request) => {
         const engine = this.requireEngine();
         const result = await engine.deferOptimisticWrite(

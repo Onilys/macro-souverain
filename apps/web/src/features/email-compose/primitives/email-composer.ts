@@ -888,7 +888,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
           forwardedAttachmentIds: form.attachments
             .list()
             .filter((a) => a.type === 'forwarded')
-            .map((a) => a.attachmentId!),
+            .flatMap((a) => (a.attachmentId ? [a.attachmentId] : [])),
           restoreBodyHtml: restoration?.bodyHtml,
           restoreBodyText: restoration?.bodyText,
           restoreBodyMacro: restoreMacro,

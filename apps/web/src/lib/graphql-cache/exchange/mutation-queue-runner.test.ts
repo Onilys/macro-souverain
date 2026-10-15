@@ -30,6 +30,7 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 function operation(cancel = false): Operation {
   return makeOperation(
@@ -366,6 +367,37 @@ it.each([true, false])(
         { owner: 'owner', generation: '2' },
         expect.objectContaining({ data })
       );
+    }
+  }
+);
+
+it.each([false, true])(
+  'offline queue drain requests an atomic non-durable claim, durable head: %s',
+  async (durable) => {
+    vi.stubGlobal('navigator', { onLine: false });
+    const { runner, forwarded, host } = fixture();
+    const op = operation();
+    const initial = enqueue(op, '1');
+    if (initial.initialClaim.kind !== 'claimed')
+      throw new Error('fixture requires a claim');
+    const mutation = initial.initialClaim.mutation;
+    const claim = vi
+      .fn<CacheHost['claimNextMutation']>()
+      .mockImplementation(async (_owner, _now, _expiry, allowDurable) => {
+        expect(allowDurable).toBe(false);
+        return durable ? undefined : mutation;
+      });
+    host.claimNextMutation = claim;
+    runner.wake();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(claim).toHaveBeenCalledOnce();
+    if (durable) {
+      expect(forwarded).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(claim).toHaveBeenCalledTimes(2);
+      expect(forwarded).toHaveLength(0);
+    } else {
+      expect(forwarded).toHaveLength(1);
     }
   }
 );

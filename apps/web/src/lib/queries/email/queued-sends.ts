@@ -165,11 +165,11 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
       void refresh(true);
     };
     window.addEventListener('online', reconnect);
-    const interval = setInterval(reconnect, 5_000);
+    const interval = enabled() ? setInterval(reconnect, 5_000) : undefined;
     onCleanup(() => {
       disposed = true;
       unsubscribe();
-      clearInterval(interval);
+      if (interval !== undefined) clearInterval(interval);
       window.removeEventListener('online', reconnect);
     });
   });

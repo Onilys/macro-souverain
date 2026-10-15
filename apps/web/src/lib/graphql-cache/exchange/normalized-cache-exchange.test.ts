@@ -3490,7 +3490,9 @@ describe('normalizedCacheExchange', () => {
         const { forwarded } = harness(host);
         host.pushGeneration({ storage: 'reset' });
         await vi.advanceTimersByTimeAsync(1_000);
-        expect(claim).not.toHaveBeenCalled();
+        expect(claim).toHaveBeenCalledOnce();
+        expect(claim.mock.calls[0][3]).toBe(false);
+        expect(host.claims).toEqual([]);
         expect(forwarded).toHaveLength(0);
         expect(vi.getTimerCount()).toBeLessThan(5);
       });
@@ -3544,6 +3546,7 @@ describe('normalizedCacheExchange', () => {
             'exchange:test-client',
             readyAt,
             readyAt + 300_000,
+            true,
           ]);
         }
       );

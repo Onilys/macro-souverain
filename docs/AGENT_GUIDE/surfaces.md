@@ -905,7 +905,9 @@ Restore both a standalone draft and a reply, then edit and save without reloadin
 confirm the original content is visible and no send watermark returns. While a
 standalone send is queued, verify sender, recipients, subject, body, attachments,
 signature, formatting, schedule picker, delete, and Send remain disabled. Only
-Cancel may change the queued send. Open the formatting ribbon before queueing
+Cancel may change the queued send. The disabled reply Send action explains
+**Queued to send. Cancel the send before editing.**
+Open the formatting ribbon before queueing
 and verify it disappears while locked. Repeat after reload and restore in the
 same mounted composer; no schedule proposal should survive the queued state.
 Drop an inline image while queued and confirm no upload or insertion occurs.

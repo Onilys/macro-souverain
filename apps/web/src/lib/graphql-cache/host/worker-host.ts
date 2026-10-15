@@ -1370,10 +1370,13 @@ export function createWorkerCacheHost(options: WorkerHostOptions): CacheHost {
     async claimNextMutation(
       owner: string,
       nowMs: number,
-      leaseExpiresAtMs: number
+      leaseExpiresAtMs: number,
+      allowDurable = true
     ): Promise<ClaimedMutation | undefined> {
       return (await initializedRequest({
-        kind: 'claim-next-mutation',
+        kind: allowDurable
+          ? 'claim-next-mutation'
+          : 'claim-next-non-durable-mutation',
         owner,
         nowMs,
         leaseExpiresAtMs,

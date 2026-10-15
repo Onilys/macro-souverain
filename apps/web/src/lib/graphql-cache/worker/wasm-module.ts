@@ -169,6 +169,11 @@ export interface CacheEngine {
     nowMs: number,
     leaseExpiresAtMs: number
   ): Promise<ClaimedMutation | undefined>;
+  claimNextNonDurableMutation?(
+    owner: string,
+    nowMs: number,
+    leaseExpiresAtMs: number
+  ): Promise<ClaimedMutation | undefined>;
   deferOptimisticWrite(
     transactionId: string,
     leaseOwner: string,
