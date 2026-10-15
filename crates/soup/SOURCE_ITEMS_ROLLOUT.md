@@ -29,7 +29,9 @@ maintenance triggers or stored procedures.
    scans canonical IDs and existing projection IDs, in 500-item batches. This
    both adds missing rows and removes projection rows for items hard-deleted by
    older writers during rollout. It is safe to interrupt and rerun from the
-   beginning. Batches commit independently and use a 200 ms lock timeout;
+   beginning. It locks every item row it reconciles, so the first run writes a
+   row-lock WAL record for every document, chat and project as well as the new
+   projection rows. Batches commit independently and use a 200 ms lock timeout;
    contention retries after one second, logging the batch's cursor, and the run
    stops after 30 attempts on one batch. Monitor database load and replication
    lag, and resolve sustained contention before continuing.
@@ -67,10 +69,16 @@ It serializes refreshes by locking each visible item's row (`FOR NO KEY UPDATE`)
 which a writer that updated the item already holds, so refreshes and item updates
 take their locks in one order. Row locks live in the rows rather than PostgreSQL's
 shared lock table, so a refresh of a whole team's or project tree's items stays
-bounded. Refreshes of at most 1,000 IDs also take transaction-scoped advisory locks
-keyed by the stable entity type and ID, which serialize a grant written for an
-item whose insert has not committed yet. A separate refresh statement sees the
-prior lock holder's committed canonical state. Counts are recomputed rather than incremented from
+bounded. Until a transaction holds 1,000 of them, refreshes also take
+transaction-scoped advisory locks keyed by the stable entity type and ID, which
+serialize a grant written for an item whose insert has not committed yet; the
+running total lives in a transaction-local setting, so a folder upload that
+refreshes thousands of items one at a time stays within the limit too. A separate
+refresh statement sees the prior lock holder's committed canonical state.
+
+A bulk change holds its items' row locks until it commits. Deleting a team, for
+example, locks every document, chat and project shared with it while it rewrites
+their projection rows, so saves to those items wait for it. Counts are recomputed rather than incremented from
 requested operations, so overlapping grants and conflict no-ops remain correct.
 The complete transaction rolls back if projection maintenance fails.
 
