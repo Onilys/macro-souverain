@@ -250,6 +250,14 @@ bot asks before scheduling a specific clock time. Within the rollout, `@Macro` â
 `@cursor` / `@codex` / `@claude` when available â€” opens
 an agent session; follow-up
 `@` mentions of that bot in the same thread route to it.
+Short mentions such as `@pickle please investigate` should receive the thread
+root and preceding replies, even without an explicit reply-target reference.
+For macrod agents, verify this on both the first mention and a follow-up in an
+existing session. If the session's **Agent context** contains only the owner
+and sender, the discussion did not reach the agent. Self-hosted macrod must
+include the structured trigger-context change from PR #7803; deploying the
+backend alone does not update the daemon. Rebuild or install a current macrod
+and restart it, including any configured `macrod herdr-acp` executable.
 Macro Coding Agent (`@coder`) is unavailable in mention suggestions, including
 when it appears among existing participants or bots. Check with the agents
 rollout both enabled and disabled.

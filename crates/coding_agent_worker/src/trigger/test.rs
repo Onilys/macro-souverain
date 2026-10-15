@@ -10,6 +10,10 @@ use chrono::Utc;
 use messages::domain::events::MessagePostedMetadata;
 use messages::domain::models::MessageParent;
 use std::sync::Mutex;
+use trigger_context::{
+    AddressedBy, ContextMessage, ContextPerson, ContextThread, DiscussionContext,
+    DiscussionSurface, FollowUpContext, ReplyTarget,
+};
 
 #[test]
 fn repository_selection_survives_dispatch_and_older_events_still_decode() {
@@ -188,6 +192,177 @@ fn a_follow_up_becomes_prompt_existing() {
             content: "keep going".to_owned(),
             context: None,
         }
+    );
+}
+
+/// The short prompt gets its meaning from earlier replies, even when the
+/// composer has not inserted an explicit reply-target node.
+fn reply_discussion() -> DiscussionContext {
+    let root_id = Uuid::from_u128(7);
+    let author = ContextPerson {
+        id: sender().to_string(),
+        name: "Asker".to_owned(),
+        email: Some("asker@example.com".to_owned()),
+    };
+    DiscussionContext {
+        surface: DiscussionSurface::Channel {
+            id: Uuid::from_u128(1),
+            name: Some("bugs".to_owned()),
+            channel_type: trigger_context::ChannelType::Public,
+        },
+        prompt_message_id: Uuid::from_u128(2),
+        sender: author.clone(),
+        reply_target: ReplyTarget::Thread { root_id },
+        thread: Some(ContextThread {
+            root_id,
+            messages: [
+                (root_id, "The calendar stopped loading"),
+                (Uuid::from_u128(8), "It happens after switching accounts"),
+                (Uuid::from_u128(2), "please investigate"),
+            ]
+            .into_iter()
+            .map(|(id, content)| ContextMessage {
+                id,
+                author: author.clone(),
+                content: content.to_owned(),
+                posted_at: Utc::now(),
+            })
+            .collect(),
+            messages_omitted: false,
+        }),
+        channel: Vec::new(),
+    }
+}
+
+#[tokio::test]
+async fn short_mentions_keep_the_reply_chain_when_opening_or_following_up() {
+    let discussion = reply_discussion();
+    let opening_context = TriggerContext::Mentioned(discussion.clone());
+    let follow_up_context = TriggerContext::FollowUp(FollowUpContext {
+        addressed_by: AddressedBy::Mention,
+        discussion,
+    });
+    let post = message("please investigate", Some(Uuid::from_u128(7)));
+    let events = [
+        AgentTriggerTopicEvent::New(NewAgentSessionEvent::TopLevelMentioned(
+            AgentBotMentionedEvent {
+                bot_id: BotId::TEST_A,
+                message: post.clone(),
+                context: Some(opening_context.clone()),
+            },
+        )),
+        AgentTriggerTopicEvent::Existing(ExistingAgentSessionEvent::Channel(
+            ChannelEventMetadata {
+                bot_id: BotId::TEST_A,
+                session_id: test_session(),
+                kind: ThreadMessageKind::MentionThread,
+                message: post,
+                context: Some(follow_up_context.clone()),
+            },
+        )),
+    ];
+    let executor = std::sync::Arc::new(RecordingExecutor::default());
+    for event in events {
+        // Exercise the broker envelope the SSE listener decodes, too.
+        let wire = serde_json::to_vec(&Event::new(event)).unwrap();
+        let event: TriggerEvent = serde_json::from_slice(&wire).unwrap();
+        handle_event(event, &executor).await.unwrap();
+    }
+    assert_eq!(
+        *executor.executed.lock().unwrap(),
+        vec![
+            TriggerWork::OpenAndPrompt {
+                reuse_origin_message: false,
+                bot: BotId::TEST_A,
+                sender: sender(),
+                parent: MessageParent::Channel(Uuid::from_u128(1)),
+                thread_id: Uuid::from_u128(7),
+                message_id: Uuid::from_u128(2),
+                content: "please investigate".to_owned(),
+                context: Some(opening_context),
+            },
+            TriggerWork::PromptExisting {
+                session: test_session(),
+                sender: sender(),
+                content: "please investigate".to_owned(),
+                context: Some(follow_up_context),
+            },
+        ]
+    );
+}
+
+#[tokio::test]
+async fn the_control_request_carries_the_reply_chain_separately_from_the_short_prompt() {
+    use crate::config::{HarnessCredentials, HarnessScope, MacroApi};
+    use crate::outbound::agent_session::HarnessApi;
+    use agent_session::inbound::axum_router::ControlRequest;
+    use tokio::io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _, BufReader};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let api = HarnessApi::new(
+        &MacroApi {
+            api_url: format!("http://{}", listener.local_addr().unwrap()),
+            storage_url: "http://unused".to_owned(),
+            web_url: "http://unused".to_owned(),
+        },
+        &HarnessCredentials {
+            harness_id: harness_id::HarnessId::TEST_A,
+            token: "mhns_test".to_owned(),
+            scope: HarnessScope::User,
+        },
+    );
+    let server = tokio::spawn(async move {
+        let (socket, _) = listener.accept().await.unwrap();
+        let mut socket = BufReader::new(socket);
+        let mut headers = String::new();
+        loop {
+            let mut line = String::new();
+            assert_ne!(socket.read_line(&mut line).await.unwrap(), 0);
+            if line == "\r\n" {
+                break;
+            }
+            headers.push_str(&line);
+        }
+        assert!(headers.starts_with(&format!(
+            "POST /agent-sessions/{}/control HTTP/1.1\r\n",
+            test_session()
+        )));
+        assert!(headers.contains("x-macro-harness-token: mhns_test\r\n"));
+        assert!(headers.contains("x-macro-harness-for-macro-user-id: macro|asker@example.com\r\n"));
+        let length: usize = headers
+            .lines()
+            .find_map(|line| line.strip_prefix("content-length: "))
+            .unwrap()
+            .parse()
+            .unwrap();
+        let mut body = vec![0; length];
+        socket.read_exact(&mut body).await.unwrap();
+        let request: ControlRequest = serde_json::from_slice(&body).unwrap();
+        socket
+            .get_mut()
+            .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+            .await
+            .unwrap();
+        request
+    });
+    let context = TriggerContext::Mentioned(reply_discussion());
+    let request = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        api.prompt(
+            test_session(),
+            &sender(),
+            "please investigate",
+            Some(context.clone()),
+        )
+        .await
+        .unwrap();
+        server.await.unwrap()
+    })
+    .await
+    .expect("the prompt should reach the control endpoint");
+    assert_eq!(request.context, Some(context));
+    assert_eq!(
+        request.action,
+        agent_runtime_protocol::domain::action::AgentAction::prompt("please investigate")
     );
 }
 
