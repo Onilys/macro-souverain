@@ -451,13 +451,6 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
     ).toBeNull();
   });
 
-  it('hides the leading icon slot in the sidebar for a tighter row', () => {
-    if (surface !== 'sidebar') return;
-    const { view } = setup();
-    const row = view.container.querySelector('[data-agent-session-row]');
-    expect(row?.querySelector('[data-view-sidebar-icon]')).toBeNull();
-  });
-
   it('does not claim an unsynced PR is open', () => {
     const { setEntity } = setup();
     setEntity({

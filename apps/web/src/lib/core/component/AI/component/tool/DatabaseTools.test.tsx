@@ -57,34 +57,6 @@ const columnId = '01992d2f-8444-7000-8000-000000000003';
 const guestsTableId = '01992d2f-8444-7000-8000-000000000006';
 const invitesTableId = '01992d2f-8444-7000-8000-000000000007';
 
-const database: NamedTool<'DescribeDatabase', 'response'>['data'] = {
-  id: databaseId,
-  name: 'Launch',
-  grant: 'edit',
-  tables: [
-    {
-      views: [],
-      id: tableId,
-      name: 'Tickets',
-      sqlName: 'Tickets',
-      version: 3,
-      writable: true,
-      columns: [
-        {
-          id: columnId,
-          name: 'Status',
-          sqlName: 'Status',
-          dataType: 'select',
-          isMultiSelect: false,
-          writable: true,
-          safeTypes: ['text', 'select[]'],
-          checkedTypes: ['number'],
-        },
-      ],
-    },
-  ],
-};
-
 function renderTool<Name extends ToolName>(
   handler: { render: Component<never> },
   name: Name,
@@ -117,51 +89,7 @@ function line(rendered: ReturnType<typeof render>) {
   return rendered.container.textContent?.replace(/\s+/g, ' ').trim();
 }
 
-describe('database schema tool activity', () => {
-  it('renders DescribeDatabase with its database and table count', () => {
-    renderTool(
-      databaseToolHandlers.DescribeDatabase,
-      'DescribeDatabase',
-      { databaseId },
-      database
-    );
-    expect(screen.getByText('Read database').textContent).toBe(
-      'Read database Launch'
-    );
-    expect(screen.getByText('1 table')).toBeTruthy();
-  });
-
-  it('renders DeleteDatabaseView with the name of the view it deleted', () => {
-    const rendered = renderTool(
-      databaseToolHandlers.DeleteDatabaseView,
-      'DeleteDatabaseView',
-      { databaseId, viewId: 'view-1' },
-      { databaseId, tableId, viewId: 'view-1', name: 'Stages' }
-    );
-    expect(line(rendered)).toBe('Deleted view Stages');
-  });
-});
-
 describe('SaveDatabaseQuery', () => {
-  it('renders the saved block from the tool output', () => {
-    const markdown =
-      '<m-db-query>{"queryId":"01992d2f-8444-7000-8000-000000000004","title":"Open tickets","prompt":"How many open tickets?","displayMode":"scalar"}</m-db-query>';
-    renderTool(
-      databaseToolHandlers.SaveDatabaseQuery,
-      'SaveDatabaseQuery',
-      {
-        databaseId,
-        sql: 'SELECT COUNT(*) FROM "Tickets"',
-        title: 'Open tickets',
-        displayMode: 'scalar',
-      },
-      { queryId: '01992d2f-8444-7000-8000-000000000004', markdown }
-    );
-    expect(screen.getByText('Saved question')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { expanded: false }));
-    expect(screen.getByLabelText('Saved answer').textContent).toBe(markdown);
-  });
-
   it('starts folded, since the reply pastes the same question', () => {
     const markdown =
       '<m-db-query>{"queryId":"01992d2f-8444-7000-8000-000000000004","title":"Open tickets","prompt":"How many open tickets?","displayMode":"scalar"}</m-db-query>';

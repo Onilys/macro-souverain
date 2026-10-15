@@ -34,29 +34,22 @@ function Fixture(props: { onChange?: (value: string) => void }) {
 afterEach(cleanup);
 
 describe('RadioGroup', () => {
-  it('renders a native radio per item and checks the controlled value', () => {
-    render(() => <Fixture />);
-    const radios = screen.getAllByRole('radio') as HTMLInputElement[];
-    expect(radios).toHaveLength(2);
-    expect(radios[0].checked).toBe(true);
-    expect(radios[1].checked).toBe(false);
-  });
-
   it('emits the new value and moves the selection on change', () => {
     const onChange = vi.fn();
     render(() => <Fixture onChange={onChange} />);
-    const radios = screen.getAllByRole('radio') as HTMLInputElement[];
+    const initial = screen.getByRole('radio', {
+      name: 'This event',
+    }) as HTMLInputElement;
+    const target = screen.getByRole('radio', {
+      name: 'All events',
+    }) as HTMLInputElement;
+    expect(initial.checked).toBe(true);
+    expect(target.checked).toBe(false);
 
-    fireEvent.click(radios[1]);
+    fireEvent.click(target);
 
     expect(onChange).toHaveBeenCalledWith('all');
-    expect(radios[1].checked).toBe(true);
-    expect(radios[0].checked).toBe(false);
-  });
-
-  it('associates each label with its control', () => {
-    render(() => <Fixture />);
-    const radio = screen.getByRole('radio', { name: 'All events' });
-    expect(radio).toBeInstanceOf(HTMLInputElement);
+    expect(target.checked).toBe(true);
+    expect(initial.checked).toBe(false);
   });
 });

@@ -61,7 +61,10 @@ before writing tests, fixtures, snapshots, or verification harnesses.
   text, fixture values, mock wiring, derive round-trips, or guarantees already
   enforced by the type system. Avoid assertions tied to private helpers,
   incidental markup, styling classes, or call order unless those details are
-  the contract being protected.
+  the contract being protected. Rendering supplied text, an icon, or a mocked
+  child is not by itself a useful UI invariant. Prefer coverage of interactions,
+  state transitions, data transformations, or accessibility relationships that
+  can plausibly break.
 - **TEST-04** Documentation, formatting, renames, mechanical refactors, and
   trivial pass-through changes do not automatically need new tests. Use relevant
   existing tests and required browser verification. Add coverage when a concrete

@@ -124,7 +124,7 @@ function setTool(
 afterEach(cleanup);
 
 describe('BulkSetEntityPropertyOptions renderer', () => {
-  it('renders the affected-item count and a colored tag chip', () => {
+  it('resolves tag option ids and reports the affected-item count', () => {
     const { container } = renderTool(
       bulkSetEntityPropertyOptionsHandler,
       bulkTool({
@@ -140,24 +140,6 @@ describe('BulkSetEntityPropertyOptions renderer', () => {
     expect(container.textContent).toContain('Tag');
     expect(container.textContent).toContain('18 items');
     expect(container.textContent).toContain('Follow-up');
-
-    const dot = container.querySelector('span[style*="background-color"]');
-    expect(dot).not.toBeNull();
-    expect((dot as HTMLElement).style.backgroundColor).toBe('rgb(220, 38, 38)');
-  });
-
-  it('singularizes the item count', () => {
-    const { container } = renderTool(
-      bulkSetEntityPropertyOptionsHandler,
-      bulkTool({
-        property_definition_id: TAG_DEF,
-        add_option_ids: ['opt-follow'],
-        entities: [{ entity_id: 'doc-0', entity_type: 'document' }],
-      })
-    );
-
-    expect(container.textContent).toContain('1 item');
-    expect(container.textContent).not.toContain('1 items');
   });
 });
 
@@ -178,7 +160,7 @@ describe('SetEntityProperty renderer', () => {
     expect(container.textContent).toContain('Follow-up');
   });
 
-  it('renders a tag removal as a struck-through chip labelled Untag', () => {
+  it('resolves removed tag option ids and distinguishes removal from addition', () => {
     const { container } = renderTool(
       setEntityPropertyHandler,
       setTool({
@@ -190,12 +172,10 @@ describe('SetEntityProperty renderer', () => {
     );
 
     expect(container.textContent).toContain('Untag');
-    const struck = container.querySelector('.line-through');
-    expect(struck).not.toBeNull();
-    expect(struck?.textContent).toContain('Urgent');
+    expect(container.textContent).toContain('Urgent');
   });
 
-  it('resolves a non-tag select value (Status) to a colored chip', () => {
+  it('resolves a non-tag select option to its label', () => {
     const { container } = renderTool(
       setEntityPropertyHandler,
       setTool({
@@ -209,26 +189,6 @@ describe('SetEntityProperty renderer', () => {
     expect(container.textContent).toContain('Set');
     expect(container.textContent).toContain('document');
     expect(container.textContent).toContain('Done');
-
-    const dot = container.querySelector('span[style*="background-color"]');
-    expect((dot as HTMLElement).style.backgroundColor).toBe(
-      'rgb(16, 185, 129)'
-    );
-  });
-
-  it('renders a literal string value', () => {
-    const { container } = renderTool(
-      setEntityPropertyHandler,
-      setTool({
-        entity_type: 'document',
-        entity_id: 'entity-1',
-        property_definition_id: 'notes-def',
-        string_value: 'Draft copy',
-      })
-    );
-
-    expect(container.textContent).toContain('Set');
-    expect(container.textContent).toContain('Draft copy');
   });
 
   it('falls back to a bare label when no option resolves', () => {

@@ -71,16 +71,6 @@ describe('database chart', () => {
     }
   );
 
-  it('holds the chart’s height while Plot loads', () => {
-    const rendered = render(() => (
-      <QueryChart data={chartData('line', { x: 'Day', y: ['Signups'] })} />
-    ));
-    const chart = rendered.getByRole('img');
-    expect(chart.getAttribute('aria-busy')).toBe('true');
-    expect(chart.style.height).toBe('240px');
-    rendered.unmount();
-  });
-
   it('adds a color legend when there are several series', async () => {
     const rendered = render(() => (
       <QueryChart

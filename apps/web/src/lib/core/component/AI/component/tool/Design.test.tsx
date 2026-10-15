@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { describedPageCount, readDesignHandler } from './Design';
+import { describedPageCount } from './Design';
 
 // The document chip pulls in the app's live clients; these tests need none.
 vi.mock('@core/component/ItemPreview', () => ({ ItemPreview: () => null }));
@@ -11,6 +11,5 @@ describe('design tools', () => {
     ).toBe(3);
     expect(describedPageCount('Design: untitled (1 page)')).toBe(1);
     expect(describedPageCount('Page 1 "Cart" (id 0:1)')).toBeUndefined();
-    expect(readDesignHandler.handleResponse).toBeUndefined();
   });
 });

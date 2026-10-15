@@ -111,31 +111,8 @@ describe('SourceControls', () => {
     expect(queryByText('Holidays in United States')).toBeNull();
   });
 
-  it('shows the primary calendar color on the collapsed account header', () => {
-    const { headerFor } = renderControls();
-    const swatch = headerFor('gab@macro.com').querySelector<HTMLElement>(
-      '[aria-hidden="true"][style]'
-    );
-    expect(swatch?.style.backgroundColor).toBe('rgb(255, 0, 0)');
-  });
-
-  it('places checkboxes before labels and keeps expansion separate from visibility', () => {
-    const {
-      expandAccount,
-      getByRole,
-      getByText,
-      headerFor,
-      onVisibilityChange,
-    } = renderControls();
-    const header = headerFor('gab@macro.com');
-    const headerCheckbox = header.querySelector('input[type="checkbox"]');
-    const headerText = header.querySelector('.truncate');
-    expect(
-      headerCheckbox &&
-        headerText &&
-        headerCheckbox.compareDocumentPosition(headerText) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+  it('keeps account expansion separate from calendar visibility', () => {
+    const { expandAccount, getByRole, onVisibilityChange } = renderControls();
     const disclosure = getByRole('button', { name: 'Expand gab@macro.com' });
     expect(disclosure.getAttribute('aria-expanded')).toBe('false');
     expandAccount('gab@macro.com');
@@ -145,12 +122,6 @@ describe('SourceControls', () => {
       )
     ).toBe('true');
     expect(onVisibilityChange).not.toHaveBeenCalled();
-    const child = getByRole('checkbox', { name: /Holidays in United States/ });
-    const childText = getByText('Holidays in United States');
-    expect(
-      child.compareDocumentPosition(childText) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
   });
   it('reveals an account calendars once expanded', () => {
     const { expandAccount, getByText } = renderControls();
@@ -176,15 +147,6 @@ describe('SourceControls', () => {
       false
     );
     expect(onVisibilityChange).not.toHaveBeenCalled();
-  });
-
-  it('marks a subscription calendar with an indicator', () => {
-    const { expandAccount, container } = renderControls();
-    expandAccount('gab@macro.com');
-    const indicators = container.querySelectorAll(
-      '[title="Subscription calendar"]'
-    );
-    expect(indicators).toHaveLength(1);
   });
 
   it('badges a calendar with a persistent sync failure', () => {

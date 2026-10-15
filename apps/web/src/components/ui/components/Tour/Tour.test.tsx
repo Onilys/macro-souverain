@@ -374,15 +374,4 @@ describe('Tour', () => {
     expect(tour.status()).toBe('anchored');
     expect(tour.isFallback()).toBe(true);
   });
-
-  it('renders the same parts inline with Tour.Panel', () => {
-    render(() => (
-      <Tour.Root steps={steps}>
-        <Tour.Panel>
-          <Card />
-        </Tour.Panel>
-      </Tour.Root>
-    ));
-    expect(screen.getByRole('region', { name: 'First' })).toBeTruthy();
-  });
 });

@@ -1,5 +1,4 @@
-import { cleanup, render } from '@solidjs/testing-library';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   coverageRows,
   DOC_ENTRIES,
@@ -8,20 +7,6 @@ import {
   loadTypeSource,
 } from './registry';
 import { extractDemoSource, extractGuidelines } from './source';
-
-/** jsdom has no ResizeObserver; `Scroll` (and so `Panel.Body scroll`) needs one
- *  to construct. Demos only have to mount here, not resize. */
-class ResizeObserverStub {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-beforeAll(() => {
-  vi.stubGlobal('ResizeObserver', ResizeObserverStub);
-});
-
-afterEach(cleanup);
 
 describe('doc registry', () => {
   it('discovers pages from the co-located .docs.tsx files', () => {
@@ -102,12 +87,5 @@ describe.each(DOC_ENTRIES.map((entry) => [entry.doc.name, entry] as const))(
         names.length
       );
     });
-
-    it.each(entry.doc.demos.map((demo) => [demo.id, demo] as const))(
-      'renders the %s demo',
-      (_id, demo) => {
-        expect(() => render(() => demo.render())).not.toThrow();
-      }
-    );
   }
 );

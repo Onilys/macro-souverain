@@ -18,19 +18,6 @@ const usageLimit: FailureNotice = {
 };
 
 describe('FailureNoticeCard', () => {
-  it('shows the title and body the runtime wrote for the person', () => {
-    const { getByText } = render(() => (
-      <FailureNoticeCard notice={usageLimit} onOpenLink={() => {}} />
-    ));
-
-    expect(getByText('Cursor usage limit reached')).toBeTruthy();
-    expect(
-      getByText(
-        'Raise the spending limit in your Cursor dashboard, then send it again.'
-      )
-    ).toBeTruthy();
-  });
-
   it('opens the link through the caller, with its label as the button', () => {
     const onOpenLink = vi.fn();
     const { getByRole } = render(() => (

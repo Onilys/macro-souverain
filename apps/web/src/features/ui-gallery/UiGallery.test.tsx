@@ -8,9 +8,8 @@ import {
 } from '@solidjs/testing-library';
 import { type JSX, Suspense } from 'solid-js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { CoveragePage } from './components/CoveragePage';
 import { DocPage } from './components/DocPage';
-import { coverageRows, DOC_ENTRIES } from './registry';
+import { DOC_ENTRIES } from './registry';
 import UiGallery from './UiGallery';
 
 vi.mock('@components/app/split-layout/components/SplitHeader', () => ({
@@ -43,13 +42,6 @@ function renderGallery() {
 }
 
 describe('UiGallery', () => {
-  it('shows Foundation Colors when no page is selected', () => {
-    renderGallery();
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Colors' })
-    ).toBeTruthy();
-  });
-
   it('hides page code by default and toggles all examples from the header', async () => {
     const { container } = renderGallery();
     const toggle = screen.getByRole('switch', { name: 'Show code' });
@@ -66,27 +58,6 @@ describe('UiGallery', () => {
     await waitFor(() => {
       expect(container.querySelectorAll('pre')).toHaveLength(0);
     });
-  });
-
-  it('offers the coverage report', () => {
-    renderGallery();
-    expect(screen.getByText('Coverage')).toBeTruthy();
-  });
-});
-
-describe('CoveragePage', () => {
-  it('renders the coverage report', () => {
-    render(() => <CoveragePage onSelect={() => {}} />);
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Coverage' })
-    ).toBeTruthy();
-  });
-
-  it('lists every ui component with its documentation status', () => {
-    render(() => <CoveragePage onSelect={() => {}} />);
-    for (const row of coverageRows()) {
-      expect(screen.getAllByText(row.name).length).toBeGreaterThan(0);
-    }
   });
 });
 

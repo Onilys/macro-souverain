@@ -36,20 +36,6 @@ beforeEach(() => {
 });
 
 describe('CursorSystemNotification', () => {
-  it('reads a CI result as a GitHub card with its summary and a pass pill', () => {
-    const view = render(() => <CursorSystemNotification {...ci} />);
-    const card = view.getByRole('region', { name: 'GitHub notification' });
-    expect(card.textContent).toContain('GitHub');
-    expect(card.textContent).toContain('CI checks');
-    expect(card.textContent).toContain(
-      'All 27 CI checks completed without failures.'
-    );
-    expect(card.querySelector('[data-tone]')?.getAttribute('data-tone')).toBe(
-      'success'
-    );
-    expect(card.textContent).toContain('Success');
-  });
-
   it('shows the repository, branch, short commit and check count, and hides the subscription id', () => {
     const view = render(() => <CursorSystemNotification {...ci} />);
     const card = view.getByRole('region');

@@ -106,29 +106,6 @@ describe('getNotificationAgentSender', () => {
 });
 
 describe('agent-authored comment notifications', () => {
-  it('names the agent before the action', () => {
-    const { container } = render(() => (
-      <NotificationDescription
-        notification={commentNotification({ senderDisplayName: 'Macro' })}
-      />
-    ));
-    expect(container.textContent).toBe('Macro replied to a comment');
-  });
-
-  it('shows the agent icon in the sender slot', () => {
-    const { getByTestId } = render(() => (
-      <NotificationSenderIcon
-        notification={commentNotification({
-          senderDisplayName: 'Macro',
-          senderProfilePictureUrl: 'https://cdn/macro.png',
-        })}
-      />
-    ));
-    const icon = getByTestId('bot-icon');
-    expect(icon.textContent).toBe('Macro');
-    expect(icon.dataset.avatar).toBe('https://cdn/macro.png');
-  });
-
   it('counts the agent as a sender in a stack', () => {
     const stack = stackOf([
       commentNotification({ senderId: 'macro|peter@macro.com' }),

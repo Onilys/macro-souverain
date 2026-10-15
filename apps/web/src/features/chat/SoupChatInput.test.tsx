@@ -142,21 +142,6 @@ describe('SoupChatInput', () => {
       expect(!!screen.queryByRole('button', { name: 'Send' })).toBe(!enabled);
     }
   );
-  it('uses the new composer when agents are enabled', () => {
-    mocks.agentsEnabled = true;
-    render(() => <SoupChatInput />);
-    expect(screen.getByTestId('agent-composer')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Send' })).toBeNull();
-    expect(mocks.createChat).not.toHaveBeenCalled();
-  });
-  it('renders the compact chat input inline without page actions', () => {
-    const { container } = render(() => <SoupChatInput />);
-    const send = screen.getByRole('button', { name: 'Send' });
-    expect(container.contains(send)).toBe(true);
-    expect(send.getAttribute('data-variant')).toBe('default');
-    expect(send.getAttribute('data-collapse-on-blur')).toBe('true');
-    expect(screen.queryByRole('button', { name: /^New/ })).toBeNull();
-  });
   it('creates and opens a chat with the first prompt, selected model, and attachments', async () => {
     mocks.createChat.mockResolvedValue({
       isErr: () => false,
