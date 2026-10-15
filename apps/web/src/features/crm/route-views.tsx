@@ -6,7 +6,8 @@ import {
 } from '@components/app/split-layout/split-router/app-route-shell';
 import { enableCrm, isFeatureEnabled } from '@core/constant/featureFlags';
 import { lazy, untrack } from 'solid-js';
-import { pipelineTab } from './core/navigation';
+import type { CrmRouteSearch } from './context/workspace-context';
+import { pipelineIdOfTab, pipelineTab } from './core/navigation';
 import { crmSearch } from './crm-route';
 import {
   CRM_VIEW_URL_PARAM,
@@ -30,6 +31,28 @@ export const CompaniesRouteView = withAuth(() => {
   const crmView = new URLSearchParams(window.location.search).get(
     CRM_VIEW_URL_PARAM
   );
+  const routeSearch: CrmRouteSearch = {
+    tab: () => search.tab,
+    setTab: (
+      tab: string,
+      options?: { replace?: boolean; clearPipelineRequest?: boolean }
+    ) => {
+      const nextTab = tab || 'active';
+      const clearRequest =
+        options?.clearPipelineRequest ||
+        (untrack(() => search.pipeline) !== '' &&
+          pipelineIdOfTab(nextTab) !== untrack(() => search.pipeline));
+      setSearch(
+        clearRequest
+          ? { tab: nextTab, pipeline: '', seek: '' }
+          : { tab: nextTab },
+        {
+          mode: 'merge',
+          history: options?.replace ? 'replace' : 'push',
+        }
+      );
+    },
+  };
   return (
     <Crm
       initialView={
@@ -41,8 +64,13 @@ export const CompaniesRouteView = withAuth(() => {
       }
       pipelineRequest={{
         current: pipelineRequest,
-        release: () => setSearch({}, { mode: 'replace', history: 'replace' }),
+        release: () =>
+          setSearch(
+            { pipeline: '', seek: '' },
+            { mode: 'merge', history: 'replace' }
+          ),
       }}
+      routeSearch={routeSearch}
     />
   );
 });

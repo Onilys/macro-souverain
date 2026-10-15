@@ -36,7 +36,16 @@ const server = Bun.serve({
   hostname: '127.0.0.1',
   port: 3009,
   fetch(request) {
-    const script = new URL(request.url).pathname === '/links.js';
+    const path = new URL(request.url).pathname;
+    if (path === '/billing-lab.html') {
+      return new Response(
+        '<!doctype html><title>Standalone HTML document</title><h1>Standalone document</h1>',
+        {
+          headers: { 'Content-Type': 'text/html' },
+        }
+      );
+    }
+    const script = path === '/links.js';
     return new Response(script ? javascript : html, {
       headers: { 'Content-Type': script ? 'text/javascript' : 'text/html' },
     });
@@ -187,9 +196,36 @@ try {
   assert.deepEqual(await openedUrls(), expected);
   assert.equal(await browser.getUrl(), originalUrl);
   assert.equal((await browser.getWindowHandles()).length, 1);
+  const originalWindow = await browser.getWindowHandle();
+  await activate('standalone-link');
+  await browser.waitUntil(
+    async () => (await browser!.getWindowHandles()).length === 2,
+    {
+      timeoutMsg: 'Standalone HTML document did not open a native popup',
+    }
+  );
+  const popup = (await browser.getWindowHandles()).find(
+    (handle) => handle !== originalWindow
+  )!;
+  await browser.switchToWindow(popup);
+  await browser.waitUntil(
+    async () => (await browser!.getTitle()) === 'Standalone HTML document'
+  );
+  assert.equal(
+    await browser.getUrl(),
+    'http://localhost:3009/billing-lab.html'
+  );
+  await browser.closeWindow();
+  await browser.switchToWindow(originalWindow);
+  assert.equal(await browser.getUrl(), originalUrl);
+  assert.deepEqual(await openedUrls(), expected);
+  assert.equal(
+    await browser.execute(() => window.linkFixture.events.length),
+    2
+  );
   await browser.saveScreenshot(resolve(artifacts, 'links.png'));
   console.log(
-    'PASS: native popup and same-frame routing, stopped clicks, keyboard, cancellation, no duplicates, and in-app links'
+    'PASS: native popup and same-frame routing, stopped clicks, keyboard, cancellation, no duplicates, in-app links, and standalone HTML documents'
   );
 } catch (error) {
   if (browser) {

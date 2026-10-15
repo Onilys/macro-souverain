@@ -25,7 +25,9 @@ Desktop external links open in the system browser, whether activated by a normal
 anchor, a `target="_blank"` anchor, or `window.open(url)`. Native webview navigation
 handles this, not a window-level DOM click listener. Each activation should open
 exactly once, without replacing the app or creating another app window. Macro app
-links (including same-origin popup links) route inside the existing SPA.
+links (including same-origin popup links) route inside the existing SPA. Standalone
+`.html` documents on trusted app origins, such as `/billing-lab.html`, instead open
+in a native popup without replacing the app or emitting an SPA navigation event.
 
 Verify the `owner/repo#number` footer link in a pull request's floating details
 panel with both a click and keyboard activation. The panel stops click propagation;
@@ -116,7 +118,7 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/coders/<uuid>` | Code session with the Agents sidebar |
 | `/app/agents/chat/<uuid>` | Legacy AI chat opened in the Agents workspace (`/app/agent-chats/<uuid>` remains a compatibility alias) |
 | `/app/calls` | Calls list |
-| `/app/companies` | Customers (CRM; needs a team) |
+| `/app/companies` | Customers (CRM; needs a team). The selected tab is `sN.crm.tab` |
 | `/app/activity` | Activity heatmap + feed |
 | `/app/calendar/<month-or-week-or-day>` | Calendar; the focused event, its occurrence, and the locator range use `sN.calendar.*` |
 | `/app/<document-type>/<uuid>` | Legacy document URL (including `md`, `pdf`, `canvas`, `spreadsheet`, and the other Drive document types); redirects to `/app/drive/<document-type>/<uuid>` |
@@ -192,13 +194,15 @@ while retaining the theme hue. Public variable-length routes use
 (`/app/drive/folder/<uuid>/~/mail`). Legacy fixed `type/id`
 pane routes remain accepted. Known app-view URLs under `/app/component/` redirect
 to their canonical paths above; legacy composers keep their existing paths. Split-specific view state uses positionally
-namespaced query parameters such as `s0.drive.sort=created_at`; route identity
-and breadcrumb nesting remain in the path. Home, Email, Tasks, and Channels
-store the selected tab under `sN.home.tab`, `sN.mail.tab`, `sN.tasks.tab`,
-and `sN.channels.tab`, respectively. Channels also stores the phone list
-selection as `sN.channels.mobileTab`. Omitted tab keys mean each view's default;
-changing tabs updates the URL, and browser Back/Forward restores the selection
-independently in each pane. Inline detail links preserve these keys. Desktop panes expose Close when available and omit
+namespaced query parameters such as `s0.drive.sort=created_at`. Route identity
+and breadcrumb nesting remain in the path. Home, Email, Tasks, Channels, and
+Customers store the selected tab under `sN.home.tab`, `sN.mail.tab`,
+`sN.tasks.tab`, `sN.channels.tab`, and `sN.crm.tab`. Customers uses `people`,
+`pipeline:<uuid>`, `list:<uuid>`, or `hidden`. Companies is the default and
+omits the key. Channels also stores the phone list selection as
+`sN.channels.mobileTab`. Omitted tab keys mean each view's default.
+Changing tabs updates the URL, and browser Back and Forward restore the
+selection independently in each pane. Inline detail links preserve these keys. Desktop panes expose Close when available and omit
 split-history back/forward buttons. Mobile content panes retain their back button.
 
 Projects are enabled by default in development; production uses the PostHog

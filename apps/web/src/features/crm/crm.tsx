@@ -4,6 +4,7 @@ import { ViewTour } from '../tours/ViewTour';
 import { CrmProvider } from './context/crm-context';
 import {
   type CrmPipelineRequest,
+  type CrmRouteSearch,
   CrmWorkspaceProvider,
 } from './context/workspace-context';
 import type { CrmViewConfig } from './core/saved-view';
@@ -16,19 +17,23 @@ import { createCrmWorkspace } from './workspace-adapter';
 export function Crm(props: {
   initialView?: CrmViewConfig;
   pipelineRequest?: CrmPipelineRequest;
+  routeSearch?: CrmRouteSearch;
 }) {
   const crm = createAppCrmContext();
   const workspace = createCrmWorkspace(
     crm,
     props.initialView,
-    props.pipelineRequest
+    props.pipelineRequest,
+    props.routeSearch
   );
   return (
     <CrmProvider value={crm}>
       <SoupViewStateProvider state={workspace.state}>
         <CrmWorkspaceProvider value={workspace.context}>
           <Show when={workspace.applyDefaultCrmView}>
-            <CrmDefaultViewLoader />
+            <CrmDefaultViewLoader
+              withReplaceHistory={workspace.withReplaceHistory}
+            />
           </Show>
           <Companies />
           <ViewTour tour={companiesTour} />

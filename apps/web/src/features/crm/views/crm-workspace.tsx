@@ -211,6 +211,16 @@ export function CrmWorkspaceView(props: {
   const { openWithSplit } = useCrmContext().createNavigation();
   const [selectedRecord, setSelectedRecord] = createSignal<CrmRecordRef>();
   const closeRecord = () => setSelectedRecord(undefined);
+  // Back and Forward change the tab without going through sidebar navigation.
+  createEffect(
+    on(
+      view.activeTab,
+      () => {
+        closeRecord();
+      },
+      { defer: true }
+    )
+  );
   const showRecord = (record: CrmRecordRef) => {
     view.host.captureEntryState();
     setSelectedRecord(record);
@@ -282,6 +292,27 @@ export function CrmWorkspaceView(props: {
   const [exporting, setExporting] = createSignal(false);
   const activeList = () =>
     lists.lists().find((list) => `list:${list.id}` === active());
+  // A list tab from the URL has no preset, so apply its company filter once the list loads.
+  createEffect(() => {
+    const list = activeList();
+    if (!list) return;
+    const expected = list.config.companyIds.length
+      ? list.config.companyIds
+      : [NIL_UUID];
+    const current = view.queryFilters.state.include.crmCompanyId;
+    if (
+      current?.length === expected.length &&
+      current.every((id, index) => id === expected[index])
+    )
+      return;
+    const preset = getViewPreset('companies');
+    const filters = structuredClone(preset?.filters ?? {});
+    filters.include = {
+      ...filters.include,
+      crmCompanyId: expected,
+    };
+    view.queryFilters.replace(filters);
+  });
   // Every other tab (hidden companies, saved or shared views) is a company view.
   const activeRecord = () => {
     const id = pipelineId();

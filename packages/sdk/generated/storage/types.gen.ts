@@ -17890,6 +17890,36 @@ export type ApplyCrmPipelineOpsResponses = {
 
 export type ApplyCrmPipelineOpsResponse = ApplyCrmPipelineOpsResponses[keyof ApplyCrmPipelineOpsResponses];
 
+export type GetCrmPipelinePermissionsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/permissions';
+};
+
+export type GetCrmPipelinePermissionsResponses = {
+    200: SharePermissionV2;
+};
+
+export type GetCrmPipelinePermissionsResponse = GetCrmPipelinePermissionsResponses[keyof GetCrmPipelinePermissionsResponses];
+
+export type UpdateCrmPipelinePermissionsData = {
+    body: UpdateSharePermissionRequestV2;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/permissions';
+};
+
+export type UpdateCrmPipelinePermissionsResponses = {
+    200: SharePermissionV2;
+};
+
+export type UpdateCrmPipelinePermissionsResponse = UpdateCrmPipelinePermissionsResponses[keyof UpdateCrmPipelinePermissionsResponses];
+
 export type GetCrmPipelineRowsData = {
     body?: never;
     path: {

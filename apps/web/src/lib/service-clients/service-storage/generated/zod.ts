@@ -7927,6 +7927,149 @@ export const applyCrmPipelineOpsResponse = zod
   );
 
 /**
+ * @summary Read the owner, team grant and channel recipients of a pipeline the caller can edit.
+ */
+export const getCrmPipelinePermissionsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const getCrmPipelinePermissionsResponse = zod.object({
+  channelSharePermissions: zod
+    .array(
+      zod
+        .object({
+          access_level: zod
+            .enum(['view', 'comment', 'edit', 'owner'])
+            .describe('Ordered from least to most access top -> bottom'),
+          channel_id: zod.string().describe('The channel id'),
+        })
+        .describe('The channel share permission')
+    )
+    .nullish()
+    .describe('The channel share permissions for the item'),
+  id: zod.string().describe('The share permission id'),
+  linkShare: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['PUBLIC', 'TEAM'])
+        .describe('Defines who can access an item through its share link.'),
+    ])
+    .optional(),
+  linkShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+  owner: zod.string().describe('The owner of the item'),
+  teamShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+});
+
+/**
+ * @summary Share a pipeline the caller can edit with channels, or change or remove
+their access. Team access changes through `/sharing`; there is no share link.
+ */
+export const updateCrmPipelinePermissionsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const updateCrmPipelinePermissionsBody = zod.object({
+  channelSharePermissions: zod
+    .array(
+      zod.object({
+        accessLevel: zod
+          .union([
+            zod.null(),
+            zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+          ])
+          .optional(),
+        channelId: zod.string().describe('The channel id'),
+        operation: zod.enum(['add', 'remove', 'replace']),
+      })
+    )
+    .nullish()
+    .describe('Any channel share permissions to be created\/updated\/removed'),
+  linkShare: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['PUBLIC', 'TEAM'])
+        .describe('Defines who can access an item through its share link.'),
+    ])
+    .optional(),
+  linkShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+  teamShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+});
+
+export const updateCrmPipelinePermissionsResponse = zod.object({
+  channelSharePermissions: zod
+    .array(
+      zod
+        .object({
+          access_level: zod
+            .enum(['view', 'comment', 'edit', 'owner'])
+            .describe('Ordered from least to most access top -> bottom'),
+          channel_id: zod.string().describe('The channel id'),
+        })
+        .describe('The channel share permission')
+    )
+    .nullish()
+    .describe('The channel share permissions for the item'),
+  id: zod.string().describe('The share permission id'),
+  linkShare: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['PUBLIC', 'TEAM'])
+        .describe('Defines who can access an item through its share link.'),
+    ])
+    .optional(),
+  linkShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+  owner: zod.string().describe('The owner of the item'),
+  teamShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+});
+
+/**
  * @summary Read pipeline records through pipeline access.
  */
 export const getCrmPipelineRowsParams = zod.object({

@@ -205,6 +205,16 @@ sender. Before publishing this frontend in a desktop OTA archive, set
 binaries show an update-required notice instead of falling back to the legacy
 notification API, which macOS rejects after UserNotifications has been used.
 
+Linux notification activation requires `send_linux_notification` and
+`close_linux_notification`. Ship a full native AppImage containing these commands;
+a frontend-only update cannot add clickable system notifications. Before publishing
+this frontend as a desktop OTA archive, raise `MIN_NATIVE_BUILD` to that release.
+Older Linux binaries show an update-required error rather than silently sending
+notifications that cannot be activated. The native sender retains the D-Bus
+connection, advertises the default Open action, and forwards activation tokens to
+GTK before the existing frontend notification callback navigates. Dismissal never
+navigates. This supports the running app, not relaunch after the process exits.
+
 Extraction writes a sibling `<directory>.complete` record only after checksum,
 extraction, manifest, and entrypoint validation succeed. Directories without a
 matching completion record cannot be reused or restored. Previously cached OTA

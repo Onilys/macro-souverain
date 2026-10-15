@@ -6340,6 +6340,74 @@
         }
       }
     },
+    "/crm/pipelines/{id}/permissions": {
+      "get": {
+        "tags": ["crm::inbound::pipelines"],
+        "summary": "Read the owner, team grant and channel recipients of a pipeline the caller can edit.",
+        "operationId": "get_crm_pipeline_permissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePermissionV2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["crm::inbound::pipelines"],
+        "summary": "Share a pipeline the caller can edit with channels, or change or remove\ntheir access. Team access changes through `/sharing`; there is no share link.",
+        "operationId": "update_crm_pipeline_permissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSharePermissionRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePermissionV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/crm/pipelines/{id}/rows": {
       "get": {
         "tags": ["crm::inbound::pipelines"],

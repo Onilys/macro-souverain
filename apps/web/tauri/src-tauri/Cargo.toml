@@ -77,6 +77,11 @@ tauri-plugin-updater = "=2.10.1"
 # 2.5 requires tauri 2.12; the pinned fork is 2.11.
 tauri-plugin-window-state = "=2.4.1"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+futures-util = "0.3"
+gtk = "0.18"
+zbus = "5"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
 libc = "0.2"
