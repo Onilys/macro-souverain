@@ -15,6 +15,7 @@ import { getWebOrigin } from '@core/util/webOrigin';
 import { Button } from '@ui';
 import { lazy, onCleanup, onMount } from 'solid-js';
 import {
+  agentConnectRoute,
   bookingReceiptRoute,
   EMAIL_SIGNUP_CALLBACK_PATH,
   formRespondRoute,
@@ -81,6 +82,16 @@ export function LoginPopupSuccess() {
       </div>
     </div>
   );
+}
+
+const AgentConnect = lazy(async () => ({
+  default: (await import('@app/features/agent-connect/AgentConnectPage'))
+    .AgentConnectPage,
+}));
+
+export function AgentConnectPage() {
+  const params = useRouteParams(agentConnectRoute);
+  return <AgentConnect app={params.app} />;
 }
 
 export function TaskSlugPage() {

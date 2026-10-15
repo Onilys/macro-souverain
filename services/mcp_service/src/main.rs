@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 //! MCP server binary that serves the DCS AI toolset over HTTP.
 //!
 //! This binary spins up a Streamable HTTP MCP server exposing the same
@@ -10,6 +11,8 @@ mod config;
 mod context;
 mod markdown_images;
 mod request_observer;
+mod setup_ports;
+mod setup_prompt;
 mod sign_in;
 mod telemetry;
 #[cfg(test)]
@@ -53,6 +56,9 @@ async fn main() -> anyhow::Result<()> {
             context.telemetry.clone(),
             context.attribution.clone(),
         ));
+    let setup_hint: Arc<dyn setup_prompt::SetupHintSource> = Arc::new(
+        setup_prompt::ServiceSetupHint::new(context.setup_service.clone()),
+    );
 
     // Create the MCP service with authenticated tool handler
     let mcp_service = StreamableHttpService::new(
@@ -64,7 +70,8 @@ async fn main() -> anyhow::Result<()> {
                 item_base_url.clone(),
                 static_file_base_url.clone(),
             )
-            .with_observer(observer.clone()))
+            .with_observer(observer.clone())
+            .with_setup_hint(setup_hint.clone()))
         },
         Arc::new(LocalSessionManager::default()),
         {

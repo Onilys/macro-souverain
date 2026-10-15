@@ -66,6 +66,7 @@
           "AI/recipes",
           "AI/bring-your-own",
           "AI/mcp/overview",
+          "AI/mcp/agent-setup",
           {
             "group": "Tool Reference",
             "icon": "wrench",

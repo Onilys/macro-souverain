@@ -14,6 +14,7 @@ name = "mcp_service_doppler_config"
 path = "src/doppler_config.rs"
 
 [dependencies]
+agent_setup = { path = "../../crates/agent_setup" }
 ai_billing = { path = "../../crates/ai_billing", features = ["pg-admission"] }
 analytics_client = { path = "../../crates/analytics_client" }
 base64 = { workspace = true }
@@ -97,6 +98,7 @@ sqs_client = { path = "../../crates/sqs_client", default-features = false, featu
   "search",
 ] }
 sync_service_client = { path = "../../crates/sync_service_client" }
+system_skills = { path = "../../crates/system_skills" }
 tokio = { workspace = true, features = ["signal"] }
 tokio-util = { workspace = true, features = ["rt"] }
 tracing = { workspace = true }

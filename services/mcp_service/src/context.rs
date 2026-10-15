@@ -63,20 +63,10 @@ use crate::{
     agent_led::{AgentHandover, PgAccountDirectory},
     client_attribution::{ClientAttribution, RedisClientStore},
     config::{Config, DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS},
+    setup_ports::{EmailSetupInbox, HandoverSetupAccounts},
     sign_in::AgentSignIn,
     telemetry::McpTelemetry,
 };
-
-/// The onboarding service as the MCP server wires it.
-pub type McpOnboardingService = onboarding::domain::service::OnboardingServiceImpl<
-    onboarding::outbound::pg_onboarding_repo::PgOnboardingRepo,
-    mcp_client::outbound::pg_server_repo::PgServerRepo,
-    ai_tools::ToolImportService,
-    ai_tools::ToolMcpSelector,
->;
-
-/// Hands accounts to the person's agent (see [`AgentHandover`]).
-pub type McpAgentHandover = AgentHandover<McpOnboardingService, PgAccountDirectory>;
 
 /// Which client each token belongs to.
 pub type McpClientAttribution = ClientAttribution<RedisClientStore>;
@@ -89,7 +79,8 @@ pub struct McpContext {
     pub mcp_public_host: String,
     pub telemetry: McpTelemetry,
     pub attribution: McpClientAttribution,
-    pub handover: McpAgentHandover,
+    /// Agent-led setup, also read when tailoring server instructions.
+    pub setup_service: Arc<agent_setup::domain::service::AgentSetupService>,
 }
 
 /// The tool context plus the services the MCP server needs beyond tools.
@@ -98,6 +89,8 @@ struct ToolContextParts {
     import_service: Arc<ai_tools::ToolImportService>,
     mcp_selector: Arc<ai_tools::ToolMcpSelector>,
     mcp_server_store: Arc<mcp_client::outbound::pg_server_repo::PgServerRepo>,
+    pipedream_client: ai_tools::ToolPipedreamConnection,
+    setup_inbox: Arc<dyn agent_setup::domain::ports::SetupInbox>,
 }
 
 struct ToolContextBuildArgs<'a> {
@@ -149,10 +142,12 @@ pub async fn build_context(
     .context("failed to load sync service auth key")?;
 
     let ToolContextParts {
-        tool_context,
+        mut tool_context,
         import_service,
         mcp_selector,
         mcp_server_store,
+        pipedream_client,
+        setup_inbox,
     } = build_tool_context(ToolContextBuildArgs {
         config,
         db: &db,
@@ -171,10 +166,33 @@ pub async fn build_context(
     let onboarding = Arc::new(onboarding::domain::service::OnboardingServiceImpl::new(
         onboarding::outbound::pg_onboarding_repo::PgOnboardingRepo::new(db.clone()),
         mcp_server_store,
-        import_service,
-        mcp_selector,
+        import_service.clone(),
+        mcp_selector.clone(),
     ));
-    let handover = AgentHandover::new(onboarding, PgAccountDirectory::new(db.clone()));
+    let handover = AgentHandover::new(onboarding.clone(), PgAccountDirectory::new(db.clone()));
+    let setup_service = Arc::new(agent_setup::domain::service::AgentSetupService::new(
+        agent_setup::domain::service::SetupPorts {
+            imports: Arc::new(agent_setup::outbound::import::ImportServiceSetup::new(
+                import_service,
+            )),
+            connections: Arc::new(
+                agent_setup::outbound::pipedream::ConnectorSetupConnections::new(
+                    mcp_selector,
+                    Arc::new(
+                        pipedream_mcp::outbound::pg_connection_repo::PgConnectionRepo::new(
+                            db.clone(),
+                        ),
+                    ),
+                    pipedream_client,
+                ),
+            ),
+            inbox: setup_inbox,
+            accounts: Arc::new(HandoverSetupAccounts::new(onboarding, handover.clone())),
+        },
+        agent_setup::domain::service::SetupConfig::new(config.app_base_url.as_ref()),
+    ));
+    tool_context.agent_setup_tool_context =
+        ai_tools::ToolAgentSetupToolContext::wired(setup_service.clone());
     let redis_client = redis::Client::open(config.redis_url.as_ref().to_owned())
         .context("failed to initialize redis client for the MCP server")?;
     let attribution = ClientAttribution::new(RedisClientStore::new(redis_client.clone()));
@@ -210,7 +228,7 @@ pub async fn build_context(
         mcp_public_host,
         telemetry,
         attribution,
-        handover,
+        setup_service,
     })
 }
 
@@ -562,6 +580,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         mcp_client::domain::models::AesKey::try_from(mcp_credentials_key.as_ref())
             .context("invalid MCP credentials encryption key")?;
     let pipedream_client = ai_tools::pipedream_client_from_env()?;
+    let setup_pipedream_client = pipedream_client.clone();
     let mcp_server_store = Arc::new(mcp_client::outbound::pg_server_repo::PgServerRepo::new(
         db.clone(),
         mcp_encryption_key,
@@ -642,6 +661,8 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         forms_tool_context,
         databases_sql_tool_context,
         import_tool_context: ToolImportToolContext::wired(import_service.clone()),
+        // Wired by `build_context` once the onboarding handover exists.
+        agent_setup_tool_context: ai_tools::ToolAgentSetupToolContext::unavailable(),
         chat_tool_context,
         channel_tool_context,
         channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context()?,
@@ -680,6 +701,8 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         import_service,
         mcp_selector,
         mcp_server_store,
+        pipedream_client: setup_pipedream_client,
+        setup_inbox: Arc::new(EmailSetupInbox::new(user_email_service)),
     })
 }
 

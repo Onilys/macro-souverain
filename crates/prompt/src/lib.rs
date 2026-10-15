@@ -20,6 +20,7 @@ pub mod document_content_links;
 pub mod email;
 pub mod math;
 pub mod mcp_item_links;
+pub mod mcp_setup;
 pub mod mcp_usage;
 pub mod mentions;
 pub mod pull_requests;
@@ -114,8 +115,9 @@ pub const MCP_INSTRUCTIONS_VISIBLE_CHARS: usize = 4096;
 ///
 /// Ordered by what an outside agent needs first, because clients truncate
 /// (Claude Code keeps [`MCP_INSTRUCTIONS_VISIBLE_CHARS`]) and weigh the start
-/// most: how to use Macro, then how to link items in replies, then the rules
-/// for content written into Macro, then the database and CRM references.
+/// most: the setup flow, how to use Macro, how to link items in replies, the
+/// rules for content written into Macro, then the database and CRM
+/// references.
 ///
 /// Item links in the model's own chat replies are rendered as plain Markdown
 /// URLs (built from `base_url`, the runtime `APP_BASE_URL` value) and lists of
@@ -126,8 +128,16 @@ pub const MCP_INSTRUCTIONS_VISIBLE_CHARS: usize = 4096;
 /// since the Macro app renders that content regardless of which surface
 /// created it. `base_url` should already have any trailing slash trimmed.
 pub fn mcp_instructions(base_url: &str) -> String {
+    mcp_instructions_for(base_url, mcp_setup::SetupHint::Unknown)
+}
+
+/// [`mcp_instructions`] for a person whose setup state is known: the setup
+/// flow leads for a workspace that isn't set up, and shrinks to one line for
+/// one that is. See [`mcp_setup`].
+pub fn mcp_instructions_for(base_url: &str, setup: mcp_setup::SetupHint) -> String {
     format!(
-        "{}\n{}\n{MCP_STATIC_INSTRUCTIONS}",
+        "{}\n{}\n{}\n{MCP_STATIC_INSTRUCTIONS}",
+        mcp_setup::render(setup),
         mcp_usage::render(),
         mcp_item_links::render(base_url)
     )
@@ -410,5 +420,53 @@ mod tests {
         assert!(visible.contains("# Using Macro"));
         assert!(visible.contains("SelfKnowledge"));
         assert!(visible.contains("columns `number`, `name`, and `link`"));
+    }
+
+    #[test]
+    fn a_workspace_that_is_not_set_up_leads_with_the_setup_flow() {
+        let instructions =
+            mcp_instructions_for("https://macro.com", mcp_setup::SetupHint::NotSetUp);
+        // ChatGPT weighs roughly the first 512 characters.
+        let head = &instructions[..512];
+        assert!(head.contains("Before anything else, call SetupGetState"));
+        for step in [
+            "SetupConnect",
+            "SetupDiscover",
+            "SetupProposePlan",
+            "SetupImport",
+            "SetupGetStatus",
+        ] {
+            assert!(instructions.contains(step), "the flow should name {step}");
+        }
+        assert!(instructions.contains("Never share, invite, send or pay"));
+    }
+
+    #[test]
+    fn a_set_up_workspace_gets_one_line_of_setup() {
+        let setup = mcp_setup::render(mcp_setup::SetupHint::SetUp);
+        let lines: Vec<&str> = setup
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .collect();
+        assert_eq!(lines.len(), 1);
+        assert!(!setup.contains("SetupConnect"));
+    }
+
+    #[test]
+    fn the_setup_flow_usage_and_reply_linking_fit_in_what_claude_code_keeps() {
+        for hint in [
+            mcp_setup::SetupHint::NotSetUp,
+            mcp_setup::SetupHint::SetUp,
+            mcp_setup::SetupHint::Unknown,
+        ] {
+            let instructions = mcp_instructions_for("https://macro.com", hint);
+            let visible = &instructions[..MCP_INSTRUCTIONS_VISIBLE_CHARS.min(instructions.len())];
+            assert!(visible.contains("SetupGetState"), "{hint:?}");
+            assert!(visible.contains("# Using Macro"), "{hint:?}");
+            assert!(
+                visible.contains("columns `number`, `name`, and `link`"),
+                "{hint:?}: the item-linking rules must be visible"
+            );
+        }
     }
 }

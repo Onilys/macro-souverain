@@ -2,16 +2,19 @@ use crate::markdown_images::MarkdownImageResolver;
 use crate::request_observer::{
     HANDOFF_TOOLS, InitializeSeen, NoObserver, RequestObserver, ToolCallSeen,
 };
+use crate::setup_prompt::{SetupHintSource, UnknownSetup};
 use crate::telemetry::{ClientInfo, ToolCallOutcome};
 use crate::tool_response::tool_result_with_media;
 use ai_toolset::{AsyncToolCollection, RequestContext, ToolSet};
 use macro_user_id::user_id::MacroUserIdStr;
 use mcp_auth_proxy::inbound::middleware::JwtAccessToken;
+use prompt::mcp_setup::SetupHint;
 use rmcp::{
     handler::server::ServerHandler,
     model::{
-        Content, Icon, InitializeRequestParams, InitializeResult, ListToolsResult,
-        PaginatedRequestParams, ServerCapabilities, ServerInfo, Tool, ToolAnnotations,
+        Content, GetPromptRequestParams, GetPromptResult, Icon, InitializeRequestParams,
+        InitializeResult, ListPromptsResult, ListToolsResult, PaginatedRequestParams,
+        ServerCapabilities, ServerInfo, Tool, ToolAnnotations,
     },
 };
 use std::{sync::Arc, time::Instant};
@@ -46,6 +49,9 @@ pub struct AuthenticatedToolService<Context> {
     static_file_base_url: url::Url,
     /// Told about handshakes and tool calls, for analytics.
     observer: Arc<dyn RequestObserver>,
+    /// Whether a person's workspace is set up, so the instructions can lead
+    /// with setup only for people who need it.
+    setup_hint: Arc<dyn SetupHintSource>,
 }
 
 impl<Context> AuthenticatedToolService<Context> {
@@ -62,7 +68,14 @@ impl<Context> AuthenticatedToolService<Context> {
             item_base_url,
             static_file_base_url,
             observer: Arc::new(NoObserver),
+            setup_hint: Arc::new(UnknownSetup),
         }
+    }
+
+    /// Tailors the setup part of the instructions with `setup_hint`.
+    pub fn with_setup_hint(mut self, setup_hint: Arc<dyn SetupHintSource>) -> Self {
+        self.setup_hint = setup_hint;
+        self
     }
 
     /// Reports handshakes and tool calls to `observer`.
@@ -116,6 +129,34 @@ impl<Context> AuthenticatedToolService<Context> {
             .map(str::to_owned);
         (token, user_agent)
     }
+
+    /// Server info with instructions tailored to the person's setup.
+    fn server_info(&self, setup: SetupHint) -> ServerInfo {
+        let mut info = ServerInfo::new(
+            ServerCapabilities::builder()
+                .enable_prompts()
+                .enable_tools()
+                .build(),
+        );
+        let base_url = self.item_base_url.trim_end_matches('/');
+        info.server_info = rmcp::model::Implementation::new(
+            "macro-tools",
+            env!("CARGO_PKG_VERSION"),
+        )
+        .with_title("Macro")
+        .with_description(
+            "Search, read, and create content across documents, emails, and messages in Macro.",
+        )
+        // The same icon the web app's <link rel="icon"> points at, so the
+        // server shows up in MCP clients with the Macro favicon.
+        .with_icons(vec![
+            Icon::new(format!("{base_url}/app/macro-favicon.svg"))
+                .with_mime_type("image/svg+xml")
+                .with_sizes(vec!["any".to_owned()]),
+        ]);
+        info.instructions = Some(prompt::mcp_instructions_for(base_url, setup));
+        info
+    }
 }
 
 /// The analytics class of a request-level failure.
@@ -157,25 +198,7 @@ where
     Context: Clone + Send + Sync + MarkdownImageResolver + 'static,
 {
     fn get_info(&self) -> ServerInfo {
-        let mut info = ServerInfo::new(ServerCapabilities::builder().enable_tools().build());
-        let base_url = self.item_base_url.trim_end_matches('/');
-        info.server_info = rmcp::model::Implementation::new(
-            "macro-tools",
-            env!("CARGO_PKG_VERSION"),
-        )
-        .with_title("Macro")
-        .with_description(
-            "Search, read, and create content across documents, emails, and messages in Macro.",
-        )
-        // The same icon the web app's <link rel="icon"> points at, so the
-        // server shows up in MCP clients with the Macro favicon.
-        .with_icons(vec![
-            Icon::new(format!("{base_url}/app/macro-favicon.svg"))
-                .with_mime_type("image/svg+xml")
-                .with_sizes(vec!["any".to_owned()]),
-        ]);
-        info.instructions = Some(prompt::mcp_instructions(base_url));
-        info
+        self.server_info(SetupHint::Unknown)
     }
 
     async fn initialize(
@@ -199,7 +222,36 @@ where
         if context.peer.peer_info().is_none() {
             context.peer.set_peer_info(request);
         }
-        Ok(self.get_info())
+        let setup = self.setup_hint.hint(user_id).await;
+        Ok(self.server_info(setup))
+    }
+
+    async fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<ListPromptsResult, rmcp::ErrorData> {
+        Self::authenticated_user_id(&context.extensions)?;
+        Ok(ListPromptsResult::with_all_items(
+            crate::setup_prompt::prompts(),
+        ))
+    }
+
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<GetPromptResult, rmcp::ErrorData> {
+        Self::authenticated_user_id(&context.extensions)?;
+        crate::setup_prompt::get(&request).ok_or_else(|| {
+            rmcp::ErrorData::invalid_params(
+                format!(
+                    "Unknown prompt \"{}\". The only prompt is \"setup\".",
+                    request.name
+                ),
+                None,
+            )
+        })
     }
 
     async fn list_tools(

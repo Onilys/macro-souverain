@@ -69,9 +69,9 @@ pub use tool_context::{
     ChannelSideEffectClients, FormsToolConfig, MaybeToolEventBroker, NoOpCallRtcClient,
     NoOpConnectionService, NoOpNotificationIngress, NoOpNotificationService,
     NoOpSnsEndpointManager, NoOpTaskProperties, RequestContext, RoutineToolContext,
-    TaskPropertiesAdapter, ToolActivityToolContext, ToolBookingLinkService,
-    ToolBookingLinkToolContext, ToolBookingManagementToolContext, ToolBotService,
-    ToolBotToolContext, ToolCalendarMutationService, ToolCalendarReadService,
+    TaskPropertiesAdapter, ToolActivityToolContext, ToolAgentSetupToolContext,
+    ToolBookingLinkService, ToolBookingLinkToolContext, ToolBookingManagementToolContext,
+    ToolBotService, ToolBotToolContext, ToolCalendarMutationService, ToolCalendarReadService,
     ToolCalendarToolContext, ToolCallRecordQueryService, ToolCallService, ToolCallToolContext,
     ToolChannelEventDispatcher, ToolChannelMediaUploadToolContext, ToolChannelMessagesService,
     ToolChannelToolContext, ToolChatService, ToolChatToolContext, ToolCodingAgentToolContext,
@@ -273,6 +273,14 @@ pub fn tools_for(host: AiHost) -> ToolSetWithPrompt {
             .add_tool::<SearchTools, ToolServiceContext>()
             .add_tool::<LoadTools, ToolServiceContext>(),
         AiHost::Mcp => toolset,
+    };
+    // Agent-led setup: a person's own agent sets up their workspace over MCP.
+    // Inside Macro the person is already set up and the web app connects tools.
+    let toolset = match host {
+        AiHost::Mcp => toolset.add_subtoolset::<ToolAgentSetupToolContext>(
+            agent_setup::inbound::toolset::setup_toolset(),
+        ),
+        AiHost::Chat | AiHost::AgentSession | AiHost::ChannelBot => toolset,
     };
     let toolset = match host {
         AiHost::Chat | AiHost::AgentSession => {

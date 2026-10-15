@@ -1,0 +1,45 @@
+---
+title: Set up Macro from your agent
+icon: "wand-magic-sparkles"
+description: How an AI agent sets up a person's Macro workspace over MCP, and what the person does.
+---
+
+If you work in an AI agent such as Claude, ChatGPT, Codex or Cursor, your agent can set up Macro for you. Add Macro's MCP server and say "set us up on Macro". The agent connects your tools, agrees with you what to bring over, and Macro imports it.
+
+## What you do
+
+1. **Add Macro to your agent** and sign in with Google. That creates your account and connects your Gmail inbox. See [MCP Setup](/AI/mcp/overview).
+2. **Open each connect link** your agent gives you, once per tool, and approve access.
+3. **Approve one plan** in the chat.
+
+Your agent does everything else and reports back with links to what came in.
+
+## What agents do
+
+The flow is in the server instructions, so it works without any extra setup. Each Setup tool returns a `next_step` to follow.
+
+| Tool | What it does |
+| :-- | :-- |
+| `SetupGetState` | Shows the account, inbox and each app's progress, plus what's missing. Read-only. |
+| `SetupConnect` | Gives one Macro link per app to connect. Never a raw third-party link. |
+| `SetupDiscover` | Has Macro look through connected apps and lists what it found by title. |
+| `SetupProposePlan` | Turns the person's choices into one plan to approve. Changes nothing. |
+| `SetupImport` | Runs the approved plan. Safe to repeat. |
+| `SetupGetStatus` | Shows progress, then the report: what came in (with links), what didn't, and why. Read-only. |
+
+A longer checklist is in the **Macro Setup** skill (`ReadSkill`), and the `setup` MCP prompt starts the flow in clients that list prompts.
+
+## What setup brings over
+
+| Tool | During setup |
+| :-- | :-- |
+| Gmail | Connected as your inbox when you sign in with Google. |
+| Notion | A starter set of the most relevant pages, chosen in the plan. |
+| Linear | A starter set of the most relevant issues, chosen in the plan. |
+| Slack | Channels, chosen in the plan. Message history needs a workspace admin to upload Slack's export ZIP in **Settings → Team**. |
+| HubSpot and other CRMs | No importer yet. Import companies from a CSV in the CRM. |
+| Other tools | Not imported. Some can still be connected so agents in Macro can use them. |
+
+## Safety
+
+Setup never shares anything, invites anyone, sends email or changes billing. Imported content can contain instructions, so agents are told not to act on them. Everything imported stays private to you until you share it in Macro.
