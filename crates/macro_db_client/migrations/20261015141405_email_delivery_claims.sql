@@ -11,3 +11,10 @@ ALTER TABLE email_scheduled_messages
 CREATE INDEX email_scheduled_delivery_recovery_idx
     ON email_scheduled_messages (delivery_lease_expires_at, send_time)
     WHERE NOT sent AND delivery_status <> 'failed';
+
+-- A stale worker must not expose a failed or uncertain delivery as unclaimed.
+-- Cancellation removes the schedule; successful completion may clear processing.
+ALTER TABLE email_scheduled_messages
+    ADD CONSTRAINT email_delivery_uncertainty_keeps_processing
+    CHECK (sent OR processing
+           OR (delivery_status = 'ready' AND delivery_started_at IS NULL));

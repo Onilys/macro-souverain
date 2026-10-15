@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_send_attempts SET request = request #- '{message,sender_email}' WHERE attempt_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "562078c24da5fc86f4e4cde886bca9daea8e1c288ee4a2d1cca77b10be41f9cd"
+}

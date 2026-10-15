@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT l.email_address, COALESCE(m.from_name, c.name) AS name, c.sfs_photo_url\n               FROM email_messages m JOIN email_links l ON l.id = m.link_id\n               LEFT JOIN email_contacts c ON c.id = m.from_contact_id\n               WHERE m.id = $1 AND m.link_id = $2",
+  "query": "SELECT COALESCE(c.email_address, l.email_address) AS \"email_address!\", COALESCE(m.from_name, c.name) AS name, c.sfs_photo_url\n               FROM email_messages m JOIN email_links l ON l.id = m.link_id\n               LEFT JOIN email_contacts c ON c.id = m.from_contact_id\n               WHERE m.id = $1 AND m.link_id = $2",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "email_address",
+        "name": "email_address!",
         "type_info": "Varchar"
       },
       {
@@ -26,10 +26,10 @@
       ]
     },
     "nullable": [
-      false,
+      null,
       null,
       true
     ]
   },
-  "hash": "d881191cbf1070a9ca8e83d9b19f44976848ba0f2d8d9b1bf5ebbdc9548c51d1"
+  "hash": "1b09adcc9a9b5331f8574cebb14bcae677938b5a826795cf9b4d5568f045afc0"
 }

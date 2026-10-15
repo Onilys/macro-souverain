@@ -98,7 +98,7 @@ it('restores the frozen alias into a replacement working copy after restart', as
 
   expect(restored.content.sender_email).toBe(alias);
   expect(restored.senderEmail).toBe(alias);
-  expect(drafts.localDraftMessage(restored).from.email).toBe(alias);
+  expect(drafts.localDraftMessage(restored).from?.email).toBe(alias);
   expect(restoredArgs.senderEmail).toBe(alias);
 });
 
@@ -115,7 +115,7 @@ it('preserves the sender of an older working copy without content.sender_email',
   expect(restoredArgs.senderEmail).toBe(alias);
   expect(
     drafts.localDraftMessage((await drafts.readLocalDraft(legacy.key))!).from
-      .email
+      ?.email
   ).toBe(alias);
 });
 
