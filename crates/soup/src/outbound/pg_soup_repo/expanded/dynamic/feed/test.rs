@@ -1,5 +1,6 @@
 use super::super::{
-    ExpandedDynamicCursorArgs, ItemSource, build_query, expanded_dynamic_cursor_soup_hydrated,
+    DocumentIdArrays, ExpandedDynamicCursorArgs, ItemSource, build_query,
+    expanded_dynamic_cursor_soup_hydrated,
 };
 use crate::domain::models::{
     SimpleSortQuery, SimpleSortRequest, SoupDocumentServerFacts, SoupProjectionHydration,
@@ -570,7 +571,13 @@ fn shapes_reach_every_driver_and_phase() {
         .iter()
         .flat_map(|(_, filter)| {
             SORTS.map(|sort| {
-                let query = build_query(filter, false, sort, ItemSource::SourceItems);
+                let query = build_query(
+                    filter,
+                    false,
+                    sort,
+                    ItemSource::SourceItems,
+                    &mut DocumentIdArrays::starting_at(9),
+                );
                 let (candidates, _) = query.sql().split_once("Combined AS").unwrap();
                 candidates.to_owned()
             })
