@@ -456,7 +456,7 @@ pub async fn update_entity_access_channel_share_permissions(
                 .map(|row| (row.entity_type, row.entity_id))
                 .fetch_all(transaction.as_mut())
                 .await?;
-                source_items::sync_rows(transaction.as_mut(), &removed).await?;
+                affected.extend(removed);
             }
             EntityType::Database
             | EntityType::CrmPipeline
@@ -481,7 +481,7 @@ pub async fn update_entity_access_channel_share_permissions(
                 .map(|row| (row.entity_type, row.entity_id))
                 .fetch_all(transaction.as_mut())
                 .await?;
-                source_items::sync_rows(transaction.as_mut(), &removed).await?;
+                affected.extend(removed);
             }
         }
     }
