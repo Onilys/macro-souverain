@@ -62,7 +62,7 @@ type RenameRollbackContext = {
 
 type EntityRenameData = {
   id: string;
-  itemType: ItemType;
+  itemType: EntityData['type'];
   oldName: string;
   newName: string;
 };

@@ -4,8 +4,8 @@ use async_graphql::{Context, ErrorExtensions, ID, InputObject, Object, OutputTyp
 use chrono::Utc;
 use email::domain::{
     models::{
-        ContactInfo, CreateDraftInput, DeletedUserDraft, EmailErr, Message, SavedUserDraft,
-        UpdateThreadLabelsResult,
+        ContactInfo, CreateDraftInput, CreatedDraft, DeletedUserDraft, EmailErr, Message,
+        SavedUserDraft, UpdateThreadLabelsResult,
     },
     ports::EmailService,
 };
@@ -16,11 +16,22 @@ use graphql_common::{parse_id, require_authenticated_user};
 use macro_user_id::user_id::MacroUserIdStr;
 use uuid::Uuid;
 
+mod send;
+use send::{SendEmailComposeMessageInput, SendEmailComposeMessagePayload};
+
 #[cfg(test)]
 mod test;
 
 /// Domain-facing capability required by email thread mutations.
 pub trait EmailMutationService: Send + Sync + 'static {
+    /// Send from a caller-accessible inbox, with server-side sender validation.
+    fn send_email_compose_message(
+        &self,
+        user_id: MacroUserIdStr<'static>,
+        link_id: Option<Uuid>,
+        input: CreateDraftInput,
+    ) -> impl Future<Output = Result<CreatedDraft, EmailErr>> + Send;
+
     /// Mark an accessible email thread as seen by the authenticated user.
     fn mark_email_thread_seen(
         &self,
@@ -74,6 +85,15 @@ impl<S> EmailMutationService for S
 where
     S: EmailService,
 {
+    async fn send_email_compose_message(
+        &self,
+        user_id: MacroUserIdStr<'static>,
+        link_id: Option<Uuid>,
+        input: CreateDraftInput,
+    ) -> Result<CreatedDraft, EmailErr> {
+        self.send_message_for_user(user_id, link_id, input).await
+    }
+
     async fn mark_email_thread_seen(
         &self,
         user_id: MacroUserIdStr<'static>,
@@ -230,6 +250,8 @@ impl From<SaveEmailDraftContactInput> for ContactInfo {
 /// existing draft.
 #[derive(InputObject)]
 pub struct SaveEmailDraftInput {
+    /// Verified sender address for the selected inbox. Absent selects its primary address.
+    pub sender_email: Option<String>,
     /// Draft handle: a client-generated ID, or a server ID from a fetched
     /// draft. Resolved scoped to the caller's inboxes, and bound to the
     /// server row the save settles on, so replays converge on one draft.
@@ -353,7 +375,8 @@ where
 fn saved_draft_message(saved: SavedUserDraft) -> Message {
     let SavedUserDraft {
         draft,
-        link,
+        link: _,
+        sender,
         created_at,
         updated_at,
         labels,
@@ -391,11 +414,7 @@ fn saved_draft_message(saved: SavedUserDraft) -> Message {
             || !attachments_forwarded.is_empty(),
         scheduled_send_time: draft.send_time,
         scheduled_send_status: None,
-        from: Some(ContactInfo {
-            email: String::from(link.email_address),
-            name: None,
-            photo_url: None,
-        }),
+        from: Some(sender),
         to: draft.to,
         cc: draft.cc,
         bcc: draft.bcc,
@@ -437,6 +456,18 @@ pub(crate) fn draft_mutation_error(error: &EmailErr) -> async_graphql::Error {
         EmailErr::MessageNotFound(_) => ("referenced email message not found", "NOT_FOUND"),
         EmailErr::ThreadNotFound => ("email thread not found", "NOT_FOUND"),
         EmailErr::InboxNotFound => ("email inbox not found", "INBOX_NOT_FOUND"),
+        EmailErr::InvalidSender => (
+            "address is not a verified sender for this inbox",
+            "INVALID_SENDER",
+        ),
+        EmailErr::SendAsPermissionRequired => (
+            "reconnect this inbox to use its sender addresses",
+            "NEEDS_REAUTH",
+        ),
+        EmailErr::SendAsUnavailable => (
+            "email sender addresses are unavailable",
+            "SEND_AS_UNAVAILABLE",
+        ),
         EmailErr::CannotReplyToDraft => ("cannot reply to a draft", "INVALID"),
         EmailErr::Base64DecodeError(_) | EmailErr::Utf8Error(_) => {
             ("email draft body is invalid", "INVALID")
@@ -597,6 +628,17 @@ where
         reload_thread::<O>(ctx, user_id, thread_id).await
     }
 
+    /// Enqueue a message from a caller-accessible inbox using a verified sender.
+    /// Delivery uses the existing undo window and worker, not the offline mutation queue.
+    #[tracing::instrument(skip_all, err(Debug))]
+    async fn send_email_compose_message(
+        &self,
+        ctx: &Context<'_>,
+        input: SendEmailComposeMessageInput,
+    ) -> async_graphql::Result<SendEmailComposeMessagePayload> {
+        send::send::<S>(ctx, input).await
+    }
+
     /// Create or update an email draft and return its thread's authoritative
     /// cache record. The client-generated handle resolves through a
     /// caller-scoped mapping to a server-minted row, so a save replayed from
@@ -704,6 +746,13 @@ pub(crate) fn draft_input_from_graphql(
         .transpose()?;
 
     Ok(CreateDraftInput {
+        sender_email: input
+            .sender_email
+            .map(|address| {
+                macro_user_id::email::EmailStr::try_from(address)
+                    .map_err(|_| draft_mutation_error(&EmailErr::InvalidSender))
+            })
+            .transpose()?,
         db_id: Some(parse_id(input.draft_id, "draftId")?),
         provider_id: input.provider_id,
         replying_to_id: input

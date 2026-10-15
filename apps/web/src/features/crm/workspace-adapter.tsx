@@ -5,7 +5,7 @@ import { idToDisplayName } from '@core/user/util';
 import { type EntityData, isCrmCompanyEntity } from '@entity';
 import { COMPANY_STAGE_OPTIONS } from '@entity/utils/task-properties';
 import { SYSTEM_PROPERTY_IDS } from '@property/constants';
-import { batch, createEffect, createRenderEffect, on } from 'solid-js';
+import { batch, createEffect, createRenderEffect, on, untrack } from 'solid-js';
 import type { Query } from '../next-soup/filters/filter-store';
 import type { SetPredicatesInput } from '../next-soup/filters/filter-store/predicates-store';
 import {
@@ -18,7 +18,11 @@ import { useSoupFilterPersistence } from '../next-soup/use-soup-filter-persisten
 import { openEntityInSplitFromUnifiedList } from '../next-soup/utils';
 import type { CrmContext } from './context/crm-context';
 import type { DealStages } from './context/crm-sources';
-import type { CrmWorkspace } from './context/workspace-context';
+import type {
+  CrmPipelineRequest,
+  CrmWorkspace,
+} from './context/workspace-context';
+import { pipelineIdOfTab } from './core/navigation';
 import type { CrmViewConfig } from './core/saved-view';
 import { createCrmCollectionFilters } from './filter-adapter';
 import { COMPANY_GROUP_OPTIONS } from './group-options';
@@ -36,7 +40,8 @@ function stageFilterResolvers(stages: DealStages) {
 
 export function createCrmWorkspace(
   crm: CrmContext,
-  sharedView?: CrmViewConfig
+  sharedView?: CrmViewConfig,
+  pipelineRequest?: CrmPipelineRequest
 ) {
   const soup = useSoup();
   const panel = useSplitPanelOrThrow();
@@ -181,6 +186,19 @@ export function createCrmWorkspace(
     panel.handle.setDisplayName('Customers');
   });
 
+  // Only a tab change releases: a new request arrives before its tab does.
+  createEffect(
+    on(
+      soupView.activeTab,
+      (tab) => {
+        const request = untrack(() => pipelineRequest?.current());
+        if (request && pipelineIdOfTab(tab) !== request.pipelineId)
+          pipelineRequest?.release();
+      },
+      { defer: true }
+    )
+  );
+
   // Bridge live soup sort state back to preferences. `defer: true` skips the
   // initial run on mount, so we only write when the user actually changes it.
   createEffect(
@@ -208,6 +226,7 @@ export function createCrmWorkspace(
       },
       openSettings: () => openSettings('CRM'),
       openTeamSettings: () => openSettings('Team'),
+      pipelineRequest: () => pipelineRequest?.current(),
     },
   };
   return { state, context, applyDefaultCrmView };

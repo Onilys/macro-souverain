@@ -573,6 +573,14 @@ impl<T: EmailService> EmailPreviewServiceReadOnly for ReadonlyEmailPreviewAdapte
 
 /// User-scoped read operations consumed by email inbound adapters.
 pub trait EmailUserService: Send + Sync + 'static {
+    /// Verified senders for an owned/delegated inbox. Authorization precedes
+    /// provider access; an inaccessible inbox is indistinguishable from absent.
+    fn get_user_email_senders(
+        &self,
+        macro_id: MacroUserIdStr<'static>,
+        link_id: Uuid,
+    ) -> impl Future<Output = Result<Vec<crate::domain::senders::SendAsAddress>, EmailErr>> + Send;
+
     /// List labels across every owned or delegated inbox accessible to the user.
     fn get_user_email_labels(
         &self,
@@ -587,6 +595,15 @@ pub trait EmailUserService: Send + Sync + 'static {
 }
 
 pub trait EmailService: Send + Sync + 'static {
+    /// Authorize the caller's sending inbox, resolve client handles, and enqueue
+    /// delivery with attribution to the authenticated actor.
+    fn send_message_for_user(
+        &self,
+        macro_id: MacroUserIdStr<'static>,
+        link_id: Option<Uuid>,
+        input: CreateDraftInput,
+    ) -> impl Future<Output = Result<CreatedDraft, EmailErr>> + Send;
+
     fn get_email_thread_previews(
         &self,
         req: GetEmailsRequest,
@@ -1051,6 +1068,14 @@ fn no_op_email_err() -> EmailErr {
 }
 
 impl EmailUserService for NoOpEmailService {
+    async fn get_user_email_senders(
+        &self,
+        _macro_id: MacroUserIdStr<'static>,
+        _link_id: Uuid,
+    ) -> Result<Vec<crate::domain::senders::SendAsAddress>, EmailErr> {
+        Err(no_op_email_err())
+    }
+
     async fn get_user_email_labels(
         &self,
         _macro_id: MacroUserIdStr<'static>,
@@ -1073,6 +1098,15 @@ impl EmailService for NoOpEmailService {
         thread_id: Uuid,
     ) -> Result<Uuid, EmailErr> {
         Ok(thread_id)
+    }
+
+    async fn send_message_for_user(
+        &self,
+        _macro_id: MacroUserIdStr<'static>,
+        _link_id: Option<Uuid>,
+        _input: CreateDraftInput,
+    ) -> Result<CreatedDraft, EmailErr> {
+        Err(no_op_email_err())
     }
 
     async fn set_thread_archived(

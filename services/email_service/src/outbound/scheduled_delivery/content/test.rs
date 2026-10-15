@@ -46,6 +46,7 @@ async fn admit(pool: &PgPool) -> anyhow::Result<SendAttemptId> {
     };
     let snapshot = SendSnapshot {
         message: CreateDraftInput {
+            sender_email: None,
             db_id: Some(message.db_id),
             provider_id: message.provider_id.clone(),
             replying_to_id: None,
@@ -143,7 +144,7 @@ async fn provider_sync_cannot_replace_approved_body_envelope_or_sender(
         prepared.provider_thread_id.as_deref(),
         Some("approved-provider-thread")
     );
-    assert_eq!(sender.email, "user1@test.com");
+    assert_eq!(sender.email, "alice@example.com");
     assert_eq!(sender.name.as_deref(), Some("Alice Smith"));
     let raw = sqlx::query_scalar!(
         "SELECT request FROM email_send_attempts WHERE attempt_id = $1",

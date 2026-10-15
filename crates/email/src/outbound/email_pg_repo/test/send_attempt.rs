@@ -20,6 +20,7 @@ fn message() -> Uuid {
 fn snapshot() -> SendSnapshot {
     SendSnapshot {
         message: CreateDraftInput {
+            sender_email: None,
             db_id: Some(message()),
             thread_db_id: Some(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
             provider_id: None,
@@ -286,6 +287,9 @@ fn service(pool: Pool<Postgres>) -> impl EmailSendService {
         entity_access_management_service: (),
         macro_event_broker: macro_event_broker::NoopMacroEventBroker,
         sent_undo_delay_secs: 5,
+        sender_provider: std::sync::Arc::new(
+            crate::domain::senders::UnavailableEmailSenderProvider,
+        ),
     }
 }
 
@@ -860,6 +864,38 @@ async fn deleted_preparation_without_submission_can_be_cancelled(
     assert_eq!(
         repo.cancel_send(&actor(), link(), attempt).await?.status,
         SendAttemptStatus::Cancelled
+    );
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../fixtures", scripts("email_draft"))
+)]
+async fn legacy_snapshot_without_sender_replays_the_original_attempt(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let repo = EmailPgRepo::new(pool.clone());
+    let attempt = SendAttemptId(macro_uuid::generate_uuid_v7());
+    let admitted = repo
+        .admit_send(&actor(), link(), attempt, prepared())
+        .await?;
+    // Model an attempt written before sender_email existed in the snapshot.
+    sqlx::query!(
+        "UPDATE email_send_attempts SET request = request #- '{message,sender_email}' WHERE attempt_id = $1",
+        attempt.0,
+    ).execute(&pool).await?;
+    let raw = serde_json::to_value(snapshot())?;
+    assert!(raw["message"].get("sender_email").is_none());
+    let legacy: SendSnapshot = serde_json::from_value(raw)?;
+    let mut replay = prepared();
+    replay.snapshot = legacy;
+    let replayed = repo.admit_send(&actor(), link(), attempt, replay).await?;
+    assert!(!replayed.transitioned);
+    assert_eq!(replayed.message_id, admitted.message_id);
+    assert_eq!(
+        replayed.send_time.unwrap().timestamp_micros(),
+        admitted.send_time.unwrap().timestamp_micros(),
     );
     Ok(())
 }

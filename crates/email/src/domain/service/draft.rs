@@ -65,6 +65,7 @@ where
             mut send_times,
             timestamps,
             mut labels,
+            mut senders,
         ) = tokio::try_join!(
             self.email_repo.attachments_by_message_ids(&message_ids),
             self.email_repo
@@ -75,6 +76,7 @@ where
             self.email_repo
                 .message_timestamps(draft.db_id, draft.link_id),
             self.email_repo.labels_by_message_ids(&message_ids),
+            self.email_repo.senders_by_message_ids(&message_ids),
         )
         .map_err(anyhow::Error::from)?;
         let timestamps =
@@ -87,6 +89,9 @@ where
             .map(|schedule| schedule.send_time);
 
         Ok(SavedUserDraft {
+            sender: senders
+                .remove(&draft.db_id)
+                .ok_or_else(|| anyhow::anyhow!("saved draft sender is unavailable"))?,
             created_at: timestamps.created_at,
             updated_at: timestamps.updated_at,
             labels: labels.remove(&draft.db_id).unwrap_or_default(),
@@ -369,6 +374,9 @@ where
         EmailErr,
     > {
         let link_id = link.id;
+        let sender = self
+            .resolve_sender(link, input.sender_email.as_ref(), !is_draft)
+            .await?;
         let accessible_link_ids: Vec<Uuid> = accessible_inboxes.iter().map(|l| l.id).collect();
 
         let source_inbox = self
@@ -396,10 +404,9 @@ where
         }
 
         // Build parsed addresses
-        let from_email = String::from(link.email_address.clone());
         let addresses = ParsedAddresses {
-            from_email: from_email.clone(),
-            from_name: None,
+            from_email: sender.email,
+            from_name: sender.name,
             to: input.to.clone(),
             cc: input.cc.clone(),
             bcc: input.bcc.clone(),
@@ -418,6 +425,14 @@ where
         // Resolve all IDs and build the insert-ready struct
         let message_db_id = input.db_id.unwrap_or_else(macro_uuid::generate_uuid_v7);
 
+        // Start the undo window only after provider validation and preparation.
+        // A slow send-as lookup must not consume the user's cancellation window.
+        if !is_draft {
+            input.send_time = Some(
+                chrono::Utc::now()
+                    + chrono::Duration::seconds(i64::from(self.sent_undo_delay_secs)),
+            );
+        }
         let resolved = ResolvedDraftInput {
             db_id: message_db_id,
             provider_id: input.provider_id,

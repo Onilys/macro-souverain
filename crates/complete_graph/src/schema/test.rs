@@ -399,6 +399,14 @@ impl email::domain::send_attempt::EmailSendService for CountingEmailService {
 }
 
 impl EmailUserService for CountingEmailService {
+    async fn get_user_email_senders(
+        &self,
+        _user: MacroUserIdStr<'static>,
+        _link: Uuid,
+    ) -> Result<Vec<email::domain::senders::SendAsAddress>, EmailErr> {
+        Ok(vec![])
+    }
+
     async fn get_user_email_labels(
         &self,
         macro_id: MacroUserIdStr<'static>,
@@ -467,6 +475,15 @@ impl EmailService for CountingEmailService {
             .filter(|(source, _)| *source == thread_id)
             .map(|(_, canonical)| canonical)
             .unwrap_or(thread_id))
+    }
+
+    async fn send_message_for_user(
+        &self,
+        _user: MacroUserIdStr<'static>,
+        _link: Option<Uuid>,
+        _input: email::domain::models::CreateDraftInput,
+    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
+        Err(test_email_err())
     }
 
     async fn set_thread_archived(

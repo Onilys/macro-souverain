@@ -195,7 +195,7 @@ impl EmailSendRepo for EmailPgRepo {
         sqlx::query!("UPDATE email_scheduled_messages SET send_time = $1 WHERE message_id = $2 AND link_id = $3", send_time, ids.message_db_id, link)
             .execute(&mut *tx).await.map_err(anyhow::Error::from)?;
         let sender = sqlx::query!(
-            r#"SELECT l.email_address, COALESCE(m.from_name, c.name) AS name, c.sfs_photo_url
+            r#"SELECT COALESCE(c.email_address, l.email_address) AS "email_address!", COALESCE(m.from_name, c.name) AS name, c.sfs_photo_url
                FROM email_messages m JOIN email_links l ON l.id = m.link_id
                LEFT JOIN email_contacts c ON c.id = m.from_contact_id
                WHERE m.id = $1 AND m.link_id = $2"#,

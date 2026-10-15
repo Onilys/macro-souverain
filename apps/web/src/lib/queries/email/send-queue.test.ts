@@ -192,6 +192,37 @@ async function send(): Promise<EmailSendIntent> {
   };
 }
 
+it('replays the frozen sender alias after cache recovery', async () => {
+  const alias = 'alias@example.com';
+  const selectedDraft = { ...draft, senderEmail: alias };
+  await sendEmailQueued({
+    draft: selectedDraft,
+    attachmentIds: [],
+    forwardedAttachmentIds: [],
+  });
+  const context = optimisticContextOf(operations[0])!;
+  const intent: EmailSendIntent = {
+    uuid: context.uuid,
+    phase: 'pending',
+    locallyCancelled: false,
+    cacheMissing: true,
+    metadata: context.durableIntent as EmailSendIntent['metadata'],
+  };
+  expect(operations[0].variables?.input.message.senderEmail).toBe(alias);
+  selectedDraft.senderEmail = 'different@example.com';
+  operations = [];
+
+  await recoverEmailSendIntent(intent);
+
+  const replay = operations.find((operation) => operation.kind === 'mutation')!;
+  expect(replay.variables?.input.message.senderEmail).toBe(alias);
+  expect(replay.variables?.input.attempt.attemptId).toBe(intent.uuid);
+  expect(optimisticContextOf(replay)?.durableIntent?.payload).toMatchObject({
+    draft: { senderEmail: alias },
+    input: { message: { senderEmail: alias } },
+  });
+});
+
 describe('durable email send intent', () => {
   it('persists the approved envelope, inbox, attachments and recovery body before acknowledging', async () => {
     const intent = await send();

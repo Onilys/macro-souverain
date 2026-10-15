@@ -256,6 +256,7 @@ export async function sendEmailQueued(args: {
       threadDbId: draft.threadDbId,
       subject: draft.subject,
       linkId: draft.senderLinkId,
+      senderEmail: draft.senderEmail,
       replyingToId: draft.replyingToId,
       providerId: draft.providerId,
       providerThreadId: draft.providerThreadId,

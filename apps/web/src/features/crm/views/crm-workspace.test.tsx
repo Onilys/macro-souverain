@@ -199,6 +199,9 @@ function setup(initialTab = 'active') {
   const [activeTab, setActiveTab] = createSignal<string | undefined>(
     initialTab
   );
+  const [pipelineRequest, setPipelineRequest] = createSignal<
+    { pipelineId: string; seek: string } | undefined
+  >();
   fixture.workspace = {
     activeTab,
     setActiveTab,
@@ -206,6 +209,7 @@ function setup(initialTab = 'active') {
       scopeId: 'crm',
       isActive: () => true,
       captureEntryState: vi.fn(),
+      pipelineRequest,
     },
     source: {},
     queryFilters: { state: { include: {} } },
@@ -213,7 +217,7 @@ function setup(initialTab = 'active') {
   render(() => (
     <CrmWorkspaceView>{() => <div>Record list</div>}</CrmWorkspaceView>
   ));
-  return { activeTab };
+  return { activeTab, setPipelineRequest };
 }
 
 it('keeps sidebar destinations in the mobile header when switching records, pipelines and lists', () => {
@@ -261,6 +265,17 @@ it('shows the company of a pipeline row in place of the pipeline on desktop', ()
   expect(screen.getByText('Sales record company:acme')).toBeTruthy();
   expect(screen.queryByText('Sales table')).toBeNull();
   expect(fixture.openWithSplit).not.toHaveBeenCalled();
+});
+
+it('shows a pipeline another view asks for, in place of an open record', () => {
+  fixture.touch = false;
+  const { activeTab, setPipelineRequest } = setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.queryByText('Sales table')).toBeNull();
+  setPipelineRequest({ pipelineId: 'sales', seek: 'first' });
+  expect(activeTab()).toBe('pipeline:sales');
+  expect(screen.getByText('Sales table')).toBeTruthy();
+  expect(screen.queryByText('Sales record company:acme')).toBeNull();
 });
 
 it('opens the company of a pipeline row in its own split on touch', () => {

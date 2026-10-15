@@ -26,3 +26,12 @@ query EmailSendAttempt($input: EmailSendAttemptInput!) {
     emailSendAttempt(input: $input) { ...EmailSendAttemptFields }
   }
 }
+
+mutation SendEmailComposeMessage($input: SendEmailComposeMessageInput!) {
+  sendEmailComposeMessage(input: $input) {
+    messageId
+    threadId
+    linkId
+    sendTime
+  }
+}

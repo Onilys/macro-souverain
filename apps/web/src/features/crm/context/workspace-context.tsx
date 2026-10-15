@@ -9,6 +9,14 @@ import type { EntityActionListState } from '../../next-soup/actions/entity-actio
 import type { SoupState } from '../../next-soup/create-soup-state';
 import type { QueryStore } from '../../next-soup/filters/filter-store/query-store';
 
+/** A pipeline another view asked the workspace to show. */
+export type CrmPipelineRequest = {
+  /** A new `seek` repeats a request for the same pipeline. */
+  current: Accessor<{ pipelineId: string; seek: string } | undefined>;
+  /** Forgets the request once the workspace shows something else. */
+  release(): void;
+};
+
 /** Collection capabilities consumed by CRM views, supplied by the host adapter. */
 export type CrmWorkspace = {
   host: {
@@ -19,6 +27,7 @@ export type CrmWorkspace = {
     openCompany(entity: EntityData, newSplit: boolean): void;
     openSettings(): void;
     openTeamSettings(): void;
+    pipelineRequest: CrmPipelineRequest['current'];
   };
 
   soup: EntityActionListState & {

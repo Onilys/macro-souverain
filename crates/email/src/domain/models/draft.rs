@@ -11,6 +11,10 @@ use super::link::Link;
 /// Input for creating a draft message. Mirrors the fields from `MessageToSend`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CreateDraftInput {
+    /// Requested sender. Absent selects the inbox's primary address. The domain
+    /// verifies alternate addresses against the selected inbox's provider grant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_email: Option<macro_user_id::email::EmailStr<'static>>,
     /// Existing message DB ID (for updating an existing draft).
     pub db_id: Option<Uuid>,
     /// Provider message ID.
@@ -141,6 +145,8 @@ pub struct SimpleMessageInfo {
 /// returns an error instead of an incomplete saved draft.
 #[derive(Clone)]
 pub struct SavedUserDraft {
+    /// Persisted sender, including an approved alias when selected.
+    pub sender: ContactInfo,
     /// The created or updated draft.
     pub draft: CreatedDraft,
     /// The inbox the draft was saved into.

@@ -846,8 +846,9 @@ or cancelled draft must not acquire Sent membership.
 
 With the durable GraphQL transport enabled, **Send** accepts an immediate new
 message, reply, or forward while offline. The approved recipients, selected
-inbox, subject, body, and uploaded attachment references are frozen in the local
-queue. Only one active send can be queued for a draft, including across tabs.
+inbox and sender address, subject, body, and uploaded attachment references are
+frozen in the local queue. Undo restores the selected sender and edited recipients,
+including after reopening the composer. Only one active send can be queued for a draft, including across tabs.
 A queued draft is read-only; Reply and Forward actions cannot replace its content.
 Replay resumes while the app is running or
 when it is reopened with service; closing the app does not guarantee delivery.
@@ -1144,6 +1145,38 @@ search field, filter menu and preview control. The sidebar lists the inboxes abo
 `Connect another account` starts the add-inbox flow from its own row below the
 scrolling list. `New email` prefills From with the selected inbox, or the primary
 inbox when All inboxes is selected; reopening a draft keeps its saved sender.
+The From menu groups each connected inbox with its verified Gmail send-as aliases.
+Replies default to an address on the thread's own inbox: preserve an outgoing
+message's From, otherwise match To before Cc/Bcc (prefer an alias within each
+recipient group). A manual choice or saved draft takes precedence over late
+account refreshes. Reply-all excludes the inbox's primary address and its aliases.
+Aliases are scoped to their owning inbox, even when two inboxes share an address.
+A failed alias lookup for one inbox does not hide other inboxes' aliases. An
+invalid or unavailable selected alias is rejected on save/send, never silently
+replaced with the primary address.
+
+The sidebar and mobile inbox picker also list aliases beneath their inbox.
+Selecting one scopes mail to that inbox and the exact address in From/To/Cc/Bcc;
+search candidates are checked against the same GraphQL scope. Search and Reminders
+automatically advance nonmatching candidate pages until a match or exhaustion;
+while alias membership is loading, wait rather than treating it as an empty inbox.
+Refresh retries both search and alias membership. A failed retained membership
+lookup shows an error without discarding already-confirmed rows. If a saved alias
+disappears from the catalog, the primary address must not look selected; use
+`All inboxes` or choose an available address to clear that scope. Scheduled mail
+matches its saved sender. `All inboxes` clears both the inbox and alias selection,
+and the selection survives reloads. With one inbox **and aliases**, the All row
+and address pickers remain available. To check without sending real mail, open
+both pickers, select an alias, switch to the primary address, reopen a saved alias
+draft, and confirm the address remains unchanged. Alias discovery uses
+`MailAccounts`, draft saves use `saveEmailDraft`, and delivery uses
+`sendEmailMessage` for durable delivery or `sendEmailComposeMessage` for foreground
+GraphQL delivery; the existing undo-send window still applies. Verify an alias
+through offline queueing, reconnect, and Undo: it must stay attached to the
+captured inbox and must never fall back to that inbox's primary address. Existing
+queued sends created before alias support must still replay with the same attempt
+identity.
+
 If an explicitly selected sending inbox is unavailable, Send reports
 `Unable to find linked email account. Select a sending inbox.` without delivering
 through another account. The From picker stays available as `Select sending inbox`,
@@ -1153,7 +1186,7 @@ sending; the picker never displays another inbox as selected before that choice.
 With no explicit selection, an unavailable primary still falls back to
 the first linked inbox.
 Sidebar rows, including `All inboxes`, replace their icon with an accent-colored checkmark when
-selected. With exactly one connected inbox, only its address appears as the selected
+selected. With exactly one connected inbox and no aliases, only its address appears as the selected
 row, followed by `Connect another account`; there is no `All inboxes` row, title
 inbox dropdown, or inbox section in the mobile filter drawer. The inbox section shows up to four rows (including `All inboxes`), then
 scrolls independently without overscroll so the email tabs stay in place. With many
@@ -2245,7 +2278,9 @@ editable table. Team members can edit shared pipelines; the creator owns them
 and can change access later through the standard **Share** dialog. Under
 **Team access**, choose **Edit** to share with the team or **None** to make the
 pipeline private. **Copy Link** copies a CRM link that opens this pipeline for
-anyone who has access. On mobile, team access is in the **Team** tab.
+anyone who has access; pasted into an editor it becomes a pipeline mention (see
+[CRM pipeline mentions](documents.md#crm-pipeline-mentions)). On mobile, team
+access is in the **Team** tab.
 
 The first column is a required company/contact reference. Clicking a filled
 reference, or pressing Enter on it, opens that company or contact; on desktop it

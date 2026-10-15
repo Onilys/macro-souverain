@@ -138,6 +138,7 @@ export async function restoreSendWorkingCopy(
       inboxId: draft.senderLinkId,
       senderEmail: draft.senderEmail,
       draft: {
+        sender_email: draft.senderEmail,
         subject: draft.subject,
         to: draft.to,
         cc: draft.cc,
@@ -168,7 +169,8 @@ export async function restoreSendWorkingCopy(
     localRevision: local.revision,
     senderLinkId: local.inboxId ?? draft.senderLinkId,
     linkId: local.inboxId ?? draft.linkId,
-    senderEmail: local.senderEmail ?? draft.senderEmail,
+    senderEmail:
+      local.content.sender_email ?? local.senderEmail ?? draft.senderEmail,
     subject: local.content.subject,
     to: local.content.to?.map(draftContactInput),
     cc: local.content.cc?.map(draftContactInput),

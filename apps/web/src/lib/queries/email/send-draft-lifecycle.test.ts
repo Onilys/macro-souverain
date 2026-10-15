@@ -82,6 +82,43 @@ afterEach(async () => {
   await drafts.localDraftStore.close();
 });
 
+it('restores the frozen alias into a replacement working copy after restart', async () => {
+  const alias = 'alias@email-send.test';
+  const frozen = JSON.parse(JSON.stringify({ ...args, senderEmail: alias }));
+  await drafts.localDraftStore.close();
+  vi.resetModules();
+  drafts = await import('./local-drafts');
+  lifecycle = await import('./send-draft-lifecycle');
+
+  const restoredArgs = await lifecycle.restoreSendWorkingCopy(
+    frozen,
+    undefined
+  );
+  const restored = (await drafts.readLocalDraft(String(args.draftId)))!;
+
+  expect(restored.content.sender_email).toBe(alias);
+  expect(restored.senderEmail).toBe(alias);
+  expect(drafts.localDraftMessage(restored).from.email).toBe(alias);
+  expect(restoredArgs.senderEmail).toBe(alias);
+});
+
+it('preserves the sender of an older working copy without content.sender_email', async () => {
+  const alias = 'legacy-alias@email-send.test';
+  const legacy = await drafts.saveLocalDraft({
+    ...input(),
+    senderEmail: alias,
+  });
+  expect(legacy.content.sender_email).toBeUndefined();
+
+  const restoredArgs = await lifecycle.restoreSendWorkingCopy(args, undefined);
+
+  expect(restoredArgs.senderEmail).toBe(alias);
+  expect(
+    drafts.localDraftMessage((await drafts.readLocalDraft(legacy.key))!).from
+      .email
+  ).toBe(alias);
+});
+
 it('preserves uploaded and forwarded descriptors through retirement, restart, and offline restore', async () => {
   const original = await drafts.saveLocalDraft(input(uploadedAttachments()));
   const captured = await lifecycle.captureSendWorkingCopy(

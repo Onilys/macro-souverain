@@ -3,14 +3,11 @@ import type { Accessor } from 'solid-js';
 import type { EmailMessage } from '../../email-message/core/email-message';
 import type { EmailDraft } from '../core/email-draft';
 import type { EmailRecipient } from '../core/email-recipient';
+import type { SenderInbox } from '../core/email-sender';
 import type { LocalDraft } from '../core/local-draft';
 import type { DraftFormAttachment } from '../primitives/email-form-state';
 
-export interface EmailInbox {
-  id: string;
-  email_address: string;
-  displayName?: string;
-  photo_url?: string | null;
+export interface EmailInbox extends SenderInbox {
   settings: {
     signature?: string | null;
     signature_on_replies_forwards?: boolean | null;
@@ -44,6 +41,9 @@ export type DraftPersistFailureCode =
   | 'INBOX_NOT_FOUND'
   | 'UNAUTHORIZED'
   | 'INVALID'
+  | 'INVALID_SENDER'
+  | 'NEEDS_REAUTH'
+  | 'SEND_AS_UNAVAILABLE'
   | 'INTERNAL';
 
 /**
