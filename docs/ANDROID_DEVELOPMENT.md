@@ -130,9 +130,17 @@ its fingerprint to production associations before testing Play-installed links.
 
 ### Production release artifacts
 
-`.github/workflows/release-production.yml` builds an ARM64 signed AAB from the
-release commit only when `apps/web/tauri/` differs from the closest ancestor
-release with a complete AAB, R8 mapping, and checksums. The first release without
+After web, cloud-storage, sync-service, and AI editing worker deployments succeed,
+`.github/workflows/release-production.yml` dispatches the independent
+`release-android.yml` workflow and does not wait for it. Android has its own
+concurrency group and cancellation lifecycle: a slow or canceled native build
+cannot hold the production deployment lock or delay the next deployment.
+Cancel an already-dispatched Android build from its own workflow run; canceling
+the production run does not cancel it.
+
+The Android workflow builds an ARM64 signed AAB from the selected release tag
+only when `apps/web/tauri/` differs from the closest ancestor release with a
+complete AAB, R8 mapping, and checksums. The first release without
 such a baseline builds an AAB. Frontend-only releases skip native builds and Play
 uploads; their app updates use the bundle updater. The comparison covers the
 entire Tauri directory, including Android, iOS, Rust, and native config files.
@@ -204,22 +212,22 @@ separate roles.
 
 Before publishing artifacts, CI verifies the signing certificate, package/version,
 ARM64 ABI, and non-debuggable manifest, and checks the AAB structure
-with a checksum-pinned bundletool. Publishing
-waits for the web, cloud-storage, sync-service, and AI editing worker deployments. Android failures
-fail their job without blocking web/backend rollout. CI verification does not
-replace the device qualification described above.
+with a checksum-pinned bundletool. The automatic Android workflow starts after
+web/backend rollout succeeds. Build or publishing failures are reported on the
+Android workflow; the production workflow reports only whether dispatch succeeded.
+CI verification does not replace the device qualification described above.
 
 To recover an Android artifact without redeploying production, manually run
-`release-production.yml` with `release_tag` set to an existing published
-production release. The source is checked out from that tag; web/backend jobs
-are skipped. `publish_android` defaults to false so the first run can validate
-the build and leave the files in the `android-release` Actions artifact. Set it to
+`release-android.yml` from `main` with `operation=rebuild` (the default) and
+`release_tag` set to an existing published production release. The source is
+checked out from that tag; this workflow has no web/backend deployment jobs.
+`publish_android` defaults to false so the first run can validate the build and leave the files in the `android-release` Actions artifact. Set it to
 true to attach the verified artifacts and checksums to the selected release.
 This explicit recovery path bypasses change detection and does not automatically
 upload to Play:
 
 ```sh
-gh workflow run release-production.yml --ref main -f release_tag=v2026.9.30.0 -f publish_android=true
+gh workflow run release-android.yml --ref main -f operation=rebuild -f release_tag=v2026.9.30.0 -f publish_android=true
 ```
 
 The Android job uses an ephemeral GitHub-hosted runner without a separate Nix
@@ -235,11 +243,13 @@ directly on a device.
 
 ### Google Play publishing
 
-`.github/workflows/publish-android-play.yml` runs from `main`. After a native
-release has passed verification, completed backend/web rollout, and attached its
-artifacts to GitHub, the production release workflow dispatches it automatically
-with `operation=upload-internal` and `status=completed`. Testers receive the new
-version subject to Google Play checks. Frontend-only releases do not dispatch it.
+`.github/workflows/publish-android-play.yml` runs from `main`. After successful
+backend/web rollout, the production workflow dispatches `release-android.yml`
+with `operation=release`. That independent workflow checks for native changes,
+builds and verifies the AAB, and attaches its artifacts to GitHub. It then
+dispatches the Play publishing workflow with `operation=upload-internal` and
+`status=completed`. Testers receive the new version subject to Google Play
+checks. Frontend-only releases do not dispatch the Play publishing workflow.
 The separate workflow result reports whether the Play upload succeeded; queuing
 it does not mean Play has accepted the release. Manual upload remains available
 for recovery and Console-review drafts.

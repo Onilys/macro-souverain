@@ -754,7 +754,7 @@ preserve the submitted tool selection.
 ## Composer anatomy (a11y)
 
 AI chat (including Home and doc-scoped chat) and agent session composers have
-a **Start dictation with OpenAI Whisper** microphone beside Send. It records
+a **Start dictation** microphone beside Send. It records
 in memory and uploads to the
 authenticated `/dictation/transcribe` storage endpoint only on confirmation.
 Whisper is available on all plans without consuming chat credits; its server
@@ -764,13 +764,15 @@ no browser speech-recognition or language-pack installation flows.
 
 While dictating, a scrolling microphone-volume timeline and **Cancel dictation** / **Use dictation**
 replace the composer controls. Cancel (or Escape) preserves the original draft.
-Bars sample microphone volume as recording chunks arrive (normally every 200ms): silence stays dotted, louder speech
+Bars sample microphone volume on a fixed timer (every 80ms), independent of recording chunks: silence stays dotted, louder speech
 creates taller bars, and earlier levels move left without changing height.
 Volume analysis stays on-device and stops on confirm, cancel, error, or close.
 Use dictation stops recording, waits for Whisper, and appends plain text to
 the draft without sending it. Existing rich text and attachments remain intact.
 If the browser stops listening on its own, **Ready** waits for confirmation.
 While **Finishing…**, the checkmark is disabled and Cancel remains available.
+No provider name or transcription hint appears below the composer; only the
+recording limit and failures do.
 Mobile chat stays expanded when focus moves into dictation controls.
 Starting dictation in another composer releases the previous session without
 moving focus back to it. Closing the composer releases the microphone. Capture failures

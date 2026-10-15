@@ -149,7 +149,10 @@ flag in every environment. Team targeting is configured in PostHog; ordinary
 document permissions continue to control access to each workbook.
 
 Choose **Create → Spreadsheet**, or **New → Spreadsheet** in Files or a folder.
-Native workbooks open at `/app/spreadsheet/<uuid>` and use the normal document
+From Files the new workbook opens inline in the open folder or tab
+(`/app/drive/.../spreadsheet/<uuid>`) without reloading Drive.
+`/app/spreadsheet/<uuid>` links redirect into Drive on desktop. Native workbooks
+use the normal document
 title bar with **Ask Macro** and **Share** at the top right. The **File actions**
 ellipsis beside the title uses the same menu as documents, including rename,
 favorite, move, copy, and permission-appropriate file actions. Native spreadsheets
@@ -302,7 +305,10 @@ The document title and Share button sit above a compact formatting ribbon:
 undo/redo, paste, zoom and view options, currency/percent/decimals/number format,
 font and size, text styles, text/fill color, borders, alignment, wrapping,
 functions, format/data actions, and find. Icon controls expose accessible button
-names and tooltips. **Paste special** offers **Paste** and **Paste values only**.
+names and tooltips. **Number format → Accounting** shows Excel's accounting layout:
+`$` at the cell's left edge, the amount at the right, negatives in parentheses and
+zero as a dash; the cell's accessible name reads like `B2: $(1,234.50)`.
+**Paste special** offers **Paste** and **Paste values only**.
 Select a range first; formatting applies to all selected cells. Toggling bold,
 italic, underline, or strikethrough on a mixed selection first enables it for the
 entire selection. Whole-column formatting preserves the viewport. In a cell that
@@ -2100,6 +2106,32 @@ To verify, mention a project in a document and in a channel draft, check the
 mention opens the right project, rename the project and reload to see the name
 update, and delete the mention. Discard unsent test drafts rather than sending
 them.
+
+## CRM pipeline mentions
+
+Pipelines are not in the `@` menu or the command menu. Pasting a pipeline link
+into an editor or composer inserts a document mention with a table icon and the
+pipeline's current name: the pipeline's copy-link action
+(`/app/companies?crmView=…` whose view is that pipeline) and
+`/app/pipeline/<id>` both work. Copied Customers links for other views
+(Companies, People, lists) stay plain links. A pipeline you cannot read shows
+**No Access**; a trashed one shows **Deleted**.
+
+Clicking the mention, or pressing Enter on it, opens Customers on the pipeline
+(on touch devices too). If Customers is already open in a split, that split
+switches to the pipeline instead of a second one opening. The request travels
+as the Customers pane search `crm.pipeline` (with a `crm.seek` that makes a
+repeat click a new request), which Customers drops once you leave the
+pipeline.
+
+The mention is stored as
+`<m-document-mention>{"documentId":"<pipeline id>","blockName":"pipeline",…}</m-document-mention>`.
+Like a project mention, it is never a channel-message reference, so mentioning
+a pipeline in a channel does not share it with the channel's members.
+
+To verify, copy a pipeline's link in Customers, paste it into a document,
+check the chip's name, click it with Customers closed and again with Customers
+open on Companies, and open `/app/pipeline/<id>` directly.
 
 ## CRM associations
 

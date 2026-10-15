@@ -54,7 +54,7 @@ import { useUserInfoQuery } from '@queries/auth/user-info';
 import { queryClient } from '@queries/client';
 import { useLocation, useNavigate } from '@solidjs/router';
 import { type as osType } from '@tauri-apps/plugin-os';
-import { cn, ImperativeDialogHost } from '@ui';
+import { cn } from '@ui';
 import {
   createEffect,
   createMemo,
@@ -170,7 +170,6 @@ export function RootFrame(props: ParentProps) {
         <Show when={hasOverlayTitleBar}>
           <DesktopTitleBar />
         </Show>
-        <ImperativeDialogHost />
         <BundleUpdateProgressBar />
         <Show when={paywallOpen()}>
           <Suspense>

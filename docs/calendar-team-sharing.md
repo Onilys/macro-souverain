@@ -85,10 +85,12 @@ actions. A team view does not expand calendar search or generic event-detail
 authorization. Attendee `self` flags in detailed projections describe the viewer,
 not the source calendar account.
 
-The existing team out-of-office overlay also follows the server gate and requires
-explicit `all` sharing. Gate-off deployment suppresses that overlay; busy-only
-sharing does not disclose an out-of-office label. This is an intentional privacy
-change to the older overlay, not a claim that the person has no time off.
+The existing team out-of-office overlay also follows the server gate and reads
+only primary-calendar out-of-office events with default or public visibility.
+Busy-only sharing, including the default for a member who never chose, shows
+each one as a plain out-of-office block without its title; `all` adds the title;
+`none` hides it. Gate-off deployment suppresses that overlay, and its absence is
+not a claim that the person has no time off.
 
 Team projections and availability use server-confirmed source copies. An offline
 edit can appear immediately in the editor's own calendar through the mutation

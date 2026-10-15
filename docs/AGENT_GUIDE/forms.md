@@ -15,7 +15,8 @@ decides who may respond.
 
 - **Create → Form** (shortcut **C → Q**, **Shift** opens it in a new split)
   creates "Untitled form" with a new database whose table is "Responses",
-  and opens the builder at `/app/form/<uuid>`.
+  and opens the builder at `/app/form/<uuid>`. Drive's **New → Form** opens
+  it inline instead, at `/app/drive/form/<uuid>`.
 - On a database page you own, **+ → New form** in the table selector makes
   a form with a question per existing column while no form writes to the current
   table. Each table has at most one form; the control opens that form once created.
@@ -140,7 +141,8 @@ rows stay.
 
 ## Finding forms
 
-Drive lists forms you can open (type facet **Form**), and Quick Access has a
+Drive lists forms you can open (type facet **Form**) and opens them inline at
+`/app/drive/form/<uuid>`, and Quick Access has a
 Forms bucket. Both come from `/forms/accessible`, so a form shared with you
 appears without access to its database. Deleting a database table warns which
 forms it deletes; deleting a column warns which forms ask it (both say so

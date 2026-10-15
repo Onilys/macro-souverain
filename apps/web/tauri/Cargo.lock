@@ -247,7 +247,9 @@ version = "0.1.0"
 dependencies = [
  "block2",
  "clap",
+ "futures-util",
  "graphql_cache_plugin",
+ "gtk",
  "http",
  "jni",
  "libc",
@@ -303,6 +305,7 @@ dependencies = [
  "url",
  "urlencoding",
  "uuid",
+ "zbus",
 ]
 
 [[package]]

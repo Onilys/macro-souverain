@@ -5,6 +5,25 @@ single Vite build that runs identically for web, desktop, iOS, and Android — t
 platform is detected at runtime via `getPlatform()` rather than baked into the
 bundle.
 
+## macOS app icon
+
+The macOS icon reuses the iOS marketing artwork through the Icon Composer source
+in `icons/macos/Macro.icon`. The macOS-only Tauri configuration bundles its
+compiled `Assets.car` and `Macro.icns`, and merges the generated icon names into
+Info.plist. Tahoe uses the icon composition; older macOS uses the generated
+fallback. The mobile artwork has no baked-in rounded tile or transparent border
+for macOS to place inside another enclosure.
+
+After changing the mobile artwork or composition, regenerate with Xcode 26.2:
+
+```sh
+bash icons/macos/regenerate.sh
+```
+
+Commit the source and generated files together. They are checked in so desktop
+release builds do not need Icon Composer. Verify Finder and Dock rendering at
+both 1× and 2× display scale on Tahoe, and on a pre-Tahoe Mac.
+
 ## Running in development
 
 ```sh
@@ -185,6 +204,16 @@ sender. Before publishing this frontend in a desktop OTA archive, set
 `MIN_NATIVE_BUILD` to the first native release containing the command. Older
 binaries show an update-required notice instead of falling back to the legacy
 notification API, which macOS rejects after UserNotifications has been used.
+
+Linux notification activation requires `send_linux_notification` and
+`close_linux_notification`. Ship a full native AppImage containing these commands;
+a frontend-only update cannot add clickable system notifications. Before publishing
+this frontend as a desktop OTA archive, raise `MIN_NATIVE_BUILD` to that release.
+Older Linux binaries show an update-required error rather than silently sending
+notifications that cannot be activated. The native sender retains the D-Bus
+connection, advertises the default Open action, and forwards activation tokens to
+GTK before the existing frontend notification callback navigates. Dismissal never
+navigates. This supports the running app, not relaunch after the process exits.
 
 Extraction writes a sibling `<directory>.complete` record only after checksum,
 extraction, manifest, and entrypoint validation succeed. Directories without a

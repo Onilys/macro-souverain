@@ -26,6 +26,15 @@ outline surface and border with semibold text, without inverted colors. Disabled
 and pending primary actions retain the strong variant. Mobile confirmation drawers
 use the same action hierarchy.
 
+## List-item sharing
+
+Right-click a shareable list row and choose **Share**. The sharing dialog must
+remain open after the context menu closes, with recipient selection and the
+optional message available. Dismiss it with Cancel, then reopen Share on the
+same row and confirm focus enters the recipient selector again. Opening or
+cancelling the dialog does not change access; do not submit shares on real dev
+data unless authorized.
+
 ## User cards
 
 Avatar and user-mention cards open on hover on pointer devices and as a bottom
@@ -434,6 +443,14 @@ Full email client. Tabs: `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled`
 `Archived` / `All`. Compose via the `Email` button (or `Create` → `Email E`). On a fresh local user it
 shows `Connect your email` (Gmail/Google Workspace OAuth) — most functionality needs a
 connected account. Search is `Ctrl+F` within the surface.
+
+Sender names use each message's `From` display name, falling back to the
+address-book name when it is absent. Multiple people or bots sending through
+one address (such as GitHub notifications) retain distinct names within and
+across threads. Verify in Mail and in Search with the Email filter and an empty
+query: load more threads from the same address, then check that existing row
+names and their hover cards do not change. Repeat with a text query to exercise
+the search-service results.
 
 `Favorites`, directly below Noise, lists starred Macro emails across Signal,
 Noise, and archived mail. It respects the selected inboxes and filters; search
@@ -1011,6 +1028,33 @@ search field, filter menu and preview control. The sidebar lists the inboxes abo
 `Connect another account` starts the add-inbox flow from its own row below the
 scrolling list. `New email` prefills From with the selected inbox, or the primary
 inbox when All inboxes is selected; reopening a draft keeps its saved sender.
+The From menu groups each connected inbox with its verified Gmail send-as aliases.
+Replies default to an address on the thread's own inbox: preserve an outgoing
+message's From, otherwise match To before Cc/Bcc (prefer an alias within each
+recipient group). A manual choice or saved draft takes precedence over late
+account refreshes. Reply-all excludes the inbox's primary address and its aliases.
+Aliases are scoped to their owning inbox, even when two inboxes share an address.
+A failed alias lookup for one inbox does not hide other inboxes' aliases. An
+invalid or unavailable selected alias is rejected on save/send, never silently
+replaced with the primary address.
+
+The sidebar and mobile inbox picker also list aliases beneath their inbox.
+Selecting one scopes mail to that inbox and the exact address in From/To/Cc/Bcc;
+search candidates are checked against the same GraphQL scope. Search and Reminders
+automatically advance nonmatching candidate pages until a match or exhaustion;
+while alias membership is loading, wait rather than treating it as an empty inbox.
+Refresh retries both search and alias membership. A failed retained membership
+lookup shows an error without discarding already-confirmed rows. If a saved alias
+disappears from the catalog, the primary address must not look selected; use
+`All inboxes` or choose an available address to clear that scope. Scheduled mail
+matches its saved sender. `All inboxes` clears both the inbox and alias selection,
+and the selection survives reloads. With one inbox **and aliases**, the All row
+and address pickers remain available. To check without sending real mail, open
+both pickers, select an alias, switch to the primary address, reopen a saved alias
+draft, and confirm the address remains unchanged. Alias discovery uses
+`MailAccounts`, draft saves use `saveEmailDraft`, and delivery uses
+`sendEmailMessage` in GraphQL; the existing undo-send window still applies.
+
 If an explicitly selected sending inbox is unavailable, Send reports
 `Unable to find linked email account. Select a sending inbox.` without delivering
 through another account. The From picker stays available as `Select sending inbox`,
@@ -1020,7 +1064,7 @@ sending; the picker never displays another inbox as selected before that choice.
 With no explicit selection, an unavailable primary still falls back to
 the first linked inbox.
 Sidebar rows, including `All inboxes`, replace their icon with an accent-colored checkmark when
-selected. With exactly one connected inbox, only its address appears as the selected
+selected. With exactly one connected inbox and no aliases, only its address appears as the selected
 row, followed by `Connect another account`; there is no `All inboxes` row, title
 inbox dropdown, or inbox section in the mobile filter drawer. The inbox section shows up to four rows (including `All inboxes`), then
 scrolls independently without overscroll so the email tabs stay in place. With many
@@ -1984,9 +2028,15 @@ On desktop, the local sidebar uses the same navigation primitives as Email and T
 Its **New** menu creates a **Company**, a **Contact**, or a **Pipeline** (Pipeline
 only when pipelines are enabled; requires team membership). The
 **Records** section lists **Companies** and **People**; Pipelines and Lists follow.
-There are no built-in company views or Board/List layout: Companies and People
+There are no built-in company views or Board/List layout. Companies and People
 are plain soup lists with the shared pagination. Existing personal/team saved
 views stay in the toolbar's Views menu.
+
+The selected Customers tab is stored on the pane as `sN.crm.tab`. People uses
+`people`, a pipeline uses `pipeline:<uuid>`, a list uses `list:<uuid>`, and
+hidden companies use `hidden`. Companies is the default and omits the key.
+Choosing Companies, People, a pipeline, or a list updates that parameter.
+Browser Back and Forward restore the tab and close an open record.
 
 Companies lists every visible company, grouped by Stage by default, with Owner,
 Revenue and Last Interaction columns. A Stage column is off by default; turn it
@@ -2127,11 +2177,16 @@ Choose **New pipeline**, enter a name in the dialog's first row, pick
 **Companies** (the default) or **Contacts** from the record-type pill, and tick
 **Share with my team** to share it (unticked keeps it private). **Create
 pipeline** or Command-Enter submits. Creating opens the pipeline's
-editable table. Team members can edit shared pipelines; the creator owns them
-and can change access later through the standard **Share** dialog. Under
-**Team access**, choose **Edit** to share with the team or **None** to make the
-pipeline private. **Copy Link** copies a CRM link that opens this pipeline for
-anyone who has access. On mobile, team access is in the **Team** tab.
+editable table. Team members can edit shared pipelines; the creator owns them.
+Anyone who can edit a pipeline can share it from the standard **Share** dialog.
+Pick people or channels and an access level, and the message carries the pipeline.
+The **People** list changes or removes their access. A teammate who receives a private
+pipeline sees it in their Customers sidebar. Only the owner sees **Team access**:
+choose **Edit** to share with the team or **None** to make the pipeline private.
+Viewers see only **Copy Link**. **Copy Link** copies a CRM link that opens this pipeline for
+anyone who has access; pasted into an editor it becomes a pipeline mention (see
+[CRM pipeline mentions](documents.md#crm-pipeline-mentions)). On mobile, team
+access is in the **Team** tab.
 
 The first column is a required company/contact reference. Clicking a filled
 reference, or pressing Enter on it, opens that company or contact; on desktop it
@@ -2770,6 +2825,18 @@ can still suppress alerts even when authorization is granted.
 Verify off/on and persistence after restarting; on the Notifications page, a failed
 toggle should show an error toast and allow retry.
 
+On Linux desktop builds with native notification activation, clicking a system
+notification (or its **Open** action) restores/presents Macro and opens that
+notification's target using the normal in-app navigation. Dismissing or expiring
+an alert must not navigate. With two alerts, click the older one to check that the
+correct target opens. Also test with Macro hidden/minimized and on another
+workspace: Wayland focus requires the notification daemon to supply an activation
+token. This needs a native AppImage update, not just a frontend update; an older
+binary reports **Update Macro to receive desktop notifications.** Activation is
+supported while the app process is running, not after quitting it. The isolated
+Linux WebKit/D-Bus regression is `bun run native:e2e:notifications`; compositor
+focus behavior still needs a real Wayland/X11 desktop check.
+
 On native Android, enable notifications in Settings while signed in. Android 13+
 also asks for system permission; the system's **Activity** notification channel
 must be enabled. Remote push owns system notification display after registration,
@@ -2848,7 +2915,15 @@ after the feature shipped gets a card; older invitations render as plain email.
 A newly arrived scheduling update shows RSVP and Join only once its calendar state has
 been checked. A series invitation shows its current or next live occurrence.
 
+Descriptions render sanitized rich text, including emphasis, links, and lists.
+Plain-text line breaks and literal angle brackets (such as `<bob@example.com>`)
+remain readable. Use `Show more` / `Show less` to expand or collapse the description;
+description links use the host's normal link-opening behavior.
+
 A connected, resolved invitation shows the responding address and Yes / Maybe / No.
+Calendars connected through a linked inbox also resolve here, using that inbox's
+address for responses. Access is limited to the delegated inbox; another inbox owned
+by the same account stays private, and removing the link removes invitation access.
 Local verification requires both email and calendar services: email supplies saved
 snapshots and resolves them against the synced calendar, while calendar service handles
 the RSVP write. With calendar service's `CALENDAR_SYNC_ENABLED` off, its RSVP route is

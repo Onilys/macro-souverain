@@ -19,6 +19,24 @@ must load through the webview, not native HTTP. A `vite:preloadError` with
 `scheme tauri not supported` indicates an asset-routing failure; reloading the
 same bundle does not resolve it.
 
+## External links in the native app
+
+Desktop external links open in the system browser, whether activated by a normal
+anchor, a `target="_blank"` anchor, or `window.open(url)`. Native webview navigation
+handles this, not a window-level DOM click listener. Each activation should open
+exactly once, without replacing the app or creating another app window. Macro app
+links (including same-origin popup links) route inside the existing SPA. Standalone
+`.html` documents on trusted app origins, such as `/billing-lab.html`, instead open
+in a native popup without replacing the app or emitting an SPA navigation event.
+
+Verify the `owner/repo#number` footer link in a pull request's floating details
+panel with both a click and keyboard activation. The panel stops click propagation;
+that must not prevent the link from opening or dismiss the panel. Also verify a
+prevented click does nothing. Browser-only URLs such as `about:blank`, `data:`,
+`blob:` and `javascript:` must not launch an external handler. Web browser anchor
+behavior is unchanged. iOS/Android retain their existing JS opener fallback because
+Tauri's native popup callback is desktop-only.
+
 ## Returning from another page
 
 A browser back/forward-cache restore reconnects the GraphQL cache worker and
@@ -87,7 +105,7 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/drive/<recent-or-shared>` | A Drive tab (`/app/drive/tab/<...>` remains a compatibility alias) |
 | `/app/drive/folder/<uuid>` | A Drive folder; breadcrumbs resolve from current accessible folder data |
 | `/app/drive/<document-type>/<uuid>` | An item opened inline in My Files |
-| `/app/drive/folder/<uuid>/<document-type>/<uuid>` | An item opened inline in its Drive folder; document types include `md`, `task`, `skill`, `snippet`, `canvas`, `pdf`, `code`, `csv`, `image`, `video`, `spreadsheet`, and `unknown` |
+| `/app/drive/folder/<uuid>/<document-type>/<uuid>` | An item opened inline in its Drive folder; document types include `md`, `task`, `skill`, `snippet`, `canvas`, `pdf`, `code`, `csv`, `image`, `video`, `spreadsheet`, and `unknown`. Databases and forms opened from Drive use `database` and `form` |
 | `/app/tasks` | Tasks table |
 | `/app/tasks/<uuid>` | Tasks with a task document opened inline |
 | `/app/agents` | AI chats / agents list |
@@ -100,11 +118,11 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/coders/<uuid>` | Code session with the Agents sidebar |
 | `/app/agents/chat/<uuid>` | Legacy AI chat opened in the Agents workspace (`/app/agent-chats/<uuid>` remains a compatibility alias) |
 | `/app/calls` | Calls list |
-| `/app/companies` | Customers (CRM; needs a team) |
+| `/app/companies` | Customers (CRM; needs a team). The selected tab is `sN.crm.tab` |
 | `/app/activity` | Activity heatmap + feed |
 | `/app/calendar/<month-or-week-or-day>` | Calendar; the focused event, its occurrence, and the locator range use `sN.calendar.*` |
 | `/app/<document-type>/<uuid>` | Legacy document URL (including `md`, `pdf`, `canvas`, `spreadsheet`, and the other Drive document types); redirects to `/app/drive/<document-type>/<uuid>` |
-| `/app/database/<uuid>` | A database with table and board views; stays at this URL rather than moving into Drive (requires the Databases flag) |
+| `/app/database/<uuid>` | A database with table and board views (requires the Databases flag). Links and opens outside Drive stay at this URL; opened from Drive, it shows inline at `/app/drive/database/<uuid>` |
 | `/app/documents`, `/app/files` | Legacy Files views; redirect to `/app/drive` |
 | `/app/chat/<uuid>` | A standalone AI chat |
 | `/app/routines` | Routines list in the Agents workspace |
@@ -176,13 +194,15 @@ while retaining the theme hue. Public variable-length routes use
 (`/app/drive/folder/<uuid>/~/mail`). Legacy fixed `type/id`
 pane routes remain accepted. Known app-view URLs under `/app/component/` redirect
 to their canonical paths above; legacy composers keep their existing paths. Split-specific view state uses positionally
-namespaced query parameters such as `s0.drive.sort=created_at`; route identity
-and breadcrumb nesting remain in the path. Home, Email, Tasks, and Channels
-store the selected tab under `sN.home.tab`, `sN.mail.tab`, `sN.tasks.tab`,
-and `sN.channels.tab`, respectively. Channels also stores the phone list
-selection as `sN.channels.mobileTab`. Omitted tab keys mean each view's default;
-changing tabs updates the URL, and browser Back/Forward restores the selection
-independently in each pane. Inline detail links preserve these keys. Desktop panes expose Close when available and omit
+namespaced query parameters such as `s0.drive.sort=created_at`. Route identity
+and breadcrumb nesting remain in the path. Home, Email, Tasks, Channels, and
+Customers store the selected tab under `sN.home.tab`, `sN.mail.tab`,
+`sN.tasks.tab`, `sN.channels.tab`, and `sN.crm.tab`. Customers uses `people`,
+`pipeline:<uuid>`, `list:<uuid>`, or `hidden`. Companies is the default and
+omits the key. Channels also stores the phone list selection as
+`sN.channels.mobileTab`. Omitted tab keys mean each view's default.
+Changing tabs updates the URL, and browser Back and Forward restore the
+selection independently in each pane. Inline detail links preserve these keys. Desktop panes expose Close when available and omit
 split-history back/forward buttons. Mobile content panes retain their back button.
 
 Projects are enabled by default in development; production uses the PostHog
@@ -219,8 +239,13 @@ buttons; beside the title in narrow layouts) is headed
 **Create in &lt;folder&gt;** and creates everything in the open folder; on a tab or
 the Drive root it reads **Create in Drive**. **Folder** opens a **New folder**
 dialog with `Untitled folder` preselected; creating keeps Drive where it is, adds
-the folder to the open folder's list, and shows a toast with **Open**. Other
-items open after creation. **Database** is offered only outside folders.
+the folder to the open folder's list, and shows a toast with **Open**. Every other
+item opens as an inline detail in the open folder or tab once created
+(`/app/drive/folder/<uuid>/spreadsheet/<uuid>`, `/app/drive/database/<uuid>`),
+the same as opening an existing file: the Drive sidebar stays mounted and no
+loading pane replaces Drive. Databases and forms opened from Drive's list or
+favorites show inline the same way. **Database** and **Form** are offered only
+outside folders.
 Home, Email, Tasks, Channels, and Drive keep their workspace provider mounted
 while typed child routes own the accepted inline detail. Tasks and Email replace
 the list with detail, capturing its focus and scroll state before disposal. Their child

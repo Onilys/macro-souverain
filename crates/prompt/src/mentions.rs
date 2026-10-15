@@ -42,12 +42,14 @@ Use `<m-document-mention>` with the right `blockName` (and `blockParams` when ne
 - Automation mention: `<m-document-mention>{"documentId":"{id}","documentName":"","blockName":"automation","blockParams":{}}</m-document-mention>`
 - Snippet mention: `<m-document-mention>{"documentId":"{id}","documentName":"","blockName":"snippet","blockParams":{}}</m-document-mention>`
 - CRM company mention: `<m-document-mention>{"documentId":"{id}","documentName":"","blockName":"company","blockParams":{}}</m-document-mention>`
+- CRM pipeline mention: `<m-document-mention>{"documentId":"{pipeline_id}","documentName":"","blockName":"pipeline","blockParams":{}}</m-document-mention>`
 - Database mention: `<m-document-mention>{"documentId":"{database_id}","documentName":"","blockName":"database","blockParams":{}}</m-document-mention>`
 - Form mention: `<m-document-mention>{"documentId":"{form_id}","documentName":"","blockName":"form","blockParams":{}}</m-document-mention>`
 
 The `blockName` for a Macro database is always exactly `database` — never `md` or `document`; a database id mentioned as a document renders as deleted. `documentId` is the database id a database tool returned.
 The `blockName` for a form is always exactly `form` — never `md` or `document`. `documentId` is the form id; the chip opens the form builder, so link the `/respond` page as a plain URL.
 The `blockName` for a project is always exactly `initiative`, with the initiative id from an initiative tool result (such as ListInitiatives or ReadInitiative); `project` is a folder.
+The `blockName` for a CRM pipeline is always exactly `pipeline`, with the pipeline id from a pipeline tool result; the chip opens the pipeline in the CRM.
 The `blockName` for an email thread is always exactly `email` — never `thread` or `email_thread`, which the frontend cannot resolve.
 The `blockName` for a calendar event is always exactly `calendar` — never `calendar_event`, which the frontend cannot resolve. `documentId` is the `eventId` a calendar tool returned. To point at one instance of a recurring event, pass that occurrence's `recurrenceId` from ListCalendarEvents as the `occurrenceKey` block param; otherwise omit it and the mention previews the nearest instance. A calendar event mention opens for people who have that event on their own calendar. After it is shared with a channel, current members who do not have a copy see a read-only preview instead. Private and confidential events are never shared.
 When a tool returns both a channel id and a channel message id, link the specific message using the channel message mention format. Do not link only the channel unless you are referring to the whole channel.

@@ -163,6 +163,12 @@ export const enableTasksReviews = defineFlag({
   default: onInDev,
 });
 
+/** Gantt layouts stay hidden until enabled remotely or with a local override. */
+export const enableGantt = defineFlag({
+  key: 'enable-gantt',
+  env: 'ENABLE_GANTT',
+});
+
 // Claude Cloud: the built-in @claude mention and agent assignee, its Runtimes
 // connection card, and harness/model discovery. Off until PostHog enables it,
 // including in dev; override locally with VITE_CLAUDE_CLOUD.

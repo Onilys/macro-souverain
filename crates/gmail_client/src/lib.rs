@@ -67,10 +67,21 @@ pub struct GmailClient {
     /// The expected audience for the jwt passed by Google
     audience: String,
     /// The GCP topic name we listen on for inbox updates
-    subscription_topic: String,
+    subscription_topic: Option<String>,
 }
 
 impl GmailClient {
+    /// Client for API calls that do not register push subscriptions.
+    pub fn without_watch() -> Self {
+        Self::new_with_urls(
+            None,
+            "https://www.googleapis.com/gmail/v1".to_string(),
+            "https://people.googleapis.com/v1".to_string(),
+            "https://www.googleapis.com/oauth2/v3/certs".to_string(),
+            "macro-gmail-webhook".to_string(),
+        )
+    }
+
     pub fn new(subscription_topic: String) -> Self {
         Self::new_with_urls(
             subscription_topic,
@@ -87,7 +98,7 @@ impl GmailClient {
     /// endpoints. HTTP transport details and endpoint values remain private to
     /// this crate.
     pub fn new_with_urls(
-        subscription_topic: String,
+        subscription_topic: impl Into<Option<String>>,
         gmail_url: String,
         people_url: String,
         jwks_url: String,
@@ -99,7 +110,7 @@ impl GmailClient {
             certs_url: jwks_url,
             contacts_url: people_url.trim_end_matches('/').to_string(),
             audience,
-            subscription_topic,
+            subscription_topic: subscription_topic.into(),
         }
     }
 

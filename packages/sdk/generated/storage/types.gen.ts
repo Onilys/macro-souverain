@@ -13504,7 +13504,7 @@ export type TeamOutOfOfficeItem = {
      */
     time: EventTime;
     /**
-     * Event title, absent when the event's visibility withholds details.
+     * Event title, absent unless the teammate shares event details.
      */
     title?: string | null;
 };
@@ -17397,6 +17397,36 @@ export type ApplyCrmPipelineOpsResponses = {
 };
 
 export type ApplyCrmPipelineOpsResponse = ApplyCrmPipelineOpsResponses[keyof ApplyCrmPipelineOpsResponses];
+
+export type GetCrmPipelinePermissionsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/permissions';
+};
+
+export type GetCrmPipelinePermissionsResponses = {
+    200: SharePermissionV2;
+};
+
+export type GetCrmPipelinePermissionsResponse = GetCrmPipelinePermissionsResponses[keyof GetCrmPipelinePermissionsResponses];
+
+export type UpdateCrmPipelinePermissionsData = {
+    body: UpdateSharePermissionRequestV2;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/permissions';
+};
+
+export type UpdateCrmPipelinePermissionsResponses = {
+    200: SharePermissionV2;
+};
+
+export type UpdateCrmPipelinePermissionsResponse = UpdateCrmPipelinePermissionsResponses[keyof UpdateCrmPipelinePermissionsResponses];
 
 export type GetCrmPipelineRowsData = {
     body?: never;

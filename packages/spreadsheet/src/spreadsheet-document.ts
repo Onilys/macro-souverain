@@ -25,6 +25,7 @@ export type SpreadsheetFormat =
   | 'general'
   | 'number'
   | 'currency'
+  | 'accounting'
   | 'percent'
   | 'date'
   | 'time'
@@ -542,6 +543,7 @@ export function isSpreadsheetFormat(
     value === 'general' ||
     value === 'number' ||
     value === 'currency' ||
+    value === 'accounting' ||
     value === 'percent' ||
     value === 'date' ||
     value === 'time' ||

@@ -15,7 +15,9 @@ it before the module loads cancels creation.
 A successful create opens its new editor while database discovery refreshes in
 the background; a slow discovery refresh must not delay the new database card.
 Databases open at
-`/app/database/<uuid>`. A database contains tables; records belong to a table and
+`/app/database/<uuid>`; from Drive (its list, favorites, or **New → Database**)
+they open inline at `/app/drive/database/<uuid>` with Drive's sidebar in place.
+A database contains tables; records belong to a table and
 its properties describe each record. The database name in the split header is an
 inline input for editors: click it to rename. Enter or leaving it saves; Escape
 cancels, and a failed rename shows a toast. Viewers without edit access see the
@@ -81,8 +83,12 @@ without changing the record. The picker opens without an entrance animation.
 
 Pipelines are created from the CRM sidebar's **New pipeline** action. Their
 records are read and edited through the pipeline's access; they are not standalone
-database app entities and do not appear in the Databases list. Use **Share → Team access**
-in the CRM to switch between **None** (private) and **Edit** (team). A pipeline's primary
+database app entities and do not appear in the Databases list. Anyone who can edit
+a pipeline, including every member of a team pipeline, can **Share** it with people
+and channels and change or remove their access. The message carries the pipeline and
+grants the chosen level before it is sent. Recipients on the pipeline's team then see it in their
+CRM sidebar. Viewers can only copy its link. Only the owner uses **Share → Team access**
+to switch between **None** (private) and **Edit** (team). A pipeline's primary
 company/contact reference is required. The same company or contact can appear
 in multiple independent rows, including through the row menu's **Duplicate** action.
 The reference column and table are protected against removal or type changes. See

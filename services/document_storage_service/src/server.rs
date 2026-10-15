@@ -285,7 +285,8 @@ pub async fn run() -> anyhow::Result<()> {
     let sqs_client = sqs_client::SQS::new(aws_sdk_sqs::Client::new(&aws_config))
         .search_event_queue(&search_event_queue)
         .document_delete_queue(&document_delete_queue)
-        .gmail_ops_queue(&gmail_ops_queue);
+        .gmail_ops_queue(&gmail_ops_queue)
+        .email_scheduled_queue(&macro_queues::EmailScheduledQueue::new());
     let webhook_event_queue = webhook::outbound::SqsWebhookQueue::new(
         Arc::new(sqs_client.clone()),
         macro_queues::WebhookEventQueue::new().to_string(),
@@ -398,8 +399,21 @@ pub async fn run() -> anyhow::Result<()> {
         entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
             entity_access_management::outbound::PgRepository::new(db.clone()),
         ),
-        0,
+        config.sent_undo_delay_secs,
     )
+    .with_sender_provider(email::outbound::GmailSenderProvider::new(
+        gmail_client::GmailClient::without_watch(),
+        email::outbound::GmailTokenProviderImpl::lazy(
+            redis_client.clone(),
+            Arc::new(authentication_service_client::AuthServiceClient::new(
+                config
+                    .authentication_service_secret_key
+                    .as_ref()
+                    .to_string(),
+                macro_service_urls::AuthServiceUrl::new()?.to_string(),
+            )),
+        ),
+    ))
     .with_macro_event_broker(macro_event_broker.clone());
     let readonly_email_service = ReadonlyEmailPreviewAdapter(
         EmailServiceImpl::new(

@@ -709,6 +709,50 @@ async fn test_upsert_recipients_removes_stale(pool: Pool<Postgres>) -> anyhow::R
     migrator = "MACRO_DB_MIGRATIONS",
     fixtures(path = "../../../../fixtures", scripts("email_draft"))
 )]
+async fn test_upsert_recipients_unchanged_set_writes_nothing(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    // msg1 has bob=TO in the fixture; upserting the same set must leave the row alone.
+    let msg_id = Uuid::parse_str("ee000001-0000-0000-0000-000000000001")?;
+    let bob_id = Uuid::parse_str("c0000002-0000-0000-0000-000000000002")?;
+
+    let row_versions = || {
+        sqlx::query_scalar!(
+            r#"
+            SELECT xmin::text AS "xmin!"
+            FROM email_message_recipients
+            WHERE message_id = $1
+            ORDER BY contact_id, recipient_type
+            "#,
+            msg_id
+        )
+        .fetch_all(&pool)
+    };
+    let before = row_versions().await?;
+    assert_eq!(before.len(), 1);
+
+    let contacts = UpsertedContacts {
+        from_contact_id: None,
+        recipients: vec![UpsertedRecipient {
+            contact_id: bob_id,
+            name: Some("Bob Jones".to_string()),
+            recipient_type: RecipientType::To,
+        }],
+    };
+
+    let mut tx = pool.begin().await?;
+    super::super::message::upsert_recipients(&mut tx, msg_id, &contacts).await?;
+    tx.commit().await?;
+
+    assert_eq!(row_versions().await?, before);
+
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../fixtures", scripts("email_draft"))
+)]
 #[allow(clippy::disallowed_methods, reason = "legacy code. fix later")]
 async fn test_upsert_recipients_empty_deletes_all(pool: Pool<Postgres>) -> anyhow::Result<()> {
     // msg1 has bob=TO. Calling upsert with empty recipients should delete all existing.

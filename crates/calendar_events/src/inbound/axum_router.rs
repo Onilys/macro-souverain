@@ -274,7 +274,7 @@ pub struct TeamOutOfOfficeItem {
     event_id: Uuid,
     /// Stable occurrence key within the event.
     occurrence_key: String,
-    /// Event title, absent when the event's visibility withholds details.
+    /// Event title, absent unless the teammate shares event details.
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
     /// Occurrence time span.
