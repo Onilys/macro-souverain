@@ -2023,7 +2023,7 @@ impl SoupRow {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ExpandedDynamicCursorArgs<'a> {
     /// the user for which we are performing the query
     pub user_id: MacroUserIdStr<'a>,
@@ -2108,23 +2108,37 @@ pub(crate) async fn expanded_dynamic_cursor_soup_with_projection(
     expanded_dynamic_cursor_soup_hydrated(db, args, item_source).await
 }
 
-/// Execute a flat expanded dynamic query without exposing projection metadata.
+/// Execute a flat expanded dynamic query on both listing paths, require the same
+/// page from each, and return it without projection metadata.
 #[cfg(test)]
 #[tracing::instrument(skip(db), err)]
 pub(crate) async fn expanded_dynamic_cursor_soup(
     db: &PgPool,
     args: ExpandedDynamicCursorArgs<'_>,
 ) -> Result<Vec<SoupItem<()>>, sqlx::Error> {
+    let item_tables =
+        expanded_dynamic_cursor_soup_hydrated(db, args.clone(), ItemSource::ItemTables).await?;
     // Query tests write canonical SQL fixtures directly. Prepare their projection
     // explicitly; repository tests separately verify application maintenance.
     source_items::backfill::run(db).await?;
-    Ok(
-        expanded_dynamic_cursor_soup_hydrated(db, args, ItemSource::SourceItems)
-            .await?
-            .into_iter()
-            .map(|hydration| hydration.item)
-            .collect(),
-    )
+    let source_items =
+        expanded_dynamic_cursor_soup_hydrated(db, args, ItemSource::SourceItems).await?;
+    let shown = |page: &[SoupProjectionHydration]| {
+        page.iter()
+            .map(|hydration| serde_json::to_value(&hydration.item).unwrap())
+            .collect::<Vec<_>>()
+    };
+    // Production reads the item tables unless the projection is enabled, so
+    // every query test checks both listings and asserts on the default one.
+    assert_eq!(
+        shown(&source_items),
+        shown(&item_tables),
+        "source_items and the item tables listed different pages"
+    );
+    Ok(item_tables
+        .into_iter()
+        .map(|hydration| hydration.item)
+        .collect())
 }
 
 // ============================================================================
