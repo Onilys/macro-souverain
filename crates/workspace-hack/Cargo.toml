@@ -16,7 +16,7 @@ publish = false
 ### BEGIN HAKARI SECTION
 [dependencies]
 aes-gcm = { version = "0.10", features = ["zeroize"] }
-ahash = { version = "0.8" }
+ahash = { version = "0.8", features = ["serde"] }
 aho-corasick = { version = "1" }
 anyhow = { version = "1" }
 async-graphql = { version = "7", features = ["dataloader"] }
@@ -55,6 +55,7 @@ doppleganger = { version = "0.5", default-features = false, features = ["chrono"
 doppleganger-core = { version = "0.5", default-features = false, features = ["chrono", "uuid"] }
 either = { version = "1", features = ["serde", "use_std"] }
 elliptic-curve = { version = "0.13", default-features = false, features = ["ecdh", "hazmat", "pem", "std"] }
+email_address = { version = "0.2" }
 event-listener = { version = "5" }
 fastrand = { version = "2" }
 flate2 = { version = "1", features = ["zlib", "zlib-rs"] }
@@ -90,6 +91,7 @@ log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 mime_guess = { version = "2" }
 miniz_oxide = { version = "0.8", features = ["simd"] }
+num = { version = "0.4" }
 num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
@@ -126,7 +128,7 @@ scopeguard = { version = "1" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
-serde_json = { version = "1", features = ["alloc", "preserve_order", "raw_value", "unbounded_depth"] }
+serde_json = { version = "1", features = ["alloc", "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth"] }
 serde_with = { version = "3", features = ["base64", "json", "schemars_1"] }
 sha1 = { version = "0.10", features = ["oid"] }
 sha2 = { version = "0.10", features = ["oid"] }
@@ -163,7 +165,7 @@ zeroize = { version = "1", features = ["derive"] }
 
 [build-dependencies]
 aes-gcm = { version = "0.10", features = ["zeroize"] }
-ahash = { version = "0.8" }
+ahash = { version = "0.8", features = ["serde"] }
 aho-corasick = { version = "1" }
 anyhow = { version = "1" }
 async-graphql = { version = "7", features = ["dataloader"] }
@@ -204,6 +206,7 @@ doppleganger = { version = "0.5", default-features = false, features = ["chrono"
 doppleganger-core = { version = "0.5", default-features = false, features = ["chrono", "uuid"] }
 either = { version = "1", features = ["serde", "use_std"] }
 elliptic-curve = { version = "0.13", default-features = false, features = ["ecdh", "hazmat", "pem", "std"] }
+email_address = { version = "0.2" }
 event-listener = { version = "5" }
 fastrand = { version = "2" }
 flate2 = { version = "1", features = ["zlib", "zlib-rs"] }
@@ -239,6 +242,7 @@ log = { version = "0.4", default-features = false, features = ["std"] }
 memchr = { version = "2" }
 mime_guess = { version = "2" }
 miniz_oxide = { version = "0.8", features = ["simd"] }
+num = { version = "0.4" }
 num-bigint = { version = "0.4" }
 num-complex = { version = "0.4" }
 num-integer = { version = "0.1", features = ["i128"] }
@@ -277,7 +281,7 @@ scopeguard = { version = "1" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
-serde_json = { version = "1", features = ["alloc", "preserve_order", "raw_value", "unbounded_depth"] }
+serde_json = { version = "1", features = ["alloc", "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth"] }
 serde_with = { version = "3", features = ["base64", "json", "schemars_1"] }
 serde_with_macros = { version = "3", default-features = false, features = ["schemars_1"] }
 sha1 = { version = "0.10", features = ["oid"] }

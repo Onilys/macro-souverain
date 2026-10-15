@@ -1,0 +1,11 @@
+# Type Alias: HandleDeleteFileErrors
+
+> **HandleDeleteFileErrors** = `object`
+
+## Properties
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-401"></a> `401` | `string` |
+| <a id="property-403"></a> `403` | `string` |
+| <a id="property-404"></a> `404` | `string` |

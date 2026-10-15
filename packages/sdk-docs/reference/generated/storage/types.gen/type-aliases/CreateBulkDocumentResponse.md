@@ -1,0 +1,10 @@
+# Type Alias: CreateBulkDocumentResponse
+
+> **CreateBulkDocumentResponse** = `object`
+
+## Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-data"></a> `data` | [`CreateBulkDocumentResponseData`](CreateBulkDocumentResponseData.md)[] | Data to be returned |
+| <a id="property-error"></a> `error` | `boolean` | Indicates if an error occurred |

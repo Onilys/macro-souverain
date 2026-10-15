@@ -4,6 +4,11 @@ Macro's SDK: a Typescript library for harnessing the power of Macro
   OpenAPI specs.
 - **`src/`**: a hand-written ergonomic SDK layer that provides an "orm"-y API.
 
+The [SDK reference build](../sdk-docs/README.md) uses TypeDoc to generate linked
+Markdown and HTML from these sources. The [generated Markdown](../sdk-docs/reference/README.md)
+is checked in alongside SDK changes; the HTML can be served with the included
+static docs Worker.
+
 ## Usage
 
 ### Getting started
@@ -494,3 +499,63 @@ Event names and payloads are **generated from the backend**: the Rust webhook
 crate exposes a `WebhookEvent` union in the storage OpenAPI spec, and
 `src/events/types.ts` derives `EventName` / `EventPayload` from it. SSE
 (`listen()`) and persisted webhooks (`webhook()`) dispatch the same union.
+
+### AI generation and decisions
+
+Shared cognition endpoints are available through `macro.ai`. They use the
+authenticated user's model access and AI allowance. For generation using only
+supplied context, explicitly set `toolset: { type: 'none' }`:
+
+```ts
+const answer = await macro.ai.structuredCompletion({
+  prompt: 'Summarize these supplied notes: ...',
+  model: 'google/gemini-3.8-flash',
+  toolset: { type: 'none' },
+  output_schema: {
+    name: 'Summary',
+    schema: {
+      type: 'object',
+      properties: { summary: { type: 'string' } },
+      required: ['summary'],
+    },
+  },
+});
+const decision = await macro.ai.decide({
+  input: { subject: 'Invoice due tomorrow', body: 'Please pay by Friday.' },
+  questions: { needsAction: 'Does this ask the recipient to take action?' },
+});
+console.log(answer.outcome, decision.probabilities.needsAction);
+```
+
+Decision probabilities estimate yes independently for each named question; they
+do not authorize any action. Structured completions with tools enabled can modify
+data, so inspect `outcome` and `toolActivity` even when generation is interrupted.
+
+### Workspace browsing
+
+Use `macro.workspace.page(options)` for a bounded page or
+`macro.workspace.list(options)` for lazy automatic pagination. Results include
+existing entity handles plus generated API snapshots, so metadata does not
+require a second request:
+
+```ts
+const page = await macro.workspace.page({
+  includeTypes: ['document'],
+  sortBy: 'recently_updated',
+  limit: 5,
+});
+for (const item of page.items) {
+  if (item.type === 'document') console.log(item.id, item.name);
+}
+console.log({ hasMore: page.hasMore, nextCursor: page.nextCursor });
+```
+
+The namespace supports documents (including tasks), AI chats, projects, email,
+channels, channel threads, call records, calendar events and foreign entities.
+Options preserve source scope through server-side type, time, property, task,
+favorites, tag and inbox filters. Tags accept personal/team scopes and any/all
+matching; ambiguous all-matches and unknown labels fail explicitly. Inbox names
+resolve against all accessible inboxes, including delegated inboxes. `limit`
+controls page size (default 50, maximum 500); break a `for await` loop to stop
+without fetching another page. The TypeDoc namespace reference includes task,
+date-window, signal-email and scoped-tag examples.

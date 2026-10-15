@@ -1,5 +1,6 @@
 import type { MacroOpts } from './config';
 import { AgentSessionNamespace } from './entities/agent-sessions/namespace';
+import { AiNamespace } from './entities/ai/namespace';
 import { BotsNamespace } from './entities/bots/namespace';
 import { CalendarNamespace } from './entities/calendar/namespace';
 import { CallRecordNamespace } from './entities/calls/namespace';
@@ -21,6 +22,7 @@ import { TeamNamespace } from './entities/teams/namespace';
 import { UserNamespace } from './entities/users/namespace';
 import type { User } from './entities/users/user';
 import { WebhooksNamespace } from './entities/webhooks/namespace';
+import { WorkspaceNamespace } from './entities/workspace/namespace';
 import type { MacroEvents } from './events/receiver';
 import { MacroClient } from './utils/client';
 
@@ -71,6 +73,7 @@ export {
 
 export class Macro<T extends MacroOpts = MacroOpts> {
   readonly agentSessions: AgentSessionNamespace;
+  readonly ai: AiNamespace;
   readonly bots: BotsNamespace;
   readonly calendar: CalendarNamespace;
   readonly calls: CallRecordNamespace;
@@ -92,6 +95,8 @@ export class Macro<T extends MacroOpts = MacroOpts> {
   readonly teams: TeamNamespace;
   readonly users: UserNamespace;
   readonly webhooks: WebhooksNamespace;
+  /** Browse workspace activity with type, task, time, tag and inbox filters. */
+  readonly workspace: WorkspaceNamespace;
   readonly events: MacroEvents;
   /** Base URL of the Macro web app, used to build entity URLs. */
   readonly webAppUrl: string;
@@ -104,6 +109,7 @@ export class Macro<T extends MacroOpts = MacroOpts> {
     const client = new MacroClient(opts);
     this._client = client;
     this.agentSessions = new AgentSessionNamespace(client);
+    this.ai = new AiNamespace(client);
     this.bots = new BotsNamespace(client);
     this.calendar = new CalendarNamespace(client);
     this.calls = new CallRecordNamespace(client);
@@ -124,6 +130,7 @@ export class Macro<T extends MacroOpts = MacroOpts> {
     this.teams = new TeamNamespace(client);
     this.users = new UserNamespace(client);
     this.webhooks = new WebhooksNamespace(client);
+    this.workspace = new WorkspaceNamespace(client);
     this.events = client.events;
     this.webAppUrl = client.webAppUrl;
   }
@@ -143,3 +150,19 @@ export class Macro<T extends MacroOpts = MacroOpts> {
     return new Macro({ ...this.opts, requestedAs: user.id });
   }
 }
+
+export type {
+  DecisionRequest,
+  DecisionResponse,
+  StructuredCompletionRequest,
+  StructuredCompletionResponse,
+} from './entities/ai/namespace';
+export type {
+  WorkspaceFilters,
+  WorkspaceItem,
+  WorkspaceListOptions,
+  WorkspacePage,
+  WorkspacePageOptions,
+  WorkspaceTag,
+  WorkspaceType,
+} from './entities/workspace/types';

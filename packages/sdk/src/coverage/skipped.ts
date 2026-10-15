@@ -199,7 +199,6 @@ export const cognitionBacklog = [
   'getUsageHandler',
   'sendChatMessage',
   'stopChatStream',
-  'structuredCompletion',
 ] as const satisfies readonly (keyof CognitionSdk)[];
 
 export const connectionExcluded = [
@@ -388,7 +387,6 @@ export const storageExcluded = [
   'mentionPreviews',
   'patchViewHandler',
   'postItemsSoup',
-  'postItemsSoupAst',
   'postItemsSoupAstGrouped',
   'removeBotFromChannelByBot',
   // Storage for the web app's saved questions, not a user-facing surface.
