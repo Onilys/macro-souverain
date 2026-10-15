@@ -106,13 +106,12 @@ fn check() -> Job {
 }
 
 /// The env the clippy-side jobs share, so their kache keys stay identical.
+/// `RUSTFLAGS` matches the dev shell's linker flag and nothing else, so what a
+/// laptop compiled is a hit here; the scripts fail on warnings instead.
 fn with_check_env(job: Job) -> Job {
-    job.add_env((
-        "RUSTFLAGS",
-        "-Dwarnings -Dclippy::disallowed_methods -C link-arg=-fuse-ld=mold",
-    ))
-    .add_env(("RUSTDOCFLAGS", "-Dwarnings"))
-    .add_env(("SQLX_OFFLINE", "true"))
+    job.add_env(("RUSTFLAGS", vars::RUSTFLAGS))
+        .add_env(("RUSTDOCFLAGS", "-Dwarnings"))
+        .add_env(("SQLX_OFFLINE", "true"))
 }
 
 /// Live Doppler config-contract check for services whose config may have
@@ -154,7 +153,7 @@ fn test() -> Job {
             "${{ needs.path-check.outputs.rust_packages }}",
         ))
         .add_env(("NEXTEST_TEST_THREADS", vars::NEXTEST_TEST_THREADS))
-        .add_env(("RUSTFLAGS", "-Dwarnings -C link-arg=-fuse-ld=mold"))
+        .add_env(("RUSTFLAGS", vars::RUSTFLAGS))
         .add_service("postgres", postgres_service())
         .add_service("redis", redis_service())
         .add_step(steps::checkout(false, false))

@@ -112,8 +112,8 @@ fn generated_code() -> Job {
         // cost: it made the 15 binaries 12.7 GB instead of 466 MB. Job-level,
         // so every cargo call here (the build step, gen-api, the docs and DCS
         // scripts, the specta recipes) resolves the same profile and reuses
-        // one set of artifacts. No `profile.dev.package` overrides exist, so
-        // this alone covers dependencies too.
+        // one set of artifacts. Dependencies already skip debug info
+        // (`profile.dev.package."*"` in Cargo.toml).
         .add_env(("CARGO_PROFILE_DEV_DEBUG", "0"))
         // Link with mold, as the Rust check and test jobs do. Job-level for
         // the same reason: RUSTFLAGS is part of every unit's fingerprint.

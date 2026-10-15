@@ -15,16 +15,30 @@ set -euo pipefail
 # Unconstrained `-p` still runs that package's tests.
 
 : "${RUST_PACKAGES:?RUST_PACKAGES is required}"
-# Dependencies build without debug info, which cuts compile, link and disk cost.
-# Workspace crates keep CARGO_PROFILE_*_DEBUG=limited, so backtraces still carry
-# line numbers in our own code.
-common=(
-  --config 'profile.dev.package."*".debug=false'
-  --all-features --no-tests=pass --test-threads "$NEXTEST_TEST_THREADS"
-)
+# NEXTEST_NO_RUN=1 builds the test binaries without running them, which is how
+# `just ci-prebuild` fills kache with exactly what this job compiles.
+common=(--all-features --no-tests=pass --test-threads "$NEXTEST_TEST_THREADS")
+if [ "${NEXTEST_NO_RUN:-}" = 1 ]; then
+  common+=(--no-run)
+fi
+
+# Warnings fail the run here rather than through -Dwarnings: a lint level is
+# part of every crate's kache key, and laptops build without one. kache replays
+# a cached crate's warnings, so a hit still reports them.
+deny_warnings() {
+  local log status=0
+  log="$(mktemp)"
+  { "$@" 2>&1 1>&3 3>&- | tee "$log" >&2; } 3>&1 || status=$?
+  if grep -qE 'generated [0-9]+ warnings?' "$log"; then
+    echo "error: Rust warnings are not allowed; fix the warnings above" >&2
+    [ "$status" -ne 0 ] || status=1
+  fi
+  rm -f "$log"
+  return "$status"
+}
 
 if [ "$RUST_PACKAGES" = "all" ]; then
-  cargo nextest run --workspace --exclude sync_service --lib --bins --tests "${common[@]}"
+  deny_warnings cargo nextest run --workspace --exclude sync_service --lib --bins --tests "${common[@]}"
   exit 0
 fi
 
@@ -38,4 +52,4 @@ if [ "${#pkg_args[@]}" -eq 0 ]; then
   exit 0
 fi
 
-cargo nextest run "${common[@]}" "${pkg_args[@]}"
+deny_warnings cargo nextest run "${common[@]}" "${pkg_args[@]}"

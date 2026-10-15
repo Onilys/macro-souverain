@@ -6,9 +6,52 @@ rust-check:
     RUSTFLAGS=-Dwarnings RUSTDOCFLAGS=-Dwarnings CARGO_TERM_COLOR=always SQLX_OFFLINE=true cargo check --workspace --all-features --exclude sync_service
     RUSTFLAGS="-Dwarnings -Dclippy::disallowed_methods" RUSTDOCFLAGS=-Dwarnings CARGO_TERM_COLOR=always SQLX_OFFLINE=true cargo check -p sync_service
 
+ci_scripts := justfile_directory() / "tooling/xtask/crates/xtask_workflows/src/workflows/scripts"
+# CI's Rust jobs build with exactly this; see `RUSTFLAGS` in xtask_workflows' vars.rs.
+ci_rustflags := "-C link-arg=-fuse-ld=mold"
+
+# Lint the whole workspace with CI's own script and flags, so what this compiles
+# is a kache hit for the CI check job.
 clippy:
-    RUSTFLAGS="-Dwarnings -Dclippy::disallowed_methods" RUSTDOCFLAGS=-Dwarnings CARGO_TERM_COLOR=always SQLX_OFFLINE=true cargo clippy --workspace --all-features --exclude sync_service
-    RUSTFLAGS="-Dwarnings -Dclippy::disallowed_methods" RUSTDOCFLAGS=-Dwarnings CARGO_TERM_COLOR=always SQLX_OFFLINE=true cargo clippy -p sync_service -- -A clippy::unnecessary_map_or -A clippy::collapsible_if
+    RUSTFLAGS="{{ ci_rustflags }}" RUSTDOCFLAGS=-Dwarnings CARGO_TERM_COLOR=always SQLX_OFFLINE=true \
+        RUST_PACKAGES=all bash {{ ci_scripts }}/cargo_clippy.sh
+
+# Compile what CI's check and test jobs will compile for this branch, with CI's
+# package selection, flags and scripts, so kache publishes it to the shared
+# remote before you push. CI compiles your branch merged into main, so this
+# only matches when the branch already contains origin/main.
+ci-prebuild:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "$(uname -sm)" != "Linux x86_64" ]; then
+        echo "CI runs on Linux x86_64; builds from $(uname -sm) never match its cache keys" >&2
+        exit 1
+    fi
+    git fetch --quiet --no-tags origin main
+    if ! git merge-base --is-ancestor origin/main HEAD; then
+        echo "warning: this branch does not contain origin/main; rebase first or CI compiles a different tree" >&2
+    fi
+    outputs="$(mktemp)"
+    trap 'rm -f "$outputs"' EXIT
+    GITHUB_BASE_REF=main GITHUB_SHA="$(git rev-parse HEAD)" bash {{ ci_scripts }}/compute_changed_files.sh
+    GITHUB_OUTPUT="$outputs" FILTER_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/macro-nextest-filter" \
+        bash {{ ci_scripts }}/compute_nextest_filter.sh
+    packages="$(sed -n 's/^rust_packages=//p' "$outputs")"
+    skip_tests="$(sed -n 's/^skip_tests=//p' "$outputs")"
+    export RUSTFLAGS="{{ ci_rustflags }}" CARGO_TERM_COLOR=always
+    RUSTDOCFLAGS=-Dwarnings SQLX_OFFLINE=true RUST_PACKAGES="$packages" bash {{ ci_scripts }}/cargo_clippy.sh
+    if [ "$packages" != none ] && [ "$skip_tests" != true ]; then
+        # SQLX_OFFLINE only changes where the query macros read their metadata,
+        # not what they generate, and kache does not key on it.
+        SQLX_OFFLINE=true RUST_PACKAGES="$packages" NEXTEST_NO_RUN=1 NEXTEST_TEST_THREADS=1 \
+            bash {{ ci_scripts }}/run_tests.sh
+    fi
+    queue="${KACHE_CACHE_DIR:-$HOME/macro-kache}/upload-queue"
+    while [ -n "$(ls -A "$queue" 2>/dev/null)" ]; do
+        echo "waiting for kache to upload $(ls "$queue" | wc -l) entries"
+        sleep 5
+    done
+    echo "kache has published this branch's build; push when ready"
 
 # This can be used in any crate that uses macrodb under the hood
 [no-cd]

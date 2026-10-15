@@ -83,12 +83,7 @@ check *ARGS:
       fi
       if [ -n "$rs" ]; then
         echo "── clippy (root workspace)"
-        (RUSTFLAGS="-Dwarnings -Dclippy::disallowed_methods" \
-            RUSTDOCFLAGS=-Dwarnings SQLX_OFFLINE=true cargo clippy --workspace --all-features \
-            --exclude sync_service && \
-         RUSTFLAGS="-Dwarnings -Dclippy::disallowed_methods" \
-            RUSTDOCFLAGS=-Dwarnings SQLX_OFFLINE=true cargo clippy -p sync_service -- \
-            -A clippy::unnecessary_map_or -A clippy::collapsible_if) || fail=1
+        just clippy || fail=1
       fi
     fi
 

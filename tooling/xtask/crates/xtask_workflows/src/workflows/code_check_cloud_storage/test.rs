@@ -209,10 +209,15 @@ fn missing_merge_base_deepens_before_falling_back() {
 
 #[test]
 fn tests_build_dependencies_without_debug_info() {
+    let manifest = include_str!("../../../../../../../Cargo.toml");
+    assert!(
+        manifest.contains("[profile.dev.package.\"*\"]\ndebug = false"),
+        "the workspace profile, shared by laptops and CI, must drop dependency debug info"
+    );
     let script = include_str!("../scripts/run_tests.sh");
     assert!(
-        script.contains(r#"--config 'profile.dev.package."*".debug=false'"#),
-        "the test build must drop dependency debug info: {script}"
+        !script.contains("--config"),
+        "a CI-only profile override would make laptop builds miss CI's kache keys: {script}"
     );
 }
 

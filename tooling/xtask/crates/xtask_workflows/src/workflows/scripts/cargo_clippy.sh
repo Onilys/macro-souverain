@@ -6,14 +6,30 @@ set -euo pipefail
 
 packages="${RUST_PACKAGES:-}"
 
+# Warnings fail the run here rather than through -Dwarnings (including clippy's
+# disallowed_methods, a warning by default): a lint level is part of every
+# crate's kache key, and laptops build without one. kache replays a cached
+# crate's warnings, so a hit still reports them.
+deny_warnings() {
+  local log status=0
+  log="$(mktemp)"
+  { "$@" 2>&1 1>&3 3>&- | tee "$log" >&2; } 3>&1 || status=$?
+  if grep -qE 'generated [0-9]+ warnings?' "$log"; then
+    echo "error: Rust warnings are not allowed; fix the warnings above" >&2
+    [ "$status" -ne 0 ] || status=1
+  fi
+  rm -f "$log"
+  return "$status"
+}
+
 clippy_sync_service() {
-  cargo clippy -p sync_service -- \
+  deny_warnings cargo clippy -p sync_service -- \
     -A clippy::unnecessary_map_or \
     -A clippy::collapsible_if
 }
 
 if [ -z "$packages" ] || [ "$packages" = "all" ]; then
-  cargo clippy --workspace --all-features --exclude sync_service
+  deny_warnings cargo clippy --workspace --all-features --exclude sync_service
   clippy_sync_service
   exit 0
 fi
@@ -34,7 +50,7 @@ for p in $packages; do
 done
 
 if [ "${#pkg_args[@]}" -gt 0 ]; then
-  cargo clippy --all-features "${pkg_args[@]}"
+  deny_warnings cargo clippy --all-features "${pkg_args[@]}"
 fi
 
 if [ "$sync" = true ]; then

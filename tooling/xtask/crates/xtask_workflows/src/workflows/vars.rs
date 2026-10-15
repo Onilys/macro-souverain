@@ -70,6 +70,12 @@ pub const WEB_CI_CACHE_TAG: &str = "web-ci";
 /// the dev shell otherwise points it at `~/macro-kache`.
 pub const KACHE_VOLUME_DIR: &str = "/home/runner/.cache/kache";
 
+/// `RUSTFLAGS` for the jobs that compile the cloud-storage workspace. The dev
+/// shell passes the same flag (as `CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS`,
+/// so wasm builds keep `.cargo/config.toml`'s flags), and rustflags are part of
+/// every kache key: anything else here and no laptop build is ever a CI hit.
+pub const RUSTFLAGS: &str = "-C link-arg=-fuse-ld=mold";
+
 /// Store budget on a cache volume. kache's default (5% of the disk) is sized
 /// for a laptop's root disk, not a dedicated volume.
 pub const KACHE_VOLUME_MAX_SIZE: &str = "30GiB";
@@ -108,8 +114,6 @@ pub fn with_global_env(workflow: Workflow) -> Workflow {
     workflow
         .add_env(("CARGO_INCREMENTAL", "0"))
         .add_env(("CARGO_TERM_COLOR", "always"))
-        .add_env(("CARGO_PROFILE_DEV_DEBUG", "limited"))
-        .add_env(("CARGO_PROFILE_TEST_DEBUG", "limited"))
         .add_env(("RUST_BACKTRACE", "1"))
         .add_env(("RUSTFLAGS", "-C link-arg=-fuse-ld=lld"))
 }

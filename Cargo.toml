@@ -460,6 +460,15 @@ subtle = "2.6.1"
 # Only replaces tungstenite 0.27 (GraphQL subscriptions); 0.28/0.29 stay upstream.
 tungstenite = { git = "https://github.com/signalapp/tungstenite-rs", rev = "a1837ccfe96b6895a57352d7f0112e4557516c27" }
 
+# Laptops and CI build with the same debug info, so kache entries one produces
+# are hits for the other. Dependencies skip it entirely (cuts compile, link and
+# disk cost); workspace crates keep line tables for backtraces.
+[profile.dev]
+debug = "limited"
+
+[profile.dev.package."*"]
+debug = false
+
 # cache-turso's storage tests load thousands of rows into the embedded SQL engine
 # to assert VM step budgets. Unoptimized, the engine made them the slowest tests
 # in the Rust suite (34 s for the crate); at opt-level 2 the crate's tests take

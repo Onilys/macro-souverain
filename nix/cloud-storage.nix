@@ -1184,7 +1184,9 @@
                 export KACHE_BASE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
                 # Registry dependencies compile from ~/.cargo, outside the
                 # checkout, where kache's walk-up never finds .kache.toml.
-                export KACHE_CONFIG="''${KACHE_CONFIG:-$KACHE_BASE_DIR/.kache.toml}"
+                if [ -z "''${KACHE_CONFIG-}" ] && [ -f "$KACHE_BASE_DIR/.kache.toml" ]; then
+                  export KACHE_CONFIG="$KACHE_BASE_DIR/.kache.toml"
+                fi
                 prefix_maps="-ffile-prefix-map=$KACHE_BASE_DIR=."
                 prefix_maps+=" -ffile-prefix-map=''${CARGO_HOME:-$HOME/.cargo}=/cargo"
                 if [ -n "''${CARGO_TARGET_DIR-}" ]; then
@@ -1261,6 +1263,11 @@
             // pkgs.lib.optionalAttrs isLinux {
               LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath libraries}";
               BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.glibc.dev}/include -I${pkgs.gcc.cc}/lib/gcc/${pkgs.stdenv.hostPlatform.config}/${pkgs.gcc.version}/include";
+              # Link with mold, exactly as CI's Rust jobs do (vars::RUSTFLAGS in
+              # xtask_workflows): rustflags are part of every kache key, so a
+              # mismatch would make no laptop build a CI hit. Target-scoped so
+              # wasm builds keep .cargo/config.toml's own rustflags.
+              CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-fuse-ld=mold";
             }
           );
 
