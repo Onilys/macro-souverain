@@ -759,6 +759,7 @@ export type ApiEntityFilterAst = {
      * the filters that should be applied to the channel entity
      */
     chanf?: unknown;
+    crma?: null | CrmAssociation;
     /**
      * Opt-in filters for viewer-accessible CRM contacts (wire key `crmf`).
      */
@@ -1920,6 +1921,12 @@ export type CallRecord = {
      */
     transcript: Array<CallRecordTranscriptSegment>;
     userAccessLevel?: null | AccessLevel;
+    /**
+     * Whether the authenticated viewer has declined this call on any device.
+     * Set on the single-record read so clients that missed `call_declined`
+     * can still stop ringing via reconciliation; `false` in list contexts.
+     */
+    viewerHasDeclined?: boolean;
 };
 
 /**
@@ -3776,6 +3783,16 @@ export type CreateDatabaseRequest = {
     name: string;
 };
 
+/**
+ * Which table a new webhook inserts rows into.
+ */
+export type CreateDatabaseWebhookRequest = {
+    /**
+     * A table of the database.
+     */
+    tableId: string;
+};
+
 export type CreateDocumentRequest = {
     /**
      * The document id if the document is being branched.
@@ -4350,6 +4367,21 @@ export type CreateWebhookResponse = {
 };
 
 /**
+ * A new webhook, with the token its URL carries. The token is shown only
+ * here.
+ */
+export type CreatedDatabaseWebhookResponse = {
+    /**
+     * The secret: `POST /databases/webhooks/{token}` inserts rows.
+     */
+    token: string;
+    /**
+     * The webhook.
+     */
+    webhook: DatabaseWebhookResponse;
+};
+
+/**
  * A pairing the daemon created, including its claim credential.
  *
  * `device_secret` is returned exactly once and never stored raw; the daemon
@@ -4398,6 +4430,21 @@ export type CreatedUserApiKey = {
      * User-facing name.
      */
     name: string;
+};
+
+/**
+ * The CRM record an association filter names.
+ */
+export type CrmAssociation = {
+    /**
+     * Items associated with the company or with any of its contacts.
+     */
+    company: string;
+} | {
+    /**
+     * Items associated with the contact.
+     */
+    contact: string;
 };
 
 /**
@@ -4806,6 +4853,72 @@ export type DatabaseView = {
      * When it last changed.
      */
     updatedAt: string;
+};
+
+/**
+ * The rows a webhook call inserted.
+ */
+export type DatabaseWebhookDeliveryResponse = {
+    /**
+     * The database.
+     */
+    databaseId: string;
+    /**
+     * The new rows, in the order the payload sent them.
+     */
+    rows: Array<string>;
+    /**
+     * The table.
+     */
+    tableId: string;
+};
+
+/**
+ * One thing wrong with a webhook payload.
+ */
+export type DatabaseWebhookPayloadProblem = {
+    /**
+     * The key at fault, when one is.
+     */
+    field: string | null;
+    /**
+     * What is wrong.
+     */
+    message: string;
+    /**
+     * The row's index, when the payload is an array of rows.
+     */
+    row: number | null;
+};
+
+/**
+ * A webhook of a database. Its token is never shown again after creation.
+ */
+export type DatabaseWebhookResponse = {
+    /**
+     * Creation time.
+     */
+    createdAt: string;
+    /**
+     * Who created it; its calls write with their access.
+     */
+    createdBy: string;
+    /**
+     * The database.
+     */
+    databaseId: string;
+    /**
+     * Identifier.
+     */
+    id: string;
+    /**
+     * The table its calls insert rows into.
+     */
+    tableId: string;
+    /**
+     * The token's first characters, to tell webhooks apart.
+     */
+    tokenPrefix: string;
 };
 
 /**
@@ -8204,6 +8317,20 @@ export type InputReceivedMetadata = {
 export type InteractionReason = 'edited' | 'first_join' | 'last_leave';
 
 /**
+ * Why a payload was refused. Nothing was written.
+ */
+export type InvalidDatabaseWebhookPayloadResponse = {
+    /**
+     * A summary.
+     */
+    message: string;
+    /**
+     * Every problem found.
+     */
+    problems: Array<DatabaseWebhookPayloadProblem>;
+};
+
+/**
  * A single email recipient for a call invitation.
  */
 export type InviteMeetingRequest = {
@@ -8356,6 +8483,16 @@ export type LeaveCallResponse = {
  * Defines who can access an item through its share link.
  */
 export type LinkShare = 'PUBLIC' | 'TEAM';
+
+/**
+ * A database's webhooks.
+ */
+export type ListDatabaseWebhooksResponse = {
+    /**
+     * Oldest first.
+     */
+    webhooks: Array<DatabaseWebhookResponse>;
+};
 
 /**
  * Webhooks visible to the caller across their personal and team workspaces.
@@ -10568,7 +10705,7 @@ export type ResponseSummary = {
  * Per-user status of an incoming-call ring, as reported by the
  * ring-status endpoint while a native client is ringing.
  */
-export type RingStatus = 'ringing' | 'answered' | 'ended';
+export type RingStatus = 'ringing' | 'answered' | 'declined' | 'ended';
 
 /**
  * Response body for `GET /call/ring-status/{call_id}`.
@@ -13305,7 +13442,7 @@ export type TeamOutOfOfficeItem = {
      */
     time: EventTime;
     /**
-     * Event title, absent when the event's visibility withholds details.
+     * Event title, absent unless the teammate shares event details.
      */
     title?: string | null;
 };
@@ -15519,6 +15656,38 @@ export type EditCallRecordResponses = {
 
 export type EditCallRecordResponse = EditCallRecordResponses[keyof EditCallRecordResponses];
 
+export type DeclineCallData = {
+    body?: never;
+    path: {
+        /**
+         * Call ID
+         */
+        call_id: string;
+    };
+    query?: never;
+    url: '/call/record/{call_id}/decline';
+};
+
+export type DeclineCallErrors = {
+    401: ErrorResponse;
+    /**
+     * The call is no longer active
+     */
+    404: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type DeclineCallError = DeclineCallErrors[keyof DeclineCallErrors];
+
+export type DeclineCallResponses = {
+    /**
+     * Decline recorded
+     */
+    204: void;
+};
+
+export type DeclineCallResponse = DeclineCallResponses[keyof DeclineCallResponses];
+
 export type MeetingShareData = {
     body?: never;
     path: {
@@ -15633,6 +15802,41 @@ export type GetRingStatusResponses = {
 };
 
 export type GetRingStatusResponse = GetRingStatusResponses[keyof GetRingStatusResponses];
+
+export type DeclineRingData = {
+    body?: never;
+    path: {
+        /**
+         * Call ID
+         */
+        call_id: string;
+    };
+    query?: never;
+    url: '/call/ring-status/{call_id}/decline';
+};
+
+export type DeclineRingErrors = {
+    /**
+     * Missing or invalid bearer token
+     */
+    401: ErrorResponse;
+    /**
+     * The call is no longer ringing
+     */
+    404: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type DeclineRingError = DeclineRingErrors[keyof DeclineRingErrors];
+
+export type DeclineRingResponses = {
+    /**
+     * Decline recorded
+     */
+    204: void;
+};
+
+export type DeclineRingResponse = DeclineRingResponses[keyof DeclineRingResponses];
 
 export type CallWebhookData = {
     body?: never;
@@ -17106,6 +17310,36 @@ export type ApplyCrmPipelineOpsResponses = {
 
 export type ApplyCrmPipelineOpsResponse = ApplyCrmPipelineOpsResponses[keyof ApplyCrmPipelineOpsResponses];
 
+export type GetCrmPipelinePermissionsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/permissions';
+};
+
+export type GetCrmPipelinePermissionsResponses = {
+    200: SharePermissionV2;
+};
+
+export type GetCrmPipelinePermissionsResponse = GetCrmPipelinePermissionsResponses[keyof GetCrmPipelinePermissionsResponses];
+
+export type UpdateCrmPipelinePermissionsData = {
+    body: UpdateSharePermissionRequestV2;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/crm/pipelines/{id}/permissions';
+};
+
+export type UpdateCrmPipelinePermissionsResponses = {
+    200: SharePermissionV2;
+};
+
+export type UpdateCrmPipelinePermissionsResponse = UpdateCrmPipelinePermissionsResponses[keyof UpdateCrmPipelinePermissionsResponses];
+
 export type GetCrmPipelineRowsData = {
     body?: never;
     path: {
@@ -17404,6 +17638,45 @@ export type EnsureStarterHandlerResponses = {
 };
 
 export type EnsureStarterHandlerResponse = EnsureStarterHandlerResponses[keyof EnsureStarterHandlerResponses];
+
+export type DeliverDatabaseWebhookData = {
+    /**
+     * A row, or an array of rows
+     */
+    body: unknown;
+    path: {
+        /**
+         * The webhook's secret token
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/databases/webhooks/{token}';
+};
+
+export type DeliverDatabaseWebhookErrors = {
+    /**
+     * The payload does not fit the table; nothing was written
+     */
+    400: InvalidDatabaseWebhookPayloadResponse;
+    /**
+     * The webhook's creator can no longer edit the database
+     */
+    403: ErrorResponse;
+    /**
+     * No such webhook
+     */
+    404: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type DeliverDatabaseWebhookError = DeliverDatabaseWebhookErrors[keyof DeliverDatabaseWebhookErrors];
+
+export type DeliverDatabaseWebhookResponses = {
+    201: DatabaseWebhookDeliveryResponse;
+};
+
+export type DeliverDatabaseWebhookResponse = DeliverDatabaseWebhookResponses[keyof DeliverDatabaseWebhookResponses];
 
 export type GetDatabaseData = {
     body?: never;
@@ -17844,6 +18117,111 @@ export type GetDatabaseViewPositionsResponses = {
 };
 
 export type GetDatabaseViewPositionsResponse = GetDatabaseViewPositionsResponses[keyof GetDatabaseViewPositionsResponses];
+
+export type ListDatabaseWebhooksData = {
+    body?: never;
+    path: {
+        /**
+         * Database id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/databases/{id}/webhooks';
+};
+
+export type ListDatabaseWebhooksErrors = {
+    /**
+     * Missing or invalid credentials
+     */
+    401: ErrorResponse;
+    /**
+     * No edit access to the database
+     */
+    403: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type ListDatabaseWebhooksError = ListDatabaseWebhooksErrors[keyof ListDatabaseWebhooksErrors];
+
+export type ListDatabaseWebhooksResponses = {
+    200: ListDatabaseWebhooksResponse;
+};
+
+export type ListDatabaseWebhooksResponse2 = ListDatabaseWebhooksResponses[keyof ListDatabaseWebhooksResponses];
+
+export type CreateDatabaseWebhookData = {
+    body: CreateDatabaseWebhookRequest;
+    path: {
+        /**
+         * Database id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/databases/{id}/webhooks';
+};
+
+export type CreateDatabaseWebhookErrors = {
+    /**
+     * Missing or invalid credentials
+     */
+    401: ErrorResponse;
+    /**
+     * No edit access to the database
+     */
+    403: ErrorResponse;
+    /**
+     * No such table in the database
+     */
+    404: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type CreateDatabaseWebhookError = CreateDatabaseWebhookErrors[keyof CreateDatabaseWebhookErrors];
+
+export type CreateDatabaseWebhookResponses = {
+    201: CreatedDatabaseWebhookResponse;
+};
+
+export type CreateDatabaseWebhookResponse = CreateDatabaseWebhookResponses[keyof CreateDatabaseWebhookResponses];
+
+export type DeleteDatabaseWebhookData = {
+    body?: never;
+    path: {
+        /**
+         * Database id
+         */
+        id: string;
+        /**
+         * Webhook id
+         */
+        webhook_id: string;
+    };
+    query?: never;
+    url: '/databases/{id}/webhooks/{webhook_id}';
+};
+
+export type DeleteDatabaseWebhookErrors = {
+    /**
+     * Missing or invalid credentials
+     */
+    401: ErrorResponse;
+    /**
+     * No edit access to the database
+     */
+    403: ErrorResponse;
+    404: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type DeleteDatabaseWebhookError = DeleteDatabaseWebhookErrors[keyof DeleteDatabaseWebhookErrors];
+
+export type DeleteDatabaseWebhookResponses = {
+    204: void;
+};
+
+export type DeleteDatabaseWebhookResponse = DeleteDatabaseWebhookResponses[keyof DeleteDatabaseWebhookResponses];
 
 export type TranscribeDictationData = {
     /**
@@ -20236,6 +20614,10 @@ export type PostItemsSoupAstErrors = {
      * CRM-scoped queries require team membership, or requesting hidden CRM companies requires admin/owner team role
      */
     403: ErrorResponse;
+    /**
+     * The CRM record named by `crma` or a document `crm` literal is not visible to the caller
+     */
+    404: ErrorResponse;
     500: ErrorResponse;
 };
 
@@ -20264,6 +20646,10 @@ export type PostItemsSoupAstGroupedErrors = {
      * CRM-scoped queries require team membership, or requesting hidden CRM companies requires admin/owner team role
      */
     403: ErrorResponse;
+    /**
+     * The CRM record named by `crma` or a document `crm` literal is not visible to the caller
+     */
+    404: ErrorResponse;
     500: ErrorResponse;
 };
 

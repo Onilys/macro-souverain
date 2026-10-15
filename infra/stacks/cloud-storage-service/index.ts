@@ -58,6 +58,14 @@ const DATABASE_URL_PROXY = aws.secretsmanager
   })
   .apply((secret) => secret.secretString);
 
+// GraphQL email sender discovery resolves the selected inbox's Google grant.
+// This is the existing credential registered in this stack's Doppler config.
+const authenticationServiceSecretKeyArn = aws.secretsmanager
+  .getSecretVersionOutput({
+    secretId: config.require('authentication_service_secret_key'),
+  })
+  .apply((secret) => secret.arn);
+
 const JWT_SECRET_KEY = config.require(`jwt_secret_key`);
 const jwtSecretKeyArn: pulumi.Output<string> = aws.secretsmanager
   .getSecretVersionOutput({ secretId: JWT_SECRET_KEY })
@@ -358,6 +366,7 @@ const cloudStorageService = new CloudStorageService(
     serviceContainerPort: 8080,
     healthCheckPath: '/health',
     secretKeyArns: [
+      authenticationServiceSecretKeyArn,
       jwtSecretKeyArn,
       documentStoragePermissionsKeyArn,
       cloudfrontPrivateKeySecretArn,

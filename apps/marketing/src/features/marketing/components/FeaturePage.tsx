@@ -16,11 +16,14 @@ const scopedUi = uiStyles
   .replace(/@(font-face|property)[^{]*\{[^}]*\}/g, '')
   .replaceAll(':root', ':scope');
 
-export function FeaturePage(props: { children: JSX.Element; light?: boolean }) {
+export function FeaturePage(props: {
+  children: JSX.Element;
+  productSpacing?: boolean;
+}) {
   return (
     <main
       class="feature-page"
-      data-theme-light={props.light ? 'true' : 'false'}
+      data-product-spacing={props.productSpacing ? 'true' : undefined}
     >
       <style>{uiProperties}</style>
       <style>{`@scope (.feature-page) { ${scopedUi} ${palette.replaceAll(':root', ':scope')} }`}</style>
@@ -69,7 +72,7 @@ export function FeaturePageFaq(props: {
   id: string;
   eyebrow?: string;
   title: string;
-  introduction: JSX.Element;
+  introduction?: JSX.Element;
   items: readonly { q: string; a: JSX.Element }[];
 }) {
   return (
@@ -79,8 +82,10 @@ export function FeaturePageFaq(props: {
         <p class="feature-page-eyebrow">{props.eyebrow}</p>
       </Show>
       <h2 id={props.id}>{props.title}</h2>
-      <div class="feature-page-prose">{props.introduction}</div>
-      <h3>Frequently asked questions</h3>
+      <Show when={props.introduction}>
+        <div class="feature-page-prose">{props.introduction}</div>
+        <h3>Frequently asked questions</h3>
+      </Show>
       <div class="feature-page-faq">
         <For each={props.items}>
           {(item) => (

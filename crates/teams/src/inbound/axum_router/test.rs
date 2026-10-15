@@ -194,7 +194,10 @@ async fn toggle_auto_join_domain_generic_domain_response_is_bad_request() {
     .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body_text.contains("gmail.com"));
+    assert_eq!(
+        body_text,
+        r#"{"message":"Auto-join isn't available for gmail.com"}"#
+    );
 }
 
 #[tokio::test]
@@ -328,6 +331,7 @@ impl TeamService for FakeTeamService {
     async fn restore_permissions_for_team_members(
         &self,
         _team_id: &uuid::Uuid,
+        _started: Option<crate::domain::open_seat_release::SubscriptionStart>,
     ) -> Result<(), RestorePermissionsForTeamMembersError> {
         panic!("unexpected restore_permissions_for_team_members call")
     }

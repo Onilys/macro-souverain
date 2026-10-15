@@ -1,6 +1,12 @@
+import { cn } from '@ui';
 import { For, Show } from 'solid-js';
 import { BookingPicker } from '../components/booking-picker';
-import type { BookingReceipt, PublicEvent, PublicProfile } from '../core/types';
+import {
+  type BookingReceipt,
+  meetingPlaceLabel,
+  type PublicEvent,
+  type PublicProfile,
+} from '../core/types';
 import type { BookingSource } from '../primitives/booking-flow';
 
 export function PublicBookingView(props: {
@@ -9,19 +15,28 @@ export function PublicBookingView(props: {
   source: BookingSource;
   onEvent: (slug: string) => void;
   onReceipt: (r: BookingReceipt) => void;
+  /** Shown inside another Macro page, which already carries the Macro name. */
+  embedded?: boolean;
 }) {
   return (
-    <main class="min-h-screen overflow-y-auto bg-panel px-4 py-12 text-ink sm:py-20">
+    <main
+      class={cn(
+        'min-h-screen overflow-y-auto bg-panel px-4 text-ink',
+        props.embedded ? 'py-4' : 'py-12 sm:py-20'
+      )}
+    >
       <div class="mx-auto max-w-4xl">
-        <a
-          href="https://macro.com"
-          class="mb-8 inline-block text-lg font-semibold tracking-tight"
-        >
-          Macro
-          <span class="ml-2 text-sm font-normal text-ink-muted">
-            Scheduling
-          </span>
-        </a>
+        <Show when={!props.embedded}>
+          <a
+            href="https://macro.com"
+            class="mb-8 inline-block text-lg font-semibold tracking-tight"
+          >
+            Macro
+            <span class="ml-2 text-sm font-normal text-ink-muted">
+              Scheduling
+            </span>
+          </a>
+        </Show>
         <Show
           when={props.event}
           fallback={
@@ -50,9 +65,7 @@ export function PublicBookingView(props: {
                       </h2>
                       <p class="mt-2 text-sm text-ink-muted">
                         {event.durationMinutes} minutes ·{' '}
-                        {event.googleMeet
-                          ? 'Google Meet'
-                          : event.location || 'Meeting'}
+                        {meetingPlaceLabel(event)}
                       </p>
                       <p class="mt-3 text-sm text-ink-muted">
                         {event.description}
@@ -73,9 +86,11 @@ export function PublicBookingView(props: {
             />
           )}
         </Show>
-        <p class="mt-8 text-center text-xs text-ink-muted">
-          Scheduling by Macro
-        </p>
+        <Show when={!props.embedded}>
+          <p class="mt-8 text-center text-xs text-ink-muted">
+            Scheduling by Macro
+          </p>
+        </Show>
       </div>
     </main>
   );

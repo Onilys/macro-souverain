@@ -72,7 +72,7 @@ New approval-only configurations and bookings are disabled until standalone host
 notifications exist. Existing pending records remain manageable. Confirmed meetings receive
 provider calendar invitations. Shared PostgreSQL budgets cap public availability and booking
 requests per profile; all booking changes use a monotonic revision to prevent stale edits.
-See `docs/CALENDAR_SCHEDULING_V1.md` for rollout, rollback and monitoring queries.
+See `docs/design/calendar-scheduling-v1.md` for rollout, rollback and monitoring queries.
 It does not deploy the backend or apply migrations to shared databases.
 
 ## AI booking-link workflows

@@ -9,8 +9,10 @@ import {
 } from '@app/features/calendar-view/calendar-url';
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { changesSearch } from '@app/features/changes/changes-search';
+import { crmViewReference } from '@app/features/crm/crm-route';
 import { driveDetailTrailSchema } from '@app/features/drive-view/primitives/drive-detail-trail';
 import {
+  DRIVE_DETAIL_TYPES,
   DRIVE_DOCUMENT_TYPES,
   driveDocumentBlockType,
 } from '@app/features/drive-view/primitives/drive-route-schema';
@@ -166,6 +168,12 @@ export const channelInviteRoute = defineRoute({
   externalSearch: '*',
 });
 
+/** Sign-in, onboarding, invite, and handoff pages, without the app's chrome. */
+export const authRoute = defineRoute({ id: 'auth' });
+
+/** Booking pages a visitor opens from a shared link, in the focused shell. */
+export const publicRoute = defineRoute({ id: 'public' });
+
 /** The split layout; its children are the pane routes. */
 export const appRoute = defineRoute({ id: APP_ROUTE_ID });
 
@@ -182,7 +190,7 @@ export const driveCallRoute = defineRoute({
 });
 
 const driveDocumentParams = z.object({
-  documentType: z.enum(DRIVE_DOCUMENT_TYPES),
+  documentType: z.enum(DRIVE_DETAIL_TYPES),
   documentId: z.string().min(1),
 });
 
@@ -363,6 +371,11 @@ export const homeChannelRoute = defineRoute({
 export const homeDocumentRoute = defineRoute({
   ...driveRootDocumentRoute,
   id: 'home-document',
+  // Home previews databases and forms as blocks under `home-preview`.
+  params: z.object({
+    documentType: z.enum(DRIVE_DOCUMENT_TYPES),
+    documentId: z.string().min(1),
+  }),
   externalSearch: (entry: Readonly<Entry>) => {
     const type = routeParams(entry.location.route).documentType;
     if (
@@ -590,6 +603,7 @@ export const companiesRoute = defineRoute({
   search: '*' as const,
   externalSearch: ['crmView'],
   claim: () => ({ namespace: 'component', id: 'companies' }),
+  toReference: (_, query) => crmViewReference(query),
 });
 
 export const foldersRoute = defineRoute({

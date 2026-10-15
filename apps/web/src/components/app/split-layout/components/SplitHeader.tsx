@@ -33,7 +33,7 @@ import {
 } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { match, P } from 'ts-pattern';
-import { splitBackInterceptor } from '../back-interceptor';
+import { runSplitBack } from '../back-interceptor';
 import { SplitLayoutContext, SplitPanelContext } from '../context';
 import type { SplitContent } from '../layoutManager';
 import {
@@ -132,18 +132,21 @@ function SplitBackButton() {
         !context.handle.canGoBack() &&
         !hasAgentsBackFallback(context.handle.content())
       }
-      onClick={() => {
-        if (splitBackInterceptor()?.()) return;
-        if (
-          !context.handle.canGoBack() &&
-          hasAgentsBackFallback(context.handle.content())
-        ) {
-          context.handle.replace({
-            next: { type: 'component', id: 'agents' },
-            mergeHistory: true,
-          });
-        } else context.handle.goBack();
-      }}
+      onClick={() =>
+        runSplitBack({
+          canGoBack: () =>
+            context.handle.canGoBack() ||
+            hasAgentsBackFallback(context.handle.content()),
+          goBack: () => {
+            if (!context.handle.canGoBack()) {
+              context.handle.replace({
+                next: { type: 'component', id: 'agents' },
+                mergeHistory: true,
+              });
+            } else context.handle.goBack();
+          },
+        })
+      }
     >
       <CaretLeft />
     </Button>
@@ -437,8 +440,10 @@ export function SplitHeader(props: {
             </Portal>
           )}
         </Show>
+        {/* pl-1 + the close wrapper's pl-2 insets the 24px close button 12px
+            from the left, matching its inset from the top of the 48px header. */}
         <div
-          class="absolute inset-0 flex justify-start items-center not-touch:pl-[5px] touch:px-(--mobile-chrome-gutter) touch:gap-2"
+          class="absolute inset-0 flex justify-start items-center not-touch:pl-1 touch:px-(--mobile-chrome-gutter) touch:gap-2"
           ref={props.collapseController.setRow}
         >
           <Show

@@ -2,8 +2,8 @@
 edition = "2024"
 name = "cache-wasm"
 publish = false
-# Rebuild to parse frontend-supplied GraphQL SDL directly.
-version = "0.6.43"
+# Rebuild with thread-local email participant cache semantics.
+version = "0.6.48"
 
 [features]
 default = []

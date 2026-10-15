@@ -2,8 +2,11 @@
 
 mod comment_on_document;
 mod create_document;
+mod create_skill;
+mod delete_document_comment;
 mod design;
 mod edit_document;
+mod edit_document_comment;
 mod illustrator;
 mod photoshop;
 mod presentation;
@@ -34,8 +37,11 @@ use crate::{
     inbound::toolset::{
         comment_on_document::CommentOnDocument,
         create_document::CreateDocument,
+        create_skill::CreateSkill,
+        delete_document_comment::DeleteDocumentComment,
         design::ReadDesign,
         edit_document::EditDocument,
+        edit_document_comment::EditDocumentComment,
         illustrator::ReadIllustratorDocument,
         photoshop::ReadPhotoshopDocument,
         presentation::{EditPresentation, ReadPresentation},
@@ -60,7 +66,11 @@ use entity_access::domain::{
 };
 use lexical_client::LexicalClient;
 use macro_user_id::user_id::MacroUserIdStr;
-use messages::domain::{api::MessageServiceApi, ports::MessageError, service::MessageWrite};
+use messages::domain::{
+    api::MessageServiceApi,
+    ports::MessageError,
+    service::{MessageView, MessageWrite},
+};
 use model_owner::CreationPrincipal;
 use std::sync::Arc;
 use sync_service_client::SyncServiceClient;
@@ -340,6 +350,47 @@ impl<
             .map_err(comment_access_error)
     }
 
+    /// Mint the write capability for changing an existing comment as its
+    /// author: comments the tool actor bot posted are changed as the bot, and
+    /// every other comment as the user, so the message service applies the
+    /// same authorship and moderation rules as the web composer.
+    pub async fn require_comment_author_write(
+        &self,
+        request_context: &RequestContext,
+        document_id: Uuid,
+        comment_id: Uuid,
+    ) -> Result<EntityAccessReceipt<MessageWrite>, ToolCallError> {
+        let view = self
+            .entity_access_service
+            .generate_entity_access_receipt::<MessageView>(
+                &request_context.user_id,
+                None,
+                &document_id.to_string(),
+                EntityType::Document,
+            )
+            .await
+            .map_err(comment_access_error)?;
+        let comment = self
+            .messages
+            .get(view, comment_id)
+            .await
+            .map_err(comment_error("unable to read the comment"))?;
+        if comment.sender_id.as_ref() == self.actor.into_storage_id().as_ref() {
+            return self
+                .require_comment_write(request_context, document_id)
+                .await;
+        }
+        self.entity_access_service
+            .generate_entity_access_receipt::<MessageWrite>(
+                &request_context.user_id,
+                None,
+                &document_id.to_string(),
+                EntityType::Document,
+            )
+            .await
+            .map_err(comment_access_error)
+    }
+
     /// Who these tools create entities as when acting for `user`.
     pub fn creation_principal(&self, user: MacroUserIdStr<'static>) -> CreationPrincipal {
         CreationPrincipal::BotForUser {
@@ -361,11 +412,14 @@ where
         .add_tool::<ReadMetadata, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<ReadContent, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<CreateDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
+        .add_tool::<CreateSkill, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<UploadFile, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<RenameDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<EditDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<CommentOnDocument, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<ResolveDocumentComment, DocumentToolContext<DSvc, ESvc, EDSvc>>()
+        .add_tool::<EditDocumentComment, DocumentToolContext<DSvc, ESvc, EDSvc>>()
+        .add_tool::<DeleteDocumentComment, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<ReadSpreadsheet, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<CalculateSpreadsheet, DocumentToolContext<DSvc, ESvc, EDSvc>>()
         .add_tool::<EditSpreadsheet, DocumentToolContext<DSvc, ESvc, EDSvc>>()

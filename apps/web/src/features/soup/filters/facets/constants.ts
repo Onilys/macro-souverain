@@ -97,6 +97,22 @@ export const FILTER_TARGETS = {
       backend: 'Sender',
       formatValue: (value) => ({ Partial: value }),
     },
+    emailSenderAddress: {
+      backend: 'Sender',
+      formatValue: (value) => ({ Complete: value }),
+    },
+    emailRecipientAddress: {
+      backend: 'Recipient',
+      formatValue: (value) => ({ Complete: value }),
+    },
+    emailCcAddress: {
+      backend: 'Cc',
+      formatValue: (value) => ({ Complete: value }),
+    },
+    emailBccAddress: {
+      backend: 'Bcc',
+      formatValue: (value) => ({ Complete: value }),
+    },
     emailSeen: { backend: 'Read', domain: [true, false] },
     emailDone: {
       backend: 'InboxVisible',
@@ -264,6 +280,10 @@ type FilterTargetsMeta = {
     emailLinkId: string[];
     emailProjectId: string[];
     emailSender: string[];
+    emailSenderAddress: string[];
+    emailRecipientAddress: string[];
+    emailCcAddress: string[];
+    emailBccAddress: string[];
     emailSeen: boolean;
     emailDone: boolean;
     emailImportance: boolean;

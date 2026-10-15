@@ -37,6 +37,8 @@ function numberFormatCode(style: Required<SpreadsheetCellStyle>) {
     general: style.decimals < 0 ? 'General' : `0${fraction}`,
     number: `#,##0${fraction}`,
     currency: `$#,##0${fraction}`,
+    // Excel's built-in accounting formats 42 and 44 at 0 and 2 decimals.
+    accounting: `_("$"* #,##0${fraction}_);_("$"* \\(#,##0${fraction}\\);_("$"* "-"${'?'.repeat(digits)}_);_(@_)`,
     percent: `0${style.decimals < 0 ? '.##' : fraction}%`,
     date: 'm/d/yyyy',
     time: 'h:mm:ss AM/PM',
@@ -69,7 +71,14 @@ export function readNumberFormat(format: string): SpreadsheetCellStyle {
   else if (tokens.includes('%'))
     style = { format: 'percent', decimals: tokens === '0.##%' ? -1 : decimals };
   else if (/E[+-]?0/i.test(tokens)) style = { format: 'scientific', decimals };
-  else if (/\$/.test(format)) style = { format: 'currency', decimals };
+  else if (/\$/.test(format))
+    style = {
+      // A repeated fill character spreads the symbol and amount apart.
+      format: tokens.replace(/_./g, '').includes('*')
+        ? 'accounting'
+        : 'currency',
+      decimals,
+    };
   else if (/[0#]/.test(tokens))
     style = { format: tokens.includes(',') ? 'number' : 'general', decimals };
   else style = {};
