@@ -5,12 +5,17 @@
 //! the App Store, so a PR whose bundle depends on new native code must not
 //! merge before that native build is actually downloadable. The gate:
 //!
-//! 1. Detects native changes with a path filter over `apps/web/tauri/**`,
+//! 1. Detects native changes: a path filter over `apps/web/tauri/**`,
 //!    minus what never reaches the iOS binary (anything Android-only by
 //!    name, the desktop updater manifest, editor config) — the same
-//!    exclusions as the native tree hash in `scripts/ios_native_tree.sh`.
-//!    The filter needs dorny's `every` quantifier: with the default `some`
-//!    a negated pattern matches every file outside it, i.e. everything.
+//!    exclusions as the native tree hash in `scripts/ios_native_tree.sh` —
+//!    or a bump of the client cache wasm package version
+//!    (`crates/client/cache-wasm/Cargo.toml`): the app compiles the cache
+//!    crates natively, and that version is the team's "this cache change
+//!    must ship" signal, so the bump counts as native while other edits
+//!    under `crates/client` don't. The filter needs dorny's `every`
+//!    quantifier: with the default `some` a negated pattern matches every
+//!    file outside it, i.e. everything.
 //! 2. Verifies the PR bumped the iOS release numbers (`just ios-bump`):
 //!    marketing version, build number, and `min-native-build.json`.
 //! 3. Asks the App Store Connect API whether exactly that version + build is
@@ -42,8 +47,9 @@ pub(super) const JOB_ID: &str = "ios-native-check";
 /// The job's display name (a check run name).
 pub(super) const JOB_NAME: &str = "iOS Native Check";
 
-/// The path filter matched native iOS code.
-const NATIVE_CHANGED: &str = "steps.native-filter.outputs.ios_native == 'true'";
+/// Native iOS code changed: the path filter matched, or the cache wasm
+/// version moved against the base branch.
+const NATIVE_CHANGED: &str = "(steps.native-filter.outputs.ios_native == 'true' || steps.cache-wasm.outputs.bumped == 'true')";
 /// The PR opted out of the gate via the `skip-ios-update` label (as read at
 /// run time, see [`read_labels`]), and its negation. Spelled out rather than
 /// `!SKIP_LABEL`: in GitHub expressions `!` binds tighter than `==`, so
@@ -65,6 +71,7 @@ pub(super) fn job() -> Job {
         // the base branch itself, only when it runs.
         .add_step(super::checkout("Checkout Repo", false))
         .add_step(paths_filter())
+        .add_step(cache_wasm_version_bump())
         .add_step(read_labels())
         .add_step(setup_bun())
         .add_step(verify_bump())
@@ -100,6 +107,31 @@ fn paths_filter() -> Step<Use> {
                   - '!apps/web/tauri/.helix/**'
             "},
         ))
+}
+
+/// Did this PR move the client cache wasm package version against its base?
+/// Compared on the merge ref, so a bump that already landed on main does not
+/// count. Fetches the base branch (shallow) for the comparison.
+fn cache_wasm_version_bump() -> Step<Run> {
+    Step::new("Detect a client cache wasm version bump")
+        .run(indoc::indoc! {r#"
+            set -euo pipefail
+            manifest=crates/client/cache-wasm/Cargo.toml
+            version() { git show "$1:$manifest" 2>/dev/null | sed -n 's/^version *= *"\([^"]*\)".*/\1/p' | head -1 | grep . || echo none; }
+            git fetch -q --depth=1 origin "$BASE_BRANCH"
+            base=$(version "origin/$BASE_BRANCH")
+            head=$(version HEAD)
+            echo "cache-wasm version: base ${base}, merge result ${head}"
+            if [[ "$base" != "$head" ]]; then
+              echo "bumped=true" >> "$GITHUB_OUTPUT"
+              echo "The client cache wasm version moved; the native app compiles that cache, so this counts as a native change."
+            else
+              echo "bumped=false" >> "$GITHUB_OUTPUT"
+            fi
+        "#})
+        .id("cache-wasm")
+        .shell("bash")
+        .add_env(("BASE_BRANCH", "${{ github.base_ref }}"))
 }
 
 /// The PR's labels as they are now. `github.event.pull_request.labels` is

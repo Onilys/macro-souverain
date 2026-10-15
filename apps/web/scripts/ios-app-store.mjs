@@ -128,10 +128,14 @@ const BOOLEAN_FLAGS = new Set(["require-live", "require-unused-build"]);
 /// "The native code": every tracked blob under this directory except what
 /// never reaches the iOS binary — anything Android-only by Tauri's naming
 /// convention (a path component `android`, `android_*`, `android.*` or
-/// `*.android.*`), the desktop updater manifest, editor config. Must match
-/// `native_tree_hash` in tooling/xtask/.../workflows/scripts/ios_native_tree.sh
-/// and the iOS Native Check path filter.
+/// `*.android.*`), the desktop updater manifest, editor config — plus the
+/// version of the client cache wasm package, which the team bumps when a
+/// cache change must ship (the app compiles the cache crates natively). Must
+/// match `native_tree_hash` in
+/// tooling/xtask/.../workflows/scripts/ios_native_tree.sh and the iOS Native
+/// Check's change detection.
 const NATIVE_TREE_PATH = "apps/web/tauri";
+const CACHE_WASM_MANIFEST = "crates/client/cache-wasm/Cargo.toml";
 const NATIVE_TREE_EXCLUDE = /(^|\/)android([_.\/]|$)|\.android\.|^desktop-release\.json$|^\.helix\//;
 const STAMP_RE = /native tree ([0-9a-f]{40})/;
 const STAMP_PR_RE = /for PR #(\d+)/;
@@ -197,7 +201,14 @@ function nativeTreeHash() {
       .filter((line) => line && !NATIVE_TREE_EXCLUDE.test(line.split("\t")[1]))
       .map((line) => `${line}\n`)
       .join("");
-    return git(["hash-object", "--stdin"], listing).trim();
+    let cacheWasmVersion = "none";
+    try {
+      cacheWasmVersion =
+        git(["show", `HEAD:${CACHE_WASM_MANIFEST}`]).match(/^version *= *"([^"]*)"/m)?.[1] ?? "none";
+    } catch {
+      // The package did not exist at this commit.
+    }
+    return git(["hash-object", "--stdin"], `${listing}cache-wasm-version ${cacheWasmVersion}\n`).trim();
   } catch {
     return null;
   }

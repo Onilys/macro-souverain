@@ -143,10 +143,15 @@ only when `apps/web/tauri/` differs from the closest ancestor release with a
 complete AAB, R8 mapping, and checksums. The first release without
 such a baseline builds an AAB. Frontend-only releases skip native builds and Play
 uploads; their app updates use the bundle updater. The comparison covers the
-entire Tauri directory, including Android, iOS, Rust, and native config files.
-Changes outside that directory do not trigger a native release. If an external
-dependency or build-script change needs a new binary, bump the native version code
-in the Tauri directory as part of that change.
+entire Tauri directory, including Android, iOS, Rust, and native config files,
+plus one signal outside it: the `version` of the client cache wasm package in
+`crates/client/cache-wasm/Cargo.toml`. The app compiles the client cache
+crates natively, and the team bumps that version when a cache change must
+ship, so a bump since the baseline release counts as a native change (other
+edits under `crates/client` do not). Other changes outside the Tauri
+directory do not trigger a native release. If an external dependency or
+build-script change needs a new binary, bump the native version code in the
+Tauri directory as part of that change.
 
 Failed/incomplete artifact uploads do not advance the baseline. A rerun whose
 release already has complete artifacts skips rebuilding; retry a failed Play
@@ -180,8 +185,19 @@ just android-bump
 
 Commit the changed config before tagging the release. This increments only
 `versionCode`; edit `version` separately when changing the marketing version.
-CI rejects native changes whose code is not greater than the last published AAB
-baseline. No version bump is needed for frontend-only bundle updates.
+The PR's **Android Version Code** check compares its merged result with the base
+branch and requires a higher code when the Android native code changed: any
+file under `apps/web/tauri/` except iOS-, macOS-, Linux- and desktop-only
+paths by naming convention (`ios/` directories, `gen/apple/`, `*.ios.*` and
+`*.macos.*` config, `macos_*`/`linux_*` sources, the macOS icon set,
+`desktop-release.json`, `.helix/`), or a bump of the client cache wasm
+version. It feeds the required **Web App Status Check**, so a missing bump
+blocks merging. If another PR has already used your proposed code, update
+your branch and bump again. The release workflow applies the same definition
+(both read `apps/web/scripts/android-native.mjs`) and rejects native changes
+whose code is not greater than the last published AAB baseline, so a PR that
+passes the check cannot fail the release for the same reason. No version
+bump is needed for frontend-only, backend-only, or iOS/desktop-only changes.
 Builds never increment the counter implicitly, so retries of the same release
 retain its identity. Never distribute different releases with the same code or
 reuse a code already uploaded to Google Play. Keep the signing key for upgrades.

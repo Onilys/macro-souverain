@@ -1,9 +1,9 @@
 use agent_runtime_protocol::domain::action::AgentAction;
 use agent_session::domain::model::{AgentMcpServers, AgentSessionId};
 use agent_trigger::domain::broker_events::{
-    AgentAssignedToTaskEvent, AgentBotMentionedEvent, AgentMentionedEvent, AgentTriggerTopicEvent,
-    ChannelEventMetadata, ExistingAgentSessionEvent, NewAgentSessionEvent, ThreadEventMetadata,
-    ThreadMessageKind,
+    AgentAssignedToTaskEvent, AgentBotMentionedEvent, AgentConversationMessageEvent,
+    AgentMentionedEvent, AgentTriggerTopicEvent, ChannelEventMetadata, ExistingAgentSessionEvent,
+    NewAgentSessionEvent, ThreadEventMetadata, ThreadMessageKind,
 };
 use bot_id::{BotId, MACRO_CODER_BOT_ID};
 use channel_sender::ChannelSender;
@@ -795,5 +795,59 @@ fn thread_files_on_a_prompt_cap_at_eight() {
     assert_eq!(
         mention_origin(&open).attachments[0].uri,
         format!("https://static.example/file/{}", Uuid::from_u128(0))
+    );
+}
+
+#[test]
+fn conversation_messages_route_to_every_configured_runtime() {
+    let session_id = AgentSessionId::TEST_A;
+    let event = AgentTriggerTopicEvent::New(NewAgentSessionEvent::ConversationMessage(
+        AgentConversationMessageEvent {
+            bot_id: BotId::TEST_A,
+            session_id,
+            message: document_message(ChannelSender::new_from_user(user())),
+            context: None,
+        },
+    ));
+    assert_eq!(
+        route_agent_trigger(event.clone(), None, &links()).unwrap_err(),
+        Skipped::ForeignBot,
+    );
+    for kind in [
+        AgentKind::InMemory,
+        AgentKind::SandboxedCoder,
+        AgentKind::External,
+    ] {
+        let routed = route_agent_trigger(event.clone(), runtime(kind), &links()).unwrap();
+        let RoutedTrigger::Command(id, HarnessCommand::ConversationMessage(open)) = routed else {
+            panic!("a conversation message should reach its reserved session");
+        };
+        assert_eq!(id, session_id);
+        assert_eq!(open.runtime.kind, kind);
+    }
+}
+
+#[test]
+fn a_conversation_message_without_files_still_carries_the_thread_root_image() {
+    const ROOT_FILE: &str = "9ec21122-4bd8-473f-bfb0-21d2e6e5f03b";
+    let session_id = AgentSessionId::TEST_A;
+    let event = AgentTriggerTopicEvent::New(NewAgentSessionEvent::ConversationMessage(
+        AgentConversationMessageEvent {
+            bot_id: BotId::TEST_A,
+            session_id,
+            message: document_message(ChannelSender::new_from_user(user())),
+            context: Some(thread_root_image_context(ROOT_FILE)),
+        },
+    ));
+    let routed = route_agent_trigger(event, runtime(AgentKind::InMemory), &links()).unwrap();
+    let RoutedTrigger::Command(_, HarnessCommand::ConversationMessage(open)) = routed else {
+        panic!("a conversation message should reach its reserved session");
+    };
+    assert_eq!(
+        mention_origin(&open).attachments,
+        vec![
+            PromptAttachment::new(format!("https://static.example/file/{ROOT_FILE}"), "image")
+                .mime_type("image/*")
+        ]
     );
 }

@@ -141,8 +141,33 @@ preferences only. Security and Google steps have a Read more section below the f
 Work and personal account buttons use the existing Gmail linking flow. Skipping
 work email skips the secondary-account prompt. Verify that a Google return
 restores the correct step, shows the connected address, and allows continuation.
-Tools use the same Pipedream catalog and connection UI as Settings. Search, load
-more, cancel/retry connection, and confirm connected checks persist on return.
+
+Tools show a stable featured list: Linear, Notion, Slack, then startup tools
+such as PostHog and Stripe, followed by small-business tools such as QuickBooks.
+The featured Pipedream metadata is checked in; the remaining catalog uses one
+live paginated query. Search still covers the full directory. Verify load more,
+search, cancel/retry connection, and state persistence on return. Paging and
+Slack aliases must not duplicate cards. New Slack connections use `slack_v2`;
+existing `slack` accounts remain recognized. Production release requires a real
+Slack authorization and a successful read-only tool call, not just fixture tests.
+Cards use the Pipedream logo, with bundled icons and a generic plug as fallbacks.
+
+GitHub uses Macro's native OAuth/re-authorization flow and returns to the tools
+step. It shows **Account linked**, distinct from agent-tool readiness. A
+**Configure GitHub repositories** action opens native GitHub App installation;
+repository access must not be inferred from the account link. No Pipedream
+GitHub card is offered. The same setup remains available in Settings.
+
+Gmail and Google Calendar are hidden, including search and later pages. Google
+Drive and Google Sheets remain available in browse and search, with separate
+Pipedream connection state. Native Gmail and Calendar consent does not request
+Drive or Sheets scopes. Enabled native MCP and Pipedream connections show
+Connected. Disabled existing connections show Enable and reuse their stored
+authorization. Native and hosted tools coexist in both chat and sandbox agents,
+with native preference for known overlapping providers and Slack alias deduplication.
+Connection status failures have an explicit retry; they must not prevent
+independent providers such as native GitHub from connecting. Verify unknown
+status never launches a duplicate OAuth flow and continuation remains possible.
 Team setup retains existing membership, invite acceptance, domain suggestions,
 and editable invite recipients; submitting the form sends real invitations.
 On the create-team form, type a workspace name and edit a teammate address,

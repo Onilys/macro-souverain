@@ -76,6 +76,12 @@ use teams::{inbound::toolset::TeamToolContext, outbound::team_repo::TeamReposito
 use tokio_util::task::TaskTracker;
 
 mod activity_metadata;
+mod channel_media;
+#[cfg(any(test, feature = "test-support"))]
+pub use channel_media::build_channel_media_upload_tool_context_test;
+pub use channel_media::{
+    ToolChannelMediaUploadToolContext, build_channel_media_upload_tool_context,
+};
 mod coding_agents;
 pub use coding_agents::{ToolCodingAgentToolContext, build_coding_agent_tool_context};
 mod images;
@@ -1780,6 +1786,8 @@ pub struct ToolServiceContext {
     #[from_ref(skip)]
     pub chat_tool_context: ToolChatToolContext,
     pub channel_tool_context: ToolChannelToolContext,
+    /// Direct uploads of channel images and videos; exposed to MCP clients only.
+    pub channel_media_upload_tool_context: ToolChannelMediaUploadToolContext,
     pub bot_tool_context: ToolBotToolContext,
     pub coding_agent_tool_context: ToolCodingAgentToolContext,
     pub project_tool_context: ToolProjectToolContext,

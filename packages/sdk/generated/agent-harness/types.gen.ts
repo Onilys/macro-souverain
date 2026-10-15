@@ -109,6 +109,107 @@ export type AgentConfigSelectOptionDto = {
 };
 
 /**
+ * An agent's conversation in a channel, as the person it is with sees it.
+ */
+export type AgentConversationDto = {
+    /**
+     * Whether the caller may currently send a new prompt.
+     */
+    available: boolean;
+    /**
+     * Optional persona avatar.
+     */
+    avatarUrl?: string | null;
+    /**
+     * Persona id (without the bot principal prefix).
+     */
+    botId: string;
+    /**
+     * The channel containing the visible transcript.
+     */
+    channelId: string;
+    /**
+     * Persona's historical display name.
+     */
+    name: string;
+    /**
+     * The sessions the conversation has run on, oldest first.
+     */
+    sessions: Array<AgentConversationSessionDto>;
+    /**
+     * Whether new persona settings are available to adopt explicitly.
+     */
+    settingsChanged: boolean;
+    /**
+     * Persistent state of each accepted message and its current attempt.
+     */
+    turns: Array<AgentConversationTurnDto>;
+};
+
+/**
+ * One session a conversation has run on; every channel message stays visible.
+ */
+export type AgentConversationSessionDto = {
+    /**
+     * When the session began.
+     */
+    createdAt: string;
+    /**
+     * Whether this is the current agent context.
+     */
+    isCurrent: boolean;
+    /**
+     * Session whose controls and live events belong to this context.
+     */
+    sessionId: string;
+};
+
+/**
+ * Execution status without exposing the persona prompt or stored credentials.
+ */
+export type AgentConversationTurnDto = {
+    /**
+     * Current runtime attempt identity.
+     */
+    actionId: string;
+    /**
+     * When the source message was first accepted.
+     */
+    createdAt: string;
+    /**
+     * The associated agent reply, if it has been posted.
+     */
+    replyMessageId?: string | null;
+    /**
+     * Whether Retry would be accepted now. A failed attempt is not retryable
+     * until its reply says how it ended.
+     */
+    retryable: boolean;
+    /**
+     * Session carrying this turn.
+     */
+    sessionId: string;
+    /**
+     * The user's message in the channel timeline.
+     */
+    sourceMessageId: string;
+    /**
+     * Durable execution state.
+     */
+    state: ConversationTurnState;
+};
+
+/**
+ * The agent conversations in a channel the caller may see.
+ */
+export type AgentConversationsDto = {
+    /**
+     * Empty for ordinary channels and other people's conversations.
+     */
+    conversations: Array<AgentConversationDto>;
+};
+
+/**
  * One model picker option.
  */
 export type AgentModelDto = {
@@ -753,6 +854,11 @@ export type ControlResponse = {
 export type ControlStatusDto = 'sent' | 'queued';
 
 /**
+ * The state of one source message, retained after completion for deduplication.
+ */
+export type ConversationTurnState = 'queued' | 'running' | 'succeeded' | 'failed' | 'stopped' | 'interrupted';
+
+/**
  * Request body for `POST /agent-sessions`.
  *
  * Carries two shapes, told apart by `workspace`. Naming one asks for an
@@ -1322,6 +1428,16 @@ export type RenameAgentSessionRequest = {
 };
 
 /**
+ * The attempt the user saw and chose to retry; prevents double-click reruns.
+ */
+export type RetryAgentConversationTurnRequest = {
+    /**
+     * Current failed attempt identity.
+     */
+    actionId: string;
+};
+
+/**
  * Named compute tier for a managed sandbox.
  *
  * The API and database store the name. CPU, RAM, and disk live in
@@ -1439,6 +1555,16 @@ export type SharePermissionV2 = {
      */
     owner: string;
     teamShareAccessLevel?: null | AccessLevel;
+};
+
+/**
+ * The session the user is choosing to leave behind.
+ */
+export type StartFreshAgentConversationRequest = {
+    /**
+     * Current session id shown in the conversation metadata.
+     */
+    sessionId: string;
 };
 
 /**
@@ -1623,6 +1749,109 @@ export type PutAgentCodingPreferencesResponses = {
 };
 
 export type PutAgentCodingPreferencesResponse = PutAgentCodingPreferencesResponses[keyof PutAgentCodingPreferencesResponses];
+
+export type ListAgentConversationsData = {
+    body?: never;
+    path: {
+        /**
+         * Conversation channel
+         */
+        channel_id: string;
+    };
+    query?: never;
+    url: '/agent-conversations/{channel_id}';
+};
+
+export type ListAgentConversationsErrors = {
+    /**
+     * Conversations temporarily unavailable
+     */
+    503: unknown;
+};
+
+export type ListAgentConversationsResponses = {
+    /**
+     * The caller's agent conversations in the channel
+     */
+    200: AgentConversationsDto;
+};
+
+export type ListAgentConversationsResponse = ListAgentConversationsResponses[keyof ListAgentConversationsResponses];
+
+export type StartFreshAgentConversationData = {
+    body: StartFreshAgentConversationRequest;
+    path: {
+        channel_id: string;
+        /**
+         * Persona the conversation is with
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/agent-conversations/{channel_id}/{bot_id}/start-fresh';
+};
+
+export type StartFreshAgentConversationErrors = {
+    /**
+     * Conversation not found
+     */
+    404: unknown;
+    /**
+     * Context is busy, stale or unavailable
+     */
+    409: unknown;
+    /**
+     * Temporarily unavailable
+     */
+    503: unknown;
+};
+
+export type StartFreshAgentConversationResponses = {
+    /**
+     * New context reserved
+     */
+    204: void;
+};
+
+export type StartFreshAgentConversationResponse = StartFreshAgentConversationResponses[keyof StartFreshAgentConversationResponses];
+
+export type RetryAgentConversationTurnData = {
+    body: RetryAgentConversationTurnRequest;
+    path: {
+        channel_id: string;
+        /**
+         * Persona the conversation is with
+         */
+        bot_id: string;
+        source: string;
+    };
+    query?: never;
+    url: '/agent-conversations/{channel_id}/{bot_id}/turns/{source}/retry';
+};
+
+export type RetryAgentConversationTurnErrors = {
+    /**
+     * Conversation or turn not found
+     */
+    404: unknown;
+    /**
+     * Attempt cannot be retried
+     */
+    409: unknown;
+    /**
+     * Temporarily unavailable
+     */
+    503: unknown;
+};
+
+export type RetryAgentConversationTurnResponses = {
+    /**
+     * Retry queued
+     */
+    204: void;
+};
+
+export type RetryAgentConversationTurnResponse = RetryAgentConversationTurnResponses[keyof RetryAgentConversationTurnResponses];
 
 export type LoadAgentModelsHandlerData = {
     body: LoadAgentModelsRequest;
@@ -1956,6 +2185,10 @@ export type SetAgentSessionArchivedData = {
 export type SetAgentSessionArchivedErrors = {
     401: string;
     403: string;
+    /**
+     * The session answers an agent conversation
+     */
+    409: string;
     500: string;
 };
 

@@ -1,20 +1,20 @@
-import { execFileSync } from 'node:child_process';
 import { appendFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import {
+  androidChangeReasons,
+  androidNativeHash,
+  androidVersionCode,
+  gitIn,
+  tauriPath,
+} from './android-native.mjs';
 
-const tauriPath = 'apps/web/tauri';
 const releaseTag = /^v20\d{2}\.\d{1,2}\.\d{1,2}(?:\.\d{1,2})?$/;
 
 export function androidReleaseDecision({ releases, cwd = process.cwd() }) {
-  const git = (...args) =>
-    execFileSync('git', args, {
-      cwd,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    }).trim();
-  const head = git('rev-parse', '--verify', 'HEAD^{commit}');
-  const tree = git('rev-parse', '--verify', `${head}:${tauriPath}`);
+  const git = gitIn(cwd);
+  const head = git(['rev-parse', '--verify', 'HEAD^{commit}']);
   const candidates = new Map();
   for (const release of releases) {
     const tag = release.tag_name;
@@ -32,13 +32,13 @@ export function androidReleaseDecision({ releases, cwd = process.cwd() }) {
     )
       continue;
     // Missing tags/history must fail, rather than silently reuse a version code.
-    const commit = git('rev-parse', '--verify', `refs/tags/${tag}^{commit}`);
+    const commit = git(['rev-parse', '--verify', `refs/tags/${tag}^{commit}`]);
     candidates.set(commit, tag);
   }
 
   // API release ordering can differ from commit order. Only consider ancestors
   // of this release, and prefer the closest one in topological history order.
-  const baseline = git('rev-list', '--topo-order', head)
+  const baseline = git(['rev-list', '--topo-order', head])
     .split('\n')
     .find((commit) => candidates.has(commit));
   if (!baseline) {
@@ -49,30 +49,21 @@ export function androidReleaseDecision({ releases, cwd = process.cwd() }) {
     };
   }
   const tag = candidates.get(baseline);
-  if (tree === git('rev-parse', '--verify', `${baseline}:${tauriPath}`)) {
+  if (androidNativeHash(git, head) === androidNativeHash(git, baseline)) {
     return {
       build: false,
-      summary: `Skip Android: ${tauriPath}/ is unchanged since ${tag}. App updates use the bundle updater.`,
+      summary: `Skip Android: the Android native code (${tauriPath}/ and the client cache wasm version) is unchanged since ${tag}. App updates use the bundle updater.`,
     };
   }
-
-  const versionCode = (commit) => {
-    const config = JSON.parse(
-      git('show', `${commit}:${tauriPath}/src-tauri/tauri.android.conf.json`)
-    );
-    const code = config.bundle?.android?.versionCode;
-    if (!Number.isInteger(code) || code < 1 || code > 2_100_000_000)
-      throw new Error(`Invalid Android versionCode at ${commit}`);
-    return code;
-  };
-  if (versionCode(head) <= versionCode(baseline)) {
+  const reason = `${androidChangeReasons(git, baseline, head).join(' and ')} since ${tag}`;
+  if (androidVersionCode(git, head) <= androidVersionCode(git, baseline)) {
     throw new Error(
-      `Tauri changed since ${tag}, but Android versionCode did not increase. Run just android-bump in apps/web and commit before tagging.`
+      `Native code changed (${reason}), but Android versionCode did not increase. Run just android-bump in apps/web and commit before tagging.`
     );
   }
   return {
     build: true,
-    summary: `Build Android: ${tauriPath}/ changed since ${tag}.`,
+    summary: `Build Android: ${reason}.`,
   };
 }
 

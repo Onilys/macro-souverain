@@ -29,8 +29,7 @@ secret!(PULUMI_ACCESS_TOKEN);
 secret!(SEGMENT_WRITE_KEY);
 secret!(SEGMENT_WRITE_KEY_PRODUCTION);
 
-/// Cloudflare account id. A repo *variable* (not a secret), matching the
-/// hand-written `deploy-lexical-service.yml`.
+/// Cloudflare account id. A repo *variable* (not a secret).
 pub const CLOUDFLARE_ACCOUNT_ID: &str = "${{ vars.CLOUDFLARE_ACCOUNT_ID }}";
 
 /// S3 nix binary cache store URL, a repo *variable* — e.g.

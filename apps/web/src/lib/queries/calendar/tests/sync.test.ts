@@ -5,10 +5,10 @@ import { handleRefreshCalendar } from '../sync';
 const invalidateQueriesMock = vi.hoisted(() => vi.fn());
 const isMutatingMock = vi.hoisted(() => vi.fn());
 const invalidateCalendarOccurrencesMock = vi.hoisted(() => vi.fn());
-const resetTeamCalendarQueriesMock = vi.hoisted(() => vi.fn());
+const refreshTeamCalendarQueriesMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../team-cache', () => ({
-  resetTeamCalendarQueries: resetTeamCalendarQueriesMock,
+  refreshTeamCalendarQueries: refreshTeamCalendarQueriesMock,
 }));
 
 vi.mock('../../client', () => ({
@@ -35,7 +35,7 @@ describe('handleRefreshCalendar', () => {
     });
 
     expect(invalidateCalendarOccurrencesMock).toHaveBeenCalledTimes(1);
-    expect(resetTeamCalendarQueriesMock).toHaveBeenCalledTimes(1);
+    expect(refreshTeamCalendarQueriesMock).toHaveBeenCalledTimes(1);
     expect(invalidateQueriesMock).toHaveBeenCalledWith({
       queryKey: calendarKeys.invitations._def,
     });
@@ -81,7 +81,7 @@ describe('handleRefreshCalendar', () => {
 
   it('clears team projections on sharing changes without touching own optimistic events', () => {
     handleRefreshCalendar({ event: 'team_sharing_changed' });
-    expect(resetTeamCalendarQueriesMock).toHaveBeenCalledTimes(1);
+    expect(refreshTeamCalendarQueriesMock).toHaveBeenCalledTimes(1);
     expect(invalidateCalendarOccurrencesMock).not.toHaveBeenCalled();
   });
 });

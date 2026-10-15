@@ -512,6 +512,14 @@ pub trait AgentSessionRepo: Send + Sync + 'static {
         is_archived: bool,
     ) -> impl Future<Output = Result<()>> + Send;
 
+    /// Whether the session is an agent conversation's current one: the
+    /// session its channel's messages go to now. A session the conversation
+    /// left behind by starting fresh is not.
+    fn is_current_conversation_session(
+        &self,
+        id: AgentSessionId,
+    ) -> impl Future<Output = Result<bool>> + Send;
+
     /// Persist an automatically generated name only while the default remains
     /// and the session is not archived.
     fn set_name_if_default(

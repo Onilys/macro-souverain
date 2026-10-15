@@ -94,6 +94,13 @@ working. A coding session adds a second line with repository, captured working
 branch (when available), and PR number/status. Non-coding sessions stay on one
 line. Their timestamps and unread dots stay visible. Missing repository metadata
 is omitted.
+Once `HIDE_AGENT_DM_SESSIONS` is enabled after the warm-marker rollout, agent
+DM contexts stay out of broad Agents/Home lists, including work-feed and
+notification-driven candidates. Prior notifications or activity must not bring
+them back. The DM remains in Channels/DMs; authorized direct session links and
+explicitly saved favorites still open their context. Verify this alongside an
+ordinary standalone session, which remains listed.
+
 The Agents workspace uses a single left dot for activity and unread state in
 place of the sparkle. Opening a loaded session from Home or Agents marks its
 notifications read after the viewing delay, including notifications arriving

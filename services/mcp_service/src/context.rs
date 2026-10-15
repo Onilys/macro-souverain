@@ -577,6 +577,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         import_tool_context: ToolImportToolContext::wired(import_service),
         chat_tool_context,
         channel_tool_context,
+        channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context()?,
         bot_tool_context: ai_tools::build_bot_tool_context(
             db.clone(),
             ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),

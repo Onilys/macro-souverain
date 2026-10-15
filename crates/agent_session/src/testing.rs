@@ -87,6 +87,9 @@ pub struct InMemoryAgentSessionRepo {
     queues: Arc<Mutex<HashMap<AgentSessionId, Vec<StoredQueuedAction>>>>,
     /// Session -> who prompted its turn, mirroring the `turn_*` columns.
     turn_prompters: Arc<Mutex<HashMap<AgentSessionId, TurnPrompter>>>,
+    /// Sessions an agent conversation sends its messages to, mirroring the
+    /// current rows of `agent_conversation_sessions`.
+    conversation_sessions: Arc<Mutex<std::collections::HashSet<AgentSessionId>>>,
 }
 
 impl InMemoryAgentSessionRepo {
@@ -103,6 +106,15 @@ impl InMemoryAgentSessionRepo {
             .lock()
             .expect("in-memory session store is not poisoned")
             .insert(session.id, session);
+    }
+
+    /// Make `session` the one an agent conversation's channel sends its
+    /// messages to.
+    pub fn answer_conversation(&self, session: AgentSessionId) {
+        self.conversation_sessions
+            .lock()
+            .expect("in-memory conversation store is not poisoned")
+            .insert(session);
     }
 
     /// The activity projection last committed with this session's log.
@@ -262,9 +274,7 @@ impl AgentSessionRepo for InMemoryAgentSessionRepo {
     }
 
     async fn get(&self, id: AgentSessionId) -> Result<AgentSession> {
-        self.find(id).await?.ok_or_else(|| {
-            AgentSessionError::Unknown(anyhow::anyhow!("no agent session {}", id.as_uuid()))
-        })
+        self.find(id).await?.ok_or(AgentSessionError::NotFound(id))
     }
 
     async fn find(&self, id: AgentSessionId) -> Result<Option<AgentSession>> {
@@ -446,6 +456,14 @@ impl AgentSessionRepo for InMemoryAgentSessionRepo {
             session.modified_at = chrono::Utc::now();
         }
         Ok(())
+    }
+
+    async fn is_current_conversation_session(&self, id: AgentSessionId) -> Result<bool> {
+        Ok(self
+            .conversation_sessions
+            .lock()
+            .expect("in-memory conversation store is not poisoned")
+            .contains(&id))
     }
 
     async fn set_name_if_default(&self, id: AgentSessionId, name: &str) -> Result<bool> {

@@ -205,8 +205,8 @@ Collapsible `Upcoming events` and `Calendars` sections follow; calendar
 account rows use Drive-style trailing disclosure buttons and animated nested
 branches. Their 14px visibility checkboxes precede the swatch and label, with
 separate account and individual-calendar visibility controls. `Team out of office`
-is feature-gated and lists teammates with 24px avatars; its section switch
-toggles the entire grid overlay. Clicking a teammate's row navigates to that
+is feature-gated and lists teammates with 24px avatars; it is a plain
+collapsible section, and the grid overlay always shows. Clicking a teammate's row navigates to that
 date, opens read-only event details, and marks the row active. The icon-only
 `Calendar settings` control fills the sidebar footer.
 An account checkbox toggles its calendars together in one update. The checkbox
@@ -223,44 +223,30 @@ another sidebar; their left header island has a compact New menu because the
 bottom New action follows the foreground host view.
 
 With `enable-calendar-team-sharing` enabled, **Settings → Calendar** also has
-**Team sharing**: `Busy blocks` (the default), `Event details`, and `Nothing`.
+**Team sharing**: one `Share with teammates` row whose select offers
+`Busy blocks` (the default), `Event details`, and `Nothing`, with a one-line
+description of the current choice under the label. A new choice shows at once
+and saves in the background; a failed save restores the previous choice and
+shows a toast. Neither settings section returns to a loading state after a
+change, including when the server's `team_sharing_changed` push arrives.
 These are Macro read permissions. They do not change Google Calendar ACLs,
 invite teammates to meetings, or let teammates edit, RSVP, or manage reminders.
 The sharing choice covers every currently authorized calendar synced to Macro.
-Private/confidential events only expose generic time blocks; event details
-come from one authorized source copy. Disconnecting an account or losing
-source access removes its team projection.
+Private/confidential events only expose generic time blocks.
 
-**Calendars that count as busy** controls which calendars represent the user's
-personal schedule. Primary calendars count by default; other calendars require
-explicit inclusion. Meetings the user attends also contribute, except declined
-meetings. Following a coworker's calendar does not automatically make that
-coworker's events occupy the user's time. In team overlays, `Busy` means the
-block contributes to that teammate's availability; `Shared calendar block`
-means it belongs to a calendar the teammate can access and does not count
-toward their busy time. Event details show the same distinction explicitly.
+**Calendars that count as busy** reuses the sidebar's `Calendars` list: each
+connected account is a folded row with a checkbox, color swatch, and disclosure
+button that expands to its calendars. An account checkbox includes or excludes
+all of its calendars at once. These choices decide which calendars represent the
+user's personal schedule. Primary calendars count by default; other calendars
+require explicit inclusion. Meetings the user attends also contribute, except
+declined meetings. Following a coworker's calendar does not automatically make
+that coworker's events occupy the user's time.
 
-The sidebar's **Team calendars** section has a master `Show team calendars`
-switch and per-teammate checkboxes; Settings exposes the same display controls.
-Display toggles affect this viewer's grid only. Team chips are prefixed with
-the sharer's name and open read-only details. Copy-event links, guest-email
-actions, RSVP, editing, and deletion are unavailable on team projections.
-A directly accessible copy retains its own actions; another person's projection
-of the same meeting may appear separately, with its sharing provenance.
-Distinct authorized source copies may also appear separately for the same
-teammate and meeting: their detail masking and availability contribution can differ.
-Team projections and availability use server-confirmed copies. An offline queued
-edit appears in the editor's own calendar, but reaches teammates only after the
-server commits the provider-backed change and their shared projection refreshes.
-An unavailable team fetch displays a warning and removes stale shared details.
-Sharing-change notifications clear open shared details before refetching;
-focus/reconnect and a 30-second refresh provide a fallback. Shared details also
-disappear when an offline refresh is paused; they are not persisted for offline
-use. While the app is running, team responses and in-flight requests expire
-after 60 seconds, so a hung refresh cannot retain old details. Replacing a login
-session clears team data and open shared details before the new identity loads.
-Legacy out-of-office rows are read-only status displays and do not claim
-that every absence blocks availability.
+Teammates' shared events do not render on the grid; `Team out of office` is the
+only teammate overlay. Replacing a login session clears team data and open
+teammate details before the new identity loads. Legacy out-of-office rows are
+read-only status displays and do not claim that every absence blocks availability.
 
 The `GetTeamAvailability` AI tool checks the requester together with the selected
 teammates. It reports confirmed free windows only when every participant has
@@ -454,8 +440,8 @@ touch devices — and is hidden when you are the only guest.
 With the `enable-calendar-team-ooo` flag on, teammates' Google Calendar out-of-office events
 overlay the grid as read-only chips titled `<name>: <event title>`. The sidebar's
 `Team out of office` section (shown only when the user belongs to a team with other members)
-has a checkbox in its header row toggling the whole overlay on or off — all teammates or
-none — and lists the next 90 days of teammate absences; clicking a row navigates the grid to
+is a collapsible list of the next 90 days of teammate absences, with no switch: the overlay
+always shows; clicking a row navigates the grid to
 that date. Coverage depends on each teammate having connected their own calendar and using
 Google's out-of-office event type.
 

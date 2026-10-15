@@ -1014,7 +1014,7 @@ async fn run_turn(
             )),
         ));
     }
-    if let Some(failure) = failure {
+    if let Some(failure) = &failure {
         let _ = connection.send_notification(SessionNotification::new(
             acp_session_id.clone(),
             SessionUpdate::AgentMessageChunk(ContentChunk::new(
@@ -1024,7 +1024,11 @@ async fn run_turn(
     }
     state.push_turn(request_id, prompt, turn_parts);
 
-    if was_cancelled || cancel.is_cancelled() {
+    // A failure first: the idle timeout cancels the stream itself, and a turn
+    // it stopped failed rather than being stopped by the user.
+    if let Some(failure) = failure {
+        Err(AcpError::internal_error().data(failure))
+    } else if was_cancelled || cancel.is_cancelled() {
         Ok(StopReason::Cancelled)
     } else {
         Ok(StopReason::EndTurn)
