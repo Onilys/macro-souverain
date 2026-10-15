@@ -5,7 +5,7 @@ use super::*;
 /// Online delivery command. The draft handle is required so a response lost
 /// after enqueue cannot turn a retry into a second, unrelated message.
 #[derive(InputObject)]
-pub struct SendEmailComposeMessageInput {
+pub struct SendEmailMessageInput {
     /// Complete latest draft revision, including inbox and sender address.
     pub draft: SaveEmailDraftInput,
     /// Per-message override for the inbox's signature policy.
@@ -15,7 +15,7 @@ pub struct SendEmailComposeMessageInput {
 /// Confirmed delivery identity. These fields describe an operation result, not
 /// a globally normalized entity; there is deliberately no `id` field.
 #[derive(SimpleObject)]
-pub struct SendEmailComposeMessagePayload {
+pub struct SendEmailMessagePayload {
     /// Persisted message queued for delivery.
     message_id: ID,
     /// Persisted thread containing the message.
@@ -28,8 +28,8 @@ pub struct SendEmailComposeMessagePayload {
 
 pub(super) async fn send<S: EmailMutationService>(
     ctx: &Context<'_>,
-    input: SendEmailComposeMessageInput,
-) -> async_graphql::Result<SendEmailComposeMessagePayload> {
+    input: SendEmailMessageInput,
+) -> async_graphql::Result<SendEmailMessagePayload> {
     let user_id = require_authenticated_user(ctx)?;
     let link_id = input
         .draft
@@ -41,7 +41,7 @@ pub(super) async fn send<S: EmailMutationService>(
     draft.include_signature = input.include_signature;
     let sent = ctx
         .data::<Arc<S>>()?
-        .send_email_compose_message(user_id, link_id, draft)
+        .send_email_message(user_id, link_id, draft)
         .await
         .map_err(|error| {
             tracing::error!(error = ?error, "failed to enqueue email delivery");
@@ -49,7 +49,7 @@ pub(super) async fn send<S: EmailMutationService>(
         })?;
     // Do not perform fallible hydration after committing delivery. A read
     // failure must not make a successful send appear safe to repeat.
-    Ok(SendEmailComposeMessagePayload {
+    Ok(SendEmailMessagePayload {
         message_id: ID(sent.db_id.to_string()),
         thread_id: ID(sent.thread_db_id.to_string()),
         link_id: ID(sent.link_id.to_string()),

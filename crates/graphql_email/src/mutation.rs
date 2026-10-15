@@ -17,7 +17,7 @@ use macro_user_id::user_id::MacroUserIdStr;
 use uuid::Uuid;
 
 mod send;
-use send::{SendEmailComposeMessageInput, SendEmailComposeMessagePayload};
+use send::{SendEmailMessageInput, SendEmailMessagePayload};
 
 #[cfg(test)]
 mod test;
@@ -25,7 +25,7 @@ mod test;
 /// Domain-facing capability required by email thread mutations.
 pub trait EmailMutationService: Send + Sync + 'static {
     /// Send from a caller-accessible inbox, with server-side sender validation.
-    fn send_email_compose_message(
+    fn send_email_message(
         &self,
         user_id: MacroUserIdStr<'static>,
         link_id: Option<Uuid>,
@@ -85,7 +85,7 @@ impl<S> EmailMutationService for S
 where
     S: EmailService,
 {
-    async fn send_email_compose_message(
+    async fn send_email_message(
         &self,
         user_id: MacroUserIdStr<'static>,
         link_id: Option<Uuid>,
@@ -436,7 +436,7 @@ fn saved_draft_message(saved: SavedUserDraft) -> Message {
 /// Error taxonomy for the draft mutations (save and delete), mirroring the
 /// REST `CreateDraftError` mapping with machine-readable `extensions.code`
 /// values the client can use to offer recovery without blocking its mutation queue.
-pub(crate) fn draft_mutation_error(error: &EmailErr) -> async_graphql::Error {
+pub fn draft_mutation_error(error: &EmailErr) -> async_graphql::Error {
     let (message, code) = match error {
         EmailErr::SendAttemptConflict => (
             "send attempt was reused with different content",
@@ -631,11 +631,11 @@ where
     /// Enqueue a message from a caller-accessible inbox using a verified sender.
     /// Delivery uses the existing undo window and worker, not the offline mutation queue.
     #[tracing::instrument(skip_all, err(Debug))]
-    async fn send_email_compose_message(
+    async fn send_email_message(
         &self,
         ctx: &Context<'_>,
-        input: SendEmailComposeMessageInput,
-    ) -> async_graphql::Result<SendEmailComposeMessagePayload> {
+        input: SendEmailMessageInput,
+    ) -> async_graphql::Result<SendEmailMessagePayload> {
         send::send::<S>(ctx, input).await
     }
 

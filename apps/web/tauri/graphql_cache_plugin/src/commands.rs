@@ -34,6 +34,13 @@ mod test;
 
 type Variables = serde_json::Map<String, serde_json::Value>;
 
+/// V1 guarantees enqueue/claim request-generation fencing and persisted client metadata.
+/// Probe without opening storage so an incompatible OTA cannot modify an older queue.
+#[tauri::command]
+pub fn graphql_cache_mutation_queue_contract_version() -> u8 {
+    1
+}
+
 fn engine_handle(state: &State<'_, CacheState>) -> Result<EngineHandle, String> {
     state
         .0

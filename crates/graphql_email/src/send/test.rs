@@ -115,7 +115,7 @@ fn schema(
         builder.finish()
     }
 }
-const SEND: &str = r#"mutation { sendEmailMessage(input: {
+const SEND: &str = r#"mutation { sendEmailAttempt(input: {
     attempt: {attemptId:"00000000-0000-4000-8000-000000000001",linkId:"00000000-0000-4000-8000-000000000002"},
     message: {draftId:"00000000-0000-4000-8000-000000000003",subject:"Approved",to:[{email:"to@example.com"}],bodyHtml:"aHRtbA"},
     includeSignature:false,attachmentIds:["00000000-0000-4000-8000-000000000004"],forwardedAttachmentIds:[],restoreBodyText:"Editable"
@@ -127,7 +127,7 @@ async fn authenticated_send_maps_the_immutable_snapshot_and_selected_inbox() {
     let response = schema(service.clone(), true).execute(SEND).await;
     assert!(response.errors.is_empty(), "{:?}", response.errors);
     assert_eq!(
-        response.data.into_json().unwrap()["sendEmailMessage"]["attempt"]["status"],
+        response.data.into_json().unwrap()["sendEmailAttempt"]["attempt"]["status"],
         "ACCEPTED"
     );
     let calls = service.calls.lock().unwrap();

@@ -1172,7 +1172,7 @@ and address pickers remain available. To check without sending real mail, open
 both pickers, select an alias, switch to the primary address, reopen a saved alias
 draft, and confirm the address remains unchanged. Alias discovery uses
 `MailAccounts`, draft saves use `saveEmailDraft`, and delivery uses
-`sendEmailMessage` for durable delivery or `sendEmailComposeMessage` for foreground
+`sendEmailAttempt` for durable delivery or `sendEmailMessage` for foreground
 GraphQL delivery; the existing undo-send window still applies. Verify an alias
 through offline queueing, reconnect, and Undo: it must stay attached to the
 captured inbox and must never fall back to that inbox's primary address. Existing

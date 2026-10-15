@@ -6,8 +6,8 @@ fragment EmailSendAttemptFields on EmailSendAttemptPayload {
   message { ...EmailThreadMessageFields }
 }
 
-mutation SendEmailMessage($input: SendEmailMessageInput!) {
-  sendEmailMessage(input: $input) {
+mutation SendEmailMessage($input: SendEmailAttemptInput!) {
+  sendEmailMessage: sendEmailAttempt(input: $input) {
     attempt { ...EmailSendAttemptFields }
     thread { ...EmailDraftThreadFields }
   }
@@ -27,8 +27,8 @@ query EmailSendAttempt($input: EmailSendAttemptInput!) {
   }
 }
 
-mutation SendEmailComposeMessage($input: SendEmailComposeMessageInput!) {
-  sendEmailComposeMessage(input: $input) {
+mutation SendEmailComposeMessage($input: SendEmailMessageInput!) {
+  sendEmailComposeMessage: sendEmailMessage(input: $input) {
     messageId
     threadId
     linkId

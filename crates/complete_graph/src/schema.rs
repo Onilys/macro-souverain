@@ -868,7 +868,10 @@ where
         let thread_id = service
             .resolve_thread_read_id(self.user_id.clone(), thread_id)
             .await
-            .map_err(|error| async_graphql::Error::new(error.to_string()))?;
+            .map_err(|error| {
+                tracing::error!(error = ?error, %thread_id, user_id = %self.user_id, "failed to resolve email thread");
+                graphql_email::draft_mutation_error(&error)
+            })?;
         resolve_soup_email_thread::<SoupEdges<NR, PR, ER, FR, AR, AcR>>(
             ctx,
             self.user_id.clone(),

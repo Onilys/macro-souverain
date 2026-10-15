@@ -72,7 +72,7 @@ struct CapturingEmailMutationService {
 const TEST_THREAD_ID: Uuid = Uuid::from_u128(0x7ead);
 
 impl EmailMutationService for CapturingEmailMutationService {
-    async fn send_email_compose_message(
+    async fn send_email_message(
         &self,
         user_id: MacroUserIdStr<'static>,
         link_id: Option<Uuid>,

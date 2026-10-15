@@ -23,7 +23,7 @@ pub struct EmailSendAttemptInput {
 
 /// Immutable content approved by the user.
 #[derive(InputObject)]
-pub struct SendEmailMessageInput {
+pub struct SendEmailAttemptInput {
     /// Stable attempt and sending inbox.
     pub attempt: EmailSendAttemptInput,
     /// Full message snapshot; scheduled time is ignored for immediate Send.
@@ -97,14 +97,14 @@ impl EmailSendAttemptPayload {
 }
 
 /// Send admission and its canonical thread.
-pub struct SendEmailMessagePayload<O: EmailThreadMutationOutput> {
+pub struct SendEmailAttemptPayload<O: EmailThreadMutationOutput> {
     attempt: EmailSendAttemptPayload,
     thread: Option<O::Thread>,
 }
 
 /// Send admission or cancellation and the updated conversation.
-#[Object(name = "SendEmailMessagePayload")]
-impl<O: EmailThreadMutationOutput> SendEmailMessagePayload<O> {
+#[Object(name = "SendEmailAttemptPayload")]
+impl<O: EmailThreadMutationOutput> SendEmailAttemptPayload<O> {
     /// Admission/cancellation result and hydrated message.
     async fn attempt(&self) -> &EmailSendAttemptPayload {
         &self.attempt
@@ -127,11 +127,11 @@ impl<S, O> Default for GraphqlEmailSendMutation<S, O> {
 impl<S: EmailSendService + 'static, O: EmailThreadMutationOutput> GraphqlEmailSendMutation<S, O> {
     /// Durably accept an immutable send snapshot; safe to replay after response loss.
     #[tracing::instrument(skip_all, err(Debug))]
-    async fn send_email_message(
+    async fn send_email_attempt(
         &self,
         ctx: &Context<'_>,
-        input: SendEmailMessageInput,
-    ) -> async_graphql::Result<SendEmailMessagePayload<O>> {
+        input: SendEmailAttemptInput,
+    ) -> async_graphql::Result<SendEmailAttemptPayload<O>> {
         let actor = require_authenticated_user(ctx)?;
         let link = parse_id(input.attempt.link_id, "linkId")?;
         let attempt = SendAttemptId(parse_id(input.attempt.attempt_id, "attemptId")?);
@@ -168,7 +168,7 @@ impl<S: EmailSendService + 'static, O: EmailThreadMutationOutput> GraphqlEmailSe
         &self,
         ctx: &Context<'_>,
         input: EmailSendAttemptInput,
-    ) -> async_graphql::Result<SendEmailMessagePayload<O>> {
+    ) -> async_graphql::Result<SendEmailAttemptPayload<O>> {
         let actor = require_authenticated_user(ctx)?;
         let result = ctx
             .data::<Arc<S>>()?
@@ -187,7 +187,7 @@ async fn payload<O: EmailThreadMutationOutput>(
     ctx: &Context<'_>,
     actor: MacroUserIdStr<'static>,
     attempt: SendAttempt,
-) -> async_graphql::Result<SendEmailMessagePayload<O>> {
+) -> async_graphql::Result<SendEmailAttemptPayload<O>> {
     use async_graphql::ErrorExtensions;
     let thread = match attempt.thread_id {
         Some(id) => O::load_email_thread(ctx, actor, id)
@@ -200,7 +200,7 @@ async fn payload<O: EmailThreadMutationOutput>(
             })?,
         None => None,
     };
-    Ok(SendEmailMessagePayload {
+    Ok(SendEmailAttemptPayload {
         attempt: EmailSendAttemptPayload(attempt),
         thread,
     })

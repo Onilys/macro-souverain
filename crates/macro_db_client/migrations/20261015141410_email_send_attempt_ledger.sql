@@ -15,12 +15,38 @@ CREATE TABLE email_send_attempts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     sent BOOLEAN NOT NULL DEFAULT FALSE,
     delivery_unconfirmed BOOLEAN NOT NULL DEFAULT FALSE,
-    -- Keep the raw request stable for replay comparison and freeze prepared delivery separately.
+    -- Compare the versioned approval digest in request; retain the full snapshot only while active.
     prepared_content JSONB,
     PRIMARY KEY (user_id, link_id, attempt_id)
 );
 CREATE INDEX email_send_attempts_message_idx ON email_send_attempts(message_id)
     WHERE message_id IS NOT NULL;
+
+-- Terminal tombstones keep approval identity, never duplicate message content.
+CREATE FUNCTION email_send_attempt_identity(request JSONB) RETURNS JSONB AS $$
+    SELECT CASE WHEN request IS NULL THEN NULL ELSE jsonb_build_object(
+        '_send_approval', COALESCE(request->'_send_approval', '{"version":0,"digest":""}'::jsonb)
+    ) END;
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE FUNCTION clear_terminal_email_send_content() RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.sent OR NEW.cancelled THEN
+        -- A legacy request without a digest becomes an unsupported-version
+        -- identity: late admission fails closed rather than retaining its body.
+        NEW.request := email_send_attempt_identity(NEW.request);
+        NEW.prepared_content := NULL;
+        NEW.restore_body_html := NULL;
+        NEW.restore_body_text := NULL;
+        NEW.restore_body_macro := NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER clear_terminal_email_send_content
+BEFORE INSERT OR UPDATE ON email_send_attempts
+FOR EACH ROW EXECUTE FUNCTION clear_terminal_email_send_content();
 
 -- Delivery facts outlive the message, including provider synchronization and deletion.
 CREATE FUNCTION record_email_send_attempt_delivery() RETURNS TRIGGER AS $$
@@ -60,6 +86,10 @@ BEGIN
         WHERE message_id = OLD.id AND link_id = OLD.link_id
           AND NOT cancelled AND NOT sent;
     END IF;
+    UPDATE email_send_attempts
+    SET request = email_send_attempt_identity(request), prepared_content = NULL,
+        restore_body_html = NULL, restore_body_text = NULL, restore_body_macro = NULL
+    WHERE message_id = OLD.id AND link_id = OLD.link_id;
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;

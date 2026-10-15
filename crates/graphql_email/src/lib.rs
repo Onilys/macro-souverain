@@ -24,7 +24,7 @@ pub use mutation::{
     DeleteEmailDraftInput, DeleteEmailDraftPayload, EmailMutationService,
     EmailThreadMutationLoadFuture, EmailThreadMutationOutput, GraphqlEmailMutation,
     MarkEmailThreadSeenInput, MarkEmailThreadUnreadInput, SaveEmailDraftContactInput,
-    SaveEmailDraftInput, SaveEmailDraftPayload, UpdateEmailThreadLabelInput,
+    SaveEmailDraftInput, SaveEmailDraftPayload, UpdateEmailThreadLabelInput, draft_mutation_error,
 };
 pub use objects::{
     GraphqlMailDraftState, GraphqlMailPreviewMessage, GraphqlSoupEmailMessage,

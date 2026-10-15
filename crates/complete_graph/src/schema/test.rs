@@ -336,6 +336,7 @@ impl SoupService for CountingSoupService {
 /// the lazy extraction actually runs.
 #[derive(Clone, Default)]
 struct CountingEmailService {
+    thread_read_fails: Arc<Mutex<bool>>,
     thread_read_redirect: Arc<Mutex<Option<(Uuid, Uuid)>>>,
     thread_is_read: Arc<Mutex<bool>>,
     thread_archived: Arc<Mutex<bool>>,
@@ -468,6 +469,9 @@ impl EmailService for CountingEmailService {
         thread_id: Uuid,
     ) -> Result<Uuid, EmailErr> {
         assert_eq!(macro_id.as_ref(), VALID_USER_ID);
+        if *self.thread_read_fails.lock().unwrap() {
+            return Err(anyhow::anyhow!("private repository diagnostic").into());
+        }
         Ok(self
             .thread_read_redirect
             .lock()

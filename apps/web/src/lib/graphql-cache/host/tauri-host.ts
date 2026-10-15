@@ -102,6 +102,9 @@ const WATCH_COMMAND = 'graphql_cache_watch';
 const CALENDAR_RANGE_COMMAND = 'graphql_cache_calendar_range';
 const CALENDAR_COMMIT_COMMAND = 'graphql_cache_calendar_commit';
 const INSPECT_MUTATIONS_COMMAND = 'graphql_cache_inspect_mutations';
+const QUEUE_CONTRACT_COMMAND = 'graphql_cache_mutation_queue_contract_version';
+// V1 guarantees request_generation fencing and persisted client_metadata.
+const MINIMUM_QUEUE_CONTRACT_VERSION = 1;
 
 /** An OTA bundle cannot safely replay drafts using an older native queue API. */
 export class NativeCacheUpgradeRequiredError extends Error {
@@ -255,6 +258,18 @@ export function createTauriCacheHost(options: TauriHostOptions): CacheHost {
   }
 
   async function initialize(): Promise<void> {
+    try {
+      const version = await request<number>(QUEUE_CONTRACT_COMMAND, {});
+      if (
+        !Number.isInteger(version) ||
+        version < MINIMUM_QUEUE_CONTRACT_VERSION
+      )
+        throw new NativeCacheUpgradeRequiredError();
+    } catch (error) {
+      if (isMissingCommand(error, QUEUE_CONTRACT_COMMAND))
+        throw new NativeCacheUpgradeRequiredError();
+      throw error;
+    }
     const { default: schemaSdl } = await import(
       '../../../../../../static_assets/schema.graphql?raw'
     );
@@ -263,19 +278,6 @@ export function createTauriCacheHost(options: TauriHostOptions): CacheHost {
       hotCapacity: options.hotCapacity,
       schemaSdl,
     });
-    // Probe before any enqueue/claim. Older binaries silently ignore new
-    // metadata arguments, so waiting until a draft fails would lose correlation.
-    try {
-      await request<MutationInspection[]>(INSPECT_MUTATIONS_COMMAND, {});
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === `Command ${INSPECT_MUTATIONS_COMMAND} not found`
-      ) {
-        throw new NativeCacheUpgradeRequiredError();
-      }
-      throw error;
-    }
   }
   const ready = initialize();
   void (async () => {

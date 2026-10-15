@@ -676,3 +676,28 @@ async fn pending_provider_holds_no_locks_and_duplicate_cannot_release_claim(
     delivery.await?;
     Ok(())
 }
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../fixtures", scripts("email_draft"))
+)]
+async fn cancelling_a_schedule_preserves_historical_delivery_facts(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let repo = EmailPgRepo::new(pool.clone());
+    let (link, message) = identity();
+    let actor = actor();
+    repo.change_schedule(link, message, &actor, future(), None)
+        .await?;
+    for (sent, unconfirmed) in [(true, false), (false, true), (false, false)] {
+        sqlx::query!("INSERT INTO email_send_attempts (user_id, link_id, attempt_id, message_id, sent, delivery_unconfirmed) VALUES ($1, $2, $3, $4, $5, $6)", actor.as_ref(), link, Uuid::now_v7(), message, sent, unconfirmed).execute(&pool).await?;
+    }
+    repo.change_schedule(link, message, &actor, ScheduleChange::Cancel, None)
+        .await?;
+    let rows = sqlx::query!("SELECT sent, delivery_unconfirmed, cancelled FROM email_send_attempts WHERE message_id = $1", message).fetch_all(&pool).await?;
+    assert_eq!(rows.len(), 3);
+    for row in rows {
+        assert_eq!(row.cancelled, !row.sent && !row.delivery_unconfirmed);
+    }
+    Ok(())
+}

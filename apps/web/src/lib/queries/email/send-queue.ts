@@ -15,8 +15,8 @@ import {
   EmailSendAttemptDocument,
   type EmailSendAttemptFieldsFragment,
   EmailThreadPageDocument,
+  type SendEmailAttemptInput,
   SendEmailMessageDocument,
-  type SendEmailMessageInput,
 } from '@service-storage/graphql/generated/graphql';
 import {
   getGraphqlCacheHost,
@@ -84,7 +84,7 @@ export type EmailSendIntent = {
       restoring?: boolean;
       restorationVersion?: SendRestorationVersion;
       workingCopy?: SendWorkingCopy;
-      input: SendEmailMessageInput;
+      input: SendEmailAttemptInput;
       draft: GraphqlSaveEmailDraftArgs;
     };
   };
@@ -251,7 +251,7 @@ export async function sendEmailQueued(args: {
     args.expectedLocalVersion
   );
   const attemptId = crypto.randomUUID();
-  const input: SendEmailMessageInput = {
+  const input: SendEmailAttemptInput = {
     attempt: { attemptId, linkId: draft.senderLinkId },
     message: {
       draftId: draft.draftId,
