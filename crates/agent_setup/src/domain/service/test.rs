@@ -110,16 +110,21 @@ async fn the_golden_path_walks_connect_discover_plan_import_report() {
     );
     assert_eq!(*fixture.accounts.handovers.lock().unwrap(), 1);
 
-    // 3. The person connected both: discovery is next.
+    // 3. The person connected both; for an agent-led account each connection
+    // starts Macro looking through the app, so seeing what it found is next.
     connect_all(&fixture, &["notion", "linear"]);
+    fixture.imports.connected_hook(ImportSource::Notion);
+    fixture.imports.connected_hook(ImportSource::Linear);
     let state = fixture.service.state(&user(), &named).await.expect("state");
     assert!(
         state
             .next_step
-            .starts_with("Call SetupDiscover(apps: [\"notion\", \"linear\"])")
+            .contains("SetupDiscover(apps: [\"notion\", \"linear\"])"),
+        "{}",
+        state.next_step
     );
 
-    // 4. Discover: gathers start with automatic import off and list titles.
+    // 4. Discover only reads what Macro found.
     let discovery = fixture
         .service
         .discover(&user(), &named, Duration::from_secs(1))
@@ -128,8 +133,8 @@ async fn the_golden_path_walks_connect_discover_plan_import_report() {
     assert_eq!(
         fixture.imports.starts.lock().unwrap().as_slice(),
         &[
-            (ImportSource::Notion, "gather"),
-            (ImportSource::Linear, "gather")
+            (ImportSource::Notion, "hook"),
+            (ImportSource::Linear, "hook")
         ]
     );
     let linear = discovery
@@ -285,6 +290,7 @@ async fn the_golden_path_walks_connect_discover_plan_import_report() {
 async fn results_never_carry_document_content() {
     let fixture = golden();
     connect_all(&fixture, &["notion"]);
+    fixture.imports.connected_hook(ImportSource::Notion);
 
     let discovery = fixture
         .service
@@ -384,11 +390,13 @@ async fn slack_uses_repeatable_discovery_and_names_the_history_handoff() {
     let fixture = golden();
     connect_all(&fixture, &["slack"]);
 
-    fixture
+    // Slack was connected before setup, so SetupConnect starts the look-through.
+    let connect = fixture
         .service
-        .discover(&user(), &apps(&["slack"]), Duration::ZERO)
+        .connect(&user(), &apps(&["slack"]))
         .await
-        .expect("discover");
+        .expect("connect");
+    assert_eq!(connect.looking_through, ["slack"]);
     assert_eq!(
         fixture.imports.starts.lock().unwrap().as_slice(),
         &[(ImportSource::Slack, "discovery")]
@@ -425,6 +433,11 @@ async fn a_web_onboarding_run_is_never_retried_or_re_gathered() {
         FakeAccounts::onboarded_on_web(),
     );
 
+    fixture
+        .service
+        .connect(&user(), &apps(&["notion"]))
+        .await
+        .expect("connect");
     let discovery = fixture
         .service
         .discover(&user(), &apps(&["notion"]), Duration::ZERO)
@@ -462,6 +475,11 @@ async fn a_failed_agent_led_discovery_is_retried() {
         FakeAccounts::default(),
     );
 
+    fixture
+        .service
+        .connect(&user(), &apps(&["linear"]))
+        .await
+        .expect("connect");
     let discovery = fixture
         .service
         .discover(&user(), &apps(&["linear"]), Duration::from_secs(1))
@@ -485,6 +503,7 @@ async fn discovery_answers_within_its_wait_while_macro_is_still_looking() {
         FakeInbox::default(),
         FakeAccounts::default(),
     );
+    fixture.imports.connected_hook(ImportSource::Notion);
 
     let discovery = fixture
         .service
@@ -504,6 +523,7 @@ async fn discovery_answers_within_its_wait_while_macro_is_still_looking() {
 async fn an_unknown_ref_lists_the_valid_ones() {
     let fixture = golden();
     connect_all(&fixture, &["notion"]);
+    fixture.imports.connected_hook(ImportSource::Notion);
     fixture
         .service
         .discover(&user(), &apps(&["notion"]), Duration::ZERO)
@@ -641,4 +661,34 @@ async fn tools_macro_cant_import_get_a_plain_no_and_a_pointer_to_what_it_can() {
     );
     let note = state.apps[0].note.as_deref().unwrap_or_default();
     assert!(note.contains("drag exported files into Macro yourself"));
+}
+
+#[tokio::test]
+async fn discovery_only_reads_and_says_how_to_start_a_connected_app() {
+    let fixture = golden();
+    connect_all(&fixture, &["linear"]);
+
+    let discovery = fixture
+        .service
+        .discover(&user(), &apps(&["linear"]), Duration::from_millis(20))
+        .await
+        .expect("discover");
+
+    assert!(fixture.imports.starts.lock().unwrap().is_empty());
+    assert_eq!(discovery.apps[0].status, DiscoveryStatus::NotStarted);
+    assert!(
+        discovery
+            .next_step
+            .contains("SetupConnect(apps: [\"linear\"])")
+    );
+    let state = fixture
+        .service
+        .state(&user(), &apps(&["linear"]))
+        .await
+        .expect("state");
+    assert!(
+        state
+            .next_step
+            .starts_with("Call SetupConnect(apps: [\"linear\"]): they're connected")
+    );
 }

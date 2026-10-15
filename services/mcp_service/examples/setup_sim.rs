@@ -876,6 +876,30 @@ async fn connect_page(
         }
     } else if !account.connected.contains(&app) {
         account.connected.push(app.clone());
+        // The Pipedream completion hook: an agent-led account starts being
+        // looked through as soon as the connection lands.
+        let source = match app.as_str() {
+            "notion" => Some(ImportSource::Notion),
+            "linear" => Some(ImportSource::Linear),
+            "slack" => Some(ImportSource::Slack),
+            _ => None,
+        };
+        if let (Some(source), true) = (source, account.agent_led) {
+            account.runs.entry(source_key(source)).or_insert_with(|| {
+                (
+                    ImportRun {
+                        source,
+                        status: RunStatus::Running,
+                        auto_import: false,
+                        error: None,
+                        updated_at: chrono::Utc::now(),
+                    },
+                    RunTimes {
+                        started: Some(Instant::now()),
+                    },
+                )
+            });
+        }
     }
     (
         StatusCode::OK,

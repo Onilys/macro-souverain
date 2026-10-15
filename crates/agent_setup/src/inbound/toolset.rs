@@ -174,9 +174,10 @@ impl AsyncTool<SetupToolContext> for SetupGetState {
     title = "SetupConnect",
     description = "Get one Macro link per app the person still has to connect: Notion, Linear, \
                    Slack, Gmail, or another app Macro can connect. The person opens each link, \
-                   approves access, and Macro records the connection. Show every link in one \
-                   message and wait for them to say they're done. Apps already connected are \
-                   reported, not linked again. Call again for a fresh link if one expired."
+                   approves access, and Macro records the connection and starts looking through \
+                   the app. Show every link in one message and wait for them to say they're done. \
+                   Apps already connected aren't linked again; Macro starts looking through them. \
+                   Call again for a fresh link if one expired."
 )]
 pub struct SetupConnect {
     /// The apps to connect.
@@ -216,10 +217,10 @@ impl AsyncTool<SetupToolContext> for SetupConnect {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[schemars(
     title = "SetupDiscover",
-    description = "Have Macro look through connected apps for what to bring over, and list it: \
-                   titles with short refs, grouped by area. Waits up to 25 seconds for Macro to \
-                   finish; if it is still looking, call it again. Imports nothing. You only see \
-                   titles; the content stays in Macro."
+    description = "See what Macro found in the person's connected apps: titles with short refs, \
+                   grouped by area. Macro starts looking as soon as an app is connected; this \
+                   waits up to 25 seconds while it finishes, so call it again if it is still \
+                   looking. Read-only; you only see titles, the content stays in Macro."
 )]
 pub struct SetupDiscover {
     /// The apps to discover.
@@ -236,9 +237,7 @@ pub struct SetupDiscover {
 }
 
 impl ToolAnnotated for SetupDiscover {
-    const ANNOTATIONS: ToolAnnotations = ToolAnnotations::additive("Discover what to import")
-        .with_idempotent()
-        .with_open_world();
+    const ANNOTATIONS: ToolAnnotations = ToolAnnotations::read_only("See what Macro found");
 }
 
 #[async_trait]
@@ -260,7 +259,7 @@ impl AsyncTool<SetupToolContext> for SetupDiscover {
                 wait(self.wait_seconds, DISCOVERY_WAIT),
             )
             .await
-            .map_err(|error| tool_error("looking through the apps", error))
+            .map_err(|error| tool_error("reading what Macro found", error))
     }
 }
 

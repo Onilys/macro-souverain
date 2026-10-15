@@ -21,8 +21,8 @@ The flow is in the server instructions, so it works without any extra setup. Eac
 | Tool | What it does |
 | :-- | :-- |
 | `SetupGetState` | Shows the account, inbox and each app's progress, plus what's missing. Read-only. |
-| `SetupConnect` | Gives one Macro link per app to connect. Never a raw third-party link. |
-| `SetupDiscover` | Has Macro look through connected apps and lists what it found by title. |
+| `SetupConnect` | Gives one Macro link per app to connect, never a raw third-party link. Macro starts looking through each app once it's connected. |
+| `SetupDiscover` | Shows what Macro found in connected apps, by title. Read-only. |
 | `SetupProposePlan` | Turns the person's choices into one plan to approve. Changes nothing. |
 | `SetupImport` | Runs the approved plan. Safe to repeat. |
 | `SetupGetStatus` | Shows progress, then the report: what came in (with links), what didn't, and why. Read-only. |

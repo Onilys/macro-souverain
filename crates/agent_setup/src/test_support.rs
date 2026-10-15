@@ -125,6 +125,12 @@ impl FakeImports {
         }
     }
 
+    /// What the connection hook does for an agent-led account: start looking
+    /// through `source` with automatic import off.
+    pub fn connected_hook(&self, source: ImportSource) {
+        self.launch(source, "hook");
+    }
+
     fn launch(&self, source: ImportSource, call: &'static str) -> bool {
         self.starts.lock().unwrap().push((source, call));
         let mut state = self.state.lock().unwrap();

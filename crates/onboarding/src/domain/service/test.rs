@@ -422,10 +422,10 @@ fn service_with_repo(
 }
 
 #[tokio::test]
-async fn reconcile_leaves_agent_led_setups_alone() {
-    // An agent-led account stages candidates for the person to approve. A
-    // connection made mid-setup (the Pipedream post-auth hook reconciles)
-    // must neither start auto-importing gathers nor sweep those candidates.
+async fn reconcile_starts_staging_only_gathers_for_agent_led_setups() {
+    // A connection made during agent-led setup starts Macro looking through
+    // the connector right away, with automatic import off: the person's
+    // approved plan decides what comes in. Nothing awaiting approval is swept.
     let (service, import) = service_with_repo(
         MockRepo::agent_led(),
         vec![record("https://mcp.linear.app/mcp", true)],
@@ -433,7 +433,10 @@ async fn reconcile_leaves_agent_led_setups_alone() {
 
     service.reconcile(user()).await.expect("reconcile");
 
-    assert!(import.gathers.lock().unwrap().is_empty());
+    assert_eq!(
+        import.gathers.lock().unwrap().as_slice(),
+        &[(ImportSource::Linear, false)]
+    );
     assert!(import.deletions.lock().unwrap().is_empty());
     assert!(import.discards.lock().unwrap().is_empty());
 }

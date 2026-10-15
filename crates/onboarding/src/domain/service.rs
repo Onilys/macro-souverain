@@ -123,13 +123,15 @@ where
             .collect())
     }
 
-    /// Start an auto-importing gather run for every authenticated connector
-    /// that never had one. A failing source must not block the others (or
-    /// the read).
+    /// Start a gather run for every authenticated connector that never had
+    /// one: auto-importing for the web flow, staging only for agent-led setup,
+    /// where the person approves a plan first. A failing source must not
+    /// block the others (or the read).
     async fn start_due_gathers(
         &self,
         user: &MacroUserIdStr<'static>,
         _servers: &[ConnectedServer],
+        auto_import: bool,
     ) {
         for source in ImportSource::all() {
             // Which stack backs the connector is the selector's call
@@ -145,7 +147,11 @@ where
             if !connected {
                 continue;
             }
-            if let Err(e) = self.import.start_gather(user.clone(), source, true).await {
+            if let Err(e) = self
+                .import
+                .start_gather(user.clone(), source, auto_import)
+                .await
+            {
                 tracing::warn!(source = source.as_ref(), error = ?e, "failed to start gather run");
             }
         }
@@ -164,7 +170,8 @@ where
         let row = self.repo.ensure_row(&user).await?;
         let connected_servers = self.connected_servers(&user).await?;
         if row.status == OnboardingStatus::Active {
-            self.start_due_gathers(&user, &connected_servers).await;
+            self.start_due_gathers(&user, &connected_servers, true)
+                .await;
         }
         Ok(OnboardingState {
             row,
@@ -182,10 +189,12 @@ where
             return Ok(());
         };
         if row.is_agent_led() {
-            // The agent stages candidates (onboarding-initiated gathers with
-            // automatic import off) and imports only what the person
-            // approves. A connection made mid-setup must neither start
-            // auto-importing gathers nor sweep candidates awaiting approval.
+            // Agent-led setup: Macro starts looking through a connector the
+            // moment it is connected, with automatic import off, so the
+            // person's approved plan decides what comes in. Candidates
+            // awaiting approval are never swept.
+            let servers = self.connected_servers(&user).await?;
+            self.start_due_gathers(&user, &servers, false).await;
             return Ok(());
         }
         if row.status != OnboardingStatus::Active {
@@ -203,7 +212,7 @@ where
             return Ok(());
         }
         let servers = self.connected_servers(&user).await?;
-        self.start_due_gathers(&user, &servers).await;
+        self.start_due_gathers(&user, &servers, true).await;
         Ok(())
     }
 

@@ -385,8 +385,11 @@ impl AgentSetupService {
         self.accounts.hand_to_agent(user).await
     }
 
-    /// One link per app still to connect. Hands setup to the agent first, so
+    /// One link per app still to connect, and Macro starts looking through
+    /// apps that are already connected. Hands setup to the agent first, so
     /// opening a Macro page never drops the person into the web onboarding.
+    /// (For agent-led accounts, an app connected through a link starts being
+    /// looked through as soon as the connection lands.)
     #[tracing::instrument(skip(self, user), err)]
     pub async fn connect(
         &self,
@@ -407,6 +410,7 @@ impl AgentSetupService {
         let mut handoffs = Vec::new();
         let mut already_connected = Vec::new();
         let mut not_connectable = Vec::new();
+        let mut looking = Vec::new();
         for app in apps {
             let support = match &app {
                 App::Known(known) => Some(known.support),
@@ -426,9 +430,12 @@ impl AgentSetupService {
                         .map(|line| format!("{}. Setup doesn't need it connected.", line.text))
                         .unwrap_or_default(),
                 }),
-                Some(Support::Import(_)) => {
+                Some(Support::Import(source)) => {
                     if self.connections.is_connected(user, &app).await? {
                         already_connected.push(app.id().to_owned());
+                        if self.start_looking(user, source).await? {
+                            looking.push(app.id().to_owned());
+                        }
                     } else {
                         handoffs.push(self.connect_handoff(user, &app));
                     }
@@ -452,7 +459,13 @@ impl AgentSetupService {
             }
         }
 
-        let next_step = if handoffs.is_empty() {
+        let next_step = if handoffs.is_empty() && !looking.is_empty() {
+            format!(
+                "Macro is looking through {}. Call SetupDiscover(apps: [{}]) to see what it finds.",
+                looking.join(" and "),
+                quoted_list(&looking)
+            )
+        } else if handoffs.is_empty() {
             "Nothing left to connect. Call SetupGetState for the next step.".to_owned()
         } else {
             format!(
@@ -470,6 +483,7 @@ impl AgentSetupService {
             setup_id: Self::setup_id(user),
             handoffs,
             already_connected,
+            looking_through: looking,
             not_connectable,
             next_step,
         })
@@ -494,8 +508,45 @@ impl AgentSetupService {
         }
     }
 
-    /// Starts discovery for each connected import app and, within `wait`,
-    /// returns what it found.
+    /// Starts Macro looking through a connected import app, unless it already
+    /// is or already did. `true` when a look-through is running now.
+    async fn start_looking(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        source: ImportSource,
+    ) -> Result<bool> {
+        let state = self.imports.state(user).await?;
+        let view = SourceView::of(&state, user, source);
+        let counts = view.counts();
+        let run = view.run;
+        let launched = match run.map(|run| (run.status, run.auto_import)) {
+            None if source == ImportSource::Slack => {
+                self.imports.start_discovery(user, source).await?
+            }
+            None => self.imports.start_gather(user, source).await?,
+            // A failed or dismissed agent-led run can be retried; one that was
+            // set to import automatically (web onboarding) cannot, because a
+            // retry would import without a plan.
+            Some((RunStatus::Failed | RunStatus::Dismissed, false)) => {
+                self.imports.retry_gather(user, source).await?
+            }
+            // Slack discovery repeats, and re-lists every channel; only when
+            // nothing is waiting for the plan.
+            Some((RunStatus::Ready | RunStatus::Completed, _))
+                if source == ImportSource::Slack
+                    && counts.candidates == 0
+                    && counts.importing == 0 =>
+            {
+                self.imports.start_discovery(user, source).await?
+            }
+            _ => false,
+        };
+        Ok(launched || run.is_some_and(|run| run.status == RunStatus::Running))
+    }
+
+    /// What Macro found in each connected import app, waiting up to `wait`
+    /// while it is still looking. Read-only: looking starts when an app is
+    /// connected (or with `SetupConnect` for apps connected earlier).
     #[tracing::instrument(skip(self, user), err)]
     pub async fn discover(
         &self,
@@ -506,67 +557,33 @@ impl AgentSetupService {
         let apps = catalog::resolve_all(named_apps);
         if apps.is_empty() {
             return Err(SetupError::Actionable(
-                "Name the apps to discover, e.g. SetupDiscover(apps: [\"notion\", \"linear\"])."
+                "Name the apps to look at, e.g. SetupDiscover(apps: [\"notion\", \"linear\"])."
                     .to_owned(),
             ));
         }
-        self.hand_to_agent(user).await?;
-
-        let before = self.imports.state(user).await?;
-        let mut started: Vec<ImportSource> = Vec::new();
+        let mut watched: Vec<ImportSource> = Vec::new();
         for app in &apps {
-            let Some(source) = app.import_source() else {
-                continue;
-            };
-            if !self.connections.is_connected(user, app).await? {
-                continue;
-            }
-            let view = SourceView::of(&before, user, source);
-            let counts = view.counts();
-            let run = view.run;
-            let launched = match run.map(|run| (run.status, run.auto_import)) {
-                None if source == ImportSource::Slack => {
-                    self.imports.start_discovery(user, source).await?
+            if let Some(source) = app.import_source() {
+                if self.connections.is_connected(user, app).await? {
+                    watched.push(source);
                 }
-                None => self.imports.start_gather(user, source).await?,
-                // A failed or dismissed agent-led run can be retried; one that
-                // was set to import automatically (web onboarding) cannot,
-                // because a retry would import without a plan.
-                Some((RunStatus::Failed | RunStatus::Dismissed, false)) => {
-                    self.imports.retry_gather(user, source).await?
-                }
-                // Slack discovery repeats, and re-lists every channel; only
-                // when nothing is waiting for the plan.
-                Some((RunStatus::Ready | RunStatus::Completed, _))
-                    if source == ImportSource::Slack
-                        && counts.candidates == 0
-                        && counts.importing == 0 =>
-                {
-                    self.imports.start_discovery(user, source).await?
-                }
-                _ => false,
-            };
-            if launched || run.is_some_and(|run| run.status == RunStatus::Running) {
-                started.push(source);
             }
         }
-
-        let after = if started.is_empty() {
-            before
-        } else {
-            self.wait_while(user, wait, |state| {
-                started.iter().any(|source| {
+        // A look-through that hasn't shown up yet may still be starting (the
+        // connection just landed), so wait for it too.
+        let state = self
+            .wait_while(user, wait, |state| {
+                watched.iter().any(|source| {
                     SourceView::of(state, user, *source)
                         .run
                         .is_none_or(|run| run.status == RunStatus::Running)
                 })
             })
-            .await?
-        };
+            .await?;
 
         let mut results = Vec::with_capacity(apps.len());
         for app in &apps {
-            results.push(self.discovery_for(user, app, &after).await?);
+            results.push(self.discovery_for(user, app, &state).await?);
         }
         let next_step = discovery_next_step(&results);
         Ok(DiscoverResult {
@@ -618,6 +635,7 @@ impl AgentSetupService {
         let view = SourceView::of(state, user, source);
         let counts = view.counts();
         let status = match view.run.map(|run| run.status) {
+            None if counts == Counts::default() => DiscoveryStatus::NotStarted,
             Some(RunStatus::Running) | None => DiscoveryStatus::Discovering,
             _ if counts.candidates + counts.failed > 0 => DiscoveryStatus::Ready,
             Some(RunStatus::Failed) if counts == Counts::default() => DiscoveryStatus::Failed,
@@ -625,6 +643,11 @@ impl AgentSetupService {
             _ => DiscoveryStatus::NothingFound,
         };
         let note = match status {
+            DiscoveryStatus::NotStarted => Some(format!(
+                "Macro hasn't started looking through it. Call SetupConnect(apps: [\"{}\"]); for \
+                 a connected app that starts the look-through.",
+                app.id()
+            )),
             DiscoveryStatus::Failed => Some(format!(
                 "Discovery failed: {}",
                 view::run_error(view.run).unwrap_or_else(|| "no reason given".to_owned())
@@ -978,13 +1001,17 @@ fn next_step(no_apps_named: bool, inbox: &[String], apps: &[AppSummary]) -> (Vec
             "Call SetupConnect(apps: [{}]) and show the person every link in one message.",
             quoted_list(&to_connect)
         )
-    } else if !to_discover.is_empty() || !discovering.is_empty() {
-        let mut apps = to_discover;
-        apps.extend(discovering);
+    } else if !to_discover.is_empty() {
+        format!(
+            "Call SetupConnect(apps: [{}]): they're connected, and that starts Macro looking \
+             through them.",
+            quoted_list(&to_discover)
+        )
+    } else if !discovering.is_empty() {
         format!(
             "Call SetupDiscover(apps: [{}]). It waits for Macro to finish looking and returns \
              what it found.",
-            quoted_list(&apps)
+            quoted_list(&discovering)
         )
     } else if !ready.is_empty() {
         missing.push("The plan is not approved yet".to_owned());
@@ -1023,7 +1050,12 @@ fn discovery_next_step(results: &[AppDiscovery]) -> String {
         .collect();
     let not_connected: Vec<String> = results
         .iter()
-        .filter(|app| app.status == DiscoveryStatus::NotConnected)
+        .filter(|app| {
+            matches!(
+                app.status,
+                DiscoveryStatus::NotConnected | DiscoveryStatus::NotStarted
+            )
+        })
         .map(|app| app.app.clone())
         .collect();
     if !discovering.is_empty() {

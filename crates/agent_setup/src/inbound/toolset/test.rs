@@ -36,22 +36,20 @@ fn the_toolset_builds_with_valid_schemas() {
 
 #[test]
 fn reads_are_read_only_and_writes_are_idempotent_and_never_destructive() {
+    // Only two steps change anything, so clients that confirm writes ask the
+    // person at most twice.
     for kind in [
         SetupGetState::ANNOTATIONS.kind,
+        SetupDiscover::ANNOTATIONS.kind,
         SetupProposePlan::ANNOTATIONS.kind,
         SetupGetStatus::ANNOTATIONS.kind,
     ] {
         assert_eq!(kind, ToolKind::ReadOnly);
     }
-    for annotations in [
-        SetupConnect::ANNOTATIONS,
-        SetupDiscover::ANNOTATIONS,
-        SetupImport::ANNOTATIONS,
-    ] {
+    for annotations in [SetupConnect::ANNOTATIONS, SetupImport::ANNOTATIONS] {
         assert_eq!(annotations.kind, ToolKind::Additive);
         assert!(annotations.idempotent);
     }
-    assert!(SetupDiscover::ANNOTATIONS.open_world);
     assert!(SetupImport::ANNOTATIONS.open_world);
 }
 

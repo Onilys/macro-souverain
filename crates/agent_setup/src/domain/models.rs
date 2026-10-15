@@ -168,6 +168,8 @@ pub struct ConnectResult {
     pub handoffs: Vec<Handoff>,
     /// Apps that were already connected.
     pub already_connected: Vec<String>,
+    /// Connected apps Macro is looking through now.
+    pub looking_through: Vec<String>,
     /// Apps that cannot be connected, with what to offer instead.
     pub not_connectable: Vec<AppNote>,
     /// What to do next.
@@ -200,6 +202,8 @@ pub struct CandidateGroup {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DiscoveryStatus {
+    /// Connected, but Macro hasn't started looking through it.
+    NotStarted,
     /// Still looking.
     Discovering,
     /// Candidates are ready for the plan.
