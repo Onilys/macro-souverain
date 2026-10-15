@@ -703,14 +703,14 @@ impl TeamRepository for TeamRepositoryImpl {
                 team_share::acquire_guard(&mut transaction).await?;
 
                 delete_source_grants(
-                    &mut *transaction,
+                    &mut transaction,
                     EntityAccessSourceType::Team,
                     &Owner::Team(team_id).principal_id(),
                 )
                 .await?;
                 for bot_id in cleared.bot_ids() {
                     delete_source_grants(
-                        &mut *transaction,
+                        &mut transaction,
                         EntityAccessSourceType::Bot,
                         &Owner::Bot(*bot_id).principal_id(),
                     )

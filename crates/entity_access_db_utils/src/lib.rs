@@ -244,23 +244,18 @@ where
 /// An owner row is never rewritten: the guard sits on the `DO UPDATE`, where
 /// it filters the conflicting row, not on the conflict target, where it would
 /// only steer index inference.
-#[tracing::instrument(skip(executor), err)]
-pub async fn upsert_user_entity_access_bulk<'e, A>(
-    executor: A,
+#[tracing::instrument(skip(transaction), err)]
+pub async fn upsert_user_entity_access_bulk(
+    transaction: &mut Transaction<'_, Postgres>,
     user_ids: &[MacroUserIdStr<'_>],
     entity_id: &macro_uuid::Uuid,
     entity_type: EntityType,
     access_level: AccessLevel,
-) -> anyhow::Result<()>
-where
-    A: sqlx::Acquire<'e, Database = Postgres>,
-{
+) -> anyhow::Result<()> {
     if user_ids.is_empty() {
         return Ok(());
     }
 
-    let mut transaction = executor.begin().await?;
-    let connection = transaction.as_mut();
     let macro_ids: Vec<String> = user_ids.iter().map(|s| s.to_string()).collect();
 
     sqlx::query!(
@@ -278,11 +273,10 @@ where
         access_level as _,
         macro_ids.as_slice(),
     )
-    .execute(&mut *connection)
+    .execute(transaction.as_mut())
     .await?;
 
-    source_items::sync_one(connection, entity_type, &entity_id.to_string()).await?;
-    transaction.commit().await?;
+    source_items::sync_one(transaction.as_mut(), entity_type, &entity_id.to_string()).await?;
     Ok(())
 }
 
