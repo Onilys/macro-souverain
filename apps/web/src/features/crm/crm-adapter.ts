@@ -2,6 +2,7 @@ import { useQuickAccessCrmCompaniesQuery } from '@app/features/crm/crm-search';
 import { withEntityNotifications } from '@app/features/soup/entity-notifications';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
+import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import {
@@ -47,6 +48,7 @@ import {
   createClosedStageIds,
   createCrmPermissions,
 } from './primitives/team-config';
+import { useCrmActivityQuery } from './queries/activity';
 import {
   useCompanyQuery,
   useCreateCompanyMutation,
@@ -114,6 +116,10 @@ function withRowNotifications(source: ItemListSource): ItemListSource {
     get isLoading() {
       return source.isLoading;
     },
+    get isError() {
+      return source.isError;
+    },
+    refetch: source.refetch ? () => source.refetch!() : undefined,
     get data() {
       return data();
     },
@@ -160,6 +166,7 @@ export function createAppCrmContext(): CrmContext {
     feedback: toast,
   };
   const userId = useUserId();
+  const layout = useSplitLayout();
   const panel = useSplitPanel();
   let taskComposerRecord: Accessor<CrmRecordTarget> | undefined;
   if (panel) {
@@ -211,6 +218,16 @@ export function createAppCrmContext(): CrmContext {
       withRowNotifications(
         useContactEmailsQuery(useSoupAstItemsQuery, ...args)
       ),
+    createActivity: (tab) =>
+      withRowNotifications(
+        useCrmActivityQuery(deps, useSoupAstItemsQuery, tab, userId)
+      ),
+    openTaskComposer: () =>
+      layout.popoverSplit({
+        type: 'component',
+        id: 'task-compose',
+        params: { composerContext: crmTaskComposerContext() },
+      }),
     createRecordFiles: (scope) =>
       withRowNotifications(useRecordFilesQuery(useSoupAstItemsQuery, scope)),
     createRecordCalls: (scope) =>

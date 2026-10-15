@@ -46,6 +46,20 @@ workspace host. Global task creation captures that live identity before opening
 the composer and releases it when the details close; contact launches reuse the
 contact detail query to include the company without a duplicate request.
 
+The workspace activity feeds are CRM-linked, not unfiltered app shortcuts.
+`queries/activity.ts` loads all authorized companies and contacts before
+building the feed filters; the capped Quick Access suggestions are not a
+complete scope. Notes means Markdown documents excluding task, snippet, and
+skill subtypes. Email uses the viewer's mailbox, without team-scope widening.
+This reuses existing endpoints without a schema change. Keep the scope complete:
+never cap association IDs or fall back to an unfiltered feed. The activity query
+memoizes its large filter AST between scope/tab changes. SQL generation batches
+OR-ed references into set-membership predicates rather than emitting thousands
+of separate subqueries. Email similarly batches participant lists with identical
+sender/recipient roles in both candidate and message queries, and omits exact
+addresses already covered by a company domain. These backend optimizations must
+be deployed to resolve large-scope request stalls.
+
 When changing behavior, test the responsible primitive or pure function. When
 moving behavior, retain query keys, persistence keys, mutation ordering, loading
 boundaries, routes, and markup. Run CRM tests plus affected shared collection and

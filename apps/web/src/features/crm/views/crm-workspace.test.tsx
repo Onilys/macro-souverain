@@ -115,6 +115,9 @@ vi.mock('../components/pipeline-sidebar', () => ({
 vi.mock('../components/pipeline-dialog', () => ({
   PipelineDialog: () => null,
 }));
+vi.mock('./activity', () => ({
+  CrmActivityView: (props: { tab: string }) => <div>{props.tab} feed</div>,
+}));
 vi.mock('./record-detail', () => ({
   CrmRecordDetail: (props: {
     viewName: string;
@@ -251,7 +254,20 @@ it('omits pipelines and lists when those features are disabled', () => {
   const tabs = within(screen.getByRole('navigation', { name: 'CRM views' }));
   expect(
     tabs.getAllByRole('button').map((button) => button.textContent)
-  ).toEqual(['Companies', 'People']);
+  ).toEqual(['Companies', 'People', 'Tasks', 'Email', 'Notes', 'Calls']);
+});
+
+it('opens each CRM activity feed instead of the company list', () => {
+  const { activeTab } = setup();
+  const tabs = within(screen.getByRole('navigation', { name: 'CRM views' }));
+  for (const label of ['Tasks', 'Email', 'Notes', 'Calls']) {
+    fireEvent.click(tabs.getByRole('button', { name: label }));
+    expect(activeTab()).toBe(label.toLowerCase());
+    expect(screen.getByText(`${label.toLowerCase()} feed`)).toBeTruthy();
+    expect(screen.queryByText('Record list')).toBeNull();
+  }
+  fireEvent.click(tabs.getByRole('button', { name: 'Companies' }));
+  expect(screen.getByText('Record list')).toBeTruthy();
 });
 
 it('shows the company of a pipeline row in place of the pipeline on desktop', () => {

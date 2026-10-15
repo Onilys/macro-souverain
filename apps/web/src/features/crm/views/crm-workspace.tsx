@@ -41,8 +41,13 @@ import { PipelineDialog } from '../components/pipeline-dialog';
 import { PipelineSidebar } from '../components/pipeline-sidebar';
 import { useCrmContext } from '../context/crm-context';
 import { useCrmWorkspace } from '../context/workspace-context';
-import { CRM_RECORDS } from '../core/navigation';
+import {
+  CRM_ACTIVITY_TABS,
+  CRM_RECORDS,
+  isCrmActivityTab,
+} from '../core/navigation';
 import { createCrmExportLoader } from '../primitives/export-source';
+import { CrmActivityView } from './activity';
 import { useApplyCrmView } from './apply-view';
 import { CrmExport } from './export-companies';
 import { CrmImport } from './import-companies';
@@ -269,6 +274,10 @@ export function CrmWorkspaceView(props: {
   const [importing, setImporting] = createSignal(false);
   const active = () => view.activeTab() ?? 'active';
   const peopleActive = () => active() === 'people';
+  const activityTab = () => {
+    const tab = active();
+    return isCrmActivityTab(tab) ? tab : undefined;
+  };
   const [exporting, setExporting] = createSignal(false);
   const activeList = () =>
     lists.lists().find((list) => `list:${list.id}` === active());
@@ -276,16 +285,22 @@ export function CrmWorkspaceView(props: {
   const activeRecord = () =>
     pipelineId()
       ? `pipeline:${pipelineId()}`
-      : active().startsWith('list:') || peopleActive()
+      : active().startsWith('list:') || peopleActive() || activityTab()
         ? active()
         : 'active';
   const title = () =>
     activeList()?.name ??
-    CRM_RECORDS.find((record) => record.id === activeRecord())?.label ??
+    [...CRM_RECORDS, ...CRM_ACTIVITY_TABS].find(
+      (record) => record.id === activeRecord()
+    )?.label ??
     'Companies';
   const navigate = (id: string) => {
     if (!listsEnabled() && id.startsWith('list:')) id = 'active';
     closeRecord();
+    if (isCrmActivityTab(id)) {
+      view.setActiveTab(id);
+      return;
+    }
     if (id === 'people') {
       // Re-applying would clear a search the People search bar still shows.
       if (peopleActive()) return;
@@ -386,7 +401,7 @@ export function CrmWorkspaceView(props: {
                   : navigate(id)
               }
               leading={
-                <Show when={!peopleActive() && !pipelineId()}>
+                <Show when={!peopleActive() && !pipelineId() && !activityTab()}>
                   <Suspense>
                     <MobileFilterDrawer />
                   </Suspense>
@@ -394,7 +409,7 @@ export function CrmWorkspaceView(props: {
               }
             />
           </ViewShell.Header>
-          <Show when={!peopleActive() && !pipelineId()}>
+          <Show when={!peopleActive() && !pipelineId() && !activityTab()}>
             <Suspense>
               <SoupFiltersBar />
             </Suspense>
@@ -458,7 +473,32 @@ export function CrmWorkspaceView(props: {
             </Button>
           </div>
         </Show>
-        <Show when={!selectedRecord() && !pipelineId()}>
+        <Show when={!selectedRecord() && activityTab()} keyed>
+          {(tab) => (
+            <>
+              <Show when={!isTouchDevice()}>
+                <div class="flex h-12 shrink-0 items-center gap-3 px-4">
+                  <NavigationToggle onExpand={() => setCollapsed(false)}>
+                    <Suspense>{sidebar()}</Suspense>
+                  </NavigationToggle>
+                  <h1 class="flex h-7 min-w-0 flex-1 items-center px-1 text-sm font-semibold tracking-[-0.03em]">
+                    {title()}
+                  </h1>
+                </div>
+              </Show>
+              <Suspense
+                fallback={
+                  <div class="p-4 text-sm text-ink-muted">
+                    Loading CRM activity…
+                  </div>
+                }
+              >
+                <CrmActivityView tab={tab} />
+              </Suspense>
+            </>
+          )}
+        </Show>
+        <Show when={!selectedRecord() && !pipelineId() && !activityTab()}>
           <Show when={!isTouchDevice() || peopleActive()}>
             <Show when={!isTouchDevice()}>
               <div class="flex h-12 shrink-0 items-center gap-3 px-4">

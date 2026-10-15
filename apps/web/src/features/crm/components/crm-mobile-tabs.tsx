@@ -1,6 +1,6 @@
 import { type PillTabItem, PillTabs } from '@components/app/mobile/PillTabs';
 import type { JSX } from 'solid-js';
-import { CRM_RECORDS } from '../core/navigation';
+import { CRM_ACTIVITY_TABS, CRM_RECORDS } from '../core/navigation';
 
 export function CrmMobileTabs(props: {
   active: string;
@@ -10,7 +10,7 @@ export function CrmMobileTabs(props: {
   onNavigate(id: string): void;
 }) {
   const items = (): PillTabItem[] => [
-    ...CRM_RECORDS.map((record) => ({
+    ...[...CRM_RECORDS, ...CRM_ACTIVITY_TABS].map((record) => ({
       value: record.id,
       label: record.label,
     })),

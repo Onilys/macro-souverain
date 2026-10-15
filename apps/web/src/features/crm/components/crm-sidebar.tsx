@@ -1,9 +1,13 @@
 import { CollapsibleSection, ViewSidebar } from '@app/components/view-shell';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import BuildingsIcon from '@phosphor/buildings.svg';
+import CheckSquareIcon from '@phosphor/check-square.svg';
 import ExportIcon from '@phosphor/download-simple.svg';
+import EnvelopeIcon from '@phosphor/envelope-simple.svg';
 import GearIcon from '@phosphor/gear-six.svg';
 import ListIcon from '@phosphor/list-bullets.svg';
+import NoteIcon from '@phosphor/note-pencil.svg';
+import PhoneIcon from '@phosphor/phone.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import SidebarIcon from '@phosphor/sidebar-simple.svg';
 import ImportIcon from '@phosphor/upload-simple.svg';
@@ -12,11 +16,18 @@ import { Button, Tooltip } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { createSignal, For, type JSX, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { CRM_RECORDS } from '../core/navigation';
+import { CRM_ACTIVITY_TABS, CRM_RECORDS } from '../core/navigation';
 import { COMPANIES_TOUR } from '../tour';
 import { CrmCreateMenu } from './crm-create-menu';
 
-const RECORD_ICONS = { active: BuildingsIcon, people: UsersIcon };
+const RECORD_ICONS = {
+  active: BuildingsIcon,
+  people: UsersIcon,
+  tasks: CheckSquareIcon,
+  email: EnvelopeIcon,
+  notes: NoteIcon,
+  calls: PhoneIcon,
+};
 
 export function CrmSidebar(props: {
   /** The highlighted record type, list, or pipeline. */
@@ -83,7 +94,7 @@ export function CrmSidebar(props: {
               aria-label="CRM records"
               ref={tourTarget(COMPANIES_TOUR.records)}
             >
-              <For each={CRM_RECORDS}>
+              <For each={[...CRM_RECORDS, ...CRM_ACTIVITY_TABS]}>
                 {(record) => (
                   <ViewSidebar.Item
                     active={props.active === record.id}

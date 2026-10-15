@@ -9,6 +9,7 @@ import type {
   CrmDisplayOptions,
   CrmListColumnId,
 } from '../core/display-options';
+import type { CrmActivityTab } from '../core/navigation';
 import type { CrmRecordScope, CrmRecordTarget } from '../core/record';
 import type {
   CompanySource,
@@ -73,6 +74,9 @@ export type CrmContext = {
     scope: Accessor<CrmEmailScope>,
     signal: Accessor<CrmEmailSignal>
   ): ItemListSource;
+  /** Paged CRM-wide activity, limited to associated records. */
+  createActivity(tab: Accessor<CrmActivityTab>): ItemListSource;
+  openTaskComposer(): void;
   /** Expose the currently viewed embedded record to the host's global task action. */
   registerTaskComposerRecord(source: Accessor<CrmRecordTarget>): () => void;
   /** Files associated with the record or attached to its emails. */

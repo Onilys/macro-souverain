@@ -1964,10 +1964,31 @@ joining a standalone call never makes its content available to the wider team.
 On desktop, the local sidebar uses the same navigation primitives as Email and Tasks.
 Its **New** menu creates a **Company**, a **Contact**, or a **Pipeline** (Pipeline
 only when pipelines are enabled; disabled until the team's CRM is enabled). The
-**Records** section lists **Companies** and **People**; Pipelines and Lists follow.
+**Records** section lists **Companies**, **People**, **Tasks**, **Email**, **Notes**, and **Calls**, in that order; Pipelines and Lists follow.
 There are no built-in company views or Board/List layout: Companies and People
 are plain soup lists with the shared pagination. Existing personal/team saved
 views stay in the toolbar's Views menu.
+
+The four activity tabs show CRM-linked content, not the whole app: Tasks and
+Calls require a Companies or Contacts reference; Notes are linked Markdown
+documents (excluding tasks, snippets, and skills); Email is your own mailbox's
+threads with CRM company domains or contact addresses. Lists page as you scroll.
+Empty CRM scope never falls back to all content. A loading failure offers
+**Try again**. Tasks has **New task**, with Companies and Contacts visible in
+place of Status. Choose a CRM association when creating a task from this feed.
+Opening Task through the global Create menu while Customers is focused uses the
+same preset. With an embedded company or contact detail open, global Create
+prefills the current breadcrumb record; a contact also includes its company.
+Closing the detail returns global Create to the unassociated CRM preset.
+
+Verify activity loading with a CRM containing thousands of companies and
+contacts, not only an empty fixture. Opening a tab must settle without repeated
+requests; switching tabs must preserve filtering and scrolling must load older
+matching items. A frontend preview still needs the Soup/email SQL optimizations
+deployed on its backend to verify large-scope request performance.
+
+Record-level **New task** also prefills the current record.
+**Add property** can reveal Status or another supported property.
 
 Companies lists every visible company, grouped by Stage by default, with Owner,
 Revenue and Last Interaction columns. A Stage column is off by default; turn it
@@ -1993,7 +2014,7 @@ below, and a **Create …** button that also submits on Command-Enter.
 Command-F focuses it, `Clear search` resets it, and Escape leaves the field.
 
 On touch devices, CRM uses the same scrollable pill tabs as Tasks in the top
-header: Companies, People, available pipelines, and enabled lists. Swipe the
+header: Companies, People, Tasks, Email, Notes, Calls, available pipelines, and enabled lists. Swipe the
 strip horizontally to reach every destination; the selected tab stays visible.
 The tabs remain available inside pipelines, with no hamburger button. Company
 filters lead the strip when available. On mobile, pipelines omit their title

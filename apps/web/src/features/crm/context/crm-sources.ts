@@ -123,6 +123,8 @@ export type ItemListSource = {
   /** False while the query is disabled, e.g. a company without domains. */
   readonly isEnabled: boolean;
   readonly isLoading: boolean;
+  readonly isError?: boolean;
+  refetch?(): Promise<unknown>;
   readonly data: { entities: import('@entity').EntityData[] } | undefined;
   readonly hasNextPage: boolean;
   readonly isFetchingNextPage: boolean;
