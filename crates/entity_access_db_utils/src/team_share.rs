@@ -142,7 +142,20 @@ pub async fn replace_project_contributions(
     previous_team_id: Option<Uuid>,
     target: Option<(Uuid, AccessLevel)>,
 ) -> Result<(), sqlx::Error> {
+    let affected =
+        write_project_contributions(transaction, project_id, previous_team_id, target).await?;
+    source_items::sync_rows(transaction.as_mut(), &affected).await
+}
+
+/// Rewrites the inherited team grants and returns every item whose grants changed.
+async fn write_project_contributions(
+    transaction: &mut Transaction<'_, Postgres>,
+    project_id: &Uuid,
+    previous_team_id: Option<Uuid>,
+    target: Option<(Uuid, AccessLevel)>,
+) -> Result<Vec<(String, String)>, sqlx::Error> {
     let project_id_str = project_id.to_string();
+    let mut affected = Vec::new();
     if let Some(previous_team_id) = previous_team_id {
         let removed = sqlx::query!(
             r#"DELETE FROM entity_access
@@ -156,10 +169,10 @@ pub async fn replace_project_contributions(
         .map(|row| (row.entity_type, row.entity_id))
         .fetch_all(transaction.as_mut())
         .await?;
-        source_items::sync_rows(transaction.as_mut(), &removed).await?;
+        affected.extend(removed);
     }
     let Some((team_id, level)) = target else {
-        return Ok(());
+        return Ok(affected);
     };
     let rows: Vec<_> = get_nested_project_entities(transaction, project_id)
         .await?
@@ -172,7 +185,7 @@ pub async fn replace_project_contributions(
         })
         .collect();
     if rows.is_empty() {
-        return Ok(());
+        return Ok(affected);
     }
     let team_id_str = team_id.to_string();
     for chunk in rows.chunks(NESTED_TEAM_GRANT_CHUNK_SIZE) {
@@ -194,10 +207,6 @@ pub async fn replace_project_contributions(
         );
         query.build().execute(transaction.as_mut()).await?;
     }
-    let affected = rows
-        .iter()
-        .map(|(id, kind)| (kind.clone(), id.to_string()))
-        .collect::<Vec<_>>();
-    source_items::sync_rows(transaction.as_mut(), &affected).await?;
-    Ok(())
+    affected.extend(rows.iter().map(|(id, kind)| (kind.clone(), id.to_string())));
+    Ok(affected)
 }
