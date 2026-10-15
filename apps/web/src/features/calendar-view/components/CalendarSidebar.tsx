@@ -10,12 +10,10 @@ import { useCalendarPager } from '@app/features/calendar/components/CalendarPage
 import { useCalendarView } from '@app/features/calendar/components/CalendarViewContext';
 import { SourceControls } from '@app/features/calendar/components/SourceControls';
 import {
-  TEAM_OOO_SOURCE_ID,
   type TeamOooWindow,
   useHasTeammates,
   useUpcomingTeamOoo,
 } from '@app/features/calendar/hooks/use-team-ooo';
-import { CalendarTeamSidebar } from '@app/features/calendar-team/calendar-team';
 import { CalendarSchedulingActions } from '@app/features/scheduling/calendar-actions';
 import { ShowFeatureFlag } from '@app/lib/analytics/posthog';
 import { UserIcon } from '@core/component/UserIcon';
@@ -23,7 +21,7 @@ import { enableCalendarTeamOoo } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import CloseIcon from '@icon/system/regular/x.svg';
-import { cn, Calendar as MiniCalendar, ToggleSwitch } from '@ui';
+import { cn, Calendar as MiniCalendar } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { format } from 'date-fns';
 import {
@@ -124,6 +122,7 @@ function CalendarSourcesSection() {
         </CollapsibleSection.Trigger>
         <CollapsibleSection.Content>
           <SourceControls
+            ref={tourTarget(CALENDAR_TOUR.sources)}
             sources={calendarView.sources()}
             isVisible={calendarView.isSourceVisible}
             onVisibilityChange={calendarView.setSourceVisibility}
@@ -237,30 +236,16 @@ function TeamOooUpcomingList() {
 }
 
 function CalendarTeamOooSection() {
-  const calendarView = useCalendarView();
   const hasTeammates = useHasTeammates();
-  const [open, setOpen] = createSignal(false);
-  const isOverlayVisible = () =>
-    calendarView.isSourceVisible(TEAM_OOO_SOURCE_ID);
-  const setOverlayVisible = (visible: boolean) =>
-    calendarView.setSourceVisibility(TEAM_OOO_SOURCE_ID, visible);
+  const [open, setOpen] = createSignal(true);
 
   return (
     <Show when={hasTeammates()}>
       <CollapsibleSection.Root open={open()} onOpenChange={setOpen}>
-        <CollapsibleSection.Header>
-          <CollapsibleSection.Trigger class="min-w-0 flex-1">
-            <span class="min-w-0 truncate">Team out of office</span>
-            <CollapsibleSection.Indicator />
-          </CollapsibleSection.Trigger>
-          <span title="Show on calendar">
-            <ToggleSwitch
-              checked={isOverlayVisible()}
-              onChange={setOverlayVisible}
-              aria-label="Show team out of office on the calendar"
-            />
-          </span>
-        </CollapsibleSection.Header>
+        <CollapsibleSection.Trigger>
+          <span class="min-w-0 truncate">Team out of office</span>
+          <CollapsibleSection.Indicator />
+        </CollapsibleSection.Trigger>
         <CollapsibleSection.Content>
           <TeamOooUpcomingList />
         </CollapsibleSection.Content>
@@ -316,7 +301,6 @@ export function CalendarSidebar() {
         <CalendarMiniCalendar />
         <CalendarSourcesSection />
         <UpcomingEventsSection />
-        <CalendarTeamSidebar />
         <ShowFeatureFlag flag={enableCalendarTeamOoo}>
           <CalendarTeamOooSection />
         </ShowFeatureFlag>

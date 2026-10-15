@@ -483,6 +483,27 @@ fn the_mcp_host_defers_nothing() {
     assert!(!tools.prompt.to_string().contains("LoadTools"));
 }
 
+/// Only an MCP client can PUT bytes to the upload URL, so the tool is not
+/// offered to in-app hosts, which would call it and then have no way to use it.
+#[test]
+fn channel_media_uploads_are_mcp_only() {
+    assert!(
+        tools_for(AiHost::Mcp)
+            .toolset
+            .tools
+            .contains_key("CreateChannelMediaUpload")
+    );
+    for host in [AiHost::Chat, AiHost::AgentSession, AiHost::ChannelBot] {
+        assert!(
+            !tools_for(host)
+                .toolset
+                .tools
+                .contains_key("CreateChannelMediaUpload"),
+            "{host:?}"
+        );
+    }
+}
+
 #[test]
 fn every_eager_tool_exists() {
     let tools = tools_for(AiHost::AgentSession);

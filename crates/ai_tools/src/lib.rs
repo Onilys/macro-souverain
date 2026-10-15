@@ -73,24 +73,25 @@ pub use tool_context::{
     ToolBookingLinkToolContext, ToolBookingManagementToolContext, ToolBotService,
     ToolBotToolContext, ToolCalendarMutationService, ToolCalendarReadService,
     ToolCalendarToolContext, ToolCallRecordQueryService, ToolCallService, ToolCallToolContext,
-    ToolChannelEventDispatcher, ToolChannelMessagesService, ToolChannelToolContext,
-    ToolChatService, ToolChatToolContext, ToolCodingAgentToolContext, ToolCommsService,
-    ToolCrmService, ToolCrmToolContext, ToolDatabasesService, ToolDatabasesSqlToolContext,
-    ToolDatabasesToolContext, ToolDocumentService, ToolDocumentToolContext, ToolEmailService,
-    ToolEmailToolContext, ToolEntityAccessManagementService, ToolEntityAccessService,
-    ToolEntityCreator, ToolFavoritesService, ToolFavoritesToolContext, ToolForeignEntityService,
-    ToolFormsToolContext, ToolFrecencyService, ToolGithubPullRequestService,
-    ToolImageGenerationToolContext, ToolImportService, ToolImportToolContext,
-    ToolInitiativeToolContext, ToolItemNotificationPreferenceToolContext, ToolMcpSelector,
-    ToolNotificationQueue, ToolNotificationService, ToolNotificationToolContext,
-    ToolPipedreamConnection, ToolPipelineService, ToolPipelineToolContext, ToolPipelineWorkflows,
-    ToolProjectService, ToolProjectToolContext, ToolPropertiesService, ToolPropertiesToolContext,
-    ToolServiceContext, ToolSkillService, ToolSkillToolContext, ToolSoupService,
-    ToolSystemPropertiesService, ToolTableEventPublisher, ToolTeamCalendarService,
-    ToolTeamCalendarToolContext, ToolTeamService, ToolTeamToolContext, ToolUserEmailService,
-    ToolViewOnlyDatabasesSqlToolContext, build_activity_tool_context,
-    build_booking_link_tool_context, build_booking_management_tool_context, build_bot_tool_context,
-    build_calendar_tool_context, build_channel_tool_context_with_dispatcher,
+    ToolChannelEventDispatcher, ToolChannelMediaUploadToolContext, ToolChannelMessagesService,
+    ToolChannelToolContext, ToolChatService, ToolChatToolContext, ToolCodingAgentToolContext,
+    ToolCommsService, ToolCrmService, ToolCrmToolContext, ToolDatabasesService,
+    ToolDatabasesSqlToolContext, ToolDatabasesToolContext, ToolDocumentService,
+    ToolDocumentToolContext, ToolEmailService, ToolEmailToolContext,
+    ToolEntityAccessManagementService, ToolEntityAccessService, ToolEntityCreator,
+    ToolFavoritesService, ToolFavoritesToolContext, ToolForeignEntityService, ToolFormsToolContext,
+    ToolFrecencyService, ToolGithubPullRequestService, ToolImageGenerationToolContext,
+    ToolImportService, ToolImportToolContext, ToolInitiativeToolContext,
+    ToolItemNotificationPreferenceToolContext, ToolMcpSelector, ToolNotificationQueue,
+    ToolNotificationService, ToolNotificationToolContext, ToolPipedreamConnection,
+    ToolPipelineService, ToolPipelineToolContext, ToolPipelineWorkflows, ToolProjectService,
+    ToolProjectToolContext, ToolPropertiesService, ToolPropertiesToolContext, ToolServiceContext,
+    ToolSkillService, ToolSkillToolContext, ToolSoupService, ToolSystemPropertiesService,
+    ToolTableEventPublisher, ToolTeamCalendarService, ToolTeamCalendarToolContext, ToolTeamService,
+    ToolTeamToolContext, ToolUserEmailService, ToolViewOnlyDatabasesSqlToolContext,
+    build_activity_tool_context, build_booking_link_tool_context,
+    build_booking_management_tool_context, build_bot_tool_context, build_calendar_tool_context,
+    build_channel_media_upload_tool_context, build_channel_tool_context_with_dispatcher,
     build_channel_tool_context_with_side_effects, build_channel_tool_context_without_side_effects,
     build_coding_agent_tool_context, build_crm_tool_context, build_databases_sql_tool_context,
     build_databases_tool_context, build_favorites_service, build_favorites_tool_context,
@@ -104,7 +105,10 @@ pub use tool_context::{
 };
 pub use tool_context::{ToolConnectorToolContext, build_connector_tool_context};
 #[cfg(any(test, feature = "test-support"))]
-pub use tool_context::{build_image_generation_tool_context_test, no_op_schedule_context};
+pub use tool_context::{
+    build_channel_media_upload_tool_context_test, build_image_generation_tool_context_test,
+    no_op_schedule_context,
+};
 pub type AiToolSet = AsyncToolCollection<ToolServiceContext>;
 
 /// Database-only capabilities for the in-app database assistant. This excludes
@@ -275,6 +279,15 @@ pub fn tools_for(host: AiHost) -> ToolSetWithPrompt {
             toolset.add_tool::<DisplayResults, ToolServiceContext>()
         }
         AiHost::ChannelBot | AiHost::Mcp => toolset,
+    };
+    // A direct upload needs a client that can PUT the bytes itself; in-app
+    // hosts have no network-capable shell, so only MCP clients get it.
+    let toolset = match host {
+        AiHost::Mcp => toolset.add_tool::<
+            channels::inbound::toolset::CreateChannelMediaUpload,
+            ToolChannelMediaUploadToolContext,
+        >(),
+        AiHost::Chat | AiHost::AgentSession | AiHost::ChannelBot => toolset,
     };
     // Connector discovery belongs to agent sessions. Their runtime refreshes
     // the permitted connector list before the next turn after authorization.

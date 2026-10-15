@@ -10,12 +10,9 @@ import { EventType } from '@service-storage/generated/schemas/eventType';
 import type { TeamOutOfOfficeItem } from '@service-storage/generated/schemas/teamOutOfOfficeItem';
 import { parseISO } from 'date-fns';
 import { type Accessor, createMemo } from 'solid-js';
-import type { CalendarEvent } from '../types';
+import { type CalendarEvent, TEAM_OOO_SOURCE_ID } from '../types';
 import { isCalendarRangeSupported } from '../utils/calendar-supported-range';
 import { useCalendarTeamOooFlag } from './use-calendar-ui-flag';
-
-/** Visibility-source id gating the whole team out-of-office overlay. */
-export const TEAM_OOO_SOURCE_ID = 'team-ooo';
 
 /** Prefix of every per-teammate visibility-source id. */
 const TEAM_OOO_SOURCE_PREFIX = 'team-ooo:';
@@ -78,13 +75,11 @@ function mapTeamOooItem(item: TeamOutOfOfficeItem): CalendarEvent {
 
 export interface TeamOooEventData {
   events: Accessor<CalendarEvent[]>;
-  visibleEvents: Accessor<CalendarEvent[]>;
   eventsById: Accessor<Map<string, CalendarEvent>>;
 }
 
 export interface TeamOooEventOptions {
   range: Accessor<CalendarOccurrenceQueryRange | undefined>;
-  isSourceVisible?: (sourceId: string) => boolean;
   refetchOnWindowFocus?: Accessor<boolean>;
 }
 
@@ -98,12 +93,10 @@ export function useTeamOooEvents(
     const range = options.range();
     return range !== undefined && isCalendarRangeSupported(range);
   });
-  const isOverlayVisible = () =>
-    teamOooEnabled() && options.isSourceVisible?.(TEAM_OOO_SOURCE_ID) !== false;
   const query = useTeamOutOfOfficeQuery(
     () => ({ userId: userId(), range: options.range() }),
     () => ({
-      enabled: isRangeSupported() && isOverlayVisible(),
+      enabled: isRangeSupported() && teamOooEnabled(),
       refetchOnWindowFocus: options.refetchOnWindowFocus?.(),
     })
   );
@@ -121,12 +114,11 @@ export function useTeamOooEvents(
     }
     return query.data.map(mapTeamOooItem);
   });
-  const visibleEvents = createMemo(() => (isOverlayVisible() ? events() : []));
   const eventsById = createMemo(
     () => new Map(events().map((event) => [event.id, event]))
   );
 
-  return { events, visibleEvents, eventsById };
+  return { events, eventsById };
 }
 
 /** One teammate absence window for list surfaces. */

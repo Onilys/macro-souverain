@@ -636,6 +636,7 @@ pub async fn build_tool_service_context_from_env(
         import_tool_context,
         chat_tool_context,
         channel_tool_context,
+        channel_media_upload_tool_context: crate::build_channel_media_upload_tool_context()?,
         bot_tool_context: crate::tool_context::build_bot_tool_context(
             pool.clone(),
             crate::tool_context::MaybeToolEventBroker::Real(macro_event_broker.clone()),

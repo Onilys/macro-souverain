@@ -1,5 +1,28 @@
 use super::*;
 
+#[test]
+fn android_version_is_an_unconditional_required_merge_check() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let android = job(&yaml, "android-version", "typescript");
+    assert!(
+        !android.contains("if:"),
+        "native enforcement must always run"
+    );
+    assert!(
+        !android.contains("fetch-depth"),
+        "shallow checkout; the base commit is fetched by the step: {android}"
+    );
+    assert!(android.contains("github.event.pull_request.base.sha"));
+    assert!(android.contains("git fetch -q --depth=1 origin \"$BASE_SHA\""));
+    assert!(android.contains("bun scripts/android-version-check.mjs"));
+    let status = yaml
+        .split("\n  status-check:\n")
+        .nth(1)
+        .expect("status job");
+    assert!(status.contains("- android-version"));
+    assert!(status.contains("needs.android-version.result }}\" != \"success\""));
+}
+
 fn filters(yaml: &str) -> (&str, &str) {
     let filters = yaml
         .split("filters: |")

@@ -540,6 +540,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
             pool.clone(),
             std::sync::Arc::new(test_lexical_client),
         ),
+        channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context_test(),
         bot_tool_context: ai_tools::build_bot_tool_context(
             pool.clone(),
             ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),

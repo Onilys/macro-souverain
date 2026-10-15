@@ -185,8 +185,19 @@ just android-bump
 
 Commit the changed config before tagging the release. This increments only
 `versionCode`; edit `version` separately when changing the marketing version.
-CI rejects native changes whose code is not greater than the last published AAB
-baseline. No version bump is needed for frontend-only bundle updates.
+The PR's **Android Version Code** check compares its merged result with the base
+branch and requires a higher code when the Android native code changed: any
+file under `apps/web/tauri/` except iOS-, macOS-, Linux- and desktop-only
+paths by naming convention (`ios/` directories, `gen/apple/`, `*.ios.*` and
+`*.macos.*` config, `macos_*`/`linux_*` sources, the macOS icon set,
+`desktop-release.json`, `.helix/`), or a bump of the client cache wasm
+version. It feeds the required **Web App Status Check**, so a missing bump
+blocks merging. If another PR has already used your proposed code, update
+your branch and bump again. The release workflow applies the same definition
+(both read `apps/web/scripts/android-native.mjs`) and rejects native changes
+whose code is not greater than the last published AAB baseline, so a PR that
+passes the check cannot fail the release for the same reason. No version
+bump is needed for frontend-only, backend-only, or iOS/desktop-only changes.
 Builds never increment the counter implicitly, so retries of the same release
 retain its identity. Never distribute different releases with the same code or
 reuse a code already uploaded to Google Play. Keep the signing key for upgrades.
