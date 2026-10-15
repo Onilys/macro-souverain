@@ -306,6 +306,7 @@ export function ChannelThread(props: ThreadProps) {
         onDismissNewMessages={props.threadActions?.onDismissNewMessages}
       >
         <div class="flex flex-col w-full">
+          {props.beforeMessage}
           {/* Rail segment along the root message: from the avatar's center
               (masked by the avatar's fill until its lower edge) to the
               message's bottom, where the reply-branch elbow takes over. A
@@ -333,6 +334,8 @@ export function ChannelThread(props: ThreadProps) {
             >
               <DebugSuspense name="ChannelThread.message">
                 <ChannelMessage
+                  renderContent={props.renderMessageContent}
+                  hideTriggeredBy={props.hideTriggeredBy}
                   parent={props.parent()}
                   message={props.data()}
                   actions={props.getMessageActions?.(props.data())}
@@ -350,6 +353,7 @@ export function ChannelThread(props: ThreadProps) {
               </DebugSuspense>
             </MarkMessageNotifications>
           </div>
+          {props.afterMessage}
           <Show when={hasReplies() || hasInlineReplyInput()}>
             <div class="relative w-full">
               <Show when={!props.hideRail}>

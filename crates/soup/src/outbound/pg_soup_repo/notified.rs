@@ -133,7 +133,21 @@ pub(super) fn foreign_entity_gate(filter: Option<&EntityFilterAst>) -> String {
 /// Agent sessions are authorized through `entity_access`, whose sources are
 /// the same user / channel / team ids the query's `user_source_ids` CTE
 /// already collects - the predicate the agent-session leg's own queries use.
-pub(super) fn agent_session_gate() -> String {
+pub(super) fn agent_session_gate(filter: Option<&EntityFilterAst>) -> String {
+    // IDs come from the typed UUID AST, never raw request text. `only` is an
+    // internal refresh constraint and deliberately does not bypass visibility.
+    let named = filter
+        .and_then(|filter| filter.agent_session_filter.as_deref())
+        .map(super::agent_session::explicitly_named_ids)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|id| format!("{ID_SQL}::uuid = '{id}'::uuid"))
+        .collect::<Vec<_>>();
+    let named = if named.is_empty() {
+        "FALSE".to_owned()
+    } else {
+        named.join(" OR ")
+    };
     uuid_guarded(
         ID_SQL,
         format!(
@@ -142,6 +156,11 @@ pub(super) fn agent_session_gate() -> String {
                 WHERE ea.entity_id = {ID_SQL}::uuid
                 AND ea.entity_type = 'agent_session'
                 AND ea.source_id IN (SELECT source_id FROM user_source_ids)
+            ) AND (
+                ({named}) OR NOT EXISTS (
+                    SELECT 1 FROM agent_session s
+                    WHERE s.id = {ID_SQL}::uuid AND s.list_hidden
+                )
             )"#
         ),
     )
@@ -239,7 +258,7 @@ fn build_query(filter: Option<&EntityFilterAst>) -> String {
         email_gate = email_gate(ID_SQL, filter),
         calendar_event_gate = calendar_event_gate(filter),
         foreign_entity_gate = foreign_entity_gate(filter),
-        agent_session_gate = agent_session_gate(),
+        agent_session_gate = agent_session_gate(filter),
     )
 }
 

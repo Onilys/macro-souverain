@@ -466,6 +466,12 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         soup_service.clone(),
         pool.clone(),
     );
+    let crm_tool_context = ai_tools::build_crm_tool_context(pool.clone());
+    let pipeline_tool_context = ai_tools::build_pipeline_tool_context(
+        pool.clone(),
+        &databases_tool_context,
+        &crm_tool_context,
+    );
 
     let calendar_tool_context = ai_tools::build_calendar_tool_context(
         pool.clone(),
@@ -534,6 +540,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
             pool.clone(),
             std::sync::Arc::new(test_lexical_client),
         ),
+        channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context_test(),
         bot_tool_context: ai_tools::build_bot_tool_context(
             pool.clone(),
             ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
@@ -553,7 +560,8 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         ),
         initiative_tool_context,
         team_tool_context: ai_tools::build_team_tool_context(pool.clone()),
-        crm_tool_context: ai_tools::build_crm_tool_context(pool.clone()),
+        crm_tool_context,
+        pipeline_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),

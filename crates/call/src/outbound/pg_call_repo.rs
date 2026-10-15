@@ -32,8 +32,8 @@ use crate::domain::meetings::{
 };
 use crate::domain::models::{
     ActiveCallSummary, AddParticipantError, ArchivedCall, Call, CallError, CallParticipant,
-    CallPeople, CallRecord, CallRecordGuest, CallRecordParticipant, CallRecordPreview,
-    CallRecordPreviewData, CallRecordTranscriptSegment, CustomSpeakerAssignment,
+    CallPeople, CallRecord, CallRecordGuest, CallRecordPage, CallRecordParticipant,
+    CallRecordPreview, CallRecordPreviewData, CallRecordTranscriptSegment, CustomSpeakerAssignment,
     DeletedCallRecordStorageKeys, EditCallRecordRepoArgs, EnrichedCallTranscript,
     TranscriptSegmentRequest, WithCallId,
 };
@@ -1585,6 +1585,7 @@ impl CallRepository for PgCallRepo {
         user_id: MacroUserIdStr<'a>,
         limit: u32,
         filter: &LiteralTree<CallLiteral>,
+        page: CallRecordPage,
     ) -> Result<Vec<CallRecord>, Self::Err> {
         // Fetch active and archived headers without transcripts. Channel calls
         // accept matching user, channel, or team grants; standalone calls require
@@ -1779,7 +1780,17 @@ impl CallRepository for PgCallRepo {
                 status as "status!"
             FROM visible_calls
             WHERE ($7::bool IS FALSE OR status = ANY($8::text[]))
-            ORDER BY "started_at!" DESC
+              -- Soup's keyset: calls sort by start, or by last activity.
+              AND (
+                  $15::timestamptz IS NULL
+                  OR (
+                      CASE WHEN $14 THEN started_at ELSE COALESCE(ended_at, started_at) END,
+                      call_id::text
+                  ) < ($15, $16::text)
+              )
+            ORDER BY
+                CASE WHEN $14 THEN started_at ELSE COALESCE(ended_at, started_at) END DESC,
+                call_id::text DESC
             LIMIT $2
             "#,
             user_id.as_ref(),
@@ -1795,6 +1806,9 @@ impl CallRepository for PgCallRepo {
             &property.negated,
             &property.definition_ids as &[Option<Uuid>],
             &property.values,
+            page.by_start,
+            page.after.map(|(sort_ts, _)| sort_ts),
+            page.after.map(|(_, call_id)| call_id.to_string()),
         )
         .fetch_all(&self.pool)
         .await?;

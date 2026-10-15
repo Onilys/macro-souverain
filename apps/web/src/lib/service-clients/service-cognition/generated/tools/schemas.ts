@@ -3,6 +3,53 @@
  */
 import { z } from 'zod/v3';
 
+export const AddToPipeline = z.object({
+  pipelineId: z.string().uuid(),
+  entries: z.array(
+    z.object({
+      recordId: z.union([z.string().uuid(), z.null()]).optional(),
+      email: z.union([z.string(), z.null()]).optional(),
+      set: z
+        .array(
+          z.object({
+            field: z.string(),
+            value: z.union([z.string(), z.null()]).optional(),
+            values: z.union([z.array(z.string()), z.null()]).optional(),
+          })
+        )
+        .optional(),
+    })
+  ),
+  allowDuplicates: z.union([z.boolean(), z.null()]).optional(),
+});
+
+export const AddToPipelineResponse = z.object({
+  added: z.array(
+    z.object({
+      entryId: z.string().uuid(),
+      record: z.object({
+        id: z.string().uuid(),
+        name: z.union([z.string(), z.null()]).optional(),
+        detail: z.union([z.string(), z.null()]).optional(),
+      }),
+      fields: z.record(z.any()),
+    })
+  ),
+  alreadyPresent: z.array(
+    z.object({
+      entryId: z.string().uuid(),
+      record: z.object({
+        id: z.string().uuid(),
+        name: z.union([z.string(), z.null()]).optional(),
+        detail: z.union([z.string(), z.null()]).optional(),
+      }),
+      fields: z.record(z.any()),
+    })
+  ),
+  version: z.union([z.number().int(), z.null()]).optional(),
+  summary: z.string(),
+});
+
 export const BashCodeExecution = z.object({ input: z.string() });
 
 export const BashCodeExecutionResponse = z.object({
@@ -451,6 +498,7 @@ export const SpreadsheetResponse = z.any().superRefine((x, ctx) => {
                               z.literal('general'),
                               z.literal('number'),
                               z.literal('currency'),
+                              z.literal('accounting'),
                               z.literal('percent'),
                               z.literal('date'),
                               z.literal('time'),
@@ -1016,6 +1064,7 @@ export const ContentSearch = z.object({
       ])
     )
     .optional(),
+  agentSessionIds: z.array(z.string().uuid()).optional(),
   inbox: z.union([z.string(), z.null()]).optional(),
   tags: z
     .union([
@@ -1714,6 +1763,7 @@ export const CreateBookingLink = z
             description: z.string(),
             durationMinutes: z.number().int().gte(0).lte(65535),
             location: z.string(),
+            macroCall: z.boolean().optional(),
             googleMeet: z.boolean(),
             enabled: z.boolean(),
             mode: z.any().superRefine((x, ctx) => {
@@ -1799,6 +1849,7 @@ export const BookingLinkResult = z.object({
           description: z.string(),
           durationMinutes: z.number().int().gte(0).lte(65535),
           location: z.string(),
+          macroCall: z.boolean().optional(),
           googleMeet: z.boolean(),
           enabled: z.boolean(),
           mode: z.any().superRefine((x, ctx) => {
@@ -3828,6 +3879,106 @@ export const ProjectDetails = z.object({
   ),
 });
 
+export const CreatePipeline = z.object({
+  name: z.string(),
+  tracks: z.enum(['company', 'contact']),
+  sharedWithTeam: z.union([z.boolean(), z.null()]).optional(),
+  stages: z.array(z.string()).optional(),
+  fields: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.enum([
+          'text',
+          'number',
+          'checkbox',
+          'date',
+          'link',
+          'select',
+          'multi_select',
+          'person',
+          'people',
+        ]),
+        options: z.array(z.string()).optional(),
+      })
+    )
+    .optional(),
+});
+
+export const CreatePipelineResponse = z.object({
+  pipeline: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    tracks: z.enum(['company', 'contact']),
+    access: z.any().superRefine((x, ctx) => {
+      const schemas = [
+        z.literal('view'),
+        z.literal('edit'),
+        z.literal('owner'),
+      ];
+      const errors = schemas.reduce<z.ZodError[]>(
+        (errors, schema) =>
+          ((result) => (result.error ? [...errors, result.error] : errors))(
+            schema.safeParse(x)
+          ),
+        []
+      );
+      if (schemas.length - errors.length !== 1) {
+        ctx.addIssue({
+          path: ctx.path,
+          code: 'invalid_union',
+          unionErrors: errors,
+          message: 'Invalid input: Should pass single schema',
+        });
+      }
+    }),
+    sharedWithTeam: z.boolean(),
+    fields: z.array(
+      z.object({
+        name: z.string(),
+        type: z.any().superRefine((x, ctx) => {
+          const schemas = [
+            z.literal('company'),
+            z.literal('contact'),
+            z.literal('text'),
+            z.literal('number'),
+            z.literal('checkbox'),
+            z.literal('date'),
+            z.literal('link'),
+            z.literal('select'),
+            z.literal('tags'),
+            z.literal('person'),
+            z.literal('item'),
+            z.literal('relation'),
+            z.literal('formula'),
+          ];
+          const errors = schemas.reduce<z.ZodError[]>(
+            (errors, schema) =>
+              ((result) => (result.error ? [...errors, result.error] : errors))(
+                schema.safeParse(x)
+              ),
+            []
+          );
+          if (schemas.length - errors.length !== 1) {
+            ctx.addIssue({
+              path: ctx.path,
+              code: 'invalid_union',
+              unionErrors: errors,
+              message: 'Invalid input: Should pass single schema',
+            });
+          }
+        }),
+        multiple: z.boolean(),
+        options: z.array(z.string()),
+        required: z.boolean(),
+        readOnly: z.boolean(),
+      })
+    ),
+    version: z.number().int(),
+  }),
+  summary: z.string(),
+});
+
 export const CreateProject = z.object({
   projectName: z.string(),
   parentProjectId: z.union([z.string().uuid(), z.null()]).optional(),
@@ -4345,6 +4496,7 @@ export const EditBookingLink = z
             description: z.string(),
             durationMinutes: z.number().int().gte(0).lte(65535),
             location: z.string(),
+            macroCall: z.boolean().optional(),
             googleMeet: z.boolean(),
             enabled: z.boolean(),
             mode: z.any().superRefine((x, ctx) => {
@@ -5435,6 +5587,118 @@ export const EditForm = z.object({
     .optional(),
   description: z.union([z.string(), z.null()]).optional(),
   confirmationMessage: z.union([z.string(), z.null()]).optional(),
+});
+
+export const EditPipeline = z.object({
+  pipelineId: z.string().uuid(),
+  name: z.union([z.string(), z.null()]).optional(),
+  sharedWithTeam: z.union([z.boolean(), z.null()]).optional(),
+  addFields: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.enum([
+          'text',
+          'number',
+          'checkbox',
+          'date',
+          'link',
+          'select',
+          'multi_select',
+          'person',
+          'people',
+        ]),
+        options: z.array(z.string()).optional(),
+      })
+    )
+    .optional(),
+  renameFields: z
+    .array(z.object({ from: z.string(), to: z.string() }))
+    .optional(),
+  removeFields: z.array(z.string()).optional(),
+  addOptions: z
+    .array(z.object({ field: z.string(), labels: z.array(z.string()) }))
+    .optional(),
+  renameOptions: z
+    .array(z.object({ field: z.string(), from: z.string(), to: z.string() }))
+    .optional(),
+  removeOptions: z
+    .array(z.object({ field: z.string(), label: z.string() }))
+    .optional(),
+});
+
+export const EditPipelineResponse = z.object({
+  pipeline: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    tracks: z.enum(['company', 'contact']),
+    access: z.any().superRefine((x, ctx) => {
+      const schemas = [
+        z.literal('view'),
+        z.literal('edit'),
+        z.literal('owner'),
+      ];
+      const errors = schemas.reduce<z.ZodError[]>(
+        (errors, schema) =>
+          ((result) => (result.error ? [...errors, result.error] : errors))(
+            schema.safeParse(x)
+          ),
+        []
+      );
+      if (schemas.length - errors.length !== 1) {
+        ctx.addIssue({
+          path: ctx.path,
+          code: 'invalid_union',
+          unionErrors: errors,
+          message: 'Invalid input: Should pass single schema',
+        });
+      }
+    }),
+    sharedWithTeam: z.boolean(),
+    fields: z.array(
+      z.object({
+        name: z.string(),
+        type: z.any().superRefine((x, ctx) => {
+          const schemas = [
+            z.literal('company'),
+            z.literal('contact'),
+            z.literal('text'),
+            z.literal('number'),
+            z.literal('checkbox'),
+            z.literal('date'),
+            z.literal('link'),
+            z.literal('select'),
+            z.literal('tags'),
+            z.literal('person'),
+            z.literal('item'),
+            z.literal('relation'),
+            z.literal('formula'),
+          ];
+          const errors = schemas.reduce<z.ZodError[]>(
+            (errors, schema) =>
+              ((result) => (result.error ? [...errors, result.error] : errors))(
+                schema.safeParse(x)
+              ),
+            []
+          );
+          if (schemas.length - errors.length !== 1) {
+            ctx.addIssue({
+              path: ctx.path,
+              code: 'invalid_union',
+              unionErrors: errors,
+              message: 'Invalid input: Should pass single schema',
+            });
+          }
+        }),
+        multiple: z.boolean(),
+        options: z.array(z.string()),
+        required: z.boolean(),
+        readOnly: z.boolean(),
+      })
+    ),
+    version: z.number().int(),
+  }),
+  summary: z.string(),
 });
 
 export const EditPresentation = z.object({
@@ -7756,6 +8020,7 @@ export const EditSpreadsheet = z.object({
                         z.literal('general'),
                         z.literal('number'),
                         z.literal('currency'),
+                        z.literal('accounting'),
                         z.literal('percent'),
                         z.literal('date'),
                         z.literal('time'),
@@ -8011,6 +8276,58 @@ export const EditWordDocument = z.object({
 });
 
 export const WordDocumentResponse = z.object({ content: z.string() });
+
+export const FindPipelineEntries = z.object({
+  pipelineId: z.union([z.string().uuid(), z.null()]).optional(),
+  filters: z
+    .array(
+      z.object({
+        field: z.string(),
+        value: z.union([z.string(), z.null()]).optional(),
+        values: z.union([z.array(z.string()), z.null()]).optional(),
+      })
+    )
+    .optional(),
+  recordIds: z.array(z.string().uuid()).optional(),
+  search: z.union([z.string(), z.null()]).optional(),
+  sortBy: z.union([z.string(), z.null()]).optional(),
+  descending: z.union([z.boolean(), z.null()]).optional(),
+  limit: z.union([z.number().int().gte(0).lte(65535), z.null()]).optional(),
+});
+
+export const FindPipelineEntriesResponse = z.object({
+  pipelines: z.array(
+    z.object({
+      pipelineId: z.string().uuid(),
+      pipelineName: z.string(),
+      version: z.union([z.number().int(), z.null()]).optional(),
+      entries: z.array(
+        z.object({
+          entryId: z.string().uuid(),
+          record: z.object({
+            id: z.string().uuid(),
+            name: z.union([z.string(), z.null()]).optional(),
+            detail: z.union([z.string(), z.null()]).optional(),
+          }),
+          fields: z.record(z.any()),
+        })
+      ),
+    })
+  ),
+  matched: z.number().int().gte(0),
+  complete: z.boolean(),
+  counts: z.array(
+    z.object({
+      field: z.string(),
+      counts: z.array(
+        z.object({ label: z.string(), count: z.number().int().gte(0) })
+      ),
+      empty: z.number().int().gte(0),
+    })
+  ),
+  totals: z.array(z.object({ field: z.string(), sum: z.number() })),
+  summary: z.string(),
+});
 
 export const GenerateImage = z.object({
   prompt: z.string(),
@@ -8605,6 +8922,7 @@ export const ListBookingLinksResult = z.object({
               description: z.string(),
               durationMinutes: z.number().int().gte(0).lte(65535),
               location: z.string(),
+              macroCall: z.boolean().optional(),
               googleMeet: z.boolean(),
               enabled: z.boolean(),
               mode: z.any().superRefine((x, ctx) => {
@@ -9763,6 +10081,85 @@ export const ListNotificationsResponse = z.object({
   hasMore: z.boolean(),
 });
 
+export const ListPipelines = z.record(z.any());
+
+export const ListPipelinesResponse = z.object({
+  pipelines: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      tracks: z.enum(['company', 'contact']),
+      access: z.any().superRefine((x, ctx) => {
+        const schemas = [
+          z.literal('view'),
+          z.literal('edit'),
+          z.literal('owner'),
+        ];
+        const errors = schemas.reduce<z.ZodError[]>(
+          (errors, schema) =>
+            ((result) => (result.error ? [...errors, result.error] : errors))(
+              schema.safeParse(x)
+            ),
+          []
+        );
+        if (schemas.length - errors.length !== 1) {
+          ctx.addIssue({
+            path: ctx.path,
+            code: 'invalid_union',
+            unionErrors: errors,
+            message: 'Invalid input: Should pass single schema',
+          });
+        }
+      }),
+      sharedWithTeam: z.boolean(),
+      fields: z.array(
+        z.object({
+          name: z.string(),
+          type: z.any().superRefine((x, ctx) => {
+            const schemas = [
+              z.literal('company'),
+              z.literal('contact'),
+              z.literal('text'),
+              z.literal('number'),
+              z.literal('checkbox'),
+              z.literal('date'),
+              z.literal('link'),
+              z.literal('select'),
+              z.literal('tags'),
+              z.literal('person'),
+              z.literal('item'),
+              z.literal('relation'),
+              z.literal('formula'),
+            ];
+            const errors = schemas.reduce<z.ZodError[]>(
+              (errors, schema) =>
+                ((result) =>
+                  result.error ? [...errors, result.error] : errors)(
+                  schema.safeParse(x)
+                ),
+              []
+            );
+            if (schemas.length - errors.length !== 1) {
+              ctx.addIssue({
+                path: ctx.path,
+                code: 'invalid_union',
+                unionErrors: errors,
+                message: 'Invalid input: Should pass single schema',
+              });
+            }
+          }),
+          multiple: z.boolean(),
+          options: z.array(z.string()),
+          required: z.boolean(),
+          readOnly: z.boolean(),
+        })
+      ),
+      version: z.number().int(),
+    })
+  ),
+  summary: z.string(),
+});
+
 export const ListRoutines = z.object({
   query: z.union([z.string(), z.null()]).optional(),
   enabled: z.union([z.boolean(), z.null()]).optional(),
@@ -10612,6 +11009,7 @@ export const BookingSettingsResult = z.object({
         description: z.string(),
         durationMinutes: z.number().int().gte(0).lte(65535),
         location: z.string(),
+        macroCall: z.boolean().optional(),
         googleMeet: z.boolean(),
         enabled: z.boolean(),
         scheduleId: z.string().uuid(),
@@ -13102,6 +13500,28 @@ export const ReadWordDocument = z.object({
   count: z.union([z.number().int().gte(0), z.null()]).optional(),
 });
 
+export const RemoveFromPipeline = z.object({
+  pipelineId: z.string().uuid(),
+  entryIds: z.array(z.string().uuid()).optional(),
+  recordIds: z.array(z.string().uuid()).optional(),
+});
+
+export const RemoveFromPipelineResponse = z.object({
+  removed: z.array(
+    z.object({
+      entryId: z.string().uuid(),
+      record: z.object({
+        id: z.string().uuid(),
+        name: z.union([z.string(), z.null()]).optional(),
+        detail: z.union([z.string(), z.null()]).optional(),
+      }),
+      fields: z.record(z.any()),
+    })
+  ),
+  version: z.union([z.number().int(), z.null()]).optional(),
+  summary: z.string(),
+});
+
 export const RenameChannel = z.object({
   channelId: z.string().uuid(),
   name: z.string(),
@@ -13615,6 +14035,37 @@ export const SendChannelMessage = z.object({
   content: z.string(),
   channel_id: z.string().uuid(),
   thread_id: z.union([z.string().uuid(), z.null()]).optional(),
+  attachments: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.any().superRefine((x, ctx) => {
+          const schemas = [
+            z.literal('image'),
+            z.literal('video'),
+            z.literal('document'),
+          ];
+          const errors = schemas.reduce<z.ZodError[]>(
+            (errors, schema) =>
+              ((result) => (result.error ? [...errors, result.error] : errors))(
+                schema.safeParse(x)
+              ),
+            []
+          );
+          if (schemas.length - errors.length !== 1) {
+            ctx.addIssue({
+              path: ctx.path,
+              code: 'invalid_union',
+              unionErrors: errors,
+              message: 'Invalid input: Should pass single schema',
+            });
+          }
+        }),
+        width: z.union([z.number().int(), z.null()]).optional(),
+        height: z.union([z.number().int(), z.null()]).optional(),
+      })
+    )
+    .optional(),
 });
 
 export const SendChannelMessageResponse = z.object({
@@ -14298,6 +14749,7 @@ export const UpdateBookingSettings = z
           description: z.string(),
           durationMinutes: z.number().int().gte(0).lte(65535),
           location: z.string(),
+          macroCall: z.boolean().optional(),
           googleMeet: z.boolean(),
           enabled: z.boolean(),
           scheduleId: z.string().uuid(),
@@ -14655,6 +15107,42 @@ export const UpdateInitiativeSharing = z.object({
       z.null(),
     ])
     .optional(),
+});
+
+export const UpdatePipelineEntries = z.object({
+  pipelineId: z.string().uuid(),
+  updates: z.array(
+    z.object({
+      entryId: z.union([z.string().uuid(), z.null()]).optional(),
+      recordId: z.union([z.string().uuid(), z.null()]).optional(),
+      set: z.array(
+        z.object({
+          field: z.string(),
+          value: z.union([z.string(), z.null()]).optional(),
+          values: z.union([z.array(z.string()), z.null()]).optional(),
+        })
+      ),
+    })
+  ),
+  baseVersion: z.union([z.number().int(), z.null()]).optional(),
+});
+
+export const UpdatePipelineEntriesResponse = z.object({
+  updated: z.array(
+    z.object({
+      entryId: z.string().uuid(),
+      record: z.object({
+        id: z.string().uuid(),
+        name: z.union([z.string(), z.null()]).optional(),
+        detail: z.union([z.string(), z.null()]).optional(),
+      }),
+      changes: z.array(
+        z.object({ field: z.string(), before: z.any(), after: z.any() })
+      ),
+    })
+  ),
+  version: z.union([z.number().int(), z.null()]).optional(),
+  summary: z.string(),
 });
 
 export const UpdateRoutine = z.object({

@@ -1,7 +1,10 @@
 import { Blob as NodeBlob } from 'node:buffer';
 import 'fake-indexeddb/auto';
 import type { LocalDraft } from '@app/features/email-compose/core/local-draft';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createDraftAutosave } from '@app/features/email-compose/primitives/draft-autosave';
+import { forceCloseDatabase } from 'fake-indexeddb';
+import { createRoot } from 'solid-js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLocalDraftStore } from './local-draft-store';
 
 const stores: ReturnType<typeof createLocalDraftStore>[] = [];
@@ -30,6 +33,197 @@ afterEach(async () => {
   for (const store of stores.splice(0)) await store.close();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+});
+
+describe('draft connection recovery', () => {
+  let connections: IDBDatabase[];
+  beforeEach(() => {
+    connections = [];
+    const original = indexedDB.open.bind(indexedDB);
+    vi.spyOn(indexedDB, 'open').mockImplementation((...args) => {
+      const request = original(...args);
+      request.addEventListener('success', () =>
+        connections.push(request.result)
+      );
+      return request;
+    });
+  });
+
+  it.each(['closed', 'terminated'])(
+    'saves the latest edit and continues server autosave after a connection is %s',
+    async (reason) => {
+      const store = open();
+      const session = await store.activate('owner');
+      await store.save(session, snapshot());
+      if (reason === 'closed') connections[0].close();
+      else {
+        const db = connections[0];
+        const closed = new Promise<void>((resolve) =>
+          db.addEventListener('close', () => resolve(), { once: true })
+        );
+        // fake-indexeddb accepts an instance but declares a constructor type.
+        forceCloseDatabase(
+          db as unknown as Parameters<typeof forceCloseDatabase>[0]
+        );
+        await closed;
+      }
+      const latest = snapshot('After resuming', 1);
+      const persist = vi.fn(async () => {
+        expect(await store.read(session, 'local')).toMatchObject({
+          revision: 2,
+          content: latest.content,
+        });
+      });
+      const onLocalError = vi.fn();
+      let dispose = () => {};
+      const autosave = createRoot((cleanup) => {
+        dispose = cleanup;
+        return createDraftAutosave({
+          capture: () => latest,
+          saveLocalSnapshot: async (value) => {
+            await store.save(session, value);
+          },
+          persist,
+          paused: () => false,
+          onLocalError,
+        });
+      });
+      try {
+        await autosave.save();
+        expect(persist).toHaveBeenCalledExactlyOnceWith(latest);
+        expect(onLocalError).not.toHaveBeenCalled();
+        expect(autosave.localSaveState()).toBe('saved');
+        expect(connections).toHaveLength(2);
+      } finally {
+        dispose();
+      }
+    }
+  );
+
+  it('shares a reopened connection across concurrent operations without duplicate revisions', async () => {
+    const store = open();
+    const session = await store.activate('owner');
+    await store.save(session, snapshot());
+    connections[0].close();
+    const notify = vi.fn();
+    store.subscribe(notify);
+    await Promise.all([
+      store.save(session, snapshot('New revision', 1)),
+      store.list(session),
+      store.read(session, 'local'),
+    ]);
+    expect(connections).toHaveLength(2);
+    expect(notify).toHaveBeenCalledOnce();
+    expect(await store.read(session, 'local')).toMatchObject({ revision: 2 });
+  });
+
+  it('bounds retries, reports one failure per episode and allows a later recovery', async () => {
+    const report = vi.fn();
+    const store = createLocalDraftStore(crypto.randomUUID(), report);
+    stores.push(store);
+    const session = await store.activate('owner');
+    const error = new DOMException(
+      'Connection is closing',
+      'InvalidStateError'
+    );
+    const transaction = vi
+      .spyOn(IDBDatabase.prototype, 'transaction')
+      .mockImplementation(() => {
+        throw error;
+      });
+    await expect(store.save(session, snapshot())).rejects.toBe(error);
+    expect(transaction).toHaveBeenCalledTimes(2);
+    await expect(store.save(session, snapshot())).rejects.toBe(error);
+    expect(transaction).toHaveBeenCalledTimes(4);
+    expect(report).toHaveBeenCalledExactlyOnceWith({ type: 'failed', error });
+    transaction.mockRestore();
+    await store.save(session, snapshot());
+    expect(report).toHaveBeenLastCalledWith({ type: 'recovered' });
+    expect(await store.read(session, 'local')).toMatchObject({ revision: 1 });
+  });
+
+  it('does not retry unrelated transaction errors', async () => {
+    const store = open();
+    const session = await store.activate('owner');
+    const error = new DOMException('Quota exhausted', 'QuotaExceededError');
+    const transaction = vi
+      .spyOn(connections[0], 'transaction')
+      .mockImplementationOnce(() => {
+        throw error;
+      });
+    await expect(store.save(session, snapshot())).rejects.toBe(error);
+    expect(transaction).toHaveBeenCalledOnce();
+    expect(connections).toHaveLength(1);
+    await store.save(session, snapshot());
+  });
+
+  it('never replays a started transaction when a request throws InvalidStateError', async () => {
+    const store = open();
+    const session = await store.activate('owner');
+    const error = new DOMException('Request failed', 'InvalidStateError');
+    const get = vi
+      .spyOn(IDBObjectStore.prototype, 'get')
+      .mockImplementationOnce(() => {
+        throw error;
+      });
+    await expect(store.save(session, snapshot())).rejects.toBe(error);
+    expect(get).toHaveBeenCalledOnce();
+    expect(connections).toHaveLength(1);
+    await store.save(session, snapshot());
+    expect(await store.read(session, 'local')).toMatchObject({ revision: 1 });
+  });
+
+  it('keeps account fences after reopening', async () => {
+    const name = crypto.randomUUID();
+    const store = open(name);
+    const session = await store.activate('owner');
+    await store.save(session, snapshot());
+    connections[0].close();
+    const other = open(name);
+    await other.clear(true);
+    await other.activate('other-owner');
+    await expect(store.save(session, snapshot('Late edit', 1))).rejects.toThrow(
+      'no longer active'
+    );
+    expect(await store.list(session)).toEqual([]);
+  });
+
+  it('retries a later open after a synchronous opening failure', async () => {
+    const store = open();
+    vi.mocked(indexedDB.open).mockImplementationOnce(() => {
+      throw new DOMException('Storage unavailable', 'UnknownError');
+    });
+    await expect(store.activate('owner')).rejects.toThrow(
+      'Storage unavailable'
+    );
+    const session = await store.activate('owner');
+    await store.save(session, snapshot());
+    expect(await store.list(session)).toHaveLength(1);
+  });
+
+  it('does not let an old close event invalidate the replacement connection', async () => {
+    const store = open();
+    const session = await store.activate('owner');
+    const old = connections[0];
+    old.close();
+    await store.save(session, snapshot());
+    old.onclose?.call(old, new Event('close'));
+    await store.list(session);
+    expect(connections).toHaveLength(2);
+  });
+
+  it('keeps persistence working when recovery reporting throws', async () => {
+    const report = vi.fn(() => {
+      throw new Error('Telemetry unavailable');
+    });
+    const store = createLocalDraftStore(crypto.randomUUID(), report);
+    stores.push(store);
+    const session = await store.activate('owner');
+    connections[0].close();
+    await store.save(session, snapshot());
+    expect(report).toHaveBeenCalledExactlyOnceWith({ type: 'recovered' });
+    expect(await store.list(session)).toHaveLength(1);
+  });
 });
 
 describe('durable email working copies', () => {

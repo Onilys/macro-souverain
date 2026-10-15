@@ -1,5 +1,6 @@
 import MagnifyingGlassIcon from '@phosphor/magnifying-glass.svg';
 import XIcon from '@phosphor/x.svg';
+import { Button } from '@ui/components/Button';
 import { InputGroup } from '@ui/components/InputGroup';
 import {
   createMemo,
@@ -67,17 +68,19 @@ export function DatabaseSearch(props: {
     <Show
       when={props.isOpen}
       fallback={
-        <button
+        <Button
           ref={searchButton}
           type="button"
-          aria-label="Search"
+          variant="ghost"
+          size="md"
+          square
+          label="Search"
           aria-keyshortcuts="Control+F Meta+F"
-          title="Search every table"
+          tooltip="Search every table"
           onClick={() => props.onOpen()}
-          class="flex size-8 shrink-0 items-center justify-center rounded-md text-ink-muted outline-none hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-ink/50"
         >
           <MagnifyingGlassIcon class="size-3.5" />
-        </button>
+        </Button>
       }
     >
       <div
@@ -89,7 +92,7 @@ export function DatabaseSearch(props: {
           props.onClose(false);
         }}
       >
-        <InputGroup size="sm" class="w-40 @min-[640px]/view-toolbar:w-56">
+        <InputGroup size="md" class="w-40 @min-[640px]/view-toolbar:w-56">
           <InputGroup.Addon align="inline-start">
             <MagnifyingGlassIcon class="size-3.5" />
           </InputGroup.Addon>

@@ -59,7 +59,10 @@ function mapTeamOooItem(item: TeamOutOfOfficeItem): CalendarEvent {
     id: JSON.stringify([item.eventId, item.occurrenceKey]),
     eventId: item.eventId,
     occurrenceKey: item.occurrenceKey,
-    teamProjection: { ownerId: item.ownerId, kind: 'details' },
+    teamProjection: {
+      ownerId: item.ownerId,
+      kind: item.title === undefined ? 'busy' : 'details',
+    },
     isCancelled: false,
     isReadOnly: true,
     attendees: [],

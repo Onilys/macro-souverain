@@ -9,6 +9,7 @@ use sqlx::types::Json;
 #[cfg(test)]
 mod test;
 
+mod agent_conversation;
 mod pull_request;
 mod queue;
 mod recovery;
@@ -35,7 +36,6 @@ use crate::outbound::connection_gateway_realtime::SessionAudience;
 use agent_client_protocol::schema::v1::SessionId;
 use agent_runtime_protocol::domain::schema::v0::{SystemEvent, ToRuntimeMessage, ToServerMessage};
 use anyhow::Context;
-use bot_id::MACRO_NEW_BOT_ID;
 use bots::domain::models::BotId;
 use bots::domain::ports::BotRepo;
 use bots::outbound::pg_bots_repo::PgBotsRepo;
@@ -59,6 +59,7 @@ use std::num::NonZeroUsize;
 pub struct PgAgentSessionRepo<B> {
     pool: PgPool,
     registrar: OwnedEntityRegistrar<B>,
+    list_policy: crate::domain::list_visibility::SessionListPolicy,
 }
 
 impl<B> std::fmt::Debug for PgAgentSessionRepo<B> {
@@ -74,7 +75,20 @@ impl<B: BotFacts> PgAgentSessionRepo<B> {
     /// Create a Postgres agent session repository that registers owners
     /// through `registrar`.
     pub fn new(pool: PgPool, registrar: OwnedEntityRegistrar<B>) -> Self {
-        Self { pool, registrar }
+        Self {
+            pool,
+            registrar,
+            list_policy: Default::default(),
+        }
+    }
+
+    /// Configure the session domain's staged DM visibility policy.
+    pub fn with_list_policy(
+        mut self,
+        policy: crate::domain::list_visibility::SessionListPolicy,
+    ) -> Self {
+        self.list_policy = policy;
+        self
     }
 }
 
@@ -300,7 +314,7 @@ impl TryFrom<AgentSessionRow> for AgentSession {
 impl<B: BotFacts + 'static> AgentSessionRepo for PgAgentSessionRepo<B> {
     async fn create(&self, params: CreateAgentSessionParams) -> Result<AgentSession> {
         let CreateAgentSessionParams {
-            warm,
+            purpose,
             id,
             owner_id,
             bot_id,
@@ -344,10 +358,19 @@ impl<B: BotFacts + 'static> AgentSessionRepo for PgAgentSessionRepo<B> {
         }
 
         let (status, status_event_name) = status_columns(&SessionStatus::NoMessages);
-        // An inline @macro mention is a one-shot on the message. It stays out
-        // of the agents list and search. Every other session — the agents
-        // composer, coding agents — is a list row.
-        let list_hidden = warm || (bot_id == MACRO_NEW_BOT_ID && thread_id.is_some());
+        let conversation = sqlx::query_scalar!(
+            "SELECT EXISTS (SELECT 1 FROM agent_conversation_sessions WHERE session_id = $1) AS \"exists!\"",
+            id.as_uuid(),
+        )
+        .fetch_one(&mut *transaction)
+        .await
+        .context("read session creation provenance")?;
+        let purpose = purpose.for_creation(
+            conversation,
+            thread_id.is_some() || originating_message_id.is_some(),
+        )?;
+        let list_hidden = purpose.list_hidden(bot_id, thread_id, self.list_policy.hide_agent_dms);
+        let warm = purpose == crate::domain::model::SessionPurpose::Warm;
         let row = sqlx::query_as!(
             AgentSessionRow,
             r#"
@@ -355,9 +378,9 @@ impl<B: BotFacts + 'static> AgentSessionRepo for PgAgentSessionRepo<B> {
                 id, owner_id, thread_id, originating_message_id, bot_id, model,
                 harness, repo_url, workspace, sandbox_size, instructions,
                 acp_session_id, status, status_event_name, egress_token_hash,
-                mcp_scope, mcp_servers, repo_branch, list_hidden
+                mcp_scope, mcp_servers, repo_branch, list_hidden, for_warming
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
             RETURNING
                 id, name, is_archived, owner_id, thread_id, originating_message_id, bot_id,
                 model, harness, repo_url, repo_branch, pull_request_url, task_id, workspace, sandbox_size, instructions,
@@ -390,6 +413,7 @@ impl<B: BotFacts + 'static> AgentSessionRepo for PgAgentSessionRepo<B> {
             mcp_servers_json,
             repo_branch.as_ref().map(|branch| branch.as_str()),
             list_hidden,
+            warm,
         )
         .fetch_one(&mut *transaction)
         .await
@@ -481,7 +505,7 @@ impl<B: BotFacts + 'static> AgentSessionRepo for PgAgentSessionRepo<B> {
     }
 
     async fn get(&self, id: AgentSessionId) -> Result<AgentSession> {
-        Ok(self.find(id).await?.context("agent session not found")?)
+        self.find(id).await?.ok_or(AgentSessionError::NotFound(id))
     }
 
     async fn find(&self, id: AgentSessionId) -> Result<Option<AgentSession>> {
@@ -962,6 +986,23 @@ impl<B: BotFacts + 'static> AgentSessionRepo for PgAgentSessionRepo<B> {
             .await
             .context("commit agent session set_archived")?;
         Ok(())
+    }
+
+    async fn is_current_conversation_session(&self, id: AgentSessionId) -> Result<bool> {
+        Ok(sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM agent_conversation_sessions
+                WHERE session_id = $1
+                  AND is_current
+            ) AS "current!"
+            "#,
+            id.as_uuid(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .context("failed to read whether the session answers a conversation")?)
     }
 
     async fn set_name_if_default(&self, id: AgentSessionId, name: &str) -> Result<bool> {
@@ -1858,4 +1899,5 @@ impl<B: BotFacts + 'static> SessionAudience for PgAgentSessionRepo<B> {
     }
 }
 
+mod list_visibility;
 mod warm;

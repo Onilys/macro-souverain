@@ -69,6 +69,10 @@ fn default_pipedream_environment() -> String {
 #[derive(macro_config::MacroConfig)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct Config {
+    /// Hide agent DM contexts from standalone lists. Enable only after all
+    /// replicas use the independent for_warming lifecycle marker.
+    #[macro_config_default(false)]
+    pub hide_agent_dm_sessions: bool,
     /// Default-off quota admission and prospective usage counting.
     #[macro_config_default(ai_usage::AiUsageEnforcement::Disabled)]
     pub enable_ai_usage_enforcement: ai_usage::AiUsageEnforcement,

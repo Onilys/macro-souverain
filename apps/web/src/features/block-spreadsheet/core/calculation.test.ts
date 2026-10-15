@@ -196,6 +196,19 @@ describe('spreadsheet calculation with IronCalc', () => {
     expect(result.A8.display).toBe('0.00');
   });
 
+  it('formats accounting results with parentheses and a dash for zero', () => {
+    const result = calculator.calculate({
+      A1: { value: '1234.5', format: 'accounting' },
+      A2: { value: '=-A1*2', format: 'accounting' },
+      A3: { value: '=A1-1234.5', format: 'accounting' },
+      A4: { value: '=A1', format: 'accounting', decimals: 0 },
+    });
+    expect(result.A1).toEqual({ display: '$1,234.50', number: 1234.5 });
+    expect(result.A2).toEqual({ display: '$(2,469.00)', number: -2469 });
+    expect(result.A3).toEqual({ display: '$-', number: 0 });
+    expect(result.A4.display).toBe('$1,235');
+  });
+
   it('reads results at Excel’s fifteen significant digits', () => {
     const result = calculator.calculate(
       cells({

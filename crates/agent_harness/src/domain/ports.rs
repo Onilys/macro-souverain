@@ -289,6 +289,20 @@ pub trait SessionAnnouncer: Send + Sync + 'static {
     /// session" but "here is what you need first". Same channel, same
     /// sender, no session to point at.
     fn decline(&self, declined: DeclinedMention) -> impl Future<Output = Result<()>> + Send;
+
+    /// Show one message of a reply as it should read now: post it under its
+    /// allocated id if it is not there yet, or update it if it reads
+    /// differently. Posting the same presentation twice changes nothing.
+    fn present(
+        &self,
+        presentation: crate::domain::model::ReplyPresentation,
+    ) -> impl Future<Output = Result<()>> + Send;
+
+    /// Say that the session is typing through its bot, or that it stopped.
+    fn typing(
+        &self,
+        typing: crate::domain::model::AgentTypingUpdate,
+    ) -> impl Future<Output = Result<()>> + Send;
 }
 
 /// Told when a tool call in a session's turn starts or stops waiting for the
@@ -380,7 +394,8 @@ pub trait RuntimeConnections: Send + Sync + 'static {
 /// A port rather than domain code because both halves are adapter work the
 /// domain has no business knowing: signing a JWT needs a key, and enumerating
 /// the owner's MCP servers needs their rows. What the domain keeps is *when* -
-/// at spawn and native turn boundaries, for the session's own owner and policy.
+/// at spawn, at reattach, and before each prompt to a live session, for the
+/// session's own owner and policy.
 pub trait SandboxEgressProvisioner: Send + Sync + 'static {
     /// Internal session tools at an address reachable by an external runtime.
     fn external_mcp_servers(

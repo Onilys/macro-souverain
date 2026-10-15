@@ -233,7 +233,11 @@ where
             .inner
             .sessions
             .create_session(CreateAgentSessionParams {
-                warm,
+                purpose: if warm {
+                    agent_session::domain::model::SessionPurpose::Warm
+                } else {
+                    agent_session::domain::model::SessionPurpose::Standalone
+                },
                 repo_branch: selected_repo.as_ref().map(|(_, branch)| branch.clone()),
                 id: session_id,
                 owner_id: request.owner,
@@ -268,10 +272,10 @@ where
                 .await;
         }
 
-        let mcp_servers = if kind == AgentKind::CodexCloud {
-            Vec::new()
-        } else {
+        let mcp_servers = if kind.takes_egress_mcp_servers() {
             egress.sandbox.acp_servers()
+        } else {
+            Vec::new()
         };
         let container = match self
             .inner

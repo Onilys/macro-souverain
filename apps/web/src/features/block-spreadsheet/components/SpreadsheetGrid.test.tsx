@@ -988,6 +988,58 @@ describe('spreadsheet presentation', () => {
     expect(cell.style.textAlign).toBe('left');
     expect(view.cells().A1.value).toBe('=SUM(B1:B3)');
   });
+
+  it('pins the accounting symbol to the left edge and pads amounts to line up with negatives', () => {
+    const [showFormulas, setShowFormulas] = createSignal(false);
+    const view = renderGrid(
+      {
+        A1: { value: '1234.5', format: 'accounting' },
+        A2: { value: '=-A1', format: 'accounting' },
+        A3: { value: '=A1-A1', format: 'accounting' },
+        A4: { value: 'Total', format: 'accounting' },
+      },
+      {
+        get showFormulas() {
+          return showFormulas();
+        },
+        values: {
+          A2: { display: '$(1,234.50)', number: -1234.5 },
+          A3: { display: '$-', number: 0 },
+          A4: { display: 'Total' },
+        },
+      }
+    );
+    const cell = (address: string) =>
+      view.container.querySelector<HTMLElement>(`[data-address="${address}"]`)!;
+    const layout = (address: string) => {
+      const parts = cell(address).querySelector('[data-accounting]');
+      return (
+        parts && {
+          symbol: parts.children[0].textContent,
+          amount: parts.children[1].firstChild?.textContent,
+          padding: parts.querySelector('.invisible')?.textContent,
+        }
+      );
+    };
+    // A literal shows as calculation will before its first result arrives.
+    expect(layout('A1')).toEqual({
+      symbol: '$',
+      amount: '1,234.50',
+      padding: ')',
+    });
+    expect(layout('A2')).toEqual({
+      symbol: '$',
+      amount: '(1,234.50)',
+      padding: '',
+    });
+    expect(layout('A3')).toEqual({ symbol: '$', amount: '-', padding: '00)' });
+    expect(cell('A2').getAttribute('aria-label')).toBe('A2: $(1,234.50)');
+    expect(layout('A4')).toBeNull();
+    expect(cell('A4').textContent).toBe('Total');
+    setShowFormulas(true);
+    expect(layout('A2')).toBeNull();
+    expect(cell('A2').textContent).toBe('=-A1');
+  });
 });
 
 it('renders imported URL and email cells without raw native tooltips, but leaves formulas intact', () => {

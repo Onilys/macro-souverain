@@ -71,7 +71,6 @@ it.each(['pointer', 'keyboard'])(
       expandedFolderIds: [],
       favoritesOpen: true,
       rootOpen: true,
-      tagsOpen: true,
     });
     render(() => {
       state = createDriveState({

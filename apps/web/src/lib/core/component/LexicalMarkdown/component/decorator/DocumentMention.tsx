@@ -38,6 +38,7 @@ import {
   DocumentCardNode,
   type DocumentMentionDecoratorProps,
 } from '@macro-inc/lexical-core';
+import ArrowsOut from '@phosphor/arrows-out-simple.svg';
 import EyeSlashDuo from '@phosphor/eye-slash.svg';
 import TrashSimple from '@phosphor/trash-simple.svg';
 import {
@@ -52,6 +53,7 @@ import { useFormDetailQuery } from '@queries/storage/forms';
 import { useSystemSkillsQuery } from '@queries/storage/system-skills';
 import { blockNameToItemType } from '@service-storage/client';
 import { createCallback } from '@solid-primitives/rootless';
+import { Button } from '@ui';
 import {
   $getNodeByKey,
   COMMAND_PRIORITY_NORMAL,
@@ -64,6 +66,7 @@ import {
   createMemo,
   createSignal,
   Match,
+  onCleanup,
   Show,
   Suspense,
   Switch,
@@ -411,6 +414,16 @@ export function DocumentMention(props: DocumentMentionDecoratorProps) {
 
 /** Databases have their own permission-checked metadata, not a document preview. */
 function DatabaseMention(props: DocumentMentionDecoratorProps) {
+  const wrapper = useContext(LexicalWrapperContext);
+  const [editable, setEditable] = createSignal(
+    wrapper?.editor.isEditable() ?? false
+  );
+  if (wrapper)
+    onCleanup(
+      wrapper.editor.registerEditableListener((value) => {
+        setEditable(value);
+      })
+    );
   const enabled = useFeatureFlag(enableDatabases);
   const detail = useDatabaseDetailQuery(() =>
     enabled().enabled ? props.documentId : undefined
@@ -428,31 +441,60 @@ function DatabaseMention(props: DocumentMentionDecoratorProps) {
       openInNewSplitForMention(event.shiftKey, true)
     );
   };
+  const expand = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!wrapper?.editor.isEditable() || !wrapper.isInteractable()) return;
+    wrapper.editor.update(() => {
+      const node = $getNodeByKey(props.key);
+      if ($isDocumentMentionNode(node)) $convertMentionToCard(node);
+    });
+  };
   return (
-    <span
-      class="rounded-xs hover:bg-hover focus-visible:outline-2 focus-visible:outline-ink/30"
-      role="link"
-      tabIndex={0}
-      on:mousedown={(event) => event.preventDefault()}
-      on:click={open}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') open(event);
-      }}
-    >
-      <MentionContainer
-        icon={<EntityIcon targetType="database" size="fill" />}
-        collapsed={props.collapsed}
-        text={
-          <span
-            data-document-mention="true"
-            data-document-id={props.documentId}
-            data-block-name="database"
-            data-document-name={name()}
-          >
-            {detail.isError ? 'Database unavailable' : name() || 'Database'}
-          </span>
+    <span class="inline-flex items-baseline gap-1">
+      <span
+        class="rounded-xs hover:bg-hover focus-visible:outline-2 focus-visible:outline-ink/30"
+        role="link"
+        tabIndex={0}
+        on:mousedown={(event) => event.preventDefault()}
+        on:click={open}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') open(event);
+        }}
+      >
+        <MentionContainer
+          icon={<EntityIcon targetType="database" size="fill" />}
+          collapsed={props.collapsed}
+          text={
+            <span
+              data-document-mention="true"
+              data-document-id={props.documentId}
+              data-block-name="database"
+              data-document-name={name()}
+            >
+              {detail.isError ? 'Database unavailable' : name() || 'Database'}
+            </span>
+          }
+        />
+      </span>
+      <Show
+        when={
+          enabled().enabled &&
+          editable() &&
+          wrapper?.isInteractable() &&
+          !detail.isError
         }
-      />
+      >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          label="Expand database"
+          on:mousedown={(event) => event.preventDefault()}
+          on:click={expand}
+        >
+          <ArrowsOut class="size-3.5" />
+        </Button>
+      </Show>
     </span>
   );
 }

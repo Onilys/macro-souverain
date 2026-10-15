@@ -1202,6 +1202,7 @@ async fn send_channel_message_posts_as_the_context_actor_for_the_user() {
         content: "hello".to_string(),
         channel_id,
         thread_id: None,
+        attachments: vec![],
     };
 
     tool.call(
@@ -1250,6 +1251,76 @@ async fn send_channel_message_posts_as_the_context_actor_for_the_user() {
     );
     assert_eq!(default_input.content, "hello");
     assert_eq!(bot_of(custom_access), Some(BotId::TEST_A));
+}
+
+#[tokio::test]
+async fn send_channel_message_maps_attachments_to_message_references() {
+    let video_id = Uuid::new_v4().to_string();
+    let document_id = Uuid::new_v4().to_string();
+    let messages = RecordingMessages::default();
+    let posts = messages.posts.clone();
+    let tool: SendChannelMessage = serde_json::from_value(serde_json::json!({
+        "content": "",
+        "channel_id": Uuid::new_v4(),
+        "attachments": [
+            { "id": video_id, "kind": "video", "width": 1920, "height": 1080 },
+            { "id": format!(" {document_id} "), "kind": "document", "width": 10, "height": 10 },
+        ],
+    }))
+    .expect("attachments deserialize");
+
+    tool.call(
+        ServiceContext(ChannelToolContext::new(
+            Arc::new(messages),
+            ToolTestChannelService::default(),
+            ToolTestAccessService::default(),
+        )),
+        RequestContext::new(user_id()),
+    )
+    .await
+    .expect("member can post attachments");
+
+    let posts = posts.lock().expect("post lock");
+    let [(_, input)] = posts.as_slice() else {
+        panic!("expected one post, got {}", posts.len());
+    };
+    assert_eq!(
+        input.attachments,
+        vec![
+            messages::domain::models::NewAttachment {
+                entity_type: "static/video".to_string(),
+                entity_id: video_id,
+                width: Some(1920),
+                height: Some(1080),
+            },
+            messages::domain::models::NewAttachment {
+                entity_type: "document".to_string(),
+                entity_id: document_id,
+                width: None,
+                height: None,
+            },
+        ]
+    );
+}
+
+#[test]
+fn send_channel_message_without_attachments_still_deserializes() {
+    let tool: SendChannelMessage = serde_json::from_value(serde_json::json!({
+        "content": "hello",
+        "channel_id": Uuid::new_v4(),
+    }))
+    .expect("attachments are optional");
+    assert!(tool.attachments.is_empty());
+}
+
+#[test]
+fn send_channel_message_schema_is_valid() {
+    generate_validated_input_schema::<SendChannelMessage>().expect("valid schema");
+}
+
+#[test]
+fn create_channel_media_upload_schema_is_valid() {
+    generate_validated_input_schema::<super::CreateChannelMediaUpload>().expect("valid schema");
 }
 
 #[tokio::test]
@@ -1678,7 +1749,10 @@ async fn open_direct_message_opens_a_one_to_one_dm_as_the_user() {
         panic!("expected one dm, got {}", dms.len());
     };
     assert_eq!(actor.as_user(), Some(&user_id()));
-    assert_eq!(request.recipient_id.as_ref(), "macro|teammate@example.com");
+    assert_eq!(
+        request.recipient_id.as_user().map(|id| id.as_ref()),
+        Some("macro|teammate@example.com"),
+    );
 }
 
 #[tokio::test]

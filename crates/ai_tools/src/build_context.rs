@@ -510,6 +510,12 @@ pub async fn build_tool_service_context_from_env(
         soup_service.clone(),
         pool.clone(),
     );
+    let crm_tool_context = crate::tool_context::build_crm_tool_context(pool.clone());
+    let pipeline_tool_context = crate::tool_context::build_pipeline_tool_context(
+        pool.clone(),
+        &databases_tool_context,
+        &crm_tool_context,
+    );
 
     let forms_tool_context = crate::tool_context::build_forms_tool_context(
         pool.clone(),
@@ -630,6 +636,7 @@ pub async fn build_tool_service_context_from_env(
         import_tool_context,
         chat_tool_context,
         channel_tool_context,
+        channel_media_upload_tool_context: crate::build_channel_media_upload_tool_context()?,
         bot_tool_context: crate::tool_context::build_bot_tool_context(
             pool.clone(),
             crate::tool_context::MaybeToolEventBroker::Real(macro_event_broker.clone()),
@@ -648,7 +655,8 @@ pub async fn build_tool_service_context_from_env(
         ),
         initiative_tool_context,
         team_tool_context: crate::tool_context::build_team_tool_context(pool.clone()),
-        crm_tool_context: crate::tool_context::build_crm_tool_context(pool.clone()),
+        crm_tool_context,
+        pipeline_tool_context,
         skill_tool_context,
         schedule_tool_context: crate::build_routine_tool_context()?,
         anthropic_tool_context,

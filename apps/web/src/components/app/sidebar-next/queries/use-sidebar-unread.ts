@@ -1,6 +1,6 @@
 import { buildEmailQuery } from '@app/features/email-view/queries/email-query';
 import { soupItemMatchesHomeTab } from '@app/features/home/queries/home-item-filter';
-import { useHomeEntitiesQuery } from '@app/features/home/queries/use-home-query';
+import { useHomeUnreadQuery } from '@app/features/home/queries/use-home-unread-query';
 import {
   compileToAst,
   defineQueryFilters,
@@ -44,10 +44,7 @@ export function useSidebarUnread() {
     }),
     () => graphqlFlag().enabled
   );
-  const home = useHomeEntitiesQuery({
-    tab: 'signal',
-    facets: { read: ['unread'] },
-  });
+  const homeUnread = useHomeUnreadQuery(() => graphqlFlag().enabled);
   const email = useSoupAstItemsQuery(
     () =>
       buildEmailQuery({
@@ -63,10 +60,6 @@ export function useSidebarUnread() {
 
   // Guard resource reads so loading a badge cannot suspend the app shell.
   // Re-check cached rows: optimistic read/done changes can leave them in a page.
-  const homeUnread = createMemo(() => {
-    if (home.query.isLoading) return false;
-    return home.hasUnreadEntity(home.query.data?.entities ?? []);
-  });
   const emailUnread = createMemo(() => {
     if (email.isLoading) return false;
     return (email.data?.entities ?? []).some(

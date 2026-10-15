@@ -28,9 +28,58 @@ use agent_session::domain::ports::{
     NoOpAgentSessionNameGenerator, NoOpTurnObserver, NoopLifecyclePublisher,
 };
 
+mod summary;
+
 /// Instructions long enough to be unmistakable in an assertion, and shaped
 /// like something a real session would carry.
 const INSTRUCTIONS: &str = "Answer in one sentence. Never open a pull request.";
+
+#[tokio::test]
+async fn a_failed_history_read_never_creates_an_empty_conversation() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    struct RecoverableFrames(Arc<AtomicBool>);
+    impl FrameSource for RecoverableFrames {
+        fn frames(
+            &self,
+            _: AgentSessionId,
+        ) -> futures::future::BoxFuture<
+            '_,
+            agent_session::domain::error::Result<Vec<agent_session::domain::model::Message>>,
+        > {
+            Box::pin(async move {
+                if self.0.load(Ordering::SeqCst) {
+                    Err(agent_session::domain::error::AgentSessionError::Unknown(
+                        anyhow::anyhow!("history unavailable"),
+                    ))
+                } else {
+                    Ok(Vec::new())
+                }
+            })
+        }
+    }
+    let failed = Arc::new(AtomicBool::new(true));
+    let engine = Arc::new(ScriptedEngine::new(Vec::new()));
+    let manager = InMemAgentManager::new(
+        engine.clone(),
+        Arc::new(RecoverableFrames(failed.clone())),
+        Arc::new(crate::domain::mcp::NoMcpServers),
+        Arc::new(crate::testing::TestModelAccess::paid()),
+    );
+    let id = AgentSessionId::new();
+    assert!(
+        manager
+            .attach(facts(id), Some("token".to_owned()))
+            .await
+            .is_err()
+    );
+    assert!(!manager.store.contains_key(&id));
+    assert!(!manager.live.contains_key(&id));
+    assert_eq!(manager.session_token(id), None);
+    assert!(engine.requests().is_empty());
+    failed.store(false, Ordering::SeqCst);
+    assert!(manager.attach(facts(id), None).await.is_ok());
+    assert!(manager.store.contains_key(&id));
+}
 
 /// Attach `transport`, waiting out the previous one's disconnect.
 ///
@@ -46,7 +95,10 @@ async fn attach_retrying(
 ) {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
     loop {
-        let transport = manager.attach(facts.clone(), None).await;
+        let transport = manager
+            .attach(facts.clone(), None)
+            .await
+            .expect("history should restore");
         match sessions
             .attach_session(id, RuntimeAttachment::solo(transport))
             .await
@@ -170,7 +222,7 @@ async fn a_prompt_runs_end_to_end_through_the_real_session_machine() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
@@ -196,7 +248,10 @@ async fn a_prompt_runs_end_to_end_through_the_real_session_machine() {
         )])),
     );
     let manager = manager.with_admission(disabled_admission());
-    let transport = manager.attach(facts(id), None).await;
+    let transport = manager
+        .attach(facts(id), None)
+        .await
+        .expect("history should restore");
     sessions
         .attach_session(id, RuntimeAttachment::solo(transport))
         .await
@@ -253,7 +308,10 @@ async fn a_prompt_runs_end_to_end_through_the_real_session_machine() {
     // disconnect-then-resume order the harness's deliver path drives.
     let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
     loop {
-        let transport = manager.attach(facts(id), None).await;
+        let transport = manager
+            .attach(facts(id), None)
+            .await
+            .expect("history should restore");
         match sessions
             .attach_session(id, RuntimeAttachment::solo(transport))
             .await
@@ -310,7 +368,7 @@ async fn manager_admission_rejects_turns_without_wedging_the_session() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
@@ -332,7 +390,7 @@ async fn manager_admission_rejects_turns_without_wedging_the_session() {
     let denial = AiAdmissionError::Denied(DenyReason::AllowanceExhausted);
     let admission = Arc::new(TestAdmission::new(Err(denial)));
     let manager = manager(&repo, engine.clone()).with_admission(admission.clone());
-    let transport = manager.attach(facts(id), None).await;
+    let transport = manager.attach(facts(id), None).await.unwrap();
     sessions
         .attach_session(id, RuntimeAttachment::solo(transport))
         .await
@@ -403,7 +461,7 @@ async fn a_restarted_manager_rebuilds_the_conversation_from_the_log() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
@@ -428,7 +486,10 @@ async fn a_restarted_manager_rebuilds_the_conversation_from_the_log() {
             "streamed reply".to_owned(),
         )])),
     );
-    let transport = before.attach(facts(id), None).await;
+    let transport = before
+        .attach(facts(id), None)
+        .await
+        .expect("history should restore");
     sessions
         .attach_session(id, RuntimeAttachment::solo(transport))
         .await
@@ -477,7 +538,8 @@ async fn a_restarted_manager_rebuilds_the_conversation_from_the_log() {
                 },
                 None,
             )
-            .await;
+            .await
+            .expect("history should restore");
         match sessions
             .attach_session(id, RuntimeAttachment::solo(transport))
             .await
@@ -551,7 +613,7 @@ async fn instructions_reach_every_turn_including_after_a_reattach() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
@@ -627,7 +689,7 @@ async fn a_session_without_instructions_hands_the_engine_none() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
@@ -650,7 +712,10 @@ async fn a_session_without_instructions_hands_the_engine_none() {
         "acknowledged".to_owned(),
     )]));
     let manager = manager(&repo, Arc::clone(&engine));
-    let transport = manager.attach(facts(id), None).await;
+    let transport = manager
+        .attach(facts(id), None)
+        .await
+        .expect("history should restore");
     sessions
         .attach_session(id, RuntimeAttachment::solo(transport))
         .await
@@ -688,7 +753,7 @@ async fn identity_reaches_every_turn_including_after_a_reattach() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
@@ -761,11 +826,15 @@ async fn the_manager_remembers_the_egress_token_from_spawn_until_teardown() {
 
     let _spawned = manager
         .attach(facts(id), Some("session-token".to_owned()))
-        .await;
+        .await
+        .expect("history should restore");
     assert_eq!(manager.session_token(id).as_deref(), Some("session-token"));
 
     // A resume passes nothing and keeps what spawn stored.
-    let _resumed = manager.attach(facts(id), None).await;
+    let _resumed = manager
+        .attach(facts(id), None)
+        .await
+        .expect("history should restore");
     assert_eq!(manager.session_token(id).as_deref(), Some("session-token"));
 
     manager.teardown(id);
@@ -789,7 +858,8 @@ async fn teardown_releases_pooled_mcp_sessions_for_the_egress_token() {
     let id = AgentSessionId::new();
     let _spawned = manager
         .attach(facts(id), Some("session-token".to_owned()))
-        .await;
+        .await
+        .expect("history should restore");
 
     manager.teardown(id);
 
@@ -797,6 +867,41 @@ async fn teardown_releases_pooled_mcp_sessions_for_the_egress_token() {
         mcp.released.lock().expect("lock").as_slice(),
         ["session-token"]
     );
+}
+
+/// A resume that rotates the credential leaves the old token unaccepted, so
+/// the MCP sessions pooled under it are released; the same token again is
+/// still in use and keeps them.
+#[tokio::test]
+async fn attaching_with_a_new_token_releases_the_replaced_one() {
+    let repo = InMemoryAgentSessionRepo::new();
+    let mcp = Arc::new(RecordingRelease {
+        released: std::sync::Mutex::new(Vec::new()),
+    });
+    let manager = InMemAgentManager::new(
+        Arc::new(ScriptedEngine::new(Vec::new())),
+        Arc::new(LogFrameSource::new(repo.clone())),
+        mcp.clone(),
+        Arc::new(crate::testing::TestModelAccess::paid()),
+    );
+    let id = AgentSessionId::new();
+    let _spawned = manager
+        .attach(facts(id), Some("spawned".to_owned()))
+        .await
+        .expect("history should restore");
+    let _same = manager
+        .attach(facts(id), Some("spawned".to_owned()))
+        .await
+        .expect("history should restore");
+    assert!(mcp.released.lock().expect("lock").is_empty());
+
+    let _rotated = manager
+        .attach(facts(id), Some("rotated".to_owned()))
+        .await
+        .expect("history should restore");
+
+    assert_eq!(manager.session_token(id).as_deref(), Some("rotated"));
+    assert_eq!(mcp.released.lock().expect("lock").as_slice(), ["spawned"]);
 }
 
 /// Records [`McpToolConnector::release`] so teardown can be seen doing it.

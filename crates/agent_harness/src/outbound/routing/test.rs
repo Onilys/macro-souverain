@@ -254,6 +254,10 @@ impl AgentSessionRepo for FixedBotSessions {
         unimplemented!("archiving sessions is the harness service's job")
     }
 
+    async fn is_current_conversation_session(&self, _id: AgentSessionId) -> SessionResult<bool> {
+        unimplemented!("archiving sessions is the harness service's job")
+    }
+
     async fn set_name_if_default(&self, _id: AgentSessionId, _name: &str) -> SessionResult<bool> {
         unimplemented!("naming sessions is the session actor's job")
     }

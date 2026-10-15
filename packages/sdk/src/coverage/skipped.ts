@@ -42,6 +42,10 @@ export const agentHarnessExcluded = [
 export const agentHarnessBacklog = [
   'answerAgentSessionToolApproval',
   'getAgentSessionPermissions',
+  // Agent conversation controls (DMs are flag-gated in the web app); not wrapped yet.
+  'listAgentConversations',
+  'retryAgentConversationTurn',
+  'startFreshAgentConversation',
   'updateAgentSessionPermissions',
 ] as const satisfies readonly (keyof AgentHarnessSdk)[];
 
@@ -335,6 +339,9 @@ export const storageExcluded = [
   'deleteHistoryHandler',
   'deleteUserDocumentViewLocation',
   'deleteViewHandler',
+  // Called by third parties holding a webhook's URL; its token, not the
+  // SDK's credentials, authenticates it.
+  'deliverDatabaseWebhook',
   // Old numeric comment links resolve inside the web app only.
   'entityMessageLegacy',
   'excludeDefaultViewHandler',
@@ -411,6 +418,7 @@ export const storageBacklog = [
   'createCrmPipeline',
   'applyCrmPipelineOps',
   'getCrmPipeline',
+  'getCrmPipelinePermissions',
   'getCrmPipelineRows',
   'queryCrmPipelineRows',
   'getCrmPipelineTable',
@@ -418,6 +426,7 @@ export const storageBacklog = [
   'renameCrmPipeline',
   'shareCrmPipeline',
   'trashCrmPipeline',
+  'updateCrmPipelinePermissions',
   'approveHarnessPairing',
   'claimHarnessPairing',
   'createAgent',

@@ -5,7 +5,7 @@ import {
   screen,
   within,
 } from '@solidjs/testing-library';
-import { createSignal, type JSX, type ParentProps } from 'solid-js';
+import { createSignal, For, type JSX, type ParentProps } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { CrmWorkspaceView } from './crm-workspace';
 
@@ -20,7 +20,7 @@ const fixture = vi.hoisted(() => ({
 vi.mock('@app/components/view-shell', () => ({
   ViewShell: {
     Root: (props: ParentProps) => props.children,
-    Aside: () => null,
+    Aside: (props: ParentProps) => props.children,
     Main: (props: ParentProps) => props.children,
     Header: (props: ParentProps) => <header>{props.children}</header>,
   },
@@ -108,9 +108,35 @@ vi.mock(
 vi.mock('../components/company-list-dialog', () => ({
   CrmListDialog: () => null,
 }));
-vi.mock('../components/crm-sidebar', () => ({ CrmSidebar: () => null }));
+vi.mock('../components/crm-sidebar', () => ({
+  CrmSidebar: (props: {
+    pipelines?: JSX.Element;
+    onNavigate: (id: string) => void;
+  }) => (
+    <nav aria-label="CRM sidebar">
+      <button type="button" onClick={() => props.onNavigate('active')}>
+        Companies
+      </button>
+      <button type="button" onClick={() => props.onNavigate('people')}>
+        People
+      </button>
+      {props.pipelines}
+    </nav>
+  ),
+}));
 vi.mock('../components/pipeline-sidebar', () => ({
-  PipelineSidebar: () => null,
+  PipelineSidebar: (props: {
+    pipelines: { id: string; name: string }[];
+    onSelect: (id: string) => void;
+  }) => (
+    <For each={props.pipelines}>
+      {(pipeline) => (
+        <button type="button" onClick={() => props.onSelect(pipeline.id)}>
+          {pipeline.name}
+        </button>
+      )}
+    </For>
+  ),
 }));
 vi.mock('../components/pipeline-dialog', () => ({
   PipelineDialog: () => null,
@@ -199,6 +225,9 @@ function setup(initialTab = 'active') {
   const [activeTab, setActiveTab] = createSignal<string | undefined>(
     initialTab
   );
+  const [pipelineRequest, setPipelineRequest] = createSignal<
+    { pipelineId: string; seek: string } | undefined
+  >();
   fixture.workspace = {
     activeTab,
     setActiveTab,
@@ -206,14 +235,15 @@ function setup(initialTab = 'active') {
       scopeId: 'crm',
       isActive: () => true,
       captureEntryState: vi.fn(),
+      pipelineRequest,
     },
     source: {},
-    queryFilters: { state: { include: {} } },
+    queryFilters: { state: { include: {} }, replace: vi.fn() },
   };
   render(() => (
     <CrmWorkspaceView>{() => <div>Record list</div>}</CrmWorkspaceView>
   ));
-  return { activeTab };
+  return { activeTab, setActiveTab, setPipelineRequest };
 }
 
 it('keeps sidebar destinations in the mobile header when switching records, pipelines and lists', () => {
@@ -263,6 +293,17 @@ it('shows the company of a pipeline row in place of the pipeline on desktop', ()
   expect(fixture.openWithSplit).not.toHaveBeenCalled();
 });
 
+it('shows a pipeline another view asks for, in place of an open record', () => {
+  fixture.touch = false;
+  const { activeTab, setPipelineRequest } = setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.queryByText('Sales table')).toBeNull();
+  setPipelineRequest({ pipelineId: 'sales', seek: 'first' });
+  expect(activeTab()).toBe('pipeline:sales');
+  expect(screen.getByText('Sales table')).toBeTruthy();
+  expect(screen.queryByText('Sales record company:acme')).toBeNull();
+});
+
 it('opens the company of a pipeline row in its own split on touch', () => {
   setup('pipeline:sales');
   fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
@@ -271,4 +312,14 @@ it('opens the company of a pipeline row in its own split on touch', () => {
     { activate: true }
   );
   expect(screen.getByText('Sales table')).toBeTruthy();
+});
+
+it('closes an open record when activeTab changes via history navigation', () => {
+  fixture.touch = false;
+  const { setActiveTab } = setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.getByText('Sales record company:acme')).toBeTruthy();
+  setActiveTab('people');
+  expect(screen.queryByText(/record company:acme/)).toBeNull();
+  expect(screen.getByText('Record list')).toBeTruthy();
 });

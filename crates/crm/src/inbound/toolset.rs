@@ -1,14 +1,17 @@
 //! Toolset inbound adapter for the CRM domain.
 //!
 //! Exposes team-scoped CRM company tools (`ListCompanies`, `GetCompany`,
-//! `CreateCompany`, `CreateContact`) to AI agents. Property writes (stage moves, revenue, owner, custom
-//! properties) go through the properties toolset's `SetEntityProperty`
-//! with `entity_type = company`.
+//! `CreateCompany`, `CreateContact`) to AI agents. The company's own
+//! properties (its Stage, Owner, Revenue and custom properties) are written
+//! through the properties toolset's `SetEntityProperty` with
+//! `entity_type = company`. Pipelines, whose entries carry their own stage
+//! and fields, have their own tools in [`pipelines`].
 
 mod create_company;
 mod create_contact;
 mod get_company;
 mod list_companies;
+pub mod pipelines;
 
 #[cfg(test)]
 mod test;
@@ -109,7 +112,7 @@ where
         .add_tool::<CreateContact, CrmToolContext<CSvc, ESvc, PSvc>>()
 }
 
-/// A company's pipeline stage: the select option id currently set plus its
+/// A company's own Stage property: the select option id currently set plus its
 /// human-readable label.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -453,7 +456,15 @@ pub(crate) fn team_access_error(err: AccessError) -> ToolCallError {
 
 /// Map a [`CrmError`] into an actionable tool error.
 pub(crate) fn crm_error(err: CrmError) -> ToolCallError {
-    let description = match &err {
+    ToolCallError {
+        description: crm_error_description(&err),
+        internal_error: err.into(),
+    }
+}
+
+/// What went wrong, in words the model can act on.
+pub(crate) fn crm_error_description(err: &CrmError) -> String {
+    match err {
         CrmError::CompanyNotFoundForTeam => {
             "CRM company not found for the caller's team".to_string()
         }
@@ -476,10 +487,5 @@ pub(crate) fn crm_error(err: CrmError) -> ToolCallError {
             role.as_db_str()
         ),
         _ => "CRM request failed".to_string(),
-    };
-
-    ToolCallError {
-        description,
-        internal_error: err.into(),
     }
 }

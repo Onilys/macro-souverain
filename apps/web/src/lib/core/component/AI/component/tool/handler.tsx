@@ -4,6 +4,7 @@ import {
   getCompanyHandler,
   listCompaniesHandler,
 } from '@app/features/crm/crm-tool-renderers';
+import { pipelineToolHandlers } from '@app/features/crm/pipeline-tool-renderers';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { enableDatabases } from '@core/constant/featureFlags';
 import {
@@ -237,6 +238,7 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   CreateContact: createContactHandler,
   GetEntityProperties: getEntityPropertiesHandler,
   ListCompanies: listCompaniesHandler,
+  ...pipelineToolHandlers,
   ListImportEntities: listImportEntitiesHandler,
   ...lazyDatabaseToolHandlers,
   ListEntities: listEntitiesHandler,
