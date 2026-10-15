@@ -49,3 +49,16 @@ ios_activate_toolchain() {
   # Use the same per-user directory as the Xcode build phase.
   export TMPDIR="$(/usr/bin/getconf DARWIN_USER_TEMP_DIR)"
 }
+
+ios_require_posthog_key() {
+  # Production analytics must be configured before Vite embeds the key.
+  if [[ -z "${VITE_POSTHOG_API_KEY:-}" ]]; then
+    if ! VITE_POSTHOG_API_KEY="$(doppler secrets get VITE_POSTHOG_API_KEY \
+      --project web-release --config prd --plain --raw --no-check-version 2>/dev/null)" \
+      || [[ -z "$VITE_POSTHOG_API_KEY" ]]; then
+      echo "Unable to fetch VITE_POSTHOG_API_KEY. Install the Doppler CLI and authenticate with read access to web-release/prd, or supply VITE_POSTHOG_API_KEY in the environment." >&2
+      exit 1
+    fi
+  fi
+  export VITE_POSTHOG_API_KEY
+}

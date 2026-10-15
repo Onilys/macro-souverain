@@ -45,6 +45,7 @@ use uuid::Uuid;
 use super::*;
 
 mod calendar;
+mod crm_record;
 mod database_activity;
 mod database_row;
 mod email_archive;
@@ -52,6 +53,7 @@ mod form_activity;
 mod initiative;
 mod scheduled_actions;
 mod soup_patches;
+mod work_feed;
 
 const VALID_USER_ID: &str = "macro|user@example.com";
 const INTERNAL_USER_ID: &str = "macro|internal@example.com";
@@ -368,6 +370,14 @@ fn test_email_err() -> EmailErr {
 }
 
 impl EmailUserService for CountingEmailService {
+    async fn get_user_email_senders(
+        &self,
+        _user: MacroUserIdStr<'static>,
+        _link: Uuid,
+    ) -> Result<Vec<email::domain::senders::SendAsAddress>, EmailErr> {
+        Ok(vec![])
+    }
+
     async fn get_user_email_labels(
         &self,
         macro_id: MacroUserIdStr<'static>,
@@ -423,6 +433,15 @@ impl EmailUserService for CountingEmailService {
 }
 
 impl EmailService for CountingEmailService {
+    async fn send_message_for_user(
+        &self,
+        _user: MacroUserIdStr<'static>,
+        _link: Option<Uuid>,
+        _input: email::domain::models::CreateDraftInput,
+    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
+        Err(test_email_err())
+    }
+
     async fn set_thread_archived(
         &self,
         user_id: MacroUserIdStr<'static>,
@@ -1273,6 +1292,7 @@ impl TestHarness {
                 self.email_content_reader.clone(),
             ))
             .data(NoOpEntityFavoriteEdgeReader)
+            .data(graphql_soup::FoldersQuery::noop())
             .data(self.activity_reader.clone())
             .data(graphql_activity::entity_activity_loader(
                 self.activity_reader.clone(),
@@ -1295,7 +1315,10 @@ async fn soup_updates_subscribes_as_the_authenticated_user() {
     let document_id = Uuid::from_u128(42);
     let deleted_document_id = Uuid::from_u128(43);
     soup_service.set_raw_response(vec![soup_document(document_id)]);
-    let loader = graphql_soup::soup_item_loader(soup_service.clone(), Arc::new(NoOpEmailService));
+    let loader = graphql_soup::SoupUpdateHydrationLoader(graphql_soup::soup_item_loader(
+        soup_service.clone(),
+        Arc::new(NoOpEmailService),
+    ));
     let schema: SoupSchema<
         CountingSoupService,
         TestRealtimeSubscriptionService,
@@ -1672,6 +1695,19 @@ async fn favorites_are_nested_under_the_authenticated_user() {
 
     assert!(response.errors.is_empty(), "{:?}", response.errors);
     assert_eq!(response.data.to_string(), "{user: {favorites: []}}");
+    assert_eq!(harness.authorization_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn folders_are_nested_under_the_authenticated_user() {
+    let harness = harness();
+
+    let response = harness
+        .execute("{ user { folders { id name parentId ownerId } } }")
+        .await;
+
+    assert!(response.errors.is_empty(), "{:?}", response.errors);
+    assert_eq!(response.data.to_string(), "{user: {folders: []}}");
     assert_eq!(harness.authorization_calls.load(Ordering::SeqCst), 1);
 }
 

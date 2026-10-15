@@ -82,7 +82,7 @@ use agent_harness::outbound::tool_approvals::{
 use agent_inmem::domain::engine::TurnEngine;
 use agent_inmem::outbound::acp_mcp::AcpMcpConnector;
 use agent_inmem::outbound::egress_mcp::EgressMcpClient;
-use agent_inmem::outbound::local_attachments::LocalAttachmentTurnEngine;
+use agent_inmem::outbound::local_attachments::StaticFileAttachmentTurnEngine;
 use agent_inmem::outbound::log_frames::LogFrameSource;
 use agent_inmem::outbound::manager::InMemAgentManager;
 use agent_inmem::outbound::tool_catalog::McpToolCatalog;
@@ -95,10 +95,10 @@ use agent_session::inbound::axum_router::{
     AgentSessionControlState, AgentSessionRouterState, CreateSessionState,
 };
 use agent_session::outbound::broker_lifecycle_publisher::BrokerLifecyclePublisher;
-use agent_session::outbound::broker_log_realtime::BrokerLogRealtime;
 use agent_session::outbound::connection_gateway_realtime::ConnectionGatewayAgentSessionRealtime;
 use agent_session::outbound::name_generator::HaikuAgentSessionNameGenerator;
 use agent_session::outbound::postgres::PgAgentSessionRepo;
+use agent_session_realtime::outbound::redis_stream::publisher::RedisLogStreamRealtime;
 use agent_trigger::domain::broker_events::AgentSessionMacroEvent;
 use anyhow::Context as _;
 use bot_id::BotId;
@@ -144,7 +144,7 @@ use macro_event_broker::{
 };
 use macro_service_urls::{
     AgentHarnessEgressUrl, ConnectionGatewayUrl, LexicalServiceUrl, McpServiceUrl,
-    StaticFileServiceUrl,
+    StaticFilePublicUrl, StaticFileServiceUrl,
 };
 use mcp_client::domain::models::AesKey;
 use mcp_client::outbound::pg_server_repo::PgServerRepo;
@@ -308,20 +308,35 @@ async fn run() -> anyhow::Result<()> {
         config.enable_ai_usage_enforcement,
         config.ai_pricing(),
     );
-    let recorder =
-        ai_usage::pg_recorder_with_enforcement(pool.clone(), config.enable_ai_usage_enforcement);
+    // One recorder for everything this process meters: in-memory agent
+    // turns, session naming, trigger inference, and repository selection.
+    // Counted usage asks the authentication service (which owns Stripe) to
+    // settle the payer, the same way document cognition does, so credits are
+    // consumed and a reload follows an agent turn rather than the next
+    // Billing page view.
+    let recorder = ai_billing::composition::pg_settling_recorder(
+        pool.clone(),
+        config.enable_ai_usage_enforcement,
+        config.ai_pricing(),
+        config.settlement_route()?,
+    );
     let lifecycle_publisher = Arc::new(BrokerLifecyclePublisher::new(broker.clone()));
+    // Shared with every replica: runtime command forwarding, model probes,
+    // and the agent session log stream.
+    let redis = redis::Client::open(config.redis_uri.as_ref())
+        .context("failed to create the shared Redis client")?;
     let sessions = AgentSessionServiceImpl::new(
         session_repo.clone(),
         FoldedMessageService::new(session_repo.clone()),
         // Frames reach this process's viewers through the gateway and every
-        // other process's through the broker (the GraphQL log subscription).
-        BrokerLogRealtime::new(
+        // other process's through the Redis log stream (the GraphQL log
+        // subscription).
+        RedisLogStreamRealtime::new(
             ConnectionGatewayAgentSessionRealtime::new(
                 connection_gateway.clone(),
                 session_audience.clone(),
             ),
-            broker.clone(),
+            redis.clone(),
         ),
         agent_session::domain::name_generation::AdmittedAgentSessionNameGenerator::new(
             HaikuAgentSessionNameGenerator::new(recorder.clone()),
@@ -514,9 +529,18 @@ async fn run() -> anyhow::Result<()> {
         event_broker_tracker.clone(),
         config.enable_ai_usage_enforcement,
         config.ai_pricing(),
+        recorder.clone(),
     )
     .await
     .context("failed to build the in-memory agent tool context")?;
+    // Session tasks are read as the owner through the same services Macro's own tools use.
+    let task_directory = agent_harness::outbound::session_tasks::DocumentTaskDirectory::new(
+        tool_context.document_tool_context.service.clone(),
+        tool_context
+            .document_tool_context
+            .entity_access_service
+            .clone(),
+    );
     // Macro's own tools run in-process here rather than through the egress
     // proxy, so they are held for the owner by the same approvals.
     let inmem_model_engine: Arc<dyn TurnEngine> = Arc::new(
@@ -527,29 +551,26 @@ async fn run() -> anyhow::Result<()> {
             ),
         )),
     );
-    // A model provider cannot fetch images from a private local-stack hostname.
-    // Resolve its static-file links through the existing attachment service,
-    // including links replayed from earlier turns, before calling the model.
-    let inmem_model_engine: Arc<dyn TurnEngine> = if let (Environment::Local, Some(local_aws)) =
-        (&config.environment, macro_aws_config::LocalAwsUrl::new())
-    {
-        let public_base = url::Url::parse(config::StaticFileServiceUrl::new()?.as_ref())?;
-        let cdn_base = format!(
+    // Normalize uploaded images before any provider sees them. In addition to
+    // making local URLs reachable, this supplies the MIME type Gemini requires
+    // and decodes formats that providers cannot consume directly.
+    let public_base = StaticFilePublicUrl::new()?.parse_url()?;
+    let cdn_base = match (&config.environment, macro_aws_config::LocalAwsUrl::new()) {
+        (Environment::Local, Some(local_aws)) => format!(
             "{}/{}",
             local_aws.as_ref().trim_end_matches('/'),
             config::StaticStorageBucket::new()?.as_ref(),
-        );
-        let attachments = static_file::inbound::attachment::StaticFileAttachmentService::new(
-            Arc::new(static_file::outbound::CdnStaticFileRepo::new(cdn_base)),
-        );
-        Arc::new(LocalAttachmentTurnEngine::new(
-            inmem_model_engine,
-            public_base,
-            attachments,
-        )?)
-    } else {
-        inmem_model_engine
+        ),
+        _ => public_base.as_str().trim_end_matches('/').to_owned(),
     };
+    let attachments = static_file::inbound::attachment::StaticFileAttachmentService::new(Arc::new(
+        static_file::outbound::CdnStaticFileRepo::new(cdn_base),
+    ));
+    let inmem_model_engine: Arc<dyn TurnEngine> = Arc::new(StaticFileAttachmentTurnEngine::new(
+        inmem_model_engine,
+        public_base,
+        attachments,
+    )?);
     // Cold attaches (fresh spawns and post-restart resumes) rebuild
     // their model context from the same log every frame lands in.
     let frames = Arc::new(LogFrameSource::new(session_repo.clone()));
@@ -618,14 +639,30 @@ async fn run() -> anyhow::Result<()> {
             GithubSyncClientImpl::default(),
         ),
     ));
+    let session_metadata_realtime = ConnectionGatewayAgentSessionRealtime::new(
+        connection_gateway.clone(),
+        session_audience.clone(),
+    );
+    let session_tasks: Arc<dyn agent_session::domain::session_task::SessionTasks> = Arc::new(
+        agent_session::domain::session_task::SessionTaskService::new(
+            session_repo.clone(),
+            session_repo.clone(),
+            task_directory,
+            agent_harness::outbound::session_tasks::GithubTaskPullRequestLinker::new(
+                github::domain::service::PullRequestTaskLinkService::new(PgGithubSyncRepo::new(
+                    pool.clone(),
+                )),
+            ),
+            session_metadata_realtime.clone(),
+            macro_service_urls::AppServiceUrl::new()?.as_ref(),
+        ),
+    );
     let session_pull_requests: Arc<dyn agent_session::domain::pull_request::SessionPullRequests> =
         Arc::new(
             agent_session::domain::pull_request::SessionPullRequestService::new(
                 session_repo.clone(),
-                ConnectionGatewayAgentSessionRealtime::new(
-                    connection_gateway.clone(),
-                    session_audience.clone(),
-                ),
+                session_metadata_realtime,
+                session_tasks.clone(),
             ),
         );
     let session_working_branches: Arc<
@@ -642,6 +679,7 @@ async fn run() -> anyhow::Result<()> {
     let internal_mcp = internal_mcp::router(
         Arc::new(session_repo.clone()),
         session_pull_requests.clone(),
+        session_tasks,
         url::Url::parse(&egress_base_url)?
             .host_str()
             .context("egress URL needs a host")?
@@ -905,11 +943,8 @@ async fn run() -> anyhow::Result<()> {
     );
     let prompt_mentions =
         LexicalPromptMentions::new(lexical.clone(), PgSessionAccess::new(pool.clone()));
-    let prompt_context = MessagePromptContextAdapter::new(
-        message_service.clone(),
-        Arc::clone(&entity_access),
-        Arc::new(lexical.clone()),
-    );
+    let prompt_context =
+        MessagePromptContextAdapter::new(message_service.clone(), Arc::clone(&entity_access));
     let prompt_composer = LexicalAgentPromptComposer::new(lexical);
 
     // One connection per harness, shared by every session of every agent
@@ -917,8 +952,6 @@ async fn run() -> anyhow::Result<()> {
     // it and the harness takes sessions out of it. Attach/detach is mirrored
     // to the harnesses table so the settings page can show connection state.
     let runtimes = RuntimeRegistry::with_presence(Arc::new(PgHarnessPresence::new(pool.clone())));
-    let redis = redis::Client::open(config.redis_uri.as_ref())
-        .context("failed to create the runtime command Redis client")?;
     // Read once, here, rather than at every session this deployment opens: a
     // URL that names no repository is a misconfiguration of the deployment,
     // and refusing it at startup is the difference between one loud failure

@@ -16,6 +16,25 @@ use super::*;
 use ai_toolset::ToolSet as _;
 
 #[test]
+fn connector_discovery_is_eager_only_in_agent_sessions() {
+    assert!(EAGER_TOOLS.contains(&"DiscoverConnectors"));
+    assert!(
+        tools_for(AiHost::AgentSession)
+            .toolset
+            .tools
+            .contains_key("DiscoverConnectors")
+    );
+    for host in [AiHost::Chat, AiHost::ChannelBot, AiHost::Mcp] {
+        assert!(
+            !tools_for(host)
+                .toolset
+                .tools
+                .contains_key("DiscoverConnectors")
+        );
+    }
+}
+
+#[test]
 fn subagent_toolset_passes_schema_validation() {
     let tools = subagent_toolset();
     for name in [
@@ -130,6 +149,49 @@ fn project_workflows_are_available_in_every_host_alongside_folder_and_property_t
     }
 }
 
+/// Every host, including MCP, can take the item actions the app's menus
+/// offer: editing channel messages and comments, trashing, duplicating,
+/// renaming, sharing, favoriting, and muting items, DMs, CRM records, calls,
+/// skills, and routines.
+#[test]
+fn app_item_actions_are_available_in_every_host() {
+    let names = [
+        "EditChannelMessage",
+        "DeleteChannelMessage",
+        "ReactToChannelMessage",
+        "OpenDirectMessage",
+        "EditDocumentComment",
+        "DeleteDocumentComment",
+        "CreateSkill",
+        "MoveToTrash",
+        "DuplicateItem",
+        "RenameItem",
+        "UpdateSharing",
+        "SetFavorite",
+        "MuteNotifications",
+        "RunRoutine",
+        "DeleteRoutine",
+        "CreateCompany",
+        "CreateContact",
+        "UpdateCallRecord",
+        "DeleteCallRecord",
+    ];
+    for host in [
+        AiHost::Chat,
+        AiHost::AgentSession,
+        AiHost::ChannelBot,
+        AiHost::Mcp,
+    ] {
+        let tools = tools_for(host);
+        for name in names {
+            assert!(
+                tools.toolset.tools.contains_key(name),
+                "{host:?} must expose {name}"
+            );
+        }
+    }
+}
+
 /// Every host reads the design files the native engines open, and its
 /// prompt says which tool reads which format.
 #[test]
@@ -213,15 +275,15 @@ fn the_agent_session_host_keeps_chats_user_tools_with_the_review_prompt() {
     assert!(prompt.contains("review card"));
     assert!(!prompt.contains("PendingUserExecution"));
     assert_eq!(
-        session
-            .toolset
-            .request_schemas()
-            .map(|schemas| schemas.len()),
+        session.toolset.request_schemas().map(|schemas| schemas
+            .into_iter()
+            .filter(|schema| schema.name != "DiscoverConnectors")
+            .count()),
         tools_for(AiHost::Chat)
             .toolset
             .request_schemas()
             .map(|schemas| schemas.len()),
-        "the same tools as chat"
+        "the same tools as chat except agent-session connector discovery"
     );
 }
 
@@ -281,6 +343,10 @@ fn frontend_schemas_build() {
         assert!(names.insert(name), "duplicate frontend tool: {name}");
     }
     assert!(names.contains("QueryDatabase"));
+    assert!(names.contains("DiscoverConnectors"));
+    for name in tools_for(AiHost::Chat).toolset.tools.keys() {
+        assert!(names.contains(name.as_str()), "missing chat tool: {name}");
+    }
     for name in [
         "CreateDatabase",
         "CreateTable",
@@ -419,7 +485,7 @@ fn the_mcp_host_defers_nothing() {
 
 #[test]
 fn every_eager_tool_exists() {
-    let tools = tools_for(AiHost::Chat);
+    let tools = tools_for(AiHost::AgentSession);
     for name in EAGER_TOOLS {
         assert!(
             tools.toolset.tools.contains_key(*name),
@@ -476,3 +542,29 @@ fn booking_link_mutations_execute_without_a_review_on_every_host() {
 }
 
 mod booking_links;
+
+#[test]
+fn booking_management_has_mcp_and_chat_parity() {
+    let names = [
+        "ReadBookingSettings",
+        "UpdateBookingSettings",
+        "ListBookings",
+        "GetBookingInsights",
+        "GetBookingRescheduleSlots",
+        "ChangeBooking",
+    ];
+    for host in [
+        AiHost::Chat,
+        AiHost::AgentSession,
+        AiHost::ChannelBot,
+        AiHost::Mcp,
+    ] {
+        let tools = tools_for(host);
+        for name in names {
+            assert!(
+                tools.toolset.tools.contains_key(name),
+                "{host:?} must expose {name}"
+            );
+        }
+    }
+}

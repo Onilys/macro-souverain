@@ -253,6 +253,11 @@ export type ChannelInviteMetadata = {
      */
     invitedBy: string;
     /**
+     * Whether this is a direct message rather than a channel invitation.
+     * Older notification payloads retain channel-invitation wording.
+     */
+    isDirectMessage?: boolean;
+    /**
      * Message content to show in the invite email, when the invite was triggered by a message.
      */
     messageContent?: string | null;

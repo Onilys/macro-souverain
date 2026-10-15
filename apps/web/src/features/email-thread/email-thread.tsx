@@ -1,6 +1,5 @@
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { useEmail, useUserContext } from '@core/context/user';
-import { isMobile } from '@core/mobile/isMobile';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { useContacts } from '@core/user';
 import { createEffectOnEntityTypeNotification } from '@notifications';
@@ -67,7 +66,6 @@ export function EmailThread(props: EmailThreadProps) {
     source,
     viewerEmail,
     viewerLoading: user.isLoading,
-    isMobile,
     isTouch: isTouchDevice,
     recipients: createMemo(() =>
       contacts().map((contact) => convertContactInfoToEmailRecipient(contact))

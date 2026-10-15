@@ -180,10 +180,14 @@ where
         } else {
             Vec::new()
         };
+        // CRM records are team-scoped: Soup skips them without the viewer's team.
         let needs_team = entities.iter().any(|entity| {
             matches!(
                 entity.entity_type,
-                EntityType::ForeignEntity | EntityType::AgentSession
+                EntityType::ForeignEntity
+                    | EntityType::AgentSession
+                    | EntityType::CrmCompany
+                    | EntityType::CrmContact
             )
         });
         let team = match (&self.team_reader, needs_team) {
@@ -374,6 +378,13 @@ impl SoupItemDataLoader {
 #[derive(Clone)]
 pub struct AgentSessionEntityLoader(pub SoupItemDataLoader);
 
+/// Primary-backed Soup reader for `soupUpdates` hydration. A patch announces a
+/// write that committed milliseconds earlier, before a replica has replayed
+/// it, so a replica read returns the pre-write row and the client caches it
+/// as current. Lists keep the replica-backed reader.
+#[derive(Clone)]
+pub struct SoupUpdateHydrationLoader(pub SoupItemDataLoader);
+
 /// Build the realtime Soup DataLoader from the existing Soup and email services.
 pub fn soup_item_loader<S, E>(soup_service: S, email_service: Arc<E>) -> SoupItemDataLoader
 where
@@ -477,6 +488,7 @@ fn entity_filter_ast(entities: &[Entity<'static>]) -> Result<EntityFilterAst, So
     let nil = Uuid::nil();
     Ok(EntityFilterAst {
         favorites_only: None,
+        crm_association: None,
         calendar_event_filter: Some(literal_tree(calendar_events, CalendarEventLiteral::Id(nil))),
         document_filter: Some(literal_tree(documents, DocumentLiteral::Id(nil))),
         project_filter: Some(literal_tree(projects, ProjectLiteral::ProjectIdSelf(nil))),

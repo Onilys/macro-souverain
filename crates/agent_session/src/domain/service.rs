@@ -33,7 +33,7 @@ use std::sync::Arc;
 
 use agent_client_protocol::RawJsonRpcMessage;
 use agent_client_protocol::schema::v1::{
-    RequestId, Response, SessionId, SetSessionConfigOptionResponse,
+    McpServer, RequestId, Response, SessionId, SetSessionConfigOptionResponse,
 };
 use agent_fold::domain::lifecycle::LifecycleFold;
 use agent_fold::domain::model::{Author, FoldedMessage, MessagePart, TurnState};
@@ -55,6 +55,7 @@ use tracing::instrument::WithSubscriber as _;
 
 use bots::domain::models::BotId;
 
+use super::coding_preferences::CodingPreferences;
 use super::connection::RuntimeAttachment;
 use super::error::{AgentSessionError, Result};
 use super::lifecycle::session_identity;
@@ -72,7 +73,7 @@ use super::ports::{
     Appended, NoInheritedSessionAccess, NoOpAgentSessionNameGenerator, NoOpToolCatalog,
     SessionOwnership, SessionToolCatalog, SessionTurnObserver, SessionViewAccess,
 };
-use super::session::actors::{SessionActor, SessionCommand, Stepped};
+use super::session::actors::{SessionActor, SessionCommand, SessionMessage, Stepped};
 use super::session::{CloseReason, Input};
 use crate::domain::events::{AgentSessionLifecycleEvent, SessionRenamedMetadata};
 
@@ -95,7 +96,11 @@ const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30
 const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(50);
 
 struct ActiveSession {
-    commands: Option<mpsc::Sender<SessionCommand>>,
+    commands: Option<mpsc::Sender<SessionMessage>>,
+    /// The MCP servers last requested for the live connection: the
+    /// attachment's, until [`AgentSessionService::replace_mcp_servers`]. An
+    /// agent that cannot resume, or refused, still has its previous list.
+    mcp_servers: Vec<McpServer>,
     stopped: watch::Receiver<bool>,
     marker: Arc<()>,
     deleting: bool,
@@ -271,6 +276,22 @@ pub trait AgentSessionService: Send + Sync + 'static {
         action_id: AgentActionId,
     ) -> impl Future<Output = Result<()>> + Send;
 
+    /// The MCP servers last requested for the session's live connection on
+    /// this instance; `None` when no connection is attached here. An agent
+    /// that could not take a requested list keeps its previous one until its
+    /// next attach.
+    fn attached_mcp_servers(&self, id: AgentSessionId) -> Option<Vec<McpServer>>;
+
+    /// Hand the session's agent `servers` from now on. The live connection
+    /// re-resumes its ACP session with them before the next prompt reaches
+    /// the agent, if the agent can resume; an agent that cannot keeps the
+    /// servers it has until its next attach.
+    fn replace_mcp_servers(
+        &self,
+        id: AgentSessionId,
+        servers: Vec<McpServer>,
+    ) -> impl Future<Output = Result<()>> + Send;
+
     /// The session an incoming channel context routes to, if any.
     fn find_for_thread(
         &self,
@@ -347,6 +368,19 @@ pub trait AgentSessionService: Send + Sync + 'static {
         &self,
         user_id: &MacroUserIdStr<'static>,
         size: SandboxSize,
+    ) -> impl Future<Output = Result<()>> + Send;
+
+    /// The user's coding preferences; every preference is off until set.
+    fn user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+    ) -> impl Future<Output = Result<CodingPreferences>> + Send;
+
+    /// Upsert the user's coding preferences, replacing every field.
+    fn set_user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+        preferences: CodingPreferences,
     ) -> impl Future<Output = Result<()>> + Send;
 }
 
@@ -481,6 +515,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             Entry::Vacant(entry) => {
                 entry.insert(ActiveSession {
                     commands: None,
+                    mcp_servers: Vec::new(),
                     stopped,
                     marker: marker.clone(),
                     deleting: false,
@@ -526,6 +561,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             activate(claim)?;
         }
         active.commands = Some(commands.clone());
+        active.mcp_servers = attachment.mcp_servers.clone();
         active.transport_closed = attachment.closed.clone();
         drop(active);
         let (marker, stopped_tx) = reservation.commit();
@@ -592,18 +628,19 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             agent.action.name = action.as_ref(),
             agent.command.queue_wait_ms = tracing::field::Empty,
             agent.session.runtime_phase_at_dequeue = tracing::field::Empty,
+            agent.command.handshake_wait_ms = tracing::field::Empty,
             otel.status_code = tracing::field::Empty,
             otel.status_description = tracing::field::Empty,
         );
         if commands
-            .send(SessionCommand {
+            .send(SessionMessage::Action(SessionCommand {
                 user_id,
                 action,
                 action_id,
                 completed,
                 span,
                 enqueued_at: tokio::time::Instant::now(),
-            })
+            }))
             .await
             .is_err()
         {
@@ -684,6 +721,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
                 let marker = Arc::new(());
                 entry.insert(ActiveSession {
                     commands: None,
+                    mcp_servers: Vec::new(),
                     stopped: stopped.clone(),
                     marker: marker.clone(),
                     deleting,
@@ -1010,6 +1048,32 @@ where
         Ok(())
     }
 
+    fn attached_mcp_servers(&self, id: AgentSessionId) -> Option<Vec<McpServer>> {
+        self.active
+            .get(&id)
+            .filter(|active| active.commands.is_some())
+            .map(|active| active.mcp_servers.clone())
+    }
+
+    async fn replace_mcp_servers(&self, id: AgentSessionId, servers: Vec<McpServer>) -> Result<()> {
+        let commands = {
+            let mut active = self
+                .active
+                .get_mut(&id)
+                .ok_or(AgentSessionError::Disconnected(id))?;
+            let commands = active
+                .commands
+                .clone()
+                .ok_or(AgentSessionError::Disconnected(id))?;
+            active.mcp_servers = servers.clone();
+            commands
+        };
+        commands
+            .send(SessionMessage::ReplaceMcpServers(servers))
+            .await
+            .map_err(|_| AgentSessionError::Disconnected(id))
+    }
+
     async fn session_bot(&self, id: BotId) -> Result<SessionBot> {
         self.repo.session_bot(id).await
     }
@@ -1068,6 +1132,23 @@ where
         size: SandboxSize,
     ) -> Result<()> {
         self.repo.set_user_sandbox_size(user_id, size).await
+    }
+
+    async fn user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+    ) -> Result<CodingPreferences> {
+        self.repo.user_coding_preferences(user_id).await
+    }
+
+    async fn set_user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+        preferences: CodingPreferences,
+    ) -> Result<()> {
+        self.repo
+            .set_user_coding_preferences(user_id, preferences)
+            .await
     }
 }
 
@@ -1773,6 +1854,23 @@ where
         size: SandboxSize,
     ) -> Result<()> {
         self.repo.set_user_sandbox_size(user_id, size).await
+    }
+
+    async fn user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+    ) -> Result<CodingPreferences> {
+        self.repo.user_coding_preferences(user_id).await
+    }
+
+    async fn set_user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+        preferences: CodingPreferences,
+    ) -> Result<()> {
+        self.repo
+            .set_user_coding_preferences(user_id, preferences)
+            .await
     }
 
     async fn delete(&self, id: AgentSessionId) -> Result<()> {

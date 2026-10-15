@@ -22,7 +22,7 @@ export function ToolTile(props: {
       class="group flex min-w-0 flex-col items-center gap-3 rounded-2xl p-2 text-center outline-none focus-visible:ring-2 focus-visible:ring-ink/50"
     >
       <span
-        class="relative flex size-20 items-center justify-center rounded-[22px] bg-ink/5 transition-colors group-hover:bg-ink/10"
+        class="onboarding-tool-icon relative flex size-20 items-center justify-center rounded-[22px] bg-ink/5 transition-colors group-hover:bg-ink/10"
         classList={{
           glass: !props.connected,
           'border-2 border-success': props.connected,

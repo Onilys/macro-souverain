@@ -718,6 +718,12 @@ export const listTypedNotificationsResponse = zod
                           invitedBy: zod
                             .string()
                             .describe('The user who sent the invitation'),
+                          isDirectMessage: zod
+                            .boolean()
+                            .optional()
+                            .describe(
+                              'Whether this is a direct message rather than a channel invitation.\nOlder notification payloads retain channel-invitation wording.'
+                            ),
                           messageContent: zod
                             .string()
                             .nullish()
@@ -2620,6 +2626,12 @@ export const bulkGetTypedNotificationsByEventItemIdsResponse = zod
                           invitedBy: zod
                             .string()
                             .describe('The user who sent the invitation'),
+                          isDirectMessage: zod
+                            .boolean()
+                            .optional()
+                            .describe(
+                              'Whether this is a direct message rather than a channel invitation.\nOlder notification payloads retain channel-invitation wording.'
+                            ),
                           messageContent: zod
                             .string()
                             .nullish()
@@ -4516,6 +4528,12 @@ export const getTypedNotificationsByEventItemIdResponse = zod
                           invitedBy: zod
                             .string()
                             .describe('The user who sent the invitation'),
+                          isDirectMessage: zod
+                            .boolean()
+                            .optional()
+                            .describe(
+                              'Whether this is a direct message rather than a channel invitation.\nOlder notification payloads retain channel-invitation wording.'
+                            ),
                           messageContent: zod
                             .string()
                             .nullish()
@@ -6379,6 +6397,12 @@ export const getTypedNotificationByIdResponse = zod
                   invitedBy: zod
                     .string()
                     .describe('The user who sent the invitation'),
+                  isDirectMessage: zod
+                    .boolean()
+                    .optional()
+                    .describe(
+                      'Whether this is a direct message rather than a channel invitation.\nOlder notification payloads retain channel-invitation wording.'
+                    ),
                   messageContent: zod
                     .string()
                     .nullish()

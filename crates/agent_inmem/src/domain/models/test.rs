@@ -59,3 +59,25 @@ fn routed_models_use_known_providers() {
         );
     }
 }
+
+#[test]
+fn every_advertised_model_has_an_explicit_image_capability() {
+    for model in advertised_models() {
+        assert!(
+            super::supports_images(model).is_some(),
+            "missing capability: {model}"
+        );
+    }
+}
+
+/// Summaries start at a share of the model's window, so a model without one
+/// would be summarized against a guess.
+#[test]
+fn every_advertised_model_has_a_context_window() {
+    for model in advertised_models() {
+        assert!(
+            super::context_window(model).is_some(),
+            "missing context window: {model}"
+        );
+    }
+}

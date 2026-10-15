@@ -7,11 +7,13 @@ import {
 } from '@app/components/view-shell';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { tourTarget } from '@ui/components/Tour';
 import { createSignal, Show } from 'solid-js';
 import { TASK_GROUP_OPTIONS, TASK_SORT_OPTIONS } from '../constants';
 import { TASK_BOARD_GROUP_OPTIONS } from '../core/task-board';
 import { useTaskFilters } from '../filters/use-task-filters';
 import { useTasksView } from '../tasks-view-context';
+import { TASKS_TOUR } from '../tour';
 import { TasksFilterDrawer } from './TasksFilterDrawer';
 
 export function TasksControls() {
@@ -24,7 +26,8 @@ export function TasksControls() {
 
 function DesktopTasksControls() {
   const panel = useSplitPanelOrThrow();
-  const { state, setPrimarySort, setState, projectsEnabled } = useTasksView();
+  const { state, setPrimarySort, setState, projectsEnabled, ganttEnabled } =
+    useTasksView();
   const filters = useTaskFilters();
   const [openMenu, setOpenMenu] = createSignal<'filters' | 'sort'>();
   let filterTrigger: HTMLButtonElement | undefined;
@@ -79,6 +82,9 @@ function DesktopTasksControls() {
       <ViewLayoutDropdown
         label="Task layout"
         value={state.layout}
+        layouts={
+          ganttEnabled() ? ['list', 'board', 'gantt'] : ['list', 'board']
+        }
         onChange={(layout) => setState('layout', layout)}
       />
       <Show
@@ -108,7 +114,7 @@ function DesktopTasksControls() {
         options={groupOptions()}
         onChange={(groupBy) => setState('groupBy', groupBy)}
       />
-      <div class="relative shrink-0">
+      <div class="relative shrink-0" ref={tourTarget(TASKS_TOUR.filter)}>
         <ListFilterDropdown
           label="Filter tasks"
           groups={filters.groups()}

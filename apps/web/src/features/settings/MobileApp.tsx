@@ -13,14 +13,7 @@ export function MobileApp() {
           <p class="text-sm text-ink text-center">
             Download on the
             <br />
-            <a
-              href="https://apps.apple.com/us/app/macro-app/id6743133649"
-              rel="noopener noreferrer"
-              class="text-link hover:text-link-hover visited:text-link-visited hover:underline"
-              target="_blank"
-            >
-              App Store
-            </a>
+            App Store
           </p>
         </div>
       </SettingsCard>

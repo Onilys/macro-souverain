@@ -45,8 +45,9 @@ use macro_authorization::{
     MacroAuthorizationState, PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
 };
 use macro_service_urls::{
-    AuthServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl,
-    EmailServiceUrl, LexicalServiceUrl, StaticFileServiceUrl, SyncServiceUrl,
+    AppServiceUrl, AuthServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl,
+    DocumentStorageServiceUrl, EmailServiceUrl, LexicalServiceUrl, StaticFileServiceUrl,
+    SyncServiceUrl,
 };
 use notification::domain::service::{
     NotificationReaderService, PlatformArnConfig, SqsNotificationIngress,
@@ -256,15 +257,19 @@ pub async fn run() -> anyhow::Result<()> {
         ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
         PgGithubPullRequestRepo::new(db.clone()),
     );
-    let soup_service = Arc::new(soup::domain::service::SoupImpl::new(
-        soup::outbound::pg_soup_repo::PgSoupRepo::new(ReadOnlyPool(db.clone())),
-        frecency_service,
-        ReadonlyEmailPreviewAdapter(email_service),
-        channels_service,
-        CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
-        crm::domain::service::NoOpCrmService,
-        github_pull_request_service,
-    ));
+    let favorites_service = ai_tools::build_favorites_service(db.clone());
+    let soup_service = Arc::new(
+        soup::domain::service::SoupImpl::new(
+            soup::outbound::pg_soup_repo::PgSoupRepo::new(ReadOnlyPool(db.clone())),
+            frecency_service,
+            ReadonlyEmailPreviewAdapter(email_service),
+            channels_service,
+            CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
+            crm::domain::service::NoOpCrmService,
+            github_pull_request_service,
+        )
+        .with_favorites(favorites_service.clone()),
+    );
 
     tracing::info!("initialized soup service");
 
@@ -438,6 +443,14 @@ pub async fn run() -> anyhow::Result<()> {
             db.clone(),
         ))),
         lexical_client.clone(),
+    )
+    .with_attachment_sender(
+        ai_tools::email_attachments::build_email_attachment_sender(
+            user_email_service.clone(),
+            EmailPgRepo::new(db.clone()),
+            document_tool_context.service.clone(),
+        )
+        .await,
     );
 
     tracing::info!("initialized email tool context");
@@ -693,11 +706,19 @@ pub async fn run() -> anyhow::Result<()> {
         soup_service.clone(),
         db.clone(),
     );
+    let crm_tool_context = ai_tools::build_crm_tool_context(db.clone());
+    let pipeline_tool_context = ai_tools::build_pipeline_tool_context(
+        db.clone(),
+        &databases_tool_context,
+        &crm_tool_context,
+    );
 
     let calendar_tool_context = ai_tools::build_calendar_tool_context(
         db.clone(),
         CalendarServiceUrl::new()?,
         internal_api_key.clone(),
+        call_tool_context.service.clone(),
+        AppServiceUrl::new()?,
     );
     let forms_tool_context = ai_tools::build_forms_tool_context(
         db.clone(),
@@ -713,6 +734,7 @@ pub async fn run() -> anyhow::Result<()> {
     );
 
     let tool_service_context = ai_tools::ToolServiceContext {
+        connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         search_service_client: search_service_client.clone(),
         email_service_client: email_service_client_external.clone(),
         soup_service: soup_service.clone(),
@@ -731,6 +753,11 @@ pub async fn run() -> anyhow::Result<()> {
         properties_tool_context: properties_tool_context.clone(),
         email_tool_context: email_tool_context.clone(),
         call_tool_context: call_tool_context.clone(),
+        booking_management_tool_context: ai_tools::build_booking_management_tool_context(
+            CalendarServiceUrl::new()?,
+            internal_api_key.clone(),
+            config.environment,
+        ),
         booking_link_tool_context: ai_tools::build_booking_link_tool_context(
             db.clone(),
             config.environment,
@@ -743,6 +770,8 @@ pub async fn run() -> anyhow::Result<()> {
                 .unwrap_or(false),
         ),
         notification_tool_context: notification_tool_context.clone(),
+        item_notification_preference_tool_context:
+            ai_tools::build_item_notification_preference_tool_context(db.clone()),
         databases_tool_context,
         forms_tool_context,
         databases_sql_tool_context,
@@ -763,9 +792,14 @@ pub async fn run() -> anyhow::Result<()> {
             internal_api_key.clone(),
         )?,
         project_tool_context,
+        favorites_tool_context: ai_tools::build_favorites_tool_context(
+            favorites_service,
+            entity_access_service.clone(),
+        ),
         initiative_tool_context,
         team_tool_context: ai_tools::build_team_tool_context(db.clone()),
-        crm_tool_context: ai_tools::build_crm_tool_context(db.clone()),
+        crm_tool_context,
+        pipeline_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),

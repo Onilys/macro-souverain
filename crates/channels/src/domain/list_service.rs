@@ -28,7 +28,8 @@ async fn get_channel_frecency<'a, Frec: AggregateFrecencyStorage>(
 use crate::domain::{
     models::{
         Activity, ChannelMessage, ChannelType, ChannelWithLatest, GetChannelsRequest,
-        GetThreadReplyRowsRequest, NameLookup, UserName, fallback_user_name,
+        GetThreadReplyRowsRequest, NameLookup, ReferenceSource, ReferenceTarget, UserName,
+        fallback_user_name,
     },
     ports::{ChannelListRepo, ChannelListService, ChannelListUserRepo},
 };
@@ -180,6 +181,13 @@ where
         req: GetThreadReplyRowsRequest,
     ) -> impl Future<Output = Result<Vec<ChannelMessage>, rootcause::Report>> + Send {
         self.channels.get_thread_messages(req.into_params())
+    }
+
+    fn get_reference_sources(
+        &self,
+        targets: &[ReferenceTarget],
+    ) -> impl Future<Output = Result<Vec<ReferenceSource>, rootcause::Report>> + Send {
+        self.channels.get_reference_sources(targets)
     }
 
     fn get_names(

@@ -6,10 +6,11 @@ mod test;
 
 use super::ledger::{SettlementPolicy, build_snapshot, decide};
 use super::models::{
-    AiUsageBilling, AllowanceDecision, AllowanceStore, AutoReloadThresholds, BillingError,
-    BillingPeriod, BillingSettings, CREDIT_PACKS_CENTS, CreditReloadStatus, Entitlement,
-    OVERAGE_CHARGE_THRESHOLD_CENTS, OverageChargeStatus, PayerScope, PeriodAllowance, PeriodLedger,
-    Result, SeatAllowance, SeatUsage, SubscriptionScope, UsageSnapshot,
+    AiUsageBilling, AllowanceDecision, AllowanceStore, AutoReloadMonthlyBudget,
+    AutoReloadThresholds, BillingError, BillingPeriod, BillingSettings, CREDIT_PACKS_CENTS,
+    CreditReloadStatus, Entitlement, MIN_STRIPE_CHARGE_CENTS, OVERAGE_CHARGE_THRESHOLD_CENTS,
+    OverageChargeStatus, PayerScope, PeriodAllowance, PeriodLedger, Result, SeatAllowance,
+    SeatUsage, SubscriptionScope, UsageSnapshot,
 };
 use super::period::{PeriodSync, SubscriptionPeriod};
 use super::ports::{
@@ -31,6 +32,18 @@ use teams::domain::open_seat_release::OpenSeatRelease;
 /// would read the provider again. One minute bounds that to one read per
 /// payer per process while Stripe rolls a period or a provider recovers.
 const PERIOD_MISS_BACKOFF: chrono::Duration = chrono::Duration::minutes(1);
+
+/// How many closed periods behind the open one a settlement reconciles.
+///
+/// Every period frozen inside this window is settled against its own freeze
+/// before the open period is, so usage left unsettled when a period closed
+/// (a tail that ran past the boundary, a settlement request that was lost)
+/// is booked from credits by whichever settlement comes next rather than
+/// waiting on a customer action. Three periods is a bound on the work a
+/// settlement does, not on how long usage stays owed: the periodic sweep
+/// settles every recently observed payer, so a closed period normally
+/// reconciles within a day of ending.
+pub const RECONCILED_CLOSED_PERIODS: u32 = 3;
 
 /// The billing service over its four ports.
 #[derive(Clone)]
@@ -126,7 +139,13 @@ fn usage_for(user: &MacroUserIdStr<'_>, usage: &[SeatUsage]) -> i64 {
 fn chargeable_cost_cents(seats: &[SeatAllowance], usage: &[SeatUsage]) -> i64 {
     seats
         .iter()
-        .map(|seat| (usage_for(&seat.user, usage) - seat.included_cents).max(0))
+        .map(|seat| {
+            usage
+                .iter()
+                .find(|usage| usage.user == seat.user)
+                .and_then(|usage| usage.chargeable_cost_cents)
+                .unwrap_or_else(|| (usage_for(&seat.user, usage) - seat.included_cents).max(0))
+        })
         .sum()
 }
 
@@ -405,6 +424,51 @@ where
         ))
     }
 
+    /// The closed periods to settle before `current`, oldest first.
+    ///
+    /// Every period frozen within the last [`RECONCILED_CLOSED_PERIODS`]
+    /// periods is one of them, keyed exactly as its ledger, and ending where
+    /// the next period begins: periods are contiguous, and counted usage only
+    /// lands in a period that was observed, so the usage between two freezes
+    /// belongs to the earlier one. When nothing was frozen since the derived
+    /// previous period began, that derived period is settled instead, as it
+    /// always was, so a closed period that was never observed is still
+    /// flushed from the live entitlement; the last frozen period then ends
+    /// where the derived one begins, so no usage is settled under two keys.
+    async fn closed_periods(
+        &self,
+        payer: &MacroUserIdStr<'_>,
+        current: BillingPeriod,
+    ) -> Result<Vec<BillingPeriod>> {
+        let mut since = current;
+        for _ in 0..RECONCILED_CLOSED_PERIODS {
+            since = since.previous();
+        }
+        let starts = self
+            .repo
+            .frozen_period_starts(payer, since.start, current.start)
+            .await?;
+        let previous = current.previous();
+        let previous_was_frozen = starts.iter().any(|start| *start >= previous.start);
+        let last_end = if previous_was_frozen {
+            current.start
+        } else {
+            previous.start
+        };
+        let mut periods: Vec<BillingPeriod> = starts
+            .iter()
+            .enumerate()
+            .map(|(index, &start)| BillingPeriod {
+                start,
+                end: starts.get(index + 1).copied().unwrap_or(last_end),
+            })
+            .collect();
+        if !previous_was_frozen {
+            periods.push(previous);
+        }
+        Ok(periods)
+    }
+
     /// Per-seat allowances to settle `period` with.
     ///
     /// A closed period uses the freeze recorded while it was open. An open
@@ -663,6 +727,40 @@ where
 {
     type Err = BillingError;
 
+    async fn change_plan(
+        &self,
+        member: &MacroUserIdStr<'_>,
+        change: teams::domain::open_seat_release::SeatPlanChange,
+    ) -> Result<()> {
+        let from = change
+            .from
+            .map(Into::into)
+            .unwrap_or(super::models::PlanTier::Free);
+        let to = change.to.into();
+        if from == to {
+            return Ok(());
+        }
+        let period = if let Some((start, end)) = change.period {
+            BillingPeriod { start, end }
+        } else {
+            let entitlement = self.entitlements.entitlement(member).await?;
+            let settings = self.repo.settings(&entitlement.payer).await?;
+            self.usage_period(&entitlement, settings.period_anchor, change.at)
+                .await
+        };
+        BillingService::change_plan(
+            self,
+            member,
+            super::plan_change::PlanChange {
+                from,
+                to,
+                at: change.at,
+                period,
+            },
+        )
+        .await
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn release(&self, team_id: Uuid, member: &MacroUserIdStr<'_>) -> Result<()> {
         self.release_at(team_id, member, Utc::now()).await
@@ -676,6 +774,33 @@ where
     R: BillingRepo,
     P: PaymentGateway,
 {
+    #[tracing::instrument(skip(self), err)]
+    async fn change_plan(
+        &self,
+        user: &MacroUserIdStr<'_>,
+        change: super::plan_change::PlanChange,
+    ) -> Result<()> {
+        if change.is_valid() {
+            self.repo
+                .record_plan_change(
+                    user,
+                    super::plan_change::RecordedPlanChange {
+                        change,
+                        previous_included_cents: change
+                            .from
+                            .is_paid()
+                            .then(|| change.from.included_ai_cents_per_seat(self.pricing)),
+                        new_included_cents: change
+                            .to
+                            .is_paid()
+                            .then(|| change.to.included_ai_cents_per_seat(self.pricing)),
+                    },
+                )
+                .await?;
+        }
+        Ok(())
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn check_allowance(&self, user: &MacroUserIdStr<'_>) -> Result<AllowanceDecision> {
         if !self.enforcement.is_enabled() {
@@ -691,8 +816,24 @@ where
 
     #[tracing::instrument(skip(self), err)]
     async fn snapshot(&self, user: &MacroUserIdStr<'_>) -> Result<UsageSnapshot> {
-        let position = self.position(user, Utc::now()).await?;
+        let now = Utc::now();
+        let position = self.position(user, now).await?;
         let mut snapshot = self.snapshot_at(user, &position).await?;
+        // Summary-only read; allowance enforcement does not need monthly reload facts.
+        if position.entitlement.is_metered()
+            && let Some(limit) = position.settings.auto_reload.monthly_limit_cents
+        {
+            let month = BillingPeriod::calendar_month(now);
+            let committed_cents = self
+                .repo
+                .credit_reload_committed_cents(&position.entitlement.payer, month)
+                .await?;
+            snapshot.auto_reload.monthly_budget = Some(AutoReloadMonthlyBudget {
+                committed_cents,
+                resets_at: month.end,
+                limit_reached: limit.saturating_sub(committed_cents) < MIN_STRIPE_CHARGE_CENTS,
+            });
+        }
         // Keep the summary consistent with the configured allowance gate.
         if !self.enforcement.is_enabled() {
             snapshot.blocked_reason = None;
@@ -711,17 +852,17 @@ where
         if !position.entitlement.is_metered() {
             return Ok(());
         }
-        // The previous period first, so a tail that ran past the boundary is
-        // flushed before the current one accrues. Closed-period settlement
-        // uses the freeze recorded while that period was open, not the live
-        // plan or seat list.
-        self.settle_period(
-            &position.entitlement,
-            position.period.previous(),
-            now,
-            ReloadCheck::Skip,
-        )
-        .await?;
+        // Closed periods first, oldest to newest, so a tail that ran past a
+        // boundary is flushed before the current period accrues. Closed-period
+        // settlement uses the freeze recorded while that period was open, not
+        // the live plan or seat list.
+        for period in self
+            .closed_periods(&position.entitlement.payer, position.period)
+            .await?
+        {
+            self.settle_period(&position.entitlement, period, now, ReloadCheck::Skip)
+                .await?;
+        }
         self.settle_period(
             &position.entitlement,
             position.period,

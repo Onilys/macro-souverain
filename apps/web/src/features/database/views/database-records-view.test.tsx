@@ -29,6 +29,7 @@ import type { DatabaseViewColumn } from '../core/database-view';
 import type { ViewChange } from '../core/view-state';
 import { allRecordsView } from '../core/views';
 import type { DatabaseWriteFailure } from '../core/write-failure';
+import { boardLane } from '../tests/board-layout';
 import { createFakeRowsSource, titleContains } from '../tests/fake-rows-source';
 import type { BoardPositions } from './database-board-view';
 import {
@@ -515,7 +516,7 @@ describe('database table view', () => {
         });
         fireEvent.input(input, { target: { value: 'Invalid number' } });
         fireEvent.keyDown(input, { key: 'Enter' });
-        expect(within(dialog).getByRole('alert').textContent).toBe(
+        expect(screen.getByRole('alert').textContent).toBe(
           'Enter a valid number'
         );
       }
@@ -529,7 +530,7 @@ describe('database table view', () => {
       expect(
         within(dialog).queryByRole('textbox', { name: 'Edit Amount' })
       ).toBeNull();
-      expect(within(dialog).queryByRole('alert')).toBeNull();
+      expect(screen.queryByRole('alert')).toBeNull();
       const title = within(dialog).getByRole('textbox', {
         name: 'Edit Name',
       }) as HTMLInputElement;
@@ -1725,9 +1726,11 @@ describe('database table view', () => {
         )}
       />
     ));
-    await screen.findByRole('region', { name: 'Done lane' });
+    await waitFor(() => expect(boardLane('Done lane')).toBeTruthy());
     fireEvent.click(screen.getByText('New record', { selector: 'button' }));
-    const lanes = screen.getAllByRole('region');
+    const lanes = screen
+      .getAllByRole('region')
+      .filter((lane) => lane.hasAttribute('data-kanban-lane'));
     expect(lanes[0].getAttribute('aria-label')).toBe('Done lane');
     const draft = within(lanes[0]).getByRole('textbox', {
       name: 'New record title',
