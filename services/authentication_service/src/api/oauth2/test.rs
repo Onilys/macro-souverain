@@ -8,6 +8,7 @@ fn callback_original_url_allows_trusted_destinations() {
         "http://localhost/app/login",
         "https://dev.macro.com/app/login",
         "https://macro.com/app/login",
+        "https://www.macro.com/app/inbox-link-callback",
     ] {
         assert!(
             validate_original_url(Some(original_url)).is_ok(),
@@ -21,7 +22,9 @@ fn callback_original_url_rejects_untrusted_destinations() {
     for original_url in [
         "https://evil.example.com/phish",
         "https://macro.com.example.com/phish",
+        "https://www.macro.com.example.com/phish",
         "http://macro.com/phish",
+        "http://www.macro.com/phish",
         "javascript:alert('redirected')",
     ] {
         assert!(
@@ -36,6 +39,9 @@ fn callback_original_url_rejects_untrusted_destinations() {
 
 #[test]
 fn callback_original_url_validates_decoded_destination() {
+    let trusted_url = urlencoding::encode("https://www.macro.com/app/inbox-link-callback");
+    assert!(validate_original_url(Some(&trusted_url)).is_ok());
+
     let encoded_url = urlencoding::encode("https://evil.example.com/phish");
 
     assert!(matches!(

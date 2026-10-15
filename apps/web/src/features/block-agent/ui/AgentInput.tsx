@@ -314,11 +314,14 @@ export function AgentInput(props: AgentInputProps) {
   // mousedown too because a real iPhone still synthesises it after a
   // cancelled pointerdown (see `keepEditorFocus` in TouchSelectionToolbar).
   // Taps inside the contenteditable keep their defaults so the caret lands
-  // under the finger.
+  // under the finger. So do presses in popups the editor portals out of the
+  // composer (the paste viewer): Solid still delegates their events through
+  // here, and cancelling them blocks selecting their text.
   const focusEditor = (event: Event) => {
     if (props.readOnly) return;
     const target = event.target as HTMLElement | null;
     if (!target || target.closest('button')) return;
+    if (!(event.currentTarget as Node).contains(target)) return;
     if (editor.lexical.getRootElement()?.contains(target)) return;
     event.preventDefault();
     if (event.type === 'pointerdown') editor.controls.focus();

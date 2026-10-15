@@ -11,6 +11,17 @@ import {
   restartGraphqlSoupRealtimeSession,
 } from './graphql-soup-realtime-session';
 
+const nativeStatus = vi.hoisted(() => ({
+  listeners: new Set<(status: string) => void>(),
+}));
+vi.mock('@core/mobile/native-network-status', () => ({
+  subscribeNativeNetworkStatus: (listener: (status: string) => void) => {
+    nativeStatus.listeners.add(listener);
+    listener('online');
+    return () => nativeStatus.listeners.delete(listener);
+  },
+}));
+
 const telemetry = vi.hoisted(() => vi.fn());
 vi.mock('@core/mobile/isMobile', () => ({ isMobile: vi.fn(() => false) }));
 vi.mock('@macro-inc/observability', () => ({ Telemetry: { info: telemetry } }));
@@ -241,6 +252,16 @@ describe('silent GraphQL live connection recovery', () => {
     expect(TestSocket.instances).toHaveLength(2);
     await vi.advanceTimersByTimeAsync(800);
     expect(TestSocket.instances).toHaveLength(2);
+  });
+
+  it('wakes on native network recovery and removes the listener on dispose', async () => {
+    const { connection } = setup();
+    (await socket()).close(1006);
+    for (const listener of [...nativeStatus.listeners]) listener('online');
+    await socket();
+    expect(TestSocket.instances).toHaveLength(2);
+    connection.dispose();
+    expect(nativeStatus.listeners.size).toBe(0);
   });
 
   it.each(['NETWORK_ERROR', 'SERVER_ERROR', 'HTTP_ERROR'])(

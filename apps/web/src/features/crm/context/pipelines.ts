@@ -1,5 +1,6 @@
 import type { Accessor, Component, JSX } from 'solid-js';
 import type { NewPipeline, Pipeline } from '../core/pipeline';
+import type { PipelineEntryRecord } from '../core/pipeline-entry';
 
 export type PipelinesSource = {
   pipelines: Accessor<Pipeline[]>;
@@ -22,4 +23,10 @@ export type PipelineEditor = Component<{
 export type PipelineSharing = Component<{
   pipeline: Pipeline;
   onCopyLink(): void;
+}>;
+
+/** The pipeline rows that reference a company or contact, as editable cards. */
+export type PipelineEntriesView = Component<{
+  record: PipelineEntryRecord;
+  onOpenPipeline?: (pipelineId: string) => void;
 }>;

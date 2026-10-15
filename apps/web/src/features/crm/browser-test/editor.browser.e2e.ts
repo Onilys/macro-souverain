@@ -1,10 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('the pipeline API powers the shared editor and respects column protections and grants', async ({
   page,
 }) => {
   await page.routeWebSocket('**', (socket) => socket.close());
   await page.route('https://**', (route) => route.abort());
+  await page.route(/^http:\/\/localhost:\d+\//, async (route) => {
+    await route.fulfill({ response: await route.fetch({ maxRetries: 2 }) });
+  });
   await page.route('**/__macro_dev/**', (route) => route.abort());
   // Local container network changes can cancel Vite's initial module requests.
   // Retry only that startup failure, never an editor interaction.
@@ -23,6 +30,10 @@ test('the pipeline API powers the shared editor and respects column protections 
     timeout: 30000,
   });
   await expect(page.getByText('Acme', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Sort', exact: true }).click();
+  await page.getByRole('button', { name: 'Add sort', exact: true }).click();
+  await page.getByRole('button', { name: 'Close sort' }).click();
+  await expect(page.getByRole('button', { name: 'Sort 1' })).toBeFocused();
   await page.getByRole('button', { name: /^Notes: Follow up\./ }).dblclick();
   const editor = page.getByRole('textbox', { name: 'Edit Notes' });
   await editor.fill('Renew in October');

@@ -14,8 +14,18 @@ let
   };
 in
 {
+  imports = [
+    ./dashboards.nix
+    ./ci-dashboard.nix
+    ./alerting.nix
+  ];
   services.grafana = {
     enable = true;
+    declarativePlugins = with pkgs.grafanaPlugins; [
+      grafana-lokiexplore-app
+      grafana-metricsdrilldown-app
+      grafana-exploretraces-app
+    ];
     dataDir = "/srv/observability/grafana";
     settings = import ./grafana.nix;
     provision = {
@@ -43,6 +53,7 @@ in
     extraFlags = [
       "--storage.tsdb.retention.size=100GB"
       "--web.enable-remote-write-receiver"
+      "--enable-feature=exemplar-storage"
     ];
   };
   systemd.services = {

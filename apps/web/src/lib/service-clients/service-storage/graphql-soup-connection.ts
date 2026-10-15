@@ -1,4 +1,5 @@
 import { isMobile } from '@core/mobile/isMobile';
+import { subscribeNativeNetworkStatus } from '@core/mobile/native-network-status';
 import { Telemetry } from '@macro-inc/observability';
 import type { FormattedExecutionResult } from 'graphql';
 import {
@@ -358,6 +359,7 @@ export function createGraphqlSoupConnection(options: {
       retireAttempt();
       subscriptions.clear();
       unregister();
+      unsubscribeNative();
       if (typeof window !== 'undefined')
         window.removeEventListener('online', wake);
       if (typeof document !== 'undefined')
@@ -368,5 +370,10 @@ export function createGraphqlSoupConnection(options: {
   if (typeof window !== 'undefined') window.addEventListener('online', wake);
   if (typeof document !== 'undefined')
     document.addEventListener('visibilitychange', visibilityChanged);
+  let subscribed = false;
+  const unsubscribeNative = subscribeNativeNetworkStatus((status) => {
+    if (subscribed && status === 'online') wake();
+  });
+  subscribed = true;
   return connection;
 }

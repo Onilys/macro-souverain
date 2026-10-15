@@ -1,3 +1,4 @@
+import { subscribeNativeNetworkStatus } from '@core/mobile/native-network-status';
 import { normalizedCacheResultMetadata } from '@graphql-cache/exchange/normalized-cache-exchange';
 import type { CacheHost } from '@graphql-cache/host/types';
 import type { Client, OperationResult } from '@urql/core';
@@ -20,6 +21,25 @@ import { registerGraphqlSoupRealtimeConnection } from './graphql-soup-realtime-s
 const SOUP_GRAPHQL_WEBSOCKET_PATH = '/items/soup/graphql/ws';
 
 export { shouldRetryGraphqlSoupWebSocket } from './graphql-soup-retry';
+
+function onReconnectOpportunity(listener: () => void): () => void {
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') listener();
+  };
+  let subscribed = false;
+  const unsubscribeNative = subscribeNativeNetworkStatus((status) => {
+    // The first call reports the current status, not a change.
+    if (subscribed && status === 'online') listener();
+  });
+  subscribed = true;
+  document.addEventListener('visibilitychange', onVisible);
+  addEventListener('online', listener);
+  return () => {
+    unsubscribeNative();
+    document.removeEventListener('visibilitychange', onVisible);
+    removeEventListener('online', listener);
+  };
+}
 
 /** Converts a DSS HTTP origin into its Soup GraphQL websocket endpoint. */
 export function buildGraphqlSoupWebSocketUrl(
@@ -123,6 +143,12 @@ export function createGraphqlSoupSubscriptionsLifecycle(
   let generation = 0;
   let refreshing = false;
   let refreshPending = false;
+  let stopWatchingForReattach: (() => void) | undefined;
+  const reattachOnNextOpportunity = () => {
+    stopWatchingForReattach ??= onReconnectOpportunity(() =>
+      lifecycle.replace(currentClient, currentHost)
+    );
+  };
 
   const refreshAfterReconnect = async () => {
     if (refreshing) return;
@@ -147,6 +173,8 @@ export function createGraphqlSoupSubscriptionsLifecycle(
   };
 
   const unsubscribeAll = () => {
+    stopWatchingForReattach?.();
+    stopWatchingForReattach = undefined;
     for (const unsubscribe of unsubscribes) unsubscribe();
     unsubscribes = [];
     activity?.dispose();
@@ -227,6 +255,7 @@ export function createGraphqlSoupSubscriptionsLifecycle(
             if (result.error) {
               console.warn(errorMessage, result.error);
             }
+            if (result.hasNext === false) reattachOnNextOpportunity();
           });
         return () => subscription.unsubscribe();
       });

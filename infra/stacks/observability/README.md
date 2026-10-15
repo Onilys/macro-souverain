@@ -1,5 +1,66 @@
 # Observability pilot
 
+## CI telemetry
+
+`tooling/xtask/crates/xtask_workflows/src/workflows/export_ci_telemetry.rs` defines
+this workflow. Run `cargo x workflows` to regenerate
+`.github/workflows/export-ci-telemetry.yml`; CI checks it for drift. The JavaScript
+preflight and shell credential reader are embedded from adjacent `scripts/` files
+at generation time, so runtime checkout is unnecessary.
+
+The generated workflow observes completed workflows on its
+explicit name list using Grafana's
+[`gha-otel-export`](https://github.com/grafana/grafana-github-actions/tree/b1c422726cc4ff4adb0838ebca67586f24babb42/gha-otel-export)
+action, pinned to that reviewed commit. It reads the triggering attempt's GitHub
+metadata and sends OTLP/HTTP protobuf traces to our existing endpoint. The trace
+hierarchy is workflow → jobs → steps, stored in Tempo with
+`service.name=github-actions` and `deployment.environment=ci`. There is no custom
+telemetry exporter, triggering PR checkout, artifact download, raw build-log
+collection, or Datadog export. Individual test cases are outside this integration.
+
+`/d/macro-ci` provides workflow traces, failed/cancelled jobs and steps, and jobs
+running longer than five minutes. Open a trace for its execution waterfall and
+GitHub URL. Search tables are limited to 100 traces and 100 matching spans per
+trace; narrow the time range to investigate further. These are bounded searches,
+not complete counts or p95 summaries. The action does not emit our old structured
+Loki events. Job durations exclude runner queue time. Workflow root duration
+includes waiting and, on reruns, starts at the original run creation time because
+of an upstream limitation; do not treat it as attempt execution time.
+
+### Pinned exporter limits
+
+A small metadata preflight rejects runs that the upstream action cannot export
+reliably: more than 100 jobs, 512 or more total workflow/job/step spans, colliding
+name-derived span IDs, or unavailable/invalid job or step timestamps. The action
+only fetches its first jobs page; its automatic batch export can swallow delivery
+errors at 512 spans. These guards catch those known cases before export.
+Skipped/cancelled jobs are included when GitHub supplies their timestamps; those
+without timing cause a visible exporter failure. Zero-job attempts are skipped
+with a notice. Remove limits only after upgrading and verifying the upstream fix.
+
+Deploy the prod Pulumi stack before enabling the workflow: it creates the account's
+GitHub OIDC provider and `macro-observability-ci` role, restricted to this repository's
+`main` identity and reading only `observability/dev-ingest` from Secrets Manager.
+There are no stored AWS access keys in this workflow. `ciIngestSecretArn` must match
+that existing Virginia secret. The bearer token is masked and passed only to the
+export step. The role can submit telemetry but cannot read stored traces or obtain
+Grafana's OAuth credentials. The provider is account-wide and protected; import it
+into Pulumi if another stack creates it before this rollout.
+
+Build, publish and smoke-boot a NixOS image with `ci-dashboard.nix`, then pin its AMI
+and deploy normally to provision the dashboard. The workflow starts observing after
+merge to `main`; add new workflow names to its list when they are introduced.
+GitHub's three-level `workflow_run` chaining limit still applies. Keep
+`trace-artifacts-glob` unset so the exporter never downloads PR-produced artifacts.
+
+Exporter failures appear as failed **Export CI telemetry** runs and do not change
+the observed workflow's result. Retry transient failures after GitHub finalizes job
+metadata. Deterministic trace IDs allow lookup across retries, but delivery is not
+transactional or guaranteed exactly once. Old spans are subject to Tempo's ingestion
+and retention limits. This is completion-time collection, with no live job progress,
+historical backfill, or CI alert notifications. Validate a successful and failed
+workflow, a rerun, and a multi-job trace after rollout before relying on the dashboard.
+
 This stack starts Grafana alongside Datadog on one private EC2 instance. It
 runs Grafana, Loki, Tempo, Prometheus, Alloy and nginx as native systemd services
 on a prebuilt NixOS image. There is no Docker or Compose dependency. Nix owns
@@ -277,7 +338,7 @@ region, hostnames and bucket/volume/secret identifiers.
 It writes a systemd environment file, nginx hostname maps, the secret's identifier
 and the expected volume ID under `/opt/observability`. It does not execute
 user-data or read secret values. The standard NixOS user-data evaluator is disabled.
-Schema version 4 rejects older payloads, unknown settings and caller-supplied files.
+Schema version 5 rejects older payloads, unknown settings and caller-supplied files.
 
 `observability-bootstrap` mounts that exact EBS volume and creates each service's
 data directory using stable, named NixOS users. `prepare-volume.sh` formats only
@@ -323,6 +384,129 @@ guarantee. Producer retries cover rejected requests, not accepted data lost in a
 crash. Metrics remote-write has a local WAL. EBS-backed backend WALs protect data
 already delivered to Loki/Tempo. Establish failure/loss tolerance while Datadog
 still receives the authoritative copy.
+
+## Dashboards and alert migration
+
+### Service exploration
+
+Nix installs the signed Logs, Metrics, and Traces Drilldown apps through
+`services.grafana.declarativePlugins`. Their versions and download hashes come
+from the pinned `flake.lock`; no plugin download or update happens at boot.
+Use **Drilldown → Logs** to choose a service and inspect its log volume, fields,
+and patterns, or **Drilldown → Traces** to filter services, errors, and latency.
+The dev telemetry dashboard also has a service selector and links to all three
+Drilldown apps. The service selector discovers names from dev logs; a service
+that emits only traces or metrics can be found in the corresponding Drilldown.
+
+Loki enables pattern ingestion, log-level detection, and volume queries. Tempo's
+metrics generator enables TraceQL metrics, span metrics, and service graphs.
+Generator WAL and local blocks use the retained data volume; metrics blocks flush
+to the existing trace bucket, and generated metrics go to local Prometheus.
+These metrics start accumulating after this image is deployed. They describe
+received spans, so sampling and missing instrumentation can prevent parity with
+Datadog request counts. Span names remain in Tempo rather than becoming unbounded
+Prometheus labels. Generated series are capped at 50,000; monitor
+`tempo_metrics_generator_registry_series_limited_total` and local-block discards
+before expanding ingestion. The existing Tempo memory limit remains in force.
+
+Tempo spans link to the service's logs in a time window and its generated metrics;
+logs carrying an OTLP trace ID link back to the trace. FireLens logs do not always
+carry trace IDs, so service/time correlation is not a claim of exact trace-to-log
+matching. Service graph edges require correctly related client/server spans.
+Profiles, database query monitoring, RUM/session replay, and complete Datadog
+dashboard/monitor migration remain separate coverage work.
+
+### Provisioned dashboards and alerts
+
+Nix provisions the `Macro` dashboard folder, a dev telemetry dashboard, and a
+CloudWatch database/Lambda dashboard. CloudWatch reads native metrics in Virginia;
+it does not replicate their history to Ohio, so these panels depend on Virginia
+remaining available. These are not a replacement for Datadog database query monitoring, RUM, or anomaly
+models. Grafana uses the EC2 role for regional metric reads and publishing to the
+configured alarm SNS topic. Other unprivileged HTTP/ingest services still cannot
+access instance metadata.
+
+`nixos/alerting.nix` starts with the three dev monitors declared in the monitoring
+stack: DSS errors (1013923), channel-invite spam (4876245), and document text
+extractor failure ratio (1291772). Warning and critical rules are separate and
+mutually exclusive. Their windows and thresholds come from those definitions;
+the Lambda ratio sums four hours ending fifteen minutes ago. No-data is OK for
+these event-count/error-ratio rules, while datasource execution errors remain
+errors. Notification grouping and repeat timing are Grafana settings, not exact
+copies of Datadog notification behavior.
+
+All migrated rules initially remain **paused**. Confirm source coverage and query
+results before enabling each rule. The channel-invite monitor's old `processing
+message` event was not found in current notification source, so it particularly
+needs reconciliation against live logs. Paused rules do not imply healthy coverage.
+Production telemetry monitors remain in Datadog. Complete the live dashboard and
+monitor inventory before claiming parity; repository definitions may have drifted.
+
+The `Macro team email` contact point publishes through SNS using the host role,
+without SMTP credentials. The configured topic already has wolf@macro.com and
+teo@macro.com subscriptions; each recipient must confirm their SNS subscription.
+Test the contact point and verify receipt before relying on notifications.
+
+This release adds `alarmTopicArn` to user-data schema 5. Deploy it together with
+the new reviewed AMI; a schema-4 image cannot boot schema-5 user data.
+
+## Dev dual export
+
+Every dev ECS service using the shared Datadog sidecars automatically also runs
+Alloy; there is no per-service opt-in flag. Task definitions call the shared
+`withTelemetry(serviceName, containers)` helper, which supplies the Datadog agent,
+FireLens router, dev Alloy sidecar, and dev Grafana environment variable together.
+Production keeps its existing Datadog configuration
+until its rollout. The earlier `image-proxy-service` canary verified Ohio
+ingestion; it used the superseded collector-in-front-of-Datadog design. The
+current design keeps applications exporting directly to the Datadog agent. The execution role can read the ingestion-only
+`observability/dev-ingest` secret in Virginia.
+The application task role does not receive access to the Grafana OAuth bundle.
+
+Applications keep their original Datadog trace exporter at loopback 4317. In dev
+ECS tasks, `GRAFANA_OTLP_ENDPOINT` is injected automatically as
+`http://127.0.0.1:14317` (registered in Doppler `observability/dev`). The shared
+Rust entrypoint adds a second batch processor with its own bounded queue, copying
+the same finished spans and trace IDs to Alloy. It does not change Datadog's
+exporter, filtering, sampling or agent configuration. Local and production runs
+do not add this exporter. This requires rebuilding the application images.
+
+Alloy listens on loopback OTLP 14317/14318 and exports only to Ohio. FireLens
+retains its existing Datadog output and parsing and adds a bounded-retry Fluent
+Forward output to Alloy for logs. ECS metadata supplies task and container
+metrics; identity is promoted into metric labels to keep replicas separate.
+The extra container reserves 128 MiB with a 512 MiB hard limit; review Fargate
+sizing during each stack preview. Alloy is non-essential: its failure does not
+restart the application or Datadog. ECS does not automatically restart a stopped
+non-essential container in this configuration; replace the task to recover it.
+
+The Grafana branch batches asynchronously before its memory limiter. Overflow,
+export failure, or task replacement can drop the optional copy. Failed optional
+trace exports are deliberately suppressed so a Grafana outage does not generate
+SDK export-error logs that feed existing Datadog alerts. The optional SDK queue
+is limited to one 512-span batch, so draining it plus an in-flight batch fits the
+five-second shutdown budget. Queue saturation can still emit SDK drop warnings. These queues are
+not durable. Collector processes still share task resources, and FireLens shares
+its input and parsing between the two outputs; this is not complete resource
+isolation. Any future application metric SDK needs its own independent Grafana
+reader/exporter; the Rust entrypoint currently exports traces, not app metrics.
+
+The dev analytics proxy mirrors existing browser and worker OTLP traces/logs in
+`waitUntil`, using a server-side token and a five-second export timeout. Browsers
+send once. Payloads above 8 MiB skip only the mirror. Each Worker isolate admits
+at most two concurrent copies; additional requests skip mirroring to bound
+aggregate buffering. Datadog's response remains
+the client response. `deploy-analytics-proxy-dev.yml` installs the token from
+Secrets Manager and deploys only the dev Worker.
+
+The manually dispatched `export-datadog-observability.yml` reads live dashboard/monitor definitions into a
+seven-day GitHub artifact for the migration inventory. It never modifies Datadog. The current repository credentials return HTTP 403
+for both reads; `monitors_read` and `dashboards_read` access must be restored
+before claiming live inventory parity. Partial exports retain an explicit status file.
+The live legacy agent-proxy/document-processing services outside the current
+stack definitions and the CloudWatch-logged preview gateway need a separate
+coverage pass. Lambda CloudWatch logs, RUM/session replay, synthetics and database query monitoring
+are separate sources; ECS/edge OTLP duplication alone does not provide parity.
 
 ## Validation and subsequent passes
 

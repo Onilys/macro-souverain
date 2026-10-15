@@ -2,7 +2,7 @@ use std::{ops::Deref, sync::Arc, sync::LazyLock};
 
 use crate::domain::meetings::GuestId;
 use crate::domain::models::{
-    AddParticipantError, CallRecord, CallRecordPreview, CustomSpeakerAssignment,
+    AddParticipantError, CallRecord, CallRecordPage, CallRecordPreview, CustomSpeakerAssignment,
     EditCallRecordRepoArgs, TranscriptSegmentRequest,
 };
 use crate::domain::ports::CallRepository;
@@ -58,6 +58,10 @@ pub(super) const CH1: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_000000000
 pub(super) const CH2: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_000000000c02);
 pub(super) const CALL1: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_0000000ca110);
 const CALL2: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_0000000ca220);
+const LATEST_FIRST: CallRecordPage = CallRecordPage {
+    by_start: false,
+    after: None,
+};
 pub(super) const CALL_ARCHIVED: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_0000000ca2ed);
 const MACRO_USER_A: Uuid = Uuid::from_u128(0xaaaaaaaa_aaaa_aaaa_aaaa_aaaaaaaaaaa1);
 const MACRO_USER_B: Uuid = Uuid::from_u128(0xbbbbbbbb_bbbb_bbbb_bbbb_bbbbbbbbbbb2);
@@ -387,6 +391,46 @@ async fn remove_participant_removes_from_db(pool: Pool<Postgres>) -> anyhow::Res
     repo.remove_participant(&CALL1, USER_B.deref().copied())
         .await?;
     assert!(!repo.is_participant(&CALL1, &USER_B.as_ref()).await?);
+    Ok(())
+}
+
+// -- record_decline / has_declined ----------------------------------------------
+
+#[sqlx::test(
+    fixtures(path = "../../../fixtures", scripts("call_repo")),
+    migrator = "MACRO_DB_MIGRATIONS"
+)]
+async fn record_decline_is_idempotent_and_scoped_to_the_user(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let repo = repo(pool);
+
+    assert!(!repo.has_declined(&CALL1, &USER_C.as_ref()).await?);
+
+    repo.record_decline(&CALL1, USER_C.deref().copied()).await?;
+    repo.record_decline(&CALL1, USER_C.deref().copied()).await?;
+
+    assert!(repo.has_declined(&CALL1, &USER_C.as_ref()).await?);
+    assert!(!repo.has_declined(&CALL1, &USER_B.as_ref()).await?);
+    Ok(())
+}
+
+#[sqlx::test(
+    fixtures(path = "../../../fixtures", scripts("call_repo")),
+    migrator = "MACRO_DB_MIGRATIONS"
+)]
+async fn declines_are_dropped_with_the_call(pool: Pool<Postgres>) -> anyhow::Result<()> {
+    let repo = repo(pool.clone());
+
+    repo.record_decline(&CALL1, USER_C.deref().copied()).await?;
+    repo.delete_call(&CALL1).await?;
+
+    let remaining: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM call_declines WHERE call_id = $1")
+            .bind(CALL1)
+            .fetch_one(&pool)
+            .await?;
+    assert_eq!(remaining, 0);
     Ok(())
 }
 
@@ -1599,6 +1643,51 @@ async fn batch_get_call_record_previews_empty_input_returns_empty(
     fixtures(path = "../../../fixtures", scripts("call_repo")),
     migrator = "MACRO_DB_MIGRATIONS"
 )]
+async fn get_call_records_by_user_seeks_past_the_soup_cursor(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let repo = repo(pool);
+    let all = repo
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &None, LATEST_FIRST)
+        .await?;
+    assert_eq!(all.len(), 2);
+
+    // Each page resumes strictly after the previous page's last call, so a
+    // feed never serves the same call twice and reaches every call.
+    for by_start in [false, true] {
+        let sort_ts = |record: &CallRecord| {
+            if by_start {
+                record.started_at
+            } else {
+                record.ended_at.unwrap_or(record.started_at)
+            }
+        };
+        let mut seen = Vec::new();
+        let mut page = CallRecordPage {
+            by_start,
+            after: None,
+        };
+        loop {
+            let records = repo
+                .get_call_records_by_user(USER_C.deref().copied(), 1, &None, page)
+                .await?;
+            let Some(last) = records.last() else { break };
+            seen.push(last.call_id);
+            page.after = Some((sort_ts(last), last.call_id));
+            assert!(seen.len() <= all.len(), "a call repeated: {seen:?}");
+        }
+        let mut expected: Vec<_> = all.iter().map(|record| record.call_id).collect();
+        expected.sort();
+        seen.sort();
+        assert_eq!(seen, expected);
+    }
+    Ok(())
+}
+
+#[sqlx::test(
+    fixtures(path = "../../../fixtures", scripts("call_repo")),
+    migrator = "MACRO_DB_MIGRATIONS"
+)]
 async fn get_call_records_by_user_includes_channel_member_not_in_call(
     pool: Pool<Postgres>,
 ) -> anyhow::Result<()> {
@@ -1608,7 +1697,7 @@ async fn get_call_records_by_user_includes_channel_member_not_in_call(
     // for CALL1 or call_record_participants for CALL_ARCHIVED. Visibility
     // should now come from channel membership, so both calls should appear.
     let records = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &None)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &None, LATEST_FIRST)
         .await?;
 
     assert_eq!(
@@ -1635,7 +1724,7 @@ async fn get_call_records_by_user_status_attended_for_participant(
     let repo = repo(pool);
 
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &None)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &None, LATEST_FIRST)
         .await?;
 
     assert_eq!(records.len(), 2);
@@ -1657,7 +1746,7 @@ async fn get_call_records_by_user_status_missed_for_channel_nonparticipant(
     let repo = repo(pool);
 
     let records = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &None)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &None, LATEST_FIRST)
         .await?;
 
     assert_eq!(records.len(), 2);
@@ -1679,7 +1768,7 @@ async fn get_call_records_by_user_status_unattended_for_accessible_non_channel_n
     let repo = repo(pool);
 
     let records = repo
-        .get_call_records_by_user(USER_D.deref().copied(), 10, &None)
+        .get_call_records_by_user(USER_D.deref().copied(), 10, &None, LATEST_FIRST)
         .await?;
 
     assert_eq!(records.len(), 2);
@@ -1702,27 +1791,27 @@ async fn get_call_records_by_user_status_filters_return_exact_matches(
 
     let attended = status_filter(CallStatus::Attended);
     let attended_records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &attended)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &attended, LATEST_FIRST)
         .await?;
     assert_eq!(attended_records.len(), 2);
     assert_records_have_status(&attended_records, CallStatus::Attended);
 
     let missed = status_filter(CallStatus::Missed);
     let missed_records = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &missed)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &missed, LATEST_FIRST)
         .await?;
     assert_eq!(missed_records.len(), 2);
     assert_records_have_status(&missed_records, CallStatus::Missed);
 
     let unattended = status_filter(CallStatus::Unattended);
     let unattended_records = repo
-        .get_call_records_by_user(USER_D.deref().copied(), 10, &unattended)
+        .get_call_records_by_user(USER_D.deref().copied(), 10, &unattended, LATEST_FIRST)
         .await?;
     assert_eq!(unattended_records.len(), 2);
     assert_records_have_status(&unattended_records, CallStatus::Unattended);
 
     let no_unattended_for_channel_member = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &unattended)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &unattended, LATEST_FIRST)
         .await?;
     assert!(no_unattended_for_channel_member.is_empty());
     Ok(())
@@ -1739,13 +1828,13 @@ async fn get_call_records_by_user_status_legacy_attended_false_returns_not_parti
     let filter = attended_filter(false);
 
     let missed_records = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(missed_records.len(), 2);
     assert_records_have_status(&missed_records, CallStatus::Missed);
 
     let unattended_records = repo
-        .get_call_records_by_user(USER_D.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_D.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(unattended_records.len(), 2);
     assert_records_have_status(&unattended_records, CallStatus::Unattended);
@@ -1763,12 +1852,12 @@ async fn get_call_records_by_user_status_not_filter_complements_status(
     let not_attended = not_status_filter(CallStatus::Attended);
 
     let participant_records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &not_attended)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &not_attended, LATEST_FIRST)
         .await?;
     assert!(participant_records.is_empty());
 
     let missed_records = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &not_attended)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &not_attended, LATEST_FIRST)
         .await?;
     assert_eq!(missed_records.len(), 2);
     assert_records_have_status(&missed_records, CallStatus::Missed);
@@ -1787,7 +1876,7 @@ async fn get_call_records_by_user_attended_true_returns_only_joined(
 
     // user-a is a participant in both CALL1 and CALL_ARCHIVED.
     let user_a_records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(user_a_records.len(), 2);
     assert!(user_a_records.iter().any(|r| r.call_id == CALL1));
@@ -1795,7 +1884,7 @@ async fn get_call_records_by_user_attended_true_returns_only_joined(
 
     // user-c is a channel member but did not join any call.
     let user_c_records = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert!(
         user_c_records.is_empty(),
@@ -1816,7 +1905,7 @@ async fn get_call_records_by_user_attended_false_returns_only_not_joined(
 
     // user-a joined every call, so attended=false should return nothing.
     let user_a_records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert!(
         user_a_records.is_empty(),
@@ -1825,7 +1914,7 @@ async fn get_call_records_by_user_attended_false_returns_only_not_joined(
 
     // user-c joined none of the calls, so both should appear.
     let user_c_records = repo
-        .get_call_records_by_user(USER_C.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_C.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(user_c_records.len(), 2);
     assert!(user_c_records.iter().any(|r| r.call_id == CALL1));
@@ -1845,7 +1934,7 @@ async fn get_call_records_by_user_attended_none_returns_all(
     // Sanity-check the default path: without the attended filter, the query
     // still returns every call the channel member can see.
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &None)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &None, LATEST_FIRST)
         .await?;
     assert_eq!(records.len(), 2);
     Ok(())
@@ -1862,20 +1951,20 @@ async fn get_call_records_by_user_call_ids_filter_narrows_results(
 
     let filter = call_ids_filter(&[CALL_ARCHIVED]);
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].call_id, CALL_ARCHIVED);
 
     let filter = call_ids_filter(&[CALL1, CALL_ARCHIVED]);
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(records.len(), 2);
 
     let filter = call_ids_filter(&[Uuid::nil()]);
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert!(
         records.is_empty(),
@@ -1922,7 +2011,7 @@ async fn get_call_records_by_user_entity_ref_filter_matches_referencing_calls(
         entity_ref_property_literal(companies, acme),
     )));
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(
         records.iter().map(|r| r.call_id).collect::<Vec<_>>(),
@@ -1935,7 +2024,7 @@ async fn get_call_records_by_user_entity_ref_filter_matches_referencing_calls(
         Expr::Literal(entity_ref_property_literal(companies, acme)),
     )));
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
         .await?;
     assert_eq!(records.len(), 1);
 
@@ -1945,7 +2034,7 @@ async fn get_call_records_by_user_entity_ref_filter_matches_referencing_calls(
     ] {
         let filter: LiteralTree<CallLiteral> = Some(Arc::new(Expr::Literal(literal)));
         let records = repo
-            .get_call_records_by_user(USER_A.deref().copied(), 10, &filter)
+            .get_call_records_by_user(USER_A.deref().copied(), 10, &filter, LATEST_FIRST)
             .await?;
         assert!(records.is_empty(), "unexpected match: {records:?}");
     }
@@ -1953,9 +2042,14 @@ async fn get_call_records_by_user_entity_ref_filter_matches_referencing_calls(
     let matching = |filter: Expr<CallLiteral>| {
         let repo = &repo;
         async move {
-            repo.get_call_records_by_user(USER_A.deref().copied(), 10, &Some(Arc::new(filter)))
-                .await
-                .map(|records| records.iter().map(|r| r.call_id).collect::<Vec<_>>())
+            repo.get_call_records_by_user(
+                USER_A.deref().copied(),
+                10,
+                &Some(Arc::new(filter)),
+                LATEST_FIRST,
+            )
+            .await
+            .map(|records| records.iter().map(|r| r.call_id).collect::<Vec<_>>())
         }
     };
     let acme_ref = || Expr::Literal(entity_ref_property_literal(companies, acme));
@@ -2010,7 +2104,7 @@ async fn get_call_records_by_user_returns_archived_summary(
     .await?;
 
     let records = repo
-        .get_call_records_by_user(USER_A.deref().copied(), 10, &None)
+        .get_call_records_by_user(USER_A.deref().copied(), 10, &None, LATEST_FIRST)
         .await?;
 
     let active = records
@@ -3573,7 +3667,7 @@ async fn standalone_call_list_requires_individual_grants_live_and_archived(
             (USER_D.deref(), true),
         ] {
             let records = repo
-                .get_call_records_by_user(user.copied(), 10, &None)
+                .get_call_records_by_user(user.copied(), 10, &None, LATEST_FIRST)
                 .await?;
             assert_eq!(
                 records.iter().any(|record| record.call_id == call.id),

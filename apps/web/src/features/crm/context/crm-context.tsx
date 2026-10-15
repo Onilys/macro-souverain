@@ -31,6 +31,7 @@ import type {
 } from './crm-sources';
 import type {
   PipelineEditor,
+  PipelineEntriesView,
   PipelineSharing,
   PipelinesSource,
 } from './pipelines';
@@ -38,8 +39,11 @@ import type {
 export type CrmContext = {
   createPipelines(teamId: Accessor<string | undefined>): PipelinesSource;
   PipelineEditor: PipelineEditor;
+  PipelineEntries: PipelineEntriesView;
   PipelineSharing: PipelineSharing;
   downloadCsv(content: string, filename: string): Promise<{ saved: boolean }>;
+  /** Profile picture lookup for a contact; presentation owns the fallback. */
+  createContactPhoto?(email: string): Accessor<string | undefined>;
   contactInitials(name: string | null | undefined, email: string): string;
   userEmail(id: string): string;
   copyViewLink(config: import('../core/saved-view').CrmViewConfig): void;
@@ -77,6 +81,10 @@ export type CrmContext = {
   ): ItemListSource;
   /** Calls associated with the record. */
   createRecordCalls(
+    scope: Accessor<CrmRecordScope | undefined>
+  ): ItemListSource;
+  /** Items associated with the record through properties or references. */
+  createRecordReferences(
     scope: Accessor<CrmRecordScope | undefined>
   ): ItemListSource;
   /** The record's Tasks tab, scoped to tasks associated with it. */

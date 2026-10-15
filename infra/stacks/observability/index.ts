@@ -1,5 +1,6 @@
 import * as aws from '@pulumi/aws';
 import * as pulumi from '@pulumi/pulumi';
+import { createCiTelemetryRole } from './ci';
 import { createNetwork } from './network';
 import { renderUserData } from './render';
 import {
@@ -34,11 +35,19 @@ validateSettings({
   grafanaHost,
   otlpHost,
   secretArn,
+  alarmTopicArn,
   volumeId: 'vol-0',
   logsBucket: 'validate-logs',
   tracesBucket: 'validate-traces',
 });
 validateRegionalArn(alarmTopicArn, 'sns', region);
+const ciIngestSecretArn =
+  stack === 'prod' ? config.require('ciIngestSecretArn') : undefined;
+if (ciIngestSecretArn)
+  validateRegionalArn(ciIngestSecretArn, 'secretsmanager', 'us-east-1');
+export const ciTelemetryRoleArn = ciIngestSecretArn
+  ? createCiTelemetryRole(ciIngestSecretArn)
+  : undefined;
 const vpc = createNetwork(region, tags);
 const subnet = vpc.privateSubnet;
 const subnetId = subnet.id;
@@ -182,6 +191,23 @@ const policy = new aws.iam.RolePolicy('observability-storage', {
         },
         {
           Effect: 'Allow',
+          Action: [
+            'cloudwatch:ListMetrics',
+            'cloudwatch:GetMetricData',
+            'cloudwatch:GetMetricStatistics',
+          ],
+          Resource: '*',
+          Condition: {
+            StringEquals: { 'aws:RequestedRegion': ['us-east-1', 'us-east-2'] },
+          },
+        },
+        {
+          Effect: 'Allow',
+          Action: ['sns:Publish'],
+          Resource: alarmTopicArn,
+        },
+        {
+          Effect: 'Allow',
           Action: ['cloudwatch:PutMetricData'],
           Resource: '*',
           Condition: {
@@ -256,6 +282,7 @@ const instance = new aws.ec2.Instance(
           grafanaHost,
           otlpHost,
           secretArn,
+          alarmTopicArn,
           volumeId,
           logsBucket,
           tracesBucket,

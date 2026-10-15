@@ -110,7 +110,7 @@ pub(super) fn document_gate(id_sql: &str, filter: Option<&EntityFilterAst>) -> S
                 {PER_CANDIDATE}
             )"#,
         access = access_semi_join("d.id", "document"),
-        doc_fold = build_document_filter(doc_filter),
+        doc_fold = build_document_filter(doc_filter, None),
         props_fold = build_properties_filter(props_filter, "d.id"),
     )
 }

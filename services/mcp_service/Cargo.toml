@@ -56,6 +56,7 @@ fusionauth = { path = "../../crates/fusionauth" }
 futures = { workspace = true }
 github_pull_requests = { path = "../../crates/github_pull_requests" }
 http = { workspace = true }
+import = { path = "../../crates/import" }
 lexical_client = { path = "../../crates/lexical_client" }
 macro_auth = { path = "../../crates/macro_auth" }
 macro_aws_config = { path = "../../crates/macro_aws_config", features = ["s3"] }
@@ -67,7 +68,10 @@ macro_event_broker = { path = "../../crates/macro_event_broker" }
 macro_queues = { path = "../../crates/macro_queues" }
 macro_user_id = { path = "../../crates/macro_user_id" }
 mcp_auth_proxy = { path = "../mcp_auth_proxy" }
+mcp_client = { path = "../../crates/mcp_client" }
+mcp_select = { path = "../../crates/mcp_select" }
 notification = { path = "../../crates/notification", features = ["ai_tool"] }
+pipedream_mcp = { path = "../../crates/pipedream_mcp" }
 prompt = { path = "../../crates/prompt" }
 readonly_pool = { path = "../../crates/readonly_pool" }
 redis = { workspace = true, features = ["aio", "tokio-comp"] }

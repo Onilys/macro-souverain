@@ -16,6 +16,7 @@ import {
 import { AgentContextNode } from './nodes/AgentContextNode';
 import { AgentSessionMentionNode } from './nodes/AgentSessionMentionNode';
 import { AwaitNode } from './nodes/AwaitNode';
+import { BookingLinkMentionNode } from './nodes/BookingLinkMentionNode';
 import { ClassedBlockNode } from './nodes/ClassedBlockNode';
 import { CommentNode } from './nodes/CommentNode';
 import { CompletionNode } from './nodes/CompletionNode';
@@ -90,6 +91,7 @@ export const SupportedNodeTypes = [
   ContactMentionNode,
   DateMentionNode,
   PullRequestMentionNode,
+  BookingLinkMentionNode,
   AgentSessionMentionNode,
   ReplyTargetNode,
   GroupMentionNode,

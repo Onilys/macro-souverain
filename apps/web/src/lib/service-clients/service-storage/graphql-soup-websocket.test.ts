@@ -20,6 +20,29 @@ vi.mock('../../queries/notification/revalidation', () => ({
   revalidateNotificationReaders: revalidateReaders,
 }));
 
+const nativeStatus = vi.hoisted(() => ({
+  listeners: new Set<(status: string) => void>(),
+}));
+vi.mock('@core/mobile/native-network-status', () => ({
+  subscribeNativeNetworkStatus: (listener: (status: string) => void) => {
+    nativeStatus.listeners.add(listener);
+    listener('online');
+    return () => nativeStatus.listeners.delete(listener);
+  },
+}));
+
+function setNativeStatus(status: string) {
+  for (const listener of [...nativeStatus.listeners]) listener(status);
+}
+
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => state,
+  });
+  document.dispatchEvent(new Event('visibilitychange'));
+}
+
 import {
   ActivityUpdatesDocument,
   NotificationUpdatesDocument,
@@ -293,5 +316,56 @@ describe('GraphQL Soup subscription lifecycle', () => {
     receive.get(NotificationUpdatesDocument)?.(result);
     expect(listener).toHaveBeenCalledOnce();
     lifecycle.dispose();
+  });
+  it('reattaches an ended subscription set on the next foreground or online signal', () => {
+    toastFailure.mockClear();
+    const receive: Array<
+      (result: { error?: unknown; hasNext?: boolean }) => void
+    > = [];
+    const unsubscribes: Array<ReturnType<typeof vi.fn>> = [];
+    const client = {
+      subscription: vi.fn(() => ({
+        subscribe: vi.fn((next) => {
+          receive.push(next);
+          const unsubscribe = vi.fn();
+          unsubscribes.push(unsubscribe);
+          return { unsubscribe };
+        }),
+      })),
+    };
+    const lifecycle = createGraphqlSoupSubscriptionsLifecycle();
+    lifecycle.replace(client as never);
+    expect(client.subscription).toHaveBeenCalledTimes(2);
+
+    // Results that keep the stream open never reattach it.
+    receive[0]?.({ hasNext: true });
+    setVisibility('visible');
+    expect(client.subscription).toHaveBeenCalledTimes(2);
+
+    // A terminal result waits for an opportunity rather than a timer.
+    const failed = receive[0];
+    failed?.({ error: new Error('session rejected'), hasNext: false });
+    receive[1]?.({ error: new Error('session rejected'), hasNext: false });
+    expect(client.subscription).toHaveBeenCalledTimes(2);
+
+    setVisibility('visible');
+    expect(client.subscription).toHaveBeenCalledTimes(4);
+    for (const unsubscribe of unsubscribes.slice(0, 2))
+      expect(unsubscribe).toHaveBeenCalledOnce();
+
+    // Late results from the replaced set and repeated signals do not
+    // duplicate the healthy replacement.
+    failed?.({ error: new Error('stale'), hasNext: false });
+    setVisibility('visible');
+    dispatchEvent(new Event('online'));
+    setNativeStatus('online');
+    expect(client.subscription).toHaveBeenCalledTimes(4);
+    expect(toastFailure).not.toHaveBeenCalled();
+
+    receive[2]?.({ error: new Error('again'), hasNext: false });
+    lifecycle.dispose();
+    dispatchEvent(new Event('online'));
+    setNativeStatus('online');
+    expect(client.subscription).toHaveBeenCalledTimes(4);
   });
 });

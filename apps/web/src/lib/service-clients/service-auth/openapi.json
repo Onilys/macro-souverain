@@ -845,6 +845,95 @@
         }
       }
     },
+    "/github_pull_requests/draft": {
+      "post": {
+        "tags": ["github_pull_requests"],
+        "summary": "Converts a GitHub pull request to a draft, or marks it ready for review,\nas the authenticated user with their own GitHub grant.",
+        "operationId": "set_github_pull_request_draft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetGithubPullRequestDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetGithubPullRequestDraftResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The user cannot change the pull request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No GitHub link, or the pull request is not visible to the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "GitHub declined the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/github_pull_requests/enrich": {
       "post": {
         "tags": ["github_pull_requests"],
@@ -982,6 +1071,85 @@
           },
           "422": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/github_pull_requests/mergeability": {
+      "post": {
+        "tags": ["github_pull_requests"],
+        "summary": "Reads whether each GitHub pull request merges cleanly into its base, as\nthe authenticated user sees it. Pull requests the user cannot see are\nleft out.",
+        "operationId": "get_github_pull_request_mergeability",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubPullRequestMergeabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubPullRequestMergeabilityResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No GitHub link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Too many pull requests requested",
             "content": {
               "application/json": {
                 "schema": {
@@ -2420,7 +2588,7 @@
     "/mobile-welcome-email": {
       "post": {
         "tags": ["mobile_welcome_email"],
-        "summary": "Enrolls a mobile lead in the Loops nurture sequence, which sends the welcome\nemail inviting them to register on desktop. No-ops if the address was already\nenrolled, and rejects blocked addresses.",
+        "summary": "Emails a mobile lead a link to continue onboarding on desktop and enrolls\nthem in the Loops welcome sequence. No-ops if the address was already\ncaptured, and rejects blocked addresses.",
         "operationId": "send_mobile_welcome_email",
         "requestBody": {
           "content": {
@@ -4630,10 +4798,56 @@
       }
     },
     "/user/stripe/plan": {
+      "get": {
+        "tags": ["user::stripe::subscription_status"],
+        "summary": "Read subscription state for the authenticated user's seat.",
+        "operationId": "get_subscription_status",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "More than one active subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": ["user::stripe::change_plan"],
-        "summary": "Moves the caller's own seat between paid plans.",
-        "description": "On a team billed per seat this moves only the caller's seat (team admins\nand the owner may do so; teammates' seats are managed from team\nsettings). Members of a free team, and solo subscribers, get the price on\ntheir own subscription's seat item swapped. The proration is invoiced\nimmediately either way; roles and the AI allowance follow at once on a\nteam and from the `customer.subscription.updated` webhook for a personal\nsubscription.",
+        "summary": "Changes the caller's paid plan. Upgrades are prorated immediately;\ndowngrades retain the active plan until renewal. Selecting the active plan\ncancels a pending downgrade without charging or resetting usage.",
         "operationId": "change_plan",
         "requestBody": {
           "content": {
@@ -4697,7 +4911,7 @@
             }
           },
           "409": {
-            "description": "Already on this plan, or more than one active subscription",
+            "description": "More than one active subscription",
             "content": {
               "application/json": {
                 "schema": {
@@ -4874,6 +5088,27 @@
           }
         }
       },
+      "AutoReloadMonthlyBudget": {
+        "type": "object",
+        "description": "Calendar-month commitments that consume the payer's automatic reload cap.",
+        "required": ["committed_cents", "resets_at", "limit_reached"],
+        "properties": {
+          "committed_cents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Reloads paid, pending, or failed with an invoice that can still collect.\nCustomer cents; manual credit purchases do not count."
+          },
+          "limit_reached": {
+            "type": "boolean",
+            "description": "Remaining cap cannot fund the minimum automatic reload charge."
+          },
+          "resets_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Start of the next UTC calendar month, independently of subscription renewal."
+          }
+        }
+      },
       "AutoReloadSnapshot": {
         "type": "object",
         "description": "The payer's automatic reload settings, as shown in Billing settings.",
@@ -4892,6 +5127,17 @@
             "type": "integer",
             "format": "int64",
             "description": "Reload once the effective balance drops below this, in customer cents."
+          },
+          "monthly_budget": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AutoReloadMonthlyBudget",
+                "description": "Present for paid finite accounts with a configured monthly cap."
+              }
+            ]
           },
           "monthly_spend_limit_cents": {
             "type": ["integer", "null"],
@@ -5753,6 +5999,85 @@
           }
         }
       },
+      "GithubPullRequestMergeability": {
+        "type": "string",
+        "description": "Whether GitHub can merge a pull request's head into its base without conflicts.",
+        "enum": ["mergeable", "conflicting", "unknown"]
+      },
+      "GithubPullRequestMergeabilityEntry": {
+        "type": "object",
+        "description": "One pull request's mergeability.",
+        "required": ["owner", "repo", "number", "mergeability"],
+        "properties": {
+          "mergeability": {
+            "$ref": "#/components/schemas/GithubPullRequestMergeability",
+            "description": "Whether the head merges cleanly into the base."
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The GitHub pull request number.",
+            "minimum": 0
+          },
+          "owner": {
+            "type": "string",
+            "description": "The GitHub repository owner or organization."
+          },
+          "repo": {
+            "type": "string",
+            "description": "The GitHub repository name."
+          }
+        }
+      },
+      "GithubPullRequestMergeabilityRequest": {
+        "type": "object",
+        "description": "Request body for the mergeability of several pull requests.",
+        "required": ["pullRequests"],
+        "properties": {
+          "pullRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubPullRequestNumber"
+            },
+            "description": "The pull requests to check, at most [`GithubPullRequestMergeabilityRequest::MAX`]."
+          }
+        }
+      },
+      "GithubPullRequestMergeabilityResponse": {
+        "type": "object",
+        "description": "Response body for pull request mergeability. Pull requests the user\ncannot see are left out.",
+        "required": ["pullRequests"],
+        "properties": {
+          "pullRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GithubPullRequestMergeabilityEntry"
+            },
+            "description": "The mergeability of each visible pull request."
+          }
+        }
+      },
+      "GithubPullRequestNumber": {
+        "type": "object",
+        "description": "One pull request, by repository and number.",
+        "required": ["owner", "repo", "number"],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The GitHub pull request number.",
+            "minimum": 0
+          },
+          "owner": {
+            "type": "string",
+            "description": "The GitHub repository owner or organization."
+          },
+          "repo": {
+            "type": "string",
+            "description": "The GitHub repository name."
+          }
+        }
+      },
       "GithubPullRequestRef": {
         "type": "object",
         "description": "A pull request reference that can be enriched with live GitHub data.",
@@ -6513,7 +6838,7 @@
         "properties": {
           "apiKey": {
             "type": "string",
-            "description": "A `crsr_…` Cursor API key."
+            "description": "A Cursor API key: `grok_…`, or `crsr_…` for older keys."
           }
         }
       },
@@ -6561,6 +6886,22 @@
           }
         }
       },
+      "ScheduledSeatPlan": {
+        "type": "object",
+        "description": "A seat's future plan in the subscription's currently attached schedule.",
+        "required": ["plan", "effectiveAt"],
+        "properties": {
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Provider-confirmed time when the future phase starts."
+          },
+          "plan": {
+            "$ref": "#/components/schemas/SeatPlan",
+            "description": "Plan that takes effect at renewal."
+          }
+        }
+      },
       "SeatPlan": {
         "type": "string",
         "description": "The paid plan a seat is billed at. Every member of a paying team has one;\na team may mix them, and its Stripe subscription carries one seat item per\nplan in use.",
@@ -6597,6 +6938,53 @@
           }
         }
       },
+      "SetGithubPullRequestDraftRequest": {
+        "type": "object",
+        "description": "A request to mark one pull request as a draft, or as ready for review, on\nthe user's behalf.",
+        "required": ["owner", "repo", "number", "draft"],
+        "properties": {
+          "draft": {
+            "type": "boolean",
+            "description": "`true` converts the pull request to a draft; `false` marks it ready for review."
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The GitHub pull request number.",
+            "minimum": 0
+          },
+          "owner": {
+            "type": "string",
+            "description": "The GitHub repository owner or organization."
+          },
+          "repo": {
+            "type": "string",
+            "description": "The GitHub repository name."
+          }
+        }
+      },
+      "SetGithubPullRequestDraftResponse": {
+        "type": "object",
+        "description": "Response body for a pull request whose draft state changed.",
+        "required": ["draft"],
+        "properties": {
+          "draft": {
+            "type": "boolean",
+            "description": "Whether the pull request is now a draft."
+          },
+          "pullRequest": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EnrichedGithubPullRequest",
+                "description": "The pull request as GitHub reports it after the change, when the\nrefresh succeeded."
+              }
+            ]
+          }
+        }
+      },
       "SsoRequiredResponse": {
         "type": "object",
         "required": ["idp_id"],
@@ -6615,6 +7003,28 @@
           "url": {
             "type": "string",
             "description": "The URL to redirect the user to"
+          }
+        }
+      },
+      "SubscriptionStatus": {
+        "type": "object",
+        "description": "Current renewal and scheduled change; empty for accounts without a subscription.",
+        "properties": {
+          "renewalDate": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Provider-confirmed subscription renewal date."
+          },
+          "scheduledChange": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ScheduledSeatPlan",
+                "description": "Future downgrade for the caller's seat, if still pending."
+              }
+            ]
           }
         }
       },
@@ -6780,6 +7190,16 @@
             },
             "description": "The members of the team"
           },
+          "scheduled_seat_plans": {
+            "type": ["object", "null"],
+            "description": "Provider-confirmed pending seat changes, keyed by member user ID.\nEmpty when no changes apply to this viewer; absent when the lookup fails.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScheduledSeatPlan"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
           "team": {
             "$ref": "#/components/schemas/Team",
             "description": "The team"
@@ -6864,6 +7284,7 @@
           "used_cents",
           "credits_consumed_cents",
           "credit_balance_cents",
+          "credits_shared_with_team",
           "overage_enabled",
           "overage_limit_cents",
           "overage_charged_cents",
@@ -6901,6 +7322,10 @@
             "type": "integer",
             "format": "int64",
             "description": "Shared payer credits already applied to this period, in customer cents."
+          },
+          "credits_shared_with_team": {
+            "type": "boolean",
+            "description": "Whether prepaid credits belong to the team, including a team with one seat."
           },
           "included_cents": {
             "type": "integer",

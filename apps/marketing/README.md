@@ -5,6 +5,12 @@ It shares the repository with the authenticated application, but has its own
 package manifest, Vite entry points, TypeScript aliases, styles, assets, and UI
 components. Application UI changes must not alter the website.
 
+The public site, product pages, blog, sample workspace, and signup introduction
+follow the visitor's system color scheme. `?theme=cream` and `?theme=dark` pin a
+palette. `features/setup/cream-preview.css` owns the light palette; the shared
+router applies it across navigation, and each HTML entry applies it before
+first paint. Check both palettes when changing a shared demo or surface.
+
 ## Ownership and dependency boundary
 
 - `src/features/marketing/`: homepage, feature demonstrations, navigation, and
@@ -134,6 +140,14 @@ repository's `just check` and verify user-visible behavior in a browser.
 
 ## SEO and deployment
 
+`/delete-account` is a public, prerendered account-deletion help page linked from
+the footer. It offers an email request path without requiring sign-in or an app
+installation, plus instructions for the in-app deletion flow. Keep its data and
+retention descriptions aligned with the deletion services and the Privacy Policy.
+The seven-day cleanup window is a target after verification, not a guarantee;
+shared-content and legal/backup retention exceptions are described separately.
+Verify the email link, direct navigation, and readability on desktop and mobile.
+
 See [the migration audit and cutover checklist](seo/MIGRATION.md). The committed
 `seo/migration-baseline.json` records the indexable URLs and schema types on
 macro.com. Keep the baseline when adding pages; do not remove a URL from it to
@@ -198,14 +212,14 @@ Retain FAQ class markers so prerendering emits matching FAQPage structured data.
 page. It is prerendered, `noindex`, out of the sitemap, and not linked from the
 navigation. It has four parts, top to bottom: the homepage hero markup
 (`WelcomeStep` with `ContextScene`), the expanded `FeatureConstellation`, a
-savings calculator, and an inline cal.com booker for the Macro demo call.
+savings calculator, and a closing "Pick a time" button.
 
 `core/sales-savings.ts` reduces the pricing calculator to one plan tier for all
 tools and reads prices from `core/savings-calculator.ts`; update prices there,
-not on the page. "Book a demo" buttons scroll to the booker, which loads
-`embed.js` only as the visitor approaches it and appends Meta attribution to
-the booking. Verify at phone width: no horizontal scroll, calculator steppers
-and toggles, and that the booker loads.
+not on the page. "Book a demo" and "Pick a time" are demo links: they open the
+Macro team booking link in `DemoBookingDialog`, which reports a booking made
+there to Meta. Verify at phone width: no horizontal scroll, calculator steppers
+and toggles, and that the dialog opens.
 
 ## Blog presentation
 

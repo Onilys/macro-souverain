@@ -17,7 +17,8 @@ use crate::{
     service::{self, s3::S3},
 };
 use agent_session_realtime::{
-    domain::service::AgentSessionLogConsumerService, outbound::log_topic_consumer::LogTopicConsumer,
+    domain::service::AgentSessionLogConsumerService,
+    outbound::redis_stream::consumer::RedisLogStreamConsumer,
 };
 use analytics_client::{AnalyticsClient, AnalyticsClientConfig, MetaConfig};
 use anyhow::Context;
@@ -284,7 +285,8 @@ pub async fn run() -> anyhow::Result<()> {
     let sqs_client = sqs_client::SQS::new(aws_sdk_sqs::Client::new(&aws_config))
         .search_event_queue(&search_event_queue)
         .document_delete_queue(&document_delete_queue)
-        .gmail_ops_queue(&gmail_ops_queue);
+        .gmail_ops_queue(&gmail_ops_queue)
+        .email_scheduled_queue(&macro_queues::EmailScheduledQueue::new());
     let webhook_event_queue = webhook::outbound::SqsWebhookQueue::new(
         Arc::new(sqs_client.clone()),
         macro_queues::WebhookEventQueue::new().to_string(),
@@ -397,8 +399,21 @@ pub async fn run() -> anyhow::Result<()> {
         entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
             entity_access_management::outbound::PgRepository::new(db.clone()),
         ),
-        0,
+        config.sent_undo_delay_secs,
     )
+    .with_sender_provider(email::outbound::GmailSenderProvider::new(
+        gmail_client::GmailClient::without_watch(),
+        email::outbound::GmailTokenProviderImpl::lazy(
+            redis_client.clone(),
+            Arc::new(authentication_service_client::AuthServiceClient::new(
+                config
+                    .authentication_service_secret_key
+                    .as_ref()
+                    .to_string(),
+                macro_service_urls::AuthServiceUrl::new()?.to_string(),
+            )),
+        ),
+    ))
     .with_macro_event_broker(macro_event_broker.clone());
     let readonly_email_service = ReadonlyEmailPreviewAdapter(
         EmailServiceImpl::new(
@@ -1493,6 +1508,12 @@ pub async fn run() -> anyhow::Result<()> {
         ),
     ));
 
+    let database_webhooks_service = Arc::new(database_webhooks::wiring::build_service(
+        db.clone(),
+        databases_service.clone(),
+        entity_access_service.clone(),
+    ));
+
     let forms_service = Arc::new(forms::wiring::build_service(
         db.clone(),
         databases_service.clone(),
@@ -1505,9 +1526,10 @@ pub async fn run() -> anyhow::Result<()> {
     ));
 
     // Individual initiative and agent-session reads preserve read-after-write
-    // consistency when a newly created entity opens immediately. Lists retain
-    // the replica reader. Reuse Soup hydration so detail and mutation metadata
-    // include viewer history.
+    // consistency when a newly created entity opens immediately, as does
+    // realtime patch hydration, which runs right after the write it announces.
+    // Lists retain the replica reader. Reuse Soup hydration so detail and
+    // mutation metadata include viewer history.
     let primary_entity_soup = Arc::new(
         SoupImpl::new(
             PgSoupRepo::new(readonly_pool::ReadOnlyPool(db.clone())),
@@ -1533,9 +1555,9 @@ pub async fn run() -> anyhow::Result<()> {
     let favorites_service = Arc::new(FavoritesServiceImpl::new(PgFavoritesRepo::new(db.clone())));
 
     // Keep the replica-backed Soup reader alongside the primary-backed email
-    // writer in SoupRouterState. REST, GraphQL lists, and realtime hydration
-    // share this reader; only email mutations and their reply loader use the
-    // writer service, so normal list traffic never switches to the primary.
+    // writer in SoupRouterState. REST and GraphQL lists share this reader;
+    // only email mutations and their reply loader use the writer service, so
+    // normal list traffic never switches to the primary.
     let soup_service = Arc::new(
         SoupImpl::new(
             PgSoupRepo::new(readonly_pool::ReadOnlyPool(readonly_db.clone())),
@@ -1673,10 +1695,14 @@ pub async fn run() -> anyhow::Result<()> {
         }
     });
 
+    // Reads the harness' agent session log stream through a consumer group of
+    // this process' own, and fans each run out to GraphQL log subscribers.
     let agent_session_log_realtime = Arc::new(AgentSessionLogConsumerService::new(
-        LogTopicConsumer::from_env(config.kafka_brokers.as_ref()).map_err(|error| {
-            anyhow::anyhow!("failed to create agent session log topic consumer: {error:?}")
-        })?,
+        RedisLogStreamConsumer::connect(redis_client.clone())
+            .await
+            .map_err(|error| {
+                anyhow::anyhow!("failed to create agent session log stream consumer: {error:?}")
+            })?,
     ));
     consumer_tracker.spawn({
         let service = Arc::clone(&agent_session_log_realtime);
@@ -1706,6 +1732,13 @@ pub async fn run() -> anyhow::Result<()> {
                     _ = tokio::time::sleep(Duration::from_secs(1)) => {}
                 }
             }
+            // Nothing reads this process' group once it stops.
+            let _ = service.consumer().close().await.inspect_err(|error| {
+                tracing::warn!(
+                    error = ?error,
+                    "failed to close the agent session log stream consumer group"
+                );
+            });
         }
     });
 
@@ -2022,8 +2055,19 @@ pub async fn run() -> anyhow::Result<()> {
             ),
         ),
         graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader(
-            graphql_soup::soup_item_loader(primary_entity_soup, Arc::new(email_service.clone())),
+            graphql_soup::soup_item_loader(
+                primary_entity_soup.clone(),
+                Arc::new(email_service.clone()),
+            ),
         ),
+        graphql_soup_update_hydration_loader: graphql_soup::SoupUpdateHydrationLoader(
+            graphql_soup::soup_item_loader_with_team_access(
+                primary_entity_soup,
+                Arc::new(email_service.clone()),
+                entity_access_service.as_ref().clone(),
+            ),
+        ),
+        graphql_crm_context: graphql_crm::CrmGraphqlContext::new(pipeline_service.clone()),
         graphql_initiative_context: graphql_initiative::InitiativeGraphqlContext::new(
             initiative_service.clone(),
             entity_access_service.clone(),
@@ -2043,6 +2087,12 @@ pub async fn run() -> anyhow::Result<()> {
             entity_access_service.clone(),
             authorization_state.clone(),
         ),
+        database_webhooks_state:
+            database_webhooks::inbound::axum_router::DatabaseWebhooksRouterState::new(
+                database_webhooks_service,
+                entity_access_service.clone(),
+                authorization_state.clone(),
+            ),
         forms_state: forms::inbound::axum_router::FormsRouterState::new(
             forms_service,
             entity_access_service.clone(),

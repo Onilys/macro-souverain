@@ -61,7 +61,10 @@ query SoupSharedMailBackfill($input: SoupInput!) {
 query MailAccounts {
 	user {
 		id
-		emailLinks { ...MailAccountFields }
+		emailLinks {
+			...MailAccountFields
+			sendAs { emailAddress displayName }
+		}
 	}
 }
 
@@ -213,8 +216,8 @@ fragment SoupItemPreviewFields on GraphqlSoupEntity {
 		createdAt
 		updatedAt
 		viewedAt
-		participants {
-			id
+		participants: senders {
+			contactId
 			linkId
 			name
 			email
