@@ -17,7 +17,7 @@ const choices: {
     value: 'busy_only',
     title: 'Busy blocks',
     description:
-      'Share time blocks from all synced calendars without event details. Calendars you follow are distinguished from your own availability. This is the default.',
+      'Share time blocks from all synced calendars without event details. Out-of-office time on your primary calendar shows as "Out of office". Calendars you follow are distinguished from your own availability. This is the default.',
   },
   {
     value: 'all',

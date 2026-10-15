@@ -202,7 +202,7 @@ describe('Android signing provisioning', () => {
         throw new Error('secret-password');
       });
       await expect(ensureAndroidSigning(directory, properties)).rejects.toThrow(
-        'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/ANDROID_DEVELOPMENT.md.'
+        'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/development/android.md.'
       );
       await expect(stat(directory)).rejects.toMatchObject({ code: 'ENOENT' });
       await expect(stat(properties)).rejects.toMatchObject({ code: 'ENOENT' });

@@ -42,6 +42,8 @@ export type CrmContext = {
   PipelineEntries: PipelineEntriesView;
   PipelineSharing: PipelineSharing;
   downloadCsv(content: string, filename: string): Promise<{ saved: boolean }>;
+  /** Profile picture lookup for a contact; presentation owns the fallback. */
+  createContactPhoto?(email: string): Accessor<string | undefined>;
   contactInitials(name: string | null | undefined, email: string): string;
   userEmail(id: string): string;
   copyViewLink(config: import('../core/saved-view').CrmViewConfig): void;

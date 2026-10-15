@@ -40,7 +40,7 @@ pub enum SpreadsheetVerticalAlign {
     Bottom,
 }
 
-/// Number interpretation and display; currency is USD and dates use UTC.
+/// Number interpretation and display; currency and accounting are USD and dates use UTC.
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SpreadsheetNumberFormat {
@@ -50,6 +50,8 @@ pub enum SpreadsheetNumberFormat {
     Number,
     /// Currency.
     Currency,
+    /// Accounting: $ at the cell's left edge, negatives in parentheses, zero as a dash.
+    Accounting,
     /// Percent.
     Percent,
     /// Date.

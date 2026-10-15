@@ -20,7 +20,11 @@ import type { WithNotification } from '../../types/notification';
 import type { ContentHitData, SearchLocation } from '../../types/search';
 import { isSearchEntity } from '../../types/search';
 
-export interface BaseListEntityProps<E extends EntityData = EntityData> {
+export interface BaseListEntityProps<E extends EntityData = EntityData>
+  extends Pick<
+    JSX.HTMLAttributes<HTMLDivElement>,
+    'role' | 'tabIndex' | 'onKeyDown'
+  > {
   entity: WithNotification<E>;
   onClick?: (event: MouseEvent) => void;
   timestamp?: DateValue | null;
@@ -34,6 +38,10 @@ export interface BaseListEntityProps<E extends EntityData = EntityData> {
   leadingAction?: JSX.Element;
   /** Caller-owned marker between the icon and the title, e.g. a priority. */
   titleLeading?: JSX.Element;
+  /** Caller-owned leading visual inside the standard Soup icon slot. */
+  icon?: JSX.Element;
+  /** Supporting text after the title in the standard content slot. */
+  titleTrailing?: JSX.Element;
   /** Caller-owned metadata ahead of the entity's own, in wide rows only. */
   meta?: JSX.Element;
   hideContentHits?: boolean;
@@ -71,6 +79,10 @@ export interface LayoutProps {
   actions?: JSX.Element;
   leadingAction?: JSX.Element;
   titleLeading?: JSX.Element;
+  /** Caller-owned leading visual inside the standard Soup icon slot. */
+  icon?: JSX.Element;
+  /** Supporting text after the title in the standard content slot. */
+  titleTrailing?: JSX.Element;
   meta?: JSX.Element;
   checked?: boolean;
   authorDisplayName?: string;

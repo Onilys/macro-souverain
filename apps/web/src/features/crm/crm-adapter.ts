@@ -8,7 +8,8 @@ import {
   enableCrmPipelines,
 } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
-import { getInitialsFromName } from '@core/user';
+import { useProfilePictureUrl } from '@core/signal/profilePicture';
+import { emailToMacroId, getInitialsFromName } from '@core/user';
 import { idToEmail } from '@core/user/util';
 import { queryReadyGate } from '@queries/gate';
 import { useListPropertiesQuery } from '@queries/properties/definitions';
@@ -175,6 +176,8 @@ export function createAppCrmContext(): CrmContext {
     PipelineSharing: PipelineShare,
     feedback: toast,
     downloadCsv: downloadCrmCsv,
+    createContactPhoto: (email) =>
+      useProfilePictureUrl(emailToMacroId(email))[0],
     contactInitials: getInitialsFromName,
     userEmail: idToEmail,
     createNavigation: createAppCrmNavigation,

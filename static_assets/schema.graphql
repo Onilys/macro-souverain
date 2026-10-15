@@ -7674,13 +7674,46 @@ type GraphqlSoupEmailMessageLabel {
 }
 
 """
-GraphQL representation of the soup email participant.
+Legacy contact-keyed participant, retained for older clients during rollout.
 """
 type GraphqlSoupEmailParticipant {
 	"""
-	The unique identifier.
+	The referenced address-book contact's identifier.
 	"""
 	id: ID!
+	"""
+	The referenced address-book contact's identifier.
+	"""
+	contactId: ID!
+	"""
+	The identifier of the link.
+	"""
+	linkId: ID!
+	"""
+	The name.
+	"""
+	name: String
+	"""
+	The email.
+	"""
+	email: String
+	"""
+	The sfs photo url.
+	"""
+	sfsPhotoUrl: String
+}
+
+"""
+A thread-local sender with the display name from their message.
+
+This is an embedded value: different messages from one contact can carry
+different names, so the contact ID must not normalize them into one record.
+"""
+type GraphqlSoupEmailSender {
+	"""
+	The referenced address-book contact's identifier.
+	"""
+	contactId: ID!
 	"""
 	The identifier of the link.
 	"""
@@ -7802,9 +7835,13 @@ type GraphqlSoupEmailThread implements GraphqlSoupEntity {
 	"""
 	participantCount: Int!
 	"""
-	The participants.
+	Legacy contact-keyed participants. Use senders for message-specific names.
 	"""
-	participants: [GraphqlSoupEmailParticipant!]!
+	participants: [GraphqlSoupEmailParticipant!]! @deprecated(reason: "Use senders to preserve message-specific display names.")
+	"""
+	Senders with message-specific display names, embedded in this thread.
+	"""
+	senders: [GraphqlSoupEmailSender!]!
 	"""
 	The attachments.
 	"""
@@ -9734,6 +9771,10 @@ enum WorkFeedStackKind {
 	EVENT
 }
 
+"""
+Marks an element of a GraphQL schema as no longer supported.
+"""
+directive @deprecated(reason: String = "No longer supported") on FIELD_DEFINITION | ARGUMENT_DEFINITION | INPUT_FIELD_DEFINITION | ENUM_VALUE
 """
 Directs the executor to include this field or fragment only when the `if` argument is true.
 """

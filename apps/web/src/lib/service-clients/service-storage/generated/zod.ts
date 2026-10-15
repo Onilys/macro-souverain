@@ -1707,7 +1707,7 @@ export const listTeamOutOfOfficeResponse = zod
             .string()
             .nullish()
             .describe(
-              "Event title, absent when the event's visibility withholds details."
+              'Event title, absent unless the teammate shares event details.'
             ),
         })
         .describe("One teammate's out-of-office occurrence.")

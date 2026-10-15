@@ -26,7 +26,7 @@ Saves are debounced and serialized; failures keep edits dirty. Save state is not
 shown in the canvas UI.
 
 SyncService integration and collaboration remain a follow-up. This change keeps
-the existing whole-file save behavior. See [Graphics and Canvas parity](../../../../../docs/GRAPHICS_PARITY.md)
+the existing whole-file save behavior. See [Graphics and Canvas parity](../../../../../docs/design/graphics-parity.md)
 for the remaining editor and collaboration work.
 
 ## Controls

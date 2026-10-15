@@ -102,7 +102,7 @@ be added later, but they are separate from the first release's scope.
 Use a named local stack and a fresh messaging-only database. Do not reset an
 existing database or apply this release over an earlier mixed-scope development
 migration. Retain any existing source/data snapshots independently of the release.
-See [running locally](RUNNING_LOCALLY.md) for stack setup and port allocation.
+See [running locally](development/running-locally.md) for stack setup and port allocation.
 
 ## Meta setup dependencies
 
@@ -345,7 +345,7 @@ under Macro’s existing rules.
 
 Use the repository Nix shell and an isolated database. Set `DATABASE_URL` inside
 the shell to a new disposable database; do not reuse a demo or shared database.
-See [database development](DATABASE_DEVELOPMENT.md) for provisioning and SQLx rules.
+See [database development](development/database.md) for provisioning and SQLx rules.
 
 ```sh
 : "${DATABASE_URL:?Set DATABASE_URL to an isolated test database}"
@@ -370,7 +370,7 @@ for provider receive/reply/media and access checks on the deployed revision.
 
 ## Running locally
 
-Create or reuse an isolated named stack using [Running locally](RUNNING_LOCALLY.md).
+Create or reuse an isolated named stack using [Running locally](development/running-locally.md).
 Use that stack’s generated ports, database URLs, container names and environment
 file; preserve any existing demo stack and data.
 

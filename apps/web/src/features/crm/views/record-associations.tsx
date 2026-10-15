@@ -1,3 +1,4 @@
+import { createSignal } from 'solid-js';
 import { RecordSection } from '../components/record-section';
 import { useCrmContext } from '../context/crm-context';
 import type { CrmRecordScope } from '../core/record';
@@ -8,11 +9,13 @@ import { RecordItemList } from './record-item-list';
  * plus attachments of emails exchanged with its people.
  */
 export function RecordFilesSection(props: { scope?: CrmRecordScope }) {
+  const [search, setSearch] = createSignal('');
   const files = useCrmContext().createRecordFiles(() => props.scope);
   return (
-    <RecordSection title="Files">
+    <RecordSection title="Files" search={search()} onSearchChange={setSearch}>
       <RecordItemList
         source={files}
+        search={search()}
         pending={!props.scope}
         empty={`No files with this ${props.scope?.type ?? 'record'} yet.`}
       />
@@ -25,11 +28,13 @@ export function RecordFilesSection(props: { scope?: CrmRecordScope }) {
  * its contacts when the call ended, or referencing it in the call thread.
  */
 export function RecordCallsSection(props: { scope?: CrmRecordScope }) {
+  const [search, setSearch] = createSignal('');
   const calls = useCrmContext().createRecordCalls(() => props.scope);
   return (
-    <RecordSection title="Calls">
+    <RecordSection title="Calls" search={search()} onSearchChange={setSearch}>
       <RecordItemList
         source={calls}
+        search={search()}
         pending={!props.scope}
         empty={`No calls with this ${props.scope?.type ?? 'record'} yet.`}
       />

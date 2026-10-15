@@ -5,10 +5,19 @@ import {
   type NarrowLayoutVariant,
 } from '@entity';
 import { Button } from '@ui';
-import { createSignal, For, type JSX, Match, Show, Switch } from 'solid-js';
+import {
+  createMemo,
+  createSignal,
+  For,
+  type JSX,
+  Match,
+  Show,
+  Switch,
+} from 'solid-js';
 import { useInfiniteScrollSentinel } from '../../../lib/primitives/infinite-scroll-sentinel';
 import { useCrmContext } from '../context/crm-context';
 import type { ItemListSource } from '../context/crm-sources';
+import { recordItemMatchesSearch } from '../core/record-search';
 
 /**
  * One of a CRM record's soup lists (emails, files, calls or references):
@@ -20,6 +29,7 @@ export function RecordItemList(props: {
   /** Hold the loading state, e.g. while the record itself loads. */
   pending?: boolean;
   empty: JSX.Element;
+  search?: string;
   /** Row layout when the list is narrow, e.g. in the information panel. */
   narrowLayout?: NarrowLayoutVariant;
 }) {
@@ -27,6 +37,9 @@ export function RecordItemList(props: {
   // Reading `data` before the first page resolves would suspend the tab.
   const items = () =>
     props.source.isPending ? [] : (props.source.data?.entities ?? []);
+  const filteredItems = createMemo(() =>
+    items().filter((item) => recordItemMatchesSearch(item, props.search ?? ''))
+  );
   const [listRef, setListRef] = createSignal<HTMLElement>();
   const [sentinelRef, setSentinelRef] = createSignal<HTMLDivElement>();
 
@@ -63,7 +76,15 @@ export function RecordItemList(props: {
         <ListEntityMetadataQueryProvider>
           <ListLayoutProvider ref={listRef} narrowLayout={props.narrowLayout}>
             <div ref={setListRef} class="flex flex-col">
-              <For each={items()}>
+              <Show when={filteredItems().length === 0}>
+                <div class="p-6 text-center text-sm text-ink-muted">
+                  {props.source.hasNextPage &&
+                  !props.source.isFetchNextPageError
+                    ? 'Searching more…'
+                    : 'No matching items.'}
+                </div>
+              </Show>
+              <For each={filteredItems()}>
                 {(entity) => (
                   <ListEntity
                     entity={entity}

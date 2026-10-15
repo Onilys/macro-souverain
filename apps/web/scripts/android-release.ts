@@ -154,7 +154,7 @@ function fetchSigning() {
     );
   } catch {
     throw new Error(
-      'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/ANDROID_DEVELOPMENT.md.'
+      'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/development/android.md.'
     );
   }
 }
@@ -167,7 +167,7 @@ export async function ensureAndroidSigning(
   if (existsSync(propertiesPath)) return;
   if (lstatSync(propertiesPath, { throwIfNoEntry: false })) {
     throw new Error(
-      'Android keystore.properties is a broken symlink. Restore its signing files; see docs/ANDROID_DEVELOPMENT.md.'
+      'Android keystore.properties is a broken symlink. Restore its signing files; see docs/development/android.md.'
     );
   }
 
@@ -178,7 +178,7 @@ export async function ensureAndroidSigning(
       !existsSync(join(directory, 'upload-keystore.jks'))
     ) {
       throw new Error(
-        `Android signing directory ${directory} is incomplete. Restore its signing files or provision signing manually; see docs/ANDROID_DEVELOPMENT.md.`
+        `Android signing directory ${directory} is incomplete. Restore its signing files or provision signing manually; see docs/development/android.md.`
       );
     }
     await symlink(resolve(properties), propertiesPath);

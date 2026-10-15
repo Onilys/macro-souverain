@@ -14022,7 +14022,7 @@ export type TeamOutOfOfficeItem = {
      */
     time: EventTime;
     /**
-     * Event title, absent when the event's visibility withholds details.
+     * Event title, absent unless the teammate shares event details.
      */
     title?: string | null;
 };
