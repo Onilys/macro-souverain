@@ -5,7 +5,7 @@ language: typescript
 severity: warning
 message: Supply app capabilities through feature-owned contracts; construct production adapters at the feature root.
 note: |-
-  Rule FE-33 in docs/STYLE_GUIDE.md. Inside a layered feature, `queries/`,
+  Rule FE-33 in docs/development/style-guide.md. Inside a layered feature, `queries/`,
   `primitives/`, `components/`, and `views/` never import the app's singletons
   or context hooks (GraphQL soup client, user context, display names,
   entity display, openDocument, PostHog). Those arrive through the
@@ -15,6 +15,13 @@ note: |-
   `files` in each ts-/tsx-feature-* rule. Block-agent uses `ui/` for
   presentation and `component/` for composition.
 files:
+  - apps/web/src/features/billing-lab/context/**
+  - apps/web/src/features/billing-lab/queries/**
+  - apps/web/src/features/billing-lab/primitives/**
+  - apps/web/src/features/billing-lab/components/**
+  - apps/web/src/features/billing-lab/views/**
+  - apps/web/src/features/settings/context/billing-context.ts
+  - apps/web/src/features/settings/views/billing-settings*
   - apps/web/src/features/calendar-team/queries/**
   - apps/web/src/features/calendar-team/primitives/**
   - apps/web/src/features/calendar-team/components/**

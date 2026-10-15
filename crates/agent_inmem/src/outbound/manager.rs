@@ -20,8 +20,8 @@ use model_owner::Owner;
 use crate::domain::agent::{AgentState, serve};
 use crate::domain::engine::{AgentIdentity, TurnEngine};
 use crate::domain::mcp::DynMcpToolConnector;
-use crate::domain::replay::{FrameSource, replay_history, replay_reasoning_effort};
-use crate::domain::session::{SessionState, SessionStore};
+use crate::domain::replay::{FrameSource, replay_history, replay_reasoning_effort, replay_speed};
+use crate::domain::session::{SessionState, SessionStore, Summarizing};
 
 #[cfg(test)]
 mod test;
@@ -77,9 +77,7 @@ pub struct InMemAgentManager {
     live: DashMap<AgentSessionId, LiveAgent>,
     /// Each live session's egress token. An in-process session has no
     /// container environment to read it back from, so the manager is the
-    /// one place it survives spawn; a resume after a restart finds nothing
-    /// here and advertises no servers, exactly like a sandbox whose
-    /// container is gone.
+    /// one place it survives spawn or resume.
     tokens: DashMap<AgentSessionId, String>,
 }
 
@@ -137,8 +135,9 @@ impl InMemAgentManager {
     /// resume after a restart) gets its conversation rebuilt from the durable
     /// frame log first.
     ///
-    /// `session_token` is the egress token minted at spawn; a resume passes
-    /// `None` and keeps whatever spawn stored.
+    /// `session_token` is the egress token minted for this attach; `None`
+    /// keeps the stored one. A token it replaces is no longer accepted, so
+    /// the MCP sessions opened with it are released.
     #[must_use]
     pub async fn attach(
         &self,
@@ -147,8 +146,11 @@ impl InMemAgentManager {
     ) -> ServerChannel {
         // A replaced agent must die before its successor serves the session.
         self.live.remove(&facts.id);
-        if let Some(token) = session_token {
-            self.tokens.insert(facts.id, token);
+        if let Some(token) = session_token
+            && let Some(replaced) = self.tokens.insert(facts.id, token.clone())
+            && replaced != token
+        {
+            self.mcp.release_dyn(&replaced);
         }
         if !self.store.contains_key(&facts.id) {
             // Loaded before taking the entry so the read never blocks the
@@ -161,14 +163,22 @@ impl InMemAgentManager {
                 } else {
                     agent::ReasoningEffort::default()
                 };
+            let restored_speed = replay_speed(&frames);
+            let speed = if restored_speed.supported(&facts.model) {
+                restored_speed
+            } else {
+                agent::ModelSpeed::Standard
+            };
             let history = replay_history(frames);
             self.store.entry(facts.id).or_insert_with(|| SessionState {
                 acp_session_id: facts.acp_session_id.clone(),
                 model: facts.model.clone(),
                 reasoning_effort,
+                speed,
                 identity: facts.identity.clone(),
                 instructions: facts.instructions.clone(),
                 history,
+                summarizing: Summarizing::default(),
             });
         }
 

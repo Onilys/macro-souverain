@@ -35,7 +35,7 @@ nix develop --command just run_local --instance <name>
 - `--instance <name>` gives an isolated Compose project, volumes, and a deterministic per-name port window, so it never clashes with another worktree's stack. `just status_local --instance <name>` prints the endpoints without starting anything; `just stop_local --instance <name>` stops it (volumes kept) and `just destroy_local --instance <name>` removes it.
 - First bring-up is slow (zigbuild of every service plus the agent-harness sandbox image); later runs reuse the caches. While attached, press `r` to rebuild changed Rust services in place and `q` to stop cleanly.
 - No accounts are pre-created: passwordless login registers any email on demand, and the one-time code lands in the instance's Mailpit (endpoint in `just status_local`). `just seed-scenario apply --file seed/scenarios/team-perms.json` seeds multi-user team fixtures with printed login links.
-- Full details, Doppler vs no-Doppler modes, and port-conflict debugging: `docs/RUNNING_LOCALLY.md`.
+- Full details, Doppler vs no-Doppler modes, and port-conflict debugging: `docs/development/running-locally.md`.
 - First run in a fresh worktree spends a few minutes on `just ensure-cache-wasm` / `just ensure-agent-fold-wasm` before Vite serves.
 - That tab is pointed at **real dev data**. Treat creates, edits, and deletes as real, and discard drafts you open.
 
@@ -66,83 +66,17 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 - All API/network calls live in service-clients.
 - Shared server-state queries and mutations live in `src/lib/queries`; keep
   feature-specific query orchestration with its owning feature.
-- When adding or changing a feature flag, follow the `define-feature-flag` skill.
+- Reactive GraphQL reads use `createLiveQuery` for a document and
+  `useSoupAstItemsQuery` (backed by `createSoupLiveQuery`) for Soup lists; see
+  [choosing a reactive read](docs/graphql-normalized-cache-plan.md#choosing-a-reactive-read).
+- When adding or changing a feature flag, follow the `feature-flags` skill.
 - When adding or changing a view's feature tour, follow the `add-tour` skill.
 
-### Startup bundle
-- Everything statically reachable from `src/index.tsx` downloads and runs before the first screen. Views, block components, and modals load through `lazy()` / `lazyNamed` (`@core/util/lazyNamed`) inside a `<Suspense>`; never statically import one into a shared hub (`Root`, `Layout`, `componentRegistry`, `app-router-view`, block `definition.ts`, Lexical `init.ts`).
-- `index.html` draws a boot shell (rail, view sidebar, Home's composer) before any JS runs, from the saved theme and the `rememberBootShell` layout hint; `Root` hands off once auth is known. Keep its geometry in step with `SidebarRail`, `ViewSidebar`, and `HomeChatStart`.
-- Production web builds register `public/sw.js`: it serves the cached `index.html` and content-hashed assets from Cache Storage and moves tabs to newer builds. Set localStorage `macro:sw` to `off` to bypass it while debugging.
-- The build fails if any emitted file exceeds CloudFront's 10 MB compression limit; split it rather than raising the limit.
+## Rules
 
-### Query callback lifetimes
-
-Query options can remain cached after their UI unmounts, including for disabled
-queries. Callbacks created inside hooks can retain component accessors, Solid
-owners, and detached DOM through shared closure environments—even when a callback
-only references a locally resolved ID. This does not mean every closure captures
-every local variable.
-
-- Create cached callbacks in module-scope query factories accepting resolved IDs,
-  flags, and plain data. Resolve reactive inputs inside the `useQuery` /
-  `useInfiniteQuery` options accessor, e.g. `useQuery(() => itemQueryOptions(id()))`,
-  so inputs still update reactively.
-- Keep pure selectors and polling policies at module scope, or inside those
-  factories. Check **all** retained callbacks: `queryFn`, `select`,
-  `refetchInterval`, pagination, placeholder callbacks, and functions in `meta`.
-- Do not pass component accessors, props getters, or query proxies into the
-  factory. For reactive selection, pass plain snapshots of the needed values
-  (such as channel names or a resolved document ID). Naming a function or copying
-  an ID inside the hook does not isolate its closure from the hook.
-- Use `keepPreviousData` from `@tanstack/solid-query` instead of an inline
-  `placeholderData: (p) => p`.
-- The same rule applies to callers of wrapper hooks such as `useSoupAstItemsQuery`
-  and `createGroupedSoupQueries`: `meta.itemFilter` / `meta.insertFilter` passed
-  from a component or view context are cached too, so build them with a
-  module-scope factory over plain snapshots (see
-  [drive-data-source](src/features/drive-view/queries/drive-data-source.ts)).
-- Query hooks in `src/lib/urql-solid` are exempt: their observers are created per
-  mount and destroyed on cleanup, so nothing outlives the component.
-
-Examples: [session query factory](src/lib/queries/agent-session/session.ts) and
-[search query factories](src/lib/queries/soup/search.ts).
-
-### SolidJs
-- Avoid createEffect. Legitimate uses: syncing with external/imperative systems (DOM APIs, third-party libs). If you're using it to derive state or trigger updates, use a derived signal or wrap the setter instead.
-- Prefer wrapping the setter over `createEffect(() => { if (signal()) sideEffect() })`. When setting focus/selection should also clear another stop, blur a control, or scroll, put that work in the setter (or a named helper the setter calls) so the action is explicit at the call site — not a distant effect watching the signal.
-- Use createMemo only when you need referential stability or the derivation is expensive. Cheap derivations (() => a() + b()) don't need it regardless of subscriber count.
-- Before rolling your own reactive utility, check solid-primitives first.
-- Never read a solid-query `query.data` unguarded from a component body or an eager `createMemo`. `data` is a resource read: while the query is pending it suspends the caller's nearest `<Suspense>`, which detaches and re-attaches that whole subtree — a blank flash, lost scroll position, remounted editors. Gate the read on status (`query.isSuccess ? query.data : fallback`, or `queryReadyGate` from `src/lib/queries/gate.ts`); an `isLoading` check is not enough, because a disabled or paused query is pending without loading and its data read still suspends. Every other field is a plain store read and is safe. Remember `createMemo` runs immediately, so a guard inside a `<Show>`/`<Match>` further down does not save you. This has blanked the calendar grid twice — see `focusTarget` in `src/features/block-calendar/CalendarBlockAdapter.tsx` and `useSystemSkillsQuery`.
-
-## UI / Components
-- Prefer composition over configurability. Follow slot-based patterns (see src/features/channel, src/features/entity, or Kobalte).
-- Keep reusable components small, atomic, and decoupled from queries/complex state. Push data-fetching and mutations up to use-case-specific composed components.
-- Context should be scoped to a component subtree — Message.Content consuming a MessageContext is fine because the ownership boundary is clear.
-- Composed primitives must not depend on use-case-specific context — a RecipientsSelector should never require an EmailComposeContext.
-- New features and feature restructures use the layered layout in [docs/FRONTEND_FEATURE_ARCHITECTURE.md](../../docs/FRONTEND_FEATURE_ARCHITECTURE.md), summarized by FE-33 (`core / queries / primitives / components / views` plus an injected `context/`). Keep production wiring in an app-facing entry point and give reactive logic narrow feature-owned contracts. `src/features/activity` illustrates the layers but still has documented composition and contract migration gaps.
-
-### Porting shadcn-solid primitives
-- Use the upstream structure and behavior as a starting point, then reshape exports to match the local slot-based, compound-component API.
-- Replace upstream palette, surface, border, and status classes with the existing semantic tokens; inputs normally use `bg-input`, `border-edge-muted`, `text-ink`, and `text-ink-placeholder`.
-- Preserve Kobalte semantics, state attributes, and polymorphic prop types. Keep accessibility relationships inside the primitive instead of recreating them at call sites.
-- Add a co-located `*.docs.tsx` gallery page and focused `*.test.tsx` coverage for every ported component.
-- Keep `Input` a thin native control. Use `InputGroup` for icons, clear actions, inline Buttons, and shared ButtonGroup framing instead of adding composition props to `Input`.
-- In `InputGroup`, keep the input as the single control and place surrounding content in `Addon` slots. Use `align` for visual placement so accessible DOM order stays independent of layout.
-
-## Styling
-- Use semantic color tokens, not raw Tailwind color classes.
-- Do not add cursor-pointer to clickable elements.
-- Prefer styling in the component (Tailwind classes on the markup) so styling lives next to structure. Reserve `@utility` in `index.css` for styles that are widely shared across many components — not one-off or two-component layouts.
-
-## TS
-- For exhaustive switch statements use `match` from `ts-pattern`.
-
-### Misc
-- If you create a Lexical Node or make breaking changes to a Lexical Node, you must increment the lexical version counter (in src/lib/core/component/LexicalMarkdown/version.ts) along with a brief note about changes.
-- Do not add dependencies on the legacy block state system. Read it only at an
-  existing block-adapter boundary, then pass identity, permissions, state, and
-  lifecycle through feature context or explicit props; see FE-34 in
-  `docs/STYLE_GUIDE.md`.
+Conventions for this app live in `.agents/rules/web/` and load when you touch
+matching files: data fetching, Solid reactivity, architecture, UI, UI primitives,
+the startup bundle, and Lexical nodes.
 
 ### Good Reference
 - https://github.com/solidjs-community/solid-primitives

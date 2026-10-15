@@ -67,6 +67,7 @@ const style = z
         'general',
         'number',
         'currency',
+        'accounting',
         'percent',
         'date',
         'time',

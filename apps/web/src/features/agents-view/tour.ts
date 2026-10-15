@@ -9,8 +9,8 @@ export const AGENTS_TOUR = defineTourTargets('agents', [
   'rosterNav',
   'picker',
   'composer',
-  'agentsTab',
-  'runtimesTab',
+  'agentList',
+  'agentSetup',
 ]);
 
 const openRoster = {
@@ -39,21 +39,21 @@ export const agentsTour = defineViewTour({
         'Open this picker to choose an agent for the current mode. In Work, Macro’s models are listed here too; each agent’s submenu lets you choose a model for that conversation.',
     },
     {
-      target: AGENTS_TOUR.agentsTab,
+      target: AGENTS_TOUR.agentList,
       ...openRoster,
       title: 'Chat agents work with your context',
       description:
         'Chat agents use instructions and connected tools to research, write, and work with your documents and conversations. Your team and private agents live here.',
     },
     {
-      target: AGENTS_TOUR.runtimesTab,
+      target: AGENTS_TOUR.agentSetup,
       ...openRoster,
       title: 'Coding agents work on code',
       description:
-        'Coding agents run through a coding runtime, such as Cursor or a paired machine. Choose a coding agent when you need repository work rather than a regular chat.',
+        'Coding agents run in Cursor or on a machine you pair with macrod. Connect them here, then choose where each agent runs when you create it.',
     },
     {
-      target: AGENTS_TOUR.agentsTab,
+      target: AGENTS_TOUR.agentList,
       ...openRoster,
       title: 'Share agents with your team',
       description:

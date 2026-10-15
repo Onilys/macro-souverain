@@ -56,6 +56,7 @@ build_lambdas compiler="":
     ulimit -n 10240 && just services/deleted_item_poller/build {{compiler}}
     ulimit -n 10240 && just services/email_refresh_handler/build {{compiler}}
     ulimit -n 10240 && just services/user_link_cleanup_handler/build {{compiler}}
+    ulimit -n 10240 && just services/notification_retention_handler/build {{compiler}}
     ulimit -n 10240 && just services/email_scheduled_handler/build {{compiler}}
     ulimit -n 10240 && just services/email_sfs_delete_handler/build {{compiler}}
     ulimit -n 10240 && just services/image_optimizer/build {{compiler}}

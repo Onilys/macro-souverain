@@ -12,6 +12,9 @@ vi.mock('@queries/soup/search', () => ({
   validateSearchServiceText: (text: string) => text.length >= 3,
 }));
 vi.mock('@queries/soup/items', () => ({ useSoupAstItemsQuery: vi.fn() }));
+vi.mock('@queries/channel/detail', () => ({
+  createChannelDetailQuery: vi.fn(),
+}));
 vi.mock('@app/features/soup/search/context', () => ({
   useOptionalSearchContext: () => undefined,
 }));

@@ -1,6 +1,8 @@
 import type { UnifiedNotification } from '@notifications/types';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { createUnreadDestinationRegistry } from '../create-unread-destination-registry';
 import {
+  unreadDestinationPositions,
   unreadNotificationChip,
   unreadThreads,
 } from '../unread-thread-navigation';
@@ -34,8 +36,6 @@ const rows = [
 ];
 const order = { rows, unloaded: new Map() };
 const visible = { first: 'middle', last: 'middle' };
-/** Nothing inside the thread is mounted, so placement falls back to row order. */
-const unrendered = () => undefined;
 
 describe('channel unread notification navigation', () => {
   it('counts three replies and a mention of one reply as one thread', () => {
@@ -60,6 +60,7 @@ describe('channel unread notification navigation', () => {
       {
         threadId: 'old',
         messageId: 'third',
+        messageIds: ['third', 'second', 'first'],
         createdAt: '2026-09-01T14:00:00Z',
       },
     ]);
@@ -126,9 +127,7 @@ describe('channel unread notification navigation', () => {
       reply('a', 'new', 12),
       reply('b', 'old', 13),
     ]);
-    expect(
-      unreadNotificationChip(threads, order, visible, unrendered)
-    ).toMatchObject({
+    expect(unreadNotificationChip(threads, order, visible)).toMatchObject({
       count: 2,
       direction: 'above',
       thread: { messageId: 'b' },
@@ -139,51 +138,51 @@ describe('channel unread notification navigation', () => {
       reply('b', 'old', 13),
       reply('c', 'new', 14),
     ]);
-    expect(
-      unreadNotificationChip(live, order, visible, unrendered)
-    ).toMatchObject({
+    expect(unreadNotificationChip(live, order, visible)).toMatchObject({
       count: 2,
       direction: 'below',
       thread: { messageId: 'c' },
     });
   });
 
-  it('prefers the measured position of a rendered reply over its row', () => {
-    const threads = unreadThreads([reply('a', 'old')]);
+  it('uses measured reply position within a tall thread and hides for a visible message', () => {
+    const threads = unreadThreads([reply('a', 'middle')]);
     expect(
-      unreadNotificationChip(threads, order, visible, () => 'below')?.direction
+      unreadNotificationChip(threads, order, visible, new Map([['a', 'above']]))
+        ?.direction
+    ).toBe('above');
+    expect(
+      unreadNotificationChip(threads, order, visible, new Map([['a', 'below']]))
+        ?.direction
     ).toBe('below');
     expect(
-      unreadNotificationChip(threads, order, visible, () => 'above')?.direction
-    ).toBe('above');
+      unreadNotificationChip(
+        threads,
+        order,
+        visible,
+        new Map([['a', 'visible']])
+      )
+    ).toBeUndefined();
+    expect(unreadNotificationChip(threads, order, visible)).toBeUndefined();
   });
 
-  it('shows no chip for an unread thread the reader can already see', () => {
-    // The reader sits at the bottom of the channel with the thread on screen;
-    // a down arrow would point past the end of the conversation.
-    const onScreen = unreadThreads([reply('a', 'middle')]);
-    expect(
-      unreadNotificationChip(onScreen, order, visible, () => 'visible')
-    ).toBeUndefined();
-    // Row granularity agrees when nothing inside the row is rendered.
-    expect(
-      unreadNotificationChip(onScreen, order, visible, unrendered)
-    ).toBeUndefined();
-  });
-
-  it('skips a visible thread and points at the newest unread one off screen', () => {
+  it('counts unloaded offscreen threads without resolving every parent', () => {
     const threads = unreadThreads([
-      reply('a', 'old', 12),
-      reply('b', 'middle', 13),
+      reply('a', 'old', 14),
+      reply('b', 'unloaded', 12),
     ]);
-    expect(threads[0].threadId).toBe('middle');
-    expect(
-      unreadNotificationChip(threads, order, visible, unrendered)
-    ).toMatchObject({
+    expect(unreadNotificationChip(threads, order, visible)).toMatchObject({
       count: 2,
       direction: 'above',
       thread: { messageId: 'a' },
     });
+    expect(
+      unreadNotificationChip(
+        unreadThreads([reply('a', 'old', 12), reply('b', 'unloaded', 14)]),
+        order,
+        visible
+      )
+    ).toBeUndefined();
   });
 
   it('follows the rendered row order when a live insert arrives out of timestamp order', () => {
@@ -195,21 +194,15 @@ describe('channel unread notification navigation', () => {
     };
     const below = unreadThreads([reply('a', 'middle', 13)]);
     expect(
-      unreadNotificationChip(
-        below,
-        shuffled,
-        { first: 'new', last: 'new' },
-        unrendered
-      )?.direction
+      unreadNotificationChip(below, shuffled, { first: 'new', last: 'new' })
+        ?.direction
     ).toBe('below');
     const above = unreadThreads([reply('a', 'new', 13)]);
     expect(
-      unreadNotificationChip(
-        above,
-        shuffled,
-        { first: 'middle', last: 'middle' },
-        unrendered
-      )?.direction
+      unreadNotificationChip(above, shuffled, {
+        first: 'middle',
+        last: 'middle',
+      })?.direction
     ).toBe('above');
   });
 
@@ -224,32 +217,141 @@ describe('channel unread notification navigation', () => {
       unreadNotificationChip(
         unreadThreads([reply('a', 'older')]),
         window(older),
-        { first: 'new', last: 'new' },
-        unrendered
+        { first: 'new', last: 'new' }
       )?.direction
     ).toBe('above');
     expect(
       unreadNotificationChip(
         unreadThreads([reply('a', 'newer')]),
         window(newer),
-        { first: 'old', last: 'old' },
-        unrendered
+        { first: 'old', last: 'old' }
       )?.direction
     ).toBe('below');
   });
 
   it('waits for layout and an unloaded parent position instead of guessing from reply time', () => {
     const threads = unreadThreads([reply('a', 'old')]);
-    expect(
-      unreadNotificationChip(threads, order, undefined, unrendered)
-    ).toBeUndefined();
+    expect(unreadNotificationChip(threads, order, undefined)).toBeUndefined();
     expect(
       unreadNotificationChip(
         threads,
         { rows: [], unloaded: new Map() },
-        visible,
-        unrendered
+        visible
       )
     ).toBeUndefined();
+  });
+  it('hands off a visible collapsed thread to its badge and targets another offscreen thread', () => {
+    const threads = unreadThreads([
+      reply('a', 'middle', 14),
+      reply('b', 'old', 13),
+      reply('c', 'new', 12),
+    ]);
+    const destinations = new Map([['a', 'visible' as const]]);
+    expect(
+      unreadNotificationChip(threads, order, visible, destinations)
+    ).toMatchObject({
+      count: 2,
+      direction: 'above',
+      thread: { messageId: 'b' },
+    });
+    expect(
+      unreadNotificationChip(threads.slice(0, 1), order, visible, destinations)
+    ).toBeUndefined();
+    // Visibility changes the navigation affordance, never the underlying unread records.
+    expect(threads).toHaveLength(3);
+  });
+
+  it('keeps a thread reachable when its newest unread reply is visible but an older one is above', () => {
+    const threads = unreadThreads([
+      reply('newest', 'middle', 14),
+      reply('older', 'middle', 13),
+      reply('oldest', 'middle', 12),
+    ]);
+    expect(
+      unreadNotificationChip(
+        threads,
+        order,
+        visible,
+        new Map([
+          ['newest', 'visible'],
+          ['older', 'above'],
+          ['oldest', 'above'],
+        ])
+      )
+    ).toMatchObject({
+      count: 1,
+      direction: 'above',
+      thread: { messageId: 'older' },
+    });
+  });
+
+  it('does not guess a direction for an unmeasured destination anywhere within the visible range', () => {
+    const threads = unreadThreads([reply('a', 'middle')]);
+    expect(
+      unreadNotificationChip(threads, order, { first: 'old', last: 'new' })
+    ).toBeUndefined();
+  });
+});
+
+describe('unread destination geometry', () => {
+  afterEach(() => document.body.replaceChildren());
+  function fixture() {
+    const registry = createUnreadDestinationRegistry(() => {});
+    const viewport = document.createElement('div');
+    document.body.append(viewport);
+    viewport.getBoundingClientRect = () => new DOMRect(0, 100, 500, 400);
+    const add = (
+      kind: 'message' | 'disclosure',
+      id: string,
+      top: number,
+      height = 32
+    ) => {
+      const element = document.createElement('button');
+      element.getBoundingClientRect = () => new DOMRect(0, top, 100, height);
+      viewport.append(element);
+      if (kind === 'message') registry.registerMessage(id, element);
+      else registry.registerDisclosure(id, element);
+      return element;
+    };
+    const threads = unreadThreads([reply('a', 'middle')]);
+    const measure = () =>
+      unreadDestinationPositions(threads, registry.elements, viewport, {
+        start: 20,
+        end: 80,
+      });
+    return { add, measure };
+  }
+
+  it('uses the visible show-replies control for a hidden unread reply at the channel bottom', () => {
+    const { add, measure } = fixture();
+    add('message', 'middle', 50);
+    const disclosure = add('disclosure', 'middle', 350);
+    expect(measure().get('a')).toBe('visible');
+    disclosure.getBoundingClientRect = () => new DOMRect(0, 80, 100, 32);
+    expect(measure().get('a')).toBe('above');
+    disclosure.getBoundingClientRect = () => new DOMRect(0, 110, 100, 32);
+    expect(measure().get('a')).toBe('above');
+    disclosure.getBoundingClientRect = () => new DOMRect(0, 410, 100, 32);
+    expect(measure().get('a')).toBe('below');
+    disclosure.getBoundingClientRect = () => new DOMRect(0, 430, 100, 32);
+    expect(measure().get('a')).toBe('below');
+  });
+
+  it('uses a rendered reply rather than its thread disclosure, including after expansion', () => {
+    const { add, measure } = fixture();
+    const disclosure = add('disclosure', 'middle', 350);
+    const message = add('message', 'a', 50);
+    expect(measure().get('a')).toBe('above');
+    disclosure.remove();
+    expect(measure().get('a')).toBe('above');
+    message.getBoundingClientRect = () => new DOMRect(0, 200, 100, 32);
+    expect(measure().get('a')).toBe('visible');
+  });
+
+  it('waits for a destination to mount or obtain layout', () => {
+    const { add, measure } = fixture();
+    expect(measure().has('a')).toBe(false);
+    add('message', 'a', 0, 0);
+    expect(measure().has('a')).toBe(false);
   });
 });

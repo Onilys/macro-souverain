@@ -113,6 +113,12 @@ pub trait SoupEntityEdges: ObjectType + Clone + Send + Sync + 'static {
     /// Construct the agent-session-specific edge object.
     fn agent_session_edges(session_id: Uuid, bot_id: Uuid) -> Self::AgentSessionEdges;
 
+    /// Additional fields attached only to CRM company and contact entities.
+    type CrmRecordEdges: ObjectType + Clone + Send + Sync + 'static;
+
+    /// Construct the CRM-record edge object for a company or contact.
+    fn crm_record_edges(record: model_entity::Entity<'static>) -> Self::CrmRecordEdges;
+
     /// Resolve properties assigned to this entity.
     fn resolve_properties(
         &self,
@@ -1405,11 +1411,34 @@ where
     }
 }
 
-/// GraphQL representation of the soup email participant.
+/// Legacy contact-keyed participant, retained for older clients during rollout.
 #[derive(SimpleObject)]
 pub struct GraphqlSoupEmailParticipant {
-    /// The unique identifier.
+    /// The referenced address-book contact's identifier.
     id: ID,
+    /// The message-specific sender fields exposed by the legacy participant.
+    #[graphql(flatten)]
+    sender: GraphqlSoupEmailSender,
+}
+
+impl GraphqlSoupEmailParticipant {
+    /// Construct the legacy participant representation.
+    pub fn new(value: &SoupContact) -> Self {
+        Self {
+            id: ID(value.id.to_string()),
+            sender: GraphqlSoupEmailSender::new(value),
+        }
+    }
+}
+
+/// A thread-local sender with the display name from their message.
+///
+/// This is an embedded value: different messages from one contact can carry
+/// different names, so the contact ID must not normalize them into one record.
+#[derive(SimpleObject)]
+pub struct GraphqlSoupEmailSender {
+    /// The referenced address-book contact's identifier.
+    contact_id: ID,
     /// The identifier of the link.
     link_id: ID,
     /// The name.
@@ -1420,11 +1449,11 @@ pub struct GraphqlSoupEmailParticipant {
     sfs_photo_url: Option<String>,
 }
 
-impl GraphqlSoupEmailParticipant {
-    /// Construct a GraphQL email participant from the Soup model.
+impl GraphqlSoupEmailSender {
+    /// Construct a thread-local sender from the Soup model.
     pub fn new(value: &SoupContact) -> Self {
         Self {
-            id: ID(value.id.to_string()),
+            contact_id: ID(value.id.to_string()),
             link_id: ID(value.link_id.to_string()),
             name: value.name.clone(),
             email: value.email_address.clone(),
@@ -1625,12 +1654,22 @@ where
         self.0.participants.len()
     }
 
-    /// The participants.
+    /// Legacy contact-keyed participants. Use senders for message-specific names.
+    #[graphql(deprecation = "Use senders to preserve message-specific display names.")]
     async fn participants(&self) -> Vec<GraphqlSoupEmailParticipant> {
         self.0
             .participants
             .iter()
             .map(GraphqlSoupEmailParticipant::new)
+            .collect()
+    }
+
+    /// Senders with message-specific display names, embedded in this thread.
+    async fn senders(&self) -> Vec<GraphqlSoupEmailSender> {
+        self.0
+            .participants
+            .iter()
+            .map(GraphqlSoupEmailSender::new)
             .collect()
     }
 
@@ -2379,6 +2418,14 @@ where
     /// The edges.
     async fn edges(&self) -> E {
         self.1.clone()
+    }
+
+    /// CRM-record fields, such as the pipeline rows referencing the company.
+    #[graphql(flatten)]
+    async fn crm_record_edges(&self) -> E::CrmRecordEdges {
+        E::crm_record_edges(
+            model_entity::EntityType::CrmCompany.with_entity_string(self.0.id.to_string()),
+        )
     }
 
     /// The viewer's frecency score for this entity, when loaded.

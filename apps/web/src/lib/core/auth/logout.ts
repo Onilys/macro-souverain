@@ -1,21 +1,19 @@
 import { clearMcpAuthAttempts } from '@app/features/settings/mcp-auth-attempt';
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { SERVER_HOSTS } from '@core/constant/servers';
-import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { syncLoginStorage } from '@core/util/cookies';
+import { isTauri } from '@core/util/platform';
 import { clearPostLoginRedirect } from '@core/util/postLoginRedirect';
 import { clearRegisteredCaches } from '@graphql-cache/lifecycle';
+import { rotateCacheScope } from '@graphql-cache/scope';
 import { authKeys, type UserInfoData } from '@queries/auth/user-info';
 import { clearTeamCalendarQueries } from '@queries/calendar/team-cache';
-import { queryClient } from '@queries/client';
-import { emailKeys } from '@queries/email/keys';
+import { queryClient, queryPersistence } from '@queries/client';
 import {
   clearLocalDrafts,
   flushLocalDrafts,
   listLocalDrafts,
 } from '@queries/email/local-drafts';
-import { notificationKeys } from '@queries/notification/keys';
-import { propertiesKeys } from '@queries/properties/keys';
 import { resetGraphqlSoupDoneSession } from '@queries/soup/graphql/done-session';
 import { clearDocumentQueryCache } from '@queries/storage/document-cache';
 import { clearOfflineDocumentContexts } from '@queries/storage/documentLoad/offline-context-runtime';
@@ -25,6 +23,7 @@ import { createCallback } from '@solid-primitives/rootless';
 import { useNavigate } from '@solidjs/router';
 import { confirmDialog } from '@ui';
 import { getOwner } from 'solid-js';
+import { clearComposerStorage } from './clear-composer-storage';
 import { unregisterPushRegistrationsForLogout } from './push-registration-lifecycle';
 
 const unauthenticatedUserInfo: UserInfoData = {
@@ -51,22 +50,19 @@ export async function clearLocalAuthSession() {
   const documentContextsCleared = clearOfflineDocumentContexts();
   clearDocumentQueryCache(queryClient);
   clearTeamCalendarQueries();
-  queryClient.setQueryData(authKeys.userInfo.queryKey, unauthenticatedUserInfo);
-  queryClient.removeQueries({ queryKey: emailKeys.links.queryKey });
-  queryClient.removeQueries({ queryKey: notificationKeys._def });
-  resetGraphqlSoupDoneSession();
-  queryClient.removeQueries({ queryKey: propertiesKeys._def });
-  // The billing position (usage, credits, overage settings) belongs to the
-  // account that fetched it; never let it render for the next sign-in.
-  queryClient.removeQueries({ queryKey: authKeys.aiBillingSummary.queryKey });
-
-  // Queued mutations are user intent; never allow them to replay under a
-  // subsequent account sharing this anonymous device cache scope.
-  await Promise.all([
+  // Start every wipe before waiting, including stores not hydrated this session.
+  const results = await Promise.allSettled([
+    Promise.resolve().then(clearComposerStorage),
     documentContextsCleared,
     clearRegisteredCaches(),
+    queryPersistence.clear(),
     clearLocalDrafts(),
   ]);
+  if (results.some((result) => result.status === 'rejected')) {
+    await rotateCacheScope();
+  }
+  resetGraphqlSoupDoneSession();
+  queryClient.setQueryData(authKeys.userInfo.queryKey, unauthenticatedUserInfo);
   clearMcpAuthAttempts();
 }
 
@@ -122,7 +118,12 @@ export function useLogout() {
     analytics.track('sign_out');
     analytics.reset();
 
-    if (isNativeMobilePlatform()) {
+    // The Tauri shell (desktop and mobile alike) can never navigate to the
+    // identity provider: its navigation plugin treats any off-origin URL as
+    // external and hands it to the system browser, which leaves the webview
+    // sitting on the signed-in screen. End the provider session with a
+    // background request instead and route the webview to /login in place.
+    if (isTauri()) {
       await fetch(SERVER_HOSTS['auth-logout'], {
         credentials: 'include',
         mode: 'no-cors',

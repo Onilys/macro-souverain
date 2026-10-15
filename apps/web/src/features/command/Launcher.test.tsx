@@ -1,5 +1,6 @@
 import { MemoryRouter, Route } from '@solidjs/router';
 import { cleanup, fireEvent, render } from '@solidjs/testing-library';
+import { ok } from 'neverthrow';
 import { createSignal } from 'solid-js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -7,6 +8,9 @@ const host = vi.hoisted(() => ({
   popoverSplit: vi.fn(),
   openWithSplit: vi.fn(),
   createFolder: vi.fn(),
+  createSpreadsheet: vi.fn(async () => 'sheet-1' as string | undefined),
+  createDatabase: vi.fn(),
+  createForm: vi.fn(),
   projectFlag: (): boolean | undefined => true,
   carouselFlag: (): boolean | undefined => undefined,
 }));
@@ -17,6 +21,10 @@ vi.mock('@components/app/split-layout/layout', () => ({
 vi.mock('@queries/storage/projects', () => ({
   createProject: host.createFolder,
 }));
+vi.mock('@queries/storage/databases', () => ({
+  createDatabase: host.createDatabase,
+}));
+vi.mock('@queries/storage/forms', () => ({ createForm: host.createForm }));
 
 // Other creation flows are independent of the native project composer.
 vi.mock('@app/features/agents-view/primitives/open-composer', () => ({}));
@@ -26,15 +34,14 @@ vi.mock(
   '@app/features/block-spreadsheet/primitives/use-spreadsheet-access',
   () => ({ useSpreadsheetAccess: () => () => false })
 );
-vi.mock(
-  '@app/features/block-spreadsheet/queries/create-spreadsheet',
-  () => ({})
-);
+vi.mock('@app/features/block-spreadsheet/queries/create-spreadsheet', () => ({
+  createSpreadsheetDocument: host.createSpreadsheet,
+}));
 vi.mock('@app/features/block-ai/queries/create-ai', () => ({}));
 vi.mock('@app/features/block-psd/queries/create-psd', () => ({}));
 vi.mock('@app/features/block-fig/queries/create-fig', () => ({}));
 vi.mock('@app/features/block-spreadsheet/queries/spreadsheet-access', () => ({
-  isSpreadsheetEnabledForCurrentUser: () => false,
+  isSpreadsheetEnabledForCurrentUser: () => true,
 }));
 vi.mock('@app/features/email-compose/core/constants', () => ({}));
 vi.mock('@app/features/reminders/reminder-composer', () => ({}));
@@ -50,7 +57,9 @@ vi.mock('@app/lib/analytics/posthog', () => ({
 vi.mock('@core/constant/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@core/constant/featureFlags')>()),
   isFeatureEnabled: (flag: { key: string }) =>
-    flag.key === 'enable-projects' && host.projectFlag() === true,
+    flag.key === 'enable-databases' ||
+    flag.key === 'enable-forms' ||
+    (flag.key === 'enable-projects' && host.projectFlag() === true),
 }));
 vi.mock('@block-md/observability', () => ({}));
 vi.mock('@channel/CreateChannelModal', () => ({}));
@@ -195,6 +204,86 @@ it('offers Project in the shared create menu and opens its native composer', () 
   expect(createMenuOpen()).toBe(false);
   expect(host.openWithSplit).not.toHaveBeenCalled();
   expect(host.createFolder).not.toHaveBeenCalled();
+});
+
+it('shows a loading pane while a document is created, then opens it there', async () => {
+  const replace = vi.fn();
+  host.openWithSplit.mockReturnValueOnce({ split: { replace } });
+
+  runCreateAction('spreadsheet', { projectId: 'folder-1', source: 'drive' });
+
+  expect(host.openWithSplit).toHaveBeenCalledExactlyOnceWith(
+    { type: 'component', id: 'loading' },
+    { referredFrom: 'launcher', preferNewSplit: false }
+  );
+  await vi.waitFor(() => expect(replace).toHaveBeenCalledOnce());
+  expect(replace).toHaveBeenCalledWith({
+    next: { type: 'spreadsheet', id: 'sheet-1', params: undefined },
+    mergeHistory: true,
+    referredFrom: 'launcher',
+  });
+});
+
+it('lets the requesting surface keep its content and open the new document itself', async () => {
+  const openCreated = vi.fn(() => true);
+
+  runCreateAction('spreadsheet', {
+    projectId: 'folder-1',
+    source: 'drive',
+    openCreated,
+  });
+
+  await vi.waitFor(() =>
+    expect(openCreated).toHaveBeenCalledExactlyOnceWith({
+      blockName: 'spreadsheet',
+      id: 'sheet-1',
+    })
+  );
+  expect(host.createSpreadsheet).toHaveBeenCalledWith({
+    projectId: 'folder-1',
+    source: 'drive',
+  });
+  expect(host.openWithSplit).not.toHaveBeenCalled();
+});
+
+it.each([
+  {
+    blockName: 'database',
+    arrange: () => host.createDatabase.mockResolvedValueOnce(ok('db-1')),
+    id: 'db-1',
+  },
+  {
+    blockName: 'form',
+    arrange: () =>
+      host.createForm.mockResolvedValueOnce(ok({ form: { id: 'form-1' } })),
+    id: 'form-1',
+  },
+] as const)(
+  'lets the requesting surface open a new $blockName the same way',
+  async ({ blockName, arrange, id }) => {
+    arrange();
+    const openCreated = vi.fn(() => true);
+
+    runCreateAction(blockName, { source: 'drive', openCreated });
+
+    await vi.waitFor(() =>
+      expect(openCreated).toHaveBeenCalledExactlyOnceWith({ blockName, id })
+    );
+    expect(host.openWithSplit).not.toHaveBeenCalled();
+  }
+);
+
+it('opens the new document in a split when the requesting surface declines it', async () => {
+  const openCreated = vi.fn(() => false);
+
+  runCreateAction('spreadsheet', { openCreated });
+
+  await vi.waitFor(() => expect(host.openWithSplit).toHaveBeenCalledOnce());
+  expect(openCreated).toHaveBeenCalledOnce();
+  expect(host.openWithSplit).toHaveBeenCalledWith(
+    { type: 'spreadsheet', id: 'sheet-1' },
+    { referredFrom: 'launcher', preferNewSplit: false }
+  );
 });
 
 it('opens the Folder composer without creating a folder immediately', () => {

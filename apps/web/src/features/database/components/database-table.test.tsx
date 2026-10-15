@@ -494,15 +494,24 @@ describe('spreadsheet interactions', () => {
     expect(onWrite).toHaveBeenLastCalledWith('one', 'notes', 'High');
   });
 
-  it('keeps invalid numeric edits in place and permits arrow navigation after Escape', async () => {
+  it('keeps invalid numeric drafts while allowing arrow navigation to another row', async () => {
     const { setColumns, onWrite } = setup();
     setColumns([{ ...name, dataType: 'NUMBER' }, notes]);
     screen.getByRole('button', { name: /Name: First\./ }).focus();
-    await userEvent.keyboard('invalid{Enter}{ArrowDown}');
+    await userEvent.keyboard('invalid{Enter}');
     const input = screen.getByRole('textbox', { name: 'Edit Name' });
     expect(document.activeElement).toBe(input);
     expect(screen.getByRole('alert').textContent).toBe('Enter a valid number');
+    await userEvent.keyboard('{ArrowDown}');
+    const next = screen
+      .getAllByRole('textbox', { name: 'Edit Name' })
+      .find((element) => element !== input);
+    expect(document.activeElement).toBe(next);
+    expect((input as HTMLInputElement).value).toBe('invalid');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(onWrite).not.toHaveBeenCalled();
+    input.focus();
     await userEvent.keyboard('{Escape}{ArrowDown}');
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: /Name: Second\./ })

@@ -437,8 +437,10 @@ export function SplitHeader(props: {
             </Portal>
           )}
         </Show>
+        {/* pl-1 + the close wrapper's pl-2 insets the 24px close button 12px
+            from the left, matching its inset from the top of the 48px header. */}
         <div
-          class="absolute inset-0 flex justify-start items-center not-touch:pl-[5px] touch:px-(--mobile-chrome-gutter) touch:gap-2"
+          class="absolute inset-0 flex justify-start items-center not-touch:pl-1 touch:px-(--mobile-chrome-gutter) touch:gap-2"
           ref={props.collapseController.setRow}
         >
           <Show

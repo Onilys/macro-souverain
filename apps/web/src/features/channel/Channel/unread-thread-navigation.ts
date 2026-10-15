@@ -1,4 +1,5 @@
 import type { UnifiedNotification } from '@notifications/types';
+import type { UnreadDestinationElements } from './create-unread-destination-registry';
 
 export type UnreadThread = {
   threadId: string;
@@ -7,17 +8,24 @@ export type UnreadThread = {
   createdAt: string;
 };
 
+export type UnreadThreadGroup = UnreadThread & { messageIds: string[] };
+
 /** Unlike Inbox display stacks, every parent message is its own stack here. */
 export function unreadThreads(
   notifications: readonly UnifiedNotification[]
-): UnreadThread[] {
-  const threads = new Map<string, UnreadThread>();
-  for (const notification of notifications) {
-    if (
-      notification.state !== 'unseen' ||
-      notification.entity_type !== 'channel'
+): UnreadThreadGroup[] {
+  const threads = new Map<string, UnreadThreadGroup>();
+  for (const notification of notifications
+    .filter(
+      (notification) =>
+        notification.state === 'unseen' &&
+        notification.entity_type === 'channel'
     )
-      continue;
+    .sort(
+      (a, b) =>
+        Date.parse(b.created_at) - Date.parse(a.created_at) ||
+        b.id.localeCompare(a.id)
+    )) {
     const metadata = notification.notification_metadata;
     if (
       metadata.tag !== 'channel_message_send' &&
@@ -32,13 +40,14 @@ export function unreadThreads(
       ('threadId' in metadata.content && metadata.content.threadId) ||
       messageId;
     const previous = threads.get(threadId);
-    if (
-      !previous ||
-      Date.parse(notification.created_at) > Date.parse(previous.createdAt)
-    ) {
+    if (previous) {
+      if (!previous.messageIds.includes(messageId))
+        previous.messageIds.push(messageId);
+    } else {
       threads.set(threadId, {
         threadId,
         messageId,
+        messageIds: [messageId],
         createdAt: notification.created_at,
       });
     }
@@ -60,13 +69,13 @@ export type ThreadRowOrder = {
   unloaded: ReadonlyMap<string, ThreadPosition>;
 };
 
-export type ThreadPlacement = 'above' | 'below' | 'visible';
-
 export type UnreadNotificationChip = {
   thread: UnreadThread;
   count: number;
   direction: 'above' | 'below';
 };
+
+export type UnreadDestinationPosition = 'above' | 'below' | 'visible';
 
 /** The timeline's own ordering: millisecond, then raw timestamp, then id. */
 function isBefore(left: ThreadPosition, right: ThreadPosition): boolean {
@@ -87,7 +96,7 @@ function placeUnrenderedThread(
   thread: UnreadThread,
   order: ThreadRowOrder,
   visible: VisibleThreadRange
-): ThreadPlacement | undefined {
+): UnreadDestinationPosition | undefined {
   const first = order.rows.findIndex((row) => row.id === visible.first);
   const last = order.rows.findIndex((row) => row.id === visible.last);
   if (first < 0 || last < 0) return;
@@ -102,23 +111,68 @@ function placeUnrenderedThread(
   return isBefore(root, oldest) ? 'above' : 'below';
 }
 
-/**
- * Target recency and placement are separate: a new reply can be far above. The
- * chip only ever points off screen, so it skips threads the reader can already
- * see and names the newest unread one they cannot.
- */
+/** Count only offscreen threads; keep newest-first navigation among those left. */
 export function unreadNotificationChip(
-  threads: readonly UnreadThread[],
+  threads: readonly UnreadThreadGroup[],
   order: ThreadRowOrder,
   visible: VisibleThreadRange | undefined,
-  /** Measured placement of a thread's unread content while it is rendered. */
-  measure: (thread: UnreadThread) => ThreadPlacement | undefined
+  destinations: ReadonlyMap<string, UnreadDestinationPosition> = new Map()
 ): UnreadNotificationChip | undefined {
   if (!visible) return;
+  let target: UnreadThread | undefined;
+  let targetDirection: 'above' | 'below' | undefined;
+  let count = 0;
   for (const thread of threads) {
-    const placement =
-      measure(thread) ?? placeUnrenderedThread(thread, order, visible);
-    if (placement === 'above' || placement === 'below')
-      return { thread, count: threads.length, direction: placement };
+    const root =
+      order.rows.find((row) => row.id === thread.threadId) ??
+      order.unloaded.get(thread.threadId);
+    const fallback = placeUnrenderedThread(thread, order, visible);
+    for (const messageId of thread.messageIds) {
+      const direction = destinations.get(messageId) ?? fallback;
+      // A mounted thread with no destination yet is waiting for layout/data.
+      // Never guess that a hidden reply in a visible row is below the viewport.
+      if (direction === 'visible' || (!direction && root)) continue;
+      // An unloaded root is offscreen, but its position must resolve before
+      // showing an arrow. It still contributes to the offscreen thread count.
+      count += 1;
+      if (!target) {
+        target = { ...thread, messageId };
+        targetDirection = direction;
+      }
+      break;
+    }
   }
+  if (target && targetDirection)
+    return { thread: target, count, direction: targetDirection };
+}
+
+/** A hidden reply is reached through its collapsed thread's disclosure control. */
+export function unreadDestinationPositions(
+  threads: readonly UnreadThreadGroup[],
+  elements: UnreadDestinationElements,
+  viewport: Element,
+  insets: { start: number; end: number }
+): ReadonlyMap<string, UnreadDestinationPosition> {
+  const positions = new Map<string, UnreadDestinationPosition>();
+  const bounds = viewport.getBoundingClientRect();
+  const { messages, disclosures } = elements;
+  for (const thread of threads) {
+    const disclosure = disclosures.get(thread.threadId);
+    for (const messageId of thread.messageIds) {
+      const message = messages.get(messageId);
+      const destination =
+        message ?? (messageId !== thread.threadId ? disclosure : null);
+      if (!destination?.isConnected) continue;
+      const rect = destination.getBoundingClientRect();
+      if (rect.height === 0) continue;
+      const top = bounds.top + insets.start;
+      const bottom = bounds.bottom - insets.end;
+      // Keep the reminder until the whole disclosure (including its badge)
+      // clears sticky headers/composers. Messages retain overlap visibility.
+      const above = message ? rect.bottom <= top : rect.top < top;
+      const below = message ? rect.top >= bottom : rect.bottom > bottom;
+      positions.set(messageId, above ? 'above' : below ? 'below' : 'visible');
+    }
+  }
+  return positions;
 }

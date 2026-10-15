@@ -11,6 +11,7 @@ type ThreadCollapsedIndicatorProps =
     participants: string[];
     latestReplyAt?: string;
     hasNewMessages?: boolean;
+    hasUnreadNotifications?: boolean;
   };
 
 const MAX_VISIBLE_PARTICIPANTS = 4;
@@ -22,6 +23,7 @@ export function ThreadCollapsedIndicator(props: ThreadCollapsedIndicatorProps) {
     'participants',
     'latestReplyAt',
     'hasNewMessages',
+    'hasUnreadNotifications',
   ]);
   const visibleParticipants = () =>
     local.participants.slice(0, MAX_VISIBLE_PARTICIPANTS);
@@ -32,12 +34,11 @@ export function ThreadCollapsedIndicator(props: ThreadCollapsedIndicatorProps) {
     <button
       type="button"
       title="Expand thread"
-      // Unread navigation measures this control: it is where an unread reply
-      // that is not rendered actually sits on screen.
-      data-thread-collapsed-replies
       class={cn(
         'flex items-center gap-2 text-xs w-fit h-8 touch:min-h-(--user-icon-width) border hover:bg-hover py-1 pr-2 pl-1.5 mb-2 select-none outline-none focus-visible:bg-active rounded-full',
-        local.hasNewMessages ? 'border-accent/40' : 'border-thread-rail',
+        local.hasNewMessages || local.hasUnreadNotifications
+          ? 'border-accent/40'
+          : 'border-thread-rail',
         local.class
       )}
       {...rest}
@@ -68,12 +69,18 @@ export function ThreadCollapsedIndicator(props: ThreadCollapsedIndicatorProps) {
           </Show>
         </div>
       </Show>
-      <Show when={local.hasNewMessages}>
-        <span class="size-1.5 shrink-0 rounded-full bg-accent" />
+      <Show when={local.hasNewMessages || local.hasUnreadNotifications}>
+        <span
+          class="size-1.5 shrink-0 rounded-full bg-accent"
+          aria-hidden="true"
+        />
       </Show>
       <span class="text-accent font-medium whitespace-nowrap">
         {getThreadReplyCountLabel(local.collapsedRepliesCount)}
       </span>
+      <Show when={local.hasUnreadNotifications}>
+        <span class="sr-only">Unread</span>
+      </Show>
       <Show when={local.latestReplyAt}>
         {(latestReplyAt) => (
           <span class="text-ink-muted whitespace-nowrap @max-[40rem]:hidden">
