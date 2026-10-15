@@ -1639,7 +1639,7 @@ export function mapGraphqlSoupItem(item: GraphqlSoupItem): SoupApiItem | null {
             updatedAt: entity.updatedAt,
             viewedAt: entity.viewedAt ?? undefined,
             participants: entity.participants.map((participant) => ({
-              id: participant.id,
+              id: participant.contactId,
               linkId: participant.linkId,
               name: participant.name ?? undefined,
               emailAddress: participant.email ?? undefined,

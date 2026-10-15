@@ -36,6 +36,8 @@ use url::Url;
 mod desktop_update;
 mod device;
 mod diagnostics;
+#[cfg(target_os = "linux")]
+mod linux_notification;
 mod logging;
 #[cfg(target_os = "macos")]
 mod macos_notification_permission;
@@ -186,6 +188,19 @@ pub fn run() {
             .plugin(window_state::plugin());
     }
 
+    #[cfg(target_os = "linux")]
+    {
+        builder = builder
+            .manage(linux_notification::LinuxNotifications::default())
+            .on_window_event(|window, event| {
+                if matches!(event, tauri::WindowEvent::Destroyed) {
+                    window
+                        .state::<linux_notification::LinuxNotifications>()
+                        .close_window(window.label());
+                }
+            });
+    }
+
     #[cfg(target_os = "ios")]
     {
         builder = builder
@@ -300,6 +315,10 @@ pub fn run() {
             desktop_update::get_native_update_status,
             desktop_update::restart_native_update,
             diagnostics::read_desktop_diagnostics,
+            #[cfg(target_os = "linux")]
+            linux_notification::send_linux_notification,
+            #[cfg(target_os = "linux")]
+            linux_notification::close_linux_notification,
             #[cfg(target_os = "macos")]
             macos_notification_permission::get_macos_notification_permission,
             #[cfg(target_os = "macos")]

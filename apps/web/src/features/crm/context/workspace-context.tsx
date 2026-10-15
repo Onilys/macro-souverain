@@ -9,6 +9,14 @@ import type { EntityActionListState } from '../../next-soup/actions/entity-actio
 import type { SoupState } from '../../next-soup/create-soup-state';
 import type { QueryStore } from '../../next-soup/filters/filter-store/query-store';
 
+export type CrmRouteSearch = {
+  tab: Accessor<string>;
+  setTab(
+    tab: string,
+    options?: { replace?: boolean; clearPipelineRequest?: boolean }
+  ): void;
+};
+
 /** A pipeline another view asked the workspace to show. */
 export type CrmPipelineRequest = {
   /** A new `seek` repeats a request for the same pipeline. */

@@ -155,6 +155,14 @@ impl MacroNavigationPlugin {
 
     fn new_window_destination<'a>(&self, url: &'a Url) -> NavigationOutput<'a> {
         match self.get_destination(url) {
+            // Standalone documents on an allowed webview origin are not SPA
+            // routes. Keep local-file policy and all other destinations intact.
+            NavigationOutput::Internal
+                if matches!(url.scheme(), "http" | "https" | "tauri")
+                    && url.path().ends_with(".html") =>
+            {
+                NavigationOutput::Internal
+            }
             // A relative/same-origin app link should use the SPA router, not
             // create a second webview or reload the existing app.
             NavigationOutput::Internal => MacroScheme::from_url(url)
@@ -165,15 +173,19 @@ impl MacroNavigationPlugin {
     }
 
     /// Route desktop anchors and `window.open` requests at the webview boundary.
-    /// Never create a popup webview: app links stay in the SPA and external URLs
-    /// go to the system handler. Mobile keeps the opener plugin's JS fallback.
+    /// App links stay in the SPA and external URLs go to the system handler;
+    /// trusted standalone HTML documents may open a popup webview.
+    /// Mobile keeps the opener plugin's JS fallback.
     pub fn on_new_window<R: Runtime>(
         &self,
         app: &tauri::AppHandle<R>,
         url: &Url,
     ) -> tauri::webview::NewWindowResponse<R> {
-        self.dispatch(app, self.new_window_destination(url));
-        tauri::webview::NewWindowResponse::Deny
+        if self.dispatch(app, self.new_window_destination(url)) {
+            tauri::webview::NewWindowResponse::Allow
+        } else {
+            tauri::webview::NewWindowResponse::Deny
+        }
     }
 
     /// Return true only when the current webview may load the URL itself.

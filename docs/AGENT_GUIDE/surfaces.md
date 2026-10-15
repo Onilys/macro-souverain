@@ -444,6 +444,14 @@ Full email client. Tabs: `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled`
 shows `Connect your email` (Gmail/Google Workspace OAuth) — most functionality needs a
 connected account. Search is `Ctrl+F` within the surface.
 
+Sender names use each message's `From` display name, falling back to the
+address-book name when it is absent. Multiple people or bots sending through
+one address (such as GitHub notifications) retain distinct names within and
+across threads. Verify in Mail and in Search with the Email filter and an empty
+query: load more threads from the same address, then check that existing row
+names and their hover cards do not change. Repeat with a text query to exercise
+the search-service results.
+
 `Favorites`, directly below Noise, lists starred Macro emails across Signal,
 Noise, and archived mail. It respects the selected inboxes and filters; search
 within the tab is also restricted to favorites. Removing a star removes the row
@@ -2133,9 +2141,15 @@ On desktop, the local sidebar uses the same navigation primitives as Email and T
 Its **New** menu creates a **Company**, a **Contact**, or a **Pipeline** (Pipeline
 only when pipelines are enabled; disabled until the team's CRM is enabled). The
 **Records** section lists **Companies** and **People**; Pipelines and Lists follow.
-There are no built-in company views or Board/List layout: Companies and People
+There are no built-in company views or Board/List layout. Companies and People
 are plain soup lists with the shared pagination. Existing personal/team saved
 views stay in the toolbar's Views menu.
+
+The selected Customers tab is stored on the pane as `sN.crm.tab`. People uses
+`people`, a pipeline uses `pipeline:<uuid>`, a list uses `list:<uuid>`, and
+hidden companies use `hidden`. Companies is the default and omits the key.
+Choosing Companies, People, a pipeline, or a list updates that parameter.
+Browser Back and Forward restore the tab and close an open record.
 
 Companies lists every visible company, grouped by Stage by default, with Owner,
 Revenue and Last Interaction columns. A Stage column is off by default; turn it
@@ -2276,10 +2290,13 @@ Choose **New pipeline**, enter a name in the dialog's first row, pick
 **Companies** (the default) or **Contacts** from the record-type pill, and tick
 **Share with my team** to share it (unticked keeps it private). **Create
 pipeline** or Command-Enter submits. Creating opens the pipeline's
-editable table. Team members can edit shared pipelines; the creator owns them
-and can change access later through the standard **Share** dialog. Under
-**Team access**, choose **Edit** to share with the team or **None** to make the
-pipeline private. **Copy Link** copies a CRM link that opens this pipeline for
+editable table. Team members can edit shared pipelines; the creator owns them.
+Anyone who can edit a pipeline can share it from the standard **Share** dialog.
+Pick people or channels and an access level, and the message carries the pipeline.
+The **People** list changes or removes their access. A teammate who receives a private
+pipeline sees it in their Customers sidebar. Only the owner sees **Team access**:
+choose **Edit** to share with the team or **None** to make the pipeline private.
+Viewers see only **Copy Link**. **Copy Link** copies a CRM link that opens this pipeline for
 anyone who has access; pasted into an editor it becomes a pipeline mention (see
 [CRM pipeline mentions](documents.md#crm-pipeline-mentions)). On mobile, team
 access is in the **Team** tab.
@@ -2921,6 +2938,18 @@ can still suppress alerts even when authorization is granted.
 Verify off/on and persistence after restarting; on the Notifications page, a failed
 toggle should show an error toast and allow retry.
 
+On Linux desktop builds with native notification activation, clicking a system
+notification (or its **Open** action) restores/presents Macro and opens that
+notification's target using the normal in-app navigation. Dismissing or expiring
+an alert must not navigate. With two alerts, click the older one to check that the
+correct target opens. Also test with Macro hidden/minimized and on another
+workspace: Wayland focus requires the notification daemon to supply an activation
+token. This needs a native AppImage update, not just a frontend update; an older
+binary reports **Update Macro to receive desktop notifications.** Activation is
+supported while the app process is running, not after quitting it. The isolated
+Linux WebKit/D-Bus regression is `bun run native:e2e:notifications`; compositor
+focus behavior still needs a real Wayland/X11 desktop check.
+
 On native Android, enable notifications in Settings while signed in. Android 13+
 also asks for system permission; the system's **Activity** notification channel
 must be enabled. Remote push owns system notification display after registration,
@@ -2998,6 +3027,11 @@ Related recurring components are grouped behind their own disclosure. Only mail 
 after the feature shipped gets a card; older invitations render as plain email.
 A newly arrived scheduling update shows RSVP and Join only once its calendar state has
 been checked. A series invitation shows its current or next live occurrence.
+
+Descriptions render sanitized rich text, including emphasis, links, and lists.
+Plain-text line breaks and literal angle brackets (such as `<bob@example.com>`)
+remain readable. Use `Show more` / `Show less` to expand or collapse the description;
+description links use the host's normal link-opening behavior.
 
 A connected, resolved invitation shows the responding address and Yes / Maybe / No.
 Calendars connected through a linked inbox also resolve here, using that inbox's

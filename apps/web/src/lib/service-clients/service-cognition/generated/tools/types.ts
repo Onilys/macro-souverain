@@ -136,12 +136,13 @@ export type SpreadsheetHorizontalAlign = 'auto' | 'left' | 'center' | 'right';
  */
 export type SpreadsheetVerticalAlign = 'top' | 'middle' | 'bottom';
 /**
- * Number interpretation and display; currency is USD and dates use UTC.
+ * Number interpretation and display; currency and accounting are USD and dates use UTC.
  */
 export type SpreadsheetNumberFormat =
   | 'general'
   | 'number'
   | 'currency'
+  | 'accounting'
   | 'percent'
   | 'date'
   | 'time'

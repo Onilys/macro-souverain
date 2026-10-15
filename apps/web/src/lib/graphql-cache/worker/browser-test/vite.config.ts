@@ -56,6 +56,7 @@ export default defineConfig(({ command }) => ({
           'mail-projection.html',
           'email-send.html',
           'query-write-scope.html',
+          'email-participants.html',
           'search-buckets.html',
         ].map((name) => [name.replace('.html', ''), resolve(directory, name)])
       ),

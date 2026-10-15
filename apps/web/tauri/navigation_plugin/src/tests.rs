@@ -157,6 +157,8 @@ fn popup_app_links_include_same_origin_and_macro_scheme() {
         "tauri://localhost/app/mail?view=all",
         "http://tauri.localhost/app/mail?view=all",
         "http://localhost:3000/app/mail?view=all",
+        "tauri://localhost/mail?view=all",
+        "http://localhost:3000/mail?view=all",
     ] {
         let url = Url::parse(input).unwrap();
         match plugin.new_window_destination(&url) {
@@ -167,6 +169,67 @@ fn popup_app_links_include_same_origin_and_macro_scheme() {
             other => panic!("expected AppLink for {url}, got {other:?}"),
         }
     }
+}
+
+#[test]
+fn standalone_html_popup_remains_internal_and_is_allowed() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tauri::Listener;
+
+    let app = tauri::test::mock_builder()
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .unwrap();
+    let received = Arc::new(AtomicUsize::new(0));
+    let events = received.clone();
+    app.listen("navigate", move |_| {
+        events.fetch_add(1, Ordering::Relaxed);
+    });
+
+    let plugin = test_plugin();
+    for input in [
+        "http://localhost:3000/billing-lab.html",
+        "http://localhost:3000/billing-lab.html?scenario=paid#details",
+        "tauri://localhost/billing-lab.html",
+        "http://tauri.localhost/another-document.html",
+    ] {
+        let url = Url::parse(input).unwrap();
+        assert!(
+            matches!(
+                plugin.new_window_destination(&url),
+                NavigationOutput::Internal
+            ),
+            "{url}"
+        );
+        assert!(
+            matches!(
+                plugin.on_new_window(app.handle(), &url),
+                tauri::webview::NewWindowResponse::Allow
+            ),
+            "{url}"
+        );
+    }
+    assert_eq!(received.load(Ordering::Relaxed), 0);
+}
+
+#[test]
+fn standalone_html_does_not_bypass_origin_policy() {
+    let plugin = test_plugin();
+    for input in [
+        "https://example.com/billing-lab.html",
+        "http://localhost:9999/billing-lab.html",
+    ] {
+        assert!(
+            matches!(
+                plugin.new_window_destination(&Url::parse(input).unwrap()),
+                NavigationOutput::External(_)
+            ),
+            "{input}"
+        );
+    }
+    assert!(matches!(
+        plugin.new_window_destination(&Url::parse("file:///etc/billing-lab.html").unwrap()),
+        NavigationOutput::Blocked
+    ));
 }
 
 #[test]

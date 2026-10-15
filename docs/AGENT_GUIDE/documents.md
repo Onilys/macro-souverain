@@ -302,7 +302,10 @@ The document title and Share button sit above a compact formatting ribbon:
 undo/redo, paste, zoom and view options, currency/percent/decimals/number format,
 font and size, text styles, text/fill color, borders, alignment, wrapping,
 functions, format/data actions, and find. Icon controls expose accessible button
-names and tooltips. **Paste special** offers **Paste** and **Paste values only**.
+names and tooltips. **Number format → Accounting** shows Excel's accounting layout:
+`$` at the cell's left edge, the amount at the right, negatives in parentheses and
+zero as a dash; the cell's accessible name reads like `B2: $(1,234.50)`.
+**Paste special** offers **Paste** and **Paste values only**.
 Select a range first; formatting applies to all selected cells. Toggling bold,
 italic, underline, or strikethrough on a mixed selection first enables it for the
 entire selection. Whole-column formatting preserves the viewport. In a cell that

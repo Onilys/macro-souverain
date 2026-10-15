@@ -120,4 +120,52 @@ describe('AI formatting preserves spreadsheet values', () => {
       doc.free();
     }
   });
+
+  it('applies the accounting format and reads Excel’s accounting display back', () => {
+    const doc = new LoroDoc();
+    try {
+      doc.getMap('spreadsheetMeta').set('formatVersion', 1);
+      writeSpreadsheetCells(doc, {
+        A1: { value: '1200' },
+        A2: { value: '=-A1' },
+        A3: { value: '=A1+A2' },
+      });
+      const prepared = prepareSpreadsheetEdit(
+        doc,
+        {
+          action: 'edit',
+          expectedRevision: 'v',
+          operations: [
+            {
+              type: 'format_cells',
+              sheetId: 'sheet1',
+              range: 'A1:A3',
+              style: { format: 'accounting' },
+            },
+          ],
+        },
+        calculator
+      );
+      doc.import(prepared.update);
+      expect(readSpreadsheetCells(doc).A2).toEqual({
+        value: '=-A1',
+        format: 'accounting',
+      });
+      const result = readSpreadsheetForAi(
+        doc,
+        'v',
+        { action: 'read', ranges: ['A1:A3'], includeStyles: true },
+        calculator
+      );
+      expect(
+        result.ranges[0].cells.map(({ display, style }) => ({ display, style }))
+      ).toEqual([
+        { display: '$1,200.00', style: { format: 'accounting' } },
+        { display: '$(1,200.00)', style: { format: 'accounting' } },
+        { display: '$-', style: { format: 'accounting' } },
+      ]);
+    } finally {
+      doc.free();
+    }
+  });
 });

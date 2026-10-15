@@ -9,19 +9,17 @@ import {
   sendNotification,
 } from '@tauri-apps/plugin-notification';
 import { type as osType } from '@tauri-apps/plugin-os';
+import { showLinuxNotification } from './linux-notification';
+import { MacOSNotificationUpdateRequiredError } from './notification-errors';
 
-export class MacOSNotificationUpdateRequiredError extends Error {
-  constructor(cause: unknown) {
-    super('Update Macro to receive desktop notifications.', { cause });
-    this.name = 'MacOSNotificationUpdateRequiredError';
-  }
-}
+export { MacOSNotificationUpdateRequiredError } from './notification-errors';
 
 export function createTauriNotificationInterface(
   setDisabled: () => Promise<void>,
   shouldSend: () => boolean = () => true
 ): PlatformNotificationInterface {
-  const isMacOS = osType() === 'macos';
+  const platform = osType();
+  const isMacOS = platform === 'macos';
   let hasMacOSPermissionCommands = isMacOS;
 
   async function getCur(): Promise<NotificationPermission> {
@@ -84,6 +82,10 @@ export function createTauriNotificationInterface(
           throw error;
         }
         return createTauriNotification();
+      }
+
+      if (platform === 'linux') {
+        return await showLinuxNotification(data.title, data.options);
       }
 
       if (!data.options) {

@@ -15,6 +15,7 @@ import { createMacroMentionLinkResolver } from '@components/app/split-layout/spl
 import { describe, expect, it, vi } from 'vitest';
 import { pipelineTab } from './core/navigation';
 import type { CrmViewConfig } from './core/saved-view';
+import { crmSearchCodec } from './crm-route';
 import { encodeCrmViewParam } from './queries/saved-view-codec';
 
 vi.mock('@components/app/split-layout/componentRegistry', () => ({
@@ -46,6 +47,27 @@ const resolveMention = createMacroMentionLinkResolver(routes);
 const crmViewLink = (view: CrmViewConfig) =>
   `${window.location.origin}/app/companies?crmView=${encodeCrmViewParam(view)}`;
 
+describe('crm tab search params', () => {
+  it.each([
+    'active',
+    'people',
+    'hidden',
+    pipelineTab(pipelineId),
+    'list:favorites',
+  ])('keeps the %s tab through the URL', (tab) => {
+    const params = crmSearchCodec.serialize({ tab, pipeline: '', seek: '' });
+    if (tab === 'active') {
+      expect(params).toBeUndefined();
+    } else {
+      expect(params).toEqual({ tab: [tab] });
+    }
+    expect(crmSearchCodec.parse(params)).toEqual({
+      value: { tab, pipeline: '', seek: '' },
+      valid: true,
+    });
+  });
+});
+
 describe('pipeline links', () => {
   it('pastes a copied pipeline link as a mention of the pipeline', () => {
     expect(
@@ -55,12 +77,26 @@ describe('pipeline links', () => {
     ).toEqual({ id: pipelineId, block: 'pipeline', params: {} });
   });
 
+  it.each(['s0.crm.tab', 'crm.tab'])(
+    'pastes a Customers link with %s as a mention of the pipeline',
+    (key) => {
+      expect(
+        resolveMention(
+          `${window.location.origin}/app/companies?${key}=${pipelineTab(pipelineId)}`
+        )
+      ).toEqual({ id: pipelineId, block: 'pipeline', params: {} });
+    }
+  );
+
   it.each([
     crmViewLink({ kind: 'crm', activeTab: 'active' }),
     crmViewLink({ kind: 'crm', activeTab: 'list:favorites' }),
     crmViewLink({ kind: 'crm', activeTab: pipelineTab('not-a-uuid') }),
     `${window.location.origin}/app/companies?crmView=garbage`,
     `${window.location.origin}/app/companies`,
+    `${window.location.origin}/app/companies?s0.crm.tab=people`,
+    `${window.location.origin}/app/companies?s0.crm.tab=${pipelineTab('not-a-uuid')}`,
+    `${window.location.origin}/app/companies?crmView=${encodeCrmViewParam({ kind: 'crm', activeTab: 'active' })}&s0.crm.tab=${pipelineTab(pipelineId)}`,
   ])('leaves other Customers links as links: %s', (url) => {
     expect(resolveMention(url)).toBeUndefined();
   });
@@ -98,6 +134,9 @@ describe('pipeline links', () => {
 
       const first = open();
       expect(first.pathname).toBe('/companies');
+      expect(first.searchParams.get('s0.crm.tab')).toBe(
+        pipelineTab(pipelineId)
+      );
       expect(first.searchParams.get('s0.crm.pipeline')).toBe(pipelineId);
       // Opening the same pipeline again is a new request.
       expect(open().searchParams.get('s0.crm.seek')).not.toBe(

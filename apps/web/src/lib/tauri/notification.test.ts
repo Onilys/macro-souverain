@@ -10,9 +10,17 @@ const mocks = vi.hoisted(() => ({
   isPermissionGranted: vi.fn(async () => true),
   requestPermission: vi.fn(async () => 'granted'),
   sendNotification: vi.fn(),
+  channels: [] as { onmessage: (event: 'click' | 'dismissed') => void }[],
 }));
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: mocks.invoke,
+  Channel: class {
+    constructor(public onmessage: (event: 'click' | 'dismissed') => void) {
+      mocks.channels.push(this);
+    }
+  },
+}));
 vi.mock('@tauri-apps/plugin-os', () => ({ type: mocks.osType }));
 vi.mock('@tauri-apps/plugin-notification', () => ({
   isPermissionGranted: mocks.isPermissionGranted,
@@ -36,6 +44,7 @@ const notification = {
 describe('desktop notification delivery', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mocks.channels.length = 0;
     mocks.osType.mockReturnValue('macos');
     mocks.isPermissionGranted.mockResolvedValue(true);
     mocks.requestPermission.mockResolvedValue('granted');
@@ -136,9 +145,14 @@ describe('desktop notification delivery', () => {
       .mockRejectedValueOnce(missingCommand);
     const adapter = createTauriNotificationInterface(vi.fn());
 
-    await expect(adapter.showNotification(notification)).rejects.toEqual(
-      new MacOSNotificationUpdateRequiredError(missingCommand)
+    const delivery = adapter.showNotification(notification);
+    await expect(delivery).rejects.toBeInstanceOf(
+      MacOSNotificationUpdateRequiredError
     );
+    await expect(delivery).rejects.toMatchObject({
+      message: 'Update Macro to receive desktop notifications.',
+      cause: missingCommand,
+    });
     expect(mocks.sendNotification).not.toHaveBeenCalled();
   });
 
@@ -169,7 +183,7 @@ describe('desktop notification delivery', () => {
     expect(mocks.sendNotification).not.toHaveBeenCalled();
   });
 
-  it.each(['windows', 'linux', 'ios', 'android'])(
+  it.each(['windows', 'ios', 'android'])(
     'preserves plugin delivery on %s',
     async (os) => {
       mocks.osType.mockReturnValue(os);
@@ -185,6 +199,170 @@ describe('desktop notification delivery', () => {
       });
     }
   );
+
+  describe('Linux activation', () => {
+    beforeEach(() => {
+      mocks.osType.mockReturnValue('linux');
+      mocks.invoke.mockResolvedValue('native-handle');
+    });
+
+    async function show(data = notification) {
+      const adapter = createTauriNotificationInterface(vi.fn());
+      const handle = await adapter.showNotification(data);
+      if (handle === 'not-granted') throw new Error('Expected delivery');
+      return handle;
+    }
+
+    it('sends an actionable native notification and dispatches its click only once', async () => {
+      const handle = await show();
+      const clicked = vi.fn();
+      const dismissed = vi.fn();
+      handle.onClick(clicked);
+      handle.onDismiss(dismissed);
+      expect(mocks.invoke).toHaveBeenCalledExactlyOnceWith(
+        'send_linux_notification',
+        {
+          ...notification.options,
+          title: notification.title,
+          onEvent: mocks.channels[0],
+        }
+      );
+      mocks.channels[0].onmessage('click');
+      mocks.channels[0].onmessage('click');
+      mocks.channels[0].onmessage('dismissed');
+      handle.close();
+      expect(clicked).toHaveBeenCalledOnce();
+      expect(dismissed).not.toHaveBeenCalled();
+      expect(mocks.invoke).toHaveBeenCalledTimes(1);
+      expect(mocks.sendNotification).not.toHaveBeenCalled();
+    });
+
+    it('isolates callback errors from channel cleanup and other listeners', async () => {
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        const handle = await show();
+        const failure = new Error('Navigation failed');
+        const clicked = vi.fn();
+        handle.onClick(() => {
+          throw failure;
+        });
+        handle.onClick(clicked);
+        expect(() => mocks.channels[0].onmessage('click')).not.toThrow();
+        expect(clicked).toHaveBeenCalledOnce();
+        expect(log).toHaveBeenCalledWith(
+          'Linux notification callback failed',
+          failure
+        );
+      } finally {
+        log.mockRestore();
+      }
+    });
+
+    it('keeps simultaneous notifications and their close handles separate', async () => {
+      mocks.invoke
+        .mockResolvedValueOnce('first')
+        .mockResolvedValueOnce('second');
+      const first = await show();
+      const second = await show();
+      const firstClick = vi.fn();
+      const secondClick = vi.fn();
+      const firstDismiss = vi.fn();
+      first.onClick(firstClick);
+      first.onDismiss(firstDismiss);
+      second.onClick(secondClick);
+      first.close();
+      first.close();
+      expect(mocks.invoke).toHaveBeenLastCalledWith(
+        'close_linux_notification',
+        { id: 'first' }
+      );
+      expect(mocks.invoke).toHaveBeenCalledTimes(3);
+      mocks.channels[0].onmessage('dismissed');
+      mocks.channels[1].onmessage('click');
+      expect(firstDismiss).toHaveBeenCalledOnce();
+      expect(firstClick).not.toHaveBeenCalled();
+      expect(secondClick).toHaveBeenCalledOnce();
+    });
+
+    it.each(['click', 'dismissed'] as const)(
+      'buffers an early %s until callback registration',
+      async (event) => {
+        mocks.invoke.mockImplementation(async () => {
+          mocks.channels[0].onmessage(event);
+          return 'early';
+        });
+        const handle = await show();
+        const clicked = vi.fn();
+        const dismissed = vi.fn();
+        handle.onClick(clicked);
+        handle.onDismiss(dismissed);
+        expect(clicked).toHaveBeenCalledTimes(event === 'click' ? 1 : 0);
+        expect(dismissed).toHaveBeenCalledTimes(event === 'dismissed' ? 1 : 0);
+      }
+    );
+
+    it('supports title-only notifications', async () => {
+      await createTauriNotificationInterface(vi.fn()).showNotification({
+        title: 'Reminder',
+      });
+      expect(mocks.invoke).toHaveBeenCalledWith('send_linux_notification', {
+        title: 'Reminder',
+        body: undefined,
+        icon: undefined,
+        onEvent: mocks.channels[0],
+      });
+    });
+
+    it('waits for native delivery acceptance', async () => {
+      const acceptance = deferred<string>();
+      mocks.invoke.mockReturnValue(acceptance.promise);
+      let completed = false;
+      async function deliver() {
+        await show();
+        completed = true;
+      }
+      const delivery = deliver();
+      await vi.waitFor(() => expect(mocks.invoke).toHaveBeenCalledOnce());
+      expect(completed).toBe(false);
+      acceptance.resolve('accepted');
+      await delivery;
+      expect(completed).toBe(true);
+    });
+
+    it('honors disabled delivery and denied permission', async () => {
+      const disabled = createTauriNotificationInterface(vi.fn(), () => false);
+      expect(await disabled.showNotification(notification)).toBe('not-granted');
+      mocks.isPermissionGranted.mockResolvedValue(false);
+      expect(
+        await createTauriNotificationInterface(vi.fn()).showNotification(
+          notification
+        )
+      ).toBe('not-granted');
+      expect(mocks.invoke).not.toHaveBeenCalled();
+    });
+
+    it('uses the error class recognized by AppProviders when native support is missing', async () => {
+      const missingCommand = 'Command send_linux_notification not found';
+      mocks.invoke.mockRejectedValue(missingCommand);
+      const delivery = show();
+      // AppProviders imports this class from the existing notification export.
+      await expect(delivery).rejects.toBeInstanceOf(
+        MacOSNotificationUpdateRequiredError
+      );
+      await expect(delivery).rejects.toMatchObject({
+        message: 'Update Macro to receive desktop notifications.',
+        cause: missingCommand,
+      });
+      expect(mocks.sendNotification).not.toHaveBeenCalled();
+    });
+
+    it('propagates D-Bus delivery failures', async () => {
+      const failure = new Error('Notification daemon unavailable');
+      mocks.invoke.mockRejectedValue(failure);
+      await expect(show()).rejects.toBe(failure);
+      expect(mocks.sendNotification).not.toHaveBeenCalled();
+    });
+  });
 
   it('preserves the title-only plugin call on other platforms', async () => {
     mocks.osType.mockReturnValue('windows');

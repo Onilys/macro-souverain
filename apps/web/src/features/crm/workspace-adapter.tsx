@@ -20,6 +20,7 @@ import type { CrmContext } from './context/crm-context';
 import type { DealStages } from './context/crm-sources';
 import type {
   CrmPipelineRequest,
+  CrmRouteSearch,
   CrmWorkspace,
 } from './context/workspace-context';
 import { pipelineIdOfTab } from './core/navigation';
@@ -38,10 +39,44 @@ function stageFilterResolvers(stages: DealStages) {
   };
 }
 
+function resolveInitialGroupBy(
+  initialCrmView: CrmViewConfig | undefined,
+  persistedGroupBy: string | null | undefined,
+  fallbackPreset: ReturnType<typeof getViewPreset>
+) {
+  if (initialCrmView) return initialCrmView.groupBy ?? undefined;
+  if (persistedGroupBy != null) return persistedGroupBy;
+  return fallbackPreset?.groupBy;
+}
+
+function applySharedSubFilters(
+  initialCrmView: CrmViewConfig,
+  soupView: {
+    setStageFilter(stages: string[]): void;
+    setOwnerFilter(owners: string[]): void;
+  },
+  predicates: {
+    isActive(id: string): boolean;
+    toggle(input: { and: string[] }): void;
+  }
+) {
+  const stages = initialCrmView.stageFilter ?? [];
+  soupView.setStageFilter(stages);
+  if (stages.length > 0 !== predicates.isActive('company-stage')) {
+    predicates.toggle({ and: ['company-stage'] });
+  }
+  const owners = initialCrmView.ownerFilter ?? [];
+  soupView.setOwnerFilter(owners);
+  if (owners.length > 0 !== predicates.isActive('company-owner')) {
+    predicates.toggle({ and: ['company-owner'] });
+  }
+}
+
 export function createCrmWorkspace(
   crm: CrmContext,
   sharedView?: CrmViewConfig,
-  pipelineRequest?: CrmPipelineRequest
+  pipelineRequest?: CrmPipelineRequest,
+  routeSearch?: CrmRouteSearch
 ) {
   const soup = useSoup();
   const panel = useSplitPanelOrThrow();
@@ -83,6 +118,14 @@ export function createCrmWorkspace(
   });
   const soupView = { ...state.context, ...filters.state };
   const preset = getViewPreset('companies');
+  const initialUrlTab = untrack(() => {
+    const tab = routeSearch?.tab();
+    return tab && tab !== VIEW_TAB_PRESETS.companies.default ? tab : undefined;
+  });
+  const initialTabPreset =
+    initialUrlTab && initialUrlTab in VIEW_TAB_PRESETS.companies.tabs
+      ? getViewPreset('companies', initialUrlTab)
+      : undefined;
   const entryState = panel.handle.currentEntryState();
 
   const persistedFilters = entryState?.['search.filters'] as Query | undefined;
@@ -110,13 +153,29 @@ export function createCrmWorkspace(
   );
   const initialCrmView = sharedView;
 
-  // A default saved view only applies to a fresh Customers entry: restored
-  // (back/forward) entries keep what the user was looking at, and share
-  // links carry their own state.
+  // A default saved view only applies to a fresh Customers entry. Restored
+  // entries, share links, and an explicit URL tab keep their own state.
   const applyDefaultCrmView =
     initialCrmView === undefined &&
+    initialUrlTab === undefined &&
     persistedFilters === undefined &&
     persistedPredicates === undefined;
+
+  const fallbackPreset = initialTabPreset ?? preset;
+  const defaultTab = VIEW_TAB_PRESETS.companies.default;
+  const rememberedTab = routeSearch
+    ? defaultTab
+    : (soupView.getPersistedActiveTab('companies') ?? defaultTab);
+  const initialActiveTab =
+    initialCrmView?.activeTab ??
+    initialUrlTab ??
+    persistedActiveTab ??
+    rememberedTab;
+  const initialGroupBy = resolveInitialGroupBy(
+    initialCrmView,
+    persistedGroupBy,
+    fallbackPreset
+  );
 
   // Restore before child controls mount; shared links take precedence over storage.
   let init = false;
@@ -127,60 +186,62 @@ export function createCrmWorkspace(
       soupView.initialize({
         initialQuery: initialCrmView
           ? (initialCrmView.filters as Query | undefined)
-          : (persistedFilters ?? preset?.filters),
+          : (persistedFilters ?? fallbackPreset?.filters),
         initialClientFilters: initialCrmView
           ? (initialCrmView.clientFilters ?? {})
-          : (persistedPredicates ?? preset?.clientFilters),
+          : (persistedPredicates ?? fallbackPreset?.clientFilters),
         initialSearchText: initialCrmView
           ? (initialCrmView.searchText ?? '')
           : persistedSearchText,
-        preferInitialFilters: initialCrmView !== undefined,
+        preferInitialFilters:
+          initialCrmView !== undefined || initialTabPreset !== undefined,
       });
 
-      // `groupBy: null` in a shared view records an explicit "no grouping",
-      // which the grouping store expresses as `undefined`.
-      const initialGroupBy = initialCrmView
-        ? (initialCrmView.groupBy ?? undefined)
-        : (persistedGroupBy ?? preset?.groupBy);
-
-      let initialSortIds = initialCrmView?.sort ?? sortPref();
-      if (initialSortIds.length === 0) {
-        initialSortIds = ['updated_at'];
-      }
-
-      const initialActiveTab =
-        initialCrmView?.activeTab ??
-        persistedActiveTab ??
-        soupView.getPersistedActiveTab('companies') ??
-        VIEW_TAB_PRESETS.companies.default;
+      const sortIds = initialCrmView?.sort ?? sortPref();
+      const initialSortIds = sortIds.length > 0 ? sortIds : ['updated_at'];
 
       soup.grouping.setActiveGroupId(initialGroupBy);
       soup.grouping.collapseAll(persistedCollapsedGroups ?? []);
-
       soup.sort.setAll(
         initialSortIds as Parameters<typeof soup.sort.setAll>[0]
       );
 
       soupView.setActiveTab(initialActiveTab);
+      if (routeSearch && initialActiveTab !== untrack(routeSearch.tab)) {
+        routeSearch.setTab(initialActiveTab, { replace: true });
+      }
 
       if (initialCrmView) {
-        // Stage/owner sub-filters ride separate signals plus a client
-        // predicate that must be active iff the selection is non-empty
-        // (same rule as handleStageChange/handleOwnerChange in
-        // unified-filter-dropdown).
-        const stages = initialCrmView.stageFilter ?? [];
-        soupView.setStageFilter(stages);
-        if (stages.length > 0 !== soup.predicates.isActive('company-stage')) {
-          soup.predicates.toggle({ and: ['company-stage'] });
-        }
-        const owners = initialCrmView.ownerFilter ?? [];
-        soupView.setOwnerFilter(owners);
-        if (owners.length > 0 !== soup.predicates.isActive('company-owner')) {
-          soup.predicates.toggle({ and: ['company-owner'] });
-        }
+        applySharedSubFilters(initialCrmView, soupView, soup.predicates);
       }
     });
   });
+
+  if (routeSearch) {
+    createEffect(
+      on(
+        routeSearch.tab,
+        (urlTab) => {
+          const target = urlTab || VIEW_TAB_PRESETS.companies.default;
+          const current =
+            untrack(soupView.activeTab) ?? VIEW_TAB_PRESETS.companies.default;
+          if (target === current) return;
+          batch(() => {
+            soupView.setActiveTab(target);
+            if (target in VIEW_TAB_PRESETS.companies.tabs) {
+              const tabPreset = getViewPreset('companies', target);
+              if (tabPreset) {
+                soupView.queryFilters.replace(tabPreset.filters);
+                soup.predicates.set(tabPreset.clientFilters);
+                soup.grouping.setActiveGroupId(tabPreset.groupBy);
+              }
+            }
+          });
+        },
+        { defer: true }
+      )
+    );
+  }
 
   createEffect(() => {
     panel.handle.setDisplayName('Customers');
@@ -209,9 +270,43 @@ export function createCrmWorkspace(
     )
   );
 
+  let replaceNextTab = false;
+  const withReplaceHistory = (apply: () => void) => {
+    replaceNextTab = true;
+    try {
+      apply();
+    } finally {
+      replaceNextTab = false;
+    }
+  };
+  const setActiveTab = (
+    next?: string | ((prev: string | undefined) => string | undefined)
+  ) => {
+    const previous =
+      untrack(soupView.activeTab) ?? VIEW_TAB_PRESETS.companies.default;
+    const resolved = soupView.setActiveTab(next);
+    const target =
+      (typeof next === 'function' ? resolved : next) ??
+      VIEW_TAB_PRESETS.companies.default;
+    if (routeSearch && target !== untrack(routeSearch.tab)) {
+      const request = untrack(() => pipelineRequest?.current());
+      routeSearch.setTab(target, {
+        replace: replaceNextTab || target === previous,
+        clearPipelineRequest:
+          request !== undefined &&
+          pipelineIdOfTab(target) !== request.pipelineId,
+      });
+    }
+    return resolved;
+  };
+  // Setter<string | undefined> has a zero-argument overload a wrapper cannot match.
+  const wrappedSetActiveTab = setActiveTab as CrmWorkspace['setActiveTab'];
+  state.context.setActiveTab = wrappedSetActiveTab;
+
   const { openSettings } = useSettingsState();
   const context: CrmWorkspace = {
     ...soupView,
+    setActiveTab: wrappedSetActiveTab,
     host: {
       scopeId: panel.splitHotkeyScope,
       isActive: panel.isPanelActive,
@@ -229,5 +324,5 @@ export function createCrmWorkspace(
       pipelineRequest: () => pipelineRequest?.current(),
     },
   };
-  return { state, context, applyDefaultCrmView };
+  return { state, context, applyDefaultCrmView, withReplaceHistory };
 }

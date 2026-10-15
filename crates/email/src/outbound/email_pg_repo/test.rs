@@ -13,6 +13,7 @@ mod reminder_collection;
 mod scheduled;
 mod scheduled_trash;
 mod send_attempt;
+mod sender_names;
 mod senders;
 mod settings;
 mod signal_flag;
