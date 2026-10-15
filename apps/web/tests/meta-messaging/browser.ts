@@ -66,6 +66,7 @@ let holdBinding = false;
 let unknownSend = false;
 let windowClosed = false;
 let failSend = false;
+let expireSend = false;
 const submissions: MetaSendReply[] = [];
 const sends = new Map<string, MetaSendProgress[]>();
 const seenNotifications = new Set<string>();
@@ -386,13 +387,23 @@ await page.route('**/*', async (route) => {
       id: id(5000 + submissions.length),
       channel_id: channel,
       user_id: activeUser,
-      created_at: new Date().toISOString(),
-      state: unknownSend ? 'unknown' : failSend ? 'failed' : 'pending',
-      error_code: failSend ? 'provider_rejected' : null,
+      created_at: new Date(
+        Date.now() - (expireSend ? 600001 : 0)
+      ).toISOString(),
+      state: unknownSend
+        ? 'unknown'
+        : failSend || expireSend
+          ? 'failed'
+          : 'pending',
+      error_code: expireSend
+        ? 'send_expired'
+        : failSend
+          ? 'provider_rejected'
+          : null,
       payload,
     };
     sends.set(channel, [...(sends.get(channel) ?? []), attempt]);
-    if (!unknownSend && !failSend)
+    if (!unknownSend && !failSend && !expireSend)
       setTimeout(() => {
         const native = message(
           channel,
@@ -535,8 +546,23 @@ async function open(channel: string) {
     timeout: 30000,
   });
 }
+async function expectNoCustomerCalls() {
+  await expect(
+    page.locator(
+      '[data-header-action][aria-label="Call"], [data-header-action][aria-label="Join"]'
+    )
+  ).toHaveCount(0);
+  await expect(page.getByText('Calls', { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText('A call is active in this channel', { exact: true })
+  ).toHaveCount(0);
+}
 try {
   await open(channels[0].id);
+  await expect(
+    page.locator('[data-header-action][aria-label="Call"]')
+  ).toBeVisible();
+  await expect(page.getByText('Calls', { exact: true })).toBeVisible();
   await expect(
     page.getByText('Conversation ready', { exact: false })
   ).toBeVisible();
@@ -567,7 +593,8 @@ try {
       .getByText('Native browser reply', { exact: true })
   ).toHaveCount(1);
 
-  await open(channels[1].id);
+  await open(`${channels[1].id}?join_call=true&open_call_tab=true`);
+  await expectNoCustomerCalls();
   const input = page.getByRole('textbox', { name: 'External customer reply' });
   await input.fill('External browser reply');
   await page.getByRole('button', { name: 'Send reply via WhatsApp' }).click();
@@ -627,6 +654,7 @@ try {
     page.getByLabel('Loading conversation', { exact: true })
   ).toBeVisible();
   await expect(input).toHaveCount(0);
+  await expectNoCustomerCalls();
   holdBinding = false;
   bindingError = true;
   await page.reload();
@@ -634,6 +662,7 @@ try {
     page.getByText('Conversation unavailable.', { exact: false })
   ).toBeVisible();
   await expect(input).toHaveCount(0);
+  await expectNoCustomerCalls();
   bindingError = false;
   denied = true;
   await page.reload();
@@ -719,6 +748,28 @@ try {
   await page.getByRole('button', { name: 'Back to text reply' }).click();
   await expect(page.getByRole('combobox')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /template/i })).toHaveCount(0);
+  activeUser = 'macro|expiry-browser-user@example.com';
+  await page.reload();
+  await expect(input).toHaveValue('');
+  await input.fill('Expired reply kept for editing');
+  expireSend = true;
+  await sendButton.click();
+  const expiredIntent = submissions.at(-1)!;
+  const expiredId = sends.get(channels[1].id)!.at(-1)!.id;
+  const expiredRow = page.locator(`[data-external-send-id="${expiredId}"]`);
+  await expect(
+    expiredRow.getByRole('status', { name: 'Not sent', exact: true })
+  ).toBeVisible();
+  await expiredRow.getByRole('button', { name: 'Edit and retry' }).click();
+  await expect(input).toHaveValue('Expired reply kept for editing');
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  expireSend = false;
+  await sendButton.click();
+  assert.notEqual(
+    submissions.at(-1)!.idempotency_key,
+    expiredIntent.idempotency_key
+  );
+  await expectNoCustomerCalls();
   activeUser = USER_ID;
   await page.screenshot({
     path: '/tmp/macro-messaging-browser.png',
@@ -729,7 +780,9 @@ try {
   console.log(
     JSON.stringify({
       passed: [
-        'ordinary channel send/activity',
+        'ordinary channel send/activity and preserved Call controls',
+        'hidden customer Call surfaces during loading/error and join-call deep links',
+        'Not sent expiry and recovered draft with a new intent key',
         'external send/native replacement',
         'cross-channel, reload and user-switch drafts',
         'loading/error binding',

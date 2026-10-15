@@ -9,6 +9,7 @@ use meta_messaging::{
 };
 
 macro_env_var::maybe_env_vars! {
+    pub struct AttachmentBucket;
     pub struct MetaWhatsappAppId;
     pub struct MetaWhatsappAppSecret;
     pub struct MetaWhatsappConfigurationId;
@@ -30,6 +31,7 @@ pub(super) struct Settings {
     pub provider: HttpMetaProvider,
     pub webhooks: WebhookConfiguration,
     pub kms_key: Option<String>,
+    pub temporary_media_bucket: Option<String>,
 }
 
 impl Settings {
@@ -111,6 +113,13 @@ impl Settings {
             (wa_id.is_none() && ig_id.is_none() && !developer_available) || kms_key.is_some(),
             "META_CREDENTIAL_KMS_KEY is required for configured Meta accounts"
         );
+        // ATTACHMENT_BUCKET already belongs to the email attachment viewer.
+        // Its isolated temp/ namespace has a one-day lifecycle rule.
+        let temporary_media_bucket = AttachmentBucket::new().map(|v| v.to_string());
+        anyhow::ensure!(
+            ig_id.is_none() || temporary_media_bucket.is_some(),
+            "ATTACHMENT_BUCKET is required for private Instagram media copies"
+        );
         let public = PublicConfiguration {
             instagram_human_agent_approved: match MetaInstagramHumanAgentApproved::new()
                 .as_ref()
@@ -148,6 +157,7 @@ impl Settings {
             provider,
             webhooks,
             kms_key,
+            temporary_media_bucket,
         })
     }
 }

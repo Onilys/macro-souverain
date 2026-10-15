@@ -35,6 +35,7 @@ type CreateCloudStorageServiceServiceArgs = {
   platform: { family: string; architecture: 'amd64' | 'arm64' };
   documentStorageBucketArn: pulumi.Output<string> | string;
   docxUploadBucketArn: pulumi.Output<string> | string;
+  emailAttachmentsBucketArn: pulumi.Output<string> | string;
   githubPullRequestPatchBucketArn: pulumi.Output<string> | string;
   serviceContainerPort: number;
   containerEnvVars?: { name: string; value: pulumi.Output<string> | string }[];
@@ -64,6 +65,7 @@ export class CloudStorageService extends pulumi.ComponentResource {
       platform,
       documentStorageBucketArn,
       docxUploadBucketArn,
+      emailAttachmentsBucketArn,
       githubPullRequestPatchBucketArn,
       serviceContainerPort,
       healthCheckPath,
@@ -212,6 +214,37 @@ export class CloudStorageService extends pulumi.ComponentResource {
           ],
         },
         tags: { ...this.tags, 'call-recording-access': 'true' },
+      },
+      { parent: this }
+    );
+
+    new aws.iam.RolePolicy(
+      `${BASE_NAME}-meta-media-copies`,
+      {
+        role: this.role.name,
+        policy: pulumi.jsonStringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Effect: 'Allow',
+              Action: [
+                's3:PutObject',
+                's3:GetObject',
+                's3:DeleteObject',
+                's3:DeleteObjectVersion',
+              ],
+              Resource: pulumi.interpolate`${emailAttachmentsBucketArn}/temp/macro-messaging/*`,
+            },
+            {
+              Effect: 'Allow',
+              Action: ['s3:ListBucketVersions'],
+              Resource: emailAttachmentsBucketArn,
+              Condition: {
+                StringLike: { 's3:prefix': 'temp/macro-messaging/*' },
+              },
+            },
+          ],
+        }),
       },
       { parent: this }
     );

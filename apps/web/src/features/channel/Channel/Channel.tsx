@@ -1027,9 +1027,11 @@ export function Channel(props: ChannelProps) {
                       </MessageNotificationIndexContext.Provider>
                     </div>
                   </Show>
-                  <DebugSuspense name="Channel.active-call">
-                    <ActiveCallMessage channelId={props.channelId} />
-                  </DebugSuspense>
+                  <Show when={messaging.interaction().kind === 'internal'}>
+                    <DebugSuspense name="Channel.active-call">
+                      <ActiveCallMessage channelId={props.channelId} />
+                    </DebugSuspense>
+                  </Show>
                 </div>
                 <DebugSuspense name="Channel.input">
                   <FloatRegionOrInline region="accessory">

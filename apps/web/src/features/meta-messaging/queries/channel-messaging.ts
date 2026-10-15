@@ -21,14 +21,10 @@ import {
   visibleDeliveryIds,
 } from '../core/timeline';
 
-/** Own the external send feed and its handoff to the native message timeline. */
-export function createChannelMessaging(options: {
+/** Resolve the shared interaction state before exposing native channel actions. */
+export function createChannelInteraction(options: {
   channelId: Accessor<string>;
   channelType: Accessor<string | undefined>;
-  messages: Accessor<readonly MessageData[]>;
-  entries: Accessor<readonly MessagingTimelineEntry[]>;
-  includesLatest: Accessor<boolean>;
-  visibleRange: Accessor<{ first: string; last: string } | undefined>;
 }) {
   const possible = () => mayHaveExternalBinding(options.channelType());
   const messagingQuery = useMetaConversation(
@@ -65,6 +61,24 @@ export function createChannelMessaging(options: {
     }
     return { kind: messagingQuery.isError ? 'error' : 'loading' };
   };
+  return {
+    account: messaging,
+    interaction,
+    refresh: () => void messagingQuery.refetch(),
+  };
+}
+
+/** Own the external send feed and its handoff to the native message timeline. */
+export function createChannelMessaging(options: {
+  channelId: Accessor<string>;
+  channelType: Accessor<string | undefined>;
+  messages: Accessor<readonly MessageData[]>;
+  entries: Accessor<readonly MessagingTimelineEntry[]>;
+  includesLatest: Accessor<boolean>;
+  visibleRange: Accessor<{ first: string; last: string } | undefined>;
+}) {
+  const state = createChannelInteraction(options);
+  const messaging = state.account;
   const latestCustomerMessage = createMemo(() => {
     if (!options.includesLatest()) return undefined;
     let latest: MessageData | undefined;
@@ -84,7 +98,7 @@ export function createChannelMessaging(options: {
     on(
       latestCustomerMessage,
       (id) => {
-        if (id && messaging()) void messagingQuery.refetch();
+        if (id && messaging()) state.refresh();
       },
       { defer: true }
     )
@@ -165,8 +179,8 @@ export function createChannelMessaging(options: {
 
   return {
     account: messaging,
-    interaction,
-    refresh: () => void messagingQuery.refetch(),
+    interaction: state.interaction,
+    refresh: state.refresh,
     timelineKeys,
     attemptsByKey,
     deliveryByMessage,

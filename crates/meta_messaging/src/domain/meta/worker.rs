@@ -52,6 +52,9 @@ impl MetaService {
                 .or_else(|| message.author_name.take());
             message.author_handle = profile.handle.or_else(|| message.author_handle.take());
         }
+        if !self.renew_ingestion(lease).await? {
+            return Err(MessagingError::Conflict.into());
+        }
         self.native.ingest(connection, message, vec![]).await?;
         if !message.media.is_empty()
             && !self
@@ -88,6 +91,9 @@ impl MetaService {
                     media.push(Some(file));
                 }
                 if media.iter().any(Option::is_some) {
+                    if !self.renew_ingestion(lease).await? {
+                        return Err(MessagingError::Conflict.into());
+                    }
                     self.native.ingest(connection, message, media).await?;
                 }
                 download_error.map_or(Ok(()), Err)
@@ -358,10 +364,9 @@ impl MetaService {
                 ) => {}
             // Subscribed but unrendered activity (such as Instagram postbacks) says
             // nothing about account health, so it must not replace a recovery code.
-            IncomingEvent::Unsupported { field, .. } => {
+            IncomingEvent::Unsupported { .. } => {
                 tracing::info!(
                     receipt_id=?work.lease.id,
-                    field=%field.chars().take(64).collect::<String>(),
                     "unsupported Meta event ignored"
                 );
             }

@@ -236,3 +236,81 @@ async fn accepted_media_replaces_the_echo_preview_with_the_original_document(poo
     assert_eq!(row.attachments.len(), 1);
     assert_eq!(row.attachments[0].entity_id, original.to_string());
 }
+
+struct CopyCounter(std::sync::atomic::AtomicUsize);
+#[async_trait]
+impl meta_messaging::domain::temporary_media::TemporaryMedia for CopyCounter {
+    async fn stage(&self, _: &MediaBytes) -> PortResult<String> {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok("https://storage.example.test/temp/macro-messaging/opaque".into())
+    }
+    async fn cleanup(
+        &self,
+    ) -> PortResult<meta_messaging::domain::temporary_media::MediaCopyCleanup> {
+        Ok(Default::default())
+    }
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn revoked_native_file_access_prevents_creating_a_provider_copy(pool: PgPool) {
+    let (native, c, _) = setup(&pool, Provider::Instagram).await;
+    let document = Uuid::now_v7();
+    sqlx::query!(
+        "INSERT INTO \"Document\" (id,owner,name,\"fileType\") VALUES ($1,$2,'Private file','pdf')",
+        document.to_string(),
+        c.user_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let user = MacroUserIdStr::try_from(c.user_id.clone()).unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    entity_access_db_utils::upsert_owner_grant(
+        &mut tx,
+        &document,
+        entity_access_db_utils::EntityType::Document,
+        &model_owner::Owner::User(user.clone()),
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    let copies = CopyCounter(std::sync::atomic::AtomicUsize::new(0));
+    let bytes = MediaBytes {
+        filename: "private.pdf".into(),
+        mime_type: "application/pdf".into(),
+        bytes: b"%PDF-private".to_vec(),
+    };
+    crate::native_messaging::files::temporary_url(
+        &*native.access,
+        &copies,
+        &user,
+        document,
+        &bytes,
+    )
+    .await
+    .unwrap();
+    assert_eq!(copies.0.load(std::sync::atomic::Ordering::SeqCst), 1);
+    entity_access_db_utils::delete_source_grants(
+        &pool,
+        entity_access_db_utils::EntityAccessSourceType::User,
+        &c.user_id,
+    )
+    .await
+    .unwrap();
+    assert!(
+        crate::native_messaging::files::temporary_url(
+            &*native.access,
+            &copies,
+            &user,
+            document,
+            &bytes
+        )
+        .await
+        .is_err()
+    );
+    assert_eq!(
+        copies.0.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "no copy is created after access is revoked"
+    );
+}

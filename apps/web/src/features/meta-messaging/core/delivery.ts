@@ -24,6 +24,8 @@ export function messagingError(
 ) {
   const name = providerName(provider);
   const value = (code ?? '').toLowerCase();
+  if (value === 'send_expired')
+    return 'This reply waited for 10 minutes and was not sent. Edit and retry when you’re ready.';
   const number = value.match(/^(?:provider_error_)?(\d+)$/)?.[1];
   if (value.includes('not configured') || value.includes('configuration'))
     return `${name} messaging isn’t set up yet. Ask your Macro administrator to complete setup.`;
@@ -126,7 +128,7 @@ export function deliveryPresentation(
       icon: 'checks' as const,
     }))
     .with('failed', () => ({
-      label: 'Couldn’t deliver',
+      label: error === 'send_expired' ? 'Not sent' : 'Couldn’t deliver',
       detail: messagingError(error, provider),
       tone: 'error' as const,
       icon: 'warning' as const,

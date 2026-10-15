@@ -51,10 +51,22 @@ impl PgMessagingRepository {
         // Uncertainty is terminal for dispatch. After a bounded lease it releases
         // the conversation; delivered/read receipts are never needed to proceed.
         sqlx::query!(r#"WITH expired AS (
-            SELECT id FROM meta_messaging_send WHERE state='sending' AND lease_until<now()
+            SELECT id FROM meta_messaging_send WHERE state='sending' AND (lease_until<=now() OR lease_until IS NULL)
             ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT 100
-        ) UPDATE meta_messaging_send s SET state='unknown',error_code='interrupted_send_check_provider',
-            lease_id=NULL,lease_until=NULL,updated_at=now() FROM expired WHERE s.id=expired.id"#)
+        ) UPDATE meta_messaging_send s SET
+            state=CASE WHEN tracked_lease_id=lease_id AND dispatch_started_at IS NULL THEN 'pending' ELSE 'unknown' END,
+            error_code=CASE WHEN tracked_lease_id=lease_id AND dispatch_started_at IS NULL THEN 'preparation_interrupted' ELSE 'interrupted_send_check_provider' END,
+            lease_id=NULL,lease_until=NULL,available_at=now(),updated_at=now() FROM expired WHERE s.id=expired.id"#)
+            .execute(&mut *tx).await.map_err(failure)?;
+        // Only current, explicitly tracked claims prove they are unattempted.
+        // Old workers leave a different tracked_lease_id and settle as Unknown.
+        sqlx::query!(r#"WITH expired AS (
+            SELECT id FROM meta_messaging_send WHERE created_at<=clock_timestamp()-make_interval(secs=>$1::integer)
+              AND provider_message_id IS NULL
+              AND (state='pending' OR (state='sending' AND tracked_lease_id=lease_id AND dispatch_started_at IS NULL))
+            ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 100
+        ) UPDATE meta_messaging_send s SET state='failed',error_code='send_expired',lease_id=NULL,lease_until=NULL,
+            updated_at=clock_timestamp() FROM expired WHERE s.id=expired.id"#,crate::domain::policy::SEND_EXPIRY_SECONDS)
             .execute(&mut *tx).await.map_err(failure)?;
         let token = Uuid::now_v7();
         let row = sqlx::query!(
@@ -69,7 +81,7 @@ impl PgMessagingRepository {
                   WHERE busy.connection_id=s.connection_id AND busy.state='sending'
                     AND busy.lease_until>now()) < 2
             ORDER BY s.created_at,s.id FOR UPDATE SKIP LOCKED LIMIT 1
-        ) UPDATE meta_messaging_send s SET state='sending',lease_id=$1,
+        ) UPDATE meta_messaging_send s SET state='sending',lease_id=$1,tracked_lease_id=$1,dispatch_started_at=NULL,
             lease_until=now()+interval '5 minutes',attempts=attempts+1,updated_at=now()
           FROM candidate c WHERE s.id=c.id
           RETURNING s.id,s.connection_id,s.channel_id,s.user_id,s.created_at,s.payload,s.attempts
@@ -111,7 +123,7 @@ impl PgMessagingRepository {
         } else {
             state
         };
-        let result = sqlx::query!("UPDATE meta_messaging_send SET state = $3, provider_message_id = COALESCE($4,provider_message_id), error_code = $5, available_at = now() + make_interval(secs => COALESCE($6,0)), lease_id = NULL, lease_until = NULL, updated_at = now() WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND state = 'sending'",lease.id,lease.token,spelling(state),provider.map(ProviderId::as_str),error,retry.map(|s|s.min(3600) as i32))
+        let result = sqlx::query!("UPDATE meta_messaging_send SET state = $3, dispatch_started_at=CASE WHEN $3='pending' THEN NULL ELSE dispatch_started_at END, provider_message_id = COALESCE($4,provider_message_id), error_code = $5, available_at = now() + make_interval(secs => COALESCE($6,0)), lease_id = NULL, lease_until = NULL, updated_at = now() WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND state = 'sending'",lease.id,lease.token,spelling(state),provider.map(ProviderId::as_str),error,retry.map(|s|s.min(3600) as i32))
             .execute(&self.pool).await.map_err(failure)?;
         if result.rows_affected() != 1 {
             return Err(MessagingError::Conflict.into());

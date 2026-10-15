@@ -83,3 +83,51 @@ pub(super) async fn sends(service: MessagingService) {
         }
     }
 }
+
+pub(super) async fn retention(service: Arc<MetaService>) {
+    let mut tick = interval(Duration::from_secs(60));
+    tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    loop {
+        tick.tick().await;
+        for _ in 0..4 {
+            match service.repository.cleanup_receipts().await {
+                Ok(counts) if counts.changed() => tracing::info!(
+                    initialized = counts.completion_times_initialized,
+                    cleared = counts.payloads_cleared,
+                    expired = counts.work_expired,
+                    deleted = counts.receipts_deleted,
+                    "messaging receipt retention applied"
+                ),
+                Ok(_) => break,
+                Err(error) => {
+                    tracing::warn!(error=?error.current_context(),"messaging receipt cleanup will retry");
+                    break;
+                }
+            }
+        }
+    }
+}
+
+pub(super) async fn temporary_media(
+    copies: Arc<dyn meta_messaging::domain::temporary_media::TemporaryMedia>,
+) {
+    let mut tick = interval(Duration::from_secs(60));
+    tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    loop {
+        tick.tick().await;
+        match copies.cleanup().await {
+            Ok(counts) if counts.deleted + counts.deferred + counts.failed > 0 => {
+                tracing::info!(
+                    deleted = counts.deleted,
+                    deferred = counts.deferred,
+                    failed = counts.failed,
+                    "temporary messaging media cleanup"
+                );
+            }
+            Ok(_) => {}
+            Err(error) => {
+                tracing::warn!(error=?error.current_context(),"temporary messaging media cleanup will retry")
+            }
+        }
+    }
+}

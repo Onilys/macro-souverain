@@ -138,6 +138,9 @@ pub enum MessagingError {
     /// An existing account/source/idempotency mapping has different semantics.
     #[error("this identity is already bound; reconnect the original connection")]
     Conflict,
+    /// The original intent expired before any uncertain or accepted attempt.
+    #[error("send_expired")]
+    SendExpired,
     /// Account is disconnected, revoked or requires renewed authorization.
     #[error("reconnect this account before sending")]
     Disconnected,

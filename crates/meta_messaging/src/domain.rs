@@ -15,6 +15,10 @@ pub mod policy;
 #[cfg(feature = "ports")]
 pub mod ports;
 pub mod replies;
+pub mod retention;
 #[cfg(feature = "ports")]
 pub mod service;
 pub mod templates;
+
+#[cfg(feature = "ports")]
+pub mod temporary_media;

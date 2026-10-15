@@ -21,3 +21,6 @@ pub enum ReplyMode {
     /// Explicit human-authored support reply, where implemented.
     HumanSupport,
 }
+
+/// Maximum age of an intent that has not crossed a dispatch fence, in seconds.
+pub const SEND_EXPIRY_SECONDS: i32 = 10 * 60;

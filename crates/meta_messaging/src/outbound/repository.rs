@@ -13,9 +13,11 @@ mod history;
 pub mod media;
 pub mod native;
 mod receipts;
+mod retention;
 pub mod revisions;
 mod sends;
 mod subscription;
+mod temporary_media;
 #[cfg(test)]
 mod test;
 
@@ -188,7 +190,7 @@ impl MessagingRepository for PgMessagingRepository {
         // Retry this account's failed inbound work after authorization is renewed.
         // Message identities deduplicate replay; outbound intents are never reset.
         sqlx::query!(r#"UPDATE meta_messaging_receipt SET status='pending',attempts=0,available_at=now(),error_code=NULL,lease_id=NULL,lease_until=NULL
-            WHERE provider=$1 AND status='failed' AND error_code <> 'invalid_provider_payload' AND
+            WHERE provider=$1 AND status='failed' AND error_code <> 'invalid_provider_payload' AND created_at>now()-interval '30 days' AND payload_cleared_at IS NULL AND
             (payload @> jsonb_build_object('entry',jsonb_build_array(jsonb_build_object('id',$2::text))) OR
              payload @> jsonb_build_object('entry',jsonb_build_array(jsonb_build_object('changes',jsonb_build_array(jsonb_build_object('value',jsonb_build_object('metadata',jsonb_build_object('phone_number_id',$2::text))))))))"#,
             connection.provider.as_str(),connection.account_id.as_str()).execute(&mut *tx).await.map_err(failure)?;
@@ -291,7 +293,10 @@ impl MessagingRepository for PgMessagingRepository {
         self.claim_receipt_impl().await
     }
     async fn heartbeat_receipt(&self, lease: &Lease) -> PortResult<bool> {
-        Ok(sqlx::query!("UPDATE meta_messaging_receipt SET lease_until = now() + interval '5 minutes' WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND status = 'processing'",lease.id,lease.token).execute(&self.pool).await.map_err(failure)?.rows_affected()==1)
+        Ok(sqlx::query!("UPDATE meta_messaging_receipt SET lease_until = LEAST(now() + interval '5 minutes',created_at+interval '30 days') WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND created_at>now()-interval '30 days' AND status = 'processing'",lease.id,lease.token).execute(&self.pool).await.map_err(failure)?.rows_affected()==1)
+    }
+    async fn cleanup_receipts(&self) -> PortResult<crate::domain::retention::ReceiptCleanup> {
+        self.cleanup_receipts_impl().await
     }
     async fn record_receipt_decode_failures(&self, lease: &Lease, failures: u32) -> PortResult<()> {
         let changed=sqlx::query!("UPDATE meta_messaging_receipt SET decode_failures=GREATEST(decode_failures,$3) WHERE id=$1 AND lease_id=$2 AND lease_until>now() AND status='processing'",lease.id,lease.token,failures.min(i32::MAX as u32) as i32)
@@ -399,11 +404,29 @@ impl ConversationRepository for PgMessagingRepository {
         if active.is_none() {
             return Err(MessagingError::Disconnected.into());
         }
-        let result=sqlx::query!("UPDATE meta_messaging_send SET payload=jsonb_set(payload,'{rendered_text}',to_jsonb($3::text)),lease_until=now()+interval '5 minutes' WHERE id=$1 AND lease_id=$2 AND lease_until>now() AND state='sending' AND connection_id=$4",lease.id,lease.token,rendered_text,c.id).execute(&mut *tx).await.map_err(failure)?;
-        if result.rows_affected() != 1 {
-            return Err(MessagingError::Conflict.into());
+        let expired = sqlx::query_scalar!(r#"
+            WITH fence AS MATERIALIZED (SELECT clock_timestamp() AS at),
+            deadline AS (SELECT at, at - make_interval(secs => $5::integer) AS oldest FROM fence)
+            UPDATE meta_messaging_send s SET
+                state=CASE WHEN s.created_at<=f.oldest THEN 'failed' ELSE 'sending' END,
+                error_code=CASE WHEN s.created_at<=f.oldest THEN 'send_expired' ELSE NULL END,
+                payload=CASE WHEN s.created_at<=f.oldest THEN s.payload ELSE jsonb_set(s.payload,'{rendered_text}',to_jsonb($3::text)) END,
+                dispatch_started_at=CASE WHEN s.created_at<=f.oldest THEN NULL ELSE f.at END,
+                lease_id=CASE WHEN s.created_at<=f.oldest THEN NULL ELSE s.lease_id END,
+                lease_until=CASE WHEN s.created_at<=f.oldest THEN NULL ELSE f.at+interval '5 minutes' END,
+                updated_at=f.at
+            FROM deadline f WHERE s.id=$1 AND s.lease_id=$2 AND s.lease_until>f.at
+              AND s.tracked_lease_id=s.lease_id AND s.dispatch_started_at IS NULL
+              AND s.provider_message_id IS NULL AND s.state='sending' AND s.connection_id=$4
+            RETURNING s.state='failed' AS "expired!"
+            "#,lease.id,lease.token,rendered_text,c.id,crate::domain::policy::SEND_EXPIRY_SECONDS)
+            .fetch_optional(&mut *tx).await.map_err(failure)?.ok_or(MessagingError::Conflict)?;
+        tx.commit().await.map_err(failure)?;
+        if expired {
+            Err(MessagingError::SendExpired.into())
+        } else {
+            Ok(())
         }
-        tx.commit().await.map_err(failure)
     }
     async fn settle_send(
         &self,

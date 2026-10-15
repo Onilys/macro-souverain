@@ -298,6 +298,7 @@ workspace-hack = { version = "0.1", path = "../../crates/workspace-hack" }
 zip = { workspace = true }
 
 [dev-dependencies]
+entity_access_db_utils = { path = "../../crates/entity_access_db_utils" }
 hmac = { workspace = true }
 macro_db_migrator = { path = "../../crates/macro_db_migrator" }
 cool_asserts = "2"

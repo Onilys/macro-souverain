@@ -4,7 +4,9 @@ This harness runs the complete bundled app with synthetic API and websocket
 responses. It exercises ordinary and external channel composition, activity and
 unread navigation, pending-to-native row replacement, drafts across navigation,
 reload and user changes, denied sends, loading/error states, uncertain-send
-acknowledgement, and source edit/unsend display. It blocks nonlocal traffic and
+acknowledgement, source edit/unsend display, customer Call suppression during
+loading/errors and join-call deep links, preserved ordinary calls, and expired
+reply draft recovery with a new intent key. It blocks nonlocal traffic and
 uses a fresh browser context. It does not verify provider delivery or backend
 permissions; the Rust HTTP/database suites cover those service boundaries.
 

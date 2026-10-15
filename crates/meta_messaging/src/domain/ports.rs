@@ -183,6 +183,8 @@ pub trait MessagingRepository: ConversationRepository {
     async fn claim_receipt(&self) -> PortResult<Option<ReceiptWork>>;
     /// Renew the exact receipt attempt while processing bounded event/media work.
     async fn heartbeat_receipt(&self, lease: &Lease) -> PortResult<bool>;
+    /// Apply the domain's bounded, lease-safe raw-payload and receipt-metadata retention policy.
+    async fn cleanup_receipts(&self) -> PortResult<super::retention::ReceiptCleanup>;
     /// Retain syntax-failure diagnostics before processing valid siblings. This
     /// monotonic count survives retries and never includes customer content.
     async fn record_receipt_decode_failures(&self, lease: &Lease, failures: u32) -> PortResult<()>;

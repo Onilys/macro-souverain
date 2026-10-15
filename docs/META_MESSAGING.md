@@ -246,9 +246,9 @@ any typed text as a draft; template drafts and failed template sends restore int
 Provider acceptance is persisted before native message creation. Recovery creates
 only the missing native message/attachment/effects and never repeats that provider
 send. Rate limits, and temporary failures before the dispatch fence, retry a bounded
-number of times. Once dispatch starts, a failure is never recorded as Failed: a
-timeout, interrupted attempt or unrecorded acceptance becomes **Unknown**, because it
-may have been accepted. Restoring an unknown reply requires a person to check the
+number of times. After dispatch starts, a timeout, interrupted attempt or
+unrecorded acceptance becomes **Unknown**, because it may have been accepted.
+Definitive provider rejections can still fail or safely return to Pending. Restoring an unknown reply requires a person to check the
 original app and explicitly confirm sending again. Reconnect retains account/channel
 mappings and retries failed inbound work for that account, including customer
 messages and revisions received while its authorization needed renewal; it never
@@ -270,6 +270,68 @@ Files are private Macro documents. Source reservations retain the same document
 ID and content hash after a crash. Channel sharing uses Macro's existing access
 services. A ready file is never overwritten during recovery, and loss of access
 after provider acceptance produces an explicit unavailable-attachment notice.
+
+### Dispatch, receipt and media policies
+
+An intent that has not crossed the dispatch fence expires ten minutes after its
+original durable enqueue time. The fence uses database time after acquiring the
+account lock. The UI shows **Not sent**, and **Edit and retry** restores the draft
+with a new intent key. A dispatch marker is authorization to attempt a request,
+not evidence of provider receipt: a crash after that marker remains Unknown.
+A current claim that crashed before its marker can retry; an older service
+version's untracked claim remains conservative Unknown during a rolling upgrade.
+Definitive rate-limit retries keep the original deadline. Expiry never applies
+to accepted or uncertain work.
+
+Replies dispatch in `(created_at, id)` order within a bound conversation across
+replicas. Pending retries block later replies in that conversation. Acceptance,
+definitive failure, expiry, or a settled uncertain outcome releases it; no
+optional delivered/read event is required. A crashed uncertain attempt settles
+when its five-minute lease expires. Receipt and send drivers each drain four
+local slots, with a durable two-slot account cap across replicas. Different
+accounts within a receipt also progress independently, with bounded concurrency.
+No provider/media request is made inside a claim/fence transaction.
+
+Each webhook item is decoded independently. A receipt records its decode-failure
+count before processing healthy siblings. Permanent malformed items do not cause
+otherwise successful siblings to be replayed repeatedly. Account-state failures
+retry independently of reconnect timing, up to the original retention deadline.
+Successful raw receipts are cleared seven days after completion. Failed, incomplete and partially
+decoded receipts keep their payload until that original thirty-day deadline.
+Completion time for older completed rows is first observed once. Metadata waits
+for that seven-day window even if success occurred near day thirty. Cleanup skips valid leases, bounds each write to 500 rows,
+and removes metadata after thirty days once its payload is cleared. Native
+message IDs, tombstones, revisions and provider acceptance remain independent.
+Cleanup logs counts, not customer content.
+
+Instagram media uses an opaque temporary copy in the email attachment viewer's
+`ATTACHMENT_BUCKET`, under `temp/macro-messaging/<UUID>`. Current native file access
+is rechecked immediately before creating the copy; the original document is
+never made public. Signed URLs last fifteen minutes. A cleanup row is reserved
+before upload, and a one-day cleanup job deletes actual object versions and
+markers, verifies absence, and only then removes its row. Failed deletions retry.
+The existing bucket's `temp/` one-day lifecycle is additional protection. These
+objects are outside the native document bucket and its event consumers.
+WhatsApp still uploads authorized bytes directly.
+
+Before deploying this change, apply the cloud-storage stack's scoped temporary
+object policy and `ATTACHMENT_BUCKET` environment wiring. The role requires
+Get/Put/DeleteObject and DeleteObjectVersion only under the messaging temp prefix,
+and ListBucketVersions restricted to that prefix. The bucket name already exists
+in the email viewer/AI-tool configuration; no new credential is introduced.
+Verify the target bucket and lifecycle in the release environment, and retain
+access to an old bucket until any recorded cleanup work there is drained. No
+infrastructure or Meta account was changed by local verification.
+
+Customer channels hide Call, Calls, call auto-join, and the active-call join link.
+Loading/error bindings fail closed; known ordinary channels keep their calls.
+Saved/deep-linked call tabs resolve to Messages when calls are unavailable.
+
+Team ownership and safe automatic unsend trashing remain gated on the owning-domain
+capabilities described in [the ownership assessment](META_MESSAGING_OWNERSHIP.md).
+This branch does not convert existing customer ownership or guess whether a file
+was deliberately reused. Native unsend tombstones and attachment removal remain
+active, including after raw receipt cleanup.
 
 ## Verification
 

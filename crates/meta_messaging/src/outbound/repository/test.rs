@@ -1,4 +1,5 @@
 mod fairness;
+mod policies;
 use super::*;
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use sha2::{Digest, Sha256};
@@ -213,6 +214,13 @@ async fn crashed_network_attempt_is_unknown_and_never_automatically_resent(pool:
         .await
         .unwrap();
     let work = repo.claim_send().await.unwrap().unwrap();
+    let current = repo.connection(c.id).await.unwrap().unwrap();
+    repo.health(&current, ConnectionStatus::Connected, None)
+        .await
+        .unwrap();
+    repo.prepare_send(&work.lease, &(&current).into(), "An attempted reply")
+        .await
+        .unwrap();
     sqlx::query!(
         "UPDATE meta_messaging_send SET lease_until = now() - interval '1 second' WHERE id = $1",
         work.lease.id

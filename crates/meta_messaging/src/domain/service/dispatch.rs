@@ -21,6 +21,10 @@ impl MessagingService {
         let (prepared, conversation, connection) = match self.fence_dispatch(work).await {
             Ok(ready) => ready,
             Err(error) => {
+                if matches!(error.current_context(), MessagingError::SendExpired) {
+                    // Expiry was already committed atomically at the fence.
+                    return Ok(());
+                }
                 // Nothing crossed the provider boundary, so this attempt can end here.
                 let retry = matches!(error.current_context(), MessagingError::Unavailable)
                     && work.attempts < 10;

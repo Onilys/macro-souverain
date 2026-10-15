@@ -84,3 +84,70 @@ async fn healthy_account_in_the_same_delivery_progresses_while_media_is_blocked(
     f.remote.operation_release.notify_one();
     processing.await.unwrap().unwrap();
 }
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn replay_after_receipt_deletion_keeps_source_deduplication_and_unsend_tombstones(
+    pool: PgPool,
+) {
+    let f = fixture(&pool, Provider::Instagram, None).await;
+    let at = connected_time(&f.repo, f.c.id).await;
+    let payload = |message: Value| {
+        json!({"object":"instagram","entry":[{"id":f.c.account_id,"messaging":[{
+            "sender":{"id":"customer"},"recipient":{"id":f.c.account_id},"timestamp":at.timestamp_millis(),"message":message
+        }]}]})
+    };
+    let original = payload(json!({"mid":"retained-source","text":"Customer content"}));
+    assert_eq!(
+        signed(&f.app, Provider::Instagram, original.clone(), true).await,
+        StatusCode::OK
+    );
+    drain(&f.service).await;
+    let identity = f
+        .repo
+        .message_target(f.c.id, "retained-source")
+        .await
+        .unwrap();
+    assert_eq!(
+        signed(
+            &f.app,
+            Provider::Instagram,
+            payload(json!({"mid":"retained-source","is_deleted":true})),
+            true
+        )
+        .await,
+        StatusCode::OK
+    );
+    drain(&f.service).await;
+    sqlx::query!("UPDATE meta_messaging_receipt SET created_at=now()-interval '31 days',completed_at=now()-interval '8 days'").execute(&pool).await.unwrap();
+    assert_eq!(f.repo.cleanup_receipts().await.unwrap().receipts_deleted, 2);
+    assert_eq!(
+        signed(&f.app, Provider::Instagram, original, true).await,
+        StatusCode::OK
+    );
+    drain(&f.service).await;
+    assert_eq!(
+        f.repo
+            .message_target(f.c.id, "retained-source")
+            .await
+            .unwrap(),
+        identity
+    );
+    let row = PgMessageRepository::new(pool.clone())
+        .get(&MessageParent::Channel(identity.0), identity.1)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(row.deleted_at.is_some());
+    assert!(row.content.is_empty());
+    assert!(row.attachments.is_empty());
+    assert_eq!(
+        sqlx::query_scalar!(
+            "SELECT count(*) FROM meta_messaging_message WHERE connection_id=$1",
+            f.c.id
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        Some(1)
+    );
+}

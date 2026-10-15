@@ -54,6 +54,10 @@ keeps its native newline behavior. The composer uses the shared channel layout a
 channels keep their existing composer. Agent work stays private and is never
 forwarded automatically. Native thread replies, reactions, edits, and deletes
 are hidden in customer channels because those actions do not reach the provider.
+Customer conversations also hide Call, the Call/Calls tabs, and the active-call
+join link. Saved or deep-linked call tabs resolve to Messages, and a customer
+join-call link cannot start a call. These controls stay unavailable while the
+conversation binding is loading or in error; ordinary channels retain calls.
 
 The title is the customer's full profile/display name, falling back to the
 WhatsApp phone number or Instagram handle. A small provider logo replaces the
@@ -87,7 +91,10 @@ attempts and have no native reply/edit/delete actions. They are replaced by the
 native message when sending succeeds; statuses also load when scrolling back
 through older messages.
 
-**Couldn’t deliver** explains what to do in plain language. **Edit and retry**
+**Not sent** means the reply waited ten minutes without a dispatch attempt.
+Its **Edit and retry** action restores the original draft with a new intent key.
+An uncertain or provider-accepted attempt never receives this expiry label.
+**Couldn’t deliver** explains other definitive failures in plain language. **Edit and retry**
 restores the failed draft without sending it or
 overwriting an existing draft. **Delivery not confirmed** means the reply may
 have arrived: choose **Review reply**, check the original app, and explicitly

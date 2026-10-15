@@ -48,7 +48,7 @@ impl PgMessagingRepository {
             WITH candidate AS (
                 SELECT r.id FROM meta_messaging_receipt r
                 WHERE (r.attempts < 20 OR r.error_code='account_state_changed')
-                  AND r.created_at > now() - interval '30 days'
+                  AND r.created_at > now() - interval '30 days' AND r.payload_cleared_at IS NULL
                   AND r.available_at <= now()
                   AND (r.status='pending' OR (r.status='processing' AND r.lease_until<now()))
                   AND NOT EXISTS (
@@ -60,7 +60,7 @@ impl PgMessagingRepository {
                   )
                 ORDER BY r.available_at,r.id FOR UPDATE SKIP LOCKED LIMIT 1
             ) UPDATE meta_messaging_receipt r SET status='processing',lease_id=$1,
-                lease_until=now()+interval '5 minutes',attempts=LEAST(20,attempts+1)
+                lease_until=LEAST(now()+interval '5 minutes',created_at+interval '30 days'),attempts=LEAST(20,attempts+1)
               FROM candidate c WHERE r.id=c.id
               RETURNING r.id,r.provider,r.payload,r.attempts,r.created_at
             "#, token).fetch_optional(&mut *tx).await.map_err(failure)?;
@@ -82,7 +82,7 @@ impl PgMessagingRepository {
         error: Option<&str>,
         retry: Option<u32>,
     ) -> PortResult<()> {
-        let result=sqlx::query!("UPDATE meta_messaging_receipt SET status = CASE WHEN $4::integer IS NOT NULL AND (attempts < 20 OR $3='account_state_changed') AND created_at>now()-interval '30 days' THEN 'pending' WHEN $3::text IS NULL THEN 'complete' ELSE 'failed' END, error_code = $3, available_at = now() + make_interval(secs => COALESCE($4, 0)), lease_id = NULL, lease_until = NULL WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND status = 'processing'", lease.id, lease.token, error, retry.map(|s| s.min(3600) as i32))
+        let result=sqlx::query!("UPDATE meta_messaging_receipt SET status = CASE WHEN $4::integer IS NOT NULL AND (attempts < 20 OR $3='account_state_changed') AND created_at>now()-interval '30 days' THEN 'pending' WHEN $3::text IS NULL AND decode_failures=0 THEN 'complete' ELSE 'failed' END, completed_at=CASE WHEN $3::text IS NULL AND decode_failures=0 THEN COALESCE(completed_at,now()) ELSE completed_at END, error_code = COALESCE($3,CASE WHEN decode_failures>0 THEN 'invalid_provider_payload' END), available_at = now() + make_interval(secs => COALESCE($4, 0)), lease_id = NULL, lease_until = NULL WHERE id = $1 AND lease_id = $2 AND lease_until > now() AND status = 'processing'", lease.id, lease.token, error, retry.map(|s| s.min(3600) as i32))
             .execute(&self.pool).await.map_err(failure)?;
         if result.rows_affected() != 1 {
             return Err(MessagingError::Conflict.into());

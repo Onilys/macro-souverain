@@ -52,10 +52,30 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
     } else {
         Arc::new(UnconfiguredCipher)
     };
+    let repository = Arc::new(PgMessagingRepository::new(pool.clone()));
+    let temporary_media: Option<Arc<dyn meta_messaging::domain::temporary_media::TemporaryMedia>> =
+        if let Some(bucket) = settings.temporary_media_bucket {
+            Some(Arc::new(
+                meta_messaging::domain::temporary_media::TemporaryMediaService::new(
+                    repository.clone(),
+                    Arc::new(
+                        meta_messaging::outbound::temporary_media::S3MediaCopies::new(
+                            aws_sdk_s3::Client::new(
+                                &macro_aws_config::get_macro_aws_config().await,
+                            ),
+                        ),
+                    ),
+                    bucket,
+                )?,
+            ))
+        } else {
+            None
+        };
     let files = Arc::new(files::NativeFiles::new(
         pool.clone(),
         documents,
         access.clone(),
+        temporary_media.clone(),
     )?);
     let effects = Arc::new(effects::NativeEffects {
         soup: soup_realtime::domain::service::SoupRealtimeServiceImpl::new(
@@ -74,7 +94,7 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         notifications: (*notifications).clone(),
     });
     let service = Arc::new(MetaService::new(
-        Arc::new(PgMessagingRepository::new(pool.clone())),
+        repository,
         Arc::new(settings.provider),
         cipher,
         Arc::new(native::NativeChannels::new(
@@ -87,6 +107,9 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         )),
         settings.public,
     ));
+    if let Some(copies) = temporary_media {
+        tokio::spawn(workers::temporary_media(copies));
+    }
     spawn(service.clone());
     Ok(State {
         service,
@@ -136,6 +159,7 @@ fn spawn(service: Arc<MetaService>) {
             }
         }
     });
+    tokio::spawn(workers::retention(service.clone()));
     tokio::spawn(workers::receipts(service.clone()));
     tokio::spawn(workers::sends(service.messaging.clone()));
     let recovery = service.messaging.clone();

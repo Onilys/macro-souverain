@@ -15,6 +15,20 @@ describe('external delivery presentation', () => {
     );
     expect(deliveryPresentation('read', 'instagram').label).toBe('Read');
   });
+  it('labels only a definitive expiry Not sent, preserving uncertainty and acceptance', () => {
+    expect(
+      deliveryPresentation('failed', 'whatsapp', 'send_expired').label
+    ).toBe('Not sent');
+    expect(
+      deliveryPresentation('failed', 'whatsapp', 'send_expired').detail
+    ).toContain('10 minutes');
+    expect(
+      deliveryPresentation('unknown', 'whatsapp', 'send_expired').label
+    ).toBe('Delivery not confirmed');
+    expect(
+      deliveryPresentation('accepted', 'instagram', 'send_expired').label
+    ).toBe('Sent to Instagram');
+  });
   it('explains uncertainty without claiming failure or inviting a blind retry', () => {
     const status = deliveryPresentation(
       'unknown',

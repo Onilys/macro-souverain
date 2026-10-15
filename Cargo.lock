@@ -6304,6 +6304,7 @@ dependencies = [
  "email",
  "embedding",
  "entity_access",
+ "entity_access_db_utils",
  "entity_access_management",
  "entity_mutation",
  "entity_registry",
@@ -12372,6 +12373,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "aws-sdk-kms",
+ "aws-sdk-s3",
  "axum",
  "base64 0.22.1",
  "chrono",

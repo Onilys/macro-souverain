@@ -51,6 +51,26 @@ use uuid::Uuid;
 use super::native::{access_error, error, plain_markdown, render_message_content};
 use crate::api::context::{DocumentService, EntityAccessService};
 
+/// Keep the current native access check inseparable from creating a provider copy.
+pub(super) async fn temporary_url<E: entity_access::domain::ports::EntityAccessService>(
+    access: &E,
+    copies: &dyn meta_messaging::domain::temporary_media::TemporaryMedia,
+    user: &MacroUserIdStr<'_>,
+    document: Uuid,
+    file: &MediaBytes,
+) -> PortResult<String> {
+    access
+        .generate_entity_access_receipt::<ViewAccessLevel>(
+            &user.0,
+            None,
+            &document.to_string(),
+            EntityType::Document,
+        )
+        .await
+        .map_err(access_error)?;
+    copies.stage(file).await
+}
+
 const MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
 
 /// Narrow file capability, separately injectable in text-only integration tests.
@@ -89,12 +109,14 @@ pub(super) struct NativeFiles {
     access: Arc<EntityAccessService>,
     uploads: documents_hex::outbound::document_bytes_upload::ReqwestDocumentBytesUploader,
     http: reqwest::Client,
+    temporary_media: Option<Arc<dyn meta_messaging::domain::temporary_media::TemporaryMedia>>,
 }
 impl NativeFiles {
     pub(super) fn new(
         pool: PgPool,
         documents: Arc<DocumentService>,
         access: Arc<EntityAccessService>,
+        temporary_media: Option<Arc<dyn meta_messaging::domain::temporary_media::TemporaryMedia>>,
     ) -> Result<Self, MessagingError> {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(60))
@@ -110,6 +132,7 @@ impl NativeFiles {
                     http.clone(),
                 ),
             http,
+            temporary_media,
         })
     }
     async fn share(
@@ -499,10 +522,32 @@ impl MessageFiles for NativeFiles {
             bytes,
         };
         received_type(&file)?;
-        Ok(OutboundMedia {
-            file,
-            url: presigned_url,
-        })
+        let repo = PgMessagingRepository::new(self.pool.clone());
+        let conversation = repo
+            .conversation(channel)
+            .await?
+            .ok_or(MessagingError::NotFound)?;
+        let connection = repo
+            .connection(conversation.connection_id)
+            .await?
+            .ok_or(MessagingError::NotFound)?;
+        let url = if connection.provider == meta_messaging::domain::models::Provider::Instagram {
+            // Access may have changed during the read. Verify it again before
+            // creating any externally fetchable copy of these native bytes.
+            temporary_url(
+                &*self.access,
+                self.temporary_media
+                    .as_deref()
+                    .ok_or(MessagingError::Unavailable)?,
+                &user,
+                document,
+                &file,
+            )
+            .await?
+        } else {
+            presigned_url
+        };
+        Ok(OutboundMedia { file, url })
     }
 
     async fn attach_sent(

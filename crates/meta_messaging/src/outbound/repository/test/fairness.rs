@@ -151,6 +151,12 @@ async fn equal_enqueue_times_use_id_order_and_expired_attempt_releases_the_conve
     .await
     .unwrap();
     let first = repo.claim_send().await.unwrap().unwrap();
+    repo.health(&c, ConnectionStatus::Connected, None)
+        .await
+        .unwrap();
+    repo.prepare_send(&first.lease, &(&c).into(), "Attempted before lease expiry")
+        .await
+        .unwrap();
     assert_eq!(first.lease.id, a.id.min(b.id));
     assert!(repo.claim_send().await.unwrap().is_none());
     sqlx::query!(
