@@ -514,6 +514,8 @@ use utoipa::OpenApi;
         crm::inbound::pipelines::apply_ops,
         crm::inbound::pipelines::rename,
         crm::inbound::pipelines::share,
+        crm::inbound::pipelines::permissions,
+        crm::inbound::pipelines::update_permissions,
         crm::inbound::pipelines::trash,
         crm::inbound::axum_router::set_email_sync::handler,
         crm::inbound::axum_router::set_company_hidden::handler,
@@ -1011,6 +1013,7 @@ struct FormsApiAddon;
 impl utoipa::Modify for FormsApiAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
         openapi.merge(forms::inbound::axum_router::FormsApi::openapi());
+        openapi.merge(database_webhooks::inbound::axum_router::DatabaseWebhooksApi::openapi());
     }
 }
 

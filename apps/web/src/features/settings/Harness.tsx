@@ -1,19 +1,15 @@
 import { useClaudeAgentsAccess } from '@core/claude/flag';
 import { useCodexAgentsAccess } from '@core/codex/flag';
-import { ModelCatalogPicker } from '@core/component/AI/component/input/ModelCatalogPicker';
-import { isLargeModelCatalog } from '@core/component/AI/component/input/modelCatalog';
 import { toast } from '@core/component/Toast/Toast';
 import { MACRO_HARNESS_NAME } from '@core/constant/macroAgent';
 import { ThrownResultError } from '@core/util/result';
 import CursorIcon from '@icon/wide-cursor-ide.svg';
 import HardDrivesIcon from '@phosphor/hard-drives.svg';
 import PlusIcon from '@phosphor/plus.svg';
-import { useAgentModelsQuery } from '@queries/agents/models';
 import {
   useCursorApiKeyStatusQuery,
   useDisconnectCursorApiKey,
   useSaveCursorApiKey,
-  useSetCursorDefaultModel,
 } from '@queries/auth/cursor-api-key';
 import {
   useDeleteHarnessMutation,
@@ -22,18 +18,18 @@ import {
 import type { Harness as RegisteredHarness } from '@service-storage/client';
 import { useSearchParams } from '@solidjs/router';
 import { Button, confirmDialog, Dialog, Panel } from '@ui';
-import { createSignal, For, type JSX, onMount, Show } from 'solid-js';
+import { createSignal, For, onMount, Show } from 'solid-js';
 import { ClaudeConnection } from '../claude-connection/claude-connection';
 import { CodexHarness } from './codex/views/CodexHarness';
-import { AgentSettingsDescription } from './components/agent-settings-description';
-import { BringYourOwnAgent } from './components/bring-your-own-agent';
-import { SettingsSelect } from './components/settings-select';
+import { CursorDefaultModel } from './components/cursor-default-model';
+import {
+  CURSOR_KEY_FORMAT_ERROR,
+  CURSOR_KEY_PLACEHOLDER,
+  isCursorApiKey,
+} from './core/cursor-api-key';
 import { ConnectAction, HarnessIcon, StatusDot } from './integration-ui';
 import { SettingsCard, SettingsPage } from './primitives';
 import { RuntimePairingPage } from './RuntimePairingPage';
-
-// Cursor now mints `grok_` keys; the `crsr_` keys minted before that still work.
-const CURSOR_KEY_PREFIXES = ['grok_', 'crsr_'];
 
 function failureMessage(error: unknown, fallback: string): string {
   return (error instanceof ThrownResultError && error.message) || fallback;
@@ -46,9 +42,7 @@ function lastConnectedText(harness: RegisteredHarness): string {
 }
 
 /** Settings UI for choosing and configuring the available agent harnesses. */
-export function Harness(
-  props: { navigation?: JSX.Element; startPairing?: boolean } = {}
-) {
+export function Harness(props: { onBack?: () => void } = {}) {
   const canUseClaude = useClaudeAgentsAccess();
   const canUseCodex = useCodexAgentsAccess();
   const [cursorApiKey, setCursorApiKey] = createSignal('');
@@ -64,7 +58,7 @@ export function Harness(
         initialCode?: string;
       }
     | undefined
-  >(props.startPairing ? {} : undefined);
+  >(undefined);
   const closePairing = () => {
     setPairingDialog(undefined);
   };
@@ -93,58 +87,10 @@ export function Harness(
     }
   };
 
-  const cursorModels = useAgentModelsQuery(
-    () => ({ harness: 'cursor' }),
-    cursorRegistered
-  );
-  const cursorModelData = () =>
-    cursorModels.isSuccess ? cursorModels.data : undefined;
-  const cursorModelOptions = () => {
-    const data = cursorModelData();
-    if (data?.status !== 'available') return [];
-    const saved = cursorStatus.data?.defaultModelId;
-    if (!saved || data.models.some((model) => model.id === saved)) {
-      return data.models;
-    }
-    return [
-      ...data.models,
-      {
-        id: saved,
-        name: `${saved} (saved, unavailable)`,
-        description: undefined,
-        group: undefined,
-      },
-    ];
-  };
-  const setCursorDefaultModel = useSetCursorDefaultModel();
-  const cursorCatalogOptions = () =>
-    cursorModelOptions().map((model) => ({
-      id: model.id,
-      label: model.name,
-      description: model.description ?? undefined,
-      group: model.group ?? undefined,
-    }));
-  const selectedCursorModelId = () =>
-    (cursorStatus.isSuccess ? cursorStatus.data.defaultModelId : null) ??
-    cursorModelData()?.currentModel ??
-    cursorModelOptions()[0]?.id ??
-    null;
-
-  const handleCursorModelChange = async (modelId: string) => {
-    try {
-      await setCursorDefaultModel.mutateAsync(modelId);
-      toast.success('Default model updated');
-    } catch (error) {
-      toast.failure(failureMessage(error, 'Failed to set your default model'));
-    }
-  };
-
   const handleSaveCursorApiKey = async () => {
     const apiKey = cursorApiKey().trim();
-    if (!CURSOR_KEY_PREFIXES.some((prefix) => apiKey.startsWith(prefix))) {
-      toast.failure(
-        `Cursor API keys start with ${CURSOR_KEY_PREFIXES.join(' or ')}`
-      );
+    if (!isCursorApiKey(apiKey)) {
+      toast.failure(CURSOR_KEY_FORMAT_ERROR);
       return;
     }
 
@@ -181,8 +127,10 @@ export function Harness(
     <>
       <Show when={!pairingDialog()}>
         <SettingsPage
-          title={props.navigation ? 'Agents' : 'Runtimes'}
-          description={<AgentSettingsDescription />}
+          title="Runtimes"
+          description="Providers and machines your agents can run on."
+          onBack={props.onBack}
+          backLabel="Agents"
           actions={
             <Button
               variant="cta"
@@ -194,8 +142,6 @@ export function Harness(
             </Button>
           }
         >
-          <BringYourOwnAgent onAddRuntime={() => setPairingDialog({})} />
-          {props.navigation}
           <div>
             <h2 class="mb-3 px-6 text-sm font-semibold text-ink">
               Built-in runtimes
@@ -274,7 +220,7 @@ export function Harness(
                               autocomplete="off"
                               spellcheck={false}
                               class="settings-input ph-no-capture min-w-0 flex-1"
-                              placeholder="grok_…"
+                              placeholder={CURSOR_KEY_PLACEHOLDER}
                               value={cursorApiKey()}
                               onInput={(event) =>
                                 setCursorApiKey(event.currentTarget.value)
@@ -311,77 +257,7 @@ export function Harness(
                           <span class="text-xs font-medium text-ink">
                             Default model
                           </span>
-                          <Show
-                            when={!cursorModels.isPending}
-                            fallback={
-                              <SettingsSelect
-                                label="Default model"
-                                options={[]}
-                                placeholder="Loading models…"
-                                onChange={(id) =>
-                                  void handleCursorModelChange(id)
-                                }
-                                disabled
-                              />
-                            }
-                          >
-                            <Show
-                              when={!cursorModels.isError}
-                              fallback={
-                                <div class="flex items-center gap-2">
-                                  <p class="text-xs text-negative">
-                                    Could not load Cursor models.
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => void cursorModels.refetch()}
-                                  >
-                                    Retry
-                                  </Button>
-                                </div>
-                              }
-                            >
-                              <Show
-                                when={cursorModelData()?.status === 'available'}
-                                fallback={
-                                  <p class="text-xs text-ink-muted">
-                                    Cursor does not support model selection.
-                                  </p>
-                                }
-                              >
-                                <Show
-                                  when={isLargeModelCatalog(
-                                    cursorCatalogOptions()
-                                  )}
-                                  fallback={
-                                    <SettingsSelect
-                                      label="Default model"
-                                      options={cursorModelOptions()}
-                                      value={selectedCursorModelId()}
-                                      disabled={setCursorDefaultModel.isPending}
-                                      onChange={(id) =>
-                                        void handleCursorModelChange(id)
-                                      }
-                                    />
-                                  }
-                                >
-                                  <ModelCatalogPicker
-                                    value={selectedCursorModelId()}
-                                    options={cursorCatalogOptions()}
-                                    onSelect={(id) =>
-                                      void handleCursorModelChange(id)
-                                    }
-                                    disabled={setCursorDefaultModel.isPending}
-                                    ariaLabel="Default model"
-                                    triggerClass="h-9 w-full justify-between text-base [&>span]:flex-1"
-                                    placement="bottom-start"
-                                  />
-                                </Show>
-                              </Show>
-                            </Show>
-                          </Show>
+                          <CursorDefaultModel />
                         </div>
                         <p class="text-xs text-ink-extra-muted">
                           The model new `@cursor` sessions start on. Recommended

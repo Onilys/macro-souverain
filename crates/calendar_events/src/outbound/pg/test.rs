@@ -9,6 +9,8 @@ use crate::domain::models::{
 };
 use crate::domain::ports::GoogleCalendarSyncRepository;
 use crate::domain::service::{CalendarService, GoogleCalendarBackfillFailureService};
+use crate::domain::team::{CalendarTeamRepository, TeamCalendarSharing};
+use crate::outbound::pg_team::PgCalendarTeamRepository;
 use chrono::{Duration, SubsecRound, TimeZone};
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 
@@ -4714,11 +4716,16 @@ fn july_2026_range() -> OccurrenceRange {
 /// An explicit detail grant and successful provider snapshot for OOO fixtures.
 async fn enable_team_details(repo: &PgCalendarRepository, users: &[&str]) {
     sqlx::query!(
-        "UPDATE calendar_accounts SET sync_status='ready',last_synced_at=now(),last_sync_error=NULL WHERE owner_id=ANY($1::text[]) AND sync_status<>'disabled'",
+        "INSERT INTO calendar_team_sharing(user_id,sharing) SELECT unnest($1::text[]),'all' ON CONFLICT(user_id) DO UPDATE SET sharing='all'",
         users as &[&str]
     ).execute(&repo.pool).await.unwrap();
+    mark_team_sources_verified(repo, users).await;
+}
+
+/// A successful provider snapshot for OOO fixtures, leaving sharing untouched.
+async fn mark_team_sources_verified(repo: &PgCalendarRepository, users: &[&str]) {
     sqlx::query!(
-        "INSERT INTO calendar_team_sharing(user_id,sharing) SELECT unnest($1::text[]),'all' ON CONFLICT(user_id) DO UPDATE SET sharing='all'",
+        "UPDATE calendar_accounts SET sync_status='ready',last_synced_at=now(),last_sync_error=NULL WHERE owner_id=ANY($1::text[]) AND sync_status<>'disabled'",
         users as &[&str]
     ).execute(&repo.pool).await.unwrap();
     sqlx::query!(
@@ -4919,6 +4926,51 @@ async fn team_out_of_office_hides_private_status_even_with_detail_sharing(pool: 
     assert!(
         rows.is_empty(),
         "the OOO endpoint must not reveal the category of private busy time"
+    );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn team_out_of_office_shows_busy_only_status_without_its_title(pool: PgPool) {
+    let viewer = "macro|ooo-viewer@example.com";
+    let unset = "macro|ooo-unset@example.com";
+    let busy = "macro|ooo-busy@example.com";
+    let hidden = "macro|ooo-hidden@example.com";
+    insert_team(&pool, viewer, &[viewer, unset, busy, hidden]).await;
+    let repo = PgCalendarRepository::new(pool.clone());
+    for (owner, uid) in [
+        (unset, "unset-ooo@example.com"),
+        (busy, "busy-ooo@example.com"),
+        (hidden, "hidden-ooo@example.com"),
+    ] {
+        let link = insert_link(&pool, owner).await;
+        let provider = provider_ids(&repo, link).await;
+        repo.upsert_event_fixture(ooo_upsert(owner, link, provider, uid, "Beach trip"))
+            .await
+            .unwrap();
+    }
+    mark_team_sources_verified(&repo, &[unset, busy, hidden]).await;
+    let team = PgCalendarTeamRepository::new(pool);
+    team.set_sharing(busy, TeamCalendarSharing::BusyOnly)
+        .await
+        .unwrap();
+    team.set_sharing(hidden, TeamCalendarSharing::None)
+        .await
+        .unwrap();
+
+    let rows = CalendarService::new(repo)
+        .with_team_sharing_enabled(true)
+        .list_team_out_of_office(viewer, july_2026_range(), 100)
+        .await
+        .unwrap();
+
+    // A member who never chose a setting shares busy blocks by default.
+    let mut owners: Vec<_> = rows.iter().map(|row| row.owner_id.as_str()).collect();
+    owners.sort_unstable();
+    owners.dedup();
+    assert_eq!(owners, [busy, unset]);
+    assert!(
+        rows.iter().all(|row| row.title.is_none()),
+        "busy-only sharing discloses the status, never the title"
     );
 }
 

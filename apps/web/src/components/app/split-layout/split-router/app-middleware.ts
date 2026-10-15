@@ -6,6 +6,7 @@ import {
 } from '@app/features/calendar-view/calendar-url';
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { channelsSearch } from '@app/features/channels-view/channels-route';
+import { crmPipelineSearch } from '@app/features/crm/crm-route';
 import {
   driveDocumentFromContent,
   drivePath,
@@ -84,6 +85,12 @@ function redirectLegacyRoutes(
     .with({ type: 'component' }, ({ id }) =>
       routes.byId.has(`view-${id}`) ? `/${id}` : undefined
     )
+    // A pipeline has no view of its own; Customers opens on it, on touch too.
+    .with({ type: 'pipeline' }, ({ id }) => {
+      const query = new URLSearchParams();
+      replacePaneSearchParams(query, [crmPipelineSearch(id)]);
+      return `/companies?${query}`;
+    })
     .when(
       () => isTouch,
       () => undefined

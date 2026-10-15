@@ -387,7 +387,7 @@ export function EmailList(props: EmailListProps) {
   // Switching tab or inbox scope is a new list: drop focus, selection, and
   // and start from the top.
   const listScope = () =>
-    `${state.tab}|${state.inboxIds === undefined ? '*' : state.inboxIds.join(',')}`;
+    `${state.tab}|${state.inboxIds === undefined ? '*' : state.inboxIds.join(',')}|${state.aliasFilter?.emailAddress ?? ''}`;
   let activeScope = listScope();
   createEffect(() => {
     const nextScope = listScope();

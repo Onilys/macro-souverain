@@ -22,6 +22,7 @@ function Actions() {
       id: user() ?? 'me',
       name: 'Personal',
       canEdit: true,
+      canManageBookings: true,
     }),
     () => user() ?? ''
   );

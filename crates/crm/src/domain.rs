@@ -34,6 +34,9 @@ pub mod search_repo;
 #[cfg(feature = "search")]
 pub mod search_service;
 
+/// The CRM records an associated-items query matches against.
+#[cfg(feature = "ports")]
+pub mod association;
 /// Contact listing models shared by Soup and the CRM service.
 #[cfg(feature = "ports")]
 pub mod contact_listing;

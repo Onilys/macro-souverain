@@ -36,6 +36,7 @@ mod deploy_sync_service;
 mod deploy_web_app;
 mod deploy_website;
 mod ensure_daytona_snapshot;
+mod export_ci_telemetry;
 mod ios_preview;
 mod path_validation;
 mod publish_sdk;
@@ -105,6 +106,11 @@ fn job_mut<'a>(root: &'a mut serde_yaml::Value, id: &str) -> Result<&'a mut serd
 
 /// Every workflow we generate. Add new workflows here.
 const WORKFLOWS: &[WorkflowFile] = &[
+    WorkflowFile {
+        slug: "export_ci_telemetry",
+        file_name: "export-ci-telemetry.yml",
+        render_yaml: || render_gh_workflow(export_ci_telemetry::export_ci_telemetry)(),
+    },
     WorkflowFile {
         slug: "assign_author",
         file_name: "assign-author.yml",

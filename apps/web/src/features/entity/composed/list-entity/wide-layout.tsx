@@ -129,7 +129,17 @@ export function WideLayout(props: LayoutProps) {
         )}
       >
         <div class="size-4 shrink-0">
-          <Entity.Icon entity={props.entity} streamState={props.streamState} />
+          <Show
+            when={props.icon}
+            fallback={
+              <Entity.Icon
+                entity={props.entity}
+                streamState={props.streamState}
+              />
+            }
+          >
+            {props.icon}
+          </Show>
         </div>
         {props.titleLeading}
         <Switch>
@@ -183,6 +193,7 @@ export function WideLayout(props: LayoutProps) {
             {(entity) => <Entity.Title entity={entity()} />}
           </Match>
         </Switch>
+        {props.titleTrailing}
       </Entity.Slot>
       <Entity.Slot
         placement="meta"
@@ -295,7 +306,7 @@ export function WideLayout(props: LayoutProps) {
                   />
                 )}
               </Show>
-              <span class="flex w-10 shrink-0 justify-end">
+              <span class="flex min-w-10 shrink-0 justify-end">
                 <CallParticipants
                   participantIds={entity().participantIds}
                   guests={entity().guests}

@@ -419,7 +419,11 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
       view.container.querySelector(
         '[data-agent-session-row] [data-view-sidebar-icon]'
       );
-    expect(icon()?.querySelector('svg') !== null).toBe(surface === 'home');
+    if (surface === 'home') {
+      expect(icon()?.querySelector('svg') !== null).toBe(true);
+    } else {
+      expect(icon()).toBeNull();
+    }
     expect(
       view.container.querySelector('[data-agent-status-indicator]')
     ).toBeNull();
@@ -429,7 +433,9 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
         .getByRole('button', { name: 'Fix build' })
         .getAttribute('aria-description')
     ).toBe('Working');
-    expect(icon()?.querySelector('svg') !== null).toBe(surface === 'home');
+    if (surface === 'home') {
+      expect(icon()?.querySelector('svg') !== null).toBe(true);
+    }
     expect(
       view.container.querySelector('[data-agent-status-indicator]') !== null
     ).toBe(surface === 'sidebar');
@@ -443,6 +449,13 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
     expect(
       view.container.querySelector('[data-agent-status-indicator]')
     ).toBeNull();
+  });
+
+  it('hides the leading icon slot in the sidebar for a tighter row', () => {
+    if (surface !== 'sidebar') return;
+    const { view } = setup();
+    const row = view.container.querySelector('[data-agent-session-row]');
+    expect(row?.querySelector('[data-view-sidebar-icon]')).toBeNull();
   });
 
   it('does not claim an unsynced PR is open', () => {
@@ -472,21 +485,27 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
     expect(view.container.querySelector('[data-kind="code"]')).toBeTruthy();
   });
 
-  it('combines unread and activity in the Agents left dot while Home keeps its trailing unread dot', () => {
+  it('combines unread and activity in the Agents dot while Home keeps its trailing unread dot', () => {
     unreadFilter.mockReturnValue(true);
     const { view, setEntity } = setup();
     const dot = () => screen.getByLabelText('Unread');
-    const isLeading = () => !!dot().closest('[data-view-sidebar-icon]');
-    expect(isLeading()).toBe(surface === 'sidebar');
+    const isInCodeDetails = () => !!dot().closest('[data-agent-code-details]');
+    const isTrailing = () =>
+      !dot().closest('[data-view-sidebar-icon]') &&
+      !dot().closest('[data-agent-code-details]');
     expect(dot().classList.contains('motion-safe:animate-pulse')).toBe(false);
 
     for (const turnState of ['running', 'blocked', 'idle']) {
       setEntity({ ...conversation, turnState });
       expect(screen.getAllByLabelText('Unread')).toHaveLength(1);
-      expect(isLeading()).toBe(surface === 'sidebar');
       expect(
         view.container.querySelectorAll('[data-agent-status-indicator]')
       ).toHaveLength(surface === 'sidebar' ? 1 : 0);
+      if (surface === 'sidebar') {
+        expect(isInCodeDetails()).toBe(true);
+      } else {
+        expect(isTrailing()).toBe(true);
+      }
       expect(dot().classList.contains('motion-safe:animate-pulse')).toBe(
         surface === 'sidebar' && turnState === 'running'
       );

@@ -95,10 +95,10 @@ use agent_session::inbound::axum_router::{
     AgentSessionControlState, AgentSessionRouterState, CreateSessionState,
 };
 use agent_session::outbound::broker_lifecycle_publisher::BrokerLifecyclePublisher;
-use agent_session::outbound::broker_log_realtime::BrokerLogRealtime;
 use agent_session::outbound::connection_gateway_realtime::ConnectionGatewayAgentSessionRealtime;
 use agent_session::outbound::name_generator::HaikuAgentSessionNameGenerator;
 use agent_session::outbound::postgres::PgAgentSessionRepo;
+use agent_session_realtime::outbound::redis_stream::publisher::RedisLogStreamRealtime;
 use agent_trigger::domain::broker_events::AgentSessionMacroEvent;
 use anyhow::Context as _;
 use bot_id::BotId;
@@ -321,17 +321,22 @@ async fn run() -> anyhow::Result<()> {
         config.settlement_route()?,
     );
     let lifecycle_publisher = Arc::new(BrokerLifecyclePublisher::new(broker.clone()));
+    // Shared with every replica: runtime command forwarding, model probes,
+    // and the agent session log stream.
+    let redis = redis::Client::open(config.redis_uri.as_ref())
+        .context("failed to create the shared Redis client")?;
     let sessions = AgentSessionServiceImpl::new(
         session_repo.clone(),
         FoldedMessageService::new(session_repo.clone()),
         // Frames reach this process's viewers through the gateway and every
-        // other process's through the broker (the GraphQL log subscription).
-        BrokerLogRealtime::new(
+        // other process's through the Redis log stream (the GraphQL log
+        // subscription).
+        RedisLogStreamRealtime::new(
             ConnectionGatewayAgentSessionRealtime::new(
                 connection_gateway.clone(),
                 session_audience.clone(),
             ),
-            broker.clone(),
+            redis.clone(),
         ),
         agent_session::domain::name_generation::AdmittedAgentSessionNameGenerator::new(
             HaikuAgentSessionNameGenerator::new(recorder.clone()),
@@ -947,8 +952,6 @@ async fn run() -> anyhow::Result<()> {
     // it and the harness takes sessions out of it. Attach/detach is mirrored
     // to the harnesses table so the settings page can show connection state.
     let runtimes = RuntimeRegistry::with_presence(Arc::new(PgHarnessPresence::new(pool.clone())));
-    let redis = redis::Client::open(config.redis_uri.as_ref())
-        .context("failed to create the runtime command Redis client")?;
     // Read once, here, rather than at every session this deployment opens: a
     // URL that names no repository is a misconfiguration of the deployment,
     // and refusing it at startup is the difference between one loud failure

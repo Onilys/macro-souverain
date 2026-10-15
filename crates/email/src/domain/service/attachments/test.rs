@@ -160,6 +160,7 @@ fn link() -> Link {
 
 fn input() -> CreateDraftInput {
     CreateDraftInput {
+        sender_email: None,
         db_id: None,
         provider_id: None,
         replying_to_id: None,

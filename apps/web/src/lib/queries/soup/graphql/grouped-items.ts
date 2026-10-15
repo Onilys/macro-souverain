@@ -257,6 +257,7 @@ export function createGraphqlGroupedSoupAstItemsQuery(
     isLoading: () => !cachedMail() && query.isLoading,
     isFetching: () => query.isFetching,
     isFetchingNextPage: () => !!cachedMail() && local.isFetchingNextPage(),
+    isFetchNextPageError: () => !!cachedMail() && local.isFetchNextPageError(),
     isPlaceholderData: () => false,
     hasNextPage: () => !!cachedMail() && local.hasNextPage(),
     fetchNextPage: async () => {

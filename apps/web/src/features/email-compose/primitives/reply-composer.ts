@@ -183,8 +183,10 @@ export function createReplyComposer(
     props.accounts.inboxes()[0]?.id;
   // The address of the inbox this input sends from, for the "from" display.
   const activeInboxEmail = () =>
+    form.senderEmail() ??
     props.accounts.inboxes().find((l) => l.id === activeInboxId())
-      ?.email_address ?? userEmail();
+      ?.email_address ??
+    userEmail();
 
   // The full Link object for the sending inbox (for its saved signature and the
   // "add to replies & forwards" preference).
@@ -309,7 +311,7 @@ export function createReplyComposer(
   // it again. Use bodyHtml as initialHtml for the editor, restore attachments
   // on mount.
   const restoreEnvelope = (snapshot: UndoReplySnapshot) => {
-    form.setSelectedInbox(snapshot.inboxId);
+    form.setSelectedInbox(snapshot.inboxId, snapshot.draftRestore.sender_email);
     form.setSubject(snapshot.draftRestore.subject);
     for (const field of ['to', 'cc', 'bcc'] as const) {
       form.setRecipients(
@@ -507,6 +509,7 @@ export function createReplyComposer(
     }
     // We attach the drafts entirely using bodyHTML (because this is how the appended reply parsing works) so we are not including bodyMacro or bodyText
     return {
+      sender_email: activeInboxEmail(),
       bcc: form.recipients().bcc.map(convertEmailRecipientToContactInfo),
       body_html: prepared.bodyHtml,
       cc: form.recipients().cc.map(convertEmailRecipientToContactInfo),
@@ -683,7 +686,7 @@ export function createReplyComposer(
   // Persist the draft immediately when the user switches the sending inbox, even
   // without a text edit, so it moves to the new inbox and the choice survives a
   // refresh. Driven by the explicit switch (below) rather than inbox reactivity.
-  const saveSelectedInbox = async (inboxId: string) => {
+  const saveSelectedInbox = async (inboxId: string, senderEmail?: string) => {
     if (
       submitting() ||
       pendingDeletion() ||
@@ -698,7 +701,7 @@ export function createReplyComposer(
     try {
       editVersion += 1;
       props.onEngaged?.();
-      form.setSelectedInbox(inboxId);
+      form.setSelectedInbox(inboxId, senderEmail);
       autosave.cancel();
       await executeSaveDraft();
     } catch {
@@ -707,8 +710,11 @@ export function createReplyComposer(
       setMovingInbox(false);
     }
   };
-  const persistDraftOnSenderSwitch = (inboxId: string) => {
-    void saveSelectedInbox(inboxId);
+  const persistDraftOnSenderSwitch = (
+    inboxId: string,
+    senderEmail?: string
+  ) => {
+    void saveSelectedInbox(inboxId, senderEmail);
   };
 
   const saveForSchedule = async () => {
@@ -796,6 +802,12 @@ export function createReplyComposer(
   const sendEmail = async (markDone = false) => {
     if (scheduling() || movingInbox() || terminalState()) return;
     if (submitting() || pendingDeletion()) return;
+    // Thread identity can be available before its account/alias catalog. Wait
+    // rather than sending a new reply from the temporary primary fallback.
+    if (props.accounts.loading() && !form.draft) {
+      props.notices.feedback.alert('Loading email sender addresses...');
+      return;
+    }
 
     const to = form.recipients().to.map(convertEmailRecipientToContactInfo);
     const cc = form.recipients().cc.map(convertEmailRecipientToContactInfo);
@@ -863,6 +875,7 @@ export function createReplyComposer(
         includeSignature: includeSignature(),
         replyAppended: form.replyAppended(),
         draftRestore: {
+          sender_email: activeInboxEmail(),
           bcc,
           cc,
           db_id: snapshotDraftId,
@@ -969,7 +982,12 @@ export function createReplyComposer(
 
       setSendPhase('sending');
       const pendingSend = props.delivery.sendMessage({
+        clientHandles:
+          session.identity().kind === 'handle' && session.draftId()
+            ? { draftId: session.draftId()!, threadId: session.threadId() }
+            : undefined,
         message: {
+          sender_email: activeInboxEmail(),
           db_id: currentDraftId,
           bcc,
           body_html: prepared.bodyHtml,
