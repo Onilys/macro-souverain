@@ -34,3 +34,11 @@ fn media_checksum_accepts_exact_hex_or_base64_digest_only() {
     assert!(!checksum_matches(&hex, b"different"));
     assert!(!checksum_matches("invalid", bytes));
 }
+
+#[test]
+fn incoming_media_uses_a_safe_name_when_the_provider_name_is_blank() {
+    for name in [None, Some(""), Some("   "), Some("../photo.png")] {
+        assert_eq!(media_filename(name, "png"), "attachment.png");
+    }
+    assert_eq!(media_filename(Some("photo.png"), "png"), "photo.png");
+}

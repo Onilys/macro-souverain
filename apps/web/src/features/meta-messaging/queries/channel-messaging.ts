@@ -141,11 +141,7 @@ export function createChannelMessaging(options: {
           new Set(
             options
               .messages()
-              .filter(
-                (message) =>
-                  message.imported_author &&
-                  !message.sender_id.startsWith('external|')
-              )
+              .filter((message) => !message.sender_id.startsWith('external|'))
               .map((message) => message.id)
           ),
           new Set(

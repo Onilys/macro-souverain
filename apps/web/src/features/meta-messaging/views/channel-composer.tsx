@@ -176,13 +176,14 @@ function ExternalReply(props: {
     (!draft.uncertainReply || checkedOriginalApp()) &&
     props.account.capabilities.modes.includes(mode()) &&
     eligible(mode()) &&
-    (!draft.attachment || !!mediaCapability()) &&
     (needsTemplate()
       ? !!selected() &&
         !selected()?.unsupported_reason &&
         draft.parameters.length === parameterLabels().length &&
         draft.parameters.every((p) => p.trim())
-      : !!draft.text.trim() || !!draft.attachment);
+      : (!draft.attachment || !!mediaCapability()) &&
+        length() <= limit() &&
+        (!!draft.text.trim() || !!draft.attachment));
   const limit = () =>
     draft.attachment
       ? (mediaCapability()?.caption_limit ?? 0)
@@ -296,8 +297,7 @@ function ExternalReply(props: {
   }
 
   async function send() {
-    if (!active || !allowed() || source.isSending() || length() > limit())
-      return;
+    if (!active || !allowed() || source.isSending()) return;
     const focusAtSend = document.activeElement;
     const id = draft.intent ?? crypto.randomUUID();
     setDraft('intent', id);
@@ -660,7 +660,7 @@ function ExternalReply(props: {
             tooltip="Send message"
             shortcut="enter"
             aria-keyshortcuts="Enter Control+Enter Meta+Enter"
-            disabled={!allowed() || source.isSending() || length() > limit()}
+            disabled={!allowed() || source.isSending()}
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => void send()}
           />

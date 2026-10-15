@@ -91,20 +91,25 @@ impl HttpMetaProvider {
             "text/plain" => "txt",
             _ => "bin",
         };
-        let filename = media
-            .filename
-            .as_ref()
-            .filter(|s| {
-                s.len() <= 255 && !s.contains(['/', '\\']) && !s.chars().any(char::is_control)
-            })
-            .cloned()
-            .unwrap_or_else(|| format!("attachment.{extension}"));
+        let filename = media_filename(media.filename.as_deref(), extension);
         Ok(MediaBytes {
             filename,
             mime_type: mime,
             bytes,
         })
     }
+}
+
+fn media_filename(filename: Option<&str>, extension: &str) -> String {
+    filename
+        .filter(|s| {
+            !s.trim().is_empty()
+                && s.len() <= 255
+                && !s.contains(['/', '\\'])
+                && !s.chars().any(char::is_control)
+        })
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("attachment.{extension}"))
 }
 
 fn checksum_matches(expected: &str, bytes: &[u8]) -> bool {

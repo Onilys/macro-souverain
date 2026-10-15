@@ -137,6 +137,18 @@ it('fetches only missing history and cannot expose delivery from another channel
   expect(state.deliveryByMessage().size).toBe(0);
   expect(fixture.readHistory?.()).toEqual([]);
 });
+it('loads historical delivery for an early echo attributed to a native sender', () => {
+  const historical = { ...send('older-send'), message_id: 'older-echo' };
+  fixture.history = [historical];
+  const { state, setMessages } = setup(account([]));
+  setMessages([
+    { ...message('older-echo'), imported_author: undefined },
+    { ...message('customer'), sender_id: 'external|customer' },
+  ]);
+  expect(fixture.readHistory?.()).toEqual(['older-echo']);
+  expect(state.deliveryByMessage().get('older-echo')).toEqual(historical);
+});
+
 it('recovery stays scoped to the active channel and survives overlapping composer cleanup', () => {
   const { state } = setup(account());
   const old = vi.fn();

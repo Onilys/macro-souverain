@@ -539,3 +539,58 @@ it('server denial stays disabled despite legacy window and approval fields', () 
   expect(screen.queryByRole('checkbox')).toBeNull();
   expect(fixture.reply).not.toHaveBeenCalled();
 });
+
+it.each(['text', 'media'] as const)(
+  'sends a template without validating or clearing the separate %s draft',
+  async (kind) => {
+    fixture.account!.eligibility.modes = [
+      { mode: 'free_form', allowed: false, reason: 'template_required' },
+      { mode: 'approved_template', allowed: true },
+    ];
+    fixture.templates = [
+      {
+        id: 'approved',
+        name: 'hello',
+        language: 'en_US',
+        components: [{ type: 'BODY', text: 'Hello' }],
+        parameter_labels: [],
+      },
+    ];
+    enableImages();
+    mount();
+    const text = 'x'.repeat(kind === 'text' ? 4097 : 1025);
+    fixture.recover!(
+      failedReply(
+        kind === 'text'
+          ? { type: 'text', text }
+          : {
+              type: 'media',
+              document_id: 'saved-file',
+              kind: 'image',
+              caption: text,
+            }
+      )
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'approved' },
+    });
+    const send = screen.getByRole('button', {
+      name: 'Send reply via WhatsApp',
+    });
+    expect(send).toHaveProperty('disabled', false);
+    fireEvent.click(send);
+    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+    expect(fixture.reply.mock.calls[0][0].message).toEqual({
+      type: 'template',
+      template_id: 'approved',
+      language: 'en_US',
+      parameters: [],
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('textbox')).toHaveProperty('value', text)
+    );
+    if (kind === 'media')
+      expect(screen.getByText('Previously attached file')).toBeTruthy();
+  }
+);
