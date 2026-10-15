@@ -98,3 +98,30 @@ opaque UUID key without a filename or user principal. Prefer this existing
 isolated temporary storage boundary to the native document bucket; verify the
 composition's permissions and lifecycle configuration and add no public grant
 to the original document. WhatsApp's byte upload does not need such a URL.
+
+## Team deletion versus new creation: platform decision
+
+The owning team service clears registered content, then awaits subscription
+cancellation, then calls `TeamRepositoryImpl::delete_team`. That final repository
+transaction does not recheck newly registered ownership. Entity registration
+validates owner spelling but neither locks nor verifies the referenced team;
+`Document.owner` has no team foreign key. Thus an authorized creation that starts
+after the cleanup's final empty scan can outlive team deletion. Merely switching
+received files to `Owner::Team` does not establish the required lifecycle.
+
+The proposed fix is a shared durable team-deletion phase. Entering that phase
+must fence new team-owned and team-bot-owned registrations before any external
+purge/billing request. All owning domains keep using the shared entity registry;
+no database lock should span those requests. Purges remain resumable and the
+final deletion must verify the same phase and an empty ownership inventory.
+Affected consumers include documents and their uploads/version finalization,
+projects, chats, agent sessions, scheduled actions, bot ownership registration,
+and the authentication service's team-deletion coordinator.
+
+A failed deletion raises a platform policy decision: keep the team closed to new
+content until the deletion is retried, or introduce an explicit abort/reopen
+operation after partial purges. Keeping it closed until retry is the recommended
+minimal policy. Silently reopening it can continually create work behind the
+purge and can strand files after the team row is gone. Team ownership/cutover
+must not be enabled before this behavior and the document operations above are
+supported and regression-tested; existing private conversations remain intact.
