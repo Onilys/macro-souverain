@@ -16,7 +16,7 @@ export function McpRow(props: {
   return (
     <div
       ref={ref}
-      class={cn('flex items-center gap-2 p-1.5 mx-1.5 rounded-md', {
+      class={cn('group flex items-center p-1.5 mx-1.5 rounded-md', {
         'bg-ink/5': props.selected,
       })}
       onPointerDown={(event) => event.preventDefault()}
@@ -27,13 +27,19 @@ export function McpRow(props: {
         props.onSelect();
       }}
     >
-      <PipedreamConnectorIcon
-        appSlug={props.item.appSlug ?? ''}
-        class="size-4 shrink-0 text-ink-muted"
-      />
-      <div class="truncate text-sm text-ink" title={props.item.name}>
-        {props.item.name}
+      <div class="mr-2 flex items-center">
+        <PipedreamConnectorIcon
+          appSlug={props.item.appSlug ?? ''}
+          class="size-4 shrink-0 text-ink-muted"
+        />
       </div>
+      <span
+        class="min-w-0 max-w-full overflow-hidden text-nowrap text-ink text-xs sm:text-sm font-medium"
+        style={{ 'text-overflow': 'ellipsis' }}
+        title={props.item.name}
+      >
+        {props.item.name}
+      </span>
     </div>
   );
 }

@@ -432,8 +432,8 @@ function SkillsMenuInner(props: SkillsMenuProps) {
               </ItemBin>
               <div class="mt-2 border-t border-edge pt-2">
                 <ItemBin
-                  label="MCPs"
-                  binType="mcps"
+                  label="Connections"
+                  binType="connections"
                   isSelected={
                     selectedIndex() >= skills().length &&
                     selectedIndex() < pullRequestOffset()
@@ -444,10 +444,10 @@ function SkillsMenuInner(props: SkillsMenuProps) {
                     fallback={
                       <div class="px-3.5 pb-2 text-xs text-ink-extra-muted">
                         {mcpsLoading()
-                          ? 'Loading MCPs…'
+                          ? 'Loading connections…'
                           : searchTerm()
-                            ? 'No matching MCPs'
-                            : 'No MCPs connected'}
+                            ? 'No matching connections'
+                            : 'No connections yet'}
                       </div>
                     }
                   >

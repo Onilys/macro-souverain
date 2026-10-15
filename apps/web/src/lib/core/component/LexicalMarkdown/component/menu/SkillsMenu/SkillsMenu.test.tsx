@@ -233,7 +233,7 @@ describe('skill slash menu', () => {
   it('lists connected MCPs and inserts the chosen one by name', () => {
     const { editor, dispatch, menu } = setup();
     const update = vi.spyOn(editor, 'update');
-    expect(screen.getByText('MCPs')).toBeTruthy();
+    expect(screen.getByText('Connections')).toBeTruthy();
     expect(screen.getByText('Sentry MCP')).toBeTruthy();
     fireEvent.click(screen.getByText('Linear'));
     expect(dispatch).toHaveBeenCalledWith(
