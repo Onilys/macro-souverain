@@ -1,3 +1,4 @@
+import './observability_ingest';
 import { DopplerProject } from './doppler_project';
 
 const SERVICE_NAMES = [

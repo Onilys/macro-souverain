@@ -360,7 +360,12 @@ volume is detached, then the new host waits for that retained volume. This pilot
 has not been deployed with the earlier container layout; an existing container
 installation would need an explicit ownership/path migration before using this image.
 
-To rotate the OAuth secret or ingestion token, update Secrets Manager, then run
+For ingestion-token ownership, adoption and coordinated rotation, follow the
+[Doppler ingestion runbook](../doppler-projects/OBSERVABILITY_INGEST.md). The
+Virginia consumer copy is synchronized by `doppler-projects/prod` on a reviewed
+Pulumi update; it is not continuously synced. Do not rotate it directly in AWS.
+
+To rotate the OAuth secret, update Secrets Manager, then run
 `sudo systemctl restart observability-secrets`. This stops Grafana and ingress
 Alloy while credentials refresh, then restarts both with new private copies.
 Restarting an individual application uses the last fetched bundle. For token
