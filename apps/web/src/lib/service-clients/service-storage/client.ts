@@ -173,6 +173,7 @@ import type { TeamOutOfOfficeResponse } from './generated/schemas/teamOutOfOffic
 import type { TypedSuccessResponse } from './generated/schemas/typedSuccessResponse';
 import type { UpdateAgentRequest } from './generated/schemas/updateAgentRequest';
 import type { UpdateCrmTeamSettingsRequest } from './generated/schemas/updateCrmTeamSettingsRequest';
+import type { UpdateSharePermissionRequestV2 } from './generated/schemas/updateSharePermissionRequestV2';
 import type { UploadExtractFolderHandler200 } from './generated/schemas/uploadExtractFolderHandler200';
 import type { UploadGrant } from './generated/schemas/uploadGrant';
 import type { UserApiKeysList } from './generated/schemas/userApiKeysList';
@@ -440,6 +441,18 @@ export const storageServiceClient = {
     dssFetch(`/crm/pipelines/${id}/sharing`, {
       method: 'PUT',
       body: JSON.stringify({ sharing }),
+    }),
+  getCrmPipelinePermissions: (id: string) =>
+    dssFetch<SharePermissionV2>(`/crm/pipelines/${id}/permissions`, {
+      method: 'GET',
+    }),
+  updateCrmPipelinePermissions: (
+    id: string,
+    request: UpdateSharePermissionRequestV2
+  ) =>
+    dssFetch<SharePermissionV2>(`/crm/pipelines/${id}/permissions`, {
+      method: 'PATCH',
+      body: JSON.stringify(request),
     }),
   trashCrmPipeline: (id: string) =>
     dssFetch(`/crm/pipelines/${id}/trash`, {
@@ -1796,9 +1809,12 @@ export const storageServiceClient = {
   }: {
     id: string;
   }): Promise<Result<ForeignEntity, ResultError<FetchWithTokenErrorCode>[]>> {
-    return await dssFetch<ForeignEntity>(`/foreign_entity/${id}`, {
-      method: 'GET',
-    });
+    return await dssFetch<ForeignEntity>(
+      `/foreign_entity/${encodeURIComponent(id)}`,
+      {
+        method: 'GET',
+      }
+    );
   },
 
   /**

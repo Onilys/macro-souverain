@@ -119,7 +119,6 @@ describe('disabled database filters', () => {
       expandedFolderIds: [],
       favoritesOpen: false,
       rootOpen: true,
-      tagsOpen: false,
     };
     expect(availableDriveState(state, false, true).facets).toEqual({
       type: ['doc-markdown'],

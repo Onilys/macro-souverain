@@ -29,24 +29,6 @@ describe('canvas document queries', () => {
     });
   });
 
-  it('serializes canvas data for storage', async () => {
-    storageMocks.simpleSave.mockResolvedValue(ok({}));
-    const canvas = {
-      nodes: [],
-      edges: [],
-      groups: [],
-    };
-
-    const result = await saveCanvasDocument('canvas-1', canvas);
-
-    expect(result.saved).toBe(true);
-    expect(storageMocks.simpleSave).toHaveBeenCalledWith({
-      documentId: 'canvas-1',
-      file: result.file,
-    });
-    expect(await readBlob(result.file)).toBe(JSON.stringify(canvas));
-  });
-
   it('stores version 2 through the same JSON endpoint and MIME type', async () => {
     storageMocks.simpleSave.mockResolvedValue(ok({}));
     const editor = createGraphicsEditor();

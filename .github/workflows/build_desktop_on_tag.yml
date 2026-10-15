@@ -74,7 +74,7 @@ jobs:
     needs:
     - resolve-ref
     name: Build AppImage
-    runs-on: namespace-profile-linux-rust-ci
+    runs-on: namespace-profile-linux-mid;overrides.cache-tag=desktop-linux
     steps:
     - name: Checkout Repo
       uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -110,6 +110,12 @@ jobs:
     - name: Build AppImage with Nix
       run: |
         set -euo pipefail
+
+        # Vite inlines this into the bundle at build time; without it the shipped
+        # desktop app never initializes PostHog and every feature flag reads as off.
+        # `--impure` below is what lets Nix evaluation see it.
+        : "${VITE_POSTHOG_API_KEY:?must be set from the POSTHOG_API_KEY secret so desktop feature flags work}"
+
         restart_nix_daemon() {
           echo "::warning::Restarting nix-daemon before retrying AppImage build."
           sudo systemctl restart nix-daemon.service 2>/dev/null || true
@@ -139,8 +145,12 @@ jobs:
           # Nix daemon can otherwise run unsandboxed under /nix/var/nix/builds,
           # where linuxdeploy sees host libraries/tools and can fail with only
           # `failed to run linuxdeploy` in Tauri's default output.
+          # --impure only relaxes *evaluation* purity, so the frontend derivation can
+          # read VITE_POSTHOG_API_KEY from the environment; the build sandbox below is
+          # unaffected.
           nix build \
             "${fallback_args[@]}" \
+            --impure \
             --option sandbox true \
             --option sandbox-build-dir /build \
             --option download-attempts 10 \
@@ -160,6 +170,8 @@ jobs:
           sleep $((attempt * 10))
         done
       shell: bash
+      env:
+        VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
     - name: Collect AppImage artifact
       run: |
         set -euo pipefail
@@ -191,7 +203,7 @@ jobs:
     - resolve-ref
     name: Build macOS DMG
     runs-on:
-    - nscloud-macos-sequoia-arm64-6x14-with-cache
+    - nscloud-macos-sequoia-arm64-12x28-with-cache
     - nscloud-cache-tag-macro-desktop-macos
     - nscloud-cache-size-100gb
     env:
@@ -331,6 +343,13 @@ jobs:
       run: |
         set -euo pipefail
 
+        # Vite inlines this into the bundle at build time; without it the shipped
+        # desktop app never initializes PostHog and every feature flag reads as off.
+        # Everything below is already `--impure`, which is what lets Nix evaluation
+        # see it — including the path-info pass, so the recorded cache roots match
+        # what the builds produce.
+        : "${VITE_POSTHOG_API_KEY:?must be set from the POSTHOG_API_KEY secret so desktop feature flags work}"
+
         # Record the derivations before building so completed dependencies can be saved
         # even if a later compilation or packaging step fails.
         nix path-info --derivation --impure \
@@ -343,6 +362,8 @@ jobs:
         nix build --impure --option sandbox false --print-build-logs \
           ".#packages.aarch64-darwin.tauri-desktop-dmg"
       shell: bash
+      env:
+        VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
     - name: Prune and save macOS Nix build dependencies
       if: '!cancelled() && steps.nix-cache.outcome == ''success'''
       run: |
@@ -602,11 +623,46 @@ jobs:
         path: artifacts/*
         if-no-files-found: error
         retention-days: '30'
-  publish-release:
+  publish-installers:
     needs:
     - resolve-ref
     - build-appimage
     - build-dmg
+    name: Publish desktop installers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - id: metadata
+      name: Derive artifact metadata
+      run: |
+        set -euo pipefail
+        tag="${RAW_REF#refs/tags/}"
+        if [ -z "$tag" ]; then
+          tag="${GITHUB_REF_NAME:-untagged}"
+        fi
+        safe_tag=$(printf '%s' "$tag" | sed 's#[/\\:*?"<>|]#-#g' | tr -d '\r\n')
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        echo "safe_tag=$safe_tag" >> "$GITHUB_OUTPUT"
+      shell: bash
+      env:
+        RAW_REF: ${{ needs.resolve-ref.outputs.ref }}
+    - name: Download Build Artifacts
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+      with:
+        path: release-artifacts
+        merge-multiple: 'true'
+    - name: Upload Release Artifacts
+      if: startsWith(steps.metadata.outputs.tag, 'v')
+      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+      with:
+        tag_name: ${{ steps.metadata.outputs.tag }}
+        files: release-artifacts/*
+        fail_on_unmatched_files: 'true'
+  publish-release:
+    needs:
+    - resolve-ref
+    - publish-installers
     if: startsWith(needs.resolve-ref.outputs.ref, 'refs/tags/v')
     name: Sign and publish desktop updates
     runs-on: ubuntu-latest
@@ -615,6 +671,7 @@ jobs:
     concurrency:
       group: desktop-stable-publish
       cancel-in-progress: false
+    timeout-minutes: 20
     steps:
     - name: Checkout Repo
       uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -654,7 +711,8 @@ jobs:
           --header "Authorization: Bearer $DOPPLER_TOKEN" \
           'https://api.doppler.com/v3/configs/config/secrets/download?project=macos-release&config=prd&format=json&secrets=TAURI_SIGNING_PRIVATE_KEY,TAURI_SIGNING_PRIVATE_KEY_PASSWORD' \
           > "$credentials_dir/secrets.json"
-        jq -er '.TAURI_SIGNING_PRIVATE_KEY | strings | select(length > 0)' \
+        # The Tauri signer rejects the newline that jq normally appends to raw output.
+        jq -jer '.TAURI_SIGNING_PRIVATE_KEY | strings | select(length > 0)' \
           "$credentials_dir/secrets.json" > "$credentials_dir/updater.key"
         export TAURI_SIGNING_PRIVATE_KEY_PATH="$credentials_dir/updater.key"
         TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(jq -r '.TAURI_SIGNING_PRIVATE_KEY_PASSWORD // ""' "$credentials_dir/secrets.json")
@@ -761,9 +819,6 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         RELEASE_TAG: ${{ steps.metadata.outputs.tag }}
         RELEASE_REPOSITORY: ${{ github.repository }}
-    - name: Teardown Nix
-      if: always()
-      uses: './.github/actions/teardown-nix'
 concurrency:
   group: desktop-${{ inputs.ref || (github.event.ref_type == 'tag' && github.event.ref || github.ref_name) }}
   cancel-in-progress: true

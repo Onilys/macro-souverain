@@ -203,6 +203,7 @@ async fn write(
 ) -> Result<Vec<OpResult>, PipelineError> {
     s.apply_ops(
         access(a, p.id, EntityType::CrmPipeline, OWNER).await,
+        None,
         ops.into(),
     )
     .await
@@ -838,6 +839,50 @@ async fn http_creation_listing_schema_and_records_use_pipeline_access(pool: PgPo
             }
         }
     }
+    for (method, token, body, expected) in [
+        ("GET", "outsider", "", StatusCode::UNAUTHORIZED),
+        ("GET", "owner", "", StatusCode::OK),
+        (
+            "PATCH",
+            "outsider",
+            r#"{"channelSharePermissions":[]}"#,
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            "PATCH",
+            "owner",
+            r#"{"linkShare":"PUBLIC","channelSharePermissions":[]}"#,
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "PATCH",
+            "owner",
+            r#"{"channelSharePermissions":[]}"#,
+            StatusCode::OK,
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(format!("/crm/pipelines/{pipeline_id}/permissions"))
+                    .header("authorization", format!("Bearer {token}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected, "{method} as {token}");
+        if expected == StatusCode::OK {
+            let permissions: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 16384).await.unwrap())
+                    .unwrap();
+            assert_eq!(permissions["owner"], OWNER);
+            assert_eq!(permissions["channelSharePermissions"], json!([]));
+        }
+    }
     let listed = app
         .oneshot(
             Request::builder()
@@ -928,4 +973,440 @@ async fn queried_rows_filter_and_sort_before_paging_and_retain_hidden_records(po
         .unwrap();
     assert_eq!(retained.rows.len(), 1);
     assert_eq!(retained.rows[0].row_id, hidden);
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn entries_list_referencing_rows_from_visible_live_pipelines(pool: PgPool) {
+    use databases::domain::storage::DatabaseStorageService;
+    use models_properties::service::property_value::PropertyValue;
+    let (s, db, a, team, company) = fixture(&pool).await;
+    // Source ids are cached per user across this binary's parallel tests, so
+    // a teammate shared with other tests could see another test's teams.
+    let teammate = format!("macro|entries-{}@macro.com", Uuid::now_v7());
+    let teammate_id = Uuid::now_v7();
+    sqlx::query!(
+        "INSERT INTO macro_user (id, username, email, stripe_customer_id) VALUES ($1,$2,$2,$2)",
+        teammate_id,
+        teammate
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        r#"INSERT INTO "User" (id, email, macro_user_id) VALUES ($1,$1,$2)"#,
+        teammate,
+        teammate_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        r#"INSERT INTO team_user (team_id,user_id,team_role) VALUES ($1,$2,'member')"#,
+        team,
+        teammate
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let other = Uuid::now_v7();
+    sqlx::query!("INSERT INTO crm_companies (id, team_id, first_interaction, last_interaction) VALUES ($1, $2, now(), now())", other, team).execute(&pool).await.unwrap();
+    let private = create(&s, team, PipelineRecordType::Company).await;
+    let shared = create(&s, team, PipelineRecordType::Company).await;
+    s.share(
+        access(&a, shared.id, EntityType::CrmPipeline, OWNER).await,
+        PipelineSharing::Team,
+    )
+    .await
+    .unwrap();
+    let trashed = create(&s, team, PipelineRecordType::Company).await;
+    let revenue = s
+        .table(access(&a, private.id, EntityType::CrmPipeline, OWNER).await)
+        .await
+        .unwrap()
+        .columns
+        .into_iter()
+        .find(|column| column.definition.definition.display_name == "Revenue")
+        .unwrap()
+        .column
+        .id;
+    let row = |p: &Pipeline, entity: Uuid, amount: f64| {
+        json!([
+            {"column": p.primary_column_id, "value": {"type":"entities", "value":[{"entityType":"COMPANY", "entityId":entity.to_string()}]}},
+            {"column": revenue, "value": {"type":"number", "value":amount}}
+        ])
+    };
+    let insert_rows = |p: &Pipeline, rows: Vec<serde_json::Value>| -> DatabaseOp {
+        serde_json::from_value(
+            json!({"kind":"rows", "table":p.table_id, "change":{"kind":"insert", "rows":rows}}),
+        )
+        .unwrap()
+    };
+    let private_rows = write(
+        &s,
+        &a,
+        &private,
+        vec![insert_rows(
+            &private,
+            vec![
+                row(&private, company, 1.0),
+                row(&private, other, 2.0),
+                row(&private, company, 3.0),
+            ],
+        )],
+    )
+    .await
+    .unwrap();
+    let shared_row = inserted(
+        &write(&s, &a, &shared, vec![insert(&shared, company)])
+            .await
+            .unwrap(),
+    );
+    write(&s, &a, &trashed, vec![insert(&trashed, company)])
+        .await
+        .unwrap();
+    s.set_trashed(
+        access(&a, trashed.id, EntityType::CrmPipeline, OWNER).await,
+        true,
+    )
+    .await
+    .unwrap();
+
+    let owner = s
+        .entries(&user(OWNER), PipelineRecordType::Company, &[company])
+        .await
+        .unwrap();
+    let mut pipelines = owner
+        .iter()
+        .map(|e| e.pipeline.pipeline.id)
+        .collect::<Vec<_>>();
+    pipelines.dedup();
+    assert_eq!(pipelines.len(), 2);
+    assert!(pipelines.contains(&private.id) && pipelines.contains(&shared.id));
+    let private_entries = owner
+        .iter()
+        .filter(|e| e.pipeline.pipeline.id == private.id)
+        .collect::<Vec<_>>();
+    // Both of the company's rows, in the pipeline's row order, with their cells.
+    assert_eq!(
+        private_entries
+            .iter()
+            .map(|e| e.cells.get(&revenue).cloned())
+            .collect::<Vec<_>>(),
+        vec![Some(PropertyValue::Num(1.0)), Some(PropertyValue::Num(3.0))]
+    );
+    assert!(private_entries.iter().all(|e| e.record_id == company
+        && e.pipeline.grant == AccessLevel::Owner
+        && e.columns.len() == 4
+        && e.cells.contains_key(&private.primary_column_id)));
+    match &private_rows[0] {
+        OpResult::Rows {
+            change: RowsResult::Inserted { rows },
+            ..
+        } => assert_eq!(private_entries[0].row_id, rows[0]),
+        other => panic!("{other:?}"),
+    }
+
+    // Storage reads only the asked-for rows of the named table.
+    let cells = db
+        .storage_row_cells(
+            private.database_id,
+            private.table_id,
+            &[private_entries[1].row_id, shared_row],
+        )
+        .await
+        .unwrap();
+    assert_eq!(cells.len(), 1);
+    assert_eq!(cells[0].row_id, private_entries[1].row_id);
+    assert_eq!(cells[0].cells[&revenue], PropertyValue::Num(3.0));
+
+    // A batch answers each record; another record type matches nothing.
+    let both = s
+        .entries(&user(OWNER), PipelineRecordType::Company, &[company, other])
+        .await
+        .unwrap();
+    assert_eq!(both.iter().filter(|e| e.record_id == other).count(), 1);
+    assert!(
+        s.entries(&user(OWNER), PipelineRecordType::Contact, &[company])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    // Teammates see only shared pipelines; outsiders see nothing.
+    let member = s
+        .entries(&user(&teammate), PipelineRecordType::Company, &[company])
+        .await
+        .unwrap();
+    assert_eq!(member.len(), 1);
+    assert_eq!(member[0].pipeline.pipeline.id, shared.id);
+    assert_eq!(member[0].pipeline.grant, AccessLevel::Edit);
+    assert!(
+        s.entries(&user(OUTSIDER), PipelineRecordType::Company, &[company])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+/// A user no other test shares, so cached source ids cannot leak across tests.
+async fn fresh_user(pool: &PgPool, team: Option<Uuid>) -> String {
+    let id = format!("macro|sharing-{}@macro.com", Uuid::now_v7());
+    let uid = Uuid::now_v7();
+    sqlx::query!(
+        "INSERT INTO macro_user (id, username, email, stripe_customer_id) VALUES ($1,$2,$2,$2)",
+        uid,
+        id
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        r#"INSERT INTO "User" (id, email, macro_user_id) VALUES ($1,$1,$2)"#,
+        id,
+        uid
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+    if let Some(team) = team {
+        sqlx::query!(
+            r#"INSERT INTO team_user (team_id,user_id,team_role) VALUES ($1,$2,'member')"#,
+            team,
+            id
+        )
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+    id
+}
+
+/// A direct message between `members`, created before anyone's source ids are read.
+async fn direct_message(pool: &PgPool, members: &[&str]) -> Uuid {
+    let id = Uuid::now_v7();
+    sqlx::query!(
+        "INSERT INTO comms_channels (id, channel_type, owner_id) VALUES ($1, 'direct_message', $2)",
+        id,
+        members[0]
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+    for member in members {
+        sqlx::query!(
+            "INSERT INTO comms_channel_participants (channel_id, role, user_id) VALUES ($1, 'member', $2)",
+            id,
+            member
+        )
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+    id
+}
+
+fn channel_grants(
+    grants: &[(Uuid, Option<AccessLevel>)],
+) -> models_permissions::share_permission::UpdateSharePermissionRequestV2 {
+    use models_permissions::share_permission::channel_share_permission::*;
+    models_permissions::share_permission::UpdateSharePermissionRequestV2 {
+        link_share: None,
+        link_share_access_level: None,
+        team_share_access_level: None,
+        channel_share_permissions: Some(
+            grants
+                .iter()
+                .map(|(channel, level)| UpdateChannelSharePermission {
+                    operation: match level {
+                        Some(_) => UpdateOperation::Replace,
+                        None => UpdateOperation::Remove,
+                    },
+                    channel_id: channel.to_string(),
+                    access_level: *level,
+                })
+                .collect(),
+        ),
+    }
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn editors_share_with_people_and_only_the_owner_changes_team_access(pool: PgPool) {
+    let (s, _db, a, team, _) = fixture(&pool).await;
+    let owner = fresh_user(&pool, Some(team)).await;
+    let teammate = fresh_user(&pool, Some(team)).await;
+    let colleague = fresh_user(&pool, Some(team)).await;
+    let to_teammate = direct_message(&pool, &[&owner, &teammate]).await;
+    let to_colleague = direct_message(&pool, &[&teammate, &colleague]).await;
+    let p = s
+        .create(
+            team_receipt(team, &owner),
+            CreatePipeline {
+                name: "Renewals".into(),
+                record_type: PipelineRecordType::Company,
+                sharing: PipelineSharing::Private,
+            },
+        )
+        .await
+        .unwrap()
+        .pipeline;
+    let edit = |actor: String| {
+        let (a, id) = (a.clone(), p.id);
+        async move {
+            a.generate_entity_access_receipt::<EditAccessLevel>(
+                &user(&actor),
+                None,
+                &id.to_string(),
+                EntityType::CrmPipeline,
+            )
+            .await
+        }
+    };
+    assert!(
+        s.list(team_receipt(team, &teammate))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    // The owner of a private pipeline shares it in a direct message, and it
+    // joins the recipient's pipelines.
+    let shared = s
+        .update_share_permissions(
+            edit(owner.clone()).await.unwrap(),
+            channel_grants(&[(to_teammate, Some(AccessLevel::Edit))]),
+        )
+        .await
+        .unwrap();
+    assert_eq!(shared.owner, owner);
+    assert_eq!(shared.team_share_access_level, None);
+    assert_eq!(
+        shared.channel_share_permissions.unwrap(),
+        vec![
+            models_permissions::share_permission::channel_share_permission::ChannelSharePermission {
+                channel_id: to_teammate.to_string(),
+                access_level: AccessLevel::Edit,
+            }
+        ]
+    );
+    let listed = s.list(team_receipt(team, &teammate)).await.unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].pipeline.id, p.id);
+    assert_eq!(listed[0].grant, AccessLevel::Edit);
+
+    // An editor who is not the owner shares it onward, but cannot change team access.
+    s.update_share_permissions(
+        edit(teammate.clone()).await.unwrap(),
+        channel_grants(&[(to_colleague, Some(AccessLevel::View))]),
+    )
+    .await
+    .unwrap();
+    assert!(
+        a.generate_entity_access_receipt::<OwnerAccessLevel>(
+            &user(&teammate),
+            None,
+            &p.id.to_string(),
+            EntityType::CrmPipeline
+        )
+        .await
+        .is_err()
+    );
+    assert_eq!(
+        s.share_permissions(edit(teammate.clone()).await.unwrap())
+            .await
+            .unwrap()
+            .channel_share_permissions
+            .unwrap()
+            .len(),
+        2
+    );
+
+    // A viewer cannot share; the colleague reached it through the second message.
+    assert_eq!(
+        a.get_access_level(
+            Some(&user(&colleague)),
+            &p.id.to_string(),
+            EntityType::CrmPipeline
+        )
+        .await
+        .unwrap(),
+        Some(AccessLevel::View)
+    );
+    assert!(edit(colleague.clone()).await.is_err());
+
+    // Requests that are not channel grants are refused before anything changes.
+    for invalid in [
+        channel_grants(&[(to_colleague, Some(AccessLevel::Owner))]),
+        channel_grants(&[
+            (to_colleague, None),
+            (to_colleague, Some(AccessLevel::Edit)),
+        ]),
+        models_permissions::share_permission::UpdateSharePermissionRequestV2 {
+            team_share_access_level: Some(Some(AccessLevel::Edit)),
+            ..channel_grants(&[])
+        },
+        models_permissions::share_permission::UpdateSharePermissionRequestV2 {
+            link_share_access_level: Some(Some(AccessLevel::View)),
+            ..channel_grants(&[])
+        },
+    ] {
+        assert!(matches!(
+            s.update_share_permissions(edit(teammate.clone()).await.unwrap(), invalid)
+                .await,
+            Err(PipelineError::Invalid(_))
+        ));
+    }
+
+    // Removing both grants takes the pipeline back out of their lists.
+    s.update_share_permissions(
+        edit(teammate.clone()).await.unwrap(),
+        channel_grants(&[(to_teammate, None), (to_colleague, None)]),
+    )
+    .await
+    .unwrap();
+    assert!(
+        s.list(team_receipt(team, &teammate))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        s.share_permissions(edit(owner.clone()).await.unwrap())
+            .await
+            .unwrap()
+            .channel_share_permissions,
+        Some(vec![])
+    );
+
+    // On a team pipeline every teammate can edit, so every teammate shares.
+    s.share(
+        access(&a, p.id, EntityType::CrmPipeline, &owner).await,
+        PipelineSharing::Team,
+    )
+    .await
+    .unwrap();
+    let team_shared = s
+        .update_share_permissions(
+            edit(colleague.clone()).await.unwrap(),
+            channel_grants(&[(to_colleague, Some(AccessLevel::Comment))]),
+        )
+        .await
+        .unwrap();
+    assert_eq!(team_shared.team_share_access_level, Some(AccessLevel::Edit));
+    assert_eq!(team_shared.channel_share_permissions.unwrap().len(), 1);
+
+    // Sharing stops with the pipeline in the trash.
+    s.set_trashed(
+        access(&a, p.id, EntityType::CrmPipeline, &owner).await,
+        true,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        s.update_share_permissions(
+            edit(owner.clone()).await.unwrap(),
+            channel_grants(&[(to_teammate, Some(AccessLevel::View))]),
+        )
+        .await,
+        Err(PipelineError::NotFound)
+    ));
 }

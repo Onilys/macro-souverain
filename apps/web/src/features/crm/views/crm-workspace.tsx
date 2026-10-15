@@ -27,8 +27,10 @@ import PlusIcon from '@phosphor/plus.svg';
 import { Button, Dropdown, Tooltip } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import {
+  createEffect,
   createSignal,
   type JSX,
+  on,
   onCleanup,
   onMount,
   Show,
@@ -41,7 +43,7 @@ import { PipelineDialog } from '../components/pipeline-dialog';
 import { PipelineSidebar } from '../components/pipeline-sidebar';
 import { useCrmContext } from '../context/crm-context';
 import { useCrmWorkspace } from '../context/workspace-context';
-import { CRM_RECORDS } from '../core/navigation';
+import { CRM_RECORDS, pipelineIdOfTab, pipelineTab } from '../core/navigation';
 import { createCrmExportLoader } from '../primitives/export-source';
 import { useApplyCrmView } from './apply-view';
 import { CrmExport } from './export-companies';
@@ -206,8 +208,23 @@ export function CrmWorkspaceView(props: {
     copyViewLink,
   } = useCrmContext();
   const view = useCrmWorkspace();
+  const { openWithSplit } = useCrmContext().createNavigation();
   const [selectedRecord, setSelectedRecord] = createSignal<CrmRecordRef>();
   const closeRecord = () => setSelectedRecord(undefined);
+  // Back and Forward change the tab without going through sidebar navigation.
+  createEffect(
+    on(
+      view.activeTab,
+      () => {
+        closeRecord();
+      },
+      { defer: true }
+    )
+  );
+  const showRecord = (record: CrmRecordRef) => {
+    view.host.captureEntryState();
+    setSelectedRecord(record);
+  };
   const openRecord = (entity: EntityData) => {
     const type = isCrmCompanyEntity(entity)
       ? 'company'
@@ -216,10 +233,17 @@ export function CrmWorkspaceView(props: {
         : undefined;
     if (!type) return false;
     view.soup.focus.set(entity.id);
-    view.host.captureEntryState();
-    setSelectedRecord({ type, id: entity.id, name: entity.name });
+    showRecord({ type, id: entity.id, name: entity.name });
     return true;
   };
+  // Touch shows records in their own split, as the lists do.
+  const openPipelineRecord = (record: {
+    type: 'company' | 'contact';
+    id: string;
+  }) =>
+    isTouchDevice()
+      ? openWithSplit(record, { activate: true })
+      : showRecord({ ...record, name: '' });
   const apply = useApplyCrmView();
   const [collapsed, setCollapsed] = usePreference(
     'macro:pref:crm:sidebar-collapsed',
@@ -238,15 +262,23 @@ export function CrmWorkspaceView(props: {
   );
   const [creatingPipeline, setCreatingPipeline] = createSignal(false);
   const pipelineId = () =>
-    pipelinesEnabled() && view.activeTab()?.startsWith('pipeline:')
-      ? view.activeTab()?.slice('pipeline:'.length)
-      : undefined;
+    pipelinesEnabled() ? pipelineIdOfTab(view.activeTab()) : undefined;
   const activePipeline = () =>
     pipelines.pipelines().find((pipeline) => pipeline.id === pipelineId());
   const selectPipeline = (id: string) => {
     closeRecord();
-    view.setActiveTab(`pipeline:${id}`);
+    view.setActiveTab(pipelineTab(id));
   };
+  // The first request already chose the initial tab.
+  createEffect(
+    on(
+      view.host.pipelineRequest,
+      (request) => {
+        if (request) selectPipeline(request.pipelineId);
+      },
+      { defer: true }
+    )
+  );
   const listsEnabled = useCrmContext().listsEnabled();
   const lists = useCrmLists(() => (listsEnabled() ? teamId() : undefined));
   const [editing, setEditing] = createSignal<{
@@ -260,13 +292,33 @@ export function CrmWorkspaceView(props: {
   const [exporting, setExporting] = createSignal(false);
   const activeList = () =>
     lists.lists().find((list) => `list:${list.id}` === active());
+  // A list tab from the URL has no preset, so apply its company filter once the list loads.
+  createEffect(() => {
+    const list = activeList();
+    if (!list) return;
+    const expected = list.config.companyIds.length
+      ? list.config.companyIds
+      : [NIL_UUID];
+    const current = view.queryFilters.state.include.crmCompanyId;
+    if (
+      current?.length === expected.length &&
+      current.every((id, index) => id === expected[index])
+    )
+      return;
+    const preset = getViewPreset('companies');
+    const filters = structuredClone(preset?.filters ?? {});
+    filters.include = {
+      ...filters.include,
+      crmCompanyId: expected,
+    };
+    view.queryFilters.replace(filters);
+  });
   // Every other tab (hidden companies, saved or shared views) is a company view.
-  const activeRecord = () =>
-    pipelineId()
-      ? `pipeline:${pipelineId()}`
-      : active().startsWith('list:') || peopleActive()
-        ? active()
-        : 'active';
+  const activeRecord = () => {
+    const id = pipelineId();
+    if (id) return pipelineTab(id);
+    return active().startsWith('list:') || peopleActive() ? active() : 'active';
+  };
   const title = () =>
     activeList()?.name ??
     CRM_RECORDS.find((record) => record.id === activeRecord())?.label ??
@@ -368,11 +420,11 @@ export function CrmWorkspaceView(props: {
               active={activeRecord()}
               pipelines={pipelinesEnabled() ? pipelines.pipelines() : []}
               lists={listsEnabled() ? lists.lists() : []}
-              onNavigate={(id) =>
-                id.startsWith('pipeline:')
-                  ? selectPipeline(id.slice('pipeline:'.length))
-                  : navigate(id)
-              }
+              onNavigate={(id) => {
+                const pipeline = pipelineIdOfTab(id);
+                if (pipeline) selectPipeline(pipeline);
+                else navigate(id);
+              }}
               leading={
                 <Show when={!peopleActive() && !pipelineId()}>
                   <Suspense>
@@ -392,8 +444,9 @@ export function CrmWorkspaceView(props: {
           {(record) => (
             <CrmRecordDetail
               record={record}
-              viewName={title()}
+              viewName={activePipeline()?.name ?? title()}
               onClose={closeRecord}
+              onOpenPipeline={selectPipeline}
               navigation={
                 <NavigationToggle onExpand={() => setCollapsed(false)}>
                   <Suspense>{sidebar()}</Suspense>
@@ -402,7 +455,7 @@ export function CrmWorkspaceView(props: {
             />
           )}
         </Show>
-        <Show when={pipelineId()} keyed>
+        <Show when={!selectedRecord() && pipelineId()} keyed>
           {(id) => (
             <Show when={activePipeline()}>
               {(pipeline) => (
@@ -414,10 +467,11 @@ export function CrmWorkspaceView(props: {
                   onCopyLink={() =>
                     copyViewLink({
                       kind: 'crm',
-                      activeTab: `pipeline:${id}`,
+                      activeTab: pipelineTab(id),
                     })
                   }
                   onTrashed={() => navigate('active')}
+                  onOpenRecord={openPipelineRecord}
                   navigation={
                     <Show when={!isTouchDevice()}>
                       <NavigationToggle onExpand={() => setCollapsed(false)}>
@@ -517,7 +571,8 @@ export function CrmWorkspaceView(props: {
               </Suspense>
             </Show>
           </Show>
-          <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* The header above already clears the status bar on touch. */}
+          <div class="flex min-h-0 min-w-0 flex-1 flex-col [--mobile-content-inset-top:0px]">
             {props.children({
               onOpenEntity: isTouchDevice() ? undefined : openRecord,
             })}

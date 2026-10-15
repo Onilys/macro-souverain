@@ -32,6 +32,7 @@ function isSoupEntityTag(
       'foreign',
       'crm_company',
       'crm_contact',
+      'crm_pipeline',
       'initiative',
       () => false
     )

@@ -5,6 +5,7 @@ import {
   describeSeatPlans,
   getBillingState,
   getFreePlanCheckoutRequest,
+  resolvePlanTier,
 } from './billing-state';
 
 const baseline: BillingInput = {
@@ -81,6 +82,18 @@ describe('billing presentation policy', () => {
       }).tier
     ).toBe('max');
   });
+
+  it.each<[PlanTier | undefined, boolean, PlanTier]>([
+    ['max', false, 'max'],
+    ['free', true, 'free'],
+    [undefined, true, 'premium'],
+    [undefined, false, 'free'],
+  ])(
+    'resolves summary tier %s with paid access %s to %s',
+    (summaryTier, hasPaid, expected) => {
+      expect(resolvePlanTier(summaryTier, hasPaid)).toBe(expected);
+    }
+  );
 
   it('describes mixed seat plans without conflating Pro and Max', () => {
     expect(describeSeatPlans(['premium', 'premium', 'max'])).toBe(

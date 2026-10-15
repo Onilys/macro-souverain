@@ -31,6 +31,7 @@ import type {
 } from '../context/compose-capabilities';
 import { decodeBase64Utf8 } from '../core/decode-base64';
 import type { EmailRecipient } from '../core/email-recipient';
+import { fromInboxOptions } from '../core/email-sender';
 import { plainTextToHtml } from '../core/plain-text-to-html';
 import { convertEmailRecipientToContactInfo } from '../core/recipient-conversion';
 import type {
@@ -69,6 +70,7 @@ import {
 import { createEmailUndoStore } from './undo-store';
 
 type UndoComposeSnapshot = {
+  senderEmail?: string;
   draftId: string;
   threadId?: string;
   inboxId?: string;
@@ -242,7 +244,10 @@ export function createEmailComposer(props: EmailComposerOptions) {
       threadId: restoredSnapshot.threadId,
       inboxId: restoredSnapshot.inboxId,
     });
-    form.setSelectedInbox(restoredSnapshot.inboxId);
+    form.setSelectedInbox(
+      restoredSnapshot.inboxId,
+      restoredSnapshot.senderEmail
+    );
     form.setRecipients('to', restoredSnapshot.recipients.to);
     form.setRecipients('cc', restoredSnapshot.recipients.cc);
     form.setRecipients('bcc', restoredSnapshot.recipients.bcc);
@@ -292,6 +297,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       return null;
     }
     return {
+      sender_email: form.senderEmail() ?? link()?.email_address,
       bcc: form.recipients().bcc.map(convertEmailRecipientToContactInfo),
       body_html: prepared.bodyHtml,
       cc: form.recipients().cc.map(convertEmailRecipientToContactInfo),
@@ -544,6 +550,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     const currentEditor = editor();
     if (!currentEditor) return;
     composeUndo.remember({
+      senderEmail: form.senderEmail() ?? link()?.email_address,
       inboxId,
       draftId,
       threadId: currentThreadId(),
@@ -575,6 +582,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
             cc: snapshot.recipients.cc.map(convertEmailRecipientToContactInfo),
             db_id: draftId,
             subject: snapshot.subject,
+            sender_email: snapshot.senderEmail,
             to: snapshot.recipients.to.map(convertEmailRecipientToContactInfo),
           }
         : undefined,
@@ -760,7 +768,12 @@ export function createEmailComposer(props: EmailComposerOptions) {
       try {
         setSendPhase('sending');
         const result = await props.delivery.sendMessage({
+          clientHandles:
+            session.identity().kind === 'handle' && session.draftId()
+              ? { draftId: session.draftId()!, threadId: session.threadId() }
+              : undefined,
           message: {
+            sender_email: form.senderEmail() ?? link()?.email_address,
             to: convertToContactInfoArray(recipients.to),
             cc:
               recipients.cc.length > 0
@@ -973,7 +986,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     })
   );
 
-  const selectInbox = async (inboxId: string) => {
+  const selectInbox = async (inboxId: string, senderEmail?: string) => {
     if (
       submitting() ||
       discarding() ||
@@ -985,7 +998,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       return;
     setMovingInbox(true);
     try {
-      form.setSelectedInbox(inboxId);
+      form.setSelectedInbox(inboxId, senderEmail);
       editVersion += 1;
       setDraftDirty(true);
       autosave.cancel();
@@ -1146,13 +1159,13 @@ export function createEmailComposer(props: EmailComposerOptions) {
     focusRecipientsOnMount: !hasInboxError(),
 
     // Display
-    fromAddress: () => link()?.email_address,
-    fromInboxes: () => props.accounts.inboxes() ?? [],
+    fromAddress: () => form.senderEmail() ?? link()?.email_address,
+    fromInboxes: () => fromInboxOptions(props.accounts.inboxes()),
     selectedInboxId: () => link()?.id,
     // Persist immediately on a sender switch so the draft moves to the new
     // inbox even without a text edit.
-    onSelectInbox: (inboxId) => {
-      void selectInbox(inboxId);
+    onSelectInbox: (inboxId, senderEmail) => {
+      void selectInbox(inboxId, senderEmail);
     },
     hasPaidAccess,
   };

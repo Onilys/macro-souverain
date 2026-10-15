@@ -329,6 +329,51 @@ describe('makeGraphqlSoupInput', () => {
     });
   });
 
+  it('translates the CRM record scope, record literals, and name search', () => {
+    const company = '0198a1b2-c3d4-7e5f-8061-728394a5b700';
+    const contact = '0198a1b2-c3d4-7e5f-8061-728394a5b701';
+    const body = {
+      crma: { company },
+      df: {
+        '&': [{ l: { crm: { contact } } }, { l: { nc: 'Renewal' } }],
+      },
+    };
+    expect(
+      makeGraphqlSoupInput({
+        params: { limit: 100, sort_method: 'updated_at' },
+        body: body as never,
+      })
+    ).toMatchObject({
+      initial: {
+        filters: {
+          crmAssociation: { company },
+          documentFilter: {
+            and: {
+              left: { literal: { crmAssociated: { contact } } },
+              right: { literal: { nameContains: 'Renewal' } },
+            },
+          },
+        },
+      },
+    });
+    // Grouped CRM Tasks keep the scope on the grouped transport too.
+    expect(
+      makeGraphqlGroupedSoupInput({
+        params: { limit: 100, sort_method: 'updated_at' },
+        body: { crma: { contact }, df: { l: { dst: 'task' } } } as never,
+        groupBy: { type: 'property', propertyDefinitionId: 'status' },
+      })
+    ).toMatchObject({
+      initial: { filters: { crmAssociation: { contact } } },
+    });
+    expect(() =>
+      makeGraphqlSoupInput({
+        params: { limit: 100, sort_method: 'updated_at' },
+        body: { crma: { team: company } } as never,
+      })
+    ).toThrow('Unsupported GraphQL Soup AST');
+  });
+
   it('throws for unsupported calendar literals so callers can fall back', () => {
     expect(() =>
       makeGraphqlSoupInput({

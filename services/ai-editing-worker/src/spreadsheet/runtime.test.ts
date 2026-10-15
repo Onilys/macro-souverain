@@ -371,6 +371,28 @@ it('accepts imported financial styles in AI edits while rejecting unknown border
   expect(spreadsheetBodySchema.safeParse(body).success).toBe(false);
 });
 
+it('accepts the accounting number format in AI edits', () => {
+  const edit = (format: string) =>
+    spreadsheetBodySchema.safeParse({
+      documentId: crypto.randomUUID(),
+      documentToken: 'token',
+      request: {
+        action: 'edit',
+        expectedRevision: 'rev',
+        operations: [
+          {
+            type: 'format_cells',
+            sheetId: 'sheet1',
+            range: 'B2:B9',
+            style: { format, decimals: 0 },
+          },
+        ],
+      },
+    }).success;
+  expect(edit('accounting')).toBe(true);
+  expect(edit('ledger')).toBe(false);
+});
+
 it('accepts dropdown operations and rejects unknown dropdown fields', () => {
   const edit = (operation: Record<string, unknown>) =>
     spreadsheetBodySchema.safeParse({

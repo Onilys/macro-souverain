@@ -4,6 +4,10 @@ import { toast } from '@core/component/Toast/Toast';
 import type { DateValue } from '@core/util/date';
 import { markMessageSent } from '@core/util/message-send-motion';
 import {
+  messageReferencesCrmRecord,
+  refreshCrmAssociatedSoupQueries,
+} from '@queries/soup/crm-association';
+import {
   bumpSoupEntityTouchedAt,
   invalidateSoupEntity,
   optimisticUpdateSoupItemUpdatedAt,
@@ -500,6 +504,10 @@ export function useSendMessageMutation(
             invalidateSoupEntity(variables.parent.id);
           }
 
+          // CRM record lists include messages that mention or attach the record.
+          if (messageReferencesCrmRecord(variables.message))
+            void refreshCrmAssociatedSoupQueries();
+
           if (variables.parent.type === 'channel')
             analytics.track('channel_message_sent', {
               contentLength: variables.message.content?.length ?? 0,
@@ -587,6 +595,8 @@ export function useDeleteMessageMutation(
         },
         onSuccess(data, _vars, context) {
           applyRootDeletion(data, context?.threadState);
+          // The deleted message may have referenced a CRM record.
+          void refreshCrmAssociatedSoupQueries();
         },
         onError(error, vars, context) {
           console.error('failed to delete message', error);
@@ -677,6 +687,8 @@ export function usePatchMessageMutation(
         },
         onSuccess(data) {
           applyMessage(data, 'edited');
+          // An edit can add or remove a CRM record reference.
+          void refreshCrmAssociatedSoupQueries();
         },
         onError(error, vars, context) {
           console.error('failed to update message', error);

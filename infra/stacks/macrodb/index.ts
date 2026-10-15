@@ -134,6 +134,9 @@ const originalParameterGroup = new aws.rds.ParameterGroup(
       { name: 'jit', value: '0' },
       // Log spills of at least 10MB for follow-up tuning.
       { name: 'log_temp_files', value: '10240' },
+      // Keep vacuum on the primary from removing rows that replica queries still
+      // read; those snapshot conflicts stall WAL replay for up to 30 s.
+      { name: 'hot_standby_feedback', value: '1' },
     ],
     tags,
   },
@@ -177,6 +180,9 @@ if (stack === 'prod') {
         { name: 'jit', value: '0' },
         // Log spills of at least 10MB for follow-up tuning.
         { name: 'log_temp_files', value: '10240' },
+        // Keep vacuum on the primary from removing rows that replica queries still
+        // read; those snapshot conflicts stall WAL replay for up to 30 s.
+        { name: 'hot_standby_feedback', value: '1' },
       ],
       tags,
     },

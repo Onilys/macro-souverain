@@ -2,6 +2,7 @@ use super::*;
 mod queue;
 mod recovery;
 mod search;
+mod session_task;
 mod user_cleanup;
 mod working_branch;
 use crate::domain::model::{AgentMcpServer, DEFAULT_AGENT_SESSION_NAME};
@@ -784,6 +785,61 @@ async fn sandbox_size_round_trips_and_user_default_falls_back(pool: PgPool) {
             .await
             .expect("upserted default"),
         SandboxSize::Large
+    );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn user_coding_preferences_default_off_and_upsert_both_fields(pool: PgPool) {
+    let repo = test_repo(&pool);
+    insert_user(&pool, OWNER).await;
+    let owner = user_id(OWNER);
+
+    assert_eq!(
+        repo.user_coding_preferences(&owner)
+            .await
+            .expect("missing row"),
+        CodingPreferences {
+            create_tasks: false,
+            open_pull_requests: false,
+        }
+    );
+
+    repo.set_user_coding_preferences(
+        &owner,
+        CodingPreferences {
+            create_tasks: true,
+            open_pull_requests: false,
+        },
+    )
+    .await
+    .expect("insert");
+    assert_eq!(
+        repo.user_coding_preferences(&owner)
+            .await
+            .expect("inserted"),
+        CodingPreferences {
+            create_tasks: true,
+            open_pull_requests: false,
+        }
+    );
+
+    repo.set_user_coding_preferences(
+        &owner,
+        CodingPreferences {
+            create_tasks: false,
+            open_pull_requests: true,
+        },
+    )
+    .await
+    .expect("replace");
+    assert_eq!(
+        repo.user_coding_preferences(&owner)
+            .await
+            .expect("replaced"),
+        CodingPreferences {
+            create_tasks: false,
+            open_pull_requests: true,
+        }
     );
 }
 
@@ -2414,6 +2470,7 @@ async fn links_for_pull_requests_returns_every_link_to_the_requested_keys(pool: 
         ]
     );
     assert!(rows.iter().all(|row| row.thread_parent.is_none()));
+    assert!(rows.iter().all(|row| row.origin_message_id.is_none()));
     assert!(repo.links_for_pull_requests(&[]).await.unwrap().is_empty());
 }
 

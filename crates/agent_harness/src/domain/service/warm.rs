@@ -198,6 +198,7 @@ where
                         action: AgentAction::prompt(prompt),
                         actor: Some(owner_user),
                         announce: None,
+                        context: None,
                     }),
                 )
                 .await
@@ -205,6 +206,10 @@ where
             }
             return Ok(session);
         }
+        let instructions = self
+            .inner
+            .with_owner_coding_preferences(&owner_user, bot_id, kind, instructions)
+            .await?;
         let defaults = self.inner.defaults.for_bot(bot_id);
         let sandbox_size = self
             .inner
@@ -263,10 +268,10 @@ where
                 .await;
         }
 
-        let mcp_servers = if kind == AgentKind::CodexCloud {
-            Vec::new()
-        } else {
+        let mcp_servers = if kind.takes_egress_mcp_servers() {
             egress.sandbox.acp_servers()
+        } else {
+            Vec::new()
         };
         let container = match self
             .inner
@@ -348,6 +353,7 @@ where
                     action: AgentAction::prompt(raw_prompt),
                     actor: Some(owner_user),
                     announce: None,
+                    context: None,
                 }),
             )
             .await

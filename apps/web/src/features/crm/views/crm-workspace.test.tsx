@@ -5,7 +5,7 @@ import {
   screen,
   within,
 } from '@solidjs/testing-library';
-import { createSignal, type JSX, type ParentProps } from 'solid-js';
+import { createSignal, For, type JSX, type ParentProps } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { CrmWorkspaceView } from './crm-workspace';
 
@@ -13,12 +13,14 @@ const fixture = vi.hoisted(() => ({
   workspace: undefined as unknown,
   pipelinesEnabled: true,
   listsEnabled: true,
+  touch: true,
+  openWithSplit: vi.fn(),
 }));
 
 vi.mock('@app/components/view-shell', () => ({
   ViewShell: {
     Root: (props: ParentProps) => props.children,
-    Aside: () => null,
+    Aside: (props: ParentProps) => props.children,
     Main: (props: ParentProps) => props.children,
     Header: (props: ParentProps) => <header>{props.children}</header>,
   },
@@ -32,7 +34,9 @@ vi.mock('@app/components/view-shell', () => ({
 vi.mock('@app/preferences/use-preference', () => ({
   usePreference: () => createSignal(false),
 }));
-vi.mock('@core/mobile/isTouchDevice', () => ({ isTouchDevice: () => true }));
+vi.mock('@core/mobile/isTouchDevice', () => ({
+  isTouchDevice: () => fixture.touch,
+}));
 vi.mock('@core/mobile/haptics', () => ({ hapticImpact: vi.fn() }));
 vi.mock('@core/mobile/virtualKeyboard', () => ({
   virtualKeyboardVisible: () => false,
@@ -104,19 +108,65 @@ vi.mock(
 vi.mock('../components/company-list-dialog', () => ({
   CrmListDialog: () => null,
 }));
-vi.mock('../components/crm-sidebar', () => ({ CrmSidebar: () => null }));
+vi.mock('../components/crm-sidebar', () => ({
+  CrmSidebar: (props: {
+    pipelines?: JSX.Element;
+    onNavigate: (id: string) => void;
+  }) => (
+    <nav aria-label="CRM sidebar">
+      <button type="button" onClick={() => props.onNavigate('active')}>
+        Companies
+      </button>
+      <button type="button" onClick={() => props.onNavigate('people')}>
+        People
+      </button>
+      {props.pipelines}
+    </nav>
+  ),
+}));
 vi.mock('../components/pipeline-sidebar', () => ({
-  PipelineSidebar: () => null,
+  PipelineSidebar: (props: {
+    pipelines: { id: string; name: string }[];
+    onSelect: (id: string) => void;
+  }) => (
+    <For each={props.pipelines}>
+      {(pipeline) => (
+        <button type="button" onClick={() => props.onSelect(pipeline.id)}>
+          {pipeline.name}
+        </button>
+      )}
+    </For>
+  ),
 }));
 vi.mock('../components/pipeline-dialog', () => ({
   PipelineDialog: () => null,
 }));
-vi.mock('./record-detail', () => ({ CrmRecordDetail: () => null }));
+vi.mock('./record-detail', () => ({
+  CrmRecordDetail: (props: {
+    viewName: string;
+    record: { type: string; id: string };
+  }) => (
+    <div>
+      {props.viewName} record {props.record.type}:{props.record.id}
+    </div>
+  ),
+}));
 vi.mock('./export-companies', () => ({ CrmExport: () => null }));
 vi.mock('./import-companies', () => ({ CrmImport: () => null }));
 vi.mock('./pipeline', () => ({
-  PipelineView: (props: { pipeline: { name: string } }) => (
-    <div>{props.pipeline.name} table</div>
+  PipelineView: (props: {
+    pipeline: { name: string };
+    onOpenRecord(record: { type: 'company'; id: string }): void;
+  }) => (
+    <div>
+      {props.pipeline.name} table
+      <button
+        type="button"
+        onClick={() => props.onOpenRecord({ type: 'company', id: 'acme' })}
+      >
+        Open Acme
+      </button>
+    </div>
   ),
 }));
 vi.mock('./saved-views-menu', () => ({
@@ -130,6 +180,7 @@ vi.mock('../context/crm-context', () => ({
   useCrmContext: () => ({
     pipelinesEnabled: () => () => fixture.pipelinesEnabled,
     listsEnabled: () => () => fixture.listsEnabled,
+    createNavigation: () => ({ openWithSplit: fixture.openWithSplit }),
     createPipelines: () => ({
       pipelines: () => [{ id: 'sales', name: 'Sales' }],
       loading: () => false,
@@ -166,21 +217,33 @@ afterEach(() => {
   cleanup();
   fixture.pipelinesEnabled = true;
   fixture.listsEnabled = true;
+  fixture.touch = true;
+  fixture.openWithSplit.mockReset();
 });
 
-function setup() {
-  const [activeTab, setActiveTab] = createSignal<string | undefined>('active');
+function setup(initialTab = 'active') {
+  const [activeTab, setActiveTab] = createSignal<string | undefined>(
+    initialTab
+  );
+  const [pipelineRequest, setPipelineRequest] = createSignal<
+    { pipelineId: string; seek: string } | undefined
+  >();
   fixture.workspace = {
     activeTab,
     setActiveTab,
-    host: { scopeId: 'crm', isActive: () => true },
+    host: {
+      scopeId: 'crm',
+      isActive: () => true,
+      captureEntryState: vi.fn(),
+      pipelineRequest,
+    },
     source: {},
-    queryFilters: { state: { include: {} } },
+    queryFilters: { state: { include: {} }, replace: vi.fn() },
   };
   render(() => (
     <CrmWorkspaceView>{() => <div>Record list</div>}</CrmWorkspaceView>
   ));
-  return { activeTab };
+  return { activeTab, setActiveTab, setPipelineRequest };
 }
 
 it('keeps sidebar destinations in the mobile header when switching records, pipelines and lists', () => {
@@ -219,4 +282,44 @@ it('omits pipelines and lists when those features are disabled', () => {
   expect(
     tabs.getAllByRole('button').map((button) => button.textContent)
   ).toEqual(['Companies', 'People']);
+});
+
+it('shows the company of a pipeline row in place of the pipeline on desktop', () => {
+  fixture.touch = false;
+  setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.getByText('Sales record company:acme')).toBeTruthy();
+  expect(screen.queryByText('Sales table')).toBeNull();
+  expect(fixture.openWithSplit).not.toHaveBeenCalled();
+});
+
+it('shows a pipeline another view asks for, in place of an open record', () => {
+  fixture.touch = false;
+  const { activeTab, setPipelineRequest } = setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.queryByText('Sales table')).toBeNull();
+  setPipelineRequest({ pipelineId: 'sales', seek: 'first' });
+  expect(activeTab()).toBe('pipeline:sales');
+  expect(screen.getByText('Sales table')).toBeTruthy();
+  expect(screen.queryByText('Sales record company:acme')).toBeNull();
+});
+
+it('opens the company of a pipeline row in its own split on touch', () => {
+  setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(fixture.openWithSplit).toHaveBeenCalledExactlyOnceWith(
+    { type: 'company', id: 'acme' },
+    { activate: true }
+  );
+  expect(screen.getByText('Sales table')).toBeTruthy();
+});
+
+it('closes an open record when activeTab changes via history navigation', () => {
+  fixture.touch = false;
+  const { setActiveTab } = setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.getByText('Sales record company:acme')).toBeTruthy();
+  setActiveTab('people');
+  expect(screen.queryByText(/record company:acme/)).toBeNull();
+  expect(screen.getByText('Record list')).toBeTruthy();
 });
