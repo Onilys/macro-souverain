@@ -1,6 +1,7 @@
 import {
   CollapsibleSection,
   SearchBar,
+  SidebarActionRow,
   useViewTabHotkeys,
   ViewSidebar,
 } from '@app/components/view-shell';
@@ -291,22 +292,21 @@ export function ReviewsSidebar(props: {
 
   return (
     <ViewSidebar.Root aria-label="Reviews navigation">
-      <ViewSidebar.Header>
-        <div class="flex min-w-0 items-center gap-1">
-          <ViewSidebar.CloseButton />
-          <ViewSidebar.Title>Reviews</ViewSidebar.Title>
-        </div>
-      </ViewSidebar.Header>
-      <ViewSidebar.Primary class="flex flex-col gap-2">
-        <SearchBar
-          label="Search reviews"
-          placeholder="Search reviews"
-          autocomplete="off"
-          value={props.search}
-          onValueChange={props.onSearchChange}
-          class="border-0 bg-ink/5 shadow-none"
-          onEscape={() => props.onSearchChange('')}
-        />
+      <SidebarActionRow
+        title="Reviews"
+        search={
+          <SearchBar
+            label="Search reviews"
+            placeholder="Search reviews"
+            autocomplete="off"
+            value={props.search}
+            onValueChange={props.onSearchChange}
+            class="h-8"
+            onEscape={() => props.onSearchChange('')}
+          />
+        }
+      />
+      <ViewSidebar.Primary class="flex flex-col gap-2 pt-0">
         {/* Touch layouts list pull requests; the board needs a pointer to drag. */}
         <Show when={!isTouchDevice()}>
           <TabsInset

@@ -6,10 +6,12 @@ import {
   ListGroupDropdown,
   ListSortDropdown,
   SearchBar,
+  SidebarActionOverride,
   useViewControlHotkeys,
   ViewShell,
 } from '@app/components/view-shell';
-import { SidebarCreateButton } from '@app/components/view-shell/SidebarCreateButton';
+import { useSidebarSearchFocus } from '@app/components/view-shell/SidebarActionRow';
+import { SidebarCreateAction } from '@app/components/view-shell/SidebarCreateAction';
 import {
   getSoupMenuEntities,
   getSoupRowEntities,
@@ -19,7 +21,6 @@ import { taskGridColumnCount } from '@app/features/tasks-view/components/task-li
 import { toast } from '@core/component/Toast/Toast';
 import { EntitySelectionToolbarModal } from '@entity/EntitySelectionToolbarModal';
 import CalendarIcon from '@icon/system/regular/calendar.svg';
-import PlusIcon from '@icon/system/regular/plus.svg';
 import SpinnerIcon from '@icon/system/regular/spinner.svg';
 import { PropertyValueIcon } from '@property/component/propertyValue';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
@@ -70,6 +71,7 @@ export function ProjectsCollection(props: {
   const [virtualizer, setVirtualizer] = createSignal<VirtualizerHandle>();
   let grid: HTMLDivElement | undefined;
   let searchInput: HTMLInputElement | undefined;
+  const focusSearch = useSidebarSearchFocus(() => searchInput);
   const [openMenu, setOpenMenu] = createSignal<'filters' | 'sort'>();
   const definition = (id: string) =>
     definitions
@@ -237,7 +239,7 @@ export function ProjectsCollection(props: {
     search: {
       description: 'Search projects',
       run: () => {
-        searchInput?.focus();
+        focusSearch();
         return true;
       },
     },
@@ -277,30 +279,10 @@ export function ProjectsCollection(props: {
   };
   return (
     <>
-      <ViewShell.Header>
-        <div class="flex min-w-0 flex-col gap-3">
-          <div class="hidden h-8 min-w-0 items-center touch:flex @max-[720px]/view-shell:flex">
-            <h1 class="min-w-0 truncate text-xl font-semibold tracking-[-0.03em] text-ink">
-              Projects
-            </h1>
-            <div class="ml-auto shrink-0">
-              <SidebarCreateButton label="New" onCreate={props.onCreate} />
-            </div>
-          </div>
-          <div class="flex min-w-0 items-center justify-between gap-3">
-            <SearchBar
-              ref={(element) => {
-                searchInput = element;
-              }}
-              label="Search projects"
-              placeholder="Search projects"
-              value={collection.search()}
-              onValueChange={collection.setSearch}
-              onEscape={() => grid?.focus()}
-              class="max-w-md flex-1"
-              hotkey="cmd+f"
-            />
-            <div class="flex shrink-0 items-center gap-2">
+      <ViewShell.TopBar
+        controls={
+          <div class="flex min-w-0 items-center gap-2">
+            <div class="flex shrink-0 items-center gap-1">
               <ListSortDropdown
                 label="Sort projects"
                 value={collection.sort()}
@@ -395,18 +377,42 @@ export function ProjectsCollection(props: {
                   </div>
                 </Dropdown.Content>
               </Dropdown>
-              <Button
-                variant="outline"
-                class="touch:hidden @max-[720px]/view-shell:hidden"
-                onClick={props.onCreate}
-              >
-                <PlusIcon class="size-4" />
-                New project
-              </Button>
             </div>
+
+            <SidebarActionOverride
+              title="Projects"
+              search={
+                <SearchBar
+                  ref={(element) => {
+                    searchInput = element;
+                  }}
+                  label="Search projects"
+                  placeholder="Search projects"
+                  value={collection.search()}
+                  onValueChange={collection.setSearch}
+                  onEscape={() => grid?.focus()}
+                  class="h-8 w-60 @max-[720px]/split-header:w-36 @max-[520px]/split-header:w-28 @max-[400px]/split-header:w-20"
+                />
+              }
+              create={() => (
+                <SidebarCreateAction
+                  aria-label="New project"
+                  onClick={props.onCreate}
+                >
+                  New
+                </SidebarCreateAction>
+              )}
+            />
           </div>
-        </div>
-      </ViewShell.Header>
+        }
+        workspaceActions
+        class="h-12 gap-3 px-4 not-touch:pl-4 touch:flex touch:mt-[var(--safe-top,0px)]"
+      >
+        <h1 class="min-w-0 truncate text-sm font-semibold text-ink">
+          Projects
+        </h1>
+      </ViewShell.TopBar>
+
       <ViewShell.Content>
         <div
           ref={(element) => {

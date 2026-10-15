@@ -1,4 +1,4 @@
-import { MobileFilterDrawer, ViewSidebar } from '@app/components/view-shell';
+import { MobileFilterDrawer } from '@app/components/view-shell';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { inboxIconProps } from '@core/component/inboxIcon';
 import { UserIcon, type UserIconSize } from '@core/component/UserIcon';
@@ -9,7 +9,7 @@ import CheckIcon from '@icon/system/regular/check.svg';
 import PlusIcon from '@icon/system/regular/plus.svg';
 import TrayIcon from '@icon/system/regular/tray.svg';
 import { useEmailLinksQuery } from '@queries/email/link';
-import { cn, Dropdown, pressHandlers } from '@ui';
+import { Button, cn, Dropdown, TabsInset } from '@ui';
 import { createMemo, For, type JSX, Show } from 'solid-js';
 import { useEmailView } from '../email-view-context';
 
@@ -93,76 +93,68 @@ function InboxAvatar(props: {
   );
 }
 
-/**
- * The inbox list at the top of the Email sidebar: `All inboxes` followed by
- * one row per inbox, with a separate action to connect another account.
- * Clicking a row selects that inbox alone; there is no multi-select.
- */
+/** Always-visible account switcher; one account or all inboxes at a time. */
 export function EmailInboxList(props: { class?: string }) {
   const selection = useInboxSelection();
 
   return (
     <Show when={selection.visible()}>
-      <div
-        class={cn(
-          'flex shrink-0 flex-col gap-(--sidebar-row-gap)',
-          props.class
-        )}
+      <section
+        aria-label="Accounts"
+        class={cn('flex shrink-0 flex-col gap-2', props.class)}
       >
-        <ViewSidebar.Nav
-          aria-label="Inboxes"
-          class="max-h-[calc(4*var(--sidebar-row-height)+3*var(--sidebar-row-gap))] overflow-y-auto overscroll-none touch:max-h-[calc(11rem+3*var(--sidebar-row-gap))]"
-        >
-          <Show when={selection.hasMultipleInboxes()}>
-            <ViewSidebar.Item
-              active={selection.isAll()}
-              aria-current={selection.isAll() ? 'true' : undefined}
-              {...pressHandlers(selection.selectAll)}
+        <div class="flex h-6 items-center justify-between pl-(--sidebar-item-inset) pr-1">
+          <h2 class="text-xs font-medium text-ink-extra-muted">Accounts</h2>
+          <Show when={selection.canAddInbox()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              square
+              aria-label="Connect another account"
+              tooltip="Connect another account"
+              onClick={selection.addInbox}
             >
-              <ViewSidebar.Icon>
-                <Show
-                  when={selection.isAll()}
-                  fallback={<TrayIcon class="size-4" />}
-                >
-                  <CheckIcon class="size-4 text-accent" />
-                </Show>
-              </ViewSidebar.Icon>
-              <span class="truncate">All inboxes</span>
-            </ViewSidebar.Item>
+              <PlusIcon class="size-3.5" />
+            </Button>
           </Show>
-          <For each={selection.options()}>
-            {(option) => (
-              <ViewSidebar.Item
-                active={selection.isSelected(option.id)}
-                aria-current={
-                  selection.isSelected(option.id) ? 'true' : undefined
-                }
-                {...pressHandlers(() => selection.select(option.id))}
-              >
-                <ViewSidebar.Icon>
-                  <Show
-                    when={selection.isSelected(option.id)}
-                    fallback={
-                      <InboxAvatar option={option} size="sm" class="size-5" />
-                    }
-                  >
-                    <CheckIcon class="size-4 text-accent" />
-                  </Show>
-                </ViewSidebar.Icon>
-                <span class="truncate">{option.label}</span>
-              </ViewSidebar.Item>
-            )}
-          </For>
-        </ViewSidebar.Nav>
-        <Show when={selection.canAddInbox()}>
-          <ViewSidebar.Item {...pressHandlers(selection.addInbox)}>
-            <ViewSidebar.Icon>
-              <PlusIcon class="size-4" />
-            </ViewSidebar.Icon>
-            <span class="truncate">Connect another account</span>
-          </ViewSidebar.Item>
-        </Show>
-      </div>
+        </div>
+        <TabsInset
+          aria-label="Email account"
+          orientation="vertical"
+          fullWidth
+          class="h-auto"
+          labelClass="min-h-10 gap-2.5 px-3 py-2 text-sm font-normal"
+          value={selection.selectedOption()?.id ?? ALL_INBOXES_ID}
+          onChange={(value) => {
+            if (value === ALL_INBOXES_ID) selection.selectAll();
+            else selection.select(value);
+          }}
+          list={[
+            {
+              value: ALL_INBOXES_ID,
+              label: (
+                <>
+                  <TrayIcon aria-hidden="true" class="size-4 shrink-0" />
+                  <span>All inboxes</span>
+                </>
+              ),
+            },
+            ...selection.options().map((option) => ({
+              value: option.id,
+              label: (
+                <>
+                  <span aria-hidden="true" class="shrink-0">
+                    <InboxAvatar option={option} size="sm" class="size-4" />
+                  </span>
+                  <span class="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-left [mask-image:linear-gradient(to_right,black_calc(100%_-_1rem),transparent)]">
+                    {option.label}
+                  </span>
+                </>
+              ),
+            })),
+          ]}
+        />
+      </section>
     </Show>
   );
 }
@@ -248,7 +240,7 @@ export function EmailInboxMenu(props: { class?: string }) {
       <Dropdown placement="bottom-end">
         <Dropdown.Trigger
           variant="ghost"
-          size="sm"
+          size="md"
           square
           depth={2}
           aria-label={`Inbox: ${selection.label()}`}
@@ -317,7 +309,7 @@ function InboxRadioItem(props: {
       </span>
       <span class="min-w-0 flex-1 truncate">{props.children}</span>
       <Dropdown.ItemIndicator>
-        <CheckIcon class="size-3.5 text-accent" />
+        <CheckIcon class="size-3.5 text-ink" />
       </Dropdown.ItemIndicator>
     </Dropdown.RadioItem>
   );

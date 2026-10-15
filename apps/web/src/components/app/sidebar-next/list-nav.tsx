@@ -217,6 +217,8 @@ export const ListNav = (props: ListNavProps) => {
         }
         tooltip={`Go to ${props.item.label}`}
         tooltipPlacement="right"
+        tooltipOpenDelay={2000}
+        tooltipContentClass="motion-safe:animate-dialog-overlay-open"
         hotkey={[TOKENS.sidebar.goToLeader, props.item.hotkeyToken]}
         draggable={false}
         aria-current={isActive() ? 'page' : undefined}

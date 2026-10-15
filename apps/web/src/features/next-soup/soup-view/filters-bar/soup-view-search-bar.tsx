@@ -169,6 +169,7 @@ export const SoupSearchbar = (props: SoupSearchbarProps) => {
       }}
     >
       <div
+        data-search-bar
         class={cn(
           'group w-full relative flex items-center gap-1 rounded-lg h-7 mobile:h-9 pl-1 pr-1 py-1 mobile:min-w-35 border text-xs',
           variantStyles[props.variant ?? 'secondary']

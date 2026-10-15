@@ -17,10 +17,12 @@ export const SidebarRailCreateButton = () => {
     <Button
       ref={createMenuTarget}
       variant="ghost"
-      class="size-10 [&_svg]:size-5"
+      class="-top-1 size-10 [&_svg]:size-5"
       size="icon-md"
       label="Create"
       tooltipPlacement="right"
+      tooltipOpenDelay={2000}
+      tooltipContentClass="motion-safe:animate-dialog-overlay-open"
       hotkey={TOKENS.global.createCommand}
       aria-haspopup="dialog"
       aria-expanded={createMenuOpen()}

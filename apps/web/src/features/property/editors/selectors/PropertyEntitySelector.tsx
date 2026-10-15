@@ -509,7 +509,7 @@ export function PropertyEntitySelector(props: EntityInputProps) {
                     <span class="truncate min-w-0">{option.label}</span>
                   </div>
                   <Show when={!props.config.isMultiSelect && isSelected()}>
-                    <CheckIcon class="size-3.5 shrink-0 text-accent" />
+                    <CheckIcon class="size-3.5 shrink-0 text-ink" />
                   </Show>
                 </div>
               );
@@ -616,7 +616,7 @@ export function PropertyEntitySelector(props: EntityInputProps) {
                         <Show
                           when={!props.config.isMultiSelect && isSelected()}
                         >
-                          <CheckIcon class="size-3.5 shrink-0 text-accent" />
+                          <CheckIcon class="size-3.5 shrink-0 text-ink" />
                         </Show>
                       </div>
                     </>

@@ -1,4 +1,5 @@
 import { SearchBar } from '@app/components/view-shell';
+import { useSidebarSearchFocus } from '@app/components/view-shell/SidebarActionRow';
 import { useCalendarPager } from '@app/features/calendar/components/CalendarPagerContext';
 import { useCalendarView } from '@app/features/calendar/components/CalendarViewContext';
 import { useCalendarSearchUiFlag } from '@app/features/calendar/hooks/use-calendar-ui-flag';
@@ -357,6 +358,7 @@ function CalendarSearchControl(props: {
   const [rawQuery, setRawQuery] = createSignal('');
   const [filters, setFilters] = createSignal(DEFAULT_CALENDAR_SEARCH_FILTERS);
   let inputRef: HTMLInputElement | undefined;
+  const focusSidebarSearch = useSidebarSearchFocus(() => inputRef);
   let searchButton: HTMLButtonElement | undefined;
   const dismissSearch = () => {
     inputRef?.blur();
@@ -634,7 +636,7 @@ function CalendarSearchControl(props: {
       if (props.inline) {
         if (props.expanded === false) props.onExpand?.();
         else {
-          focusInput();
+          focusSidebarSearch();
           setOpen(true);
         }
       } else if (open()) focusInput();
@@ -681,8 +683,8 @@ function CalendarSearchControl(props: {
           </Popover.Trigger>
         }
       >
-        <div class="relative h-10 min-w-0 w-full flex-1">
-          <Popover.Anchor as="div" class="h-10 w-full">
+        <div class="relative h-8 min-w-0 w-full flex-1">
+          <Popover.Anchor as="div" class="h-8 w-full">
             <Show when={props.expanded === false}>
               <Button
                 ref={searchButton}
@@ -710,7 +712,7 @@ function CalendarSearchControl(props: {
               <SearchBar
                 ref={(element) => (inputRef = element)}
                 label="Search events"
-                class="has-[input:focus-visible]:ring-inset"
+                class="h-8 has-[input:focus-visible]:ring-inset"
                 onClose={props.onDismiss ? dismissSearch : undefined}
                 value={rawQuery()}
                 onValueChange={changeQuery}
@@ -719,7 +721,7 @@ function CalendarSearchControl(props: {
                 onFocus={() => setOpen(true)}
                 onKeyDown={handleSearchKeyDown}
                 onEscape={dismissSearch}
-                hotkey="cmd+f"
+                hotkey={props.compact ? undefined : 'cmd+f'}
                 placeholder="Search events"
               />
             </div>

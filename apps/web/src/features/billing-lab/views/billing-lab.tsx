@@ -468,7 +468,7 @@ export function BillingLabView(props: {
               <label class="flex items-center gap-2 text-xs text-ink-muted">
                 <input
                   type="checkbox"
-                  class="accent-accent"
+                  class="accent-ink"
                   checked={lab.failNext()}
                   onChange={(event) =>
                     lab.setFailNext(event.currentTarget.checked)

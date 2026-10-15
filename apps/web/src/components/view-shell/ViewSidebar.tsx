@@ -23,8 +23,10 @@ function Root(props: JSX.HTMLAttributes<HTMLElement>) {
   );
 }
 
-function Header(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ['children', 'class']);
+function Header(
+  props: JSX.HTMLAttributes<HTMLDivElement> & { trailing?: JSX.Element }
+) {
+  const [local, rest] = splitProps(props, ['children', 'class', 'trailing']);
   return (
     <SplitHeaderContextMenu>
       <div
@@ -37,6 +39,7 @@ function Header(props: JSX.HTMLAttributes<HTMLDivElement>) {
       >
         {local.children}
         <ViewSidebarToggle action="collapse" />
+        {local.trailing}
       </div>
     </SplitHeaderContextMenu>
   );
@@ -64,7 +67,7 @@ function Primary(props: JSX.HTMLAttributes<HTMLDivElement>) {
     <div
       {...rest}
       class={cn(
-        'min-w-0 px-(--sidebar-gutter) pt-(--sidebar-gutter) touch:pt-[calc(var(--safe-top,0px)+var(--sidebar-gutter))]',
+        'min-w-0 px-(--sidebar-gutter) pt-2 touch:pt-[calc(var(--safe-top,0px)+0.5rem)]',
         local.class
       )}
     >
@@ -108,7 +111,7 @@ function Content(props: JSX.HTMLAttributes<HTMLDivElement>) {
     <div
       {...rest}
       class={cn(
-        'flex min-h-0 min-w-0 flex-1 flex-col gap-(--sidebar-section-gap) overflow-auto px-(--sidebar-gutter) py-(--sidebar-content-inset)',
+        'flex min-h-0 min-w-0 flex-1 flex-col gap-(--sidebar-section-gap) overflow-auto px-(--sidebar-gutter) py-4',
         local.class
       )}
       data-view-sidebar-content=""

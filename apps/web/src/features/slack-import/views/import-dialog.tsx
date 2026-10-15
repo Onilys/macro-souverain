@@ -810,7 +810,7 @@ function ArchivePicker(props: {
           </div>
         </div>
         <Show when={!props.disabled}>
-          <span class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-contrast">
+          <span class="rounded-md bg-ink px-4 py-2 text-sm font-medium text-surface-4">
             Choose ZIP file
           </span>
         </Show>

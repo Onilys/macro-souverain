@@ -174,7 +174,7 @@ export function MenuItem(props: MenuItemProps) {
             class={cn(
               'size-3.5 shrink-0 rounded-sm p-0.5',
               (props as CheckboxMenuItemProps).checked
-                ? 'bg-accent text-[white]'
+                ? 'bg-ink text-surface-4'
                 : 'bg-transparent text-transparent border border-edge'
             )}
           />
@@ -192,7 +192,7 @@ export function MenuItem(props: MenuItemProps) {
               'size-3.5 shrink-0 rounded-full',
               (props as RadioMenuItemProps).value ===
                 (props as RadioMenuItemProps).groupValue
-                ? 'bg-accent text-[white]'
+                ? 'bg-ink text-surface-4'
                 : 'bg-transparent text-transparent border border-edge'
             )}
           />

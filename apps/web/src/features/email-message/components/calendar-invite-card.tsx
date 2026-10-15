@@ -318,7 +318,7 @@ export function CalendarInviteCard(props: {
                 <Show when={conference() && props.actions?.openExternal}>
                   <Button
                     variant="ghost"
-                    class="h-10 gap-1.5 bg-accent px-3.5 text-sm font-semibold text-accent-contrast"
+                    class="h-10 gap-1.5 bg-ink px-3.5 text-sm font-semibold text-surface-4"
                     aria-label="Join meeting"
                     onClick={() => props.actions?.openExternal?.(conference()!)}
                   >

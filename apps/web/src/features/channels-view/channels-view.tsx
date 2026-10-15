@@ -193,10 +193,10 @@ function ChannelsViewRoot() {
                             <SplitRouter.Outlet
                               fallback={() => (
                                 <>
-                                  <ViewShell.TopBar>
-                                    <span class="text-sm font-semibold">
+                                  <ViewShell.TopBar workspaceActions>
+                                    <h1 class="min-w-0 flex-1 truncate text-sm font-semibold">
                                       Chat
-                                    </span>
+                                    </h1>
                                   </ViewShell.TopBar>
                                   <div class="flex min-h-0 flex-1 items-center justify-center px-6 text-center">
                                     <div class="flex max-w-sm flex-col gap-2">
@@ -300,10 +300,10 @@ function ChannelDetailRouteContent() {
         when={visibleChannel()}
         fallback={
           <>
-            <ViewShell.TopBar>
-              <span class="truncate text-sm font-semibold">
+            <ViewShell.TopBar workspaceActions>
+              <h1 class="truncate text-sm font-semibold">
                 {loaded()?.name ?? 'Conversation'}
-              </span>
+              </h1>
             </ViewShell.TopBar>
             <div
               class="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 text-ink-muted"

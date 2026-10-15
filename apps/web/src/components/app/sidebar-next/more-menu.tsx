@@ -58,6 +58,8 @@ export function MoreMenu(props: MoreMenuProps) {
           label="More"
           tooltip="More options"
           tooltipPlacement="right"
+          tooltipOpenDelay={2000}
+          tooltipContentClass="motion-safe:animate-dialog-overlay-open"
           draggable={false}
           data-sidebar-next-item="more"
         >

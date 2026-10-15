@@ -59,6 +59,9 @@ export function UpdateButton(props: { update: () => AppUpdate }) {
         size="icon-md"
         class="size-10 cursor-default rounded-xl"
         label="Update available"
+        tooltipPlacement="right"
+        tooltipOpenDelay={2000}
+        tooltipContentClass="motion-safe:animate-dialog-overlay-open"
         draggable={false}
         data-sidebar-next-item="app-update"
       >

@@ -1,9 +1,12 @@
+import { createCallback } from '@solid-primitives/rootless';
 import { render, screen } from '@solidjs/testing-library';
 import { ImperativeDialogHost } from '@ui';
-import { createSignal, Show } from 'solid-js';
+import { createContext, createSignal, Show, useContext } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import { Permissions } from '../SharePermissions';
-import { useShareModal } from './shareModal';
+import { openShareModal, useShareModal } from './shareModal';
+
+const ShareContext = createContext('missing');
 
 vi.mock('./ShareButton', () => ({
   ShareModal: (props: {
@@ -13,6 +16,7 @@ vi.mock('./ShareButton', () => ({
     <button
       type="button"
       data-testid="share-modal"
+      data-share-context={useContext(ShareContext)}
       onClick={() => props.onOpenChange(false)}
     >
       {props.name}
@@ -90,5 +94,41 @@ describe('useShareModal', () => {
     );
     await Promise.resolve();
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('openShareModal', () => {
+  it('keeps list action context after its menu closes with a host outside it', async () => {
+    const [menuOpen, setMenuOpen] = createSignal(true);
+    let openShare!: () => void;
+    function ListAction() {
+      openShare = createCallback(() => {
+        openShareModal({
+          id: 'doc-1',
+          blockAlias: 'md',
+          itemType: 'document',
+          name: 'Plan',
+          userPermissions: Permissions.OWNER,
+        });
+      });
+      return null;
+    }
+    render(() => (
+      <>
+        <ShareContext.Provider value="app-context">
+          <Show when={menuOpen()}>
+            <ListAction />
+          </Show>
+        </ShareContext.Provider>
+        <ImperativeDialogHost />
+      </>
+    ));
+    openShare();
+    setMenuOpen(false);
+    expect(
+      (await screen.findByTestId('share-modal')).getAttribute(
+        'data-share-context'
+      )
+    ).toBe('app-context');
   });
 });

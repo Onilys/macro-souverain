@@ -148,9 +148,9 @@ const SearchableMultiSelectItem = (itemProps: {
       <Show when={itemProps.item.rawValue.id !== ACTION_ID}>
         <span
           class={cn(
-            'size-3.5 flex items-center justify-center shrink-0 rounded-sm border text-surface',
-            'border-transparent group-hover:not-hover:border-edge-muted group-data-highlighted:not-hover:border-edge-muted hover:border-accent',
-            'group-data-selected:bg-accent group-data-selected:border-accent'
+            'size-3.5 flex items-center justify-center shrink-0 rounded-sm border text-surface-4',
+            'border-transparent group-hover:not-hover:border-edge-muted group-data-highlighted:not-hover:border-edge-muted hover:border-ink',
+            'group-data-selected:bg-ink group-data-selected:border-ink'
           )}
         >
           <Combobox.ItemIndicator>

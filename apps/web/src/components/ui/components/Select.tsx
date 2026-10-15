@@ -183,7 +183,7 @@ function SelectItemIndicator(props: SelectItemIndicatorProps) {
   const [local, rest] = splitProps(props, ['class', 'children']);
   return (
     <KobalteSelect.ItemIndicator
-      class={cn('shrink-0 text-accent', local.class)}
+      class={cn('shrink-0 text-ink', local.class)}
       {...rest}
     >
       {local.children ?? <CheckIcon class="size-3.5" />}

@@ -195,7 +195,7 @@ export function AgentModelSelector(props: AgentModelSelectorProps) {
                             {modelLabel(option.id, option.name)}
                           </span>
                           <Show when={option.id === shown()}>
-                            <Check class="size-3.5 shrink-0 text-accent" />
+                            <Check class="size-3.5 shrink-0 text-ink" />
                           </Show>
                         </MobileDrawer.Item>
                       )}

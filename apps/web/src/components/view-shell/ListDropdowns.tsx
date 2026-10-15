@@ -81,7 +81,7 @@ function SingleSelectDropdown<TId extends string>(
                     {option.content?.() ?? option.label}
                   </span>
                   <Dropdown.ItemIndicator>
-                    <CheckIcon class="size-3.5 text-accent" />
+                    <CheckIcon class="size-3.5 text-ink" />
                   </Dropdown.ItemIndicator>
                 </Dropdown.RadioItem>
               )}

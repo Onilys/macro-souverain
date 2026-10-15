@@ -68,7 +68,7 @@ export const TabsInsetDropdown = (props: TabsInsetDropdownProps) => {
                 >
                   <span class="flex-1 truncate">{item.label}</span>
                   <Show when={isActive()}>
-                    <CheckIcon class="size-3.5 text-accent" />
+                    <CheckIcon class="size-3.5 text-ink" />
                   </Show>
                 </Dropdown.Item>
               );

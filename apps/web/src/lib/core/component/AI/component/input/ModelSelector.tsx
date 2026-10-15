@@ -188,7 +188,7 @@ export function ModelSelector(props: ModelSelectorProps) {
                           when={!option.available}
                           fallback={
                             <Show when={model() === option.id}>
-                              <CheckIcon class="size-5 text-accent" />
+                              <CheckIcon class="size-5 text-ink" />
                             </Show>
                           }
                         >

@@ -147,7 +147,7 @@ function TeamCalendarControlsConnected(props: {
 export function CalendarTeamSidebar() {
   const enabled = useCalendarTeamSharingFlag();
   const calendar = useCalendarView();
-  const [open, setOpen] = createSignal(true);
+  const [open, setOpen] = createSignal(false);
   return (
     <Show when={enabled()}>
       <Suspense

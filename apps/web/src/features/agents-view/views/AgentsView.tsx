@@ -368,6 +368,7 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
                       <>
                         <Show when={page() !== 'routines'}>
                           <Topbar
+                            workspaceActions
                             title={pageTitle()}
                             onBack={
                               isTouchDevice()

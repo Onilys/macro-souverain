@@ -61,7 +61,7 @@ function RibbonCheckbox(props: {
     >
       <input
         type="checkbox"
-        class="accent-accent"
+        class="accent-ink"
         data-testid={props.testId}
         checked={props.checked}
         disabled={props.disabled}

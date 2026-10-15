@@ -452,15 +452,6 @@ export const SoupView = (props: SoupViewProps) => {
           </SplitHeaderLeft>
           <Show when={!isTouchDevice()}>
             <SplitHeaderRight>
-              <Show
-                when={
-                  !narrowSearchExpanded() &&
-                  !isComponentListView('search') &&
-                  props.showCreateButton !== false
-                }
-              >
-                <SoupViewCreateButton />
-              </Show>
               <Show when={narrowSearchExpanded()}>
                 <Layer depth={2}>
                   <div class="flex-1 min-w-0">
@@ -531,6 +522,15 @@ export const SoupView = (props: SoupViewProps) => {
                     )}
                   </CollapsibleHeaderItem>
                 </Show>
+              </Show>
+              <Show
+                when={
+                  !narrowSearchExpanded() &&
+                  !isComponentListView('search') &&
+                  props.showCreateButton !== false
+                }
+              >
+                <SoupViewCreateButton />
               </Show>
             </SplitHeaderRight>
           </Show>

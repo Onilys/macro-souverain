@@ -1,7 +1,12 @@
-import { CollapsibleSection, ViewSidebar } from '@app/components/view-shell';
+import {
+  CollapsibleSection,
+  SidebarActionRow,
+  ViewSidebar,
+} from '@app/components/view-shell';
 import { VIEW_TAB_PRESETS } from '@app/features/next-soup/sidebar/soup-filter-presets';
 import { useSoup } from '@app/features/next-soup/soup-context';
 import { SoupSearchbar } from '@app/features/next-soup/soup-view/filters-bar/soup-view-search-bar';
+import { NewCallButton } from '@app/features/next-soup/soup-view/NewCallButton';
 import { useSoupView } from '@app/features/next-soup/soup-view/soup-view-context';
 import { useApplyPreset } from '@app/features/next-soup/soup-view/soup-view-tabs';
 import { VIEW_TAB_LISTS } from '@app/features/next-soup/soup-view/tab-lists';
@@ -148,17 +153,15 @@ export function CallsSidebar() {
 
   return (
     <ViewSidebar.Root aria-label="Calls navigation">
-      <ViewSidebar.Header>
-        <div class="flex min-w-0 items-center gap-1">
-          <ViewSidebar.CloseButton class="shrink-0" />
-          <ViewSidebar.Title>Calls</ViewSidebar.Title>
-        </div>
-      </ViewSidebar.Header>
-      <ViewSidebar.Primary>
-        <Layer depth={2}>
-          <SoupSearchbar variant="secondary" placeholder="Search calls" />
-        </Layer>
-      </ViewSidebar.Primary>
+      <SidebarActionRow
+        title="Calls"
+        search={
+          <Layer depth={2}>
+            <SoupSearchbar variant="secondary" placeholder="Search calls" />
+          </Layer>
+        }
+        create={() => <NewCallButton />}
+      />
 
       <ViewSidebar.Content>
         <ViewSidebar.Nav aria-label="Call views">

@@ -529,7 +529,7 @@ export function FormatPane(props: {
             <label class="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
-                class="accent-accent"
+                class="accent-ink"
                 checked={lockAspect()}
                 onChange={(e) => setLockAspect(e.currentTarget.checked)}
               />
@@ -655,7 +655,7 @@ export function FormatPane(props: {
             <label class="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
-                class="accent-accent"
+                class="accent-ink"
                 disabled={ro()}
                 onChange={(e) => void c.body({ wrap: e.currentTarget.checked })}
               />

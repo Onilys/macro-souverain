@@ -260,7 +260,7 @@ both read states again. A badge counts hidden types plus an active status filter
 Read status and type selections persist.
 There are no desktop Signal/Noise tabs. A **Home** heading
 labels the top left of the block, matching the **Email**, **Tasks**, **Chat**, and
-**Agents** sidebar headings. The full-width **New chat** plus pill below the heading clears the preview and returns to the Home
+**Agents** sidebar headings. The **New chat** action in the main homepage header clears the preview and returns to the Home
 starting pane; it does not create a chat. Email and Tasks have matching top pills
 for **New email** and **New task**.
 
@@ -400,7 +400,7 @@ longer notifies the thread. Settings → notifications lists them under `AI`.
 ## Tasks — `/app/component/tasks`
 
 Task navigation uses `My Tasks`, `All Tasks`, and `Created by me`. The desktop
-sidebar has a full-width `New task` action and a collapsible list of task favorites;
+sidebar has a collapsible list of task favorites; the main header has `New task`;
 tag filtering lives in the `Filter` menu. Favorite rows open their tasks.
 Normal row and favorite activation replaces the list with the editable task
 document; its originating-tab breadcrumb returns to the list and its
@@ -436,12 +436,17 @@ toggle. Below the subject, reminder, read state, and done controls come before
 the tags and participants in the same wrapping row. Touch devices retain their
 compact header and reply controls.
 
+The Signal/Noise toggle sits in the main email top bar and uses the same inset,
+sliding selection as Chat and Reviews. It remains available in other mailbox
+views so you can return to the inbox. Favorites and Drafts are standard sidebar
+rows above Sent and Scheduled.
+
 Full email client. Tabs: `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled` / `Calendar` / `Drafts` / `Shared` /
 `Archived` / `All`. Compose via the `Email` button (or `Create` → `Email E`). On a fresh local user it
 shows `Connect your email` (Gmail/Google Workspace OAuth) — most functionality needs a
 connected account. Search is `Ctrl+F` within the surface.
 
-`Favorites`, directly below Noise, lists starred Macro emails across Signal,
+`Favorites`, above Drafts in the sidebar, lists starred Macro emails across Signal,
 Noise, and archived mail. It respects the selected inboxes and filters; search
 within the tab is also restricted to favorites. Removing a star removes the row
 from this view. The tab persists across reloads. With `enable-graphql-soup` on,
@@ -1012,10 +1017,9 @@ and swiping left to mark emails done in Signal and Noise. The filter button open
 glass bottom sheet for status, done, attachment, calendar and tag filters, plus an `Inbox`
 section when the user can pick one: `All inboxes` or a single address, never several.
 `Clear all` resets those filters and the inbox selection. Desktop keeps its sidebar,
-search field, filter menu and preview control. The sidebar lists the inboxes above the
-`New email` button and tabs as plain rows; clicking one shows only that inbox.
-`Connect another account` starts the add-inbox flow from its own row below the
-scrolling list. `New email` prefills From with the selected inbox, or the primary
+search field and filter menu. The sidebar account switcher lists connected
+inboxes; selecting one shows only that inbox. `Connect another account` in its
+menu starts the add-inbox flow. `New email` prefills From with the selected inbox, or the primary
 inbox when All inboxes is selected; reopening a draft keeps its saved sender.
 If an explicitly selected sending inbox is unavailable, Send reports
 `Unable to find linked email account. Select a sending inbox.` without delivering
@@ -1025,18 +1029,17 @@ to choose the sender. Selecting an available inbox clears the error and allows
 sending; the picker never displays another inbox as selected before that choice.
 With no explicit selection, an unavailable primary still falls back to
 the first linked inbox.
-Sidebar rows, including `All inboxes`, replace their icon with an accent-colored checkmark when
-selected. With exactly one connected inbox, only its address appears as the selected
-row, followed by `Connect another account`; there is no `All inboxes` row, title
-inbox dropdown, or inbox section in the mobile filter drawer. The inbox section shows up to four rows (including `All inboxes`), then
-scrolls independently without overscroll so the email tabs stay in place. With many
-accounts, scroll to the last inbox and check that selecting it updates the header filter.
-Selecting one inbox also shows `from [email address]` beside the list title.
-The address is a borderless ghost dropdown with the title's font weight and a
-consistent 14px font size at all widths; `from` is 12px. Both align to the title's baseline, without
-a tooltip or a separate clear button.
-Its single-select menu includes `All inboxes`, which clears the account selection
-and removes the filter. Saved selections from the old multi-select picker restore
+The Email sidebar starts with its title, followed by
+the Accounts switcher. Favorites, Drafts, Sent, Scheduled, and Reminders are
+standard navigation rows; Library contains All mail, Archived, Shared, and
+Calendar, with Tags below. Signal/Noise lives in the main top bar. Selecting
+another destination clears its selection without changing that destination.
+
+The account switcher lists All inboxes and every connected address directly.
+Connect another account is the plus action beside Accounts.
+The compact inbox icon in the list title row opens the same menu when multiple
+accounts are available. Selecting an inbox updates both controls. All inboxes
+clears the account filter. Saved selections from the old multi-select picker restore
 the first saved inbox; an empty saved selection restores All inboxes. Once linked
 accounts load successfully, a selected inbox that no longer exists resets to All
 inboxes. This runs for the whole email view, including on touch devices before
@@ -1235,10 +1238,10 @@ returning from an opened file.
 
 ## Calendar — `/app/calendar/<month-or-week-or-day>`
 
-Open **Calendar settings** from the gear beside the month title in the top bar
-(on touch and preview layouts, beside the month picker). The sidebar has no
-settings footer. The **Booking link** action and its settings gear share a
-segmented control; that gear opens **Settings → Booking links**.
+Open **Calendar settings** from the gear at the right of the desktop top bar
+(on touch and preview layouts, beside the month picker). **Booking links** lives
+in the sidebar footer, or in a single icon menu in the header when the sidebar
+is not docked. Its **Manage booking links** action opens **Settings → Booking links**.
 
 Event composer dropdown triggers and date/time inputs use the theme control
 surface, so they blend with the dialog instead of using the darker page fill.
@@ -1354,8 +1357,8 @@ Scheduling lives in the separate **Settings → Booking links** item
 **Personal** or **Team · team name**,
 then use **Links**, **Availability**, **Booking page**, **Bookings**, or **Insights**.
 Every section and creation action applies to that selected owner. The default is
-Personal. **Manage teams** in that menu opens team settings. The calendar toolbar’s booking
-actions open Booking links; connection shortcuts continue to open Calendar.
+Personal. **Manage teams** in that menu opens team settings. The calendar’s **Manage booking links**
+action opens Booking links; connection shortcuts continue to open Calendar.
 **New booking link** and **New schedule** create for the selected owner and open
 inline editors. Save changes or Cancel returns to that owner's list.
 Connected calendars offers Connect account (the existing Google consent flow),
@@ -1411,8 +1414,9 @@ bookings excluding recorded no-shows. Rescheduled counts bookings with recorded
 reschedule history. Ratings/CSAT are not shown because no survey data is collected.
 Oversized result sets return an error instead of silently truncating insights.
 
-The calendar header includes `Copy booking link` and `Open calendar scheduling
-settings`. Copy opens settings when no active personal link exists. Public
+The calendar’s `Booking links` menu lists active personal links under
+`Copy a booking link`; selecting one copies its URL. `Manage booking links`
+is always available, including when no active personal link exists. Public
 `/app/book/:profile/:slug?` pages accept bookings without Macro sign-in. The website
 opens them in its own dialog; framed there, a booking page and its receipt drop their
 Macro heading and footer, and the booking page tells the website when a booking is
@@ -1427,7 +1431,7 @@ time zone. Calendar provider failures show an error; they never report a
 confirmed booking. Current integrations check hosts' connected calendars and
 write invitations/Google Meet through the existing calendar service.
 
-The standalone Calendar view has a left navigation sidebar. The `New` menu
+The standalone Calendar view has a left navigation sidebar. The `New event` menu
 above the mini calendar offers `Event`, feature-gated `Call`, and feature-gated
 `Booking link`. `Booking link` opens Settings → Booking links directly in a new
 personal booking-link editor. The compact calendar menu offers the same actions. An icon-only shortcut in the `Upcoming events` header opens the
@@ -1440,14 +1444,15 @@ Copying rechecks the occurrences and current time, so changes since opening do
 not enter the copied text. The option keeps its width while a left spinner and
 `Copying…` crossfade to `Copied` with a green check icon; the button keeps its
 neutral styling. Reduced-motion preferences skip the crossfade and spin.
-Collapsible `Upcoming events` and `Calendars` sections follow; calendar
+Collapsible `Calendars` and `Upcoming events` sections follow, in that order; calendar
 account rows use Drive-style trailing disclosure buttons and animated nested
 branches. Their 14px visibility checkboxes precede the swatch and label, with
 separate account and individual-calendar visibility controls. `Team out of office`
 is feature-gated and lists teammates with 24px avatars; its section switch
 toggles the entire grid overlay. Clicking a teammate's row navigates to that
-date, opens read-only event details, and marks the row active. The icon-only
-`Calendar settings` control fills the sidebar footer.
+date, opens read-only event details, and marks the row active. `Team calendars`
+and `Team out of office` start collapsed; expanding them does not change grid
+visibility. The `Booking links` menu fills the sidebar footer.
 An account checkbox toggles its calendars together in one update. The checkbox
 responds immediately; the upcoming list and each grid page refresh on deferred
 tasks rather than re-rendering all pages during the click.
@@ -1507,24 +1512,17 @@ complete availability coverage. Hidden, disconnected, stale, or incomplete
 calendars are reported as unknown, never free. Busy blocks contain no event
 titles or private event metadata.
 
-The in-view desktop Calendar header uses one responsive top bar. The viewed
-month and year stay on the left in a heading that scales from 16px in narrow
-splits to a maximum of 24px, with a compact `New` menu when the sidebar is closed.
-An icon-only ghost `Search events` button sits on the right, before a slightly
-larger gap and the `Today`, period selector, and previous/next controls.
-Click Search or press Cmd/Ctrl+F to expand and focus the wider inline search field.
-The field slides out with a short width transition and focuses immediately.
-The results popup stays hidden until the field contains non-whitespace text,
-then fades and slides in once expansion is nearly complete. Clearing the field
-hides the popup without collapsing search. Reduced-motion preferences skip
-both transitions.
-Close search, Escape, selecting a result, or clicking outside collapses it back
-to the icon without clearing the query. Activating a period control also
-collapses search after the action runs. Escape and Close restore focus to the
-Search button. The expanded field exposes Filters and, after typing, the
-icon-only Exact-match toggle. The filter button stays before Close. The filter
-menu opens below the button, aligned to its right edge: Search in is
-single-select, while Status, Organizer, and Attendee allow multiple values.
+The in-view desktop Calendar header groups the month/year heading and
+previous, Today, and next controls on the left. The view selector, Search, and
+Calendar settings sit on the right, separated from date navigation. The heading
+uses 20px type; weekday labels in the grid are smaller uppercase labels, with a
+round highlight on today's date. A compact `New` menu appears when the sidebar
+is not docked.
+Click Search or press Cmd/Ctrl+F to open a focused search popover without moving
+the toolbar. Escape, selecting a result, or clicking outside dismisses it
+without clearing the query. The search field exposes Filters and, after typing,
+the icon-only Exact-match toggle. Search in is single-select, while Status,
+Organizer, and Attendee allow multiple values.
 Organizer and Attendee virtualize their contact lists; selected contacts stay
 in place, while custom email addresses appear first. Adding a valid email clears
 the contact search. Filter selections apply immediately, and only these filters
@@ -1544,16 +1542,10 @@ occurrence details before showing Join. Selecting a result preserves the search
 text. Availability lives in the desktop sidebar's Upcoming events section and
 in the mobile header.
 
-The period controls move into a separate row below 600px of calendar-pane width,
-with `New` on the left and navigation on the right. With a docked sidebar, the
-header needs fewer controls and stays inline down to 480px. This avoids wrapping
-and immediately unwrapping when the sidebar hides. Expanded search does not
-force early wrapping; its results popup stays directly below the search field.
-Below 1040px, search slides over the month title without moving any controls or
-changing the header height. `New` stays outside the search overlay. Resizing the
-pane keeps the search field mounted and preserves its query and focus. Today
-and New retain their text labels until the controls row runs out of room, then
-become icon buttons.
+The right-hand actions move below the date navigation below 620px of main-pane
+width with a docked sidebar, or 680px without one. Today and New retain their
+text labels until space is tight, then become icon buttons. Search remains a
+popover at every desktop width and does not cover the month heading.
 Touch devices keep the month selector and header controls without separate
 create or call buttons in the right island. Mobile header islands omit Search.
 The desktop sidebar's mini calendar remains navigable by date and month.
@@ -2890,3 +2882,19 @@ A confirmed save archives the thread and advances within the invoking list.
 Cancel and failed saves keep the current email. H on a pending snooze edits it;
 **Remove reminder** returns it to the inbox. Bare H in a reply or search field
 remains ordinary typing.
+
+
+The Email sidebar's **Accounts** switcher always shows **All inboxes** and every
+connected email address. Select an address directly to scope the current view;
+select All inboxes to combine accounts again. The plus button beside Accounts
+connects another account. The compact header retains an inbox menu when needed.
+
+
+Workspace sidebars place a fully rounded creation pill (at least 120px wide by 32px high, growing to fit its full label)
+in the title position, with Search and close/collapse controls to its right.
+Views without creation keep their title. Multiple creation choices use the pill's
+dropdown: Tasks offers **New Task** and **New Project**, and Chat offers
+**New Message** and **New Channel**. The main **New** action remains available.
+Search expands on demand and Escape hides it without discarding the query.
+Projects and Routines follow the same layout. Editor/detail toolbars keep their
+contextual actions.

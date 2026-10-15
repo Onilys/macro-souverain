@@ -89,6 +89,8 @@ function Root(
   const [openIds, setOpenIds] = createSignal<string[]>([]);
   const [headerActionsMount, setHeaderActionsMount] =
     createSignal<HTMLDivElement>();
+  const [trailingHeaderActionsMount, setTrailingHeaderActionsMount] =
+    createSignal<HTMLDivElement>();
   // Independent open state per mode so wide and narrow can have different
   // defaults (and the user's preference in one mode doesn't bleed into the
   // other after a resize).
@@ -152,6 +154,8 @@ function Root(
   const ctx: SidePanelContextType = {
     headerActionsMount,
     setHeaderActionsMount,
+    trailingHeaderActionsMount,
+    setTrailingHeaderActionsMount,
     register,
     unregister,
     sections,
@@ -446,23 +450,34 @@ function Toggle() {
   );
 }
 
-/** Keeps action state in the owning block while rendering it before Share. */
-function HeaderActions(props: ParentProps) {
+/** Keeps action state in the owning block while rendering beside Share. */
+function HeaderActions(props: ParentProps<{ placement?: 'trailing' }>) {
   const ctx = useContext(SidePanelContext);
   return (
-    <Show when={ctx?.headerActionsMount()}>
+    <Show
+      when={
+        props.placement === 'trailing'
+          ? ctx?.trailingHeaderActionsMount()
+          : ctx?.headerActionsMount()
+      }
+    >
       {(mount) => <Portal mount={mount()}>{props.children}</Portal>}
     </Show>
   );
 }
 
-function HeaderActionsOutlet() {
+function HeaderActionsOutlet(props: { placement?: 'trailing' } = {}) {
   const ctx = useContext(SidePanelContext);
-  onCleanup(() => ctx?.setHeaderActionsMount(undefined));
+  const setMount = (mount: HTMLDivElement | undefined) => {
+    if (props.placement === 'trailing')
+      ctx?.setTrailingHeaderActionsMount(mount);
+    else ctx?.setHeaderActionsMount(mount);
+  };
+  onCleanup(() => setMount(undefined));
   return (
     <Show when={ctx}>
       <div
-        ref={ctx?.setHeaderActionsMount}
+        ref={setMount}
         data-side-panel-header-actions
         class="flex shrink-0 items-center gap-1 empty:hidden [&>div]:contents"
       />

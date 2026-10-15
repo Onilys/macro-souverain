@@ -42,17 +42,24 @@ vi.mock('@app/components/ui/components/Tooltip', () => ({
 // exercises what a row's context menu does to the list.
 vi.mock('@app/components/view-shell', () => ({
   ViewShell: {
+    TopBar: (props: ParentProps) => props.children,
     Header: (props: ParentProps) => props.children,
     Content: (props: ParentProps) => props.children,
   },
+  SidebarActionOverride: (props: {
+    search: JSX.Element;
+    create: JSX.Element;
+  }) => (
+    <>
+      {props.search}
+      {props.create}
+    </>
+  ),
   SearchBar: () => null,
   ListSortDropdown: () => null,
   ListGroupDropdown: () => null,
   ListFilterDropdown: () => null,
   useViewControlHotkeys: () => {},
-}));
-vi.mock('@app/components/view-shell/SidebarCreateButton', () => ({
-  SidebarCreateButton: () => null,
 }));
 vi.mock('@app/components/list/ListViewport', () => ({
   ListViewport: <T,>(props: {

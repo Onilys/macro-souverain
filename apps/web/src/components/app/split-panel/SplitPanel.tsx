@@ -19,6 +19,7 @@ export type SplitPanelController = {
   goForward: () => void;
   canClose: () => boolean;
   close: () => void;
+  closeButtonPlacement?: 'header' | 'frame';
 };
 
 const SplitPanelControllerContext = createContext<
@@ -256,7 +257,11 @@ function CloseButton(props: SplitControlButtonProps) {
   const label = () => local.label ?? 'Close';
 
   return (
-    <Show when={controller?.canClose()}>
+    <Show
+      when={
+        controller?.canClose() && controller.closeButtonPlacement !== 'frame'
+      }
+    >
       <Button
         {...rest}
         type={local.type ?? 'button'}

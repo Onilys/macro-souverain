@@ -15,8 +15,8 @@ import { DriveNavigation } from '../components/drive-navigation';
 import { FolderTree } from '../components/folder-tree';
 import { useDriveView } from '../context/drive-context';
 import { buildFolderTree, filterFolderTree } from '../core/folder-tree';
-import { DriveCreateMenu } from '../drive-create-menu';
 import { DriveLocationMenu } from '../drive-location-menu';
+import { DrivePrimaryActions } from './drive-header';
 
 function DriveFavorite(props: { favorite: Favorite; onNavigate?: () => void }) {
   const { actions } = useDriveView();
@@ -199,15 +199,7 @@ export function DriveSidebarContent(props: { onNavigate?: () => void }) {
 export function DriveSidebar() {
   return (
     <ViewSidebar.Root aria-label="Drive navigation">
-      <ViewSidebar.Header>
-        <div class="flex min-w-0 items-center gap-1">
-          <ViewSidebar.CloseButton />
-          <ViewSidebar.Title>Drive</ViewSidebar.Title>
-        </div>
-      </ViewSidebar.Header>
-      <ViewSidebar.Primary>
-        <DriveCreateMenu />
-      </ViewSidebar.Primary>
+      <DrivePrimaryActions />
       <ViewSidebar.Content>
         <DriveSidebarContent />
       </ViewSidebar.Content>

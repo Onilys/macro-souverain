@@ -434,7 +434,7 @@ export function CalendarMonthMenu(props: CalendarMonthMenuProps) {
                 </span>
                 <span>{option.label}</span>
                 <CheckIcon
-                  class="ml-auto size-3.5 text-accent"
+                  class="ml-auto size-3.5 text-ink"
                   classList={{ invisible: !selected() }}
                 />
               </button>

@@ -188,7 +188,7 @@ function SplitCloseButton() {
   return (
     <Show
       when={
-        shouldShowSplitCloseButton(layout.manager) ||
+        !shouldShowSplitCloseButton(layout.manager) &&
         !isListViewID(context.handle.content().id)
       }
     >

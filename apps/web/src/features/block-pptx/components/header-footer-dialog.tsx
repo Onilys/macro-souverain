@@ -34,7 +34,7 @@ function Check(props: {
     >
       <input
         type="checkbox"
-        class="size-3.5 accent-accent"
+        class="size-3.5 accent-ink"
         checked={props.checked}
         disabled={props.disabled}
         data-testid={props.testId}

@@ -123,7 +123,7 @@ export function CalendarSearchFilters(props: {
                       >
                         <span class="flex-1">{option.label}</span>
                         <Dropdown.ItemIndicator>
-                          <CheckIcon class="size-3.5 text-accent" />
+                          <CheckIcon class="size-3.5 text-ink" />
                         </Dropdown.ItemIndicator>
                       </Dropdown.RadioItem>
                     )}

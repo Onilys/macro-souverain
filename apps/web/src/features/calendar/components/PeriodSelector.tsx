@@ -160,7 +160,7 @@ export function PeriodSelector(props: { isNarrow?: boolean }) {
                 <Dropdown.RadioItem closeOnSelect value={view.value}>
                   <span class="flex-1">{view.label}</span>
                   <Dropdown.ItemIndicator>
-                    <CheckIcon class="size-3.5 text-accent" />
+                    <CheckIcon class="size-3.5 text-ink" />
                   </Dropdown.ItemIndicator>
 
                   <Hotkey token={view.hotkeyToken} theme="subtle" />
@@ -206,7 +206,7 @@ export function MobilePeriodControls(props: { onSelect: () => void }) {
             >
               <span class="flex-1">{view.label}</span>
               <CheckIcon
-                class="size-4 shrink-0 text-accent"
+                class="size-4 shrink-0 text-ink"
                 classList={{
                   invisible: controls.activeView() !== view.value,
                 }}

@@ -316,8 +316,8 @@ export function ChannelThreadsView(props: ChannelThreadsViewProps) {
 
   return (
     <>
-      <ViewShell.TopBar>
-        <span class="min-w-0 truncate text-sm font-semibold">{title()}</span>
+      <ViewShell.TopBar workspaceActions>
+        <h1 class="min-w-0 flex-1 truncate text-sm font-semibold">{title()}</h1>
       </ViewShell.TopBar>
       <div class="relative min-h-0 flex-1">
         <Show when={props.channelId ?? ALL_THREADS_KEY} keyed>

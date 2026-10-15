@@ -27,10 +27,7 @@ import { queryReadyGate } from '@queries/gate';
 import { useDocumentMetadataQuery } from '@queries/storage/document-metadata';
 import { useMarkdownDocument } from '../context/markdown-document-context';
 import { useHistory } from '../history/HistoryContext';
-import {
-  DispatchAgentButton,
-  useDispatchAgentSplitFileActions,
-} from './DispatchAgentMenu';
+import { useDispatchAgentSplitFileActions } from './DispatchAgentMenu';
 import { useMarkdownName } from './MarkdownNameProvider';
 import {
   useCopyDocumentAsMarkdown,
@@ -117,13 +114,6 @@ export function useMarkdownDocumentTools() {
   ];
 
   const tools: BlockTool[] = [
-    {
-      label: 'Dispatch to Agent',
-      icon: TerminalWindowIcon,
-      action: () => {},
-      condition: () => isTask && !isMobile(),
-      buttonComponent: () => <DispatchAgentButton />,
-    },
     {
       label: 'Chat',
       icon: ChatWithAgentIcon,

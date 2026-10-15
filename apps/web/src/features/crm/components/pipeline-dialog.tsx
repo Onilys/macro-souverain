@@ -130,7 +130,7 @@ export function PipelineDialog(props: {
                                 />
                                 <span class="flex-1">{type.label}</span>
                                 <Dropdown.ItemIndicator>
-                                  <CheckIcon class="size-3.5 text-accent" />
+                                  <CheckIcon class="size-3.5 text-ink" />
                                 </Dropdown.ItemIndicator>
                               </Dropdown.RadioItem>
                             )}

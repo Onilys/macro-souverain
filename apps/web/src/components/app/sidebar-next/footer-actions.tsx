@@ -64,6 +64,8 @@ const MobileAppButton = () => {
         label="Get the mobile app"
         tooltip="Get the mobile app"
         tooltipPlacement="right"
+        tooltipOpenDelay={2000}
+        tooltipContentClass="motion-safe:animate-dialog-overlay-open"
         draggable={false}
         aria-current={isActive() ? 'page' : undefined}
         data-active={isActive() ? '' : undefined}
@@ -144,6 +146,8 @@ export const FooterActions = (props: {
           }
           tooltip="Settings"
           tooltipPlacement="right"
+          tooltipOpenDelay={2000}
+          tooltipContentClass="motion-safe:animate-dialog-overlay-open"
           hotkey={TOKENS.global.toggleSettings}
           draggable={false}
           aria-current={isSettingsActive() ? 'page' : undefined}

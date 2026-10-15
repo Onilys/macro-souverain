@@ -88,7 +88,7 @@ const TOOLBAR = [
   { name: 'paperclip', label: 'Attach' },
   { name: 'share', label: 'Share' },
   { name: 'users', label: 'Members' },
-  { name: 'dots-three', label: 'More' },
+  { name: 'gear', label: 'Settings' },
 ];
 
 function Glyph(props: { name: string; size: number; weight?: IconWeight }) {
@@ -99,6 +99,7 @@ function Glyph(props: { name: string; size: number; weight?: IconWeight }) {
       class="inline-flex shrink-0 items-center justify-center"
       style={{ width: `${props.size}px`, height: `${props.size}px` }}
       aria-hidden="true"
+      data-icon-motion-target
     >
       <Show when={icon()}>
         {(entry) => <Dynamic component={entry().component} />}
@@ -149,12 +150,17 @@ function InterfaceSpecimen(props: {
       </div>
       <div class="flex items-center justify-between gap-3 border-t border-edge-muted px-5 py-3">
         <span class="text-xs text-ink-muted">Toolbar · 16 px</span>
-        <div class="flex items-center gap-5 text-ink-muted">
+        <div class="flex items-center gap-1 text-ink-muted">
           <For each={TOOLBAR}>
             {(item) => (
-              <span title={item.label}>
+              <button
+                type="button"
+                aria-label={item.label}
+                title={item.label}
+                class="flex size-8 items-center justify-center rounded-lg hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
+              >
                 <Glyph name={item.name} size={16} />
-              </span>
+              </button>
             )}
           </For>
         </div>
@@ -186,7 +192,9 @@ export default function IconSystemGallery() {
           </div>
           <p class="max-w-xl text-sm text-ink-muted">
             Icon specimen at actual interface sizes. Compare weight, spacing,
-            and selected states on both Macro themes.
+            and selected states on both Macro themes. Press the navigation and
+            toolbar icons to preview motion; search and settings also respond to
+            a brief hover. Reduced motion keeps the icons still.
           </p>
         </header>
 

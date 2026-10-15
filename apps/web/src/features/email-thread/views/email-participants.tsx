@@ -104,7 +104,7 @@ export function EmailParticipants(props: { leading?: JSX.Element }) {
               role="listitem"
               variant="outline"
               size="sm"
-              class="gap-1.5 bg-surface-2 border-edge"
+              class="gap-1.5 bg-surface-2"
             >
               <UserIcon
                 {...getIconProps(participant())}
@@ -129,7 +129,7 @@ export function EmailParticipants(props: { leading?: JSX.Element }) {
           class={badgeTriggerClasses({
             variant: 'outline',
             size: 'sm',
-            class: 'bg-surface-2 border-edge tabular-nums',
+            class: 'bg-surface-2 tabular-nums',
           })}
         >
           {expanded() ? 'Show less' : `+${hiddenCount()} more`}

@@ -3,7 +3,6 @@ import {
   useViewTabHotkeys,
   ViewSidebar,
 } from '@app/components/view-shell';
-import { SidebarCreateHeader } from '@app/components/view-shell/SidebarCreateButton';
 import { FavoriteContextMenu } from '@app/features/favorites/FavoriteContextMenu';
 import { FavoriteIcon } from '@app/features/favorites/FavoriteIcon';
 import { openProject } from '@app/features/projects/open-project';
@@ -27,6 +26,7 @@ import { createMemo, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { useTasksView } from '../tasks-view-context';
 import type { TasksTab } from '../types';
+import { TasksPrimaryActions } from './TasksHeader';
 
 const TASK_NAV_ITEMS = [
   { id: 'my-tasks', label: 'My Tasks', icon: CheckSquareIcon },
@@ -141,7 +141,7 @@ function TaskFavorites(props: {
   );
 }
 
-export function TasksSidebar() {
+export function TasksSidebar(props: { onSearchEscape?: () => void }) {
   const layout = useSplitLayout();
   const routeParams = useParams<{ projectId?: string }>();
   const navigate = useNavigate();
@@ -167,17 +167,7 @@ export function TasksSidebar() {
 
   return (
     <ViewSidebar.Root aria-label="Tasks navigation">
-      <SidebarCreateHeader
-        title="Tasks"
-        label={state.tab === 'projects' ? 'New project' : 'New task'}
-        onCreate={() =>
-          layout.popoverSplit({
-            type: 'component',
-            id: state.tab === 'projects' ? 'project-compose' : 'task-compose',
-          })
-        }
-      />
-
+      <TasksPrimaryActions onSearchEscape={props.onSearchEscape} />
       <ViewSidebar.Content>
         <TasksNavigation />
 

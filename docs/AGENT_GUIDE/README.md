@@ -16,6 +16,7 @@ verified live against a local stack (`just run_local`).
 | [channels.md](channels.md) | Channels: create, invite, message, participants, bots |
 | [tasks.md](tasks.md) | Task list and creation dialog |
 | [view-tours.md](view-tours.md) | Desktop feature flyovers, dismissal, targeting, and embedded videos |
+| [toasts.md](toasts.md) | Notification stacking, actions, dismissal, and previewing toasts |
 | [reminders.md](reminders.md) | Email snoozing, the reminder command menu, delivery, and safe failure verification |
 | [surfaces.md](surfaces.md) | Every other surface: inbox, email, search, files, calendar, calls, customers, activity, settings |
 | [browser-technique.md](browser-technique.md) | Generic chrome-devtools MCP lessons learned on this app |

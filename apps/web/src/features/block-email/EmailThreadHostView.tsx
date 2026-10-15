@@ -162,7 +162,12 @@ function ThreadActions(props: EmailThreadToolsOptions) {
         </div>
       </SidePanel.HeaderActions>
       <Show when={controls.isOwnThread}>
-        <ButtonGroup variant="outline" size="icon-md" aria-label="Email status">
+        <ButtonGroup
+          variant="outline"
+          size="icon-sm"
+          class="bg-surface-2 [&_[data-button]]:h-5.5 [&_[data-button]]:py-0"
+          aria-label="Email status"
+        >
           <EmailThreadControls {...controls} />
         </ButtonGroup>
       </Show>

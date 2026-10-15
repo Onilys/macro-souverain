@@ -277,7 +277,7 @@ export function FloatingEquationMenu(
               <button
                 onClick={handleSubmit}
                 disabled={!equation()}
-                class="px-3 py-1.5 bg-accent/80 text-surface rounded-md hover:bg-accent transition disabled:bg-edge disabled:cursor-not-allowed flex items-center gap-1.5 text-sm font-medium"
+                class="px-3 py-1.5 bg-ink text-surface-4 rounded-md hover:bg-ink/90 transition disabled:bg-edge disabled:cursor-not-allowed flex items-center gap-1.5 text-sm font-medium"
               >
                 <Check class="size-4" />
                 {isNewEquation() ? 'Insert' : 'Update'}

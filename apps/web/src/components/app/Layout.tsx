@@ -66,6 +66,7 @@ import {
   Show,
   Suspense,
 } from 'solid-js';
+import { installIconMotion } from '../icon/system/icon-motion';
 import { ViewNavigationSlotContext } from '../view-shell/navigation-slot';
 import { AppProviders } from './AppProviders';
 import { BundleUpdateProgressBar } from './BundleUpdateProgressBar';
@@ -152,6 +153,7 @@ export function RootFrame(props: ParentProps) {
 
   onMount(() => {
     onCleanup(installGlassPress());
+    onCleanup(installIconMotion());
     if (sessionStorage.getItem('showUpgradeModal') === 'true') {
       showPaywall();
       sessionStorage.removeItem('showUpgradeModal');

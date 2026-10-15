@@ -176,7 +176,7 @@ export function NativeCheckbox(
   return (
     <input
       type="checkbox"
-      class={cn('size-4 shrink-0 accent-accent', local.class)}
+      class={cn('size-4 shrink-0 accent-ink', local.class)}
       {...rest}
     />
   );

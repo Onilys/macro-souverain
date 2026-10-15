@@ -39,7 +39,7 @@ function CompanyListbox() {
                 item={item}
                 class="flex w-full cursor-default items-center gap-1.5 rounded-lg p-1.5 px-2 text-left text-sm data-highlighted:bg-ink/5"
               >
-                <span class="flex size-3.5 shrink-0 items-center justify-center text-accent">
+                <span class="flex size-3.5 shrink-0 items-center justify-center text-ink">
                   <Combobox.ItemIndicator>
                     <CheckIcon class="size-3" />
                   </Combobox.ItemIndicator>

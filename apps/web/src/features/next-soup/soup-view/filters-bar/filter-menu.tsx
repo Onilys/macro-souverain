@@ -186,10 +186,10 @@ function createFilterSubmenuHover(
 export const TypeIndicator = (props: { active: boolean }) => (
   <span
     class={cn(
-      'size-3.5 flex items-center justify-center shrink-0 rounded-sm border text-surface',
+      'size-3.5 flex items-center justify-center shrink-0 rounded-sm border text-surface-4',
       props.active
-        ? 'bg-accent border-accent'
-        : 'border-transparent group-hover:not-hover:border-edge-muted group-data-highlighted:not-hover:border-edge-muted hover:border-accent'
+        ? 'bg-ink border-ink'
+        : 'border-transparent group-hover:not-hover:border-edge-muted group-data-highlighted:not-hover:border-edge-muted hover:border-ink'
     )}
   >
     <Show when={props.active}>
@@ -329,7 +329,7 @@ export function FilterSubmenu<TId extends string>(props: {
                       {option.content?.() ?? option.label}
                     </span>
                     <Dropdown.ItemIndicator>
-                      <CheckIcon class="size-3.5 text-accent" />
+                      <CheckIcon class="size-3.5 text-ink" />
                     </Dropdown.ItemIndicator>
                   </Dropdown.RadioItem>
                 )}

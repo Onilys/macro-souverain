@@ -70,7 +70,7 @@ export function ModelRow(props: ModelRowProps) {
         <span class="shrink-0 text-xs text-ink-extra-muted">{props.hint}</span>
       </Show>
       <Show when={props.selected}>
-        <CheckIcon class="size-3.5 shrink-0 text-accent" />
+        <CheckIcon class="size-3.5 shrink-0 text-ink" />
       </Show>
     </Dropdown.Item>
   );

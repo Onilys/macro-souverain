@@ -128,7 +128,7 @@ export function EventRsvpScopeDialog(props: {
                           {option.label}
                           <KobalteRadioGroup.ItemControl class="flex size-5 items-center justify-center">
                             <KobalteRadioGroup.ItemIndicator>
-                              <CheckIcon class="size-5 text-accent" />
+                              <CheckIcon class="size-5 text-ink" />
                             </KobalteRadioGroup.ItemIndicator>
                           </KobalteRadioGroup.ItemControl>
                         </KobalteRadioGroup.ItemLabel>

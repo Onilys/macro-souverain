@@ -28,12 +28,12 @@ export function InlineBooleanEditor() {
       <div
         class="size-4 flex items-center justify-center"
         classList={{
-          'bg-accent border-accent border': isChecked(),
+          'bg-ink border-ink border': isChecked(),
           'bg-transparent border-edge-muted border': !isChecked(),
         }}
       >
         <Show when={isChecked()}>
-          <CheckIcon class="size-3 text-surface" />
+          <CheckIcon class="size-3 text-surface-4" />
         </Show>
       </div>
     </button>

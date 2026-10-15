@@ -27,7 +27,7 @@ const ChannelItem: Component<
       {props.item.rawValue.name}
     </Combobox.ItemLabel>
     <Combobox.ItemIndicator>
-      <CheckIcon class="size-3.5 text-accent" />
+      <CheckIcon class="size-3.5 text-ink" />
     </Combobox.ItemIndicator>
   </Combobox.Item>
 );

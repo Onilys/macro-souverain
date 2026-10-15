@@ -259,7 +259,7 @@ function AgentPickerRow(props: {
         />
       </Show>
       <Show when={props.selected}>
-        <CheckIcon class="size-3.5 shrink-0 text-accent" />
+        <CheckIcon class="size-3.5 shrink-0 text-ink" />
       </Show>
     </>
   );

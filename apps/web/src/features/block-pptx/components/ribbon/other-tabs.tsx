@@ -899,7 +899,7 @@ export function TransitionsTab() {
         <label class="flex items-center gap-1 px-1 text-xs">
           <input
             type="checkbox"
-            class="accent-accent"
+            class="accent-ink"
             disabled={ro()}
             checked={current()?.advanceOnClick ?? true}
             onChange={(e) =>
@@ -914,7 +914,7 @@ export function TransitionsTab() {
         <label class="flex items-center gap-1 px-1 text-xs">
           <input
             type="checkbox"
-            class="accent-accent"
+            class="accent-ink"
             disabled={ro()}
             checked={current()?.advanceAfterMs !== undefined}
             onChange={(e) =>

@@ -2358,6 +2358,12 @@ editable view removes the retained mark when the document loads. Read-only
 viewers see plain text without a dead comment highlight; the stored document
 and overlapping live comments stay intact.
 
+PDF page navigation, markup tools, and the tabs toggle sit in the title bar,
+immediately after the filename's `…` menu, in Drive and standalone PDF views.
+Use the page-number field to jump pages; the **Text Box**, **Signature**, and
+**Comment** buttons retain their existing placement behavior. There is no
+separate PDF toolbar row in these views.
+
 PDF comment threads in the right margin use the channel composer (`Leave a comment...`, Enter sends) and the message
 thread controls. Highlight comments come from selecting text and choosing the
 comment button in the selection menu; placeable comments come from the toolbar
@@ -2503,9 +2509,8 @@ independently, and other app splits remain available.
 Right side of a doc (toggle with `Hide/Show Side Panel`):
 
 - `Actions` → `Ask AI` (opens a doc-scoped AI chat, see ai-chat.md), and on
-  desktop a `Copy as prompt` pill for documents and tasks. Its primary button
-  runs the last-used agent action; the `Agent options` caret lists `Copy as
-  prompt`, `MCP setup instructions`, and an `Open in` group (Claude Code Web,
+  desktop tasks have a terminal-shaped `Copy as prompt` icon button immediately
+  after Share in the header. It opens one menu containing `Copy as prompt`, `MCP setup instructions`, and an `Open in` group (Claude Code Web,
   Codex Desktop, Cursor, Zed). Tasks add `Copy branch name`. A document prompt
   wraps the title and markdown in `<document>` / `<document-content>` tags with
   no branch instructions; the toast reads `Prompt copied to clipboard`. The
@@ -2566,3 +2571,22 @@ types do not show these tabs.
 In a disposable Markdown document, change several paragraphs in one edit, then
 undo and redo. Verify the text, paragraph count, and a second peer agree after
 each operation; wait for saving to finish and reload to check persistence.
+
+### Sharing an item
+
+Share opens one centered panel titled with the item name. Use **Add people or
+channels** to choose recipients (email addresses also work). Only after selecting
+a recipient do the optional message, permission picker, and **Share** button
+appear. **Can view / Can comment / Can edit** controls the access granted by
+that action. **Who has access** lists the owner and existing recipients below
+**Link access**.
+
+**Link access** offers **Only people with access**, **Anyone with the link**, or
+**Team members with the link**. Descriptions in the dropdown explain each option.
+Expand **More access options** for team access when it is off. Link
+access and **Team access** are separate: team access grants access to everyone
+on the owner's team without requiring a shared link. Available controls still
+depend on ownership and item type. **Copy link** remains available in the footer,
+even when link access is restricted; copying alone does not change permissions.
+**Done** or the close button dismisses the panel. Mobile uses the same permission
+labels in its Share, People, Link, and Team tabs.

@@ -33,6 +33,7 @@ This file is the shared entry point: `AGENTS.md` symlinks to `CLAUDE.md`. Edit
 | Adding collaborative markdown to a feature | [Collab surface core skill](.agents/skills/collab-surface-core/SKILL.md) |
 | Rust code, builds, or tests | [Rust development](docs/RUST_DEVELOPMENT.md) |
 | SQLx queries, migrations, DB tests, or cache errors | [Database development](docs/DATABASE_DEVELOPMENT.md) |
+| Interface icons or icon motion | [Icon system and authoring rules](apps/web/src/components/icon/system/README.md) |
 | Web frontend | [Web agent guide](apps/web/AGENTS.md) |
 | Email body rendering or snapshots | [Standalone renderer](packages/email-renderer/README.md) |
 | Running the frontend or backend on a local machine | [Running locally](docs/RUNNING_LOCALLY.md) |

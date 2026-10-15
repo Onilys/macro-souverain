@@ -75,7 +75,7 @@ export function DatabaseEditorToolbar(props: {
                           <Dropdown.RadioItem closeOnSelect value={column.id}>
                             <span class="flex-1">{column.name}</span>
                             <Dropdown.ItemIndicator>
-                              <CheckIcon class="size-3.5 text-accent" />
+                              <CheckIcon class="size-3.5 text-ink" />
                             </Dropdown.ItemIndicator>
                           </Dropdown.RadioItem>
                         )}

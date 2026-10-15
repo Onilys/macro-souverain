@@ -1,8 +1,10 @@
 import {
   CollapsibleSection,
+  SidebarActionRow,
   useViewShell,
   ViewSidebar,
 } from '@app/components/view-shell';
+import { SidebarCreateAction } from '@app/components/view-shell/SidebarCreateAction';
 import { CopyAvailabilityButton } from '@app/features/calendar/availability/CopyAvailabilityButton';
 import { useCalendarPager } from '@app/features/calendar/components/CalendarPagerContext';
 import { useCalendarView } from '@app/features/calendar/components/CalendarViewContext';
@@ -14,12 +16,12 @@ import {
   useUpcomingTeamOoo,
 } from '@app/features/calendar/hooks/use-team-ooo';
 import { CalendarTeamSidebar } from '@app/features/calendar-team/calendar-team';
+import { CalendarSchedulingActions } from '@app/features/scheduling/calendar-actions';
 import { ShowFeatureFlag } from '@app/lib/analytics/posthog';
 import { UserIcon } from '@core/component/UserIcon';
 import { enableCalendarTeamOoo } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import CaretDownIcon from '@icon/system/regular/caret-down.svg';
-import PlusIcon from '@icon/system/regular/plus.svg';
 import CloseIcon from '@icon/system/regular/x.svg';
 import { cn, Calendar as MiniCalendar, ToggleSwitch } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
@@ -42,6 +44,7 @@ import {
   CalendarCreateEventItem,
 } from './CalendarCreateItems';
 import { CalendarCreateMenu } from './CalendarCreateMenu';
+import { CalendarSearch } from './CalendarSearch';
 
 function CalendarMiniCalendar() {
   const calendarView = useCalendarView();
@@ -236,7 +239,7 @@ function TeamOooUpcomingList() {
 function CalendarTeamOooSection() {
   const calendarView = useCalendarView();
   const hasTeammates = useHasTeammates();
-  const [open, setOpen] = createSignal(true);
+  const [open, setOpen] = createSignal(false);
   const isOverlayVisible = () =>
     calendarView.isSourceVisible(TEAM_OOO_SOURCE_ID);
   const setOverlayVisible = (visible: boolean) =>
@@ -288,42 +291,39 @@ export function CalendarSidebar() {
 
   return (
     <ViewSidebar.Root aria-label="Calendar navigation">
-      <ViewSidebar.Header>
-        <div class="flex min-w-0 items-center gap-1">
-          <ViewSidebar.CloseButton />
-          <ViewSidebar.Title>Calendar</ViewSidebar.Title>
-        </div>
-        <CalendarSidebarOverlayClose />
-      </ViewSidebar.Header>
-      <ViewSidebar.Primary>
-        <CalendarCreateMenu
-          size="md"
-          class="h-(--sidebar-row-height) w-full min-w-0 justify-start gap-(--sidebar-label-gap) px-(--sidebar-item-inset) text-left touch:h-11"
-          contentClass="w-[var(--kb-popper-anchor-width)] min-w-40"
-          trigger={
-            <>
-              <ViewSidebar.Icon>
-                <PlusIcon class="size-4" />
-              </ViewSidebar.Icon>
-              <span class="min-w-0 flex-1 truncate">New</span>
-              <CaretDownIcon class="size-3.5 shrink-0" />
-            </>
-          }
-        >
-          <CalendarCreateEventItem onSelect={closeOverlay} />
-          <CalendarCreateCallItem onSelect={closeOverlay} />
-          <CalendarCreateBookingLinkItem onSelect={closeOverlay} />
-        </CalendarCreateMenu>
-      </ViewSidebar.Primary>
+      <SidebarActionRow
+        title="Calendar"
+        actions={<CalendarSidebarOverlayClose />}
+        search={<CalendarSearch inline compact />}
+        create={() => (
+          <CalendarCreateMenu
+            label="New calendar item"
+            as={SidebarCreateAction}
+            trigger={
+              <>
+                <span>New</span>
+                <CaretDownIcon class="size-3" />
+              </>
+            }
+          >
+            <CalendarCreateEventItem onSelect={closeOverlay} />
+            <CalendarCreateCallItem onSelect={closeOverlay} />
+            <CalendarCreateBookingLinkItem onSelect={closeOverlay} />
+          </CalendarCreateMenu>
+        )}
+      />
       <ViewSidebar.Content class="pt-2">
         <CalendarMiniCalendar />
-        <UpcomingEventsSection />
         <CalendarSourcesSection />
+        <UpcomingEventsSection />
         <CalendarTeamSidebar />
         <ShowFeatureFlag flag={enableCalendarTeamOoo}>
           <CalendarTeamOooSection />
         </ShowFeatureFlag>
       </ViewSidebar.Content>
+      <ViewSidebar.Footer class="border-0 py-2">
+        <CalendarSchedulingActions sidebar />
+      </ViewSidebar.Footer>
     </ViewSidebar.Root>
   );
 }

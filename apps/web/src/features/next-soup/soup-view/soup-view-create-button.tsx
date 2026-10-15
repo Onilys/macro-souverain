@@ -185,15 +185,12 @@ export const SoupViewCreateButton = () => {
 
   const SingleOptionButton = (props: { hideLabel?: boolean }) => (
     <Button
-      variant="accent"
-      class={cn(
-        'border-0 px-3 py-2 pl-1 font-semibold',
-        props.hideLabel && 'pr-1'
-      )}
+      variant="cta"
+      class={cn('border-0 px-4 py-2 font-medium', props.hideLabel && 'pr-1')}
       size="sm"
       onClick={() => handleSelect(options()[0])}
     >
-      <PlusCircleIcon class="size-3.5 text-accent" />
+      <PlusCircleIcon class="size-3.5" />
       <Show when={!props.hideLabel}>
         <span>{createLabel()}</span>
       </Show>
@@ -203,11 +200,8 @@ export const SoupViewCreateButton = () => {
   const MultiOptionButton = (props: { hideLabel?: boolean }) => (
     <Dropdown placement="bottom-start">
       <Dropdown.Trigger
-        variant="accent"
-        class={cn(
-          'border-0 px-3 py-2 pl-1 font-semibold',
-          props.hideLabel && 'pr-1'
-        )}
+        variant="cta"
+        class={cn('border-0 px-4 py-2 font-medium', props.hideLabel && 'pr-1')}
       >
         <PlusCircleIcon class="size-3.5" />
         <Show when={!props.hideLabel}>

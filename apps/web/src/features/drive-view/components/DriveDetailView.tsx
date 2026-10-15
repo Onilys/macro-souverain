@@ -94,6 +94,7 @@ function DriveDetailTopBar() {
             />
           )}
         </Show>
+        <SidePanel.HeaderActionsOutlet placement="trailing" />
         <SidePanel.Toggle />
       </div>
     </ViewShell.TopBar>
@@ -164,6 +165,7 @@ function StackEntityDetail(props: {
           />
         </Show>
         <EntityDetail
+          inlinePdfToolbar
           target={props.entry.data}
           previewHeaderLeading={
             <Show
@@ -189,6 +191,7 @@ function StackEntityDetail(props: {
                 userAccessLevel={context.userAccessLevel}
                 blockType={entityDetailBlockType(props.entry.data)!}
                 operations={context.operations}
+                titleControls={context.titleControls}
                 fallbackName={props.entry.data.fallbackName}
                 onClose={navigationStack.pop}
                 onDuplicate={(id, name) => {

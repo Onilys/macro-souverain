@@ -3,7 +3,8 @@
 ## Surface
 
 `Go to Tasks` → `/app/component/tasks`. Tabs: `My tasks`, `Created by me`, `Team tasks`, and `Projects`.
-The desktop toolbar contains search (`Ctrl+F`), an icon-only `Task layout` dropdown, `Sort`, `Group`, and `Filter`;
+The title row places Search (`Cmd/Ctrl+F`) and a primary **New** button at the right.
+The toolbar below contains an icon-only `Task layout` dropdown, `Sort`, `Group`, and `Filter`;
 the filter uses the legacy compact option rows and searchable Assignee, Created by,
 and Tags submenus. Multi-select choices keep the menu open; Escape dismisses it.
 The top of the `Filter` menu is a `Filter with AI…` textbox, focused when the menu opens: type a plain-English
@@ -17,7 +18,7 @@ off-topic text) keep the typed text and show a red error there instead. The box 
 focus while you type even if the pointer drifts over the rows; ArrowDown moves into
 the rows and hovering a submenu hands focus to it as usual. The mobile drawer has no
 AI box.
-Task creation is available from the `New` button in the Tasks sidebar. With Projects
+Task creation is available from the task-icon **New** button in the top-right title row. With Projects
 enabled, `My projects` appears below the tabs and favorites. It lists
 accessible projects by most recently updated, with a capped height and its own scroll
 area. Click a project to open its overview within the current Tasks view, keeping
@@ -209,11 +210,11 @@ why the tab is unavailable.
 The sidebar starts with a **Search reviews** field (styled like Settings' search)
 and, on pointer devices, a **Board**/**List** toggle (`aria-label="Pull request
 layout"`); List is the default and the choice is remembered. When the sidebar is
-collapsed or narrow, the search moves above the list under the scope heading.
-Filter and sort controls appear above the list. Below the layout toggle, an
+collapsed or narrow, the search moves into the topbar beside sort and filter.
+The desktop list uses one compact toolbar without a duplicate scope heading. Below the layout toggle, an
 **Open** / **Closed** / **All** toggle with icons (`aria-label="Pull request
-status"`) picks the status; it moves above the list on touch devices or when the
-sidebar is hidden, and the board hides it. Open is the default; Closed includes
+status"`) picks the status; it moves above the list on touch devices, and the
+board hides it. With a collapsed desktop sidebar, use Status in the filter menu. Open is the default; Closed includes
 both closed and merged PRs, and All shows every status. The filter dropdown and mobile drawer also
 offer independent Open, Closed, and Merged selections. Custom multi-status
 selections hide the toggle, except the combined Closed preset keeps it visible.
@@ -224,7 +225,7 @@ priority, linked work, started from, repository, author, assignee, label, and,
 when a GitHub identity is linked, reviews (Reviewed by you, Not reviewed by you,
 and Awaiting review from you). The list topbar says
 Reviews when narrow or when the sidebar is collapsed; the selected scope stays
-visible as a heading above search.
+available in the sidebar when navigation is reopened.
 Saved review selections stay inactive, including their filter badge and empty-state
 copy, while the GitHub identity is unavailable; they resume when it returns.
 Sort offers Priority, Recently updated, Least recently updated, Newest, and Oldest;
