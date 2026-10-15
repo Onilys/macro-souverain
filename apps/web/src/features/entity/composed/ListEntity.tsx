@@ -68,6 +68,8 @@ export {
 
 interface ListEntityProps extends BaseListEntityProps {
   showUnrollNotifications?: boolean;
+  /** Collection-owned schedule metadata for the original entity row. */
+  scheduleStatus?: JSX.Element;
 }
 
 export function MaybeEntityRow(props: {
@@ -96,6 +98,11 @@ export function ListEntity(props: ListEntityProps) {
   const soupView = useMaybeSoupView();
   const rowActions = children(() => props.actions);
   const leadingAction = children(() => props.leadingAction);
+  const titleLeading = children(() => props.titleLeading);
+  const icon = children(() => props.icon);
+  const titleTrailing = children(() => props.titleTrailing);
+  const meta = children(() => props.meta);
+  const scheduleStatus = children(() => props.scheduleStatus);
 
   const unread = () => unreadFilterFn(props.entity);
   const isShared = useIsShared(props.entity);
@@ -153,6 +160,11 @@ export function ListEntity(props: ListEntityProps) {
     entity: props.entity,
     actions: !isTouchDevice() ? rowActions() : undefined,
     leadingAction: !isTouchDevice() ? leadingAction() : undefined,
+    titleLeading: titleLeading(),
+    icon: icon(),
+    titleTrailing: titleTrailing(),
+    meta: meta(),
+    scheduleStatus: scheduleStatus(),
     authorDisplayName: props.authorDisplayName,
     checked: props.checked,
     hideCheckbox: props.hideCheckbox,
@@ -198,6 +210,9 @@ export function ListEntity(props: ListEntityProps) {
 
   return (
     <Entity.Root
+      role={props.role}
+      tabIndex={props.tabIndex}
+      onKeyDown={props.onKeyDown}
       entity={props.entity}
       onClick={(e) => {
         if (e.metaKey && props.onChecked) {
@@ -213,18 +228,23 @@ export function ListEntity(props: ListEntityProps) {
         // to track which layout the Switch actually renders.
         isWide() ? SOUP_ROW_CLASS.wide : SOUP_ROW_CLASS.narrow,
         'soup-list-entity rounded-xl @container/entity w-[calc(100%-0.5rem)] mr-1 relative group/narrow flex flex-col py-0.5',
+        // Keep avatar-group separators in sync with the row background so they
+        // blend into it instead of creating visible rings.
+        '[--avatar-group-separator:var(--color-panel)]',
         {
           'min-h-10 mx-(--soup-row-gutter)':
             !isMobile() && !usesCondensedNarrowLayout(),
           'min-h-9 mx-(--soup-row-gutter)':
             !isMobile() && usesCondensedNarrowLayout(),
-          'bg-list-selected': props.checked,
-          'bg-list-selected-highlighted': props.checked && props.highlighted,
-          'bg-list-highlighted':
+          'bg-list-selected [--avatar-group-separator:var(--color-list-selected)]':
+            props.checked,
+          'bg-list-selected-highlighted [--avatar-group-separator:var(--color-list-selected-highlighted)]':
+            props.checked && props.highlighted,
+          'bg-list-highlighted [--avatar-group-separator:var(--color-list-highlighted)]':
             props.highlighted && !props.checked && !isTouchDevice(),
-          'hover:bg-list-hover':
+          'hover:bg-list-hover hover:[--avatar-group-separator:var(--color-list-hover)]':
             !props.highlighted && !props.checked && !isTouchDevice(),
-          'focus-within:bg-list-hover':
+          'focus-within:bg-list-hover focus-within:[--avatar-group-separator:var(--color-list-hover)]':
             !!rowActions() && !props.highlighted && !props.checked,
         }
       )}
@@ -252,6 +272,7 @@ export function ListEntity(props: ListEntityProps) {
         <Match when={isTouchDevice() && mobileStacks().length > 0}>
           <Entity.Notification.MobileStackRows
             stacks={mobileStacks()}
+            scheduleStatus={scheduleStatus()}
             entity={props.entity}
             entityRowConfig={props.entityRowConfig}
           />

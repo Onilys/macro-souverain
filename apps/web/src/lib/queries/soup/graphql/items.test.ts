@@ -19,18 +19,16 @@ const useInstructionsMdIdQueryMock = vi.hoisted(() => vi.fn());
 const REVISION_0 = '0';
 const REVISION_1 = '1';
 const REVISION_2 = '2';
-const mapGraphqlSoupPageMock = vi.hoisted(() =>
-  vi.fn(
-    (data: {
-      user: { soup: { items: unknown[]; nextCursor: string | null } };
-    }) => ({
-      items: data.user.soup.items,
-      next_cursor: data.user.soup.nextCursor,
-    })
-  )
-);
+const mapGraphqlSoupItemMock = vi.hoisted(() => vi.fn((item) => item));
 const mapSoupPageToEntityListMock = vi.hoisted(() =>
-  vi.fn((page) => page.items)
+  vi.fn(
+    (
+      page,
+      _options?: {
+        instructionsIdQuery: { isSuccess: boolean; data?: string | null };
+      }
+    ) => page.items
+  )
 );
 const makeGraphqlSoupInputMock = vi.hoisted(() => vi.fn());
 
@@ -45,9 +43,12 @@ vi.mock('@queries/storage/instructions-md', () => ({
   useInstructionsMdIdQuery: useInstructionsMdIdQueryMock,
 }));
 
-vi.mock('@app/lib/graphql-cache', () => ({
+vi.mock('../../../graphql-cache/exchange/record-selection', () => ({
   selectRecords: vi.fn((document) => ({ document })),
   readRecordsByKeys: readRecordsByKeysMock,
+}));
+
+vi.mock('../../../graphql-cache/exchange/normalized-cache-exchange', () => ({
   normalizedCacheResultMetadata: (result: OperationResult) =>
     result.extensions?.__macroNormalizedCache,
 }));
@@ -56,8 +57,7 @@ vi.mock('@service-storage/graphql-soup', () => ({
   getGraphqlSoupClient: getGraphqlSoupClientMock,
   getGraphqlSoupCacheHost: getGraphqlSoupCacheHostMock,
   graphqlSoupProjectionSupported: () => true,
-  mapGraphqlSoupItem: vi.fn((item) => item),
-  mapGraphqlSoupPage: mapGraphqlSoupPageMock,
+  mapGraphqlSoupItem: mapGraphqlSoupItemMock,
 }));
 
 vi.mock('./ast', () => ({
@@ -80,6 +80,7 @@ import {
   disposeChannelNotificationRefresh,
 } from '../../channel/notification-refresh';
 import { getActiveGraphqlSoupRevalidations } from './active-queries';
+import { createSoupLiveQuery } from './create-soup-live-query';
 import { createGraphqlSoupAstItemsQuery } from './items';
 import {
   createGraphqlSoupDeletion,
@@ -96,7 +97,8 @@ type FakeExecution = {
       source: 'live-network' | 'normalized-cache-hit' | 'affected-cache-reread';
       revision?: string;
       persistence?: Promise<string | undefined>;
-    }
+    },
+    error?: CombinedError
   ): void;
 };
 
@@ -143,11 +145,13 @@ function makeFakeClient(): {
         subject.next({ operation, error, stale: false, hasNext: false }),
       next: (
         data,
-        metadata = { source: 'live-network', revision: REVISION_1 }
+        metadata = { source: 'live-network', revision: REVISION_1 },
+        error
       ) =>
         subject.next({
           operation,
           data,
+          error,
           extensions: { __macroNormalizedCache: metadata },
           stale: false,
           hasNext: false,
@@ -183,6 +187,456 @@ describe('createGraphqlSoupAstItemsQuery', () => {
     getGraphqlSoupCacheHostMock.mockReturnValue(undefined);
     makeGraphqlSoupInputMock.mockReturnValue({
       initial: { limit: 50, sortMethod: 'UPDATED_AT' },
+    });
+  });
+
+  it('owns fetching, continuation arguments, refresh and reset from a Soup declaration', async () => {
+    const fake = makeFakeClient();
+    getGraphqlSoupClientMock.mockReturnValue(fake.client);
+    const filters = {
+      projectFilter: { literal: { projectIdSelf: 'project' } },
+    };
+    const { query, dispose } = createRoot((dispose) => ({
+      dispose,
+      query: createSoupLiveQuery(() => ({
+        filters,
+        sortMethod: 'UPDATED_AT',
+        sortDirection: 'ASC',
+        emailView: 'ALL',
+        limit: 2,
+      })),
+    }));
+    try {
+      expect(fake.executions[0].variables).toEqual({
+        input: {
+          initial: {
+            filters,
+            sortMethod: 'UPDATED_AT',
+            sortDirection: 'ASC',
+            emailView: 'ALL',
+            limit: 2,
+            expand: true,
+          },
+        },
+      });
+      fake.executions[0].next(
+        graphqlSoupPage({ items: [{ id: 'one' }], next_cursor: 'next' })
+      );
+      expect(query.data()?.map((row) => row.id)).toEqual(['one']);
+      const more = query.fetchNextPage();
+      expect(fake.executions[1].variables).toEqual({
+        input: {
+          continuation: {
+            cursor: 'next',
+            sortDirection: 'ASC',
+            emailView: 'ALL',
+            expand: true,
+          },
+        },
+      });
+      fake.executions[1].next(
+        graphqlSoupPage({ items: [{ id: 'two' }], next_cursor: null })
+      );
+      await more;
+      expect(query.data()?.map((row) => row.id)).toEqual(['one', 'two']);
+      query.resetToInitialPage();
+      expect(query.data()?.map((row) => row.id)).toEqual(['one']);
+      const refresh = query.refresh();
+      await vi.waitFor(() => expect(fake.executions).toHaveLength(3));
+      fake.executions[2].next(
+        graphqlSoupPage({ items: [{ id: 'fresh' }], next_cursor: null })
+      );
+      await refresh;
+      expect(query.data()?.map((row) => row.id)).toEqual(['fresh']);
+      expect(mapGraphqlSoupItemMock).not.toHaveBeenCalled();
+      expect(useInstructionsMdIdQueryMock).not.toHaveBeenCalled();
+    } finally {
+      dispose();
+    }
+  });
+
+  it.each(['write', 'hydration'])(
+    'constructs a live baseline from fetched pages and applies %s deltas through the public source',
+    async (kind) => {
+      const fake = makeFakeClient();
+      getGraphqlSoupClientMock.mockReturnValue(fake.client);
+      let revision = REVISION_1;
+      const listeners = new Map<(value: string) => void, boolean>();
+      const record = {
+        __typename: 'GraphqlSoupDocument',
+        id: 'one',
+        documentName: 'Before',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      };
+      const key = 'GraphqlSoupDocument:one';
+      getGraphqlSoupCacheHostMock.mockReturnValue({
+        liveQueries: true,
+        currentRevision: async () => revision,
+        entityFilter: entityFilterMock,
+        onCacheChanged: (
+          callback: (value: string) => void,
+          options?: { includeHydration?: boolean }
+        ) => {
+          listeners.set(callback, options?.includeHydration === true);
+          return () => listeners.delete(callback);
+        },
+        onCacheGenerationChanged: () => () => {},
+      });
+      entityFilterMock.mockImplementation(async (args) =>
+        args.liveQuery?.release
+          ? { kind: 'unsupported' }
+          : {
+              kind: 'live-query',
+              revision,
+              reset: !args.liveQuery.since,
+              ...(!args.liveQuery.since ? { keys: [key] } : {}),
+              upserts: !args.liveQuery.since
+                ? [{ recordKey: key, record }]
+                : [],
+              patches: args.liveQuery.since
+                ? [
+                    {
+                      recordKey: key,
+                      fields: [{ path: ['documentName'], value: 'After' }],
+                      identity: { mutationUuid: null, pending: false },
+                    },
+                  ]
+                : [],
+              removed: [],
+              retainedKeys: [],
+              optimistic: false,
+            }
+      );
+      const { query, dispose } = createRoot((dispose) => ({
+        dispose,
+        query: createSoupLiveQuery(() => ({
+          filters: {},
+          sortMethod: 'UPDATED_AT',
+          limit: 50,
+        })),
+      }));
+      try {
+        fake.executions[0].next(
+          graphqlSoupPage({ items: [record], next_cursor: null }),
+          { source: 'live-network', revision }
+        );
+        await vi.waitFor(() =>
+          expect(query.data()?.[0]).toMatchObject({ documentName: 'Before' })
+        );
+        await vi.waitFor(() =>
+          expect(entityFilterMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+              baseline: [{ key, sortTimestamp: record.updatedAt }],
+              liveQuery: expect.anything(),
+            })
+          )
+        );
+        const row = query.data()?.[0];
+        const rows = query.data();
+        revision = REVISION_2;
+        listeners.forEach((includeHydration, callback) => {
+          if (kind === 'write' || includeHydration) callback(revision);
+        });
+        await vi.waitFor(() =>
+          expect(query.data()?.[0]).toMatchObject({ documentName: 'After' })
+        );
+        expect(query.data()?.[0]).toBe(row);
+        expect(query.data()).toBe(rows);
+        expect(readRecordsByKeysMock).not.toHaveBeenCalled();
+        expect(fake.executions).toHaveLength(1);
+      } finally {
+        dispose();
+      }
+    }
+  );
+
+  it('keeps fetched timestamp coverage when a live version of the same row has a different timestamp', async () => {
+    const fake = makeFakeClient();
+    getGraphqlSoupClientMock.mockReturnValue(fake.client);
+    let revision = REVISION_1;
+    let notify = (_revision: string) => {};
+    getGraphqlSoupCacheHostMock.mockReturnValue({
+      currentRevision: async () => revision,
+      entityFilter: entityFilterMock,
+      onCacheChanged: (callback: typeof notify) => {
+        notify = callback;
+        return () => {};
+      },
+      onCacheGenerationChanged: () => () => {},
+    });
+    entityFilterMock.mockImplementation(async () => ({
+      kind: 'reconciled',
+      revision,
+      keys: ['GraphqlSoupDocument:one'],
+      retainedKeys: [],
+      optimistic: false,
+    }));
+    readRecordsByKeysMock.mockImplementation(async () => ({
+      revision,
+      records: [
+        {
+          recordKey: 'GraphqlSoupDocument:one',
+          record: {
+            __typename: 'GraphqlSoupDocument',
+            id: 'one',
+            name: 'Live version',
+            updatedAt: '2026-09-10T00:00:00Z',
+          },
+        },
+      ],
+    }));
+    const { query, dispose } = createRoot((dispose) => ({
+      dispose,
+      query: createGraphqlSoupAstItemsQuery(
+        () => ({ params: { sort_method: 'updated_at' }, body: {} }),
+        () => ({ enabled: true })
+      ),
+    }));
+    try {
+      fake.executions[0].next(
+        graphqlSoupPage({
+          items: [
+            { id: 'one', name: 'Fetched', updatedAt: '2026-09-01T00:00:00Z' },
+          ],
+          next_cursor: 'next',
+        })
+      );
+      revision = REVISION_2;
+      notify(revision);
+      await vi.waitFor(() =>
+        expect(query.data()?.entities[0]?.name).toBe('Live version')
+      );
+      expect(query.data()?.oldestFetchedTimestamp).toBe(
+        Date.parse('2026-09-01T00:00:00Z')
+      );
+      expect(query.hasNextPage()).toBe(true);
+    } finally {
+      dispose();
+    }
+  });
+
+  it('uses maintained record deltas without rereading the list or its fragments', async () => {
+    const fake = makeFakeClient();
+    getGraphqlSoupClientMock.mockReturnValue(fake.client);
+    let revision = REVISION_1;
+    const listeners = new Set<(revision: string) => void>();
+    const record = {
+      __typename: 'GraphqlSoupDocument',
+      id: 'task',
+      type: 'document',
+      name: 'Before',
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    };
+    const key = 'GraphqlSoupDocument:task';
+    getGraphqlSoupCacheHostMock.mockReturnValue({
+      liveQueries: true,
+      currentRevision: async () => revision,
+      entityFilter: entityFilterMock,
+      onCacheChanged: (callback: (revision: string) => void) => {
+        listeners.add(callback);
+        return () => listeners.delete(callback);
+      },
+      onCacheGenerationChanged: () => () => {},
+    });
+    entityFilterMock.mockImplementation(async (args) =>
+      args.liveQuery?.release
+        ? { kind: 'unsupported' }
+        : {
+            kind: 'live-query',
+            revision,
+            reset: !args.liveQuery?.since,
+            ...(!args.liveQuery?.since ? { keys: [key] } : {}),
+            upserts: !args.liveQuery?.since ? [{ recordKey: key, record }] : [],
+            patches: args.liveQuery?.since
+              ? [
+                  {
+                    recordKey: key,
+                    fields: [{ path: ['name'], value: 'After' }],
+                    identity: { mutationUuid: null, pending: false },
+                  },
+                ]
+              : [],
+            removed: [],
+            retainedKeys: [],
+            optimistic: false,
+          }
+    );
+    const state = createRoot((dispose) => ({
+      dispose,
+      query: createGraphqlSoupAstItemsQuery(
+        () => ({ params: {}, body: {} }) as never,
+        () => ({ enabled: true })
+      ),
+    }));
+    try {
+      fake.executions[0].next(
+        graphqlSoupPage({
+          items: [{ ...record, name: 'Server' }],
+          next_cursor: null,
+        }),
+        { source: 'normalized-cache-hit', revision: REVISION_1 }
+      );
+      await vi.waitFor(() =>
+        expect(state.query.data()?.entities[0]?.name).toBe('Before')
+      );
+      await vi.waitFor(() =>
+        expect(
+          entityFilterMock.mock.calls.some(([args]) => args.liveQuery)
+        ).toBe(true)
+      );
+      const entity = state.query.data()?.entities[0];
+      revision = REVISION_2;
+      listeners.forEach((listener) => listener(revision));
+      await vi.waitFor(() =>
+        expect(state.query.data()?.entities[0]?.name).toBe('After')
+      );
+      expect(state.query.data()?.entities[0]).toBe(entity);
+      expect(readRecordsByKeysMock).not.toHaveBeenCalled();
+      expect(fake.executions).toHaveLength(1);
+    } finally {
+      state.dispose();
+    }
+  });
+
+  describe('cached response errors before local reconciliation', () => {
+    function fixture() {
+      const fake = makeFakeClient();
+      getGraphqlSoupClientMock.mockReturnValue(fake.client);
+      const local = deferred<unknown>();
+      let resetGeneration = () => {};
+      getGraphqlSoupCacheHostMock.mockReturnValue({
+        currentRevision: async () => REVISION_0,
+        entityFilter: entityFilterMock,
+        onCacheChanged: () => () => {},
+        onCacheGenerationChanged: (callback: () => void) => {
+          resetGeneration = callback;
+          return () => {};
+        },
+      });
+      entityFilterMock.mockReturnValue(local.promise);
+      const [limit, setLimit] = createSignal(50);
+      makeGraphqlSoupInputMock.mockImplementation(({ cursor }) =>
+        cursor ? { continuation: { cursor } } : { initial: { limit: limit() } }
+      );
+      const root = createRoot((dispose) => ({
+        dispose,
+        query: createGraphqlSoupAstItemsQuery(
+          () => ({ params: {}, body: {} }),
+          () => ({
+            enabled: true,
+            projection: 'channel-list',
+            keepPreviousData: true,
+          })
+        ),
+      }));
+      const error = new CombinedError({
+        networkError: new TypeError('Failed to fetch'),
+      });
+      return {
+        ...root,
+        fake,
+        error,
+        setLimit,
+        resetGeneration: () => resetGeneration(),
+        cached(empty = false, failure?: CombinedError) {
+          fake.executions.at(-1)!.next(
+            graphqlSoupPage({
+              items: empty ? [] : [{ id: 'cached-channel' }],
+              next_cursor: 'next',
+            }),
+            { source: 'normalized-cache-hit', revision: REVISION_0 },
+            failure
+          );
+        },
+        dispose() {
+          root.dispose();
+          local.resolve({ kind: 'unsupported' });
+        },
+      };
+    }
+
+    it.each([false, true])(
+      'keeps cached results quiet while reconciliation is pending (empty=%s)',
+      (empty) => {
+        const f = fixture();
+        try {
+          f.cached(empty);
+          f.fake.executions[0].fail(f.error);
+          expect(f.query.data()?.entities).toHaveLength(empty ? 0 : 1);
+          expect(f.query.error()).toBeUndefined();
+        } finally {
+          f.dispose();
+        }
+      }
+    );
+
+    it('clears an early failure when a delayed cache hit carries the same error', () => {
+      const f = fixture();
+      try {
+        f.fake.executions[0].fail(f.error);
+        expect(f.query.error()).toBe(f.error);
+        expect(f.query.data()).toBeUndefined();
+        f.cached(false, f.error);
+        expect(f.query.data()?.entities).toHaveLength(1);
+        expect(f.query.error()).toBeUndefined();
+      } finally {
+        f.dispose();
+      }
+    });
+
+    it('does not use retained data from other filters or a reset cache generation', () => {
+      const f = fixture();
+      try {
+        f.cached();
+        f.setLimit(20);
+        f.fake.executions.at(-1)!.fail(f.error);
+        expect(f.query.error()).toBe(f.error);
+        f.cached(false, f.error);
+        expect(f.query.error()).toBeUndefined();
+        f.resetGeneration();
+        expect(f.query.error()).toBe(f.error);
+      } finally {
+        f.dispose();
+      }
+    });
+
+    it('keeps a failed load-more request visible despite cached earlier pages', async () => {
+      const f = fixture();
+      try {
+        f.cached();
+        const more = f.query.fetchNextPage();
+        f.fake.executions.at(-1)!.fail(f.error);
+        await more;
+        expect(f.query.data()?.entities).toHaveLength(1);
+        expect(f.query.error()).toBe(f.error);
+      } finally {
+        f.dispose();
+      }
+    });
+
+    it.each([
+      new CombinedError({ graphQLErrors: ['Forbidden'] }),
+      new CombinedError({
+        networkError: new TypeError('Failed to fetch'),
+        graphQLErrors: ['Resolver failed'],
+      }),
+      ...[401, 403, 503].map(
+        (status) =>
+          new CombinedError({
+            networkError: new Error('HTTP failure'),
+            response: { status },
+          })
+      ),
+    ])('does not suppress server errors with cached data: %s', (error) => {
+      const f = fixture();
+      try {
+        f.cached(false, error);
+        expect(f.query.error()).toBe(error);
+      } finally {
+        f.dispose();
+      }
     });
   });
 
@@ -322,7 +776,9 @@ describe('createGraphqlSoupAstItemsQuery', () => {
         expect(f.query.hasNextPage()).toBe(true);
         const next = f.query.fetchNextPage();
         expect(f.fake.executions[1].variables).toEqual({
-          input: { continuation: { cursor: 'page-2' } },
+          input: {
+            continuation: { cursor: 'page-2', emailView: 'ALL', expand: true },
+          },
         });
         f.fake.executions[1].next(
           graphqlSoupPage({ items: [olderEmail], next_cursor: null }),
@@ -541,7 +997,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       );
       await more;
       expect(fake.executions[1].variables).toEqual({
-        input: { continuation: { cursor: 'next' } },
+        input: { continuation: { cursor: 'next', expand: true } },
       });
       for (const entry of getActiveGraphqlSoupRevalidations()) {
         expect(print(entry.document)).toContain('query ChannelListSoup');
@@ -610,7 +1066,8 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       expect(delegateChannelNotificationRefresh(fake.client, page)).toBe(true);
       await vi.advanceTimersByTimeAsync(100);
       expect(refresh).toHaveBeenCalledOnce();
-      expect(query.error()).toBe(error);
+      // The refresh still retries, but its failure does not warn over a cached page.
+      expect(query.error()).toBeUndefined();
       await vi.advanceTimersByTimeAsync(1000);
       expect(refresh).toHaveBeenCalledTimes(2);
       expect(refresh).toHaveBeenLastCalledWith(page.document, page.variables, {
@@ -783,6 +1240,53 @@ describe('createGraphqlSoupAstItemsQuery', () => {
     }
   });
 
+  it('keeps other pages when one page result omits its soup payload', async () => {
+    const fake = makeFakeClient();
+    getGraphqlSoupClientMock.mockReturnValue(fake.client);
+    const { query, dispose } = createRoot((dispose) => ({
+      dispose,
+      query: createGraphqlSoupAstItemsQuery(
+        () => ({ params: { sort_method: 'updated_at' }, body: {} }),
+        () => ({ enabled: true })
+      ),
+    }));
+    try {
+      fake.executions[0].next(
+        graphqlSoupPage({ items: [{ id: 'a' }], next_cursor: 'next' })
+      );
+      const next = query.fetchNextPage();
+      await vi.waitFor(() => expect(fake.executions).toHaveLength(2));
+      fake.executions[1].next(
+        graphqlSoupPage({ items: [{ id: 'b' }], next_cursor: 'more' })
+      );
+      await next;
+      const ids = () => query.data()?.entities.map((entity) => entity.id);
+      expect(ids()).toEqual(['a', 'b']);
+
+      fake.executions[0].next({ user: { id: 'viewer' } });
+      expect(query.error()).toBeUndefined();
+      expect(ids()).toEqual(['b']);
+      expect(query.hasNextPage()).toBe(true);
+
+      fake.executions[1].next({ user: { id: 'viewer' } });
+      expect(query.error()).toBeUndefined();
+      expect(ids()).toEqual([]);
+      expect(query.hasNextPage()).toBe(false);
+
+      fake.executions[0].next(
+        graphqlSoupPage({ items: [{ id: 'a' }], next_cursor: 'next' })
+      );
+      fake.executions[1].next(
+        graphqlSoupPage({ items: [{ id: 'b' }], next_cursor: 'more' })
+      );
+      expect(query.error()).toBeUndefined();
+      expect(ids()).toEqual(['a', 'b']);
+      expect(query.hasNextPage()).toBe(true);
+    } finally {
+      dispose();
+    }
+  });
+
   it('retains the page projection when only query activity changes', () => {
     const fake = makeFakeClient();
     getGraphqlSoupClientMock.mockReturnValue(fake.client);
@@ -798,7 +1302,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       fake.executions[0].next(
         graphqlSoupPage({ items: [{ id: 'retained' }], next_cursor: null })
       );
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(1);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(1);
       const entities = query.data()?.entities;
 
       setEnabled(false);
@@ -808,7 +1312,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       query.resetToInitialPage();
 
       expect(query.data()?.entities).toBe(entities);
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(1);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(1);
       expect(mapSoupPageToEntityListMock).toHaveBeenCalledTimes(1);
     } finally {
       dispose();
@@ -836,10 +1340,11 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       },
     };
     useInstructionsMdIdQueryMock.mockReturnValue(instructionsQuery);
-    mapSoupPageToEntityListMock.mockImplementation((page) =>
+    mapSoupPageToEntityListMock.mockImplementation((page, options) =>
       page.items.filter(
         (item: { id: string }) =>
-          !instructionsQuery.isSuccess || item.id !== instructionsQuery.data
+          !options?.instructionsIdQuery.isSuccess ||
+          item.id !== options.instructionsIdQuery.data
       )
     );
     const { query, dispose } = createRoot((dispose) => ({
@@ -862,7 +1367,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       );
       expect(ids()).toEqual(['visible', 'instructions']);
       expect(readInstructionsData).not.toHaveBeenCalled();
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(1);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(2);
 
       setInstructions({ isSuccess: true, data: 'instructions' });
       expect(ids()).toEqual(['visible']);
@@ -871,7 +1376,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       );
       expect(query.hasNextPage()).toBe(true);
       expect(fake.executions).toHaveLength(1);
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(2);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(4);
 
       // An identical id and activity-only changes must keep the cached selector.
       setInstructions({ isSuccess: true, data: 'instructions' });
@@ -879,15 +1384,15 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       setEnabled(true);
       query.resetToInitialPage();
       expect(ids()).toEqual(['visible']);
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(2);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(4);
 
       setInstructions({ isSuccess: true, data: 'visible' });
       expect(ids()).toEqual(['instructions']);
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(3);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(6);
 
       setInstructions({ isSuccess: true, data: null });
       expect(ids()).toEqual(['visible', 'instructions']);
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(4);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(8);
     } finally {
       dispose();
     }
@@ -989,16 +1494,16 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       expect(query.data()?.oldestFetchedTimestamp).toBe(
         Date.parse('2026-01-01T00:00:00Z')
       );
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(1);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(1);
 
       setSort('notified_at');
       expect(query.data()?.oldestFetchedTimestamp).toBe(
         Date.parse('2025-01-01T00:00:00Z')
       );
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(2);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(2);
 
       setShowForeign(true);
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(3);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(3);
       expect(mapSoupPageToEntityListMock).toHaveBeenLastCalledWith(
         expect.anything(),
         expect.objectContaining({ showSupportedForeignEntities: true })
@@ -1007,6 +1512,34 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       dispose();
     }
   });
+
+  it.each([
+    ['invalid', undefined],
+    [undefined, Date.parse('2026-09-08T00:00:00Z')],
+  ])(
+    'preserves timestamp coverage with a %s timestamp',
+    (notifiedAt, expected) => {
+      const fake = makeFakeClient();
+      getGraphqlSoupClientMock.mockReturnValue(fake.client);
+      createRoot((dispose) => {
+        const query = createGraphqlSoupAstItemsQuery(
+          () => ({ params: { sort_method: 'notified_at' }, body: {} }),
+          () => ({ enabled: true })
+        );
+        fake.executions[0].next(
+          graphqlSoupPage({
+            items: [
+              { id: 'known', notifiedAt: '2026-09-08T00:00:00Z' },
+              { id: 'unknown', notifiedAt },
+            ],
+            next_cursor: 'next-page',
+          })
+        );
+        expect(query.data()?.oldestFetchedTimestamp).toBe(expected);
+        dispose();
+      });
+    }
+  );
 
   it('retains fetched coverage when display filtering hides every row', () => {
     const fake = makeFakeClient();
@@ -1506,7 +2039,13 @@ describe('createGraphqlSoupAstItemsQuery', () => {
           const pending = query.fetchNextPage();
           await vi.waitFor(() => expect(fake.executions).toHaveLength(2));
           expect(fake.executions[1].variables).toEqual({
-            input: { continuation: { cursor: networkNext } },
+            input: {
+              continuation: {
+                cursor: networkNext,
+                emailView: 'ALL',
+                expand: true,
+              },
+            },
           });
           fake.executions[1].next(
             graphqlSoupPage({ items: [], next_cursor: null }),
@@ -2293,7 +2832,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       const nextPage = query.fetchNextPage();
       await vi.waitFor(() => expect(fake.executions).toHaveLength(2));
       expect(fake.executions[1].variables).toEqual({
-        input: { continuation: { cursor: 'server-cursor-2' } },
+        input: { continuation: { cursor: 'server-cursor-2', expand: true } },
       });
       revision = '3';
       notify(revision);
@@ -2458,7 +2997,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
         const thirdPage = query.fetchNextPage();
         await vi.waitFor(() => expect(fake.executions).toHaveLength(3));
         expect(fake.executions[2].variables).toEqual({
-          input: { continuation: { cursor: 'server-cursor-3' } },
+          input: { continuation: { cursor: 'server-cursor-3', expand: true } },
         });
         revision = '4';
         notify(revision);
@@ -2870,7 +3409,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
 
       expect(fake.executions).toHaveLength(1);
       fake.executions[0]?.next(graphqlSoupPage(firstPage));
-      expect(mapGraphqlSoupPageMock).toHaveBeenCalledTimes(1);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledTimes(1);
 
       const initial = query.data();
       const initialEntity = initial?.entities[0];

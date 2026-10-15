@@ -115,6 +115,7 @@ function mount(search = '') {
         setRetainedEntities(rows);
       });
     const [loading, setLoading] = createSignal(false);
+    const [paused, setPaused] = createSignal(false);
     const [placeholder, setPlaceholder] = createSignal(false);
     const [fetching, setFetching] = createSignal(false);
     const [tagSetsReady, setTagSetsReady] = createSignal(true);
@@ -150,6 +151,11 @@ function mount(search = '') {
         setSearchDiscoveryEntities(rows);
         setRetainedSearchEntities(rows);
       });
+    const [searchHasMore, setSearchHasMore] = createSignal(true);
+    const [searchFetching, setSearchFetching] = createSignal(false);
+    const searchNext = vi.fn(async () => {
+      setSearchHasMore(false);
+    });
     const searchRefetch = vi.fn(async () => {});
     const retainedSearchRefetch = vi.fn(async () => {});
     let searchCount = 0;
@@ -172,21 +178,28 @@ function mount(search = '') {
             return discovery || !retentionLoading();
           },
           isPlaceholderData: false,
-          isFetching: false,
+          get isFetching() {
+            return discovery && searchFetching();
+          },
           isFetchingNextPage: false,
-          hasNextPage: true,
+          get hasNextPage() {
+            return discovery && searchHasMore();
+          },
           error: null,
+          fetchNextPage: searchNext,
           refetch: discovery ? searchRefetch : retainedSearchRefetch,
         };
       }
     );
     const query: SoupAstItemsQuery = {
       get data() {
-        if (loading()) throw new Error('Read pending query data');
+        if (loading() || paused()) throw new Error('Read pending query data');
+        if (state.tab === 'scheduled' || state.tab === 'reminders')
+          throw new Error('Read disabled native email query');
         return { entities: entities(), groups: undefined };
       },
       get isPending() {
-        return loading();
+        return loading() || paused();
       },
       get isLoading() {
         return loading();
@@ -200,6 +213,7 @@ function mount(search = '') {
       error: null,
       hasNextPage: true,
       isFetchingNextPage: false,
+      isFetchNextPageError: false,
       isEnabled: true,
       transport: 'graphql',
       fetchNextPage: vi.fn(async () => {}),
@@ -207,14 +221,24 @@ function mount(search = '') {
       refresh: vi.fn(async () => {}),
       resetToInitialPage: vi.fn(),
     };
+    const extraLists: {
+      query: SoupAstItemsQuery;
+      setError: (error?: Error) => void;
+      setMissing: (missing: boolean) => void;
+    }[] = [];
     let listCount = 0;
     vi.mocked(useSoupAstItemsQuery).mockImplementation(() => {
       if (listCount++ === 0) return query;
-      return {
+      const [lookupError, setError] = createSignal<Error>();
+      const [missing, setMissing] = createSignal(false);
+      const lookup: SoupAstItemsQuery = {
         isFetching: false,
-        error: null,
+        get error() {
+          return lookupError() ?? null;
+        },
         hasNextPage: false,
         isFetchingNextPage: false,
+        isFetchNextPageError: false,
         isEnabled: true,
         transport: 'graphql',
         fetchNextPage: vi.fn(async () => {}),
@@ -223,7 +247,9 @@ function mount(search = '') {
         resetToInitialPage: vi.fn(),
         get data() {
           if (retentionLoading()) throw new Error('Read pending retained mail');
-          return { entities: retainedEntities(), groups: undefined };
+          return missing()
+            ? undefined
+            : { entities: retainedEntities(), groups: undefined };
         },
         get isPending() {
           return retentionLoading();
@@ -233,6 +259,8 @@ function mount(search = '') {
         },
         isPlaceholderData: false,
       };
+      extraLists.push({ query: lookup, setError, setMissing });
+      return lookup;
     });
     const source = useEmailDataSource(state, {
       tagSets: () => [],
@@ -241,12 +269,17 @@ function mount(search = '') {
     return {
       source,
       query,
+      extraLists,
+      searchNext,
+      setSearchHasMore,
+      setSearchFetching,
       setState,
       setEntities,
       setDiscoveryEntities,
       setRetainedEntities,
       setRetentionLoading,
       setLoading,
+      setPaused,
       setPlaceholder,
       setFetching,
       setTagSetsReady,
@@ -263,6 +296,95 @@ function mount(search = '') {
 }
 
 describe('Email list query transitions', () => {
+  const alias = { inboxId: 'inbox-a', emailAddress: 'resident@example.com' };
+
+  it('refreshes the current alias membership readers after refreshing search, but not inactive readers', async () => {
+    const root = mount('invoice');
+    root.setSearchHasMore(false);
+    root.setRetainedEntities([email('search')]);
+    root.setState('aliasFilter', alias);
+    expect(ids(root.source)).toEqual(['search']);
+    const oldReader = root.extraLists[0].query;
+    root.searchRefetch.mockImplementation(async () => {
+      root.setSearchFetching(true);
+      await Promise.resolve();
+      root.setSearchFetching(false);
+    });
+    await root.source.refresh();
+    const activeReader = root.extraLists.at(-1)!.query;
+    expect(activeReader).not.toBe(oldReader);
+    expect(activeReader.refresh).toHaveBeenCalledOnce();
+    expect(oldReader.refresh).not.toHaveBeenCalled();
+    root.setState('aliasFilter', undefined);
+    await root.source.refresh();
+    expect(activeReader.refresh).toHaveBeenCalledOnce();
+  });
+
+  it('retains rows and exposes a failed retained alias read until an explicit retry', async () => {
+    const root = mount('invoice');
+    root.setSearchHasMore(false);
+    root.setRetainedEntities([email('search')]);
+    batch(() => {
+      root.setState('aliasFilter', alias);
+      root.setState('facets', { read: ['unread'] });
+    });
+    expect(ids(root.source)).toEqual(['search']);
+    const retained = root.extraLists.at(-1)!;
+    batch(() => {
+      retained.setError(new Error('Alias membership unavailable'));
+      retained.setMissing(true);
+    });
+    expect(root.source.error()).toEqual(
+      new Error('Alias membership unavailable')
+    );
+    expect(ids(root.source)).toEqual(['search']);
+    vi.mocked(retained.query.refresh).mockImplementation(async () => {
+      retained.setError(undefined);
+      retained.setMissing(false);
+    });
+    await root.source.refresh();
+    expect(retained.query.refresh).toHaveBeenCalledOnce();
+    expect(root.retainedSearchRefetch).toHaveBeenCalledOnce();
+    expect(root.source.error()).toBeUndefined();
+  });
+
+  it('advances sparse alias search pages and waits for membership before fetching again', async () => {
+    const root = mount('invoice');
+    root.setRetainedEntities([]);
+    root.searchNext
+      .mockImplementationOnce(async () => {
+        root.setSearchEntities([email('search'), email('still-unmatched')]);
+        root.setRetainedEntities([]);
+        root.setRetentionLoading(true);
+      })
+      .mockImplementationOnce(async () => {
+        root.setSearchEntities([
+          email('search'),
+          email('still-unmatched'),
+          email('match'),
+        ]);
+        root.setRetainedEntities([email('match')]);
+        root.setSearchHasMore(false);
+      });
+    root.setState('aliasFilter', alias);
+    await vi.waitFor(() => expect(root.searchNext).toHaveBeenCalledOnce());
+    expect(root.source.isLoading()).toBe(true);
+    expect(ids(root.source)).toEqual([]);
+    root.setRetentionLoading(false);
+    await vi.waitFor(() => expect(ids(root.source)).toEqual(['match']));
+    expect(root.searchNext).toHaveBeenCalledTimes(2);
+    expect(root.source.hasMore()).toBe(false);
+  });
+
+  it('stops sparse alias search on exhaustion rather than looping an empty result', async () => {
+    const root = mount('invoice');
+    root.setRetainedEntities([]);
+    root.setState('aliasFilter', alias);
+    await vi.waitFor(() => expect(root.source.hasMore()).toBe(false));
+    expect(root.searchNext).toHaveBeenCalledOnce();
+    expect(ids(root.source)).toEqual([]);
+    expect(root.source.isLoading()).toBe(false);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     favoritesQueryMock.mockReturnValue({
@@ -338,6 +460,62 @@ describe('Email list query transitions', () => {
 
     setState('tab', 'noise');
     expect(ids(source)).toEqual(['noise']);
+  });
+
+  it('does not read disabled native data on the Reminders tab', () => {
+    const { source, setState } = mount();
+    expect(() => setState('tab', 'reminders')).not.toThrow();
+    expect(ids(source)).toEqual([]);
+    expect(vi.mocked(useSoupAstItemsQuery).mock.calls[0][1]?.().enabled).toBe(
+      false
+    );
+    setState('tab', 'noise');
+    expect(ids(source)).toEqual(['noise']);
+  });
+
+  it('lists done rows on Archived and drops a row when it is unarchived', () => {
+    const { source, setState, setEntities } = mount();
+    const archived = { ...email('archived'), done: true };
+    const active = { ...email('active'), done: false };
+    batch(() => {
+      setState('tab', 'archived');
+      setEntities([archived, active]);
+    });
+    expect(ids(source)).toEqual(['archived']);
+    expect(source.isLoading()).toBe(false);
+
+    setEntities([{ ...archived, done: false }, active]);
+    expect(ids(source)).toEqual([]);
+    expect(source.isLoading()).toBe(false);
+  });
+
+  it('trims archived search results to done threads', () => {
+    const { source, setState, setSearchEntities } = mount('invoice');
+    const archived = { ...email('archived'), done: true };
+    const active = { ...email('active'), done: false };
+    batch(() => {
+      setState('tab', 'archived');
+      setSearchEntities([archived, active]);
+    });
+    expect(ids(source)).toEqual(['archived']);
+    expect(source.isLoading()).toBe(false);
+
+    setSearchEntities([{ ...archived, done: false }, active]);
+    expect(ids(source)).toEqual([]);
+    expect(source.isLoading()).toBe(false);
+  });
+
+  it('does not suspend on pending native data while its fetch is paused', () => {
+    const { source, setPaused, setEntities, query } = mount();
+    expect(() => setPaused(true)).not.toThrow();
+    expect(query.isLoading).toBe(false);
+    expect(source.isLoading()).toBe(true);
+    expect(ids(source)).toEqual([]);
+    batch(() => {
+      setEntities([email('resumed')]);
+      setPaused(false);
+    });
+    expect(ids(source)).toEqual(['resumed']);
   });
 
   it('does not show Noise rows under other tabs while their cache reads are pending', () => {
@@ -649,3 +827,16 @@ describe('Email list query transitions', () => {
     expect(source.hasMore()).toBe(false);
   });
 });
+
+vi.mock('./use-reminder-email-source', () => ({
+  useReminderEmailSource: () => ({
+    items: () => [],
+    isLoading: () => false,
+    isFetching: () => false,
+    error: () => undefined,
+    hasMore: () => false,
+    isLoadingMore: () => false,
+    loadMore: async () => {},
+    refresh: async () => {},
+  }),
+}));

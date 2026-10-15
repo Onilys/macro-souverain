@@ -6,14 +6,14 @@ use crate::domain::models::{
     ChannelJoinCodeResponse, ChannelMetadata, ChannelParticipant, ChannelPreview,
     ChannelPreviewRow, CreateChannelRequest, CreateChannelResponse, CreateEntityMentionOptions,
     CreatedChannel, EntityMention, GetOrCreateChannelResponse, GetOrCreateDmRequest,
-    GetOrCreatePrivateRequest, PatchChannelRequest, ReferencedShareItem, RemoveParticipantsRequest,
-    Sender,
+    GetOrCreatePrivateRequest, PatchChannelRequest, ReferenceShareResult, ReferencedShareItem,
+    RemoveParticipantsRequest, Sender,
 };
 #[cfg(feature = "list")]
 use crate::domain::models::{
     ChannelMessage, ChannelWithLatest, ChannelWithParticipants, GetChannelsParams,
     GetChannelsRequest, GetThreadReplyRowsParams, GetThreadReplyRowsRequest, LatestMessage,
-    UserName,
+    ReferenceSource, ReferenceTarget, UserName,
 };
 use crate::domain::side_effects::{
     ChannelDocumentMention, ChannelNotificationEffect, ChannelRealtimeEffect,
@@ -24,6 +24,7 @@ use crate::domain::{
     events::ChannelEvent,
 };
 use channel_sender::ChannelSender;
+use chrono::{DateTime, Utc};
 use entity_access::domain::models::{EntityAccessReceipt, MemberParticipantRole};
 use macro_user_id::user_id::MacroUserIdStr;
 use models_pagination::{CreatedAt, Query};
@@ -62,6 +63,14 @@ pub trait ChannelListRepo: Send + Sync + 'static {
         &self,
         req: GetThreadReplyRowsParams,
     ) -> impl Future<Output = Result<Vec<ChannelMessage>, rootcause::Report>> + Send;
+
+    /// Distinct documents and undeleted messages that currently mention or
+    /// attach any of `targets`. Unauthorized: callers must apply the reading
+    /// user's access to every returned source.
+    fn get_reference_sources(
+        &self,
+        targets: &[ReferenceTarget],
+    ) -> impl Future<Output = Result<Vec<ReferenceSource>, rootcause::Report>> + Send;
 }
 
 /// Repository for user display names needed by channel list rendering.
@@ -95,6 +104,15 @@ pub trait ChannelListService: Send + Sync + 'static {
         req: GetThreadReplyRowsRequest,
     ) -> impl Future<Output = Result<Vec<ChannelMessage>, rootcause::Report>> + Send;
 
+    /// Distinct documents and undeleted messages that currently mention or
+    /// attach any of `targets`. The result is not authorized for any user:
+    /// callers must apply the reader's access to each source before
+    /// exposing it.
+    fn get_reference_sources(
+        &self,
+        targets: &[ReferenceTarget],
+    ) -> impl Future<Output = Result<Vec<ReferenceSource>, rootcause::Report>> + Send;
+
     /// Fetch names for user ids.
     fn get_names(
         &self,
@@ -122,15 +140,52 @@ pub trait ChannelAttachmentRepo: Send + Sync + 'static {
     ) -> impl Future<Output = Result<Vec<RecentChannelMessage>, Self::Err>> + Send;
 }
 
+/// Reserved channel persistence shared by archive and onboarding imports.
+/// Archive operations are silent; onboarding records first-creation activity.
+/// Import authorization and durable provenance belong to the importing domain.
+pub trait HistoricalChannelRepo: Send + Sync + 'static {
+    /// Create an explicit-ID Team/Private channel with its initial members, or return
+    /// the existing compatible target without changing any of its settings or members.
+    fn create_historical_channel(
+        &self,
+        channel: &super::historical::HistoricalChannel,
+    ) -> impl Future<Output = anyhow::Result<super::historical::EnsuredChannel>> + Send;
+
+    /// Ensure a reserved Team channel for onboarding. Initial creation also writes
+    /// the owner's ordinary activity; reuse has no effects. The service authorizes
+    /// team membership and dispatches creation events only for the winning creator.
+    fn create_onboarding_channel(
+        &self,
+        channel: &super::historical::HistoricalChannel,
+    ) -> impl Future<Output = anyhow::Result<super::historical::EnsuredChannel>> + Send;
+
+    /// Insert missing members silently. Never demote roles or reactivate leavers.
+    /// Reject DMs so this operation cannot introduce a third member.
+    fn insert_historical_participants(
+        &self,
+        channel_id: Uuid,
+        participants: &[MacroUserIdStr<'static>],
+        joined_at: DateTime<Utc>,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+
+    /// Advance channel activity monotonically without creating ordinary activity rows.
+    fn advance_historical_activity(
+        &self,
+        channel_id: Uuid,
+        activity_at: DateTime<Utc>,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+}
+
 /// Repository for channel persistence and query data.
 #[cfg_attr(test, mockall::automock(type Err = anyhow::Error;))]
 pub trait ChannelRepo: Send + Sync + 'static {
-    /// Replace or remove the channel's static-file picture reference.
+    /// Replace or remove the channel's static-file picture reference atomically.
+    /// Returns whether the stored reference changed.
     fn set_channel_picture(
         &self,
         channel_id: Uuid,
         picture_id: Option<Uuid>,
-    ) -> impl Future<Output = Result<(), Self::Err>> + Send;
+    ) -> impl Future<Output = Result<bool, Self::Err>> + Send;
     /// Error type for repo operations.
     type Err: Into<anyhow::Error> + Send;
 
@@ -242,7 +297,16 @@ pub trait ChannelRepo: Send + Sync + 'static {
         channel_ids: &[Uuid],
     ) -> impl Future<Output = Result<(), Self::Err>> + Send;
 
-    /// Fetch an existing direct message channel.
+    /// Atomically find or create an exact two-member DM under a normalized pair lock.
+    /// Reuse preserves all settings, roles and timestamps, including historical leavers.
+    /// Historical callers must authorize reuse before writing history into the target.
+    fn ensure_dm(
+        &self,
+        pair: super::dm::DmPair,
+        creation: super::historical::DmCreation,
+    ) -> impl Future<Output = Result<super::historical::EnsuredChannel, Self::Err>> + Send;
+
+    /// Fetch an existing exact two-member DM, deterministically choosing the oldest.
     fn maybe_get_dm<'a>(
         &self,
         user_id: MacroUserIdStr<'a>,
@@ -526,6 +590,25 @@ pub trait ChannelService: Send + Sync + 'static {
         async move {
             Err(ChannelMutationErr::NotFound(
                 "channel mutations are not configured".to_string(),
+            ))
+        }
+    }
+
+    /// Share referenced items with a channel's current members.
+    ///
+    /// The actor must already be allowed to share each item. Calendar events,
+    /// agent sessions, databases, and forms are stored as direct `entity_access`
+    /// channel grants; other items follow the same reference-sharing policy as
+    /// posting them in a message.
+    fn share_referenced_items_with_channel(
+        &self,
+        _actor: MacroUserIdStr<'static>,
+        _channel_id: Uuid,
+        _items: Vec<ReferencedShareItem>,
+    ) -> impl Future<Output = Result<Vec<ReferenceShareResult>, ChannelMutationErr>> + Send {
+        async move {
+            Err(ChannelMutationErr::NotFound(
+                "channel sharing is not configured".to_string(),
             ))
         }
     }
@@ -830,13 +913,17 @@ pub trait ChannelReferenceSharePermissions: Send + Sync + 'static {
     /// Update channel share permissions according to the referenced entity's policy.
     ///
     /// Implementations must not grant access for an item the actor cannot already view.
-    /// Agent sessions require ownership and grant edit access; other references grant view.
+    /// Agent sessions require ownership and grant view access; a calendar event requires
+    /// the actor to hold it (owner or linked account) and grants view; PDFs grant comment
+    /// access, capped at the actor's own access; other references grant view. Each item
+    /// is reported as shared or not permitted. An existing direct grant is left unchanged
+    /// and still counts as shared.
     fn update_channel_share_permissions_for_referenced_items(
         &self,
         actor: MacroUserIdStr<'static>,
         channel_id: Uuid,
         items: Vec<ReferencedShareItem>,
-    ) -> impl Future<Output = Result<(), Self::Err>> + Send;
+    ) -> impl Future<Output = Result<Vec<ReferenceShareResult>, Self::Err>> + Send;
 }
 
 /// Errors that can occur while mutating channels.

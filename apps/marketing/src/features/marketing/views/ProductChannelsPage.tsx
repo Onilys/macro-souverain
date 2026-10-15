@@ -1,186 +1,109 @@
 import { setPageSeo } from '../../../app/utils/utilSeo';
 import {
   ChannelAgentDemo,
-  ChannelNavigationDemo,
+  ChannelHero,
+  ChannelPermissionsDemo,
   ChannelSharedWorkDemo,
-  ChannelTaskDemo,
   ChannelThreadDemo,
 } from '../components/channels/ChannelStories';
+import { FeatureComparisons } from '../components/comparisons/FeatureComparisons';
 import { FeaturePageFaq, FeaturePageSection } from '../components/FeaturePage';
 import { HomepageClosing } from '../components/HomepageClosing';
 import {
+  ContextGraphic,
   LinkedWorkGraphic,
   ThreadGraphic,
 } from '../components/product/ProductGraphics';
-import {
-  ProductHero,
-  ProductPage,
-  ProductProse,
-} from '../components/product/ProductPage';
-import {
-  TaskAgentsGraphic,
-  TaskConversationGraphic,
-} from '../components/tasks/TasksFeatureGraphics';
-import { WorkspaceDesktopDemo } from '../components/WorkspaceDesktopDemo';
+import { ProductHero, ProductPage } from '../components/product/ProductPage';
+import { TaskAgentsGraphic } from '../components/tasks/TasksFeatureGraphics';
+import { chatComparisons } from '../core/feature-comparisons';
 
 export function RouteChannels() {
   setPageSeo({
-    title: 'Macro Chat — Team Chat Wired into Everything',
+    title: 'Macro Chat: Bring the Work into the Conversation',
     description:
-      'Macro Chat combines Slack-speed team chat with inline threads, @mention sharing, a unified inbox, and AI agents — all in one workspace with your email, docs, and tasks.',
+      'Share documents, tasks, and email threads in team chat. Channel members get access, work stays linked to its discussion, and follow-ups wait in one inbox.',
     path: '/channels',
   });
   return (
     <ProductPage>
       <ProductHero
         product="Chat"
-        title={['Team chat for humans', 'and agents.']}
+        title={['Team chat, wired into', 'everything else.']}
         description={[
-          'Messages, emails, and tasks in one inbox.',
-          '@mention a document to share it with the channel.',
+          '@mention a doc, task, person, or company',
+          'and the whole channel can open it natively.',
         ]}
         cta="channels_hero_get_started"
       />
-      <WorkspaceDesktopDemo
-        view="messages"
-        label="Explore Macro Chat"
-        caption="Open a thread, share a linked item, or reply. Everything here stays in the sample."
-      />
+      <ChannelHero />
       <nav class="feature-page-jump-links" aria-label="On this page">
         <a href="#shared-work">
           <LinkedWorkGraphic />
-          <span>Share the work</span>
+          <span>Open the work</span>
         </a>
-        <a href="#conversation-tasks">
-          <TaskConversationGraphic />
-          <span>Act on a request</span>
+        <a href="#channel-access">
+          <ContextGraphic />
+          <span>Channel access</span>
         </a>
         <a href="#channel-agents">
           <TaskAgentsGraphic />
-          <span>Bring in an agent</span>
+          <span>Agents</span>
         </a>
-        <a href="#channel-threads">
+        <a href="#catch-up">
           <ThreadGraphic />
-          <span>Keep the thread</span>
+          <span>Catch up</span>
         </a>
       </nav>
       <FeaturePageSection
         id="shared-work"
-        title="@mention it. Share it."
-        description={
-          'Mention a document, task, or email thread in a channel.\nTeammates can open the item directly from the message.'
-        }
+        title="Open docs, tasks, and email straight from chat."
+        description="Click a mention to open the work beside the conversation."
       >
-        <div class="feature-page-visual">
+        <div class="feature-page-visual channel-wide-demo">
           <ChannelSharedWorkDemo />
         </div>
-        <ProductProse>
-          <p>
-            Macro references are bidirectional. Mention a document in chat, and
-            the document links back to that conversation. When you have
-            permission to share the item, a channel mention grants access to the
-            channel. Shared email threads keep updating as new replies arrive.
-          </p>
-        </ProductProse>
       </FeaturePageSection>
       <FeaturePageSection
-        id="conversation-tasks"
-        title="Create a task from a message."
-        description={
-          'Turn a request into a task with a description, owner, and priority.\nThe task links back to the message that created it.'
-        }
+        id="channel-access"
+        title="Access follows the channel."
+        description="Mention a doc, task, or email to give the channel access. New members get access too."
       >
         <div class="feature-page-visual">
-          <ChannelTaskDemo />
+          <ChannelPermissionsDemo />
         </div>
-        <ProductProse>
-          <p>
-            Create a task from a channel message or ask an agent to do it. The
-            source remains linked, so the assignee can read the original request
-            and replies. Mention the task in another conversation and its
-            current status appears in the reference. Open it to update the
-            brief, assign someone, or comment.
-          </p>
-        </ProductProse>
       </FeaturePageSection>
       <FeaturePageSection
         id="channel-agents"
-        title="Agents are channel participants."
-        description={
-          'Ask an agent in the conversation where the decision happened.\nIt can read messages, open references, and update the work.'
-        }
+        title="Agents are first-class participants."
+        description="Use Macro’s agents or bring your own. The team can follow the work in the channel."
       >
         <div class="feature-page-visual">
           <ChannelAgentDemo />
         </div>
-        <ProductProse>
-          <p>
-            Agents can participate in channels and DMs. @mention an agent with a
-            question or instruction and give it the relevant documents, tasks,
-            or emails. Workspace tools let it search for an answer, edit a
-            document, create a task, or prepare an email. Your team can read the
-            request and continue the conversation.
-          </p>
-        </ProductProse>
       </FeaturePageSection>
       <FeaturePageSection
-        id="channel-threads"
-        title="Replies stay inline."
-        description={
-          'Expand a thread under its original message.\nRead and reply while the rest of the channel stays visible.'
-        }
+        id="catch-up"
+        title="Catch up without opening every thread."
+        description="Read replies inline and respond in the same conversation."
       >
+        <span id="channel-threads" />
+        <span id="chat-inbox" />
         <div class="feature-page-visual">
           <ChannelThreadDemo />
         </div>
-        <ProductProse>
-          <p>
-            Threads expand in the message flow, with curved rails connecting
-            replies to their parent. Questions, answers, reactions, and linked
-            work stay readable in order. Collapse a thread when you’re finished.
-            The main conversation stays in view while you catch up or write a
-            reply.
-          </p>
-        </ProductProse>
       </FeaturePageSection>
-      <FeaturePageSection
-        id="channel-navigation"
-        title="Chat with an actual inbox."
-        description={
-          'Channel messages and DMs arrive alongside emails, tasks, and agent responses.\nMark an item done when you’ve dealt with it.'
-        }
-      >
-        <div class="feature-page-visual">
-          <ChannelNavigationDemo />
-        </div>
-        <ProductProse>
-          <p>
-            Read and done are separate states. Opening a message marks it read;
-            marking it done clears it from your inbox. Leave it there when it
-            still needs a response. Use Signal and Noise to prioritize
-            conversations, and Recent to return to channels and DMs. The
-            Attachments tab collects the items shared in each conversation.
-          </p>
-        </ProductProse>
-      </FeaturePageSection>
+      <FeatureComparisons comparisons={chatComparisons} />
       <FeaturePageFaq
         id="channels-faq-title"
-        eyebrow="Channels, threads, and sharing"
-        title="How Macro Chat works."
-        introduction={
-          <p>
-            An inbox for conversations, inline replies, and channel access for
-            shared work.
-          </p>
-        }
+        title="FAQ"
         items={[
           {
-            q: 'Can I share documents and email in a channel?',
+            q: 'What happens when I share an email?',
             a: (
               <>
-                Yes. Share or mention a workspace item so teammates can open it
-                from the conversation. Access still follows the item’s sharing
-                permissions. See <a href="/email">email sharing</a>.
+                The channel can read the full thread, including new replies. See{' '}
+                <a href="/email">email sharing</a>.
               </>
             ),
           },
@@ -188,36 +111,40 @@ export function RouteChannels() {
             q: 'Can a message become a task?',
             a: (
               <>
-                Yes. Create a task from the message and retain the source
-                conversation. The assignee can work in{' '}
-                <a href="/tasks">the task view</a>.
+                Yes. Use a message’s Task action, or ask an agent to create one.
+                See <a href="/tasks">Macro Tasks</a>.
               </>
             ),
           },
           {
-            q: 'Where do replies appear?',
-            a: 'Replies stay under their original message. Expand the thread to follow the discussion and reply in place.',
+            q: 'Can I quiet a noisy channel?',
+            a: 'Yes. Mute or snooze notifications for any channel from its menu.',
           },
           {
-            q: 'Can agents use a channel’s context?',
+            q: 'Which agents can I mention?',
             a: (
               <>
-                Yes. Give an agent a clear question or job with the relevant
-                workspace context. See <a href="/agents">agents in Macro</a> for
-                concrete examples.
+                Macro’s agents, or agents you connect to your workspace. See how
+                to <a href="/agents">bring your own agent</a>.
               </>
             ),
           },
           {
-            q: 'Will these examples post to my account?',
-            a: 'No. These demos use fictional local data. Messages, edits, and task creation never reach your account.',
-          },
-          {
-            q: 'Is there a free plan?',
+            q: 'How do we get started?',
             a: (
               <>
-                Yes. See <a href="/pricing">pricing</a> for current plans and
-                limits.
+                Create a channel and invite your team by email. Bringing work
+                over from another app? See{' '}
+                <a href="/migrate">how to move to Macro</a>.
+              </>
+            ),
+          },
+          {
+            q: 'Can I join as a Guest for free?',
+            a: (
+              <>
+                Yes. Guest access is free. See <a href="/pricing">pricing</a>{' '}
+                for current access and limits.
               </>
             ),
           },

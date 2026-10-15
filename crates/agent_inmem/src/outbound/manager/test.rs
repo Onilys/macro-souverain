@@ -28,6 +28,8 @@ use agent_session::domain::ports::{
     NoOpAgentSessionNameGenerator, NoOpTurnObserver, NoopLifecyclePublisher,
 };
 
+mod summary;
+
 /// Instructions long enough to be unmistakable in an assertion, and shaped
 /// like something a real session would carry.
 const INSTRUCTIONS: &str = "Answer in one sentence. Never open a pull request.";
@@ -96,6 +98,7 @@ fn manager(repo: &InMemoryAgentSessionRepo, engine: Arc<ScriptedEngine>) -> InMe
         engine,
         Arc::new(LogFrameSource::new(repo.clone())),
         Arc::new(crate::domain::mcp::NoMcpServers),
+        Arc::new(crate::testing::TestModelAccess::paid()),
     )
 }
 
@@ -103,7 +106,7 @@ fn facts(id: AgentSessionId) -> SessionFacts {
     SessionFacts {
         id,
         owner: Owner::User(owner()),
-        model: "anthropic/claude-sonnet-5".to_owned(),
+        model: "anthropic/claude-sonnet-5-5".to_owned(),
         identity: None,
         instructions: None,
         acp_session_id: None,
@@ -169,13 +172,14 @@ async fn a_prompt_runs_end_to_end_through_the_real_session_machine() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
+            warm: false,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
             bot_id: BotId::TEST_A,
             thread_id: None,
             originating_message_id: None,
-            model: "anthropic/claude-sonnet-5".to_owned(),
+            model: "anthropic/claude-sonnet-5-5".to_owned(),
             harness: "macro-inmem".to_owned(),
             repo_url: None,
             workspace: "/workspace".to_owned(),
@@ -308,13 +312,14 @@ async fn manager_admission_rejects_turns_without_wedging_the_session() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
+            warm: false,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
             bot_id: BotId::TEST_A,
             thread_id: None,
             originating_message_id: None,
-            model: "anthropic/claude-sonnet-5".to_owned(),
+            model: "anthropic/claude-sonnet-5-5".to_owned(),
             harness: "macro-inmem".to_owned(),
             repo_url: None,
             workspace: "/workspace".to_owned(),
@@ -400,13 +405,14 @@ async fn a_restarted_manager_rebuilds_the_conversation_from_the_log() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
+            warm: false,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
             bot_id: BotId::TEST_A,
             thread_id: None,
             originating_message_id: None,
-            model: "anthropic/claude-sonnet-5".to_owned(),
+            model: "anthropic/claude-sonnet-5-5".to_owned(),
             harness: "macro-inmem".to_owned(),
             repo_url: None,
             workspace: "/workspace".to_owned(),
@@ -547,13 +553,14 @@ async fn instructions_reach_every_turn_including_after_a_reattach() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
+            warm: false,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
             bot_id: BotId::TEST_A,
             thread_id: None,
             originating_message_id: None,
-            model: "anthropic/claude-sonnet-5".to_owned(),
+            model: "anthropic/claude-sonnet-5-5".to_owned(),
             harness: "macro-inmem".to_owned(),
             repo_url: None,
             workspace: "/workspace".to_owned(),
@@ -622,13 +629,14 @@ async fn a_session_without_instructions_hands_the_engine_none() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
+            warm: false,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
             bot_id: BotId::TEST_A,
             thread_id: None,
             originating_message_id: None,
-            model: "anthropic/claude-sonnet-5".to_owned(),
+            model: "anthropic/claude-sonnet-5-5".to_owned(),
             harness: "macro-inmem".to_owned(),
             repo_url: None,
             workspace: "/workspace".to_owned(),
@@ -682,13 +690,14 @@ async fn identity_reaches_every_turn_including_after_a_reattach() {
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
+            warm: false,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
             bot_id: BotId::TEST_A,
             thread_id: None,
             originating_message_id: None,
-            model: "anthropic/claude-sonnet-5".to_owned(),
+            model: "anthropic/claude-sonnet-5-5".to_owned(),
             harness: "macro-inmem".to_owned(),
             repo_url: None,
             workspace: "/workspace".to_owned(),
@@ -763,4 +772,75 @@ async fn the_manager_remembers_the_egress_token_from_spawn_until_teardown() {
 
     manager.teardown(id);
     assert_eq!(manager.session_token(id), None);
+}
+
+/// Teardown is what ends the session, so it also drops the MCP sessions the
+/// egress token was holding. A connector that pools them learns the token.
+#[tokio::test]
+async fn teardown_releases_pooled_mcp_sessions_for_the_egress_token() {
+    let repo = InMemoryAgentSessionRepo::new();
+    let mcp = Arc::new(RecordingRelease {
+        released: std::sync::Mutex::new(Vec::new()),
+    });
+    let manager = InMemAgentManager::new(
+        Arc::new(ScriptedEngine::new(Vec::new())),
+        Arc::new(LogFrameSource::new(repo.clone())),
+        mcp.clone(),
+        Arc::new(crate::testing::TestModelAccess::paid()),
+    );
+    let id = AgentSessionId::new();
+    let _spawned = manager
+        .attach(facts(id), Some("session-token".to_owned()))
+        .await;
+
+    manager.teardown(id);
+
+    assert_eq!(
+        mcp.released.lock().expect("lock").as_slice(),
+        ["session-token"]
+    );
+}
+
+/// A resume that rotates the credential leaves the old token unaccepted, so
+/// the MCP sessions pooled under it are released; the same token again is
+/// still in use and keeps them.
+#[tokio::test]
+async fn attaching_with_a_new_token_releases_the_replaced_one() {
+    let repo = InMemoryAgentSessionRepo::new();
+    let mcp = Arc::new(RecordingRelease {
+        released: std::sync::Mutex::new(Vec::new()),
+    });
+    let manager = InMemAgentManager::new(
+        Arc::new(ScriptedEngine::new(Vec::new())),
+        Arc::new(LogFrameSource::new(repo.clone())),
+        mcp.clone(),
+        Arc::new(crate::testing::TestModelAccess::paid()),
+    );
+    let id = AgentSessionId::new();
+    let _spawned = manager.attach(facts(id), Some("spawned".to_owned())).await;
+    let _same = manager.attach(facts(id), Some("spawned".to_owned())).await;
+    assert!(mcp.released.lock().expect("lock").is_empty());
+
+    let _rotated = manager.attach(facts(id), Some("rotated".to_owned())).await;
+
+    assert_eq!(manager.session_token(id).as_deref(), Some("rotated"));
+    assert_eq!(mcp.released.lock().expect("lock").as_slice(), ["spawned"]);
+}
+
+/// Records [`McpToolConnector::release`] so teardown can be seen doing it.
+struct RecordingRelease {
+    released: std::sync::Mutex<Vec<String>>,
+}
+
+impl crate::domain::mcp::McpToolConnector for RecordingRelease {
+    async fn connect(
+        &self,
+        _servers: Vec<agent_client_protocol::schema::v1::McpServerHttp>,
+    ) -> Option<mcp_toolset::RemoteMcpToolSet> {
+        None
+    }
+
+    fn release(&self, token: &str) {
+        self.released.lock().expect("lock").push(token.to_owned());
+    }
 }

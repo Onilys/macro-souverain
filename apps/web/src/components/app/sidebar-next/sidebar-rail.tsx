@@ -4,19 +4,28 @@ import { globalSplitManager } from '@app/signal/splitLayout';
 import { navigateToSidebarView } from '@components/app/app-sidebar/sidebar';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { hotkeyScopeNeutralAttribute } from '@core/dom-selectors';
+import { isPlatform } from '@core/util/platform';
 import { cn } from '@ui';
-import { For, Show, Suspense } from 'solid-js';
+import { For, Match, Suspense, Switch } from 'solid-js';
 import { SidebarRailCreateButton } from './create-button';
 import { FooterActions } from './footer-actions';
 import { ListNav, type ListNavProps } from './list-nav';
+import { MoreMenu } from './more-menu';
 import { visibleNavItems } from './nav-items';
+import { useNextMeetingBadge } from './queries/use-next-meeting-badge';
 import { useSidebarUnread } from './queries/use-sidebar-unread';
 import { SearchRailButton } from './search-bar-button';
 import { useNavItemGates } from './use-nav-item-gates';
+import { SidebarPrefsProvider } from './use-sidebar-prefs';
 
 function ChannelsListNav(props: Omit<ListNavProps, 'activeCall'>) {
   const hasActiveCall = useHasActiveChannelsCall();
   return <ListNav {...props} activeCall={hasActiveCall()} />;
+}
+
+function CalendarListNav(props: Omit<ListNavProps, 'badge'>) {
+  const badge = useNextMeetingBadge();
+  return <ListNav {...props} badge={badge()?.label} />;
 }
 
 /**
@@ -29,7 +38,13 @@ function ChannelsListNav(props: Omit<ListNavProps, 'activeCall'>) {
  * separately. There is no room for leader-key hints on the buttons, so each
  * button's tooltip carries its shortcut instead.
  */
-export const SidebarRail = () => {
+export const SidebarRail = () => (
+  <SidebarPrefsProvider>
+    <SidebarRailContent />
+  </SidebarPrefsProvider>
+);
+
+const SidebarRailContent = () => {
   const gates = useNavItemGates();
   const analytics = useAnalytics();
   const layout = useSplitLayout();
@@ -54,34 +69,47 @@ export const SidebarRail = () => {
       data-ui="sidebar-rail"
       class={cn(
         'relative flex h-full w-14 shrink-0 flex-col items-center gap-1 overflow-hidden border-edge-frame bg-panel px-2 pb-3 pt-2',
-        (globalSplitManager()?.splits().length ?? 1) <= 1 && 'border-r'
+        !isPlatform('desktop') &&
+          (globalSplitManager()?.splits().length ?? 1) <= 1 &&
+          'border-r'
       )}
     >
       <SidebarRailCreateButton />
       <SearchRailButton />
 
-      <nav class="shrink-0 pt-4">
+      <nav class="min-h-0 overflow-y-auto pt-4">
         <ul class="flex flex-col items-center gap-1">
           <For each={visibleNavItems(gates())}>
             {(item) => (
               <li class="flex">
-                <Show
-                  when={item.id === 'channels'}
+                <Switch
                   fallback={<ListNav item={item} unread={hasUnread(item.id)} />}
                 >
-                  <Suspense
-                    fallback={
-                      <ListNav item={item} unread={hasUnread(item.id)} />
-                    }
-                  >
-                    <ChannelsListNav item={item} unread={hasUnread(item.id)} />
-                  </Suspense>
-                </Show>
+                  <Match when={item.id === 'channels'}>
+                    <Suspense
+                      fallback={
+                        <ListNav item={item} unread={hasUnread(item.id)} />
+                      }
+                    >
+                      <ChannelsListNav
+                        item={item}
+                        unread={hasUnread(item.id)}
+                      />
+                    </Suspense>
+                  </Match>
+                  <Match when={item.id === 'calendar'}>
+                    <Suspense fallback={<ListNav item={item} />}>
+                      <CalendarListNav item={item} />
+                    </Suspense>
+                  </Match>
+                </Switch>
               </li>
             )}
           </For>
         </ul>
       </nav>
+
+      <MoreMenu gates={gates()} />
 
       <div class="min-h-0 flex-1" />
 

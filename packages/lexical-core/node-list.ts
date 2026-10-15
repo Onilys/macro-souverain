@@ -16,6 +16,7 @@ import {
 import { AgentContextNode } from './nodes/AgentContextNode';
 import { AgentSessionMentionNode } from './nodes/AgentSessionMentionNode';
 import { AwaitNode } from './nodes/AwaitNode';
+import { BookingLinkMentionNode } from './nodes/BookingLinkMentionNode';
 import { ClassedBlockNode } from './nodes/ClassedBlockNode';
 import { CommentNode } from './nodes/CommentNode';
 import { CompletionNode } from './nodes/CompletionNode';
@@ -23,6 +24,7 @@ import { ConnectAppNode } from './nodes/ConnectAppNode';
 import { ContactMentionNode } from './nodes/ContactMentionNode';
 import { CursorSystemNotificationNode } from './nodes/CursorSystemNotificationNode';
 import { CustomCodeNode } from './nodes/CustomCodeNode';
+import { DatabaseQueryNode } from './nodes/DatabaseQueryNode';
 import { DateMentionNode } from './nodes/DateMentionNode';
 import { DiffDeleteNode } from './nodes/DiffDeleteNode';
 import { DiffInsertNode } from './nodes/DiffInsertNode';
@@ -43,6 +45,7 @@ import { ReplyTargetNode } from './nodes/ReplyTargetNode';
 import { SearchMatchNode } from './nodes/SearchMatchNode';
 import { SnapshotNode } from './nodes/SnapshotNode';
 import { TagMentionNode } from './nodes/TagMentionNode';
+import { TaskListNode } from './nodes/TaskListNode';
 import { ThemeMentionNode } from './nodes/ThemeMentionNode';
 import { UnknownMentionNode } from './nodes/UnknownMentionNode';
 import { UnlinkedTextNode } from './nodes/UnlinkedTextNode';
@@ -72,10 +75,12 @@ export const SupportedNodeTypes = [
   TextNode,
   CodeNode,
   CustomCodeNode,
+  DatabaseQueryNode,
   HeadingNode,
   LinkNode,
   AutoLinkNode,
   ListNode,
+  TaskListNode,
   ListItemNode,
   QuoteNode,
   LineBreakNode,
@@ -86,6 +91,7 @@ export const SupportedNodeTypes = [
   ContactMentionNode,
   DateMentionNode,
   PullRequestMentionNode,
+  BookingLinkMentionNode,
   AgentSessionMentionNode,
   ReplyTargetNode,
   GroupMentionNode,
@@ -127,6 +133,11 @@ export const NodeReplacements: LexicalNodeReplacement[] = [
     replace: CodeNode,
     with: (node: CodeNode) => new CustomCodeNode(node.getLanguage()),
     withKlass: CustomCodeNode,
+  },
+  {
+    replace: ListNode,
+    with: (node: ListNode) => new TaskListNode(node.getListType()),
+    withKlass: TaskListNode,
   },
 ];
 

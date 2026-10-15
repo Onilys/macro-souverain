@@ -44,8 +44,8 @@ import { TaskListEntity } from '@app/features/next-soup/soup-view/views/tasks/Ta
 import { ResponsiveTaskListHeader } from '@app/features/next-soup/soup-view/views/tasks/TaskListHeader';
 import { TaskGroupHeader } from '@app/features/next-soup/soup-view/views/tasks/task-group-header';
 import {
+  markCalendarNotificationSeenOnOpen,
   markChannelNotificationsSeenOnOpen,
-  markReminderSeenOnOpen,
   openEntityInNewTab,
   openEntityInSplitFromUnifiedList,
   restoreSoupFocus,
@@ -119,6 +119,7 @@ import {
 import { Dynamic } from 'solid-js/web';
 import { Virtualizer, type VirtualizerHandle } from 'virtua/solid';
 import type { CacheSnapshot } from 'virtua/unstable_core';
+import { makeMarkNotDoneAction } from '../actions/make-mark-not-done-action';
 import { SOUP_TOUR } from '../tour';
 import { SearchAskAiButton } from './search-ask-ai-button';
 import { SoupEntitySelectionToolbar } from './soup-entity-selection-toolbar';
@@ -224,13 +225,18 @@ interface SoupViewProps {
   initialClientSort?: string[];
   /**
    * Client-side entities to merge into the soup results. Useful for entity
-   * types (e.g. automation) that don't come back from the soup API.
+   * types (e.g. routine) that don't come back from the soup API.
    * Visibility is controlled by the active client filter set — use a tab
    * preset whose `clientFilters` include a predicate that matches them.
    */
   additionalEntities?: Accessor<EntityData[]>;
   /** The view's tour, e.g. `<ViewTour tour={callsTour} />`. */
   tour?: JSX.Element;
+  /**
+   * Replaces the split-header title, tabs, search, and filter toolbar for
+   * views that compose their own chrome (e.g. a sidebar layout).
+   */
+  header?: JSX.Element;
 }
 
 export const SoupView = (props: SoupViewProps) => {
@@ -376,7 +382,7 @@ export const SoupView = (props: SoupViewProps) => {
       class="size-full flex flex-col @container"
       data-list-view={activeListView()}
     >
-      <Show when={true}>
+      <Show when={props.header === undefined} fallback={props.header}>
         <div class="flex flex-col w-full">
           <SplitHeaderLeft>
             <div
@@ -806,6 +812,9 @@ const SoupViewListContent = (props: SoupViewListProps) => {
     userId,
     notificationSource: () => notificationSource,
   });
+  const _markNotDoneAction = makeMarkNotDoneAction({
+    notificationSource: () => notificationSource,
+  });
 
   const debouncedFetchMore = debounce(() => {
     if (
@@ -846,7 +855,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
       return;
     }
 
-    markReminderSeenOnOpen(entity, notificationSource);
+    markCalendarNotificationSeenOnOpen(entity, notificationSource);
 
     // FIXME: this never gets called because we have overrides
     if (event.metaKey || event.ctrlKey) {

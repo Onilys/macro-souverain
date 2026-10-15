@@ -111,7 +111,16 @@ function createCalendarSettingsControls(isNarrow: () => boolean) {
     calendarView.closeEventDetails();
     match(account.action)
       .with('enable', () => {
-        startAddInbox({ scopes: 'calendar' });
+        void startAddInbox({
+          scopes: account.consentScopes,
+          emailAddress: account.emailAddress,
+        });
+      })
+      .with('reconnect', () => {
+        void startAddInbox({
+          scopes: account.consentScopes,
+          emailAddress: account.emailAddress,
+        });
       })
       .with('turnOff', () => {
         setTurnOffTarget({
@@ -163,7 +172,7 @@ function DesktopCalendarSettings(props: {
     <Dropdown placement={props.sidebar ? 'top-end' : 'bottom-end'}>
       <Dropdown.Trigger
         variant="ghost"
-        size={props.sidebar ? 'md' : 'icon-md'}
+        size={props.sidebar ? 'md' : 'icon-lg'}
         class={
           props.sidebar
             ? 'w-full border-transparent bg-transparent'
@@ -294,11 +303,15 @@ function DesktopCalendarSettings(props: {
                   <span
                     class="shrink-0 text-xs font-medium"
                     classList={{
-                      'text-accent': account.action === 'enable',
+                      'text-accent': account.action !== 'turnOff',
                       'text-failure': account.action === 'turnOff',
                     }}
                   >
-                    {account.action === 'enable' ? 'Enable' : 'Turn off'}
+                    {match(account.action)
+                      .with('enable', () => 'Enable')
+                      .with('reconnect', () => 'Reconnect')
+                      .with('turnOff', () => 'Turn off')
+                      .exhaustive()}
                   </span>
                 </Dropdown.Item>
               )}
@@ -488,11 +501,15 @@ function MobileCalendarSettings(props: {
                     <span
                       class="shrink-0 text-xs font-medium"
                       classList={{
-                        'text-accent': account.action === 'enable',
+                        'text-accent': account.action !== 'turnOff',
                         'text-failure': account.action === 'turnOff',
                       }}
                     >
-                      {account.action === 'enable' ? 'Enable' : 'Turn off'}
+                      {match(account.action)
+                        .with('enable', () => 'Enable')
+                        .with('reconnect', () => 'Reconnect')
+                        .with('turnOff', () => 'Turn off')
+                        .exhaustive()}
                     </span>
                   </MobileDrawer.Item>
                 )}

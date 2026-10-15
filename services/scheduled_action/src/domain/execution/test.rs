@@ -161,7 +161,12 @@ struct Repo {
 }
 
 impl ScheduledActionRepo for Repo {
-    async fn claim_action(&self, _: &Uuid, revision: ConfigurationRevision) -> Result<ClaimToken> {
+    async fn claim_action(
+        &self,
+        _: &Uuid,
+        revision: ConfigurationRevision,
+        _expected_next_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<ClaimToken> {
         self.claims.fetch_add(1, Ordering::SeqCst);
         self.claimed_revisions.lock().unwrap().push(revision.get());
         let mut claim = self.claim.lock().unwrap();
@@ -286,11 +291,11 @@ impl ScheduledAgentRunner for Runner {
         &self,
         _: &ScheduledAction,
         _: &ExecutionHandle,
-        event: Option<&EventReference>,
+        firing: RoutineRun<'_>,
     ) -> Result<()> {
         let _guard = self.dropped.clone().drop_guard();
         self.calls.fetch_add(1, Ordering::SeqCst);
-        self.contexts.lock().unwrap().push(event.cloned());
+        self.contexts.lock().unwrap().push(firing.event().cloned());
         self.finish.cancelled().await;
         anyhow::ensure!(!self.fail_run, "agent stream failed");
         Ok(())

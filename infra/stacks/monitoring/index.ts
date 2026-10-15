@@ -19,3 +19,4 @@ import './synthetics';
 
 // Declared here first.
 import './monitors/ai-editing';
+import './monitors/graphql-soup';

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use ai_tools::{
-    NoOpCallRtcClient, NoOpConnectionService, NoOpNotificationIngress, NoOpScheduleContext,
-    NoOpSnsEndpointManager, ToolImportToolContext, ToolNotificationQueue, ToolServiceContext,
+    NoOpCallRtcClient, NoOpConnectionService, NoOpNotificationIngress, NoOpSnsEndpointManager,
+    ToolImportToolContext, ToolNotificationQueue, ToolServiceContext,
 };
 use anyhow::Context;
 use bots::outbound::pg_bots_repo::PgBotsRepo;
@@ -30,14 +30,24 @@ use foreign_entity::{
 };
 use frecency::domain::services::FrecencyQueryServiceImpl;
 use frecency::outbound::postgres::FrecencyPgStorage;
+use github_pull_requests::{
+    domain::service::GithubPullRequestServiceImpl,
+    outbound::pg_github_pull_request_repo::PgGithubPullRequestRepo,
+};
 use macro_auth::middleware::decode_jwt::JwtValidationArgs;
 use macro_service_urls::{
-    AiEditingWorkerUrl, CalendarServiceUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl,
-    EmailServiceUrl, LexicalServiceUrl, SyncServiceUrl,
+    AiEditingWorkerUrl, AppServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl,
+    DocumentStorageServiceUrl, EmailServiceUrl, LexicalServiceUrl, SyncServiceUrl,
 };
 use mcp_auth_proxy::{
-    domain::service::McpAuthProxyServiceImpl,
-    outbound::{fusionauth::FusionAuthOAuthProvider, redis::RedisInflightAuth},
+    domain::{
+        redirect_uri::RedirectUriPolicy,
+        service::{McpAuthProxyServiceDeps, McpAuthProxyServiceImpl},
+    },
+    outbound::{
+        fusionauth::FusionAuthOAuthProvider,
+        redis::{RedisClientRegistry, RedisInflightAuth},
+    },
 };
 use notification::domain::service::{NotificationReaderService, PlatformArnConfig};
 use notification::outbound::repository::DbNotificationRepository;
@@ -49,7 +59,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use sync_service_client::SyncServiceClient;
 use tokio_util::task::TaskTracker;
 
-use crate::config::Config;
+use crate::config::{Config, DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS};
 
 #[derive(Clone)]
 pub struct McpContext {
@@ -191,22 +201,32 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         frecency_storage,
     );
     let email_service_for_tools: Arc<ai_tools::ToolEmailService> = Arc::new(email_service.clone());
-    let foreign_entity_service =
-        ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone()));
-    let soup_service = Arc::new(SoupImpl::new(
-        PgSoupRepo::new(readonly_pool::ReadOnlyPool(db.clone())),
-        frecency_service,
-        ReadonlyEmailPreviewAdapter(email_service),
-        channels_service,
-        call::domain::service::CallRecordQueryServiceImpl::new(
-            call::outbound::pg_call_repo::PgCallRepo::new(db.clone()),
-        ),
-        crm::domain::service::NoOpCrmService,
-        foreign_entity_service,
-        reminders::domain::service::NoOpRemindersService,
-    ));
+    let github_pull_request_service = GithubPullRequestServiceImpl::new(
+        ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
+        PgGithubPullRequestRepo::new(db.clone()),
+    );
+    let favorites_service = ai_tools::build_favorites_service(db.clone());
+    let soup_service = Arc::new(
+        SoupImpl::new(
+            PgSoupRepo::new(readonly_pool::ReadOnlyPool(db.clone())),
+            frecency_service,
+            ReadonlyEmailPreviewAdapter(email_service),
+            channels_service,
+            call::domain::service::CallRecordQueryServiceImpl::new(
+                call::outbound::pg_call_repo::PgCallRepo::new(db.clone()),
+            ),
+            crm::domain::service::NoOpCrmService,
+            github_pull_request_service,
+        )
+        .with_favorites(favorites_service.clone()),
+    );
 
     let s3_client = macro_aws_config::s3_client().await;
+    let document_files = documents::outbound::s3_document_files::S3DocumentFiles::new(
+        db.clone(),
+        s3_client.clone(),
+        config.document_storage_bucket.as_ref(),
+    );
     let s3_upload_adapter = S3UploadUrlAdapter::new(
         s3_client,
         config.document_storage_bucket.as_ref(),
@@ -262,7 +282,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         cloudfront_config,
         sync_service_client: sync_service_client.clone(),
         upload_url_service: s3_upload_adapter,
-        task_properties_service,
+        task_properties_service: task_properties_service.clone(),
         connection_service: NoOpConnectionService,
         entity_access_management_service:
             entity_access_management::domain::service::EntityAccessManagementServiceImpl::new(
@@ -282,20 +302,25 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         sqs: queue_aws_client,
         macro_event_broker: macro_event_broker.clone(),
     };
+    let databases_gateway = side_effect_clients.connection_gateway.as_ref().clone();
     let lexical_client_for_tools = (*lexical_client).clone();
     let document_tool_context = DocumentToolContext::new(
         document_service,
         (*entity_access_service).clone(),
         lexical_client_for_tools,
         sync_service_client.clone(),
-        ReqwestEditingWorkerClient::from_url(ai_editing_worker_url),
+        ReqwestEditingWorkerClient::from_url(ai_editing_worker_url.clone()),
         config.document_permission_jwt.to_string(),
         ai_tools::build_message_service_with_side_effects(
             db.clone(),
             lexical_client.clone(),
             &side_effect_clients,
         ),
-    );
+    )
+    .with_presentation_files(Arc::new(document_files.clone()))
+    .with_design_files(Arc::new(document_files.clone()))
+    .with_photoshop_files(Arc::new(document_files.clone()))
+    .with_illustrator_files(Arc::new(document_files));
 
     let properties_tool_context = ai_tools::build_properties_tool_context(
         properties_service.clone(),
@@ -322,6 +347,14 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
             db.clone(),
         ))),
         lexical_client.clone(),
+    )
+    .with_attachment_sender(
+        ai_tools::email_attachments::build_email_attachment_sender(
+            user_email_service.clone(),
+            EmailPgRepo::new(db.clone()),
+            document_tool_context.service.clone(),
+        )
+        .await,
     );
 
     let call_service = call::domain::service::CallServiceImpl::new(
@@ -390,11 +423,115 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         &document_tool_context,
         properties_service.clone(),
         entity_access_service.clone(),
-        side_effect_clients.sqs,
         side_effect_clients.macro_event_broker,
     );
 
+    let databases_tool_context = ai_tools::build_databases_tool_context(
+        db.clone(),
+        entity_access_service.clone(),
+        ai_tools::ToolTableEventPublisher::Gateway(
+            databases::outbound::gateway_event_publisher::GatewayTableEventPublisher::new(
+                databases_gateway,
+            ),
+        ),
+        ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
+    );
+    let databases_sql_tool_context = ai_tools::build_databases_sql_tool_context(
+        &databases_tool_context,
+        soup_service.clone(),
+        db.clone(),
+    );
+    let crm_tool_context = ai_tools::build_crm_tool_context(db.clone());
+    let pipeline_tool_context = ai_tools::build_pipeline_tool_context(
+        db.clone(),
+        &databases_tool_context,
+        &crm_tool_context,
+    );
+
+    let calendar_tool_context = ai_tools::build_calendar_tool_context(
+        db.clone(),
+        CalendarServiceUrl::new()?,
+        config.internal_api_key.to_string(),
+        call_tool_context.service.clone(),
+        AppServiceUrl::new()?,
+    );
+    let forms_tool_context = ai_tools::build_forms_tool_context(
+        db.clone(),
+        &document_tool_context,
+        &databases_tool_context,
+        &calendar_tool_context,
+        Some(side_effect_clients.connection_gateway.as_ref().clone()),
+        ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
+        ai_tools::FormsToolConfig {
+            app_origin: AppServiceUrl::new()?.to_string(),
+            editing_worker_url: ai_editing_worker_url,
+        },
+    );
+
+    // Counted usage from tools called over MCP asks the authentication
+    // service (which owns Stripe) to settle the payer, the same way document
+    // cognition does.
+    let recorder = ai_billing::composition::pg_settling_recorder(
+        db.clone(),
+        config.enable_ai_usage_enforcement,
+        config.ai_pricing(),
+        config.settlement_route()?,
+    );
+    let admission = ai_billing::composition::pg_admission_service(
+        db.clone(),
+        config.enable_ai_usage_enforcement,
+        config.ai_pricing(),
+    );
+
+    // Import tools need the same ledger, connector credentials and entity
+    // creation services as chat; advertising an unwired context makes every
+    // Notion import and Linear tracking call fail before it can do any work.
+    let mcp_credentials_key = LocalOrRemoteSecret::new_from_secret_manager(
+        config.mcp_credentials_key_secret_name.as_ref().to_owned(),
+        secretsmanager_client,
+    )
+    .await
+    .context("failed to load MCP credentials encryption key")?;
+    let mcp_encryption_key =
+        mcp_client::domain::models::AesKey::try_from(mcp_credentials_key.as_ref())
+            .context("invalid MCP credentials encryption key")?;
+    let pipedream_client = ai_tools::pipedream_client_from_env()?;
+    let mcp_selector = Arc::new(mcp_select::McpToolSelector::new(
+        Arc::new(mcp_client::outbound::pg_server_repo::PgServerRepo::new(
+            db.clone(),
+            mcp_encryption_key,
+        )),
+        Arc::new(pipedream_mcp::outbound::pg_connection_repo::PgConnectionRepo::new(db.clone())),
+        Arc::new(pipedream_client.clone()),
+    ));
+    let import_service = Arc::new(
+        import::domain::service::ImportServiceImpl::new(
+            import::outbound::pg_import_repo::PgImportRepo::new(db.clone()),
+            mcp_selector.clone(),
+            Arc::new(ai_tools::ToolEntityCreator {
+                document_creator: document_tool_context.creator.clone(),
+                entity_access_service: entity_access_service.clone(),
+                channel_service: channel_tool_context.service.clone(),
+                task_properties: task_properties_service,
+                document_properties:
+                    import::outbound::document_properties::DocumentPropertiesApplicator::new(
+                        properties_service.clone(),
+                    ),
+                team_repository: ai_tools::build_team_repository(db.clone()),
+            }),
+            recorder.clone(),
+        )
+        .with_slack_source(Arc::new(
+            import::outbound::mcp_slack_source::McpSlackSource::new(mcp_selector),
+        ))
+        .with_admission(admission.clone())
+        .with_notifier(import::outbound::gateway_notifier::gateway_import_notify(
+            side_effect_clients.connection_gateway.clone(),
+        )),
+    );
+
     let tool_context = ToolServiceContext {
+        connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         email_service_client: Arc::new(EmailServiceClientExternal::new(
             email_service_client.url().to_owned(),
         )),
@@ -409,47 +546,62 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         image_generation_tool_context: ai_tools::build_image_generation_tool_context(
             &document_tool_context,
             ai_tools::build_image_generator_from_env(),
+            recorder.clone(),
         )?,
         document_tool_context,
         properties_tool_context,
         email_tool_context,
         call_tool_context,
-        calendar_tool_context: ai_tools::build_calendar_tool_context(
-            db.clone(),
+        booking_management_tool_context: ai_tools::build_booking_management_tool_context(
             CalendarServiceUrl::new()?,
             config.internal_api_key.to_string(),
+            config.environment,
+        ),
+        booking_link_tool_context: ai_tools::build_booking_link_tool_context(
+            db.clone(),
+            config.environment,
+        ),
+        calendar_tool_context,
+        team_calendar_tool_context: ai_tools::build_team_calendar_tool_context(
+            db.clone(),
+            macro_env_var::maybe_read_env("CALENDAR_TEAM_SHARING_ENABLED")
+                .and_then(|value| value.parse::<bool>().ok())
+                .unwrap_or(false),
         ),
         notification_tool_context,
-        reminders_tool_context: ai_tools::build_reminders_tool_context(
-            db.clone(),
-            user_email_service.clone(),
-            entity_access_service.clone(),
-        ),
-        import_tool_context: ToolImportToolContext::unwired(),
+        item_notification_preference_tool_context:
+            ai_tools::build_item_notification_preference_tool_context(db.clone()),
+        databases_tool_context,
+        forms_tool_context,
+        databases_sql_tool_context,
+        import_tool_context: ToolImportToolContext::wired(import_service),
         chat_tool_context,
         channel_tool_context,
         bot_tool_context: ai_tools::build_bot_tool_context(
             db.clone(),
-            ai_tools::ToolBotEventBroker::Real(macro_event_broker.clone()),
+            ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
             entity_access_service.clone(),
             dss_url,
-            ai_tools::pipedream_client_from_env()?,
+            pipedream_client,
         ),
+        coding_agent_tool_context: ai_tools::build_coding_agent_tool_context(
+            macro_service_urls::AgentHarnessServiceUrl::new()?,
+            config.internal_api_key.to_string(),
+        )?,
         project_tool_context,
+        favorites_tool_context: ai_tools::build_favorites_tool_context(
+            favorites_service,
+            entity_access_service.clone(),
+        ),
         initiative_tool_context,
         team_tool_context: ai_tools::build_team_tool_context(db.clone()),
-        crm_tool_context: ai_tools::build_crm_tool_context(db.clone()),
+        crm_tool_context,
+        pipeline_tool_context,
         skill_tool_context,
-        schedule_tool_context: NoOpScheduleContext,
+        schedule_tool_context: ai_tools::build_routine_tool_context()?,
         anthropic_tool_context: ai_tools::build_anthropic_tool_context(),
-        admission: ai_billing::composition::pg_admission_service(
-            db.clone(),
-            config.enable_ai_usage_enforcement,
-        ),
-        recorder: ai_usage::pg_recorder_with_enforcement(
-            db.clone(),
-            config.enable_ai_usage_enforcement,
-        ),
+        admission,
+        recorder,
         usage_context: ai_usage::UsageContext::system(ai_usage::AiFeature::Chat),
     };
 
@@ -507,10 +659,29 @@ async fn build_auth_proxy(
         .context("failed to initialize MCP auth provider")?;
     let redis_client = redis::Client::open(config.redis_url.as_ref().to_owned())
         .context("failed to initialize redis client for MCP auth proxy")?;
+    let client_registry = Arc::new(RedisClientRegistry::new(redis_client.clone()));
 
-    Ok(McpAuthProxyServiceImpl::new(
-        mcp_public_url,
-        Arc::new(RedisInflightAuth::new(redis_client)),
-        Arc::new(auth_provider),
-    ))
+    let redirect_uri_policy = build_redirect_uri_policy(config);
+    tracing::info!(
+        allowed_https_redirect_hosts = ?redirect_uri_policy.allowed_https_hosts().collect::<Vec<_>>(),
+        "initialized MCP OAuth redirect URI policy"
+    );
+
+    Ok(McpAuthProxyServiceImpl::new(McpAuthProxyServiceDeps {
+        public_url: mcp_public_url,
+        redirect_uri_policy,
+        inflight_auth: Arc::new(RedisInflightAuth::new(redis_client)),
+        client_registrations: client_registry.clone(),
+        refresh_token_bindings: client_registry,
+        oauth_provider: Arc::new(auth_provider),
+    }))
+}
+
+/// Builds the redirect URI policy the broker enforces at registration and at
+/// authorize, from the configured host list or the built-in default.
+fn build_redirect_uri_policy(config: &Config) -> RedirectUriPolicy {
+    match config.mcp_allowed_redirect_hosts.value() {
+        Some(hosts) => RedirectUriPolicy::new(hosts.split(',')),
+        None => RedirectUriPolicy::new(DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS),
+    }
 }

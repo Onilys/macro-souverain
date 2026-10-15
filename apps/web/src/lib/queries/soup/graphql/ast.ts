@@ -7,19 +7,23 @@ import type {
   GraphqlChannelLiteral as GraphqlChannelLiteralInput,
   GraphqlChannelThreadLiteral as GraphqlChannelThreadLiteralInput,
   GraphqlChatLiteral as GraphqlChatLiteralInput,
+  GraphqlCrmAssociation,
   GraphqlCrmCompanyLiteral as GraphqlCrmCompanyLiteralInput,
+  GraphqlCrmContactLiteral,
   GraphqlDateLiteral as GraphqlDateLiteralInput,
   GraphqlDocumentLiteral as GraphqlDocumentLiteralInput,
   GraphqlEmailLiteral as GraphqlEmailLiteralInput,
   GraphqlEmailValue as GraphqlEmailValueInput,
   GraphqlEntityFilterAst as GraphqlEntityFilterAstInput,
   GraphqlForeignEntityLiteral as GraphqlForeignEntityLiteralInput,
+  GraphqlGithubPullRequestLiteral as GraphqlGithubPullRequestLiteralInput,
+  GraphqlGithubPullRequestReviewStatus,
+  GraphqlGithubPullRequestState,
   GraphqlGroupByInput,
   GroupedSoupContinuationInput as GraphqlGroupedSoupContinuationInput,
   GroupedSoupInput as GraphqlGroupedSoupInput,
   GraphqlProjectLiteral as GraphqlProjectLiteralInput,
   GraphqlFilterPropertiesLiteral as GraphqlPropertiesLiteralInput,
-  GraphqlReminderLiteral as GraphqlReminderLiteralInput,
   SoupInitialInput as GraphqlSoupInitialInput,
   SoupInput as GraphqlSoupInput,
 } from '@service-storage/graphql/generated/graphql';
@@ -60,13 +64,15 @@ type TargetAstKey =
   | 'cthf'
   | 'callf'
   | 'ccf'
+  | 'crmf'
   | 'fef'
+  | 'ghprf'
   | 'asf'
-  | 'remf'
   | 'propf';
 
 type AstBody = Partial<Record<TargetAstKey, RestAst>> & {
   favorites_only?: SoupAstBody['favorites_only'];
+  crma?: SoupAstBody['crma'];
   /** CRM-address and CRM-domain filters are REST-only today. */
   eca?: string[];
   ecd?: string[];
@@ -303,9 +309,20 @@ function mapDocumentLiteral(literal: unknown): GraphqlDocumentLiteralInput {
       return { property: mapPropertiesLiteral(value) };
     case 'eap':
       return { emailAttachmentParticipant: mapEmailValue(value) };
+    case 'crm':
+      return { crmAssociated: mapCrmAssociation(value) };
+    case 'nc':
+      return { nameContains: mapString(value, 'nameContains') };
     default:
       unsupported(`document literal ${field}`);
   }
+}
+
+function mapCrmAssociation(value: unknown): GraphqlCrmAssociation {
+  const [field, id] = singleLiteralField(value);
+  if (field === 'company') return { company: mapString(id, 'company') };
+  if (field === 'contact') return { contact: mapString(id, 'contact') };
+  unsupported(`CRM association ${field}`);
 }
 
 function mapProjectLiteral(literal: unknown): GraphqlProjectLiteralInput {
@@ -365,6 +382,12 @@ function mapEmailLiteral(literal: unknown): GraphqlEmailLiteralInput {
   switch (field) {
     case 'Sender':
       return { sender: mapEmailValue(value) };
+    case 'Recipient':
+      return { recipient: mapEmailValue(value) };
+    case 'Cc':
+      return { cc: mapEmailValue(value) };
+    case 'Bcc':
+      return { bcc: mapEmailValue(value) };
     case 'ThreadId':
       return { threadId: mapString(value, 'threadId') };
     case 'Owner':
@@ -500,6 +523,27 @@ function mapCrmCompanyLiteral(literal: unknown): GraphqlCrmCompanyLiteralInput {
   }
 }
 
+function mapCrmContactLiteral(literal: unknown): GraphqlCrmContactLiteral {
+  if (literal === 'include') return { include: true };
+  const [field, value] = singleLiteralField(literal);
+  switch (field) {
+    case 'id':
+      return { id: mapString(value, 'id') };
+    case 'team_id':
+      return { teamId: mapString(value, 'teamId') };
+    case 'company_id':
+      return { companyId: mapString(value, 'companyId') };
+    case 'email':
+      return { email: mapString(value, 'email') };
+    case 'search':
+      return { search: mapString(value, 'search') };
+    case 'hidden':
+      return { hidden: mapBoolean(value, 'hidden') };
+    default:
+      unsupported(`crm contact literal ${field}`);
+  }
+}
+
 function mapForeignEntityLiteral(
   literal: unknown
 ): GraphqlForeignEntityLiteralInput {
@@ -520,23 +564,59 @@ function mapForeignEntityLiteral(
   }
 }
 
-function mapReminderLiteral(literal: unknown): GraphqlReminderLiteralInput {
+function mapGithubPullRequestState(
+  value: unknown
+): GraphqlGithubPullRequestState {
+  const state = mapString(value, 'status');
+  if (state === 'open') return 'OPEN';
+  if (state === 'closed') return 'CLOSED';
+  if (state === 'merged') return 'MERGED';
+  unsupported(`unsupported pull request status ${state}`);
+}
+
+function mapGithubPullRequestReviewStatus(
+  value: unknown
+): GraphqlGithubPullRequestReviewStatus {
+  const status = mapString(value, 'reviewStatus');
+  if (status === 'none') return 'NONE';
+  if (status === 'required') return 'REQUIRED';
+  if (status === 'approved') return 'APPROVED';
+  if (status === 'changes_requested') return 'CHANGES_REQUESTED';
+  unsupported(`unsupported pull request review status ${status}`);
+}
+
+function mapGithubPullRequestLiteral(
+  literal: unknown
+): GraphqlGithubPullRequestLiteralInput {
   const [field, value] = singleLiteralField(literal);
   switch (field) {
-    // `inc` is a unit literal, so it only ever arrives as `true` — which is
-    // the only value the server accepts, reminders being opt-in.
-    case 'inc':
-      return { include: mapBoolean(value, 'include') };
-    case 'id':
-      return { id: mapString(value, 'id') };
-    case 'ent':
-      return { entity: mapString(value, 'entity') };
-    case 'comp':
-      return { completed: mapBoolean(value, 'completed') };
-    case 'fired':
-      return { fired: mapBoolean(value, 'fired') };
+    case 'repo':
+      return {
+        repositoryId:
+          typeof value === 'number'
+            ? String(value)
+            : mapString(value, 'repositoryId'),
+      };
+    case 'au':
+      return { author: mapString(value, 'author') };
+    case 'st':
+      return { status: mapGithubPullRequestState(value) };
+    case 'inv':
+      return { involves: mapString(value, 'involves') };
+    case 'rr':
+      return { reviewRequested: mapString(value, 'reviewRequested') };
+    case 'draft':
+      return { draft: mapBoolean(value, 'draft') };
+    case 'as':
+      return { assignee: mapString(value, 'assignee') };
+    case 'lbl':
+      return { label: mapString(value, 'label') };
+    case 'rs':
+      return { reviewStatus: mapGithubPullRequestReviewStatus(value) };
+    case 'rb':
+      return { reviewedBy: mapString(value, 'reviewedBy') };
     default:
-      unsupported(`reminder literal ${field}`);
+      unsupported(`github pull request literal ${field}`);
   }
 }
 
@@ -629,6 +709,7 @@ function makeGraphqlFilters(body: AstBody): GraphqlEntityFilterAstInput {
   const filters: GraphqlEntityFilterAstInput = {};
   if (body.favorites_only !== undefined)
     filters.favoritesOnly = body.favorites_only;
+  if (body.crma) filters.crmAssociation = mapCrmAssociation(body.crma);
 
   if (body.calf) {
     filters.calendarEventFilter = compileExpr(
@@ -654,10 +735,19 @@ function makeGraphqlFilters(body: AstBody): GraphqlEntityFilterAstInput {
   if (body.ccf) {
     filters.crmCompanyFilter = compileExpr(body.ccf, mapCrmCompanyLiteral);
   }
+  if (body.crmf) {
+    filters.crmContactFilter = compileExpr(body.crmf, mapCrmContactLiteral);
+  }
   if (body.fef) {
     filters.foreignEntityFilter = compileExpr(
       body.fef,
       mapForeignEntityLiteral
+    );
+  }
+  if (body.ghprf) {
+    filters.githubPullRequestFilter = compileExpr(
+      body.ghprf,
+      mapGithubPullRequestLiteral
     );
   }
   if (body.asf) {
@@ -671,9 +761,6 @@ function makeGraphqlFilters(body: AstBody): GraphqlEntityFilterAstInput {
         return unsupported(`agent session literal ${field}`);
       }
     );
-  }
-  if (body.remf) {
-    filters.reminderFilter = compileExpr(body.remf, mapReminderLiteral);
   }
   if (body.propf) {
     filters.propertiesFilter = compileExpr(body.propf, mapPropertiesLiteral);

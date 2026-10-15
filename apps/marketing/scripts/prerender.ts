@@ -58,6 +58,7 @@ const STATIC_ROUTES = [
   '/jobs',
   '/terms',
   '/privacy',
+  '/delete-account',
   '/dpa',
   '/posts',
   '/tasks',
@@ -69,6 +70,7 @@ const STATIC_ROUTES = [
   '/agents',
   '/github',
   '/pricing',
+  '/download',
   '/tour',
   '/partners',
   '/partners/terms',
@@ -85,6 +87,7 @@ const ROUTE_MODULES: Array<[RegExp, string]> = [
   [/^\/jobs$/, 'src/app/routes/RouteJobs.tsx'],
   [/^\/terms$/, 'src/app/routes/RouteTerms.tsx'],
   [/^\/privacy$/, 'src/app/routes/RoutePrivacy.tsx'],
+  [/^\/delete-account$/, 'src/app/routes/RouteDeleteAccount.tsx'],
   [/^\/dpa$/, 'src/app/routes/RouteDpa.tsx'],
   [/^\/tasks$/, 'src/app/routes/RouteTasks.tsx'],
   [/^\/email$/, 'src/app/routes/RouteEmail.tsx'],
@@ -95,6 +98,7 @@ const ROUTE_MODULES: Array<[RegExp, string]> = [
   [/^\/agents$/, 'src/app/routes/RouteAgents.tsx'],
   [/^\/github$/, 'src/app/routes/RouteGithub.tsx'],
   [/^\/pricing$/, 'src/app/routes/RoutePricing.tsx'],
+  [/^\/download$/, 'src/app/routes/RouteDownload.tsx'],
   [/^\/tour$/, 'src/features/marketing/views/SalesPage.tsx'],
   [/^\/partners$/, 'src/app/routes/RoutePartners.tsx'],
   [/^\/partners\/terms$/, 'src/app/routes/RoutePartnerTerms.tsx'],
@@ -137,6 +141,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/jobs': 'Careers',
   '/terms': 'Terms',
   '/privacy': 'Privacy',
+  '/delete-account': 'Delete your account',
   '/dpa': 'Data Processing Agreement',
   '/posts': 'Blog',
   '/tasks': 'Tasks',
@@ -148,6 +153,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/agents': 'Agents',
   '/github': 'GitHub',
   '/pricing': 'Pricing',
+  '/download': 'Download',
   '/tour': 'Macro tour',
   '/partners': 'Partner Program',
   '/partners/terms': 'Partner Program Terms',
@@ -177,6 +183,7 @@ function sitemapHints(route: string): { priority: string; changefreq: string } {
   if (
     route === '/terms' ||
     route === '/privacy' ||
+    route === '/delete-account' ||
     route === '/dpa' ||
     route === '/partners/terms'
   )

@@ -136,34 +136,61 @@ fn it_expands_file_associations() {
                 {
                   "|": [
                     {
-                      "l": {
-                        "ft": "ai"
-                      }
+                      "|": [
+                        {
+                          "|": [
+                            {
+                              "|": [
+                                {
+                                  "l": {
+                                    "ft": "ai"
+                                  }
+                                },
+                                {
+                                  "l": {
+                                    "ft": "eps"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "l": {
+                                "ft": "ps"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "l": {
+                            "ft": "dxf"
+                          }
+                        }
+                      ]
                     },
                     {
                       "l": {
-                        "ft": "eps"
+                        "ft": "dwg"
                       }
                     }
                   ]
                 },
                 {
                   "l": {
-                    "ft": "ps"
+                    "ft": "fig"
                   }
                 }
               ]
             },
             {
               "l": {
-                "ft": "dxf"
+                "ft": "psd"
               }
             }
           ]
         },
         {
           "l": {
-            "ft": "dwg"
+            "ft": "psb"
           }
         }
       ]
@@ -1656,6 +1683,38 @@ fn initiatives_expand_with_properties_without_enabling_legacy_queries() {
 }
 
 #[test]
+fn database_rows_are_requested_by_naming_a_table_or_a_row_outside_a_not() {
+    use database_row::{DatabaseRowLiteral, database_rows_requested};
+    let table = Uuid::from_u128(0x7ab1e);
+    let row = Uuid::from_u128(0x0001);
+
+    assert!(!database_rows_requested(None));
+    assert!(database_rows_requested(Some(&Expr::val(
+        DatabaseRowLiteral::TableId(table)
+    ))));
+    assert!(database_rows_requested(Some(&Expr::or(
+        Expr::val(DatabaseRowLiteral::TableId(table)),
+        Expr::val(DatabaseRowLiteral::Id(row)),
+    ))));
+    assert!(!database_rows_requested(Some(&Expr::is_not(Expr::val(
+        DatabaseRowLiteral::TableId(table)
+    )))));
+    assert!(database_rows_requested(Some(&Expr::and(
+        Expr::val(DatabaseRowLiteral::TableId(table)),
+        Expr::is_not(Expr::val(DatabaseRowLiteral::Id(row))),
+    ))));
+
+    assert_eq!(
+        serde_json::to_value(EntityFilterAst {
+            database_row_filter: Some(Arc::new(Expr::val(DatabaseRowLiteral::TableId(table)))),
+            ..EntityFilterAst::default()
+        })
+        .unwrap()["drf"],
+        json!({ "l": { "t": "00000000-0000-0000-0000-00000007ab1e" } })
+    );
+}
+
+#[test]
 fn crm_document_literals_round_trip_through_the_rest_ast() {
     let company_id = "0198a1b2-c3d4-7e5f-8061-728394a5b700";
     let tree = json!({
@@ -1689,4 +1748,52 @@ fn crm_document_literals_round_trip_through_the_rest_ast() {
         )) if domain == "acme.com"
     );
     assert_eq!(serde_json::to_value(&expr).unwrap(), tree);
+}
+
+#[test]
+fn crm_association_round_trips_through_the_rest_ast() {
+    let company = Uuid::from_u128(0x0198a1b2_c3d4_7e5f_8061_728394a5b700);
+    let contact = Uuid::from_u128(0x0198a1b2_c3d4_7e5f_8061_728394a5b701);
+    let body = json!({
+        "crma": { "company": company },
+        "df": {
+            "&": [
+                { "!": { "l": { "dst": "task" } } },
+                { "|": [
+                    { "l": { "crm": { "contact": contact } } },
+                    { "l": { "nc": "Renewal" } }
+                ] }
+            ]
+        }
+    });
+    let ast: EntityFilterAst = serde_json::from_value(body.clone()).unwrap();
+
+    assert_eq!(ast.crm_association, Some(CrmAssociation::Company(company)));
+    assert_eq!(
+        ast.crm_associations(),
+        vec![
+            CrmAssociation::Company(company),
+            CrmAssociation::Contact(contact)
+        ]
+    );
+    assert!(!ast.is_empty());
+    let value = serde_json::to_value(&ast).unwrap();
+    assert_eq!(value["crma"], body["crma"]);
+    assert_eq!(value["df"], body["df"]);
+}
+
+#[test]
+fn crm_associations_deduplicate_repeated_records() {
+    let company = CrmAssociation::Company(Uuid::from_u128(1));
+    let ast = EntityFilterAst {
+        crm_association: Some(company),
+        document_filter: Some(Arc::new(Expr::or(
+            Expr::val(document::DocumentLiteral::CrmAssociated(company)),
+            Expr::is_not(Expr::val(document::DocumentLiteral::CrmAssociated(company))),
+        ))),
+        ..EntityFilterAst::default()
+    };
+
+    assert_eq!(ast.crm_associations(), vec![company]);
+    assert!(EntityFilterAst::default().crm_associations().is_empty());
 }

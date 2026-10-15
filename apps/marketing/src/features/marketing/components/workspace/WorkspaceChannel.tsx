@@ -1,22 +1,50 @@
-import Envelope from '@phosphor/envelope.svg';
-import File from '@phosphor/file.svg';
+import CaretRight from '@phosphor/caret-right.svg';
 import Hash from '@phosphor/hash.svg';
-import ListChecks from '@phosphor/list-checks.svg';
 import Phone from '@phosphor/phone.svg';
 import Plus from '@phosphor/plus.svg';
 import Sparkle from '@phosphor/sparkle.svg';
 import { Button } from '@ui';
-import { createEffect, createSignal, For, on, Show } from 'solid-js';
+import {
+  type Accessor,
+  createEffect,
+  createSignal,
+  For,
+  type JSX,
+  on,
+  Show,
+} from 'solid-js';
 import { plainDemoMentions } from '../../core/demo-mentions';
 import type { WorkspaceComment } from '../../core/dummy-workspace';
 import { homepagePeople } from '../../core/homepage-demo-people';
 import type { DummyWorkspace } from '../../primitives/createDummyWorkspace';
+import { DemoMention, DemoMentionText } from '../DemoMention';
 import { ViewShell } from '../DemoWorkspaceChrome';
-import { ChannelComposer } from '../email/frozen/ChannelComposer';
+import {
+  ChannelComposer,
+  type ChannelComposerHandle,
+} from '../email/frozen/ChannelComposer';
 import { Segments } from './frozen/DetailPanel';
 import { MessageRow } from './frozen/MessageRow';
+import { TaskMention } from './frozen/TaskMention';
 
-export function WorkspaceChannel(props: { workspace: DummyWorkspace }) {
+/** channel/Thread: up to this many replies render inline under the root. */
+const THREAD_PREVIEW = 3;
+
+export function WorkspaceChannel(props: {
+  workspace: DummyWorkspace;
+  /** A walkthrough can show one message's hover toolbar. */
+  hoveredMessage?: string;
+  renderMessageBody?: (message: WorkspaceComment) => JSX.Element;
+  renderMessageDetails?: (message: WorkspaceComment) => JSX.Element;
+  /** Replaces the default Task action, e.g. to open the task composer. */
+  onTaskMessage?: (message: WorkspaceComment) => void;
+  scriptedReply?: Accessor<string | undefined>;
+  stableComposer?: boolean;
+  onComposerReady?: (
+    handle: ChannelComposerHandle | undefined,
+    thread?: string
+  ) => void;
+}) {
   const w = props.workspace;
   const channel = () => w.data.channels.find((c) => c.id === w.channel());
   const name = () =>
@@ -64,76 +92,126 @@ export function WorkspaceChannel(props: { workspace: DummyWorkspace }) {
     setReply(id);
     setExpanded((ids) => (ids.includes(id) ? ids : [...ids, id]));
   };
-  const react = (id: string) =>
+  if (props.scriptedReply)
+    createEffect(() => {
+      const id = props.scriptedReply?.();
+      if (id) startReply(id);
+      else setReply(undefined);
+    });
+  const react = (id: string, emoji = '👍') => {
     w.setData(
       'channels',
       (c) => c.id === w.channel(),
       'messages',
       (m) => m.id === id,
-      'reactions',
-      (r) => (r?.length ? [] : ['jacob'])
+      (message) => {
+        const reactions =
+          message.emojiReactions ??
+          (message.reactions?.length
+            ? [{ emoji: '👍', users: message.reactions }]
+            : []);
+        const existing = reactions.find((reaction) => reaction.emoji === emoji);
+        const users = existing?.users.includes('jacob')
+          ? existing.users.filter((user) => user !== 'jacob')
+          : [...(existing?.users ?? []), 'jacob'];
+        return {
+          ...message,
+          emojiReactions: [
+            ...reactions.filter((reaction) => reaction.emoji !== emoji),
+            ...(users.length ? [{ emoji, users }] : []),
+          ],
+        };
+      }
     );
+  };
+  const renderReference = (id: string) => {
+    // Person names and entity ids can overlap in these local fixtures.
+    if (id in homepagePeople) return;
+    const doc = () => w.data.documents.find((item) => item.id === id);
+    const email = () => w.data.emails.find((item) => item.id === id);
+    const task = () => w.data.tasks.find((item) => item.id === id);
+    if (doc())
+      return (
+        <button
+          type="button"
+          class="sample-inline-reference"
+          onClick={() => w.openItem('documents', id)}
+        >
+          <DemoMention item={{ id, kind: 'document', label: doc()!.title }} />
+        </button>
+      );
+    if (email())
+      return (
+        <button
+          type="button"
+          class="sample-inline-reference"
+          onClick={() => w.openItem('email', id)}
+        >
+          <DemoMention item={{ id, kind: 'email', label: email()!.subject }} />
+        </button>
+      );
+    if (task())
+      return (
+        <TaskMention
+          task={task()!}
+          inline
+          onOpen={() => w.openItem('tasks', id)}
+        />
+      );
+  };
   const row = (message: WorkspaceComment, rootId = message.id) => (
     <MessageRow
       message={message}
-      onReact={() => react(message.id)}
+      bodyContent={
+        props.renderMessageBody?.(message) ?? (
+          <p class="mt-1 text-base whitespace-pre-wrap break-words">
+            <DemoMentionText
+              text={message.body}
+              renderMention={renderReference}
+            />
+            <For
+              each={[
+                message.emailId,
+                message.documentId,
+                message.taskId,
+                ...(message.taskIds ?? []),
+              ].filter(
+                (id): id is string =>
+                  !!id && !message.body.includes(`(demo-mention:${id})`)
+              )}
+            >
+              {(id) => <> {renderReference(id)}</>}
+            </For>
+          </p>
+        )
+      }
+      hovered={props.hoveredMessage === message.id}
+      onReact={(emoji) => react(message.id, emoji)}
       onReply={() => startReply(rootId)}
+      onChat={() => w.openItem('agents')}
       onTask={
-        !message.taskId
-          ? () => {
-              const id = w.createTask(
-                plainDemoMentions(message.body).slice(0, 90),
-                message.body,
-                w.channel()
-              );
-              w.setData(
-                'channels',
-                (c) => c.id === w.channel(),
-                'messages',
-                (m) => m.id === message.id,
-                'taskId',
-                id
-              );
-            }
-          : undefined
+        props.onTaskMessage
+          ? () => props.onTaskMessage?.(message)
+          : !message.taskId
+            ? () => {
+                const id = w.createTask(
+                  plainDemoMentions(message.body).slice(0, 90),
+                  message.body,
+                  w.channel()
+                );
+                w.setData(
+                  'channels',
+                  (c) => c.id === w.channel(),
+                  'messages',
+                  (m) => m.id === message.id,
+                  'taskId',
+                  id
+                );
+              }
+            : undefined
       }
     >
-      <Show when={message.emailId}>
-        {(id) => (
-          <button
-            type="button"
-            class="dummy-entity-link"
-            onClick={() => w.openItem('email', id())}
-          >
-            <Envelope class="size-4" />
-            {w.data.emails.find((e) => e.id === id())?.subject}
-          </button>
-        )}
-      </Show>
-      <Show when={message.documentId}>
-        {(id) => (
-          <button
-            type="button"
-            class="dummy-entity-link"
-            onClick={() => w.openItem('documents', id())}
-          >
-            <File class="size-4 text-note" />
-            {w.data.documents.find((d) => d.id === id())?.title}
-          </button>
-        )}
-      </Show>
-      <Show when={message.taskId}>
-        {(id) => (
-          <button
-            type="button"
-            class="dummy-entity-link"
-            onClick={() => w.openItem('tasks', id())}
-          >
-            <ListChecks class="size-4 text-task" />
-            {w.data.tasks.find((t) => t.id === id())?.title}
-          </button>
-        )}
-      </Show>
+      {props.renderMessageDetails?.(message)}
     </MessageRow>
   );
   return (
@@ -233,7 +311,7 @@ export function WorkspaceChannel(props: { workspace: DummyWorkspace }) {
                 class="sample-channel-thread"
                 data-thread-id={message.id}
                 data-thread-open={
-                  expanded().includes(message.id) || reply() === message.id
+                  children(message.id).length > 0 || reply() === message.id
                 }
               >
                 {row(message)}
@@ -242,34 +320,66 @@ export function WorkspaceChannel(props: { workspace: DummyWorkspace }) {
                     children(message.id).length > 0 || reply() === message.id
                   }
                 >
-                  <Show
-                    when={expanded().includes(message.id)}
-                    fallback={
+                  <div class="sample-thread-replies">
+                    <For
+                      each={
+                        expanded().includes(message.id)
+                          ? children(message.id)
+                          : children(message.id).slice(0, THREAD_PREVIEW)
+                      }
+                    >
+                      {(child) => row(child, message.id)}
+                    </For>
+                    <Show
+                      when={
+                        !expanded().includes(message.id) &&
+                        children(message.id).length > THREAD_PREVIEW
+                      }
+                    >
                       <button
                         type="button"
                         class="sample-thread-expand"
+                        title="Expand thread"
                         onClick={() =>
                           setExpanded((ids) => [...ids, message.id])
                         }
                       >
-                        {children(message.id).length}{' '}
-                        {children(message.id).length === 1
-                          ? 'reply'
-                          : 'replies'}{' '}
+                        <span class="sample-thread-avatars" aria-hidden="true">
+                          <For
+                            each={[
+                              ...new Set(
+                                children(message.id)
+                                  .slice(THREAD_PREVIEW)
+                                  .map((m) => m.person)
+                              ),
+                            ].slice(0, 4)}
+                          >
+                            {(person) => (
+                              <img alt="" src={homepagePeople[person].photo} />
+                            )}
+                          </For>
+                        </span>
+                        <span class="text-accent">
+                          {children(message.id).length - THREAD_PREVIEW}{' '}
+                          {children(message.id).length - THREAD_PREVIEW === 1
+                            ? 'more reply'
+                            : 'more replies'}
+                        </span>
                         <span class="text-ink-extra-muted">
                           Last reply today
                         </span>
-                        <span>›</span>
+                        <CaretRight class="size-3 text-ink-extra-muted" />
                       </button>
-                    }
-                  >
-                    <div class="sample-thread-replies">
-                      <For each={children(message.id)}>
-                        {(child) => row(child, message.id)}
-                      </For>
-                      <Show
-                        when={reply() === message.id}
-                        fallback={
+                    </Show>
+                    <Show
+                      when={reply() === message.id}
+                      fallback={
+                        <Show
+                          when={
+                            expanded().includes(message.id) ||
+                            children(message.id).length <= THREAD_PREVIEW
+                          }
+                        >
                           <button
                             type="button"
                             class="sample-thread-reply-button"
@@ -278,35 +388,39 @@ export function WorkspaceChannel(props: { workspace: DummyWorkspace }) {
                           >
                             <Plus class="size-4" />
                           </button>
-                        }
-                      >
-                        <div class="sample-thread-editor">
-                          <ChannelComposer
-                            richMentions
-                            label="Thread reply"
-                            placeholder={`Reply to ${homepagePeople[message.person].shortName}…`}
-                            onSend={(body) => {
-                              w.post(
-                                body,
-                                undefined,
-                                undefined,
-                                undefined,
-                                message.id
-                              );
-                              setReply(undefined);
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            variant="plain"
-                            onClick={() => setReply(undefined)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </Show>
-                    </div>
-                  </Show>
+                        </Show>
+                      }
+                    >
+                      <div class="sample-thread-editor">
+                        <ChannelComposer
+                          richMentions
+                          label="Thread reply"
+                          compact={props.stableComposer ? true : undefined}
+                          onReady={(handle) =>
+                            props.onComposerReady?.(handle, message.id)
+                          }
+                          placeholder="Send a reply"
+                          onSend={(body) => {
+                            w.post(
+                              body,
+                              undefined,
+                              undefined,
+                              undefined,
+                              message.id
+                            );
+                            setReply(undefined);
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="plain"
+                          onClick={() => setReply(undefined)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </Show>
+                  </div>
                 </Show>
               </div>
             )}
@@ -318,6 +432,8 @@ export function WorkspaceChannel(props: { workspace: DummyWorkspace }) {
           <ChannelComposer
             richMentions
             label={`Message #${w.channel()}`}
+            compact={props.stableComposer ? true : undefined}
+            onReady={(handle) => props.onComposerReady?.(handle)}
             placeholder={`Type @ to share with ${channel()?.person ? homepagePeople[channel()!.person!].shortName : `#${name()}`}`}
             onSend={(body) => {
               w.post(body);

@@ -2,7 +2,11 @@
 
 use std::collections::HashSet;
 
-use agent_session::domain::error::Result as AgentResult;
+use agent_session::domain::error::{AgentSessionError, Result as AgentResult};
+use chrono::{DateTime, Utc};
+use trigger_context::{TaskAssignedContext, TaskSnapshot, TriggerContext};
+
+use crate::domain::context::PeopleDirectory;
 use agent_session::domain::ports::AgentSessionRepo;
 use bot_id::{BotId, BotIdStr};
 use macro_event_broker::MacroEventBroker;
@@ -16,6 +20,9 @@ use messages::domain::{
 use models_properties::{EntityType, service::property_value::PropertyValue};
 use properties::domain::events::EntityPropertyUpdatedMetadata;
 use system_properties::SystemPropertyKey;
+
+mod project_context;
+pub use project_context::ProjectTaskAssignmentContext;
 
 use super::{
     broker_events::{AgentAssignedToTaskEvent, AgentSessionMacroEvent, NewAgentSessionEvent},
@@ -36,6 +43,16 @@ pub struct TaskBrief {
     pub title: String,
     /// Current task description in Markdown.
     pub markdown: String,
+    /// Current Status option name.
+    pub status: Option<String>,
+    /// Current Priority option name.
+    pub priority: Option<String>,
+    /// Current due date.
+    pub due: Option<chrono::DateTime<chrono::Utc>>,
+    /// User and bot ids in the Assignees property, people and agents alike.
+    pub assignee_ids: Vec<String>,
+    /// Current project, only when the assigning principal can view it.
+    pub project: Option<trigger_context::ProjectRef>,
 }
 
 /// Reads the task through its owning service under a verified document capability.
@@ -53,7 +70,7 @@ pub trait TaskAssignmentContext: Send + Sync + 'static {
 pub struct TaskAssignment {
     /// The source event id identifies this assignment, including on replay.
     pub event_id: Uuid,
-    /// Task document whose discussion receives the agent's replies.
+    /// Task document whose discussion receives the agent session link.
     pub parent: MessageParent,
     /// User whose assignment starts the work.
     pub actor: MacroUserIdStr<'static>,
@@ -103,7 +120,7 @@ fn assigned_bots(value: Option<&PropertyValue>) -> HashSet<BotId> {
 }
 
 /// Open a real discussion before publishing a session trigger. The common
-/// harness then announces the session here and routes subsequent replies.
+/// harness then links the session here and routes subsequent user replies.
 pub async fn process_task_assignment<
     Repo,
     Bots,
@@ -114,11 +131,13 @@ pub async fn process_task_assignment<
     History,
     Broker,
     Context,
+    People,
 >(
     trigger: &AgentTriggerService<Repo, Bots, Teams, Channels, Replies, Judge, History>,
     publisher: &Broker,
     messages: &dyn MessageCommands,
     context: &Context,
+    people: &People,
     assignment: &TaskAssignment,
 ) -> Result<(), ProcessMessageEventError>
 where
@@ -131,6 +150,7 @@ where
     History: ThreadHistory,
     Broker: MacroEventBroker,
     Context: TaskAssignmentContext,
+    People: PeopleDirectory,
 {
     for &bot_id in &assignment.bots {
         let Some(invocation) = trigger
@@ -165,6 +185,7 @@ where
         else {
             continue;
         };
+        let context = assigned_context(assignment, &brief, message.id, people).await?;
         let event = AgentSessionMacroEvent::new_session(NewAgentSessionEvent::AssignedToTask(
             AgentAssignedToTaskEvent {
                 bot_id,
@@ -172,6 +193,7 @@ where
                 discussion_id: message.id,
                 actor: assignment.actor.clone(),
                 prompt: assignment_prompt(assignment, &brief),
+                context: Some(context),
             },
         ));
         publisher
@@ -180,6 +202,57 @@ where
             .map_err(ProcessMessageEventError::PublishTask)??;
     }
     Ok(())
+}
+
+/// The task as the agent should see it, with everyone named.
+async fn assigned_context(
+    assignment: &TaskAssignment,
+    brief: &TaskBrief,
+    discussion_id: Uuid,
+    people: &impl PeopleDirectory,
+) -> AgentResult<TriggerContext> {
+    let mut named = people
+        .people(
+            std::iter::once(assignment.actor.as_ref().to_owned())
+                .chain(brief.assignee_ids.iter().cloned())
+                .collect(),
+        )
+        .await?
+        .into_iter();
+    let assigned_by = named.next().ok_or_else(|| {
+        AgentSessionError::Unknown(anyhow::anyhow!("the people directory named nobody"))
+    })?;
+    Ok(TriggerContext::TaskAssigned(TaskAssignedContext {
+        task: TaskSnapshot {
+            id: assignment.parent.entity_id(),
+            title: brief.title.clone(),
+            markdown: brief.markdown.clone(),
+            status: brief.status.clone(),
+            priority: brief.priority.clone(),
+            due: brief.due,
+            assignees: named.collect(),
+            project: brief.project.clone(),
+        },
+        assigned_by,
+        assigned_at: assigned_at(assignment.event_id)?,
+        discussion_id,
+    }))
+}
+
+/// When the assignment was made: its source event id is a UUIDv7, which
+/// carries the moment the event was minted.
+fn assigned_at(event_id: Uuid) -> AgentResult<DateTime<Utc>> {
+    event_id
+        .get_timestamp()
+        .and_then(|timestamp| {
+            let (seconds, nanos) = timestamp.to_unix();
+            DateTime::from_timestamp(i64::try_from(seconds).ok()?, nanos)
+        })
+        .ok_or_else(|| {
+            AgentSessionError::Unknown(anyhow::anyhow!(
+                "assignment event {event_id} is not a UUIDv7"
+            ))
+        })
 }
 
 /// Derive one replay-stable UUIDv7 per assigned bot, retaining the event timestamp.
@@ -198,22 +271,50 @@ fn discussion_id(event_id: Uuid, bot_id: BotId) -> Uuid {
 }
 
 fn assignment_prompt(assignment: &TaskAssignment, brief: &TaskBrief) -> String {
-    // Keep the task ID available to agent runtimes in the private prompt. Escape tag delimiters in user-controlled titles.
+    let mut prompt = format!(
+        "{}\n\n{}",
+        include_str!("task_assignment/prompt.md").trim(),
+        task_reference(&assignment.parent, &brief.title),
+    );
+    if let Some(project_id) = brief.project.as_ref().map(|project| project.id) {
+        let project_reference = serde_json::json!({
+            "documentId": project_id,
+            "documentName": "Task project",
+            "blockName": "initiative",
+            "blockParams": {},
+        });
+        prompt.push_str(&format!(
+            "\n\nProject: <m-document-mention>{project_reference}</m-document-mention>"
+        ));
+    }
+    prompt.push_str("\n\n");
+    prompt.push_str(&brief.markdown);
+    prompt
+}
+
+/// Persistent task guidance for session system instructions, without snapshotting
+/// the mutable task description into the system prompt.
+pub fn assignment_instructions(parent: &MessageParent) -> String {
+    format!(
+        "{}\n\n{}",
+        include_str!("task_assignment/prompt.md").trim(),
+        task_reference(parent, "Original assigned task"),
+    )
+}
+
+fn task_reference(parent: &MessageParent, title: &str) -> String {
+    // Escape tag delimiters in user-controlled titles and retain the original
+    // document ID in both the private opening prompt and system instructions.
     let task_reference = serde_json::json!({
-        "documentId": assignment.parent.entity_id(),
-        "documentName": brief.title,
+        "documentId": parent.entity_id(),
+        "documentName": title,
         "blockName": "task",
         "blockParams": {},
     })
     .to_string()
     .replace('<', "\\u003c")
     .replace('>', "\\u003e");
-    format!(
-        "{}\n\n<m-document-mention>{}</m-document-mention>\n\n{}",
-        include_str!("task_assignment/prompt.md").trim(),
-        task_reference,
-        brief.markdown,
-    )
+    format!("<m-document-mention>{task_reference}</m-document-mention>")
 }
 
 async fn assignment_discussion(

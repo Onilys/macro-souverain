@@ -4,15 +4,16 @@ import {
   makeCopyLinkAction,
 } from '@app/features/next-soup/actions';
 import { ShowFeatureFlag, useFeatureFlag } from '@app/lib/analytics/posthog';
+import { createSearchParams } from '@app/lib/split-router';
 import { globalSplitManager } from '@app/signal/splitLayout';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import {
   useSplitPanelOrThrow,
   withSplitPanelOwner,
 } from '@components/app/split-layout/layoutUtils';
-import { enableProjects } from '@core/constant/featureFlags';
+import { enableGantt, enableProjects } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
-import { registerActivityRevalidator } from '@queries/activity/push-registry';
+import { usePropertyUserDisplay } from '@property/hooks/usePropertyUserDisplay';
 import { queryClient } from '@queries/client';
 import {
   getGraphqlSoupCacheHost,
@@ -20,10 +21,11 @@ import {
 } from '@service-storage/graphql-soup';
 import { initiativeClient } from '@service-storage/initiative';
 import { Button } from '@ui';
-import type { Accessor } from 'solid-js';
 import {
+  createEffect,
   createSignal,
   ErrorBoundary,
+  on,
   onCleanup,
   type ParentProps,
   Show,
@@ -39,11 +41,15 @@ import {
   type ProjectListActivation,
 } from './primitives/project-collection';
 import { createProjectCollectionPersistence } from './project-collection-persistence';
+import { projectCollectionSearch } from './project-collection-search';
 import { ProjectShareLauncher } from './project-share';
-import { projectKeys } from './queries/keys';
 import { createProjectSources } from './queries/project-sources';
 import { ProjectAssignment } from './views/project-assignment';
 import { ProjectsCollection } from './views/projects-collection';
+import {
+  ProjectsSidebar,
+  type ProjectsSidebarProps,
+} from './views/projects-sidebar';
 
 function createProjectReadGate() {
   // Each source invokes this under its own owner, which can outlive this view.
@@ -53,17 +59,6 @@ function createProjectReadGate() {
 
 function createProjectsContext() {
   const userId = useUserId();
-  onCleanup(
-    registerActivityRevalidator({
-      client: getGraphqlSoupClient,
-      // Multiple mounted surfaces share an in-flight refresh instead of cancelling it.
-      refresh: () =>
-        queryClient.invalidateQueries(
-          { queryKey: projectKeys._def },
-          { cancelRefetch: false }
-        ),
-    })
-  );
   return createProjectSources(
     initiativeClient,
     { client: getGraphqlSoupClient, cacheHost: getGraphqlSoupCacheHost },
@@ -114,12 +109,22 @@ export function ProjectsTab(props: {
   );
 }
 
+export function ProjectsSidebarSection(props: ProjectsSidebarProps) {
+  return (
+    <Projects>
+      <ProjectsSidebar {...props} />
+    </Projects>
+  );
+}
+
 function ProjectsCollectionHost(props: {
   onOpen: (id: string, event?: MouseEvent, newSplit?: boolean) => void;
 }) {
   const panel = useSplitPanelOrThrow();
   const layout = useSplitLayout();
   const context = useProjectsContext();
+  const ganttFlag = useFeatureFlag(enableGantt);
+  const [search, setSearch] = createSearchParams(projectCollectionSearch);
   const activation = withSplitPanelOwner(
     listOwnedSlotName('initiatives:activation'),
     () => ({
@@ -144,6 +149,22 @@ function ProjectsCollectionHost(props: {
         onOpen: (id, metadata) => activation.current?.(id, metadata),
       })
   );
+  // URL history restores the entry snapshot, not the latest layout selection.
+  const entryLayout = collection.layout();
+  createEffect(
+    on(
+      () => search.layout,
+      (layout) => collection.setLayout(layout ?? entryLayout)
+    )
+  );
+  const displayCollection = {
+    ...collection,
+    setLayout: (layout: 'list' | 'gantt') => {
+      const selected = collection.setLayout(layout);
+      setSearch({ layout: selected });
+      return selected;
+    },
+  };
   const copyLink = makeCopyLinkAction();
   const copyId = makeCopyEntityIdAction();
   const [sharing, setSharing] = createSignal<string>();
@@ -151,9 +172,15 @@ function ProjectsCollectionHost(props: {
     <>
       <ProjectsCollection
         onOpen={open}
-        collection={collection}
-        onCreate={() =>
-          layout.popoverSplit({ type: 'component', id: 'project-compose' })
+        collection={displayCollection}
+        ganttEnabled={ganttFlag().enabled}
+        createAssigneeName={(id) => usePropertyUserDisplay(id).name}
+        onCreate={(initialDraft) =>
+          layout.popoverSplit({
+            type: 'component',
+            id: 'project-compose',
+            params: initialDraft ? { initialDraft } : undefined,
+          })
         }
         scopeId={panel.splitHotkeyScope}
         isActive={panel.isPanelActive}
@@ -190,8 +217,4 @@ export function ProjectAssignmentDialog(props: {
       <ProjectAssignment taskIds={props.taskIds} onClose={props.onClose} />
     </Projects>
   );
-}
-
-export function useTaskProjectReferences(ids: Accessor<readonly string[]>) {
-  return createProjectsContext().createReferencesSource(ids);
 }

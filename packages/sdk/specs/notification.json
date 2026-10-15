@@ -1365,6 +1365,10 @@
             "type": "string",
             "description": "The user who sent the invitation"
           },
+          "isDirectMessage": {
+            "type": "boolean",
+            "description": "Whether this is a direct message rather than a channel invitation.\nOlder notification payloads retain channel-invitation wording."
+          },
           "messageContent": {
             "type": ["string", "null"],
             "description": "Message content to show in the invite email, when the invite was triggered by a message."
@@ -1758,11 +1762,15 @@
           "static_file",
           "crm_company",
           "crm_contact",
+          "crm_pipeline",
           "reminder",
           "skill",
           "agent_session",
           "scheduled_action",
-          "initiative"
+          "initiative",
+          "database",
+          "database_row",
+          "form"
         ]
       },
       "ErrorResponse": {

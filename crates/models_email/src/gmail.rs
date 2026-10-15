@@ -241,3 +241,32 @@ pub struct GmailUserProfile {
     pub threads_total: i32,
     pub history_id: String,
 }
+
+/// Response from Gmail users.settings.sendAs.list API
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListSendAsResponse {
+    pub send_as: Option<Vec<SendAsAlias>>,
+}
+
+/// Provider verification status; unknown states never authorize sending.
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SendAsVerificationStatus {
+    Accepted,
+    Pending,
+    #[serde(other)]
+    Unknown,
+}
+
+/// A single sendAs alias from Gmail settings
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SendAsAlias {
+    pub send_as_email: String,
+    pub verification_status: Option<SendAsVerificationStatus>,
+    pub display_name: Option<String>,
+    pub signature: Option<String>,
+    pub is_primary: Option<bool>,
+    pub is_default: Option<bool>,
+}

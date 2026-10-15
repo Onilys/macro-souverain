@@ -1,7 +1,7 @@
 use super::*;
 use crate::domain::{
-    AllowanceDecision, BillingPeriod, BillingSettings, Entitlement, PlanTier, Result,
-    UsageSnapshot, ledger::build_snapshot,
+    AiPricing, AllowanceDecision, AutoReloadThresholds, BillingPeriod, BillingSettings,
+    Entitlement, PlanTier, Result, UsageSnapshot, ledger::build_snapshot,
 };
 use ai_usage::domain::{Result as UsageResult, UsageError};
 use ai_usage::{
@@ -53,6 +53,14 @@ struct FakeBilling {
 }
 
 impl BillingService for FakeBilling {
+    async fn change_plan(
+        &self,
+        _: &MacroUserIdStr<'_>,
+        _: crate::domain::plan_change::PlanChange,
+    ) -> Result<()> {
+        panic!("this use case must not change plans")
+    }
+
     async fn snapshot(&self, _user: &MacroUserIdStr<'_>) -> Result<UsageSnapshot> {
         self.snapshots.fetch_add(1, Ordering::SeqCst);
         Ok(self.snapshot.clone())
@@ -71,6 +79,15 @@ impl BillingService for FakeBilling {
         _user: &MacroUserIdStr<'_>,
         _enabled: bool,
         _limit_cents: i64,
+    ) -> Result<UsageSnapshot> {
+        unreachable!()
+    }
+
+    async fn update_auto_reload(
+        &self,
+        _user: &MacroUserIdStr<'_>,
+        _enabled: bool,
+        _thresholds: AutoReloadThresholds,
     ) -> Result<UsageSnapshot> {
         unreachable!()
     }
@@ -105,6 +122,14 @@ impl BillingService for FakeBilling {
     }
 
     async fn mark_overage_invoice(&self, _stripe_invoice_id: &str, _paid: bool) -> Result<()> {
+        unreachable!()
+    }
+
+    async fn mark_credit_reload_invoice(
+        &self,
+        _stripe_invoice_id: &str,
+        _paid: bool,
+    ) -> Result<()> {
         unreachable!()
     }
 }
@@ -164,6 +189,7 @@ async fn record_with_policy(
             chargeable_cents,
             Default::default(),
             0,
+            AiPricing::testing(),
         ),
     });
     let trigger = FakeTrigger::default();
@@ -174,7 +200,15 @@ async fn record_with_policy(
         settlement,
     );
     let should_count = enforcement.should_count(&user, feature);
-    recorder.record(UsageContext::new(feature, user).into_event("test-model".into(), 10, 10));
+    recorder.record(UsageContext::new(feature, user).into_event(
+        "test-model".into(),
+        ai_usage::UsageAmount::Tokens {
+            input: 10,
+            output: 10,
+            cache_read: 0,
+            cache_write: 0,
+        },
+    ));
     tokio::time::timeout(Duration::from_secs(2), repo.recorded.notified())
         .await
         .expect("usage must be recorded under either settlement policy, including after a retry");

@@ -10,11 +10,11 @@ import {
 } from '@queries/properties/tags';
 import type { PropertyOptionResponse } from '@service-properties/generated/schemas/propertyOptionResponse';
 import type { TagScope } from '@service-properties/generated/schemas/tagScope';
-import { Button, CommandMenuShell, cn, Dialog, Hotkey, Tooltip } from '@ui';
+import { Button, CommandMenuShell, Dialog, Hotkey } from '@ui';
 import type { JSX } from 'solid-js';
-import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
-import { TagDot } from './TagDot';
-import { DEFAULT_TAG_COLOR, TAG_COLOR_OPTIONS } from './tagColors';
+import { createEffect, createMemo, createSignal, Show } from 'solid-js';
+import { ColorSwatches } from './components/color-swatches';
+import { DEFAULT_TAG_COLOR } from './tagColors';
 
 export type EditableTag = {
   scope: TagScope;
@@ -91,12 +91,6 @@ export function TagEditorDialog(props: {
         ? 'user'
         : initialScope(mode)
     );
-
-    if (mode.type === 'create') {
-      requestAnimationFrame(() => {
-        nameInputRef?.focus();
-      });
-    }
   });
 
   const title = () =>
@@ -183,6 +177,11 @@ export function TagEditorDialog(props: {
       open={props.open}
       onOpenChange={(open) => !open && close()}
       onCloseAutoFocus={props.onCloseAutoFocus}
+      onOpenAutoFocus={(event) => {
+        if (props.mode?.type !== 'create') return;
+        event.preventDefault();
+        nameInputRef?.focus();
+      }}
     >
       <CommandMenuShell depth={2} class="text-sm" onKeyDown={handleKeyDown}>
         <CommandMenuShell.Header class="my-0 gap-3 border-b-0">
@@ -210,7 +209,6 @@ export function TagEditorDialog(props: {
             <EditorRow label="Name">
               <input
                 ref={nameInputRef}
-                autofocus={props.mode?.type === 'create'}
                 value={label()}
                 onInput={(event) => setLabel(event.currentTarget.value)}
                 onKeyDown={(event) => {
@@ -222,27 +220,10 @@ export function TagEditorDialog(props: {
             </EditorRow>
 
             <EditorRow label="Color">
-              <div class="flex flex-wrap items-center gap-2">
-                <For each={TAG_COLOR_OPTIONS}>
-                  {(option) => (
-                    <Tooltip label={option.name}>
-                      <button
-                        type="button"
-                        aria-label={option.name}
-                        onClick={() => setColor(option.color)}
-                        class={cn(
-                          'flex size-7 items-center justify-center rounded-md border outline-none hover:bg-hover focus-visible:border-accent',
-                          color() === option.color
-                            ? 'border-accent bg-accent-bg'
-                            : 'border-edge-muted'
-                        )}
-                      >
-                        <TagDot color={option.color} class="size-3.5" />
-                      </button>
-                    </Tooltip>
-                  )}
-                </For>
-              </div>
+              <ColorSwatches
+                value={color()}
+                onChange={(option) => setColor(option.color)}
+              />
             </EditorRow>
 
             <Show when={props.mode?.type === 'create'}>

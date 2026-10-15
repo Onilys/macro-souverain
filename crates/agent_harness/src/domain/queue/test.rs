@@ -11,6 +11,7 @@ fn prompt_entry(text: &str) -> QueuedEntry {
         announce: None,
         announced: None,
         created_at: Utc::now(),
+        context: None,
     }
 }
 
@@ -132,6 +133,7 @@ fn only_prompts_are_editable() {
         announce: None,
         announced: None,
         created_at: Utc::now(),
+        context: None,
     };
     queues.enqueue(session, compact.clone()).unwrap();
 
@@ -193,6 +195,34 @@ fn a_requeued_entry_is_next_in_line() {
     assert_eq!(
         queues.claim_next(session).unwrap().action_id,
         first.action_id
+    );
+}
+
+#[test]
+fn move_to_front_promotes_a_waiting_entry_and_keeps_the_rest() {
+    let queues = SessionQueues::new();
+    let session = AgentSessionId::TEST_A;
+    let first = prompt_entry("first");
+    let steered = prompt_entry("steer");
+    let third = prompt_entry("third");
+    queues.enqueue(session, first.clone()).unwrap();
+    queues.enqueue(session, steered.clone()).unwrap();
+    queues.enqueue(session, third.clone()).unwrap();
+
+    queues.move_to_front(session, steered.action_id).unwrap();
+    queues.move_to_front(session, steered.action_id).unwrap();
+
+    assert_eq!(
+        queues
+            .list(session)
+            .iter()
+            .map(|entry| entry.action_id)
+            .collect::<Vec<_>>(),
+        [steered.action_id, first.action_id, third.action_id]
+    );
+    assert_eq!(
+        queues.move_to_front(session, AgentActionId::mint()),
+        Err(QueueError::NotFound)
     );
 }
 

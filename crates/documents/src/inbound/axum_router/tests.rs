@@ -236,6 +236,13 @@ impl DocumentService for FakeDocumentService {
         })
     }
 
+    async fn internal_get_user_display_name(
+        &self,
+        _user_id: &str,
+    ) -> Result<Option<String>, DocumentError> {
+        unimplemented!()
+    }
+
     async fn get_document_by_team_slug(
         &self,
         team_receipt: EntityAccessReceipt<MemberTeamRole>,
@@ -359,12 +366,27 @@ impl DocumentService for FakeDocumentService {
         panic!("unexpected get_task_branch_name call")
     }
 
+    async fn get_task_identity(
+        &self,
+        _entity_access_receipt: EntityAccessReceipt<entity_access::domain::models::ViewAccessLevel>,
+        _document_context: &DocumentBasic,
+    ) -> Result<crate::domain::models::TaskIdentity, DocumentError> {
+        panic!("unexpected get_task_identity call")
+    }
+
     async fn get_task_github_pull_requests(
         &self,
         _entity_access_receipt: EntityAccessReceipt<entity_access::domain::models::ViewAccessLevel>,
         _document_context: &DocumentBasic,
     ) -> Result<GithubPullRequestsResponse, DocumentError> {
         panic!("unexpected get_task_github_pull_requests call")
+    }
+    async fn get_github_pull_request_tasks(
+        &self,
+        _user_id: &str,
+        _github_keys: Vec<String>,
+    ) -> Result<crate::domain::models::GithubPullRequestTasksResponse, DocumentError> {
+        panic!("unexpected get_github_pull_request_tasks call")
     }
 
     async fn edit_document(

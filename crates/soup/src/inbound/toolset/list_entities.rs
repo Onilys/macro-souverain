@@ -304,19 +304,19 @@ impl EntityItem {
                 created_by: record.created_by,
                 tags: resolve_applied_tags(&record.extra.properties, tag_map),
             },
-            // `entity_filter_ast` force-filters CrmCompany and Reminder out —
+            // `entity_filter_ast` force-filters CrmCompany out —
             // kept loud here so a contract break is obvious, not silent.
-            SoupItem::CrmCompany(_) => {
+            SoupItem::CrmContact(_) | SoupItem::CrmCompany(_) => {
                 unreachable!("ListEntities tool does not surface CrmCompany rows")
-            }
-            SoupItem::Reminder(_) => {
-                unreachable!("ListEntities tool does not surface Reminder rows")
             }
             SoupItem::Initiative(_) => {
                 unreachable!("ListEntities tool does not surface Initiative rows")
             }
             SoupItem::AgentSession(_) => {
                 unreachable!("ListEntities tool does not surface AgentSession rows")
+            }
+            SoupItem::DatabaseRow(_) => {
+                unreachable!("ListEntities tool does not surface DatabaseRow rows")
             }
             SoupItem::ForeignEntity(foreign_entity) => EntityItem::ForeignEntity {
                 id: foreign_entity.id,
@@ -367,9 +367,10 @@ fn any_item_has_tags(items: &[EnrichedSoupItem]) -> bool {
             SoupItem::Channel(_)
             | SoupItem::ChannelThread(_)
             | SoupItem::Call(_)
+            | SoupItem::CrmContact(_)
             | SoupItem::ForeignEntity(_)
-            | SoupItem::Reminder(_)
-            | SoupItem::AgentSession(_) => return false,
+            | SoupItem::AgentSession(_)
+            | SoupItem::DatabaseRow(_) => return false,
         };
         properties
             .iter()
@@ -401,6 +402,13 @@ pub struct ListEntities {
     )]
     #[serde(default)]
     pub include_types: Option<Vec<ItemType>>,
+
+    /// Restrict results to the user's favorites.
+    #[schemars(
+        description = "Only return items the user has favorited (starred). Use for requests like \"my favorites\" or \"what have I starred\". Combine with includeTypes and the other filters as usual. Favorite or unfavorite an item with SetFavorite."
+    )]
+    #[serde(default)]
+    pub favorites_only: bool,
 
     /// Sort order for returned items.
     #[schemars(
@@ -549,7 +557,8 @@ impl ListEntities {
         };
 
         let ast = EntityFilterAst {
-            favorites_only: None,
+            favorites_only: self.favorites_only.then_some(true),
+            crm_association: None,
             calendar_event_filter: None,
             document_filter: self.document_filter.clone(),
             project_filter: self.project_filter.clone(),
@@ -569,13 +578,14 @@ impl ListEntities {
             // CrmCompany not in the tool surface — force-filter so the
             // AI never sees one.
             crm_company_filter: Some(Arc::new(Expr::val(CrmCompanyLiteral::Id(Uuid::nil())))),
+            crm_contact_filter: None,
             foreign_entity_filter: self.foreign_entity_filter.clone(),
-            // Reminders are opt-in in Soup, so leaving this unset is already
-            // what keeps them out of the tool surface — no force-filter needed.
-            reminder_filter: None,
+            github_pull_request_filter: None,
             // Agent sessions are opt-in too; unset keeps them off the tool surface.
             agent_session_filter: None,
             initiative_filter: None,
+            // Database rows are opt-in as well; the tool never names a table.
+            database_row_filter: None,
             properties_filter,
         };
 
@@ -596,6 +606,7 @@ impl ListEntities {
 
         EntityFilterAst {
             favorites_only: ast.favorites_only,
+            crm_association: ast.crm_association,
             calendar_event_filter: if include_types.contains(&ItemType::CalendarEvent) {
                 ast.calendar_event_filter
             } else {
@@ -644,15 +655,16 @@ impl ListEntities {
             // Preserve the upstream nil filter — no ItemType::CrmCompany
             // to toggle against.
             crm_company_filter: ast.crm_company_filter,
+            crm_contact_filter: None,
             foreign_entity_filter: if include_types.contains(&ItemType::ForeignEntity) {
                 ast.foreign_entity_filter
             } else {
                 Some(Arc::new(Expr::val(ForeignEntityLiteral::Id(Uuid::nil()))))
             },
-            // Same as CrmCompany — no ItemType::Reminder to toggle against.
-            reminder_filter: ast.reminder_filter,
+            github_pull_request_filter: None,
             agent_session_filter: ast.agent_session_filter,
             initiative_filter: None,
+            database_row_filter: None,
             properties_filter: ast.properties_filter,
         }
     }

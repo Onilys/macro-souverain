@@ -45,10 +45,6 @@ export function EmailThreadHostView(props: EmailThreadHostViewProps) {
       type: 'component',
       id: 'task-compose',
       params: {
-        initialTitle:
-          props.title.length > 70
-            ? `${props.title.slice(0, 70)}...`
-            : props.title,
         initialContent: buildMentionMarkdownString({
           type: 'document',
           documentId: props.threadId(),
@@ -74,6 +70,7 @@ export function EmailThreadHostView(props: EmailThreadHostViewProps) {
         <>
           {props.chrome?.({ createTask })}
           <SidePanel.Layout
+            floating
             defaultOpen={false}
             headerToggle={props.sidePanelHeaderToggle}
           >
@@ -92,13 +89,8 @@ export function EmailThreadHostView(props: EmailThreadHostViewProps) {
 function ThreadActions(props: { title: string; onCreateTask: () => void }) {
   const context = useEmailThreadState();
   return (
-    <SidePanel.Section
-      id="email-ai-actions"
-      title="Actions"
-      defaultOpen
-      order={0}
-    >
-      <div class="m-px flex items-center justify-start gap-2">
+    <SidePanel.HeaderActions>
+      <div class="flex shrink-0 items-center gap-1">
         <Show when={context.thread()?.db_id}>
           {(id) => (
             <AskMacroButton
@@ -110,6 +102,6 @@ function ThreadActions(props: { title: string; onCreateTask: () => void }) {
           <EmailTaskButton onClick={props.onCreateTask} />
         </Show>
       </div>
-    </SidePanel.Section>
+    </SidePanel.HeaderActions>
   );
 }

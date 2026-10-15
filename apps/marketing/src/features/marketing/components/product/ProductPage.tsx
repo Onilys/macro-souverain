@@ -1,5 +1,5 @@
 import MacroLogo from '@icon/macro-logo.svg';
-import type { JSX, ParentProps } from 'solid-js';
+import { type JSX, type ParentProps, Show } from 'solid-js';
 import { FeaturePage, FeaturePageCta } from '../FeaturePage';
 import '../email/email-hero.css';
 import './product-page.css';
@@ -8,7 +8,7 @@ import './product-demo-stage.css';
 /** Email's approved geometry, scoped to the product-page rollout. */
 export function ProductPage(props: ParentProps) {
   return (
-    <FeaturePage>
+    <FeaturePage productSpacing>
       <div class="product-page">{props.children}</div>
     </FeaturePage>
   );
@@ -17,8 +17,8 @@ export function ProductPage(props: ParentProps) {
 export function ProductHero(props: {
   product: string;
   title: readonly [string, string];
-  description: readonly [string, string];
-  cta: string;
+  description: string | readonly [string, string];
+  cta?: string;
 }) {
   return (
     <header class="feature-page-hero email-page-hero">
@@ -31,10 +31,16 @@ export function ProductHero(props: {
         <span>{props.title[1]}</span>
       </h1>
       <p class="email-page-hero-description">
-        {props.description[0]}
-        <br class="email-page-hero-break" /> {props.description[1]}
+        {typeof props.description === 'string' ? (
+          props.description
+        ) : (
+          <>
+            {props.description[0]}
+            <br class="email-page-hero-break" /> {props.description[1]}
+          </>
+        )}
       </p>
-      <FeaturePageCta name={props.cta} />
+      <Show when={props.cta}>{(cta) => <FeaturePageCta name={cta()} />}</Show>
     </header>
   );
 }
@@ -50,6 +56,9 @@ export function ProductDemo(props: {
   ref?: (element: HTMLDivElement) => void;
   onInteract?: () => void;
   action?: string;
+  /** Window height in px, so short scenes don't leave an empty frame. */
+  height?: number;
+  mobileHeight?: number;
 }) {
   return (
     <div
@@ -57,6 +66,12 @@ export function ProductDemo(props: {
       class="product-demo-stage"
       role="group"
       aria-label={props.label}
+      style={{
+        '--demo-h': props.height ? `${props.height}px` : undefined,
+        '--demo-h-mobile': props.mobileHeight
+          ? `${props.mobileHeight}px`
+          : undefined,
+      }}
       onPointerDown={() => props.onInteract?.()}
       onKeyDown={() => props.onInteract?.()}
     >

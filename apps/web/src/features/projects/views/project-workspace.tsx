@@ -1,23 +1,21 @@
 import { SidePanel } from '@components/app/side-panel';
-import { EntityDetailsGrid } from '@components/app/side-panel/EntityDetailsGrid';
+import { EntityMetadata } from '@components/app/side-panel/EntityMetadata';
 import { InlineTitleEditor } from '@core/component/InlineTitleEditor';
 import { PropertyValuePill } from '@property/component/PropertyValuePill';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import { EntityPropertiesSection } from '@property/side-panel/properties/EntityPropertiesSection';
-import { Button } from '@ui';
 import { createSignal, For, type JSX, Match, Show, Switch } from 'solid-js';
-import { DeleteProjectsDialog } from '../components/delete-projects-dialog';
 import {
   type ProjectSource,
   type ProjectsContext,
   useProjectsContext,
 } from '../context/projects-context';
 import {
-  canDeleteProject,
   canEditProject,
   type ProjectDetail,
   type ProjectSection,
 } from '../core/project';
+import { AddProjectTasks } from './add-project-tasks';
 import {
   ProjectTasksList,
   type ProjectTasksListProps,
@@ -36,14 +34,12 @@ export function ProjectWorkspace(props: {
   source: ProjectSource;
   commands: ReturnType<ProjectsContext['createCommands']>;
   section: ProjectSection;
-  onDelete(): void;
   onOpenTask: ProjectTasksListProps['onOpenTask'];
-  onCreateTask(): void;
+  onCreateTask(dueDate?: Date): void;
   discussion: JSX.Element;
   description: JSX.Element;
 }) {
   const definitions = useProjectsContext().createPropertyDefinitionsSource();
-  const [deleting, setDeleting] = createSignal(false);
   const [error, setError] = createSignal<string>();
   const canEdit = () => canEditProject(props.project);
   const run = async (action: () => Promise<void>) => {
@@ -58,14 +54,14 @@ export function ProjectWorkspace(props: {
   };
 
   return (
-    <SidePanel.Layout headerToggle={false}>
-      <SidePanel.Section id="details" title="Details" defaultOpen order={0}>
-        <EntityDetailsGrid
+    <SidePanel.Layout headerToggle={false} floating defaultOpen={false}>
+      <SidePanel.Footer>
+        <EntityMetadata
           ownerId={props.project.ownerId}
           createdAt={props.project.createdAt}
           updatedAt={props.project.updatedAt}
         />
-      </SidePanel.Section>
+      </SidePanel.Footer>
       <SidePanel.Section
         id="properties"
         title="Properties"
@@ -88,19 +84,6 @@ export function ProjectWorkspace(props: {
           )}
         </Show>
       </SidePanel.Section>
-      <Show when={canDeleteProject(props.project)}>
-        <SidePanel.Section id="actions" title="Actions" order={3}>
-          <Button
-            size="sm"
-            onClick={() => {
-              setError(undefined);
-              setDeleting(true);
-            }}
-          >
-            Delete project
-          </Button>
-        </SidePanel.Section>
-      </Show>
       <div class="flex size-full min-h-0 min-w-0 flex-col overflow-hidden">
         <Show when={error()}>
           {(message) => (
@@ -174,29 +157,19 @@ export function ProjectWorkspace(props: {
             <Match when={props.section === 'tasks'}>
               <ProjectTasksList
                 projectId={props.project.id}
+                projectName={props.project.name}
                 onOpenTask={props.onOpenTask}
                 onCreateTask={canEdit() ? props.onCreateTask : undefined}
+                addTasksAction={
+                  <Show when={canEdit()}>
+                    <AddProjectTasks project={props.project} />
+                  </Show>
+                }
               />
             </Match>
           </Switch>
         </div>
       </div>
-      <Show when={deleting()}>
-        <DeleteProjectsDialog
-          count={1}
-          pending={props.commands.pending()}
-          error={error()}
-          onOpenChange={(open) => {
-            if (!open) setDeleting(false);
-          }}
-          onDelete={() =>
-            void run(async () => {
-              await props.commands.delete(props.project.id);
-              props.onDelete();
-            })
-          }
-        />
-      </Show>
     </SidePanel.Layout>
   );
 }

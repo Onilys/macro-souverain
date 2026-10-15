@@ -38,7 +38,10 @@ type BranchChoice =
 /** Explicit, portaled repository/branch controls shared by Home and Agents. */
 export function RepositoryPicker(props: {
   repoUrl?: string;
+  onOpenChange?: (open: boolean) => void;
   branch: string;
+  /** This runtime always starts new worktrees from main. */
+  branchLocked?: boolean;
   /** Repositories the signed-in user can hand a coder through Macro's GitHub App. */
   repositories: ReachableRepository[];
   repositoriesLoading: boolean;
@@ -58,8 +61,16 @@ export function RepositoryPicker(props: {
   onSelectBranch: (branch: string) => void;
 }) {
   const listId = createUniqueId();
-  const [repoOpen, setRepoOpen] = createSignal(false);
-  const [branchOpen, setBranchOpen] = createSignal(false);
+  const [repoOpen, updateRepoOpen] = createSignal(false);
+  const [branchOpen, updateBranchOpen] = createSignal(false);
+  const setRepoOpen = (open: boolean) => {
+    updateRepoOpen(open);
+    props.onOpenChange?.(open || branchOpen());
+  };
+  const setBranchOpen = (open: boolean) => {
+    updateBranchOpen(open);
+    props.onOpenChange?.(open || repoOpen());
+  };
   const [search, setSearch] = createSignal('');
   const [branchSearch, setBranchSearch] = createSignal('');
   const [error, setError] = createSignal('');
@@ -196,7 +207,7 @@ export function RepositoryPicker(props: {
           <CaretDownIcon class="size-3 shrink-0" />
         </Popover.Trigger>
         <Popover.Portal>
-          <Popover.Content class="z-action-menu w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-edge-muted bg-menu p-3 text-sm text-ink shadow-menu">
+          <Popover.Content class="menu-surface z-action-menu w-80 max-w-[calc(100vw-1rem)] p-3 text-sm">
             <Popover.Title class="mb-2 font-medium">Repository</Popover.Title>
             <form
               onSubmit={(event) => {
@@ -320,7 +331,7 @@ export function RepositoryPicker(props: {
         <Popover
           open={branchOpen()}
           onOpenChange={(open) => {
-            setBranchOpen(open);
+            setBranchOpen(open && !props.branchLocked);
             setError('');
             if (open) {
               setBranchSearch('');
@@ -334,13 +345,21 @@ export function RepositoryPicker(props: {
           <Popover.Trigger
             class="pill min-w-0 max-w-[45%] text-ink"
             aria-label="Branch"
+            disabled={props.branchLocked}
+            title={
+              props.branchLocked
+                ? 'New local sessions start from main'
+                : undefined
+            }
           >
             <GitBranchIcon class="size-4 shrink-0" />
             <span class="truncate">{props.branch}</span>
-            <CaretDownIcon class="size-3 shrink-0" />
+            <Show when={!props.branchLocked}>
+              <CaretDownIcon class="size-3 shrink-0" />
+            </Show>
           </Popover.Trigger>
           <Popover.Portal>
-            <Popover.Content class="z-action-menu w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-edge-muted bg-menu p-3 text-sm text-ink shadow-menu">
+            <Popover.Content class="menu-surface z-action-menu w-80 max-w-[calc(100vw-1rem)] p-3 text-sm">
               <Popover.Title class="mb-2 font-medium">
                 Starting branch
               </Popover.Title>

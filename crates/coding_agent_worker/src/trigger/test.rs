@@ -11,6 +11,22 @@ use messages::domain::events::MessagePostedMetadata;
 use messages::domain::models::MessageParent;
 use std::sync::Mutex;
 
+#[test]
+fn repository_selection_survives_dispatch_and_older_events_still_decode() {
+    let mut wire = serde_json::json!({"bot_id": bot_id::BotId::TEST_A, "session_id": test_session(), "owner": sender().to_string()});
+    let old: AgentSessionRequestedEvent = serde_json::from_value(wire.clone()).unwrap();
+    assert!(old.repo_url.is_none());
+    wire["repo_url"] = serde_json::json!("https://github.com/org/project");
+    let event: AgentSessionRequestedEvent = serde_json::from_value(wire).unwrap();
+    let work = trigger_to_work(AgentTriggerTopicEvent::New(
+        NewAgentSessionEvent::Requested(event),
+    ))
+    .unwrap();
+    assert!(
+        matches!(work, TriggerWork::OpenRequested { repo_url: Some(url), .. } if url == "https://github.com/org/project")
+    );
+}
+
 fn test_session() -> AgentSessionId {
     AgentSessionId::new_from_uuid(Uuid::from_u128(0xA))
 }
@@ -59,6 +75,7 @@ fn mention(content: &str) -> AgentTriggerTopicEvent {
         AgentBotMentionedEvent {
             bot_id: bot_id::BotId::TEST_A,
             message: message(content, None),
+            context: None,
         },
     ))
 }
@@ -69,6 +86,7 @@ fn follow_up(content: &str) -> AgentTriggerTopicEvent {
         session_id: test_session(),
         kind: ThreadMessageKind::MentionThread,
         message: message(content, Some(Uuid::from_u128(7))),
+        context: None,
     }))
 }
 
@@ -80,6 +98,7 @@ fn document_triggers_become_work_on_the_document() {
         AgentTriggerTopicEvent::New(NewAgentSessionEvent::Mentioned(AgentMentionedEvent {
             bot_id: bot_id::BotId::TEST_A,
             message: document_message("summarize this", None),
+            context: None,
         }));
     assert_eq!(
         trigger_to_work(opened).expect("a document mention is work"),
@@ -91,6 +110,7 @@ fn document_triggers_become_work_on_the_document() {
             thread_id: Uuid::from_u128(2),
             message_id: Uuid::from_u128(2),
             content: "summarize this".to_owned(),
+            context: None,
         }
     );
     let followed =
@@ -99,6 +119,7 @@ fn document_triggers_become_work_on_the_document() {
             session_id: test_session(),
             kind: ThreadMessageKind::Inferred,
             message: document_message("and this", Some(Uuid::from_u128(7))),
+            context: None,
         }));
     assert_eq!(
         trigger_to_work(followed).expect("a document follow-up is work"),
@@ -106,6 +127,7 @@ fn document_triggers_become_work_on_the_document() {
             session: test_session(),
             sender: sender(),
             content: "and this".to_owned(),
+            context: None,
         }
     );
 }
@@ -119,6 +141,7 @@ fn a_task_assignment_opens_and_prompts_in_the_task_discussion() {
             discussion_id: Uuid::from_u128(2),
             actor: sender(),
             prompt: "Complete the assigned task".to_owned(),
+            context: None,
         },
     ));
     assert_eq!(
@@ -131,6 +154,7 @@ fn a_task_assignment_opens_and_prompts_in_the_task_discussion() {
             thread_id: Uuid::from_u128(2),
             message_id: Uuid::from_u128(2),
             content: "Complete the assigned task".to_owned(),
+            context: None,
         }
     );
 }
@@ -148,6 +172,7 @@ fn a_mention_becomes_open_and_prompt_rooting_its_own_thread() {
             thread_id: Uuid::from_u128(2),
             message_id: Uuid::from_u128(2),
             content: "fix the test".to_owned(),
+            context: None,
         }
     );
 }
@@ -161,6 +186,7 @@ fn a_follow_up_becomes_prompt_existing() {
             session: test_session(),
             sender: sender(),
             content: "keep going".to_owned(),
+            context: None,
         }
     );
 }

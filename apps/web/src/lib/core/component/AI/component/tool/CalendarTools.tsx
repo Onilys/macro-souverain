@@ -90,7 +90,7 @@ const EventDetails = (props: {
         </div>
       </Tool.ListItem>
     </button>
-    <Show when={props.event.conferenceUrl}>
+    <Show when={props.event.macroCallUrl ?? props.event.conferenceUrl}>
       {(url) => (
         <Tool.ListItem icon={<VideoCamera class="size-4" />}>
           <a
@@ -223,6 +223,25 @@ export const createCalendarEventHandler = createToolRenderer({
       </Switch>
     );
   },
+});
+
+/**
+ * `CreateConfirmedCalendarEvent` creates on a confirmation the user already
+ * gave in a conversation thread, so there is no pending composer and no
+ * review to render: the response is the created event itself, shown the way
+ * `CreateCalendarEvent` shows its finished create.
+ */
+export const createConfirmedCalendarEventHandler = createToolRenderer({
+  name: 'CreateConfirmedCalendarEvent',
+  render: (ctx) => (
+    <CalendarMutationCard
+      event={ctx.response?.data}
+      icon={CalendarPlus}
+      label="Create calendar event"
+      renderContext={ctx.renderContext}
+      title={ctx.tool.data.title}
+    />
+  ),
 });
 
 export const updateCalendarEventHandler = createToolRenderer({

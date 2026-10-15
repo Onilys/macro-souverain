@@ -1,4 +1,4 @@
-use super::event_runs::{ClaimToken, ConfigurationRevision};
+use super::event_runs::{AuthorizedEventRun, ClaimToken, ConfigurationRevision};
 use super::event_trigger::EventReference;
 use super::execution::ExecutionHandle;
 use super::models::{
@@ -10,11 +10,13 @@ use chrono::{DateTime, Utc};
 use entity_access::domain::models::{
     EditAccessLevel, EntityAccessReceipt, OwnerAccessLevel, ViewAccessLevel,
 };
+use entity_registry::OwnedPurgeOutcome;
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
-use model_owner::CreationPrincipal;
+use model_owner::{CreationPrincipal, Owner};
 use rootcause::Report;
 use tokio::sync::mpsc::{Receiver, Sender};
+use trigger_context::RoutineEvent;
 
 /// Validate configuration syntax and authorize its target before persistence.
 pub trait TaskTargetValidator: Send + Sync + 'static {
@@ -71,11 +73,13 @@ pub trait ScheduledActionRepo: Send + Sync + 'static {
     fn delete_action(&self, id: &Uuid) -> impl Future<Output = Result<()>> + Send;
 
     /// Claim only while the stored configuration is still `revision`, so a
-    /// snapshot read before a pause or update can never start a run.
+    /// snapshot read before a pause or update can never start a run. The stored
+    /// firing must also match, fencing candidates fetched before a completed run.
     fn claim_action(
         &self,
         id: &Uuid,
         revision: ConfigurationRevision,
+        expected_next_run_at: Option<chrono::DateTime<chrono::Utc>>,
     ) -> impl Future<Output = Result<ClaimToken>> + Send;
 
     /// Release only this execution's claim; stale tokens must not mutate a newer run.
@@ -117,12 +121,27 @@ pub trait ScheduledActionReadService: Send + Sync + 'static {
 }
 
 pub trait ScheduledActionService: Send + Sync + 'static {
+    /// Read a routine only when the caller is its owner.
+    fn get_action(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+    ) -> impl Future<Output = Result<ScheduledAction>> + Send;
+
     /// Delete all of a user's actions before account deletion, including disabled
     /// and claimed actions. Repeating a completed cleanup succeeds.
     fn delete_user_actions(
         &self,
         user_id: MacroUserIdStr<'static>,
     ) -> impl Future<Output = Result<()>> + Send;
+
+    /// Delete one action while `expected_owner` still owns it, including a
+    /// disabled or claimed one. Internal owner removal only. A missing action
+    /// is already purged; one under another owner is untouched.
+    fn purge_owned_action(
+        &self,
+        id: Uuid,
+        expected_owner: &Owner,
+    ) -> impl Future<Output = Result<OwnedPurgeOutcome>> + Send;
 
     /// Records `principal.owner()`. A non-user owner is `OwnerNotUserError`
     /// before validation and before any write. `BotForUser` records the user.
@@ -182,6 +201,36 @@ pub trait ScheduledActionExecutor {
     ) -> impl Future<Output = Result<InProgressExecution>> + Send;
 }
 
+/// What started a routine run.
+#[derive(Clone, Copy)]
+pub enum RoutineRun<'a> {
+    /// One of its schedules came due.
+    Scheduled { scheduled_for: DateTime<Utc> },
+    /// Its owner started it by hand.
+    Manual { requested_at: DateTime<Utc> },
+    /// An event it watches happened, and its owner may read it.
+    Event(&'a AuthorizedEventRun),
+}
+
+impl RoutineRun<'_> {
+    pub fn event(&self) -> Option<&EventReference> {
+        match self {
+            Self::Event(run) => Some(&run.pending.event),
+            Self::Scheduled { .. } | Self::Manual { .. } => None,
+        }
+    }
+}
+
+/// Reads the event a routine fired on, as the routine owner, through the
+/// run's access receipt. Content that is gone or unreadable is `Err`.
+pub trait RoutineEventReader: Send + Sync + 'static {
+    fn read_event(
+        &self,
+        owner: &MacroUserIdStr<'static>,
+        run: &AuthorizedEventRun,
+    ) -> impl Future<Output = Result<RoutineEvent, Report>> + Send;
+}
+
 /// Execution dependencies, separate from claim/history orchestration.
 pub trait ScheduledAgentRunner: Send + Sync + 'static {
     /// Prepare without starting the task. Remote runners must use the handle's
@@ -199,7 +248,7 @@ pub trait ScheduledAgentRunner: Send + Sync + 'static {
         &self,
         action: &ScheduledAction,
         handle: &ExecutionHandle,
-        event: Option<&EventReference>,
+        firing: RoutineRun<'_>,
     ) -> impl Future<Output = Result<()>> + Send;
 
     /// Best-effort cleanup, including partially prepared sessions. Must be safe

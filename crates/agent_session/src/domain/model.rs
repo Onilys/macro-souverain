@@ -18,6 +18,10 @@ pub use agent_fold::domain::model::{
     Author, AuthorKind, FoldEvent, MessageId, OwnedFoldEvent, TurnId,
 };
 
+/// The `_meta` key on `session/new`, `session/load` and `session/resume`
+/// whose string value is the [`AgentSessionId`] the ACP session serves.
+pub const MACRO_AGENT_SESSION_META_KEY: &str = "macro.com/agentSessionId";
+
 /// Identity of one harness participant, minted fresh at construction.
 ///
 /// A restarted process is a new replica: whatever the old identity claimed is
@@ -174,15 +178,17 @@ pub enum SessionStatus {
 }
 
 /// Which Pipedream MCP servers a session is handed: the agent's own choice,
-/// snapshotted onto the session at creation like `instructions`. The ACP
-/// agent is given its server list once per attach and cannot refresh it, so
-/// the snapshot is what every later attach re-advertises; editing the agent
-/// applies to its next session.
+/// snapshotted onto the session at creation like `instructions`. The servers
+/// it resolves to are re-listed before each prompt, so an app the owner
+/// connects mid-session reaches a live agent that can `session/resume`;
+/// editing the agent's selection applies to its next session.
 pub use bots::domain::models::{AgentMcpServer, AgentMcpServers};
 
 /// Caller-provided values required to create an agent session.
 #[derive(Debug, Clone)]
 pub struct CreateAgentSessionParams {
+    /// An unclaimed warm session, hidden from lists and history.
+    pub warm: bool,
     /// Caller-minted session id, available before persistence.
     pub id: AgentSessionId,
     /// Who created and owns the session.
@@ -254,6 +260,8 @@ pub struct AgentSession {
     pub repo_branch: Option<super::repository_branch::RepositoryBranch>,
     /// The pull request associated with this session, independent of conversation history.
     pub pull_request_url: Option<String>,
+    /// The Macro task the session was explicitly linked to.
+    pub task_id: Option<String>,
     /// Directory the harness runs in, snapshotted at creation. The session
     /// actor sends it as the working directory of `session/new`, and resume
     /// and load re-enter it - the directory the session actually ran in,
@@ -364,6 +372,19 @@ pub struct SessionBot {
     pub avatar_url: Option<String>,
 }
 
+/// Who prompted the turn a session is running, or last ran.
+///
+/// Written at dispatch, before the runtime can act on the prompt, so the
+/// egress proxy - which may be on any replica - can tell a turn the owner
+/// prompted from one somebody else did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TurnPrompter {
+    /// The action that opened the turn.
+    pub action_id: agent_runtime_protocol::domain::action::AgentActionId,
+    /// The user who prompted it, absent when a bot acted on nobody's behalf.
+    pub user: Option<MacroUserIdStr<'static>>,
+}
+
 /// One waiting action as the session store records it.
 ///
 /// The harness keeps an in-memory working copy beside the live actor; this
@@ -388,6 +409,9 @@ pub struct StoredQueuedAction {
     /// Chip message id, once posted, so a retry does not announce twice.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub announced_message_id: Option<Uuid>,
+    /// Why the agent is being asked, composed into the prompt at dispatch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<trigger_context::TriggerContext>,
 }
 
 impl From<&StoredQueuedAction> for super::ports::QueuedControl {

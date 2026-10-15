@@ -2,6 +2,7 @@ use super::*;
 
 #[cfg(feature = "admission")]
 mod admission;
+mod call;
 mod task_assignment;
 
 use agent_session::domain::error::AgentSessionError;
@@ -108,6 +109,7 @@ fn session(id: AgentSessionId, bot_id: BotId) -> AgentSession {
     AgentSession {
         repo_branch: None,
         pull_request_url: None,
+        task_id: None,
         id,
         name: agent_session::domain::model::DEFAULT_AGENT_SESSION_NAME.to_owned(),
         is_archived: false,
@@ -217,6 +219,7 @@ fn allow_invocation(
                 role: ParticipantRole::Member,
             },
             MessageParent::Document(_)
+            | MessageParent::Call(_)
             | MessageParent::Initiative(_)
             | MessageParent::CrmCompany(_)
             | MessageParent::CrmContact(_) => EntityPermission::AccessLevel {

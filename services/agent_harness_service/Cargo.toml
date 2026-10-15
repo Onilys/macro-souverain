@@ -22,20 +22,23 @@ roles_and_permissions = { path = "../../crates/roles_and_permissions", default-f
 teams = { path = "../../crates/teams", default-features = false, features = ["outbound"] }
 initiative = { path = "../../crates/initiative", default-features = false, features = ["postgres"] }
 crm = { path = "../../crates/crm", default-features = false, features = ["lookup"] }
+call = { path = "../../crates/call", default-features = false, features = ["outbound"] }
 codex_cloud_agents = { path = "../../crates/codex_cloud_agents" }
 codex_connection = { path = "../../crates/codex_connection" }
 agent_changes = { path = "../../crates/agent_changes" }
 agent_egress = { path = "../../crates/agent_egress" }
-agent_fold = { path = "../../crates/agent_fold" }
+agent_fold = { path = "../../crates/folds/agent_fold" }
 agent_harness = { path = "../../crates/agent_harness" }
 agent_inmem = { path = "../../crates/agent_inmem" }
 ai_tools = { path = "../../crates/ai_tools" }
 agent_runtime_protocol = { path = "../../crates/agent_runtime_protocol", features = ["utoipa"] }
 agent_session = { path = "../../crates/agent_session", features = ["ai_tools"] }
+agent_session_realtime = { path = "../../crates/agent_session_realtime" }
 ai_toolset = { path = "../../crates/ai_toolset" }
 rmcp = { workspace = true }
 agent_trigger = { path = "../../crates/agent_trigger", features = ["outbound"] }
 ai_usage = { path = "../../crates/ai_usage" }
+authentication_service_client = { path = "../../crates/authentication_service_client" }
 aws-sdk-sqs = { workspace = true }
 bot_id = { path = "../../crates/bot_id" }
 bots = { path = "../../crates/bots" }
@@ -56,7 +59,14 @@ github = { path = "../../crates/github", default-features = false, features = [
   "ports",
   "sync",
 ] }
+github_pull_requests = { path = "../../crates/github_pull_requests", default-features = false, features = [
+  "outbound",
+  "s3",
+  "service",
+] }
+mcp_client = { path = "../../crates/mcp_client" }
 pipedream_mcp = { path = "../../crates/pipedream_mcp" }
+prompt = { path = "../../crates/prompt" }
 url = { workspace = true }
 contacts = { path = "../../crates/contacts" }
 macro_aws_config = { path = "../../crates/macro_aws_config", features = ["s3"] }
@@ -67,15 +77,18 @@ document_storage_service_client = { path = "../../crates/document_storage_servic
 lexical_mention_extractor = { path = "../../crates/lexical_mention_extractor" }
 macro_service_urls = { path = "../../crates/macro_service_urls" }
 messages = { path = "../../crates/messages", features = ["broker", "delivery"] }
+properties = { path = "../../crates/properties", default-features = false, features = ["outbound"] }
 static_file = { path = "../../crates/static_file", features = ["attachment"] }
 static_file_service_client = { path = "../../crates/static_file_service_client" }
 macro_tower_layers = { path = "../../crates/macro_tower_layers" }
 notification = { path = "../../crates/notification" }
 rdkafka = { workspace = true }
 rootcause = { workspace = true }
+system_properties = { path = "../../crates/system_properties" }
 channels = { path = "../../crates/channels", features = ["ports", "outbound"] }
 anyhow = { workspace = true }
 macro_user_id = { path = "../../crates/macro_user_id" }
+model_owner = { path = "../../crates/model_owner" }
 axum = { workspace = true }
 axum-extra = { workspace = true, features = ["typed-header"] }
 aws-sdk-secretsmanager = { workspace = true }
@@ -104,10 +117,14 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 tokio-retry = { workspace = true }
 tokio-util = { workspace = true, features = ["rt"] }
 tower = { workspace = true }
+tower-http = { workspace = true }
 tracing = { workspace = true }
 workspace-hack = { version = "0.1", path = "../../crates/workspace-hack" }
 
 [dev-dependencies]
+agent = { path = "../../crates/agent" }
 agent-client-protocol = { workspace = true }
 agent_session = { path = "../../crates/agent_session", features = ["test-utils"] }
+async-trait = { workspace = true }
 harness_id = { path = "../../crates/harness_id", features = ["test-utils"] }
+harnesses = { path = "../../crates/harnesses", default-features = false, features = ["test-utils"] }

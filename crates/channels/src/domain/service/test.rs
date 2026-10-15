@@ -15,7 +15,10 @@ use crate::domain::{
 use chrono::Utc;
 use entity_access::domain::models::ParticipantRole as AccessRole;
 use macro_user_id::{cowlike::CowLike, user_id::MacroUserIdStr};
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 fn empty_repo() -> MockChannelRepo {
     let mut repo = MockChannelRepo::new();
@@ -34,6 +37,7 @@ struct FakeMutationRepo {
 
 struct FakeMutationRepoState {
     channel_id: Uuid,
+    channel_picture_id: Option<Uuid>,
     channel_name: Option<String>,
     channel_type: ChannelType,
     channel_team_id: Option<Uuid>,
@@ -57,6 +61,7 @@ impl FakeMutationRepo {
             picture_updates: Arc::default(),
             state: Arc::new(Mutex::new(FakeMutationRepoState {
                 channel_id,
+                channel_picture_id: None,
                 channel_name: Some("Project".to_string()),
                 channel_type: ChannelType::Private,
                 channel_team_id: None,
@@ -98,12 +103,15 @@ impl ChannelRepo for FakeMutationRepo {
         &self,
         channel_id: Uuid,
         picture_id: Option<Uuid>,
-    ) -> Result<(), Self::Err> {
+    ) -> Result<bool, Self::Err> {
         self.picture_updates
             .lock()
             .unwrap()
             .push((channel_id, picture_id));
-        Ok(())
+        let mut state = self.state.lock().unwrap();
+        let changed = state.channel_picture_id != picture_id;
+        state.channel_picture_id = picture_id;
+        Ok(changed)
     }
 
     type Err = anyhow::Error;
@@ -253,6 +261,18 @@ impl ChannelRepo for FakeMutationRepo {
         _channel_ids: &[Uuid],
     ) -> Result<(), Self::Err> {
         Ok(())
+    }
+
+    async fn ensure_dm(
+        &self,
+        pair: crate::domain::dm::DmPair,
+        creation: crate::domain::historical::DmCreation,
+    ) -> Result<crate::domain::historical::EnsuredChannel, Self::Err> {
+        creation.owner(&pair)?;
+        Ok(crate::domain::historical::EnsuredChannel {
+            id: self.state.lock().unwrap().channel_id,
+            created: true,
+        })
     }
 
     async fn maybe_get_dm(
@@ -433,9 +453,17 @@ impl ChannelReferenceSharePermissions for FakeReferenceSharing {
         _actor: MacroUserIdStr<'static>,
         _channel_id: Uuid,
         items: Vec<ReferencedShareItem>,
-    ) -> Result<(), Self::Err> {
+    ) -> Result<Vec<crate::domain::models::ReferenceShareResult>, Self::Err> {
+        let results = items
+            .iter()
+            .map(|item| crate::domain::models::ReferenceShareResult {
+                entity_id: item.entity_id().to_string(),
+                entity_type: item.entity_type(),
+                outcome: crate::domain::models::ReferenceShareOutcome::Shared,
+            })
+            .collect();
         self.items.lock().unwrap().extend(items);
-        Ok(())
+        Ok(results)
     }
 }
 
@@ -445,6 +473,38 @@ fn mutation_service(
     share: FakeReferenceSharing,
 ) -> ChannelServiceImpl<FakeMutationRepo, FakeEvents, FakeReferenceSharing> {
     ChannelServiceImpl::with_dependencies(repo, events, share)
+}
+
+#[tokio::test]
+async fn share_referenced_items_with_channel_forwards_to_the_share_port() {
+    let share = FakeReferenceSharing::default();
+    let seen = share.items.clone();
+    let service = mutation_service(
+        FakeMutationRepo::new(Uuid::now_v7(), "macro|owner@test.com"),
+        FakeEvents::default(),
+        share,
+    );
+    let channel_id = Uuid::now_v7();
+    let item = ReferencedShareItem::new(
+        Uuid::now_v7().to_string(),
+        crate::domain::models::ReferencedShareItemType::CalendarEvent,
+    );
+    let results = service
+        .share_referenced_items_with_channel(
+            macro_id("macro|owner@test.com"),
+            channel_id,
+            vec![item.clone()],
+        )
+        .await
+        .expect("share port accepts the item");
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].entity_id, item.entity_id());
+    assert_eq!(
+        results[0].outcome,
+        crate::domain::models::ReferenceShareOutcome::Shared
+    );
+    assert_eq!(seen.lock().unwrap().as_slice(), &[item]);
 }
 
 fn macro_id(user_id: &str) -> MacroUserIdStr<'static> {
@@ -814,9 +874,14 @@ async fn ensure_dms_does_not_dispatch_for_existing_channel() {
     let joiner = macro_id("macro|joiner@test.com");
     let teammate = macro_id("macro|teammate@test.com");
     let mut repo = MockChannelRepo::new();
-    repo.expect_maybe_get_dm()
-        .once()
-        .returning(move |_, _| Box::pin(async move { Ok(Some(channel_id)) }));
+    repo.expect_ensure_dm().once().returning(move |_, _| {
+        Box::pin(async move {
+            Ok(crate::domain::historical::EnsuredChannel {
+                id: channel_id,
+                created: false,
+            })
+        })
+    });
     let events = FakeEvents::default();
     let service = ChannelServiceImpl::with_dependencies(
         repo,
@@ -867,9 +932,14 @@ async fn get_or_create_dm_returns_get_for_existing_pair() {
     let actor = macro_id("macro|actor@test.com");
     let recipient = macro_id("macro|recipient@test.com");
     let mut repo = MockChannelRepo::new();
-    repo.expect_maybe_get_dm()
-        .once()
-        .returning(move |_, _| Box::pin(async move { Ok(Some(channel_id)) }));
+    repo.expect_ensure_dm().once().returning(move |_, _| {
+        Box::pin(async move {
+            Ok(crate::domain::historical::EnsuredChannel {
+                id: channel_id,
+                created: false,
+            })
+        })
+    });
     let events = FakeEvents::default();
     let service = ChannelServiceImpl::with_dependencies(
         repo,
@@ -1746,9 +1816,34 @@ async fn channel_picture_can_be_set_replaced_and_removed_by_admins_and_owners() 
         let events = events.events.lock().unwrap();
         assert_eq!(events.len(), 3);
         assert!(events.iter().all(|event| matches!(event,
-            ChannelEvent::PictureChanged { channel_id: id, recipients }
+            ChannelEvent::PictureChanged { channel_id: id, recipients, actor }
                 if *id == channel_id && recipients.contains(&macro_id("macro|sender@test.com"))
+                    && actor == &macro_id("macro|sender@test.com")
         )));
+    }
+}
+
+#[tokio::test]
+async fn repeated_channel_picture_updates_do_not_publish_false_activity() {
+    use entity_access::domain::models::AdminParticipantRole;
+    let channel_id = Uuid::new_v4();
+    let repo = FakeMutationRepo::new(channel_id, "macro|sender@test.com");
+    let events = FakeEvents::default();
+    let svc = mutation_service(repo, events.clone(), FakeReferenceSharing::default())
+        .with_picture_files(FakePictureFiles {
+            file: Some(owned_picture_file()),
+            fail: false,
+        });
+    let picture = Some(Uuid::new_v4());
+    for (value, expected_events) in [(None, 0), (picture, 1), (picture, 1), (None, 2), (None, 2)] {
+        let access =
+            EntityAccessReceipt::<AdminParticipantRole>::dangerously_assert_authenticated_user(
+                macro_id("macro|sender@test.com"),
+                &channel_id.to_string(),
+                EntityType::Channel,
+            );
+        svc.set_channel_picture(access, value).await.unwrap();
+        assert_eq!(events.events.lock().unwrap().len(), expected_events);
     }
 }
 

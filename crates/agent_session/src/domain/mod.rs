@@ -1,5 +1,7 @@
 /// Current authorization for agent session streams.
 pub mod audience;
+pub mod coding_agents;
+pub mod coding_preferences;
 pub mod connection;
 /// Authorization of user and runtime session controls.
 pub mod control;
@@ -11,10 +13,13 @@ pub mod model;
 pub mod name_generation;
 pub mod ports;
 pub mod pull_request;
+pub mod pull_request_links;
 mod sandbox_size;
 pub mod search;
 pub mod service;
 pub mod session;
+/// The task a session works on, and linking its pull request to it.
+pub mod session_task;
 /// Session link, channel, and team sharing.
 pub mod sharing;
 
@@ -30,3 +35,9 @@ pub mod turn_state;
 
 /// Repository-matched working branches reported by a session's runtime.
 pub mod working_branch;
+
+/// Recovery of sessions abandoned by crashed replicas.
+pub mod recovery;
+
+/// Warm session promotion and expiry.
+pub mod warm;

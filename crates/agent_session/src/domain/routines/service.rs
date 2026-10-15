@@ -150,6 +150,7 @@ where
                         session_id: command.session_id,
                         bot_id,
                         owner: selection.owner,
+                        repo_url: None,
                         model: selection.model.clone(),
                     })
                     .await
@@ -216,6 +217,7 @@ where
                     action: AgentAction::prompt(command.prompt),
                     action_id: Some(action.action_id),
                     actor: Some(action.owner),
+                    context: command.context,
                 },
             )
             .await
@@ -256,6 +258,7 @@ where
                     action: AgentAction::Stop,
                     action_id: Some(AgentActionId::mint()),
                     actor: Some(command.owner),
+                    context: None,
                 },
             )
             .await

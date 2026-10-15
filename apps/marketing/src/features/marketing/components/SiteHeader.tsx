@@ -1,12 +1,25 @@
-import { createSignal, For, type JSX, onCleanup, onMount } from 'solid-js';
-import { FEATURE_PAGES, RESOURCE_PAGES } from '../core/navigation';
+import {
+  createSignal,
+  For,
+  type JSX,
+  onCleanup,
+  onMount,
+  Show,
+} from 'solid-js';
+import {
+  DEMO_BOOKING_URL,
+  FEATURE_PAGES,
+  RESOURCE_PAGES,
+  routePhoneToMobileSignup,
+} from '../core/navigation';
+import { DemoBookingDialog } from './DemoBookingDialog';
 import './site-navigation.css';
 
 const EXPLORE_PAGES = [
   { href: '/', label: 'Home' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/partners', label: 'Partners' },
-  { href: 'https://cal.com/team/macro/macro-demo-call', label: 'Talk to us' },
+  { href: DEMO_BOOKING_URL, label: 'Talk to us' },
 ];
 
 function NavigationGroup(props: {
@@ -34,7 +47,7 @@ function NavigationGroup(props: {
 }
 
 /** Shared public navigation and app entry. */
-export function SiteHeader() {
+export function SiteHeader(props: { hideOpenApp?: boolean }) {
   let menu!: HTMLDivElement;
   let trigger!: HTMLButtonElement;
   const [open, setOpen] = createSignal(false);
@@ -163,40 +176,44 @@ export function SiteHeader() {
           onPointerLeave={stopGlow}
           onPointerCancel={stopGlow}
           onFocus={centerGlow}
-          href="https://cal.com/team/macro/macro-demo-call"
+          href={DEMO_BOOKING_URL}
           target="_blank"
           rel="noreferrer"
         >
           Talk to us
         </a>
-        <a
-          class="site-nav-start"
-          target="_self"
-          href={import.meta.env.DEV ? '/onboarding-preview.html' : '/app'}
-          onPointerEnter={moveGlow}
-          onPointerMove={moveGlow}
-          onPointerLeave={stopGlow}
-          onPointerCancel={stopGlow}
-          onFocus={centerGlow}
-        >
-          <span>Open app</span>
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 32 32"
-            fill="none"
-            aria-hidden="true"
+        <Show when={!props.hideOpenApp}>
+          <a
+            class="site-nav-start"
+            target="_self"
+            href="/app/signup"
+            onClick={routePhoneToMobileSignup}
+            onPointerEnter={moveGlow}
+            onPointerMove={moveGlow}
+            onPointerLeave={stopGlow}
+            onPointerCancel={stopGlow}
+            onFocus={centerGlow}
           >
-            <path
-              d="M5 16h22M17 6l10 10-10 10"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </a>
+            <span>Open app</span>
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 32 32"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M5 16h22M17 6l10 10-10 10"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
+        </Show>
       </div>
+      <DemoBookingDialog />
     </header>
   );
 }

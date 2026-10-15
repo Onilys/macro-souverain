@@ -1,15 +1,37 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { existsSync, lstatSync } from 'node:fs';
 import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
 
-export const androidPackage = 'com.macro.app.prod';
+export const androidPackage = 'com.macro.workspace.mobile';
 
-export function androidReleaseMetadata(tag: string) {
-  const match = /^v(20\d{2})\.(\d{1,2})\.(\d{1,2})\.(\d{1,2})$/.exec(tag);
-  if (!match) throw new Error('Expected release tag vYYYY.M.D.N (N: 0–99)');
-  const [year, month, day, revision] = match.slice(1).map(Number);
+const androidConfigPath = new URL(
+  '../tauri/src-tauri/tauri.android.conf.json',
+  import.meta.url
+);
+const maxVersionCode = 2_100_000_000;
+const releaseConfigSchema = z
+  .object({
+    version: z.string().regex(/^\d+\.\d+\.\d+$/),
+    bundle: z
+      .object({
+        android: z
+          .object({
+            versionCode: z.number().int().min(1).max(maxVersionCode),
+          })
+          .passthrough(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+export function androidReleaseMetadata(tag: string, config: unknown) {
+  const match = /^v(20\d{2})\.(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?$/.exec(tag);
+  if (!match || match[0] !== tag)
+    throw new Error('Expected release tag vYYYY.M.D or vYYYY.M.D.N (N: 0–99)');
+  const [year, month, day] = match.slice(1, 4).map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   if (
     date.getUTCFullYear() !== year ||
@@ -17,14 +39,26 @@ export function androidReleaseMetadata(tag: string) {
     date.getUTCDate() !== day
   )
     throw new Error('Release tag must contain a valid calendar date');
-  // YYYYMMDDNN stays below Android's 2,100,000,000 limit through 2099.
-  // Rebuilding a tag keeps its code; later dated releases always increase it.
-  const versionCode = (year * 10000 + month * 100 + day) * 100 + revision;
+  const release = releaseConfigSchema.parse(config);
   return {
-    version: `${year}.${month}.${day}-${revision}`,
-    versionCode,
-    filename: `macro-${tag}-android-arm64.apk`,
+    version: release.version,
+    versionCode: release.bundle.android.versionCode,
+    filename: `macro-${tag}-android-arm64.aab`,
   };
+}
+
+export async function bumpAndroidVersionCode(
+  path: string | URL = androidConfigPath
+) {
+  const config = releaseConfigSchema.parse(
+    JSON.parse(await readFile(path, 'utf8'))
+  );
+  if (config.bundle.android.versionCode === maxVersionCode) {
+    throw new Error('Android versionCode has reached the Google Play limit');
+  }
+  config.bundle.android.versionCode += 1;
+  await writeFile(path, `${JSON.stringify(config, null, 2)}\n`);
+  return config.bundle.android.versionCode;
 }
 
 const signingSchema = z.object({
@@ -107,7 +141,7 @@ function fetchSigning() {
       [
         'secrets',
         'get',
-        'ANDROID_UPLOAD_SIGNING_JSON',
+        'ANDROID_UPLOAD_SIGNING_JSON_V2',
         '--project',
         'android-release',
         '--config',
@@ -120,9 +154,39 @@ function fetchSigning() {
     );
   } catch {
     throw new Error(
-      'Unable to fetch Android signing credentials. DOPPLER_TOKEN must have read access to android-release/prd.'
+      'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/development/android.md.'
     );
   }
+}
+
+export async function ensureAndroidSigning(
+  directory: string,
+  propertiesPath: string
+) {
+  // Explicit local/CI configuration takes precedence over the shared local cache.
+  if (existsSync(propertiesPath)) return;
+  if (lstatSync(propertiesPath, { throwIfNoEntry: false })) {
+    throw new Error(
+      'Android keystore.properties is a broken symlink. Restore its signing files; see docs/development/android.md.'
+    );
+  }
+
+  if (lstatSync(directory, { throwIfNoEntry: false })) {
+    const properties = join(directory, 'keystore.properties');
+    if (
+      !existsSync(properties) ||
+      !existsSync(join(directory, 'upload-keystore.jks'))
+    ) {
+      throw new Error(
+        `Android signing directory ${directory} is incomplete. Restore its signing files or provision signing manually; see docs/development/android.md.`
+      );
+    }
+    await symlink(resolve(properties), propertiesPath);
+    return;
+  }
+
+  console.log(`Provisioning Android release signing in ${directory}`);
+  await provisionAndroidSigning(fetchSigning(), directory, propertiesPath);
 }
 
 export function verifyAndroidApk(
@@ -170,9 +234,14 @@ export function verifyAndroidApk(
 if (import.meta.main) {
   const [command, ...args] = process.argv.slice(2);
   try {
-    if (command === 'metadata' && args.length === 2) {
+    if (command === 'bump' && args.length === 0) {
+      console.log(await bumpAndroidVersionCode());
+    } else if (command === 'metadata' && args.length === 2) {
       const [tag, destination] = args;
-      const metadata = androidReleaseMetadata(tag);
+      const metadata = androidReleaseMetadata(
+        tag,
+        JSON.parse(await readFile(androidConfigPath, 'utf8'))
+      );
       await writeFile(
         destination,
         JSON.stringify({
@@ -183,17 +252,22 @@ if (import.meta.main) {
       console.log(metadata.filename);
     } else if (command === 'signing' && args.length === 2) {
       await provisionAndroidSigning(fetchSigning(), args[0], args[1]);
+    } else if (command === 'ensure-signing' && args.length === 2) {
+      await ensureAndroidSigning(args[0], args[1]);
     } else if (command === 'verify' && args.length === 4) {
       const [tag, apk, buildTools, certificateFile] = args;
       verifyAndroidApk(
         apk,
         buildTools,
         await readFile(certificateFile, 'utf8'),
-        androidReleaseMetadata(tag)
+        androidReleaseMetadata(
+          tag,
+          JSON.parse(await readFile(androidConfigPath, 'utf8'))
+        )
       );
     } else {
       throw new Error(
-        'Usage: android-release.ts metadata TAG CONFIG | signing DIRECTORY PROPERTIES | verify TAG APK BUILD_TOOLS CERTIFICATE_FILE'
+        'Usage: android-release.ts bump | metadata TAG CONFIG | signing DIRECTORY PROPERTIES | ensure-signing DIRECTORY PROPERTIES | verify TAG APK BUILD_TOOLS CERTIFICATE_FILE'
       );
     }
   } catch (error) {

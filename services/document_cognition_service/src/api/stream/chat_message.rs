@@ -1,9 +1,9 @@
 //! HTTP endpoint for sending chat messages with streaming responses.
 use super::util::chat_message::ai_request::build_chat_messages;
-use super::util::chat_message::toolset::choose_tools_prompt;
 use super::util::chat_message::{store_conversation_messages, store_incoming_message};
 use super::util::chat_permissions;
 use crate::api::context::{ApiContext, DcsAuthorizationService, DcsChatModelAccess};
+use crate::api::tool_selection::choose_tools_prompt;
 use crate::api::utils::log;
 use crate::core::constants::DEFAULT_CHAT_NAME;
 use crate::model::stream::{
@@ -14,7 +14,7 @@ use crate::service::chat_renamer::spawn_initial_chat_rename;
 use crate::service::get_chat::get_chat;
 use crate::service::notification::notify;
 use agent::types::{AssistantMessagePart, ChatMessage, ChatMessageContent};
-use agent::{AgentLoop, StreamAccumulator};
+use agent::{AgentLoop, ModelSpeed, StreamAccumulator};
 use ai_billing::inbound::admission::admission_status;
 use async_stream::stream;
 use attachment::FormattedParts;
@@ -77,6 +77,9 @@ pub struct HttpSendChatMessageRequest {
     pub chat_id: Option<String>,
     /// The model to respond with (`provider/model` id)
     pub model: String,
+    /// Inference speed, validated against the selected model. Defaults to standard.
+    #[serde(default)]
+    pub speed: ModelSpeed,
     /// Additional system instructions appended to the base system prompt
     #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_instructions: Option<String>,
@@ -186,6 +189,14 @@ async fn send_chat_message_inner(
             error: format!("No access to model {}", request.model),
             stream_id: Some(stream_id.clone()),
             status: Some(StatusCode::FORBIDDEN),
+            code: None,
+        });
+    }
+    if !request.speed.supported(&request.model) {
+        return Err(ChatMessageError {
+            error: "Speed is not supported by the selected model".to_owned(),
+            stream_id: Some(stream_id),
+            status: Some(StatusCode::BAD_REQUEST),
             code: None,
         });
     }
@@ -314,7 +325,7 @@ async fn send_chat_message_inner(
         .flatten();
 
     // Build the chat messages
-    let tools_prompt = choose_tools_prompt(&payload, &*ctx.all_tools_prompt);
+    let tools_prompt = choose_tools_prompt(&payload.toolset, &*ctx.all_tools_prompt);
     let ai_request = build_chat_messages(&chat, &payload, all_resolved_parts).map_err(|err| {
         tracing::error!(error=?err, "failed to build chat messages");
         ChatMessageError {
@@ -359,12 +370,14 @@ async fn send_chat_message_inner(
         ctx.clone(),
         ai_request,
         system_prompt,
+        request.toolset.clone(),
         (*user_id).clone(),
         jwt_token,
         actual_chat_id.clone(),
         message_id.clone(),
         stream_id.clone(),
         model,
+        request.speed,
         now,
         request.content.clone(),
         user_message_id,
@@ -514,12 +527,14 @@ fn stream_and_save_message(
     ctx: Arc<ApiContext>,
     request: Vec<ChatMessage>,
     system_prompt: String,
+    tool_selection: ToolSet,
     user_id: MacroUserIdStr<'static>,
     jwt_token: String,
     chat_id: String,
     message_id: String,
     stream_id: String,
     model: String,
+    speed: ModelSpeed,
     now: std::time::Instant,
     user_message_content: String,
     user_message_id: String,
@@ -557,18 +572,21 @@ fn stream_and_save_message(
             yield json;
         }
 
-        let mcp_tools = {
-            use mcp_select::ConnectorSelect;
-            mcp_selector.user_toolset(&user_id).await
-        };
-        let toolset: Arc<dyn ai_toolset::ToolSet<_> + Send + Sync> =
-            Arc::new(mcp_select::CombinedToolSet::new(static_tools, mcp_tools));
+        let toolset = crate::api::tool_selection::service_tools(
+            &tool_selection,
+            static_tools,
+            &mcp_selector,
+            &user_id,
+        )
+        .await;
         // The chat is the conversation every span of this turn belongs to
         // (`gen_ai.conversation.id`), so the turns of one chat form one session
         // in the observability backend.
         let agent_loop = AgentLoop::new(tool_context.recorder.clone())
             .with_model(&model)
-            .with_conversation_id(&chat_id);
+            .with_conversation_id(&chat_id)
+            .with_speed(speed)
+            .expect("chat speed was validated before starting the stream");
 
 
         let rig_messages = agent::to_rig_messages(&request);

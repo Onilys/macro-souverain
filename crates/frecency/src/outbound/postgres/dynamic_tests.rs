@@ -16,6 +16,30 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use uuid::Uuid;
 
+#[tokio::test]
+async fn pull_request_filters_fail_explicitly_before_database_access() {
+    let pool = PgPool::connect_lazy("postgres://user@127.0.0.1:1/unused").unwrap();
+    let storage = FrecencyPgStorage::new(pool);
+    let filter = EntityFilterAst {
+        github_pull_request_filter: Some(Arc::new(Expr::Literal(
+            item_filters::ast::github_pull_request::GithubPullRequestLiteral::Draft(false),
+        ))),
+        ..Default::default()
+    };
+    let result = storage
+        .get_top_entities(FrecencyPageRequest {
+            user_id: MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap(),
+            from_score: None,
+            limit: 10,
+            filters: Some(filter),
+        })
+        .await;
+    assert!(matches!(
+        result,
+        Err(FrecencyStorageErr::UnsupportedGithubPullRequestFilter)
+    ));
+}
+
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn test_dynamic_filter_by_document_ids(pool: PgPool) {
     let storage = FrecencyPgStorage::new(pool.clone());
@@ -954,6 +978,7 @@ async fn test_dynamic_filter_document_date_created_at_gt(pool: PgPool) {
         .into();
     let filter = EntityFilterAst {
         favorites_only: None,
+        crm_association: None,
         document_filter: Some(Arc::new(Expr::Literal(DocumentLiteral::CreatedAt(
             DateLiteral::GreaterThan(cutoff),
         )))),
@@ -965,9 +990,11 @@ async fn test_dynamic_filter_document_date_created_at_gt(pool: PgPool) {
         channel_thread_filter: None,
         call_filter: None,
         crm_company_filter: None,
+        crm_contact_filter: None,
         foreign_entity_filter: None,
-        reminder_filter: None,
+        github_pull_request_filter: None,
         initiative_filter: None,
+        database_row_filter: None,
         agent_session_filter: None,
         properties_filter: None,
     };
@@ -1053,6 +1080,7 @@ async fn test_dynamic_filter_document_date_created_at_lt(pool: PgPool) {
         .into();
     let filter = EntityFilterAst {
         favorites_only: None,
+        crm_association: None,
         document_filter: Some(Arc::new(Expr::Literal(DocumentLiteral::CreatedAt(
             DateLiteral::LessThan(cutoff),
         )))),
@@ -1064,9 +1092,11 @@ async fn test_dynamic_filter_document_date_created_at_lt(pool: PgPool) {
         channel_thread_filter: None,
         call_filter: None,
         crm_company_filter: None,
+        crm_contact_filter: None,
         foreign_entity_filter: None,
-        reminder_filter: None,
+        github_pull_request_filter: None,
         initiative_filter: None,
+        database_row_filter: None,
         agent_session_filter: None,
         properties_filter: None,
     };
@@ -1148,6 +1178,7 @@ async fn test_dynamic_filter_document_date_updated_at_gt(pool: PgPool) {
         .into();
     let filter = EntityFilterAst {
         favorites_only: None,
+        crm_association: None,
         document_filter: Some(Arc::new(Expr::Literal(DocumentLiteral::UpdatedAt(
             DateLiteral::GreaterThan(cutoff),
         )))),
@@ -1159,9 +1190,11 @@ async fn test_dynamic_filter_document_date_updated_at_gt(pool: PgPool) {
         channel_thread_filter: None,
         call_filter: None,
         crm_company_filter: None,
+        crm_contact_filter: None,
         foreign_entity_filter: None,
-        reminder_filter: None,
+        github_pull_request_filter: None,
         initiative_filter: None,
+        database_row_filter: None,
         agent_session_filter: None,
         properties_filter: None,
     };
@@ -1248,6 +1281,7 @@ async fn test_dynamic_filter_document_date_updated_at_lt(pool: PgPool) {
         .into();
     let filter = EntityFilterAst {
         favorites_only: None,
+        crm_association: None,
         document_filter: Some(Arc::new(Expr::Literal(DocumentLiteral::UpdatedAt(
             DateLiteral::LessThan(cutoff),
         )))),
@@ -1259,9 +1293,11 @@ async fn test_dynamic_filter_document_date_updated_at_lt(pool: PgPool) {
         channel_thread_filter: None,
         call_filter: None,
         crm_company_filter: None,
+        crm_contact_filter: None,
         foreign_entity_filter: None,
-        reminder_filter: None,
+        github_pull_request_filter: None,
         initiative_filter: None,
+        database_row_filter: None,
         agent_session_filter: None,
         properties_filter: None,
     };

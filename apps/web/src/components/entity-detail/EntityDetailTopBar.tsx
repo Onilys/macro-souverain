@@ -6,18 +6,21 @@ import { EntityDetailBreadcrumbSkeleton } from './EntityDetailBreadcrumbSkeleton
 
 /** The shared Tasks detail chrome for tasks and native projects. */
 export function EntityDetailTopBar(
-  props: ParentProps<{ navigation?: JSX.Element }>
+  props: ParentProps<{ navigation?: JSX.Element; titleMenu?: JSX.Element }>
 ) {
   return (
     <ViewShell.TopBar class={cn('touch:flex', props.navigation && 'gap-3')}>
       <ViewBreadcrumbs.Outlet
         aria-label="Task location"
         fallback={<EntityDetailBreadcrumbSkeleton />}
-      />
+      >
+        {props.titleMenu}
+      </ViewBreadcrumbs.Outlet>
       <Show when={props.navigation}>
         <div class="min-w-0 overflow-x-auto">{props.navigation}</div>
       </Show>
-      <div class="ml-auto flex shrink-0 items-center gap-2">
+      <div class="ml-auto flex shrink-0 items-center gap-1">
+        <SidePanel.HeaderActionsOutlet />
         {props.children}
         <SidePanel.Toggle />
       </div>

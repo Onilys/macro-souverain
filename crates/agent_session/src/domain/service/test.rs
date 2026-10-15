@@ -23,6 +23,8 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 use tracing::instrument::WithSubscriber as _;
 
+mod first_output;
+
 struct Fixture {
     service: AgentSessionServiceImpl<
         InMemoryAgentSessionRepo,
@@ -568,6 +570,10 @@ impl AgentSessionRepo for BlockingPromptLogs {
         self.repo.get(id).await
     }
 
+    async fn find(&self, id: AgentSessionId) -> Result<Option<AgentSession>> {
+        self.repo.find(id).await
+    }
+
     async fn preview(
         &self,
         viewer: &MacroUserIdStr<'static>,
@@ -619,6 +625,21 @@ impl AgentSessionRepo for BlockingPromptLogs {
         self.repo.set_egress_token_hash(id, hash).await
     }
 
+    async fn set_turn_prompter(
+        &self,
+        id: AgentSessionId,
+        prompter: &crate::domain::model::TurnPrompter,
+    ) -> Result<()> {
+        self.repo.set_turn_prompter(id, prompter).await
+    }
+
+    async fn turn_prompter(
+        &self,
+        id: AgentSessionId,
+    ) -> Result<Option<crate::domain::model::TurnPrompter>> {
+        self.repo.turn_prompter(id).await
+    }
+
     async fn set_repo_url(&self, id: AgentSessionId, repo_url: Option<String>) -> Result<()> {
         self.repo.set_repo_url(id, repo_url).await
     }
@@ -653,6 +674,23 @@ impl AgentSessionRepo for BlockingPromptLogs {
         size: SandboxSize,
     ) -> Result<()> {
         self.repo.set_user_sandbox_size(user_id, size).await
+    }
+
+    async fn user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+    ) -> Result<CodingPreferences> {
+        self.repo.user_coding_preferences(user_id).await
+    }
+
+    async fn set_user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+        preferences: CodingPreferences,
+    ) -> Result<()> {
+        self.repo
+            .set_user_coding_preferences(user_id, preferences)
+            .await
     }
 
     async fn delete(&self, id: AgentSessionId) -> Result<()> {
@@ -1141,14 +1179,14 @@ async fn cancellation_does_not_drop_an_effect_batch_after_machine_mutation() {
 
     let (completed, result) = oneshot::channel();
     commands
-        .send(SessionCommand {
+        .send(SessionMessage::Action(SessionCommand {
             user_id: None,
             action: AgentAction::prompt("keep dispatching"),
             action_id: AgentActionId::mint(),
             completed,
             span: tracing::info_span!("test.command"),
             enqueued_at: tokio::time::Instant::now(),
-        })
+        }))
         .await
         .unwrap();
     entered.notified().await;
@@ -1225,14 +1263,14 @@ async fn live_inbound_logs_do_not_reuse_the_expired_handshake_deadline() {
     release.notify_one();
     let (completed, result) = oneshot::channel();
     commands
-        .send(SessionCommand {
+        .send(SessionMessage::Action(SessionCommand {
             user_id: None,
             action: AgentAction::prompt("keep working"),
             action_id: AgentActionId::mint(),
             completed,
             span: tracing::info_span!("test.command"),
             enqueued_at: tokio::time::Instant::now(),
-        })
+        }))
         .await
         .unwrap();
     entered.notified().await;
@@ -1367,6 +1405,51 @@ async fn marking_disconnected_persists_and_publishes_the_event() {
         }]
     ));
     assert_eq!(realtime.published().len(), 1);
+}
+
+/// A frame recorded out of band - a held tool call - reaches the session's
+/// viewers straight away, not on some later flush nobody will make.
+#[tokio::test]
+async fn a_recorded_frame_is_stored_and_published_at_once() {
+    let repo = InMemoryAgentSessionRepo::new();
+    let session = test_session();
+    repo.insert_session(test_agent_session(session));
+    let realtime = RecordingRealtime::new();
+    let service = AgentSessionServiceImpl::new(
+        repo.clone(),
+        FoldedMessageService::new(repo.clone()),
+        realtime.clone(),
+        NoOpAgentSessionNameGenerator,
+        Arc::new(NoOpTurnObserver),
+        Arc::new(NoopLifecyclePublisher),
+        ReplicaId::mint(),
+    );
+    let notice = agent_runtime_protocol::domain::tool_approval::ToolApprovalNotice {
+        approval_id: "a1".to_owned(),
+        server_slug: "macro".to_owned(),
+        server_name: "Macro".to_owned(),
+        tool_name: "WebSearch".to_owned(),
+        arguments: serde_json::json!({}),
+        requested_by: None,
+        status: agent_runtime_protocol::domain::tool_approval::ToolApprovalStatus::Pending,
+        resolved_by: None,
+        remembered: false,
+    };
+
+    service
+        .record_frame(session, notice.to_server_message())
+        .await
+        .expect("the frame is recorded");
+
+    let stored = AgentSessionLogRepo::list_by_session(&repo, session)
+        .await
+        .expect("stored log can be read");
+    assert_eq!(stored.len(), 1);
+    assert_eq!(
+        realtime.published().len(),
+        1,
+        "viewers hear it without a flush"
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -1840,14 +1923,14 @@ async fn assert_restore_persistence_failure_does_not_send_prompt(failure: Restor
     );
     let (completed, completion) = oneshot::channel();
     commands
-        .send(SessionCommand {
+        .send(SessionMessage::Action(SessionCommand {
             user_id: None,
             action: AgentAction::prompt("must remain unsent"),
             action_id: AgentActionId::mint(),
             completed,
             span: tracing::Span::none(),
             enqueued_at: tokio::time::Instant::now(),
-        })
+        }))
         .await
         .unwrap();
     let queued = actor.next_input().await;
@@ -2019,14 +2102,14 @@ async fn a_prompt_turn_is_traced_as_an_agent_span_under_its_command() {
     let action_id = AgentActionId::mint();
     let (completed, result) = oneshot::channel();
     commands
-        .send(SessionCommand {
+        .send(SessionMessage::Action(SessionCommand {
             user_id: None,
             action: AgentAction::prompt("what time is it?"),
             action_id,
             completed,
             span: command_span,
             enqueued_at: tokio::time::Instant::now(),
-        })
+        }))
         .await
         .unwrap();
     let prompt = outbound_rx.recv().await.expect("prompt is dispatched");
@@ -2093,6 +2176,157 @@ async fn a_prompt_turn_is_traced_as_an_agent_span_under_its_command() {
     assert!(output.contains("It is noon."), "{output}");
     let input = attribute(attr::INPUT_MESSAGES).expect("input recorded");
     assert!(input.contains("what time is it?"), "{input}");
+}
+
+/// A command dequeued before the handshake finished says how long it waited
+/// for it; one dequeued on a live session waited for nothing.
+#[tokio::test]
+async fn a_command_span_records_its_wait_for_the_handshake() {
+    use opentelemetry::trace::TracerProvider as _;
+    use opentelemetry_sdk::trace::{InMemorySpanExporter, SdkTracerProvider};
+    use tracing_subscriber::layer::SubscriberExt as _;
+
+    let exporter = InMemorySpanExporter::default();
+    let provider = SdkTracerProvider::builder()
+        .with_simple_exporter(exporter.clone())
+        .build();
+    let layer = tracing_opentelemetry::layer().with_tracer(provider.tracer("test"));
+    let _guard = tracing::subscriber::set_default(tracing_subscriber::registry().with(layer));
+    tracing::callsite::rebuild_interest_cache();
+
+    let repo = InMemoryAgentSessionRepo::new();
+    let session = test_session();
+    repo.insert_session(test_agent_session(session));
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let logs = BlockingPromptLogs {
+        repo: repo.clone(),
+        entered: entered.clone(),
+        release: release.clone(),
+        hang_disconnect: false,
+        fail_restore_log: None,
+    };
+    let (outbound_tx, mut outbound_rx) = mpsc::channel(8);
+    let (inbound_tx, inbound_rx) = mpsc::channel(8);
+    let (commands, command_rx) = mpsc::channel(8);
+    let (handshake, _) = watch::channel(HandshakeStatus::Pending);
+    let actor = SessionActor::new(
+        session,
+        None,
+        "/workspace".to_owned(),
+        Vec::new(),
+        crate::domain::session::PermissionPolicy::AutoAccept,
+        RecordingTransport {
+            outbound: outbound_tx,
+            inbound: inbound_rx,
+        },
+        logs,
+        command_rx,
+        handshake,
+        Arc::new(crate::domain::ports::NoOpTurnObserver),
+        Arc::new(crate::domain::ports::NoOpToolCatalog),
+    );
+    let active = Arc::new(ActiveSessions::new());
+    let (stopped_tx, _) = watch::channel(false);
+    let claim = claim_for_test(&repo, session).await;
+    let task = tokio::spawn(
+        run_session(
+            actor,
+            Arc::downgrade(&active),
+            Arc::new(()),
+            stopped_tx,
+            CancellationToken::new(),
+            repo.clone(),
+            claim,
+            Arc::new(crate::domain::ports::NoOpTurnObserver),
+        )
+        .with_current_subscriber(),
+    );
+    let send_prompt = |name: &'static str| {
+        let (completed, result) = oneshot::channel();
+        let command = SessionMessage::Action(SessionCommand {
+            user_id: None,
+            action: AgentAction::prompt(name),
+            action_id: AgentActionId::mint(),
+            completed,
+            span: tracing::info_span!(
+                "agent.session.command",
+                agent.command.name = name,
+                agent.command.queue_wait_ms = tracing::field::Empty,
+                agent.session.runtime_phase_at_dequeue = tracing::field::Empty,
+                agent.command.handshake_wait_ms = tracing::field::Empty,
+            ),
+            enqueued_at: tokio::time::Instant::now(),
+        });
+        (command, result)
+    };
+
+    // Queued before the runtime is even ready: it waits out the handshake.
+    let (early, early_result) = send_prompt("early");
+    commands.send(early).await.unwrap();
+    open_test_session(&inbound_tx, &mut outbound_rx, session).await;
+    entered.notified().await;
+    release.notify_one();
+    outbound_rx
+        .recv()
+        .await
+        .expect("early prompt is dispatched");
+    early_result
+        .await
+        .unwrap()
+        .expect("early delivery completes");
+
+    let (live, live_result) = send_prompt("live");
+    commands.send(live).await.unwrap();
+    entered.notified().await;
+    release.notify_one();
+    outbound_rx.recv().await.expect("live prompt is dispatched");
+    live_result.await.unwrap().expect("live delivery completes");
+
+    drop(inbound_tx);
+    task.await.unwrap();
+    provider.force_flush().expect("flush");
+    let spans = exporter.get_finished_spans().expect("finished spans");
+    let attribute = |name: &str, key: &str| {
+        let span = spans
+            .iter()
+            .find(|span| {
+                span.name == "agent.session.command"
+                    && span.attributes.iter().any(|kv| {
+                        kv.key.as_str() == "agent.command.name" && kv.value.as_str() == name
+                    })
+            })
+            .unwrap_or_else(|| panic!("no {name} command span: {spans:#?}"));
+        span.attributes
+            .iter()
+            .find(|kv| kv.key.as_str() == key)
+            .map(|kv| kv.value.clone())
+    };
+    assert!(matches!(
+        attribute("early", "agent.session.runtime_phase_at_dequeue")
+            .expect("phase recorded")
+            .as_str()
+            .as_ref(),
+        "booting" | "handshaking"
+    ));
+    assert!(matches!(
+        attribute("early", "agent.command.handshake_wait_ms"),
+        Some(opentelemetry::Value::I64(wait)) if wait >= 0
+    ));
+    assert_eq!(
+        attribute("live", "agent.session.runtime_phase_at_dequeue")
+            .expect("phase recorded")
+            .as_str(),
+        "live"
+    );
+    assert_eq!(
+        attribute("live", "agent.command.handshake_wait_ms"),
+        Some(opentelemetry::Value::I64(0))
+    );
+    assert!(matches!(
+        attribute("live", "agent.command.queue_wait_ms"),
+        Some(opentelemetry::Value::I64(_))
+    ));
 }
 
 mod initial_model;

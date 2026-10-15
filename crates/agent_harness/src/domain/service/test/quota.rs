@@ -53,6 +53,7 @@ async fn session(
     agent_session::domain::ports::AgentSessionRepo::create(
         repo,
         CreateAgentSessionParams {
+            warm: false,
             id,
             owner_id: owner,
             bot_id: bot,
@@ -80,6 +81,7 @@ fn action(action: AgentAction) -> DeliverAction {
         action,
         actor: Some(staff_sender()),
         announce: None,
+        context: None,
     }
 }
 
@@ -122,6 +124,7 @@ async fn denied_or_unavailable_trigger_open_has_no_side_effects() {
                     discussion_id: macro_uuid::generate_uuid_v7(),
                     actor: staff_sender(),
                     prompt: "Work on this task".to_owned(),
+                    context: None,
                 }),
             ] {
                 admission.calls.lock().unwrap().clear();
@@ -353,6 +356,7 @@ async fn retries_of_queued_and_in_flight_actions_do_not_recheck_quota() {
             announce: None,
             announcement_message_id: None,
             dispatched_at: chrono::Utc::now(),
+            held_tool_calls: Vec::new(),
         },
     );
     assert_eq!(
@@ -503,6 +507,47 @@ async fn billing_outage_preserves_fifo_and_retries_only_on_a_new_event() {
 }
 
 #[tokio::test]
+async fn steering_during_a_billing_outage_preserves_the_waiting_order() {
+    let (service, repo, admission) = bench(None);
+    let id = session(&repo, BotId::TEST_A, "in-memory", Owner::User(sender())).await;
+    let ids = enqueue_waiting(&service, id).await;
+    *admission.failure.lock().unwrap() = Some(AiAdmissionError::Unavailable);
+
+    assert!(matches!(
+        service
+            .execute_here(
+                id,
+                HarnessCommand::SteerQueued {
+                    action_id: ids[1],
+                    actor: Some(sender()),
+                },
+            )
+            .await,
+        Err(HarnessError::Admission(AiAdmissionError::Unavailable))
+    ));
+    assert_eq!(
+        service
+            .inner
+            .queues
+            .list(id)
+            .iter()
+            .map(|entry| entry.action_id)
+            .collect::<Vec<_>>(),
+        ids
+    );
+    assert_eq!(
+        repo.list_queued_actions(id)
+            .await
+            .unwrap()
+            .iter()
+            .map(|entry| entry.action_id)
+            .collect::<Vec<_>>(),
+        ids
+    );
+    assert_no_provisioning(&service);
+}
+
+#[tokio::test]
 async fn admission_changes_during_dispatch_never_reach_the_runtime() {
     for failure in [denied(), AiAdmissionError::Unavailable] {
         // Fail before composition, before announcement, or after announcement
@@ -573,6 +618,7 @@ async fn denying_a_steering_follow_up_does_not_cancel_the_running_turn() {
         announce: None,
         announcement_message_id: None,
         dispatched_at: chrono::Utc::now(),
+        held_tool_calls: Vec::new(),
     };
     service.inner.busy.mark_turn(id, running.clone());
     // Enqueue succeeds, but steering's revalidation denies before Stop or chip.
@@ -670,6 +716,7 @@ async fn rejection_persistence_failure_keeps_work_and_defers_reply_resolution() 
             announce: command.announce,
             announced: Some(macro_uuid::generate_uuid_v7()),
             created_at: chrono::Utc::now(),
+            context: None,
         };
         let stored = entry.to_stored().unwrap();
         let mut sessions = MockAgentSessionService::new();

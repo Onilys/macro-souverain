@@ -1,4 +1,3 @@
-import Cursor from '@phosphor/cursor.svg';
 import Envelope from '@phosphor/envelope.svg';
 import Hash from '@phosphor/hash.svg';
 import PaperPlane from '@phosphor/paper-plane-tilt.svg';
@@ -6,6 +5,7 @@ import X from '@phosphor/x.svg';
 import { Button } from '@ui';
 import { createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { homepagePeople } from '../../core/homepage-demo-people';
+import { DemoCursor } from '../DemoCursor';
 import { HomepageConversation } from '../HomepageConversation';
 import { demoEmails } from './email-fixtures';
 import { ChannelComposer } from './frozen/ChannelComposer';
@@ -158,7 +158,7 @@ function ChannelResult(props: { onOpen: () => void; updated: boolean }) {
                       <Envelope class="size-4" /> Email thread <span>Live</span>
                     </span>
                     <strong>Next steps for our team</strong>
-                    <span>Dana Whitfield · Jacob Beckerman</span>
+                    <span>Dana · Jacob</span>
                     <span class="mail-shared-thread-preview">
                       {props.updated
                         ? incomingReply
@@ -316,7 +316,7 @@ export function EmailSharingDemo(props: { onClose?: () => void } = {}) {
                 <Show when={opened() && phase() >= 7}>
                   <div class="mail-arrived-reply glass-input">
                     <header>
-                      <strong>Dana Whitfield</strong>
+                      <strong>Dana</strong>
                       <span>Just now</span>
                     </header>
                     <p>{incomingReply}</p>
@@ -352,7 +352,7 @@ export function EmailSharingDemo(props: { onClose?: () => void } = {}) {
                 transform: `translate(${position().x}px, ${position().y}px)`,
               }}
             >
-              <Cursor />
+              <DemoCursor label="Jacob" clicking={phase() === 5} />
             </div>
           )}
         </Show>

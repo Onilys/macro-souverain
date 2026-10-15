@@ -3,6 +3,7 @@
 use agent_runtime_protocol::domain::action::{AgentAction, PromptAttachment};
 use macro_user_id::user_id::MacroUserIdStr;
 use macro_uuid::Uuid;
+use trigger_context::TriggerContext;
 
 use super::AnnounceOrigin;
 
@@ -25,19 +26,25 @@ pub struct MentionOrigin {
     /// Files attached to the message, as the prompt will refer to them.
     #[serde(default)]
     pub attachments: Vec<PromptAttachment>,
+    /// Why the agent was called, as the trigger read it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<TriggerContext>,
 }
 
 /// A task assignment that starts a session without a user-authored mention.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TaskAssignmentOrigin {
-    /// Task whose discussion receives the agent's response.
+    /// Original task whose discussion receives the session link.
     pub parent: messages::domain::models::MessageParent,
-    /// Reserved agent-authored response, also the discussion's root.
+    /// Reserved agent-authored session link, also the discussion's root.
     pub discussion_id: Uuid,
     /// User who assigned the task and owns the session.
     pub actor: MacroUserIdStr<'static>,
     /// Task instructions supplied privately to the session.
     pub prompt: String,
+    /// The task, who assigned it, and how, as the trigger read it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<TriggerContext>,
 }
 
 /// The event that opens a managed session.
@@ -54,10 +61,32 @@ pub enum SessionOrigin {
 }
 
 impl SessionOrigin {
+    pub(crate) fn session_instructions(&self, configured: &str) -> Option<String> {
+        let configured = (!configured.trim().is_empty()).then(|| configured.to_owned());
+        match self {
+            Self::Mention(_) => configured,
+            Self::TaskAssignment(origin) => {
+                let task =
+                    agent_trigger::domain::task_assignment::assignment_instructions(&origin.parent);
+                Some(match configured {
+                    Some(configured) => format!("{configured}\n\n{task}"),
+                    None => task,
+                })
+            }
+        }
+    }
+
     pub(crate) fn actor(&self) -> &MacroUserIdStr<'static> {
         match self {
             Self::Mention(origin) => &origin.sender,
             Self::TaskAssignment(origin) => &origin.actor,
+        }
+    }
+
+    pub(crate) fn context(&self) -> Option<&TriggerContext> {
+        match self {
+            Self::Mention(origin) => origin.context.as_ref(),
+            Self::TaskAssignment(origin) => origin.context.as_ref(),
         }
     }
 

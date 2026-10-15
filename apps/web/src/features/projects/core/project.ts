@@ -2,8 +2,8 @@
 export type Project = {
   id: string;
   name: string;
-  descriptionDocumentId: string;
   updatedAt: string;
+  createdAt?: string;
   access?: ProjectAccess;
   taskCount?: number;
   completedTaskCount?: number;

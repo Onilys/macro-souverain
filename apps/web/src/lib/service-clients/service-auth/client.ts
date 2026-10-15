@@ -7,6 +7,7 @@ import {
   type ErrorResponseHandler,
   type SafeFetchInit,
   safeFetch,
+  statusError,
 } from '@core/util/safeFetch';
 import { Telemetry } from '@macro-inc/observability';
 
@@ -17,20 +18,28 @@ import type {
   AiPlanCatalog,
   AiUsageSnapshot,
   PaidPlan,
+  SubscriptionStatus,
   TeamMemberPlan,
 } from './ai-billing-types';
 import { fetchWithAuth as _fetchWithAuth } from './fetch';
 import type {
+  CheckoutSessionV2Response,
   CursorApiKeyStatus,
   CursorModelsResponse,
   EnrichGithubPullRequestsProxyRequest,
   EnrichGithubPullRequestsResponse,
   GithubLinkStatusResponse,
+  GithubPullRequestMergeabilityRequest,
+  GithubPullRequestMergeabilityResponse,
   GmailLinkStatusResponse,
   InitGithubLinkResponse,
   InitGmailLinkResponse,
+  MergeGithubPullRequestRequest,
+  MergeGithubPullRequestResponse,
   PatchUserTutorialRequest,
   SendMobileWelcomeEmailResponse,
+  SetGithubPullRequestDraftRequest,
+  SetGithubPullRequestDraftResponse,
   UserQuota,
 } from './generated/schemas';
 import type { AppleLoginRequest } from './generated/schemas/appleLoginRequest';
@@ -210,6 +219,69 @@ const cursorApiKeyErrorResponseHandler: ErrorResponseHandler<'CURSOR_API_KEY_ERR
     };
   };
 
+/**
+ * Errors a merge can end in beyond the shared GitHub ones: the user has no
+ * GitHub account linked, or GitHub declined the merge and said why.
+ */
+export type GithubMergeErrorCode =
+  | GithubReauthenticationErrorCode
+  | 'NO_GITHUB_LINK'
+  | 'MERGE_REJECTED';
+
+/** The body the merge route answers with when the user has not linked GitHub. */
+const NO_GITHUB_LINK_MESSAGE = 'no github link found';
+
+/** The `message` of an error body, or nothing when the body is not that shape. */
+async function readErrorMessage(
+  response: Response
+): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.json();
+    return typeof body === 'object' && body !== null && 'message' in body
+      ? String((body as { message: unknown }).message)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Keeps GitHub's own words when it declines a change. GitHub names the
+ * failing check, the missing review, or the missing permission; the status
+ * alone ("409") tells the user nothing they can act on.
+ */
+function githubChangeErrorResponseHandler(copy: {
+  noLink: string;
+  rejected: string;
+}): ErrorResponseHandler<GithubMergeErrorCode> {
+  return async function handleGithubChangeErrorResponse(response) {
+    if (response.status === 428) {
+      return {
+        code: 'REAUTHENTICATION_REQUIRED',
+        message: 'GitHub reauthentication required',
+      };
+    }
+    if (![403, 404, 409, 422].includes(response.status)) {
+      return githubErrorResponseHandler(response);
+    }
+    const message = await readErrorMessage(response);
+    if (response.status === 404 && message === NO_GITHUB_LINK_MESSAGE) {
+      return { code: 'NO_GITHUB_LINK', message: copy.noLink };
+    }
+    return { code: 'MERGE_REJECTED', message: message ?? copy.rejected };
+  };
+}
+
+const githubMergeErrorResponseHandler = githubChangeErrorResponseHandler({
+  noLink: 'Connect GitHub in Settings to merge pull requests',
+  rejected: 'GitHub declined to merge the pull request',
+});
+
+const githubDraftErrorResponseHandler = githubChangeErrorResponseHandler({
+  noLink: 'Connect GitHub in Settings to change pull requests',
+  rejected: 'GitHub declined to change the pull request',
+});
+
 const githubErrorResponseHandler: ErrorResponseHandler<GithubReauthenticationErrorCode> =
   async function handleGithubErrorResponse(response) {
     switch (response.status) {
@@ -300,12 +372,17 @@ export const authServiceClient = {
     });
   },
   async passwordlessCallback({ code, email }: { code: string; email: string }) {
-    const result = await safeFetch<UserTokensResponse>(
+    const result = await safeFetch<UserTokensResponse, 'RATE_LIMITED'>(
       `${authHost}/oauth/passwordless/${code}?email=${encodeURIComponent(email)}&disable_redirect=true`,
       { cache: 'no-store', credentials: 'include' },
       async (response) => {
-        const message = await response.text();
-        return { code: 'UNAUTHORIZED' as const, message };
+        if (response.status === 401) {
+          return { code: 'UNAUTHORIZED', message: await response.text() };
+        }
+        if (response.status === 429) {
+          return { code: 'RATE_LIMITED', message: 'Rate limit exceeded' };
+        }
+        return statusError(response.status);
       }
     );
     if (result.isOk()) {
@@ -439,6 +516,44 @@ export const authServiceClient = {
         EnrichGithubPullRequestsResponse,
         GithubReauthenticationErrorCode
       >(`${authHost}/github_pull_requests/enrich`, {
+        method: 'POST',
+        body: JSON.stringify(args),
+        errorResponseHandler: githubErrorResponseHandler,
+      })
+    ).map((result) => result);
+  },
+  async mergeGithubPullRequest(args: MergeGithubPullRequestRequest) {
+    return (
+      await fetchWithAuth<MergeGithubPullRequestResponse, GithubMergeErrorCode>(
+        `${authHost}/github_pull_requests/merge`,
+        {
+          method: 'POST',
+          body: JSON.stringify(args),
+          errorResponseHandler: githubMergeErrorResponseHandler,
+        }
+      )
+    ).map((result) => result);
+  },
+  async setGithubPullRequestDraft(args: SetGithubPullRequestDraftRequest) {
+    return (
+      await fetchWithAuth<
+        SetGithubPullRequestDraftResponse,
+        GithubMergeErrorCode
+      >(`${authHost}/github_pull_requests/draft`, {
+        method: 'POST',
+        body: JSON.stringify(args),
+        errorResponseHandler: githubDraftErrorResponseHandler,
+      })
+    ).map((result) => result);
+  },
+  async getGithubPullRequestMergeability(
+    args: GithubPullRequestMergeabilityRequest
+  ) {
+    return (
+      await fetchWithAuth<
+        GithubPullRequestMergeabilityResponse,
+        GithubReauthenticationErrorCode
+      >(`${authHost}/github_pull_requests/mergeability`, {
         method: 'POST',
         body: JSON.stringify(args),
         errorResponseHandler: githubErrorResponseHandler,
@@ -608,27 +723,28 @@ export const authServiceClient = {
     };
     /** The plan to subscribe to. The backend defaults to Premium. */
     plan?: PaidPlan;
+    /** Request the server-validated first-subscription trial. */
+    onboardingTrial?: boolean;
   }) {
-    return (
-      await fetchWithAuth<{ url: string }>(
-        `${authHost}/user/stripe/checkoutv2`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            successUrl: args.successUrl,
-            cancelUrl: args.cancelUrl,
-            discount: args.discount ?? undefined,
-            metadata: args.metadata,
-            plan: args.plan,
-          }),
-        }
-      )
-    ).map((result) => result.url);
+    return await fetchWithAuth<CheckoutSessionV2Response>(
+      `${authHost}/user/stripe/checkoutv2`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          successUrl: args.successUrl,
+          cancelUrl: args.cancelUrl,
+          discount: args.discount ?? undefined,
+          metadata: args.metadata,
+          plan: args.plan,
+          onboardingTrial: args.onboardingTrial,
+        }),
+      }
+    );
   },
 
   /**
-   * Moves the active subscription to another paid plan. Proration is invoiced
-   * immediately; roles and the AI allowance follow from the Stripe webhook.
+   * Upgrades immediately, schedules downgrades for renewal, or keeps the active
+   * plan by canceling its pending downgrade.
    */
   async changePlan(args: { plan: PaidPlan }) {
     return (
@@ -637,6 +753,13 @@ export const authServiceClient = {
         body: JSON.stringify({ plan: args.plan }),
       })
     ).map((result) => result.plan);
+  },
+
+  async getSubscriptionStatus() {
+    return await fetchWithAuth<SubscriptionStatus>(
+      `${authHost}/user/stripe/plan`,
+      { method: 'GET' }
+    );
   },
 
   // AI billing: allowance, credits, overage.
@@ -666,13 +789,33 @@ export const authServiceClient = {
     );
   },
 
+  async updateAiAutoReload(args: {
+    enabled: boolean;
+    minimumBalanceCents: number;
+    targetBalanceCents: number;
+    monthlySpendLimitCents: number | null;
+  }) {
+    return await fetchWithAuth<AiUsageSnapshot>(
+      `${authHost}/ai-billing/auto-reload`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          enabled: args.enabled,
+          minimumBalanceCents: args.minimumBalanceCents,
+          targetBalanceCents: args.targetBalanceCents,
+          monthlySpendLimitCents: args.monthlySpendLimitCents,
+        }),
+      }
+    );
+  },
+
   async createAiCreditCheckout(args: {
     amountCents: number;
     successUrl: string;
     cancelUrl: string;
   }) {
     return (
-      await fetchWithAuth<{ url: string }>(
+      await fetchWithAuth<{ url: string }, 'PAID_PLAN_REQUIRED'>(
         `${authHost}/ai-billing/credits/checkout`,
         {
           method: 'POST',
@@ -681,6 +824,15 @@ export const authServiceClient = {
             successUrl: args.successUrl,
             cancelUrl: args.cancelUrl,
           }),
+          errorResponseHandler: async (response) => {
+            if (response.status === 402) {
+              return {
+                code: 'PAID_PLAN_REQUIRED',
+                message: 'A paid plan is required',
+              };
+            }
+            return statusError(response.status);
+          },
         }
       )
     ).map((result) => result.url);
@@ -720,7 +872,8 @@ export const authServiceClient = {
    * Stores a Cursor API key for the signed-in user, replacing any existing one.
    *
    * The key is validated on shape alone, so a typo that still starts with
-   * `crsr_` is accepted here and only fails when a session tries to use it.
+   * `grok_` or `crsr_` is accepted here and only fails when a session tries to
+   * use it.
    */
   async putCursorApiKey(apiKey: string) {
     return (
@@ -831,10 +984,9 @@ export const authServiceClient = {
    * After Google consent, the user is redirected back to `originalUrl` with `?link_id=<uuid>`
    * appended; the frontend then calls `emailClient.init({ linkId })` to provision the inbox.
    *
-   * `scopes` selects which permissions the consent screen asks for. Only
-   * calendar entry points may request calendar access, and an inbox that is
-   * already connected should ask for `calendar` alone so the user isn't
-   * re-consenting to mailbox access they have already granted.
+   * `scopes` selects which permissions the consent screen asks for. A healthy
+   * mailbox adding calendar requests `calendar`; reconnecting an account that
+   * used calendar requests `gmail_and_calendar` to repair both capabilities.
    */
   async initGmailLink(
     originalUrl?: string,
@@ -1039,7 +1191,7 @@ export const authServiceClient = {
               message:
                 typeof message === 'string'
                   ? message
-                  : 'This domain cannot be used for auto-join',
+                  : "Auto-join isn't available for this domain",
             };
           }
           return {

@@ -653,6 +653,8 @@ pub struct PatchChannelRequest {
 pub enum ReferencedShareItemType {
     /// Agent session entity.
     AgentSession,
+    /// Database entity.
+    Database,
     /// Document entity.
     Document,
     /// Chat entity.
@@ -665,6 +667,8 @@ pub enum ReferencedShareItemType {
     Call,
     /// Calendar event entity: one owner's projection of a meeting.
     CalendarEvent,
+    /// Form entity: posting one lets the channel respond to it.
+    Form,
 }
 
 impl ReferencedShareItemType {
@@ -672,12 +676,14 @@ impl ReferencedShareItemType {
     pub fn from_raw(raw: &str) -> Option<Self> {
         match raw {
             "agent_session" => Some(Self::AgentSession),
+            "database" => Some(Self::Database),
             "document" => Some(Self::Document),
             "chat" => Some(Self::Chat),
             "project" => Some(Self::Project),
             "thread" | "email" | "email_thread" => Some(Self::EmailThread),
             "call" => Some(Self::Call),
             "calendar_event" => Some(Self::CalendarEvent),
+            "form" => Some(Self::Form),
             _ => None,
         }
     }
@@ -686,12 +692,14 @@ impl ReferencedShareItemType {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::AgentSession => "agent_session",
+            Self::Database => "database",
             Self::Document => "document",
             Self::Chat => "chat",
             Self::Project => "project",
             Self::EmailThread => "thread",
             Self::Call => "call",
             Self::CalendarEvent => "calendar_event",
+            Self::Form => "form",
         }
     }
 
@@ -744,6 +752,26 @@ impl ReferencedShareItem {
     pub fn entity_type(&self) -> ReferencedShareItemType {
         self.entity_type
     }
+}
+
+/// Whether a referenced item was granted to a channel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReferenceShareOutcome {
+    /// A channel grant exists. An existing direct grant is left as it was.
+    Shared,
+    /// The actor's access is below what sharing this kind of item requires.
+    NotPermitted,
+}
+
+/// One referenced item and whether it was shared with the channel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReferenceShareResult {
+    /// Referenced entity id.
+    pub entity_id: String,
+    /// Referenced entity type.
+    pub entity_type: ReferencedShareItemType,
+    /// Grant outcome.
+    pub outcome: ReferenceShareOutcome,
 }
 
 /// Request to add participants.
@@ -935,6 +963,83 @@ pub struct GetChannelsParams {
     macro_id: MacroUserIdStr<'static>,
     limit: Option<u32>,
     query: Query<Uuid, SimpleSortMethod, LiteralTree<ChannelLiteral>>,
+}
+
+/// An entity whose references are looked up, as stored on reference edges
+/// (for example `crm_company` and the company id).
+#[cfg(feature = "list")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReferenceTarget {
+    /// Stored entity type of the referenced entity.
+    pub entity_type: String,
+    /// Referenced entity id.
+    pub entity_id: String,
+}
+
+/// What a live reference to a target belongs to.
+#[cfg(feature = "list")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ReferenceSource {
+    /// A document or task whose content references the target.
+    Document(String),
+    /// An undeleted message that references the target.
+    Message(ReferencingMessage),
+}
+
+/// An undeleted message that mentions or attaches a reference target.
+#[cfg(feature = "list")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReferencingMessage {
+    /// The message id.
+    pub message_id: Uuid,
+    /// The root of the message's thread, or `None` for a top-level message.
+    pub thread_id: Option<Uuid>,
+    /// The channel or discussion the message belongs to.
+    pub parent: MessageParent,
+}
+
+#[cfg(feature = "list")]
+impl ReferencingMessage {
+    /// The top-level message the reference appears under: the thread root
+    /// for a reply, otherwise the message itself.
+    pub fn root_id(&self) -> Uuid {
+        self.thread_id.unwrap_or(self.message_id)
+    }
+}
+
+/// The channel or discussion a message belongs to.
+#[cfg(feature = "list")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MessageParent {
+    /// A channel message.
+    Channel(Uuid),
+    /// A discussion message on a document.
+    Document(String),
+    /// A discussion message on an initiative.
+    Initiative(Uuid),
+    /// A discussion message on a CRM company.
+    CrmCompany(Uuid),
+    /// A discussion message on a CRM contact.
+    CrmContact(Uuid),
+    /// A message in a call's thread.
+    Call(Uuid),
+}
+
+#[cfg(feature = "list")]
+impl MessageParent {
+    /// Parse a stored parent, or `None` for an unknown parent type or id.
+    pub fn from_stored(parent_type: &str, parent_id: &str) -> Option<Self> {
+        let uuid = || Uuid::parse_str(parent_id).ok();
+        Some(match parent_type {
+            "channel" => Self::Channel(uuid()?),
+            "document" => Self::Document(parent_id.to_owned()),
+            "initiative" => Self::Initiative(uuid()?),
+            "crm_company" => Self::CrmCompany(uuid()?),
+            "crm_contact" => Self::CrmContact(uuid()?),
+            "call" => Self::Call(uuid()?),
+            _ => return None,
+        })
+    }
 }
 
 /// Channel thread reply rows request.

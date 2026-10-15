@@ -1,5 +1,6 @@
 import { useUserId } from '@core/context/user';
 import { throwOnErr } from '@core/util/result';
+import { Telemetry } from '@macro-inc/observability';
 import { invalidateUserInfo } from '@queries/auth/user-info';
 import { invalidateCalendarViews } from '@queries/calendar/sync';
 import { queryClient } from '@queries/client';
@@ -11,6 +12,7 @@ import { type Accessor, createMemo } from 'solid-js';
 import { queryReadyGate } from '../gate';
 import { type MutationCallbacks, withCallbacks } from '../utils';
 import { emailKeys } from './keys';
+import { refreshMailAccounts } from './mail-accounts';
 
 const LINK_STALE_TIME = 5 * 60 * 1000;
 
@@ -29,20 +31,26 @@ const queryEnabled = () => true;
 export function useInboxHealthProbeQuery() {
   return useQuery(() => ({
     queryKey: emailKeys.linksHealthProbe.queryKey,
-    queryFn: async () => {
-      await emailClient.healthCheckLinks();
-      return null;
-    },
+    queryFn: probeInboxHealth,
     staleTime: HEALTH_PROBE_STALE_TIME,
     refetchOnWindowFocus: true,
     retry: false,
   }));
 }
 
+async function probeInboxHealth() {
+  await emailClient.healthCheckLinks();
+  return null;
+}
+
+function fetchEmailLinks() {
+  return throwOnErr(() => emailClient.getLinks());
+}
+
 export function useEmailLinksQuery(enabled: Accessor<boolean> = queryEnabled) {
   return useQuery(() => ({
     queryKey: emailKeys.links.queryKey,
-    queryFn: async () => throwOnErr(async () => await emailClient.getLinks()),
+    queryFn: fetchEmailLinks,
     enabled: enabled(),
     staleTime: LINK_STALE_TIME,
     refetchOnWindowFocus: 'always',
@@ -114,30 +122,31 @@ export function useNonPrimaryEmailLinkIdHeader() {
     nonPrimaryEmailLinkIdHeader(linkId, primaryLinkId());
 }
 
+async function refreshSenderCatalog(): Promise<void> {
+  try {
+    await refreshMailAccounts();
+  } catch (error) {
+    Telemetry.error(error);
+  }
+}
+
 export function invalidateEmailLinks() {
+  // Connection, reauthorization and link-removal events must refresh the
+  // GraphQL catalog consumed by both From and the sidebar, not only legacy reads.
+  void refreshSenderCatalog();
   queryClient.cancelQueries({ queryKey: emailKeys.links.queryKey });
   queryClient.invalidateQueries({
     queryKey: emailKeys.links.queryKey,
   });
 }
 
-type DisableCalendarContext = {
-  previousLinks: ListLinksResponse | undefined;
-};
-type DisableCalendarCallbacks = MutationCallbacks<
-  void,
-  Error,
-  string,
-  DisableCalendarContext
->;
+type DisableCalendarCallbacks = MutationCallbacks<void, Error, string>;
 
 /**
  * Turns calendar off for one inbox: the backend deletes its calendar data and
- * drops the calendar scopes from its Google grant. The cached link flips to
- * `calendar_disabled` + `needs_calendar_permission` right away and drops
- * `has_calendar_data`, which is what swaps the settings row back to "Enable
- * calendar", retires the turn-off control, and keeps the enable prompt quiet.
- * The emptied calendar caches are refetched.
+ * drops the calendar scopes from its Google grant. Publish the disabled state
+ * only after deletion finishes: offering Enable while deletion holds the
+ * inbox's grant lock makes the consent callback wait behind that deletion.
  */
 export function useDisableCalendarMutation(
   callbacks?: DisableCalendarCallbacks
@@ -147,16 +156,12 @@ export function useDisableCalendarMutation(
       await throwOnErr(() => emailClient.disableLinkCalendar({ linkId }));
     },
 
-    ...withCallbacks<void, Error, string, DisableCalendarContext>(
+    ...withCallbacks<void, Error, string>(
       {
-        onMutate: async (linkId) => {
+        onSuccess: async (_data, linkId) => {
           await queryClient.cancelQueries({
             queryKey: emailKeys.links.queryKey,
           });
-
-          const previousLinks = queryClient.getQueryData<ListLinksResponse>(
-            emailKeys.links.queryKey
-          );
 
           queryClient.setQueryData<ListLinksResponse>(
             emailKeys.links.queryKey,
@@ -176,21 +181,8 @@ export function useDisableCalendarMutation(
               }
           );
 
-          return { previousLinks };
-        },
-
-        onSuccess: () => {
           invalidateEmailLinks();
           invalidateCalendarViews();
-        },
-
-        onError: (_error, _linkId, context) => {
-          if (context?.previousLinks) {
-            queryClient.setQueryData(
-              emailKeys.links.queryKey,
-              context.previousLinks
-            );
-          }
         },
       },
       callbacks

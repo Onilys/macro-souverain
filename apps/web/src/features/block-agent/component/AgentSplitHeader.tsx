@@ -1,4 +1,4 @@
-import { ChangesToggle } from '@app/features/agent-changes/agent-changes';
+import { ChangesToggle } from '@app/features/changes/changes';
 import { useBlockEntityCommands } from '@app/features/next-soup/actions/use-block-entity-commands';
 import {
   type BlockTool,
@@ -15,7 +15,7 @@ import { ProviderIcon } from '@core/component/AI/component/ProviderIcon';
 import { Permissions } from '@core/component/SharePermissions';
 import { ShareTrigger } from '@core/component/TopBar/ShareButton';
 import { useShareModal } from '@core/component/TopBar/shareModal';
-import { isMobile } from '@core/mobile/isMobile';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { openExternalUrl } from '@core/util/url';
 import type { AgentSessionEntity } from '@entity';
 import ShareIcon from '@icon/share.svg';
@@ -27,6 +27,7 @@ import { For, Show } from 'solid-js';
 import { useAgentSession } from '../context/AgentSessionContext';
 import { changeSessionArchiveState } from '../queries/change-session-archive-state';
 import { AgentPullRequestChip } from './AgentPullRequestChip';
+import { AgentTaskChip } from './AgentTaskChip';
 import {
   harnessTitle,
   sessionHarnessTitle,
@@ -80,7 +81,7 @@ export function agentSessionTitle(
  * toolbar: static label, shared entity actions, the session's pull request
  * once one exists, and external-provider links.
  *
- * Rename lives on the title menu (channel / automation), not on a tap of
+ * Rename lives on the title menu (channel / routine), not on a tap of
  * the name — `StaticSplitLabel` without `onRename` so a touch tap opens
  * the dropdown instead of an inline editor.
  */
@@ -189,10 +190,13 @@ export function AgentSplitHeader(props: {
           into the title menu via `menuTools` below instead. */}
       <SplitHeaderRight>
         <div class="order-[1000] flex items-center gap-1.5">
+          <Show when={props.session?.taskId}>
+            {(taskId) => <AgentTaskChip taskId={taskId()} />}
+          </Show>
           <Show when={props.session?.pullRequestUrl}>
             {(url) => <AgentPullRequestChip url={url()} />}
           </Show>
-          <Show when={!isMobile()}>
+          <Show when={!isTouchDevice()}>
             <ChangesToggle />
             <For each={tools}>
               {(tool) => (

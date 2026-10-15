@@ -37,7 +37,6 @@ import {
 import { mergeRefs } from '@solid-primitives/refs';
 import { cn } from '@ui/utils/classname';
 import {
-  children,
   createEffect,
   createSignal,
   type JSX,
@@ -52,7 +51,10 @@ type TaskListEntityProps = Omit<BaseListEntityProps, 'entity'> & {
   entity: TaskEntityWithProperties;
   rowId?: string;
   showUnrollNotifications?: boolean;
-  projectSlot?: JSX.Element;
+  /** Show the Project column (Projects enabled). */
+  showProject?: boolean;
+  /** Called when "filter by tag" is clicked on an entity row tag. */
+  onFilterByTag?: (optionId: string) => void;
 };
 
 function MaybeEntityRow(props: {
@@ -115,9 +117,6 @@ export function TaskListEntity(props: TaskListEntityProps) {
 
   const showContentHits = () => showHitSnippet();
 
-  // Resolved once: both layouts render it and the grid checks it exists.
-  const projectSlot = children(() => props.projectSlot);
-
   const layoutProps = () => ({
     entity: props.entity,
     checked: props.checked,
@@ -131,7 +130,8 @@ export function TaskListEntity(props: TaskListEntityProps) {
     setSnippetContainerRef,
     chars: chars(),
     onProjectClick: props.onProjectClick,
-    projectSlot: projectSlot(),
+    showProject: props.showProject,
+    onFilterByTag: props.onFilterByTag,
   });
 
   const draggable = createEntityDraggable({
@@ -186,9 +186,6 @@ export function TaskListEntity(props: TaskListEntityProps) {
             config={props.entityRowConfig}
           >
             <NarrowLayout {...layoutProps()} />
-            <Show when={projectSlot()}>
-              <div class="ml-8 pb-1 text-xs">{projectSlot()}</div>
-            </Show>
           </MaybeEntityRow>
         </Match>
       </Switch>

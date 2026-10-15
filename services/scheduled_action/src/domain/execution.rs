@@ -18,16 +18,17 @@ use crate::domain::models::{
     MAX_ACTION_TIME, ResolvedTaskTarget, ScheduledAction, ScheduledActionUpdate,
 };
 use crate::domain::ports::{
-    ScheduledActionExecutor, ScheduledActionLiveUpdate, ScheduledActionRepo, ScheduledAgentRunner,
+    RoutineRun, ScheduledActionExecutor, ScheduledActionLiveUpdate, ScheduledActionRepo,
+    ScheduledAgentRunner,
 };
 
 /// Run identity allocated before any awaited preparation. Runners can cancel
 /// partially created remote sessions even when preparation never returns.
 #[derive(Debug)]
 pub struct ExecutionHandle {
-    /// Caller-generated remote session ID; unused by the legacy chat runner.
+    /// Caller-generated agent session ID, available before preparation starts.
     pub session_id: Uuid,
-    /// Caller-generated initial remote action ID; unused by the legacy chat runner.
+    /// Caller-generated initial action ID for prompt delivery and status checks.
     pub action_id: Uuid,
     /// Set as soon as resource existence is established, even if preparation later fails.
     pub resource: Option<ExecutionResource>,
@@ -234,6 +235,16 @@ where
         let id = action.id.context("persisted action required")?;
         let start_time = Utc::now();
         let deadline = start_time + MAX_ACTION_TIME;
+        // The claim is fenced to `next_run_at`, so a run started once it is
+        // due consumes that firing, whoever started it.
+        let firing = match action.next_run_at {
+            Some(scheduled_for) if scheduled_for <= start_time => {
+                RoutineRun::Scheduled { scheduled_for }
+            }
+            _ => RoutineRun::Manual {
+                requested_at: start_time,
+            },
+        };
 
         // Track preparation too: cancellation of an HTTP request must not leak
         // a claim or abandon a run after creating its resource.
@@ -245,7 +256,7 @@ where
                 executor.cancellation.cancelled(),
                 executor
                     .repo
-                    .claim_action(&id, action.configuration_revision),
+                    .claim_action(&id, action.configuration_revision, action.next_run_at),
             )
             .await;
             let token = match claim {
@@ -266,7 +277,7 @@ where
                         resource: Some(resource),
                     }));
                 }
-                executor.runner.run(&action, &handle, None).await
+                executor.runner.run(&action, &handle, firing).await
             })
             .await;
             if let Err(error) = &result {
@@ -338,7 +349,7 @@ where
         let result = bounded(deadline, shutdown, async {
             self.prepare(&run.action, &mut handle).await?;
             self.runner
-                .run(&run.action, &handle, Some(&run.run.pending.event))
+                .run(&run.action, &handle, RoutineRun::Event(&run.run))
                 .await
         })
         .await;

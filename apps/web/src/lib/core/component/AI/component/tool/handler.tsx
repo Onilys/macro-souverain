@@ -1,16 +1,34 @@
 import {
+  createCompanyHandler,
+  createContactHandler,
   getCompanyHandler,
   listCompaniesHandler,
 } from '@app/features/crm/crm-tool-renderers';
+import { pipelineToolHandlers } from '@app/features/crm/pipeline-tool-renderers';
+import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { enableDatabases } from '@core/constant/featureFlags';
 import {
   deserializeToolCall,
   deserializeToolResponse,
   type ToolName,
 } from '@service-cognition/generated/tools/tool';
-import { createMemo } from 'solid-js';
+import { createMemo, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { configureAgentHandler, listAgentsHandler } from './Agents';
 import { bashCodeExecutionHandler } from './BashCodeExecution';
+import {
+  createBookingLinkHandler,
+  editBookingLinkHandler,
+  listBookingLinksHandler,
+} from './BookingLinks';
+import {
+  changeBookingHandler,
+  getBookingInsightsHandler,
+  getBookingRescheduleSlotsHandler,
+  listBookingsHandler,
+  readBookingSettingsHandler,
+  updateBookingSettingsHandler,
+} from './BookingManagement';
 import {
   configureBotHandler,
   createBotHandler,
@@ -22,27 +40,64 @@ import {
 } from './Bots';
 import {
   createCalendarEventHandler,
+  createConfirmedCalendarEventHandler,
   deleteCalendarEventHandler,
   listCalendarEventsHandler,
   listCalendarsHandler,
   updateCalendarEventHandler,
 } from './CalendarTools';
 import {
+  deleteCallRecordHandler,
+  updateCallRecordHandler,
+} from './CallRecordMutations';
+import {
+  deleteChannelMessageHandler,
+  editChannelMessageHandler,
+  openDirectMessageHandler,
+  reactToChannelMessageHandler,
+} from './ChannelMessageMutations';
+import {
   createChannelHandler,
   manageChannelParticipantsHandler,
   renameChannelHandler,
+  shareWithChannelHandler,
 } from './ChannelMutations';
+import {
+  dispatchCodingAgentHandler,
+  listCodingAgentsHandler,
+} from './CodingAgents';
 import { createDocumentHandler } from './CreateDocument';
 import { createProjectHandler } from './CreateProject';
+import { createSkillHandler } from './CreateSkill';
 import { createTagHandler } from './CreateTag';
+import {
+  DatabaseToolPlaceholder,
+  isToolShown,
+  lazyDatabaseToolHandlers,
+} from './DatabaseToolHandlers';
 import { deleteTagHandler } from './DeleteTag';
+import { readDesignHandler } from './Design';
+import {
+  readIllustratorDocumentHandler,
+  readPhotoshopDocumentHandler,
+} from './DesignDocument';
+import { discoverConnectorsHandler } from './DiscoverConnectors';
 import { displayResultsHandler } from './DisplayResults';
 import {
   commentOnDocumentHandler,
+  deleteDocumentCommentHandler,
+  editDocumentCommentHandler,
   resolveDocumentCommentHandler,
 } from './DocumentComments';
 import { editDocumentHandler } from './EditDocument';
 import { editTagHandler } from './EditTag';
+import {
+  duplicateItemHandler,
+  moveToTrashHandler,
+  renameItemHandler,
+  updateSharingHandler,
+} from './EntityLifecycle';
+import { lazyFormsToolHandlers } from './FormsHandlers';
 import { generateImageHandler } from './GenerateImage';
 import { getThreadHandler } from './GetThread';
 import {
@@ -64,7 +119,12 @@ import {
   listNotificationsHandler,
   markNotificationsDoneHandler,
   markNotificationsSeenHandler,
+  muteNotificationsHandler,
 } from './Notifications';
+import {
+  editPresentationHandler,
+  readPresentationHandler,
+} from './Presentation';
 import {
   bulkSetEntityPropertyOptionsHandler,
   getEntityPropertiesHandler,
@@ -83,13 +143,15 @@ import { readMetadataHandler } from './ReadMetadata';
 import { readProjectHandler } from './ReadProject';
 import { readSkillHandler } from './ReadSkill';
 import { readThreadHandler } from './ReadThread';
-import {
-  createReminderHandler,
-  deleteReminderHandler,
-  listRemindersHandler,
-  updateReminderHandler,
-} from './Reminders';
 import { renameDocumentHandler } from './RenameDocument';
+import {
+  createRoutineHandler,
+  deleteRoutineHandler,
+  listRoutinesHandler,
+  readRoutineHandler,
+  runRoutineHandler,
+  updateRoutineHandler,
+} from './Routines';
 import { contentSearchHandler, nameSearchHandler } from './Search';
 import { listSkillsHandler, searchSkillsHandler } from './SearchSkills';
 import { searchToolsHandler } from './SearchTools';
@@ -97,6 +159,7 @@ import { selfKnowledgeHandler } from './SelfKnowledge';
 import { sendChannelMessageHandler } from './SendChannelMessage';
 import { sendConfirmedEmailHandler } from './SendConfirmedEmail';
 import { sendEmailHandler } from './SendEmail';
+import { setFavoriteHandler } from './SetFavorite';
 import { setSenderPolicyHandler } from './SetSenderPolicy';
 import {
   calculateSpreadsheetHandler,
@@ -104,6 +167,7 @@ import {
   readSpreadsheetHandler,
 } from './Spreadsheet';
 import { subagentHandler } from './Subagent';
+import { getTeamAvailabilityHandler } from './TeamAvailability';
 import { textEditorCodeExecutionHandler } from './TextEditorCodeExecution';
 import {
   type RenderContext,
@@ -116,57 +180,100 @@ import { updateThreadLabelsHandler } from './UpdateThreadLabels';
 import { uploadFileHandler } from './UploadFile';
 import { webFetchHandler } from './WebFetch';
 import { webSearchHandler } from './WebSearch';
+import {
+  editWordDocumentHandler,
+  readWordDocumentHandler,
+} from './WordDocument';
 
 const toolHandlers: ToolHandlerMap<RenderContext> = {
   ...initiativeToolHandlers,
+  DispatchCodingAgent: dispatchCodingAgentHandler,
+  ListCodingAgents: listCodingAgentsHandler,
   ReadSpreadsheet: readSpreadsheetHandler,
   CalculateSpreadsheet: calculateSpreadsheetHandler,
   EditSpreadsheet: editSpreadsheetHandler,
+  ReadPresentation: readPresentationHandler,
+  EditPresentation: editPresentationHandler,
+  ReadDesign: readDesignHandler,
+  ReadPhotoshopDocument: readPhotoshopDocumentHandler,
+  ReadIllustratorDocument: readIllustratorDocumentHandler,
+  ReadWordDocument: readWordDocumentHandler,
+  EditWordDocument: editWordDocumentHandler,
   ConfigureAgent: configureAgentHandler,
   ListAgents: listAgentsHandler,
   ConfigureBot: configureBotHandler,
   CreateChannel: createChannelHandler,
+  EditChannelMessage: editChannelMessageHandler,
+  DeleteChannelMessage: deleteChannelMessageHandler,
+  ReactToChannelMessage: reactToChannelMessageHandler,
+  OpenDirectMessage: openDirectMessageHandler,
   CreateBot: createBotHandler,
   DeleteBot: deleteBotHandler,
   GetBotWebhooks: getBotWebhooksHandler,
   IssueBotCredential: issueBotCredentialHandler,
   ListBots: listBotsHandler,
   ManageBotChannelAccess: manageBotChannelAccessHandler,
+  ...lazyFormsToolHandlers,
+  ReadBookingSettings: readBookingSettingsHandler,
+  UpdateBookingSettings: updateBookingSettingsHandler,
+  ListBookings: listBookingsHandler,
+  GetBookingInsights: getBookingInsightsHandler,
+  GetBookingRescheduleSlots: getBookingRescheduleSlotsHandler,
+  ChangeBooking: changeBookingHandler,
+  ListBookingLinks: listBookingLinksHandler,
+  CreateBookingLink: createBookingLinkHandler,
+  EditBookingLink: editBookingLinkHandler,
   CreateCalendarEvent: createCalendarEventHandler,
+  CreateConfirmedCalendarEvent: createConfirmedCalendarEventHandler,
   UpdateCalendarEvent: updateCalendarEventHandler,
   DeleteCalendarEvent: deleteCalendarEventHandler,
   ListCalendarEvents: listCalendarEventsHandler,
   ListCalendars: listCalendarsHandler,
+  GetTeamAvailability: getTeamAvailabilityHandler,
   CreateImportEntity: createImportEntityHandler,
   DeleteImportEntity: deleteImportEntityHandler,
   ImportNotionPage: importNotionPageHandler,
   GetCompany: getCompanyHandler,
+  CreateCompany: createCompanyHandler,
+  CreateContact: createContactHandler,
   GetEntityProperties: getEntityPropertiesHandler,
   ListCompanies: listCompaniesHandler,
+  ...pipelineToolHandlers,
   ListImportEntities: listImportEntitiesHandler,
+  ...lazyDatabaseToolHandlers,
   ListEntities: listEntitiesHandler,
   ListInboxes: listInboxesHandler,
   ListLabels: listLabelsHandler,
   ListSkills: listSkillsHandler,
   ManageChannelParticipants: manageChannelParticipantsHandler,
   ListNotifications: listNotificationsHandler,
-  ListReminders: listRemindersHandler,
+  CreateRoutine: createRoutineHandler,
+  ListRoutines: listRoutinesHandler,
+  ReadRoutine: readRoutineHandler,
+  UpdateRoutine: updateRoutineHandler,
+  RunRoutine: runRoutineHandler,
+  DeleteRoutine: deleteRoutineHandler,
   ListTags: listTagsHandler,
   ListTeamMembers: listTeamMembersHandler,
   LoadTools: loadToolsHandler,
   MarkNotificationsDone: markNotificationsDoneHandler,
   MarkNotificationsSeen: markNotificationsSeenHandler,
+  MuteNotifications: muteNotificationsHandler,
   MoveToProject: moveToProjectHandler,
+  MoveToTrash: moveToTrashHandler,
+  DuplicateItem: duplicateItemHandler,
+  RenameItem: renameItemHandler,
+  UpdateSharing: updateSharingHandler,
   BashCodeExecution: bashCodeExecutionHandler,
   DisplayResults: displayResultsHandler,
+  DiscoverConnectors: discoverConnectorsHandler,
   ContentSearch: contentSearchHandler,
   CreateDocument: createDocumentHandler,
+  CreateSkill: createSkillHandler,
   UploadFile: uploadFileHandler,
   GenerateImage: generateImageHandler,
   CreateProject: createProjectHandler,
-  CreateReminder: createReminderHandler,
   CreateTag: createTagHandler,
-  DeleteReminder: deleteReminderHandler,
   DeleteTag: deleteTagHandler,
   EditDocument: editDocumentHandler,
   EditTag: editTagHandler,
@@ -174,6 +281,8 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   NameSearch: nameSearchHandler,
   ReadActivity: readActivityHandler,
   ReadCallRecord: readCallRecordHandler,
+  UpdateCallRecord: updateCallRecordHandler,
+  DeleteCallRecord: deleteCallRecordHandler,
   ReadChannelMessageContext: readChannelMessageContextHandler,
   ReadChannelMessages: readChannelMessagesHandler,
   ReadChannelThread: readChannelThreadHandler,
@@ -187,18 +296,21 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   RenameDocument: renameDocumentHandler,
   CommentOnDocument: commentOnDocumentHandler,
   ResolveDocumentComment: resolveDocumentCommentHandler,
+  EditDocumentComment: editDocumentCommentHandler,
+  DeleteDocumentComment: deleteDocumentCommentHandler,
   SearchSkills: searchSkillsHandler,
   SearchTools: searchToolsHandler,
   SelfKnowledge: selfKnowledgeHandler,
   SendChannelMessage: sendChannelMessageHandler,
+  ShareWithChannel: shareWithChannelHandler,
   SendConfirmedEmail: sendConfirmedEmailHandler,
   SendEmail: sendEmailHandler,
   SetSenderPolicy: setSenderPolicyHandler,
+  SetFavorite: setFavoriteHandler,
   SetEntityProperty: setEntityPropertyHandler,
   BulkSetEntityPropertyOptions: bulkSetEntityPropertyOptionsHandler,
   Subagent: subagentHandler,
   TextEditorCodeExecution: textEditorCodeExecutionHandler,
-  UpdateReminder: updateReminderHandler,
   UpdateThreadLabels: updateThreadLabelsHandler,
   WebFetch: webFetchHandler,
   WebSearch: webSearchHandler,
@@ -232,6 +344,7 @@ export function hasToolRenderer(name: string): boolean {
 }
 
 export function RenderTool(props: ToolProps) {
+  const databasesEnabled = useFeatureFlag(enableDatabases);
   const maybeTool = deserializeToolCall({
     id: props.tool_id,
     json: props.json,
@@ -304,15 +417,21 @@ export function RenderTool(props: ToolProps) {
       <ToolErrorContext.Provider
         value={() => (props.isComplete && !response() ? 'failed' : undefined)}
       >
-        <Dynamic
-          component={handler.render}
-          {...context}
-          response={response()}
-          renderContext={{
-            isStreaming: props.renderContext.renderContext.isStreaming,
-            grouped: props.renderContext.renderContext.grouped,
-          }}
-        />
+        <Show
+          when={isToolShown(tool.name, databasesEnabled().enabled)}
+          fallback={<DatabaseToolPlaceholder />}
+        >
+          <Dynamic
+            component={handler.render}
+            {...context}
+            response={response()}
+            renderContext={{
+              isStreaming: props.renderContext.renderContext.isStreaming,
+              grouped: props.renderContext.renderContext.grouped,
+              followedBy: props.renderContext.renderContext.followedBy,
+            }}
+          />
+        </Show>
       </ToolErrorContext.Provider>
     </LegacyGeneratedImage>
   );

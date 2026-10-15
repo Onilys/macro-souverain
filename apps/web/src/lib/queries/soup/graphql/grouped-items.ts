@@ -10,22 +10,16 @@ import {
 } from '@app/lib/graphql-cache';
 import { createUrqlQuery } from '@app/lib/urql-solid';
 import { createBrowserOfflineSignal } from '@core/util/connectivity';
+import { isTransientRequestError } from '@core/util/request-error';
 import { Telemetry } from '@macro-inc/observability';
-import {
-  makeGroupComparator,
-  resolveGroupMetaForKey,
-} from '@queries/soup/grouped/api';
-import type { GroupByField, GroupMeta } from '@queries/soup/grouped/types';
+import type { GroupByField } from '@queries/soup/grouped/types';
 import { useInstructionsMdIdQuery } from '@queries/storage/instructions-md';
 import {
   GroupSoupDocument,
   type GroupSoupQuery,
   type GroupSoupQueryVariables,
 } from '@service-storage/graphql/generated/graphql';
-import {
-  getGraphqlSoupClient,
-  mapGraphqlGroupedSoupPage,
-} from '@service-storage/graphql-soup';
+import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import type { CombinedError } from '@urql/core';
 import {
   type Accessor,
@@ -37,22 +31,17 @@ import {
 } from 'solid-js';
 import { soupQueryExcludesDone } from '../excludes-done';
 import { groupCachedMailByDate } from '../grouped/mail-date-groups';
-import type { SoupAstBody, SoupAstItemsData, SoupAstParams } from '../items';
-import { mapSoupPageToEntityList } from '../transform-utils';
+import type { SoupAstBody, SoupAstParams } from '../items';
 import { registerGraphqlSoupRevalidations } from './active-queries';
 import { makeGraphqlGroupedSoupInput } from './ast';
+import { createGraphqlSoupDoneProjection } from './done-projection';
+import { createGraphqlGroupedSoupProjection } from './grouped-projection';
 import {
   createGraphqlSoupAstItemsQuery,
   type GraphqlSoupAstItemsQuery,
 } from './items';
-import {
-  usePendingGraphqlSoupDeleteIds,
-  withoutPendingGraphqlSoupDeletes,
-} from './optimistic-deletions';
-import {
-  usePendingGraphqlSoupDone,
-  withPendingDoneIds,
-} from './optimistic-done';
+import { usePendingGraphqlSoupDeleteIds } from './optimistic-deletions';
+import { usePendingGraphqlSoupDone } from './optimistic-done';
 
 export type GraphqlGroupedSoupAstItemsQueryArgs = {
   params: SoupAstParams;
@@ -67,44 +56,6 @@ export type GraphqlGroupedSoupAstItemsQueryOptions = {
   showSupportedForeignEntities?: boolean;
 };
 
-function mapGraphqlGroupedSoupData(
-  data: GroupSoupQuery,
-  groupBy: GroupByField,
-  options: Parameters<typeof mapSoupPageToEntityList>[1]
-): SoupAstItemsData {
-  const page = mapGraphqlGroupedSoupPage(data);
-  const groups = page.groups
-    .map((group): GroupMeta => {
-      const firstItem = page.items[group.itemIds[0] ?? ''];
-      const resolved = resolveGroupMetaForKey(groupBy, group.key, firstItem);
-      return {
-        key: group.key,
-        label: resolved?.label ?? group.key,
-        displayOrder: resolved?.displayOrder ?? null,
-        totalCount: group.totalCount,
-        itemIds: group.itemIds,
-        nextCursor: group.nextCursor,
-      };
-    })
-    .sort(makeGroupComparator(groupBy));
-
-  const items = groups.flatMap((group) =>
-    group.itemIds.flatMap((id) => {
-      const item = page.items[id];
-      return item ? [item] : [];
-    })
-  );
-
-  return {
-    entities: mapSoupPageToEntityList(
-      { items, next_cursor: undefined },
-      options
-    ),
-    groups,
-    itemsById: page.items,
-  };
-}
-
 /** Creates the live urql parent query for a grouped Soup AST request. */
 export function createGraphqlGroupedSoupAstItemsQuery(
   args: Accessor<GraphqlGroupedSoupAstItemsQueryArgs>,
@@ -113,6 +64,7 @@ export function createGraphqlGroupedSoupAstItemsQuery(
   const instructionsIdQuery = useInstructionsMdIdQuery();
   const pendingDeleteIds = usePendingGraphqlSoupDeleteIds();
   const pendingDone = usePendingGraphqlSoupDone();
+  const projectDone = createGraphqlSoupDoneProjection();
   const excludesDone = createMemo(() => soupQueryExcludesDone([args().body]));
   const [now, setNow] = createSignal(new Date());
   const dateTimer = setInterval(() => setNow(new Date()), 60_000);
@@ -167,11 +119,12 @@ export function createGraphqlGroupedSoupAstItemsQuery(
     }
   });
   const isSupported = () => input() !== undefined;
+  const inputKey = createMemo(() => JSON.stringify(input()));
 
   const query = createUrqlQuery<
     GroupSoupQuery,
     GroupSoupQueryVariables,
-    SoupAstItemsData
+    { inputKey: string; data: GroupSoupQuery }
   >(() => {
     const queryOptions = options();
     const groupBy = args().groupBy;
@@ -201,12 +154,11 @@ export function createGraphqlGroupedSoupAstItemsQuery(
           version
         );
       },
-      select: (data: GroupSoupQuery) =>
-        mapGraphqlGroupedSoupData(data, groupBy!, {
-          instructionsIdQuery,
-          showSupportedForeignEntities:
-            queryOptions.showSupportedForeignEntities,
-        }),
+      // Associate cached data with its filters without remapping live rows.
+      select: (data: GroupSoupQuery) => ({
+        inputKey: JSON.stringify(queryInput),
+        data,
+      }),
     };
 
     if (!queryOptions.enabled || !groupBy || queryInput === undefined) {
@@ -220,6 +172,22 @@ export function createGraphqlGroupedSoupAstItemsQuery(
     };
   });
 
+  const projected = createGraphqlGroupedSoupProjection(
+    () => query.data?.data,
+    () => args().groupBy,
+    () => ({
+      instructionsIdQuery,
+      showSupportedForeignEntities: options().showSupportedForeignEntities,
+    })
+  );
+
+  // Missing data during a refetch does not itself switch identities. A new
+  // viewer's first response still invalidates every old restoration snapshot.
+  const viewerId = createMemo<string | undefined>(
+    (previous) => query.data?.data.user.id ?? previous,
+    undefined
+  );
+
   onCleanup(
     registerGraphqlSoupRevalidations(() => {
       const queryInput = input();
@@ -229,7 +197,6 @@ export function createGraphqlGroupedSoupAstItemsQuery(
     })
   );
 
-  const error = (): CombinedError | undefined => query.error ?? undefined;
   const cachedMail = createMemo(() => {
     const data = local.data();
     if (
@@ -248,6 +215,24 @@ export function createGraphqlGroupedSoupAstItemsQuery(
       return;
     return groupCachedMailByDate(data, now());
   });
+  const error = (): CombinedError | undefined => {
+    const error = query.error;
+    // A failed refresh must not hide usable current-query data, including an
+    // empty page. Retained data from other filters is not an offline fallback.
+    // Server/GraphQL errors and failures without cached data still surface.
+    if (
+      error &&
+      isTransientRequestError(error) &&
+      !error.response &&
+      options().enabled &&
+      isSupported() &&
+      (cachedMail() !== undefined ||
+        (query.data?.inputKey === inputKey() && query.data?.data !== undefined))
+    ) {
+      return undefined;
+    }
+    return error ?? undefined;
+  };
   createComputed(
     on(error, (queryError) => {
       if (queryError) {
@@ -257,25 +242,22 @@ export function createGraphqlGroupedSoupAstItemsQuery(
   );
 
   return {
-    data: () => {
-      const data = cachedMail() ?? query.data;
-      return withoutPendingGraphqlSoupDeletes(
-        data,
-        excludesDone()
-          ? withPendingDoneIds(
-              pendingDeleteIds(),
-              data?.entities ?? [],
-              pendingDone()
-            )
-          : pendingDeleteIds()
-      );
-    },
+    data: createMemo(() =>
+      projectDone(
+        JSON.stringify([input(), viewerId()]),
+        cachedMail() ?? projected(),
+        pendingDone(),
+        excludesDone(),
+        pendingDeleteIds()
+      )
+    ),
     error,
     isSupported,
     isEnabled: () => query.isEnabled,
     isLoading: () => !cachedMail() && query.isLoading,
     isFetching: () => query.isFetching,
     isFetchingNextPage: () => !!cachedMail() && local.isFetchingNextPage(),
+    isFetchNextPageError: () => !!cachedMail() && local.isFetchNextPageError(),
     isPlaceholderData: () => false,
     hasNextPage: () => !!cachedMail() && local.hasNextPage(),
     fetchNextPage: async () => {

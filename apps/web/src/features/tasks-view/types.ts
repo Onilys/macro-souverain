@@ -13,12 +13,29 @@ export type TaskGroupBy =
 
 export type TaskSortId = 'updated_at' | 'created_at' | 'viewed_at';
 
+/** Scopes a task list to tasks whose entity-reference property points at an entity. */
+export type TaskReferenceScope = {
+  propertyDefinitionId: string;
+  entityId: string;
+};
+
+/**
+ * Scopes a task list to tasks associated with a CRM record. The server
+ * resolves the membership: the record's Companies or Contacts property, a
+ * reference to the record, or (for a company) either for any of its contacts.
+ */
+export type TaskCrmScope = {
+  type: 'company' | 'contact';
+  id: string;
+};
+
 export type TaskDetailTarget = {
   id: string;
   fallbackName?: string;
 };
 
 export type TasksViewState = {
+  layout: 'list' | 'board' | 'gantt';
   tab: TasksTab;
   search: string;
   groupBy: TaskGroupBy;
