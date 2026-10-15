@@ -148,3 +148,24 @@ async fn does_not_retry_wrapped_constraint_violations(pool: PgPool) -> anyhow::R
     assert_wrapped_conflict(error, false);
     Ok(())
 }
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn converted_reports_keep_only_conflicts_retryable(pool: PgPool) -> anyhow::Result<()> {
+    let deadlock =
+        sqlx::query!("DO $$ BEGIN RAISE EXCEPTION 'retry test' USING ERRCODE = '40P01'; END $$")
+            .execute(&pool)
+            .await
+            .unwrap_err();
+    let violation =
+        sqlx::query!("DO $$ BEGIN RAISE EXCEPTION 'retry test' USING ERRCODE = '23505'; END $$")
+            .execute(&pool)
+            .await
+            .unwrap_err();
+    for (error, conflict) in [(deadlock, true), (violation, false)] {
+        let report = rootcause::Report::new_sendsync(error).context("registry write failed");
+        let converted = report_into_sqlx_error(report);
+        assert_eq!(is_transaction_conflict(&converted), conflict);
+        assert_eq!(matches!(converted, sqlx::Error::Protocol(_)), !conflict);
+    }
+    Ok(())
+}

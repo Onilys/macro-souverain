@@ -152,20 +152,17 @@ async fn delete_items(
     sqlx::query!(r#"DELETE FROM "Project" WHERE id = ANY($1)"#, project_ids)
         .execute(transaction.as_mut())
         .await?;
-    source_items::sync_rows(transaction.as_mut(), &removed_grants).await?;
-    source_items::sync_rows(transaction.as_mut(), &cascade_targets).await?;
-    source_items::sync_many(
-        transaction.as_mut(),
-        model_entity::EntityType::Document,
-        document_ids,
-    )
-    .await?;
-    source_items::sync_many(
-        transaction.as_mut(),
-        model_entity::EntityType::Chat,
-        chat_ids,
-    )
-    .await?;
+    let affected = removed_grants
+        .into_iter()
+        .chain(cascade_targets)
+        .chain(
+            document_ids
+                .iter()
+                .map(|id| ("document".to_owned(), id.clone())),
+        )
+        .chain(chat_ids.iter().map(|id| ("chat".to_owned(), id.clone())))
+        .collect::<Vec<_>>();
+    source_items::sync_rows(transaction.as_mut(), &affected).await?;
     Ok(())
 }
 
@@ -246,24 +243,17 @@ pub(super) async fn soft_delete_project(
     .await?;
     mark_registered_entities_deleted(transaction, &all_ids, deleted_at).await?;
 
-    source_items::sync_many(
-        transaction.as_mut(),
-        model_entity::EntityType::Document,
-        &document_ids,
-    )
-    .await?;
-    source_items::sync_many(
-        transaction.as_mut(),
-        model_entity::EntityType::Chat,
-        &chat_ids,
-    )
-    .await?;
-    source_items::sync_many(
-        transaction.as_mut(),
-        model_entity::EntityType::Project,
-        &project_ids,
-    )
-    .await?;
+    let affected = document_ids
+        .iter()
+        .map(|id| ("document".to_owned(), id.clone()))
+        .chain(chat_ids.iter().map(|id| ("chat".to_owned(), id.clone())))
+        .chain(
+            project_ids
+                .iter()
+                .map(|id| ("project".to_owned(), id.clone())),
+        )
+        .collect::<Vec<_>>();
+    source_items::sync_rows(transaction.as_mut(), &affected).await?;
 
     Ok(SoftDeleteResult {
         project_ids,
@@ -277,10 +267,6 @@ fn parse_entity_id(id: &str) -> Result<Uuid, sqlx::Error> {
         .map_err(|error| sqlx::Error::Decode(Box::new(error)))
 }
 
-fn registry_protocol_error(error: impl ToString) -> sqlx::Error {
-    sqlx::Error::Protocol(error.to_string())
-}
-
 async fn mark_registered_entities_deleted(
     transaction: &mut Transaction<'_, Postgres>,
     ids: &[String],
@@ -289,7 +275,7 @@ async fn mark_registered_entities_deleted(
     for id in ids {
         entity_registry_db_utils::mark_deleted(transaction, parse_entity_id(id)?, deleted_at)
             .await
-            .map_err(registry_protocol_error)?;
+            .map_err(entity_access_db_utils::transaction_retry::report_into_sqlx_error)?;
     }
     Ok(())
 }
@@ -301,7 +287,7 @@ async fn delete_registered_entities(
     for id in ids {
         entity_registry_db_utils::delete_entity(transaction, parse_entity_id(id)?)
             .await
-            .map_err(registry_protocol_error)?;
+            .map_err(entity_access_db_utils::transaction_retry::report_into_sqlx_error)?;
     }
     Ok(())
 }

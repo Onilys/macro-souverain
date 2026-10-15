@@ -186,7 +186,7 @@ async fn clear_registered_entities(
             .map_err(|error| sqlx::Error::Decode(Box::new(error)))?;
         entity_registry_db_utils::clear_deleted(transaction, uuid)
             .await
-            .map_err(|error| sqlx::Error::Protocol(error.to_string()))?;
+            .map_err(entity_access_db_utils::transaction_retry::report_into_sqlx_error)?;
     }
     Ok(())
 }

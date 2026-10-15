@@ -135,10 +135,10 @@ async fn update_document_modified(pool: &PgPool, document_id: &str) -> Result<()
     .await
 }
 
-fn registry_protocol_error(
+fn registry_error(
     error: rootcause::Report<entity_registry_db_utils::EntityRegistryError>,
 ) -> sqlx::Error {
-    sqlx::Error::Protocol(error.to_string())
+    entity_access_db_utils::transaction_retry::report_into_sqlx_error(error)
 }
 
 impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
@@ -390,7 +390,7 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
                         chrono::Utc::now(),
                     )
                     .await
-                    .map_err(registry_protocol_error)?;
+                    .map_err(registry_error)?;
                 }
 
                 source_items::sync_one(
@@ -792,7 +792,7 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
                 if let Ok(id) = macro_uuid::string_to_uuid(document_id) {
                     entity_registry_db_utils::delete_entity(&mut transaction, id)
                         .await
-                        .map_err(registry_protocol_error)?;
+                        .map_err(registry_error)?;
                 }
                 source_items::sync_one(
                     transaction.as_mut(),
@@ -1335,7 +1335,7 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
                 NewEntityRecord::new(document_id, RegisteredEntityType::Document, owner.clone()),
             )
             .await
-            .map_err(registry_protocol_error)?;
+            .map_err(registry_error)?;
 
         let now = chrono::Utc::now();
         create::insert_history(&mut transaction, &document_id, owner.as_user(), &now).await?;

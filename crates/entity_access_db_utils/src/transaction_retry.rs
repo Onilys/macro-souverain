@@ -44,6 +44,19 @@ pub fn is_transaction_conflict(mut error: &(dyn Error + 'static)) -> bool {
     }
 }
 
+/// Converts a report for an adapter whose error type is `sqlx::Error`, keeping a
+/// PostgreSQL deadlock or serialization abort inside it visible to
+/// [`is_transaction_conflict`]. Other failures keep their message as before.
+pub fn report_into_sqlx_error<C: ?Sized>(report: rootcause::Report<C>) -> sqlx::Error {
+    let message = report.to_string();
+    let error = rootcause::compat::ReportAsError::from(report.into_dynamic());
+    if is_transaction_conflict(&error) {
+        sqlx::Error::AnyDriverError(Box::new(error))
+    } else {
+        sqlx::Error::Protocol(message)
+    }
+}
+
 /// Run a transaction at most four times, retrying only confirmed conflicts.
 ///
 /// Each invocation must contain a complete transaction, from begin through

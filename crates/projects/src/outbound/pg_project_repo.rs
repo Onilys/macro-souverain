@@ -62,7 +62,7 @@ async fn register_owned<B: BotFacts>(
     registrar
         .register_owned_entity(transaction, NewEntityRecord::new(id, entity_type, owner))
         .await
-        .map_err(|error| sqlx::Error::Protocol(error.to_string()))?;
+        .map_err(entity_access_db_utils::transaction_retry::report_into_sqlx_error)?;
     Ok(())
 }
 
