@@ -150,10 +150,10 @@ impl<O: OnboardingService, A: AccountDirectory> AgentHandover<O, A> {
         user: &MacroUserIdStr<'static>,
         client: Option<&str>,
     ) -> anyhow::Result<Handover> {
-        if let Some(row) = self.onboarding.row(user.clone()).await? {
-            if row.is_agent_led() {
-                return Ok(Handover::AgentLed);
-            }
+        if let Some(row) = self.onboarding.row(user.clone()).await?
+            && row.is_agent_led()
+        {
+            return Ok(Handover::AgentLed);
         }
         if self.tutorial_complete(user).await? {
             return Ok(Handover::WebOnboarded);

@@ -27,7 +27,6 @@ impl FirstInboxProvisioner for FakeInbox {
     ) -> anyhow::Result<FirstInboxProvisionOutcome> {
         self.calls.lock().unwrap().push(access_token.to_owned());
         self.outcome
-            .clone()
             .ok_or_else(|| anyhow::anyhow!("email service unavailable"))
     }
 }
