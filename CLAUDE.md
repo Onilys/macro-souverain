@@ -48,6 +48,7 @@ Real files live in `.agents/`; tool-specific directories only symlink to it.
 
 | Task | Guide |
 | --- | --- |
+| Before writing or changing tests, fixtures, snapshots, or verification harnesses | [Test value skill](.agents/skills/test-value/SKILL.md) |
 | Reusing database storage or separating it from an app entity | [Database core skill](.agents/skills/database-core/SKILL.md) |
 | Adding collaborative markdown to a feature | [Collab surface core skill](.agents/skills/collab-surface-core/SKILL.md) |
 | Adding a flow or hot path, or tracing one | `instrumentation` skill |
@@ -107,7 +108,7 @@ Real files live in `.agents/`; tool-specific directories only symlink to it.
   ready for review before handing off.
 - Get CI passing before handing off. A pull request whose checks are failing
   or still running is not done.
-- Test the affected packages/services individually before committing. Use the
+- Run tests for each affected package/service before committing. Use the
   relevant guide for setup; there is no root `just test` recipe.
 - For code changes, run `just check` (format/lint/code rules scoped to changes).
   `just check full` adds TypeScript checking and Rust clippy; `just rust-check` is

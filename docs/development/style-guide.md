@@ -12,16 +12,18 @@ and clippy. Mechanically enforceable rules live in [`rules/ast-grep/`](../../rul
 ## IDs
 
 Each rule has a stable ID: `CS-##` for the Rust backend, `FE-##` for frontend and
-shared TypeScript. Cite IDs in reviews ("see CS-30"). Never renumber or reuse an
-ID; deletions leave gaps and new rules take the next free number. A rule line reads
-`<id> rule`, optionally followed by how it is enforced.
+shared TypeScript, and `TEST-##` for test value across languages. Cite IDs in
+reviews ("see CS-30"). Never renumber or reuse an ID; deletions leave gaps and new
+rules take the next free number. A rule line reads `<id> rule`, optionally
+followed by how it is enforced.
 
 ## Rule files
 
 | File | IDs | Applies to |
 | --- | --- | --- |
 | [`config-and-service-urls.md`](../../.agents/rules/config-and-service-urls.md) | CS 14–18 | Everywhere |
-| [`CODING.md`](../../CODING.md) | CS 24, 26, 28, 29, 32–35, 71 | Everywhere; read before writing code |
+| [`CODING.md`](../../CODING.md) | CS 24, 26, 28, 29, 32–35, 71; TEST 01–05 | Everywhere; read before writing code |
+| [`test-value.md`](../../.agents/rules/test-value.md) | Routes to TEST 01–05 | Everywhere; read the skill before writing tests or verification harnesses |
 | [`observability.md`](../../.agents/rules/observability.md) | | Everywhere |
 | [`rust/guardrails.md`](../../.agents/rules/rust/guardrails.md) | | Backend: tests, migrations, crate boundaries |
 | [`rust/db.md`](../../.agents/rules/rust/db.md) | CS | Migrations, SQL, DB clients, outbound adapters |
@@ -39,6 +41,9 @@ ID; deletions leave gaps and new rules take the next free number. A rule line re
 | [`web/startup-bundle.md`](../../.agents/rules/web/startup-bundle.md) | | `apps/web/src` |
 | [`web/lexical-nodes.md`](../../.agents/rules/web/lexical-nodes.md) | | Lexical nodes and decorators |
 | [`infra/pulumi.md`](../../.agents/rules/infra/pulumi.md) | | `infra/`, deploy config |
+
+The `test-value.mdc` symlink exposes `test-value.md` to Cursor's rule loader;
+both names share one source file.
 
 To find a rule by ID: `rg 'CS-30' .agents/rules`. To add one, use the
 [rule template](../../.agents/templates/rule.md); an ID-bearing rule goes in the

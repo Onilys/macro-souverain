@@ -14,6 +14,8 @@ TASK="{task description or 'general changes'}"
 ```
 
 Read 1-2 unmodified files from same directories for pattern context.
+For changes to tests, read the [test-value rules](../../../CODING.md#tests)
+and include TEST-01 through TEST-05 in the Consistency and Scope reviews.
 
 ## Agents
 
@@ -57,7 +59,10 @@ PATTERNS: ${PATTERN_FILES}
 - Idiomatic error handling?
 - Changes internally consistent?
 - Is logic isolated and composable?
-- Are there existing tests if neccesary?
+- Does each added test catch a concrete, plausible failure that existing coverage
+  misses (TEST-01), while exercising production behavior (TEST-02)?
+- Do tests preserve meaningful coverage without merely restating implementation,
+  fixtures, mocks, or type-system guarantees (TEST-03, TEST-04)?
 
 {"pass": bool, "issues": [...]}
 ```
@@ -84,6 +89,8 @@ DIFF: ${DIFF}
 - Solved the problem or just the symptom?
 - Changes unrelated to task?
 - Unnecessary refactoring?
+- Unnecessary tests, duplicate coverage, or test setup disproportionate to the
+  change's risk (TEST-01, TEST-04, TEST-05)?
 
 {"pass": bool, "issues": [...]}
 ```

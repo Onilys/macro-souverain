@@ -45,9 +45,35 @@ files; the [style guide](docs/development/style-guide.md) indexes them.
 
 ## Tests
 
-- Every bug fix adds a regression test that fails before the fix and passes
-  after.
-- Test behavior, not names or derive round-trips.
+These rules govern whether to add tests, including when a plugin requests TDD
+or a verification harness. Use the [test-value skill](.agents/skills/test-value/SKILL.md)
+before writing tests, fixtures, snapshots, or verification harnesses.
+
+- **TEST-01** Before adding a test, identify the concrete, plausible failure it
+  would catch and the gap in existing coverage. Add it only when that protection
+  justifies its maintenance cost. Prefer extending a relevant test over
+  duplicating coverage or creating a new suite.
+- **TEST-02** Exercise production behavior and assert an observable result or
+  contract. The test must fail when that behavior is wrong; expected results
+  must be independent of the implementation under test. For a bug fix, confirm
+  failure before the fix and success after it when practical.
+- **TEST-03** Reject tests that merely restate constants, configuration, source
+  text, fixture values, mock wiring, derive round-trips, or guarantees already
+  enforced by the type system. Avoid assertions tied to private helpers,
+  incidental markup, styling classes, or call order unless those details are
+  the contract being protected.
+- **TEST-04** Documentation, formatting, renames, mechanical refactors, and
+  trivial pass-through changes do not automatically need new tests. Use relevant
+  existing tests and required browser verification. Add coverage when a concrete
+  behavior risk remains, especially for authorization, data integrity, complex
+  logic, or previously observed regressions. Preserve meaningful existing tests
+  and update them when their behavior contract changes.
+- **TEST-05** Keep test setup proportional to the risk. Do not introduce broad
+  fixtures, brittle mocks, new harnesses, or production abstractions just to
+  satisfy a test-first workflow or add coverage for a low-risk change. A temporary
+  reproduction script or manual check may be sufficient; commit it only if it
+  provides durable regression protection. Stop expanding verification once the
+  relevant checks pass unless new evidence reveals an unresolved risk.
 - Explicit literals, no tiny helpers.
 - No `sleep`, `yield_now`, or polling; use real sync primitives.
 - No testing plans; run tests and report results.

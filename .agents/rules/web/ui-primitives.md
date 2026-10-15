@@ -1,5 +1,5 @@
 ---
-description: "Shared UI primitives keep Kobalte semantics, semantic tokens, a gallery page, and tests."
+description: "Shared UI primitives keep Kobalte semantics, semantic tokens, a gallery page, and meaningful interaction coverage."
 paths:
   - "apps/web/src/components/ui/**"
 globs: "apps/web/src/components/ui/**"
@@ -18,8 +18,9 @@ Applies to `apps/web/src/components/ui`, including ports from shadcn-solid.
 - Preserve Kobalte semantics, state attributes, and polymorphic prop types. Keep
   accessibility relationships inside the primitive instead of recreating them at
   call sites.
-- Add a co-located `*.docs.tsx` gallery page and focused `*.test.tsx` coverage
-  for every ported component.
+- Add a co-located `*.docs.tsx` gallery page for every ported component. Add
+  focused `*.test.tsx` coverage for interaction or accessibility behavior with
+  a concrete coverage gap, following [the test-value rules](../../../CODING.md#tests).
 - Keep `Input` a thin native control. Use `InputGroup` for icons, clear actions,
   inline Buttons, and shared ButtonGroup framing instead of adding composition
   props to `Input`.

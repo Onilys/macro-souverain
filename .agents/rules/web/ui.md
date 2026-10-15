@@ -61,7 +61,8 @@ Components, styling, and interaction conventions.
 - **FE-53** Use the shared components in `apps/web/src/components/ui` (`@ui`)
   whenever one fits; browse them at `/app/component/ui`. Don't build a one-off
   button, dialog, menu, or input. A missing primitive is added there, with a
-  `*.docs.tsx` page and tests, not inside a feature.
+  `*.docs.tsx` page and focused tests when [the test-value rules](../../../CODING.md#tests)
+  identify a coverage gap, not inside a feature.
 - **FE-54** Decide mobile behavior deliberately. Unless the change makes it
   obvious, ask the user how a UI change should look and behave on mobile, then
   follow [`mobile.md`](mobile.md).
