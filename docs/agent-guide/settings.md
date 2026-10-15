@@ -209,6 +209,9 @@ latest desktop release on GitHub, and only appears when the `desktop-app` PostHo
 flag is enabled. Native desktop always shows this section regardless of the flag;
 native mobile never shows it.
 
+The **Mobile App** page is titled **Mobile app (Alpha)** and offers a QR code
+to download **Macro Alpha** from the App Store.
+
 Search checks individual setting titles and keywords, tolerates common typos,
 and shows the parent page below each control result. Selecting a result opens
 that page, scrolls to its section or row, and briefly highlights it. Try
