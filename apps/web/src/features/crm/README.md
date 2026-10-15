@@ -53,6 +53,8 @@ composition. It defaults off everywhere and can be overridden locally with
 `VITE_ENABLE_CRM_ACTIVITY=true`. Off hides activity navigation and skips activity
 queries; saved activity links wait for flag loading, then fall back to Companies.
 The standard record task action still associates the task with its record.
+An open composer keeps its resolved launch policy, draft, and associations when
+the rollout changes; the new value applies to the next composer.
 The Soup and email SQL optimizations are independent of this frontend gate.
 
 The workspace activity feeds are CRM-linked, not unfiltered app shortcuts.

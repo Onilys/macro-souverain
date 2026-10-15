@@ -18,6 +18,8 @@ in Records, activity queries do not run, and activity deep links return to
 Companies after flags finish loading. Global task creation uses the standard
 composer; record-level New task still associates the new task with that record.
 With it on, the activity and contextual composer behavior below applies.
+A rollout change does not reset an already open composer or its record links;
+close and reopen the composer to use the new rollout value.
 
 The selected Customers tab is stored on the pane as `sN.crm.tab`. People uses
 `people`, activity tabs use `tasks`, `email`, `notes`, or `calls`, a pipeline uses

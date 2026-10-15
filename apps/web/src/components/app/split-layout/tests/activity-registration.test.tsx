@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@solidjs/testing-library';
+import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, Suspense } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveComponent } from '../componentRegistry';
@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   track: vi.fn(),
   mountActivity: vi.fn(),
   mountProjects: vi.fn(),
+  saveTask: vi.fn(),
   isPopover: false,
   close: vi.fn(),
 }));
@@ -129,13 +130,45 @@ vi.mock('@block-channel/component/Compose', () => ({}));
 vi.mock('@block-md/component/ComposeSkill', () => ({}));
 vi.mock('@block-md/component/ComposeTask', () => ({
   ComposeTask: (props: {
-    composerContext?: { key: string };
+    composerContext?: {
+      key: string;
+      initialPropertyValues?: Record<string, unknown>;
+    };
     initialTitle?: string;
-  }) => (
-    <div>
-      {props.composerContext?.key ?? 'Standard'} composer: {props.initialTitle}
-    </div>
-  ),
+  }) => {
+    const [title, setTitle] = createSignal(props.initialTitle ?? '');
+    const [content, setContent] = createSignal('');
+    return (
+      <div>
+        <div>
+          {props.composerContext?.key ?? 'Standard'} composer:{' '}
+          {props.initialTitle}
+        </div>
+        <input
+          aria-label="Task title"
+          value={title()}
+          onInput={(event) => setTitle(event.currentTarget.value)}
+        />
+        <textarea
+          aria-label="Task description"
+          value={content()}
+          onInput={(event) => setContent(event.currentTarget.value)}
+        />
+        <button
+          type="button"
+          onClick={() =>
+            state.saveTask({
+              title: title(),
+              content: content(),
+              properties: props.composerContext?.initialPropertyValues,
+            })
+          }
+        >
+          Save task
+        </button>
+      </div>
+    );
+  },
 }));
 vi.mock('@app/features/crm/queries/saved-views', () => ({}));
 vi.mock('@core/context/user', () => ({}));
@@ -273,6 +306,47 @@ describe('contextual task composer registration', () => {
     render(() => <Suspense>{component.element()}</Suspense>);
     expect(await screen.findByText('Standard composer: Plan')).toBeTruthy();
   });
+
+  it.each([true, false])(
+    'preserves an open draft and its associations when the rollout changes (initial: %s)',
+    async (initiallyEnabled) => {
+      const [enabled, setEnabled] = createSignal(initiallyEnabled);
+      state.enabled = enabled;
+      const properties = {
+        companies: {
+          valueType: 'ENTITY',
+          refs: [{ entity_id: 'acme', entity_type: 'COMPANY' }],
+        },
+      };
+      const component = resolveComponent('task-compose', {
+        composerContext: {
+          key: 'CRM',
+          visiblePropertyIds: ['companies'],
+          initialPropertyValues: properties,
+        },
+      });
+      render(() => <Suspense>{component.element()}</Suspense>);
+      const title = await screen.findByRole('textbox', { name: 'Task title' });
+      const description = screen.getByRole('textbox', {
+        name: 'Task description',
+      });
+      fireEvent.input(title, { target: { value: 'Follow up with Acme' } });
+      fireEvent.input(description, {
+        target: { value: 'Discuss the renewal' },
+      });
+      setEnabled(!initiallyEnabled);
+      expect(screen.getByRole('textbox', { name: 'Task title' })).toBe(title);
+      expect(screen.getByRole('textbox', { name: 'Task description' })).toBe(
+        description
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save task' }));
+      expect(state.saveTask).toHaveBeenCalledExactlyOnceWith({
+        title: 'Follow up with Acme',
+        content: 'Discuss the renewal',
+        properties: initiallyEnabled ? properties : undefined,
+      });
+    }
+  );
 });
 
 describe('project registration', () => {
