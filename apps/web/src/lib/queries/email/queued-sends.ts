@@ -10,6 +10,11 @@ import {
   settledSendAttempt,
   watchEmailSends,
 } from './send-queue';
+import {
+  type EmailSendObservation,
+  emailSendFailureKind,
+  recordEmailSend,
+} from './send-telemetry';
 
 /** Owner-scoped observer; missed events are recovered by reading durable state. */
 export function useQueuedEmailSends(enabled: () => boolean = () => true) {
@@ -17,6 +22,23 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
   const [ready, setReady] = createSignal(false);
   let disposed = false;
   let generation = 0;
+  let storageFailureReported = false;
+  const observations = new Map<string, string>();
+  const observe = (row: EmailSendIntent, observation: EmailSendObservation) => {
+    const key = `${row.uuid}:${observation.operation}`;
+    const signature = JSON.stringify([
+      observation.outcome,
+      observation.status,
+      observation.failureKind,
+      row.phase,
+      !!row.cacheMissing,
+      !!row.recoveryRequired,
+      !!row.metadata.payload.restoring,
+    ]);
+    if (observations.get(key) === signature) return;
+    observations.set(key, signature);
+    recordEmailSend(observation, row);
+  };
   const statuses = new Map<string, EmailSendAttemptFieldsFragment>();
   const applyStatus = (row: EmailSendIntent): EmailSendIntent => {
     const persisted = settledSendAttempt(row);
@@ -34,6 +56,9 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
     try {
       const rows = await readEmailSendIntents();
       if (disposed || current !== generation) return;
+      const ids = new Set(rows.map((row) => row.uuid));
+      for (const key of observations.keys())
+        if (!ids.has(key.split(':')[0])) observations.delete(key);
       const active: EmailSendIntent[] = [];
       for (const row of rows) {
         const resolved = applyStatus(row);
@@ -47,15 +72,28 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
         } else active.push(resolved);
       }
       if (disposed || current !== generation) return;
+      storageFailureReported = false;
       setIntents(active);
       setReady(true);
       if (reconcile && navigator.onLine) {
         await Promise.all(
           active.map(async (row) => {
             if (row.cacheMissing || row.recoveryRequired) {
+              const started = performance.now();
               try {
                 await recoverEmailSendIntent(row);
-              } catch {
+                observe(row, {
+                  operation: 'recover',
+                  outcome: 'completed',
+                  durationMs: performance.now() - started,
+                });
+              } catch (error) {
+                observe(row, {
+                  operation: 'recover',
+                  outcome: 'error',
+                  failureKind: emailSendFailureKind(error),
+                  durationMs: performance.now() - started,
+                });
                 /* Preserve the independent backup on uncertainty. */
               }
               return;
@@ -68,8 +106,15 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
               known?.status === 'SENT'
             )
               return;
+            const started = performance.now();
             try {
               const attempt = await fetchEmailSendStatus(row);
+              observe(row, {
+                operation: 'status',
+                outcome: 'observed',
+                status: attempt?.status,
+                durationMs: performance.now() - started,
+              });
               if (attempt && !disposed) {
                 statuses.set(row.uuid, attempt);
                 if (
@@ -82,13 +127,27 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
                   );
                 } else setIntents((current) => current.map(applyStatus));
               }
-            } catch {
+            } catch (error) {
+              observe(row, {
+                operation: 'status',
+                outcome: 'error',
+                failureKind: emailSendFailureKind(error),
+                durationMs: performance.now() - started,
+              });
               /* Uncertainty must preserve the persisted lock. */
             }
           })
         );
       }
-    } catch {
+    } catch (error) {
+      if (!disposed && !storageFailureReported) {
+        storageFailureReported = true;
+        recordEmailSend({
+          operation: 'refresh',
+          outcome: 'error',
+          failureKind: emailSendFailureKind(error),
+        });
+      }
       if (!disposed)
         setReady(
           false

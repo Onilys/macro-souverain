@@ -1,6 +1,7 @@
 //! Fenced delivery and recovery. An uncertain provider submission is reconciled,
 //! never automatically repeated. No database lock spans provider work.
 
+use std::time::Instant;
 use uuid::Uuid;
 
 /// Approved attachment identity checks shared by delivery adapters.
@@ -116,6 +117,7 @@ pub trait ScheduledMessageSender<Claim, Sent>: Sync {
 
 /// Deliver or reconcile one queue item. No failure after the submission boundary
 /// can release delivery authority for another automatic send.
+#[tracing::instrument(skip(repo, sender), fields(phase = tracing::field::Empty, mode = tracing::field::Empty), err)]
 pub async fn deliver_scheduled<R, S>(
     repo: &R,
     sender: &S,
@@ -126,41 +128,111 @@ where
     R: ScheduledDeliveryRepo,
     S: ScheduledMessageSender<R::Claim, R::Sent>,
 {
+    tracing::Span::current().record("phase", "claim");
     let Some(ClaimedDelivery { claim, mode }) = repo.try_claim(link_id, message_id).await? else {
         return Ok(());
     };
+    tracing::Span::current().record("mode", tracing::field::debug(mode));
     if mode == DeliveryMode::Reconcile {
+        tracing::Span::current().record("phase", "reconcile");
+        let started = Instant::now();
         return match sender.reconcile(&claim).await {
-            Ok(Some(sent)) => repo.complete(&claim, sent).await,
-            Ok(None) => repo.pause(&claim, DeliveryPause::Unconfirmed).await,
+            Ok(Some(sent)) => {
+                tracing::info!(
+                    event = "email_send.reconciliation",
+                    outcome = "found",
+                    duration_ms = started.elapsed().as_millis() as u64,
+                    "prior provider submission found"
+                );
+                tracing::Span::current().record("phase", "complete");
+                repo.complete(&claim, sent).await
+            }
+            Ok(None) => {
+                tracing::info!(
+                    event = "email_send.reconciliation",
+                    outcome = "not_found",
+                    retry_delay_secs = RECONCILIATION_DELAY_SECONDS,
+                    duration_ms = started.elapsed().as_millis() as u64,
+                    "delivery remains unconfirmed"
+                );
+                tracing::Span::current().record("phase", "pause");
+                repo.pause(&claim, DeliveryPause::Unconfirmed).await
+            }
             Err(error) => {
+                tracing::warn!(
+                    event = "email_send.reconciliation",
+                    outcome = "error",
+                    retry_delay_secs = RECONCILIATION_DELAY_SECONDS,
+                    duration_ms = started.elapsed().as_millis() as u64,
+                    "provider lookup failed; delivery remains unconfirmed"
+                );
                 repo.pause(&claim, DeliveryPause::Unconfirmed).await?;
                 Err(error)
             }
         };
     }
+    tracing::Span::current().record("phase", "prepare");
+    let started = Instant::now();
     let prepared = match sender.prepare(&claim).await {
-        Ok(prepared) => prepared,
+        Ok(prepared) => {
+            tracing::info!(
+                event = "email_send.preparation",
+                outcome = "ready",
+                duration_ms = started.elapsed().as_millis() as u64,
+                "email preparation completed"
+            );
+            prepared
+        }
         Err(PreparationError::Retry(error)) => {
+            tracing::warn!(
+                event = "email_send.preparation",
+                outcome = "retry",
+                retry_delay_secs = PREPARATION_RETRY_SECONDS,
+                duration_ms = started.elapsed().as_millis() as u64,
+                "email preparation will retry before submission"
+            );
             repo.release(&claim).await?;
             return Err(error);
         }
         Err(PreparationError::Failed(error)) => {
-            tracing::warn!(error=?error, %message_id, "email preparation needs attention");
+            tracing::warn!(event = "email_send.preparation", outcome = "failed", error=?error,
+                duration_ms = started.elapsed().as_millis() as u64, "email preparation needs attention");
             return repo.pause(&claim, DeliveryPause::Failed).await;
         }
     };
+    tracing::Span::current().record("phase", "begin_submission");
     if !repo.begin_send(&claim).await? {
+        tracing::info!(
+            event = "email_send.claim_lost",
+            "email delivery claim lost before submission"
+        );
         return Ok(());
     }
+    tracing::info!(
+        event = "email_send.submission_started",
+        "email provider submission boundary recorded"
+    );
+    tracing::Span::current().record("phase", "submit");
+    let started = Instant::now();
     match sender.send_prepared(&claim, prepared).await {
-        Ok(sent) => repo.complete(&claim, sent).await,
+        Ok(sent) => {
+            tracing::info!(
+                event = "email_send.provider_accepted",
+                duration_ms = started.elapsed().as_millis() as u64,
+                "provider accepted email; database completion pending"
+            );
+            tracing::Span::current().record("phase", "complete");
+            repo.complete(&claim, sent).await
+        }
         Err(SubmissionError::Rejected(error)) => {
-            tracing::warn!(error=?error, %message_id, "email delivery was rejected");
+            tracing::warn!(event = "email_send.submission", outcome = "rejected", error=?error,
+                duration_ms = started.elapsed().as_millis() as u64, "email delivery was rejected");
             repo.pause(&claim, DeliveryPause::Failed).await
         }
         Err(SubmissionError::Uncertain(error)) => {
-            tracing::warn!(error=?error, %message_id, "email delivery requires reconciliation");
+            tracing::warn!(event = "email_send.submission", outcome = "unconfirmed", error=?error,
+                retry_delay_secs = RECONCILIATION_DELAY_SECONDS,
+                duration_ms = started.elapsed().as_millis() as u64, "email delivery requires reconciliation");
             repo.pause(&claim, DeliveryPause::Unconfirmed).await
         }
     }

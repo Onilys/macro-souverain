@@ -20,6 +20,7 @@ use macro_event_broker::{KafkaEventPublisher, MacroEventBroker, MacroEventBroker
 use macro_user_id::cowlike::CowLike as _;
 use macro_user_id::user_id::MacroUserIdStr;
 use models_email::service::{attachment::AttachmentDraft, link::Link, message::MessageToSend};
+use std::time::Instant;
 use tokio_util::task::TaskTracker;
 use uuid::Uuid;
 
@@ -62,13 +63,20 @@ impl ScheduledDeliveryRepo for ScheduledDeliveryAdapter {
         Ok(
             delivery::claim_delivery(&self.db, link_id, message_id, DELIVERY_LEASE_SECONDS)
                 .await?
-                .map(|delivery| ClaimedDelivery {
-                    mode: if delivery.requires_reconciliation {
-                        DeliveryMode::Reconcile
-                    } else {
-                        DeliveryMode::Send
-                    },
-                    claim: ScheduledClaim { link, delivery },
+                .map(|delivery| {
+                    tracing::info!(event = "email_send.claim_acquired", %link_id, %message_id,
+                        claim_id = %delivery.token.0,
+                        reconcile = delivery.requires_reconciliation,
+                        send_lateness_ms = (Utc::now() - delivery.schedule.send_time).num_milliseconds().max(0),
+                        "email delivery claim acquired");
+                    ClaimedDelivery {
+                        mode: if delivery.requires_reconciliation {
+                            DeliveryMode::Reconcile
+                        } else {
+                            DeliveryMode::Send
+                        },
+                        claim: ScheduledClaim { link, delivery },
+                    }
                 }),
         )
     }
@@ -91,7 +99,13 @@ impl ScheduledDeliveryRepo for ScheduledDeliveryAdapter {
         .await
     }
 
+    #[tracing::instrument(skip_all, fields(
+        link_id = %claim.link.id,
+        message_id = %claim.delivery.schedule.message_id,
+        claim_id = %claim.delivery.token.0,
+    ), err)]
     async fn complete(&self, claim: &ScheduledClaim, sent: SentDelivery) -> anyhow::Result<()> {
+        let started = Instant::now();
         let ctx = self;
         let link = &claim.link;
         let data = &claim.delivery.schedule;
@@ -114,6 +128,10 @@ impl ScheduledDeliveryRepo for ScheduledDeliveryAdapter {
         )
         .await?;
         if !delivery::complete_delivery(tx.as_mut(), &claim.delivery).await? {
+            tracing::info!(
+                event = "email_send.completion_fenced",
+                "stale claim cannot persist email completion"
+            );
             return Ok(());
         }
         let result = process_sent_message(tx.as_mut(), &mut message_to_send).await;
@@ -121,6 +139,12 @@ impl ScheduledDeliveryRepo for ScheduledDeliveryAdapter {
         match result {
             Ok(_) => {
                 tx.commit().await.context("Failed to commit transaction")?;
+                tracing::info!(
+                    event = "email_send.database_committed",
+                    duration_ms = started.elapsed().as_millis() as u64,
+                    delivery_lateness_ms = (Utc::now() - data.send_time).num_milliseconds().max(0),
+                    "email delivery completion committed"
+                );
 
                 // Gmail accepted the send and the DB updates are committed:
                 // publish the message_sent event resolving the earlier
@@ -271,6 +295,10 @@ impl ScheduledMessageSender<ScheduledClaim, SentDelivery> for ScheduledDeliveryA
 }
 
 impl ScheduledDeliveryAdapter {
+    #[tracing::instrument(skip_all, fields(
+        link_id = %claim.link.id, message_id = %claim.delivery.schedule.message_id,
+        claim_id = %claim.delivery.token.0, phase = "load_content",
+    ), err)]
     async fn prepare_delivery(&self, claim: &ScheduledClaim) -> anyhow::Result<PreparedDelivery> {
         let data = &claim.delivery.schedule;
         let (mut message, sender_contact) =
@@ -290,6 +318,8 @@ impl ScheduledDeliveryAdapter {
             .unwrap_or(serde_json::from_value(
                 claim.delivery.approved_attachments.clone(),
             )?);
+        tracing::Span::current().record("phase", "attachments");
+        let started = Instant::now();
         let attachments = prepare_delivery_attachments(
             &self.db,
             &self.s3_client,
@@ -300,6 +330,13 @@ impl ScheduledDeliveryAdapter {
             Some(&approved),
         )
         .await?;
+        tracing::info!(
+            event = "email_send.attachments_prepared",
+            duration_ms = started.elapsed().as_millis() as u64,
+            "approved email attachments prepared"
+        );
+        tracing::Span::current().record("phase", "mime_and_credentials");
+        let started = Instant::now();
         let request = SendRequest {
             message: message.clone(),
             from: sender_contact,
@@ -315,6 +352,11 @@ impl ScheduledDeliveryAdapter {
                 message.provider_thread_id.as_deref(),
             )
             .await?;
+        tracing::info!(
+            event = "email_send.mime_prepared",
+            duration_ms = started.elapsed().as_millis() as u64,
+            "email MIME and provider credentials prepared"
+        );
         // The opaque provider request owns MIME, so raw attachment buffers need
         // not be retained while the provider call is in flight.
         message.attachments = None;

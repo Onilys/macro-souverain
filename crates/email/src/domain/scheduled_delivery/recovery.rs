@@ -1,6 +1,7 @@
 //! Recover due delivery work through durable queue notifications.
 
 use futures::{Stream, TryStreamExt};
+use std::time::Instant;
 use uuid::Uuid;
 
 /// A due message that may be claimed for delivery or reconciliation.
@@ -42,19 +43,41 @@ impl<R: ScheduledRecoveryRepo, Q: ScheduledRecoveryQueue> ScheduledRecovery<R, Q
     /// Republish due work. Failed queue writes stay due for the next scan.
     #[tracing::instrument(skip(self), err)]
     pub async fn scan(&self) -> anyhow::Result<()> {
-        let pending = self.repo.pending_deliveries();
-        futures::pin_mut!(pending);
-        while let Some(delivery) = pending.try_next().await? {
-            let _ = self.queue.enqueue(delivery).await.inspect_err(|error| {
-                tracing::error!(
-                    error = ?error,
-                    link_id = %delivery.link_id,
-                    message_id = %delivery.message_id,
-                    "failed to enqueue scheduled email recovery",
-                );
-            });
+        let started = Instant::now();
+        let mut found = 0_u64;
+        let mut enqueued = 0_u64;
+        let mut failed = 0_u64;
+        let result: anyhow::Result<()> = async {
+            let pending = self.repo.pending_deliveries();
+            futures::pin_mut!(pending);
+            while let Some(delivery) = pending.try_next().await? {
+                found += 1;
+                match self.queue.enqueue(delivery).await {
+                    Ok(()) => enqueued += 1,
+                    Err(error) => {
+                        failed += 1;
+                        tracing::error!(
+                            error = ?error,
+                            link_id = %delivery.link_id,
+                            message_id = %delivery.message_id,
+                            "failed to enqueue scheduled email recovery",
+                        );
+                    }
+                }
+            }
+            Ok(())
         }
-        Ok(())
+        .await;
+        tracing::info!(
+            event = "email_send.recovery_scan",
+            found,
+            enqueued,
+            failed,
+            scan_complete = result.is_ok(),
+            duration_ms = started.elapsed().as_millis() as u64,
+            "scheduled email recovery scan finished"
+        );
+        result
     }
 }
 

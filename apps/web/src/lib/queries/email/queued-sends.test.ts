@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   recover: vi.fn(async () => {}),
   status: vi.fn(async () => null),
+  warn: vi.fn(),
+  info: vi.fn(),
+}));
+vi.mock('@macro-inc/observability', () => ({
+  Telemetry: { info: mocks.info, warn: mocks.warn },
 }));
 vi.mock('./send-queue', async (original) => ({
   ...(await original<typeof import('./send-queue')>()),
@@ -20,6 +25,34 @@ vi.mock('./send-draft-lifecycle', () => ({
   supersededSendRestoration: async () => false,
 }));
 
+const intent: EmailSendIntent = {
+  uuid: 'attempt',
+  phase: 'pending',
+  locallyCancelled: false,
+  cancellationRequested: true,
+  recoveryRequired: true,
+  metadata: {
+    kind: 'email-send-v1',
+    payload: {
+      restoring: false,
+      input: {
+        attempt: { attemptId: 'attempt', linkId: 'inbox' },
+        message: { draftId: 'draft', subject: 'Recovered decision' },
+        attachmentIds: [],
+        forwardedAttachmentIds: [],
+      },
+      draft: {
+        draftId: 'draft',
+        threadDbId: 'thread',
+        senderLinkId: 'inbox',
+        senderEmail: 'sender@example.invalid',
+        subject: 'Recovered decision',
+        optimisticBodyHtml: null,
+      },
+    },
+  },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('navigator', { onLine: true });
@@ -30,34 +63,14 @@ afterEach(() => vi.unstubAllGlobals());
 it.each([false, true])(
   'resumes an interrupted durable decision with a surviving catalog, restoring: %s',
   async (restoring) => {
-    const intent: EmailSendIntent = {
-      uuid: 'attempt',
-      phase: 'pending',
-      locallyCancelled: false,
-      cancellationRequested: true,
-      recoveryRequired: true,
+    const row = {
+      ...intent,
       metadata: {
-        kind: 'email-send-v1',
-        payload: {
-          restoring,
-          input: {
-            attempt: { attemptId: 'attempt', linkId: 'inbox' },
-            message: { draftId: 'draft', subject: 'Recovered decision' },
-            attachmentIds: [],
-            forwardedAttachmentIds: [],
-          },
-          draft: {
-            draftId: 'draft',
-            threadDbId: 'thread',
-            senderLinkId: 'inbox',
-            senderEmail: 'sender@example.invalid',
-            subject: 'Recovered decision',
-            optimisticBodyHtml: null,
-          },
-        },
+        ...intent.metadata,
+        payload: { ...intent.metadata.payload, restoring },
       },
     };
-    mocks.read.mockResolvedValue([intent]);
+    mocks.read.mockResolvedValue([row]);
     let dispose = () => {};
     const queue = createRoot((cleanup) => {
       dispose = cleanup;
@@ -65,11 +78,11 @@ it.each([false, true])(
     });
     try {
       await queue.refresh(true);
-      expect(mocks.recover).toHaveBeenCalledWith(intent);
+      expect(mocks.recover).toHaveBeenCalledWith(row);
       expect(mocks.status).not.toHaveBeenCalled();
       // Recording the new request stops recovery while normal polling continues.
       mocks.recover.mockClear();
-      mocks.read.mockResolvedValue([{ ...intent, recoveryRequired: false }]);
+      mocks.read.mockResolvedValue([{ ...row, recoveryRequired: false }]);
       await queue.refresh(true);
       expect(mocks.recover).not.toHaveBeenCalled();
     } finally {
@@ -77,3 +90,51 @@ it.each([false, true])(
     }
   }
 );
+
+it('deduplicates recurring recovery errors and reports a new failure after recovery succeeds', async () => {
+  mocks.read.mockResolvedValue([intent]);
+  mocks.recover.mockRejectedValue(new Error('PRIVATE provider failure'));
+  let dispose = () => {};
+  const queue = createRoot((cleanup) => {
+    dispose = cleanup;
+    return useQueuedEmailSends();
+  });
+  try {
+    await queue.refresh(true);
+    await queue.refresh(true);
+    expect(mocks.warn).toHaveBeenCalledTimes(1);
+    expect(queue.ready()).toBe(true);
+    expect(queue.intents()).toHaveLength(1);
+    expect(JSON.stringify(mocks.warn.mock.calls)).not.toContain('PRIVATE');
+    mocks.recover.mockResolvedValue(undefined);
+    await queue.refresh(true);
+    mocks.recover.mockRejectedValue(new Error('PRIVATE provider failure'));
+    await queue.refresh(true);
+    expect(mocks.warn).toHaveBeenCalledTimes(2);
+  } finally {
+    dispose();
+  }
+});
+
+it('reports unavailable storage once until a read succeeds, while preserving readiness', async () => {
+  mocks.read.mockRejectedValue(new Error('PRIVATE storage failure'));
+  let dispose = () => {};
+  const queue = createRoot((cleanup) => {
+    dispose = cleanup;
+    return useQueuedEmailSends();
+  });
+  try {
+    await queue.refresh(true);
+    await queue.refresh(true);
+    expect(mocks.warn).toHaveBeenCalledTimes(1);
+    expect(queue.ready()).toBe(false);
+    mocks.read.mockResolvedValue([]);
+    await queue.refresh(true);
+    expect(queue.ready()).toBe(true);
+    mocks.read.mockRejectedValue(new Error('PRIVATE storage failure'));
+    await queue.refresh(true);
+    expect(mocks.warn).toHaveBeenCalledTimes(2);
+  } finally {
+    dispose();
+  }
+});

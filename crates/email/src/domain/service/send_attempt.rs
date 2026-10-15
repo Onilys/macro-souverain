@@ -3,6 +3,7 @@ use chrono::{Duration, Utc};
 use frecency::domain::ports::FrecencyQueryService;
 use macro_event_broker::MacroEventBroker;
 use macro_user_id::user_id::MacroUserIdStr;
+use std::time::Instant;
 use uuid::Uuid;
 
 use super::{EmailServiceImpl, draft::resolve_target_link};
@@ -28,7 +29,7 @@ where
     B: MacroEventBroker,
     anyhow::Error: From<T::Err> + From<E::Err>,
 {
-    #[tracing::instrument(skip_all, err)]
+    #[tracing::instrument(skip_all, fields(%link_id, attempt_id = %attempt_id.0, phase = "authorization"), err)]
     async fn send_email(
         &self,
         actor: MacroUserIdStr<'static>,
@@ -36,19 +37,23 @@ where
         attempt_id: SendAttemptId,
         snapshot: SendSnapshot,
     ) -> Result<SendAttempt, EmailErr> {
+        let started = Instant::now();
         let inboxes = self
             .email_repo
             .inboxes_for_macro_id(actor.clone())
             .await
             .map_err(anyhow::Error::from)?;
         let link = resolve_target_link(&inboxes, Some(link_id), &actor)?;
+        tracing::Span::current().record("phase", "read_attempt");
         if let Some(attempt) = self
             .email_repo
             .read_send_attempt(&actor, link_id, attempt_id, Some(&snapshot))
             .await?
         {
+            log_attempt_outcome("send", &attempt, started);
             return self.hydrate_send_attempt(link_id, attempt).await;
         }
+        tracing::Span::current().record("phase", "prepare");
         let prepare = async {
             if snapshot.message.db_id.is_none()
                 || snapshot.message.to.is_empty()
@@ -111,15 +116,20 @@ where
                     .read_send_attempt(&actor, link_id, attempt_id, Some(&snapshot))
                     .await?
                 {
-                    Some(attempt) => self.hydrate_send_attempt(link_id, attempt).await,
+                    Some(attempt) => {
+                        log_attempt_outcome("send", &attempt, started);
+                        self.hydrate_send_attempt(link_id, attempt).await
+                    }
                     None => Err(error),
                 };
             }
         };
+        tracing::Span::current().record("phase", "admit");
         let attempt = self
             .email_repo
             .admit_send(&actor, link_id, attempt_id, prepared)
             .await?;
+        log_attempt_outcome("send", &attempt, started);
         if let (SendAttemptStatus::Accepted, Some(message_id), Some(thread_id), Some(send_time)) = (
             attempt.status,
             attempt.message_id,
@@ -127,6 +137,7 @@ where
             attempt.send_time,
         ) && attempt.transitioned
         {
+            tracing::Span::current().record("phase", "notify");
             // The database is the durable handoff. The scheduled scanner repairs a
             // failed notification; returning failure here would misstate admission.
             let delay = (send_time - Utc::now()).num_seconds().max(0) + 2;
@@ -148,23 +159,26 @@ where
         self.hydrate_send_attempt(link_id, attempt).await
     }
 
-    #[tracing::instrument(skip_all, err)]
+    #[tracing::instrument(skip_all, fields(%link_id, attempt_id = %attempt_id.0, phase = "authorization"), err)]
     async fn cancel_email_send(
         &self,
         actor: MacroUserIdStr<'static>,
         link_id: Uuid,
         attempt_id: SendAttemptId,
     ) -> Result<SendAttempt, EmailErr> {
+        let started = Instant::now();
         let inboxes = self
             .email_repo
             .inboxes_for_macro_id(actor.clone())
             .await
             .map_err(anyhow::Error::from)?;
         let link = resolve_target_link(&inboxes, Some(link_id), &actor)?;
+        tracing::Span::current().record("phase", "cancel");
         let attempt = self
             .email_repo
             .cancel_send(&actor, link_id, attempt_id)
             .await?;
+        log_attempt_outcome("cancel", &attempt, started);
         if let (SendAttemptStatus::Cancelled, Some(message_id), Some(thread_id)) =
             (attempt.status, attempt.message_id, attempt.thread_id)
             && attempt.transitioned
@@ -183,7 +197,7 @@ where
         self.hydrate_send_attempt(link_id, attempt).await
     }
 
-    #[tracing::instrument(skip_all, err)]
+    #[tracing::instrument(skip_all, fields(%link_id, attempt_id = %attempt_id.0, phase = "authorization"), err)]
     async fn email_send_status(
         &self,
         actor: MacroUserIdStr<'static>,
@@ -196,6 +210,7 @@ where
             .await
             .map_err(anyhow::Error::from)?;
         resolve_target_link(&inboxes, Some(link_id), &actor)?;
+        tracing::Span::current().record("phase", "read_attempt");
         match self
             .email_repo
             .read_send_attempt(&actor, link_id, attempt_id, None)
@@ -205,6 +220,20 @@ where
             None => Ok(None),
         }
     }
+}
+
+fn log_attempt_outcome(operation: &'static str, attempt: &SendAttempt, started: Instant) {
+    tracing::info!(
+        event = "email_send.attempt_resolved",
+        operation,
+        status = ?attempt.status,
+        transitioned = attempt.transitioned,
+        message_id = ?attempt.message_id,
+        thread_id = ?attempt.thread_id,
+        send_time = ?attempt.send_time,
+        duration_ms = started.elapsed().as_millis() as u64,
+        "email send authority resolved before response hydration",
+    );
 }
 
 impl EmailSendService for crate::domain::ports::NoOpEmailService {
@@ -248,6 +277,7 @@ where
         link: Uuid,
         mut attempt: SendAttempt,
     ) -> Result<SendAttempt, EmailErr> {
+        tracing::Span::current().record("phase", "hydrate_response");
         let Some(message_id) = attempt.message_id else {
             return Ok(attempt);
         };
