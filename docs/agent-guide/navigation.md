@@ -459,9 +459,9 @@ offers both kinds. Opening an existing row restores its own kind and URL.
 Right-click a conversation for Rename, Favorite, Copy link, Share, Delete, and
 the other entity actions used on Home.
 
-Home's inner rail starts with a full-width **New chat** plus button that returns
+Home's inner rail starts with a rounded, content-sized **New Chat** button that returns
 to Home's starting pane without creating a chat. Email and Tasks use the same
-pill styling and top placement for **New email** and **New task**, replacing
+32px pill styling and top placement for **New Email** and **New Task**, replacing
 the sidebar title bars. When multiple desktop splits are open, a **Close** (X)
 button appears beside each sidebar's New button and closes that split, including
 when the sidebar is an overlay in a narrow split. Verify with three splits:

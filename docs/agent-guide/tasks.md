@@ -2,9 +2,9 @@
 
 ## Surface
 
-`Go to Tasks` → `/app/component/tasks`. Tabs: `My tasks`, `Created by me`, `Team tasks`, and `Projects`.
-The title row places Search (`Cmd/Ctrl+F`) and a primary **New** button at the right.
-The toolbar below contains an icon-only `Task layout` dropdown, `Sort`, `Group`, and `Filter`;
+`Go to Tasks` → `/app/component/tasks`. Tabs: `My Tasks`, `All Tasks`, `Created by me`, and `Projects`.
+The main title row groups `Task layout`, `Sort`, `Group`, and `Filter` beside the
+**New** button on the right. Search (`Cmd/Ctrl+F`) expands below the sidebar header;
 the filter uses the legacy compact option rows and searchable Assignee, Created by,
 and Tags submenus. Multi-select choices keep the menu open; Escape dismisses it.
 The top of the `Filter` menu is a `Filter with AI…` textbox, focused when the menu opens: type a plain-English
@@ -18,7 +18,9 @@ off-topic text) keep the typed text and show a red error there instead. The box 
 focus while you type even if the pointer drifts over the rows; ArrowDown moves into
 the rows and hovering a submenu hands focus to it as usual. The mobile drawer has no
 AI box.
-Task creation is available from the task-icon **New** button in the top-right title row. With Projects
+Task creation is available from the sidebar **New Task** pill and the main top-right
+**New** button. When Projects is enabled, the sidebar pill menu offers **New Task**
+and **New Project**. With Projects
 enabled, `My projects` appears below the tabs and favorites. It lists
 accessible projects by most recently updated, with a capped height and its own scroll
 area. Click a project to open its overview within the current Tasks view, keeping

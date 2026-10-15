@@ -260,17 +260,19 @@ complete availability coverage. Hidden, disconnected, stale, or incomplete
 calendars are reported as unknown, never free. Busy blocks contain no event
 titles or private event metadata.
 
-The in-view desktop Calendar header groups the month/year heading and
-previous, Today, and next controls on the left. The view selector, Search, and
-Calendar settings sit on the right, separated from date navigation. The heading
-uses 20px type; weekday labels in the grid are smaller uppercase labels, with a
-round highlight on today's date. A compact `New` menu appears when the sidebar
-is not docked.
-Click Search or press Cmd/Ctrl+F to open a focused search popover without moving
-the toolbar. Escape, selecting a result, or clicking outside dismisses it
-without clearing the query. The search field exposes Filters and, after typing,
-the icon-only Exact-match toggle. Search in is single-select, while Status,
-Organizer, and Attendee allow multiple values.
+The desktop Calendar workspace shows the month/year heading on the left and
+previous, Today, next, view, settings, and New controls on the right. Its sidebar
+creation pill and Search icon share the standard workspace header. The heading
+uses 20px type; weekday labels are smaller uppercase labels, with a round
+highlight on today's date.
+
+In the desktop workspace, click the sidebar Search icon or press Cmd/Ctrl+F to
+reveal and focus the full-width sidebar search field. Escape hides it without
+clearing the query. Preview and tablet split headers use a search popover;
+Escape, selecting a result, or clicking outside dismisses that popover without
+clearing the query. The search field exposes Filters and, after typing, the
+Exact-match toggle. Search in is single-select; Status, Organizer, and Attendee
+allow multiple values.
 Organizer and Attendee virtualize their contact lists; selected contacts stay
 in place, while custom email addresses appear first. Adding a valid email clears
 the contact search. Filter selections apply immediately, and only these filters
@@ -292,8 +294,7 @@ in the mobile header.
 
 The right-hand actions move below the date navigation below 620px of main-pane
 width with a docked sidebar, or 680px without one. Today and New retain their
-text labels until space is tight, then become icon buttons. Search remains a
-popover at every desktop width and does not cover the month heading.
+text labels until space is tight, then become icon buttons. Workspace search stays in the sidebar; split-header previews use a popover.
 Touch devices keep the month selector and header controls without separate
 create or call buttons in the right island. Mobile header islands omit Search.
 The desktop sidebar's mini calendar remains navigable by date and month.

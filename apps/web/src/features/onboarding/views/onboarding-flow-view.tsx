@@ -51,7 +51,7 @@ export function OnboardingFlowView(props: {
       const accounts = emailAccounts.accounts();
       return {
         emails_connected: accounts.t === 'ready' ? accounts.value.length : 0,
-        connectors_connected: [...(connectedTools() ?? [])],
+        connectors_connected: [...connectedTools.connected()],
       };
     },
   });
