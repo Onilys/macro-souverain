@@ -2,6 +2,14 @@ import type { MetaSendProgress } from '@service-storage/generated/schemas/metaSe
 
 type DeliveryProgress = Pick<MetaSendProgress, 'state' | 'created_at'>;
 
+/**
+ * Channels whose binding is unknown fail closed and hide the native composer,
+ * so a failed first lookup keeps retrying with backoff instead of waiting for focus.
+ */
+export function bindingRetryInterval(failures: number): number {
+  return Math.min(30_000, 2_000 * 2 ** Math.min(Math.max(failures - 1, 0), 4));
+}
+
 /** Fast only while a recent send is progressing; never chase read receipts forever. */
 export function deliveryPollInterval(
   sends: readonly DeliveryProgress[],

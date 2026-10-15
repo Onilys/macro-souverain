@@ -171,6 +171,30 @@ fn instagram_profile_rejects_ambiguous_accounts_and_accepts_direct_object() {
     let direct = json!({"user_id":"professional-id", "username":"test"});
     assert_eq!(single_account_response(&direct).unwrap(), &direct);
 }
+
+#[test]
+fn gateway_pages_and_throttling_are_temporary_not_rejections() {
+    use reqwest::StatusCode as S;
+    let error = |code: i64| json!({"error":{"code":code}});
+    assert_eq!(rejection(S::BAD_GATEWAY, None), MessagingError::Unavailable);
+    assert_eq!(
+        rejection(S::SERVICE_UNAVAILABLE, None),
+        MessagingError::Unavailable
+    );
+    assert_eq!(
+        rejection(S::BAD_REQUEST, Some(&error(80007))),
+        MessagingError::Unavailable
+    );
+    assert_eq!(
+        rejection(S::BAD_REQUEST, Some(&error(100))),
+        MessagingError::ProviderRejected
+    );
+    assert_eq!(rejection(S::OK, None), MessagingError::ProviderRejected);
+    assert_eq!(
+        rejection(S::UNAUTHORIZED, Some(&error(190))),
+        MessagingError::Disconnected
+    );
+}
 pub(super) fn connection(provider: Provider) -> Connection {
     Connection {
         id: Uuid::now_v7(),

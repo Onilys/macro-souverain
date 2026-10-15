@@ -594,3 +594,47 @@ it.each(['text', 'media'] as const)(
       expect(screen.getByText('Previously attached file')).toBeTruthy();
   }
 );
+
+it('accepts template fields filled out of order and keeps the draft restorable', async () => {
+  fixture.account!.eligibility.modes = [
+    { mode: 'free_form', allowed: false, reason: 'template_required' },
+    { mode: 'approved_template', allowed: true },
+  ];
+  fixture.templates = [
+    {
+      id: 'approved',
+      name: 'order_update',
+      language: 'en_US',
+      components: [{ type: 'BODY', text: 'Hi {{1}}, order {{2}}' }],
+      parameter_labels: ['first_name', 'order'],
+    },
+  ];
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
+  fireEvent.change(screen.getByRole('combobox'), {
+    target: { value: 'approved' },
+  });
+  const send = screen.getByRole('button', { name: 'Send reply via WhatsApp' });
+  fireEvent.input(screen.getByLabelText('order'), { target: { value: '4' } });
+  fireEvent.input(screen.getByLabelText('order'), { target: { value: '42' } });
+  expect(send).toHaveProperty('disabled', true);
+  const key = `macro:meta-reply:v1:channel-one:${encodeURIComponent(
+    'macro|owner@fixture.test'
+  )}`;
+  await waitFor(() =>
+    expect(JSON.parse(localStorage.getItem(key)!).parameters).toEqual([
+      '',
+      '42',
+    ])
+  );
+  fireEvent.input(screen.getByLabelText('first_name'), {
+    target: { value: 'Ada' },
+  });
+  expect(send).toHaveProperty('disabled', false);
+  fireEvent.click(send);
+  await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
+  expect(fixture.reply.mock.calls[0][0].message.parameters).toEqual([
+    'Ada',
+    '42',
+  ]);
+});

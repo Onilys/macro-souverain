@@ -278,7 +278,8 @@ impl MessagingRepository for PgMessagingRepository {
         Ok(())
     }
     async fn maintenance_connections(&self) -> PortResult<Vec<Connection>> {
-        sqlx::query!("SELECT to_jsonb(c) - 'credential' AS \"data!\" FROM meta_messaging_connection c WHERE status IN ('connecting','connected','error') AND (checked_at IS NULL OR checked_at < now() - interval '1 hour') ORDER BY checked_at NULLS FIRST LIMIT 10")
+        // Transient check failures retry within minutes rather than the hourly cadence.
+        sqlx::query!("SELECT to_jsonb(c) - 'credential' AS \"data!\" FROM meta_messaging_connection c WHERE status IN ('connecting','connected','error') AND (checked_at IS NULL OR checked_at < now() - interval '1 hour' OR (health_error = $1 AND checked_at < now() - interval '5 minutes')) ORDER BY checked_at NULLS FIRST LIMIT 10", crate::domain::health::ConnectionFailure::Temporary.code())
             .fetch_all(&self.pool).await.map_err(failure)?.into_iter().map(|r| decode(r.data)).collect()
     }
     async fn accept_receipt(

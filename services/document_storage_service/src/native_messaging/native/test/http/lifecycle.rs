@@ -219,9 +219,10 @@ async fn health_failures_keep_specific_safe_recovery_codes(pool: PgPool) {
             ConnectionStatus::Revoked,
             "connecting_admin_access_lost",
         ),
+        // A transient check failure keeps the account's current status.
         (
             MessagingError::Unavailable,
-            ConnectionStatus::Error,
+            ConnectionStatus::Connecting,
             "connection_temporarily_unavailable",
         ),
         (
@@ -272,6 +273,36 @@ async fn health_failures_keep_specific_safe_recovery_codes(pool: PgPool) {
         .connect(&f.c, b"renewed", Some(f.c.id))
         .await
         .unwrap();
+    f.service.maintain().await.unwrap();
+    let c = f.repo.connection(f.c.id).await.unwrap().unwrap();
+    assert_eq!(c.status, ConnectionStatus::Connected);
+    assert!(c.health_error.is_none());
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn temporary_check_failure_keeps_sending_and_rechecks_within_minutes(pool: PgPool) {
+    let f = fixture(&pool, Provider::Whatsapp, None).await;
+    let backdate = |interval: &'static str| {
+        sqlx::query(
+            "UPDATE meta_messaging_connection SET checked_at = now() - $2::interval WHERE id = $1",
+        )
+        .bind(f.c.id)
+        .bind(interval)
+        .execute(&pool)
+    };
+    backdate("2 hours").await.unwrap();
+    *f.remote.subscribe_error.lock().unwrap() = Some(MessagingError::Unavailable);
+    f.service.maintain().await.unwrap();
+    let c = f.repo.connection(f.c.id).await.unwrap().unwrap();
+    assert_eq!(c.status, ConnectionStatus::Connected);
+    assert_eq!(
+        c.health_error.as_deref(),
+        Some("connection_temporarily_unavailable")
+    );
+    assert!(f.repo.maintenance_connections().await.unwrap().is_empty());
+    backdate("6 minutes").await.unwrap();
+    assert_eq!(f.repo.maintenance_connections().await.unwrap().len(), 1);
+    *f.remote.subscribe_error.lock().unwrap() = None;
     f.service.maintain().await.unwrap();
     let c = f.repo.connection(f.c.id).await.unwrap().unwrap();
     assert_eq!(c.status, ConnectionStatus::Connected);

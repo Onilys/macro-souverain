@@ -9,7 +9,7 @@ import { queryOptions, useMutation, useQuery } from '@tanstack/solid-query';
 import type { Accessor } from 'solid-js';
 import { queryClient } from '../client';
 import { metaMessagingKeys } from './keys';
-import { deliveryPollInterval } from './polling';
+import { bindingRetryInterval, deliveryPollInterval } from './polling';
 
 export function useMetaConfiguration() {
   return useQuery(() => ({
@@ -63,12 +63,17 @@ function conversationQueryOptions(channelId: string, enabled: boolean) {
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
     // Idle refresh catches account/window changes and messages from other teammates.
-    refetchInterval: (query) =>
-      query.state.data
-        ? query.state.status === 'error'
-          ? 30_000
-          : deliveryPollInterval(query.state.data.sends) || 30_000
-        : false,
+    refetchInterval: (query) => {
+      const { data, status, errorUpdateCount } = query.state;
+      if (data === undefined)
+        return status === 'error'
+          ? bindingRetryInterval(errorUpdateCount)
+          : false;
+      if (!data) return false;
+      return status === 'error'
+        ? 30_000
+        : deliveryPollInterval(data.sends) || 30_000;
+    },
   });
 }
 

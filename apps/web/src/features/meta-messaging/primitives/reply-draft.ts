@@ -14,7 +14,10 @@ const replyDraftSchema = z.object({
     .optional(),
   templateMode: z.boolean().default(false),
   templateId: z.string().default(''),
-  parameters: z.array(z.string()).default([]),
+  // Tolerate drafts saved with gaps so the rest of the draft still restores.
+  parameters: z
+    .array(z.preprocess((value) => value ?? '', z.string()))
+    .default([]),
   humanSupport: z.boolean().default(false),
   uncertainReply: z.boolean().default(false),
   intent: z.string().uuid().optional(),

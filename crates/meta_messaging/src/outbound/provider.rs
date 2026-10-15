@@ -405,27 +405,44 @@ async fn bounded_bytes(mut response: Response, limit: usize) -> PortResult<Vec<u
 async fn checked_json(response: Response) -> PortResult<Value> {
     let status = response.status();
     let endpoint = response.url().path().to_owned();
-    let success = response.status().is_success();
-    let json: Value = serde_json::from_slice(&bounded_bytes(response, 4 * 1024 * 1024).await?)
-        .map_err(|_| MessagingError::ProviderRejected)?;
-    if !success || json.get("error").is_some() {
-        let code = json["error"]["code"].as_i64();
-        tracing::warn!(%status, %endpoint, provider_code = code, "Meta API rejected request");
-        return Err(if code == Some(190) {
-            MessagingError::Disconnected
-        } else if matches!(code, Some(10 | 200)) {
-            MessagingError::ProviderAccessRequired
-        } else if status.as_u16() == 429
-            || status.is_server_error()
-            || json["error"]["is_transient"] == true
-        {
-            MessagingError::Unavailable
-        } else {
-            MessagingError::ProviderRejected
+    let json: Option<Value> =
+        serde_json::from_slice(&bounded_bytes(response, 4 * 1024 * 1024).await?).ok();
+    match json {
+        Some(json) if status.is_success() && json.get("error").is_none() => Ok(json),
+        json => {
+            let code = json
+                .as_ref()
+                .and_then(|json| json["error"]["code"].as_i64());
+            tracing::warn!(%status, %endpoint, provider_code = code, "Meta API rejected request");
+            Err(rejection(status, json.as_ref()).into())
         }
-        .into());
     }
-    Ok(json)
+}
+
+/// Meta's documented throttling codes, which often arrive with a 4xx status.
+pub(super) fn is_rate_limit(code: Option<i64>) -> bool {
+    matches!(
+        code,
+        Some(4 | 17 | 32 | 613 | 80007 | 130429 | 131048 | 131056)
+    )
+}
+
+/// Gateway pages without a JSON body and throttling stay retryable.
+fn rejection(status: reqwest::StatusCode, json: Option<&Value>) -> MessagingError {
+    let code = json.and_then(|json| json["error"]["code"].as_i64());
+    if code == Some(190) {
+        MessagingError::Disconnected
+    } else if matches!(code, Some(10 | 200)) {
+        MessagingError::ProviderAccessRequired
+    } else if status.as_u16() == 429
+        || status.is_server_error()
+        || is_rate_limit(code)
+        || json.is_some_and(|json| json["error"]["is_transient"] == true)
+    {
+        MessagingError::Unavailable
+    } else {
+        MessagingError::ProviderRejected
+    }
 }
 
 #[async_trait]

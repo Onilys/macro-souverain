@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deliveryPollInterval } from './polling';
+import { bindingRetryInterval, deliveryPollInterval } from './polling';
 
 const now = Date.parse('2026-10-12T05:00:00Z');
 const at = (age: number) => new Date(now - age).toISOString();
@@ -45,5 +45,13 @@ describe('delivery polling', () => {
         now
       )
     ).toBe(2000);
+  });
+});
+
+describe('binding lookup retry', () => {
+  it('backs off from two seconds to a thirty-second ceiling', () => {
+    expect([1, 2, 3, 4, 5, 9].map(bindingRetryInterval)).toEqual([
+      2000, 4000, 8000, 16000, 30000, 30000,
+    ]);
   });
 });

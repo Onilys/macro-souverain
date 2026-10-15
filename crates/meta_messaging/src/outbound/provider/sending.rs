@@ -37,12 +37,7 @@ impl HttpMetaProvider {
             Err(_) => return ProviderSendResult::Unknown,
         };
         let code = data["error"]["code"].as_i64();
-        if status.as_u16() == 429
-            || matches!(
-                code,
-                Some(4 | 17 | 32 | 613 | 80007 | 130429 | 131048 | 131056)
-            )
-        {
+        if status.as_u16() == 429 || is_rate_limit(code) {
             return ProviderSendResult::RetryAfter(retry);
         }
         if status.is_server_error() {

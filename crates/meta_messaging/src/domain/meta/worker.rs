@@ -432,10 +432,17 @@ impl MetaService {
                 if matches!(error.current_context(), MessagingError::Conflict) {
                     continue;
                 }
-                let failure =
-                    super::super::health::ConnectionFailure::from_error(error.current_context());
+                use super::super::health::ConnectionFailure;
+                let failure = ConnectionFailure::from_error(error.current_context());
+                // A transient check failure says nothing about the account, so it
+                // keeps the current status (and sending) and is rechecked soon.
+                let status = if failure == ConnectionFailure::Temporary {
+                    connection.status
+                } else {
+                    failure.status()
+                };
                 self.repository
-                    .health(&connection, failure.status(), Some(failure.code()))
+                    .health(&connection, status, Some(failure.code()))
                     .await?;
             }
         }

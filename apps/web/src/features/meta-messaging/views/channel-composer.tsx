@@ -587,7 +587,10 @@ function ExternalReply(props: {
                       class="mt-1 w-full bg-input border border-edge-muted rounded p-2 text-sm"
                       value={draft.parameters[index()] ?? ''}
                       onInput={(e) => {
-                        const next = [...draft.parameters];
+                        // Dense, so fields filled out of order never leave holes.
+                        const next = parameterLabels().map(
+                          (_, i) => draft.parameters[i] ?? ''
+                        );
                         next[index()] = e.currentTarget.value;
                         setDraft('parameters', next);
                         setDraft('intent', undefined);
