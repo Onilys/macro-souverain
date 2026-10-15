@@ -272,6 +272,28 @@ it('preserves implicit task defaults when pinning the first additional property'
   }
 });
 
+it('keeps consecutive pin changes before the editor commits', async () => {
+  mocks.kind = 'task';
+  const properties = [...taskProperties, property];
+  const editor = setup(properties);
+  const pins = setupPins(editor);
+
+  pins.pin(property.propertyId, properties);
+  pins.unpin(taskProperties[0].propertyId, properties);
+
+  await waitFor(() =>
+    expect(editor.getEditorState().read($getStoredPinnedProperties)).toEqual([
+      taskProperties[1].propertyId,
+      taskProperties[2].propertyId,
+      property.propertyId,
+    ])
+  );
+  expect(screen.queryByRole('button', { name: 'Unpin Status' })).toBeNull();
+  expect(
+    screen.getByRole('button', { name: 'Unpin Review notes' })
+  ).toBeTruthy();
+});
+
 it('unpins an implicit task default without dropping the other defaults', async () => {
   mocks.kind = 'task';
   const editor = setup(taskProperties);

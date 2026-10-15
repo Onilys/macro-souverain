@@ -1,6 +1,6 @@
 import {
   $getStoredPinnedProperties,
-  $setPinnedProperties,
+  UPDATE_PINNED_PROPERTIES_COMMAND,
 } from '@core/component/LexicalMarkdown/plugins/pinned-properties/pinnedPropertiesPlugin';
 import { resolvePinnedPropertyIds } from '@property/core/pinned-property-ids';
 import type { Property } from '@property/types';
@@ -39,22 +39,20 @@ export function createPinnedProperties(
       propertyDefinitionId ??
       properties.find((property) => property.propertyId === id)
         ?.propertyDefinitionId;
-    current.update(() => {
+    current.dispatchCommand(UPDATE_PINNED_PROPERTIES_COMMAND, (storedIds) => {
       const selected = resolvePinnedPropertyIds(
         properties,
-        $getStoredPinnedProperties(),
+        storedIds,
         defaults
       );
-      $setPinnedProperties(
-        pin
-          ? selected.includes(id)
-            ? [...selected]
-            : [...selected, id]
-          : selected.filter(
-              (selectedId) =>
-                selectedId !== id && selectedId !== `pending:${definitionId}`
-            )
-      );
+      return pin
+        ? selected.includes(id)
+          ? [...selected]
+          : [...selected, id]
+        : selected.filter(
+            (selectedId) =>
+              selectedId !== id && selectedId !== `pending:${definitionId}`
+          );
     });
   };
   return {
