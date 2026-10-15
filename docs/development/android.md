@@ -195,7 +195,8 @@ both apps claim the same `macro://` authentication and navigation callbacks.
 
 `MIN_NATIVE_BUILD_ANDROID` remains a separate compatibility floor. For the first
 build with runtime GraphQL SDL and schema 3 OTA support (#7724 and #7303), it is
-**1**. Set it alongside `MIN_NATIVE_BUILD_IOS` when building the OTA frontend.
+**1**. Both floors are checked in at `apps/web/min-native-build.json`, which
+`just build-prod` exports as `MIN_NATIVE_BUILD_ANDROID` / `MIN_NATIVE_BUILD_IOS`.
 Retain the floor as the native counter increases; raise it only when the frontend
 requires newer native capabilities. Older date-coded test APKs exceed this floor,
 so retire them rather than relying on it to exclude those test installs.

@@ -105,9 +105,9 @@ jobs:
       - name: Build for Production
         working-directory: apps/web
         run: just build-prod
+        # MIN_NATIVE_BUILD_ANDROID / MIN_NATIVE_BUILD_IOS come from
+        # apps/web/min-native-build.json inside `just build-prod`.
         env:
-          MIN_NATIVE_BUILD_ANDROID: "1"
-          MIN_NATIVE_BUILD_IOS: "185"
           VITE_SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY_PRODUCTION }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_OTEL_EXPORTER_URL: https://macro-prox-prod.macroverse.workers.dev/i/otlp/v1/traces

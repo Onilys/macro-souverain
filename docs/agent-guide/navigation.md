@@ -51,9 +51,12 @@ Switching tabs or navigating an in-app route is not a back/forward-cache restore
 ## Android system navigation and sharing
 
 In the Android app, Back first hides the keyboard, then dismisses the active
-menu/drawer, then returns through mobile pane history. Root Back backgrounds the
-app. Check that a canceled predictive Back gesture leaves the current screen and
-draft untouched. After changing orientation or window size, focused inputs and
+menu/drawer, then offers the press to the active view, then returns through
+mobile pane history. Root Back backgrounds the app. A view that claims Back gets
+it before history: in the mobile email composer, Back on an edited draft opens
+**Draft options** with **Delete Draft** and **Save Draft** rather than leaving,
+exactly as the pane's back button does. Check that a canceled predictive Back
+gesture leaves the current screen and draft untouched. After changing orientation or window size, focused inputs and
 sheet actions should stay above the keyboard without an extra blank keyboard-sized
 gap. Font-size and display-size changes should retain the active draft and update
 safe areas. Also change display size with the keyboard hidden: bottom composers
@@ -653,11 +656,14 @@ The event menu groups Macro activity triggers by surface:
 - **Documents:** **Document created** and **Document deleted**. Tasks are separate.
 - **Tasks:** **Task created**, **Status changed**, **Priority changed**, and **Any property changed**.
 - **Email:** **New email received** in the routine owner's inbox, excluding spam, trash, drafts, and historical imports.
+- **Calls:** **Call started**, for calls the routine owner starts (receives the call and who has joined so far); and **Call ended**, for channel calls and meetings the owner joined (receives participants and transcript, cut short for long calls).
 
 For messages, mentions, deletion, and task changes, choose specific accessible
 channels/documents/tasks or any accessible item in the same panel. Creation
-triggers cover newly created accessible items; email covers the owner's inbox.
-Mentions match only @ mentions of the routine owner. **Any property changed**
+triggers cover newly created accessible items; email covers the owner's inbox;
+**Call started** shows **Calls you start** and **Call ended** shows **Calls you
+join** — neither has an item picker. Calls the owner did not start never trigger
+**Call started**; calls they did not join never trigger **Call ended**. Mentions match only @ mentions of the routine owner. **Any property changed**
 also includes status and priority; overlapping selectors start only one run for
 the same event. These are Macro events, not incoming HTTP webhooks. Bot-authored
 or delegated changes do not retrigger routines. Saved legacy selectors remain
@@ -666,7 +672,7 @@ editable but are no longer offered in the new-trigger menu.
 When `enable-routine-conditions` is on, every activity trigger panel has an
 **Only run if** box for an optional yes/no question about each event, such as
 **Is this email an invoice or a receipt?** Before a run starts, the event's
-content (the email, channel message, document, or task, read as the routine
+content (the email, channel message, document, task, or call, read as the routine
 owner) is checked against it, and events answered no are skipped. The chip
 shows the question after **· if**. Saving a condition fails with "trigger
 conditions are not enabled" while the scheduled-action service has no
