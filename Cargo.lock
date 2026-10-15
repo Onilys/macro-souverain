@@ -12236,6 +12236,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+ "uuid",
  "workspace-hack",
 ]
 
