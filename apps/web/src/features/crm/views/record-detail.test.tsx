@@ -16,6 +16,22 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { CrmContact } from '../core/contact';
 import { CrmRecordDetail } from './record-detail';
 
+const taskContext = vi.hoisted(() => ({
+  record: undefined as (() => { type: string; id: string }) | undefined,
+}));
+vi.mock('../context/crm-context', () => ({
+  useCrmContext: () => ({
+    registerTaskComposerRecord: (
+      source: () => { type: string; id: string }
+    ) => {
+      taskContext.record = source;
+      return () => {
+        taskContext.record = undefined;
+      };
+    },
+  }),
+}));
+
 vi.mock('@ui', async () => ({
   ...(await import('../../../components/ui/utils/classname')),
   Tooltip: (props: ParentProps) => <>{props.children}</>,
@@ -95,20 +111,33 @@ it('removes contact breadcrumbs safely when returning to the company and reopeni
       </Show>
     </ErrorBoundary>
   ));
+  expect(taskContext.record?.()).toMatchObject({
+    type: 'company',
+    id: 'company-1',
+  });
   for (let round = 0; round < 2; round++) {
     fireEvent.click(screen.getByRole('button', { name: 'Open Maya' }));
     const breadcrumbs = () =>
       within(screen.getByRole('navigation', { name: 'CRM record location' }));
     expect(breadcrumbs().getAllByRole('button')).toHaveLength(3);
     expect(screen.getByText('Contact content: contact-1')).toBeTruthy();
+    expect(taskContext.record?.()).toMatchObject({
+      type: 'contact',
+      id: 'contact-1',
+    });
     fireEvent.click(breadcrumbs().getByRole('button', { name: 'Northstar' }));
     expect(failed).not.toHaveBeenCalled();
     expect(breadcrumbs().getAllByRole('button')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Open Maya' })).toBeTruthy();
+    expect(taskContext.record?.()).toMatchObject({
+      type: 'company',
+      id: 'company-1',
+    });
     fireEvent.click(breadcrumbs().getByRole('button', { name: 'Pipeline' }));
     expect(
       screen.queryByRole('navigation', { name: 'CRM record location' })
     ).toBeNull();
+    expect(taskContext.record).toBeUndefined();
     fireEvent.click(screen.getByRole('button', { name: 'Open company' }));
   }
   expect(failed).not.toHaveBeenCalled();

@@ -37,6 +37,15 @@ CRM supplies row/header/empty state slots, filter choices, grouping policy, and
 its own collection state to the shared collection renderer. Shared collection code must not acquire CRM hooks or
 CRM-specific state again.
 
+`task-composer.ts` owns the CRM task preset: Companies/Contacts are visible,
+Status remains a task default but is not initially shown. Launchers pass a
+serializable composer context, so the shared composer never reads CRM state.
+Record-specific contexts prefill associations and isolate drafts by record.
+Embedded record details register their current breadcrumb record with the
+workspace host. Global task creation captures that live identity before opening
+the composer and releases it when the details close; contact launches reuse the
+contact detail query to include the company without a duplicate request.
+
 When changing behavior, test the responsible primitive or pure function. When
 moving behavior, retain query keys, persistence keys, mutation ordering, loading
 boundaries, routes, and markup. Run CRM tests plus affected shared collection and

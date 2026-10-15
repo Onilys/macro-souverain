@@ -9,7 +9,7 @@ import type {
   CrmDisplayOptions,
   CrmListColumnId,
 } from '../core/display-options';
-import type { CrmRecordScope } from '../core/record';
+import type { CrmRecordScope, CrmRecordTarget } from '../core/record';
 import type {
   CompanySource,
   ContactSource,
@@ -73,6 +73,8 @@ export type CrmContext = {
     scope: Accessor<CrmEmailScope>,
     signal: Accessor<CrmEmailSignal>
   ): ItemListSource;
+  /** Expose the currently viewed embedded record to the host's global task action. */
+  registerTaskComposerRecord(source: Accessor<CrmRecordTarget>): () => void;
   /** Files associated with the record or attached to its emails. */
   createRecordFiles(
     scope: Accessor<CrmRecordScope | undefined>

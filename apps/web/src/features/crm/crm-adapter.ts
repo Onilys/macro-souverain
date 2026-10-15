@@ -2,6 +2,7 @@ import { useQuickAccessCrmCompaniesQuery } from '@app/features/crm/crm-search';
 import { withEntityNotifications } from '@app/features/soup/entity-notifications';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
+import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import {
   enableCrmLists,
@@ -10,6 +11,7 @@ import {
 import { useUserId } from '@core/context/user';
 import { getInitialsFromName } from '@core/user';
 import { idToEmail } from '@core/user/util';
+import { queryClient } from '@queries/client';
 import { queryReadyGate } from '@queries/gate';
 import { useListPropertiesQuery } from '@queries/properties/definitions';
 import { useBulkSaveEntityPropertiesMutation } from '@queries/properties/entity';
@@ -24,9 +26,10 @@ import { patchTeamCrmSettings } from '@service-auth/crm';
 import { storageServiceClient } from '@service-storage/client';
 import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { useQueryClient } from '@tanstack/solid-query';
-import { createMemo, lazy } from 'solid-js';
+import { type Accessor, createMemo, lazy, onCleanup } from 'solid-js';
 import type { CrmContext } from './context/crm-context';
 import type { CrmQuery, ItemListSource } from './context/crm-sources';
+import type { CrmRecordTarget } from './core/record';
 import {
   openCreateCompanyModal,
   openCreateContactModal,
@@ -55,6 +58,7 @@ import {
 import { useCompanyEmailsQuery } from './queries/company-emails';
 import { useContactEmailsQuery } from './queries/contact-emails';
 import {
+  fetchContact,
   useContactQuery,
   useSetContactHiddenMutation,
   useSetContactNameMutation,
@@ -74,6 +78,10 @@ import {
 } from './queries/stages';
 import { useTeamCrmConfig } from './queries/team-config';
 import { createAppDealStages } from './stage-adapter';
+import {
+  CRM_TASK_COMPOSER_RECORD_KEY,
+  crmTaskComposerContext,
+} from './task-composer';
 
 // Loaded on demand: the Tasks list imports soup, which imports CRM entry points.
 const CrmRecordTasks = lazy(async () => ({
@@ -152,8 +160,27 @@ export function createAppCrmContext(): CrmContext {
     feedback: toast,
   };
   const userId = useUserId();
+  const panel = useSplitPanel();
+  let taskComposerRecord: Accessor<CrmRecordTarget> | undefined;
+  if (panel) {
+    onCleanup(
+      panel.handle.registerEntryStateCaptor(
+        CRM_TASK_COMPOSER_RECORD_KEY,
+        () => {
+          const record = taskComposerRecord?.();
+          return record ? { type: record.type, id: record.id } : undefined;
+        }
+      )
+    );
+  }
   const createSettings = () => useTeamCrmConfig(deps);
   return {
+    registerTaskComposerRecord(source) {
+      taskComposerRecord = source;
+      return () => {
+        if (taskComposerRecord === source) taskComposerRecord = undefined;
+      };
+    },
     createPipelines: (teamId) => createPipelinesSource(deps, teamId),
     PipelineEditor: PipelineDatabaseEditor,
     PipelineEntries: createCrmPipelineEntries({
@@ -262,4 +289,17 @@ export function createAppCrmContext(): CrmContext {
     hideContact: (...args) => useSetContactHiddenMutation(deps, ...args),
     setEmailSync: (...args) => useSetEmailSyncMutation(deps, ...args),
   };
+}
+
+/** Resolve both CRM associations through the existing contact detail cache. */
+export async function contactTaskComposerContext(contactId: string) {
+  const contact = await fetchContact(
+    { client: queryClient, storage: storageServiceClient },
+    contactId
+  );
+  return crmTaskComposerContext({
+    type: 'contact',
+    id: contact.id,
+    companyId: contact.companyId,
+  });
 }

@@ -9,6 +9,7 @@ import { createSpreadsheetDocument } from '@app/features/block-spreadsheet/queri
 import { isSpreadsheetEnabledForCurrentUser } from '@app/features/block-spreadsheet/queries/spreadsheet-access';
 import { EMAIL_COMPOSE_TO_INPUT_ID } from '@app/features/email-compose/core/constants';
 import { useQuickCallsFlag } from '@app/features/meetings/use-quick-calls-flag';
+import { focusedTaskComposerContext } from '@app/features/task-composer/launch-context';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import {
   endTrackedDocumentSpan,
@@ -245,6 +246,19 @@ const createComponent = async (spec: {
   );
 };
 
+async function createTaskComponent() {
+  try {
+    const composerContext = await focusedTaskComposerContext();
+    await createComponent({
+      componentId: 'task-compose',
+      asPopover: true,
+      params: { composerContext },
+    });
+  } catch {
+    toast.failure('Could not load the task context. Please try again.');
+  }
+}
+
 export function runCreateAction(
   blockName: CreatableName,
   options: {
@@ -348,10 +362,7 @@ export function runCreateAction(
       });
       return;
     case 'task':
-      createComponent({
-        componentId: 'task-compose',
-        asPopover: true,
-      });
+      void createTaskComponent();
       return;
     case 'initiative':
       if (!isFeatureEnabled(enableProjects)) return;
