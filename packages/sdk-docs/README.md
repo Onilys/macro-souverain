@@ -7,6 +7,12 @@ types. Private, protected and internal members are excluded.
 Object alias declarations show their concrete fields and keep linked types and
 property descriptions.
 
+The website opens with the authored [SDK guide](pages/home.md): a quick start,
+an entity directory in plain English, and links into the generated reference.
+TypeDoc resolves those links for both HTML and Markdown. Edit that guide for
+introductory prose and SDK source comments for API documentation. Test files
+are excluded from the reference.
+
 From this directory:
 
 ```sh
@@ -32,6 +38,12 @@ Wrangler serves the HTML as static assets without a request handler, credentials
 database or model calls. It builds the docs before serving them without modifying
 the checked-in reference. To publish to your configured Cloudflare account,
 run `bun run docs:deploy`.
+
+The production address is `https://sdk.macro.com`, configured as a Worker
+custom domain. The `Deploy SDK Docs` workflow publishes relevant changes on
+`main` using the repository's Cloudflare credentials; manual deployments are
+also restricted to `main`. The hostname becomes live with the first successful
+deployment. The Worker also retains its account's `workers.dev` address.
 
 Other build packages can import `renderSdkDocs` from
 `@macro-inc/sdk-docs/render` and consume the canonical Markdown. This package

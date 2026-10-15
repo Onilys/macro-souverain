@@ -1,5 +1,8 @@
 Macro's SDK: a Typescript library for harnessing the power of Macro
 
+**[Read the SDK documentation](https://sdk.macro.com)** — a quick start,
+plain-English entity guide, and complete API reference, served by the SDK docs Worker.
+
 - **`generated/`**: generated Typescript types and a HeyAPI client from Macro's
   OpenAPI specs.
 - **`src/`**: a hand-written ergonomic SDK layer that provides an "orm"-y API.

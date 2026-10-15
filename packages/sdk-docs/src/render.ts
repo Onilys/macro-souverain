@@ -27,6 +27,10 @@ export async function renderSdkDocs(root: string, output: string) {
     'src/utils/pagination.ts',
     'src/utils/unwrap.ts',
   ]
+    .filter(
+      (file) =>
+        !/\.(test|spec)\.ts$/.test(file) && !file.includes('/__tests__/')
+    )
     .sort()
     .map((file) => join(sdk, file));
   const options = {
@@ -35,7 +39,8 @@ export async function renderSdkDocs(root: string, output: string) {
     tsconfig: join(sdk, 'tsconfig.json'),
     plugin: ['typedoc-plugin-markdown'],
     name: 'Macro SDK',
-    readme: 'none',
+    readme: join(root, 'packages/sdk-docs/pages/home.md'),
+    exclude: ['**/*.test.ts', '**/*.spec.ts', '**/__tests__/**'],
     excludePrivate: true,
     excludeProtected: true,
     excludeInternal: true,

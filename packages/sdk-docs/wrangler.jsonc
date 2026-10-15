@@ -2,11 +2,14 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "macro-sdk-docs",
   "compatibility_date": "2026-07-15",
+  "workers_dev": true,
+  "routes": [{ "pattern": "sdk.macro.com", "custom_domain": true }],
   "build": {
     "command": "bun run build",
     "watch_dir": [
       "./src",
       "./scripts",
+      "./pages",
       "../sdk/src",
       "../sdk/generated"
     ]

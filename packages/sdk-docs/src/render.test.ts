@@ -1,8 +1,28 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { expect, test } from 'vitest';
 
 const output = new URL('../dist/docs/', import.meta.url);
 const reference = new URL('../reference/', import.meta.url);
+
+test('the homepage explains entities and links to their reference without test modules', async () => {
+  const html = await readFile(new URL('html/index.html', output), 'utf8');
+  expect(html).toContain('Build with Macro');
+  expect(html).toContain('Quick start');
+  expect(html).toContain('Find the right entity');
+  expect(html).toContain('Connected mailboxes');
+  expect(html).not.toContain('{@link');
+  const links = [
+    ...html.matchAll(/href="(classes\/[^"#]+\.html)(?:#[^"]*)?"/g),
+  ];
+  expect(new Set(links.map((link) => link[1])).size).toBeGreaterThanOrEqual(24);
+  for (const [, link] of links) {
+    expect(await readFile(new URL(`html/${link}`, output), 'utf8')).toContain(
+      '<html'
+    );
+  }
+  const files = await readdir(reference, { recursive: true });
+  expect(files.filter((file) => /\.(test|spec)(\/|\.)/.test(file))).toEqual([]);
+});
 
 test('public SDK pages preserve signatures and linked wire contracts in both formats', async () => {
   const markdown = await readFile(
