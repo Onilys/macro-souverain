@@ -77,7 +77,7 @@ impl<C: YesNoClassifier> DecisionServiceImpl<C> {
 
 #[async_trait]
 impl<C: YesNoClassifier> DecisionService for DecisionServiceImpl<C> {
-    #[tracing::instrument(skip_all, err)]
+    #[tracing::instrument(name = "jev.decide", skip_all, fields(question_count = request.questions.len()), err)]
     async fn decide(
         &self,
         owner: MacroUserIdStr<'static>,
