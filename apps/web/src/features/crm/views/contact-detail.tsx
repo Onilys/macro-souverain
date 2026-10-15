@@ -10,22 +10,28 @@ import { ContactDiscussionSection } from './contact-discussion-section';
 import { ContactEmailsSection } from './contact-emails-section';
 import { ContactHeader } from './contact-header';
 import { ContactSharingSection } from './contact-sharing-section';
-import { RecordCallsSection, RecordFilesSection } from './record-associations';
+import {
+  RecordCallsSection,
+  RecordFilesSection,
+  RecordReferencesSection,
+} from './record-associations';
 import { useContactQuery, useIsTeamAdmin } from './use-crm';
 
 /**
  * Root of the contact detail view, laid out like a project: the host's top
  * bar picks the section, Overview shows the contact and its discussion, and
- * the other sections list its emails, files, tasks and calls. Sharing stays
- * in the floating information panel.
+ * the other sections list its emails, files, tasks and calls. Sharing and
+ * references stay in the floating information panel.
  */
 export function Contact(props: {
   contactId: string;
   section?: ContactSection;
   headerToggle?: boolean;
   onOpenCompany?: (companyId: string) => boolean;
+  onOpenPipeline?: (pipelineId: string) => void;
 }) {
   const context = useCrmContext();
+  const pipelinesEnabled = context.pipelinesEnabled();
   const contactQuery = useContactQuery(() => props.contactId);
   const contact = () => contactQuery.data;
   const isTeamAdmin = useIsTeamAdmin();
@@ -61,6 +67,12 @@ export function Contact(props: {
                     contact={contact()}
                     onOpenCompany={props.onOpenCompany}
                   />
+                  <Show when={pipelinesEnabled()}>
+                    <context.PipelineEntries
+                      record={{ type: 'contact', id: props.contactId }}
+                      onOpenPipeline={props.onOpenPipeline}
+                    />
+                  </Show>
                   <ContactDiscussionSection contactId={props.contactId} />
                 </div>
               </div>
@@ -105,8 +117,9 @@ export function Contact(props: {
           <ContactSharingSection contact={contact()} />
         </SidePanel.Section>
       </Show>
-      {/* TODO: add a References section (inbound channel messages + documents)
-          once the references backend supports the crm_contact entity type. */}
+      <SidePanel.Section id="contact-references" title="References" order={30}>
+        <RecordReferencesSection scope={scope()} />
+      </SidePanel.Section>
     </SidePanel.Layout>
   );
 }

@@ -92,6 +92,13 @@ impl ChannelListService for FakeChannelListService {
         Ok(Vec::new())
     }
 
+    async fn get_reference_sources(
+        &self,
+        _targets: &[crate::domain::models::ReferenceTarget],
+    ) -> Result<Vec<crate::domain::models::ReferenceSource>, Report> {
+        Ok(Vec::new())
+    }
+
     async fn get_names(
         &self,
         _names: HashSet<MacroUserIdStr<'_>>,

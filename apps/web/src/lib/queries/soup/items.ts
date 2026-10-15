@@ -375,6 +375,11 @@ export type SoupAstItemsQuery = {
   readonly isFetching: boolean;
   readonly isPlaceholderData: boolean;
   readonly isFetchingNextPage: boolean;
+  /**
+   * The current error came from loading a continuation page; the loaded pages
+   * are still current. Any other error means the query itself failed.
+   */
+  readonly isFetchNextPageError: boolean;
   readonly isEnabled: boolean;
   readonly hasNextPage: boolean;
   readonly transport: SoupAstItemsQueryTransport;
@@ -457,6 +462,7 @@ export function useSoupAstItemsQuery(
         options?.().onBeforeGraphqlRefresh?.();
         await activeGraphqlQuery().refresh();
       },
+      body: () => args().body,
     })
   );
 
@@ -511,6 +517,11 @@ export function useSoupAstItemsQuery(
       return usesGraphql()
         ? activeGraphqlQuery().isFetchingNextPage()
         : restQuery.isFetchingNextPage;
+    },
+    get isFetchNextPageError() {
+      return usesGraphql()
+        ? activeGraphqlQuery().isFetchNextPageError()
+        : restQuery.isFetchNextPageError;
     },
     get isEnabled() {
       return usesGraphql()

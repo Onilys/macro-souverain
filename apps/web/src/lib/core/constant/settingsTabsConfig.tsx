@@ -36,7 +36,6 @@ import {
   enableCalendarScheduling,
   enableChatV3Agents,
   enableCrm,
-  enableNotificationSettings,
 } from './featureFlags';
 import { PERMISSION_IDS } from './permissions';
 import type { SettingsTab } from './SettingsState';
@@ -291,13 +290,13 @@ export const useSettingsTabAvailable = () => {
   const chatV3AgentsFlag = useFeatureFlag(enableChatV3Agents);
   const crmFlag = useFeatureFlag(enableCrm);
   const desktopAppFlag = useFeatureFlag(desktopApp);
-  const notificationSettingsFlag = useFeatureFlag(enableNotificationSettings);
   const hasAdminPanel = useHasPermission(PERMISSION_IDS.WRITE_ADMIN_PANEL);
 
   return (tab: SettingsTab): boolean => {
     switch (tab) {
       case 'Appearance':
       case 'Account':
+      case 'Notifications':
       case 'Usage':
       case 'Billing':
         return true;
@@ -310,8 +309,6 @@ export const useSettingsTabAvailable = () => {
       // good place for a one-time secret.
       case 'API Keys':
         return !isMobile();
-      case 'Notifications':
-        return notificationSettingsFlag().enabled;
       case 'Team':
       case 'Tags':
         return true;

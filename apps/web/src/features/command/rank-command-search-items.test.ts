@@ -57,6 +57,42 @@ function project(id: string, name: string, updatedAt = NOW): CommandMenuItem {
   };
 }
 
+function contact(
+  id: string,
+  name: string,
+  lastInteraction = NOW
+): CommandMenuItem {
+  return {
+    id,
+    kind: 'entity',
+    bucket: 'crm_contact',
+    searchText: name,
+    sortTimestamp: lastInteraction,
+    timestamps: { lastInteraction: new Date(lastInteraction) },
+    data: {
+      id,
+      type: 'crm_contact',
+      ownerId: 'team',
+      companyId: 'company',
+      name,
+      email: `${id}@example.com`,
+      hidden: false,
+    },
+  };
+}
+
+function person(id: string, name: string): CommandMenuItem {
+  return {
+    id,
+    kind: 'user',
+    bucket: 'person',
+    searchText: name,
+    sortTimestamp: 0,
+    timestamps: {},
+    data: { id, name, email: `${id}@macro.com` },
+  };
+}
+
 function ids(items: CommandMenuItem[], query: string, cacheEnabled = true) {
   return rankCommandSearchItems(items, query, {
     preserveAdditionalEntityMatches: cacheEnabled,
@@ -156,5 +192,69 @@ describe('command menu search ranking', () => {
         preservedIds: new Set([person.id]),
       }).map((item) => item.id)
     ).toEqual([person.id]);
+  });
+
+  it.each([false, true])(
+    'keeps old DMs and people without activity ahead of recent CRM contacts with GraphQL %s',
+    (cacheEnabled) => {
+      const items = [
+        contact('crm', 'Jack Healey'),
+        person('jack', 'Jack Smith'),
+        channel('dm', 'Jackson Kustec', NOW - 60 * DAY, 'dm'),
+      ];
+
+      expect(ids(items, 'jack', cacheEnabled)).toEqual(['dm', 'jack', 'crm']);
+      expect(ids([...items].reverse(), 'jack', cacheEnabled)).toEqual([
+        'dm',
+        'jack',
+        'crm',
+      ]);
+    }
+  );
+
+  it('preserves relevance and recency within People groups and other result positions', () => {
+    const items = [
+      contact('recent-crm', 'Jack CRM', NOW),
+      contact('older-crm', 'Jack CRM', NOW - 10 * DAY),
+      command('command', 'Jack command', NOW - 5 * DAY),
+      channel('document-slot', 'Jack channel', NOW - 15 * DAY),
+      person('jack', 'Jack Smith'),
+      channel('old-dm', 'Jack old', NOW - 60 * DAY, 'dm'),
+      channel('recent-dm', 'Jack recent', NOW - DAY, 'dm'),
+    ];
+
+    expect(ids(items, 'jack')).toEqual([
+      'recent-dm',
+      'old-dm',
+      'command',
+      'jack',
+      'recent-crm',
+      'document-slot',
+      'older-crm',
+    ]);
+  });
+
+  it('prioritizes a broader cached DM match over a directly matched CRM contact', () => {
+    const items = [
+      contact('crm', 'Qtr plan'),
+      channel('dm', 'Quarterly plan', NOW - 60 * DAY, 'dm'),
+    ];
+
+    expect(ids(items, 'qtr')).toEqual(['dm', 'crm']);
+    expect(ids(items, 'qtr', false)).toEqual(['crm']);
+  });
+
+  it('prioritizes a preserved server-matched person over a directly matched CRM contact', () => {
+    const items = [
+      contact('crm', 'Qtr plan'),
+      person('jack', 'Quarterly plan'),
+    ];
+
+    expect(
+      rankCommandSearchItems(items, 'qtr', {
+        preserveAdditionalEntityMatches: false,
+        preservedIds: new Set(['jack']),
+      }).map((item) => item.id)
+    ).toEqual(['jack', 'crm']);
   });
 });

@@ -1,4 +1,29 @@
 #[test]
+fn email_senders_are_embedded_and_legacy_participants_remain_available() {
+    let sdl = crate::build_schema().sdl();
+    let participant = sdl
+        .split_once("type GraphqlSoupEmailSender {")
+        .expect("email sender type")
+        .1
+        .split_once('}')
+        .expect("end of email sender type")
+        .0;
+    assert!(
+        participant
+            .lines()
+            .any(|line| line.trim() == "contactId: ID!")
+    );
+    assert!(sdl.contains("senders: [GraphqlSoupEmailSender!]!"));
+    assert!(sdl.contains("participants: [GraphqlSoupEmailParticipant!]!"));
+    assert!(
+        !participant
+            .lines()
+            .any(|line| line.trim().starts_with("id:")),
+        "message-specific names must not be normalized by contact ID"
+    );
+}
+
+#[test]
 fn soup_response_schema_exposes_frontend_fields() {
     let sdl = crate::build_schema().sdl();
 
@@ -16,6 +41,7 @@ fn soup_response_schema_exposes_frontend_fields() {
         "emailLabels: [GraphqlSoupEmailLabel!]!",
         "emailLinks: [GraphqlEmailLink!]!",
         "favorites(filter: FavoritesFilterInput): [GraphqlFavorite!]!",
+        "folders: [GraphqlSoupProject!]!",
         "input FavoritesFilterInput {",
         "entityTypes: [GraphqlEntityType!]! = []",
         "entityIds: [ID!]! = []",
@@ -26,10 +52,14 @@ fn soup_response_schema_exposes_frontend_fields() {
         "linkId: ID!",
         "latestInboundMessageTs: String",
         "senderPhotoUrl: String",
-        "participants: [GraphqlSoupEmailParticipant!]!",
+        "participants: [GraphqlSoupEmailParticipant!]! @deprecated(reason: \"Use senders to preserve message-specific display names.\")",
+        "senders: [GraphqlSoupEmailSender!]!",
         "attachments: [GraphqlSoupEmailAttachment!]!",
         "labels: [GraphqlSoupEmailLabel!]!",
         "type GraphqlEmailLink {",
+        "sendAs: [GraphqlEmailSendAsAddress!]",
+        "type GraphqlEmailSendAsAddress {",
+        "displayName: String",
         "macroId: String!",
         "emailAddress: String!",
         "photoUrl: String",
@@ -106,6 +136,13 @@ fn soup_response_schema_exposes_frontend_fields() {
         "markEmailThreadSeen(input: MarkEmailThreadSeenInput!): GraphqlSoupEmailThread!",
         "updateEmailThreadLabel(input: UpdateEmailThreadLabelInput!): GraphqlSoupEmailThread!",
         "saveEmailDraft(input: SaveEmailDraftInput!): SaveEmailDraftPayload!",
+        "sendEmailMessage(input: SendEmailMessageInput!): SendEmailMessagePayload!",
+        "input SendEmailMessageInput {",
+        "draft: SaveEmailDraftInput!",
+        "includeSignature: Boolean",
+        "type SendEmailMessagePayload {",
+        "messageId: ID!",
+        "senderEmail: String",
         "deleteEmailDraft(input: DeleteEmailDraftInput!): DeleteEmailDraftPayload!",
         "input MarkEmailThreadSeenInput {",
         "input UpdateEmailThreadLabelInput {",
@@ -510,6 +547,73 @@ fn database_rows_are_an_opt_in_soup_entity_named_by_table() {
     assert_sdl_line(&literal, "tableId: ID");
     assert_sdl_line(&literal, "id: ID");
     assert_sdl_line(&block("enum GraphqlSoupEntityType {"), "DATABASE_ROW");
+}
+
+#[test]
+fn crm_records_carry_their_pipeline_entries() {
+    let sdl = crate::build_schema().sdl();
+    let block = |declaration: &str| {
+        sdl.split_once(declaration)
+            .unwrap_or_else(|| panic!("schema has no `{declaration}`"))
+            .1
+            .split_once("\n}")
+            .unwrap()
+            .0
+            .to_owned()
+    };
+    for record in [
+        "type GraphqlSoupCrmCompany implements GraphqlSoupEntity {",
+        "type GraphqlSoupCrmContact implements GraphqlSoupEntity {",
+    ] {
+        assert_sdl_line(
+            &block(record),
+            "pipelineEntries: [GraphqlCrmPipelineEntry!]!",
+        );
+    }
+    let entry = block("type GraphqlCrmPipelineEntry {");
+    for field in [
+        "id: ID!",
+        "pipeline: GraphqlCrmPipeline!",
+        "cells: [GraphqlCrmPipelineCell!]!",
+    ] {
+        assert_sdl_line(&entry, field);
+    }
+    // A cell is a fact about its row, so it stays embedded in the entry.
+    let cell = block("type GraphqlCrmPipelineCell {");
+    assert!(!cell.lines().any(|line| line.trim() == "id: ID!"));
+    assert_sdl_line(&cell, "column: GraphqlCrmPipelineColumn!");
+    assert_sdl_line(&cell, "value: GraphqlPropertyValue");
+    let column = block("type GraphqlCrmPipelineColumn {");
+    assert_sdl_line(&column, "id: ID!");
+    assert_sdl_line(&column, "writable: Boolean!");
+    assert_sdl_line(&column, "options: [GraphqlPropertyOption!]!");
+    let pipeline = block("type GraphqlCrmPipeline {");
+    assert_sdl_line(&pipeline, "id: ID!");
+    assert_sdl_line(&pipeline, "canEdit: Boolean!");
+}
+
+#[test]
+fn crm_associations_scope_soup_and_compose_in_document_trees() {
+    let sdl = crate::build_schema().sdl();
+    let block = |declaration: &str| {
+        sdl.split_once(declaration)
+            .unwrap_or_else(|| panic!("schema has no `{declaration}`"))
+            .1
+            .split_once("\n}")
+            .unwrap()
+            .0
+            .to_owned()
+    };
+    assert_sdl_line(
+        &block("input GraphqlEntityFilterAst {"),
+        "crmAssociation: GraphqlCrmAssociation",
+    );
+    let document = block("input GraphqlDocumentLiteral @oneOf {");
+    assert_sdl_line(&document, "crmAssociated: GraphqlCrmAssociation");
+    assert_sdl_line(&document, "nameContains: String");
+    let association = block("input GraphqlCrmAssociation @oneOf {");
+    assert_sdl_line(&association, "company: ID");
+    assert_sdl_line(&association, "contact: ID");
 }
 
 #[test]
