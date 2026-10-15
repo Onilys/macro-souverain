@@ -41,9 +41,17 @@ ci-prebuild base="main":
     export RUSTFLAGS="{{ ci_rustflags }}" CARGO_TERM_COLOR=always
     RUSTDOCFLAGS=-Dwarnings SQLX_OFFLINE=true RUST_PACKAGES="$packages" bash {{ ci_scripts }}/cargo_clippy.sh
     if [ "$packages" != none ] && [ "$skip_tests" != true ]; then
-        # SQLX_OFFLINE only changes where the query macros read their metadata,
-        # not what they generate, and kache does not key on it.
-        SQLX_OFFLINE=true RUST_PACKAGES="$packages" NEXTEST_NO_RUN=1 NEXTEST_TEST_THREADS=1 \
+        # Like CI's test job, compile the test-only queries against a migrated
+        # Postgres: they are not in the offline .sqlx cache. The URL is not
+        # part of any kache key.
+        db="$(docker run -d --rm -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password \
+            -e POSTGRES_DB=macrodb -p 127.0.0.1::5432 pgvector/pgvector:pg14)"
+        trap 'rm -f "$outputs"; docker rm -f "$db" >/dev/null' EXIT
+        until docker exec "$db" pg_isready -q -U user -d macrodb; do sleep 1; done
+        port="$(docker port "$db" 5432/tcp | head -1 | sed 's/.*://')"
+        export DATABASE_URL="postgres://user:password@127.0.0.1:$port/macrodb"
+        sqlx migrate run --source crates/macro_db_client/migrations
+        RUST_PACKAGES="$packages" NEXTEST_NO_RUN=1 NEXTEST_TEST_THREADS=1 \
             bash {{ ci_scripts }}/run_tests.sh
     fi
     queue="${KACHE_CACHE_DIR:-$HOME/macro-kache}/upload-queue"
