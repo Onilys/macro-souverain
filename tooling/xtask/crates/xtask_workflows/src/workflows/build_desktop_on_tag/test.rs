@@ -67,6 +67,60 @@ fn staple_diagnostic_dispatch_skips_release_builds() {
 }
 
 #[test]
+fn transport_diagnostic_dispatch_skips_release_builds() {
+    let yaml = rendered_yaml();
+    assert!(
+        yaml.contains("inputs.ref != 'diagnose-transport'"),
+        "{yaml}"
+    );
+    assert!(yaml.contains("CloudKit TCP fallback (12x28)"), "{yaml}");
+    assert!(
+        yaml.contains("CloudKit TCP fallback (12x28 with cache)"),
+        "{yaml}"
+    );
+    assert!(yaml.contains("PHASE_ORDER: ABAB"), "{yaml}");
+    assert!(yaml.contains("PHASE_ORDER: BABA"), "{yaml}");
+    assert!(yaml.contains(
+        "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-transport'"
+    ));
+    assert!(
+        yaml.contains("inputs.ref == 'diagnose-transport' && 'cloudkit-transport-diagnostic-'")
+    );
+}
+
+#[test]
+fn pf_toggle_diagnostic_dispatch_skips_release_builds() {
+    let yaml = rendered_yaml();
+    assert!(
+        yaml.contains("inputs.ref != 'diagnose-pf-toggle'"),
+        "{yaml}"
+    );
+    assert!(
+        yaml.contains("CloudKit PF toggle (before-first, 12x28)"),
+        "{yaml}"
+    );
+    assert!(
+        yaml.contains("CloudKit PF toggle (between-samples, 12x28)"),
+        "{yaml}"
+    );
+    assert!(yaml.contains("TOGGLE_POSITION: before-first"), "{yaml}");
+    assert!(yaml.contains("TOGGLE_POSITION: between-samples"), "{yaml}");
+    assert!(yaml.contains(
+        "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-pf-toggle'"
+    ));
+    assert!(
+        yaml.contains("inputs.ref == 'diagnose-pf-toggle' && 'cloudkit-pf-toggle-diagnostic-'"),
+        "{yaml}"
+    );
+
+    let probe = include_str!("../scripts/probe_cloudkit_pf_toggle.sh");
+    assert!(probe.contains("pfctl -E"));
+    assert!(probe.contains("pfctl -X"));
+    assert!(!probe.contains("pfctl -a"));
+    assert!(!probe.contains("pfctl -f"));
+}
+
+#[test]
 fn installers_publish_without_waiting_on_updater_signing() {
     let yaml = rendered_yaml();
     let installers = yaml

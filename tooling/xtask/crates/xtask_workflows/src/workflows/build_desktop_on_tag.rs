@@ -24,7 +24,7 @@ pub fn build_desktop_on_tag() -> Workflow {
     Workflow::new("Build Desktop on Tag")
         .on(desktop_events())
         .concurrency(
-            Concurrency::new(Expression::new("${{ inputs.ref == 'diagnose-staple' && 'cloudkit-staple-diagnostic-' || inputs.ref == 'diagnose-cloudkit' && 'cloudkit-diagnostic-' || '' }}desktop-${{ inputs.ref || (github.event.ref_type == 'tag' && github.event.ref || github.ref_name) }}"))
+            Concurrency::new(Expression::new("${{ inputs.ref == 'diagnose-pf-toggle' && 'cloudkit-pf-toggle-diagnostic-' || inputs.ref == 'diagnose-transport' && 'cloudkit-transport-diagnostic-' || inputs.ref == 'diagnose-staple' && 'cloudkit-staple-diagnostic-' || inputs.ref == 'diagnose-cloudkit' && 'cloudkit-diagnostic-' || '' }}desktop-${{ inputs.ref || (github.event.ref_type == 'tag' && github.event.ref || github.ref_name) }}"))
                 .cancel_in_progress(true),
         )
         .add_job("resolve-ref", resolve_ref())
@@ -90,6 +90,38 @@ pub fn build_desktop_on_tag() -> Workflow {
                 build_dmg_on_tag::macos_runner_labels(runners::Runner::MacOsArm),
                 "6x14 with cache",
                 "cloudkit-staple-6x14-with-cache",
+            ),
+        )
+        .add_job(
+            "diagnose-transport-large",
+            diagnose_transport_job(
+                vec![runners::Runner::MacOsArmLarge.to_string()],
+                "12x28",
+                "cloudkit-transport-12x28",
+                "ABAB",
+            ),
+        )
+        .add_job(
+            "diagnose-transport-production",
+            diagnose_transport_job(
+                build_dmg_on_tag::macos_runner_labels(runners::Runner::MacOsArmLarge),
+                "12x28 with cache",
+                "cloudkit-transport-12x28-with-cache",
+                "BABA",
+            ),
+        )
+        .add_job(
+            "diagnose-pf-toggle-first",
+            diagnose_pf_toggle_job(
+                "before-first",
+                "cloudkit-pf-toggle-before-first",
+            ),
+        )
+        .add_job(
+            "diagnose-pf-toggle-between",
+            diagnose_pf_toggle_job(
+                "between-samples",
+                "cloudkit-pf-toggle-between-samples",
             ),
         )
         .add_job(
@@ -180,7 +212,7 @@ fn workflow_dispatch() -> WorkflowDispatch {
     inputs.insert(
         "ref".into(),
         WorkflowDispatchInput {
-            description: "Optional release tag override (v* or refs/tags/v*); use diagnose-cloudkit or diagnose-staple for no-release ticket checks. Leave empty to build the selected branch or tag.".into(),
+            description: "Optional release tag override (v* or refs/tags/v*); use diagnose-cloudkit, diagnose-staple, diagnose-transport, or diagnose-pf-toggle for no-release ticket checks. Leave empty to build the selected branch or tag.".into(),
             required: false,
             input_type: "string".into(),
             default: None,
@@ -193,7 +225,7 @@ fn workflow_dispatch() -> WorkflowDispatch {
 fn resolve_ref() -> Job {
     Job::default()
         .cond(Expression::new(
-            "(github.event_name == 'workflow_dispatch' && inputs.ref != 'diagnose-cloudkit' && inputs.ref != 'diagnose-staple') || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
+            "(github.event_name == 'workflow_dispatch' && inputs.ref != 'diagnose-cloudkit' && inputs.ref != 'diagnose-staple' && inputs.ref != 'diagnose-transport' && inputs.ref != 'diagnose-pf-toggle') || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
         ))
         .name("Resolve build ref")
         .runs_on("ubuntu-latest")
@@ -263,6 +295,79 @@ fn diagnose_staple_job(runner_labels: Vec<String>, size: &str, artifact_name: &s
             steps::upload_artifact(
                 artifact_name,
                 xtask_paths::runtime_path!("cloudkit-staple-diagnostics/*"),
+            )
+            .if_condition(Expression::new("always()"))
+            .add_with(("if-no-files-found", "warn")),
+        )
+}
+
+fn diagnose_transport_job(
+    runner_labels: Vec<String>,
+    size: &str,
+    artifact_name: &str,
+    phase_order: &str,
+) -> Job {
+    Job::default()
+        .name(format!("CloudKit TCP fallback ({size})"))
+        .runs_on(runner_labels)
+        .cond(Expression::new(
+            "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-transport'",
+        ))
+        .timeout_minutes(20u32)
+        .permissions(Permissions::default().contents(Level::Read))
+        .add_step(
+            Step::new("Download already stapled release artifacts")
+                .run(include_str!(
+                    "scripts/download_cloudkit_staple_artifacts.sh"
+                ))
+                .shell("bash")
+                .add_env(("GH_TOKEN", "${{ github.token }}"))
+                .add_env(("GH_REPO", "${{ github.repository }}")),
+        )
+        .add_step(
+            Step::new("Compare direct and TCP-only stapling")
+                .run(include_str!("scripts/probe_cloudkit_transport.sh"))
+                .shell("bash")
+                .add_env(("PHASE_ORDER", phase_order)),
+        )
+        .add_step(
+            steps::upload_artifact(
+                artifact_name,
+                xtask_paths::runtime_path!("cloudkit-transport-diagnostics/*"),
+            )
+            .if_condition(Expression::new("always()"))
+            .add_with(("if-no-files-found", "warn")),
+        )
+}
+
+fn diagnose_pf_toggle_job(toggle_position: &str, artifact_name: &str) -> Job {
+    Job::default()
+        .name(format!("CloudKit PF toggle ({toggle_position}, 12x28)"))
+        .runs_on(vec![runners::Runner::MacOsArmLarge.to_string()])
+        .cond(Expression::new(
+            "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-pf-toggle'",
+        ))
+        .timeout_minutes(20u32)
+        .permissions(Permissions::default().contents(Level::Read))
+        .add_step(
+            Step::new("Download already stapled release artifacts")
+                .run(include_str!(
+                    "scripts/download_cloudkit_staple_artifacts.sh"
+                ))
+                .shell("bash")
+                .add_env(("GH_TOKEN", "${{ github.token }}"))
+                .add_env(("GH_REPO", "${{ github.repository }}")),
+        )
+        .add_step(
+            Step::new("Compare direct stapling around an empty PF cycle")
+                .run(include_str!("scripts/probe_cloudkit_pf_toggle.sh"))
+                .shell("bash")
+                .add_env(("TOGGLE_POSITION", toggle_position)),
+        )
+        .add_step(
+            steps::upload_artifact(
+                artifact_name,
+                xtask_paths::runtime_path!("cloudkit-pf-toggle-diagnostics/*"),
             )
             .if_condition(Expression::new("always()"))
             .add_with(("if-no-files-found", "warn")),
