@@ -10,8 +10,8 @@ maintenance triggers or stored procedures.
 
 1. **Apply schema, then deploy the application writers.** The normal deployment
    pipeline applies migrations before deploying services. The first migration
-   creates the table and its read index atomically; two separate migrations build
-   indexes on existing tables concurrently. Keep `SOUP_SOURCE_ITEMS_ENABLED=false`
+   creates the table and its read index atomically; a separate migration builds
+   the `"Document"` owner index concurrently. Keep `SOUP_SOURCE_ITEMS_ENABLED=false`
    throughout this phase. The option defaults to false when omitted.
 2. **Verify the full writer deployment has finished.** Confirm the reviewed commit
    is deployed to document storage, document cognition, chat deletion and other
@@ -30,7 +30,8 @@ maintenance triggers or stored procedures.
    both adds missing rows and removes projection rows for items hard-deleted by
    older writers during rollout. It is safe to interrupt and rerun from the
    beginning. Batches commit independently and use a 200 ms lock timeout;
-   contention retries after one second. Monitor database load and replication
+   contention retries after one second, logging the batch's cursor, and the run
+   stops after 30 attempts on one batch. Monitor database load and replication
    lag, and resolve sustained contention before continuing.
 4. **Validate before switching reads.** Run
    [ops/validate_source_items.sql](ops/validate_source_items.sql) on the primary
@@ -38,8 +39,17 @@ maintenance triggers or stored procedures.
    allow for its database load. Compare representative first and later pages,
    task/property filters, sharing/revocation, soft delete/restore, and hard delete
    with the old read path. Measure latency for realistic source counts and
-   selective filters.
-5. **Enable projection reads gradually.** Register `SOUP_SOURCE_ITEMS_ENABLED` in
+   selective filters. Under `ViewedAt`, a user with fewer than a page of viewed
+   items reads every row of their sources for the never-viewed tail, which
+   `source_items_read` cannot order by id; measure that shape for large sources.
+5. **Add the history index before enabling view-time sorts.** `ViewedAt` and
+   `ViewedUpdated` read each user's `"UserHistory"` newest first. Without an
+   index on `("userId", "itemType", "updatedAt", "itemId")` they sort the user's
+   whole history of each type. That index is not in this release because indexing
+   `"updatedAt"` stops every view's history upsert from being a HOT update, a
+   write cost every open pays even while projected reads are off. Add it in a
+   separate concurrent migration once the projected reads are ready to enable.
+6. **Enable projection reads gradually.** Register `SOUP_SOURCE_ITEMS_ENABLED` in
    the document storage deployment configuration, then set it to true for a
    canary and restart that deployment. Monitor query latency, errors, transaction
    retries, lock waits, replication lag, and parity before expanding. Other
@@ -53,9 +63,14 @@ writers; running it only before deployment leaves a gap for older writers.
 
 Writers refresh after canonical changes and before committing. The shared helper
 rejects autocommit connections and isolation levels other than READ COMMITTED.
-It serializes refreshes with transaction-scoped advisory locks keyed by the stable
-entity type and ID. A separate refresh statement sees the prior lock holder's
-committed canonical state. Counts are recomputed rather than incremented from
+It serializes refreshes by locking each visible item's row (`FOR NO KEY UPDATE`),
+which a writer that updated the item already holds, so refreshes and item updates
+take their locks in one order. Row locks live in the rows rather than PostgreSQL's
+shared lock table, so a refresh of a whole team's or project tree's items stays
+bounded. Refreshes of at most 1,000 IDs also take transaction-scoped advisory locks
+keyed by the stable entity type and ID, which serialize a grant written for an
+item whose insert has not committed yet. A separate refresh statement sees the
+prior lock holder's committed canonical state. Counts are recomputed rather than incremented from
 requested operations, so overlapping grants and conflict no-ops remain correct.
 The complete transaction rolls back if projection maintenance fails.
 
@@ -72,9 +87,9 @@ backfill to repair drift, then audit before re-enabling reads. Direct administra
 SQL or a writer that bypasses the shared helpers requires this reconciliation;
 there are no database triggers to repair bypassed writes automatically.
 
-Verify `source_items_read`, `idx_document_owner_updated_live`, and
-`idx_user_history_user_type_updated_item` have both `pg_index.indisready` and
-`pg_index.indisvalid` true before enabling reads. An interrupted concurrent index
+Verify `source_items_read` and `idx_document_owner_updated_live` (and the history
+index from step 5) have both `pg_index.indisready` and `pg_index.indisvalid` true
+before enabling reads. An interrupted concurrent index
 build can leave an invalid index that `IF NOT EXISTS` skips. Drop only that invalid
 index with `DROP INDEX CONCURRENTLY`, outside a transaction, then rerun the index
 statement. Do not edit migration history.
