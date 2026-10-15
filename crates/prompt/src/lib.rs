@@ -20,6 +20,7 @@ pub mod document_content_links;
 pub mod email;
 pub mod math;
 pub mod mcp_item_links;
+pub mod mcp_usage;
 pub mod mentions;
 pub mod pull_requests;
 pub mod skills;
@@ -86,43 +87,48 @@ pub static DATABASE_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT.compose(&datab
 pub static DATABASE_READ_ONLY_TOOL_USE_PROMPT: ComposedPrompt =
     BASE_PROMPT.compose(&databases::READ_ONLY_PROMPT);
 
-/// Citation, do-not, Macro-terms, and document-content-linking rules surfaced
-/// to external MCP clients, composed together. These are static; the
-/// item-linking rules for the model's own replies are not, because they
-/// depend on the runtime app base URL — see [`mcp_instructions`].
+/// The static rules surfaced to external MCP clients, after the item-linking
+/// rules and the short "Using Macro" section — see [`mcp_instructions`].
 ///
 /// Deliberately omits the in-app [`mentions`] section (MCP clients cannot render
-/// `<m-document-mention>` tags in a chat reply) as well as chat tone/style and
-/// general tool-use instructions, which belong to the host client, not to Macro.
-/// [`document_content_links`] is the exception: it still applies over MCP
+/// `<m-document-mention>` tags in a chat reply), the in-app [`citations`] and
+/// [`do_not`] rules (`[[...]]` citation ids render as raw text in MCP clients),
+/// the in-app [`about_macro`] section (replaced by [`mcp_usage`]), and chat
+/// tone/style and general tool-use instructions, which belong to the host
+/// client, not to Macro. [`document_content_links`] still applies over MCP
 /// because it governs content written *into* a Markdown document (via
 /// `CreateDocument`/`EditDocument`), not the model's chat replies. See
 /// [`mentions`] for the full statement of which surfaces (replies, channel
 /// messages, email bodies, and Markdown documents) these Markdown/mention
 /// rules cover.
-static MCP_STATIC_INSTRUCTIONS: ComposedPrompt = citations::PROMPT
-    .compose(&do_not::PROMPT)
-    .compose(&about_macro::PROMPT)
+static MCP_STATIC_INSTRUCTIONS: ComposedPrompt = document_content_links::PROMPT
     .compose(&databases::PROMPT)
-    .compose(&crm_pipelines::PROMPT)
-    .compose(&document_content_links::PROMPT);
+    .compose(&crm_pipelines::PROMPT);
+
+/// How many characters of server instructions Claude Code keeps. Everything an
+/// agent needs to act correctly by default sits before this point.
+pub const MCP_INSTRUCTIONS_VISIBLE_CHARS: usize = 4096;
 
 /// Builds the instructions surfaced to external MCP clients via the server
 /// `instructions` field.
 ///
-/// Carries the formatting/correctness rules Macro features depend on so that AI
-/// used through MCP produces valid output. Item links in the model's own chat
-/// replies are rendered as plain Markdown URLs (built from `base_url`, the
-/// runtime `APP_BASE_URL` value) and lists of items as Markdown tables — NOT
-/// the in-app `<m-document-mention>` markup, which MCP clients cannot render.
-/// Content the model writes *into* a Macro document via `CreateDocument` or
-/// `EditDocument` is the opposite: it must still use `<m-document-mention>`
-/// tags (see [`document_content_links`]), since the Macro app renders that
-/// content regardless of which surface created it. `base_url` should already
-/// have any trailing slash trimmed.
+/// Ordered by what an outside agent needs first, because clients truncate
+/// (Claude Code keeps [`MCP_INSTRUCTIONS_VISIBLE_CHARS`]) and weigh the start
+/// most: how to use Macro, then how to link items in replies, then the rules
+/// for content written into Macro, then the database and CRM references.
+///
+/// Item links in the model's own chat replies are rendered as plain Markdown
+/// URLs (built from `base_url`, the runtime `APP_BASE_URL` value) and lists of
+/// items as Markdown tables — NOT the in-app `<m-document-mention>` markup,
+/// which MCP clients cannot render. Content the model writes *into* a Macro
+/// document via `CreateDocument` or `EditDocument` is the opposite: it must
+/// still use `<m-document-mention>` tags (see [`document_content_links`]),
+/// since the Macro app renders that content regardless of which surface
+/// created it. `base_url` should already have any trailing slash trimmed.
 pub fn mcp_instructions(base_url: &str) -> String {
     format!(
-        "{}\n{MCP_STATIC_INSTRUCTIONS}",
+        "{}\n{}\n{MCP_STATIC_INSTRUCTIONS}",
+        mcp_usage::render(),
         mcp_item_links::render(base_url)
     )
 }
@@ -382,5 +388,27 @@ mod tests {
         }
         assert!(in_app.contains("non-Markdown documents"));
         assert!(in_app.contains("apply to your own conversational replies only"));
+    }
+
+    #[test]
+    fn mcp_instructions_never_name_tools_mcp_does_not_have() {
+        let instructions = mcp_instructions("https://macro.com");
+        assert!(!instructions.contains("ReadThread"));
+    }
+
+    #[test]
+    fn mcp_instructions_drop_citation_ids_that_mcp_clients_cannot_render() {
+        let instructions = mcp_instructions("https://macro.com");
+        assert!(!instructions.contains("[[md;"));
+        assert!(instructions.contains("never `[[...]]` ids"));
+    }
+
+    #[test]
+    fn mcp_usage_and_reply_linking_survive_claude_code_truncation() {
+        let instructions = mcp_instructions("https://macro.com");
+        let visible = &instructions[..MCP_INSTRUCTIONS_VISIBLE_CHARS.min(instructions.len())];
+        assert!(visible.contains("# Using Macro"));
+        assert!(visible.contains("SelfKnowledge"));
+        assert!(visible.contains("columns `number`, `name`, and `link`"));
     }
 }

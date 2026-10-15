@@ -4,9 +4,16 @@
 //! tools that are available in the DCS chat/stream API, with OAuth 2.1
 //! authentication backed by FusionAuth.
 
+mod agent_led;
+mod client_attribution;
 mod config;
 mod context;
 mod markdown_images;
+mod request_observer;
+mod sign_in;
+mod telemetry;
+#[cfg(test)]
+mod test_support;
 mod tool_response;
 mod tool_service;
 use anyhow::Context;
@@ -41,6 +48,11 @@ async fn main() -> anyhow::Result<()> {
 
     let event_broker_tracker = TaskTracker::new();
     let context = build_context(&config, event_broker_tracker.clone()).await?;
+    let observer: Arc<dyn request_observer::RequestObserver> =
+        Arc::new(request_observer::TelemetryObserver::new(
+            context.telemetry.clone(),
+            context.attribution.clone(),
+        ));
 
     // Create the MCP service with authenticated tool handler
     let mcp_service = StreamableHttpService::new(
@@ -51,7 +63,8 @@ async fn main() -> anyhow::Result<()> {
                 context.tool_context.clone(),
                 item_base_url.clone(),
                 static_file_base_url.clone(),
-            ))
+            )
+            .with_observer(observer.clone()))
         },
         Arc::new(LocalSessionManager::default()),
         {

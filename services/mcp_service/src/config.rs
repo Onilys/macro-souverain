@@ -26,6 +26,11 @@ maybe_env_vars! {
     /// when unset. Loopback `http` redirect URIs are always allowed and do not
     /// need to be listed.
     pub struct McpAllowedRedirectHosts;
+    /// PostHog project API key for MCP analytics events. When unset, events
+    /// are not sent.
+    pub struct PosthogApiKey;
+    /// PostHog ingestion host. Defaults to the US cloud host when unset.
+    pub struct PosthogHost;
 }
 
 /// Hosts trusted to receive an MCP authorization code when
@@ -35,8 +40,9 @@ maybe_env_vars! {
 /// origins the FusionAuth application already allows. A host absent from this
 /// list cannot be used as a redirect destination, which is what stops an
 /// attacker from registering a client pointing at a callback they control.
-pub const DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS: [&str; 5] = [
+pub const DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS: [&str; 6] = [
     "claude.ai",
+    "claude.com",
     "chatgpt.com",
     "chat.openai.com",
     "cursor.com",
@@ -150,6 +156,10 @@ pub struct Config {
     pub document_permission_jwt: DocumentPermissionJwt,
     pub kafka_brokers: KafkaBrokers,
     pub mcp_credentials_key_secret_name: McpCredentialsKeySecretName,
+    /// PostHog project API key for MCP analytics. Optional.
+    pub posthog_api_key: PosthogApiKey,
+    /// PostHog ingestion host. Optional.
+    pub posthog_host: PosthogHost,
 }
 
 impl Config {

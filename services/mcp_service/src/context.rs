@@ -59,7 +59,27 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use sync_service_client::SyncServiceClient;
 use tokio_util::task::TaskTracker;
 
-use crate::config::{Config, DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS};
+use crate::{
+    agent_led::{AgentHandover, PgAccountDirectory},
+    client_attribution::{ClientAttribution, RedisClientStore},
+    config::{Config, DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS},
+    sign_in::AgentSignIn,
+    telemetry::McpTelemetry,
+};
+
+/// The onboarding service as the MCP server wires it.
+pub type McpOnboardingService = onboarding::domain::service::OnboardingServiceImpl<
+    onboarding::outbound::pg_onboarding_repo::PgOnboardingRepo,
+    mcp_client::outbound::pg_server_repo::PgServerRepo,
+    ai_tools::ToolImportService,
+    ai_tools::ToolMcpSelector,
+>;
+
+/// Hands accounts to the person's agent (see [`AgentHandover`]).
+pub type McpAgentHandover = AgentHandover<McpOnboardingService, PgAccountDirectory>;
+
+/// Which client each token belongs to.
+pub type McpClientAttribution = ClientAttribution<RedisClientStore>;
 
 #[derive(Clone)]
 pub struct McpContext {
@@ -67,6 +87,17 @@ pub struct McpContext {
     pub tool_context: ToolServiceContext,
     pub auth_proxy: McpAuthProxyServiceImpl<RedisInflightAuth>,
     pub mcp_public_host: String,
+    pub telemetry: McpTelemetry,
+    pub attribution: McpClientAttribution,
+    pub handover: McpAgentHandover,
+}
+
+/// The tool context plus the services the MCP server needs beyond tools.
+struct ToolContextParts {
+    tool_context: ToolServiceContext,
+    import_service: Arc<ai_tools::ToolImportService>,
+    mcp_selector: Arc<ai_tools::ToolMcpSelector>,
+    mcp_server_store: Arc<mcp_client::outbound::pg_server_repo::PgServerRepo>,
 }
 
 struct ToolContextBuildArgs<'a> {
@@ -117,7 +148,12 @@ pub async fn build_context(
     .await
     .context("failed to load sync service auth key")?;
 
-    let tool_context = build_tool_context(ToolContextBuildArgs {
+    let ToolContextParts {
+        tool_context,
+        import_service,
+        mcp_selector,
+        mcp_server_store,
+    } = build_tool_context(ToolContextBuildArgs {
         config,
         db: &db,
         secretsmanager_client: &secretsmanager_client,
@@ -132,7 +168,34 @@ pub async fn build_context(
     })
     .await?;
 
-    let auth_proxy = build_auth_proxy(config, &secretsmanager_client).await?;
+    let onboarding = Arc::new(onboarding::domain::service::OnboardingServiceImpl::new(
+        onboarding::outbound::pg_onboarding_repo::PgOnboardingRepo::new(db.clone()),
+        mcp_server_store,
+        import_service,
+        mcp_selector,
+    ));
+    let handover = AgentHandover::new(onboarding, PgAccountDirectory::new(db.clone()));
+    let redis_client = redis::Client::open(config.redis_url.as_ref().to_owned())
+        .context("failed to initialize redis client for the MCP server")?;
+    let attribution = ClientAttribution::new(RedisClientStore::new(redis_client.clone()));
+    let telemetry = McpTelemetry::new(config.posthog_api_key.value(), config.posthog_host.value());
+    let sign_in_observer = Arc::new(AgentSignIn::new(
+        Arc::new(jwt_args.clone()),
+        Arc::new(email::outbound::EmailServiceHttpClient::new(
+            EmailServiceUrl::new()?.to_string(),
+        )),
+        handover.clone(),
+        attribution.clone(),
+        telemetry.clone(),
+    ));
+
+    let auth_proxy = build_auth_proxy(
+        config,
+        &secretsmanager_client,
+        redis_client,
+        sign_in_observer,
+    )
+    .await?;
 
     let mcp_public_host = http::Uri::try_from(config.mcp_public_url.as_ref())
         .context("MCP_PUBLIC_URL is not a valid URI")?
@@ -145,10 +208,13 @@ pub async fn build_context(
         tool_context,
         auth_proxy,
         mcp_public_host,
+        telemetry,
+        attribution,
+        handover,
     })
 }
 
-async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<ToolServiceContext> {
+async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<ToolContextParts> {
     let ToolContextBuildArgs {
         config,
         db,
@@ -496,11 +562,12 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         mcp_client::domain::models::AesKey::try_from(mcp_credentials_key.as_ref())
             .context("invalid MCP credentials encryption key")?;
     let pipedream_client = ai_tools::pipedream_client_from_env()?;
+    let mcp_server_store = Arc::new(mcp_client::outbound::pg_server_repo::PgServerRepo::new(
+        db.clone(),
+        mcp_encryption_key,
+    ));
     let mcp_selector = Arc::new(mcp_select::McpToolSelector::new(
-        Arc::new(mcp_client::outbound::pg_server_repo::PgServerRepo::new(
-            db.clone(),
-            mcp_encryption_key,
-        )),
+        mcp_server_store.clone(),
         Arc::new(pipedream_mcp::outbound::pg_connection_repo::PgConnectionRepo::new(db.clone())),
         Arc::new(pipedream_client.clone()),
     ));
@@ -522,7 +589,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
             recorder.clone(),
         )
         .with_slack_source(Arc::new(
-            import::outbound::mcp_slack_source::McpSlackSource::new(mcp_selector),
+            import::outbound::mcp_slack_source::McpSlackSource::new(mcp_selector.clone()),
         ))
         .with_admission(admission.clone())
         .with_notifier(import::outbound::gateway_notifier::gateway_import_notify(
@@ -574,7 +641,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         databases_tool_context,
         forms_tool_context,
         databases_sql_tool_context,
-        import_tool_context: ToolImportToolContext::wired(import_service),
+        import_tool_context: ToolImportToolContext::wired(import_service.clone()),
         chat_tool_context,
         channel_tool_context,
         channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context()?,
@@ -608,12 +675,19 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
 
     tracing::info!("initialized tool context");
 
-    Ok(tool_context)
+    Ok(ToolContextParts {
+        tool_context,
+        import_service,
+        mcp_selector,
+        mcp_server_store,
+    })
 }
 
 async fn build_auth_proxy(
     config: &Config,
     secretsmanager_client: &secretsmanager_client::SecretsManager,
+    redis_client: redis::Client,
+    sign_in_observer: Arc<dyn mcp_auth_proxy::domain::ports::SignInObserver>,
 ) -> anyhow::Result<McpAuthProxyServiceImpl<RedisInflightAuth>> {
     let mcp_public_url: String = config.mcp_public_url.as_ref().to_owned();
     let mcp_oauth_redirect_uri = format!("{mcp_public_url}/oauth/callback");
@@ -658,8 +732,6 @@ async fn build_auth_proxy(
     let auth_provider = FusionAuthOAuthProvider::new(fusionauth_client)
         .await
         .context("failed to initialize MCP auth provider")?;
-    let redis_client = redis::Client::open(config.redis_url.as_ref().to_owned())
-        .context("failed to initialize redis client for MCP auth proxy")?;
     let client_registry = Arc::new(RedisClientRegistry::new(redis_client.clone()));
 
     let redirect_uri_policy = build_redirect_uri_policy(config);
@@ -675,6 +747,7 @@ async fn build_auth_proxy(
         client_registrations: client_registry.clone(),
         refresh_token_bindings: client_registry,
         oauth_provider: Arc::new(auth_provider),
+        sign_in_observer,
     }))
 }
 

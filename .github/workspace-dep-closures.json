@@ -9443,6 +9443,7 @@
       "crates/non_empty",
       "crates/notification",
       "crates/notification_state",
+      "crates/onboarding",
       "crates/opensearch_client",
       "crates/opensearch_query_builder",
       "crates/pipedream_mcp",

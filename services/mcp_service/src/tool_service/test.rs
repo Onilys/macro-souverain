@@ -53,16 +53,15 @@ async fn server_instructions_describe_available_workflows() {
         .expect("server should provide MCP instructions");
 
     for expected_text in [
-        "Macro workspace",
+        "Macro is the person's work hub",
         "ContentSearch",
         "NameSearch",
         "ReadContent",
         "ReadMetadata",
-        "ReadThread",
         "ReadChannelMessages",
         "ReadChannelThread",
         "ReadChannelMessageContext",
-        "downloadable URLs",
+        "download URLs",
         "CreateDocument",
         "ListEntities",
         "ListSkills",
@@ -73,6 +72,17 @@ async fn server_instructions_describe_available_workflows() {
             "instructions should mention {expected_text}"
         );
     }
+}
+
+#[tokio::test]
+async fn server_instructions_only_name_tools_the_server_has() {
+    let instructions = empty_service()
+        .get_info()
+        .instructions
+        .expect("server should provide MCP instructions");
+
+    // MCP has no ReadThread tool; naming it sends agents to a dead end.
+    assert!(!instructions.contains("ReadThread"));
 }
 
 #[tokio::test]

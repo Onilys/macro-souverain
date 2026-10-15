@@ -15,6 +15,13 @@ path = "src/doppler_config.rs"
 
 [dependencies]
 ai_billing = { path = "../../crates/ai_billing", features = ["pg-admission"] }
+analytics_client = { path = "../../crates/analytics_client" }
+base64 = { workspace = true }
+lru = { workspace = true }
+macro_db_client = { path = "../../crates/macro_db_client" }
+onboarding = { path = "../../crates/onboarding" }
+serde = { workspace = true }
+sha2 = { workspace = true }
 roles_and_permissions = { path = "../../crates/roles_and_permissions", default-features = false, features = ["outbound"] }
 teams = { path = "../../crates/teams", default-features = false, features = ["outbound"] }
 ai_tools = { path = "../../crates/ai_tools" }
@@ -41,7 +48,7 @@ database_env_vars = { path = "../../crates/database_env_vars" }
 databases = { path = "../../crates/databases", features = ["ai_tools", "gateway", "postgres"] }
 documents = { path = "../../crates/documents", features = ["ai_tools"] }
 doppler-config = { workspace = true }
-email = { path = "../../crates/email", features = ["outbound"] }
+email = { path = "../../crates/email", features = ["http_client", "outbound"] }
 email_service_client = { path = "../../crates/email_service_client" }
 entity_access = { path = "../../crates/entity_access" }
 entity_access_management = { path = "../../crates/entity_access_management" }
@@ -97,3 +104,6 @@ url = { workspace = true }
 
 macro_service_urls = { path = "../../crates/macro_service_urls" }
 workspace-hack = { version = "0.1", path = "../../crates/workspace-hack" }
+
+[dev-dependencies]
+chrono = { workspace = true }
