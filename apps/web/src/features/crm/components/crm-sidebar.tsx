@@ -1,13 +1,10 @@
 import { CollapsibleSection, ViewSidebar } from '@app/components/view-shell';
+import { getIconConfig } from '@core/component/EntityIcon';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import BuildingsIcon from '@phosphor/buildings.svg';
-import CheckSquareIcon from '@phosphor/check-square.svg';
 import ExportIcon from '@phosphor/download-simple.svg';
-import EnvelopeIcon from '@phosphor/envelope-simple.svg';
 import GearIcon from '@phosphor/gear-six.svg';
 import ListIcon from '@phosphor/list-bullets.svg';
-import NoteIcon from '@phosphor/note-pencil.svg';
-import PhoneIcon from '@phosphor/phone.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import SidebarIcon from '@phosphor/sidebar-simple.svg';
 import ImportIcon from '@phosphor/upload-simple.svg';
@@ -23,10 +20,10 @@ import { CrmCreateMenu } from './crm-create-menu';
 const RECORD_ICONS = {
   active: BuildingsIcon,
   people: UsersIcon,
-  tasks: CheckSquareIcon,
-  email: EnvelopeIcon,
-  notes: NoteIcon,
-  calls: PhoneIcon,
+  tasks: getIconConfig('task').icon,
+  email: getIconConfig('email').icon,
+  notes: getIconConfig('md').icon,
+  calls: getIconConfig('call').icon,
 };
 
 export function CrmSidebar(props: {
