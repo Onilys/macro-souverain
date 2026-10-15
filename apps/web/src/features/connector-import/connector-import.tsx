@@ -1,7 +1,6 @@
 import { openChatWithInput } from '@app/features/chat/ChatWithAgentButton';
 import { SidebarPromotion } from '@app/features/sidebar-promotion/sidebar-promotion';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
-import { pipedreamAppAvailableInEnv } from '@core/component/AI/constant/mcpServers';
 import { enableSidebarPromotions } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { usePipedreamMcpFlag } from '@core/pipedream/flag';
@@ -96,11 +95,7 @@ export function ConnectorImportPromotion(props: {
   const config = () => IMPORT_CATEGORIES[props.category];
   const dialogConfig = () => ({
     ...config(),
-    providers: pipedream()
-      ? config().providers.filter((provider) =>
-          pipedreamAppAvailableInEnv(provider.appSlug)
-        )
-      : [],
+    providers: pipedream() ? config().providers : [],
   });
   const [open, setOpen] = createSignal(false);
   const [opener, setOpener] = createSignal<HTMLButtonElement>();
