@@ -47,13 +47,14 @@ Before live testing, the local instance needs:
 | --- | --- |
 | WhatsApp webhook | `<public-origin>/dss/meta/webhooks/whatsapp` |
 | Instagram webhook | `<public-origin>/dss/meta/webhooks/instagram` |
-| Instagram OAuth redirect | `<public-origin>/dss/meta/oauth/instagram/callback` — identical in Meta and `META_INSTAGRAM_REDIRECT_URI` |
+| Instagram OAuth redirect | `<Macro-web-origin>/app/instagram-callback.html` — same origin as Settings, identical in Meta and `META_INSTAGRAM_REDIRECT_URI` |
 | Verification tokens | Separate secrets chosen for each webhook, matching Macro’s configuration |
 | Credential encryption | Local KMS alias provisioned and `META_CREDENTIAL_KMS_KEY` set; instructions in the server guide |
 | WhatsApp recipient | The verified test number also listed in `META_WHATSAPP_TEST_RECIPIENTS` |
 
 Meta cannot call `localhost`. Provide a public HTTPS callback gateway forwarding
-only the webhook and OAuth callback paths to this local instance. Do not expose
+only the webhook paths to this local instance. Instagram OAuth returns in the
+user’s browser to the trusted HTTPS Macro web origin, not the webhook gateway. Do not expose
 the passwordless local app or its databases. Keep callback origins in local configuration. Instagram attachment testing additionally needs publicly reachable,
 short-lived attachment URLs; prove the text flow first.
 
@@ -168,3 +169,25 @@ Health tests exercise the real service and API response for authorization expiry
 Meta access denial, Macro administrator removal, temporary errors, setup errors
 and successful recovery. In the browser, check the message both in Settings and
 above the customer composer, with the draft preserved and sending disabled.
+
+## Verify Instagram login isolation
+
+1. Keep the initiating Settings window open, allow its popup, and connect through
+   the real Meta test app. Confirm the expected team’s account ID and actual
+   connection state. The callback URL must lose its query/fragment immediately.
+2. In a separate controlled browser session, open the authorization URL initiated
+   in session A. Session B must not complete A’s connection. Inspect the isolated
+   DB/provider counters as well as the UI: no credential, subscription, import or
+   conversation may be created for A. Repeat with a different authenticated Macro
+   user/team when one is available; record unavailable branches explicitly.
+3. Reconnect the same account and verify the connection ID and conversations stay
+   unchanged. Selecting another Instagram account must fail. Cancel once; let an
+   attempt expire or expire only a disposable local transaction; replay a handled
+   callback. Settings must offer a clear retry, with no second connection.
+4. Distinguish HTTP/database fixture tests from live Meta authorization and from
+   actual customer message delivery. Never describe simulated transport as live.
+
+The old public DSS OAuth completion path must return 404 on the fixed backend.
+Do not test live login against an older running DSS binary. Update only the
+existing test app’s redirect allowlist after confirming the new callback is
+served; preserve working webhook callbacks and unrelated applications.

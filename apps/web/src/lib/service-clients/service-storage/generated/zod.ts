@@ -47843,6 +47843,12 @@ export const metaAuthorizeBody = zod
 
 export const metaAuthorizeResponse = zod
   .object({
+    browser_transaction: zod
+      .string()
+      .nullish()
+      .describe(
+        'Secret proof retained only by the initiating Instagram window; never sent to Meta.'
+      ),
     configuration: zod
       .object({
         graph_version: zod
@@ -47892,6 +47898,12 @@ export const metaAuthorizeResponse = zod
 
 export const metaAuthorizeCompleteBody = zod
   .object({
+    browser_transaction: zod
+      .string()
+      .nullish()
+      .describe(
+        'Proof returned at initiation; mandatory for Instagram, absent for WhatsApp.'
+      ),
     business_account_id: zod
       .union([
         zod.null(),

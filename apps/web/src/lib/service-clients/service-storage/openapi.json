@@ -32839,6 +32839,10 @@
         "description": "Browser OAuth initiation result. State is scoped to the authenticated initiator.",
         "required": ["state", "configuration"],
         "properties": {
+          "browser_transaction": {
+            "type": ["string", "null"],
+            "description": "Secret proof retained only by the initiating Instagram window; never sent to Meta."
+          },
           "configuration": {
             "$ref": "#/components/schemas/MetaPublicConfiguration",
             "description": "Public SDK/login configuration."
@@ -32854,6 +32858,10 @@
         "description": "Callback input. Tokens are always exchanged server-side.",
         "required": ["state", "code"],
         "properties": {
+          "browser_transaction": {
+            "type": ["string", "null"],
+            "description": "Proof returned at initiation; mandatory for Instagram, absent for WhatsApp."
+          },
           "business_account_id": {
             "oneOf": [
               {

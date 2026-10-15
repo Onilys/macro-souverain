@@ -4,6 +4,7 @@
  * document_storage_service
  * OpenAPI spec version: 0.1.0
  */
+import type { MetaCompleteAuthorizationBrowserTransaction } from './metaCompleteAuthorizationBrowserTransaction';
 import type { MetaCompleteAuthorizationBusinessAccountId } from './metaCompleteAuthorizationBusinessAccountId';
 import type { MetaCompleteAuthorizationPhoneNumberId } from './metaCompleteAuthorizationPhoneNumberId';
 
@@ -11,6 +12,8 @@ import type { MetaCompleteAuthorizationPhoneNumberId } from './metaCompleteAutho
  * Callback input. Tokens are always exchanged server-side.
  */
 export interface MetaCompleteAuthorization {
+  /** Proof returned at initiation; mandatory for Instagram, absent for WhatsApp. */
+  browser_transaction?: MetaCompleteAuthorizationBrowserTransaction;
   business_account_id?: MetaCompleteAuthorizationBusinessAccountId;
   /** Single-use authorization code. */
   code: string;

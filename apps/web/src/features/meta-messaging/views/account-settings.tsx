@@ -4,7 +4,6 @@ import {
   SettingsCard,
 } from '@app/features/settings/primitives';
 import { displayAuthorName } from '@core/messages/author-name';
-import { openExternalUrl } from '@core/util/url';
 import InstagramIcon from '@phosphor/instagram-logo.svg';
 import WhatsAppIcon from '@phosphor/whatsapp-logo.svg';
 import {
@@ -16,13 +15,17 @@ import { useCurrentTeamQuery, useIsTeamAdmin } from '@queries/team/teams';
 import type { MetaConnection } from '@service-storage/generated/schemas/metaConnection';
 import type { MetaProvider } from '@service-storage/generated/schemas/metaProvider';
 import { Button, Dialog, Panel } from '@ui';
-import { createSignal, For, Show, Suspense } from 'solid-js';
+import { createSignal, For, onCleanup, Show, Suspense } from 'solid-js';
 import {
   accountHealthMessage,
   disconnectMessage,
 } from '../core/account-health';
 import { messagingError } from '../core/delivery';
 import { whatsappSignup } from '../queries/facebook-signup';
+import {
+  InstagramLoginError,
+  instagramLoginWindow,
+} from '../queries/instagram-login';
 import { AccountHistoryImport } from './history-import';
 
 export function BusinessMessagingSettings() {
@@ -55,12 +58,21 @@ function Accounts() {
       ? !!config()?.whatsapp_configuration_id
       : !!config()?.instagram_app_id;
 
+  let instagram: ReturnType<typeof instagramLoginWindow> | undefined;
+  let active = true;
+  onCleanup(() => {
+    active = false;
+    instagram?.close();
+  });
+
   async function connect(provider: MetaProvider, existing?: MetaConnection) {
     if (working()) return;
     setWorking(true);
     setError('');
     setNotice('');
     try {
+      // Open synchronously with the click so popup blockers do not lose login.
+      if (provider === 'instagram') instagram = instagramLoginWindow();
       if (provider === 'whatsapp' && existing?.developer_account) {
         await actions.developer.mutateAsync();
         return;
@@ -82,34 +94,43 @@ function Accounts() {
         await actions.complete.mutateAsync({ ...result, state: begin.state });
         setNotice('Connecting… This page updates automatically.');
       } else {
-        const c = begin.configuration;
-        if (!c.instagram_app_id || !c.instagram_redirect_uri)
+        if (!active) return;
+        if (!instagram || !begin.browser_transaction)
           throw new Error('Instagram login is not configured.');
-        const url = new URL('https://www.instagram.com/oauth/authorize');
-        url.search = new URLSearchParams({
-          client_id: c.instagram_app_id,
-          redirect_uri: c.instagram_redirect_uri,
-          response_type: 'code',
-          scope: 'instagram_business_basic,instagram_business_manage_messages',
-          state: begin.state,
-          enable_fb_login: '0',
-          force_authentication: '1',
-        }).toString();
-        openExternalUrl(url.toString());
-        setNotice('Finish connecting in Instagram, then return here.');
+        setNotice(
+          'Finish connecting in the Instagram window. Keep Settings open.'
+        );
+        const result = await instagram.authorize(begin);
+        if (!active) return;
+        try {
+          await actions.complete.mutateAsync({
+            ...result,
+            state: begin.state,
+            browser_transaction: begin.browser_transaction,
+          });
+        } catch {
+          throw new InstagramLoginError(
+            'Instagram login expired, your Macro account changed, or this Instagram account does not match the reconnect. Sign in with the original Macro account and start again from Settings.'
+          );
+        }
+        setNotice('Connecting… This page updates automatically.');
       }
     } catch (e) {
       setError(
-        e instanceof Error && /cancel|closed/i.test(e.message)
-          ? 'Connection canceled. You can try again whenever you’re ready.'
-          : e instanceof Error &&
-              /not configured|permission|reconnect|revoked|coexistence/i.test(
-                e.message
-              )
-            ? messagingError(e.message, provider)
-            : 'We couldn’t connect this account. Try again, and make sure you approve messaging access in Meta.'
+        e instanceof InstagramLoginError
+          ? e.message
+          : e instanceof Error && /cancel|closed/i.test(e.message)
+            ? 'Connection canceled. You can try again whenever you’re ready.'
+            : e instanceof Error &&
+                /not configured|permission|reconnect|revoked|coexistence/i.test(
+                  e.message
+                )
+              ? messagingError(e.message, provider)
+              : 'We couldn’t connect this account. Try again, and make sure you approve messaging access in Meta.'
       );
     } finally {
+      instagram?.close();
+      instagram = undefined;
       setWorking(false);
     }
   }

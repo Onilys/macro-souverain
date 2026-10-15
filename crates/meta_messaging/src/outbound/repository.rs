@@ -199,17 +199,6 @@ impl MessagingRepository for PgMessagingRepository {
             .await?
             .ok_or_else(|| MessagingError::NotFound.into())
     }
-    async fn consume_instagram_callback(&self, digest: &[u8]) -> PortResult<OAuthAttempt> {
-        let row=sqlx::query!("UPDATE meta_messaging_oauth SET consumed_at = now() WHERE state_sha256 = $1 AND provider = 'instagram' AND expires_at > now() AND consumed_at IS NULL RETURNING team_id,user_id,reconnect_id,expires_at",digest).fetch_optional(&self.pool).await.map_err(failure)?.ok_or(MessagingError::Forbidden)?;
-        Ok(OAuthAttempt {
-            state_sha256: digest.to_vec(),
-            team_id: row.team_id,
-            user_id: row.user_id,
-            provider: Provider::Instagram,
-            reconnect_id: row.reconnect_id,
-            expires_at: row.expires_at,
-        })
-    }
     async fn connection(&self, id: Uuid) -> PortResult<Option<Connection>> {
         sqlx::query!("SELECT to_jsonb(c) - 'credential' AS \"data!\" FROM meta_messaging_connection c WHERE id = $1", id)
             .fetch_optional(&self.pool).await.map_err(failure)?.map(|r| decode(r.data)).transpose()

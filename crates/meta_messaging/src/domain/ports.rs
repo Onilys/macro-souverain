@@ -131,8 +131,6 @@ pub trait MessagingRepository: ConversationRepository {
         team: Uuid,
         user: &str,
     ) -> PortResult<OAuthAttempt>;
-    /// Consume an Instagram callback using its unguessable, caller-bound state.
-    async fn consume_instagram_callback(&self, digest: &[u8]) -> PortResult<OAuthAttempt>;
     /// Bind a verified provider identity, rejecting cross-team or wrong-account reconnects.
     async fn connect(
         &self,

@@ -3,6 +3,7 @@ use super::*;
 mod content;
 mod history;
 mod lifecycle;
+mod oauth;
 mod recovery;
 use axum::{
     Router,
@@ -72,6 +73,7 @@ impl CredentialCipher for TestCipher {
 }
 struct ProviderFixture {
     connection: Connection,
+    authorizations: AtomicUsize,
     sends: AtomicUsize,
     subscriptions: AtomicUsize,
     unsubscriptions: AtomicUsize,
@@ -126,6 +128,7 @@ impl MetaProvider for ProviderFixture {
         p: Provider,
         _: &CompleteAuthorization,
     ) -> PortResult<AuthorizedAccount> {
+        self.authorizations.fetch_add(1, Ordering::SeqCst);
         assert_eq!(p, self.connection.provider);
         Ok(AuthorizedAccount {
             developer_account: false,
@@ -333,6 +336,7 @@ async fn fixture_with_files(
                 .unwrap_or_else(|| c.account_id.clone()),
             ..c.clone()
         },
+        authorizations: AtomicUsize::new(0),
         sends: AtomicUsize::new(0),
         subscriptions: AtomicUsize::new(0),
         unsubscriptions: AtomicUsize::new(0),
@@ -409,7 +413,7 @@ async fn workflow(pool: PgPool, provider: Provider) {
         "POST",
         "/authorize/complete",
         Some("owner"),
-        json!({"state":begin["state"],"code":"fixture-code"}),
+        json!({"state":begin["state"],"browser_transaction":begin["browser_transaction"],"code":"fixture-code"}),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{complete}");

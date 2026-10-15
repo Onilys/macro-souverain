@@ -166,6 +166,7 @@ impl MetaService {
     }
 
     /// Start one caller-bound authorization attempt, including reconnect identity.
+    #[tracing::instrument(skip_all, err)]
     pub async fn begin_authorization(
         &self,
         access: &EntityAccessReceipt<AdminTeamRole>,
@@ -191,9 +192,11 @@ impl MetaService {
         }
         // These are random CSRF tokens, not database identifiers.
         let state = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+        let browser_transaction = (provider == Provider::Instagram)
+            .then(|| format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple()));
         self.repository
             .begin_authorization(&OAuthAttempt {
-                state_sha256: Sha256::digest(state.as_bytes()).to_vec(),
+                state_sha256: authorization_digest(&state, browser_transaction.as_deref()),
                 team_id: team,
                 user_id: user.to_owned(),
                 provider,
@@ -203,12 +206,14 @@ impl MetaService {
             .await?;
         Ok(BeginAuthorization {
             state,
+            browser_transaction,
             configuration: self.configuration.clone(),
         })
     }
 
     /// Complete authorization under the same authenticated team/user. Account
     /// facts are independently resolved through Meta before storing credentials.
+    #[tracing::instrument(skip_all, err)]
     pub async fn complete_authorization(
         &self,
         access: &EntityAccessReceipt<AdminTeamRole>,
@@ -218,37 +223,27 @@ impl MetaService {
         if input.state.len() != 64 || input.code.is_empty() || input.code.len() > 8192 {
             return Err(MessagingError::Invalid("invalid authorization callback").into());
         }
-        let attempt = self
-            .repository
-            .consume_authorization(&Sha256::digest(input.state.as_bytes()), team, user)
-            .await?;
-        self.finish_authorization(attempt, input).await
-    }
-
-    /// Official Instagram callback: the one-time state binds the initiating user
-    /// and team, whose administrator access is revalidated before token exchange.
-    pub async fn instagram_callback(&self, state: String, code: String) -> PortResult<()> {
-        if state.len() != 64 || code.is_empty() || code.len() > 8192 {
+        if input
+            .browser_transaction
+            .as_ref()
+            .is_some_and(|proof| proof.len() != 64 || !proof.bytes().all(|b| b.is_ascii_hexdigit()))
+        {
             return Err(MessagingError::Forbidden.into());
         }
+        self.native.require_admin(team, user).await?;
         let attempt = self
             .repository
-            .consume_instagram_callback(&Sha256::digest(state.as_bytes()))
+            .consume_authorization(
+                &authorization_digest(&input.state, input.browser_transaction.as_deref()),
+                team,
+                user,
+            )
             .await?;
-        self.native
-            .require_admin(attempt.team_id, &attempt.user_id)
-            .await?;
-        self.finish_authorization(
-            attempt,
-            CompleteAuthorization {
-                state,
-                code,
-                business_account_id: None,
-                phone_number_id: None,
-            },
-        )
-        .await?;
-        Ok(())
+        // Reject pre-upgrade Instagram attempts too; no public/state-only fallback.
+        if attempt.provider == Provider::Instagram && input.browser_transaction.is_none() {
+            return Err(MessagingError::Forbidden.into());
+        }
+        self.finish_authorization(attempt, input).await
     }
 
     async fn finish_authorization(
@@ -402,4 +397,16 @@ fn team_actor(access: &EntityAccessReceipt<AdminTeamRole>) -> Result<(Uuid, &str
             .map_err(|_| MessagingError::Forbidden)?
             .as_ref(),
     ))
+}
+
+// Fixed-length random values make this unambiguous. Domain separation prevents
+// a browser proof from being confused with a legacy/WhatsApp state digest.
+fn authorization_digest(state: &str, browser_transaction: Option<&str>) -> Vec<u8> {
+    let mut digest = Sha256::new();
+    if let Some(proof) = browser_transaction {
+        digest.update(b"instagram-browser-transaction:");
+        digest.update(proof.as_bytes());
+    }
+    digest.update(state.as_bytes());
+    digest.finalize().to_vec()
 }

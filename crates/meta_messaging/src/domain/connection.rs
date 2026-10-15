@@ -139,7 +139,7 @@ pub struct CustomerProfile {
 
 /// Server-bound OAuth transaction.
 pub struct OAuthAttempt {
-    /// SHA-256 of random state; raw state is never stored.
+    /// SHA-256 of state plus Instagram browser proof; neither is stored raw.
     pub state_sha256: Vec<u8>,
     /// Owner scope.
     pub team_id: Uuid,
@@ -181,6 +181,8 @@ pub struct PublicConfiguration {
 pub struct BeginAuthorization {
     /// Random anti-CSRF state echoed through the callback.
     pub state: String,
+    /// Secret proof retained only by the initiating Instagram window; never sent to Meta.
+    pub browser_transaction: Option<String>,
     /// Public SDK/login configuration.
     pub configuration: PublicConfiguration,
 }
@@ -192,6 +194,8 @@ pub struct BeginAuthorization {
 pub struct CompleteAuthorization {
     /// State returned by the server for this caller/team/provider.
     pub state: String,
+    /// Proof returned at initiation; mandatory for Instagram, absent for WhatsApp.
+    pub browser_transaction: Option<String>,
     /// Single-use authorization code.
     pub code: String,
     /// WhatsApp account selected in Embedded Signup; verified through Graph.

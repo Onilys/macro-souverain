@@ -267,13 +267,17 @@ async fn oauth_state_is_single_use_and_bound_to_initiating_team_and_user(pool: P
             .is_err()
     );
     assert_eq!(
-        repo.consume_instagram_callback(&digest)
+        repo.consume_authorization(&digest, team, &user)
             .await
             .unwrap()
             .user_id,
         user
     );
-    assert!(repo.consume_instagram_callback(&digest).await.is_err());
+    assert!(
+        repo.consume_authorization(&digest, team, &user)
+            .await
+            .is_err()
+    );
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]

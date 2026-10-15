@@ -173,7 +173,7 @@ access; this branch does not deploy or modify shared secrets.
 | `META_WHATSAPP_VERIFY_TOKEN` | Random webhook verification token, matching the WhatsApp dashboard |
 | `META_INSTAGRAM_APP_ID` | Instagram app ID from Instagram API setup |
 | `META_INSTAGRAM_APP_SECRET` | Instagram app secret, also authenticating Instagram webhook bodies |
-| `META_INSTAGRAM_REDIRECT_URI` | Exact public HTTPS DSS callback: `<origin>/dss/meta/oauth/instagram/callback` |
+| `META_INSTAGRAM_REDIRECT_URI` | Exact HTTPS web callback: `<Macro-web-origin>/app/instagram-callback.html` (same origin as Settings) |
 | `META_INSTAGRAM_VERIFY_TOKEN` | Independent Instagram webhook verification token |
 | `META_INSTAGRAM_HUMAN_AGENT_APPROVED` | Optional `true` only after Meta grants the configured app HUMAN_AGENT approval; defaults to `false`. Reconnect to record approval. Turning it off disables the extension immediately. |
 | `META_CREDENTIAL_KMS_KEY` | Dedicated KMS key ARN/alias. Pulumi supplies it to DSS; local provisioning supplies `alias/macro-local-meta-messaging`. |
@@ -380,8 +380,9 @@ Recreate affected containers when changing environment variables; restarting alo
 does not reload them. Shared sender/activity changes also require the corresponding
 consumers to run the same revision.
 
-Expose only the documented Meta webhook and OAuth callback paths through a public
-HTTPS gateway. Instagram outbound media also requires the configured temporary-copy
+Expose only the documented Meta webhook paths through a public HTTPS gateway.
+Instagram login returns in the user’s browser to the same-origin web callback;
+it does not use the public webhook gateway. Instagram outbound media also requires the configured temporary-copy
 bucket and signing/cleanup permissions. Keep the local app and databases private.
 
 In Settings → Integrations → Accounts, use Connect or Manage. Existing channels
@@ -449,3 +450,47 @@ The native notification service retains its existing delivery semantics: notific
 records are idempotent, but a crash between its database write and egress publication
 can miss a push update. Native conversation content and persisted notifications remain
 available by fetch; this integration does not promise exactly-once push delivery.
+
+## Instagram account-linking boundary
+
+`POST /meta/authorize` returns random state and a separate random browser proof
+for Instagram. Settings retains both only in memory; only state goes to Meta.
+The stored digest binds state and proof to the authenticated initiating team/user,
+expires after ten minutes, and is consumed once. The callback page
+`/app/instagram-callback.html` loads no app code or analytics, clears its query
+and fragment immediately, and hands code/state to its same-origin opener.
+Settings checks the popup identity, origin and state, then submits code, state and
+proof through authenticated `POST /meta/authorize/complete`. This request originates
+in the original Macro page, so production SameSite=Strict session cookies work
+without changing their policy. Server user/team, current admin, expiry, replay,
+and reconnect identity checks remain mandatory before credentials are stored.
+Missing or wrong proof cannot exchange a code. Pre-upgrade Instagram attempts
+are rejected. WhatsApp Embedded Signup is unchanged.
+
+The former public `/meta/oauth/instagram/callback` completion route is removed.
+There is no public fallback. Reloading/closing Settings abandons its in-memory
+transaction; start again. Cancelling, closing the popup, timing out, switching
+Macro accounts, or selecting the wrong reconnect account produces a recoverable
+Settings error. A page opened without its initiating window cannot complete.
+Connect Instagram from the configured Macro web origin, including on mobile;
+external desktop-app browsers do not share the initiating web transaction.
+
+Before enabling Instagram, deploy the web callback and the backend fix together,
+set `META_INSTAGRAM_REDIRECT_URI` to the exact web callback URL, and allowlist that
+same URL in the Meta app’s Instagram Business Login settings. Remove the obsolete
+DSS OAuth callback from the allowlist. Keep unrelated apps and webhook callbacks
+unchanged. Serve the callback as the static HTML file (never rewrite it to the app
+shell); exclude its query string from CDN/proxy access logs, analytics and error
+reporting, and serve it with `Cache-Control: no-store` and
+`Referrer-Policy: no-referrer`. OAuth begin/complete responses are also no-store.
+The current website CloudFront distribution uses legacy access logging, which
+includes query strings. Changing only the redirect allowlist is unsafe: disable
+or replace that query-bearing logging before enabling this callback. Its shared
+response-header policy must also preserve the popup opener (COOP
+`same-origin-allow-popups` or compatible behavior), and the callback needs a
+no-store response policy instead of the static-asset max-age policy. These are
+release configuration gates; local tests do not validate deployed policies.
+For local testing, the callback may be on a trusted HTTPS loopback origin that
+the browser can reach and Meta accepts in its redirect allowlist. Webhooks still
+need their narrowly exposed public HTTPS endpoint. Do not expose the local
+passwordless app to the internet just to receive the browser redirect.

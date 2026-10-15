@@ -125,10 +125,6 @@ where
             "/webhooks/{provider}",
             get(verify::<Eas, Auth>).post(receive::<Eas, Auth>),
         )
-        .route(
-            "/oauth/instagram/callback",
-            get(instagram_callback::<Eas, Auth>),
-        )
         .layer(DefaultBodyLimit::max(super::webhook::MAX_WEBHOOK_BYTES))
         .with_state(state)
 }
@@ -190,11 +186,14 @@ async fn begin<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
     a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
     Json(body): Json<BeginRequest>,
-) -> Result<Json<BeginAuthorization>, ApiError> {
-    Ok(Json(
-        s.service
-            .begin_authorization(&a.entity_access_receipt, body.provider, body.reconnect_id)
-            .await?,
+) -> Result<impl IntoResponse, ApiError> {
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(
+            s.service
+                .begin_authorization(&a.entity_access_receipt, body.provider, body.reconnect_id)
+                .await?,
+        ),
     ))
 }
 #[utoipa::path(post,path="/meta/authorize/complete",operation_id="meta_authorize_complete",request_body=CompleteAuthorization,responses((status=200,body=Connection)))]
@@ -202,11 +201,14 @@ async fn complete<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
     a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
     Json(body): Json<CompleteAuthorization>,
-) -> Result<Json<Connection>, ApiError> {
-    Ok(Json(
-        s.service
-            .complete_authorization(&a.entity_access_receipt, body)
-            .await?,
+) -> Result<impl IntoResponse, ApiError> {
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(
+            s.service
+                .complete_authorization(&a.entity_access_receipt, body)
+                .await?,
+        ),
     ))
 }
 #[utoipa::path(post,path="/meta/developer/whatsapp",operation_id="meta_developer_whatsapp",responses((status=200,body=Connection)))]
@@ -386,33 +388,6 @@ struct Verification {
     token: String,
     #[serde(rename = "hub.challenge")]
     challenge: String,
-}
-#[derive(Deserialize)]
-struct InstagramCallback {
-    state: String,
-    code: Option<String>,
-    error: Option<String>,
-}
-async fn instagram_callback<E: Send + Sync + 'static, A: Send + Sync + 'static>(
-    State(s): State<MessagingRouterState<E, A>>,
-    Query(q): Query<InstagramCallback>,
-) -> Result<axum::response::Html<&'static str>, ApiError> {
-    if q.error.is_some() {
-        return Ok(axum::response::Html(
-            "<!doctype html><meta name=viewport content='width=device-width'><title>Instagram connection cancelled</title><p>Instagram access was not granted. Close this window and return to Macro to try again.</p>",
-        ));
-    }
-    s.service
-        .instagram_callback(
-            q.state,
-            q.code.ok_or(MessagingError::Invalid(
-                "Instagram did not return an authorization code",
-            ))?,
-        )
-        .await?;
-    Ok(axum::response::Html(
-        "<!doctype html><meta name=viewport content='width=device-width'><title>Instagram connected</title><p>Instagram authorization received. Close this window and return to Macro. Connection status will update in Settings.</p>",
-    ))
 }
 fn credentials<E, A>(
     state: &MessagingRouterState<E, A>,

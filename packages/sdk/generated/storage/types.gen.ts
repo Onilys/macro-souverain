@@ -9402,6 +9402,10 @@ export type MessageTopicEvent = {
  */
 export type MetaBeginAuthorization = {
     /**
+     * Secret proof retained only by the initiating Instagram window; never sent to Meta.
+     */
+    browser_transaction?: string | null;
+    /**
      * Public SDK/login configuration.
      */
     configuration: MetaPublicConfiguration;
@@ -9415,6 +9419,10 @@ export type MetaBeginAuthorization = {
  * Callback input. Tokens are always exchanged server-side.
  */
 export type MetaCompleteAuthorization = {
+    /**
+     * Proof returned at initiation; mandatory for Instagram, absent for WhatsApp.
+     */
+    browser_transaction?: string | null;
     business_account_id?: null | MetaProviderId;
     /**
      * Single-use authorization code.

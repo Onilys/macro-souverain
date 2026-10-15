@@ -133,6 +133,7 @@ async fn instagram_oauth_exchanges_tokens_and_requires_both_scopes() {
     let server = server().await;
     let client = client(&server);
     let input = CompleteAuthorization {
+        browser_transaction: None,
         state: "fixture".into(),
         code: "fixture-code".into(),
         business_account_id: None,
@@ -242,6 +243,7 @@ async fn production_requires_coexistence_but_explicit_test_number_does_not() {
     let server = server().await;
     let client = client(&server);
     let input = CompleteAuthorization {
+        browser_transaction: None,
         state: "fixture".into(),
         code: "fixture-code".into(),
         business_account_id: Some("waba".to_owned().try_into().unwrap()),
