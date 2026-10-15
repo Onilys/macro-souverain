@@ -370,6 +370,14 @@ fn test_email_err() -> EmailErr {
 }
 
 impl EmailUserService for CountingEmailService {
+    async fn get_user_email_senders(
+        &self,
+        _user: MacroUserIdStr<'static>,
+        _link: Uuid,
+    ) -> Result<Vec<email::domain::senders::SendAsAddress>, EmailErr> {
+        Ok(vec![])
+    }
+
     async fn get_user_email_labels(
         &self,
         macro_id: MacroUserIdStr<'static>,
@@ -425,6 +433,15 @@ impl EmailUserService for CountingEmailService {
 }
 
 impl EmailService for CountingEmailService {
+    async fn send_message_for_user(
+        &self,
+        _user: MacroUserIdStr<'static>,
+        _link: Option<Uuid>,
+        _input: email::domain::models::CreateDraftInput,
+    ) -> Result<email::domain::models::CreatedDraft, EmailErr> {
+        Err(test_email_err())
+    }
+
     async fn set_thread_archived(
         &self,
         user_id: MacroUserIdStr<'static>,
@@ -1298,7 +1315,10 @@ async fn soup_updates_subscribes_as_the_authenticated_user() {
     let document_id = Uuid::from_u128(42);
     let deleted_document_id = Uuid::from_u128(43);
     soup_service.set_raw_response(vec![soup_document(document_id)]);
-    let loader = graphql_soup::soup_item_loader(soup_service.clone(), Arc::new(NoOpEmailService));
+    let loader = graphql_soup::SoupUpdateHydrationLoader(graphql_soup::soup_item_loader(
+        soup_service.clone(),
+        Arc::new(NoOpEmailService),
+    ));
     let schema: SoupSchema<
         CountingSoupService,
         TestRealtimeSubscriptionService,

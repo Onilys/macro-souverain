@@ -17,6 +17,19 @@ export type CrmActivityTab = (typeof CRM_ACTIVITY_TABS)[number]['id'];
 export function isCrmActivityTab(value: string): value is CrmActivityTab {
   return CRM_ACTIVITY_TABS.some((tab) => tab.id === value);
 }
+const PIPELINE_TAB_PREFIX = 'pipeline:';
+
+/** The workspace tab that shows a pipeline. */
+export function pipelineTab(pipelineId: string): string {
+  return `${PIPELINE_TAB_PREFIX}${pipelineId}`;
+}
+
+/** The pipeline a workspace tab shows, if any. */
+export function pipelineIdOfTab(tab: string | undefined): string | undefined {
+  return tab?.startsWith(PIPELINE_TAB_PREFIX)
+    ? tab.slice(PIPELINE_TAB_PREFIX.length)
+    : undefined;
+}
 
 export type CrmListConfig = {
   kind: 'crm-list';

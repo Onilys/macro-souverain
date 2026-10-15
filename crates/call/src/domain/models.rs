@@ -49,8 +49,8 @@ pub struct ArchivedCall {
     pub duration_ms: i64,
     /// Whether a recording egress was started before the call was archived.
     pub has_recording: bool,
-    /// Number of distinct participants over the call's lifetime.
-    pub participant_count: usize,
+    /// Macro accounts that joined the call over its lifetime, once each.
+    pub participants: Vec<String>,
 }
 
 /// The people known to have been on, or invited to, an archived call.
@@ -629,6 +629,28 @@ pub struct GetCallRecordsRequest {
     pub limit: u32,
     /// Sort or cursor-based pagination query with optional filter.
     pub query: Query<Uuid, SimpleSortMethod, LiteralTree<CallLiteral>>,
+}
+
+/// The order and keyset position of one page of a user's call records.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CallRecordPage {
+    /// Order by start time; otherwise by last activity (end time, or start
+    /// time for a call that has not ended), the way Soup sorts calls.
+    pub by_start: bool,
+    /// Resume strictly after this sort timestamp and call id.
+    pub after: Option<(DateTime<Utc>, Uuid)>,
+}
+
+impl CallRecordPage {
+    /// The page a Soup query asks for.
+    pub fn from_query<F>(query: &Query<Uuid, SimpleSortMethod, F>) -> Self {
+        let by_start = matches!(query.sort_method(), SimpleSortMethod::CreatedAt);
+        let after = match query {
+            Query::Sort(..) => None,
+            Query::Cursor(cursor) => Some((cursor.val.last_val, cursor.id)),
+        };
+        Self { by_start, after }
+    }
 }
 
 /// Errors that can occur when adding a participant to a call at the

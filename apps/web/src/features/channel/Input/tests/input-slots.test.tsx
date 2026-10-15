@@ -666,10 +666,21 @@ describe('Input slots', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send message' }));
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
-    await user.click(screen.getByRole('button', { name: 'Attach files' }));
-    expect(screen.queryByRole('menu')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Format' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Delete reply' }));
+    // The menu is modal, so it opens last.
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(
+      screen.getAllByRole('menuitem').map((item) => item.textContent)
+    ).toEqual(
+      expect.arrayContaining([
+        'Mention@',
+        'Attach files',
+        'New task',
+        'New document',
+      ])
+    );
+    await user.click(screen.getByRole('menuitem', { name: 'Attach files' }));
 
     expect(onSend).toHaveBeenCalledOnce();
     expect(clickSpy).toHaveBeenCalledOnce();
@@ -693,7 +704,7 @@ describe('Input slots', () => {
     ));
 
     expect(screen.getByTestId('custom-actions')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Attach files' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
   });
 

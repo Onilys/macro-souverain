@@ -34,7 +34,7 @@ pub fn build_dmg_job(ref_expr: &str) -> Job {
     Job::default()
         .name("Build macOS DMG")
         .runs_on(vec![
-            format!("{}-with-cache", runners::Runner::MacOsArm),
+            format!("{}-with-cache", runners::Runner::MacOsArmLarge),
             "nscloud-cache-tag-macro-desktop-macos".to_owned(),
             format!("nscloud-cache-size-{NIX_CACHE_SIZE_GB}gb"),
         ])

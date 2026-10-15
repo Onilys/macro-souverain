@@ -1411,11 +1411,34 @@ where
     }
 }
 
-/// GraphQL representation of the soup email participant.
+/// Legacy contact-keyed participant, retained for older clients during rollout.
 #[derive(SimpleObject)]
 pub struct GraphqlSoupEmailParticipant {
-    /// The unique identifier.
+    /// The referenced address-book contact's identifier.
     id: ID,
+    /// The message-specific sender fields exposed by the legacy participant.
+    #[graphql(flatten)]
+    sender: GraphqlSoupEmailSender,
+}
+
+impl GraphqlSoupEmailParticipant {
+    /// Construct the legacy participant representation.
+    pub fn new(value: &SoupContact) -> Self {
+        Self {
+            id: ID(value.id.to_string()),
+            sender: GraphqlSoupEmailSender::new(value),
+        }
+    }
+}
+
+/// A thread-local sender with the display name from their message.
+///
+/// This is an embedded value: different messages from one contact can carry
+/// different names, so the contact ID must not normalize them into one record.
+#[derive(SimpleObject)]
+pub struct GraphqlSoupEmailSender {
+    /// The referenced address-book contact's identifier.
+    contact_id: ID,
     /// The identifier of the link.
     link_id: ID,
     /// The name.
@@ -1426,11 +1449,11 @@ pub struct GraphqlSoupEmailParticipant {
     sfs_photo_url: Option<String>,
 }
 
-impl GraphqlSoupEmailParticipant {
-    /// Construct a GraphQL email participant from the Soup model.
+impl GraphqlSoupEmailSender {
+    /// Construct a thread-local sender from the Soup model.
     pub fn new(value: &SoupContact) -> Self {
         Self {
-            id: ID(value.id.to_string()),
+            contact_id: ID(value.id.to_string()),
             link_id: ID(value.link_id.to_string()),
             name: value.name.clone(),
             email: value.email_address.clone(),
@@ -1631,12 +1654,22 @@ where
         self.0.participants.len()
     }
 
-    /// The participants.
+    /// Legacy contact-keyed participants. Use senders for message-specific names.
+    #[graphql(deprecation = "Use senders to preserve message-specific display names.")]
     async fn participants(&self) -> Vec<GraphqlSoupEmailParticipant> {
         self.0
             .participants
             .iter()
             .map(GraphqlSoupEmailParticipant::new)
+            .collect()
+    }
+
+    /// Senders with message-specific display names, embedded in this thread.
+    async fn senders(&self) -> Vec<GraphqlSoupEmailSender> {
+        self.0
+            .participants
+            .iter()
+            .map(GraphqlSoupEmailSender::new)
             .collect()
     }
 

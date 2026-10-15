@@ -353,6 +353,8 @@ export interface ComposeTaskProps {
   /** Start in this project, e.g. when composing from the project's page. */
   initialProjectId?: string;
   composerContext?: TaskComposerContext;
+  /** Prefill the visible Due Date control when creating from a timeline. */
+  initialDueDate?: Date;
   /**
    * When provided, replaces the default success behavior (auto-copy link +
    * toast) so the caller can handle the created task however it needs.
@@ -393,18 +395,24 @@ export function ComposeTask(props: ComposeTaskProps) {
     };
   };
 
-  // A project the composer opens in applies on top of a restored draft too.
-  const withInitialProject = (
+  // Contextual project and date values apply without discarding a restored draft.
+  const withInitialProperties = (
     values: Record<string, PropertyApiValues>
-  ): Record<string, PropertyApiValues> =>
-    props.initialProjectId
-      ? {
-          ...values,
-          [SYSTEM_PROPERTY_IDS.PROJECT]: taskComposerProjectValue(
-            props.initialProjectId
-          ),
-        }
-      : values;
+  ): Record<string, PropertyApiValues> => {
+    const next = { ...values };
+    if (props.initialProjectId) {
+      next[SYSTEM_PROPERTY_IDS.PROJECT] = taskComposerProjectValue(
+        props.initialProjectId
+      );
+    }
+    if (props.initialDueDate) {
+      next[SYSTEM_PROPERTY_IDS.DUE_DATE] = {
+        valueType: 'DATE',
+        value: props.initialDueDate,
+      };
+    }
+    return next;
+  };
 
   // draft init logic
   const initializeFromDraft = () => {
@@ -419,7 +427,7 @@ export function ComposeTask(props: ComposeTaskProps) {
           title: draft.title,
           content: draft.content,
           editorState: draft.editorState,
-          propertyValues: withInitialProject(draft.propertyValues),
+          propertyValues: withInitialProperties(draft.propertyValues),
           visiblePropertyIds:
             draft.visiblePropertyIds ??
             props.composerContext?.visiblePropertyIds,
@@ -431,7 +439,7 @@ export function ComposeTask(props: ComposeTaskProps) {
       title: props.initialTitle ?? '',
       content: props.initialContent ?? '',
       editorState: undefined,
-      propertyValues: withInitialProject(getDefaultPropertyValues()),
+      propertyValues: withInitialProperties(getDefaultPropertyValues()),
       visiblePropertyIds: props.composerContext?.visiblePropertyIds,
       isDraftLoaded: false,
     };
@@ -841,7 +849,7 @@ export function ComposeTask(props: ComposeTaskProps) {
     setTitle('');
     setContent('');
     setPropertyValues(
-      reconcile(withInitialProject(getDefaultPropertyValues()))
+      reconcile(withInitialProperties(getDefaultPropertyValues()))
     );
     setVisiblePropertyIds(
       props.composerContext?.visiblePropertyIds ??

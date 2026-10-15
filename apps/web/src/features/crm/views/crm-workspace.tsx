@@ -27,8 +27,10 @@ import PlusIcon from '@phosphor/plus.svg';
 import { Button, Dropdown, Tooltip } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import {
+  createEffect,
   createSignal,
   type JSX,
+  on,
   onCleanup,
   onMount,
   Show,
@@ -45,6 +47,8 @@ import {
   CRM_ACTIVITY_TABS,
   CRM_RECORDS,
   isCrmActivityTab,
+  pipelineIdOfTab,
+  pipelineTab,
 } from '../core/navigation';
 import { createCrmExportLoader } from '../primitives/export-source';
 import { CrmActivityView } from './activity';
@@ -214,6 +218,16 @@ export function CrmWorkspaceView(props: {
   const { openWithSplit } = useCrmContext().createNavigation();
   const [selectedRecord, setSelectedRecord] = createSignal<CrmRecordRef>();
   const closeRecord = () => setSelectedRecord(undefined);
+  // Back and Forward change the tab without going through sidebar navigation.
+  createEffect(
+    on(
+      view.activeTab,
+      () => {
+        closeRecord();
+      },
+      { defer: true }
+    )
+  );
   const showRecord = (record: CrmRecordRef) => {
     view.host.captureEntryState();
     setSelectedRecord(record);
@@ -255,15 +269,23 @@ export function CrmWorkspaceView(props: {
   );
   const [creatingPipeline, setCreatingPipeline] = createSignal(false);
   const pipelineId = () =>
-    pipelinesEnabled() && view.activeTab()?.startsWith('pipeline:')
-      ? view.activeTab()?.slice('pipeline:'.length)
-      : undefined;
+    pipelinesEnabled() ? pipelineIdOfTab(view.activeTab()) : undefined;
   const activePipeline = () =>
     pipelines.pipelines().find((pipeline) => pipeline.id === pipelineId());
   const selectPipeline = (id: string) => {
     closeRecord();
-    view.setActiveTab(`pipeline:${id}`);
+    view.setActiveTab(pipelineTab(id));
   };
+  // The first request already chose the initial tab.
+  createEffect(
+    on(
+      view.host.pipelineRequest,
+      (request) => {
+        if (request) selectPipeline(request.pipelineId);
+      },
+      { defer: true }
+    )
+  );
   const listsEnabled = useCrmContext().listsEnabled();
   const lists = useCrmLists(() => (listsEnabled() ? teamId() : undefined));
   const [editing, setEditing] = createSignal<{
@@ -281,13 +303,35 @@ export function CrmWorkspaceView(props: {
   const [exporting, setExporting] = createSignal(false);
   const activeList = () =>
     lists.lists().find((list) => `list:${list.id}` === active());
+  // A list tab from the URL has no preset, so apply its company filter once the list loads.
+  createEffect(() => {
+    const list = activeList();
+    if (!list) return;
+    const expected = list.config.companyIds.length
+      ? list.config.companyIds
+      : [NIL_UUID];
+    const current = view.queryFilters.state.include.crmCompanyId;
+    if (
+      current?.length === expected.length &&
+      current.every((id, index) => id === expected[index])
+    )
+      return;
+    const preset = getViewPreset('companies');
+    const filters = structuredClone(preset?.filters ?? {});
+    filters.include = {
+      ...filters.include,
+      crmCompanyId: expected,
+    };
+    view.queryFilters.replace(filters);
+  });
   // Every other tab (hidden companies, saved or shared views) is a company view.
-  const activeRecord = () =>
-    pipelineId()
-      ? `pipeline:${pipelineId()}`
-      : active().startsWith('list:') || peopleActive() || activityTab()
-        ? active()
-        : 'active';
+  const activeRecord = () => {
+    const id = pipelineId();
+    if (id) return pipelineTab(id);
+    return active().startsWith('list:') || peopleActive() || activityTab()
+      ? active()
+      : 'active';
+  };
   const title = () =>
     activeList()?.name ??
     [...CRM_RECORDS, ...CRM_ACTIVITY_TABS].find(
@@ -395,11 +439,11 @@ export function CrmWorkspaceView(props: {
               active={activeRecord()}
               pipelines={pipelinesEnabled() ? pipelines.pipelines() : []}
               lists={listsEnabled() ? lists.lists() : []}
-              onNavigate={(id) =>
-                id.startsWith('pipeline:')
-                  ? selectPipeline(id.slice('pipeline:'.length))
-                  : navigate(id)
-              }
+              onNavigate={(id) => {
+                const pipeline = pipelineIdOfTab(id);
+                if (pipeline) selectPipeline(pipeline);
+                else navigate(id);
+              }}
               leading={
                 <Show when={!peopleActive() && !pipelineId() && !activityTab()}>
                   <Suspense>
@@ -442,7 +486,7 @@ export function CrmWorkspaceView(props: {
                   onCopyLink={() =>
                     copyViewLink({
                       kind: 'crm',
-                      activeTab: `pipeline:${id}`,
+                      activeTab: pipelineTab(id),
                     })
                   }
                   onTrashed={() => navigate('active')}

@@ -1,6 +1,5 @@
 import { DEV_MODE_ENV } from '@core/constant/featureFlags';
 import {
-  isSlackPipedreamSlug,
   SLACK_CONNECT_SLUG,
   SLACK_PIPEDREAM_SLUGS,
 } from '@core/pipedream/slugs';
@@ -104,15 +103,6 @@ export const PIPEDREAM_ICON_MAP: Map<string, SvgIcon> = new Map([
     IconSlack as SvgIcon,
   ]),
 ]);
-
-/**
- * Whether a Pipedream catalog app should be offered in this environment.
- * Mirrors the gating in {@link QUICK_CONNECT_SERVERS} (Slack is dev-only).
- */
-export function pipedreamAppAvailableInEnv(appSlug: string): boolean {
-  if (DEV_MODE_ENV) return true;
-  return !isSlackPipedreamSlug(appSlug);
-}
 
 const SERVER_NAME_ICON_MAP: Map<string, SvgIcon> = new Map(
   QUICK_CONNECT_SERVERS.map((s) => [s.server_name.toLowerCase(), s.icon])

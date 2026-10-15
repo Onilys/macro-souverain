@@ -1,6 +1,10 @@
 import { type PillTabItem, PillTabs } from '@components/app/mobile/PillTabs';
 import type { JSX } from 'solid-js';
-import { CRM_ACTIVITY_TABS, CRM_RECORDS } from '../core/navigation';
+import {
+  CRM_ACTIVITY_TABS,
+  CRM_RECORDS,
+  pipelineTab,
+} from '../core/navigation';
 
 export function CrmMobileTabs(props: {
   active: string;
@@ -15,7 +19,7 @@ export function CrmMobileTabs(props: {
       label: record.label,
     })),
     ...props.pipelines.map((pipeline) => ({
-      value: `pipeline:${pipeline.id}`,
+      value: pipelineTab(pipeline.id),
       label: pipeline.name,
     })),
     ...props.lists.map((list) => ({

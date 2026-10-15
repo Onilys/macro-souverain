@@ -7,6 +7,20 @@ fn rendered_yaml() -> String {
 }
 
 #[test]
+fn desktop_release_uses_larger_isolated_runners() {
+    let yaml = rendered_yaml();
+    assert!(
+        yaml.contains("namespace-profile-linux-mid;overrides.cache-tag=desktop-linux"),
+        "{yaml}"
+    );
+    assert!(
+        yaml.contains("nscloud-macos-sequoia-arm64-12x28-with-cache"),
+        "{yaml}"
+    );
+    assert!(yaml.contains("nscloud-cache-tag-macro-desktop-macos"));
+}
+
+#[test]
 fn installers_publish_without_waiting_on_updater_signing() {
     let yaml = rendered_yaml();
     let installers = yaml

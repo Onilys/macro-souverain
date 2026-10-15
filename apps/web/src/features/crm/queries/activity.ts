@@ -1,9 +1,12 @@
 import { queryReadyGate } from '@queries/gate';
-import type { useSoupAstItemsQuery } from '@queries/soup/items';
+import type {
+  SoupAstItemsQuery,
+  useSoupAstItemsQuery,
+} from '@queries/soup/items';
 import { soupKeys } from '@queries/soup/keys';
 import { fetchCrmContacts } from '@service-storage/crm-contacts';
 import { queryOptions, useQuery } from '@tanstack/solid-query';
-import { type Accessor, createMemo } from 'solid-js';
+import { type Accessor, createMemo, mergeProps } from 'solid-js';
 import type { CrmActivityTab } from '../core/navigation';
 import { crmActivityBody, NO_CRM_ACTIVITY } from './activity-filter';
 import { loadCrmActivityScope } from './activity-scope';
@@ -39,7 +42,7 @@ export function useCrmActivityQuery(
   createQuery: typeof useSoupAstItemsQuery,
   tab: Accessor<CrmActivityTab>,
   userId: Accessor<string | undefined>
-) {
+): SoupAstItemsQuery {
   const scope = useQuery(
     () => activityScopeOptions(deps, userId()),
     () => deps.client
@@ -56,7 +59,7 @@ export function useCrmActivityQuery(
     }),
     () => ({ enabled: scope.isSuccess })
   );
-  return {
+  return mergeProps(query, {
     get isPending() {
       return scope.isPending || query.isPending;
     },
@@ -66,22 +69,22 @@ export function useCrmActivityQuery(
     get isLoading() {
       return scope.isLoading || query.isLoading;
     },
-    get isError() {
-      return scope.isError || !!query.error;
+    get isFetching() {
+      return scope.isFetching || query.isFetching;
     },
-    get data() {
-      return queryReadyGate(query) ? query.data : undefined;
+    get isFetchNextPageError() {
+      return !scope.error && query.isFetchNextPageError;
     },
-    get hasNextPage() {
-      return query.hasNextPage;
+    get error() {
+      return scope.error ?? query.error;
     },
-    get isFetchingNextPage() {
-      return query.isFetchingNextPage;
-    },
-    fetchNextPage: () => query.fetchNextPage(),
     async refetch() {
       await scope.refetch({ throwOnError: true });
       await query.refetch();
     },
-  };
+    async refresh() {
+      await scope.refetch({ throwOnError: true });
+      await query.refresh();
+    },
+  });
 }

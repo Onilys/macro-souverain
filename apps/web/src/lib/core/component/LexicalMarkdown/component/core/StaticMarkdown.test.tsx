@@ -23,6 +23,18 @@ vi.mock('../decorator/AgentSessionMention', () => ({
   },
 }));
 
+vi.mock('../decorator/BookingLinkMention', () => ({
+  BookingLinkMention: (props: {
+    profileId: string;
+    slug?: string;
+    url: string;
+  }) => (
+    <span data-test-booking-link={props.profileId} data-test-url={props.url}>
+      {props.slug ?? props.profileId}
+    </span>
+  ),
+}));
+
 vi.mock('../decorator/PullRequestMention', () => ({
   PullRequestMention: (props: { id: string; url?: string; label?: string }) => (
     <span data-pr-chip={props.id || props.url}>{props.label}</span>

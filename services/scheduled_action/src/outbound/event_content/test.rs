@@ -224,6 +224,77 @@ fn tasks_show_option_labels_and_skip_unset_properties() {
 }
 
 #[test]
+fn calls_show_who_joined_and_what_they_said() {
+    use call::domain::models::{CallRecordParticipant, CallRecordTranscriptSegment};
+    let at = Utc.with_ymd_and_hms(2026, 10, 8, 14, 0, 0).unwrap();
+    let record = CallRecord {
+        call_id: Uuid::nil(),
+        channel_id: None,
+        room_name: "room".into(),
+        created_by: "macro|owner@example.com".into(),
+        started_at: at,
+        ended_at: Some(at + chrono::Duration::minutes(30)),
+        duration_ms: Some(1_800_000),
+        egress_id: None,
+        recording_started_at: None,
+        recording_key: Some("private/recording.mp4".into()),
+        preview_key: None,
+        recording_url: None,
+        recording_preview_url: None,
+        channel_name: None,
+        custom_name: Some("Acme renewal".into()),
+        summary: Some("Acme will renew if we ship SSO.".into()),
+        team_share_access_level: None,
+        share_with_team: false,
+        is_active: false,
+        status: None,
+        user_access_level: None,
+        viewer_has_declined: false,
+        participants: vec![CallRecordParticipant {
+            user_id: "macro|owner@example.com".into(),
+            joined_at: at,
+            left_at: None,
+        }],
+        guests: Vec::new(),
+        transcript: vec![CallRecordTranscriptSegment {
+            transcript_id: Uuid::nil(),
+            segment_id: None,
+            speaker_id: "macro|owner@example.com".into(),
+            diarized_speaker_id: None,
+            content: "When do you need SSO?".into(),
+            started_at: at,
+            ended_at: None,
+            sequence_num: 0,
+        }],
+    };
+
+    let event = event("call.ended", None);
+    let value = envelope(
+        &owner(),
+        &event,
+        content_json(&event, &EventContent::Call(Some(record))),
+    );
+    assert_eq!(value["event"], "call.ended");
+    assert_eq!(
+        value["call"],
+        json!({
+            "title": "Acme renewal",
+            "channel": null,
+            "started_at": "2026-10-08T14:00:00Z",
+            "ended_at": "2026-10-08T14:30:00Z",
+            "participants": ["owner@example.com"],
+            "summary": "Acme will renew if we ship SSO.",
+            "transcript": ["owner@example.com: When do you need SSO?"],
+            "transcript_omitted": false,
+        })
+    );
+    assert_eq!(
+        content_json(&event, &EventContent::Call(None))["call"],
+        json!({"unavailable": "the call record is no longer available"})
+    );
+}
+
+#[test]
 fn deleted_documents_say_so_without_content() {
     let mut document = task();
     document.sub_type = None;

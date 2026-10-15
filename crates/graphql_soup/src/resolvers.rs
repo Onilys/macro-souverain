@@ -23,7 +23,7 @@ use soup_realtime::domain::{models::Patch, ports::SoupRealtimeSubscriptionServic
 
 use crate::{
     inputs::{GroupedSoupInput, SoupInput},
-    loaders::{AgentSessionEntityLoader, SoupItemDataLoader},
+    loaders::{AgentSessionEntityLoader, SoupItemDataLoader, SoupUpdateHydrationLoader},
     objects::{
         GraphqlSoupAgentSession, GraphqlSoupEmailThread, GraphqlSoupEntity, GroupedSoup,
         SoupEntityEdges, SoupPage, SoupPatch,
@@ -46,7 +46,9 @@ where
 {
     let macro_user_id = require_authorized_user::<Auth, St>(ctx).await?;
     let mut receiver = service.subscribe(macro_user_id.clone());
-    let loader = ctx.data_opt::<SoupItemDataLoader>().cloned();
+    let loader = ctx
+        .data_opt::<SoupUpdateHydrationLoader>()
+        .map(|loader| loader.0.clone());
     const BUFFER_SIZE: usize = 10;
     let mut buf = Vec::with_capacity(BUFFER_SIZE);
 

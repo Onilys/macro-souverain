@@ -60,6 +60,10 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 2.0.10
         CFBundleVersion: "187"
+        # Exempt encryption only (HTTPS / OS crypto): answers App Store
+        # Connect's export-compliance questionnaire for every build. Keep in
+        # sync with src-tauri/Info.ios.plist.
+        ITSAppUsesNonExemptEncryption: false
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - macro

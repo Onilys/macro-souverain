@@ -74,7 +74,7 @@ jobs:
     needs:
     - resolve-ref
     name: Build AppImage
-    runs-on: namespace-profile-linux-rust-ci
+    runs-on: namespace-profile-linux-mid;overrides.cache-tag=desktop-linux
     steps:
     - name: Checkout Repo
       uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -203,7 +203,7 @@ jobs:
     - resolve-ref
     name: Build macOS DMG
     runs-on:
-    - nscloud-macos-sequoia-arm64-6x14-with-cache
+    - nscloud-macos-sequoia-arm64-12x28-with-cache
     - nscloud-cache-tag-macro-desktop-macos
     - nscloud-cache-size-100gb
     env:
@@ -711,7 +711,8 @@ jobs:
           --header "Authorization: Bearer $DOPPLER_TOKEN" \
           'https://api.doppler.com/v3/configs/config/secrets/download?project=macos-release&config=prd&format=json&secrets=TAURI_SIGNING_PRIVATE_KEY,TAURI_SIGNING_PRIVATE_KEY_PASSWORD' \
           > "$credentials_dir/secrets.json"
-        jq -er '.TAURI_SIGNING_PRIVATE_KEY | strings | select(length > 0)' \
+        # The Tauri signer rejects the newline that jq normally appends to raw output.
+        jq -jer '.TAURI_SIGNING_PRIVATE_KEY | strings | select(length > 0)' \
           "$credentials_dir/secrets.json" > "$credentials_dir/updater.key"
         export TAURI_SIGNING_PRIVATE_KEY_PATH="$credentials_dir/updater.key"
         TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(jq -r '.TAURI_SIGNING_PRIVATE_KEY_PASSWORD // ""' "$credentials_dir/secrets.json")

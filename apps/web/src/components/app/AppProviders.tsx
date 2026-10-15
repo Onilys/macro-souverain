@@ -29,6 +29,7 @@ import {
   useReopenTrackedEntitiesOnReconnect,
 } from '@service-connection/client';
 import { ws as connectionGatewayWebsocket } from '@service-connection/websocket';
+import { ImperativeDialogHost } from '@ui';
 import type { ParentProps } from 'solid-js';
 
 function ConfiguredGlobalAppStateProvider(props: ParentProps) {
@@ -101,6 +102,8 @@ export function AppProviders(props: ParentProps) {
         <MutationUndoProvider>
           <SearchProvider>
             <IncomingMeetingInvitationsProvider>
+              {/* Ownerless dialogs inherit app state, not a transient menu owner. */}
+              <ImperativeDialogHost />
               {props.children}
             </IncomingMeetingInvitationsProvider>
           </SearchProvider>

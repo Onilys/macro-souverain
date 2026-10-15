@@ -1,11 +1,12 @@
 import type { IUser } from '@core/user';
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
-import { createEditor } from 'lexical';
+import { createEditor, type LexicalEditor } from 'lexical';
 import { createSignal, type ParentProps } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createMenuOperations } from '../../../shared/inlineMenu';
 import { useEmailSearchMention } from './hooks/useEmailSearchMention';
 import { MentionsMenu } from './MentionsMenu';
+import { createItemHandler } from './utils/mentionHandlers';
 import * as mobileSort from './utils/mobileSort';
 
 const mocks = vi.hoisted(() => ({
@@ -296,4 +297,29 @@ it('opens cell pickers without replaying the menu entrance animation', () => {
   ));
   expect(screen.getByText('No results')).toBeTruthy();
   expect(container.querySelector('.menu-open-animation')).toBeNull();
+});
+
+it('records mentions against the editing source outside a legacy block', () => {
+  vi.mocked(useEmailSearchMention).mockReturnValue({
+    emails: () => [],
+    totalCount: () => 0,
+    hasMore: () => false,
+    isLoadingMore: () => false,
+    loadMore: async () => {},
+  } as unknown as ReturnType<typeof useEmailSearchMention>);
+  const editor = {
+    dispatchCommand: vi.fn(),
+    getRootElement: () => null,
+  } as unknown as LexicalEditor;
+  render(() => (
+    <MentionsMenu
+      menu={createMenuOperations()}
+      users={() => []}
+      editor={editor}
+      sourceDocumentId="doc-1"
+    />
+  ));
+  expect(createItemHandler).toHaveBeenCalledWith(
+    expect.objectContaining({ blockId: 'doc-1' })
+  );
 });

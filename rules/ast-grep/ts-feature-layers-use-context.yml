@@ -5,7 +5,7 @@ language: typescript
 severity: warning
 message: Supply app capabilities through feature-owned contracts; construct production adapters at the feature root.
 note: |-
-  Rule FE-33 in docs/STYLE_GUIDE.md. Inside a layered feature, `queries/`,
+  Rule FE-33 in docs/development/style-guide.md. Inside a layered feature, `queries/`,
   `primitives/`, `components/`, and `views/` never import the app's singletons
   or context hooks (GraphQL soup client, user context, display names,
   entity display, openDocument, PostHog). Those arrive through the
