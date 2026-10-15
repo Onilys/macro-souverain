@@ -99,6 +99,8 @@ export function ListEntity(props: ListEntityProps) {
   const rowActions = children(() => props.actions);
   const leadingAction = children(() => props.leadingAction);
   const titleLeading = children(() => props.titleLeading);
+  const icon = children(() => props.icon);
+  const titleTrailing = children(() => props.titleTrailing);
   const meta = children(() => props.meta);
   const scheduleStatus = children(() => props.scheduleStatus);
 
@@ -159,6 +161,8 @@ export function ListEntity(props: ListEntityProps) {
     actions: !isTouchDevice() ? rowActions() : undefined,
     leadingAction: !isTouchDevice() ? leadingAction() : undefined,
     titleLeading: titleLeading(),
+    icon: icon(),
+    titleTrailing: titleTrailing(),
     meta: meta(),
     scheduleStatus: scheduleStatus(),
     authorDisplayName: props.authorDisplayName,
@@ -206,6 +210,9 @@ export function ListEntity(props: ListEntityProps) {
 
   return (
     <Entity.Root
+      role={props.role}
+      tabIndex={props.tabIndex}
+      onKeyDown={props.onKeyDown}
       entity={props.entity}
       onClick={(e) => {
         if (e.metaKey && props.onChecked) {

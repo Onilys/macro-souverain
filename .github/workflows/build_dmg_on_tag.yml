@@ -16,7 +16,7 @@ jobs:
   build-dmg:
     name: Build macOS DMG
     runs-on:
-    - nscloud-macos-sequoia-arm64-6x14-with-cache
+    - nscloud-macos-sequoia-arm64-12x28-with-cache
     - nscloud-cache-tag-macro-desktop-macos
     - nscloud-cache-size-100gb
     env:

@@ -2,7 +2,6 @@ import { SidePanel } from '@components/app/side-panel';
 import PlusIcon from '@phosphor/plus.svg';
 import { Button } from '@ui';
 import { createMemo, Match, Show, Suspense, Switch } from 'solid-js';
-import { RecordSection } from '../components/record-section';
 import { useCrmContext } from '../context/crm-context';
 import type { CrmContact as CompanyContact } from '../core/contact';
 import {
@@ -83,12 +82,13 @@ export function Company(props: {
               </div>
             </Match>
             <Match when={section() === 'team'}>
-              <RecordSection
-                title="Team"
+              <CompanyContactsSection
+                company={company()}
+                contacts={contacts()}
+                onOpenContact={props.onOpenContact}
                 actions={
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
                     // Contact emails are pinned to the company's primary
                     // domain; disabled until the company has loaded.
                     disabled={!company()?.domains[0]}
@@ -101,19 +101,11 @@ export function Company(props: {
                         });
                     }}
                   >
-                    <PlusIcon class="size-3.5" />
+                    <PlusIcon class="size-4" />
                     Add contact
                   </Button>
                 }
-              >
-                <div class="px-2">
-                  <CompanyContactsSection
-                    company={company()}
-                    contacts={contacts()}
-                    onOpenContact={props.onOpenContact}
-                  />
-                </div>
-              </RecordSection>
+              />
             </Match>
             <Match when={section() === 'emails'}>
               <CompanyEmailsSection company={company()} />
