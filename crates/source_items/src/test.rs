@@ -308,7 +308,7 @@ async fn refresh_before_update_does_not_deadlock_with_update_before_refresh(
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn bulk_refresh_relies_on_row_locks_alone(pool: PgPool) -> Result<(), sqlx::Error> {
-    let items = (ADVISORY_LOCK_LIMIT + 1) as i32;
+    let items = ADVISORY_LOCK_LIMIT + 1;
     sqlx::query!(
         r#"INSERT INTO "Document" (id, name, owner)
            SELECT '10000000-0000-4000-8000-' || lpad(n::text, 12, '0'), 'Document', 'owner'
@@ -336,5 +336,44 @@ async fn bulk_refresh_relies_on_row_locks_alone(pool: PgPool) -> Result<(), sqlx
     assert_eq!(advisory, Some(0));
     tx.commit().await?;
     assert_eq!(count(&pool).await?, i64::from(items));
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn advisory_locks_stay_within_the_transaction_limit(pool: PgPool) -> Result<(), sqlx::Error> {
+    let items = ADVISORY_LOCK_LIMIT + 10;
+    sqlx::query!(
+        r#"INSERT INTO "Document" (id, name, owner)
+           SELECT '10000000-0000-4000-8000-' || lpad(n::text, 12, '0'), 'Document', 'owner'
+           FROM generate_series(1, $1) n"#,
+        items,
+    )
+    .execute(&pool)
+    .await?;
+    let ids = sqlx::query_scalar!(r#"SELECT id FROM "Document" ORDER BY id"#)
+        .fetch_all(&pool)
+        .await?;
+    let advisory_locks = async |tx: &mut sqlx::PgConnection| {
+        sqlx::query_scalar!(
+            "SELECT count(*) FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'advisory'"
+        )
+        .fetch_one(tx)
+        .await
+    };
+    // A folder upload refreshes each new item on its own.
+    let mut tx = pool.begin().await?;
+    for id in &ids {
+        sync_one(&mut tx, EntityType::Document, id).await?;
+    }
+    assert_eq!(
+        advisory_locks(&mut *tx).await?,
+        Some(i64::from(ADVISORY_LOCK_LIMIT))
+    );
+    tx.commit().await?;
+    // The total starts again in the next transaction.
+    let mut tx = pool.begin().await?;
+    sync_one(&mut tx, EntityType::Document, &ids[0]).await?;
+    assert_eq!(advisory_locks(&mut *tx).await?, Some(1));
+    tx.rollback().await?;
     Ok(())
 }
