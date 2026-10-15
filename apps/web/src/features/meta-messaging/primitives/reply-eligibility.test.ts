@@ -39,5 +39,11 @@ it('expires using elapsed server time despite browser clock changes and accepts 
     modes: [{ mode: 'free_form', allowed: true }],
   });
   expect(allowed('free_form')).toBe(true);
+  expect(allowed('human_support')).toBe(false);
+  setDecision({
+    evaluated_at: 'invalid',
+    modes: [{ mode: 'free_form', allowed: true }],
+  });
+  expect(allowed('free_form')).toBe(false);
   dispose();
 });

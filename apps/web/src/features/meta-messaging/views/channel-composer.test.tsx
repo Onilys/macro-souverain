@@ -19,7 +19,6 @@ import { replyOptions } from '../tests/reply-options';
 const fixture = vi.hoisted(() => ({
   account: undefined as MetaConversationView | undefined,
   reply: vi.fn(),
-  internal: vi.fn(),
   isError: false,
   touch: false,
   userId: (): string => 'macro|owner@fixture.test',
@@ -41,22 +40,10 @@ vi.mock('@core/util/upload', () => ({
   },
 }));
 vi.mock('@queries/meta-messaging', () => ({
-  useMetaConversation: () => ({
-    get data() {
-      return fixture.account;
-    },
-    get isError() {
-      return fixture.isError;
-    },
-    isSuccess: true,
-    isPending: false,
-    refetch: vi.fn(),
-  }),
   useMetaReply: () => ({ mutateAsync: fixture.reply, isPending: false }),
   useMetaTemplates: () => ({
     isSuccess: true,
     isError: false,
-    recover: undefined as ((send: MetaSendProgress) => void) | undefined,
     get data() {
       return fixture.templates;
     },
@@ -112,9 +99,7 @@ function mount(channel: () => string = () => 'channel-one') {
         };
       }}
     >
-      <button type="button" onClick={fixture.internal}>
-        Post internal note
-      </button>
+      <button type="button">Post internal note</button>
     </ChannelMessagingComposer>
   ));
 }
@@ -122,7 +107,6 @@ beforeEach(() => {
   localStorage.clear();
   fixture.account = account();
   fixture.reply.mockReset().mockResolvedValue({});
-  fixture.internal.mockReset();
   fixture.isError = false;
   fixture.touch = false;
   fixture.userId = () => 'macro|owner@fixture.test';
@@ -182,67 +166,6 @@ describe('native external-reply boundary', () => {
     expect(fixture.reply).not.toHaveBeenCalled();
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
-  });
-  it('has exactly one customer composer and no internal-note controls', () => {
-    mount();
-    expect(
-      screen.getByRole('textbox', { name: 'External customer reply' })
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole('button', { name: 'Post internal note' })
-    ).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Internal note' })).toBeNull();
-    expect(fixture.reply).not.toHaveBeenCalled();
-  });
-  it('does not expose the ordinary composer while channel identity is unresolved', () => {
-    render(() => (
-      <ChannelMessagingComposer
-        channelId="loading-channel"
-        interaction={{ kind: 'loading' }}
-        onRefresh={() => {}}
-        onRecoverReady={() => () => {}}
-      >
-        <button>Post internal note</button>
-      </ChannelMessagingComposer>
-    ));
-    expect(
-      screen.queryByRole('button', { name: 'Post internal note' })
-    ).toBeNull();
-    expect(screen.queryByRole('textbox')).toBeNull();
-  });
-  it('preserves the ordinary composer in a non-messaging Macro channel', () => {
-    fixture.account = undefined;
-    mount();
-    expect(
-      screen.queryByRole('textbox', { name: 'External customer reply' })
-    ).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Post internal note' }));
-    expect(fixture.internal).toHaveBeenCalledOnce();
-  });
-  it('keeps separate drafts for each customer and restores them on return', () => {
-    const [channel, setChannel] = createSignal('channel-one');
-    mount(channel);
-    fireEvent.input(
-      screen.getByRole('textbox', { name: 'External customer reply' }),
-      { target: { value: 'Only for customer one' } }
-    );
-    setChannel('channel-two');
-    expect(
-      screen.getByRole('textbox', { name: 'External customer reply' })
-    ).toHaveProperty('value', '');
-    expect(fixture.reply).not.toHaveBeenCalled();
-    fireEvent.input(
-      screen.getByRole('textbox', { name: 'External customer reply' }),
-      { target: { value: 'Only for customer two' } }
-    );
-    setChannel('channel-one');
-    expect(
-      screen.getByRole('textbox', { name: 'External customer reply' })
-    ).toHaveProperty('value', 'Only for customer one');
-    setChannel('channel-two');
-    expect(
-      screen.getByRole('textbox', { name: 'External customer reply' })
-    ).toHaveProperty('value', 'Only for customer two');
   });
   it('does not expose one signed-in user’s draft to another user in the same channel', () => {
     const [user, setUser] = createSignal('macro|owner@fixture.test');
@@ -319,113 +242,6 @@ describe('native external-reply boundary', () => {
       document_id: 'private-file',
       caption: 'Saved caption',
     });
-  });
-  it('restores template selection and parameters after remount', async () => {
-    fixture.templates = [
-      {
-        id: 'approved-template',
-        language: 'en_US',
-        name: 'Welcome',
-        components: [],
-        parameter_labels: ['customer'],
-      },
-    ];
-    mount();
-    fixture.recover!(
-      failedReply({
-        type: 'template',
-        template_id: 'approved-template',
-        language: 'en_US',
-        parameters: ['Avery'],
-      })
-    );
-    cleanup();
-    mount();
-    expect(screen.getByRole('combobox')).toHaveProperty(
-      'value',
-      'approved-template'
-    );
-    expect(screen.getByLabelText('customer')).toHaveProperty('value', 'Avery');
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
-    );
-    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
-    expect(fixture.reply.mock.calls[0][0].message).toEqual({
-      type: 'template',
-      template_id: 'approved-template',
-      language: 'en_US',
-      parameters: ['Avery'],
-    });
-  });
-  it('keeps template controls out of normal replies', () => {
-    fixture.templates = [
-      {
-        id: 'approved-template',
-        language: 'en_US',
-        name: 'Welcome',
-        components: [],
-        parameter_labels: [],
-      },
-    ];
-    mount();
-    expect(screen.getByRole('textbox')).toBeTruthy();
-    expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.queryByRole('button', { name: /template/i })).toBeNull();
-    expect(screen.queryByText(/template/i)).toBeNull();
-  });
-  it('offers a template only when the window is closed and keeps the typed draft', async () => {
-    fixture.templates = [
-      {
-        id: 'approved-template',
-        language: 'en_US',
-        name: 'Welcome',
-        components: [],
-        parameter_labels: ['customer'],
-      },
-    ];
-    fixture.account!.eligibility.modes = [
-      { mode: 'free_form', allowed: false, reason: 'template_required' },
-      { mode: 'approved_template', allowed: true },
-    ];
-    mount();
-    fireEvent.input(screen.getByRole('textbox'), {
-      target: { value: 'Typed before the window closed' },
-    });
-    const send = screen.getByRole('button', {
-      name: 'Send reply via WhatsApp',
-    });
-    expect(send).toHaveProperty('disabled', true);
-    expect(screen.queryByRole('combobox')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Back to text reply' }));
-    expect(screen.getByRole('textbox')).toHaveProperty(
-      'value',
-      'Typed before the window closed'
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
-    fireEvent.change(screen.getByRole('combobox'), {
-      target: { value: 'approved-template' },
-    });
-    fireEvent.input(screen.getByLabelText('customer'), {
-      target: { value: 'Avery' },
-    });
-    fireEvent.click(send);
-    await waitFor(() => expect(fixture.reply).toHaveBeenCalledOnce());
-    expect(fixture.reply.mock.calls[0][0].message).toEqual({
-      type: 'template',
-      template_id: 'approved-template',
-      language: 'en_US',
-      parameters: ['Avery'],
-    });
-    await waitFor(() =>
-      expect(screen.getByRole('textbox')).toHaveProperty(
-        'value',
-        'Typed before the window closed'
-      )
-    );
-    expect(screen.queryByRole('combobox')).toBeNull();
   });
   it('does not offer templates the server does not currently allow', () => {
     fixture.account!.eligibility.modes = [

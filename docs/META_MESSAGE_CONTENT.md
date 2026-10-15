@@ -1,20 +1,13 @@
 # Message content coverage
 
-Follow-up to the native messaging foundation; reviewed October 13, 2026 for
-Instagram Login and WhatsApp Cloud API v26. This is a bounded content pass, not
-consumer-app feature parity. Existing connection, channel, sending and access
-rules in [META_MESSAGING.md](META_MESSAGING.md) still apply.
-
-Before this pass, shares became technical placeholders, edits were ignored, unsends
-did not reconcile the original, locations/contacts emitted JSON, and a failed
-media download blocked sibling attachments. WhatsApp reactions were incorrectly
-treated as customer messages. Quote display and outbound actions remain unchanged.
+Supported content for Instagram Login and WhatsApp Cloud API v26. Connection,
+sending and access rules are in [META_MESSAGING.md](META_MESSAGING.md).
 
 | Content | Meta evidence / shape | Inbound native display | Outbound / deliberate limit |
 | --- | --- | --- | --- |
-| Instagram post (`ig_post`) | Real payload: `url`, `title`, `ig_post_media_id`; inspected resource was JPEG | Supplied title and a private native preview attachment, or a validated supplied content permalink | No public URL is constructed from a numeric media ID. A preview does not establish full-post playback or carousel completeness. |
-| Instagram reel (`ig_reel`) | Real payload: `url`, `title`, `reel_video_id`; inspected URL was a public reel path | Supplied title and valid Instagram content link; CDN-only resources use the preview path | No custom embed, scraping, or reel publishing action. |
-| Carousels, legacy shares, shared profiles, story mentions | Additional shapes and completeness were not verified in this pass | Supported parts remain; unfamiliar attachment shapes have a quiet “Content unavailable” fallback | No undocumented resource expansion or public/private-account scraping. |
+| Instagram post (`ig_post`) | `url`, `title`, `ig_post_media_id` | Supplied title and a private native preview attachment, or a validated supplied content permalink | No public URL is constructed from a numeric media ID. A preview does not establish full-post playback or carousel completeness. |
+| Instagram reel (`ig_reel`) | `url`, `title`, `reel_video_id` | Supplied title and valid Instagram content link; CDN-only resources use the preview path | No custom embed, scraping, or reel publishing action. |
+| Carousels, legacy shares, shared profiles, story mentions | Partial or unverified attachment shapes | Supported parts remain; unfamiliar attachment shapes have a quiet “Content unavailable” fallback | No undocumented resource expansion or public/private-account scraping. |
 | Instagram story reply | Official sample: `message.reply_to.story.{id,url}` alongside text | Customer text and the supplied story resource stay in one message, explicitly labelled as story context / preview | Story IDs are not message/thread IDs. Expired resources become unavailable; no renewed access is promised. |
 | Provider quoted replies | WhatsApp `context.id`; Instagram `reply_to.mid`; existing mapping/transport | Existing connection/customer-scoped `reply_to` identity and outgoing validation retained | Native root-message quote display and composer actions deferred. Macro thread replies are not provider quotes. Missing originals do not break ordinary ingestion. |
 | Reactions, both providers | Official Instagram react/unreact example uses `love`; WhatsApp exposes emoji reactions | Retained receipts, no synthetic customer message or reply-window update; reaction display deferred | Meta supports Instagram react/unreact (the official example uses `love`) and WhatsApp emoji reactions. Native reaction rows require Macro users and do not model one shared business reaction. No fake users or misleading teammate picker is added. |
@@ -60,14 +53,9 @@ native permissions, original timestamp and source download limits. Replaying a
 completed receipt is an operator action, not a bulk import or a reset of send state.
 If retained media has expired, retain the honest fallback.
 
-The retained real `ig_post` resource returned JPEG bytes, 1320×1271; its native
-private viewer was checked. A separate real `ig_reel` receipt supplied a public
-`/reel/<shortcode>/` URL. Neither establishes all reels, stories or carousel media.
-Synthetic fixtures use invented IDs and query-free representative URLs.
-
 For release verification, run the affected `meta_messaging`, `messages` and DSS
-native messaging tests with `SQLX_OFFLINE` unset and an isolated database. Generate
-the root workspace SQLx cache with the repository helper, then run `just check`,
+native messaging tests with `SQLX_OFFLINE` unset and an isolated database. Regenerate
+SQLx metadata when queries change, then run `just check`,
 affected Clippy and the local service build. Check the actual native timeline,
 private viewer, refused uninvited access, and real signed provider events separately
 from fixture results. See [the test walkthrough](META_MESSAGING_TESTING.md).
@@ -81,5 +69,4 @@ was used; the Facebook Login section is a different authorization path.
 Meta's [WhatsApp Cloud API collection](https://www.postman.com/collections/13382743-84d01ff8-4253-4720-b454-af661f36acc2)
 supplies reaction, location, contact, button and referral examples. Its older
 webhook samples contain omissions/typos, so they are shape evidence rather than
-proof of live behavior. The direct developer documentation returned rate limits
-during this review; receipt evidence is recorded separately from documentation.
+proof of live behavior.

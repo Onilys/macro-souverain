@@ -64,8 +64,8 @@ through a feature-owned reply source. Native Channel consumes one interaction
 state: internal, external, loading or error. Provider content is normalized into
 plain text and validated supplied links before native rendering; private files,
 source-scoped repair and revisions retain their existing owning-domain paths.
-Database schemas, queued requests, intent hashes, IDs, callbacks and v1 draft keys
-remain unchanged. Conversation responses add capabilities/eligibility while
+The shared API refactor preserves queued requests, intent hashes, IDs, callbacks
+and v1 draft keys. Apply the feature’s additive migrations before its services. Conversation responses add capabilities/eligibility while
 retaining old fields for older clients. Deploy the server response before the new
 composer; a missing capability contract keeps the new client disabled.
 
@@ -79,6 +79,15 @@ requires membership in the connected account's team and current channel posting
 permission. Authorized teammates all send as the same external business account;
 Macro retains the human send initiator for audit. Adding Macro teammates does not
 create an external group chat.
+
+This is a messaging integration, not a new team ownership system. Channel owners
+share conversations using the existing member controls. Account reconnection does
+not transfer ownership or grant access to old conversations. Leaving a team stops
+external sending through that account, but native channel/file access follows the
+existing explicit grants; it is not automatically revoked by this integration.
+Connecting-admin access loss requires provider reauthorization. Automatic account
+rosters, team-wide discoverability, administrator takeover, ownership conversion
+and shared team-deletion changes are outside this release.
 
 The connected account must be WhatsApp Business with eligible coexistence, or an
 Instagram Business/Creator account. Customers can use ordinary personal accounts.
@@ -327,119 +336,56 @@ Customer channels hide Call, Calls, call auto-join, and the active-call join lin
 Loading/error bindings fail closed; known ordinary channels keep their calls.
 Saved/deep-linked call tabs resolve to Messages when calls are unavailable.
 
-Team ownership and safe automatic unsend trashing remain gated on the owning-domain
-capabilities described in [the ownership assessment](META_MESSAGING_OWNERSHIP.md).
-This branch does not convert existing customer ownership or guess whether a file
-was deliberately reused. Native unsend tombstones and attachment removal remain
-active, including after raw receipt cleanup.
+This release uses existing private-channel and user-owned file behavior. An
+unsend removes source content and attachment references, but does not delete or
+trash the underlying Macro document. Native file sharing and deletion remain
+under Macro’s existing rules.
 
 ## Verification
 
-Run from the repository root in the Nix shell. The commands below use the named
-`whatsapp` instance's PostgreSQL at port 33000 and a fresh, disposable review
-database. Choose a new database name for each migration validation; preserve
-`macrodb_messaging`, `macrodb` and their conversations.
+Use the repository Nix shell and an isolated database. Set `DATABASE_URL` inside
+the shell to a new disposable database; do not reuse a demo or shared database.
+See [database development](DATABASE_DEVELOPMENT.md) for provisioning and SQLx rules.
 
 ```sh
-export DATABASE_URL=postgres://user:password@localhost:33000/macrodb_messaging_review
+: "${DATABASE_URL:?Set DATABASE_URL to an isolated test database}"
 sqlx database create
 sqlx migrate run --source crates/macro_db_client/migrations
-cargo test -p meta_messaging --all-features -- --test-threads=1
-cargo test -p document_storage_service --bin document_storage_service native_messaging -- --test-threads=1
-cargo test -p documents --all-features received_file
-cargo test -p channel_sender
-cargo test -p mention_utils
-cargo test -p messages --all-features
-just sqlx::prepare_db "$DATABASE_URL" --tests
-(\cd apps/web && bun scripts/generate-api-schema.ts cloud-storage)
-just check
+unset SQLX_OFFLINE
+cargo test -p meta_messaging --all-features
+cargo test -p document_storage_service --lib native_messaging
 ```
 
-Leave `SQLX_OFFLINE` unset for tests. The repository build/generation tools enable
-it only for their builds. For the full web type check, this large checkout needs
-more than Node's default heap:
+Run affected channel, document, access and team suites when their boundaries
+change. Regenerate SQLx metadata when queries change, retaining only relevant
+outputs. Regenerate the storage API when its contract changes. Run `just check`,
+affected Clippy and frontend checks using the repository development guides.
+Confirm checks actually execute; a Git/tooling failure is not “nothing to check.”
 
-```sh
-\cd apps/web
-NODE_OPTIONS=--max-old-space-size=12288 bun run type-check
-```
-
-The HTTP integration tests use real Axum routes, access services, PostgreSQL and
-native message/channel adapters. Only Meta transport and credential encryption
-are simulated there. They cannot establish live Meta delivery or coexistence. A configured-agent live
-exercise also remains unqualified; existing channel access regressions cover the
-permission boundary.
-
-A deliberately ignored `create_local_browser_fixture` test creates conspicuously
-labeled synthetic native conversations for browser verification. It requires
-`META_MESSAGING_UI_FIXTURE_DATABASE_URL` pointing at the local release DB
-`macrodb_messaging` and refuses other hosts/databases. Stop this instance's DSS worker before
-running it; restart DSS afterwards. Its invalid fixture credentials cannot be
-used to reach Meta. The test prints the local channel URLs and fixture login.
-The displayed fixture delivery status is simulated, not evidence of delivery.
+The HTTP/database tests exercise native services with controlled Meta transport.
+The [browser harness](../apps/web/tests/meta-messaging/README.md) exercises the
+bundled app with synthetic responses. Neither establishes live delivery or
+production storage access. Use the [live testing walkthrough](META_MESSAGING_TESTING.md)
+for provider receive/reply/media and access checks on the deployed revision.
 
 ## Running locally
 
-Enter the existing development environment without recreating the local stack:
+Create or reuse an isolated named stack using [Running locally](RUNNING_LOCALLY.md).
+Use that stack’s generated ports, database URLs, container names and environment
+file; preserve any existing demo stack and data.
 
-```sh
-nix develop
-messaging_repo="$PWD"
-export DATABASE_URL=postgres://user:password@localhost:33000/macrodb_messaging
-```
+Configure the provider variables listed above in the instance’s private environment,
+provision its KMS alias, and start the frontend through its trusted HTTPS proxy.
+Recreate affected containers when changing environment variables; restarting alone
+does not reload them. Shared sender/activity changes also require the corresponding
+consumers to run the same revision.
 
-Select the Docker context/socket for your named local instance. All applicable local services, including readonly database URLs, must point to
-`macrodb_messaging`. The original `macrodb` must stay intact. On a new isolated
-instance, create the separate database first, then run the migration command
-above; the SQLx integration tests also create fresh disposable databases.
+Expose only the documented Meta webhook and OAuth callback paths through a public
+HTTPS gateway. Instagram outbound media also requires the configured temporary-copy
+bucket and signing/cleanup permissions. Keep the local app and databases private.
 
-Rebuild and restart the existing local DSS after Rust changes:
-
-```sh
-CARGO_BUILD_JOBS=2 cargo x zigbuild
-docker restart macro-whatsapp-document_storage_service-1
-```
-
-The already-built equivalent is `target/debug/xtask_local zigbuild`. When shared
-sender or message adapters change, restart this instance's cognition, notification
-and search-processing services as well. Provision the local messaging KMS alias
-without resetting data using:
-
-```sh
-target/debug/xtask_local localstack-provision --instance whatsapp --port-base 33000
-```
-
-For live-test configuration, place the server variables from the table above in
-this instance's private `infra/local/generated/whatsapp/local.generated.env`,
-including `META_CREDENTIAL_KMS_KEY=alias/macro-local-meta-messaging`, while keeping
-its database URLs on the release database. Regeneration may replace manual local
-environment changes. Recreate only DSS to apply environment changes (a plain
-restart does not reload container environment):
-
-```sh
-MACRO_ENV_FILE="$messaging_repo/infra/local/generated/whatsapp/local.generated.env" \
-  docker compose --project-directory "$messaging_repo" \
-  -p macro-whatsapp -f docker/docker-compose.yml \
-  -f infra/local/generated/whatsapp/docker-compose.override.yml \
-  --env-file infra/local/generated/whatsapp/local.generated.env \
-  up -d --no-deps --force-recreate document_storage_service
-```
-
-Run the web server behind the existing trusted HTTPS proxy:
-
-```sh
-\cd apps/web
-PORT=33010 VITE_LOCAL_SERVERS=ALL VITE_LOCAL_BACKEND_ORIGIN=same-origin \
-  MACRO_LOCAL_BACKEND_PROXY=https://localhost:33009 \
-  MACRO_LOCAL_BACKEND_ROUTES=/preview,/auth,/connection-gateway,/contacts,/cognition,/dss,/email,/calendar,/notification,/scheduled-action,/unfurl,/image-proxy,/agent-harness \
-  MACRO_DEV_HTTPS=false \
-  NODE_EXTRA_CA_CERTS="$messaging_repo/infra/local/certs/ca.pem" \
-  node ../../node_modules/vite/bin/vite.js -c vite.config.ts --host 0.0.0.0
-```
-
-Open `https://localhost:33009/app/`. Trust the existing local CA through the
-browser/OS if needed. Settings → Integrations → Accounts shows both providers. Open Connect or Manage
-for setup, import and recovery. Missing server setup is explained before connection.
+In Settings → Integrations → Accounts, use Connect or Manage. Existing channels
+and files retain their native ownership; this release has no ownership backfill.
 
 ## UI and refresh behavior
 

@@ -1250,3 +1250,9 @@ Markdown options before Query and Database. Typing `/query` filters to the Query
 action; `/database` creates a new database and inserts its editable card.
 
 When Databases is enabled, type `/query` in a channel message or thread reply and choose **Query** to insert a live question. Ask with Enter or the Ask button, then accept the answer before sending the message. Enter in the question box belongs to the question and must not send the channel draft. Recipients can read the live answer subject to their database access. Database @ mentions in message composers remain compact; **Expand** turns one into an editable database card.
+
+Customer-channel ownership follows ordinary private-channel sharing. Connecting
+an account does not make its conversations visible to the whole team, and
+reconnecting does not transfer existing channel or file ownership. Source unsends
+remove message content and attachment references; underlying files follow native
+sharing/deletion rules. There is no automatic-member list or ownership backfill.

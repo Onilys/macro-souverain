@@ -180,6 +180,10 @@ function conversation(channelId: string): MetaConversationView | null {
       connection_id: id(500),
       customer_id: 'test-customer',
       customer_display_name: 'Test Customer',
+      customer_handle:
+        channel.provider === 'instagram' ? 'test.customer' : null,
+      customer_phone:
+        channel.provider === 'whatsapp' ? '+1 202 555 0147' : null,
       last_customer_message_at: time(35),
       standard_window_until: new Date(Date.now() + 3600000).toISOString(),
     },
@@ -596,6 +600,9 @@ try {
   await open(`${channels[1].id}?join_call=true&open_call_tab=true`);
   await expectNoCustomerCalls();
   const input = page.getByRole('textbox', { name: 'External customer reply' });
+  await expect(
+    page.locator('[data-input-id^="channel-input-"] [contenteditable="true"]')
+  ).toHaveCount(0);
   await input.fill('External browser reply');
   await page.getByRole('button', { name: 'Send reply via WhatsApp' }).click();
   await expect(
@@ -619,6 +626,14 @@ try {
   await input.fill('Saved WhatsApp draft');
   await open(channels[2].id);
   await expect(input).toHaveValue('');
+  await page
+    .getByRole('button', { name: 'Instagram conversation details' })
+    .click();
+  await expect(page.getByText('@test.customer', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Test Customer', { exact: true }).last()
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
   const revised = messages.get(channels[2].id)!.at(-1)!;
   revised.content = 'Edited customer message';
   revised.edited_at = new Date().toISOString();
@@ -699,6 +714,9 @@ try {
     .getByRole('button', { name: 'WhatsApp conversation details' })
     .click();
   await expect(page.getByText('WhatsApp messages sent from')).toBeVisible();
+  await expect(
+    page.getByText('+1 202 555 0147', { exact: true })
+  ).toBeVisible();
   await expect(page.getByText(/test account/i)).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.screenshot({ path: '/tmp/macro-messaging-browser-normal.png' });
