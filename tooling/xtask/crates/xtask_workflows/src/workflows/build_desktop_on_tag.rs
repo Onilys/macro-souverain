@@ -24,7 +24,7 @@ pub fn build_desktop_on_tag() -> Workflow {
     Workflow::new("Build Desktop on Tag")
         .on(desktop_events())
         .concurrency(
-            Concurrency::new(Expression::new("${{ inputs.ref == 'diagnose-cloudkit' && 'cloudkit-diagnostic-' || '' }}desktop-${{ inputs.ref || (github.event.ref_type == 'tag' && github.event.ref || github.ref_name) }}"))
+            Concurrency::new(Expression::new("${{ inputs.ref == 'diagnose-staple' && 'cloudkit-staple-diagnostic-' || inputs.ref == 'diagnose-cloudkit' && 'cloudkit-diagnostic-' || '' }}desktop-${{ inputs.ref || (github.event.ref_type == 'tag' && github.event.ref || github.ref_name) }}"))
                 .cancel_in_progress(true),
         )
         .add_job("resolve-ref", resolve_ref())
@@ -58,6 +58,38 @@ pub fn build_desktop_on_tag() -> Workflow {
                 build_dmg_on_tag::macos_runner_labels(runners::Runner::MacOsArm),
                 "6x14 with cache",
                 "cloudkit-diagnostics-6x14-with-cache",
+            ),
+        )
+        .add_job(
+            "diagnose-staple-small",
+            diagnose_staple_job(
+                vec![runners::Runner::MacOsArm.to_string()],
+                "6x14",
+                "cloudkit-staple-6x14",
+            ),
+        )
+        .add_job(
+            "diagnose-staple-large",
+            diagnose_staple_job(
+                vec![runners::Runner::MacOsArmLarge.to_string()],
+                "12x28",
+                "cloudkit-staple-12x28",
+            ),
+        )
+        .add_job(
+            "diagnose-staple-production",
+            diagnose_staple_job(
+                build_dmg_on_tag::macos_runner_labels(runners::Runner::MacOsArmLarge),
+                "12x28 with cache",
+                "cloudkit-staple-12x28-with-cache",
+            ),
+        )
+        .add_job(
+            "diagnose-staple-previous",
+            diagnose_staple_job(
+                build_dmg_on_tag::macos_runner_labels(runners::Runner::MacOsArm),
+                "6x14 with cache",
+                "cloudkit-staple-6x14-with-cache",
             ),
         )
         .add_job(
@@ -148,7 +180,7 @@ fn workflow_dispatch() -> WorkflowDispatch {
     inputs.insert(
         "ref".into(),
         WorkflowDispatchInput {
-            description: "Optional release tag override (v* or refs/tags/v*); use diagnose-cloudkit for read-only ticket checks. Leave empty to build the selected branch or tag.".into(),
+            description: "Optional release tag override (v* or refs/tags/v*); use diagnose-cloudkit or diagnose-staple for no-release ticket checks. Leave empty to build the selected branch or tag.".into(),
             required: false,
             input_type: "string".into(),
             default: None,
@@ -161,7 +193,7 @@ fn workflow_dispatch() -> WorkflowDispatch {
 fn resolve_ref() -> Job {
     Job::default()
         .cond(Expression::new(
-            "(github.event_name == 'workflow_dispatch' && inputs.ref != 'diagnose-cloudkit') || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
+            "(github.event_name == 'workflow_dispatch' && inputs.ref != 'diagnose-cloudkit' && inputs.ref != 'diagnose-staple') || github.event_name == 'push' || (github.event_name == 'create' && github.event.ref_type == 'tag')",
         ))
         .name("Resolve build ref")
         .runs_on("ubuntu-latest")
@@ -194,6 +226,43 @@ fn diagnose_cloudkit_job(runner_labels: Vec<String>, size: &str, artifact_name: 
             steps::upload_artifact(
                 artifact_name,
                 xtask_paths::runtime_path!("cloudkit-diagnostics/*"),
+            )
+            .if_condition(Expression::new("always()"))
+            .add_with(("if-no-files-found", "warn")),
+        )
+}
+
+fn diagnose_staple_job(runner_labels: Vec<String>, size: &str, artifact_name: &str) -> Job {
+    Job::default()
+        .name(format!(
+            "CloudKit stapling without separate validation ({size})"
+        ))
+        .runs_on(runner_labels)
+        .cond(Expression::new(
+            "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-staple'",
+        ))
+        .timeout_minutes(20u32)
+        .permissions(Permissions::default().contents(Level::Read))
+        .add_step(
+            Step::new("Download already stapled release artifacts")
+                .run(include_str!(
+                    "scripts/download_cloudkit_staple_artifacts.sh"
+                ))
+                .shell("bash")
+                .add_env(("GH_TOKEN", "${{ github.token }}"))
+                .add_env(("GH_REPO", "${{ github.repository }}")),
+        )
+        .add_step(
+            Step::new("Restaple and assess without separate validation")
+                .run(include_str!(
+                    "scripts/probe_cloudkit_staple_without_validate.sh"
+                ))
+                .shell("bash"),
+        )
+        .add_step(
+            steps::upload_artifact(
+                artifact_name,
+                xtask_paths::runtime_path!("cloudkit-staple-diagnostics/*"),
             )
             .if_condition(Expression::new("always()"))
             .add_with(("if-no-files-found", "warn")),

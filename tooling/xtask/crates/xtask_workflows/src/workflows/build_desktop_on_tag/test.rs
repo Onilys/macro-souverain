@@ -43,6 +43,30 @@ fn cloudkit_diagnostic_dispatch_skips_release_builds() {
 }
 
 #[test]
+fn staple_diagnostic_dispatch_skips_release_builds() {
+    let yaml = rendered_yaml();
+    assert!(yaml.contains("inputs.ref != 'diagnose-staple'"), "{yaml}");
+    for size in ["6x14", "12x28", "6x14 with cache", "12x28 with cache"] {
+        assert!(
+            yaml.contains(&format!(
+                "CloudKit stapling without separate validation ({size})"
+            )),
+            "{yaml}"
+        );
+    }
+    assert!(
+        yaml.contains(
+            "github.event_name == 'workflow_dispatch' && inputs.ref == 'diagnose-staple'"
+        )
+    );
+    assert!(yaml.contains("inputs.ref == 'diagnose-staple' && 'cloudkit-staple-diagnostic-'"));
+
+    let probe = include_str!("../scripts/probe_cloudkit_staple_without_validate.sh");
+    assert!(probe.contains("xcrun stapler staple -v"));
+    assert!(!probe.contains("xcrun stapler validate"));
+}
+
+#[test]
 fn installers_publish_without_waiting_on_updater_signing() {
     let yaml = rendered_yaml();
     let installers = yaml
