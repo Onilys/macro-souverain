@@ -186,6 +186,10 @@ export function createGraphqlSoupConnection(options: {
       }, ACK_TIMEOUT_MS);
       candidate.client = createClient({
         url,
+        // This owner closes the socket after the last sink completes. A lazy
+        // graphql-ws client can emit closed before delivering sink.complete.
+        lazy: false,
+        onNonLazyError: (error) => fail(candidate, error, 'transport'),
         retryAttempts: 0,
         connectionAckWaitTimeout: ACK_TIMEOUT_MS,
         keepAlive: HEARTBEAT_INTERVAL_MS,
