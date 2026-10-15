@@ -20,6 +20,7 @@ import { tourTarget } from '@ui/components/Tour';
 import {
   type Accessor,
   batch,
+  type ComponentProps,
   children,
   createComputed,
   createContext,
@@ -547,7 +548,11 @@ function Aside(props: ViewShellAsideProps) {
 }
 
 /** Keep split close available in both docked and overlay navigation. */
-export const ViewSidebarCloseButton = SplitPanel.CloseButton;
+export function ViewSidebarCloseButton(
+  props: ComponentProps<typeof SplitPanel.CloseButton>
+) {
+  return <SplitPanel.CloseButton {...props} />;
+}
 
 /** Safe outside a shell so block preview headers can share this control. */
 export function ViewSidebarToggle(props: { action: 'collapse' | 'expand' }) {

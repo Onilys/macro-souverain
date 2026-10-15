@@ -2,7 +2,7 @@ import { SplitHeaderContextMenu } from '@components/app/split-layout/components/
 import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import { Button, type ButtonProps, cn } from '@ui';
 import { CollapseTransition } from '@ui/components/CollapseTransition';
-import type { JSX } from 'solid-js';
+import type { ComponentProps, JSX } from 'solid-js';
 import { Show, splitProps } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { ViewSidebarCloseButton, ViewSidebarToggle } from './ViewShell';
@@ -300,10 +300,15 @@ function Footer(props: JSX.HTMLAttributes<HTMLDivElement>) {
   );
 }
 
+// Resolve the shell control when rendered, after both modules initialize.
+function CloseButton(props: ComponentProps<typeof ViewSidebarCloseButton>) {
+  return <ViewSidebarCloseButton {...props} />;
+}
+
 export const ViewSidebar = Object.assign(Root, {
   Root,
   Header,
-  CloseButton: ViewSidebarCloseButton,
+  CloseButton,
   Title,
   Primary,
   Toolbar,

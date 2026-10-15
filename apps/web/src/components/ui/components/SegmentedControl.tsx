@@ -19,6 +19,10 @@ type SegmentedControlProps<T extends string | number | boolean> = {
 
 const serialize = (v: string | number | boolean): string => String(v);
 
+/**
+ * @do Use for a small set of mutually exclusive views or filters.
+ * @dont Use segmented choices for independent creation actions; use buttons or a menu.
+ */
 export const SegmentedControl = <T extends string | number | boolean>(
   props: SegmentedControlProps<T>
 ): JSX.Element => {
