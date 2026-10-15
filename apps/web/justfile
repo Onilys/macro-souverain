@@ -127,8 +127,8 @@ local-email: ensure-cache-wasm
 # The two wasm-pack crates do not share artifacts. Build them in parallel
 # with distinct CARGO_TARGET_DIR values so they do not serialize on the
 # workspace cargo lock. CI still always rebuilds (schema/engine changes can
-# alter wasm without a version bump); Namespace `web-ci` sccache makes the
-# rustc invocations cheap across deploys.
+# alter wasm without a version bump); kache's store on the cache volume
+# makes the rustc invocations cheap across deploys.
 #
 # Vite's chunk-rendering can exceed 6GB as the app grows. Leave headroom
 # above that peak; CI builds use the same mid-size runner as preview deploys.

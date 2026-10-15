@@ -18,7 +18,7 @@ use gh_workflow::{
     WorkflowDispatchInput,
 };
 
-use crate::workflows::{build_appimage_on_tag, runners, steps, vars};
+use crate::workflows::{build_appimage_on_tag, runners, steps};
 
 use std::collections::HashMap;
 
@@ -170,11 +170,9 @@ fn linux_job(target: &DaemonTarget) -> Job {
         .add_step(steps::mount_cache_volume())
         .add_step(steps::setup_nix_with_cache())
         .add_step(steps::setup_dev_shell_named("agent-daemon"))
-        // The dev shell points RUSTC_WRAPPER at sccache regardless; this aims
-        // it at the shared remote cache so a release build is not a cold
-        // compile of the whole dependency graph. It degrades to the local
-        // cache on failure, so it is never load-bearing.
-        .add_step(steps::configure_namespace_sccache(vars::CI_SCCACHE_NAME))
+        // Release binaries compile only from the deploy store, never from
+        // anything a developer machine or pull request published.
+        .add_step(steps::configure_kache(steps::KacheStore::Deploy))
         .add_step(steps::derive_artifact_metadata(RESOLVED_REF))
         .add_step(
             Step::new("Build daemon")

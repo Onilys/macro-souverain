@@ -6,7 +6,7 @@ if [ -z "${DOPPLER_TOKEN:-}" ]; then
 fi
 
 if [ -z "${RUSTC_WRAPPER:-}" ]; then
-  echo "RUSTC_WRAPPER is required so Doppler config binaries build through sccache" >&2
+  echo "RUSTC_WRAPPER is required so Doppler config binaries build through kache" >&2
   exit 1
 fi
 

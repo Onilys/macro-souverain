@@ -161,7 +161,7 @@ fn base_command(ws: &Path, zig_cache: &Path, jobs: &str, target: Target) -> Comm
         .env("OPENSSL_NO_VENDOR", "0")
         .env("ZIG_GLOBAL_CACHE_DIR", zig_cache)
         .env("ZIG_LOCAL_CACHE_DIR", zig_cache)
-        .env("RUSTC_WRAPPER", "sccache")
+        .env("RUSTC_WRAPPER", "kache")
         .env("XDG_CACHE_HOME", zig_cache);
     // No CFLAGS here. The dev shell already exports target-scoped
     // `CFLAGS_<triple>`/`CXXFLAGS_<triple>` pointing at curl.dev for exactly

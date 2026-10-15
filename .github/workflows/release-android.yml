@@ -122,10 +122,12 @@ jobs:
         run: |
           set -euo pipefail
           # The Nix environment is already loaded. Do not reload it in nested
-          # bash processes and re-enable its local-development sccache wrapper.
-          # This ephemeral runner has no compiler cache/server to reuse.
+          # bash processes and re-enable its local-development kache wrapper.
+          # This ephemeral runner has no compiler cache to reuse, so the kache
+          # C/C++ shims still on PATH pass straight through.
           unset BASH_ENV
           export RUSTC_WRAPPER=""
+          export KACHE_DISABLED=1
           cargo tauri --version
           # Tauri has shipped both switch-only and value-taking APK/AAB flags.
           # Nix and local installations can differ; build only the AAB with either CLI.

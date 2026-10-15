@@ -784,8 +784,9 @@
       );
 
       # The Namespace CLI, the other sandbox provider crates/agent_harness
-      # talks to. Only used to mint the bearer tokens its Compute API wants
-      # (`just namespace-token`); the harness itself speaks the API directly.
+      # talks to. Mints the bearer tokens its Compute API wants
+      # (`just namespace-token`; the harness itself speaks the API directly)
+      # and the nscr.io registry credentials kache's remote cache uses.
       # Not in nixpkgs either, and shipped as goreleaser tarballs rather than
       # bare binaries, so this unpacks and takes just the nsc binary.
       nsc =
@@ -824,6 +825,96 @@
           installPhase = ''
             runHook preInstall
             install -Dm755 nsc $out/bin/nsc
+            install -Dm755 docker-credential-nsc $out/libexec/docker-credential-nsc
+            runHook postInstall
+          '';
+        };
+
+      # Docker credential helper for nscr.io, which kache's remote cache reads
+      # through ~/.docker/config.json after `nsc docker login`. Namespace's
+      # helper calls its API for every lookup (seconds each, and flaky), and
+      # kache treats one failed lookup as a permanent permission error, so this
+      # reuses a minted token for 6 of its 8 hours and retries fresh mints.
+      nscCredentialHelper = pkgs.writeShellApplication {
+        name = "docker-credential-nsc";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.findutils
+        ];
+        text = ''
+          helper=${nsc}/libexec/docker-credential-nsc
+          if [ "''${1-}" != get ]; then
+            exec "$helper" "$@"
+          fi
+          server="$(cat)"
+          dir="''${XDG_RUNTIME_DIR:-''${XDG_CACHE_HOME:-$HOME/.cache}}/docker-credential-nsc"
+          cache="$dir/$(printf %s "$server" | sha256sum | cut -c1-16).json"
+          if [ -n "$(find "$cache" -mmin -360 2>/dev/null)" ]; then
+            cat "$cache"
+            exit 0
+          fi
+          umask 077
+          mkdir -p "$dir"
+          for attempt in 1 2 3; do
+            if credential="$(printf %s "$server" | "$helper" get)"; then
+              printf %s "$credential" > "$cache.tmp"
+              mv "$cache.tmp" "$cache"
+              printf %s "$credential"
+              exit 0
+            fi
+            sleep "$attempt"
+          done
+          exit 1
+        '';
+      };
+
+      # Rust and C/C++ compiler cache (RUSTC_WRAPPER plus the compiler shims in
+      # $out/shims). kache needs a newer rustc than rust-toolchain.toml pins and
+      # isn't in our nixpkgs yet, so this takes the static release binaries.
+      kache =
+        let
+          version = "1.2.2";
+          asset =
+            {
+              x86_64-linux = {
+                target = "x86_64-unknown-linux-musl";
+                hash = "sha256-8vZVXe5QlFwqkKf7eTwghKAMxkWdCKwjBtONkFBkMhs=";
+              };
+              aarch64-linux = {
+                target = "aarch64-unknown-linux-musl";
+                hash = "sha256-OIVs7mE/buDsV5CZ/JIFuECgtFu3Y/S4+ngtJdk8GO8=";
+              };
+              x86_64-darwin = {
+                target = "x86_64-apple-darwin";
+                hash = "sha256-mhw+zInPNrI1Eqk4aCJhQNRvH3DPbLZIv+CO6vslo2g=";
+              };
+              aarch64-darwin = {
+                target = "aarch64-apple-darwin";
+                hash = "sha256-ENCeFGhSqN+Hls9kLKWIchB6fzkbdkfsjMJTzyia8Kk=";
+              };
+            }
+            .${system};
+        in
+        pkgs.stdenvNoCC.mkDerivation {
+          pname = "kache";
+          inherit version;
+          src = pkgs.fetchurl {
+            url = "https://github.com/kunobi-ninja/kache/releases/download/v${version}/kache-${asset.target}.tar.gz";
+            inherit (asset) hash;
+          };
+          sourceRoot = ".";
+          # Mirrors upstream's packaging/nix/package.nix: one symlink per
+          # wrapped tool, plus the marker that tells another kache on PATH to
+          # skip this farm.
+          installPhase = ''
+            runHook preInstall
+            install -Dm755 kache $out/bin/kache
+            mkdir -p $out/lib/kache
+            for name in cc c++ gcc g++ clang clang++ cargo rustdoc; do
+              ln -s $out/bin/kache $out/lib/kache/$name
+            done
+            touch $out/lib/kache/.kache-shims
+            ln -s lib/kache $out/shims
             runHook postInstall
           '';
         };
@@ -880,6 +971,7 @@
         [
           daytona
           nsc
+          nscCredentialHelper
           parallel
           docker-compose
           # `just run_local` opens a quick tunnel to the agent egress proxy so
@@ -947,7 +1039,7 @@
           # TEMP: nixpkgs stripe-cli 1.43.2 checkPhase fails in the sandbox
           # (TestResolvePluginForInstallSucceedsForGAPluginWhenNotLoggedIn).
           # stripe-cli
-          sccache
+          kache
           rustToolchain
           python3
         ]
@@ -1062,18 +1154,55 @@
               # cmake-build feature, so no system librdkafka.pc is needed here.
               PKG_CONFIG_PATH_FOR_TARGET = pkgConfigPath;
               LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
-              RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
-              # Local dev shells favor reusable sccache artifacts across JJ
-              # workspaces. CI derivations do not inherit devShell attributes.
+              RUSTC_WRAPPER = "${kache}/bin/kache";
+              # Local dev shells favor reusable cache artifacts across
+              # worktrees. CI derivations do not inherit devShell attributes.
               CARGO_INCREMENTAL = "0";
-              SCCACHE_CACHE_SIZE = "30G";
+              # The kache shims go first on PATH so the C/C++ that build scripts
+              # compile (aws-lc, librdkafka, ...) is cached too; they forward to
+              # the real compiler later on PATH. CI points KACHE_CACHE_DIR at its
+              # cache volume before entering the shell.
+              #
               # Namespace CI runners preserve Cargo's ignored target directory.
               # A flake update can change the Nix C compiler while leaving CMake
               # configure state behind; CMake then drops its command-line cache
               # entries while switching compilers, breaking aws-lc and librdkafka.
               # Remove only caches configured by another compiler so ordinary
               # shell entry keeps reusable native build state.
-              shellHook = pkgs.lib.optionalString isLinux ''
+              #
+              # aws-lc builds its C with -ggdb, which kache passes through
+              # uncached, and the debug info records OUT_DIR and ~/.cargo. The
+              # resulting archive is hashed into every dependent crate's key, so
+              # without the prefix maps no two checkouts or machines share them.
+              # KACHE_BASE_DIR makes kache key the `<checkout>=.` map the same
+              # in every checkout. macOS compiles host C with Apple clang (see
+              # CC below), outside the Nix wrapper, so it takes CFLAGS instead.
+              shellHook = ''
+                export PATH="${kache}/shims:$PATH"
+                export KACHE_CACHE_DIR="''${KACHE_CACHE_DIR:-$HOME/macro-kache}"
+                export KACHE_MAX_SIZE="''${KACHE_MAX_SIZE:-256GiB}"
+                export KACHE_BASE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+                # Registry dependencies compile from ~/.cargo, outside the
+                # checkout, where kache's walk-up never finds .kache.toml.
+                export KACHE_CONFIG="''${KACHE_CONFIG:-$KACHE_BASE_DIR/.kache.toml}"
+                prefix_maps="-ffile-prefix-map=$KACHE_BASE_DIR=."
+                prefix_maps+=" -ffile-prefix-map=''${CARGO_HOME:-$HOME/.cargo}=/cargo"
+                if [ -n "''${CARGO_TARGET_DIR-}" ]; then
+                  prefix_maps+=" -ffile-prefix-map=$CARGO_TARGET_DIR=/target"
+                fi
+              ''
+              + (
+                if isDarwin then
+                  ''
+                    export CFLAGS="''${CFLAGS:+$CFLAGS }$prefix_maps"
+                    export CXXFLAGS="''${CXXFLAGS:+$CXXFLAGS }$prefix_maps"
+                  ''
+                else
+                  ''
+                    export NIX_CFLAGS_COMPILE="''${NIX_CFLAGS_COMPILE-} $prefix_maps"
+                  ''
+              )
+              + pkgs.lib.optionalString isLinux ''
                 target_dir="''${CARGO_TARGET_DIR:-target}"
                 current_cc="$(type -P "''${CC:-cc}" || true)"
                 if [ -n "$current_cc" ] && [ -d "$target_dir" ]; then
@@ -1146,10 +1275,10 @@
             pkgs.cmake
             pkgs.perl
             pkgs.pkg-config
-            pkgs.sccache
+            kache
             nsc
           ];
-          RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
+          RUSTC_WRAPPER = "${kache}/bin/kache";
           CARGO_INCREMENTAL = "0";
           AWS_LC_SYS_CMAKE_BUILDER = "1";
         };

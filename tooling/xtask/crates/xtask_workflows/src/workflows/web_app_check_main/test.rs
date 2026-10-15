@@ -94,7 +94,7 @@ fn typecheck_runs_lexical_service_check_and_tests() {
 fn typecheck_compiles_no_rust() {
     let yaml = web_app_check_main().to_string().expect("workflow yaml");
     let typescript = job(&yaml, "typescript", "generated-code");
-    for rust in ["gen-api", "cargo", "sccache", "just gen-"] {
+    for rust in ["gen-api", "cargo", "kache", "just gen-"] {
         assert!(
             !typescript.contains(rust),
             "generated code is checked in its own job, so Typecheck must not run `{rust}`: {typescript}"
@@ -146,8 +146,8 @@ fn generated_code_checks_every_rust_generated_artifact_in_one_job() {
         "the SDK reuses the specs gen-api wrote instead of rerunning it: {sdk}"
     );
     assert!(
-        generated.contains("nsc cache sccache setup --cache_name web-ci"),
-        "the build uses the shared web-ci remote sccache: {generated}"
+        generated.contains("nsc docker login"),
+        "the build reads the shared kache remote: {generated}"
     );
 }
 
@@ -240,7 +240,7 @@ fn should_run_includes_fold_wasm_inputs() {
 }
 
 #[test]
-fn build_job_uses_remote_sccache_and_wasm_cache() {
+fn build_job_uses_shared_kache_and_wasm_cache() {
     let yaml = web_app_check_main().to_string().expect("workflow yaml");
     let build = yaml
         .split("\n  build:\n")
@@ -251,18 +251,11 @@ fn build_job_uses_remote_sccache_and_wasm_cache() {
         build.contains("namespace-profile-linux-mid"),
         "wasm compile needs the mid runner: {build}"
     );
-    assert!(
-        build.contains("nsc cache sccache setup --cache_name web-ci"),
-        "build must use the shared web-ci remote sccache: {build}"
-    );
     let configure = build
-        .find("nsc cache sccache setup")
-        .expect("remote cache configuration");
-    let start = build
-        .find("run: sccache --start-server")
-        .expect("start the server in a separate step with the exported credentials");
+        .find("nsc docker login")
+        .expect("build must read the shared kache remote");
     let build_command = build.find("just build-").expect("web build command");
-    assert!(configure < start && start < build_command);
+    assert!(configure < build_command);
     assert!(
         build.contains(".wasm-pack"),
         "build must persist wasm-pack's wasm-opt cache: {build}"

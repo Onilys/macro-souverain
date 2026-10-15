@@ -1,36 +1,32 @@
 use super::*;
 
 #[test]
-fn namespace_sccache_masks_credentials_before_exporting_them() {
-    let step = configure_namespace_sccache("test-cache");
-    let condition = step
-        .value
-        .if_condition
-        .as_ref()
-        .expect("Namespace sccache credentials should be limited to trusted refs");
-    let run = step
-        .value
-        .run
-        .expect("Namespace sccache setup should be a run step");
+fn shared_kache_logs_in_to_the_registry_only_for_trusted_refs() {
+    let step = serde_json::to_value(configure_kache(KacheStore::Shared)).unwrap();
+    let run = step["run"].as_str().expect("configure_kache is a run step");
+    let trusted = step["env"]["TRUSTED"]
+        .as_str()
+        .expect("the trust check is evaluated into the step env");
 
-    let mask = run
-        .find("echo \"::add-mask::$v\"")
-        .expect("credential values should be registered with GitHub's log masker");
-    let export = run
-        .find("cat \"$env_file\" >> \"$GITHUB_ENV\"")
-        .expect("the generated sccache environment should be exported");
+    assert!(trusted.contains("github.event.pull_request.head.repo.full_name"));
+    assert!(trusted.contains("github.repository"));
+    let untrusted = run
+        .find("if [ \"$TRUSTED\" != true ]; then\n  echo \"KACHE_LOCAL_ONLY=1\"")
+        .expect("untrusted refs stay local");
+    let login = run.find("nsc docker login").expect("trusted refs log in");
+    assert!(untrusted < login, "{run}");
+    assert!(!run.contains("KACHE_TRUST_DOMAIN"), "{run}");
+}
 
-    assert!(mask < export, "credentials must be masked before export");
-    assert!(run.contains("*TOKEN*|*SECRET*|*PASSWORD*"));
-    assert!(run.contains("mktemp \"$RUNNER_TEMP/namespace-sccache.XXXXXX\""));
-    assert!(run.contains("trap 'rm -f \"$env_file\"' EXIT"));
-    assert!(run.contains("nsc cache sccache setup --cache_name test-cache"));
-    assert!(
-        condition
-            .0
-            .contains("github.event.pull_request.head.repo.full_name")
-    );
-    assert!(condition.0.contains("github.repository"));
+#[test]
+fn deploy_kache_never_touches_the_shared_remote() {
+    let step = serde_json::to_value(configure_kache(KacheStore::Deploy)).unwrap();
+    let run = step["run"].as_str().expect("configure_kache is a run step");
+
+    assert!(run.contains("KACHE_TRUST_DOMAIN=deploy"), "{run}");
+    assert!(run.contains("KACHE_LOCAL_ONLY=1"), "{run}");
+    assert!(!run.contains("nsc"), "{run}");
+    assert!(step["env"].get("TRUSTED").is_none(), "{step}");
 }
 
 #[test]

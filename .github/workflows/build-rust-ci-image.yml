@@ -83,6 +83,6 @@ jobs:
             cargo nextest --version
             just --version
             sqlx --version
-            sccache --version
+            kache --version
             mold --version
           '

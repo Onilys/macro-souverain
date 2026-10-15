@@ -43,7 +43,6 @@ jobs:
     - name: Setup Rust
       uses: ./.github/actions/setup-rust
       with:
-        sccache: 'false'
         rust-cache: 'false'
     - name: Add wasm32 target
       run: rustup target add wasm32-unknown-unknown

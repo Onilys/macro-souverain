@@ -21,7 +21,7 @@ fn web_runner() -> String {
     runners::Runner::Small.with_cache_tag(vars::WEB_CI_CACHE_TAG)
 }
 
-/// The mid-size (16x32) profile on the web CI cache volume and remote sccache,
+/// The mid-size (16x32) profile on the web CI cache volume and kache,
 /// for the jobs that scale with cores: the generated-code job compiles the
 /// schema binaries, the app build compiles the browser wasm packages and runs
 /// Vite, typechecking runs the TS 7 compiler, and vitest runs about 1.9x faster
@@ -122,7 +122,7 @@ fn generated_code() -> Job {
         .add_step(steps::mount_web_cache_volume(true))
         .add_step(steps::setup_nix())
         .add_step(steps::setup_reqs_web("Setup Prereqs", false))
-        .add_step(steps::configure_namespace_sccache(vars::WEB_SCCACHE_NAME))
+        .add_step(steps::configure_kache(steps::KacheStore::Shared))
         .add_step(build_schema_binaries())
         .add_step(generate_api_types())
         .add_step(regenerate_sdk())
@@ -140,7 +140,7 @@ fn generated_code() -> Job {
         // Last: its `cargo run -p` builds resolve features per package, so
         // running them earlier would make the steps above recompile.
         .add_step(check_specta_types())
-        .add_step(steps::show_sccache_stats())
+        .add_step(steps::report_kache_stats())
         .add_step(steps::teardown_nix())
 }
 
@@ -187,12 +187,11 @@ fn build() -> Job {
         .add_step(steps::mount_web_build_check_cache_volume())
         .add_step(steps::setup_nix())
         .add_step(steps::setup_reqs_web("Setup", true))
-        .add_step(steps::configure_namespace_sccache(vars::WEB_SCCACHE_NAME))
-        .add_step(steps::start_sccache_server())
+        .add_step(steps::configure_kache(steps::KacheStore::Shared))
         .add_step(run_build())
         // Exercise this revision's cache engine, already compiled by build-dev.
         .add_step(run_functional_tests())
-        .add_step(steps::show_sccache_stats())
+        .add_step(steps::report_kache_stats())
         .add_step(steps::teardown_nix())
 }
 

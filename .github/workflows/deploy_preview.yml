@@ -45,50 +45,42 @@ jobs:
           /home/runner/.cargo/registry
           /home/runner/.cargo/git
           /home/runner/.cache/.wasm-pack
+          /home/runner/.cache/kache
       continue-on-error: true
     - name: Setup Nix
       uses: './.github/actions/setup-nix'
     - name: Setup
       uses: './.github/actions/setup-reqs-web'
-    - name: Configure Namespace remote sccache
-      if: (github.event_name != 'pull_request' && github.event_name != 'pull_request_target') || github.event.pull_request.head.repo.full_name == github.repository
-      run: |-
+    - name: Configure kache
+      run: |
         set -euo pipefail
-        env_file="$(mktemp "$RUNNER_TEMP/namespace-sccache.XXXXXX")"
-        trap 'rm -f "$env_file"' EXIT
-        if nsc cache sccache setup --cache_name web-ci > "$env_file"; then
-          # Register credential values as masked BEFORE exporting: GitHub only
-          # masks `secrets.*`, so without this SCCACHE_WEBDAV_TOKEN — a broad,
-          # ~24h Namespace workspace token (registry + cache write) — printed
-          # verbatim in every subsequent step's env dump. Masking is selective by
-          # key name: masking non-secrets like the endpoint URL or key prefix
-          # would redact those strings everywhere in the logs.
-          while IFS= read -r line; do
-            k="${line%%=*}"
-            v="${line#*=}"
-            [ -n "$v" ] && [ "$k" != "$line" ] || continue
-            case "$k" in
-              *TOKEN*|*SECRET*|*PASSWORD*) echo "::add-mask::$v" ;;
-            esac
-          done < "$env_file"
-          cat "$env_file" >> "$GITHUB_ENV"
-          # Force the next compiler invocation to start a server with the new remote
-          # backend even if a setup hook happened to launch one already.
-          sccache --stop-server >/dev/null 2>&1 || true
-        else
-          echo "::warning::Namespace remote sccache setup failed; using local cache fallback"
+        {
+          echo "KACHE_CACHE_DIR=$KACHE_VOLUME_DIR"
+          echo "KACHE_MAX_SIZE=$KACHE_VOLUME_MAX_SIZE"
+          echo "KACHE_RUNTIME_DIR=$RUNNER_TEMP/kache"
+        } >> "$GITHUB_ENV"
+        if [ "$TRUSTED" != true ]; then
+          echo "KACHE_LOCAL_ONLY=1" >> "$GITHUB_ENV"
+        elif ! nsc docker login >/dev/null; then
+          echo "::warning::Namespace registry login failed; kache uses only the volume store"
+          echo "KACHE_LOCAL_ONLY=1" >> "$GITHUB_ENV"
         fi
-    - name: Start sccache server
-      run: sccache --start-server
+      shell: bash
+      env:
+        KACHE_VOLUME_DIR: /home/runner/.cache/kache
+        KACHE_VOLUME_MAX_SIZE: '30GiB'
+        TRUSTED: ${{ (github.event_name != 'pull_request' && github.event_name != 'pull_request_target') || github.event.pull_request.head.repo.full_name == github.repository }}
     - name: Build
       run: just build-dev
       env:
         VITE_SEGMENT_WRITE_KEY: ${{ secrets.SEGMENT_WRITE_KEY_PRODUCTION }}
         VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
       working-directory: apps/web
-    - name: show sccache stats
+    - name: Report kache stats
       if: always()
-      run: sccache --show-stats || true
+      run: |-
+        kache stats || true
+        kache daemon stop || true
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
       with:

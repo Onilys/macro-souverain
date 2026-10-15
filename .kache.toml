@@ -1,0 +1,7 @@
+# Shared kache remote for laptops and CI (see the devShell in
+# nix/cloud-storage.nix). Credentials come from `nsc docker login`, through
+# docker-credential-nsc. On GitHub Actions kache writes only from pushes to
+# protected branches; deploy and release jobs ignore this remote entirely.
+[cache.remote]
+type = "oci"
+repository = "nscr.io/m7cba6eboskcq/kache-shared"

@@ -76,6 +76,7 @@ jobs:
           /home/runner/.cargo/registry
           /home/runner/.cargo/git
           /home/runner/.cache/.wasm-pack
+          /home/runner/.cache/kache
       continue-on-error: true
     - name: Setup Nix
       uses: ./.github/actions/setup-nix

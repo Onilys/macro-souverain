@@ -4,8 +4,7 @@
 //! dashboard *profile* name — the same convention the deploy workflows already
 //! use. Each
 //! profile's persisted cache volume is configured in the Namespace dashboard;
-//! that volume backs Cargo/Nix state while compiled objects use Namespace's
-//! official remote sccache (see
+//! that volume backs Cargo/Nix state and kache's store (see
 //! [`crate::workflows::steps::mount_cache_volume`]).
 
 use std::fmt;
@@ -55,7 +54,7 @@ impl Runner {
     /// workflow never runs on `main` starts cold every time. Pinning a fixed tag
     /// makes every branch read/write the *same* volume — one global cache, like
     /// the old globally shared cache behavior. Cache-volume writes are managed
-    /// by Namespace; compiled objects use the separately named remote sccache.
+    /// by Namespace.
     pub fn with_cache_tag(self, tag: &str) -> String {
         format!("{self};overrides.cache-tag={tag}")
     }

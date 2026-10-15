@@ -58,10 +58,6 @@ pub const NEXTEST_TEST_THREADS: u32 = 32;
 /// retained so the existing warm volume is not invalidated.
 pub const CI_CACHE_TAG: &str = "sccache-ci";
 
-/// Namespace remote sccache shared by the cloud-storage compile/test jobs and
-/// the workspace dependency checks.
-pub const CI_SCCACHE_NAME: &str = "sccache-ci";
-
 /// Namespace cache tag for the web-app jobs (PR checks + preview deploys).
 /// Cache volumes are keyed workspace-wide by tag alone, so a dedicated tag
 /// gives the frontend its own volume — isolated both from the Rust CI volume
@@ -69,10 +65,14 @@ pub const CI_SCCACHE_NAME: &str = "sccache-ci";
 /// `linux-mid` volume.
 pub const WEB_CI_CACHE_TAG: &str = "web-ci";
 
-/// Namespace remote sccache used when the web checks compile Rust API schema
-/// generators. Kept separate from [`CI_SCCACHE_NAME`] because these jobs have
-/// a different workload and runner profile.
-pub const WEB_SCCACHE_NAME: &str = "web-ci";
+/// kache's store on each job's Namespace cache volume, listed in every volume
+/// mount that compiles Rust. kache's own default on Linux, spelled out because
+/// the dev shell otherwise points it at `~/macro-kache`.
+pub const KACHE_VOLUME_DIR: &str = "/home/runner/.cache/kache";
+
+/// Store budget on a cache volume. kache's default (5% of the disk) is sized
+/// for a laptop's root disk, not a dedicated volume.
+pub const KACHE_VOLUME_MAX_SIZE: &str = "30GiB";
 
 /// Namespace cache tag for `path-check`, which keeps its release
 /// `xtask_nextest_filter` binary on the volume. Without a fixed tag the small

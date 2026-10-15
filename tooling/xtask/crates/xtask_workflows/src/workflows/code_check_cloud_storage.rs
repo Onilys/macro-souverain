@@ -2,9 +2,9 @@
 //! workspace on pull requests. Generated into `code-check-cloud-storage.yml`.
 //!
 //! Ported from the hand-written workflow, with two infra changes: the runners
-//! moved to Namespace profiles, and compiled objects moved off the S3/local
-//! volume backends onto Namespace's official remote sccache (so there are no
-//! AWS credentials anywhere).
+//! moved to Namespace profiles, and compiled objects moved off the S3 backend
+//! onto kache: a store on the cache volume plus the shared nscr.io remote that
+//! developer machines publish to (so there are no AWS credentials anywhere).
 //!
 //! Critical path: `path-check` (no Rust compile on a warm binary cache) →
 //! `test`. `check` (fmt + clippy) and `doppler-config` run alongside `test`.
@@ -45,7 +45,7 @@ pub fn code_check_cloud_storage() -> Workflow {
 
 /// Same-repo PRs only: the binary cache below is shared, so an untrusted fork
 /// must not be able to plant a binary under a key a later PR would execute.
-const TRUSTED_CONTEXT: &str = steps::TRUSTED_NAMESPACE_SCCACHE_CONTEXT;
+const TRUSTED_CONTEXT: &str = steps::TRUSTED_NAMESPACE_CONTEXT;
 
 /// Where `path-check` keeps the release `xtask_nextest_filter` binary (keyed by
 /// its source trees and `Cargo.lock`) and the target dir that builds it.
@@ -53,7 +53,7 @@ const FILTER_CACHE_DIR: RuntimePath<'static> =
     xtask_paths::runtime_path!("/home/runner/.cache/macro-nextest-filter");
 
 /// Decide whether the rest of the workflow runs and compute the nextest
-/// filter. Deliberately light: no Nix, no sccache, and a cached release
+/// filter. Deliberately light: no Nix, no kache, and a cached release
 /// binary for the filter.
 fn path_check() -> Job {
     Job::default()
@@ -98,14 +98,14 @@ fn check() -> Job {
         .add_step(steps::mount_cache_volume())
         .add_step(steps::setup_nix())
         .add_step(steps::setup_dev_shell())
-        .add_step(steps::configure_namespace_sccache(vars::CI_SCCACHE_NAME))
+        .add_step(steps::configure_kache(steps::KacheStore::Shared))
         .add_step(cargo_fmt())
         .add_step(cargo_clippy())
-        .add_step(steps::show_sccache_stats())
+        .add_step(steps::report_kache_stats())
         .add_step(steps::teardown_nix())
 }
 
-/// The env the clippy-side jobs share, so their sccache keys stay identical.
+/// The env the clippy-side jobs share, so their kache keys stay identical.
 fn with_check_env(job: Job) -> Job {
     job.add_env((
         "RUSTFLAGS",
@@ -133,10 +133,10 @@ fn doppler_config() -> Job {
         .add_step(steps::mount_cache_volume())
         .add_step(steps::setup_nix())
         .add_step(steps::setup_dev_shell())
-        .add_step(steps::configure_namespace_sccache(vars::CI_SCCACHE_NAME))
+        .add_step(steps::configure_kache(steps::KacheStore::Shared))
         .add_step(compute_doppler_bins())
         .add_step(validate_doppler_configs())
-        .add_step(steps::show_sccache_stats())
+        .add_step(steps::report_kache_stats())
         .add_step(steps::teardown_nix())
 }
 
@@ -155,21 +155,17 @@ fn test() -> Job {
         ))
         .add_env(("NEXTEST_TEST_THREADS", vars::NEXTEST_TEST_THREADS))
         .add_env(("RUSTFLAGS", "-Dwarnings -C link-arg=-fuse-ld=mold"))
-        // The default 10-minute idle timeout can stop the server during long
-        // link or test phases, which resets the stats reported at the end.
-        .add_env(("SCCACHE_IDLE_TIMEOUT", "0"))
         .add_service("postgres", postgres_service())
         .add_service("redis", redis_service())
         .add_step(steps::checkout(false, false))
         .add_step(steps::mount_cache_volume())
         .add_step(steps::setup_nix())
         .add_step(steps::setup_dev_shell())
-        .add_step(steps::configure_namespace_sccache(vars::CI_SCCACHE_NAME))
-        .add_step(steps::start_sccache_server())
+        .add_step(steps::configure_kache(steps::KacheStore::Shared))
         .add_step(configure_postgres())
         .add_step(prepare_tests())
         .add_step(run_tests())
-        .add_step(steps::show_sccache_stats())
+        .add_step(steps::report_kache_stats())
         .add_step(steps::teardown_nix())
 }
 
@@ -225,7 +221,7 @@ fn paths_filter() -> Step<gh_workflow::Use> {
                   - '.github/actions/setup-nix/**'
                   - '.github/actions/setup-nix-dev-shell/**'
                   - '.github/actions/teardown-nix/**'
-                  - '.github/actions/setup-sccache/**'
+                  - '.kache.toml'
                   - '.github/services-config.json'
                   - .github/workflows/code_check_cloud_storage.yml
                 doppler_candidates:
@@ -274,9 +270,8 @@ fn compute_nextest_filter() -> Step<Run> {
         .shell("bash")
 }
 
-/// Build and run the Doppler config binaries affected by this PR. Namespace's
-/// remote sccache needs no AWS credentials; only the assertion that
-/// `RUSTC_WRAPPER` is wired stays.
+/// Build and run the Doppler config binaries affected by this PR. kache needs
+/// no AWS credentials; only the assertion that `RUSTC_WRAPPER` is wired stays.
 fn validate_doppler_configs() -> Step<Run> {
     Step::new("validate Doppler configs")
         .run(include_str!("scripts/validate_doppler_configs.sh"))
@@ -345,7 +340,7 @@ fn prepare_tests() -> Step<Run> {
         .run("just setup_test_envs && just initialize_dbs && just setup_test_template")
 }
 
-/// Run the test suite (no AWS credentials; sccache uses Namespace's remote cache).
+/// Run the test suite (no AWS credentials; kache reads the volume and nscr.io).
 fn run_tests() -> Step<Run> {
     Step::new("run tests").run(include_str!("scripts/run_tests.sh"))
 }

@@ -46,8 +46,8 @@ pub fn patch(root: &mut serde_yaml::Value) -> Result<()> {
     Ok(())
 }
 
-/// The build uses the shared Namespace `web-ci` sccache cache, so no sccache
-/// backend secret is needed here.
+/// Only deploys call this, so it compiles from kache's deploy store and never
+/// the shared remote; no cache backend secret is needed here.
 fn build_job() -> Job {
     Job::default()
         .name("Build")
@@ -57,10 +57,9 @@ fn build_job() -> Job {
         .add_step(steps::mount_web_build_cache_volume())
         .add_step(steps::setup_nix())
         .add_step(steps::setup_reqs_web("Setup", false))
-        .add_step(steps::configure_namespace_sccache(vars::WEB_SCCACHE_NAME))
-        .add_step(steps::start_sccache_server())
+        .add_step(steps::configure_kache(steps::KacheStore::Deploy))
         .add_step(build())
-        .add_step(steps::show_sccache_stats())
+        .add_step(steps::report_kache_stats())
         .add_step(upload_dist())
         .add_step(steps::teardown_nix())
 }
