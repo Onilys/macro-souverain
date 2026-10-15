@@ -11,7 +11,7 @@ spreadsheet, then choose **Import…**.
 The document title sits above a compact formatting ribbon. **Paste special** offers
 paste and values-only paste; **View options** toggles gridlines, the formula bar,
 and formula display. **Functions** inserts formulas, while **Format and data**
-contains sorting, whitespace trimming, fill, and clear actions. **Find and replace**
+contains sorting, whitespace trimming, Goal Seek, fill, and clear actions. **Find and replace**
 is a direct ribbon button. The footer's **Import and export** button also contains
 Excel and CSV downloads and stays visible beside horizontally scrolling sheet tabs.
 
@@ -119,8 +119,12 @@ Rows and columns currently have fixed positions. Range sorting copies whole rows
 within a selected rectangle and translates their relative formulas through IronCalc.
 It validates that the sheet, selection, permission, and editing state have not changed
 before committing. Other formulas keep their A1 references; they do not follow moved
-records. Structural insertion/deletion still needs stable identities and formula
-reference transformation across concurrent operations.
+records. Inserting or deleting rows and columns rewrites the moved cells, references
+and layout in one commit, under the same revision check. Saved workbooks allow it
+only while connected, so an offline coordinate shift cannot merge later over
+collaborators' edits. Rows and columns have no stable identities: an edit that a
+collaborator commits to old coordinates after the shift arrives still lands at
+those coordinates.
 
 ### Workbook sheets
 
@@ -133,7 +137,13 @@ the same sheet prefix. `spreadsheetSheetNames`, `spreadsheetSheetOrder`, and
 sheet keeps independent cells, formatting, and layout. Active tabs and remembered
 selections are local; presence includes a sheet ID and shows only on that sheet.
 
-Adding, renaming, duplicating, and deleting sheets participate in local undo.
+Dragging a tab with a mouse or pen moves its sheet; touch presses keep
+scrolling the tab strip, and every tab menu offers **Move left** and **Move
+right**. A move writes only the moved sheet's order, between its new neighbors,
+so collaborators moving other sheets at the same time keep both moves. Sheets
+whose orders tie are renumbered.
+
+Adding, renaming, duplicating, moving, and deleting sheets participate in local undo.
 Duplicate copies raw formulas, styles, and layout at the same coordinates.
 Deletion retains the sheet's CRDT data so undo can recover it and concurrent
 edits. The last visible sheet cannot be deleted locally; simultaneous deletes
@@ -254,7 +264,7 @@ trailing update for the final selection.
 IronCalc handles formula parsing, ranges, relative and absolute references,
 dependency evaluation, functions, circular references, Excel errors, and array
 spills. The model uses fixed English settings and UTC on every client. Number
-formatting uses fixed `en-US` display rules; currency formatting means USD. The
+formatting uses fixed `en-US` display rules; currency and accounting mean USD. The
 binding exposes numbers through formatted strings, so the adapter requests a
 scientific format with sufficient significant digits before applying UI formats.
 Calculations use the engine's numeric values, not rounded UI values.
@@ -292,8 +302,12 @@ compare formula, error, and formatting behavior before replacing it.
 - The ribbon exposes font family/size, bold/italic/underline/strikethrough,
   text/fill colors, per-edge borders, horizontal/vertical alignment, and wrapping.
   All cell styles persist, sync independently, copy/fill, and undo. Number formats
-  include general, number, USD currency, percent, scientific, date, time, and plain
-  text, with adjustable decimal places. Date/time displays are deterministic UTC.
+  include general, number, USD currency, USD accounting, percent, scientific, date,
+  time, and plain text, with adjustable decimal places. Accounting follows Excel:
+  the grid pins `$` to the cell's left edge and the amount to its right, negatives
+  show in parentheses and zero as a dash. It exports as Excel's built-in accounting
+  format, and imported dollar formats with a repeated fill (`*`) open as accounting.
+  Date/time displays are deterministic UTC.
   Cells without an explicit format honor the date/time formats IronCalc infers for
   typed dates, `DATE()`-style results and arithmetic on date cells (formula results
   only from the year 2000 on, so day counts stay numbers). A cell holding one
@@ -316,6 +330,9 @@ compare formula, error, and formatting behavior before replacing it.
   dialog changes a chart's type, title, legend and data. Edited charts are
   exported as Macro writes them, without the part Excel saved. Ctrl+Alt+5
   selects a drawing from the grid and Tab moves between them.
+- **Format and data → Goal Seek…** finds the number that makes a formula cell
+  reach a typed value, then writes it when confirmed. The search runs on a copy
+  of the calculated workbook, so cancel leaves every cell as it was.
 - Filters, editing named ranges, automatic spill expansion, and drag
   auto-scroll remain future work.
 - CSV import writes a validated rectangle at the active cell, appending rows when
@@ -360,7 +377,12 @@ Import keeps what Excel calculates and shows:
   number, date, time and text-length rules that show an error alert: a stop alert
   rejects the entry, warnings and information accept it, and each shows the
   rule's message in the footer. List rules offer their values in a dropdown on the
-  active cell (Alt+Down). Input messages and notes show beside the active cell.
+  active cell (Alt+Down), and every cell they cover shows an arrow that opens it.
+  `components/DropdownDialog.tsx` (Format and data → Dropdown…, or the cell menu)
+  adds, edits and removes list rules on the selection through
+  `packages/spreadsheet/src/data-validation.ts`, which the AI `set_dropdown` and
+  `clear_validation` operations share: a new rule takes its range out of the rules
+  it overlaps, since a cell has one rule. Input messages and notes show beside the active cell.
   Inserting or deleting rows and columns moves rule ranges, rule formulas and
   notes.
 - Images and charts. `core/xlsx-drawings.ts` reads a sheet's drawing part
@@ -463,13 +485,15 @@ group, SmartArt and an EMF, as Excel writes them) and corpus workbooks. Exports 
 which draws the same charts (surface charts aside, which it cannot draw) and
 rebuilds pivot tables from edited data.
 
-`core/xlsx-corpus.test.ts` imports, recalculates, exports and reimports the
-real-world workbooks in `core/xlsx-fixtures/real-world/` (finance models,
-government statistics and open-source test suites; provenance and licenses are in
-its `manifest.json`). Its snapshot records counts, warnings, how many formulas
-recalculate to Excel's cached results, and the first round-trip difference, so a
-change in fidelity shows up in review. Set `XLSX_CORPUS_VERBOSE=1` to print
-mismatch examples.
+`core/xlsx-corpus-1.test.ts` through `core/xlsx-corpus-4.test.ts` import,
+recalculate, export and reimport the real-world workbooks in
+`core/xlsx-fixtures/real-world/` (finance models, government statistics and
+open-source test suites; provenance and licenses are in its `manifest.json`).
+Each file runs one slice of the corpus through `core/xlsx-corpus-suite.ts`, so
+the workbooks run on several Vitest workers. Their snapshots record counts,
+warnings, how many formulas recalculate to Excel's cached results, and the first
+round-trip difference, so a change in fidelity shows up in review. Set
+`XLSX_CORPUS_VERBOSE=1` to print mismatch examples.
 
 ## Verification
 

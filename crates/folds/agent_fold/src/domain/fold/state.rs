@@ -14,7 +14,9 @@ use agent_client_protocol::schema::v1::{
 };
 use agent_client_protocol::{JsonRpcMessage, RawJsonRpcMessage, RawJsonRpcParams};
 use agent_runtime_protocol::domain::action::AgentAction;
+use agent_runtime_protocol::domain::context::ContextSummaryNotification;
 use agent_runtime_protocol::domain::schema::v0::{SystemEvent, ToRuntimeMessage, ToServerMessage};
+use agent_runtime_protocol::domain::tool_approval::TOOL_APPROVAL_METHOD;
 use serde::Deserialize;
 
 use super::convert::{content_block_text, param, user_content_part};
@@ -117,6 +119,8 @@ pub(super) struct FoldState {
     pub(super) turns_opened: u32,
     /// Outstanding permission requests, by the id of the request that asked.
     pub(super) pending_permissions: HashMap<RequestId, ToolPath>,
+    /// Tool calls the egress proxy is holding for the owner, by approval id.
+    pub(super) pending_tool_approvals: HashMap<String, ToolPath>,
     /// Outstanding `elicitation/create`s, by the id of the request that
     /// asked: where the question's part sits, so its answer can find it.
     /// Session-wide like [`Self::tool_positions`], since the part may have
@@ -180,14 +184,6 @@ pub(super) struct Turn {
     /// Where this turn's plan sits in the agent message's parts, so later
     /// plan updates can replace it.
     pub(super) plan_position: Option<usize>,
-    /// Whether closing this turn needs an agent message to record its stop
-    /// reason on, minting one if the agent never produced a part.
-    ///
-    /// True for a turn a prompt opened: the user's bubble is then the
-    /// transcript's newest turn message, and readers take one without a stop
-    /// reason to mean the agent is still working. False for a turn a control
-    /// opened (`/compact`), whose own message readers skip.
-    pub(super) expects_reply: bool,
 }
 
 impl FoldState {
@@ -215,7 +211,12 @@ impl FoldState {
                 // set-model request whose response this correlates.
                 self.note_config_request(&acp.0);
                 self.note_initialize_request(&acp.0);
-                if let Some(action) = AgentAction::control_from_runtime(message) {
+                // `/compact` is a prompt like any other, folded below: a
+                // compaction shows when the agent reports one, not when
+                // someone asks for it.
+                let control = AgentAction::control_from_runtime(message)
+                    .filter(|action| !matches!(action, AgentAction::Compact));
+                if let Some(action) = control {
                     return StepChange::message(match action {
                         AgentAction::SetModel(action) => {
                             let request_id = match &acp.0 {
@@ -244,12 +245,6 @@ impl FoldState {
                                 entry.user_id.clone(),
                             )
                         }
-                        AgentAction::Compact => match &acp.0 {
-                            RawJsonRpcMessage::Request(request) => {
-                                self.begin_compact(&request.id, entry.user_id.clone())
-                            }
-                            _ => None,
-                        },
                         // A stop is a notification: nothing can answer it, so
                         // it is accepted the moment it is sent. The turn it
                         // interrupts ends through the agent's own stop event.
@@ -263,6 +258,7 @@ impl FoldState {
                         // is folded below, and an elicitation answer is a
                         // response frame, correlated by the agent's id.
                         AgentAction::Prompt(_)
+                        | AgentAction::Compact
                         | AgentAction::RespondElicitation(_)
                         | AgentAction::RespondToPermission(_) => None,
                     });
@@ -327,6 +323,12 @@ impl FoldState {
                     });
                     StepChange::message(stop.and_then(|stop| self.close_turn(Some(stop))))
                 }
+                // The agent summarized its own context.
+                RawJsonRpcMessage::Notification(notification)
+                    if ContextSummaryNotification::matches_method(&notification.method) =>
+                {
+                    StepChange::message(self.record_compaction())
+                }
                 // The bulk of the log: streamed content and tool activity.
                 RawJsonRpcMessage::Notification(notification)
                     if SessionNotification::matches_method(&notification.method) =>
@@ -350,6 +352,15 @@ impl FoldState {
                         Some((changed, metadata)) => Self::message_and_metadata(changed, metadata),
                         None => Vec::new(),
                     }
+                }
+                // A tool call held for the owner, or how it was resolved.
+                RawJsonRpcMessage::Notification(notification)
+                    if notification.method.as_ref() == TOOL_APPROVAL_METHOD =>
+                {
+                    self.apply_tool_approval(&notification.method, notification.params.as_ref())
+                        .map_or_else(Vec::new, |(message, metadata)| {
+                            Self::message_and_metadata(message, metadata)
+                        })
                 }
                 // The agent reporting that a URL interaction finished.
                 RawJsonRpcMessage::Notification(notification)
@@ -506,6 +517,7 @@ impl FoldState {
     /// Forget live requests at a connection boundary, preserving the transcript.
     fn forget_interactions(&mut self) -> bool {
         self.pending_permissions.clear();
+        self.pending_tool_approvals.clear();
         self.pending_elicitations.clear();
         self.completable_elicitations.clear();
         let changed = !self.metadata.pending_interactions.is_empty();

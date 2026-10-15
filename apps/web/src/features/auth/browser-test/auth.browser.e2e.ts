@@ -17,12 +17,35 @@ test('a returning user signs in with an emailed code', async ({ page }) => {
 test('a wrong code can be corrected without starting over', async ({
   page,
 }) => {
-  await openFixture(page, '/?page=login');
+  await openFixture(page, '/?page=login&verifyLatency=300');
   await page.getByRole('button', { name: 'Continue with email' }).click();
   await signInWithCode(page, 'returning@acme.com', '111111');
   await expect(page.getByRole('alert')).toHaveText('Invalid code.');
-  await page.getByLabel('One-time code').fill('424242');
+  const code = page.getByLabel('One-time code');
+  await expect(code).toHaveValue('');
+  await expect(code).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Verify' })).toBeDisabled();
+  await page.keyboard.press('Enter');
+  expect(
+    (await fakeCalls(page)).filter((call) => call.startsWith('verify:'))
+  ).toEqual(['verify:returning@acme.com:111111']);
+  await page.keyboard.type('424242');
   await expectLanded(page, '/');
+});
+
+test('a rate-limited code check says to wait instead of calling the code invalid', async ({
+  page,
+}) => {
+  await openFixture(page, '/?page=login', {
+    codeAttempts: { 'returning@acme.com': 5 },
+  });
+  await page.getByRole('button', { name: 'Continue with email' }).click();
+  await signInWithCode(page, 'returning@acme.com', '424242');
+  await expect(page.getByRole('alert')).toHaveText(
+    'Too many attempts. Wait a minute, then try again.'
+  );
+  await expect(page.getByLabel('One-time code')).toHaveValue('424242');
+  await expect(page.getByRole('button', { name: 'Verify' })).toBeEnabled();
 });
 
 test('Google sign-in comes back with a session code the page redeems', async ({
@@ -104,6 +127,78 @@ test('desktop sign-up: slides, Google, then onboarding resumes at the work inbox
           .accent
     )
   ).toBe('#b8a1ed');
+});
+
+test('a returning visitor on sign-up can switch to sign in', async ({
+  page,
+}) => {
+  await openFixture(page, '/?page=signup');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Create your workspace' })
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Sign in instead' }).click();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Welcome to Macro' })
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Continue with email' }).click();
+  await signInWithCode(page, 'returning@acme.com', '424242');
+  await expectLanded(page, '/');
+});
+
+test('returning from Google sign-up settles into onboarding without flashing', async ({
+  page,
+}) => {
+  // Record, from the first paint of every load, whether the signed-out slide
+  // ever shows, and whether the placeholder comes back after a real step.
+  await page.addInitScript(() => {
+    const w = window as unknown as {
+      __frames: { signedOut: boolean; placeholderAfterStep: boolean };
+    };
+    w.__frames = { signedOut: false, placeholderAfterStep: false };
+    let sawStep = false;
+    const check = () => {
+      const text = document.body?.textContent ?? '';
+      if (text.includes('Your work email becomes your Macro sign-in'))
+        w.__frames.signedOut = true;
+      const placeholder = !!document.querySelector(
+        '[aria-label="Loading setup"]'
+      );
+      if (sawStep && placeholder) w.__frames.placeholderAfterStep = true;
+      if (document.querySelector('h1')?.textContent?.includes('Connect your'))
+        sawStep = true;
+    };
+    new MutationObserver(check).observe(document, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  });
+  await openFixture(page, '/?page=signup&latency=500&sso=cookie', {
+    ssoEmail: 'founder@acme.com',
+  });
+  await page.getByRole('button', { name: 'Get started' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Connect work email' }).click();
+
+  // Back from Google: the session takes 500ms to resolve on the fresh load.
+  await expect(
+    page.getByRole('heading', { level: 1, name: /Connect your work/ })
+  ).toBeVisible();
+  // Settled: the step's inbox lookup has landed.
+  await expect(
+    page.getByRole('button', { name: 'Connect work email' })
+  ).toBeEnabled();
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __frames: { signedOut: boolean; placeholderAfterStep: boolean };
+          }
+        ).__frames
+    )
+  ).toEqual({ signedOut: false, placeholderAfterStep: false });
 });
 
 test('a mobile-web visitor gets a desktop link instead of signing up', async ({

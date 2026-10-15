@@ -4,6 +4,7 @@ mod test;
 use super::LexicalClient;
 use crate::types::{CognitionResponseData, CognitionV2ResponseData};
 use messages::domain::models::MessageParent;
+use trigger_context::TriggerContext;
 
 use crate::types::MarkdownParseResult;
 use agent_fold::domain::model::MessageId;
@@ -255,129 +256,23 @@ struct AgentChatReplyRequest<'a> {
     chat_reply: &'a AgentChatReply,
 }
 
-/// A message included as context for an agent prompt.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentContextMessage<'a> {
-    /// Message id.
-    pub id: String,
-    /// Sender identifier as the message service represents it.
-    pub sender_id: &'a str,
-    /// Readable name of the sender.
-    pub author: &'a str,
-    /// Markdown content of the message.
-    pub content: &'a str,
-    /// RFC 3339 time the message was posted.
-    pub posted_at: String,
-}
-
-/// Messages of one discussion included as context, oldest first.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentContextThread<'a> {
-    /// Root message of the discussion.
-    pub root_id: String,
-    /// Live messages, the root first when it is included.
-    pub messages: Vec<AgentContextMessage<'a>>,
-    /// Whether some messages of the discussion were left out.
-    pub messages_omitted: bool,
-}
-
-/// What an agent prompt answers.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum AgentContextReplyTarget<'a> {
-    /// The author quote-replied to one message.
-    Quote {
-        /// The quoted message.
-        message_id: String,
-        /// The discussion holding the quoted message.
-        thread_id: String,
-        /// The one-line preview the quote renders.
-        preview: &'a str,
-        /// The quoted message in full, when it could be read.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        message: Option<AgentContextMessage<'a>>,
-    },
-    /// The prompt was posted as a reply in a discussion.
-    Thread {
-        /// Root of that discussion.
-        thread_id: String,
-    },
-    /// The prompt was posted at the top level of a channel.
-    None,
-}
-
-/// The conversation an agent prompt was posted in.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentContext<'a> {
-    /// The document location of the comment thread, when it has one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor: Option<AgentContextAnchor<'a>>,
-    /// What the prompt answers.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reply_target: Option<AgentContextReplyTarget<'a>>,
-    /// The prompting message, marked where it appears in the context.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prompt_message_id: Option<String>,
-    /// The discussion the prompt was posted in, through the prompt.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thread: Option<AgentContextThread<'a>>,
-    /// Other channel activity, grouped by discussion, oldest first.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub channel: Vec<AgentContextThread<'a>>,
-}
-
-/// The document location of the comment thread an agent prompt was posted in.
+/// A person an agent session acts for or hears from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
-#[serde(
-    tag = "type",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum AgentContextAnchor<'a> {
-    /// A cell or rectangular range in a native spreadsheet.
-    Spreadsheet {
-        /// Stable sheet identity within the workbook.
-        sheet_id: &'a str,
-        /// Sheet name when the discussion was created.
-        sheet_name: &'a str,
-        /// A1 cell or range, such as B4 or B4:C9.
-        range: &'a str,
-    },
+pub struct AgentContextPerson<'a> {
+    /// Their Macro user id.
+    pub id: &'a str,
+    /// How a reader names them.
+    pub name: &'a str,
+}
 
-    /// A comment mark in a markdown document.
-    Markdown {
-        /// Lexical mark the comment is attached to.
-        mark_id: &'a str,
-        /// The marked text when the comment was posted, when it was captured.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        marked_text: Option<&'a str>,
-        /// The text the mark covers in the document now, when it was resolved.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        current_marked_text: Option<&'a str>,
-        /// The passage around the mark now, when it was resolved.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        surrounding_text: Option<&'a str>,
-    },
-    /// A highlight on a PDF.
-    PdfHighlight {
-        /// Highlight annotation the comment is attached to.
-        anchor_id: &'a str,
-        /// The text the highlight covers, when it carries any.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        marked_text: Option<&'a str>,
-    },
-    /// A point pinned on a PDF page, which covers no text.
-    PdfPin {
-        /// Pin annotation the comment is attached to.
-        anchor_id: &'a str,
-    },
+/// Whose access an agent session runs with, and who sent the prompt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct AgentContextPeople<'a> {
+    /// The session's owner.
+    pub owner: AgentContextPerson<'a>,
+    /// The prompt's sender; absent when a bot sent it on nobody's behalf.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender: Option<AgentContextPerson<'a>>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -386,10 +281,10 @@ struct AgentContextRequest<'a> {
     prompt_markdown: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     instructions: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    parent: Option<&'a MessageParent>,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    context: Option<&'a AgentContext<'a>>,
+    people: Option<&'a AgentContextPeople<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    trigger: Option<&'a TriggerContext>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -709,16 +604,16 @@ impl LexicalClient {
         Ok(data.markdown)
     }
 
-    /// Sanitizes an agent prompt and optionally composes it with the
-    /// conversation it was posted in via the lexical service, so internal
-    /// nodes and escaping are handled by Lexical rather than by the caller.
-    #[tracing::instrument(skip(self, prompt_markdown, context), err)]
+    /// Sanitizes an agent prompt and optionally composes it with why the
+    /// agent was called via the lexical service, so internal nodes and
+    /// escaping are handled by Lexical rather than by the caller.
+    #[tracing::instrument(skip(self, prompt_markdown, trigger), err)]
     pub async fn compose_agent_context(
         &self,
         prompt_markdown: &str,
         instructions: Option<&str>,
-        parent: Option<&MessageParent>,
-        context: Option<&AgentContext<'_>>,
+        people: Option<&AgentContextPeople<'_>>,
+        trigger: Option<&TriggerContext>,
     ) -> Result<String> {
         let url = format!("{}/agent-context", self.url);
         let response = check_response(
@@ -727,8 +622,8 @@ impl LexicalClient {
                 .json(&AgentContextRequest {
                     prompt_markdown,
                     instructions,
-                    parent,
-                    context,
+                    people,
+                    trigger,
                 })
                 .send()
                 .await?,

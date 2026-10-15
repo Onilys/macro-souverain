@@ -7,8 +7,8 @@
 //! tables, and toolsets. The one place they must meet is deciding which
 //! tools a user's agent actually gets. This crate owns that rule:
 //!
-//! 1. Load both stacks' connectors.
-//! 2. If the user has any Pipedream connectors, use only those.
+//! 1. Load the configured stacks' connectors.
+//! 2. If Pipedream is configured and the user has any of its connectors, use only those.
 //! 3. Otherwise, use the native connectors.
 
 use ai_toolset::{
@@ -27,7 +27,7 @@ use std::sync::Arc;
 mod test;
 
 /// Mangled MCP tool names start with this prefix on both stacks.
-const MANGLED_PREFIX: &str = "mcp__";
+pub const MANGLED_PREFIX: &str = "mcp__";
 
 /// A connector identified in both stacks: the Pipedream app slugs and the
 /// native server URL that back the same product (e.g. `linear` /
@@ -193,6 +193,9 @@ where
         &self,
         user: &MacroUserIdStr<'static>,
     ) -> Vec<pipedream_mcp::domain::models::PipedreamConnection> {
+        if !self.pipedream_connection.is_configured() {
+            return Vec::new();
+        }
         self.pipedream_store
             .list(user)
             .await

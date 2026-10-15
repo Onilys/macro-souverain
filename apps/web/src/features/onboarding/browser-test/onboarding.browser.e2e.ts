@@ -60,7 +60,7 @@ test('a new user signs up, connects everything, and starts the trial', async ({
   await page.getByRole('button', { name: 'Start 30 day trial' }).click();
 
   // Stripe returns on the success leg; the flow waits for the webhook's license.
-  await expectLanded(page, 'Entered Macro at /getting-started');
+  await expectLanded(page, 'Entered Macro at /home');
   const world = await fakeWorld(page);
   expect(world.viewer).toMatchObject({
     tutorialComplete: true,
@@ -84,12 +84,12 @@ test('a deep link survives the inbox OAuth round-trip', async ({ page }) => {
   await page.getByRole('button', { name: 'Skip for now' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('button', { name: 'Skip for now' }).click();
-  await page.getByRole('button', { name: 'Continue as Guest' }).last().click();
+  await page.getByRole('button', { name: 'Continue with Free' }).last().click();
 
   await expectLanded(page, 'Entered Macro at /channel/launch');
 });
 
-test('Guest continuation lives in the comparison below the trial offer', async ({
+test('Free, Pro, and Max appear below the unchanged trial offer', async ({
   page,
 }) => {
   await openFixture(page, '/?view=flow&next=/md/notes');
@@ -101,17 +101,63 @@ test('Guest continuation lives in the comparison below the trial offer', async (
   });
   await page.reload();
 
-  await page.getByRole('button', { name: 'Continue as Guest' }).first().click();
+  await expect(heading(page, 'Free Claude & GPT for 30 days.')).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Choose what works for you.' })
+    page.getByRole('button', { name: 'Start 30 day trial' })
   ).toBeInViewport();
-  await expect(page.getByRole('table')).toContainText('Haiku');
-  await page.getByRole('button', { name: 'Continue as Guest' }).last().click();
+  const comparison = page.getByRole('table', {
+    name: 'Compare Free, Pro, and Max plans',
+  });
+  await expect(comparison).not.toBeInViewport();
+  await page.getByRole('button', { name: 'See more' }).click();
+  await expect(comparison).toBeInViewport();
+  for (const name of ['Free', 'Pro', 'Max']) {
+    await expect(
+      comparison.getByRole('columnheader', { name: new RegExp(`^${name}`) })
+    ).toBeVisible();
+  }
+  await expect(comparison).toContainText('10× usage');
+  await expect(comparison).not.toContainText('at cost');
+  await page.getByRole('button', { name: 'Continue with Pro' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Start 30 day trial' })
+  ).toBeInViewport();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'See more' }).click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    )
+  ).toBe(true);
+  await page.getByRole('button', { name: 'Continue with Free' }).last().click();
 
   await expectLanded(page, 'Entered Macro at /md/notes');
   expect(await fakeEvents(page)).toContainEqual({
     event: 'onboarding_v4_completed',
     data: expect.objectContaining({ plan: 'free' }),
+  });
+});
+
+test('Max checkout returns with a licensed account and no trial', async ({
+  page,
+}) => {
+  await openFixture(page, '/?view=flow');
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      'onboarding-flow-step',
+      JSON.stringify({ user: 'macro|ada@acme.com', step: 'plan' })
+    );
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Continue with Max' }).click();
+  await expectLanded(page, 'Entered Macro at /home');
+  expect((await fakeWorld(page)).viewer).toMatchObject({
+    tutorialComplete: true,
+    licensed: true,
+  });
+  expect(await fakeEvents(page)).toContainEqual({
+    event: 'onboarding_v4_completed',
+    data: expect.objectContaining({ plan: 'max' }),
   });
 });
 
@@ -151,7 +197,7 @@ test('an ineligible trial explains itself instead of charging', async ({
   await page.getByRole('button', { name: 'Start 30 day trial' }).click();
 
   await expect(page.getByRole('status', { name: 'Notifications' })).toHaveText(
-    message
+    'The 30-day trial is only available for your first Pro subscription'
   );
   await expect(
     page.getByRole('button', { name: 'Start 30 day trial' })
@@ -182,7 +228,7 @@ test('an invite’s free months replace the trial and keep its promotion', async
     page.getByRole('button', { name: 'Start 30 day trial' })
   ).toHaveCount(0);
   await page.getByRole('button', { name: 'Claim your free months' }).click();
-  await expectLanded(page, 'Entered Macro at /getting-started');
+  await expectLanded(page, 'Entered Macro at /home');
   expect((await fakeWorld(page)).viewer?.licensed).toBe(true);
 });
 
@@ -230,6 +276,29 @@ test('a finished user is sent straight into the app', async ({ page }) => {
 test.describe('with motion', () => {
   test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
+  test('a click lands as soon as the next slide appears, not after its animation', async ({
+    page,
+  }) => {
+    await openFixture(page, '/?view=signup', { viewer: null });
+    const steps: [string, string | RegExp][] = [
+      ['Get started', 'Which features do you want to try first?'],
+      ['Continue', 'A workspace built to earn your trust.'],
+      ['Continue', /Connect your work/],
+    ];
+    await expect(heading(page, 'Create your workspace')).toBeVisible();
+    for (const [button, next] of steps) {
+      // A person clicks once the slide is visible, well before its flight ends.
+      await page.waitForTimeout(400);
+      const box = await page
+        .getByRole('button', { name: button })
+        .last()
+        .boundingBox();
+      if (!box) throw new Error(`${button} is not on screen`);
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect(heading(page, next)).toBeVisible({ timeout: 1_000 });
+    }
+  });
+
   test('the story handoffs finish and leave the next step interactive', async ({
     page,
   }) => {
@@ -264,4 +333,90 @@ test.describe('on a phone-sized screen', () => {
     }
     await expect(heading(page, /Connect your work/)).toBeVisible();
   });
+});
+
+for (const width of [1440, 390]) {
+  for (const theme of ['cream', 'dark'] as const) {
+    test(`${theme} onboarding stays readable across all steps at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openFixture(page, `/?view=flow&theme=${theme}`);
+      const background =
+        theme === 'cream' ? 'rgb(245, 241, 232)' : 'rgb(0, 0, 0)';
+      const ink = theme === 'cream' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+      for (const step of [
+        'welcome',
+        'vision',
+        'security',
+        'work',
+        'personal',
+        'tools',
+        'team',
+        'plan',
+      ]) {
+        await page.evaluate((step) => {
+          sessionStorage.setItem(
+            'onboarding-flow-step',
+            JSON.stringify({ user: 'macro|ada@acme.com', step })
+          );
+        }, step);
+        await page.reload();
+        await expect(page.locator('.onboarding-flow')).toHaveCSS(
+          'background-color',
+          background
+        );
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await expect(page.getByRole('heading', { level: 1 })).toHaveCSS(
+          'color',
+          ink
+        );
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth
+          )
+        ).toBe(true);
+      }
+      // The explicit palette also survives a simulated Google redirect that drops query params.
+      await page.evaluate(() =>
+        sessionStorage.setItem(
+          'onboarding-flow-step',
+          JSON.stringify({ user: 'macro|ada@acme.com', step: 'work' })
+        )
+      );
+      await page.reload();
+      await page.getByRole('button', { name: 'Connect work email' }).click();
+      await expect(page.getByText('ada@acme.com')).toBeVisible();
+      await expect(page.locator('.onboarding-flow')).toHaveCSS(
+        'background-color',
+        background
+      );
+    });
+  }
+}
+
+test('system theme changes keep the current onboarding step and selected accent', async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await openFixture(page, '/?view=flow');
+  await accentSwatch(page, 'Coral').click();
+  await page.getByRole('button', { name: 'Get started' }).click();
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(
+    heading(page, 'Which features do you want to try first?')
+  ).toBeVisible();
+  await expect(page.locator('.onboarding-flow')).toHaveCSS(
+    'background-color',
+    'rgb(245, 241, 232)'
+  );
+  expect((await fakeWorld(page)).accent).toBe('#f77d67');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(
+    heading(page, 'Which features do you want to try first?')
+  ).toBeVisible();
+  await expect(page.locator('.onboarding-flow')).toHaveCSS(
+    'background-color',
+    'rgb(0, 0, 0)'
+  );
 });

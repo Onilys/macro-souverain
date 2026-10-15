@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { createSignal } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AuthIntent } from '../context/auth-context';
 import type { FakeAuthWorld } from '../tests/fake-auth-context';
@@ -21,6 +22,7 @@ function setup(
   } = {}
 ) {
   const verified = vi.fn();
+  const signIn = vi.fn();
   const { fake } = renderWithFakeAuth(
     () => (
       <AuthView
@@ -31,17 +33,49 @@ function setup(
         autoStart={options.autoStart}
         token={options.token}
         onVerified={verified}
+        onSignIn={signIn}
         signupJourney={options.signupJourney}
         signedIn={(user) => (
           <p data-testid="signed-in">
-            {user.email} {user.tutorialComplete ? 'returning' : 'new'}
+            {user().email} {user().tutorialComplete ? 'returning' : 'new'}
           </p>
         )}
       />
     ),
     options.world
   );
-  return { fake, verified };
+  return { fake, verified, signIn };
+}
+
+/** As `setup`, but the session code can arrive after the view has mounted. */
+function setupWithTokenSignal(
+  options: {
+    world?: Partial<FakeAuthWorld>;
+    /** Replaces the fake backend's redemption, e.g. to make it reject. */
+    redeem?: (token: string) => Promise<boolean>;
+  } = {}
+) {
+  const [token, setToken] = createSignal<string | undefined>(undefined);
+  const { fake } = renderWithFakeAuth(
+    () => (
+      <AuthView
+        intent="login"
+        showApple={false}
+        compact={false}
+        token={token()}
+        signedIn={(user) => (
+          <p data-testid="signed-in">
+            {user().email} {user().tutorialComplete ? 'returning' : 'new'}
+          </p>
+        )}
+      />
+    ),
+    options.world
+  );
+  // Safe after render: the effect's first run sees no code and returns early,
+  // so nothing redeems until setToken.
+  if (options.redeem) fake.context.redeemSessionToken = options.redeem;
+  return { fake, setToken };
 }
 
 const click = (name: string | RegExp) =>
@@ -57,6 +91,38 @@ const typeCode = async (value: string) =>
   });
 
 describe('email sign-in', () => {
+  it('updates a signed-in viewer without remounting their workspace on session refresh', () => {
+    const { fake } = setup({
+      world: {
+        user: {
+          id: 'macro|member@acme.com',
+          email: 'member@acme.com',
+          tutorialComplete: false,
+        },
+      },
+    });
+    const workspace = screen.getByTestId('signed-in');
+
+    fake.update((draft) => {
+      if (draft.user) draft.user.tutorialComplete = true;
+    });
+
+    expect(screen.getByTestId('signed-in')).toBe(workspace);
+    expect(workspace.textContent).toBe('member@acme.com returning');
+
+    fake.update((draft) => {
+      draft.user = {
+        id: 'macro|another@acme.com',
+        email: 'another@acme.com',
+        tutorialComplete: false,
+      };
+    });
+    expect(screen.getByTestId('signed-in')).not.toBe(workspace);
+    expect(screen.getByTestId('signed-in').textContent).toBe(
+      'another@acme.com new'
+    );
+  });
+
   it('sends a code, verifies it, and hands off to the signed-in view', async () => {
     const { fake, verified } = setup();
     click('Continue with email');
@@ -93,6 +159,51 @@ describe('email sign-in', () => {
     await typeCode('000000');
     await screen.findByText('Invalid code.');
     await typeCode('424242');
+    await screen.findByTestId('signed-in');
+  });
+
+  // Every check counts against the auth service's per-address attempt limit.
+  it('checks each entered code once, even when Verify is tapped after a miss', async () => {
+    const { fake } = setup();
+    click('Continue with email');
+    await typeEmail('returning@acme.com');
+    click('Continue');
+    await screen.findByText('returning@acme.com');
+    for (const wrong of ['000000', '111111', '222222']) {
+      await typeCode(wrong);
+      await screen.findByText('Invalid code.');
+      expect(screen.getByLabelText(/code/i)).toHaveProperty('value', '');
+      click(/^Verify/);
+    }
+    await typeCode('424242');
+    await screen.findByTestId('signed-in');
+    expect(fake.calls().filter((call) => call.startsWith('verify:'))).toEqual([
+      'verify:returning@acme.com:000000',
+      'verify:returning@acme.com:111111',
+      'verify:returning@acme.com:222222',
+      'verify:returning@acme.com:424242',
+    ]);
+  });
+
+  it('says to wait when code checks are rate-limited, and keeps the code to retry', async () => {
+    const { fake } = setup({
+      world: { codeAttempts: { 'returning@acme.com': 5 } },
+    });
+    click('Continue with email');
+    await typeEmail('returning@acme.com');
+    click('Continue');
+    await screen.findByText('returning@acme.com');
+    await typeCode('424242');
+    await screen.findByText(
+      'Too many attempts. Wait a minute, then try again.'
+    );
+    expect(screen.queryByText('Invalid code.')).toBeNull();
+    expect(screen.getByLabelText(/code/i)).toHaveProperty('value', '424242');
+
+    fake.update((draft) => {
+      draft.codeAttempts = {};
+    });
+    click(/^Verify/);
     await screen.findByTestId('signed-in');
   });
 
@@ -184,6 +295,56 @@ describe('single sign-on', () => {
     await screen.findByText('sso@acme.com new');
   });
 
+  // The desktop app is already parked on the signed-out route when the
+  // `macro://` auth callback comes back, so the session code arrives as a
+  // query-only navigation that never remounts this view.
+  it('redeems a session code that arrives after mount', async () => {
+    const { setToken } = setupWithTokenSignal({
+      world: { sessionTokens: { 'tok-deep-link': 'sso@acme.com' } },
+    });
+    await screen.findByRole('button', { name: 'Continue with Google' });
+
+    setToken('tok-deep-link');
+
+    await screen.findByText('sso@acme.com new');
+  });
+
+  it('redeems a late session code only once', async () => {
+    const { fake, setToken } = setupWithTokenSignal({
+      world: { sessionTokens: { 'tok-deep-link': 'sso@acme.com' } },
+    });
+    setToken('tok-deep-link');
+    await screen.findByText('sso@acme.com new');
+
+    setToken('tok-deep-link');
+
+    await waitFor(() =>
+      expect(
+        fake.calls().filter((call) => call === 'redeem:tok-deep-link')
+      ).toHaveLength(1)
+    );
+  });
+
+  // Redemption re-primes the session after the network call, so it can reject
+  // rather than answer false — that must still tell the user.
+  it('reports a session code whose redemption throws', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const { fake, setToken } = setupWithTokenSignal({
+      redeem: () => Promise.reject(new Error('network down')),
+    });
+
+    setToken('tok-deep-link');
+
+    await waitFor(() =>
+      expect(fake.notifications()).toEqual([
+        'Sign-in failed. Please try again.',
+      ])
+    );
+    consoleError.mockRestore();
+  });
+
   it('reports a session code that cannot be redeemed', async () => {
     const { fake } = setup({ token: 'expired' });
     await waitFor(() =>
@@ -202,6 +363,9 @@ function Journey(props: SignupJourneySlots) {
     <section>
       <button type="button" onClick={() => void props.onGoogle()}>
         Connect work email
+      </button>
+      <button type="button" onClick={props.onSignIn}>
+        Sign in instead
       </button>
       <p data-testid="showing-email">{String(props.showingEmail)}</p>
       {props.emailForm}
@@ -230,5 +394,39 @@ describe('desktop sign-up', () => {
     });
     expect(screen.getByTestId('showing-email').textContent).toBe('true');
     expect(screen.getByDisplayValue('invitee@acme.com')).toBeTruthy();
+  });
+
+  it('lets the slides send a returning visitor to sign in', () => {
+    const { signIn } = setup({
+      intent: 'signup',
+      signupJourney: (slots) => <Journey {...slots} />,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in instead' }));
+    expect(signIn).toHaveBeenCalledOnce();
+  });
+
+  it('holds a pending frame while the session resolves, then shows the signed-out slides', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderWithFakeAuth(
+      () => (
+        <AuthView
+          intent="signup"
+          showApple={false}
+          compact={false}
+          signupJourney={(slots) => <Journey {...slots} />}
+          pending={() => <p data-testid="pending">Loading</p>}
+          signedIn={() => <p data-testid="signed-in" />}
+        />
+      ),
+      {},
+      { sessionLatencyMs: 300 }
+    );
+    expect(screen.getByTestId('pending')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Connect work email' })
+    ).toBeNull();
+    await vi.advanceTimersByTimeAsync(300);
+    await screen.findByRole('button', { name: 'Connect work email' });
+    expect(screen.queryByTestId('pending')).toBeNull();
   });
 });

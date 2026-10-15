@@ -21,8 +21,8 @@ use agent_session::domain::ports::{
 use agent_session::domain::service::AgentSessionService;
 use agent_session::inbound::axum_router::{
     AgentSessionControlState, AgentSessionRouterState, CreateSessionState,
-    agent_sandbox_size_router, agent_session_control_router, agent_session_create_router,
-    agent_session_read_router,
+    agent_coding_preferences_router, agent_sandbox_size_router, agent_session_control_router,
+    agent_session_create_router, agent_session_read_router,
 };
 use anyhow::Context;
 use axum::Router;
@@ -75,6 +75,7 @@ pub struct ApiStates<T, R, Opener, Bots, Requests, Access, Auth, Models, Changes
     coding_agents: Router,
     capabilities: Router,
     pull_requests: Router,
+    tool_approvals: Router,
     changes: AgentChangesRouterState<Changes, Access, Auth>,
 }
 
@@ -104,6 +105,7 @@ impl<T, R, Opener, Bots, Requests, Access, Auth, Models, Changes>
             coding_agents: Router::new(),
             capabilities: Router::new(),
             pull_requests: Router::new(),
+            tool_approvals: Router::new(),
             changes,
         }
     }
@@ -141,6 +143,12 @@ impl<T, R, Opener, Bots, Requests, Access, Auth, Models, Changes>
     /// Attach the routes associating pull requests with sessions.
     pub fn with_pull_requests(mut self, router: Router) -> Self {
         self.pull_requests = router;
+        self
+    }
+
+    /// Attach the routes answering tool calls held for the owner's approval.
+    pub fn with_tool_approvals(mut self, router: Router) -> Self {
+        self.tool_approvals = router;
         self
     }
 }
@@ -244,10 +252,12 @@ where
         .merge(agent_session_create_router(states.create))
         .merge(states.sharing)
         .merge(states.pull_requests)
+        .merge(states.tool_approvals)
         .merge(agent_changes_router(states.changes));
     Router::new()
         .nest("/agent-sessions", agent_sessions)
-        .merge(agent_sandbox_size_router(states.read))
+        .merge(agent_sandbox_size_router(states.read.clone()))
+        .merge(agent_coding_preferences_router(states.read))
         .merge(agent_models_router(states.models))
         .merge(agent_repositories_router(states.repositories))
         .merge(states.claude_auth)

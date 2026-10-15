@@ -16,6 +16,7 @@ import {
 import { AgentContextNode } from './nodes/AgentContextNode';
 import { AgentSessionMentionNode } from './nodes/AgentSessionMentionNode';
 import { AwaitNode } from './nodes/AwaitNode';
+import { BookingLinkMentionNode } from './nodes/BookingLinkMentionNode';
 import { ClassedBlockNode } from './nodes/ClassedBlockNode';
 import { CommentNode } from './nodes/CommentNode';
 import { CompletionNode } from './nodes/CompletionNode';
@@ -44,6 +45,7 @@ import { ReplyTargetNode } from './nodes/ReplyTargetNode';
 import { SearchMatchNode } from './nodes/SearchMatchNode';
 import { SnapshotNode } from './nodes/SnapshotNode';
 import { TagMentionNode } from './nodes/TagMentionNode';
+import { TaskListNode } from './nodes/TaskListNode';
 import { ThemeMentionNode } from './nodes/ThemeMentionNode';
 import { UnknownMentionNode } from './nodes/UnknownMentionNode';
 import { UnlinkedTextNode } from './nodes/UnlinkedTextNode';
@@ -78,6 +80,7 @@ export const SupportedNodeTypes = [
   LinkNode,
   AutoLinkNode,
   ListNode,
+  TaskListNode,
   ListItemNode,
   QuoteNode,
   LineBreakNode,
@@ -88,6 +91,7 @@ export const SupportedNodeTypes = [
   ContactMentionNode,
   DateMentionNode,
   PullRequestMentionNode,
+  BookingLinkMentionNode,
   AgentSessionMentionNode,
   ReplyTargetNode,
   GroupMentionNode,
@@ -129,6 +133,11 @@ export const NodeReplacements: LexicalNodeReplacement[] = [
     replace: CodeNode,
     with: (node: CodeNode) => new CustomCodeNode(node.getLanguage()),
     withKlass: CustomCodeNode,
+  },
+  {
+    replace: ListNode,
+    with: (node: ListNode) => new TaskListNode(node.getListType()),
+    withKlass: TaskListNode,
   },
 ];
 

@@ -34,6 +34,19 @@ const land = (landing: FixtureLanding) => {
 };
 
 const params = Object.fromEntries(new URLSearchParams(location.search));
+if (params.theme === 'cream' || params.theme === 'dark') {
+  sessionStorage.setItem(FIXTURE_KEYS.theme, params.theme);
+}
+const previewTheme = sessionStorage.getItem(FIXTURE_KEYS.theme);
+// Preview the same local palette that the app's theme selection supplies.
+const lightScheme = window.matchMedia('(prefers-color-scheme: light)');
+const applyPreviewTheme = () => {
+  document.documentElement.dataset.themeLight = String(
+    previewTheme === 'cream' || (previewTheme !== 'dark' && lightScheme.matches)
+  );
+};
+applyPreviewTheme();
+lightScheme.addEventListener('change', applyPreviewTheme);
 const fake = createFakeOnboarding(loadWorld(), {
   onChange: saveWorld,
   // The inbox OAuth leaves the page and returns to bare /onboarding.
@@ -42,6 +55,9 @@ const fake = createFakeOnboarding(loadWorld(), {
     location.assign(`${location.pathname}?view=flow`);
     await new Promise(() => {});
   },
+  // `?latency=ms`: the viewer and sources load like a cold page instead of instantly.
+  latencyMs: Number(params.latency ?? 0),
+  viewerLatencyMs: Number(params.latency ?? 0),
   checkoutUrl: (tier) =>
     sessionStorage.getItem(FIXTURE_KEYS.checkoutOutcome) === 'cancel'
       ? `${location.pathname}?view=flow&subscriptionCancel=true`
@@ -73,7 +89,11 @@ const landed = (): FixtureLanding | undefined => {
 };
 
 const landingText = (landing: FixtureLanding | undefined) =>
-  landing?.t === 'app' ? `Entered Macro at ${landing.target}` : 'Signed out';
+  landing?.t === 'app'
+    ? `Entered Macro at ${landing.target}`
+    : landing?.t === 'sign-in'
+      ? 'Sign in'
+      : 'Signed out';
 
 declare global {
   interface Window {
@@ -105,6 +125,7 @@ function Fixture() {
           <SignupJourneyView
             onGoogle={signUpWithGoogle}
             onBackFromEmail={() => {}}
+            onSignIn={() => land({ t: 'sign-in' })}
             showingEmail={false}
           />
         </Match>

@@ -1,5 +1,6 @@
 import { createMediaQuery } from '@solid-primitives/media';
 import { createSignal, type JSX, onCleanup, onMount, Show } from 'solid-js';
+import { pinnedPalette } from '../../setup/sitePalette';
 import { animateDemoEntrance } from './animateDemoEntrance';
 import { HomepageDemoCarousel } from './HomepageDemoCarousel';
 import { HomepageGithub } from './HomepageGithub';
@@ -26,6 +27,10 @@ function DesktopHomepageOpenSource(props: {
       scroller = scroller.parentElement;
     }
     onCleanup(animateDemoEntrance(section, scroller));
+    // The sample workspace follows the OS color scheme on its own; a palette
+    // pinned with `?theme=` carries over.
+    const pinned = pinnedPalette();
+    if (pinned) frame.src = `/demo?embedded=true&theme=${pinned}`;
     if (!props.showSidebarBreakdown) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     const card = connection.querySelector<HTMLElement>(

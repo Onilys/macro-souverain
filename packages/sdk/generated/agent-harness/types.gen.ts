@@ -128,6 +128,10 @@ export type AgentModelDto = {
      * Display name.
      */
     name: string;
+    /**
+     * Image input support, absent when the runtime does not advertise it.
+     */
+    supportsImages?: boolean | null;
 };
 
 /**
@@ -457,6 +461,10 @@ export type AgentSessionResponse = {
      */
     status: SessionStatusDto;
     /**
+     * The Macro task the session was linked to.
+     */
+    taskId?: string | null;
+    /**
      * The channel `thread_id` lives in, when the session was spawned from a
      * channel thread. Derived from `thread_parent`.
      */
@@ -509,6 +517,26 @@ export type AiAdmissionErrorBody = {
      * Human-readable explanation, without internal billing diagnostics.
      */
     error: string;
+};
+
+/**
+ * Request body for answering a held tool call.
+ */
+export type AnswerToolApprovalRequest = {
+    /**
+     * The answer.
+     */
+    answer: ToolApprovalAnswerDto;
+};
+
+/**
+ * Response body for answering a held tool call.
+ */
+export type AnswerToolApprovalResponse = {
+    /**
+     * Where the call stands now.
+     */
+    status: ToolApprovalStatusDto;
 };
 
 export type BotId = string;
@@ -653,6 +681,20 @@ export type ChannelSharePermission = {
 };
 
 /**
+ * Request or response body for the caller's coding preferences.
+ */
+export type CodingPreferencesBody = {
+    /**
+     * Whether new coding sessions research prior work and link a Macro task.
+     */
+    createTasks: boolean;
+    /**
+     * Whether new coding sessions deliver their work as a pull request.
+     */
+    openPullRequests: boolean;
+};
+
+/**
  * One-time manual code. Deliberately does not implement Debug.
  */
 export type CompleteRequest = {
@@ -678,6 +720,13 @@ export type CompleteRequest = {
  */
 export type ControlRequest = AgentAction & {
     actionId?: null | AgentActionId;
+    /**
+     * Why the agent is being asked. Only a runtime forwarding a triggered
+     * prompt may send it; a user's request carrying it is refused.
+     */
+    context?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -1150,6 +1199,44 @@ export type PromptAttachment = {
 export type PullRequestLinkSource = 'agent' | 'user';
 
 /**
+ * A session linked to a pull request, as a viewer of that session sees it.
+ */
+export type PullRequestLinkedSession = {
+    /**
+     * The message that started the session, such as an @mention, when it was
+     * started from a thread. A mention inside a thread is that reply, not the root.
+     */
+    originMessageId?: string | null;
+    /**
+     * The session id.
+     */
+    sessionId: string;
+    /**
+     * Who associated the pull request with the session.
+     */
+    source: PullRequestLinkSource;
+    threadParent?: null | MessageParent;
+};
+
+/**
+ * The sessions linked to one pull request that the caller can view.
+ */
+export type PullRequestSessions = {
+    /**
+     * The pull request's `owner/repo/pull/number` key.
+     */
+    githubKey: string;
+    /**
+     * Linked sessions the caller can view, oldest link first.
+     */
+    sessions: Array<PullRequestLinkedSession>;
+    /**
+     * The requested pull request URL, canonicalized.
+     */
+    url: string;
+};
+
+/**
  * The sessions associated with a pull request.
  */
 export type PullRequestSessionsResponse = {
@@ -1167,6 +1254,26 @@ export type PullRequestUrl = {
      * The pull request's GitHub URL, such as `https://github.com/owner/repo/pull/12`.
      */
     url: string;
+};
+
+/**
+ * GitHub pull requests, by URL.
+ */
+export type PullRequestUrls = {
+    /**
+     * Pull request GitHub URLs, at most 100.
+     */
+    urls: Array<string>;
+};
+
+/**
+ * The sessions associated with each requested pull request.
+ */
+export type PullRequestsSessionsResponse = {
+    /**
+     * One entry per requested pull request, in request order.
+     */
+    pullRequests: Array<PullRequestSessions>;
 };
 
 /**
@@ -1370,6 +1477,16 @@ export type StatusResponse = {
     ephemeral: boolean;
 };
 
+/**
+ * How a person answers a held tool call.
+ */
+export type ToolApprovalAnswerDto = 'approve' | 'approve_and_remember' | 'deny' | 'cancel';
+
+/**
+ * Where a held tool call stands once answered.
+ */
+export type ToolApprovalStatusDto = 'pending' | 'approved' | 'denied' | 'cancelled' | 'expired';
+
 export type UpdateChannelSharePermission = {
     accessLevel?: null | AccessLevel;
     /**
@@ -1393,6 +1510,23 @@ export type UpdateSharePermissionRequestV2 = {
     linkShare?: null | LinkShare;
     linkShareAccessLevel?: null | AccessLevel;
     teamShareAccessLevel?: null | AccessLevel;
+};
+
+/**
+ * A client-minted id deduplicates warm calls without creating a conversation.
+ */
+export type WarmAgentSessionRequest = {
+    /**
+     * Id reserved by this browser for its next in-memory conversation.
+     */
+    id: string;
+};
+
+/**
+ * A bounded best-effort warm attempt; absence means normal creation should proceed.
+ */
+export type WarmAgentSessionResponse = {
+    session?: null | AgentSessionResponse;
 };
 
 /**
@@ -1428,7 +1562,7 @@ export type DiscoverAgentCapabilitiesHandlerErrors = {
      */
     403: unknown;
     /**
-     * Macrod runtime is disconnected
+     * Macrod runtime or Cursor account is not connected
      */
     409: unknown;
     /**
@@ -1449,6 +1583,46 @@ export type DiscoverAgentCapabilitiesHandlerResponses = {
 };
 
 export type DiscoverAgentCapabilitiesHandlerResponse = DiscoverAgentCapabilitiesHandlerResponses[keyof DiscoverAgentCapabilitiesHandlerResponses];
+
+export type GetAgentCodingPreferencesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/agent-coding-preferences';
+};
+
+export type GetAgentCodingPreferencesErrors = {
+    401: string;
+    500: string;
+};
+
+export type GetAgentCodingPreferencesError = GetAgentCodingPreferencesErrors[keyof GetAgentCodingPreferencesErrors];
+
+export type GetAgentCodingPreferencesResponses = {
+    200: CodingPreferencesBody;
+};
+
+export type GetAgentCodingPreferencesResponse = GetAgentCodingPreferencesResponses[keyof GetAgentCodingPreferencesResponses];
+
+export type PutAgentCodingPreferencesData = {
+    body: CodingPreferencesBody;
+    path?: never;
+    query?: never;
+    url: '/agent-coding-preferences';
+};
+
+export type PutAgentCodingPreferencesErrors = {
+    401: string;
+    500: string;
+};
+
+export type PutAgentCodingPreferencesError = PutAgentCodingPreferencesErrors[keyof PutAgentCodingPreferencesErrors];
+
+export type PutAgentCodingPreferencesResponses = {
+    200: CodingPreferencesBody;
+};
+
+export type PutAgentCodingPreferencesResponse = PutAgentCodingPreferencesResponses[keyof PutAgentCodingPreferencesResponses];
 
 export type LoadAgentModelsHandlerData = {
     body: LoadAgentModelsRequest;
@@ -1471,7 +1645,7 @@ export type LoadAgentModelsHandlerErrors = {
      */
     403: unknown;
     /**
-     * Macrod runtime is disconnected
+     * Macrod runtime or Cursor account is not connected
      */
     409: unknown;
     /**
@@ -1652,6 +1826,27 @@ export type AgentSessionsForPullRequestResponses = {
 
 export type AgentSessionsForPullRequestResponse = AgentSessionsForPullRequestResponses[keyof AgentSessionsForPullRequestResponses];
 
+export type AgentSessionsForPullRequestsData = {
+    body: PullRequestUrls;
+    path?: never;
+    query?: never;
+    url: '/agent-sessions/by-pull-requests';
+};
+
+export type AgentSessionsForPullRequestsErrors = {
+    400: string;
+    401: string;
+    500: string;
+};
+
+export type AgentSessionsForPullRequestsError = AgentSessionsForPullRequestsErrors[keyof AgentSessionsForPullRequestsErrors];
+
+export type AgentSessionsForPullRequestsResponses = {
+    200: PullRequestsSessionsResponse;
+};
+
+export type AgentSessionsForPullRequestsResponse = AgentSessionsForPullRequestsResponses[keyof AgentSessionsForPullRequestsResponses];
+
 export type PreviewAgentSessionsData = {
     body: PreviewAgentSessionsRequest;
     path?: never;
@@ -1675,6 +1870,19 @@ export type PreviewAgentSessionsResponses = {
 };
 
 export type PreviewAgentSessionsResponse2 = PreviewAgentSessionsResponses[keyof PreviewAgentSessionsResponses];
+
+export type WarmAgentSessionHandlerData = {
+    body: WarmAgentSessionRequest;
+    path?: never;
+    query?: never;
+    url: '/agent-sessions/warm';
+};
+
+export type WarmAgentSessionHandlerResponses = {
+    200: WarmAgentSessionResponse;
+};
+
+export type WarmAgentSessionHandlerResponse = WarmAgentSessionHandlerResponses[keyof WarmAgentSessionHandlerResponses];
 
 export type DeleteAgentSessionData = {
     body?: never;
@@ -1713,8 +1921,15 @@ export type GetAgentSessionData = {
 };
 
 export type GetAgentSessionErrors = {
+    /**
+     * the session exists but is not this caller's
+     */
     401: string;
     403: string;
+    /**
+     * no session with this id: not created yet, or deleted since
+     */
+    404: string;
     500: string;
 };
 
@@ -2220,6 +2435,48 @@ export type PutAgentSessionSandboxSizeResponses = {
 };
 
 export type PutAgentSessionSandboxSizeResponse = PutAgentSessionSandboxSizeResponses[keyof PutAgentSessionSandboxSizeResponses];
+
+export type AnswerAgentSessionToolApprovalData = {
+    body: AnswerToolApprovalRequest;
+    path: {
+        /**
+         * ID of the agent session
+         */
+        session_id: string;
+        /**
+         * ID of the held tool call
+         */
+        approval_id: string;
+    };
+    query?: never;
+    url: '/agent-sessions/{session_id}/tool-approvals/{approval_id}';
+};
+
+export type AnswerAgentSessionToolApprovalErrors = {
+    401: string;
+    /**
+     * Not the owner, for approve or deny; or no edit access
+     */
+    403: string;
+    404: string;
+    /**
+     * Already resolved
+     */
+    409: string;
+    /**
+     * Approve for good, for a call no person asked for
+     */
+    422: string;
+    500: string;
+};
+
+export type AnswerAgentSessionToolApprovalError = AnswerAgentSessionToolApprovalErrors[keyof AnswerAgentSessionToolApprovalErrors];
+
+export type AnswerAgentSessionToolApprovalResponses = {
+    200: AnswerToolApprovalResponse;
+};
+
+export type AnswerAgentSessionToolApprovalResponse = AnswerAgentSessionToolApprovalResponses[keyof AnswerAgentSessionToolApprovalResponses];
 
 export type DisconnectData = {
     body: EmptyRequest;

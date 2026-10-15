@@ -22,7 +22,9 @@ use macro_uuid::Uuid;
 use messages::domain::models::MessageParent;
 use serde::{Deserialize, Serialize};
 
-use super::model::{AgentSessionId, TurnId};
+use super::model::{
+    AgentSessionId, AgentSessionLog, LogAppended, Message, StoredAgentSessionLog, TurnId,
+};
 
 /// The thread a session was opened from, when it was.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -461,5 +463,69 @@ impl MacroEvent for AgentSessionLifecycleMacroEvent {
 
     fn from_event(key: String, event: Event<Self::EventPayload>) -> Self {
         Self { key, event }
+    }
+}
+
+/// The frames one flush appended, as the log stored them: what the harness
+/// hands to a process serving viewers of its own, such as the GraphQL
+/// subscription in document storage. Each entry is exactly the stored row, so
+/// a subscriber folds the same bytes a reader of the durable log does.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogAppendedMetadata {
+    /// The session the frames belong to.
+    pub agent_session_id: AgentSessionId,
+    /// The frames, in the order the log holds them.
+    pub entries: Vec<LogAppendedEntry>,
+}
+
+/// One stored frame: the row's identity and time beside the frame itself.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogAppendedEntry {
+    /// Durable row identity.
+    pub id: Uuid,
+    /// When the log recorded the frame.
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    /// The user whose action produced the frame, absent when no user did.
+    pub user_id: Option<MacroUserIdStr<'static>>,
+    /// The frame, with its direction.
+    pub content: Message,
+}
+
+impl From<&LogAppended> for LogAppendedMetadata {
+    fn from(event: &LogAppended) -> Self {
+        Self {
+            agent_session_id: event.agent_session_id,
+            entries: event
+                .entries
+                .iter()
+                .map(|stored| LogAppendedEntry {
+                    id: stored.id,
+                    created_at: stored.created_at,
+                    user_id: stored.entry.user_id.clone(),
+                    content: stored.entry.content.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl LogAppendedMetadata {
+    /// The frames as stored rows again, for a consumer that reads them the
+    /// way it reads the durable log.
+    #[must_use]
+    pub fn into_stored(self) -> Vec<StoredAgentSessionLog> {
+        let agent_session_id = self.agent_session_id;
+        self.entries
+            .into_iter()
+            .map(|entry| StoredAgentSessionLog {
+                id: entry.id,
+                created_at: entry.created_at,
+                entry: AgentSessionLog {
+                    agent_session_id,
+                    user_id: entry.user_id,
+                    content: entry.content,
+                },
+            })
+            .collect()
     }
 }

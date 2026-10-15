@@ -24,6 +24,8 @@ export type SpreadsheetCommand =
   | 'sort-asc'
   | 'sort-desc'
   | 'trim-whitespace'
+  | 'dropdown'
+  | 'goal-seek'
   | 'border-all'
   | 'border-outer'
   | 'border-none'
@@ -69,6 +71,7 @@ export const SPREADSHEET_NUMBER_FORMATS = [
   { value: 'general', label: 'Automatic', example: '1,234.5' },
   { value: 'number', label: 'Number', example: '1,234.00' },
   { value: 'currency', label: 'Currency', example: '$1,234.00' },
+  { value: 'accounting', label: 'Accounting', example: '$ (1,234.00)' },
   { value: 'percent', label: 'Percent', example: '12.50%' },
   { value: 'date', label: 'Date', example: '9/17/2026' },
   { value: 'time', label: 'Time', example: '12:30 PM' },

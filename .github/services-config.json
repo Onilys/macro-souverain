@@ -185,11 +185,15 @@
     },
     "notification-service": {
       "source_paths": [
-        "services/notification_service/**"
+        "services/notification_service/**",
+        "services/notification_retention_handler/**"
       ],
       "stack_path": "infra/stacks/notification-service/**",
       "deploy_binaries": [
         "notification_service"
+      ],
+      "deploy_lambdas": [
+        "notification_retention_handler"
       ]
     },
     "organization-retention": {
@@ -246,6 +250,14 @@
       "deploy_lambdas": [
         "image_optimizer"
       ]
+    },
+    "lexical-service": {
+      "source_paths": [
+        "services/lexical-service/**",
+        "packages/lexical-core/**",
+        "docker/lexical-service.Dockerfile"
+      ],
+      "stack_path": "infra/stacks/lexical-service/**"
     },
     "unfurl-service": {
       "source_paths": [

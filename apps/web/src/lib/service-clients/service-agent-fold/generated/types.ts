@@ -456,7 +456,9 @@ export type FailureNoticeKind =
    *  The person's own account with the provider has no budget left for
    *  this work; the fix is on the provider's billing page.
    */
-  'provider_usage_limit';
+  | 'provider_usage_limit'
+  /**  The selected model cannot read image attachments in this conversation. */
+  | 'unsupported_image_input';
 
 /**  A file modification a tool reported. */
 export type FileDiff = {
@@ -620,6 +622,34 @@ export type MessagePart =
       /**  How the request has resolved so far. */
       outcome: PermissionOutcome;
     }
+  /**
+   *  An MCP tool call the egress proxy is holding, or held, until the
+   *  session's owner approved it: made in a turn somebody else prompted.
+   */
+  | {
+      kind: 'tool_approval';
+      /**  The approval an answer names. */
+      approvalId: string;
+      /**  `macro`, or the connected app's slug. */
+      serverSlug: string;
+      /**  What a person calls the server the tool is on. */
+      serverName: string;
+      /**  The tool called. */
+      toolName: string;
+      /**  What it was called with. */
+      arguments: unknown;
+      /**  Who prompted the turn; absent for a bot on nobody's behalf. */
+      requestedBy: string | null;
+      /**  Where it stands. */
+      status: ToolApprovalStatus;
+      /**  Who resolved it, when a person did. */
+      resolvedBy: string | null;
+      /**
+       *  Approved for good: the person who asked may make the calls it
+       *  covers without the owner being asked again.
+       */
+      remembered: boolean;
+    }
   /**  A user-issued control operation on the session. */
   | {
       kind: 'control';
@@ -686,6 +716,8 @@ export type ModelOption = {
   name: string;
   /**  Descriptive copy - pricing, context size, and the like. */
   description: string | null;
+  /**  Image input support, absent when the runtime does not advertise it. */
+  supportsImages?: boolean | null;
   /**
    *  The heading the runtime listed this model under, when it grouped its
    *  options (ACP's `SessionConfigSelectGroup.name`). `None` for a runtime
@@ -722,7 +754,14 @@ export type PendingInteraction =
   /**  A form, URL consent, or user tool review. */
   | ({
       kind: 'elicitation';
-    } & PendingElicitation);
+    } & PendingElicitation)
+  /**
+   *  An MCP tool call held until the session's owner approves it. Only
+   *  the owner may approve or decline; anyone with edit access may cancel.
+   */
+  | ({
+      kind: 'tool_approval';
+    } & PendingToolApproval);
 
 /**  A permission request the current connection can still answer. */
 export type PendingPermission = {
@@ -734,6 +773,22 @@ export type PendingPermission = {
   toolCall: ToolUseId;
   /**  The options the agent offered. */
   options: PermissionOption[];
+};
+
+/**  A held MCP tool call the owner can still answer. */
+export type PendingToolApproval = {
+  /**  The approval an answer names. */
+  approvalId: string;
+  /**  The turn the call was made in. */
+  turn: number;
+  /**  `macro`, or the connected app's slug. */
+  serverSlug: string;
+  /**  What a person calls the server the tool is on. */
+  serverName: string;
+  /**  The tool called. */
+  toolName: string;
+  /**  Who prompted the turn; absent for a bot on nobody's behalf. */
+  requestedBy: string | null;
 };
 
 /**  One choice offered for a permission request. */
@@ -1002,6 +1057,19 @@ export type SubagentResult = {
   /**  What kinds of tools the subagent called. */
   stats: ToolStats | null;
 };
+
+/**  Where a held call stands. */
+export type ToolApprovalStatus =
+  /**  Held until the owner answers. */
+  | 'pending'
+  /**  The owner approved it; the call went through. */
+  | 'approved'
+  /**  The owner refused it; the call did not run. */
+  | 'denied'
+  /**  Someone with edit access, the agent, or the session gave up on it. */
+  | 'cancelled'
+  /**  Nobody answered in time. */
+  | 'expired';
 
 /**
  *  What a tool call actually did.
@@ -1285,7 +1353,10 @@ export type TurnState =
   | 'running'
   /**  A stop was issued against the open turn and no stop reason has arrived. */
   | 'stopping'
-  /**  The open turn is waiting on a permission or elicitation response. */
+  /**
+   *  The open turn is waiting on a permission, elicitation, or tool
+   *  approval response.
+   */
   | 'blocked'
   /**  The runtime reported `disconnected`; whatever was open is not moving. */
   | 'disconnected';

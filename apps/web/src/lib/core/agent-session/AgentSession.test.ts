@@ -9,12 +9,20 @@ import type { FoldInput } from '@core/agent-fold/client';
 import type { FoldedStreamEvent } from '@service-agent-fold/generated/types';
 import type { AgentSessionLogEntryDto } from '@service-agent-harness/generated/schemas';
 import { err, ok } from 'neverthrow';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const fold = vi.hoisted(() => ({
   pushSession: vi.fn(),
   readSession: vi.fn(),
   closeSession: vi.fn(),
+  // The real class, so `instanceof` classifies a load failure the way the
+  // app does rather than the way a stand-in happens to.
+  AgentFoldWorkerUnavailable: class AgentFoldWorkerUnavailable extends Error {
+    constructor(readonly workerUrl: string) {
+      super(`agent fold worker script could not be loaded (${workerUrl})`);
+      this.name = 'AgentFoldWorkerUnavailable';
+    }
+  },
 }));
 const harness = vi.hoisted(() => ({
   get: vi.fn(),
@@ -29,21 +37,45 @@ const logSource = vi.hoisted(() => {
       super(`agent session log is ${reason}: ${sessionId}`);
     }
   }
+  type Follow = {
+    rows: (rows: AgentSessionLogEntryDto[]) => void;
+    gap: () => void;
+  };
   const source = {
     Unavailable,
     cached: vi.fn(),
+    cacheMiss: vi.fn(),
     fetched: vi.fn(),
-    append: vi.fn(),
     forget: vi.fn(),
     watch: vi.fn(),
+    stop: vi.fn(),
+    /** Whether the client can follow the log over GraphQL. */
+    following: false,
+    /** The follow the latest watch was opened with, when following. */
+    follow: undefined as Follow | undefined,
   };
-  source.watch.mockImplementation(() => ({
-    cached: source.cached(),
-    fetched: source.fetched(),
-    stop: () => {},
-  }));
+  source.watch.mockImplementation(
+    (_id: string, _policy?: string, follow?: Follow) => {
+      source.follow = follow;
+      return {
+        cached: source.cached(),
+        cacheMiss: source.cacheMiss,
+        fetched: source.fetched(),
+        stop: source.stop,
+      };
+    }
+  );
   return source;
 });
+const soupSocket = vi.hoisted(() => ({
+  listeners: new Set<() => void>(),
+}));
+vi.mock('@service-storage/graphql-soup', () => ({
+  subscribeGraphqlSoupReconnected: (listener: () => void) => {
+    soupSocket.listeners.add(listener);
+    return () => soupSocket.listeners.delete(listener);
+  },
+}));
 const socket = vi.hoisted(() => ({
   listeners: new Set<() => void>(),
   subscribeSocketSessionStarted: vi.fn((listener: () => void) => {
@@ -51,6 +83,50 @@ const socket = vi.hoisted(() => ({
     return () => socket.listeners.delete(listener);
   }),
 }));
+
+type RecordedSpan = {
+  name: string;
+  attributes: Record<string, unknown>;
+  ends: number;
+};
+const telemetry = vi.hoisted(() => ({
+  spans: [] as RecordedSpan[],
+  /** The span whose `run` is on the stack, if any. */
+  active: undefined as RecordedSpan | undefined,
+}));
+vi.mock('@macro-inc/observability', () => ({
+  Telemetry: {
+    span: (name: string) => {
+      const record: RecordedSpan = { name, attributes: {}, ends: 0 };
+      telemetry.spans.push(record);
+      return {
+        setAttr: (key: string, value: unknown) => {
+          record.attributes[key] = value;
+        },
+        event: () => {},
+        error: () => {},
+        run: <T>(operation: () => T) => {
+          const outer = telemetry.active;
+          telemetry.active = record;
+          try {
+            return operation();
+          } finally {
+            telemetry.active = outer;
+          }
+        },
+        end: () => {
+          record.ends += 1;
+        },
+      };
+    },
+  },
+}));
+const promptSpans = () =>
+  telemetry.spans.filter((span) => span.name === 'agent.prompt');
+const loadSpans = () =>
+  telemetry.spans.filter((span) => span.name === 'agent.session.load');
+const renderSpans = () =>
+  telemetry.spans.filter((span) => span.name === 'agent.session.render');
 
 const updates = vi.hoisted(() => ({
   listeners: new Set<(event: { agentSessionId: string }) => void>(),
@@ -77,7 +153,7 @@ vi.mock('@queries/agent-session/queue-sync', () => ({
 vi.mock('@queries/agent-session/log', () => ({
   AgentSessionLogUnavailable: logSource.Unavailable,
   watchAgentSessionLog: logSource.watch,
-  appendAgentSessionLogRows: logSource.append,
+  canFollowAgentSessionLog: () => logSource.following,
   forgetAgentSessionLog: logSource.forget,
 }));
 
@@ -86,6 +162,7 @@ import {
   AgentSessionAccessDenied,
   AgentSessionReleased,
 } from './AgentSession';
+import { forgetSessionCreated, markSessionCreated } from './recently-created';
 import { resetSessionTurns, sessionTurn } from './session-turn';
 
 const SESSION = '01a0abed-279f-724c-9f49-60dbedc79b6e';
@@ -128,6 +205,7 @@ function deferred<T>() {
 beforeEach(() => {
   vi.clearAllMocks();
   resetSessionTurns();
+  telemetry.spans.length = 0;
   socket.listeners.clear();
   updates.listeners.clear();
   // Instances are shared and refcounted, so a test that fails before its
@@ -144,7 +222,9 @@ beforeEach(() => {
   harness.get.mockResolvedValue(ok(session));
   logSource.cached.mockResolvedValue(undefined);
   logSource.fetched.mockResolvedValue(logOf([row(1)]));
-  logSource.append.mockResolvedValue(undefined);
+  logSource.following = false;
+  logSource.follow = undefined;
+  soupSocket.listeners.clear();
   logSource.forget.mockResolvedValue(undefined);
   harness.control.mockImplementation(
     async (_id: string, request: { actionId: string }) =>
@@ -747,6 +827,78 @@ describe('AgentSession', () => {
     live.release();
   });
 
+  describe('a session this tab just created', () => {
+    beforeEach(() => {
+      markSessionCreated(SESSION);
+      onTestFinished(() => forgetSessionCreated(SESSION));
+    });
+
+    it('waits out a refusal and loads once the create is readable', async () => {
+      vi.useFakeTimers();
+      onTestFinished(() => void vi.useRealTimers());
+      // The create has answered, but what it wrote is not readable yet.
+      harness.get
+        .mockResolvedValueOnce(err([{ code: 'UNAUTHORIZED' }]))
+        .mockResolvedValue(ok(session));
+
+      const live = AgentSession.acquire(SESSION);
+      const loaded = live.load();
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(await loaded).toEqual({ session, bot });
+      // Nothing was thrown away on the strength of a refusal that was a race.
+      expect(logSource.forget).not.toHaveBeenCalled();
+      live.release();
+    });
+
+    it('waits out a 404 from a create whose row is not visible yet', async () => {
+      vi.useFakeTimers();
+      onTestFinished(() => void vi.useRealTimers());
+      harness.get
+        .mockResolvedValueOnce(err([{ code: 'NOT_FOUND' }]))
+        .mockResolvedValue(ok(session));
+
+      const live = AgentSession.acquire(SESSION);
+      const loaded = live.load();
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(await loaded).toEqual({ session, bot });
+      live.release();
+    });
+
+    it('gives up as a retryable failure, not denied access, if it never clears', async () => {
+      vi.useFakeTimers();
+      onTestFinished(() => void vi.useRealTimers());
+      harness.get.mockResolvedValue(err([{ code: 'UNAUTHORIZED' }]));
+
+      const live = AgentSession.acquire(SESSION);
+      const settled = live.load().catch((error: unknown) => error);
+      // Past every retry, but still inside the window in which this tab's
+      // creates are given the benefit of the doubt.
+      await vi.advanceTimersByTimeAsync(20_000);
+
+      const error = await settled;
+      expect(error).toBeInstanceOf(Error);
+      expect(error).not.toBeInstanceOf(AgentSessionAccessDenied);
+      live.release();
+    });
+
+    it('reports a refusal honestly once a load has proved the grant is there', async () => {
+      const first = AgentSession.acquire(SESSION);
+      expect(await first.load()).toEqual({ session, bot });
+      first.release();
+
+      // Access taken away after a load that worked is a refusal in earnest,
+      // not a create still settling, even inside the grace window.
+      harness.get.mockResolvedValue(err([{ code: 'UNAUTHORIZED' }]));
+      const second = AgentSession.acquire(SESSION);
+      await expect(second.load()).rejects.toBeInstanceOf(
+        AgentSessionAccessDenied
+      );
+      second.release();
+    });
+  });
+
   describe('cached log', () => {
     it('folds the cached log first and the fetched one over it', async () => {
       logSource.cached.mockResolvedValue(logOf([row(1), row(2)]));
@@ -802,30 +954,13 @@ describe('AgentSession', () => {
       live.release();
     });
 
-    it('appends every row delivered after the fetched log to the cached copy, once', async () => {
+    it('stops the watch, and what it owes the cache, on the last release', async () => {
       const live = AgentSession.acquire(SESSION);
       await live.load();
-      AgentSession.ingest({ agentSessionId: SESSION, entries: [row(2)] });
-      AgentSession.ingest({ agentSessionId: SESSION, entries: [row(2)] });
-      await settle();
-      // Debounced: nothing written yet.
-      expect(logSource.append).not.toHaveBeenCalled();
+      expect(logSource.stop).not.toHaveBeenCalled();
 
       live.release();
-      // The exchange wrote the fetched log itself; only the new row goes.
-      expect(logSource.append).toHaveBeenCalledWith(SESSION, [row(2)]);
-    });
-
-    it('appends rows that waited behind the fetched log too', async () => {
-      const log = deferred<LogSnapshot>();
-      logSource.fetched.mockReturnValue(log.promise);
-      const live = AgentSession.acquire(SESSION);
-      AgentSession.ingest({ agentSessionId: SESSION, entries: [row(2)] });
-      log.resolve(logOf([row(1)]));
-      await live.load();
-      live.release();
-      // The buffered row is folded after the snapshot, and appended too.
-      expect(logSource.append).toHaveBeenCalledWith(SESSION, [row(2)]);
+      expect(logSource.stop).toHaveBeenCalledOnce();
     });
 
     it('forgets the cached log when the viewer is refused', async () => {
@@ -837,7 +972,96 @@ describe('AgentSession', () => {
         AgentSessionAccessDenied
       );
       expect(logSource.forget).toHaveBeenCalledWith(SESSION);
-      expect(logSource.append).not.toHaveBeenCalled();
+      live.release();
+    });
+  });
+
+  describe('followed over GraphQL', () => {
+    beforeEach(() => {
+      logSource.following = true;
+    });
+
+    it('folds the rows the subscription delivers and ignores the gateway', async () => {
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+      const follow = logSource.follow;
+      expect(follow).toBeDefined();
+
+      follow?.rows([row(2), row(3)]);
+      AgentSession.ingest({ agentSessionId: SESSION, entries: [row(4)] });
+      await settle();
+
+      expect(inputs()).toEqual([
+        { kind: 'snapshot', rows: [row(1)] },
+        { kind: 'confirmed', row: row(2) },
+        { kind: 'confirmed', row: row(3) },
+      ]);
+      live.release();
+    });
+
+    it('holds rows delivered before the fetched log behind it', async () => {
+      const log = deferred<LogSnapshot>();
+      logSource.fetched.mockReturnValue(log.promise);
+      const live = AgentSession.acquire(SESSION);
+      // The subscription is open before the query goes out.
+      expect(logSource.watch).toHaveBeenCalledWith(
+        SESSION,
+        'cache-and-network',
+        expect.objectContaining({ rows: expect.any(Function) })
+      );
+      logSource.follow?.rows([row(2)]);
+      log.resolve(logOf([row(1)]));
+      await live.load();
+
+      expect(inputs()).toEqual([
+        { kind: 'snapshot', rows: [row(1)] },
+        { kind: 'confirmed', row: row(2) },
+      ]);
+      live.release();
+    });
+
+    it('refetches the log on a gap in the subscription', async () => {
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+      logSource.fetched.mockResolvedValue(logOf([row(1), row(2)]));
+
+      logSource.follow?.gap();
+      await settle();
+
+      expect(inputs().at(-1)).toEqual({
+        kind: 'snapshot',
+        rows: [row(1), row(2)],
+      });
+      live.release();
+    });
+
+    it('refetches the log when the Soup websocket reconnects', async () => {
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+      logSource.fetched.mockResolvedValue(logOf([row(1), row(2)]));
+
+      for (const listener of soupSocket.listeners) listener();
+      await settle();
+
+      expect(inputs().at(-1)).toEqual({
+        kind: 'snapshot',
+        rows: [row(1), row(2)],
+      });
+      live.release();
+      expect(soupSocket.listeners.size).toBe(0);
+    });
+
+    it('opens a fresh watch, and stops the old one, when a failed load re-runs', async () => {
+      logSource.fetched.mockRejectedValueOnce(
+        new logSource.Unavailable(SESSION, 'failed')
+      );
+      const live = AgentSession.acquire(SESSION);
+      await expect(live.load()).rejects.toThrow('log could not be fetched');
+      expect(logSource.watch).toHaveBeenCalledTimes(1);
+
+      await live.load();
+      expect(logSource.stop).toHaveBeenCalledTimes(1);
+      expect(logSource.watch).toHaveBeenCalledTimes(2);
       live.release();
     });
   });
@@ -855,5 +1079,332 @@ describe('AgentSession', () => {
     await live.load();
     expect(logSource.watch).toHaveBeenCalledTimes(2);
     live.release();
+  });
+
+  describe('load telemetry', () => {
+    const nextPaint = () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      );
+
+    it('says why the cache missed', async () => {
+      logSource.cacheMiss.mockReturnValue('network_first');
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+
+      expect(loadSpans()[0].attributes).toMatchObject({
+        'agent.session.load.cache_hit': false,
+        'agent.session.load.cache_miss': 'network_first',
+      });
+      live.release();
+    });
+
+    it('says why a load failed', async () => {
+      harness.get.mockResolvedValueOnce(err([{ code: 'HTTP_ERROR' }]));
+      const live = AgentSession.acquire(SESSION);
+      await expect(live.load()).rejects.toThrow();
+
+      logSource.fetched.mockRejectedValueOnce(
+        new logSource.Unavailable(SESSION, 'failed')
+      );
+      await expect(live.load()).rejects.toThrow();
+
+      harness.get.mockResolvedValueOnce(err([{ code: 'UNAUTHORIZED' }]));
+      await expect(live.load()).rejects.toThrow();
+
+      fold.readSession.mockRejectedValueOnce(new Error('worker died'));
+      await expect(live.load()).rejects.toThrow('worker died');
+
+      // A worker whose script never loaded is counted apart from a fold that
+      // went wrong: nothing is wrong with the fold, and the fix is a deploy
+      // retention question.
+      fold.readSession.mockRejectedValueOnce(
+        new fold.AgentFoldWorkerUnavailable('/app/fold.worker-abc.js')
+      );
+      await expect(live.load()).rejects.toThrow('could not be loaded');
+
+      expect(
+        loadSpans().map((span) => [
+          span.attributes['agent.session.load.outcome'],
+          span.attributes['agent.session.load.failure'],
+        ])
+      ).toEqual([
+        ['failed', 'session_fetch'],
+        ['failed', 'log_fetch'],
+        ['failed', 'access_denied'],
+        ['failed', 'fold'],
+        ['failed', 'worker_unavailable'],
+      ]);
+      live.release();
+    });
+
+    it('holds the render span open until the transcript has painted', async () => {
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+
+      live.rendered('fetched', [
+        {
+          agentSessionId: SESSION,
+          turn: 0,
+          author: { kind: 'user', userId: null },
+          requestId: null,
+          parts: [{ kind: 'text', text: 'Hi' }],
+          stop: null,
+          pending: false,
+        },
+        {
+          agentSessionId: SESSION,
+          turn: 0,
+          author: { kind: 'agent' },
+          requestId: null,
+          parts: [
+            { kind: 'thought', text: 'hmm' },
+            { kind: 'text', text: 'Hello' },
+          ],
+          stop: null,
+          pending: false,
+        },
+      ]);
+      const [span] = renderSpans();
+      expect(span.ends).toBe(0);
+      expect(span.attributes).toMatchObject({
+        'agent.session.render.kind': 'fetched',
+        'agent.session.load.transcript_messages': 2,
+        'agent.session.load.transcript_turns': 1,
+        'agent.session.load.transcript_chars': 10,
+      });
+
+      await nextPaint();
+
+      expect(span.ends).toBe(1);
+      expect(
+        span.attributes['agent.session.load.painted_at_ms']
+      ).toBeGreaterThanOrEqual(
+        span.attributes['agent.session.render.since_load_ms'] as number
+      );
+      expect(span.attributes['agent.session.load.paint_ms']).toEqual(
+        expect.any(Number)
+      );
+      live.release();
+    });
+
+    it('attributes the long animation frames before the paint', async () => {
+      const observed: { deliver?: (entries: unknown[]) => void } = {};
+      class FakeObserver {
+        static supportedEntryTypes = ['long-animation-frame'];
+        constructor(callback: (list: { getEntries: () => unknown[] }) => void) {
+          observed.deliver = (entries) =>
+            callback({ getEntries: () => entries });
+        }
+        observe() {}
+        takeRecords() {
+          return [];
+        }
+        disconnect() {}
+      }
+      vi.stubGlobal('PerformanceObserver', FakeObserver);
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+      const now = performance.now();
+      const frame = (duration: number, scripts: unknown[]) => ({
+        entryType: 'long-animation-frame',
+        startTime: now - duration,
+        duration,
+        blockingDuration: duration - 50,
+        scripts,
+      });
+      observed.deliver?.([
+        frame(80, []),
+        frame(500, [
+          { duration: 100, invoker: 'small', sourceURL: 'a.js' },
+          {
+            duration: 300,
+            invoker: 'ThreadList.positionInitial',
+            sourceURL: `https://app/${'x'.repeat(300)}.js`,
+          },
+        ]),
+      ]);
+
+      live.rendered('fetched', []);
+      await nextPaint();
+      const [span] = renderSpans();
+      // Ended once the frames before the paint have been reported.
+      expect(span.ends).toBe(0);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      expect(span.ends).toBe(1);
+      expect(span.attributes).toMatchObject({
+        'agent.session.load.loaf_count': 2,
+        'agent.session.load.loaf_total_ms': 580,
+        'agent.session.load.loaf_max_ms': 500,
+        'agent.session.load.loaf_blocking_ms': 480,
+        'agent.session.load.loaf_top_script_invoker':
+          'ThreadList.positionInitial',
+        'agent.session.load.loaf_top_script_ms': 300,
+      });
+      expect(
+        span.attributes['agent.session.load.loaf_top_script_source']
+      ).toHaveLength(200);
+      live.release();
+    });
+  });
+
+  describe('prompt telemetry', () => {
+    it('posts a prompt inside its span and ends it at the first painted agent text', async () => {
+      let postedUnder: RecordedSpan | undefined;
+      harness.control.mockImplementation(
+        async (_id: string, request: { actionId: string }) => {
+          postedUnder = telemetry.active;
+          return ok({ actionId: request.actionId, status: 'sent' });
+        }
+      );
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+
+      await live.issue(
+        { type: 'prompt', prompt: 'hi' },
+        { userId: 'macro|wolf@macro.com' }
+      );
+      await settle();
+      const actionId = (
+        harness.control.mock.calls[0][1] as { actionId: string }
+      ).actionId;
+      expect(promptSpans()).toHaveLength(1);
+      const [span] = promptSpans();
+      expect(postedUnder).toBe(span);
+      expect(span.ends).toBe(0);
+
+      fold.pushSession.mockResolvedValueOnce([
+        {
+          kind: 'update',
+          message: {
+            agentSessionId: SESSION,
+            turn: 1,
+            author: { kind: 'user', userId: 'macro|wolf@macro.com' },
+            requestId: actionId,
+            parts: [{ kind: 'text', text: 'hi' }],
+            stop: null,
+            pending: false,
+          },
+        },
+        {
+          kind: 'new',
+          message: {
+            agentSessionId: SESSION,
+            turn: 1,
+            author: { kind: 'agent' },
+            requestId: null,
+            parts: [{ kind: 'thought', text: 'thinking' }],
+            stop: null,
+            pending: false,
+          },
+        },
+      ] satisfies FoldedStreamEvent[]);
+      AgentSession.ingest({ agentSessionId: SESSION, entries: [row(2)] });
+      await settle();
+      expect(span.ends).toBe(0);
+      expect(span.attributes['agent.prompt.first_output_part']).toBe('thought');
+
+      const answer = document.createElement('div');
+      answer.textContent = 'Hello';
+      document.body.append(answer);
+      vi.spyOn(answer, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(10, 10, 300, 30)
+      );
+      const createRange = document.createRange.bind(document);
+      const ranges = vi
+        .spyOn(document, 'createRange')
+        .mockImplementation(() => {
+          const range = createRange();
+          range.getClientRects = () => {
+            const rects = [
+              range.startContainer.parentElement!.getBoundingClientRect(),
+            ];
+            return Object.assign(rects, {
+              item: (index: number) => rects[index],
+            });
+          };
+          return range;
+        });
+      onTestFinished(() => ranges.mockRestore());
+      const unsubscribe = live.subscribe(() => {
+        // Folding establishes telemetry before that batch mounts the answer UI.
+        expect(span.attributes['agent.prompt.first_text_at_ms']).toEqual(
+          expect.any(Number)
+        );
+        live.observeRenderedText(1, answer);
+      });
+      fold.pushSession.mockResolvedValueOnce([
+        {
+          kind: 'update',
+          message: {
+            agentSessionId: SESSION,
+            turn: 1,
+            author: { kind: 'agent' },
+            requestId: null,
+            parts: [
+              { kind: 'thought', text: 'thinking' },
+              { kind: 'text', text: 'Hello' },
+            ],
+            stop: null,
+            pending: false,
+          },
+        },
+      ] satisfies FoldedStreamEvent[]);
+      AgentSession.ingest({ agentSessionId: SESSION, entries: [row(3)] });
+      await settle();
+      expect(span.ends).toBe(0);
+      expect(span.attributes['agent.prompt.first_text_rendered_at_ms']).toEqual(
+        expect.any(Number)
+      );
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      );
+
+      expect(span.ends).toBe(1);
+      expect(span.attributes).toMatchObject({
+        'agent.session.id': SESSION,
+        'agent.prompt.new_session': false,
+        'agent.prompt.action_id': actionId,
+        'agent.prompt.turn': 1,
+        'agent.prompt.first_output_part': 'thought',
+        'agent.prompt.first_text_via': 'socket',
+        'agent.prompt.outcome': 'text',
+      });
+      expect(span.attributes['agent.prompt.first_text_paint_at_ms']).toEqual(
+        expect.any(Number)
+      );
+      live.release();
+      unsubscribe();
+      answer.remove();
+      expect(span.ends).toBe(1);
+      expect(span.attributes['agent.prompt.outcome']).toBe('text');
+    });
+
+    it('traces no action but a prompt', async () => {
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+
+      await live.issue({ type: 'stop' });
+      await live.issue({ type: 'setModel', model: 'a-model' });
+
+      expect(promptSpans()).toEqual([]);
+      live.release();
+    });
+
+    it('ends a prompt still waiting for output as released', async () => {
+      const live = AgentSession.acquire(SESSION);
+      await live.load();
+      await live.issue({ type: 'prompt', prompt: 'hi' });
+
+      live.release();
+
+      const [span] = promptSpans();
+      expect(span.ends).toBe(1);
+      expect(span.attributes['agent.prompt.outcome']).toBe('released');
+    });
   });
 });

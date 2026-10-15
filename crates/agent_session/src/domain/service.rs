@@ -23,14 +23,17 @@
 //! happens has to be published from there. The push cannot fail the durable
 //! append - see [`AgentSessionRealtime`].
 
+mod first_output;
 #[cfg(test)]
 mod test;
+
+use first_output::FirstOutput;
 
 use std::sync::Arc;
 
 use agent_client_protocol::RawJsonRpcMessage;
 use agent_client_protocol::schema::v1::{
-    RequestId, Response, SessionId, SetSessionConfigOptionResponse,
+    McpServer, RequestId, Response, SessionId, SetSessionConfigOptionResponse,
 };
 use agent_fold::domain::lifecycle::LifecycleFold;
 use agent_fold::domain::model::{Author, FoldedMessage, MessagePart, TurnState};
@@ -52,10 +55,10 @@ use tracing::instrument::WithSubscriber as _;
 
 use bots::domain::models::BotId;
 
+use super::coding_preferences::CodingPreferences;
 use super::connection::RuntimeAttachment;
 use super::error::{AgentSessionError, Result};
 use super::lifecycle::session_identity;
-use super::model::SessionBot;
 use super::model::{
     AgentSession, AgentSessionId, AgentSessionLog, AgentSessionPreview, AgentSessionRenamed,
     AuthorKind, ClaimOutcome, CreateAgentSessionParams, LogAppended, MAX_AGENT_SESSION_NAME_CHARS,
@@ -63,13 +66,14 @@ use super::model::{
     SessionManagement, SessionPreviewCandidate, StoredAgentSessionLog, StoredQueuedAction,
     ThreadSession, cursor_run_checkpoint,
 };
+use super::model::{SessionBot, TurnPrompter};
 use super::ports::{
     AgentConnector, AgentSessionLifecyclePublisher, AgentSessionLogRepo, AgentSessionLogWriter,
     AgentSessionNameGenerator, AgentSessionQueueChanged, AgentSessionRealtime, AgentSessionRepo,
     Appended, NoInheritedSessionAccess, NoOpAgentSessionNameGenerator, NoOpToolCatalog,
     SessionOwnership, SessionToolCatalog, SessionTurnObserver, SessionViewAccess,
 };
-use super::session::actors::{SessionActor, SessionCommand, Stepped};
+use super::session::actors::{SessionActor, SessionCommand, SessionMessage, Stepped};
 use super::session::{CloseReason, Input};
 use crate::domain::events::{AgentSessionLifecycleEvent, SessionRenamedMetadata};
 
@@ -92,7 +96,11 @@ const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30
 const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(50);
 
 struct ActiveSession {
-    commands: Option<mpsc::Sender<SessionCommand>>,
+    commands: Option<mpsc::Sender<SessionMessage>>,
+    /// The MCP servers last requested for the live connection: the
+    /// attachment's, until [`AgentSessionService::replace_mcp_servers`]. An
+    /// agent that cannot resume, or refused, still has its previous list.
+    mcp_servers: Vec<McpServer>,
     stopped: watch::Receiver<bool>,
     marker: Arc<()>,
     deleting: bool,
@@ -157,6 +165,29 @@ pub trait AgentSessionService: Send + Sync + 'static {
 
     /// Get a persisted agent session by id.
     fn get_session(&self, id: AgentSessionId) -> impl Future<Output = Result<AgentSession>> + Send;
+
+    /// A persisted agent session by id, or `None` when there is none.
+    fn find_session(
+        &self,
+        id: AgentSessionId,
+    ) -> impl Future<Output = Result<Option<AgentSession>>> + Send;
+
+    /// Append a frame observed on the runtime's behalf by something other
+    /// than its session actor - the egress proxy's tool approvals - and push
+    /// it to the session's viewers. Any replica may call this; the frame is
+    /// ordered by when it is stored.
+    fn record_frame(
+        &self,
+        id: AgentSessionId,
+        message: ToServerMessage,
+    ) -> impl Future<Output = Result<()>> + Send;
+
+    /// Record who prompted the turn `id` is about to run, before it runs.
+    fn set_turn_prompter(
+        &self,
+        id: AgentSessionId,
+        prompter: &TurnPrompter,
+    ) -> impl Future<Output = Result<()>> + Send;
 
     /// What `viewer` may see of each of `ids`, for rendering chips.
     ///
@@ -245,6 +276,22 @@ pub trait AgentSessionService: Send + Sync + 'static {
         action_id: AgentActionId,
     ) -> impl Future<Output = Result<()>> + Send;
 
+    /// The MCP servers last requested for the session's live connection on
+    /// this instance; `None` when no connection is attached here. An agent
+    /// that could not take a requested list keeps its previous one until its
+    /// next attach.
+    fn attached_mcp_servers(&self, id: AgentSessionId) -> Option<Vec<McpServer>>;
+
+    /// Hand the session's agent `servers` from now on. The live connection
+    /// re-resumes its ACP session with them before the next prompt reaches
+    /// the agent, if the agent can resume; an agent that cannot keeps the
+    /// servers it has until its next attach.
+    fn replace_mcp_servers(
+        &self,
+        id: AgentSessionId,
+        servers: Vec<McpServer>,
+    ) -> impl Future<Output = Result<()>> + Send;
+
     /// The session an incoming channel context routes to, if any.
     fn find_for_thread(
         &self,
@@ -321,6 +368,19 @@ pub trait AgentSessionService: Send + Sync + 'static {
         &self,
         user_id: &MacroUserIdStr<'static>,
         size: SandboxSize,
+    ) -> impl Future<Output = Result<()>> + Send;
+
+    /// The user's coding preferences; every preference is off until set.
+    fn user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+    ) -> impl Future<Output = Result<CodingPreferences>> + Send;
+
+    /// Upsert the user's coding preferences, replacing every field.
+    fn set_user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+        preferences: CodingPreferences,
     ) -> impl Future<Output = Result<()>> + Send;
 }
 
@@ -455,6 +515,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             Entry::Vacant(entry) => {
                 entry.insert(ActiveSession {
                     commands: None,
+                    mcp_servers: Vec::new(),
                     stopped,
                     marker: marker.clone(),
                     deleting: false,
@@ -500,6 +561,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             activate(claim)?;
         }
         active.commands = Some(commands.clone());
+        active.mcp_servers = attachment.mcp_servers.clone();
         active.transport_closed = attachment.closed.clone();
         drop(active);
         let (marker, stopped_tx) = reservation.commit();
@@ -566,18 +628,19 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             agent.action.name = action.as_ref(),
             agent.command.queue_wait_ms = tracing::field::Empty,
             agent.session.runtime_phase_at_dequeue = tracing::field::Empty,
+            agent.command.handshake_wait_ms = tracing::field::Empty,
             otel.status_code = tracing::field::Empty,
             otel.status_description = tracing::field::Empty,
         );
         if commands
-            .send(SessionCommand {
+            .send(SessionMessage::Action(SessionCommand {
                 user_id,
                 action,
                 action_id,
                 completed,
                 span,
                 enqueued_at: tokio::time::Instant::now(),
-            })
+            }))
             .await
             .is_err()
         {
@@ -658,6 +721,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
                 let marker = Arc::new(());
                 entry.insert(ActiveSession {
                     commands: None,
+                    mcp_servers: Vec::new(),
                     stopped: stopped.clone(),
                     marker: marker.clone(),
                     deleting,
@@ -735,6 +799,14 @@ where
 
     async fn get_session(&self, id: AgentSessionId) -> Result<AgentSession> {
         self.repo.get(id).await
+    }
+
+    async fn find_session(&self, id: AgentSessionId) -> Result<Option<AgentSession>> {
+        self.repo.find(id).await
+    }
+
+    async fn set_turn_prompter(&self, id: AgentSessionId, prompter: &TurnPrompter) -> Result<()> {
+        self.repo.set_turn_prompter(id, prompter).await
     }
 
     async fn preview_sessions(
@@ -881,6 +953,29 @@ where
         .map(|_| ())
     }
 
+    #[tracing::instrument(
+        name = "agent.session.record_frame",
+        err,
+        skip(self, message),
+        fields(agent.session.id = %id),
+    )]
+    async fn record_frame(&self, id: AgentSessionId, message: ToServerMessage) -> Result<()> {
+        let mut logs = LiveSessionLogWriter::new(self.repo.clone(), self.realtime.clone());
+        // Flushed at once: an unclaimed writer publishes to viewers only on
+        // flush, and nothing else will flush this one.
+        tokio::time::timeout(SESSION_PERSIST_TIMEOUT, async {
+            logs.append(AgentSessionLog {
+                agent_session_id: id,
+                user_id: None,
+                content: Message::ToServer(message),
+            })
+            .await?;
+            logs.flush().await
+        })
+        .await
+        .unwrap_or(Err(AgentSessionError::LogTimedOut(id)))
+    }
+
     async fn attach_session<Connector>(
         &self,
         id: AgentSessionId,
@@ -953,6 +1048,32 @@ where
         Ok(())
     }
 
+    fn attached_mcp_servers(&self, id: AgentSessionId) -> Option<Vec<McpServer>> {
+        self.active
+            .get(&id)
+            .filter(|active| active.commands.is_some())
+            .map(|active| active.mcp_servers.clone())
+    }
+
+    async fn replace_mcp_servers(&self, id: AgentSessionId, servers: Vec<McpServer>) -> Result<()> {
+        let commands = {
+            let mut active = self
+                .active
+                .get_mut(&id)
+                .ok_or(AgentSessionError::Disconnected(id))?;
+            let commands = active
+                .commands
+                .clone()
+                .ok_or(AgentSessionError::Disconnected(id))?;
+            active.mcp_servers = servers.clone();
+            commands
+        };
+        commands
+            .send(SessionMessage::ReplaceMcpServers(servers))
+            .await
+            .map_err(|_| AgentSessionError::Disconnected(id))
+    }
+
     async fn session_bot(&self, id: BotId) -> Result<SessionBot> {
         self.repo.session_bot(id).await
     }
@@ -1011,6 +1132,23 @@ where
         size: SandboxSize,
     ) -> Result<()> {
         self.repo.set_user_sandbox_size(user_id, size).await
+    }
+
+    async fn user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+    ) -> Result<CodingPreferences> {
+        self.repo.user_coding_preferences(user_id).await
+    }
+
+    async fn set_user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+        preferences: CodingPreferences,
+    ) -> Result<()> {
+        self.repo
+            .set_user_coding_preferences(user_id, preferences)
+            .await
     }
 }
 
@@ -1210,6 +1348,9 @@ fn owner_access_session_id(
 /// append order, so a lost suffix never punches a hole in the middle - and
 /// the latency a viewer sees on streamed output.
 const LOG_FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1500);
+/// Coalesce the start of an answer just enough to include words after a
+/// Markdown prefix, instead of publishing only `**` or a heading marker.
+const FIRST_OUTPUT_FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
 /// How many frames may accumulate before a flush happens regardless of age,
 /// bounding memory, the size of one insert and one publish, and what a crash
 /// could lose.
@@ -1223,7 +1364,9 @@ const MAX_PENDING_LOG_FRAMES: usize = 256;
 /// buffered under a claim and, [`MAX_PENDING_LOG_FRAMES`] at a time or every
 /// [`LOG_FLUSH_INTERVAL`], written as one fenced insert and pushed to viewers
 /// as one publish, instead of costing a transaction, an audience lookup and
-/// a gateway round trip each. Only plain to-server notifications take that
+/// a gateway round trip each. The first visible output and initial prose of a
+/// live turn use [`FIRST_OUTPUT_FLUSH_INTERVAL`] to avoid delaying the answer's start.
+/// Only plain to-server notifications take that
 /// path: anything the store projects (system events, a load boundary, a
 /// Cursor checkpoint) or the runtime will act on writes the buffer out
 /// first and then lands at once through the single-frame path, exactly as
@@ -1268,6 +1411,8 @@ pub struct LiveSessionLogWriter<R, Rt> {
     /// Last turn state stored atomically with its frame. Stream publication
     /// uses this durable value, never a state from buffered frames.
     projected_turn: Option<TurnState>,
+    /// Publish the start of each live answer without waiting for the batch.
+    first_output: FirstOutput,
 }
 
 /// One frame waiting for the next write.
@@ -1291,11 +1436,16 @@ fn batches(content: &Message) -> bool {
 
 /// Frames viewers must see as soon as they are stored rather than with the
 /// next batch: anything the runtime will act on, and anything that projects
-/// onto the session's status.
+/// onto the session's status. Replies also unblock clients waiting for the
+/// handshake or a selected model/effort before sending their first prompt.
 fn flushes_through(content: &Message) -> bool {
     matches!(
         content,
-        Message::ToRuntime(_) | Message::ToServer(ToServerMessage::Event { .. })
+        Message::ToRuntime(_)
+            | Message::ToServer(ToServerMessage::Event { .. })
+            | Message::ToServer(ToServerMessage::Acp(AcpMessage(
+                RawJsonRpcMessage::Response(_)
+            )))
     )
 }
 
@@ -1319,6 +1469,7 @@ impl<R, Rt> LiveSessionLogWriter<R, Rt> {
             flush_due: None,
             projected_model: None,
             projected_turn: None,
+            first_output: FirstOutput::default(),
         }
     }
 
@@ -1337,6 +1488,7 @@ impl<R, Rt> LiveSessionLogWriter<R, Rt> {
             flush_due: None,
             projected_model: None,
             projected_turn: None,
+            first_output: FirstOutput::default(),
         }
     }
 
@@ -1389,11 +1541,12 @@ where
                 }
             }
         }
-        let signals = self
+        let pushed = self
             .fold
             .as_mut()
-            .map(|fold| fold.push(log.clone()).signals)
+            .map(|fold| fold.push(log.clone()))
             .unwrap_or_default();
+        let first_output = self.first_output.observe(&pushed.events);
 
         let turn_state = self
             .fold
@@ -1457,6 +1610,10 @@ where
             }
         };
 
+        if first_output && let Some(deadline) = &mut self.flush_due {
+            *deadline = (*deadline).min(tokio::time::Instant::now() + FIRST_OUTPUT_FLUSH_INTERVAL);
+        }
+
         if turn_state.is_some()
             && let Err(error) = self.realtime.publish_updated(session).await
         {
@@ -1511,7 +1668,10 @@ where
             }
         }
 
-        Ok(Appended { log_id, signals })
+        Ok(Appended {
+            log_id,
+            signals: pushed.signals,
+        })
     }
 
     async fn flush(&mut self) -> Result<()> {
@@ -1594,6 +1754,10 @@ where
         self.repo.get(id).await
     }
 
+    async fn find(&self, id: AgentSessionId) -> Result<Option<AgentSession>> {
+        self.repo.find(id).await
+    }
+
     async fn preview(
         &self,
         viewer: &MacroUserIdStr<'static>,
@@ -1604,6 +1768,14 @@ where
 
     async fn set_egress_token_hash(&self, id: AgentSessionId, hash: &str) -> Result<()> {
         self.repo.set_egress_token_hash(id, hash).await
+    }
+
+    async fn set_turn_prompter(&self, id: AgentSessionId, prompter: &TurnPrompter) -> Result<()> {
+        self.repo.set_turn_prompter(id, prompter).await
+    }
+
+    async fn turn_prompter(&self, id: AgentSessionId) -> Result<Option<TurnPrompter>> {
+        self.repo.turn_prompter(id).await
     }
 
     async fn find_by_egress_token_hash(
@@ -1682,6 +1854,23 @@ where
         size: SandboxSize,
     ) -> Result<()> {
         self.repo.set_user_sandbox_size(user_id, size).await
+    }
+
+    async fn user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+    ) -> Result<CodingPreferences> {
+        self.repo.user_coding_preferences(user_id).await
+    }
+
+    async fn set_user_coding_preferences(
+        &self,
+        user_id: &MacroUserIdStr<'static>,
+        preferences: CodingPreferences,
+    ) -> Result<()> {
+        self.repo
+            .set_user_coding_preferences(user_id, preferences)
+            .await
     }
 
     async fn delete(&self, id: AgentSessionId) -> Result<()> {

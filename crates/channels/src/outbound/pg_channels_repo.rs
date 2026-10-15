@@ -1,5 +1,7 @@
 /// Silent historical persistence and transaction-aware activity updates.
 pub mod historical;
+#[cfg(feature = "list")]
+mod references;
 
 #[cfg(test)]
 mod tests;
@@ -1198,6 +1200,13 @@ impl PgChannelsRepo {
 
 #[cfg(feature = "list")]
 impl ChannelListRepo for PgChannelsRepo {
+    async fn get_reference_sources(
+        &self,
+        targets: &[crate::domain::models::ReferenceTarget],
+    ) -> Result<Vec<crate::domain::models::ReferenceSource>, rootcause::Report> {
+        self.query_reference_sources(targets).await
+    }
+
     async fn get_user_channels_with_participants(
         &self,
         params: GetChannelsParams,
@@ -1648,16 +1657,16 @@ impl ChannelRepo for PgChannelsRepo {
         &self,
         channel_id: Uuid,
         picture_id: Option<Uuid>,
-    ) -> Result<(), Self::Err> {
-        sqlx::query!(
-            "UPDATE comms_channels SET profile_picture_id = $2, updated_at = NOW() WHERE id = $1",
+    ) -> Result<bool, Self::Err> {
+        let result = sqlx::query!(
+            "UPDATE comms_channels SET profile_picture_id = $2, updated_at = NOW() WHERE id = $1 AND profile_picture_id IS DISTINCT FROM $2",
             channel_id,
             picture_id,
         )
         .execute(&self.pool)
         .await
         .context("unable to update channel picture")?;
-        Ok(())
+        Ok(result.rows_affected() > 0)
     }
 
     type Err = anyhow::Error;

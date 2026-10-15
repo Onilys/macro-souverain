@@ -177,6 +177,54 @@ describe('Excel workbook files', () => {
     expect(result.sheets[0].cells).toEqual(sheet.cells);
   });
 
+  it("exports accounting as Excel's accounting format and imports it back", async () => {
+    const sheet = simpleSheet();
+    sheet.cells = {
+      A1: { value: '1234.5', format: 'accounting' },
+      A2: { value: '-3', format: 'accounting', decimals: 0 },
+    };
+    const encoded = await encodeXlsx({ sheets: [sheet] });
+    // ExcelJS drops backslashes from the codes it reads, so read the part.
+    const styles = strFromU8(unzipSync(encoded.bytes)['xl/styles.xml']);
+    expect(styles).toContain(
+      'formatCode="_(&quot;$&quot;* #,##0.00_);_(&quot;$&quot;* \\(#,##0.00\\);_(&quot;$&quot;* &quot;-&quot;??_);_(@_)"'
+    );
+    expect(styles).toContain(
+      'formatCode="_(&quot;$&quot;* #,##0_);_(&quot;$&quot;* \\(#,##0\\);_(&quot;$&quot;* &quot;-&quot;_);_(@_)"'
+    );
+    const decoded = await decodeXlsx(encoded.bytes);
+    expect(decoded.sheets[0].cells).toEqual({
+      A1: { value: '1234.5', format: 'accounting', decimals: 2 },
+      A2: { value: '-3', format: 'accounting', decimals: 0 },
+    });
+  });
+
+  it('imports dollar formats with a repeated fill as accounting, keeping variants for export', async () => {
+    const variant = '_($* #,##0.00_);_($* (#,##0.00);_($* "-"??_);_(@_)';
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Ledger');
+    sheet.getCell('A1').value = 10;
+    sheet.getCell('A1').numFmt = variant;
+    sheet.getCell('A2').value = 10;
+    sheet.getCell('A2').numFmt = '$#,##0.00';
+    sheet.getCell('A3').value = 10;
+    sheet.getCell('A3').numFmt =
+      '_(* #,##0.00_);_(* \\(#,##0.00\\);_(* "-"??_);_(@_)';
+    const imported = await decodeXlsx(await file(workbook));
+    const cells = imported.sheets[0].cells;
+    expect(cells.A1).toEqual({
+      value: '10',
+      format: 'accounting',
+      decimals: 2,
+      numberFormat: variant,
+    });
+    expect(cells.A2).toEqual({ value: '10', format: 'currency', decimals: 2 });
+    expect(cells.A3.format).toBe('number');
+    const reopened = new ExcelJS.Workbook();
+    await reopened.xlsx.load((await encodeXlsx(imported)).bytes.slice().buffer);
+    expect(reopened.worksheets[0].getCell('A1').numFmt).toBe(variant);
+  });
+
   it('imports and round trips an independently generated openpyxl workbook', async () => {
     // This fixture was written by Python openpyxl, not the ExcelJS codec under test.
     const bytes = readFileSync(
@@ -564,7 +612,7 @@ describe('Excel workbook files', () => {
     expect(result.rowCount).toBe(5000);
   });
 
-  it('rejects invalid ZIP, encryption, macros, corrupt data and forged expansion sizes', async () => {
+  it('rejects invalid ZIP, encryption, exported macros, corrupt data and forged expansion sizes', async () => {
     await expect(
       decodeXlsx(new Uint8Array(XLSX_MAX_BYTES + 1))
     ).rejects.toThrow('50 MB');
@@ -574,7 +622,10 @@ describe('Excel workbook files', () => {
     const original = (await encodeXlsx({ sheets: [simpleSheet()] })).bytes;
     const entries = unzipSync(original);
     entries['xl/vbaProject.bin'] = new Uint8Array([1]);
-    await expect(decodeXlsx(zipSync(entries))).rejects.toThrow('Macro-enabled');
+    // Imports drop macros (see xlsm-import.test.ts); exports may never carry them.
+    expect(() => inspectXlsxArchive(zipSync(entries))).toThrow(
+      'must not contain macros'
+    );
     const central = (bytes: Uint8Array) => {
       const view = new DataView(
         bytes.buffer,
