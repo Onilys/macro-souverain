@@ -104,6 +104,7 @@ pub fn route_agent_trigger(
                 .as_user()
                 .cloned()
                 .ok_or(Skipped::NotFromUser)?;
+            let attachments = links.prompt_attachments_for(&message.attachments, context.as_ref());
             Ok(RoutedTrigger::Command(
                 AgentSessionId::new(),
                 HarnessCommand::Open(OpenSession {
@@ -117,7 +118,7 @@ pub fn route_agent_trigger(
                         message_id: message.message_id,
                         sender,
                         content: message.content,
-                        attachments: links.prompt_attachments(&message.attachments),
+                        attachments,
                         context,
                     }),
                 }),
@@ -144,15 +145,14 @@ pub fn route_agent_trigger(
                 .as_ref()
                 .map_or(AgentKind::External, |runtime| runtime.kind);
             if kind.is_managed() {
+                let attachments =
+                    links.prompt_attachments_for(&message.attachments, context.as_ref());
                 return Ok(RoutedTrigger::Command(
                     session_id,
                     HarnessCommand::Deliver(DeliverAction {
                         context,
                         ..DeliverAction::prompt(
-                            AgentAction::prompt_with_attachments(
-                                message.content,
-                                links.prompt_attachments(&message.attachments),
-                            ),
+                            AgentAction::prompt_with_attachments(message.content, attachments),
                             message.sender.as_user().cloned(),
                             Some(origin),
                         )
