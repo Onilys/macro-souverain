@@ -1,3 +1,4 @@
+import { compareTimelinePositions } from '@core/util/message-timeline';
 import type { UnifiedNotification } from '@notifications/types';
 import type { UnreadDestinationElements } from './create-unread-destination-registry';
 
@@ -77,15 +78,6 @@ export type UnreadNotificationChip = {
 
 export type UnreadDestinationPosition = 'above' | 'below' | 'visible';
 
-/** The timeline's own ordering: millisecond, then raw timestamp, then id. */
-function isBefore(left: ThreadPosition, right: ThreadPosition): boolean {
-  const delta = Date.parse(left.created_at) - Date.parse(right.created_at);
-  if (delta !== 0) return delta < 0;
-  if (left.created_at !== right.created_at)
-    return left.created_at < right.created_at;
-  return left.id < right.id;
-}
-
 /**
  * Where a thread sits when none of it is rendered. Rows are placed by the order
  * the list shows them, not by timestamp: concurrent realtime inserts append in
@@ -108,7 +100,12 @@ function placeUnrenderedThread(
   const root = order.unloaded.get(thread.threadId);
   const oldest = order.rows[0];
   if (!root || !oldest) return;
-  return isBefore(root, oldest) ? 'above' : 'below';
+  return compareTimelinePositions(
+    { id: root.id, createdAt: root.created_at },
+    { id: oldest.id, createdAt: oldest.created_at }
+  ) < 0
+    ? 'above'
+    : 'below';
 }
 
 /** Count only offscreen threads; keep newest-first navigation among those left. */

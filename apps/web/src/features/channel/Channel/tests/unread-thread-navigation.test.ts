@@ -229,6 +229,20 @@ describe('channel unread notification navigation', () => {
     ).toBe('below');
   });
 
+  it('preserves microsecond order for an unloaded parent with different precision', () => {
+    const root = { id: 'unloaded', created_at: '2026-08-01T00:00:00.123001Z' };
+    expect(
+      unreadNotificationChip(
+        unreadThreads([reply('a', 'unloaded')]),
+        {
+          rows: [{ id: 'loaded', created_at: '2026-08-01T00:00:00.123Z' }],
+          unloaded: new Map([[root.id, root]]),
+        },
+        { first: 'loaded', last: 'loaded' }
+      )?.direction
+    ).toBe('below');
+  });
+
   it('waits for layout and an unloaded parent position instead of guessing from reply time', () => {
     const threads = unreadThreads([reply('a', 'old')]);
     expect(unreadNotificationChip(threads, order, undefined)).toBeUndefined();
