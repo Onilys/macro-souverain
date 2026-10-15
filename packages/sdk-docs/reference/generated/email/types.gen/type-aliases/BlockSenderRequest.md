@@ -1,6 +1,6 @@
 # Type Alias: BlockSenderRequest
 
-> **BlockSenderRequest** = `object`
+> **BlockSenderRequest** = \{ `email_address`: `string`; \}
 
 Request to block a sender.
 

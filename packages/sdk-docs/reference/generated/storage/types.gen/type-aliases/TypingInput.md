@@ -1,6 +1,6 @@
 # Type Alias: TypingInput
 
-> **TypingInput** = `object`
+> **TypingInput** = \{ `active`: `boolean`; `nonce?`: `string` \| `null`; `thread_id?`: `string` \| `null`; \}
 
 Transient typing update.
 

@@ -1,6 +1,6 @@
 # Type Alias: AddStringOptionRequest
 
-> **AddStringOptionRequest** = `object`
+> **AddStringOptionRequest** = \{ `color?`: `string` \| `null`; `display_order`: `number`; `value`: `string`; \}
 
 Type-safe request to add a string option to a SelectString property.
 

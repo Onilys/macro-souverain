@@ -1,6 +1,6 @@
 # Type Alias: BotChannel
 
-> **BotChannel** = `object`
+> **BotChannel** = \{ `channel_id`: `string`; `channel_type`: [`BotChannelType`](BotChannelType.md); `joined_at`: `string`; `name?`: `string` \| `null`; \}
 
 Channel containing a bot.
 

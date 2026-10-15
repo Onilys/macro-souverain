@@ -1,6 +1,6 @@
 # Type Alias: PatchChatErrors
 
-> **PatchChatErrors** = `object`
+> **PatchChatErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

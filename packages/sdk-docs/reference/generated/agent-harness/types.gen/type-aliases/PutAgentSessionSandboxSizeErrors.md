@@ -1,6 +1,6 @@
 # Type Alias: PutAgentSessionSandboxSizeErrors
 
-> **PutAgentSessionSandboxSizeErrors** = `object`
+> **PutAgentSessionSandboxSizeErrors** = \{ `401`: `string`; `403`: `string`; `500`: `string`; \}
 
 ## Properties
 

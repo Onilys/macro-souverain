@@ -1,6 +1,6 @@
 # Type Alias: RunImportHandlerErrors
 
-> **RunImportHandlerErrors** = `object`
+> **RunImportHandlerErrors** = \{ `500`: `unknown`; \}
 
 ## Properties
 

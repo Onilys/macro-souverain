@@ -1,6 +1,6 @@
 # Type Alias: EditAnchorResponse
 
-> **EditAnchorResponse** = [`Anchor`](Anchor.md) & `object`
+> **EditAnchorResponse** = [`Anchor`](Anchor.md) & \{ `documentId`: `string`; \}
 
 ## Type Declaration
 

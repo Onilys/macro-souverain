@@ -1,6 +1,6 @@
 # Type Alias: GetProjectPermissionsV2Errors
 
-> **GetProjectPermissionsV2Errors** = `object`
+> **GetProjectPermissionsV2Errors** = \{ `404`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

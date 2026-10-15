@@ -1,6 +1,6 @@
 # Type Alias: AgentTaskAgent
 
-> **AgentTaskAgent** = `object`
+> **AgentTaskAgent** = \{ `bot_id`: `string`; \}
 
 A persona selection, independent of its runtime and current default model.
 

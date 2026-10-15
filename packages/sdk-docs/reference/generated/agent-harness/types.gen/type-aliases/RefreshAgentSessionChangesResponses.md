@@ -1,6 +1,6 @@
 # Type Alias: RefreshAgentSessionChangesResponses
 
-> **RefreshAgentSessionChangesResponses** = `object`
+> **RefreshAgentSessionChangesResponses** = \{ `202`: [`AgentSessionChangesResponse`](AgentSessionChangesResponse.md); \}
 
 ## Properties
 

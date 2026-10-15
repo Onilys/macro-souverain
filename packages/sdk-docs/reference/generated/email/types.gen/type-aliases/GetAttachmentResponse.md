@@ -1,6 +1,6 @@
 # Type Alias: GetAttachmentResponse
 
-> **GetAttachmentResponse** = `object`
+> **GetAttachmentResponse** = \{ `attachment`: [`Attachment`](Attachment.md); \}
 
 The response returned from the get attachment endpoint
 

@@ -1,6 +1,6 @@
 # Type Alias: RevertDeleteChatErrors
 
-> **RevertDeleteChatErrors** = `object`
+> **RevertDeleteChatErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

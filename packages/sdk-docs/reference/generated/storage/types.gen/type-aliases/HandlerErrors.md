@@ -1,6 +1,6 @@
 # Type Alias: HandlerErrors
 
-> **HandlerErrors** = `object`
+> **HandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

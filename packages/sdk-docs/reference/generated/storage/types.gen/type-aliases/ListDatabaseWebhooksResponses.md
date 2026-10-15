@@ -1,6 +1,6 @@
 # Type Alias: ListDatabaseWebhooksResponses
 
-> **ListDatabaseWebhooksResponses** = `object`
+> **ListDatabaseWebhooksResponses** = \{ `200`: [`ListDatabaseWebhooksResponse`](ListDatabaseWebhooksResponse.md); \}
 
 ## Properties
 

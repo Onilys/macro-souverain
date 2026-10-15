@@ -1,6 +1,6 @@
 # Type Alias: ToggleShareWithTeamResponses
 
-> **ToggleShareWithTeamResponses** = `object`
+> **ToggleShareWithTeamResponses** = \{ `200`: `boolean`; \}
 
 ## Properties
 

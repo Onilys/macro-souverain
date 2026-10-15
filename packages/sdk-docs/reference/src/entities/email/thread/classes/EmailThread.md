@@ -292,11 +292,11 @@ The thread's subject, from its first message with one.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`ApiThread`](../../../../../generated/email/types.gen/type-aliases/ApiThread.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`ApiThread`](../../../../../generated/email/types.gen/type-aliases/ApiThread.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

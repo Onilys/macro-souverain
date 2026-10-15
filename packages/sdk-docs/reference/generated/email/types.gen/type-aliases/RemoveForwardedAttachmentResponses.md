@@ -1,6 +1,6 @@
 # Type Alias: RemoveForwardedAttachmentResponses
 
-> **RemoveForwardedAttachmentResponses** = `object`
+> **RemoveForwardedAttachmentResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

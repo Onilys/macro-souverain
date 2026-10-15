@@ -1,6 +1,6 @@
 # Type Alias: InviteToTeamMetadata
 
-> **InviteToTeamMetadata** = `object`
+> **InviteToTeamMetadata** = \{ `invitedBy`: `string`; `role?`: `string` \| `null`; `senderProfilePictureUrl?`: `string` \| `null`; `teamId`: `string`; `teamInviteId`: `string`; `teamName`: `string`; \}
 
 Metadata for when a user is invited to a team.
 

@@ -1,6 +1,6 @@
 # Type Alias: WarmAgentSessionRequest
 
-> **WarmAgentSessionRequest** = `object`
+> **WarmAgentSessionRequest** = \{ `id`: `string`; \}
 
 A client-minted id deduplicates warm calls without creating a conversation.
 

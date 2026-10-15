@@ -1,6 +1,6 @@
 # Type Alias: EmailReminderSummary
 
-> **EmailReminderSummary** = `object`
+> **EmailReminderSummary** = \{ `followup`: [`EmailFollowup`](EmailFollowup.md); `threadId`: `string`; \}
 
 An original thread with its active snooze.
 

@@ -1,6 +1,6 @@
 # Type Alias: ProjectMetadata
 
-> **ProjectMetadata** = `object`
+> **ProjectMetadata** = \{ `created_at`: `string`; `deleted_at?`: `string` \| `null`; `parent_project_id?`: `string` \| `null`; `updated_at`: `string`; `viewed_at?`: `string` \| `null`; \}
 
 Metadata for a project fetched from the database
 

@@ -1,6 +1,6 @@
 # Type Alias: CreatePipedreamMcpTokenResponses
 
-> **CreatePipedreamMcpTokenResponses** = `object`
+> **CreatePipedreamMcpTokenResponses** = \{ `200`: [`PipedreamTokenResponse`](PipedreamTokenResponse.md); \}
 
 ## Properties
 

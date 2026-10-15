@@ -1,6 +1,6 @@
 # Type Alias: LeaveOrEndCallResponses
 
-> **LeaveOrEndCallResponses** = `object`
+> **LeaveOrEndCallResponses** = \{ `200`: [`LeaveCallResponse`](LeaveCallResponse.md); \}
 
 ## Properties
 

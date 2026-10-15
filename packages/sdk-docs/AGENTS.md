@@ -34,4 +34,5 @@
   `src/render.ts` and test actual generation after dependency changes.
 - Use TypeDoc's reflection and Markdown plugin for signatures and visibility;
   do not add a separate TypeScript declaration parser.
+- Keep `expandObjects` enabled so object alias declarations show concrete fields.
 - `CLAUDE.md` is a symlink to this guide.

@@ -1,6 +1,6 @@
 # Type Alias: ListWebhooksResponse
 
-> **ListWebhooksResponse** = `object`
+> **ListWebhooksResponse** = \{ `webhooks`: [`Webhook`](Webhook.md)[]; \}
 
 Webhooks visible to the caller across their personal and team workspaces.
 

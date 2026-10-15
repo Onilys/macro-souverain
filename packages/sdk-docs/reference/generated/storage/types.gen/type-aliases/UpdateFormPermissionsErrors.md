@@ -1,6 +1,6 @@
 # Type Alias: UpdateFormPermissionsErrors
 
-> **UpdateFormPermissionsErrors** = `object`
+> **UpdateFormPermissionsErrors** = \{ `400`: [`FormErrorResponse`](FormErrorResponse.md); `401`: [`FormErrorResponse`](FormErrorResponse.md); `403`: [`FormErrorResponse`](FormErrorResponse.md); `404`: [`FormErrorResponse`](FormErrorResponse.md); `500`: [`FormErrorResponse`](FormErrorResponse.md); \}
 
 ## Properties
 

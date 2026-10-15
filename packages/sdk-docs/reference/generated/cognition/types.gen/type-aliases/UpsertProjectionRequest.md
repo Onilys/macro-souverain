@@ -1,6 +1,6 @@
 # Type Alias: UpsertProjectionRequest
 
-> **UpsertProjectionRequest** = `object`
+> **UpsertProjectionRequest** = \{ `await?`: `boolean`; `expiry`: [`Expiry`](Expiry.md); `id`: `string`; `model?`: `string` \| `null`; `output_schema?`: \{\[`key`: `string`\]: `unknown`; \} \| `null`; `prompt`: `string`; `refresh_cadence`: [`RefreshCadence`](RefreshCadence.md); `regenerate?`: `boolean`; `target_type`: [`TargetType`](TargetType.md); \}
 
 Request body for getting or creating an ai projection. The concrete target
 id is resolved from the authenticated user, so only the target type is sent.

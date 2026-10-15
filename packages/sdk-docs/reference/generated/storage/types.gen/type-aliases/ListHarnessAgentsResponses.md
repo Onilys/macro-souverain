@@ -1,6 +1,6 @@
 # Type Alias: ListHarnessAgentsResponses
 
-> **ListHarnessAgentsResponses** = `object`
+> **ListHarnessAgentsResponses** = \{ `200`: [`HarnessAgent`](HarnessAgent.md)[]; \}
 
 ## Properties
 

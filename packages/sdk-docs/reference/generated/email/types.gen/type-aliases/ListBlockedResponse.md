@@ -1,6 +1,6 @@
 # Type Alias: ListBlockedResponse
 
-> **ListBlockedResponse** = `object`
+> **ListBlockedResponse** = \{ `blocked_emails`: `string`[]; \}
 
 Response containing list of blocked email addresses.
 

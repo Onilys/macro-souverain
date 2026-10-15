@@ -1,6 +1,6 @@
 # Type Alias: DeleteViewHandlerErrors
 
-> **DeleteViewHandlerErrors** = `object`
+> **DeleteViewHandlerErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

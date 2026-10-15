@@ -1,6 +1,6 @@
 # Type Alias: AddRemoveLabelData
 
-> **AddRemoveLabelData** = `object`
+> **AddRemoveLabelData** = \{ `body`: [`UpdateLabelBatchRequest`](UpdateLabelBatchRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/messages/labels"`; \}
 
 ## Properties
 

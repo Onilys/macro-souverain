@@ -1,6 +1,6 @@
 # Type Alias: DisableNotificationTypeResponses
 
-> **DisableNotificationTypeResponses** = `object`
+> **DisableNotificationTypeResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

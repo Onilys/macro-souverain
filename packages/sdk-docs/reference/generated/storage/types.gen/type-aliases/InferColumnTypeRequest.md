@@ -1,6 +1,6 @@
 # Type Alias: InferColumnTypeRequest
 
-> **InferColumnTypeRequest** = `object`
+> **InferColumnTypeRequest** = \{ `baseVersion`: [`TableVersion`](TableVersion.md); `dataType`: [`DataType`](DataType.md); `specificEntityType?`: `null` \| [`EntityType`](EntityType.md); \}
 
 Request to settle an empty column's first-value type.
 

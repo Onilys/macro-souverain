@@ -1,6 +1,6 @@
 # Type Alias: GenericErrorResponse
 
-> **GenericErrorResponse** = `object`
+> **GenericErrorResponse** = \{ `error`: `boolean`; `message`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdateToolResponseRequest
 
-> **UpdateToolResponseRequest** = `object`
+> **UpdateToolResponseRequest** = \{ `messageId`: `string`; `response`: [`UserToolResponseValue`](UserToolResponseValue.md); `toolCallId`: `string`; \}
 
 Request body for updating a tool response.
 

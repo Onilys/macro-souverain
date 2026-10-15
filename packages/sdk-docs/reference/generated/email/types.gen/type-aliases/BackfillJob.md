@@ -1,6 +1,6 @@
 # Type Alias: BackfillJob
 
-> **BackfillJob** = `object`
+> **BackfillJob** = \{ `created_at`: `string`; `fusionauth_user_id`: `string`; `id`: `string`; `link_id?`: `string` \| `null`; `status`: [`BackfillJobStatus`](BackfillJobStatus.md); `threads_requested_limit?`: `number` \| `null`; `threads_retrieved_count`: `number`; `total_threads`: `number`; `updated_at`: `string`; \}
 
 ## Properties
 

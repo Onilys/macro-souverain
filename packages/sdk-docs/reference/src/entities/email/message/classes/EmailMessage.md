@@ -74,11 +74,11 @@ The thread this message belongs to.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`ParsedMessage`](../../../../../generated/email/types.gen/type-aliases/ParsedMessage.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`ParsedMessage`](../../../../../generated/email/types.gen/type-aliases/ParsedMessage.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

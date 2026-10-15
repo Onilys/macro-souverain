@@ -1,6 +1,6 @@
 # Type Alias: EntityRef
 
-> **EntityRef** = `object`
+> **EntityRef** = \{ `entityId`: `string`; `entityType`: [`EntityKind`](EntityKind.md); \}
 
 A reference to one Macro entity.
 

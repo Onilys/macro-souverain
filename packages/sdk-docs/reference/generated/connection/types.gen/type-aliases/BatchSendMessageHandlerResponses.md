@@ -1,6 +1,6 @@
 # Type Alias: BatchSendMessageHandlerResponses
 
-> **BatchSendMessageHandlerResponses** = `object`
+> **BatchSendMessageHandlerResponses** = \{ `200`: [`SendMessageResponse`](SendMessageResponse.md); \}
 
 ## Properties
 

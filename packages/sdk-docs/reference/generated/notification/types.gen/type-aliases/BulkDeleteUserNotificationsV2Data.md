@@ -1,6 +1,6 @@
 # Type Alias: BulkDeleteUserNotificationsV2Data
 
-> **BulkDeleteUserNotificationsV2Data** = `object`
+> **BulkDeleteUserNotificationsV2Data** = \{ `body`: [`NotificationBulkRequest`](NotificationBulkRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/v2/user_notifications/bulk"`; \}
 
 ## Properties
 

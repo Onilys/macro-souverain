@@ -1,6 +1,6 @@
 # Type Alias: GetUserDocumentViewLocationResponses
 
-> **GetUserDocumentViewLocationResponses** = `object`
+> **GetUserDocumentViewLocationResponses** = \{ `200`: [`UserDocumentViewLocationResponse`](UserDocumentViewLocationResponse.md); \}
 
 ## Properties
 

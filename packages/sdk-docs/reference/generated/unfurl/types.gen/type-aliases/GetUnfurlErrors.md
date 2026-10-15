@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlErrors
 
-> **GetUnfurlErrors** = `object`
+> **GetUnfurlErrors** = \{ `500`: `null` \| [`GetUnfurlResponse`](GetUnfurlResponse.md); \}
 
 ## Properties
 

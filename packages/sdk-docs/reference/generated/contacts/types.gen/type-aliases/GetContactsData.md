@@ -1,6 +1,6 @@
 # Type Alias: GetContactsData
 
-> **GetContactsData** = `object`
+> **GetContactsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/contacts"`; \}
 
 ## Properties
 

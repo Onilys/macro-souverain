@@ -1,6 +1,6 @@
 # Type Alias: ListDatabasesData
 
-> **ListDatabasesData** = `object`
+> **ListDatabasesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/databases"`; \}
 
 ## Properties
 

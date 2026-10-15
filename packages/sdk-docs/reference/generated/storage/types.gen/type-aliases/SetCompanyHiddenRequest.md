@@ -1,6 +1,6 @@
 # Type Alias: SetCompanyHiddenRequest
 
-> **SetCompanyHiddenRequest** = `object`
+> **SetCompanyHiddenRequest** = \{ `hidden`: `boolean`; \}
 
 Request body for `PUT /companies/{company_id}/hidden`.
 

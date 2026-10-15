@@ -1,6 +1,6 @@
 # Type Alias: SetContactHiddenResponses
 
-> **SetContactHiddenResponses** = `object`
+> **SetContactHiddenResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

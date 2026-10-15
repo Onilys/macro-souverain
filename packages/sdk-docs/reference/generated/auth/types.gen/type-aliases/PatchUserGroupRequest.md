@@ -1,6 +1,6 @@
 # Type Alias: PatchUserGroupRequest
 
-> **PatchUserGroupRequest** = `object`
+> **PatchUserGroupRequest** = \{ `group`: `string`; \}
 
 ## Properties
 

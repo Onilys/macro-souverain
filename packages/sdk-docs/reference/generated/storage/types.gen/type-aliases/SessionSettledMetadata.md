@@ -1,6 +1,6 @@
 # Type Alias: SessionSettledMetadata
 
-> **SessionSettledMetadata** = `object`
+> **SessionSettledMetadata** = \{ `identity`: [`SessionIdentity`](SessionIdentity.md); `last_turn?`: `null` \| [`TurnSummary`](TurnSummary.md); \}
 
 A turn ended and nothing is queued: the agent has stopped working.
 

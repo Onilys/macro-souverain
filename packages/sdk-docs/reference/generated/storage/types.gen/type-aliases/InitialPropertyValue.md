@@ -1,6 +1,6 @@
 # Type Alias: InitialPropertyValue
 
-> **InitialPropertyValue** = `object`
+> **InitialPropertyValue** = \{ `propertyDefinitionId`: `string`; `value`: [`SetPropertyValue`](SetPropertyValue.md); \}
 
 A property value set on a new initiative as part of its create.
 

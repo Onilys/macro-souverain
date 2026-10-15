@@ -1,6 +1,6 @@
 # Type Alias: CreateDocumentRequest
 
-> **CreateDocumentRequest** = `object`
+> **CreateDocumentRequest** = \{ `branchedFromId?`: `string` \| `null`; `branchedFromVersionId?`: `number` \| `null`; `createdAt?`: `string` \| `null`; `documentFamilyId?`: `number` \| `null`; `documentName`: `string`; `emailAttachmentId?`: `string` \| `null`; `fileType?`: `string` \| `null`; `id?`: `string` \| `null`; `isTask?`: `boolean`; `jobId?`: `string` \| `null`; `mimeType?`: `string` \| `null`; `projectId?`: `string` \| `null`; `sha`: `string`; `skipHistory?`: `boolean`; `teamId?`: `string` \| `null`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UserUnsubscribe
 
-> **UserUnsubscribe** = `object`
+> **UserUnsubscribe** = \{ `item_id`: `string`; `item_type`: `string`; `snoozed_until?`: `string` \| `null`; \}
 
 ## Properties
 

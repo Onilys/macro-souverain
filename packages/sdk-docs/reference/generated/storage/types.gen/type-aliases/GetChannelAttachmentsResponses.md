@@ -1,6 +1,6 @@
 # Type Alias: GetChannelAttachmentsResponses
 
-> **GetChannelAttachmentsResponses** = `object`
+> **GetChannelAttachmentsResponses** = \{ `200`: [`ApiChannelAttachmentsPage`](ApiChannelAttachmentsPage.md); \}
 
 ## Properties
 

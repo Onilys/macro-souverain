@@ -1,6 +1,6 @@
 # Type Alias: Awareness
 
-> **Awareness** = `object`
+> **Awareness** = \{ `columnId?`: `string`; `editing?`: `boolean`; `endColumnId?`: `string`; `endRowId?`: `string`; `left?`: `boolean`; `peerId?`: `string`; `rowId?`: `string`; `tableId`: `string`; \}
 
 Where one viewer is inside a database right now: ephemeral, relayed to
 the other viewers and never stored. A missing row or column means the

@@ -1,6 +1,6 @@
 # Type Alias: PatchUserTutorialData
 
-> **PatchUserTutorialData** = `object`
+> **PatchUserTutorialData** = \{ `body`: [`PatchUserTutorialRequest`](PatchUserTutorialRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/tutorial"`; \}
 
 ## Properties
 

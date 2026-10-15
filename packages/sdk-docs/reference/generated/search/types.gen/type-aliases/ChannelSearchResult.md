@@ -1,6 +1,6 @@
 # Type Alias: ChannelSearchResult
 
-> **ChannelSearchResult** = `object`
+> **ChannelSearchResult** = \{ `created_at?`: `string` \| `null`; `deleted_at?`: `string` \| `null`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `message_id?`: `string` \| `null`; `score?`: `number` \| `null`; `sender_id?`: `string` \| `null`; `thread_id?`: `string` \| `null`; `updated_at?`: `string` \| `null`; \}
 
 A channel message match for a given channel id
 

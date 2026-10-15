@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestLabel
 
-> **GithubPullRequestLabel** = `object`
+> **GithubPullRequestLabel** = \{ `color?`: `string` \| `null`; `name`: `string`; \}
 
 A label on a GitHub pull request.
 

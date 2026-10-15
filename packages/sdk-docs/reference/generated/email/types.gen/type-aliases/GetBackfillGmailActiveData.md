@@ -1,6 +1,6 @@
 # Type Alias: GetBackfillGmailActiveData
 
-> **GetBackfillGmailActiveData** = `object`
+> **GetBackfillGmailActiveData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/email/backfill/gmail/active"`; \}
 
 ## Properties
 

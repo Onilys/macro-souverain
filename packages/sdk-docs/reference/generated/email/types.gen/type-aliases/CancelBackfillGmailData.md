@@ -1,6 +1,6 @@
 # Type Alias: CancelBackfillGmailData
 
-> **CancelBackfillGmailData** = `object`
+> **CancelBackfillGmailData** = \{ `body`: [`CancelBackfillParams`](CancelBackfillParams.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/backfill/gmail"`; \}
 
 ## Properties
 

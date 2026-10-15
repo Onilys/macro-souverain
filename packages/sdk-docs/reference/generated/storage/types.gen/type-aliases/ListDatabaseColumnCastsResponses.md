@@ -1,6 +1,6 @@
 # Type Alias: ListDatabaseColumnCastsResponses
 
-> **ListDatabaseColumnCastsResponses** = `object`
+> **ListDatabaseColumnCastsResponses** = \{ `200`: [`ColumnCast`](ColumnCast.md)[]; \}
 
 ## Properties
 

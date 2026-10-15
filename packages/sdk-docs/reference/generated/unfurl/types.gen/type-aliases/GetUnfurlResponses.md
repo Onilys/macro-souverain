@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlResponses
 
-> **GetUnfurlResponses** = `object`
+> **GetUnfurlResponses** = \{ `200`: [`GetUnfurlResponse`](GetUnfurlResponse.md); \}
 
 ## Properties
 

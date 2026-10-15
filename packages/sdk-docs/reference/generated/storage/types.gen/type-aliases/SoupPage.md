@@ -1,6 +1,6 @@
 # Type Alias: SoupPage
 
-> **SoupPage** = `object`
+> **SoupPage** = \{ `items`: [`SoupApiItem`](SoupApiItem.md)[]; `next_cursor?`: `string` \| `null`; \}
 
 Response page for non-grouped soup endpoints.
 

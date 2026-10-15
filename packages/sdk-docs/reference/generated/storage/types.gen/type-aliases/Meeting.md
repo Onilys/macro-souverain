@@ -1,6 +1,6 @@
 # Type Alias: Meeting
 
-> **Meeting** = `object`
+> **Meeting** = \{ `callId?`: `string` \| `null`; `channelId?`: `string` \| `null`; `id`: `string`; `scheduledEnd?`: `string` \| `null`; `scheduledStart?`: `string` \| `null`; `shareToken`: [`MeetingToken`](MeetingToken.md); `title`: `string`; \}
 
 Persistent meeting metadata. No channel contents or archived media are exposed.
 

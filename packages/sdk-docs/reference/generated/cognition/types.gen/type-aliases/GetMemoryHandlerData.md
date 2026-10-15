@@ -1,6 +1,6 @@
 # Type Alias: GetMemoryHandlerData
 
-> **GetMemoryHandlerData** = `object`
+> **GetMemoryHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/memory"`; \}
 
 ## Properties
 

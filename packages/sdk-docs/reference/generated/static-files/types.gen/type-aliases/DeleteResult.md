@@ -1,6 +1,6 @@
 # Type Alias: DeleteResult
 
-> **DeleteResult** = `object`
+> **DeleteResult** = \{ `error?`: `string` \| `null`; `file_id`: `string`; `success`: `boolean`; \}
 
 ## Properties
 

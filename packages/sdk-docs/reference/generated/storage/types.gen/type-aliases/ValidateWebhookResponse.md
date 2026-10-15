@@ -1,6 +1,6 @@
 # Type Alias: ValidateWebhookResponse
 
-> **ValidateWebhookResponse** = `object`
+> **ValidateWebhookResponse** = \{ `is_valid`: `boolean`; `message?`: `string` \| `null`; `response_status?`: `number` \| `null`; `webhook_id`: [`String`](String.md); \}
 
 Sanitized result of validating a webhook endpoint.
 

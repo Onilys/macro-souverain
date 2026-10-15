@@ -1,6 +1,6 @@
 # Type Alias: GithubPrMention
 
-> **GithubPrMention** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & `object`
+> **GithubPrMention** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & \{ `commentGithubId?`: `number` \| `null`; `commentUrl?`: `string` \| `null`; `location`: [`GithubPrMentionLocation`](GithubPrMentionLocation.md); `textSnippet`: `string`; \}
 
 Metadata for a notification that the user was mentioned on a GitHub pull request.
 

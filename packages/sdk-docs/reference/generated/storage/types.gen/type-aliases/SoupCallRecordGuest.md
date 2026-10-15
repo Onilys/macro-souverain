@@ -1,6 +1,6 @@
 # Type Alias: SoupCallRecordGuest
 
-> **SoupCallRecordGuest** = `object`
+> **SoupCallRecordGuest** = \{ `displayName`: `string`; `id`: `string`; `joinedAt`: `string`; `leftAt?`: `string` \| `null`; \}
 
 A non-account guest of a call record, as displayed in Soup.
 

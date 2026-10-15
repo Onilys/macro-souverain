@@ -1,6 +1,6 @@
 # Type Alias: CallRecordParticipant
 
-> **CallRecordParticipant** = `object`
+> **CallRecordParticipant** = \{ `joinedAt`: `string`; `leftAt?`: `string` \| `null`; `userId`: `string`; \}
 
 A participant as returned in a [`CallRecord`] (historic — includes `left_at`).
 

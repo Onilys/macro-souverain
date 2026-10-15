@@ -1,6 +1,6 @@
 # Type Alias: ChatMessageError
 
-> **ChatMessageError** = `object`
+> **ChatMessageError** = \{ `code?`: `string` \| `null`; `error`: `string`; `stream_id?`: `string` \| `null`; \}
 
 Error response for chat message endpoints
 

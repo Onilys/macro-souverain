@@ -1,6 +1,6 @@
 # Type Alias: OnboardingRow
 
-> **OnboardingRow** = `object`
+> **OnboardingRow** = \{ `completed_at?`: `string` \| `null`; `skipped`: `boolean`; `started_at`: `string`; `status`: [`OnboardingStatus`](OnboardingStatus.md); \}
 
 One user's onboarding row.
 

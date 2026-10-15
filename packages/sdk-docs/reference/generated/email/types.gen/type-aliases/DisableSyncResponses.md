@@ -1,6 +1,6 @@
 # Type Alias: DisableSyncResponses
 
-> **DisableSyncResponses** = `object`
+> **DisableSyncResponses** = \{ `204`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

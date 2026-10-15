@@ -1,6 +1,6 @@
 # Type Alias: ListCalendarsErrors
 
-> **ListCalendarsErrors** = `object`
+> **ListCalendarsErrors** = \{ `401`: `unknown`; `503`: [`CalendarMutationApiError`](CalendarMutationApiError.md); \}
 
 ## Properties
 

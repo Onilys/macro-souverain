@@ -1,6 +1,6 @@
 # Type Alias: EntityMessagePatchThreadResponses
 
-> **EntityMessagePatchThreadResponses** = `object`
+> **EntityMessagePatchThreadResponses** = \{ `200`: [`ThreadState`](ThreadState.md); \}
 
 ## Properties
 

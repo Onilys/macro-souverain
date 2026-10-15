@@ -1,6 +1,6 @@
 # Type Alias: GetChannelJoinLinkResponses
 
-> **GetChannelJoinLinkResponses** = `object`
+> **GetChannelJoinLinkResponses** = \{ `200`: [`ChannelJoinCodeResponse`](ChannelJoinCodeResponse.md); \}
 
 ## Properties
 

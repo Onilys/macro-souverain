@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreateCallResponses
 
-> **GetOrCreateCallResponses** = `object`
+> **GetOrCreateCallResponses** = \{ `200`: [`CallTokenResponse`](CallTokenResponse.md); \}
 
 ## Properties
 

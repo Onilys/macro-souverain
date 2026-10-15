@@ -1,6 +1,6 @@
 # Type Alias: MentionedInDocumentCommentMetadata
 
-> **MentionedInDocumentCommentMetadata** = `object`
+> **MentionedInDocumentCommentMetadata** = \{ `commentId`: [`CommentRef`](CommentRef.md); `documentName`: `string`; `fileType?`: `string` \| `null`; `mentionId`: `string`; `owner`: `string`; `senderDisplayName?`: `string` \| `null`; `senderProfilePictureUrl?`: `string` \| `null`; `subType?`: `null` \| [`NotificationDocumentSubType`](NotificationDocumentSubType.md); `text`: `string`; `threadId`: [`CommentRef`](CommentRef.md); \}
 
 Notification sent when a user is mentioned in a document comment.
 

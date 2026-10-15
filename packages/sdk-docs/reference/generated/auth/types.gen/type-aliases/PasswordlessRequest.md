@@ -1,6 +1,6 @@
 # Type Alias: PasswordlessRequest
 
-> **PasswordlessRequest** = `object`
+> **PasswordlessRequest** = \{ `email`: `string`; `redirect_uri`: `string`; `referral_code?`: `string` \| `null`; \}
 
 ## Properties
 

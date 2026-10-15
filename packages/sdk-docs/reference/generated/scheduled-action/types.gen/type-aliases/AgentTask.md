@@ -1,6 +1,6 @@
 # Type Alias: AgentTask
 
-> **AgentTask** = `object`
+> **AgentTask** = \{ `agent?`: `null` \| [`AgentTaskAgent`](AgentTaskAgent.md); `model?`: `null` \| [`RoutineModelId`](RoutineModelId.md); `prompt`: `string`; `user_prompt`: `string`; \}
 
 ## Properties
 

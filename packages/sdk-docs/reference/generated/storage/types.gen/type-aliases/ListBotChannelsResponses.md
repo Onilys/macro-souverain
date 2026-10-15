@@ -1,6 +1,6 @@
 # Type Alias: ListBotChannelsResponses
 
-> **ListBotChannelsResponses** = `object`
+> **ListBotChannelsResponses** = \{ `200`: [`BotChannel`](BotChannel.md)[]; \}
 
 ## Properties
 

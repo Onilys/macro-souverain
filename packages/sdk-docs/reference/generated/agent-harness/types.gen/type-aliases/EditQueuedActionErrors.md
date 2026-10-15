@@ -1,6 +1,6 @@
 # Type Alias: EditQueuedActionErrors
 
-> **EditQueuedActionErrors** = `object`
+> **EditQueuedActionErrors** = \{ `401`: `string`; `403`: `string`; `404`: `string`; `422`: `string`; `500`: `string`; \}
 
 ## Properties
 

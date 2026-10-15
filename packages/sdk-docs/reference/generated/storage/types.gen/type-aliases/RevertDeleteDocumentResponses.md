@@ -1,6 +1,6 @@
 # Type Alias: RevertDeleteDocumentResponses
 
-> **RevertDeleteDocumentResponses** = `object`
+> **RevertDeleteDocumentResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

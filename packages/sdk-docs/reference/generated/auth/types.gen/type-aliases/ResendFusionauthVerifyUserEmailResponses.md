@@ -1,6 +1,6 @@
 # Type Alias: ResendFusionauthVerifyUserEmailResponses
 
-> **ResendFusionauthVerifyUserEmailResponses** = `object`
+> **ResendFusionauthVerifyUserEmailResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

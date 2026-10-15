@@ -1,6 +1,6 @@
 # Type Alias: CancelSlackImportErrors
 
-> **CancelSlackImportErrors** = `object`
+> **CancelSlackImportErrors** = \{ `404`: `unknown`; \}
 
 ## Properties
 

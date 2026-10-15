@@ -1,6 +1,6 @@
 # Type Alias: SimpleSearchResponseItem
 
-> **SimpleSearchResponseItem** = `object`
+> **SimpleSearchResponseItem** = \{ `entity_id`: `string`; `entity_type`: `string`; `goto?`: `null` \| [`SearchGotoContent`](SearchGotoContent.md); `highlight`: [`Highlight`](Highlight.md); `score?`: `number` \| `null`; \}
 
 Simple response item to mimic what we get back from opensearch
 

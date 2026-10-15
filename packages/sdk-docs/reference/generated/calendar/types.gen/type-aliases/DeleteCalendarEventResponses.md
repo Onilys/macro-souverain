@@ -1,6 +1,6 @@
 # Type Alias: DeleteCalendarEventResponses
 
-> **DeleteCalendarEventResponses** = `object`
+> **DeleteCalendarEventResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

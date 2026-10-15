@@ -1,6 +1,6 @@
 # Type Alias: ValidateWebhookResponses
 
-> **ValidateWebhookResponses** = `object`
+> **ValidateWebhookResponses** = \{ `200`: [`ValidateWebhookResponse`](ValidateWebhookResponse.md); \}
 
 ## Properties
 

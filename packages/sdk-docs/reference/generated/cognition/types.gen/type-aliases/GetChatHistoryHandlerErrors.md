@@ -1,6 +1,6 @@
 # Type Alias: GetChatHistoryHandlerErrors
 
-> **GetChatHistoryHandlerErrors** = `object`
+> **GetChatHistoryHandlerErrors** = \{ `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: MyResponse
 
-> **MyResponse** = `object`
+> **MyResponse** = \{ `answers`: [`Answer`](Answer.md)[]; `booking?`: [`UnlockedBooking`](UnlockedBooking.md); `response`: [`FormResponse`](FormResponse.md); \}
 
 A signed-in respondent's own response, with its answers as the row
 holds them now.

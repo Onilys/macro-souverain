@@ -1,6 +1,6 @@
 # Type Alias: DatabaseDetail
 
-> **DatabaseDetail** = `object`
+> **DatabaseDetail** = \{ `database`: [`Database`](Database.md); `grant`: [`AccessLevel`](AccessLevel.md); `tables`: [`TableDetail`](TableDetail.md)[]; \}
 
 Everything a client needs to render and edit one database: tables,
 column placements with their definitions, and the SQL names the query

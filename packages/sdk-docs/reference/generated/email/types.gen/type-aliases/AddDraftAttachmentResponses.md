@@ -1,6 +1,6 @@
 # Type Alias: AddDraftAttachmentResponses
 
-> **AddDraftAttachmentResponses** = `object`
+> **AddDraftAttachmentResponses** = \{ `201`: [`AddDraftAttachmentResponse`](AddDraftAttachmentResponse.md); \}
 
 ## Properties
 

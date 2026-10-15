@@ -1,6 +1,6 @@
 # Type Alias: SimpleEmailSearchResponseBaseItem
 
-> **SimpleEmailSearchResponseBaseItem** = `object`
+> **SimpleEmailSearchResponseBaseItem** = \{ `bcc`: `string`[]; `cc`: `string`[]; `highlight`: [`SearchHighlight`](SearchHighlight.md); `labels`: `string`[]; `link_id`: `string`; `message_id`: `string`; `recipients`: `string`[]; `sender`: `string`; `sent_at?`: `null` \| `string`; `subject?`: `string` \| `null`; `thread_id`: `string`; `updated_at`: `string`; `user_id`: `string`; \}
 
 ## Properties
 

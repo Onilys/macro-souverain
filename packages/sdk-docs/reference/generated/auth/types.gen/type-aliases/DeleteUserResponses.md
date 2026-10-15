@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserResponses
 
-> **DeleteUserResponses** = `object`
+> **DeleteUserResponses** = \{ `200`: [`GenericSuccessResponse`](GenericSuccessResponse.md); \}
 
 ## Properties
 

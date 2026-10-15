@@ -1,6 +1,6 @@
 # Type Alias: HttpSendChatMessageRequest
 
-> **HttpSendChatMessageRequest** = `object`
+> **HttpSendChatMessageRequest** = \{ `additional_instructions?`: `string` \| `null`; `attachments?`: [`Entity`](Entity.md)[] \| `null`; `chat_id?`: `string` \| `null`; `content`: `string`; `model`: `string`; `speed?`: [`ModelSpeed`](ModelSpeed.md); `toolset?`: [`ToolSet`](ToolSet.md); \}
 
 HTTP request payload for sending a chat message.
 Unlike the WebSocket payload, this does not include stream_id as it's generated server-side.

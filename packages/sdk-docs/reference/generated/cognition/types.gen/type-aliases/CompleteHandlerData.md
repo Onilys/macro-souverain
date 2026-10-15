@@ -1,6 +1,6 @@
 # Type Alias: CompleteHandlerData
 
-> **CompleteHandlerData** = `object`
+> **CompleteHandlerData** = \{ `body`: [`CompleteOnboardingRequest`](CompleteOnboardingRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/onboarding/complete"`; \}
 
 ## Properties
 

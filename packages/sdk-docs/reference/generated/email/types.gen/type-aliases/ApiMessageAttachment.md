@@ -1,6 +1,6 @@
 # Type Alias: ApiMessageAttachment
 
-> **ApiMessageAttachment** = `object`
+> **ApiMessageAttachment** = \{ `content_id?`: `string` \| `null`; `data_url?`: `string` \| `null`; `db_id`: `string`; `filename?`: `string` \| `null`; `mime_type?`: `string` \| `null`; `provider_id?`: `string` \| `null`; `sfs_id?`: `string` \| `null`; `size_bytes?`: `number` \| `null`; \}
 
 API representation of a provider attachment on a message.
 

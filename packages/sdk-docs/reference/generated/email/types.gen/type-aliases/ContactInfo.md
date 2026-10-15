@@ -1,6 +1,6 @@
 # Type Alias: ContactInfo
 
-> **ContactInfo** = `object`
+> **ContactInfo** = \{ `email`: `string`; `name?`: `string` \| `null`; `photo_url?`: `string` \| `null`; \}
 
 ## Properties
 

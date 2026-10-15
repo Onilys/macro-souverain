@@ -1,6 +1,6 @@
 # Type Alias: GetCursorApiKeyErrors
 
-> **GetCursorApiKeyErrors** = `object`
+> **GetCursorApiKeyErrors** = \{ `401`: `string`; `403`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

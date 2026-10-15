@@ -1,6 +1,6 @@
 # Type Alias: SuccessResponse
 
-> **SuccessResponse** = `object`
+> **SuccessResponse** = \{ `data`: [`GenericSuccessResponse`](GenericSuccessResponse.md); `error`: `boolean`; \}
 
 ## Properties
 

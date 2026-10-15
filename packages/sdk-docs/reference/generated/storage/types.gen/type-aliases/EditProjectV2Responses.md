@@ -1,6 +1,6 @@
 # Type Alias: EditProjectV2Responses
 
-> **EditProjectV2Responses** = `object`
+> **EditProjectV2Responses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

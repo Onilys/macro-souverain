@@ -1,6 +1,6 @@
 # Type Alias: CreateFormData
 
-> **CreateFormData** = `object`
+> **CreateFormData** = \{ `body`: [`CreateForm`](CreateForm.md); `path?`: `never`; `query?`: `never`; `url`: `"/forms"`; \}
 
 ## Properties
 

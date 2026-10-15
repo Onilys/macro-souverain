@@ -1,6 +1,6 @@
 # Type Alias: GetCrmPipelineTableResponses
 
-> **GetCrmPipelineTableResponses** = `object`
+> **GetCrmPipelineTableResponses** = \{ `200`: [`TableDetail`](TableDetail.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: StopChatStreamResponse
 
-> **StopChatStreamResponse** = `object`
+> **StopChatStreamResponse** = \{ `stopped`: `boolean`; \}
 
 Response from a stop request.
 

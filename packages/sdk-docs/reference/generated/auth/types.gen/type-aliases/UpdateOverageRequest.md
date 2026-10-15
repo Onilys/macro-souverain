@@ -1,6 +1,6 @@
 # Type Alias: UpdateOverageRequest
 
-> **UpdateOverageRequest** = `object`
+> **UpdateOverageRequest** = \{ `enabled`: `boolean`; `limitCents?`: `number`; \}
 
 Request body for [`update_overage_handler`].
 

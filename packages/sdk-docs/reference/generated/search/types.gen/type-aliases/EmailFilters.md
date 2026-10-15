@@ -1,6 +1,6 @@
 # Type Alias: EmailFilters
 
-> **EmailFilters** = `object`
+> **EmailFilters** = \{ `bcc?`: `string`[]; `calendar_only?`: `boolean` \| `null`; `cc?`: `string`[]; `crm_addresses?`: `string`[]; `crm_domains?`: `string`[]; `email_thread_ids?`: `string`[]; `exclude_labels?`: `string`[]; `importance?`: `boolean` \| `null`; `include_labels?`: `string`[]; `is_read?`: `boolean` \| `null`; `link_ids?`: `string`[]; `notification_filters?`: [`NotificationFilters`](NotificationFilters.md); `project_ids?`: `string`[]; `recipients?`: `string`[]; `senders?`: `string`[]; `shared?`: [`SharedEmailFilter`](SharedEmailFilter.md); \}
 
 The email filters used to filter down what emails you search over.
 

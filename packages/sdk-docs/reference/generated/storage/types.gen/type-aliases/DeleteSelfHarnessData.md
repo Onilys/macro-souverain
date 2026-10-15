@@ -1,6 +1,6 @@
 # Type Alias: DeleteSelfHarnessData
 
-> **DeleteSelfHarnessData** = `object`
+> **DeleteSelfHarnessData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/harnesses/me"`; \}
 
 ## Properties
 

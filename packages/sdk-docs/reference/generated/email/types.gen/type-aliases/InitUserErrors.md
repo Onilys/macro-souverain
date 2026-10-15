@@ -1,6 +1,6 @@
 # Type Alias: InitUserErrors
 
-> **InitUserErrors** = `object`
+> **InitUserErrors** = \{ `400`: [`InitErrorCodeResponse`](InitErrorCodeResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `409`: [`SharedInboxConflictResponse`](SharedInboxConflictResponse.md); `429`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

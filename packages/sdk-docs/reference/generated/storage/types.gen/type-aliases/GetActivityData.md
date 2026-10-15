@@ -1,6 +1,6 @@
 # Type Alias: GetActivityData
 
-> **GetActivityData** = `object`
+> **GetActivityData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/channels/activity"`; \}
 
 ## Properties
 

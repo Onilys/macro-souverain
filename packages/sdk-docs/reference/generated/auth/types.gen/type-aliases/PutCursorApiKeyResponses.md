@@ -1,6 +1,6 @@
 # Type Alias: PutCursorApiKeyResponses
 
-> **PutCursorApiKeyResponses** = `object`
+> **PutCursorApiKeyResponses** = \{ `200`: [`CursorApiKeyStatus`](CursorApiKeyStatus.md); \}
 
 ## Properties
 

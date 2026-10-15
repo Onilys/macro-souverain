@@ -1,6 +1,6 @@
 # Type Alias: ProjectDocumentStatus
 
-> **ProjectDocumentStatus** = `object`
+> **ProjectDocumentStatus** = \{ `documentId`: `string`; `status`: [`UploadDocumentStatus`](UploadDocumentStatus.md); \}
 
 ## Properties
 

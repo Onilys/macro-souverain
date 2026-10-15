@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionWaitingForInputMetadata
 
-> **AgentSessionWaitingForInputMetadata** = [`AgentSessionNotificationRef`](AgentSessionNotificationRef.md) & `object`
+> **AgentSessionWaitingForInputMetadata** = [`AgentSessionNotificationRef`](AgentSessionNotificationRef.md) & \{ `question`: `string`; `turn`: `number`; \}
 
 An agent is blocked on a question only the session's owner can answer.
 

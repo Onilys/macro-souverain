@@ -1,6 +1,6 @@
 # Type Alias: GetMemoryHandlerErrors
 
-> **GetMemoryHandlerErrors** = `object`
+> **GetMemoryHandlerErrors** = \{ `404`: `unknown`; `500`: [`MemoryErrorBody`](MemoryErrorBody.md); \}
 
 ## Properties
 

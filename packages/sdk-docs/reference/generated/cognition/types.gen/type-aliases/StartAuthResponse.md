@@ -1,6 +1,6 @@
 # Type Alias: StartAuthResponse
 
-> **StartAuthResponse** = `object`
+> **StartAuthResponse** = \{ `authorization_url`: `string`; \}
 
 Response from starting an OAuth authorization flow.
 

@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserApiKeyErrors
 
-> **DeleteUserApiKeyErrors** = `object`
+> **DeleteUserApiKeyErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

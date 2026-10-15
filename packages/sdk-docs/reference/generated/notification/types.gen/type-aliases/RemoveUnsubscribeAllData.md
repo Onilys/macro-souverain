@@ -1,6 +1,6 @@
 # Type Alias: RemoveUnsubscribeAllData
 
-> **RemoveUnsubscribeAllData** = `object`
+> **RemoveUnsubscribeAllData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/unsubscribe/mute"`; \}
 
 ## Properties
 

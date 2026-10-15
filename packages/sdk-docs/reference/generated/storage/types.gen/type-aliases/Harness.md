@@ -1,6 +1,6 @@
 # Type Alias: Harness
 
-> **Harness** = `object`
+> **Harness** = \{ `allow_permission_bypass?`: `boolean`; `connected`: `boolean`; `created_at`: `string`; `created_by`: `string`; `id`: [`HarnessId`](HarnessId.md); `kind`: `string`; `last_connected_at?`: `string` \| `null`; `name`: `string`; `owner`: [`HarnessOwner`](HarnessOwner.md); `updated_at`: `string`; \}
 
 A registered user-run harness.
 

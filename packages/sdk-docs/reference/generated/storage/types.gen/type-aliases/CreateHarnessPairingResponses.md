@@ -1,6 +1,6 @@
 # Type Alias: CreateHarnessPairingResponses
 
-> **CreateHarnessPairingResponses** = `object`
+> **CreateHarnessPairingResponses** = \{ `201`: [`CreatedPairing`](CreatedPairing.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: FavoritesList
 
-> **FavoritesList** = `object`
+> **FavoritesList** = \{ `favorites`: [`Favorite`](Favorite.md)[]; \}
 
 The user's favorites, in manual order.
 

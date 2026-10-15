@@ -1,6 +1,6 @@
 # Type Alias: ActiveMeetingsResponse
 
-> **ActiveMeetingsResponse** = `object`
+> **ActiveMeetingsResponse** = \{ `meetings`: [`ActiveMeeting`](ActiveMeeting.md)[]; \}
 
 The authenticated actor's active quick calls, including their creators.
 

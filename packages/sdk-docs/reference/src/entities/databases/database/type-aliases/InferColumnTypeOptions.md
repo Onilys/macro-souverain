@@ -1,6 +1,6 @@
 # Type Alias: InferColumnTypeOptions
 
-> **InferColumnTypeOptions** = `object`
+> **InferColumnTypeOptions** = \{ `baseVersion`: [`TableVersion`](../../../../../generated/storage/types.gen/type-aliases/TableVersion.md); `dataType`: `"STRING"` \| `"NUMBER"` \| `"ENTITY"`; `specificEntityType?`: [`InferColumnTypeRequest`](../../../../../generated/storage/types.gen/type-aliases/InferColumnTypeRequest.md)\[`"specificEntityType"`\]; \}
 
 Settle an empty inferred column using the table version the caller read.
 

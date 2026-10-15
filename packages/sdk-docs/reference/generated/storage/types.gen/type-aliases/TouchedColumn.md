@@ -1,6 +1,6 @@
 # Type Alias: TouchedColumn
 
-> **TouchedColumn** = `object`
+> **TouchedColumn** = \{ `column`: `string`; `kind`: [`ColumnChangeKind`](ColumnChangeKind.md); \}
 
 A column a table's changes since some version touched.
 

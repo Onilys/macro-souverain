@@ -1,6 +1,6 @@
 # Type Alias: TeamOutOfOfficeResponse
 
-> **TeamOutOfOfficeResponse** = `object`
+> **TeamOutOfOfficeResponse** = \{ `hasMore`: `boolean`; `items`: [`TeamOutOfOfficeItem`](TeamOutOfOfficeItem.md)[]; \}
 
 Team out-of-office viewport response.
 

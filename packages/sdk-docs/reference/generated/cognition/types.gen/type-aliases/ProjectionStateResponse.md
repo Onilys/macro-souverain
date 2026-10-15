@@ -1,6 +1,6 @@
 # Type Alias: ProjectionStateResponse
 
-> **ProjectionStateResponse** = `object`
+> **ProjectionStateResponse** = \{ `data?`: `string` \| `null`; `error?`: `string` \| `null`; `generated_at?`: `string` \| `null`; `id`: `string`; `stale_at?`: `string` \| `null`; `status`: [`ProjectionStatus`](ProjectionStatus.md); \}
 
 The current state of a user's projection instance.
 

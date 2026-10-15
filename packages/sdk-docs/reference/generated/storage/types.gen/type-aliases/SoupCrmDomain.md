@@ -1,6 +1,6 @@
 # Type Alias: SoupCrmDomain
 
-> **SoupCrmDomain** = `object`
+> **SoupCrmDomain** = \{ `companyId`: `string`; `createdAt`: `string`; `domain`: `string`; `id`: `string`; \}
 
 A CRM domain as displayed in Soup. Mirrors the crm crate's
 [`CrmDomain`] with a stable wire shape that the FE can rely on.

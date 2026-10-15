@@ -1,6 +1,6 @@
 # Type Alias: MentionPreviewsData
 
-> **MentionPreviewsData** = `object`
+> **MentionPreviewsData** = \{ `body`: [`CalendarMentionPreviewRequest`](CalendarMentionPreviewRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/calendar-events/preview"`; \}
 
 ## Properties
 

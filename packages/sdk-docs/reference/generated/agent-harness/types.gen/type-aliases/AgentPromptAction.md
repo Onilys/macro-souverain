@@ -1,6 +1,6 @@
 # Type Alias: AgentPromptAction
 
-> **AgentPromptAction** = `object`
+> **AgentPromptAction** = \{ `attachments?`: [`PromptAttachment`](PromptAttachment.md)[]; `prompt`: `string`; \}
 
 Ask the agent to work on something.
 

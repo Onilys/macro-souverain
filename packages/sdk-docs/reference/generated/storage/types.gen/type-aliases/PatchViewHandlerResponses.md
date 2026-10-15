@@ -1,6 +1,6 @@
 # Type Alias: PatchViewHandlerResponses
 
-> **PatchViewHandlerResponses** = `object`
+> **PatchViewHandlerResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

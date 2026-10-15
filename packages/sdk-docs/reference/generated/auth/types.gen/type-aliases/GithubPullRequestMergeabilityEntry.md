@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestMergeabilityEntry
 
-> **GithubPullRequestMergeabilityEntry** = `object`
+> **GithubPullRequestMergeabilityEntry** = \{ `mergeability`: [`GithubPullRequestMergeability`](GithubPullRequestMergeability.md); `number`: `number`; `owner`: `string`; `repo`: `string`; \}
 
 One pull request's mergeability.
 

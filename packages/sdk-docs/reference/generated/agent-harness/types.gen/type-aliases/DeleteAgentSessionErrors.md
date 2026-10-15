@@ -1,6 +1,6 @@
 # Type Alias: DeleteAgentSessionErrors
 
-> **DeleteAgentSessionErrors** = `object`
+> **DeleteAgentSessionErrors** = \{ `401`: `string`; `403`: `string`; `500`: `string`; \}
 
 ## Properties
 

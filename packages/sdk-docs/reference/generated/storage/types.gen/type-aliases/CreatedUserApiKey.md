@@ -1,6 +1,6 @@
 # Type Alias: CreatedUserApiKey
 
-> **CreatedUserApiKey** = `object`
+> **CreatedUserApiKey** = \{ `createdAt`: `string`; `id`: [`UserApiKeyId`](UserApiKeyId.md); `key`: `string`; `name`: `string`; \}
 
 A newly minted key: safe metadata plus the secret, shown only once.
 

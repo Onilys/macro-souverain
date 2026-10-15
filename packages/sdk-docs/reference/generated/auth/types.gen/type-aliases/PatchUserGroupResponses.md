@@ -1,6 +1,6 @@
 # Type Alias: PatchUserGroupResponses
 
-> **PatchUserGroupResponses** = `object`
+> **PatchUserGroupResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

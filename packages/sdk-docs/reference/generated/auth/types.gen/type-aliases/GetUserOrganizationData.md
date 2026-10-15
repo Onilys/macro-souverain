@@ -1,6 +1,6 @@
 # Type Alias: GetUserOrganizationData
 
-> **GetUserOrganizationData** = `object`
+> **GetUserOrganizationData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/user/organization"`; \}
 
 ## Properties
 

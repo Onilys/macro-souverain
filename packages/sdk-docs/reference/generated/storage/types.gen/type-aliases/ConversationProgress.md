@@ -1,6 +1,6 @@
 # Type Alias: ConversationProgress
 
-> **ConversationProgress** = `object`
+> **ConversationProgress** = \{ `archived`: `boolean`; `channelId?`: `string` \| `null`; `counters`: [`ImportCounters`](ImportCounters.md); `error?`: `null` \| [`ImportError`](ImportError.md); `kind`: [`ConversationKind`](ConversationKind.md); `name`: `string`; `partCount?`: `number` \| `null`; `search`: [`SearchState`](SearchState.md); `slackChannelId`: [`ConversationId`](ConversationId.md); `status`: [`ConversationStatus`](ConversationStatus.md); `verifiedParts`: `number`; `warnings`: [`ImportWarning`](ImportWarning.md)[]; \}
 
 Admin-visible progress for one selected conversation.
 

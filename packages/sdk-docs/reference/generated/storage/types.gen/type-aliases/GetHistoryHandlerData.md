@@ -1,6 +1,6 @@
 # Type Alias: GetHistoryHandlerData
 
-> **GetHistoryHandlerData** = `object`
+> **GetHistoryHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/history"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdateLabelBatchRequest
 
-> **UpdateLabelBatchRequest** = `object`
+> **UpdateLabelBatchRequest** = \{ `label_id`: `string`; `message_ids`: `string`[]; `value`: `boolean`; \}
 
 ## Properties
 

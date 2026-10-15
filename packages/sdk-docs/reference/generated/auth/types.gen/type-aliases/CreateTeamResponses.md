@@ -1,6 +1,6 @@
 # Type Alias: CreateTeamResponses
 
-> **CreateTeamResponses** = `object`
+> **CreateTeamResponses** = \{ `200`: [`Team`](Team.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetSelfBotResponses
 
-> **GetSelfBotResponses** = `object`
+> **GetSelfBotResponses** = \{ `200`: [`Bot`](Bot.md); \}
 
 ## Properties
 

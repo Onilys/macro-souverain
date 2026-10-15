@@ -1,6 +1,6 @@
 # Type Alias: LoadAgentModelsRequest
 
-> **LoadAgentModelsRequest** = `object`
+> **LoadAgentModelsRequest** = \{ `harness`: [`ModelHarnessDto`](ModelHarnessDto.md); `harnessId?`: `string` \| `null`; \}
 
 HTTP request selecting one provider to probe.
 

@@ -1,6 +1,6 @@
 # Type Alias: InitGmailLinkResponses
 
-> **InitGmailLinkResponses** = `object`
+> **InitGmailLinkResponses** = \{ `200`: [`InitGmailLinkResponse`](InitGmailLinkResponse.md); \}
 
 ## Properties
 

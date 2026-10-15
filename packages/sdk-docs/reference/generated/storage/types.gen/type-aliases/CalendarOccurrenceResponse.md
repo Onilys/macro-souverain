@@ -1,6 +1,6 @@
 # Type Alias: CalendarOccurrenceResponse
 
-> **CalendarOccurrenceResponse** = `object`
+> **CalendarOccurrenceResponse** = \{ `hasMore`: `boolean`; `items`: [`CalendarOccurrenceItem`](CalendarOccurrenceItem.md)[]; `nextCursor?`: `string` \| `null`; `syncStatus`: [`CalendarSyncStatus`](CalendarSyncStatus.md); \}
 
 Paginated calendar occurrence viewport response.
 

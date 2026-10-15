@@ -1,6 +1,6 @@
 # Type Alias: UnsubscribeItemResponses
 
-> **UnsubscribeItemResponses** = `object`
+> **UnsubscribeItemResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

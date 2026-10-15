@@ -1,6 +1,6 @@
 # Type Alias: GetBatchChannelPreviewRequest
 
-> **GetBatchChannelPreviewRequest** = `object`
+> **GetBatchChannelPreviewRequest** = \{ `channel_ids`: `string`[]; \}
 
 Request for a batched channel preview lookup.
 

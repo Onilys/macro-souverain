@@ -1,6 +1,6 @@
 # Type Alias: CheckActiveCallResponses
 
-> **CheckActiveCallResponses** = `object`
+> **CheckActiveCallResponses** = \{ `200`: [`CallActiveResponse`](CallActiveResponse.md); `204`: `void`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: EditQueuedActionResponses
 
-> **EditQueuedActionResponses** = `object`
+> **EditQueuedActionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

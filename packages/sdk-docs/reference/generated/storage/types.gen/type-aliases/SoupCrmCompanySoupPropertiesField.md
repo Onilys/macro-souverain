@@ -1,6 +1,6 @@
 # Type Alias: SoupCrmCompanySoupPropertiesField
 
-> **SoupCrmCompanySoupPropertiesField** = `object` & `object`
+> **SoupCrmCompanySoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `createdAt`: `string`; `description?`: `string` \| `null`; `domains`: [`SoupCrmDomain`](SoupCrmDomain.md)[]; `emailSync`: `boolean`; `hidden`: `boolean`; `id`: `string`; `name?`: `string` \| `null`; `teamId`: `string`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 A CRM company as displayed in Soup. Carries the core company
 fields plus display metadata resolved from `crm_domain_directory`

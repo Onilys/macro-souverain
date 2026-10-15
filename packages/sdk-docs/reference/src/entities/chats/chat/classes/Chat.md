@@ -205,11 +205,11 @@ value when `value` is omitted.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`ChatResponse`](../../../../../generated/cognition/types.gen/type-aliases/ChatResponse.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`ChatResponse`](../../../../../generated/cognition/types.gen/type-aliases/ChatResponse.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

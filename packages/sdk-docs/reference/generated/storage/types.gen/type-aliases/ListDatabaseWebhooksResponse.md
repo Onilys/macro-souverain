@@ -1,6 +1,6 @@
 # Type Alias: ListDatabaseWebhooksResponse
 
-> **ListDatabaseWebhooksResponse** = `object`
+> **ListDatabaseWebhooksResponse** = \{ `webhooks`: [`DatabaseWebhookResponse`](DatabaseWebhookResponse.md)[]; \}
 
 A database's webhooks.
 

@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestTasksRequest
 
-> **GithubPullRequestTasksRequest** = `object`
+> **GithubPullRequestTasksRequest** = \{ `githubKeys`: `string`[]; \}
 
 Request body for looking up the tasks linked to GitHub pull requests.
 

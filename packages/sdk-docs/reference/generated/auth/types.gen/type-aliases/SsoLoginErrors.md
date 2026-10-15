@@ -1,6 +1,6 @@
 # Type Alias: SsoLoginErrors
 
-> **SsoLoginErrors** = `object`
+> **SsoLoginErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CheckGmailLinkStatusResponses
 
-> **CheckGmailLinkStatusResponses** = `object`
+> **CheckGmailLinkStatusResponses** = \{ `200`: [`GmailLinkStatusResponse`](GmailLinkStatusResponse.md); \}
 
 ## Properties
 

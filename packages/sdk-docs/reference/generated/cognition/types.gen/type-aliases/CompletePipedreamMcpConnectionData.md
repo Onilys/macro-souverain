@@ -1,6 +1,6 @@
 # Type Alias: CompletePipedreamMcpConnectionData
 
-> **CompletePipedreamMcpConnectionData** = `object`
+> **CompletePipedreamMcpConnectionData** = \{ `body`: [`PipedreamCompleteRequest`](PipedreamCompleteRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/pipedream/mcp/complete"`; \}
 
 ## Properties
 

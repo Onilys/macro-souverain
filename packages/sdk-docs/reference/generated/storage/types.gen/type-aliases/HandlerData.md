@@ -1,6 +1,6 @@
 # Type Alias: HandlerData
 
-> **HandlerData** = `object`
+> **HandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/documents/starter_docs"`; \}
 
 ## Properties
 

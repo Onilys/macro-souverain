@@ -1,6 +1,6 @@
 # Type Alias: ConvertedCell
 
-> **ConvertedCell** = `object`
+> **ConvertedCell** = \{ `row`: `string`; `value`: [`CellValue`](CellValue.md); \}
 
 One row's converted value.
 

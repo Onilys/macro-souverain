@@ -1,6 +1,6 @@
 # Type Alias: ApiEmailFilter
 
-> **ApiEmailFilter** = `object`
+> **ApiEmailFilter** = \{ `created_at`: `string`; `email_address?`: `string` \| `null`; `email_domain?`: `string` \| `null`; `id`: `string`; `is_important`: `boolean`; \}
 
 A single email filter in API responses.
 

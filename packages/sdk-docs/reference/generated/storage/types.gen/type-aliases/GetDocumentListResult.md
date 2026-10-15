@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentListResult
 
-> **GetDocumentListResult** = `object`
+> **GetDocumentListResult** = \{ `branchedFromId?`: `string` \| `null`; `branchedFromVersionId?`: `number` \| `null`; `createdAt?`: `string` \| `null`; `documentFamilyId?`: `number` \| `null`; `documentId`: `string`; `documentName`: `string`; `documentVersionId`: `number`; `fileType?`: `string` \| `null`; `updatedAt?`: `string` \| `null`; \}
 
 ## Properties
 

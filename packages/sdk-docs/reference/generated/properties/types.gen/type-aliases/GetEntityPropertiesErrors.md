@@ -1,6 +1,6 @@
 # Type Alias: GetEntityPropertiesErrors
 
-> **GetEntityPropertiesErrors** = `object`
+> **GetEntityPropertiesErrors** = \{ `400`: `unknown`; `403`: `unknown`; `404`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

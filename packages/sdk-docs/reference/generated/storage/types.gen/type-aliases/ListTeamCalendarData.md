@@ -1,6 +1,6 @@
 # Type Alias: ListTeamCalendarData
 
-> **ListTeamCalendarData** = `object`
+> **ListTeamCalendarData** = \{ `body?`: `never`; `path?`: `never`; `query`: \{ `cursor?`: `string` \| `null`; `end`: `string`; `limit?`: `number` \| `null`; `start`: `string`; \}; `url`: `"/calendar-events/team"`; \}
 
 ## Properties
 
@@ -8,7 +8,7 @@
 | ------ | ------ | ------ |
 | <a id="property-body"></a> `body?` | `never` | - |
 | <a id="property-path"></a> `path?` | `never` | - |
-| <a id="property-query"></a> `query` | `object` | - |
+| <a id="property-query"></a> `query` | \{ `cursor?`: `string` \| `null`; `end`: `string`; `limit?`: `number` \| `null`; `start`: `string`; \} | - |
 | `query.cursor?` | `string` \| `null` | Continuation returned by the preceding page. |
 | `query.end` | `string` | Exclusive instant. |
 | `query.limit?` | `number` \| `null` | Maximum source occurrences, at most 2,000. Zero returns the roster only. |

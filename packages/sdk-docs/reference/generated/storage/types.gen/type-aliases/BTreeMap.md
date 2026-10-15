@@ -1,6 +1,6 @@
 # Type Alias: BTreeMap
 
-> **BTreeMap** = `object`
+> **BTreeMap** = \{\[`key`: `string`\]: `string`; \}
 
 ## Index Signature
 

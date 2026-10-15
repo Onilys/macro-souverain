@@ -1,6 +1,6 @@
 # Type Alias: ListCursorModelsResponses
 
-> **ListCursorModelsResponses** = `object`
+> **ListCursorModelsResponses** = \{ `200`: [`CursorModelsResponse`](CursorModelsResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdateInitiativeErrors
 
-> **UpdateInitiativeErrors** = `object`
+> **UpdateInitiativeErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); `422`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

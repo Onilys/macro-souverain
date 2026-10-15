@@ -1,6 +1,6 @@
 # Type Alias: ClaimedPairing
 
-> **ClaimedPairing** = `object`
+> **ClaimedPairing** = \{ `harness`: [`Harness`](Harness.md); `token`: `string`; \}
 
 The credential released to the daemon when a pairing is claimed.
 

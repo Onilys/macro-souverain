@@ -1,6 +1,6 @@
 # Type Alias: ApiAttachment
 
-> **ApiAttachment** = `object`
+> **ApiAttachment** = \{ `contentId?`: `string` \| `null`; `createdAt`: `string`; `filename?`: `string` \| `null`; `id`: `string`; `messageId`: `string`; `mimeType?`: `string` \| `null`; `providerAttachmentId?`: `string` \| `null`; `sizeBytes?`: `number` \| `null`; \}
 
 ## Properties
 

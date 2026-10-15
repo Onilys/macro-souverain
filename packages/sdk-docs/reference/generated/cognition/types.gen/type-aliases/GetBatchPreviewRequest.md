@@ -1,6 +1,6 @@
 # Type Alias: GetBatchPreviewRequest
 
-> **GetBatchPreviewRequest** = `object`
+> **GetBatchPreviewRequest** = \{ `chat_ids`: `string`[]; \}
 
 ## Properties
 

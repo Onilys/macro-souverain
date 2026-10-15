@@ -1,6 +1,6 @@
 # Type Alias: UnresolvedSignatureImagesError
 
-> **UnresolvedSignatureImagesError** = `object`
+> **UnresolvedSignatureImagesError** = \{ `unresolved_image_count`: `number`; \}
 
 Body returned with a 422 when signature images can't be loaded.
 

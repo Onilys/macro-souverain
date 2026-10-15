@@ -1,6 +1,6 @@
 # Type Alias: ChatSearchResponse
 
-> **ChatSearchResponse** = `object`
+> **ChatSearchResponse** = \{ `results`: [`ChatSearchResponseItemWithMetadata`](ChatSearchResponseItemWithMetadata.md)[]; \}
 
 The chat search response object
 

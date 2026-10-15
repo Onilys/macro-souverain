@@ -1,6 +1,6 @@
 # Type Alias: AppleLoginErrors
 
-> **AppleLoginErrors** = `object`
+> **AppleLoginErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

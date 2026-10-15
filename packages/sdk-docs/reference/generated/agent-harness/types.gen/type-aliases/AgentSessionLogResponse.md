@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionLogResponse
 
-> **AgentSessionLogResponse** = `object`
+> **AgentSessionLogResponse** = \{ `bot`: [`SessionBot`](SessionBot.md); `entries`: [`AgentSessionLogEntryDto`](AgentSessionLogEntryDto.md)[]; \}
 
 Response body for one session's raw protocol log.
 

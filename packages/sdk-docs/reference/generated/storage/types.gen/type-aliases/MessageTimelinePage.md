@@ -1,6 +1,6 @@
 # Type Alias: MessageTimelinePage
 
-> **MessageTimelinePage** = `object`
+> **MessageTimelinePage** = \{ `entries`: [`MessageTimelineEntry`](MessageTimelineEntry.md)[]; `next_cursor?`: `null` \| [`MessageCursor`](MessageCursor.md); `previous_cursor?`: `null` \| [`MessageCursor`](MessageCursor.md); \}
 
 A bounded, newest-first window of a parent's messages and activity, ordered
 by the server on one `(timestamp, id)` keyset.

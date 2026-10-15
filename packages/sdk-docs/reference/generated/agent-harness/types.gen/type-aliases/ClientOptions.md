@@ -1,9 +1,9 @@
 # Type Alias: ClientOptions
 
-> **ClientOptions** = `object`
+> **ClientOptions** = \{ `baseUrl`: `` `${string}://${string}` `` \| `string` & \{ \}; \}
 
 ## Properties
 
 | Property | Type |
 | ------ | ------ |
-| <a id="property-baseurl"></a> `baseUrl` | `` `${string}://${string}` `` \| `string` & `object` |
+| <a id="property-baseurl"></a> `baseUrl` | `` `${string}://${string}` `` \| `string` & \{ \} |

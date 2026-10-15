@@ -1,6 +1,6 @@
 # Type Alias: EventReminderOverride
 
-> **EventReminderOverride** = `object`
+> **EventReminderOverride** = \{ `method`: `string`; `minutes`: `number`; \}
 
 One reminder: how it alerts and how many minutes before the event start
 (before midnight in the calendar's zone for all-day events) it fires.

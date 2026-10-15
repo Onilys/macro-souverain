@@ -1,6 +1,6 @@
 # Type Alias: CreateSkillRequest
 
-> **CreateSkillRequest** = `object`
+> **CreateSkillRequest** = \{ `markdown?`: `string` \| `null`; `projectId?`: `string` \| `null`; `skillName`: `string`; \}
 
 Request body for creating a skill — a markdown document containing
 instructions that AI reads and follows when the skill is referenced in an

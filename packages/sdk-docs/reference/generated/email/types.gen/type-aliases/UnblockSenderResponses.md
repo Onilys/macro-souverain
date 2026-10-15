@@ -1,6 +1,6 @@
 # Type Alias: UnblockSenderResponses
 
-> **UnblockSenderResponses** = `object`
+> **UnblockSenderResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

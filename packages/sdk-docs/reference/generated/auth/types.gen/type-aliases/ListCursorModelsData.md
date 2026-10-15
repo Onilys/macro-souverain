@@ -1,6 +1,6 @@
 # Type Alias: ListCursorModelsData
 
-> **ListCursorModelsData** = `object`
+> **ListCursorModelsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/cursor-api-key/models"`; \}
 
 ## Properties
 

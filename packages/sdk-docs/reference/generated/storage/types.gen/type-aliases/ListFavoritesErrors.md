@@ -1,6 +1,6 @@
 # Type Alias: ListFavoritesErrors
 
-> **ListFavoritesErrors** = `object`
+> **ListFavoritesErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

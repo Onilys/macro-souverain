@@ -1,6 +1,6 @@
 # Type Alias: PostItemsSoupResponses
 
-> **PostItemsSoupResponses** = `object`
+> **PostItemsSoupResponses** = \{ `200`: [`SoupPage`](SoupPage.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: RemoveUnsubscribeAllErrors
 
-> **RemoveUnsubscribeAllErrors** = `object`
+> **RemoveUnsubscribeAllErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

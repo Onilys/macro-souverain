@@ -1,6 +1,6 @@
 # Type Alias: AddRemoveLabelResponses
 
-> **AddRemoveLabelResponses** = `object`
+> **AddRemoveLabelResponses** = \{ `200`: [`UpdateLabelBatchResponse`](UpdateLabelBatchResponse.md); \}
 
 ## Properties
 

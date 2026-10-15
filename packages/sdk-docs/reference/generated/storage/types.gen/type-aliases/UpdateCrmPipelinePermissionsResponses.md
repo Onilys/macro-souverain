@@ -1,6 +1,6 @@
 # Type Alias: UpdateCrmPipelinePermissionsResponses
 
-> **UpdateCrmPipelinePermissionsResponses** = `object`
+> **UpdateCrmPipelinePermissionsResponses** = \{ `200`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 ## Properties
 

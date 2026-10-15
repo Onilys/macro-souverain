@@ -1,6 +1,6 @@
 # Type Alias: UpsertScheduledMessageResponses
 
-> **UpsertScheduledMessageResponses** = `object`
+> **UpsertScheduledMessageResponses** = \{ `200`: [`UpsertScheduledResponse`](UpsertScheduledResponse.md); \}
 
 ## Properties
 

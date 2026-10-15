@@ -1,6 +1,6 @@
 # Type Alias: DeleteEntityPropertyErrors
 
-> **DeleteEntityPropertyErrors** = `object`
+> **DeleteEntityPropertyErrors** = \{ `403`: `unknown`; `404`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

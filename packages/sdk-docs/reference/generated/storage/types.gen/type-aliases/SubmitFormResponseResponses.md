@@ -1,6 +1,6 @@
 # Type Alias: SubmitFormResponseResponses
 
-> **SubmitFormResponseResponses** = `object`
+> **SubmitFormResponseResponses** = \{ `200`: [`SubmissionOutcome`](SubmissionOutcome.md); \}
 
 ## Properties
 

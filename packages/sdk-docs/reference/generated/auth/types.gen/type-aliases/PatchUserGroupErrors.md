@@ -1,6 +1,6 @@
 # Type Alias: PatchUserGroupErrors
 
-> **PatchUserGroupErrors** = `object`
+> **PatchUserGroupErrors** = \{ `401`: `string`; `404`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

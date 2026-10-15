@@ -1,6 +1,6 @@
 # Type Alias: UpsertAiProjectionResponses
 
-> **UpsertAiProjectionResponses** = `object`
+> **UpsertAiProjectionResponses** = \{ `200`: [`ProjectionStateResponse`](ProjectionStateResponse.md); \}
 
 ## Properties
 

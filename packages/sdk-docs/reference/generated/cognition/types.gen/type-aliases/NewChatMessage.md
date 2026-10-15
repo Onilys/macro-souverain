@@ -1,6 +1,6 @@
 # Type Alias: NewChatMessage
 
-> **NewChatMessage** = `object`
+> **NewChatMessage** = \{ `attachments?`: [`NewAttachment`](NewAttachment.md)[] \| `null`; `content`: [`ChatMessageContent`](ChatMessageContent.md); `createdAt`: `string`; `id?`: `string` \| `null`; `model`: `string`; `role`: [`Role`](Role.md); `updatedAt`: `string`; \}
 
 ## Properties
 

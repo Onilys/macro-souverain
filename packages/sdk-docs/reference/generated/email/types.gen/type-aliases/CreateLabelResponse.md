@@ -1,6 +1,6 @@
 # Type Alias: CreateLabelResponse
 
-> **CreateLabelResponse** = `object`
+> **CreateLabelResponse** = \{ `label`: [`Label`](Label.md); \}
 
 The response returned from the create label endpoint
 

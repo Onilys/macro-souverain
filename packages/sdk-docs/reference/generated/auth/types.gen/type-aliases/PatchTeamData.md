@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamData
 
-> **PatchTeamData** = `object`
+> **PatchTeamData** = \{ `body`: [`PatchTeamRequest`](PatchTeamRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/team"`; \}
 
 ## Properties
 

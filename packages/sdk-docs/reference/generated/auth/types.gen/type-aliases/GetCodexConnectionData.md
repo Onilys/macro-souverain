@@ -1,6 +1,6 @@
 # Type Alias: GetCodexConnectionData
 
-> **GetCodexConnectionData** = `object`
+> **GetCodexConnectionData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/codex"`; \}
 
 ## Properties
 

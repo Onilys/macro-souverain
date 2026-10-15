@@ -1,6 +1,6 @@
 # Type Alias: ChannelWebhookRequest
 
-> **ChannelWebhookRequest** = `object`
+> **ChannelWebhookRequest** = \{ `content`: `string`; \}
 
 Request to post a channel webhook message.
 

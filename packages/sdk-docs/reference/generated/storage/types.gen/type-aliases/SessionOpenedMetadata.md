@@ -1,6 +1,6 @@
 # Type Alias: SessionOpenedMetadata
 
-> **SessionOpenedMetadata** = `object`
+> **SessionOpenedMetadata** = \{ `harness`: `string`; `identity`: [`SessionIdentity`](SessionIdentity.md); `model`: `string`; \}
 
 A session was created.
 

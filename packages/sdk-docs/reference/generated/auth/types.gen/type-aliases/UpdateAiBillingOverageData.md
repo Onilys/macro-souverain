@@ -1,6 +1,6 @@
 # Type Alias: UpdateAiBillingOverageData
 
-> **UpdateAiBillingOverageData** = `object`
+> **UpdateAiBillingOverageData** = \{ `body`: [`UpdateOverageRequest`](UpdateOverageRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/ai-billing/overage"`; \}
 
 ## Properties
 

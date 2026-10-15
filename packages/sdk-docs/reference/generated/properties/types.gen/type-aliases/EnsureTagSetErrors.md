@@ -1,6 +1,6 @@
 # Type Alias: EnsureTagSetErrors
 
-> **EnsureTagSetErrors** = `object`
+> **EnsureTagSetErrors** = \{ `403`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

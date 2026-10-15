@@ -1,6 +1,6 @@
 # Type Alias: TagSetResponse
 
-> **TagSetResponse** = `object`
+> **TagSetResponse** = \{ `definition?`: `null` \| [`PropertyDefinitionDetailResponse`](PropertyDefinitionDetailResponse.md); `options`: [`PropertyOptionResponse`](PropertyOptionResponse.md)[]; `scope`: [`TagScope`](TagScope.md); \}
 
 A tag set the caller can use. `definition` is absent until the set is provisioned
 (on first label create), in which case `options` is empty.

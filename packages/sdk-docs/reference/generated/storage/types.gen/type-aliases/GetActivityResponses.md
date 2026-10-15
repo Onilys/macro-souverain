@@ -1,6 +1,6 @@
 # Type Alias: GetActivityResponses
 
-> **GetActivityResponses** = `object`
+> **GetActivityResponses** = \{ `200`: [`ApiActivity`](ApiActivity.md)[]; \}
 
 ## Properties
 

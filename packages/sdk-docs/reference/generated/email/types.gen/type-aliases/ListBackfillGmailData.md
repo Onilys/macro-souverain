@@ -1,6 +1,6 @@
 # Type Alias: ListBackfillGmailData
 
-> **ListBackfillGmailData** = `object`
+> **ListBackfillGmailData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/email/backfill/gmail"`; \}
 
 ## Properties
 

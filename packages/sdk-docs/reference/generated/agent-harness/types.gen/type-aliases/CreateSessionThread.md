@@ -1,6 +1,6 @@
 # Type Alias: CreateSessionThread
 
-> **CreateSessionThread** = `object`
+> **CreateSessionThread** = \{ `channelId?`: `string` \| `null`; `content?`: `string`; `messageId`: `string`; `parent?`: `null` \| [`MessageParent`](MessageParent.md); `reuseOriginMessage?`: `boolean`; `threadId?`: `string` \| `null`; \}
 
 The triggering mention on a create request.
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdateFormPermissionsResponses
 
-> **UpdateFormPermissionsResponses** = `object`
+> **UpdateFormPermissionsResponses** = \{ `200`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 ## Properties
 

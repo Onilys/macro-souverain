@@ -1,6 +1,6 @@
 # Type Alias: StructuredCompletionResponse
 
-> **StructuredCompletionResponse** = `object`
+> **StructuredCompletionResponse** = \{ `outcome`: [`StructuredCompletionOutcome`](StructuredCompletionOutcome.md); `toolActivity`: [`StructuredToolActivity`](StructuredToolActivity.md)[]; \}
 
 ## Properties
 

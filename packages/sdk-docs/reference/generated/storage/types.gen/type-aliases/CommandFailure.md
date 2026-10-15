@@ -1,6 +1,6 @@
 # Type Alias: CommandFailure
 
-> **CommandFailure** = `object`
+> **CommandFailure** = \{ `code`: `string`; `message`: `string`; `retryable`: `boolean`; \}
 
 Sanitized public details of a command refused before runtime execution.
 

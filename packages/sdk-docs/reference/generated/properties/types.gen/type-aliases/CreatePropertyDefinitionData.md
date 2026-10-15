@@ -1,6 +1,6 @@
 # Type Alias: CreatePropertyDefinitionData
 
-> **CreatePropertyDefinitionData** = `object`
+> **CreatePropertyDefinitionData** = \{ `body`: [`CreatePropertyDefinitionRequest`](CreatePropertyDefinitionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/properties/definitions"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CrmCompanyResponse
 
-> **CrmCompanyResponse** = `object`
+> **CrmCompanyResponse** = \{ `contacts`: [`CrmContactResponse`](CrmContactResponse.md)[]; `createdAt`: `string`; `description?`: `string` \| `null`; `domains`: [`CrmDomainResponse`](CrmDomainResponse.md)[]; `emailSync`: `boolean`; `hidden`: `boolean`; `id`: `string`; `name?`: `string` \| `null`; `teamId`: `string`; `updatedAt`: `string`; \}
 
 A CRM company as returned by `GET /crm/companies/{company_id}`.
 Mirrors the soup-listed `crmCompany` shape (`name` / `description`

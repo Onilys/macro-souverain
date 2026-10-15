@@ -1,6 +1,6 @@
 # Type Alias: GetLegacyUserPermissionsResponse
 
-> **GetLegacyUserPermissionsResponse** = `object`
+> **GetLegacyUserPermissionsResponse** = \{ `aiDataConsent`: `boolean`; `createdAt?`: `string` \| `null`; `email`: `string`; `group?`: `null` \| [`AbGroup`](AbGroup.md); `hasChromeExt`: `boolean`; `hasTrialed`: `boolean`; `licenseStatus`: `string`; `name?`: `string` \| `null`; `permissions`: `string`[]; `referralCode`: `string`; `tutorialComplete`: `boolean`; `userId`: `string`; \}
 
 ## Properties
 

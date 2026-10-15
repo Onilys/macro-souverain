@@ -1,6 +1,6 @@
 # Type Alias: ServerResponse
 
-> **ServerResponse** = `object`
+> **ServerResponse** = \{ `authenticated`: `boolean`; `enabled`: `boolean`; `server_name`: `string`; `url`: `string`; \}
 
 An MCP server record as returned by the API.
 

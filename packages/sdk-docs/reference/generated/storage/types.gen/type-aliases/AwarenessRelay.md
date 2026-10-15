@@ -1,6 +1,6 @@
 # Type Alias: AwarenessRelay
 
-> **AwarenessRelay** = `object`
+> **AwarenessRelay** = \{ `databaseId`: `string`; `relayedAt`: `number`; `state`: [`Awareness`](Awareness.md); `userId`: `string`; \}
 
 The [`AWARENESS_MESSAGE_TYPE`] payload: one viewer's awareness, stamped
 when the server relayed it so receivers can drop older relays.

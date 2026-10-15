@@ -1,6 +1,6 @@
 # Type Alias: RenameCrmPipelineResponses
 
-> **RenameCrmPipelineResponses** = `object`
+> **RenameCrmPipelineResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

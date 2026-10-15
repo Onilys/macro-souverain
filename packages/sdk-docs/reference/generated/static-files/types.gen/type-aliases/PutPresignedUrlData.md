@@ -1,6 +1,6 @@
 # Type Alias: PutPresignedUrlData
 
-> **PutPresignedUrlData** = `object`
+> **PutPresignedUrlData** = \{ `body`: [`PutFileRequest`](PutFileRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/api/file"`; \}
 
 ## Properties
 

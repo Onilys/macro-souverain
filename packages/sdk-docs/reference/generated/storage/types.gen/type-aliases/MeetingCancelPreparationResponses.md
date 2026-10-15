@@ -1,6 +1,6 @@
 # Type Alias: MeetingCancelPreparationResponses
 
-> **MeetingCancelPreparationResponses** = `object`
+> **MeetingCancelPreparationResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

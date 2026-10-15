@@ -1,6 +1,6 @@
 # Type Alias: TaskAssignedMetadata
 
-> **TaskAssignedMetadata** = `object`
+> **TaskAssignedMetadata** = \{ `assignedBy`: `string`; `senderProfilePictureUrl?`: `string` \| `null`; `subType?`: `null` \| [`NotificationDocumentSubType`](NotificationDocumentSubType.md); `taskId`: `string`; `taskName?`: `string` \| `null`; \}
 
 Metadata for when a user is assigned to a task
 

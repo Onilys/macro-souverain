@@ -1,6 +1,6 @@
 # Type Alias: Settings
 
-> **Settings** = `object`
+> **Settings** = \{ `signature?`: `string` \| `null`; `signature_on_replies_forwards?`: `boolean` \| `null`; \}
 
 ## Properties
 

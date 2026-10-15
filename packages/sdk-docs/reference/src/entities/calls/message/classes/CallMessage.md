@@ -92,11 +92,11 @@ Reply in the call's canonical thread, including when this is a reply.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`Message`](../../../../../generated/storage/types.gen/type-aliases/Message.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`Message`](../../../../../generated/storage/types.gen/type-aliases/Message.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

@@ -1,6 +1,6 @@
 # Type Alias: GetBatchPreviewRequest
 
-> **GetBatchPreviewRequest** = `object`
+> **GetBatchPreviewRequest** = \{ `document_ids`: `string`[]; \}
 
 ## Properties
 

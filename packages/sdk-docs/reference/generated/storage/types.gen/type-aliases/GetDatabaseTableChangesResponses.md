@@ -1,6 +1,6 @@
 # Type Alias: GetDatabaseTableChangesResponses
 
-> **GetDatabaseTableChangesResponses** = `object`
+> **GetDatabaseTableChangesResponses** = \{ `200`: [`TableChanges`](TableChanges.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: MessageTimelineQuery
 
-> **MessageTimelineQuery** = `object`
+> **MessageTimelineQuery** = \{ `activity_after?`: `string` \| `null`; `activity_before?`: `string` \| `null`; `anchored?`: `boolean` \| `null`; `around?`: `string` \| `null`; `cursor?`: `null` \| [`MessageCursor`](MessageCursor.md); `direction?`: [`MessageDirection`](MessageDirection.md); `ids?`: `string`[]; `include_deleted_threads?`: `boolean`; `limit?`: `number` \| `null`; \}
 
 Root selection shared by channel timelines and document discussions.
 

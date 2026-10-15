@@ -1,6 +1,6 @@
 # Type Alias: GetUserQuotaResponses
 
-> **GetUserQuotaResponses** = `object`
+> **GetUserQuotaResponses** = \{ `200`: [`UserQuota`](UserQuota.md); `204`: `void`; \}
 
 ## Properties
 

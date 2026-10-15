@@ -1,6 +1,6 @@
 # Type Alias: ApiThread
 
-> **ApiThread** = `object`
+> **ApiThread** = \{ `access_level`: [`AccessLevel`](AccessLevel.md); `created_at`: `string`; `db_id`: `string`; `inbox_visible`: `boolean`; `is_read`: `boolean`; `latest_inbound_message_ts?`: `string` \| `null`; `latest_non_spam_message_ts?`: `string` \| `null`; `latest_outbound_message_ts?`: `string` \| `null`; `link_id`: `string`; `messages`: [`ApiMessage`](ApiMessage.md)[]; `project_id?`: `string` \| `null`; `provider_id?`: `string` \| `null`; `updated_at`: `string`; \}
 
 API representation of a fully assembled email thread.
 

@@ -1,6 +1,6 @@
 # Type Alias: BulkUpdateEntitiesPropertyOptionsResponse
 
-> **BulkUpdateEntitiesPropertyOptionsResponse** = `object`
+> **BulkUpdateEntitiesPropertyOptionsResponse** = \{ `results`: [`BulkEntityOptionUpdateResult`](BulkEntityOptionUpdateResult.md)[]; \}
 
 Response for a cross-entity bulk option update: one result per requested
 entity, in request order.

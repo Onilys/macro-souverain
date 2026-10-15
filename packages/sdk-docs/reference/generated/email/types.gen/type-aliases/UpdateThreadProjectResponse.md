@@ -1,6 +1,6 @@
 # Type Alias: UpdateThreadProjectResponse
 
-> **UpdateThreadProjectResponse** = `object`
+> **UpdateThreadProjectResponse** = \{ `oldProjectId?`: `string` \| `null`; \}
 
 Response body for updating a thread's project.
 

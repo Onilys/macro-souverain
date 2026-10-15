@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventSearchOccurrence
 
-> **CalendarEventSearchOccurrence** = `object`
+> **CalendarEventSearchOccurrence** = \{ `occurrenceKey`: `string`; `time`: [`CalendarEventSearchTime`](CalendarEventSearchTime.md); \}
 
 The instance a search row points at.
 

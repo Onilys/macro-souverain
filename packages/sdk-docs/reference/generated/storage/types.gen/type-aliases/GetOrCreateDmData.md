@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreateDmData
 
-> **GetOrCreateDmData** = `object`
+> **GetOrCreateDmData** = \{ `body`: [`GetOrCreateDmRequest`](GetOrCreateDmRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/channels/get_or_create_dm"`; \}
 
 ## Properties
 

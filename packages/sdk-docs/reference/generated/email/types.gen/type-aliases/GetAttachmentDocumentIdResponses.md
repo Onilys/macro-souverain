@@ -1,6 +1,6 @@
 # Type Alias: GetAttachmentDocumentIdResponses
 
-> **GetAttachmentDocumentIdResponses** = `object`
+> **GetAttachmentDocumentIdResponses** = \{ `200`: [`GetAttachmentDocumentIdResponse`](GetAttachmentDocumentIdResponse.md); \}
 
 ## Properties
 

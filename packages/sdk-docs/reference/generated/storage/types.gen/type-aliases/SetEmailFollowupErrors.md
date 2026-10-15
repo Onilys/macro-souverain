@@ -1,6 +1,6 @@
 # Type Alias: SetEmailFollowupErrors
 
-> **SetEmailFollowupErrors** = `object`
+> **SetEmailFollowupErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

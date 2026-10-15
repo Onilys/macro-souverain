@@ -1,6 +1,6 @@
 # Type Alias: ListInitiativesResponses
 
-> **ListInitiativesResponses** = `object`
+> **ListInitiativesResponses** = \{ `200`: [`InitiativeList`](InitiativeList.md); \}
 
 ## Properties
 

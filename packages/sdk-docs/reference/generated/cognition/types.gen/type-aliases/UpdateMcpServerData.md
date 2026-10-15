@@ -1,6 +1,6 @@
 # Type Alias: UpdateMcpServerData
 
-> **UpdateMcpServerData** = `object`
+> **UpdateMcpServerData** = \{ `body`: [`UpdateServerRequest`](UpdateServerRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/mcp/servers"`; \}
 
 ## Properties
 

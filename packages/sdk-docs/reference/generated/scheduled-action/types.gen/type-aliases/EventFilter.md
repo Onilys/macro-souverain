@@ -1,6 +1,6 @@
 # Type Alias: EventFilter
 
-> **EventFilter** = `object`
+> **EventFilter** = \{ `condition?`: `string` \| `null`; `events`: [`EventName`](EventName.md)[]; `ids?`: `string`[] \| `null`; \}
 
 An event name AND an entity ID must match within the same filter. A
 condition further requires the event's content to answer it with yes.

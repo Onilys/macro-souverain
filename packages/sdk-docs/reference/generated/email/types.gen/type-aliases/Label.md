@@ -1,6 +1,6 @@
 # Type Alias: Label
 
-> **Label** = `object`
+> **Label** = \{ `created_at`: `string`; `id?`: `string` \| `null`; `label_list_visibility?`: `null` \| [`LabelListVisibility`](LabelListVisibility.md); `link_id`: `string`; `message_list_visibility?`: `null` \| [`MessageListVisibility`](MessageListVisibility.md); `name?`: `string` \| `null`; `provider_label_id`: `string`; `type_?`: `null` \| [`LabelType`](LabelType.md); \}
 
 ## Properties
 

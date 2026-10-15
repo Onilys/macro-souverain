@@ -1,6 +1,6 @@
 # Type Alias: GetNotificationTypePreferencesData
 
-> **GetNotificationTypePreferencesData** = `object`
+> **GetNotificationTypePreferencesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/v1/user_notifications/preferences"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreatePropertyDefinitionResponses
 
-> **CreatePropertyDefinitionResponses** = `object`
+> **CreatePropertyDefinitionResponses** = \{ `201`: [`PropertyDefinition`](PropertyDefinition.md); \}
 
 ## Properties
 

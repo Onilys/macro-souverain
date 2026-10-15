@@ -1,6 +1,6 @@
 # Type Alias: GetStateHandler2Data
 
-> **GetStateHandler2Data** = `object`
+> **GetStateHandler2Data** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/onboarding"`; \}
 
 ## Properties
 

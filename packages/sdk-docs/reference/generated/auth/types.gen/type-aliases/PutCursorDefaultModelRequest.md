@@ -1,6 +1,6 @@
 # Type Alias: PutCursorDefaultModelRequest
 
-> **PutCursorDefaultModelRequest** = `object`
+> **PutCursorDefaultModelRequest** = \{ `modelId?`: `string` \| `null`; \}
 
 The model the user chose for their sessions.
 

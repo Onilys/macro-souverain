@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamCrmSettingsResponse
 
-> **PatchTeamCrmSettingsResponse** = `object`
+> **PatchTeamCrmSettingsResponse** = \{ `backfill_enqueued`: `number`; `backfill_failed`: `number`; `changed`: `boolean`; `enabled`: `boolean`; \}
 
 Response for `PATCH /team/crm`. Reports both the resulting state
 and whether this call changed it; for the enable-flip case it also

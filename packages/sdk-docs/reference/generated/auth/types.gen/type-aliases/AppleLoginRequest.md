@@ -1,6 +1,6 @@
 # Type Alias: AppleLoginRequest
 
-> **AppleLoginRequest** = `object`
+> **AppleLoginRequest** = \{ `code`: `string`; `id_token`: `string`; \}
 
 ## Properties
 

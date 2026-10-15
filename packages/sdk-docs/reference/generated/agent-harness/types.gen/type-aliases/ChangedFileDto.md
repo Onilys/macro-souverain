@@ -1,6 +1,6 @@
 # Type Alias: ChangedFileDto
 
-> **ChangedFileDto** = `object`
+> **ChangedFileDto** = \{ `additions`: `number`; `binary`: `boolean`; `deletions`: `number`; `kind`: [`FileChangeKindDto`](FileChangeKindDto.md); `patchOmitted`: `boolean`; `path`: `string`; `previousPath?`: `string` \| `null`; \}
 
 One changed file.
 

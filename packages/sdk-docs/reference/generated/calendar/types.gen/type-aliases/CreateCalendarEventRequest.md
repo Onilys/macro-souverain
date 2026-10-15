@@ -1,6 +1,6 @@
 # Type Alias: CreateCalendarEventRequest
 
-> **CreateCalendarEventRequest** = `object`
+> **CreateCalendarEventRequest** = \{ `attendees?`: [`CalendarAttendeeInputBody`](CalendarAttendeeInputBody.md)[]; `calendarId?`: `string` \| `null`; `conference?`: `null` \| [`ConferenceChange`](ConferenceChange.md); `description?`: `string` \| `null`; `emailLinkId?`: `string` \| `null`; `idempotencyKey?`: `string` \| `null`; `location?`: `string` \| `null`; `outOfOffice?`: `null` \| [`OutOfOfficeProperties`](OutOfOfficeProperties.md); `recurrenceLines?`: `string`[]; `reminders?`: `null` \| [`EventReminders`](EventReminders.md); `time`: [`EventTime`](EventTime.md); `title`: `string`; `transparency?`: `null` \| [`EventTransparency`](EventTransparency.md); `visibility?`: `null` \| [`EventVisibility`](EventVisibility.md); \}
 
 Request body creating a calendar event on the requester's calendar.
 

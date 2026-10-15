@@ -1,6 +1,6 @@
 # Type Alias: InitiativeFilters
 
-> **InitiativeFilters** = `object`
+> **InitiativeFilters** = \{ `due_after?`: `string` \| `null`; `due_before?`: `string` \| `null`; `include?`: `boolean`; `initiative_ids?`: `string`[]; `name?`: `string` \| `null`; `owners?`: `string`[]; \}
 
 Filters for initiatives.
 

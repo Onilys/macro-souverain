@@ -1,6 +1,6 @@
 # Type Alias: GetBatchCallRecordPreviewRequest
 
-> **GetBatchCallRecordPreviewRequest** = `object`
+> **GetBatchCallRecordPreviewRequest** = \{ `callIds`: `string`[]; \}
 
 Request body for `POST /call/record/preview`.
 

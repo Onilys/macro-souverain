@@ -1,6 +1,6 @@
 # Type Alias: GetThreadResponse
 
-> **GetThreadResponse** = `object`
+> **GetThreadResponse** = \{ `thread`: [`ApiThread`](ApiThread.md); \}
 
 Response body for the get-thread endpoint.
 

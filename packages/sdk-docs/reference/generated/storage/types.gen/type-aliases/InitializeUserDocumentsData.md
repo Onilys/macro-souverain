@@ -1,6 +1,6 @@
 # Type Alias: InitializeUserDocumentsData
 
-> **InitializeUserDocumentsData** = `object`
+> **InitializeUserDocumentsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/documents/initialize_user_documents"`; \}
 
 ## Properties
 

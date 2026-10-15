@@ -1,6 +1,6 @@
 # Type Alias: EntityProperty
 
-> **EntityProperty** = `object`
+> **EntityProperty** = \{ `created_at`: `string`; `entity_id`: `string`; `entity_type`: [`EntityType`](EntityType.md); `id`: `string`; `property_definition_id`: `string`; `updated_at`: `string`; \}
 
 Assignment of a property definition to a specific entity (service representation).
 

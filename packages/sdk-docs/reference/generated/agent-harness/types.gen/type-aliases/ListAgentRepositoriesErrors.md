@@ -1,6 +1,6 @@
 # Type Alias: ListAgentRepositoriesErrors
 
-> **ListAgentRepositoriesErrors** = `object`
+> **ListAgentRepositoriesErrors** = \{ `401`: `unknown`; `502`: `unknown`; \}
 
 ## Properties
 

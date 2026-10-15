@@ -1,6 +1,6 @@
 # Type Alias: CardPosition
 
-> **CardPosition** = `object`
+> **CardPosition** = \{ `lane`: [`LaneKey`](LaneKey.md); `position`: `string`; `row`: `string`; \}
 
 Where one card sits on a board: its lane, and its fractional key there.
 A card whose row has since moved to another lane has no place until it is

@@ -162,11 +162,11 @@ A handle to one of the table's rows, by the id an insert answered.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `databaseId`: `string`; `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `databaseId`: `string`; `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

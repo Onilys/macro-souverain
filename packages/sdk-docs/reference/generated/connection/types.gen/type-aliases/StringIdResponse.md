@@ -1,6 +1,6 @@
 # Type Alias: StringIdResponse
 
-> **StringIdResponse** = `object`
+> **StringIdResponse** = \{ `id`: `string`; \}
 
 ## Properties
 

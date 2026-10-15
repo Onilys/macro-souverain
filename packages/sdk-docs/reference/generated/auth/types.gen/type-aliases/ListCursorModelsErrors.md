@@ -1,6 +1,6 @@
 # Type Alias: ListCursorModelsErrors
 
-> **ListCursorModelsErrors** = `object`
+> **ListCursorModelsErrors** = \{ `401`: `string`; `403`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); `502`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

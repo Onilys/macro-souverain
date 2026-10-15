@@ -1,6 +1,6 @@
 # Type Alias: GmailLinkStatusResponse
 
-> **GmailLinkStatusResponse** = `object`
+> **GmailLinkStatusResponse** = \{ `reauthentication_required`: `boolean`; \}
 
 ## Properties
 

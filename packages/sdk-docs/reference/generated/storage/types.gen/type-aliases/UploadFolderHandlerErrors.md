@@ -1,6 +1,6 @@
 # Type Alias: UploadFolderHandlerErrors
 
-> **UploadFolderHandlerErrors** = `object`
+> **UploadFolderHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `404`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

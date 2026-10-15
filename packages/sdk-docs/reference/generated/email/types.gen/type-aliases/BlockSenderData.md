@@ -1,6 +1,6 @@
 # Type Alias: BlockSenderData
 
-> **BlockSenderData** = `object`
+> **BlockSenderData** = \{ `body`: [`BlockSenderRequest`](BlockSenderRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/contacts/block"`; \}
 
 ## Properties
 

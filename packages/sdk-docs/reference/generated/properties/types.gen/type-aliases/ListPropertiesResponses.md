@@ -1,6 +1,6 @@
 # Type Alias: ListPropertiesResponses
 
-> **ListPropertiesResponses** = `object`
+> **ListPropertiesResponses** = \{ `200`: [`PropertyDefinitionResponse`](PropertyDefinitionResponse.md)[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: MessagePostedMetadata
 
-> **MessagePostedMetadata** = `object`
+> **MessagePostedMetadata** = \{ `attachments`: [`MessageEventAttachment`](MessageEventAttachment.md)[]; `content`: `string`; `created_at`: `string`; `mentions`: [`SimpleMention`](SimpleMention.md)[]; `message_id`: `string`; `parent`: [`MessageParent`](MessageParent.md); `root_id`: `string`; `sender`: [`ChannelSender`](ChannelSender.md); `thread_id?`: `string` \| `null`; `triggered_by?`: `string` \| `null`; \}
 
 A committed post, independent of the surface presenting the conversation.
 

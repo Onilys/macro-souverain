@@ -1,6 +1,6 @@
 # Type Alias: GetDatabaseResponses
 
-> **GetDatabaseResponses** = `object`
+> **GetDatabaseResponses** = \{ `200`: [`DatabaseDetail`](DatabaseDetail.md); \}
 
 ## Properties
 

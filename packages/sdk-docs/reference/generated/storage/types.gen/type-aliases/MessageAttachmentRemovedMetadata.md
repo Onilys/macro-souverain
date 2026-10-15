@@ -1,6 +1,6 @@
 # Type Alias: MessageAttachmentRemovedMetadata
 
-> **MessageAttachmentRemovedMetadata** = `object`
+> **MessageAttachmentRemovedMetadata** = \{ `actor`: [`ChannelSender`](ChannelSender.md); `attachments`: [`MessageEventAttachment`](MessageEventAttachment.md)[]; `message_id`: `string`; `parent`: [`MessageParent`](MessageParent.md); `root_id`: `string`; `thread_id?`: `string` \| `null`; \}
 
 Attachments removed from a message by an edit.
 

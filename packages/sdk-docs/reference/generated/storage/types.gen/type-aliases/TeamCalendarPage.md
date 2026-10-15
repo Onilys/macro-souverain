@@ -1,6 +1,6 @@
 # Type Alias: TeamCalendarPage
 
-> **TeamCalendarPage** = `object`
+> **TeamCalendarPage** = \{ `items`: [`TeamCalendarItem`](TeamCalendarItem.md)[]; `members`: [`TeamCalendarMember`](TeamCalendarMember.md)[]; `nextCursor?`: `string` \| `null`; \}
 
 A bounded page of team calendar projections.
 

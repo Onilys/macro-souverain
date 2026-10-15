@@ -1,6 +1,6 @@
 # Type Alias: BatchSendMessageHandlerData
 
-> **BatchSendMessageHandlerData** = `object`
+> **BatchSendMessageHandlerData** = \{ `body`: [`BatchSendMessageBody`](BatchSendMessageBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/batch_send"`; \}
 
 ## Properties
 

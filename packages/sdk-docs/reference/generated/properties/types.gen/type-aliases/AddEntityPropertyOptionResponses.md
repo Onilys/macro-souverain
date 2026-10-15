@@ -1,6 +1,6 @@
 # Type Alias: AddEntityPropertyOptionResponses
 
-> **AddEntityPropertyOptionResponses** = `object`
+> **AddEntityPropertyOptionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

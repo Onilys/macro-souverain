@@ -1,6 +1,6 @@
 # Type Alias: SoupChannel
 
-> **SoupChannel** = [`ChannelWithParticipants`](ChannelWithParticipants.md) & [`LatestMessage`](LatestMessage.md) & `object`
+> **SoupChannel** = [`ChannelWithParticipants`](ChannelWithParticipants.md) & [`LatestMessage`](LatestMessage.md) & \{ `interacted_at?`: `string` \| `null`; `viewed_at?`: `string` \| `null`; \}
 
 A channel as displayed in Soup.
 

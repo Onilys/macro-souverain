@@ -1,6 +1,6 @@
 # Type Alias: CreatePortalSessionErrors
 
-> **CreatePortalSessionErrors** = `object`
+> **CreatePortalSessionErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

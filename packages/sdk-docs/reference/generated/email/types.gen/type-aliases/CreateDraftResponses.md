@@ -1,6 +1,6 @@
 # Type Alias: CreateDraftResponses
 
-> **CreateDraftResponses** = `object`
+> **CreateDraftResponses** = \{ `201`: [`CreateDraftResponse`](CreateDraftResponse.md); \}
 
 ## Properties
 

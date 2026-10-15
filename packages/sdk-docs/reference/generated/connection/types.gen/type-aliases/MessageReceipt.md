@@ -1,6 +1,6 @@
 # Type Alias: MessageReceipt
 
-> **MessageReceipt** = `object`
+> **MessageReceipt** = \{ `active`: `boolean`; `delivery_count`: `number`; `user_id`: `string`; \}
 
 A receipt for a message that was sent to a user.
 

@@ -1,6 +1,6 @@
 # Type Alias: BulkGetByEventItemIdsRequest
 
-> **BulkGetByEventItemIdsRequest** = `object`
+> **BulkGetByEventItemIdsRequest** = \{ `eventItemIds`: `string`[]; \}
 
 Request body for bulk-fetching notifications by event item IDs.
 

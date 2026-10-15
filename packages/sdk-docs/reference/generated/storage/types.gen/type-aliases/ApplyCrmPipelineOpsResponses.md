@@ -1,6 +1,6 @@
 # Type Alias: ApplyCrmPipelineOpsResponses
 
-> **ApplyCrmPipelineOpsResponses** = `object`
+> **ApplyCrmPipelineOpsResponses** = \{ `200`: [`AppliedOps`](AppliedOps.md); \}
 
 ## Properties
 

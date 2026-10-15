@@ -1,6 +1,6 @@
 # Type Alias: StoredGithubPullRequest
 
-> **StoredGithubPullRequest** = `object`
+> **StoredGithubPullRequest** = \{ `additions?`: `number` \| `null`; `assignees`: [`GithubPullRequestUser`](GithubPullRequestUser.md)[]; `authorGithubUserId?`: `string` \| `null`; `authorLogin?`: `string` \| `null`; `base?`: `null` \| [`GitRefDto`](GitRefDto.md); `checks`: [`GithubPullRequestCheckRun`](GithubPullRequestCheckRun.md)[]; `comments`: [`GithubPullRequestComment`](GithubPullRequestComment.md)[]; `deletions?`: `number` \| `null`; `description?`: `string` \| `null`; `draft`: `boolean`; `githubKey`: `string`; `githubUpdatedAt?`: `string` \| `null`; `head?`: `null` \| [`GitRefDto`](GitRefDto.md); `id`: `string`; `labels`: [`GithubPullRequestLabel`](GithubPullRequestLabel.md)[]; `number`: `number`; `owner`: `string`; `repo`: `string`; `requestedReviewerGithubUserIds`: `string`[]; `reviewDecision?`: `null` \| [`GithubPullRequestReviewDecision`](GithubPullRequestReviewDecision.md); `reviews`: [`GithubPullRequestReview`](GithubPullRequestReview.md)[]; `status?`: `null` \| `"open"` \| `"closed"` \| `"merged"`; `title?`: `string` \| `null`; `url`: `string`; \}
 
 A GitHub pull request as Macro stores it, read through one of the caller's records.
 

@@ -1,6 +1,6 @@
 # Type Alias: EnsureStarterHandlerResponses
 
-> **EnsureStarterHandlerResponses** = `object`
+> **EnsureStarterHandlerResponses** = \{ `200`: [`StarterDatabase`](StarterDatabase.md); \}
 
 ## Properties
 

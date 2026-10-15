@@ -1,6 +1,6 @@
 # Type Alias: DocumentSearchResponseItemWithMetadata
 
-> **DocumentSearchResponseItemWithMetadata** = [`DocumentSearchResponseItem`](DocumentSearchResponseItem.md) & `object`
+> **DocumentSearchResponseItemWithMetadata** = [`DocumentSearchResponseItem`](DocumentSearchResponseItem.md) & \{ `metadata?`: `null` \| [`DocumentMetadata`](DocumentMetadata.md); `properties?`: [`SoupProperty`](SoupProperty.md)[] \| `null`; \}
 
 DocumentSearchResponseItem object with document metadata we fetch from macrodb. we don't store these
 timestamps in opensearch as they would require us to update document page record

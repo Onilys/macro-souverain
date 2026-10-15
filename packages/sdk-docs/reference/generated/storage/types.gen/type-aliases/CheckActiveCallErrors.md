@@ -1,6 +1,6 @@
 # Type Alias: CheckActiveCallErrors
 
-> **CheckActiveCallErrors** = `object`
+> **CheckActiveCallErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

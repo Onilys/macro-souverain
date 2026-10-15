@@ -1,6 +1,6 @@
 # Type Alias: Answer
 
-> **Answer** = `object`
+> **Answer** = \{ `question`: `string`; `value`: [`CellValue`](CellValue.md); \}
 
 One question's answer: a value for its column, typed as the column's
 cells are.

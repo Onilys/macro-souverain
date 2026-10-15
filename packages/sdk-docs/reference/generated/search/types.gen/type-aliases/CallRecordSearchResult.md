@@ -1,6 +1,6 @@
 # Type Alias: CallRecordSearchResult
 
-> **CallRecordSearchResult** = `object`
+> **CallRecordSearchResult** = \{ `ended_at?`: `string` \| `null`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `score?`: `number` \| `null`; `sequence_num?`: `number` \| `null`; `speaker_id?`: `string` \| `null`; `started_at?`: `string` \| `null`; `transcript_id?`: `string` \| `null`; \}
 
 ## Properties
 

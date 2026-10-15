@@ -1,6 +1,6 @@
 # Type Alias: PostProfilePicturesResponses
 
-> **PostProfilePicturesResponses** = `object`
+> **PostProfilePicturesResponses** = \{ `200`: [`ProfilePictures`](ProfilePictures.md); \}
 
 ## Properties
 

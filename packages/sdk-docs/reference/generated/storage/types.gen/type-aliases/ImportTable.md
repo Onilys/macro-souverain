@@ -1,6 +1,6 @@
 # Type Alias: ImportTable
 
-> **ImportTable** = `object`
+> **ImportTable** = \{ `columns`: `string`[]; `name`: `string`; `requestId`: `string`; `rows`: `string`[][]; \}
 
 An import is identified once, before sending, so retries cannot duplicate rows.
 

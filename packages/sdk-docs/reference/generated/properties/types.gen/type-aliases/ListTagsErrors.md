@@ -1,6 +1,6 @@
 # Type Alias: ListTagsErrors
 
-> **ListTagsErrors** = `object`
+> **ListTagsErrors** = \{ `500`: `unknown`; \}
 
 ## Properties
 

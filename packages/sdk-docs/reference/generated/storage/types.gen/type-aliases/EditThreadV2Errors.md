@@ -1,6 +1,6 @@
 # Type Alias: EditThreadV2Errors
 
-> **EditThreadV2Errors** = `object`
+> **EditThreadV2Errors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

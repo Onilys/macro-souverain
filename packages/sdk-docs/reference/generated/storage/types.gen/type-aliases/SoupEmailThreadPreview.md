@@ -1,6 +1,6 @@
 # Type Alias: SoupEmailThreadPreview
 
-> **SoupEmailThreadPreview** = `object`
+> **SoupEmailThreadPreview** = \{ `createdAt`: `string`; `id`: `string`; `inboxVisible`: `boolean`; `isDraft`: `boolean`; `isImportant`: `boolean`; `isRead`: `boolean`; `isSignal`: `boolean`; `name?`: `string` \| `null`; `ownerId`: `string`; `projectId?`: `string` \| `null`; `providerId?`: `string` \| `null`; `senderEmail?`: `string` \| `null`; `senderName?`: `string` \| `null`; `senderPhotoUrl?`: `string` \| `null`; `snippet?`: `string` \| `null`; `sortTs`: `string`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 Email thread preview data as displayed in Soup.
 

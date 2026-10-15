@@ -338,11 +338,11 @@ value when `value` is omitted.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`ApiChannelDetail`](../../../../../generated/storage/types.gen/type-aliases/ApiChannelDetail.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`ApiChannelDetail`](../../../../../generated/storage/types.gen/type-aliases/ApiChannelDetail.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

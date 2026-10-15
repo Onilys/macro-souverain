@@ -1,6 +1,6 @@
 # Type Alias: PatchUserTutorialRequest
 
-> **PatchUserTutorialRequest** = `object`
+> **PatchUserTutorialRequest** = \{ `tutorialComplete`: `boolean`; \}
 
 ## Properties
 

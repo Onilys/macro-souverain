@@ -1,6 +1,6 @@
 # Type Alias: GetGithubPullRequestFacetsData
 
-> **GetGithubPullRequestFacetsData** = `object`
+> **GetGithubPullRequestFacetsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/github_pull_requests/facets"`; \}
 
 ## Properties
 

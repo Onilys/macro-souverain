@@ -1,6 +1,6 @@
 # Type Alias: SendChatMessageResponses
 
-> **SendChatMessageResponses** = `object`
+> **SendChatMessageResponses** = \{ `200`: [`SendChatMessageResponse`](SendChatMessageResponse.md); \}
 
 ## Properties
 

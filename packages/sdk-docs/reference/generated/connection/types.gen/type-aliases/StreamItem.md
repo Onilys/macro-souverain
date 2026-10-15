@@ -1,6 +1,6 @@
 # Type Alias: StreamItem
 
-> **StreamItem** = `object`
+> **StreamItem** = \{ `id`: [`StreamId`](StreamId.md); `payload`: `unknown`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: InitGithubLinkResponse
 
-> **InitGithubLinkResponse** = `object`
+> **InitGithubLinkResponse** = \{ `authorization_url`: `string`; `link_id`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: S3ObjectInfo
 
-> **S3ObjectInfo** = `object`
+> **S3ObjectInfo** = \{ `bucket`: `string`; `key`: `string`; \}
 
 ## Properties
 

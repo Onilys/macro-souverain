@@ -1,6 +1,6 @@
 # Type Alias: TurnStartedMetadata
 
-> **TurnStartedMetadata** = `object`
+> **TurnStartedMetadata** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `actor?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `announcement_message_id?`: `string` \| `null`; `identity`: [`SessionIdentity`](SessionIdentity.md); `turn`: `number`; \}
 
 A prompt was delivered to the runtime.
 

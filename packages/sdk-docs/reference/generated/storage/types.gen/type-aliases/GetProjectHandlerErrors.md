@@ -1,6 +1,6 @@
 # Type Alias: GetProjectHandlerErrors
 
-> **GetProjectHandlerErrors** = `object`
+> **GetProjectHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: DeleteLabelResponses
 
-> **DeleteLabelResponses** = `object`
+> **DeleteLabelResponses** = \{ `204`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

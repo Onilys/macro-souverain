@@ -1,6 +1,6 @@
 # Type Alias: EntityMessageDeleteThreadResponses
 
-> **EntityMessageDeleteThreadResponses** = `object`
+> **EntityMessageDeleteThreadResponses** = \{ `200`: [`ThreadState`](ThreadState.md); \}
 
 ## Properties
 

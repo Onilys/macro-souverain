@@ -1,6 +1,6 @@
 # Type Alias: ChatHistoryBatchMessagesRequest
 
-> **ChatHistoryBatchMessagesRequest** = `object`
+> **ChatHistoryBatchMessagesRequest** = \{ `message_ids`: `string`[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventSourceContent
 
-> **CalendarEventSourceContent** = `object`
+> **CalendarEventSourceContent** = \{ `calendarId`: `string`; `creatorEmail?`: `string` \| `null`; `creatorName?`: `string` \| `null`; `description?`: `string` \| `null`; `eventType`: [`EventType`](EventType.md); `isReadOnly`: `boolean`; `location?`: `string` \| `null`; `reminders`: [`EventReminders`](EventReminders.md); `title`: `string`; `transparency`: [`EventTransparency`](EventTransparency.md); `visibility`: [`EventVisibility`](EventVisibility.md); \}
 
 The content one provider copy of an event carries.
 

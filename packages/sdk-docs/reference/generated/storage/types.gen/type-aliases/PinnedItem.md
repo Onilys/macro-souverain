@@ -1,6 +1,6 @@
 # Type Alias: PinnedItem
 
-> **PinnedItem** = `object`
+> **PinnedItem** = \{ `activity`: [`Item`](Item.md); `item`: [`Item`](Item.md); `pinIndex`: `number`; \}
 
 ## Properties
 

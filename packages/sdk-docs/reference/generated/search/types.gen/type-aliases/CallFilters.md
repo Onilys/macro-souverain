@@ -1,6 +1,6 @@
 # Type Alias: CallFilters
 
-> **CallFilters** = `object`
+> **CallFilters** = \{ `attended?`: `boolean` \| `null`; `call_ids?`: `string`[]; `channel_ids?`: `string`[]; `speaker_ids?`: `string`[]; `status?`: `null` \| [`CallStatus`](CallStatus.md); \}
 
 Filters for call records.
 

@@ -1,6 +1,6 @@
 # Type Alias: GetGtmInviteOfferResponses
 
-> **GetGtmInviteOfferResponses** = `object`
+> **GetGtmInviteOfferResponses** = \{ `200`: [`GtmInviteOfferStatus`](GtmInviteOfferStatus.md); \}
 
 ## Properties
 

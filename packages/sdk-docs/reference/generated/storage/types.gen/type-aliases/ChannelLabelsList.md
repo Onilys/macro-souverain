@@ -1,6 +1,6 @@
 # Type Alias: ChannelLabelsList
 
-> **ChannelLabelsList** = `object`
+> **ChannelLabelsList** = \{ `labels`: [`ChannelLabel`](ChannelLabel.md)[]; `teamId?`: `string` \| `null`; \}
 
 The authorized scope's labels in manual order.
 

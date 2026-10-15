@@ -1,6 +1,6 @@
 # Type Alias: UpsertEmailFilterData
 
-> **UpsertEmailFilterData** = `object`
+> **UpsertEmailFilterData** = \{ `body`: [`UpsertEmailFilterRequest`](UpsertEmailFilterRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/filters"`; \}
 
 ## Properties
 

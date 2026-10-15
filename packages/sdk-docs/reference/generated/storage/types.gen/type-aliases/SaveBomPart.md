@@ -1,6 +1,6 @@
 # Type Alias: SaveBomPart
 
-> **SaveBomPart** = `object`
+> **SaveBomPart** = \{ `path`: `string`; `sha`: `string`; \}
 
 ## Properties
 

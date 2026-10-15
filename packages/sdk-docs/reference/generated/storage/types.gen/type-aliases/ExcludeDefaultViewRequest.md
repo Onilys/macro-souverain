@@ -1,6 +1,6 @@
 # Type Alias: ExcludeDefaultViewRequest
 
-> **ExcludeDefaultViewRequest** = `object`
+> **ExcludeDefaultViewRequest** = \{ `defaultViewId`: `string`; \}
 
 ## Properties
 

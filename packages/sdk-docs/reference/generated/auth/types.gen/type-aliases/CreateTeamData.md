@@ -1,6 +1,6 @@
 # Type Alias: CreateTeamData
 
-> **CreateTeamData** = `object`
+> **CreateTeamData** = \{ `body`: [`CreateTeamRequest`](CreateTeamRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/team"`; \}
 
 ## Properties
 

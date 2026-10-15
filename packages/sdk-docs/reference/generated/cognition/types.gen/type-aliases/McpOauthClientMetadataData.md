@@ -1,6 +1,6 @@
 # Type Alias: McpOauthClientMetadataData
 
-> **McpOauthClientMetadataData** = `object`
+> **McpOauthClientMetadataData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/mcp/servers/auth/client-metadata"`; \}
 
 ## Properties
 

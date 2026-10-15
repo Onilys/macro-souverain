@@ -1,6 +1,6 @@
 # Type Alias: GetProjectPermissionsV2Responses
 
-> **GetProjectPermissionsV2Responses** = `object`
+> **GetProjectPermissionsV2Responses** = \{ `200`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 ## Properties
 

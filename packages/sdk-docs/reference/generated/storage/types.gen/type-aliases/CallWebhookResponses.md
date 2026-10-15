@@ -1,6 +1,6 @@
 # Type Alias: CallWebhookResponses
 
-> **CallWebhookResponses** = `object`
+> **CallWebhookResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

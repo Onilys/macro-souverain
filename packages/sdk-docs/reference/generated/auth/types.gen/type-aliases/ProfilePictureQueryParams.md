@@ -1,6 +1,6 @@
 # Type Alias: ProfilePictureQueryParams
 
-> **ProfilePictureQueryParams** = `object`
+> **ProfilePictureQueryParams** = \{ `url`: `string`; \}
 
 ## Properties
 

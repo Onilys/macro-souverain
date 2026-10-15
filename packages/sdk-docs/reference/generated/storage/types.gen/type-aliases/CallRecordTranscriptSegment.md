@@ -1,6 +1,6 @@
 # Type Alias: CallRecordTranscriptSegment
 
-> **CallRecordTranscriptSegment** = `object`
+> **CallRecordTranscriptSegment** = \{ `content`: `string`; `diarizedSpeakerId?`: `string` \| `null`; `endedAt?`: `string` \| `null`; `segmentId?`: `string` \| `null`; `sequenceNum`: `number`; `speakerId`: `string`; `startedAt`: `string`; `transcriptId`: `string`; \}
 
 A transcript segment as returned in a [`CallRecord`].
 

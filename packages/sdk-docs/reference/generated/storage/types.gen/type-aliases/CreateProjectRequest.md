@@ -1,6 +1,6 @@
 # Type Alias: CreateProjectRequest
 
-> **CreateProjectRequest** = `object`
+> **CreateProjectRequest** = \{ `name`: `string`; `projectParentId?`: `string` \| `null`; \}
 
 ## Properties
 

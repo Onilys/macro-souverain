@@ -1,6 +1,6 @@
 # Type Alias: MergeGithubPullRequestData
 
-> **MergeGithubPullRequestData** = `object`
+> **MergeGithubPullRequestData** = \{ `body`: [`MergeGithubPullRequestRequest`](MergeGithubPullRequestRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/github_pull_requests/merge"`; \}
 
 ## Properties
 

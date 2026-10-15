@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelResponse
 
-> **CreateChannelResponse** = `object`
+> **CreateChannelResponse** = \{ `id`: `string`; \}
 
 Response returned after creating a channel.
 

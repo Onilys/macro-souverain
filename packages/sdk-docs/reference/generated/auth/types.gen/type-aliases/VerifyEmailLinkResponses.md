@@ -1,6 +1,6 @@
 # Type Alias: VerifyEmailLinkResponses
 
-> **VerifyEmailLinkResponses** = `object`
+> **VerifyEmailLinkResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

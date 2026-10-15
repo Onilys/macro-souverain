@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserData
 
-> **DeleteUserData** = `object`
+> **DeleteUserData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/user/me"`; \}
 
 ## Properties
 

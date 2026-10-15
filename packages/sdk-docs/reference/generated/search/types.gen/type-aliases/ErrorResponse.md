@@ -1,6 +1,6 @@
 # Type Alias: ErrorResponse
 
-> **ErrorResponse** = `object`
+> **ErrorResponse** = \{ `message`: `string`; \}
 
 A plain old json error response for use with axum.
 yup, thats it.

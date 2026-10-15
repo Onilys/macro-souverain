@@ -1,6 +1,6 @@
 # Type Alias: SearchGotoAgentSession
 
-> **SearchGotoAgentSession** = `object`
+> **SearchGotoAgentSession** = \{ `author`: [`AgentSessionAuthor`](AgentSessionAuthor.md); `message_turn`: `number`; \}
 
 Stable navigation target from the fold, independent of raw ACP log IDs.
 

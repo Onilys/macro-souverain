@@ -1,6 +1,6 @@
 # Type Alias: McpAuthCallbackResponses
 
-> **McpAuthCallbackResponses** = `object`
+> **McpAuthCallbackResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

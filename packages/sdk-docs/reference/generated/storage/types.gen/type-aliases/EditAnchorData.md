@@ -1,6 +1,6 @@
 # Type Alias: EditAnchorData
 
-> **EditAnchorData** = `object`
+> **EditAnchorData** = \{ `body`: [`EditAnchorRequest`](EditAnchorRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/annotations/anchors"`; \}
 
 ## Properties
 

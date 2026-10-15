@@ -1,6 +1,6 @@
 # Type Alias: ListSlackImportsResponses
 
-> **ListSlackImportsResponses** = `object`
+> **ListSlackImportsResponses** = \{ `200`: [`ImportPage`](ImportPage.md); \}
 
 ## Properties
 

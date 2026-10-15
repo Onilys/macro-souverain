@@ -1,6 +1,6 @@
 # Type Alias: CreateMarkdownDocumentRequest
 
-> **CreateMarkdownDocumentRequest** = `object`
+> **CreateMarkdownDocumentRequest** = \{ `documentName`: `string`; `markdown?`: `string` \| `null`; `projectId?`: `string` \| `null`; `skipHistory?`: `boolean`; \}
 
 Request body for creating a markdown document whose content is initialized
 by the backend.

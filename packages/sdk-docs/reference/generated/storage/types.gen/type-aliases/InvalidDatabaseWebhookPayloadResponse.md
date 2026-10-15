@@ -1,6 +1,6 @@
 # Type Alias: InvalidDatabaseWebhookPayloadResponse
 
-> **InvalidDatabaseWebhookPayloadResponse** = `object`
+> **InvalidDatabaseWebhookPayloadResponse** = \{ `message`: `string`; `problems`: [`DatabaseWebhookPayloadProblem`](DatabaseWebhookPayloadProblem.md)[]; \}
 
 Why a payload was refused. Nothing was written.
 

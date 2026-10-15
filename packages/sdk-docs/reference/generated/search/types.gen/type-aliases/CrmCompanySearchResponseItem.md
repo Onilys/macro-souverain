@@ -1,6 +1,6 @@
 # Type Alias: CrmCompanySearchResponseItem
 
-> **CrmCompanySearchResponseItem** = `object`
+> **CrmCompanySearchResponseItem** = \{ `createdAt`: `string`; `description?`: `string` \| `null`; `domains`: [`CrmCompanySearchDomain`](CrmCompanySearchDomain.md)[]; `hidden`: `boolean`; `id`: `string`; `name?`: `string` \| `null`; `nameHighlighted?`: `string` \| `null`; `teamId`: `string`; `updatedAt`: `string`; \}
 
 A CRM company match in unified search results. Carries the display
 metadata resolved from the primary domain plus the highlighted name.

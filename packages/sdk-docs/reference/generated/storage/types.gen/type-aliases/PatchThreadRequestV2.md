@@ -1,6 +1,6 @@
 # Type Alias: PatchThreadRequestV2
 
-> **PatchThreadRequestV2** = `object`
+> **PatchThreadRequestV2** = \{ `projectId?`: `string` \| `null`; `sharePermission?`: `null` \| [`UpdateSharePermissionRequestV2`](UpdateSharePermissionRequestV2.md); \}
 
 ## Properties
 

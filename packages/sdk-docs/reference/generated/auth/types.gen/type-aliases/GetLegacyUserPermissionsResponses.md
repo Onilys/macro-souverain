@@ -1,6 +1,6 @@
 # Type Alias: GetLegacyUserPermissionsResponses
 
-> **GetLegacyUserPermissionsResponses** = `object`
+> **GetLegacyUserPermissionsResponses** = \{ `200`: [`GetLegacyUserPermissionsResponse`](GetLegacyUserPermissionsResponse.md); \}
 
 ## Properties
 

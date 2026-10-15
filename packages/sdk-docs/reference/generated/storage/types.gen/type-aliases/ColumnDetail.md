@@ -1,6 +1,6 @@
 # Type Alias: ColumnDetail
 
-> **ColumnDetail** = `object`
+> **ColumnDetail** = \{ `column`: [`Column`](Column.md); `definition`: [`PropertyDefinitionWithOptions`](PropertyDefinitionWithOptions.md); `shared_outside_database`: `boolean`; `sql_name`: `string`; `writable`: `boolean`; \}
 
 One column placement with the definition behind it.
 

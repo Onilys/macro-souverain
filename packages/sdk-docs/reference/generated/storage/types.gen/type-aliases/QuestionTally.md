@@ -1,6 +1,6 @@
 # Type Alias: QuestionTally
 
-> **QuestionTally** = `object`
+> **QuestionTally** = \{ `buckets`: [`TallyBucket`](TallyBucket.md)[]; `question`: `string`; `responses`: `number`; \}
 
 One question's counts.
 

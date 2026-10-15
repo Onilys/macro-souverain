@@ -1,6 +1,6 @@
 # Type Alias: GetChatResponse
 
-> **GetChatResponse** = `object`
+> **GetChatResponse** = \{ `chat`: [`ChatResponse`](ChatResponse.md); `userAccessLevel`: [`AccessLevel`](AccessLevel.md); \}
 
 Wrapper response for get_chat, matching the DCS API response shape.
 

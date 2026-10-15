@@ -1,6 +1,6 @@
 # Type Alias: ViewPatch
 
-> **ViewPatch** = `object`
+> **ViewPatch** = \{ `config?`: `unknown`; `name?`: `string` \| `null`; \}
 
 ## Properties
 

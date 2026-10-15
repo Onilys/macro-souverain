@@ -1,6 +1,6 @@
 # Type Alias: SetEmailFollowupResponses
 
-> **SetEmailFollowupResponses** = `object`
+> **SetEmailFollowupResponses** = \{ `200`: [`EmailFollowup`](EmailFollowup.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CommonChannelMetadata
 
-> **CommonChannelMetadata** = `object`
+> **CommonChannelMetadata** = \{ `channelName?`: `string`; `channelType`: [`ChannelType`](ChannelType.md); \}
 
 Common metadata for notifications on channels
 

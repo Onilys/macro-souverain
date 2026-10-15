@@ -1,6 +1,6 @@
 # Type Alias: GetContactsResponse
 
-> **GetContactsResponse** = `object`
+> **GetContactsResponse** = \{ `contacts`: `string`[]; \}
 
 Response body for GET /contacts.
 

@@ -1,6 +1,6 @@
 # Type Alias: ProjectDeleteResponseData
 
-> **ProjectDeleteResponseData** = `object`
+> **ProjectDeleteResponseData** = \{ `chat_ids`: `string`[]; `document_ids`: `string`[]; `project_ids`: `string`[]; \}
 
 Identifiers affected by a recursive project soft deletion.
 

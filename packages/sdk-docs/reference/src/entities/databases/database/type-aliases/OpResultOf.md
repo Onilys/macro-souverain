@@ -1,6 +1,6 @@
 # Type Alias: OpResultOf\<Kind, Change\>
 
-> **OpResultOf**\<`Kind`, `Change`\> = `Extract`\<`ChangedResult`, \{ `kind`: `Kind`; \}\> & `object`
+> **OpResultOf**\<`Kind`, `Change`\> = `Extract`\<`ChangedResult`, \{ `kind`: `Kind`; \}\> & \{ `change`: `Extract`\<`Extract`\<`ChangedResult`, \{ `kind`: `Kind`; \}\>\[`"change"`\], \{ `kind`: `Change`; \}\>; \}
 
 The result of a `Kind` op whose change answered `Change`.
 

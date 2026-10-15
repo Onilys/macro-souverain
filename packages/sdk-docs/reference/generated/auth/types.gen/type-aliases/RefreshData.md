@@ -1,6 +1,6 @@
 # Type Alias: RefreshData
 
-> **RefreshData** = `object`
+> **RefreshData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/jwt/refresh"`; \}
 
 ## Properties
 

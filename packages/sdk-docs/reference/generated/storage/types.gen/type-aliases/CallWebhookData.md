@@ -1,6 +1,6 @@
 # Type Alias: CallWebhookData
 
-> **CallWebhookData** = `object`
+> **CallWebhookData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/call/webhook"`; \}
 
 ## Properties
 

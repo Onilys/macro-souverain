@@ -1,6 +1,6 @@
 # Type Alias: GetUserQuotaData
 
-> **GetUserQuotaData** = `object`
+> **GetUserQuotaData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/user/quota"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SetTeamSharingData
 
-> **SetTeamSharingData** = `object`
+> **SetTeamSharingData** = \{ `body`: [`TeamCalendarSharingBody`](TeamCalendarSharingBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/team-sharing"`; \}
 
 ## Properties
 

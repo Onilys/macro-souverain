@@ -1,6 +1,6 @@
 # Type Alias: ChannelParticipantRemovedMetadata
 
-> **ChannelParticipantRemovedMetadata** = `object`
+> **ChannelParticipantRemovedMetadata** = \{ `channel_id`: `string`; `channel_type`: [`ChannelType`](ChannelType.md); `removed_by`: [`MacroUserIdStr`](MacroUserIdStr.md); `removed_user_ids`: [`MacroUserIdStr`](MacroUserIdStr.md)[]; \}
 
 Metadata for [`ChannelTopicEvent::ParticipantRemoved`].
 

@@ -399,11 +399,11 @@ Whether the document is shared with the owner's team, and which team.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`DocumentMetadataWithContent`](../../../../../generated/storage/types.gen/type-aliases/DocumentMetadataWithContent.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`DocumentMetadataWithContent`](../../../../../generated/storage/types.gen/type-aliases/DocumentMetadataWithContent.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

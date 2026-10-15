@@ -1,6 +1,6 @@
 # Type Alias: OutOfOfficeProperties
 
-> **OutOfOfficeProperties** = `object`
+> **OutOfOfficeProperties** = \{ `autoDeclineMode?`: [`OutOfOfficeAutoDeclineMode`](OutOfOfficeAutoDeclineMode.md); `declineMessage?`: `string` \| `null`; \}
 
 The extra properties Google requires on an out-of-office event, mirroring
 its `outOfOfficeProperties` block. Their presence on a draft or patch is

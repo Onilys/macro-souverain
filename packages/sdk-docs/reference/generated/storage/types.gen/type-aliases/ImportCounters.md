@@ -1,6 +1,6 @@
 # Type Alias: ImportCounters
 
-> **ImportCounters** = `object`
+> **ImportCounters** = \{ `duplicates`: `number`; `imported`: `number`; `processed`: `number`; `reactions`: `number`; `skipped`: `number`; \}
 
 Committed counters, never optimistic browser or uncommitted worker counts.
 

@@ -1,6 +1,6 @@
 # Type Alias: AgentMcpServer
 
-> **AgentMcpServer** = `object`
+> **AgentMcpServer** = \{ `app_slug`: `string`; `server_name`: `string`; \}
 
 One Pipedream app an agent lists under [`AgentMcpServers::Selected`].
 

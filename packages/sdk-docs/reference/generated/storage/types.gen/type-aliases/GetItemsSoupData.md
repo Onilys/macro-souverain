@@ -1,6 +1,6 @@
 # Type Alias: GetItemsSoupData
 
-> **GetItemsSoupData** = `object`
+> **GetItemsSoupData** = \{ `body?`: `never`; `path?`: `never`; `query?`: \{ `cursor?`: `string`; `expand?`: `boolean`; `limit?`: `number`; `sort_direction?`: [`SoupApiSortDirection`](SoupApiSortDirection.md); `sort_method?`: [`SoupApiSort`](SoupApiSort.md); \}; `url`: `"/items/soup"`; \}
 
 ## Properties
 
@@ -8,7 +8,7 @@
 | ------ | ------ | ------ |
 | <a id="property-body"></a> `body?` | `never` | - |
 | <a id="property-path"></a> `path?` | `never` | - |
-| <a id="property-query"></a> `query?` | `object` | - |
+| <a id="property-query"></a> `query?` | \{ `cursor?`: `string`; `expand?`: `boolean`; `limit?`: `number`; `sort_direction?`: [`SoupApiSortDirection`](SoupApiSortDirection.md); `sort_method?`: [`SoupApiSort`](SoupApiSort.md); \} | - |
 | `query.cursor?` | `string` | Base64 encoded cursor value. |
 | `query.expand?` | `boolean` | Whether to expand projects. Defaults to true. |
 | `query.limit?` | `number` | Limit the number of items returned. Defaults to 20. Max 500. |

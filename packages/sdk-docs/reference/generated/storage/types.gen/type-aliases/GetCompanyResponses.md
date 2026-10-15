@@ -1,6 +1,6 @@
 # Type Alias: GetCompanyResponses
 
-> **GetCompanyResponses** = `object`
+> **GetCompanyResponses** = \{ `200`: [`CrmCompanyResponse`](CrmCompanyResponse.md); \}
 
 ## Properties
 

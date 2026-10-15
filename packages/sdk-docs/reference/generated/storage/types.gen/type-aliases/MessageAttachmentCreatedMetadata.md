@@ -1,6 +1,6 @@
 # Type Alias: MessageAttachmentCreatedMetadata
 
-> **MessageAttachmentCreatedMetadata** = `object`
+> **MessageAttachmentCreatedMetadata** = \{ `actor`: [`ChannelSender`](ChannelSender.md); `attachments`: [`MessageEventAttachment`](MessageEventAttachment.md)[]; `message_id`: `string`; `parent`: [`MessageParent`](MessageParent.md); `root_id`: `string`; `thread_id?`: `string` \| `null`; \}
 
 Attachments added to a message, on post or by a later edit.
 

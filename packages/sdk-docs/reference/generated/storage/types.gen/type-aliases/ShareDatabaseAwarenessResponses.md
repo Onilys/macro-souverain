@@ -1,6 +1,6 @@
 # Type Alias: ShareDatabaseAwarenessResponses
 
-> **ShareDatabaseAwarenessResponses** = `object`
+> **ShareDatabaseAwarenessResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PdfPlaceableCommentAnchor
 
-> **PdfPlaceableCommentAnchor** = `object`
+> **PdfPlaceableCommentAnchor** = \{ `allowableEdits?`: `unknown`; `documentId`: `string`; `heightPct`: `number`; `originalIndex`: `number`; `originalPage`: `number`; `owner`: `string`; `page`: `number`; `rootId?`: `string` \| `null`; `rotation`: `number`; `shouldLockOnSave`: `boolean`; `uuid`: `string`; `wasDeleted`: `boolean`; `wasEdited`: `boolean`; `widthPct`: `number`; `xPct`: `number`; `yPct`: `number`; \}
 
 ## Properties
 

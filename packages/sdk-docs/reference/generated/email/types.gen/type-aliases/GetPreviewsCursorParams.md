@@ -1,6 +1,6 @@
 # Type Alias: GetPreviewsCursorParams
 
-> **GetPreviewsCursorParams** = `object`
+> **GetPreviewsCursorParams** = \{ `limit?`: `number` \| `null`; `sort_method?`: `null` \| [`ApiSortMethod`](ApiSortMethod.md); \}
 
 Parameters for getting thread previews with cursor-based pagination.
 

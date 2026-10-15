@@ -1,6 +1,6 @@
 # Type Alias: DeletePropertyDefinitionResponses
 
-> **DeletePropertyDefinitionResponses** = `object`
+> **DeletePropertyDefinitionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

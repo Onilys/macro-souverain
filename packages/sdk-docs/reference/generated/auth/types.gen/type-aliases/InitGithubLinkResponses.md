@@ -1,6 +1,6 @@
 # Type Alias: InitGithubLinkResponses
 
-> **InitGithubLinkResponses** = `object`
+> **InitGithubLinkResponses** = \{ `200`: [`InitGithubLinkResponse`](InitGithubLinkResponse.md); \}
 
 ## Properties
 

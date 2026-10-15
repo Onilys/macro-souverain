@@ -1,6 +1,6 @@
 # Type Alias: RingStatusResponse
 
-> **RingStatusResponse** = `object`
+> **RingStatusResponse** = \{ `status`: [`RingStatus`](RingStatus.md); \}
 
 Response body for `GET /call/ring-status/{call_id}`.
 

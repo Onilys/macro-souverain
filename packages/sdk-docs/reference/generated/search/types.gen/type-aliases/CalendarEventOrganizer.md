@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventOrganizer
 
-> **CalendarEventOrganizer** = `object`
+> **CalendarEventOrganizer** = \{ `email?`: `string` \| `null`; `name?`: `string` \| `null`; \}
 
 The event's organizer — its creator, in Google's model. Either field can be
 absent when the source does not name it.

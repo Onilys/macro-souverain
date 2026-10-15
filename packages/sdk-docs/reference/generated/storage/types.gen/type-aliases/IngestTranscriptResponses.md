@@ -1,6 +1,6 @@
 # Type Alias: IngestTranscriptResponses
 
-> **IngestTranscriptResponses** = `object`
+> **IngestTranscriptResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

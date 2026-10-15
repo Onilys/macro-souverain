@@ -1,6 +1,6 @@
 # Type Alias: ConfigureCodexData
 
-> **ConfigureCodexData** = `object`
+> **ConfigureCodexData** = \{ `body`: [`CodexConfigRequest`](CodexConfigRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/codex/config"`; \}
 
 ## Properties
 

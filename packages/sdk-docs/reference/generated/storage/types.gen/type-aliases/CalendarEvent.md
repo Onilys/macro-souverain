@@ -1,6 +1,6 @@
 # Type Alias: CalendarEvent
 
-> **CalendarEvent** = `object`
+> **CalendarEvent** = \{ `attendees`: [`CalendarAttendee`](CalendarAttendee.md)[]; `calendarId?`: `string` \| `null`; `conferenceProvider?`: `null` \| [`ConferenceProvider`](ConferenceProvider.md); `conferenceUrl?`: `string` \| `null`; `createdAt`: `string`; `creatorEmail?`: `string` \| `null`; `creatorName?`: `string` \| `null`; `description?`: `string` \| `null`; `eventType?`: [`EventType`](EventType.md); `icalUid`: `string`; `id`: `string`; `isReadOnly`: `boolean`; `location?`: `string` \| `null`; `organizerEmail?`: `string` \| `null`; `organizerName?`: `string` \| `null`; `ownerId`: `string`; `recurrenceLines`: `string`[]; `reminders?`: [`EventReminders`](EventReminders.md); `sequence`: `number`; `sources?`: [`CalendarEventSourceContent`](CalendarEventSourceContent.md)[]; `status`: [`EventStatus`](EventStatus.md); `time`: [`EventTime`](EventTime.md); `title`: `string`; `transparency`: [`EventTransparency`](EventTransparency.md); `updatedAt`: `string`; `visibility`: [`EventVisibility`](EventVisibility.md); \}
 
 A stable, first-class Macro calendar event entity.
 

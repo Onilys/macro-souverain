@@ -1,6 +1,6 @@
 # Type Alias: GroupedInitialParams
 
-> **GroupedInitialParams** = `object`
+> **GroupedInitialParams** = \{ `group_by`: [`ApiGroupByField`](ApiGroupByField.md); `per_group_limit?`: `number` \| `null`; `sort_method?`: `null` \| [`GroupedSoupSort`](GroupedSoupSort.md); \}
 
 Parameters for the initial grouped soup query.
 

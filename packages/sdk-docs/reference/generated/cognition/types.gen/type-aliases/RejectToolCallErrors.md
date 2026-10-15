@@ -1,6 +1,6 @@
 # Type Alias: RejectToolCallErrors
 
-> **RejectToolCallErrors** = `object`
+> **RejectToolCallErrors** = \{ `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

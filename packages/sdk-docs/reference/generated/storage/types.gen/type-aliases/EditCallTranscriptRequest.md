@@ -1,6 +1,6 @@
 # Type Alias: EditCallTranscriptRequest
 
-> **EditCallTranscriptRequest** = `object`
+> **EditCallTranscriptRequest** = \{ `assignments`: [`CustomSpeakerAssignment`](CustomSpeakerAssignment.md)[]; \}
 
 Body of `PATCH /call/record/{call_id}/transcript`.
 

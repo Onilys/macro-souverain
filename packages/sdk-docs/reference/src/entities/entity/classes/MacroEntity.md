@@ -40,11 +40,11 @@ field and mutate.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: `Detail`; `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: `Detail`; `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

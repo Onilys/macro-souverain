@@ -1,6 +1,6 @@
 # Type Alias: UpdateThreadLabelsResponse
 
-> **UpdateThreadLabelsResponse** = `object`
+> **UpdateThreadLabelsResponse** = \{ `failed_ids`: `string`[]; `successful_ids`: `string`[]; \}
 
 Response body for updating a thread's labels.
 

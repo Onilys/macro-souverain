@@ -1,6 +1,6 @@
 # Type Alias: DeleteSelfHarnessResponses
 
-> **DeleteSelfHarnessResponses** = `object`
+> **DeleteSelfHarnessResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

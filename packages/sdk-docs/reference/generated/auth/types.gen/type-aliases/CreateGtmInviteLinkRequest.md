@@ -1,6 +1,6 @@
 # Type Alias: CreateGtmInviteLinkRequest
 
-> **CreateGtmInviteLinkRequest** = `object`
+> **CreateGtmInviteLinkRequest** = \{ `firstName`: `string`; `note?`: `string` \| `null`; `recipientEmail?`: `string` \| `null`; \}
 
 Request body to create a link.
 

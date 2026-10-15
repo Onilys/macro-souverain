@@ -1,6 +1,6 @@
 # Type Alias: SessionCreationData
 
-> **SessionCreationData** = `object`
+> **SessionCreationData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/session"`; \}
 
 ## Properties
 

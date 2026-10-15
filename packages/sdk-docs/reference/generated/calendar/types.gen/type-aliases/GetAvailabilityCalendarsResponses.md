@@ -1,6 +1,6 @@
 # Type Alias: GetAvailabilityCalendarsResponses
 
-> **GetAvailabilityCalendarsResponses** = `object`
+> **GetAvailabilityCalendarsResponses** = \{ `200`: [`AvailabilityCalendarsResponse`](AvailabilityCalendarsResponse.md); \}
 
 ## Properties
 

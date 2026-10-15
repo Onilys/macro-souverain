@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionsForPullRequestData
 
-> **AgentSessionsForPullRequestData** = `object`
+> **AgentSessionsForPullRequestData** = \{ `body`: [`PullRequestUrl`](PullRequestUrl.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-sessions/by-pull-request"`; \}
 
 ## Properties
 

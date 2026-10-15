@@ -1,6 +1,6 @@
 # Type Alias: EntityMessageDeleteMessageResponses
 
-> **EntityMessageDeleteMessageResponses** = `object`
+> **EntityMessageDeleteMessageResponses** = \{ `200`: [`Message`](Message.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateCrmCompanyRequest
 
-> **CreateCrmCompanyRequest** = `object`
+> **CreateCrmCompanyRequest** = \{ `domain`: `string`; `name`: `string`; \}
 
 Request body for `POST /crm/companies`.
 

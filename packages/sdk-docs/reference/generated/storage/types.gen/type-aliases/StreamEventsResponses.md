@@ -1,6 +1,6 @@
 # Type Alias: StreamEventsResponses
 
-> **StreamEventsResponses** = `object`
+> **StreamEventsResponses** = \{ `200`: `string`; \}
 
 ## Properties
 

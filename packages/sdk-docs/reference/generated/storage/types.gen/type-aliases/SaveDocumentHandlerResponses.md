@@ -1,6 +1,6 @@
 # Type Alias: SaveDocumentHandlerResponses
 
-> **SaveDocumentHandlerResponses** = `object`
+> **SaveDocumentHandlerResponses** = \{ `200`: [`SaveDocumentResponse`](SaveDocumentResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateEntityMentionData
 
-> **CreateEntityMentionData** = `object`
+> **CreateEntityMentionData** = \{ `body`: [`CreateEntityMentionRequest`](CreateEntityMentionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/channels/mentions"`; \}
 
 ## Properties
 

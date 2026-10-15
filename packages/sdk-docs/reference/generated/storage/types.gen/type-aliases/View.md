@@ -1,6 +1,6 @@
 # Type Alias: View
 
-> **View** = `object`
+> **View** = \{ `config`: `unknown`; `createdAt`: `string`; `id`: `string`; `name`: `string`; `updatedAt`: `string`; `userId`: `string`; \}
 
 ## Properties
 

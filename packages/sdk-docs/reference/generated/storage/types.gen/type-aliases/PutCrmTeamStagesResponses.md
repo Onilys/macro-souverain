@@ -1,6 +1,6 @@
 # Type Alias: PutCrmTeamStagesResponses
 
-> **PutCrmTeamStagesResponses** = `object`
+> **PutCrmTeamStagesResponses** = \{ `200`: [`CrmStagesResponse`](CrmStagesResponse.md); \}
 
 ## Properties
 

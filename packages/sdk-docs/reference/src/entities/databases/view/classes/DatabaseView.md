@@ -93,11 +93,11 @@ Which rows the view shows, and in what order.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `id`: `string`; `tableId`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `id`: `string`; `tableId`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

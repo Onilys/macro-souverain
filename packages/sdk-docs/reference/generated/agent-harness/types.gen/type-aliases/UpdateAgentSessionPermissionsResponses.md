@@ -1,6 +1,6 @@
 # Type Alias: UpdateAgentSessionPermissionsResponses
 
-> **UpdateAgentSessionPermissionsResponses** = `object`
+> **UpdateAgentSessionPermissionsResponses** = \{ `200`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 ## Properties
 

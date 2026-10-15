@@ -1,6 +1,6 @@
 # Type Alias: MeetingLeaveResponses
 
-> **MeetingLeaveResponses** = `object`
+> **MeetingLeaveResponses** = \{ `200`: [`LeaveCallResponse`](LeaveCallResponse.md); \}
 
 ## Properties
 

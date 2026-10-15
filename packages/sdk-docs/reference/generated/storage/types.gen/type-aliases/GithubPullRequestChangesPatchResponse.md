@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestChangesPatchResponse
 
-> **GithubPullRequestChangesPatchResponse** = `object`
+> **GithubPullRequestChangesPatchResponse** = \{ `patch`: `string`; \}
 
 Response body for `GET /github_pull_requests/{id}/changes/patch`.
 

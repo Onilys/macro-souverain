@@ -1,6 +1,6 @@
 # Type Alias: GetActiveCallsResponses
 
-> **GetActiveCallsResponses** = `object`
+> **GetActiveCallsResponses** = \{ `200`: [`ActiveCallsResponse`](ActiveCallsResponse.md); \}
 
 ## Properties
 

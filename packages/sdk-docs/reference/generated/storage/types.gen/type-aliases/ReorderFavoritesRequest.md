@@ -1,6 +1,6 @@
 # Type Alias: ReorderFavoritesRequest
 
-> **ReorderFavoritesRequest** = `object`
+> **ReorderFavoritesRequest** = \{ `favorites`: [`FavoriteEntityRef`](FavoriteEntityRef.md)[]; \}
 
 Request body for reordering favorites.
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateBulkDocumentResponse
 
-> **CreateBulkDocumentResponse** = `object`
+> **CreateBulkDocumentResponse** = \{ `data`: [`CreateBulkDocumentResponseData`](CreateBulkDocumentResponseData.md)[]; `error`: `boolean`; \}
 
 ## Properties
 

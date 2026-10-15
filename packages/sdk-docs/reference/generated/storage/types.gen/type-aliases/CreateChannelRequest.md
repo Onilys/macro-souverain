@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelRequest
 
-> **CreateChannelRequest** = `object`
+> **CreateChannelRequest** = \{ `auto_join_team?`: `boolean`; `channel_type`: [`ChannelType`](ChannelType.md); `name?`: `string` \| `null`; `participants`: `string`[]; `team_id?`: `string` \| `null`; \}
 
 Request to create a channel.
 

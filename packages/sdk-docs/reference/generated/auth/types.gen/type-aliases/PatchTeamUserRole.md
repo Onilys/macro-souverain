@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamUserRole
 
-> **PatchTeamUserRole** = `object`
+> **PatchTeamUserRole** = \{ `role`: [`TeamRole`](TeamRole.md); `team_user_id`: `string`; \}
 
 Request to update a team user's role
 

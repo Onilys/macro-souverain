@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserApiKeyResponses
 
-> **DeleteUserApiKeyResponses** = `object`
+> **DeleteUserApiKeyResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

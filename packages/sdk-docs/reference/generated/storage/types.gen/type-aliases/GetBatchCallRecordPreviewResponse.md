@@ -1,6 +1,6 @@
 # Type Alias: GetBatchCallRecordPreviewResponse
 
-> **GetBatchCallRecordPreviewResponse** = `object`
+> **GetBatchCallRecordPreviewResponse** = \{ `previews`: [`CallRecordPreview`](CallRecordPreview.md)[]; \}
 
 Response body for `POST /call/record/preview`.
 

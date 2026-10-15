@@ -1,6 +1,6 @@
 # Type Alias: GetReferralCodeErrors
 
-> **GetReferralCodeErrors** = `object`
+> **GetReferralCodeErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

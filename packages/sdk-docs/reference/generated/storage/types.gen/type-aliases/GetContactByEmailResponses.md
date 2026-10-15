@@ -1,6 +1,6 @@
 # Type Alias: GetContactByEmailResponses
 
-> **GetContactByEmailResponses** = `object`
+> **GetContactByEmailResponses** = \{ `200`: [`GetContactByEmailResponse`](GetContactByEmailResponse.md); \}
 
 ## Properties
 

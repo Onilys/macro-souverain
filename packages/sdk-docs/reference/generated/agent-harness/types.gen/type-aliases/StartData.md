@@ -1,6 +1,6 @@
 # Type Alias: StartData
 
-> **StartData** = `object`
+> **StartData** = \{ `body`: [`EmptyRequest`](EmptyRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/claude-auth/start"`; \}
 
 ## Properties
 

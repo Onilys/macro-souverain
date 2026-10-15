@@ -1,6 +1,6 @@
 # Type Alias: CrmDiscussionMetadata
 
-> **CrmDiscussionMetadata** = `object`
+> **CrmDiscussionMetadata** = \{ `messageId`: `string`; `reason`: [`CrmDiscussionReason`](CrmDiscussionReason.md); `recordName`: `string`; `senderDisplayName?`: `string` \| `null`; `senderProfilePictureUrl?`: `string` \| `null`; `text`: `string`; `threadId`: `string`; \}
 
 CRM discussion metadata. The notification entity identifies the company or
 contact; message and thread UUIDs select the discussion inside it.

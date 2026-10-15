@@ -1,6 +1,6 @@
 # Type Alias: ProjectPreviewData
 
-> **ProjectPreviewData** = `object`
+> **ProjectPreviewData** = \{ `id`: `string`; `name`: `string`; `owner`: `string`; `path`: `string`[]; `updatedAt?`: `string` \| `null`; \}
 
 ## Properties
 

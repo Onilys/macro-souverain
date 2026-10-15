@@ -1,6 +1,6 @@
 # Type Alias: StartResponse
 
-> **StartResponse** = `object`
+> **StartResponse** = \{ `attemptId`: `string`; `authorizationUrl`: `string`; `expiresIn`: `number`; \}
 
 Public PKCE challenge and attempt handle; contains no verifier or provider tokens.
 

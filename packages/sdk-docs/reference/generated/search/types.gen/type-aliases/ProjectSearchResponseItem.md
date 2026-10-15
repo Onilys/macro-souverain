@@ -1,6 +1,6 @@
 # Type Alias: ProjectSearchResponseItem
 
-> **ProjectSearchResponseItem** = `object`
+> **ProjectSearchResponseItem** = \{ `created_at`: `string`; `id`: `string`; `name`: `string`; `owner_id`: `string`; `project_search_results`: [`ProjectSearchResult`](ProjectSearchResult.md)[]; `updated_at`: `string`; \}
 
 A single response item, part of the ProjectSearchResponse object
 

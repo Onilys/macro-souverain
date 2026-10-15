@@ -1,6 +1,6 @@
 # Type Alias: UserOrganizationResponse
 
-> **UserOrganizationResponse** = `object`
+> **UserOrganizationResponse** = \{ `organizationId`: `number`; `organizationName`: `string`; \}
 
 ## Properties
 

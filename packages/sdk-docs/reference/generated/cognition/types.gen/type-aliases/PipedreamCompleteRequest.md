@@ -1,6 +1,6 @@
 # Type Alias: PipedreamCompleteRequest
 
-> **PipedreamCompleteRequest** = `object`
+> **PipedreamCompleteRequest** = \{ `account_id`: `string`; `server_name?`: `string` \| `null`; \}
 
 Request body for completing a Pipedream connect flow.
 

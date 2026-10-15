@@ -1,6 +1,6 @@
 # Type Alias: Highlight
 
-> **Highlight** = `object`
+> **Highlight** = \{ `content?`: `string`[]; `name?`: `string` \| `null`; \}
 
 The search service version of a highlight
 

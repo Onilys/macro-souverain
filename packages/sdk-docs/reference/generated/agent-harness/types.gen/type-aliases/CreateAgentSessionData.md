@@ -1,6 +1,6 @@
 # Type Alias: CreateAgentSessionData
 
-> **CreateAgentSessionData** = `object`
+> **CreateAgentSessionData** = \{ `body`: [`CreateAgentSessionRequest`](CreateAgentSessionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-sessions"`; \}
 
 ## Properties
 

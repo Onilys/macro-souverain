@@ -1,6 +1,6 @@
 # Type Alias: CheckGithubLinkStatusData
 
-> **CheckGithubLinkStatusData** = `object`
+> **CheckGithubLinkStatusData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/link/github/status"`; \}
 
 ## Properties
 

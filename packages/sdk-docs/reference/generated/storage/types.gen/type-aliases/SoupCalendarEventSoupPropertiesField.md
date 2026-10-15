@@ -1,6 +1,6 @@
 # Type Alias: SoupCalendarEventSoupPropertiesField
 
-> **SoupCalendarEventSoupPropertiesField** = `object`
+> **SoupCalendarEventSoupPropertiesField** = \{ `conferenceProvider?`: `string` \| `null`; `conferenceUrl?`: `string` \| `null`; `createdAt`: `string`; `description?`: `string` \| `null`; `extra`: \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \}; `icalUid`: `string`; `id`: `string`; `isReadOnly`: `boolean`; `lastReminderFiredAt?`: `string` \| `null`; `location?`: `string` \| `null`; `organizerEmail?`: `string` \| `null`; `organizerName?`: `string` \| `null`; `ownerId`: `string`; `status`: `string`; `time`: [`SoupCalendarEventTime`](SoupCalendarEventTime.md); `title`: `string`; `transparency`: `string`; `updatedAt`: `string`; `visibility`: `string`; \}
 
 A canonical calendar event entity in Soup.
 
@@ -12,7 +12,7 @@ A canonical calendar event entity in Soup.
 | <a id="property-conferenceurl"></a> `conferenceUrl?` | `string` \| `null` | Direct conference join URL. |
 | <a id="property-createdat"></a> `createdAt` | `string` | Entity creation timestamp. |
 | <a id="property-description"></a> `description?` | `string` \| `null` | Optional description. |
-| <a id="property-extra"></a> `extra` | `object` | Property fields that can be flattened into property-bearing Soup items. |
+| <a id="property-extra"></a> `extra` | \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} | Property fields that can be flattened into property-bearing Soup items. |
 | `extra.properties` | [`SoupProperty`](SoupProperty.md)[] | Properties attached to the entity. |
 | <a id="property-icaluid"></a> `icalUid` | `string` | RFC 5545 UID used for source reconciliation. |
 | <a id="property-id"></a> `id` | `string` | Entity identifier. |

@@ -1,6 +1,6 @@
 # Type Alias: CopyChatResponses
 
-> **CopyChatResponses** = `object`
+> **CopyChatResponses** = \{ `200`: [`StringIdResponse`](StringIdResponse.md); \}
 
 ## Properties
 

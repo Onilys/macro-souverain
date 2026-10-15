@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserErrors
 
-> **DeleteUserErrors** = `object`
+> **DeleteUserErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

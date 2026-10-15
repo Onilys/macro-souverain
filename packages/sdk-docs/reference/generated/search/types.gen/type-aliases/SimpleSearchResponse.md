@@ -1,6 +1,6 @@
 # Type Alias: SimpleSearchResponse
 
-> **SimpleSearchResponse** = `object`
+> **SimpleSearchResponse** = \{ `results`: [`SimpleSearchResponseItem`](SimpleSearchResponseItem.md)[]; \}
 
 The response for simple search
 

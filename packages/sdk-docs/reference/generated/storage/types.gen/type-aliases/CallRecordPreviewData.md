@@ -1,6 +1,6 @@
 # Type Alias: CallRecordPreviewData
 
-> **CallRecordPreviewData** = `object`
+> **CallRecordPreviewData** = \{ `callId`: `string`; `channelId?`: `string` \| `null`; `channelName?`: `string` \| `null`; `customName?`: `string` \| `null`; `endedAt?`: `string` \| `null`; `startedAt`: `string`; \}
 
 Preview payload returned for each found call id.
 

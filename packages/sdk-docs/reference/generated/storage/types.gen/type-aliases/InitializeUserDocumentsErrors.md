@@ -1,6 +1,6 @@
 # Type Alias: InitializeUserDocumentsErrors
 
-> **InitializeUserDocumentsErrors** = `object`
+> **InitializeUserDocumentsErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `403`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

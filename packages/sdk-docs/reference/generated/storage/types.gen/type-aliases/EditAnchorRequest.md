@@ -1,6 +1,6 @@
 # Type Alias: EditAnchorRequest
 
-> **EditAnchorRequest** = [`EditPdfAnchorRequest`](EditPdfAnchorRequest.md) & `object`
+> **EditAnchorRequest** = [`EditPdfAnchorRequest`](EditPdfAnchorRequest.md) & \{ `fileType`: `"pdf"`; \}
 
 ## Type Declaration
 

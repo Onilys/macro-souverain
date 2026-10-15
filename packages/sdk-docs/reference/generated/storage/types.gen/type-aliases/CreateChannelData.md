@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelData
 
-> **CreateChannelData** = `object`
+> **CreateChannelData** = \{ `body`: [`CreateChannelRequest`](CreateChannelRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/channels"`; \}
 
 ## Properties
 

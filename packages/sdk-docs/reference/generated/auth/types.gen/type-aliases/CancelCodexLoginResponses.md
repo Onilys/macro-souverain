@@ -1,6 +1,6 @@
 # Type Alias: CancelCodexLoginResponses
 
-> **CancelCodexLoginResponses** = `object`
+> **CancelCodexLoginResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

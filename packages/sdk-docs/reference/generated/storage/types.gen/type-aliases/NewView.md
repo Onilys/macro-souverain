@@ -1,6 +1,6 @@
 # Type Alias: NewView
 
-> **NewView** = `object`
+> **NewView** = \{ `layout`: [`RequestedLayout`](RequestedLayout.md); `name`: `string`; `query?`: [`ViewQuery`](ViewQuery.md); \}
 
 A view's contents as an op creates it; the server gives it its id,
 position and times.

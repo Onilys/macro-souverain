@@ -1,6 +1,6 @@
 # Type Alias: FormCollaboration
 
-> **FormCollaboration** = `object`
+> **FormCollaboration** = \{ `detail`: [`FormDetail`](FormDetail.md); `publicationError?`: [`FormPublicationProblem`](FormPublicationProblem.md); \}
 
 A ready collaborative form and the result of publishing its latest draft.
 

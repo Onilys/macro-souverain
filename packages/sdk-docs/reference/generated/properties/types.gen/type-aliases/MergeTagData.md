@@ -1,6 +1,6 @@
 # Type Alias: MergeTagData
 
-> **MergeTagData** = `object`
+> **MergeTagData** = \{ `body`: [`MergeTagRequest`](MergeTagRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/properties/tags/merge"`; \}
 
 ## Properties
 

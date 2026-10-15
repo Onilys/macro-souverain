@@ -1,6 +1,6 @@
 # Type Alias: GetChannelErrors
 
-> **GetChannelErrors** = `object`
+> **GetChannelErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

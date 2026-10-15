@@ -1,6 +1,6 @@
 # Type Alias: SessionCreationErrors
 
-> **SessionCreationErrors** = `object`
+> **SessionCreationErrors** = \{ `400`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

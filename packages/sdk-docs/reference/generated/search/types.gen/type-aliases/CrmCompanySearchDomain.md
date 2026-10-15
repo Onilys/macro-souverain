@@ -1,6 +1,6 @@
 # Type Alias: CrmCompanySearchDomain
 
-> **CrmCompanySearchDomain** = `object`
+> **CrmCompanySearchDomain** = \{ `companyId`: `string`; `createdAt`: `string`; `domain`: `string`; `id`: `string`; \}
 
 A CRM domain attached to a company in search results.
 

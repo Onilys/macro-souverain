@@ -1,6 +1,6 @@
 # Type Alias: DocumentMetadata
 
-> **DocumentMetadata** = `object`
+> **DocumentMetadata** = \{ `created_at`: `string`; `deleted_at?`: `string` \| `null`; `project_id?`: `string` \| `null`; `updated_at`: `string`; `viewed_at?`: `string` \| `null`; \}
 
 Metadata for a document fetched from the database
 

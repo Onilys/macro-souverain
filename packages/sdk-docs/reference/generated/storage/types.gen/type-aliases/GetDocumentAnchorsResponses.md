@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentAnchorsResponses
 
-> **GetDocumentAnchorsResponses** = `object`
+> **GetDocumentAnchorsResponses** = \{ `200`: [`AnchorResponse`](AnchorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ApiActivity
 
-> **ApiActivity** = `object`
+> **ApiActivity** = \{ `channel_id`: `string`; `created_at`: `string`; `id`: `string`; `interacted_at?`: `string` \| `null`; `updated_at`: `string`; `user_id`: `string`; `viewed_at?`: `string` \| `null`; \}
 
 A user's activity (view/interaction) within a channel.
 

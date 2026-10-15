@@ -1,6 +1,6 @@
 # Type Alias: GetViewsHandlerData
 
-> **GetViewsHandlerData** = `object`
+> **GetViewsHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/saved_views"`; \}
 
 ## Properties
 

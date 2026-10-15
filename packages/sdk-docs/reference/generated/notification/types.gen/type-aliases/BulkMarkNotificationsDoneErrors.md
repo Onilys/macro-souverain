@@ -1,6 +1,6 @@
 # Type Alias: BulkMarkNotificationsDoneErrors
 
-> **BulkMarkNotificationsDoneErrors** = `object`
+> **BulkMarkNotificationsDoneErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

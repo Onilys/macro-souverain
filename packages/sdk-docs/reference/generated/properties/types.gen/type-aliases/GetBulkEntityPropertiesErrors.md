@@ -1,6 +1,6 @@
 # Type Alias: GetBulkEntityPropertiesErrors
 
-> **GetBulkEntityPropertiesErrors** = `object`
+> **GetBulkEntityPropertiesErrors** = \{ `400`: `unknown`; `403`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

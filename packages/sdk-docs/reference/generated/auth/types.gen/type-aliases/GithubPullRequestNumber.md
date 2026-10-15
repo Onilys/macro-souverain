@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestNumber
 
-> **GithubPullRequestNumber** = `object`
+> **GithubPullRequestNumber** = \{ `number`: `number`; `owner`: `string`; `repo`: `string`; \}
 
 One pull request, by repository and number.
 

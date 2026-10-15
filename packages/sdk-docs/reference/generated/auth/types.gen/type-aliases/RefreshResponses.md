@@ -1,6 +1,6 @@
 # Type Alias: RefreshResponses
 
-> **RefreshResponses** = `object`
+> **RefreshResponses** = \{ `200`: [`UserTokensResponse`](UserTokensResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: DeleteMcpServerResponses
 
-> **DeleteMcpServerResponses** = `object`
+> **DeleteMcpServerResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

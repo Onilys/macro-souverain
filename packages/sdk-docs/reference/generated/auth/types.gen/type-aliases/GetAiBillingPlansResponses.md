@@ -1,6 +1,6 @@
 # Type Alias: GetAiBillingPlansResponses
 
-> **GetAiBillingPlansResponses** = `object`
+> **GetAiBillingPlansResponses** = \{ `200`: [`PlanCatalogResponse`](PlanCatalogResponse.md); \}
 
 ## Properties
 

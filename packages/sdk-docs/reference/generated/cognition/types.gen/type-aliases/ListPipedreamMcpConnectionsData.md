@@ -1,6 +1,6 @@
 # Type Alias: ListPipedreamMcpConnectionsData
 
-> **ListPipedreamMcpConnectionsData** = `object`
+> **ListPipedreamMcpConnectionsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/pipedream/mcp/connections"`; \}
 
 ## Properties
 

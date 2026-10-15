@@ -1,6 +1,6 @@
 # Type Alias: ChatAttachment
 
-> **ChatAttachment** = `object`
+> **ChatAttachment** = \{ `attachment_id`: `string`; `attachment_type`: [`AttachmentType`](AttachmentType.md); `chat_id?`: `string` \| `null`; `id`: `string`; `message_id?`: `string` \| `null`; \}
 
 ## Properties
 

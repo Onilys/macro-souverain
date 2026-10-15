@@ -1,6 +1,6 @@
 # Type Alias: CompleteHandlerResponses
 
-> **CompleteHandlerResponses** = `object`
+> **CompleteHandlerResponses** = \{ `200`: [`OnboardingRow`](OnboardingRow.md); \}
 
 ## Properties
 

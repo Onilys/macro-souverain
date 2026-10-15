@@ -1,6 +1,6 @@
 # Type Alias: InferColumnTypeOutcome
 
-> **InferColumnTypeOutcome** = `object`
+> **InferColumnTypeOutcome** = \{ `column`: [`ColumnDetail`](ColumnDetail.md); `table_version`: [`TableVersion`](TableVersion.md); \}
 
 Settled schema and the version against which its first value can be written.
 

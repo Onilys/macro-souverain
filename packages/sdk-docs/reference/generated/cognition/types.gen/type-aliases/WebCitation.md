@@ -1,6 +1,6 @@
 # Type Alias: WebCitation
 
-> **WebCitation** = `object`
+> **WebCitation** = \{ `description?`: `string` \| `null`; `favicon_url?`: `string` \| `null`; `image_url?`: `string` \| `null`; `title`: `string`; `url`: `string`; \}
 
 A web citation associated with a chat message.
 

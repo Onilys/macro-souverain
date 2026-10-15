@@ -1,6 +1,6 @@
 # Type Alias: DiscoverAgentCapabilitiesHandlerResponses
 
-> **DiscoverAgentCapabilitiesHandlerResponses** = `object`
+> **DiscoverAgentCapabilitiesHandlerResponses** = \{ `200`: [`DiscoverAgentCapabilitiesResponse`](DiscoverAgentCapabilitiesResponse.md); \}
 
 ## Properties
 

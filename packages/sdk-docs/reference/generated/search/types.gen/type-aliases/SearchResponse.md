@@ -1,6 +1,6 @@
 # Type Alias: SearchResponse
 
-> **SearchResponse** = `object`
+> **SearchResponse** = \{ `results`: [`ProjectSearchResponseItemWithMetadata`](ProjectSearchResponseItemWithMetadata.md)[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: DeclineRingResponses
 
-> **DeclineRingResponses** = `object`
+> **DeclineRingResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

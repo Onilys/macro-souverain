@@ -1,6 +1,6 @@
 # Type Alias: BulkMarkNotificationsUndoneData
 
-> **BulkMarkNotificationsUndoneData** = `object`
+> **BulkMarkNotificationsUndoneData** = \{ `body`: [`NotificationBulkRequest`](NotificationBulkRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/v2/user_notifications/bulk/undone"`; \}
 
 ## Properties
 

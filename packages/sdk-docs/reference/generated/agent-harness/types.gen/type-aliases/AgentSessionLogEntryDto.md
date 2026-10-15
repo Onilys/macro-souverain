@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionLogEntryDto
 
-> **AgentSessionLogEntryDto** = [`LogFrameDto`](LogFrameDto.md) & `object`
+> **AgentSessionLogEntryDto** = [`LogFrameDto`](LogFrameDto.md) & \{ `createdAt`: `string`; `id`: `string`; `userId?`: `string` \| `null`; \}
 
 One entry of a session's protocol log.
 

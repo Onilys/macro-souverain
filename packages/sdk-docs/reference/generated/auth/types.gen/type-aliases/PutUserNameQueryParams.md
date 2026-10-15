@@ -1,6 +1,6 @@
 # Type Alias: PutUserNameQueryParams
 
-> **PutUserNameQueryParams** = `object`
+> **PutUserNameQueryParams** = \{ `first_name?`: `string` \| `null`; `last_name?`: `string` \| `null`; \}
 
 ## Properties
 

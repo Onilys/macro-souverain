@@ -1,6 +1,6 @@
 # Type Alias: GetEntityPermissionResponses
 
-> **GetEntityPermissionResponses** = `object`
+> **GetEntityPermissionResponses** = \{ `200`: [`EntityPermissionResponse`](EntityPermissionResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: StatusResponse
 
-> **StatusResponse** = `object`
+> **StatusResponse** = \{ `connected`: `boolean`; `enabled`: `boolean`; `ephemeral`: `boolean`; \}
 
 Safe connection metadata.
 

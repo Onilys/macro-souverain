@@ -1,6 +1,6 @@
 # Type Alias: EntityMessageReactResponses
 
-> **EntityMessageReactResponses** = `object`
+> **EntityMessageReactResponses** = \{ `200`: [`Message`](Message.md); \}
 
 ## Properties
 

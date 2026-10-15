@@ -1,6 +1,6 @@
 # Type Alias: ChannelWithParticipants
 
-> **ChannelWithParticipants** = `object`
+> **ChannelWithParticipants** = \{ `channel`: [`Channel`](Channel.md); `is_participant?`: `boolean`; `participants`: [`ChannelParticipant`](ChannelParticipant.md)[]; \}
 
 Channel metadata together with its participants.
 

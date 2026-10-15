@@ -1,6 +1,6 @@
 # Type Alias: ListWebhooksData
 
-> **ListWebhooksData** = `object`
+> **ListWebhooksData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/webhook/webhooks"`; \}
 
 ## Properties
 

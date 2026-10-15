@@ -1,6 +1,6 @@
 # Type Alias: SimpleProjectSearchResponse
 
-> **SimpleProjectSearchResponse** = `object`
+> **SimpleProjectSearchResponse** = \{ `results`: [`SimpleProjectSearchResponseBaseItem`](SimpleProjectSearchResponseBaseItem.md)[]; \}
 
 ## Properties
 

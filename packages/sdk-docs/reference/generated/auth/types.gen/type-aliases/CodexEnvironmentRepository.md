@@ -1,6 +1,6 @@
 # Type Alias: CodexEnvironmentRepository
 
-> **CodexEnvironmentRepository** = `object`
+> **CodexEnvironmentRepository** = \{ `cloneUrl`: `string`; `defaultBranch`: `string`; `fullName`: `string`; \}
 
 Safe repository metadata available to the connected Codex account.
 

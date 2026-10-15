@@ -1,6 +1,6 @@
 # Type Alias: TeamMember
 
-> **TeamMember** = `object`
+> **TeamMember** = \{ `plan`: [`SeatPlan`](SeatPlan.md); `role`: [`TeamRole`](TeamRole.md); `team_id`: `string`; `user_id`: `string`; \}
 
 The team member struct
 

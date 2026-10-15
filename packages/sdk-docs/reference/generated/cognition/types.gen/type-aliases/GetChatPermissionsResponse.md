@@ -1,6 +1,6 @@
 # Type Alias: GetChatPermissionsResponse
 
-> **GetChatPermissionsResponse** = `object`
+> **GetChatPermissionsResponse** = \{ `permissions`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 Response body for get chat permissions.
 

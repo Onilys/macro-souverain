@@ -1,6 +1,6 @@
 # Type Alias: WebhookValidationTestEvent
 
-> **WebhookValidationTestEvent** = `object`
+> **WebhookValidationTestEvent** = \{ `event`: `string`; `id`: `string`; `webhook_id`: [`String`](String.md); \}
 
 Body of the `webhook.validation.test` delivery sent when validating an
 endpoint. Not part of the `WebhookEvent` entity-event union.

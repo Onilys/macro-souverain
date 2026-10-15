@@ -1,6 +1,6 @@
 # Type Alias: ChatMessageWithAttachments
 
-> **ChatMessageWithAttachments** = `object`
+> **ChatMessageWithAttachments** = \{ `attachments`: [`Entity`](Entity.md)[]; `content`: [`ChatMessageContent`](ChatMessageContent.md); `id`: `string`; `role`: [`Role`](Role.md); \}
 
 ## Properties
 

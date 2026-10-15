@@ -1,6 +1,6 @@
 # Type Alias: ImportEntity
 
-> **ImportEntity** = `object`
+> **ImportEntity** = \{ `created_at`: `string`; `entity_id?`: `string` \| `null`; `entity_type?`: `string` \| `null`; `foreign_id`: `string`; `id`: `string`; `initiator`: [`Initiator`](Initiator.md); `last_error?`: `string` \| `null`; `metadata`: `unknown`; `source`: [`ImportSource`](ImportSource.md); `status`: [`ImportStatus`](ImportStatus.md); `team_id?`: `string` \| `null`; `updated_at`: `string`; `user_id`: `string`; \}
 
 One row of the import ledger.
 

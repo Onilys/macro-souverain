@@ -1,6 +1,6 @@
 # Type Alias: PdfHighlightRectAnchorRequest
 
-> **PdfHighlightRectAnchorRequest** = `object`
+> **PdfHighlightRectAnchorRequest** = \{ `height`: `number`; `left`: `number`; `top`: `number`; `width`: `number`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: NotificationBulkRequest
 
-> **NotificationBulkRequest** = `object`
+> **NotificationBulkRequest** = \{ `notificationIds`: `string`[]; \}
 
 the notification ids that we are bulk updating
 

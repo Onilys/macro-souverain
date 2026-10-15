@@ -1,6 +1,6 @@
 # Type Alias: AddEntityPropertyOptionErrors
 
-> **AddEntityPropertyOptionErrors** = `object`
+> **AddEntityPropertyOptionErrors** = \{ `400`: `unknown`; `403`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

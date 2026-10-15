@@ -1,6 +1,6 @@
 # Type Alias: InitOutlookLinkResponses
 
-> **InitOutlookLinkResponses** = `object`
+> **InitOutlookLinkResponses** = \{ `200`: [`InitOutlookLinkResponse`](InitOutlookLinkResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: DecisionErrorBody
 
-> **DecisionErrorBody** = `object`
+> **DecisionErrorBody** = \{ `code`: `string`; `error`: `string`; \}
 
 Sanitized, machine-readable failure of a decision request.
 

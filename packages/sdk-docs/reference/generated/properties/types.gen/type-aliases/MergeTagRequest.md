@@ -1,6 +1,6 @@
 # Type Alias: MergeTagRequest
 
-> **MergeTagRequest** = `object`
+> **MergeTagRequest** = \{ `option_id`: `string`; `target_option_id`: `string`; \}
 
 Request to replace a personal label with an existing team label.
 

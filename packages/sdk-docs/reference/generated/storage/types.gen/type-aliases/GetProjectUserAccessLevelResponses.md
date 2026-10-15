@@ -1,6 +1,6 @@
 # Type Alias: GetProjectUserAccessLevelResponses
 
-> **GetProjectUserAccessLevelResponses** = `object`
+> **GetProjectUserAccessLevelResponses** = \{ `200`: [`AccessLevel`](AccessLevel.md); \}
 
 ## Properties
 

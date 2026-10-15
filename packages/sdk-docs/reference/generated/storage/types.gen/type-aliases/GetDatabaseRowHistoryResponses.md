@@ -1,6 +1,6 @@
 # Type Alias: GetDatabaseRowHistoryResponses
 
-> **GetDatabaseRowHistoryResponses** = `object`
+> **GetDatabaseRowHistoryResponses** = \{ `200`: [`RowHistoryResponse`](RowHistoryResponse.md); \}
 
 ## Properties
 

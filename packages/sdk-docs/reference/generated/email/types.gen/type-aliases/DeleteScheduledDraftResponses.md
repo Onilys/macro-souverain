@@ -1,6 +1,6 @@
 # Type Alias: DeleteScheduledDraftResponses
 
-> **DeleteScheduledDraftResponses** = `object`
+> **DeleteScheduledDraftResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

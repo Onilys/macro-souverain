@@ -1,6 +1,6 @@
 # Type Alias: StoredConnectionEntity
 
-> **StoredConnectionEntity** = `object`
+> **StoredConnectionEntity** = \{ `connection_id`: `string`; `created_at`: `number`; `entity_id`: `string`; `entity_type`: [`EntityType`](EntityType.md); `last_ping?`: `number` \| `null`; `PK`: `string`; `SK`: `string`; `user_id`: `string`; \}
 
 ## Properties
 

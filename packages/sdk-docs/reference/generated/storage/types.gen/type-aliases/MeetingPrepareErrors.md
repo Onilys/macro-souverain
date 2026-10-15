@@ -1,6 +1,6 @@
 # Type Alias: MeetingPrepareErrors
 
-> **MeetingPrepareErrors** = `object`
+> **MeetingPrepareErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

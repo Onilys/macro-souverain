@@ -1,6 +1,6 @@
 # Type Alias: StorageRows
 
-> **StorageRows** = `object`
+> **StorageRows** = \{ `next?`: `null` \| [`RowId`](RowId.md); `rows`: [`StorageRow`](StorageRow.md)[]; `version`: [`TableVersion`](TableVersion.md); \}
 
 A bounded page of rows at a table version.
 

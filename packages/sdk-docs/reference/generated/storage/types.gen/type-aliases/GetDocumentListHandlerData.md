@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentListHandlerData
 
-> **GetDocumentListHandlerData** = `object`
+> **GetDocumentListHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/documents/list"`; \}
 
 ## Properties
 

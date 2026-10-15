@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentProcessingResult
 
-> **GetDocumentProcessingResult** = `object`
+> **GetDocumentProcessingResult** = \{ `result`: `string`; \}
 
 ## Properties
 

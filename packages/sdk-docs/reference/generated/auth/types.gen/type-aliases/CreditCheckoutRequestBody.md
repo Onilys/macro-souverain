@@ -1,6 +1,6 @@
 # Type Alias: CreditCheckoutRequestBody
 
-> **CreditCheckoutRequestBody** = `object`
+> **CreditCheckoutRequestBody** = \{ `amountCents`: `number`; `cancelUrl`: `string`; `successUrl`: `string`; \}
 
 Request body for [`create_credit_checkout_handler`].
 

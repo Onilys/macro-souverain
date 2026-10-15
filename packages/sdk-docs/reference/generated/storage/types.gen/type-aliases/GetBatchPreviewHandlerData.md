@@ -1,6 +1,6 @@
 # Type Alias: GetBatchPreviewHandlerData
 
-> **GetBatchPreviewHandlerData** = `object`
+> **GetBatchPreviewHandlerData** = \{ `body`: [`GetBatchPreviewRequest`](GetBatchPreviewRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents/preview"`; \}
 
 ## Properties
 

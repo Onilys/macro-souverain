@@ -1,6 +1,6 @@
 # Type Alias: PasswordlessLoginErrors
 
-> **PasswordlessLoginErrors** = `object`
+> **PasswordlessLoginErrors** = \{ `400`: `string`; `403`: `string`; `500`: `string`; \}
 
 ## Properties
 

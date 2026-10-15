@@ -1,6 +1,6 @@
 # Type Alias: MessageListItem
 
-> **MessageListItem** = [`Message`](Message.md) & `object`
+> **MessageListItem** = [`Message`](Message.md) & \{ `state`: [`ThreadState`](ThreadState.md); `thread`: [`MessageThreadPreview`](MessageThreadPreview.md); \}
 
 Root message with its small thread preview, independent of its parent type.
 

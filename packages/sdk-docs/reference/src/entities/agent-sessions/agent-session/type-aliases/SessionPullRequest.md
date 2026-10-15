@@ -1,6 +1,6 @@
 # Type Alias: SessionPullRequest
 
-> **SessionPullRequest** = `object`
+> **SessionPullRequest** = \{ `createdAt`: `string`; `githubKey`: `string`; `linkedBy?`: [`User`](../../../users/user/classes/User.md); `source`: [`PullRequestLinkSource`](../../../../../generated/agent-harness/types.gen/type-aliases/PullRequestLinkSource.md); `url`: `string`; \}
 
 A GitHub pull request linked to a session.
 

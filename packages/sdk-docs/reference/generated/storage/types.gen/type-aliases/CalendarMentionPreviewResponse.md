@@ -1,6 +1,6 @@
 # Type Alias: CalendarMentionPreviewResponse
 
-> **CalendarMentionPreviewResponse** = `object`
+> **CalendarMentionPreviewResponse** = \{ `items`: [`CalendarMentionPreviewItem`](CalendarMentionPreviewItem.md)[]; \}
 
 Batch calendar mention preview response.
 

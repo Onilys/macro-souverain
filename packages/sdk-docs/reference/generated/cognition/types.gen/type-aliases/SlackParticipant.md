@@ -1,6 +1,6 @@
 # Type Alias: SlackParticipant
 
-> **SlackParticipant** = `object`
+> **SlackParticipant** = \{ `email?`: `string` \| `null`; `name`: `string`; \}
 
 A person active in a staged Slack channel.
 

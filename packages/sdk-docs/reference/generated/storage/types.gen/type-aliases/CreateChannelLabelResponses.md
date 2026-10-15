@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelLabelResponses
 
-> **CreateChannelLabelResponses** = `object`
+> **CreateChannelLabelResponses** = \{ `200`: [`ChannelLabel`](ChannelLabel.md); \}
 
 ## Properties
 

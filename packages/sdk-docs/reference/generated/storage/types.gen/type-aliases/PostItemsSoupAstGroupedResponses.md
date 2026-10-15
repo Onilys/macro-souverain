@@ -1,6 +1,6 @@
 # Type Alias: PostItemsSoupAstGroupedResponses
 
-> **PostItemsSoupAstGroupedResponses** = `object`
+> **PostItemsSoupAstGroupedResponses** = \{ `200`: [`GroupedSoupPage`](GroupedSoupPage.md); \}
 
 ## Properties
 

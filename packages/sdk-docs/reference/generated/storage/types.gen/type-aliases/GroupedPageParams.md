@@ -1,6 +1,6 @@
 # Type Alias: GroupedPageParams
 
-> **GroupedPageParams** = `object`
+> **GroupedPageParams** = \{ `group_by`: [`ApiGroupByField`](ApiGroupByField.md); `group_key`: `string`; `limit?`: `number` \| `null`; `sort_method?`: `null` \| [`GroupedSoupSort`](GroupedSoupSort.md); \}
 
 Parameters for fetching one page within a specific group.
 

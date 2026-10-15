@@ -1,6 +1,6 @@
 # Type Alias: McpAuthCallbackErrors
 
-> **McpAuthCallbackErrors** = `object`
+> **McpAuthCallbackErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: WorkspacePageOptions
 
-> **WorkspacePageOptions** = [`WorkspaceListOptions`](WorkspaceListOptions.md) & `object`
+> **WorkspacePageOptions** = [`WorkspaceListOptions`](WorkspaceListOptions.md) & \{ `cursor?`: `string`; \}
 
 Resume a page with its opaque cursor and the same options.
 

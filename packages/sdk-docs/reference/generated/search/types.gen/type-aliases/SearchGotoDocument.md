@@ -1,6 +1,6 @@
 # Type Alias: SearchGotoDocument
 
-> **SearchGotoDocument** = `object`
+> **SearchGotoDocument** = \{ `node_id`: `string`; `raw_content?`: `string` \| `null`; \}
 
 ## Properties
 

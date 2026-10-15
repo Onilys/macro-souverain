@@ -1,6 +1,6 @@
 # Type Alias: SimpleCalendarEventSearchResponseBaseItemHumanReadableTimestamp
 
-> **SimpleCalendarEventSearchResponseBaseItemHumanReadableTimestamp** = `object`
+> **SimpleCalendarEventSearchResponseBaseItemHumanReadableTimestamp** = \{ `calendar_event_id`: `string`; `created_at`: `string`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `is_recurring`: `boolean`; `occurrence_key?`: `string` \| `null`; `title`: `string`; `updated_at`: `string`; `user_id`: `string`; \}
 
 ## Properties
 

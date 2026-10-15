@@ -1,6 +1,6 @@
 # Type Alias: CreateMarkdownDocumentResponse
 
-> **CreateMarkdownDocumentResponse** = `object`
+> **CreateMarkdownDocumentResponse** = \{ `documentId`: `string`; `documentMetadata`: [`DocumentResponseMetadata`](DocumentResponseMetadata.md); `token`: `string`; \}
 
 Response for creating a markdown document.
 

@@ -1,6 +1,6 @@
 # Type Alias: RetryGatherHandlerErrors
 
-> **RetryGatherHandlerErrors** = `object`
+> **RetryGatherHandlerErrors** = \{ `400`: `unknown`; `402`: [`AiAdmissionErrorBody`](AiAdmissionErrorBody.md); `500`: `unknown`; `503`: [`AiAdmissionErrorBody`](AiAdmissionErrorBody.md); \}
 
 ## Properties
 

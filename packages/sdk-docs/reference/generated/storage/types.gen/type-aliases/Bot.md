@@ -1,6 +1,6 @@
 # Type Alias: Bot
 
-> **Bot** = `object`
+> **Bot** = \{ `avatar_url?`: `string` \| `null`; `created_at`: `string`; `created_by?`: `string` \| `null`; `deleted_at?`: `string` \| `null`; `description?`: `string` \| `null`; `handle`: `string`; `has_agent`: `boolean`; `id`: [`BotId`](BotId.md); `kind`: [`BotKind`](BotKind.md); `name`: `string`; `owner?`: `null` \| [`BotOwner`](BotOwner.md); `updated_at`: `string`; \}
 
 Bot row.
 

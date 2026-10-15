@@ -1,6 +1,6 @@
 # Type Alias: PutCursorDefaultModelErrors
 
-> **PutCursorDefaultModelErrors** = `object`
+> **PutCursorDefaultModelErrors** = \{ `401`: `string`; `403`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

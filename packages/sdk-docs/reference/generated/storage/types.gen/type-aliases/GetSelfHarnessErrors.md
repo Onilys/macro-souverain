@@ -1,6 +1,6 @@
 # Type Alias: GetSelfHarnessErrors
 
-> **GetSelfHarnessErrors** = `object`
+> **GetSelfHarnessErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

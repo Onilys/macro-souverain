@@ -1,6 +1,6 @@
 # Type Alias: PropertyDefinitionWithOptionsResponse
 
-> **PropertyDefinitionWithOptionsResponse** = `object`
+> **PropertyDefinitionWithOptionsResponse** = \{ `definition`: [`PropertyDefinitionDetailResponse`](PropertyDefinitionDetailResponse.md); `propertyOptions`: [`PropertyOptionResponse`](PropertyOptionResponse.md)[]; \}
 
 Property definition with options response.
 

@@ -1,6 +1,6 @@
 # Type Alias: ApiAttachmentGenericReference
 
-> **ApiAttachmentGenericReference** = `object`
+> **ApiAttachmentGenericReference** = \{ `created_at`: `string`; `entity_id`: `string`; `entity_type`: `string`; `source_entity_id`: `string`; `source_entity_type`: `string`; `user_id?`: `string` \| `null`; \}
 
 A reference to an attachment entity from a non-message source.
 

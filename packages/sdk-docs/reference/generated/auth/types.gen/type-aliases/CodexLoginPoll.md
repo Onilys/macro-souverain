@@ -1,6 +1,6 @@
 # Type Alias: CodexLoginPoll
 
-> **CodexLoginPoll** = `object`
+> **CodexLoginPoll** = \{ `status`: [`CodexLoginState`](CodexLoginState.md); \}
 
 Outcome of polling one attempt.
 

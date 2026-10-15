@@ -1,6 +1,6 @@
 # Type Alias: DocumentSearchResponse
 
-> **DocumentSearchResponse** = `object`
+> **DocumentSearchResponse** = \{ `results`: [`DocumentSearchResponseItemWithMetadata`](DocumentSearchResponseItemWithMetadata.md)[]; \}
 
 The document search response object
 

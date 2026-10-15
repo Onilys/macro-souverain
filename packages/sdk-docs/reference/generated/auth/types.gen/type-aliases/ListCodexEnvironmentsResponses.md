@@ -1,6 +1,6 @@
 # Type Alias: ListCodexEnvironmentsResponses
 
-> **ListCodexEnvironmentsResponses** = `object`
+> **ListCodexEnvironmentsResponses** = \{ `200`: [`CodexEnvironment`](CodexEnvironment.md)[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: Link
 
-> **Link** = `object`
+> **Link** = \{ `calendar_disabled`: `boolean`; `created_at`: `string`; `email_address`: `string`; `fusionauth_user_id`: `string`; `has_calendar_data`: `boolean`; `id`: `string`; `is_primary`: `boolean`; `is_sync_active`: `boolean`; `macro_id`: `string`; `needs_calendar_permission`: `boolean`; `needs_reauth`: `boolean`; `photo_url?`: `string` \| `null`; `provider`: [`UserProvider`](UserProvider.md); `settings`: [`Settings`](Settings.md); `sync_status`: [`SyncStatus`](SyncStatus.md); `updated_at`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: EntityPropertyResponse
 
-> **EntityPropertyResponse** = `object`
+> **EntityPropertyResponse** = \{ `createdAt?`: `string` \| `null`; `entityId`: `string`; `entityType`: [`EntityType`](EntityType.md); `id`: `string`; `propertyDefinitionId`: `string`; `updatedAt?`: `string` \| `null`; \}
 
 Entity property response (API representation).
 

@@ -1,6 +1,6 @@
 # Type Alias: ChannelSearchResponseItemWithMetadata
 
-> **ChannelSearchResponseItemWithMetadata** = [`ChannelSearchResponseItem`](ChannelSearchResponseItem.md) & `object`
+> **ChannelSearchResponseItemWithMetadata** = [`ChannelSearchResponseItem`](ChannelSearchResponseItem.md) & \{ `metadata?`: `null` \| [`ChannelMetadata`](ChannelMetadata.md); \}
 
 ChannelSearchResponseItem object with channel metadata we fetch from macrodb. we don't store these
 timestamps in opensearch as they would require us to update each chat message record for the chat

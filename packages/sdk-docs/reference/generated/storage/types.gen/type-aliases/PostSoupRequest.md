@@ -1,6 +1,6 @@
 # Type Alias: PostSoupRequest
 
-> **PostSoupRequest** = [`EntityFilters`](EntityFilters.md) & [`Params`](Params.md) & `object`
+> **PostSoupRequest** = [`EntityFilters`](EntityFilters.md) & [`Params`](Params.md) & \{ `emailView?`: `string`; \}
 
 Request body for the typed soup endpoint.
 

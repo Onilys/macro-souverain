@@ -1,6 +1,6 @@
 # Type Alias: Permission
 
-> **Permission** = `object`
+> **Permission** = \{ `description`: `string`; `id`: `string`; \}
 
 ## Properties
 

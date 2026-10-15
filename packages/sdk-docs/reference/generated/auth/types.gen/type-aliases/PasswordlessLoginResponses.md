@@ -1,6 +1,6 @@
 # Type Alias: PasswordlessLoginResponses
 
-> **PasswordlessLoginResponses** = `object`
+> **PasswordlessLoginResponses** = \{ `200`: [`PasswordlessStartedResponse`](PasswordlessStartedResponse.md); `202`: [`SsoRequiredResponse`](SsoRequiredResponse.md); \}
 
 ## Properties
 

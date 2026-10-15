@@ -1,6 +1,6 @@
 # Type Alias: DecisionsResponses
 
-> **DecisionsResponses** = `object`
+> **DecisionsResponses** = \{ `200`: [`DecisionResponse`](DecisionResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CallToolErrors
 
-> **CallToolErrors** = `object`
+> **CallToolErrors** = \{ `400`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

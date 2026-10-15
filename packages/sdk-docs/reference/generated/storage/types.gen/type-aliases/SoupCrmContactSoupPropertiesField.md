@@ -1,6 +1,6 @@
 # Type Alias: SoupCrmContactSoupPropertiesField
 
-> **SoupCrmContactSoupPropertiesField** = `object` & `object`
+> **SoupCrmContactSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `companyId`: `string`; `companyName`: `string`; `createdAt`: `string`; `email`: `string`; `firstInteraction`: `string`; `hidden`: `boolean`; `id`: `string`; `lastInteraction`: `string`; `name?`: `string` \| `null`; `teamId`: `string`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 One original CRM contact record, selected from the viewer's accessible teams.
 

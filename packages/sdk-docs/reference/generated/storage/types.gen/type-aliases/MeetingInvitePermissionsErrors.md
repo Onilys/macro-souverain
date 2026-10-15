@@ -1,6 +1,6 @@
 # Type Alias: MeetingInvitePermissionsErrors
 
-> **MeetingInvitePermissionsErrors** = `object`
+> **MeetingInvitePermissionsErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

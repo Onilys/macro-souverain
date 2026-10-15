@@ -1,6 +1,6 @@
 # Type Alias: CreateCrmCompanyData
 
-> **CreateCrmCompanyData** = `object`
+> **CreateCrmCompanyData** = \{ `body`: [`CreateCrmCompanyRequest`](CreateCrmCompanyRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/crm/companies"`; \}
 
 ## Properties
 

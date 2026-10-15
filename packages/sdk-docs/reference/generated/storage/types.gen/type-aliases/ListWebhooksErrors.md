@@ -1,6 +1,6 @@
 # Type Alias: ListWebhooksErrors
 
-> **ListWebhooksErrors** = `object`
+> **ListWebhooksErrors** = \{ `403`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

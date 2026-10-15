@@ -186,11 +186,11 @@ value when `value` is omitted.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`Project`](../../../../../generated/storage/types.gen/type-aliases/Project.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`Project`](../../../../../generated/storage/types.gen/type-aliases/Project.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

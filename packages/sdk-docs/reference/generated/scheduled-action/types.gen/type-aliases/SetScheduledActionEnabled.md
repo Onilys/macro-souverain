@@ -1,6 +1,6 @@
 # Type Alias: SetScheduledActionEnabled
 
-> **SetScheduledActionEnabled** = `object`
+> **SetScheduledActionEnabled** = \{ `enabled`: `boolean`; \}
 
 ## Properties
 

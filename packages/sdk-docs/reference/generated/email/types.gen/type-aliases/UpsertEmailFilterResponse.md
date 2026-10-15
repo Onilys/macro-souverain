@@ -1,6 +1,6 @@
 # Type Alias: UpsertEmailFilterResponse
 
-> **UpsertEmailFilterResponse** = `object`
+> **UpsertEmailFilterResponse** = \{ `filter`: [`ApiEmailFilter`](ApiEmailFilter.md); \}
 
 Response body for upsert email filter.
 

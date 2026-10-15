@@ -1,6 +1,6 @@
 # Type Alias: ToggleTeamAutoJoinDomainResponses
 
-> **ToggleTeamAutoJoinDomainResponses** = `object`
+> **ToggleTeamAutoJoinDomainResponses** = \{ `200`: [`ToggleAutoJoinDomainResponse`](ToggleAutoJoinDomainResponse.md); \}
 
 ## Properties
 

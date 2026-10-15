@@ -1,6 +1,6 @@
 # Type Alias: CollaborateFormResponses
 
-> **CollaborateFormResponses** = `object`
+> **CollaborateFormResponses** = \{ `200`: [`FormCollaboration`](FormCollaboration.md); \}
 
 ## Properties
 

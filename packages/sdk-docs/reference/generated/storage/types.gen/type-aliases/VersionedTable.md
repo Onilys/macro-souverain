@@ -1,6 +1,6 @@
 # Type Alias: VersionedTable
 
-> **VersionedTable** = `object`
+> **VersionedTable** = \{ `table`: `string`; `version`: [`TableVersion`](TableVersion.md); \}
 
 A table and its version.
 

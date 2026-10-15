@@ -47,6 +47,7 @@ export async function renderSdkDocs(root: string, output: string) {
     cleanOutputDir: true,
     hideBreadcrumbs: true,
     hidePageHeader: true,
+    expandObjects: true,
     parametersFormat: 'table',
     interfacePropertiesFormat: 'table',
     classPropertiesFormat: 'table',

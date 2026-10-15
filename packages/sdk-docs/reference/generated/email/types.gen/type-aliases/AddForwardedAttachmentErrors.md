@@ -1,6 +1,6 @@
 # Type Alias: AddForwardedAttachmentErrors
 
-> **AddForwardedAttachmentErrors** = `object`
+> **AddForwardedAttachmentErrors** = \{ `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

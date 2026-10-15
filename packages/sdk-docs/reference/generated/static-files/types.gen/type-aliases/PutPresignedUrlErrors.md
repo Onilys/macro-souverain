@@ -1,6 +1,6 @@
 # Type Alias: PutPresignedUrlErrors
 
-> **PutPresignedUrlErrors** = `object`
+> **PutPresignedUrlErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

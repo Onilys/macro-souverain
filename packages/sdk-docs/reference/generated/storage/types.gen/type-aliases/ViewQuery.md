@@ -1,6 +1,6 @@
 # Type Alias: ViewQuery
 
-> **ViewQuery** = `object`
+> **ViewQuery** = \{ `filter`: `null` \| [`FilterGroup`](FilterGroup.md); `sort?`: [`SortKey`](SortKey.md)[]; \}
 
 Which rows of the table a view shows, and in what order: a filter and a
 sort, nothing that joins, groups or reshapes rows.

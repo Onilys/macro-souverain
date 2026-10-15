@@ -1,6 +1,6 @@
 # Type Alias: PipedreamUpdateRequest
 
-> **PipedreamUpdateRequest** = `object`
+> **PipedreamUpdateRequest** = \{ `app_slug`: `string`; `enabled?`: `boolean` \| `null`; `server_name?`: `string` \| `null`; \}
 
 Request body for updating a connected app.
 

@@ -1,6 +1,6 @@
 # Type Alias: ProjectSearchResult
 
-> **ProjectSearchResult** = `object`
+> **ProjectSearchResult** = \{ `highlight`: [`SearchHighlight`](SearchHighlight.md); `score?`: `number` \| `null`; \}
 
 ## Properties
 

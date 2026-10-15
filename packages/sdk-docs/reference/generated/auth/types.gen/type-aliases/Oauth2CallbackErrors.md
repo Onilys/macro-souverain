@@ -1,6 +1,6 @@
 # Type Alias: Oauth2CallbackErrors
 
-> **Oauth2CallbackErrors** = `object`
+> **Oauth2CallbackErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

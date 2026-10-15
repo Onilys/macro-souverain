@@ -1,6 +1,6 @@
 # Type Alias: ToggleAutoJoinDomainResponse
 
-> **ToggleAutoJoinDomainResponse** = `object`
+> **ToggleAutoJoinDomainResponse** = \{ `auto_join_domain?`: `string` \| `null`; \}
 
 Response for the toggle auto-join domain endpoint.
 

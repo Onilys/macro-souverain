@@ -1,6 +1,6 @@
 # Type Alias: UploadExtractFolderRequest
 
-> **UploadExtractFolderRequest** = `object`
+> **UploadExtractFolderRequest** = \{ `name?`: `string` \| `null`; `parentId?`: `string` \| `null`; `sha`: `string`; \}
 
 ## Properties
 

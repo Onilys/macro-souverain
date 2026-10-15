@@ -1,6 +1,6 @@
 # Type Alias: DismissRunHandlerErrors
 
-> **DismissRunHandlerErrors** = `object`
+> **DismissRunHandlerErrors** = \{ `400`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

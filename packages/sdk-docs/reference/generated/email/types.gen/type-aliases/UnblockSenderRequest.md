@@ -1,6 +1,6 @@
 # Type Alias: UnblockSenderRequest
 
-> **UnblockSenderRequest** = `object`
+> **UnblockSenderRequest** = \{ `email_address`: `string`; \}
 
 Request to unblock a sender.
 

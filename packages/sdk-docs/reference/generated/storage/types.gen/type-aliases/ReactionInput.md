@@ -1,6 +1,6 @@
 # Type Alias: ReactionInput
 
-> **ReactionInput** = `object`
+> **ReactionInput** = \{ `add`: `boolean`; `emoji`: `string`; `nonce?`: `string` \| `null`; \}
 
 Reaction mutation for the authenticated user.
 

@@ -1,6 +1,6 @@
 # Type Alias: TeamCalendarDetails
 
-> **TeamCalendarDetails** = `object`
+> **TeamCalendarDetails** = \{ `attendees`: [`CalendarAttendee`](CalendarAttendee.md)[]; `calendarName`: `string`; `conferenceUrl?`: `string` \| `null`; `description?`: `string` \| `null`; `location?`: `string` \| `null`; `organizerEmail?`: `string` \| `null`; `organizerName?`: `string` \| `null`; `title`: `string`; \}
 
 Safe details from a single authorized source.
 

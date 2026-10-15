@@ -1,6 +1,6 @@
 # Type Alias: LogoutResponses
 
-> **LogoutResponses** = `object`
+> **LogoutResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: DecisionsData
 
-> **DecisionsData** = `object`
+> **DecisionsData** = \{ `body`: [`DecisionRequest`](DecisionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/decisions"`; \}
 
 ## Properties
 

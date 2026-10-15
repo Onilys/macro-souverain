@@ -1,6 +1,6 @@
 # Type Alias: DeleteTeamData
 
-> **DeleteTeamData** = `object`
+> **DeleteTeamData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/team"`; \}
 
 ## Properties
 

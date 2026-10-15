@@ -1,6 +1,6 @@
 # Type Alias: CallWebhookErrors
 
-> **CallWebhookErrors** = `object`
+> **CallWebhookErrors** = \{ `401`: `unknown`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PatchProjectRequestV2
 
-> **PatchProjectRequestV2** = `object`
+> **PatchProjectRequestV2** = \{ `name?`: `string` \| `null`; `projectParentId?`: `string` \| `null`; `sharePermission?`: `null` \| [`UpdateSharePermissionRequestV2`](UpdateSharePermissionRequestV2.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetBatchChannelPreviewData
 
-> **GetBatchChannelPreviewData** = `object`
+> **GetBatchChannelPreviewData** = \{ `body`: [`GetBatchChannelPreviewRequest`](GetBatchChannelPreviewRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/channels/preview"`; \}
 
 ## Properties
 

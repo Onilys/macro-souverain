@@ -1,6 +1,6 @@
 # Type Alias: UpdateSharePermissionRequestV2
 
-> **UpdateSharePermissionRequestV2** = `object`
+> **UpdateSharePermissionRequestV2** = \{ `channelSharePermissions?`: [`UpdateChannelSharePermission`](UpdateChannelSharePermission.md)[] \| `null`; `linkShare?`: `null` \| [`LinkShare`](LinkShare.md); `linkShareAccessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); `teamShareAccessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); \}
 
 ## Properties
 

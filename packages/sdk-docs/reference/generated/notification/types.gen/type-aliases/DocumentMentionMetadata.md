@@ -1,6 +1,6 @@
 # Type Alias: DocumentMentionMetadata
 
-> **DocumentMentionMetadata** = [`ChannelMentionMetadata`](ChannelMentionMetadata.md) & `object`
+> **DocumentMentionMetadata** = [`ChannelMentionMetadata`](ChannelMentionMetadata.md) & \{ `documentName`: `string`; `fileType?`: `string` \| `null`; `owner`: `string`; `subType?`: `null` \| [`NotificationDocumentSubType`](NotificationDocumentSubType.md); \}
 
 Someone mentioned a document in a channel
 

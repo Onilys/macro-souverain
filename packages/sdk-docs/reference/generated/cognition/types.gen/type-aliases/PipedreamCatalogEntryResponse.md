@@ -1,6 +1,6 @@
 # Type Alias: PipedreamCatalogEntryResponse
 
-> **PipedreamCatalogEntryResponse** = `object`
+> **PipedreamCatalogEntryResponse** = \{ `app_slug`: `string`; `description?`: `string` \| `null`; `display_name`: `string`; `icon_url?`: `string` \| `null`; \}
 
 One connectable app in the catalog.
 

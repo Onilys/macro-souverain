@@ -1,6 +1,6 @@
 # Type Alias: MeetingPreparation
 
-> **MeetingPreparation** = `object`
+> **MeetingPreparation** = \{ `expiresAt`: `string`; `id`: `string`; \}
 
 An empty room reservation, not a started call or an invitation.
 

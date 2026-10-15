@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreateDmRequest
 
-> **GetOrCreateDmRequest** = `object`
+> **GetOrCreateDmRequest** = \{ `recipient_id`: `string`; \}
 
 Request to get or create a direct message channel.
 

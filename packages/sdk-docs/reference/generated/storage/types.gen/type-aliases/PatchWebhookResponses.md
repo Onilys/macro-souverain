@@ -1,6 +1,6 @@
 # Type Alias: PatchWebhookResponses
 
-> **PatchWebhookResponses** = `object`
+> **PatchWebhookResponses** = \{ `200`: [`Webhook`](Webhook.md); \}
 
 ## Properties
 

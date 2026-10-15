@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestMergeabilityRequest
 
-> **GithubPullRequestMergeabilityRequest** = `object`
+> **GithubPullRequestMergeabilityRequest** = \{ `pullRequests`: [`GithubPullRequestNumber`](GithubPullRequestNumber.md)[]; \}
 
 Request body for the mergeability of several pull requests.
 

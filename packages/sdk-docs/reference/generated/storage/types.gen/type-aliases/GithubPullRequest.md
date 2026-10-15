@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequest
 
-> **GithubPullRequest** = `object`
+> **GithubPullRequest** = \{ `additions?`: `number` \| `null`; `checks?`: [`GithubPullRequestCheckRun`](GithubPullRequestCheckRun.md)[] \| `null`; `comments?`: [`GithubPullRequestComment`](GithubPullRequestComment.md)[] \| `null`; `deletions?`: `number` \| `null`; `displayName`: `string`; `foreignEntityId?`: `string` \| `null`; `githubKey`: `string`; `name?`: `string` \| `null`; `number`: `number`; `owner`: `string`; `repo`: `string`; `status?`: `string` \| `null`; `url`: `string`; \}
 
 Display-ready data for a GitHub pull request associated with a task.
 

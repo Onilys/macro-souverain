@@ -1,6 +1,6 @@
 # Type Alias: PatchChatRequest
 
-> **PatchChatRequest** = `object`
+> **PatchChatRequest** = \{ `name?`: `string` \| `null`; `projectId?`: `string` \| `null`; `sharePermission?`: `null` \| [`UpdateSharePermissionRequestV2`](UpdateSharePermissionRequestV2.md); \}
 
 Request body for patching a chat.
 

@@ -1,6 +1,6 @@
 # Type Alias: PostActivityRequest
 
-> **PostActivityRequest** = `object`
+> **PostActivityRequest** = \{ `activity_type`: [`ActivityType`](ActivityType.md); `channel_id`: `string`; \}
 
 Request body for `POST /channels/activity`.
 

@@ -1,6 +1,6 @@
 # Type Alias: SoupDocumentSoupPropertiesField
 
-> **SoupDocumentSoupPropertiesField** = `object` & `object`
+> **SoupDocumentSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `branchedFromId?`: `string` \| `null`; `branchedFromVersionId?`: `number` \| `null`; `createdAt`: `string`; `deletedAt?`: `string` \| `null`; `documentFamilyId?`: `number` \| `null`; `documentVersionId`: `number`; `fileType?`: `string` \| `null`; `id`: `string`; `name`: `string`; `ownerId`: `string`; `projectId?`: `string` \| `null`; `sha?`: `string` \| `null`; `subType?`: `null` \| [`SoupDocumentSubType`](SoupDocumentSubType.md); `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 A document as displayed in Soup.
 

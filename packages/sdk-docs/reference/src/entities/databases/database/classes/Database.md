@@ -455,11 +455,11 @@ The table with the given display name, or `undefined` if there is none.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`DatabaseDetail`](../../../../../generated/storage/types.gen/type-aliases/DatabaseDetail.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`DatabaseDetail`](../../../../../generated/storage/types.gen/type-aliases/DatabaseDetail.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

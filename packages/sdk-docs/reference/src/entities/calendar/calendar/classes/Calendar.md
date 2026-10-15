@@ -27,11 +27,11 @@ handle loads its detail by listing the caller's calendars and matching on id.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`VisibleCalendar`](../../../../../generated/calendar/types.gen/type-aliases/VisibleCalendar.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`VisibleCalendar`](../../../../../generated/calendar/types.gen/type-aliases/VisibleCalendar.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

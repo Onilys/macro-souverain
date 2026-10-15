@@ -1,6 +1,6 @@
 # Type Alias: ExternalSessionResponse
 
-> **ExternalSessionResponse** = `object`
+> **ExternalSessionResponse** = \{ `name?`: `string` \| `null`; `provider`: `string`; `url?`: `string` \| `null`; \}
 
 The provider-side identity of an externally-served session.
 

@@ -1,6 +1,6 @@
 # Type Alias: OpRefusalResponse
 
-> **OpRefusalResponse** = `object`
+> **OpRefusalResponse** = \{ `column`: `string` \| `null`; `message`: `string`; `op`: `number`; `row`: `number` \| `null`; `taken`: `null` \| [`TakenId`](TakenId.md); \}
 
 Why an op of a batch was refused. Nothing in the batch was written.
 

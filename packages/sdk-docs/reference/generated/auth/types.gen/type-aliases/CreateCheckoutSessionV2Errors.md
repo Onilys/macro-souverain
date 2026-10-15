@@ -1,6 +1,6 @@
 # Type Alias: CreateCheckoutSessionV2Errors
 
-> **CreateCheckoutSessionV2Errors** = `object`
+> **CreateCheckoutSessionV2Errors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

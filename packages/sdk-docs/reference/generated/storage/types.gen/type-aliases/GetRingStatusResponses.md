@@ -1,6 +1,6 @@
 # Type Alias: GetRingStatusResponses
 
-> **GetRingStatusResponses** = `object`
+> **GetRingStatusResponses** = \{ `200`: [`RingStatusResponse`](RingStatusResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ListTeamOutOfOfficeResponses
 
-> **ListTeamOutOfOfficeResponses** = `object`
+> **ListTeamOutOfOfficeResponses** = \{ `200`: [`TeamOutOfOfficeResponse`](TeamOutOfOfficeResponse.md); \}
 
 ## Properties
 

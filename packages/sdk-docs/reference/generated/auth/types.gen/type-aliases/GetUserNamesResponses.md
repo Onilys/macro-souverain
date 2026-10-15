@@ -1,6 +1,6 @@
 # Type Alias: GetUserNamesResponses
 
-> **GetUserNamesResponses** = `object`
+> **GetUserNamesResponses** = \{ `200`: [`UserNames`](UserNames.md); \}
 
 ## Properties
 

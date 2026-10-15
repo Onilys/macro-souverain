@@ -1,6 +1,6 @@
 # Type Alias: ProjectFilters
 
-> **ProjectFilters** = `object`
+> **ProjectFilters** = \{ `importance?`: `boolean` \| `null`; `include_root?`: `boolean`; `notification_filters?`: [`NotificationFilters`](NotificationFilters.md); `owners?`: `string`[]; `project_ids?`: `string`[]; \}
 
 The project filters used to filter down what projects you search over.
 

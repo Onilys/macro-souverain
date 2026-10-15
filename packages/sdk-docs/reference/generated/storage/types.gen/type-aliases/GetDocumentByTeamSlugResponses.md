@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentByTeamSlugResponses
 
-> **GetDocumentByTeamSlugResponses** = `object`
+> **GetDocumentByTeamSlugResponses** = \{ `200`: [`TypedSuccessResponse`](TypedSuccessResponse.md); \}
 
 ## Properties
 

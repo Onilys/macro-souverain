@@ -1,6 +1,6 @@
 # Type Alias: ListHarnessesResponses
 
-> **ListHarnessesResponses** = `object`
+> **ListHarnessesResponses** = \{ `200`: [`Harness`](Harness.md)[]; \}
 
 ## Properties
 

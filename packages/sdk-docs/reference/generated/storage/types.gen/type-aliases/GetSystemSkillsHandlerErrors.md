@@ -1,6 +1,6 @@
 # Type Alias: GetSystemSkillsHandlerErrors
 
-> **GetSystemSkillsHandlerErrors** = `object`
+> **GetSystemSkillsHandlerErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetReferralCodeResponses
 
-> **GetReferralCodeResponses** = `object`
+> **GetReferralCodeResponses** = \{ `200`: `string`; \}
 
 ## Properties
 

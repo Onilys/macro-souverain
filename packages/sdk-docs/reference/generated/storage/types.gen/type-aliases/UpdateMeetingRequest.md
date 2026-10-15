@@ -1,6 +1,6 @@
 # Type Alias: UpdateMeetingRequest
 
-> **UpdateMeetingRequest** = `object`
+> **UpdateMeetingRequest** = \{ `clearSchedule?`: `boolean`; `scheduledEnd?`: `string` \| `null`; `scheduledStart?`: `string` \| `null`; `title?`: `string` \| `null`; \}
 
 Changes to a meeting's title or scheduled time; omitted values stay unchanged.
 

@@ -1,6 +1,6 @@
 # Type Alias: PostActivityData
 
-> **PostActivityData** = `object`
+> **PostActivityData** = \{ `body`: [`PostActivityRequest`](PostActivityRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/channels/activity"`; \}
 
 ## Properties
 

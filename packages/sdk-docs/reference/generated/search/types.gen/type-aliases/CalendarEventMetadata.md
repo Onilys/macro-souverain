@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventMetadata
 
-> **CalendarEventMetadata** = `object`
+> **CalendarEventMetadata** = \{ `conferenceUrl?`: `string` \| `null`; `createdAt`: `string`; `description?`: `string` \| `null`; `isReadOnly`: `boolean`; `isRecurring`: `boolean`; `occurrence?`: `null` \| [`CalendarEventSearchOccurrence`](CalendarEventSearchOccurrence.md); `organizer?`: `null` \| [`CalendarEventOrganizer`](CalendarEventOrganizer.md); `status`: `string`; `time`: [`CalendarEventSearchTime`](CalendarEventSearchTime.md); `updatedAt`: `string`; \}
 
 Metadata for a calendar event fetched from the database.
 

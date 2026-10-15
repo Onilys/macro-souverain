@@ -1,6 +1,6 @@
 # Type Alias: ExportDocumentResponses
 
-> **ExportDocumentResponses** = `object`
+> **ExportDocumentResponses** = \{ `200`: [`ExportDocumentResponse`](ExportDocumentResponse.md); \}
 
 ## Properties
 

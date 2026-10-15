@@ -1,6 +1,6 @@
 # Type Alias: LoadAgentModelsHandlerData
 
-> **LoadAgentModelsHandlerData** = `object`
+> **LoadAgentModelsHandlerData** = \{ `body`: [`LoadAgentModelsRequest`](LoadAgentModelsRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-models/load"`; \}
 
 ## Properties
 

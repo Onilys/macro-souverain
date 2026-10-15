@@ -1,6 +1,6 @@
 # Type Alias: SetPricingHandlerErrors
 
-> **SetPricingHandlerErrors** = `object`
+> **SetPricingHandlerErrors** = \{ `400`: [`ErrorBody`](ErrorBody.md); `403`: [`ErrorBody`](ErrorBody.md); `500`: [`ErrorBody`](ErrorBody.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SaveDocumentResponseData
 
-> **SaveDocumentResponseData** = `object`
+> **SaveDocumentResponseData** = \{ `documentMetadata`: [`DocumentResponseMetadata`](DocumentResponseMetadata.md); `presignedUrl?`: `string` \| `null`; \}
 
 ## Properties
 

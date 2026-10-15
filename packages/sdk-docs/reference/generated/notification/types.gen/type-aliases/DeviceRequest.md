@@ -1,6 +1,6 @@
 # Type Alias: DeviceRequest
 
-> **DeviceRequest** = `object`
+> **DeviceRequest** = \{ `deviceType`: [`DeviceType`](DeviceType.md); `token`: `string`; \}
 
 Request to register or unregister a device for push notifications.
 

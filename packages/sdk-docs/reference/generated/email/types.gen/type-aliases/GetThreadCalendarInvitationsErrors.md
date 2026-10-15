@@ -1,6 +1,6 @@
 # Type Alias: GetThreadCalendarInvitationsErrors
 
-> **GetThreadCalendarInvitationsErrors** = `object`
+> **GetThreadCalendarInvitationsErrors** = \{ `401`: `unknown`; `403`: `unknown`; \}
 
 ## Properties
 

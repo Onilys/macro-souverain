@@ -1,6 +1,6 @@
 # Type Alias: ViewsResponse
 
-> **ViewsResponse** = `object`
+> **ViewsResponse** = \{ `excludedDefaultViews`: [`ExcludedDefaultView`](ExcludedDefaultView.md)[]; `views`: [`View`](View.md)[]; \}
 
 ## Properties
 

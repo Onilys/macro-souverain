@@ -1,6 +1,6 @@
 # Type Alias: OnboardingState
 
-> **OnboardingState** = `object`
+> **OnboardingState** = \{ `connected_servers`: [`ConnectedServer`](ConnectedServer.md)[]; `row`: [`OnboardingRow`](OnboardingRow.md); `suggested_team_domain?`: `string` \| `null`; \}
 
 The onboarding aggregate served to the setup page. Import runs and
 staged entities are served separately by `GET /import/state`.

@@ -1,6 +1,6 @@
 # Type Alias: ListMcpServersData
 
-> **ListMcpServersData** = `object`
+> **ListMcpServersData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/mcp/servers"`; \}
 
 ## Properties
 

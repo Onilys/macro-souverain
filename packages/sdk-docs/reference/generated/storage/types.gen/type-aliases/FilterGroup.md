@@ -1,6 +1,6 @@
 # Type Alias: FilterGroup
 
-> **FilterGroup** = `object`
+> **FilterGroup** = \{ `conditions`: [`FilterNode`](FilterNode.md)[]; `conjunction`: [`Conjunction`](Conjunction.md); \}
 
 Conditions joined by one conjunction.
 

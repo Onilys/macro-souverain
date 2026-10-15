@@ -1,6 +1,6 @@
 # Type Alias: ListBlockedSendersData
 
-> **ListBlockedSendersData** = `object`
+> **ListBlockedSendersData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/email/contacts/blocked"`; \}
 
 ## Properties
 

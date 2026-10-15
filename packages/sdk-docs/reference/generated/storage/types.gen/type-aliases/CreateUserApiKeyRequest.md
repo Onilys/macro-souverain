@@ -1,6 +1,6 @@
 # Type Alias: CreateUserApiKeyRequest
 
-> **CreateUserApiKeyRequest** = `object`
+> **CreateUserApiKeyRequest** = \{ `name`: `string`; \}
 
 Request body for minting a key.
 

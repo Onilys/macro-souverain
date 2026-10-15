@@ -1,6 +1,6 @@
 # Type Alias: RecentlyDeletedErrors
 
-> **RecentlyDeletedErrors** = `object`
+> **RecentlyDeletedErrors** = \{ `400`: [`GenericErrorResponse`](GenericErrorResponse.md); `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

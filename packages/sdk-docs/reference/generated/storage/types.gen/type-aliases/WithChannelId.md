@@ -1,6 +1,6 @@
 # Type Alias: WithChannelId
 
-> **WithChannelId** = `object`
+> **WithChannelId** = \{ `channel_id`: `string`; \}
 
 Preview payload returned for channels with only id information.
 

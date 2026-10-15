@@ -1,6 +1,6 @@
 # Type Alias: CreateChatData
 
-> **CreateChatData** = `object`
+> **CreateChatData** = \{ `body`: [`CreateChatRequest`](CreateChatRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/chats"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PostProfilePicturesData
 
-> **PostProfilePicturesData** = `object`
+> **PostProfilePicturesData** = \{ `body`: [`GetProfilePicturesRequestBody`](GetProfilePicturesRequestBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/profile_pictures"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateViewHandlerErrors
 
-> **CreateViewHandlerErrors** = `object`
+> **CreateViewHandlerErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

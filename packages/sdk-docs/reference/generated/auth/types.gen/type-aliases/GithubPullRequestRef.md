@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestRef
 
-> **GithubPullRequestRef** = `object`
+> **GithubPullRequestRef** = \{ `displayName`: `string`; `githubKey`: `string`; `number`: `number`; `owner`: `string`; `repo`: `string`; `url`: `string`; \}
 
 A pull request reference that can be enriched with live GitHub data.
 

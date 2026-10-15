@@ -1,6 +1,6 @@
 # Type Alias: CreateTeamRequest
 
-> **CreateTeamRequest** = `object`
+> **CreateTeamRequest** = \{ `name`: `string`; \}
 
 The request body to create a new team
 

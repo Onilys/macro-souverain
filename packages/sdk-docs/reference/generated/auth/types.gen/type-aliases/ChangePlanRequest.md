@@ -1,6 +1,6 @@
 # Type Alias: ChangePlanRequest
 
-> **ChangePlanRequest** = `object`
+> **ChangePlanRequest** = \{ `plan`: [`SeatPlan`](SeatPlan.md); \}
 
 Request body for switching plans
 

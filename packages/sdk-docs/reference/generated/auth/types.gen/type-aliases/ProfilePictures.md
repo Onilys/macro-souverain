@@ -1,6 +1,6 @@
 # Type Alias: ProfilePictures
 
-> **ProfilePictures** = `object`
+> **ProfilePictures** = \{ `pictures`: [`UserProfilePicture`](UserProfilePicture.md)[]; \}
 
 ## Properties
 

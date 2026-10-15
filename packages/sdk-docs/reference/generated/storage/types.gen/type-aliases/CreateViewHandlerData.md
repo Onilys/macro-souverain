@@ -1,6 +1,6 @@
 # Type Alias: CreateViewHandlerData
 
-> **CreateViewHandlerData** = `object`
+> **CreateViewHandlerData** = \{ `body`: [`CreateViewRequest`](CreateViewRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/saved_views"`; \}
 
 ## Properties
 

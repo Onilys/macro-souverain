@@ -1,6 +1,6 @@
 # Type Alias: PatchWebhookRequest
 
-> **PatchWebhookRequest** = `object`
+> **PatchWebhookRequest** = \{ `endpoint_url?`: `string` \| `null`; `filters?`: `null` \| [`Vec`](Vec.md); `headers?`: `null` \| [`BTreeMap`](BTreeMap.md); `name?`: `string` \| `null`; `status?`: `null` \| [`WebhookStatus`](WebhookStatus.md); \}
 
 Request to patch a webhook. The webhook's namespace is fixed at creation
 time and is deliberately not patchable.

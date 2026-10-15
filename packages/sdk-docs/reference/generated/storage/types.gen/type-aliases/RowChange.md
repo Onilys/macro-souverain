@@ -1,6 +1,6 @@
 # Type Alias: RowChange
 
-> **RowChange** = `object`
+> **RowChange** = \{ `cells`: [`CellWrite`](CellWrite.md)[]; `row`: `string`; \}
 
 One row's cells in a [`RowChanges::PerRow`] update.
 

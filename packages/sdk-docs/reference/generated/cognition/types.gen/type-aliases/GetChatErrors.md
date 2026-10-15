@@ -1,6 +1,6 @@
 # Type Alias: GetChatErrors
 
-> **GetChatErrors** = `object`
+> **GetChatErrors** = \{ `401`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

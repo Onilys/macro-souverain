@@ -1,6 +1,6 @@
 # Type Alias: CreateManagedSessionOptions
 
-> **CreateManagedSessionOptions** = `object`
+> **CreateManagedSessionOptions** = \{ `instructions?`: `string`; `model?`: `string`; `prompt?`: `string`; `repoBranch?`: `string`; `repoUrl?`: `string`; \}
 
 What a managed session is created with.
 

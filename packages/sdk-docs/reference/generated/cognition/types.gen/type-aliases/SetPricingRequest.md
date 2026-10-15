@@ -1,6 +1,6 @@
 # Type Alias: SetPricingRequest
 
-> **SetPricingRequest** = `object`
+> **SetPricingRequest** = \{ `model`: `string`; `price_per_audio_minute?`: `number` \| `null`; `price_per_mil_cache_read?`: `number` \| `null`; `price_per_mil_cache_write?`: `number` \| `null`; `price_per_mil_in?`: `number` \| `null`; `price_per_mil_out?`: `number` \| `null`; \}
 
 Request body for [`set_pricing_handler`].
 

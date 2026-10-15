@@ -1,6 +1,6 @@
 # Type Alias: NewOption
 
-> **NewOption** = `object`
+> **NewOption** = \{ `id`: `string`; `label`: `string`; \}
 
 A select or tag option to create.
 

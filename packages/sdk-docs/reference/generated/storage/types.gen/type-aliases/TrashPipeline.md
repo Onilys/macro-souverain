@@ -1,6 +1,6 @@
 # Type Alias: TrashPipeline
 
-> **TrashPipeline** = `object`
+> **TrashPipeline** = \{ `trashed`: `boolean`; \}
 
 Trash/restore input.
 

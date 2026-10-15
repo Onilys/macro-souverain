@@ -1,6 +1,6 @@
 # Type Alias: EntityPropertyOptionUpdateRequest
 
-> **EntityPropertyOptionUpdateRequest** = `object`
+> **EntityPropertyOptionUpdateRequest** = \{ `add_option_ids?`: `string`[]; `property_id`: `string`; `remove_option_ids?`: `string`[]; \}
 
 One property's option changes in a bulk selection update. The change is a
 delta (options to add / remove) so it composes with concurrent edits rather

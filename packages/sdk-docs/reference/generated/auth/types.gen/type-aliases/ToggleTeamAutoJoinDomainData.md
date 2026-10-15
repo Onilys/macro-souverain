@@ -1,6 +1,6 @@
 # Type Alias: ToggleTeamAutoJoinDomainData
 
-> **ToggleTeamAutoJoinDomainData** = `object`
+> **ToggleTeamAutoJoinDomainData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/team/auto-join-domain/toggle"`; \}
 
 ## Properties
 

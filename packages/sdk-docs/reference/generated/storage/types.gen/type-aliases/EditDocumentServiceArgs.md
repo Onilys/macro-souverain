@@ -1,6 +1,6 @@
 # Type Alias: EditDocumentServiceArgs
 
-> **EditDocumentServiceArgs** = `object`
+> **EditDocumentServiceArgs** = \{ `documentName?`: `string` \| `null`; `fileType?`: `null` \| [`FileTypeUpdate`](FileTypeUpdate.md); `projectId?`: `string` \| `null`; `sharePermission?`: `null` \| [`UpdateSharePermissionRequestV2`](UpdateSharePermissionRequestV2.md); \}
 
 Arguments for the edit_document service call.
 

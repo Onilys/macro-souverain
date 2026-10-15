@@ -1,6 +1,6 @@
 # Type Alias: RemoveQueuedActionResponses
 
-> **RemoveQueuedActionResponses** = `object`
+> **RemoveQueuedActionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

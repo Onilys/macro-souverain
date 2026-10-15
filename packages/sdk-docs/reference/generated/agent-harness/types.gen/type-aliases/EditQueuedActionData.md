@@ -1,13 +1,13 @@
 # Type Alias: EditQueuedActionData
 
-> **EditQueuedActionData** = `object`
+> **EditQueuedActionData** = \{ `body`: [`EditQueuedActionRequest`](EditQueuedActionRequest.md); `path`: \{ `action_id`: `string`; `session_id`: `string`; \}; `query?`: `never`; `url`: `"/agent-sessions/{session_id}/queue/{action_id}"`; \}
 
 ## Properties
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="property-body"></a> `body` | [`EditQueuedActionRequest`](EditQueuedActionRequest.md) | - |
-| <a id="property-path"></a> `path` | `object` | - |
+| <a id="property-path"></a> `path` | \{ `action_id`: `string`; `session_id`: `string`; \} | - |
 | `path.action_id` | `string` | ID the action was accepted under |
 | `path.session_id` | `string` | ID of the agent session |
 | <a id="property-query"></a> `query?` | `never` | - |

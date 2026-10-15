@@ -1,6 +1,6 @@
 # Type Alias: DeleteChatResponses
 
-> **DeleteChatResponses** = `object`
+> **DeleteChatResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

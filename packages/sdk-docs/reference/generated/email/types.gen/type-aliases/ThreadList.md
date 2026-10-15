@@ -1,6 +1,6 @@
 # Type Alias: ThreadList
 
-> **ThreadList** = `object`
+> **ThreadList** = \{ `next_page_token?`: `string` \| `null`; `threads`: [`ThreadSummary`](ThreadSummary.md)[]; \}
 
 ## Properties
 

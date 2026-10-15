@@ -1,6 +1,6 @@
 # Type Alias: MeetingParticipant
 
-> **MeetingParticipant** = `object`
+> **MeetingParticipant** = \{ `avatarUrl?`: `string` \| `null`; `displayName`: `string`; \}
 
 Minimal waiting-room display data, without account identities or call content.
 

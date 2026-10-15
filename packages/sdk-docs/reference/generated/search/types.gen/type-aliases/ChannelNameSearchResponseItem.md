@@ -1,6 +1,6 @@
 # Type Alias: ChannelNameSearchResponseItem
 
-> **ChannelNameSearchResponseItem** = `object`
+> **ChannelNameSearchResponseItem** = \{ `channel_id`: `string`; `channel_type`: `string`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `id`: `string`; `metadata?`: `null` \| [`ChannelMetadata`](ChannelMetadata.md); `owner_id?`: `string` \| `null`; `score?`: `number` \| `null`; \}
 
 A channel-name search hit.
 

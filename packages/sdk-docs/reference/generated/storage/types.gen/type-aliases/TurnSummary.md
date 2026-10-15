@@ -1,6 +1,6 @@
 # Type Alias: TurnSummary
 
-> **TurnSummary** = `object`
+> **TurnSummary** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `actor?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `announcement_message_id?`: `string` \| `null`; `excerpt?`: `string` \| `null`; `stop_reason`: `string`; `turn`: `number`; \}
 
 A turn the runtime answered.
 

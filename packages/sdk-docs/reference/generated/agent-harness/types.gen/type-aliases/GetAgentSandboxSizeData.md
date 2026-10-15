@@ -1,6 +1,6 @@
 # Type Alias: GetAgentSandboxSizeData
 
-> **GetAgentSandboxSizeData** = `object`
+> **GetAgentSandboxSizeData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/agent-sandbox-size"`; \}
 
 ## Properties
 

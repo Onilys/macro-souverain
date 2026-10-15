@@ -1,6 +1,6 @@
 # Type Alias: MacroApiTokenResponse
 
-> **MacroApiTokenResponse** = `object`
+> **MacroApiTokenResponse** = \{ `macro_api_token`: `string`; \}
 
 ## Properties
 

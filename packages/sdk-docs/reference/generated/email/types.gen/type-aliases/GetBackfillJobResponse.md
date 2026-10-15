@@ -1,6 +1,6 @@
 # Type Alias: GetBackfillJobResponse
 
-> **GetBackfillJobResponse** = `object`
+> **GetBackfillJobResponse** = \{ `job`: [`BackfillJob`](BackfillJob.md); \}
 
 The response returned from the get backfill job endpoint
 

@@ -1,6 +1,6 @@
 # Type Alias: GetBatchProjectPreviewRequest
 
-> **GetBatchProjectPreviewRequest** = `object`
+> **GetBatchProjectPreviewRequest** = \{ `projectIds`: `string`[]; \}
 
 ## Properties
 

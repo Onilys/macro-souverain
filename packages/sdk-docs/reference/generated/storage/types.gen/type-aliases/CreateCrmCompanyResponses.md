@@ -1,6 +1,6 @@
 # Type Alias: CreateCrmCompanyResponses
 
-> **CreateCrmCompanyResponses** = `object`
+> **CreateCrmCompanyResponses** = \{ `200`: [`CrmCompanyResponse`](CrmCompanyResponse.md); \}
 
 ## Properties
 

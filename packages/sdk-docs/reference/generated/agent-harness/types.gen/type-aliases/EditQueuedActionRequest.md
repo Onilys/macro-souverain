@@ -1,6 +1,6 @@
 # Type Alias: EditQueuedActionRequest
 
-> **EditQueuedActionRequest** = `object`
+> **EditQueuedActionRequest** = \{ `prompt`: `string`; \}
 
 Request body for editing a queued prompt.
 

@@ -1,6 +1,6 @@
 # Type Alias: CursorModelOption
 
-> **CursorModelOption** = `object`
+> **CursorModelOption** = \{ `displayName`: `string`; `group`: `string`; `id`: `string`; \}
 
 One model the settings dropdown can offer.
 

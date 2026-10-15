@@ -1,6 +1,6 @@
 # Type Alias: ChatMessageSearchResult
 
-> **ChatMessageSearchResult** = `object`
+> **ChatMessageSearchResult** = \{ `chat_message_id?`: `string` \| `null`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `role?`: `string` \| `null`; `score?`: `number` \| `null`; \}
 
 A chat match for a given message id
 

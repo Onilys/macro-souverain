@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentPermissionsTokenResponses
 
-> **GetDocumentPermissionsTokenResponses** = `object`
+> **GetDocumentPermissionsTokenResponses** = \{ `200`: [`DocumentPermissionsTokenResponse`](DocumentPermissionsTokenResponse.md); \}
 
 ## Properties
 

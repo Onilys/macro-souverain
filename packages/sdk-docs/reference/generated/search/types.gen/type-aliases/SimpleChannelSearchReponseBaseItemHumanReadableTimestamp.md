@@ -1,6 +1,6 @@
 # Type Alias: SimpleChannelSearchReponseBaseItemHumanReadableTimestamp
 
-> **SimpleChannelSearchReponseBaseItemHumanReadableTimestamp** = `object`
+> **SimpleChannelSearchReponseBaseItemHumanReadableTimestamp** = \{ `channel_id`: `string`; `channel_type`: `string`; `created_at`: `string`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `mentions`: `string`[]; `message_id`: `string`; `org_id?`: `number` \| `null`; `sender_id`: `string`; `thread_id?`: `string` \| `null`; `updated_at`: `string`; \}
 
 ## Properties
 

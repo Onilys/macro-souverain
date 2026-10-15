@@ -1,6 +1,6 @@
 # Type Alias: DeleteAgentSessionResponses
 
-> **DeleteAgentSessionResponses** = `object`
+> **DeleteAgentSessionResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

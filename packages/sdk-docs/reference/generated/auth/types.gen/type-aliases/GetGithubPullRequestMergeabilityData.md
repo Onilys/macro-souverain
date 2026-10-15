@@ -1,6 +1,6 @@
 # Type Alias: GetGithubPullRequestMergeabilityData
 
-> **GetGithubPullRequestMergeabilityData** = `object`
+> **GetGithubPullRequestMergeabilityData** = \{ `body`: [`GithubPullRequestMergeabilityRequest`](GithubPullRequestMergeabilityRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/github_pull_requests/mergeability"`; \}
 
 ## Properties
 

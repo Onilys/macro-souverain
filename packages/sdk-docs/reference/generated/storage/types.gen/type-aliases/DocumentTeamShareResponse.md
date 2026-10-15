@@ -1,6 +1,6 @@
 # Type Alias: DocumentTeamShareResponse
 
-> **DocumentTeamShareResponse** = `object`
+> **DocumentTeamShareResponse** = \{ `sharedWithTeam`: `boolean`; `teamId?`: `string` \| `null`; \}
 
 The team-share state of a document. The team is resolved from the document
 owner's team membership.

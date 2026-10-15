@@ -1,6 +1,6 @@
 # Type Alias: CreateSnippetResponse
 
-> **CreateSnippetResponse** = `object`
+> **CreateSnippetResponse** = \{ `documentId`: `string`; \}
 
 Response for creating a snippet.
 

@@ -1,6 +1,6 @@
 # Type Alias: NewAttachment
 
-> **NewAttachment** = `object`
+> **NewAttachment** = \{ `entity_id`: `string`; `entity_type`: `string`; `height?`: `number` \| `null`; `width?`: `number` \| `null`; \}
 
 An attachment to add to a message.
 

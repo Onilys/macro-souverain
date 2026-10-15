@@ -1,6 +1,6 @@
 # Type Alias: SharePipeline
 
-> **SharePipeline** = `object`
+> **SharePipeline** = \{ `sharing`: [`PipelineSharing`](PipelineSharing.md); \}
 
 Sharing input.
 

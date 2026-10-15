@@ -1,6 +1,6 @@
 # Type Alias: RecentlyDeletedResponseData
 
-> **RecentlyDeletedResponseData** = `object`
+> **RecentlyDeletedResponseData** = \{ `items`: [`Item`](Item.md)[]; \}
 
 ## Properties
 

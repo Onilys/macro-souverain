@@ -1,6 +1,6 @@
 # Type Alias: AddMcpServerResponses
 
-> **AddMcpServerResponses** = `object`
+> **AddMcpServerResponses** = \{ `201`: [`ServerResponse`](ServerResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SearchGotoChat
 
-> **SearchGotoChat** = `object`
+> **SearchGotoChat** = \{ `chat_message_id`: `string`; `role`: `string`; \}
 
 ## Properties
 

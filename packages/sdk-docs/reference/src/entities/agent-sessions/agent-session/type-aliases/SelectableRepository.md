@@ -1,6 +1,6 @@
 # Type Alias: SelectableRepository
 
-> **SelectableRepository** = `object`
+> **SelectableRepository** = \{ `defaultBranch?`: `string`; `url`: `string`; \}
 
 A GitHub repository the caller can point a managed session at.
 

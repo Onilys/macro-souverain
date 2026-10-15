@@ -1,6 +1,6 @@
 # Type Alias: UpdateThreadProjectRequest
 
-> **UpdateThreadProjectRequest** = `object`
+> **UpdateThreadProjectRequest** = \{ `projectId?`: `string` \| `null`; \}
 
 Request body for updating a thread's project.
 

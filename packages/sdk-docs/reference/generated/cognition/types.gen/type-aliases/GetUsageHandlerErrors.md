@@ -1,6 +1,6 @@
 # Type Alias: GetUsageHandlerErrors
 
-> **GetUsageHandlerErrors** = `object`
+> **GetUsageHandlerErrors** = \{ `400`: [`ErrorBody`](ErrorBody.md); `403`: [`ErrorBody`](ErrorBody.md); `500`: [`ErrorBody`](ErrorBody.md); \}
 
 ## Properties
 

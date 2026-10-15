@@ -1,6 +1,6 @@
 # Type Alias: ControlRequest
 
-> **ControlRequest** = [`AgentAction`](AgentAction.md) & `object`
+> **ControlRequest** = [`AgentAction`](AgentAction.md) & \{ `actionId?`: `null` \| [`AgentActionId`](AgentActionId.md); `context?`: \{\[`key`: `string`\]: `unknown`; \} \| `null`; \}
 
 Request body for a control operation on a live session.
 

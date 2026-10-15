@@ -1,6 +1,6 @@
 # Type Alias: FormErrorResponse
 
-> **FormErrorResponse** = `object`
+> **FormErrorResponse** = \{ `code`: [`FormErrorCode`](FormErrorCode.md); `message`: `string`; `problem`: `null` \| [`LayoutProblem`](LayoutProblem.md); `question`: `string` \| `null`; \}
 
 Why a forms request was refused or failed.
 

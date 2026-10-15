@@ -1,6 +1,6 @@
 # Type Alias: PublicGtmInviteLink
 
-> **PublicGtmInviteLink** = `object`
+> **PublicGtmInviteLink** = \{ `firstName`: `string`; `freeMonths`: `number`; `status`: [`GtmInviteLinkStatus`](GtmInviteLinkStatus.md); \}
 
 What the public welcome page learns about a link.
 

@@ -1,6 +1,6 @@
 # Type Alias: WithAgentSessionId
 
-> **WithAgentSessionId** = `object`
+> **WithAgentSessionId** = \{ `id`: `string`; \}
 
 Just a session id, for the preview variants that carry nothing else.
 

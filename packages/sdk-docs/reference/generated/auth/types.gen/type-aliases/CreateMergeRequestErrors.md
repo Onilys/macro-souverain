@@ -1,6 +1,6 @@
 # Type Alias: CreateMergeRequestErrors
 
-> **CreateMergeRequestErrors** = `object`
+> **CreateMergeRequestErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `429`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

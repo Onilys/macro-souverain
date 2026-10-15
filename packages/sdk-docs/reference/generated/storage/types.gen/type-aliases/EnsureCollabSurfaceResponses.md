@@ -1,6 +1,6 @@
 # Type Alias: EnsureCollabSurfaceResponses
 
-> **EnsureCollabSurfaceResponses** = `object`
+> **EnsureCollabSurfaceResponses** = \{ `200`: [`CollabSurfaceResponse`](CollabSurfaceResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GithubReviewRequested
 
-> **GithubReviewRequested** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & `object`
+> **GithubReviewRequested** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & \{ `requestedReviewerGithubLogin?`: `string` \| `null`; `requestedReviewerGithubUserId?`: `string` \| `null`; \}
 
 Metadata for a notification that the user's review was requested on a GitHub pull request.
 

@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamResponses
 
-> **PatchTeamResponses** = `object`
+> **PatchTeamResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

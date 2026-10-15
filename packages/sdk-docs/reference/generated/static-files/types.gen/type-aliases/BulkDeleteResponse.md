@@ -1,6 +1,6 @@
 # Type Alias: BulkDeleteResponse
 
-> **BulkDeleteResponse** = `object`
+> **BulkDeleteResponse** = \{ `failed`: `number`; `results`: [`DeleteResult`](DeleteResult.md)[]; `succeeded`: `number`; `total`: `number`; \}
 
 ## Properties
 

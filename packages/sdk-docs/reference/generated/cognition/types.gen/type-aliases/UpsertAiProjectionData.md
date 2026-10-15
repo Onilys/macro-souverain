@@ -1,6 +1,6 @@
 # Type Alias: UpsertAiProjectionData
 
-> **UpsertAiProjectionData** = `object`
+> **UpsertAiProjectionData** = \{ `body`: [`UpsertProjectionRequest`](UpsertProjectionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/ai-projections"`; \}
 
 ## Properties
 

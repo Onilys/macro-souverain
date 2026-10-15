@@ -1,6 +1,6 @@
 # Type Alias: CustomSpeakerAssignment
 
-> **CustomSpeakerAssignment** = `object`
+> **CustomSpeakerAssignment** = \{ `customSpeaker`: `string`; `diarizedSpeakerId`: `string`; \}
 
 One per-diarized-speaker override, used in [`EditCallTranscriptRequest`].
 

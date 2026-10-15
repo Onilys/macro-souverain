@@ -1,6 +1,6 @@
 # Type Alias: GetLegacyUserPermissionsData
 
-> **GetLegacyUserPermissionsData** = `object`
+> **GetLegacyUserPermissionsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/user/legacy_user_permissions"`; \}
 
 ## Properties
 

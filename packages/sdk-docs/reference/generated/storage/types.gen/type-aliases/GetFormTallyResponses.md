@@ -1,6 +1,6 @@
 # Type Alias: GetFormTallyResponses
 
-> **GetFormTallyResponses** = `object`
+> **GetFormTallyResponses** = \{ `200`: [`FormTally`](FormTally.md); \}
 
 ## Properties
 

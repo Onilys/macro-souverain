@@ -1,6 +1,6 @@
 # Type Alias: DeliverDatabaseWebhookErrors
 
-> **DeliverDatabaseWebhookErrors** = `object`
+> **DeliverDatabaseWebhookErrors** = \{ `400`: [`InvalidDatabaseWebhookPayloadResponse`](InvalidDatabaseWebhookPayloadResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

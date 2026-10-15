@@ -1,6 +1,6 @@
 # Type Alias: MeetingListActiveData
 
-> **MeetingListActiveData** = `object`
+> **MeetingListActiveData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/call/meetings/active"`; \}
 
 ## Properties
 

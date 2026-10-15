@@ -1,6 +1,6 @@
 # Type Alias: DocumentSearchResponseItem
 
-> **DocumentSearchResponseItem** = `object`
+> **DocumentSearchResponseItem** = \{ `document_id`: `string`; `document_name`: `string`; `document_search_results`: [`DocumentSearchResult`](DocumentSearchResult.md)[]; `file_type?`: `string` \| `null`; `id`: `string`; `name`: `string`; `owner_id`: `string`; `sub_type?`: `null` \| [`DocumentSubType`](DocumentSubType.md); \}
 
 A single response item, part of the DocumentSearchResponse object
 

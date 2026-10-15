@@ -1,6 +1,6 @@
 # Type Alias: DiscoverAgentCapabilitiesRequest
 
-> **DiscoverAgentCapabilitiesRequest** = `object`
+> **DiscoverAgentCapabilitiesRequest** = \{ `harness`: [`CapabilityHarnessDto`](CapabilityHarnessDto.md); `harnessId?`: `string` \| `null`; `model?`: `string` \| `null`; \}
 
 HTTP request selecting one provider to probe.
 

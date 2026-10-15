@@ -171,11 +171,11 @@ value when `value` is omitted.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`UserName`](../../../../../generated/auth/types.gen/type-aliases/UserName.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`UserName`](../../../../../generated/auth/types.gen/type-aliases/UserName.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

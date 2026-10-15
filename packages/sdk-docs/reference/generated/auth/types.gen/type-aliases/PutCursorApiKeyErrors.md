@@ -1,6 +1,6 @@
 # Type Alias: PutCursorApiKeyErrors
 
-> **PutCursorApiKeyErrors** = `object`
+> **PutCursorApiKeyErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: `string`; `403`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

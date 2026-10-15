@@ -1,6 +1,6 @@
 # Type Alias: PropertyOption
 
-> **PropertyOption** = `object`
+> **PropertyOption** = \{ `color`: `string` \| `null`; `created_at`: `string`; `display_order`: `number`; `id`: `string`; `property_definition_id`: `string`; `updated_at`: `string`; `value`: [`PropertyOptionValue`](PropertyOptionValue.md); \}
 
 A selectable option for select-type properties (service representation).
 

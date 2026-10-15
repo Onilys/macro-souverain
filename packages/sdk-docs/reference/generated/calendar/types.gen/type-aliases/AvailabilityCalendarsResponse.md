@@ -1,6 +1,6 @@
 # Type Alias: AvailabilityCalendarsResponse
 
-> **AvailabilityCalendarsResponse** = `object`
+> **AvailabilityCalendarsResponse** = \{ `calendars`: [`AvailabilityCalendar`](AvailabilityCalendar.md)[]; \}
 
 Source calendar settings returned to their viewer.
 

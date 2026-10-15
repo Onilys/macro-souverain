@@ -1,6 +1,6 @@
 # Type Alias: RunImportOutcome
 
-> **RunImportOutcome** = `object`
+> **RunImportOutcome** = \{ `discarded`: `number`; `importing`: `number`; \}
 
 Outcome of accepting/declining staged rows via `POST /import/run`.
 

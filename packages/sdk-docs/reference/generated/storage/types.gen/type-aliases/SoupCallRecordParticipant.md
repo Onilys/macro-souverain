@@ -1,6 +1,6 @@
 # Type Alias: SoupCallRecordParticipant
 
-> **SoupCallRecordParticipant** = `object`
+> **SoupCallRecordParticipant** = \{ `joinedAt`: `string`; `leftAt?`: `string` \| `null`; `userId`: `string`; \}
 
 A Macro-account participant in a call record, as displayed in Soup.
 

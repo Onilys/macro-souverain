@@ -1,6 +1,6 @@
 # Type Alias: ChannelInviteMetadata
 
-> **ChannelInviteMetadata** = `object`
+> **ChannelInviteMetadata** = \{ `channelName?`: `string`; `invitedBy`: `string`; `isDirectMessage?`: `boolean`; `messageContent?`: `string` \| `null`; `senderProfilePictureUrl?`: `string` \| `null`; \}
 
 Metadata for when a user is invited to a channel.
 

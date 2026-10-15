@@ -1,6 +1,6 @@
 # Type Alias: UnlockedBooking
 
-> **UnlockedBooking** = `object`
+> **UnlockedBooking** = \{ `description`: `string`; `section`: `string`; `target`: [`BookingTarget`](BookingTarget.md); `title`: `string`; \}
 
 A booking step a passing response has unlocked, with its destination.
 

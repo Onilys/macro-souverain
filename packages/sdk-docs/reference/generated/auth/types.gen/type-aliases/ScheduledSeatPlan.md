@@ -1,6 +1,6 @@
 # Type Alias: ScheduledSeatPlan
 
-> **ScheduledSeatPlan** = `object`
+> **ScheduledSeatPlan** = \{ `effectiveAt`: `string`; `plan`: [`SeatPlan`](SeatPlan.md); \}
 
 A seat's future plan in the subscription's currently attached schedule.
 

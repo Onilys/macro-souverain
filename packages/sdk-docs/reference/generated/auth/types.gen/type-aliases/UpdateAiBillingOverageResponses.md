@@ -1,6 +1,6 @@
 # Type Alias: UpdateAiBillingOverageResponses
 
-> **UpdateAiBillingOverageResponses** = `object`
+> **UpdateAiBillingOverageResponses** = \{ `200`: [`UsageSnapshot`](UsageSnapshot.md); \}
 
 ## Properties
 

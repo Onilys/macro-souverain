@@ -1,6 +1,6 @@
 # Type Alias: UserPdfRect
 
-> **UserPdfRect** = `object`
+> **UserPdfRect** = \{ `height`: `number`; `left`: `number`; `page_index`: `number`; `top`: `number`; `width`: `number`; \}
 
 UserPdfRect is in UserSpace
 (0,0) top left

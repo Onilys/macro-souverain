@@ -1,6 +1,6 @@
 # Type Alias: MeetingGuestParticipantsResponses
 
-> **MeetingGuestParticipantsResponses** = `object`
+> **MeetingGuestParticipantsResponses** = \{ `200`: [`MeetingParticipants`](MeetingParticipants.md); \}
 
 ## Properties
 

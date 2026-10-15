@@ -1,6 +1,6 @@
 # Type Alias: EmailFollowup
 
-> **EmailFollowup** = `object`
+> **EmailFollowup** = \{ `condition`: [`EmailReminderCondition`](EmailReminderCondition.md); `linkId`: `string`; `remindAt`: `string`; `reminderId`: `string`; `revision`: `string`; `state`: [`FollowupState`](FollowupState.md); `threadId`: `string`; \}
 
 Public status shown on email and in the Reminders editor.
 

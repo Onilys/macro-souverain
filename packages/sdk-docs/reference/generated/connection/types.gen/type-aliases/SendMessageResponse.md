@@ -1,6 +1,6 @@
 # Type Alias: SendMessageResponse
 
-> **SendMessageResponse** = `object`
+> **SendMessageResponse** = \{ `receipts`: [`MessageReceipt`](MessageReceipt.md)[]; \}
 
 The response from sending a message.
 

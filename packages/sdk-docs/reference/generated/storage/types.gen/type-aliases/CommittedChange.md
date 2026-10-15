@@ -1,6 +1,6 @@
 # Type Alias: CommittedChange
 
-> **CommittedChange** = `object`
+> **CommittedChange** = \{ `change`: `number`; `table`: `string`; `version`: [`TableVersion`](TableVersion.md); \}
 
 One change a committed batch journaled: a table, the version the batch
 produced, and the journal's id for it.

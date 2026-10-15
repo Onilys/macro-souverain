@@ -1,6 +1,6 @@
 # Type Alias: CompleteData
 
-> **CompleteData** = `object`
+> **CompleteData** = \{ `body`: [`CompleteRequest`](CompleteRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/claude-auth/complete"`; \}
 
 ## Properties
 

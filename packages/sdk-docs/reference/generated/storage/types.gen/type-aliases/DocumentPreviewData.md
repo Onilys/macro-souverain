@@ -1,6 +1,6 @@
 # Type Alias: DocumentPreviewData
 
-> **DocumentPreviewData** = `object`
+> **DocumentPreviewData** = \{ `document_id`: `string`; `document_name`: `string`; `file_type?`: `string` \| `null`; `owner`: `string`; `sub_type?`: `null` \| [`DocumentPreviewDataSubType`](DocumentPreviewDataSubType.md); `updated_at?`: `string` \| `null`; \}
 
 ## Properties
 

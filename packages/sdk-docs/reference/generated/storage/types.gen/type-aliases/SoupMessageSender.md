@@ -1,6 +1,6 @@
 # Type Alias: SoupMessageSender
 
-> **SoupMessageSender** = `object`
+> **SoupMessageSender** = \{ `avatar_url?`: `string` \| `null`; `id`: `string`; `name?`: `string` \| `null`; `type`: [`SoupMessageSenderType`](SoupMessageSenderType.md); \}
 
 Public sender identity for soup channel messages.
 

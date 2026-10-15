@@ -1,6 +1,6 @@
 # Type Alias: UpdateMcpServerResponses
 
-> **UpdateMcpServerResponses** = `object`
+> **UpdateMcpServerResponses** = \{ `200`: [`ServerResponse`](ServerResponse.md); \}
 
 ## Properties
 

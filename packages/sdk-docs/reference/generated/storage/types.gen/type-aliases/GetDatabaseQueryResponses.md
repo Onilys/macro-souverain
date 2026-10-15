@@ -1,6 +1,6 @@
 # Type Alias: GetDatabaseQueryResponses
 
-> **GetDatabaseQueryResponses** = `object`
+> **GetDatabaseQueryResponses** = \{ `200`: [`SavedQuery`](SavedQuery.md); \}
 
 ## Properties
 

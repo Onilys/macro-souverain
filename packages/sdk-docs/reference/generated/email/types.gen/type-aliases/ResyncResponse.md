@@ -1,6 +1,6 @@
 # Type Alias: ResyncResponse
 
-> **ResyncResponse** = `object`
+> **ResyncResponse** = \{ `already_in_progress`: `boolean`; `backfill_job_id`: `string`; \}
 
 The response returned from the resync endpoint.
 

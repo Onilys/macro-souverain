@@ -1,6 +1,6 @@
 # Type Alias: MentionPreviewsErrors
 
-> **MentionPreviewsErrors** = `object`
+> **MentionPreviewsErrors** = \{ `400`: `unknown`; `401`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

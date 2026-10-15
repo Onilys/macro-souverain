@@ -1,6 +1,6 @@
 # Type Alias: VerifyFusionauthUserEmailErrors
 
-> **VerifyFusionauthUserEmailErrors** = `object`
+> **VerifyFusionauthUserEmailErrors** = \{ `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

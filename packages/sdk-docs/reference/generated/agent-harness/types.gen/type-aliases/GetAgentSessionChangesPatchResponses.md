@@ -1,6 +1,6 @@
 # Type Alias: GetAgentSessionChangesPatchResponses
 
-> **GetAgentSessionChangesPatchResponses** = `object`
+> **GetAgentSessionChangesPatchResponses** = \{ `200`: [`AgentSessionChangesPatchResponse`](AgentSessionChangesPatchResponse.md); \}
 
 ## Properties
 

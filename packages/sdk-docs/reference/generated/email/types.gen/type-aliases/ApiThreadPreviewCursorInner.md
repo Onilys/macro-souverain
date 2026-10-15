@@ -1,6 +1,6 @@
 # Type Alias: ApiThreadPreviewCursorInner
 
-> **ApiThreadPreviewCursorInner** = `object`
+> **ApiThreadPreviewCursorInner** = \{ `createdAt`: `string`; `id`: `string`; `inboxVisible`: `boolean`; `isDraft`: `boolean`; `isImportant`: `boolean`; `isRead`: `boolean`; `linkId`: `string`; `name?`: `string` \| `null`; `ownerId`: `string`; `providerId?`: `string` \| `null`; `senderEmail?`: `string` \| `null`; `senderName?`: `string` \| `null`; `senderPhotoUrl?`: `string` \| `null`; `snippet?`: `string` \| `null`; `sortTs`: `string`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 ## Properties
 

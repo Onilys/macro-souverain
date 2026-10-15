@@ -1,6 +1,6 @@
 # Type Alias: UpdateAiBillingAutoReloadResponses
 
-> **UpdateAiBillingAutoReloadResponses** = `object`
+> **UpdateAiBillingAutoReloadResponses** = \{ `200`: [`UsageSnapshot`](UsageSnapshot.md); \}
 
 ## Properties
 

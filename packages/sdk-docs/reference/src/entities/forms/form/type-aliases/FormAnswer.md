@@ -1,6 +1,6 @@
 # Type Alias: FormAnswer
 
-> **FormAnswer** = `object`
+> **FormAnswer** = \{ `question`: [`FormQuestion`](../../question/classes/FormQuestion.md); `value`: [`FormAnswerValue`](FormAnswerValue.md); \}
 
 One question and its answer.
 

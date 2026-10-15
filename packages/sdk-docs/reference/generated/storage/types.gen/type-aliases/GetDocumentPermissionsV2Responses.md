@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentPermissionsV2Responses
 
-> **GetDocumentPermissionsV2Responses** = `object`
+> **GetDocumentPermissionsV2Responses** = \{ `200`: [`GetDocumentPermissionsResponseDataV2`](GetDocumentPermissionsResponseDataV2.md); \}
 
 ## Properties
 

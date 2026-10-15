@@ -1,6 +1,6 @@
 # Type Alias: HealthHandlerResponses
 
-> **HealthHandlerResponses** = `object`
+> **HealthHandlerResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

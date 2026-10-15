@@ -1,6 +1,6 @@
 # Type Alias: GetProjectResponseData
 
-> **GetProjectResponseData** = `object`
+> **GetProjectResponseData** = \{ `projectMetadata`: [`Project`](Project.md); `userAccessLevel`: [`AccessLevel`](AccessLevel.md); \}
 
 ## Properties
 

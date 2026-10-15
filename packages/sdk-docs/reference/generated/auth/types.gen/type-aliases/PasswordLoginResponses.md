@@ -1,6 +1,6 @@
 # Type Alias: PasswordLoginResponses
 
-> **PasswordLoginResponses** = `object`
+> **PasswordLoginResponses** = \{ `200`: [`UserTokensResponse`](UserTokensResponse.md); \}
 
 ## Properties
 

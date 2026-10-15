@@ -1,6 +1,6 @@
 # Type Alias: UpdateAgentResponses
 
-> **UpdateAgentResponses** = `object`
+> **UpdateAgentResponses** = \{ `200`: [`Agent`](Agent.md); \}
 
 ## Properties
 

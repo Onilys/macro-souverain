@@ -1,6 +1,6 @@
 # Type Alias: CreatePairingRequest
 
-> **CreatePairingRequest** = `object`
+> **CreatePairingRequest** = \{ `allow_permission_bypass?`: `boolean` \| `null`; `host?`: `string` \| `null`; `name`: `string`; `scope?`: `null` \| [`RequestedHarnessScope`](RequestedHarnessScope.md); \}
 
 Request to open a pairing: the daemon asks for a code the user approves.
 

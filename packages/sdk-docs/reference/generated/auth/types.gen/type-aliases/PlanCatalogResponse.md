@@ -1,6 +1,6 @@
 # Type Alias: PlanCatalogResponse
 
-> **PlanCatalogResponse** = `object`
+> **PlanCatalogResponse** = \{ `auto_reload_defaults`: [`AutoReloadDefaults`](AutoReloadDefaults.md); `auto_reload_target_max_cents`: `number`; `credit_packs_cents`: `number`[]; `overage_limit_max_cents`: `number`; `overage_limit_min_cents`: `number`; `plans`: [`PlanCatalogEntry`](PlanCatalogEntry.md)[]; \}
 
 The plan catalog and the knobs the billing UI offers.
 

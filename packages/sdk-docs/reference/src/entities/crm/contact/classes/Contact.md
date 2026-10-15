@@ -124,11 +124,11 @@ Rename the contact for the caller's current team.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`CrmContactResponse`](../../../../../generated/storage/types.gen/type-aliases/CrmContactResponse.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`CrmContactResponse`](../../../../../generated/storage/types.gen/type-aliases/CrmContactResponse.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

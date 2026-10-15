@@ -1,6 +1,6 @@
 # Type Alias: GetTeamSharingData
 
-> **GetTeamSharingData** = `object`
+> **GetTeamSharingData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/team-sharing"`; \}
 
 ## Properties
 

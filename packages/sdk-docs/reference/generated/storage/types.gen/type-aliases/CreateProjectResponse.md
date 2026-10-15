@@ -1,6 +1,6 @@
 # Type Alias: CreateProjectResponse
 
-> **CreateProjectResponse** = `object`
+> **CreateProjectResponse** = \{ `data`: [`Project`](Project.md); `error`: `boolean`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ApiThreadPreviewCursor
 
-> **ApiThreadPreviewCursor** = [`ApiThreadPreviewCursorInner`](ApiThreadPreviewCursorInner.md) & `object`
+> **ApiThreadPreviewCursor** = [`ApiThreadPreviewCursorInner`](ApiThreadPreviewCursorInner.md) & \{ `attachments`: [`ApiAttachment`](ApiAttachment.md)[]; `contacts`: [`ApiContact`](ApiContact.md)[]; `frecencyScore?`: `number` \| `null`; `labels`: [`ApiLabel`](ApiLabel.md)[]; \}
 
 ## Type Declaration
 

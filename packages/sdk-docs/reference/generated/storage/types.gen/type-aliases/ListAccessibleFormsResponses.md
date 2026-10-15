@@ -1,6 +1,6 @@
 # Type Alias: ListAccessibleFormsResponses
 
-> **ListAccessibleFormsResponses** = `object`
+> **ListAccessibleFormsResponses** = \{ `200`: [`ListedForm`](ListedForm.md)[]; \}
 
 ## Properties
 

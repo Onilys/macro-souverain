@@ -1,6 +1,6 @@
 # Type Alias: SimpleDocumentSearchResponseBaseItemHumanReadableTimestamp
 
-> **SimpleDocumentSearchResponseBaseItemHumanReadableTimestamp** = `object`
+> **SimpleDocumentSearchResponseBaseItemHumanReadableTimestamp** = \{ `document_id`: `string`; `document_name`: `string`; `file_type`: `string`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `node_id`: `string`; `owner_id`: `string`; `raw_content?`: `string` \| `null`; `updated_at`: `string`; \}
 
 ## Properties
 

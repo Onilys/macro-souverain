@@ -1,6 +1,6 @@
 # Type Alias: GenericSuccessResponse
 
-> **GenericSuccessResponse** = `object`
+> **GenericSuccessResponse** = \{ `success`: `boolean`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdateChannelSharePermission
 
-> **UpdateChannelSharePermission** = `object`
+> **UpdateChannelSharePermission** = \{ `accessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); `channelId`: `string`; `operation`: [`UpdateOperation`](UpdateOperation.md); \}
 
 ## Properties
 

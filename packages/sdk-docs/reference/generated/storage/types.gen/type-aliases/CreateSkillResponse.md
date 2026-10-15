@@ -1,6 +1,6 @@
 # Type Alias: CreateSkillResponse
 
-> **CreateSkillResponse** = `object`
+> **CreateSkillResponse** = \{ `documentId`: `string`; \}
 
 Response for creating a skill.
 

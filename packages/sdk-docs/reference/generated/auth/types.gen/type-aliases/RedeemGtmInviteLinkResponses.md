@@ -1,6 +1,6 @@
 # Type Alias: RedeemGtmInviteLinkResponses
 
-> **RedeemGtmInviteLinkResponses** = `object`
+> **RedeemGtmInviteLinkResponses** = \{ `200`: [`GtmInviteOffer`](GtmInviteOffer.md); \}
 
 ## Properties
 

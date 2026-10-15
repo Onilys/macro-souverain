@@ -1,6 +1,6 @@
 # Type Alias: CallToolRequest
 
-> **CallToolRequest** = `object`
+> **CallToolRequest** = \{ `args?`: `unknown`; `messageId`: `string`; `toolCallId`: `string`; \}
 
 Request body for executing a pending tool call.
 

@@ -1,6 +1,6 @@
 # Type Alias: FormTally
 
-> **FormTally** = `object`
+> **FormTally** = \{ `questions`: [`QuestionTally`](QuestionTally.md)[]; \}
 
 How the table's rows answer each choice question.
 

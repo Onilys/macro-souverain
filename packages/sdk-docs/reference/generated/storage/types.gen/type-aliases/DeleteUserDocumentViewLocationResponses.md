@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserDocumentViewLocationResponses
 
-> **DeleteUserDocumentViewLocationResponses** = `object`
+> **DeleteUserDocumentViewLocationResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

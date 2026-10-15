@@ -1,6 +1,6 @@
 # Type Alias: ListedForm
 
-> **ListedForm** = `object`
+> **ListedForm** = \{ `access`: [`FormAccess`](FormAccess.md); `form`: [`Form`](Form.md); \}
 
 A form the caller reaches through a grant, as the forms catalog lists
 it, with the caller's level on it.

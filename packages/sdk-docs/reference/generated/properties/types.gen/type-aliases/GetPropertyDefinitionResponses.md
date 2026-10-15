@@ -1,6 +1,6 @@
 # Type Alias: GetPropertyDefinitionResponses
 
-> **GetPropertyDefinitionResponses** = `object`
+> **GetPropertyDefinitionResponses** = \{ `200`: [`PropertyDefinition`](PropertyDefinition.md); \}
 
 ## Properties
 

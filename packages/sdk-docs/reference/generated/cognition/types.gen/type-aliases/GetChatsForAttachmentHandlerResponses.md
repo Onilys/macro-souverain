@@ -1,6 +1,6 @@
 # Type Alias: GetChatsForAttachmentHandlerResponses
 
-> **GetChatsForAttachmentHandlerResponses** = `object`
+> **GetChatsForAttachmentHandlerResponses** = \{ `200`: [`GetChatsForAttachmentResponse`](GetChatsForAttachmentResponse.md); \}
 
 ## Properties
 

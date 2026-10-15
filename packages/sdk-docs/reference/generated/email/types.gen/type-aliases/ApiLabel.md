@@ -1,6 +1,6 @@
 # Type Alias: ApiLabel
 
-> **ApiLabel** = `object`
+> **ApiLabel** = \{ `createdAt`: `string`; `id`: `string`; `labelListVisibility`: [`ApiLabelListVisibility`](ApiLabelListVisibility.md); `linkId`: `string`; `messageListVisibility`: [`ApiMessageListVisibility`](ApiMessageListVisibility.md); `name`: `string`; `providerLabelId`: `string`; `type`: [`ApiLabelType`](ApiLabelType.md); \}
 
 ## Properties
 

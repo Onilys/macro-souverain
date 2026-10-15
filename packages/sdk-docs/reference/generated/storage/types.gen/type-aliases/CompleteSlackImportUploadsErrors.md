@@ -1,6 +1,6 @@
 # Type Alias: CompleteSlackImportUploadsErrors
 
-> **CompleteSlackImportUploadsErrors** = `object`
+> **CompleteSlackImportUploadsErrors** = \{ `404`: `unknown`; `409`: `unknown`; `413`: `unknown`; `422`: `unknown`; `503`: `unknown`; \}
 
 ## Properties
 

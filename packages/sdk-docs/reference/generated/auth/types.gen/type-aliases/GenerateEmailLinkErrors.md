@@ -1,6 +1,6 @@
 # Type Alias: GenerateEmailLinkErrors
 
-> **GenerateEmailLinkErrors** = `object`
+> **GenerateEmailLinkErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

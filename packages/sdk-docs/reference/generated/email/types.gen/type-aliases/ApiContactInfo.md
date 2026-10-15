@@ -1,6 +1,6 @@
 # Type Alias: ApiContactInfo
 
-> **ApiContactInfo** = `object`
+> **ApiContactInfo** = \{ `email`: `string`; `name?`: `string` \| `null`; `photo_url?`: `string` \| `null`; \}
 
 API representation of a contact (sender or recipient).
 

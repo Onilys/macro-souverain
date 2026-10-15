@@ -53,11 +53,11 @@ entity's own detail, so there's nothing cached to invalidate.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: `Detail`; `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: `Detail`; `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

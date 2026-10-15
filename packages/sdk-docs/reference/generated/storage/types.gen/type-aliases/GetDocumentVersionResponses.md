@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentVersionResponses
 
-> **GetDocumentVersionResponses** = `object`
+> **GetDocumentVersionResponses** = \{ `200`: [`GetDocumentResponse`](GetDocumentResponse.md); \}
 
 ## Properties
 

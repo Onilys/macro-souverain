@@ -1,6 +1,6 @@
 # Type Alias: CreateAgentSessionRequest
 
-> **CreateAgentSessionRequest** = `object`
+> **CreateAgentSessionRequest** = \{ `botId?`: `string` \| `null`; `id?`: `string` \| `null`; `instructions?`: `string` \| `null`; `model?`: `string` \| `null`; `owner?`: `string` \| `null`; `prompt?`: `string` \| `null`; `repoBranch?`: `string` \| `null`; `repoUrl?`: `string` \| `null`; `thread?`: `null` \| [`CreateSessionThread`](CreateSessionThread.md); `workspace?`: `string` \| `null`; \}
 
 Request body for `POST /agent-sessions`.
 

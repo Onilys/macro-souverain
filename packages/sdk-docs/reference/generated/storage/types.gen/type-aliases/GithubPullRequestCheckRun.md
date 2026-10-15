@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestCheckRun
 
-> **GithubPullRequestCheckRun** = `object`
+> **GithubPullRequestCheckRun** = \{ `completedAt?`: `string` \| `null`; `conclusion?`: `string` \| `null`; `id`: `number`; `name`: `string`; `startedAt?`: `string` \| `null`; `status`: `string`; `url?`: `string` \| `null`; \}
 
 A check run associated with a GitHub pull request.
 

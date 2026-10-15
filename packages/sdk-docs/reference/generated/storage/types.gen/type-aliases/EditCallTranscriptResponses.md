@@ -1,6 +1,6 @@
 # Type Alias: EditCallTranscriptResponses
 
-> **EditCallTranscriptResponses** = `object`
+> **EditCallTranscriptResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

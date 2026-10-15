@@ -1,6 +1,6 @@
 # Type Alias: CreateChatRequest
 
-> **CreateChatRequest** = `object`
+> **CreateChatRequest** = \{ `name?`: `string` \| `null`; `projectId?`: `string` \| `null`; \}
 
 Request body for creating a chat.
 

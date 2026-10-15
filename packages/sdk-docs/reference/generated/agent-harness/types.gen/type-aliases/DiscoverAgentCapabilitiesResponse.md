@@ -1,6 +1,6 @@
 # Type Alias: DiscoverAgentCapabilitiesResponse
 
-> **DiscoverAgentCapabilitiesResponse** = `object`
+> **DiscoverAgentCapabilitiesResponse** = \{ `configOptions`: [`AgentConfigOptionDto`](AgentConfigOptionDto.md)[]; \}
 
 Successful capability-discovery response.
 

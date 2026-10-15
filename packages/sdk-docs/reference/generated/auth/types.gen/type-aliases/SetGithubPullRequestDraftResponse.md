@@ -1,6 +1,6 @@
 # Type Alias: SetGithubPullRequestDraftResponse
 
-> **SetGithubPullRequestDraftResponse** = `object`
+> **SetGithubPullRequestDraftResponse** = \{ `draft`: `boolean`; `pullRequest?`: `null` \| [`EnrichedGithubPullRequest`](EnrichedGithubPullRequest.md); \}
 
 Response body for a pull request whose draft state changed.
 

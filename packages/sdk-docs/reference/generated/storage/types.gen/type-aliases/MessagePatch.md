@@ -1,6 +1,6 @@
 # Type Alias: MessagePatch
 
-> **MessagePatch** = `object`
+> **MessagePatch** = \{ `attachments?`: [`AttachmentChange`](AttachmentChange.md); `content?`: `string` \| `null`; `mentions?`: [`SimpleMention`](SimpleMention.md)[] \| `null`; `nonce?`: `string` \| `null`; \}
 
 Partial updates share the same authorship, reference, and delivery rules as edits.
 

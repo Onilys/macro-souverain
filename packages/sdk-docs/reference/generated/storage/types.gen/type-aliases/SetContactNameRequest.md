@@ -1,6 +1,6 @@
 # Type Alias: SetContactNameRequest
 
-> **SetContactNameRequest** = `object`
+> **SetContactNameRequest** = \{ `name`: `string`; \}
 
 Request body for `PUT /contacts/{contact_id}/name`.
 

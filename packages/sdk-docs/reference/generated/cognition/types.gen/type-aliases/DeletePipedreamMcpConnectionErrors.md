@@ -1,6 +1,6 @@
 # Type Alias: DeletePipedreamMcpConnectionErrors
 
-> **DeletePipedreamMcpConnectionErrors** = `object`
+> **DeletePipedreamMcpConnectionErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

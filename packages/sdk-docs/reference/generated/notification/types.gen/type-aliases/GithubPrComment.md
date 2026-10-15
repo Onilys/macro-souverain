@@ -1,6 +1,6 @@
 # Type Alias: GithubPrComment
 
-> **GithubPrComment** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & `object`
+> **GithubPrComment** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & \{ `commentGithubId?`: `number` \| `null`; `commentKind`: [`GithubPrCommentKind`](GithubPrCommentKind.md); `commentSnippet`: `string`; `commentUrl?`: `string` \| `null`; \}
 
 Metadata for a notification that a GitHub pull request was commented on.
 

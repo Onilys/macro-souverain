@@ -1,6 +1,6 @@
 # Type Alias: MeetingCancelErrors
 
-> **MeetingCancelErrors** = `object`
+> **MeetingCancelErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

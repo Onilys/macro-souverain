@@ -1,6 +1,6 @@
 # Type Alias: CreateSnippetRequest
 
-> **CreateSnippetRequest** = `object`
+> **CreateSnippetRequest** = \{ `markdown?`: `string` \| `null`; `projectId?`: `string` \| `null`; `snippetName`: `string`; \}
 
 Request body for creating a snippet — a reusable markdown document that can
 be inserted into any markdown area.

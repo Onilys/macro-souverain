@@ -1,6 +1,6 @@
 # Type Alias: ListInitiativesData
 
-> **ListInitiativesData** = `object`
+> **ListInitiativesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/initiatives"`; \}
 
 ## Properties
 

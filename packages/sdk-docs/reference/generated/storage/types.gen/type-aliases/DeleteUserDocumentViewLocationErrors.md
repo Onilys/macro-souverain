@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserDocumentViewLocationErrors
 
-> **DeleteUserDocumentViewLocationErrors** = `object`
+> **DeleteUserDocumentViewLocationErrors** = \{ `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

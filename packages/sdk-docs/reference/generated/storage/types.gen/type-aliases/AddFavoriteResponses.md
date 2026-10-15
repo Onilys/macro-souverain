@@ -1,6 +1,6 @@
 # Type Alias: AddFavoriteResponses
 
-> **AddFavoriteResponses** = `object`
+> **AddFavoriteResponses** = \{ `200`: [`Favorite`](Favorite.md); \}
 
 ## Properties
 

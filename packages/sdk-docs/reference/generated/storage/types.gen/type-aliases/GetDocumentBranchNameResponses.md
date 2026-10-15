@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentBranchNameResponses
 
-> **GetDocumentBranchNameResponses** = `object`
+> **GetDocumentBranchNameResponses** = \{ `200`: [`BranchNameResponse`](BranchNameResponse.md); \}
 
 ## Properties
 

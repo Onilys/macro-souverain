@@ -1,6 +1,6 @@
 # Type Alias: ChannelThreadFilters
 
-> **ChannelThreadFilters** = `object`
+> **ChannelThreadFilters** = \{ `channel_ids?`: `string`[]; `participant_ids?`: `string`[]; `root_sender_ids?`: `string`[]; `thread_ids?`: `string`[]; \}
 
 The channel thread filters used to filter down channel-thread entities.
 

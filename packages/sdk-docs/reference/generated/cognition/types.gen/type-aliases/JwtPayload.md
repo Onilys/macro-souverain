@@ -1,6 +1,6 @@
 # Type Alias: JwtPayload
 
-> **JwtPayload** = `object`
+> **JwtPayload** = \{ `token`: `string`; \}
 
 ## Properties
 

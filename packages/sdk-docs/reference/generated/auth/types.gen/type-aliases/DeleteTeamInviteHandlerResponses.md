@@ -1,6 +1,6 @@
 # Type Alias: DeleteTeamInviteHandlerResponses
 
-> **DeleteTeamInviteHandlerResponses** = `object`
+> **DeleteTeamInviteHandlerResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

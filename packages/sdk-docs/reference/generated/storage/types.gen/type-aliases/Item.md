@@ -1,3 +1,3 @@
 # Type Alias: Item
 
-> **Item** = `object` & [`BasicDocument`](BasicDocument.md) \| `object` & [`Chat`](Chat.md) \| `object` & [`Project`](Project.md)
+> **Item** = \{ `type`: `"document"`; \} & [`BasicDocument`](BasicDocument.md) \| \{ `type`: `"chat"`; \} & [`Chat`](Chat.md) \| \{ `type`: `"project"`; \} & [`Project`](Project.md)

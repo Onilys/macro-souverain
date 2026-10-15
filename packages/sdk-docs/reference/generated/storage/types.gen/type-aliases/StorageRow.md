@@ -1,6 +1,6 @@
 # Type Alias: StorageRow
 
-> **StorageRow** = `object`
+> **StorageRow** = \{ `cells`: \{\[`key`: `string`\]: [`PropertyValue`](PropertyValue.md); \}; `rowId`: [`RowId`](RowId.md); \}
 
 One storage row, with cells keyed by column placement.
 
@@ -8,5 +8,5 @@ One storage row, with cells keyed by column placement.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-cells"></a> `cells` | `object` | Populated cells. |
+| <a id="property-cells"></a> `cells` | \{\[`key`: `string`\]: [`PropertyValue`](PropertyValue.md); \} | Populated cells. |
 | <a id="property-rowid"></a> `rowId` | [`RowId`](RowId.md) | Row identity, independent of any referenced entity. |

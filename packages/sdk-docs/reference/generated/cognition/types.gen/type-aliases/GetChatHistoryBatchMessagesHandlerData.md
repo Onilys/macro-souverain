@@ -1,6 +1,6 @@
 # Type Alias: GetChatHistoryBatchMessagesHandlerData
 
-> **GetChatHistoryBatchMessagesHandlerData** = `object`
+> **GetChatHistoryBatchMessagesHandlerData** = \{ `body`: [`ChatHistoryBatchMessagesRequest`](ChatHistoryBatchMessagesRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/chats/history_batch_messages"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: BulkWakeupResponse
 
-> **BulkWakeupResponse** = `object`
+> **BulkWakeupResponse** = \{ `dispatched`: `number`; \}
 
 ## Properties
 

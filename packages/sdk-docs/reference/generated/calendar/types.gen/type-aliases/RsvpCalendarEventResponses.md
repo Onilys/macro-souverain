@@ -1,6 +1,6 @@
 # Type Alias: RsvpCalendarEventResponses
 
-> **RsvpCalendarEventResponses** = `object`
+> **RsvpCalendarEventResponses** = \{ `200`: [`CalendarEvent`](CalendarEvent.md); \}
 
 ## Properties
 

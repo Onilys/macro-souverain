@@ -1,6 +1,6 @@
 # Type Alias: PatchChannelResponses
 
-> **PatchChannelResponses** = `object`
+> **PatchChannelResponses** = \{ `200`: `string`; \}
 
 ## Properties
 

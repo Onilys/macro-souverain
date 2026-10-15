@@ -1,6 +1,6 @@
 # Type Alias: DeleteViewHandlerResponses
 
-> **DeleteViewHandlerResponses** = `object`
+> **DeleteViewHandlerResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

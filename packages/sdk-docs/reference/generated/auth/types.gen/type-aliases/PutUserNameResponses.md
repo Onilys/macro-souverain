@@ -1,6 +1,6 @@
 # Type Alias: PutUserNameResponses
 
-> **PutUserNameResponses** = `object`
+> **PutUserNameResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

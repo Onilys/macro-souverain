@@ -1,6 +1,6 @@
 # Type Alias: CreateAgentSessionErrors
 
-> **CreateAgentSessionErrors** = `object`
+> **CreateAgentSessionErrors** = \{ `401`: `string`; `402`: [`AiAdmissionErrorBody`](AiAdmissionErrorBody.md); `403`: `string`; `404`: `string`; `422`: `string`; `500`: `string`; `503`: [`AiAdmissionErrorBody`](AiAdmissionErrorBody.md); \}
 
 ## Properties
 

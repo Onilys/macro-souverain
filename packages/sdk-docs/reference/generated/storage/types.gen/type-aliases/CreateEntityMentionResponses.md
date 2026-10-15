@@ -1,6 +1,6 @@
 # Type Alias: CreateEntityMentionResponses
 
-> **CreateEntityMentionResponses** = `object`
+> **CreateEntityMentionResponses** = \{ `201`: [`CreateEntityMentionResponse`](CreateEntityMentionResponse.md); \}
 
 ## Properties
 

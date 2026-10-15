@@ -1,6 +1,6 @@
 # Type Alias: SendMessageData
 
-> **SendMessageData** = `object`
+> **SendMessageData** = \{ `body`: [`SendMessageRequest`](SendMessageRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/messages"`; \}
 
 ## Properties
 

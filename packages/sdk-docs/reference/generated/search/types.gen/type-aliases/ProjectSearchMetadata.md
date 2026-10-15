@@ -1,6 +1,6 @@
 # Type Alias: ProjectSearchMetadata
 
-> **ProjectSearchMetadata** = `object`
+> **ProjectSearchMetadata** = \{ `created_at`: `string`; `owner_id`: `string`; `project_id`: `string`; `project_name`: `string`; `updated_at`: `string`; \}
 
 Metadata associated with Project Search, to be used with SearchResponseItem
 

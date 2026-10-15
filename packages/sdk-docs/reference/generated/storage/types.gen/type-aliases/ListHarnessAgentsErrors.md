@@ -1,6 +1,6 @@
 # Type Alias: ListHarnessAgentsErrors
 
-> **ListHarnessAgentsErrors** = `object`
+> **ListHarnessAgentsErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

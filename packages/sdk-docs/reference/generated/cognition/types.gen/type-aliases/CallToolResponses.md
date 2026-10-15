@@ -1,6 +1,6 @@
 # Type Alias: CallToolResponses
 
-> **CallToolResponses** = `object`
+> **CallToolResponses** = \{ `200`: [`CallToolResponse`](CallToolResponse.md); \}
 
 ## Properties
 

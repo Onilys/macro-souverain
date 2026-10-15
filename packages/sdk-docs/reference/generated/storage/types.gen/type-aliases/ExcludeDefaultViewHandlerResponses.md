@@ -1,6 +1,6 @@
 # Type Alias: ExcludeDefaultViewHandlerResponses
 
-> **ExcludeDefaultViewHandlerResponses** = `object`
+> **ExcludeDefaultViewHandlerResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

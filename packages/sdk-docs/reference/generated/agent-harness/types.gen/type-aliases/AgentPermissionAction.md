@@ -1,6 +1,6 @@
 # Type Alias: AgentPermissionAction
 
-> **AgentPermissionAction** = `object`
+> **AgentPermissionAction** = \{ `answer`: [`PermissionAnswer`](PermissionAnswer.md); `requestId`: `unknown`; \}
 
 A user's answer to the agent's `session/request_permission`.
 

@@ -1,6 +1,6 @@
 # Type Alias: GetPermissionsData
 
-> **GetPermissionsData** = `object`
+> **GetPermissionsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/permissions"`; \}
 
 ## Properties
 

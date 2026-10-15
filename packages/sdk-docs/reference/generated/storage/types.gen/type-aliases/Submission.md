@@ -1,6 +1,6 @@
 # Type Alias: Submission
 
-> **Submission** = `object`
+> **Submission** = \{ `answers`: [`Answer`](Answer.md)[]; \}
 
 A whole set of answers, sent at once.
 

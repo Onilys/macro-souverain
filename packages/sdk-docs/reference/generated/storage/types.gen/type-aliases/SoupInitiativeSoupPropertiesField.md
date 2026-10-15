@@ -1,6 +1,6 @@
 # Type Alias: SoupInitiativeSoupPropertiesField
 
-> **SoupInitiativeSoupPropertiesField** = `object` & `object`
+> **SoupInitiativeSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `createdAt`: `string`; `id`: `string`; `name`: `string`; `ownerId`: `string`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 An initiative (called a project in the frontend) in the Soup feed.
 

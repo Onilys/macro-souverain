@@ -1,6 +1,6 @@
 # Type Alias: GetFormResponses
 
-> **GetFormResponses** = `object`
+> **GetFormResponses** = \{ `200`: [`FormDetail`](FormDetail.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SearchContactsResponses
 
-> **SearchContactsResponses** = `object`
+> **SearchContactsResponses** = \{ `200`: [`SearchContactsResponse`](SearchContactsResponse.md); \}
 
 ## Properties
 

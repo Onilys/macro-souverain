@@ -1,6 +1,6 @@
 # Type Alias: AgentModelDto
 
-> **AgentModelDto** = `object`
+> **AgentModelDto** = \{ `description?`: `string` \| `null`; `group?`: `string` \| `null`; `id`: `string`; `name`: `string`; `supportsImages?`: `boolean` \| `null`; \}
 
 One model picker option.
 

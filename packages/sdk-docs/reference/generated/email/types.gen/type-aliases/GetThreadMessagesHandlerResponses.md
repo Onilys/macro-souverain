@@ -1,6 +1,6 @@
 # Type Alias: GetThreadMessagesHandlerResponses
 
-> **GetThreadMessagesHandlerResponses** = `object`
+> **GetThreadMessagesHandlerResponses** = \{ `200`: [`ParsedMessage`](ParsedMessage.md)[]; \}
 
 ## Properties
 

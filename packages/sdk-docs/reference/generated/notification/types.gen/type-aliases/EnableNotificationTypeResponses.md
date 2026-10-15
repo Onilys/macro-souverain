@@ -1,6 +1,6 @@
 # Type Alias: EnableNotificationTypeResponses
 
-> **EnableNotificationTypeResponses** = `object`
+> **EnableNotificationTypeResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

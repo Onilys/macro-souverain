@@ -1,6 +1,6 @@
 # Type Alias: SetDocumentTeamShareResponses
 
-> **SetDocumentTeamShareResponses** = `object`
+> **SetDocumentTeamShareResponses** = \{ `200`: [`DocumentTeamShareResponse`](DocumentTeamShareResponse.md); \}
 
 ## Properties
 

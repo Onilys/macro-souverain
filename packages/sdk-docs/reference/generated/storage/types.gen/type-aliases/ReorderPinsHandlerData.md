@@ -1,6 +1,6 @@
 # Type Alias: ReorderPinsHandlerData
 
-> **ReorderPinsHandlerData** = `object`
+> **ReorderPinsHandlerData** = \{ `body`: [`ReorderPinRequest`](ReorderPinRequest.md)[]; `path?`: `never`; `query?`: `never`; `url`: `"/pins"`; \}
 
 ## Properties
 

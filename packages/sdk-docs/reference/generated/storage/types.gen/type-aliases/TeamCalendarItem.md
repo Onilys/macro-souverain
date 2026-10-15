@@ -1,6 +1,6 @@
 # Type Alias: TeamCalendarItem
 
-> **TeamCalendarItem** = [`TeamCalendarContent`](TeamCalendarContent.md) & `object`
+> **TeamCalendarItem** = [`TeamCalendarContent`](TeamCalendarContent.md) & \{ `contributesToAvailability`: `boolean`; `id`: `string`; `ownerId`: `string`; `time`: [`EventTime`](EventTime.md); \}
 
 A read-only team calendar occurrence.
 

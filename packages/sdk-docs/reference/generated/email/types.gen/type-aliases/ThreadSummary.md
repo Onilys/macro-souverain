@@ -1,6 +1,6 @@
 # Type Alias: ThreadSummary
 
-> **ThreadSummary** = `object`
+> **ThreadSummary** = \{ `provider_id`: `string`; \}
 
 ## Properties
 

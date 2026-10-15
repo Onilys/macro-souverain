@@ -1,6 +1,6 @@
 # Type Alias: InviteToTeamData
 
-> **InviteToTeamData** = `object`
+> **InviteToTeamData** = \{ `body`: [`InviteToTeamRequest`](InviteToTeamRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/team/invite"`; \}
 
 ## Properties
 

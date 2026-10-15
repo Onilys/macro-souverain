@@ -1,6 +1,6 @@
 # Type Alias: GetBatchCallRecordPreviewResponses
 
-> **GetBatchCallRecordPreviewResponses** = `object`
+> **GetBatchCallRecordPreviewResponses** = \{ `200`: [`GetBatchCallRecordPreviewResponse`](GetBatchCallRecordPreviewResponse.md); \}
 
 ## Properties
 

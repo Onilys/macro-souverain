@@ -1,6 +1,6 @@
 # Type Alias: ListAgentRepositoriesResponses
 
-> **ListAgentRepositoriesResponses** = `object`
+> **ListAgentRepositoriesResponses** = \{ `200`: [`AgentRepositoriesResponse`](AgentRepositoriesResponse.md); \}
 
 ## Properties
 

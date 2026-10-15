@@ -1,6 +1,6 @@
 # Type Alias: VerifyMergeRequestResponses
 
-> **VerifyMergeRequestResponses** = `object`
+> **VerifyMergeRequestResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

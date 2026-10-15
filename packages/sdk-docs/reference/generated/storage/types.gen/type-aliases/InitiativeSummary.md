@@ -1,6 +1,6 @@
 # Type Alias: InitiativeSummary
 
-> **InitiativeSummary** = `object`
+> **InitiativeSummary** = \{ `id`: [`InitiativeId`](InitiativeId.md); `name`: `string`; `updatedAt`: `string`; \}
 
 List-row view of an initiative.
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateFormResponses
 
-> **CreateFormResponses** = `object`
+> **CreateFormResponses** = \{ `201`: [`FormDetail`](FormDetail.md); \}
 
 ## Properties
 

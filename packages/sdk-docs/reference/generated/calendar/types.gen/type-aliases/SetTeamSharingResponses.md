@@ -1,6 +1,6 @@
 # Type Alias: SetTeamSharingResponses
 
-> **SetTeamSharingResponses** = `object`
+> **SetTeamSharingResponses** = \{ `200`: [`TeamCalendarSharingBody`](TeamCalendarSharingBody.md); \}
 
 ## Properties
 

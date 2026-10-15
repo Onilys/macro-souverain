@@ -1,6 +1,6 @@
 # Type Alias: ChannelDeletedMetadata
 
-> **ChannelDeletedMetadata** = `object`
+> **ChannelDeletedMetadata** = \{ `actor`: [`ChannelSender`](ChannelSender.md); `channel_id`: `string`; \}
 
 Metadata for [`ChannelTopicEvent::Deleted`].
 

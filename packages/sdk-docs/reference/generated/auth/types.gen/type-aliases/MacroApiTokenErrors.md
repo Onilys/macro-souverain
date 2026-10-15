@@ -1,6 +1,6 @@
 # Type Alias: MacroApiTokenErrors
 
-> **MacroApiTokenErrors** = `object`
+> **MacroApiTokenErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

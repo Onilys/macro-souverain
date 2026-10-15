@@ -1,6 +1,6 @@
 # Type Alias: ConversationSeal
 
-> **ConversationSeal** = `object`
+> **ConversationSeal** = \{ `manifestSha256`: [`Sha256Digest`](Sha256Digest.md); `partCount`: `number`; `slackChannelId`: [`ConversationId`](ConversationId.md); \}
 
 Complete immutable expected part set for one conversation, including zero parts.
 

@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamRequest
 
-> **PatchTeamRequest** = `object`
+> **PatchTeamRequest** = \{ `default_link_share?`: `null` \| [`LinkShare`](LinkShare.md); `name?`: `string` \| `null`; `slug?`: `string` \| `null`; `user_role_updates?`: [`PatchTeamUserRole`](PatchTeamUserRole.md)[] \| `null`; \}
 
 Request to update a team
 

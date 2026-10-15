@@ -1,6 +1,6 @@
 # Type Alias: EntityReference
 
-> **EntityReference** = `object`
+> **EntityReference** = \{ `entity_id`: `string`; `entity_type`: [`EntityType`](EntityType.md); `specific_message_id?`: `string` \| `null`; \}
 
 Entity reference for entity-type property values.
 

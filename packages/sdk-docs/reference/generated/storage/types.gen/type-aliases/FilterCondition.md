@@ -1,6 +1,6 @@
 # Type Alias: FilterCondition
 
-> **FilterCondition** = `object`
+> **FilterCondition** = \{ `column`: `string`; `test`: [`FilterTest`](FilterTest.md); \}
 
 A test of one column's cells.
 

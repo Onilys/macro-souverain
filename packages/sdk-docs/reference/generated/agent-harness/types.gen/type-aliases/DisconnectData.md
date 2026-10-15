@@ -1,6 +1,6 @@
 # Type Alias: DisconnectData
 
-> **DisconnectData** = `object`
+> **DisconnectData** = \{ `body`: [`EmptyRequest`](EmptyRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/claude-auth"`; \}
 
 ## Properties
 

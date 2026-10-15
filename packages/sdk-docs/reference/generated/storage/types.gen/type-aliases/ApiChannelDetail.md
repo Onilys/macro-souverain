@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelDetail
 
-> **ApiChannelDetail** = `object`
+> **ApiChannelDetail** = \{ `channel_id`: `string`; `channel_name`: `string`; `channel_type`: [`ChannelType`](ChannelType.md); `participants`: [`ApiChannelParticipant`](ApiChannelParticipant.md)[]; \}
 
 Channel detail: metadata and active participants.
 

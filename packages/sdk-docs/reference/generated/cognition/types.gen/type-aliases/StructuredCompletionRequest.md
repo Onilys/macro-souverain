@@ -1,6 +1,6 @@
 # Type Alias: StructuredCompletionRequest
 
-> **StructuredCompletionRequest** = `object`
+> **StructuredCompletionRequest** = \{ `additional_instructions?`: `string` \| `null`; `model`: `string`; `output_schema`: [`DynamicSchema`](DynamicSchema.md); `prompt`: `string`; `toolset?`: [`ToolSet`](ToolSet.md); \}
 
 ## Properties
 

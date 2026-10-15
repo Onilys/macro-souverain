@@ -1,6 +1,6 @@
 # Type Alias: NewEmailMetadata
 
-> **NewEmailMetadata** = `object`
+> **NewEmailMetadata** = \{ `sender?`: `string` \| `null`; `snippet`: `string`; `subject`: `string`; `threadId`: `string`; `toEmail`: `string`; \}
 
 ## Properties
 

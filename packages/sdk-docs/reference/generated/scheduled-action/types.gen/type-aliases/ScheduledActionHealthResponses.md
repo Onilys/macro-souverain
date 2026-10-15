@@ -1,6 +1,6 @@
 # Type Alias: ScheduledActionHealthResponses
 
-> **ScheduledActionHealthResponses** = `object`
+> **ScheduledActionHealthResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

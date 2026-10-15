@@ -1,6 +1,6 @@
 # Type Alias: CountedReaction
 
-> **CountedReaction** = `object`
+> **CountedReaction** = \{ `emoji`: `string`; `users`: `string`[]; \}
 
 Reaction emoji and the users who added it.
 

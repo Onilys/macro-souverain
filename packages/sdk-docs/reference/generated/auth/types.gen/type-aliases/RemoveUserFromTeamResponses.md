@@ -1,6 +1,6 @@
 # Type Alias: RemoveUserFromTeamResponses
 
-> **RemoveUserFromTeamResponses** = `object`
+> **RemoveUserFromTeamResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

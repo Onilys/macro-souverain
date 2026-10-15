@@ -1,6 +1,6 @@
 # Type Alias: MessageDeletedMetadata
 
-> **MessageDeletedMetadata** = `object`
+> **MessageDeletedMetadata** = \{ `actor`: [`ChannelSender`](ChannelSender.md); `deleted_at?`: `string` \| `null`; `message_id`: `string`; `parent`: [`MessageParent`](MessageParent.md); `root_id`: `string`; `thread_id?`: `string` \| `null`; \}
 
 A committed message tombstone.
 

@@ -1,6 +1,6 @@
 # Type Alias: TableDetail
 
-> **TableDetail** = `object`
+> **TableDetail** = \{ `columns`: [`ColumnDetail`](ColumnDetail.md)[]; `sql_name`: `string`; `table`: [`Table`](Table.md); `views`: [`DatabaseView`](DatabaseView.md)[]; \}
 
 One table with its columns and SQL name.
 

@@ -1,6 +1,6 @@
 # Type Alias: RenamePipeline
 
-> **RenamePipeline** = `object`
+> **RenamePipeline** = \{ `name`: `string`; \}
 
 Rename input.
 

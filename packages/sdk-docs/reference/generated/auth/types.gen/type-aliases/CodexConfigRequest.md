@@ -1,6 +1,6 @@
 # Type Alias: CodexConfigRequest
 
-> **CodexConfigRequest** = `object`
+> **CodexConfigRequest** = \{ `environmentId`: `string`; \}
 
 Explicit remote environment for future Codex sessions.
 

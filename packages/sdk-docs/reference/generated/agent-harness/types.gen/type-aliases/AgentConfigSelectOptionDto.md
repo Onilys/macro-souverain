@@ -1,6 +1,6 @@
 # Type Alias: AgentConfigSelectOptionDto
 
-> **AgentConfigSelectOptionDto** = `object`
+> **AgentConfigSelectOptionDto** = \{ `description?`: `string` \| `null`; `group?`: `string` \| `null`; `name`: `string`; `value`: `string`; \}
 
 One value in an agent-advertised select.
 

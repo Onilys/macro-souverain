@@ -1,6 +1,6 @@
 # Type Alias: SessionMentionedMetadata
 
-> **SessionMentionedMetadata** = `object`
+> **SessionMentionedMetadata** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `identity`: [`SessionIdentity`](SessionIdentity.md); `mentioned`: [`MacroUserIdStr`](MacroUserIdStr.md)[]; `mentioned_by?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `origin_message_id?`: `string` \| `null`; \}
 
 A prompt named other users who can open the session. Published when the
 prompt is accepted, not when it is answered: "come look at this" should

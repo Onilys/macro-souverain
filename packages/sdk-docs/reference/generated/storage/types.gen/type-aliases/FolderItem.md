@@ -1,6 +1,6 @@
 # Type Alias: FolderItem
 
-> **FolderItem** = `object`
+> **FolderItem** = \{ `fileType?`: `null` \| [`FileType`](FileType.md); `fullName`: `string`; `name`: `string`; `relativePath`: `string`; `sha`: `string`; \}
 
 ## Properties
 

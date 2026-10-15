@@ -1,6 +1,6 @@
 # Type Alias: GetBatchChannelPreviewResponse
 
-> **GetBatchChannelPreviewResponse** = `object`
+> **GetBatchChannelPreviewResponse** = \{ `previews`: [`ChannelPreview`](ChannelPreview.md)[]; \}
 
 Response for a batched channel preview lookup.
 

@@ -1,6 +1,6 @@
 # Type Alias: RunImportHandlerData
 
-> **RunImportHandlerData** = `object`
+> **RunImportHandlerData** = \{ `body`: [`RunImportRequest`](RunImportRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/import/run"`; \}
 
 ## Properties
 

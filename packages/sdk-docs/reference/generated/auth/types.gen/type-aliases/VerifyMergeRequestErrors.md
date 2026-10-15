@@ -1,6 +1,6 @@
 # Type Alias: VerifyMergeRequestErrors
 
-> **VerifyMergeRequestErrors** = `object`
+> **VerifyMergeRequestErrors** = \{ `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CalendarOccurrenceItem
 
-> **CalendarOccurrenceItem** = `object`
+> **CalendarOccurrenceItem** = \{ `event`: [`CalendarEvent`](CalendarEvent.md); `occurrence`: [`CalendarOccurrence`](CalendarOccurrence.md); \}
 
 One materialized occurrence paired with its stable calendar event entity.
 

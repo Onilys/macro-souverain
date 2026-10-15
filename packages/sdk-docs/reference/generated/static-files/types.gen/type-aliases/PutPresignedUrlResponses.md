@@ -1,6 +1,6 @@
 # Type Alias: PutPresignedUrlResponses
 
-> **PutPresignedUrlResponses** = `object`
+> **PutPresignedUrlResponses** = \{ `200`: [`PutFileResponse`](PutFileResponse.md); \}
 
 ## Properties
 

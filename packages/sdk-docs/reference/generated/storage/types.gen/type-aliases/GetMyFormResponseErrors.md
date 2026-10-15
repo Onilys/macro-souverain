@@ -1,6 +1,6 @@
 # Type Alias: GetMyFormResponseErrors
 
-> **GetMyFormResponseErrors** = `object`
+> **GetMyFormResponseErrors** = \{ `401`: [`FormErrorResponse`](FormErrorResponse.md); `403`: [`FormErrorResponse`](FormErrorResponse.md); `404`: [`FormErrorResponse`](FormErrorResponse.md); `500`: [`FormErrorResponse`](FormErrorResponse.md); \}
 
 ## Properties
 

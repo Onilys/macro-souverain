@@ -1,6 +1,6 @@
 # Type Alias: CreateHarnessPairingErrors
 
-> **CreateHarnessPairingErrors** = `object`
+> **CreateHarnessPairingErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `429`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

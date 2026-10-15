@@ -1,6 +1,6 @@
 # Type Alias: PatchViewHandlerErrors
 
-> **PatchViewHandlerErrors** = `object`
+> **PatchViewHandlerErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

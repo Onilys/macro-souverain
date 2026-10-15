@@ -1,6 +1,6 @@
 # Type Alias: MessagePage
 
-> **MessagePage** = `object`
+> **MessagePage** = \{ `items`: [`MessageListItem`](MessageListItem.md)[]; `next_cursor?`: `null` \| [`MessageCursor`](MessageCursor.md); `previous_cursor?`: `null` \| [`MessageCursor`](MessageCursor.md); \}
 
 Bidirectional, bounded timeline page, ordered newest root first.
 

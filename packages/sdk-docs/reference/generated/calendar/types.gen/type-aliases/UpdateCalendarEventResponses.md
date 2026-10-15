@@ -1,6 +1,6 @@
 # Type Alias: UpdateCalendarEventResponses
 
-> **UpdateCalendarEventResponses** = `object`
+> **UpdateCalendarEventResponses** = \{ `200`: [`CalendarEvent`](CalendarEvent.md); \}
 
 ## Properties
 

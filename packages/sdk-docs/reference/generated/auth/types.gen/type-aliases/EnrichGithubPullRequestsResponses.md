@@ -1,6 +1,6 @@
 # Type Alias: EnrichGithubPullRequestsResponses
 
-> **EnrichGithubPullRequestsResponses** = `object`
+> **EnrichGithubPullRequestsResponses** = \{ `200`: [`EnrichGithubPullRequestsResponse`](EnrichGithubPullRequestsResponse.md); \}
 
 ## Properties
 

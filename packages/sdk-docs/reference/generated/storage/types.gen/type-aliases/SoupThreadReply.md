@@ -1,6 +1,6 @@
 # Type Alias: SoupThreadReply
 
-> **SoupThreadReply** = `object`
+> **SoupThreadReply** = \{ `attachments`: [`SoupMessageAttachment`](SoupMessageAttachment.md)[]; `content`: `string`; `created_at`: `string`; `edited_at?`: `string` \| `null`; `id`: `string`; `reactions`: [`SoupCountedReaction`](SoupCountedReaction.md)[]; `sender`: [`SoupMessageSender`](SoupMessageSender.md); `sender_id`: `string`; `updated_at`: `string`; \}
 
 A thread reply shown in preview.
 

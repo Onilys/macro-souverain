@@ -1,6 +1,6 @@
 # Type Alias: InitiativeList
 
-> **InitiativeList** = `object`
+> **InitiativeList** = \{ `initiatives`: [`InitiativeSummary`](InitiativeSummary.md)[]; \}
 
 Accessible-initiative list.
 

@@ -1,6 +1,6 @@
 # Type Alias: ImportedAuthor
 
-> **ImportedAuthor** = `object`
+> **ImportedAuthor** = \{ `name`: `string`; \}
 
 Display attribution for a comment imported from an external document.
 

@@ -1,6 +1,6 @@
 # Type Alias: CompleteUploads
 
-> **CompleteUploads** = `object`
+> **CompleteUploads** = \{ `seal?`: `null` \| [`ConversationSeal`](ConversationSeal.md); `uploads`: [`UploadId`](UploadId.md)[]; \}
 
 Explicit upload completion; a seal can be submitted separately with an empty list.
 

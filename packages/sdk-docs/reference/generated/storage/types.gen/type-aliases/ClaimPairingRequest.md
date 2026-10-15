@@ -1,6 +1,6 @@
 # Type Alias: ClaimPairingRequest
 
-> **ClaimPairingRequest** = `object`
+> **ClaimPairingRequest** = \{ `device_secret`: `string`; \}
 
 Request to claim an approved pairing's credential.
 

@@ -1,6 +1,6 @@
 # Type Alias: ArchiveThreadRequest
 
-> **ArchiveThreadRequest** = `object`
+> **ArchiveThreadRequest** = \{ `value`: `boolean`; \}
 
 ## Properties
 

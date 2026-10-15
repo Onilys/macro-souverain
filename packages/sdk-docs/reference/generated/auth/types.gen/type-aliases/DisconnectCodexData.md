@@ -1,6 +1,6 @@
 # Type Alias: DisconnectCodexData
 
-> **DisconnectCodexData** = `object`
+> **DisconnectCodexData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/codex"`; \}
 
 ## Properties
 

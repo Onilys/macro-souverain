@@ -1,6 +1,6 @@
 # Type Alias: TurnEndedMetadata
 
-> **TurnEndedMetadata** = `object`
+> **TurnEndedMetadata** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `actor?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `announcement_message_id?`: `string` \| `null`; `identity`: [`SessionIdentity`](SessionIdentity.md); `queued_remaining`: `number`; `stop_reason`: `string`; `turn`: `number`; \}
 
 The runtime answered a turn. Another prompt may follow at once; see
 [`SessionSettledMetadata`] for "nothing left to do".

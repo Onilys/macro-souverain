@@ -1,6 +1,6 @@
 # Type Alias: ChatHistory
 
-> **ChatHistory** = `object`
+> **ChatHistory** = \{ `conversation`: [`ConversationRecord`](ConversationRecord.md)[]; \}
 
 ## Properties
 

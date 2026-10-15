@@ -1,6 +1,6 @@
 # Type Alias: ExecuteScheduledActionNowResponses
 
-> **ExecuteScheduledActionNowResponses** = `object`
+> **ExecuteScheduledActionNowResponses** = \{ `200`: [`InProgressExecution`](InProgressExecution.md); \}
 
 ## Properties
 

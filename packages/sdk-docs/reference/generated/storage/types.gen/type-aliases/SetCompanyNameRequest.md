@@ -1,6 +1,6 @@
 # Type Alias: SetCompanyNameRequest
 
-> **SetCompanyNameRequest** = `object`
+> **SetCompanyNameRequest** = \{ `name`: `string`; \}
 
 Request body for `PUT /companies/{company_id}/name`.
 

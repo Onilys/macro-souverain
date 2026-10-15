@@ -1,6 +1,6 @@
 # Type Alias: AddForwardedAttachmentResponse
 
-> **AddForwardedAttachmentResponse** = `object`
+> **AddForwardedAttachmentResponse** = \{ `attachment_id`: `string`; `filename?`: `string` \| `null`; `mime_type?`: `string` \| `null`; `size_bytes?`: `number` \| `null`; \}
 
 ## Properties
 

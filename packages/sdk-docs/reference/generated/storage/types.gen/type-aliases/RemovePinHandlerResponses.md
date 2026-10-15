@@ -1,6 +1,6 @@
 # Type Alias: RemovePinHandlerResponses
 
-> **RemovePinHandlerResponses** = `object`
+> **RemovePinHandlerResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

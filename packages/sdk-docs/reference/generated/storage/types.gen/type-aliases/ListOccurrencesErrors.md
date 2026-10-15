@@ -1,6 +1,6 @@
 # Type Alias: ListOccurrencesErrors
 
-> **ListOccurrencesErrors** = `object`
+> **ListOccurrencesErrors** = \{ `400`: `unknown`; `401`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

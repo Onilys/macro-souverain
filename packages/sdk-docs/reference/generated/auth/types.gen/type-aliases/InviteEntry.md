@@ -1,6 +1,6 @@
 # Type Alias: InviteEntry
 
-> **InviteEntry** = `object`
+> **InviteEntry** = \{ `email`: `string`; \}
 
 A single invite entry with email and tier
 

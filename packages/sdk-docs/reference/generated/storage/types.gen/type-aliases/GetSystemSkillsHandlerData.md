@@ -1,6 +1,6 @@
 # Type Alias: GetSystemSkillsHandlerData
 
-> **GetSystemSkillsHandlerData** = `object`
+> **GetSystemSkillsHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/documents/system_skills"`; \}
 
 ## Properties
 

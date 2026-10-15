@@ -1,6 +1,6 @@
 # Type Alias: SsoLoginResponses
 
-> **SsoLoginResponses** = `object`
+> **SsoLoginResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

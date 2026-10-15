@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelScopedBotResponses
 
-> **CreateChannelScopedBotResponses** = `object`
+> **CreateChannelScopedBotResponses** = \{ `201`: [`CreateChannelScopedBotResponse`](CreateChannelScopedBotResponse.md); \}
 
 ## Properties
 

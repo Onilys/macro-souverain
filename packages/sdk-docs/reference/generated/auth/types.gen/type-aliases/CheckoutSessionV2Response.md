@@ -1,6 +1,6 @@
 # Type Alias: CheckoutSessionV2Response
 
-> **CheckoutSessionV2Response** = `object`
+> **CheckoutSessionV2Response** = \{ `trialDays?`: `number` \| `null`; `url`: `string`; \}
 
 Hosted checkout with the billing terms the server actually granted.
 

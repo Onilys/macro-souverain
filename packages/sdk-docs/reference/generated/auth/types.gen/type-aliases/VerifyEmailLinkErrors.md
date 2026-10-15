@@ -1,6 +1,6 @@
 # Type Alias: VerifyEmailLinkErrors
 
-> **VerifyEmailLinkErrors** = `object`
+> **VerifyEmailLinkErrors** = \{ `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

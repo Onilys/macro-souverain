@@ -1,6 +1,6 @@
 # Type Alias: FormLayout
 
-> **FormLayout** = `object`
+> **FormLayout** = \{ `sections`: [`FormSection`](FormSection.md)[]; \}
 
 Every section of a form, in order.
 

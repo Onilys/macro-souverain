@@ -1,6 +1,6 @@
 # Type Alias: GetPinsHandlerResponses
 
-> **GetPinsHandlerResponses** = `object`
+> **GetPinsHandlerResponses** = \{ `200`: [`GetPinsResponse`](GetPinsResponse.md); \}
 
 ## Properties
 

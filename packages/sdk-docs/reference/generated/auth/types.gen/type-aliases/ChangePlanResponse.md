@@ -1,6 +1,6 @@
 # Type Alias: ChangePlanResponse
 
-> **ChangePlanResponse** = `object`
+> **ChangePlanResponse** = \{ `plan`: [`SeatPlan`](SeatPlan.md); \}
 
 Response for a plan change
 

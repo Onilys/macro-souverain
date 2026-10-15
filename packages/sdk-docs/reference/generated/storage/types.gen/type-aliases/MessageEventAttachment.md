@@ -1,6 +1,6 @@
 # Type Alias: MessageEventAttachment
 
-> **MessageEventAttachment** = `object`
+> **MessageEventAttachment** = \{ `attachment_id`: `string`; `created_at`: `string`; `entity_id`: `string`; `entity_type`: `string`; \}
 
 An attachment persisted with a message.
 

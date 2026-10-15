@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentTeamShareErrors
 
-> **GetDocumentTeamShareErrors** = `object`
+> **GetDocumentTeamShareErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

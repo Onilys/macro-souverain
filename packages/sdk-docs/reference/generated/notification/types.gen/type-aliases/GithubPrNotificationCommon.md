@@ -1,6 +1,6 @@
 # Type Alias: GithubPrNotificationCommon
 
-> **GithubPrNotificationCommon** = `object`
+> **GithubPrNotificationCommon** = \{ `displayName`: `string`; `foreignEntityId`: `string`; `githubKey`: `string`; `number`: `number`; `owner`: `string`; `repo`: `string`; `senderGithubAvatarUrl?`: `string` \| `null`; `senderGithubLogin?`: `string` \| `null`; `senderGithubUserId?`: `string` \| `null`; `title`: `string`; `url`: `string`; \}
 
 Fields shared by every GitHub pull request notification type.
 

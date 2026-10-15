@@ -1,6 +1,6 @@
 # Type Alias: GetUserPermissionsErrors
 
-> **GetUserPermissionsErrors** = `object`
+> **GetUserPermissionsErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

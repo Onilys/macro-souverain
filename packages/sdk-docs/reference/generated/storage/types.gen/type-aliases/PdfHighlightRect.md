@@ -1,6 +1,6 @@
 # Type Alias: PdfHighlightRect
 
-> **PdfHighlightRect** = `object`
+> **PdfHighlightRect** = \{ `height`: `number`; `id`: `number`; `left`: `number`; `top`: `number`; `width`: `number`; \}
 
 ## Properties
 

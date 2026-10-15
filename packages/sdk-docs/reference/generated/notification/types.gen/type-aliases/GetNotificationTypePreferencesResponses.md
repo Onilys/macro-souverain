@@ -1,6 +1,6 @@
 # Type Alias: GetNotificationTypePreferencesResponses
 
-> **GetNotificationTypePreferencesResponses** = `object`
+> **GetNotificationTypePreferencesResponses** = \{ `200`: [`GetNotificationTypePreferencesResponse`](GetNotificationTypePreferencesResponse.md); \}
 
 ## Properties
 

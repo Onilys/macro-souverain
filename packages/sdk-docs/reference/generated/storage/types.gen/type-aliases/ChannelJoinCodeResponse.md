@@ -1,6 +1,6 @@
 # Type Alias: ChannelJoinCodeResponse
 
-> **ChannelJoinCodeResponse** = `object`
+> **ChannelJoinCodeResponse** = \{ `join_code`: `string`; \}
 
 Response containing a channel's reusable join code.
 

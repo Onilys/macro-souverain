@@ -1,6 +1,6 @@
 # Type Alias: ListScheduledActionHistoryErrors
 
-> **ListScheduledActionHistoryErrors** = `object`
+> **ListScheduledActionHistoryErrors** = \{ `401`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

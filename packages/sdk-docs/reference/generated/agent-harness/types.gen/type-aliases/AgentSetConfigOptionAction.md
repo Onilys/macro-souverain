@@ -1,6 +1,6 @@
 # Type Alias: AgentSetConfigOptionAction
 
-> **AgentSetConfigOptionAction** = `object`
+> **AgentSetConfigOptionAction** = \{ `configId`: `string`; `value`: `string`; \}
 
 Ask the agent to change one advertised select-style session setting.
 

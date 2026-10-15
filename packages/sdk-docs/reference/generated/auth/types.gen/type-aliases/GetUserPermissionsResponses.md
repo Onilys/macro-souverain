@@ -1,6 +1,6 @@
 # Type Alias: GetUserPermissionsResponses
 
-> **GetUserPermissionsResponses** = `object`
+> **GetUserPermissionsResponses** = \{ `200`: `string`[]; \}
 
 ## Properties
 

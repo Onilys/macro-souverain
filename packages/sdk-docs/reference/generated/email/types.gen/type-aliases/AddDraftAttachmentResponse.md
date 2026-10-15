@@ -1,6 +1,6 @@
 # Type Alias: AddDraftAttachmentResponse
 
-> **AddDraftAttachmentResponse** = `object`
+> **AddDraftAttachmentResponse** = \{ `attachment_id`: `string`; `content_type`: `string`; `upload_url`: `string`; \}
 
 ## Properties
 

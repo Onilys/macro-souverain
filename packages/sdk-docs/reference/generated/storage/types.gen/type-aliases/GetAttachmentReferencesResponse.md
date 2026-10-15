@@ -1,6 +1,6 @@
 # Type Alias: GetAttachmentReferencesResponse
 
-> **GetAttachmentReferencesResponse** = `object`
+> **GetAttachmentReferencesResponse** = \{ `references`: [`ApiAttachmentEntityReference`](ApiAttachmentEntityReference.md)[]; \}
 
 Response from the attachment-references endpoint.
 

@@ -1,6 +1,6 @@
 # Type Alias: ListDatabaseColumnCastsErrors
 
-> **ListDatabaseColumnCastsErrors** = `object`
+> **ListDatabaseColumnCastsErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

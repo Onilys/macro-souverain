@@ -1,6 +1,6 @@
 # Type Alias: ListDatabasesErrors
 
-> **ListDatabasesErrors** = `object`
+> **ListDatabasesErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

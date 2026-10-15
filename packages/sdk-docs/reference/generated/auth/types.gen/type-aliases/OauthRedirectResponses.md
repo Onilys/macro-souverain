@@ -1,6 +1,6 @@
 # Type Alias: OauthRedirectResponses
 
-> **OauthRedirectResponses** = `object`
+> **OauthRedirectResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

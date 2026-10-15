@@ -1,6 +1,6 @@
 # Type Alias: TableChanges
 
-> **TableChanges** = `object`
+> **TableChanges** = \{ `columns`: [`TouchedColumn`](TouchedColumn.md)[]; `complete`: `boolean`; `rows`: [`TouchedRow`](TouchedRow.md)[]; `truncated`: `boolean`; `version`: `number`; \}
 
 What changed in a table since a version, for a reader holding it at
 that version.

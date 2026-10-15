@@ -1,6 +1,6 @@
 # Type Alias: FileMetadata
 
-> **FileMetadata** = `object`
+> **FileMetadata** = \{ `content_type`: `string`; `extension_data?`: `unknown`; `file_id`: `string`; `file_name`: `string`; `is_uploaded`: `boolean`; `owner_id`: `string`; `s3_key`: `string`; \}
 
 File metadata for static files
 

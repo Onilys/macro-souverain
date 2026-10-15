@@ -1,6 +1,6 @@
 # Type Alias: RedeemGtmInviteLinkData
 
-> **RedeemGtmInviteLinkData** = `object`
+> **RedeemGtmInviteLinkData** = \{ `body`: [`RedeemGtmInviteLinkRequest`](RedeemGtmInviteLinkRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/gtm-invite/redeem"`; \}
 
 ## Properties
 

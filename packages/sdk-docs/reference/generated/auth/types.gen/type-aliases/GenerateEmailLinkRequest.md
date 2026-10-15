@@ -1,6 +1,6 @@
 # Type Alias: GenerateEmailLinkRequest
 
-> **GenerateEmailLinkRequest** = `object`
+> **GenerateEmailLinkRequest** = \{ `email`: `string`; \}
 
 ## Properties
 

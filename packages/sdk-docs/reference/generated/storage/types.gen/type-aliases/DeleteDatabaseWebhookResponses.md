@@ -1,6 +1,6 @@
 # Type Alias: DeleteDatabaseWebhookResponses
 
-> **DeleteDatabaseWebhookResponses** = `object`
+> **DeleteDatabaseWebhookResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

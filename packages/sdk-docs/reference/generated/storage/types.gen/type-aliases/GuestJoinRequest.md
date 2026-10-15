@@ -1,6 +1,6 @@
 # Type Alias: GuestJoinRequest
 
-> **GuestJoinRequest** = `object`
+> **GuestJoinRequest** = \{ `displayName`: `string`; \}
 
 Public guest join inputs. The server generates the participant identity.
 

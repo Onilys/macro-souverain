@@ -1,6 +1,6 @@
 # Type Alias: SendInviteBody
 
-> **SendInviteBody** = `object`
+> **SendInviteBody** = \{ `recipient`: `string`; \}
 
 The body which is used to describe the recipient email
 

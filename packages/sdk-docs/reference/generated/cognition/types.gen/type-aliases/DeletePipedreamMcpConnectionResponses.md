@@ -1,6 +1,6 @@
 # Type Alias: DeletePipedreamMcpConnectionResponses
 
-> **DeletePipedreamMcpConnectionResponses** = `object`
+> **DeletePipedreamMcpConnectionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: RemoveEntityPropertyOptionResponses
 
-> **RemoveEntityPropertyOptionResponses** = `object`
+> **RemoveEntityPropertyOptionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

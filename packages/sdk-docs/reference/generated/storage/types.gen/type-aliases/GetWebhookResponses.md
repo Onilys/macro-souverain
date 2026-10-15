@@ -1,6 +1,6 @@
 # Type Alias: GetWebhookResponses
 
-> **GetWebhookResponses** = `object`
+> **GetWebhookResponses** = \{ `200`: [`Webhook`](Webhook.md); \}
 
 ## Properties
 

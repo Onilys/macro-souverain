@@ -1,6 +1,6 @@
 # Type Alias: SoupChannelThread
 
-> **SoupChannelThread** = `object`
+> **SoupChannelThread** = \{ `attachments`: [`SoupMessageAttachment`](SoupMessageAttachment.md)[]; `channel_id`: `string`; `content`: `string`; `created_at`: `string`; `deleted_at?`: `string` \| `null`; `edited_at?`: `string` \| `null`; `id`: `string`; `reactions`: [`SoupCountedReaction`](SoupCountedReaction.md)[]; `sender`: [`SoupMessageSender`](SoupMessageSender.md); `sender_id`: `string`; `thread`: [`SoupThreadInfo`](SoupThreadInfo.md); `updated_at`: `string`; \}
 
 A top-level channel message thread for soup payloads.
 

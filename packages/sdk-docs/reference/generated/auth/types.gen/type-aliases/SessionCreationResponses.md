@@ -1,6 +1,6 @@
 # Type Alias: SessionCreationResponses
 
-> **SessionCreationResponses** = `object`
+> **SessionCreationResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

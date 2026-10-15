@@ -1,6 +1,6 @@
 # Type Alias: MessageThreadPreview
 
-> **MessageThreadPreview** = `object`
+> **MessageThreadPreview** = \{ `latest_reply_at?`: `string` \| `null`; `preview`: [`Message`](Message.md)[]; `reply_count`: `number`; \}
 
 Thread counts and its oldest three live replies.
 

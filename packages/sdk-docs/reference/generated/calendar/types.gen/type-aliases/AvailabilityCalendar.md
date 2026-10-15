@@ -1,6 +1,6 @@
 # Type Alias: AvailabilityCalendar
 
-> **AvailabilityCalendar** = `object`
+> **AvailabilityCalendar** = \{ `calendarId`: `string`; `contributesToAvailability`: `boolean`; `isPrimary`: `boolean`; `name`: `string`; \}
 
 Per-user inclusion of a source calendar in personal availability.
 

@@ -1,6 +1,6 @@
 # Type Alias: WarmAgentSessionHandlerResponses
 
-> **WarmAgentSessionHandlerResponses** = `object`
+> **WarmAgentSessionHandlerResponses** = \{ `200`: [`WarmAgentSessionResponse`](WarmAgentSessionResponse.md); \}
 
 ## Properties
 

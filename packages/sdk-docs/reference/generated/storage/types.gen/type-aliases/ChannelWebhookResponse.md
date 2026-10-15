@@ -1,6 +1,6 @@
 # Type Alias: ChannelWebhookResponse
 
-> **ChannelWebhookResponse** = `object`
+> **ChannelWebhookResponse** = \{ `message_id`: `string`; \}
 
 Response returned after posting a channel webhook message.
 

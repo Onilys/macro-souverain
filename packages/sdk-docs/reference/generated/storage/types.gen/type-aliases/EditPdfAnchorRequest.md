@@ -1,6 +1,6 @@
 # Type Alias: EditPdfAnchorRequest
 
-> **EditPdfAnchorRequest** = [`EditPdfPlaceableCommentAnchorRequest`](EditPdfPlaceableCommentAnchorRequest.md) & `object`
+> **EditPdfAnchorRequest** = [`EditPdfPlaceableCommentAnchorRequest`](EditPdfPlaceableCommentAnchorRequest.md) & \{ `anchorType`: `"free-comment"`; \}
 
 ## Type Declaration
 

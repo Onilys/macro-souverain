@@ -1,6 +1,6 @@
 # Type Alias: PatchChannelRequest
 
-> **PatchChannelRequest** = `object`
+> **PatchChannelRequest** = \{ `auto_join_team?`: `boolean` \| `null`; `channel_name?`: `string` \| `null`; `convert_to_team_channel?`: `boolean` \| `null`; \}
 
 Request to patch a channel.
 

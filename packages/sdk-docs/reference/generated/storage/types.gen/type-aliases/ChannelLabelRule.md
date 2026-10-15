@@ -1,6 +1,6 @@
 # Type Alias: ChannelLabelRule
 
-> **ChannelLabelRule** = `object`
+> **ChannelLabelRule** = \{ `attribute`: `"name"`; `contains`: `string`; \}
 
 Case-insensitive, literal substring matching on the channel name.
 

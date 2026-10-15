@@ -1,6 +1,6 @@
 # Type Alias: RenameAgentSessionRequest
 
-> **RenameAgentSessionRequest** = `object`
+> **RenameAgentSessionRequest** = \{ `name`: `string`; \}
 
 Request body for renaming an agent session.
 

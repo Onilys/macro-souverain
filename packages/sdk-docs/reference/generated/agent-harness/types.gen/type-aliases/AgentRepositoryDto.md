@@ -1,6 +1,6 @@
 # Type Alias: AgentRepositoryDto
 
-> **AgentRepositoryDto** = `object`
+> **AgentRepositoryDto** = \{ `defaultBranch?`: `string` \| `null`; `url`: `string`; \}
 
 One repository the caller can select for a coding session.
 

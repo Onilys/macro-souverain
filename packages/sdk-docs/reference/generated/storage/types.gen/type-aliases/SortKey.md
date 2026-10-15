@@ -1,6 +1,6 @@
 # Type Alias: SortKey
 
-> **SortKey** = `object`
+> **SortKey** = \{ `column`: `string`; `direction`: [`SortDirection`](SortDirection.md); \}
 
 One sort key.
 

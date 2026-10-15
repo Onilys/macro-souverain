@@ -1,6 +1,6 @@
 # Type Alias: UserPinsResponse
 
-> **UserPinsResponse** = `object`
+> **UserPinsResponse** = \{ `recent`: [`PinnedItem`](PinnedItem.md)[]; \}
 
 ## Properties
 

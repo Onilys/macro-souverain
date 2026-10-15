@@ -1,6 +1,6 @@
 # Type Alias: RevokeGtmInviteLinkResponses
 
-> **RevokeGtmInviteLinkResponses** = `object`
+> **RevokeGtmInviteLinkResponses** = \{ `200`: [`GtmInviteLink`](GtmInviteLink.md); \}
 
 ## Properties
 

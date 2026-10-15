@@ -1,6 +1,6 @@
 # Type Alias: EntityQueryParams
 
-> **EntityQueryParams** = `object`
+> **EntityQueryParams** = \{ `include_metadata?`: `boolean`; \}
 
 Query parameters for entity properties endpoint.
 

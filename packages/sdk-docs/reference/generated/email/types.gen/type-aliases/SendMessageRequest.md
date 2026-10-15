@@ -1,6 +1,6 @@
 # Type Alias: SendMessageRequest
 
-> **SendMessageRequest** = `object`
+> **SendMessageRequest** = \{ `message`: [`ApiDraftInput`](ApiDraftInput.md); \}
 
 Request body for sending a message (backward-compatible with `{ message: MessageToSend }`).
 

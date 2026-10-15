@@ -1,6 +1,6 @@
 # Type Alias: FavoritesFilter
 
-> **FavoritesFilter** = `object`
+> **FavoritesFilter** = \{ `entityIds?`: `string`[]; `entityTypes?`: [`MacroEntityType`](../../../entity/type-aliases/MacroEntityType.md)[]; \}
 
 Which favorites to list.
 

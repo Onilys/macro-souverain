@@ -1,6 +1,6 @@
 # Type Alias: InviteMeetingUsersRequest
 
-> **InviteMeetingUsersRequest** = `object`
+> **InviteMeetingUsersRequest** = \{ `userIds`: `string`[]; \}
 
 Registered teammates selected for an incoming call invitation.
 

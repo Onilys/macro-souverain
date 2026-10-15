@@ -1,6 +1,6 @@
 # Type Alias: ColumnConversionRequest
 
-> **ColumnConversionRequest** = `object`
+> **ColumnConversionRequest** = \{ `to`: [`ColumnKind`](ColumnKind.md); \}
 
 The type a column's values are converted to.
 

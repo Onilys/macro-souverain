@@ -1,6 +1,6 @@
 # Type Alias: CreateDatabaseData
 
-> **CreateDatabaseData** = `object`
+> **CreateDatabaseData** = \{ `body`: [`CreateDatabaseRequest`](CreateDatabaseRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/databases"`; \}
 
 ## Properties
 

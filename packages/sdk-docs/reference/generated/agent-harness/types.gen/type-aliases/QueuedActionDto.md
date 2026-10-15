@@ -1,6 +1,6 @@
 # Type Alias: QueuedActionDto
 
-> **QueuedActionDto** = `object`
+> **QueuedActionDto** = \{ `actionId`: [`AgentActionId`](AgentActionId.md); `actorUserId?`: `string` \| `null`; `attachments?`: [`PromptAttachment`](PromptAttachment.md)[]; `createdAt`: `string`; `kind`: `string`; `prompt?`: `string` \| `null`; \}
 
 One action waiting in a session's queue.
 

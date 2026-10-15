@@ -1,6 +1,6 @@
 # Type Alias: GetGithubPullRequestMergeabilityErrors
 
-> **GetGithubPullRequestMergeabilityErrors** = `object`
+> **GetGithubPullRequestMergeabilityErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `422`: [`ErrorResponse`](ErrorResponse.md); `428`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

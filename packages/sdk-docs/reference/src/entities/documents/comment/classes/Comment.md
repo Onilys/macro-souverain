@@ -106,11 +106,11 @@ The id of the thread this comment belongs to: its root, or itself for a root.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`Message`](../../../../../generated/storage/types.gen/type-aliases/Message.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`Message`](../../../../../generated/storage/types.gen/type-aliases/Message.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

@@ -1,6 +1,6 @@
 # Type Alias: CreatePropertyDefinitionRequest
 
-> **CreatePropertyDefinitionRequest** = `object`
+> **CreatePropertyDefinitionRequest** = \{ `data_type`: [`PropertyDataType`](PropertyDataType.md); `display_name`: `string`; `scope`: [`CreatePropertyScope`](CreatePropertyScope.md); \}
 
 Request to create a new property definition.
 

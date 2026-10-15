@@ -1,6 +1,6 @@
 # Type Alias: AddContactData
 
-> **AddContactData** = `object`
+> **AddContactData** = \{ `body`: [`AddContactRequest`](AddContactRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/contacts"`; \}
 
 ## Properties
 

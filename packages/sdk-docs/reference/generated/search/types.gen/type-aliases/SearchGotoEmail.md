@@ -1,6 +1,6 @@
 # Type Alias: SearchGotoEmail
 
-> **SearchGotoEmail** = `object`
+> **SearchGotoEmail** = \{ `bcc`: `string`[]; `cc`: `string`[]; `email_message_id`: `string`; `labels`: `string`[]; `recipients`: `string`[]; `sender`: `string`; `sent_at?`: `string` \| `null`; \}
 
 ## Properties
 

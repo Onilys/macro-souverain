@@ -1,6 +1,6 @@
 # Type Alias: AppliedOps
 
-> **AppliedOps** = `object`
+> **AppliedOps** = \{ `changes`: [`CommittedChange`](CommittedChange.md)[]; `results`: [`OpResult`](OpResult.md)[]; \}
 
 What a committed batch answers: a result per op, and the journal's change
 for each table version it produced.

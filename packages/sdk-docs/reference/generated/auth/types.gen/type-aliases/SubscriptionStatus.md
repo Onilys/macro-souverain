@@ -1,6 +1,6 @@
 # Type Alias: SubscriptionStatus
 
-> **SubscriptionStatus** = `object`
+> **SubscriptionStatus** = \{ `renewalDate?`: `string` \| `null`; `scheduledChange?`: `null` \| [`ScheduledSeatPlan`](ScheduledSeatPlan.md); \}
 
 Current renewal and scheduled change; empty for accounts without a subscription.
 

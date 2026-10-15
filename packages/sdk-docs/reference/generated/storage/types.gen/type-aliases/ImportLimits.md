@@ -1,6 +1,6 @@
 # Type Alias: ImportLimits
 
-> **ImportLimits** = `object`
+> **ImportLimits** = \{ `conversations`: `number`; `databaseBatchBytes`: `number`; `databaseBatchMessages`: `number`; `jsonBytes`: `number`; `partBytes`: `number`; `partRecords`: `number`; `recordBytes`: `number`; `registrationBatch`: `number`; `selectedBytes`: `number`; `zipEntries`: `number`; \}
 
 Configurable bounds shared with browser staging and enforced again by the worker.
 

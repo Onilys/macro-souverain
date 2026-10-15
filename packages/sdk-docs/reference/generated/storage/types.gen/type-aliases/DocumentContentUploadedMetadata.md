@@ -1,6 +1,6 @@
 # Type Alias: DocumentContentUploadedMetadata
 
-> **DocumentContentUploadedMetadata** = `object`
+> **DocumentContentUploadedMetadata** = \{ `document_id`: `string`; `document_version_id?`: `string` \| `null`; `file_type`: [`FileType`](FileType.md); `owner`: `string`; \}
 
 Metadata for [`DocumentTopicEvent::ContentUploaded`].
 

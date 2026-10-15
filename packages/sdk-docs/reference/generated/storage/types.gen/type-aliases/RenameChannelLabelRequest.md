@@ -1,6 +1,6 @@
 # Type Alias: RenameChannelLabelRequest
 
-> **RenameChannelLabelRequest** = `object`
+> **RenameChannelLabelRequest** = \{ `name`: `string`; `rule?`: `null` \| [`ChannelLabelRule`](ChannelLabelRule.md); \}
 
 Request body for renaming a label.
 

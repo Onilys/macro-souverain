@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreateDmResponses
 
-> **GetOrCreateDmResponses** = `object`
+> **GetOrCreateDmResponses** = \{ `200`: [`GetOrCreateChannelResponse`](GetOrCreateChannelResponse.md); \}
 
 ## Properties
 

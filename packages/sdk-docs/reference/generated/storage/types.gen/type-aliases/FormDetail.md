@@ -1,6 +1,6 @@
 # Type Alias: FormDetail
 
-> **FormDetail** = `object`
+> **FormDetail** = \{ `access`: [`FormAccess`](FormAccess.md); `form`: [`Form`](Form.md); `sections`: [`FormSectionDetail`](FormSectionDetail.md)[]; `tableGone`: `boolean`; \}
 
 A form with its layout, as the caller may see it.
 

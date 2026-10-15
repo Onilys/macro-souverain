@@ -1,6 +1,6 @@
 # Type Alias: PreviewAgentSessionsResponses
 
-> **PreviewAgentSessionsResponses** = `object`
+> **PreviewAgentSessionsResponses** = \{ `200`: [`PreviewAgentSessionsResponse`](PreviewAgentSessionsResponse.md); \}
 
 ## Properties
 

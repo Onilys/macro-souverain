@@ -1,6 +1,6 @@
 # Type Alias: CreateMergeRequestResponses
 
-> **CreateMergeRequestResponses** = `object`
+> **CreateMergeRequestResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

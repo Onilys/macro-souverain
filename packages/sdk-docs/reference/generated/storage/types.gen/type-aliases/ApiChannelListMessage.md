@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelListMessage
 
-> **ApiChannelListMessage** = `object`
+> **ApiChannelListMessage** = \{ `content`: `string`; `created_at`: `string`; `deleted_at?`: `string` \| `null`; `mentions`: `string`[]; `message_id`: `string`; `sender_id`: `string`; `thread_id?`: `string` \| `null`; `updated_at`: `string`; \}
 
 Channel message in API responses.
 

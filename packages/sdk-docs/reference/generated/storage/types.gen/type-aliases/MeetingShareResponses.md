@@ -1,6 +1,6 @@
 # Type Alias: MeetingShareResponses
 
-> **MeetingShareResponses** = `object`
+> **MeetingShareResponses** = \{ `200`: [`Meeting`](Meeting.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentResponse
 
-> **GetDocumentResponse** = `object`
+> **GetDocumentResponse** = \{ `data`: [`GetDocumentResponseData`](GetDocumentResponseData.md); `error`: `boolean`; \}
 
 ## Properties
 

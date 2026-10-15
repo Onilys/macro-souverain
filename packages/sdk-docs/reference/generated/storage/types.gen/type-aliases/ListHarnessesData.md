@@ -1,6 +1,6 @@
 # Type Alias: ListHarnessesData
 
-> **ListHarnessesData** = `object`
+> **ListHarnessesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/harnesses"`; \}
 
 ## Properties
 

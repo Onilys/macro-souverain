@@ -1,6 +1,6 @@
 # Type Alias: NotionDocMeta
 
-> **NotionDocMeta** = `object`
+> **NotionDocMeta** = \{ `summary?`: `string` \| `null`; `title`: `string`; `url?`: `string` \| `null`; \}
 
 Metadata for one staged Notion page. Deliberately has NO content field:
 page bodies are fetched at import time, for accepted pages only.

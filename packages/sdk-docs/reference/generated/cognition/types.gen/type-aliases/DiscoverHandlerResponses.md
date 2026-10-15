@@ -1,6 +1,6 @@
 # Type Alias: DiscoverHandlerResponses
 
-> **DiscoverHandlerResponses** = `object`
+> **DiscoverHandlerResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

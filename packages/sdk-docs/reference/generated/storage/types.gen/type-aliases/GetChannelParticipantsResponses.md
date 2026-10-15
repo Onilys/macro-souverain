@@ -1,6 +1,6 @@
 # Type Alias: GetChannelParticipantsResponses
 
-> **GetChannelParticipantsResponses** = `object`
+> **GetChannelParticipantsResponses** = \{ `200`: [`ApiChannelParticipant`](ApiChannelParticipant.md)[]; \}
 
 ## Properties
 

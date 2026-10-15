@@ -1,6 +1,6 @@
 # Type Alias: BulkWakeupSyncServiceDocumentsErrors
 
-> **BulkWakeupSyncServiceDocumentsErrors** = `object`
+> **BulkWakeupSyncServiceDocumentsErrors** = \{ `401`: `unknown`; \}
 
 ## Properties
 

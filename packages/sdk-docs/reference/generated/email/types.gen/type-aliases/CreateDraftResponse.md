@@ -1,6 +1,6 @@
 # Type Alias: CreateDraftResponse
 
-> **CreateDraftResponse** = `object`
+> **CreateDraftResponse** = \{ `draft`: [`ApiDraftOutput`](ApiDraftOutput.md); \}
 
 Response body for creating a draft.
 

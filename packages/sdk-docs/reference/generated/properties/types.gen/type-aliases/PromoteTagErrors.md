@@ -1,6 +1,6 @@
 # Type Alias: PromoteTagErrors
 
-> **PromoteTagErrors** = `object`
+> **PromoteTagErrors** = \{ `403`: `unknown`; `404`: `unknown`; `409`: [`TagPromotionConflictResponse`](TagPromotionConflictResponse.md); `500`: `unknown`; \}
 
 ## Properties
 

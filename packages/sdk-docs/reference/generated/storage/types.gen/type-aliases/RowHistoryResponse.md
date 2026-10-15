@@ -1,6 +1,6 @@
 # Type Alias: RowHistoryResponse
 
-> **RowHistoryResponse** = `object`
+> **RowHistoryResponse** = \{ `changes`: [`RowHistoryEntry`](RowHistoryEntry.md)[]; \}
 
 A row's history.
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateUserApiKeyResponses
 
-> **CreateUserApiKeyResponses** = `object`
+> **CreateUserApiKeyResponses** = \{ `201`: [`CreatedUserApiKey`](CreatedUserApiKey.md); \}
 
 ## Properties
 

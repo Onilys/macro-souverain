@@ -1,6 +1,6 @@
 # Type Alias: InitGmailLinkErrors
 
-> **InitGmailLinkErrors** = `object`
+> **InitGmailLinkErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `402`: [`ErrorResponse`](ErrorResponse.md); `429`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

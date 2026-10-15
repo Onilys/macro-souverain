@@ -1,6 +1,6 @@
 # Type Alias: TeamCalendarSharingBody
 
-> **TeamCalendarSharingBody** = `object`
+> **TeamCalendarSharingBody** = \{ `sharing`: [`TeamCalendarSharing`](TeamCalendarSharing.md); \}
 
 Own-user sharing preference.
 

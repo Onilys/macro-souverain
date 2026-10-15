@@ -1,6 +1,6 @@
 # Type Alias: InviteMeetingRequest
 
-> **InviteMeetingRequest** = `object`
+> **InviteMeetingRequest** = \{ `email`: `string`; \}
 
 A single email recipient for a call invitation.
 

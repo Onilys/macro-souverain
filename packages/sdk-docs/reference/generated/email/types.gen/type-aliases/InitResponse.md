@@ -1,6 +1,6 @@
 # Type Alias: InitResponse
 
-> **InitResponse** = `object`
+> **InitResponse** = \{ `backfill_job_id?`: `string` \| `null`; `link_id`: `string`; \}
 
 ## Properties
 

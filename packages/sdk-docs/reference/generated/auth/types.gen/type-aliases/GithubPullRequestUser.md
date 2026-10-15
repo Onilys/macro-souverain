@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestUser
 
-> **GithubPullRequestUser** = `object`
+> **GithubPullRequestUser** = \{ `githubUserId`: `string`; `login?`: `string` \| `null`; \}
 
 A GitHub user named on a pull request, such as an assignee.
 

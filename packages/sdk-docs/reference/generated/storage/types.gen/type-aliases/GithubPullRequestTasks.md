@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestTasks
 
-> **GithubPullRequestTasks** = `object`
+> **GithubPullRequestTasks** = \{ `githubKey`: `string`; `taskIds`: `string`[]; \}
 
 The tasks linked to one GitHub pull request.
 

@@ -1,6 +1,6 @@
 # Type Alias: ListAccessibleFormsErrors
 
-> **ListAccessibleFormsErrors** = `object`
+> **ListAccessibleFormsErrors** = \{ `401`: [`FormErrorResponse`](FormErrorResponse.md); `500`: [`FormErrorResponse`](FormErrorResponse.md); \}
 
 ## Properties
 

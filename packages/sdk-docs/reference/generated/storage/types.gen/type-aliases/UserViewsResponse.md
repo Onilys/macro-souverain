@@ -1,6 +1,6 @@
 # Type Alias: UserViewsResponse
 
-> **UserViewsResponse** = `object`
+> **UserViewsResponse** = \{ `count`: `number`; `users`: `string`[]; \}
 
 ## Properties
 

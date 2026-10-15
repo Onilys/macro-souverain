@@ -1,6 +1,6 @@
 # Type Alias: TranscriptSegmentRequest
 
-> **TranscriptSegmentRequest** = `object`
+> **TranscriptSegmentRequest** = \{ `content`: `string`; `diarizedSpeakerId?`: `string` \| `null`; `embedding?`: `number`[] \| `null`; `endedAt?`: `string` \| `null`; `isFinal`: `boolean`; `segmentId`: `string`; `speakerId`: `string`; `startedAt`: `string`; `streamStartedAt?`: `string` \| `null`; \}
 
 A transcript segment from LiveKit Inference STT.
 

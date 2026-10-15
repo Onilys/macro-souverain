@@ -1,6 +1,6 @@
 # Type Alias: RemoveEntityPropertyOptionErrors
 
-> **RemoveEntityPropertyOptionErrors** = `object`
+> **RemoveEntityPropertyOptionErrors** = \{ `403`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

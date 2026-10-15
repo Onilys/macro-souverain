@@ -1,6 +1,6 @@
 # Type Alias: GetPinsHandlerData
 
-> **GetPinsHandlerData** = `object`
+> **GetPinsHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/pins"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UnsubscribeItemPathParams
 
-> **UnsubscribeItemPathParams** = `object`
+> **UnsubscribeItemPathParams** = \{ `item_id`: `string`; `item_type`: [`EntityType`](EntityType.md); \}
 
 ## Properties
 

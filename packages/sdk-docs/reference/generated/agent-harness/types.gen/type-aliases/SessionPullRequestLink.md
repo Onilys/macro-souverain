@@ -1,6 +1,6 @@
 # Type Alias: SessionPullRequestLink
 
-> **SessionPullRequestLink** = `object`
+> **SessionPullRequestLink** = \{ `createdAt`: `string`; `githubKey`: `string`; `linkedBy?`: `string` \| `null`; `source`: [`PullRequestLinkSource`](PullRequestLinkSource.md); `url`: `string`; \}
 
 A pull request associated with a session.
 

@@ -1,6 +1,6 @@
 # Type Alias: ExcludeDefaultViewHandlerData
 
-> **ExcludeDefaultViewHandlerData** = `object`
+> **ExcludeDefaultViewHandlerData** = \{ `body`: [`ExcludeDefaultViewRequest`](ExcludeDefaultViewRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/saved_views/exclude_default"`; \}
 
 ## Properties
 

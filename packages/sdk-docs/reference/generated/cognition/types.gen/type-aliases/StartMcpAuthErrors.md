@@ -1,6 +1,6 @@
 # Type Alias: StartMcpAuthErrors
 
-> **StartMcpAuthErrors** = `object`
+> **StartMcpAuthErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: MentionPreviewsResponses
 
-> **MentionPreviewsResponses** = `object`
+> **MentionPreviewsResponses** = \{ `200`: [`CalendarMentionPreviewResponse`](CalendarMentionPreviewResponse.md); \}
 
 ## Properties
 

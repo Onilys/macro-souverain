@@ -1,6 +1,6 @@
 # Type Alias: ReminderMetadata
 
-> **ReminderMetadata** = `object`
+> **ReminderMetadata** = \{ `description`: `string`; `reminderId`: `string`; `scheduledFor?`: `string` \| `null`; \}
 
 Metadata for a reminder the user set for themselves coming due.
 

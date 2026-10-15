@@ -1,6 +1,6 @@
 # Type Alias: NewAttachment
 
-> **NewAttachment** = `object`
+> **NewAttachment** = \{ `attachment_id`: `string`; `attachment_type`: [`AttachmentType`](AttachmentType.md); \}
 
 ## Properties
 

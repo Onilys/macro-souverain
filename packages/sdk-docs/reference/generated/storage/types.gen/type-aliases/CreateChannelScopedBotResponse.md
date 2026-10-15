@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelScopedBotResponse
 
-> **CreateChannelScopedBotResponse** = `object`
+> **CreateChannelScopedBotResponse** = \{ `bot`: [`Bot`](Bot.md); `bot_token`: `string`; `token`: [`BotToken`](BotToken.md); \}
 
 Response containing a newly created channel-scoped bot and token.
 

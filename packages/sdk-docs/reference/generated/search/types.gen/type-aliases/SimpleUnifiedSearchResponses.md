@@ -1,6 +1,6 @@
 # Type Alias: SimpleUnifiedSearchResponses
 
-> **SimpleUnifiedSearchResponses** = `object`
+> **SimpleUnifiedSearchResponses** = \{ `200`: [`SimpleSearchResponse`](SimpleSearchResponse.md); \}
 
 ## Properties
 

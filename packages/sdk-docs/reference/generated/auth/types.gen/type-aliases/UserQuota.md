@@ -1,6 +1,6 @@
 # Type Alias: UserQuota
 
-> **UserQuota** = `object`
+> **UserQuota** = \{ `ai_chat_messages`: `number`; `documents`: `number`; `max_ai_chat_messages`: `number`; `max_documents`: `number`; \}
 
 The UserQuota represents the user's current quota
 

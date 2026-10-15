@@ -1,6 +1,6 @@
 # Type Alias: ListDatabasesResponses
 
-> **ListDatabasesResponses** = `object`
+> **ListDatabasesResponses** = \{ `200`: [`ListedDatabase`](ListedDatabase.md)[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ListTagsResponses
 
-> **ListTagsResponses** = `object`
+> **ListTagsResponses** = \{ `200`: [`TagSetResponse`](TagSetResponse.md)[]; \}
 
 ## Properties
 

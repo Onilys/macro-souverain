@@ -1,6 +1,6 @@
 # Type Alias: PatchBotRequest
 
-> **PatchBotRequest** = `object`
+> **PatchBotRequest** = \{ `avatar_url?`: `string` \| `null`; `description?`: `string` \| `null`; `handle?`: `string` \| `null`; `has_agent?`: `boolean` \| `null`; `name?`: `string` \| `null`; \}
 
 Request to patch a bot.
 

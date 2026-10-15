@@ -1,6 +1,6 @@
 # Type Alias: MeetingLookupResponses
 
-> **MeetingLookupResponses** = `object`
+> **MeetingLookupResponses** = \{ `200`: [`Meeting`](Meeting.md); \}
 
 ## Properties
 

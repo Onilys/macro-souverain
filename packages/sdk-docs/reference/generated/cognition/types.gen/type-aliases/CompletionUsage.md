@@ -1,6 +1,6 @@
 # Type Alias: CompletionUsage
 
-> **CompletionUsage** = `object`
+> **CompletionUsage** = \{ `cost`: [`Usage`](Usage.md); `entity?`: `string` \| `null`; `feature`: [`AiFeature`](AiFeature.md); `user`: [`MacroUserIdStr`](MacroUserIdStr.md); \}
 
 User and feature attribution for one invocation.
 

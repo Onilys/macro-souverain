@@ -1,6 +1,6 @@
 # Type Alias: ListScheduledActionHistoryResponses
 
-> **ListScheduledActionHistoryResponses** = `object`
+> **ListScheduledActionHistoryResponses** = \{ `200`: [`ActionExecutionRecord`](ActionExecutionRecord.md)[]; \}
 
 ## Properties
 

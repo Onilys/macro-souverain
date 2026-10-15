@@ -1,6 +1,6 @@
 # Type Alias: PatchUserOnboardingErrors
 
-> **PatchUserOnboardingErrors** = `object`
+> **PatchUserOnboardingErrors** = \{ `401`: `string`; `404`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

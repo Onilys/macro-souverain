@@ -38,11 +38,11 @@ behind a server-side lock).
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`Attachment`](../../../../../generated/email/types.gen/type-aliases/Attachment.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`Attachment`](../../../../../generated/email/types.gen/type-aliases/Attachment.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

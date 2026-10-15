@@ -1,6 +1,6 @@
 # Type Alias: CreateSnippetHandlerData
 
-> **CreateSnippetHandlerData** = `object`
+> **CreateSnippetHandlerData** = \{ `body`: [`CreateSnippetRequest`](CreateSnippetRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents/create_snippet"`; \}
 
 ## Properties
 

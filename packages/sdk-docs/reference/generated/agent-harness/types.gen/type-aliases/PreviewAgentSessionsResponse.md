@@ -1,6 +1,6 @@
 # Type Alias: PreviewAgentSessionsResponse
 
-> **PreviewAgentSessionsResponse** = `object`
+> **PreviewAgentSessionsResponse** = \{ `previews`: [`AgentSessionPreviewDto`](AgentSessionPreviewDto.md)[]; \}
 
 Response body for `POST /agent-sessions/preview`: one entry per distinct
 requested id, in no particular order.

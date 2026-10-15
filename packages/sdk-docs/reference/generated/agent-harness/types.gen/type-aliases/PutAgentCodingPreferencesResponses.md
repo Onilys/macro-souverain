@@ -1,6 +1,6 @@
 # Type Alias: PutAgentCodingPreferencesResponses
 
-> **PutAgentCodingPreferencesResponses** = `object`
+> **PutAgentCodingPreferencesResponses** = \{ `200`: [`CodingPreferencesBody`](CodingPreferencesBody.md); \}
 
 ## Properties
 

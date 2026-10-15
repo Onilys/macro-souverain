@@ -1,6 +1,6 @@
 # Type Alias: UserDocumentViewLocationResponse
 
-> **UserDocumentViewLocationResponse** = `object`
+> **UserDocumentViewLocationResponse** = \{ `location?`: `string` \| `null`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: StripeSessionResponse
 
-> **StripeSessionResponse** = `object`
+> **StripeSessionResponse** = \{ `url`: `string`; \}
 
 Response containing the Stripe session URL
 

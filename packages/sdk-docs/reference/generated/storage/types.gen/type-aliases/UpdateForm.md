@@ -1,6 +1,6 @@
 # Type Alias: UpdateForm
 
-> **UpdateForm** = `object`
+> **UpdateForm** = \{ `audience?`: [`Audience`](Audience.md); `closesAt?`: `string` \| `null`; `confirmationMessage?`: `string`; `description?`: `string`; `status?`: [`FormStatus`](FormStatus.md); `tallyVisible?`: `boolean`; \}
 
 A change to a form's facts; what is left out stays. The description and
 confirmation message take edit, the rest owner. A form is renamed

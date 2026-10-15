@@ -1,6 +1,6 @@
 # Type Alias: ExecutionResult
 
-> **ExecutionResult** = `object`
+> **ExecutionResult** = \{ `condition?`: `null` \| [`ConditionResult`](ConditionResult.md); `error?`: `string` \| `null`; `resource?`: `null` \| [`ExecutionResource`](ExecutionResource.md); `version`: `number`; \}
 
 Version 1 execution metadata stored in the existing JSON result column.
 Null/string column values predate this envelope and refer to legacy chats.

@@ -1,6 +1,6 @@
 # Type Alias: DocumentPermissionsTokenRequest
 
-> **DocumentPermissionsTokenRequest** = `object`
+> **DocumentPermissionsTokenRequest** = \{ `token`: `string`; \}
 
 ## Properties
 

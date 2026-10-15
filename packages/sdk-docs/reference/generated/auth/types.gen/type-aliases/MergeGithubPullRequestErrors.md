@@ -1,6 +1,6 @@
 # Type Alias: MergeGithubPullRequestErrors
 
-> **MergeGithubPullRequestErrors** = `object`
+> **MergeGithubPullRequestErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); `422`: [`ErrorResponse`](ErrorResponse.md); `428`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

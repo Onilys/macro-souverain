@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionOriginParent
 
-> **AgentSessionOriginParent** = `object`
+> **AgentSessionOriginParent** = \{ `id`: `string`; `type`: `string`; \}
 
 The session an agent-session notification is about, and where its magic
 chip lives when it was opened from a thread.

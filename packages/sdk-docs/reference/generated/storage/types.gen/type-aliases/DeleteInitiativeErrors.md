@@ -1,6 +1,6 @@
 # Type Alias: DeleteInitiativeErrors
 
-> **DeleteInitiativeErrors** = `object`
+> **DeleteInitiativeErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

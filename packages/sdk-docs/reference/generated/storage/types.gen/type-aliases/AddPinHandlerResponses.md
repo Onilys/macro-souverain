@@ -1,6 +1,6 @@
 # Type Alias: AddPinHandlerResponses
 
-> **AddPinHandlerResponses** = `object`
+> **AddPinHandlerResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

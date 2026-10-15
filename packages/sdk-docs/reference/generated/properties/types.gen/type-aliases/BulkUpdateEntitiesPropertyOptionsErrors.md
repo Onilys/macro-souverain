@@ -1,6 +1,6 @@
 # Type Alias: BulkUpdateEntitiesPropertyOptionsErrors
 
-> **BulkUpdateEntitiesPropertyOptionsErrors** = `object`
+> **BulkUpdateEntitiesPropertyOptionsErrors** = \{ `400`: `unknown`; `401`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

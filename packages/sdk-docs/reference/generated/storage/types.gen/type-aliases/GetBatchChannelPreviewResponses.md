@@ -1,6 +1,6 @@
 # Type Alias: GetBatchChannelPreviewResponses
 
-> **GetBatchChannelPreviewResponses** = `object`
+> **GetBatchChannelPreviewResponses** = \{ `200`: [`GetBatchChannelPreviewResponse`](GetBatchChannelPreviewResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PipedreamTokenResponse
 
-> **PipedreamTokenResponse** = `object`
+> **PipedreamTokenResponse** = \{ `connect_link_url`: `string`; `expires_at`: `string`; `token`: `string`; \}
 
 Response from creating a Pipedream Connect token.
 

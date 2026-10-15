@@ -1,6 +1,6 @@
 # Type Alias: DocumentTextPart
 
-> **DocumentTextPart** = `object`
+> **DocumentTextPart** = \{ `document_id`: `string`; `id`: `string`; `reference`: [`DocumentReference`](DocumentReference.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetLegacyUserPermissionsErrors
 
-> **GetLegacyUserPermissionsErrors** = `object`
+> **GetLegacyUserPermissionsErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

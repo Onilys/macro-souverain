@@ -1,6 +1,6 @@
 # Type Alias: ApiDraftContactInfo
 
-> **ApiDraftContactInfo** = `object`
+> **ApiDraftContactInfo** = \{ `email`: `string`; `name?`: `string` \| `null`; `photo_url?`: `string` \| `null`; \}
 
 Contact info for draft request/response (backward-compatible with MessageToSend shape).
 

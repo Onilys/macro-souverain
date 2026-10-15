@@ -1,6 +1,6 @@
 # Type Alias: CreateLabelData
 
-> **CreateLabelData** = `object`
+> **CreateLabelData** = \{ `body`: [`CreateLabelRequest`](CreateLabelRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/labels"`; \}
 
 ## Properties
 

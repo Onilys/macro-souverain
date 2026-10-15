@@ -1,6 +1,6 @@
 # Type Alias: PutAgentSandboxSizeResponses
 
-> **PutAgentSandboxSizeResponses** = `object`
+> **PutAgentSandboxSizeResponses** = \{ `200`: [`SandboxSizeBody`](SandboxSizeBody.md); \}
 
 ## Properties
 

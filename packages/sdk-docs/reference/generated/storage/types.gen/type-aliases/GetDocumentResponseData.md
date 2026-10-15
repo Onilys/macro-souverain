@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentResponseData
 
-> **GetDocumentResponseData** = `object`
+> **GetDocumentResponseData** = \{ `documentMetadata`: [`DocumentMetadata`](DocumentMetadata.md); `userAccessLevel`: [`AccessLevel`](AccessLevel.md); `viewLocation?`: `string` \| `null`; \}
 
 ## Properties
 

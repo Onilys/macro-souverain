@@ -1,6 +1,6 @@
 # Type Alias: CreateTaskResponse
 
-> **CreateTaskResponse** = `object`
+> **CreateTaskResponse** = \{ `documentId`: `string`; `documentMetadata`: [`DocumentResponseMetadata`](DocumentResponseMetadata.md); `initialSnapshot`: `string`; `teamId?`: `string` \| `null`; `teamTaskId?`: `number` \| `null`; `token`: `string`; \}
 
 Response for creating a task.
 

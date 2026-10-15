@@ -226,11 +226,11 @@ Resize this session's sandbox and remember the size as the owner's default.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`AgentSessionResponse`](../../../../../generated/agent-harness/types.gen/type-aliases/AgentSessionResponse.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`AgentSessionResponse`](../../../../../generated/agent-harness/types.gen/type-aliases/AgentSessionResponse.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

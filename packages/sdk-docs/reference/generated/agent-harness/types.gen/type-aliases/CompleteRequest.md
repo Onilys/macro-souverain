@@ -1,6 +1,6 @@
 # Type Alias: CompleteRequest
 
-> **CompleteRequest** = `object`
+> **CompleteRequest** = \{ `attemptId`: `string`; `code`: `string`; \}
 
 One-time manual code. Deliberately does not implement Debug.
 

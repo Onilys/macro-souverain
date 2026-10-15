@@ -25,11 +25,11 @@ caller's connected links.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`Link`](../../../../../generated/email/types.gen/type-aliases/Link.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`Link`](../../../../../generated/email/types.gen/type-aliases/Link.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

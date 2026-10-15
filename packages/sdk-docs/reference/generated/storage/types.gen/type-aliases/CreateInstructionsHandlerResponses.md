@@ -1,6 +1,6 @@
 # Type Alias: CreateInstructionsHandlerResponses
 
-> **CreateInstructionsHandlerResponses** = `object`
+> **CreateInstructionsHandlerResponses** = \{ `200`: [`CreateInstructionsDocumentResponse`](CreateInstructionsDocumentResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: QueryDefinition
 
-> **QueryDefinition** = `object`
+> **QueryDefinition** = \{ `query`: `string`; `version`: `1`; \}
 
 A versioned query definition.
 

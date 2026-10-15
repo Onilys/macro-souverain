@@ -1,6 +1,6 @@
 # Type Alias: UsageSummary
 
-> **UsageSummary** = `object`
+> **UsageSummary** = \{ `entries`: [`FeatureUsage`](FeatureUsage.md)[]; `total`: `number`; \}
 
 Per-feature breakdown and grand total.
 

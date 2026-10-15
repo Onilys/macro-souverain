@@ -1,6 +1,6 @@
 # Type Alias: BulkDeleteUserNotificationsV2Responses
 
-> **BulkDeleteUserNotificationsV2Responses** = `object`
+> **BulkDeleteUserNotificationsV2Responses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: MessageTimelineResponses
 
-> **MessageTimelineResponses** = `object`
+> **MessageTimelineResponses** = \{ `200`: [`MessagePage`](MessagePage.md); \}
 
 ## Properties
 

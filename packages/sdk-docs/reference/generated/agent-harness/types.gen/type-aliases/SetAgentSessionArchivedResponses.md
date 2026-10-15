@@ -1,6 +1,6 @@
 # Type Alias: SetAgentSessionArchivedResponses
 
-> **SetAgentSessionArchivedResponses** = `object`
+> **SetAgentSessionArchivedResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

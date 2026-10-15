@@ -1,6 +1,6 @@
 # Type Alias: GetTypedNotificationsByEventItemIdResponses
 
-> **GetTypedNotificationsByEventItemIdResponses** = `object`
+> **GetTypedNotificationsByEventItemIdResponses** = \{ `200`: [`GetAllUserNotificationsResponse`](GetAllUserNotificationsResponse.md); \}
 
 ## Properties
 

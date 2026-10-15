@@ -1,6 +1,6 @@
 # Type Alias: StopChatStreamRequest
 
-> **StopChatStreamRequest** = `object`
+> **StopChatStreamRequest** = \{ `chat_id`: `string`; `stream_id`: `string`; \}
 
 Request body for stopping an in-flight chat stream.
 

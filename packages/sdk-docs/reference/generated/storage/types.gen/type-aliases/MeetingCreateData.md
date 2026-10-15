@@ -1,6 +1,6 @@
 # Type Alias: MeetingCreateData
 
-> **MeetingCreateData** = `object`
+> **MeetingCreateData** = \{ `body`: [`CreateMeetingRequest`](CreateMeetingRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/call/meetings"`; \}
 
 ## Properties
 

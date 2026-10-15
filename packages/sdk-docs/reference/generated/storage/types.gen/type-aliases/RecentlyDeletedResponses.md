@@ -1,6 +1,6 @@
 # Type Alias: RecentlyDeletedResponses
 
-> **RecentlyDeletedResponses** = `object`
+> **RecentlyDeletedResponses** = \{ `200`: [`TypedSuccessResponse`](TypedSuccessResponse.md); \}
 
 ## Properties
 

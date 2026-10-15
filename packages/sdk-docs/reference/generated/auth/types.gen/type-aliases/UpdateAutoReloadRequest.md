@@ -1,6 +1,6 @@
 # Type Alias: UpdateAutoReloadRequest
 
-> **UpdateAutoReloadRequest** = `object`
+> **UpdateAutoReloadRequest** = \{ `enabled`: `boolean`; `minimumBalanceCents`: `number`; `monthlySpendLimitCents?`: `number` \| `null`; `targetBalanceCents`: `number`; \}
 
 Request body for [`update_auto_reload_handler`].
 

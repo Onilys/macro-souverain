@@ -1,6 +1,6 @@
 # Type Alias: AutoReloadMonthlyBudget
 
-> **AutoReloadMonthlyBudget** = `object`
+> **AutoReloadMonthlyBudget** = \{ `committed_cents`: `number`; `limit_reached`: `boolean`; `resets_at`: `string`; \}
 
 Calendar-month commitments that consume the payer's automatic reload cap.
 

@@ -1,6 +1,6 @@
 # Type Alias: AnchorResponse
 
-> **AnchorResponse** = `object`
+> **AnchorResponse** = \{ `data`: [`Anchor`](Anchor.md)[]; \}
 
 ## Properties
 

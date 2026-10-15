@@ -1,6 +1,6 @@
 # Type Alias: EntityPropertyWithDefinitionResponse
 
-> **EntityPropertyWithDefinitionResponse** = `object`
+> **EntityPropertyWithDefinitionResponse** = \{ `definition`: [`PropertyDefinitionDetailResponse`](PropertyDefinitionDetailResponse.md); `options?`: [`PropertyOptionResponse`](PropertyOptionResponse.md)[] \| `null`; `property`: [`EntityPropertyResponse`](EntityPropertyResponse.md); `value?`: `null` \| [`PropertyValue`](PropertyValue.md); \}
 
 Entity property with definition response (API representation).
 

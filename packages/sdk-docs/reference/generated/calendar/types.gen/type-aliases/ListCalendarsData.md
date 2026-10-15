@@ -1,6 +1,6 @@
 # Type Alias: ListCalendarsData
 
-> **ListCalendarsData** = `object`
+> **ListCalendarsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/calendars"`; \}
 
 ## Properties
 

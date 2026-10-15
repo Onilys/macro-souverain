@@ -1,6 +1,6 @@
 # Type Alias: CreateAiCreditCheckoutResponses
 
-> **CreateAiCreditCheckoutResponses** = `object`
+> **CreateAiCreditCheckoutResponses** = \{ `200`: [`CreditCheckoutResponse`](CreditCheckoutResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ActiveCallSummary
 
-> **ActiveCallSummary** = `object`
+> **ActiveCallSummary** = \{ `callId`: `string`; `channelId`: `string`; `createdAt`: `string`; `createdBy`: `string`; `participantCount`: `number`; \}
 
 A currently active call, as returned by the batch active-calls listing.
 

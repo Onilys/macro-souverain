@@ -1,6 +1,6 @@
 # Type Alias: GetStateHandlerResponses
 
-> **GetStateHandlerResponses** = `object`
+> **GetStateHandlerResponses** = \{ `200`: [`ImportState`](ImportState.md); \}
 
 ## Properties
 

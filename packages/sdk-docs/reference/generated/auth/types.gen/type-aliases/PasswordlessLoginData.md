@@ -1,6 +1,6 @@
 # Type Alias: PasswordlessLoginData
 
-> **PasswordlessLoginData** = `object`
+> **PasswordlessLoginData** = \{ `body`: [`PasswordlessRequest`](PasswordlessRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/login/passwordless"`; \}
 
 ## Properties
 

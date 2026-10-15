@@ -1,6 +1,6 @@
 # Type Alias: SendMessageHandlerErrors
 
-> **SendMessageHandlerErrors** = `object`
+> **SendMessageHandlerErrors** = \{ `401`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

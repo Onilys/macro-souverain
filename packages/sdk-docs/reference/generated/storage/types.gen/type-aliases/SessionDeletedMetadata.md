@@ -1,6 +1,6 @@
 # Type Alias: SessionDeletedMetadata
 
-> **SessionDeletedMetadata** = `object`
+> **SessionDeletedMetadata** = \{ `identity`: [`SessionIdentity`](SessionIdentity.md); \}
 
 The session was deleted.
 

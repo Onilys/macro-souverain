@@ -1,6 +1,6 @@
 # Type Alias: AddRemoveThreadLabelResponses
 
-> **AddRemoveThreadLabelResponses** = `object`
+> **AddRemoveThreadLabelResponses** = \{ `200`: [`UpdateThreadLabelsResponse`](UpdateThreadLabelsResponse.md); \}
 
 ## Properties
 

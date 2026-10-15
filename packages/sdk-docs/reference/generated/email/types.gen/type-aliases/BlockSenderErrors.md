@@ -1,6 +1,6 @@
 # Type Alias: BlockSenderErrors
 
-> **BlockSenderErrors** = `object`
+> **BlockSenderErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetChannelResponses
 
-> **GetChannelResponses** = `object`
+> **GetChannelResponses** = \{ `200`: [`ApiChannelDetail`](ApiChannelDetail.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ApiEntityFilterAst
 
-> **ApiEntityFilterAst** = `object`
+> **ApiEntityFilterAst** = \{ `asf?`: `unknown`; `calf?`: `unknown`; `callf?`: `unknown`; `ccf?`: `unknown`; `cf?`: `unknown`; `chanf?`: `unknown`; `crma?`: `null` \| [`CrmAssociation`](CrmAssociation.md); `crmf?`: `unknown`; `cthf?`: `unknown`; `df?`: `unknown`; `eca?`: `string`[]; `ecd?`: `string`[]; `ef?`: `unknown`; `favorites_only?`: `boolean` \| `null`; `fef?`: `unknown`; `ghprf?`: `unknown`; `pf?`: `unknown`; `propf?`: `unknown`; \}
 
 Wire-format entity filter AST accepted by soup AST endpoints.
 

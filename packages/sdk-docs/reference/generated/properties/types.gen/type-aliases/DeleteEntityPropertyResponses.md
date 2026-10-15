@@ -1,6 +1,6 @@
 # Type Alias: DeleteEntityPropertyResponses
 
-> **DeleteEntityPropertyResponses** = `object`
+> **DeleteEntityPropertyResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

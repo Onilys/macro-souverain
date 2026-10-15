@@ -1,6 +1,6 @@
 # Type Alias: ListPropertiesErrors
 
-> **ListPropertiesErrors** = `object`
+> **ListPropertiesErrors** = \{ `400`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

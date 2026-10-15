@@ -1,6 +1,6 @@
 # Type Alias: CalendarAttendee
 
-> **CalendarAttendee** = `object`
+> **CalendarAttendee** = \{ `comment?`: `string` \| `null`; `displayName?`: `string` \| `null`; `email`: `string`; `isOptional`: `boolean`; `isOrganizer`: `boolean`; `isSelf`: `boolean`; `responseStatus`: [`AttendeeResponseStatus`](AttendeeResponseStatus.md); \}
 
 An attendee on a calendar event.
 

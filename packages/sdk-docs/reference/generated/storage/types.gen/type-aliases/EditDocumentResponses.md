@@ -1,6 +1,6 @@
 # Type Alias: EditDocumentResponses
 
-> **EditDocumentResponses** = `object`
+> **EditDocumentResponses** = \{ `200`: [`EditDocumentResponse`](EditDocumentResponse.md); \}
 
 ## Properties
 

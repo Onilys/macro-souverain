@@ -1,6 +1,6 @@
 # Type Alias: DismissRunHandlerResponses
 
-> **DismissRunHandlerResponses** = `object`
+> **DismissRunHandlerResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

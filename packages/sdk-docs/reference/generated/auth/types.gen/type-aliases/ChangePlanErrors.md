@@ -1,6 +1,6 @@
 # Type Alias: ChangePlanErrors
 
-> **ChangePlanErrors** = `object`
+> **ChangePlanErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `402`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

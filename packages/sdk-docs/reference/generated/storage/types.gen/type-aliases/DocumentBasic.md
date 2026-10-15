@@ -1,6 +1,6 @@
 # Type Alias: DocumentBasic
 
-> **DocumentBasic** = `object`
+> **DocumentBasic** = \{ `branchedFromId?`: `string` \| `null`; `branchedFromVersionId?`: `number` \| `null`; `deletedAt?`: `string` \| `null`; `documentFamilyId?`: `number` \| `null`; `documentId`: `string`; `documentName`: `string`; `fileType?`: `string` \| `null`; `owner`: `string`; `projectId?`: `string` \| `null`; `subType?`: `null` \| [`DocumentSubType`](DocumentSubType.md); \}
 
 Returns basic information of a document used for some db queries
 

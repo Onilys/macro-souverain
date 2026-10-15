@@ -1,6 +1,6 @@
 # Type Alias: SelectStringOption
 
-> **SelectStringOption** = `object`
+> **SelectStringOption** = \{ `display_order`: `number`; `value`: `string`; \}
 
 Option for select-type properties in requests.
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateViewHandlerResponses
 
-> **CreateViewHandlerResponses** = `object`
+> **CreateViewHandlerResponses** = \{ `200`: [`View`](View.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SoupLabel
 
-> **SoupLabel** = `object`
+> **SoupLabel** = \{ `createdAt`: `string`; `id`: `string`; `labelListVisibility`: [`SoupLabelListVisibility`](SoupLabelListVisibility.md); `linkId`: `string`; `messageListVisibility`: [`SoupMessageListVisibility`](SoupMessageListVisibility.md); `name`: `string`; `providerLabelId`: `string`; `type`: [`SoupLabelType`](SoupLabelType.md); \}
 
 An email label as displayed in Soup.
 

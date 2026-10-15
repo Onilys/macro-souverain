@@ -1,6 +1,6 @@
 # Type Alias: PostItemsSoupAstData
 
-> **PostItemsSoupAstData** = `object`
+> **PostItemsSoupAstData** = \{ `body`: [`PostSoupAstRequest`](PostSoupAstRequest.md); `path?`: `never`; `query?`: \{ `cursor?`: `string`; \}; `url`: `"/items/soup/ast"`; \}
 
 ## Properties
 
@@ -8,6 +8,6 @@
 | ------ | ------ | ------ |
 | <a id="property-body"></a> `body` | [`PostSoupAstRequest`](PostSoupAstRequest.md) | - |
 | <a id="property-path"></a> `path?` | `never` | - |
-| <a id="property-query"></a> `query?` | `object` | - |
+| <a id="property-query"></a> `query?` | \{ `cursor?`: `string`; \} | - |
 | `query.cursor?` | `string` | Base64 encoded cursor value. |
 | <a id="property-url"></a> `url` | `"/items/soup/ast"` | - |

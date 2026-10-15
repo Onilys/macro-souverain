@@ -1,6 +1,6 @@
 # Type Alias: DeclineCallResponses
 
-> **DeclineCallResponses** = `object`
+> **DeclineCallResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

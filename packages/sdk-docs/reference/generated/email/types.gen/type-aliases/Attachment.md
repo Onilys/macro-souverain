@@ -1,6 +1,6 @@
 # Type Alias: Attachment
 
-> **Attachment** = `object`
+> **Attachment** = \{ `content_id?`: `string` \| `null`; `data_url?`: `string` \| `null`; `db_id`: `string`; `filename?`: `string` \| `null`; `mime_type?`: `string` \| `null`; `provider_id?`: `string` \| `null`; `sfs_id?`: `string` \| `null`; `size_bytes?`: `number` \| `null`; \}
 
 Attachments of a message, as sent to us by the provider.
 

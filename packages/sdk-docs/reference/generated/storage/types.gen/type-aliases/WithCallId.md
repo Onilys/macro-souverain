@@ -1,6 +1,6 @@
 # Type Alias: WithCallId
 
-> **WithCallId** = `object`
+> **WithCallId** = \{ `callId`: `string`; \}
 
 Wrapper carrying just a call id. Used by the [`CallRecordPreview::DoesNotExist`]
 variant.

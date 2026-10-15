@@ -1,6 +1,6 @@
 # Type Alias: ResetCrmTeamStagesResponses
 
-> **ResetCrmTeamStagesResponses** = `object`
+> **ResetCrmTeamStagesResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

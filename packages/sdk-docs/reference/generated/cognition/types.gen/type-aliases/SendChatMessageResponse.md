@@ -1,6 +1,6 @@
 # Type Alias: SendChatMessageResponse
 
-> **SendChatMessageResponse** = `object`
+> **SendChatMessageResponse** = \{ `chat_id`: `string`; `message_id`: `string`; `stream_id`: `string`; \}
 
 Response for initiating a chat message stream
 

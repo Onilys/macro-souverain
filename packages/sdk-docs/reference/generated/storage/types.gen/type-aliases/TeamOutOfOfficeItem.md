@@ -1,6 +1,6 @@
 # Type Alias: TeamOutOfOfficeItem
 
-> **TeamOutOfOfficeItem** = `object`
+> **TeamOutOfOfficeItem** = \{ `eventId`: `string`; `occurrenceKey`: `string`; `ownerId`: `string`; `time`: [`EventTime`](EventTime.md); `title?`: `string` \| `null`; \}
 
 One teammate's out-of-office occurrence.
 

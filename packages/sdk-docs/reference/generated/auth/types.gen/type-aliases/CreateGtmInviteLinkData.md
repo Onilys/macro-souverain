@@ -1,6 +1,6 @@
 # Type Alias: CreateGtmInviteLinkData
 
-> **CreateGtmInviteLinkData** = `object`
+> **CreateGtmInviteLinkData** = \{ `body`: [`CreateGtmInviteLinkRequest`](CreateGtmInviteLinkRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/gtm-invite/links"`; \}
 
 ## Properties
 

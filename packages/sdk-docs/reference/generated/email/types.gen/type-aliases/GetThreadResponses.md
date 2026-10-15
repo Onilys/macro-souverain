@@ -1,6 +1,6 @@
 # Type Alias: GetThreadResponses
 
-> **GetThreadResponses** = `object`
+> **GetThreadResponses** = \{ `200`: [`GetThreadResponse`](GetThreadResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetEmailFollowupResponses
 
-> **GetEmailFollowupResponses** = `object`
+> **GetEmailFollowupResponses** = \{ `200`: [`EmailFollowupResponse`](EmailFollowupResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PreSaveDocumentResponseData
 
-> **PreSaveDocumentResponseData** = `object`
+> **PreSaveDocumentResponseData** = \{ `presignedUrls`: [`PresignedUrl`](PresignedUrl.md)[]; \}
 
 ## Properties
 

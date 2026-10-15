@@ -1,6 +1,6 @@
 # Type Alias: SandboxSizeBody
 
-> **SandboxSizeBody** = `object`
+> **SandboxSizeBody** = \{ `size`: [`SandboxSize`](SandboxSize.md); \}
 
 Request or response body for a named sandbox size.
 

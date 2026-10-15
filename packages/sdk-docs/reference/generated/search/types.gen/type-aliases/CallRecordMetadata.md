@@ -1,6 +1,6 @@
 # Type Alias: CallRecordMetadata
 
-> **CallRecordMetadata** = `object`
+> **CallRecordMetadata** = \{ `attended`: `boolean`; `channel_name?`: `string` \| `null`; `created_by`: `string`; `duration_ms`: `number`; `ended_at`: `string`; `started_at`: `string`; `status`: [`CallStatus`](CallStatus.md); `updated_at`: `string`; \}
 
 ## Properties
 

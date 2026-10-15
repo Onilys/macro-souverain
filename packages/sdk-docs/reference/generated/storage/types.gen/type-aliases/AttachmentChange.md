@@ -30,6 +30,6 @@ Attachment changes interpreted by the common command boundary.
 | Name | Type | Description |
 | ------ | ------ | ------ |
 | `type` | `"delta"` | - |
-| `value` | `object` | Remove stored attachment identities and append new references. |
+| `value` | \{ `add`: [`NewAttachment`](NewAttachment.md)[]; `remove`: `string`[]; \} | Remove stored attachment identities and append new references. |
 | `value.add` | [`NewAttachment`](NewAttachment.md)[] | New attachments to append. |
 | `value.remove` | `string`[] | Existing attachment UUIDs to remove. |

@@ -1,6 +1,6 @@
 # Type Alias: AgentSetModelAction
 
-> **AgentSetModelAction** = `object`
+> **AgentSetModelAction** = \{ `model`: `string`; \}
 
 Ask the agent to run on a different model from here on.
 

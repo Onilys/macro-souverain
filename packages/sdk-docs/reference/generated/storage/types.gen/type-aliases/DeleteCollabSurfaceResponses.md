@@ -1,6 +1,6 @@
 # Type Alias: DeleteCollabSurfaceResponses
 
-> **DeleteCollabSurfaceResponses** = `object`
+> **DeleteCollabSurfaceResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PullRequestSessionsResponse
 
-> **PullRequestSessionsResponse** = `object`
+> **PullRequestSessionsResponse** = \{ `sessionIds`: `string`[]; \}
 
 The sessions associated with a pull request.
 

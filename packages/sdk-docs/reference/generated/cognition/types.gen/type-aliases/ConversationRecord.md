@@ -1,6 +1,6 @@
 # Type Alias: ConversationRecord
 
-> **ConversationRecord** = `object`
+> **ConversationRecord** = \{ `chat_id`: `string`; `messages`: [`MessageWithAttachments`](MessageWithAttachments.md)[]; `title`: `string`; \}
 
 ## Properties
 

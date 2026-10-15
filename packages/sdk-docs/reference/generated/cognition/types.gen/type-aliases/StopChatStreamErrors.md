@@ -1,6 +1,6 @@
 # Type Alias: StopChatStreamErrors
 
-> **StopChatStreamErrors** = `object`
+> **StopChatStreamErrors** = \{ `403`: [`StopChatStreamError`](StopChatStreamError.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ChannelPreviewData
 
-> **ChannelPreviewData** = `object`
+> **ChannelPreviewData** = \{ `channel_id`: `string`; `channel_name`: `string`; `channel_type`: [`ChannelType`](ChannelType.md); `profile_picture_id?`: `string` \| `null`; \}
 
 Preview payload returned for accessible channels.
 

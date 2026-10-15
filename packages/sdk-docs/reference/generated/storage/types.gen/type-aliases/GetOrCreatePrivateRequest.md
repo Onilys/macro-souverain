@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreatePrivateRequest
 
-> **GetOrCreatePrivateRequest** = `object`
+> **GetOrCreatePrivateRequest** = \{ `recipients`: `string`[]; \}
 
 Request to get or create a private channel.
 

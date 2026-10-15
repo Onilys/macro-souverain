@@ -1,6 +1,6 @@
 # Type Alias: EntityPropertyWithDefinition
 
-> **EntityPropertyWithDefinition** = `object`
+> **EntityPropertyWithDefinition** = \{ `definition`: [`PropertyDefinition`](PropertyDefinition.md); `options?`: [`PropertyOption`](PropertyOption.md)[] \| `null`; `property`: [`EntityProperty`](EntityProperty.md); `value?`: `null` \| [`PropertyValue`](PropertyValue.md); \}
 
 Entity property with its definition, value, and options (service representation).
 

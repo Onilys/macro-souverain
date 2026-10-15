@@ -1,6 +1,6 @@
 # Type Alias: UpdatePipedreamMcpConnectionData
 
-> **UpdatePipedreamMcpConnectionData** = `object`
+> **UpdatePipedreamMcpConnectionData** = \{ `body`: [`PipedreamUpdateRequest`](PipedreamUpdateRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/pipedream/mcp/connections"`; \}
 
 ## Properties
 

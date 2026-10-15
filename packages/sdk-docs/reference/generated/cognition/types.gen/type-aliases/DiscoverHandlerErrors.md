@@ -1,6 +1,6 @@
 # Type Alias: DiscoverHandlerErrors
 
-> **DiscoverHandlerErrors** = `object`
+> **DiscoverHandlerErrors** = \{ `400`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: BulkUpdateEntityPropertyOptionsResponse
 
-> **BulkUpdateEntityPropertyOptionsResponse** = `object`
+> **BulkUpdateEntityPropertyOptionsResponse** = \{ `properties`: [`EntityPropertyOptionSelectionResponse`](EntityPropertyOptionSelectionResponse.md)[]; \}
 
 Response for a bulk option update: each property's reconciled final ids.
 

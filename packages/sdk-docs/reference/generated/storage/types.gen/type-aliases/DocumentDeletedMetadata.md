@@ -1,6 +1,6 @@
 # Type Alias: DocumentDeletedMetadata
 
-> **DocumentDeletedMetadata** = `object`
+> **DocumentDeletedMetadata** = \{ `actor?`: `string` \| `null`; `actor_user_id?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `document_id`: `string`; `on_behalf_of?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `project_id?`: `string` \| `null`; `sub_type?`: `null` \| [`DocumentSubType`](DocumentSubType.md); \}
 
 Metadata for [`DocumentTopicEvent::Deleted`].
 

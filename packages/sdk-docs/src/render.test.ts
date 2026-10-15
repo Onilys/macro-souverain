@@ -51,3 +51,27 @@ test('document content and AI contracts come from the SDK source', async () => {
   expect(ai).toContain('structuredCompletion');
   expect(ai).toContain('decide');
 });
+
+test('object aliases expose concrete fields while retaining linked types and descriptions', async () => {
+  const patch = await readFile(
+    new URL(
+      'generated/agent-harness/types.gen/type-aliases/AgentSessionChangesPatchResponse.md',
+      reference
+    ),
+    'utf8'
+  );
+  expect(patch).toMatch(/^> .*`patch`: `string`/m);
+  expect(patch).not.toContain('= `object`');
+  expect(patch).toContain(
+    'The git-style unified diff of the current changeset.'
+  );
+  const request = await readFile(
+    new URL(
+      'generated/cognition/types.gen/type-aliases/StructuredCompletionRequest.md',
+      reference
+    ),
+    'utf8'
+  );
+  expect(request).toMatch(/^> .*\[`DynamicSchema`\]\(DynamicSchema\.md\)/m);
+  expect(request).toContain('## Properties');
+});

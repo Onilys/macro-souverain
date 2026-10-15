@@ -1,6 +1,6 @@
 # Type Alias: UpdatePipedreamMcpConnectionResponses
 
-> **UpdatePipedreamMcpConnectionResponses** = `object`
+> **UpdatePipedreamMcpConnectionResponses** = \{ `200`: [`PipedreamConnectionResponse`](PipedreamConnectionResponse.md); \}
 
 ## Properties
 

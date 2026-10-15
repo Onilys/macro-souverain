@@ -1,6 +1,6 @@
 # Type Alias: ConnectedServer
 
-> **ConnectedServer** = `object`
+> **ConnectedServer** = \{ `authenticated`: `boolean`; `name`: `string`; `url`: `string`; \}
 
 One of the user's MCP server connections, as the setup page sees it.
 

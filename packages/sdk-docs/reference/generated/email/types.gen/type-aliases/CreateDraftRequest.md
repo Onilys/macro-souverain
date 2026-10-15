@@ -1,6 +1,6 @@
 # Type Alias: CreateDraftRequest
 
-> **CreateDraftRequest** = `object`
+> **CreateDraftRequest** = \{ `draft`: [`ApiDraftInput`](ApiDraftInput.md); `send_time?`: `string` \| `null`; \}
 
 Request body for creating a draft.
 

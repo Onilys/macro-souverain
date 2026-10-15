@@ -1,6 +1,6 @@
 # Type Alias: DisconnectErrors
 
-> **DisconnectErrors** = `object`
+> **DisconnectErrors** = \{ `403`: `unknown`; \}
 
 ## Properties
 

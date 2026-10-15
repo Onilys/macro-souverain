@@ -1,6 +1,6 @@
 # Type Alias: ChannelSearchResponseItem
 
-> **ChannelSearchResponseItem** = `object`
+> **ChannelSearchResponseItem** = \{ `channel_id`: `string`; `channel_message_search_results`: [`ChannelSearchResult`](ChannelSearchResult.md)[]; `channel_type`: `string`; `id`: `string`; `owner_id?`: `string` \| `null`; \}
 
 A single response item, part of the ChannelSearchResponse object
 

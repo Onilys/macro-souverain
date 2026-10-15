@@ -1,6 +1,6 @@
 # Type Alias: UserTokensResponse
 
-> **UserTokensResponse** = `object`
+> **UserTokensResponse** = \{ `access_token`: `string`; `refresh_token`: `string`; \}
 
 ## Properties
 

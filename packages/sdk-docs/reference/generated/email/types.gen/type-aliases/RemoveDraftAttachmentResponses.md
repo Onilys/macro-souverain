@@ -1,6 +1,6 @@
 # Type Alias: RemoveDraftAttachmentResponses
 
-> **RemoveDraftAttachmentResponses** = `object`
+> **RemoveDraftAttachmentResponses** = \{ `201`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

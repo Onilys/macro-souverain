@@ -1,6 +1,6 @@
 # Type Alias: EmailSearchResponseItem
 
-> **EmailSearchResponseItem** = `object`
+> **EmailSearchResponseItem** = \{ `email_message_search_results`: [`EmailSearchResult`](EmailSearchResult.md)[]; `id`: `string`; `link_id`: `string`; `name?`: `string` \| `null`; `owner_id`: `string`; `participants`: [`EmailSearchParticipant`](EmailSearchParticipant.md)[]; `subject?`: `string` \| `null`; `thread_id`: `string`; `user_id`: `string`; \}
 
 A single response item, part of the EmailSearchResponse object
 

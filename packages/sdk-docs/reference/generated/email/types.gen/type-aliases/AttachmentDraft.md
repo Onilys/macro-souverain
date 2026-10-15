@@ -1,6 +1,6 @@
 # Type Alias: AttachmentDraft
 
-> **AttachmentDraft** = `object`
+> **AttachmentDraft** = \{ `content_type`: `string`; `draft_id`: `string`; `file_name`: `string`; `id`: `string`; `s3_key`: `string`; `sha`: `string`; `size`: `number`; \}
 
 ## Properties
 

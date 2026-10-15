@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestComment
 
-> **GithubPullRequestComment** = `object`
+> **GithubPullRequestComment** = \{ `authorAssociation?`: `string` \| `null`; `authorId?`: `number` \| `null`; `authorLogin?`: `string` \| `null`; `body`: `string`; `createdAt?`: `string` \| `null`; `id`: `number`; `inReplyToId?`: `number` \| `null`; `line?`: `number` \| `null`; `originalLine?`: `number` \| `null`; `path?`: `string` \| `null`; `pullRequestReviewId?`: `number` \| `null`; `source`: `string`; `updatedAt?`: `string` \| `null`; `url?`: `string` \| `null`; \}
 
 A comment associated with a GitHub pull request.
 

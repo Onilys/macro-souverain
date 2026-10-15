@@ -1,6 +1,6 @@
 # Type Alias: GetItemsSoupResponses
 
-> **GetItemsSoupResponses** = `object`
+> **GetItemsSoupResponses** = \{ `200`: [`SoupPage`](SoupPage.md); \}
 
 ## Properties
 

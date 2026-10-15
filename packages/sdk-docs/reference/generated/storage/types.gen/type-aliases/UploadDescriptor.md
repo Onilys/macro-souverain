@@ -1,6 +1,6 @@
 # Type Alias: UploadDescriptor
 
-> **UploadDescriptor** = `object`
+> **UploadDescriptor** = \{ `byteLength`: `number`; `recordCount?`: `number` \| `null`; `sha256`: [`Sha256Digest`](Sha256Digest.md); `upload`: [`UploadId`](UploadId.md); \}
 
 Immutable expected object properties, registered before signing an upload.
 

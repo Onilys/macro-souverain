@@ -1,6 +1,6 @@
 # Type Alias: Message
 
-> **Message** = `object`
+> **Message** = \{ `attachments`: [`Attachment`](Attachment.md)[]; `attachments_draft`: [`AttachmentDraft`](AttachmentDraft.md)[]; `attachments_forwarded`: [`AttachmentForwarded`](AttachmentForwarded.md)[]; `bcc`: [`ContactInfo`](ContactInfo.md)[]; `body_html_sanitized?`: `string` \| `null`; `body_macro?`: `string` \| `null`; `body_text?`: `string` \| `null`; `cc`: [`ContactInfo`](ContactInfo.md)[]; `created_at`: `string`; `db_id`: `string`; `from?`: `null` \| [`ContactInfo`](ContactInfo.md); `global_id?`: `string` \| `null`; `has_attachments`: `boolean`; `headers_json?`: `null` \| [`Value`](Value.md); `internal_date_ts?`: `string` \| `null`; `is_draft`: `boolean`; `is_read`: `boolean`; `is_sent`: `boolean`; `is_starred`: `boolean`; `labels`: [`Label`](Label.md)[]; `link_id`: `string`; `provider_history_id?`: `string` \| `null`; `provider_id?`: `string` \| `null`; `provider_thread_id?`: `string` \| `null`; `replying_to_id?`: `string` \| `null`; `scheduled_send_time?`: `string` \| `null`; `sent_at?`: `string` \| `null`; `size_estimate?`: `number` \| `null`; `snippet?`: `string` \| `null`; `subject?`: `string` \| `null`; `thread_db_id`: `string`; `to`: [`ContactInfo`](ContactInfo.md)[]; `updated_at`: `string`; \}
 
 ## Properties
 

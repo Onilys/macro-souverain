@@ -1,6 +1,6 @@
 # Type Alias: ChannelUpdatedMetadata
 
-> **ChannelUpdatedMetadata** = `object`
+> **ChannelUpdatedMetadata** = \{ `actor`: [`MacroUserIdStr`](MacroUserIdStr.md); `channel_id`: `string`; `channel_name?`: `string` \| `null`; `previous_name?`: `string` \| `null`; \}
 
 Metadata for [`ChannelTopicEvent::Updated`].
 

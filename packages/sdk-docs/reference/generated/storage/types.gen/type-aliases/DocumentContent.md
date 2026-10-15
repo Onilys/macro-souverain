@@ -1,6 +1,6 @@
 # Type Alias: DocumentContent
 
-> **DocumentContent** = `object`
+> **DocumentContent** = \{ `location?`: `null` \| [`DocumentContentLocation`](DocumentContentLocation.md); `state`: [`DocumentContentState`](DocumentContentState.md); \}
 
 API-visible content lifecycle and location metadata.
 

@@ -1,6 +1,6 @@
 # Type Alias: MeetingUpdateErrors
 
-> **MeetingUpdateErrors** = `object`
+> **MeetingUpdateErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

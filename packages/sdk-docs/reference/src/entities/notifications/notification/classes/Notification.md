@@ -87,11 +87,11 @@ Whether the notification is acknowledged (seen or done).
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`ApiUserNotification`](../../../../../generated/notification/types.gen/type-aliases/ApiUserNotification.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`ApiUserNotification`](../../../../../generated/notification/types.gen/type-aliases/ApiUserNotification.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

@@ -1,6 +1,6 @@
 # Type Alias: SetChannelLabelRequest
 
-> **SetChannelLabelRequest** = `object`
+> **SetChannelLabelRequest** = \{ `labelId?`: `string` \| `null`; \}
 
 Request body for moving a channel between labels.
 

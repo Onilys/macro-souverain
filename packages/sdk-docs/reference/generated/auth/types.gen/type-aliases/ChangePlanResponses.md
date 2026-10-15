@@ -1,6 +1,6 @@
 # Type Alias: ChangePlanResponses
 
-> **ChangePlanResponses** = `object`
+> **ChangePlanResponses** = \{ `200`: [`ChangePlanResponse`](ChangePlanResponse.md); \}
 
 ## Properties
 

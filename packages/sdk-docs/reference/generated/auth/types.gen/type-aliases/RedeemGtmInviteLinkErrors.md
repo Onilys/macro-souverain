@@ -1,6 +1,6 @@
 # Type Alias: RedeemGtmInviteLinkErrors
 
-> **RedeemGtmInviteLinkErrors** = `object`
+> **RedeemGtmInviteLinkErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); `410`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

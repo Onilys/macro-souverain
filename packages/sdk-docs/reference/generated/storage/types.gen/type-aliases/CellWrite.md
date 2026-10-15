@@ -1,6 +1,6 @@
 # Type Alias: CellWrite
 
-> **CellWrite** = `object`
+> **CellWrite** = \{ `column`: `string`; `value`: [`CellValue`](CellValue.md); \}
 
 One cell of a row: which column, and its new value.
 

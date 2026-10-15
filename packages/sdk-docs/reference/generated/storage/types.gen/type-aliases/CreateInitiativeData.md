@@ -1,6 +1,6 @@
 # Type Alias: CreateInitiativeData
 
-> **CreateInitiativeData** = `object`
+> **CreateInitiativeData** = \{ `body`: [`CreateInitiativeRequest`](CreateInitiativeRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/initiatives"`; \}
 
 ## Properties
 

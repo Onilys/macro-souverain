@@ -1,6 +1,6 @@
 # Type Alias: GetCitationHandlerErrors
 
-> **GetCitationHandlerErrors** = `object`
+> **GetCitationHandlerErrors** = \{ `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

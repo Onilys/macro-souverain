@@ -1,6 +1,6 @@
 # Type Alias: PostMessage
 
-> **PostMessage** = `object`
+> **PostMessage** = \{ `anchor?`: `null` \| [`NewThreadAnchor`](NewThreadAnchor.md); `attachments?`: [`NewAttachment`](NewAttachment.md)[]; `content`: `string`; `id?`: `string` \| `null`; `mentions?`: [`SimpleMention`](SimpleMention.md)[]; `nonce?`: `string` \| `null`; `thread_id?`: `string` \| `null`; \}
 
 Create a root or reply. Thread state may only be supplied on a root.
 

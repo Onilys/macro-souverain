@@ -1,6 +1,6 @@
 # Type Alias: CallTokenResponse
 
-> **CallTokenResponse** = `object`
+> **CallTokenResponse** = \{ `callId`: `string`; `channelId?`: `string` \| `null`; `participantId`: `string`; `roomName`: `string`; `serverUrl`: `string`; `shareToken?`: `string` \| `null`; `token`: `string`; \}
 
 Response returned when creating or joining a call.
 

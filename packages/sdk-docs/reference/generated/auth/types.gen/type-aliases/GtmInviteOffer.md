@@ -1,6 +1,6 @@
 # Type Alias: GtmInviteOffer
 
-> **GtmInviteOffer** = `object`
+> **GtmInviteOffer** = \{ `firstName`: `string`; `freeMonths`: `number`; `linkId`: `string`; `promoCode`: `string`; `redeemedAt`: `string`; \}
 
 The promotion a signed-in user's account holds.
 

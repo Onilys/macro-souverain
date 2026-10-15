@@ -1,6 +1,6 @@
 # Type Alias: AddPinRequest
 
-> **AddPinRequest** = `object`
+> **AddPinRequest** = \{ `pinIndex`: `number`; `pinType`: `string`; \}
 
 ## Properties
 

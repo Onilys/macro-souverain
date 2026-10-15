@@ -1,6 +1,6 @@
 # Type Alias: CreateInProgressLinkResponses
 
-> **CreateInProgressLinkResponses** = `object`
+> **CreateInProgressLinkResponses** = \{ `200`: [`CreateInProgressLinkResponse`](CreateInProgressLinkResponse.md); \}
 
 ## Properties
 

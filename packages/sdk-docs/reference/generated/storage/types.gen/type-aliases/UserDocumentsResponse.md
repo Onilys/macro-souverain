@@ -1,6 +1,6 @@
 # Type Alias: UserDocumentsResponse
 
-> **UserDocumentsResponse** = `object`
+> **UserDocumentsResponse** = \{ `documents`: [`DocumentMetadata`](DocumentMetadata.md)[]; `next_offset?`: `number` \| `null`; `total`: `number`; \}
 
 ## Properties
 

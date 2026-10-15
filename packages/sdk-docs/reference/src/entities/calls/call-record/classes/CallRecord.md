@@ -124,11 +124,11 @@ it and the API answers 403 otherwise.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`CallRecord`](../../../../../generated/storage/types.gen/type-aliases/CallRecord.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`CallRecord`](../../../../../generated/storage/types.gen/type-aliases/CallRecord.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

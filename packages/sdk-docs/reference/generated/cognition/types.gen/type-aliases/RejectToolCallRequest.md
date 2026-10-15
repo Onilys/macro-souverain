@@ -1,6 +1,6 @@
 # Type Alias: RejectToolCallRequest
 
-> **RejectToolCallRequest** = `object`
+> **RejectToolCallRequest** = \{ `messageId`: `string`; `toolCallId`: `string`; \}
 
 Request body for rejecting a pending tool call.
 

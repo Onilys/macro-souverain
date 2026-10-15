@@ -1,6 +1,6 @@
 # Type Alias: DeleteInitiativeResponses
 
-> **DeleteInitiativeResponses** = `object`
+> **DeleteInitiativeResponses** = \{ `200`: [`GenericSuccessResponse`](GenericSuccessResponse.md); \}
 
 ## Properties
 

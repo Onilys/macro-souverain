@@ -1,6 +1,6 @@
 # Type Alias: ViewPositionsResponse
 
-> **ViewPositionsResponse** = `object`
+> **ViewPositionsResponse** = \{ `positions`: [`CardPosition`](CardPosition.md)[]; \}
 
 Where a board's cards sit.
 

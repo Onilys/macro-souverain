@@ -1,6 +1,6 @@
 # Type Alias: BasicDocument
 
-> **BasicDocument** = `object`
+> **BasicDocument** = \{ `branchedFromId?`: `string` \| `null`; `branchedFromVersionId?`: `number` \| `null`; `createdAt?`: `string` \| `null`; `deletedAt?`: `string` \| `null`; `documentFamilyId?`: `number` \| `null`; `documentVersionId`: `number`; `fileType?`: `string` \| `null`; `id`: `string`; `name`: `string`; `owner`: `string`; `projectId?`: `string` \| `null`; `sha?`: `string` \| `null`; `subType?`: `null` \| [`BasicDocumentSubType`](BasicDocumentSubType.md); `updatedAt?`: `string` \| `null`; \}
 
 ## Properties
 

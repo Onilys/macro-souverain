@@ -1,6 +1,6 @@
 # Type Alias: PostChannelBotWebhookResponses
 
-> **PostChannelBotWebhookResponses** = `object`
+> **PostChannelBotWebhookResponses** = \{ `200`: [`ChannelWebhookResponse`](ChannelWebhookResponse.md); \}
 
 ## Properties
 

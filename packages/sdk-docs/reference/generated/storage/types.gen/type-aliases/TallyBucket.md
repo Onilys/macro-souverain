@@ -1,6 +1,6 @@
 # Type Alias: TallyBucket
 
-> **TallyBucket** = `object`
+> **TallyBucket** = \{ `count`: `number`; `value`: [`TallyValue`](TallyValue.md); \}
 
 How many rows hold one value.
 

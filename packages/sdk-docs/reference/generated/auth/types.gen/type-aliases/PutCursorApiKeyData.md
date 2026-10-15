@@ -1,6 +1,6 @@
 # Type Alias: PutCursorApiKeyData
 
-> **PutCursorApiKeyData** = `object`
+> **PutCursorApiKeyData** = \{ `body`: [`PutCursorApiKeyRequest`](PutCursorApiKeyRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/cursor-api-key"`; \}
 
 ## Properties
 

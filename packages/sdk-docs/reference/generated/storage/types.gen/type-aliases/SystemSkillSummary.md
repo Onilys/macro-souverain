@@ -1,6 +1,6 @@
 # Type Alias: SystemSkillSummary
 
-> **SystemSkillSummary** = `object`
+> **SystemSkillSummary** = \{ `id`: `string`; `name`: `string`; \}
 
 A built-in system skill: static, code-defined AI instructions surfaced
 through the same tools as user-authored skill documents, but with no

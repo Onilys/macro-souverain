@@ -1,6 +1,6 @@
 # Type Alias: GetChatsForAttachmentResponse
 
-> **GetChatsForAttachmentResponse** = `object`
+> **GetChatsForAttachmentResponse** = \{ `all_chats`: [`Chat`](Chat.md)[]; `recent_chat?`: `null` \| [`Chat`](Chat.md); \}
 
 ## Properties
 

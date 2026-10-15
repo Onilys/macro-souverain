@@ -1,6 +1,6 @@
 # Type Alias: AiAdmissionErrorBody
 
-> **AiAdmissionErrorBody** = `object`
+> **AiAdmissionErrorBody** = \{ `code`: `string`; `error`: `string`; \}
 
 Public admission error payload. Handlers with additional fields can reuse the
 domain error's code and message and [`admission_status`].

@@ -1,6 +1,6 @@
 # Type Alias: PreviewAgentSessionsData
 
-> **PreviewAgentSessionsData** = `object`
+> **PreviewAgentSessionsData** = \{ `body`: [`PreviewAgentSessionsRequest`](PreviewAgentSessionsRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-sessions/preview"`; \}
 
 ## Properties
 

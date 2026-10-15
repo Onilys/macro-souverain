@@ -1,6 +1,6 @@
 # Type Alias: Form
 
-> **Form** = `object`
+> **Form** = \{ `audience`: [`Audience`](Audience.md); `closesAt`: `string` \| `null`; `confirmationMessage`: `string`; `createdAt`: `string`; `databaseId`: `string`; `description`: `string`; `id`: `string`; `name`: `string`; `ownerId`: `string`; `respondentColumnId`: `string` \| `null`; `status`: [`FormStatus`](FormStatus.md); `submittedColumnId`: `string` \| `null`; `tableId`: `string`; `tallyVisible`: `boolean`; `updatedAt`: `string`; \}
 
 A form: a view of one database table whose rows are its responses.
 

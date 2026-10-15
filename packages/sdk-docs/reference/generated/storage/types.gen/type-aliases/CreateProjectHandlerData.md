@@ -1,6 +1,6 @@
 # Type Alias: CreateProjectHandlerData
 
-> **CreateProjectHandlerData** = `object`
+> **CreateProjectHandlerData** = \{ `body`: [`CreateProjectRequest`](CreateProjectRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/projects"`; \}
 
 ## Properties
 

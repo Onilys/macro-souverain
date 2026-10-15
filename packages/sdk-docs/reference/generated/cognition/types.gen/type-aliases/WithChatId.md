@@ -1,6 +1,6 @@
 # Type Alias: WithChatId
 
-> **WithChatId** = `object`
+> **WithChatId** = \{ `chat_id`: `string`; \}
 
 ## Properties
 

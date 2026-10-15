@@ -1,6 +1,6 @@
 # Type Alias: BotOwnerProfile
 
-> **BotOwnerProfile** = `object`
+> **BotOwnerProfile** = \{ `avatar_url?`: `string` \| `null`; `deleted_at?`: `string` \| `null`; `id`: [`BotId`](BotId.md); `name`: `string`; `owner?`: `null` \| [`BotOwner`](BotOwner.md); \}
 
 Bot identity for rendering, including the sponsor and soft-delete time.
 

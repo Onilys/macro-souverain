@@ -1,6 +1,6 @@
 # Type Alias: GetAgentSessionPermissionsResponses
 
-> **GetAgentSessionPermissionsResponses** = `object`
+> **GetAgentSessionPermissionsResponses** = \{ `200`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetBotOwnerProfilesResponses
 
-> **GetBotOwnerProfilesResponses** = `object`
+> **GetBotOwnerProfilesResponses** = \{ `200`: [`BotOwnerProfile`](BotOwnerProfile.md)[]; \}
 
 ## Properties
 

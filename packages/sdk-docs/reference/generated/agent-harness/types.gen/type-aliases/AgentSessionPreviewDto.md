@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionPreviewDto
 
-> **AgentSessionPreviewDto** = [`AgentSessionPreviewData`](AgentSessionPreviewData.md) & `object` \| [`WithAgentSessionId`](WithAgentSessionId.md) & `object` \| [`WithAgentSessionId`](WithAgentSessionId.md) & `object`
+> **AgentSessionPreviewDto** = [`AgentSessionPreviewData`](AgentSessionPreviewData.md) & \{ `type`: `"access"`; \} \| [`WithAgentSessionId`](WithAgentSessionId.md) & \{ `type`: `"no_access"`; \} \| [`WithAgentSessionId`](WithAgentSessionId.md) & \{ `type`: `"does_not_exist"`; \}
 
 What one requested id resolved to, on the wire.
 

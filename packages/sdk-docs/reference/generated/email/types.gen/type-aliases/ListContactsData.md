@@ -1,6 +1,6 @@
 # Type Alias: ListContactsData
 
-> **ListContactsData** = `object`
+> **ListContactsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/email/contacts"`; \}
 
 ## Properties
 

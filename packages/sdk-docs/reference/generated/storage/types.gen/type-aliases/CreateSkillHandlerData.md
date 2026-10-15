@@ -1,6 +1,6 @@
 # Type Alias: CreateSkillHandlerData
 
-> **CreateSkillHandlerData** = `object`
+> **CreateSkillHandlerData** = \{ `body`: [`CreateSkillRequest`](CreateSkillRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents/create_skill"`; \}
 
 ## Properties
 

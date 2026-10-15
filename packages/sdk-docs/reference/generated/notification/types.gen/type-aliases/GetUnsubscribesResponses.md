@@ -1,6 +1,6 @@
 # Type Alias: GetUnsubscribesResponses
 
-> **GetUnsubscribesResponses** = `object`
+> **GetUnsubscribesResponses** = \{ `200`: [`UserUnsubscribe`](UserUnsubscribe.md)[]; \}
 
 ## Properties
 

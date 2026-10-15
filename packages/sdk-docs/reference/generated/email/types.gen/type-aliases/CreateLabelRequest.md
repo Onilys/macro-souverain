@@ -1,6 +1,6 @@
 # Type Alias: CreateLabelRequest
 
-> **CreateLabelRequest** = `object`
+> **CreateLabelRequest** = \{ `label_name`: `string`; \}
 
 ## Properties
 

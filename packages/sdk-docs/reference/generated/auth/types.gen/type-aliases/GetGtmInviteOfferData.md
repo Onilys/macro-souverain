@@ -1,6 +1,6 @@
 # Type Alias: GetGtmInviteOfferData
 
-> **GetGtmInviteOfferData** = `object`
+> **GetGtmInviteOfferData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/gtm-invite/offer"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CompleteErrors
 
-> **CompleteErrors** = `object`
+> **CompleteErrors** = \{ `400`: `unknown`; `409`: `unknown`; `502`: `unknown`; \}
 
 ## Properties
 

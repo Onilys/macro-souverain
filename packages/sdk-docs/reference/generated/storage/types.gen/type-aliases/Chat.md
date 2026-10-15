@@ -1,6 +1,6 @@
 # Type Alias: Chat
 
-> **Chat** = `object`
+> **Chat** = \{ `createdAt?`: `string` \| `null`; `deletedAt?`: `string` \| `null`; `id`: `string`; `isPersistent`: `boolean`; `model?`: `string` \| `null`; `name`: `string`; `projectId?`: `string` \| `null`; `tokenCount?`: `number` \| `null`; `updatedAt?`: `string` \| `null`; `userId`: `string`; \}
 
 ## Properties
 

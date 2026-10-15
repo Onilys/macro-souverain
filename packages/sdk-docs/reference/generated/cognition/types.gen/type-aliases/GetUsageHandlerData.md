@@ -1,6 +1,6 @@
 # Type Alias: GetUsageHandlerData
 
-> **GetUsageHandlerData** = `object`
+> **GetUsageHandlerData** = \{ `body`: [`UsageRequest`](UsageRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/ai-cost/usage"`; \}
 
 ## Properties
 

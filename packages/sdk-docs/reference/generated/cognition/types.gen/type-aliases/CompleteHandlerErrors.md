@@ -1,6 +1,6 @@
 # Type Alias: CompleteHandlerErrors
 
-> **CompleteHandlerErrors** = `object`
+> **CompleteHandlerErrors** = \{ `500`: `unknown`; \}
 
 ## Properties
 

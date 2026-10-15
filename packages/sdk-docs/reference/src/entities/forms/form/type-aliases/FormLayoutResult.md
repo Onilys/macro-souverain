@@ -1,6 +1,6 @@
 # Type Alias: FormLayoutResult
 
-> **FormLayoutResult** = `object`
+> **FormLayoutResult** = \{ `form`: [`Form`](../classes/Form.md); `publicationError?`: [`FormPublicationProblem`](../../../../../generated/storage/types.gen/type-aliases/FormPublicationProblem.md); \}
 
 A saved layout and any reason it is not yet visible to respondents.
 

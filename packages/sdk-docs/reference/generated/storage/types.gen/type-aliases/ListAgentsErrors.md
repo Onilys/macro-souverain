@@ -1,6 +1,6 @@
 # Type Alias: ListAgentsErrors
 
-> **ListAgentsErrors** = `object`
+> **ListAgentsErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

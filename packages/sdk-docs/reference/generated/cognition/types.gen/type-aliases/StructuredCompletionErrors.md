@@ -1,6 +1,6 @@
 # Type Alias: StructuredCompletionErrors
 
-> **StructuredCompletionErrors** = `object`
+> **StructuredCompletionErrors** = \{ `400`: [`StructuredCompletionError`](StructuredCompletionError.md); `401`: `unknown`; `402`: [`StructuredCompletionError`](StructuredCompletionError.md); `403`: [`StructuredCompletionError`](StructuredCompletionError.md); `500`: [`StructuredCompletionError`](StructuredCompletionError.md); `503`: [`StructuredCompletionError`](StructuredCompletionError.md); `504`: [`StructuredCompletionError`](StructuredCompletionError.md); \}
 
 ## Properties
 

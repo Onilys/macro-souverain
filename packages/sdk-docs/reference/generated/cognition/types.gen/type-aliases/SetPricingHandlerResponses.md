@@ -1,6 +1,6 @@
 # Type Alias: SetPricingHandlerResponses
 
-> **SetPricingHandlerResponses** = `object`
+> **SetPricingHandlerResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

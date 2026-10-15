@@ -1,6 +1,6 @@
 # Type Alias: PdfHighlightAnchor
 
-> **PdfHighlightAnchor** = `object`
+> **PdfHighlightAnchor** = \{ `alpha`: `number`; `blue`: `number`; `createdAt?`: `string` \| `null`; `deletedAt?`: `string` \| `null`; `documentId`: `string`; `green`: `number`; `highlightRects`: [`PdfHighlightRect`](PdfHighlightRect.md)[]; `highlightType`: [`HighlightType`](HighlightType.md); `owner`: `string`; `page`: `number`; `pageViewportHeight`: `number`; `pageViewportWidth`: `number`; `red`: `number`; `rootId?`: `string` \| `null`; `text`: `string`; `updatedAt?`: `string` \| `null`; `uuid`: `string`; \}
 
 ## Properties
 

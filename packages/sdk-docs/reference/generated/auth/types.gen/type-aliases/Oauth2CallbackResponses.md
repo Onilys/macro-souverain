@@ -1,6 +1,6 @@
 # Type Alias: Oauth2CallbackResponses
 
-> **Oauth2CallbackResponses** = `object`
+> **Oauth2CallbackResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

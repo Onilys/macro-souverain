@@ -1,6 +1,6 @@
 # Type Alias: DocumentResponseMetadata
 
-> **DocumentResponseMetadata** = `object`
+> **DocumentResponseMetadata** = \{ `branchedFromId?`: `string` \| `null`; `branchedFromVersionId?`: `number` \| `null`; `createdAt?`: `string` \| `null`; `documentBom?`: [`BomPart`](BomPart.md)[] \| `null`; `documentFamilyId?`: `number` \| `null`; `documentId`: `string`; `documentName`: `string`; `documentVersionId`: `number`; `fileType?`: `string` \| `null`; `modificationData?`: `unknown`; `owner`: `string`; `sha?`: `string` \| `null`; `subType?`: `null` \| [`DocumentSubType`](DocumentSubType.md); `updatedAt?`: `string` \| `null`; \}
 
 ## Properties
 

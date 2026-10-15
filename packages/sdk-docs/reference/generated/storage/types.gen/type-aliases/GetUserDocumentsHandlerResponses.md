@@ -1,6 +1,6 @@
 # Type Alias: GetUserDocumentsHandlerResponses
 
-> **GetUserDocumentsHandlerResponses** = `object`
+> **GetUserDocumentsHandlerResponses** = \{ `200`: [`GetDocumentsResponse`](GetDocumentsResponse.md); \}
 
 ## Properties
 

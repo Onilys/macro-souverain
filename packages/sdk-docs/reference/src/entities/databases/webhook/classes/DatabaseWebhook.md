@@ -57,11 +57,11 @@ Delete the webhook; its URL stops working.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `id`: `string`; `tableId`: `string`; `tokenPrefix`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `id`: `string`; `tableId`: `string`; `tokenPrefix`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

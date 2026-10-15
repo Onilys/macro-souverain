@@ -1,6 +1,6 @@
 # Type Alias: BulkWakeupRequest
 
-> **BulkWakeupRequest** = `object`
+> **BulkWakeupRequest** = \{ `document_ids`: `string`[]; \}
 
 ## Properties
 

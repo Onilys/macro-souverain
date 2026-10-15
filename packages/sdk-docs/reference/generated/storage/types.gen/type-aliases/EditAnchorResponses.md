@@ -1,6 +1,6 @@
 # Type Alias: EditAnchorResponses
 
-> **EditAnchorResponses** = `object`
+> **EditAnchorResponses** = \{ `200`: [`EditAnchorResponse`](EditAnchorResponse.md); \}
 
 ## Properties
 

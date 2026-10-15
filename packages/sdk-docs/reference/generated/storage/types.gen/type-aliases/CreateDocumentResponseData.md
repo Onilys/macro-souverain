@@ -1,6 +1,6 @@
 # Type Alias: CreateDocumentResponseData
 
-> **CreateDocumentResponseData** = [`DocumentResponse`](DocumentResponse.md) & `object`
+> **CreateDocumentResponseData** = [`DocumentResponse`](DocumentResponse.md) & \{ `contentType`: `string`; `fileType?`: `string` \| `null`; \}
 
 ## Type Declaration
 

@@ -1,6 +1,6 @@
 # Type Alias: UnlinkAgentSessionPullRequestResponses
 
-> **UnlinkAgentSessionPullRequestResponses** = `object`
+> **UnlinkAgentSessionPullRequestResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

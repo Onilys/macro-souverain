@@ -1,6 +1,6 @@
 # Type Alias: InviteToTeamResponses
 
-> **InviteToTeamResponses** = `object`
+> **InviteToTeamResponses** = \{ `201`: `unknown`; \}
 
 ## Properties
 

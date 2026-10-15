@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelParticipant
 
-> **ApiChannelParticipant** = `object`
+> **ApiChannelParticipant** = \{ `channel_id`: `string`; `joined_at`: `string`; `role`: [`ApiParticipantRole`](ApiParticipantRole.md); `user_id`: `string`; \}
 
 A channel participant.
 

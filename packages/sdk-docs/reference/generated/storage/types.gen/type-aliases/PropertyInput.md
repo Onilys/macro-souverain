@@ -1,6 +1,6 @@
 # Type Alias: PropertyInput
 
-> **PropertyInput** = `object`
+> **PropertyInput** = \{ `propertyId`: `string`; `value`: [`SetPropertyValue`](SetPropertyValue.md); \}
 
 Property input for setting a property value on a task.
 

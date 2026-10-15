@@ -1,6 +1,6 @@
 # Type Alias: PutFormLayoutResponses
 
-> **PutFormLayoutResponses** = `object`
+> **PutFormLayoutResponses** = \{ `200`: [`FormCollaboration`](FormCollaboration.md); \}
 
 ## Properties
 

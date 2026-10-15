@@ -1,6 +1,6 @@
 # Type Alias: InProgressExecution
 
-> **InProgressExecution** = `object`
+> **InProgressExecution** = \{ `action_id`: `string`; `chat_id?`: `string` \| `null`; `resource?`: `null` \| [`ExecutionResource`](ExecutionResource.md); \}
 
 ## Properties
 

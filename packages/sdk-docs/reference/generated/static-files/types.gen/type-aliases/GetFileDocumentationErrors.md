@@ -1,6 +1,6 @@
 # Type Alias: GetFileDocumentationErrors
 
-> **GetFileDocumentationErrors** = `object`
+> **GetFileDocumentationErrors** = \{ `404`: `unknown`; \}
 
 ## Properties
 

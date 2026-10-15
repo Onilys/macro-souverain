@@ -1,6 +1,6 @@
 # Type Alias: AddMcpServerData
 
-> **AddMcpServerData** = `object`
+> **AddMcpServerData** = \{ `body`: [`AddServerRequest`](AddServerRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/mcp/servers"`; \}
 
 ## Properties
 

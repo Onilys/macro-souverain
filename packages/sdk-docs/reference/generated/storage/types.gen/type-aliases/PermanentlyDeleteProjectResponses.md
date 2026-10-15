@@ -1,6 +1,6 @@
 # Type Alias: PermanentlyDeleteProjectResponses
 
-> **PermanentlyDeleteProjectResponses** = `object`
+> **PermanentlyDeleteProjectResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

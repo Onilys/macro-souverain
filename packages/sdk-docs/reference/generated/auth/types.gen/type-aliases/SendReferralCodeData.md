@@ -1,6 +1,6 @@
 # Type Alias: SendReferralCodeData
 
-> **SendReferralCodeData** = `object`
+> **SendReferralCodeData** = \{ `body`: [`SendInviteBody`](SendInviteBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/referral/send"`; \}
 
 ## Properties
 

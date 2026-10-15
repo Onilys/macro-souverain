@@ -1,6 +1,6 @@
 # Type Alias: UpdateLabelBatchResponse
 
-> **UpdateLabelBatchResponse** = `object`
+> **UpdateLabelBatchResponse** = \{ `failed_ids`: `string`[]; `missing_ids`: `string`[]; `successful_ids`: `string`[]; \}
 
 ## Properties
 

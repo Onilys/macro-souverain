@@ -1,6 +1,6 @@
 # Type Alias: EntityPropertiesResponse
 
-> **EntityPropertiesResponse** = `object`
+> **EntityPropertiesResponse** = \{ `entity_id`: `string`; `properties`: [`EntityPropertyWithDefinition`](EntityPropertyWithDefinition.md)[]; \}
 
 Response for document/entity properties endpoint.
 

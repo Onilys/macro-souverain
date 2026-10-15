@@ -1,6 +1,6 @@
 # Type Alias: ToggleTeamNonAdminInvitesResponses
 
-> **ToggleTeamNonAdminInvitesResponses** = `object`
+> **ToggleTeamNonAdminInvitesResponses** = \{ `200`: [`ToggleNonAdminInvitesResponse`](ToggleNonAdminInvitesResponse.md); \}
 
 ## Properties
 

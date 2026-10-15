@@ -1,6 +1,6 @@
 # Type Alias: ConvertIntoNewColumnOptions
 
-> **ConvertIntoNewColumnOptions** = `object`
+> **ConvertIntoNewColumnOptions** = \{ `name?`: `string`; `to`: [`ColumnType`](ColumnType.md); \}
 
 Options for [Database.convertColumnIntoNewColumn](../classes/Database.md#convertcolumnintonewcolumn).
 

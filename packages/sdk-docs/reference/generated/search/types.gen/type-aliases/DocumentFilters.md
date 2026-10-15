@@ -1,6 +1,6 @@
 # Type Alias: DocumentFilters
 
-> **DocumentFilters** = `object`
+> **DocumentFilters** = \{ `document_ids?`: `string`[]; `file_types?`: `string`[]; `importance?`: `boolean` \| `null`; `is_email_attachment?`: `boolean` \| `null`; `notification_filters?`: [`NotificationFilters`](NotificationFilters.md); `owners?`: `string`[]; `project_ids?`: `string`[]; `sub_types?`: `string`[]; `task_filters?`: [`TaskFilters`](TaskFilters.md); \}
 
 The document filters used to filter down what documents you search over.
 

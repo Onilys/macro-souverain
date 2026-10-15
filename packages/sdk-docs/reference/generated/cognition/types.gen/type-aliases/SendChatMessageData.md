@@ -1,6 +1,6 @@
 # Type Alias: SendChatMessageData
 
-> **SendChatMessageData** = `object`
+> **SendChatMessageData** = \{ `body`: [`HttpSendChatMessageRequest`](HttpSendChatMessageRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/stream/chat/message"`; \}
 
 ## Properties
 

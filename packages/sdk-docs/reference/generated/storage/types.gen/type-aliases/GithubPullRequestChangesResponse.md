@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestChangesResponse
 
-> **GithubPullRequestChangesResponse** = `object`
+> **GithubPullRequestChangesResponse** = \{ `changeset?`: `null` \| [`ChangesetDto`](ChangesetDto.md); `error?`: `string` \| `null`; \}
 
 Response body for `GET /github_pull_requests/{id}/changes`.
 

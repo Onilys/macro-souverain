@@ -1,6 +1,6 @@
 # Type Alias: GetSubscriptionStatusData
 
-> **GetSubscriptionStatusData** = `object`
+> **GetSubscriptionStatusData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/user/stripe/plan"`; \}
 
 ## Properties
 

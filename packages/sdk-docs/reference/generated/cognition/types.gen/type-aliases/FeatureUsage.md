@@ -1,6 +1,6 @@
 # Type Alias: FeatureUsage
 
-> **FeatureUsage** = `object`
+> **FeatureUsage** = \{ `entries`: [`CompletionUsage`](CompletionUsage.md)[]; `feature`: [`AiFeature`](AiFeature.md); `total`: `number`; \}
 
 Recorded invocations and total for one feature.
 

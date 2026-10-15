@@ -1,6 +1,6 @@
 # Type Alias: PropertyOptionResponse
 
-> **PropertyOptionResponse** = `object`
+> **PropertyOptionResponse** = \{ `color?`: `string` \| `null`; `displayOrder`: `number`; `id`: `string`; `propertyDefinitionId`: `string`; `value`: [`PropertyOptionValue`](PropertyOptionValue.md); \}
 
 Property option response (API representation).
 

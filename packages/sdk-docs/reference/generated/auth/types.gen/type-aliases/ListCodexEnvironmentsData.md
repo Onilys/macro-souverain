@@ -1,6 +1,6 @@
 # Type Alias: ListCodexEnvironmentsData
 
-> **ListCodexEnvironmentsData** = `object`
+> **ListCodexEnvironmentsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/codex/environments"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ChannelLabel
 
-> **ChannelLabel** = `object`
+> **ChannelLabel** = \{ `channelCount`: `number`; `channelIds`: `string`[]; `createdAt`: `string`; `id`: `string`; `name`: `string`; `rule?`: `null` \| [`ChannelLabelRule`](ChannelLabelRule.md); `sortOrder`: `number`; `teamId?`: `string` \| `null`; `updatedAt`: `string`; \}
 
 A shared or account-private label grouping chat channels in the sidebar.
 

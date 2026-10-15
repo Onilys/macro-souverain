@@ -1,6 +1,6 @@
 # Type Alias: Lane
 
-> **Lane** = `object`
+> **Lane** = \{ `hidden?`: `boolean`; `key`: [`LaneKey`](LaneKey.md); \}
 
 How one lane shows in a board layout.
 

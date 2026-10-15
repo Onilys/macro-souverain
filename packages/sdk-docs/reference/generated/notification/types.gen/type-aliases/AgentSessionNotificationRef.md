@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionNotificationRef
 
-> **AgentSessionNotificationRef** = `object`
+> **AgentSessionNotificationRef** = \{ `announcementMessageId?`: `string` \| `null`; `botId`: `string`; `botName`: `string`; `channelId?`: `string` \| `null`; `parent?`: `null` \| [`AgentSessionOriginParent`](AgentSessionOriginParent.md); `sessionId`: `string`; `sessionName`: `string`; `threadId?`: `string` \| `null`; \}
 
 Flattened into each agent-session kind so the wire keeps these keys at the
 top level of the metadata, the way [`CommonChannelMetadata`] does.

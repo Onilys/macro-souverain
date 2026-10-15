@@ -1,6 +1,6 @@
 # Type Alias: PatchSettingsResponses
 
-> **PatchSettingsResponses** = `object`
+> **PatchSettingsResponses** = \{ `200`: [`PatchSettingsResponse`](PatchSettingsResponse.md); \}
 
 ## Properties
 

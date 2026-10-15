@@ -1,6 +1,6 @@
 # Type Alias: ChatSearchResponseItem
 
-> **ChatSearchResponseItem** = `object`
+> **ChatSearchResponseItem** = \{ `chat_id`: `string`; `chat_search_results`: [`ChatMessageSearchResult`](ChatMessageSearchResult.md)[]; `id`: `string`; `name`: `string`; `owner_id`: `string`; `user_id`: `string`; \}
 
 A single response item, part of the ChatSearchResponse object
 

@@ -1,6 +1,6 @@
 # Type Alias: CheckoutSessionMetadata
 
-> **CheckoutSessionMetadata** = `object`
+> **CheckoutSessionMetadata** = \{ `fbc?`: `string` \| `null`; `fbp?`: `string` \| `null`; `gaClientId?`: `string` \| `null`; \}
 
 Tracking metadata for conversion attribution
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdatePropertyOptionRequest
 
-> **UpdatePropertyOptionRequest** = `object`
+> **UpdatePropertyOptionRequest** = \{ `color?`: `string` \| `null`; `display_order?`: `number` \| `null`; `value?`: `string` \| `null`; \}
 
 Request to update a property option in place. Omitted fields keep their current value.
 The option id is preserved, so the change propagates to every entity referencing it.

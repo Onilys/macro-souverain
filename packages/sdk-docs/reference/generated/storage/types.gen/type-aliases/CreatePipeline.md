@@ -1,6 +1,6 @@
 # Type Alias: CreatePipeline
 
-> **CreatePipeline** = `object`
+> **CreatePipeline** = \{ `name`: `string`; `recordType`: [`PipelineRecordType`](PipelineRecordType.md); `sharing?`: [`PipelineSharing`](PipelineSharing.md); \}
 
 Request to create an empty pipeline with the standard CRM columns.
 

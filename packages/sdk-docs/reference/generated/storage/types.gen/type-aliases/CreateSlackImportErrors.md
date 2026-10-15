@@ -1,6 +1,6 @@
 # Type Alias: CreateSlackImportErrors
 
-> **CreateSlackImportErrors** = `object`
+> **CreateSlackImportErrors** = \{ `401`: `unknown`; `403`: `unknown`; `413`: `unknown`; `503`: `unknown`; \}
 
 ## Properties
 

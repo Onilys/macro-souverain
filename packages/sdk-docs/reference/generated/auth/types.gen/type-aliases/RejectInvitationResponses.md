@@ -1,6 +1,6 @@
 # Type Alias: RejectInvitationResponses
 
-> **RejectInvitationResponses** = `object`
+> **RejectInvitationResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

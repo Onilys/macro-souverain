@@ -1,6 +1,6 @@
 # Type Alias: ListMcpServersErrors
 
-> **ListMcpServersErrors** = `object`
+> **ListMcpServersErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

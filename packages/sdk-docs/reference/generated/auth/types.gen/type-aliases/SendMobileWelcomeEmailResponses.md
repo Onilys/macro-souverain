@@ -1,6 +1,6 @@
 # Type Alias: SendMobileWelcomeEmailResponses
 
-> **SendMobileWelcomeEmailResponses** = `object`
+> **SendMobileWelcomeEmailResponses** = \{ `200`: [`SendMobileWelcomeEmailResponse`](SendMobileWelcomeEmailResponse.md); \}
 
 ## Properties
 

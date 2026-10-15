@@ -1,6 +1,6 @@
 # Type Alias: ChannelParticipant
 
-> **ChannelParticipant** = `object`
+> **ChannelParticipant** = \{ `channel_id`: `string`; `joined_at`: `string`; `left_at?`: `string` \| `null`; `role`: [`ParticipantRole`](ParticipantRole.md); `user_id`: `string`; \}
 
 A user's membership in a channel.
 

@@ -1,6 +1,6 @@
 # Type Alias: GetUserInfoErrors
 
-> **GetUserInfoErrors** = `object`
+> **GetUserInfoErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

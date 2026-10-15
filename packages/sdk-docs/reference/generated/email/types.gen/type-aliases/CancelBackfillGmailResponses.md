@@ -1,6 +1,6 @@
 # Type Alias: CancelBackfillGmailResponses
 
-> **CancelBackfillGmailResponses** = `object`
+> **CancelBackfillGmailResponses** = \{ `201`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

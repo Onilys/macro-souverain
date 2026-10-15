@@ -1,6 +1,6 @@
 # Type Alias: SetChannelPictureResponses
 
-> **SetChannelPictureResponses** = `object`
+> **SetChannelPictureResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

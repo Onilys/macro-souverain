@@ -1,6 +1,6 @@
 # Type Alias: Price
 
-> **Price** = `object`
+> **Price** = \{ `price_per_audio_minute?`: `number` \| `null`; `price_per_million_cache_read?`: `number` \| `null`; `price_per_million_cache_write?`: `number` \| `null`; `price_per_million_in`: `number`; `price_per_million_out`: `number`; `total`: `number`; \}
 
 Rates applied to an invocation and its resolved dollar cost.
 

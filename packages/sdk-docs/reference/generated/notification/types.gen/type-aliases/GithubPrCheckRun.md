@@ -1,6 +1,6 @@
 # Type Alias: GithubPrCheckRun
 
-> **GithubPrCheckRun** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & `object`
+> **GithubPrCheckRun** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & \{ `checkName`: `string`; `checkRunGithubId`: `number`; `checkStatus`: `string`; `checkUrl`: `string`; `completedAt`: `string`; `conclusion`: `string`; `state`: [`GithubPrCheckRunState`](GithubPrCheckRunState.md); \}
 
 Metadata for a notification that a GitHub pull request check run completed.
 

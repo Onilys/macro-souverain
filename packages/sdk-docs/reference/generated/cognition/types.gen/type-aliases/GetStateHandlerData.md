@@ -1,6 +1,6 @@
 # Type Alias: GetStateHandlerData
 
-> **GetStateHandlerData** = `object`
+> **GetStateHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/import/state"`; \}
 
 ## Properties
 

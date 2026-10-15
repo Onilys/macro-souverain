@@ -1,6 +1,6 @@
 # Type Alias: SaveDatabaseQueryData
 
-> **SaveDatabaseQueryData** = `object`
+> **SaveDatabaseQueryData** = \{ `body`: [`SaveQueryRequest`](SaveQueryRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/databases/queries"`; \}
 
 ## Properties
 

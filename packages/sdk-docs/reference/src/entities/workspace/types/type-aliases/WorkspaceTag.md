@@ -1,6 +1,6 @@
 # Type Alias: WorkspaceTag
 
-> **WorkspaceTag** = `object`
+> **WorkspaceTag** = \{ `label`: `string`; `scope`: `"personal"` \| `"team"`; \}
 
 A tag label visible to the caller, optionally qualified by ownership scope.
 

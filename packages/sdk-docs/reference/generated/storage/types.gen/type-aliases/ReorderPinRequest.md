@@ -1,6 +1,6 @@
 # Type Alias: ReorderPinRequest
 
-> **ReorderPinRequest** = `object`
+> **ReorderPinRequest** = \{ `pinIndex`: `number`; `pinnedItemId`: `string`; `pinnedItemType`: `string`; \}
 
 ## Properties
 

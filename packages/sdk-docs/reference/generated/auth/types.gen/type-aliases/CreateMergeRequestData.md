@@ -1,6 +1,6 @@
 # Type Alias: CreateMergeRequestData
 
-> **CreateMergeRequestData** = `object`
+> **CreateMergeRequestData** = \{ `body`: [`CreateAccountMergeRequest`](CreateAccountMergeRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/merge"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CalendarOccurrence
 
-> **CalendarOccurrence** = `object`
+> **CalendarOccurrence** = \{ `eventId`: `string`; `isCancelled`: `boolean`; `occurrenceKey`: `string`; `recurrenceId?`: `string` \| `null`; `time`: [`EventTime`](EventTime.md); \}
 
 A materialized recurrence instance optimized for range queries.
 

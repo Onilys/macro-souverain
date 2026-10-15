@@ -1,6 +1,6 @@
 # Type Alias: PipedreamCatalogResponse
 
-> **PipedreamCatalogResponse** = `object`
+> **PipedreamCatalogResponse** = \{ `next_cursor?`: `string` \| `null`; `servers`: [`PipedreamCatalogEntryResponse`](PipedreamCatalogEntryResponse.md)[]; \}
 
 A page of the connector catalog.
 

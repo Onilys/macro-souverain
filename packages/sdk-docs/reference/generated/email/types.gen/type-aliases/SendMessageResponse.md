@@ -1,6 +1,6 @@
 # Type Alias: SendMessageResponse
 
-> **SendMessageResponse** = `object`
+> **SendMessageResponse** = \{ `message`: [`ApiDraftOutput`](ApiDraftOutput.md); \}
 
 Response body for sending a message.
 

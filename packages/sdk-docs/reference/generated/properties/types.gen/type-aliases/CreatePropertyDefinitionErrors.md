@@ -1,6 +1,6 @@
 # Type Alias: CreatePropertyDefinitionErrors
 
-> **CreatePropertyDefinitionErrors** = `object`
+> **CreatePropertyDefinitionErrors** = \{ `400`: `unknown`; `403`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

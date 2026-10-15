@@ -1,6 +1,6 @@
 # Type Alias: ReorderPinsHandlerResponses
 
-> **ReorderPinsHandlerResponses** = `object`
+> **ReorderPinsHandlerResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

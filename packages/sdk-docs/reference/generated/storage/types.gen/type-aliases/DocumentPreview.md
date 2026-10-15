@@ -1,3 +1,3 @@
 # Type Alias: DocumentPreview
 
-> **DocumentPreview** = [`DocumentPreviewData`](DocumentPreviewData.md) & `object` \| [`WithDocumentId`](WithDocumentId.md) & `object` \| [`WithDocumentId`](WithDocumentId.md) & `object`
+> **DocumentPreview** = [`DocumentPreviewData`](DocumentPreviewData.md) & \{ `type`: `"access"`; \} \| [`WithDocumentId`](WithDocumentId.md) & \{ `type`: `"no_access"`; \} \| [`WithDocumentId`](WithDocumentId.md) & \{ `type`: `"does_not_exist"`; \}

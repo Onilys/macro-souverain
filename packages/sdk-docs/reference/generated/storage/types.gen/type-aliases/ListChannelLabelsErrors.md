@@ -1,6 +1,6 @@
 # Type Alias: ListChannelLabelsErrors
 
-> **ListChannelLabelsErrors** = `object`
+> **ListChannelLabelsErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

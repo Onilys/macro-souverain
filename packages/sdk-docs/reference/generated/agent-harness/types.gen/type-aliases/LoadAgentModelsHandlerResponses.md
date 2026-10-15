@@ -1,6 +1,6 @@
 # Type Alias: LoadAgentModelsHandlerResponses
 
-> **LoadAgentModelsHandlerResponses** = `object`
+> **LoadAgentModelsHandlerResponses** = \{ `200`: [`LoadAgentModelsResponse`](LoadAgentModelsResponse.md); \}
 
 ## Properties
 

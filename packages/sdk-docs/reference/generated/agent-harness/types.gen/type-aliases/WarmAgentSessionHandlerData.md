@@ -1,6 +1,6 @@
 # Type Alias: WarmAgentSessionHandlerData
 
-> **WarmAgentSessionHandlerData** = `object`
+> **WarmAgentSessionHandlerData** = \{ `body`: [`WarmAgentSessionRequest`](WarmAgentSessionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-sessions/warm"`; \}
 
 ## Properties
 

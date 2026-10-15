@@ -1,6 +1,6 @@
 # Type Alias: ListContactsErrors
 
-> **ListContactsErrors** = `object`
+> **ListContactsErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

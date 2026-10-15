@@ -1,6 +1,6 @@
 # Type Alias: AiResponseMetadata
 
-> **AiResponseMetadata** = `object`
+> **AiResponseMetadata** = \{ `messageId`: `string`; `summary`: `string`; \}
 
 ## Properties
 

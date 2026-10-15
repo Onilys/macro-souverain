@@ -1,6 +1,6 @@
 # Type Alias: ResendFusionauthVerifyUserEmailRequest
 
-> **ResendFusionauthVerifyUserEmailRequest** = `object`
+> **ResendFusionauthVerifyUserEmailRequest** = \{ `email`: `string`; \}
 
 ## Properties
 

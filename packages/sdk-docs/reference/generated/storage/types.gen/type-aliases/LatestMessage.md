@@ -1,6 +1,6 @@
 # Type Alias: LatestMessage
 
-> **LatestMessage** = `object`
+> **LatestMessage** = \{ `latest_message?`: `null` \| [`ChannelMessage`](ChannelMessage.md); `latest_non_thread_message?`: `null` \| [`ChannelMessage`](ChannelMessage.md); \}
 
 Latest-message bundle for soup payloads.
 

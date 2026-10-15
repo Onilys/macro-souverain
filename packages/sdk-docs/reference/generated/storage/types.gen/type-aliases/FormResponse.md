@@ -1,6 +1,6 @@
 # Type Alias: FormResponse
 
-> **FormResponse** = `object`
+> **FormResponse** = \{ `formId`: `string`; `id`: `string`; `row`: `string` \| `null`; `status`: [`ResponseStatus`](ResponseStatus.md); `stoppedAtSection`: `string` \| `null`; `submittedAt`: `string`; `updatedAt`: `string`; \}
 
 One entry of a form's submission ledger: who answered, when, and where
 the answers went.

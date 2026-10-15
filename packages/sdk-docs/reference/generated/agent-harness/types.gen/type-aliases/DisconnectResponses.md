@@ -1,6 +1,6 @@
 # Type Alias: DisconnectResponses
 
-> **DisconnectResponses** = `object`
+> **DisconnectResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

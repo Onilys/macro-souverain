@@ -1,6 +1,6 @@
 # Type Alias: SetGithubPullRequestDraftRequest
 
-> **SetGithubPullRequestDraftRequest** = `object`
+> **SetGithubPullRequestDraftRequest** = \{ `draft`: `boolean`; `number`: `number`; `owner`: `string`; `repo`: `string`; \}
 
 A request to mark one pull request as a draft, or as ready for review, on
 the user's behalf.

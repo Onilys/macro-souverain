@@ -1,6 +1,6 @@
 # Type Alias: AppleLoginData
 
-> **AppleLoginData** = `object`
+> **AppleLoginData** = \{ `body`: [`AppleLoginRequest`](AppleLoginRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/login/apple"`; \}
 
 ## Properties
 

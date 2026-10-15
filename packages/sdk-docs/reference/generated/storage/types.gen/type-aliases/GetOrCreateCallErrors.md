@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreateCallErrors
 
-> **GetOrCreateCallErrors** = `object`
+> **GetOrCreateCallErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UpsertScheduledRequest
 
-> **UpsertScheduledRequest** = `object`
+> **UpsertScheduledRequest** = \{ `include_signature?`: `boolean` \| `null`; `send_time`: `string`; \}
 
 ## Properties
 

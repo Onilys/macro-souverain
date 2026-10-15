@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionPreviewData
 
-> **AgentSessionPreviewData** = `object`
+> **AgentSessionPreviewData** = \{ `bot?`: `null` \| [`SessionBot`](SessionBot.md); `botId`: `string`; `createdAt`: `string`; `id`: `string`; `modifiedAt`: `string`; `name`: `string`; `ownerId`: `string`; `status`: [`SessionStatusDto`](SessionStatusDto.md); \}
 
 The fields a chip renders for a session the caller may view.
 

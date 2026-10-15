@@ -1,6 +1,6 @@
 # Type Alias: ListAgentRepositoriesData
 
-> **ListAgentRepositoriesData** = `object`
+> **ListAgentRepositoriesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/agent-repositories"`; \}
 
 ## Properties
 

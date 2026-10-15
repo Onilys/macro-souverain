@@ -1,6 +1,6 @@
 # Type Alias: PutCrmTeamStagesData
 
-> **PutCrmTeamStagesData** = `object`
+> **PutCrmTeamStagesData** = \{ `body`: [`ReplaceCrmStagesRequest`](ReplaceCrmStagesRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/crm/stages"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: TranscribeDictationResponses
 
-> **TranscribeDictationResponses** = `object`
+> **TranscribeDictationResponses** = \{ `200`: [`TranscribeResponse`](TranscribeResponse.md); \}
 
 ## Properties
 

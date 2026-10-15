@@ -1,6 +1,6 @@
 # Type Alias: ColumnConversion
 
-> **ColumnConversion** = `object`
+> **ColumnConversion** = \{ `cells`: [`ConvertedCell`](ConvertedCell.md)[]; `misfits`: `number`; `options`: `string`[]; `tableVersion`: [`TableVersion`](TableVersion.md); \}
 
 What a column's values become under another type, for a new column of
 that type beside it: the values that convert, the options they need,

@@ -1,6 +1,6 @@
 # Type Alias: PatchSettingsData
 
-> **PatchSettingsData** = `object`
+> **PatchSettingsData** = \{ `body`: [`PatchSettingsRequest`](PatchSettingsRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/settings"`; \}
 
 ## Properties
 

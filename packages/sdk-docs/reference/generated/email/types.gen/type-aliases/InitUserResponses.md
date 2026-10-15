@@ -1,6 +1,6 @@
 # Type Alias: InitUserResponses
 
-> **InitUserResponses** = `object`
+> **InitUserResponses** = \{ `200`: [`InitResponse`](InitResponse.md); \}
 
 ## Properties
 

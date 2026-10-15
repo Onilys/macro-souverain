@@ -1,6 +1,6 @@
 # Type Alias: BulkEntityPropertiesRequest
 
-> **BulkEntityPropertiesRequest** = `object`
+> **BulkEntityPropertiesRequest** = \{ `entities`: [`PropertyTargetReference`](PropertyTargetReference.md)[]; `property_ids?`: `string`[]; \}
 
 Request for getting properties for multiple entities in bulk
 

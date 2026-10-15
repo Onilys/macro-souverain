@@ -1,6 +1,6 @@
 # Type Alias: CreateMarkdownHandlerErrors
 
-> **CreateMarkdownHandlerErrors** = `object`
+> **CreateMarkdownHandlerErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `409`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

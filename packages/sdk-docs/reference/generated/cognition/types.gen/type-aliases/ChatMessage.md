@@ -1,6 +1,6 @@
 # Type Alias: ChatMessage
 
-> **ChatMessage** = `object`
+> **ChatMessage** = \{ `content`: [`ChatMessageContent`](ChatMessageContent.md); `id`: `string`; `model?`: `string` \| `null`; `role`: [`Role`](Role.md); \}
 
 ## Properties
 

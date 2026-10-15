@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentKeyResponseData
 
-> **GetDocumentKeyResponseData** = `object`
+> **GetDocumentKeyResponseData** = \{ `key`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: MergeGithubPullRequestResponse
 
-> **MergeGithubPullRequestResponse** = `object`
+> **MergeGithubPullRequestResponse** = \{ `message`: `string`; `pullRequest?`: `null` \| [`EnrichedGithubPullRequest`](EnrichedGithubPullRequest.md); `sha`: `string`; \}
 
 Response body for a merged pull request.
 

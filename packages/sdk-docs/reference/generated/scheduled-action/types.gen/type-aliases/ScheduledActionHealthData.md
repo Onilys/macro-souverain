@@ -1,6 +1,6 @@
 # Type Alias: ScheduledActionHealthData
 
-> **ScheduledActionHealthData** = `object`
+> **ScheduledActionHealthData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/health"`; \}
 
 ## Properties
 

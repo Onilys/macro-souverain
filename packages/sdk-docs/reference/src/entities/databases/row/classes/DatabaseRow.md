@@ -30,11 +30,11 @@ A removed row's history still reads.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `id`: `string`; `tableId`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `id`: `string`; `tableId`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

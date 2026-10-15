@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreateChannelResponse
 
-> **GetOrCreateChannelResponse** = `object`
+> **GetOrCreateChannelResponse** = \{ `action`: [`GetOrCreateAction`](GetOrCreateAction.md); `channel_id`: `string`; \}
 
 Response for get-or-create channel operations.
 

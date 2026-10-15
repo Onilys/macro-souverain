@@ -1,6 +1,6 @@
 # Type Alias: CreateAgentData
 
-> **CreateAgentData** = `object`
+> **CreateAgentData** = \{ `body`: [`CreateAgentRequest`](CreateAgentRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/agents"`; \}
 
 ## Properties
 

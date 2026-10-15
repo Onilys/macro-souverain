@@ -1,6 +1,6 @@
 # Type Alias: ExecuteScheduledActionNowErrors
 
-> **ExecuteScheduledActionNowErrors** = `object`
+> **ExecuteScheduledActionNowErrors** = \{ `400`: `string`; `401`: `string`; `402`: [`AiAdmissionErrorBody`](AiAdmissionErrorBody.md); `404`: `string`; `409`: `string`; `500`: `string`; `503`: [`AiAdmissionErrorBody`](AiAdmissionErrorBody.md); \}
 
 ## Properties
 

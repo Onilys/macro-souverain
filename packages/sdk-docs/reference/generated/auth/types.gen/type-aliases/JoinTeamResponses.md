@@ -1,6 +1,6 @@
 # Type Alias: JoinTeamResponses
 
-> **JoinTeamResponses** = `object`
+> **JoinTeamResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

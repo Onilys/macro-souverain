@@ -1,6 +1,6 @@
 # Type Alias: ChatResponse
 
-> **ChatResponse** = `object`
+> **ChatResponse** = \{ `createdAt?`: `string` \| `null`; `id`: `string`; `messages`: [`ChatMessageWithAttachments`](ChatMessageWithAttachments.md)[]; `model?`: `string` \| `null`; `name`: `string`; `projectId?`: `string` \| `null`; `updatedAt?`: `string` \| `null`; `userId`: `string`; \}
 
 The full chat response, matching the DCS API response shape.
 

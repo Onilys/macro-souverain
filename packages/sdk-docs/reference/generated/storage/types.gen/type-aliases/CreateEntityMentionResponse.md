@@ -1,6 +1,6 @@
 # Type Alias: CreateEntityMentionResponse
 
-> **CreateEntityMentionResponse** = `object`
+> **CreateEntityMentionResponse** = \{ `created_at`: `string`; `entity_id`: `string`; `entity_type`: `string`; `id`: `string`; `source_entity_id`: `string`; `source_entity_type`: `string`; `user_id?`: `string` \| `null`; \}
 
 Response body for `POST /channels/mentions`.
 

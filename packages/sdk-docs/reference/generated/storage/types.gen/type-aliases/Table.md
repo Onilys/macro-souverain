@@ -1,6 +1,6 @@
 # Type Alias: Table
 
-> **Table** = `object`
+> **Table** = \{ `database_id`: `string`; `id`: `string`; `name`: `string`; `position`: `string`; `version`: [`TableVersion`](TableVersion.md); \}
 
 One table (tab) of a database.
 

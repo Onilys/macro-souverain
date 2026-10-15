@@ -1,6 +1,6 @@
 # Type Alias: GetProfilePicturesRequestBody
 
-> **GetProfilePicturesRequestBody** = `object`
+> **GetProfilePicturesRequestBody** = \{ `user_id_list`: `string`[]; \}
 
 ## Properties
 

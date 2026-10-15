@@ -1,6 +1,6 @@
 # Type Alias: RemoveParticipantsRequest
 
-> **RemoveParticipantsRequest** = `object`
+> **RemoveParticipantsRequest** = \{ `participants`: `string`[]; \}
 
 Request to remove participants.
 

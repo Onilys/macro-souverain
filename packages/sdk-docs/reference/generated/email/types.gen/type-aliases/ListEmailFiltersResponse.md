@@ -1,6 +1,6 @@
 # Type Alias: ListEmailFiltersResponse
 
-> **ListEmailFiltersResponse** = `object`
+> **ListEmailFiltersResponse** = \{ `filters`: [`ApiEmailFilter`](ApiEmailFilter.md)[]; \}
 
 Response body for listing email filters.
 

@@ -1,6 +1,6 @@
 # Type Alias: AnswerAgentSessionToolApprovalResponses
 
-> **AnswerAgentSessionToolApprovalResponses** = `object`
+> **AnswerAgentSessionToolApprovalResponses** = \{ `200`: [`AnswerToolApprovalResponse`](AnswerToolApprovalResponse.md); \}
 
 ## Properties
 

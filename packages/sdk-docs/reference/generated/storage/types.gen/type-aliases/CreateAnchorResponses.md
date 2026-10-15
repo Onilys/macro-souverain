@@ -1,6 +1,6 @@
 # Type Alias: CreateAnchorResponses
 
-> **CreateAnchorResponses** = `object`
+> **CreateAnchorResponses** = \{ `200`: [`CreateUnthreadedAnchorResponse`](CreateUnthreadedAnchorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UndoChangeResponse
 
-> **UndoChangeResponse** = `object`
+> **UndoChangeResponse** = \{ `outcome`: [`UndoOutcome`](UndoOutcome.md); \}
 
 What undoing a change did.
 

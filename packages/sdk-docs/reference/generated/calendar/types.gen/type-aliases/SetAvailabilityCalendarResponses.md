@@ -1,6 +1,6 @@
 # Type Alias: SetAvailabilityCalendarResponses
 
-> **SetAvailabilityCalendarResponses** = `object`
+> **SetAvailabilityCalendarResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

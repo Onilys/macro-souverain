@@ -1,6 +1,6 @@
 # Type Alias: EntityMessageEditResponses
 
-> **EntityMessageEditResponses** = `object`
+> **EntityMessageEditResponses** = \{ `200`: [`Message`](Message.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ChannelSharePermission
 
-> **ChannelSharePermission** = `object`
+> **ChannelSharePermission** = \{ `access_level`: [`AccessLevel`](AccessLevel.md); `channel_id`: `string`; \}
 
 The channel share permission
 

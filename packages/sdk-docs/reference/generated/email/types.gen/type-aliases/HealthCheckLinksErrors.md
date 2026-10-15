@@ -1,6 +1,6 @@
 # Type Alias: HealthCheckLinksErrors
 
-> **HealthCheckLinksErrors** = `object`
+> **HealthCheckLinksErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

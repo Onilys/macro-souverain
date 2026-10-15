@@ -1,6 +1,6 @@
 # Type Alias: DocumentTextContent
 
-> **DocumentTextContent** = `object`
+> **DocumentTextContent** = \{ `text`: `string` \| `null`; \}
 
 Text representation when the document supports one. Other file formats
 retain their existing download/export behavior.

@@ -1,6 +1,6 @@
 # Type Alias: GetEntityPropertiesResponses
 
-> **GetEntityPropertiesResponses** = `object`
+> **GetEntityPropertiesResponses** = \{ `200`: [`EntityPropertiesResponse`](EntityPropertiesResponse.md); \}
 
 ## Properties
 

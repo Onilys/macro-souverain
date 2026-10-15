@@ -1,6 +1,6 @@
 # Type Alias: FinalizeSlackImportErrors
 
-> **FinalizeSlackImportErrors** = `object`
+> **FinalizeSlackImportErrors** = \{ `404`: `unknown`; \}
 
 ## Properties
 

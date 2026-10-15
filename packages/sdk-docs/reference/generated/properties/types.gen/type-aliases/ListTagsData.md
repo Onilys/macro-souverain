@@ -1,6 +1,6 @@
 # Type Alias: ListTagsData
 
-> **ListTagsData** = `object`
+> **ListTagsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/properties/tags"`; \}
 
 ## Properties
 

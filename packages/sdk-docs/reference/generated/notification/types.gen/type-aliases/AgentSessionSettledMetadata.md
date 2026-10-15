@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionSettledMetadata
 
-> **AgentSessionSettledMetadata** = [`AgentSessionNotificationRef`](AgentSessionNotificationRef.md) & `object`
+> **AgentSessionSettledMetadata** = [`AgentSessionNotificationRef`](AgentSessionNotificationRef.md) & \{ `actor?`: `string` \| `null`; `excerpt?`: `string` \| `null`; `stopReason`: `string`; `turn`: `number`; \}
 
 An agent finished a turn with nothing queued behind it.
 

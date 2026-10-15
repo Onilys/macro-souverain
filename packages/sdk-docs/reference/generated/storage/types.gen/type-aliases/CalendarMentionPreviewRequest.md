@@ -1,6 +1,6 @@
 # Type Alias: CalendarMentionPreviewRequest
 
-> **CalendarMentionPreviewRequest** = `object`
+> **CalendarMentionPreviewRequest** = \{ `items`: [`CalendarMentionPreviewRequestItem`](CalendarMentionPreviewRequestItem.md)[]; \}
 
 Batch calendar mention preview request.
 

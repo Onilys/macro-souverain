@@ -1,6 +1,6 @@
 # Type Alias: CreateInstructionsHandlerData
 
-> **CreateInstructionsHandlerData** = `object`
+> **CreateInstructionsHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/instructions"`; \}
 
 ## Properties
 

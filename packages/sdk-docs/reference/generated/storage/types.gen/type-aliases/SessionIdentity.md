@@ -1,6 +1,6 @@
 # Type Alias: SessionIdentity
 
-> **SessionIdentity** = `object`
+> **SessionIdentity** = \{ `audience?`: [`MacroUserIdStr`](MacroUserIdStr.md)[]; `bot_id`: [`BotId`](BotId.md); `bot_name`: `string`; `origin?`: `null` \| [`ThreadOrigin`](ThreadOrigin.md); `owner_id`: [`MacroUserIdStr`](MacroUserIdStr.md); `session_id`: `string`; `session_name`: `string`; \}
 
 Who and what a session is; carried by every lifecycle event so a
 consumer never has to look the session up.

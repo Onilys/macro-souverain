@@ -1,6 +1,6 @@
 # Type Alias: ValidateDocumentPermissionsTokenData
 
-> **ValidateDocumentPermissionsTokenData** = `object`
+> **ValidateDocumentPermissionsTokenData** = \{ `body`: [`DocumentPermissionsTokenRequest`](DocumentPermissionsTokenRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents/permissions_token/validate"`; \}
 
 ## Properties
 

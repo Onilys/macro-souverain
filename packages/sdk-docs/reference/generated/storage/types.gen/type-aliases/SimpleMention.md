@@ -1,6 +1,6 @@
 # Type Alias: SimpleMention
 
-> **SimpleMention** = `object`
+> **SimpleMention** = \{ `entity_id`: `string`; `entity_type`: `string`; \}
 
 A mention tracked in a message body.
 

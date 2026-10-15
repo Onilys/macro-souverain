@@ -1,6 +1,6 @@
 # Type Alias: StructuredToolActivity
 
-> **StructuredToolActivity** = `object`
+> **StructuredToolActivity** = \{ `name`: `string`; `outcome`: [`ToolOutcome`](ToolOutcome.md); \}
 
 One tool call the agent finished, and what it did.
 

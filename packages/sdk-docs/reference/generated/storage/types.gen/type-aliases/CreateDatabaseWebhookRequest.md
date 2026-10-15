@@ -1,6 +1,6 @@
 # Type Alias: CreateDatabaseWebhookRequest
 
-> **CreateDatabaseWebhookRequest** = `object`
+> **CreateDatabaseWebhookRequest** = \{ `tableId`: `string`; \}
 
 Which table a new webhook inserts rows into.
 

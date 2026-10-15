@@ -1,6 +1,6 @@
 # Type Alias: GetCursorApiKeyData
 
-> **GetCursorApiKeyData** = `object`
+> **GetCursorApiKeyData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/cursor-api-key"`; \}
 
 ## Properties
 

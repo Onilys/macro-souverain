@@ -1,6 +1,6 @@
 # Type Alias: GetGithubPullRequestMergeabilityResponses
 
-> **GetGithubPullRequestMergeabilityResponses** = `object`
+> **GetGithubPullRequestMergeabilityResponses** = \{ `200`: [`GithubPullRequestMergeabilityResponse`](GithubPullRequestMergeabilityResponse.md); \}
 
 ## Properties
 

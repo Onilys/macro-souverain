@@ -1,6 +1,6 @@
 # Type Alias: CreateLabelResponses
 
-> **CreateLabelResponses** = `object`
+> **CreateLabelResponses** = \{ `201`: [`CreateLabelResponse`](CreateLabelResponse.md); \}
 
 ## Properties
 

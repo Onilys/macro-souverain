@@ -1,6 +1,6 @@
 # Type Alias: GetSelfHarnessResponses
 
-> **GetSelfHarnessResponses** = `object`
+> **GetSelfHarnessResponses** = \{ `200`: [`Harness`](Harness.md); \}
 
 ## Properties
 

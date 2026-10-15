@@ -1,6 +1,6 @@
 # Type Alias: GithubUserFacet
 
-> **GithubUserFacet** = `Omit`\<[`GithubUserFacet`](../../../../../generated/storage/types.gen/type-aliases/GithubUserFacet.md), `"login"`\> & `object`
+> **GithubUserFacet** = `Omit`\<[`GithubUserFacet`](../../../../../generated/storage/types.gen/type-aliases/GithubUserFacet.md), `"login"`\> & \{ `login?`: `string`; \}
 
 A GitHub user among the pull requests visible to the caller, as an author or an assignee.
 

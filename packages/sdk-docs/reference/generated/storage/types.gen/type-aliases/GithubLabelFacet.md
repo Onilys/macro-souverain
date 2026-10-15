@@ -1,6 +1,6 @@
 # Type Alias: GithubLabelFacet
 
-> **GithubLabelFacet** = `object`
+> **GithubLabelFacet** = \{ `color?`: `string` \| `null`; `count`: `number`; `name`: `string`; \}
 
 A label among the visible GitHub pull requests. Labels with the same name in different
 repositories count together.

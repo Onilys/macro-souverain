@@ -1,6 +1,6 @@
 # Type Alias: ChannelMessageReactionMetadata
 
-> **ChannelMessageReactionMetadata** = [`CommonChannelMetadata`](CommonChannelMetadata.md) & `object`
+> **ChannelMessageReactionMetadata** = [`CommonChannelMetadata`](CommonChannelMetadata.md) & \{ `emoji`: `string`; `messageContent`: `string`; `messageId`: `string`; `senderProfilePictureUrl?`: `string` \| `null`; `threadId?`: `string` \| `null`; \}
 
 Metadata for a reaction added to one of the recipient's channel messages.
 

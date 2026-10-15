@@ -1,6 +1,6 @@
 # Type Alias: GetTypedNotificationByIdResponses
 
-> **GetTypedNotificationByIdResponses** = `object`
+> **GetTypedNotificationByIdResponses** = \{ `200`: [`ApiUserNotification`](ApiUserNotification.md); \}
 
 ## Properties
 

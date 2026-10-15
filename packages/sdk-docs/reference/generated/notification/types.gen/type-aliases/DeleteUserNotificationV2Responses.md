@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserNotificationV2Responses
 
-> **DeleteUserNotificationV2Responses** = `object`
+> **DeleteUserNotificationV2Responses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

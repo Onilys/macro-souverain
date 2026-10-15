@@ -1,6 +1,6 @@
 # Type Alias: MessageCursor
 
-> **MessageCursor** = `object`
+> **MessageCursor** = \{ `created_at`: `string`; `id`: `string`; \}
 
 Cursor for a chronological parent timeline.
 

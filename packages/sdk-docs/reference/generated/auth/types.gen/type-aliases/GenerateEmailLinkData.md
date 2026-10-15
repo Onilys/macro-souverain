@@ -1,6 +1,6 @@
 # Type Alias: GenerateEmailLinkData
 
-> **GenerateEmailLinkData** = `object`
+> **GenerateEmailLinkData** = \{ `body`: [`GenerateEmailLinkRequest`](GenerateEmailLinkRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/generate/link"`; \}
 
 ## Properties
 

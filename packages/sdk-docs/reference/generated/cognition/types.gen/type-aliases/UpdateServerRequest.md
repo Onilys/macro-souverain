@@ -1,6 +1,6 @@
 # Type Alias: UpdateServerRequest
 
-> **UpdateServerRequest** = `object`
+> **UpdateServerRequest** = \{ `enabled?`: `boolean` \| `null`; `server_name?`: `string` \| `null`; `url`: `string`; \}
 
 Request body for updating an MCP server.
 

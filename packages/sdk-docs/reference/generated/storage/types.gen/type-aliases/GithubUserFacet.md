@@ -1,6 +1,6 @@
 # Type Alias: GithubUserFacet
 
-> **GithubUserFacet** = `object`
+> **GithubUserFacet** = \{ `count`: `number`; `githubUserId`: `string`; `login?`: `string` \| `null`; \}
 
 A GitHub user among the visible pull requests, as an author or an assignee.
 

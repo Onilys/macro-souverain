@@ -1,6 +1,6 @@
 # Type Alias: EditProjectV2Errors
 
-> **EditProjectV2Errors** = `object`
+> **EditProjectV2Errors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

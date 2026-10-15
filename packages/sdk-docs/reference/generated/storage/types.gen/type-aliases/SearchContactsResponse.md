@@ -1,6 +1,6 @@
 # Type Alias: SearchContactsResponse
 
-> **SearchContactsResponse** = `object`
+> **SearchContactsResponse** = \{ `contacts`: [`CrmContactResponse`](CrmContactResponse.md)[]; \}
 
 Response from searching CRM contacts.
 

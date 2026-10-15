@@ -1,6 +1,6 @@
 # Type Alias: SetCrmContactNameResponses
 
-> **SetCrmContactNameResponses** = `object`
+> **SetCrmContactNameResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

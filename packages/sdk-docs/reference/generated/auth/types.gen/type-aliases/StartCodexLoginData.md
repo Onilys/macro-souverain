@@ -1,6 +1,6 @@
 # Type Alias: StartCodexLoginData
 
-> **StartCodexLoginData** = `object`
+> **StartCodexLoginData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/codex/login"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: BrowsePipedreamMcpCatalogResponses
 
-> **BrowsePipedreamMcpCatalogResponses** = `object`
+> **BrowsePipedreamMcpCatalogResponses** = \{ `200`: [`PipedreamCatalogResponse`](PipedreamCatalogResponse.md); \}
 
 ## Properties
 

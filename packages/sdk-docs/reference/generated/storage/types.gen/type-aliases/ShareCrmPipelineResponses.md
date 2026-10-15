@@ -1,6 +1,6 @@
 # Type Alias: ShareCrmPipelineResponses
 
-> **ShareCrmPipelineResponses** = `object`
+> **ShareCrmPipelineResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

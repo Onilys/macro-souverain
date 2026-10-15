@@ -1,6 +1,6 @@
 # Type Alias: DeliverDatabaseWebhookResponses
 
-> **DeliverDatabaseWebhookResponses** = `object`
+> **DeliverDatabaseWebhookResponses** = \{ `201`: [`DatabaseWebhookDeliveryResponse`](DatabaseWebhookDeliveryResponse.md); \}
 
 ## Properties
 

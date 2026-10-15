@@ -1,6 +1,6 @@
 # Type Alias: LinearIssueMeta
 
-> **LinearIssueMeta** = `object`
+> **LinearIssueMeta** = \{ `assignee?`: `string` \| `null`; `assignee_email?`: `string` \| `null`; `description?`: `string` \| `null`; `due_date?`: `string` \| `null`; `identifier?`: `string` \| `null`; `priority?`: `string` \| `null`; `status?`: `string` \| `null`; `title`: `string`; `url?`: `string` \| `null`; \}
 
 Metadata for one staged Linear issue.
 

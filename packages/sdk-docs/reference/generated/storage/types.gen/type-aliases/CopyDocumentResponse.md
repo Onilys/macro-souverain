@@ -1,6 +1,6 @@
 # Type Alias: CopyDocumentResponse
 
-> **CopyDocumentResponse** = `object`
+> **CopyDocumentResponse** = \{ `data`: [`DocumentResponse`](DocumentResponse.md); `error`: `boolean`; \}
 
 Response wrapper for the copy document endpoint.
 

@@ -1,6 +1,6 @@
 # Type Alias: HarnessSession
 
-> **HarnessSession** = `object`
+> **HarnessSession** = \{ `bot_handle`: `string`; `bot_id`: [`BotId`](BotId.md); `bot_name`: `string`; `created_at`: `string`; `model`: `string`; `modified_at`: `string`; `name`: `string`; `owner_id`: `string`; `session_id`: `string`; `status`: `string`; \}
 
 An agent session running on a harness, as listed for the daemon's UI.
 

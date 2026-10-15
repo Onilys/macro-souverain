@@ -1,6 +1,6 @@
 # Type Alias: StatusResponses
 
-> **StatusResponses** = `object`
+> **StatusResponses** = \{ `200`: [`StatusResponse`](StatusResponse.md); \}
 
 ## Properties
 

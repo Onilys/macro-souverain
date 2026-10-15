@@ -1,6 +1,6 @@
 # Type Alias: PutCursorApiKeyRequest
 
-> **PutCursorApiKeyRequest** = `object`
+> **PutCursorApiKeyRequest** = \{ `apiKey`: `string`; \}
 
 The key the user pasted.
 

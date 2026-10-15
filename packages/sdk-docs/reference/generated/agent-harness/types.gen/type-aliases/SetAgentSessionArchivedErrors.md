@@ -1,6 +1,6 @@
 # Type Alias: SetAgentSessionArchivedErrors
 
-> **SetAgentSessionArchivedErrors** = `object`
+> **SetAgentSessionArchivedErrors** = \{ `401`: `string`; `403`: `string`; `500`: `string`; \}
 
 ## Properties
 

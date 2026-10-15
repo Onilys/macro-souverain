@@ -1,6 +1,6 @@
 # Type Alias: UpdateToolResponseErrors
 
-> **UpdateToolResponseErrors** = `object`
+> **UpdateToolResponseErrors** = \{ `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

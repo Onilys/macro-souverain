@@ -1,6 +1,6 @@
 # Type Alias: GetHistoryHandlerResponses
 
-> **GetHistoryHandlerResponses** = `object`
+> **GetHistoryHandlerResponses** = \{ `200`: [`GetUserHistoryResponse`](GetUserHistoryResponse.md); \}
 
 ## Properties
 

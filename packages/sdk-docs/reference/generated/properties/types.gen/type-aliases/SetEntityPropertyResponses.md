@@ -1,6 +1,6 @@
 # Type Alias: SetEntityPropertyResponses
 
-> **SetEntityPropertyResponses** = `object`
+> **SetEntityPropertyResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

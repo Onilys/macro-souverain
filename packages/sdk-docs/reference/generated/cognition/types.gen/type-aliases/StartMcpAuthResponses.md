@@ -1,6 +1,6 @@
 # Type Alias: StartMcpAuthResponses
 
-> **StartMcpAuthResponses** = `object`
+> **StartMcpAuthResponses** = \{ `200`: [`StartAuthResponse`](StartAuthResponse.md); \}
 
 ## Properties
 

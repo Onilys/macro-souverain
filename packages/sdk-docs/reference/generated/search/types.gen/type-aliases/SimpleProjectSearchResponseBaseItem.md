@@ -1,6 +1,6 @@
 # Type Alias: SimpleProjectSearchResponseBaseItem
 
-> **SimpleProjectSearchResponseBaseItem** = `object`
+> **SimpleProjectSearchResponseBaseItem** = \{ `created_at`: `string`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `project_id`: `string`; `project_name`: `string`; `updated_at`: `string`; `user_id`: `string`; \}
 
 ## Properties
 

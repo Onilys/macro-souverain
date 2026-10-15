@@ -1,6 +1,6 @@
 # Type Alias: DeleteCursorApiKeyResponses
 
-> **DeleteCursorApiKeyResponses** = `object`
+> **DeleteCursorApiKeyResponses** = \{ `200`: [`CursorApiKeyStatus`](CursorApiKeyStatus.md); \}
 
 ## Properties
 

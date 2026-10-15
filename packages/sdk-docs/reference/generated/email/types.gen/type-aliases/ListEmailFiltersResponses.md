@@ -1,6 +1,6 @@
 # Type Alias: ListEmailFiltersResponses
 
-> **ListEmailFiltersResponses** = `object`
+> **ListEmailFiltersResponses** = \{ `200`: [`ListEmailFiltersResponse`](ListEmailFiltersResponse.md); \}
 
 ## Properties
 

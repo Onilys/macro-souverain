@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionsForPullRequestsErrors
 
-> **AgentSessionsForPullRequestsErrors** = `object`
+> **AgentSessionsForPullRequestsErrors** = \{ `400`: `string`; `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

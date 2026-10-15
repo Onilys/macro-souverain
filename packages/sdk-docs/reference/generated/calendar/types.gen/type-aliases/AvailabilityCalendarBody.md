@@ -1,6 +1,6 @@
 # Type Alias: AvailabilityCalendarBody
 
-> **AvailabilityCalendarBody** = `object`
+> **AvailabilityCalendarBody** = \{ `contributesToAvailability`: `boolean`; \}
 
 Own-user source inclusion preference.
 

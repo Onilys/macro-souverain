@@ -1,6 +1,6 @@
 # Type Alias: CreateBulkDocumentResponseData
 
-> **CreateBulkDocumentResponseData** = `object`
+> **CreateBulkDocumentResponseData** = \{ `documentMetadata?`: `null` \| [`DocumentMetadata`](DocumentMetadata.md); `presignedUrl?`: `null` \| [`PresignedUrl`](PresignedUrl.md); `success`: `boolean`; \}
 
 ## Properties
 

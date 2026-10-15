@@ -1,6 +1,6 @@
 # Type Alias: AgentRepositoryBranchesResponse
 
-> **AgentRepositoryBranchesResponse** = `object`
+> **AgentRepositoryBranchesResponse** = \{ `branches`: `string`[]; \}
 
 Response body for `GET /agent-repositories/branches`.
 

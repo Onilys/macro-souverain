@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentUserAccessLevelResponse
 
-> **GetDocumentUserAccessLevelResponse** = `object`
+> **GetDocumentUserAccessLevelResponse** = \{ `userAccessLevel`: [`AccessLevel`](AccessLevel.md); \}
 
 ## Properties
 

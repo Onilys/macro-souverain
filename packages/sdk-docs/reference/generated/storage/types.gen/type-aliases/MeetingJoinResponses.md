@@ -1,6 +1,6 @@
 # Type Alias: MeetingJoinResponses
 
-> **MeetingJoinResponses** = `object`
+> **MeetingJoinResponses** = \{ `200`: [`CallTokenResponse`](CallTokenResponse.md); \}
 
 ## Properties
 

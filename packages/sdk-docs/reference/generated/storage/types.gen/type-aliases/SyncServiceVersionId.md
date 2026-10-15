@@ -1,6 +1,6 @@
 # Type Alias: SyncServiceVersionId
 
-> **SyncServiceVersionId** = `object`
+> **SyncServiceVersionId** = \{ `counter`: `number`; `peer`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ResendFusionauthVerifyUserEmailData
 
-> **ResendFusionauthVerifyUserEmailData** = `object`
+> **ResendFusionauthVerifyUserEmailData** = \{ `body`: [`ResendFusionauthVerifyUserEmailRequest`](ResendFusionauthVerifyUserEmailRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/fusionauth_resend"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: UpsertEmailFilterRequest
 
-> **UpsertEmailFilterRequest** = `object`
+> **UpsertEmailFilterRequest** = \{ `email_address?`: `string` \| `null`; `email_domain?`: `string` \| `null`; `is_important`: `boolean`; \}
 
 Request body for creating or updating an email filter.
 

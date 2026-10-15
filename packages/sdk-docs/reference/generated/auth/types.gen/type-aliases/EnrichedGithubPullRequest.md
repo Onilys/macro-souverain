@@ -1,6 +1,6 @@
 # Type Alias: EnrichedGithubPullRequest
 
-> **EnrichedGithubPullRequest** = `object`
+> **EnrichedGithubPullRequest** = \{ `additions?`: `number` \| `null`; `assignees?`: [`GithubPullRequestUser`](GithubPullRequestUser.md)[] \| `null`; `authorId?`: `number` \| `null`; `authorLogin?`: `string` \| `null`; `checks?`: [`GithubPullRequestCheckRun`](GithubPullRequestCheckRun.md)[] \| `null`; `comments?`: [`GithubPullRequestComment`](GithubPullRequestComment.md)[] \| `null`; `deletions?`: `number` \| `null`; `description?`: `string` \| `null`; `displayName`: `string`; `githubKey`: `string`; `labels?`: [`GithubPullRequestLabel`](GithubPullRequestLabel.md)[] \| `null`; `name?`: `string` \| `null`; `number`: `number`; `owner`: `string`; `participantGithubUserIds?`: `string`[] \| `null`; `repo`: `string`; `reviews?`: [`GithubPullRequestReview`](GithubPullRequestReview.md)[] \| `null`; `status?`: `null` \| [`GithubPullRequestStatus`](GithubPullRequestStatus.md); `url`: `string`; \}
 
 A pull request reference enriched with live GitHub details when available.
 

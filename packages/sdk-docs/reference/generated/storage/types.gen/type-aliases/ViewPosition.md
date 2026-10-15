@@ -1,6 +1,6 @@
 # Type Alias: ViewPosition
 
-> **ViewPosition** = `object`
+> **ViewPosition** = \{ `position`: `string`; `view`: `string`; \}
 
 A view's place among its table's views.
 

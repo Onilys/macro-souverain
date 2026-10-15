@@ -1,6 +1,6 @@
 # Type Alias: ApiContact
 
-> **ApiContact** = `object`
+> **ApiContact** = \{ `emailAddress?`: `string` \| `null`; `id`: `string`; `linkId`: `string`; `name?`: `string` \| `null`; `sfsPhotoUrl?`: `string` \| `null`; \}
 
 ## Properties
 

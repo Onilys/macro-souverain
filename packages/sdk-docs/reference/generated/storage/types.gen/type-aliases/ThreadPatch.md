@@ -1,6 +1,6 @@
 # Type Alias: ThreadPatch
 
-> **ThreadPatch** = `object`
+> **ThreadPatch** = \{ `detach_anchor?`: `boolean`; `nonce?`: `string` \| `null`; `resolved?`: `boolean` \| `null`; \}
 
 Partial changes to discussion lifecycle or document anchor placement.
 

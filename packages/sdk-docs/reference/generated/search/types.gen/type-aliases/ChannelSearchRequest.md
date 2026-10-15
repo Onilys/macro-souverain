@@ -1,6 +1,6 @@
 # Type Alias: ChannelSearchRequest
 
-> **ChannelSearchRequest** = `null` \| [`ChannelFilters`](ChannelFilters.md) & `object`
+> **ChannelSearchRequest** = `null` \| [`ChannelFilters`](ChannelFilters.md) & \{ `collapse?`: `boolean` \| `null`; `match_type`: [`MatchType`](MatchType.md); `query?`: `string` \| `null`; `search_on?`: [`SearchOn`](SearchOn.md); `sort?`: [`ChannelSortTimestamp`](ChannelSortTimestamp.md); `terms?`: `string`[] \| `null`; \}
 
 ## Type Declaration
 

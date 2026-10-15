@@ -1,6 +1,6 @@
 # Type Alias: ListedDatabase
 
-> **ListedDatabase** = `object`
+> **ListedDatabase** = \{ `database`: [`Database`](Database.md); `grant`: [`AccessLevel`](AccessLevel.md); `tables`: [`Table`](Table.md)[]; \}
 
 A database as listed for a viewer.
 

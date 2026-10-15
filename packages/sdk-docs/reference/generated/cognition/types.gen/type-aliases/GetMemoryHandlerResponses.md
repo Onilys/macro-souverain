@@ -1,6 +1,6 @@
 # Type Alias: GetMemoryHandlerResponses
 
-> **GetMemoryHandlerResponses** = `object`
+> **GetMemoryHandlerResponses** = \{ `200`: [`MemoryResponse`](MemoryResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetAgentSessionQueueResponses
 
-> **GetAgentSessionQueueResponses** = `object`
+> **GetAgentSessionQueueResponses** = \{ `200`: [`AgentSessionQueueResponse`](AgentSessionQueueResponse.md); \}
 
 ## Properties
 

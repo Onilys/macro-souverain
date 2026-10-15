@@ -1,6 +1,6 @@
 # Type Alias: AddContactRequest
 
-> **AddContactRequest** = `object`
+> **AddContactRequest** = \{ `user_id`: `string`; \}
 
 Request body for POST /contacts.
 

@@ -1,6 +1,6 @@
 # Type Alias: StopChatStreamError
 
-> **StopChatStreamError** = `object`
+> **StopChatStreamError** = \{ `error`: `string`; \}
 
 Error response for the stop endpoint.
 

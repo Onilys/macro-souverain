@@ -1,6 +1,6 @@
 # Type Alias: GetPendingProjectsHandlerData
 
-> **GetPendingProjectsHandlerData** = `object`
+> **GetPendingProjectsHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/projects/pending"`; \}
 
 ## Properties
 

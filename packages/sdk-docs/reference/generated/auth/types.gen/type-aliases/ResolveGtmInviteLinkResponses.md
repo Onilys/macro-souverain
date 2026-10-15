@@ -1,6 +1,6 @@
 # Type Alias: ResolveGtmInviteLinkResponses
 
-> **ResolveGtmInviteLinkResponses** = `object`
+> **ResolveGtmInviteLinkResponses** = \{ `200`: [`PublicGtmInviteLink`](PublicGtmInviteLink.md); \}
 
 ## Properties
 

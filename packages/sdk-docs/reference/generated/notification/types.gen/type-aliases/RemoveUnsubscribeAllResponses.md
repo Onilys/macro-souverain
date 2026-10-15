@@ -1,6 +1,6 @@
 # Type Alias: RemoveUnsubscribeAllResponses
 
-> **RemoveUnsubscribeAllResponses** = `object`
+> **RemoveUnsubscribeAllResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

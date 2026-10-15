@@ -1,6 +1,6 @@
 # Type Alias: CreateInProgressLinkData
 
-> **CreateInProgressLinkData** = `object`
+> **CreateInProgressLinkData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/link"`; \}
 
 ## Properties
 

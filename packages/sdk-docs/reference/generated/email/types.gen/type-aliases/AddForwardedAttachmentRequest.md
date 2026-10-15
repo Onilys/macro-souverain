@@ -1,6 +1,6 @@
 # Type Alias: AddForwardedAttachmentRequest
 
-> **AddForwardedAttachmentRequest** = `object`
+> **AddForwardedAttachmentRequest** = \{ `attachment_id`: `string`; \}
 
 ## Properties
 

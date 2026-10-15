@@ -1,6 +1,6 @@
 # Type Alias: ApplyDatabaseOpsResponses
 
-> **ApplyDatabaseOpsResponses** = `object`
+> **ApplyDatabaseOpsResponses** = \{ `200`: [`ApplyOpsResponse`](ApplyOpsResponse.md); \}
 
 ## Properties
 

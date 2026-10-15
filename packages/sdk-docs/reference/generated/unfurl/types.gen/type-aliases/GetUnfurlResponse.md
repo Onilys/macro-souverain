@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlResponse
 
-> **GetUnfurlResponse** = `object`
+> **GetUnfurlResponse** = \{ `description?`: `string` \| `null`; `favicon_url?`: `string` \| `null`; `image_url?`: `string` \| `null`; `title`: `string`; `url`: `string`; \}
 
 Unfurl response for a single URL: the URL itself plus any metadata that
 was extracted from the page's `<head>` (title, description, image,

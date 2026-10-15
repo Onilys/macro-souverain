@@ -1,6 +1,6 @@
 # Type Alias: Pipeline
 
-> **Pipeline** = `object`
+> **Pipeline** = \{ `createdAt`: `string`; `databaseId`: `string`; `id`: `string`; `name`: `string`; `primaryColumnId`: `string`; `recordType`: [`PipelineRecordType`](PipelineRecordType.md); `sharing`: [`PipelineSharing`](PipelineSharing.md); `tableId`: `string`; `teamId`: `string`; `trashedAt`: `string` \| `null`; `userId`: `string`; \}
 
 Pipeline metadata; table schema and data are read through the database service.
 

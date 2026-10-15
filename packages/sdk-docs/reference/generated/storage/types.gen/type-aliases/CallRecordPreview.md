@@ -1,6 +1,6 @@
 # Type Alias: CallRecordPreview
 
-> **CallRecordPreview** = [`CallRecordPreviewData`](CallRecordPreviewData.md) & `object` \| [`WithCallId`](WithCallId.md) & `object`
+> **CallRecordPreview** = [`CallRecordPreviewData`](CallRecordPreviewData.md) & \{ `type`: `"exists"`; \} \| [`WithCallId`](WithCallId.md) & \{ `type`: `"does_not_exist"`; \}
 
 Lightweight preview of a call record, returned by the batch preview endpoint.
 

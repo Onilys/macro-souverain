@@ -1,6 +1,6 @@
 # Type Alias: CreatedDatabaseWebhookResponse
 
-> **CreatedDatabaseWebhookResponse** = `object`
+> **CreatedDatabaseWebhookResponse** = \{ `token`: `string`; `webhook`: [`DatabaseWebhookResponse`](DatabaseWebhookResponse.md); \}
 
 A new webhook, with the token its URL carries. The token is shown only
 here.

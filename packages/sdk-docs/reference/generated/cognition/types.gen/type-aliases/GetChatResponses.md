@@ -1,6 +1,6 @@
 # Type Alias: GetChatResponses
 
-> **GetChatResponses** = `object`
+> **GetChatResponses** = \{ `200`: [`GetChatResponse`](GetChatResponse.md); \}
 
 ## Properties
 

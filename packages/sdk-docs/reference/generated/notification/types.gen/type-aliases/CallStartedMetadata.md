@@ -1,6 +1,6 @@
 # Type Alias: CallStartedMetadata
 
-> **CallStartedMetadata** = `object`
+> **CallStartedMetadata** = \{ `channel_name?`: `string` \| `null`; `sender_profile_picture_url?`: `string` \| `null`; \}
 
 Metadata for a notification that a call has started in a channel.
 

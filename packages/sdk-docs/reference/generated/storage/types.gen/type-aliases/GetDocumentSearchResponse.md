@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentSearchResponse
 
-> **GetDocumentSearchResponse** = `object`
+> **GetDocumentSearchResponse** = \{ `data`: [`GetDocumentListResult`](GetDocumentListResult.md)[]; `error`: `boolean`; \}
 
 ## Properties
 

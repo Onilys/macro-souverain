@@ -1,6 +1,6 @@
 # Type Alias: AgentRepositoriesResponse
 
-> **AgentRepositoriesResponse** = `object`
+> **AgentRepositoriesResponse** = \{ `repositories`: [`AgentRepositoryDto`](AgentRepositoryDto.md)[]; \}
 
 Response body for `GET /agent-repositories`.
 

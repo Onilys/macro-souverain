@@ -1,6 +1,6 @@
 # Type Alias: ExportDocumentResponse
 
-> **ExportDocumentResponse** = `object`
+> **ExportDocumentResponse** = \{ `presigned_url`: `string`; \}
 
 ## Properties
 

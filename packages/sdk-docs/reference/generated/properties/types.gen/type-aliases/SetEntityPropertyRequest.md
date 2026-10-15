@@ -1,6 +1,6 @@
 # Type Alias: SetEntityPropertyRequest
 
-> **SetEntityPropertyRequest** = `object`
+> **SetEntityPropertyRequest** = \{ `value?`: `null` \| [`SetPropertyValue`](SetPropertyValue.md); \}
 
 Type-safe request for setting entity property values.
 

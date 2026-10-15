@@ -1,6 +1,6 @@
 # Type Alias: EntityMessageGetThreadResponses
 
-> **EntityMessageGetThreadResponses** = `object`
+> **EntityMessageGetThreadResponses** = \{ `200`: [`MessageThread`](MessageThread.md); \}
 
 ## Properties
 

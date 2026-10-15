@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamCrmSettingsData
 
-> **PatchTeamCrmSettingsData** = `object`
+> **PatchTeamCrmSettingsData** = \{ `body`: [`PatchTeamCrmSettingsRequest`](PatchTeamCrmSettingsRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/team/crm"`; \}
 
 ## Properties
 

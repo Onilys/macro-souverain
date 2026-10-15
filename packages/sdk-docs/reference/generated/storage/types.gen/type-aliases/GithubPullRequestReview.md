@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestReview
 
-> **GithubPullRequestReview** = `object`
+> **GithubPullRequestReview** = \{ `reviewerGithubUserId`: `string`; `reviewerLogin?`: `string` \| `null`; `state`: [`GithubPullRequestReviewState`](GithubPullRequestReviewState.md); `submittedAt?`: `string` \| `null`; \}
 
 A reviewer's latest submitted review on a pull request.
 

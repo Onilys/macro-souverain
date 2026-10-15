@@ -1,6 +1,6 @@
 # Type Alias: CreditCheckoutResponse
 
-> **CreditCheckoutResponse** = `object`
+> **CreditCheckoutResponse** = \{ `url`: `string`; \}
 
 Response for [`create_credit_checkout_handler`].
 

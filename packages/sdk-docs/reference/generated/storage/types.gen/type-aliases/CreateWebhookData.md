@@ -1,6 +1,6 @@
 # Type Alias: CreateWebhookData
 
-> **CreateWebhookData** = `object`
+> **CreateWebhookData** = \{ `body`: [`CreateWebhookRequest`](CreateWebhookRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/webhook/webhooks"`; \}
 
 ## Properties
 

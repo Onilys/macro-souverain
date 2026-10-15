@@ -1,6 +1,6 @@
 # Type Alias: CalendarMentionPreviewItem
 
-> **CalendarMentionPreviewItem** = `object`
+> **CalendarMentionPreviewItem** = \{ `event?`: `null` \| [`CalendarMentionEvent`](CalendarMentionEvent.md); `eventId`: `string`; `type`: [`CalendarMentionPreviewKind`](CalendarMentionPreviewKind.md); \}
 
 Resolution of one mentioned event, in request order.
 

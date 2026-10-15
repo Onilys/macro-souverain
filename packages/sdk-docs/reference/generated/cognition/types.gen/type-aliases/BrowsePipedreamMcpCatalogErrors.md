@@ -1,6 +1,6 @@
 # Type Alias: BrowsePipedreamMcpCatalogErrors
 
-> **BrowsePipedreamMcpCatalogErrors** = `object`
+> **BrowsePipedreamMcpCatalogErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); `501`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SectionCount
 
-> **SectionCount** = `object`
+> **SectionCount** = \{ `count`: `number`; `section`: `string`; \}
 
 How many responses one gate stopped.
 

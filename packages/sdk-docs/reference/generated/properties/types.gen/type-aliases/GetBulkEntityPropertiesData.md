@@ -1,6 +1,6 @@
 # Type Alias: GetBulkEntityPropertiesData
 
-> **GetBulkEntityPropertiesData** = `object`
+> **GetBulkEntityPropertiesData** = \{ `body`: [`BulkEntityPropertiesRequest`](BulkEntityPropertiesRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/properties/entities/bulk"`; \}
 
 ## Properties
 

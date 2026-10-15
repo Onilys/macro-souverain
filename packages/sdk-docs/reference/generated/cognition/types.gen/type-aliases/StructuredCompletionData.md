@@ -1,6 +1,6 @@
 # Type Alias: StructuredCompletionData
 
-> **StructuredCompletionData** = `object`
+> **StructuredCompletionData** = \{ `body`: [`StructuredCompletionRequest`](StructuredCompletionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/structured-completion"`; \}
 
 ## Properties
 

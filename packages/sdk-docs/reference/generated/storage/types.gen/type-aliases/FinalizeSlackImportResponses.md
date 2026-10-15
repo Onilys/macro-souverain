@@ -1,6 +1,6 @@
 # Type Alias: FinalizeSlackImportResponses
 
-> **FinalizeSlackImportResponses** = `object`
+> **FinalizeSlackImportResponses** = \{ `200`: [`ImportProgress`](ImportProgress.md); \}
 
 ## Properties
 

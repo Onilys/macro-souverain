@@ -1,6 +1,6 @@
 # Type Alias: GetUserLinkExistsErrors
 
-> **GetUserLinkExistsErrors** = `object`
+> **GetUserLinkExistsErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetFormResponseSummaryErrors
 
-> **GetFormResponseSummaryErrors** = `object`
+> **GetFormResponseSummaryErrors** = \{ `401`: [`FormErrorResponse`](FormErrorResponse.md); `403`: [`FormErrorResponse`](FormErrorResponse.md); `404`: [`FormErrorResponse`](FormErrorResponse.md); `409`: [`FormErrorResponse`](FormErrorResponse.md); `500`: [`FormErrorResponse`](FormErrorResponse.md); \}
 
 ## Properties
 

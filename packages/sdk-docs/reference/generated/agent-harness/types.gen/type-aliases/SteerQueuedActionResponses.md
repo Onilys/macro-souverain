@@ -1,6 +1,6 @@
 # Type Alias: SteerQueuedActionResponses
 
-> **SteerQueuedActionResponses** = `object`
+> **SteerQueuedActionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

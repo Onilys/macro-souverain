@@ -1,6 +1,6 @@
 # Type Alias: ForeignEntity
 
-> **ForeignEntity** = `object`
+> **ForeignEntity** = \{ `createdAt`: `string`; `foreignEntityId`: `string`; `foreignEntitySource`: `string`; `id`: `string`; `metadata`: `unknown`; `storedForAuthEntity`: `string`; `storedForId`: `string`; `updatedAt`: `string`; \}
 
 A persisted mapping to an entity owned by an external system.
 

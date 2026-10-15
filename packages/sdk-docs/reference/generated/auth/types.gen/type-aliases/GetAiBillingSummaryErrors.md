@@ -1,6 +1,6 @@
 # Type Alias: GetAiBillingSummaryErrors
 
-> **GetAiBillingSummaryErrors** = `object`
+> **GetAiBillingSummaryErrors** = \{ `401`: `unknown`; `500`: [`AiBillingErrorBody`](AiBillingErrorBody.md); \}
 
 ## Properties
 

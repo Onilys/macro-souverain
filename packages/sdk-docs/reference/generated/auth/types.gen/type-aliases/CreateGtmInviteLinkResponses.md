@@ -1,6 +1,6 @@
 # Type Alias: CreateGtmInviteLinkResponses
 
-> **CreateGtmInviteLinkResponses** = `object`
+> **CreateGtmInviteLinkResponses** = \{ `200`: [`GtmInviteLink`](GtmInviteLink.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateImport
 
-> **CreateImport** = `object`
+> **CreateImport** = \{ `conversations`: [`ConversationMetadata`](ConversationMetadata.md)[]; `idempotencyToken`: [`CreateToken`](CreateToken.md); `includeMessageHistory`: `boolean`; `source`: [`SourceIdentity`](SourceIdentity.md); \}
 
 Create command. Team identity is deliberately absent.
 

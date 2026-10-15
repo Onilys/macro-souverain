@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventReminderMetadata
 
-> **CalendarEventReminderMetadata** = `object`
+> **CalendarEventReminderMetadata** = \{ `endsAt?`: `string` \| `null`; `eventId`: `string`; `minutesBefore`: `number`; `occurrenceKey`: `string`; `startDate?`: `string` \| `null`; `startsAt?`: `string` \| `null`; `timeZone?`: `string` \| `null`; `title`: `string`; \}
 
 A calendar event alarm came due. Like [`ReminderMetadata`], these are
 self-notifications: `sender_id` must stay `None` or the only recipient is

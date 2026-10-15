@@ -1,6 +1,6 @@
 # Type Alias: PutAgentCodingPreferencesData
 
-> **PutAgentCodingPreferencesData** = `object`
+> **PutAgentCodingPreferencesData** = \{ `body`: [`CodingPreferencesBody`](CodingPreferencesBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-coding-preferences"`; \}
 
 ## Properties
 

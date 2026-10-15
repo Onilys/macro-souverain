@@ -1,6 +1,6 @@
 # Type Alias: SavedQuery
 
-> **SavedQuery** = `object`
+> **SavedQuery** = \{ `createdAt`: `string`; `createdBy`: `string` \| `null`; `databaseId`: `string` \| `null`; `definition`: [`QueryDefinition`](QueryDefinition.md); `id`: `string`; \}
 
 A stored, immutable query. Editing a question saves a new one.
 

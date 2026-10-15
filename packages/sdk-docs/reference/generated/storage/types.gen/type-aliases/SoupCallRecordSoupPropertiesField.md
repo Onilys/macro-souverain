@@ -1,6 +1,6 @@
 # Type Alias: SoupCallRecordSoupPropertiesField
 
-> **SoupCallRecordSoupPropertiesField** = `object` & `object`
+> **SoupCallRecordSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `attended`: `boolean`; `callId`: `string`; `channelId?`: `string` \| `null`; `channelName?`: `string` \| `null`; `createdBy`: `string`; `customName?`: `string` \| `null`; `durationMs?`: `number` \| `null`; `endedAt?`: `string` \| `null`; `guests`: [`SoupCallRecordGuest`](SoupCallRecordGuest.md)[]; `isActive`: `boolean`; `participants`: [`SoupCallRecordParticipant`](SoupCallRecordParticipant.md)[]; `startedAt`: `string`; `status`: [`CallStatus`](CallStatus.md); `summary?`: `string` \| `null`; \}
 
 A call record as displayed in Soup. Excludes room_name, egress_id,
 and transcript — fields that are irrelevant for the soup feed.

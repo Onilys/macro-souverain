@@ -1,6 +1,6 @@
 # Type Alias: SharedInboxConflictResponse
 
-> **SharedInboxConflictResponse** = `object`
+> **SharedInboxConflictResponse** = \{ `email_address`: `string`; `existing_link_id`: `string`; `existing_owner_email`: `string`; \}
 
 Returned with a `409 Conflict` when a connect targets an external mailbox another
 macro user has already connected. The client surfaces a confirmation; on confirm it

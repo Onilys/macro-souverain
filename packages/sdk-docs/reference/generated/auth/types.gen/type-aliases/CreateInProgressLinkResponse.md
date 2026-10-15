@@ -1,6 +1,6 @@
 # Type Alias: CreateInProgressLinkResponse
 
-> **CreateInProgressLinkResponse** = `object`
+> **CreateInProgressLinkResponse** = \{ `link_id`: `string`; \}
 
 ## Properties
 

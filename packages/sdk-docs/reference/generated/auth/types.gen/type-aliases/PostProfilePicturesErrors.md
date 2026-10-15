@@ -1,6 +1,6 @@
 # Type Alias: PostProfilePicturesErrors
 
-> **PostProfilePicturesErrors** = `object`
+> **PostProfilePicturesErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateInstructionsDocumentResponse
 
-> **CreateInstructionsDocumentResponse** = `object`
+> **CreateInstructionsDocumentResponse** = \{ `documentId`: `string`; \}
 
 ## Properties
 

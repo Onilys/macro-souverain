@@ -1,6 +1,6 @@
 # Type Alias: GetAttachmentDocumentIdResponse
 
-> **GetAttachmentDocumentIdResponse** = `object`
+> **GetAttachmentDocumentIdResponse** = \{ `attachment_id`: `string`; `document_id`: `string`; \}
 
 The response returned from the get attachment endpoint
 

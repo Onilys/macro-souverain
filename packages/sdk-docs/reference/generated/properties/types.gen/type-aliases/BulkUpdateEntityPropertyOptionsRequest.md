@@ -1,6 +1,6 @@
 # Type Alias: BulkUpdateEntityPropertyOptionsRequest
 
-> **BulkUpdateEntityPropertyOptionsRequest** = `object`
+> **BulkUpdateEntityPropertyOptionsRequest** = \{ `properties`: [`EntityPropertyOptionUpdateRequest`](EntityPropertyOptionUpdateRequest.md)[]; \}
 
 Request to apply option deltas across one or more of an entity's multi-select
 properties in a single transaction.

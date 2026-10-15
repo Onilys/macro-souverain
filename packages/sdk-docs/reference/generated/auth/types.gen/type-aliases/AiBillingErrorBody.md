@@ -1,6 +1,6 @@
 # Type Alias: AiBillingErrorBody
 
-> **AiBillingErrorBody** = `object`
+> **AiBillingErrorBody** = \{ `error`: `string`; \}
 
 Error response body.
 

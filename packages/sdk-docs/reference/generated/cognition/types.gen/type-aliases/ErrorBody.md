@@ -1,6 +1,6 @@
 # Type Alias: ErrorBody
 
-> **ErrorBody** = `object`
+> **ErrorBody** = \{ `error`: `string`; \}
 
 Error response body.
 

@@ -1,6 +1,6 @@
 # Type Alias: PushNotificationData
 
-> **PushNotificationData** = `object`
+> **PushNotificationData** = \{ `notificationId`: `string`; `senderProfilePictureUrl?`: `string` \| `null`; \}
 
 ## Properties
 

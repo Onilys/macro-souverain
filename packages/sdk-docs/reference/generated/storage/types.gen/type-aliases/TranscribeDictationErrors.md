@@ -1,6 +1,6 @@
 # Type Alias: TranscribeDictationErrors
 
-> **TranscribeDictationErrors** = `object`
+> **TranscribeDictationErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `413`: `unknown`; `415`: [`ErrorResponse`](ErrorResponse.md); `429`: `unknown`; `502`: [`ErrorResponse`](ErrorResponse.md); `503`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

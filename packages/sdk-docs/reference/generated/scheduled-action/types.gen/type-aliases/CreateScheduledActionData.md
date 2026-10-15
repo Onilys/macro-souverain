@@ -1,6 +1,6 @@
 # Type Alias: CreateScheduledActionData
 
-> **CreateScheduledActionData** = `object`
+> **CreateScheduledActionData** = \{ `body`: [`CreateScheduledAction`](CreateScheduledAction.md); `path?`: `never`; `query?`: `never`; `url`: `"/scheduled-actions"`; \}
 
 ## Properties
 

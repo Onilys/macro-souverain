@@ -1,6 +1,6 @@
 # Type Alias: CreateBotRequest
 
-> **CreateBotRequest** = `object`
+> **CreateBotRequest** = \{ `avatar_url?`: `string` \| `null`; `description?`: `string` \| `null`; `handle`: `string`; `has_agent?`: `boolean` \| `null`; `name`: `string`; `team_id?`: `string` \| `null`; \}
 
 Request to create a bot.
 

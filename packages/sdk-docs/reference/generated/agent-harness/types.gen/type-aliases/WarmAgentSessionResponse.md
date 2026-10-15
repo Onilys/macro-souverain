@@ -1,6 +1,6 @@
 # Type Alias: WarmAgentSessionResponse
 
-> **WarmAgentSessionResponse** = `object`
+> **WarmAgentSessionResponse** = \{ `session?`: `null` \| [`AgentSessionResponse`](AgentSessionResponse.md); \}
 
 A bounded best-effort warm attempt; absence means normal creation should proceed.
 

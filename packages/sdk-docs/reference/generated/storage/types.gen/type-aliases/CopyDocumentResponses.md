@@ -1,6 +1,6 @@
 # Type Alias: CopyDocumentResponses
 
-> **CopyDocumentResponses** = `object`
+> **CopyDocumentResponses** = \{ `200`: [`CopyDocumentResponse`](CopyDocumentResponse.md); \}
 
 ## Properties
 

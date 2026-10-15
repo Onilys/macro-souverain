@@ -1,6 +1,6 @@
 # Type Alias: CrmStagesResponse
 
-> **CrmStagesResponse** = `object`
+> **CrmStagesResponse** = \{ `definition_id`: `string`; `stages`: [`CrmStageResponse`](CrmStageResponse.md)[]; \}
 
 The team's custom stage set.
 

@@ -1,6 +1,6 @@
 # Type Alias: UserNames
 
-> **UserNames** = `object`
+> **UserNames** = \{ `names`: [`UserName`](UserName.md)[]; \}
 
 ## Properties
 

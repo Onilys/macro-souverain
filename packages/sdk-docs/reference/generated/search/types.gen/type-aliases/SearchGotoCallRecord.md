@@ -1,6 +1,6 @@
 # Type Alias: SearchGotoCallRecord
 
-> **SearchGotoCallRecord** = `object`
+> **SearchGotoCallRecord** = \{ `channel_id?`: `string` \| `null`; `ended_at?`: `string` \| `null`; `participant_ids`: `string`[]; `sequence_num`: `number`; `speaker_id`: `string`; `started_at`: `string`; `transcript_id`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetOrCreatePrivateData
 
-> **GetOrCreatePrivateData** = `object`
+> **GetOrCreatePrivateData** = \{ `body`: [`GetOrCreatePrivateRequest`](GetOrCreatePrivateRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/channels/get_or_create_private"`; \}
 
 ## Properties
 

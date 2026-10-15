@@ -1,6 +1,6 @@
 # Type Alias: SetEmailSyncRequest
 
-> **SetEmailSyncRequest** = `object`
+> **SetEmailSyncRequest** = \{ `email_sync`: `boolean`; \}
 
 Request body for `PUT /crm/companies/{company_id}/email-sync`.
 

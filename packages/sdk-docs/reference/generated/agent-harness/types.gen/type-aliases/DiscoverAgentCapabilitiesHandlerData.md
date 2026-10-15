@@ -1,6 +1,6 @@
 # Type Alias: DiscoverAgentCapabilitiesHandlerData
 
-> **DiscoverAgentCapabilitiesHandlerData** = `object`
+> **DiscoverAgentCapabilitiesHandlerData** = \{ `body`: [`DiscoverAgentCapabilitiesRequest`](DiscoverAgentCapabilitiesRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-capabilities/discover"`; \}
 
 ## Properties
 

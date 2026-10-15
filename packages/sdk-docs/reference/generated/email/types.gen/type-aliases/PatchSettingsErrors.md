@@ -1,6 +1,6 @@
 # Type Alias: PatchSettingsErrors
 
-> **PatchSettingsErrors** = `object`
+> **PatchSettingsErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `422`: [`UnresolvedSignatureImagesError`](UnresolvedSignatureImagesError.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

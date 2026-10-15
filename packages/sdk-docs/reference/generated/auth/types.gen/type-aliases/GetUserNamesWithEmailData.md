@@ -1,6 +1,6 @@
 # Type Alias: GetUserNamesWithEmailData
 
-> **GetUserNamesWithEmailData** = `object`
+> **GetUserNamesWithEmailData** = \{ `body`: [`GetNamesWithEmailRequestBody`](GetNamesWithEmailRequestBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/get_names_with_email"`; \}
 
 ## Properties
 

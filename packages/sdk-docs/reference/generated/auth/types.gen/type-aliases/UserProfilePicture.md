@@ -1,6 +1,6 @@
 # Type Alias: UserProfilePicture
 
-> **UserProfilePicture** = `object`
+> **UserProfilePicture** = \{ `checksum?`: `string` \| `null`; `id`: `string`; `url`: `string`; \}
 
 ## Properties
 

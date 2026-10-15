@@ -1,6 +1,6 @@
 # Type Alias: CreateTaskHandlerData
 
-> **CreateTaskHandlerData** = `object`
+> **CreateTaskHandlerData** = \{ `body`: [`CreateTaskRequest`](CreateTaskRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents/create_task"`; \}
 
 ## Properties
 

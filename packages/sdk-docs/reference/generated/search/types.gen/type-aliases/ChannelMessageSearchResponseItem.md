@@ -1,6 +1,6 @@
 # Type Alias: ChannelMessageSearchResponseItem
 
-> **ChannelMessageSearchResponseItem** = `object`
+> **ChannelMessageSearchResponseItem** = \{ `channel_id`: `string`; `channel_type`: `string`; `created_at`: `string`; `deleted_at?`: `string` \| `null`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `id`: `string`; `message_id`: `string`; `owner_id?`: `string` \| `null`; `score?`: `number` \| `null`; `sender_id`: `string`; `thread_id?`: `string` \| `null`; `updated_at`: `string`; \}
 
 A single channel-message content hit in the unified search response.
 One item per matching message, timestamped by the message itself, so the

@@ -1,6 +1,6 @@
 # Type Alias: ExportDocumentErrors
 
-> **ExportDocumentErrors** = `object`
+> **ExportDocumentErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `404`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SimpleCallRecordSearchResponseBaseItemHumanReadableTimestamp
 
-> **SimpleCallRecordSearchResponseBaseItemHumanReadableTimestamp** = `object`
+> **SimpleCallRecordSearchResponseBaseItemHumanReadableTimestamp** = \{ `call_id`: `string`; `channel_id?`: `string` \| `null`; `channel_name?`: `string` \| `null`; `duration_ms`: `number`; `ended_at`: `string`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `participant_ids`: `string`[]; `started_at`: `string`; `user_id`: `string`; \}
 
 ## Properties
 

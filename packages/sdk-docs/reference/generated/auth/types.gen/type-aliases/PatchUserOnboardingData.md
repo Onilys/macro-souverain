@@ -1,6 +1,6 @@
 # Type Alias: PatchUserOnboardingData
 
-> **PatchUserOnboardingData** = `object`
+> **PatchUserOnboardingData** = \{ `body`: [`PatchUserOnboardingRequest`](PatchUserOnboardingRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/onboarding"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: EnrichGithubPullRequestsData
 
-> **EnrichGithubPullRequestsData** = `object`
+> **EnrichGithubPullRequestsData** = \{ `body`: [`EnrichGithubPullRequestsProxyRequest`](EnrichGithubPullRequestsProxyRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/github_pull_requests/enrich"`; \}
 
 ## Properties
 

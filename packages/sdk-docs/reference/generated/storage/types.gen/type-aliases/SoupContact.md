@@ -1,6 +1,6 @@
 # Type Alias: SoupContact
 
-> **SoupContact** = `object`
+> **SoupContact** = \{ `emailAddress?`: `string` \| `null`; `id`: `string`; `linkId`: `string`; `name?`: `string` \| `null`; `sfsPhotoUrl?`: `string` \| `null`; \}
 
 A contact participating in an email thread as displayed in Soup.
 

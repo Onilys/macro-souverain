@@ -1,6 +1,6 @@
 # Type Alias: EmailReminderPage
 
-> **EmailReminderPage** = `object`
+> **EmailReminderPage** = \{ `items`: [`EmailReminderSummary`](EmailReminderSummary.md)[]; `nextCursor?`: `string` \| `null`; \}
 
 A page of original-email identities and private reminder metadata.
 

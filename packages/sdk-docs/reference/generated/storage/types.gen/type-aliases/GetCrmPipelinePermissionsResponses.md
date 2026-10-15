@@ -1,6 +1,6 @@
 # Type Alias: GetCrmPipelinePermissionsResponses
 
-> **GetCrmPipelinePermissionsResponses** = `object`
+> **GetCrmPipelinePermissionsResponses** = \{ `200`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 ## Properties
 

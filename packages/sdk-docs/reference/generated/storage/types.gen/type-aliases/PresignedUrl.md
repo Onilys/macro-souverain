@@ -1,6 +1,6 @@
 # Type Alias: PresignedUrl
 
-> **PresignedUrl** = `object`
+> **PresignedUrl** = \{ `presignedUrl`: `string`; `sha`: `string`; \}
 
 ## Properties
 

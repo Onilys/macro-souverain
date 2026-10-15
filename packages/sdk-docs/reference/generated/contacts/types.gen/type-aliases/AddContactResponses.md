@@ -1,6 +1,6 @@
 # Type Alias: AddContactResponses
 
-> **AddContactResponses** = `object`
+> **AddContactResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

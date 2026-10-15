@@ -1,6 +1,6 @@
 # Type Alias: GetPermissionsResponses
 
-> **GetPermissionsResponses** = `object`
+> **GetPermissionsResponses** = \{ `200`: [`Permission`](Permission.md)[]; \}
 
 ## Properties
 

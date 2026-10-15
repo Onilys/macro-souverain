@@ -1,6 +1,6 @@
 # Type Alias: CreateInitiativeResponses
 
-> **CreateInitiativeResponses** = `object`
+> **CreateInitiativeResponses** = \{ `200`: [`InitiativeDetail`](InitiativeDetail.md); \}
 
 ## Properties
 

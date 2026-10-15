@@ -1,6 +1,6 @@
 # Type Alias: RenameAgentSessionResponses
 
-> **RenameAgentSessionResponses** = `object`
+> **RenameAgentSessionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

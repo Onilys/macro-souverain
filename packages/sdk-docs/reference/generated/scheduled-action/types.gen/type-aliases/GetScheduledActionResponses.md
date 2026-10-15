@@ -1,6 +1,6 @@
 # Type Alias: GetScheduledActionResponses
 
-> **GetScheduledActionResponses** = `object`
+> **GetScheduledActionResponses** = \{ `200`: [`ScheduledActionResponse`](ScheduledActionResponse.md); \}
 
 ## Properties
 

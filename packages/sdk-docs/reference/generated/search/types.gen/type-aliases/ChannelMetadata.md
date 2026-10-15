@@ -1,6 +1,6 @@
 # Type Alias: ChannelMetadata
 
-> **ChannelMetadata** = `object`
+> **ChannelMetadata** = \{ `created_at`: `string`; `interacted_at?`: `string` \| `null`; `updated_at`: `string`; `viewed_at?`: `string` \| `null`; \}
 
 Metadata for a channel fetched from the database
 

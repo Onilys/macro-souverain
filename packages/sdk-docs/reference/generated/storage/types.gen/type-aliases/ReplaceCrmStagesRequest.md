@@ -1,6 +1,6 @@
 # Type Alias: ReplaceCrmStagesRequest
 
-> **ReplaceCrmStagesRequest** = `object`
+> **ReplaceCrmStagesRequest** = \{ `stages`: [`CrmStageInput`](CrmStageInput.md)[]; \}
 
 Request body for `PUT /crm/stages`: the whole stage set in order.
 

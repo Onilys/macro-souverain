@@ -1,6 +1,6 @@
 # Type Alias: ApiGroupMeta
 
-> **ApiGroupMeta** = `object`
+> **ApiGroupMeta** = \{ `display_order?`: `number` \| `null`; `item_ids`: `string`[]; `key`: `string`; `label`: `string`; `next_cursor?`: `string` \| `null`; `total_count`: `number`; \}
 
 API representation of group metadata.
 

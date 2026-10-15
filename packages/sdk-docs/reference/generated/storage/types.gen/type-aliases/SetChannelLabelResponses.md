@@ -1,6 +1,6 @@
 # Type Alias: SetChannelLabelResponses
 
-> **SetChannelLabelResponses** = `object`
+> **SetChannelLabelResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

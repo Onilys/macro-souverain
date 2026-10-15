@@ -1,6 +1,6 @@
 # Type Alias: RemoveFavoriteByEntityResponses
 
-> **RemoveFavoriteByEntityResponses** = `object`
+> **RemoveFavoriteByEntityResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

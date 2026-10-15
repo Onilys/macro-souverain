@@ -1,6 +1,6 @@
 # Type Alias: HandleDeleteFileResponses
 
-> **HandleDeleteFileResponses** = `object`
+> **HandleDeleteFileResponses** = \{ `200`: `string`; \}
 
 ## Properties
 

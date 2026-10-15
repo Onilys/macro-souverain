@@ -1,6 +1,6 @@
 # Type Alias: SimpleChatSearchResponseBaseItemHumanReadableTimestamp
 
-> **SimpleChatSearchResponseBaseItemHumanReadableTimestamp** = `object`
+> **SimpleChatSearchResponseBaseItemHumanReadableTimestamp** = \{ `chat_id`: `string`; `chat_message_id`: `string`; `highlight`: [`SearchHighlight`](SearchHighlight.md); `role`: `string`; `title`: `string`; `updated_at`: `string`; `user_id`: `string`; \}
 
 ## Properties
 

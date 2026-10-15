@@ -1,6 +1,6 @@
 # Type Alias: UnblockSenderData
 
-> **UnblockSenderData** = `object`
+> **UnblockSenderData** = \{ `body`: [`UnblockSenderRequest`](UnblockSenderRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/contacts/unblock"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GithubLinkStatusResponse
 
-> **GithubLinkStatusResponse** = `object`
+> **GithubLinkStatusResponse** = \{ `github_user_id`: `string`; `github_username`: `string`; `reauthentication_required`: `boolean`; \}
 
 ## Properties
 

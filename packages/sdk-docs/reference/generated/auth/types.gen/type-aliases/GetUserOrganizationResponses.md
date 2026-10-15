@@ -1,6 +1,6 @@
 # Type Alias: GetUserOrganizationResponses
 
-> **GetUserOrganizationResponses** = `object`
+> **GetUserOrganizationResponses** = \{ `200`: [`UserOrganizationResponse`](UserOrganizationResponse.md); `204`: `void`; \}
 
 ## Properties
 

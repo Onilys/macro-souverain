@@ -1,6 +1,6 @@
 # Type Alias: AddParticipantsRequest
 
-> **AddParticipantsRequest** = `object`
+> **AddParticipantsRequest** = \{ `participants`: `string`[]; \}
 
 Request to add participants.
 

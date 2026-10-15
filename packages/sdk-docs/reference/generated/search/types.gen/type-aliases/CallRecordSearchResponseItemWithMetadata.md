@@ -1,6 +1,6 @@
 # Type Alias: CallRecordSearchResponseItemWithMetadata
 
-> **CallRecordSearchResponseItemWithMetadata** = [`CallRecordSearchResponseItem`](CallRecordSearchResponseItem.md) & `object`
+> **CallRecordSearchResponseItemWithMetadata** = [`CallRecordSearchResponseItem`](CallRecordSearchResponseItem.md) & \{ `metadata?`: `null` \| [`CallRecordMetadata`](CallRecordMetadata.md); `properties?`: [`SoupProperty`](SoupProperty.md)[] \| `null`; \}
 
 ## Type Declaration
 

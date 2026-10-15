@@ -1,6 +1,6 @@
 # Type Alias: StructuredCompletionError
 
-> **StructuredCompletionError** = `object`
+> **StructuredCompletionError** = \{ `code?`: `string` \| `null`; `error`: `string`; \}
 
 ## Properties
 

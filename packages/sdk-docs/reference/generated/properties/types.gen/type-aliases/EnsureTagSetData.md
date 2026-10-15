@@ -1,6 +1,6 @@
 # Type Alias: EnsureTagSetData
 
-> **EnsureTagSetData** = `object`
+> **EnsureTagSetData** = \{ `body`: [`EnsureTagSetRequest`](EnsureTagSetRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/properties/tags"`; \}
 
 ## Properties
 

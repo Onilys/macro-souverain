@@ -1,6 +1,6 @@
 # Type Alias: QuestionLayout
 
-> **QuestionLayout** = `object`
+> **QuestionLayout** = \{ `column`: `string`; `helpText`: `string`; `id`: `string`; `required`: `boolean`; `widget`: `null` \| [`Widget`](Widget.md); \}
 
 How one column of the table is asked.
 

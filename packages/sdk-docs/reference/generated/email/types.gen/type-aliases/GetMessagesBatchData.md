@@ -1,6 +1,6 @@
 # Type Alias: GetMessagesBatchData
 
-> **GetMessagesBatchData** = `object`
+> **GetMessagesBatchData** = \{ `body`: `string`[]; `path?`: `never`; `query?`: `never`; `url`: `"/email/messages/batch"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ApplyOpsResponse
 
-> **ApplyOpsResponse** = `object`
+> **ApplyOpsResponse** = \{ `changes`: [`CommittedChange`](CommittedChange.md)[]; `results`: [`OpResult`](OpResult.md)[]; \}
 
 What each op of a batch did.
 

@@ -1,6 +1,6 @@
 # Type Alias: ChatFilters
 
-> **ChatFilters** = `object`
+> **ChatFilters** = \{ `chat_ids?`: `string`[]; `importance?`: `boolean` \| `null`; `notification_filters?`: [`NotificationFilters`](NotificationFilters.md); `owners?`: `string`[]; `project_ids?`: `string`[]; `role?`: `string`[]; \}
 
 The chat filters used to filter down what chats you search over.
 

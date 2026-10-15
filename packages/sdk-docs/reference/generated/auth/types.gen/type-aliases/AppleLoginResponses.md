@@ -1,6 +1,6 @@
 # Type Alias: AppleLoginResponses
 
-> **AppleLoginResponses** = `object`
+> **AppleLoginResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

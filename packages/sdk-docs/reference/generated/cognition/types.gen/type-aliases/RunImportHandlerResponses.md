@@ -1,6 +1,6 @@
 # Type Alias: RunImportHandlerResponses
 
-> **RunImportHandlerResponses** = `object`
+> **RunImportHandlerResponses** = \{ `200`: [`RunImportOutcome`](RunImportOutcome.md); \}
 
 ## Properties
 

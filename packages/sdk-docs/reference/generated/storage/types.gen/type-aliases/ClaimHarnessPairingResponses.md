@@ -1,6 +1,6 @@
 # Type Alias: ClaimHarnessPairingResponses
 
-> **ClaimHarnessPairingResponses** = `object`
+> **ClaimHarnessPairingResponses** = \{ `200`: [`ClaimedPairing`](ClaimedPairing.md); `202`: [`PendingClaimResponse`](PendingClaimResponse.md); \}
 
 ## Properties
 

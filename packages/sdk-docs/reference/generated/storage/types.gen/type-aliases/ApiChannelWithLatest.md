@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelWithLatest
 
-> **ApiChannelWithLatest** = `object`
+> **ApiChannelWithLatest** = \{ `auto_join_team`: `boolean`; `channel_type`: [`ApiChannelListType`](ApiChannelListType.md); `created_at`: `string`; `frecency_score?`: `number` \| `null`; `id`: `string`; `interacted_at?`: `string` \| `null`; `is_participant`: `boolean`; `latest_message?`: `null` \| [`ApiChannelListMessage`](ApiChannelListMessage.md); `latest_non_thread_message?`: `null` \| [`ApiChannelListMessage`](ApiChannelListMessage.md); `name?`: `string` \| `null`; `org_id?`: `number` \| `null`; `owner_id`: `string`; `participants`: [`ApiChannelListParticipant`](ApiChannelListParticipant.md)[]; `team_id?`: `string` \| `null`; `updated_at`: `string`; `viewed_at?`: `string` \| `null`; \}
 
 Channel list response item.
 

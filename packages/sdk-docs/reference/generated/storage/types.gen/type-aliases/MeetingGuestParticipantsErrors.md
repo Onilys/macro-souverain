@@ -1,6 +1,6 @@
 # Type Alias: MeetingGuestParticipantsErrors
 
-> **MeetingGuestParticipantsErrors** = `object`
+> **MeetingGuestParticipantsErrors** = \{ `403`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

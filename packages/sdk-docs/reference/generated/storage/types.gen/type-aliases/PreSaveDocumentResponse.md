@@ -1,6 +1,6 @@
 # Type Alias: PreSaveDocumentResponse
 
-> **PreSaveDocumentResponse** = `object`
+> **PreSaveDocumentResponse** = \{ `data`: [`PreSaveDocumentResponseData`](PreSaveDocumentResponseData.md); `error`: `boolean`; \}
 
 ## Properties
 

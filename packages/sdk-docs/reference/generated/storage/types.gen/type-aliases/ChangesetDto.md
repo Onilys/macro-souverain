@@ -1,6 +1,6 @@
 # Type Alias: ChangesetDto
 
-> **ChangesetDto** = `object`
+> **ChangesetDto** = \{ `additions`: `number`; `base`: [`GitRefDto`](GitRefDto.md); `capturedAt`: `string`; `deletions`: `number`; `files`: [`ChangedFileDto`](ChangedFileDto.md)[]; `head`: [`GitRefDto`](GitRefDto.md); `id`: `string`; `patchBytes`: `number`; `repository?`: `string` \| `null`; `source`: [`ChangesetSourceDto`](ChangesetSourceDto.md); `truncated`: `boolean`; \}
 
 One changeset: the files a patch touches and what happened to each.
 

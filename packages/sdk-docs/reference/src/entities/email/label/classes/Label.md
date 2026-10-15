@@ -36,11 +36,11 @@ Delete this label.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`ApiLabel`](../../../../../generated/email/types.gen/type-aliases/ApiLabel.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`ApiLabel`](../../../../../generated/email/types.gen/type-aliases/ApiLabel.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

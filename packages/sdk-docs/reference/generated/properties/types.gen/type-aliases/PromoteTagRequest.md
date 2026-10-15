@@ -1,6 +1,6 @@
 # Type Alias: PromoteTagRequest
 
-> **PromoteTagRequest** = `object`
+> **PromoteTagRequest** = \{ `option_id`: `string`; \}
 
 Request to share one of the caller's personal labels with their team.
 

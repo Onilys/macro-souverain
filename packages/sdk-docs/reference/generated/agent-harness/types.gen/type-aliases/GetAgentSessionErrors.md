@@ -1,6 +1,6 @@
 # Type Alias: GetAgentSessionErrors
 
-> **GetAgentSessionErrors** = `object`
+> **GetAgentSessionErrors** = \{ `401`: `string`; `403`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

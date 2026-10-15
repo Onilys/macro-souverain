@@ -1,6 +1,6 @@
 # Type Alias: UpdateToolResponseResponses
 
-> **UpdateToolResponseResponses** = `object`
+> **UpdateToolResponseResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

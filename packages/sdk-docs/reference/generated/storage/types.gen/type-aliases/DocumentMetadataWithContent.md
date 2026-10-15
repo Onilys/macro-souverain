@@ -1,6 +1,6 @@
 # Type Alias: DocumentMetadataWithContent
 
-> **DocumentMetadataWithContent** = [`DocumentMetadata`](DocumentMetadata.md) & `object`
+> **DocumentMetadataWithContent** = [`DocumentMetadata`](DocumentMetadata.md) & \{ `content`: [`DocumentContent`](DocumentContent.md); `teamId?`: `string` \| `null`; `teamTaskId?`: `number` \| `null`; \}
 
 Full document metadata plus content lifecycle metadata.
 

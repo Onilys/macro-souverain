@@ -1,6 +1,6 @@
 # Type Alias: GetEntityHandlerResponses
 
-> **GetEntityHandlerResponses** = `object`
+> **GetEntityHandlerResponses** = \{ `200`: `string`[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ThreadOrigin
 
-> **ThreadOrigin** = `object`
+> **ThreadOrigin** = \{ `channel_id?`: `string` \| `null`; `originating_message_id`: `string`; `parent`: [`MessageParent`](MessageParent.md); `thread_id`: `string`; \}
 
 The thread a session was opened from, when it was.
 

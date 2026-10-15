@@ -1,6 +1,6 @@
 # Type Alias: QueryCrmPipelineRowsResponses
 
-> **QueryCrmPipelineRowsResponses** = `object`
+> **QueryCrmPipelineRowsResponses** = \{ `200`: [`StorageRows`](StorageRows.md); \}
 
 ## Properties
 

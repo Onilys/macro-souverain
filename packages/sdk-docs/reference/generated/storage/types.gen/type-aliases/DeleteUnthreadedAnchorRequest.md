@@ -1,6 +1,6 @@
 # Type Alias: DeleteUnthreadedAnchorRequest
 
-> **DeleteUnthreadedAnchorRequest** = [`DeleteUnthreadedPdfAnchorRequest`](DeleteUnthreadedPdfAnchorRequest.md) & `object`
+> **DeleteUnthreadedAnchorRequest** = [`DeleteUnthreadedPdfAnchorRequest`](DeleteUnthreadedPdfAnchorRequest.md) & \{ `fileType`: `"pdf"`; \}
 
 ## Type Declaration
 

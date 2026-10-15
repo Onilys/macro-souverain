@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlBulkData
 
-> **GetUnfurlBulkData** = `object`
+> **GetUnfurlBulkData** = \{ `body`: [`GetUnfurlBulkBody`](GetUnfurlBulkBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/unfurl/bulk"`; \}
 
 ## Properties
 

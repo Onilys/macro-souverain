@@ -1,6 +1,6 @@
 # Type Alias: BotSenderProfile
 
-> **BotSenderProfile** = `object`
+> **BotSenderProfile** = \{ `avatar_url?`: `string` \| `null`; `name`: `string`; \}
 
 Public bot profile attached to bot-authored messages.
 

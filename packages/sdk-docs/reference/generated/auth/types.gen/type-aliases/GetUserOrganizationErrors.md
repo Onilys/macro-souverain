@@ -1,6 +1,6 @@
 # Type Alias: GetUserOrganizationErrors
 
-> **GetUserOrganizationErrors** = `object`
+> **GetUserOrganizationErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetBackfillGmailResponses
 
-> **GetBackfillGmailResponses** = `object`
+> **GetBackfillGmailResponses** = \{ `200`: [`GetBackfillJobResponse`](GetBackfillJobResponse.md); \}
 
 ## Properties
 

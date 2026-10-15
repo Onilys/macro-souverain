@@ -1,6 +1,6 @@
 # Type Alias: ControlResponse
 
-> **ControlResponse** = `object`
+> **ControlResponse** = \{ `actionId`: [`AgentActionId`](AgentActionId.md); `status`: [`ControlStatusDto`](ControlStatusDto.md); \}
 
 Response body for a control operation.
 

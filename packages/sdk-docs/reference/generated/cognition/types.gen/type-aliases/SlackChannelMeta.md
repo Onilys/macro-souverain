@@ -1,6 +1,6 @@
 # Type Alias: SlackChannelMeta
 
-> **SlackChannelMeta** = `object`
+> **SlackChannelMeta** = \{ `archived?`: `boolean`; `channel_id?`: `string` \| `null`; `member_count?`: `number` \| `null`; `members_resolved?`: `boolean`; `name`: `string`; `participants?`: [`SlackParticipant`](SlackParticipant.md)[]; `purpose?`: `string` \| `null`; \}
 
 Metadata for one staged Slack channel.
 

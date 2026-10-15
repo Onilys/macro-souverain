@@ -1,6 +1,6 @@
 # Type Alias: MessageWithAttachments
 
-> **MessageWithAttachments** = `object`
+> **MessageWithAttachments** = \{ `attachmentIds`: `string`[]; `content`: `string`; `date`: `string`; \}
 
 ## Properties
 

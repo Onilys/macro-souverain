@@ -1,6 +1,6 @@
 # Type Alias: BatchSendMessageHandlerErrors
 
-> **BatchSendMessageHandlerErrors** = `object`
+> **BatchSendMessageHandlerErrors** = \{ `500`: `string`; \}
 
 ## Properties
 

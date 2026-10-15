@@ -1,6 +1,6 @@
 # Type Alias: PasswordLoginData
 
-> **PasswordLoginData** = `object`
+> **PasswordLoginData** = \{ `body`: [`PasswordRequest`](PasswordRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/login/password"`; \}
 
 ## Properties
 

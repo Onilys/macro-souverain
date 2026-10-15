@@ -1,6 +1,6 @@
 # Type Alias: BulkUpdateEntitiesPropertyOptionsData
 
-> **BulkUpdateEntitiesPropertyOptionsData** = `object`
+> **BulkUpdateEntitiesPropertyOptionsData** = \{ `body`: [`BulkUpdateEntitiesPropertyOptionsRequest`](BulkUpdateEntitiesPropertyOptionsRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/properties/options/bulk"`; \}
 
 ## Properties
 

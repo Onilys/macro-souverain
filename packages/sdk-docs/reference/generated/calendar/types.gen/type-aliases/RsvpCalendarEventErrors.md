@@ -1,6 +1,6 @@
 # Type Alias: RsvpCalendarEventErrors
 
-> **RsvpCalendarEventErrors** = `object`
+> **RsvpCalendarEventErrors** = \{ `401`: `unknown`; `403`: [`CalendarMutationApiError`](CalendarMutationApiError.md); `404`: [`CalendarMutationApiError`](CalendarMutationApiError.md); `409`: [`CalendarMutationApiError`](CalendarMutationApiError.md); `503`: [`CalendarMutationApiError`](CalendarMutationApiError.md); \}
 
 ## Properties
 

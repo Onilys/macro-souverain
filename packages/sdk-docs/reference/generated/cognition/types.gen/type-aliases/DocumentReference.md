@@ -1,6 +1,6 @@
 # Type Alias: DocumentReference
 
-> **DocumentReference** = [`UserPdfRect`](UserPdfRect.md) & `object`
+> **DocumentReference** = [`UserPdfRect`](UserPdfRect.md) & \{ `kind`: `"pdf"`; \}
 
 ## Type Declaration
 

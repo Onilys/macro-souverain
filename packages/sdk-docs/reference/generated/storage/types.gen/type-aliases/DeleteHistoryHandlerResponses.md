@@ -1,6 +1,6 @@
 # Type Alias: DeleteHistoryHandlerResponses
 
-> **DeleteHistoryHandlerResponses** = `object`
+> **DeleteHistoryHandlerResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

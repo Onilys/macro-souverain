@@ -1,6 +1,6 @@
 # Type Alias: PutCursorDefaultModelData
 
-> **PutCursorDefaultModelData** = `object`
+> **PutCursorDefaultModelData** = \{ `body`: [`PutCursorDefaultModelRequest`](PutCursorDefaultModelRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/cursor-api-key/default-model"`; \}
 
 ## Properties
 

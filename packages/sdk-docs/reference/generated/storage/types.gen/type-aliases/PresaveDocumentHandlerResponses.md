@@ -1,6 +1,6 @@
 # Type Alias: PresaveDocumentHandlerResponses
 
-> **PresaveDocumentHandlerResponses** = `object`
+> **PresaveDocumentHandlerResponses** = \{ `200`: [`PreSaveDocumentResponse`](PreSaveDocumentResponse.md); \}
 
 ## Properties
 

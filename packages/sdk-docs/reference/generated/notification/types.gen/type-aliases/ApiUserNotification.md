@@ -1,6 +1,6 @@
 # Type Alias: ApiUserNotification
 
-> **ApiUserNotification** = [`Entity`](Entity.md) & `object`
+> **ApiUserNotification** = [`Entity`](Entity.md) & \{ `created_at`: `string`; `deleted_at?`: `string` \| `null`; `id`: `string`; `notification_event_type`: `string`; `notification_metadata`: [`NotifEvent`](NotifEvent.md); `owner_id`: `string`; `sender_id?`: `string` \| `null`; `sent`: `boolean`; `state`: [`NotificationState`](NotificationState.md); `updated_at`: `string`; `viewed_at?`: `string` \| `null`; \}
 
 ## Type Declaration
 

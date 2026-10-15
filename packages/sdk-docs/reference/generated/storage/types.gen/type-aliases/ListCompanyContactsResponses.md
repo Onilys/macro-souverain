@@ -1,6 +1,6 @@
 # Type Alias: ListCompanyContactsResponses
 
-> **ListCompanyContactsResponses** = `object`
+> **ListCompanyContactsResponses** = \{ `200`: [`CrmContactResponse`](CrmContactResponse.md)[]; \}
 
 ## Properties
 

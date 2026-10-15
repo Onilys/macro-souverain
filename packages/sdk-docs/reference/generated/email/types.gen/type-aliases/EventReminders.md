@@ -1,6 +1,6 @@
 # Type Alias: EventReminders
 
-> **EventReminders** = `object`
+> **EventReminders** = \{ `overrides?`: [`EventReminderOverride`](EventReminderOverride.md)[]; `useDefault`: `boolean`; \}
 
 Per-user reminder configuration for an event, mirroring Google's model:
 either the calendar's default reminders apply, or the explicit overrides

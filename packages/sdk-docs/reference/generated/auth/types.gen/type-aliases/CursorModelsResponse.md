@@ -1,6 +1,6 @@
 # Type Alias: CursorModelsResponse
 
-> **CursorModelsResponse** = `object`
+> **CursorModelsResponse** = \{ `models`: [`CursorModelOption`](CursorModelOption.md)[]; \}
 
 The models this account may choose from.
 

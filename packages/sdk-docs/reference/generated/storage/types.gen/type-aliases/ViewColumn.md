@@ -1,6 +1,6 @@
 # Type Alias: ViewColumn
 
-> **ViewColumn** = `object`
+> **ViewColumn** = \{ `column`: `string`; `width`: `number` \| `null`; \}
 
 How one column shows in a table layout.
 

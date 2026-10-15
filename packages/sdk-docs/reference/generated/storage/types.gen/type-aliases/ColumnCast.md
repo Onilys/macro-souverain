@@ -1,6 +1,6 @@
 # Type Alias: ColumnCast
 
-> **ColumnCast** = `object`
+> **ColumnCast** = \{ `cast`: [`CastVerdict`](CastVerdict.md); `data_type`: [`DataType`](DataType.md); `examples`: `string`[]; `failures`: `number`; `is_multi_select`: `boolean`; `reason`: `string` \| `null`; `relation`: `boolean`; `specific_entity_type`: `null` \| [`EntityType`](EntityType.md); `summary`: `string` \| `null`; \}
 
 What changing a column to one type would do to its values: the dry run
 of a type change, for one target.

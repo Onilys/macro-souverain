@@ -1,6 +1,6 @@
 # Type Alias: SoupEnrichedEmailThreadPreviewSoupPropertiesField
 
-> **SoupEnrichedEmailThreadPreviewSoupPropertiesField** = [`SoupEmailThreadPreview`](SoupEmailThreadPreview.md) & `object` & `object`
+> **SoupEnrichedEmailThreadPreviewSoupPropertiesField** = [`SoupEmailThreadPreview`](SoupEmailThreadPreview.md) & \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `attachments`: [`SoupAttachment`](SoupAttachment.md)[]; `labels`: [`SoupLabel`](SoupLabel.md)[]; `participants`: [`SoupContact`](SoupContact.md)[]; \}
 
 Email thread preview enriched with related metadata for Soup.
 

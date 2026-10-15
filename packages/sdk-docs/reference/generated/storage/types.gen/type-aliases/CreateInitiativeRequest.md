@@ -1,6 +1,6 @@
 # Type Alias: CreateInitiativeRequest
 
-> **CreateInitiativeRequest** = `object`
+> **CreateInitiativeRequest** = \{ `description?`: `string` \| `null`; `memberIds?`: `string`[] \| `null`; `name`: `string`; `propertyValues?`: [`InitialPropertyValue`](InitialPropertyValue.md)[]; `shareWithTeam?`: `boolean` \| `null`; \}
 
 Create-initiative HTTP body.
 

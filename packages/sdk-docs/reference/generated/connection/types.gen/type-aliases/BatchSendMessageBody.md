@@ -1,6 +1,6 @@
 # Type Alias: BatchSendMessageBody
 
-> **BatchSendMessageBody** = `object`
+> **BatchSendMessageBody** = \{ `entities`: [`Entity`](Entity.md)[]; `message`: `unknown`; `message_type`: `string`; \}
 
 The body of a batch send message request.
 

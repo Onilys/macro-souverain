@@ -1,6 +1,6 @@
 # Type Alias: GetCitationHandlerResponses
 
-> **GetCitationHandlerResponses** = `object`
+> **GetCitationHandlerResponses** = \{ `200`: [`DocumentTextPart`](DocumentTextPart.md); \}
 
 ## Properties
 

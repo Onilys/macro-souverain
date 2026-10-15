@@ -1,6 +1,6 @@
 # Type Alias: PreviewAgentSessionsErrors
 
-> **PreviewAgentSessionsErrors** = `object`
+> **PreviewAgentSessionsErrors** = \{ `400`: `string`; `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

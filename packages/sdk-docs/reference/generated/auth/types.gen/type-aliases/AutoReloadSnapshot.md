@@ -1,6 +1,6 @@
 # Type Alias: AutoReloadSnapshot
 
-> **AutoReloadSnapshot** = `object`
+> **AutoReloadSnapshot** = \{ `active`: `boolean`; `minimum_balance_cents`: `number`; `monthly_budget?`: `null` \| [`AutoReloadMonthlyBudget`](AutoReloadMonthlyBudget.md); `monthly_spend_limit_cents?`: `number` \| `null`; `suspended`: `boolean`; `target_balance_cents`: `number`; \}
 
 The payer's automatic reload settings, as shown in Billing settings.
 

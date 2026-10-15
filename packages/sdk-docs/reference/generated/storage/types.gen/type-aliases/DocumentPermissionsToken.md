@@ -1,6 +1,6 @@
 # Type Alias: DocumentPermissionsToken
 
-> **DocumentPermissionsToken** = `object`
+> **DocumentPermissionsToken** = \{ `access_level`: [`AccessLevel`](AccessLevel.md); `document_id`: `string`; `exp`: `number`; `iss`: `string`; `user_id?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); \}
 
 ## Properties
 

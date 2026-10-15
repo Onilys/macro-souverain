@@ -1,6 +1,6 @@
 # Type Alias: ChangePlanData
 
-> **ChangePlanData** = `object`
+> **ChangePlanData** = \{ `body`: [`ChangePlanRequest`](ChangePlanRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/stripe/plan"`; \}
 
 ## Properties
 

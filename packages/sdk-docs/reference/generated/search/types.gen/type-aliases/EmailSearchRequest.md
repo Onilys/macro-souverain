@@ -1,6 +1,6 @@
 # Type Alias: EmailSearchRequest
 
-> **EmailSearchRequest** = `null` \| [`EmailFilters`](EmailFilters.md) & `object`
+> **EmailSearchRequest** = `null` \| [`EmailFilters`](EmailFilters.md) & \{ `collapse?`: `boolean` \| `null`; `match_type`: [`MatchType`](MatchType.md); `query?`: `string` \| `null`; `search_on?`: [`SearchOn`](SearchOn.md); `terms?`: `string`[] \| `null`; \}
 
 ## Type Declaration
 

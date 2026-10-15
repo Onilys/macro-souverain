@@ -1,6 +1,6 @@
 # Type Alias: GetScheduledActionErrors
 
-> **GetScheduledActionErrors** = `object`
+> **GetScheduledActionErrors** = \{ `401`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

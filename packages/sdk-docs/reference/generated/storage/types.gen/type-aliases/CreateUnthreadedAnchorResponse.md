@@ -1,6 +1,6 @@
 # Type Alias: CreateUnthreadedAnchorResponse
 
-> **CreateUnthreadedAnchorResponse** = [`Anchor`](Anchor.md) & `object`
+> **CreateUnthreadedAnchorResponse** = [`Anchor`](Anchor.md) & \{ `documentId`: `string`; \}
 
 ## Type Declaration
 

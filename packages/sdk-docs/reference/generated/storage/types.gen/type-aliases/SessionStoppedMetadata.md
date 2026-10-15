@@ -1,6 +1,6 @@
 # Type Alias: SessionStoppedMetadata
 
-> **SessionStoppedMetadata** = `object`
+> **SessionStoppedMetadata** = \{ `identity`: [`SessionIdentity`](SessionIdentity.md); `reason`: `string`; `turn_in_flight?`: `null` \| [`InFlightTurnSummary`](InFlightTurnSummary.md); \}
 
 The session's live actor is gone: idle teardown, transport loss, or crash.
 

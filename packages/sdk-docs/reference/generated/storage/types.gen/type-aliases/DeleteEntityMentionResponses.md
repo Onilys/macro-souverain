@@ -1,6 +1,6 @@
 # Type Alias: DeleteEntityMentionResponses
 
-> **DeleteEntityMentionResponses** = `object`
+> **DeleteEntityMentionResponses** = \{ `200`: [`DeleteEntityMentionResponse`](DeleteEntityMentionResponse.md); \}
 
 ## Properties
 

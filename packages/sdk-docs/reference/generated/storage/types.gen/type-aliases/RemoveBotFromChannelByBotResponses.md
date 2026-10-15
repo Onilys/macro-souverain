@@ -1,6 +1,6 @@
 # Type Alias: RemoveBotFromChannelByBotResponses
 
-> **RemoveBotFromChannelByBotResponses** = `object`
+> **RemoveBotFromChannelByBotResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

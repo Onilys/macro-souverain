@@ -1,6 +1,6 @@
 # Type Alias: InvitationParticipant
 
-> **InvitationParticipant** = `object`
+> **InvitationParticipant** = \{ `email`: `string`; `name?`: `string` \| `null`; `participation_status?`: `string` \| `null`; \}
 
 Scheduling participant; saved responses are historical, not current RSVP.
 

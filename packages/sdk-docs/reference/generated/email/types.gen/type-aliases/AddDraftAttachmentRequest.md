@@ -1,6 +1,6 @@
 # Type Alias: AddDraftAttachmentRequest
 
-> **AddDraftAttachmentRequest** = `object`
+> **AddDraftAttachmentRequest** = \{ `file_name`: `string`; `sha`: `string`; `size`: `number`; \}
 
 The request passed to send a message
 

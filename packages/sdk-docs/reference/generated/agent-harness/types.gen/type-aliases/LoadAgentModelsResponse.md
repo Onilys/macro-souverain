@@ -1,6 +1,6 @@
 # Type Alias: LoadAgentModelsResponse
 
-> **LoadAgentModelsResponse** = `object`
+> **LoadAgentModelsResponse** = \{ `currentModel?`: `string` \| `null`; `models`: [`AgentModelDto`](AgentModelDto.md)[]; `status`: [`AgentModelsStatusDto`](AgentModelsStatusDto.md); \}
 
 Successful model-discovery response.
 

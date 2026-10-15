@@ -1,6 +1,6 @@
 # Type Alias: SoupProperty
 
-> **SoupProperty** = `object`
+> **SoupProperty** = \{ `definition`: [`PropertyDefinition`](PropertyDefinition.md); `id`: `string`; `value?`: `null` \| [`PropertyValue`](PropertyValue.md); \}
 
 A property attached to a Soup item.
 

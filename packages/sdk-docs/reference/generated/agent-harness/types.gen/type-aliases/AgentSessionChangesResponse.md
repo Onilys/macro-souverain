@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionChangesResponse
 
-> **AgentSessionChangesResponse** = `object`
+> **AgentSessionChangesResponse** = \{ `attempt?`: `null` \| [`CaptureAttemptDto`](CaptureAttemptDto.md); `capturing`: `boolean`; `changeset?`: `null` \| [`ChangesetDto`](ChangesetDto.md); \}
 
 Response body for `GET /agent-sessions/{session_id}/changes`.
 

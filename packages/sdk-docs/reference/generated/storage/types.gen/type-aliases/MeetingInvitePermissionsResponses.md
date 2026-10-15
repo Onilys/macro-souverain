@@ -1,6 +1,6 @@
 # Type Alias: MeetingInvitePermissionsResponses
 
-> **MeetingInvitePermissionsResponses** = `object`
+> **MeetingInvitePermissionsResponses** = \{ `200`: [`MeetingInvitePermissions`](MeetingInvitePermissions.md); \}
 
 ## Properties
 

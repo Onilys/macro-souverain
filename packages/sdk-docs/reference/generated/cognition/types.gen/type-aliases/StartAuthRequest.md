@@ -1,6 +1,6 @@
 # Type Alias: StartAuthRequest
 
-> **StartAuthRequest** = `object`
+> **StartAuthRequest** = \{ `server_name`: `string`; `server_url`: `string`; \}
 
 Request body for starting an OAuth authorization flow.
 

@@ -1,6 +1,6 @@
 # Type Alias: UpsertUserDocumentViewLocationErrors
 
-> **UpsertUserDocumentViewLocationErrors** = `object`
+> **UpsertUserDocumentViewLocationErrors** = \{ `400`: [`GenericErrorResponse`](GenericErrorResponse.md); `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

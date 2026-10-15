@@ -1,6 +1,6 @@
 # Type Alias: EditPdfPlaceableCommentAnchorRequest
 
-> **EditPdfPlaceableCommentAnchorRequest** = `object`
+> **EditPdfPlaceableCommentAnchorRequest** = \{ `allowableEdits?`: `unknown`; `heightPct?`: `number` \| `null`; `originalIndex?`: `number` \| `null`; `originalPage?`: `number` \| `null`; `page?`: `number` \| `null`; `rotation?`: `number` \| `null`; `shouldLockOnSave?`: `boolean` \| `null`; `uuid`: `string`; `wasDeleted?`: `boolean` \| `null`; `wasEdited?`: `boolean` \| `null`; `widthPct?`: `number` \| `null`; `xPct?`: `number` \| `null`; `yPct?`: `number` \| `null`; \}
 
 ## Properties
 

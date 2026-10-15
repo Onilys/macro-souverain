@@ -1,6 +1,6 @@
 # Type Alias: PreviewAgentSessionsRequest
 
-> **PreviewAgentSessionsRequest** = `object`
+> **PreviewAgentSessionsRequest** = \{ `sessionIds`: `string`[]; \}
 
 Request body for `POST /agent-sessions/preview`.
 

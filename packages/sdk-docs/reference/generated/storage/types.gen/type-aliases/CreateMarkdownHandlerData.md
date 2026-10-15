@@ -1,6 +1,6 @@
 # Type Alias: CreateMarkdownHandlerData
 
-> **CreateMarkdownHandlerData** = `object`
+> **CreateMarkdownHandlerData** = \{ `body`: [`CreateMarkdownDocumentRequest`](CreateMarkdownDocumentRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents/create_markdown"`; \}
 
 ## Properties
 

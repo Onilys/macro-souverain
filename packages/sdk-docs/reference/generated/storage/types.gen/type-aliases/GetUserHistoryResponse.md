@@ -1,6 +1,6 @@
 # Type Alias: GetUserHistoryResponse
 
-> **GetUserHistoryResponse** = `object`
+> **GetUserHistoryResponse** = \{ `data`: [`Item`](Item.md)[]; `error`: `boolean`; \}
 
 ## Properties
 

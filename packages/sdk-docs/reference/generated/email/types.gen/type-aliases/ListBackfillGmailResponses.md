@@ -1,6 +1,6 @@
 # Type Alias: ListBackfillGmailResponses
 
-> **ListBackfillGmailResponses** = `object`
+> **ListBackfillGmailResponses** = \{ `200`: [`ListBackfillJobsResponse`](ListBackfillJobsResponse.md); \}
 
 ## Properties
 

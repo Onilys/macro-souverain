@@ -1,6 +1,6 @@
 # Type Alias: GroupedSoupInitialPage
 
-> **GroupedSoupInitialPage** = `object`
+> **GroupedSoupInitialPage** = \{ `groups`: [`ApiGroupMeta`](ApiGroupMeta.md)[]; `items`: \{\[`key`: `string`\]: [`SoupApiItem`](SoupApiItem.md); \}; \}
 
 Response for the initial grouped soup query.
 
@@ -12,4 +12,4 @@ describes the ordered membership of one group.
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="property-groups"></a> `groups` | [`ApiGroupMeta`](ApiGroupMeta.md)[] | Ordered group metadata for this grouped response. |
-| <a id="property-items"></a> `items` | `object` | Items in this page, keyed by id. Ordering lives in `groups[].item_ids`. |
+| <a id="property-items"></a> `items` | \{\[`key`: `string`\]: [`SoupApiItem`](SoupApiItem.md); \} | Items in this page, keyed by id. Ordering lives in `groups[].item_ids`. |

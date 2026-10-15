@@ -1,6 +1,6 @@
 # Type Alias: SendChatMessageErrors
 
-> **SendChatMessageErrors** = `object`
+> **SendChatMessageErrors** = \{ `400`: [`ChatMessageError`](ChatMessageError.md); `401`: `unknown`; `402`: [`ChatMessageError`](ChatMessageError.md); `403`: [`ChatMessageError`](ChatMessageError.md); `503`: [`ChatMessageError`](ChatMessageError.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CopyDocumentRequest
 
-> **CopyDocumentRequest** = `object`
+> **CopyDocumentRequest** = \{ `documentName`: `string`; `versionId?`: `null` \| [`SyncServiceVersionId`](SyncServiceVersionId.md); \}
 
 Request body for copying a document.
 

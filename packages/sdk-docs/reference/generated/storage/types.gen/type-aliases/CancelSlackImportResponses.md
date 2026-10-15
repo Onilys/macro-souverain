@@ -1,6 +1,6 @@
 # Type Alias: CancelSlackImportResponses
 
-> **CancelSlackImportResponses** = `object`
+> **CancelSlackImportResponses** = \{ `200`: [`ImportProgress`](ImportProgress.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: InFlightTurnSummary
 
-> **InFlightTurnSummary** = `object`
+> **InFlightTurnSummary** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `actor?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `announcement_message_id?`: `string` \| `null`; `turn`: `number`; \}
 
 A turn the runtime never answered: the session stopped underneath it.
 

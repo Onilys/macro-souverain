@@ -1,6 +1,6 @@
 # Type Alias: CalendarMutationApiError
 
-> **CalendarMutationApiError** = `object`
+> **CalendarMutationApiError** = \{ `code`: [`CalendarMutationErrorCode`](CalendarMutationErrorCode.md); `message`: `string`; \}
 
 HTTP error body returned by calendar mutation endpoints.
 

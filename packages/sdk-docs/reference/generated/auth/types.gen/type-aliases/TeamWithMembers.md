@@ -1,6 +1,6 @@
 # Type Alias: TeamWithMembers
 
-> **TeamWithMembers** = `object`
+> **TeamWithMembers** = \{ `members`: [`TeamMember`](TeamMember.md)[]; `scheduled_seat_plans?`: \{\[`key`: `string`\]: [`ScheduledSeatPlan`](ScheduledSeatPlan.md); \} \| `null`; `team`: [`Team`](Team.md); \}
 
 A team with its members
 

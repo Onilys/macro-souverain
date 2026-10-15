@@ -285,11 +285,11 @@ value when `value` is omitted.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`CrmCompanyResponse`](../../../../../generated/storage/types.gen/type-aliases/CrmCompanyResponse.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`CrmCompanyResponse`](../../../../../generated/storage/types.gen/type-aliases/CrmCompanyResponse.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

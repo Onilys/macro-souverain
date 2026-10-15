@@ -1,6 +1,6 @@
 # Type Alias: CreateCheckoutSessionV2Data
 
-> **CreateCheckoutSessionV2Data** = `object`
+> **CreateCheckoutSessionV2Data** = \{ `body`: [`CreateCheckoutSessionV2Request`](CreateCheckoutSessionV2Request.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/stripe/checkoutv2"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: JobProcessingResultHandlerResponses
 
-> **JobProcessingResultHandlerResponses** = `object`
+> **JobProcessingResultHandlerResponses** = \{ `200`: [`GetDocumentProcessingResultResponse`](GetDocumentProcessingResultResponse.md); \}
 
 ## Properties
 

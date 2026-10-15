@@ -1,6 +1,6 @@
 # Type Alias: EmailSearchResult
 
-> **EmailSearchResult** = `object`
+> **EmailSearchResult** = \{ `bcc`: `string`[]; `cc`: `string`[]; `highlight`: [`SearchHighlight`](SearchHighlight.md); `labels`: `string`[]; `message_id?`: `string` \| `null`; `pretty_sender`: `string`; `recipients`: `string`[]; `score?`: `number` \| `null`; `sender`: `string`; `sent_at?`: `string` \| `null`; \}
 
 A email message match for a given thread id
 

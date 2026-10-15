@@ -1,6 +1,6 @@
 # Type Alias: ToggleNonAdminInvitesResponse
 
-> **ToggleNonAdminInvitesResponse** = `object`
+> **ToggleNonAdminInvitesResponse** = \{ `allow_non_admin_invites`: `boolean`; \}
 
 Response for the toggle non-admin invites endpoint.
 

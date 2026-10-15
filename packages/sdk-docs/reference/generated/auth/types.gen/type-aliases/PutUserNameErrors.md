@@ -1,6 +1,6 @@
 # Type Alias: PutUserNameErrors
 
-> **PutUserNameErrors** = `object`
+> **PutUserNameErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

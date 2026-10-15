@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelScopedBotRequest
 
-> **CreateChannelScopedBotRequest** = `object`
+> **CreateChannelScopedBotRequest** = \{ `avatar_url?`: `string` \| `null`; `description?`: `string` \| `null`; `handle`: `string`; `has_agent?`: `boolean` \| `null`; `name`: `string`; `team_id?`: `string` \| `null`; `token_expires_at?`: `string` \| `null`; `token_label?`: `string` \| `null`; \}
 
 Request to create a bot scoped to a channel.
 

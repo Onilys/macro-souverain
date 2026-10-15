@@ -1,6 +1,6 @@
 # Type Alias: ExecutionResource
 
-> **ExecutionResource** = `object`
+> **ExecutionResource** = \{ `id`: `string`; `type`: [`ExecutionResourceType`](ExecutionResourceType.md); \}
 
 Transcript resource created by a run. Never infer this from current task configuration.
 

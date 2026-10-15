@@ -1,6 +1,6 @@
 # Type Alias: GetProjectContentHandlerResponses
 
-> **GetProjectContentHandlerResponses** = `object`
+> **GetProjectContentHandlerResponses** = \{ `200`: [`GetProjectContentResponse`](GetProjectContentResponse.md); \}
 
 ## Properties
 

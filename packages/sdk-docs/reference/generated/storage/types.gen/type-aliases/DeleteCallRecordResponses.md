@@ -1,6 +1,6 @@
 # Type Alias: DeleteCallRecordResponses
 
-> **DeleteCallRecordResponses** = `object`
+> **DeleteCallRecordResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

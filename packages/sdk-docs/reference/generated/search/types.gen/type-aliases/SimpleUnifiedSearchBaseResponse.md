@@ -1,6 +1,6 @@
 # Type Alias: SimpleUnifiedSearchBaseResponse
 
-> **SimpleUnifiedSearchBaseResponse** = `object`
+> **SimpleUnifiedSearchBaseResponse** = \{ `results`: [`SimpleUnifiedSearchResponseBaseItemHumanReadableTimestamp`](SimpleUnifiedSearchResponseBaseItemHumanReadableTimestamp.md)[]; \}
 
 ## Properties
 

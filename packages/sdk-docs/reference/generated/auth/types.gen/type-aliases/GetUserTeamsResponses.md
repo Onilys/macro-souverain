@@ -1,6 +1,6 @@
 # Type Alias: GetUserTeamsResponses
 
-> **GetUserTeamsResponses** = `object`
+> **GetUserTeamsResponses** = \{ `200`: [`Team`](Team.md)[]; \}
 
 ## Properties
 

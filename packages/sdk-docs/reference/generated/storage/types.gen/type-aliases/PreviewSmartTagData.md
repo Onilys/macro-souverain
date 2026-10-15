@@ -1,6 +1,6 @@
 # Type Alias: PreviewSmartTagData
 
-> **PreviewSmartTagData** = `object`
+> **PreviewSmartTagData** = \{ `body`: [`ChannelLabelRule`](ChannelLabelRule.md); `path?`: `never`; `query?`: `never`; `url`: `"/channel-labels/preview"`; \}
 
 ## Properties
 

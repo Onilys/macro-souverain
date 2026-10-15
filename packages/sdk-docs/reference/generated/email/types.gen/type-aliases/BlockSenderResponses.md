@@ -1,6 +1,6 @@
 # Type Alias: BlockSenderResponses
 
-> **BlockSenderResponses** = `object`
+> **BlockSenderResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

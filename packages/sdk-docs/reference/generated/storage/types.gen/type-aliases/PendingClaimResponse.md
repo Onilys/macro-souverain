@@ -1,6 +1,6 @@
 # Type Alias: PendingClaimResponse
 
-> **PendingClaimResponse** = `object`
+> **PendingClaimResponse** = \{ `status`: `string`; \}
 
 Body returned while a claim is still waiting for approval.
 

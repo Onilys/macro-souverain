@@ -1,6 +1,6 @@
 # Type Alias: PropertyDefinition
 
-> **PropertyDefinition** = `object`
+> **PropertyDefinition** = \{ `created_at`: `string`; `data_type`: [`DataType`](DataType.md); `display_name`: `string`; `id`: `string`; `is_metadata`: `boolean`; `is_multi_select`: `boolean`; `is_system`: `boolean`; `owner`: [`PropertyOwner`](PropertyOwner.md); `specific_entity_type`: `null` \| [`EntityType`](EntityType.md); `updated_at`: `string`; \}
 
 Property definition model (service representation).
 

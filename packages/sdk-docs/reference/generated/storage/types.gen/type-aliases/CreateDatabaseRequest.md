@@ -1,6 +1,6 @@
 # Type Alias: CreateDatabaseRequest
 
-> **CreateDatabaseRequest** = `object`
+> **CreateDatabaseRequest** = \{ `name`: `string`; \}
 
 Request body for creating a database.
 

@@ -1,6 +1,6 @@
 # Type Alias: CrmStageInput
 
-> **CrmStageInput** = `object`
+> **CrmStageInput** = \{ `id?`: `string` \| `null`; `label`: `string`; \}
 
 One stage in a `PUT /crm/stages` body.
 

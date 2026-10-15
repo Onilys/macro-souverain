@@ -1,6 +1,6 @@
 # Type Alias: PatchUserGroupData
 
-> **PatchUserGroupData** = `object`
+> **PatchUserGroupData** = \{ `body`: [`PatchUserGroupRequest`](PatchUserGroupRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/group"`; \}
 
 ## Properties
 

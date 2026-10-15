@@ -1,6 +1,6 @@
 # Type Alias: DeleteTeamResponses
 
-> **DeleteTeamResponses** = `object`
+> **DeleteTeamResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

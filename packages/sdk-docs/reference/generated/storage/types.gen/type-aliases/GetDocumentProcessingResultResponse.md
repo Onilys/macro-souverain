@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentProcessingResultResponse
 
-> **GetDocumentProcessingResultResponse** = `object`
+> **GetDocumentProcessingResultResponse** = \{ `data?`: `null` \| [`GetDocumentProcessingResult`](GetDocumentProcessingResult.md); `error`: `boolean`; `message?`: `string` \| `null`; \}
 
 ## Properties
 

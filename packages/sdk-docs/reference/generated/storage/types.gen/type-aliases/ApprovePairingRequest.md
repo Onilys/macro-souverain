@@ -1,6 +1,6 @@
 # Type Alias: ApprovePairingRequest
 
-> **ApprovePairingRequest** = `object`
+> **ApprovePairingRequest** = \{ `allow_permission_bypass?`: `boolean`; `name?`: `string` \| `null`; `team_id?`: `string` \| `null`; \}
 
 Request to approve a pairing and register the harness.
 

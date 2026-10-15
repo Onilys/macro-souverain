@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionSearchResult
 
-> **AgentSessionSearchResult** = `object`
+> **AgentSessionSearchResult** = \{ `goto?`: `null` \| [`SearchGotoAgentSession`](SearchGotoAgentSession.md); `highlight`: [`SearchHighlight`](SearchHighlight.md); `score?`: `number` \| `null`; \}
 
 A name match or one matching folded message.
 

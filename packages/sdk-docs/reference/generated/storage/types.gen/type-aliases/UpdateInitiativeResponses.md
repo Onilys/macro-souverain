@@ -1,6 +1,6 @@
 # Type Alias: UpdateInitiativeResponses
 
-> **UpdateInitiativeResponses** = `object`
+> **UpdateInitiativeResponses** = \{ `200`: [`InitiativeDetail`](InitiativeDetail.md); \}
 
 ## Properties
 

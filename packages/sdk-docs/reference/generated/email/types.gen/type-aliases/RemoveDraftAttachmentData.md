@@ -1,13 +1,13 @@
 # Type Alias: RemoveDraftAttachmentData
 
-> **RemoveDraftAttachmentData** = `object`
+> **RemoveDraftAttachmentData** = \{ `body?`: `never`; `path`: \{ `attachment_id`: `string`; `id`: `string`; \}; `query?`: `never`; `url`: `"/email/drafts/{id}/attachments/{attachment_id}"`; \}
 
 ## Properties
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="property-body"></a> `body?` | `never` | - |
-| <a id="property-path"></a> `path` | `object` | - |
+| <a id="property-path"></a> `path` | \{ `attachment_id`: `string`; `id`: `string`; \} | - |
 | `path.attachment_id` | `string` | The ID of the attachment to remove. |
 | `path.id` | `string` | The ID of the draft to remove the attachment from. |
 | <a id="property-query"></a> `query?` | `never` | - |

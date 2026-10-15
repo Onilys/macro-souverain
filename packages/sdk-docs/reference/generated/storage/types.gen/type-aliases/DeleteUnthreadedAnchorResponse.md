@@ -1,6 +1,6 @@
 # Type Alias: DeleteUnthreadedAnchorResponse
 
-> **DeleteUnthreadedAnchorResponse** = [`AnchorId`](AnchorId.md) & `object`
+> **DeleteUnthreadedAnchorResponse** = [`AnchorId`](AnchorId.md) & \{ `documentId`: `string`; `rootId?`: `string` \| `null`; \}
 
 ## Type Declaration
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdateFormResponses
 
-> **UpdateFormResponses** = `object`
+> **UpdateFormResponses** = \{ `200`: [`Form`](Form.md); \}
 
 ## Properties
 

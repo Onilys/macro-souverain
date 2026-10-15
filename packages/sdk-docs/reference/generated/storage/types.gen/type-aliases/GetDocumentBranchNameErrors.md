@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentBranchNameErrors
 
-> **GetDocumentBranchNameErrors** = `object`
+> **GetDocumentBranchNameErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

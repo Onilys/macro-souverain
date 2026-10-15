@@ -1,6 +1,6 @@
 # Type Alias: CollabSurfaceTokenResponse
 
-> **CollabSurfaceTokenResponse** = `object`
+> **CollabSurfaceTokenResponse** = \{ `token`: `string`; \}
 
 Response carrying a freshly minted sync-service connection token.
 

@@ -1,6 +1,6 @@
 # Type Alias: CallRecord
 
-> **CallRecord** = `object`
+> **CallRecord** = \{ `callId`: `string`; `channelId?`: `string` \| `null`; `channelName?`: `string` \| `null`; `createdBy`: `string`; `customName?`: `string` \| `null`; `durationMs?`: `number` \| `null`; `egressId?`: `string` \| `null`; `endedAt?`: `string` \| `null`; `guests`: [`CallRecordGuest`](CallRecordGuest.md)[]; `isActive`: `boolean`; `participants`: [`CallRecordParticipant`](CallRecordParticipant.md)[]; `recordingPreviewUrl?`: `string` \| `null`; `recordingStartedAt?`: `string` \| `null`; `recordingUrl?`: `string` \| `null`; `roomName`: `string`; `shareWithTeam`: `boolean`; `startedAt`: `string`; `status?`: `null` \| [`CallStatus`](CallStatus.md); `summary?`: `string` \| `null`; `teamShareAccessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); `transcript`: [`CallRecordTranscriptSegment`](CallRecordTranscriptSegment.md)[]; `userAccessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); `viewerHasDeclined?`: `boolean`; \}
 
 Full record of a call, unifying rows from `calls` (active) and
 `call_records` (archived) into a single response shape.

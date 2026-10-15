@@ -1,6 +1,6 @@
 # Type Alias: ListAgentSessionPullRequestsErrors
 
-> **ListAgentSessionPullRequestsErrors** = `object`
+> **ListAgentSessionPullRequestsErrors** = \{ `401`: `string`; `403`: `string`; `500`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: Team
 
-> **Team** = `object`
+> **Team** = \{ `allow_non_admin_invites`: `boolean`; `auto_join_domain?`: `string` \| `null`; `crm_enabled`: `boolean`; `default_link_share?`: `null` \| [`LinkShare`](LinkShare.md); `enterprise`: `boolean`; `id`: `string`; `name`: `string`; `owner_id`: `string`; `slug`: `string`; \}
 
 The Team struct
 

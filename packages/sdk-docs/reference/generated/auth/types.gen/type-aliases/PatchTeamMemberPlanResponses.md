@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamMemberPlanResponses
 
-> **PatchTeamMemberPlanResponses** = `object`
+> **PatchTeamMemberPlanResponses** = \{ `200`: [`TeamMember`](TeamMember.md); \}
 
 ## Properties
 

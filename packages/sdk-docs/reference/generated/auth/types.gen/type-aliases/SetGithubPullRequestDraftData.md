@@ -1,6 +1,6 @@
 # Type Alias: SetGithubPullRequestDraftData
 
-> **SetGithubPullRequestDraftData** = `object`
+> **SetGithubPullRequestDraftData** = \{ `body`: [`SetGithubPullRequestDraftRequest`](SetGithubPullRequestDraftRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/github_pull_requests/draft"`; \}
 
 ## Properties
 

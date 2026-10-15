@@ -1,6 +1,6 @@
 # Type Alias: GetBatchProjectPreviewResponse
 
-> **GetBatchProjectPreviewResponse** = `object`
+> **GetBatchProjectPreviewResponse** = \{ `previews`: [`ProjectPreview`](ProjectPreview.md)[]; \}
 
 ## Properties
 

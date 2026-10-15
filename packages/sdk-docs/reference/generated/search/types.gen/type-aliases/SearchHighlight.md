@@ -1,6 +1,6 @@
 # Type Alias: SearchHighlight
 
-> **SearchHighlight** = `object`
+> **SearchHighlight** = \{ `bcc?`: `string`[]; `cc?`: `string`[]; `content?`: `string`[]; `name?`: `string` \| `null`; `recipients?`: `string`[]; `sender?`: `string` \| `null`; `user_id?`: `string` \| `null`; \}
 
 ## Properties
 

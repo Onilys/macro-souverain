@@ -1,13 +1,13 @@
 # Type Alias: JobProcessingResultHandlerData
 
-> **JobProcessingResultHandlerData** = `object`
+> **JobProcessingResultHandlerData** = \{ `body?`: `never`; `path`: \{ `document_id`: `string`; `job_id`: `string`; \}; `query?`: `never`; `url`: `"/documents/{document_id}/processing/{job_id}"`; \}
 
 ## Properties
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="property-body"></a> `body?` | `never` | - |
-| <a id="property-path"></a> `path` | `object` | - |
+| <a id="property-path"></a> `path` | \{ `document_id`: `string`; `job_id`: `string`; \} | - |
 | `path.document_id` | `string` | Document ID |
 | `path.job_id` | `string` | Job ID |
 | <a id="property-query"></a> `query?` | `never` | - |

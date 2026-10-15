@@ -1,6 +1,6 @@
 # Type Alias: SkippedCell
 
-> **SkippedCell** = `object`
+> **SkippedCell** = \{ `by`: `string` \| `null`; `column`: `string`; `row`: `string`; \}
 
 A cell an undo left alone, because someone changed it after the change
 being undone.

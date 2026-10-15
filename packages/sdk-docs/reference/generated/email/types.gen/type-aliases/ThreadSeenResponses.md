@@ -1,6 +1,6 @@
 # Type Alias: ThreadSeenResponses
 
-> **ThreadSeenResponses** = `object`
+> **ThreadSeenResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

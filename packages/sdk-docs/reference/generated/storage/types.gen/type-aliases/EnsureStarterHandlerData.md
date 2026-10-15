@@ -1,6 +1,6 @@
 # Type Alias: EnsureStarterHandlerData
 
-> **EnsureStarterHandlerData** = `object`
+> **EnsureStarterHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/databases/starter"`; \}
 
 ## Properties
 

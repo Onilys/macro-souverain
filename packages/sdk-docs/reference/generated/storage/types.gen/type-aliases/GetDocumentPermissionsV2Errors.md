@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentPermissionsV2Errors
 
-> **GetDocumentPermissionsV2Errors** = `object`
+> **GetDocumentPermissionsV2Errors** = \{ `404`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

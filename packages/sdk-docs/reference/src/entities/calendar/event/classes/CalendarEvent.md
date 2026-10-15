@@ -83,11 +83,11 @@ Record the requester's RSVP and return a handle to the synced record.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`CalendarEvent`](../../../../../generated/calendar/types.gen/type-aliases/CalendarEvent.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`CalendarEvent`](../../../../../generated/calendar/types.gen/type-aliases/CalendarEvent.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

@@ -1,6 +1,6 @@
 # Type Alias: DocumentSearchResult
 
-> **DocumentSearchResult** = `object`
+> **DocumentSearchResult** = \{ `highlight`: [`SearchHighlight`](SearchHighlight.md); `node_id?`: `string` \| `null`; `raw_content?`: `string` \| `null`; `score?`: `number` \| `null`; \}
 
 A document match for a given node
 

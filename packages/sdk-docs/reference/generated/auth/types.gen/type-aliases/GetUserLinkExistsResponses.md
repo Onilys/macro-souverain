@@ -1,6 +1,6 @@
 # Type Alias: GetUserLinkExistsResponses
 
-> **GetUserLinkExistsResponses** = `object`
+> **GetUserLinkExistsResponses** = \{ `200`: [`UserLinkResponse`](UserLinkResponse.md); \}
 
 ## Properties
 

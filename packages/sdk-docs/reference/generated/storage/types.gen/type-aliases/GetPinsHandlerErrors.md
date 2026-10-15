@@ -1,6 +1,6 @@
 # Type Alias: GetPinsHandlerErrors
 
-> **GetPinsHandlerErrors** = `object`
+> **GetPinsHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

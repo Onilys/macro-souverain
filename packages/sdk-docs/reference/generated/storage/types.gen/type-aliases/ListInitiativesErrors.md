@@ -1,6 +1,6 @@
 # Type Alias: ListInitiativesErrors
 
-> **ListInitiativesErrors** = `object`
+> **ListInitiativesErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SelectNumberOption
 
-> **SelectNumberOption** = `object`
+> **SelectNumberOption** = \{ `display_order`: `number`; `value`: `number`; \}
 
 Option for select number properties in requests.
 

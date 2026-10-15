@@ -1,6 +1,6 @@
 # Type Alias: PromoteTagResponses
 
-> **PromoteTagResponses** = `object`
+> **PromoteTagResponses** = \{ `200`: [`PropertyOptionResponse`](PropertyOptionResponse.md); \}
 
 ## Properties
 

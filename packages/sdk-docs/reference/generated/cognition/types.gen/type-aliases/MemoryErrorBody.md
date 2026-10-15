@@ -1,6 +1,6 @@
 # Type Alias: MemoryErrorBody
 
-> **MemoryErrorBody** = `object`
+> **MemoryErrorBody** = \{ `error`: `string`; \}
 
 ## Properties
 

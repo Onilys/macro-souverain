@@ -1,6 +1,6 @@
 # Type Alias: WaitingForInputMetadata
 
-> **WaitingForInputMetadata** = `object`
+> **WaitingForInputMetadata** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `announcement_message_id?`: `string` \| `null`; `identity`: [`SessionIdentity`](SessionIdentity.md); `question`: `string`; `turn`: `number`; \}
 
 The agent asked its owner a question and is blocked on the answer.
 

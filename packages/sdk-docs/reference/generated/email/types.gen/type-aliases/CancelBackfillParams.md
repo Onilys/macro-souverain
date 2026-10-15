@@ -1,6 +1,6 @@
 # Type Alias: CancelBackfillParams
 
-> **CancelBackfillParams** = `object`
+> **CancelBackfillParams** = \{ `job_id`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SimpleChatSearchResponse
 
-> **SimpleChatSearchResponse** = `object`
+> **SimpleChatSearchResponse** = \{ `results`: [`SimpleChatSearchResponseBaseItem`](SimpleChatSearchResponseBaseItem.md)[]; \}
 
 ## Properties
 

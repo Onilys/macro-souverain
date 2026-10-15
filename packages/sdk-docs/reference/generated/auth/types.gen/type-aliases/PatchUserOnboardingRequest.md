@@ -1,6 +1,6 @@
 # Type Alias: PatchUserOnboardingRequest
 
-> **PatchUserOnboardingRequest** = `object`
+> **PatchUserOnboardingRequest** = \{ `firstName`: `string`; `industry`: `string`; `lastName`: `string`; `title`: `string`; \}
 
 ## Properties
 

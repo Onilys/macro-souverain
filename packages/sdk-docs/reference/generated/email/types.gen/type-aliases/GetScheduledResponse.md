@@ -1,6 +1,6 @@
 # Type Alias: GetScheduledResponse
 
-> **GetScheduledResponse** = `object`
+> **GetScheduledResponse** = \{ `messages`: [`Message`](Message.md)[]; \}
 
 ## Properties
 

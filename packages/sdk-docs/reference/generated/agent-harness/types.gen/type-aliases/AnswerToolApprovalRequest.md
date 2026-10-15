@@ -1,6 +1,6 @@
 # Type Alias: AnswerToolApprovalRequest
 
-> **AnswerToolApprovalRequest** = `object`
+> **AnswerToolApprovalRequest** = \{ `answer`: [`ToolApprovalAnswerDto`](ToolApprovalAnswerDto.md); \}
 
 Request body for answering a held tool call.
 

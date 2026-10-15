@@ -1,6 +1,6 @@
 # Type Alias: CreateUnthreadedPdfAnchorRequest
 
-> **CreateUnthreadedPdfAnchorRequest** = [`PdfHighlightAnchorRequest`](PdfHighlightAnchorRequest.md) & `object`
+> **CreateUnthreadedPdfAnchorRequest** = [`PdfHighlightAnchorRequest`](PdfHighlightAnchorRequest.md) & \{ `anchorType`: `"highlight"`; \}
 
 ## Type Declaration
 

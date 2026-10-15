@@ -1,6 +1,6 @@
 # Type Alias: TeamInvitesResponse
 
-> **TeamInvitesResponse** = `object`
+> **TeamInvitesResponse** = \{ `invites`: [`TeamInviteDetails`](TeamInviteDetails.md)[]; \}
 
 Response containing a list of team invites
 

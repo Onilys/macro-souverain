@@ -1,6 +1,6 @@
 # Type Alias: HealthCheckLinksData
 
-> **HealthCheckLinksData** = `object`
+> **HealthCheckLinksData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/email/links/health-check"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ApiMessage
 
-> **ApiMessage** = `object`
+> **ApiMessage** = \{ `attachments`: [`ApiMessageAttachment`](ApiMessageAttachment.md)[]; `attachments_draft`: [`ApiAttachmentDraft`](ApiAttachmentDraft.md)[]; `attachments_forwarded`: [`ApiAttachmentForwarded`](ApiAttachmentForwarded.md)[]; `bcc`: [`ApiContactInfo`](ApiContactInfo.md)[]; `body_html_sanitized?`: `string` \| `null`; `body_macro?`: `string` \| `null`; `body_replyless?`: `string` \| `null`; `body_text?`: `string` \| `null`; `calendar_invitations?`: [`CalendarInvitation`](CalendarInvitation.md)[]; `cc`: [`ApiContactInfo`](ApiContactInfo.md)[]; `created_at`: `string`; `db_id`: `string`; `from?`: `null` \| [`ApiContactInfo`](ApiContactInfo.md); `global_id?`: `string` \| `null`; `has_attachments`: `boolean`; `headers_json?`: `unknown`; `internal_date_ts?`: `string` \| `null`; `is_draft`: `boolean`; `is_read`: `boolean`; `is_sent`: `boolean`; `is_starred`: `boolean`; `labels`: [`ApiMessageLabel`](ApiMessageLabel.md)[]; `link_id`: `string`; `provider_history_id?`: `string` \| `null`; `provider_id?`: `string` \| `null`; `provider_thread_id?`: `string` \| `null`; `replying_to_id?`: `string` \| `null`; `scheduled_send_time?`: `string` \| `null`; `sent_at?`: `string` \| `null`; `size_estimate?`: `number` \| `null`; `snippet?`: `string` \| `null`; `subject?`: `string` \| `null`; `thread_db_id`: `string`; `to`: [`ApiContactInfo`](ApiContactInfo.md)[]; `updated_at`: `string`; \}
 
 API representation of a fully assembled email message.
 

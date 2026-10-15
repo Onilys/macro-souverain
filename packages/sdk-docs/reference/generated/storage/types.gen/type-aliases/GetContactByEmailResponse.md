@@ -1,6 +1,6 @@
 # Type Alias: GetContactByEmailResponse
 
-> **GetContactByEmailResponse** = `object`
+> **GetContactByEmailResponse** = \{ `contact?`: `null` \| [`CrmContactResponse`](CrmContactResponse.md); \}
 
 Response from looking up a CRM contact by email.
 

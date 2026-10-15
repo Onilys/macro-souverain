@@ -1,6 +1,6 @@
 # Type Alias: GetPinsResponse
 
-> **GetPinsResponse** = `object`
+> **GetPinsResponse** = \{ `data?`: `null` \| [`UserPinsResponse`](UserPinsResponse.md); `error`: `boolean`; \}
 
 ## Properties
 

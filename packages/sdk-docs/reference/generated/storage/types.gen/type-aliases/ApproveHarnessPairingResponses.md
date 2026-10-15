@@ -1,6 +1,6 @@
 # Type Alias: ApproveHarnessPairingResponses
 
-> **ApproveHarnessPairingResponses** = `object`
+> **ApproveHarnessPairingResponses** = \{ `200`: [`Harness`](Harness.md); \}
 
 ## Properties
 

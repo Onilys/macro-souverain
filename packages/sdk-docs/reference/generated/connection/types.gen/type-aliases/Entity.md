@@ -1,6 +1,6 @@
 # Type Alias: Entity
 
-> **Entity** = `object`
+> **Entity** = \{ `entity_id`: `string`; `entity_type`: [`EntityType`](EntityType.md); \}
 
 The Entity describes the minimum amount of information required to describe a unique thing in Macro
 This contains the type of the entity [EntityType] and the string id of that entity

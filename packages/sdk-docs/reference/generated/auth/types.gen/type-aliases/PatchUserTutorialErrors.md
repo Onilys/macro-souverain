@@ -1,6 +1,6 @@
 # Type Alias: PatchUserTutorialErrors
 
-> **PatchUserTutorialErrors** = `object`
+> **PatchUserTutorialErrors** = \{ `401`: `string`; `404`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

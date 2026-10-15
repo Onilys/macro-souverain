@@ -1,6 +1,6 @@
 # Type Alias: SoupAgentSessionSoupPropertiesField
 
-> **SoupAgentSessionSoupPropertiesField** = `object` & `object`
+> **SoupAgentSessionSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `botId`: `string`; `createdAt`: `string`; `harness`: `string`; `id`: `string`; `isArchived`: `boolean`; `name`: `string`; `ownerId`: `string`; `pullRequestId?`: `string` \| `null`; `pullRequestState?`: `null` \| [`AgentPullRequestState`](AgentPullRequestState.md); `pullRequestUrl?`: `string` \| `null`; `repoBranch?`: `string` \| `null`; `repoUrl?`: `string` \| `null`; `status`: `string`; `threadId?`: `string` \| `null`; `turnState?`: `string` \| `null`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; `workingBranch?`: `string` \| `null`; \}
 
 An agent session as displayed in Soup.
 

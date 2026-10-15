@@ -1,6 +1,6 @@
 # Type Alias: RecentlyDeletedData
 
-> **RecentlyDeletedData** = `object`
+> **RecentlyDeletedData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/recents/deleted"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateCrmPipelineData
 
-> **CreateCrmPipelineData** = `object`
+> **CreateCrmPipelineData** = \{ `body`: [`CreatePipeline`](CreatePipeline.md); `path?`: `never`; `query?`: `never`; `url`: `"/crm/pipelines"`; \}
 
 ## Properties
 

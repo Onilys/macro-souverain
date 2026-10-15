@@ -1,6 +1,6 @@
 # Type Alias: GetSelfBotData
 
-> **GetSelfBotData** = `object`
+> **GetSelfBotData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/bots/me"`; \}
 
 ## Properties
 

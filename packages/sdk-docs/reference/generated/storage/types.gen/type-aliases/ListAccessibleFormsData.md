@@ -1,6 +1,6 @@
 # Type Alias: ListAccessibleFormsData
 
-> **ListAccessibleFormsData** = `object`
+> **ListAccessibleFormsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/forms/accessible"`; \}
 
 ## Properties
 

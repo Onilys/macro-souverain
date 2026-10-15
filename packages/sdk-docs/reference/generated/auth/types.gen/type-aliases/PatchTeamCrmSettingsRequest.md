@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamCrmSettingsRequest
 
-> **PatchTeamCrmSettingsRequest** = `object`
+> **PatchTeamCrmSettingsRequest** = \{ `backfill?`: `boolean`; `enabled`: `boolean`; \}
 
 Request body for `PATCH /team/crm`.
 

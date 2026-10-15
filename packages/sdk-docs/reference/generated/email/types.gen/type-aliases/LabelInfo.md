@@ -1,6 +1,6 @@
 # Type Alias: LabelInfo
 
-> **LabelInfo** = `object`
+> **LabelInfo** = \{ `name`: `string`; `provider_id`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PollCodexLoginResponses
 
-> **PollCodexLoginResponses** = `object`
+> **PollCodexLoginResponses** = \{ `200`: [`CodexLoginPoll`](CodexLoginPoll.md); \}
 
 ## Properties
 

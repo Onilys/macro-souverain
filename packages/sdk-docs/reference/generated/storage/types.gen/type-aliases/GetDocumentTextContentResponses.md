@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentTextContentResponses
 
-> **GetDocumentTextContentResponses** = `object`
+> **GetDocumentTextContentResponses** = \{ `200`: [`DocumentTextContent`](DocumentTextContent.md); \}
 
 ## Properties
 

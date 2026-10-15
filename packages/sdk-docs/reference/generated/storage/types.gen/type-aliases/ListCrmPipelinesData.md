@@ -1,6 +1,6 @@
 # Type Alias: ListCrmPipelinesData
 
-> **ListCrmPipelinesData** = `object`
+> **ListCrmPipelinesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/crm/pipelines"`; \}
 
 ## Properties
 

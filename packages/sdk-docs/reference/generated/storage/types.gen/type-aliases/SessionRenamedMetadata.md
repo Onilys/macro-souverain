@@ -1,6 +1,6 @@
 # Type Alias: SessionRenamedMetadata
 
-> **SessionRenamedMetadata** = `object`
+> **SessionRenamedMetadata** = \{ `identity`: [`SessionIdentity`](SessionIdentity.md); \}
 
 The session was renamed; `identity` carries the new name.
 

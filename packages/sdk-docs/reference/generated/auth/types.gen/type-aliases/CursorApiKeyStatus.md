@@ -1,6 +1,6 @@
 # Type Alias: CursorApiKeyStatus
 
-> **CursorApiKeyStatus** = `object`
+> **CursorApiKeyStatus** = \{ `defaultModelId?`: `string` \| `null`; `registered`: `boolean`; `updatedAt?`: `string` \| `null`; \}
 
 What settings needs to render the Cursor connection.
 

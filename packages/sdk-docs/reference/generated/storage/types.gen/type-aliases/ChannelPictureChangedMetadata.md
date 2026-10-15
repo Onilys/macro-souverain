@@ -1,6 +1,6 @@
 # Type Alias: ChannelPictureChangedMetadata
 
-> **ChannelPictureChangedMetadata** = `object`
+> **ChannelPictureChangedMetadata** = \{ `actor`: [`MacroUserIdStr`](MacroUserIdStr.md); `channel_id`: `string`; \}
 
 Metadata for a channel picture update, including removals.
 

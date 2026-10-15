@@ -1,6 +1,6 @@
 # Type Alias: EnsureStarterHandlerErrors
 
-> **EnsureStarterHandlerErrors** = `object`
+> **EnsureStarterHandlerErrors** = \{ `401`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetViewsHandlerErrors
 
-> **GetViewsHandlerErrors** = `object`
+> **GetViewsHandlerErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

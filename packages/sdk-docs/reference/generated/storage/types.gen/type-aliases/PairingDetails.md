@@ -1,6 +1,6 @@
 # Type Alias: PairingDetails
 
-> **PairingDetails** = `object`
+> **PairingDetails** = \{ `code`: `string`; `created_at`: `string`; `expires_at`: `string`; `host?`: `string` \| `null`; `requested_allow_permission_bypass?`: `boolean` \| `null`; `requested_name`: `string`; `requested_scope?`: `null` \| [`RequestedHarnessScope`](RequestedHarnessScope.md); \}
 
 A pending pairing, as shown to the approving user.
 

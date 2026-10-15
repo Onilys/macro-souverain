@@ -1,6 +1,6 @@
 # Type Alias: SaveQueryRequest
 
-> **SaveQueryRequest** = `object`
+> **SaveQueryRequest** = \{ `databaseId?`: `string`; `definition`: [`QueryDefinition`](QueryDefinition.md); \}
 
 Request body for saving a query.
 

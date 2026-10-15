@@ -1,6 +1,6 @@
 # Type Alias: CreateForm
 
-> **CreateForm** = `object`
+> **CreateForm** = \{ `name`: `string`; `source`: [`FormSource`](FormSource.md); \}
 
 A request to create a form.
 

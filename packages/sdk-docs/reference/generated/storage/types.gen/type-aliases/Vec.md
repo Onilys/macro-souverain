@@ -1,6 +1,6 @@
 # Type Alias: Vec
 
-> **Vec** = `object`[]
+> **Vec** = \{ `events`: `string`[]; `ids?`: `string`[] \| `null`; \}[]
 
 ## Type Declaration
 

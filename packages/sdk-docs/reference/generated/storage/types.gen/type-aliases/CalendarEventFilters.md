@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventFilters
 
-> **CalendarEventFilters** = `object`
+> **CalendarEventFilters** = \{ `attendees?`: `string`[]; `calendar_event_ids?`: `string`[]; `ends_after?`: `string` \| `null`; `organizers?`: `string`[]; `starts_before?`: `string` \| `null`; `statuses?`: `string`[]; \}
 
 Filters for canonical calendar-event entities.
 

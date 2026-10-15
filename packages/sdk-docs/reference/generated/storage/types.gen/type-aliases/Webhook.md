@@ -1,6 +1,6 @@
 # Type Alias: Webhook
 
-> **Webhook** = `object`
+> **Webhook** = \{ `created_at`: `string`; `created_by_user_id`: `string`; `deleted_at?`: `string` \| `null`; `endpoint_url`: `string`; `filters`: [`Vec`](Vec.md); `headers`: [`BTreeMap`](BTreeMap.md); `id`: [`String`](String.md); `is_valid`: `boolean`; `name`: `string`; `namespace`: `string`; `status`: [`WebhookStatus`](WebhookStatus.md); `updated_at`: `string`; `workspace_id`: `string`; \}
 
 Webhook row returned by application APIs.
 

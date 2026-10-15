@@ -1,6 +1,6 @@
 # Type Alias: DocumentCopiedMetadata
 
-> **DocumentCopiedMetadata** = `object`
+> **DocumentCopiedMetadata** = \{ `actor?`: `string` \| `null`; `document_id`: `string`; `document_name`: `string`; `file_type?`: `null` \| [`FileType`](FileType.md); `on_behalf_of?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `owner`: `string`; `project_id?`: `string` \| `null`; `source_document_id`: `string`; `source_version_id?`: `number` \| `null`; `sub_type?`: `null` \| [`DocumentSubType`](DocumentSubType.md); \}
 
 Metadata for [`DocumentTopicEvent::Copied`].
 

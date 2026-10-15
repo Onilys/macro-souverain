@@ -1,6 +1,6 @@
 # Type Alias: SetContactHiddenRequest
 
-> **SetContactHiddenRequest** = `object`
+> **SetContactHiddenRequest** = \{ `hidden`: `boolean`; \}
 
 Request body for `PUT /contacts/{contact_id}/hidden`.
 

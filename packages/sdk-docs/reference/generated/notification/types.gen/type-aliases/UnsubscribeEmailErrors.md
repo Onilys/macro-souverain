@@ -1,6 +1,6 @@
 # Type Alias: UnsubscribeEmailErrors
 
-> **UnsubscribeEmailErrors** = `object`
+> **UnsubscribeEmailErrors** = \{ `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

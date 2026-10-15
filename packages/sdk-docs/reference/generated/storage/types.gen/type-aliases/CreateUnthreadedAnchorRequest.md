@@ -1,6 +1,6 @@
 # Type Alias: CreateUnthreadedAnchorRequest
 
-> **CreateUnthreadedAnchorRequest** = [`CreateUnthreadedPdfAnchorRequest`](CreateUnthreadedPdfAnchorRequest.md) & `object`
+> **CreateUnthreadedAnchorRequest** = [`CreateUnthreadedPdfAnchorRequest`](CreateUnthreadedPdfAnchorRequest.md) & \{ `fileType`: `"pdf"`; \}
 
 ## Type Declaration
 

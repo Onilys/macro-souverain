@@ -1,6 +1,6 @@
 # Type Alias: GetUsageHandlerResponses
 
-> **GetUsageHandlerResponses** = `object`
+> **GetUsageHandlerResponses** = \{ `200`: [`UsageSummary`](UsageSummary.md); \}
 
 ## Properties
 

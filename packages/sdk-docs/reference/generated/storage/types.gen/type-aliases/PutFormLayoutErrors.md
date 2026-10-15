@@ -1,6 +1,6 @@
 # Type Alias: PutFormLayoutErrors
 
-> **PutFormLayoutErrors** = `object`
+> **PutFormLayoutErrors** = \{ `400`: [`FormErrorResponse`](FormErrorResponse.md); `401`: [`FormErrorResponse`](FormErrorResponse.md); `403`: [`FormErrorResponse`](FormErrorResponse.md); `404`: [`FormErrorResponse`](FormErrorResponse.md); `409`: [`FormErrorResponse`](FormErrorResponse.md); `500`: [`FormErrorResponse`](FormErrorResponse.md); \}
 
 ## Properties
 

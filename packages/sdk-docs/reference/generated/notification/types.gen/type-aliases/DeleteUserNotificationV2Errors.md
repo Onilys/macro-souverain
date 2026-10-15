@@ -1,6 +1,6 @@
 # Type Alias: DeleteUserNotificationV2Errors
 
-> **DeleteUserNotificationV2Errors** = `object`
+> **DeleteUserNotificationV2Errors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

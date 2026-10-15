@@ -1,6 +1,6 @@
 # Type Alias: PostSoupAstRequest
 
-> **PostSoupAstRequest** = [`ApiEntityFilterAst`](ApiEntityFilterAst.md) & [`Params`](Params.md) & `object`
+> **PostSoupAstRequest** = [`ApiEntityFilterAst`](ApiEntityFilterAst.md) & [`Params`](Params.md) & \{ `emailView?`: `string`; \}
 
 Request body for the AST soup endpoint.
 

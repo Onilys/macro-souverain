@@ -1,6 +1,6 @@
 # Type Alias: StatusData
 
-> **StatusData** = `object`
+> **StatusData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/claude-auth"`; \}
 
 ## Properties
 

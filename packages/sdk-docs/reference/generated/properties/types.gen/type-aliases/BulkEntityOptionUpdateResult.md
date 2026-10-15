@@ -1,6 +1,6 @@
 # Type Alias: BulkEntityOptionUpdateResult
 
-> **BulkEntityOptionUpdateResult** = `object`
+> **BulkEntityOptionUpdateResult** = \{ `entity_id`: `string`; `entity_type`: [`PropertyTargetEntityType`](PropertyTargetEntityType.md); `error?`: `string` \| `null`; `option_ids?`: `string`[] \| `null`; `status`: [`BulkEntityOptionUpdateStatus`](BulkEntityOptionUpdateStatus.md); \}
 
 One entity's result in a cross-entity bulk option update.
 

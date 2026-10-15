@@ -1,6 +1,6 @@
 # Type Alias: TeamCalendarMember
 
-> **TeamCalendarMember** = `object`
+> **TeamCalendarMember** = \{ `coverage`: [`TeamCalendarCoverage`](TeamCalendarCoverage.md); `sharing`: [`TeamCalendarSharing`](TeamCalendarSharing.md); `userId`: `string`; \}
 
 A current member of the requester's team.
 

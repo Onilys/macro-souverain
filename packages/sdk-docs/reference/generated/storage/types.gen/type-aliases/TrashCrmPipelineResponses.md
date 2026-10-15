@@ -1,6 +1,6 @@
 # Type Alias: TrashCrmPipelineResponses
 
-> **TrashCrmPipelineResponses** = `object`
+> **TrashCrmPipelineResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

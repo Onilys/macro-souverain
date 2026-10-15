@@ -1,6 +1,6 @@
 # Type Alias: AddFavoriteData
 
-> **AddFavoriteData** = `object`
+> **AddFavoriteData** = \{ `body`: [`AddFavoriteRequest`](AddFavoriteRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/favorites"`; \}
 
 ## Properties
 

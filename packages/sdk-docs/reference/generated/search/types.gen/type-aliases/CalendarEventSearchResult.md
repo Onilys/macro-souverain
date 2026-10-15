@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventSearchResult
 
-> **CalendarEventSearchResult** = `object`
+> **CalendarEventSearchResult** = \{ `highlight`: [`SearchHighlight`](SearchHighlight.md); `score?`: `number` \| `null`; \}
 
 ## Properties
 

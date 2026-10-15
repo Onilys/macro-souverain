@@ -1,6 +1,6 @@
 # Type Alias: RemoveFavoriteByEntityErrors
 
-> **RemoveFavoriteByEntityErrors** = `object`
+> **RemoveFavoriteByEntityErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

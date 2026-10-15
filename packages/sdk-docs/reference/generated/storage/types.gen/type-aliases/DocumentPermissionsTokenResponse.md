@@ -1,6 +1,6 @@
 # Type Alias: DocumentPermissionsTokenResponse
 
-> **DocumentPermissionsTokenResponse** = `object`
+> **DocumentPermissionsTokenResponse** = \{ `token`: `string`; \}
 
 ## Properties
 

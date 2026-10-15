@@ -1,6 +1,6 @@
 # Type Alias: BotToken
 
-> **BotToken** = `object`
+> **BotToken** = \{ `bot_id`: [`BotId`](BotId.md); `created_at`: `string`; `expires_at?`: `string` \| `null`; `id`: `string`; `label?`: `string` \| `null`; `last_used_at?`: `string` \| `null`; `revoked_at?`: `string` \| `null`; `token_prefix`: `string`; \}
 
 Bot token metadata.
 

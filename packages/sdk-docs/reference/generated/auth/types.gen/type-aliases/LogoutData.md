@@ -1,6 +1,6 @@
 # Type Alias: LogoutData
 
-> **LogoutData** = `object`
+> **LogoutData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/logout"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetRingStatusErrors
 
-> **GetRingStatusErrors** = `object`
+> **GetRingStatusErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

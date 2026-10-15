@@ -1,6 +1,6 @@
 # Type Alias: DisableSyncData
 
-> **DisableSyncData** = `object`
+> **DisableSyncData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/email/sync"`; \}
 
 ## Properties
 

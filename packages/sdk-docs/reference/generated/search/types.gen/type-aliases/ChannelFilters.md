@@ -1,6 +1,6 @@
 # Type Alias: ChannelFilters
 
-> **ChannelFilters** = `object`
+> **ChannelFilters** = \{ `channel_ids?`: `string`[]; `channel_types?`: `string`[]; `importance?`: `boolean` \| `null`; `is_participant?`: `boolean` \| `null`; `mentions?`: `string`[]; `notification_filters?`: [`NotificationFilters`](NotificationFilters.md); `org_id?`: `number` \| `null`; `sender_ids?`: `string`[]; `team_id?`: `string` \| `null`; `thread_ids?`: `string`[]; \}
 
 The channel message filters used to filter down what channel messages you search over.
 

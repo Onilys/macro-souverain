@@ -1,6 +1,6 @@
 # Type Alias: AgentConfigOptionDto
 
-> **AgentConfigOptionDto** = [`AgentConfigKindDto`](AgentConfigKindDto.md) & `object`
+> **AgentConfigOptionDto** = [`AgentConfigKindDto`](AgentConfigKindDto.md) & \{ `category?`: `string` \| `null`; `description?`: `string` \| `null`; `id`: `string`; `name`: `string`; \}
 
 One agent-advertised ACP session setting.
 

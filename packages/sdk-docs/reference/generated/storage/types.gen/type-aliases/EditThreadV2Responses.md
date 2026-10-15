@@ -1,6 +1,6 @@
 # Type Alias: EditThreadV2Responses
 
-> **EditThreadV2Responses** = `object`
+> **EditThreadV2Responses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SmartTagPreview
 
-> **SmartTagPreview** = `object`
+> **SmartTagPreview** = \{ `channels`: [`SmartTagChannelMatch`](SmartTagChannelMatch.md)[]; `totalCount`: `number`; \}
 
 A bounded preview and the total number of visible channels matching a rule.
 

@@ -1,6 +1,6 @@
 # Type Alias: CreatePortalSessionRequest
 
-> **CreatePortalSessionRequest** = `object`
+> **CreatePortalSessionRequest** = \{ `returnUrl`: `string`; \}
 
 Request body for creating a Stripe portal session
 

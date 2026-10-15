@@ -54,11 +54,11 @@ Arbitrary source-specific metadata stored with the mapping.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`ForeignEntity`](../../../../../generated/storage/types.gen/type-aliases/ForeignEntity.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`ForeignEntity`](../../../../../generated/storage/types.gen/type-aliases/ForeignEntity.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

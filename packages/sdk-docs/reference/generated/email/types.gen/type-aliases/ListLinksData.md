@@ -1,6 +1,6 @@
 # Type Alias: ListLinksData
 
-> **ListLinksData** = `object`
+> **ListLinksData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/email/links"`; \}
 
 ## Properties
 

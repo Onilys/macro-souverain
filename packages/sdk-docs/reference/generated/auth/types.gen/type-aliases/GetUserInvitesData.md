@@ -1,6 +1,6 @@
 # Type Alias: GetUserInvitesData
 
-> **GetUserInvitesData** = `object`
+> **GetUserInvitesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/team/user/invites"`; \}
 
 ## Properties
 

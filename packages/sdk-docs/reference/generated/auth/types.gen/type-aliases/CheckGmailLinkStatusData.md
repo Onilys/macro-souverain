@@ -1,6 +1,6 @@
 # Type Alias: CheckGmailLinkStatusData
 
-> **CheckGmailLinkStatusData** = `object`
+> **CheckGmailLinkStatusData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/link/gmail/status"`; \}
 
 ## Properties
 

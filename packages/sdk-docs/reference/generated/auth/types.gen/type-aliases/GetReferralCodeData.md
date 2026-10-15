@@ -1,6 +1,6 @@
 # Type Alias: GetReferralCodeData
 
-> **GetReferralCodeData** = `object`
+> **GetReferralCodeData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/referral/code"`; \}
 
 ## Properties
 

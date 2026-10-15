@@ -1,6 +1,6 @@
 # Type Alias: ActiveMeeting
 
-> **ActiveMeeting** = [`Meeting`](Meeting.md) & `object`
+> **ActiveMeeting** = [`Meeting`](Meeting.md) & \{ `createdBy`: `string`; \}
 
 Active quick-call metadata available to its authenticated owner or attendees.
 

@@ -1,6 +1,6 @@
 # Type Alias: OauthRedirectData
 
-> **OauthRedirectData** = `object`
+> **OauthRedirectData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/oauth/redirect"`; \}
 
 ## Properties
 

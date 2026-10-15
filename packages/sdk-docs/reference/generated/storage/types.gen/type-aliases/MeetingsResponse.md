@@ -1,6 +1,6 @@
 # Type Alias: MeetingsResponse
 
-> **MeetingsResponse** = `object`
+> **MeetingsResponse** = \{ `meetings`: [`Meeting`](Meeting.md)[]; \}
 
 Uncancelled standalone meetings visible in the requested meeting list.
 

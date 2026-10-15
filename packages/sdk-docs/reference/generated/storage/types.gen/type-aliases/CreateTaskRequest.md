@@ -1,6 +1,6 @@
 # Type Alias: CreateTaskRequest
 
-> **CreateTaskRequest** = `object`
+> **CreateTaskRequest** = \{ `markdown?`: `string` \| `null`; `projectId?`: `string` \| `null`; `propertyValues?`: [`PropertyInput`](PropertyInput.md)[] \| `null`; `shareWithTeam?`: `boolean`; `taskName`: `string`; `teamId?`: `string` \| `null`; \}
 
 Request body for creating a task.
 

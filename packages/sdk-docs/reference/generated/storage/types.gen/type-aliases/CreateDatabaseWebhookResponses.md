@@ -1,6 +1,6 @@
 # Type Alias: CreateDatabaseWebhookResponses
 
-> **CreateDatabaseWebhookResponses** = `object`
+> **CreateDatabaseWebhookResponses** = \{ `201`: [`CreatedDatabaseWebhookResponse`](CreatedDatabaseWebhookResponse.md); \}
 
 ## Properties
 

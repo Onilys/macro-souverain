@@ -1,6 +1,6 @@
 # Type Alias: ReorderFavoritesResponses
 
-> **ReorderFavoritesResponses** = `object`
+> **ReorderFavoritesResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

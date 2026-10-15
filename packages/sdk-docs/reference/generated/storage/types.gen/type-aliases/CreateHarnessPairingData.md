@@ -1,6 +1,6 @@
 # Type Alias: CreateHarnessPairingData
 
-> **CreateHarnessPairingData** = `object`
+> **CreateHarnessPairingData** = \{ `body`: [`CreatePairingRequest`](CreatePairingRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/harness-pairings"`; \}
 
 ## Properties
 

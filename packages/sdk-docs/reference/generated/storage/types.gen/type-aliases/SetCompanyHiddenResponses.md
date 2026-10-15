@@ -1,6 +1,6 @@
 # Type Alias: SetCompanyHiddenResponses
 
-> **SetCompanyHiddenResponses** = `object`
+> **SetCompanyHiddenResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

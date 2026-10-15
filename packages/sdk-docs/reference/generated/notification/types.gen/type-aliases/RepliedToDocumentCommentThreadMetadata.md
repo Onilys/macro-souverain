@@ -1,6 +1,6 @@
 # Type Alias: RepliedToDocumentCommentThreadMetadata
 
-> **RepliedToDocumentCommentThreadMetadata** = `object`
+> **RepliedToDocumentCommentThreadMetadata** = \{ `commentId`: [`CommentRef`](CommentRef.md); `documentName`: `string`; `fileType?`: `string` \| `null`; `owner`: `string`; `senderDisplayName?`: `string` \| `null`; `senderProfilePictureUrl?`: `string` \| `null`; `subType?`: `null` \| [`NotificationDocumentSubType`](NotificationDocumentSubType.md); `text`: `string`; `threadId`: [`CommentRef`](CommentRef.md); \}
 
 Notification sent when someone replies to a document comment thread.
 

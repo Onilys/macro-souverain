@@ -1,6 +1,6 @@
 # Type Alias: BomPart
 
-> **BomPart** = `object`
+> **BomPart** = \{ `id`: `string`; `path`: `string`; `sha`: `string`; \}
 
 ## Properties
 

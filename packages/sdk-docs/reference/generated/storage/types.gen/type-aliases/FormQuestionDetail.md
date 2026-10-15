@@ -1,6 +1,6 @@
 # Type Alias: FormQuestionDetail
 
-> **FormQuestionDetail** = `object`
+> **FormQuestionDetail** = \{ `column`: `string`; `helpText`: `string`; `id`: `string`; `kind`: [`ColumnKind`](ColumnKind.md); `options`: [`QuestionOption`](QuestionOption.md)[]; `required`: `boolean`; `title`: `string`; `widget`: `null` \| [`Widget`](Widget.md); \}
 
 A question with its column's facts.
 

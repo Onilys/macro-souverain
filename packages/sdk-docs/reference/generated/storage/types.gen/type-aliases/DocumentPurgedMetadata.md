@@ -1,6 +1,6 @@
 # Type Alias: DocumentPurgedMetadata
 
-> **DocumentPurgedMetadata** = `object`
+> **DocumentPurgedMetadata** = \{ `document_id`: `string`; \}
 
 Metadata for [`DocumentTopicEvent::Purged`].
 

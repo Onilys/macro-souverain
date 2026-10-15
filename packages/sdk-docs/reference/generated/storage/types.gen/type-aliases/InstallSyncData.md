@@ -1,6 +1,6 @@
 # Type Alias: InstallSyncData
 
-> **InstallSyncData** = `object`
+> **InstallSyncData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/github/install-sync"`; \}
 
 ## Properties
 

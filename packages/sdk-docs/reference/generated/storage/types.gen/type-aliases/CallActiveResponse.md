@@ -1,6 +1,6 @@
 # Type Alias: CallActiveResponse
 
-> **CallActiveResponse** = `object`
+> **CallActiveResponse** = \{ `callId`: `string`; `channelId`: `string`; `createdAt`: `string`; `createdBy`: `string`; \}
 
 Response indicating whether an active call exists for a channel.
 

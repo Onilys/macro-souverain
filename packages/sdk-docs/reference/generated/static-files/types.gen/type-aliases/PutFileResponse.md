@@ -1,6 +1,6 @@
 # Type Alias: PutFileResponse
 
-> **PutFileResponse** = `object`
+> **PutFileResponse** = \{ `file_location`: `string`; `id`: `string`; `upload_url`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestsResponse
 
-> **GithubPullRequestsResponse** = `object`
+> **GithubPullRequestsResponse** = \{ `pullRequests`: [`GithubPullRequest`](GithubPullRequest.md)[]; \}
 
 Response containing all GitHub pull requests associated with a task.
 

@@ -1,6 +1,6 @@
 # Type Alias: TouchedRow
 
-> **TouchedRow** = `object`
+> **TouchedRow** = \{ `kind`: [`RowChangeKind`](RowChangeKind.md); `row`: `string`; \}
 
 A row a table's changes since some version touched, and how it stands.
 

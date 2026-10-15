@@ -1,6 +1,6 @@
 # Type Alias: GetChatPermissionsResponses
 
-> **GetChatPermissionsResponses** = `object`
+> **GetChatPermissionsResponses** = \{ `200`: [`GetChatPermissionsResponse`](GetChatPermissionsResponse.md); \}
 
 ## Properties
 

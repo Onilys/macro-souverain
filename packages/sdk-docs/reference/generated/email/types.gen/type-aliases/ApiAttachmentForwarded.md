@@ -1,6 +1,6 @@
 # Type Alias: ApiAttachmentForwarded
 
-> **ApiAttachmentForwarded** = `object`
+> **ApiAttachmentForwarded** = \{ `attachment_id`: `string`; `draft_id`: `string`; `filename?`: `string` \| `null`; `message_provider_id`: `string`; `mime_type?`: `string` \| `null`; `provider_attachment_id?`: `string` \| `null`; `size_bytes?`: `number` \| `null`; \}
 
 API representation of a forwarded attachment on a message.
 

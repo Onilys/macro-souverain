@@ -1,6 +1,6 @@
 # Type Alias: QuestionOption
 
-> **QuestionOption** = `object`
+> **QuestionOption** = \{ `color`: `string` \| `null`; `id`: `string`; `label`: `string`; \}
 
 One option of a question's column.
 

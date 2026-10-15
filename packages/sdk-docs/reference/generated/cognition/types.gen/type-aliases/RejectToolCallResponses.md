@@ -1,6 +1,6 @@
 # Type Alias: RejectToolCallResponses
 
-> **RejectToolCallResponses** = `object`
+> **RejectToolCallResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

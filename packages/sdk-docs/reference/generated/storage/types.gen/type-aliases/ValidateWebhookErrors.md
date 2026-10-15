@@ -1,6 +1,6 @@
 # Type Alias: ValidateWebhookErrors
 
-> **ValidateWebhookErrors** = `object`
+> **ValidateWebhookErrors** = \{ `403`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `429`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

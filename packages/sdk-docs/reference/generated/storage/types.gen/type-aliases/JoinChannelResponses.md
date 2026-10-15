@@ -1,6 +1,6 @@
 # Type Alias: JoinChannelResponses
 
-> **JoinChannelResponses** = `object`
+> **JoinChannelResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

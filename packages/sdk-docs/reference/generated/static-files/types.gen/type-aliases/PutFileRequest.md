@@ -1,6 +1,6 @@
 # Type Alias: PutFileRequest
 
-> **PutFileRequest** = `object`
+> **PutFileRequest** = \{ `content_type?`: `string` \| `null`; `extension_data?`: `unknown`; `file_name`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CopyDocumentQueryParams
 
-> **CopyDocumentQueryParams** = `object`
+> **CopyDocumentQueryParams** = \{ `version_id?`: `number` \| `null`; \}
 
 Query parameters for the copy document endpoint.
 

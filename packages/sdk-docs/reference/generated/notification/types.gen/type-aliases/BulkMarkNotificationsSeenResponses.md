@@ -1,6 +1,6 @@
 # Type Alias: BulkMarkNotificationsSeenResponses
 
-> **BulkMarkNotificationsSeenResponses** = `object`
+> **BulkMarkNotificationsSeenResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

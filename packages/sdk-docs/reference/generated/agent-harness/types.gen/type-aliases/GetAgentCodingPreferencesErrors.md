@@ -1,6 +1,6 @@
 # Type Alias: GetAgentCodingPreferencesErrors
 
-> **GetAgentCodingPreferencesErrors** = `object`
+> **GetAgentCodingPreferencesErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

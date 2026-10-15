@@ -1,6 +1,6 @@
 # Type Alias: GetGithubPullRequestTasksData
 
-> **GetGithubPullRequestTasksData** = `object`
+> **GetGithubPullRequestTasksData** = \{ `body`: [`GithubPullRequestTasksRequest`](GithubPullRequestTasksRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents/github_prs/tasks"`; \}
 
 ## Properties
 

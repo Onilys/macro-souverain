@@ -1,6 +1,6 @@
 # Type Alias: EmailFollowupResponse
 
-> **EmailFollowupResponse** = `object`
+> **EmailFollowupResponse** = \{ `followup?`: `null` \| [`EmailFollowup`](EmailFollowup.md); \}
 
 Lookup response, including an email with no follow-up yet.
 

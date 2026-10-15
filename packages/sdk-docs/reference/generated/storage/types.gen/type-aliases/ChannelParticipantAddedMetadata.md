@@ -1,6 +1,6 @@
 # Type Alias: ChannelParticipantAddedMetadata
 
-> **ChannelParticipantAddedMetadata** = `object`
+> **ChannelParticipantAddedMetadata** = \{ `added_by`: [`ChannelSender`](ChannelSender.md); `added_user_ids`: [`MacroUserIdStr`](MacroUserIdStr.md)[]; `channel_id`: `string`; `channel_type`: [`ChannelType`](ChannelType.md); \}
 
 Metadata for [`ChannelTopicEvent::ParticipantAdded`].
 

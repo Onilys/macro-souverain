@@ -1,6 +1,6 @@
 # Type Alias: NotificationFilters
 
-> **NotificationFilters** = `object`
+> **NotificationFilters** = \{ `states?`: [`NotificationState`](NotificationState.md)[]; \}
 
 Notification-level filters that apply to an entity type.
 

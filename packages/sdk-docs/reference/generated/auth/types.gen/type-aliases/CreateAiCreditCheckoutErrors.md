@@ -1,6 +1,6 @@
 # Type Alias: CreateAiCreditCheckoutErrors
 
-> **CreateAiCreditCheckoutErrors** = `object`
+> **CreateAiCreditCheckoutErrors** = \{ `400`: [`AiBillingErrorBody`](AiBillingErrorBody.md); `401`: `unknown`; `402`: [`AiBillingErrorBody`](AiBillingErrorBody.md); `403`: [`AiBillingErrorBody`](AiBillingErrorBody.md); `500`: [`AiBillingErrorBody`](AiBillingErrorBody.md); \}
 
 ## Properties
 

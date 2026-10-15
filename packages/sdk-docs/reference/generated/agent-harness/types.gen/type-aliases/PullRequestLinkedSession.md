@@ -1,6 +1,6 @@
 # Type Alias: PullRequestLinkedSession
 
-> **PullRequestLinkedSession** = `object`
+> **PullRequestLinkedSession** = \{ `originMessageId?`: `string` \| `null`; `sessionId`: `string`; `source`: [`PullRequestLinkSource`](PullRequestLinkSource.md); `threadParent?`: `null` \| [`MessageParent`](MessageParent.md); \}
 
 A session linked to a pull request, as a viewer of that session sees it.
 

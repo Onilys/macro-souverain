@@ -1,6 +1,6 @@
 # Type Alias: AddNumberOptionRequest
 
-> **AddNumberOptionRequest** = `object`
+> **AddNumberOptionRequest** = \{ `display_order`: `number`; `value`: `number`; \}
 
 Type-safe request to add a number option to a SelectNumber property.
 

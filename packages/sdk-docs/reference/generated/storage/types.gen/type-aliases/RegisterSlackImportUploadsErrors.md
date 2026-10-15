@@ -1,6 +1,6 @@
 # Type Alias: RegisterSlackImportUploadsErrors
 
-> **RegisterSlackImportUploadsErrors** = `object`
+> **RegisterSlackImportUploadsErrors** = \{ `404`: `unknown`; `413`: `unknown`; `503`: `unknown`; \}
 
 ## Properties
 

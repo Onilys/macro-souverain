@@ -1,6 +1,6 @@
 # Type Alias: GetAiBillingSummaryResponses
 
-> **GetAiBillingSummaryResponses** = `object`
+> **GetAiBillingSummaryResponses** = \{ `200`: [`UsageSnapshot`](UsageSnapshot.md); \}
 
 ## Properties
 

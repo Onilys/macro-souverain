@@ -1,6 +1,6 @@
 # Type Alias: InitOutlookLinkResponse
 
-> **InitOutlookLinkResponse** = `object`
+> **InitOutlookLinkResponse** = \{ `authorization_url`: `string`; `link_id`: `string`; \}
 
 Response returned when a Microsoft Outlook link is initiated.
 

@@ -1,6 +1,6 @@
 # Type Alias: LogFrameDto
 
-> **LogFrameDto** = `object`
+> **LogFrameDto** = \{ `content`: \{\[`key`: `string`\]: `unknown`; \}; `direction`: [`LogDirectionDto`](LogDirectionDto.md); \}
 
 The two fields [`AgentSessionLogEntryDto`] flattens in.
 
@@ -14,5 +14,5 @@ cannot - so this describes that format without being able to produce it.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-content"></a> `content` | `object` | The protocol envelope, verbatim. Opaque here: it is Agent Runtime Protocol, whose shape belongs to the fold rather than this endpoint. |
+| <a id="property-content"></a> `content` | \{\[`key`: `string`\]: `unknown`; \} | The protocol envelope, verbatim. Opaque here: it is Agent Runtime Protocol, whose shape belongs to the fold rather than this endpoint. |
 | <a id="property-direction"></a> `direction` | [`LogDirectionDto`](LogDirectionDto.md) | Which way the frame travelled. |

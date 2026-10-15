@@ -1,6 +1,6 @@
 # Type Alias: ListUserApiKeysData
 
-> **ListUserApiKeysData** = `object`
+> **ListUserApiKeysData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/user-api-keys"`; \}
 
 ## Properties
 

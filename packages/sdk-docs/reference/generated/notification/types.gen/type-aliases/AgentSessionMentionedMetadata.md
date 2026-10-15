@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionMentionedMetadata
 
-> **AgentSessionMentionedMetadata** = [`AgentSessionNotificationRef`](AgentSessionNotificationRef.md) & `object`
+> **AgentSessionMentionedMetadata** = [`AgentSessionNotificationRef`](AgentSessionNotificationRef.md) & \{ `actionId`: `string`; `mentionedBy?`: `string` \| `null`; \}
 
 Someone named the recipient in a prompt to an agent session.
 

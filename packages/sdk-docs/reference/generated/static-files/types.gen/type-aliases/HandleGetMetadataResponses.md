@@ -1,6 +1,6 @@
 # Type Alias: HandleGetMetadataResponses
 
-> **HandleGetMetadataResponses** = `object`
+> **HandleGetMetadataResponses** = \{ `200`: [`FileMetadata`](FileMetadata.md); \}
 
 ## Properties
 

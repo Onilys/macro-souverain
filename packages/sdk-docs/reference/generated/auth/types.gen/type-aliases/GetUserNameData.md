@@ -1,6 +1,6 @@
 # Type Alias: GetUserNameData
 
-> **GetUserNameData** = `object`
+> **GetUserNameData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/user/name"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: JoinChannelByCodeResponses
 
-> **JoinChannelByCodeResponses** = `object`
+> **JoinChannelByCodeResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

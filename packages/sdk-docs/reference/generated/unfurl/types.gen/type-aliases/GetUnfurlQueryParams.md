@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlQueryParams
 
-> **GetUnfurlQueryParams** = `object`
+> **GetUnfurlQueryParams** = \{ `url`: `string`; \}
 
 Query parameters for `GET /unfurl`.
 

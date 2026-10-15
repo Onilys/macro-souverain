@@ -1,6 +1,6 @@
 # Type Alias: UpdateInitiativeRequest
 
-> **UpdateInitiativeRequest** = `object`
+> **UpdateInitiativeRequest** = \{ `memberIds?`: `string`[] \| `null`; `name?`: `string` \| `null`; `sharePermission?`: `null` \| [`UpdateSharePermissionRequestV2`](UpdateSharePermissionRequestV2.md); \}
 
 Update-initiative HTTP body. Absent fields are left unchanged. `member_ids`
 present is a full replace. The description is edited in its collab surface, not here.

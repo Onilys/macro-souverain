@@ -1,6 +1,6 @@
 # Type Alias: CalendarMentionPreviewRequestItem
 
-> **CalendarMentionPreviewRequestItem** = `object`
+> **CalendarMentionPreviewRequestItem** = \{ `eventId`: `string`; `occurrenceKey?`: `string` \| `null`; \}
 
 One mentioned event to resolve for the requester.
 

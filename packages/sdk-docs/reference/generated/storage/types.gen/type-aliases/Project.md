@@ -1,6 +1,6 @@
 # Type Alias: Project
 
-> **Project** = `object`
+> **Project** = \{ `createdAt?`: `string` \| `null`; `deletedAt?`: `string` \| `null`; `id`: `string`; `name`: `string`; `parentId?`: `string` \| `null`; `updatedAt?`: `string` \| `null`; `userId`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SoupCountedReaction
 
-> **SoupCountedReaction** = `object`
+> **SoupCountedReaction** = \{ `emoji`: `string`; `users`: `string`[]; \}
 
 A reaction with emoji and user list.
 

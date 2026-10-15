@@ -1,6 +1,6 @@
 # Type Alias: ListLinksResponse
 
-> **ListLinksResponse** = `object`
+> **ListLinksResponse** = \{ `links`: [`Link`](Link.md)[]; \}
 
 The response returned from the list links endpoint
 

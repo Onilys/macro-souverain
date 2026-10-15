@@ -1,6 +1,6 @@
 # Type Alias: PipedreamConnectionResponse
 
-> **PipedreamConnectionResponse** = `object`
+> **PipedreamConnectionResponse** = \{ `app_slug`: `string`; `enabled`: `boolean`; `server_name`: `string`; \}
 
 A connected MCP app as returned by the API.
 

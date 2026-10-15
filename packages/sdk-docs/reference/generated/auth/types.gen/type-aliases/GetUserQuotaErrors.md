@@ -1,6 +1,6 @@
 # Type Alias: GetUserQuotaErrors
 
-> **GetUserQuotaErrors** = `object`
+> **GetUserQuotaErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

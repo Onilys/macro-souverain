@@ -1,6 +1,6 @@
 # Type Alias: MergeGithubPullRequestResponses
 
-> **MergeGithubPullRequestResponses** = `object`
+> **MergeGithubPullRequestResponses** = \{ `200`: [`MergeGithubPullRequestResponse`](MergeGithubPullRequestResponse.md); \}
 
 ## Properties
 

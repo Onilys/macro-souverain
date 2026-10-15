@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlBulkBody
 
-> **GetUnfurlBulkBody** = `object`
+> **GetUnfurlBulkBody** = \{ `url_list`: `string`[]; \}
 
 ## Properties
 

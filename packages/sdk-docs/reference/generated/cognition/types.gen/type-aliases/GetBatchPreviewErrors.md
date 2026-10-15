@@ -1,6 +1,6 @@
 # Type Alias: GetBatchPreviewErrors
 
-> **GetBatchPreviewErrors** = `object`
+> **GetBatchPreviewErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

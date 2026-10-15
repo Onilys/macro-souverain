@@ -1,6 +1,6 @@
 # Type Alias: MergeGithubPullRequestRequest
 
-> **MergeGithubPullRequestRequest** = `object`
+> **MergeGithubPullRequestRequest** = \{ `mergeMethod?`: `null` \| [`GithubMergeMethod`](GithubMergeMethod.md); `number`: `number`; `owner`: `string`; `repo`: `string`; \}
 
 A request to merge one pull request on the user's behalf.
 

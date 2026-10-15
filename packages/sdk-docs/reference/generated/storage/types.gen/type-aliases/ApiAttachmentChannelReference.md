@@ -1,6 +1,6 @@
 # Type Alias: ApiAttachmentChannelReference
 
-> **ApiAttachmentChannelReference** = `object`
+> **ApiAttachmentChannelReference** = \{ `attachment_created_at`: `string`; `channel_id`: `string`; `channel_name?`: `string` \| `null`; `message_content`: `string`; `message_created_at`: `string`; `message_id`: `string`; `sender_id`: `string`; `thread_id?`: `string` \| `null`; \}
 
 A reference to an attachment entity from a channel message.
 

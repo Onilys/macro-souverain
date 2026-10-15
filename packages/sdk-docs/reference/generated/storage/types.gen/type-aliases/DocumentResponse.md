@@ -1,6 +1,6 @@
 # Type Alias: DocumentResponse
 
-> **DocumentResponse** = `object`
+> **DocumentResponse** = \{ `documentMetadata`: [`DocumentResponseMetadataWithContent`](DocumentResponseMetadataWithContent.md); `presignedUrl?`: `string` \| `null`; \}
 
 Document response with content lifecycle metadata.
 

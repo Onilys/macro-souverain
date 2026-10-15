@@ -1,6 +1,6 @@
 # Type Alias: WithDocumentId
 
-> **WithDocumentId** = `object`
+> **WithDocumentId** = \{ `document_id`: `string`; \}
 
 ## Properties
 

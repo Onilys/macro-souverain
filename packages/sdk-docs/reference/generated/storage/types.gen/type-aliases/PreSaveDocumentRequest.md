@@ -1,6 +1,6 @@
 # Type Alias: PreSaveDocumentRequest
 
-> **PreSaveDocumentRequest** = `object`
+> **PreSaveDocumentRequest** = \{ `newBom`: [`SaveBomPart`](SaveBomPart.md)[]; \}
 
 ## Properties
 

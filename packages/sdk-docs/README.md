@@ -4,6 +4,8 @@ The public SDK source and its comments are the source of truth. TypeDoc and
 typedoc-plugin-markdown generate a canonical Markdown hierarchy and an HTML
 reference from one reflection model, including linked API request and response
 types. Private, protected and internal members are excluded.
+Object alias declarations show their concrete fields and keep linked types and
+property descriptions.
 
 From this directory:
 

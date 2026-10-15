@@ -1,6 +1,6 @@
 # Type Alias: CreateMeetingRequest
 
-> **CreateMeetingRequest** = `object`
+> **CreateMeetingRequest** = \{ `preparationId?`: `string` \| `null`; `scheduledEnd?`: `string` \| `null`; `scheduledStart?`: `string` \| `null`; `title?`: `string` \| `null`; \}
 
 Inputs for creating a meeting without starting its RTC room.
 

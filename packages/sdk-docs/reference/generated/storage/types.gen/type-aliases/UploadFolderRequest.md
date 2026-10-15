@@ -1,6 +1,6 @@
 # Type Alias: UploadFolderRequest
 
-> **UploadFolderRequest** = `object`
+> **UploadFolderRequest** = \{ `content`: [`FolderItem`](FolderItem.md)[]; `folders?`: `string`[]; `parentId?`: `string` \| `null`; `rootFolderName`: `string`; `uploadRequestId`: `string`; \}
 
 ## Properties
 

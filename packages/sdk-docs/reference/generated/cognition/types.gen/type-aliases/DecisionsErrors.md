@@ -1,6 +1,6 @@
 # Type Alias: DecisionsErrors
 
-> **DecisionsErrors** = `object`
+> **DecisionsErrors** = \{ `400`: [`DecisionErrorBody`](DecisionErrorBody.md); `401`: `unknown`; `402`: [`DecisionErrorBody`](DecisionErrorBody.md); `413`: `unknown`; `500`: [`DecisionErrorBody`](DecisionErrorBody.md); `502`: [`DecisionErrorBody`](DecisionErrorBody.md); `503`: [`DecisionErrorBody`](DecisionErrorBody.md); `504`: [`DecisionErrorBody`](DecisionErrorBody.md); \}
 
 ## Properties
 

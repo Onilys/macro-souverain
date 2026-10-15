@@ -1,6 +1,6 @@
 # Type Alias: BookingTarget
 
-> **BookingTarget** = `object`
+> **BookingTarget** = \{ `eventTypeId`: `string`; `profileId`: `string`; \}
 
 An existing native Macro scheduling event offered after an accepted response.
 

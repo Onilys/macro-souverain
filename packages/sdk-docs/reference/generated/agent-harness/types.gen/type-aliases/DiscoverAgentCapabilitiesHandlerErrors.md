@@ -1,6 +1,6 @@
 # Type Alias: DiscoverAgentCapabilitiesHandlerErrors
 
-> **DiscoverAgentCapabilitiesHandlerErrors** = `object`
+> **DiscoverAgentCapabilitiesHandlerErrors** = \{ `400`: `unknown`; `401`: `unknown`; `403`: `unknown`; `409`: `unknown`; `502`: `unknown`; `504`: `unknown`; \}
 
 ## Properties
 

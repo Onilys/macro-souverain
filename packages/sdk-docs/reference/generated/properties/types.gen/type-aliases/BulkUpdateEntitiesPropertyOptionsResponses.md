@@ -1,6 +1,6 @@
 # Type Alias: BulkUpdateEntitiesPropertyOptionsResponses
 
-> **BulkUpdateEntitiesPropertyOptionsResponses** = `object`
+> **BulkUpdateEntitiesPropertyOptionsResponses** = \{ `200`: [`BulkUpdateEntitiesPropertyOptionsResponse`](BulkUpdateEntitiesPropertyOptionsResponse.md); \}
 
 ## Properties
 

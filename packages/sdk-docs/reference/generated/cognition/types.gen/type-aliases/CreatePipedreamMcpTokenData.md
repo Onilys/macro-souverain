@@ -1,6 +1,6 @@
 # Type Alias: CreatePipedreamMcpTokenData
 
-> **CreatePipedreamMcpTokenData** = `object`
+> **CreatePipedreamMcpTokenData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/pipedream/mcp/token"`; \}
 
 ## Properties
 

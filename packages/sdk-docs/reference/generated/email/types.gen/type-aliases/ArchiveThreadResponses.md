@@ -1,6 +1,6 @@
 # Type Alias: ArchiveThreadResponses
 
-> **ArchiveThreadResponses** = `object`
+> **ArchiveThreadResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

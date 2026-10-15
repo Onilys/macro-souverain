@@ -1,6 +1,6 @@
 # Type Alias: AccessiblePipeline
 
-> **AccessiblePipeline** = [`Pipeline`](Pipeline.md) & `object`
+> **AccessiblePipeline** = [`Pipeline`](Pipeline.md) & \{ `grant`: [`AccessLevel`](AccessLevel.md); \}
 
 Metadata together with the caller's effective grant.
 

@@ -1,6 +1,6 @@
 # Type Alias: PromptAttachment
 
-> **PromptAttachment** = `object`
+> **PromptAttachment** = \{ `mimeType?`: `string` \| `null`; `name`: `string`; `size?`: `number` \| `null`; `uri`: `string`; \}
 
 A file the prompt refers to, by where the agent can fetch it.
 

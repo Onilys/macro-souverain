@@ -1,6 +1,6 @@
 # Type Alias: RunImportRequest
 
-> **RunImportRequest** = `object`
+> **RunImportRequest** = \{ `discard_ids?`: `string`[]; `import_ids?`: `string`[]; \}
 
 Body for accepting/declining staged imports.
 

@@ -1,6 +1,6 @@
 # Type Alias: StartMcpAuthData
 
-> **StartMcpAuthData** = `object`
+> **StartMcpAuthData** = \{ `body`: [`StartAuthRequest`](StartAuthRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/mcp/servers/auth/start"`; \}
 
 ## Properties
 

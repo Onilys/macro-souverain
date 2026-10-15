@@ -1,6 +1,6 @@
 # Type Alias: PlanCatalogEntry
 
-> **PlanCatalogEntry** = `object`
+> **PlanCatalogEntry** = \{ `included_ai_cents_per_seat`: `number`; `monthly_price_cents`: `number`; `purchasable`: `boolean`; `tier`: [`PlanTier`](PlanTier.md); \}
 
 One plan in the catalog.
 

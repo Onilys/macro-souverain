@@ -1,6 +1,6 @@
 # Type Alias: GetBatchPreviewResponse
 
-> **GetBatchPreviewResponse** = `object`
+> **GetBatchPreviewResponse** = \{ `previews`: [`ChatPreview`](ChatPreview.md)[]; \}
 
 ## Properties
 

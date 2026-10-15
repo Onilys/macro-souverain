@@ -1,6 +1,6 @@
 # Type Alias: InboxReauthRequiredMetadata
 
-> **InboxReauthRequiredMetadata** = `object`
+> **InboxReauthRequiredMetadata** = \{ `emailAddress`: `string`; \}
 
 Metadata for a notification that a linked inbox's grant has died and the
 inbox must be reconnected. Fanned out to the inbox owner and every delegate,

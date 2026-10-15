@@ -1,6 +1,6 @@
 # Type Alias: ListCrmPipelinesResponses
 
-> **ListCrmPipelinesResponses** = `object`
+> **ListCrmPipelinesResponses** = \{ `200`: [`AccessiblePipeline`](AccessiblePipeline.md)[]; \}
 
 ## Properties
 

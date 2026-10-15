@@ -1,6 +1,6 @@
 # Type Alias: TrackEntityMessage
 
-> **TrackEntityMessage** = [`Entity`](Entity.md) & `object`
+> **TrackEntityMessage** = [`Entity`](Entity.md) & \{ `action`: [`TrackAction`](TrackAction.md); \}
 
 ## Type Declaration
 

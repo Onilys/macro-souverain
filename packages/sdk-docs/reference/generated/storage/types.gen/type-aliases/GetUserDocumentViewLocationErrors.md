@@ -1,6 +1,6 @@
 # Type Alias: GetUserDocumentViewLocationErrors
 
-> **GetUserDocumentViewLocationErrors** = `object`
+> **GetUserDocumentViewLocationErrors** = \{ `401`: [`GenericResponse`](GenericResponse.md); `404`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

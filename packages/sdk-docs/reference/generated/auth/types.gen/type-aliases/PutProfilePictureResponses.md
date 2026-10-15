@@ -1,6 +1,6 @@
 # Type Alias: PutProfilePictureResponses
 
-> **PutProfilePictureResponses** = `object`
+> **PutProfilePictureResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

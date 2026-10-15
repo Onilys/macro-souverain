@@ -1,6 +1,6 @@
 # Type Alias: AutoReloadDefaults
 
-> **AutoReloadDefaults** = `object`
+> **AutoReloadDefaults** = \{ `minimum_balance_cents`: `number`; `target_balance_cents`: `number`; \}
 
 The automatic reload thresholds a payer starts from.
 

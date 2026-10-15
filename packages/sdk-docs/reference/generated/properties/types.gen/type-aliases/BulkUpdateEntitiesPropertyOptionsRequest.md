@@ -1,6 +1,6 @@
 # Type Alias: BulkUpdateEntitiesPropertyOptionsRequest
 
-> **BulkUpdateEntitiesPropertyOptionsRequest** = `object`
+> **BulkUpdateEntitiesPropertyOptionsRequest** = \{ `add_option_ids?`: `string`[]; `entities`: [`PropertyTargetReference`](PropertyTargetReference.md)[]; `property_id`: `string`; `remove_option_ids?`: `string`[]; \}
 
 Request to apply one shared option delta across several entities in a single
 call. Mirrors the per-entity bulk endpoint's delta semantics, applied to

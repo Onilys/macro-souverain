@@ -1,6 +1,6 @@
 # Type Alias: RevertDeleteProjectResponses
 
-> **RevertDeleteProjectResponses** = `object`
+> **RevertDeleteProjectResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

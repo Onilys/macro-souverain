@@ -1,6 +1,6 @@
 # Type Alias: InviteToTeamRequest
 
-> **InviteToTeamRequest** = `object`
+> **InviteToTeamRequest** = \{ `invites`: [`InviteEntry`](InviteEntry.md)[]; \}
 
 The request body to invite a user to a team
 

@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentListHandlerErrors
 
-> **GetDocumentListHandlerErrors** = `object`
+> **GetDocumentListHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `404`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

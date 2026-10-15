@@ -1,6 +1,6 @@
 # Type Alias: PatchTeamMemberPlanRequest
 
-> **PatchTeamMemberPlanRequest** = `object`
+> **PatchTeamMemberPlanRequest** = \{ `plan`: [`SeatPlan`](SeatPlan.md); \}
 
 Request body for `PATCH /team/members/{member_user_id}/plan`.
 

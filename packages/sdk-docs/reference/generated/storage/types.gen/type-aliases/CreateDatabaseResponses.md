@@ -1,6 +1,6 @@
 # Type Alias: CreateDatabaseResponses
 
-> **CreateDatabaseResponses** = `object`
+> **CreateDatabaseResponses** = \{ `201`: [`Database`](Database.md); \}
 
 ## Properties
 

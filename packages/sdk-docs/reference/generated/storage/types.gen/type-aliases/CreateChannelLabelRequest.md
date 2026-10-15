@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelLabelRequest
 
-> **CreateChannelLabelRequest** = `object`
+> **CreateChannelLabelRequest** = \{ `channelIds?`: `string`[]; `name`: `string`; `rule?`: `null` \| [`ChannelLabelRule`](ChannelLabelRule.md); \}
 
 Request body for creating a label.
 

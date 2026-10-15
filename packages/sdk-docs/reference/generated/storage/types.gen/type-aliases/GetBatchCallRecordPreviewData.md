@@ -1,6 +1,6 @@
 # Type Alias: GetBatchCallRecordPreviewData
 
-> **GetBatchCallRecordPreviewData** = `object`
+> **GetBatchCallRecordPreviewData** = \{ `body`: [`GetBatchCallRecordPreviewRequest`](GetBatchCallRecordPreviewRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/call/record/preview"`; \}
 
 ## Properties
 

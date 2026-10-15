@@ -1,6 +1,6 @@
 # Type Alias: GetGtmInviteOfferErrors
 
-> **GetGtmInviteOfferErrors** = `object`
+> **GetGtmInviteOfferErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

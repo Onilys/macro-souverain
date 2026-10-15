@@ -1,6 +1,6 @@
 # Type Alias: CreatePortalSessionResponses
 
-> **CreatePortalSessionResponses** = `object`
+> **CreatePortalSessionResponses** = \{ `200`: [`StripeSessionResponse`](StripeSessionResponse.md); \}
 
 ## Properties
 

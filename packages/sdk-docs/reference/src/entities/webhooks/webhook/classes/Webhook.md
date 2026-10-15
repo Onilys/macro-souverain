@@ -144,11 +144,11 @@ Point the webhook at a new HTTPS endpoint URL.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`Webhook`](../../../../../generated/storage/types.gen/type-aliases/Webhook.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`Webhook`](../../../../../generated/storage/types.gen/type-aliases/Webhook.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

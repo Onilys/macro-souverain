@@ -1,6 +1,6 @@
 # Type Alias: EntityPropertyOptionSelectionResponse
 
-> **EntityPropertyOptionSelectionResponse** = `object`
+> **EntityPropertyOptionSelectionResponse** = \{ `option_ids`: `string`[]; `property_id`: `string`; \}
 
 The reconciled final option ids stored for one property after a bulk update.
 

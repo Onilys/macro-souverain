@@ -1,6 +1,6 @@
 # Type Alias: DeleteUnthreadedPdfAnchorRequest
 
-> **DeleteUnthreadedPdfAnchorRequest** = `object`
+> **DeleteUnthreadedPdfAnchorRequest** = \{ `anchorType`: `"highlight"`; `uuid`: `string`; \}
 
 ## Properties
 

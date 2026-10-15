@@ -1,6 +1,6 @@
 # Type Alias: GetDatabaseViewPositionsResponses
 
-> **GetDatabaseViewPositionsResponses** = `object`
+> **GetDatabaseViewPositionsResponses** = \{ `200`: [`ViewPositionsResponse`](ViewPositionsResponse.md); \}
 
 ## Properties
 

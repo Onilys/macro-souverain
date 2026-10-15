@@ -1,6 +1,6 @@
 # Type Alias: SetCompanyHiddenErrors
 
-> **SetCompanyHiddenErrors** = `object`
+> **SetCompanyHiddenErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

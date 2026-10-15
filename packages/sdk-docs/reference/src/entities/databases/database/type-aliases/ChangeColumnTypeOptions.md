@@ -1,6 +1,6 @@
 # Type Alias: ChangeColumnTypeOptions
 
-> **ChangeColumnTypeOptions** = `object`
+> **ChangeColumnTypeOptions** = \{ `to`: [`ColumnType`](ColumnType.md); \}
 
 Options for [Database.changeColumnType](../classes/Database.md#changecolumntype).
 

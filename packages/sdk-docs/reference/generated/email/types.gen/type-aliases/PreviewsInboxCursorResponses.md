@@ -1,6 +1,6 @@
 # Type Alias: PreviewsInboxCursorResponses
 
-> **PreviewsInboxCursorResponses** = `object`
+> **PreviewsInboxCursorResponses** = \{ `200`: [`ApiPaginatedThreadCursor`](ApiPaginatedThreadCursor.md); \}
 
 ## Properties
 

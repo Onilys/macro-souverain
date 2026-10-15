@@ -1,6 +1,6 @@
 # Type Alias: ListBackfillGmailErrors
 
-> **ListBackfillGmailErrors** = `object`
+> **ListBackfillGmailErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

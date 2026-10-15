@@ -1,6 +1,6 @@
 # Type Alias: StartErrors
 
-> **StartErrors** = `object`
+> **StartErrors** = \{ `403`: `unknown`; `429`: `unknown`; \}
 
 ## Properties
 

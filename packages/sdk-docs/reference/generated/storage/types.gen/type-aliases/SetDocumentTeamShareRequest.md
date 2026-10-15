@@ -1,6 +1,6 @@
 # Type Alias: SetDocumentTeamShareRequest
 
-> **SetDocumentTeamShareRequest** = `object`
+> **SetDocumentTeamShareRequest** = \{ `shareWithTeam`: `boolean`; \}
 
 Request body for setting a document's team-share state.
 

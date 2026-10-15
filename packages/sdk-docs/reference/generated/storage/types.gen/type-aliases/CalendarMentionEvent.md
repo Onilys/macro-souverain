@@ -1,6 +1,6 @@
 # Type Alias: CalendarMentionEvent
 
-> **CalendarMentionEvent** = `object`
+> **CalendarMentionEvent** = \{ `attendeeCount`: `number`; `description?`: `string` \| `null`; `isRecurring`: `boolean`; `location?`: `string` \| `null`; `occurrenceKey?`: `string` \| `null`; `organizerEmail?`: `string` \| `null`; `organizerName?`: `string` \| `null`; `time`: [`EventTime`](EventTime.md); `title`: `string`; `updatedAt`: `string`; `viewerEventId?`: `string` \| `null`; \}
 
 Meeting-level fields shown in a calendar event mention preview, taken from
 the requester's own projection of the meeting, or — when the requester has

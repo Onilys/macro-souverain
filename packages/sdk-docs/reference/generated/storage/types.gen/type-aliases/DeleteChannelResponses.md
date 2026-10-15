@@ -1,6 +1,6 @@
 # Type Alias: DeleteChannelResponses
 
-> **DeleteChannelResponses** = `object`
+> **DeleteChannelResponses** = \{ `200`: `string`; \}
 
 ## Properties
 

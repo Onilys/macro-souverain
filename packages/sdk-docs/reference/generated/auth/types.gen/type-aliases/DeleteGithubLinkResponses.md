@@ -1,6 +1,6 @@
 # Type Alias: DeleteGithubLinkResponses
 
-> **DeleteGithubLinkResponses** = `object`
+> **DeleteGithubLinkResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

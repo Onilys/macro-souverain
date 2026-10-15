@@ -1,6 +1,6 @@
 # Type Alias: ResetCrmTeamStagesData
 
-> **ResetCrmTeamStagesData** = `object`
+> **ResetCrmTeamStagesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/crm/stages"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateAgentSessionResponse
 
-> **CreateAgentSessionResponse** = `object`
+> **CreateAgentSessionResponse** = \{ `session`: [`AgentSessionResponse`](AgentSessionResponse.md); \}
 
 Response body for `POST /agent-sessions`.
 

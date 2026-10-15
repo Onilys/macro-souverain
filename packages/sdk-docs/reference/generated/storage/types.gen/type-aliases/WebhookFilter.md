@@ -1,6 +1,6 @@
 # Type Alias: WebhookFilter
 
-> **WebhookFilter** = `object`
+> **WebhookFilter** = \{ `events`: `string`[]; `ids?`: `string`[] \| `null`; \}
 
 Event and optional entity-id constraints used to match webhook deliveries.
 

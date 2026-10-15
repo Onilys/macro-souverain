@@ -1,6 +1,6 @@
 # Type Alias: DocumentInteractionMetadata
 
-> **DocumentInteractionMetadata** = `object`
+> **DocumentInteractionMetadata** = \{ `document_id`: `string`; `reason`: [`InteractionReason`](InteractionReason.md); \}
 
 Metadata for [`DocumentTopicEvent::Interaction`].
 

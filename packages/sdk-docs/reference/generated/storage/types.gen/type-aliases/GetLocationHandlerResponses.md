@@ -1,6 +1,6 @@
 # Type Alias: GetLocationHandlerResponses
 
-> **GetLocationHandlerResponses** = `object`
+> **GetLocationHandlerResponses** = \{ `200`: [`LocationResponseData`](LocationResponseData.md); \}
 
 ## Properties
 

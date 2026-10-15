@@ -1,6 +1,6 @@
 # Type Alias: GetStateHandler2Errors
 
-> **GetStateHandler2Errors** = `object`
+> **GetStateHandler2Errors** = \{ `500`: `unknown`; \}
 
 ## Properties
 

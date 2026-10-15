@@ -1,6 +1,6 @@
 # Type Alias: DeleteCursorApiKeyErrors
 
-> **DeleteCursorApiKeyErrors** = `object`
+> **DeleteCursorApiKeyErrors** = \{ `401`: `string`; `403`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

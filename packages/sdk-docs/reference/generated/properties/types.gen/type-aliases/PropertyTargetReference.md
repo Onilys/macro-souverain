@@ -1,6 +1,6 @@
 # Type Alias: PropertyTargetReference
 
-> **PropertyTargetReference** = `object`
+> **PropertyTargetReference** = \{ `entity_id`: `string`; `entity_type`: [`PropertyTargetEntityType`](PropertyTargetEntityType.md); \}
 
 Canonical reference to an entity receiving properties.
 

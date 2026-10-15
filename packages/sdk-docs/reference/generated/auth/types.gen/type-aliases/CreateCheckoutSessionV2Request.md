@@ -1,6 +1,6 @@
 # Type Alias: CreateCheckoutSessionV2Request
 
-> **CreateCheckoutSessionV2Request** = `object`
+> **CreateCheckoutSessionV2Request** = \{ `cancelUrl`: `string`; `discount?`: `string` \| `null`; `metadata?`: [`CheckoutSessionMetadata`](CheckoutSessionMetadata.md); `onboardingTrial?`: `boolean`; `plan?`: `null` \| [`SeatPlan`](SeatPlan.md); `successUrl`: `string`; \}
 
 Request body for creating a Stripe checkout session
 

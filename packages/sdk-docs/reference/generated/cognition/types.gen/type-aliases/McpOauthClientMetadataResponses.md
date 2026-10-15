@@ -1,6 +1,6 @@
 # Type Alias: McpOauthClientMetadataResponses
 
-> **McpOauthClientMetadataResponses** = `object`
+> **McpOauthClientMetadataResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

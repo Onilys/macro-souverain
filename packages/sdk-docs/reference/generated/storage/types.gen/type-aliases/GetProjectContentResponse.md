@@ -1,6 +1,6 @@
 # Type Alias: GetProjectContentResponse
 
-> **GetProjectContentResponse** = `object`
+> **GetProjectContentResponse** = \{ `data`: [`ItemWithUserAccessLevel`](ItemWithUserAccessLevel.md)[]; `error`: `boolean`; \}
 
 ## Properties
 

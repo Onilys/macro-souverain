@@ -1,6 +1,6 @@
 # Type Alias: PullRequestSessions
 
-> **PullRequestSessions** = `object`
+> **PullRequestSessions** = \{ `githubKey`: `string`; `sessions`: [`PullRequestLinkedSession`](PullRequestLinkedSession.md)[]; `url`: `string`; \}
 
 The sessions linked to one pull request that the caller can view.
 

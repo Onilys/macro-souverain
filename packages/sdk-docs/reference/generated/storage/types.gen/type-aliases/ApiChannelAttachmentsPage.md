@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelAttachmentsPage
 
-> **ApiChannelAttachmentsPage** = `object`
+> **ApiChannelAttachmentsPage** = \{ `items`: [`ApiChannelAttachment`](ApiChannelAttachment.md)[]; `next_cursor?`: `string` \| `null`; \}
 
 Paginated response of channel attachments.
 

@@ -1,6 +1,6 @@
 # Type Alias: UserApiKeyInfo
 
-> **UserApiKeyInfo** = `object`
+> **UserApiKeyInfo** = \{ `createdAt`: `string`; `id`: [`UserApiKeyId`](UserApiKeyId.md); `name`: `string`; \}
 
 Safe metadata for a stored key. Never contains the secret or its hash.
 

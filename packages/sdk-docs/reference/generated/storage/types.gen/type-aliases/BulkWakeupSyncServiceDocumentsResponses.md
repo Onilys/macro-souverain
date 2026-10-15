@@ -1,6 +1,6 @@
 # Type Alias: BulkWakeupSyncServiceDocumentsResponses
 
-> **BulkWakeupSyncServiceDocumentsResponses** = `object`
+> **BulkWakeupSyncServiceDocumentsResponses** = \{ `202`: [`BulkWakeupResponse`](BulkWakeupResponse.md); \}
 
 ## Properties
 

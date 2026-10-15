@@ -1,6 +1,6 @@
 # Type Alias: DeleteChannelLabelResponses
 
-> **DeleteChannelLabelResponses** = `object`
+> **DeleteChannelLabelResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

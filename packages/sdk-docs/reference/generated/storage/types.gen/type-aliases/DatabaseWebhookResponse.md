@@ -1,6 +1,6 @@
 # Type Alias: DatabaseWebhookResponse
 
-> **DatabaseWebhookResponse** = `object`
+> **DatabaseWebhookResponse** = \{ `createdAt`: `string`; `createdBy`: `string`; `databaseId`: `string`; `id`: `string`; `tableId`: `string`; `tokenPrefix`: `string`; \}
 
 A webhook of a database. Its token is never shown again after creation.
 

@@ -1,6 +1,6 @@
 # Type Alias: GetViewsHandlerResponses
 
-> **GetViewsHandlerResponses** = `object`
+> **GetViewsHandlerResponses** = \{ `200`: [`ViewsResponse`](ViewsResponse.md); \}
 
 ## Properties
 

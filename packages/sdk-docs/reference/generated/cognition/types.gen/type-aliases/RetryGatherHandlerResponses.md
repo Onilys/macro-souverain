@@ -1,6 +1,6 @@
 # Type Alias: RetryGatherHandlerResponses
 
-> **RetryGatherHandlerResponses** = `object`
+> **RetryGatherHandlerResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

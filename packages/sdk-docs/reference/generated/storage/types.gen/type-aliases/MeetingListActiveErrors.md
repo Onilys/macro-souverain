@@ -1,6 +1,6 @@
 # Type Alias: MeetingListActiveErrors
 
-> **MeetingListActiveErrors** = `object`
+> **MeetingListActiveErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

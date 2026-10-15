@@ -1,6 +1,6 @@
 # Type Alias: CreateAccountMergeRequest
 
-> **CreateAccountMergeRequest** = `object`
+> **CreateAccountMergeRequest** = \{ `email`: `string`; \}
 
 ## Properties
 

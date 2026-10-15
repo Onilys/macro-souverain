@@ -1,6 +1,6 @@
 # Type Alias: ThreadState
 
-> **ThreadState** = `object`
+> **ThreadState** = \{ `anchor?`: `null` \| [`ThreadAnchor`](ThreadAnchor.md); `created_at`: `string`; `deleted_at?`: `string` \| `null`; `resolved`: `boolean`; `root_id`: `string`; `updated_at`: `string`; `user_id`: `string`; \}
 
 State belonging to a whole thread, keyed by its root message.
 

@@ -1,6 +1,6 @@
 # Type Alias: UpdateThreadProjectResponses
 
-> **UpdateThreadProjectResponses** = `object`
+> **UpdateThreadProjectResponses** = \{ `200`: [`UpdateThreadProjectResponse`](UpdateThreadProjectResponse.md); \}
 
 ## Properties
 

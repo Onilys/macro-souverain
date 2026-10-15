@@ -1,6 +1,6 @@
 # Type Alias: ContactInfoLegacy
 
-> **ContactInfoLegacy** = `object`
+> **ContactInfoLegacy** = \{ `email`: `string`; `email_address`: `string`; `name?`: `string` \| `null`; `photo_url?`: `string` \| `null`; \}
 
 ## Properties
 

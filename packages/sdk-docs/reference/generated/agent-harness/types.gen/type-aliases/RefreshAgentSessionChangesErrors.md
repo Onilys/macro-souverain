@@ -1,6 +1,6 @@
 # Type Alias: RefreshAgentSessionChangesErrors
 
-> **RefreshAgentSessionChangesErrors** = `object`
+> **RefreshAgentSessionChangesErrors** = \{ `401`: `string`; `403`: `string`; `500`: `string`; \}
 
 ## Properties
 

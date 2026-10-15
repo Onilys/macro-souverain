@@ -1,6 +1,6 @@
 # Type Alias: CodexLoginStart
 
-> **CodexLoginStart** = `object`
+> **CodexLoginStart** = \{ `attemptId`: `string`; `expiresAt`: `string`; `pollIntervalSeconds`: `number`; `userCode`: `string`; `verificationUrl`: `string`; \}
 
 Expiring browser authorization instructions.
 

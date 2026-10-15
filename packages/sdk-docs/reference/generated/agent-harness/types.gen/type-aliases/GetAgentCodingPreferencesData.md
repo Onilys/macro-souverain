@@ -1,6 +1,6 @@
 # Type Alias: GetAgentCodingPreferencesData
 
-> **GetAgentCodingPreferencesData** = `object`
+> **GetAgentCodingPreferencesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/agent-coding-preferences"`; \}
 
 ## Properties
 

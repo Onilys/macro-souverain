@@ -1,6 +1,6 @@
 # Type Alias: GetUserNamesWithEmailErrors
 
-> **GetUserNamesWithEmailErrors** = `object`
+> **GetUserNamesWithEmailErrors** = \{ `400`: `string`; `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: BulkWakeupSyncServiceDocumentsData
 
-> **BulkWakeupSyncServiceDocumentsData** = `object`
+> **BulkWakeupSyncServiceDocumentsData** = \{ `body`: [`BulkWakeupRequest`](BulkWakeupRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/sync_service/wakeup"`; \}
 
 ## Properties
 

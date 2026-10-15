@@ -1,6 +1,6 @@
 # Type Alias: UpsertEmailFilterResponses
 
-> **UpsertEmailFilterResponses** = `object`
+> **UpsertEmailFilterResponses** = \{ `200`: [`UpsertEmailFilterResponse`](UpsertEmailFilterResponse.md); \}
 
 ## Properties
 

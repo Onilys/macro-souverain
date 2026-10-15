@@ -1,6 +1,6 @@
 # Type Alias: ShortIdResponse
 
-> **ShortIdResponse** = `object`
+> **ShortIdResponse** = \{ `shortId`: `string`; \}
 
 Short ID response.
 

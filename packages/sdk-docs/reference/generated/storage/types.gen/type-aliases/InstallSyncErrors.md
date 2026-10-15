@@ -1,6 +1,6 @@
 # Type Alias: InstallSyncErrors
 
-> **InstallSyncErrors** = `object`
+> **InstallSyncErrors** = \{ `401`: `unknown`; \}
 
 ## Properties
 

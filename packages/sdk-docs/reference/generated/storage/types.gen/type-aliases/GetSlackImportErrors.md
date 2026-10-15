@@ -1,6 +1,6 @@
 # Type Alias: GetSlackImportErrors
 
-> **GetSlackImportErrors** = `object`
+> **GetSlackImportErrors** = \{ `404`: `unknown`; \}
 
 ## Properties
 

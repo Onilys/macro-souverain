@@ -1,6 +1,6 @@
 # Type Alias: LinkAgentSessionPullRequestResponses
 
-> **LinkAgentSessionPullRequestResponses** = `object`
+> **LinkAgentSessionPullRequestResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

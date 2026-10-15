@@ -1,6 +1,6 @@
 # Type Alias: GenerateEmailLinkResponses
 
-> **GenerateEmailLinkResponses** = `object`
+> **GenerateEmailLinkResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

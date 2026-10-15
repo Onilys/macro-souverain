@@ -1,6 +1,6 @@
 # Type Alias: ResolveGtmInviteLinkErrors
 
-> **ResolveGtmInviteLinkErrors** = `object`
+> **ResolveGtmInviteLinkErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `429`: `unknown`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

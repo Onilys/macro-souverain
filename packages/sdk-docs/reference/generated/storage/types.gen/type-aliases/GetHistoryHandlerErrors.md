@@ -1,6 +1,6 @@
 # Type Alias: GetHistoryHandlerErrors
 
-> **GetHistoryHandlerErrors** = `object`
+> **GetHistoryHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

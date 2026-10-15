@@ -1,6 +1,6 @@
 # Type Alias: AddServerRequest
 
-> **AddServerRequest** = `object`
+> **AddServerRequest** = \{ `server_name`: `string`; `url`: `string`; \}
 
 Request body for adding a new MCP server.
 

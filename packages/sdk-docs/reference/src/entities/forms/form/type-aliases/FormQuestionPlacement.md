@@ -1,6 +1,6 @@
 # Type Alias: FormQuestionPlacement
 
-> **FormQuestionPlacement** = `object`
+> **FormQuestionPlacement** = \{ `column`: [`DatabaseColumn`](../../../databases/column/classes/DatabaseColumn.md); `helpText?`: `string`; `question?`: [`FormQuestion`](../../question/classes/FormQuestion.md); `required?`: `boolean`; `widget?`: [`Widget`](../../../../../generated/storage/types.gen/type-aliases/Widget.md); \}
 
 A question placement in a layout replacement. Omit question to mint a new stable question.
 

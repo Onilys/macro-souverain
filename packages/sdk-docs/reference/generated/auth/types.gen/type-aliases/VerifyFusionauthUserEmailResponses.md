@@ -1,6 +1,6 @@
 # Type Alias: VerifyFusionauthUserEmailResponses
 
-> **VerifyFusionauthUserEmailResponses** = `object`
+> **VerifyFusionauthUserEmailResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

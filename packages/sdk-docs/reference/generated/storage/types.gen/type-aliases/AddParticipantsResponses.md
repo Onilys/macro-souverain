@@ -1,6 +1,6 @@
 # Type Alias: AddParticipantsResponses
 
-> **AddParticipantsResponses** = `object`
+> **AddParticipantsResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

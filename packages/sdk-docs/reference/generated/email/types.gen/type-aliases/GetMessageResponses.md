@@ -1,6 +1,6 @@
 # Type Alias: GetMessageResponses
 
-> **GetMessageResponses** = `object`
+> **GetMessageResponses** = \{ `200`: [`ParsedMessage`](ParsedMessage.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: DisableLinkCalendarResponses
 
-> **DisableLinkCalendarResponses** = `object`
+> **DisableLinkCalendarResponses** = \{ `204`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: RemoveParticipantsResponses
 
-> **RemoveParticipantsResponses** = `object`
+> **RemoveParticipantsResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

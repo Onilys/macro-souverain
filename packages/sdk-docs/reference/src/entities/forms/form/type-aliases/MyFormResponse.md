@@ -1,6 +1,6 @@
 # Type Alias: MyFormResponse
 
-> **MyFormResponse** = `object`
+> **MyFormResponse** = \{ `answers`: [`FormAnswer`](FormAnswer.md)[]; `booking?`: [`FormBookingStep`](FormBookingStep.md); `response`: [`FormResponse`](../../response/classes/FormResponse.md); `row?`: [`DatabaseRow`](../../../databases/row/classes/DatabaseRow.md); `status`: [`ResponseStatus`](../../../../../generated/storage/types.gen/type-aliases/ResponseStatus.md); `stoppedAtSection?`: [`FormSection`](../../section/classes/FormSection.md); `submittedAt`: `string`; `updatedAt`: `string`; \}
 
 The caller's receipt and current answers, read without access to other responses.
 

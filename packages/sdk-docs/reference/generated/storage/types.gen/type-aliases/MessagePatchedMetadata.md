@@ -1,6 +1,6 @@
 # Type Alias: MessagePatchedMetadata
 
-> **MessagePatchedMetadata** = `object`
+> **MessagePatchedMetadata** = \{ `actor`: [`ChannelSender`](ChannelSender.md); `content`: `string`; `edited_at?`: `string` \| `null`; `message_id`: `string`; `parent`: [`MessageParent`](MessageParent.md); `root_id`: `string`; `thread_id?`: `string` \| `null`; `updated_at`: `string`; \}
 
 A committed content edit.
 

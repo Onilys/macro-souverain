@@ -1,6 +1,6 @@
 # Type Alias: DocumentSyncContentUpdatedMetadata
 
-> **DocumentSyncContentUpdatedMetadata** = `object`
+> **DocumentSyncContentUpdatedMetadata** = \{ `actor?`: `string` \| `null`; `document_id`: `string`; `document_version_id?`: `string` \| `null`; `editors?`: [`DocumentSyncEditor`](DocumentSyncEditor.md)[]; `file_type`: [`FileType`](FileType.md); `on_behalf_of?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); \}
 
 Metadata for [`DocumentTopicEvent::SyncContentUpdated`].
 

@@ -1,6 +1,6 @@
 # Type Alias: GetAllUserNotificationsResponse
 
-> **GetAllUserNotificationsResponse** = `object`
+> **GetAllUserNotificationsResponse** = \{ `items`: [`ApiUserNotification`](ApiUserNotification.md)[]; `next_cursor?`: `string` \| `null`; \}
 
 The strongly typed response for listing user notifications.
 

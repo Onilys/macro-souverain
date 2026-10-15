@@ -1,6 +1,6 @@
 # Type Alias: GetEntityPermissionErrors
 
-> **GetEntityPermissionErrors** = `object`
+> **GetEntityPermissionErrors** = \{ `400`: `unknown`; `401`: `unknown`; `404`: `unknown`; \}
 
 ## Properties
 

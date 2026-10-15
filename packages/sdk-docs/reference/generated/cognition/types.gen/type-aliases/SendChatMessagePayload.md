@@ -1,6 +1,6 @@
 # Type Alias: SendChatMessagePayload
 
-> **SendChatMessagePayload** = [`JwtPayload`](JwtPayload.md) & `object`
+> **SendChatMessagePayload** = [`JwtPayload`](JwtPayload.md) & \{ `additional_instructions?`: `string` \| `null`; `attachments?`: [`Entity`](Entity.md)[] \| `null`; `chat_id`: `string`; `content`: `string`; `model`: `string`; `stream_id`: `string`; `toolset?`: [`ToolSet`](ToolSet.md); \}
 
 ## Type Declaration
 

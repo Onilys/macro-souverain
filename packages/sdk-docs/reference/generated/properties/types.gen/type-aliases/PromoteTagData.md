@@ -1,6 +1,6 @@
 # Type Alias: PromoteTagData
 
-> **PromoteTagData** = `object`
+> **PromoteTagData** = \{ `body`: [`PromoteTagRequest`](PromoteTagRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/properties/tags/promote"`; \}
 
 ## Properties
 

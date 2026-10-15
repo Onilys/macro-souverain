@@ -1,6 +1,6 @@
 # Type Alias: CallRecordGuest
 
-> **CallRecordGuest** = `object`
+> **CallRecordGuest** = \{ `displayName`: `string`; `id`: [`GuestId`](GuestId.md); `joinedAt`: `string`; `leftAt?`: `string` \| `null`; \}
 
 A non-account guest as returned in a [`CallRecord`].
 

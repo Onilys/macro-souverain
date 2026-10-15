@@ -1,6 +1,6 @@
 # Type Alias: UpdateAgentSessionPermissionsErrors
 
-> **UpdateAgentSessionPermissionsErrors** = `object`
+> **UpdateAgentSessionPermissionsErrors** = \{ `400`: `string`; `403`: `string`; `409`: `string`; `500`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: CrmDomainResponse
 
-> **CrmDomainResponse** = `object`
+> **CrmDomainResponse** = \{ `companyId`: `string`; `createdAt`: `string`; `domain`: `string`; `id`: `string`; \}
 
 A CRM domain associated with a company.
 

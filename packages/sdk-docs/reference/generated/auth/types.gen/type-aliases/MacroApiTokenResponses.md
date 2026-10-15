@@ -1,6 +1,6 @@
 # Type Alias: MacroApiTokenResponses
 
-> **MacroApiTokenResponses** = `object`
+> **MacroApiTokenResponses** = \{ `200`: [`MacroApiTokenResponse`](MacroApiTokenResponse.md); \}
 
 ## Properties
 

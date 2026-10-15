@@ -1,6 +1,6 @@
 # Type Alias: PullRequestUrls
 
-> **PullRequestUrls** = `object`
+> **PullRequestUrls** = \{ `urls`: `string`[]; \}
 
 GitHub pull requests, by URL.
 

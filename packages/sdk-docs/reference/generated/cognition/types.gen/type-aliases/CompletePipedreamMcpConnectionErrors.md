@@ -1,6 +1,6 @@
 # Type Alias: CompletePipedreamMcpConnectionErrors
 
-> **CompletePipedreamMcpConnectionErrors** = `object`
+> **CompletePipedreamMcpConnectionErrors** = \{ `401`: `string`; `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); `501`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

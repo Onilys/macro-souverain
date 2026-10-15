@@ -1,6 +1,6 @@
 # Type Alias: EnableNotificationTypeErrors
 
-> **EnableNotificationTypeErrors** = `object`
+> **EnableNotificationTypeErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

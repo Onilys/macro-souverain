@@ -1,6 +1,6 @@
 # Type Alias: GetAttachmentReferencesResponses
 
-> **GetAttachmentReferencesResponses** = `object`
+> **GetAttachmentReferencesResponses** = \{ `200`: [`GetAttachmentReferencesResponse`](GetAttachmentReferencesResponse.md); \}
 
 ## Properties
 

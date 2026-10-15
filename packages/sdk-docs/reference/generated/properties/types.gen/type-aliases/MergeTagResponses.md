@@ -1,6 +1,6 @@
 # Type Alias: MergeTagResponses
 
-> **MergeTagResponses** = `object`
+> **MergeTagResponses** = \{ `200`: [`PropertyOptionResponse`](PropertyOptionResponse.md); \}
 
 ## Properties
 

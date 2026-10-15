@@ -1,6 +1,6 @@
 # Type Alias: UpdateAiBillingAutoReloadData
 
-> **UpdateAiBillingAutoReloadData** = `object`
+> **UpdateAiBillingAutoReloadData** = \{ `body`: [`UpdateAutoReloadRequest`](UpdateAutoReloadRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/ai-billing/auto-reload"`; \}
 
 ## Properties
 

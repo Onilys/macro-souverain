@@ -1,6 +1,6 @@
 # Type Alias: ListCalendarsResponse
 
-> **ListCalendarsResponse** = `object`
+> **ListCalendarsResponse** = \{ `calendars`: [`VisibleCalendar`](VisibleCalendar.md)[]; \}
 
 Calendars visible to the requester across connected and delegated inboxes.
 

@@ -1,6 +1,6 @@
 # Type Alias: ConversationMetadata
 
-> **ConversationMetadata** = `object`
+> **ConversationMetadata** = \{ `archived`: `boolean`; `createdAt?`: `null` \| [`SlackTimestamp`](SlackTimestamp.md); `creatorId?`: `null` \| [`SlackUserId`](SlackUserId.md); `folder`: [`KeySegment`](KeySegment.md); `kind`: [`ConversationKind`](ConversationKind.md); `memberIds`: [`SlackUserId`](SlackUserId.md)[]; `messageCount?`: `number` \| `null`; `name`: `string`; `slackChannelId`: [`ConversationId`](ConversationId.md); \}
 
 Full selected conversation metadata, persisted before granting any uploads.
 

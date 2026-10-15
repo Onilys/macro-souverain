@@ -1,6 +1,6 @@
 # Type Alias: SoupThreadInfo
 
-> **SoupThreadInfo** = `object`
+> **SoupThreadInfo** = \{ `latest_reply_at?`: `string` \| `null`; `preview`: [`SoupThreadReply`](SoupThreadReply.md)[]; `reply_count`: `number`; \}
 
 Thread metadata and preview replies for soup channel messages.
 

@@ -1,6 +1,6 @@
 # Type Alias: InitErrorCodeResponse
 
-> **InitErrorCodeResponse** = `object`
+> **InitErrorCodeResponse** = \{ `code`: `string`; `message`: `string`; \}
 
 Structured 400 body carrying a machine-readable code. Clients branch on
 `code` instead of parsing the human message.

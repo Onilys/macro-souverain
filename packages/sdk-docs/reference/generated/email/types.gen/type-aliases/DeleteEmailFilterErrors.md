@@ -1,6 +1,6 @@
 # Type Alias: DeleteEmailFilterErrors
 
-> **DeleteEmailFilterErrors** = `object`
+> **DeleteEmailFilterErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

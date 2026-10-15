@@ -1,6 +1,6 @@
 # Type Alias: GithubPrReview
 
-> **GithubPrReview** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & `object`
+> **GithubPrReview** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & \{ `reviewGithubId?`: `number` \| `null`; `reviewSnippet?`: `string` \| `null`; `reviewUrl?`: `string` \| `null`; `state`: [`GithubPrReviewState`](GithubPrReviewState.md); \}
 
 Metadata for a notification that a review was submitted on the user's GitHub pull request.
 

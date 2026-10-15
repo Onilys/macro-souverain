@@ -1,6 +1,6 @@
 # Type Alias: HandleBulkDeleteFileResponses
 
-> **HandleBulkDeleteFileResponses** = `object`
+> **HandleBulkDeleteFileResponses** = \{ `200`: [`BulkDeleteResponse`](BulkDeleteResponse.md); \}
 
 ## Properties
 

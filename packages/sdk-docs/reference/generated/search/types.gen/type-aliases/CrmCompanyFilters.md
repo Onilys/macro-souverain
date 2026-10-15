@@ -1,6 +1,6 @@
 # Type Alias: CrmCompanyFilters
 
-> **CrmCompanyFilters** = `object`
+> **CrmCompanyFilters** = \{ `company_ids?`: `string`[]; `hidden?`: `boolean` \| `null`; \}
 
 The crm company filters used to narrow which CRM companies appear in soup.
 

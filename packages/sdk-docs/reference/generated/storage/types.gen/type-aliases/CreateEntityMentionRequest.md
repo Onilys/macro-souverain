@@ -1,6 +1,6 @@
 # Type Alias: CreateEntityMentionRequest
 
-> **CreateEntityMentionRequest** = `object`
+> **CreateEntityMentionRequest** = \{ `entity_id`: `string`; `entity_type`: `string`; `source_entity_id`: `string`; `source_entity_type`: `string`; \}
 
 Request body for `POST /channels/mentions`.
 

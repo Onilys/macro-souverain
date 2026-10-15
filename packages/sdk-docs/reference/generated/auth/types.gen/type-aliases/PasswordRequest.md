@@ -1,6 +1,6 @@
 # Type Alias: PasswordRequest
 
-> **PasswordRequest** = `object`
+> **PasswordRequest** = \{ `email`: `string`; `password`: `string`; \}
 
 ## Properties
 

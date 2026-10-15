@@ -1,6 +1,6 @@
 # Type Alias: ListMcpServersResponses
 
-> **ListMcpServersResponses** = `object`
+> **ListMcpServersResponses** = \{ `200`: [`ServerResponse`](ServerResponse.md)[]; \}
 
 ## Properties
 

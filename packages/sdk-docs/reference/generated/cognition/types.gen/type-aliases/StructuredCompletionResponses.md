@@ -1,6 +1,6 @@
 # Type Alias: StructuredCompletionResponses
 
-> **StructuredCompletionResponses** = `object`
+> **StructuredCompletionResponses** = \{ `200`: [`StructuredCompletionResponse`](StructuredCompletionResponse.md); \}
 
 ## Properties
 

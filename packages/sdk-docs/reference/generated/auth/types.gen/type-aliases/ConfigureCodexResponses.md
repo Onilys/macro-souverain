@@ -1,6 +1,6 @@
 # Type Alias: ConfigureCodexResponses
 
-> **ConfigureCodexResponses** = `object`
+> **ConfigureCodexResponses** = \{ `200`: [`CodexConnectionStatus`](CodexConnectionStatus.md); \}
 
 ## Properties
 

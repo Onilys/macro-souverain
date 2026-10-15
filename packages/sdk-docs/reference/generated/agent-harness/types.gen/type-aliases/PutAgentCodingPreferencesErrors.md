@@ -1,6 +1,6 @@
 # Type Alias: PutAgentCodingPreferencesErrors
 
-> **PutAgentCodingPreferencesErrors** = `object`
+> **PutAgentCodingPreferencesErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

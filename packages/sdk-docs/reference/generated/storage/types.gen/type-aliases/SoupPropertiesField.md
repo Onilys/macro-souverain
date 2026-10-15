@@ -1,6 +1,6 @@
 # Type Alias: SoupPropertiesField
 
-> **SoupPropertiesField** = `object`
+> **SoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \}
 
 Property fields that can be flattened into property-bearing Soup items.
 

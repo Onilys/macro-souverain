@@ -1,6 +1,6 @@
 # Type Alias: DatabaseWebhookDeliveryResponse
 
-> **DatabaseWebhookDeliveryResponse** = `object`
+> **DatabaseWebhookDeliveryResponse** = \{ `databaseId`: `string`; `rows`: `string`[]; `tableId`: `string`; \}
 
 The rows a webhook call inserted.
 

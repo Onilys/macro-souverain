@@ -1,6 +1,6 @@
 # Type Alias: GetStateHandler2Responses
 
-> **GetStateHandler2Responses** = `object`
+> **GetStateHandler2Responses** = \{ `200`: [`OnboardingState`](OnboardingState.md); \}
 
 ## Properties
 

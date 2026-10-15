@@ -1,6 +1,6 @@
 # Type Alias: PropertyFilter
 
-> **PropertyFilter** = `object`
+> **PropertyFilter** = \{ `entity_ids?`: `string`[]; `entity_type?`: `string` \| `null`; `option_ids?`: `string`[]; `property_definition_id`: `string`; \}
 
 A single property-based filter condition.
 

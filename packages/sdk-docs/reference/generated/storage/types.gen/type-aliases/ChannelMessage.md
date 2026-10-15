@@ -1,6 +1,6 @@
 # Type Alias: ChannelMessage
 
-> **ChannelMessage** = `object`
+> **ChannelMessage** = \{ `content`: `string`; `created_at`: `string`; `deleted_at?`: `string` \| `null`; `mentions`: `string`[]; `message_id`: `string`; `sender_id`: `string`; `thread_id?`: `string` \| `null`; `updated_at`: `string`; \}
 
 Lightweight channel message for soup payloads.
 

@@ -1,6 +1,6 @@
 # Type Alias: UploadExtractFolderHandlerData
 
-> **UploadExtractFolderHandlerData** = `object`
+> **UploadExtractFolderHandlerData** = \{ `body`: [`UploadExtractFolderRequest`](UploadExtractFolderRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/projects/upload_extract"`; \}
 
 ## Properties
 

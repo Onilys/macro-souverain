@@ -1,6 +1,6 @@
 # Type Alias: UserName
 
-> **UserName** = `object`
+> **UserName** = \{ `first_name?`: `string` \| `null`; `id`: `string`; `last_name?`: `string` \| `null`; \}
 
 ## Properties
 

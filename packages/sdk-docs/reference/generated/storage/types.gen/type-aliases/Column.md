@@ -1,6 +1,6 @@
 # Type Alias: Column
 
-> **Column** = `object`
+> **Column** = \{ `config`: `null` \| [`ColumnConfig`](ColumnConfig.md); `display_name`: `string` \| `null`; `id`: `string`; `infer_type`: `boolean`; `nullable?`: `boolean`; `position`: `string`; `property_definition_id`: `string`; `protections?`: [`ColumnProtection`](ColumnProtection.md)[]; `table_id`: `string`; \}
 
 A column: the placement of a property definition on a table.
 

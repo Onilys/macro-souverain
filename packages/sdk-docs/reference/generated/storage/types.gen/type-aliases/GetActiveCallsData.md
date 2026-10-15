@@ -1,6 +1,6 @@
 # Type Alias: GetActiveCallsData
 
-> **GetActiveCallsData** = `object`
+> **GetActiveCallsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/call/active"`; \}
 
 ## Properties
 

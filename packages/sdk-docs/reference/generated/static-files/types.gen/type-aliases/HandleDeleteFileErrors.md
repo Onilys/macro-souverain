@@ -1,6 +1,6 @@
 # Type Alias: HandleDeleteFileErrors
 
-> **HandleDeleteFileErrors** = `object`
+> **HandleDeleteFileErrors** = \{ `401`: `string`; `403`: `string`; `404`: `string`; \}
 
 ## Properties
 

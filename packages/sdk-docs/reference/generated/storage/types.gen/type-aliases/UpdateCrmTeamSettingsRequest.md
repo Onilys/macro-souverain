@@ -1,6 +1,6 @@
 # Type Alias: UpdateCrmTeamSettingsRequest
 
-> **UpdateCrmTeamSettingsRequest** = `object`
+> **UpdateCrmTeamSettingsRequest** = \{ `closed_stage_ids?`: `string`[] \| `null`; `default_team_view_id?`: `string` \| `null`; `delete_records_role?`: `null` \| [`CrmPermissionRole`](CrmPermissionRole.md); `edit_stages_role?`: `null` \| [`CrmPermissionRole`](CrmPermissionRole.md); `move_closed_deals_role?`: `null` \| [`CrmPermissionRole`](CrmPermissionRole.md); `team_views?`: `unknown`; \}
 
 Request body for `PUT /crm/settings`. Every field is optional:
 omitted fields keep their current values.

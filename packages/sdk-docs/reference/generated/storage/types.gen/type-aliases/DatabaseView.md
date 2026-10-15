@@ -1,6 +1,6 @@
 # Type Alias: DatabaseView
 
-> **DatabaseView** = `object`
+> **DatabaseView** = \{ `createdAt`: `string`; `databaseId`: `string`; `id`: `string`; `layout`: [`ViewLayout`](ViewLayout.md); `name`: `string`; `position`: `string`; `query`: [`ViewQuery`](ViewQuery.md); `tableId`: `string`; `updatedAt`: `string`; \}
 
 A view of one table, as stored.
 

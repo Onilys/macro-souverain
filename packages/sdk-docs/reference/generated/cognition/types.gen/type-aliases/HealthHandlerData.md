@@ -1,6 +1,6 @@
 # Type Alias: HealthHandlerData
 
-> **HealthHandlerData** = `object`
+> **HealthHandlerData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/health"`; \}
 
 ## Properties
 

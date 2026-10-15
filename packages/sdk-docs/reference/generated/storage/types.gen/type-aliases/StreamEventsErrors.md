@@ -1,6 +1,6 @@
 # Type Alias: StreamEventsErrors
 
-> **StreamEventsErrors** = `object`
+> **StreamEventsErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `403`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

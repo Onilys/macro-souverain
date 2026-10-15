@@ -1,6 +1,6 @@
 # Type Alias: InferDatabaseColumnTypeResponses
 
-> **InferDatabaseColumnTypeResponses** = `object`
+> **InferDatabaseColumnTypeResponses** = \{ `200`: [`InferColumnTypeOutcome`](InferColumnTypeOutcome.md); \}
 
 ## Properties
 

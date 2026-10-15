@@ -1,6 +1,6 @@
 # Type Alias: Params
 
-> **Params** = `object`
+> **Params** = \{ `expand?`: `boolean` \| `null`; `limit?`: `number` \| `null`; `sort_direction?`: `null` \| [`SoupApiSortDirection`](SoupApiSortDirection.md); `sort_method?`: `null` \| [`SoupApiSort`](SoupApiSort.md); \}
 
 Query parameters shared by soup endpoints.
 

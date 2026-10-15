@@ -1,6 +1,6 @@
 # Type Alias: CompleteOnboardingRequest
 
-> **CompleteOnboardingRequest** = `object`
+> **CompleteOnboardingRequest** = \{ `skipped?`: `boolean`; \}
 
 Body for completing onboarding.
 

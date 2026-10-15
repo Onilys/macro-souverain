@@ -1,6 +1,6 @@
 # Type Alias: UndoDatabaseChangeResponses
 
-> **UndoDatabaseChangeResponses** = `object`
+> **UndoDatabaseChangeResponses** = \{ `200`: [`UndoChangeResponse`](UndoChangeResponse.md); \}
 
 ## Properties
 

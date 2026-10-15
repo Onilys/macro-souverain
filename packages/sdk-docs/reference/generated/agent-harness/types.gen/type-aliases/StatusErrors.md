@@ -1,6 +1,6 @@
 # Type Alias: StatusErrors
 
-> **StatusErrors** = `object`
+> **StatusErrors** = \{ `401`: `unknown`; \}
 
 ## Properties
 

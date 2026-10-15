@@ -1,6 +1,6 @@
 # Type Alias: CallRecordSearchResponseItem
 
-> **CallRecordSearchResponseItem** = `object`
+> **CallRecordSearchResponseItem** = \{ `call_id`: `string`; `call_search_results`: [`CallRecordSearchResult`](CallRecordSearchResult.md)[]; `channel_id?`: `string` \| `null`; `id`: `string`; `name?`: `string` \| `null`; `owner_id`: `string`; `participant_ids`: `string`[]; \}
 
 ## Properties
 

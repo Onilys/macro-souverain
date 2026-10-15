@@ -1,6 +1,6 @@
 # Type Alias: MeetingInvitePermissions
 
-> **MeetingInvitePermissions** = `object`
+> **MeetingInvitePermissions** = \{ `canInvite`: `boolean`; \}
 
 Whether the authenticated caller can invite teammates to this meeting.
 

@@ -1,6 +1,6 @@
 # Type Alias: RegisterSlackImportUploadsResponses
 
-> **RegisterSlackImportUploadsResponses** = `object`
+> **RegisterSlackImportUploadsResponses** = \{ `200`: [`UploadGrant`](UploadGrant.md)[]; \}
 
 ## Properties
 

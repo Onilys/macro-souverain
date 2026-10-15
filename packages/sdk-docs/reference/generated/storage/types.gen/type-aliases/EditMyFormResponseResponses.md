@@ -1,6 +1,6 @@
 # Type Alias: EditMyFormResponseResponses
 
-> **EditMyFormResponseResponses** = `object`
+> **EditMyFormResponseResponses** = \{ `200`: [`SubmissionOutcome`](SubmissionOutcome.md); \}
 
 ## Properties
 

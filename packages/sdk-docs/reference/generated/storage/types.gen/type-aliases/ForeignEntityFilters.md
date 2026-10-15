@@ -1,6 +1,6 @@
 # Type Alias: ForeignEntityFilters
 
-> **ForeignEntityFilters** = `object`
+> **ForeignEntityFilters** = \{ `foreign_entity_ids?`: `string`[]; `foreign_entity_sources?`: `string`[]; `ids?`: `string`[]; `includes_me?`: `boolean`; `notification_filters?`: [`NotificationFilters`](NotificationFilters.md); \}
 
 Filters for foreign entity records.
 

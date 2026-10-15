@@ -1,6 +1,6 @@
 # Type Alias: CreateUserApiKeyData
 
-> **CreateUserApiKeyData** = `object`
+> **CreateUserApiKeyData** = \{ `body`: [`CreateUserApiKeyRequest`](CreateUserApiKeyRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/user-api-keys"`; \}
 
 ## Properties
 

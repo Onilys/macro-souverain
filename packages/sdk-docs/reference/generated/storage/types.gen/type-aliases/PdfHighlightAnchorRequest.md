@@ -1,6 +1,6 @@
 # Type Alias: PdfHighlightAnchorRequest
 
-> **PdfHighlightAnchorRequest** = `object`
+> **PdfHighlightAnchorRequest** = \{ `alpha`: `number`; `blue`: `number`; `green`: `number`; `highlightRects`: [`PdfHighlightRectAnchorRequest`](PdfHighlightRectAnchorRequest.md)[]; `highlightType`: [`HighlightType`](HighlightType.md); `page`: `number`; `pageViewportHeight`: `number`; `pageViewportWidth`: `number`; `red`: `number`; `text`: `string`; `uuid?`: `string` \| `null`; \}
 
 ## Properties
 

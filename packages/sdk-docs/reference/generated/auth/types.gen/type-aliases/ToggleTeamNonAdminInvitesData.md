@@ -1,6 +1,6 @@
 # Type Alias: ToggleTeamNonAdminInvitesData
 
-> **ToggleTeamNonAdminInvitesData** = `object`
+> **ToggleTeamNonAdminInvitesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/team/non-admin-invites/toggle"`; \}
 
 ## Properties
 

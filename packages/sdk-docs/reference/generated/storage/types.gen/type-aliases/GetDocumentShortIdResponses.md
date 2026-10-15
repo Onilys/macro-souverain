@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentShortIdResponses
 
-> **GetDocumentShortIdResponses** = `object`
+> **GetDocumentShortIdResponses** = \{ `200`: `string`; \}
 
 ## Properties
 

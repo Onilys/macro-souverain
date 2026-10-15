@@ -1,6 +1,6 @@
 # Type Alias: CreateCrmContactRequest
 
-> **CreateCrmContactRequest** = `object`
+> **CreateCrmContactRequest** = \{ `email`: `string`; `name`: `string`; \}
 
 Request body for `POST /crm/companies/{company_id}/contacts`.
 

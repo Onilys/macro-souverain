@@ -1,6 +1,6 @@
 # Type Alias: CalendarEventSearchResponseItem
 
-> **CalendarEventSearchResponseItem** = `object`
+> **CalendarEventSearchResponseItem** = \{ `calendar_event_search_results`: [`CalendarEventSearchResult`](CalendarEventSearchResult.md)[]; `created_at`: `string`; `id`: `string`; `name`: `string`; `owner_id`: `string`; `updated_at`: `string`; \}
 
 A single response item, part of the CalendarEventSearchResponse object
 

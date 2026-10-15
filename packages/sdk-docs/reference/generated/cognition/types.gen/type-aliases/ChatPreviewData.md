@@ -1,6 +1,6 @@
 # Type Alias: ChatPreviewData
 
-> **ChatPreviewData** = `object`
+> **ChatPreviewData** = \{ `chat_id`: `string`; `chat_name`: `string`; `owner`: `string`; `updated_at?`: `string` \| `null`; \}
 
 ## Properties
 

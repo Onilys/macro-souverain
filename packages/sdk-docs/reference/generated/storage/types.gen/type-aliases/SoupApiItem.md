@@ -1,6 +1,6 @@
 # Type Alias: SoupApiItem
 
-> **SoupApiItem** = [`SoupItem`](SoupItem.md) & `object`
+> **SoupApiItem** = [`SoupItem`](SoupItem.md) & \{ `frecency_score`: `number`; `is_favorited`: `boolean`; `notified_at?`: `string` \| `null`; `touched_at?`: `string` \| `null`; \}
 
 API representation of a soup item with its per-viewer enrichments.
 

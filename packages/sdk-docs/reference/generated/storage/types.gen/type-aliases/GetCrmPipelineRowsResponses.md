@@ -1,6 +1,6 @@
 # Type Alias: GetCrmPipelineRowsResponses
 
-> **GetCrmPipelineRowsResponses** = `object`
+> **GetCrmPipelineRowsResponses** = \{ `200`: [`StorageRows`](StorageRows.md); \}
 
 ## Properties
 

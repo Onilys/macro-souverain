@@ -1,6 +1,6 @@
 # Type Alias: ImportProgress
 
-> **ImportProgress** = `object`
+> **ImportProgress** = \{ `conversations`: [`ConversationProgress`](ConversationProgress.md)[]; `createdAt`: `string`; `includeMessageHistory`: `boolean`; `jobId`: [`JobId`](JobId.md); `limits`: [`ImportLimits`](ImportLimits.md); `registrationClosedAt?`: `string` \| `null`; `revision`: `number`; `source`: [`SourceIdentity`](SourceIdentity.md); `status`: [`JobStatus`](JobStatus.md); `updatedAt`: `string`; `usersVerified`: `boolean`; \}
 
 Common receipt returned by create, completion, finalize, cancel and progress.
 

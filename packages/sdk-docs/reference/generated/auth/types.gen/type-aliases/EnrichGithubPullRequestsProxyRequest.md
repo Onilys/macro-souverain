@@ -1,6 +1,6 @@
 # Type Alias: EnrichGithubPullRequestsProxyRequest
 
-> **EnrichGithubPullRequestsProxyRequest** = `object`
+> **EnrichGithubPullRequestsProxyRequest** = \{ `pullRequests`: [`GithubPullRequestRef`](GithubPullRequestRef.md)[]; \}
 
 Request body for the authenticated pull request enrichment proxy.
 

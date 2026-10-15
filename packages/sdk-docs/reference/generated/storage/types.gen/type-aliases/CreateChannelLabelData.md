@@ -1,6 +1,6 @@
 # Type Alias: CreateChannelLabelData
 
-> **CreateChannelLabelData** = `object`
+> **CreateChannelLabelData** = \{ `body`: [`CreateChannelLabelRequest`](CreateChannelLabelRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/channel-labels"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: StopChatStreamResponses
 
-> **StopChatStreamResponses** = `object`
+> **StopChatStreamResponses** = \{ `200`: [`StopChatStreamResponse`](StopChatStreamResponse.md); \}
 
 ## Properties
 

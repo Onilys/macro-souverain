@@ -1,6 +1,6 @@
 # Type Alias: WithProjectId
 
-> **WithProjectId** = `object`
+> **WithProjectId** = \{ `id`: `string`; \}
 
 ## Properties
 

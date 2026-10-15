@@ -1,6 +1,6 @@
 # Type Alias: CreateViewRequest
 
-> **CreateViewRequest** = `object`
+> **CreateViewRequest** = \{ `config`: `unknown`; `name`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: InitiativeDiscussionMetadata
 
-> **InitiativeDiscussionMetadata** = `object`
+> **InitiativeDiscussionMetadata** = \{ `messageId`: `string`; `owner`: `string`; `projectName`: `string`; `reason`: [`InitiativeDiscussionReason`](InitiativeDiscussionReason.md); `senderDisplayName?`: `string` \| `null`; `senderProfilePictureUrl?`: `string` \| `null`; `text`: `string`; `threadId`: `string`; \}
 
 Project discussion metadata. The notification entity identifies the initiative;
 message and thread UUIDs select the discussion inside that project.

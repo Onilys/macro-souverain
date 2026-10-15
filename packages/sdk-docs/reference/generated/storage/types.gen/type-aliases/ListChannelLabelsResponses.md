@@ -1,6 +1,6 @@
 # Type Alias: ListChannelLabelsResponses
 
-> **ListChannelLabelsResponses** = `object`
+> **ListChannelLabelsResponses** = \{ `200`: [`ChannelLabelsList`](ChannelLabelsList.md); \}
 
 ## Properties
 

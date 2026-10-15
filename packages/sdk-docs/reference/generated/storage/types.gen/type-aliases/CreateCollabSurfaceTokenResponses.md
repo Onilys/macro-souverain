@@ -1,6 +1,6 @@
 # Type Alias: CreateCollabSurfaceTokenResponses
 
-> **CreateCollabSurfaceTokenResponses** = `object`
+> **CreateCollabSurfaceTokenResponses** = \{ `200`: [`CollabSurfaceTokenResponse`](CollabSurfaceTokenResponse.md); \}
 
 ## Properties
 

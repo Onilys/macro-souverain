@@ -1,6 +1,6 @@
 # Type Alias: GetTeamSharingResponses
 
-> **GetTeamSharingResponses** = `object`
+> **GetTeamSharingResponses** = \{ `200`: [`TeamCalendarSharingBody`](TeamCalendarSharingBody.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetEntityHandlerErrors
 
-> **GetEntityHandlerErrors** = `object`
+> **GetEntityHandlerErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

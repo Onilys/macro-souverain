@@ -1,6 +1,6 @@
 # Type Alias: GetBatchCallRecordPreviewErrors
 
-> **GetBatchCallRecordPreviewErrors** = `object`
+> **GetBatchCallRecordPreviewErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SharePermissionV2
 
-> **SharePermissionV2** = `object`
+> **SharePermissionV2** = \{ `channelSharePermissions?`: [`ChannelSharePermission`](ChannelSharePermission.md)[] \| `null`; `id`: `string`; `linkShare?`: `null` \| [`LinkShare`](LinkShare.md); `linkShareAccessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); `owner`: `string`; `teamShareAccessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); \}
 
 ## Properties
 

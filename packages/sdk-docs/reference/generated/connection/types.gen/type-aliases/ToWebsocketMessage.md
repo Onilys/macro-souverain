@@ -1,3 +1,3 @@
 # Type Alias: ToWebsocketMessage
 
-> **ToWebsocketMessage** = [`TrackEntityMessage`](TrackEntityMessage.md) & `object` \| [`StreamEvents`](StreamEvents.md) & `object`
+> **ToWebsocketMessage** = [`TrackEntityMessage`](TrackEntityMessage.md) & \{ `type`: `"track_entity"`; \} \| [`StreamEvents`](StreamEvents.md) & \{ `type`: `"stream_events"`; \}

@@ -1,6 +1,6 @@
 # Type Alias: CodexEnvironment
 
-> **CodexEnvironment** = `object`
+> **CodexEnvironment** = \{ `id`: `string`; `label?`: `string` \| `null`; `repositories`: [`CodexEnvironmentRepository`](CodexEnvironmentRepository.md)[]; \}
 
 A cloud environment visible to the connected provider account.
 

@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlBulkResponses
 
-> **GetUnfurlBulkResponses** = `object`
+> **GetUnfurlBulkResponses** = \{ `200`: [`GetUnfurlBulkResponse`](GetUnfurlBulkResponse.md); \}
 
 ## Properties
 

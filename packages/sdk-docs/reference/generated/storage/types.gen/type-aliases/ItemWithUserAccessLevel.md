@@ -1,6 +1,6 @@
 # Type Alias: ItemWithUserAccessLevel
 
-> **ItemWithUserAccessLevel** = `object`
+> **ItemWithUserAccessLevel** = \{ `item`: [`Item`](Item.md); `userAccessLevel`: [`AccessLevel`](AccessLevel.md); \}
 
 ## Properties
 

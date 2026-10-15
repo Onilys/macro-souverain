@@ -1,6 +1,6 @@
 # Type Alias: ProxyParams
 
-> **ProxyParams** = `object`
+> **ProxyParams** = \{ `url`: `string`; \}
 
 ## Properties
 

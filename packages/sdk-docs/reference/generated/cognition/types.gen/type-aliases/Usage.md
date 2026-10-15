@@ -1,6 +1,6 @@
 # Type Alias: Usage
 
-> **Usage** = `object`
+> **Usage** = \{ `audio_seconds?`: `number` \| `null`; `cache_read_input_tokens`: `number`; `cache_write_input_tokens`: `number`; `created_at`: `string`; `input_tokens`: `number`; `model`: `string`; `output_tokens`: `number`; `price?`: `null` \| [`Price`](Price.md); \}
 
 Measured usage for one invocation.
 

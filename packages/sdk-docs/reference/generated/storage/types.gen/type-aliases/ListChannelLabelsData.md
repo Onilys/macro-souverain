@@ -1,6 +1,6 @@
 # Type Alias: ListChannelLabelsData
 
-> **ListChannelLabelsData** = `object`
+> **ListChannelLabelsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/channel-labels"`; \}
 
 ## Properties
 

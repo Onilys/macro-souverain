@@ -1,6 +1,6 @@
 # Type Alias: CreateInstructionsHandlerErrors
 
-> **CreateInstructionsHandlerErrors** = `object`
+> **CreateInstructionsHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `409`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

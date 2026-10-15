@@ -1,6 +1,6 @@
 # Type Alias: ApiDraftInput
 
-> **ApiDraftInput** = `object`
+> **ApiDraftInput** = \{ `bcc?`: [`ApiDraftContactInfo`](ApiDraftContactInfo.md)[] \| `null`; `body_html?`: `string` \| `null`; `body_macro?`: `string` \| `null`; `body_text?`: `string` \| `null`; `cc?`: [`ApiDraftContactInfo`](ApiDraftContactInfo.md)[] \| `null`; `db_id?`: `string` \| `null`; `headers_json?`: `null` \| [`Value`](Value.md); `include_signature?`: `boolean` \| `null`; `provider_id?`: `string` \| `null`; `provider_thread_id?`: `string` \| `null`; `replying_to_id?`: `string` \| `null`; `subject`: `string`; `thread_db_id?`: `string` \| `null`; `to?`: [`ApiDraftContactInfo`](ApiDraftContactInfo.md)[] \| `null`; \}
 
 The draft input matching the current `MessageToSend` JSON shape for backward compat.
 

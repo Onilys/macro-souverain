@@ -1,6 +1,6 @@
 # Type Alias: InitiativeDetail
 
-> **InitiativeDetail** = `object`
+> **InitiativeDetail** = \{ `createdAt`: `string`; `id`: [`InitiativeId`](InitiativeId.md); `memberIds`: [`MacroUserIdStr`](MacroUserIdStr.md)[]; `name`: `string`; `ownerId`: [`MacroUserIdStr`](MacroUserIdStr.md); `sharePermission`: [`SharePermissionV2`](SharePermissionV2.md); `taskIds`: `string`[]; `updatedAt`: `string`; `userAccessLevel`: [`AccessLevel`](AccessLevel.md); \}
 
 Full initiative returned to a caller, including members, tasks, and share state.
 

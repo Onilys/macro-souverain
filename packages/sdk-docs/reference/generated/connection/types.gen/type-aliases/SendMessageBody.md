@@ -1,6 +1,6 @@
 # Type Alias: SendMessageBody
 
-> **SendMessageBody** = `object`
+> **SendMessageBody** = \{ `message`: `unknown`; `message_type`: `string`; \}
 
 The body of a send message request.
 

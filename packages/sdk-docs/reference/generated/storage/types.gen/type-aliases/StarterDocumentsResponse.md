@@ -1,6 +1,6 @@
 # Type Alias: StarterDocumentsResponse
 
-> **StarterDocumentsResponse** = `object`
+> **StarterDocumentsResponse** = \{ `how_to_guide_id`: `string`; \}
 
 The deterministic starter document ids for the current user.
 

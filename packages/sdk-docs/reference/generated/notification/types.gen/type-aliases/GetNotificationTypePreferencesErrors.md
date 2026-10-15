@@ -1,6 +1,6 @@
 # Type Alias: GetNotificationTypePreferencesErrors
 
-> **GetNotificationTypePreferencesErrors** = `object`
+> **GetNotificationTypePreferencesErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

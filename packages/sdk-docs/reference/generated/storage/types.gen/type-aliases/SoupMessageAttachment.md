@@ -1,6 +1,6 @@
 # Type Alias: SoupMessageAttachment
 
-> **SoupMessageAttachment** = `object`
+> **SoupMessageAttachment** = \{ `created_at`: `string`; `entity_id`: `string`; `entity_type`: `string`; `height?`: `number` \| `null`; `id`: `string`; `width?`: `number` \| `null`; \}
 
 An attachment on a message.
 

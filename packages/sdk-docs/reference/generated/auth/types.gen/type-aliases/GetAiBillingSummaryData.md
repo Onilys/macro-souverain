@@ -1,6 +1,6 @@
 # Type Alias: GetAiBillingSummaryData
 
-> **GetAiBillingSummaryData** = `object`
+> **GetAiBillingSummaryData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/ai-billing/summary"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GenericResponse
 
-> **GenericResponse** = `object`
+> **GenericResponse** = \{ `data?`: `unknown`; `error`: `boolean`; `message?`: `string` \| `null`; \}
 
 ## Properties
 

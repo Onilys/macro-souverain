@@ -1,6 +1,6 @@
 # Type Alias: CreateDocumentData
 
-> **CreateDocumentData** = `object`
+> **CreateDocumentData** = \{ `body`: [`CreateDocumentRequest`](CreateDocumentRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/documents"`; \}
 
 ## Properties
 

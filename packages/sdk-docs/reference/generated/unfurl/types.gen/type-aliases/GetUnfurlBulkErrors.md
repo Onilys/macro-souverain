@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlBulkErrors
 
-> **GetUnfurlBulkErrors** = `object`
+> **GetUnfurlBulkErrors** = \{ `401`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

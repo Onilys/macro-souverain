@@ -1,6 +1,6 @@
 # Type Alias: CreatedPairing
 
-> **CreatedPairing** = `object`
+> **CreatedPairing** = \{ `code`: `string`; `device_secret`: `string`; `expires_at`: `string`; `pairing_id`: `string`; `poll_interval_seconds`: `number`; \}
 
 A pairing the daemon created, including its claim credential.
 

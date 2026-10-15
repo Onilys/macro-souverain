@@ -1,6 +1,6 @@
 # Type Alias: InputReceivedMetadata
 
-> **InputReceivedMetadata** = `object`
+> **InputReceivedMetadata** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `identity`: [`SessionIdentity`](SessionIdentity.md); `turn`: `number`; \}
 
 The pending question was answered or withdrawn.
 

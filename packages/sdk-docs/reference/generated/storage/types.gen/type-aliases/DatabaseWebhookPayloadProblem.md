@@ -1,6 +1,6 @@
 # Type Alias: DatabaseWebhookPayloadProblem
 
-> **DatabaseWebhookPayloadProblem** = `object`
+> **DatabaseWebhookPayloadProblem** = \{ `field`: `string` \| `null`; `message`: `string`; `row`: `number` \| `null`; \}
 
 One thing wrong with a webhook payload.
 

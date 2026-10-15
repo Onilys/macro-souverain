@@ -1,6 +1,6 @@
 # Type Alias: ListAgentRepositoryBranchesErrors
 
-> **ListAgentRepositoryBranchesErrors** = `object`
+> **ListAgentRepositoryBranchesErrors** = \{ `400`: `unknown`; `401`: `unknown`; `403`: `unknown`; `502`: `unknown`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: TranscribeResponse
 
-> **TranscribeResponse** = `object`
+> **TranscribeResponse** = \{ `text`: `string`; \}
 
 Transcription result.
 

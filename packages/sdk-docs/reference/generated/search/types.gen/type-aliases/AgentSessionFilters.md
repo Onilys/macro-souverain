@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionFilters
 
-> **AgentSessionFilters** = `object`
+> **AgentSessionFilters** = \{ `ids?`: `string`[]; `include?`: `boolean`; `owners?`: `string`[]; \}
 
 Filters for agent sessions.
 

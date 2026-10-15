@@ -1,6 +1,6 @@
 # Type Alias: SetAgentSessionArchivedRequest
 
-> **SetAgentSessionArchivedRequest** = `object`
+> **SetAgentSessionArchivedRequest** = \{ `isArchived`: `boolean`; \}
 
 Request body for archiving or unarchiving an agent session.
 

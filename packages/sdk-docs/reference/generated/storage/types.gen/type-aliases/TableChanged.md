@@ -1,6 +1,6 @@
 # Type Alias: TableChanged
 
-> **TableChanged** = `object`
+> **TableChanged** = \{ `databaseId`: `string`; `tableId`: `string`; `version`: [`TableVersion`](TableVersion.md); \}
 
 The [`TABLE_CHANGED_MESSAGE_TYPE`] payload: one table's new version.
 

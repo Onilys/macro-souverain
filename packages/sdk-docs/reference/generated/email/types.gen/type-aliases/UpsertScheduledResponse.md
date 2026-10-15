@@ -1,6 +1,6 @@
 # Type Alias: UpsertScheduledResponse
 
-> **UpsertScheduledResponse** = `object`
+> **UpsertScheduledResponse** = \{ `message_id`: `string`; `send_time`: `string`; \}
 
 ## Properties
 

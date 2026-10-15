@@ -1,6 +1,6 @@
 # Type Alias: SendMessageResponses
 
-> **SendMessageResponses** = `object`
+> **SendMessageResponses** = \{ `201`: [`SendMessageResponse`](SendMessageResponse.md); \}
 
 ## Properties
 

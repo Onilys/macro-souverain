@@ -1,6 +1,6 @@
 # Type Alias: UpdateMcpServerErrors
 
-> **UpdateMcpServerErrors** = `object`
+> **UpdateMcpServerErrors** = \{ `401`: `string`; `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

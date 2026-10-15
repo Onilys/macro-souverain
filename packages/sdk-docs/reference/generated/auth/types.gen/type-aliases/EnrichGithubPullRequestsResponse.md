@@ -1,6 +1,6 @@
 # Type Alias: EnrichGithubPullRequestsResponse
 
-> **EnrichGithubPullRequestsResponse** = `object`
+> **EnrichGithubPullRequestsResponse** = \{ `pullRequests`: [`EnrichedGithubPullRequest`](EnrichedGithubPullRequest.md)[]; \}
 
 Response body for pull request enrichment.
 

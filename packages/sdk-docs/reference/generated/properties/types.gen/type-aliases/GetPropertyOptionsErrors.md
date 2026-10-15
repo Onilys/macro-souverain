@@ -1,6 +1,6 @@
 # Type Alias: GetPropertyOptionsErrors
 
-> **GetPropertyOptionsErrors** = `object`
+> **GetPropertyOptionsErrors** = \{ `404`: `unknown`; `500`: `unknown`; \}
 
 ## Properties
 

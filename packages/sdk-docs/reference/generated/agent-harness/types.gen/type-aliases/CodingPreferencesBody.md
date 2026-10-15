@@ -1,6 +1,6 @@
 # Type Alias: CodingPreferencesBody
 
-> **CodingPreferencesBody** = `object`
+> **CodingPreferencesBody** = \{ `createTasks`: `boolean`; `openPullRequests`: `boolean`; \}
 
 Request or response body for the caller's coding preferences.
 

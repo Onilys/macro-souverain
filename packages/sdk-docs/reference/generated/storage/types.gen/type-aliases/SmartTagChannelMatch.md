@@ -1,6 +1,6 @@
 # Type Alias: SmartTagChannelMatch
 
-> **SmartTagChannelMatch** = `object`
+> **SmartTagChannelMatch** = \{ `id`: `string`; `name`: `string`; \}
 
 A channel visible to the caller that matches a smart tag rule.
 

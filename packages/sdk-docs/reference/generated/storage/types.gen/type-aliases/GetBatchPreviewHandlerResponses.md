@@ -1,6 +1,6 @@
 # Type Alias: GetBatchPreviewHandlerResponses
 
-> **GetBatchPreviewHandlerResponses** = `object`
+> **GetBatchPreviewHandlerResponses** = \{ `200`: [`GetBatchPreviewResponse`](GetBatchPreviewResponse.md); \}
 
 ## Properties
 

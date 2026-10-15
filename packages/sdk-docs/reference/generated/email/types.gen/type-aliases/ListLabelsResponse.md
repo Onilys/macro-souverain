@@ -1,6 +1,6 @@
 # Type Alias: ListLabelsResponse
 
-> **ListLabelsResponse** = `object`
+> **ListLabelsResponse** = \{ `labels`: [`ApiLabel`](ApiLabel.md)[]; \}
 
 Response body for listing labels.
 

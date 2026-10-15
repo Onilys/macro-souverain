@@ -1,6 +1,6 @@
 # Type Alias: SendMobileWelcomeEmailRequest
 
-> **SendMobileWelcomeEmailRequest** = `object`
+> **SendMobileWelcomeEmailRequest** = \{ `email`: `string`; \}
 
 ## Properties
 

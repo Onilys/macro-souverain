@@ -1,6 +1,6 @@
 # Type Alias: SessionBot
 
-> **SessionBot** = `object`
+> **SessionBot** = \{ `avatarUrl?`: `string` \| `null`; `handle`: `string`; `id`: [`BotId`](BotId.md); `name`: `string`; \}
 
 The agent behind a session, as much of it as rendering a message needs.
 

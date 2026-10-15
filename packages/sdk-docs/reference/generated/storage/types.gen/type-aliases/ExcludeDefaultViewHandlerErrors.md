@@ -1,6 +1,6 @@
 # Type Alias: ExcludeDefaultViewHandlerErrors
 
-> **ExcludeDefaultViewHandlerErrors** = `object`
+> **ExcludeDefaultViewHandlerErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: DeleteScheduledActionResponses
 
-> **DeleteScheduledActionResponses** = `object`
+> **DeleteScheduledActionResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: EmailSearchParticipant
 
-> **EmailSearchParticipant** = `object`
+> **EmailSearchParticipant** = \{ `email`: `string`; `name?`: `string` \| `null`; \}
 
 A participant (sender) in an email thread
 

@@ -1,6 +1,6 @@
 # Type Alias: DeleteAnchorData
 
-> **DeleteAnchorData** = `object`
+> **DeleteAnchorData** = \{ `body`: [`DeleteUnthreadedAnchorRequest`](DeleteUnthreadedAnchorRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/annotations/anchors"`; \}
 
 ## Properties
 

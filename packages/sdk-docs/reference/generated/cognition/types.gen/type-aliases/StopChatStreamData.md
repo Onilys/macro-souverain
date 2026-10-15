@@ -1,6 +1,6 @@
 # Type Alias: StopChatStreamData
 
-> **StopChatStreamData** = `object`
+> **StopChatStreamData** = \{ `body`: [`StopChatStreamRequest`](StopChatStreamRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/stream/chat/message/stop"`; \}
 
 ## Properties
 

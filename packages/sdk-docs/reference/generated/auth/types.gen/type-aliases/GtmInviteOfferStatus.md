@@ -1,6 +1,6 @@
 # Type Alias: GtmInviteOfferStatus
 
-> **GtmInviteOfferStatus** = `object`
+> **GtmInviteOfferStatus** = \{ `offer?`: `null` \| [`GtmInviteOffer`](GtmInviteOffer.md); \}
 
 Whether the signed-in user holds an unused offer.
 

@@ -1,6 +1,6 @@
 # Type Alias: GetBackfillGmailActiveResponses
 
-> **GetBackfillGmailActiveResponses** = `object`
+> **GetBackfillGmailActiveResponses** = \{ `200`: [`GetActiveBackfillJobResponse`](GetActiveBackfillJobResponse.md); `204`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

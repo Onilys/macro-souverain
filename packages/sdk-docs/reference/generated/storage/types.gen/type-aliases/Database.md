@@ -1,6 +1,6 @@
 # Type Alias: Database
 
-> **Database** = `object`
+> **Database** = \{ `created_at`: `string`; `id`: `string`; `name`: `string`; `owner_id`: `string`; `trashed_at`: `string` \| `null`; \}
 
 A database: a named collection of tables, owned and shared as one entity.
 

@@ -1,6 +1,6 @@
 # Type Alias: StartCodexLoginResponses
 
-> **StartCodexLoginResponses** = `object`
+> **StartCodexLoginResponses** = \{ `200`: [`CodexLoginStart`](CodexLoginStart.md); \}
 
 ## Properties
 

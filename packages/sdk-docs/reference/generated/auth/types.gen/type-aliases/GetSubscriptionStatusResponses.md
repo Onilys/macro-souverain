@@ -1,6 +1,6 @@
 # Type Alias: GetSubscriptionStatusResponses
 
-> **GetSubscriptionStatusResponses** = `object`
+> **GetSubscriptionStatusResponses** = \{ `200`: [`SubscriptionStatus`](SubscriptionStatus.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: AttachmentForwarded
 
-> **AttachmentForwarded** = `object`
+> **AttachmentForwarded** = \{ `attachment_id`: `string`; `draft_id`: `string`; `filename?`: `string` \| `null`; `message_provider_id`: `string`; `mime_type?`: `string` \| `null`; `provider_attachment_id?`: `string` \| `null`; `size_bytes?`: `number` \| `null`; \}
 
 A forwarded attachment linking a draft to an original message's attachment.
 Data is fetched from Gmail at send time rather than stored in S3.

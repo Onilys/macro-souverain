@@ -1,6 +1,6 @@
 # Type Alias: ListTeamCalendarResponses
 
-> **ListTeamCalendarResponses** = `object`
+> **ListTeamCalendarResponses** = \{ `200`: [`TeamCalendarPage`](TeamCalendarPage.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PreviewSmartTagResponses
 
-> **PreviewSmartTagResponses** = `object`
+> **PreviewSmartTagResponses** = \{ `200`: [`SmartTagPreview`](SmartTagPreview.md); \}
 
 ## Properties
 

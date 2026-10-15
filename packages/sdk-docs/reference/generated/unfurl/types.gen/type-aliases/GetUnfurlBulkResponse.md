@@ -1,6 +1,6 @@
 # Type Alias: GetUnfurlBulkResponse
 
-> **GetUnfurlBulkResponse** = `object`
+> **GetUnfurlBulkResponse** = \{ `responses`: [`Vec`](Vec.md); \}
 
 ## Properties
 

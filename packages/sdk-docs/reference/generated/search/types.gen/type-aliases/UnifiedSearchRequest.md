@@ -1,6 +1,6 @@
 # Type Alias: UnifiedSearchRequest
 
-> **UnifiedSearchRequest** = `object`
+> **UnifiedSearchRequest** = \{ `collapse?`: `boolean` \| `null`; `filters?`: [`EntityFilters`](EntityFilters.md); `include_crm?`: `boolean`; `match_type`: [`MatchType`](MatchType.md); `query`: `string`; `search_on?`: [`SearchOn`](SearchOn.md); \}
 
 ## Properties
 

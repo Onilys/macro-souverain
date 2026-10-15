@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionResponse
 
-> **AgentSessionResponse** = `object`
+> **AgentSessionResponse** = \{ `acpSessionId?`: `string` \| `null`; `botId`: `string`; `canEdit`: `boolean`; `createdAt`: `string`; `external?`: `null` \| [`ExternalSessionResponse`](ExternalSessionResponse.md); `harness`: `string`; `id`: `string`; `instructions?`: `string` \| `null`; `isArchived`: `boolean`; `model`: `string`; `modifiedAt`: `string`; `name`: `string`; `originatingMessageId?`: `string` \| `null`; `ownerId`: `string`; `pullRequestUrl?`: `string` \| `null`; `repoUrl?`: `string` \| `null`; `sandboxSize`: [`SandboxSize`](SandboxSize.md); `status`: [`SessionStatusDto`](SessionStatusDto.md); `taskId?`: `string` \| `null`; `threadChannelId?`: `string` \| `null`; `threadId?`: `string` \| `null`; `threadParent?`: `null` \| [`MessageParent`](MessageParent.md); `workspace`: `string`; \}
 
 Response body describing an agent session.
 

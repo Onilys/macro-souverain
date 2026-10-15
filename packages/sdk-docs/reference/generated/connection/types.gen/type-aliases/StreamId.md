@@ -1,6 +1,6 @@
 # Type Alias: StreamId
 
-> **StreamId** = `object`
+> **StreamId** = \{ `entity_id`: `string`; `entity_type`: [`EntityType`](EntityType.md); `stream_id`: `string`; \}
 
 ## Properties
 

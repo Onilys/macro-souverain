@@ -1,6 +1,6 @@
 # Type Alias: SaveDocumentRequest
 
-> **SaveDocumentRequest** = `object`
+> **SaveDocumentRequest** = \{ `modificationData?`: `unknown`; `newBom?`: [`SaveBomPart`](SaveBomPart.md)[] \| `null`; `sha?`: `string` \| `null`; \}
 
 ## Properties
 

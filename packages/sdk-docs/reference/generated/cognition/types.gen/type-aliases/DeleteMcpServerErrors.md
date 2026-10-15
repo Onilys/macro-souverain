@@ -1,6 +1,6 @@
 # Type Alias: DeleteMcpServerErrors
 
-> **DeleteMcpServerErrors** = `object`
+> **DeleteMcpServerErrors** = \{ `401`: `string`; `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

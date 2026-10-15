@@ -1,6 +1,6 @@
 # Type Alias: DeleteProjectHandlerErrors
 
-> **DeleteProjectHandlerErrors** = `object`
+> **DeleteProjectHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

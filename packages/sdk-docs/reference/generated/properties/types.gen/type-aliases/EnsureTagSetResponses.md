@@ -1,6 +1,6 @@
 # Type Alias: EnsureTagSetResponses
 
-> **EnsureTagSetResponses** = `object`
+> **EnsureTagSetResponses** = \{ `200`: [`TagSetResponse`](TagSetResponse.md); \}
 
 ## Properties
 

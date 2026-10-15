@@ -1,6 +1,6 @@
 # Type Alias: DeleteEmailFilterResponses
 
-> **DeleteEmailFilterResponses** = `object`
+> **DeleteEmailFilterResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

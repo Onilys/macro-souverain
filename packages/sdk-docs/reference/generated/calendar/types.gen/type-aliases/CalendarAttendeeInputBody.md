@@ -1,6 +1,6 @@
 # Type Alias: CalendarAttendeeInputBody
 
-> **CalendarAttendeeInputBody** = `object`
+> **CalendarAttendeeInputBody** = \{ `email`: `string`; `isOptional?`: `boolean`; \}
 
 An attendee supplied to a calendar mutation.
 

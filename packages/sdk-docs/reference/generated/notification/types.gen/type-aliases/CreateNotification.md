@@ -1,6 +1,6 @@
 # Type Alias: CreateNotification
 
-> **CreateNotification** = [`Entity`](Entity.md) & `object`
+> **CreateNotification** = [`Entity`](Entity.md) & \{ `metadata?`: `unknown`; `notification_event_type`: `string`; `service_sender`: `string`; \}
 
 ## Type Declaration
 

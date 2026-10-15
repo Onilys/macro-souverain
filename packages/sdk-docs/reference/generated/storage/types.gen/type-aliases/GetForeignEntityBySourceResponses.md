@@ -1,6 +1,6 @@
 # Type Alias: GetForeignEntityBySourceResponses
 
-> **GetForeignEntityBySourceResponses** = `object`
+> **GetForeignEntityBySourceResponses** = \{ `200`: [`ForeignEntity`](ForeignEntity.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SetPricingHandlerData
 
-> **SetPricingHandlerData** = `object`
+> **SetPricingHandlerData** = \{ `body`: [`SetPricingRequest`](SetPricingRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/ai-cost/pricing"`; \}
 
 ## Properties
 

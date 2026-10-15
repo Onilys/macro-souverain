@@ -1,6 +1,6 @@
 # Type Alias: GithubPrStatusChanged
 
-> **GithubPrStatusChanged** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & `object`
+> **GithubPrStatusChanged** = [`GithubPrNotificationCommon`](GithubPrNotificationCommon.md) & \{ `action`: [`GithubPrEventAction`](GithubPrEventAction.md); `baseBranch?`: `string` \| `null`; `headBranch?`: `string` \| `null`; `mergedAt?`: `string` \| `null`; `previousStatus?`: `null` \| [`GithubPrEventStatus`](GithubPrEventStatus.md); `status`: [`GithubPrEventStatus`](GithubPrEventStatus.md); \}
 
 Metadata for a GitHub pull request lifecycle notification.
 

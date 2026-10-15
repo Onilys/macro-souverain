@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionChangesPatchResponse
 
-> **AgentSessionChangesPatchResponse** = `object`
+> **AgentSessionChangesPatchResponse** = \{ `patch`: `string`; \}
 
 Response body for `GET /agent-sessions/{session_id}/changes/patch`.
 

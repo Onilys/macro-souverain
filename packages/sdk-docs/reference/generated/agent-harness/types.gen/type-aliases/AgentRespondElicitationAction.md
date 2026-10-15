@@ -1,6 +1,6 @@
 # Type Alias: AgentRespondElicitationAction
 
-> **AgentRespondElicitationAction** = [`ElicitationAnswer`](ElicitationAnswer.md) & `object`
+> **AgentRespondElicitationAction** = [`ElicitationAnswer`](ElicitationAnswer.md) & \{ `requestId`: [`ElicitationRequestId`](ElicitationRequestId.md); \}
 
 Answer an elicitation the agent is waiting on.
 

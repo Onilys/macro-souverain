@@ -1,6 +1,6 @@
 # Type Alias: UpdatePropertyOptionResponses
 
-> **UpdatePropertyOptionResponses** = `object`
+> **UpdatePropertyOptionResponses** = \{ `200`: [`PropertyOption`](PropertyOption.md); \}
 
 ## Properties
 

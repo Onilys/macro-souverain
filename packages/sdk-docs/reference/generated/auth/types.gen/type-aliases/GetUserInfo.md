@@ -1,6 +1,6 @@
 # Type Alias: GetUserInfo
 
-> **GetUserInfo** = `object`
+> **GetUserInfo** = \{ `organization_id?`: `number` \| `null`; `permissions`: `string`[]; `user_id`: `string`; \}
 
 ## Properties
 

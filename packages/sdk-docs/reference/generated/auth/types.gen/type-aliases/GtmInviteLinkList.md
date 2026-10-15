@@ -1,6 +1,6 @@
 # Type Alias: GtmInviteLinkList
 
-> **GtmInviteLinkList** = `object`
+> **GtmInviteLinkList** = \{ `links`: [`GtmInviteLink`](GtmInviteLink.md)[]; \}
 
 Links for the dashboard.
 

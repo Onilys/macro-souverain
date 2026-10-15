@@ -1,6 +1,6 @@
 # Type Alias: SoupChatSoupPropertiesField
 
-> **SoupChatSoupPropertiesField** = `object` & `object`
+> **SoupChatSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `createdAt`: `string`; `deletedAt?`: `string` \| `null`; `id`: `string`; `isPersistent`: `boolean`; `model?`: `string` \| `null`; `name`: `string`; `ownerId`: `string`; `projectId?`: `string` \| `null`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 A chat as displayed in Soup.
 

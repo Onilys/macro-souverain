@@ -1,6 +1,6 @@
 # Type Alias: EditDocumentResponse
 
-> **EditDocumentResponse** = `object`
+> **EditDocumentResponse** = \{ `data`: [`GenericSuccessResponse`](GenericSuccessResponse.md); `error`: `boolean`; \}
 
 Edit document response.
 

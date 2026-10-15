@@ -1,6 +1,6 @@
 # Type Alias: MemoryResponse
 
-> **MemoryResponse** = `object`
+> **MemoryResponse** = \{ `memory`: `string`; \}
 
 The user's latest memory.
 

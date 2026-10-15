@@ -1,6 +1,6 @@
 # Type Alias: EntityFilters
 
-> **EntityFilters** = `object`
+> **EntityFilters** = \{ `agent_session_filters?`: [`AgentSessionFilters`](AgentSessionFilters.md); `calendar_event_filters?`: [`CalendarEventFilters`](CalendarEventFilters.md); `call_filters?`: [`CallFilters`](CallFilters.md); `channel_filters?`: [`ChannelFilters`](ChannelFilters.md); `channel_thread_filters?`: [`ChannelThreadFilters`](ChannelThreadFilters.md); `chat_filters?`: [`ChatFilters`](ChatFilters.md); `crm_company_filters?`: [`CrmCompanyFilters`](CrmCompanyFilters.md); `document_filters?`: [`DocumentFilters`](DocumentFilters.md); `email_filters?`: [`EmailFilters`](EmailFilters.md); `favorites_only?`: `boolean` \| `null`; `foreign_entity_filters?`: [`ForeignEntityFilters`](ForeignEntityFilters.md); `initiative_filters?`: [`InitiativeFilters`](InitiativeFilters.md); `project_filters?`: [`ProjectFilters`](ProjectFilters.md); `property_filters?`: [`PropertyFilter`](PropertyFilter.md)[]; `tag_filter_mode?`: [`TagFilterMode`](TagFilterMode.md); `tag_option_ids?`: `string`[]; \}
 
 a bundle of all of the filters for each entity type
 

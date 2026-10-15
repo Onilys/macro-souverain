@@ -1,6 +1,6 @@
 # Type Alias: CreateWebhookResponse
 
-> **CreateWebhookResponse** = `object`
+> **CreateWebhookResponse** = \{ `created_at`: `string`; `created_by_user_id`: `string`; `deleted_at?`: `string` \| `null`; `endpoint_url`: `string`; `filters`: [`Vec`](Vec.md); `headers`: [`BTreeMap`](BTreeMap.md); `id`: [`String`](String.md); `is_valid`: `boolean`; `name`: `string`; `namespace`: `string`; `signing_secret`: `string`; `status`: [`WebhookStatus`](WebhookStatus.md); `updated_at`: `string`; `workspace_id`: `string`; \}
 
 Webhook returned after creation, including its signing secret.
 

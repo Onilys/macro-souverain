@@ -1,6 +1,6 @@
 # Type Alias: HarnessAgent
 
-> **HarnessAgent** = `object`
+> **HarnessAgent** = \{ `bot_id`: [`BotId`](BotId.md); `handle`: `string`; `name`: `string`; \}
 
 An agent bound to a harness, as listed for the daemon.
 

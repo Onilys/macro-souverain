@@ -88,13 +88,13 @@ The message this thread hangs off.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `channelId`: `string`; `rootId`: `string`; \}
 
 Serialize the thread identity without its authenticated client.
 
 #### Returns
 
-`object`
+\{ `channelId`: `string`; `rootId`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

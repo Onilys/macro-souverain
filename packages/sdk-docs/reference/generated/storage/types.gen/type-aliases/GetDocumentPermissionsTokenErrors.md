@@ -1,6 +1,6 @@
 # Type Alias: GetDocumentPermissionsTokenErrors
 
-> **GetDocumentPermissionsTokenErrors** = `object`
+> **GetDocumentPermissionsTokenErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

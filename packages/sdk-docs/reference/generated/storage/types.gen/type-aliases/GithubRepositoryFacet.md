@@ -1,6 +1,6 @@
 # Type Alias: GithubRepositoryFacet
 
-> **GithubRepositoryFacet** = `object`
+> **GithubRepositoryFacet** = \{ `count`: `number`; `repository`: `string`; `repositoryId`: `string`; \}
 
 A repository among the visible GitHub pull requests.
 

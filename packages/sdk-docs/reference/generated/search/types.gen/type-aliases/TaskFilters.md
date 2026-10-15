@@ -1,6 +1,6 @@
 # Type Alias: TaskFilters
 
-> **TaskFilters** = `object`
+> **TaskFilters** = \{ `include_cbm_atm_nc?`: `boolean` \| `null`; \}
 
 Task-only filters nested under document filters.
 

@@ -1,6 +1,6 @@
 # Type Alias: GetCrmTeamSettingsData
 
-> **GetCrmTeamSettingsData** = `object`
+> **GetCrmTeamSettingsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/crm/settings"`; \}
 
 ## Properties
 

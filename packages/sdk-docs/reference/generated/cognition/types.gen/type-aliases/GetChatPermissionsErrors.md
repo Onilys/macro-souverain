@@ -1,6 +1,6 @@
 # Type Alias: GetChatPermissionsErrors
 
-> **GetChatPermissionsErrors** = `object`
+> **GetChatPermissionsErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

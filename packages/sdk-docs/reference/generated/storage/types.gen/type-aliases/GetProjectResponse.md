@@ -1,6 +1,6 @@
 # Type Alias: GetProjectResponse
 
-> **GetProjectResponse** = `object`
+> **GetProjectResponse** = \{ `data`: [`GetProjectResponseData`](GetProjectResponseData.md); `error`: `boolean`; \}
 
 ## Properties
 

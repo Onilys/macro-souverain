@@ -1,6 +1,6 @@
 # Type Alias: DeleteAnchorResponses
 
-> **DeleteAnchorResponses** = `object`
+> **DeleteAnchorResponses** = \{ `200`: [`DeleteUnthreadedAnchorResponse`](DeleteUnthreadedAnchorResponse.md); \}
 
 ## Properties
 

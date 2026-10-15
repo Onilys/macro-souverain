@@ -1,6 +1,6 @@
 # Type Alias: CopyDocumentErrors
 
-> **CopyDocumentErrors** = `object`
+> **CopyDocumentErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

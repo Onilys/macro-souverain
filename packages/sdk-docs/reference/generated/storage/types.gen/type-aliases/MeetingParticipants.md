@@ -1,6 +1,6 @@
 # Type Alias: MeetingParticipants
 
-> **MeetingParticipants** = `object`
+> **MeetingParticipants** = \{ `participants`: [`MeetingParticipant`](MeetingParticipant.md)[]; \}
 
 People currently connected to a meeting's room.
 

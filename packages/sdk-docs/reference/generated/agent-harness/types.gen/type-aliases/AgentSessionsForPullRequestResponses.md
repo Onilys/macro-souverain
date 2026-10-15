@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionsForPullRequestResponses
 
-> **AgentSessionsForPullRequestResponses** = `object`
+> **AgentSessionsForPullRequestResponses** = \{ `200`: [`PullRequestSessionsResponse`](PullRequestSessionsResponse.md); \}
 
 ## Properties
 

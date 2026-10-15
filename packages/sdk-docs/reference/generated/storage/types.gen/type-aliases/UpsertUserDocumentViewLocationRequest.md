@@ -1,6 +1,6 @@
 # Type Alias: UpsertUserDocumentViewLocationRequest
 
-> **UpsertUserDocumentViewLocationRequest** = `object`
+> **UpsertUserDocumentViewLocationRequest** = \{ `location`: `string`; \}
 
 ## Properties
 

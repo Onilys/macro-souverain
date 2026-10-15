@@ -1,6 +1,6 @@
 # Type Alias: Agent
 
-> **Agent** = `object`
+> **Agent** = \{ `auto_accept_permissions?`: `boolean` \| `null`; `bot`: [`Bot`](Bot.md); `channel_ids`: `string`[]; `channel_scope`: [`AgentChannelScope`](AgentChannelScope.md); `default_model`: `string`; `harness`: `string`; `harness_id?`: `null` \| [`HarnessId`](HarnessId.md); `instructions`: `string`; `is_coding`: `boolean`; `mcp`: [`AgentMcpServers`](AgentMcpServers.md); \}
 
 A persisted user- or team-owned AI agent.
 

@@ -1,6 +1,6 @@
 # Type Alias: CreateCalendarEventData
 
-> **CreateCalendarEventData** = `object`
+> **CreateCalendarEventData** = \{ `body`: [`CreateCalendarEventRequest`](CreateCalendarEventRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/events"`; \}
 
 ## Properties
 

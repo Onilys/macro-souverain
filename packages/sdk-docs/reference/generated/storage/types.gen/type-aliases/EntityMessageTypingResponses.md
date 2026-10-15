@@ -1,6 +1,6 @@
 # Type Alias: EntityMessageTypingResponses
 
-> **EntityMessageTypingResponses** = `object`
+> **EntityMessageTypingResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

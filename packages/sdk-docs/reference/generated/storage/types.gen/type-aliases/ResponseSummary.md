@@ -1,6 +1,6 @@
 # Type Alias: ResponseSummary
 
-> **ResponseSummary** = `object`
+> **ResponseSummary** = \{ `rows`: `number`; `stopped`: `number`; `stoppedBySection`: [`SectionCount`](SectionCount.md)[]; `submitted`: `number`; \}
 
 A form's response counts, for its editors.
 

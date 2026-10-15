@@ -1,6 +1,6 @@
 # Type Alias: DynamicSchema
 
-> **DynamicSchema** = `object`
+> **DynamicSchema** = \{ `description?`: `string` \| `null`; `name`: `string`; `schema`: `unknown`; \}
 
 Schema definition for dynamic structured completions.
 

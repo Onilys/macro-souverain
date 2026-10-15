@@ -1,6 +1,6 @@
 # Type Alias: ApiMessageLabel
 
-> **ApiMessageLabel** = `object`
+> **ApiMessageLabel** = \{ `created_at`: `string`; `id?`: `string` \| `null`; `label_list_visibility?`: `null` \| [`ApiLabelListVisibility`](ApiLabelListVisibility.md); `link_id`: `string`; `message_list_visibility?`: `null` \| [`ApiMessageListVisibility`](ApiMessageListVisibility.md); `name?`: `string` \| `null`; `provider_label_id`: `string`; `type_?`: `null` \| [`ApiLabelType`](ApiLabelType.md); \}
 
 API representation of a label on a message.
 

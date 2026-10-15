@@ -1,6 +1,6 @@
 # Type Alias: ListUserApiKeysErrors
 
-> **ListUserApiKeysErrors** = `object`
+> **ListUserApiKeysErrors** = \{ `401`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

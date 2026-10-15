@@ -179,11 +179,11 @@ Choice and checkbox counts, available to viewers when tally visibility is enable
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `detail?`: [`FormDetail`](../../../../../generated/storage/types.gen/type-aliases/FormDetail.md); `id`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `detail?`: [`FormDetail`](../../../../../generated/storage/types.gen/type-aliases/FormDetail.md); `id`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

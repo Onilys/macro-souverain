@@ -1,6 +1,6 @@
 # Type Alias: GtmInviteLink
 
-> **GtmInviteLink** = `object`
+> **GtmInviteLink** = \{ `convertedAt?`: `string` \| `null`; `createdAt`: `string`; `createdBy`: `string`; `expiresAt`: `string`; `firstName`: `string`; `firstOpenedAt?`: `string` \| `null`; `freeMonths`: `number`; `id`: `string`; `note?`: `string` \| `null`; `openCount`: `number`; `promoCode`: `string`; `recipientEmail?`: `string` \| `null`; `redeemedAt?`: `string` \| `null`; `redeemedBy?`: `string` \| `null`; `revokedAt?`: `string` \| `null`; `status`: [`GtmInviteLinkStatus`](GtmInviteLinkStatus.md); `stripeSubscriptionId?`: `string` \| `null`; `token`: `string`; \}
 
 A link as shown on the staff dashboard.
 

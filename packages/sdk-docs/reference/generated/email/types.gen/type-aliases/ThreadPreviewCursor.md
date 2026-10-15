@@ -1,6 +1,6 @@
 # Type Alias: ThreadPreviewCursor
 
-> **ThreadPreviewCursor** = `object`
+> **ThreadPreviewCursor** = \{ `attachments`: [`Attachment`](Attachment.md)[]; `createdAt`: `string`; `id`: `string`; `inboxVisible`: `boolean`; `isDraft`: `boolean`; `isImportant`: `boolean`; `isRead`: `boolean`; `name?`: `string` \| `null`; `ownerId`: `string`; `participants`: [`Contact`](Contact.md)[]; `providerId?`: `string` \| `null`; `senderEmail?`: `string` \| `null`; `senderName?`: `string` \| `null`; `senderPhotoUrl?`: `string` \| `null`; `snippet?`: `string` \| `null`; `sortTs`: `string`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 thread summary returned in preview cursor endpoint
 

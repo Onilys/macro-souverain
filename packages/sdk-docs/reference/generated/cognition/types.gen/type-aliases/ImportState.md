@@ -1,6 +1,6 @@
 # Type Alias: ImportState
 
-> **ImportState** = `object`
+> **ImportState** = \{ `entities`: [`ImportEntity`](ImportEntity.md)[]; `runs`: [`ImportRun`](ImportRun.md)[]; \}
 
 The full import aggregate for a user: gather runs plus visible ledger
 rows (their own, and teammates' team-imported rows).

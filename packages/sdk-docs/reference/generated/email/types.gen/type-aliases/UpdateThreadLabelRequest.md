@@ -1,6 +1,6 @@
 # Type Alias: UpdateThreadLabelRequest
 
-> **UpdateThreadLabelRequest** = `object`
+> **UpdateThreadLabelRequest** = \{ `label_id`: `string`; `value`: `boolean`; \}
 
 Request body for updating a thread's labels.
 

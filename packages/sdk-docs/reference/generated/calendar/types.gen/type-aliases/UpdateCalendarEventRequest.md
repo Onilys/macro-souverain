@@ -1,6 +1,6 @@
 # Type Alias: UpdateCalendarEventRequest
 
-> **UpdateCalendarEventRequest** = `object`
+> **UpdateCalendarEventRequest** = \{ `attendees?`: [`CalendarAttendeeInputBody`](CalendarAttendeeInputBody.md)[] \| `null`; `calendarId?`: `string` \| `null`; `conference?`: `null` \| [`ConferenceChange`](ConferenceChange.md); `description?`: `string` \| `null`; `location?`: `string` \| `null`; `outOfOffice?`: `null` \| [`OutOfOfficeProperties`](OutOfOfficeProperties.md); `recurrenceId?`: `string` \| `null`; `recurrenceLines?`: `string`[] \| `null`; `reminders?`: `null` \| [`EventReminders`](EventReminders.md); `scope?`: `null` \| [`CalendarUpdateScopeParam`](CalendarUpdateScopeParam.md); `time?`: `null` \| [`EventTime`](EventTime.md); `title?`: `string` \| `null`; `transparency?`: `null` \| [`EventTransparency`](EventTransparency.md); `visibility?`: `null` \| [`EventVisibility`](EventVisibility.md); \}
 
 Request body patching an event; omitted fields are left untouched.
 

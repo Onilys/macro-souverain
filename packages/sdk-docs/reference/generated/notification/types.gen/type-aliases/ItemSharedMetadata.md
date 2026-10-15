@@ -1,6 +1,6 @@
 # Type Alias: ItemSharedMetadata
 
-> **ItemSharedMetadata** = `object`
+> **ItemSharedMetadata** = \{ `itemId`: `string`; `itemName?`: `string` \| `null`; `itemType`: [`EntityType`](EntityType.md); `permissionLevel?`: `string` \| `null`; `sharedBy`: `string`; `userIds`: `string`[]; \}
 
 Metadata for when a item is shared with a user
 

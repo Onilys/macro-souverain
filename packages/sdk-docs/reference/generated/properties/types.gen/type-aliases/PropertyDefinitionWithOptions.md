@@ -1,6 +1,6 @@
 # Type Alias: PropertyDefinitionWithOptions
 
-> **PropertyDefinitionWithOptions** = `object`
+> **PropertyDefinitionWithOptions** = \{ `definition`: [`PropertyDefinition`](PropertyDefinition.md); `property_options`: [`PropertyOption`](PropertyOption.md)[]; \}
 
 Property definition with its associated options (service representation).
 

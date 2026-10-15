@@ -1,6 +1,6 @@
 # Type Alias: CreateDraftData
 
-> **CreateDraftData** = `object`
+> **CreateDraftData** = \{ `body`: [`CreateDraftRequest`](CreateDraftRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/email/drafts"`; \}
 
 ## Properties
 

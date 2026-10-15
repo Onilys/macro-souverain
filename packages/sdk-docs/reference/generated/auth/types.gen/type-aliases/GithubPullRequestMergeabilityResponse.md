@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestMergeabilityResponse
 
-> **GithubPullRequestMergeabilityResponse** = `object`
+> **GithubPullRequestMergeabilityResponse** = \{ `pullRequests`: [`GithubPullRequestMergeabilityEntry`](GithubPullRequestMergeabilityEntry.md)[]; \}
 
 Response body for pull request mergeability. Pull requests the user
 cannot see are left out.

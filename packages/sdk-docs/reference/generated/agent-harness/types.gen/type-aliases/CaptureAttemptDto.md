@@ -1,6 +1,6 @@
 # Type Alias: CaptureAttemptDto
 
-> **CaptureAttemptDto** = `object`
+> **CaptureAttemptDto** = \{ `error?`: `string` \| `null`; `finishedAt?`: `string` \| `null`; `outcome?`: `null` \| [`CaptureOutcomeDto`](CaptureOutcomeDto.md); `startedAt`: `string`; \}
 
 The latest capture attempt.
 

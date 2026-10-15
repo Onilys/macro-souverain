@@ -1,6 +1,6 @@
 # Type Alias: StarterDatabase
 
-> **StarterDatabase** = `object`
+> **StarterDatabase** = \{ `created`: `boolean`; `databaseId`: `string` \| `null`; `tableId`: `string` \| `null`; `viewId`: `string` \| `null`; \}
 
 Starter result. A missing database means the user already started or removed it.
 

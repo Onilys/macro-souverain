@@ -1,6 +1,6 @@
 # Type Alias: RegisterUploads
 
-> **RegisterUploads** = `object`
+> **RegisterUploads** = \{ `descriptors`: [`UploadDescriptor`](UploadDescriptor.md)[]; \}
 
 Batched registration, also used to renew an unchanged descriptor's grant.
 

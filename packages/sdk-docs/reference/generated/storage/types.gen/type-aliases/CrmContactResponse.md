@@ -1,6 +1,6 @@
 # Type Alias: CrmContactResponse
 
-> **CrmContactResponse** = `object`
+> **CrmContactResponse** = \{ `companyId`: `string`; `createdAt`: `string`; `email`: `string`; `firstInteraction`: `string`; `hidden`: `boolean`; `id`: `string`; `lastInteraction`: `string`; `name?`: `string` \| `null`; `updatedAt`: `string`; \}
 
 A CRM contact as returned by `GET /crm/companies/{company_id}/contacts`.
 

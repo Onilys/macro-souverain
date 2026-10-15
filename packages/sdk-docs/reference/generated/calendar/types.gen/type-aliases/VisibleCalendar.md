@@ -1,6 +1,6 @@
 # Type Alias: VisibleCalendar
 
-> **VisibleCalendar** = `object`
+> **VisibleCalendar** = \{ `color?`: `string` \| `null`; `defaultReminders`: [`EventReminderOverride`](EventReminderOverride.md)[]; `emailAddress`: `string`; `emailLinkId`: `string`; `id`: `string`; `isPrimary`: `boolean`; `isSubscription`: `boolean`; `isWritable`: `boolean`; `name`: `string`; `syncError?`: `string` \| `null`; \}
 
 A calendar visible to a requester, listed for pickers and filters.
 

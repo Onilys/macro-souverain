@@ -1,6 +1,6 @@
 # Type Alias: CrmStageResponse
 
-> **CrmStageResponse** = `object`
+> **CrmStageResponse** = \{ `id`: `string`; `label`: `string`; \}
 
 One stage of the team's custom pipeline.
 

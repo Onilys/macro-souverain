@@ -1,6 +1,6 @@
 # Type Alias: DeleteHistoryHandlerErrors
 
-> **DeleteHistoryHandlerErrors** = `object`
+> **DeleteHistoryHandlerErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

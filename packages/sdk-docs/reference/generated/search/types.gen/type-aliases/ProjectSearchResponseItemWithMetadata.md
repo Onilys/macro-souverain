@@ -1,6 +1,6 @@
 # Type Alias: ProjectSearchResponseItemWithMetadata
 
-> **ProjectSearchResponseItemWithMetadata** = [`ProjectSearchResponseItem`](ProjectSearchResponseItem.md) & `object`
+> **ProjectSearchResponseItemWithMetadata** = [`ProjectSearchResponseItem`](ProjectSearchResponseItem.md) & \{ `metadata?`: `null` \| [`ProjectMetadata`](ProjectMetadata.md); `properties?`: [`SoupProperty`](SoupProperty.md)[] \| `null`; \}
 
 ProjectSearchResponseItem object with project metadata we fetch from macrodb.
 The index carries created_at/updated_at for ranking, but viewed_at is

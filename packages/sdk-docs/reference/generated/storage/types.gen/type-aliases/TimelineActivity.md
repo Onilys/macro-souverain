@@ -1,6 +1,6 @@
 # Type Alias: TimelineActivity
 
-> **TimelineActivity** = `object`
+> **TimelineActivity** = \{ `action`: `string`; `actor_id`: `string`; `id`: `string`; `occurred_at`: `string`; `payload?`: `unknown`; \}
 
 A displayable fact returned together with a message page.
 

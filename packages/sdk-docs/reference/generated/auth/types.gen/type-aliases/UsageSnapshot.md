@@ -1,6 +1,6 @@
 # Type Alias: UsageSnapshot
 
-> **UsageSnapshot** = `object`
+> **UsageSnapshot** = \{ `auto_reload`: [`AutoReloadSnapshot`](AutoReloadSnapshot.md); `blocked_reason?`: `null` \| [`DenyReason`](DenyReason.md); `can_manage_billing`: `boolean`; `credit_balance_cents`: `number`; `credits_consumed_cents`: `number`; `credits_shared_with_team`: `boolean`; `included_cents`: `number`; `overage_charged_cents`: `number`; `overage_enabled`: `boolean`; `overage_limit_cents`: `number`; `overage_suspended`: `boolean`; `payer`: `string`; `period_end`: `string`; `period_start`: `string`; `remaining_cents`: `number`; `seats`: `number`; `tier`: [`PlanTier`](PlanTier.md); `uncovered_cents`: `number`; `unlimited`: `boolean`; `used_cents`: `number`; \}
 
 The payer's current-period position, as shown in Billing settings and used
 by the gate.

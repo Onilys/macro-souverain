@@ -1,6 +1,6 @@
 # Type Alias: ControlAgentSessionResponses
 
-> **ControlAgentSessionResponses** = `object`
+> **ControlAgentSessionResponses** = \{ `200`: [`ControlResponse`](ControlResponse.md); \}
 
 ## Properties
 

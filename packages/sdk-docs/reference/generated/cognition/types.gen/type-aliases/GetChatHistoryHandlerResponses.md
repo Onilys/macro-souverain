@@ -1,6 +1,6 @@
 # Type Alias: GetChatHistoryHandlerResponses
 
-> **GetChatHistoryHandlerResponses** = `object`
+> **GetChatHistoryHandlerResponses** = \{ `200`: [`ChatHistory`](ChatHistory.md); \}
 
 ## Properties
 

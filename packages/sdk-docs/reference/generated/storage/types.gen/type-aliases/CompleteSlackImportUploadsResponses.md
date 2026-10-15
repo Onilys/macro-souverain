@@ -1,6 +1,6 @@
 # Type Alias: CompleteSlackImportUploadsResponses
 
-> **CompleteSlackImportUploadsResponses** = `object`
+> **CompleteSlackImportUploadsResponses** = \{ `200`: [`ImportProgress`](ImportProgress.md); \}
 
 ## Properties
 

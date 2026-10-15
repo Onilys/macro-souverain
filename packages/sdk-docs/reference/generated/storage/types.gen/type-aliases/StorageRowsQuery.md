@@ -1,6 +1,6 @@
 # Type Alias: StorageRowsQuery
 
-> **StorageRowsQuery** = `object`
+> **StorageRowsQuery** = \{ `after?`: `null` \| [`RowId`](RowId.md); `query?`: [`ViewQuery`](ViewQuery.md); `rowIds?`: [`RowId`](RowId.md)[] \| `null`; \}
 
 A query over one authorized storage table.
 

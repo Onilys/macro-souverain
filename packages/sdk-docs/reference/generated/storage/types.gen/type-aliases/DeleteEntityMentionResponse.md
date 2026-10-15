@@ -1,6 +1,6 @@
 # Type Alias: DeleteEntityMentionResponse
 
-> **DeleteEntityMentionResponse** = `object`
+> **DeleteEntityMentionResponse** = \{ `deleted`: `boolean`; \}
 
 Response body for `DELETE /channels/mentions/{mention_id}`.
 

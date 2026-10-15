@@ -1,6 +1,6 @@
 # Type Alias: RefreshErrors
 
-> **RefreshErrors** = `object`
+> **RefreshErrors** = \{ `400`: `string`; `401`: `string`; `429`: `string`; `500`: `string`; \}
 
 ## Properties
 

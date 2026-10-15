@@ -1,6 +1,6 @@
 # Type Alias: ResyncLinkResponses
 
-> **ResyncLinkResponses** = `object`
+> **ResyncLinkResponses** = \{ `200`: [`ResyncResponse`](ResyncResponse.md); \}
 
 ## Properties
 

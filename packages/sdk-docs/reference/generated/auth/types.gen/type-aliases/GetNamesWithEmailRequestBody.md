@@ -1,6 +1,6 @@
 # Type Alias: GetNamesWithEmailRequestBody
 
-> **GetNamesWithEmailRequestBody** = `object`
+> **GetNamesWithEmailRequestBody** = \{ `user_ids`: `string`[]; \}
 
 ## Properties
 

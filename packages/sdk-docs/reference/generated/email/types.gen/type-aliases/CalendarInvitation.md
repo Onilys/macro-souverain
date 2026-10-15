@@ -1,6 +1,6 @@
 # Type Alias: CalendarInvitation
 
-> **CalendarInvitation** = `object`
+> **CalendarInvitation** = \{ `attendees`: [`InvitationParticipant`](InvitationParticipant.md)[]; `comment?`: `string` \| `null`; `conference_url?`: `string` \| `null`; `description?`: `string` \| `null`; `dtstamp?`: `string` \| `null`; `end?`: `null` \| [`InvitationDateTime`](InvitationDateTime.md); `id`: `string`; `last_modified?`: `string` \| `null`; `location?`: `string` \| `null`; `method`: [`InvitationMethod`](InvitationMethod.md); `organizer?`: `null` \| [`InvitationParticipant`](InvitationParticipant.md); `recurrence_id?`: `null` \| [`InvitationDateTime`](InvitationDateTime.md); `recurrence_id_raw?`: `string` \| `null`; `sequence`: `number`; `start?`: `null` \| [`InvitationDateTime`](InvitationDateTime.md); `status?`: `string` \| `null`; `title?`: `string` \| `null`; `uid`: `string`; \}
 
 Display snapshot of one meaningful VEVENT, owned by the email domain.
 

@@ -1,6 +1,6 @@
 # Type Alias: HandleBulkDeleteFileData
 
-> **HandleBulkDeleteFileData** = `object`
+> **HandleBulkDeleteFileData** = \{ `body`: [`BulkDeleteRequest`](BulkDeleteRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/api/file/bulk-delete"`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: Message
 
-> **Message** = `object`
+> **Message** = \{ `attachments`: [`MessageAttachment`](MessageAttachment.md)[]; `bot_profile?`: `null` \| [`BotSenderProfile`](BotSenderProfile.md); `content`: `string`; `created_at`: `string`; `deleted_at?`: `string` \| `null`; `edited_at?`: `string` \| `null`; `id`: `string`; `imported_author?`: `null` \| [`ImportedAuthor`](ImportedAuthor.md); `mentions`: [`SimpleMention`](SimpleMention.md)[]; `parent`: [`MessageParent`](MessageParent.md); `reactions`: [`CountedReaction`](CountedReaction.md)[]; `sender_id`: `string`; `thread_id?`: `string` \| `null`; `triggered_by?`: `string` \| `null`; `updated_at`: `string`; \}
 
 Shared message representation for channel timelines and entity discussions.
 

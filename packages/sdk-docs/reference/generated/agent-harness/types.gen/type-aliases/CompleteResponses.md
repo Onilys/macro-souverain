@@ -1,6 +1,6 @@
 # Type Alias: CompleteResponses
 
-> **CompleteResponses** = `object`
+> **CompleteResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

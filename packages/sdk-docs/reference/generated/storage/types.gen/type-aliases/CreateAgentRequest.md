@@ -1,6 +1,6 @@
 # Type Alias: CreateAgentRequest
 
-> **CreateAgentRequest** = `object`
+> **CreateAgentRequest** = \{ `auto_accept_permissions?`: `boolean` \| `null`; `avatar_url?`: `string` \| `null`; `channel_ids?`: `string`[]; `channel_scope`: [`AgentChannelScope`](AgentChannelScope.md); `default_model`: `string`; `description?`: `string` \| `null`; `handle`: `string`; `harness`: `string`; `harness_id?`: `null` \| [`HarnessId`](HarnessId.md); `instructions`: `string`; `is_coding`: `boolean`; `mcp?`: [`AgentMcpServers`](AgentMcpServers.md); `name`: `string`; `team_id?`: `string` \| `null`; \}
 
 Request to create a persisted AI agent.
 

@@ -1,6 +1,6 @@
 # Type Alias: RsvpCalendarEventRequest
 
-> **RsvpCalendarEventRequest** = `object`
+> **RsvpCalendarEventRequest** = \{ `calendarId?`: `string` \| `null`; `recurrenceId?`: `string` \| `null`; `respondingEmail?`: `string` \| `null`; `response`: [`AttendeeResponseStatus`](AttendeeResponseStatus.md); `scope?`: `null` \| [`CalendarRsvpScopeParam`](CalendarRsvpScopeParam.md); \}
 
 Request body setting the requester's RSVP on an event.
 

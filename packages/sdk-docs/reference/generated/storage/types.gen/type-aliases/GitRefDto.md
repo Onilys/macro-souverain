@@ -1,6 +1,6 @@
 # Type Alias: GitRefDto
 
-> **GitRefDto** = `object`
+> **GitRefDto** = \{ `name?`: `string` \| `null`; `sha?`: `string` \| `null`; \}
 
 One end of the compared range.
 

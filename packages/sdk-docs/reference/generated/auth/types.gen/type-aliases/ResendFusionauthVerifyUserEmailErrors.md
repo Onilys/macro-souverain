@@ -1,6 +1,6 @@
 # Type Alias: ResendFusionauthVerifyUserEmailErrors
 
-> **ResendFusionauthVerifyUserEmailErrors** = `object`
+> **ResendFusionauthVerifyUserEmailErrors** = \{ `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetSelfHarnessData
 
-> **GetSelfHarnessData** = `object`
+> **GetSelfHarnessData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/harnesses/me"`; \}
 
 ## Properties
 

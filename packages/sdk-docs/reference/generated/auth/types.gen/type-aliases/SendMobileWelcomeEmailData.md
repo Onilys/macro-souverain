@@ -1,6 +1,6 @@
 # Type Alias: SendMobileWelcomeEmailData
 
-> **SendMobileWelcomeEmailData** = `object`
+> **SendMobileWelcomeEmailData** = \{ `body`: [`SendMobileWelcomeEmailRequest`](SendMobileWelcomeEmailRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/mobile-welcome-email"`; \}
 
 ## Properties
 

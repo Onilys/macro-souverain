@@ -1,6 +1,6 @@
 # Type Alias: ExcludedDefaultView
 
-> **ExcludedDefaultView** = `object`
+> **ExcludedDefaultView** = \{ `defaultViewId`: `string`; `id`: `string`; `userId`: `string`; \}
 
 Frontend can define any set of its own default views for the user.
 This is a list of views that are excluded from the default views list on the frontend.

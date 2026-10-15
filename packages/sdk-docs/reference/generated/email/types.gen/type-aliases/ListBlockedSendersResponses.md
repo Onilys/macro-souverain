@@ -1,6 +1,6 @@
 # Type Alias: ListBlockedSendersResponses
 
-> **ListBlockedSendersResponses** = `object`
+> **ListBlockedSendersResponses** = \{ `200`: [`ListBlockedResponse`](ListBlockedResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: MessageThread
 
-> **MessageThread** = `object`
+> **MessageThread** = \{ `replies`: [`Message`](Message.md)[]; `root`: [`Message`](Message.md); `state`: [`ThreadState`](ThreadState.md); \}
 
 A discussion with its root and ordered replies, including root tombstones.
 

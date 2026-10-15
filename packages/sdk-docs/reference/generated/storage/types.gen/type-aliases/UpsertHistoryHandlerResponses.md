@@ -1,6 +1,6 @@
 # Type Alias: UpsertHistoryHandlerResponses
 
-> **UpsertHistoryHandlerResponses** = `object`
+> **UpsertHistoryHandlerResponses** = \{ `200`: [`SuccessResponse`](SuccessResponse.md); \}
 
 ## Properties
 

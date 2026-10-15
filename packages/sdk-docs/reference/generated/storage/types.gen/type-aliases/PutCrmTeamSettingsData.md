@@ -1,6 +1,6 @@
 # Type Alias: PutCrmTeamSettingsData
 
-> **PutCrmTeamSettingsData** = `object`
+> **PutCrmTeamSettingsData** = \{ `body`: [`UpdateCrmTeamSettingsRequest`](UpdateCrmTeamSettingsRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/crm/settings"`; \}
 
 ## Properties
 

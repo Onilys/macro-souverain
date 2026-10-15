@@ -1,6 +1,6 @@
 # Type Alias: TeamInviteDetails
 
-> **TeamInviteDetails** = `object`
+> **TeamInviteDetails** = \{ `created_at`: `string`; `email`: `string`; `id`: `string`; `invited_by`: `string`; `last_sent_at`: `string`; `team_id`: `string`; `team_role`: [`TeamRole`](TeamRole.md); \}
 
 Detailed information about a team invite
 

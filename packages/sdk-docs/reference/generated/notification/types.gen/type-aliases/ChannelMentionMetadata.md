@@ -1,6 +1,6 @@
 # Type Alias: ChannelMentionMetadata
 
-> **ChannelMentionMetadata** = [`CommonChannelMetadata`](CommonChannelMetadata.md) & `object`
+> **ChannelMentionMetadata** = [`CommonChannelMetadata`](CommonChannelMetadata.md) & \{ `messageContent`: `string`; `messageId`: `string`; `senderDisplayName?`: `string` \| `null`; `senderProfilePictureUrl?`: `string` \| `null`; `threadId?`: `string` \| `null`; \}
 
 ## Type Declaration
 

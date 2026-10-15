@@ -1,6 +1,6 @@
 # Type Alias: SsoRequiredResponse
 
-> **SsoRequiredResponse** = `object`
+> **SsoRequiredResponse** = \{ `idp_id`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SendReferralCodeResponses
 
-> **SendReferralCodeResponses** = `object`
+> **SendReferralCodeResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

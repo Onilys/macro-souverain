@@ -1,6 +1,6 @@
 # Type Alias: ParsedMessage
 
-> **ParsedMessage** = `object`
+> **ParsedMessage** = \{ `bcc`: [`ContactInfo`](ContactInfo.md)[]; `body_parsed?`: `string` \| `null`; `cc`: [`ContactInfo`](ContactInfo.md)[]; `db_id`: `string`; `from?`: `null` \| [`ContactInfo`](ContactInfo.md); `internal_date_ts?`: `string` \| `null`; `labels`: [`LabelInfo`](LabelInfo.md)[]; `link_id`: `string`; `subject?`: `string` \| `null`; `thread_db_id`: `string`; `to`: [`ContactInfo`](ContactInfo.md)[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetBatchProjectPreviewData
 
-> **GetBatchProjectPreviewData** = `object`
+> **GetBatchProjectPreviewData** = \{ `body`: [`GetBatchProjectPreviewRequest`](GetBatchProjectPreviewRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/projects/preview"`; \}
 
 ## Properties
 

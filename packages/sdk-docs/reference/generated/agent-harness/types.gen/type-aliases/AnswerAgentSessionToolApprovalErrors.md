@@ -1,6 +1,6 @@
 # Type Alias: AnswerAgentSessionToolApprovalErrors
 
-> **AnswerAgentSessionToolApprovalErrors** = `object`
+> **AnswerAgentSessionToolApprovalErrors** = \{ `401`: `string`; `403`: `string`; `404`: `string`; `409`: `string`; `422`: `string`; `500`: `string`; \}
 
 ## Properties
 

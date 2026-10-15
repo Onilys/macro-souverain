@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelAttachment
 
-> **ApiChannelAttachment** = `object`
+> **ApiChannelAttachment** = \{ `channel_id`: `string`; `created_at`: `string`; `entity_id`: `string`; `entity_type`: `string`; `height?`: `number` \| `null`; `id`: `string`; `message_id`: `string`; `sender_id`: `string`; `width?`: `number` \| `null`; \}
 
 A channel-level attachment.
 

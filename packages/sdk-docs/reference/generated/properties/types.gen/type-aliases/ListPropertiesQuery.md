@@ -1,6 +1,6 @@
 # Type Alias: ListPropertiesQuery
 
-> **ListPropertiesQuery** = `object`
+> **ListPropertiesQuery** = \{ `for_entity_type?`: `null` \| [`EntityType`](EntityType.md); `include_options?`: `boolean`; `scope`: [`PropertyScope`](PropertyScope.md); \}
 
 Query parameters for listing properties
 

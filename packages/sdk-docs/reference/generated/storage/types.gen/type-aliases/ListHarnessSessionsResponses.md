@@ -1,6 +1,6 @@
 # Type Alias: ListHarnessSessionsResponses
 
-> **ListHarnessSessionsResponses** = `object`
+> **ListHarnessSessionsResponses** = \{ `200`: [`HarnessSession`](HarnessSession.md)[]; \}
 
 ## Properties
 

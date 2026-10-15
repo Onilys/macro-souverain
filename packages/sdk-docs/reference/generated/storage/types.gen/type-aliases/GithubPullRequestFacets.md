@@ -1,6 +1,6 @@
 # Type Alias: GithubPullRequestFacets
 
-> **GithubPullRequestFacets** = `object`
+> **GithubPullRequestFacets** = \{ `assignees`: [`GithubUserFacet`](GithubUserFacet.md)[]; `authors`: [`GithubUserFacet`](GithubUserFacet.md)[]; `labels`: [`GithubLabelFacet`](GithubLabelFacet.md)[]; `repositories`: [`GithubRepositoryFacet`](GithubRepositoryFacet.md)[]; \}
 
 Repositories, authors, assignees, and labels among the GitHub pull requests a caller can see,
 each with the number of pull requests it covers.

@@ -1,6 +1,6 @@
 # Type Alias: BranchNameResponse
 
-> **BranchNameResponse** = `object`
+> **BranchNameResponse** = \{ `branchName`: `string`; `shortId`: `string`; \}
 
 Branch name response.
 

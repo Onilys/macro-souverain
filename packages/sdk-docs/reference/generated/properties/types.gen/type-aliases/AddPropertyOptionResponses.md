@@ -1,6 +1,6 @@
 # Type Alias: AddPropertyOptionResponses
 
-> **AddPropertyOptionResponses** = `object`
+> **AddPropertyOptionResponses** = \{ `201`: [`PropertyOption`](PropertyOption.md); \}
 
 ## Properties
 

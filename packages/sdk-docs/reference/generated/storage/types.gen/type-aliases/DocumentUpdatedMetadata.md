@@ -1,6 +1,6 @@
 # Type Alias: DocumentUpdatedMetadata
 
-> **DocumentUpdatedMetadata** = `object`
+> **DocumentUpdatedMetadata** = \{ `actor?`: `string` \| `null`; `actor_user_id?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `document_id`: `string`; `document_name?`: `string` \| `null`; `file_type?`: `null` \| [`FileTypeUpdate`](FileTypeUpdate.md); `on_behalf_of?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `owner`: `string`; `previous_project_id?`: `string` \| `null`; `project_id?`: `string` \| `null`; `share_permission_updated`: `boolean`; \}
 
 Metadata for [`DocumentTopicEvent::Updated`].
 

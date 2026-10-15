@@ -1,6 +1,6 @@
 # Type Alias: ListFavoritesResponses
 
-> **ListFavoritesResponses** = `object`
+> **ListFavoritesResponses** = \{ `200`: [`FavoritesList`](FavoritesList.md); \}
 
 ## Properties
 

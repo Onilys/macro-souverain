@@ -1,6 +1,6 @@
 # Type Alias: CodexConnectionStatus
 
-> **CodexConnectionStatus** = `object`
+> **CodexConnectionStatus** = \{ `accountId?`: `string` \| `null`; `connected`: `boolean`; `email?`: `string` \| `null`; `environmentId?`: `string` \| `null`; \}
 
 Safe connection metadata; no secret or masked token is returned.
 

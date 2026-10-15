@@ -1,6 +1,6 @@
 # Type Alias: ConvertDatabaseColumnResponses
 
-> **ConvertDatabaseColumnResponses** = `object`
+> **ConvertDatabaseColumnResponses** = \{ `200`: [`ColumnConversion`](ColumnConversion.md); \}
 
 ## Properties
 

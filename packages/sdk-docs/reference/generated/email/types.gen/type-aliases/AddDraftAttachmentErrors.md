@@ -1,6 +1,6 @@
 # Type Alias: AddDraftAttachmentErrors
 
-> **AddDraftAttachmentErrors** = `object`
+> **AddDraftAttachmentErrors** = \{ `400`: [`ErrorResponse`](ErrorResponse.md); `401`: [`ErrorResponse`](ErrorResponse.md); `404`: [`ErrorResponse`](ErrorResponse.md); `500`: [`ErrorResponse`](ErrorResponse.md); \}
 
 ## Properties
 

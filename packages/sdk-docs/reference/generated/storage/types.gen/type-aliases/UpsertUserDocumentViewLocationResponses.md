@@ -1,6 +1,6 @@
 # Type Alias: UpsertUserDocumentViewLocationResponses
 
-> **UpsertUserDocumentViewLocationResponses** = `object`
+> **UpsertUserDocumentViewLocationResponses** = \{ `200`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: SimpleChannelSearchResponse
 
-> **SimpleChannelSearchResponse** = `object`
+> **SimpleChannelSearchResponse** = \{ `results`: [`SimpleChannelSearchReponseBaseItem`](SimpleChannelSearchReponseBaseItem.md)[]; \}
 
 ## Properties
 

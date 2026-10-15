@@ -1,6 +1,6 @@
 # Type Alias: SendMobileWelcomeEmailResponse
 
-> **SendMobileWelcomeEmailResponse** = `object`
+> **SendMobileWelcomeEmailResponse** = \{ `sent`: `boolean`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: PostGetNamesRequestBody
 
-> **PostGetNamesRequestBody** = `object`
+> **PostGetNamesRequestBody** = \{ `user_ids`: `string`[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: GetBatchProjectPreviewErrors
 
-> **GetBatchProjectPreviewErrors** = `object`
+> **GetBatchProjectPreviewErrors** = \{ `401`: [`GenericErrorResponse`](GenericErrorResponse.md); `500`: [`GenericErrorResponse`](GenericErrorResponse.md); \}
 
 ## Properties
 

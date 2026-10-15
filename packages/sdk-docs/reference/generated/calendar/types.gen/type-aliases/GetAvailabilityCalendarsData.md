@@ -1,6 +1,6 @@
 # Type Alias: GetAvailabilityCalendarsData
 
-> **GetAvailabilityCalendarsData** = `object`
+> **GetAvailabilityCalendarsData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/availability-calendars"`; \}
 
 ## Properties
 

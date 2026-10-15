@@ -1,6 +1,6 @@
 # Type Alias: DocumentResponseMetadataWithContent
 
-> **DocumentResponseMetadataWithContent** = [`DocumentResponseMetadata`](DocumentResponseMetadata.md) & `object`
+> **DocumentResponseMetadataWithContent** = [`DocumentResponseMetadata`](DocumentResponseMetadata.md) & \{ `content`: [`DocumentContent`](DocumentContent.md); `teamId?`: `string` \| `null`; `teamTaskId?`: `number` \| `null`; \}
 
 Create/copy response metadata plus content lifecycle metadata.
 

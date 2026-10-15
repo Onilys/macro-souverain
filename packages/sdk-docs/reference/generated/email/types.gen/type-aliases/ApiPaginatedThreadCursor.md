@@ -1,6 +1,6 @@
 # Type Alias: ApiPaginatedThreadCursor
 
-> **ApiPaginatedThreadCursor** = `object`
+> **ApiPaginatedThreadCursor** = \{ `items`: [`ApiThreadPreviewCursor`](ApiThreadPreviewCursor.md)[]; `next_cursor?`: `string` \| `null`; \}
 
 ## Properties
 

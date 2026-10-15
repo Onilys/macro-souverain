@@ -1,6 +1,6 @@
 # Type Alias: SoupDatabaseRowSoupPropertiesField
 
-> **SoupDatabaseRowSoupPropertiesField** = `object` & `object`
+> **SoupDatabaseRowSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `createdAt`: `string`; `createdBy?`: `string` \| `null`; `databaseId`: `string`; `id`: `string`; `ownerId`: `string`; `position`: `string`; `tableId`: `string`; `updatedAt`: `string`; \}
 
 A row of a Macro database table in the Soup feed. Its cells are its
 entity properties; access is its database's.

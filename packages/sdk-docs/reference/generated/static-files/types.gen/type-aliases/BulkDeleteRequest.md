@@ -1,6 +1,6 @@
 # Type Alias: BulkDeleteRequest
 
-> **BulkDeleteRequest** = `object`
+> **BulkDeleteRequest** = \{ `file_ids`: `string`[]; \}
 
 ## Properties
 

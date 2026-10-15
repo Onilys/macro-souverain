@@ -1,6 +1,6 @@
 # Type Alias: CreatePortalSessionData
 
-> **CreatePortalSessionData** = `object`
+> **CreatePortalSessionData** = \{ `body`: [`CreatePortalSessionRequest`](CreatePortalSessionRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/user/stripe/portal"`; \}
 
 ## Properties
 

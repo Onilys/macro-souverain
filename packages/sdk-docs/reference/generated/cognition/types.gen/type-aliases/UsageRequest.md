@@ -1,6 +1,6 @@
 # Type Alias: UsageRequest
 
-> **UsageRequest** = `object`
+> **UsageRequest** = \{ `features?`: [`AiFeature`](AiFeature.md)[]; `from?`: `string` \| `null`; `include_users?`: `string`[]; `until?`: `string` \| `null`; \}
 
 Request body for [`get_usage_handler`].
 

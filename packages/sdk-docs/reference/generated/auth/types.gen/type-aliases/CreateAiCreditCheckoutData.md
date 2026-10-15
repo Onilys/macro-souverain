@@ -1,6 +1,6 @@
 # Type Alias: CreateAiCreditCheckoutData
 
-> **CreateAiCreditCheckoutData** = `object`
+> **CreateAiCreditCheckoutData** = \{ `body`: [`CreditCheckoutRequestBody`](CreditCheckoutRequestBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/ai-billing/credits/checkout"`; \}
 
 ## Properties
 

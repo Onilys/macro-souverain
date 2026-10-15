@@ -1,6 +1,6 @@
 # Type Alias: GetNotificationTypePreferencesResponse
 
-> **GetNotificationTypePreferencesResponse** = `object`
+> **GetNotificationTypePreferencesResponse** = \{ `disabled_types`: `string`[]; \}
 
 Response for listing disabled notification types.
 

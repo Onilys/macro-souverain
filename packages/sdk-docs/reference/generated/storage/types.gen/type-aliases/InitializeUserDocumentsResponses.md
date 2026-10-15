@@ -1,6 +1,6 @@
 # Type Alias: InitializeUserDocumentsResponses
 
-> **InitializeUserDocumentsResponses** = `object`
+> **InitializeUserDocumentsResponses** = \{ `200`: [`GenericSuccessResponse`](GenericSuccessResponse.md); \}
 
 ## Properties
 

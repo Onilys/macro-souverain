@@ -1,6 +1,6 @@
 # Type Alias: AddForwardedAttachmentResponses
 
-> **AddForwardedAttachmentResponses** = `object`
+> **AddForwardedAttachmentResponses** = \{ `201`: [`AddForwardedAttachmentResponse`](AddForwardedAttachmentResponse.md); \}
 
 ## Properties
 

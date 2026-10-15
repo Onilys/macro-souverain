@@ -225,11 +225,11 @@ without changing its shared property definition.
 
 ### toJSON()
 
-> **toJSON**(): `object`
+> **toJSON**(): \{ `id`: `string`; `tableId`: `string`; \}
 
 #### Returns
 
-`object`
+\{ `id`: `string`; `tableId`: `string`; \}
 
 | Name | Type |
 | ------ | ------ |

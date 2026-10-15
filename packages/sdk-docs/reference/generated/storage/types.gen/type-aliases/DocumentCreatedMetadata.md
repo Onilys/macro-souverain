@@ -1,6 +1,6 @@
 # Type Alias: DocumentCreatedMetadata
 
-> **DocumentCreatedMetadata** = `object`
+> **DocumentCreatedMetadata** = \{ `actor?`: `string` \| `null`; `created_at?`: `string` \| `null`; `document_id`: `string`; `document_name`: `string`; `file_type?`: `null` \| [`FileType`](FileType.md); `on_behalf_of?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `owner`: `string`; `project_id?`: `string` \| `null`; `sub_type?`: `null` \| [`DocumentSubType`](DocumentSubType.md); \}
 
 Metadata for [`DocumentTopicEvent::Created`].
 

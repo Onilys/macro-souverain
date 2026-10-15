@@ -1,6 +1,6 @@
 # Type Alias: EditCallRecordRequest
 
-> **EditCallRecordRequest** = `object`
+> **EditCallRecordRequest** = \{ `customName?`: `string` \| `null`; `sharePermission?`: `null` \| [`UpdateSharePermissionRequestV2`](UpdateSharePermissionRequestV2.md); `shareWithTeam?`: `boolean` \| `null`; \}
 
 Edit call request, as supplied by inbound callers.
 

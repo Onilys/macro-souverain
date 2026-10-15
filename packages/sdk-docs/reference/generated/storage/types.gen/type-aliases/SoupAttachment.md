@@ -1,6 +1,6 @@
 # Type Alias: SoupAttachment
 
-> **SoupAttachment** = `object`
+> **SoupAttachment** = \{ `contentId?`: `string` \| `null`; `createdAt`: `string`; `filename?`: `string` \| `null`; `id`: `string`; `messageId`: `string`; `mimeType?`: `string` \| `null`; `providerAttachmentId?`: `string` \| `null`; `sizeBytes?`: `number` \| `null`; \}
 
 An email attachment as displayed in Soup.
 

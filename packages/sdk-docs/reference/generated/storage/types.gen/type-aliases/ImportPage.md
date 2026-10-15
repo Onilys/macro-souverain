@@ -1,6 +1,6 @@
 # Type Alias: ImportPage
 
-> **ImportPage** = `object`
+> **ImportPage** = \{ `jobs`: [`ImportProgress`](ImportProgress.md)[]; `limits`: [`ImportLimits`](ImportLimits.md); `nextCursor?`: `null` \| [`JobId`](JobId.md); `sourceBinding`: [`SourceBinding`](SourceBinding.md); \}
 
 Admin list result, also supplying upload limits before a job exists.
 

@@ -1,6 +1,6 @@
 # Type Alias: ReorderFavoritesData
 
-> **ReorderFavoritesData** = `object`
+> **ReorderFavoritesData** = \{ `body`: [`ReorderFavoritesRequest`](ReorderFavoritesRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/favorites/reorder"`; \}
 
 ## Properties
 

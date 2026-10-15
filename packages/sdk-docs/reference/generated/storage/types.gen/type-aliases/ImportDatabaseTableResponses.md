@@ -1,6 +1,6 @@
 # Type Alias: ImportDatabaseTableResponses
 
-> **ImportDatabaseTableResponses** = `object`
+> **ImportDatabaseTableResponses** = \{ `200`: [`Table`](Table.md); \}
 
 ## Properties
 

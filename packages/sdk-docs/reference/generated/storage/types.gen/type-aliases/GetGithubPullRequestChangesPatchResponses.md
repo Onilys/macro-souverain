@@ -1,6 +1,6 @@
 # Type Alias: GetGithubPullRequestChangesPatchResponses
 
-> **GetGithubPullRequestChangesPatchResponses** = `object`
+> **GetGithubPullRequestChangesPatchResponses** = \{ `200`: [`GithubPullRequestChangesPatchResponse`](GithubPullRequestChangesPatchResponse.md); \}
 
 ## Properties
 

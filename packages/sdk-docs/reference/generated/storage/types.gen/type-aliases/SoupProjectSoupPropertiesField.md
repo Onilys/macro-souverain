@@ -1,6 +1,6 @@
 # Type Alias: SoupProjectSoupPropertiesField
 
-> **SoupProjectSoupPropertiesField** = `object` & `object`
+> **SoupProjectSoupPropertiesField** = \{ `properties`: [`SoupProperty`](SoupProperty.md)[]; \} & \{ `createdAt`: `string`; `deletedAt?`: `string` \| `null`; `id`: `string`; `name`: `string`; `ownerId`: `string`; `parentId?`: `string` \| `null`; `updatedAt`: `string`; `viewedAt?`: `string` \| `null`; \}
 
 A project as displayed in Soup.
 

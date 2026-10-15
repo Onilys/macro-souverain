@@ -1,6 +1,6 @@
 # Type Alias: ListEmailRemindersResponses
 
-> **ListEmailRemindersResponses** = `object`
+> **ListEmailRemindersResponses** = \{ `200`: [`EmailReminderPage`](EmailReminderPage.md); \}
 
 ## Properties
 

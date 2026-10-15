@@ -1,6 +1,6 @@
 # Type Alias: RenameChannelLabelResponses
 
-> **RenameChannelLabelResponses** = `object`
+> **RenameChannelLabelResponses** = \{ `200`: [`ChannelLabel`](ChannelLabel.md); \}
 
 ## Properties
 

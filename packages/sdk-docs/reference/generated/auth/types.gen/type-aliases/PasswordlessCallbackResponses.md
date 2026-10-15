@@ -1,6 +1,6 @@
 # Type Alias: PasswordlessCallbackResponses
 
-> **PasswordlessCallbackResponses** = `object`
+> **PasswordlessCallbackResponses** = \{ `200`: [`UserTokensResponse`](UserTokensResponse.md); \}
 
 ## Properties
 

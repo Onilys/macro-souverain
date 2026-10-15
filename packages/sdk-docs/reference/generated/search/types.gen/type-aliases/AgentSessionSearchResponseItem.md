@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionSearchResponseItem
 
-> **AgentSessionSearchResponseItem** = `object`
+> **AgentSessionSearchResponseItem** = \{ `agent_session_search_results`: [`AgentSessionSearchResult`](AgentSessionSearchResult.md)[]; `bot_id`: `string`; `created_at`: `string`; `id`: `string`; `name`: `string`; `owner_id`: `string`; `updated_at`: `string`; \}
 
 One accessible agent session, grouped with its matching folded messages.
 

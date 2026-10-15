@@ -1,6 +1,6 @@
 # Type Alias: CreateCheckoutSessionV2Responses
 
-> **CreateCheckoutSessionV2Responses** = `object`
+> **CreateCheckoutSessionV2Responses** = \{ `200`: [`CheckoutSessionV2Response`](CheckoutSessionV2Response.md); \}
 
 ## Properties
 

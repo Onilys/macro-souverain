@@ -1,6 +1,6 @@
 # Type Alias: DeleteGithubLinkData
 
-> **DeleteGithubLinkData** = `object`
+> **DeleteGithubLinkData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/link/github"`; \}
 
 ## Properties
 

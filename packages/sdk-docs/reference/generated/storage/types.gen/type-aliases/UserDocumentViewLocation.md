@@ -1,6 +1,6 @@
 # Type Alias: UserDocumentViewLocation
 
-> **UserDocumentViewLocation** = `object`
+> **UserDocumentViewLocation** = \{ `document_id`: `string`; `location`: `string`; `user_id`: `string`; \}
 
 The last place a user viewed a particular document at
 

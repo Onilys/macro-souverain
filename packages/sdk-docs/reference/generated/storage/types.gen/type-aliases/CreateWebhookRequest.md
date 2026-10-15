@@ -1,6 +1,6 @@
 # Type Alias: CreateWebhookRequest
 
-> **CreateWebhookRequest** = `object`
+> **CreateWebhookRequest** = \{ `endpoint_url`: `string`; `filters`: [`Vec`](Vec.md); `headers?`: `null` \| [`BTreeMap`](BTreeMap.md); `name`: `string`; `namespace`: `string`; `scope`: [`WebhookScope`](WebhookScope.md); \}
 
 Request to create a webhook.
 

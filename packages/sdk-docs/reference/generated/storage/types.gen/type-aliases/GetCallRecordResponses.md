@@ -1,6 +1,6 @@
 # Type Alias: GetCallRecordResponses
 
-> **GetCallRecordResponses** = `object`
+> **GetCallRecordResponses** = \{ `200`: [`CallRecord`](CallRecord.md); \}
 
 ## Properties
 

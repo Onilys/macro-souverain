@@ -1,6 +1,6 @@
 # Type Alias: CheckGithubLinkStatusResponses
 
-> **CheckGithubLinkStatusResponses** = `object`
+> **CheckGithubLinkStatusResponses** = \{ `200`: [`GithubLinkStatusResponse`](GithubLinkStatusResponse.md); \}
 
 ## Properties
 

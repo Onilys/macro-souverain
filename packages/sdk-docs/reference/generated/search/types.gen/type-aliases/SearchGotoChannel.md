@@ -1,6 +1,6 @@
 # Type Alias: SearchGotoChannel
 
-> **SearchGotoChannel** = `object`
+> **SearchGotoChannel** = \{ `channel_message_id`: `string`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ChannelSearchResponse
 
-> **ChannelSearchResponse** = `object`
+> **ChannelSearchResponse** = \{ `next_cursor?`: `string` \| `null`; `results`: [`ChannelSearchResponseItemWithMetadata`](ChannelSearchResponseItemWithMetadata.md)[]; `total_count`: `number`; \}
 
 The document search response object
 

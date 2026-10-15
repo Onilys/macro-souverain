@@ -1,6 +1,6 @@
 # Type Alias: PutAgentSandboxSizeData
 
-> **PutAgentSandboxSizeData** = `object`
+> **PutAgentSandboxSizeData** = \{ `body`: [`SandboxSizeBody`](SandboxSizeBody.md); `path?`: `never`; `query?`: `never`; `url`: `"/agent-sandbox-size"`; \}
 
 ## Properties
 

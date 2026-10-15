@@ -1,6 +1,6 @@
 # Type Alias: SetGithubPullRequestDraftResponses
 
-> **SetGithubPullRequestDraftResponses** = `object`
+> **SetGithubPullRequestDraftResponses** = \{ `200`: [`SetGithubPullRequestDraftResponse`](SetGithubPullRequestDraftResponse.md); \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: ApiChannelListPage
 
-> **ApiChannelListPage** = `object`
+> **ApiChannelListPage** = \{ `items`: [`ApiChannelWithLatest`](ApiChannelWithLatest.md)[]; `next_cursor?`: `string` \| `null`; \}
 
 A cursor-paginated channel list response.
 

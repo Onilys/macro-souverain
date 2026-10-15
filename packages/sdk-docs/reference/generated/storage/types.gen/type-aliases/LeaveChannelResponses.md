@@ -1,6 +1,6 @@
 # Type Alias: LeaveChannelResponses
 
-> **LeaveChannelResponses** = `object`
+> **LeaveChannelResponses** = \{ `200`: `unknown`; \}
 
 ## Properties
 

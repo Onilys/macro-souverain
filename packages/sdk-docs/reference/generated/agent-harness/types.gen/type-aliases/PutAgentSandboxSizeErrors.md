@@ -1,6 +1,6 @@
 # Type Alias: PutAgentSandboxSizeErrors
 
-> **PutAgentSandboxSizeErrors** = `object`
+> **PutAgentSandboxSizeErrors** = \{ `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

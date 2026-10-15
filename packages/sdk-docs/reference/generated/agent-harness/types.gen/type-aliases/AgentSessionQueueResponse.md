@@ -1,6 +1,6 @@
 # Type Alias: AgentSessionQueueResponse
 
-> **AgentSessionQueueResponse** = `object`
+> **AgentSessionQueueResponse** = \{ `entries`: [`QueuedActionDto`](QueuedActionDto.md)[]; \}
 
 Response body for a session's queue: everything waiting, oldest first.
 

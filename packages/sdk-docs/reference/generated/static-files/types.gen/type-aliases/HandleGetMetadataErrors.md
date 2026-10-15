@@ -1,6 +1,6 @@
 # Type Alias: HandleGetMetadataErrors
 
-> **HandleGetMetadataErrors** = `object`
+> **HandleGetMetadataErrors** = \{ `401`: `string`; `404`: `string`; `500`: `string`; \}
 
 ## Properties
 

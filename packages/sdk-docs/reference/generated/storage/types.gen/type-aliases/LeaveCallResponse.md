@@ -1,6 +1,6 @@
 # Type Alias: LeaveCallResponse
 
-> **LeaveCallResponse** = `object`
+> **LeaveCallResponse** = \{ `callEnded`: `boolean`; \}
 
 Response for the leave/end call operation.
 

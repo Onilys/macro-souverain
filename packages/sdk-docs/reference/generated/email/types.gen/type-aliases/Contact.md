@@ -1,6 +1,6 @@
 # Type Alias: Contact
 
-> **Contact** = `object`
+> **Contact** = \{ `email_address?`: `string` \| `null`; `id`: `string`; `link_id`: `string`; `name?`: `string` \| `null`; `original_photo_url?`: `string` \| `null`; `sfs_photo_url?`: `string` \| `null`; \}
 
 ## Properties
 

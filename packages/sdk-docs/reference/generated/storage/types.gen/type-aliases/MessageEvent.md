@@ -1,6 +1,6 @@
 # Type Alias: MessageEvent
 
-> **MessageEvent** = `object`
+> **MessageEvent** = \{ `actor`: `string`; `change`: [`MessageChange`](MessageChange.md); `nonce?`: `string` \| `null`; `parent`: [`MessageParent`](MessageParent.md); \}
 
 A committed message or thread change sent to delivery adapters.
 

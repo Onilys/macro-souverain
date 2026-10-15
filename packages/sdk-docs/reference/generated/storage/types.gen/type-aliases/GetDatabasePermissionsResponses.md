@@ -1,6 +1,6 @@
 # Type Alias: GetDatabasePermissionsResponses
 
-> **GetDatabasePermissionsResponses** = `object`
+> **GetDatabasePermissionsResponses** = \{ `200`: [`SharePermissionV2`](SharePermissionV2.md); \}
 
 ## Properties
 

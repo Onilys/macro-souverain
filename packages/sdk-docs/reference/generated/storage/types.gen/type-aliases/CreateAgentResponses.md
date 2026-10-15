@@ -1,6 +1,6 @@
 # Type Alias: CreateAgentResponses
 
-> **CreateAgentResponses** = `object`
+> **CreateAgentResponses** = \{ `201`: [`Agent`](Agent.md); \}
 
 ## Properties
 

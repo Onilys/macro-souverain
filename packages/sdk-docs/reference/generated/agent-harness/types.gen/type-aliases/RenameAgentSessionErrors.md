@@ -1,6 +1,6 @@
 # Type Alias: RenameAgentSessionErrors
 
-> **RenameAgentSessionErrors** = `object`
+> **RenameAgentSessionErrors** = \{ `400`: `string`; `401`: `string`; `403`: `string`; `409`: `string`; `500`: `string`; \}
 
 ## Properties
 

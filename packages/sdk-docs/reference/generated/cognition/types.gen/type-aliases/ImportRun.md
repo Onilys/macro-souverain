@@ -1,6 +1,6 @@
 # Type Alias: ImportRun
 
-> **ImportRun** = `object`
+> **ImportRun** = \{ `auto_import`: `boolean`; `error?`: `string` \| `null`; `source`: [`ImportSource`](ImportSource.md); `status`: [`RunStatus`](RunStatus.md); `updated_at`: `string`; \}
 
 Gather-run state for one user × source.
 

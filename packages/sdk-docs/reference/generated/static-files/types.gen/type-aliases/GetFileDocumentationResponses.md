@@ -1,6 +1,6 @@
 # Type Alias: GetFileDocumentationResponses
 
-> **GetFileDocumentationResponses** = `object`
+> **GetFileDocumentationResponses** = \{ `200`: `number`[]; \}
 
 ## Properties
 

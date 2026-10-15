@@ -1,6 +1,6 @@
 # Type Alias: TagPromotionConflictResponse
 
-> **TagPromotionConflictResponse** = `object`
+> **TagPromotionConflictResponse** = \{ `conflicting_option`: [`PropertyOptionResponse`](PropertyOptionResponse.md); `message`: `string`; \}
 
 Body returned when a promotion collides with a label the team already has.
 The caller confirms with the user, then calls the merge endpoint with

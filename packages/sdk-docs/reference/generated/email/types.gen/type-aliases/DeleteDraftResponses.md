@@ -1,6 +1,6 @@
 # Type Alias: DeleteDraftResponses
 
-> **DeleteDraftResponses** = `object`
+> **DeleteDraftResponses** = \{ `204`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

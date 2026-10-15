@@ -1,6 +1,6 @@
 # Type Alias: InitGmailLinkResponse
 
-> **InitGmailLinkResponse** = `object`
+> **InitGmailLinkResponse** = \{ `authorization_url`: `string`; `link_id`: `string`; \}
 
 ## Properties
 

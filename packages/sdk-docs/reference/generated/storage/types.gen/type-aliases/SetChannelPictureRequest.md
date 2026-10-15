@@ -1,6 +1,6 @@
 # Type Alias: SetChannelPictureRequest
 
-> **SetChannelPictureRequest** = `object`
+> **SetChannelPictureRequest** = \{ `profile_picture_id?`: `string` \| `null`; \}
 
 Replace a channel's picture, or remove it by sending a null file id.
 

@@ -1,6 +1,6 @@
 # Type Alias: PasswordlessStartedResponse
 
-> **PasswordlessStartedResponse** = `object`
+> **PasswordlessStartedResponse** = \{ `code?`: `string` \| `null`; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: Favorite
 
-> **Favorite** = `object`
+> **Favorite** = \{ `channelId?`: `string` \| `null`; `channelType?`: `string` \| `null`; `createdAt`: `string`; `documentSubType?`: `string` \| `null`; `entityId`: `string`; `entityType`: `"user"` \| `"chat"` \| `"channel"` \| `"channel_message"` \| `"document"` \| `"project"` \| `"email_thread"` \| `"calendar_event"` \| `"team"` \| `"call"` \| `"foreign_entity"` \| `"static_file"` \| `"crm_company"` \| `"crm_contact"` \| `"crm_pipeline"` \| `"reminder"` \| `"skill"` \| `"agent_session"` \| `"scheduled_action"` \| `"initiative"` \| `"database"` \| `"database_row"` \| `"form"`; `fileType?`: `string` \| `null`; `sortOrder`: `number`; \}
 
 A single favorited entity, including display metadata hydrated from the
 favorited entity where available. Display names are deliberately not

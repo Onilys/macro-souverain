@@ -1,6 +1,6 @@
 # Type Alias: ListScheduledActionsErrors
 
-> **ListScheduledActionsErrors** = `object`
+> **ListScheduledActionsErrors** = \{ `400`: `string`; `401`: `string`; `500`: `string`; \}
 
 ## Properties
 

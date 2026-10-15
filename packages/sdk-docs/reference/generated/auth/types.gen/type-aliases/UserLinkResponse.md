@@ -1,6 +1,6 @@
 # Type Alias: UserLinkResponse
 
-> **UserLinkResponse** = `object`
+> **UserLinkResponse** = \{ `link_exists`: `boolean`; \}
 
 ## Properties
 

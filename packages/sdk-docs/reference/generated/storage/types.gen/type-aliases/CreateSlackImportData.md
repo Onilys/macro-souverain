@@ -1,6 +1,6 @@
 # Type Alias: CreateSlackImportData
 
-> **CreateSlackImportData** = `object`
+> **CreateSlackImportData** = \{ `body`: [`SlackCreateRequest`](SlackCreateRequest.md); `path?`: `never`; `query?`: `never`; `url`: `"/slack/imports"`; \}
 
 ## Properties
 

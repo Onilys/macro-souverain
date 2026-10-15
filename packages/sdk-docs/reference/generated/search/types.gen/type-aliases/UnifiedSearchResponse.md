@@ -1,6 +1,6 @@
 # Type Alias: UnifiedSearchResponse
 
-> **UnifiedSearchResponse** = `object`
+> **UnifiedSearchResponse** = \{ `next_cursor?`: `string` \| `null`; `results`: [`UnifiedSearchResponseItem`](UnifiedSearchResponseItem.md)[]; \}
 
 ## Properties
 

@@ -1,6 +1,6 @@
 # Type Alias: WorkspacePage
 
-> **WorkspacePage** = `object`
+> **WorkspacePage** = \{ `hasMore`: `boolean`; `items`: [`WorkspaceItem`](WorkspaceItem.md)[]; `nextCursor?`: `string` \| `null`; \}
 
 A bounded page. A cursor means more results exist, not an exact total count.
 

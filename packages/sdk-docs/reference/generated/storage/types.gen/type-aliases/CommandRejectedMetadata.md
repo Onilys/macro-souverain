@@ -1,6 +1,6 @@
 # Type Alias: CommandRejectedMetadata
 
-> **CommandRejectedMetadata** = `object`
+> **CommandRejectedMetadata** = \{ `action_id`: [`AgentActionId`](AgentActionId.md); `actor?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `announcement_message_id?`: `string` \| `null`; `failure`: [`CommandFailure`](CommandFailure.md); `identity`: [`SessionIdentity`](SessionIdentity.md); \}
 
 An accepted command was refused before it could start a runtime turn.
 

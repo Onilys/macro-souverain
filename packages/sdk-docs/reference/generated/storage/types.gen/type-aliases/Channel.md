@@ -1,6 +1,6 @@
 # Type Alias: Channel
 
-> **Channel** = `object`
+> **Channel** = \{ `channel_type`: [`ChannelType`](ChannelType.md); `created_at`: `string`; `id`: `string`; `name?`: `string` \| `null`; `org_id?`: `number` \| `null`; `owner_id`: `string`; `team_id?`: `string` \| `null`; `updated_at`: `string`; \}
 
 Channel metadata in soup payloads.
 

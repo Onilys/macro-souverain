@@ -1,6 +1,6 @@
 # Type Alias: GetUnsubscribesData
 
-> **GetUnsubscribesData** = `object`
+> **GetUnsubscribesData** = \{ `body?`: `never`; `path?`: `never`; `query?`: `never`; `url`: `"/unsubscribe"`; \}
 
 ## Properties
 

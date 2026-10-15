@@ -1,6 +1,6 @@
 # Type Alias: UpdateToolCallRequest
 
-> **UpdateToolCallRequest** = `object`
+> **UpdateToolCallRequest** = \{ `args`: `unknown`; `messageId`: `string`; `toolCallId`: `string`; \}
 
 Request body for updating a tool call's arguments.
 

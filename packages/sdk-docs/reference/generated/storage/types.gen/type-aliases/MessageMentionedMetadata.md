@@ -1,6 +1,6 @@
 # Type Alias: MessageMentionedMetadata
 
-> **MessageMentionedMetadata** = `object`
+> **MessageMentionedMetadata** = \{ `content`: `string`; `created_at`: `string`; `mentioned`: [`SimpleMention`](SimpleMention.md); `message_id`: `string`; `parent`: [`MessageParent`](MessageParent.md); `root_id`: `string`; `sender`: [`ChannelSender`](ChannelSender.md); `thread_id?`: `string` \| `null`; \}
 
 One mentioned entity in a committed post; the full mention list travels on
 the posted fact.

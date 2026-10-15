@@ -1,6 +1,6 @@
 # Type Alias: GetCrmTeamSettingsResponses
 
-> **GetCrmTeamSettingsResponses** = `object`
+> **GetCrmTeamSettingsResponses** = \{ `200`: [`CrmTeamSettingsResponse`](CrmTeamSettingsResponse.md); \}
 
 ## Properties
 

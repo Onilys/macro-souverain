@@ -1,6 +1,6 @@
 # Type Alias: SetEmailSyncResponses
 
-> **SetEmailSyncResponses** = `object`
+> **SetEmailSyncResponses** = \{ `204`: `void`; \}
 
 ## Properties
 

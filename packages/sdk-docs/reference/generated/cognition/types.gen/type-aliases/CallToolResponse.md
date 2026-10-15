@@ -1,6 +1,6 @@
 # Type Alias: CallToolResponse
 
-> **CallToolResponse** = `object`
+> **CallToolResponse** = \{ `result`: `unknown`; \}
 
 Response body for a successful tool call.
 

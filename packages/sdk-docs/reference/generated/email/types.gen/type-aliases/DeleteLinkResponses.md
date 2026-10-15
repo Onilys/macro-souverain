@@ -1,6 +1,6 @@
 # Type Alias: DeleteLinkResponses
 
-> **DeleteLinkResponses** = `object`
+> **DeleteLinkResponses** = \{ `204`: [`EmptyResponse`](EmptyResponse.md); \}
 
 ## Properties
 

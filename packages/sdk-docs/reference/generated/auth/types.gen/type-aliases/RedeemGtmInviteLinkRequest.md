@@ -1,6 +1,6 @@
 # Type Alias: RedeemGtmInviteLinkRequest
 
-> **RedeemGtmInviteLinkRequest** = `object`
+> **RedeemGtmInviteLinkRequest** = \{ `token`: `string`; \}
 
 Request body to redeem a link.
 
