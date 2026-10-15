@@ -18,22 +18,22 @@ clippy:
 
 # Compile what CI's check and test jobs will compile for this branch, with CI's
 # package selection, flags and scripts, so kache publishes it to the shared
-# remote before you push. CI compiles your branch merged into main, so this
-# only matches when the branch already contains origin/main.
-ci-prebuild:
+# remote before you push. CI compiles your branch merged into its base, so
+# this only matches when the branch already contains origin/<base>.
+ci-prebuild base="main":
     #!/usr/bin/env bash
     set -euo pipefail
     if [ "$(uname -sm)" != "Linux x86_64" ]; then
         echo "CI runs on Linux x86_64; builds from $(uname -sm) never match its cache keys" >&2
         exit 1
     fi
-    git fetch --quiet --no-tags origin main
-    if ! git merge-base --is-ancestor origin/main HEAD; then
-        echo "warning: this branch does not contain origin/main; rebase first or CI compiles a different tree" >&2
+    git fetch --quiet --no-tags origin {{ base }}
+    if ! git merge-base --is-ancestor origin/{{ base }} HEAD; then
+        echo "warning: this branch does not contain origin/{{ base }}; rebase first or CI compiles a different tree" >&2
     fi
     outputs="$(mktemp)"
     trap 'rm -f "$outputs"' EXIT
-    GITHUB_BASE_REF=main GITHUB_SHA="$(git rev-parse HEAD)" bash {{ ci_scripts }}/compute_changed_files.sh
+    GITHUB_BASE_REF={{ base }} GITHUB_SHA="$(git rev-parse HEAD)" bash {{ ci_scripts }}/compute_changed_files.sh
     GITHUB_OUTPUT="$outputs" FILTER_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/macro-nextest-filter" \
         bash {{ ci_scripts }}/compute_nextest_filter.sh
     packages="$(sed -n 's/^rust_packages=//p' "$outputs")"
