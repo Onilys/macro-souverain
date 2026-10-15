@@ -17,7 +17,7 @@ import { IntegrationRow, SettingsCard, SettingsSection } from '../primitives';
 import { AddCustomMcpDialog } from './add-custom-mcp-dialog';
 import type { ConnectionsModel } from './model';
 import {
-  availableStarters,
+  EMPTY_STARTERS,
   PIPEDREAM_BROWSE_HIDDEN_SLUGS,
   providerIcon,
 } from './provider-meta';
@@ -42,7 +42,7 @@ export function DiscoverView(props: { model: ConnectionsModel }) {
 
   const featured = createMemo(() => {
     const query = catalog.searchInput().trim().toLowerCase();
-    return availableStarters().filter((item) => {
+    return EMPTY_STARTERS.filter((item) => {
       const haystack = `${item.name} ${item.note}`.toLowerCase();
       return !query || haystack.includes(query);
     });

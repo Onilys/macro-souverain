@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type {
+  AgentConversationsDto,
   AgentRepositoriesResponse,
   AgentRepositoryBranchesResponse,
   AgentSessionChangesPatchResponse,
@@ -35,10 +36,12 @@ import type {
   PullRequestUrl,
   PullRequestUrls,
   RenameAgentSessionRequest,
+  RetryAgentConversationTurnRequest,
   SandboxSizeBody,
   SessionPullRequestsResponse,
   SetAgentSessionArchivedRequest,
   SharePermissionV2,
+  StartFreshAgentConversationRequest,
   StartResponse,
   StatusResponse,
   UnlinkAgentSessionPullRequestParams,
@@ -246,6 +249,205 @@ export const putAgentCodingPreferences = async (
     status: res.status,
     headers: res.headers,
   } as putAgentCodingPreferencesResponse;
+};
+
+/**
+ * @summary The agent conversations in a channel the caller may see. Ordinary channels
+and other people's conversations list none.
+ */
+export type listAgentConversationsResponse200 = {
+  data: AgentConversationsDto;
+  status: 200;
+};
+
+export type listAgentConversationsResponse503 = {
+  data: void;
+  status: 503;
+};
+
+export type listAgentConversationsResponseSuccess =
+  listAgentConversationsResponse200 & {
+    headers: Headers;
+  };
+export type listAgentConversationsResponseError =
+  listAgentConversationsResponse503 & {
+    headers: Headers;
+  };
+
+export type listAgentConversationsResponse =
+  | listAgentConversationsResponseSuccess
+  | listAgentConversationsResponseError;
+
+export const getListAgentConversationsUrl = (channelId: string) => {
+  return `/agent-conversations/${channelId}`;
+};
+
+export const listAgentConversations = async (
+  channelId: string,
+  options?: RequestInit
+): Promise<listAgentConversationsResponse> => {
+  const res = await fetch(getListAgentConversationsUrl(channelId), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAgentConversationsResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listAgentConversationsResponse;
+};
+
+/**
+ * @summary Start a fresh agent context, retaining the channel transcript.
+ */
+export type startFreshAgentConversationResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type startFreshAgentConversationResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type startFreshAgentConversationResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type startFreshAgentConversationResponse503 = {
+  data: void;
+  status: 503;
+};
+
+export type startFreshAgentConversationResponseSuccess =
+  startFreshAgentConversationResponse204 & {
+    headers: Headers;
+  };
+export type startFreshAgentConversationResponseError = (
+  | startFreshAgentConversationResponse404
+  | startFreshAgentConversationResponse409
+  | startFreshAgentConversationResponse503
+) & {
+  headers: Headers;
+};
+
+export type startFreshAgentConversationResponse =
+  | startFreshAgentConversationResponseSuccess
+  | startFreshAgentConversationResponseError;
+
+export const getStartFreshAgentConversationUrl = (
+  channelId: string,
+  botId: string
+) => {
+  return `/agent-conversations/${channelId}/${botId}/start-fresh`;
+};
+
+export const startFreshAgentConversation = async (
+  channelId: string,
+  botId: string,
+  startFreshAgentConversationRequest: StartFreshAgentConversationRequest,
+  options?: RequestInit
+): Promise<startFreshAgentConversationResponse> => {
+  const res = await fetch(getStartFreshAgentConversationUrl(channelId, botId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(startFreshAgentConversationRequest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startFreshAgentConversationResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as startFreshAgentConversationResponse;
+};
+
+/**
+ * @summary Explicitly retry a failed message in the conversation's current session.
+ */
+export type retryAgentConversationTurnResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type retryAgentConversationTurnResponse404 = {
+  data: void;
+  status: 404;
+};
+
+export type retryAgentConversationTurnResponse409 = {
+  data: void;
+  status: 409;
+};
+
+export type retryAgentConversationTurnResponse503 = {
+  data: void;
+  status: 503;
+};
+
+export type retryAgentConversationTurnResponseSuccess =
+  retryAgentConversationTurnResponse204 & {
+    headers: Headers;
+  };
+export type retryAgentConversationTurnResponseError = (
+  | retryAgentConversationTurnResponse404
+  | retryAgentConversationTurnResponse409
+  | retryAgentConversationTurnResponse503
+) & {
+  headers: Headers;
+};
+
+export type retryAgentConversationTurnResponse =
+  | retryAgentConversationTurnResponseSuccess
+  | retryAgentConversationTurnResponseError;
+
+export const getRetryAgentConversationTurnUrl = (
+  channelId: string,
+  botId: string,
+  source: string
+) => {
+  return `/agent-conversations/${channelId}/${botId}/turns/${source}/retry`;
+};
+
+export const retryAgentConversationTurn = async (
+  channelId: string,
+  botId: string,
+  source: string,
+  retryAgentConversationTurnRequest: RetryAgentConversationTurnRequest,
+  options?: RequestInit
+): Promise<retryAgentConversationTurnResponse> => {
+  const res = await fetch(
+    getRetryAgentConversationTurnUrl(channelId, botId, source),
+    {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(retryAgentConversationTurnRequest),
+    }
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: retryAgentConversationTurnResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as retryAgentConversationTurnResponse;
 };
 
 /**
@@ -1080,6 +1282,11 @@ export type setAgentSessionArchivedResponse403 = {
   status: 403;
 };
 
+export type setAgentSessionArchivedResponse409 = {
+  data: string;
+  status: 409;
+};
+
 export type setAgentSessionArchivedResponse500 = {
   data: string;
   status: 500;
@@ -1092,6 +1299,7 @@ export type setAgentSessionArchivedResponseSuccess =
 export type setAgentSessionArchivedResponseError = (
   | setAgentSessionArchivedResponse401
   | setAgentSessionArchivedResponse403
+  | setAgentSessionArchivedResponse409
   | setAgentSessionArchivedResponse500
 ) & {
   headers: Headers;

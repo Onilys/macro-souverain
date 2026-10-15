@@ -93,6 +93,11 @@ type MentionsMenuProps = {
   onDocumentMention?: (item: Item | ChannelWithParticipants) => void;
   onEmailMention?: (item: EmailEntity) => void;
   disableMentionTracking?: boolean;
+  /**
+   * The document hosting the editor, which records inserted mentions.
+   * Defaults to the enclosing legacy block, which routed documents lack.
+   */
+  sourceDocumentId?: string;
   /** whether to show open tabs as a bucket in the menu */
   showOpenTabs?: boolean;
   /** restrict which mention source buckets to show (e.g. ['users'] for user-only mentions) */
@@ -145,7 +150,8 @@ function MentionsMenuInner(props: MentionsMenuProps) {
 
   const { isKeypressActive } = useIsKeyPressActive();
 
-  const blockId = useMaybeBlockId();
+  const legacyBlockId = useMaybeBlockId();
+  const blockId = props.sourceDocumentId ?? legacyBlockId;
 
   const { usersAndGroups, groups, availableUsers } = useUsersMention({
     users: props.users,
@@ -253,8 +259,6 @@ function MentionsMenuInner(props: MentionsMenuProps) {
     );
   });
 
-  const currentBlockId = useMaybeBlockId();
-
   const openTabs = createLazyMemo(() => {
     const splitManager = globalSplitManager();
     if (!splitManager) return [];
@@ -274,7 +278,7 @@ function MentionsMenuInner(props: MentionsMenuProps) {
         continue;
       }
 
-      if (split.content.id === currentBlockId) continue;
+      if (split.content.id === blockId) continue;
 
       const key = `${split.content.type}:${split.content.id}`;
       if (seenKeys.has(key)) continue;
@@ -480,7 +484,7 @@ function MentionsMenuInner(props: MentionsMenuProps) {
     ? createItemHandler({
         editor: props.editor,
         blockName: useMaybeBlockName(),
-        blockId: useMaybeBlockId(),
+        blockId,
         onUserMention: props.onUserMention,
         onDocumentMention: props.onDocumentMention,
         onEmailMention: props.onEmailMention,

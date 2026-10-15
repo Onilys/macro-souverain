@@ -902,7 +902,9 @@
           "channel.message_posted",
           "channel.mentioned",
           "channel.message_patched",
-          "channel.message_attachment_created"
+          "channel.message_attachment_created",
+          "call.started",
+          "call.ended"
         ]
       },
       "ExecutionResource": {

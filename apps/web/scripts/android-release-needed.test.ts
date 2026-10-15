@@ -108,6 +108,52 @@ describe('native release detection', () => {
     );
   });
 
+  const cacheWasm = (version: string, extra = '') =>
+    write(
+      'crates/client/cache-wasm/Cargo.toml',
+      `[package]\nname = "cache-wasm"\nversion = "${version}"\n${extra}`
+    );
+
+  it('builds when the client cache wasm version moves, with a new version code', () => {
+    cacheWasm('0.6.1');
+    commit();
+    const baseline = release();
+    cacheWasm('0.6.2');
+    write('crates/client/cache-core/src/lib.rs', '// cache change');
+    version(2);
+    commit();
+    expect(androidReleaseDecision({ cwd, releases: [baseline] })).toEqual({
+      build: true,
+      summary: expect.stringContaining(
+        'the client cache wasm version moved since v2026.10.1 (0.6.1 → 0.6.2)'
+      ),
+    });
+  });
+
+  it('rejects a client cache wasm version bump without a new version code', () => {
+    cacheWasm('0.6.1');
+    commit();
+    const baseline = release();
+    cacheWasm('0.6.2');
+    commit();
+    expect(() => androidReleaseDecision({ cwd, releases: [baseline] })).toThrow(
+      /versionCode/
+    );
+  });
+
+  it('skips client cache changes that do not move the wasm version', () => {
+    cacheWasm('0.6.1');
+    commit();
+    const baseline = release();
+    cacheWasm('0.6.1', '[dependencies]\nserde = "1"\n');
+    write('crates/client/cache-core/src/lib.rs', '// cache change');
+    write('crates/client/cache-turso/src/lib.rs', '// storage change');
+    commit();
+    expect(androidReleaseDecision({ cwd, releases: [baseline] }).build).toBe(
+      false
+    );
+  });
+
   it('detects deleted native files', () => {
     const baseline = release();
     rmSync(join(cwd, 'apps/web/tauri/src-tauri/src/lib.rs'));

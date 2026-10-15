@@ -53,7 +53,7 @@ export function PipelineShare(props: {
 }) {
   const openShare = useShareModal(() => ({
     id: props.pipeline.id,
-    blockAlias: 'database',
+    blockAlias: 'pipeline',
     itemType: 'crm_pipeline',
     name: props.pipeline.name,
     owner: props.pipeline.userId,
@@ -63,7 +63,7 @@ export function PipelineShare(props: {
   return (
     <ShareTrigger
       id={props.pipeline.id}
-      blockType="database"
+      blockType="pipeline"
       onClick={openShare}
       copyLink={props.onCopyLink}
     />

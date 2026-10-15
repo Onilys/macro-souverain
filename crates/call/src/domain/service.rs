@@ -42,7 +42,7 @@ use crate::domain::events::{
     CallStartedMetadata,
 };
 use crate::domain::models::{
-    EditCallRecordRepoArgs, EditCallRecordRequest, EditCallTranscriptRequest,
+    CallRecordPage, EditCallRecordRepoArgs, EditCallRecordRequest, EditCallTranscriptRequest,
     VoipPushPayloadRequest,
 };
 
@@ -58,8 +58,8 @@ use super::models::{
     LeaveCallResponse, RingStatus, RingStatusResponse, TranscriptSegmentRequest,
 };
 use super::ports::{
-    CallRecordQueryService, CallRepository, CallRtcClient, CallService, CallSummarizer,
-    NoOpVoiceRepository, RecordingStorage, VoiceRepository,
+    CallRecordQueryService, CallRecordReader, CallRepository, CallRtcClient, CallService,
+    CallSummarizer, NoOpVoiceRepository, RecordingStorage, VoiceRepository,
 };
 
 /// The concrete call service implementation.
@@ -295,6 +295,23 @@ impl<
             }
         };
 
+        let participants = archived
+            .participants
+            .iter()
+            .filter_map(|participant| {
+                MacroUserIdStr::parse_from_str(participant)
+                    .inspect_err(|error| {
+                        tracing::error!(
+                            error = ?error,
+                            call_id = %archived.call_id,
+                            "failed to parse stored call participant; omitting it from the archived event"
+                        );
+                    })
+                    .ok()
+                    .map(MacroUserIdStr::into_owned)
+            })
+            .collect();
+
         self.publish_call_event(&CallMacroEvent::record_archived(
             CallRecordArchivedMetadata {
                 call_id: archived.call_id,
@@ -303,7 +320,8 @@ impl<
                 started_at: archived.started_at,
                 ended_at: archived.ended_at,
                 duration_ms: Some(archived.duration_ms),
-                participant_count: archived.participant_count,
+                participant_count: archived.participants.len(),
+                participants,
                 has_recording: archived.has_recording,
                 archive_reason,
             },
@@ -1491,31 +1509,10 @@ impl<
         &self,
         receipt: EntityAccessReceipt<ViewAccessLevel>,
     ) -> Result<CallRecord, CallError> {
-        let entity = receipt.entity();
-        if entity.entity_type != EntityType::Call {
-            return Err(CallError::Internal(anyhow::anyhow!(
-                "expected Call entity in receipt, got {:?}",
-                entity.entity_type
-            )));
-        }
-        let call_id = Uuid::parse_str(&entity.entity_id)
-            .map_err(|_| CallError::Internal(anyhow::anyhow!("invalid call_id in receipt")))?;
-
+        let mut record = authorized_call_record(&self.repo, &receipt).await?;
         let user_id = receipt
             .get_authenticated_user()
             .map_err(|_| CallError::Auth)?;
-
-        let mut record = self
-            .repo
-            .get_call_record_by_call_id(&call_id)
-            .await
-            .map_err(|e| CallError::Internal(e.into()))?
-            .ok_or_else(|| CallError::NotFound(call_id.to_string()))?;
-
-        record.user_access_level = match receipt.entity_permission() {
-            EntityPermission::AccessLevel { access_level } => Some(*access_level),
-            _ => None,
-        };
 
         if let Some(recording_key) = &record.recording_key {
             record.recording_url = self
@@ -1537,20 +1534,11 @@ impl<
                 .ok();
         }
 
-        record.channel_name = match record.channel_id {
-            Some(channel_id) => self
-                .repo
-                .resolve_channel_name(&channel_id, user_id.copied())
-                .await
-                .map_err(|e| CallError::Internal(e.into()))?,
-            None => None,
-        };
-
         // Only active calls keep decline rows; archived calls drop them with
         // the call, and an inactive record already resolves as ended.
         record.viewer_has_declined = if record.is_active {
             self.repo
-                .has_declined(&call_id, user_id.as_ref())
+                .has_declined(&record.call_id, user_id.as_ref())
                 .await
                 .map_err(|e| CallError::Internal(e.into()))?
         } else {
@@ -2401,9 +2389,52 @@ impl CallSummarizer for NoopCallSummarizer {
     }
 }
 
-/// Lightweight implementation of [`CallRecordQueryService`] for read-only
-/// call record queries. Unlike [`CallServiceImpl`], this only requires a
-/// repository — no RTC client, notifications, or entity access.
+/// The record a call receipt authorizes, at the receipt's access level, with
+/// its channel named as the receipt's user sees it.
+async fn authorized_call_record<R: CallRepository>(
+    repo: &R,
+    receipt: &EntityAccessReceipt<ViewAccessLevel>,
+) -> Result<CallRecord, CallError> {
+    let entity = receipt.entity();
+    if entity.entity_type != EntityType::Call {
+        return Err(CallError::Internal(anyhow::anyhow!(
+            "expected Call entity in receipt, got {:?}",
+            entity.entity_type
+        )));
+    }
+    let call_id = Uuid::parse_str(&entity.entity_id)
+        .map_err(|_| CallError::Internal(anyhow::anyhow!("invalid call_id in receipt")))?;
+
+    let user_id = receipt
+        .get_authenticated_user()
+        .map_err(|_| CallError::Auth)?;
+
+    let mut record = repo
+        .get_call_record_by_call_id(&call_id)
+        .await
+        .map_err(|e| CallError::Internal(e.into()))?
+        .ok_or_else(|| CallError::NotFound(call_id.to_string()))?;
+
+    record.user_access_level = match receipt.entity_permission() {
+        EntityPermission::AccessLevel { access_level } => Some(*access_level),
+        _ => None,
+    };
+
+    record.channel_name = match record.channel_id {
+        Some(channel_id) => repo
+            .resolve_channel_name(&channel_id, user_id.copied())
+            .await
+            .map_err(|e| CallError::Internal(e.into()))?,
+        None => None,
+    };
+
+    Ok(record)
+}
+
+/// Lightweight implementation of [`CallRecordQueryService`] and
+/// [`CallRecordReader`] for read-only call record queries. Unlike
+/// [`CallServiceImpl`], this only requires a repository — no RTC client,
+/// notifications, or entity access.
 pub struct CallRecordQueryServiceImpl<R: CallRepository> {
     repo: R,
 }
@@ -2422,8 +2453,9 @@ impl<R: CallRepository> CallRecordQueryService for CallRecordQueryServiceImpl<R>
         req: GetCallRecordsRequest,
     ) -> Result<Vec<CallRecord>, CallError> {
         let filter = req.query.filter();
+        let page = CallRecordPage::from_query(&req.query);
         self.repo
-            .get_call_records_by_user(req.user_id.copied(), req.limit, filter)
+            .get_call_records_by_user(req.user_id.copied(), req.limit, filter, page)
             .await
             .map_err(|e| CallError::Internal(e.into()))
     }
@@ -2433,5 +2465,15 @@ impl<R: CallRepository> CallRecordQueryService for CallRecordQueryServiceImpl<R>
             .get_call_record_people(&call_record_id)
             .await
             .map_err(|e| CallError::Internal(e.into()))
+    }
+}
+
+impl<R: CallRepository> CallRecordReader for CallRecordQueryServiceImpl<R> {
+    #[tracing::instrument(err, skip(self))]
+    async fn get_call_record(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+    ) -> Result<CallRecord, CallError> {
+        authorized_call_record(&self.repo, &receipt).await
     }
 }

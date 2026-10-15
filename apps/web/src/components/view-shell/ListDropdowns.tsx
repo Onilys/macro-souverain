@@ -8,6 +8,7 @@ import BoardIcon from '@icon/system/regular/kanban.svg';
 import ListIcon from '@icon/system/regular/list-bullets.svg';
 import SortIcon from '@icon/system/regular/sort-ascending.svg';
 import GroupIcon from '@icon/system/regular/stack.svg';
+import GanttIcon from '@phosphor/chart-bar-horizontal.svg';
 import { cn, Dropdown } from '@ui';
 import { batch, createSignal, For, type JSX, Show } from 'solid-js';
 import { AiFilterInput, type AiFilterInputProps } from './AiFilterInput';
@@ -93,18 +94,20 @@ function SingleSelectDropdown<TId extends string>(
   );
 }
 
-export type ViewLayout = 'list' | 'board';
+export type ViewLayout = 'list' | 'board' | 'gantt';
 
 export type ViewLayoutDropdownProps = Omit<
   SingleSelectDropdownProps<ViewLayout>,
   'icon' | 'label' | 'options'
 > & {
   label?: string;
+  layouts?: readonly ViewLayout[];
 };
 
 const VIEW_LAYOUT_OPTIONS: ListControlOption<ViewLayout>[] = [
   { id: 'list', label: 'List', icon: () => <ListIcon /> },
   { id: 'board', label: 'Board', icon: () => <BoardIcon /> },
+  { id: 'gantt', label: 'Gantt', icon: () => <GanttIcon /> },
 ];
 
 export function ViewLayoutDropdown(props: ViewLayoutDropdownProps) {
@@ -112,10 +115,19 @@ export function ViewLayoutDropdown(props: ViewLayoutDropdownProps) {
     <SingleSelectDropdown
       {...props}
       label={props.label ?? 'Layout'}
-      options={VIEW_LAYOUT_OPTIONS}
+      options={VIEW_LAYOUT_OPTIONS.filter(
+        (option) => !props.layouts || props.layouts.includes(option.id)
+      )}
       icon={
-        <Show when={props.value === 'board'} fallback={<ListIcon />}>
-          <BoardIcon />
+        <Show
+          when={props.value === 'gantt'}
+          fallback={
+            <Show when={props.value === 'board'} fallback={<ListIcon />}>
+              <BoardIcon />
+            </Show>
+          }
+        >
+          <GanttIcon />
         </Show>
       }
     />

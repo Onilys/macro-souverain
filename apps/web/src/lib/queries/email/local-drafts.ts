@@ -293,7 +293,7 @@ async function persistLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
         (input.clientHandles ? undefined : (input.draft.db_id ?? undefined)),
       serverThreadId: previous?.serverThreadId,
       inboxId: input.inboxId,
-      senderEmail: input.senderEmail,
+      senderEmail: input.draft.sender_email ?? input.senderEmail,
       content: structuredClone({
         ...input.draft,
         replying_to_id:
@@ -599,6 +599,8 @@ export function localDraftQueueLifecycle(
         senderEmail: text(object(message.from).email),
         content: {
           subject: String(input.subject ?? ''),
+          sender_email:
+            text(input.senderEmail) ?? text(object(message.from).email),
           body_html: text(input.bodyHtml),
           body_text: text(input.bodyText),
           body_macro: text(input.bodyMacro),

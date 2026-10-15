@@ -29,7 +29,6 @@ import {
   type ComboboxTriggerMode,
   useComboboxContext,
 } from '@kobalte/core/combobox';
-import type { Bot } from '@service-storage/generated/schemas/bot';
 import { debounce } from '@solid-primitives/scheduled';
 import { Avatar, cn, Layer } from '@ui';
 import * as EmailValidator from 'email-validator';
@@ -94,7 +93,7 @@ function RecipientChip(props: {
   );
 }
 
-function AgentAvatar(props: { agent: Bot }) {
+function AgentAvatar(props: { agent: CombinedRecipientItem<'agent'>['data'] }) {
   return (
     <Avatar size="sm">
       <Show

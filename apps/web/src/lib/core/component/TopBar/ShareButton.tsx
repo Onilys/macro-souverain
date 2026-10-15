@@ -1,5 +1,6 @@
 import {
   fetchPipelineSharePermissions,
+  updatePipelineSharePermissions,
   updatePipelineTeamShare,
 } from '@app/features/crm/sharing-adapter';
 import { projectRouteId } from '@app/features/projects/core/route';
@@ -188,11 +189,12 @@ async function fetchSharePermissions(id: string, itemType: ShareItemType) {
 const SHARE_LINK_SUBTEXT =
   'Sending this link in a Macro message will automatically update permissions to include recipients.';
 
-// Only these owners can grant access, so only they may forward. Their links
-// don't grant access to recipients either, so copying skips SHARE_LINK_SUBTEXT.
-const OWNER_ONLY_SHARE_DESCRIPTIONS: Partial<Record<ShareItemType, string>> = {
+// Only these items' owners (a pipeline's editors) can grant access, so only
+// they may forward. Their links don't grant access to recipients either, so
+// copying skips SHARE_LINK_SUBTEXT.
+const RESTRICTED_SHARE_DESCRIPTIONS: Partial<Record<ShareItemType, string>> = {
   crm_pipeline:
-    'Only the owner can change team access. You can copy a link for people who already have access.',
+    'Only editors can share this pipeline. You can copy a link for people who already have access.',
   agent_session:
     'Only the owner can share access to this session. You can copy a link for people who already have access.',
   initiative:
@@ -205,7 +207,10 @@ type ChannelPermissionSetter = (
   hideSuccessToast?: boolean
 ) => Promise<boolean | undefined>;
 
-/** Where a forwarded message points; native projects grant before sending. */
+/**
+ * Where a forwarded message points. Nothing grants a native project or a
+ * pipeline on send, so recipients could not open it yet: both grant first.
+ */
 function forwardTarget(
   blockAlias: ShareBlockType,
   id: string,
@@ -214,17 +219,25 @@ function forwardTarget(
   ComponentProps<typeof ForwardToChannel>,
   'blockId' | 'blockName' | 'entity' | 'prepareChannel'
 > {
+  const prepareChannel = async (
+    channelId: string,
+    accessLevel: AccessLevel | null
+  ) => {
+    const granted =
+      accessLevel &&
+      (await setChannelPermissions(channelId, accessLevel, true));
+    if (!granted)
+      throw new Error(
+        `Could not share this ${blockAlias === 'pipeline' ? 'pipeline' : 'project'}`
+      );
+  };
+  if (blockAlias === 'pipeline')
+    return { blockId: id, blockName: blockAlias, prepareChannel };
   if (blockAlias !== 'initiative')
     return { blockId: id, blockName: blockAlias };
   return {
     entity: { entity_type: 'initiative', entity_id: id },
-    // Nothing grants a project on send, so recipients could not open it yet.
-    prepareChannel: async (channelId, accessLevel) => {
-      const granted =
-        accessLevel &&
-        (await setChannelPermissions(channelId, accessLevel, true));
-      if (!granted) throw new Error('Could not share this project');
-    },
+    prepareChannel,
   };
 }
 
@@ -661,7 +674,7 @@ function MobileShareDrawer(props: MobileShareDrawerProps) {
           >
             <Show when={!props.canForward}>
               <p class="px-4 py-3 text-sm text-ink-muted">
-                {OWNER_ONLY_SHARE_DESCRIPTIONS[props.itemType]}
+                {RESTRICTED_SHARE_DESCRIPTIONS[props.itemType]}
               </p>
             </Show>
             <Show when={props.canForward}>
@@ -858,14 +871,25 @@ export function ShareModal(props: ShareModalProps) {
     ? permissionsBlockResource[1].refetch
     : refetchFallback;
   const userId = useUserId();
+  // Like a document, a pipeline is shared by anyone who can edit it. Only its
+  // owner changes team access, which `teamShareControls` still requires.
+  const canSharePipeline = () =>
+    props.userPermissions === Permissions.OWNER ||
+    props.userPermissions === Permissions.CAN_EDIT;
   const canForward = () =>
-    props.itemType !== 'crm_pipeline' &&
-    (!OWNER_ONLY_SHARE_DESCRIPTIONS[props.itemType] ||
-      (Boolean(userId()) && props.owner === userId()));
+    props.itemType === 'crm_pipeline'
+      ? canSharePipeline()
+      : !RESTRICTED_SHARE_DESCRIPTIONS[props.itemType] ||
+        (Boolean(userId()) && props.owner === userId());
   const userPermissions = () =>
     props.itemType === 'agent_session' && !canForward()
       ? Permissions.CAN_VIEW
       : props.userPermissions;
+  /** Who manages people and channels: pipeline editors do, as owners do. */
+  const recipientPermissions = () =>
+    props.itemType === 'crm_pipeline' && canSharePipeline()
+      ? Permissions.OWNER
+      : userPermissions();
   const editPermissionEnabled = () =>
     props.itemType === 'agent_session' ? true : undefined;
 
@@ -877,7 +901,7 @@ export function ShareModal(props: ShareModalProps) {
   const copyLink = createCallback(() => {
     if (props.copyLink) return props.copyLink();
     copyEntityLink(shareUrl(props.blockAlias, props.id), {
-      subtext: OWNER_ONLY_SHARE_DESCRIPTIONS[props.itemType]
+      subtext: RESTRICTED_SHARE_DESCRIPTIONS[props.itemType]
         ? undefined
         : SHARE_LINK_SUBTEXT,
     });
@@ -947,8 +971,20 @@ export function ShareModal(props: ShareModalProps) {
   });
 
   const removeChannelAccess = createCallback(async (channelId: string) => {
-    if (userPermissions() !== Permissions.OWNER) return;
-    if (props.itemType === 'agent_session') {
+    if (recipientPermissions() !== Permissions.OWNER) return;
+    if (props.itemType === 'crm_pipeline') {
+      const result = await updatePipelineSharePermissions(props.id, {
+        channelSharePermissions: [{ operation: 'remove', channelId }],
+      });
+      if (result.isOk()) {
+        refetch();
+        toast.success('Removed channel access');
+      } else {
+        toast.alert('Failed to remove channel access', {
+          subtext: 'Please try again',
+        });
+      }
+    } else if (props.itemType === 'agent_session') {
       const result = await updateAgentSessionSharePermissions(props.id, {
         channelSharePermissions: [{ operation: 'remove', channelId }],
       });
@@ -1079,13 +1115,19 @@ export function ShareModal(props: ShareModalProps) {
       accessLevel: AccessLevel,
       hideSuccessToast?: boolean
     ) => {
-      if (userPermissions() !== Permissions.OWNER) return;
+      if (recipientPermissions() !== Permissions.OWNER) return;
 
       let result:
         | Result<any, ResultError<any>[]>
         | Result<void, ResultError<any>[]>
         | null = null;
-      if (props.itemType === 'agent_session') {
+      if (props.itemType === 'crm_pipeline') {
+        result = await updatePipelineSharePermissions(props.id, {
+          channelSharePermissions: [
+            { operation: 'replace', accessLevel, channelId },
+          ],
+        });
+      } else if (props.itemType === 'agent_session') {
         result = await updateAgentSessionSharePermissions(props.id, {
           channelSharePermissions: [
             { operation: 'replace', accessLevel, channelId },
@@ -1425,7 +1467,7 @@ export function ShareModal(props: ShareModalProps) {
           people={props.people}
           linkSharing={props.linkSharing}
           hasDirectShares={props.hasDirectShares}
-          userPermissions={userPermissions()}
+          userPermissions={recipientPermissions()}
           recipients={recipients()}
           channelNameMap={channelNameMap()}
           linkShare={linkShare()}
@@ -1468,7 +1510,7 @@ export function ShareModal(props: ShareModalProps) {
               <div>
                 <Show when={!canForward()}>
                   <p class="px-4 py-3 text-sm text-ink-muted">
-                    {OWNER_ONLY_SHARE_DESCRIPTIONS[props.itemType]}
+                    {RESTRICTED_SHARE_DESCRIPTIONS[props.itemType]}
                   </p>
                 </Show>
                 <Show when={canForward()}>

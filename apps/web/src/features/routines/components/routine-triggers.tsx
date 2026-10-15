@@ -7,6 +7,7 @@ import EnvelopeIcon from '@icon/system/regular/envelope.svg';
 import FileIcon from '@icon/system/regular/file-text.svg';
 import HashIcon from '@icon/system/regular/hash.svg';
 import SearchIcon from '@icon/system/regular/magnifying-glass.svg';
+import PhoneIcon from '@icon/system/regular/phone.svg';
 import PlusIcon from '@icon/system/regular/plus.svg';
 import { Popover } from '@kobalte/core/popover';
 import { Button, badgeTriggerClasses } from '@ui';
@@ -82,6 +83,9 @@ function EventIcon(props: { group: RoutineEventGroup; class: string }) {
       <Match when={props.group === 'Email'}>
         <EnvelopeIcon class={props.class} />
       </Match>
+      <Match when={props.group === 'Calls'}>
+        <PhoneIcon class={props.class} />
+      </Match>
     </Switch>
   );
 }
@@ -93,6 +97,7 @@ function TriggerIcon(props: { trigger?: RoutineTriggerDraft }) {
     if (kind === 'TASK') return 'Tasks';
     if (kind === 'THREAD') return 'Email';
     if (kind === 'DOCUMENT') return 'Documents';
+    if (kind === 'CALL_RECORD') return 'Calls';
     return 'Channels';
   };
   return (

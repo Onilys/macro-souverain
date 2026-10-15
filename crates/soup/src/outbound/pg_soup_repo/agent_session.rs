@@ -107,7 +107,7 @@ pub(super) async fn cursor_soup(
     query.push(" AND (");
     push_filter(&mut query, filter);
     query.push(")");
-    // Inline @macro sessions (`list_hidden`) are absent from broad lists. A
+    // Hidden inline mentions and DM contexts are absent from broad lists. A
     // query that names the session still returns it, so favorites and direct
     // id lookups keep working.
     query.push(" AND (s.list_hidden = FALSE OR s.id = ANY(");
@@ -262,7 +262,7 @@ fn sort_sql(sort: SimpleSortMethod) -> &'static str {
 
 /// Session ids the query asked for by name, ignoring ids under `NOT`.
 /// Those stay visible even when the session is hidden from broad lists.
-fn explicitly_named_ids(expression: &Expr<AgentSessionLiteral>) -> Vec<Uuid> {
+pub(super) fn explicitly_named_ids(expression: &Expr<AgentSessionLiteral>) -> Vec<Uuid> {
     fn walk(expression: &Expr<AgentSessionLiteral>, negated: bool, ids: &mut Vec<Uuid>) {
         match expression {
             Expr::Literal(AgentSessionLiteral::Id(id)) if !negated => ids.push(*id),

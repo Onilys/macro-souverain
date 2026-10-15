@@ -264,7 +264,7 @@ trailing update for the final selection.
 IronCalc handles formula parsing, ranges, relative and absolute references,
 dependency evaluation, functions, circular references, Excel errors, and array
 spills. The model uses fixed English settings and UTC on every client. Number
-formatting uses fixed `en-US` display rules; currency formatting means USD. The
+formatting uses fixed `en-US` display rules; currency and accounting mean USD. The
 binding exposes numbers through formatted strings, so the adapter requests a
 scientific format with sufficient significant digits before applying UI formats.
 Calculations use the engine's numeric values, not rounded UI values.
@@ -302,8 +302,12 @@ compare formula, error, and formatting behavior before replacing it.
 - The ribbon exposes font family/size, bold/italic/underline/strikethrough,
   text/fill colors, per-edge borders, horizontal/vertical alignment, and wrapping.
   All cell styles persist, sync independently, copy/fill, and undo. Number formats
-  include general, number, USD currency, percent, scientific, date, time, and plain
-  text, with adjustable decimal places. Date/time displays are deterministic UTC.
+  include general, number, USD currency, USD accounting, percent, scientific, date,
+  time, and plain text, with adjustable decimal places. Accounting follows Excel:
+  the grid pins `$` to the cell's left edge and the amount to its right, negatives
+  show in parentheses and zero as a dash. It exports as Excel's built-in accounting
+  format, and imported dollar formats with a repeated fill (`*`) open as accounting.
+  Date/time displays are deterministic UTC.
   Cells without an explicit format honor the date/time formats IronCalc infers for
   typed dates, `DATE()`-style results and arithmetic on date cells (formula results
   only from the year 2000 on, so day counts stay numbers). A cell holding one

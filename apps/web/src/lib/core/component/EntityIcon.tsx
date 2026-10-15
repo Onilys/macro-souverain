@@ -49,6 +49,7 @@ import PhoneCallBold from '@icon/system/bold/phone-call-bold.svg';
 import ShapesBold from '@icon/system/bold/shapes-bold.svg';
 import SparkleBold from '@icon/system/bold/sparkle-bold.svg';
 import StackBold from '@icon/system/bold/stack-bold.svg';
+import TableBold from '@icon/system/bold/table-bold.svg';
 import SpreadsheetBold from '@icon/system/bold/table-bold.svg';
 import UsersBold from '@icon/system/bold/users-bold.svg';
 import UsersThreeBold from '@icon/system/bold/users-three-bold.svg';
@@ -89,6 +90,7 @@ import PhoneCall from '@icon/system/regular/phone-call.svg';
 import Shapes from '@icon/system/regular/shapes.svg';
 import Sparkle from '@icon/system/regular/sparkle.svg';
 import Stack from '@icon/system/regular/stack.svg';
+import Table from '@icon/system/regular/table.svg';
 import Spreadsheet from '@icon/system/regular/table.svg';
 import Users from '@icon/system/regular/users.svg';
 import UsersThree from '@icon/system/regular/users-three.svg';
@@ -482,6 +484,13 @@ export const ENTITY_ICON_CONFIGS: Record<EntityWithValidIcon, IconConfig> = {
     background: 'bg-default/20',
     prettyName: 'Company',
   },
+  pipeline: {
+    icon: Table,
+    boldIcon: TableBold,
+    foreground: 'text-default',
+    background: 'bg-default/20',
+    prettyName: 'Pipeline',
+  },
   reminder: {
     icon: BellSimple,
     boldIcon: BellSimpleBold,
@@ -708,6 +717,9 @@ export function getPreviewItemIconType(item: PreviewItem): EntityWithValidIcon {
   if (item.loading || item.access !== 'access') {
     return 'default';
   }
+  // A pipeline previews like an entity but is not one.
+  const { type } = item;
+  if (type === 'crm_pipeline') return 'pipeline';
 
-  return getEntityIconType(item);
+  return getEntityIconType({ ...item, type });
 }

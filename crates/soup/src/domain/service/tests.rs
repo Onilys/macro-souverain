@@ -45,6 +45,7 @@ use uuid::Uuid;
 use super::*;
 
 mod agent_metadata;
+mod crm_association;
 mod exclusions;
 mod favorites;
 mod work_feed;
@@ -89,6 +90,13 @@ impl ChannelListService for NoopCommsService {
         &self,
         _req: GetThreadReplyRowsRequest,
     ) -> Result<Vec<ChannelMessage>, Report> {
+        Ok(Vec::new())
+    }
+
+    async fn get_reference_sources(
+        &self,
+        _targets: &[channels::domain::models::ReferenceTarget],
+    ) -> Result<Vec<channels::domain::models::ReferenceSource>, Report> {
         Ok(Vec::new())
     }
 
@@ -161,6 +169,13 @@ impl ChannelListService for RecordingCommsService {
             .unwrap()
             .push(serde_json::to_string(req.query.filter()).unwrap());
         Ok(self.rows.clone())
+    }
+
+    async fn get_reference_sources(
+        &self,
+        _targets: &[channels::domain::models::ReferenceTarget],
+    ) -> Result<Vec<channels::domain::models::ReferenceSource>, Report> {
+        Ok(Vec::new())
     }
 
     async fn get_names(

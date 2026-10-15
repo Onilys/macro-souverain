@@ -102,7 +102,7 @@ function Section(props: {
 }
 
 /** Views, audience, channel, and tag navigation for the Calls list. */
-export function CallsSidebar() {
+export function CallsSidebar(props: { onNavigate: () => void }) {
   const soup = useSoup();
   const view = useSoupView();
   const { applyTabPreset } = useApplyPreset();
@@ -118,11 +118,13 @@ export function CallsSidebar() {
 
   const activeTab = () => view.activeTab() ?? VIEW_TAB_PRESETS.calls.default;
 
-  const selectAudience = (id: CallAudienceId) =>
+  const selectAudience = (id: CallAudienceId) => {
+    props.onNavigate();
     soup.predicates.set(({ andIds, orIds }) => ({
       and: selectCallAudience(andIds, id),
       or: orIds,
     }));
+  };
 
   // Audience filters only narrow loaded pages, and a sparse page leaves no
   // list to scroll, so keep paging until enough matches show or pages run out.
@@ -146,15 +148,18 @@ export function CallsSidebar() {
   );
   const activeChannelIds = () =>
     view.queryFilters.state.include.callChannelId ?? [];
-  const selectChannel = (id: string) =>
+  const selectChannel = (id: string) => {
+    props.onNavigate();
     view.queryFilters.set({
       include: { callChannelId: selectSidebarTag(activeChannelIds(), id) },
     });
+  };
 
   return (
     <ViewSidebar.Root aria-label="Calls navigation">
       <SidebarActionRow
         title="Calls"
+        onSearch={props.onNavigate}
         search={
           <Layer depth={2}>
             <SoupSearchbar variant="secondary" placeholder="Search calls" />
@@ -171,7 +176,10 @@ export function CallsSidebar() {
                 active={activeTab() === tab.value}
                 icon={TAB_ICONS[tab.value] ?? PhoneIcon}
                 label={callViewLabel(tab)}
-                onClick={() => applyTabPreset('calls', tab.value)}
+                onClick={() => {
+                  props.onNavigate();
+                  applyTabPreset('calls', tab.value);
+                }}
               />
             )}
           </For>
@@ -215,7 +223,10 @@ export function CallsSidebar() {
 
         <SidebarTagsSection
           activeIds={view.tagFilter.activeIds()}
-          onActiveIdsChange={view.tagFilter.onChange}
+          onActiveIdsChange={(ids) => {
+            props.onNavigate();
+            view.tagFilter.onChange(ids);
+          }}
           open={isOpen('tags')}
           onOpenChange={(open) => setOpen('tags', open)}
         />

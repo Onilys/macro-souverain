@@ -237,6 +237,8 @@ interface SoupViewProps {
    * views that compose their own chrome (e.g. a sidebar layout).
    */
   header?: JSX.Element;
+  /** Compose a detail outlet while keeping the list's state initialized. */
+  renderContent?: (list: () => JSX.Element) => JSX.Element;
 }
 
 export const SoupView = (props: SoupViewProps) => {
@@ -566,7 +568,7 @@ export const SoupView = (props: SoupViewProps) => {
       </Suspense>
     </div>
   );
-  return content();
+  return props.renderContent ? props.renderContent(content) : content();
 };
 
 interface SoupViewListProps {

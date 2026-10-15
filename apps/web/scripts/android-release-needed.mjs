@@ -4,6 +4,10 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const tauriPath = 'apps/web/tauri';
+// The app compiles the client cache crates natively; the team bumps this
+// package's version when a cache change must ship, so a bump counts as a
+// native change (other edits under crates/client do not).
+const cacheWasmManifest = 'crates/client/cache-wasm/Cargo.toml';
 const releaseTag = /^v20\d{2}\.\d{1,2}\.\d{1,2}(?:\.\d{1,2})?$/;
 
 export function androidReleaseDecision({ releases, cwd = process.cwd() }) {
@@ -15,6 +19,17 @@ export function androidReleaseDecision({ releases, cwd = process.cwd() }) {
     }).trim();
   const head = git('rev-parse', '--verify', 'HEAD^{commit}');
   const tree = git('rev-parse', '--verify', `${head}:${tauriPath}`);
+  const cacheWasmVersion = (commit) => {
+    try {
+      return (
+        git('show', `${commit}:${cacheWasmManifest}`).match(
+          /^version\s*=\s*"([^"]*)"/m
+        )?.[1] ?? 'none'
+      );
+    } catch {
+      return 'none'; // the package did not exist at this commit
+    }
+  };
   const candidates = new Map();
   for (const release of releases) {
     const tag = release.tag_name;
@@ -49,12 +64,24 @@ export function androidReleaseDecision({ releases, cwd = process.cwd() }) {
     };
   }
   const tag = candidates.get(baseline);
-  if (tree === git('rev-parse', '--verify', `${baseline}:${tauriPath}`)) {
+  const tauriChanged =
+    tree !== git('rev-parse', '--verify', `${baseline}:${tauriPath}`);
+  const cacheBumped = cacheWasmVersion(head) !== cacheWasmVersion(baseline);
+  if (!tauriChanged && !cacheBumped) {
     return {
       build: false,
-      summary: `Skip Android: ${tauriPath}/ is unchanged since ${tag}. App updates use the bundle updater.`,
+      summary: `Skip Android: ${tauriPath}/ and the client cache wasm version are unchanged since ${tag}. App updates use the bundle updater.`,
     };
   }
+  // The version code bump itself lives under the Tauri directory, so name
+  // the cache bump too when that is what the release is really for.
+  const reason = [
+    tauriChanged && `${tauriPath}/ changed since ${tag}`,
+    cacheBumped &&
+      `the client cache wasm version moved since ${tag} (${cacheWasmVersion(baseline)} → ${cacheWasmVersion(head)})`,
+  ]
+    .filter(Boolean)
+    .join(' and ');
 
   const versionCode = (commit) => {
     const config = JSON.parse(
@@ -67,12 +94,12 @@ export function androidReleaseDecision({ releases, cwd = process.cwd() }) {
   };
   if (versionCode(head) <= versionCode(baseline)) {
     throw new Error(
-      `Tauri changed since ${tag}, but Android versionCode did not increase. Run just android-bump in apps/web and commit before tagging.`
+      `Native code changed (${reason}), but Android versionCode did not increase. Run just android-bump in apps/web and commit before tagging.`
     );
   }
   return {
     build: true,
-    summary: `Build Android: ${tauriPath}/ changed since ${tag}.`,
+    summary: `Build Android: ${reason}.`,
   };
 }
 

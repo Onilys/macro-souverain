@@ -32,7 +32,8 @@ static INSTRUCTIONS: &str = r##"- Booking links use conversational confirmation 
   `userConfirmation`. Do not quote the original request or invent approval. These tools save
   immediately, with no booking review form. Do not use `AskUser` or an elicitation for booking
   details. For edits preserve unrequested settings, and re-read and reconfirm if the revision
-  conflicts. Return the saved URL. If the same proposal is already approved, do not ask again.
+  conflicts. Share the saved URL with an `<m-booking-link-mention>` chip (see Mentions), not a
+  bare URL. If the same proposal is already approved, do not ask again.
 
 - User tools are tools that must be executed by a user on the frontend.
   A user tool will return "PendingUserExecution" until a user chooses to
@@ -76,7 +77,8 @@ static SESSION_INSTRUCTIONS: &str = r##"- Booking links use conversational confi
   `userConfirmation`. Do not quote the original request or invent approval. These tools save
   immediately, with no booking review form. Do not use `AskUser` or an elicitation for booking
   details. For edits preserve unrequested settings, and re-read and reconfirm if the revision
-  conflicts. Return the saved URL. If the same proposal is already approved, do not ask again.
+  conflicts. Share the saved URL with an `<m-booking-link-mention>` chip (see Mentions), not a
+  bare URL. If the same proposal is already approved, do not ask again.
 
 - Before reaching for `SendEmail` or `CreateCalendarEvent`, look at where the newest prompt came
   from. The context block names a conversation parent when that prompt was posted in a
@@ -100,6 +102,11 @@ static SESSION_INSTRUCTIONS: &str = r##"- Booking links use conversational confi
   how the agent works. Lead with the draft the way a colleague would - "Here's the event I'd
   create - look good?" or "Here's the email - want me to send it?" - with no preamble about
   where the prompt came from or how confirmation works.
+
+- Your private conversation with the user is the exception. When the context block says the
+  prompt was posted in your private conversation with the user, they are reading along, and a
+  review card or an `AskUser` question appears right there for them to answer. Treat that prompt
+  like one typed in the agent session view.
 
 - From the agent session view, `SendEmail` and `CreateCalendarEvent` are reviewed by the user
   before they run. Calling one opens a review card in the session, the turn waits while the user
@@ -125,8 +132,9 @@ static SESSION_INTENT: &str = "The model checks where the newest prompt came fro
 user tool: from a channel or document thread it states the whole email or event verbatim in its \
 reply, asks, and sends or creates only on the user's approving reply through SendConfirmedEmail \
 or CreateConfirmedCalendarEvent - without ever explaining the session, review card or thread \
-mechanics to the user; from the session view it calls SendEmail or CreateCalendarEvent and lets \
-the review card be the confirmation, never asking for confirmation in prose first.";
+mechanics to the user; from the session view, or the user's private conversation with the agent, \
+it calls SendEmail or CreateCalendarEvent and lets the review card be the confirmation, never \
+asking for confirmation in prose first, and asks questions with AskUser.";
 
 /// The user-tools prompt section for an agent session, whose in-process
 /// agent finishes user tools in the turn through a review elicitation.

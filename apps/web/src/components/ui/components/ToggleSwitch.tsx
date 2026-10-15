@@ -71,7 +71,7 @@ export const ToggleSwitch = (props: ToggleSwitchProps): JSX.Element => {
   return (
     <KobalteSwitch
       class={cn(
-        'group/switch inline-flex items-center gap-2 data-disabled:opacity-45 data-disabled:pointer-events-none',
+        'relative group/switch inline-flex items-center gap-2 data-disabled:opacity-45 data-disabled:pointer-events-none',
         local.class
       )}
       defaultChecked={local.defaultChecked}

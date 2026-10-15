@@ -23,7 +23,6 @@ import { MenuItem } from '@core/component/ContextMenu';
 import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { unreadFilterFn } from '@entity/utils/filter';
-import ChatIcon from '@icon/system/regular/chat-circle.svg';
 import RoutineIcon from '@icon/system/regular/clock-clockwise.svg';
 import PlugIcon from '@icon/system/regular/plugs-connected.svg';
 import AgentIcon from '@icon/system/regular/sparkle.svg';
@@ -137,10 +136,8 @@ function Row(props: {
           title={title()}
           data-kind="chat"
           onClick={props.onOpen}
+          class="pl-3"
         >
-          <ViewSidebar.Icon>
-            <ChatIcon />
-          </ViewSidebar.Icon>
           <span class="min-w-0 flex-1 truncate">{title()}</span>
           <span class="shrink-0 text-xs text-ink-extra-muted tabular-nums">
             {compactAge(conversationTimestamp(props.conversation))}

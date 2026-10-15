@@ -8,14 +8,21 @@ import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import CheckIcon from '@icon/system/regular/check.svg';
 import PlusIcon from '@icon/system/regular/plus.svg';
 import TrayIcon from '@icon/system/regular/tray.svg';
-import { useEmailLinksQuery } from '@queries/email/link';
+import { useMailAccountsQuery } from '@queries/email/mail-accounts';
 import { Button, cn, Dropdown, TabsInset } from '@ui';
 import { createMemo, For, type JSX, Show } from 'solid-js';
+import { fromInboxOptions } from '../../email-compose/core/email-sender';
 import { useEmailView } from '../email-view-context';
 
 const ALL_INBOXES_ID = 'all';
 
-type InboxOption = { id: string; label: string; photoUrl?: string };
+type InboxOption = {
+  id: string;
+  label: string;
+  photoUrl?: string;
+  inboxId?: string;
+  aliasAddress?: string;
+};
 
 /**
  * Single-select over the user's linked inboxes: one inbox, or all of them.
@@ -23,26 +30,31 @@ type InboxOption = { id: string; label: string; photoUrl?: string };
  * Legacy multi-id selections are normalized to their first inbox on restore.
  */
 function useInboxSelection() {
-  const { state, setInboxIds } = useEmailView();
-  const linksQuery = useEmailLinksQuery();
+  const { state, setInboxIds, setAliasFilter } = useEmailView();
+  const linksQuery = useMailAccountsQuery();
   const multiInboxFlag = useFeatureFlag(enableMultiInbox);
   const addInbox = useAddInboxFlow();
 
   const options = createMemo((): InboxOption[] =>
-    (linksQuery.isSuccess ? linksQuery.data.links : [])
-      .map((link) => ({
-        id: link.id,
-        label: link.email_address,
-        photoUrl: link.photo_url ?? undefined,
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label))
+    fromInboxOptions(
+      linksQuery.isSuccess ? (linksQuery.data?.links ?? []) : []
+    ).map((option) => ({
+      id: option.id,
+      inboxId: option.inboxId,
+      label: option.email_address,
+      photoUrl: option.photo_url ?? undefined,
+      aliasAddress: option.isAlias ? option.email_address : undefined,
+    }))
   );
 
-  const isAll = () => state.inboxIds === undefined;
-  const hasMultipleInboxes = () => options().length > 1;
+  const isAll = () => state.inboxIds === undefined && !state.aliasFilter;
+  // A persisted alias still needs a clear/switch control if it disappears.
+  const hasMultipleInboxes = () => options().length > 1 || !!state.aliasFilter;
   const isSelected = (id: string) =>
-    options().length === 1 || (state.inboxIds?.includes(id) ?? false);
+    (options().length === 1 && !state.aliasFilter) || selectedId() === id;
   const selectedId = () => {
+    if (state.aliasFilter)
+      return `${state.aliasFilter.inboxId}:${state.aliasFilter.emailAddress.toLowerCase()}`;
     const ids = state.inboxIds;
     return ids?.length === 1 ? ids[0] : undefined;
   };
@@ -50,7 +62,10 @@ function useInboxSelection() {
     const id = selectedId();
     return id === undefined
       ? undefined
-      : options().find((option) => option.id === id);
+      : (options().find((option) => option.id === id) ??
+          (state.aliasFilter
+            ? { id, label: state.aliasFilter.emailAddress }
+            : undefined));
   };
 
   return {
@@ -64,7 +79,16 @@ function useInboxSelection() {
     isSelected,
     selectedOption,
     selectAll: () => setInboxIds(undefined),
-    select: (id: string) => setInboxIds([id]),
+    select: (id: string) => {
+      const option = options().find((option) => option.id === id);
+      if (!option) return;
+      if (option.aliasAddress && option.inboxId)
+        setAliasFilter({
+          inboxId: option.inboxId,
+          emailAddress: option.aliasAddress,
+        });
+      else setInboxIds([option.id]);
+    },
     label: () => {
       const sole = selectedOption();
       if (sole) return sole.label;

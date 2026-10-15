@@ -79,6 +79,7 @@ export function DriveCreateMenu(props: {
       projectId: state.projectId(),
       source: 'drive',
       destination: destination(),
+      openCreated: actions.openCreated,
     });
   };
 

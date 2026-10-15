@@ -45,11 +45,20 @@ vi.mock('../components/event-editor', () => ({
 }));
 
 beforeEach(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const future = (hours: number) =>

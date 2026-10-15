@@ -84,6 +84,7 @@ export const NonDocumentBlockTypes = [
   'pr',
   'agent',
   'initiative',
+  'pipeline',
 ] as const as (BlockName | BlockAlias)[];
 
 /**
@@ -150,6 +151,7 @@ const _ValidBlockCombinations: BlockCombinationRules = {
   pr: allBlockNames,
   agent: allBlockNames,
   initiative: allBlockNames,
+  pipeline: allBlockNames,
 } as const;
 
 // maps block name to valid parents
@@ -186,6 +188,7 @@ export const ValidNestingCombinations: BlockCombinationRules = {
   pr: new Set([]),
   agent: new Set([]),
   initiative: new Set([]),
+  pipeline: new Set([]),
 };
 
 export const LoadErrors = {

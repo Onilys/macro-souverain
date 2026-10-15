@@ -121,7 +121,7 @@ vi.mock('@channel/Input/Input', () => ({
 }));
 vi.mock('@core/util/upload', () => ({ handleFileFolderDrop: vi.fn() }));
 
-vi.mock('@icon/system/regular/arrow-up.svg', () => ({
+vi.mock('@icon/system/bold/arrow-up-bold.svg', () => ({
   default: () => <span data-testid="send-icon" />,
 }));
 

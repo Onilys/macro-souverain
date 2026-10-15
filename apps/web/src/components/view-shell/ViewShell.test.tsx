@@ -2,6 +2,7 @@ import {
   SplitPanelContext,
   type SplitPanelContextType,
 } from '@components/app/split-layout/context';
+import { SplitPanel } from '@components/app/split-panel';
 import {
   cleanup,
   fireEvent,
@@ -11,7 +12,6 @@ import {
 } from '@solidjs/testing-library';
 import { createSignal, type JSX, onMount } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ViewNavigationSlotContext } from './navigation-slot';
 import { useViewShell, ViewShell, ViewSidebarToggle } from './ViewShell';
 import { ViewSidebar } from './ViewSidebar';
 
@@ -31,6 +31,7 @@ vi.mock('@solid-primitives/resize-observer', () => ({
 
 vi.mock('@ui', async () => ({
   ...(await import('../ui/utils/classname')),
+  ...(await import('../ui/utils/press')),
   Button: (
     props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { label?: string }
   ) => (
@@ -38,6 +39,7 @@ vi.mock('@ui', async () => ({
       aria-label={props.label}
       aria-expanded={props['aria-expanded']}
       onClick={props.onClick}
+      onMouseDown={props.onMouseDown}
     >
       {props.children}
     </button>
@@ -58,9 +60,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('moves navigation into the host and follows the active split', () => {
-  const [active, setActive] = createSignal('home');
-  const [host, setHost] = createSignal<HTMLDivElement>();
+it('keeps navigation controls inside their own workspaces', () => {
   const collapsed = new Map<string, () => boolean>();
   function Workspace(props: { id: string }) {
     function Controls() {
@@ -77,39 +77,33 @@ it('moves navigation into the host and follows the active split', () => {
         value={
           {
             handle: { isFirst: () => true },
-            isPanelActive: () => active() === props.id,
+            isPanelActive: () => true,
             splitHotkeyScope: props.id,
           } as unknown as SplitPanelContextType
         }
       >
-        <ViewShell.Root asidePreferenceKey={props.id}>
+        <ViewShell.Root asidePreferenceKey={props.id} data-testid={props.id}>
           <Controls />
         </ViewShell.Root>
       </SplitPanelContext.Provider>
     );
   }
   const view = render(() => (
-    <ViewNavigationSlotContext.Provider value={host}>
-      <div ref={setHost} data-testid="navigation-host" />
+    <>
       <Workspace id="home" />
       <Workspace id="mail" />
-    </ViewNavigationSlotContext.Provider>
+    </>
   ));
-  const toolbar = within(view.getByTestId('navigation-host'));
-  expect(view.getAllByRole('button')).toHaveLength(1);
-  fireEvent.click(toolbar.getByRole('button', { name: 'Hide navigation' }));
+  const home = within(view.getByTestId('home'));
+  const mail = within(view.getByTestId('mail'));
+  fireEvent.click(home.getByRole('button', { name: 'Hide navigation' }));
   expect(collapsed.get('home')?.()).toBe(true);
   expect(collapsed.get('mail')?.()).toBe(false);
-  setActive('mail');
-  expect(view.getAllByRole('button')).toHaveLength(1);
-  fireEvent.click(toolbar.getByRole('button', { name: 'Hide navigation' }));
+  fireEvent.click(mail.getByRole('button', { name: 'Hide navigation' }));
   expect(collapsed.get('mail')?.()).toBe(true);
-  setActive('home');
-  fireEvent.click(toolbar.getByRole('button', { name: 'Show navigation' }));
+  fireEvent.click(home.getByRole('button', { name: 'Show navigation' }));
   expect(collapsed.get('home')?.()).toBe(false);
   expect(collapsed.get('mail')?.()).toBe(true);
-  view.unmount();
-  expect(document.querySelector('[data-testid="navigation-host"]')).toBeNull();
 });
 
 function setup(preserveDuringResize: boolean, persistWidth = false) {
@@ -289,6 +283,7 @@ function Workspace(props: {
       >
         <ViewShell.Aside>
           <ViewSidebar.Header>
+            <ViewSidebar.CloseButton />
             <ViewSidebar.Title>{props.app}</ViewSidebar.Title>
           </ViewSidebar.Header>
         </ViewShell.Aside>
@@ -302,6 +297,52 @@ function Workspace(props: {
     </section>
   );
 }
+
+it.each([720, 600, 400])(
+  'keeps split close available in a %spx navigation overlay',
+  (width) => {
+    measurement.width = () => width;
+    const [canClose, setCanClose] = createSignal(true);
+    const panes = ['home', 'tasks', 'email'].map((app) => ({
+      app,
+      close: vi.fn(),
+    }));
+    render(() =>
+      panes.map((pane) => (
+        <SplitPanel.Root
+          controller={{
+            canClose,
+            close: pane.close,
+            canGoBack: () => false,
+            goBack: vi.fn(),
+            canGoForward: () => false,
+            goForward: vi.fn(),
+          }}
+        >
+          <Workspace app={pane.app} />
+        </SplitPanel.Root>
+      ))
+    );
+
+    for (const pane of panes) {
+      const workspace = within(screen.getByRole('region', { name: pane.app }));
+      fireEvent.click(
+        workspace.getByRole('button', { name: 'Show navigation' })
+      );
+      expect(workspace.getByRole('button', { name: 'Close' })).toBeTruthy();
+    }
+
+    const email = within(screen.getByRole('region', { name: 'email' }));
+    fireEvent.click(email.getByRole('button', { name: 'Close' }));
+    expect(panes[2].close).toHaveBeenCalledOnce();
+    expect(panes[0].close).not.toHaveBeenCalled();
+    expect(panes[1].close).not.toHaveBeenCalled();
+
+    setCanClose(false);
+    expect(email.queryByRole('button', { name: 'Close' })).toBeNull();
+    expect(email.getByRole('button', { name: 'Hide navigation' })).toBeTruthy();
+  }
+);
 
 it('hides only the owning split and keeps the current item mounted', () => {
   const mounted = vi.fn();

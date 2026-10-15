@@ -11,6 +11,7 @@ use crate::workflows::{
     vars,
 };
 
+mod ios_native_check;
 #[cfg(test)]
 mod test;
 
@@ -53,6 +54,7 @@ pub fn web_app_check_main() -> Workflow {
         .add_job("test", test())
         .add_job("cycles", cycles())
         .add_job("build", build())
+        .add_job(ios_native_check::JOB_ID, ios_native_check::job())
         .add_job("status-check", status_check())
 }
 
@@ -195,7 +197,9 @@ fn build() -> Job {
 }
 
 /// Always-run collector used as the required status check. Its name must stay
-/// stable because branch protection can reference it.
+/// stable because branch protection can reference it. New gates join the
+/// `needs` list (and [`check_job_results`]) rather than the ruleset: the
+/// [`ios_native_check`] job is required this way.
 fn status_check() -> Job {
     Job::default()
         .name("Web App Status Check")
@@ -208,6 +212,7 @@ fn status_check() -> Job {
             "test".to_string(),
             "cycles".to_string(),
             "build".to_string(),
+            ios_native_check::JOB_ID.to_string(),
         ])
         .runs_on(runners::Runner::TinyNoCache.to_string())
         .add_step(check_job_results())
@@ -439,15 +444,19 @@ fn check_job_results() -> Step<Run> {
         echo "test: ${{ needs.test.result }}"
         echo "cycles: ${{ needs.cycles.result }}"
         echo "build: ${{ needs.build.result }}"
+        echo "ios-native-check: ${{ needs.ios-native-check.result }}"
 
-        # Fail if any job failed (skipped and success are both OK)
+        # Fail if any job failed (skipped and success are both OK). The iOS
+        # gate is the merge gate, so a cancelled gate is not OK either.
         if [[ "${{ needs.path-check.result }}" == "failure" ]] || \
            [[ "${{ needs.typescript.result }}" == "failure" ]] || \
            [[ "${{ needs.generated-code.result }}" == "failure" ]] || \
            [[ "${{ needs.biome-check.result }}" == "failure" ]] || \
            [[ "${{ needs.test.result }}" == "failure" ]] || \
            [[ "${{ needs.cycles.result }}" == "failure" ]] || \
-           [[ "${{ needs.build.result }}" == "failure" ]]; then
+           [[ "${{ needs.build.result }}" == "failure" ]] || \
+           [[ "${{ needs.ios-native-check.result }}" == "failure" ]] || \
+           [[ "${{ needs.ios-native-check.result }}" == "cancelled" ]]; then
           echo "One or more jobs failed"
           exit 1
         fi

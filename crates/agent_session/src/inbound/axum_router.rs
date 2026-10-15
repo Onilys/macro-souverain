@@ -414,9 +414,10 @@ impl IntoResponse for AgentSessionApiError {
                 | AgentSessionError::TooManyPullRequests(_)
                 | AgentSessionError::InvalidPullRequestUrl),
             ) => (StatusCode::BAD_REQUEST, error.to_string()).into_response(),
-            Self::Domain(error @ AgentSessionError::Archived(_)) => {
-                (StatusCode::CONFLICT, error.to_string()).into_response()
-            }
+            Self::Domain(
+                error
+                @ (AgentSessionError::Archived(_) | AgentSessionError::AnswersConversation(_)),
+            ) => (StatusCode::CONFLICT, error.to_string()).into_response(),
             // Somebody else answered first, or the agent moved on: nothing to
             // answer anymore, and the transcript already shows how it went.
             Self::Domain(error @ AgentSessionError::PermissionRequestNotFound(_)) => {
@@ -948,6 +949,7 @@ pub async fn rename_agent_session_handler<
         (status = 204),
         (status = 401, body = String),
         (status = 403, body = String),
+        (status = 409, body = String, description = "The session answers an agent conversation"),
         (status = 500, body = String),
     )
 )]

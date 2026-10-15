@@ -1,3 +1,4 @@
+pub mod agent_conversation;
 /// Current authorization for agent session streams.
 pub mod audience;
 pub mod coding_agents;
@@ -41,3 +42,6 @@ pub mod recovery;
 
 /// Warm session promotion and expiry.
 pub mod warm;
+
+/// Visibility policy for standalone session lists.
+pub mod list_visibility;

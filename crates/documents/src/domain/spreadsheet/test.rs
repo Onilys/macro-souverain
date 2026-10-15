@@ -263,6 +263,14 @@ fn imported_styles_round_trip_through_the_ai_contract() {
     });
     let style: super::models::SpreadsheetStyle = serde_json::from_value(json.clone()).unwrap();
     assert_eq!(serde_json::to_value(style).unwrap(), json);
+    let accounting = serde_json::json!({"format": "accounting", "decimals": 0});
+    let style: super::models::SpreadsheetStyle =
+        serde_json::from_value(accounting.clone()).unwrap();
+    assert!(matches!(
+        style.format,
+        Some(super::models::SpreadsheetNumberFormat::Accounting)
+    ));
+    assert_eq!(serde_json::to_value(style).unwrap(), accounting);
     assert!(
         serde_json::from_value::<super::models::SpreadsheetStyle>(
             serde_json::json!({"borderBottomStyle":"bogus"})

@@ -10,7 +10,7 @@ import {
   screen,
   waitFor,
 } from '@solidjs/testing-library';
-import { For, type JSX, type ParentProps } from 'solid-js';
+import { createSignal, For, type JSX, type ParentProps } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type ProjectRow,
@@ -23,6 +23,9 @@ import { ProjectsCollection } from './projects-collection';
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), failure: vi.fn() }));
 const device = vi.hoisted(() => ({ mobile: false }));
+const ganttFlag = vi.hoisted(() => ({
+  enabled: (): boolean | undefined => true,
+}));
 vi.mock('@core/component/Toast/Toast', () => ({ toast }));
 vi.mock('@core/mobile/isMobile', () => ({ isMobile: () => device.mobile }));
 // Touch timing is covered by the directive; a test event stands in for it.
@@ -42,7 +45,12 @@ vi.mock('@app/components/ui/components/Tooltip', () => ({
 // exercises what a row's context menu does to the list.
 vi.mock('@app/components/view-shell', () => ({
   ViewShell: {
-    TopBar: (props: ParentProps) => props.children,
+    TopBar: (props: ParentProps<{ controls?: JSX.Element }>) => (
+      <>
+        {props.children}
+        {props.controls}
+      </>
+    ),
     Header: (props: ParentProps) => props.children,
     Content: (props: ParentProps) => props.children,
   },
@@ -59,6 +67,26 @@ vi.mock('@app/components/view-shell', () => ({
   ListSortDropdown: () => null,
   ListGroupDropdown: () => null,
   ListFilterDropdown: () => null,
+  ViewLayoutDropdown: (props: {
+    label: string;
+    layouts: ('list' | 'board' | 'gantt')[];
+    value: string;
+    onChange: (layout: 'list' | 'board' | 'gantt') => void;
+  }) => (
+    <div role="group" aria-label={props.label}>
+      <For each={props.layouts}>
+        {(layout) => (
+          <button
+            type="button"
+            aria-pressed={props.value === layout}
+            onClick={() => props.onChange(layout)}
+          >
+            {layout}
+          </button>
+        )}
+      </For>
+    </div>
+  ),
   useViewControlHotkeys: () => {},
 }));
 vi.mock('@app/components/list/ListViewport', () => ({
@@ -124,6 +152,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   device.mobile = false;
+  ganttFlag.enabled = () => true;
   vi.unstubAllGlobals();
   animationStyle.remove();
   vi.restoreAllMocks();
@@ -205,7 +234,11 @@ function commands() {
 
 function setup(
   rows: readonly ProjectRow[],
-  options: { canOpenInNewSplit?: boolean; properties?: Property[] } = {}
+  options: {
+    canOpenInNewSplit?: boolean;
+    properties?: Property[];
+    layout?: 'list' | 'gantt';
+  } = {}
 ) {
   const service = commands();
   const unused = (): never => {
@@ -243,6 +276,7 @@ function setup(
       userId: context.userId,
       initialState: {
         search: '',
+        layout: options.layout,
         status: '',
         priority: '',
         dueBefore: '',
@@ -262,6 +296,8 @@ function setup(
           scopeId="projects"
           isActive={() => true}
           collection={collection}
+          ganttEnabled={ganttFlag.enabled() === true}
+          createAssigneeName={(id) => id}
           canOpenInNewSplit={() => options.canOpenInNewSplit ?? true}
         />
       </ProjectsProvider>
@@ -292,6 +328,35 @@ const entries = () =>
 function choose(name: string | RegExp) {
   fireEvent.keyDown(screen.getByRole('menuitem', { name }), { key: 'Enter' });
 }
+
+describe('project Gantt rollout', () => {
+  it('derives List while loading or disabled without overwriting saved Gantt', () => {
+    const [enabled, setEnabled] = createSignal<boolean | undefined>(undefined);
+    ganttFlag.enabled = enabled;
+    const view = setup([project('launch', 'Launch', 'owner')], {
+      layout: 'gantt',
+    });
+    expect(view.collection.layout()).toBe('gantt');
+    expect(screen.getByRole('row', { name: 'Launch' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'list' }).getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(screen.queryByRole('button', { name: 'gantt' })).toBeNull();
+
+    setEnabled(true);
+    expect(
+      screen.getByRole('button', { name: 'gantt' }).getAttribute('aria-pressed')
+    ).toBe('true');
+    setEnabled(false);
+    expect(view.collection.layout()).toBe('gantt');
+    expect(screen.getByRole('row', { name: 'Launch' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'gantt' })).toBeNull();
+    setEnabled(true);
+    expect(
+      screen.getByRole('button', { name: 'gantt' }).getAttribute('aria-pressed')
+    ).toBe('true');
+  });
+});
 
 describe('project row context menu', () => {
   it('focuses the row and offers an owner every project action', async () => {

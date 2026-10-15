@@ -113,3 +113,18 @@ export function TaskGroupHeader(props: {
     </div>
   );
 }
+
+export const STATUS_GROUP_HEADER_TINTS: Record<string, string> = {
+  [PROPERTY_OPTION_IDS.STATUS.NOT_STARTED]:
+    'bg-task/5 border-task/10 data-highlighted:bg-task/10 hover:bg-task/10',
+  [PROPERTY_OPTION_IDS.STATUS.IN_PROGRESS]:
+    'bg-alert/5 border-alert/10 data-highlighted:bg-alert/10 hover:bg-alert/10',
+  [PROPERTY_OPTION_IDS.STATUS.IN_REVIEW]:
+    'bg-note/5 border-note/10 data-highlighted:bg-note/10 hover:bg-note/10',
+  [PROPERTY_OPTION_IDS.STATUS.COMPLETED]:
+    'bg-accent/5 border-accent/10 data-highlighted:bg-accent/10 hover:bg-accent/10',
+  [PROPERTY_OPTION_IDS.STATUS.CANCELED]:
+    'bg-ink/5 border-ink/10 data-highlighted:bg-ink/10 hover:bg-ink/10',
+};
+
+import { PROPERTY_OPTION_IDS } from '@property';

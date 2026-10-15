@@ -111,7 +111,7 @@ Before treating the entire query surface as covered, also require:
 - Existing schema projection, identity isolation, cursor retention, worker
   lifecycle, and mutation recipe tests to pass.
 - Browser checks of optimistic edits and rollback across tabs, with delayed
-  mutation and refetch responses; see [task verification](../../../docs/AGENT_GUIDE/tasks.md).
+  mutation and refetch responses; see [task verification](../../../docs/agent-guide/tasks.md).
 - Storage failure and worker takeover tests against the actual storage adapters.
 - Longer rotating-seed runs and permanent regressions for every discovered bug.
 

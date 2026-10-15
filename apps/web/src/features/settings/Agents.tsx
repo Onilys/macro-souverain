@@ -1,3 +1,4 @@
+import { useOpenAgentDm } from '@app/features/agent-dms/open-agent-dm';
 import { isCoderHarness } from '@app/features/agents-view/core/agent-kind';
 import { AGENTS_TOUR } from '@app/features/agents-view/tour';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
@@ -6,16 +7,18 @@ import { ModelCatalogPicker } from '@core/component/AI/component/input/ModelCata
 import { isLargeModelCatalog } from '@core/component/AI/component/input/modelCatalog';
 import { MODEL_PRETTYNAME, Model } from '@core/component/AI/constant/model';
 import { toast } from '@core/component/Toast/Toast';
-import { claudeCloud } from '@core/constant/featureFlags';
+import { claudeCloud, ENABLE_AGENT_DMS } from '@core/constant/featureFlags';
 import {
   MACRO_AGENT_BOT_ID,
   MACRO_HARNESS_NAME,
 } from '@core/constant/macroAgent';
+import { MACRO_NEW_BOT_ID } from '@core/constant/macroNew';
 import { useChannelsContext } from '@core/context/channels';
 import { useUserId } from '@core/context/user';
 import { usePipedreamMcpFlag } from '@core/pipedream/flag';
 import MacroLogo from '@icon/macro-logo.svg';
 import ArrowLeftIcon from '@icon/system/regular/arrow-left.svg';
+import ChatIcon from '@icon/system/regular/chat-circle.svg';
 import PencilIcon from '@icon/system/regular/pencil-simple.svg';
 import PlusIcon from '@icon/system/regular/plus.svg';
 import AgentIcon from '@icon/system/regular/sparkle.svg';
@@ -128,6 +131,9 @@ export function Agents(props: {
   onSetUpRuntime: () => void;
   onManageRuntimes: () => void;
 }) {
+  const agentDm = ENABLE_AGENT_DMS ? useOpenAgentDm() : undefined;
+  const messageAgent = (id: string) =>
+    agentDm?.open(id === MACRO_AGENT_BOT_ID ? MACRO_NEW_BOT_ID : id);
   const agentList = tourTarget(AGENTS_TOUR.agentList);
   const claudeCloudFlag = useFeatureFlag(claudeCloud);
   const [creating, setCreating] = createSignal(false);
@@ -307,6 +313,10 @@ export function Agents(props: {
                   {(agent) => (
                     <AgentRow
                       agent={agent}
+                      onMessage={
+                        agentDm ? () => void messageAgent(agent.id) : undefined
+                      }
+                      messagePending={agentDm?.pending()}
                       onEdit={
                         agent.editable && agent.persistedAgent
                           ? () => setEditingAgent(agent.persistedAgent)
@@ -424,6 +434,8 @@ function AgentRow(props: {
   agent: AgentSummary;
   onEdit?: () => void;
   onDelete?: () => void;
+  onMessage?: () => void;
+  messagePending?: boolean;
 }) {
   return (
     <div class="flex items-center gap-4 px-6 py-4 mobile:items-start touch:px-4">
@@ -446,6 +458,21 @@ function AgentRow(props: {
         </p>
       </div>
       <div class="flex shrink-0 items-center gap-1">
+        <Show when={props.onMessage}>
+          {(onMessage) => (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={props.messagePending}
+              aria-label={`Message ${props.agent.name}`}
+              onClick={onMessage()}
+            >
+              <ChatIcon />
+              Message
+            </Button>
+          )}
+        </Show>
         <Show when={props.onEdit}>
           {(onEdit) => (
             <Button
