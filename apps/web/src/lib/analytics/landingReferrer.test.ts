@@ -23,6 +23,13 @@ describe('landing referrer', () => {
     );
   });
 
+  it('drops a saved referrer when signup is a direct visit', () => {
+    sessionStorage.setItem(LANDING_REFERRER_KEY, 'https://instagram.com/');
+    referrer('');
+    rememberLandingReferrer();
+    expect(sessionStorage.getItem(LANDING_REFERRER_KEY)).toBeNull();
+  });
+
   it('does not replace the stored referrer with the macro.com hop', () => {
     sessionStorage.setItem(LANDING_REFERRER_KEY, 'https://l.instagram.com/');
     referrer(`${window.location.origin}/?utm_source=ig&utm_medium=cpc`);

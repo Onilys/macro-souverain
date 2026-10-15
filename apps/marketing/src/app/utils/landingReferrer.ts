@@ -35,10 +35,18 @@ function readLandingReferrer() {
   }
 }
 
-/** Keep the latest external referrer. A same-site hop must not replace it. */
+/**
+ * Keep the latest external referrer. A same-site hop must not replace it.
+ * An empty referrer is a new direct visit, so drop the saved value. Otherwise
+ * a later same-site signup hop would still be credited to the earlier source.
+ */
 export function rememberLandingReferrer(referrer = document.referrer) {
-  if (!referrer || isSameSiteReferrer(referrer)) return;
   try {
+    if (!referrer) {
+      sessionStorage.removeItem(LANDING_REFERRER_KEY);
+      return;
+    }
+    if (isSameSiteReferrer(referrer)) return;
     new URL(referrer);
     sessionStorage.setItem(LANDING_REFERRER_KEY, referrer);
   } catch {
@@ -49,8 +57,7 @@ export function rememberLandingReferrer(referrer = document.referrer) {
 
 /**
  * Referrer to send to PostHog. An external `document.referrer` wins. After a
- * same-site hop, use the external referrer saved on the previous page. An
- * empty referrer stays empty so a direct load is not credited to an older tab.
+ * same-site hop, use the external referrer saved on the previous page.
  */
 export function attributionReferrer(referrer = document.referrer) {
   rememberLandingReferrer(referrer);

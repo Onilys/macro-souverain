@@ -47,10 +47,14 @@ describe('landing referrer', () => {
     expect(sessionStorage.getItem(LANDING_REFERRER_KEY)).toBeNull();
   });
 
-  it('does not credit a direct load to an older external referrer', () => {
+  it('drops a saved referrer on a direct load so the next hop stays direct', () => {
     sessionStorage.setItem(LANDING_REFERRER_KEY, 'https://instagram.com/');
     referrer('');
     expect(attributionReferrer()).toBe('');
+    expect(sessionStorage.getItem(LANDING_REFERRER_KEY)).toBeNull();
+
+    referrer(`${window.location.origin}/`);
+    expect(attributionReferrer()).toBe(`${window.location.origin}/`);
   });
 
   it('replaces the stored referrer when a new external source loads', () => {
