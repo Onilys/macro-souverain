@@ -20,6 +20,7 @@ let
   secretConsumers = [
     "grafana.service"
     "alloy-ingest.service"
+    "nginx.service"
   ];
   dataUsers = {
     grafana = 20001;
@@ -127,7 +128,10 @@ in
         requires = [ "observability-bootstrap.service" ];
         after = [ "observability-bootstrap.service" ];
         partOf = [ "observability-bootstrap.service" ];
-        path = [ pkgs.awscli2 ];
+        path = [
+          pkgs.awscli2
+          pkgs.openssl
+        ];
         startLimitIntervalSec = 0;
         unitConfig.Upholds = secretConsumers;
         serviceConfig = {

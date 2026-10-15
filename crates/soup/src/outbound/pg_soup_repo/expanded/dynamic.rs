@@ -6,10 +6,12 @@ mod test;
 
 mod database_row;
 mod feed;
+mod document_ids;
 mod initiative;
 
 use database_row::{build_database_row_filter, database_row_opted_in, database_row_top_clause};
 use feed::{Feed, FeedArm};
+pub(in crate::outbound::pg_soup_repo) use document_ids::DocumentIdArrays;
 use initiative::initiative_top_clause;
 pub(in crate::outbound::pg_soup_repo) use initiative::{
     build_initiative_filter, initiative_access_clause, initiative_opted_in,
@@ -850,28 +852,45 @@ fn date_predicate(col: &str, lit: &DateLiteral) -> String {
     }
 }
 
+/// Renders the document filter as ` AND ...` against the `d` alias.
+/// `id_arrays` binds its runs of document ids as arrays (see
+/// [`document_ids`]); without it every id renders inline, for queries with no
+/// free parameter slots.
 pub(in crate::outbound::pg_soup_repo) fn build_document_filter(
     ast: Option<&Expr<DocumentLiteral>>,
+    id_arrays: Option<&mut DocumentIdArrays>,
 ) -> String {
     let Some(expr) = ast else {
         return String::new();
     };
     let expr = push_not_inward(expr, false);
-    let formatting = expr.collapse_frames(|frame| match frame {
-        filter_ast::ExprFrame::And(a, b) => format!("({a} AND {b})"),
-        filter_ast::ExprFrame::Or(a, b) => format!("({a} OR {b})"),
-        filter_ast::ExprFrame::Not(a) => format!("(NOT {a})"),
-        filter_ast::ExprFrame::Literal(DocumentLiteral::FileType(f)) => {
+    let formatting = match id_arrays {
+        Some(id_arrays) => document_ids::render(&expr, id_arrays, document_literal_sql),
+        None => expr.collapse_frames(|frame| match frame {
+            filter_ast::ExprFrame::And(a, b) => format!("({a} AND {b})"),
+            filter_ast::ExprFrame::Or(a, b) => format!("({a} OR {b})"),
+            filter_ast::ExprFrame::Not(a) => format!("(NOT {a})"),
+            filter_ast::ExprFrame::Literal(literal) => document_literal_sql(literal),
+        }),
+    };
+    if formatting.is_empty() {
+        String::new()
+    } else {
+        format!(" AND {}", formatting)
+    }
+}
+
+fn document_literal_sql(literal: DocumentLiteral) -> String {
+    match literal {
+        DocumentLiteral::FileType(f) => {
             format!(r#"d."fileType" = '{f}'"#)
         }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::Id(i)) => format!("d.id = '{i}'"),
-        filter_ast::ExprFrame::Literal(DocumentLiteral::ProjectId(p)) => {
-            nullable_eq(r#"d."projectId""#, p)
-        }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::Owner(o)) => {
+        DocumentLiteral::Id(i) => format!("d.id = '{i}'"),
+        DocumentLiteral::ProjectId(p) => nullable_eq(r#"d."projectId""#, p),
+        DocumentLiteral::Owner(o) => {
             format!("d.owner = {}", sql_string_literal(&o.principal_id()))
         }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::Importance(true)) => {
+        DocumentLiteral::Importance(true) => {
             // "Important" documents: non-tasks OR tasks where user is an assignee
             r#"(
                 dt.sub_type IS NULL
@@ -880,8 +899,8 @@ pub(in crate::outbound::pg_soup_repo) fn build_document_filter(
             )"#
                 .to_string()
         }
-        // filter_ast::ExprFrame::Literal(DocumentLiteral::Importance(false)) => String::new()
-        filter_ast::ExprFrame::Literal(DocumentLiteral::Importance(false)) => {
+        // DocumentLiteral::Importance(false) => String::new()
+        DocumentLiteral::Importance(false) => {
             // "Unimportant" documents: tasks where user is NOT an assignee
             r#"(
                 dt.sub_type = 'task'
@@ -891,55 +910,45 @@ pub(in crate::outbound::pg_soup_repo) fn build_document_filter(
             )"#
                 .to_string()
         }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::NotificationState(state)) => {
+        DocumentLiteral::NotificationState(state) => {
             build_notification_state_clause("d.id", "document", state)
         }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::IncludeCbmAtmNc(true)) => {
-            build_task_include_cbm_atm_nc_clause()
-        }
+        DocumentLiteral::IncludeCbmAtmNc(true) => build_task_include_cbm_atm_nc_clause(),
         // false is equivalent to disabled/no-op. Rendered as TRUE (not an
         // empty string): an empty operand inside And/Or/Not produces invalid
         // SQL like `( AND x)` or `(NOT )`, and TRUE also gives NOT the right
         // meaning (a disabled predicate matches everything, its negation
         // nothing).
-        filter_ast::ExprFrame::Literal(DocumentLiteral::IncludeCbmAtmNc(false)) => {
-            "TRUE".to_string()
-        }
+        DocumentLiteral::IncludeCbmAtmNc(false) => "TRUE".to_string(),
         // EXISTS instead of a predicate on the LEFT-JOINed `dt` alias: this
         // keeps the top clause free of the join when only SubType literals
         // are present, and `NOT (EXISTS ...)` becomes a plannable anti-join
         // (the old `(dt.sub_type IS NOT NULL AND ...)` OR-shape collapsed row
         // estimates to ~1 on broad arms, picking pathological nested loops).
-        filter_ast::ExprFrame::Literal(DocumentLiteral::SubType(st)) => {
+        DocumentLiteral::SubType(st) => {
             format!(
                 "EXISTS (SELECT 1 FROM document_sub_type dst_f WHERE dst_f.document_id = d.id AND dst_f.sub_type = '{st}')"
             )
         }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::IsEmailAttachment(true)) => {
-            r#"EXISTS(SELECT 1 FROM document_email WHERE document_id = d.id)"#
-                .to_string()
+        DocumentLiteral::IsEmailAttachment(true) => {
+            r#"EXISTS(SELECT 1 FROM document_email WHERE document_id = d.id)"#.to_string()
         }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::IsEmailAttachment(false)) => {
-            r#"NOT EXISTS(SELECT 1 FROM document_email WHERE document_id = d.id)"#
-                .to_string()
+        DocumentLiteral::IsEmailAttachment(false) => {
+            r#"NOT EXISTS(SELECT 1 FROM document_email WHERE document_id = d.id)"#.to_string()
         }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::CreatedAt(lit)) => {
-            date_predicate(r#"d."createdAt""#, &lit)
-        }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::UpdatedAt(lit)) => {
-            date_predicate(r#"d."updatedAt""#, &lit)
-        }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::Property(lit)) => {
-            property_literal_predicate(&lit, "d.id")
-        }
-        filter_ast::ExprFrame::Literal(DocumentLiteral::EmailAttachmentParticipant(email)) => {
+        DocumentLiteral::CreatedAt(lit) => date_predicate(r#"d."createdAt""#, &lit),
+        DocumentLiteral::UpdatedAt(lit) => date_predicate(r#"d."updatedAt""#, &lit),
+        DocumentLiteral::Property(lit) => property_literal_predicate(&lit, "d.id"),
+        DocumentLiteral::EmailAttachmentParticipant(email) => {
             email_attachment_participant_predicate(&email, "d.id")
         }
-    });
-    if formatting.is_empty() {
-        String::new()
-    } else {
-        format!(" AND {}", formatting)
+        DocumentLiteral::NameContains(name) => format!(
+            "STRPOS(LOWER(d.name), {}) > 0",
+            sql_string_literal(&name.to_lowercase())
+        ),
+        // The Soup domain replaces CRM associations with the associated
+        // document ids before querying, so an unresolved one matches nothing.
+        DocumentLiteral::CrmAssociated(_) => "FALSE".to_string(),
     }
 }
 
@@ -987,11 +996,10 @@ fn sql_string_literal(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-/// Renders the calendar-event filter bind-free, like every other arm of the
-/// hand-numbered grouped query: `push_bind` placeholders would start at `$1`
-/// and collide with the positionally-bound user id. The notification clauses
-/// reference `$1` as the requesting user, which both this query and
-/// `cursor_soup` guarantee.
+/// Renders the calendar-event filter bind-free: in the hand-numbered grouped
+/// query, `push_bind` placeholders would start at `$1` and collide with the
+/// positionally-bound user id. The notification clauses reference `$1` as the
+/// requesting user, which both this query and `cursor_soup` guarantee.
 fn build_calendar_event_filter(ast: Option<&Expr<CalendarEventLiteral>>) -> String {
     let Some(expr) = ast else {
         return String::new();
@@ -1427,12 +1435,13 @@ enum ItemSource {
     ItemTables,
 }
 
-fn build_query(
-    filter_ast: &EntityFilterAst,
+fn build_query<'a>(
+    filter_ast: &'a EntityFilterAst,
     exclude_frecency: bool,
     sort_method: SimpleSortMethod,
     item_source: ItemSource,
-) -> QueryBuilder<'_, Postgres> {
+    document_ids: &mut DocumentIdArrays,
+) -> QueryBuilder<'a, Postgres> {
     let mut builder = sqlx::QueryBuilder::new(PREFIX);
 
     let include_initiatives = initiative_opted_in(filter_ast.initiative_filter.as_deref())
@@ -1534,36 +1543,39 @@ fn build_query(
     }
 
     let properties_filter = filter_ast.properties_filter.as_deref();
-    let feed = Feed::new(
-        sort_method,
-        exclude_frecency,
-        [
-            include_documents.then(|| {
-                FeedArm::document(
-                    document_filter,
-                    properties_filter,
-                    optimized_notification_predicate.is_some() && document_notification.is_some(),
-                )
-            }),
-            include_chats.then(|| {
-                FeedArm::chat(
-                    chat_filter,
-                    properties_filter,
-                    optimized_notification_predicate.is_some() && chat_notification.is_some(),
-                )
-            }),
-            include_projects.then(|| {
-                FeedArm::project(
-                    project_filter,
-                    properties_filter,
-                    optimized_notification_predicate.is_some() && project_notification.is_some(),
-                )
-            }),
-        ]
-        .into_iter()
-        .flatten(),
-    )
-    .filter(|_| item_source == ItemSource::SourceItems);
+    // Building the document arm binds its id arrays, so build the arms only for
+    // a query that reads them.
+    let feed = if item_source == ItemSource::SourceItems && Feed::serves(sort_method) {
+        let document = include_documents.then(|| {
+            FeedArm::document(
+                document_filter,
+                properties_filter,
+                optimized_notification_predicate.is_some() && document_notification.is_some(),
+                document_ids,
+            )
+        });
+        let chat = include_chats.then(|| {
+            FeedArm::chat(
+                chat_filter,
+                properties_filter,
+                optimized_notification_predicate.is_some() && chat_notification.is_some(),
+            )
+        });
+        let project = include_projects.then(|| {
+            FeedArm::project(
+                project_filter,
+                properties_filter,
+                optimized_notification_predicate.is_some() && project_notification.is_some(),
+            )
+        });
+        Feed::new(
+            sort_method,
+            exclude_frecency,
+            [document, chat, project].into_iter().flatten(),
+        )
+    } else {
+        None
+    };
     if let Some(feed) = &feed {
         feed.push_ctes(&mut builder);
     }
@@ -1592,7 +1604,7 @@ fn build_query(
                 builder.push(DOCUMENT_TASK_PROPERTY_JOINS);
             }
             builder.push(document_top_where_clause(sort_method));
-            builder.push(build_document_filter(document_filter));
+            builder.push(build_document_filter(document_filter, Some(document_ids)));
             builder.push(build_properties_filter(properties_filter, "d.id"));
         }
 
@@ -2044,31 +2056,39 @@ async fn expanded_dynamic_cursor_soup_hydrated(
     let assignees_property_id = SystemPropertyKey::ASSIGNEES_UUID;
     let completed_option_id = StatusOption::COMPLETED_UUID.to_string();
 
-    let items = build_query(
+    // Document id arrays follow the eight fixed binds.
+    let mut document_ids = DocumentIdArrays::starting_at(9);
+    let mut builder = build_query(
         cursor.filter(),
         exclude_frecency,
         *cursor.sort_method(),
         item_source,
-    )
-    .build()
-    .bind(user_id.as_ref())
-    .bind(sort_method_str)
-    .bind(query_limit)
-    .bind(cursor_timestamp)
-    .bind(cursor_id_str)
-    .bind(completed_option_id)
-    .bind(status_property_id)
-    .bind(assignees_property_id)
-    // Unnamed statement: the SQL text varies per filter shape and per
-    // interpolated literal (dates change daily), so a cached prepared
-    // statement is rarely reused but flips to a generic plan after five
-    // executions — and the generic plan misestimates the CTEs badly
-    // enough to run 10x slower. Planning with the real bind values every
-    // time costs ~1ms and keeps the plan stable.
-    .persistent(false)
-    .try_map(|row| SoupRow::from_row(&row)?.into_projection_hydration())
-    .fetch_all(db)
-    .await?;
+        &mut document_ids,
+    );
+    let mut query = builder
+        .build()
+        .bind(user_id.as_ref())
+        .bind(sort_method_str)
+        .bind(query_limit)
+        .bind(cursor_timestamp)
+        .bind(cursor_id_str)
+        .bind(completed_option_id)
+        .bind(status_property_id)
+        .bind(assignees_property_id);
+    for ids in document_ids.into_binds() {
+        query = query.bind(ids);
+    }
+    let items = query
+        // Unnamed statement: the SQL text varies per filter shape and per
+        // interpolated literal (dates change daily), so a cached prepared
+        // statement is rarely reused but flips to a generic plan after five
+        // executions — and the generic plan misestimates the CTEs badly
+        // enough to run 10x slower. Planning with the real bind values every
+        // time costs ~1ms and keeps the plan stable.
+        .persistent(false)
+        .try_map(|row| SoupRow::from_row(&row)?.into_projection_hydration())
+        .fetch_all(db)
+        .await?;
 
     Ok(items)
 }
@@ -2203,6 +2223,7 @@ fn build_grouped_query<'a>(
     exclude_frecency: bool,
     grouping: &'a GroupingConfig,
     sort_method: SimpleSortMethod,
+    document_ids: &mut DocumentIdArrays,
 ) -> (QueryBuilder<'a, Postgres>, Option<String>) {
     let mut builder = sqlx::QueryBuilder::new(PREFIX);
 
@@ -2257,7 +2278,10 @@ fn build_grouped_query<'a>(
             builder.push(DOCUMENT_TASK_PROPERTY_JOINS);
         }
         builder.push(document_top_where_clause(sort_method));
-        builder.push(build_document_filter(filter_ast.document_filter.as_deref()));
+        builder.push(build_document_filter(
+            filter_ast.document_filter.as_deref(),
+            Some(document_ids),
+        ));
         builder.push(build_properties_filter(
             filter_ast.properties_filter.as_deref(),
             "d.id",
@@ -2464,15 +2488,19 @@ pub async fn expanded_dynamic_cursor_soup_grouped(
     let assignees_property_id = SystemPropertyKey::ASSIGNEES_UUID;
     let completed_option_id = StatusOption::COMPLETED_UUID.to_string();
 
+    // Document id arrays follow the ten fixed binds.
+    let mut document_ids = DocumentIdArrays::starting_at(11);
     let (mut query_builder, entity_type_bind) = build_grouped_query(
         cursor.filter(),
         exclude_frecency,
         &grouping,
         *cursor.sort_method(),
+        &mut document_ids,
     );
 
     // Keep the reserved $2 sort slot even though candidates now specialize it away.
-    // $9 is bound unconditionally (NULL when not in single-group mode) so $10 stays aligned.
+    // $9 and $10 are bound unconditionally (NULL when unused) so the document
+    // id arrays after them keep their slots.
     let mut query = query_builder
         .build_query_as::<'_, GroupedSoupRow>()
         .bind(user_id.as_ref())
@@ -2483,11 +2511,11 @@ pub async fn expanded_dynamic_cursor_soup_grouped(
         .bind(completed_option_id)
         .bind(status_property_id)
         .bind(assignees_property_id)
-        .bind(grouping.group_key.clone());
-
-    // Bind entity_type as $10 when property grouping with entity_type filter
-    if let Some(ref et) = entity_type_bind {
-        query = query.bind(et.clone());
+        .bind(grouping.group_key.clone())
+        // The entity type of property grouping with an entity type filter.
+        .bind(entity_type_bind);
+    for ids in document_ids.into_binds() {
+        query = query.bind(ids);
     }
 
     let rows: Vec<GroupedSoupRow> = query

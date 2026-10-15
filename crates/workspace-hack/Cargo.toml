@@ -328,7 +328,6 @@ linux-raw-sys = { version = "0.12", default-features = false, features = ["auxve
 mio = { version = "1", features = ["net", "os-ext"] }
 nix = { version = "0.31", features = ["feature", "mman"] }
 once_cell = { version = "1", default-features = false, features = ["critical-section"] }
-openssl-sys = { version = "0.9", default-features = false, features = ["vendored"] }
 rand-93f6ce9d446188ac = { package = "rand", version = "0.10" }
 rustix = { version = "1", features = ["event", "fs", "net", "pipe", "process", "system", "time"] }
 signal-hook-mio = { version = "0.2", default-features = false, features = ["support-v0_8", "support-v1_0"] }
@@ -351,7 +350,6 @@ linux-raw-sys = { version = "0.12", default-features = false, features = ["auxve
 mio = { version = "1", features = ["net", "os-ext"] }
 nix = { version = "0.31", features = ["feature", "mman"] }
 once_cell = { version = "1", default-features = false, features = ["critical-section"] }
-openssl-sys = { version = "0.9", default-features = false, features = ["vendored"] }
 rand-93f6ce9d446188ac = { package = "rand", version = "0.10" }
 rustix = { version = "1", features = ["event", "fs", "net", "pipe", "process", "system", "time"] }
 signal-hook-mio = { version = "0.2", default-features = false, features = ["support-v0_8", "support-v1_0"] }

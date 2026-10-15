@@ -1,6 +1,7 @@
 import CheckIcon from '@phosphor/check.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import { Key } from '@solid-primitives/keyed';
+import { Button } from '@ui/components/Button';
 import {
   createMemo,
   createSignal,
@@ -17,7 +18,6 @@ import { OptionEditor } from './option-editor';
 import { OptionPill } from './select-pill';
 
 type PickerRow =
-  | { kind: 'clear' }
   | { kind: 'option'; option: DatabaseOption }
   | { kind: 'create'; label: string };
 
@@ -62,6 +62,8 @@ export function OptionPicker(props: {
 }) {
   const listId = createUniqueId();
   const [active, setActive] = createSignal(-1);
+  let input: HTMLInputElement | undefined;
+  let clearButton: HTMLButtonElement | undefined;
   const matches = () => {
     const term = props.search.trim().toLocaleLowerCase();
     return props.column.options.filter((option) =>
@@ -81,9 +83,6 @@ export function OptionPicker(props: {
   const rows = createMemo((): PickerRow[] => {
     const created = creatable();
     return [
-      ...(props.selected.length && !props.search.trim()
-        ? [{ kind: 'clear' } as const]
-        : []),
       ...matches().map((option) => ({ kind: 'option', option }) as const),
       ...(created !== undefined
         ? [{ kind: 'create', label: created } as const]
@@ -104,12 +103,22 @@ export function OptionPicker(props: {
   const activate = (row: PickerRow | undefined) =>
     match(row)
       .with(undefined, () => undefined)
-      .with({ kind: 'clear' }, () => props.onClear())
       .with({ kind: 'option' }, ({ option }) => props.onPick(option.label))
       .with({ kind: 'create' }, ({ label }) => props.onCreate(label))
       .exhaustive();
   const move = (step: 1 | -1) => {
     const count = rows().length;
+    if (
+      step === 1 &&
+      clearButton &&
+      props.selected.length &&
+      !props.search.trim() &&
+      active() === count - 1
+    ) {
+      setActive(-1);
+      clearButton.focus();
+      return;
+    }
     if (!count) return;
     setActive((current) =>
       current < 0
@@ -122,7 +131,10 @@ export function OptionPicker(props: {
   return (
     <div class="flex w-56 flex-col">
       <input
-        ref={props.inputRef}
+        ref={(element) => {
+          input = element;
+          props.inputRef?.(element);
+        }}
         role="combobox"
         aria-label={`Search ${props.column.name} options`}
         aria-expanded="true"
@@ -171,9 +183,6 @@ export function OptionPicker(props: {
               onClick={() => activate(row())}
             >
               <Switch>
-                <Match when={row().kind === 'clear'}>
-                  <span class="flex-1 text-ink-muted">Clear value</span>
-                </Match>
                 <Match when={createdOf(row())}>
                   {(label) => (
                     <>
@@ -218,6 +227,33 @@ export function OptionPicker(props: {
           <p class="px-1.5 py-1 text-xs text-ink-placeholder">No options</p>
         </Show>
       </div>
+      <Show when={props.selected.length}>
+        <div class="mt-2 flex items-center justify-end border-t border-edge-divider pt-2 pb-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            ref={clearButton}
+            onClick={props.onClear}
+            onKeyDown={(event) => {
+              if (event.isComposing || event.keyCode === 229) return;
+              if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                setActive(
+                  event.key === 'ArrowUp'
+                    ? rows().length - 1
+                    : rows().length
+                      ? 0
+                      : -1
+                );
+                input?.focus();
+              } else props.onKeyDown?.(event, undefined);
+            }}
+          >
+            Clear value
+          </Button>
+        </div>
+      </Show>
       <Show when={props.error}>
         <p role="alert" class="px-1.5 pt-1 text-xs text-failure-ink">
           {props.error}

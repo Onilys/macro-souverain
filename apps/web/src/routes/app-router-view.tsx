@@ -40,6 +40,7 @@ import {
   AgentsRouteView,
   CalendarRouteView,
   CallDetailRouteView,
+  CallsCallDetail,
   CallsRouteView,
   ChannelDetailRouteView,
   ChannelsRouteView,
@@ -89,6 +90,7 @@ import {
   bookingReceiptRoute,
   calendarSplitRoute,
   callDetailRoute,
+  callsCallRoute,
   callsRoute,
   channelDetailRoute,
   channelInviteRoute,
@@ -383,7 +385,9 @@ export function AppRouterView() {
             component={ChannelDetailRouteView}
           />
         </Route>
-        <Route definition={callsRoute} component={CallsRouteView} />
+        <Route definition={callsRoute} component={CallsRouteView}>
+          <Route definition={callsCallRoute} component={CallsCallDetail} />
+        </Route>
         <Route definition={callDetailRoute} component={CallDetailRouteView} />
         <Route definition={companiesRoute} component={CompaniesRouteView} />
         <Route definition={foldersRoute} component={FoldersRouteView} />

@@ -11,6 +11,15 @@ pub enum EmailErr {
     /// An external provider API error (e.g. Gmail API).
     #[error("Provider error: {0}")]
     ProviderErr(anyhow::Error),
+    /// Sender lookup is unavailable on this host or at the provider.
+    #[error("Email sender addresses are unavailable")]
+    SendAsUnavailable,
+    /// The provider grant cannot read sender settings.
+    #[error("Reconnect this inbox to access its sender addresses")]
+    SendAsPermissionRequired,
+    /// The requested address is not an approved sender for this inbox.
+    #[error("This address is not a verified sender for the selected inbox")]
+    InvalidSender,
     /// A frecency query error.
     #[error(transparent)]
     Frecency(#[from] FrecencyQueryErr),

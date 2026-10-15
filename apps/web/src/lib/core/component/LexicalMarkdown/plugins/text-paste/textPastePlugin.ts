@@ -15,12 +15,16 @@ import { $isCodeNode } from '@lexical/code';
 import { $createLinkNode, $isLinkNode, LinkNode } from '@lexical/link';
 import { $findMatchingParent, mergeRegister } from '@lexical/utils';
 import {
+  $createBookingLinkMentionNode,
   $createPasteNode,
   $createPullRequestMentionNode,
   $isCustomCodeNode,
+  BookingLinkMentionNode,
   HISTORY_MERGE_TAG,
+  isMacroBookingUrl,
   PasteNode,
   PullRequestMentionNode,
+  parseBookingUrl,
 } from '@macro-inc/lexical-core';
 import {
   fetchPullRequestByGithubKey,
@@ -297,6 +301,34 @@ function registerTextPastePlugin(
             event.preventDefault();
             $insertPastedGithubPullRequest(editor, pastedText.trim(), githubPr);
             return true;
+          }
+
+          const trimmedPaste = pastedText.trim();
+          if (
+            isMacroBookingUrl(trimmedPaste) &&
+            editor.hasNode(BookingLinkMentionNode)
+          ) {
+            const selection = $getSelection();
+            if (
+              !$isRangeSelection(selection) ||
+              !selection.isCollapsed() ||
+              $isSelectionInCode()
+            ) {
+              return false;
+            }
+
+            const parsed = parseBookingUrl(trimmedPaste);
+            if (parsed) {
+              event.preventDefault();
+              const mention = $createBookingLinkMentionNode({
+                profileId: parsed.profileId,
+                slug: parsed.slug,
+                label: parsed.slug,
+                url: trimmedPaste,
+              });
+              $insertNodes([mention]);
+              return true;
+            }
           }
 
           const parsedMacroAppUrl = resolvePastedMacroAppUrl(

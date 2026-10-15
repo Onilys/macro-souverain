@@ -26,6 +26,8 @@ env_vars! {
     pub struct BulkUploadRequestsTable;
     pub struct UploadStagingBucket;
     pub struct SyncServiceAuthKey;
+    /// Existing authentication-service internal credential, also used by email-service.
+    pub struct AuthenticationServiceSecretKey;
     pub struct OpensearchUrl;
     pub struct OpensearchUsername;
     pub struct OpensearchPassword;
@@ -115,6 +117,11 @@ pub struct Config {
     pub bulk_upload_requests_table: BulkUploadRequestsTable,
     pub upload_staging_bucket: UploadStagingBucket,
     pub sync_service_auth_key: LocalOrRemoteSecret<SyncServiceAuthKey>,
+    /// Credential for resolving the selected inbox's Google grant.
+    pub authentication_service_secret_key: LocalOrRemoteSecret<AuthenticationServiceSecretKey>,
+    /// Match email-service's undo-send window for GraphQL delivery.
+    #[macro_config_default(10)]
+    pub sent_undo_delay_secs: u32,
     pub opensearch_url: OpensearchUrl,
     pub opensearch_username: OpensearchUsername,
     pub opensearch_password: OpensearchPassword,

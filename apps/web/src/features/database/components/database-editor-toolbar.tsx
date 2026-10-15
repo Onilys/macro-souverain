@@ -42,45 +42,47 @@ export function DatabaseEditorToolbar(props: {
         <div class="flex min-w-0 flex-1 items-center gap-0.5 @max-[520px]/view-toolbar:basis-full">
           {props.selection}
         </div>
-        <div class="flex shrink-0 items-center gap-0.5 @max-[520px]/view-toolbar:w-full @max-[520px]/view-toolbar:justify-end">
+        <div class="flex shrink-0 items-center gap-2 @max-[520px]/view-toolbar:w-full @max-[520px]/view-toolbar:flex-wrap @max-[520px]/view-toolbar:justify-end">
           <Show when={props.canChangeView !== false}>
             <Show when={board()}>
               {(current) => (
                 <Dropdown placement="bottom-start">
                   <Dropdown.Trigger
-                    aria-label="Group board by"
-                    title="Group by"
-                    size="icon-md"
+                    label="Group board by"
+                    tooltip="Group by"
+                    size="md"
+                    square
                     variant="ghost"
-                    class="h-8 w-auto rounded-md px-2 text-ink-muted hover:bg-hover data-expanded:bg-hover"
                   >
                     <StackIcon class="size-3.5" />
                   </Dropdown.Trigger>
                   <Dropdown.Content class="min-w-48">
-                    <Dropdown.RadioGroup
-                      value={current().groupBy}
-                      onChange={(columnId) => {
-                        if (columnId !== current().groupBy)
-                          props.onChangeView({
-                            layout: {
-                              ...current(),
-                              groupBy: columnId,
-                              lanes: [],
-                            },
-                          });
-                      }}
-                    >
-                      <For each={groupColumns()}>
-                        {(column) => (
-                          <Dropdown.RadioItem closeOnSelect value={column.id}>
-                            <span class="flex-1">{column.name}</span>
-                            <Dropdown.ItemIndicator>
-                              <CheckIcon class="size-3.5 text-accent" />
-                            </Dropdown.ItemIndicator>
-                          </Dropdown.RadioItem>
-                        )}
-                      </For>
-                    </Dropdown.RadioGroup>
+                    <Dropdown.Group>
+                      <Dropdown.RadioGroup
+                        value={current().groupBy}
+                        onChange={(columnId) => {
+                          if (columnId !== current().groupBy)
+                            props.onChangeView({
+                              layout: {
+                                ...current(),
+                                groupBy: columnId,
+                                lanes: [],
+                              },
+                            });
+                        }}
+                      >
+                        <For each={groupColumns()}>
+                          {(column) => (
+                            <Dropdown.RadioItem closeOnSelect value={column.id}>
+                              <span class="flex-1">{column.name}</span>
+                              <Dropdown.ItemIndicator>
+                                <CheckIcon class="size-3.5 text-accent" />
+                              </Dropdown.ItemIndicator>
+                            </Dropdown.RadioItem>
+                          )}
+                        </For>
+                      </Dropdown.RadioGroup>
+                    </Dropdown.Group>
                   </Dropdown.Content>
                 </Dropdown>
               )}
@@ -116,12 +118,11 @@ export function DatabaseEditorToolbar(props: {
             </ToolbarPopover>
           </Show>
           {props.search}
-          <div class="ml-1 flex shrink-0 items-center">
+          <div class="flex shrink-0 items-center gap-2">
             <Show when={props.onCreateRecord}>
               <Button
-                size="sm"
+                size="md"
                 variant="outline"
-                class="h-8 gap-1.5 px-2.5 text-xs"
                 aria-label={
                   props.creating
                     ? 'Saving record'

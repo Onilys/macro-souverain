@@ -119,10 +119,11 @@ where
 
     /// Query teammates' out-of-office occurrences in a bounded viewport.
     ///
-    /// This compatibility view requires explicit detail sharing. Private and
-    /// confidential events are omitted because even their out-of-office type
-    /// would disclose metadata beyond a generic busy block. Provider copies
-    /// synced through multiple connected inboxes collapse to one occurrence.
+    /// Busy-only sharers' occurrences carry no title; only explicit detail
+    /// sharing adds it, and `none` omits the sharer. Private and confidential
+    /// events are omitted because even their out-of-office type would disclose
+    /// metadata beyond a generic busy block. Provider copies synced through
+    /// multiple connected inboxes collapse to one occurrence.
     #[tracing::instrument(skip(self, requester_id, range), err)]
     pub async fn list_team_out_of_office(
         &self,

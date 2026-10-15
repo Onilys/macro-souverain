@@ -5,6 +5,25 @@ single Vite build that runs identically for web, desktop, iOS, and Android — t
 platform is detected at runtime via `getPlatform()` rather than baked into the
 bundle.
 
+## macOS app icon
+
+The macOS icon reuses the iOS marketing artwork through the Icon Composer source
+in `icons/macos/Macro.icon`. The macOS-only Tauri configuration bundles its
+compiled `Assets.car` and `Macro.icns`, and merges the generated icon names into
+Info.plist. Tahoe uses the icon composition; older macOS uses the generated
+fallback. The mobile artwork has no baked-in rounded tile or transparent border
+for macOS to place inside another enclosure.
+
+After changing the mobile artwork or composition, regenerate with Xcode 26.2:
+
+```sh
+bash icons/macos/regenerate.sh
+```
+
+Commit the source and generated files together. They are checked in so desktop
+release builds do not need Icon Composer. Verify Finder and Dock rendering at
+both 1× and 2× display scale on Tahoe, and on a pre-Tahoe Mac.
+
 ## Running in development
 
 ```sh
@@ -163,7 +182,10 @@ GraphQL hydration checkpoints require the native
 through the bundle updater, set `MIN_NATIVE_BUILD_ANDROID` to the first Android
 versionCode that implements the command and `MIN_NATIVE_BUILD_IOS` to the first
 iOS CFBundleVersion that implements it. Set both together: build numbers are
-independent. The schema 3 manifest carries `minNativeBuilds: { android, ios }`;
+independent. Production builds (`just build-prod`) read both from
+`apps/web/min-native-build.json`; `just ios-bump` raises the iOS one (see
+`apps/web/docs/ios-releases.md`). The schema 3 manifest carries
+`minNativeBuilds: { android, ios }`;
 the endpoint returns the requesting platform's minimum in its existing response.
 The updater checks that minimum during extraction, restore, and application.
 Old schema 2 updaters reject schema 3 and continue using their existing bundle.
@@ -178,6 +200,24 @@ Deploy the updated native_app_service before publishing schema 3 archives;
 an old server returns the legacy minimum and the client rejects the mismatch.
 Never lower a minimum to force an incompatible update to apply.
 
+macOS notification delivery requires `send_macos_notification`, which uses
+UserNotifications for both authorization and delivery. Ship a full macOS native
+release containing this command; a frontend-only update cannot repair the legacy
+sender. Before publishing this frontend in a desktop OTA archive, set
+`MIN_NATIVE_BUILD` to the first native release containing the command. Older
+binaries show an update-required notice instead of falling back to the legacy
+notification API, which macOS rejects after UserNotifications has been used.
+
+Linux notification activation requires `send_linux_notification` and
+`close_linux_notification`. Ship a full native AppImage containing these commands;
+a frontend-only update cannot add clickable system notifications. Before publishing
+this frontend as a desktop OTA archive, raise `MIN_NATIVE_BUILD` to that release.
+Older Linux binaries show an update-required error rather than silently sending
+notifications that cannot be activated. The native sender retains the D-Bus
+connection, advertises the default Open action, and forwards activation tokens to
+GTK before the existing frontend notification callback navigates. Dismissal never
+navigates. This supports the running app, not relaunch after the process exits.
+
 Extraction writes a sibling `<directory>.complete` record only after checksum,
 extraction, manifest, and entrypoint validation succeed. Directories without a
 matching completion record cannot be reused or restored. Previously cached OTA
@@ -191,6 +231,15 @@ this frontend as an OTA bundle. The frontend probes this command before claiming
 or enqueueing mutations. An older binary uses the existing uncached fallback and
 shows an update-required notice; its existing mutation queue stays intact until
 the user installs the native update.
+
+## Desktop window state
+
+The desktop window reopens at its last size, position, maximized, and
+fullscreen state (`src/window_state.rs`, backed by `tauri-plugin-window-state`).
+The `tauri.conf.json` window size only applies to the first launch. A saved
+position that no longer lands on a connected monitor is ignored and the OS
+places the window. State is written to `.window-state.json` in the app config
+directory on quit; delete that file to reset. Mobile is unaffected.
 
 ## Desktop native updates
 

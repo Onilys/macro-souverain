@@ -2,7 +2,6 @@ import { SidePanel } from '@components/app/side-panel';
 import PlusIcon from '@phosphor/plus.svg';
 import { Button } from '@ui';
 import { createMemo, Match, Show, Suspense, Switch } from 'solid-js';
-import { RecordSection } from '../components/record-section';
 import { useCrmContext } from '../context/crm-context';
 import type { CrmContact as CompanyContact } from '../core/contact';
 import {
@@ -17,14 +16,19 @@ import { CompanyHeader } from './company-header';
 import { CompanyListsSection } from './company-list-membership';
 import { CompanyPropertiesSection } from './company-properties-section';
 import { CompanySharingSection } from './company-sharing-section';
-import { RecordCallsSection, RecordFilesSection } from './record-associations';
+import {
+  RecordCallsSection,
+  RecordFilesSection,
+  RecordReferencesSection,
+} from './record-associations';
 import { useCompanyQuery } from './use-crm';
 
 /**
  * Root of the company detail view, laid out like a project: the host's top
  * tab row picks the section, Overview shows the company with its description and
  * discussion, and the other sections list its team, emails, files, tasks and
- * calls. Properties and sharing open in the floating information panel.
+ * calls. Properties, sharing, and references open in the floating
+ * information panel.
  */
 export function Company(props: {
   companyId: string;
@@ -78,12 +82,13 @@ export function Company(props: {
               </div>
             </Match>
             <Match when={section() === 'team'}>
-              <RecordSection
-                title="Team"
+              <CompanyContactsSection
+                company={company()}
+                contacts={contacts()}
+                onOpenContact={props.onOpenContact}
                 actions={
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
                     // Contact emails are pinned to the company's primary
                     // domain; disabled until the company has loaded.
                     disabled={!company()?.domains[0]}
@@ -96,19 +101,11 @@ export function Company(props: {
                         });
                     }}
                   >
-                    <PlusIcon class="size-3.5" />
+                    <PlusIcon class="size-4" />
                     Add contact
                   </Button>
                 }
-              >
-                <div class="px-2">
-                  <CompanyContactsSection
-                    company={company()}
-                    contacts={contacts()}
-                    onOpenContact={props.onOpenContact}
-                  />
-                </div>
-              </RecordSection>
+              />
             </Match>
             <Match when={section() === 'emails'}>
               <CompanyEmailsSection company={company()} />
@@ -159,8 +156,9 @@ export function Company(props: {
       <SidePanel.Section id="company-sharing" title="Sharing" order={25}>
         <CompanySharingSection company={company()} onHidden={props.onHidden} />
       </SidePanel.Section>
-      {/* TODO: add a References section (inbound channel messages + documents)
-          once the references backend supports the crm_company entity type. */}
+      <SidePanel.Section id="company-references" title="References" order={30}>
+        <RecordReferencesSection scope={scope()} />
+      </SidePanel.Section>
     </SidePanel.Layout>
   );
 }

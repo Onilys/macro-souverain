@@ -161,7 +161,7 @@ describe('Slack channel import handoff', () => {
     startImport();
     await screen.findByRole('button', { name: 'Connecting Slack…' });
     expect(mocks.connect).toHaveBeenCalledExactlyOnceWith({
-      appSlug: 'slack',
+      appSlug: 'slack_v2',
       serverName: 'Slack',
     });
     expect(mocks.discover).not.toHaveBeenCalled();

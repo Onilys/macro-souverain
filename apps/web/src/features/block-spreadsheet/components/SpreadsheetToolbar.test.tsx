@@ -210,6 +210,16 @@ describe('spreadsheet toolbar', () => {
       { key: 'Enter' }
     );
     expect(view.onStyle).toHaveBeenCalledWith({ format: 'currency' });
+    fireEvent.keyDown(view.getByRole('button', { name: 'Number format' }), {
+      key: 'ArrowDown',
+    });
+    fireEvent.keyDown(
+      await screen.findByRole('menuitem', {
+        name: 'Accounting $ (1,234.00)',
+      }),
+      { key: 'Enter' }
+    );
+    expect(view.onStyle).toHaveBeenCalledWith({ format: 'accounting' });
   });
 
   it.each([

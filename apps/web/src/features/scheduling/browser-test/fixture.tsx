@@ -205,12 +205,13 @@ function Fixture() {
   const capabilities: SchedulingCapabilities = {
     userId: () => 'macro|alex@example.com',
     scopes: () => [
-      { id: 'me', name: 'Personal', canEdit: true },
+      { id: 'me', name: 'Personal', canEdit: true, canManageBookings: true },
       {
         id: 'team',
         teamId: 'team',
         name: 'Design team',
         canEdit: !readOnlyTeam(),
+        canManageBookings: !readOnlyTeam(),
       },
     ],
     members: () => [
@@ -262,7 +263,7 @@ function Fixture() {
           const booking = bookings().find((b) => b.id === id);
           if (
             !booking ||
-            (!scope().canEdit &&
+            (!scope().canManageBookings &&
               !booking.hosts.includes('macro|alex@example.com'))
           )
             throw new Error('Forbidden');

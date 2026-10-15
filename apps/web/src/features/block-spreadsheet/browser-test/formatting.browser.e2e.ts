@@ -98,6 +98,84 @@ test('treats direct typing and formula-bar edits as percentage points while pres
   await expect(page.locator('[data-address="E2"]')).toHaveText('75');
 });
 
+test('lays accounting figures across the cell with parentheses, dashes and digits aligned', async ({
+  page,
+}) => {
+  for (const [address, value] of [
+    ['C2', '=-B2'],
+    ['C3', '=B3-B3'],
+    ['C4', '1234.5'],
+  ]) {
+    await page.locator(`[data-address="${address}"]`).dblclick();
+    const editor = page.getByRole('textbox', {
+      name: `Edit ${address}`,
+      exact: true,
+    });
+    await editor.fill(value);
+    await editor.press('Enter');
+  }
+  await page.locator('[data-address="C2"]').click();
+  await page.locator('[data-address="C4"]').click({ modifiers: ['Shift'] });
+  await choose(page, 'Number format', 'Accounting $ (1,234.00)');
+  await expect(page.getByRole('grid', { name: 'Spreadsheet' })).toBeFocused();
+  for (const [address, label] of [
+    ['C2', 'C2: $(10.00)'],
+    ['C3', 'C3: $-'],
+    ['C4', 'C4: $1,234.50'],
+  ])
+    await expect(page.locator(`[data-address="${address}"]`)).toHaveAttribute(
+      'aria-label',
+      label
+    );
+  const saved = await page.evaluate(
+    () => window.spreadsheetFixture.snapshot()[0].cells
+  );
+  expect(saved.C2).toEqual({ value: '=-B2', format: 'accounting' });
+
+  const layout = await page.evaluate(() =>
+    Object.fromEntries(
+      ['C2', 'C3', 'C4'].map((address) => {
+        const cell = document.querySelector(`[data-address="${address}"]`)!;
+        const [symbol, amount] = cell.querySelectorAll(
+          '[data-accounting] > span'
+        );
+        const text = amount.firstChild!;
+        const right = (index: number) => {
+          const range = document.createRange();
+          range.setStart(text, index);
+          range.setEnd(text, index + 1);
+          return range.getBoundingClientRect().right;
+        };
+        const value = text.textContent!;
+        const digit = value.search(/\d(?=\D*$)/);
+        const point = value.search(/[.-]/);
+        return [
+          address,
+          {
+            cell: cell.getBoundingClientRect().toJSON(),
+            symbolLeft: symbol.getBoundingClientRect().left,
+            amountRight: amount.getBoundingClientRect().right,
+            lastDigit: digit < 0 ? undefined : right(digit),
+            pointOrDash: right(point),
+          },
+        ];
+      })
+    )
+  );
+  for (const { cell, symbolLeft, amountRight } of Object.values(layout)) {
+    expect(symbolLeft - cell.left).toBeLessThan(8);
+    expect(cell.right - amountRight).toBeLessThan(8);
+  }
+  // Positives leave room for a closing parenthesis, and zero's dash sits
+  // where the decimal point does, as in Excel.
+  expect(
+    Math.abs(layout.C2.lastDigit! - layout.C4.lastDigit!)
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(layout.C3.pointOrDash - layout.C4.pointOrDash)
+  ).toBeLessThanOrEqual(1);
+});
+
 test('edits formula-bar text and formulas directly with the production mention editor enabled', async ({
   page,
 }) => {

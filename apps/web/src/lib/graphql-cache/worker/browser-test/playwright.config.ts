@@ -14,6 +14,7 @@ export default defineConfig({
     'mail-projection.browser.e2e.ts',
     'mail-tabs.browser.e2e.ts',
     'query-write-scope.browser.e2e.ts',
+    'email-participants.browser.e2e.ts',
     'search-buckets.browser.e2e.ts',
   ],
   timeout: 90_000,

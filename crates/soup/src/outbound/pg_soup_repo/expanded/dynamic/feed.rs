@@ -25,7 +25,7 @@ use recursion::CollapsibleExt;
 use sqlx::{Postgres, QueryBuilder};
 
 use super::{
-    DOCUMENT_TASK_PROPERTY_JOINS, USER_HOLDS_GRANT_SOURCE, build_chat_filter,
+    DOCUMENT_TASK_PROPERTY_JOINS, DocumentIdArrays, USER_HOLDS_GRANT_SOURCE, build_chat_filter,
     build_document_filter, build_project_filter, build_properties_filter,
     document_filter_needs_task_property_joins, push_not_inward, push_union_separator,
 };
@@ -151,6 +151,7 @@ impl FeedArm {
         filter_ast: Option<&Expr<DocumentLiteral>>,
         properties: Option<&Expr<PropertiesLiteral>>,
         notified: bool,
+        document_ids: &mut DocumentIdArrays,
     ) -> Self {
         // Property rows retain their entity type when a document changes subtype.
         // Only document predicates can narrow the current listing kind.
@@ -206,7 +207,7 @@ impl FeedArm {
                 .collect(),
             driver,
             joins,
-            filter: build_document_filter(filter_ast),
+            filter: build_document_filter(filter_ast, Some(document_ids)),
             properties: properties.cloned(),
             updated_at_bounds,
         }
@@ -642,6 +643,11 @@ pub(super) struct Feed {
 }
 
 impl Feed {
+    /// Whether `source_items` can order `sort`.
+    pub(super) fn serves(sort: SimpleSortMethod) -> bool {
+        FeedSort::of(sort).is_some()
+    }
+
     /// `None` for `CreatedAt`, which `source_items` cannot order.
     pub(super) fn new(
         sort: SimpleSortMethod,

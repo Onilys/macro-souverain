@@ -5,6 +5,7 @@ export * from './node-list';
 export * from './nodes/AgentContextNode';
 export * from './nodes/AgentSessionMentionNode';
 export * from './nodes/AwaitNode';
+export * from './nodes/BookingLinkMentionNode';
 export * from './nodes/ClassedBlockNode';
 export * from './nodes/CommentNode';
 export * from './nodes/CompletionNode';

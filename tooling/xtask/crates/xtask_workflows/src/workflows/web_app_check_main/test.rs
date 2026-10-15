@@ -34,6 +34,44 @@ fn nix_dev_shell_does_not_start_typecheck() {
     );
 }
 
+/// The iOS merge gate is required through the aggregator, not the ruleset:
+/// the status check must depend on it and fail when it fails.
+#[test]
+fn status_check_requires_the_ios_native_check() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let gate = job(&yaml, "ios-native-check", "status-check");
+    assert!(
+        gate.contains("name: iOS Native Check"),
+        "gate job name is a check name: {gate}"
+    );
+    assert!(
+        gate.contains("predicate-quantifier: every"),
+        "negated path filters need the `every` quantifier: {gate}"
+    );
+    // `!` binds tighter than `==` in GitHub expressions: `!x == 'true'` is
+    // always false, which silently skipped every gated step.
+    assert!(
+        !gate.contains("!steps.labels"),
+        "never negate a comparison with a leading `!`: {gate}"
+    );
+    assert!(
+        gate.contains("steps.labels.outputs.skip != 'true'"),
+        "gated steps run when the skip label is absent: {gate}"
+    );
+    let status = yaml
+        .split("\n  status-check:\n")
+        .nth(1)
+        .expect("status-check job");
+    assert!(
+        status.contains("- ios-native-check"),
+        "status-check must need the gate: {status}"
+    );
+    assert!(
+        status.contains("needs.ios-native-check.result }}\" == \"failure\""),
+        "status-check must fail when the gate fails: {status}"
+    );
+}
+
 #[test]
 fn typecheck_runs_lexical_service_check_and_tests() {
     let yaml = web_app_check_main().to_string().expect("workflow yaml");
