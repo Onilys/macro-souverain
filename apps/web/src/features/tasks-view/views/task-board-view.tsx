@@ -142,7 +142,7 @@ export function TaskBoardView(props: {
     readOnly: Accessor<boolean>
   ) => (
     <>
-      <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 p-3 pb-2">
+      <TaskBoard.CardHeader>
         <div data-kanban-no-drag class="flex shrink-0 items-center">
           {renderProperty(task, readOnly, SYSTEM_PROPERTY_IDS.STATUS, true)}
         </div>
@@ -162,8 +162,8 @@ export function TaskBoardView(props: {
         <div data-kanban-no-drag class="flex shrink-0 items-center">
           {renderProperty(task, readOnly, SYSTEM_PROPERTY_IDS.ASSIGNEES, true)}
         </div>
-      </div>
-      <div class="flex flex-wrap items-center gap-1 px-3 pb-3 text-xs text-ink-muted">
+      </TaskBoard.CardHeader>
+      <TaskBoard.CardFields>
         <div data-kanban-no-drag class="contents">
           <For each={cardPropertyIds()}>
             {(id) => {
@@ -174,7 +174,7 @@ export function TaskBoardView(props: {
             }}
           </For>
         </div>
-      </div>
+      </TaskBoard.CardFields>
     </>
   );
 
@@ -310,9 +310,9 @@ function TaskBoardColumnHeader(props: {
   createAssigneeName: TaskBoardData['createAssigneeName'];
 }) {
   const label = () => (
-    <h2 class="truncate text-sm font-medium" title={props.column.label}>
+    <TaskBoard.ColumnLabel title={props.column.label}>
       {props.column.label}
-    </h2>
+    </TaskBoard.ColumnLabel>
   );
   const countLabel = () => {
     const loaded = props.column.tasks.length;
@@ -346,12 +346,10 @@ function TaskBoardColumnHeader(props: {
           />
         </Suspense>
       </Show>
-      <span
-        class="ml-auto shrink-0 text-xs text-ink-muted"
+      <TaskBoard.ColumnCount
+        count={props.column.count ?? props.column.tasks.length}
         aria-label={countLabel()}
-      >
-        {props.column.count ?? props.column.tasks.length}
-      </span>
+      />
     </>
   );
 }
@@ -364,9 +362,5 @@ function AssigneeColumnLabel(props: {
   const resolvedName = props.createAssigneeName(() => props.id);
   const name = () => resolvedName() || props.fallback;
 
-  return (
-    <h2 class="truncate text-sm font-medium" title={name()}>
-      {name()}
-    </h2>
-  );
+  return <TaskBoard.ColumnLabel title={name()}>{name()}</TaskBoard.ColumnLabel>;
 }

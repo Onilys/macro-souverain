@@ -7,12 +7,11 @@ import {
 } from '@core/block';
 import { DocumentBlockContainer } from '@core/component/DocumentBlockContainer';
 import { createMethodRegistration } from '@core/orchestrator';
-import { blockHotkeyScopeSignal } from '@core/signal/blockElement';
 import { blockFileSignal, blockHandleSignal } from '@core/signal/load';
 import { useCanEdit } from '@core/signal/permissions';
 import { useSearchParams } from '@solidjs/router';
 import { Show } from 'solid-js';
-import type { CanvasView } from '../context/canvas-document-context';
+import type { CanvasView } from '../core/view';
 import { CanvasDocument, type CanvasDocumentMethods } from './CanvasDocument';
 import { TopBar } from './TopBar';
 
@@ -26,7 +25,6 @@ export default function BlockCanvas(props: BlockCanvasProps) {
   const isNested = useIsNestedBlock();
   const nestedContext = useBlockNestedContext<'canvas'>();
   const canEdit = useCanEdit();
-  const hotkeyScope = blockHotkeyScopeSignal.get;
   const file = blockFileSignal.get;
   const blockHandle = blockHandleSignal.get;
   const [locationParams] = useSearchParams();
@@ -42,9 +40,7 @@ export default function BlockCanvas(props: BlockCanvasProps) {
           documentId={documentId}
           file={file()}
           canEdit={canEdit()}
-          hotkeyScope={hotkeyScope()}
           isNested={isNested}
-          portalScope="block"
           view={props.view}
           locationParams={locationParams}
           onLocationChange={
@@ -56,7 +52,7 @@ export default function BlockCanvas(props: BlockCanvasProps) {
             return (
               <div
                 class="size-full select-none flex flex-col"
-                on:click={(event) => {
+                onClick={(event) => {
                   if (isNested) event.stopPropagation();
                 }}
               >
@@ -64,9 +60,7 @@ export default function BlockCanvas(props: BlockCanvasProps) {
                   <SidePanel.Layout floating>
                     <FileSidePanelSections />
                     <div class="flex size-full min-w-0 flex-col overflow-hidden">
-                      <TopBar
-                        next={state.mode === 'next' ? state : undefined}
-                      />
+                      <TopBar state={state} />
                       {content}
                     </div>
                   </SidePanel.Layout>

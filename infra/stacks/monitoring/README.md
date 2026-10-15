@@ -121,3 +121,15 @@ services; creating the monitor alone does not add that telemetry.
 Neither new alert detects successful responses that apply no edits, or failures
 during periods without editing requests. The end-to-end canary remains a
 follow-up.
+
+## GraphQL soup rollout coverage
+
+`monitors/graphql-soup.ts` declares 15 new monitors for the `enable-graphql-soup`
+rollout: GraphQL latency, errors and volume, websocket upgrades,
+cloud-storage-service capacity and 5xx, macro-db-prod connections and CPU, the
+gateway ALB, and web-app cache logs. A `pulumi preview` after they are added
+should show exactly those 15 creates and nothing else.
+
+Resolver errors still return HTTP 200, so the error monitors are proxies. Add
+per-operation error and latency monitors once the server emits operation names
+and error counts.

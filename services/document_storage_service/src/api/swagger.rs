@@ -372,6 +372,7 @@ use utoipa::OpenApi;
         call::inbound::axum_router::check_active_call_handler,
         call::inbound::axum_router::get_active_calls_handler,
         call::inbound::axum_router::leave_or_end_call_handler,
+        call::inbound::axum_router::decline_call_handler,
         call::inbound::axum_router::get_call_record_handler,
         call::inbound::axum_router::edit_call_record_handler,
         call::inbound::axum_router::edit_call_transcript_handler,
@@ -387,6 +388,7 @@ use utoipa::OpenApi;
         webhook::inbound::axum_router::validate_webhook,
         webhook::inbound::stream_router::stream_events,
         call::inbound::axum_router::ring_status_handler,
+        call::inbound::axum_router::decline_ring_handler,
         call::inbound::axum_router::transcript_handler,
 
         // pins
@@ -512,6 +514,8 @@ use utoipa::OpenApi;
         crm::inbound::pipelines::apply_ops,
         crm::inbound::pipelines::rename,
         crm::inbound::pipelines::share,
+        crm::inbound::pipelines::permissions,
+        crm::inbound::pipelines::update_permissions,
         crm::inbound::pipelines::trash,
         crm::inbound::axum_router::set_email_sync::handler,
         crm::inbound::axum_router::set_company_hidden::handler,
@@ -1009,6 +1013,7 @@ struct FormsApiAddon;
 impl utoipa::Modify for FormsApiAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
         openapi.merge(forms::inbound::axum_router::FormsApi::openapi());
+        openapi.merge(database_webhooks::inbound::axum_router::DatabaseWebhooksApi::openapi());
     }
 }
 

@@ -2,6 +2,7 @@ import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { cellPlainText } from '@macro-inc/spreadsheet/cell-mentions';
 import type { ConditionalAppearance } from '@macro-inc/spreadsheet/conditional-formatting';
 import {
+  accountingParts,
   literalNumber,
   literalNumberDisplay,
 } from '@macro-inc/spreadsheet/number-display';
@@ -335,6 +336,18 @@ export function SpreadsheetGrid(props: {
         ? ''
         : (literalNumberDisplay(cell) ?? cellPlainText(cell?.value ?? '')))
     );
+  };
+  const accounting = (address: string) => {
+    const cell = props.cells[address];
+    if (cell?.format !== 'accounting') return;
+    if (props.showFormulas && cell.value.startsWith('=')) return;
+    const value = props.values[address];
+    const numeric = value
+      ? value.number !== undefined
+      : literalNumber(cell) !== undefined;
+    return numeric
+      ? accountingParts(display(address), cell.decimals)
+      : undefined;
   };
   const rootStyle = getComputedStyle(document.documentElement);
   const fontFamilies = {
@@ -759,7 +772,10 @@ export function SpreadsheetGrid(props: {
     for (const address of addresses) {
       const cell = props.cells[address];
       context.font = `${cell?.italic ? 'italic ' : ''}${cell?.bold ? 600 : 400} ${fontPixels(cell, defaultFontSize())}px ${fontFamily(cell)}`;
-      const text = display(address);
+      const parts = accounting(address);
+      const text = parts
+        ? `${parts.symbol} ${parts.amount}${parts.padding}`
+        : display(address);
       for (const line of text.split('\n'))
         measured = Math.max(
           measured,
@@ -1835,13 +1851,35 @@ export function SpreadsheetGrid(props: {
                                     />
                                   }
                                 >
-                                  {look()?.showValue === false
-                                    ? ''
-                                    : decorated()
-                                      ? props.mentions!.renderText(
-                                          cell()!.value.replace(/^'/, '')
-                                        )
-                                      : display(address)}
+                                  {look()?.showValue === false ? (
+                                    ''
+                                  ) : decorated() ? (
+                                    props.mentions!.renderText(
+                                      cell()!.value.replace(/^'/, '')
+                                    )
+                                  ) : (
+                                    <Show
+                                      when={accounting(address)}
+                                      fallback={display(address)}
+                                    >
+                                      {(parts) => (
+                                        <span
+                                          data-accounting
+                                          class="flex justify-between gap-[0.25em]"
+                                        >
+                                          <span class="shrink-0">
+                                            {parts().symbol}
+                                          </span>
+                                          <span class="min-w-0 overflow-hidden text-ellipsis">
+                                            {parts().amount}
+                                            <span class="invisible">
+                                              {parts().padding}
+                                            </span>
+                                          </span>
+                                        </span>
+                                      )}
+                                    </Show>
+                                  )}
                                 </Show>
                               </div>
                             }

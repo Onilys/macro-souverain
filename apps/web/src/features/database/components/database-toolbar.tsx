@@ -1,10 +1,6 @@
 import { ContextMenu } from '@kobalte/core/context-menu';
-import CheckIcon from '@phosphor/check.svg';
-import FunnelIcon from '@phosphor/funnel.svg';
 import KanbanIcon from '@phosphor/kanban.svg';
 import PlusIcon from '@phosphor/plus.svg';
-import SortAscendingIcon from '@phosphor/sort-ascending.svg';
-import StackIcon from '@phosphor/stack.svg';
 import TableIcon from '@phosphor/table.svg';
 import type { DatabaseView } from '@service-storage/generated/schemas/databaseView';
 import { Key } from '@solid-primitives/keyed';
@@ -36,10 +32,8 @@ import {
   type DatabaseOpFailure,
   databaseOpMessage,
 } from '../core/write-failure';
-import { FilterPanel, filterConditionCount } from './database-view-filters';
+import { DatabaseEditorToolbar } from './database-editor-toolbar';
 import { createInlineRename } from './inline-rename';
-import { SortPanel } from './sort-panel';
-import { ToolbarPopover } from './view-control-popover';
 
 /** A layout a stored view can be switched to from its tab's menu. */
 export type ShownLayout =
@@ -69,11 +63,13 @@ type DatabaseToolbarProps = {
     view: DatabaseView,
     layout: ShownLayout
   ) => ResultAsync<void, DatabaseOpFailure>;
-  /** Every stored view of the table, in its new order. */
-  onReorderViews: (order: string[]) => void;
+  /** Every stored view of the table, in its new order; omitted when the host cannot store an order. */
+  onReorderViews?: (order: string[]) => void;
   onCreateRecord?: () => void;
   canCreateRecord?: boolean;
   creating?: boolean;
+  /** The host's own actions after the view controls, e.g. a labelled create button. */
+  actions?: JSX.Element;
 };
 
 /** View controls contain no data fetching or mutation implementation. */
@@ -90,7 +86,6 @@ export function DatabaseToolbar(props: DatabaseToolbarProps) {
     const current = layout();
     return current.kind === 'board' ? current : undefined;
   };
-  const sort = () => props.view.query.sort ?? [];
   const viewRename = createInlineRename({
     name: (view: DatabaseView) => view.name,
     rename: (view, name) => props.onRenameView(view, name),
@@ -137,203 +132,123 @@ export function DatabaseToolbar(props: DatabaseToolbarProps) {
     const order = props.views.map((view) => view.id);
     const moved = movedViewOrder(order, id, targetId);
     if (moved.some((view, index) => view !== order[index]))
-      props.onReorderViews(moved);
+      props.onReorderViews?.(moved);
   }
   return (
-    <div
-      class="@container/view-toolbar shrink-0 bg-canvas-base [&_button:focus-visible]:ring-2 [&_button:focus-visible]:ring-ink/50"
-      data-database-toolbar
-    >
-      <div class="flex items-center gap-2 px-4 py-1.5 @max-[520px]/view-toolbar:flex-wrap">
-        <div class="flex min-w-0 flex-1 items-center gap-0.5 @max-[520px]/view-toolbar:basis-full">
-          <div
-            ref={viewRail}
-            class="flex min-w-0 items-center gap-0.5 overflow-x-auto"
-            aria-label="Views"
-          >
-            <button
-              ref={allRecordsButton}
-              type="button"
-              aria-pressed={!props.selectedViewId}
-              onClick={() => props.onSelectView()}
-              class="flex h-8 max-w-40 shrink-0 items-center gap-1.5 rounded-full border border-transparent aria-pressed:border-edge-frame aria-pressed:bg-active aria-pressed:text-ink px-4 text-xs font-medium text-ink-extra-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-edge-focus transition-colors duration-120 motion-reduce:transition-none"
+    <div class="shrink-0 bg-canvas-base">
+      <DatabaseEditorToolbar
+        columns={props.columns}
+        view={props.view}
+        onChangeView={props.onChangeView}
+        canChangeView={canChangeView()}
+        search={props.search}
+        actions={props.actions}
+        onCreateRecord={board() ? props.onCreateRecord : undefined}
+        canCreateRecord={props.canCreateRecord}
+        creating={props.creating}
+        selection={
+          <>
+            <div
+              ref={viewRail}
+              class="flex min-w-0 items-center gap-0.5 overflow-x-auto"
+              aria-label="Views"
             >
-              <span class="truncate">All records</span>
-            </button>
-            <DragDropProvider
-              collisionDetector={closestCenter}
-              onDragEnd={({ draggable, droppable }) => {
-                if (droppable)
-                  reorder(String(draggable.id), String(droppable.id));
-              }}
-            >
-              <DragDropSensors />
-              <SortableProvider ids={props.views.map((view) => view.id)}>
-                <Key each={props.views} by="id">
-                  {(view) => (
-                    <ViewTab
-                      view={view()}
-                      selected={props.selectedViewId === view().id}
-                      canEdit={props.canEdit}
-                      renaming={viewRename.target()?.id === view().id}
-                      renameDraft={viewRename.draft()}
-                      renamePending={viewRename.pending()}
-                      renameInput={(element) => {
-                        renameInput = element;
-                      }}
-                      onRenameInput={viewRename.setDraft}
-                      onRenameSave={(restoreFocus) =>
-                        void viewRename.save(restoreFocus)
-                      }
-                      onRenameCancel={() => viewRename.cancel(true)}
-                      onSelect={() => props.onSelectView(view().id)}
-                      onRename={() => {
-                        if (props.canEdit) viewRename.begin(view());
-                      }}
-                      onDelete={() => {
-                        setViewError('');
-                        setDeleting({ view: view() });
-                      }}
-                      columns={props.columns}
-                      onShowAs={(shown) => {
-                        setViewError('');
-                        void props
-                          .onShowViewAs(view(), shown)
-                          .mapErr((failure) =>
-                            setViewError(
-                              databaseOpMessage(failure, 'this view')
-                            )
-                          );
-                      }}
-                    />
-                  )}
-                </Key>
-              </SortableProvider>
-            </DragDropProvider>
-          </div>
-          <Show when={props.canEdit}>
-            <Dropdown placement="bottom-start">
-              <Dropdown.Trigger
-                size="icon-sm"
-                variant="ghost"
-                aria-label="New view"
-                class="ml-2 shrink-0"
-                disabled={creating()}
-              >
-                <PlusIcon class="size-3.5" />
-              </Dropdown.Trigger>
-              <Dropdown.Content class="min-w-40">
-                <Dropdown.Item
-                  onSelect={() => void createView('table')}
-                  disabled={creating()}
-                >
-                  <TableIcon class="size-4" />
-                  Table
-                </Dropdown.Item>
-                <Dropdown.Item
-                  onSelect={() => void createView('board')}
-                  disabled={creating()}
-                >
-                  <KanbanIcon class="size-4" />
-                  Board
-                </Dropdown.Item>
-              </Dropdown.Content>
-            </Dropdown>
-          </Show>
-        </div>
-        <div class="flex shrink-0 items-center gap-0.5 @max-[520px]/view-toolbar:w-full @max-[520px]/view-toolbar:justify-end">
-          <Show when={canChangeView()}>
-            <Show when={board()}>
-              {(current) => (
-                <Dropdown placement="bottom-start">
-                  <Dropdown.Trigger
-                    aria-label="Group board by"
-                    title="Group by"
-                    size="icon-md"
-                    variant="ghost"
-                    class="h-8 w-auto rounded-md px-2 text-ink-muted hover:bg-hover data-expanded:bg-hover"
-                  >
-                    <StackIcon class="size-3.5" />
-                  </Dropdown.Trigger>
-                  <Dropdown.Content class="min-w-48">
-                    <Dropdown.RadioGroup
-                      value={current().groupBy}
-                      onChange={(columnId) => {
-                        if (columnId !== current().groupBy)
-                          props.onChangeView({
-                            layout: {
-                              ...current(),
-                              groupBy: columnId,
-                              lanes: [],
-                            },
-                          });
-                      }}
-                    >
-                      <For each={groupColumns()}>
-                        {(column) => (
-                          <Dropdown.RadioItem closeOnSelect value={column.id}>
-                            <span class="flex-1">{column.name}</span>
-                            <Dropdown.ItemIndicator>
-                              <CheckIcon class="size-3.5 text-accent" />
-                            </Dropdown.ItemIndicator>
-                          </Dropdown.RadioItem>
-                        )}
-                      </For>
-                    </Dropdown.RadioGroup>
-                  </Dropdown.Content>
-                </Dropdown>
-              )}
-            </Show>
-
-            <ToolbarPopover
-              label="Filter"
-              compact
-              count={filterConditionCount(props.view.query.filter)}
-              icon={<FunnelIcon class="size-3.5" />}
-            >
-              <FilterPanel
-                columns={props.columns}
-                filter={props.view.query.filter}
-                onChange={(filter) =>
-                  props.onChangeView({
-                    query: { ...props.view.query, filter },
-                  })
-                }
-              />
-            </ToolbarPopover>
-            <ToolbarPopover
-              label="Sort"
-              compact
-              count={sort().length}
-              icon={<SortAscendingIcon class="size-3.5" />}
-            >
-              <SortPanel
-                columns={props.columns}
-                view={props.view}
-                onChange={props.onChangeView}
-              />
-            </ToolbarPopover>
-          </Show>
-          {props.search}
-          <div class="ml-1 flex shrink-0 items-center">
-            <Show when={props.onCreateRecord && board()}>
               <Button
-                size="sm"
-                variant="outline"
-                class="h-8 gap-1.5 px-2.5 text-xs"
-                aria-label={props.creating ? 'Saving record' : 'New record'}
-                disabled={!props.canCreateRecord || props.creating}
-                onClick={() => props.onCreateRecord?.()}
+                ref={allRecordsButton}
+                type="button"
+                variant="ghost"
+                size="md"
+                aria-pressed={!props.selectedViewId}
+                onClick={() => props.onSelectView()}
+                class="max-w-40 px-4 aria-pressed:border-edge-frame aria-pressed:bg-active aria-pressed:text-ink"
               >
-                <PlusIcon class="size-3.5" />
-                <Show when={!props.creating} fallback="Saving…">
-                  New
-                </Show>
+                <span class="truncate">All records</span>
               </Button>
+              <DragDropProvider
+                collisionDetector={closestCenter}
+                onDragEnd={({ draggable, droppable }) => {
+                  if (droppable)
+                    reorder(String(draggable.id), String(droppable.id));
+                }}
+              >
+                <DragDropSensors />
+                <SortableProvider ids={props.views.map((view) => view.id)}>
+                  <Key each={props.views} by="id">
+                    {(view) => (
+                      <ViewTab
+                        view={view()}
+                        selected={props.selectedViewId === view().id}
+                        canEdit={props.canEdit}
+                        canReorder={props.canEdit && !!props.onReorderViews}
+                        renaming={viewRename.target()?.id === view().id}
+                        renameDraft={viewRename.draft()}
+                        renamePending={viewRename.pending()}
+                        renameInput={(element) => {
+                          renameInput = element;
+                        }}
+                        onRenameInput={viewRename.setDraft}
+                        onRenameSave={(restoreFocus) =>
+                          void viewRename.save(restoreFocus)
+                        }
+                        onRenameCancel={() => viewRename.cancel(true)}
+                        onSelect={() => props.onSelectView(view().id)}
+                        onRename={() => {
+                          if (props.canEdit) viewRename.begin(view());
+                        }}
+                        onDelete={() => {
+                          setViewError('');
+                          setDeleting({ view: view() });
+                        }}
+                        columns={props.columns}
+                        onShowAs={(shown) => {
+                          setViewError('');
+                          void props
+                            .onShowViewAs(view(), shown)
+                            .mapErr((failure) =>
+                              setViewError(
+                                databaseOpMessage(failure, 'this view')
+                              )
+                            );
+                        }}
+                      />
+                    )}
+                  </Key>
+                </SortableProvider>
+              </DragDropProvider>
+            </div>
+            <Show when={props.canEdit}>
+              <Dropdown placement="bottom-start">
+                <Dropdown.Trigger
+                  size="md"
+                  square
+                  variant="ghost"
+                  label="New view"
+                  class="ml-2 shrink-0"
+                  disabled={creating()}
+                >
+                  <PlusIcon class="size-3.5" />
+                </Dropdown.Trigger>
+                <Dropdown.Content class="min-w-40">
+                  <Dropdown.Item
+                    onSelect={() => void createView('table')}
+                    disabled={creating()}
+                  >
+                    <TableIcon class="size-4" />
+                    Table
+                  </Dropdown.Item>
+                  <Dropdown.Item
+                    onSelect={() => void createView('board')}
+                    disabled={creating()}
+                  >
+                    <KanbanIcon class="size-4" />
+                    Board
+                  </Dropdown.Item>
+                </Dropdown.Content>
+              </Dropdown>
             </Show>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
       <Show when={viewError()}>
         <p role="alert" class="px-4 pb-2 text-xs text-failure">
           {viewError()}
@@ -375,6 +290,7 @@ function ViewTab(props: {
   view: DatabaseView;
   selected: boolean;
   canEdit: boolean;
+  canReorder: boolean;
   renaming: boolean;
   renameDraft: string;
   renamePending: boolean;
@@ -415,7 +331,7 @@ function ViewTab(props: {
               maxlength={100}
               value={props.renameDraft}
               readOnly={props.renamePending}
-              class="h-8 w-36 rounded-md border border-ink/40 bg-input px-2 text-xs text-ink outline-none focus:ring-2 focus:ring-ink/10"
+              class="h-8 w-36 rounded-md border border-ink/40 bg-input px-2 text-sm text-ink outline-none focus:ring-2 focus:ring-ink/10"
               onInput={(event) =>
                 props.onRenameInput(event.currentTarget.value)
               }
@@ -433,9 +349,12 @@ function ViewTab(props: {
         <ContextMenu>
           <Tooltip label={props.view.name}>
             <ContextMenu.Trigger
-              as="button"
+              as={Button}
+              variant="ghost"
+              size="md"
+              tooltipDisabled
               type="button"
-              {...(props.canEdit ? sortable.dragActivators : {})}
+              {...(props.canReorder ? sortable.dragActivators : {})}
               data-view-id={props.view.id}
               aria-pressed={props.selected}
               aria-keyshortcuts={props.canEdit ? 'F2 Shift+F10' : undefined}
@@ -450,7 +369,7 @@ function ViewTab(props: {
                   props.onRename();
                 }
               }}
-              class="flex h-8 max-w-40 items-center gap-1.5 rounded-full border border-transparent aria-pressed:border-edge-frame aria-pressed:bg-active aria-pressed:text-ink px-4 text-xs font-medium text-ink-extra-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-edge-focus transition-colors duration-120 motion-reduce:transition-none"
+              class="max-w-40 px-4 aria-pressed:border-edge-frame aria-pressed:bg-active aria-pressed:text-ink"
             >
               <span class="truncate">{props.view.name}</span>
             </ContextMenu.Trigger>

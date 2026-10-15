@@ -74,6 +74,7 @@ export function MarkdownEditingOverlays(props: {
         useBlockBoundary={props.useBlockBoundary}
         showOpenTabs={props.showOpenTabs}
         disableMentionTracking={!props.source.trackMentions}
+        sourceDocumentId={props.source.id}
       />
 
       <SnippetsMenu

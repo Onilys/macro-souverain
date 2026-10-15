@@ -136,12 +136,13 @@ export type SpreadsheetHorizontalAlign = 'auto' | 'left' | 'center' | 'right';
  */
 export type SpreadsheetVerticalAlign = 'top' | 'middle' | 'bottom';
 /**
- * Number interpretation and display; currency is USD and dates use UTC.
+ * Number interpretation and display; currency and accounting are USD and dates use UTC.
  */
 export type SpreadsheetNumberFormat =
   | 'general'
   | 'number'
   | 'currency'
+  | 'accounting'
   | 'percent'
   | 'date'
   | 'time'
@@ -156,6 +157,44 @@ export type SpreadsheetValueKind =
   | 'text'
   | 'boolean'
   | 'error';
+/**
+ * A host's requested change to a booked meeting.
+ */
+export type BookingChange =
+  | {
+      action: 'approve';
+    }
+  | {
+      action: 'cancel';
+    }
+  | {
+      attendance: BookingAttendance;
+      action: 'attendance';
+    }
+  | {
+      /**
+       * Absolute start chosen from available replacement slots.
+       */
+      startsAt: string;
+      action: 'reschedule';
+    };
+/**
+ * Attendance recorded by an assigned host or profile administrator after a meeting.
+ */
+export type BookingAttendance =
+  | 'unknown'
+  | 'attended'
+  | 'guestNoShow'
+  | 'hostNoShow';
+/**
+ * Booking lifecycle state.
+ */
+export type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'cancelled'
+  | 'processing'
+  | 'failed';
 /**
  * The runtimes an agent can be moved onto.
  */
@@ -872,6 +911,45 @@ export type CreateImportStatus = 'staged' | 'imported';
  */
 export type ImportStatus = 'staged' | 'importing' | 'imported' | 'discarded';
 /**
+ * What a pipeline's entries track. Documented on the fields that use it: a
+ * doc comment on a variant would turn the schema into `oneOf`.
+ */
+export type ToolRecordType = 'company' | 'contact';
+/**
+ * The type of a field to add. Documented on the fields that use it.
+ */
+export type ToolNewFieldType =
+  | 'text'
+  | 'number'
+  | 'checkbox'
+  | 'date'
+  | 'link'
+  | 'select'
+  | 'multi_select'
+  | 'person'
+  | 'people';
+/**
+ * What the user may do with a pipeline.
+ */
+export type ToolPipelineAccess = 'view' | 'edit' | 'owner';
+/**
+ * What a field holds, as the model reads it.
+ */
+export type ToolFieldType =
+  | 'company'
+  | 'contact'
+  | 'text'
+  | 'number'
+  | 'checkbox'
+  | 'date'
+  | 'link'
+  | 'select'
+  | 'tags'
+  | 'person'
+  | 'item'
+  | 'relation'
+  | 'formula';
+/**
  * Who executes the routine. Agent IDs refer to personas, never conversation IDs.
  */
 export type RoutineTarget =
@@ -956,6 +1034,59 @@ export type ColumnType =
  * A column type as SQL spells it: text, number, boolean, date, link, select, select_number, tag, entity(KIND) or relation, with [] when a select or reference column holds several values (select[], entity(USER)).
  */
 export type SpelledColumnType = string;
+/**
+ * Search by app name, then inspect a returned slug before recommending auth.
+ */
+export type DiscoveryRequest =
+  | {
+      /**
+       * App name, e.g. "LinkedIn" or "Linear", not a task description.
+       */
+      query: string;
+      operation: 'search';
+    }
+  | {
+      /**
+       * Exact app slug from search results.
+       */
+      app_slug: string;
+      operation: 'inspect';
+    };
+/**
+ * Discovery results never execute tools or change connections.
+ */
+export type DiscoveryResult =
+  | {
+      /**
+       * Matching apps.
+       */
+      apps: DiscoveredApp[];
+      /**
+       * Narrow the app name if this is true.
+       */
+      more_results: boolean;
+      operation: 'search';
+    }
+  | {
+      app: DiscoveredApp;
+      /**
+       * Whether this caller has an enabled connection.
+       */
+      connected: boolean;
+      /**
+       * Advertised tools. Use SearchTools after connecting to load them.
+       */
+      tools: ConnectorTool[];
+      /**
+       * True when some advertised tools were omitted.
+       */
+      tools_truncated: boolean;
+      operation: 'inspect';
+    };
+/**
+ * The kind of item to duplicate.
+ */
+export type DuplicableEntityType = 'document' | 'chat';
 /**
  * Targeted layout operations. Removing placements always retains response columns.
  */
@@ -3637,6 +3768,14 @@ export type ParticipantAction = 'add' | 'remove';
  */
 export type MoveableEntityType = 'document' | 'chat' | 'email' | 'project';
 /**
+ * The kind of item to move to the trash.
+ */
+export type TrashableEntityType = 'document' | 'chat' | 'project';
+/**
+ * What to do with an item's notifications.
+ */
+export type MuteAction = 'mute' | 'snooze' | 'unmute';
+/**
  * Presentation hint for a query result; it does not affect SQL execution.
  */
 export type QueryDatabaseDisplay =
@@ -3788,6 +3927,10 @@ export type SqlStatement =
       to: string;
       kind: 'alterColumnType';
     };
+/**
+ * Whether to add or remove a reaction.
+ */
+export type ReactionAction = 'add' | 'remove';
 /**
  * One activity action returned to the AI.
  */
@@ -4156,6 +4299,10 @@ export type AccessLevel = 'view' | 'comment' | 'edit' | 'owner';
  */
 export type ProjectItemType = 'document' | 'chat' | 'project';
 /**
+ * The kind of item to rename.
+ */
+export type RenameableEntityType = 'project' | 'chat';
+/**
  * A sort direction. Empty cells sort last either way.
  */
 export type SortDirection = 'ascending' | 'descending';
@@ -4260,6 +4407,18 @@ export type ToolEntityType =
   | 'company'
   | 'contact';
 /**
+ * The kinds of item a user can favorite.
+ */
+export type FavoritableEntityType =
+  | 'document'
+  | 'project'
+  | 'chat'
+  | 'channel'
+  | 'email'
+  | 'call'
+  | 'crm_company'
+  | 'crm_contact';
+/**
  * An explicit channel grant delta; omitted channels stay unchanged.
  */
 export type GrantChange =
@@ -4286,6 +4445,22 @@ export type GrantAccess = 'view' | 'edit';
  * Where future mail from this sender lands: `signal`, `noise`, or `block`.
  */
 export type ToolSenderPolicy = 'signal' | 'noise' | 'block';
+/**
+ * Entity types a channel grant can cover.
+ *
+ * Values are the stored entity types. `calendar` is accepted for a calendar
+ * chip, whose stored type is `calendar_event`.
+ */
+export type ChannelShareEntityType =
+  | 'calendar_event'
+  | 'document'
+  | 'chat'
+  | 'project'
+  | 'database'
+  | 'form'
+  | 'call'
+  | 'thread'
+  | 'agent_session';
 /**
  * Content of a text editor code execution response - either a result or an error
  */
@@ -4337,6 +4512,18 @@ export type RoutineChange =
       configuration: RoutineConfiguration;
       type: 'configuration';
     };
+/**
+ * The kind of item whose sharing changes.
+ */
+export type SharingEntityType = 'document' | 'chat' | 'project';
+/**
+ * Who an item's share link admits.
+ */
+export type ShareLinkScope = 'off' | 'public' | 'team';
+/**
+ * A share can be disabled or grant a non-owner permission.
+ */
+export type ShareAccess = 'off' | 'view' | 'comment' | 'edit';
 /**
  * Content of a web fetch response - either a successful result or an error
  */
@@ -4409,6 +4596,112 @@ export type ReadThreadReadContent =
       type: 'itemPreviews';
     };
 
+/**
+ * Add companies or contacts to a CRM pipeline as new deals (entries), optionally setting their stage, owner, revenue or other fields. A company pipeline takes companies and a contact pipeline takes contacts (see ListPipelines' `tracks`). A record already in the pipeline is not added again unless allowDuplicates is true (for a second, separate deal); its existing entry is returned in alreadyPresent instead. Returns the new entries with their entryIds and fields as saved.
+ */
+export interface AddToPipeline {
+  /**
+   * The pipeline's id from ListPipelines.
+   */
+  pipelineId: string;
+  /**
+   * The companies or contacts to add, each with its starting fields.
+   */
+  entries: ToolNewEntry[];
+  /**
+   * Add a record again even if it already has an entry in this pipeline. Only for a genuinely separate second deal. Defaults to false.
+   */
+  allowDuplicates?: boolean | null;
+}
+/**
+ * One company or contact to add.
+ */
+export interface ToolNewEntry {
+  /**
+   * The CRM company or contact id to add (company ids come from ListCompanies). Give this or email.
+   */
+  recordId?: string | null;
+  /**
+   * A contact's email address instead of an id: adds that contact, or in a company pipeline the contact's company.
+   */
+  email?: string | null;
+  /**
+   * Fields to fill in on the new entry, e.g. [{"field": "Stage", "value": "Lead"}, {"field": "Owner", "value": "me"}].
+   */
+  set?: ToolFieldValue[];
+}
+/**
+ * A field and the value to write or match, as text.
+ */
+export interface ToolFieldValue {
+  /**
+   * The field's name exactly as ListPipelines shows it, e.g. "Stage", "Owner", "Revenue".
+   */
+  field: string;
+  /**
+   * The value as text: a stage or other option label ("Negotiation"), a person as "me", an email or a macro| user id, a number ("48000"), true/false, or a date ("2026-10-12"). Omit both value and values to empty the field (or, in a filter, to match empty fields).
+   */
+  value?: string | null;
+  /**
+   * Several values, for a field that holds several (tags, people). In a filter, an entry matches if it holds any of them, e.g. ["Demo", "Trial"] for either stage.
+   */
+  values?: string[] | null;
+}
+/**
+ * The entries added.
+ */
+export interface AddToPipelineResponse {
+  /**
+   * The new entries, as saved.
+   */
+  added: ToolEntry[];
+  /**
+   * Existing entries of requested records that were not added again.
+   */
+  alreadyPresent: ToolEntry[];
+  /**
+   * The pipeline's version after the change.
+   */
+  version?: number | null;
+  /**
+   * What changed.
+   */
+  summary: string;
+}
+/**
+ * One pipeline entry.
+ */
+export interface ToolEntry {
+  /**
+   * Pass as `entryId`.
+   */
+  entryId: string;
+  record: ToolRecord;
+  /**
+   * Its filled-in fields by name: text, a number, true/false, a date, or a
+   * list when a field holds several values. People are macro| user ids.
+   */
+  fields: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * The company or contact an entry tracks.
+ */
+export interface ToolRecord {
+  /**
+   * The CRM company or contact id.
+   */
+  id: string;
+  /**
+   * Its name; missing when the user cannot see the record.
+   */
+  name?: string | null;
+  /**
+   * A company's domain or a contact's email.
+   */
+  detail?: string | null;
+}
 /**
  * Execute a bash command in a sandboxed environment using Claude's built-in code execution tool.
  */
@@ -4899,6 +5192,83 @@ export interface SpreadsheetChange {
   range?: string | null;
 }
 /**
+ * Manage an existing Booking Links meeting found with ListBookings: cancel it, approve a legacy pending booking, record or clear attendance, or reschedule to a start returned by GetBookingRescheduleSlots. Cancellation, approval and rescheduling can notify attendees; explain the action and act only on user authorization. Attendance is available only after a confirmed meeting ends. Existing host/admin permissions and availability rules apply. Returns the actual saved booking; a failed or processing status requires reconciliation, not blind retries. This does not edit the reusable booking link.
+ */
+export interface ChangeBooking {
+  /**
+   * Existing booking ID discovered through ListBookings.
+   */
+  bookingId: string;
+  change: BookingChange;
+}
+/**
+ * Public booking details, also visible to authorized profile members.
+ */
+export interface Booking {
+  /**
+   * Booking identity.
+   */
+  id: string;
+  /**
+   * Booking link identity.
+   */
+  eventTypeId: string;
+  /**
+   * Snapshot of the meeting title.
+   */
+  title: string;
+  /**
+   * Booker's name.
+   */
+  name: string;
+  /**
+   * Booker's email.
+   */
+  email: string;
+  /**
+   * Absolute meeting start.
+   */
+  startsAt: string;
+  /**
+   * Absolute meeting end.
+   */
+  endsAt: string;
+  /**
+   * Booker's display time zone.
+   */
+  timeZone: string;
+  /**
+   * Assigned hosts.
+   */
+  hosts: string[];
+  status: BookingStatus;
+  attendance?: BookingAttendance & string;
+  /**
+   * Number of successfully completed moves to a different start time.
+   */
+  rescheduleCount?: number;
+  /**
+   * When the most recent successful reschedule completed.
+   */
+  rescheduledAt?: string | null;
+  /**
+   * Final location or conference URL.
+   */
+  location: string;
+  /**
+   * Answers keyed by question identity.
+   */
+  answers: {
+    [k: string]: string;
+  };
+  /**
+   * Original labels for answers, independent of later event-type edits.
+   */
+  questionLabels?: {
+    [k: string]: string;
+  };
+}
+/**
  * Comment on a document on behalf of the user. Pass threadId to reply in an existing inline or Discussion thread; pass quote to start a new inline comment on a passage of a Macro markdown or Word (DOCX) document; omit both to start a new Discussion comment on the document as a whole. Replies and Discussion comments support any document type. Only use this when explicitly asked to reply to or comment on a document. Thread ids come from the comments ReadContent returns. For an inline comment, quote the passage exactly as the document reads, as plain text without markdown syntax, within a single paragraph, heading, list item or table cell. If the passage appears more than once the tool refuses and lists each occurrence so you can choose one with occurrence, counting from 1; if the text is not found, read the document again rather than guessing. Do not combine threadId with quote. occurrence only applies with quote. Comments made here stay in Macro and are not written into a Word file; for comments that must travel with a Word document to its recipient (a redline for a counterparty), use EditWordDocument's addComment operation instead.
  */
 export interface CommentOnDocument {
@@ -5141,6 +5511,10 @@ export interface ContentSearch {
    * Which types of items to search. Leave empty (the default) to search all types — this is almost always what you want. Only set this when the user's request clearly targets one or more specific types. Examples: ['documents'], ['emails', 'documents'], ['channels'], ['call_records']. Projects and calendar events carry no indexed content, so they never match here — search those by name with NameSearch instead.
    */
   entityTypes?: UnifiedSearchIndex[];
+  /**
+   * Search only the transcripts of these agent sessions, by id, and nothing else. Use it with your own session id to find the exact words of something said earlier in your conversation, including parts that were summarized to keep it within your context. Omit to search every type.
+   */
+  agentSessionIds?: string[];
   /**
    * Restrict email results to a single connected inbox, given as that inbox's email address (from ListInboxes). Omit to search every inbox the user can access. Only set this when the user scopes the request to a specific mailbox. Only affects email results.
    */
@@ -5831,7 +6205,7 @@ export interface SearchGotoAgentSession {
   author: AgentSessionAuthor;
 }
 /**
- * Create a reusable booking page, not a calendar meeting. First use ListBookingLinks to discover a suitable existing link or reuse availability. Supply a full draft with all seven weekdays (Sunday=0), IANA time zone, and real host IDs; personal links use the authenticated user and individual mode. For a team use a real team ID and collective or roundRobin mode. Set enabled only when the user wants to accept bookings. No invitations are sent by creating a link. Repeating an identical draft with the same slug reuses the saved link; a different draft at that slug conflicts. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. Return the saved URL after execution. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar.
+ * Create a reusable booking page, not a calendar meeting. First use ListBookingLinks to discover a suitable existing link or reuse availability. Supply a full draft with all seven weekdays (Sunday=0), IANA time zone, and real host IDs; personal links use the authenticated user and individual mode. For a team use a real team ID and collective or roundRobin mode. Set enabled only when the user wants to accept bookings. No invitations are sent by creating a link. Repeating an identical draft with the same slug reuses the saved link; a different draft at that slug conflicts. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. After execution, share the saved URL with an <m-booking-link-mention> chip (profileId/slug/url from the result), not a bare URL. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
  */
 export interface CreateBookingLink {
   /**
@@ -5877,7 +6251,15 @@ export interface BookingLinkEvent {
    */
   location: string;
   /**
-   * Generate a Google Meet conference.
+   * Attach a Macro call when someone books. A join link is created for that
+   * booking and written onto the calendar invitation. Mutually exclusive
+   * with `googleMeet`. Prefer this for a Macro booking; omit or false when
+   * the link should use Google Meet or no video. False is omitted so drafts
+   * saved before this field still round-trip unchanged.
+   */
+  macroCall?: boolean;
+  /**
+   * Generate a Google Meet conference. Mutually exclusive with `macroCall`.
    */
   googleMeet: boolean;
   /**
@@ -6128,7 +6510,9 @@ export interface BotWebhook {
  *
  * The event lands on the user's primary calendar unless `calendarId` (from ListCalendars) targets another one. For recurring events pass RFC 5545 lines in `recurrenceLines`, e.g. ["RRULE:FREQ=WEEKLY;BYDAY=MO"]. Returns the created event with its `eventId` for later updates or deletion. Fails if the user has no writable calendar connected.
  *
- * Set `eventType` to "out_of_office" to mark the user as out of office (e.g. "mark me out of office Thursday"). Out-of-office events must land on the user's primary calendar (omit `calendarId`), must be timed rather than all-day, and take no attendees or Google Meet (leave `addGoogleMeet` false); use `outOfOffice` to control whether conflicting meetings are auto-declined. The type cannot be changed afterward.
+ * For video conferencing pick at most one of `addMacroCall` (a Macro meeting link, the default choice for a Macro user's meeting) or `addGoogleMeet` (a Google Meet conference). A Macro call is created for the user, scheduled to the event's times, and its join link is appended to the event's description so every attendee's invitation carries it; it also becomes the event's `location` unless a physical `location` was supplied. The returned event's `macroCallUrl` holds the link.
+ *
+ * Set `eventType` to "out_of_office" to mark the user as out of office (e.g. "mark me out of office Thursday"). Out-of-office events must land on the user's primary calendar (omit `calendarId`), must be timed rather than all-day, and take no attendees or video conferencing (leave `addMacroCall` and `addGoogleMeet` false); use `outOfOffice` to control whether conflicting meetings are auto-declined. The type cannot be changed afterward.
  */
 export interface CreateCalendarEvent {
   /**
@@ -6161,7 +6545,11 @@ export interface CreateCalendarEvent {
    */
   reminders?: EventRemindersInput | null;
   /**
-   * Attach a freshly generated Google Meet video conference to the event.
+   * Attach a freshly created Macro call to the event: a Macro meeting link scheduled to the event's times, written into the event's location and description. Mutually exclusive with `addGoogleMeet`.
+   */
+  addMacroCall?: boolean;
+  /**
+   * Attach a freshly generated Google Meet video conference to the event. Mutually exclusive with `addMacroCall`.
    */
   addGoogleMeet?: boolean;
   eventType?: CalendarEventTypeInput;
@@ -6290,6 +6678,11 @@ export interface ToolCalendarEvent {
    */
   conferenceUrl?: string | null;
   /**
+   * Join URL of the Macro call created with the event, when
+   * CreateCalendarEvent was asked for one.
+   */
+  macroCallUrl?: string | null;
+  /**
    * Whether the user's calendar prohibits modifying this event.
    */
   isReadOnly: boolean;
@@ -6356,7 +6749,38 @@ export interface CreateChannelResponse {
   summary: string;
 }
 /**
- * Create a calendar event immediately, with no review card or composer. Only for a prompt that came from a channel or document thread (the context block says so), where there is nothing to review a draft in. The event is always shown before it is created, even when the user's request already spelled the whole thing out: in one turn write it into the thread - title, date and time with its time zone, duration, guests, location, Google Meet, recurrence - ask whether to create it, and stop there. Call this tool only in a later turn, once the user has replied approving that specific event, quoting that reply verbatim in userConfirmation. Being asked to schedule something is a request to draft the event, never approval to create it, so a userConfirmation quoting the request that asked you to set it up - rather than the reply approving the event you wrote out - is wrong. Never call it in the agent session view or in chat: use CreateCalendarEvent there, whose review card or composer is the confirmation. Takes the same fields as CreateCalendarEvent; the event is written to Google Calendar at once and any attendees receive invitations.
+ * Add a company to the user's team CRM by name and web domain, as New Company in the CRM does. Companies a team emails are usually added automatically, so check ListCompanies first. Set its stage, owner, and other properties afterwards with SetEntityProperty (entity type company).
+ */
+export interface CreateCompany {
+  /**
+   * The company's display name, e.g. "Acme".
+   */
+  name: string;
+  /**
+   * The company's web domain, e.g. "acme.com" — no scheme or path. Contacts are matched to the company by this domain.
+   */
+  domain: string;
+}
+/**
+ * The created company.
+ */
+export interface CreateCompanyResponse {
+  /**
+   * The new CRM company id (usable with GetCompany, CreateContact, and
+   * SetEntityProperty).
+   */
+  companyId: string;
+  /**
+   * The company's display name.
+   */
+  name?: string | null;
+  /**
+   * The company's domains.
+   */
+  domains: string[];
+}
+/**
+ * Create a calendar event immediately, with no review card or composer. Only for a prompt that came from a channel or document thread (the context block says so), where there is nothing to review a draft in. The event is always shown before it is created, even when the user's request already spelled the whole thing out: in one turn write it into the thread - title, date and time with its time zone, duration, guests, location, Google Meet or Macro call, recurrence - ask whether to create it, and stop there. Call this tool only in a later turn, once the user has replied approving that specific event, quoting that reply verbatim in userConfirmation. Being asked to schedule something is a request to draft the event, never approval to create it, so a userConfirmation quoting the request that asked you to set it up - rather than the reply approving the event you wrote out - is wrong. Never call it in the agent session view or in chat: use CreateCalendarEvent there, whose review card or composer is the confirmation. Takes the same fields as CreateCalendarEvent; the event is written to Google Calendar at once and any attendees receive invitations.
  */
 export interface CreateConfirmedCalendarEvent {
   /**
@@ -6389,7 +6813,11 @@ export interface CreateConfirmedCalendarEvent {
    */
   reminders?: EventRemindersInput | null;
   /**
-   * Attach a freshly generated Google Meet video conference to the event.
+   * Attach a freshly created Macro call to the event: a Macro meeting link scheduled to the event's times, written into the event's location and description. Mutually exclusive with `addGoogleMeet`.
+   */
+  addMacroCall?: boolean;
+  /**
+   * Attach a freshly generated Google Meet video conference to the event. Mutually exclusive with `addMacroCall`.
    */
   addGoogleMeet?: boolean;
   eventType?: CalendarEventTypeInput;
@@ -6401,6 +6829,44 @@ export interface CreateConfirmedCalendarEvent {
    * The user's own message approving this specific event, quoted verbatim - for example their "yes, go ahead" in reply to the event you wrote out for them. It is a reply to your draft, never the earlier request that asked you to schedule something: if the user has not yet seen this event, there is nothing to quote here and the tool must not be called. Required: do not paraphrase it, and never supply it yourself.
    */
   userConfirmation: string;
+}
+/**
+ * Add a contact person to a company in the user's team CRM, as Add Contact on a company does. The email's domain must be one of the company's domains. Find the company with ListCompanies, or add it first with CreateCompany.
+ */
+export interface CreateContact {
+  /**
+   * The CRM company id to add the contact to.
+   */
+  companyId: string;
+  /**
+   * The contact's name.
+   */
+  name: string;
+  /**
+   * The contact's email address, e.g. "jane@acme.com".
+   */
+  email: string;
+}
+/**
+ * The created contact.
+ */
+export interface CreateContactResponse {
+  /**
+   * The new CRM contact id.
+   */
+  contactId: string;
+  /**
+   * The company the contact belongs to.
+   */
+  companyId: string;
+  /**
+   * The contact's email.
+   */
+  email: string;
+  /**
+   * The contact's display name.
+   */
+  name?: string | null;
 }
 /**
  * Create a plaintext document or a native Macro spreadsheet. For a workbook use fileExtension spreadsheet, empty fileContent, and isTask false; then ReadSpreadsheet and EditSpreadsheet to populate cells, formulas and sheets. Works without an open editor.
@@ -6933,6 +7399,107 @@ export interface ProjectChannelShare {
   access: string;
 }
 /**
+ * Create a CRM pipeline: a board of deals that move through stages, such as a sales, renewals, fundraising, hiring or partnership pipeline. Each entry tracks either a company or a contact. Every pipeline starts with the tracked record, Stage, Owner and Revenue fields; Stage starts with the team's default stages unless `stages` gives others. Only when the user asked for a new pipeline: check ListPipelines first so you do not create a duplicate. Returns the pipeline with its id and fields.
+ */
+export interface CreatePipeline {
+  /**
+   * The pipeline's name, e.g. "Q4 Renewals".
+   */
+  name: string;
+  tracks: ToolRecordType;
+  /**
+   * Let the user's team see and edit it. Defaults to false: only the user can see it.
+   */
+  sharedWithTeam?: boolean | null;
+  /**
+   * The stages, first to last, e.g. ["Sourced", "Screen", "Interview", "Offer", "Hired"]. Leave empty for the team's default stages.
+   */
+  stages?: string[];
+  /**
+   * Fields to add after Company/Contact, Stage, Owner and Revenue.
+   */
+  fields?: ToolNewField[];
+}
+/**
+ * A field to add to a pipeline.
+ */
+export interface ToolNewField {
+  /**
+   * The new field's name, unique in the pipeline.
+   */
+  name: string;
+  type: ToolNewFieldType;
+  /**
+   * For select and multi_select: the labels to choose from, in order.
+   */
+  options?: string[];
+}
+/**
+ * The pipeline created.
+ */
+export interface CreatePipelineResponse {
+  pipeline: ToolPipeline;
+  /**
+   * What changed.
+   */
+  summary: string;
+}
+/**
+ * A pipeline as the model sees it.
+ */
+export interface ToolPipeline {
+  /**
+   * Pass as `pipelineId`.
+   */
+  id: string;
+  /**
+   * Its name.
+   */
+  name: string;
+  tracks: ToolRecordType;
+  access: ToolPipelineAccess;
+  /**
+   * Whether the owner's team may edit it; otherwise it is private.
+   */
+  sharedWithTeam: boolean;
+  /**
+   * Its fields in column order; the first names the tracked record.
+   */
+  fields: ToolField[];
+  /**
+   * Its version now; pass as `baseVersion` to refuse an update if the
+   * pipeline changed in between.
+   */
+  version: number;
+}
+/**
+ * One field of a pipeline.
+ */
+export interface ToolField {
+  /**
+   * The name to use in `field`.
+   */
+  name: string;
+  type: ToolFieldType;
+  /**
+   * Whether it holds several values.
+   */
+  multiple: boolean;
+  /**
+   * For a select field, its labels in order: for Stage, the pipeline's
+   * stages from first to last.
+   */
+  options: string[];
+  /**
+   * Whether every entry must have a value.
+   */
+  required: boolean;
+  /**
+   * Whether the user cannot write it.
+   */
+  readOnly: boolean;
+}
+/**
  * Create a project — shown as a folder in the app UI. Documents, AI chats, email threads, and other projects can be placed inside it.
  */
 export interface CreateProject {
@@ -7011,6 +7578,32 @@ export interface RoutineInfo {
    * Next scheduled firing, absent after a one-off completes.
    */
   nextRunAt?: string | null;
+}
+/**
+ * Create a skill: a markdown document of reusable instructions that AI reads and follows when the skill is referenced, as Compose Skill in the app does. Write the instructions as the markdown body. Edit an existing skill with EditDocument; find skills with ListSkills or SearchSkills.
+ */
+export interface CreateSkill {
+  /**
+   * The skill's name.
+   */
+  skillName: string;
+  /**
+   * The skill's instructions, in markdown.
+   */
+  markdown: string;
+  /**
+   * The id of the project (shown as a folder in the app UI) to create the skill in. Requires edit access to the project. Omit to create it at the top level of the user's files.
+   */
+  projectId?: string | null;
+}
+/**
+ * The created skill.
+ */
+export interface CreateSkillResponse {
+  /**
+   * The id of the skill document.
+   */
+  documentId: string;
 }
 /**
  * Create a new tag — a colored label the user can apply to documents, emails, tasks, AI chats, and projects — in the user's personal set or their team's shared set. The set is provisioned automatically the first time a tag is created. Tags are matched by label, so call ListTags first and avoid creating one whose label duplicates an existing tag in the same set. Returns the new tag's id and its set's propertyDefinitionId, which you can pass straight to SetEntityProperty (add_option_ids) to apply the tag to an item. Use this only to create a brand-new tag; to apply an existing tag to an item, use ListTags then SetEntityProperty instead.
@@ -7109,6 +7702,54 @@ export interface DeleteCalendarEventResponse {
   summary: string;
 }
 /**
+ * Permanently delete a finished call with its recording and transcript, as Delete on a call does. This cannot be undone. Requires edit access to the call; calls still in progress cannot be deleted. Use only when the user explicitly asks to delete a call.
+ */
+export interface DeleteCallRecord {
+  /**
+   * The id of the call to delete.
+   */
+  callId: string;
+}
+/**
+ * The deleted call.
+ */
+export interface DeleteCallRecordResponse {
+  /**
+   * The deleted call.
+   */
+  callId: string;
+}
+/**
+ * Delete a channel message or thread reply. The channel keeps a 'message deleted' placeholder; this cannot be undone. Users can delete their own messages and messages sent by bots; channel admins and owners can delete any message. Find message ids with ReadChannelMessages or ReadChannelThread. Use only when the user explicitly asks to delete a message.
+ */
+export interface DeleteChannelMessage {
+  /**
+   * Channel id containing the message.
+   */
+  channelId: string;
+  /**
+   * Id of the message to delete.
+   */
+  messageId: string;
+}
+/**
+ * Response from [`DeleteChannelMessage`].
+ */
+export interface DeleteChannelMessageResponse {
+  /**
+   * Channel containing the message.
+   */
+  channelId: string;
+  /**
+   * Deleted message.
+   */
+  messageId: string;
+  /**
+   * Human-readable result summary.
+   */
+  summary: string;
+}
+/**
  * Delete a saved table or board view of a Macro database by its id, from DescribeDatabase. Views are shared with everyone who can open the database, so deleting one needs edit access and removes it for everyone. The table and its records stay; a board's hand-arranged card order goes with it. Only do it when the user asked for that view to go.
  */
 export interface DeleteDatabaseView {
@@ -7141,6 +7782,36 @@ export interface DeletedDatabaseView {
    * The name it went by.
    */
   name: string;
+}
+/**
+ * Delete a comment or reply on a document. Deleting the first comment of a thread deletes the whole thread with its replies. Authors can delete their own comments, and the document owner can delete any comment. This cannot be undone. Comment ids come from the comments ReadContent returns. Use only when the user explicitly asks to delete a comment; use ResolveDocumentComment to close a thread instead.
+ */
+export interface DeleteDocumentComment {
+  /**
+   * The id of the document the comment is on.
+   */
+  documentId: string;
+  /**
+   * The id of the comment or reply to delete, from ReadContent. Pass the thread id to delete the whole thread.
+   */
+  commentId: string;
+}
+/**
+ * The deleted comment.
+ */
+export interface DeleteDocumentCommentResponse {
+  /**
+   * The document the comment was on.
+   */
+  documentId: string;
+  /**
+   * The deleted comment.
+   */
+  commentId: string;
+  /**
+   * Whether the whole thread was deleted.
+   */
+  deletedThread: boolean;
 }
 /**
  * Decline a staged import candidate on the user's behalf. The item is remembered as declined so it won't be proposed again; only the user's own staged items can be declined.
@@ -7181,6 +7852,24 @@ export interface ProjectOperationComplete {
    * True when the operation completed.
    */
   success: boolean;
+}
+/**
+ * Permanently delete a routine owned by the authenticated user, stopping all future runs. This cannot be undone; to stop it temporarily, pause it with UpdateRoutine instead. Use only when the user explicitly asks to delete a routine.
+ */
+export interface DeleteRoutine {
+  /**
+   * Routine UUID.
+   */
+  routineId: string;
+}
+/**
+ * The deleted routine.
+ */
+export interface DeletedRoutine {
+  /**
+   * Routine UUID.
+   */
+  routineId: string;
 }
 /**
  * Permanently delete a tag from the user's personal set or their team's shared set. This removes the tag from every item it is currently applied to, so it is destructive and cannot be undone — confirm with the user first. Both ids come from a ListTags result: `id` is the tag's option id, and `property_definition_id` is the propertyDefinitionId of the set that contains it. To simply remove a tag from a single item without deleting the tag itself, use SetEntityProperty with remove_option_ids instead.
@@ -7359,6 +8048,52 @@ export interface ToolRelation {
   tableId: string;
 }
 /**
+ * Find an integration when an external app is missing or a workflow requires an unconnected account, including native import tools that need a connector. Use SearchTools for available actions. Search by app name, then inspect a returned app_slug to see its actual tools and connection status. Only recommend connecting if an advertised tool supports the task; an app's name alone is not evidence. Inspection does not load or execute tools. If suitable and unconnected, include the returned connect_markup in your reply and explain what connecting enables. After connection, use SearchTools again in the same agent session to load and call the new tools.
+ */
+export interface DiscoverConnectors {
+  request: DiscoveryRequest;
+}
+/**
+ * Discovery metadata and optional markup for a user-controlled auth flow.
+ */
+export interface DiscoverConnectorsResponse {
+  result: DiscoveryResult;
+  /**
+   * Include verbatim only if an advertised tool supports the requested task.
+   */
+  connect_markup?: string | null;
+}
+/**
+ * A verified app identity from the directory.
+ */
+export interface DiscoveredApp {
+  /**
+   * Exact identity to inspect or connect.
+   */
+  app_slug: string;
+  /**
+   * Human-readable app name.
+   */
+  name: string;
+  /**
+   * Directory description; inspect tools to verify specific capabilities.
+   */
+  description?: string | null;
+}
+/**
+ * An advertised action, not a tool loaded into the current turn.
+ */
+export interface ConnectorTool {
+  /**
+   * Upstream tool name.
+   */
+  name: string;
+  /**
+   * What the action supports.
+   */
+  description: string;
+}
+/**
  * Start a new coding agent session for a task using an agent returned by ListCodingAgents. Pass a self-contained task with the relevant repository, requirements, findings, and acceptance criteria; the coding agent does not inherit this conversation. Returns a live session reference after its first prompt is accepted, not completed code. Dispatch once per task and do not retry automatically after an uncertain failure.
  */
 export interface DispatchCodingAgent {
@@ -7403,7 +8138,39 @@ export interface DisplayResultsResponse {
   message: string;
 }
 /**
- * Edit exactly one existing booking link. First read it with ListBookingLinks, preserve all settings the user did not request changing, and pass its revision and full edited draft. Changed availability applies only to this link; other links and personal default hours remain unchanged. A stale revision fails: read again and confirm the updated proposal in conversation instead of overwriting concurrent edits. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. Return the saved URL after execution. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar.
+ * Make a copy of a document (including a task) or an AI chat, owned by the user, as the Duplicate action in the app does. Requires view access to the original. Returns the copy's id.
+ */
+export interface DuplicateItem {
+  entityType: DuplicableEntityType;
+  /**
+   * The id of the item to duplicate.
+   */
+  entityId: string;
+  /**
+   * Name for the copy of a document. Omit to use "<original name> copy". AI chat copies always keep the original name.
+   */
+  name?: string | null;
+}
+/**
+ * The duplicate item response.
+ */
+export interface DuplicateItemResponse {
+  entityType: DuplicableEntityType;
+  /**
+   * The id of the original item.
+   */
+  sourceId: string;
+  /**
+   * The id of the new copy.
+   */
+  copyId: string;
+  /**
+   * A human-readable result message.
+   */
+  message: string;
+}
+/**
+ * Edit exactly one existing booking link. First read it with ListBookingLinks, preserve all settings the user did not request changing, and pass its revision and full edited draft. Changed availability applies only to this link; other links and personal default hours remain unchanged. A stale revision fails: read again and confirm the updated proposal in conversation instead of overwriting concurrent edits. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. After execution, share the saved URL with an <m-booking-link-mention> chip (profileId/slug/url from the result), not a bare URL. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
  */
 export interface EditBookingLink {
   /**
@@ -7426,7 +8193,41 @@ export interface EditBookingLink {
   userConfirmation: string;
 }
 /**
- * Apply AI-driven edits to a Macro markdown document in place -- rewriting, inserting, formatting, or restructuring. Use EditSpreadsheet for native Macro spreadsheets. Markdown documents only: these are authored in Macro's collaborative editor, and are the only documents whose content this tool can rewrite. Edit uploaded Word (.docx) files with ReadWordDocument and EditWordDocument instead. Other uploaded files -- PDFs, images, source files such as .py or .ts -- are readable but not editable, and are rejected. If the response contains a `clarification` field, invoke again with the requested info appended to `instructions`. To insert @-mention chips, include each referenced item's ids and details in `instructions`: userId/email for people; documentId/documentName/blockName (and blockParams when needed) for documents, channels, chats, projects, tasks, emails, calendar events, skills, calls, and routines; session id (and optional expanded card) for agent sessions; ISO datetime plus displayFormat for time chips. To insert document-card(s), include each document's documentId and documentName.
+ * Replace the content of an existing channel message or thread reply. Only the message's author can edit it, so this edits messages the user sent and messages this assistant sent for them; channel admins and owners may also edit others' messages. Find message ids with ReadChannelMessages or ReadChannelThread. Use only when the user asks to edit or correct a message.
+ */
+export interface EditChannelMessage {
+  /**
+   * Channel id containing the message.
+   */
+  channelId: string;
+  /**
+   * Id of the message to edit.
+   */
+  messageId: string;
+  /**
+   * The full replacement message content in macro markdown format. This replaces the whole message, not a fragment of it.
+   */
+  content: string;
+}
+/**
+ * Response from [`EditChannelMessage`].
+ */
+export interface EditChannelMessageResponse {
+  /**
+   * Channel containing the message.
+   */
+  channelId: string;
+  /**
+   * Edited message.
+   */
+  messageId: string;
+  /**
+   * Human-readable result summary.
+   */
+  summary: string;
+}
+/**
+ * Apply AI-driven edits to a Macro markdown document in place -- rewriting, inserting, formatting, or restructuring. Use EditSpreadsheet for native Macro spreadsheets. Markdown documents only: these are authored in Macro's collaborative editor, and are the only documents whose content this tool can rewrite. Edit uploaded Word (.docx) files with ReadWordDocument and EditWordDocument instead. Other uploaded files -- PDFs, images, source files such as .py or .ts -- are readable but not editable, and are rejected. If the response contains a `clarification` field, invoke again with the requested info appended to `instructions`. To insert @-mention chips, include each referenced item's ids and details in `instructions`: userId/email for people; documentId/documentName/blockName (and blockParams when needed) for documents, channels, chats, projects, tasks, emails, calendar events, skills, calls, and routines; session id (and optional expanded card) for agent sessions; ISO datetime plus displayFormat for time chips; profileId/slug/url for booking links. To insert document-card(s), include each document's documentId and documentName.
  */
 export interface EditDocument {
   /**
@@ -7434,7 +8235,7 @@ export interface EditDocument {
    */
   document_id: string;
   /**
-   * Natural language instructions. For @-mention chips, include each item's ids and details: userId/email for people; documentId/documentName/blockName for documents and similar items; session id for agent sessions; ISO datetime and displayFormat for time chips. For document-card(s), include documentId and documentName per document. You may need to look these up.
+   * Natural language instructions. For @-mention chips, include each item's ids and details: userId/email for people; documentId/documentName/blockName for documents and similar items; session id for agent sessions; ISO datetime and displayFormat for time chips; profileId/slug/url for booking links. For document-card(s), include documentId and documentName per document. You may need to look these up.
    */
   instructions: string;
   /**
@@ -7452,6 +8253,36 @@ export interface EditDocumentResponse {
    * If present, invoke this tool again with this information appended to `instructions`.
    */
   clarification?: string | null;
+}
+/**
+ * Replace the text of a comment or reply on a document. Only a comment's author can edit it, so this edits comments the user wrote and comments this assistant wrote for them. Comment ids come from the comments ReadContent returns. Use only when the user asks to edit a comment.
+ */
+export interface EditDocumentComment {
+  /**
+   * The id of the document the comment is on.
+   */
+  documentId: string;
+  /**
+   * The id of the comment or reply to edit, from ReadContent. For the first comment of a thread this is the thread id.
+   */
+  commentId: string;
+  /**
+   * The full replacement text of the comment, in markdown.
+   */
+  content: string;
+}
+/**
+ * The edited comment.
+ */
+export interface EditDocumentCommentResponse {
+  /**
+   * The document the comment is on.
+   */
+  documentId: string;
+  /**
+   * The edited comment.
+   */
+  commentId: string;
 }
 /**
  * Edit the live form using typed targeted operations. ReadForm provides stable question/section IDs. Edits produce granular CRDT updates; concurrent changes merge using the same rules as the builder. Omitted fields stay unchanged. Invalid merged layouts are refused. Changes can add or move questions/sections, edit requiredness/help/screeners and attach an existing booking target. New columns use explicit stable IDs. Question labels follow backing column names; rename them through database tools. Removing a question keeps its column and answers. Schema retyping and conditional column cleanup are unsupported. Keep screeners after the questions they test and booking last. Read the current form after a timeout or partial result before proceeding. Opening and sharing require SetFormAccess.
@@ -7492,6 +8323,113 @@ export interface NewColumnDraft {
    * Fresh saved option ids and labels. Color is currently unsupported.
    */
   options?: QuestionOption[];
+}
+/**
+ * Change a CRM pipeline itself: rename it, share it with the team or make it private (owner only), add, rename or remove fields, and add, rename or remove stages and other select options. Stages are the options of the Stage field: to add a stage use addOptions on "Stage"; to rename one use renameOptions. Removing a field deletes its values from every entry, and removing a stage or option empties it on the entries holding it, so do that only when the user asked. New options go after the existing ones. Field changes apply together, all or nothing. Returns the pipeline with its fields as they are now.
+ */
+export interface EditPipeline {
+  /**
+   * The pipeline's id from ListPipelines.
+   */
+  pipelineId: string;
+  /**
+   * A new name for the pipeline.
+   */
+  name?: string | null;
+  /**
+   * true lets the user's team see and edit it; false makes it private to its owner. Only the owner can change this.
+   */
+  sharedWithTeam?: boolean | null;
+  /**
+   * Fields to add after the existing ones.
+   */
+  addFields?: ToolNewField[];
+  /**
+   * Fields to rename.
+   */
+  renameFields?: ToolRename[];
+  /**
+   * Names of fields to delete with their values. The Company or Contact field cannot be removed.
+   */
+  removeFields?: string[];
+  /**
+   * Stages or other select options to add.
+   */
+  addOptions?: ToolAddOptions[];
+  /**
+   * Stages or other select options to relabel.
+   */
+  renameOptions?: ToolRenameOption[];
+  /**
+   * Stages or other select options to delete.
+   */
+  removeOptions?: ToolRemoveOption[];
+}
+/**
+ * A field to rename.
+ */
+export interface ToolRename {
+  /**
+   * The current name.
+   */
+  from: string;
+  /**
+   * The new name.
+   */
+  to: string;
+}
+/**
+ * Options to add to a select field.
+ */
+export interface ToolAddOptions {
+  /**
+   * The select field, e.g. "Stage".
+   */
+  field: string;
+  /**
+   * Labels to add after the existing ones.
+   */
+  labels: string[];
+}
+/**
+ * An option to relabel.
+ */
+export interface ToolRenameOption {
+  /**
+   * The select field, e.g. "Stage".
+   */
+  field: string;
+  /**
+   * The option's current label.
+   */
+  from: string;
+  /**
+   * Its new label; entries holding it keep it.
+   */
+  to: string;
+}
+/**
+ * An option to delete.
+ */
+export interface ToolRemoveOption {
+  /**
+   * The select field, e.g. "Stage".
+   */
+  field: string;
+  /**
+   * The option to delete.
+   */
+  label: string;
+}
+/**
+ * The pipeline after the change.
+ */
+export interface EditPipelineResponse {
+  pipeline: ToolPipeline;
+  /**
+   * What changed.
+   */
+  summary: string;
 }
 /**
  * Edit a PowerPoint (.pptx) presentation: an ordered batch of operations applied atomically and saved as a new version, so if any operation fails nothing is saved. To make a new deck from an existing one instead (a translation, a variant, a copy to rework), pass saveAs: the edited deck is created as a new presentation, whose documentId is returned for further batches, and the original is left unchanged; operations may then be empty for a plain copy. ReadPresentation first; address slides and shapes by the ids it reports (slide ids are not slide numbers). Positions and sizes are in points from the slide's top-left corner. Text offsets count characters within a paragraph; \n separates paragraphs. Colors are RRGGBB hex or theme names (accent1-accent6, tx1, tx2, bg1, bg2). Use setText to rewrite a shape's text (it keeps each paragraph's formatting), formatText/formatParagraphs for styling (the whole shape when no range is given), formatBody for a text box's margins, autofit, columns, and Text Direction (vertical or stacked text, in table cells too), addSlide with a layout name for new slides (title and body fill its placeholders), addShape for text boxes, preset shapes, lines, tables, charts, or images, setChartData/setChartType/formatChart for charts the read marks editable, mergeCells/formatCells/setTableStyle/setTableGrid for tables (cell text through the text ops with cell), cropPicture/formatPicture for pictures (crop, fill or fit the frame, brightness, contrast, recolor, transparency), groupShapes/ungroupShape, setSlideLayout, setTransition, setAnimations/addAnimation/removeAnimations for a slide's click-through animations (entrance, emphasis, exit, and motion path effects by name, in playback order; setAnimations replaces the whole list and keeps listed existing ones), setShapeEffects for shadows, glows, soft edges, and reflections (by gallery preset name or options; formatText takes text shadow and glow too), setCustomGeometry to redraw a shape's outline as paths in shape-local points (moveTo/lineTo/cubicBezTo/quadBezTo/arcTo/close; the box follows the paths, keeping its formatting and text), mergeShapes to union/combine/fragment/intersect/subtract overlapping shapes (in selection order; the first shape's formatting and id win), SmartArt through addShape {kind: smartArt, layout, items: [{text, level}], colors, style}, editSmartArt (setText, addNode, deleteNode, promote, demote, moveUp, moveDown, setNodes, setLayout, setColors, setStyle, reset, by the node ids the read lists) and convertSmartArt (to shapes or text), equations with insertEquation (LaTeX-style linear text such as \frac{a}{b}, x^2, \sqrt{x}, \sum_{i=1}^{n}; without shape it makes a new centered text box) and setEquation (an equation stands in its paragraph as one U+FFFC character at the index the read lists; delete it with deleteText over that character), review comments with addComment/replyComment/editComment/resolveComment/deleteComment/deleteAllComments (thread ids from the read; legacy threads can only be edited or deleted; sign them with the user's name), slide masters and layouts by passing a master or layout id (the read lists them, at least 2147483648) as slide to shape, text, table, picture, or background ops so the change reaches every slide using it, plus addLayout/renameLayout/deleteLayout/insertPlaceholder/setLayoutOptions and setBackgroundStyle (1-12), setThemeColors/setThemeFonts to restyle the whole deck through its theme (prefer them over recoloring shapes one by one), setHeaderFooter for slide numbers, dates, and footers (omit slides to apply to all), setSlideSize to change the slide size (scale fit shrinks content to the new size), addSection/renameSection/removeSection/moveSection to organize slides into sections (by the section ids the read reports), setGuides to replace the deck's drawing guides, and replaceText for find-and-replace across the deck. Ids of created slides and shapes are returned with the changed slides as they now read; check them. At most 100 operations.
@@ -8161,6 +9099,135 @@ export interface WordDocumentResponse {
   content: string;
 }
 /**
+ * Find deals (entries) in a CRM pipeline: which companies or contacts are in which stage, who owns them, their revenue and other fields. Filter by field values (e.g. Stage is Demo or Trial, Owner is me), by company or contact name/domain/email with `search`, or by record id; sort by any field (Stage sorts in pipeline order). Returns each entry's entryId, the record it tracks (id and name) and its filled-in fields, plus, over every match, the count per stage (and per option of each single-select field) and the total of each number field such as Revenue: use these for questions like "how many deals are in Negotiation" or "what is the pipeline worth". To find where a company or contact is across all pipelines ("what stage is Acme in?"), leave out pipelineId and pass its name as `search` (or its recordIds). Get pipeline ids and field names from ListPipelines.
+ */
+export interface FindPipelineEntries {
+  /**
+   * The pipeline's id from ListPipelines. Leave it out to look in every pipeline by `search` or `recordIds`; filters and sorting need a pipelineId.
+   */
+  pipelineId?: string | null;
+  /**
+   * Only entries whose fields hold these values; all filters must match. Options and people match exactly (labels ignore case), text matches a substring, dates match the day. Example: [{"field": "Stage", "values": ["Demo", "Trial"]}, {"field": "Owner", "value": "me"}].
+   */
+  filters?: ToolFieldValue[];
+  /**
+   * Only entries tracking these CRM company or contact ids.
+   */
+  recordIds?: string[];
+  /**
+   * Text the tracked company's name or domain, or the contact's name or email, must contain, ignoring case (e.g. "acme").
+   */
+  search?: string | null;
+  /**
+   * A field name to order entries by, e.g. "Revenue" or "Stage". Empty fields come last.
+   */
+  sortBy?: string | null;
+  /**
+   * Sort largest, latest or furthest stage first. Defaults to false.
+   */
+  descending?: boolean | null;
+  /**
+   * Most entries to return. Defaults to 50; max 200.
+   */
+  limit?: number | null;
+}
+/**
+ * The entries found.
+ */
+export interface FindPipelineEntriesResponse {
+  /**
+   * Matching entries, grouped by pipeline.
+   */
+  pipelines: ToolPipelineEntries[];
+  /**
+   * How many entries matched; more than returned when `limit` cut them.
+   */
+  matched: number;
+  /**
+   * Whether every entry of the pipeline was read. When false the pipeline
+   * is too large to read whole, and counts and totals are partial.
+   */
+  complete: boolean;
+  /**
+   * Matching entries per stage (and per option of every other
+   * single-select field), over all matches.
+   */
+  counts: ToolOptionCounts[];
+  /**
+   * The sum of every number field, such as Revenue, over all matches.
+   */
+  totals: ToolTotal[];
+  /**
+   * What was found.
+   */
+  summary: string;
+}
+/**
+ * One pipeline's matching entries.
+ */
+export interface ToolPipelineEntries {
+  /**
+   * The pipeline's id.
+   */
+  pipelineId: string;
+  /**
+   * The pipeline's name.
+   */
+  pipelineName: string;
+  /**
+   * The pipeline's version when read; pass as `baseVersion` to
+   * UpdatePipelineEntries to refuse the update if it changed since.
+   */
+  version?: number | null;
+  /**
+   * The entries.
+   */
+  entries: ToolEntry[];
+}
+/**
+ * Matching entries per option of one single-select field, such as Stage.
+ */
+export interface ToolOptionCounts {
+  /**
+   * The field.
+   */
+  field: string;
+  /**
+   * Every option in order with its count.
+   */
+  counts: ToolOptionCount[];
+  /**
+   * Matching entries with the field empty.
+   */
+  empty: number;
+}
+/**
+ * How many matching entries hold one option.
+ */
+export interface ToolOptionCount {
+  /**
+   * The option's label.
+   */
+  label: string;
+  /**
+   * Matching entries holding it.
+   */
+  count: number;
+}
+/**
+ * The sum of a number field over the matching entries.
+ */
+export interface ToolTotal {
+  /**
+   * The field.
+   */
+  field: string;
+  /**
+   * The sum.
+   */
+  sum: number;
+}
+/**
  * Generate or edit an image with Google's Nano Banana image model and save the result in static file service. Use for pictures, illustrations, diagram concepts, logo ideas, mockups, or edits based on reference photos. When the user supplies photos or asks to modify an existing image, pass them in referenceImages; describing a photo in the prompt alone does not send it to the image model. Describe the subject, style, composition, lighting, and any text to render; only the prompt is required. Refer to reference images by their order (image 1, image 2, image 3) when explaining how to use them. Returns the static file ID and image URL. The tool displays the image inline in chat. In channel messages without tool cards, copy the returned markdown verbatim on its own line; it includes dimensions so the image reserves space before loading. Do not cite it as a document. Generation takes several seconds.
  */
 export interface GenerateImage {
@@ -8222,6 +9289,160 @@ export interface GenerateImageResponse {
   note?: string | null;
 }
 /**
+ * Get the same Booking Links summary statistics and chart data as Insights, for inclusive local dates in an IANA time zone (maximum 366 days). Returns current and equally long previous periods: total, completed, rescheduled, cancelled, host/guest no-shows, scheduled meeting minutes, average duration, daily trends, popular hours, and counts by link and host. Optional eventTypeId and hostId filters apply to both periods. Failed and processing requests are excluded. Completed means confirmed and ended without an explicit no-show, not verified attendance. Minutes are scheduled duration, not actual call duration. Rescheduled is counted once per booking. Dates use the booking current start. No guest contact information is returned.
+ */
+export interface GetBookingInsights {
+  /**
+   * Existing team ID, or null for personal insights.
+   */
+  teamId?: string | null;
+  query: InsightQuery;
+}
+/**
+ * Inclusive local dates and optional booking/host filters.
+ */
+export interface InsightQuery {
+  /**
+   * First local date, inclusive.
+   */
+  from: string;
+  /**
+   * Last local date, inclusive; maximum 366 days.
+   */
+  to: string;
+  /**
+   * IANA zone used for dates and hour-of-day grouping.
+   */
+  timeZone: string;
+  /**
+   * Restrict to one booking link; omit for all links.
+   */
+  eventTypeId?: string | null;
+  /**
+   * Restrict to one assigned host; omit for all hosts.
+   */
+  hostId?: string | null;
+}
+/**
+ * Current and equally long preceding local-calendar periods.
+ */
+export interface BookingInsights {
+  /**
+   * Time at which completion was evaluated.
+   */
+  asOf: string;
+  /**
+   * Preceding period's first local date.
+   */
+  previousFrom: string;
+  /**
+   * Preceding period's last local date.
+   */
+  previousTo: string;
+  current: InsightPeriod;
+  previous: InsightPeriod;
+}
+/**
+ * One complete period of metrics and chart data, with no guest contact information.
+ */
+export interface InsightPeriod {
+  counts: InsightCounts;
+  /**
+   * Scheduled minutes of completed meetings, not actual call duration.
+   */
+  meetingMinutes: number;
+  /**
+   * Average scheduled duration of all confirmed bookings, including future ones.
+   */
+  averageMinutes: number;
+  /**
+   * Local-date counts, including dates with zero bookings.
+   */
+  days: {
+    [k: string]: InsightCounts;
+  };
+  /**
+   * Booking counts by local hour, indexed from 0 to 23.
+   */
+  hours: number[];
+  /**
+   * Booking counts by link identity.
+   */
+  eventCounts: {
+    [k: string]: number;
+  };
+  /**
+   * Booking counts by host; collective bookings count once for each host.
+   */
+  hostCounts: {
+    [k: string]: number;
+  };
+}
+/**
+ * Counts can overlap: a rescheduled event can also be completed or cancelled.
+ */
+export interface InsightCounts {
+  /**
+   * All bookings except failed and processing requests.
+   */
+  total: number;
+  /**
+   * Confirmed, ended bookings excluding explicit no-shows.
+   */
+  completed: number;
+  /**
+   * Bookings with at least one completed reschedule, counted once.
+   */
+  rescheduled: number;
+  /**
+   * Cancelled bookings, grouped by their scheduled start.
+   */
+  cancelled: number;
+  /**
+   * Explicit guest no-shows only.
+   */
+  guestNoShow: number;
+  /**
+   * Explicit host no-shows only.
+   */
+  hostNoShow: number;
+}
+/**
+ * Find available replacement times for a booking discovered through ListBookings. The date is in the booking schedule time zone. Only the personal owner, a host of the meeting or team administrators may reschedule it. Returns absolute start/end times for ChangeBooking reschedule; availability is checked again when moving the meeting.
+ */
+export interface GetBookingRescheduleSlots {
+  /**
+   * Existing booking ID from ListBookings.
+   */
+  bookingId: string;
+  /**
+   * Date in the booking schedule time zone.
+   */
+  date: string;
+}
+/**
+ * Authorized booking slots.
+ */
+export interface BookingSlotsResult {
+  /**
+   * Complete list of matching slots.
+   */
+  slots: Slot[];
+}
+/**
+ * Available slot and the hosts who can satisfy it.
+ */
+export interface Slot {
+  /**
+   * Absolute start.
+   */
+  startsAt: string;
+  /**
+   * Absolute end.
+   */
+  endsAt: string;
+}
+/**
  * Get the channel-specific webhook URLs for a bot the current user can manage. A bot has one URL per channel it can access. POST message content to a returned webhookUrl and authenticate with a token minted from the chat card or bot settings after IssueBotCredential or CreateBot; send it in the returned credentialHeader and send credentialScope in credentialScopeHeader. If no URLs are returned, add the bot to a channel with ManageBotChannelAccess or recreate it with CreateBot and channelId.
  */
 export interface GetBotWebhooks {
@@ -8260,7 +9481,7 @@ export interface GetBotWebhooksResponse {
   summary: string;
 }
 /**
- * Fetch one of the team's CRM companies by id, with its domains, contacts, pipeline Stage / Owner / Revenue, and all attached property values (including custom properties and the valid stage options). Use ListCompanies to find company ids. To change a property (move stage, set owner/revenue, or edit a custom property) call SetEntityProperty with entity_type=company, the company id, and a property_definition_id / option id from this response.
+ * Fetch one of the team's CRM companies by id, with its domains, contacts, its own Stage / Owner / Revenue properties (not a pipeline deal's), and all attached property values (including custom properties and the valid stage options). Use ListCompanies to find company ids. To change one of the company's own properties (its Stage, Owner, Revenue or a custom property) call SetEntityProperty with entity_type=company, the company id, and a property_definition_id / option id from this response. Deals in a pipeline have their own stage and fields: find them with FindPipelineEntries (recordIds = this company's id) and change them with UpdatePipelineEntries.
  */
 export interface GetCompany {
   /**
@@ -8305,7 +9526,8 @@ export interface GetCompanyResponse {
    */
   lastInteraction: string;
   /**
-   * The company's pipeline stage, if set.
+   * The company's own Stage property, if set; separate from any
+   * pipeline entry's stage.
    */
   stage?: ToolCompanyStage | null;
   /**
@@ -8331,7 +9553,7 @@ export interface GetCompanyResponse {
   summary: string;
 }
 /**
- * A company's pipeline stage: the select option id currently set plus its
+ * A company's own Stage property: the select option id currently set plus its
  * human-readable label.
  */
 export interface ToolCompanyStage {
@@ -8750,7 +9972,7 @@ export interface ListAgentsResponse {
   summary: string;
 }
 /**
- * Discover and reuse the user's booking links before creating one. Returns shareable URLs, enabled/paused state, full drafts and revision for EditBookingLink, plus reusable availability schedules and the user's host ID. Searches title, slug and description; omit query for all (at most 100). Omit teamId for personal links; use a team ID returned in teamIds for team links. This read never creates settings. These are reusable scheduling pages, not calendar meetings.
+ * Discover and reuse the user's booking links before creating one. Returns shareable URLs, enabled/paused state, full drafts and revision for EditBookingLink, plus reusable availability schedules and the user's host ID. Searches title, slug and description; omit query for all (at most 100). Omit teamId for personal links; use a team ID returned in teamIds for team links. This read never creates settings. These are reusable scheduling pages, not calendar meetings. When sharing a returned URL in Markdown, use an <m-booking-link-mention> chip with profileId/slug/url, not a bare URL.
  */
 export interface ListBookingLinks {
   /**
@@ -8815,6 +10037,32 @@ export interface Schedule {
    * Date-specific replacements.
    */
   overrides: DateOverride[];
+}
+/**
+ * Read every booking starting in a half-open timestamp range for personal or team Booking Links. Returns IDs, status, hosts, guest details, answers, attendance and reschedule history; use these IDs to manage meetings. Both timestamps are required, with an explicit UTC offset. Maximum range 733 days. Oversized result sets fail rather than silently truncating: narrow the range. Use GetBookingInsights for aggregate statistics.
+ */
+export interface ListBookings {
+  /**
+   * Existing team ID, or null for personal bookings.
+   */
+  teamId?: string | null;
+  /**
+   * Inclusive start timestamp.
+   */
+  from: string;
+  /**
+   * Exclusive end timestamp.
+   */
+  to: string;
+}
+/**
+ * Authorized booking bookings.
+ */
+export interface BookingsResult {
+  /**
+   * Complete list of matching bookings.
+   */
+  bookings: Booking[];
 }
 /**
  * List every active bot the current user can manage, including user-owned bots and bots owned by teams they belong to. Use this to discover a botId before issuing credentials, reading webhook URLs, changing channel access, configuring, or deleting a bot.
@@ -9071,7 +10319,7 @@ export interface CodingAgent {
   model?: string | null;
 }
 /**
- * List the CRM companies tracked by the authenticated user's team, sorted by most recent interaction. Each row includes the company id, name, domains, last interaction time, and its pipeline Stage / Owner / Revenue properties when set. Use the filters to narrow results: `search` for name/domain text, `stage` for pipeline stage, `owner_user_id` for companies owned by a user. Use GetCompany for one company's full details (contacts + all properties), and SetEntityProperty with entity_type=company to move stages or update owner/revenue/custom properties.
+ * List the CRM companies tracked by the authenticated user's team, sorted by most recent interaction. Each row includes the company id, name, domains, last interaction time, and the company's own Stage / Owner / Revenue properties when set (not a pipeline deal's). Use the filters to narrow results: `search` for name/domain text, `stage` for the company's own Stage property, `owner_user_id` for companies owned by a user. Use GetCompany for one company's full details (contacts + all properties), and SetEntityProperty with entity_type=company to change the company's own Stage / Owner / Revenue or custom properties. Deals in a pipeline have their own stage and fields, separate from these: use FindPipelineEntries and UpdatePipelineEntries for them.
  */
 export interface ListCompanies {
   /**
@@ -9079,7 +10327,7 @@ export interface ListCompanies {
    */
   search?: string | null;
   /**
-   * Filter to companies in this pipeline stage. Accepts a stage label matched case-insensitively (e.g. "lead", "Customer" — teams may have custom stage names) or a stage option UUID.
+   * Filter to companies whose own Stage property (not a pipeline deal's stage) is this. Accepts a stage label matched case-insensitively (e.g. "lead", "Customer" — teams may have custom stage names) or a stage option UUID.
    */
   stage?: string | null;
   /**
@@ -9134,7 +10382,8 @@ export interface CompanyListItem {
    */
   lastInteraction: string;
   /**
-   * The company's pipeline stage, if set.
+   * The company's own Stage property, if set; separate from any
+   * pipeline entry's stage.
    */
   stage?: ToolCompanyStage | null;
   /**
@@ -9211,6 +10460,10 @@ export interface ListEntities {
    * Filter returned items to specific item types. If not provided, returns all types. Example: ["document", "email"] returns only documents and emails. Macro tasks are returned as document items, so use includeTypes=["document"] with df subtype task for task requests. This is folded into the AST and applied as part of cursor-level filtering.
    */
   includeTypes?: ItemType[] | null;
+  /**
+   * Only return items the user has favorited (starred). Use for requests like "my favorites" or "what have I starred". Combine with includeTypes and the other filters as usual. Favorite or unfavorite an item with SetFavorite.
+   */
+  favoritesOnly?: boolean;
   sortBy?: SortBy;
   /**
    * Full soup AST document filter (df). Use the same shape as /items/soup/ast, e.g. {"l":{"id":"..."}}. For Macro tasks, use {"l":{"dst":"task"}}; for skills, {"l":{"dst":"skill"}}. For "completed yesterday", AND the task subtype with updatedAt bounds, e.g. {"&":[{"l":{"dst":"task"}},{"&":[{"l":{"ua":{"gte":"<start>"}}},{"l":{"ua":{"lt":"<end>"}}}]}]} using ISO timestamps.
@@ -9664,6 +10917,23 @@ export interface NotificationItem {
   senderId?: string | null;
 }
 /**
+ * List the user's CRM pipelines (deal pipelines, sales pipelines, hiring or partner pipelines) with their stages and fields. A pipeline holds entries (deals); each entry tracks one CRM company or contact and has its own fields, such as Stage, Owner and Revenue. Each pipeline lists its id, whether it tracks companies or contacts, the user's access, and its fields in order with their types; a select field lists its options, so Stage lists the pipeline's stages from first to last. Call this first whenever the user talks about deals, a pipeline, a stage, or moving a company or contact along, then use FindPipelineEntries, AddToPipeline and UpdatePipelineEntries with the returned pipelineId and field names. When the user names no pipeline and there is exactly one, use it; when several could match, ask which one.
+ */
+export type ListPipelines = {};
+/**
+ * The user's pipelines.
+ */
+export interface ListPipelinesResponse {
+  /**
+   * Every live pipeline the user can see.
+   */
+  pipelines: ToolPipeline[];
+  /**
+   * What was found.
+   */
+  summary: string;
+}
+/**
  * Find the authenticated user’s routines, including work delegated to other agents. Filter by name/instructions or enabled state. Returns up to 50 matches and the full count; narrow the query if truncated. Use ReadRoutine for history.
  */
 export interface ListRoutines {
@@ -9978,6 +11248,59 @@ export interface MoveToProjectResponse {
   message: string;
 }
 /**
+ * Delete a document (including a task), an AI chat, or a project (folder) by moving it to the trash, as the Delete action in the app does. Trashing a project also trashes everything inside it. Only the item's owner can trash it. Use only when the user explicitly asks to delete an item. Channels, email threads, and calendar events are not deleted with this tool.
+ */
+export interface MoveToTrash {
+  entityType: TrashableEntityType;
+  /**
+   * The id of the item to move to the trash.
+   */
+  entityId: string;
+}
+/**
+ * The move to trash response.
+ */
+export interface MoveToTrashResponse {
+  entityType: TrashableEntityType;
+  /**
+   * The trashed item's id.
+   */
+  entityId: string;
+  /**
+   * A human-readable result message.
+   */
+  message: string;
+}
+/**
+ * Mute, snooze, or unmute notifications about one item for the user only, as Mute and Snooze in the app do. Muting never changes anyone else's notifications or the item itself. Use the entity type and id from ListNotifications or other tools.
+ */
+export interface MuteNotifications {
+  entityType: NotificationEntityType;
+  /**
+   * The item's id.
+   */
+  entityId: string;
+  action: MuteAction;
+  /**
+   * When notifications resume, as an ISO 8601 timestamp in the future. Required for snooze; omit otherwise.
+   */
+  snoozeUntil?: string | null;
+}
+/**
+ * The item's notification state after the change.
+ */
+export interface MuteNotificationsResponse {
+  /**
+   * The item's id.
+   */
+  entityId: string;
+  action: MuteAction;
+  /**
+   * When a snooze ends.
+   */
+  snoozeUntil?: string | null;
+}
+/**
  * Search items by their name or title: document name, email subject, chat title, channel name, project name, or call-record name. This is keyword search, not semantic search: queries only match literal words/tokens, prefixes, or exact quoted terms that appear in the indexed title/name. Use this for targeted name/title lookup, not for activity-summary questions like "what happened today", "what's going on", "catch me up", or "what happened in standup today"; those should start with ListEntities using time/type/channel filters. For emails, whitespace-separated terms are ANDed and each is a prefix match against the subject. For all other types the whole query is matched as a single adjacent phrase prefix — so pass 1-3 targeted keywords drawn from words that would literally appear in the title, not the user's natural-language description; long phrases will not match. Matching defaults to prefix; set matchType to 'exact' to match whole tokens/phrases with no prefix expansion. Wrap a multi-word phrase in double quotes to keep it together as one adjacent phrase. If the user's request combines a person with a topic, run separate searches (NameSearch for the person, ContentSearch for the topic) rather than one combined query. Leave entityTypes empty by default; only filter when the user explicitly scopes to a type. Results for documents, emails, AI chats, projects, and call records include the tags visible to the user as {label, scope} pairs; to restrict a search to tagged items, pass the tag labels in the tags argument (ListTags shows which tags exist).
  */
 export interface NameSearch {
@@ -9999,6 +11322,36 @@ export interface NameSearch {
    */
   tags?: TagFilter[] | null;
   tagsMatch?: TagMatch;
+}
+/**
+ * Find the user's direct-message conversation with one or more people, creating it if it does not exist yet, and return its channel id. One person opens a 1:1 DM; several open a group DM with exactly that set of people. Use this before SendChannelMessage when the user asks to message someone directly and no channel id is known. Find people with ListTeamMembers.
+ */
+export interface OpenDirectMessage {
+  /**
+   * The other people in the conversation, as Macro user ids (`macro|<email>`) or emails. Do not include the user.
+   */
+  participants: string[];
+}
+/**
+ * Response from [`OpenDirectMessage`].
+ */
+export interface OpenDirectMessageResponse {
+  /**
+   * The direct-message channel.
+   */
+  channelId: string;
+  /**
+   * Whether the conversation was newly created.
+   */
+  created: boolean;
+  /**
+   * Canonical ids of the other participants.
+   */
+  participants: string[];
+  /**
+   * Human-readable result summary.
+   */
+  summary: string;
 }
 /**
  * Run SQL against the current user's Macro databases — the only way to read or change their rows. SELECT to answer a question, INSERT/UPDATE/DELETE to change data, CREATE/ALTER/DROP to edit schema. One statement per call.
@@ -10180,6 +11533,46 @@ export interface SelectOption {
   label: string;
 }
 /**
+ * Add or remove the user's own emoji reaction on a channel message or thread reply. The reaction is shown as coming from the user. Find message ids with ReadChannelMessages or ReadChannelThread. Use only when the user asks to react to a message.
+ */
+export interface ReactToChannelMessage {
+  /**
+   * Channel id containing the message.
+   */
+  channelId: string;
+  /**
+   * Id of the message to react to.
+   */
+  messageId: string;
+  /**
+   * The emoji itself as a Unicode character, for example 👍 or 🎉 — not a shortcode like :thumbsup:.
+   */
+  emoji: string;
+  action?: ReactionAction & string;
+}
+/**
+ * Response from [`ReactToChannelMessage`].
+ */
+export interface ReactToChannelMessageResponse {
+  /**
+   * Channel containing the message.
+   */
+  channelId: string;
+  /**
+   * Message reacted to.
+   */
+  messageId: string;
+  /**
+   * Emoji added or removed.
+   */
+  emoji: string;
+  action: ReactionAction;
+  /**
+   * How many people reacted with this emoji after the change.
+   */
+  count: number;
+}
+/**
  * Read actions attributed to the authenticated user within a time range, newest first. Use this for questions about what the user did, including actions an agent performed on their behalf. Property changes include propertyName/propertyType plus fromLabels/toLabels for resolved select and tag values; use those human-readable fields in the answer and never expose property or option ids. Do not use this for organization-wide updates or everything that happened to entities the user can access; use ListEntities for those. Returns at most 100 activities and reports when the result was truncated.
  */
 export interface ReadActivity {
@@ -10226,6 +11619,142 @@ export interface ToolActivityEvent {
    * When the action occurred.
    */
   occurredAt: string;
+}
+/**
+ * Read the full personal or team Booking Links configuration: booking-page name and introduction, reusable schedules, default availability, and all link settings with IDs and revision. Omit teamId for personal. Discover team IDs using ListBookingLinks. This read does not create a profile. Use the returned profile with UpdateBookingSettings to change shared availability or page settings.
+ */
+export interface ReadBookingSettings {
+  /**
+   * Existing team ID from ListBookingLinks, or null for personal settings.
+   */
+  teamId?: string | null;
+}
+/**
+ * Editable settings together with the public booking-page address.
+ */
+export interface BookingSettingsResult {
+  profile: Profile;
+  /**
+   * Public booking page; a revision-zero profile must be saved before sharing.
+   */
+  pageUrl: string;
+}
+/**
+ * Editable configuration for a person or team.
+ */
+export interface Profile {
+  /**
+   * Public, opaque profile identity.
+   */
+  id: string;
+  /**
+   * Display name on the public page.
+   */
+  name: string;
+  /**
+   * Public introduction.
+   */
+  description: string;
+  /**
+   * Reusable schedules.
+   */
+  schedules: Schedule[];
+  /**
+   * Personal hours used by team events; absent legacy profiles use their first schedule.
+   */
+  defaultScheduleId?: string | null;
+  /**
+   * Booking links.
+   */
+  eventTypes: EventType[];
+  /**
+   * Optimistic concurrency version.
+   */
+  revision: number;
+}
+/**
+ * A reusable booking link.
+ */
+export interface EventType {
+  /**
+   * Stable identity.
+   */
+  id: string;
+  /**
+   * Public title.
+   */
+  title: string;
+  /**
+   * Unique link segment within a profile.
+   */
+  slug: string;
+  /**
+   * Public description.
+   */
+  description: string;
+  /**
+   * Meeting duration.
+   */
+  durationMinutes: number;
+  /**
+   * Meeting location.
+   */
+  location: string;
+  /**
+   * Generate a Macro call and attach its join link when someone books.
+   * Mutually exclusive with Google Meet. Omitted on links saved before
+   * Macro calls were a booking option, which keep their previous conference.
+   */
+  macroCall?: boolean;
+  /**
+   * Generate a Google Meet conference. Mutually exclusive with a Macro call.
+   */
+  googleMeet: boolean;
+  /**
+   * Whether new bookings are accepted.
+   */
+  enabled: boolean;
+  /**
+   * Referenced availability schedule.
+   */
+  scheduleId: string;
+  mode: SchedulingMode;
+  /**
+   * Current Macro user identities selected as hosts.
+   */
+  hosts: string[];
+  /**
+   * Protected time before a meeting.
+   */
+  beforeMinutes: number;
+  /**
+   * Protected time after a meeting.
+   */
+  afterMinutes: number;
+  /**
+   * Minimum notice in minutes.
+   */
+  noticeMinutes: number;
+  /**
+   * Maximum days ahead.
+   */
+  horizonDays: number;
+  /**
+   * Spacing of offered start times.
+   */
+  intervalMinutes: number;
+  /**
+   * Maximum bookings for this event on one schedule-local day.
+   */
+  dailyLimit?: number | null;
+  /**
+   * Hold bookings for host approval.
+   */
+  requiresConfirmation: boolean;
+  /**
+   * Additional form fields.
+   */
+  questions: Question[];
 }
 /**
  * Retrieve the transcript for a specific call record. Use ListEntities with includeTypes: ["call"] first to find the callId. Only the transcript is returned — other metadata (participants, duration, etc.) is already available from ListEntities. In transcript segments, speakerId is the associated user/track, not guaranteed speaker identity; use diarizedSpeakerId to distinguish actual voices, and treat different diarizedSpeakerIds as potentially different speakers even if speakerId is the caller/"you".
@@ -11430,6 +12959,40 @@ export interface ReadWordDocument {
   count?: number | null;
 }
 /**
+ * Remove deals (entries) from a CRM pipeline, deleting their stage and other pipeline fields. The companies and contacts themselves stay in the CRM and in other pipelines. Address entries by entryId, or by the company or contact id they track (which removes every entry of that record in this pipeline). Only when the user asked to remove them.
+ */
+export interface RemoveFromPipeline {
+  /**
+   * The pipeline's id from ListPipelines.
+   */
+  pipelineId: string;
+  /**
+   * Entry ids from FindPipelineEntries.
+   */
+  entryIds?: string[];
+  /**
+   * CRM company or contact ids whose entries to remove.
+   */
+  recordIds?: string[];
+}
+/**
+ * The entries removed.
+ */
+export interface RemoveFromPipelineResponse {
+  /**
+   * Each removed entry as it was.
+   */
+  removed: ToolEntry[];
+  /**
+   * The pipeline's version after the change.
+   */
+  version?: number | null;
+  /**
+   * What changed.
+   */
+  summary: string;
+}
+/**
  * Rename an existing channel. Requires the current user to be an active channel participant. Direct-message channels cannot be renamed. Use only when the user asks to rename a channel.
  */
 export interface RenameChannel {
@@ -11494,6 +13057,34 @@ export interface RenameDocumentResponse {
   message: string;
 }
 /**
+ * Rename a project (shown as a folder in the app) or an AI chat. Renaming a project requires edit access; renaming an AI chat requires owning it. Use RenameDocument for documents and tasks, and RenameChannel for channels.
+ */
+export interface RenameItem {
+  entityType: RenameableEntityType;
+  /**
+   * The id of the item to rename.
+   */
+  entityId: string;
+  /**
+   * The new name.
+   */
+  name: string;
+}
+/**
+ * The rename item response.
+ */
+export interface RenameItemResponse {
+  entityType: RenameableEntityType;
+  /**
+   * The renamed item's id.
+   */
+  entityId: string;
+  /**
+   * The new name.
+   */
+  name: string;
+}
+/**
  * Resolve or reopen a comment thread on a document on behalf of the user. Only use this when explicitly asked to resolve or reopen a comment. Thread ids come from the comments ReadContent returns.
  */
 export interface ResolveDocumentComment {
@@ -11526,6 +13117,30 @@ export interface ResolveDocumentCommentResponse {
    * Whether the thread is now resolved.
    */
   resolved: boolean;
+}
+/**
+ * Start a routine owned by the authenticated user now, outside its schedule, as Run Now in the app does. The run continues after this returns; check its result later with ReadRoutine. Fails if the routine is already running.
+ */
+export interface RunRoutine {
+  /**
+   * Routine UUID.
+   */
+  routineId: string;
+}
+/**
+ * A run started on demand; it continues after the call returns.
+ */
+export interface RoutineRunStarted {
+  /**
+   * The routine that is running.
+   */
+  routineId: string;
+  /**
+   * The chat or agent session the run writes to, when the scheduler reports one.
+   */
+  resource?: {
+    [k: string]: unknown;
+  };
 }
 /**
  * Save a read-only SELECT as a live question and get back the block that shows its answer. Paste the returned `markdown` verbatim, into your reply or into a document with CreateDocument/EditDocument, and it renders as a live number, table, or chart that re-runs for whoever views it, with their permissions, so it stays current as the data changes.
@@ -11804,6 +13419,11 @@ export interface SendConfirmedEmail {
    */
   includeSignature?: boolean | null;
   /**
+   * Macro documents to attach as files (optional). Each must be an
+   * uploaded file the user can view; together they may total 18 MB.
+   */
+  attachments?: EmailAttachment[];
+  /**
    * The user's own message approving this specific email, quoted verbatim - for example their "yes, send it" in reply to the email you wrote out for them. It is a reply to your draft, never the earlier request that asked you to write one: if the user has not yet seen this email, there is nothing to quote here and the tool must not be called. Required: do not paraphrase it, and never supply it yourself.
    */
   userConfirmation: string;
@@ -11822,7 +13442,19 @@ export interface EmailRecipient {
   name?: string | null;
 }
 /**
- * Draft, compose, and send an email the user confirms in a review card or composer. Use this tool whenever the user asks you to draft, write, compose, or send an email (or reply to one) from the agent session view or from chat — never write the email as plain text there. It opens the draft for the user to review, edit, and confirm before it is sent, so it is the correct tool even when the user only wants a draft. Do NOT use it for a prompt that came from a channel or document thread — the context block names a conversation parent when it did, and there is no surface to review a draft in: write the email out in your reply, ask whether to send it, and use SendConfirmedEmail once the user approves. To reply to an existing message, provide the replying_to_id. Write the body in Markdown — use **bold**, *italics*, lists, links, and other standard Markdown formatting. The draft composer renders the Markdown for the user to review and edit; the composer produces HTML that is sent as the actual email body.
+ * A Macro document attached to an outgoing email as a file.
+ */
+export interface EmailAttachment {
+  /**
+   * The id of the Macro document to attach. It must be a stored file -
+   * an uploaded PDF, image, spreadsheet, Word document, or other upload -
+   * that the user can view. A Macro-native document (one written in the
+   * editor) has no file to attach; link to it in the body instead.
+   */
+  documentId: string;
+}
+/**
+ * Draft, compose, and send an email the user confirms in a review card or composer. Use this tool whenever the user asks you to draft, write, compose, or send an email (or reply to one) from the agent session view or from chat — never write the email as plain text there. It opens the draft for the user to review, edit, and confirm before it is sent, so it is the correct tool even when the user only wants a draft. Do NOT use it for a prompt that came from a channel or document thread — the context block names a conversation parent when it did, and there is no surface to review a draft in: write the email out in your reply, ask whether to send it, and use SendConfirmedEmail once the user approves. To reply to an existing message, provide the replying_to_id. To attach files, list the Macro documents in attachments — uploaded files such as PDFs, images, spreadsheets, or Word documents the user can view; the user can add or remove attachments in the composer before sending. Write the body in Markdown — use **bold**, *italics*, lists, links, and other standard Markdown formatting. The draft composer renders the Markdown for the user to review and edit; the composer produces HTML that is sent as the actual email body.
  */
 export interface SendEmail {
   /**
@@ -11860,6 +13492,11 @@ export interface SendEmail {
    * excludes the signature for this one email.
    */
   includeSignature?: boolean | null;
+  /**
+   * Macro documents to attach as files (optional). Each must be an
+   * uploaded file the user can view; together they may total 18 MB.
+   */
+  attachments?: EmailAttachment[];
 }
 /**
  * Set or update a property value on an entity. Tasks are targeted as entity_type='document'. Projects in the Tasks UI are entity_type='initiative'; entity_type='project' still means a folder. Initiatives share the Assignees, Status, Priority and Due Date definitions below and their clearing behavior. Project Status accepts only Not Started (00000001-0000-0000-0002-000000000001), In Progress (...0002), and Completed (...0004); In Review and Canceled are task-only options. Provide the property_definition_id and exactly one value field matching the property's data type.
@@ -11879,7 +13516,7 @@ export interface SendEmail {
  * - Project (00000001-0000-0000-0000-000000000014): entity, single. Use entity_ref with entity_type='initiative' and the project UUID; send no value field to remove the task from its project. Setting it requires edit access to the task and the project, and the project's agents are assigned to the task.
  *
  * CRM companies (entity_type='company', entity_id=the company UUID) always have these system properties:
- * - Stage (00000001-0000-0000-0000-000000000010): select_string, single. Use option_id. Default options: Lead (00000001-0000-0000-0010-000000000001), Qualified (...0002), Demo (...0003), Trial (...0004), Negotiation (...0005), Customer (...0006), Churned (...0007). Teams can customize their stages, so prefer calling GetCompany or GetEntityProperties first to get the valid stage option ids.
+ * - Stage (00000001-0000-0000-0000-000000000010): select_string, single. Use option_id. Default options: Lead (00000001-0000-0000-0010-000000000001), Qualified (...0002), Demo (...0003), Trial (...0004), Negotiation (...0005), Customer (...0006), Churned (...0007). Teams can customize their stages, so prefer calling GetCompany or GetEntityProperties first to get the valid stage option ids. This is the company's own Stage, not a deal's stage in a CRM pipeline: move pipeline deals with UpdatePipelineEntries.
  * - Owner (00000001-0000-0000-0000-000000000011): entity, single. Use entity_ref with entity_type='user' and entity_id='macro|email@domain.com'.
  * - Revenue (00000001-0000-0000-0000-000000000012): number, single. Use number_value (dollars).
  * Any member of the owning team can edit visible company properties; hidden records remain admin/owner-only.
@@ -11961,6 +13598,34 @@ export interface SetEntityPropertyResponse {
   message: string;
 }
 /**
+ * Add an item to the user's favorites (shown starred in the app sidebar) or remove it, as the Favorite action does. Requires view access to add an item. List favorites with ListEntities and favoritesOnly.
+ */
+export interface SetFavorite {
+  entityType: FavoritableEntityType;
+  /**
+   * The id of the item.
+   */
+  entityId: string;
+  /**
+   * True to add the item to favorites, false to remove it.
+   */
+  favorite: boolean;
+}
+/**
+ * The item's favorite state after the change.
+ */
+export interface SetFavoriteResponse {
+  entityType: FavoritableEntityType;
+  /**
+   * The item's id.
+   */
+  entityId: string;
+  /**
+   * Whether the item is now a favorite.
+   */
+  favorite: boolean;
+}
+/**
  * Open, close or share a saved form immediately. Requires Form Owner. Supply complete audience/status/deadline/tally settings and explicit channel grant deltas; empty deltas change no grants. Public allows anonymous responses. View allows responding without database access; channel Edit grants editing of the entire backing database. Uses the existing Forms settings and sharing services without a review step. This never posts a message or sends invitations. Settings and channel grants are separate writes; inspect partial results before retrying. Returns actual access, canonical links and acceptingResponses; a URL alone does not mean the form is open.
  */
 export interface SetFormAccess {
@@ -12029,6 +13694,38 @@ export interface SetSenderPolicyResponse {
   inbox: string;
   /**
    * A human-readable summary of the change.
+   */
+  summary: string;
+}
+/**
+ * Share an item with the current members of a channel by writing a channel entity-access grant. Call it only after the user agrees to share that item, or when they already asked you to share it. entityType is the stored type: calendar_event for a calendar chip, document, chat, project, database, form, call, thread, or agent_session. entityId is that item's id. A calendar event can be shared only by someone who holds it on their own calendar, and private or confidential events are refused. Sharing again is safe when a grant already exists.
+ */
+export interface ShareWithChannel {
+  /**
+   * Channel id whose current members should be able to view the item.
+   */
+  channelId: string;
+  /**
+   * Id of the item to share. For a calendar chip this is the event id in documentId.
+   */
+  entityId: string;
+  entityType: ChannelShareEntityType;
+}
+/**
+ * Confirmation that the channel grant is in place.
+ */
+export interface ShareWithChannelResponse {
+  /**
+   * Channel that received the grant.
+   */
+  channelId: string;
+  /**
+   * Shared entity id.
+   */
+  entityId: string;
+  entityType: ChannelShareEntityType;
+  /**
+   * Human-readable result.
    */
   summary: string;
 }
@@ -12117,6 +13814,20 @@ export interface TextEditorCodeExecutionToolError {
   error_code: CodeExecutionErrorCode;
 }
 /**
+ * Update Booking Links settings after reading ReadBookingSettings. Pass the full profile with its current revision, preserving fields the user did not request changing. Supports booking-page name and introduction; adding, editing and deleting reusable schedules and date overrides; changing defaultScheduleId; reassigning link schedules; duplicating, deleting, enabling or pausing links. Generate new UUIDs for new schedules, links and questions; preserve existing IDs. Changing a shared schedule affects every link referencing it and personal default hours affect team hosting. Deleting a link does not cancel existing bookings. Explain affected links before changing shared hours or deleting. A stale revision fails: re-read and reconcile rather than overwriting. Use CreateBookingLink or EditBookingLink for ordinary single-link authoring and their conversational confirmation contract. Any team member can edit team settings. Before saving, explain the proposed changes and their personal/team scope, ask whether to proceed, and wait for the user's approving reply in a later turn. Quote that reply verbatim in userConfirmation. Do not use the original request as confirmation.
+ */
+export interface UpdateBookingSettings {
+  /**
+   * Existing team ID from discovery, or null for personal settings.
+   */
+  teamId?: string | null;
+  profile: Profile;
+  /**
+   * Verbatim user reply approving the proposed settings and affected links.
+   */
+  userConfirmation: string;
+}
+/**
  * Update an existing calendar event. Only the supplied fields change; omitted fields keep their current values. The change is written to Google immediately and attendees are notified of it, so confirm details with the user first. Get the `eventId` from ListCalendarEvents.
  *
  * `scope` picks how much of a recurring series changes and is always required: "this_event" edits one occurrence (pass the occurrence's `recurrenceId` from ListCalendarEvents) and leaves the rest of the series alone; "all" edits the series itself — with `time` that MOVES EVERY OCCURRENCE, so never use "all" to reschedule a single occurrence. Non-recurring events use "all". There is no this-and-following update: end the series with DeleteCalendarEvent's "this_and_following" and create a new event instead.
@@ -12181,6 +13892,36 @@ export interface UpdateCalendarEvent {
   outOfOffice?: OutOfOfficeInput | null;
 }
 /**
+ * Rename a recorded call or change whether it is shared with the team, as the call's header menu does. Requires edit access to the call; only the call's creator can change team sharing on a finished call. Find calls with ListEntities or NameSearch.
+ */
+export interface UpdateCallRecord {
+  /**
+   * The id of the call.
+   */
+  callId: string;
+  /**
+   * New display name for the call. An empty string clears the custom name. Omit to leave it unchanged.
+   */
+  name?: string | null;
+  /**
+   * True to share the call with the creator's team (view access), false to stop sharing it. Omit to leave it unchanged.
+   */
+  shareWithTeam?: boolean | null;
+}
+/**
+ * The changed call.
+ */
+export interface UpdateCallRecordResponse {
+  /**
+   * The changed call.
+   */
+  callId: string;
+  /**
+   * Human-readable result summary.
+   */
+  summary: string;
+}
+/**
  * Rename a project with edit access, or replace its collaboration member list as the owner. Members control sharing independently of the assignee property. Assigning a user grants collaboration access; removing an assignment retains that access. For status, priority, assignees and due date use SetEntityProperty with entity_type='initiative'.
  */
 export interface UpdateInitiative {
@@ -12233,6 +13974,92 @@ export interface ProjectChannelSharing {
   access: ProjectShareAccess;
 }
 /**
+ * Move deals to another stage or change their fields in a CRM pipeline: "move Acme to Negotiation", "set the revenue on the Globex deal", "assign these deals to Sam". Address each entry by entryId (from FindPipelineEntries) or by the company or contact id it tracks, and set fields by name with text values: stages and other options by label, people as "me", an email or a macro| user id, numbers, true/false, or dates. Several entries change in one call, all or nothing. Returns each field before and after. This changes the entry in the pipeline, not the company's own properties.
+ */
+export interface UpdatePipelineEntries {
+  /**
+   * The pipeline's id from ListPipelines.
+   */
+  pipelineId: string;
+  /**
+   * The entries to change, each with its fields to set.
+   */
+  updates: ToolEntryUpdate[];
+  /**
+   * Optional: the pipeline version from the FindPipelineEntries read these changes are based on. The update is refused if the pipeline changed since; leave out for a direct change.
+   */
+  baseVersion?: number | null;
+}
+/**
+ * The changes to one entry.
+ */
+export interface ToolEntryUpdate {
+  /**
+   * The entry's id from FindPipelineEntries. Give this or recordId.
+   */
+  entryId?: string | null;
+  /**
+   * Instead of entryId: the CRM company or contact id the entry tracks. Refused if the record has several entries in this pipeline; then use entryId.
+   */
+  recordId?: string | null;
+  /**
+   * Fields to set, e.g. [{"field": "Stage", "value": "Negotiation"}, {"field": "Revenue", "value": "48000"}]. Leave value out to empty a field.
+   */
+  set: ToolFieldValue[];
+}
+/**
+ * The entries changed.
+ */
+export interface UpdatePipelineEntriesResponse {
+  /**
+   * Each changed entry, as saved.
+   */
+  updated: ToolUpdatedEntry[];
+  /**
+   * The pipeline's version after the change.
+   */
+  version?: number | null;
+  /**
+   * What changed.
+   */
+  summary: string;
+}
+/**
+ * An updated entry.
+ */
+export interface ToolUpdatedEntry {
+  /**
+   * The entry.
+   */
+  entryId: string;
+  record: ToolRecord;
+  /**
+   * The fields set.
+   */
+  changes: ToolFieldChange[];
+}
+/**
+ * One field's value before and after.
+ */
+export interface ToolFieldChange {
+  /**
+   * The field.
+   */
+  field: string;
+  /**
+   * Its value before; null when it was empty.
+   */
+  before: {
+    [k: string]: unknown;
+  };
+  /**
+   * Its value now; null when it is empty.
+   */
+  after: {
+    [k: string]: unknown;
+  };
+}
+/**
  * Pause/resume or replace the configuration of a routine owned by the authenticated user. ReadRoutine first before replacing configuration. Select an agent to delegate the routine or a model to run as Macro. Does not change ownership. A running routine can be paused but cannot be reconfigured until it finishes.
  */
 export interface UpdateRoutine {
@@ -12241,6 +14068,56 @@ export interface UpdateRoutine {
    */
   routineId: string;
   change: RoutineChange;
+}
+/**
+ * Change who can access a document (including a task), an AI chat, or a project (folder), as the Share menu in the app does: link sharing, team access, and per-channel access. Each omitted field stays unchanged; off disables that share. Requires edit access to a document, or owning an AI chat or project; only the owner can change team access. Use ShareWithChannel to post an item into a channel, and UpdateInitiativeSharing for Tasks projects (initiatives).
+ */
+export interface UpdateSharing {
+  entityType: SharingEntityType;
+  /**
+   * The id of the item whose sharing changes.
+   */
+  entityId: string;
+  /**
+   * Who the item's share link admits: public (anyone with the link), team (the owner's team members with the link), or off to disable link sharing.
+   */
+  linkScope?: ShareLinkScope | null;
+  /**
+   * Permission granted by an enabled share link. Off resets it to the default level.
+   */
+  linkAccess?: ShareAccess | null;
+  /**
+   * Access for everyone on the owner's team; off removes it.
+   */
+  teamAccess?: ShareAccess | null;
+  /**
+   * Individual channel grants to set or remove; other channel grants stay unchanged.
+   */
+  channels?: SharingChannel[] | null;
+}
+/**
+ * One channel's grant to set or remove.
+ */
+export interface SharingChannel {
+  /**
+   * Channel id to share with or revoke.
+   */
+  channelId: string;
+  access: ShareAccess;
+}
+/**
+ * The update sharing response.
+ */
+export interface UpdateSharingResponse {
+  entityType: SharingEntityType;
+  /**
+   * The item's id.
+   */
+  entityId: string;
+  /**
+   * A human-readable summary of the change.
+   */
+  message: string;
 }
 /**
  * Add or remove a single label from every message in a Gmail thread. In Gmail, nearly all inbox operations are just label add/remove operations, so this tool is the primitive for archiving, marking read/unread, starring, trashing, marking important/spam, and applying or removing custom labels.
