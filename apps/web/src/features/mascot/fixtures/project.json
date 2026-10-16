@@ -1,0 +1,882 @@
+{
+  "version": 2,
+  "name": "Question mark",
+  "base": {
+    "version": 1,
+    "size": 512,
+    "antialias": 2,
+    "transparent": true,
+    "duration": 4,
+    "loop": true,
+    "camera": {
+      "yaw": 0,
+      "pitch": 0,
+      "zoom": 5.2
+    },
+    "surface": {
+      "dark": "#404040",
+      "light": "#000000",
+      "rim": "#e4e7f4",
+      "direction": [
+        1,
+        -0.7,
+        0.3
+      ],
+      "gradientRotation": [
+        -30.5843,
+        -114.5414,
+        50.3282
+      ],
+      "offset": -0.11,
+      "span": 1.6,
+      "fresnel": 0.38,
+      "power": 5.2475,
+      "blend": 0.32,
+      "clay": 0,
+      "clayScale": 2.3,
+      "exposure": 1,
+      "background": "#f4f4f4"
+    },
+    "objects": [
+      {
+        "id": "morph-0",
+        "name": "Feet",
+        "position": [
+          0.4499999999999999,
+          -1.2315849849835458,
+          0
+        ],
+        "rotation": [
+          0,
+          90,
+          0
+        ],
+        "scale": [
+          2.6929,
+          0.85,
+          1.65
+        ],
+        "radius": 1,
+        "keys": [],
+        "easing": "smooth"
+      },
+      {
+        "id": "morph-1",
+        "name": "Face",
+        "position": [
+          -8.326672684688674e-17,
+          0.7815,
+          0.12
+        ],
+        "rotation": [
+          -17.4766,
+          90.6211,
+          -7
+        ],
+        "scale": [
+          2.4543,
+          0.95,
+          2.9
+        ],
+        "radius": 1,
+        "keys": [],
+        "easing": "smooth"
+      },
+      {
+        "id": "morph-2",
+        "name": "Top",
+        "position": [
+          0.1919,
+          -0.15158498498354595,
+          0
+        ],
+        "rotation": [
+          0,
+          90,
+          10
+        ],
+        "scale": [
+          2.3611,
+          1.3,
+          1.8
+        ],
+        "radius": 1,
+        "keys": [],
+        "easing": "smooth"
+      }
+    ],
+    "eyes": {
+      "objectIndex": 1,
+      "amount": 1,
+      "smile": 0,
+      "radius": 0.1304,
+      "spacing": 0.6591,
+      "offsetY": -0.0071,
+      "offsetZ": 0.0357,
+      "left": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "right": [
+        0,
+        1,
+        0,
+        0
+      ]
+    }
+  },
+  "logo": {
+    "camera": {
+      "yaw": -0.602,
+      "pitch": 0.647,
+      "zoom": 5.1
+    },
+    "objects": [
+      {
+        "position": [
+          -1.3857546148820439,
+          -0.32234989215808196,
+          -0.6566480749677042
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.48,
+          1.55,
+          0.95
+        ],
+        "radius": 0.1
+      },
+      {
+        "position": [
+          -0.35523221709942304,
+          0,
+          -0.24407185813736978
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.48,
+          1.55,
+          2.43
+        ],
+        "radius": 0.1
+      },
+      {
+        "position": [
+          0.8843716216883548,
+          0,
+          0.6076313312793452
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.48,
+          1.55,
+          2.43
+        ],
+        "radius": 0.1
+      }
+    ]
+  },
+  "neutral": {
+    "motion": {
+      "x": 0,
+      "y": 0,
+      "lean": 0,
+      "yaw": 0,
+      "squash": 1,
+      "headTilt": 0,
+      "headYaw": 0,
+      "headPitch": 0,
+      "gazeX": 0,
+      "gazeY": 0,
+      "blinkL": 0,
+      "blinkR": 0,
+      "smileL": 0,
+      "smileR": 0,
+      "morph": 1
+    },
+    "objects": [
+      {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "radius": 0
+      },
+      {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "radius": 0
+      },
+      {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "radius": 0
+      }
+    ]
+  },
+  "expressions": {
+    "smile": {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 0,
+        "squash": 1,
+        "headTilt": 0,
+        "headYaw": 0,
+        "headPitch": 0,
+        "gazeX": 0,
+        "gazeY": 0,
+        "blinkL": 0,
+        "blinkR": 0,
+        "smileL": 1,
+        "smileR": 1,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    },
+    "failure": {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 0,
+        "squash": 0.8755555555555555,
+        "headTilt": -14.962962962962962,
+        "headYaw": 0,
+        "headPitch": -2.0740740740740744,
+        "gazeX": 0,
+        "gazeY": -0.20740740740740748,
+        "blinkL": 0,
+        "blinkR": 0,
+        "smileL": -0.9481481481481482,
+        "smileR": -0.9481481481481482,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    },
+    "confused": {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 0,
+        "squash": 1,
+        "headTilt": 5.52,
+        "headYaw": 0,
+        "headPitch": 0.6239999999999988,
+        "gazeX": 0,
+        "gazeY": 0.6416,
+        "blinkL": 0.6272000000000001,
+        "blinkR": 0.6272000000000001,
+        "smileL": 0,
+        "smileR": 0,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    },
+    "thinking": {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 2.5484,
+        "squash": 0.968,
+        "headTilt": -8.881784197001252e-16,
+        "headYaw": 0,
+        "headPitch": -4.000000000000001,
+        "gazeX": 0.4999999999999999,
+        "gazeY": -0.6000000000000001,
+        "blinkL": 0.344,
+        "blinkR": 0.4007,
+        "smileL": -0.5088,
+        "smileR": -0.5351,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            -0.4781,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            3.7266,
+            -5.1328,
+            0
+          ],
+          "scale": [
+            1,
+            1.0706,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    }
+  },
+  "idle": [
+    {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 0,
+        "squash": 1,
+        "headTilt": 0,
+        "headYaw": 0,
+        "headPitch": 0,
+        "gazeX": 0,
+        "gazeY": 0,
+        "blinkL": 0,
+        "blinkR": 0,
+        "smileL": 0,
+        "smileR": 0,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    },
+    {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 0,
+        "squash": 1.015,
+        "headTilt": 0,
+        "headYaw": 0,
+        "headPitch": 0,
+        "gazeX": 0,
+        "gazeY": 0,
+        "blinkL": 0,
+        "blinkR": 0,
+        "smileL": 0,
+        "smileR": 0,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    },
+    {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 0,
+        "squash": 1.0081095361479449,
+        "headTilt": 0,
+        "headYaw": 0,
+        "headPitch": 0,
+        "gazeX": 0,
+        "gazeY": 0,
+        "blinkL": 0,
+        "blinkR": 0,
+        "smileL": 0,
+        "smileR": 0,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    },
+    {
+      "motion": {
+        "x": 0,
+        "y": 0,
+        "lean": 0,
+        "yaw": 0,
+        "squash": 1,
+        "headTilt": 0,
+        "headYaw": 0,
+        "headPitch": 0,
+        "gazeX": 0,
+        "gazeY": 0,
+        "blinkL": 0,
+        "blinkR": 0,
+        "smileL": 0,
+        "smileR": 0,
+        "morph": 1
+      },
+      "objects": [
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        },
+        {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "radius": 0
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "introDuration": 1000,
+    "poseDuration": 360,
+    "idleDuration": 1600,
+    "blinkDuration": 280,
+    "anticipation": 1.1,
+    "lookYaw": 0,
+    "lookPitch": 0,
+    "lookGaze": 2.6972
+  }
+}

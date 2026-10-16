@@ -463,6 +463,14 @@ registerComponent(
 
 if (LOCAL_ONLY) {
   registerComponent(
+    'mascot-player',
+    lazy(() => import('@app/features/mascot/views/player-lab'))
+  );
+  registerComponent(
+    'mascot-designer',
+    lazy(() => import('@app/features/mascot/views/variant-designer'))
+  );
+  registerComponent(
     'theme-edit-3',
     lazy(() => import('@theme/components/ThemeEdit3'))
   );

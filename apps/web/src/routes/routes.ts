@@ -630,6 +630,8 @@ const debugComponentIds = [
   'create-menu-demo',
   ...(LOCAL_ONLY
     ? [
+        'mascot-player',
+        'mascot-designer',
         'theme-edit-3',
         'theme-debug',
         'core',

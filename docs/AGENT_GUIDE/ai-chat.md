@@ -1657,3 +1657,29 @@ All AI hosts, including MCP, also provide:
   measure scheduled duration; completion does not claim verified attendance.
 
 These tools use the same domain permissions and booking lifecycle as the UI.
+
+## Local mascot preview
+
+In local development, the active first-party Macro agent chat can show a 32 px
+mascot beside the header identity. Custom avatars and external-provider sessions
+keep their existing presentation. Other splits retain a static mark. This is
+supplementary: use the existing status text, approval controls and error messages
+to decide what to do.
+
+Working turns show Thinking; a blocked turn or pending interaction shows Confused.
+Only the fold's explicit failed outcome shows Failure. A newly observed confirmed
+`end_turn`, after at least 350 ms of visible work, briefly shows Smile. Cancellation,
+replacement, disconnect and historical completion on reload do not celebrate.
+Reduced-motion preferences display stable frames. Cosmetic updates send no prompts
+or control actions.
+
+Local debug routes `/app/debug/mascot-player` and
+`/app/debug/mascot-designer` provide the independent simulator and Variant editor.
+The editor saves in this browser and supports portable versioned JSON. Bake exports
+PNG, WebP, a manifest, source JSON and a standalone state-machine player ZIP; it
+never publishes a character or changes the chat's bundled fixture.
+
+Numeric controls share the canvas inspector's behavior: drag the arrow handle,
+click the value to type, or use arrow keys to adjust. Shift makes steps ten times
+larger. A drag previews live and commits one undo step on release; Escape or an
+interrupted drag restores the starting value. Typing commits on Enter or blur.

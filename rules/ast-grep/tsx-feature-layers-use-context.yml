@@ -15,6 +15,10 @@ note: |-
   `files` in each ts-/tsx-feature-* rule. Block-agent uses `ui/` for
   presentation and `component/` for composition.
 files:
+  - apps/web/src/features/mascot/queries/**
+  - apps/web/src/features/mascot/primitives/**
+  - apps/web/src/features/mascot/components/**
+  - apps/web/src/features/mascot/views/**
   - apps/web/src/features/billing-lab/context/**
   - apps/web/src/features/billing-lab/queries/**
   - apps/web/src/features/billing-lab/primitives/**

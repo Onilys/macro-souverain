@@ -1,5 +1,6 @@
 import { AgentSessionProvider } from '@app/features/block-agent/agent-session-provider';
 import { AgentComposer } from '@app/features/block-agent/component/AgentComposer';
+import { AgentMascotSlot } from '@app/features/block-agent/component/AgentMascotSlot';
 import { AgentPreviewBanner } from '@app/features/block-agent/component/AgentPreviewBanner';
 import { AgentPullRequestChip } from '@app/features/block-agent/component/AgentPullRequestChip';
 import { AgentSessionReadMarker } from '@app/features/block-agent/component/AgentSessionReadMarker';
@@ -137,6 +138,7 @@ function SessionContent(props: {
           title={title()}
           titleContent={
             <>
+              <AgentMascotSlot active={panel.isPanelActive()} />
               <StaticSplitLabel
                 label={title()}
                 icon={

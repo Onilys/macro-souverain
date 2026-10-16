@@ -1,0 +1,76 @@
+import { expect, it } from 'vitest';
+import manifest from '../fixtures/manifest.json';
+import { MascotMachine, validateManifest } from './machine.js';
+
+it('routes logo → expression A → expression B → logo through neutral', () => {
+  const m = new MascotMachine(manifest);
+  m.request('thinking');
+  expect(m.state).toMatchObject({ clip: 'intro' });
+  m.advance(10000);
+  expect(m.state).toEqual({ kind: 'hold', pose: 'thinking' });
+  m.request('failure');
+  expect(m.state).toMatchObject({ clip: 'thinking', direction: -1 });
+  m.advance(manifest.clips.thinking.duration);
+  expect(m.state).toMatchObject({ clip: 'failure', direction: 1 });
+  m.advance(10000);
+  expect(m.state).toEqual({ kind: 'hold', pose: 'failure' });
+  m.request('logo');
+  m.advance(10000);
+  expect(m.state).toEqual({ kind: 'logo' });
+});
+it('reverses entry at current progress; repeated events do not restart and newest wins', () => {
+  const m = new MascotMachine(manifest, { initial: 'idle' });
+  m.advance(10000);
+  m.request('thinking');
+  m.advance(150);
+  const frame = m.frame();
+  m.request('thinking');
+  expect(m.state).toMatchObject({ time: 150 });
+  m.request('failure');
+  expect(m.frame()).toEqual(frame);
+  expect(m.state).toMatchObject({ time: 150, direction: -1 });
+  m.request('thinking');
+  expect(m.state).toMatchObject({ time: 150, direction: 1 });
+  m.request('smile');
+  m.advance(10000);
+  expect(m.state).toEqual({ kind: 'hold', pose: 'smile' });
+});
+it('reverses intro in place more than once', () => {
+  const m = new MascotMachine(manifest);
+  m.request('idle');
+  m.advance(200);
+  m.request('logo');
+  expect(m.state).toMatchObject({ time: 200, direction: -1 });
+  m.advance(100);
+  m.request('idle');
+  expect(m.state).toMatchObject({ time: 100, direction: 1 });
+  m.advance(10000);
+  expect(m.state.kind).toBe('idle');
+});
+it('finishes blink before routing the newest target and exits expressions before looking', () => {
+  const m = new MascotMachine(manifest, { initial: 'thinking' });
+  m.advance(10000);
+  expect(m.blink()).toBe(false);
+  m.request('idle');
+  m.advance(10000);
+  expect(m.blink()).toBe(true);
+  m.request('failure');
+  m.request('smile');
+  expect(m.state.kind).toBe('blink');
+  m.advance(10000);
+  expect(m.state).toEqual({ kind: 'hold', pose: 'smile' });
+  m.request('look:3');
+  expect(m.state).toMatchObject({ clip: 'smile', direction: -1 });
+  m.advance(10000);
+  expect(m.frame()).toEqual(manifest.looks[3]);
+});
+it('settles reduced motion and validates the exact frame map', () => {
+  const m = new MascotMachine(manifest, { reducedMotion: true });
+  m.request('thinking');
+  expect(m.state).toEqual({ kind: 'hold', pose: 'thinking' });
+  expect(m.active).toBe(false);
+  expect(m.blink()).toBe(false);
+  const bad = structuredClone(manifest);
+  bad.clips.intro.frames[0].x = 256;
+  expect(() => validateManifest(bad)).toThrow();
+});

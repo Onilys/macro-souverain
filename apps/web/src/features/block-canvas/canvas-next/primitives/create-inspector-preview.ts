@@ -4,13 +4,10 @@ import type {
   GraphicsEditor,
   TextMeasurer,
 } from '@macro-inc/graphics';
+import type { NumberScrub as InspectorNumberScrub } from '@ui/components/NumberScrubInput';
 import { batch, createSignal, onCleanup } from 'solid-js';
 
-export type InspectorNumberScrub = {
-  preview: (value: number) => void;
-  commit: (value: number) => void;
-  cancel: () => void;
-};
+export type { NumberScrub as InspectorNumberScrub } from '@ui/components/NumberScrubInput';
 
 /** Inspector gestures paint a draft scene; only release changes the document. */
 export function createInspectorPreview(

@@ -1,0 +1,454 @@
+{
+  "version": 2,
+  "name": "Question mark",
+  "format": "variant",
+  "width": 256,
+  "height": 256,
+  "columns": 8,
+  "rows": 7,
+  "sheet": {
+    "src": "mascot.webp",
+    "fallback": "mascot.png",
+    "width": 2048,
+    "height": 1792,
+    "bytes": 119106,
+    "pngBytes": 470375
+  },
+  "clips": {
+    "intro": {
+      "id": "intro",
+      "frames": [
+        {
+          "page": 0,
+          "x": 0,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 256,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 512,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 768,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1024,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1280,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1536,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1792,
+          "y": 0,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 0,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 256,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 512,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 768,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1024,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1280,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1536,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        },
+        {
+          "page": 0,
+          "x": 1792,
+          "y": 256,
+          "w": 256,
+          "h": 256,
+          "duration": 62.5
+        }
+      ],
+      "duration": 1000,
+      "loop": false,
+      "reversible": true
+    },
+    "idle": {
+      "id": "idle",
+      "frames": [
+        {
+          "page": 0,
+          "x": 0,
+          "y": 512,
+          "w": 256,
+          "h": 256,
+          "duration": 400
+        },
+        {
+          "page": 0,
+          "x": 256,
+          "y": 512,
+          "w": 256,
+          "h": 256,
+          "duration": 400
+        },
+        {
+          "page": 0,
+          "x": 512,
+          "y": 512,
+          "w": 256,
+          "h": 256,
+          "duration": 400
+        },
+        {
+          "page": 0,
+          "x": 768,
+          "y": 512,
+          "w": 256,
+          "h": 256,
+          "duration": 400
+        }
+      ],
+      "duration": 1600,
+      "loop": true,
+      "reversible": false
+    },
+    "smile": {
+      "id": "smile",
+      "frames": [
+        {
+          "page": 0,
+          "x": 0,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 256,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 512,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 768,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        }
+      ],
+      "duration": 360,
+      "loop": false,
+      "reversible": true
+    },
+    "failure": {
+      "id": "failure",
+      "frames": [
+        {
+          "page": 0,
+          "x": 1024,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 1280,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 1536,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 1792,
+          "y": 1024,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        }
+      ],
+      "duration": 360,
+      "loop": false,
+      "reversible": true
+    },
+    "confused": {
+      "id": "confused",
+      "frames": [
+        {
+          "page": 0,
+          "x": 0,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 256,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 512,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 768,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        }
+      ],
+      "duration": 360,
+      "loop": false,
+      "reversible": true
+    },
+    "thinking": {
+      "id": "thinking",
+      "frames": [
+        {
+          "page": 0,
+          "x": 1024,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 1280,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 1536,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        },
+        {
+          "page": 0,
+          "x": 1792,
+          "y": 1280,
+          "w": 256,
+          "h": 256,
+          "duration": 90
+        }
+      ],
+      "duration": 360,
+      "loop": false,
+      "reversible": true
+    },
+    "blink": {
+      "id": "blink",
+      "frames": [
+        {
+          "page": 0,
+          "x": 0,
+          "y": 1536,
+          "w": 256,
+          "h": 256,
+          "duration": 70
+        },
+        {
+          "page": 0,
+          "x": 256,
+          "y": 1536,
+          "w": 256,
+          "h": 256,
+          "duration": 70
+        },
+        {
+          "page": 0,
+          "x": 512,
+          "y": 1536,
+          "w": 256,
+          "h": 256,
+          "duration": 70
+        },
+        {
+          "page": 0,
+          "x": 768,
+          "y": 1536,
+          "w": 256,
+          "h": 256,
+          "duration": 70
+        }
+      ],
+      "duration": 280,
+      "loop": false,
+      "reversible": false
+    }
+  },
+  "looks": [
+    {
+      "x": 0,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 0
+    },
+    {
+      "x": 256,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 45
+    },
+    {
+      "x": 512,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 90
+    },
+    {
+      "x": 768,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 135
+    },
+    {
+      "x": 1024,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 180
+    },
+    {
+      "x": 1280,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 225
+    },
+    {
+      "x": 1536,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 270
+    },
+    {
+      "x": 1792,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "angle": 315
+    }
+  ],
+  "cameraZoom": 5.2
+}

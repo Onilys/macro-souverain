@@ -11,6 +11,7 @@ import {
   SplitHeaderRight,
 } from '@components/app/split-layout/components/SplitHeader';
 import { StaticSplitLabel } from '@components/app/split-layout/components/SplitLabel';
+import { SplitPanelContext } from '@components/app/split-layout/context';
 import { ProviderIcon } from '@core/component/AI/component/ProviderIcon';
 import { Permissions } from '@core/component/SharePermissions';
 import { ShareTrigger } from '@core/component/TopBar/ShareButton';
@@ -23,9 +24,10 @@ import ArrowSquareOut from '@phosphor/arrow-square-out.svg';
 import GitBranch from '@phosphor/git-branch.svg';
 import TrayIcon from '@phosphor/tray.svg';
 import type { AgentSessionResponse } from '@service-agent-harness/generated/schemas';
-import { For, Show } from 'solid-js';
+import { For, Show, useContext } from 'solid-js';
 import { useAgentSession } from '../context/AgentSessionContext';
 import { changeSessionArchiveState } from '../queries/change-session-archive-state';
+import { AgentMascotSlot } from './AgentMascotSlot';
 import { AgentPullRequestChip } from './AgentPullRequestChip';
 import { AgentTaskChip } from './AgentTaskChip';
 import {
@@ -94,6 +96,7 @@ export function AgentSplitHeader(props: {
   // against a placeholder and keeps reporting it (see `Block.tsx`), so the
   // block id is the one thing here that is not a shareable session id.
   const { sessionId, metadata, userId } = useAgentSession();
+  const panel = useContext(SplitPanelContext);
   const title = () => agentSessionTitle(props.session, props.title);
   const permissions = () =>
     userId() && props.session?.ownerId === userId()
@@ -173,6 +176,7 @@ export function AgentSplitHeader(props: {
   return (
     <>
       <SplitHeaderLeft>
+        <AgentMascotSlot active={panel?.isPanelActive() ?? false} />
         <StaticSplitLabel
           icon={
             <ProviderIcon
