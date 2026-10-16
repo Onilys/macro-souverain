@@ -72,6 +72,7 @@ jobs:
             echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
             echo "KACHE_REMOTE_KEY_LISTING=1"
             echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+            echo "KACHE_S3_CONCURRENCY=64"
           } >> "$GITHUB_ENV"
         fi
       shell: bash

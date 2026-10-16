@@ -274,6 +274,7 @@ pub fn configure_kache(store: KacheStore) -> Step<Run> {
                 echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
                 echo "KACHE_REMOTE_KEY_LISTING=1"
                 echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+                echo "KACHE_S3_CONCURRENCY=64"
               } >> "$GITHUB_ENV"
             fi
         "#},
@@ -390,6 +391,24 @@ pub fn setup_reqs_web(name: &str, playwright: bool) -> Step<Use> {
         xtask_paths::repo_dir!(".github/actions/setup-reqs-web"),
     )
     .when(playwright, |step| step.add_with(("playwright", "true")))
+}
+
+/// Download the workspace crates' entries (libraries and test binaries, the
+/// expensive ones) before cargo starts. Restoring one of those on demand has
+/// to finish within the few seconds a compile waits, which a 100 MiB test
+/// binary misses; third-party crates are small and still restore on demand.
+/// A failed pull only leaves more to fetch, so it warns instead of failing.
+pub fn pull_kache_workspace() -> Step<Run> {
+    Step::new("Pull kache workspace entries").run(indoc::indoc! {r#"
+        if [ "${KACHE_LOCAL_ONLY:-}" = 1 ]; then
+          echo "kache remote is off for this job; nothing to pull"
+          exit 0
+        fi
+        start=$(date +%s)
+        kache sync --pull --workspace --allow-partial \
+          || echo "::warning::kache pull failed; the build restores entries on demand"
+        echo "kache pull took $(( $(date +%s) - start ))s"
+    "#})
 }
 
 /// `kache stats` and the costliest misses at the end of a job, then stop the

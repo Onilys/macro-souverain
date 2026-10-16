@@ -274,6 +274,7 @@ jobs:
             echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
             echo "KACHE_REMOTE_KEY_LISTING=1"
             echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+            echo "KACHE_S3_CONCURRENCY=64"
           } >> "$GITHUB_ENV"
         fi
       shell: bash
@@ -283,6 +284,16 @@ jobs:
         TRUSTED: ${{ (github.event_name != 'pull_request' && github.event_name != 'pull_request_target') || github.event.pull_request.head.repo.full_name == github.repository }}
         R2_ACCESS_KEY: ${{ secrets.KACHE_R2_ACCESS_KEY_ID }}
         R2_SECRET_KEY: ${{ secrets.KACHE_R2_SECRET_ACCESS_KEY }}
+    - name: Pull kache workspace entries
+      run: |
+        if [ "${KACHE_LOCAL_ONLY:-}" = 1 ]; then
+          echo "kache remote is off for this job; nothing to pull"
+          exit 0
+        fi
+        start=$(date +%s)
+        kache sync --pull --workspace --allow-partial \
+          || echo "::warning::kache pull failed; the build restores entries on demand"
+        echo "kache pull took $(( $(date +%s) - start ))s"
     - name: fmt
       run: cargo fmt --check
     - name: clippy
@@ -456,6 +467,7 @@ jobs:
             echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
             echo "KACHE_REMOTE_KEY_LISTING=1"
             echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+            echo "KACHE_S3_CONCURRENCY=64"
           } >> "$GITHUB_ENV"
         fi
       shell: bash
@@ -465,6 +477,16 @@ jobs:
         TRUSTED: ${{ (github.event_name != 'pull_request' && github.event_name != 'pull_request_target') || github.event.pull_request.head.repo.full_name == github.repository }}
         R2_ACCESS_KEY: ${{ secrets.KACHE_R2_ACCESS_KEY_ID }}
         R2_SECRET_KEY: ${{ secrets.KACHE_R2_SECRET_ACCESS_KEY }}
+    - name: Pull kache workspace entries
+      run: |
+        if [ "${KACHE_LOCAL_ONLY:-}" = 1 ]; then
+          echo "kache remote is off for this job; nothing to pull"
+          exit 0
+        fi
+        start=$(date +%s)
+        kache sync --pull --workspace --allow-partial \
+          || echo "::warning::kache pull failed; the build restores entries on demand"
+        echo "kache pull took $(( $(date +%s) - start ))s"
     - id: doppler-bins
       name: compute affected Doppler config bins
       run: |
@@ -603,6 +625,7 @@ jobs:
             echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
             echo "KACHE_REMOTE_KEY_LISTING=1"
             echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+            echo "KACHE_S3_CONCURRENCY=64"
           } >> "$GITHUB_ENV"
         fi
       shell: bash
@@ -612,6 +635,16 @@ jobs:
         TRUSTED: ${{ (github.event_name != 'pull_request' && github.event_name != 'pull_request_target') || github.event.pull_request.head.repo.full_name == github.repository }}
         R2_ACCESS_KEY: ${{ secrets.KACHE_R2_ACCESS_KEY_ID }}
         R2_SECRET_KEY: ${{ secrets.KACHE_R2_SECRET_ACCESS_KEY }}
+    - name: Pull kache workspace entries
+      run: |
+        if [ "${KACHE_LOCAL_ONLY:-}" = 1 ]; then
+          echo "kache remote is off for this job; nothing to pull"
+          exit 0
+        fi
+        start=$(date +%s)
+        kache sync --pull --workspace --allow-partial \
+          || echo "::warning::kache pull failed; the build restores entries on demand"
+        echo "kache pull took $(( $(date +%s) - start ))s"
     - name: configure postgres for concurrent tests
       run: |
         postgres_container="$(docker ps --format '{{.ID}} {{.Image}}' | awk '$2 == "pgvector/pgvector:pg14" { print $1; exit }')"
