@@ -19,12 +19,12 @@ must load through the webview, not native HTTP. A `vite:preloadError` with
 `scheme tauri not supported` indicates an asset-routing failure; reloading the
 same bundle does not resolve it.
 
-When multiple desktop splits are open, each split's **Close split** button floats
-halfway over its top-left corner, outside the content header, in a 28px circle
-with a 16px X inset by 6px. It closes only that
+When multiple desktop splits are open, each split's **Close split** button sits
+8px inside its top-left corner in a 28px circle with a 16px X. It is absolutely
+positioned over the split and does not move the header content. It closes only that
 split; the last remaining page keeps its existing return-to-list navigation.
 Mobile keeps its existing navigation controls. Verify both collection and document
-splits, including the exposed half of the button, after changing split chrome.
+splits, including the inset close button, after changing split chrome.
 
 ## External links in the native app
 

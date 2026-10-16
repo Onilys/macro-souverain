@@ -371,7 +371,7 @@ export function SplitPanel(props: SplitPanelProps) {
                 square
                 label="Close split"
                 hotkey={TOKENS.split.close}
-                class="absolute top-0.5 left-0.5 z-split-panel-chrome size-7 p-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-edge-muted/60 bg-panel text-ink-muted/70 shadow-[0_1px_2px_rgb(0_0_0/6%)] hover:bg-hover hover:text-ink"
+                class="absolute top-2 left-2 z-split-panel-chrome size-7 p-0 rounded-full border border-edge-muted/60 bg-panel text-ink-muted/70 shadow-[0_1px_2px_rgb(0_0_0/6%)] hover:bg-hover hover:text-ink"
                 data-split-frame-close=""
                 onClick={(event) => {
                   event.stopPropagation();
