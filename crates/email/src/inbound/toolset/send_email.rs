@@ -152,6 +152,7 @@ where
         }
 
         let input = CreateDraftInput {
+            sender_email: None,
             db_id: None,
             provider_id: None,
             replying_to_id: self.replying_to_id,

@@ -220,6 +220,85 @@ test('view options toggle display directly and return focus to the selected cell
   await expect(grid).toBeFocused();
 });
 
+test('saves gridlines with each sheet and keeps them through Excel', async ({
+  page,
+}) => {
+  const option = page.getByRole('menuitemcheckbox', {
+    name: 'Gridlines',
+    exact: true,
+  });
+  async function toggleGridlines() {
+    await page
+      .getByRole('button', { name: 'View options', exact: true })
+      .click();
+    await option.click();
+    await page.keyboard.press('Escape');
+  }
+  const cell = page.locator('[data-address="C3"]');
+  const hidden = 'rgba(0, 0, 0, 0)';
+  await page.getByRole('button', { name: 'Add sheet', exact: true }).click();
+  await expect(
+    page.getByRole('tab', { name: 'Sheet2', exact: true })
+  ).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: 'Sheet1', exact: true }).click();
+  await expect(cell).not.toHaveCSS('border-bottom-color', hidden);
+
+  await toggleGridlines();
+  await expect(cell).toHaveCSS('border-bottom-color', hidden);
+  expect(
+    await page.evaluate(() =>
+      window.spreadsheetFixture
+        .snapshot()
+        .map((sheet) => [sheet.name, sheet.metadata?.gridlines])
+    )
+  ).toEqual([
+    ['Sheet1', false],
+    ['Sheet2', undefined],
+  ]);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(cell).not.toHaveCSS('border-bottom-color', hidden);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(cell).toHaveCSS('border-bottom-color', hidden);
+
+  await page.getByRole('tab', { name: 'Sheet2', exact: true }).click();
+  await expect(cell).not.toHaveCSS('border-bottom-color', hidden);
+  await page.getByRole('tab', { name: 'Sheet1', exact: true }).click();
+  await expect(cell).toHaveCSS('border-bottom-color', hidden);
+
+  const downloaded = page.waitForEvent('download');
+  await menu(page, 'Import and export', 'Download as Excel (.xlsx)');
+  const path = await (await downloaded).path();
+  if (!path) throw new Error('Workbook download missing');
+  const exported = new ExcelJS.Workbook();
+  await exported.xlsx.readFile(path);
+  expect(exported.getWorksheet('Sheet1')!.views[0]?.showGridLines).toBe(false);
+  expect(exported.getWorksheet('Sheet2')!.views[0]?.showGridLines).not.toBe(
+    false
+  );
+
+  const input = new ExcelJS.Workbook();
+  input
+    .addWorksheet('No gridlines', { views: [{ showGridLines: false }] })
+    .getCell('A1').value = 'Imported';
+  await page.getByLabel('Import spreadsheet file').setInputFiles({
+    name: 'no-gridlines.xlsx',
+    mimeType:
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: Buffer.from(await input.xlsx.writeBuffer()),
+  });
+  await page
+    .getByRole('button', { name: 'Import workbook', exact: true })
+    .click();
+  await expect(page.locator('[data-address="A1"]')).toHaveText('Imported');
+  await expect(cell).toHaveCSS('border-bottom-color', hidden);
+
+  await page.evaluate(() => window.spreadsheetFixture.setReadonly(true));
+  await page.getByRole('button', { name: 'View options', exact: true }).click();
+  await expect(option).toHaveAttribute('aria-checked', 'false');
+  await expect(option).toBeDisabled();
+  await page.keyboard.press('Escape');
+});
+
 test('creates and renames sheets, recalculates cross-sheet formulas, and protects viewer edits', async ({
   page,
 }) => {

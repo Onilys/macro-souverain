@@ -14,7 +14,7 @@ import {
   rangeCopies,
   readCopiedRange,
 } from '../core/cell-copy';
-import { cellEditValue, normalizeCellInput } from '../core/cell-input';
+import { cellEditValue, cellInputEdit } from '../core/cell-input';
 import {
   type FormulaTextSelection,
   formulaRangeReference,
@@ -239,16 +239,22 @@ export function createGridController(source: GridSource) {
 
   // A local undo or remote layout operation can remove the selected empty row.
   // End its draft before moving focus so it cannot commit into a different cell.
+  // A tab change bounds the new sheet's selection itself, and may keep a
+  // cross-sheet formula draft that this would otherwise cancel.
   createEffect(
-    on(rowCount, (count, previous) => {
-      // A fill preview can extend past the current selection. Shrinking the
-      // sheet invalidates that pending copy even when selection stays in bounds.
-      if (previous !== undefined && count < previous) cancelPendingCopy();
-      const current = selection();
-      if (current.anchor.row < count && current.focus.row < count) return;
-      cancel();
-      selectRange(current.anchor, current.focus);
-    })
+    on(
+      () => [source.sheetId?.(), rowCount()] as const,
+      ([sheetId, count], previous) => {
+        if (previous && previous[0] !== sheetId) return;
+        // A fill preview can extend past the current selection. Shrinking the
+        // sheet invalidates that pending copy even when selection stays in bounds.
+        if (previous && count < previous[1]) cancelPendingCopy();
+        const current = selection();
+        if (current.anchor.row < count && current.focus.row < count) return;
+        cancel();
+        selectRange(current.anchor, current.focus);
+      }
+    )
   );
 
   function cancelPendingCopy() {
@@ -299,7 +305,7 @@ export function createGridController(source: GridSource) {
         }
       }
       const edits = {
-        [address]: { value: normalizeCellInput(value, originalCell) },
+        [address]: cellInputEdit(value, originalCell, navigator.language),
       };
       if (target && source.setSheetCells)
         source.setSheetCells(target.sheetId, edits);
@@ -342,7 +348,7 @@ export function createGridController(source: GridSource) {
       return;
     }
     originalCell = source.cells()[activeAddress()];
-    originalValue = cellEditValue(originalCell);
+    originalValue = cellEditValue(originalCell, navigator.language);
     editTarget = source.sheetId
       ? { sheetId: source.sheetId(), address: activeAddress() }
       : undefined;
@@ -464,13 +470,17 @@ export function createGridController(source: GridSource) {
     );
   }
 
-  function format(patch: Partial<SpreadsheetCell>) {
+  /** Styles `target`, by default the current selection. */
+  function format(
+    patch: Partial<SpreadsheetCell>,
+    target: CellSelection = selection()
+  ) {
     commit();
     if (!source.canEdit()) return;
     cancelPendingCopy();
     source.setCells(
       Object.fromEntries(
-        selectionAddresses(selection()).map((address) => [address, patch])
+        selectionAddresses(target).map((address) => [address, patch])
       )
     );
   }

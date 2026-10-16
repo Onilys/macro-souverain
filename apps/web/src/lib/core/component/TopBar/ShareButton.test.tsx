@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   getDatabasePermissions: vi.fn(),
   updateDatabasePermissions: vi.fn(),
   getPipelinePermissions: vi.fn(),
+  updatePipelinePermissions: vi.fn(),
   updatePipelineTeamShare: vi.fn(),
   getChatPermissions: vi.fn(),
   updateChatPermissions: vi.fn(),
@@ -46,6 +47,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@app/features/crm/sharing-adapter', () => ({
   fetchPipelineSharePermissions: mocks.getPipelinePermissions,
+  updatePipelineSharePermissions: mocks.updatePipelinePermissions,
   updatePipelineTeamShare: mocks.updatePipelineTeamShare,
 }));
 vi.mock('@queries/storage/databases', () => ({
@@ -123,7 +125,11 @@ vi.mock('@service-storage/client', () => ({
     },
   },
   blockNameToItemType: (name: string) =>
-    name === 'agent' ? 'agent_session' : 'document',
+    name === 'agent'
+      ? 'agent_session'
+      : name === 'pipeline'
+        ? 'crm_pipeline'
+        : 'document',
   itemTypeToReferenceEntityType: (type: string) => type,
 }));
 vi.mock('@queries/agent-session/share-permissions', () => ({
@@ -139,7 +145,7 @@ vi.mock('@queries/initiative/share-permissions', () => ({
     mocks.updateInitiativePermissions(...args),
 }));
 vi.mock('@core/component/SharePermissions', () => ({
-  Permissions: { OWNER: 'owner', CAN_VIEW: 'view' },
+  Permissions: { OWNER: 'owner', CAN_EDIT: 'edit', CAN_VIEW: 'view' },
 }));
 vi.mock('@core/component/Toast/Toast', () => ({
   toast: { success: vi.fn(), failure: vi.fn(), alert: vi.fn() },
@@ -1269,10 +1275,19 @@ describe('native project sharing', () => {
 });
 
 describe('pipeline sharing', () => {
-  function mountPipeline(owner = ME) {
+  function mountPipeline(
+    owner = ME,
+    userPermissions = owner === ME ? Permissions.OWNER : Permissions.CAN_VIEW,
+    channelSharePermissions: { channel_id: string; access_level: string }[] = []
+  ) {
     mocks.hasTeam = true;
     mocks.getPipelinePermissions.mockResolvedValue(
-      ok({ id: 'pipeline-1', owner, teamShareAccessLevel: null })
+      ok({
+        id: 'pipeline-1',
+        owner,
+        teamShareAccessLevel: null,
+        channelSharePermissions,
+      })
     );
     render(() => (
       <ShareModal
@@ -1280,16 +1295,76 @@ describe('pipeline sharing', () => {
         name="Sales"
         owner={owner}
         itemType="crm_pipeline"
-        blockAlias="database"
-        userPermissions={
-          owner === ME ? Permissions.OWNER : Permissions.CAN_VIEW
-        }
+        blockAlias="pipeline"
+        userPermissions={userPermissions}
         copyLink={mocks.copyLink}
         open
         onOpenChange={vi.fn()}
       />
     ));
   }
+
+  it('grants the destination before forwarding a private pipeline', async () => {
+    const order: string[] = [];
+    mocks.updatePipelinePermissions.mockImplementation(async () => {
+      order.push('grant');
+      return ok({});
+    });
+    mocks.sendToChannel.mockImplementation(async (input) => {
+      await input.beforeSend?.(input.channelId);
+      order.push('message');
+      return { channelId: input.channelId, navigateToChannel: vi.fn() };
+    });
+    mountPipeline();
+    expect(screen.queryByText(/Only editors can share/)).toBeNull();
+    selectChannel();
+    share();
+    await vi.waitFor(() => expect(order).toEqual(['grant', 'message']));
+    expect(mocks.sendToChannel.mock.calls[0][0].attachments).toEqual([
+      { entity_type: 'crm_pipeline', entity_id: 'pipeline-1' },
+    ]);
+    expect(mocks.updatePipelinePermissions).toHaveBeenCalledOnce();
+    expect(mocks.updatePipelinePermissions).toHaveBeenCalledWith('pipeline-1', {
+      channelSharePermissions: [
+        { operation: 'replace', accessLevel: 'view', channelId: 'channel-1' },
+      ],
+    });
+    expect(mocks.updatePipelineTeamShare).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'lets an editor share and manage recipients but not team access (mobile: %s)',
+    async (mobile) => {
+      mocks.mobile = mobile;
+      mocks.updatePipelinePermissions.mockResolvedValue(ok({}));
+      mountPipeline(SOMEONE_ELSE, Permissions.CAN_EDIT, [
+        { channel_id: 'channel-1', access_level: 'edit' },
+      ]);
+      expect(
+        screen.getByRole('button', { name: 'Select channel' })
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole('group', { name: 'Team access level' })
+      ).toBeNull();
+      // The tab is titled for the owner alone until the recipients load.
+      if (mobile)
+        fireEvent.click(await screen.findByRole('tab', { name: 'People' }));
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Set option none' })
+      );
+      await vi.waitFor(() =>
+        expect(mocks.updatePipelinePermissions).toHaveBeenCalledWith(
+          'pipeline-1',
+          {
+            channelSharePermissions: [
+              { operation: 'remove', channelId: 'channel-1' },
+            ],
+          }
+        )
+      );
+      expect(mocks.updatePipelineTeamShare).not.toHaveBeenCalled();
+    }
+  );
 
   it.each([false, true])(
     'changes the pipeline team grant using the shared dialog (mobile: %s)',
@@ -1313,9 +1388,6 @@ describe('pipeline sharing', () => {
       expect(control.getAttribute('data-value')).toBe('NONE');
       expect(
         screen.queryByRole('button', { name: 'Set Team access level view' })
-      ).toBeNull();
-      expect(
-        screen.queryByRole('button', { name: 'Select channel' })
       ).toBeNull();
       expect(screen.queryByText('Anyone with the link')).toBeNull();
       fireEvent.click(
@@ -1366,8 +1438,13 @@ describe('pipeline sharing', () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('lets a non-owner copy the pipeline link without changing access', () => {
+  it('lets a viewer copy the pipeline link without changing access', () => {
     mountPipeline(SOMEONE_ELSE);
+    expect(
+      screen.getByText(
+        'Only editors can share this pipeline. You can copy a link for people who already have access.'
+      )
+    ).toBeTruthy();
     expect(
       screen.queryByRole('group', { name: 'Team access level' })
     ).toBeNull();

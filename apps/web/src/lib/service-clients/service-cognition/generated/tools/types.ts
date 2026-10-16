@@ -136,12 +136,13 @@ export type SpreadsheetHorizontalAlign = 'auto' | 'left' | 'center' | 'right';
  */
 export type SpreadsheetVerticalAlign = 'top' | 'middle' | 'bottom';
 /**
- * Number interpretation and display; currency is USD and dates use UTC.
+ * Number interpretation and display; currency and accounting are USD and dates use UTC.
  */
 export type SpreadsheetNumberFormat =
   | 'general'
   | 'number'
   | 'currency'
+  | 'accounting'
   | 'percent'
   | 'date'
   | 'time'
@@ -4363,6 +4364,10 @@ export type LaneKey =
  */
 export type SearchSkillsMatchType = 'partial' | 'exact';
 /**
+ * How an attachment on a sent message renders.
+ */
+export type ChannelAttachmentKind = 'image' | 'video' | 'document';
+/**
  * Response from the SendEmail tool.
  */
 export type SendEmailResponse =
@@ -4996,7 +5001,10 @@ export interface SpreadsheetReadCell {
  */
 export interface SpreadsheetStyle {
   /**
-   * Exact Excel number format, up to 512 characters.
+   * Exact Excel number format, up to 512 characters; it overrides the display of `format`.
+   * Show dates with format=date and a date code such as mmm yyyy (Jan 2026), mmm dd, yyyy,
+   * mm/dd/yyyy, dd/mm/yyyy, yyyy-mm-dd, d mmm yyyy or dddd, mmmm d, yyyy; times with
+   * format=time and a code such as h:mm AM/PM.
    */
   numberFormat?: string | null;
   /**
@@ -6204,7 +6212,7 @@ export interface SearchGotoAgentSession {
   author: AgentSessionAuthor;
 }
 /**
- * Create a reusable booking page, not a calendar meeting. First use ListBookingLinks to discover a suitable existing link or reuse availability. Supply a full draft with all seven weekdays (Sunday=0), IANA time zone, and real host IDs; personal links use the authenticated user and individual mode. For a team use a real team ID and collective or roundRobin mode. Set enabled only when the user wants to accept bookings. No invitations are sent by creating a link. Repeating an identical draft with the same slug reuses the saved link; a different draft at that slug conflicts. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. Return the saved URL after execution. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
+ * Create a reusable booking page, not a calendar meeting. First use ListBookingLinks to discover a suitable existing link or reuse availability. Supply a full draft with all seven weekdays (Sunday=0), IANA time zone, and real host IDs; personal links use the authenticated user and individual mode. For a team use a real team ID and collective or roundRobin mode. Set enabled only when the user wants to accept bookings. No invitations are sent by creating a link. Repeating an identical draft with the same slug reuses the saved link; a different draft at that slug conflicts. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. After execution, share the saved URL with an <m-booking-link-mention> chip (profileId/slug/url from the result), not a bare URL. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
  */
 export interface CreateBookingLink {
   /**
@@ -8169,7 +8177,7 @@ export interface DuplicateItemResponse {
   message: string;
 }
 /**
- * Edit exactly one existing booking link. First read it with ListBookingLinks, preserve all settings the user did not request changing, and pass its revision and full edited draft. Changed availability applies only to this link; other links and personal default hours remain unchanged. A stale revision fails: read again and confirm the updated proposal in conversation instead of overwriting concurrent edits. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. Return the saved URL after execution. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
+ * Edit exactly one existing booking link. First read it with ListBookingLinks, preserve all settings the user did not request changing, and pass its revision and full edited draft. Changed availability applies only to this link; other links and personal default hours remain unchanged. A stale revision fails: read again and confirm the updated proposal in conversation instead of overwriting concurrent edits. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. After execution, share the saved URL with an <m-booking-link-mention> chip (profileId/slug/url from the result), not a bare URL. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
  */
 export interface EditBookingLink {
   /**
@@ -8226,7 +8234,7 @@ export interface EditChannelMessageResponse {
   summary: string;
 }
 /**
- * Apply AI-driven edits to a Macro markdown document in place -- rewriting, inserting, formatting, or restructuring. Use EditSpreadsheet for native Macro spreadsheets. Markdown documents only: these are authored in Macro's collaborative editor, and are the only documents whose content this tool can rewrite. Edit uploaded Word (.docx) files with ReadWordDocument and EditWordDocument instead. Other uploaded files -- PDFs, images, source files such as .py or .ts -- are readable but not editable, and are rejected. If the response contains a `clarification` field, invoke again with the requested info appended to `instructions`. To insert @-mention chips, include each referenced item's ids and details in `instructions`: userId/email for people; documentId/documentName/blockName (and blockParams when needed) for documents, channels, chats, projects, tasks, emails, calendar events, skills, calls, and routines; session id (and optional expanded card) for agent sessions; ISO datetime plus displayFormat for time chips. To insert document-card(s), include each document's documentId and documentName.
+ * Apply AI-driven edits to a Macro markdown document in place -- rewriting, inserting, formatting, or restructuring. Use EditSpreadsheet for native Macro spreadsheets. Markdown documents only: these are authored in Macro's collaborative editor, and are the only documents whose content this tool can rewrite. Edit uploaded Word (.docx) files with ReadWordDocument and EditWordDocument instead. Other uploaded files -- PDFs, images, source files such as .py or .ts -- are readable but not editable, and are rejected. If the response contains a `clarification` field, invoke again with the requested info appended to `instructions`. To insert @-mention chips, include each referenced item's ids and details in `instructions`: userId/email for people; documentId/documentName/blockName (and blockParams when needed) for documents, channels, chats, projects, tasks, emails, calendar events, skills, calls, and routines; session id (and optional expanded card) for agent sessions; ISO datetime plus displayFormat for time chips; profileId/slug/url for booking links. To insert document-card(s), include each document's documentId and documentName.
  */
 export interface EditDocument {
   /**
@@ -8234,7 +8242,7 @@ export interface EditDocument {
    */
   document_id: string;
   /**
-   * Natural language instructions. For @-mention chips, include each item's ids and details: userId/email for people; documentId/documentName/blockName for documents and similar items; session id for agent sessions; ISO datetime and displayFormat for time chips. For document-card(s), include documentId and documentName per document. You may need to look these up.
+   * Natural language instructions. For @-mention chips, include each item's ids and details: userId/email for people; documentId/documentName/blockName for documents and similar items; session id for agent sessions; ISO datetime and displayFormat for time chips; profileId/slug/url for booking links. For document-card(s), include documentId and documentName per document. You may need to look these up.
    */
   instructions: string;
   /**
@@ -9971,7 +9979,7 @@ export interface ListAgentsResponse {
   summary: string;
 }
 /**
- * Discover and reuse the user's booking links before creating one. Returns shareable URLs, enabled/paused state, full drafts and revision for EditBookingLink, plus reusable availability schedules and the user's host ID. Searches title, slug and description; omit query for all (at most 100). Omit teamId for personal links; use a team ID returned in teamIds for team links. This read never creates settings. These are reusable scheduling pages, not calendar meetings.
+ * Discover and reuse the user's booking links before creating one. Returns shareable URLs, enabled/paused state, full drafts and revision for EditBookingLink, plus reusable availability schedules and the user's host ID. Searches title, slug and description; omit query for all (at most 100). Omit teamId for personal links; use a team ID returned in teamIds for team links. This read never creates settings. These are reusable scheduling pages, not calendar meetings. When sharing a returned URL in Markdown, use an <m-booking-link-mention> chip with profileId/slug/url, not a bare URL.
  */
 export interface ListBookingLinks {
   /**
@@ -13358,11 +13366,11 @@ export interface SelfKnowledgeResponse {
   about: string;
 }
 /**
- * Send or reply to a channel on behalf of the user. Only use this when explicitly asked to send a message
+ * Send or reply to a channel on behalf of the user. Only use this when explicitly asked to send a message. To send an image or video, first upload it with CreateChannelMediaUpload (where available) and pass the returned attachment here; to attach a Macro document, pass its document ID.
  */
 export interface SendChannelMessage {
   /**
-   * Message content in macro markdown format. This uses the same syntax as markdown documents
+   * Message content in macro markdown format. This uses the same syntax as markdown documents. May be empty when attachments are sent.
    */
   content: string;
   /**
@@ -13373,6 +13381,28 @@ export interface SendChannelMessage {
    * An optional thread id to reply too
    */
   thread_id?: string | null;
+  /**
+   * Optional images, videos, or documents to attach, at most 10. Upload media before sending; a media attachment whose upload has not finished shows as broken.
+   */
+  attachments?: ChannelMessageAttachmentInput[];
+}
+/**
+ * An attachment to send with a channel message.
+ */
+export interface ChannelMessageAttachmentInput {
+  /**
+   * The attachmentId returned by CreateChannelMediaUpload (after its upload succeeded), or the ID of a Macro document.
+   */
+  id: string;
+  kind: ChannelAttachmentKind;
+  /**
+   * Optional pixel width of an image or video, used to lay it out before it loads.
+   */
+  width?: number | null;
+  /**
+   * Optional pixel height of an image or video.
+   */
+  height?: number | null;
 }
 export interface SendChannelMessageResponse {
   channel_id: string;

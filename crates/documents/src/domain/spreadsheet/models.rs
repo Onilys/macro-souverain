@@ -40,7 +40,7 @@ pub enum SpreadsheetVerticalAlign {
     Bottom,
 }
 
-/// Number interpretation and display; currency is USD and dates use UTC.
+/// Number interpretation and display; currency and accounting are USD and dates use UTC.
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SpreadsheetNumberFormat {
@@ -50,11 +50,13 @@ pub enum SpreadsheetNumberFormat {
     Number,
     /// Currency.
     Currency,
+    /// Accounting: $ at the cell's left edge, negatives in parentheses, zero as a dash.
+    Accounting,
     /// Percent.
     Percent,
-    /// Date.
+    /// Date, shown as m/d/yyyy unless numberFormat gives another date code.
     Date,
-    /// Time.
+    /// Time, shown as h:mm:ss AM/PM unless numberFormat gives another time code.
     Time,
     /// Scientific.
     Scientific,
@@ -101,7 +103,10 @@ pub enum SpreadsheetBorderStyle {
 #[derive(Debug, Clone, Default, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SpreadsheetStyle {
-    /// Exact Excel number format, up to 512 characters.
+    /// Exact Excel number format, up to 512 characters; it overrides the display of `format`.
+    /// Show dates with format=date and a date code such as mmm yyyy (Jan 2026), mmm dd, yyyy,
+    /// mm/dd/yyyy, dd/mm/yyyy, yyyy-mm-dd, d mmm yyyy or dddd, mmmm d, yyyy; times with
+    /// format=time and a code such as h:mm AM/PM.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub number_format: Option<String>,
     /// Exact Excel font name, up to 128 characters.

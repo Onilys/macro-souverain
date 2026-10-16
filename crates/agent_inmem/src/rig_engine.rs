@@ -28,7 +28,7 @@ use ai_tools::user_tool_review::user_tool_finisher;
 use ai_tools::{AiHost, DeferredToolSet, ToolServiceContext, tools_for};
 use ai_toolset::{AsyncToolCollection, ToolSet as AiToolSet};
 use axum::extract::FromRef;
-use futures::StreamExt as _;
+use futures::{FutureExt as _, StreamExt as _};
 use macro_user_id::user_id::MacroUserIdStr;
 use memory::domain::MemoryService as _;
 use memory::domain::service::MemoryServiceImpl;
@@ -243,15 +243,41 @@ impl TurnEngine for RigTurnEngine {
         let metering = agent::MeteringContext::current();
         tokio::spawn(
             agent::MeteringContext::carry(metering, async move {
-                if let Err(error) =
-                    drive_turn(&memory, &native_tools, tool_context, gate, request, &parts).await
-                {
-                    let _ = parts.send(Err(error)).await;
-                }
+                // The product toolset makes this future large. Keep its state
+                // on the heap when adding the panic boundary, including in
+                // unoptimized local builds with Tokio's default worker stack.
+                let turn = Box::pin(drive_turn(
+                    &memory,
+                    &native_tools,
+                    tool_context,
+                    gate,
+                    request,
+                    &parts,
+                ));
+                forward_turn_result(turn, &parts).await;
             })
             .in_current_span(),
         );
         receiver
+    }
+}
+
+// Closing the stream alone means success to the ACP consumer. A panic in
+// provider initialization must therefore become an explicit failed turn.
+async fn forward_turn_result(
+    turn: impl Future<Output = Result<(), AgentError>>,
+    parts: &mpsc::Sender<Result<StreamPart, AgentError>>,
+) {
+    let result = std::panic::AssertUnwindSafe(turn)
+        .catch_unwind()
+        .await
+        .unwrap_or_else(|_| {
+            Err(AgentError::Other(anyhow::anyhow!(
+                "The agent runtime ended unexpectedly. Please retry this message."
+            )))
+        });
+    if let Err(error) = result {
+        let _ = parts.send(Err(error)).await;
     }
 }
 
@@ -427,14 +453,14 @@ async fn drive_turn(
 
     // Bridge the caller's token onto the loop's own; aborted with the turn so
     // an uncancelled token does not strand the forwarder.
-    let forward = tokio::spawn({
+    let forward = tokio_util::task::AbortOnDropHandle::new(tokio::spawn({
         let loop_cancel = loop_cancel.clone();
         let cancel = cancel.clone();
         async move {
             cancel.cancelled().await;
             loop_cancel.cancel();
         }
-    });
+    }));
 
     let rig_messages = agent::to_rig_messages(&messages);
     let result = async {

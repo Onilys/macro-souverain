@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createRoot, createSignal } from 'solid-js';
+import { createMemo, createRoot, createSignal } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CellCopy } from '../core/calculation';
 import {
@@ -407,6 +407,23 @@ describe('spreadsheet clipboard and formatting', () => {
       B1: { value: '=A1*2', format: 'percent', bold: true },
     });
   });
+
+  it('formats a captured range after the selection has moved', () => {
+    const { grid, cells } = setup({
+      A1: { value: '1' },
+      A2: { value: '2' },
+      C3: { value: '3' },
+    });
+    grid.selectRange({ row: 0, column: 0 }, { row: 1, column: 0 });
+    const captured = grid.selection();
+    grid.selectRange({ row: 2, column: 2 }, { row: 2, column: 2 });
+    grid.format({ format: 'date', numberFormat: 'yyyy-mm-dd' }, captured);
+    expect(cells()).toEqual({
+      A1: { value: '1', format: 'date', numberFormat: 'yyyy-mm-dd' },
+      A2: { value: '2', format: 'date', numberFormat: 'yyyy-mm-dd' },
+      C3: { value: '3' },
+    });
+  });
 });
 
 describe('spreadsheet read-only permissions', () => {
@@ -632,6 +649,9 @@ function crossSheetSetup() {
       },
     });
     const [canEdit, setCanEdit] = createSignal(true);
+    // Subscribing before the controller makes row-count reactions run before
+    // its tab-change handling, an order the store's subscriptions can produce.
+    const rowCount = createMemo(() => (sheetId() === 'summary' ? 300 : 200));
     const setSheetCells = vi.fn((id: string, edits: SpreadsheetCellEdits) => {
       if (!sheets().some((sheet) => sheet.id === id)) return;
       const cells = { ...books()[id] };
@@ -648,6 +668,7 @@ function crossSheetSetup() {
       setSheetCells,
       setCells: (edits) => setSheetCells(sheetId(), edits),
       canEdit,
+      rowCount,
       undo: () => {},
       redo: () => {},
     });
@@ -685,6 +706,25 @@ describe('cross-sheet formula editing', () => {
     expect(view.books().inputs.B4.value).toBe('leave me');
     expect(view.sheetId()).toBe('summary');
     expect(view.grid.activeAddress()).toBe('B4');
+  });
+
+  it('keeps a draft from a row the picked sheet does not have and returns to it on commit', () => {
+    const view = crossSheetSetup();
+    view.grid.select({ row: 249, column: 2 });
+    view.grid.beginEdit('cell', '=IF(D2 <');
+    view.grid.switchSheet('inputs');
+    expect(view.sheetId()).toBe('inputs');
+    expect(view.grid.editing()).toBe('formula');
+    expect(view.grid.editingAddress()).toBe('C250');
+    expect(view.grid.beginReference({ row: 3, column: 1 })).toBe(true);
+    view.grid.endReference();
+    expect(view.grid.draft()).toBe("=IF(D2 <'Owner''s budget'!B4");
+    view.grid.commit();
+    expect(view.books().summary.C250.value).toBe(
+      "=IF(D2 <'Owner''s budget'!B4"
+    );
+    expect(view.sheetId()).toBe('summary');
+    expect(view.grid.activeAddress()).toBe('C250');
   });
 
   it('replaces a prior reference when choosing another sheet and omits the qualifier on the origin', () => {

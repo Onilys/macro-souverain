@@ -174,6 +174,7 @@ export function ViewMenu(props: SpreadsheetToolbarProps) {
       <Dropdown.Group>
         <Dropdown.CheckboxItem
           checked={props.showGridlines}
+          disabled={props.readonly}
           onChange={() => props.onCommand('toggle-gridlines')}
         >
           Gridlines

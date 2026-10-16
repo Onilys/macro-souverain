@@ -2,7 +2,8 @@
 //! Generated into `web-app-check-main.yml`.
 
 use gh_workflow::{
-    Concurrency, Event, Expression, Job, PullRequest, PullRequestType, Run, Step, Use, Workflow,
+    Concurrency, Event, Expression, Job, Level, Permissions, PullRequest, PullRequestType, Run,
+    Step, Use, Workflow,
 };
 
 use crate::workflows::{
@@ -11,6 +12,7 @@ use crate::workflows::{
     vars,
 };
 
+mod ios_native_check;
 #[cfg(test)]
 mod test;
 
@@ -47,13 +49,46 @@ pub fn web_app_check_main() -> Workflow {
             .cancel_in_progress(true),
         )
         .add_job("path-check", path_check())
+        .add_job("android-version", android_version())
         .add_job("typescript", typescript())
         .add_job("generated-code", generated_code())
         .add_job("biome-check", biome_check())
         .add_job("test", test())
         .add_job("cycles", cycles())
         .add_job("build", build())
+        .add_job(ios_native_check::JOB_ID, ios_native_check::job())
         .add_job("status-check", status_check())
+}
+
+/// Always run so the required collector can distinguish a successful native
+/// check from a cancelled or skipped one, including frontend/backend-only PRs.
+fn android_version() -> Job {
+    Job::default()
+        .name("Android Version Code")
+        .runs_on(runners::Runner::TinyNoCache.to_string())
+        .permissions(Permissions::default().contents(Level::Read))
+        // Shallow: only the merge result and the base commit are needed.
+        .add_step(checkout("Checkout PR merge commit", false))
+        .add_step(
+            Step::new("Setup Bun")
+                .uses(
+                    "oven-sh",
+                    "setup-bun",
+                    "0c5077e51419868618aeaa5fe8019c62421857d6",
+                ) // v2.2.0
+                .add_with(("bun-version", "1.3.13")),
+        )
+        .add_step(
+            Step::new("Require an Android version bump for native changes")
+                .run(indoc::indoc! {r#"
+                    set -euo pipefail
+                    git fetch -q --depth=1 origin "$BASE_SHA"
+                    bun scripts/android-version-check.mjs "$BASE_SHA"
+                "#})
+                .shell("bash")
+                .working_directory(xtask_paths::repo_dir!("apps/web"))
+                .add_env(("BASE_SHA", "${{ github.event.pull_request.base.sha }}")),
+        )
 }
 
 fn path_check() -> Job {
@@ -195,19 +230,23 @@ fn build() -> Job {
 }
 
 /// Always-run collector used as the required status check. Its name must stay
-/// stable because branch protection can reference it.
+/// stable because branch protection can reference it. New gates join the
+/// `needs` list (and [`check_job_results`]) rather than the ruleset: the
+/// [`ios_native_check`] job is required this way.
 fn status_check() -> Job {
     Job::default()
         .name("Web App Status Check")
         .cond(Expression::new("always()"))
         .needs(vec![
             "path-check".to_string(),
+            "android-version".to_string(),
             "typescript".to_string(),
             "generated-code".to_string(),
             "biome-check".to_string(),
             "test".to_string(),
             "cycles".to_string(),
             "build".to_string(),
+            ios_native_check::JOB_ID.to_string(),
         ])
         .runs_on(runners::Runner::TinyNoCache.to_string())
         .add_step(check_job_results())
@@ -433,21 +472,27 @@ fn run_build() -> Step<Run> {
 fn check_job_results() -> Step<Run> {
     Step::new("Check job results").run(indoc::indoc! {r#"
         echo "path-check: ${{ needs.path-check.result }}"
+        echo "android-version: ${{ needs.android-version.result }}"
         echo "typescript: ${{ needs.typescript.result }}"
         echo "generated-code: ${{ needs.generated-code.result }}"
         echo "biome-check: ${{ needs.biome-check.result }}"
         echo "test: ${{ needs.test.result }}"
         echo "cycles: ${{ needs.cycles.result }}"
         echo "build: ${{ needs.build.result }}"
+        echo "ios-native-check: ${{ needs.ios-native-check.result }}"
 
-        # Fail if any job failed (skipped and success are both OK)
-        if [[ "${{ needs.path-check.result }}" == "failure" ]] || \
+        # Fail if any job failed (skipped and success are both OK). The iOS
+        # gate is the merge gate, so a cancelled gate is not OK either.
+        if [[ "${{ needs.android-version.result }}" != "success" ]] || \
+           [[ "${{ needs.path-check.result }}" == "failure" ]] || \
            [[ "${{ needs.typescript.result }}" == "failure" ]] || \
            [[ "${{ needs.generated-code.result }}" == "failure" ]] || \
            [[ "${{ needs.biome-check.result }}" == "failure" ]] || \
            [[ "${{ needs.test.result }}" == "failure" ]] || \
            [[ "${{ needs.cycles.result }}" == "failure" ]] || \
-           [[ "${{ needs.build.result }}" == "failure" ]]; then
+           [[ "${{ needs.build.result }}" == "failure" ]] || \
+           [[ "${{ needs.ios-native-check.result }}" == "failure" ]] || \
+           [[ "${{ needs.ios-native-check.result }}" == "cancelled" ]]; then
           echo "One or more jobs failed"
           exit 1
         fi

@@ -75,6 +75,60 @@ test('a dropdown added from the menu shows arrows, offers its choices and reject
   await expect(cell(page, 'C4')).toHaveText('High');
 });
 
+test('an open list stays beside its cell and moves to another dropdown cell in one click', async ({
+  page,
+}) => {
+  const grid = page.getByRole('grid', { name: 'Spreadsheet' });
+  await cell(page, 'C2').click();
+  await cell(page, 'E12').click({ modifiers: ['Shift'] });
+  await page.getByRole('button', { name: 'Format and data' }).click();
+  await page.getByRole('menuitem', { name: 'Dropdown…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Dropdown' });
+  await dialog
+    .getByRole('textbox', { name: 'Choices, one per line' })
+    .fill('Low\nMedium\nHigh');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+
+  const list = page.getByRole('menu');
+  await page.getByRole('button', { name: 'Choose a value for C2' }).click();
+  await expect(list.getByRole('menuitem')).toHaveText([
+    'Low',
+    'Medium',
+    'High',
+  ]);
+  const c2 = await cell(page, 'C2').boundingBox();
+  const below = await list.boundingBox();
+  expect(below!.y).toBeGreaterThanOrEqual(c2!.y + c2!.height);
+
+  await cell(page, 'E2').click();
+  await expect(cell(page, 'E2')).toHaveAttribute('aria-selected', 'true');
+  await expect(
+    page.getByRole('button', { name: 'Choose a value for E2' })
+  ).toHaveAttribute('aria-expanded', 'true');
+  await expect(list.getByRole('menuitem', { name: 'Low' })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(list.getByRole('menuitem', { name: 'Medium' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(list).toBeHidden();
+  await expect(cell(page, 'E2')).toHaveText('Medium');
+  await expect(cell(page, 'C2')).toHaveText('');
+  await expect(grid).toBeFocused();
+
+  // Without room below, the list opens above the cell instead of over it.
+  await page.setViewportSize({ width: 1440, height: 420 });
+  await cell(page, 'D12').click();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(list).toBeVisible();
+  const d12 = await cell(page, 'D12').boundingBox();
+  const above = await list.boundingBox();
+  expect(above!.y + above!.height).toBeLessThanOrEqual(d12!.y);
+  await page.keyboard.press('Escape');
+  await expect(list).toBeHidden();
+  await expect(grid).toBeFocused();
+  await expect(cell(page, 'D12')).toHaveText('');
+});
+
 test('a dropdown can list the values of a range and accept other entries', async ({
   page,
 }) => {

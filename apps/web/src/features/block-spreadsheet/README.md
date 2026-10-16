@@ -10,7 +10,12 @@ spreadsheet, then choose **Import…**.
 
 The document title sits above a compact formatting ribbon. **Paste special** offers
 paste and values-only paste; **View options** toggles gridlines, the formula bar,
-and formula display. **Functions** inserts formulas, while **Format and data**
+and formula display. Gridlines are saved with each sheet (`metadata.gridlines`,
+Excel's `showGridLines`), so only editors change them; the formula bar and
+formula display are local. Gridlines are the app's ink at 12% over the cell
+background (Google Sheets' `#e2e3e3` on white), in every theme. A fill hides the
+gridlines around its cell, and a border replaces the gridline it lies on.
+**Functions** inserts formulas, while **Format and data**
 contains sorting, whitespace trimming, Goal Seek, fill, and clear actions. **Find and replace**
 is a direct ribbon button. The footer's **Import and export** button also contains
 Excel and CSV downloads and stays visible beside horizontally scrolling sheet tabs.
@@ -251,20 +256,38 @@ Formula point selection keeps the original cell and textarea focused while a
 pointer drag inserts or replaces an A1 reference at the caret. Only the local
 draft and a single dashed reference overlay update during dragging; the shared
 document and calculation worker receive the formula on commit. Quoted text and
-completed expressions retain normal click-away behavior.
+completed expressions retain normal click-away behavior. Changing tabs while a
+formula awaits a reference keeps its draft, even when the formula's row is past
+the other sheet's last row, and every tab change scrolls to that sheet's own
+selection.
+
+Dragging a range, row or column headers, the fill handle, a formula reference, or
+a touch selection handle scrolls the grid while the pointer is within 24 pixels
+of an edge of the cells or past it, and extends the drag to the cell under the
+pointer or the nearest one in view. Speed grows with the pointer's depth into
+that edge (20 pixels per second per pixel), and a header drag scrolls only along
+its own axis. `components/drag-auto-scroll.ts` scrolls; the grid maps the
+pointer to a cell and extends whichever drag is in progress. The sticky headers lie outside the cells, so scrolling up or left
+starts at their inner edges and never selects a cell hidden beneath them. The
+grid does not draw imported frozen panes, so the headers are its only fixed area.
+A press scrolls only after it moves 8 pixels, so a click beside an edge does not.
+When the window misses a drag's release (the pointer next moves without its
+button), the drag is cancelled rather than finished, so no fill is applied.
 
 Selection does not recalculate the workbook. A bounded row window mounts visible
 rows and a small buffer, keeping the active editor mounted while scrolling. Shared
 row offsets account for wrapped text, font size, and zoom. Two overlays
 draw the selected range and active cell, while Solid selectors update only
-changed cell selection attributes. Footer aggregates run outside urgent pointer
-updates, and collaborator presence is limited to ten updates per second with a
-trailing update for the final selection.
+changed cell selection attributes. The range's tint has a hole at the active
+cell, and the in-cell editor inherits the cell's fill, font and color, so a
+styled cell looks the same selected, editing and unselected. Footer aggregates
+run outside urgent pointer updates, and collaborator presence is limited to ten
+updates per second with a trailing update for the final selection.
 
 IronCalc handles formula parsing, ranges, relative and absolute references,
 dependency evaluation, functions, circular references, Excel errors, and array
 spills. The model uses fixed English settings and UTC on every client. Number
-formatting uses fixed `en-US` display rules; currency formatting means USD. The
+formatting uses fixed `en-US` display rules; currency and accounting mean USD. The
 binding exposes numbers through formatted strings, so the adapter requests a
 scientific format with sufficient significant digits before applying UI formats.
 Calculations use the engine's numeric values, not rounded UI values.
@@ -302,12 +325,32 @@ compare formula, error, and formatting behavior before replacing it.
 - The ribbon exposes font family/size, bold/italic/underline/strikethrough,
   text/fill colors, per-edge borders, horizontal/vertical alignment, and wrapping.
   All cell styles persist, sync independently, copy/fill, and undo. Number formats
-  include general, number, USD currency, percent, scientific, date, time, and plain
-  text, with adjustable decimal places. Date/time displays are deterministic UTC.
+  include general, number, USD currency, USD accounting, percent, scientific, date,
+  time, and plain text, with adjustable decimal places. Accounting follows Excel:
+  the grid pins `$` to the cell's left edge and the amount to its right, negatives
+  show in parentheses and zero as a dash. It exports as Excel's built-in accounting
+  format, and imported dollar formats with a repeated fill (`*`) open as accounting.
+  Date/time displays are deterministic UTC.
+  **Number format → Date formats** offers date presets (`mmm yyyy`, `mmm dd, yyyy`,
+  `mm/dd/yyyy`, `dd/mm/yyyy`, `yyyy-mm-dd`, `d mmm yyyy`, `dddd, mmmm d, yyyy`) and
+  **Custom date and time…** (`components/DateFormatDialog.tsx`), which takes any
+  Excel date or time code with a live preview. Both store the code as the cell's
+  `numberFormat` with the `date` or `time` format, so they export to Excel as that
+  code and import back unchanged.
+  Typing a date into a cell (`core/cell-dates.ts`) stores its serial number with the
+  `date` format and a code like the typed text: `01/2026` and `Jan 2026` show as
+  `Jan 2026`, `Jan 01 2026` as `Jan 01, 2026`, `2026-01-01` as `2026-01-01`, and
+  `1/1/26` in the default `m/d/yyyy`. All-numeric dates read day and month in the
+  browser locale's order, once at entry, so collaborators in other locales see the
+  same date; month and weekday names are English, and a year is required. A cell
+  that already shows dates keeps its format, Plain text keeps the typed text, and
+  API and import values stay raw. Editing a date cell shows a numeric date in the
+  locale's order that reads back as the same day.
   Cells without an explicit format honor the date/time formats IronCalc infers for
-  typed dates, `DATE()`-style results and arithmetic on date cells (formula results
-  only from the year 2000 on, so day counts stay numbers). A cell holding one
-  `<m-date-mention>` pill calculates as that local calendar date.
+  typed dates, `DATE()`-style results and arithmetic on date cells, including
+  numbers in the `date` format (formula results only from the year 2000 on, so day
+  counts stay numbers). A cell holding one `<m-date-mention>` pill calculates as
+  that local calendar date.
   Plain text treats formula-looking input literally. Wrapped rows grow to 160px at
   100% zoom; larger content remains available in the formula bar/editor.
 - Internal copying preserves formatting and translates relative/mixed references
@@ -329,8 +372,8 @@ compare formula, error, and formatting behavior before replacing it.
 - **Format and data → Goal Seek…** finds the number that makes a formula cell
   reach a typed value, then writes it when confirmed. The search runs on a copy
   of the calculated workbook, so cancel leaves every cell as it was.
-- Filters, editing named ranges, automatic spill expansion, and drag
-  auto-scroll remain future work.
+- Filters, editing named ranges, and automatic spill expansion remain future
+  work.
 - CSV import writes a validated rectangle at the active cell, appending rows when
   needed. It preserves existing cell styles and supports quoted multiline fields.
   CSV exports values and drops formatting. XLSX import/export converts supported
@@ -374,6 +417,9 @@ Import keeps what Excel calculates and shows:
   rejects the entry, warnings and information accept it, and each shows the
   rule's message in the footer. List rules offer their values in a dropdown on the
   active cell (Alt+Down), and every cell they cover shows an arrow that opens it.
+  `components/CellListMenu.tsx` anchors the non-modal list to the cell: below it,
+  or above or beside it when there is no room, never over it. While a list is
+  open, pressing another dropdown cell opens that cell's list instead.
   `components/DropdownDialog.tsx` (Format and data → Dropdown…, or the cell menu)
   adds, edits and removes list rules on the selection through
   `packages/spreadsheet/src/data-validation.ts`, which the AI `set_dropdown` and

@@ -748,6 +748,10 @@ where
     Namer: AgentSessionNameGenerator + Clone,
 {
     async fn create_session(&self, params: CreateAgentSessionParams) -> Result<AgentSession> {
+        params.purpose.for_creation(
+            false,
+            params.thread_id.is_some() || params.originating_message_id.is_some(),
+        )?;
         AgentSessionRepo::create(&self.repo, params).await
     }
 
@@ -782,6 +786,12 @@ where
         is_archived: bool,
     ) -> Result<()> {
         let id = owner_access_session_id(access, "archive")?;
+        // Every message in a conversation's channel goes to its current
+        // session, and an archived session takes none. Starting fresh is how
+        // a conversation retires one; the sessions it left behind archive.
+        if is_archived && self.repo.is_current_conversation_session(id).await? {
+            return Err(AgentSessionError::AnswersConversation(id));
+        }
         self.repo.set_archived(id, is_archived).await?;
         self.realtime
             .publish_updated(id)
@@ -946,6 +956,7 @@ where
                 content: Message::ToServer(ToServerMessage::Event {
                     event: SystemEvent::Disconnected,
                 }),
+                logged_at: None,
             }),
         )
         .await
@@ -968,6 +979,7 @@ where
                 agent_session_id: id,
                 user_id: None,
                 content: Message::ToServer(message),
+                logged_at: None,
             })
             .await?;
             logs.flush().await
@@ -1834,6 +1846,10 @@ where
 
     async fn set_archived(&self, id: AgentSessionId, is_archived: bool) -> Result<()> {
         self.repo.set_archived(id, is_archived).await
+    }
+
+    async fn is_current_conversation_session(&self, id: AgentSessionId) -> Result<bool> {
+        self.repo.is_current_conversation_session(id).await
     }
 
     async fn set_name_if_default(&self, id: AgentSessionId, name: &str) -> Result<bool> {

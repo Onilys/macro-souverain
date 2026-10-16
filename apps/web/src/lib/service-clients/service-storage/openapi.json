@@ -6340,6 +6340,74 @@
         }
       }
     },
+    "/crm/pipelines/{id}/permissions": {
+      "get": {
+        "tags": ["crm::inbound::pipelines"],
+        "summary": "Read the owner, team grant and channel recipients of a pipeline the caller can edit.",
+        "operationId": "get_crm_pipeline_permissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePermissionV2"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["crm::inbound::pipelines"],
+        "summary": "Share a pipeline the caller can edit with channels, or change or remove\ntheir access. Team access changes through `/sharing`; there is no share link.",
+        "operationId": "update_crm_pipeline_permissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSharePermissionRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharePermissionV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/crm/pipelines/{id}/rows": {
       "get": {
         "tags": ["crm::inbound::pipelines"],
@@ -6979,6 +7047,85 @@
           },
           "500": {
             "description": "Provisioning failed; safe to retry"
+          }
+        }
+      }
+    },
+    "/databases/webhooks/{token}": {
+      "post": {
+        "tags": ["databases"],
+        "summary": "Insert rows through a webhook. The body is a JSON object, one row, or\nan array of up to 100 objects, one row each. Keys name columns by name\n(ignoring case) or id; `null` leaves a cell empty. Values may be loose:\n`\"45\"` for a number, `\"true\"` for a checkbox, a label or labels for a\nselect, `2026-10-09` for a date. Nothing is written unless every row fits.",
+        "operationId": "deliver_database_webhook",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The webhook's secret token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "A row, or an array of rows",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseWebhookDeliveryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The payload does not fit the table; nothing was written",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidDatabaseWebhookPayloadResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The webhook's creator can no longer edit the database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such webhook",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8110,6 +8257,220 @@
           },
           "403": {
             "description": "No access to the database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{id}/webhooks": {
+      "get": {
+        "tags": ["databases"],
+        "summary": "The database's webhooks.",
+        "operationId": "list_database_webhooks",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Database id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDatabaseWebhooksResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No edit access to the database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["databases"],
+        "summary": "Create a webhook: a secret URL whose calls insert rows into one of the\ndatabase's tables, writing with the creator's access.",
+        "operationId": "create_database_webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Database id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDatabaseWebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedDatabaseWebhookResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No edit access to the database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such table in the database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{id}/webhooks/{webhook_id}": {
+      "delete": {
+        "tags": ["databases"],
+        "summary": "Delete a webhook; its URL stops working.",
+        "operationId": "delete_database_webhook",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Database id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "description": "Webhook id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No edit access to the database",
             "content": {
               "application/json": {
                 "schema": {
@@ -14045,6 +14406,16 @@
               }
             }
           },
+          "404": {
+            "description": "The CRM record named by `crma` or a document `crm` literal is not visible to the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "",
             "content": {
@@ -14097,6 +14468,16 @@
           },
           "403": {
             "description": "CRM-scoped queries require team membership, or requesting hidden CRM companies requires admin/owner team role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The CRM record named by `crma` or a document `crm` literal is not visible to the caller",
             "content": {
               "application/json": {
                 "schema": {
@@ -17768,6 +18149,25 @@
         "description": "Whether an agent is available everywhere or only in selected channels.",
         "enum": ["all", "selected"]
       },
+      "AgentDmProfile": {
+        "type": "object",
+        "description": "Historical persona identity displayed beside a private conversation.",
+        "required": ["bot_id", "name"],
+        "properties": {
+          "avatar_url": {
+            "type": ["string", "null"],
+            "description": "Persona avatar, when supplied."
+          },
+          "bot_id": {
+            "type": "string",
+            "description": "Persona id without the bot principal prefix."
+          },
+          "name": {
+            "type": "string",
+            "description": "Persona display name."
+          }
+        }
+      },
       "AgentMcpServer": {
         "type": "object",
         "description": "One Pipedream app an agent lists under [`AgentMcpServers::Selected`].\n\nOnly the catalog identity is stored. Whether a given person has connected\nthe app is theirs, resolved at call time by the egress proxy, never here.",
@@ -18015,6 +18415,27 @@
           }
         ],
         "description": "Events publishable to [`MacroAgentSessionLifecycleTopic`].\n\nThe serde tag and [`AgentSessionLifecycleEventName`] spell the same wire\nnames: subscribers filter on them, so they are API. The\n`event_names_match_the_wire` test holds the two in step. Exhaustive on\npurpose: a consumer's match should break when a variant is added."
+      },
+      "AgentTyping": {
+        "type": "object",
+        "description": "An agent session typing through its bot.",
+        "required": ["session_id", "phase"],
+        "properties": {
+          "phase": {
+            "$ref": "#/components/schemas/AgentTypingPhase",
+            "description": "What the agent is doing. Deliberately coarse: a typing event reaches\neveryone in the conversation, and which tool runs on what is for\nviewers who can read the session itself."
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The session whose turn the bot is speaking for."
+          }
+        }
+      },
+      "AgentTypingPhase": {
+        "type": "string",
+        "description": "What a typing agent is doing.",
+        "enum": ["thinking", "writing", "working", "waiting"]
       },
       "Anchor": {
         "oneOf": [
@@ -18577,6 +18998,17 @@
           "is_participant"
         ],
         "properties": {
+          "agent_dm": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentDmProfile",
+                "description": "Persona identity when this is the viewer's private agent DM."
+              }
+            ]
+          },
           "auto_join_team": {
             "type": "boolean",
             "description": "Whether team members automatically join the channel."
@@ -18690,6 +19122,17 @@
           },
           "chanf": {
             "description": "the filters that should be applied to the channel entity"
+          },
+          "crma": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CrmAssociation",
+                "description": "Restrict every entity type to items associated with this CRM record\n(wire key `crma`): its Companies or Contacts property names the\nrecord, or it references the record. A company also matches through\nits contacts. Unknown or inaccessible records answer 404; requests\nthat are not expanded or not timestamp-sorted answer 400."
+              }
+            ]
           },
           "crmf": {
             "description": "Opt-in filters for viewer-accessible CRM contacts (wire key `crmf`)."
@@ -23108,6 +23551,18 @@
           }
         }
       },
+      "CreateDatabaseWebhookRequest": {
+        "type": "object",
+        "description": "Which table a new webhook inserts rows into.",
+        "required": ["tableId"],
+        "properties": {
+          "tableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A table of the database."
+          }
+        }
+      },
       "CreateDocumentRequest": {
         "type": "object",
         "required": ["sha", "documentName"],
@@ -23848,6 +24303,21 @@
           }
         }
       },
+      "CreatedDatabaseWebhookResponse": {
+        "type": "object",
+        "description": "A new webhook, with the token its URL carries. The token is shown only\nhere.",
+        "required": ["webhook", "token"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The secret: `POST /databases/webhooks/{token}` inserts rows."
+          },
+          "webhook": {
+            "$ref": "#/components/schemas/DatabaseWebhookResponse",
+            "description": "The webhook."
+          }
+        }
+      },
       "CreatedPairing": {
         "type": "object",
         "description": "A pairing the daemon created, including its claim credential.\n\n`device_secret` is returned exactly once and never stored raw; the daemon\nkeeps it to claim the harness credential after approval.",
@@ -23908,6 +24378,35 @@
             "description": "User-facing name."
           }
         }
+      },
+      "CrmAssociation": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Items associated with the company or with any of its contacts.",
+            "required": ["company"],
+            "properties": {
+              "company": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Items associated with the company or with any of its contacts."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Items associated with the contact.",
+            "required": ["contact"],
+            "properties": {
+              "contact": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Items associated with the contact."
+              }
+            }
+          }
+        ],
+        "description": "The CRM record an association filter names."
       },
       "CrmCompanyFilters": {
         "type": "object",
@@ -24435,6 +24934,93 @@
             "type": "string",
             "format": "date-time",
             "description": "When it last changed."
+          }
+        }
+      },
+      "DatabaseWebhookDeliveryResponse": {
+        "type": "object",
+        "description": "The rows a webhook call inserted.",
+        "required": ["databaseId", "tableId", "rows"],
+        "properties": {
+          "databaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The database."
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The new rows, in the order the payload sent them."
+          },
+          "tableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The table."
+          }
+        }
+      },
+      "DatabaseWebhookPayloadProblem": {
+        "type": "object",
+        "description": "One thing wrong with a webhook payload.",
+        "required": ["row", "field", "message"],
+        "properties": {
+          "field": {
+            "type": ["string", "null"],
+            "description": "The key at fault, when one is."
+          },
+          "message": {
+            "type": "string",
+            "description": "What is wrong."
+          },
+          "row": {
+            "type": ["integer", "null"],
+            "description": "The row's index, when the payload is an array of rows.",
+            "minimum": 0
+          }
+        }
+      },
+      "DatabaseWebhookResponse": {
+        "type": "object",
+        "description": "A webhook of a database. Its token is never shown again after creation.",
+        "required": [
+          "id",
+          "databaseId",
+          "tableId",
+          "createdBy",
+          "tokenPrefix",
+          "createdAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time."
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Who created it; its calls write with their access."
+          },
+          "databaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The database."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifier."
+          },
+          "tableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The table its calls insert rows into."
+          },
+          "tokenPrefix": {
+            "type": "string",
+            "description": "The token's first characters, to tell webhooks apart."
           }
         }
       },
@@ -28658,7 +29244,7 @@
         "properties": {
           "recipient_id": {
             "type": "string",
-            "description": "Recipient user id."
+            "description": "Recipient user id (`macro|...`) or agent persona id (`bot|...`)."
           }
         }
       },
@@ -30184,6 +30770,24 @@
         "description": "Why a document interaction was reported.",
         "enum": ["edited", "first_join", "last_leave"]
       },
+      "InvalidDatabaseWebhookPayloadResponse": {
+        "type": "object",
+        "description": "Why a payload was refused. Nothing was written.",
+        "required": ["message", "problems"],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "A summary."
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseWebhookPayloadProblem"
+            },
+            "description": "Every problem found."
+          }
+        }
+      },
       "InviteMeetingRequest": {
         "type": "object",
         "description": "A single email recipient for a call invitation.",
@@ -30496,6 +31100,20 @@
         "type": "string",
         "description": "Defines who can access an item through its share link.",
         "enum": ["PUBLIC", "TEAM"]
+      },
+      "ListDatabaseWebhooksResponse": {
+        "type": "object",
+        "description": "A database's webhooks.",
+        "required": ["webhooks"],
+        "properties": {
+          "webhooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseWebhookResponse"
+            },
+            "description": "Oldest first."
+          }
+        }
       },
       "ListWebhooksResponse": {
         "type": "object",
@@ -31111,6 +31729,17 @@
               "active": {
                 "type": "boolean",
                 "description": "Whether the user is currently typing."
+              },
+              "agent": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AgentTyping",
+                    "description": "Present when an agent session is typing through the bot that\nspeaks for it. Names the session, so a viewer who can read it can\nshow the turn live in place of the bare indicator."
+                  }
+                ]
               },
               "thread_id": {
                 "type": ["string", "null"],
@@ -38448,7 +39077,7 @@
           },
           "title": {
             "type": ["string", "null"],
-            "description": "Event title, absent when the event's visibility withholds details."
+            "description": "Event title, absent unless the teammate shares event details."
           }
         }
       },

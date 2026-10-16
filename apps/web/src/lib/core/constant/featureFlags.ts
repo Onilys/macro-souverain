@@ -163,6 +163,12 @@ export const enableTasksReviews = defineFlag({
   default: onInDev,
 });
 
+/** Gantt layouts stay hidden until enabled remotely or with a local override. */
+export const enableGantt = defineFlag({
+  key: 'enable-gantt',
+  env: 'ENABLE_GANTT',
+});
+
 // Claude Cloud: the built-in @claude mention and agent assignee, its Runtimes
 // connection card, and harness/model discovery. Off until PostHog enables it,
 // including in dev; override locally with VITE_CLAUDE_CLOUD.
@@ -722,6 +728,13 @@ export const enableChatV3Agents = defineFlag({
   env: 'ENABLE_CHAT_V3_AGENTS',
   default: onInDev,
 });
+
+// Private conversations with agent personas. Explicit environment opt-in;
+// this flag has no remote PostHog source. VITE_ENABLE_AGENT_DMS=true enables it.
+export const ENABLE_AGENT_DMS = defineFlag({
+  env: 'ENABLE_AGENT_DMS',
+  default: false,
+}).enabled;
 
 // The built-in @cursor mention, using the mentioning user's own Cursor account.
 // Account setup is checked after the mention; this flag controls discovery.

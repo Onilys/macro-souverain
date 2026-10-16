@@ -925,8 +925,10 @@ function enterCell(
     }
   }
   if (!enteredArray) model.setUserInput(sheetIndex, row + 1, column + 1, input);
-  // A date pill is a date value: formulas referencing it inherit the format.
-  if (dateMention) model.updateRangeStyle(area, 'num_fmt', 'm/d/yyyy');
+  // A date pill or a number formatted as a date is a date value: formulas
+  // referencing it inherit the format.
+  if (dateMention || (cell.format === 'date' && numericLiteral.test(value)))
+    model.updateRangeStyle(area, 'num_fmt', 'm/d/yyyy');
   // Typed exponents get a 3-digit scientific format that formulas would
   // inherit; numeric literals never need an inferred display format.
   else if (!literal && /e/i.test(value) && numericLiteral.test(value))

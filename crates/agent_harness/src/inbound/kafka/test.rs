@@ -1,9 +1,9 @@
 use agent_runtime_protocol::domain::action::AgentAction;
 use agent_session::domain::model::{AgentMcpServers, AgentSessionId};
 use agent_trigger::domain::broker_events::{
-    AgentAssignedToTaskEvent, AgentBotMentionedEvent, AgentMentionedEvent, AgentTriggerTopicEvent,
-    ChannelEventMetadata, ExistingAgentSessionEvent, NewAgentSessionEvent, ThreadEventMetadata,
-    ThreadMessageKind,
+    AgentAssignedToTaskEvent, AgentBotMentionedEvent, AgentConversationMessageEvent,
+    AgentMentionedEvent, AgentTriggerTopicEvent, ChannelEventMetadata, ExistingAgentSessionEvent,
+    NewAgentSessionEvent, ThreadEventMetadata, ThreadMessageKind,
 };
 use bot_id::{BotId, MACRO_CODER_BOT_ID};
 use channel_sender::ChannelSender;
@@ -630,4 +630,33 @@ fn a_managed_channel_message_with_files_delivers_them_as_prompt_attachments() {
     );
     assert_eq!(prompt.attachments[0].mime_type.as_deref(), Some("image/*"));
     assert_eq!(prompt.attachments[1].mime_type.as_deref(), Some("video/*"));
+}
+
+#[test]
+fn conversation_messages_route_to_every_configured_runtime() {
+    let session_id = AgentSessionId::TEST_A;
+    let event = AgentTriggerTopicEvent::New(NewAgentSessionEvent::ConversationMessage(
+        AgentConversationMessageEvent {
+            bot_id: BotId::TEST_A,
+            session_id,
+            message: document_message(ChannelSender::new_from_user(user())),
+            context: None,
+        },
+    ));
+    assert_eq!(
+        route_agent_trigger(event.clone(), None, &links()).unwrap_err(),
+        Skipped::ForeignBot,
+    );
+    for kind in [
+        AgentKind::InMemory,
+        AgentKind::SandboxedCoder,
+        AgentKind::External,
+    ] {
+        let routed = route_agent_trigger(event.clone(), runtime(kind), &links()).unwrap();
+        let RoutedTrigger::Command(id, HarnessCommand::ConversationMessage(open)) = routed else {
+            panic!("a conversation message should reach its reserved session");
+        };
+        assert_eq!(id, session_id);
+        assert_eq!(open.runtime.kind, kind);
+    }
 }

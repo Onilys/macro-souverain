@@ -31,6 +31,7 @@ activity = { path = "../../crates/activity", default-features = false }
 agent_runtime_protocol = { path = "../../crates/agent_runtime_protocol", default-features = false }
 agent_session = { path = "../../crates/agent_session", default-features = false, features = ["admission"] }
 bot_id = { path = "../../crates/bot_id" }
+call = { path = "../../crates/call", default-features = false, features = ["outbound"] }
 channel_sender = { path = "../../crates/channel_sender" }
 channels = { path = "../../crates/channels", default-features = false, features = ["outbound"] }
 crm = { path = "../../crates/crm", default-features = false, features = ["ports"] }

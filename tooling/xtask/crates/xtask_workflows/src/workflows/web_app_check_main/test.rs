@@ -1,5 +1,28 @@
 use super::*;
 
+#[test]
+fn android_version_is_an_unconditional_required_merge_check() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let android = job(&yaml, "android-version", "typescript");
+    assert!(
+        !android.contains("if:"),
+        "native enforcement must always run"
+    );
+    assert!(
+        !android.contains("fetch-depth"),
+        "shallow checkout; the base commit is fetched by the step: {android}"
+    );
+    assert!(android.contains("github.event.pull_request.base.sha"));
+    assert!(android.contains("git fetch -q --depth=1 origin \"$BASE_SHA\""));
+    assert!(android.contains("bun scripts/android-version-check.mjs"));
+    let status = yaml
+        .split("\n  status-check:\n")
+        .nth(1)
+        .expect("status job");
+    assert!(status.contains("- android-version"));
+    assert!(status.contains("needs.android-version.result }}\" != \"success\""));
+}
+
 fn filters(yaml: &str) -> (&str, &str) {
     let filters = yaml
         .split("filters: |")
@@ -31,6 +54,44 @@ fn nix_dev_shell_does_not_start_typecheck() {
     assert!(
         should_run.contains("setup-reqs-web"),
         "web setup action still belongs in should_run: {should_run}"
+    );
+}
+
+/// The iOS merge gate is required through the aggregator, not the ruleset:
+/// the status check must depend on it and fail when it fails.
+#[test]
+fn status_check_requires_the_ios_native_check() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let gate = job(&yaml, "ios-native-check", "status-check");
+    assert!(
+        gate.contains("name: iOS Native Check"),
+        "gate job name is a check name: {gate}"
+    );
+    assert!(
+        gate.contains("predicate-quantifier: every"),
+        "negated path filters need the `every` quantifier: {gate}"
+    );
+    // `!` binds tighter than `==` in GitHub expressions: `!x == 'true'` is
+    // always false, which silently skipped every gated step.
+    assert!(
+        !gate.contains("!steps.labels"),
+        "never negate a comparison with a leading `!`: {gate}"
+    );
+    assert!(
+        gate.contains("steps.labels.outputs.skip != 'true'"),
+        "gated steps run when the skip label is absent: {gate}"
+    );
+    let status = yaml
+        .split("\n  status-check:\n")
+        .nth(1)
+        .expect("status-check job");
+    assert!(
+        status.contains("- ios-native-check"),
+        "status-check must need the gate: {status}"
+    );
+    assert!(
+        status.contains("needs.ios-native-check.result }}\" == \"failure\""),
+        "status-check must fail when the gate fails: {status}"
     );
 }
 

@@ -57,7 +57,6 @@
         "@corvu/dialog": "^0.2.4",
         "@corvu/drawer": "^0.2.4",
         "@date-fns/tz": "^1.4.1",
-        "@dinero.js/currencies": "2.0.0-alpha.8",
         "@effect/platform-browser": "4.0.0-rc.111",
         "@floating-ui/dom": "^1.7.4",
         "@fontsource-variable/inter": "^5.2.8",
@@ -71,7 +70,6 @@
         "@ironcalc/wasm": "workspace:*",
         "@kobalte/core": "^0.13.11",
         "@leeoniya/ufuzzy": "^1.0.19",
-        "@lexical/extension": "0.45.0",
         "@lexical/history": "0.45.0",
         "@lexical/html": "0.45.0",
         "@lexical/link": "0.45.0",
@@ -136,7 +134,6 @@
         "date-fns": "^4.1.0",
         "detect-browser": "^5.3.0",
         "diff": "^9.0.0",
-        "dinero.js": "2.0.0-alpha.8",
         "effect": "^4.0.0-rc.111",
         "email-validator": "^2.0.4",
         "emojibase-data": "^17.0.0",
@@ -161,7 +158,6 @@
         "short-uuid": "^5.2.0",
         "signature_pad": "^5.0.10",
         "solid-custom-scrollbars": "^0.1.7",
-        "solid-gesture": "^0.0.3",
         "solid-js": "^1.9.7",
         "solid-styled-components": "^0.28.5",
         "solid-transition-group": "^0.2.3",
@@ -520,9 +516,7 @@
       "devDependencies": {
         "@types/bun": "^1.2.19",
         "@types/node": "22.13.0",
-        "@types/service-worker-mock": "^2.0.4",
         "tsx": "^4.20.3",
-        "wrangler": "^4.25.1",
       },
     },
     "vendor/ironcalc/pkg": {
@@ -539,7 +533,6 @@
     "@tanstack/solid-query@5.90.3": "apps/web/patches/@tanstack%2Fsolid-query@5.90.3.patch",
     "ai-fallback@2.0.1": "apps/web/patches/ai-fallback@2.0.1.patch",
     "@tanstack/virtual-core@3.17.8": "apps/web/patches/@tanstack%2Fvirtual-core@3.17.8.patch",
-    "solid-gesture@0.0.3": "apps/web/patches/solid-gesture@0.0.3.patch",
     "graphql-ws@6.2.0": "apps/web/patches/graphql-ws@6.2.0.patch",
     "@kobalte/core@0.13.11": "apps/web/patches/@kobalte%2Fcore@0.13.11.patch",
     "virtua@0.48.8": "apps/web/patches/virtua@0.48.8.patch",
@@ -852,12 +845,6 @@
     "@datadog/datadog-ci-plugin-synthetics": ["@datadog/datadog-ci-plugin-synthetics@3.22.2", "", { "dependencies": { "axios": "^1.12.1", "chalk": "3.0.0", "debug": "^4.4.1", "deep-extend": "0.6.0", "fast-levenshtein": "^3.0.0", "get-value": "^4.0.1", "ora": "5.4.1", "set-value": "^4.1.0", "ssh2": "^1.16.0", "sshpk": "1.16.1", "upath": "^2.0.1", "ws": "^7.5.10", "xml2js": "0.5.0", "yamux-js": "0.1.2" }, "peerDependencies": { "@datadog/datadog-ci-base": "3.22.2" } }, "sha512-7JuGnnw1GGdsw3OUjJTjCPDaRNdFROB199CNWOsu9psLDCOLfb3zKVVEpIno+u+2HGL0/PIRQz8F6dM499Nb+g=="],
 
     "@date-fns/tz": ["@date-fns/tz@1.5.0", "", {}, "sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg=="],
-
-    "@dinero.js/calculator-number": ["@dinero.js/calculator-number@2.0.0-alpha.8", "", { "dependencies": { "@dinero.js/core": "2.0.0-alpha.8" } }, "sha512-/L+N7g5DjcS6wlMb2hcOXWBKW2TGiG+vZDZr9ow0nsHUTdwtMarL1bmBH9fGldHhH2XsxcrjN9H+036yeNzh3Q=="],
-
-    "@dinero.js/core": ["@dinero.js/core@2.0.0-alpha.8", "", { "dependencies": { "@dinero.js/currencies": "2.0.0-alpha.8" } }, "sha512-3jaw2j6J/SshlCZz5KhHkh8zP47HRmt9RpnjR0BJs2awpweVuZIyyX9qzGVUEVpml9IwzQ1U+YdXevhOxtcDgg=="],
-
-    "@dinero.js/currencies": ["@dinero.js/currencies@2.0.0-alpha.8", "", {}, "sha512-zApiqtuuPwjiM9LJA5/kNcT48VSHRiz2/mktkXjIpfxrJKzthXybUAgEenExIH6dYhLDgVmsLQZtZFOsdYl0Ag=="],
 
     "@effect/platform-browser": ["@effect/platform-browser@4.0.0-rc.111", "", { "peerDependencies": { "effect": "^4.0.0-rc.111" } }, "sha512-4SmaYB4zWsmuM82V8Dgida2yupzEWlv6/QoDL2Ogj1jOPq65KUx3VjQKcNn2NenOR6SFRWaWsUWrnxwA2IPFzg=="],
 
@@ -1821,8 +1808,6 @@
 
     "@types/request": ["@types/request@2.48.13", "", { "dependencies": { "@types/caseless": "*", "@types/node": "*", "@types/tough-cookie": "*", "form-data": "^2.5.5" } }, "sha512-FGJ6udDNUCjd19pp0Q3iTiDkwhYup7J8hpMW9c4k53NrccQFFWKRho6hvtPPEhnXWKvukfwAlB6DbDz4yhH5Gg=="],
 
-    "@types/service-worker-mock": ["@types/service-worker-mock@2.0.4", "", {}, "sha512-MEBT2eiqYfhxjqYm/oAf2AvKLbPTPwJJAYrMdheKnGyz1yG9XBRfxCzi93h27qpSvI7jOYfXqFLVMLBXFDqo4A=="],
-
     "@types/sinonjs__fake-timers": ["@types/sinonjs__fake-timers@8.1.5", "", {}, "sha512-mQkU2jY8jJEF7YHjHvsQO8+3ughTL1mcnn96igfhONmR+fUPSKIkefQYpSe8bsly2Ep7oQbn/6VG5/9/0qcArQ=="],
 
     "@types/tough-cookie": ["@types/tough-cookie@4.0.5", "", {}, "sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA=="],
@@ -1894,8 +1879,6 @@
     "@ungap/structured-clone": ["@ungap/structured-clone@1.3.3", "", {}, "sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg=="],
 
     "@urql/core": ["@urql/core@6.0.3", "", { "dependencies": { "@0no-co/graphql.web": "^1.0.13", "wonka": "^6.3.2" } }, "sha512-0F39XWR21+IVLJfsqBvLShvoSzxT6h6wWXwrDhN8j9J+IEVOpQIUNHwpgjsp+2ePzn9aCH+rpDonn3HOAUnn9A=="],
-
-    "@use-gesture/core": ["@use-gesture/core@10.3.1", "", {}, "sha512-WcINiDt8WjqBdUXye25anHiNxPc0VOrlT8F6LLkU6cycrOGUDyY/yyFmsg3k8i5OLvv25llc0QC45GhR/C8llw=="],
 
     "@vercel/oidc": ["@vercel/oidc@3.2.0", "", {}, "sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug=="],
 
@@ -2336,8 +2319,6 @@
     "dezalgo": ["dezalgo@1.0.4", "", { "dependencies": { "asap": "^2.0.0", "wrappy": "1" } }, "sha512-rXSP0bf+5n0Qonsb+SVVfNfIsimO4HEtmnIpPHY8Q1UCzKlQrDMfdobr8nJOOsRgWCyMRqeSBQzmWUMq7zvVig=="],
 
     "diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
-
-    "dinero.js": ["dinero.js@2.0.0-alpha.8", "", { "dependencies": { "@dinero.js/calculator-number": "2.0.0-alpha.8", "@dinero.js/core": "2.0.0-alpha.8", "@dinero.js/currencies": "2.0.0-alpha.8" } }, "sha512-6bl+g6oh6iQ6vPR5Pd4qr7D+P5e51GYRUT3jl8HYqYeejYC5sd9OVTTbXC3WU7L25mAIbOm+diiTVz1rL4QLwg=="],
 
     "dir-glob": ["dir-glob@3.0.1", "", { "dependencies": { "path-type": "^4.0.0" } }, "sha512-WkrWp9GR4KXfKGYzOLmTuGVi1UWFfws377n9cc55/tb6DuqyF6pcQ5AbiHEshaDpY9v6oaSr2XCDidGmMwdzIA=="],
 
@@ -3484,8 +3465,6 @@
     "solid-dismissible": ["solid-dismissible@0.1.1", "", { "dependencies": { "@corvu/utils": "~0.4.1" }, "peerDependencies": { "solid-js": "^1.8" } }, "sha512-9kcKBJIMdS+586cA1g63HYWxKh3h89leeNHbPZ1csYjuni+NvPBtNr11l0iEX2AKKEt6FHk6qNhc/gjoYAW1pA=="],
 
     "solid-focus-trap": ["solid-focus-trap@0.1.9", "", { "dependencies": { "@corvu/utils": "~0.4.2" }, "peerDependencies": { "solid-js": "^1.8" } }, "sha512-LTyNki6GUJPRLXV5uMWPkYClB07SUMubbr2EkAddiR0CJCF/I283txilMU9RURSr/P8EewMfXWu2o3aWrK7A5A=="],
-
-    "solid-gesture": ["solid-gesture@0.0.3", "", { "dependencies": { "@use-gesture/core": "^10.2.16" }, "peerDependencies": { "solid-js": ">=1.4.0" } }, "sha512-7vbhm+eYXXqr0y9/uVMHknscn9THHozx4wA0SEUwVsRjEPUd1Y9BKWDaG2s+GZafAEEucr7bWsMQKb49c0X1Fw=="],
 
     "solid-js": ["solid-js@1.9.14", "", { "dependencies": { "csstype": "^3.1.0", "seroval": "~1.5.4", "seroval-plugins": "~1.5.4" } }, "sha512-sAEXC0Kk0S1EDg+8ysEWJDbYhA3RRoEjwuySUGlKIemeo0I5YZfOyumNjNs9Sv3y2nmhD+0rW66ag2HsMuQiGQ=="],
 

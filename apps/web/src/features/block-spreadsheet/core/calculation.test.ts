@@ -196,6 +196,19 @@ describe('spreadsheet calculation with IronCalc', () => {
     expect(result.A8.display).toBe('0.00');
   });
 
+  it('formats accounting results with parentheses and a dash for zero', () => {
+    const result = calculator.calculate({
+      A1: { value: '1234.5', format: 'accounting' },
+      A2: { value: '=-A1*2', format: 'accounting' },
+      A3: { value: '=A1-1234.5', format: 'accounting' },
+      A4: { value: '=A1', format: 'accounting', decimals: 0 },
+    });
+    expect(result.A1).toEqual({ display: '$1,234.50', number: 1234.5 });
+    expect(result.A2).toEqual({ display: '$(2,469.00)', number: -2469 });
+    expect(result.A3).toEqual({ display: '$-', number: 0 });
+    expect(result.A4.display).toBe('$1,235');
+  });
+
   it('reads results at Excel’s fifteen significant digits', () => {
     const result = calculator.calculate(
       cells({
@@ -284,6 +297,30 @@ describe('spreadsheet calculation with IronCalc', () => {
     expect(result.A12).toEqual({ display: 'Sep 28, 2026' });
     expect(result.A13).toEqual({ display: '2026', number: 2026 });
     expect(result.A14.display).toBe('46300.0');
+  });
+
+  it('shows serials in date formats as dates, and formulas on them inherit a date display', () => {
+    const result = calculator.calculate({
+      A1: { value: '46023', format: 'date', numberFormat: 'mmm yyyy' },
+      A2: { value: '=A1+31' },
+      A3: {
+        value: '46282',
+        format: 'date',
+        numberFormat: 'dddd, mmmm d, yyyy',
+      },
+      A4: { value: '=A3-A1' },
+      A5: { value: '46023', format: 'date' },
+      A6: { value: '=A1+31', format: 'number', decimals: 0 },
+    });
+    expect(result.A1).toEqual({ display: 'Jan 2026', number: 46023 });
+    expect(result.A2).toEqual({ display: '2/1/2026', number: 46054 });
+    expect(result.A3).toEqual({
+      display: 'Thursday, September 17, 2026',
+      number: 46282,
+    });
+    expect(result.A4).toEqual({ display: '259', number: 259 });
+    expect(result.A5).toEqual({ display: '1/1/2026', number: 46023 });
+    expect(result.A6.display).toBe('46,054');
   });
 
   it('keeps text-formatted values literal during calculation and copying', () => {

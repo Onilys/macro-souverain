@@ -398,6 +398,7 @@ where
                             agent_session_id: self.machine.id(),
                             user_id: None,
                             content: Message::ToServer(message),
+                            logged_at: None,
                         },
                         boundary,
                     );
@@ -447,6 +448,7 @@ where
                                 agent_session_id: self.machine.id(),
                                 user_id: None,
                                 content: Message::ToRuntime(context.request.clone()),
+                                logged_at: None,
                             })
                             .await?
                             .log_id;
@@ -586,6 +588,7 @@ where
                 agent_session_id: self.machine.id(),
                 user_id: from,
                 content: Message::ToRuntime(message.clone()),
+                logged_at: None,
             })
             .await?;
         if acp_method(&message) == Some("initialize") {
@@ -610,6 +613,7 @@ where
                 agent_session_id: self.machine.id(),
                 user_id,
                 content,
+                logged_at: None,
             })
             .await?;
         self.forward_signals(appended.signals);
@@ -654,6 +658,9 @@ where
                         "agent session elicitation cleared"
                     );
                 }
+                // A reply's shape changes several times a turn; the turn's
+                // own span already covers it, so this is not logged.
+                TurnSignal::Progressed { .. } => {}
             }
             self.turn_observer.signal(self.machine.id(), signal);
         }

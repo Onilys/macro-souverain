@@ -152,6 +152,11 @@ function renderGrid(
     );
   });
   const element = view.getByRole('grid');
+  // Coordinates map to cells within the grid's client box, the mocked viewport.
+  Object.defineProperties(element, {
+    clientWidth: { configurable: true, value: 1000 },
+    clientHeight: { configurable: true, value: 960 },
+  });
   // jsdom has no layout or scrolling; only the selected cells need this DOM API.
   for (const address of ['A1', 'A2']) {
     const cell = view.container.querySelector<HTMLElement>(
@@ -565,6 +570,130 @@ describe('spreadsheet pointer gestures across sheet changes', () => {
   });
 });
 
+describe('spreadsheet drag auto-scroll', () => {
+  function mouse(
+    target: Element | Window,
+    type: string,
+    x: number,
+    y: number,
+    buttons = type === 'pointerup' ? 0 : 1
+  ) {
+    fireEvent(
+      target,
+      new MouseEvent(type, {
+        button: 0,
+        buttons,
+        clientX: x,
+        clientY: y,
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+  }
+
+  it('scrolls once a drag moves, faster the farther past the edge, until release', () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const view = renderGrid({}, { rowCount: 200 });
+    // B45 spans y 948-969; the grid's client box ends at 960.
+    mouse(view.getByRole('gridcell', { name: 'B45' }), 'pointerdown', 196, 950);
+    mouse(window, 'pointermove', 196, 953);
+    vi.advanceTimersToNextFrame();
+    expect(view.element.scrollTop).toBe(0);
+
+    // 34px into the bottom edge zone for a 16ms frame is 10.88px, then 134px
+    // is 42.88px plus the carried 0.88px.
+    mouse(window, 'pointermove', 196, 970);
+    vi.advanceTimersToNextFrame();
+    expect(view.element.scrollTop).toBe(10);
+    mouse(window, 'pointermove', 196, 1070);
+    vi.advanceTimersToNextFrame();
+    expect(view.element.scrollTop).toBe(53);
+    expect(view.controller.selection()).toEqual({
+      anchor: { row: 44, column: 1 },
+      focus: { row: 47, column: 1 },
+    });
+
+    mouse(window, 'pointerup', 196, 1070);
+    vi.advanceTimersToNextFrame();
+    expect(view.element.scrollTop).toBe(53);
+  });
+
+  it('keeps the scroll rate at slow speeds by carrying partial pixels between frames', () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const view = renderGrid({}, { rowCount: 200 });
+    mouse(view.getByRole('gridcell', { name: 'B45' }), 'pointerdown', 196, 950);
+    // 1px into the bottom edge zone: 20px a second, 0.32px a 16ms frame.
+    mouse(window, 'pointermove', 196, 937);
+    for (let frame = 0; frame < 60; frame++) vi.advanceTimersToNextFrame();
+    expect(view.element.scrollTop).toBe(19);
+  });
+
+  it('scrolls a column header drag only across, and stops when the release was missed', () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const view = renderGrid();
+    mouse(
+      view.getByRole('button', { name: 'Select column B' }),
+      'pointerdown',
+      196,
+      12
+    );
+    mouse(window, 'pointermove', 1010, 1000);
+    vi.advanceTimersToNextFrame();
+    expect(view.element.scrollTop).toBe(0);
+    expect(view.element.scrollLeft).toBe(10);
+    expect(view.controller.selection()).toEqual({
+      anchor: { row: 0, column: 1 },
+      focus: { row: 29, column: 9 },
+    });
+
+    mouse(window, 'pointermove', 1010, 1000, 0);
+    vi.advanceTimersToNextFrame();
+    mouse(window, 'pointermove', 400, 500);
+    vi.advanceTimersToNextFrame();
+    expect(view.element.scrollLeft).toBe(10);
+    expect(view.controller.selection().focus).toEqual({ row: 29, column: 9 });
+  });
+
+  it('cancels a fill whose release the window missed instead of applying it to the next drag', () => {
+    const onFill = vi.fn();
+    const view = renderGrid({}, { onFill });
+    mouse(
+      view.getByRole('button', { name: 'Drag to fill selection' }),
+      'pointerdown',
+      146,
+      45
+    );
+    mouse(window, 'pointermove', 146, 80);
+    fireEvent(
+      view.getByRole('gridcell', { name: 'A3' }),
+      new MouseEvent('pointerenter', { buttons: 1 })
+    );
+    // Released outside the window: the next move arrives without the button.
+    mouse(window, 'pointermove', 146, 80, 0);
+
+    mouse(view.getByRole('gridcell', { name: 'B2' }), 'pointerdown', 196, 55);
+    fireEvent(
+      view.getByRole('gridcell', { name: 'B3' }),
+      new MouseEvent('pointerenter', { buttons: 1 })
+    );
+    mouse(window, 'pointerup', 196, 76);
+    expect(onFill).not.toHaveBeenCalled();
+    expect(view.controller.selection()).toEqual({
+      anchor: { row: 1, column: 1 },
+      focus: { row: 2, column: 1 },
+    });
+  });
+});
+
 describe('spreadsheet grid clipboard and editing', () => {
   it('copies instead of marking formulas as moved when a viewer uses cut', () => {
     const view = renderGrid({ A1: { value: '=B1' } }, { readonly: true });
@@ -895,6 +1024,27 @@ describe('spreadsheet presentation', () => {
     );
   });
 
+  it('hides the gridlines a fill covers and those a neighboring border replaces', () => {
+    const view = renderGrid({
+      B2: { value: '', fillColor: '#fff2cc' },
+      B5: { value: 'Total', borderTop: true, borderTopColor: '#123456' },
+      E2: { value: '', borderLeft: true, borderLeftColor: '#123456' },
+    });
+    const style = (address: string) =>
+      view.container.querySelector<HTMLElement>(`[data-address="${address}"]`)!
+        .style;
+    expect(style('B2').borderRightColor).toBe('transparent');
+    expect(style('B2').borderBottomColor).toBe('transparent');
+    expect(style('A2').borderRightColor).toBe('transparent');
+    expect(style('B1').borderBottomColor).toBe('transparent');
+    expect(style('B4').borderBottomColor).toBe('transparent');
+    expect(style('D2').borderRightColor).toBe('transparent');
+    expect(style('B5').borderTopStyle).toBe('solid');
+    expect(style('E2').borderLeftStyle).toBe('solid');
+    expect(style('C3').borderRight).toBe('');
+    expect(style('C3').borderBottom).toBe('');
+  });
+
   it('uses wrapped row geometry for active and range outlines at different zoom levels', () => {
     const view = renderGrid(
       { A1: { value: 'one\ntwo\nthree', wrap: true } },
@@ -987,6 +1137,58 @@ describe('spreadsheet presentation', () => {
     expect(cell.textContent).toBe('=SUM(B1:B3)');
     expect(cell.style.textAlign).toBe('left');
     expect(view.cells().A1.value).toBe('=SUM(B1:B3)');
+  });
+
+  it('pins the accounting symbol to the left edge and pads amounts to line up with negatives', () => {
+    const [showFormulas, setShowFormulas] = createSignal(false);
+    const view = renderGrid(
+      {
+        A1: { value: '1234.5', format: 'accounting' },
+        A2: { value: '=-A1', format: 'accounting' },
+        A3: { value: '=A1-A1', format: 'accounting' },
+        A4: { value: 'Total', format: 'accounting' },
+      },
+      {
+        get showFormulas() {
+          return showFormulas();
+        },
+        values: {
+          A2: { display: '$(1,234.50)', number: -1234.5 },
+          A3: { display: '$-', number: 0 },
+          A4: { display: 'Total' },
+        },
+      }
+    );
+    const cell = (address: string) =>
+      view.container.querySelector<HTMLElement>(`[data-address="${address}"]`)!;
+    const layout = (address: string) => {
+      const parts = cell(address).querySelector('[data-accounting]');
+      return (
+        parts && {
+          symbol: parts.children[0].textContent,
+          amount: parts.children[1].firstChild?.textContent,
+          padding: parts.querySelector('.invisible')?.textContent,
+        }
+      );
+    };
+    // A literal shows as calculation will before its first result arrives.
+    expect(layout('A1')).toEqual({
+      symbol: '$',
+      amount: '1,234.50',
+      padding: ')',
+    });
+    expect(layout('A2')).toEqual({
+      symbol: '$',
+      amount: '(1,234.50)',
+      padding: '',
+    });
+    expect(layout('A3')).toEqual({ symbol: '$', amount: '-', padding: '00)' });
+    expect(cell('A2').getAttribute('aria-label')).toBe('A2: $(1,234.50)');
+    expect(layout('A4')).toBeNull();
+    expect(cell('A4').textContent).toBe('Total');
+    setShowFormulas(true);
+    expect(layout('A2')).toBeNull();
+    expect(cell('A2').textContent).toBe('=-A1');
   });
 });
 

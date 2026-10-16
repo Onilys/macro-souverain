@@ -11,9 +11,11 @@ import type { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { TableCellNode, TableNode, TableRowNode } from '@lexical/table';
 import {
   $isClassedBlockNode,
+  type AgentActivityNode,
   type AgentContextNode,
   type AgentSessionMentionNode,
   type AwaitNode,
+  type BookingLinkMentionNode,
   type ClassedBlockNode,
   type ConnectAppNode,
   type ContactMentionNode,
@@ -82,9 +84,11 @@ import type { SearchMatchNode } from '@macro-inc/lexical-core/nodes/SearchMatchN
 import { theme as baseTheme, createTheme } from '../../theme';
 import { forceSingleLine, setEditorStateFromMarkdown } from '../../utils';
 import { StaticCodeBoxAccessory } from '../accessory/CodeBoxAccessory';
+import { AgentActivity as AgentActivityDecorator } from '../decorator/AgentActivity';
 import { AgentContext as AgentContextDecorator } from '../decorator/AgentContext';
 import { AgentSessionMention as AgentSessionMentionDecorator } from '../decorator/AgentSessionMention';
 import { Await as AwaitDecorator } from '../decorator/Await';
+import { BookingLinkMention as BookingLinkMentionDecorator } from '../decorator/BookingLinkMention';
 import { ConnectApp as ConnectAppDecorator } from '../decorator/ConnectApp';
 import { ContactMention as ContactMentionDecorator } from '../decorator/ContactMention';
 import { CursorSystemNotification as CursorSystemNotificationDecorator } from '../decorator/CursorSystemNotification';
@@ -249,6 +253,7 @@ function getTextClassName(
     | DocumentMentionNode
     | AgentSessionMentionNode
     | PullRequestMentionNode
+    | BookingLinkMentionNode
     | ContactMentionNode
     | DateMentionNode
     | WatermarkNode,
@@ -437,6 +442,20 @@ const PullRequestMention: TypedRenderableEntity<PullRequestMentionNode> = {
   ),
 };
 
+const BookingLinkMention: TypedRenderableEntity<BookingLinkMentionNode> = {
+  guard: (node: LexicalNode): node is BookingLinkMentionNode =>
+    node.__type === 'booking-link-mention',
+  render: (props) => (
+    <span class={getTextClassName(props.node, props.theme)}>
+      <BookingLinkMentionDecorator
+        {...props.node.exportComponentProps()}
+        key={props.node.getKey()}
+        theme={props.theme}
+      />
+    </span>
+  ),
+};
+
 const ThemeMention: TypedRenderableEntity<ThemeMentionNode> = {
   guard: (node: LexicalNode): node is ThemeMentionNode =>
     node.__type === 'theme-mention',
@@ -570,6 +589,18 @@ const AgentContext: TypedRenderableEntity<AgentContextNode> = {
     node.__type === 'agent-context',
   render: (props) => (
     <AgentContextDecorator
+      {...props.node.exportComponentProps()}
+      key={props.node.getKey()}
+      theme={props.theme}
+    />
+  ),
+};
+
+const AgentActivity: TypedRenderableEntity<AgentActivityNode> = {
+  guard: (node: LexicalNode): node is AgentActivityNode =>
+    node.__type === 'agent-activity',
+  render: (props) => (
+    <AgentActivityDecorator
       {...props.node.exportComponentProps()}
       key={props.node.getKey()}
       theme={props.theme}
@@ -992,12 +1023,14 @@ const InlineEntities: RenderableEntity[] = [
   eraseRenderableEntity(DocumentMention),
   eraseRenderableEntity(AgentSessionMention),
   eraseRenderableEntity(PullRequestMention),
+  eraseRenderableEntity(BookingLinkMention),
   eraseRenderableEntity(DocumentCard),
   eraseRenderableEntity(ContactMention),
   eraseRenderableEntity(DateMention),
   eraseRenderableEntity(GroupMention),
   eraseRenderableEntity(Await),
   eraseRenderableEntity(AgentContext),
+  eraseRenderableEntity(AgentActivity),
   eraseRenderableEntity(ReplyTarget),
   eraseRenderableEntity(CursorSystemNotification),
   eraseRenderableEntity(MagicChip),

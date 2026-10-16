@@ -19,6 +19,7 @@ secret!(DAYTONA_API_KEY);
 secret!(DD_API_KEY);
 secret!(DD_APP_KEY);
 secret!(DOPPLER_TOKEN);
+secret!(IOS_RELEASE_DOPPLER_TOKEN);
 secret!(MACOS_DEVELOPER_ID_CERTIFICATE_BASE64);
 secret!(MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD);
 secret!(MACOS_RELEASE_DOPPLER_TOKEN);
@@ -28,8 +29,7 @@ secret!(PULUMI_ACCESS_TOKEN);
 secret!(SEGMENT_WRITE_KEY);
 secret!(SEGMENT_WRITE_KEY_PRODUCTION);
 
-/// Cloudflare account id. A repo *variable* (not a secret), matching the
-/// hand-written `deploy-lexical-service.yml`.
+/// Cloudflare account id. A repo *variable* (not a secret).
 pub const CLOUDFLARE_ACCOUNT_ID: &str = "${{ vars.CLOUDFLARE_ACCOUNT_ID }}";
 
 /// S3 nix binary cache store URL, a repo *variable* — e.g.

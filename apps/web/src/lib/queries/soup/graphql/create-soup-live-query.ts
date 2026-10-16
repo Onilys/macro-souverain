@@ -833,6 +833,7 @@ export function createSoupLiveQuery(
     isLoading: () => query.isLoading && displayLocalProjection() === undefined,
     isFetching: () => query.isFetching,
     isFetchingNextPage: () => fetchingMailPage() || query.isFetchingNextPage,
+    isFetchNextPageError: () => query.isFetchNextPageError,
     // Current-query cache results are usable data, not previous-tab
     // placeholders. In particular, local recomputation must not animate the
     // mobile tab-loading bar or make the view report that it has no data.

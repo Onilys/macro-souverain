@@ -3,7 +3,7 @@ import { invalidateCalendarInvitations } from './invitations';
 import { calendarKeys, RSVP_MUTATION_KEY } from './keys';
 import { invalidateCalendarEventPreviews } from './mention-preview';
 import { invalidateCalendarOccurrences } from './occurrences';
-import { resetTeamCalendarQueries } from './team-cache';
+import { refreshTeamCalendarQueries } from './team-cache';
 import { invalidateTeamOutOfOffice } from './team-ooo';
 
 /**
@@ -13,7 +13,7 @@ import { invalidateTeamOutOfOffice } from './team-ooo';
  * calendar mention chips.
  */
 export function invalidateCalendarViews(): void {
-  void resetTeamCalendarQueries();
+  void refreshTeamCalendarQueries();
   void invalidateCalendarInvitations();
   invalidateCalendarOccurrences();
   invalidateCalendarEventPreviews();
@@ -37,11 +37,11 @@ export function handleRefreshCalendar(payload: unknown): void {
       ? (payload as { event?: unknown; link_id?: unknown })
       : undefined;
   if (event?.event === 'team_sharing_changed') {
-    void resetTeamCalendarQueries();
+    void refreshTeamCalendarQueries();
     return;
   }
   if (event?.event !== 'synced' || typeof event.link_id !== 'string') return;
-  void resetTeamCalendarQueries();
+  void refreshTeamCalendarQueries();
 
   // An in-flight RSVP holds optimistic occurrence state a refetch would
   // clobber; the last RSVP to settle re-invalidates occurrences itself, so

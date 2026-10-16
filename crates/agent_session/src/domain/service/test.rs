@@ -187,6 +187,7 @@ async fn only_the_first_prompt_is_selected_for_automatic_naming() {
                 )
                 .expect("a set-model frame builds"),
         ),
+        logged_at: None,
     }]);
     assert_eq!(
         initial_prompt_for_rename(&folds, session, &prompt).await,
@@ -423,6 +424,36 @@ async fn archive_is_persisted_published_and_blocks_rename() {
 }
 
 #[tokio::test]
+async fn a_conversations_current_session_is_not_archived() {
+    let repo = InMemoryAgentSessionRepo::new();
+    let session = test_session();
+    repo.insert_session(test_agent_session(session));
+    repo.answer_conversation(session);
+    let realtime = RecordingRealtime::default();
+    let service = AgentSessionServiceImpl::new(
+        repo.clone(),
+        FoldedMessageService::new(repo.clone()),
+        realtime.clone(),
+        NoOpAgentSessionNameGenerator,
+        Arc::new(NoOpTurnObserver),
+        Arc::new(NoopLifecyclePublisher),
+        ReplicaId::mint(),
+    );
+
+    assert!(matches!(
+        service.set_archived(&owner_access(session), true).await,
+        Err(AgentSessionError::AnswersConversation(id)) if id == session
+    ));
+    assert!(!repo.get(session).await.expect("get session").is_archived);
+    assert!(realtime.updated().is_empty());
+    // Unarchiving is never refused.
+    service
+        .set_archived(&owner_access(session), false)
+        .await
+        .expect("unarchive session");
+}
+
+#[tokio::test]
 async fn manual_rename_rejects_blank_and_overlong_names() {
     let repo = InMemoryAgentSessionRepo::new();
     let session = test_session();
@@ -654,6 +685,10 @@ impl AgentSessionRepo for BlockingPromptLogs {
 
     async fn set_archived(&self, id: AgentSessionId, is_archived: bool) -> Result<()> {
         self.repo.set_archived(id, is_archived).await
+    }
+
+    async fn is_current_conversation_session(&self, id: AgentSessionId) -> Result<bool> {
+        self.repo.is_current_conversation_session(id).await
     }
 
     async fn set_name_if_default(&self, id: AgentSessionId, name: &str) -> Result<bool> {
@@ -1323,6 +1358,7 @@ fn any_event(session: AgentSessionId) -> AgentSessionLog {
         content: Message::ToServer(ToServerMessage::Event {
             event: agent_runtime_protocol::domain::schema::v0::SystemEvent::AcpReady,
         }),
+        logged_at: None,
     }
 }
 
@@ -2354,12 +2390,21 @@ mod fold_signals {
             signals.extend(logs.append(frame).await.expect("append succeeds").signals);
         }
 
+        // Progress is reported while the turn runs; its end comes once, last.
+        let (ends, progress): (Vec<_>, Vec<_>) = signals
+            .iter()
+            .partition(|signal| !matches!(signal, TurnSignal::Progressed { .. }));
+        assert!(!progress.is_empty(), "{signals:#?}");
         assert!(
             matches!(
-                signals.as_slice(),
+                ends.as_slice(),
                 [TurnSignal::TurnEnded { stop: FoldStop::EndTurn, last_text: Some(text), .. }]
                     if !text.is_empty()
             ),
+            "{signals:#?}"
+        );
+        assert!(
+            matches!(signals.last(), Some(TurnSignal::TurnEnded { .. })),
             "{signals:#?}"
         );
     }
@@ -2384,6 +2429,7 @@ mod fold_signals {
                 content: Message::ToServer(ToServerMessage::Event {
                     event: SystemEvent::AcpReady,
                 }),
+                logged_at: None,
             })
             .await
             .expect("append succeeds");
@@ -2415,6 +2461,7 @@ fn streamed_frame(text: &str) -> AgentSessionLog {
             )
             .unwrap(),
         ))),
+        logged_at: None,
     }
 }
 
@@ -2523,6 +2570,7 @@ async fn system_events_flush_pending_frames_through() {
             content: Message::ToServer(ToServerMessage::Event {
                 event: SystemEvent::AcpReady,
             }),
+            logged_at: None,
         },
     )
     .await
@@ -2682,6 +2730,7 @@ async fn a_load_boundary_lands_after_the_frames_buffered_before_it() {
             )
             .unwrap(),
         ))),
+        logged_at: None,
     };
     let initialization_log_id = AgentSessionLogWriter::append(&mut logs, initialize)
         .await
@@ -2700,6 +2749,7 @@ async fn a_load_boundary_lands_after_the_frames_buffered_before_it() {
                 Ok(serde_json::json!({})),
             ),
         ))),
+        logged_at: None,
     };
     let response_id = AgentSessionLogWriter::append_with_boundary(
         &mut logs,

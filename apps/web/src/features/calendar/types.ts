@@ -134,6 +134,9 @@ export interface CalendarEvent {
   description?: string;
 }
 
+/** Source id every teammate out-of-office event carries; it is always shown. */
+export const TEAM_OOO_SOURCE_ID = 'team-ooo';
+
 /** Shared presentation source until calendar/account metadata is exposed. */
 export const DEFAULT_CALENDAR_SOURCE: CalendarSource = {
   id: 'calendar',
