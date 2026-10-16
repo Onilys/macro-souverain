@@ -1192,6 +1192,10 @@
                 if [ -n "''${CARGO_TARGET_DIR-}" ]; then
                   prefix_maps+=" -ffile-prefix-map=$CARGO_TARGET_DIR=/target"
                 fi
+                # kache keys every unit on the set of path roots it remaps, and
+                # adds rustup's only when that directory exists: it does on CI
+                # runners and not on NixOS laptops, so no key matched between them.
+                mkdir -p "''${RUSTUP_HOME:-$HOME/.rustup}"
               ''
               + (
                 if isDarwin then
@@ -1200,8 +1204,11 @@
                     export CXXFLAGS="''${CXXFLAGS:+$CXXFLAGS }$prefix_maps"
                   ''
                 else
+                  # GCC otherwise records its command line, prefix maps and
+                  # all, in debug info, and the stdenv hook seeds -frandom-seed
+                  # from $out, a path in the checkout. Later flags win.
                   ''
-                    export NIX_CFLAGS_COMPILE="''${NIX_CFLAGS_COMPILE-} $prefix_maps"
+                    export NIX_CFLAGS_COMPILE="''${NIX_CFLAGS_COMPILE-} $prefix_maps -gno-record-gcc-switches -frandom-seed=macro"
                   ''
               )
               + pkgs.lib.optionalString isLinux ''

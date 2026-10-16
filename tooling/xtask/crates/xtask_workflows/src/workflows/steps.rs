@@ -381,11 +381,13 @@ pub fn setup_reqs_web(name: &str, playwright: bool) -> Step<Use> {
     .when(playwright, |step| step.add_with(("playwright", "true")))
 }
 
-/// `kache stats` at the end of a job, then stop the daemon so the volume is
-/// snapshotted with a flushed store. Never fails the job.
+/// `kache stats` and the costliest misses at the end of a job, then stop the
+/// daemon so the volume is snapshotted with a flushed store. Never fails the
+/// job.
 pub fn report_kache_stats() -> Step<Run> {
     Step::new("Report kache stats")
-        .run("kache stats || true\nkache daemon stop || true")
+        .run(include_str!("scripts/report_kache_stats.sh"))
+        .shell("bash")
         .if_condition(Expression::new("always()"))
 }
 
