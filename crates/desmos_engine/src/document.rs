@@ -156,10 +156,10 @@ impl GraphDocument {
             .find(|e| e.id == id)
             .ok_or_else(|| DesmosError::Document(format!("unknown expression {id}")))?;
         expr.latex = latex;
-        if let Ok(Statement::Assignment { .. }) = parse_statement(&expr.latex) {
-            if expr.slider.is_none() {
-                expr.slider = Some(Slider::default());
-            }
+        if let Ok(Statement::Assignment { .. }) = parse_statement(&expr.latex)
+            && expr.slider.is_none()
+        {
+            expr.slider = Some(Slider::default());
         }
         Ok(())
     }

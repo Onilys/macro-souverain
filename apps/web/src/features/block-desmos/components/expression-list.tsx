@@ -18,8 +18,10 @@ export function ExpressionList(props: {
   onAdd: () => void;
 }) {
   const [selected, setSelected] = createSignal<string | undefined>();
-  const errorFor = (id: string) =>
-    props.scene?.items.find((item) => item.kind === 'error' && item.id === id);
+  const errorFor = (id: string) => {
+    const item = props.scene?.items.find((entry) => entry.id === id);
+    return item?.kind === 'error' ? item : undefined;
+  };
 
   return (
     <div
@@ -100,7 +102,7 @@ export function ExpressionList(props: {
                     <Show when={errorFor(expr.id)}>
                       {(error) => (
                         <div class="pt-0.5 text-[11px] text-negative">
-                          {error().kind === 'error' ? error().message : ''}
+                          {error().message}
                         </div>
                       )}
                     </Show>

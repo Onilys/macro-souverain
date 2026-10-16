@@ -370,6 +370,10 @@ fn implicit_contour(
     flush_line(expr, &mut current, items);
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "plot inputs stay explicit at the call site"
+)]
 fn fill_inequality(
     expr: &Expression,
     left: &Expr,

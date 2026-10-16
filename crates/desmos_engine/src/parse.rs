@@ -227,12 +227,12 @@ impl Parser {
                 self.bump();
                 let right = self.expression()?;
                 if is_xy || right.uses("x") || right.uses("y") || name == "r" {
-                    return Ok(self.with_restrict(Statement::Relation {
+                    return self.with_restrict(Statement::Relation {
                         left: Some(Expr::Name(name)),
                         kind: RelationKind::Equal,
                         right,
                         restrict: Vec::new(),
-                    })?);
+                    });
                 }
                 return Ok(Statement::Assignment { name, value: right });
             }
@@ -558,11 +558,11 @@ fn expand_juxtaposed_name(name: String) -> Expr {
     };
     let mut expr = Expr::Name(first.to_string());
     for ch in chars {
-        if ch.is_ascii_digit() {
-            if let Expr::Name(last) = &mut expr {
-                last.push(ch);
-                continue;
-            }
+        if ch.is_ascii_digit()
+            && let Expr::Name(last) = &mut expr
+        {
+            last.push(ch);
+            continue;
         }
         expr = Expr::Mul(Box::new(expr), Box::new(Expr::Name(ch.to_string())));
     }

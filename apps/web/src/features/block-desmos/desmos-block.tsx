@@ -75,7 +75,7 @@ export default function DesmosBlock() {
     owner: blockMetadataSignal()?.owner,
   }));
 
-  const [document, setDocument] = createSignal(initial());
+  const [graph, setGraph] = createSignal(initial());
   const [saveState, setSaveState] = createSignal<
     'saved' | 'unsaved' | 'saving' | 'error'
   >('saved');
@@ -93,7 +93,7 @@ export default function DesmosBlock() {
 
   const queueSave = (next: GraphDocument) => {
     if (!canEdit()) return;
-    setDocument(next);
+    setGraph(next);
     pending = next;
     setSaveState('unsaved');
     if (saveTimer) clearTimeout(saveTimer);
@@ -114,7 +114,7 @@ export default function DesmosBlock() {
 
   const download = () => {
     const file = new File(
-      [serializeDesmosDocument(document())],
+      [serializeDesmosDocument(graph())],
       downloadName().endsWith('.desmos')
         ? downloadName()
         : `${downloadName()}.desmos`,

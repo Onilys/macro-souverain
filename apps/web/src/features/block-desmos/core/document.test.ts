@@ -14,7 +14,7 @@ describe('desmos document format', () => {
   });
 
   it('treats empty source as a blank graph', () => {
-    expect(parseDesmosDocument('').expressions).toHaveLength(1);
+    expect(parseDesmosDocument('')?.expressions).toHaveLength(1);
   });
 
   it('rejects the wrong version', () => {
