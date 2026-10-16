@@ -2,6 +2,7 @@ import type { CombinedError } from '@urql/core';
 import { type Accessor, createMemo } from 'solid-js';
 import { arrayEquals } from '../../../core/util/compareUtils';
 import type { CacheRevision } from '../../../graphql-cache/protocol';
+import type { GraphqlEmailView } from '../../../service-clients/service-storage/graphql/generated/graphql';
 import {
   type GraphqlSoupItem,
   mapGraphqlSoupItem,
@@ -34,6 +35,27 @@ export type GraphqlSoupAstItemsQueryOptions = SoupLiveQueryOptions & {
   enabled: boolean;
   showSupportedForeignEntities?: boolean;
 };
+
+/** The INBOX sort key from fields every Soup page selects. `sortTs` lives on
+ * the shared thread record, so it belongs to whichever view fetched the thread
+ * last (the ALL-view mail backfill included); a cache re-read of an INBOX page
+ * must not date its rows by it. */
+function withViewSortTs(
+  record: GraphqlSoupItem,
+  emailView: GraphqlEmailView | null | undefined
+): GraphqlSoupItem {
+  if (emailView !== 'INBOX' || record.__typename !== 'GraphqlSoupEmailThread')
+    return record;
+  const candidates = [
+    record.latestInboundMessageTs,
+    record.reminderReturnedAt,
+  ].filter((timestamp): timestamp is string => typeof timestamp === 'string');
+  if (candidates.length === 0) return record;
+  const sortTs = candidates.reduce((latest, timestamp) =>
+    Date.parse(timestamp) > Date.parse(latest) ? timestamp : latest
+  );
+  return sortTs === record.sortTs ? record : { ...record, sortTs };
+}
 
 export type GraphqlSoupAstItemsQuery = {
   localRevision?: Accessor<CacheRevision | undefined>;
@@ -113,12 +135,13 @@ export function createGraphqlSoupAstItemsQuery(
       const id = instructionsId();
       const sort = sortMethod();
       const showSupportedForeignEntities = showForeign();
-      const item = mapGraphqlSoupItem(record);
+      const emailView = input()?.emailView;
+      const item = mapGraphqlSoupItem(withViewSortTs(record, emailView));
       const fetchedItem =
         fetched === record
           ? item
           : fetched
-            ? mapGraphqlSoupItem(fetched)
+            ? mapGraphqlSoupItem(withViewSortTs(fetched, emailView))
             : undefined;
       return {
         key: soupItemKey(record),

@@ -190,6 +190,54 @@ describe('createGraphqlSoupAstItemsQuery', () => {
     });
   });
 
+  it('dates INBOX rows by the inbox sort key, not the sortTs another view stored on the record', async () => {
+    const fake = makeFakeClient();
+    getGraphqlSoupClientMock.mockReturnValue(fake.client);
+    makeGraphqlSoupInputMock.mockReturnValue({
+      initial: { limit: 50, sortMethod: 'UPDATED_AT', emailView: 'INBOX' },
+    });
+    const { query, dispose } = createRoot((dispose) => ({
+      dispose,
+      query: createGraphqlSoupAstItemsQuery(
+        () => ({ params: {}, body: {} }) as never,
+        () => ({ enabled: true })
+      ),
+    }));
+    try {
+      fake.executions[0].next(
+        graphqlSoupPage({
+          items: [
+            {
+              __typename: 'GraphqlSoupEmailThread',
+              id: 'invite',
+              sortTs: '2026-09-28T19:32:00+00:00',
+              latestInboundMessageTs: '2026-09-28T19:32:00+00:00',
+              reminderReturnedAt: '2026-10-06T21:14:00+00:00',
+            },
+            {
+              __typename: 'GraphqlSoupEmailThread',
+              id: 'plain',
+              sortTs: '2026-10-01T20:30:00+00:00',
+              latestInboundMessageTs: '2026-10-01T20:30:00+00:00',
+              reminderReturnedAt: null,
+            },
+          ],
+          next_cursor: null,
+        })
+      );
+      const sortTs = () =>
+        query
+          .data()
+          ?.entities.map((entity) => (entity as { sortTs: string }).sortTs);
+      expect(sortTs()).toEqual([
+        '2026-10-06T21:14:00+00:00',
+        '2026-10-01T20:30:00+00:00',
+      ]);
+    } finally {
+      dispose();
+    }
+  });
+
   it('owns fetching, continuation arguments, refresh and reset from a Soup declaration', async () => {
     const fake = makeFakeClient();
     getGraphqlSoupClientMock.mockReturnValue(fake.client);
