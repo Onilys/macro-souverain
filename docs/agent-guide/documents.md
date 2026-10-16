@@ -109,6 +109,16 @@ must never enter the saved scene. When opening a canvas, image nodes show a
 loads; this also applies to read-only embeds. Failed image requests display
 “Media unavailable” instead of an indefinite skeleton.
 
+Canvas object snapping is enabled by default. Drag a shape or selection near
+another object's edge or center to align it; dashed guides show the matched axes.
+Axis-aligned resize handles also snap. The tolerance stays six screen pixels at
+any zoom, and objects more than 160 screen pixels away on the perpendicular axis
+are ignored. In **Zoom options**, toggle **Snap to objects** independently of
+**No grid snapping**, **Snap to px**, or **Auto snapping**. Object alignment takes
+priority over grid snapping on the matched axis. Verify dragging with snapping
+on/off, resizing, Shift-constrained movement, zoom changes, and undo. Rotated
+resize frames retain their existing local-axis resizing behavior.
+
 Canvas embeds are read-only: **Select** selects shapes without moving them,
 and **Hand** pans the canvas. The toolbar contains only those two tools; property
 inspector details and drawing/editing controls are absent. Check toolbar clicks,
