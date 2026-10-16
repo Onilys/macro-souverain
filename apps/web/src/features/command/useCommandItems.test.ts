@@ -209,7 +209,7 @@ describe('command menu go-to shortcuts', () => {
     ];
     const { result } = setup();
     expect(shortcuts(result.items)).toMatchObject({
-      'Go to Home': undefined,
+      'Go to Home': [],
       'Go to Email': ['g', 'e'],
       'Go to Reminders': ['g', 'h'],
       'Go to Signal': ['g', 'i'],

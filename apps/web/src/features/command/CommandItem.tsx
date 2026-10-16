@@ -50,10 +50,12 @@ function CommandItemHotkey(props: { item: CommandMenuItem }) {
     return item?.displayHotkey ?? cmd.hotkeys?.[0];
   };
 
-  const hasHotkey = () =>
-    hasValidHotkey(token()) ||
-    Boolean(shortcut()) ||
-    Boolean(sequence()?.length);
+  // A display sequence, even an empty one, replaces the command's own keys.
+  const hasHotkey = () => {
+    const steps = sequence();
+    if (steps) return steps.length > 0;
+    return hasValidHotkey(token()) || Boolean(shortcut());
+  };
 
   const StepHotkey = (step: DisplayHotkeyStep) => (
     <div class="p-2 py-0.5 border border-edge-muted rounded-md">

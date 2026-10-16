@@ -361,10 +361,11 @@ function useCommandsList(
       ),
       ...availableItems(goToCommands, {
         displayHotkeySequence: (command) => {
+          if (!command.hotkeys) return undefined;
           const hotkey = goToDisplayHotkey(command, goToCommands);
           return hotkey
             ? [{ shortcut: GO_TO_LEADER_KEY }, { shortcut: hotkey }]
-            : undefined;
+            : [];
         },
       }),
     ];
