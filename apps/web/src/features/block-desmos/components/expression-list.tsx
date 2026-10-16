@@ -124,7 +124,9 @@ function ExpressionRow(props: {
     >
       <div class="flex items-start gap-1.5">
         <div class="flex w-7 shrink-0 flex-col items-center gap-1 pt-0.5">
-          <span class="text-[11px] text-ink-extra-muted">{props.index + 1}</span>
+          <span class="text-[11px] text-ink-extra-muted">
+            {props.index + 1}
+          </span>
           <button
             type="button"
             class="size-3.5 rounded-full border-2"
