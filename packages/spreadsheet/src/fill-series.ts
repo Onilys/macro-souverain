@@ -1,4 +1,4 @@
-import { is_date } from 'ssf';
+import { hasDateFormat } from './number-display';
 import type { SpreadsheetCell } from './spreadsheet-document';
 
 const DAY_MS = 86_400_000;
@@ -20,12 +20,9 @@ function readValue(cell: SpreadsheetCell): SeriesValue | undefined {
   if (numberInput.test(text)) {
     const number = Number(text);
     if (!Number.isFinite(number)) return;
-    const dated =
-      cell.format === 'date' ||
-      (!!cell.numberFormat && is_date(cell.numberFormat));
     // Serial 60 is Excel's fictitious leap day; leave that sequence numeric.
     const date =
-      dated && number >= 61 && Number.isInteger(number)
+      hasDateFormat(cell) && number >= 61 && Number.isInteger(number)
         ? new Date(EXCEL_EPOCH + number * DAY_MS)
         : undefined;
     return { number, date, render: numericText };

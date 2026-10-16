@@ -1,4 +1,4 @@
-import { format as formatExcelNumber } from 'ssf';
+import { format as formatExcelNumber, is_date } from 'ssf';
 import type {
   SpreadsheetCell,
   SpreadsheetFormat,
@@ -103,6 +103,15 @@ export function accountingParts(
         ? ''
         : ')';
   return { symbol, amount, padding };
+}
+
+/** Whether a cell's own format shows its number as a date. */
+export function hasDateFormat(cell: SpreadsheetCell | undefined): boolean {
+  if (!cell || cell.format === 'text') return false;
+  return (
+    cell.format === 'date' ||
+    (!!cell.numberFormat && is_date(cell.numberFormat))
+  );
 }
 
 /** A cell's number when it holds a literal one rather than a formula or text. */
