@@ -75,8 +75,16 @@ test.describe('local email keyboard navigation', () => {
 
     await page.keyboard.press('ControlOrMeta+k');
     const menu = page.getByRole('dialog');
-    await menu.getByRole('textbox').fill('Go to Noise');
-    await expect(menu.getByText('Go to Noise', { exact: true })).toBeVisible();
+    // The list is virtualized, so narrow it to one command at a time.
+    const query = menu.getByRole('textbox');
+    await query.fill('Go to Noise');
+    await expect(menu).toContainText(/Go to Noise\s*G\s*then\s*O/i);
+    await query.fill('Go to Signal');
+    await expect(menu).toContainText(/Go to Signal\s*G\s*then\s*I/i);
+    // Inside Email both of Home's keys belong to Email, so it shows none.
+    await query.fill('Go to Home');
+    await expect(menu).toContainText('Go to Home');
+    await expect(menu).not.toContainText(/Go to Home\s*(G|H|I)\b/);
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
   });
