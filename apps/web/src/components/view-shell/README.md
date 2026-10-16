@@ -49,8 +49,8 @@ Main-area titles use 14px semibold text, matching document and task breadcrumbs.
 
 Creation takes a render function, `create={() => <MyCreateMenu />}`, so each
 placement owns independent menu state under the feature context.
-`SidebarCreateAction` renders a 20px semibold creation title with a subtle
-theme-aware `ink` to `ink-muted` text gradient in the sidebar and a
+`SidebarCreateAction` renders a 20px semibold creation title with a pronounced
+theme-aware `ink` to `ink-subtle` text gradient in the sidebar and a
 compact muted New button in the main toolbar. Provide `sidebarCreate` when the
 sidebar needs a different menu from the main toolbar. Explicit
 `sidebarLabel` describes secondary actions such as New Project.

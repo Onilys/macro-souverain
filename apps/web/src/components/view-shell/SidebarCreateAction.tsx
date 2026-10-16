@@ -58,7 +58,7 @@ export function SidebarCreateAction(
           </>
         }
       >
-        <span class="shrink-0 whitespace-nowrap bg-linear-to-br from-ink to-ink-muted bg-clip-text text-transparent forced-colors:bg-none forced-colors:text-ink-muted">
+        <span class="shrink-0 whitespace-nowrap bg-linear-to-br from-ink from-15% to-ink-subtle to-85% bg-clip-text text-transparent forced-colors:bg-none forced-colors:text-ink-muted">
           {local.sidebarLabel ??
             description() ??
             props['aria-label'] ??
