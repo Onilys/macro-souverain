@@ -5,6 +5,7 @@
 mod chat_reply;
 mod coding_preferences;
 mod owned_purge;
+mod permission_refresh;
 mod presentation;
 mod quota;
 mod user_cleanup;
