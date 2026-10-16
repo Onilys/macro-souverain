@@ -46,8 +46,8 @@ The tabs remain available inside pipelines, with no hamburger button. Company
 filters lead the strip when available. On mobile, pipelines omit their title
 and sharing row and use an edge-to-edge table, below the top safe area and above
 the bottom dock. The compact **Pipeline actions** button in the table toolbar
-opens rename and sharing controls; only owners see **Trash pipeline**, which
-requires confirmation. Sharing opens the existing share dialog. Companies uses
+opens rename, **Export CSV**, **Import CSV** (editors) and sharing controls;
+only owners see **Trash pipeline**, which requires confirmation. Sharing opens the existing share dialog. Companies uses
 the full-frame list with the global **+ Company** action above the dock. People keeps its search and **New contact** below the tab
 strip. The embedded detail stack stays out of the mobile flow, so selecting a
 row navigates in place.
@@ -84,6 +84,8 @@ the last-contacted timestamp sits at the right, and the side gutters and row
 spacing match. There is no column-heading row.
 Emails, Files, and Calls search the loaded row titles and supporting text and
 continue loading pages when the current pages have no match.
+Emails, Files, Calls, and References rows open their items without selection
+checkboxes, including on touch devices.
 
 A company is laid out like a project. Its split header or embedded breadcrumb
 header shows inset `Overview`, `Team`, `Emails`, `Files`, `Tasks`, and `Calls`
@@ -201,7 +203,8 @@ pipelines refresh other editors' changes periodically; a local edit refreshes
 immediately after saving.
 A pipeline page uses the database page's styling with one table and no table
 tabs. Its header shows the name, edited in place by editors, a **Pipeline
-actions** menu (**Rename**; **Trash pipeline** for the owner) and **Share**. The
+actions** menu (**Rename** and **Import CSV** for editors, **Export CSV** for
+anyone who can open it, **Trash pipeline** for the owner) and **Share**. The
 toolbar below has **All records**, the pipeline's stored views and **New view**
 (Table or Board), plus Group by (boards), Filter and Sort, then **Add company**
 or **Add contact** (by the pipeline's record type) for editors, which starts a
@@ -213,6 +216,17 @@ grouping cell. Card order within a group is not read back after a reload, and
 views cannot be reordered yet. The selected view is remembered per pipeline.
 **Trash pipeline** removes its table from navigation without deleting the linked
 companies or contacts, then returns to Companies.
+
+**Export CSV** downloads every row: `Company` and `Domain` (or `Contact` and
+`Email`), then each pipeline column by name, with people as emails. **Import
+CSV** reads the same shape, so an export imports into another team's pipeline.
+Rows match companies by domain and contacts by email, creating missing ones
+(personal domains such as gmail.com cannot be created); other headers fill the
+pipeline columns of the same name, adding missing select options. A record
+the pipeline already had is not added again, so retrying an interrupted import
+adds only what is missing; several rows for one new record add separate entries
+(deals), as an export of such a pipeline lists them. Relation and non-person entity columns are skipped,
+and a value that does not fit its column is left empty.
 
 CRM lists are currently disabled by `enableCrmLists` (default `false`). The sidebar
 Lists section, list editor, and company membership controls only mount when enabled.
@@ -231,9 +245,21 @@ picker. Checking or unchecking saves immediately and refreshes the CRM sidebar's
 membership counts. Changes are disabled while saving; failures show an inline retry
 message and keep the last saved membership. With no lists, create one in the CRM sidebar.
 
-`New company` uses the existing creation dialog. `Import` previews a CSV with `name`
-and `domain` columns (1–100 rows, at most 1 MB). The explicit Import button writes the
-previewed companies. Partial failures retain only failed rows for retry. Use preview
+`New company` uses the existing creation dialog. `Import` previews a CSV with a
+`Domain` (or `Domains`, `Website`) column and an optional `Name` or `Company`
+column, such as a Companies export (up to 10,000 rows, at most 5 MB). Each row
+takes its first valid domain; rows without one or repeating an earlier domain are
+skipped. The explicit Import button writes the previewed companies four at a
+time; domains the team already tracks count as already in the CRM. Partial
+failures retain only failed rows for retry. Stage, Owner, and Revenue live on
+pipeline rows, not companies: when the file has values in those columns and
+pipelines are available, a picker chooses where they go: **New private
+pipeline** (the default) or **New team pipeline**, either named after the file,
+or any company pipeline you can edit. The import adds one row per company with a
+value (missing Stage options are added; owners match by email) and offers **Open
+pipeline** after. If that step fails, importing again reuses the same pipeline
+and adds only missing rows. A pipeline's own **Import CSV** also takes a
+Companies export. Use preview
 and cancel for browser checks against hosted dev data. `CRM settings` opens the existing
 settings panel. Requires a team with CRM enabled.
 
