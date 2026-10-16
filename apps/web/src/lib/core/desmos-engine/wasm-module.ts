@@ -1,6 +1,10 @@
 /**
  * Typed surface of the generated wasm package (`desmos_engine`).
  * Build with `just build-desmos-engine-wasm`.
+ *
+ * The generated package under `./wasm/` is gitignored (same as pptx/docx/fig).
+ * Typecheck must not resolve a static `./wasm/desmos_engine.js` import, so load
+ * via `@vite-ignore` + `import.meta.url` like the other engines.
  */
 
 export interface WasmDesmosGraph {
@@ -31,12 +35,12 @@ export function loadDesmosEngineWasm(): Promise<DesmosEngineWasmModule> {
   if (!modulePromise) {
     modulePromise = (async () => {
       try {
-        // Static relative imports let Vite emit/serve the generated package
-        // and rewrite the wasm URL (same pattern as other engines, without
-        // @vite-ignore absolute-href dynamic import which 404s in some workers).
+        const base = new URL('./wasm/desmos_engine.js', import.meta.url);
         const mod = (await import(
-          './wasm/desmos_engine.js'
+          /* @vite-ignore */ base.href
         )) as DesmosEngineWasmModule;
+        // The generated JS's own relative wasm URL 404s in production; a static
+        // `new URL` makes vite emit and rewrite the binary.
         const wasmUrl = new URL(
           './wasm/desmos_engine_bg.wasm',
           import.meta.url
