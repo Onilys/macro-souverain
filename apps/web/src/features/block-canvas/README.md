@@ -35,7 +35,8 @@ The floating top toolbar uses the shared `Toolbar` and Phosphor icons for drawin
 and inserting media, document cards, and embeds. Tooltips show each tool's shortcut.
 Zoom, reset-to-100%, fit, undo, and redo live at the bottom-left. Adjacent controls
 toggle floating properties and layers panels.
-Fit Scene uses the current viewport dimensions, centers all scene geometry and
+Fit Scene and menu/keyboard zoom use the full canvas viewport without subtracting
+floating panels. Fit Scene centers all scene geometry and
 zooms in or out to leave 100 screen pixels per side on the first axis to fill.
 Camera zoom limits still apply; padding decreases for small embedded viewports.
 Ctrl/Meta-wheel zoom is pointer-anchored, with a continuous 0.002 exponential rate
@@ -345,11 +346,39 @@ preview contents, and upload state are never stored in core. SVG-to-editable-sha
 conversion is not part of this checkpoint; SVG files can be inserted as images.
 
 
-New embed insertion is not currently exposed in the toolbar. An existing document
-card can switch between preview and embed in the inspector. Double-click
-an embed or choose Interact to enter; Done, Escape, or a click elsewhere on this
-canvas returns input to the outer canvas. Resizing changes the editor viewport.
+The drawing toolbar’s paperclip **Attach** button (shortcut hint `I`) opens a
+standard dropdown for Media, Upload media, and Reference. Its pickers appear
+above the toolbar and place attachments at the canvas center.
+
+Press `I` with the canvas focused to open a radial menu of separate floating rectangular buttons centered at the pointer
+(or the viewport center before a pointer location is available). **Media** opens
+the current searchable media picker; **Upload media** opens the OS file picker
+directly; **Reference** opens the searchable document picker. The pickers reuse
+the mentions menu's quick-access source, paging, icons, and rows. Media accepts
+workspace images/videos or local uploads; references create document preview cards.
+The full viewport around the center is divided into equal directional slices. Moving into
+a slice highlights its button and matching ring arc; clicking anywhere outside the buttons
+activates the highlighted slice instead of dismissing the menu. The center remains neutral. Arrow keys or Ctrl+J/K
+navigate; Enter selects and Escape closes. Scrolled results
+keep the same inset as the menu padding. The media picker includes a dashed drop
+area and Add files button for local images/videos.
+Insertion keeps the world position captured when the menu opened, even under
+pan/zoom. New embed insertion and preview-to-embed conversion are unavailable.
+Existing embeds can be converted to previews in the inspector. Double-click an
+existing embed or choose Interact to enter; Done, Escape, or a click elsewhere on
+this canvas returns input to the outer canvas. Resizing changes the editor viewport.
 The embedded block stays mounted when entering/leaving interaction mode.
+
+Document cards participate in the shared entity-mention reference system. The
+serialized save adapter registers one mention per target document and stores its
+ID in optional `referenceTracking` file metadata. Duplicate cards share a mention;
+deleting the last card removes it after the scene saves. Undo/redo reconciles the
+saved targets. Failed saves retain created IDs for retry, and pending deletions
+survive reload. Source ownership prevents copied canvases from deleting mentions
+belonging to the original. Existing untracked cards register on the next edit;
+opening a canvas does not write references. Tracking follows the shared mention
+tracking flag. File saving and mention creation are separate server operations,
+so an interrupted creation before the file save cannot be recovered transactionally.
 
 `block-embed-adapter.tsx` mounts the existing unmanaged block loader with its own
 panel handle, toolbar, and hotkey scope. The existing editor owns permissions and

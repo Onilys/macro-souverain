@@ -16,6 +16,7 @@ import type { CanvasFile } from './core/document-format';
 import { registerCanvasNextHotkeys } from './hotkeys';
 import { createAssetState } from './primitives/create-asset-state';
 import { createCanvasState } from './primitives/create-canvas-state';
+import { createCanvasInsertState } from './primitives/create-insert-state';
 import { importTextClipboard } from './primitives/text-lexical';
 import { canvasAssetSource } from './queries/assets';
 import { CanvasReadOnlyView } from './views/canvas-read-only-view';
@@ -72,6 +73,7 @@ function EditableCanvasNext(props: {
   const editor = props.editor;
   const state = createCanvasState(editor, props.measureText);
   const assets = createAssetState(state, canvasAssetSource);
+  const insert = createCanvasInsertState(editor.getCamera);
   const { openWithSplit } = useSplitLayout();
   let viewport: HTMLElement | undefined;
   const center = () =>
@@ -100,7 +102,13 @@ function EditableCanvasNext(props: {
     { canvasId: props.documentId, center }
   );
   const [attachScope, scopeId] = useHotkeyDOMScope('canvas-next');
-  registerCanvasNextHotkeys(scopeId, state, clipboard, props.canEdit);
+  registerCanvasNextHotkeys(
+    scopeId,
+    state,
+    clipboard,
+    props.canEdit,
+    insert.open
+  );
   props.onFinishReady(state.text.finish);
   onCleanup(() => {
     state.text.finish();
@@ -121,6 +129,7 @@ function EditableCanvasNext(props: {
       scopeId={scopeId}
       embedView={CanvasBlockEmbed}
       assets={assets}
+      insert={insert}
       onViewport={(element) => {
         viewport = element;
       }}

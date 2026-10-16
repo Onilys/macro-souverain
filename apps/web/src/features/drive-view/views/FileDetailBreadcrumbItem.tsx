@@ -11,6 +11,7 @@ import type { BlockAlias, BlockName } from '@core/block';
 import { EntityIcon } from '@core/component/EntityIcon';
 import { getPermissions } from '@core/component/SharePermissions';
 import { buildEntityData } from '@entity';
+import { useItemRawName } from '@queries/preview';
 import type { AccessLevel } from '@service-storage/generated/schemas/accessLevel';
 import type { DocumentMetadata } from '@service-storage/generated/schemas/documentMetadata';
 
@@ -35,8 +36,15 @@ export function FileDetailBreadcrumbItem(props: {
     { op: 'delete' },
   ];
   const documentId = () => props.documentMetadata.documentId;
+  const liveName = useItemRawName(() => ({
+    id: documentId(),
+    type: 'document',
+  }));
   const documentName = () =>
-    props.documentMetadata.documentName ?? props.fallbackName ?? 'Untitled';
+    liveName() ??
+    props.documentMetadata.documentName ??
+    props.fallbackName ??
+    'Untitled';
   useSplitDisplayName(documentName);
 
   useBlockEntityCommands({

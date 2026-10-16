@@ -62,7 +62,6 @@ export function CanvasDocumentView(
     active: boolean;
     onEnter: () => void;
     onExit: () => void;
-    onEmbed: () => void;
   }
 ) {
   const embedded = () =>
@@ -105,11 +104,6 @@ export function CanvasDocumentView(
                     type: fileTypeToBlockName(props.item.geometry.fileType),
                     params: {},
                     isOpenable: true,
-                  }}
-                  previewInfo={{
-                    showPreview: canEmbedDocument(props.item.geometry.fileType),
-                    isPreviewable: true,
-                    handlePreviewToggle: props.onEmbed,
                   }}
                 />
               </div>

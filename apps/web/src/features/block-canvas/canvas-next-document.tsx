@@ -90,7 +90,7 @@ export default function CanvasNextDocument(
               const saving = createDocumentPersistence(
                 current,
                 initial,
-                canvasDocumentSource(documentId, canEdit)
+                canvasDocumentSource(documentId, canEdit, initial)
               );
               setPersistence(saving);
               props.registerMethods?.({

@@ -10,7 +10,8 @@ export function registerCanvasNextHotkeys(
   scopeId: string,
   state: CanvasState,
   clipboard: CanvasClipboard,
-  canEdit: () => boolean = () => true
+  canEdit: () => boolean = () => true,
+  onInsert?: () => void
 ) {
   const group = createHotkeyGroup(),
     editor = state.editor;
@@ -53,6 +54,7 @@ export function registerCanvasNextHotkeys(
   register('l', 'Line tool', () => state.chooseTool('line'));
   register('e', 'Eraser tool', () => state.chooseTool('eraser'));
   register('t', 'Text tool', () => state.chooseTool('text'));
+  if (onInsert) register('i', 'Insert', onInsert);
   register('enter', 'Edit selected text', () => {
     const id = editor.getSession().selectedId;
     if (id) state.text.edit(id);
