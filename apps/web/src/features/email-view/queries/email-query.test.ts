@@ -13,7 +13,7 @@ import {
   type EmailQueryContext,
   emailViewForTab,
 } from './email-query';
-import { groupEmailEntitiesByDate } from './email-results';
+import { buildEmailDateRows, groupEmailEntitiesByDate } from './email-results';
 import { buildEmailSearchRequest } from './email-search';
 
 vi.mock('@app/features/soup', async () => ({
@@ -476,6 +476,24 @@ describe('groupEmailEntitiesByDate', () => {
       ownerId: 'macro|alice@example.com',
       ...stamps,
     }) as unknown as WithNotification<EntityData>;
+
+  it('omits only the leading Today heading while preserving older date buckets', () => {
+    const rows = buildEmailDateRows(
+      [
+        email('today', { sortTs: '2026-09-03T17:00:00Z' }),
+        email('older', { createdAt: '2026-08-20T09:00:00Z' }),
+      ],
+      now
+    );
+    expect(rows[0]).toMatchObject({ kind: 'entity', entity: { id: 'today' } });
+    expect(rows.filter((row) => row.kind === 'group-header')).toHaveLength(1);
+    expect(
+      buildEmailDateRows(
+        [email('older', { createdAt: '2026-08-20T09:00:00Z' })],
+        now
+      )[0]?.kind
+    ).toBe('group-header');
+  });
 
   it('buckets on the server sort stamp, then thread recency', () => {
     const groups = groupEmailEntitiesByDate(

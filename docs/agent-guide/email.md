@@ -707,3 +707,5 @@ the currently loaded page. The Calendar shortcut now lives in the header.
 Inbox view tabs use text-color feedback on hover without a background highlight.
 
 Desktop Email list rows omit email/calendar type glyphs; unread indicators remain visible.
+
+The leading Today heading is omitted; older date headings remain. Desktop messages start at the same 8px inset below the topbar as the sidebar account list.

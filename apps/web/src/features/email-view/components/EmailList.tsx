@@ -527,7 +527,7 @@ export function EmailList(props: EmailListProps) {
                   <div
                     ref={setTopSpacer}
                     aria-hidden="true"
-                    class="h-0 touch:h-(--mobile-content-inset-top)"
+                    class="h-2 touch:h-(--mobile-content-inset-top)"
                   />
                   {/* A row subtree that suspends (the project crumb's preview query, say)
                       detaches only itself, not the list and its scroll position. */}
@@ -536,9 +536,7 @@ export function EmailList(props: EmailListProps) {
                       ref={registerVirtualizer}
                       data={rows()}
                       scrollRef={viewport()}
-                      startMargin={
-                        isTouchDevice() ? (topSpacerSize.height ?? 0) : 0
-                      }
+                      startMargin={topSpacerSize.height ?? 0}
                       bufferSize={500}
                       itemSize={44}
                       keepMounted={
