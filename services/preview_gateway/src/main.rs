@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 //! Single-replica SSH/HTTP preview gateway, isolated from Macro's browser cookie domain.
 mod adapters;
 mod config;
