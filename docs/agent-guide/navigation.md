@@ -757,7 +757,13 @@ In `Change theme`, Up/Down previews the highlighted palette across the open app,
 including channels and spreadsheets. Moving between rows preserves the original
 palette for cancellation without briefly restoring it between previews. Esc
 restores that palette (including unsaved edits); Enter commits the highlighted
-theme. Browser and notification icons change only when a theme is committed.
+theme for the current light/dark mode without changing Active theme (System /
+Light / Dark). Browser and notification icons change only when a theme is committed.
+
+`Set default light theme` and `Set default dark theme` list only themes of that
+mode. Enter pins the highlighted theme as that mode's default, switches Active
+theme to Light or Dark so the choice is live, and commits it so closing the menu
+does not roll the preview back.
 
 With the local GraphQL cache enabled, Cmd+K and document/channel `@` mentions
 search cached entities without waiting for a server search. Background hydration

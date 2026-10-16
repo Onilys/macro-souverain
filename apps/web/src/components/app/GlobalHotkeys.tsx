@@ -55,6 +55,7 @@ import type { ThemeV3 } from '@theme/types/themeTypes';
 import {
   applySystemTheme,
   applyTheme,
+  pinTheme,
   previewTheme,
   resolveActiveThemeId,
   scheduleThemePreviewEnd,
@@ -466,21 +467,23 @@ export default function GlobalShortcuts() {
     runWithInputFocused: true,
   });
 
-  themes().forEach((theme) => {
-    registerHotkey({
-      scopeId: setPreferredLightScope.commandScopeId,
-      description: `${theme.name}`,
-      keyDownHandler: () => {
-        setLightModeTheme(theme.id);
-        analytics.track('theme_changed', { themeId: theme.id });
-        return true;
-      },
-      runWithInputFocused: true,
-      displayComponent: () => <ThemeDisplay theme={theme} />,
-      onHighlight: () => previewTheme(theme.id),
-      onHighlightEnd: scheduleThemePreviewEnd,
+  themes()
+    .filter((theme) => theme.mode === 'light')
+    .forEach((theme) => {
+      registerHotkey({
+        scopeId: setPreferredLightScope.commandScopeId,
+        description: `${theme.name}`,
+        keyDownHandler: () => {
+          pinTheme(theme);
+          analytics.track('theme_changed', { themeId: theme.id });
+          return true;
+        },
+        runWithInputFocused: true,
+        displayComponent: () => <ThemeDisplay theme={theme} />,
+        onHighlight: () => previewTheme(theme.id),
+        onHighlightEnd: scheduleThemePreviewEnd,
+      });
     });
-  });
 
   const setPreferredDarkScope = registerHotkey({
     scopeId: 'global',
@@ -492,21 +495,23 @@ export default function GlobalShortcuts() {
     runWithInputFocused: true,
   });
 
-  themes().forEach((theme) => {
-    registerHotkey({
-      scopeId: setPreferredDarkScope.commandScopeId,
-      description: `${theme.name}`,
-      keyDownHandler: () => {
-        setDarkModeTheme(theme.id);
-        analytics.track('theme_changed', { themeId: theme.id });
-        return true;
-      },
-      runWithInputFocused: true,
-      displayComponent: () => <ThemeDisplay theme={theme} />,
-      onHighlight: () => previewTheme(theme.id),
-      onHighlightEnd: scheduleThemePreviewEnd,
+  themes()
+    .filter((theme) => theme.mode === 'dark')
+    .forEach((theme) => {
+      registerHotkey({
+        scopeId: setPreferredDarkScope.commandScopeId,
+        description: `${theme.name}`,
+        keyDownHandler: () => {
+          pinTheme(theme);
+          analytics.track('theme_changed', { themeId: theme.id });
+          return true;
+        },
+        runWithInputFocused: true,
+        displayComponent: () => <ThemeDisplay theme={theme} />,
+        onHighlight: () => previewTheme(theme.id),
+        onHighlightEnd: scheduleThemePreviewEnd,
+      });
     });
-  });
 
   registerHotkey({
     scopeId: 'global',

@@ -313,11 +313,9 @@ export function getLiveTheme(): ThemeV3 {
   };
 }
 
-/** Pins a theme as the "Active theme": makes it the stored theme for its
- *  intrinsic light/dark mode and switches the mode to match, so
- *  resolveActiveThemeId / systemThemeEffect apply it live. Shared by the settings
- *  Active-theme picker and the command-palette "Change theme" action so choosing
- *  a theme in either place is reflected in the other. */
+/** Pins a theme as the "Active theme": stores it for its intrinsic light/dark
+ *  mode, switches the mode to match, and applies it immediately so a picker
+ *  preview is not rolled back when the picker closes. */
 export function pinTheme(theme: ThemeV3): void {
   if (theme.mode === 'dark') {
     setDarkModeTheme(theme.id);
@@ -326,6 +324,7 @@ export function pinTheme(theme: ThemeV3): void {
     setLightModeTheme(theme.id);
     setThemeMode('light');
   }
+  applyTheme(theme.id);
 }
 
 /** Follows the OS color scheme (the "System preference" option): switches the
