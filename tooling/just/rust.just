@@ -64,7 +64,13 @@ ci-prebuild base="main":
     done
     # CI prefetches this manifest (KACHE_MANIFEST_KEY in its configure step);
     # the tree matches CI's merge commit while the branch contains its base.
-    KACHE_MANIFEST_KEY="tree/$(git rev-parse HEAD^{tree})" kache save-manifest
+    # Retried: one failed connection (flaky IPv6 to R2, say) would otherwise
+    # throw away the whole prebuild's prefetch plan.
+    for attempt in 1 2 3; do
+        KACHE_MANIFEST_KEY="tree/$(git rev-parse HEAD^{tree})" kache save-manifest && break
+        [ "$attempt" = 3 ] && exit 1
+        sleep "$attempt"
+    done
     echo "kache has published this branch's build; push when ready"
 
 # This can be used in any crate that uses macrodb under the hood
