@@ -236,10 +236,10 @@ pub fn mount_wasm_cache_volume() -> Step<Use> {
 /// at [`vars::KACHE_VOLUME_DIR`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KacheStore {
-    /// Pull-request jobs: the volume store plus the shared nscr.io remote that
-    /// developer machines publish to (`.kache.toml`). On GitHub Actions kache
-    /// keeps every job except a push to a protected branch read-only on the
-    /// remote. Fork PRs never get a registry credential and stay local.
+    /// Pull-request jobs: the volume store plus the shared R2 remote that
+    /// developer machines publish to (`.kache.toml`). Same-repository pull
+    /// requests write only its pull-request prefix; fork PRs never get the
+    /// credential and stay local.
     Shared,
     /// Deploy and release builds: their own trust domain on the volume and no
     /// remote, so nothing a developer machine or pull request wrote reaches a
@@ -247,8 +247,8 @@ pub enum KacheStore {
     Deploy,
 }
 
-/// Point kache at the cache volume and, for [`KacheStore::Shared`], log in to
-/// the Namespace registry that holds the shared remote. Call this after
+/// Point kache at the cache volume and, for [`KacheStore::Shared`], hand it the
+/// shared R2 remote's credentials. Call this after
 /// [`setup_dev_shell`] or [`setup_reqs_web`], which put kache on `PATH` as
 /// `RUSTC_WRAPPER`. Each step re-enters the dev shell, whose hook keeps the
 /// values exported here.
@@ -263,9 +263,18 @@ pub fn configure_kache(store: KacheStore) -> Step<Run> {
             } >> "$GITHUB_ENV"
             if [ "$TRUSTED" != true ]; then
               echo "KACHE_LOCAL_ONLY=1" >> "$GITHUB_ENV"
-            elif ! nsc docker login >/dev/null; then
-              echo "::warning::Namespace registry login failed; kache uses only the volume store"
+            elif [ -z "$R2_ACCESS_KEY" ] || [ -z "$R2_SECRET_KEY" ]; then
+              echo "::warning::KACHE_R2_* secrets are not set; kache uses only the volume store"
               echo "KACHE_LOCAL_ONLY=1" >> "$GITHUB_ENV"
+            else
+              # Listing lets the daemon prefetch from the key index before rustc
+              # asks; test binaries alone exceed the default 2 GiB plan.
+              {
+                echo "KACHE_S3_ACCESS_KEY=$R2_ACCESS_KEY"
+                echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
+                echo "KACHE_REMOTE_KEY_LISTING=1"
+                echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+              } >> "$GITHUB_ENV"
             fi
         "#},
         KacheStore::Deploy => indoc::indoc! {r#"
@@ -292,6 +301,8 @@ pub fn configure_kache(store: KacheStore) -> Step<Run> {
                 "TRUSTED",
                 format!("${{{{ {TRUSTED_NAMESPACE_CONTEXT} }}}}"),
             ))
+            .add_env(Env::new("R2_ACCESS_KEY", vars::KACHE_R2_ACCESS_KEY_ID))
+            .add_env(Env::new("R2_SECRET_KEY", vars::KACHE_R2_SECRET_ACCESS_KEY))
         })
 }
 

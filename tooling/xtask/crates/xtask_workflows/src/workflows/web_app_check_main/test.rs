@@ -146,7 +146,7 @@ fn generated_code_checks_every_rust_generated_artifact_in_one_job() {
         "the SDK reuses the specs gen-api wrote instead of rerunning it: {sdk}"
     );
     assert!(
-        generated.contains("nsc docker login"),
+        generated.contains("KACHE_S3_ACCESS_KEY"),
         "the build reads the shared kache remote: {generated}"
     );
 }
@@ -252,7 +252,7 @@ fn build_job_uses_shared_kache_and_wasm_cache() {
         "wasm compile needs the mid runner: {build}"
     );
     let configure = build
-        .find("nsc docker login")
+        .find("KACHE_S3_ACCESS_KEY")
         .expect("build must read the shared kache remote");
     let build_command = build.find("just build-").expect("web build command");
     assert!(configure < build_command);

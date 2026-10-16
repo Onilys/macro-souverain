@@ -5,7 +5,7 @@ fn build_uses_only_the_deploy_kache_store_and_wasm_cache() {
     let yaml = build_web_app().to_string().expect("workflow yaml");
     let job = yaml.split("\n  build:\n").nth(1).expect("build job");
     assert!(
-        !job.contains("nsc docker login"),
+        !job.contains("KACHE_S3_ACCESS_KEY"),
         "deploy builds must never read the shared remote: {job}"
     );
     let configure = job

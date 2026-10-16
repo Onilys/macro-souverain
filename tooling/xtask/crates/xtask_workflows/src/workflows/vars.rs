@@ -76,6 +76,11 @@ pub const KACHE_VOLUME_DIR: &str = "/home/runner/.cache/kache";
 /// every kache key: anything else here and no laptop build is ever a CI hit.
 pub const RUSTFLAGS: &str = "-C link-arg=-fuse-ld=mold";
 
+/// S3 credentials for the shared `ci-cache` R2 bucket (`.kache.toml`), scoped
+/// to object read/write on that bucket. GitHub withholds both from fork PRs.
+pub const KACHE_R2_ACCESS_KEY_ID: &str = "${{ secrets.KACHE_R2_ACCESS_KEY_ID }}";
+pub const KACHE_R2_SECRET_ACCESS_KEY: &str = "${{ secrets.KACHE_R2_SECRET_ACCESS_KEY }}";
+
 /// Store budget on a cache volume. kache's default (5% of the disk) is sized
 /// for a laptop's root disk, not a dedicated volume.
 pub const KACHE_VOLUME_MAX_SIZE: &str = "30GiB";

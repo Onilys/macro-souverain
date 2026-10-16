@@ -1,7 +1,9 @@
-# Shared kache remote for laptops and CI (see the devShell in
-# nix/cloud-storage.nix). Credentials come from `nsc docker login`, through
-# docker-credential-nsc. On GitHub Actions kache writes only from pushes to
-# protected branches; deploy and release jobs ignore this remote entirely.
+# Shared kache remote for developer machines and CI (see the devShell in
+# nix/cloud-storage.nix): the `ci-cache` R2 bucket. Credentials come from
+# KACHE_S3_ACCESS_KEY / KACHE_S3_SECRET_KEY (~/.config/macro-kache/r2.env on a
+# laptop, repository secrets in CI). On GitHub Actions, protected-branch pushes
+# write `artifacts`, same-repository pull requests write only `artifacts-pr`
+# and read both; deploy and release jobs ignore this remote entirely.
 [cache]
 # kache does not see the dev shell's C toolchain flags (NIX_CFLAGS_COMPILE,
 # NIX_LDFLAGS): a build-script run recorded under older flags still restores,
@@ -10,5 +12,9 @@
 key_salt = "devshell-c-flags-1"
 
 [cache.remote]
-type = "oci"
-repository = "nscr.io/m7cba6eboskcq/kache-shared"
+type = "s3"
+bucket = "ci-cache"
+endpoint = "https://cb377319aa4d568f517c06545042f1d4.r2.cloudflarestorage.com"
+region = "auto"
+prefix = "artifacts"
+pull_request_prefix = "artifacts-pr"

@@ -3,7 +3,7 @@
 //!
 //! Ported from the hand-written workflow, with two infra changes: the runners
 //! moved to Namespace profiles, and compiled objects moved off the S3 backend
-//! onto kache: a store on the cache volume plus the shared nscr.io remote that
+//! onto kache: a store on the cache volume plus the shared R2 remote that
 //! developer machines publish to (so there are no AWS credentials anywhere).
 //!
 //! Critical path: `path-check` (no Rust compile on a warm binary cache) →
@@ -339,7 +339,7 @@ fn prepare_tests() -> Step<Run> {
         .run("just setup_test_envs && just initialize_dbs && just setup_test_template")
 }
 
-/// Run the test suite (no AWS credentials; kache reads the volume and nscr.io).
+/// Run the test suite (no AWS credentials; kache reads the volume and R2).
 fn run_tests() -> Step<Run> {
     Step::new("run tests").run(include_str!("scripts/run_tests.sh"))
 }

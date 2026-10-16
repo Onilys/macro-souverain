@@ -14,7 +14,7 @@ fn preview_build_uses_shared_kache_and_wasm_cache() {
     let yaml = deploy_preview().to_string().expect("workflow yaml");
     let job = yaml.split("\n  deploy:\n").nth(1).expect("deploy job");
     let configure = job
-        .find("nsc docker login")
+        .find("KACHE_S3_ACCESS_KEY")
         .expect("preview must read the shared kache remote");
     let build_command = job.find("just build-").expect("web build command");
     assert!(configure < build_command);

@@ -784,9 +784,8 @@
       );
 
       # The Namespace CLI, the other sandbox provider crates/agent_harness
-      # talks to. Mints the bearer tokens its Compute API wants
-      # (`just namespace-token`; the harness itself speaks the API directly)
-      # and the nscr.io registry credentials kache's remote cache uses.
+      # talks to. Only used to mint the bearer tokens its Compute API wants
+      # (`just namespace-token`); the harness itself speaks the API directly.
       # Not in nixpkgs either, and shipped as goreleaser tarballs rather than
       # bare binaries, so this unpacks and takes just the nsc binary.
       nsc =
@@ -825,48 +824,9 @@
           installPhase = ''
             runHook preInstall
             install -Dm755 nsc $out/bin/nsc
-            install -Dm755 docker-credential-nsc $out/libexec/docker-credential-nsc
             runHook postInstall
           '';
         };
-
-      # Docker credential helper for nscr.io, which kache's remote cache reads
-      # through ~/.docker/config.json after `nsc docker login`. Namespace's
-      # helper calls its API for every lookup (seconds each, and flaky), and
-      # kache treats one failed lookup as a permanent permission error, so this
-      # reuses a minted token for 6 of its 8 hours and retries fresh mints.
-      nscCredentialHelper = pkgs.writeShellApplication {
-        name = "docker-credential-nsc";
-        runtimeInputs = [
-          pkgs.coreutils
-          pkgs.findutils
-        ];
-        text = ''
-          helper=${nsc}/libexec/docker-credential-nsc
-          if [ "''${1-}" != get ]; then
-            exec "$helper" "$@"
-          fi
-          server="$(cat)"
-          dir="''${XDG_RUNTIME_DIR:-''${XDG_CACHE_HOME:-$HOME/.cache}}/docker-credential-nsc"
-          cache="$dir/$(printf %s "$server" | sha256sum | cut -c1-16).json"
-          if [ -n "$(find "$cache" -mmin -360 2>/dev/null)" ]; then
-            cat "$cache"
-            exit 0
-          fi
-          umask 077
-          mkdir -p "$dir"
-          for attempt in 1 2 3; do
-            if credential="$(printf %s "$server" | "$helper" get)"; then
-              printf %s "$credential" > "$cache.tmp"
-              mv "$cache.tmp" "$cache"
-              printf %s "$credential"
-              exit 0
-            fi
-            sleep "$attempt"
-          done
-          exit 1
-        '';
-      };
 
       # Rust and C/C++ compiler cache (RUSTC_WRAPPER plus the compiler shims in
       # $out/shims). kache needs a newer rustc than rust-toolchain.toml pins and
@@ -971,7 +931,6 @@
         [
           daytona
           nsc
-          nscCredentialHelper
           parallel
           docker-compose
           # `just run_local` opens a quick tunnel to the agent egress proxy so
@@ -1186,6 +1145,12 @@
                 # checkout, where kache's walk-up never finds .kache.toml.
                 if [ -z "''${KACHE_CONFIG-}" ] && [ -f "$KACHE_BASE_DIR/.kache.toml" ]; then
                   export KACHE_CONFIG="$KACHE_BASE_DIR/.kache.toml"
+                fi
+                # Credentials for the shared R2 remote in .kache.toml. Without
+                # them kache keeps caching locally.
+                r2_credentials="''${XDG_CONFIG_HOME:-$HOME/.config}/macro-kache/r2.env"
+                if [ -z "''${KACHE_S3_ACCESS_KEY-}" ] && [ -f "$r2_credentials" ]; then
+                  . "$r2_credentials"
                 fi
                 prefix_maps="-ffile-prefix-map=$KACHE_BASE_DIR=."
                 prefix_maps+=" -ffile-prefix-map=''${CARGO_HOME:-$HOME/.cargo}=/cargo"

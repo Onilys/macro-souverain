@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn shared_kache_logs_in_to_the_registry_only_for_trusted_refs() {
+fn shared_kache_gets_r2_credentials_only_for_trusted_refs() {
     let step = serde_json::to_value(configure_kache(KacheStore::Shared)).unwrap();
     let run = step["run"].as_str().expect("configure_kache is a run step");
     let trusted = step["env"]["TRUSTED"]
@@ -13,8 +13,11 @@ fn shared_kache_logs_in_to_the_registry_only_for_trusted_refs() {
     let untrusted = run
         .find("if [ \"$TRUSTED\" != true ]; then\n  echo \"KACHE_LOCAL_ONLY=1\"")
         .expect("untrusted refs stay local");
-    let login = run.find("nsc docker login").expect("trusted refs log in");
-    assert!(untrusted < login, "{run}");
+    let credentials = run
+        .find("echo \"KACHE_S3_ACCESS_KEY=$R2_ACCESS_KEY\"")
+        .expect("trusted refs get the R2 credentials");
+    assert!(untrusted < credentials, "{run}");
+    assert_eq!(step["env"]["R2_ACCESS_KEY"], vars::KACHE_R2_ACCESS_KEY_ID);
     assert!(!run.contains("KACHE_TRUST_DOMAIN"), "{run}");
 }
 
@@ -25,8 +28,9 @@ fn deploy_kache_never_touches_the_shared_remote() {
 
     assert!(run.contains("KACHE_TRUST_DOMAIN=deploy"), "{run}");
     assert!(run.contains("KACHE_LOCAL_ONLY=1"), "{run}");
-    assert!(!run.contains("nsc"), "{run}");
+    assert!(!run.contains("KACHE_S3_"), "{run}");
     assert!(step["env"].get("TRUSTED").is_none(), "{step}");
+    assert!(step["env"].get("R2_ACCESS_KEY").is_none(), "{step}");
 }
 
 #[test]
