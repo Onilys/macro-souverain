@@ -546,8 +546,8 @@ pub struct CallRecord {
 #[cfg_attr(feature = "inbound", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct CallRecordSource {
-    /// Provider slug, e.g. `granola`.
-    pub provider: String,
+    /// Provider that supplied the call.
+    pub provider: crate::domain::records::CallProvider,
     /// Link to the call in the provider's app, if it has one.
     pub external_url: Option<String>,
 }

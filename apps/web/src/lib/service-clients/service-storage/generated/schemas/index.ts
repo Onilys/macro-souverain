@@ -257,6 +257,7 @@ export * from './callActiveResponse';
 export * from './callFilters';
 export * from './callFiltersAttended';
 export * from './callFiltersStatus';
+export * from './callProvider';
 export * from './callRecord';
 export * from './callRecordChannelId';
 export * from './callRecordChannelName';

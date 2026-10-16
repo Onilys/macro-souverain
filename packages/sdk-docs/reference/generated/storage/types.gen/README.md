@@ -147,6 +147,7 @@
 - [CalendarSyncStatus](type-aliases/CalendarSyncStatus.md)
 - [CallActiveResponse](type-aliases/CallActiveResponse.md)
 - [CallFilters](type-aliases/CallFilters.md)
+- [CallProvider](type-aliases/CallProvider.md)
 - [CallRecord](type-aliases/CallRecord.md)
 - [CallRecordGuest](type-aliases/CallRecordGuest.md)
 - [CallRecordParticipant](type-aliases/CallRecordParticipant.md)

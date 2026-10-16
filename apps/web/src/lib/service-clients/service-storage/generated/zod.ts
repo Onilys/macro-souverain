@@ -2497,7 +2497,11 @@ export const getCallRecordResponse = zod
               .describe(
                 "Link to the call in the provider's app, if it has one."
               ),
-            provider: zod.string().describe('Provider slug, e.g. `granola`.'),
+            provider: zod
+              .enum(['macro', 'granola'])
+              .describe(
+                'Supported call and transcript providers. Add variants as integrations grow.'
+              ),
           })
           .describe('Where an imported call came from.'),
       ])

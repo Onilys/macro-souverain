@@ -79,7 +79,10 @@ pub struct CallImportServiceImpl<R>(pub R);
 #[async_trait]
 impl<R: ImportedCallRepository> CallImportService for CallImportServiceImpl<R> {
     async fn ingest(&self, call: ImportedCall) -> Result<Uuid, rootcause::Report> {
-        if call.source.namespace.trim().is_empty() || call.source.object_type.trim().is_empty() {
+        if call.source.namespace.trim().is_empty()
+            || call.source.object_type.trim().is_empty()
+            || call.source.external_id.as_ref().is_empty()
+        {
             return Err(rootcause::report!(
                 "an import requires a scoped source identity"
             ));

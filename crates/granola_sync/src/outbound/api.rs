@@ -14,8 +14,14 @@ use rootcause::prelude::IntoRootcause;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{collections::HashSet, sync::Arc};
+use strum::VariantArray;
 
 pub struct GranolaApi<P>(pub Arc<P>);
+
+/// Provider IDs are opaque; encode them so one can never change the path.
+fn segment(id: &str) -> String {
+    url::form_urlencoded::byte_serialize(id.as_bytes()).collect()
+}
 
 impl<P: ApiProxy> GranolaApi<P> {
     async fn send(
@@ -27,7 +33,7 @@ impl<P: ApiProxy> GranolaApi<P> {
     ) -> Result<ProxyResponse> {
         let account = PipedreamConnection {
             user_id: connection.user_id.clone(),
-            app_slug: "granola".into(),
+            app_slug: GRANOLA_APP.into(),
             server_name: "Granola".into(),
             account_id: connection.account_id.clone(),
             enabled: true,
@@ -113,7 +119,7 @@ impl<P: ApiProxy> Granola for GranolaApi<P> {
                 "/webhook-endpoints",
                 Some(json!({
                     "url": url, "scopes": scope.scopes(),
-                    "events": ["note.generated", "note.edited", "note.access_granted"]
+                    "events": EventType::VARIANTS
                 })),
             )
             .await?;
@@ -136,8 +142,7 @@ impl<P: ApiProxy> Granola for GranolaApi<P> {
     }
     async fn unregister(&self, connection: &Connection) -> Result<()> {
         if let Some(id) = &connection.endpoint_id {
-            // Treat provider IDs as path segments rather than concatenating input.
-            let id = url::form_urlencoded::byte_serialize(id.as_bytes()).collect::<String>();
+            let id = segment(id);
             self.request(
                 connection,
                 ProxyMethod::Delete,
@@ -153,7 +158,7 @@ impl<P: ApiProxy> Granola for GranolaApi<P> {
             .request(
                 connection,
                 ProxyMethod::Get,
-                &format!("/notes/{}", id.as_ref()),
+                &format!("/notes/{}", segment(id.as_ref())),
                 None,
             )
             .await?
@@ -171,7 +176,7 @@ impl<P: ApiProxy> Granola for GranolaApi<P> {
         let mut cursor: Option<String> = None;
         let mut seen = HashSet::new();
         loop {
-            let mut path = format!("/notes/{}/transcript", id.as_ref());
+            let mut path = format!("/notes/{}/transcript", segment(id.as_ref()));
             if let Some(cursor) = &cursor {
                 let query = url::form_urlencoded::Serializer::new(String::new())
                     .append_pair("cursor", cursor)
@@ -343,9 +348,7 @@ fn map_meeting(
             namespace: connection.namespace.to_string(),
             provider: CallProvider::Granola,
             object_type: "note".into(),
-            external_id: String::from(note.id)
-                .try_into()
-                .map_err(|e| rootcause::report!("{e}"))?,
+            external_id: ExternalCallId(note.id.0),
             external_url: Some(note.web_url),
             external_updated_at: Some(note.updated_at),
             synced_at: Some(Utc::now()),

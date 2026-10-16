@@ -1946,6 +1946,11 @@ export type CallFilters = {
 };
 
 /**
+ * Supported call and transcript providers. Add variants as integrations grow.
+ */
+export type CallProvider = 'macro' | 'granola';
+
+/**
  * Full record of a call, unifying rows from `calls` (active) and
  * `call_records` (archived) into a single response shape.
  */
@@ -2139,9 +2144,9 @@ export type CallRecordSource = {
      */
     externalUrl?: string | null;
     /**
-     * Provider slug, e.g. `granola`.
+     * Provider that supplied the call.
      */
-    provider: string;
+    provider: CallProvider;
 };
 
 /**

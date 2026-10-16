@@ -21344,6 +21344,11 @@
           }
         }
       },
+      "CallProvider": {
+        "type": "string",
+        "description": "Supported call and transcript providers. Add variants as integrations grow.",
+        "enum": ["macro", "granola"]
+      },
       "CallRecord": {
         "type": "object",
         "description": "Full record of a call, unifying rows from `calls` (active) and\n`call_records` (archived) into a single response shape.",
@@ -21633,8 +21638,8 @@
             "description": "Link to the call in the provider's app, if it has one."
           },
           "provider": {
-            "type": "string",
-            "description": "Provider slug, e.g. `granola`."
+            "$ref": "#/components/schemas/CallProvider",
+            "description": "Provider that supplied the call."
           }
         }
       },
