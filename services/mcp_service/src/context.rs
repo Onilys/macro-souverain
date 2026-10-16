@@ -531,6 +531,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
     );
 
     let tool_context = ToolServiceContext {
+        cognition_tool_context: ai_tools::build_cognition_tool_context()?,
         connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         email_service_client: Arc::new(EmailServiceClientExternal::new(
             email_service_client.url().to_owned(),
@@ -577,6 +578,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         import_tool_context: ToolImportToolContext::wired(import_service),
         chat_tool_context,
         channel_tool_context,
+        channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context()?,
         bot_tool_context: ai_tools::build_bot_tool_context(
             db.clone(),
             ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),

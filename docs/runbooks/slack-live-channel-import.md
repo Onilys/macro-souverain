@@ -24,6 +24,11 @@ Pipedream compatibility. Live verification remains a release prerequisite.
 New-connection slug: `slack_v2`, the OAuth app slug published in
 [Pipedream's Slack connector metadata](https://pipedream.com/apps/slack-v2).
 Existing connections retain the selection order `slack`, then `slack_v2`.
+On 2026-10-12 the authenticated production
+`/cognition/pipedream/mcp/catalog?search=Slack` endpoint returned `slack_v2`
+(display name Slack), and the production Connect token opened its hosted flow.
+This verifies catalog/Connect availability, not authorization or successful
+Slack tool execution; those still require the live checks below.
 
 | Evidence | `slack` | `slack_v2` |
 | --- | --- | --- |

@@ -175,5 +175,4 @@ local resources.
 
 Stale docs to treat with suspicion: `SLACK_IMPORT_ROLLOUT.md` (the worker is on
 and receives `APP_SECRETS_JSON` now), `web-app/README.md` (`yarn`),
-`fusion-auth/README.md`. `lexical-service` runs on ECS, but
-`deploy-lexical-service.yml` still deploys its old Cloudflare worker.
+`fusion-auth/README.md`.

@@ -32,7 +32,7 @@ import { WafObservability } from './waf-observability';
 
 const tags = {
   environment: stack,
-  tech_lead: 'hutch',
+  tech_lead: 'teo',
   project: 'cloud-storage-service',
 };
 

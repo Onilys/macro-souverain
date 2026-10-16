@@ -13,6 +13,7 @@ import {
   CALENDAR_VIEW_ID,
   type CalendarViewTarget,
 } from '@app/features/calendar-view/types';
+import { callsHostedContent } from '@app/features/calls-view/calls-hosted-content';
 import { driveHostedContent } from '@app/features/drive-view/drive-hosted-content';
 import { projectRouteId } from '@app/features/projects/core/route';
 import { reviewsHostedContent } from '@app/features/reviews-view/reviews-hosted-content';
@@ -747,6 +748,7 @@ export const openEntityInSplitFromUnifiedList = async (
   // legacy blocks. Comment targets keep their document block.
   const hostedContent =
     reviewsHostedContent(content) ??
+    callsHostedContent(content) ??
     driveHostedContent(content, {
       allowDocuments: !isTouchDevice() && !commentParams,
     });

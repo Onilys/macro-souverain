@@ -1,15 +1,25 @@
 import * as aws from '@pulumi/aws';
 import * as pulumi from '@pulumi/pulumi';
 import { Lambda } from '../../packages/lambda';
+import { DATADOG_API_KEY_SECRET_ARN } from '../../packages/resources';
 import { CLOUD_TRAIL_SNS_TOPIC_ARN, stack } from '../../packages/shared';
 
 const BASE_NAME = 'notification_retention_handler';
 const REPO_ROOT = '../../..';
+// Pinned public x86_64 layer, verified in us-east-1. Supports OTLP gRPC.
+const DATADOG_EXTENSION_ARN =
+  'arn:aws:lambda:us-east-1:464622532012:layer:Datadog-Extension:101';
 
 type RetentionEnvVars = {
   DATABASE_URL: pulumi.Output<string> | string;
   ENVIRONMENT: string;
   RUST_LOG: string;
+  DD_SERVICE: string;
+  DD_ENV: string;
+  DD_SITE: string;
+  DD_API_KEY_SECRET_ARN: pulumi.Output<string>;
+  DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT: string;
+  DD_SERVERLESS_LOGS_ENABLED: string;
 };
 
 type Args = {
@@ -56,6 +66,23 @@ export class NotificationRetention extends pulumi.ComponentResource {
       },
       { parent: this }
     );
+    const datadogSecretPolicy = new aws.iam.RolePolicy(
+      `${BASE_NAME}-datadog-key`,
+      {
+        role: role.id,
+        policy: pulumi.jsonStringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Effect: 'Allow',
+              Action: 'secretsmanager:GetSecretValue',
+              Resource: DATADOG_API_KEY_SECRET_ARN,
+            },
+          ],
+        }),
+      },
+      { parent: this }
+    );
     this.lambda = new Lambda<RetentionEnvVars>(
       `${BASE_NAME}-lambda`,
       {
@@ -66,9 +93,17 @@ export class NotificationRetention extends pulumi.ComponentResource {
           DATABASE_URL: databaseUrl,
           ENVIRONMENT: stack,
           RUST_LOG: 'info',
+          DD_SERVICE: 'notification-retention',
+          DD_ENV: stack,
+          DD_SITE: 'us5.datadoghq.com',
+          DD_API_KEY_SECRET_ARN: DATADOG_API_KEY_SECRET_ARN,
+          DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT: '127.0.0.1:4317',
+          // Keep the existing CloudWatch → Firehose log path; avoid duplicates.
+          DD_SERVERLESS_LOGS_ENABLED: 'false',
         },
         role,
         vpc,
+        layers: [DATADOG_EXTENSION_ARN],
         memorySize: 256,
         timeout: 120,
         reservedConcurrentExecutions: 1,
@@ -77,6 +112,7 @@ export class NotificationRetention extends pulumi.ComponentResource {
       { parent: this }
     ).lambda;
 
+    // Ensure the extension can fetch its key before EventBridge can invoke it.
     const rule = new aws.cloudwatch.EventRule(
       `${BASE_NAME}-schedule`,
       {
@@ -84,7 +120,7 @@ export class NotificationRetention extends pulumi.ComponentResource {
         state: enabled ? 'ENABLED' : 'DISABLED',
         tags,
       },
-      { parent: this }
+      { parent: this, dependsOn: [datadogSecretPolicy] }
     );
     new aws.cloudwatch.EventTarget(
       `${BASE_NAME}-target`,

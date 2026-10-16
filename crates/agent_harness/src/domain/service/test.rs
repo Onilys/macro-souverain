@@ -5,6 +5,7 @@
 mod chat_reply;
 mod coding_preferences;
 mod owned_purge;
+mod presentation;
 mod quota;
 mod user_cleanup;
 mod warm;
@@ -104,6 +105,7 @@ fn open_command() -> OpenSession {
             mcp_servers: AgentMcpServers::OwnerConnections,
         },
         origin: SessionOrigin::Mention(MentionOrigin {
+            reply_placement: Default::default(),
             parent: MessageParent::Channel(macro_uuid::generate_uuid_v7()),
             thread_id,
             message_id: thread_id,
@@ -160,6 +162,7 @@ fn forward_message(content: &str) -> DeliverAction {
             AgentAction::prompt(content),
             Some(staff_sender()),
             Some(AnnounceOrigin {
+                reply_placement: Default::default(),
                 reuse_origin_message: false,
                 parent: MessageParent::Channel(macro_uuid::Uuid::from_u128(0xf0)),
                 thread_id: macro_uuid::Uuid::from_u128(0xf1),
@@ -173,6 +176,8 @@ fn forward_message(content: &str) -> DeliverAction {
 struct PromptContextMock {
     unauthorized: Arc<Mutex<Option<String>>>,
     authorized: Arc<Mutex<Vec<(MacroUserIdStr<'static>, AnnounceOrigin)>>>,
+    /// Messages deleted since they were posted.
+    deleted: Arc<Mutex<Vec<macro_uuid::Uuid>>>,
 }
 
 impl PromptContextMock {
@@ -186,6 +191,11 @@ impl PromptContextMock {
     fn authorized(&self) -> Vec<(MacroUserIdStr<'static>, AnnounceOrigin)> {
         self.authorized.lock().unwrap().clone()
     }
+
+    /// Delete a posted message: an origin naming it is no longer valid.
+    fn delete(&self, message_id: macro_uuid::Uuid) {
+        self.deleted.lock().unwrap().push(message_id);
+    }
 }
 
 impl MessagePromptContext for PromptContextMock {
@@ -196,6 +206,11 @@ impl MessagePromptContext for PromptContextMock {
     ) -> crate::domain::error::Result<()> {
         if let Some(message) = self.unauthorized.lock().unwrap().clone() {
             return Err(HarnessError::PromptContext(rootcause::report!("{message}")));
+        }
+        if self.deleted.lock().unwrap().contains(&origin.message_id) {
+            return Err(HarnessError::InvalidOrigin(rootcause::report!(
+                "the message was deleted"
+            )));
         }
         self.authorized
             .lock()
@@ -485,6 +500,52 @@ fn harness_with_ports(
     mentions: PromptMentionsMock,
     egress: EgressProvisionerMock,
 ) -> (TestBench, TurnSignals) {
+    harness_with_ports_and_journal(
+        prompt_context,
+        prompt_composer,
+        permission_policies,
+        coding_agents,
+        mentions,
+        egress,
+        None,
+    )
+}
+
+fn harness_with_ports_and_journal(
+    prompt_context: PromptContextMock,
+    prompt_composer: PromptComposerMock,
+    permission_policies: impl crate::domain::ports::PermissionPolicySource,
+    coding_agents: impl crate::domain::ports::CodingAgentSource,
+    mentions: PromptMentionsMock,
+    egress: EgressProvisionerMock,
+    journal: Option<Arc<dyn crate::domain::conversation_turns::ConversationTurnStore>>,
+) -> (TestBench, TurnSignals) {
+    harness_with_journal_and_policy(
+        prompt_context,
+        prompt_composer,
+        permission_policies,
+        coding_agents,
+        mentions,
+        egress,
+        journal,
+        None,
+    )
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the test harness accepts independently replaceable ports"
+)]
+fn harness_with_journal_and_policy(
+    prompt_context: PromptContextMock,
+    prompt_composer: PromptComposerMock,
+    permission_policies: impl crate::domain::ports::PermissionPolicySource,
+    coding_agents: impl crate::domain::ports::CodingAgentSource,
+    mentions: PromptMentionsMock,
+    egress: EgressProvisionerMock,
+    journal: Option<Arc<dyn crate::domain::conversation_turns::ConversationTurnStore>>,
+    policy: Option<Arc<dyn crate::domain::conversations::ConversationPolicy>>,
+) -> (TestBench, TurnSignals) {
     let repo = InMemoryAgentSessionRepo::new();
     let containers = MockContainerManager::new();
     let announcer = AnnouncerMock::new();
@@ -497,6 +558,7 @@ fn harness_with_ports(
     let lifecycle = RecordingLifecyclePublisher::new();
     let notifier = NotifierMock::new();
     let service = AgentHarnessService::new(
+        policy,
         AgentSessionServiceImpl::new(
             repo.clone(),
             FoldedMessageService::new(repo.clone()),
@@ -535,6 +597,10 @@ fn harness_with_ports(
         mentions,
         notifier.clone(),
     );
+    let service = match journal {
+        Some(journal) => service.with_conversation_turns(journal),
+        None => service,
+    };
     let (ended, ended_rx) = mpsc::unbounded_channel();
     turn_observer.bind(SignallingTurnObserver {
         harness: service.clone(),
@@ -574,6 +640,7 @@ fn harness_sharing_repo(repo: InMemoryAgentSessionRepo) -> TestHarness {
     let lifecycle = RecordingLifecyclePublisher::new();
     let runtimes = RuntimeRegistry::new();
     let service = AgentHarnessService::new(
+        None,
         AgentSessionServiceImpl::new(
             repo.clone(),
             FoldedMessageService::new(repo),
@@ -681,15 +748,48 @@ async fn disconnected_session_owned_by(
     containers: &MockContainerManager,
     owner: model_owner::Owner,
 ) -> AgentSessionId {
+    // The coder bot: resume-on-disconnect only exists for managed sessions.
+    disconnected_session_of(
+        repo,
+        containers,
+        owner,
+        bot_id::MACRO_CODER_BOT_ID,
+        AgentKind::SandboxedCoder,
+    )
+    .await
+}
+
+/// [`disconnected_session`] served by Macro's in-process agent.
+async fn disconnected_in_memory_session(
+    repo: &InMemoryAgentSessionRepo,
+    containers: &MockContainerManager,
+) -> AgentSessionId {
     let command = open_command();
     let origin = mention_origin(&command);
-    // The coder bot: resume-on-disconnect only exists for managed sessions.
-    let bot_id = bot_id::MACRO_CODER_BOT_ID;
+    disconnected_session_of(
+        repo,
+        containers,
+        model_owner::Owner::User(origin.sender.clone()),
+        bot_id::MACRO_NEW_BOT_ID,
+        AgentKind::InMemory,
+    )
+    .await
+}
+
+async fn disconnected_session_of(
+    repo: &InMemoryAgentSessionRepo,
+    containers: &MockContainerManager,
+    owner: model_owner::Owner,
+    bot_id: BotId,
+    kind: AgentKind,
+) -> AgentSessionId {
+    let command = open_command();
+    let origin = mention_origin(&command);
     let id = AgentSessionId::new();
     agent_session::domain::ports::AgentSessionRepo::create(
         repo,
         CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: owner,
@@ -697,7 +797,12 @@ async fn disconnected_session_owned_by(
             thread_id: Some(origin.thread_id),
             originating_message_id: Some(origin.message_id),
             model: "claude".to_owned(),
-            harness: "opencode".to_owned(),
+            harness: if kind == AgentKind::InMemory {
+                "in-memory"
+            } else {
+                "opencode"
+            }
+            .to_owned(),
             repo_url: Some("https://github.com/macro-inc/macro".to_owned()),
             workspace: "/workspace".to_owned(),
             sandbox_size: agent_session::domain::model::SandboxSize::Default,
@@ -714,7 +819,7 @@ async fn disconnected_session_owned_by(
     containers
         .spawn(SpawnContainer {
             session_id: id,
-            kind: AgentKind::SandboxedCoder,
+            kind,
             size: agent_session::domain::model::SandboxSize::Default,
             egress: test_egress(),
         })
@@ -1070,6 +1175,7 @@ async fn a_mention_its_sender_is_not_set_up_for_is_declined_in_the_thread() {
             [DeclinedMention {
                 bot_id,
                 origin: AnnounceOrigin {
+                    reply_placement: Default::default(),
                     reuse_origin_message: false,
                     parent: origin.parent,
                     thread_id: origin.thread_id,
@@ -1497,6 +1603,54 @@ async fn forward_to_a_disconnected_session_resumes_acp_and_delivers_the_prompt()
         })
         .count();
     assert_eq!(prompt_logs, 1);
+    assert!(
+        service.inner.egress.provisioned().is_empty(),
+        "a sandbox's own token is restored, not replaced"
+    );
+}
+
+/// The in-process agent keeps its egress token only in the process that
+/// spawned it, and every turn refreshes its tools with the advertised
+/// credential. Resumed after a restart, it gets a new token, or it could not
+/// take a turn at all.
+#[tokio::test]
+async fn resuming_an_in_memory_session_after_a_restart_mints_a_new_token() {
+    let (service, repo, containers, _announcer, _runtimes) = harness();
+    let id = disconnected_in_memory_session(&repo, &containers).await;
+    containers.lose_tokens();
+
+    let forward = service.execute(
+        id,
+        HarnessCommand::Deliver(forward_message("continue after the restart")),
+    );
+    let drive_resume = async {
+        while containers.resumed() == 0 {
+            tokio::task::yield_now().await;
+        }
+        let resumed = containers
+            .container(id)
+            .expect("the resumed container is findable");
+        complete_resume(&resumed).await;
+        resumed
+    };
+    let (forwarded, resumed) = tokio::join!(forward, drive_resume);
+    forwarded.expect("forward should resume and deliver the prompt");
+
+    assert_eq!(service.inner.egress.provisioned().len(), 1);
+    assert_eq!(
+        repo.find_by_egress_token_hash("test-token-hash")
+            .await
+            .unwrap()
+            .expect("the row carries the new token's hash")
+            .id,
+        id
+    );
+    let ClientRequest::ResumeSessionRequest(request) = &resumed.agent().received_requests()[1]
+    else {
+        panic!("the session is resumed over ACP");
+    };
+    assert!(!request.mcp_servers.is_empty());
+    assert_eq!(request.mcp_servers, test_egress().acp_servers());
 }
 
 #[tokio::test]
@@ -3240,6 +3394,7 @@ async fn a_managed_session_opens_as_the_managed_default_bot() {
     let containers = MockContainerManager::new();
     let inmem_bot = BotId::TEST_B;
     let service = AgentHarnessService::new(
+        None,
         AgentSessionServiceImpl::new(
             repo.clone(),
             FoldedMessageService::new(repo.clone()),
@@ -3426,6 +3581,7 @@ async fn an_external_prompt_announce_posts_into_the_observed_origin() {
             crate::domain::model::AnnouncePrompt {
                 bot_id: bot,
                 origin: AnnounceOrigin {
+                    reply_placement: Default::default(),
                     reuse_origin_message: false,
                     parent: MessageParent::Channel(macro_uuid::Uuid::from_u128(0xAA)),
                     thread_id: macro_uuid::Uuid::from_u128(0xAB),
@@ -3467,6 +3623,7 @@ async fn an_announce_whose_bot_does_not_own_the_session_is_dropped() {
             crate::domain::model::AnnouncePrompt {
                 bot_id: BotId::new_from_uuid(macro_uuid::generate_uuid_v7()),
                 origin: AnnounceOrigin {
+                    reply_placement: Default::default(),
                     reuse_origin_message: false,
                     parent: MessageParent::Channel(macro_uuid::Uuid::from_u128(0xAA)),
                     thread_id: macro_uuid::Uuid::from_u128(0xAB),
@@ -3804,6 +3961,7 @@ async fn commands_for_a_peer_managed_session_forward_through_redis() {
     let claim = claim_as_peer(&repo, id).await;
     let forwarder = RecordingForwarder::default();
     let service = AgentHarnessService::new(
+        None,
         AgentSessionServiceImpl::new(
             repo.clone(),
             FoldedMessageService::new(repo.clone()),
@@ -3857,6 +4015,7 @@ async fn unmanaged_external_session_forwards_to_its_remote_harness() {
     let runtimes = TestConnections::new(MirrorBindings, RuntimeRegistry::new());
     let forwarder = RecordingForwarder::default();
     let service = AgentHarnessService::new(
+        None,
         AgentSessionServiceImpl::new(
             repo.clone(),
             FoldedMessageService::new(repo.clone()),
@@ -4834,5 +4993,46 @@ async fn a_non_staff_session_editor_can_approve_a_managed_session_request() {
         Some(RequestPermissionOutcome::Selected(
             SelectedPermissionOutcome::new("once")
         ))
+    );
+}
+
+#[tokio::test]
+async fn review_outcome_context_is_composed_privately_on_follow_up_and_first_turn() {
+    let composer = PromptComposerMock::default();
+    let (service, repo, _containers, _announcer, _runtimes) =
+        harness_with_edges(PromptContextMock::default(), composer.clone());
+    let id = AgentSessionId::new();
+    let mut session = agent_session::testing::test_agent_session(id);
+    session.instructions = Some("Session instructions".to_owned());
+    repo.insert_session(session);
+    for first_turn in [false, true] {
+        let mut action = AgentAction::context_prompt("100 outcome unconfirmed");
+        service
+            .inner
+            .compose_action(id, &mut action, None, None, None, first_turn)
+            .await
+            .unwrap();
+        let AgentAction::Prompt(prompt) = action else {
+            panic!("expected prompt");
+        };
+        assert!(
+            prompt.prompt.is_empty(),
+            "the mock leaves visible text unchanged"
+        );
+    }
+    assert_eq!(
+        composer.calls(),
+        vec![
+            (
+                String::new(),
+                Some("100 outcome unconfirmed".to_owned()),
+                None
+            ),
+            (
+                String::new(),
+                Some("Session instructions\n\n100 outcome unconfirmed".to_owned()),
+                None
+            ),
+        ]
     );
 }

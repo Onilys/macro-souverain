@@ -58,7 +58,7 @@ function redirectLegacyRoutes(
   if (rootId === 'call-detail') {
     const { callId } = routeParams(route);
     if (typeof callId === 'string') {
-      return redirect(`/drive/call/${encodeURIComponent(callId)}`);
+      return redirect(`/calls/call/${encodeURIComponent(callId)}`);
     }
   }
   if (rootId === 'pr-detail') {
@@ -185,7 +185,7 @@ function migrateLegacySearch({
       namespace: CALENDAR_SEARCH_NAMESPACE,
       fields: [['eventId', 'eventId']] as const,
     }))
-    .with('call-detail', 'drive-call', () => ({
+    .with('call-detail', 'drive-call', 'calls-call', () => ({
       namespace: 'call-detail',
       fields: [
         [CALL_URL_PARAMS.transcriptId, 'transcriptId'],

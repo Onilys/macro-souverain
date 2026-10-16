@@ -32,6 +32,7 @@ function sameResult(left: CalculatedCell, right: CalculatedCell) {
     left.number === right.number &&
     left.error === right.error &&
     left.warning === right.warning &&
+    left.date === right.date &&
     left.type === right.type &&
     left.value === right.value &&
     left.spill?.rows === right.spill?.rows &&
@@ -134,6 +135,11 @@ self.onmessage = async (event: MessageEvent<CalculationRequest>) => {
         id: operation.id,
         type: 'change-axis',
         sheets: engine.changeAxis(operation.sheets, operation.change),
+      }))
+      .with({ type: 'move-range' }, (operation) => ({
+        id: operation.id,
+        type: 'move-range',
+        sheets: engine.moveRange(operation.sheets, operation.move),
       }))
       .with({ type: 'calculate' }, (operation) => ({
         id: operation.id,

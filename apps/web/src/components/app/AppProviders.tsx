@@ -1,3 +1,4 @@
+import { useAccessRequestInvalidations } from '@app/features/access-requests/use-access-request-invalidations';
 import { IncomingMeetingInvitationsProvider } from '@app/features/meetings/incoming-meeting-invitations';
 import { usePendingNotificationNavigationEffect } from '@app/features/notifications/PendingNotificationNavigationEffect';
 import { SearchProvider } from '@app/features/soup/search/context';
@@ -70,6 +71,7 @@ function ConfiguredGlobalAppStateProvider(props: ParentProps) {
     (notification) => void deliverNotification(notification)
   );
   useNotificationUpdates(notificationSource);
+  useAccessRequestInvalidations();
   useReactiveFavicon(notificationSource);
 
   const blockOrchestrator = createBlockOrchestrator();

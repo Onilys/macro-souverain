@@ -363,7 +363,6 @@ function Fixture() {
                     setSettingsTab(result.tab);
                     setSelectedResult({ ...result });
                   }}
-                  onLogout={() => setNotice('Preview only')}
                 />
               </ViewShell.Aside>
               <ViewShell.Main>

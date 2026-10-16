@@ -20,7 +20,6 @@ import { tourTarget } from '@ui/components/Tour';
 import {
   type Accessor,
   batch,
-  type ComponentProps,
   createComputed,
   createContext,
   createSignal,
@@ -539,17 +538,8 @@ function Aside(props: ViewShellAsideProps) {
   );
 }
 
-/** A navigation overlay must not offer an action that closes its owning split. */
-export function ViewSidebarCloseButton(
-  props: ComponentProps<typeof SplitPanel.CloseButton>
-) {
-  const ws = useContext(ViewShellContext);
-  return (
-    <Show when={!ws?.atLayoutBreakpoint()}>
-      <SplitPanel.CloseButton {...props} />
-    </Show>
-  );
-}
+/** Keep split close available in both docked and overlay navigation. */
+export const ViewSidebarCloseButton = SplitPanel.CloseButton;
 
 /** Safe outside a shell so block preview headers can share this control. */
 export function ViewSidebarToggle(props: { action: 'collapse' | 'expand' }) {

@@ -482,12 +482,17 @@ pub async fn run() -> anyhow::Result<()> {
 
     // Create the channel list service used by soup.
     // Create the legacy channel list router state for routes mounted under /comms.
+    let agent_dm_profiles = Arc::new(outbound::agent_dm_authorizer::AgentDmProfileReader::new(
+        PgChannelsRepo::new(db.clone()),
+        PgBotsRepo::new(db.clone()),
+    ));
     let channel_list_state = ChannelListRouterState::new(
         ChannelListServiceImpl::new(
             PgChannelsRepo::new(db.clone()),
             PgChannelsRepo::new(db.clone()),
             frecency_storage.clone(),
-        ),
+        )
+        .with_agent_dm_profiles(agent_dm_profiles.clone()),
         authorization_state.clone(),
     );
 
@@ -531,6 +536,27 @@ pub async fn run() -> anyhow::Result<()> {
         );
 
     let connection_gateway = Arc::new(ConnectionGatewayImpl::new(conn_gateway_client.clone()));
+
+    let access_requests_repo =
+        Arc::new(access_requests::outbound::postgres::PgRequestRepository::new(db.clone()));
+    let access_requests_service =
+        Arc::new(access_requests::domain::service::AccessRequestService::new(
+            access_requests_repo.clone(),
+            entity_access_service.clone(),
+            access_requests::domain::ports::SystemClock,
+        ));
+    consumer_tracker.spawn(access_requests::inbound::dispatch::run(
+        access_requests_repo,
+        crate::outbound::access_requests::AccessRequestDelivery {
+            withdrawal: Arc::new(
+                notification::outbound::withdrawal::PgNotificationWithdrawal(db.clone()),
+            ),
+            ingress: notification_ingress_service.clone(),
+            reader: graphql_notification_reader.clone(),
+            connection: connection_gateway.clone(),
+        },
+        consumer_cancellation_token.clone(),
+    ));
 
     let connection_service =
         ConnectionServiceImpl::new(entity_access_service.clone(), connection_gateway.clone());
@@ -1182,10 +1208,15 @@ pub async fn run() -> anyhow::Result<()> {
 
     let channels_service = Arc::new(
         ChannelServiceImpl::with_dependencies(
-            channels_repo,
+            channels_repo.clone(),
             SpawnedChannelEventDispatcher::new(channel_side_effects.clone()),
             PgChannelReferenceSharePermissions::new(db.clone(), entity_access_service.clone()),
         )
+        .with_agent_direct_messages(Arc::new(channels::domain::agent_dm::AgentDmService::new(
+            channels_repo,
+            outbound::agent_dm_authorizer::BotServiceDmAuthorizer(bots_service.clone()),
+            SpawnedChannelEventDispatcher::new(channel_side_effects.clone()),
+        )))
         .with_picture_files(
             channels::outbound::static_file_pictures::StaticFileChannelPictures::new(
                 static_file_service_client::StaticFileServiceClient::new(
@@ -1539,7 +1570,8 @@ pub async fn run() -> anyhow::Result<()> {
                 PgChannelsRepo::new(db.clone()),
                 PgChannelsRepo::new(db.clone()),
                 frecency_storage.clone(),
-            ),
+            )
+            .with_agent_dm_profiles(agent_dm_profiles),
             call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
             crm_service.clone(),
             GithubPullRequestServiceImpl::new(
@@ -1567,7 +1599,13 @@ pub async fn run() -> anyhow::Result<()> {
                 PgChannelsRepo::new(readonly_db.clone()),
                 PgChannelsRepo::new(readonly_db.clone()),
                 frecency_storage.clone(),
-            ),
+            )
+            .with_agent_dm_profiles(Arc::new(
+                outbound::agent_dm_authorizer::AgentDmProfileReader::new(
+                    PgChannelsRepo::new(readonly_db.clone()),
+                    PgBotsRepo::new(readonly_db.clone()),
+                ),
+            )),
             call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(
                 readonly_db.clone(),
             )),
@@ -2048,6 +2086,10 @@ pub async fn run() -> anyhow::Result<()> {
             entity_access_service.clone(),
             authorization_state.clone(),
         ),
+        access_requests_state: access_requests::inbound::axum_router::AccessRequestsRouterState {
+            service: access_requests_service,
+            authorization_state: authorization_state.clone(),
+        },
         graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader(
             graphql_soup::soup_item_loader(
                 primary_entity_soup.clone(),

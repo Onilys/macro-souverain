@@ -50,6 +50,8 @@ the gateway `/email` prefix.
   (#7039) — don't reintroduce a path that notifies on our own sends.
 - Long attachment names are truncated to the DSS limit before upload (#7893);
   don't remove that truncation when touching `util/upload_attachment.rs`.
+- Preserve the calendar domain's `team_ooo_changed` hint when forwarding a
+  calendar refresh so unrelated invitation updates retain teammates' OOO rows.
 
 ## Related
 

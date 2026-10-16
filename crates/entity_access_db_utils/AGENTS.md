@@ -15,6 +15,7 @@ top of it.
   `EntityAccessSourceType`.
 - `src/channel_share.rs`, `src/team_share.rs`: grant helpers scoped to a
   channel or team source.
+- `src/direct_share.rs`: live ownership facts and direct user grants for access requests.
 
 ## Scope
 
@@ -47,6 +48,9 @@ top of it.
 
 - Helpers never commit; every function takes `&mut Transaction<'_, Postgres>`
   and the caller commits once alongside its own row writes.
+- Folder direct-grant changes hold `team_share::acquire_guard` before entity/row
+  locks, matching project topology propagation. Legacy non-UUID children inherit
+  through their parent dynamically and do not get UUID grant rows.
 
 ## Related
 

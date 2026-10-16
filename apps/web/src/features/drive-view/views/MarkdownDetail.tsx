@@ -25,16 +25,8 @@ import { createMethodRegistration } from '@core/orchestrator';
 import { DocumentDebouncedNotificationReadMarker } from '@notifications';
 import SpinnerIcon from '@phosphor/spinner.svg';
 import { Button } from '@ui';
-import {
-  createComputed,
-  createResource,
-  ErrorBoundary,
-  type JSX,
-  Match,
-  Show,
-  Suspense,
-  Switch,
-} from 'solid-js';
+import { createComputed, type JSX, Match, Show, Switch } from 'solid-js';
+import { FileDetailLoadGate } from '../components/FileDetail';
 import type { FileDetailContext } from '../util/file-detail-context';
 
 export type MarkdownDetailContext = FileDetailContext<MarkdownDocumentData>;
@@ -146,55 +138,26 @@ function MarkdownDetailContent(props: {
 
 /** Renders a markdown document without a block container or split header. */
 export function MarkdownDetail(props: MarkdownDetailProps) {
-  const [document, { refetch }] = createResource(
-    () => props.documentId,
-    loadMarkdownDocument
-  );
-  const entityLabel = () => (props.kind === 'task' ? 'task' : 'document');
-
   return (
-    <Suspense
-      fallback={<MarkdownDetailBodyState entityLabel={entityLabel()} />}
+    <FileDetailLoadGate
+      documentId={props.documentId}
+      label={props.kind === 'task' ? 'task' : 'document'}
+      load={loadMarkdownDocument}
     >
-      <Switch>
-        <Match when={document.error}>
-          {(error) => (
-            <MarkdownDetailBodyState
-              entityLabel={entityLabel()}
-              error={error()}
-              actionLabel="Try again"
-              onAction={() => void refetch()}
-            />
-          )}
-        </Match>
-        <Match when={document()}>
-          {(data) => (
-            <ErrorBoundary
-              fallback={(error, reset) => (
-                <MarkdownDetailBodyState
-                  entityLabel={entityLabel()}
-                  error={error}
-                  actionLabel="Reset"
-                  onAction={reset}
-                />
-              )}
-            >
-              <MarkdownDetailContent
-                documentId={props.documentId}
-                kind={props.kind ?? 'document'}
-                fallbackName={
-                  props.fallbackName ||
-                  blockNameToDefaultFile(
-                    props.kind && props.kind !== 'document' ? props.kind : 'md'
-                  )
-                }
-                data={data()}
-                children={props.children}
-              />
-            </ErrorBoundary>
-          )}
-        </Match>
-      </Switch>
-    </Suspense>
+      {(data) => (
+        <MarkdownDetailContent
+          documentId={props.documentId}
+          kind={props.kind ?? 'document'}
+          fallbackName={
+            props.fallbackName ||
+            blockNameToDefaultFile(
+              props.kind && props.kind !== 'document' ? props.kind : 'md'
+            )
+          }
+          data={data}
+          children={props.children}
+        />
+      )}
+    </FileDetailLoadGate>
   );
 }

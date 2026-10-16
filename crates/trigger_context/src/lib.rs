@@ -22,6 +22,10 @@ pub enum TriggerContext {
     Mentioned(DiscussionContext),
     /// A further message in the discussion of a session that is already running.
     FollowUp(FollowUpContext),
+    /// A message in the agent's private conversation with the person, who
+    /// reads the reply there as it is written. Earlier turns are the
+    /// session's own history, so the discussion carries no channel activity.
+    Conversation(DiscussionContext),
     /// The agent was assigned a task.
     TaskAssigned(TaskAssignedContext),
     /// Someone opened the session from the composer. Their prompt arrives

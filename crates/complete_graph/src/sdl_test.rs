@@ -177,10 +177,28 @@ fn soup_response_schema_exposes_frontend_fields() {
     ] {
         assert_sdl_line(&sdl, expected);
     }
-    assert!(
-        sdl.contains("union GraphqlNotifEvent = GraphqlChannelMentionMetadata |"),
-        "notification metadata must be represented by the typed event union"
-    );
+    let schema = apollo_compiler::Schema::parse_and_validate(&sdl, "schema.graphql")
+        .expect("generated SDL is valid");
+    let apollo_compiler::schema::ExtendedType::Union(metadata) = schema
+        .types
+        .get("GraphqlNotifEvent")
+        .expect("notification metadata union exists")
+    else {
+        panic!("notification metadata must be represented by the typed event union");
+    };
+    for expected in [
+        "GraphqlChannelMentionMetadata",
+        "GraphqlEntityAccessRequestedMetadata",
+        "GraphqlEntityAccessGrantedMetadata",
+    ] {
+        assert!(
+            metadata
+                .members
+                .iter()
+                .any(|member| member.name.as_str() == expected),
+            "notification metadata union missing {expected}"
+        );
+    }
     assert_eq!(
         sdl.lines()
             .filter(|line| line.trim() == "metadata: GraphqlNotifEvent!")

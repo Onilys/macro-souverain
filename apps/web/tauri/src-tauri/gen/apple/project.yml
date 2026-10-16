@@ -48,6 +48,7 @@ targets:
     info:
       path: app_iOS/Info.plist
       properties:
+        CFBundleDisplayName: Macro Alpha
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities: [arm64, metal]

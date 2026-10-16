@@ -12,7 +12,7 @@ explicit Nix invocation. See also [Rust development](rust.md).
 - Inspect migrations or use the [dump-schema skill](../../.agents/skills/dump-schema/SKILL.md)
   against the local database. Do not guess table or column spelling.
 - Quote camelCase identifiers and alias selected columns to their Rust field
-  names: `SELECT "userId" AS user_id FROM "UserInsights"`.
+  names: `SELECT "userId" AS user_id FROM "Chat"`.
 - Use the owning domain's database adapter; follow the `[db]` rules
   (CS-01–09) in [`rust/db.md`](../../.agents/rules/rust/db.md) and ownership rule
   (CS-27) in [`rust/architecture.md`](../../.agents/rules/rust/architecture.md).
