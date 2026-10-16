@@ -32,7 +32,10 @@ ci-prebuild base="main":
         echo "warning: this branch does not contain origin/{{ base }}; rebase first or CI compiles a different tree" >&2
     fi
     outputs="$(mktemp)"
-    trap 'rm -f "$outputs"' EXIT
+    # A runtime directory of its own gives this run a fresh event log, so the
+    # manifest published below lists exactly what this branch compiles.
+    export KACHE_RUNTIME_DIR="$(mktemp -d)"
+    trap 'kache daemon stop >/dev/null 2>&1; rm -rf "$outputs" "$KACHE_RUNTIME_DIR"' EXIT
     GITHUB_BASE_REF={{ base }} GITHUB_SHA="$(git rev-parse HEAD)" bash {{ ci_scripts }}/compute_changed_files.sh
     GITHUB_OUTPUT="$outputs" FILTER_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/macro-nextest-filter" \
         bash {{ ci_scripts }}/compute_nextest_filter.sh
@@ -46,7 +49,7 @@ ci-prebuild base="main":
         # part of any kache key.
         db="$(docker run -d --rm -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password \
             -e POSTGRES_DB=macrodb -p 127.0.0.1::5432 pgvector/pgvector:pg14)"
-        trap 'rm -f "$outputs"; docker rm -f "$db" >/dev/null' EXIT
+        trap 'docker rm -f "$db" >/dev/null; kache daemon stop >/dev/null 2>&1; rm -rf "$outputs" "$KACHE_RUNTIME_DIR"' EXIT
         until docker exec "$db" pg_isready -q -h 127.0.0.1 -U user -d macrodb; do sleep 1; done
         port="$(docker port "$db" 5432/tcp | head -1 | sed 's/.*://')"
         export DATABASE_URL="postgres://user:password@127.0.0.1:$port/macrodb"
@@ -59,6 +62,9 @@ ci-prebuild base="main":
         echo "waiting for kache to upload $(ls "$queue" | wc -l) entries"
         sleep 5
     done
+    # CI prefetches this manifest (KACHE_MANIFEST_KEY in its configure step);
+    # the tree matches CI's merge commit while the branch contains its base.
+    KACHE_MANIFEST_KEY="tree/$(git rev-parse HEAD^{tree})" kache save-manifest
     echo "kache has published this branch's build; push when ready"
 
 # This can be used in any crate that uses macrodb under the hood

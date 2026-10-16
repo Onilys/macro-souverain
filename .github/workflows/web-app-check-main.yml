@@ -135,13 +135,17 @@ jobs:
           echo "::warning::KACHE_R2_* secrets are not set; kache uses only the volume store"
           echo "KACHE_LOCAL_ONLY=1" >> "$GITHUB_ENV"
         else
-          # Listing lets the daemon prefetch from the key index before rustc
-          # asks; test binaries alone exceed the default 2 GiB plan.
+          # `just ci-prebuild` publishes the exact entries a tree needs under
+          # this manifest key, so the daemon prefetches them as the build
+          # starts instead of fetching each 100 MiB test binary on demand,
+          # which takes longer than a compile waits. Test binaries alone
+          # exceed the default 2 GiB plan.
           {
             echo "KACHE_S3_ACCESS_KEY=$R2_ACCESS_KEY"
             echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
-            echo "KACHE_REMOTE_KEY_LISTING=1"
+            echo "KACHE_MANIFEST_KEY=tree/$(git rev-parse HEAD^{tree})"
             echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+            echo "KACHE_PREFETCH_MAX_KEYS=0"
             echo "KACHE_S3_CONCURRENCY=64"
           } >> "$GITHUB_ENV"
         fi
@@ -349,13 +353,17 @@ jobs:
           echo "::warning::KACHE_R2_* secrets are not set; kache uses only the volume store"
           echo "KACHE_LOCAL_ONLY=1" >> "$GITHUB_ENV"
         else
-          # Listing lets the daemon prefetch from the key index before rustc
-          # asks; test binaries alone exceed the default 2 GiB plan.
+          # `just ci-prebuild` publishes the exact entries a tree needs under
+          # this manifest key, so the daemon prefetches them as the build
+          # starts instead of fetching each 100 MiB test binary on demand,
+          # which takes longer than a compile waits. Test binaries alone
+          # exceed the default 2 GiB plan.
           {
             echo "KACHE_S3_ACCESS_KEY=$R2_ACCESS_KEY"
             echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
-            echo "KACHE_REMOTE_KEY_LISTING=1"
+            echo "KACHE_MANIFEST_KEY=tree/$(git rev-parse HEAD^{tree})"
             echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+            echo "KACHE_PREFETCH_MAX_KEYS=0"
             echo "KACHE_S3_CONCURRENCY=64"
           } >> "$GITHUB_ENV"
         fi

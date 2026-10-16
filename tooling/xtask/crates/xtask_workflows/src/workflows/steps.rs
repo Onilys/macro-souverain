@@ -267,13 +267,17 @@ pub fn configure_kache(store: KacheStore) -> Step<Run> {
               echo "::warning::KACHE_R2_* secrets are not set; kache uses only the volume store"
               echo "KACHE_LOCAL_ONLY=1" >> "$GITHUB_ENV"
             else
-              # Listing lets the daemon prefetch from the key index before rustc
-              # asks; test binaries alone exceed the default 2 GiB plan.
+              # `just ci-prebuild` publishes the exact entries a tree needs under
+              # this manifest key, so the daemon prefetches them as the build
+              # starts instead of fetching each 100 MiB test binary on demand,
+              # which takes longer than a compile waits. Test binaries alone
+              # exceed the default 2 GiB plan.
               {
                 echo "KACHE_S3_ACCESS_KEY=$R2_ACCESS_KEY"
                 echo "KACHE_S3_SECRET_KEY=$R2_SECRET_KEY"
-                echo "KACHE_REMOTE_KEY_LISTING=1"
+                echo "KACHE_MANIFEST_KEY=tree/$(git rev-parse HEAD^{tree})"
                 echo "KACHE_PREFETCH_MAX_BYTES=16GiB"
+                echo "KACHE_PREFETCH_MAX_KEYS=0"
                 echo "KACHE_S3_CONCURRENCY=64"
               } >> "$GITHUB_ENV"
             fi
@@ -391,24 +395,6 @@ pub fn setup_reqs_web(name: &str, playwright: bool) -> Step<Use> {
         xtask_paths::repo_dir!(".github/actions/setup-reqs-web"),
     )
     .when(playwright, |step| step.add_with(("playwright", "true")))
-}
-
-/// Download the workspace crates' entries (libraries and test binaries, the
-/// expensive ones) before cargo starts. Restoring one of those on demand has
-/// to finish within the few seconds a compile waits, which a 100 MiB test
-/// binary misses; third-party crates are small and still restore on demand.
-/// A failed pull only leaves more to fetch, so it warns instead of failing.
-pub fn pull_kache_workspace() -> Step<Run> {
-    Step::new("Pull kache workspace entries").run(indoc::indoc! {r#"
-        if [ "${KACHE_LOCAL_ONLY:-}" = 1 ]; then
-          echo "kache remote is off for this job; nothing to pull"
-          exit 0
-        fi
-        start=$(date +%s)
-        kache sync --pull --workspace --allow-partial \
-          || echo "::warning::kache pull failed; the build restores entries on demand"
-        echo "kache pull took $(( $(date +%s) - start ))s"
-    "#})
 }
 
 /// `kache stats` and the costliest misses at the end of a job, then stop the
