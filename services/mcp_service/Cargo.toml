@@ -18,6 +18,7 @@ agent_setup = { path = "../../crates/agent_setup" }
 ai_billing = { path = "../../crates/ai_billing", features = ["pg-admission"] }
 analytics_client = { path = "../../crates/analytics_client" }
 base64 = { workspace = true }
+chrono = { workspace = true }
 lru = { workspace = true }
 macro_db_client = { path = "../../crates/macro_db_client" }
 onboarding = { path = "../../crates/onboarding" }
@@ -109,5 +110,4 @@ macro_service_urls = { path = "../../crates/macro_service_urls" }
 workspace-hack = { version = "0.1", path = "../../crates/workspace-hack" }
 
 [dev-dependencies]
-chrono = { workspace = true }
 uuid = { workspace = true }

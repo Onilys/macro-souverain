@@ -109,6 +109,7 @@ impl McpTelemetry {
     }
 
     /// Telemetry that sends nothing.
+    #[cfg(test)]
     pub fn disabled() -> Self {
         Self {
             analytics: None,
