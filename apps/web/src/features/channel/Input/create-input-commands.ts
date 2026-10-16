@@ -49,6 +49,13 @@ export function createInputCommands(
 
   return {
     send: async () => {
+      // Block if a send is already in flight (isSending = true)
+      if (
+        deps.view().hasPendingAttachments &&
+        !deps.attachmentTracker.hasPending()
+      ) {
+        return false;
+      }
       // If uploads are pending, queue the send intent for when they complete
       if (deps.attachmentTracker.hasPending()) {
         const current = deps.snapshot();
