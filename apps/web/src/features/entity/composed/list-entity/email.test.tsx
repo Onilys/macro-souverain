@@ -75,6 +75,15 @@ beforeEach(() => {
 });
 
 describe('useOwningInboxForEntity', () => {
+  it('omits attribution when only one account is connected', async () => {
+    mocks.links.mockReturnValue([
+      { id: 'secondary-inbox', email_address: 'secondary@example.com' } as Link,
+    ]);
+    render(() => <RecycledRowInboxConsumer />);
+    await fireEvent.click(screen.getByRole('button', { name: 'Recycle row' }));
+    expect(screen.queryByText('secondary@example.com')).toBeNull();
+  });
+
   it('updates inbox attribution when a mounted row changes entity type', async () => {
     render(() => <RecycledRowInboxConsumer />);
 

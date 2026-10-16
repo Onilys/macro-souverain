@@ -129,7 +129,6 @@ export function EmailWideContent(props: {
         <span class="truncate max-w-32 flex gap-2 items-center">
           <EmailIdentity entity={props.entity} />
         </span>
-        <EmailInboxChip entity={props.entity} class="ml-auto" />
       </span>
       <span class="truncate">
         <Entity.Title entity={props.entity} />

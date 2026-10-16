@@ -37,7 +37,11 @@ import {
   ChannelWideContent,
 } from './channel';
 import { CompactingPills } from './compacting-pills';
-import { EmailWideContent, useOwningInboxForEntity } from './email';
+import {
+  EmailInboxChip,
+  EmailWideContent,
+  useOwningInboxForEntity,
+} from './email';
 import {
   GithubPullRequestChecksIndicator,
   GithubPullRequestPills,
@@ -253,12 +257,15 @@ export function WideLayout(props: LayoutProps) {
         </Show>
         <Show when={isEmailEntity(props.entity) && props.entity}>
           {(entity) => (
-            <RowTags
-              entityId={entity().id}
-              entityType={EntityType.THREAD}
-              properties={entity().properties}
-              onFilterByTag={props.onFilterByTag}
-            />
+            <span class="flex shrink-0 items-center gap-1">
+              <RowTags
+                entityId={entity().id}
+                entityType={EntityType.THREAD}
+                properties={entity().properties}
+                onFilterByTag={props.onFilterByTag}
+              />
+              <EmailInboxChip entity={entity()} />
+            </span>
           )}
         </Show>
         <Show when={isChatEntity(props.entity) && props.entity}>
