@@ -252,7 +252,26 @@ In the new Email view, ordinary row activation opens the thread inside
 background and returns to the filtered list. Pressing `Escape` in the open thread
 with focus outside any input does the same once there is nothing left to unwind
 (an open reply, an expanded body, or a focused message each take one `Escape`
-first); the list keeps the row you came from focused. The inline header uses the existing
+first); the list keeps the row you came from focused. In the list, `Escape`
+clears a multi-selection, then returns to bare Signal from any other tab, search
+text, tag, or filter; the inbox selection is kept. Pressing `Escape` repeatedly
+from anywhere in Email therefore lands on Signal.
+
+Email has Superhuman's go-to keys: `g` then `i` Signal, `o` Noise, `e` Archived
+(Done), `t` Sent, `d` Drafts, `h` Reminders (when Reminders is enabled), and `l`
+**Go to tag**, which opens the command menu on a list of personal tags; choosing
+one shows it like the sidebar's Tags section, and with no tags `g l` reports
+`No tags yet`. They work from the list and an open thread. While focus is in
+the Email split they replace the sidebar destinations on those keys (`g h`/`g i`
+Home, `g e` Email, `g t` Tasks, `g d` Documents, `g o` Customers, `g l` Calls);
+other keys such as `g f` and `g c`, and every key outside Email, keep their
+sidebar meaning. `Ctrl/Cmd+K` lists them with their `g` sequence, and the
+sidebar commands they displace show no shortcut there while Email has focus.
+To verify, start from Noise with a search and an open thread and press `Escape`
+until Signal shows; then check each `g` key, `g f` from Email, and `g e` from
+another view.
+
+The inline header uses the existing
 email title menu: open the menu button beside the subject for **Ask AI**, **Create a
 Task**, and the other thread actions. On desktop, **Mark as unread**, **Mark done**,
 and **Previous item** / **Next item** sit at the right of that header. The arrows

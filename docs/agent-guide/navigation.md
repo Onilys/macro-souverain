@@ -857,9 +857,12 @@ restart rules still apply.
 - `#` — move email to Trash, with an Undo toast. Works on the selected or focused
   rows in a mail list and on the thread open in an email detail or block. Email
   only; other entity types keep Delete/Backspace and do not answer `#`.
-- `g` then `h` — Home; `g` then `i` remains an alias.
+- `g` then `h` — Home; `g` then `i` remains an alias. Inside Email, `g` with
+  `i`/`o`/`e`/`t`/`d`/`h`/`l` goes to Email's own tabs and tag picker instead; see
+  [Email](email.md).
 - In Email and Tasks search, `Escape` returns focus to the list and keeps the query.
-  Use the search field's clear button to clear it.
+  Use the search field's clear button to clear it. In Email, the next `Escape`
+  clears the query and filters and returns to Signal.
 - Splits: `` ` `` split, `Shift+H`/`Shift+L` move focus, `Shift+Esc` maximize.
 - In any text surface: `@` mentions (bidirectional links), `#` tags, `/` block commands,
   `:` emoji. Clicking a rendered tag opens a Search split filtered to that tag.

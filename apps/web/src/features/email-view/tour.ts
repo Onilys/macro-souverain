@@ -35,7 +35,7 @@ export const emailTour = defineViewTour({
       target: [EMAIL_TOUR.list, EMAIL_TOUR.search],
       title: 'Move faster with shortcuts',
       description:
-        'Select messages and press ⌘K (Ctrl+K on Windows) to see available actions and their shortcuts. Use ⌘F / Ctrl+F to search email, and Escape to clear your selection.',
+        'Select messages and press ⌘K (Ctrl+K on Windows) to see available actions and their shortcuts. Use ⌘F / Ctrl+F to search email. Escape clears your selection, then takes you back to Signal. Press G then a letter to jump between tabs; ⌘K lists them.',
     },
   ],
 });
