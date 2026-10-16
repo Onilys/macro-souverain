@@ -37,7 +37,7 @@ No line-removal target. Do not turn every convention observation into a rewrite.
 | Area | Action and condition |
 | --- | --- |
 | Unused projections | Trace consumers of connection `history_status`/`history_progress`, conversation `standard_window_until`, and message `event_published_at`. Remove redundant storage and writes where confirmed; retain the real history-job state, `last_customer_message_at`, revision fencing and recovery scheduling. These fields also appear in DTOs: regenerate contracts and update callers together. |
-| Earlier implementation compatibility | Remove placeholder repair and rolling-upgrade handling only after confirming no retained environment needs them. Removing `tracked_lease_id` must preserve the distinction between claimed-but-unsent work and dispatched work using `dispatch_started_at`; keep receipt completion timestamps for retention. |
+| Earlier implementation compatibility | Remove placeholder repair and rolling-upgrade handling for the disposable demo; retain compatibility only for an actual shared deployment boundary. Removing `tracked_lease_id` must preserve the distinction between claimed-but-unsent work and dispatched work using `dispatch_started_at`; keep receipt completion timestamps for retention. |
 | One-shot send wrapper | Remove `process_next_send` if its only caller is a test; exercise the actual claim/process path instead. |
 | Calls and composer wiring | Reuse one feature-owned call-eligibility helper where the behavior is identical. Render a known internal channel's native composer without waiting for the external composer chunk. Preserve loading/error safety for unresolved private-channel bindings. |
 | Native UI controls | Reuse existing controls, touch focus/keyboard handling, autosize and disconnect confirmation. Give the provider trigger a 44px touch target and touch-safe hover styling. If the editor remains editable during send, successful completion must not erase newer text or attachments. |
@@ -163,14 +163,16 @@ promise of OBA approval or a guaranteed 30-day route to groups.
 
 ### Migration handling
 
-The old plan asserted that no data needed keeping. That is not established by an
-unmerged PR: local/demo databases and credentials have existed throughout this
-work. Inventory deployment/migration state and preserve snapshots first.
+The user has confirmed that this task's existing local demo data is disposable.
+Do not build a backfill, compatibility layer or data-preservation workflow for
+that demo. Recreate its isolated database when needed, preserving source work
+and the configuration needed to reconnect the controlled test accounts.
 
-Squash feature migrations only if no shared environment has applied them and
-retained local environments have an explicit upgrade/recreation plan. Validate a
-fresh isolated database. Do not edit migration history or delete demo data as an
-implicit cleanup step. If applied migrations must survive, use forward migrations.
+Confirm that the feature migrations have not run in a shared environment, then
+squash the unshipped feature migrations and validate a fresh isolated database.
+Disposable demo data does not authorize resetting shared databases, other tasks'
+instances or Meta accounts. If a shared deployment is discovered, use forward
+migrations for that boundary; continue independent work.
 Finalize schema cleanup and the identity/onboarding changes before regenerating
 SQLx/OpenAPI/SDK contracts; keep only required generated changes.
 
