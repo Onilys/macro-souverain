@@ -107,6 +107,9 @@ const BULK_ACTIONS: Record<EmailBulkActionKind, BulkActionDefinition> = {
   },
 };
 
+/** One bulk action applies at a time: they share the progress bar. */
+const BUSY_MESSAGE = 'Wait for the current bulk action to finish.';
+
 export const formatConversationCount = (count: number) =>
   `${count.toLocaleString('en-US')} ${count === 1 ? 'conversation' : 'conversations'}`;
 
@@ -221,7 +224,11 @@ export function createEmailBulkSelection(
 
   async function run(kind: EmailBulkActionKind) {
     const ready = state();
-    if (ready.status !== 'ready' || progress()) return;
+    if (ready.status !== 'ready') return;
+    if (progress()) {
+      capabilities.failure(BUSY_MESSAGE);
+      return;
+    }
     const action = BULK_ACTIONS[kind];
     const targets = ready.targets.filter(action.changes);
     if (targets.length === 0) {
@@ -280,6 +287,7 @@ export function createEmailBulkSelection(
         : `Marked ${count} ${action.verb}`,
       partial,
       undo: async () => {
+        if (progress()) throw new Error(BUSY_MESSAGE);
         const restoring = changed;
         overlay.set(restoring, action.undoIntent);
         const reverted = await applyInBatches(
@@ -300,6 +308,7 @@ export function createEmailBulkSelection(
         }
       },
       redo: async () => {
+        if (progress()) throw new Error(BUSY_MESSAGE);
         const redone = await forward(changed);
         if (redone.failed.length > 0) {
           throw new Error(

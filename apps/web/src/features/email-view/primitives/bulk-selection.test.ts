@@ -399,6 +399,49 @@ describe('Bulk Done', () => {
     expect(view.archived.size).toBe(3);
   });
 
+  it('refuses to undo or start another action while one is still applying', async () => {
+    const view = mount(
+      ids(4).map((id) => thread(id)),
+      10
+    );
+    await view.bulk.selectBelow('thread-3');
+    await view.bulk.run('done');
+    await view.bulk.selectBelow('thread-1');
+    let startBatch!: () => void;
+    const batchStarted = new Promise<void>((resolve) => {
+      startBatch = resolve;
+    });
+    let finishBatch!: () => void;
+    const batchFinished = new Promise<void>((resolve) => {
+      finishBatch = resolve;
+    });
+    vi.mocked(view.capabilities.applyAction).mockImplementationOnce(
+      async (threadIds) => {
+        startBatch();
+        await batchFinished;
+        return ok({ succeededIds: threadIds, failedIds: [] });
+      }
+    );
+    const running = view.bulk.run('done');
+    await batchStarted;
+
+    await expect(view.announcements[0].undo()).rejects.toThrow(
+      'Wait for the current bulk action to finish.'
+    );
+    await view.bulk.selectView();
+    await view.bulk.run('read');
+    expect(view.failures).toEqual([
+      'Wait for the current bulk action to finish.',
+    ]);
+
+    finishBatch();
+    await running;
+    const actions = vi
+      .mocked(view.capabilities.applyAction)
+      .mock.calls.map(([, action]) => action);
+    expect(actions).toEqual(['archive', 'archive']);
+  });
+
   it('treats a failed request as failed threads, which a repeat can still change', async () => {
     const view = mount(
       ids(2).map((id) => thread(id)),
