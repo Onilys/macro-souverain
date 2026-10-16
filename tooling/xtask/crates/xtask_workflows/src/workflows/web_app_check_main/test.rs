@@ -62,7 +62,7 @@ fn nix_dev_shell_does_not_start_typecheck() {
 #[test]
 fn status_check_requires_the_ios_native_check() {
     let yaml = web_app_check_main().to_string().expect("workflow yaml");
-    let gate = job(&yaml, "ios-native-check", "status-check");
+    let gate = job(&yaml, "ios-native-check", "ios-native-check-alert");
     assert!(
         gate.contains("name: iOS Native Check"),
         "gate job name is a check name: {gate}"
@@ -92,6 +92,56 @@ fn status_check_requires_the_ios_native_check() {
     assert!(
         status.contains("needs.ios-native-check.result }}\" == \"failure\""),
         "status-check must fail when the gate fails: {status}"
+    );
+}
+
+/// The alert must observe the gate, never change what it reports.
+#[test]
+fn ios_native_check_alert_only_fires_for_a_failed_gate() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let alert = job(&yaml, "ios-native-check-alert", "status-check");
+    assert!(
+        alert.contains("- ios-native-check"),
+        "the alert waits for the gate: {alert}"
+    );
+    // `failure()` is false for a cancelled run, and the explicit result keeps
+    // the alert off when a different job in the suite is the one that failed.
+    assert!(
+        alert.contains("if: failure() && needs.ios-native-check.result == 'failure'"),
+        "the alert fires only for a failed gate: {alert}"
+    );
+    assert!(
+        alert.contains("continue-on-error: true"),
+        "a webhook outage must not add a second failing check: {alert}"
+    );
+    // Attacker-controlled PR fields reach the script through the environment,
+    // never through the run body, where they would be shell-injectable.
+    let script = alert
+        .split("run: |")
+        .nth(1)
+        .and_then(|body| body.split("\n      shell:").next())
+        .expect("the alert's run script");
+    assert!(
+        !script.contains("${{"),
+        "no workflow expression may be interpolated into the script: {script}"
+    );
+    for field in ["PR_URL", "PR_NUMBER", "PR_TITLE", "PR_AUTHOR", "PR_BRANCH"] {
+        assert!(
+            alert.contains(&format!("{field}: ${{{{ github.event.pull_request.")),
+            "{field} comes from the PR payload through env: {alert}"
+        );
+    }
+    assert!(
+        alert.contains("jq -n --arg content"),
+        "jq escapes the message into the payload the DSS webhook expects: {script}"
+    );
+    let status = yaml
+        .split("\n  status-check:\n")
+        .nth(1)
+        .expect("status-check job");
+    assert!(
+        !status.contains("- ios-native-check-alert"),
+        "reporting must not gate the merge check: {status}"
     );
 }
 

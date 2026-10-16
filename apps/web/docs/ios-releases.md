@@ -7,8 +7,8 @@ depends on new native code must therefore never be deployed before the
 matching native build is downloadable, and users on older native builds must
 be pushed to update before they receive that bundle.
 
-Four generated workflows (plus a gate job in the web app PR checks) and a
-checked-in `min-native-build.json` enforce this end to end.
+Four generated workflows (plus a gate job and its alert in the web app PR
+checks) and a checked-in `min-native-build.json` enforce this end to end.
 
 ## The flow for a PR with breaking native changes
 
@@ -20,7 +20,12 @@ checked-in `min-native-build.json` enforce this end to end.
    - the iOS release numbers to be bumped relative to `main`, and
    - that exact version + build to be **live on the App Store**.
 
-   Until both hold, the check fails and the PR cannot merge.
+   Until both hold, the check fails and the PR cannot merge. A failed gate
+   also posts the PR and the run to a Macro channel — the
+   **`iOS Native Check Alert`** job, which reports only and is not part of
+   `Web App Status Check`, so a webhook outage never affects the merge
+   decision. It needs the two alert secrets below and says nothing on a fork
+   PR, which gets no secrets.
 2. You bump the numbers locally and commit the result:
 
    ```bash
@@ -225,5 +230,11 @@ ios-release --config prd -- just ios-release` covers them), and
 - **GitHub secrets**:
   - `IOS_RELEASE_DOPPLER_TOKEN` — a Doppler service token with read access to
     `ios-release/prd`, used by the iOS workflows
+  - `MACRO_IOS_CI_ALERT_WEBHOOK_URL` — the `channels/<id>/webhook` URL of the
+    Macro channel the gate's failures go to. A secret rather than a variable
+    because this repository is public.
+  - `MACRO_IOS_CI_ALERT_TOKEN` — a bot token minted in Macro bot settings for
+    the bot that posts them (`@ios-ci-alerts`), sent as `x-macro-bot-token`.
+    Without either secret the alert job logs a notice and does nothing.
   - `POSTHOG_API_KEY` (already present) — embedded as `VITE_POSTHOG_API_KEY`
     in the release build

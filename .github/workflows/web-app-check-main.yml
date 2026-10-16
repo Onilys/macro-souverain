@@ -612,6 +612,46 @@ jobs:
     - name: Skipped via label
       if: (steps.native-filter.outputs.ios_native == 'true' || steps.cache-wasm.outputs.bumped == 'true') && steps.labels.outputs.skip == 'true'
       run: echo "Native iOS changes detected, but the skip-ios-update label says they don't break the native/web contract — skipping the App Store release gate."
+  ios-native-check-alert:
+    needs:
+    - ios-native-check
+    if: failure() && needs.ios-native-check.result == 'failure'
+    name: iOS Native Check Alert
+    runs-on: namespace-profile-linux-tiny-no-cache
+    permissions:
+      contents: none
+    steps:
+    - name: Post the failure to the Macro channel
+      run: |
+        set -euo pipefail
+        # Post the gate's failure to the Macro channel behind $MACRO_WEBHOOK_URL.
+        # Fork PRs never receive repository secrets, so an empty token is the normal
+        # case there rather than a misconfiguration.
+        if [[ -z "${MACRO_BOT_TOKEN:-}" || -z "${MACRO_WEBHOOK_URL:-}" ]]; then
+          echo "::notice::MACRO_IOS_CI_ALERT_TOKEN/MACRO_IOS_CI_ALERT_WEBHOOK_URL are unavailable (fork PR, or the secrets are unset); skipping the alert."
+          exit 0
+        fi
+        # Every field arrives through the environment and is escaped by jq, so a PR
+        # title containing quotes, newlines or shell metacharacters stays data.
+        message="❌ iOS Native Check failed on ${PR_URL} (#${PR_NUMBER} \"${PR_TITLE}\") by @${PR_AUTHOR} — branch ${PR_BRANCH} — run: ${RUN_URL}"
+        jq -n --arg content "$message" '{content: $content}' |
+          curl --fail-with-body --silent --show-error --retry 3 --output /dev/null \
+            --header 'Content-Type: application/json' \
+            --header "x-macro-bot-token: $MACRO_BOT_TOKEN" \
+            --header 'x-macro-bot-scope: user' \
+            --data-binary @- "$MACRO_WEBHOOK_URL"
+        echo "Posted the iOS Native Check failure for PR #${PR_NUMBER} to the Macro channel."
+      shell: bash
+      env:
+        MACRO_WEBHOOK_URL: ${{ secrets.MACRO_IOS_CI_ALERT_WEBHOOK_URL }}
+        MACRO_BOT_TOKEN: ${{ secrets.MACRO_IOS_CI_ALERT_TOKEN }}
+        PR_URL: ${{ github.event.pull_request.html_url }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      continue-on-error: true
   status-check:
     needs:
     - path-check

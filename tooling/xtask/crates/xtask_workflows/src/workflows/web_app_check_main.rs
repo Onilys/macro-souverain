@@ -57,6 +57,11 @@ pub fn web_app_check_main() -> Workflow {
         .add_job("cycles", cycles())
         .add_job("build", build())
         .add_job(ios_native_check::JOB_ID, ios_native_check::job())
+        // Reporting only, so it stays out of [`status_check`]'s `needs`.
+        .add_job(
+            ios_native_check::ALERT_JOB_ID,
+            ios_native_check::alert_job(),
+        )
         .add_job("status-check", status_check())
 }
 

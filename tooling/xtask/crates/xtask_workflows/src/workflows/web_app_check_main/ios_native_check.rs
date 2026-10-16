@@ -37,6 +37,8 @@
 //! payload of the event that started the run, so the event's label list is
 //! stale by then. The job name must stay stable: the release workflow, the
 //! watcher and that label workflow find the job by it.
+//!
+//! A failed gate is also announced in a Macro channel by [`alert_job`].
 
 use gh_workflow::{Expression, Job, Level, Permissions, Run, Step, Use};
 
@@ -46,6 +48,8 @@ use crate::workflows::{runners, vars};
 pub(super) const JOB_ID: &str = "ios-native-check";
 /// The job's display name (a check run name).
 pub(super) const JOB_NAME: &str = "iOS Native Check";
+/// The id of the job that alerts on a failed gate, see [`alert_job`].
+pub(super) const ALERT_JOB_ID: &str = "ios-native-check-alert";
 
 /// Native iOS code changed: the path filter matched, or the cache wasm
 /// version moved against the base branch.
@@ -221,4 +225,49 @@ fn skip_notice() -> Step<Run> {
              don't break the native/web contract — skipping the App Store release gate.\"",
         )
         .if_condition(Expression::new(format!("{NATIVE_CHANGED} && {SKIP_LABEL}")))
+}
+
+/// Tells the Macro channel behind `MACRO_IOS_CI_ALERT_WEBHOOK_URL` that the
+/// gate failed, so a PR that needs an App Store release is noticed without
+/// anyone watching the checks list.
+///
+/// A job of its own rather than a final step of [`job`]: the gate's conclusion
+/// stays exactly what its own steps produced, and the webhook credentials never
+/// enter the environment of the steps that run repository scripts. It needs no
+/// `GITHUB_TOKEN` and no checkout — the PR fields come from the event payload.
+///
+/// `failure()` is false for a cancelled run, so the pushes that supersede a run
+/// (this workflow cancels in progress) stay quiet, and the explicit
+/// `needs.<gate>.result` keeps the job off when some other job in the suite is
+/// the one that failed.
+pub(super) fn alert_job() -> Job {
+    Job::default()
+        .name("iOS Native Check Alert")
+        .runs_on(runners::Runner::TinyNoCache.to_string())
+        .needs(vec![JOB_ID.to_string()])
+        .cond(Expression::new(format!(
+            "failure() && needs.{JOB_ID}.result == 'failure'"
+        )))
+        .permissions(Permissions::default().contents(Level::None))
+        .add_step(alert_step())
+}
+
+/// `continue-on-error` so a webhook outage reports as an annotation instead of
+/// a second failing check that competes with the gate's own message.
+fn alert_step() -> Step<Run> {
+    Step::new("Post the failure to the Macro channel")
+        .run(include_str!("../scripts/ios_native_check_alert.sh"))
+        .shell("bash")
+        .continue_on_error(true)
+        .add_env(("MACRO_WEBHOOK_URL", vars::MACRO_IOS_CI_ALERT_WEBHOOK_URL))
+        .add_env(("MACRO_BOT_TOKEN", vars::MACRO_IOS_CI_ALERT_TOKEN))
+        .add_env(("PR_URL", "${{ github.event.pull_request.html_url }}"))
+        .add_env(("PR_NUMBER", "${{ github.event.pull_request.number }}"))
+        .add_env(("PR_TITLE", "${{ github.event.pull_request.title }}"))
+        .add_env(("PR_AUTHOR", "${{ github.event.pull_request.user.login }}"))
+        .add_env(("PR_BRANCH", "${{ github.event.pull_request.head.ref }}"))
+        .add_env((
+            "RUN_URL",
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+        ))
 }
