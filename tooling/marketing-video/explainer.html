@@ -5,11 +5,13 @@
 <title>Macro explainer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-/* The long-form explainer: 16:9, about 80 s, led by a voiceover. A stack of apps that don't talk becomes one
-   connected workspace, which unfolds into a flowchart of one demo call moving through Macro: the call is recorded,
+/* The long-form explainer: 16:9, about 80 s, led by a voiceover. It opens on the 27 tools a team's work is spread
+   across (their own logos, in color): your people and your agents lose the thread between them, then every tool folds
+   into the Macro module that replaces it, and a price card sets four of them ($84 a seat) against Macro ($40). The
+   ring of modules unfolds into a flowchart of one demo call moving through Macro: the call is recorded,
    transcribed and summarized into team memory; an agent reads the call, the CRM and the email history, then updates
    the deal, makes tasks, proposes the onboarding and drafts the reply; you review and send; the team picks it up;
-   search and your own MCP clients reach all of it. It folds back into one workspace and the end card.
+   search and your own MCP clients reach all of it. It folds back into the ring and the end card.
    Every beat is timed from the voiceover's word clock (explainer-vo.js, built by vo/build_vo.py). */
 @font-face { font-family: "Inter"; src: url("fonts/inter-variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
 @font-face { font-family: "display"; src: url("fonts/roboto-slab-variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
@@ -69,11 +71,21 @@ html.render body { display: block; min-height: 0; }
   box-shadow: 0 20px 44px -20px #1d1c1aa6, inset 0 1px 0 #ffffff26; }
 .spin { display: inline-flex; }
 .prow { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; color: var(--body); }
+.lt { position: absolute; width: 104px; height: 104px; border-radius: 28px; background: #fbf9f4; transform-origin: 50% 50%;
+  box-shadow: 0 16px 30px -18px #1d1c1a59, inset 0 0 0 1px #1d1c1a12; }
+.lt > div { position: absolute; left: 22px; top: 22px; }
+.mover { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 10px; transform-origin: 30px 30px; }
+.mover .av { box-shadow: 0 0 0 3.5px #fbf9f4, 0 12px 24px -8px #1d1c1a80; }
+.mtag { display: inline-flex; align-items: center; height: 36px; padding: 0 15px; border-radius: 18px; color: #f5f1e8; font-size: 17px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 10px 22px -10px #1d1c1a80; }
+.qb { position: absolute; left: 0; top: 0; width: 62px; height: 62px; border-radius: 31px 31px 31px 8px; background: var(--ink); color: #f5f1e8;
+  font-family: display; font-weight: 400; font-size: 40px; line-height: 62px; text-align: center; transform-origin: 0 100%; }
 .kick { position: absolute; left: 66px; font-size: 16px; font-weight: 600; letter-spacing: .15em; color: var(--lab); white-space: nowrap; line-height: 1; }
 </style>
 <script src="icons.js"></script>
 <script src="phx.js"></script>
 <script src="phx2.js"></script>
+<script src="logos27.js"></script>
 <script src="explainer-vo.js"></script>
 </head>
 <body>
@@ -92,14 +104,15 @@ function vw(id, w, n = 0, edge = 0) {
 }
 const L0 = (id) => LN[id].t0, L1 = (id) => LN[id].t1;
 const B = (x) => x;   // the timeline is in seconds (render.mjs stills call window.B)
-// music: "Swish Swed" (Arulo, Mixkit 201), 100 BPM, a bar every 2.4 s. The film opens in the song's breakdown, so its
-// first drop lands at 14.4 s as the camera dives into the flowchart; the riser before drop B sits under the fold and
-// drop B lands on the end card (bar 24 = 72 s). The mixer keeps all of it far below the voice.
-const BAR = (k) => 14.4 + 2.4 * k;
-const END = BAR(24);
+// music: "Swish Swed" (Arulo, Mixkit 201), 100 BPM, a bar every 2.4 s. The film opens on the last two bars of the
+// song's intro, runs its breakdown under the problem and the price, and its first drop lands at 24 s as the camera
+// dives into the flowchart; the riser before drop B sits under the fold and drop B lands on the end card
+// (bar 21 = 74.4 s). The mixer keeps all of it far below the voice.
+const BAR = (k) => 24.0 + 2.4 * k;
+const END = BAR(21);
 const SONG = "song-swish-swed-arulo-100.wav";
 const MUSIC = [   // [song second, film second, seconds, options]
-  [33.6382, 0, END - 2.4, { fadeIn: 0.6 }],
+  [24.0382, 0, END - 2.4, { fadeIn: 0.25 }],
   [122.4382, END - 2.4, 2.4, {}],
   [124.8382, END, T - END, { fadeOut: 2.6 }],
 ];
@@ -138,6 +151,12 @@ const LOGO_MARK = ["M0 47.151L16.199 40.81C22.551 47.236 34.299 57.491 39.832 63
 const LOGO_TYPE = ["M300.92 74.009C303.615 65.501 314.262 28.568 318.438 24.27C319.069 23.621 320.033 23.468 320.898 23.383C325.453 22.938 330.369 23.327 334.959 23.34C344.903 23.418 354.847 23.409 364.79 23.313C365.435 28.476 365.159 47.453 365.049 53.72C364.76 70.195 365.603 88.708 364.891 104.92C359.092 104.67 351.994 104.855 346.096 104.868C345.405 87.158 345.97 65.92 345.975 47.942L345.975 42.119C342.414 41.927 334.922 41.484 331.931 42.955C329.991 45.279 313.144 97.492 310.719 104.744C304.754 105.034 297.264 104.878 291.222 104.896C288.559 98.001 272.305 45.132 269.992 43.053C267.621 40.923 258.972 42.055 255.716 42.198C256.161 48.995 255.924 58.249 255.925 65.211L255.935 104.789C249.665 104.935 243.166 104.872 236.878 104.882C236.574 94.772 236.811 83.325 236.808 73.094L236.883 23.444C243.865 23.268 278.739 22.963 283.378 24.014C285.689 24.538 298.601 67.413 300.92 74.009Z", "M395.967 23.803C398.277 23.364 414.299 23.575 417.612 23.582C433.177 23.668 448.746 23.647 464.311 23.52C472.343 23.502 477.848 23.959 484.031 29.966C492.494 38.188 490.209 52.684 490.192 63.875L490.197 104.955L471.479 104.952C470.916 96.84 471.623 88.213 470.997 79.669C463.765 79.265 453.206 79.593 445.779 79.594L396.684 79.632C397.07 86.718 396.698 97.491 396.691 104.932L377.688 104.949C376.997 94.08 377.811 80.689 377.521 69.546C377.662 60.66 377.214 51.725 377.742 42.859C378.359 32.511 386.5 25.768 395.967 23.803ZM396.525 60.895C420.379 60.944 446.825 61.49 470.481 60.867C471.86 59.149 471.627 45.245 470.358 43.104C467.556 41.2 405.961 41.902 397.844 42.391C395.636 44.958 396.866 56.326 396.525 60.895Z", "M522.79 23.419C530.395 23.053 539.793 23.502 547.572 23.38C569.962 23.031 593.076 23.871 615.412 23.271C615.78 28.658 615.585 36.536 615.598 42.116C587.143 41.263 557.796 42.418 529.26 42.034C527.259 42.007 524.432 42.404 522.595 43.18C522.35 43.559 522.164 43.976 522.054 44.415C521.047 48.287 522.375 75.786 521.774 81.689C521.69 82.522 522.126 84.198 522.6 85.003C525.249 86.762 554.977 86.034 560.504 86.019L615.56 85.992C615.606 92.272 615.602 98.552 615.547 104.832L553.729 104.862C542.096 104.861 522.286 106.802 512.392 101.015C500.895 93.871 502.35 80.027 502.761 68.524C503.463 48.961 497.044 28.443 522.79 23.419Z", "M628.023 23.423L687.86 23.349C698.415 23.346 709.045 23.201 719.557 23.509C732.988 23.902 740.546 34.132 740.72 46.907C740.927 62.171 741.52 71.402 725.794 78.315C729.671 87.236 734.935 96.141 738.536 104.878L726.814 104.839L718.021 104.824C713.247 97.434 708.766 87.719 705.08 79.668C686.032 79.254 665.821 79.606 646.685 79.619L646.702 104.947C640.54 104.716 634.082 104.833 627.913 104.9C627.35 85.968 628.179 66.507 627.828 47.527C627.688 39.873 627.578 31.009 628.023 23.423ZM646.664 60.92L694.437 60.958C699.456 60.961 718.131 61.618 721.579 59.898C722.324 56.863 722.193 46.423 721.11 43.41C718.778 41.117 699.087 41.949 694.809 41.951L651.996 42.012C650.307 42.034 648.619 42.078 646.926 42.142C646.414 44.538 646.642 57.699 646.664 60.92Z", "M773.622 23.423C792.145 23.184 810.799 23.439 829.33 23.344C835.53 23.761 843.447 22.578 849.478 24.136C867.501 28.796 866.367 45.886 865.766 60.547C865.419 69.063 866.756 79.557 865.355 87.263C864.767 90.557 863.405 93.663 861.378 96.322C857.285 101.702 852.11 103.801 845.635 104.68C842.406 104.992 836.566 104.83 833.075 104.831L810.418 104.85L787.359 104.857C778.899 104.852 768.629 105.79 761.651 100.217C756.805 96.65 752.548 88.79 753.115 82.502C754.203 70.468 751.507 52.227 753.72 40.77C754.359 37.381 755.802 34.196 757.927 31.481C762.07 26.201 767.198 24.208 773.622 23.423ZM844.027 86.04C848.128 83.916 847.248 78.015 846.799 73.885C846.13 67.731 848.28 47.736 846.075 43.201C843.6 41.958 837.946 41.865 835.064 41.967C815.382 42.661 794.384 41.048 774.816 42.108C773.724 42.46 773 42.546 772.425 43.642C771.354 45.694 771.507 81.49 772.332 83.863C772.569 84.54 772.759 85.098 773.432 85.431C776.398 86.889 835.593 85.87 844.027 86.04Z"];
 const markSvg = (w, c) => `<svg width="${w}" height="${(w * 126.4) / 191.3}" viewBox="0 0 191.3 126.4" fill="${c}" style="display:block">${LOGO_MARK.map((d) => `<path d="${d}"/>`).join("")}</svg>`;
 const macroAv = (s) => glyphAv(markSvg(Math.round(s * 0.58), "#f5f1e8"), s, "#1d1c1a");
+function logoSvg(key, size, uid) {
+  const s = window.LOGOS27[key].svg;
+  if (s.startsWith("ICONS:")) { const [, n, c] = s.split(":"); return `<span style="display:block;width:${size}px;height:${size}px;color:${c || "#1d1c1a"}">${window.ICONS[n]}</span>`; }
+  return s.replace(/id="([^"]+)"/g, `id="$1${uid}"`).replace(/url\(#([^)]+)\)/g, `url(#$1${uid})`).replace(/href="#([^"]+)"/g, `href="#$1${uid}"`)
+    .replace("<svg ", `<svg width="${size}" height="${size}" style="display:block" preserveAspectRatio="xMidYMid meet" `);
+}
 const STATUS = { todo: ["square-task-created-circle", "#3bb273"], prog: ["square-task-in-progress-circle", "#f59e0b"], done: ["square-task-done-circle", "#5b9be6"] };
 const stat = (k, s = 26) => ic(STATUS[k][0], s, STATUS[k][1]);
 const dana = (s) => `<div class="av" style="width:${s}px;height:${s}px;background-image:url(img/call-pip-feed.webp);background-size:${((720 * s) / 200).toFixed(1)}px auto;background-position:${((-250 * s) / 200).toFixed(1)}px ${((-100 * s) / 200).toFixed(1)}px"></div>`;
@@ -167,50 +186,73 @@ const NL = {   // [x, y, w, h, corner]
   cl0: [4180, 600, 300, 84, 22], cl1: [4180, 708, 300, 84, 22], cl2: [4180, 816, 300, 84, 22],
 };
 const BOUND = [-70, -110, 4070, 1120];   // the workspace outline: everything but your own AI tools
-const HC = [2200, 500], RR = 300;         // the hub, in the middle of the flowchart
-// the ring of surfaces the voiceover names, and the node each one unfolds onto
-const RING = [["email", "envelope", "Email", "draft"], ["chat", "chats", "Chat", "chan"], ["docs", "file-text", "Docs", "doc"], ["tasks", "list-checks", "Tasks", "tasks"],
-  ["calls", "phone-call", "Calls", "call"], ["crm", "building-office", "CRM", "crm"], ["agents", "sparkle", "AI agents", "agent"]];
+const HC = [2200, 500], RR = 312;         // the hub, in the middle of the flowchart
+// the ring of Macro modules the 27 tools fold into, and the node each module unfolds onto (null: none in the story)
+const RING = [["email", "envelope", "Email", "draft"], ["chat", "chats", "Chat", "chan"], ["docs", "file-text", "Docs", "doc"], ["sheets", "table", "Sheets", null],
+  ["tasks", "list-checks", "Tasks", "tasks"], ["crm", "building-office", "CRM", "crm"], ["calls", "phone-call", "Calls", "call"], ["calendar", "calendar-blank", "Calendar", "event"],
+  ["booking", "link", "Booking links", null], ["files", "folder", "Files", null], ["agents", "sparkle", "AI agents", "agent"]];
 const SLOT_IC = { call: "phone-call", crm: "building-office", mail: "envelope", agent: "sparkle", tasks: "list-checks", event: "calendar-check", draft: "envelope",
   inbox: "bell", chan: "hash", doc: "file-text", search: "magnifying-glass", mcp: "terminal-window", cl0: "terminal-window", cl1: "terminal-window", cl2: "terminal-window" };
 const LABEL = { call: "Calls", crm: "CRM", mail: "Email", agent: "Agents", tasks: "Tasks", event: "Calendar", draft: "Drafts", inbox: "Inbox", chan: "Channels", doc: "Docs",
   search: "Search", mcp: "MCP", cl0: "Claude Code", cl1: "Codex", cl2: "Cursor" };
-const HOME_OF = Object.fromEntries(RING.map((r, i) => [r[3], i]));
-// the opening's scattered apps (offsets from the hub, degrees)
-const TILE = { email: [-650, -150, -5], chat: [-250, -290, 4], docs: [290, -270, -3], tasks: [660, -110, 5], calls: [-560, 210, 3], crm: [40, 250, -4], agents: [600, 230, 4] };
-const LINKS = [["email", "chat"], ["chat", "docs"], ["docs", "tasks"], ["calls", "crm"], ["crm", "agents"], ["email", "calls"], ["tasks", "agents"]];
+const HOME_OF = Object.fromEntries(RING.filter((r) => r[3]).map((r) => [r[3], RING.indexOf(r)]));
+const MOD_INDEX = Object.fromEntries(RING.map((r, i) => [r[0], i]));
+// the opening's 27 tools (logos27.js): a jittered 9 × 3 field around the hub, mixed up so no category clusters
+const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+const LOGO_KEYS = Object.keys(window.LOGOS27).map((k, i) => [k, rnd(i, 9)]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+const GRID = LOGO_KEYS.map((key, i) => {
+  const col = i % 9, row = Math.floor(i / 9);
+  return { key, mod: window.LOGOS27[key].mod, x: HC[0] + (col - 4) * 196 + (rnd(i, 1) - 0.5) * 46 + (row % 2 ? 40 : -20), y: HC[1] + (row - 1) * 232 + (rnd(i, 2) - 0.5) * 40,
+    rot: (rnd(i, 3) - 0.5) * 14, s: 0.92 + rnd(i, 4) * 0.16, pop: rnd(i, 5) };
+});
+const GPOS = Object.fromEntries(GRID.map((g) => [g.key, [g.x, g.y]]));
+// people and agents trying to follow one piece of work from tool to tool
+const TRAILS = [{ id: "P", color: "#1d1c1a", seq: ["slack", "gmail", "notion", "zoom", "hubspot", "gdrive"] }, { id: "A", color: "#b25a3a", seq: ["linear", "gdocs", "jira", "gcal", "salesforce", "dropbox"] }];
+// the price card: four of the tools at their business plans (macro.com/tour's calculator), per seat per month
+const PRICES = [["notion", "Business", 20], ["slack", "Business+", 15], ["linear", "Business", 16], ["superhuman", "Business", 33]];
+const PC = [HC[0] + 800, HC[1] + 4], PCS = 1.2;   // the card's center and scale
 
 // =====================================================================
 // the story (seconds, mostly from the voiceover's words)
 // =====================================================================
 const S = {
-  tiles: -0.35, talk: vw("s1", "talk"), other: vw("s1", "other"),
-  mark: vw("s2", "macro") - 0.05,
-  disc: RING.map(([k]) => vw("s2", k === "agents" ? "agents" : k) - 0.06),
-  ring: vw("s2", "connected"),
-  unfold: vw("s2", "workspace") + 0.6,
+  // the opening
+  tiles: -0.45, people: vw("i2", "people") - 0.2, agents: vw("i2", "neither") - 0.05, trailsOut: L0("i3") + 0.45,
+  gather: vw("i3", "everything") - 0.3, absorb: vw("i3", "one") - 0.3,
+  mark: vw("i4", "that") - 0.04,
+  card: vw("i5", "tools") - 0.05, price: PRICES.map(([k]) => vw("i5", k) - 0.05), total: vw("i5", "eighty") - 0.05, macro: vw("i6", "macro") - 0.1, forty: vw("i6", "forty"),
+  unfold: L0("i7") + 0.15,
   dive: BAR(0) - 0.7,
   // 01 capture
   call: BAR(0) - 0.1, callEnd: vw("s4", "finished") + 0.15,
   rec: vw("s5", "recorded"), tr: vw("s5", "transcribed"), sum: vw("s5", "summarized"), mem: vw("s5", "memory") - 0.2,
   // 02 context
   agent: L0("s6") - 0.5, type: [L0("s6") - 0.2, vw("s6", "up") + 0.05], enter: vw("s6", "up", 0, 1) + 0.12,
-  ctx: vw("s7", "context"), chip: [vw("s7", "call") + 0.05, vw("s7", "record") + 0.1, vw("s7", "email") + 0.1],
+  chip: [vw("s7", "call") + 0.05, vw("s7", "record") + 0.1, vw("s7", "email") + 0.1],
   crm: vw("s7", "northwind") - 0.1, mail: vw("s7", "every") - 0.1,
   // 03 action
   act: [vw("s8", "updates"), vw("s8", "creates"), vw("s8", "schedules"), vw("s8", "drafts")],
   // 04 review
-  ps: [vw("s9", "review") + 0.2, vw("s9", "line", 0, 1) - 0.1], send: vw("s9", "send") + 0.18,
+  ps: [vw("s9", "say") + 0.05, vw("s9", "line", 0, 1) - 0.05], send: vw("s9", "send") + 0.16,
   // 05 team
   inbox: L0("s10") - 0.35, iTask: vw("s10", "tasks"), iMail: vw("s10", "email"), iMsg: vw("s10", "messages"),
-  chan: vw("s11", "mention") - 0.25, everyone: vw("s11", "everyone"), noReq: vw("s11", "requests"),
+  chan: vw("s11", "mention") - 0.25, everyone: vw("s11", "everyone"),
   // 06 search, 07 connect
-  search: L0("s12") - 0.45, q: [L0("s12") - 0.2, vw("s12", "everything") + 0.2], ev: vw("s12", "everything"), fifty: vw("s12", "fifty"),
+  search: L0("s12") - 0.45, q: [L0("s12") - 0.2, vw("s12", "all") + 0.3], ev: vw("s12", "all"), fifty: vw("s12", "fifty"),
   res: [vw("s12", "email") + 0.05, vw("s12", "call") + 0.05, vw("s12", "transcripts") + 0.25, vw("s12", "in") + 0.1, vw("s12", "under") + 0.1],
   mcp: L0("s13") - 0.3, cl: [vw("s13", "claude") - 0.1, vw("s13", "codex") - 0.1, vw("s13", "cursor") - 0.1], via: vw("s13", "mcp"),
   // close
-  over: BAR(22), shared: vw("s14", "shared"), fold: vw("s14", "for") - 0.05, end: END,
+  over: L1("s13") - 0.75, fold: END - 1.3, end: END,
 };
+S.shared = S.over + 0.7;
+S.ring = S.mark + 0.35;
+// when each tool leaves for its module, and when the module's first tool lands
+GRID.forEach((g, i) => { g.tin = S.tiles + g.pop * 1.75; g.fly = S.absorb + (MOD_INDEX[g.mod] + rnd(i, 6) * 1.5) * 0.085; });
+const DISC_HITS = RING.map((_, i) => GRID.filter((g) => MOD_INDEX[g.mod] === i).map((g) => g.fly + 0.42));
+S.discIn = RING.map((_, i) => S.absorb - 0.15 + i * 0.03);
+TRAILS.forEach((tr) => { tr.t0 = tr.id === "P" ? S.people : S.agents; tr.hop = 0.27; tr.pts = tr.seq.map((k) => GPOS[k]); });
+const VISITS = {};   // tool → when a trail lands on it
+TRAILS.forEach((tr) => tr.seq.forEach((k, j) => (VISITS[k] = VISITS[k] || []).push(tr.t0 + (j === 0 ? 0 : (j - 1 + 0.72) * tr.hop))));
 S.sent = S.send + 0.05;
 // The cursor: it types the request to the agent, then the P.S. and Send. [time, x, y, opts] moves in graph px.
 const CUR = [
@@ -219,9 +261,12 @@ const CUR = [
     [S.ps[1] + 0.02, S.send - 0.03, "eSend", 0.45, 0.55, { over: 0.05, side: -0.03, split: 0.75 }], [S.sent + 0.2, S.sent + 0.6, 2540, 1000, {}]] },
 ];
 const HEADS = [   // [in, out, kicker, headline]
-  [0.35, L1("s1") + 0.2, "", "Apps that don’t talk to each other."],
-  [S.mark + 0.15, S.unfold + 0.55, "", "One connected workspace."],
-  [S.unfold + 0.75, S.dive + 0.15, "", "How it all works together."],
+  [-0.3, L0("i2") - 0.15, "", "Work is spread across 27 tools."],
+  [L0("i2") - 0.05, L0("i3") - 0.15, "", "Your team and agents can’t follow it."],
+  [L0("i3") - 0.05, L0("i4") - 0.12, "", "It should all work as one system."],
+  [L0("i4") - 0.05, L0("i5") - 0.15, "", "That’s Macro."],
+  [L0("i5") - 0.05, L0("i7") - 0.12, "", "And it costs less."],
+  [L0("i7") - 0.05, S.dive + 0.15, "", "Here’s how it works."],
   [S.dive + 0.35, S.agent - 0.15, "01 · Capture", "It starts with a call."],
   [S.agent + 0.1, L0("s8") - 0.35, "02 · Context", "Your agent already knows the deal."],
   [L0("s8") - 0.15, L0("s9") - 0.35, "03 · Action", "It handles the follow-through."],
@@ -415,19 +460,30 @@ Object.entries(NL).forEach(([k, [x, y, w, h, r]]) => {
 });
 // slot discs: each node's icon sits in its outline until the node fills in (the ring's discs fly in to be theirs)
 Object.keys(NL).forEach((k) => add(LI, `<div class="a" id="sd_${k}" style="left:0;top:0;width:0;height:0"><div class="disc" style="left:-42px;top:-42px;width:84px;height:84px">${pxb(SLOT_IC[k], 34, "#1d1c1a")}</div></div>`));
-// the opening: scattered app windows, broken links between them, the hub (mark, ring discs and their labels)
-add(LI, `<svg class="a" id="lk" width="10" height="10" style="left:0;top:0;overflow:visible">${LINKS.map((_, i) => `<path id="lk${i}a" fill="none" stroke="#1d1c1a" stroke-width="1.8" stroke-dasharray="7 7" stroke-linecap="round"/><path id="lk${i}b" fill="none" stroke="#1d1c1a" stroke-width="1.8" stroke-dasharray="7 7" stroke-linecap="round"/>`).join("")}
+// the opening: the 27 tools, the trails of people and agents between them, the hub (mark, module discs, spokes)
+GRID.forEach((g, i) => add(LI, `<div class="lt" id="lt_${g.key}" style="left:${g.x - 52}px;top:${g.y - 52}px"><div>${logoSvg(g.key, 60, "t" + i)}</div></div>`));
+add(LI, `<svg class="a" id="lk" width="10" height="10" style="left:0;top:0;overflow:visible">${TRAILS.map((tr) => `<path id="tp${tr.id}" fill="none" stroke="${tr.color}" stroke-width="2" stroke-dasharray="10 8" stroke-linecap="round" stroke-linejoin="round"/>`).join("")}
   ${RING.map((_, i) => `<path id="hs${i}" pathLength="1000" stroke-dasharray="1000 1000" fill="none" stroke="#1d1c1a" stroke-width="1.6"/>`).join("")}${RING.map((_, i) => PULSE("hp" + i)).join("")}</svg>`);
-RING.forEach(([k, n, l]) => {
-  const [dx, dy, rot] = TILE[k];
-  add(LI, `<div class="tile" id="ti_${k}" style="left:${HC[0] + dx - 125}px;top:${HC[1] + dy - 82}px">
-    <div class="a flex" style="left:16px;top:14px;gap:6px">${[0, 1, 2].map(() => `<span style="width:8px;height:8px;border-radius:50%;background:#1d1c1a26"></span>`).join("")}</div>
-    <div class="a flex nowrap" style="left:18px;top:40px;height:36px;gap:11px;font-size:19px;font-weight:600">${glyphAv(pxb(n, 19, "#1d1c1a"), 36, "#e1ddd5")}${l}</div>
-    <div class="sk" style="top:94px;width:180px"></div><div class="sk" style="top:114px;width:140px"></div><div class="sk" style="top:134px;width:160px"></div></div>`);
-});
+add(LI, `<div class="mover" id="mvP">${photo("julia", 60)}<span class="mtag" style="background:${TRAILS[0].color}">Your team</span></div>`);
+add(LI, `<div class="mover" id="mvA">${glyphAv(pxb("sparkle", 30, "#f5f1e8"), 60, TRAILS[1].color)}<span class="mtag" style="background:${TRAILS[1].color}">Your agents</span></div>`);
+TRAILS.forEach((tr) => add(LI, `<div class="qb" id="qb${tr.id}">?</div>`));
 RING.forEach(([k, n, l], i) => add(LI, `<div class="a" id="hd${i}" style="left:0;top:0;width:0;height:0"><div class="disc" style="left:-42px;top:-42px;width:84px;height:84px">${pxb(n, 34, "#1d1c1a")}</div>
   <div class="a t1" id="hl${i}" style="left:-150px;width:300px;text-align:center;top:52px;font-size:22px;color:var(--body)">${l}</div></div>`));
 add(LI, `<div class="disc" id="hub" style="left:${HC[0] - 66}px;top:${HC[1] - 66}px;width:132px;height:132px;background:#dedad3">${markSvg(60, "#141312")}</div>`);
+// the price card: what four of the tools cost per seat, against Macro
+add(LI, `<div class="a" id="pcard" style="left:${PC[0] - 290}px;top:${PC[1] - 262}px;width:580px;height:524px;transform-origin:50% 50%">
+  <div class="card" style="inset:0;border-radius:30px"></div>
+  <div class="cap" style="left:28px;top:28px">PER SEAT, PER MONTH</div>
+  ${PRICES.map(([key, plan, usd], i) => `<div class="a flex nowrap" id="pr${i}" style="left:24px;right:28px;top:${52 + i * 66}px;height:58px;gap:14px;font-size:21px">
+    <div class="flex" style="width:50px;height:50px;border-radius:15px;background:#fbf9f4;box-shadow:inset 0 0 0 1px #1d1c1a12;justify-content:center">${logoSvg(key, 28, "p" + i)}</div>
+    <span style="font-weight:600">${window.LOGOS27[key].name}</span><span style="color:var(--lab)">${plan}</span><span style="flex:1"></span><span id="prv${i}" style="display:inline-block;font-weight:600;font-variant-numeric:tabular-nums">$${usd}</span></div>`).join("")}
+  <div class="a" style="left:28px;right:28px;top:324px;height:1px;background:#1d1c1a1f"></div>
+  <div class="a flex nowrap" id="prT" style="left:28px;right:28px;top:336px;height:58px;font-size:21px"><span style="color:var(--body)">Those four</span><span style="flex:1"></span>
+    <span style="position:relative"><span id="prTv" style="font-family:display;font-size:44px;font-weight:340;font-variant-numeric:tabular-nums">$0</span><span class="a" id="prX" style="left:-6px;right:-6px;top:52%;height:3px;border-radius:2px;background:#e5484d;transform-origin:0 50%"></span></span></div>
+  <div class="a flex nowrap" id="prM" style="left:14px;right:14px;top:404px;height:72px;gap:14px;padding:0 14px 0 12px;border-radius:20px;background:#2e9e5b1f;font-size:21px">
+    ${macroAv(46)}<span style="font-weight:600">Macro</span><span style="color:var(--lab)">every module</span><span style="flex:1"></span><span style="font-family:display;font-size:44px;font-weight:340;color:#23794a">$40</span></div>
+  <div class="a nowrap" style="left:28px;top:490px;font-size:13.5px;color:var(--mut)">Business plans, billed annually. List prices checked September 2026.</div>
+</div>`);
 // the workspace's name tag (where the hub's mark lands when the ring unfolds)
 add(TAGS, `<div class="tag" id="wsTag" style="gap:9px;letter-spacing:.06em;font-size:15px;color:var(--ink);height:34px;padding:0 14px 0 12px;border-radius:17px">${markSvg(26, "#141312")}MACRO WORKSPACE</div>`);
 add(TAGS, `<div class="tag" id="memTag" style="gap:8px;height:34px;padding:0 14px 0 11px;border-radius:17px;font-size:14px">${pxb("brain", 19, "var(--ink)")}TEAM MEMORY</div>`);
@@ -440,14 +496,16 @@ HEADS.forEach(([, , kick, line], k) => {
   if (kick) add(LH, `<div class="kick" id="hk${k}" style="top:${126 - 8}px">${kick.toUpperCase()}</div>`);
   add(LH, slabLine(`hh${k}`, line.split(" "), 64, 198, 60));
 });
+$("hh0w4").style.cssText += ";min-width:1.12em;text-align:right;font-variant-numeric:tabular-nums";
 // ----- end card (screen) -----
 add(LX, `<div class="a" id="xglow" style="left:-200px;top:-260px;width:2320px;height:1600px;background:radial-gradient(ellipse 22% 26% at 50% 40%, #e4eadf 0%, #e4eadf00 100%),
   radial-gradient(ellipse 20% 30% at 33% 52%, #ebe2d5 0%, #ebe2d500 100%), radial-gradient(ellipse 20% 30% at 67% 52%, #ece1d4 0%, #ece1d400 100%)"></div>`);
-add(LX, slabLine("xh0", ["One", "workspace.", "One", "shared", "memory."], 960, 452, 92, "c"));
-add(LX, `<div class="a" id="xsub" style="left:0;width:${W}px;top:498px;text-align:center;font-size:29px;line-height:40px;color:var(--body)">Email, chat, docs, tasks, calls, CRM and AI agents, for <span style="color:var(--ink);font-weight:600">$40 a seat</span>.</div>`);
-add(LX, `<div class="a" id="xcta" style="left:0;width:${W}px;top:600px;height:88px;text-align:center"><div class="cta" style="height:88px;padding:0 44px;gap:15px;font-size:30px">Get started at macro.com<span id="xarr" style="display:inline-flex">${pxb("arrow-right", 32, "#f5f1e8")}</span></div></div>`);
-add(LX, `<div class="a t1" id="xdemo" style="left:0;width:${W}px;top:722px;text-align:center;font-size:22px;color:var(--lab)">or <span style="color:var(--body);text-decoration:underline;text-underline-offset:4px;text-decoration-color:#1d1c1a40">book a demo</span></div>`);
-add(LX, `<div class="a flex" id="xproof" style="left:0;width:${W}px;top:${872 - 15}px;height:30px;justify-content:center;gap:30px;font-size:21px">${PROOF.map((p, i) => `${i ? `<span id="xs${i}" style="width:1px;height:22px;background:#1d1c1a26"></span>` : ""}<span class="prow" id="xp${i}">${p}</span>`).join("")}</div>`);
+add(LX, slabLine("xh0", ["Replace", "27+", "apps"], 960, 430, 92, "c"));
+add(LX, slabLine("xh1", ["with", "a", "single", "system."], 960, 528, 92, "c"));
+add(LX, `<div class="a" id="xsub" style="left:0;width:${W}px;top:572px;text-align:center;font-size:29px;line-height:40px;color:var(--body)">Email, chat, docs, tasks, calls, CRM and AI agents, for <span style="color:var(--ink);font-weight:600">$40 a seat</span>.</div>`);
+add(LX, `<div class="a" id="xcta" style="left:0;width:${W}px;top:664px;height:88px;text-align:center"><div class="cta" style="height:88px;padding:0 44px;gap:15px;font-size:30px">Get started at macro.com<span id="xarr" style="display:inline-flex">${pxb("arrow-right", 32, "#f5f1e8")}</span></div></div>`);
+add(LX, `<div class="a t1" id="xdemo" style="left:0;width:${W}px;top:786px;text-align:center;font-size:22px;color:var(--lab)">or <span style="color:var(--body);text-decoration:underline;text-underline-offset:4px;text-decoration-color:#1d1c1a40">book a demo</span></div>`);
+add(LX, `<div class="a flex" id="xproof" style="left:0;width:${W}px;top:${928 - 15}px;height:30px;justify-content:center;gap:30px;font-size:21px">${PROOF.map((p, i) => `${i ? `<span id="xs${i}" style="width:1px;height:22px;background:#1d1c1a26"></span>` : ""}<span class="prow" id="xp${i}">${p}</span>`).join("")}</div>`);
 // ----- the lockup (mark + MACRO): small in the header, then the end card's -----
 const MW0 = 191.3, MH0 = 126.4, GAP0 = 44.7, WMW0 = 630.7, HALF = (MW0 + GAP0 + WMW0) / 2 - MW0 / 2;   // mark center → lockup center
 add(LH, `<div class="a" id="lock" style="left:0;top:0;transform-origin:0 0">
@@ -455,7 +513,7 @@ add(LH, `<div class="a" id="lock" style="left:0;top:0;transform-origin:0 0">
   <svg class="a" width="${WMW0}" height="${MH0}" viewBox="236 0 630.7 126.4" fill="#141312" style="left:${MW0 / 2 + GAP0}px;top:${-MH0 / 2}px;overflow:visible">${LOGO_TYPE.map((d) => `<path d="${d}"/>`).join("")}</svg>
 </div>`);
 const LS_H = 28 / MH0, HX = 64 + (MW0 * LS_H) / 2, HY = 64;
-const LS_E = 62 / MH0, EX = 960 - LS_E * HALF, EY = 300;
+const LS_E = 62 / MH0, EX = 960 - LS_E * HALF, EY = 262;
 // ----- the cursor -----
 add(LL, `<div class="a" id="cring" style="left:-20px;top:-20px;width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 2px rgba(29,28,26,.35)"></div>`);
 add(LL, `<div class="a" id="cur" style="left:0;top:0;transform-origin:2px 2px"><svg width="27" height="37" viewBox="0 0 27 37" style="display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M2 2v27.5l7-6.6 4.6 10.6 4.6-2-4.5-10.4h9.6z" fill="#111" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg></div>`);
@@ -633,17 +691,18 @@ function init() {
 // =====================================================================
 const F = [70, 250, 1850, 1046], FW = [40, 236, 1880, 1060];
 const RECT = {
+  cost: [HC[0] - 440, HC[1] - 410, PC[0] + 290 * PCS + 30, HC[1] + 420],
   callTop: [-30, 100, 570, 470], call: [-50, 70, 590, 790], callMem: [-80, 330, 1060, 1100], agent: [1080, 110, 2010, 700], ctx: [-60, 20, 1990, 800], deal: [660, 20, 1960, 690], tasksEv: [1280, -30, 2640, 690], draftA: [1280, 140, 2640, 990],
   draft: [2050, 470, 2650, 990], team: [2050, -40, 3330, 420], team2: [2740, 380, 3360, 1000], search: [3330, 0, 4060, 560], mcp: [3330, 560, 4520, 1070],
   over: [BOUND[0] - 40, BOUND[1] - 40, NL.cl0[0] + NL.cl0[2] + 40, BOUND[3] + 40],
 };
 function camKey(name) {
-  if (name === "hub") return [HC[0], HC[1] - ((F[1] + F[3]) / 2 - H / 2), 1];
+  if (name === "hub" || name === "hubIn") { const z = name === "hub" ? 1 : 1.07; return [HC[0], HC[1] - ((F[1] + F[3]) / 2 - H / 2) / z, z]; }
   const r = RECT[name], f = name === "over" ? FW : F, zmax = name === "callTop" ? 1.55 : 1.35;
   const z = Math.min(zmax, (f[2] - f[0]) / (r[2] - r[0]), (f[3] - f[1]) / (r[3] - r[1]));
   return [(r[0] + r[2]) / 2 - ((f[0] + f[2]) / 2 - W / 2) / z, (r[1] + r[3]) / 2 - ((f[1] + f[3]) / 2 - H / 2) / z, z];
 }
-const SHOTS = [[0, "hub"], [S.unfold + 0.1, "over", 1.5, 0.96], [S.dive, "callTop", 1.25, 0.9], [S.tr - 0.55, "call", 1.1, 0.92], [S.mem - 0.35, "callMem", 1.15, 0.92],
+const SHOTS = [[0, "hubIn"], [0.02, "hub", 2.6, 1.0], [S.card - 0.45, "cost", 1.2, 0.93], [S.unfold + 0.05, "over", 1.5, 0.96], [S.dive, "callTop", 1.25, 0.9], [S.tr - 0.55, "call", 1.1, 0.92], [S.mem - 0.35, "callMem", 1.15, 0.92],
   [S.agent - 0.55, "agent", 1.15, 0.9], [S.chip[0] - 0.75, "ctx", 1.3, 0.94], [L0("s8") - 0.45, "deal", 1.1, 0.92], [S.act[1] - 0.35, "tasksEv", 1.1, 0.92], [S.act[3] - 0.45, "draftA", 1.1, 0.92],
   [L0("s9") - 0.5, "draft", 1.15, 0.92],
   [S.inbox - 0.55, "team", 1.3, 0.92], [S.chan - 0.25, "team2", 1.15, 0.92], [S.search - 0.6, "search", 1.3, 0.92], [S.mcp - 0.45, "mcp", 1.15, 0.92],
@@ -659,10 +718,18 @@ const toS = (x, y) => [(x - CAM.cx) * CAM.z + W / 2 + CAM.dx, (y - CAM.cy) * CAM
 const CUES = [];
 function buildCues() {
   const cue = (t, type, gain = 1, extra = {}) => CUES.push({ t, type, gain, ...extra });
-  RING.forEach((_, i) => cue(S.tiles + i * 0.1 + 0.05, "pop", 0.22, { pitch: 0.9 + 0.05 * i }));
-  cue(S.mark + 0.03, "pop", 0.4, { pitch: 0.9 });
-  S.disc.forEach((t, i) => { cue(t + 0.12, "tick", 0.3, { pitch: DING[i] }); });
-  cue(S.ring, "chime", 0.25);
+  // the opening: the tools pop in (a few of them audibly), the trails hop and get lost, the tools fly home, the mark, the prices
+  GRID.filter((g, i) => i % 3 === 0).forEach((g, i) => cue(Math.max(0.02, g.tin + 0.04), "pop", 0.16, { pitch: 0.9 + 0.04 * (i % 6) }));
+  TRAILS.forEach((tr) => {
+    for (let j = 1; j < tr.pts.length; j++) cue(tr.t0 + (j - 1 + 0.72) * tr.hop, "tick", 0.12, { pitch: 1.3 + 0.06 * j });
+    cue(tr.t0 + (tr.pts.length - 1) * tr.hop + 0.08, "blip", 0.16);
+  });
+  cue(S.absorb, "swoosh", 0.35);
+  DISC_HITS.forEach((hs, i) => { if (hs.length) cue(Math.min(...hs), "tick", 0.2, { pitch: DING[i % 8] }); });
+  cue(S.mark + 0.03, "pop", 0.45, { pitch: 0.9 }); cue(S.ring, "chime", 0.25);
+  cue(S.card, "swish", 0.2);
+  S.price.forEach((t, i) => cue(t, "tick", 0.24, { pitch: 1.26 + 0.1 * i }));
+  cue(S.macro, "chime", 0.3);
   cue(S.unfold + 0.05, "swoosh", 0.45);
   cue(BAR(0), "impact", 0.35); cue(BAR(0), "revcrash", 0.25);
   Object.entries(NODE_AT).forEach(([k, at], i) => cue(at + 0.03, "pop", 0.3, { pitch: [0.9, 1, 1.12, 1.26, 1.335][i % 5] }));
@@ -853,59 +920,97 @@ function wireFx(w, t, sw, ps, out) {
   w.pool.forEach((g, i) => { const q = list[i]; if (!q) { g.style.display = "none"; return; } pulseU(g, w.L, q[0], q[1], ps, q[2]); });
 }
 
+// one trail: a person (or an agent) hopping from tool to tool after one piece of work, then lost
+function trailFx(tr, t, sw) {
+  const el = E["mv" + tr.id], path = E["tp" + tr.id], q = E["qb" + tr.id];
+  const n = tr.pts.length, end = tr.t0 + (n - 1) * tr.hop, out = 1 - sm((t - S.trailsOut) / 0.35);
+  if (t < tr.t0 - 0.3 || out <= 0) { show(el, 0); show(path, 0); show(q, 0); return; }
+  const u = (t - tr.t0) / tr.hop, j = clamp(Math.floor(u), 0, n - 2), f = u <= 0 ? 0 : u >= n - 1 ? 1 : mj((u - j) / 0.72);
+  const A = tr.pts[j], Bq = tr.pts[j + 1];
+  const P = u <= 0 ? tr.pts[0] : u >= n - 1 ? tr.pts[n - 1] : [lerp(A[0], Bq[0], f), lerp(A[1], Bq[1], f) - 34 * bell(f)];
+  const seen = tr.pts.slice(0, u <= 0 ? 1 : Math.min(n, j + 1)).concat(u > 0 && u < n - 1 ? [P] : []);
+  path.setAttribute("d", "M" + seen.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join("L"));
+  if (show(path, 0.7 * out * clamp((t - tr.t0) / 0.15))) path.style.strokeWidth = (sw * 1.7).toFixed(3);
+  const ap = clamp(spr(t - tr.t0 + 0.3, 0.32, 0.7));
+  fx(el, ap * out, 0, `translate3d(${px(P[0] - 30)},${px(P[1] - 30)},0) scale(${(0.6 + 0.4 * ap).toFixed(4)})`);
+  const qp = t < end + 0.05 ? 0 : spr(t - end - 0.05, 0.32, 0.55);
+  fx(q, clamp(qp * 1.4) * out, 0, `translate3d(${px(P[0] + 16)},${px(P[1] - 100)},0) scale(${(0.3 + 0.7 * qp).toFixed(4)}) rotate(${(-6 * (1 - qp)).toFixed(2)}deg)`);
+}
+
 function introFx(t, sw, ps) {
-  // the scattered apps: they drift, try to link up and fail, then each flies into the ring as it is named
-  RING.forEach(([k], i) => {
-    const el = E["ti_" + k], [dx, dy, rot] = TILE[k], tin = S.tiles + i * 0.1, tn = S.disc[i];
-    if (t < tin) { show(el, 0); return; }
-    const a = spr(t - tin, 0.5, 0.75), q = t < tn ? 0 : spr(t - tn, 0.55, 0.85), [rx, ry] = ringPos(i);
-    const fl = [6 * Math.sin(t * 0.8 + i * 1.7), 5 * Math.sin(t * 0.6 + i * 2.3)];
-    const x = lerp(fl[0], rx - HC[0] - dx, q), y = lerp(fl[1] + (1 - a) * 30, ry - HC[1] - dy, q), s = lerp(0.9 + 0.1 * a, 84 / 250, q);
-    fx(el, clamp(a * 1.3) * (1 - sm((q - 0.35) / 0.4)), (1 - clamp(a)) * 6, `translate3d(${px(x)},${px(y)},0) rotate(${(rot * (1 - q)).toFixed(3)}deg) scale(${s.toFixed(4)})`);
+  // the 27 tools: they pop in on frame 0, drift, lean toward the hub, then each flies into the module that replaces it
+  GRID.forEach((g, i) => {
+    const el = E["lt_" + g.key];
+    if (t < g.tin) { show(el, 0); return; }
+    const a = spr(t - g.tin, 0.4, 0.6), q = t < g.fly ? 0 : spr(t - g.fly, 0.5, 0.86), [mx, my] = ringPos(MOD_INDEX[g.mod]);
+    const lean = sm((t - S.gather) / 1.1) * 0.07 * (1 - clamp(q));
+    const dx = 5 * Math.sin(t * 0.7 + i * 1.3) + (HC[0] - g.x) * lean, dy = 4 * Math.sin(t * 0.9 + i * 2.1) + (HC[1] - g.y) * lean;
+    let hit = 0;
+    for (const v of VISITS[g.key] || []) { const u = t - v; if (u > 0 && u < 0.6) hit += 0.14 * Math.exp(-u * 6) * Math.sin(Math.min(u * 16, Math.PI)); }
+    const x = lerp(dx, mx - g.x, q), y = lerp(dy, my - g.y, q), sc = g.s * (0.45 + 0.55 * a) * lerp(1, 0.34, clamp(q)) * (1 + hit);
+    fx(el, clamp(spr(t - g.tin, 0.18, 1) * 1.3) * (1 - sm((q - 0.6) / 0.3)), 0, `translate3d(${px(x)},${px(y)},0) rotate(${(g.rot * (1 - clamp(q))).toFixed(3)}deg) scale(${sc.toFixed(4)})`);
   });
-  const lkOn = sm((t - 1.2) / 0.5) * (1 - sm((t - S.other) / 0.3)) * (1 - sm((t - S.mark + 0.3) / 0.3));
-  LINKS.forEach(([a, b], i) => {
-    const A = [HC[0] + TILE[a][0], HC[1] + TILE[a][1]], Bq = [HC[0] + TILE[b][0], HC[1] + TILE[b][1]];
-    // each half reaches toward the other and stops short; on "talk" the gap opens wider
-    const reachP = 0.15 * mj((t - 1.25 - i * 0.12) / 0.7) - 0.09 * sm((t - S.talk) / 0.35);
-    const cut = (P, Q) => { const u0 = 0.29, u1 = u0 + Math.max(0, reachP); return `M${lerp(P[0], Q[0], u0).toFixed(1)} ${lerp(P[1], Q[1], u0).toFixed(1)}L${lerp(P[0], Q[0], u1).toFixed(1)} ${lerp(P[1], Q[1], u1).toFixed(1)}`; };
-    [["a", A, Bq], ["b", Bq, A]].forEach(([s, P, Q]) => { const el = E[`lk${i}${s}`]; if (!show(el, lkOn * 0.4 * (reachP > 0.005 ? 1 : 0))) return; el.setAttribute("d", cut(P, Q)); });
-  });
-  // the hub: the mark, the discs (each takes over from its app window), spokes, then the ring unfolds into the slots
-  const hubIn = t < S.mark ? 0 : spr(t - S.mark, 0.4, 0.62), uf0 = unfoldQ(0, t);
+  TRAILS.forEach((tr) => trailFx(tr, t, sw));
+  // the hub: modules appear as the tools head for them, the mark lands on "That's Macro", then the ring unfolds
+  const hubIn = t < S.mark ? 0 : spr(t - S.mark, 0.4, 0.62);
   const back = t > S.fold ? spr(t - S.fold - 0.75, 0.4, 0.7) : 0;
   fx(E.hub, (clamp(hubIn * 1.3) * (1 - sm((t - S.unfold) / 0.6)) + clamp(back * 1.3)) * (1 - sm((t - END + 0.1) / 0.25)), 0, `scale(${(t > S.fold ? 0.5 + 0.5 * back : 0.5 + 0.5 * hubIn).toFixed(4)})`);
   RING.forEach(([k, , , home], i) => {
-    const el = E["hd" + i], tn = S.disc[i], [rx, ry] = ringPos(i);
-    if (t < tn + 0.18) { show(el, 0); show(E["hs" + i], 0); show(E["hp" + i], 0); return; }
-    const p = spr(t - tn - 0.18, 0.34, 0.62), u = unfoldQ(i, t), n = NODE[home];
-    const x = lerp(rx, n.cx, u), y = lerp(ry, n.cy, u);
-    const fillOut = sm((t - NODE_AT[home] - 0.05) / 0.25), foldBack = t > S.fold ? foldQ(home, t) : 0;
-    let o = clamp(spr(t - tn - 0.18, 0.2, 1) * 1.2) * (1 - fillOut), X = x, Y = y, s = 0.5 + 0.5 * p;
-    if (foldBack > 0) { o = sm((foldBack - 0.3) / 0.4); X = lerp(n.cx, rx, foldBack); Y = lerp(n.cy, ry, foldBack); s = 1; }
+    const el = E["hd" + i], tn = S.discIn[i], [rx, ry] = ringPos(i);
+    if (t < tn) { show(el, 0); show(E["hs" + i], 0); show(E["hp" + i], 0); return; }
+    const p = spr(t - tn, 0.34, 0.62), u = unfoldQ(i, t), n = home ? NODE[home] : null;
+    let bump = 0;
+    for (const h of DISC_HITS[i]) { const v = t - h; if (v > 0 && v < 0.6) bump += 0.1 * Math.exp(-v * 7) * Math.sin(Math.min(v * 18, Math.PI)); }
+    let o, X, Y, sc = (0.5 + 0.5 * p) * (1 + Math.min(0.18, bump));
+    const foldBack = n && t > S.fold ? foldQ(home, t) : 0;
+    if (n) {
+      o = clamp(spr(t - tn, 0.2, 1) * 1.2) * (1 - sm((t - NODE_AT[home] - 0.05) / 0.25)); X = lerp(rx, n.cx, u); Y = lerp(ry, n.cy, u);
+      if (foldBack > 0) { o = sm((foldBack - 0.3) / 0.4); X = lerp(n.cx, rx, foldBack); Y = lerp(n.cy, ry, foldBack); sc = 1; }
+    } else {   // a module with no part in the story: it waits out the flowchart and comes back for the fold
+      o = clamp(spr(t - tn, 0.2, 1) * 1.2) * (1 - sm((t - S.unfold) / 0.4)) + (t > S.fold + 0.55 ? sm((t - S.fold - 0.55) / 0.35) : 0);
+      X = rx; Y = ry; if (t > S.fold) sc = 0.6 + 0.4 * spr(t - S.fold - 0.55, 0.34, 0.62);
+    }
     o *= 1 - sm((t - END + 0.1) / 0.25);
-    if (fx(el, o, 0, `translate3d(${px(X)},${px(Y)},0) scale(${(s / Math.max(0.55, Math.pow(CAM.z, 0.35))).toFixed(4)})`))
-      show(E["hl" + i], foldBack > 0 ? sm((foldBack - 0.6) / 0.3) : 1 - sm(u / 0.25));
-    // spoke to the mark
-    const sp = E["hs" + i], spOn = clamp((t - tn - 0.25) / 0.1) * (1 - sm(u / 0.2)) + (foldBack > 0.85 ? sm((t - S.fold - 1.1) / 0.3) : 0);
+    if (fx(el, o, 0, `translate3d(${px(X)},${px(Y)},0) scale(${(sc / Math.max(0.55, Math.pow(CAM.z, 0.35))).toFixed(4)})`))
+      show(E["hl" + i], foldBack > 0 ? sm((foldBack - 0.6) / 0.3) : n ? 1 - sm(u / 0.25) : 1);
+    // spoke to the mark, drawn on "That's Macro"
+    const sp = E["hs" + i], s0 = S.mark + 0.1 + i * 0.03, spOn = clamp((t - s0) / 0.1) * (1 - sm(u / 0.2)) + (t > S.fold + 1.1 ? sm((t - S.fold - 1.1) / 0.3) : 0);
     if (show(sp, Math.min(1, spOn) * (1 - sm((t - END + 0.1) / 0.25)))) {
       const L = Math.hypot(HC[0] - rx, HC[1] - ry), ux = (HC[0] - rx) / L, uy = (HC[1] - ry) / L;
       sp.setAttribute("d", `M${(rx + ux * 50).toFixed(1)} ${(ry + uy * 50).toFixed(1)}L${(HC[0] - ux * 74).toFixed(1)} ${(HC[1] - uy * 74).toFixed(1)}`);
-      sp.style.strokeDashoffset = (1000 * (1 - mj((t - tn - 0.25) / 0.35))).toFixed(1);
+      sp.style.strokeDashoffset = (1000 * (1 - mj(t > S.fold ? (t - S.fold - 1.1) / 0.35 : (t - s0) / 0.35))).toFixed(1);
       sp.style.strokeWidth = sw.toFixed(3); sp.style.strokeOpacity = "0.22";
       const L2 = route([[rx + ux * 50, ry + uy * 50], [HC[0] - ux * 74, HC[1] - uy * 74]], 0);
-      const x1 = (t - tn - 0.25) / 0.4, x2 = (t - S.ring - i * 0.04) / 0.5, x3 = (t - S.fold - 1.25 - i * 0.04) / 0.5;
+      const x1 = (t - s0) / 0.4, x2 = (t - S.ring - 0.2 - i * 0.04) / 0.5, x3 = (t - S.fold - 1.25 - i * 0.04) / 0.5;
       const xx = x1 >= 0 && x1 < 1.2 ? x1 : x2 >= 0 && x2 < 1.2 ? x2 : x3 >= 0 && x3 < 1.2 ? x3 : -1;
       if (xx >= 0) pulseU(E["hp" + i], L2, ease(clamp(xx)), Math.min(1, xx / 0.06, (1.2 - xx) / 0.2) * (1 - sm(u / 0.2)), ps, 1); else show(E["hp" + i], 0);
     } else show(E["hp" + i], 0);
   });
-  // the ring's outline: drawn on "connected", it gives way to the workspace outline as the ring unfolds
+  // the ring's outline: drawn after "That's Macro", it gives way to the workspace outline as the ring unfolds
   const hr = E.hubRing, rOn = t < S.ring ? 0 : 1;
   if (show(hr, rOn * (1 - sm((t - S.unfold) / 0.5)) + (t > S.fold + 1.0 ? sm((t - S.fold - 1.0) / 0.4) * (1 - sm((t - END + 0.1) / 0.25)) : 0))) {
     const dp = t > S.fold ? mj((t - S.fold - 1.0) / 0.7) : mj((t - S.ring) / 0.8);
     hr.style.strokeDasharray = `${(1000 * dp).toFixed(1)} 1000`; hr.style.strokeWidth = sw.toFixed(3); hr.style.strokeOpacity = "0.16";
   }
-  // slot discs and outlines
+  // the price card: four tools at their business plans, a running total, then Macro
+  {
+    const c = E.pcard, cin = t < S.card ? 0 : spr(t - S.card, 0.42, 0.78), cout = sm((t - S.unfold + 0.35) / 0.3);
+    if (fx(c, clamp(cin * 1.3) * (1 - cout), (1 - clamp(cin)) * 6, `translate3d(0,${px((1 - cin) * 24 - cout * 20)},0) scale(${(PCS * (0.95 + 0.05 * cin)).toFixed(4)})`)) {
+      let sum = 0;
+      PRICES.forEach(([, , usd], i) => {
+        pop(E["pr" + i], t, S.card + 0.12 + i * 0.07, 8);
+        popScale(E["prv" + i], t, S.price[i], 0.5, 0.3, 0.55);
+        if (t >= S.price[i] + 0.05) sum += usd;
+      });
+      setHtml(E.prTv, "$" + sum);
+      const bump = t > S.total ? 0.08 * Math.exp(-(t - S.total) * 5) * Math.sin(Math.min((t - S.total) * 14, Math.PI)) : 0;
+      E.prTv.style.transform = `scale(${(1 + bump).toFixed(4)})`; E.prTv.style.display = "inline-block";
+      E.prTv.style.color = t > S.forty + 0.1 ? "var(--mut)" : "";
+      if (show(E.prX, t > S.forty ? 1 : 0)) E.prX.style.transform = `scaleX(${mj((t - S.forty) / 0.3).toFixed(4)})`;
+      popScale(E.prM, t, S.macro, 0.85, 0.34, 0.62);
+    }
+  }
+  // the blueprint: dashed slots, the workspace outline and its tag
   Object.keys(NL).forEach((k) => {
     const el = E["sd_" + k], sl = E["sl_" + k], n = NODE[k], home = HOME_OF[k] != null;
     const a = slotIn(k), fillOut = sm((t - NODE_AT[k] - 0.05) / 0.25), foldBack = t > S.fold ? foldQ(k, t) : 0;
@@ -914,17 +1019,16 @@ function introFx(t, sw, ps) {
       sl.style.strokeDasharray = `${(7 / Math.pow(CAM.z, 0.8)).toFixed(2)} ${(7 / Math.pow(CAM.z, 0.8)).toFixed(2)}`;
     }
     if (home) { show(el, 0); return; }
-    let o = t < a ? 0 : clamp(spr(t - a - 0.1, 0.2, 1) * 1.2) * (1 - fillOut), X = n.cx, Y = n.cy, s = t < a ? 0 : 0.5 + 0.5 * spr(t - a - 0.1, 0.34, 0.62);
-    if (foldBack > 0) { o = sm((foldBack - 0.3) / 0.4) * (1 - sm((foldBack - 0.75) / 0.25)); X = lerp(n.cx, HC[0], foldBack); Y = lerp(n.cy, HC[1], foldBack); s = 1 - 0.6 * foldBack; }
-    fx(el, o, 0, `translate3d(${px(X)},${px(Y)},0) scale(${(s / Math.max(0.55, Math.pow(CAM.z, 0.35))).toFixed(4)})`);
+    let o = t < a ? 0 : clamp(spr(t - a - 0.1, 0.2, 1) * 1.2) * (1 - fillOut), X = n.cx, Y = n.cy, sc = t < a ? 0 : 0.5 + 0.5 * spr(t - a - 0.1, 0.34, 0.62);
+    if (foldBack > 0) { o = sm((foldBack - 0.3) / 0.4) * (1 - sm((foldBack - 0.75) / 0.25)); X = lerp(n.cx, HC[0], foldBack); Y = lerp(n.cy, HC[1], foldBack); sc = 1 - 0.6 * foldBack; }
+    fx(el, o, 0, `translate3d(${px(X)},${px(Y)},0) scale(${(sc / Math.max(0.55, Math.pow(CAM.z, 0.35))).toFixed(4)})`);
   });
-  // the workspace outline and its tag
   const bd = E.bound, bIn = S.unfold + 0.15, bOut = 1 - sm((t - S.fold - 0.2) / 0.5);
   if (show(bd, t < bIn ? 0 : bOut)) {
     bd.style.strokeDasharray = `${(1000 * mj((t - bIn) / 1.3)).toFixed(1)} 1000`; bd.style.strokeWidth = (sw * 1.15).toFixed(3); bd.style.strokeOpacity = "0.2";
   }
   const tg = E.wsTag, tIn = S.unfold + 0.6;
-  if (fx(tg, t < tIn ? 0 : clamp(spr(t - tIn, 0.3, 1) * 1.3) * bOut, 0, `translate3d(${px(BOUND[0] + 64)},${px(BOUND[1] - 17)},0) scale(${Math.pow(1 / CAM.z, 0.55).toFixed(4)})`)) {}
+  fx(tg, t < tIn ? 0 : clamp(spr(t - tIn, 0.3, 1) * 1.3) * bOut, 0, `translate3d(${px(BOUND[0] + 64)},${px(BOUND[1] - 17)},0) scale(${Math.pow(1 / CAM.z, 0.55).toFixed(4)})`);
 }
 
 function labelsFx(t) {
@@ -944,6 +1048,7 @@ function headerFx(t) {
   const p2 = spr(t - END, 0.55, 0.88);
   const x = lerp(HX, EX, p2), y = lerp(HY, EY, p2), s = lerp(LS_H, LS_E, p2);
   fx(E.lock, clamp(spr(t + 0.3, 0.4, 1) * 1.2), 0, `translate3d(${px(x)},${px(y)},0) scale(${s.toFixed(5)})`);
+  setHtml(E.hh0w4, String(Math.max(1, GRID.filter((g) => t >= g.tin + 0.05).length)));   // the tools, counted as they pop in
   HEADS.forEach(([a, b, kick, line], k) => {
     if (kick) rise(E["hk" + k], t, a - 0.05, b, 14, 6, 0.4, 0.85);
     line.split(" ").forEach((_, j) => rise(E[`hh${k}w${j}`], t, a + 0.06 * j + 0.02 * Math.sin(j * 2.7 + k * 1.3), b + j * 0.015, 30 + 5 * Math.sin(j + k), 10, 0.42 + 0.04 * Math.sin(j * 1.9 + k), 0.8));
@@ -955,7 +1060,7 @@ function endFx(t) {
   if (!show(LX, t >= e - 0.05 ? 1 : 0)) return;
   const g = clamp(spr(t - e, 0.9, 1) * 1.1);
   fx(E.xglow, g, 0, `translate3d(${px(Math.sin(t * 0.7) * 16)},${px(Math.cos(t * 0.5) * 9)},0) scale(${(0.94 + 0.06 * g).toFixed(4)})`);
-  "One workspace. One shared memory.".split(" ").forEach((_, j) => rise(E[`xh0w${j}`], t, e + 0.3 + j * 0.07, null, 36, 12, 0.44, 0.8));
+  ["Replace 27+ apps", "with a single system."].forEach((l, r) => l.split(" ").forEach((_, j) => rise(E[`xh${r}w${j}`], t, e + 0.25 + r * 0.16 + j * 0.07, null, 36, 12, 0.44, 0.8)));
   rise(E.xsub, t, e + 0.85, null, 18, 8);
   popScale(E.xcta, t, vw("s15", "get") - 0.1, 0.7, 0.42, 0.6);
   E.xarr.style.transform = `translateX(${px(5 * Math.max(0, Math.sin((t - vw("s15", "get") - 0.2) * 3.4)) * clamp((t - vw("s15", "get") - 0.2) / 0.3))})`;
@@ -1012,17 +1117,17 @@ function seek(tIn) {
   handsFx(t);
 }
 
-// ---------- the YouTube thumbnail (?thumb=1): the finished flowchart under a large title ----------
+// ---------- the YouTube thumbnail: ?thumb=1 puts the finished flowchart under a large title, ?thumb=logos the 27 tools ----------
 function thumb() {
-  const t = S.over + 2.0;
-  seek(t);
+  const logos = params.get("thumb") === "logos";
+  seek(logos ? 2.9 : S.over + 1.4);
   show(LH, 0); show(LL, 0);
   Object.keys(NL).forEach((k) => show(E["lb_" + k], 0));
-  world.style.transform = world.style.transform.replace(/^translate\(([-\d.]+)px,\s*([-\d.]+)px\)/, (m, x, y) => `translate(${x}px,${(+y + 112).toFixed(3)}px)`);
+  world.style.transform = world.style.transform.replace(/^translate\(([-\d.]+)px,\s*([-\d.]+)px\)/, (m, x, y) => `translate(${x}px,${(+y + (logos ? 104 : 112)).toFixed(3)}px)`);
   add(scr, `<div class="layer" id="TH"><div class="a" style="left:0;top:0;width:${W}px;height:470px;background:linear-gradient(to bottom, var(--bg) 0, var(--bg) 400px, #f5f1e800 470px)"></div>
     <div class="a" style="left:72px;top:64px">${markSvg(84, "#141312")}</div>
     ${slabLine("thT", ["How", "Macro", "works"], 70, 300, 156)}
-    <div class="a" style="left:76px;top:338px;font-size:40px;line-height:48px;color:var(--body);white-space:nowrap">Email, chat, docs, tasks, calls, CRM and AI agents, connected</div>
+    <div class="a" style="left:76px;top:338px;font-size:40px;line-height:48px;color:var(--body);white-space:nowrap">${logos ? "27 tools, replaced by a single system" : "Email, chat, docs, tasks, calls, CRM and AI agents, connected"}</div>
     <div class="a flex" style="left:${W - 72}px;transform:translateX(-100%);white-space:nowrap;top:84px;height:64px;padding:0 28px;border-radius:32px;background:var(--ink);color:#f5f1e8;font-size:30px;font-weight:600">80-second explainer</div></div>`);
 }
 // ---------- boot ----------

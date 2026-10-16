@@ -1,106 +1,111 @@
 1
-00:00:00,700 --> 00:00:04,210
-Most teams run on a stack of apps
-that don't talk to each other.
+00:00:00,250 --> 00:00:02,900
+Your team's work
+is spread across 27 tools.
 
 2
-00:00:04,550 --> 00:00:08,240
-Macro puts email, chat,
-docs, tasks, calls,
+00:00:03,250 --> 00:00:06,860
+So your people can't follow it,
+and neither can your AI agents.
 
 3
-00:00:08,290 --> 00:00:11,940
-your CRM and AI agents into
-one connected workspace.
+00:00:07,250 --> 00:00:11,140
+You could be generating more business
+if everything worked as one system.
 
 4
-00:00:12,450 --> 00:00:14,140
-Here's how it all works together.
+00:00:11,500 --> 00:00:12,370
+That's Macro.
 
 5
-00:00:15,100 --> 00:00:17,250
+00:00:12,900 --> 00:00:14,190
+And you'd save on tools:
+
+6
+00:00:14,660 --> 00:00:19,150
+Notion, Slack, Linear
+and Superhuman alone cost $84 a seat.
+
+7
+00:00:19,350 --> 00:00:21,200
+Macro is $40, for everything.
+
+8
+00:00:21,700 --> 00:00:22,830
+Here's how it works.
+
+9
+00:00:24,600 --> 00:00:26,750
 Say you just finished
 a demo with Northwind.
 
-6
-00:00:17,650 --> 00:00:20,940
+10
+00:00:27,150 --> 00:00:30,440
 Macro recorded it,
 transcribed it and summarized it,
 
-7
-00:00:20,990 --> 00:00:22,580
+11
+00:00:30,490 --> 00:00:32,080
 straight into your team's memory.
 
-8
-00:00:23,700 --> 00:00:25,670
+12
+00:00:33,000 --> 00:00:34,970
 Now ask an agent to follow up.
 
-9
-00:00:26,100 --> 00:00:28,610
-It already has the context: the call,
+13
+00:00:35,300 --> 00:00:36,590
+It already has the call,
 
-10
-00:00:28,900 --> 00:00:32,610
-Northwind's record in your CRM,
+14
+00:00:36,920 --> 00:00:40,370
+Northwind's CRM record
 and every email you've exchanged.
 
-11
-00:00:33,300 --> 00:00:35,710
+15
+00:00:41,000 --> 00:00:43,410
 It updates the deal, creates the tasks,
 
-12
-00:00:36,360 --> 00:00:38,410
+16
+00:00:44,060 --> 00:00:46,110
 schedules the onboarding
 and drafts your reply.
 
-13
-00:00:39,000 --> 00:00:40,950
+17
+00:00:46,900 --> 00:00:48,790
 Nothing goes out until you say so.
 
-14
-00:00:41,240 --> 00:00:43,550
-Review the draft, tweak a line, and send.
-
-15
-00:00:44,700 --> 00:00:47,330
-Your teammates get their
-tasks in one inbox,
-
-16
-00:00:47,600 --> 00:00:49,670
-right next to their email and messages.
-
-17
-00:00:50,250 --> 00:00:54,040
-Mention the rollout plan in a channel,
-and everyone in it gets access.
-
 18
-00:00:54,370 --> 00:00:55,620
-No requests needed.
+00:00:49,000 --> 00:00:50,270
+Tweak a line, and send.
 
 19
-00:00:56,300 --> 00:00:59,470
-Search covers everything,
-from email to call transcripts,
+00:00:51,350 --> 00:00:55,820
+Your team gets their tasks in one inbox,
+next to their email and messages.
 
 20
-00:00:59,520 --> 00:01:01,170
-in under 50 milliseconds.
+00:00:56,350 --> 00:01:00,200
+Mention the rollout plan in a channel,
+and everyone in it can open it.
 
 21
-00:01:01,850 --> 00:01:04,420
-And your own AI tools, like Claude Code,
+00:01:00,850 --> 00:01:04,280
+Search finds all of it,
+from emails to call transcripts,
 
 22
-00:01:04,470 --> 00:01:07,000
-Codex or Cursor, connect through MCP.
+00:01:04,390 --> 00:01:05,760
+in under 50 milliseconds.
 
 23
-00:01:07,750 --> 00:01:11,440
-One workspace, one shared memory,
-for $40 a seat.
+00:01:06,450 --> 00:01:11,600
+And your own AI tools, like Claude Code,
+Codex or Cursor, connect through MCP.
 
 24
-00:01:12,450 --> 00:01:14,420
+00:01:14,550 --> 00:01:17,060
+Replace 27 apps with a single system.
+
+25
+00:01:17,350 --> 00:01:19,320
 Get started at macro.com.

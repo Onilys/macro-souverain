@@ -110,9 +110,19 @@ open(os.path.join(ROOT, "explainer-vo.js"), "w").write(
 )
 
 
-# captions: a cue per sentence, a long sentence split at its most central comma; two balanced lines of at most
-# about 42 characters; numbers and the URL written the way people read them
-SHOWN = [("fifty milliseconds", "50 milliseconds"), ("forty dollars", "$40"), ("macro dot com", "macro.com")]
+# captions: a cue per sentence, a long sentence split at a colon or else its most central comma; two balanced lines
+# of at most 42 characters, broken after punctuation or before a conjunction rather than after a little word;
+# numbers and the URL written the way people read them
+SHOWN = [
+    ("twenty-seven", "27"),
+    ("eighty-four dollars", "$84"),
+    ("fifty milliseconds", "50 milliseconds"),
+    ("forty dollars", "$40"),
+    ("Macro is forty,", "Macro is $40,"),
+    ("macro dot com", "macro.com"),
+]
+WEAK = {"a", "an", "and", "at", "in", "is", "of", "or", "the", "to", "with"}
+LEAD = {"and", "or", "if", "from", "to", "with", "in", "next"}  # good words to start a second line on
 
 
 def fmt(t):
@@ -130,8 +140,19 @@ def wrap(s, n=42):
     if len(s) <= n:
         return s
     cuts = [i for i, c in enumerate(s) if c == " "]
-    # balance the two lines, preferring to break after a comma
-    i = min(cuts, key=lambda i: max(i, len(s) - i - 1) - (10 if s[i - 1] in ",:" else 0))
+    cuts = [i for i in cuts if max(i, len(s) - i - 1) <= n] or cuts
+
+    # balance the two lines, preferring to break after a comma and not after a little word
+    def cost(i):
+        after, before = s[:i].split()[-1], s[i + 1 :].split()[0]
+        return (
+            max(i, len(s) - i - 1)
+            - (10 if s[i - 1] in ",:" else 0)
+            + (6 if after in WEAK else 0)
+            - (5 if before in LEAD else 0)
+        )
+
+    i = min(cuts, key=cost)
     return s[:i] + "\n" + s[i + 1 :]
 
 
@@ -151,8 +172,9 @@ for k, v in sorted(VO["lines"].items(), key=lambda kv: kv[1]["t0"]):
     sentences.append(cur)
     for g in sentences:
         parts = [g]
-        if text_len(g) > 76:
-            commas = [i for i in range(2, len(g) - 2) if re.search(r"[,:]$", g[i][0])]
+        if text_len(g) > 80:
+            commas = [i for i in range(2, len(g) - 2) if g[i][0].endswith(":")]
+            commas = commas or [i for i in range(2, len(g) - 2) if g[i][0].endswith(",")]
             if commas:
                 i = min(commas, key=lambda i: abs(text_len(g[: i + 1]) - text_len(g) / 2))
                 parts = [g[: i + 1], g[i + 1 :]]

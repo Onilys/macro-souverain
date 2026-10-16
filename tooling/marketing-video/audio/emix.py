@@ -28,6 +28,7 @@ DUCK_DB = 8.0  # how far the bed drops under the voice
 END_LIFT_DB = 4.0  # the bed comes up this much once the voice is done
 TARGET = -14.0  # master, integrated (YouTube's reference)
 CEIL_DB = -2.3  # limiter ceiling (sample peak); true peak is checked with ffmpeg after
+SONG_DROP = 48.0382  # "Swish Swed": the first drop's downbeat (s into the song)
 
 
 # ---------- loudness (ITU-R BS.1770 / EBU R128) ----------
@@ -127,9 +128,9 @@ def main():
             k = int(opt["fadeOut"] * SR)
             seg[-k:] *= (np.linspace(1, 0, k) ** 1.6)[:, None]
         music[o : o + len(seg)] += seg[: max(0, min(len(seg), n - o))]
-    # the opening (the song's breakdown) is far quieter than the drops: bring it partway up
+    # if the opening (the song's breakdown) is far quieter than the drop, bring it partway up
     first = meta["music"][1][1] if len(meta["music"]) > 1 else dur
-    drop = 14.4
+    drop = SONG_DROP - meta["music"][0][0] + meta["music"][0][1]  # film time of the song's first drop
     gap_db = lufs(music[int(drop * SR) : int(first * SR)]) - lufs(music[: int(drop * SR)])
     lift = 10 ** (max(0.0, gap_db - 5.0) / 20)
     ramp = np.ones(n)
