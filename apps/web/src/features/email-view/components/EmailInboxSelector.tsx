@@ -126,9 +126,6 @@ export function EmailInboxList(props: { class?: string }) {
         aria-label="Accounts & Aliases"
         class={cn('flex shrink-0 flex-col gap-2', props.class)}
       >
-        <h2 class="px-(--sidebar-item-inset) text-xs font-medium text-ink-extra-muted">
-          Accounts &amp; Aliases
-        </h2>
         <ViewSidebar.Nav
           aria-label="Inboxes"
           class="max-h-[calc(4*var(--sidebar-row-height)+3*var(--sidebar-row-gap))] overflow-y-auto overscroll-none touch:max-h-[calc(11rem+3*var(--sidebar-row-gap))]"

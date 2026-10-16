@@ -679,7 +679,7 @@ Cancel and failed saves keep the current email. H on a pending snooze edits it;
 remains ordinary typing.
 
 
-The Email sidebar's **Accounts & Aliases** section uses compact account rows,
+The Email sidebar shows compact account rows without a visible section heading,
 including aliases and **All inboxes** when there are multiple choices. Select a row
 to scope the view. A full-width **Add account** row connects another account.
 

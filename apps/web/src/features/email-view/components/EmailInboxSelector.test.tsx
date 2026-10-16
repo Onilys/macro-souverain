@@ -50,8 +50,8 @@ afterEach(cleanup);
 it('shows compact account and alias choices plus an Add account row', () => {
   render(() => <EmailInboxList />);
   expect(
-    screen.getByRole('heading', { name: 'Accounts & Aliases' })
-  ).toBeTruthy();
+    screen.queryByRole('heading', { name: 'Accounts & Aliases' })
+  ).toBeNull();
   expect(screen.queryByRole('radiogroup')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'base@example.com' }));
   expect(mocks.selectInbox).toHaveBeenLastCalledWith(['account']);
