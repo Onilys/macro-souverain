@@ -349,6 +349,54 @@ describe('createUrqlInfiniteQuery', () => {
     expect(fake.executions).toHaveLength(3);
   });
 
+  it('keeps loaded pages mounted while a refetch rebuilds the cursor chain', async () => {
+    const fake = makeFakeClient();
+    let query!: ReturnType<
+      typeof createUrqlInfiniteQuery<Page, Variables, string | null, string[]>
+    >;
+    const dispose = createRoot((rootDispose) => {
+      query = createUrqlInfiniteQuery<Page, Variables, string | null, string[]>(
+        () => ({
+          query: DOCUMENT,
+          client: fake.client,
+          initialPageParam: null,
+          variables: (cursor) => ({ cursor }),
+          getNextPageParam: (lastPage) => lastPage.nextCursor,
+          select: ({ pages }) => pages.flatMap((page) => page.values),
+        })
+      );
+      return rootDispose;
+    });
+    disposals.push(dispose);
+
+    fake.executions[0]?.next({ values: ['first'], nextCursor: 'cursor-1' });
+    const nextPage = query.fetchNextPage();
+    fake.executions[1]?.next({ values: ['second'], nextCursor: null });
+    await nextPage;
+    expect(query.data).toEqual(['first', 'second']);
+
+    const refetch = query.refetch();
+    expect(fake.executions).toHaveLength(3);
+    fake.executions[2]?.next({
+      values: ['first-refreshed'],
+      nextCursor: 'cursor-2',
+    });
+    await vi.waitFor(() => expect(fake.executions).toHaveLength(4));
+    expect(fake.executions[3]?.variables).toEqual({ cursor: 'cursor-2' });
+    expect(query.data).toEqual(['first-refreshed', 'second']);
+    expect(fake.executions[1]?.unsubscribed).toBe(false);
+
+    fake.executions[3]?.next({
+      values: ['second-refreshed'],
+      nextCursor: null,
+    });
+    await refetch;
+
+    expect(query.data).toEqual(['first-refreshed', 'second-refreshed']);
+    expect(fake.executions[1]?.unsubscribed).toBe(true);
+    expect(query.hasNextPage).toBe(false);
+  });
+
   it('disables page subscriptions and re-enables them', () => {
     const fake = makeFakeClient();
     const [enabled, setEnabled] = createSignal(true);
