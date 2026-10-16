@@ -6,7 +6,7 @@ import type {
   ListBulkThreadTargetsResponse,
 } from '@service-email/generated/schemas';
 import type { Result } from 'neverthrow';
-import { createSignal } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
 import type { EmailBulkQuery } from '../queries/bulk-query';
 import type { EmailBulkTargetsRequest } from '../queries/bulk-threads';
 import type { EmailBulkIntent, EmailBulkOverlay } from './bulk-overlay';
@@ -134,15 +134,15 @@ export function createEmailBulkSelection(
   // Each selection gets a generation; a page for an older one is dropped.
   let generation = 0;
 
+  const query = createMemo(() => options.query());
   // A selection belongs to the query it was resolved from: changing the tab,
   // inbox, filters or search leaves nothing selected.
-  const state = (): EmailBulkSelectionState => {
+  const state = createMemo((): EmailBulkSelectionState => {
     const current = selection();
-    return current.status === 'idle' ||
-      sameQuery(current.query, options.query())
+    return current.status === 'idle' || sameQuery(current.query, query())
       ? current
       : IDLE;
-  };
+  });
 
   const clear = () => {
     generation++;
@@ -150,21 +150,21 @@ export function createEmailBulkSelection(
   };
 
   async function resolve(scope: EmailBulkScope, anchorId?: string) {
-    const query = options.query();
-    if (!query) return;
+    const viewQuery = query();
+    if (!viewQuery) return;
     const current = ++generation;
-    const basis: SelectionBasis = { scope, anchorId, query };
+    const basis: SelectionBasis = { scope, anchorId, query: viewQuery };
     setSelection({ ...basis, status: 'resolving', count: 0 });
 
     const targets: ApiBulkThreadTarget[] = [];
     let cursor: EmailBulkTargetsRequest['cursor'];
     do {
       const page = await capabilities.listTargets({
-        query,
+        query: viewQuery,
         fromThreadId: cursor ? undefined : anchorId,
         cursor,
       });
-      if (current !== generation || !sameQuery(query, options.query())) return;
+      if (current !== generation || !sameQuery(viewQuery, query())) return;
       if (page.isErr()) {
         const gone = page.error.some((error) => error.code === 'NOT_FOUND');
         setSelection({
@@ -314,7 +314,7 @@ export function createEmailBulkSelection(
     state,
     progress,
     isActive: () => state().status !== 'idle',
-    canSelect: () => options.query() !== undefined,
+    canSelect: () => query() !== undefined,
     selectBelow: (anchorId: string) => resolve('below', anchorId),
     selectView: () => resolve('view'),
     retry: async () => {
