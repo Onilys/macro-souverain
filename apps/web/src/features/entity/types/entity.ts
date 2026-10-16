@@ -279,9 +279,12 @@ export type EmailThreadParticipants = Array<{ email: string; name?: string }>;
 
 export type EmailAttachment = {
   id: string;
+  messageId?: string;
   filename?: string | null;
   mimeType?: string | null;
   sizeBytes?: number | null;
+  /** Set on parts the body can reference inline through `cid:`. */
+  contentId?: string | null;
 };
 
 // We spread ApiThreadPreviewCursor into the email entity, should we explcitly include all those fields here, or only add them as needed?
