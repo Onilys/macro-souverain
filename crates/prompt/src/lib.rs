@@ -431,6 +431,11 @@ mod tests {
         assert!(in_app.contains("apply to your own conversational replies only"));
     }
 
+    /// The first `n` characters, as a client that cuts instructions keeps them.
+    fn first_chars(text: &str, n: usize) -> String {
+        text.chars().take(n).collect()
+    }
+
     #[test]
     fn legacy_instructions_are_the_ones_before_agent_led_setup() {
         let legacy = legacy_mcp_instructions("https://macro.com");
@@ -456,7 +461,7 @@ mod tests {
     #[test]
     fn mcp_usage_and_reply_linking_survive_claude_code_truncation() {
         let instructions = mcp_instructions("https://macro.com");
-        let visible = &instructions[..MCP_INSTRUCTIONS_VISIBLE_CHARS.min(instructions.len())];
+        let visible = first_chars(&instructions, MCP_INSTRUCTIONS_VISIBLE_CHARS);
         assert!(visible.contains("# Using Macro"));
         assert!(visible.contains("SelfKnowledge"));
         assert!(visible.contains("columns `number`, `name`, and `link`"));
@@ -467,7 +472,7 @@ mod tests {
         let instructions =
             mcp_instructions_for("https://macro.com", mcp_setup::SetupHint::NotSetUp);
         // ChatGPT weighs roughly the first 512 characters.
-        let head = &instructions[..512];
+        let head = first_chars(&instructions, 512);
         assert!(head.contains("Before anything else, call SetupGetState"));
         for step in [
             "SetupConnect",
@@ -500,7 +505,7 @@ mod tests {
             mcp_setup::SetupHint::Unknown,
         ] {
             let instructions = mcp_instructions_for("https://macro.com", hint);
-            let visible = &instructions[..MCP_INSTRUCTIONS_VISIBLE_CHARS.min(instructions.len())];
+            let visible = first_chars(&instructions, MCP_INSTRUCTIONS_VISIBLE_CHARS);
             assert!(visible.contains("SetupGetState"), "{hint:?}");
             assert!(visible.contains("# Using Macro"), "{hint:?}");
             assert!(

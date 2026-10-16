@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { agentConnectTarget, isExpired, isSameAccount } from './agent-connect';
+import {
+  agentConnectTarget,
+  hasLinkGuards,
+  isExpired,
+  isSameAccount,
+} from './agent-connect';
 
 describe('agentConnectTarget', () => {
   it('connects Gmail as the inbox, not a connector', () => {
@@ -52,9 +57,9 @@ describe('isExpired', () => {
     expect(isExpired(String(now / 1000 + 60), now)).toBe(false);
   });
 
-  it('treats missing or garbled expiry as not expired', () => {
-    expect(isExpired(undefined, now)).toBe(false);
-    expect(isExpired('soon', now)).toBe(false);
+  it('treats missing or garbled expiry as expired', () => {
+    expect(isExpired(undefined, now)).toBe(true);
+    expect(isExpired('soon', now)).toBe(true);
   });
 });
 
@@ -72,7 +77,17 @@ describe('isSameAccount', () => {
     expect(isSameAccount('founder@startup.example', undefined)).toBe(false);
   });
 
-  it('accepts anyone when the link names no account', () => {
-    expect(isSameAccount(undefined, 'anyone@example.com')).toBe(true);
+  it('matches no one when the link names no account', () => {
+    expect(isSameAccount(undefined, 'anyone@example.com')).toBe(false);
+  });
+});
+
+describe('hasLinkGuards', () => {
+  it('requires both the account and a numeric expiry', () => {
+    expect(hasLinkGuards('founder@startup.example', '1792183192')).toBe(true);
+    expect(hasLinkGuards(undefined, '1792183192')).toBe(false);
+    expect(hasLinkGuards(' ', '1792183192')).toBe(false);
+    expect(hasLinkGuards('founder@startup.example', undefined)).toBe(false);
+    expect(hasLinkGuards('founder@startup.example', 'soon')).toBe(false);
   });
 });

@@ -176,3 +176,22 @@ async fn an_agent_led_account_stays_agent_led_on_later_sign_ins() {
 
     assert_eq!(outcome, Handover::AgentLed);
 }
+
+#[tokio::test]
+async fn a_handover_interrupted_before_the_tutorial_is_finished_on_retry() {
+    // Marked agent-led, but the tutorial write never landed.
+    let accounts = FakeAccounts::with_tutorial(&[Some(false)]);
+    let (handover, onboarding) = handover(
+        FakeOnboarding {
+            existing: Some(row(OnboardingStatus::Completed, true)),
+            ..FakeOnboarding::default()
+        },
+        accounts.clone(),
+    );
+
+    let outcome = handover.hand_over(&user(), None).await.expect("handover");
+
+    assert_eq!(outcome, Handover::AgentLed);
+    assert!(onboarding.markings.lock().unwrap().is_empty());
+    assert_eq!(*accounts.completed.lock().unwrap(), 1);
+}

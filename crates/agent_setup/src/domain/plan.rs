@@ -40,9 +40,16 @@ impl ResolvedApp<'_> {
     }
 }
 
-/// The plan's id: a digest of who asked for what. The same request always
-/// gets the same id, so approving and importing can be retried safely.
-pub fn plan_id(user: &MacroUserIdStr<'static>, request: &PlanRequest) -> String {
+/// The plan's id: a digest of who asked for what and exactly which rows that
+/// covers. The same plan always gets the same id, so approving and importing
+/// can be retried safely; rows already copying in still count, so a retried
+/// import matches. If discovery finds more rows after the person approved, the
+/// id changes and the agent has to show the new plan first.
+pub fn plan_id(
+    user: &MacroUserIdStr<'static>,
+    request: &PlanRequest,
+    resolved: &[ResolvedApp<'_>],
+) -> String {
     let mut selections: Vec<String> = request
         .selections
         .iter()
@@ -69,12 +76,22 @@ pub fn plan_id(user: &MacroUserIdStr<'static>, request: &PlanRequest) -> String 
     declined.sort();
     declined.dedup();
 
+    let mut rows: Vec<String> = resolved
+        .iter()
+        .flat_map(|app| app.to_import.iter().chain(app.underway.iter()))
+        .map(|row| row.id.simple().to_string())
+        .collect();
+    rows.sort();
+    rows.dedup();
+
     let mut hasher = Sha256::new();
     hasher.update(user.as_ref().as_bytes());
     hasher.update(b"\n");
     hasher.update(selections.join(";").as_bytes());
     hasher.update(b"\n");
     hasher.update(declined.join(",").as_bytes());
+    hasher.update(b"\n");
+    hasher.update(rows.join(",").as_bytes());
     let digest = URL_SAFE_NO_PAD.encode(hasher.finalize());
     format!("plan_{}", &digest[..12])
 }
@@ -109,6 +126,12 @@ pub fn resolve_selection<'a>(
             .staged()
             .copied()
             .filter(|row| !is_declined(row))
+            .collect();
+        resolved.underway = view
+            .rows
+            .iter()
+            .copied()
+            .filter(|row| matches!(row.status, ImportStatus::Importing | ImportStatus::Imported))
             .collect();
         return Ok(resolved);
     }
@@ -150,7 +173,11 @@ pub fn resolve_selection<'a>(
             ImportStatus::Discarded => {}
         }
     }
-    resolved.to_import.dedup_by_key(|row| row.id);
+    // The same ref can be given twice, in any order; each row counts once.
+    let mut seen = std::collections::HashSet::new();
+    resolved.to_import.retain(|row| seen.insert(row.id));
+    let mut seen = std::collections::HashSet::new();
+    resolved.underway.retain(|row| seen.insert(row.id));
     Ok(resolved)
 }
 

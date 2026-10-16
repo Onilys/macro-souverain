@@ -18,9 +18,9 @@ fn request(refs: &[&str], all: bool, declined: &[&str]) -> PlanRequest {
 
 #[test]
 fn the_plan_id_depends_on_what_was_chosen_not_how_it_was_written() {
-    let a = plan_id(&user(), &request(&["b", "a"], false, &[]));
-    let b = plan_id(&user(), &request(&["A", "b", "a"], false, &[]));
-    let c = plan_id(&user(), &request(&["a"], false, &[]));
+    let a = plan_id(&user(), &request(&["b", "a"], false, &[]), &[]);
+    let b = plan_id(&user(), &request(&["A", "b", "a"], false, &[]), &[]);
+    let c = plan_id(&user(), &request(&["a"], false, &[]), &[]);
     assert_eq!(a, b);
     assert_ne!(a, c);
     assert!(a.starts_with("plan_"));
@@ -30,8 +30,8 @@ fn the_plan_id_depends_on_what_was_chosen_not_how_it_was_written() {
 fn the_plan_id_is_per_person() {
     let other = MacroUserIdStr::try_from("macro|other@example.com".to_string()).unwrap();
     assert_ne!(
-        plan_id(&user(), &request(&[], true, &[])),
-        plan_id(&other, &request(&[], true, &[]))
+        plan_id(&user(), &request(&[], true, &[]), &[]),
+        plan_id(&other, &request(&[], true, &[]), &[])
     );
 }
 
@@ -62,6 +62,36 @@ fn all_brings_every_staged_candidate_except_declined_ones() {
     assert_eq!(resolved.to_import.len(), 1);
     assert_eq!(view::title(resolved.to_import[0]), "Keep");
     assert_eq!(resolved.declined.len(), 1);
+}
+
+#[test]
+fn a_ref_given_twice_counts_once_wherever_it_repeats() {
+    let state = ImportState {
+        runs: Vec::new(),
+        entities: vec![
+            notion_page(1, "One", ImportStatus::Staged),
+            notion_page(2, "Two", ImportStatus::Staged),
+            notion_page(3, "Already in", ImportStatus::Imported),
+        ],
+    };
+    let view = SourceView::of(&state, &user(), ImportSource::Notion);
+    let one = view::reference(&notion_page(1, "", ImportStatus::Staged));
+    let two = view::reference(&notion_page(2, "", ImportStatus::Staged));
+    let three = view::reference(&notion_page(3, "", ImportStatus::Imported));
+
+    let resolved = resolve_selection(
+        &view,
+        &Selection {
+            app: "notion".to_owned(),
+            all: false,
+            refs: vec![one.clone(), two, one, three.clone(), three],
+        },
+        &[],
+    )
+    .expect("resolves");
+
+    assert_eq!(resolved.to_import.len(), 2);
+    assert_eq!(resolved.underway.len(), 1);
 }
 
 #[test]

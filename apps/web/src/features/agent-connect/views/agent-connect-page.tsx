@@ -2,6 +2,7 @@ import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { LoadingBlock } from '@core/component/LoadingBlock';
 import { useAddInboxFlow, useEmailLinks } from '@core/email-link';
 import LogoIcon from '@icon/macro-logo.svg';
+import { Telemetry } from '@macro-inc/observability';
 import { useUserInfo } from '@queries/auth';
 import {
   connectPipedreamApp,
@@ -21,6 +22,7 @@ import {
 import {
   type AgentConnectTarget,
   agentConnectTarget,
+  hasLinkGuards,
   isExpired,
   isSameAccount,
 } from '../core/agent-connect';
@@ -46,7 +48,11 @@ export function AgentConnectPage(props: { app: string }) {
   const userInfo = useUserInfo();
   const analytics = useAnalytics();
 
-  const target = () => agentConnectTarget(props.app);
+  // A link without its account and expiry isn't one an agent was handed.
+  const target = () =>
+    hasLinkGuards(search.account, search.expires)
+      ? agentConnectTarget(props.app)
+      : undefined;
   const expired = () => isExpired(search.expires);
   const signedIn = () => userInfo()?.authenticated === true;
   const sameAccount = () => isSameAccount(search.account, userInfo()?.email);
@@ -77,38 +83,45 @@ export function AgentConnectPage(props: { app: string }) {
   const track = (event: string, data?: Record<string, unknown>) =>
     analytics.track(event, { app: target()?.app, ...data });
 
-  const start = async (app: AgentConnectTarget) => {
-    setAttempt({ status: 'connecting' });
-    track('agent_connect_started');
-    if (app.kind === 'inbox') {
-      // Leaves for Google; the inbox callback brings the person back here.
-      await addInbox({ scopes: 'gmail' });
-      return;
-    }
-    try {
-      const outcome = await connectPipedreamApp({
-        appSlug: app.connectSlug,
-        serverName: app.name,
-      });
-      if (outcome === 'connected') {
-        setConnectedHere(true);
-        setAttempt({ status: 'idle' });
-        track('agent_connect_completed');
-      } else {
-        setAttempt({ status: outcome });
-        track(
-          outcome === 'closed'
-            ? 'agent_connect_closed'
-            : 'agent_connect_unsupported'
-        );
+  const start = (app: AgentConnectTarget) =>
+    Telemetry.span('agent_connect.start', async (span) => {
+      span.setAttr('agent_connect.app', app.app);
+      span.setAttr('agent_connect.kind', app.kind);
+      setAttempt({ status: 'connecting' });
+      track('agent_connect_started');
+      try {
+        if (app.kind === 'inbox') {
+          // Leaves for Google; the inbox callback brings the person back here.
+          span.setAttr('agent_connect.outcome', 'redirected');
+          await addInbox({ scopes: 'gmail' });
+          return;
+        }
+        const outcome = await connectPipedreamApp({
+          appSlug: app.connectSlug,
+          serverName: app.name,
+        });
+        span.setAttr('agent_connect.outcome', outcome);
+        if (outcome === 'connected') {
+          setConnectedHere(true);
+          setAttempt({ status: 'idle' });
+          track('agent_connect_completed');
+        } else {
+          setAttempt({ status: outcome });
+          track(
+            outcome === 'closed'
+              ? 'agent_connect_closed'
+              : 'agent_connect_unsupported'
+          );
+        }
+      } catch (error) {
+        span.error(error);
+        span.setAttr('agent_connect.outcome', 'failed');
+        const message =
+          error instanceof Error ? error.message : 'Something went wrong.';
+        setAttempt({ status: 'failed', message });
+        track('agent_connect_failed', { message });
       }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Something went wrong.';
-      setAttempt({ status: 'failed', message });
-      track('agent_connect_failed', { message });
-    }
-  };
+    });
 
   // Open the tool's consent screen as soon as the page knows it should: the
   // person already chose to connect by opening the link. This drives an
@@ -140,8 +153,8 @@ export function AgentConnectPage(props: { app: string }) {
   };
 
   return (
-    <div class="flex items-center justify-center size-full p-8 overflow-hidden">
-      <div class="w-full max-w-105">
+    <div class="flex size-full overflow-y-auto p-8">
+      <div class="m-auto w-full max-w-105">
         <Surface>
           <div class="flex flex-col gap-6 p-6 items-center text-center">
             <LogoIcon class="size-10 text-accent" />

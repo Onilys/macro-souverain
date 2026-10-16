@@ -201,18 +201,12 @@ fn tool_call_outcome(
     result: &Result<rmcp::model::CallToolResult, rmcp::ErrorData>,
 ) -> ToolCallOutcome {
     match result {
-        Ok(result) if result.is_error == Some(true) => ToolCallOutcome::Error {
-            kind: "tool_error",
-            message: result
-                .content
-                .iter()
-                .find_map(|content| content.as_text().map(|text| text.text.clone()))
-                .unwrap_or_default(),
-        },
+        Ok(result) if result.is_error == Some(true) => {
+            ToolCallOutcome::Error { kind: "tool_error" }
+        }
         Ok(_) => ToolCallOutcome::Success,
         Err(error) => ToolCallOutcome::Error {
             kind: error_kind(error),
-            message: error.message.to_string(),
         },
     }
 }

@@ -52,27 +52,40 @@ export function agentConnectTarget(
   };
 }
 
+/**
+ * Whether the link carries the account and expiry every `SetupConnect` link
+ * has. A link without them is not one Macro handed out, so consent never
+ * starts from it. (These guard against mistakes, not deliberate edits: the
+ * connection is always recorded against the signed-in account.)
+ */
+export function hasLinkGuards(
+  account: string | undefined,
+  expires: string | undefined
+): boolean {
+  return (
+    !!account?.trim() &&
+    expires !== undefined &&
+    expires.trim() !== '' &&
+    Number.isFinite(Number(expires))
+  );
+}
+
 /** Whether the link's `expires` (unix seconds) has passed. */
 export function isExpired(
   expires: string | undefined,
   nowMs: number = Date.now()
 ): boolean {
-  if (!expires) return false;
   const seconds = Number(expires);
-  if (!Number.isFinite(seconds)) return false;
+  if (!expires || !Number.isFinite(seconds)) return true;
   return seconds * 1000 < nowMs;
 }
 
-/**
- * Whether the signed-in account is the one the agent set up. A link without
- * an `account` matches anyone signed in.
- */
+/** Whether the signed-in account is the one the agent set up. */
 export function isSameAccount(
   linkAccount: string | undefined,
   signedInEmail: string | undefined
 ): boolean {
-  if (!linkAccount) return true;
-  if (!signedInEmail) return false;
+  if (!linkAccount || !signedInEmail) return false;
   return (
     linkAccount.trim().toLowerCase() === signedInEmail.trim().toLowerCase()
   );

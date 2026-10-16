@@ -772,7 +772,7 @@ impl AgentSetupService {
             .iter()
             .map(|app| app.to_import.len())
             .sum::<usize>();
-        let plan_id = plan::plan_id(user, request);
+        let plan_id = plan::plan_id(user, request, &resolved);
         Ok(ProposedPlan {
             setup_id: Self::setup_id(user),
             next_step: format!(
@@ -803,17 +803,18 @@ impl AgentSetupService {
                     .to_owned(),
             ));
         }
-        let expected = plan::plan_id(user, request);
+        let state = self.imports.state(user).await?;
+        let resolved = self.resolve_plan(user, request, &state)?;
+        let expected = plan::plan_id(user, request, &resolved);
         if plan_id.trim() != expected {
             return Err(SetupError::Actionable(format!(
-                "These selections don't match plan \"{}\". Call SetupProposePlan with the person's \
-                 choices, show them that plan, and pass its plan_id with exactly the same selections.",
+                "These selections don't match plan \"{}\", or Macro found more since the person \
+                 approved it. Call SetupProposePlan with the person's choices, show them that plan, \
+                 and pass its plan_id with exactly the same selections.",
                 plan_id.trim()
             )));
         }
         self.hand_to_agent(user).await?;
-        let state = self.imports.state(user).await?;
-        let resolved = self.resolve_plan(user, request, &state)?;
         let ids: Vec<_> = resolved.iter().flat_map(ResolvedApp::import_ids).collect();
         let underway = resolved.iter().map(|app| app.underway.len()).sum::<usize>();
 

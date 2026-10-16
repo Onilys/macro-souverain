@@ -227,7 +227,8 @@ async fn the_golden_path_walks_connect_discover_plan_import_report() {
         .await
         .expect("import again");
     assert_eq!(again.started, 0);
-    assert_eq!(again.already_underway, 2);
+    // Both Notion pages (all) and both chosen Linear issues are on the way.
+    assert_eq!(again.already_underway, 4);
 
     // 7. Report: in progress, then done with links.
     let report = fixture
@@ -819,4 +820,41 @@ async fn discovery_only_reads_and_says_how_to_start_a_connected_app() {
             .next_step
             .starts_with("Call SetupConnect(apps: [\"linear\"]): they're connected")
     );
+}
+
+#[tokio::test]
+async fn an_approved_plan_does_not_cover_what_macro_found_afterwards() {
+    let fixture = golden();
+    connect_all(&fixture, &["notion"]);
+    let request = PlanRequest {
+        selections: vec![Selection {
+            app: "notion".to_owned(),
+            all: true,
+            refs: Vec::new(),
+        }],
+        ..PlanRequest::default()
+    };
+    let plan = fixture
+        .service
+        .propose_plan(&user(), &request)
+        .await
+        .expect("plan");
+
+    // Discovery stages one more page after the person approved.
+    fixture
+        .imports
+        .state
+        .lock()
+        .unwrap()
+        .entities
+        .push(notion_page(9, "Found later", ImportStatus::Staged));
+
+    let refused = fixture
+        .service
+        .import(&user(), &request, &plan.plan_id, true)
+        .await;
+    assert!(
+        matches!(refused, Err(SetupError::Actionable(message)) if message.contains("found more")),
+    );
+    assert!(fixture.imports.imports.lock().unwrap().is_empty());
 }

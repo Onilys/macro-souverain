@@ -34,25 +34,19 @@ fn tool_calls_use_the_posthog_mcp_analytics_shape() {
 }
 
 #[test]
-fn tool_errors_carry_the_class_and_message_the_agent_saw() {
+fn tool_errors_carry_their_class_but_never_their_text() {
     let telemetry = McpTelemetry::disabled();
 
     let event = telemetry.tool_call_event(
         "SetupImport",
         &claude_code(),
         Duration::from_millis(7),
-        &ToolCallOutcome::Error {
-            kind: "tool_error",
-            message: "Notion isn't connected.".to_owned(),
-        },
+        &ToolCallOutcome::Error { kind: "tool_error" },
     );
 
     assert_eq!(event["$mcp_is_error"], json!(true));
     assert_eq!(event["$mcp_error_type"], json!("tool_error"));
-    assert_eq!(
-        event["$mcp_error_message"],
-        json!("Notion isn't connected.")
-    );
+    assert!(event.get("$mcp_error_message").is_none());
 }
 
 #[test]

@@ -204,12 +204,12 @@ impl<O: OnboardingService, A: AccountDirectory> AgentHandover<O, A> {
         client: Option<&str>,
         now: DateTime<Utc>,
     ) -> anyhow::Result<Handover> {
-        if let Some(row) = self.onboarding.row(user.clone()).await?
-            && row.is_agent_led()
-        {
-            return Ok(Handover::AgentLed);
-        }
-        if !self.account(user).await?.is_new(now) {
+        let agent_led = self
+            .onboarding
+            .row(user.clone())
+            .await?
+            .is_some_and(|row| row.is_agent_led());
+        if !agent_led && !self.account(user).await?.is_new(now) {
             return Ok(Handover::Existing);
         }
         self.hand_over(user, client).await
@@ -223,12 +223,17 @@ impl<O: OnboardingService, A: AccountDirectory> AgentHandover<O, A> {
         user: &MacroUserIdStr<'static>,
         client: Option<&str>,
     ) -> anyhow::Result<Handover> {
+        let account = self.account(user).await?;
         if let Some(row) = self.onboarding.row(user.clone()).await?
             && row.is_agent_led()
         {
+            // An earlier handover can stop between the two writes; finish it.
+            if !account.tutorial_complete {
+                self.accounts.complete_tutorial(user).await?;
+            }
             return Ok(Handover::AgentLed);
         }
-        if self.account(user).await?.tutorial_complete {
+        if account.tutorial_complete {
             return Ok(Handover::WebOnboarded);
         }
         let marked = self

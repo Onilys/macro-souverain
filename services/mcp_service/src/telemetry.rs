@@ -64,12 +64,11 @@ impl ClientInfo {
 pub enum ToolCallOutcome {
     /// The tool returned a result.
     Success,
-    /// The tool, or the request around it, failed.
+    /// The tool, or the request around it, failed. Only the class is
+    /// recorded: error text can quote the person's content.
     Error {
         /// A coarse error class (e.g. `tool_error`, `invalid_params`).
         kind: &'static str,
-        /// The message the agent saw.
-        message: String,
     },
 }
 
@@ -144,9 +143,8 @@ impl McpTelemetry {
             "$mcp_is_error".into(),
             json!(matches!(outcome, ToolCallOutcome::Error { .. })),
         );
-        if let ToolCallOutcome::Error { kind, message } = outcome {
+        if let ToolCallOutcome::Error { kind } = outcome {
             properties.insert("$mcp_error_type".into(), json!(kind));
-            properties.insert("$mcp_error_message".into(), json!(message));
         }
         properties
     }
