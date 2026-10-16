@@ -713,3 +713,5 @@ The leading Today heading is omitted; older date headings remain. Desktop messag
 Desktop email rows add 20px between the sender column and subject; touch spacing is unchanged.
 
 In wide email rows, the owning-account avatar follows the rightmost tag with an 8px gap and a 24px avatar matching the tag height. A single connected account needs no avatar attribution.
+
+With desktop navigation closed, inbox tabs include the same 4px title inset as other views’ breadcrumb labels.

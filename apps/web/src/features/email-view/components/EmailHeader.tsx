@@ -66,11 +66,12 @@ export function EmailTopBar(props: ParentProps = {}) {
         <div class="flex min-w-0 items-center gap-2">{props.children}</div>
       }
       workspaceActions
-      class="h-12 gap-3 px-4 not-touch:pl-4 touch:flex touch:mt-[var(--safe-top,0px)]"
+      class="h-12 gap-3 px-4 not-touch:pl-4 not-touch:[&:has([data-view-sidebar-toggle=expand])_[data-email-inbox-tabs]]:ml-1 touch:flex touch:mt-[var(--safe-top,0px)]"
     >
       <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
         <nav
           aria-label="Inbox views"
+          data-email-inbox-tabs=""
           class="flex min-w-0 items-center gap-6 overflow-x-auto"
           ref={tourTarget(EMAIL_TOUR.signalNoise)}
         >
