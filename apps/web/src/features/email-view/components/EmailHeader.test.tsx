@@ -37,9 +37,11 @@ beforeEach(() => {
 it('shows text views in Important, Other, Calendar order with their totals', () => {
   render(() => <EmailTopBar />);
   const views = within(screen.getByRole('navigation', { name: 'Inbox views' }));
-  expect(
-    views.getAllByRole('button').map((button) => button.textContent)
-  ).toEqual(['Important194', 'Other12', 'Calendar51']);
+  expect(views.getAllByRole('button')).toEqual([
+    views.getByRole('button', { name: /^Important\s*194$/ }),
+    views.getByRole('button', { name: /^Other\s*12$/ }),
+    views.getByRole('button', { name: /^Calendar\s*51$/ }),
+  ]);
   expect(
     views
       .getByRole('button', { name: /Important/ })

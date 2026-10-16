@@ -696,7 +696,7 @@ Projects and Routines follow the same layout. Editor/detail toolbars keep their
 contextual actions.
 
 
-The header uses semibold plain-text Important, Other, and Calendar controls with account-scoped
+The header uses semibold plain-text Important, Other, and Calendar controls, with the selected label bold and bold-width space reserved to prevent shifts with account-scoped
 server totals. Tab/Shift+Tab cycle these views in the mail list; inputs, menus,
 dialogs, and open-thread details retain native focus navigation.
 
