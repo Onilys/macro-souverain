@@ -679,10 +679,10 @@ with the same full sidebar contents. With no conversation selected, the
 slide-over opens on its own and closes once a conversation is picked; the
 backdrop or `Escape` still dismisses it. There is no separate skinny sidebar mode.
 
-On desktop, the Chat sidebar keeps its controls together: an always-visible
-search field takes most of the first row, beside a compact `New` menu for
-channels and direct messages. An `All` / `Recent` segmented control sits below
-(`Threads` appears when enabled), using the same inset toggle as Reviews.
+On desktop, the Chat sidebar places its view menu immediately left of Search
+in the title row. Open the hamburger button labeled `Chat sidebar views` to choose
+`All`, `Recent`, or `Threads` (when enabled); a check marks the current view.
+Search expands below the title row, and New Message opens the creation menu.
 `New` is available in every view, including search. All contains an optional
 `Favorites` section and independently paginated `Channels` and `Direct messages`
 sections. Favorites appears when

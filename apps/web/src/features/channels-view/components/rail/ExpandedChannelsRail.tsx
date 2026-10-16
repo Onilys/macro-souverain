@@ -8,7 +8,6 @@ import { runCreateAction } from '@app/features/command/Launcher';
 import { DEBUG_SETTING_KEYS, useDebugSetting } from '@app/lib/debugSettings';
 import { openNewChannelModal } from '@channel/CreateChannelModal';
 import { ChannelMutedIndicator } from '@channel/components/ChannelMutedIndicator';
-import { TabsInset } from '@core/component/TabsInset';
 import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { lazyNamed } from '@core/util/lazyNamed';
@@ -19,6 +18,7 @@ import ChatCircleIcon from '@icon/system/regular/chat-circle.svg';
 import ChatsCircleIcon from '@icon/system/regular/chats-circle.svg';
 import CheckIcon from '@icon/system/regular/check.svg';
 import HashIcon from '@icon/system/regular/hash.svg';
+import ListIcon from '@icon/system/regular/list.svg';
 import SortIcon from '@icon/system/regular/sort-ascending.svg';
 import XIcon from '@icon/system/regular/x.svg';
 import {
@@ -421,21 +421,42 @@ function ExpandedHeader(props: { search: ChannelRailSearch }) {
             class="h-8 min-w-0 flex-1"
           />
         }
+        actions={
+          <Dropdown placement="bottom-end">
+            <Dropdown.Trigger
+              as={ViewSidebar.Control}
+              variant="ghost"
+              size="icon-sm"
+              label="Chat sidebar views"
+            >
+              <ListIcon class="size-4" />
+            </Dropdown.Trigger>
+            <Dropdown.Content class="min-w-40">
+              <Dropdown.Group>
+                <Dropdown.RadioGroup value={rail.tab()} onChange={selectTab}>
+                  <For
+                    each={
+                      rail.threadsEnabled()
+                        ? CHANNEL_TABS_WITH_THREADS
+                        : CHANNEL_TABS
+                    }
+                  >
+                    {(tab) => (
+                      <Dropdown.RadioItem closeOnSelect value={tab.value}>
+                        <span class="flex-1">{tab.label}</span>
+                        <Dropdown.ItemIndicator>
+                          <CheckIcon class="size-3.5 text-ink" />
+                        </Dropdown.ItemIndicator>
+                      </Dropdown.RadioItem>
+                    )}
+                  </For>
+                </Dropdown.RadioGroup>
+              </Dropdown.Group>
+            </Dropdown.Content>
+          </Dropdown>
+        }
         create={() => <ConversationsCreateMenu />}
       />
-      <ViewSidebar.Primary class="pt-0">
-        <TabsInset
-          aria-label="Chat sidebar views"
-          fullWidth
-          class="h-auto"
-          labelClass="py-1.5"
-          list={
-            rail.threadsEnabled() ? CHANNEL_TABS_WITH_THREADS : CHANNEL_TABS
-          }
-          value={rail.tab()}
-          onChange={selectTab}
-        />
-      </ViewSidebar.Primary>
     </div>
   );
 }
