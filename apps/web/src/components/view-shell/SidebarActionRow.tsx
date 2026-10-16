@@ -1,4 +1,5 @@
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import MagnifyingGlassIcon from '@icon/system/regular/magnifying-glass.svg';
 import { Button, cn, Layer } from '@ui';
 import {
@@ -207,8 +208,19 @@ export function SidebarActionRow(props: {
           props.class
         )}
       >
-        <ViewSidebar.Title class={current().hasCreate() ? 'sr-only' : 'flex-1'}>
-          {current().title() ?? props.title}
+        <ViewSidebar.Title
+          class={
+            current().hasCreate()
+              ? 'sr-only'
+              : 'flex flex-1 items-center gap-1.5 text-xl leading-7 font-semibold tracking-[-0.025em] text-ink-muted'
+          }
+        >
+          <span class="whitespace-nowrap bg-linear-to-br from-ink from-15% to-ink-subtle to-85% bg-clip-text text-transparent forced-colors:bg-none forced-colors:text-ink-muted">
+            {current().title() ?? props.title}
+          </span>
+          <Show when={!current().hasCreate()}>
+            <CaretDownIcon class="size-4 shrink-0" />
+          </Show>
         </ViewSidebar.Title>
         <Show when={current().hasCreate()}>
           <div

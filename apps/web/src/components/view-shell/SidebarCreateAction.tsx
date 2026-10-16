@@ -65,15 +65,7 @@ export function SidebarCreateAction(
             props.label ??
             'New'}
         </span>
-        <Show
-          when={
-            props['aria-haspopup'] === 'menu' ||
-            props['aria-haspopup'] === true ||
-            props['aria-haspopup'] === 'true'
-          }
-        >
-          <CaretDownIcon class="size-4 shrink-0" />
-        </Show>
+        <CaretDownIcon class="size-4 shrink-0" />
       </Show>
     </Button>
   );
