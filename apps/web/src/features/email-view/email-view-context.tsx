@@ -96,6 +96,9 @@ export type EmailViewContext = {
    * "filter by tag" button on entity rows.
    */
   filterByTag: (optionId: string) => void;
+  /** Escape's destination: Signal with no search or filters narrowing it. */
+  showSignal: () => void;
+  isShowingSignal: () => boolean;
   source: EmailDataSource;
   list: EmailListController;
   registerListActivationHandler: (
@@ -410,6 +413,22 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
     );
   };
 
+  const isShowingSignal = () =>
+    state.tab === 'important' &&
+    state.search === '' &&
+    Object.values(state.facets).every((optionIds) => optionIds.length === 0);
+
+  const showSignal = () => {
+    setState(
+      produce((draft) => {
+        draft.tab = 'important';
+        draft.search = '';
+        draft.facets = {};
+      })
+    );
+    closeThread();
+  };
+
   const isSidebarSectionOpen = (id: string) =>
     !state.collapsedSidebarSectionIds.includes(id);
 
@@ -427,6 +446,8 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
     setFacets,
     showTags,
     filterByTag,
+    showSignal,
+    isShowingSignal,
     source,
     list,
     registerListActivationHandler,

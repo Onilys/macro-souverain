@@ -10,17 +10,20 @@ export type UseEmailListHotkeysOptions = {
   enabled: () => boolean;
   selectedEntities: () => EntityData[];
   clearSelection: () => void;
+  isShowingSignal: () => boolean;
+  showSignal: () => void;
 };
 
 /**
  * The list-level shortcuts the legacy mail list had beyond navigation and
  * entity actions: `cmd+k` opens the command menu in entity-action mode for
- * the multi-selection (or toggles it when nothing is selected), and Escape
- * clears the selection.
+ * the multi-selection (or toggles it when nothing is selected). Escape clears
+ * the selection, then returns to Signal from any other tab, search, or filter.
  */
 export function useEmailListHotkeys(options: UseEmailListHotkeysOptions) {
   const analytics = useAnalytics();
   const group = createHotkeyGroup();
+  const hasSelection = () => options.selectedEntities().length > 0;
 
   registerHotkey({
     scopeId: options.scopeId,
@@ -54,10 +57,15 @@ export function useEmailListHotkeys(options: UseEmailListHotkeysOptions) {
     scopeId: options.scopeId,
     hotkey: 'escape',
     hotkeyToken: TOKENS.soup.dismiss,
-    description: 'Clear selection',
-    condition: () => options.enabled() && options.selectedEntities().length > 0,
+    description: () => (hasSelection() ? 'Clear selection' : 'Go to Signal'),
+    condition: () =>
+      options.enabled() && (hasSelection() || !options.isShowingSignal()),
     keyDownHandler: () => {
-      options.clearSelection();
+      if (hasSelection()) {
+        options.clearSelection();
+      } else {
+        options.showSignal();
+      }
       return true;
     },
   }).withGroup(group);

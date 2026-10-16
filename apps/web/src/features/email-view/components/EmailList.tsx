@@ -83,6 +83,8 @@ export function EmailList(props: EmailListProps) {
     registerListActivationHandler,
     openThread,
     filterByTag,
+    showSignal,
+    isShowingSignal,
   } = useEmailView();
   const panel = useSplitPanelOrThrow();
 
@@ -282,6 +284,8 @@ export function EmailList(props: EmailListProps) {
     enabled: panel.isPanelActive,
     selectedEntities,
     clearSelection: listInteractions.selection.clear,
+    isShowingSignal,
+    showSignal,
   });
 
   function actionGroupsFor(row: EmailActionRow) {

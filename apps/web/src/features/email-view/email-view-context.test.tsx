@@ -177,6 +177,35 @@ it('clears persisted text search when entering and leaving Email Reminders', () 
   expect(view.state.search).toBe('');
 });
 
+it('shows bare Signal from another tab, a search, or filters', () => {
+  const { view } = mount();
+  view.setState({
+    tab: 'noise',
+    search: 'invoice',
+    facets: { read: ['unread'] },
+  });
+  expect(view.selectedThread()?.id).toBe('open-thread');
+  expect(view.isShowingSignal()).toBe(false);
+  view.showSignal();
+  expect(view.state.tab).toBe('important');
+  expect(view.state.search).toBe('');
+  expect(view.state.facets).toEqual({});
+  expect(view.state.inboxIds).toEqual(['saved-inbox']);
+  expect(view.isShowingSignal()).toBe(true);
+  expect(view.selectedThread()).toBeUndefined();
+});
+
+it('counts a Signal search or filter as away from Signal', () => {
+  const { view } = mount();
+  view.closeThread();
+  expect(view.isShowingSignal()).toBe(true);
+  view.setState('search', 'invoice');
+  expect(view.isShowingSignal()).toBe(false);
+  view.setState('search', '');
+  view.filterByTag('client-tag');
+  expect(view.isShowingSignal()).toBe(false);
+});
+
 it('normalizes restored and route-driven Reminders when the rollout is disabled', () => {
   const [flag, setFlag] = createStore({ enabled: true });
   mocks.reminders = () => flag.enabled;
