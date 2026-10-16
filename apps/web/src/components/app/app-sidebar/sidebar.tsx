@@ -30,10 +30,13 @@ import {
   isFeatureEnabled,
 } from '@core/constant/featureFlags';
 import { registerHotkey } from '@core/hotkey/hotkeys';
-import { clearPressedKeys } from '@core/hotkey/state';
+import { clearPressedKeys, hotkeyScopeTree } from '@core/hotkey/state';
 import { type HotkeyToken, TOKENS } from '@core/hotkey/tokens';
 import type { ValidHotkey } from '@core/hotkey/types';
-import { activateClosestDOMScope } from '@core/hotkey/utils';
+import {
+  activateClosestDOMScope,
+  getCommandsForHotkey,
+} from '@core/hotkey/utils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { ContextMenu } from '@kobalte/core/context-menu';
 import BellIcon from '@phosphor/bell.svg';
@@ -261,13 +264,21 @@ export const GoToHotkeys = () => {
     leaderHotkey.dispose();
   });
 
-  const registeredGoToKeys = () =>
-    new Set<ValidHotkey>(links().flatMap((link) => link.hotkey ?? []));
+  // Views add their own go-to commands (Email's `g o`), so ask the scope rather
+  // than the sidebar links which keys a go-to command can handle right now.
+  const isGoToKey = (key: ValidHotkey) => {
+    const scope = hotkeyScopeTree.get(GO_TO_COMMAND_SCOPE);
+    return (
+      !!scope &&
+      getCommandsForHotkey(scope, key).some(
+        (command) => !command.condition || command.condition()
+      )
+    );
+  };
 
   // When the go to command scope is active, we want to prevent
   // other default hotkeys from running. So doing "g" + some key
-  // not part of the sidebar hotkeys, won't fire the command
-  // for the key
+  // no go-to command handles won't fire the command for the key
   useHotkeyInterceptor((context) => {
     // If a hotkey is going to be fired, but the hotkeys are not
     // visible, then it's not a sidebar nav hotkey and we can
@@ -281,7 +292,7 @@ export const GoToHotkeys = () => {
 
     if (
       context.activeScopeId !== GO_TO_COMMAND_SCOPE ||
-      registeredGoToKeys().has(context.pressedKeysString)
+      isGoToKey(context.pressedKeysString)
     ) {
       return false;
     }
@@ -336,6 +347,9 @@ export const GoToHotkeys = () => {
         description: `Go to ${link.label}`,
         keyDownHandler: openSidebarView,
         icon: link.icon,
+        // Views layer higher-priority go-to keys over these (Email's `g i`).
+        // An override would eclipse them each time a flag re-runs this effect.
+        registrationType: 'add',
       });
     });
 
