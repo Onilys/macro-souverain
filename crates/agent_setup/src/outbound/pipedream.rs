@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use macro_user_id::user_id::MacroUserIdStr;
 use mcp_select::ConnectorSelect;
 use pipedream_mcp::domain::ports::{ConnectionStore, ConnectorDirectory};
+use rootcause::compat::IntoRootcause;
 
 use crate::domain::{
     catalog::{App, KnownApp},
@@ -47,7 +48,8 @@ where
             return Ok(self
                 .selector
                 .connector_connected(user, source.connector_ref())
-                .await?);
+                .await
+                .into_rootcause()?);
         }
         let slug = match app {
             App::Known(KnownApp {
@@ -58,7 +60,7 @@ where
             App::Other(slug) => slug.clone(),
         };
         let record = self.store.load(user, &slug).await.map_err(|error| {
-            SetupError::Internal(anyhow::anyhow!("connection store: {error:?}"))
+            SetupError::Internal(rootcause::report!("connection store: {error:?}"))
         })?;
         Ok(record.is_some())
     }
@@ -69,7 +71,8 @@ where
         };
         Ok(directory
             .retrieve(slug)
-            .await?
+            .await
+            .into_rootcause()?
             .map(|entry| entry.display_name))
     }
 }

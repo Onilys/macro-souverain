@@ -25,14 +25,21 @@ pub enum SetupError {
     #[error("{0}")]
     Actionable(String),
     /// A failure the agent cannot do anything about.
-    #[error(transparent)]
-    Internal(#[from] anyhow::Error),
+    #[error("internal setup error: {0:?}")]
+    Internal(rootcause::Report),
+}
+
+impl From<rootcause::Report> for SetupError {
+    fn from(report: rootcause::Report) -> Self {
+        Self::Internal(report)
+    }
 }
 
 /// Result alias for setup operations.
 pub type Result<T> = std::result::Result<T, SetupError>;
 
 /// The import service, as setup uses it.
+// `async_trait`: the service holds every port as `Arc<dyn …>`.
 #[async_trait]
 pub trait SetupImports: Send + Sync + 'static {
     /// Runs and candidates for the person.
@@ -70,6 +77,7 @@ pub trait SetupImports: Send + Sync + 'static {
 }
 
 /// Connections the person has made to their apps.
+// `async_trait`: held as `Arc<dyn SetupConnections>`.
 #[async_trait]
 pub trait SetupConnections: Send + Sync + 'static {
     /// Whether the app is connected and usable for this person.
@@ -81,6 +89,7 @@ pub trait SetupConnections: Send + Sync + 'static {
 }
 
 /// The person's email inboxes.
+// `async_trait`: held as `Arc<dyn SetupInbox>`.
 #[async_trait]
 pub trait SetupInbox: Send + Sync + 'static {
     /// Addresses of the inboxes connected to the account.

@@ -9,6 +9,7 @@
 mod test;
 
 use std::sync::Arc;
+use tracing::Instrument;
 
 use email::domain::ports::{FirstInboxProvisionOutcome, FirstInboxProvisioner};
 use macro_auth::middleware::decode_jwt::{JwtToken, JwtValidationArgs};
@@ -94,6 +95,7 @@ where
     /// Everything a sign-in sets in motion, in order. Each step is
     /// best-effort and idempotent: inbox provisioning recurs on every sign-in
     /// and the setup tools redo the handover, so a lost step only delays it.
+    #[tracing::instrument(name = "mcp.agent_sign_in", skip_all, fields(client = sign_in.client_name.as_deref()))]
     pub async fn after_sign_in(&self, user: MacroUserIdStr<'static>, sign_in: SignIn) {
         let token = sign_in.access_token.as_str();
 
@@ -156,7 +158,8 @@ where
         // this happens after it.
         if let Some(user) = self.identity.user_of(sign_in.access_token.as_str()) {
             let this = self.clone();
-            tokio::spawn(async move { this.after_sign_in(user, sign_in).await });
+            // Stays on the sign-in's trace.
+            tokio::spawn(async move { this.after_sign_in(user, sign_in).await }.in_current_span());
         }
         Box::pin(async {})
     }

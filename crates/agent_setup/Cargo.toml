@@ -14,6 +14,7 @@ import = { path = "../import" }
 macro_user_id = { path = "../macro_user_id" }
 mcp_select = { path = "../mcp_select" }
 pipedream_mcp = { path = "../pipedream_mcp" }
+rootcause = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

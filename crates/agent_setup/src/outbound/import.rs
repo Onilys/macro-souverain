@@ -38,7 +38,7 @@ fn setup_error(error: ImportError) -> SetupError {
             "Looking again for more in {} isn't available yet.",
             source.as_ref()
         )),
-        other => SetupError::Internal(anyhow::Error::new(other)),
+        other => SetupError::Internal(rootcause::Report::new(other).into_dynamic()),
     }
 }
 

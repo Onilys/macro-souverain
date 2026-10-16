@@ -21,6 +21,7 @@ base64 = { workspace = true }
 lru = { workspace = true }
 macro_db_client = { path = "../../crates/macro_db_client" }
 onboarding = { path = "../../crates/onboarding" }
+rootcause = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
 roles_and_permissions = { path = "../../crates/roles_and_permissions", default-features = false, features = ["outbound"] }

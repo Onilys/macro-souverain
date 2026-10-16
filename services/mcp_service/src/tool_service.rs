@@ -18,6 +18,7 @@ use rmcp::{
     },
 };
 use std::{sync::Arc, time::Instant};
+use tracing::Instrument;
 
 /// Maps our protocol-agnostic annotations onto the MCP wire representation.
 ///
@@ -244,7 +245,11 @@ where
             },
             protocol_version: request.protocol_version.to_string(),
         };
-        tokio::spawn(Arc::clone(&self.observer).initialized(seen));
+        tokio::spawn(
+            Arc::clone(&self.observer)
+                .initialized(seen)
+                .in_current_span(),
+        );
         if context.peer.peer_info().is_none() {
             context.peer.set_peer_info(request);
         }
@@ -319,15 +324,19 @@ where
             }
             _ => None,
         };
-        tokio::spawn(Arc::clone(&self.observer).tool_called(ToolCallSeen {
-            user_id: user_id.as_ref().to_owned(),
-            token,
-            user_agent,
-            tool_name,
-            duration: started.elapsed(),
-            outcome: tool_call_outcome(&result),
-            handoff_result,
-        }));
+        tokio::spawn(
+            Arc::clone(&self.observer)
+                .tool_called(ToolCallSeen {
+                    user_id: user_id.as_ref().to_owned(),
+                    token,
+                    user_agent,
+                    tool_name,
+                    duration: started.elapsed(),
+                    outcome: tool_call_outcome(&result),
+                    handoff_result,
+                })
+                .in_current_span(),
+        );
         result
     }
 }

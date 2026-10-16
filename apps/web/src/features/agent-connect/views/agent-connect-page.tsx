@@ -23,7 +23,7 @@ import {
   agentConnectTarget,
   isExpired,
   isSameAccount,
-} from './agent-connect';
+} from '../core/agent-connect';
 
 type Attempt =
   | { status: 'idle' }

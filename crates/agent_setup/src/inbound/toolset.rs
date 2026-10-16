@@ -7,6 +7,7 @@
 #[cfg(test)]
 mod test;
 
+use rootcause::compat::anyhow1::IntoAnyhow;
 use std::{sync::Arc, time::Duration};
 
 use ai_toolset::{
@@ -77,7 +78,7 @@ fn tool_error(step: &str, error: SetupError) -> ToolCallError {
                 "Macro hit an error while {step}. Try once more; if it fails again, tell the \
                  person this step is unavailable right now and call SetupGetState later."
             ),
-            internal_error: error,
+            internal_error: error.into_anyhow(),
         },
     }
 }

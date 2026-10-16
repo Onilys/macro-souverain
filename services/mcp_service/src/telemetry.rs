@@ -15,6 +15,7 @@
 mod test;
 
 use std::{sync::Arc, time::Duration};
+use tracing::Instrument;
 
 use analytics_client::{AnalyticsClient, AnalyticsClientConfig, PostHogConfig};
 use serde_json::{Map, Value, json};
@@ -206,14 +207,17 @@ impl McpTelemetry {
             return;
         };
         let distinct_id = distinct_id.to_owned();
-        tokio::spawn(async move {
-            if let Err(error) = analytics
-                .track_posthog(&distinct_id, event, Value::Object(properties))
-                .await
-            {
-                tracing::warn!(error=?error, event, "failed to send MCP analytics event");
+        tokio::spawn(
+            async move {
+                if let Err(error) = analytics
+                    .track_posthog(&distinct_id, event, Value::Object(properties))
+                    .await
+                {
+                    tracing::warn!(error=?error, event, "failed to send MCP analytics event");
+                }
             }
-        });
+            .in_current_span(),
+        );
     }
 }
 

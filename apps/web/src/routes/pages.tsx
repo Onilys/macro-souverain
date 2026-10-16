@@ -85,8 +85,9 @@ export function LoginPopupSuccess() {
 }
 
 const AgentConnect = lazy(async () => ({
-  default: (await import('@app/features/agent-connect/AgentConnectPage'))
-    .AgentConnectPage,
+  default: (
+    await import('@app/features/agent-connect/views/agent-connect-page')
+  ).AgentConnectPage,
 }));
 
 export function AgentConnectPage() {

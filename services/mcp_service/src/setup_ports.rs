@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use email::domain::ports::EmailService;
 use macro_user_id::user_id::MacroUserIdStr;
 use onboarding::domain::service::OnboardingService;
+use rootcause::compat::IntoRootcause;
 
 use crate::agent_led::{AccountDirectory, AgentHandover, Handover};
 
@@ -33,7 +34,9 @@ impl<T: EmailService> SetupInbox for EmailSetupInbox<T> {
             .service
             .get_inboxes_for_macro_id(user.clone())
             .await
-            .map_err(|error| SetupError::Internal(anyhow::anyhow!("listing inboxes: {error:?}")))?;
+            .map_err(|error| {
+                SetupError::Internal(rootcause::report!("listing inboxes: {error:?}"))
+            })?;
         Ok(links
             .into_iter()
             .filter(|link| link.macro_id.to_string() == user.as_ref())
@@ -65,11 +68,10 @@ where
     A: AccountDirectory + Clone,
 {
     async fn status(&self, user: &MacroUserIdStr<'static>) -> Result<AccountStatus> {
-        let row = self
-            .onboarding
-            .row(user.clone())
-            .await
-            .map_err(|error| SetupError::Internal(anyhow::Error::new(error)))?;
+        let row =
+            self.onboarding.row(user.clone()).await.map_err(|error| {
+                SetupError::Internal(rootcause::Report::new(error).into_dynamic())
+            })?;
         let agent_led = row.as_ref().is_some_and(|row| row.is_agent_led());
         let onboarded_on_web = row.as_ref().is_some_and(|row| {
             row.status == onboarding::domain::models::OnboardingStatus::Completed && !agent_led
@@ -79,7 +81,8 @@ where
             && self
                 .handover
                 .is_new_account(user, chrono::Utc::now())
-                .await?;
+                .await
+                .into_rootcause()?;
         Ok(AccountStatus {
             agent_led,
             onboarded_on_web,
@@ -88,7 +91,7 @@ where
     }
 
     async fn hand_to_agent(&self, user: &MacroUserIdStr<'static>) -> Result<AccountStatus> {
-        let outcome = self.handover.hand_over(user, None).await?;
+        let outcome = self.handover.hand_over(user, None).await.into_rootcause()?;
         Ok(match outcome {
             Handover::AgentLed => AccountStatus {
                 agent_led: true,

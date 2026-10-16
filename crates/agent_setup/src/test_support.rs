@@ -304,7 +304,7 @@ pub struct BrokenConnections;
 #[async_trait]
 impl SetupConnections for BrokenConnections {
     async fn is_connected(&self, _user: &MacroUserIdStr<'static>, _app: &App) -> Result<bool> {
-        Err(SetupError::Internal(anyhow::anyhow!(
+        Err(SetupError::Internal(rootcause::report!(
             "database unavailable"
         )))
     }
