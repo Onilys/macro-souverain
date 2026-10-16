@@ -35,7 +35,7 @@ align trailing controls by their outer edges or offset an individual icon.
 Use `SidebarActionRow` to register search and creation under the feature owner.
 The sidebar's first row replaces the visible title with a large, unframed creation
 action, sized to show its complete label without an entity icon, background, border,
-or shadow. When the header content width is below 260px, use 16px creation text without horizontal button padding so the title and controls fit; keep 20px text in wider sidebars. This is followed by Search and close/collapse controls in the same 48px header.
+or shadow. Keep creation text at 20px at every sidebar width. When the header content width is below 260px, remove horizontal button padding and tighten the chevron gap. This is followed by Search and close/collapse controls in the same 48px header.
 Views without creation keep a noninteractive title with the same typography and gradient.
 Always show a decorative 16px trailing chevron, including single actions and static titles.
 Multiple creation choices use a dropdown.
