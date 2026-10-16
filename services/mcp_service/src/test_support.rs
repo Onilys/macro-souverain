@@ -13,7 +13,11 @@ use onboarding::domain::{
     service::OnboardingService,
 };
 
-use crate::{agent_led::AccountDirectory, client_attribution::ClientStore, telemetry::ClientInfo};
+use crate::{
+    agent_led::{AccountDirectory, AccountFacts},
+    client_attribution::ClientStore,
+    telemetry::ClientInfo,
+};
 
 /// A profile id for tests.
 pub fn user() -> MacroUserIdStr<'static> {
@@ -84,31 +88,47 @@ impl OnboardingService for FakeOnboarding {
 pub struct FakeAccounts {
     /// Answers to successive `tutorial_complete` reads; the last one repeats.
     pub tutorial: Arc<Mutex<Vec<Option<bool>>>>,
+    /// When the account was created. Defaults to just now: a new sign-up.
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
     /// How many times the tutorial was completed.
     pub completed: Arc<Mutex<u32>>,
 }
 
 impl FakeAccounts {
-    /// A directory that answers `answers` in order, repeating the last.
+    /// A just-created account whose tutorial reads answer `answers` in order,
+    /// repeating the last.
     pub fn with_tutorial(answers: &[Option<bool>]) -> Self {
         Self {
             tutorial: Arc::new(Mutex::new(answers.to_vec())),
-            ..Self::default()
+            created_at: Some(chrono::Utc::now()),
+            completed: Arc::default(),
+        }
+    }
+
+    /// An account someone already had: created `days` days ago.
+    pub fn existing(answers: &[Option<bool>], days: i64) -> Self {
+        Self {
+            created_at: Some(chrono::Utc::now() - chrono::Duration::days(days)),
+            ..Self::with_tutorial(answers)
         }
     }
 }
 
 impl AccountDirectory for FakeAccounts {
-    async fn tutorial_complete(
+    async fn account(
         &self,
         _user: &MacroUserIdStr<'static>,
-    ) -> anyhow::Result<Option<bool>> {
+    ) -> anyhow::Result<Option<AccountFacts>> {
         let mut answers = self.tutorial.lock().unwrap();
-        Ok(if answers.len() > 1 {
+        let tutorial = if answers.len() > 1 {
             answers.remove(0)
         } else {
             answers[0]
-        })
+        };
+        Ok(tutorial.map(|tutorial_complete| AccountFacts {
+            tutorial_complete,
+            created_at: self.created_at,
+        }))
     }
 
     async fn complete_tutorial(&self, _user: &MacroUserIdStr<'static>) -> anyhow::Result<()> {

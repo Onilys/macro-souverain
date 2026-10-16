@@ -244,6 +244,17 @@ pub const EAGER_TOOLS: &[&str] = &[
 /// Assemble the toolset and tool-use prompt for a host. These are actually
 /// sent to the AI provider.
 pub fn tools_for(host: AiHost) -> ToolSetWithPrompt {
+    assemble(host, false)
+}
+
+/// The MCP toolset with the agent-led Setup tools, for when setup is switched
+/// on. They serve a person's own agent setting up their workspace over MCP;
+/// inside Macro the person is already set up and the web app connects tools.
+pub fn mcp_tools_with_agent_setup() -> ToolSetWithPrompt {
+    assemble(AiHost::Mcp, true)
+}
+
+fn assemble(host: AiHost, agent_setup: bool) -> ToolSetWithPrompt {
     let toolset = subagent_toolset()
         .add_subtoolset::<ToolBookingManagementToolContext>(booking_management_toolset())
         .add_subtoolset::<ToolNotificationToolContext>(notification_toolset())
@@ -274,13 +285,11 @@ pub fn tools_for(host: AiHost) -> ToolSetWithPrompt {
             .add_tool::<LoadTools, ToolServiceContext>(),
         AiHost::Mcp => toolset,
     };
-    // Agent-led setup: a person's own agent sets up their workspace over MCP.
-    // Inside Macro the person is already set up and the web app connects tools.
     let toolset = match host {
-        AiHost::Mcp => toolset.add_subtoolset::<ToolAgentSetupToolContext>(
+        AiHost::Mcp if agent_setup => toolset.add_subtoolset::<ToolAgentSetupToolContext>(
             agent_setup::inbound::toolset::setup_toolset(),
         ),
-        AiHost::Chat | AiHost::AgentSession | AiHost::ChannelBot => toolset,
+        AiHost::Mcp | AiHost::Chat | AiHost::AgentSession | AiHost::ChannelBot => toolset,
     };
     let toolset = match host {
         AiHost::Chat | AiHost::AgentSession => {

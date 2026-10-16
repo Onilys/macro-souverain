@@ -97,18 +97,11 @@ where
     pub async fn after_sign_in(&self, user: MacroUserIdStr<'static>, sign_in: SignIn) {
         let token = sign_in.access_token.as_str();
 
-        let inbox = match self.inbox.provision_first_inbox(token).await {
-            Ok(FirstInboxProvisionOutcome::Provisioned) => "provisioned",
-            Ok(FirstInboxProvisionOutcome::Skipped) => "skipped",
-            Err(error) => {
-                tracing::warn!(error=?error, "first-inbox provision on MCP sign-in failed");
-                "failed"
-            }
-        };
-
+        // Only an account this sign-in created is set up for its agent; people
+        // who already had Macro keep it as it was until they ask.
         let agent_led = match self
             .handover
-            .hand_over(&user, sign_in.client_name.as_deref())
+            .hand_over_new_sign_up(&user, sign_in.client_name.as_deref(), chrono::Utc::now())
             .await
         {
             Ok(outcome) => outcome == Handover::AgentLed,
@@ -116,6 +109,19 @@ where
                 tracing::warn!(error=?error, "failed to hand the account to the agent on sign-in");
                 false
             }
+        };
+
+        let inbox = if agent_led {
+            match self.inbox.provision_first_inbox(token).await {
+                Ok(FirstInboxProvisionOutcome::Provisioned) => "provisioned",
+                Ok(FirstInboxProvisionOutcome::Skipped) => "skipped",
+                Err(error) => {
+                    tracing::warn!(error=?error, "first-inbox provision on MCP sign-in failed");
+                    "failed"
+                }
+            }
+        } else {
+            "skipped"
         };
 
         let client = ClientInfo {

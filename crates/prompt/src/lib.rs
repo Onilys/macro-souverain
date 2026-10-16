@@ -106,6 +106,24 @@ static MCP_STATIC_INSTRUCTIONS: ComposedPrompt = document_content_links::PROMPT
     .compose(&databases::PROMPT)
     .compose(&crm_pipelines::PROMPT);
 
+/// The static rules MCP clients got before agent-led setup. Served unchanged
+/// while setup is switched off, so turning it off changes nothing for anyone.
+static LEGACY_MCP_STATIC_INSTRUCTIONS: ComposedPrompt = citations::PROMPT
+    .compose(&do_not::PROMPT)
+    .compose(&about_macro::PROMPT)
+    .compose(&databases::PROMPT)
+    .compose(&crm_pipelines::PROMPT)
+    .compose(&document_content_links::PROMPT);
+
+/// The instructions MCP clients got before agent-led setup, served while it is
+/// switched off. See [`mcp_instructions_for`] for the current ones.
+pub fn legacy_mcp_instructions(base_url: &str) -> String {
+    format!(
+        "{}\n{LEGACY_MCP_STATIC_INSTRUCTIONS}",
+        mcp_item_links::render(base_url)
+    )
+}
+
 /// How many characters of server instructions Claude Code keeps. Everything an
 /// agent needs to act correctly by default sits before this point.
 pub const MCP_INSTRUCTIONS_VISIBLE_CHARS: usize = 4096;
@@ -398,6 +416,15 @@ mod tests {
         }
         assert!(in_app.contains("non-Markdown documents"));
         assert!(in_app.contains("apply to your own conversational replies only"));
+    }
+
+    #[test]
+    fn legacy_instructions_are_the_ones_before_agent_led_setup() {
+        let legacy = legacy_mcp_instructions("https://macro.com");
+        assert!(legacy.starts_with(&mcp_item_links::render("https://macro.com")));
+        assert!(legacy.contains(&citations::PROMPT.to_string()));
+        assert!(!legacy.contains("SetupGetState"));
+        assert!(!legacy.contains("# Using Macro"));
     }
 
     #[test]

@@ -509,6 +509,7 @@ async fn a_web_onboarding_run_is_never_retried_or_re_gathered() {
         AccountStatus {
             agent_led: false,
             onboarded_on_web: true,
+            new_account: false,
         }
     );
 }
@@ -686,6 +687,52 @@ async fn a_workspace_is_set_up_once_onboarded_on_the_web_or_once_work_came_in() 
         FakeAccounts::default(),
     );
     assert!(imported.service.is_set_up(&user()).await.unwrap());
+}
+
+fn with_account(status: AccountStatus, imported: bool) -> Fixture {
+    let rows = if imported {
+        vec![notion_page(1, "Roadmap", ImportStatus::Imported)]
+    } else {
+        Vec::new()
+    };
+    fixture(
+        FakeImports::new(Vec::new(), rows, Vec::new()),
+        FakeConnections::with(&[]),
+        FakeInbox::default(),
+        FakeAccounts {
+            status: std::sync::Mutex::new(status),
+            ..FakeAccounts::default()
+        },
+    )
+}
+
+#[tokio::test]
+async fn only_people_who_signed_up_through_their_agent_get_setup_first() {
+    let agent_led = AccountStatus {
+        agent_led: true,
+        ..AccountStatus::default()
+    };
+    let just_signed_up = AccountStatus {
+        new_account: true,
+        ..AccountStatus::default()
+    };
+    // Had Macro before, never onboarded on the web, nothing imported.
+    let had_macro = AccountStatus::default();
+
+    for status in [agent_led, just_signed_up] {
+        let setup = with_account(status, false);
+        assert!(
+            setup.service.leads_with_setup(&user()).await.unwrap(),
+            "{status:?}"
+        );
+        let done = with_account(status, true);
+        assert!(
+            !done.service.leads_with_setup(&user()).await.unwrap(),
+            "{status:?}"
+        );
+    }
+    let existing = with_account(had_macro, false);
+    assert!(!existing.service.leads_with_setup(&user()).await.unwrap());
 }
 
 #[tokio::test]

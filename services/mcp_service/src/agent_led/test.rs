@@ -118,3 +118,61 @@ async fn gives_up_when_the_account_row_never_appears() {
     assert!(outcome.is_err());
     assert!(onboarding.markings.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn a_sign_in_hands_over_only_the_account_it_created() {
+    let accounts = FakeAccounts::with_tutorial(&[Some(false)]);
+    let (handover, onboarding) = handover(FakeOnboarding::default(), accounts.clone());
+
+    let outcome = handover
+        .hand_over_new_sign_up(&user(), Some("claude-ai"), chrono::Utc::now())
+        .await
+        .expect("handover");
+
+    assert_eq!(outcome, Handover::AgentLed);
+    assert_eq!(onboarding.markings.lock().unwrap().len(), 1);
+    assert_eq!(*accounts.completed.lock().unwrap(), 1);
+}
+
+#[tokio::test]
+async fn a_sign_in_leaves_an_account_people_already_had_alone() {
+    // Never finished web onboarding, but has had Macro for a month: their
+    // agent sets it up only when they ask.
+    for accounts in [
+        FakeAccounts::existing(&[Some(false)], 30),
+        FakeAccounts {
+            created_at: None,
+            ..FakeAccounts::with_tutorial(&[Some(false)])
+        },
+    ] {
+        let (handover, onboarding) = handover(FakeOnboarding::default(), accounts.clone());
+
+        let outcome = handover
+            .hand_over_new_sign_up(&user(), Some("chatgpt"), chrono::Utc::now())
+            .await
+            .expect("handover");
+
+        assert_eq!(outcome, Handover::Existing);
+        assert!(onboarding.markings.lock().unwrap().is_empty());
+        assert_eq!(*accounts.completed.lock().unwrap(), 0);
+    }
+}
+
+#[tokio::test]
+async fn an_agent_led_account_stays_agent_led_on_later_sign_ins() {
+    let accounts = FakeAccounts::existing(&[Some(true)], 3);
+    let (handover, _) = handover(
+        FakeOnboarding {
+            existing: Some(row(OnboardingStatus::Completed, true)),
+            ..FakeOnboarding::default()
+        },
+        accounts,
+    );
+
+    let outcome = handover
+        .hand_over_new_sign_up(&user(), Some("codex"), chrono::Utc::now())
+        .await
+        .expect("handover");
+
+    assert_eq!(outcome, Handover::AgentLed);
+}

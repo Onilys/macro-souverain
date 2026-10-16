@@ -275,6 +275,7 @@ impl FakeAccounts {
             status: Mutex::new(AccountStatus {
                 agent_led: false,
                 onboarded_on_web: true,
+                new_account: false,
             }),
             ..Self::default()
         }

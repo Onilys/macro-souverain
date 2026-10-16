@@ -85,9 +85,11 @@ pub trait SetupHintSource: Send + Sync + 'static {
     fn hint(&self, user: MacroUserIdStr<'static>) -> HintFuture<'_>;
 }
 
-/// A source that never knows, for hosts without setup.
+/// A source that never knows.
+#[cfg(test)]
 pub struct UnknownSetup;
 
+#[cfg(test)]
 impl SetupHintSource for UnknownSetup {
     fn hint(&self, _user: MacroUserIdStr<'static>) -> HintFuture<'_> {
         Box::pin(async { SetupHint::Unknown })
@@ -109,9 +111,9 @@ impl ServiceSetupHint {
 impl SetupHintSource for ServiceSetupHint {
     fn hint(&self, user: MacroUserIdStr<'static>) -> HintFuture<'_> {
         Box::pin(async move {
-            match tokio::time::timeout(HINT_TIMEOUT, self.service.is_set_up(&user)).await {
-                Ok(Ok(true)) => SetupHint::SetUp,
-                Ok(Ok(false)) => SetupHint::NotSetUp,
+            match tokio::time::timeout(HINT_TIMEOUT, self.service.leads_with_setup(&user)).await {
+                Ok(Ok(true)) => SetupHint::NotSetUp,
+                Ok(Ok(false)) => SetupHint::SetUp,
                 Ok(Err(error)) => {
                     tracing::warn!(error=?error, "failed to read setup state for instructions");
                     SetupHint::Unknown

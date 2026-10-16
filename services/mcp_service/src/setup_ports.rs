@@ -74,9 +74,16 @@ where
         let onboarded_on_web = row.as_ref().is_some_and(|row| {
             row.status == onboarding::domain::models::OnboardingStatus::Completed && !agent_led
         });
+        let new_account = !agent_led
+            && !onboarded_on_web
+            && self
+                .handover
+                .is_new_account(user, chrono::Utc::now())
+                .await?;
         Ok(AccountStatus {
             agent_led,
             onboarded_on_web,
+            new_account,
         })
     }
 
@@ -86,11 +93,14 @@ where
             Handover::AgentLed => AccountStatus {
                 agent_led: true,
                 onboarded_on_web: false,
+                new_account: false,
             },
             Handover::WebOnboarded => AccountStatus {
                 agent_led: false,
                 onboarded_on_web: true,
+                new_account: false,
             },
+            Handover::Existing => self.status(user).await?,
         })
     }
 }

@@ -210,9 +210,12 @@ connector, building, and summary step names are migrated on resume.
 
 ## Agent-led setup links
 
-Accounts set up by the person's own AI agent over MCP are agent-led: the MCP
-sign-in (or the first Setup tool call) marks the onboarding row agent-led and
-completes the tutorial, so `/app/onboarding` is never forced on them.
+Accounts set up by the person's own AI agent over MCP are agent-led. While
+agent-led setup is switched on (`ENABLE_AGENT_SETUP` on the MCP server), an
+MCP sign-in that created the account, or the person's first Setup tool call,
+marks the onboarding row agent-led and completes the tutorial, so
+`/app/onboarding` is never forced on them. Accounts people already had are left
+as they were.
 `GET /onboarding` exposes `agent_led_at` and `agent_client` for a first-visit
 view.
 

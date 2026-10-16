@@ -288,10 +288,32 @@ impl AgentSetupService {
     }
 
     /// Whether the workspace counts as set up: onboarded on the web, or work
-    /// already brought in. Decides how much setup guidance an agent gets.
+    /// already brought in.
     #[tracing::instrument(skip(self, user), err)]
     pub async fn is_set_up(&self, user: &MacroUserIdStr<'static>) -> Result<bool> {
-        if self.accounts.status(user).await?.onboarded_on_web {
+        let account = self.accounts.status(user).await?;
+        self.set_up_given(user, account).await
+    }
+
+    /// Whether an agent's instructions should lead with setup: the person
+    /// signed up through their agent and the workspace isn't set up yet.
+    /// Everyone else, including people who had Macro before, sets up only when
+    /// they ask.
+    #[tracing::instrument(skip(self, user), err)]
+    pub async fn leads_with_setup(&self, user: &MacroUserIdStr<'static>) -> Result<bool> {
+        let account = self.accounts.status(user).await?;
+        if !(account.agent_led || account.new_account) {
+            return Ok(false);
+        }
+        Ok(!self.set_up_given(user, account).await?)
+    }
+
+    async fn set_up_given(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        account: AccountStatus,
+    ) -> Result<bool> {
+        if account.onboarded_on_web {
             return Ok(true);
         }
         let state = self.imports.state(user).await?;

@@ -33,6 +33,36 @@ maybe_env_vars! {
     pub struct PosthogHost;
 }
 
+/// Whether agent-led setup is switched on (`ENABLE_AGENT_SETUP`): the Setup
+/// tools, the setup instructions and `setup` prompt, and handing a new agent
+/// sign-up's account to their agent. Off unless set to `true`, so the server
+/// behaves exactly as it did before agent-led setup.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AgentSetup {
+    /// Serve MCP as before agent-led setup.
+    #[default]
+    Disabled,
+    /// Serve agent-led setup.
+    Enabled,
+}
+
+impl AgentSetup {
+    /// Whether agent-led setup is switched on.
+    pub const fn is_enabled(self) -> bool {
+        matches!(self, Self::Enabled)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AgentSetup {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(if bool::deserialize(deserializer)? {
+            Self::Enabled
+        } else {
+            Self::Disabled
+        })
+    }
+}
+
 /// Hosts trusted to receive an MCP authorization code when
 /// `MCP_ALLOWED_REDIRECT_HOSTS` is unset.
 ///
@@ -119,6 +149,9 @@ pub struct Config {
     /// Markup on paid AI usage past the allowance, as a whole percent of
     /// provider cost. Mandatory; set in Doppler.
     pub ai_usage_overage_markup_percent: ai_billing::OverageMarkupPercent,
+    /// Agent-led setup. Off unless `ENABLE_AGENT_SETUP=true`.
+    #[macro_config_default(AgentSetup::Disabled)]
+    pub enable_agent_setup: AgentSetup,
     /// The environment we are in.
     #[macro_config_default(Environment::new_or_prod())]
     pub environment: Environment,

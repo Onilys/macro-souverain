@@ -2,7 +2,7 @@ use crate::markdown_images::MarkdownImageResolver;
 use crate::request_observer::{
     HANDOFF_TOOLS, InitializeSeen, NoObserver, RequestObserver, ToolCallSeen,
 };
-use crate::setup_prompt::{SetupHintSource, UnknownSetup};
+use crate::setup_prompt::SetupHintSource;
 use crate::telemetry::{ClientInfo, ToolCallOutcome};
 use crate::tool_response::tool_result_with_media;
 use ai_toolset::{AsyncToolCollection, RequestContext, ToolSet};
@@ -49,10 +49,26 @@ pub struct AuthenticatedToolService<Context> {
     static_file_base_url: url::Url,
     /// Told about handshakes and tool calls, for analytics.
     observer: Arc<dyn RequestObserver>,
-    /// Whether a person's workspace is set up, so the instructions can lead
-    /// with setup only for people who need it.
-    setup_hint: Arc<dyn SetupHintSource>,
+    /// Agent-led setup, when it's switched on: whether a person needs setup,
+    /// so the instructions lead with it only for them. `None` serves the
+    /// instructions and capabilities MCP clients had before agent-led setup.
+    setup: Option<Arc<dyn SetupHintSource>>,
 }
+
+/// What MCP clients were told before agent-led setup, ahead of the shared
+/// rules. Served unchanged while setup is switched off.
+const LEGACY_INSTRUCTIONS_PREAMBLE: &str = "This server provides tools for interacting with a user's Macro workspace. \
+     Use ContentSearch and NameSearch to find entities. \
+     Use ReadContent, ReadMetadata, and ReadThread to read them. \
+     Use ReadChannelMessages, ReadChannelThread, and ReadChannelMessageContext \
+     to read channel messages and their attachments. Channel image attachments \
+     include inline images when available; image and video attachments include \
+     downloadable URLs. Use a video-capable tool to inspect video URLs. \
+     Use CreateDocument to create new documents. \
+     Use EditDocument to edit existing documents. \
+     Use ListSkills to discover available skills, SearchSkills to find a skill by name, \
+     and ReadSkill to read its full instructions before following them for the current request. \
+     Use ListEntities to browse recent items.";
 
 impl<Context> AuthenticatedToolService<Context> {
     /// Creates a new authenticated tool service.
@@ -68,13 +84,14 @@ impl<Context> AuthenticatedToolService<Context> {
             item_base_url,
             static_file_base_url,
             observer: Arc::new(NoObserver),
-            setup_hint: Arc::new(UnknownSetup),
+            setup: None,
         }
     }
 
-    /// Tailors the setup part of the instructions with `setup_hint`.
-    pub fn with_setup_hint(mut self, setup_hint: Arc<dyn SetupHintSource>) -> Self {
-        self.setup_hint = setup_hint;
+    /// Switches agent-led setup on: the `setup` prompt, and instructions that
+    /// lead with setup for the people `setup_hint` says need it.
+    pub fn with_agent_setup(mut self, setup_hint: Arc<dyn SetupHintSource>) -> Self {
+        self.setup = Some(setup_hint);
         self
     }
 
@@ -130,14 +147,17 @@ impl<Context> AuthenticatedToolService<Context> {
         (token, user_agent)
     }
 
-    /// Server info with instructions tailored to the person's setup.
-    fn server_info(&self, setup: SetupHint) -> ServerInfo {
-        let mut info = ServerInfo::new(
-            ServerCapabilities::builder()
+    /// Server info with instructions tailored to the person's setup, or the
+    /// pre-setup instructions when `setup` is `None` (setup switched off).
+    fn server_info(&self, setup: Option<SetupHint>) -> ServerInfo {
+        let capabilities = match setup {
+            Some(_) => ServerCapabilities::builder()
                 .enable_prompts()
                 .enable_tools()
                 .build(),
-        );
+            None => ServerCapabilities::builder().enable_tools().build(),
+        };
+        let mut info = ServerInfo::new(capabilities);
         let base_url = self.item_base_url.trim_end_matches('/');
         info.server_info = rmcp::model::Implementation::new(
             "macro-tools",
@@ -154,7 +174,13 @@ impl<Context> AuthenticatedToolService<Context> {
                 .with_mime_type("image/svg+xml")
                 .with_sizes(vec!["any".to_owned()]),
         ]);
-        info.instructions = Some(prompt::mcp_instructions_for(base_url, setup));
+        info.instructions = Some(match setup {
+            Some(setup) => prompt::mcp_instructions_for(base_url, setup),
+            None => format!(
+                "{LEGACY_INSTRUCTIONS_PREAMBLE}\n\n{}",
+                prompt::legacy_mcp_instructions(base_url)
+            ),
+        });
         info
     }
 }
@@ -198,7 +224,7 @@ where
     Context: Clone + Send + Sync + MarkdownImageResolver + 'static,
 {
     fn get_info(&self) -> ServerInfo {
-        self.server_info(SetupHint::Unknown)
+        self.server_info(self.setup.as_ref().map(|_| SetupHint::Unknown))
     }
 
     async fn initialize(
@@ -222,7 +248,10 @@ where
         if context.peer.peer_info().is_none() {
             context.peer.set_peer_info(request);
         }
-        let setup = self.setup_hint.hint(user_id).await;
+        let setup = match &self.setup {
+            Some(source) => Some(source.hint(user_id).await),
+            None => None,
+        };
         Ok(self.server_info(setup))
     }
 
@@ -232,9 +261,10 @@ where
         context: rmcp::service::RequestContext<rmcp::RoleServer>,
     ) -> Result<ListPromptsResult, rmcp::ErrorData> {
         Self::authenticated_user_id(&context.extensions)?;
-        Ok(ListPromptsResult::with_all_items(
-            crate::setup_prompt::prompts(),
-        ))
+        Ok(ListPromptsResult::with_all_items(match self.setup {
+            Some(_) => crate::setup_prompt::prompts(),
+            None => Vec::new(),
+        }))
     }
 
     async fn get_prompt(
@@ -243,10 +273,14 @@ where
         context: rmcp::service::RequestContext<rmcp::RoleServer>,
     ) -> Result<GetPromptResult, rmcp::ErrorData> {
         Self::authenticated_user_id(&context.extensions)?;
-        crate::setup_prompt::get(&request).ok_or_else(|| {
+        let prompt = match self.setup {
+            Some(_) => crate::setup_prompt::get(&request),
+            None => None,
+        };
+        prompt.ok_or_else(|| {
             rmcp::ErrorData::invalid_params(
                 format!(
-                    "Unknown prompt \"{}\". The only prompt is \"setup\".",
+                    "Unknown prompt \"{}\". prompts/list has the prompts this server offers.",
                     request.name
                 ),
                 None,

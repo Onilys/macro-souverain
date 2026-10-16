@@ -51,27 +51,44 @@ async fn main() -> anyhow::Result<()> {
 
     let event_broker_tracker = TaskTracker::new();
     let context = build_context(&config, event_broker_tracker.clone()).await?;
-    let observer: Arc<dyn request_observer::RequestObserver> =
+    // Analytics run only once PostHog is configured, so nothing (not even
+    // client attribution in Redis) happens without the key.
+    let observer: Arc<dyn request_observer::RequestObserver> = if context.telemetry.is_enabled() {
         Arc::new(request_observer::TelemetryObserver::new(
             context.telemetry.clone(),
             context.attribution.clone(),
-        ));
-    let setup_hint: Arc<dyn setup_prompt::SetupHintSource> = Arc::new(
-        setup_prompt::ServiceSetupHint::new(context.setup_service.clone()),
-    );
+        ))
+    } else {
+        Arc::new(request_observer::NoObserver)
+    };
+    // Agent-led setup is off unless `ENABLE_AGENT_SETUP=true`; off, MCP serves
+    // exactly what it did before.
+    let agent_setup = config.enable_agent_setup.is_enabled();
+    let setup_hint: Option<Arc<dyn setup_prompt::SetupHintSource>> = agent_setup.then(|| {
+        Arc::new(setup_prompt::ServiceSetupHint::new(
+            context.setup_service.clone(),
+        )) as Arc<dyn setup_prompt::SetupHintSource>
+    });
 
     // Create the MCP service with authenticated tool handler
     let mcp_service = StreamableHttpService::new(
         move || {
-            let tools = ai_tools::tools_for(ai_tools::AiHost::Mcp);
-            Ok(AuthenticatedToolService::new(
+            let tools = if agent_setup {
+                ai_tools::mcp_tools_with_agent_setup()
+            } else {
+                ai_tools::tools_for(ai_tools::AiHost::Mcp)
+            };
+            let service = AuthenticatedToolService::new(
                 tools.toolset,
                 context.tool_context.clone(),
                 item_base_url.clone(),
                 static_file_base_url.clone(),
             )
-            .with_observer(observer.clone())
-            .with_setup_hint(setup_hint.clone()))
+            .with_observer(observer.clone());
+            Ok(match &setup_hint {
+                Some(setup_hint) => service.with_agent_setup(setup_hint.clone()),
+                None => service,
+            })
         },
         Arc::new(LocalSessionManager::default()),
         {

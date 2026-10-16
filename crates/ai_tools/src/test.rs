@@ -591,10 +591,10 @@ fn booking_management_has_mcp_and_chat_parity() {
 }
 
 /// Agent-led setup tools serve an outside agent setting up a workspace over
-/// MCP. Inside Macro the person is already set up, so other hosts don't list
-/// them.
+/// MCP, and only once setup is switched on. Inside Macro the person is already
+/// set up, so other hosts never list them.
 #[test]
-fn setup_tools_are_mcp_only() {
+fn setup_tools_are_mcp_only_and_off_by_default() {
     let setup_tools = [
         "SetupGetState",
         "SetupConnect",
@@ -603,11 +603,16 @@ fn setup_tools_are_mcp_only() {
         "SetupImport",
         "SetupGetStatus",
     ];
-    let mcp = tools_for(AiHost::Mcp);
+    let mcp = mcp_tools_with_agent_setup();
     for name in setup_tools {
         assert!(mcp.toolset.tools.contains_key(name), "MCP missing {name}");
     }
-    for host in [AiHost::Chat, AiHost::AgentSession, AiHost::ChannelBot] {
+    for host in [
+        AiHost::Mcp,
+        AiHost::Chat,
+        AiHost::AgentSession,
+        AiHost::ChannelBot,
+    ] {
         let tools = tools_for(host);
         for name in setup_tools {
             assert!(
@@ -622,7 +627,7 @@ fn setup_tools_are_mcp_only() {
 /// one they name must exist on MCP, where an outside agent follows them.
 #[test]
 fn setup_guidance_names_only_tools_mcp_has() {
-    let mcp = tools_for(AiHost::Mcp);
+    let mcp = mcp_tools_with_agent_setup();
     let guidance = format!(
         "{}\n{}",
         system_skills::macro_setup::SKILL.render_content(),

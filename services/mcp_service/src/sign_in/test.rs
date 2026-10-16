@@ -42,14 +42,13 @@ struct Fixture {
 fn fixture(
     inbox: Option<FirstInboxProvisionOutcome>,
     onboarding: FakeOnboarding,
-    tutorial_complete: bool,
+    accounts: FakeAccounts,
 ) -> Fixture {
     let inbox = Arc::new(FakeInbox {
         outcome: inbox,
         ..FakeInbox::default()
     });
     let onboarding = Arc::new(onboarding);
-    let accounts = FakeAccounts::with_tutorial(&[Some(tutorial_complete)]);
     let attribution = ClientAttribution::new(MemoryStore::default());
     Fixture {
         sign_in: AgentSignIn::new(
@@ -79,7 +78,7 @@ async fn a_new_signup_gets_its_inbox_and_is_handed_to_the_agent() {
     let fixture = fixture(
         Some(FirstInboxProvisionOutcome::Provisioned),
         FakeOnboarding::default(),
-        false,
+        FakeAccounts::with_tutorial(&[Some(false)]),
     );
 
     fixture
@@ -103,7 +102,7 @@ async fn the_sign_in_attributes_the_token_to_its_registered_client() {
     let fixture = fixture(
         Some(FirstInboxProvisionOutcome::Skipped),
         FakeOnboarding::default(),
-        false,
+        FakeAccounts::with_tutorial(&[Some(false)]),
     );
 
     fixture
@@ -123,7 +122,11 @@ async fn the_sign_in_attributes_the_token_to_its_registered_client() {
 async fn an_inbox_failure_still_hands_the_account_over() {
     // No Gmail grant, or the email service is down: setup continues and the
     // setup tools offer a "connect Gmail" handoff instead.
-    let fixture = fixture(None, FakeOnboarding::default(), false);
+    let fixture = fixture(
+        None,
+        FakeOnboarding::default(),
+        FakeAccounts::with_tutorial(&[Some(false)]),
+    );
 
     fixture
         .sign_in
@@ -141,7 +144,7 @@ async fn an_existing_web_user_signing_in_from_an_agent_keeps_their_account_as_is
             existing: Some(onboarding_row(OnboardingStatus::Completed, false)),
             ..FakeOnboarding::default()
         },
-        true,
+        FakeAccounts::with_tutorial(&[Some(true)]),
     );
 
     fixture
@@ -149,6 +152,26 @@ async fn an_existing_web_user_signing_in_from_an_agent_keeps_their_account_as_is
         .after_sign_in(user(), sign_in("claude-ai"))
         .await;
 
+    assert!(fixture.onboarding.markings.lock().unwrap().is_empty());
+    assert_eq!(*fixture.accounts.completed.lock().unwrap(), 0);
+}
+
+#[tokio::test]
+async fn an_account_someone_already_had_is_left_alone_on_an_agent_sign_in() {
+    // Never finished web onboarding, but has had Macro for weeks: no inbox is
+    // added and nothing about their onboarding changes.
+    let fixture = fixture(
+        Some(FirstInboxProvisionOutcome::Provisioned),
+        FakeOnboarding::default(),
+        FakeAccounts::existing(&[Some(false)], 21),
+    );
+
+    fixture
+        .sign_in
+        .after_sign_in(user(), sign_in("claude-ai"))
+        .await;
+
+    assert!(fixture.inbox.calls.lock().unwrap().is_empty());
     assert!(fixture.onboarding.markings.lock().unwrap().is_empty());
     assert_eq!(*fixture.accounts.completed.lock().unwrap(), 0);
 }

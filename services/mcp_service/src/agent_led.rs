@@ -9,13 +9,16 @@
 //!
 //! Only accounts that never finished web onboarding qualify. Someone who
 //! already onboarded on the web and later adds Macro to their agent keeps
-//! their account exactly as it was.
+//! their account exactly as it was. At sign-in, only an account the sign-in
+//! itself created qualifies: people who already had Macro keep it as it was
+//! until they ask their agent to set it up.
 
 #[cfg(test)]
 mod test;
 
 use std::{sync::Arc, time::Duration};
 
+use chrono::{DateTime, Utc};
 use macro_user_id::user_id::{MacroUserId, MacroUserIdStr};
 use onboarding::domain::service::OnboardingService;
 use sqlx::PgPool;
@@ -30,15 +33,43 @@ const ACCOUNT_ROW_RETRY_DELAYS: [Duration; 4] = [
     Duration::from_secs(2),
 ];
 
-/// The legacy account record's onboarding bit (`"User"."tutorialComplete"`),
-/// which the web app reads to decide whether to force `/onboarding`.
+/// How recently an account must have been created for a sign-in to count as
+/// the sign-up itself. The account row lands seconds before the sign-in
+/// completes; an hour covers slow consent screens without reaching accounts
+/// people already had.
+pub const NEW_ACCOUNT_WINDOW: Duration = Duration::from_secs(60 * 60);
+
+/// What the legacy account record says about an account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AccountFacts {
+    /// Whether the account finished the web tutorial
+    /// (`"User"."tutorialComplete"`), which the web app reads to decide
+    /// whether to force `/onboarding`.
+    pub tutorial_complete: bool,
+    /// When the account was created; `None` for accounts that predate the
+    /// column.
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+impl AccountFacts {
+    /// Whether the account was created within [`NEW_ACCOUNT_WINDOW`] of `now`
+    /// and never finished the web tutorial.
+    pub fn is_new(&self, now: DateTime<Utc>) -> bool {
+        let window = chrono::Duration::from_std(NEW_ACCOUNT_WINDOW).unwrap_or_default();
+        !self.tutorial_complete
+            && self
+                .created_at
+                .is_some_and(|created| now - created <= window)
+    }
+}
+
+/// The legacy account record, which holds the web app's onboarding bit.
 pub trait AccountDirectory: Send + Sync + 'static {
-    /// Whether the account finished the web tutorial. `None` when the account
-    /// row does not exist (yet).
-    fn tutorial_complete(
+    /// The account's facts. `None` when the account row does not exist (yet).
+    fn account(
         &self,
         user: &MacroUserIdStr<'static>,
-    ) -> impl Future<Output = anyhow::Result<Option<bool>>> + Send;
+    ) -> impl Future<Output = anyhow::Result<Option<AccountFacts>>> + Send;
 
     /// Marks the web tutorial done so the web app stops forcing onboarding.
     fn complete_tutorial(
@@ -61,13 +92,16 @@ impl PgAccountDirectory {
 }
 
 impl AccountDirectory for PgAccountDirectory {
-    async fn tutorial_complete(
+    async fn account(
         &self,
         user: &MacroUserIdStr<'static>,
-    ) -> anyhow::Result<Option<bool>> {
+    ) -> anyhow::Result<Option<AccountFacts>> {
         let user_id = MacroUserId::parse_from_str(user.as_ref())?.lowercase();
         match macro_db_client::user::get::get_legacy_user_info(&self.db, &user_id).await {
-            Ok(info) => Ok(Some(info.tutorial_complete)),
+            Ok(info) => Ok(Some(AccountFacts {
+                tutorial_complete: info.tutorial_complete,
+                created_at: info.created_at,
+            })),
             Err(error) if is_row_not_found(&error) => Ok(None),
             Err(error) => Err(error),
         }
@@ -93,6 +127,8 @@ pub enum Handover {
     AgentLed,
     /// The account finished web onboarding; nothing changed.
     WebOnboarded,
+    /// The account existed before this sign-in; nothing changed.
+    Existing,
 }
 
 /// Marks accounts agent-led. Shared by the sign-in hook and the setup tools,
@@ -129,17 +165,54 @@ impl<O: OnboardingService, A: AccountDirectory> AgentHandover<O, A> {
         self
     }
 
-    async fn tutorial_complete(&self, user: &MacroUserIdStr<'static>) -> anyhow::Result<bool> {
+    /// The account's facts, waiting briefly for the row a brand-new sign-in
+    /// creates.
+    async fn account(&self, user: &MacroUserIdStr<'static>) -> anyhow::Result<AccountFacts> {
         for delay in self.retry_delays {
-            if let Some(done) = self.accounts.tutorial_complete(user).await? {
-                return Ok(done);
+            if let Some(facts) = self.accounts.account(user).await? {
+                return Ok(facts);
             }
             tokio::time::sleep(*delay).await;
         }
         self.accounts
-            .tutorial_complete(user)
+            .account(user)
             .await?
             .ok_or_else(|| anyhow::anyhow!("account row for the signed-in user does not exist"))
+    }
+
+    /// Whether the account was created moments ago and never onboarded on the
+    /// web, without waiting for a row that hasn't landed yet.
+    pub async fn is_new_account(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        now: DateTime<Utc>,
+    ) -> anyhow::Result<bool> {
+        Ok(self
+            .accounts
+            .account(user)
+            .await?
+            .is_some_and(|facts| facts.is_new(now)))
+    }
+
+    /// Hands the account to the agent `client` if this sign-in created it.
+    /// Accounts people already had are left alone until they ask for setup.
+    /// Idempotent.
+    #[tracing::instrument(skip(self, user), err)]
+    pub async fn hand_over_new_sign_up(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        client: Option<&str>,
+        now: DateTime<Utc>,
+    ) -> anyhow::Result<Handover> {
+        if let Some(row) = self.onboarding.row(user.clone()).await?
+            && row.is_agent_led()
+        {
+            return Ok(Handover::AgentLed);
+        }
+        if !self.account(user).await?.is_new(now) {
+            return Ok(Handover::Existing);
+        }
+        self.hand_over(user, client).await
     }
 
     /// Hands the account's setup to the agent `client`, if it never finished
@@ -155,7 +228,7 @@ impl<O: OnboardingService, A: AccountDirectory> AgentHandover<O, A> {
         {
             return Ok(Handover::AgentLed);
         }
-        if self.tutorial_complete(user).await? {
+        if self.account(user).await?.tutorial_complete {
             return Ok(Handover::WebOnboarded);
         }
         let marked = self

@@ -94,6 +94,9 @@ pub struct AccountStatus {
     pub agent_led: bool,
     /// The person already finished onboarding on the web.
     pub onboarded_on_web: bool,
+    /// The account was created moments ago and never onboarded on the web: a
+    /// sign-up through the person's agent that hasn't been handed over yet.
+    pub new_account: bool,
 }
 
 /// The account's onboarding.

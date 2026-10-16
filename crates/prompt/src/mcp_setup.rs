@@ -12,15 +12,16 @@
 pub enum SetupHint {
     /// The workspace isn't set up yet.
     NotSetUp,
-    /// The workspace is set up.
+    /// The workspace is set up, or it belongs to someone who didn't sign up
+    /// through an agent: either way setup only runs when they ask for it.
     SetUp,
     /// Not known (for example, the lookup failed).
     Unknown,
 }
 
 const SET_UP: &str = "# Macro setup\n\
-This person's Macro workspace is set up. If they ask to bring more work into Macro or connect \
-another tool, call SetupGetState and follow its next_step.\n";
+If the person asks to set up Macro, bring more work into it, or connect another tool, call \
+SetupGetState and follow its next_step.\n";
 
 const FLOW: &str = "Follow next_step in every Setup result. The flow:\n\
 1. SetupGetState(apps: every tool the person uses; check your other connected tools first, ask \

@@ -197,15 +197,22 @@ pub async fn build_context(
         .context("failed to initialize redis client for the MCP server")?;
     let attribution = ClientAttribution::new(RedisClientStore::new(redis_client.clone()));
     let telemetry = McpTelemetry::new(config.posthog_api_key.value(), config.posthog_host.value());
-    let sign_in_observer = Arc::new(AgentSignIn::new(
-        Arc::new(jwt_args.clone()),
-        Arc::new(email::outbound::EmailServiceHttpClient::new(
-            EmailServiceUrl::new()?.to_string(),
-        )),
-        handover.clone(),
-        attribution.clone(),
-        telemetry.clone(),
-    ));
+    // With agent-led setup off, signing in through an agent does nothing more
+    // than it did before.
+    let sign_in_observer: Arc<dyn mcp_auth_proxy::domain::ports::SignInObserver> =
+        if config.enable_agent_setup.is_enabled() {
+            Arc::new(AgentSignIn::new(
+                Arc::new(jwt_args.clone()),
+                Arc::new(email::outbound::EmailServiceHttpClient::new(
+                    EmailServiceUrl::new()?.to_string(),
+                )),
+                handover.clone(),
+                attribution.clone(),
+                telemetry.clone(),
+            ))
+        } else {
+            Arc::new(mcp_auth_proxy::domain::ports::NoSignInObserver)
+        };
 
     let auth_proxy = build_auth_proxy(
         config,

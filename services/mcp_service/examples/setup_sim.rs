@@ -547,9 +547,12 @@ impl SetupInbox for SimPorts {
 #[async_trait]
 impl SetupAccounts for SimPorts {
     async fn status(&self, _user: &MacroUserIdStr<'static>) -> SetupResult<AccountStatus> {
+        // Every simulated account is a fresh sign-up through an agent, except
+        // the ones that onboarded on the web first.
         Ok(self.with(|a| AccountStatus {
             agent_led: a.agent_led,
             onboarded_on_web: a.onboarded_on_web,
+            new_account: !a.onboarded_on_web,
         }))
     }
 
@@ -562,6 +565,7 @@ impl SetupAccounts for SimPorts {
             AccountStatus {
                 agent_led: a.agent_led,
                 onboarded_on_web: a.onboarded_on_web,
+                new_account: !a.onboarded_on_web,
             }
         }))
     }
@@ -681,11 +685,11 @@ impl ServerHandler for Sim {
         let token = bearer(&context)
             .ok_or_else(|| rmcp::ErrorData::invalid_request("missing bearer", None))?;
         self.account_known(&token)?;
-        let set_up = self
+        let leads_with_setup = self
             .service_for(&token)
-            .is_set_up(&self.account_known(&token)?)
+            .leads_with_setup(&self.account_known(&token)?)
             .await
-            .unwrap_or(false);
+            .unwrap_or(true);
         {
             let mut accounts = self.accounts.lock().expect("sim lock");
             if let Some(a) = accounts.get_mut(&token) {
@@ -695,10 +699,10 @@ impl ServerHandler for Sim {
         if context.peer.peer_info().is_none() {
             context.peer.set_peer_info(request);
         }
-        Ok(self.info(if set_up {
-            SetupHint::SetUp
-        } else {
+        Ok(self.info(if leads_with_setup {
             SetupHint::NotSetUp
+        } else {
+            SetupHint::SetUp
         }))
     }
 
@@ -913,7 +917,8 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(8788);
     let base_url = format!("http://127.0.0.1:{port}");
 
-    let tools = ai_tools::tools_for(ai_tools::AiHost::Mcp);
+    // The simulator serves agent-led setup switched on.
+    let tools = ai_tools::mcp_tools_with_agent_setup();
     let definitions: Vec<Tool> = tools
         .toolset
         .tools

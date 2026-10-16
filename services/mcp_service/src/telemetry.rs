@@ -103,6 +103,11 @@ impl McpTelemetry {
         }
     }
 
+    /// Whether events are sent anywhere.
+    pub fn is_enabled(&self) -> bool {
+        self.analytics.is_some()
+    }
+
     /// Telemetry that sends nothing.
     pub fn disabled() -> Self {
         Self {
