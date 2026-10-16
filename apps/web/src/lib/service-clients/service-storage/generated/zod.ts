@@ -18038,6 +18038,26 @@ export const setDocumentTeamShareResponse = zod
   );
 
 /**
+ * @summary Read current Markdown or extracted file text with the document's view receipt.
+ */
+export const getDocumentTextContentParams = zod.object({
+  document_id: zod.string().describe('Document identity'),
+});
+
+export const getDocumentTextContentResponse = zod
+  .object({
+    text: zod
+      .string()
+      .nullable()
+      .describe(
+        'Current Markdown, or extracted PDF\/Word text. Null means use file export.'
+      ),
+  })
+  .describe(
+    'Text representation when the document supports one. Other file formats\nretain their existing download\/export behavior.'
+  );
+
+/**
  * @summary Gets the list of users who have viewed a given document
  */
 export const getDocumentViewsHandlerParams = zod.object({
