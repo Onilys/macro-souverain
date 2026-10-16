@@ -1,12 +1,11 @@
-import { crmTaskComposerContext } from '@app/features/crm/task-composer';
 import {
-  registerTaskComposerContext,
-  snapshotTaskComposerContext,
-} from '@app/features/task-composer/launch-context';
-import { globalSplitManager } from '@app/signal/splitLayout';
+  CreateContextProvider,
+  useCreateContext,
+} from '@app/features/command/context/create-context';
+import { crmTaskComposerContext } from '@app/features/crm/task-composer';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
-import { createSignal, Suspense } from 'solid-js';
+import { type Accessor, createSignal, Suspense } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveComponent } from '../componentRegistry';
@@ -451,106 +450,109 @@ describe('contextual task composer registration', () => {
   );
 });
 
-const manager = globalSplitManager();
-if (!manager) throw new Error('Missing test split manager');
-describe('pane task context registration', () => {
-  it('registers during pane mount before the global manager is published', () => {
-    state.managerPublished = false;
-    state.split = { id: 'cold-pane' };
+function mountCreateContext(focusedPaneId: Accessor<string | undefined>) {
+  let context!: ReturnType<typeof useCreateContext>;
+  render(() => (
+    <CreateContextProvider focusedPaneId={focusedPaneId}>
+      {(() => {
+        context = useCreateContext();
+        return null;
+      })()}
+    </CreateContextProvider>
+  ));
+  return context;
+}
+
+describe('pane create context registration', () => {
+  it('reads the focused pane and supports explicit pane selection', () => {
+    const [paneId, setPaneId] = createSignal<string | undefined>('one');
+    const context = mountCreateContext(paneId);
     state.unregister.push(
-      registerTaskComposerContext(manager, 'cold-pane', () => ({
-        key: 'mounted',
-      }))
+      context.register('one', () => ({ task: { key: 'first' } })),
+      context.register('two', () => ({ task: { key: 'second' } }))
     );
-    expect(snapshotTaskComposerContext()).toBeUndefined();
-    state.managerPublished = true;
-    expect(snapshotTaskComposerContext()).toEqual({ key: 'mounted' });
+    expect(context.read('task')?.key).toBe('first');
+    expect(context.snapshot('task')?.key).toBe('first');
+    setPaneId('two');
+    expect(context.read('task')?.key).toBe('second');
+    expect(context.snapshot('task', 'one')?.key).toBe('first');
+    expect(context.read('task', 'one')?.key).toBe('first');
+    setPaneId(undefined);
+    expect(context.read('task')).toBeUndefined();
+    expect(context.snapshot('task')).toBeUndefined();
   });
 
-  it('isolates registrations with identical pane IDs in different layouts', () => {
-    const anotherManager = { ...manager };
-    state.split = { id: 'pane' };
+  it('isolates providers with identical pane IDs', () => {
+    const first = mountCreateContext(() => 'pane');
+    const second = mountCreateContext(() => 'pane');
     state.unregister.push(
-      registerTaskComposerContext(manager, 'pane', () => ({ key: 'current' }))
+      first.register('pane', () => ({ task: { key: 'first' } })),
+      second.register('pane', () => ({ task: { key: 'second' } }))
     );
-    state.unregister.push(
-      registerTaskComposerContext(anotherManager, 'pane', () => ({
-        key: 'another-layout',
-      }))
-    );
-    expect(snapshotTaskComposerContext()).toEqual({ key: 'current' });
+    expect(first.snapshot('task')?.key).toBe('first');
+    expect(second.snapshot('task')?.key).toBe('second');
   });
-  it('reads the focused pane without inspecting its route or capturing history', () => {
-    const source = vi.fn(() => ({ key: 'custom-view' }));
-    state.unregister.push(registerTaskComposerContext(manager, 'one', source));
+
+  it('works without a published global split manager', () => {
+    state.managerPublished = false;
+    const context = mountCreateContext(() => 'pane');
     state.unregister.push(
-      registerTaskComposerContext(manager, 'two', () => ({
-        key: 'second-view',
-      }))
+      context.register('pane', () => ({ task: { key: 'mounted' } }))
     );
-    state.split = { id: 'one' };
-    expect(snapshotTaskComposerContext()).toEqual({ key: 'custom-view' });
-    expect(source).toHaveBeenCalledOnce();
-    state.split = { id: 'two' };
-    expect(snapshotTaskComposerContext()).toEqual({ key: 'second-view' });
-    expect(snapshotTaskComposerContext('one')).toEqual({ key: 'custom-view' });
-    state.split = { id: 'unregistered' };
-    expect(snapshotTaskComposerContext()).toBeUndefined();
-    state.split = undefined;
-    expect(snapshotTaskComposerContext()).toBeUndefined();
+    expect(context.snapshot('task')?.key).toBe('mounted');
   });
 
   it('restores the parent after nested cleanup and tolerates repeated teardown', () => {
-    state.split = { id: 'pane' };
-    const removeParent = registerTaskComposerContext(manager, 'pane', () => ({
-      key: 'parent',
+    const context = mountCreateContext(() => 'pane');
+    const removeParent = context.register('pane', () => ({
+      task: { key: 'parent' },
     }));
-    const removeChild = registerTaskComposerContext(manager, 'pane', () => ({
-      key: 'child',
+    const removeChild = context.register('pane', () => ({
+      task: { key: 'child' },
     }));
     state.unregister.push(removeParent, removeChild);
-    expect(snapshotTaskComposerContext()?.key).toBe('child');
+    expect(context.snapshot('task')?.key).toBe('child');
     removeChild();
-    expect(snapshotTaskComposerContext()?.key).toBe('parent');
+    expect(context.snapshot('task')?.key).toBe('parent');
     removeChild();
-    expect(snapshotTaskComposerContext()?.key).toBe('parent');
+    expect(context.snapshot('task')?.key).toBe('parent');
     removeParent();
-    expect(snapshotTaskComposerContext()).toBeUndefined();
+    expect(context.snapshot('task')).toBeUndefined();
   });
 
   it('keeps the child when its parent unmounts first', () => {
-    state.split = { id: 'pane' };
-    const removeParent = registerTaskComposerContext(manager, 'pane', () => ({
-      key: 'parent',
+    const context = mountCreateContext(() => 'pane');
+    const removeParent = context.register('pane', () => ({
+      task: { key: 'parent' },
     }));
-    const removeChild = registerTaskComposerContext(manager, 'pane', () => ({
-      key: 'child',
+    const removeChild = context.register('pane', () => ({
+      task: { key: 'child' },
     }));
     state.unregister.push(removeParent, removeChild);
     removeParent();
-    expect(snapshotTaskComposerContext()?.key).toBe('child');
+    expect(context.snapshot('task')?.key).toBe('child');
     removeChild();
-    expect(snapshotTaskComposerContext()).toBeUndefined();
+    expect(context.snapshot('task')).toBeUndefined();
   });
 
   it('reads loaded associations at launch and leaves an earlier snapshot unchanged', () => {
-    state.split = { id: 'pane' };
+    const context = mountCreateContext(() => 'pane');
     const [companyId, setCompanyId] = createSignal<string>();
     state.unregister.push(
-      registerTaskComposerContext(manager, 'pane', () =>
-        crmTaskComposerContext({
+      context.register('pane', () => ({
+        task: crmTaskComposerContext({
           type: 'contact',
           id: 'maya',
           companyId: companyId(),
-        })
-      )
+        }),
+      }))
     );
-    const first = snapshotTaskComposerContext();
+    const first = context.snapshot('task');
     expect(
       first?.initialPropertyValues?.[SYSTEM_PROPERTY_IDS.COMPANIES]
     ).toBeUndefined();
     setCompanyId('acme');
-    const next = snapshotTaskComposerContext();
+    const next = context.snapshot('task');
     expect(next?.initialPropertyValues?.[SYSTEM_PROPERTY_IDS.CONTACTS]).toEqual(
       {
         valueType: 'ENTITY',
@@ -569,34 +571,59 @@ describe('pane task context registration', () => {
   });
 
   it('isolates snapshots from mutable provider values', () => {
-    const context = crmTaskComposerContext({ type: 'company', id: 'acme' });
-    state.split = { id: 'pane' };
-    state.unregister.push(
-      registerTaskComposerContext(manager, 'pane', () => context)
-    );
-    const snapshot = snapshotTaskComposerContext();
-    context.visiblePropertyIds?.push('new-property');
+    const context = mountCreateContext(() => 'pane');
+    const preset = crmTaskComposerContext({ type: 'company', id: 'acme' });
+    state.unregister.push(context.register('pane', () => ({ task: preset })));
+    const snapshot = context.snapshot('task');
+    preset.visiblePropertyIds?.push('new-property');
     expect(snapshot?.visiblePropertyIds).not.toContain('new-property');
   });
 
-  it('lets the provider gate its value without falling through to a parent', () => {
-    state.split = { id: 'pane' };
+  it('suppresses a parent with null and responds to reactive source changes', () => {
+    const context = mountCreateContext(() => 'pane');
     const [enabled, setEnabled] = createSignal(false);
     state.unregister.push(
-      registerTaskComposerContext(manager, 'pane', () => ({ key: 'parent' }))
+      context.register('pane', () => ({ task: { key: 'parent' } })),
+      context.register('pane', () => ({
+        task: enabled() ? { key: 'child' } : null,
+      }))
     );
-    state.unregister.push(
-      registerTaskComposerContext(manager, 'pane', () =>
-        enabled() ? { key: 'CRM' } : undefined
-      )
-    );
-    expect(snapshotTaskComposerContext()).toBeUndefined();
+    expect(context.read('task')).toBeUndefined();
+    expect(context.snapshot('task')).toBeUndefined();
     setEnabled(true);
-    const snapshot = snapshotTaskComposerContext();
-    expect(snapshot?.key).toBe('CRM');
+    const snapshot = context.snapshot('task');
+    expect(snapshot?.key).toBe('child');
     setEnabled(false);
-    expect(snapshotTaskComposerContext()).toBeUndefined();
-    expect(snapshot?.key).toBe('CRM');
+    expect(context.read('task')).toBeUndefined();
+    expect(snapshot?.key).toBe('child');
+  });
+
+  it('inherits the parent action when the child omits it', () => {
+    const context = mountCreateContext(() => 'pane');
+    state.unregister.push(
+      context.register('pane', () => ({ task: { key: 'parent' } })),
+      context.register('pane', () => ({}))
+    );
+    expect(context.read('task')?.key).toBe('parent');
+    expect(context.snapshot('task')?.key).toBe('parent');
+  });
+
+  it('updates reads when registrations change', () => {
+    const context = mountCreateContext(() => 'pane');
+    const removeParent = context.register('pane', () => ({
+      task: { key: 'parent' },
+    }));
+    state.unregister.push(removeParent);
+    expect(context.read('task')?.key).toBe('parent');
+    const removeChild = context.register('pane', () => ({
+      task: { key: 'child' },
+    }));
+    state.unregister.push(removeChild);
+    expect(context.read('task')?.key).toBe('child');
+    removeChild();
+    expect(context.read('task')?.key).toBe('parent');
+    removeParent();
+    expect(context.read('task')).toBeUndefined();
   });
 });
 

@@ -1,12 +1,8 @@
+import { useCreateContext } from '@app/features/command/context/create-context';
 import { useQuickAccessCrmCompaniesQuery } from '@app/features/crm/crm-search';
 import { withEntityNotifications } from '@app/features/soup/entity-notifications';
-import {
-  registerTaskComposerContext,
-  snapshotTaskComposerContext,
-} from '@app/features/task-composer/launch-context';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
-import { SplitLayoutContext } from '@components/app/split-layout/context';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
@@ -36,7 +32,7 @@ import { patchTeamCrmSettings } from '@service-auth/crm';
 import { storageServiceClient } from '@service-storage/client';
 import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { useQueryClient } from '@tanstack/solid-query';
-import { createMemo, lazy, useContext } from 'solid-js';
+import { createMemo, lazy } from 'solid-js';
 import type { CrmContext } from './context/crm-context';
 import type { CrmQuery, ItemListSource } from './context/crm-sources';
 import {
@@ -177,18 +173,15 @@ export function createAppCrmContext(): CrmContext {
   const userId = useUserId();
   const layout = useSplitLayout();
   const panel = useSplitPanel();
-  const splitLayout = useContext(SplitLayoutContext);
+  const createContext = useCreateContext();
   const activityFlag = useFeatureFlag(enableCrmActivity);
   const createSettings = () => useTeamCrmConfig(deps);
   return {
     registerTaskComposerRecord(source) {
-      if (!panel || !splitLayout) return () => {};
-      return registerTaskComposerContext(
-        splitLayout.manager,
-        panel.handle.id,
-        () =>
-          activityFlag().enabled ? crmTaskComposerContext(source()) : undefined
-      );
+      if (!panel) return () => {};
+      return createContext.register(panel.handle.id, () => ({
+        task: activityFlag().enabled ? crmTaskComposerContext(source()) : null,
+      }));
     },
     createPipelines: (teamId) => createPipelinesSource(deps, teamId),
     PipelineEditor: PipelineDatabaseEditor,
@@ -232,7 +225,7 @@ export function createAppCrmContext(): CrmContext {
         id: 'task-compose',
         params: {
           composerContext: panel
-            ? snapshotTaskComposerContext(panel.handle.id)
+            ? createContext.snapshot('task', panel.handle.id)
             : undefined,
         },
       }),

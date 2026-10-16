@@ -41,9 +41,13 @@ CRM-specific state again.
 
 `task-composer.ts` owns the CRM task preset: Companies/Contacts are visible,
 Status remains a task default but is not initially shown. CRM registers live
-`TaskComposerContext` getters with the task-composer registry, scoped to its pane.
-The workspace registers the unassociated preset; nested record getters override
-it and include already-loaded associations. Teardown restores the parent getter.
+`{ task: TaskComposerContext }` values with the provider in
+`command/context/create-context.tsx`, scoped to its pane. The app shell owns the
+provider and supplies the layout's focus accessor; no global registry or manager
+key is involved. The workspace registers the unassociated preset; nested record
+getters override it and include already-loaded associations. Teardown restores
+the parent getter. Omitted action entries inherit; `task: null` explicitly
+suppresses a parent preset when CRM's rollout is disabled.
 The selected-record fallback survives detail query errors until the record closes.
 Global task creation snapshots the focused pane's getter before opening, without
 fetching details or capturing navigation history. Record contexts isolate drafts.

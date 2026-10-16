@@ -520,9 +520,12 @@ filter sheets. Desktop uses the centered composer dialog.
    task as a full document.
 
 The property row adapts when the launching pane supplies a task-composer preset.
-The focused pane's registered context is snapshotted before the composer opens;
-no detail fetch or navigation-state capture is needed. Without a preset, the
-standard property row and draft are used. The shared composer is not feature-flagged.
+The app shell's creation-context provider snapshots the focused pane's preset
+before the composer opens. It reads the layout's existing focus accessor, not a
+global context registry; no detail fetch or navigation-state capture is needed.
+Without a preset, the standard property row and draft are used. The shared
+composer is not feature-flagged. Create-menu actions, shortcuts, and pane buttons
+capture the provider during setup and read the preset when invoked.
 
 Customers supplies its preset when PostHog `enable-crm-activity` is enabled:
 **Companies** and **Contacts** replace Status in the initial row; Status still
