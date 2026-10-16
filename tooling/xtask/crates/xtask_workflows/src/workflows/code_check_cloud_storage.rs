@@ -99,6 +99,10 @@ fn check() -> Job {
         .add_step(steps::setup_nix())
         .add_step(steps::setup_dev_shell())
         .add_step(steps::configure_namespace_sccache(vars::CI_SCCACHE_NAME))
+        .add_step(
+            Step::new("Check embedded code execution assets")
+                .run("nix build --no-link .#checks.x86_64-linux.code-execution-assets"),
+        )
         .add_step(cargo_fmt())
         .add_step(cargo_clippy())
         .add_step(steps::show_sccache_stats())

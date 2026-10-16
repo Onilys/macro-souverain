@@ -13,18 +13,25 @@ import ArrowLineUp from '@phosphor/arrow-line-up.svg';
 import ArrowUp from '@phosphor/arrow-up.svg';
 import Clipboard from '@phosphor/clipboard.svg';
 import Copy from '@phosphor/copy.svg';
+import DownloadSimple from '@phosphor/download-simple.svg';
 import Scissors from '@phosphor/scissors.svg';
 import SelectionAll from '@phosphor/selection-all.svg';
 import SelectionPlus from '@phosphor/selection-plus.svg';
 import SelectionSlash from '@phosphor/selection-slash.svg';
 import Stack from '@phosphor/stack.svg';
 import Trash from '@phosphor/trash.svg';
+import { Show } from 'solid-js';
 import type { CanvasClipboard } from '../clipboard';
 import type { CanvasState } from '../primitives/create-canvas-state';
 
 export function CanvasContextMenu(props: {
   state: CanvasState;
   clipboard: CanvasClipboard;
+  imageActions?: {
+    disabled: boolean;
+    onCopy: () => void;
+    onSave: () => void;
+  };
   onClose: () => void;
 }) {
   const selected = () => props.state.selection().length > 0;
@@ -72,6 +79,25 @@ export function CanvasContextMenu(props: {
           onClick={props.state.duplicate}
         />
         <MenuSeparator />
+        <Show when={props.imageActions}>
+          {(actions) => (
+            <>
+              <MenuItem
+                text="Copy image"
+                icon={Copy}
+                disabled={actions().disabled}
+                onClick={() => actions().onCopy()}
+              />
+              <MenuItem
+                text="Save image"
+                icon={DownloadSimple}
+                disabled={actions().disabled}
+                onClick={() => actions().onSave()}
+              />
+              <MenuSeparator />
+            </>
+          )}
+        </Show>
         <MenuItem
           text="Group"
           icon={SelectionPlus}

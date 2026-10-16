@@ -60,6 +60,10 @@ panel tokens; the dot-grid visibility toggle hides every level.
 The shared context menu exposes clipboard, grouping, layer ordering, select-all,
 and delete actions, with normal keyboard navigation and focus restoration. Active
 embedded editors and text editing retain their own context menus.
+With exactly one image selected, the context menu and inspector also offer
+**Copy image** and **Save image** for the original image, without canvas styling
+or transforms. These reuse the shared image actions (including native mobile
+sharing) and stay disabled while the image source or an action is pending.
 Selecting Arrow, Line, Connector, or Pencil repairs invisible drawing defaults:
 missing/transparent strokes use theme Ink, zero width uses 2 px, and zero opacity
 uses full opacity. Other style choices and existing shapes are preserved.

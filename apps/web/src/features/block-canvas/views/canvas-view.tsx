@@ -1,4 +1,5 @@
 import { useSidePanel } from '@components/app/side-panel';
+import { createImageActions } from '@core/component/Lightbox/createImageActions';
 import { ContextMenu } from '@kobalte/core/context-menu';
 import {
   alignCommand,
@@ -16,7 +17,9 @@ import {
   RectangleView,
   TextView,
 } from '@macro-inc/graphics/solid';
-import { Layer } from '@ui';
+import Copy from '@phosphor/copy.svg';
+import DownloadSimple from '@phosphor/download-simple.svg';
+import { Button, Layer } from '@ui';
 import {
   type Component,
   createMemo,
@@ -47,6 +50,7 @@ import type {
 } from '../primitives/create-canvas-state';
 import type { CanvasInsertState } from '../primitives/create-insert-state';
 import { attachTextInput } from '../primitives/text-input';
+import { useCanvasMediaSource } from '../queries/media';
 import { CanvasContextMenu } from './canvas-context-menu';
 import {
   CanvasDrawingToolbar,
@@ -95,6 +99,19 @@ export function CanvasView(props: {
     state.selection().length === 1
       ? state.document.items[state.selection()[0]!]
       : undefined;
+  const selectedImage = () => {
+    const item = selectedItem();
+    return item?.type === 'image' ? item : undefined;
+  };
+  const imageSource = useCanvasMediaSource(
+    () => selectedImage()?.geometry.source
+  );
+  const imageActions = createImageActions({
+    src: imageSource.url,
+    imageId: () => selectedImage()?.id ?? '',
+  });
+  const imageActionsDisabled = () =>
+    !imageSource.url() || imageActions.isPrefetching() || imageActions.isBusy();
   const styleKinds = () =>
     state.shapes().length
       ? state.shapes().map((item) => item.type)
@@ -394,6 +411,26 @@ export function CanvasView(props: {
                       onScrub={() => state.text.scrubFontSize(state.inspector)}
                     />
                   </Show>
+                  <Show when={selectedImage()}>
+                    <div class="flex flex-col gap-2 p-3">
+                      <Button
+                        size="sm"
+                        disabled={imageActionsDisabled()}
+                        onClick={() => void imageActions.copyToClipboard()}
+                      >
+                        <Copy />
+                        Copy image
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={imageActionsDisabled()}
+                        onClick={() => void imageActions.downloadImage()}
+                      >
+                        <DownloadSimple />
+                        Save image
+                      </Button>
+                    </div>
+                  </Show>
                   <Show when={selectedItem()?.type === 'video'}>
                     <button
                       type="button"
@@ -651,6 +688,15 @@ export function CanvasView(props: {
           <CanvasContextMenu
             state={state}
             clipboard={props.clipboard}
+            imageActions={
+              selectedImage()
+                ? {
+                    disabled: imageActionsDisabled(),
+                    onCopy: () => void imageActions.copyToClipboard(),
+                    onSave: () => void imageActions.downloadImage(),
+                  }
+                : undefined
+            }
             onClose={focus}
           />
         </ContextMenu>
