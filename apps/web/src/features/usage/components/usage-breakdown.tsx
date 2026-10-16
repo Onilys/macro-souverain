@@ -12,7 +12,8 @@ type UsageCategory = {
   label: string;
   description: string;
   icon: typeof BrainIcon;
-  color: string;
+  bgClass: string;
+  textClass: string;
 };
 
 const USAGE_CATEGORIES: UsageCategory[] = [
@@ -21,28 +22,32 @@ const USAGE_CATEGORIES: UsageCategory[] = [
     label: 'AI Agent Chats',
     description: 'Conversations with AI assistants',
     icon: ChatCircleDotsIcon,
-    color: 'bg-blue-500',
+    bgClass: 'bg-blue-bg',
+    textClass: 'text-blue-ink',
   },
   {
     id: 'document',
     label: 'Document Editing',
     description: 'AI-powered writing and editing',
     icon: FileTextIcon,
-    color: 'bg-purple-500',
+    bgClass: 'bg-purple-bg',
+    textClass: 'text-purple-ink',
   },
   {
     id: 'memory',
     label: 'AI Memory',
     description: 'Context and memory operations',
     icon: BrainIcon,
-    color: 'bg-green-500',
+    bgClass: 'bg-green-bg',
+    textClass: 'text-green-ink',
   },
   {
     id: 'other',
     label: 'Other AI Features',
     description: 'Search, suggestions, and more',
     icon: FlaskIcon,
-    color: 'bg-orange-500',
+    bgClass: 'bg-orange-bg',
+    textClass: 'text-orange-ink',
   },
 ];
 
@@ -70,7 +75,8 @@ export function UsageBreakdown(props: { summary: UsageSummary | undefined }) {
                 <div
                   class={cn(
                     'flex size-6 items-center justify-center rounded',
-                    category.color.replace('bg-', 'bg-opacity-15 text-')
+                    category.bgClass,
+                    category.textClass
                   )}
                 >
                   <category.icon class="size-3.5" />
