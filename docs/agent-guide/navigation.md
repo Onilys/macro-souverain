@@ -20,7 +20,8 @@ must load through the webview, not native HTTP. A `vite:preloadError` with
 same bundle does not resolve it.
 
 When multiple desktop splits are open, each split's **Close split** button floats
-halfway over its top-left corner, outside the content header. It closes only that
+halfway over its top-left corner, outside the content header, in a 28px circle
+with a 16px X inset by 6px. It closes only that
 split; the last remaining page keeps its existing return-to-list navigation.
 Mobile keeps its existing navigation controls. Verify both collection and document
 splits, including the exposed half of the button, after changing split chrome.
