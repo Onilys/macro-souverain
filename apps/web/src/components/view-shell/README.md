@@ -59,3 +59,5 @@ sidebar needs a different menu from the main toolbar. Explicit
 Use `Search [thing]` placeholders. `SidebarActionOverride` supplies subview
 controls and restores the parent on exit. `useSidebarSearchFocus` reveals
 navigation before focusing; `onSearch` can leave a detail view on input focus.
+
+When navigation is collapsed or overlays the main pane, desktop topbars use a 12px left inset so the navigation toggle glyph has matching top and left spacing.

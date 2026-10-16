@@ -660,6 +660,7 @@ function TopBar(
     controls?: JSX.Element;
   }
 ) {
+  const ws = useContext(ViewShellContext);
   const [local, rest] = splitProps(props, [
     'children',
     'class',
@@ -675,7 +676,8 @@ function TopBar(
         class={cn(
           '@container/split-header flex h-12 min-w-0 shrink-0 items-center gap-1 px-2 py-3 not-touch:pl-3 touch:hidden',
           local.class,
-          local.workspaceActions && 'h-auto min-h-12 px-4 py-2 not-touch:pl-4'
+          local.workspaceActions && 'h-auto min-h-12 px-4 py-2 not-touch:pl-4',
+          (ws?.aside.isCollapsed() || ws?.aside.isOverlay()) && 'not-touch:pl-3'
         )}
         data-view-shell-top-bar=""
       >
