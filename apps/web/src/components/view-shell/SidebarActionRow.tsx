@@ -203,7 +203,7 @@ export function SidebarActionRow(props: {
     <>
       <ViewSidebar.Header
         class={cn(
-          '@container/sidebar-header h-12 gap-1 py-1',
+          'h-12 gap-2 py-1',
           current().hasCreate() && 'pl-(--sidebar-gutter)',
           props.class
         )}
