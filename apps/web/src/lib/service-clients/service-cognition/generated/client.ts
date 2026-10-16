@@ -6,7 +6,6 @@
  */
 import type {
   AddServerRequest,
-  AiAdmissionErrorBody,
   BrowsePipedreamMcpCatalogParams,
   CallToolRequest,
   CallToolResponse,
@@ -1363,7 +1362,7 @@ export const runImportHandler = async (
 };
 
 /**
- * @summary Discover candidates for user selection without auto-importing them.
+ * @summary Discover candidates for user selection. Only Slack supports discovery.
  */
 export type discoverHandlerResponse204 = {
   data: void;
@@ -1415,129 +1414,6 @@ export const discoverHandler = async (
     status: res.status,
     headers: res.headers,
   } as discoverHandlerResponse;
-};
-
-/**
- * @summary Dismiss one source's import section.
- */
-export type dismissRunHandlerResponse204 = {
-  data: void;
-  status: 204;
-};
-
-export type dismissRunHandlerResponse400 = {
-  data: void;
-  status: 400;
-};
-
-export type dismissRunHandlerResponse500 = {
-  data: void;
-  status: 500;
-};
-
-export type dismissRunHandlerResponseSuccess = dismissRunHandlerResponse204 & {
-  headers: Headers;
-};
-export type dismissRunHandlerResponseError = (
-  | dismissRunHandlerResponse400
-  | dismissRunHandlerResponse500
-) & {
-  headers: Headers;
-};
-
-export type dismissRunHandlerResponse =
-  | dismissRunHandlerResponseSuccess
-  | dismissRunHandlerResponseError;
-
-export const getDismissRunHandlerUrl = (source: string) => {
-  return `/import/runs/${source}/dismiss`;
-};
-
-export const dismissRunHandler = async (
-  source: string,
-  options?: RequestInit
-): Promise<dismissRunHandlerResponse> => {
-  const res = await fetch(getDismissRunHandlerUrl(source), {
-    ...options,
-    method: 'POST',
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: dismissRunHandlerResponse['data'] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as dismissRunHandlerResponse;
-};
-
-/**
- * @summary Restart a failed (or dismissed) gather run for one source.
- */
-export type retryGatherHandlerResponse204 = {
-  data: void;
-  status: 204;
-};
-
-export type retryGatherHandlerResponse400 = {
-  data: void;
-  status: 400;
-};
-
-export type retryGatherHandlerResponse402 = {
-  data: AiAdmissionErrorBody;
-  status: 402;
-};
-
-export type retryGatherHandlerResponse500 = {
-  data: void;
-  status: 500;
-};
-
-export type retryGatherHandlerResponse503 = {
-  data: AiAdmissionErrorBody;
-  status: 503;
-};
-
-export type retryGatherHandlerResponseSuccess =
-  retryGatherHandlerResponse204 & {
-    headers: Headers;
-  };
-export type retryGatherHandlerResponseError = (
-  | retryGatherHandlerResponse400
-  | retryGatherHandlerResponse402
-  | retryGatherHandlerResponse500
-  | retryGatherHandlerResponse503
-) & {
-  headers: Headers;
-};
-
-export type retryGatherHandlerResponse =
-  | retryGatherHandlerResponseSuccess
-  | retryGatherHandlerResponseError;
-
-export const getRetryGatherHandlerUrl = (source: string) => {
-  return `/import/runs/${source}/retry`;
-};
-
-export const retryGatherHandler = async (
-  source: string,
-  options?: RequestInit
-): Promise<retryGatherHandlerResponse> => {
-  const res = await fetch(getRetryGatherHandlerUrl(source), {
-    ...options,
-    method: 'POST',
-  });
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: retryGatherHandlerResponse['data'] = body ? JSON.parse(body) : {};
-  return {
-    data,
-    status: res.status,
-    headers: res.headers,
-  } as retryGatherHandlerResponse;
 };
 
 /**

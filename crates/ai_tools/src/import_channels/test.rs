@@ -12,8 +12,8 @@ use channels::{
 use import::{
     domain::{
         models::{
-            ImportEntity, ImportSource, ImportStatus, ImportTargetKey, ImportTargetKind,
-            ImportTargetReservation, Initiator, SlackConversationId,
+            ImportEntity, ImportKind, ImportSource, ImportStatus, ImportTargetKey,
+            ImportTargetKind, ImportTargetReservation, Initiator, SlackConversationId,
         },
         ports::{
             CanonicalImportRepo, EntityCreator, ImportRepo, ImportedDocumentProperties,
@@ -123,7 +123,8 @@ async fn stage(repo: &PgImportRepo) -> ImportEntity {
     repo.upsert_staged(
         &user(),
         ImportSource::Slack,
-        Initiator::Onboarding,
+        ImportKind::Channel,
+        Initiator::Manual,
         key().foreign_id.as_str(),
         &serde_json::json!({"name": "engineering", "channel_id": key().foreign_id.as_str()}),
     )

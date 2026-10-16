@@ -1,8 +1,8 @@
 use super::*;
 use crate::domain::{
     models::{
-        ImportSource, ImportSourceBinding, ImportStatus, ImportTargetReservation, Initiator,
-        SlackWorkspaceId,
+        ImportKind, ImportSource, ImportSourceBinding, ImportStatus, ImportTargetReservation,
+        Initiator, SlackWorkspaceId,
     },
     ports::{ImportError, ImportedDocumentProperties, ImportedTaskProperties, Result},
 };
@@ -149,9 +149,12 @@ fn fixture() -> (MacroUserIdStr<'static>, ImportEntity, ImportTargetKey) {
         user_id: user.to_string(),
         team_id: None,
         source: ImportSource::Slack,
+        kind: ImportKind::Channel,
         foreign_id: key.foreign_id.as_str().to_string(),
+        parent_id: None,
+        review_id: None,
         status: ImportStatus::Importing,
-        initiator: Initiator::Onboarding,
+        initiator: Initiator::Manual,
         metadata: serde_json::json!({"name": "engineering", "channel_id": key.foreign_id.as_str()}),
         entity_id: None,
         entity_type: None,

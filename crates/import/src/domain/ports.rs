@@ -1,9 +1,9 @@
 //! Ports (traits) the import domain depends on.
 
 use super::models::{
-    ImportEntity, ImportRun, ImportSource, ImportSourceBinding, ImportStatus, ImportTargetKey,
-    ImportTargetKind, ImportTargetReservation, Initiator, RunStatus, SlackConversationId,
-    SlackConversationPage, SlackMemberPage, SlackUserPage, SlackWorkspaceId,
+    ImportEntity, ImportKind, ImportRun, ImportSource, ImportSourceBinding, ImportStatus,
+    ImportTargetKey, ImportTargetKind, ImportTargetReservation, Initiator, RunStatus,
+    SlackConversationId, SlackConversationPage, SlackMemberPage, SlackUserPage, SlackWorkspaceId,
 };
 use macro_user_id::user_id::MacroUserIdStr;
 use std::time::Duration;
@@ -106,10 +106,10 @@ pub trait SlackWorkspaceSession: Send + Sync {
     ) -> impl Future<Output = std::result::Result<SlackUserPage, SlackSourceError>> + Send;
 }
 
-/// Persistence for the import ledger and gather runs.
+/// Persistence for the import ledger and discovery runs.
 ///
 /// Status writes are compare-and-swaps that report whether they happened, so
-/// concurrent gather jobs, import jobs, and user actions interleave without
+/// concurrent discovery jobs, import jobs, and user actions interleave without
 /// clobbering each other.
 pub trait ImportRepo: Send + Sync + 'static {
     /// The user's own row for `(source, foreign_id)`, regardless of status.
@@ -137,6 +137,7 @@ pub trait ImportRepo: Send + Sync + 'static {
         &self,
         user: &MacroUserIdStr<'static>,
         source: ImportSource,
+        kind: ImportKind,
         initiator: Initiator,
         foreign_id: &str,
         metadata: &serde_json::Value,
@@ -151,6 +152,7 @@ pub trait ImportRepo: Send + Sync + 'static {
         &self,
         user: &MacroUserIdStr<'static>,
         source: ImportSource,
+        kind: ImportKind,
         initiator: Initiator,
         foreign_id: &str,
         metadata: &serde_json::Value,
@@ -228,26 +230,6 @@ pub trait ImportRepo: Send + Sync + 'static {
         id: Uuid,
     ) -> impl Future<Output = Result<bool>> + Send;
 
-    /// Discard all of the user's remaining `staged` rows with the given
-    /// initiator (an explicit "no" — `stage()` refuses to re-stage them).
-    /// Returns how many flipped.
-    fn discard_staged_by_initiator(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        initiator: Initiator,
-    ) -> impl Future<Output = Result<u64>> + Send;
-
-    /// DELETE the user's remaining unreserved `staged` rows with the given
-    /// initiator. Onboarding candidates reserved by an active or retryable
-    /// configured auto-import run survive completion cleanup; other
-    /// candidates the user never acted on vanish and stay re-stageable later.
-    /// Returns how many were removed.
-    fn delete_staged_by_initiator(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        initiator: Initiator,
-    ) -> impl Future<Output = Result<u64>> + Send;
-
     /// The user's team, when they are on one.
     fn user_team_id(
         &self,
@@ -261,28 +243,15 @@ pub trait ImportRepo: Send + Sync + 'static {
         team_id: Uuid,
     ) -> impl Future<Output = Result<Vec<MacroUserIdStr<'static>>>> + Send;
 
-    /// All gather runs for the user.
+    /// All discovery runs for the user.
     fn list_runs(
         &self,
         user: &MacroUserIdStr<'static>,
     ) -> impl Future<Output = Result<Vec<ImportRun>>> + Send;
 
-    /// CAS a gather run to `running`. New rows persist `auto_import`
-    /// atomically; retries preserve the existing run's setting. Wins when no
-    /// run row exists yet, or when the existing row's status is in `from`.
-    /// Returns whether this call won.
+    /// CAS a discovery run to `running`. Wins when no run exists or the
+    /// existing status is in `from`. Returns whether this call won.
     fn start_run(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-        from: &[RunStatus],
-        auto_import: bool,
-    ) -> impl Future<Output = Result<bool>> + Send;
-
-    /// CAS a run to `running` with `auto_import = false`. Wins when no run
-    /// exists or the existing status is in `from`. Unlike `start_run`, a
-    /// successful claim always clears `auto_import`.
-    fn start_manual_run(
         &self,
         user: &MacroUserIdStr<'static>,
         source: ImportSource,
@@ -298,42 +267,6 @@ pub trait ImportRepo: Send + Sync + 'static {
         to: RunStatus,
         error: Option<&str>,
     ) -> impl Future<Output = Result<bool>> + Send;
-
-    /// CAS a run from one of `from` to `to` without touching its error.
-    fn transition_run(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-        from: &[RunStatus],
-        to: RunStatus,
-    ) -> impl Future<Output = Result<bool>> + Send;
-
-    /// Atomically claim a ready, auto-import-enabled run and all of its own
-    /// onboarding-staged candidates. `None` means another caller won or the
-    /// run is not ready/configured; `Some([])` is a valid empty run.
-    fn begin_auto_import(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-    ) -> impl Future<Output = Result<Option<Vec<ImportEntity>>>> + Send;
-
-    /// Finish an auto-import run after every claimed row has settled. The run
-    /// becomes `completed` only when all claimed rows are imported; otherwise
-    /// it becomes `failed`. Returns the terminal status when this call won.
-    fn finish_auto_import(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-        ids: &[Uuid],
-    ) -> impl Future<Output = Result<Option<RunStatus>>> + Send;
-
-    /// Repair auto-import run rows after process interruption. An `importing`
-    /// run with no importing onboarding rows is terminal: `failed` when a
-    /// staged row carries an import error, otherwise `completed`.
-    fn reconcile_auto_import_runs(
-        &self,
-        user: &MacroUserIdStr<'static>,
-    ) -> impl Future<Output = Result<u64>> + Send;
 }
 
 /// Narrow canonical Slack ledger persistence shared by archive and onboarding.

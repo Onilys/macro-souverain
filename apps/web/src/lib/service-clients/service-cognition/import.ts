@@ -39,6 +39,17 @@ function importFetch<T extends ObjectLike = never>(
 
 export type ImportSource = 'linear' | 'notion' | 'slack';
 
+/** What an imported item is in its source system. */
+export type ImportKind =
+  | 'issue'
+  | 'project'
+  | 'document'
+  | 'page'
+  | 'database'
+  | 'data_source'
+  | 'row'
+  | 'channel';
+
 export type ImportEntityStatus =
   | 'staged'
   | 'importing'
@@ -97,7 +108,12 @@ export type ImportEntity = {
   user_id: string;
   team_id?: string | null;
   source: ImportSource;
+  kind: ImportKind;
   foreign_id: string;
+  /** The row this item was imported under, when it was part of a tree. */
+  parent_id?: string | null;
+  /** The agent session review that approved importing it, if any. */
+  review_id?: string | null;
   status: ImportEntityStatus;
   initiator: ImportInitiator;
   /** Per-source metadata; shape keyed by `source` (see the Meta types). */
@@ -109,11 +125,10 @@ export type ImportEntity = {
   updated_at: string;
 };
 
-/** Gather-run state for one source. */
+/** Discovery-run state for one source. */
 export type ImportRun = {
   source: ImportSource;
   status: ImportRunStatus;
-  auto_import: boolean;
   error?: string | null;
   updated_at: string;
 };
@@ -129,7 +144,7 @@ export type RunImportOutcome = {
 };
 
 export const importClient = {
-  /** Gather runs plus visible ledger rows for the authenticated user. */
+  /** Discovery runs plus visible ledger rows for the authenticated user. */
   async getState() {
     return await importFetch<ImportState>('/import/state', { method: 'GET' });
   },
@@ -149,24 +164,6 @@ export const importClient = {
   /** Discover candidates for manual selection. */
   async discover(source: ImportSource) {
     return await importFetch(`/import/runs/${source}/discover`, {
-      method: 'POST',
-    });
-  },
-
-  /** Restart a failed gather run for one source. */
-  async retryGather(source: ImportSource) {
-    return await fetchWithToken<{}, typeof AI_USAGE_LIMIT_ERROR>(
-      `${dcsHost}/import/runs/${source}/retry`,
-      {
-        method: 'POST',
-        errorResponseHandler: aiUsageErrorResponseHandler,
-      }
-    );
-  },
-
-  /** Dismiss one source's import section. */
-  async dismissRun(source: ImportSource) {
-    return await importFetch(`/import/runs/${source}/dismiss`, {
       method: 'POST',
     });
   },

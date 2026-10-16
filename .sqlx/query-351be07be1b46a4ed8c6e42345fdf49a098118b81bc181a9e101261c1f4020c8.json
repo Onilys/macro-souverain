@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO import_entity (user_id, source, foreign_id, status, initiator, metadata)\n            VALUES ($1, $2, $3, 'staged', $4, $5)\n            ON CONFLICT (user_id, source, foreign_id) DO UPDATE\n            SET metadata = EXCLUDED.metadata, updated_at = NOW()\n            WHERE import_entity.status = 'staged'\n            RETURNING id, user_id, team_id, source, foreign_id, status, initiator,\n                      metadata, entity_id, entity_type, last_error, created_at, updated_at\n            ",
+  "query": "\n            UPDATE import_entity\n            SET status = 'imported', entity_id = $3, entity_type = $4, team_id = $5,\n                last_error = NULL, updated_at = NOW()\n            WHERE user_id = $1 AND id = $2 AND status = 'importing'\n            RETURNING id, user_id, team_id, source, kind, foreign_id, parent_id, review_id, status,\n                      initiator, metadata, entity_id, entity_type, last_error, created_at,\n                      updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -25,46 +25,61 @@
       },
       {
         "ordinal": 4,
-        "name": "foreign_id",
+        "name": "kind",
         "type_info": "Text"
       },
       {
         "ordinal": 5,
-        "name": "status",
+        "name": "foreign_id",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
-        "name": "initiator",
-        "type_info": "Text"
+        "name": "parent_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 7,
-        "name": "metadata",
-        "type_info": "Jsonb"
+        "name": "review_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 8,
-        "name": "entity_id",
+        "name": "status",
         "type_info": "Text"
       },
       {
         "ordinal": 9,
-        "name": "entity_type",
+        "name": "initiator",
         "type_info": "Text"
       },
       {
         "ordinal": 10,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 11,
+        "name": "entity_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "entity_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
         "name": "last_error",
         "type_info": "Text"
       },
       {
-        "ordinal": 11,
+        "ordinal": 14,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 12,
+        "ordinal": 15,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -72,10 +87,10 @@
     "parameters": {
       "Left": [
         "Text",
+        "Uuid",
         "Text",
         "Text",
-        "Text",
-        "Jsonb"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -83,7 +98,10 @@
       false,
       true,
       false,
+      true,
       false,
+      true,
+      true,
       false,
       false,
       false,
@@ -94,5 +112,5 @@
       false
     ]
   },
-  "hash": "0fca1dabefce12acb121ed6ca71a63dfffc2df9ef70b51421f9adf07ed71f3ac"
+  "hash": "351be07be1b46a4ed8c6e42345fdf49a098118b81bc181a9e101261c1f4020c8"
 }

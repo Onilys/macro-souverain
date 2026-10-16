@@ -116,17 +116,6 @@ fn notion_import_failure_reason_preserves_the_actual_error() {
 }
 
 #[test]
-fn slack_gather_lists_channels_with_an_explicit_empty_query() {
-    let prompt = prompts::gather_system(ImportSource::Slack);
-
-    assert!(prompt.contains("FIRST call `Search channels`"));
-    assert!(prompt.contains(r#"{"query": ""}"#));
-    assert!(prompt.contains("an empty query lists all channels"));
-    assert!(!prompt.contains("Always pass a non-empty query"));
-    assert!(prompt.contains("Participant details are optional"));
-}
-
-#[test]
 fn notion_fetch_text_parses_the_fetch_document_shape() {
     let parsed = parse_notion_fetch_result(serde_json::Value::String(
         r##"{"id":"abc","title":"Roadmap H2","text":"# Roadmap\ncontent","url":"https://notion.so/x","properties":{"title":"Roadmap H2","Tags":["Planning","H2"],"Done":"__YES__","Score":4.5,"date:Due:start":"2026-08-01","date:Due:is_datetime":0}}"##

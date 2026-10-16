@@ -76,6 +76,16 @@ impl ImportSource {
         }
     }
 
+    /// The kind of item this source's current import paths stage: Linear
+    /// issues, Notion pages, and Slack channels.
+    pub fn default_kind(self) -> ImportKind {
+        match self {
+            ImportSource::Linear => ImportKind::Issue,
+            ImportSource::Notion => ImportKind::Page,
+            ImportSource::Slack => ImportKind::Channel,
+        }
+    }
+
     /// The Macro entity type items from this source become. The mapping is
     /// fixed — importers have latitude on content, never on shape.
     pub fn entity_type(self) -> &'static str {
@@ -116,6 +126,56 @@ impl ImportSource {
     }
 }
 
+/// What an imported item is in its source system. Each source has its own
+/// kinds; a Notion database and a Notion page, or a Linear project and a
+/// Linear issue, are tracked and deduplicated separately.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    ToSchema,
+    strum::EnumString,
+    strum::AsRefStr,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum ImportKind {
+    /// A Linear issue.
+    Issue,
+    /// A Linear project.
+    Project,
+    /// A Linear document.
+    Document,
+    /// A Notion page.
+    Page,
+    /// A Notion database.
+    Database,
+    /// One data source (table) of a Notion database.
+    DataSource,
+    /// One row of a Notion data source.
+    Row,
+    /// A Slack channel.
+    Channel,
+}
+
+impl ImportKind {
+    /// The source this kind of item comes from.
+    pub fn source(self) -> ImportSource {
+        match self {
+            ImportKind::Issue | ImportKind::Project | ImportKind::Document => ImportSource::Linear,
+            ImportKind::Page | ImportKind::Database | ImportKind::DataSource | ImportKind::Row => {
+                ImportSource::Notion
+            }
+            ImportKind::Channel => ImportSource::Slack,
+        }
+    }
+}
+
 /// Lifecycle of one import entity.
 #[derive(
     Debug,
@@ -139,7 +199,7 @@ pub enum ImportStatus {
     Importing,
     /// A Macro entity exists for it (`entity_id`/`entity_type` are set).
     Imported,
-    /// The user declined it. Remembered so re-gathers don't re-stage it.
+    /// The user declined it. Remembered so later discovery doesn't re-stage it.
     Discarded,
 }
 
@@ -161,7 +221,7 @@ pub enum ImportStatus {
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum Initiator {
-    /// Staged by the onboarding gather job (`/setup`).
+    /// Legacy: staged by the removed onboarding gather. No longer written.
     Onboarding,
     /// Staged by an AI chat session.
     Chat,
@@ -171,7 +231,7 @@ pub enum Initiator {
     Manual,
 }
 
-/// Lifecycle of a gather run (one per user × source).
+/// Lifecycle of a discovery run (one per user × source).
 #[derive(
     Debug,
     Clone,
@@ -187,18 +247,18 @@ pub enum Initiator {
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum RunStatus {
-    /// A gather job is discovering candidates.
+    /// Discovery is staging candidates.
     Running,
-    /// The gather finished; staged rows (if any) are ready.
+    /// Discovery finished; staged rows (if any) are ready.
     Ready,
-    /// The gather finished and its configured automatic import is running.
+    /// Legacy: an onboarding automatic import was running. No longer written.
     Importing,
-    /// The configured automatic import finished successfully.
+    /// Legacy: an onboarding automatic import finished. No longer written.
     Completed,
-    /// Gathering or automatic importing failed; `error` has details.
-    /// Retryable.
+    /// Discovery failed; `error` has details. Retryable.
     Failed,
-    /// The user dismissed this source's import section.
+    /// Legacy: the user dismissed an onboarding import section. No longer
+    /// written.
     Dismissed,
 }
 
@@ -618,9 +678,17 @@ pub struct ImportEntity {
     pub team_id: Option<Uuid>,
     /// The external system the item comes from.
     pub source: ImportSource,
+    /// What the item is in its source system.
+    pub kind: ImportKind,
     /// Stable id in the source system (see
     /// [`ImportSource::normalize_foreign_id`]).
     pub foreign_id: String,
+    /// The import row this item was imported under (a subpage's parent page,
+    /// a row's database), when it was imported as part of a tree.
+    pub parent_id: Option<Uuid>,
+    /// The agent session review that approved importing this item, when it
+    /// came from one.
+    pub review_id: Option<Uuid>,
     /// Where the row is in its lifecycle.
     pub status: ImportStatus,
     /// Where it was first staged from.
@@ -640,27 +708,24 @@ pub struct ImportEntity {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Gather-run state for one user × source.
+/// Discovery-run state for one user × source.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ImportRun {
-    /// The source this run gathered from.
+    /// The source this run discovered from.
     pub source: ImportSource,
     /// Where the run is in its lifecycle.
     pub status: RunStatus,
-    /// Whether this run should import its onboarding-staged candidates as
-    /// soon as gathering finishes.
-    pub auto_import: bool,
-    /// Gather or automatic-import failure detail, when the run failed.
+    /// Discovery failure detail, when the run failed.
     pub error: Option<String>,
     /// When the run state last changed.
     pub updated_at: DateTime<Utc>,
 }
 
-/// The full import aggregate for a user: gather runs plus visible ledger
+/// The full import aggregate for a user: discovery runs plus visible ledger
 /// rows (their own, and teammates' team-imported rows).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ImportState {
-    /// Gather runs, one per source that ever gathered.
+    /// Discovery runs, one per source that ever ran discovery.
     pub runs: Vec<ImportRun>,
     /// Visible import entities, newest first.
     pub entities: Vec<ImportEntity>,

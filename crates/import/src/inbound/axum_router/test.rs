@@ -8,7 +8,7 @@ use rootcause::Report;
 use std::sync::Mutex;
 use tower::ServiceExt;
 
-use crate::domain::{models::Initiator, ports::Result};
+use crate::domain::ports::Result;
 
 const TEST_USER: &str = "macro|test@example.com";
 
@@ -59,31 +59,6 @@ impl ImportService for FakeImportService {
         unimplemented!("discovery must not read state")
     }
 
-    async fn start_gather(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _source: ImportSource,
-        _auto_import: bool,
-    ) -> Result<bool> {
-        unimplemented!("discovery must not start an onboarding gather")
-    }
-
-    async fn retry_gather(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _source: ImportSource,
-    ) -> Result<bool> {
-        unimplemented!("discovery must not retry a gather")
-    }
-
-    async fn dismiss_run(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _source: ImportSource,
-    ) -> Result<()> {
-        unimplemented!()
-    }
-
     async fn run_import(
         &self,
         _user: MacroUserIdStr<'static>,
@@ -91,22 +66,6 @@ impl ImportService for FakeImportService {
         _discard_ids: Vec<Uuid>,
     ) -> Result<RunImportOutcome> {
         unimplemented!("discovery must not import candidates")
-    }
-
-    async fn discard_staged_by_initiator(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _initiator: Initiator,
-    ) -> Result<u64> {
-        unimplemented!()
-    }
-
-    async fn delete_staged_by_initiator(
-        &self,
-        _user: MacroUserIdStr<'static>,
-        _initiator: Initiator,
-    ) -> Result<u64> {
-        unimplemented!()
     }
 }
 

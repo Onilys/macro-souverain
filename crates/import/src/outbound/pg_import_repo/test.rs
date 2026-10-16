@@ -5,7 +5,6 @@ use crate::domain::models::{
 use crate::domain::ports::CanonicalImportRepo;
 use macro_db_migrator::MACRO_DB_MIGRATIONS;
 use macro_user_id::cowlike::CowLike;
-use sqlx::{Pool, Postgres};
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn team_members_returns_only_the_requested_roster(pool: PgPool) {
@@ -25,12 +24,12 @@ async fn team_members_returns_only_the_requested_roster(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn manual_run_inserts_without_auto_import(pool: PgPool) {
-    let actor = ledger_actor(&pool, "manual-insert").await;
+async fn run_inserts_running_without_an_error(pool: PgPool) {
+    let actor = ledger_actor(&pool, "run-insert").await;
     let repo = PgImportRepo::new(pool);
     assert!(repo.list_runs(&actor).await.unwrap().is_empty());
     assert!(
-        repo.start_manual_run(&actor, ImportSource::Slack, &[])
+        repo.start_run(&actor, ImportSource::Slack, &[])
             .await
             .unwrap()
     );
@@ -39,12 +38,11 @@ async fn manual_run_inserts_without_auto_import(pool: PgPool) {
     assert_eq!(runs.len(), 1);
     assert_eq!(runs[0].source, ImportSource::Slack);
     assert_eq!(runs[0].status, RunStatus::Running);
-    assert!(!runs[0].auto_import);
     assert!(runs[0].error.is_none());
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn manual_run_clears_auto_import_and_error_only_when_claimed(pool: PgPool) {
+async fn run_restarts_terminal_runs_and_clears_their_error(pool: PgPool) {
     let repo = PgImportRepo::new(pool.clone());
     let from = [
         RunStatus::Ready,
@@ -55,7 +53,7 @@ async fn manual_run_clears_auto_import_and_error_only_when_claimed(pool: PgPool)
     for status in from {
         let actor = ledger_actor(&pool, status.as_ref()).await;
         assert!(
-            repo.start_run(&actor, ImportSource::Slack, &[], true)
+            repo.start_run(&actor, ImportSource::Slack, &[])
                 .await
                 .unwrap()
         );
@@ -64,32 +62,22 @@ async fn manual_run_clears_auto_import_and_error_only_when_claimed(pool: PgPool)
                 .await
                 .unwrap()
         );
-        assert!(repo.list_runs(&actor).await.unwrap()[0].auto_import);
 
         assert!(
-            repo.start_manual_run(&actor, ImportSource::Slack, &from)
+            repo.start_run(&actor, ImportSource::Slack, &from)
                 .await
                 .unwrap()
         );
         let runs = repo.list_runs(&actor).await.unwrap();
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].status, RunStatus::Running);
-        assert!(!runs[0].auto_import);
         assert!(runs[0].error.is_none());
-
-        // A subsequent initial gather must not re-enable automatic import.
-        assert!(
-            repo.start_run(&actor, ImportSource::Slack, &[RunStatus::Running], true)
-                .await
-                .unwrap()
-        );
-        assert!(!repo.list_runs(&actor).await.unwrap()[0].auto_import);
     }
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn manual_run_does_not_take_over_active_runs(pool: PgPool) {
-    let actor = ledger_actor(&pool, "manual-active").await;
+async fn run_does_not_take_over_a_running_run(pool: PgPool) {
+    let actor = ledger_actor(&pool, "run-active").await;
     let repo = PgImportRepo::new(pool);
     let from = [
         RunStatus::Ready,
@@ -98,31 +86,20 @@ async fn manual_run_does_not_take_over_active_runs(pool: PgPool) {
         RunStatus::Dismissed,
     ];
     assert!(
-        repo.start_run(&actor, ImportSource::Slack, &[], true)
+        repo.start_run(&actor, ImportSource::Slack, &[])
             .await
             .unwrap()
     );
-    for status in [RunStatus::Running, RunStatus::Importing] {
-        if status == RunStatus::Importing {
-            assert!(
-                repo.transition_run(&actor, ImportSource::Slack, &[RunStatus::Running], status)
-                    .await
-                    .unwrap()
-            );
-        }
-        let before = repo.list_runs(&actor).await.unwrap().pop().unwrap();
-        assert!(
-            !repo
-                .start_manual_run(&actor, ImportSource::Slack, &from)
-                .await
-                .unwrap()
-        );
-        let after = repo.list_runs(&actor).await.unwrap().pop().unwrap();
-        assert_eq!(after.status, status);
-        assert!(after.auto_import);
-        assert_eq!(after.error, before.error);
-        assert_eq!(after.updated_at, before.updated_at);
-    }
+    let before = repo.list_runs(&actor).await.unwrap().pop().unwrap();
+    assert!(
+        !repo
+            .start_run(&actor, ImportSource::Slack, &from)
+            .await
+            .unwrap()
+    );
+    let after = repo.list_runs(&actor).await.unwrap().pop().unwrap();
+    assert_eq!(after.status, RunStatus::Running);
+    assert_eq!(after.updated_at, before.updated_at);
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
@@ -134,6 +111,7 @@ async fn staged_manual_entity_round_trips(pool: PgPool) {
         .upsert_staged(
             &actor,
             ImportSource::Slack,
+            ImportKind::Channel,
             Initiator::Manual,
             "C123",
             &metadata,
@@ -230,208 +208,115 @@ async fn read_only_targets_are_exact_scoped_and_never_reserve(pool: PgPool) {
     );
 }
 
-fn user() -> MacroUserIdStr<'static> {
-    MacroUserIdStr::parse_from_str("macro|auto-import@example.com").expect("valid user id")
-}
-
-async fn ready_run(repo: &PgImportRepo, auto_import: bool) {
-    assert!(
-        repo.start_run(&user(), ImportSource::Linear, &[], auto_import)
-            .await
-            .expect("start run")
-    );
-    assert!(
-        repo.finish_run(&user(), ImportSource::Linear, RunStatus::Ready, None)
-            .await
-            .expect("finish gather")
-    );
-}
-
-async fn stage(
-    repo: &PgImportRepo,
-    source: ImportSource,
-    initiator: Initiator,
-    foreign_id: &str,
-) -> ImportEntity {
-    let metadata = match source {
-        ImportSource::Linear => serde_json::json!({ "title": foreign_id }),
-        ImportSource::Notion => serde_json::json!({ "title": foreign_id }),
-        ImportSource::Slack => serde_json::json!({ "name": foreign_id }),
-    };
-    repo.upsert_staged(&user(), source, initiator, foreign_id, &metadata)
-        .await
-        .expect("stage query")
-        .expect("staged row")
-}
-
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn auto_import_claims_only_its_onboarding_source(pool: Pool<Postgres>) {
-    let repo = PgImportRepo::new(pool);
-    ready_run(&repo, true).await;
-
-    let claimed = stage(&repo, ImportSource::Linear, Initiator::Onboarding, "LIN-1").await;
-    let chat = stage(&repo, ImportSource::Linear, Initiator::Chat, "LIN-CHAT").await;
-    let notion = stage(
-        &repo,
-        ImportSource::Notion,
-        Initiator::Onboarding,
-        "NOTION-1",
-    )
-    .await;
-
-    assert_eq!(
-        repo.delete_staged_by_initiator(&user(), Initiator::Onboarding)
-            .await
-            .expect("onboarding cleanup"),
-        1,
-        "only the unrelated Notion row should be removed"
-    );
-    assert!(
-        repo.get(&user(), notion.id)
-            .await
-            .expect("notion row lookup")
-            .is_none()
-    );
-
-    let rows = repo
-        .begin_auto_import(&user(), ImportSource::Linear)
-        .await
-        .expect("begin auto import")
-        .expect("claimed run");
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].id, claimed.id);
-    assert_eq!(rows[0].status, ImportStatus::Importing);
-
-    assert_eq!(
-        repo.get(&user(), chat.id)
-            .await
-            .expect("chat row")
-            .expect("chat row exists")
-            .status,
-        ImportStatus::Staged
-    );
-    assert!(
-        repo.begin_auto_import(&user(), ImportSource::Linear)
-            .await
-            .expect("second begin")
-            .is_none(),
-        "the run claim is a CAS"
-    );
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn auto_import_run_reports_completed_or_failed(pool: Pool<Postgres>) {
-    let repo = PgImportRepo::new(pool);
-    ready_run(&repo, true).await;
-    let row = stage(&repo, ImportSource::Linear, Initiator::Onboarding, "LIN-1").await;
-    let claimed = repo
-        .begin_auto_import(&user(), ImportSource::Linear)
-        .await
-        .expect("begin")
-        .expect("claimed");
-    assert_eq!(claimed.len(), 1);
-    repo.mark_imported(&user(), row.id, "task-1", "task", None)
-        .await
-        .expect("mark imported")
-        .expect("updated row");
-
-    assert_eq!(
-        repo.finish_auto_import(&user(), ImportSource::Linear, &[row.id])
-            .await
-            .expect("finish")
-            .expect("won finish"),
-        RunStatus::Completed
-    );
-    let run = repo
-        .list_runs(&user())
-        .await
-        .expect("runs")
-        .pop()
-        .expect("run");
-    assert_eq!(run.status, RunStatus::Completed);
-    assert!(run.auto_import);
-
-    // A retry preserves the run's configuration and can report an item
-    // failure on its next automatic batch.
-    assert!(
-        repo.start_run(
-            &user(),
-            ImportSource::Linear,
-            &[RunStatus::Completed],
-            false,
+async fn rows_record_their_kind_and_legacy_rows_read_as_the_source_default(pool: PgPool) {
+    let actor = ledger_actor(&pool, "kinds").await;
+    let repo = PgImportRepo::new(pool.clone());
+    let database = repo
+        .upsert_staged(
+            &actor,
+            ImportSource::Notion,
+            ImportKind::Database,
+            Initiator::Chat,
+            "0123456789abcdef0123456789abcdef",
+            &serde_json::json!({"title": "Roadmap"}),
         )
         .await
-        .expect("restart for test")
-    );
-    assert!(
-        repo.finish_run(&user(), ImportSource::Linear, RunStatus::Ready, None)
-            .await
-            .expect("ready again")
-    );
-    let failed_row = stage(&repo, ImportSource::Linear, Initiator::Onboarding, "LIN-2").await;
-    repo.begin_auto_import(&user(), ImportSource::Linear)
-        .await
-        .expect("begin failed batch")
-        .expect("claimed failed batch");
-    assert!(
-        repo.mark_import_failed(&user(), failed_row.id, "creator failed")
-            .await
-            .expect("mark failed")
-    );
+        .unwrap()
+        .unwrap();
+    assert_eq!(database.kind, ImportKind::Database);
+    assert_eq!(database.parent_id, None);
+    assert_eq!(database.review_id, None);
+
+    // A replica still running code from before `kind` existed writes NULL.
+    let legacy = sqlx::query_scalar!(
+        r#"
+        INSERT INTO import_entity (user_id, source, foreign_id, status, initiator, metadata)
+        VALUES ($1, 'linear', 'ENG-1', 'staged', 'chat', '{"title": "Legacy"}')
+        RETURNING id
+        "#,
+        actor.as_ref(),
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(
-        repo.finish_auto_import(&user(), ImportSource::Linear, &[failed_row.id])
-            .await
-            .expect("finish failed")
-            .expect("won failed finish"),
-        RunStatus::Failed
-    );
-    assert_eq!(
-        repo.delete_staged_by_initiator(&user(), Initiator::Onboarding)
-            .await
-            .expect("cleanup after failure"),
-        0,
-        "a retryable automatic-import failure must survive onboarding cleanup"
-    );
-    assert!(
-        repo.get(&user(), failed_row.id)
-            .await
-            .expect("failed row lookup")
-            .is_some()
+        repo.get(&actor, legacy).await.unwrap().unwrap().kind,
+        ImportKind::Issue
     );
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn interrupted_auto_import_run_is_reconciled(pool: Pool<Postgres>) {
+async fn a_kind_from_another_source_is_rejected(pool: PgPool) {
+    let actor = ledger_actor(&pool, "wrong-kind").await;
     let repo = PgImportRepo::new(pool);
-    ready_run(&repo, true).await;
-    let row = stage(&repo, ImportSource::Linear, Initiator::Onboarding, "LIN-1").await;
-    repo.begin_auto_import(&user(), ImportSource::Linear)
-        .await
-        .expect("begin")
-        .expect("claimed");
+    let result = repo
+        .upsert_staged(
+            &actor,
+            ImportSource::Notion,
+            ImportKind::Issue,
+            Initiator::Chat,
+            "0123456789abcdef0123456789abcdef",
+            &serde_json::json!({"title": "Roadmap"}),
+        )
+        .await;
+    assert!(matches!(result, Err(ImportError::Db(_))), "{result:?}");
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn a_team_keeps_one_copy_of_each_notion_object(pool: PgPool) {
+    let owner = ledger_actor(&pool, "notion-owner").await;
+    let teammate = ledger_actor(&pool, "notion-teammate").await;
+    let team = ledger_team(&pool, &owner).await;
+    join_ledger_team(&pool, &teammate, team).await;
+    let repo = PgImportRepo::new(pool);
+    let page = "0123456789abcdef0123456789abcdef";
+
+    repo.upsert_imported(
+        &owner,
+        ImportSource::Notion,
+        ImportKind::Page,
+        Initiator::Chat,
+        page,
+        &serde_json::json!({"title": "Handbook"}),
+        "doc-1",
+        "md",
+        Some(team),
+    )
+    .await
+    .unwrap();
+    let duplicate = repo
+        .upsert_imported(
+            &teammate,
+            ImportSource::Notion,
+            ImportKind::Page,
+            Initiator::Chat,
+            page,
+            &serde_json::json!({"title": "Handbook"}),
+            "doc-2",
+            "md",
+            Some(team),
+        )
+        .await;
     assert!(
-        repo.mark_import_failed(&user(), row.id, "process interrupted")
-            .await
-            .expect("mark interrupted")
+        matches!(duplicate, Err(ImportError::Db(_))),
+        "{duplicate:?}"
     );
 
-    assert_eq!(
-        repo.reconcile_auto_import_runs(&user())
-            .await
-            .expect("reconcile"),
-        1
-    );
-    let run = repo
-        .list_runs(&user())
-        .await
-        .expect("runs")
-        .pop()
-        .expect("run");
-    assert_eq!(run.status, RunStatus::Failed);
-    assert_eq!(
-        run.error.as_deref(),
-        Some("one or more automatic imports failed")
-    );
+    // Without a team scope each user keeps their own row, as before.
+    repo.upsert_imported(
+        &teammate,
+        ImportSource::Notion,
+        ImportKind::Page,
+        Initiator::Chat,
+        page,
+        &serde_json::json!({"title": "Handbook"}),
+        "doc-3",
+        "md",
+        None,
+    )
+    .await
+    .unwrap();
 }
 
 async fn ledger_actor(pool: &PgPool, label: &str) -> MacroUserIdStr<'static> {
@@ -517,7 +402,8 @@ async fn legacy_mapping(
     repo.upsert_imported(
         user,
         ImportSource::Slack,
-        Initiator::Onboarding,
+        ImportKind::Channel,
+        Initiator::Manual,
         key.foreign_id.as_str(),
         &serde_json::json!({"name": "Historical"}),
         &channel_id.to_string(),
@@ -676,6 +562,7 @@ async fn conflicting_historical_rows_fail_closed(pool: PgPool) {
     repo.upsert_imported(
         &admin,
         ImportSource::Slack,
+        ImportKind::Channel,
         Initiator::Chat,
         non_channel.foreign_id.as_str(),
         &serde_json::json!({}),
@@ -702,7 +589,8 @@ async fn names_cannot_claim_slack_ids_and_pending_ids_cannot_be_replaced(pool: P
     repo.upsert_imported(
         &admin,
         ImportSource::Slack,
-        Initiator::Onboarding,
+        ImportKind::Channel,
+        Initiator::Manual,
         "#C123",
         &serde_json::json!({"name": "C123", "channel_id": "C123"}),
         &channel.to_string(),
@@ -849,6 +737,7 @@ async fn private_legacy_mapping_requires_authorized_claim(pool: PgPool) {
     repo.upsert_imported(
         &admin,
         ImportSource::Slack,
+        ImportKind::Channel,
         Initiator::Chat,
         "G123",
         &serde_json::json!({}),

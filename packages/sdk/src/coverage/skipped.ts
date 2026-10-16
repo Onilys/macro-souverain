@@ -183,8 +183,6 @@ export const cognitionExcluded = [
   // Channel discovery shares the app-only import workflow below.
   'discoverHandler',
   'runImportHandler',
-  'dismissRunHandler',
-  'retryGatherHandler',
   'getStateHandler',
   'getStateHandler2',
   'completeHandler',

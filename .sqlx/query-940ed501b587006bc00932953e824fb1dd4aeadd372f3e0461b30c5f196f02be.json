@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE import_entity\n            SET status = 'importing', last_error = NULL, updated_at = NOW()\n            WHERE user_id = $1 AND id = ANY($2::uuid[]) AND status = 'staged'\n            RETURNING id, user_id, team_id, source, foreign_id, status, initiator,\n                      metadata, entity_id, entity_type, last_error, created_at, updated_at\n            ",
+  "query": "\n            SELECT id, user_id, team_id, source, kind, foreign_id, parent_id, review_id, status,\n                   initiator, metadata, entity_id, entity_type, last_error, created_at, updated_at\n            FROM import_entity\n            WHERE user_id = $1 AND id = $2\n            ",
   "describe": {
     "columns": [
       {
@@ -25,46 +25,61 @@
       },
       {
         "ordinal": 4,
-        "name": "foreign_id",
+        "name": "kind",
         "type_info": "Text"
       },
       {
         "ordinal": 5,
-        "name": "status",
+        "name": "foreign_id",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
-        "name": "initiator",
-        "type_info": "Text"
+        "name": "parent_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 7,
-        "name": "metadata",
-        "type_info": "Jsonb"
+        "name": "review_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 8,
-        "name": "entity_id",
+        "name": "status",
         "type_info": "Text"
       },
       {
         "ordinal": 9,
-        "name": "entity_type",
+        "name": "initiator",
         "type_info": "Text"
       },
       {
         "ordinal": 10,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 11,
+        "name": "entity_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "entity_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
         "name": "last_error",
         "type_info": "Text"
       },
       {
-        "ordinal": 11,
+        "ordinal": 14,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 12,
+        "ordinal": 15,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -72,7 +87,7 @@
     "parameters": {
       "Left": [
         "Text",
-        "UuidArray"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -80,7 +95,10 @@
       false,
       true,
       false,
+      true,
       false,
+      true,
+      true,
       false,
       false,
       false,
@@ -91,5 +109,5 @@
       false
     ]
   },
-  "hash": "a232d6e9add612435b2aa53371d3f6bf8698340072f9a181b462a7c4669dc9dc"
+  "hash": "940ed501b587006bc00932953e824fb1dd4aeadd372f3e0461b30c5f196f02be"
 }

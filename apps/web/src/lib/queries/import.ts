@@ -1,9 +1,9 @@
 /**
  * Queries and mutations for the import pipeline.
  *
- * The server owns everything: gather jobs stage candidates, `POST
- * /import/run` accepts/declines them, and import jobs flip rows to
- * `imported`. Row flips are pushed over the connection gateway as
+ * The server owns everything: Slack discovery and chat tools stage
+ * candidates, `POST /import/run` accepts/declines them, and import jobs flip
+ * rows to `imported`. Row flips are pushed over the connection gateway as
  * `import_updated`; polling remains as the backstop (pushes can be missed
  * while reconnecting), tightening while anything is in flight.
  */
@@ -27,6 +27,7 @@ import {
 export type {
   ImportEntity,
   ImportEntityStatus,
+  ImportKind,
   ImportRun,
   ImportRunStatus,
   ImportSource,
@@ -38,7 +39,7 @@ const KEYS = {
   state: ['import', 'state'] as const,
 };
 
-/** Gateway push sent when an import row or gather run changes server-side. */
+/** Gateway push sent when an import row or discovery run changes server-side. */
 const IMPORT_UPDATED_MESSAGE_TYPE = 'import_updated';
 
 /**
@@ -52,9 +53,8 @@ const PENDING_IMPORT_STATE: ImportState = { runs: [], entities: [] };
 function anythingInFlight(state: ImportState | undefined): boolean {
   if (!state) return false;
   return (
-    state.runs.some(
-      (run) => run.status === 'running' || run.status === 'importing'
-    ) || state.entities.some((entity) => entity.status === 'importing')
+    state.runs.some((run) => run.status === 'running') ||
+    state.entities.some((entity) => entity.status === 'importing')
   );
 }
 
@@ -63,27 +63,24 @@ function fetchImportStateFromServer() {
 }
 
 // Cached on the query past unmount; module scope keeps hook state out of it.
-function importStateQueryOptions(enabled: boolean) {
+function importStateQueryOptions() {
   return queryOptions({
     queryKey: KEYS.state,
     queryFn: fetchImportStateFromServer,
-    enabled,
     refetchInterval: (query) =>
       anythingInFlight(query.state.data) ? 3_000 : 15_000,
     placeholderData: PENDING_IMPORT_STATE,
   });
 }
 
-/** The import aggregate: gather runs plus visible ledger rows. */
-export function useImportQuery(options?: { enabled?: () => boolean }) {
+/** The import aggregate: discovery runs plus visible ledger rows. */
+export function useImportQuery() {
   createConnectionWebsocketEffect((message) => {
     if (message.type !== IMPORT_UPDATED_MESSAGE_TYPE) return;
     void invalidateImportState();
   });
 
-  return useQuery(() =>
-    importStateQueryOptions(options?.enabled ? options.enabled() : true)
-  );
+  return useQuery(() => importStateQueryOptions());
 }
 
 function invalidateImportState() {

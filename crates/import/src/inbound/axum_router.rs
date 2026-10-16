@@ -76,16 +76,8 @@ where
         .route("/import/state", get(get_state_handler::<T, Auth>))
         .route("/import/run", post(run_import_handler::<T, Auth>))
         .route(
-            "/import/runs/{source}/retry",
-            post(retry_gather_handler::<T, Auth>),
-        )
-        .route(
             "/import/runs/{source}/discover",
             post(discover_handler::<T, Auth>),
-        )
-        .route(
-            "/import/runs/{source}/dismiss",
-            post(dismiss_run_handler::<T, Auth>),
         )
         .with_state(state)
 }
@@ -106,7 +98,7 @@ fn unknown_source_response(source: &str) -> Response {
         .into_response()
 }
 
-/// Get the authenticated user's import state: gather runs plus visible
+/// Get the authenticated user's import state: discovery runs plus visible
 /// ledger rows.
 #[utoipa::path(
     get,
@@ -158,39 +150,7 @@ pub async fn run_import_handler<T: ImportService, Auth: MacroAuthorizationServic
     }
 }
 
-/// Restart a failed (or dismissed) gather run for one source.
-#[utoipa::path(
-    post,
-    path = "/import/runs/{source}/retry",
-    params(("source" = String, Path, description = "Import source")),
-    responses(
-        (status = 204, description = "Retry accepted (idempotent)"),
-        (status = 400, description = "Unknown import source"),
-        (status = 402, description = "AI allowance exhausted", body = ai_billing::inbound::admission::AiAdmissionErrorBody),
-        (status = 503, description = "AI usage validation unavailable; retry later", body = ai_billing::inbound::admission::AiAdmissionErrorBody),
-        (status = 500, description = "Internal server error"),
-    ),
-    tag = "import"
-)]
-#[tracing::instrument(skip(service, user), fields(user_id = %user.authorization.user.macro_user_id))]
-pub async fn retry_gather_handler<T: ImportService, Auth: MacroAuthorizationService>(
-    State(service): State<Arc<T>>,
-    user: MacroAuthorizationExtractor<Auth, UserOrInternal>,
-    Path(source): Path<String>,
-) -> Response {
-    let Ok(source) = ImportSource::from_str(&source) else {
-        return unknown_source_response(&source);
-    };
-    match service
-        .retry_gather(user.authorization.user.macro_user_id, source)
-        .await
-    {
-        Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => error_response(e),
-    }
-}
-
-/// Discover candidates for user selection without auto-importing them.
+/// Discover candidates for user selection. Only Slack supports discovery.
 #[utoipa::path(
     post,
     path = "/import/runs/{source}/discover",
@@ -219,36 +179,6 @@ pub async fn discover_handler<T: ImportService, Auth: MacroAuthorizationService>
         Err(e @ ImportError::UnsupportedDiscovery(_)) => {
             (StatusCode::BAD_REQUEST, e.to_string()).into_response()
         }
-        Err(e) => error_response(e),
-    }
-}
-
-/// Dismiss one source's import section.
-#[utoipa::path(
-    post,
-    path = "/import/runs/{source}/dismiss",
-    params(("source" = String, Path, description = "Import source")),
-    responses(
-        (status = 204, description = "Dismissed"),
-        (status = 400, description = "Unknown import source"),
-        (status = 500, description = "Internal server error"),
-    ),
-    tag = "import"
-)]
-#[tracing::instrument(skip(service, user), fields(user_id = %user.authorization.user.macro_user_id))]
-pub async fn dismiss_run_handler<T: ImportService, Auth: MacroAuthorizationService>(
-    State(service): State<Arc<T>>,
-    user: MacroAuthorizationExtractor<Auth, UserOrInternal>,
-    Path(source): Path<String>,
-) -> Response {
-    let Ok(source) = ImportSource::from_str(&source) else {
-        return unknown_source_response(&source);
-    };
-    match service
-        .dismiss_run(user.authorization.user.macro_user_id, source)
-        .await
-    {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => error_response(e),
     }
 }

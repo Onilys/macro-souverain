@@ -1194,7 +1194,7 @@
     "/import/runs/{source}/discover": {
       "post": {
         "tags": ["import"],
-        "summary": "Discover candidates for user selection without auto-importing them.",
+        "summary": "Discover candidates for user selection. Only Slack supports discovery.",
         "operationId": "discover_handler",
         "parameters": [
           {
@@ -1220,88 +1220,10 @@
         }
       }
     },
-    "/import/runs/{source}/dismiss": {
-      "post": {
-        "tags": ["import"],
-        "summary": "Dismiss one source's import section.",
-        "operationId": "dismiss_run_handler",
-        "parameters": [
-          {
-            "name": "source",
-            "in": "path",
-            "description": "Import source",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Dismissed"
-          },
-          "400": {
-            "description": "Unknown import source"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/import/runs/{source}/retry": {
-      "post": {
-        "tags": ["import"],
-        "summary": "Restart a failed (or dismissed) gather run for one source.",
-        "operationId": "retry_gather_handler",
-        "parameters": [
-          {
-            "name": "source",
-            "in": "path",
-            "description": "Import source",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Retry accepted (idempotent)"
-          },
-          "400": {
-            "description": "Unknown import source"
-          },
-          "402": {
-            "description": "AI allowance exhausted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AiAdmissionErrorBody"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error"
-          },
-          "503": {
-            "description": "AI usage validation unavailable; retry later",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AiAdmissionErrorBody"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/import/state": {
       "get": {
         "tags": ["import"],
-        "summary": "Get the authenticated user's import state: gather runs plus visible\nledger rows.",
+        "summary": "Get the authenticated user's import state: discovery runs plus visible\nledger rows.",
         "operationId": "get_state_handler",
         "responses": {
           "200": {
@@ -2338,21 +2260,6 @@
           "url": {
             "type": "string",
             "description": "The MCP server's streamable HTTP URL."
-          }
-        }
-      },
-      "AiAdmissionErrorBody": {
-        "type": "object",
-        "description": "Public admission error payload. Handlers with additional fields can reuse the\ndomain error's code and message and [`admission_status`].",
-        "required": ["error", "code"],
-        "properties": {
-          "code": {
-            "type": "string",
-            "description": "Stable denial or unavailability code."
-          },
-          "error": {
-            "type": "string",
-            "description": "Human-readable explanation, without internal billing diagnostics."
           }
         }
       },
@@ -3936,6 +3843,7 @@
           "id",
           "user_id",
           "source",
+          "kind",
           "foreign_id",
           "status",
           "initiator",
@@ -3970,12 +3878,26 @@
             "$ref": "#/components/schemas/Initiator",
             "description": "Where it was first staged from."
           },
+          "kind": {
+            "$ref": "#/components/schemas/ImportKind",
+            "description": "What the item is in its source system."
+          },
           "last_error": {
             "type": ["string", "null"],
             "description": "Failure detail from the last import attempt, when one failed."
           },
           "metadata": {
             "description": "Per-source metadata (shape depends on `source`; see\n[`LinearIssueMeta`], [`NotionDocMeta`], [`SlackChannelMeta`])."
+          },
+          "parent_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The import row this item was imported under (a subpage's parent page,\na row's database), when it was imported as part of a tree."
+          },
+          "review_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The agent session review that approved importing this item, when it\ncame from one."
           },
           "source": {
             "$ref": "#/components/schemas/ImportSource",
@@ -4001,22 +3923,32 @@
           }
         }
       },
+      "ImportKind": {
+        "type": "string",
+        "description": "What an imported item is in its source system. Each source has its own\nkinds; a Notion database and a Notion page, or a Linear project and a\nLinear issue, are tracked and deduplicated separately.",
+        "enum": [
+          "issue",
+          "project",
+          "document",
+          "page",
+          "database",
+          "data_source",
+          "row",
+          "channel"
+        ]
+      },
       "ImportRun": {
         "type": "object",
-        "description": "Gather-run state for one user × source.",
-        "required": ["source", "status", "auto_import", "updated_at"],
+        "description": "Discovery-run state for one user × source.",
+        "required": ["source", "status", "updated_at"],
         "properties": {
-          "auto_import": {
-            "type": "boolean",
-            "description": "Whether this run should import its onboarding-staged candidates as\nsoon as gathering finishes."
-          },
           "error": {
             "type": ["string", "null"],
-            "description": "Gather or automatic-import failure detail, when the run failed."
+            "description": "Discovery failure detail, when the run failed."
           },
           "source": {
             "$ref": "#/components/schemas/ImportSource",
-            "description": "The source this run gathered from."
+            "description": "The source this run discovered from."
           },
           "status": {
             "$ref": "#/components/schemas/RunStatus",
@@ -4036,7 +3968,7 @@
       },
       "ImportState": {
         "type": "object",
-        "description": "The full import aggregate for a user: gather runs plus visible ledger\nrows (their own, and teammates' team-imported rows).",
+        "description": "The full import aggregate for a user: discovery runs plus visible ledger\nrows (their own, and teammates' team-imported rows).",
         "required": ["runs", "entities"],
         "properties": {
           "entities": {
@@ -4051,7 +3983,7 @@
             "items": {
               "$ref": "#/components/schemas/ImportRun"
             },
-            "description": "Gather runs, one per source that ever gathered."
+            "description": "Discovery runs, one per source that ever ran discovery."
           }
         }
       },
@@ -4586,7 +4518,7 @@
       },
       "RunStatus": {
         "type": "string",
-        "description": "Lifecycle of a gather run (one per user × source).",
+        "description": "Lifecycle of a discovery run (one per user × source).",
         "enum": [
           "running",
           "ready",

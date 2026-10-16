@@ -65,6 +65,7 @@ function channel(
     id,
     foreign_id: `C${id}`,
     source: 'slack',
+    kind: 'channel',
     status: 'staged',
     initiator: 'manual',
     user_id: 'me',
@@ -95,7 +96,6 @@ describe('Slack channel import card', () => {
         {
           source: 'slack',
           status: 'running',
-          auto_import: false,
           updated_at: '',
         },
       ],
@@ -199,7 +199,6 @@ describe('Slack channel import card', () => {
         {
           source: 'slack',
           status: 'ready',
-          auto_import: false,
           updated_at: '',
         },
       ],
@@ -213,7 +212,6 @@ describe('Slack channel import card', () => {
           source: 'slack',
           status: 'failed',
           error: 'Slack is not connected',
-          auto_import: false,
           updated_at: '',
         },
       ],

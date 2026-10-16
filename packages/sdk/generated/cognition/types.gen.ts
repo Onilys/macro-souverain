@@ -24,21 +24,6 @@ export type AddServerRequest = {
 };
 
 /**
- * Public admission error payload. Handlers with additional fields can reuse the
- * domain error's code and message and [`admission_status`].
- */
-export type AiAdmissionErrorBody = {
-    /**
-     * Stable denial or unavailability code.
-     */
-    code: string;
-    /**
-     * Human-readable explanation, without internal billing diagnostics.
-     */
-    error: string;
-};
-
-/**
  * Everything we use AI for. The wire / DB form of each variant is its
  * `snake_case` name.
  */
@@ -758,6 +743,10 @@ export type ImportEntity = {
      */
     initiator: Initiator;
     /**
+     * What the item is in its source system.
+     */
+    kind: ImportKind;
+    /**
      * Failure detail from the last import attempt, when one failed.
      */
     last_error?: string | null;
@@ -766,6 +755,16 @@ export type ImportEntity = {
      * [`LinearIssueMeta`], [`NotionDocMeta`], [`SlackChannelMeta`]).
      */
     metadata: unknown;
+    /**
+     * The import row this item was imported under (a subpage's parent page,
+     * a row's database), when it was imported as part of a tree.
+     */
+    parent_id?: string | null;
+    /**
+     * The agent session review that approved importing this item, when it
+     * came from one.
+     */
+    review_id?: string | null;
     /**
      * The external system the item comes from.
      */
@@ -791,20 +790,22 @@ export type ImportEntity = {
 };
 
 /**
- * Gather-run state for one user × source.
+ * What an imported item is in its source system. Each source has its own
+ * kinds; a Notion database and a Notion page, or a Linear project and a
+ * Linear issue, are tracked and deduplicated separately.
+ */
+export type ImportKind = 'issue' | 'project' | 'document' | 'page' | 'database' | 'data_source' | 'row' | 'channel';
+
+/**
+ * Discovery-run state for one user × source.
  */
 export type ImportRun = {
     /**
-     * Whether this run should import its onboarding-staged candidates as
-     * soon as gathering finishes.
-     */
-    auto_import: boolean;
-    /**
-     * Gather or automatic-import failure detail, when the run failed.
+     * Discovery failure detail, when the run failed.
      */
     error?: string | null;
     /**
-     * The source this run gathered from.
+     * The source this run discovered from.
      */
     source: ImportSource;
     /**
@@ -823,7 +824,7 @@ export type ImportRun = {
 export type ImportSource = 'linear' | 'notion' | 'slack';
 
 /**
- * The full import aggregate for a user: gather runs plus visible ledger
+ * The full import aggregate for a user: discovery runs plus visible ledger
  * rows (their own, and teammates' team-imported rows).
  */
 export type ImportState = {
@@ -832,7 +833,7 @@ export type ImportState = {
      */
     entities: Array<ImportEntity>;
     /**
-     * Gather runs, one per source that ever gathered.
+     * Discovery runs, one per source that ever ran discovery.
      */
     runs: Array<ImportRun>;
 };
@@ -1275,7 +1276,7 @@ export type RunImportRequest = {
 };
 
 /**
- * Lifecycle of a gather run (one per user × source).
+ * Lifecycle of a discovery run (one per user × source).
  */
 export type RunStatus = 'running' | 'ready' | 'importing' | 'completed' | 'failed' | 'dismissed';
 
@@ -2474,80 +2475,6 @@ export type DiscoverHandlerResponses = {
 };
 
 export type DiscoverHandlerResponse = DiscoverHandlerResponses[keyof DiscoverHandlerResponses];
-
-export type DismissRunHandlerData = {
-    body?: never;
-    path: {
-        /**
-         * Import source
-         */
-        source: string;
-    };
-    query?: never;
-    url: '/import/runs/{source}/dismiss';
-};
-
-export type DismissRunHandlerErrors = {
-    /**
-     * Unknown import source
-     */
-    400: unknown;
-    /**
-     * Internal server error
-     */
-    500: unknown;
-};
-
-export type DismissRunHandlerResponses = {
-    /**
-     * Dismissed
-     */
-    204: void;
-};
-
-export type DismissRunHandlerResponse = DismissRunHandlerResponses[keyof DismissRunHandlerResponses];
-
-export type RetryGatherHandlerData = {
-    body?: never;
-    path: {
-        /**
-         * Import source
-         */
-        source: string;
-    };
-    query?: never;
-    url: '/import/runs/{source}/retry';
-};
-
-export type RetryGatherHandlerErrors = {
-    /**
-     * Unknown import source
-     */
-    400: unknown;
-    /**
-     * AI allowance exhausted
-     */
-    402: AiAdmissionErrorBody;
-    /**
-     * Internal server error
-     */
-    500: unknown;
-    /**
-     * AI usage validation unavailable; retry later
-     */
-    503: AiAdmissionErrorBody;
-};
-
-export type RetryGatherHandlerError = RetryGatherHandlerErrors[keyof RetryGatherHandlerErrors];
-
-export type RetryGatherHandlerResponses = {
-    /**
-     * Retry accepted (idempotent)
-     */
-    204: void;
-};
-
-export type RetryGatherHandlerResponse = RetryGatherHandlerResponses[keyof RetryGatherHandlerResponses];
 
 export type GetStateHandlerData = {
     body?: never;

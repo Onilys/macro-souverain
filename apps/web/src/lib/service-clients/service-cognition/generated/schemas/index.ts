@@ -7,7 +7,6 @@
 
 export * from './accessLevel';
 export * from './addServerRequest';
-export * from './aiAdmissionErrorBody';
 export * from './aiFeature';
 export * from './assistantMessagePart';
 export * from './assistantMessagePartOneOf';
@@ -138,7 +137,10 @@ export * from './importEntity';
 export * from './importEntityEntityId';
 export * from './importEntityEntityType';
 export * from './importEntityLastError';
+export * from './importEntityParentId';
+export * from './importEntityReviewId';
 export * from './importEntityTeamId';
+export * from './importKind';
 export * from './importRun';
 export * from './importRunError';
 export * from './importSource';

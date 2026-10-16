@@ -9,15 +9,12 @@ import type { ImportSource } from './importSource';
 import type { RunStatus } from './runStatus';
 
 /**
- * Gather-run state for one user × source.
+ * Discovery-run state for one user × source.
  */
 export interface ImportRun {
-  /** Whether this run should import its onboarding-staged candidates as
-soon as gathering finishes. */
-  auto_import: boolean;
-  /** Gather or automatic-import failure detail, when the run failed. */
+  /** Discovery failure detail, when the run failed. */
   error?: ImportRunError;
-  /** The source this run gathered from. */
+  /** The source this run discovered from. */
   source: ImportSource;
   /** Where the run is in its lifecycle. */
   status: RunStatus;

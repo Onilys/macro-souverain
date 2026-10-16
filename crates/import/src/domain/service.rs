@@ -1,13 +1,11 @@
-//! The import orchestrator: staging (with team-wide dedup), gather jobs,
+//! The import orchestrator: staging (with team-wide dedup), Slack discovery,
 //! and import jobs.
 //!
-//! Slack discovery uses the typed workspace source port to stage public
-//! channels and enrich their membership. Manual discovery never uses an agent
-//! or auto-imports; onboarding may fall back to an agent session. Other gather
-//! jobs use connector tools with `CreateImportEntity` locked to
-//! `(user, source, initiator)`. Import jobs copy
-//! accepted rows in: Linear tasks and Slack channels are composed
-//! deterministically from staged metadata; Notion pages are fetched
+//! Slack discovery uses the typed workspace source port to stage every
+//! visible public channel for the user to pick from; it never uses an agent
+//! or imports on its own. Linear and Notion rows are staged by chat tools.
+//! Import jobs copy accepted rows in: Linear tasks and Slack channels are
+//! composed deterministically from staged metadata; Notion pages are fetched
 //! directly through the connector's fetch tool (no model in the content
 //! path), falling back to a bounded single-page Haiku session that lands
 //! content through `FinalizeImport` when the direct path can't cope.
@@ -18,9 +16,7 @@ use super::ports::{
     ImportedDocumentProperty, ImportedDocumentPropertyValue, ImportedTaskProperties, Result,
     SlackSourceError, SlackWorkspaceSource,
 };
-use crate::inbound::toolset::{
-    ImportToolContext, ToolPolicy, gather_toolset, notion_import_toolset,
-};
+use crate::inbound::toolset::{ImportToolContext, notion_import_toolset};
 use agent::types::{ChatMessage, ChatMessageContent, Role};
 use agent::{AgentLoop, PredefinedModel};
 use ai_toolset::{RequestContext, ToolResult, ToolSet, ToolSetError};
@@ -45,23 +41,6 @@ use slack_discovery::SlackBatch;
 #[cfg(test)]
 mod test;
 
-/// Model for gather sessions: fast beats maximal while the user watches the
-/// section shimmer, and Cerebras serves gpt-oss-120b at interactive latency.
-/// A raw provider-prefixed id (not [`PredefinedModel`]) because the registry
-/// has no Cerebras tier — the model router resolves the `cerebras/` prefix.
-const GATHER_MODEL: &str = "cerebras/gpt-oss-120b";
-/// Fallback when the primary gather session fails: Cerebras enforces tight
-/// org-wide rate limits, so a burst of concurrent onboardings can 429 every
-/// gather at once. gpt-5.4-nano is slower per token but rides OpenAI's much
-/// higher limits, and a slower gather beats a failed section.
-const GATHER_FALLBACK_MODEL: &str = "openai/gpt-5.4-nano";
-/// Turn cap for gather sessions: a couple of searches plus one staging tool
-/// call per candidate (providers may batch several per turn).
-const GATHER_MAX_TURNS: usize = 24;
-/// Hard cap on a gather session. Staged rows land incrementally, so the
-/// section fills while this runs; the cap only bounds the shimmer tail.
-const GATHER_TIMEOUT: Duration = Duration::from_secs(90);
-
 /// Model for Notion import sessions (normal ai_usage attribution).
 const NOTION_IMPORT_MODEL: PredefinedModel = PredefinedModel::Fast;
 /// Hard cap on importing ONE Notion page (fetch + convert + finalize).
@@ -73,22 +52,9 @@ const NOTION_PAGE_IMPORT_TIMEOUT: Duration = Duration::from_secs(120);
 /// enough to stay polite to Notion's MCP.
 const NOTION_IMPORT_CONCURRENCY: usize = 4;
 
-/// Discovery policy: bounded onboarding suggestions or a user-driven listing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GatherMode {
-    /// Suggest the strongest active channels for onboarding.
-    Onboarding,
-    /// Stage all visible public channels for explicit selection.
-    Manual,
-}
-
-fn gather_timeout(source: ImportSource, mode: GatherMode) -> Duration {
-    match (source, mode) {
-        (ImportSource::Slack, GatherMode::Onboarding) => Duration::from_secs(180),
-        (ImportSource::Slack, GatherMode::Manual) => Duration::from_secs(360),
-        _ => GATHER_TIMEOUT,
-    }
-}
+/// Hard cap on one manual Slack discovery: a full channel listing plus
+/// membership reads for every channel.
+const SLACK_DISCOVERY_TIMEOUT: Duration = Duration::from_secs(360);
 
 /// How often a running import batch touches its rows' `updated_at`. The
 /// heartbeat covers every row the batch owns — queued AND in-flight — so a
@@ -170,39 +136,13 @@ pub trait ImportService: Send + Sync + 'static {
         user: MacroUserIdStr<'static>,
     ) -> impl Future<Output = Result<ImportState>> + Send;
 
-    /// Start a gather run for `source` if none has ever run (the
-    /// connector-just-authenticated hook). `auto_import` is persisted with
-    /// the new run before its background gather starts. Returns whether a
-    /// run started.
-    fn start_gather(
-        &self,
-        user: MacroUserIdStr<'static>,
-        source: ImportSource,
-        auto_import: bool,
-    ) -> impl Future<Output = Result<bool>> + Send;
-
-    /// User-triggered, non-auto-import gather that stages everything visible.
-    /// Only Slack is supported in this slice. Returns whether a run started.
+    /// User-triggered discovery that stages everything visible. Only Slack is
+    /// supported. Returns whether a run started.
     fn start_discovery(
         &self,
         user: MacroUserIdStr<'static>,
         source: ImportSource,
     ) -> impl Future<Output = Result<bool>> + Send;
-
-    /// Restart a failed (or dismissed) gather run. Returns whether a run
-    /// started.
-    fn retry_gather(
-        &self,
-        user: MacroUserIdStr<'static>,
-        source: ImportSource,
-    ) -> impl Future<Output = Result<bool>> + Send;
-
-    /// Dismiss a source's import section.
-    fn dismiss_run(
-        &self,
-        user: MacroUserIdStr<'static>,
-        source: ImportSource,
-    ) -> impl Future<Output = Result<()>> + Send;
 
     /// Accept `import_ids` (flip to `importing` and start import jobs) and
     /// discard `discard_ids`.
@@ -212,26 +152,6 @@ pub trait ImportService: Send + Sync + 'static {
         import_ids: Vec<Uuid>,
         discard_ids: Vec<Uuid>,
     ) -> impl Future<Output = Result<RunImportOutcome>> + Send;
-
-    /// Discard all remaining staged rows with `initiator` — an explicit
-    /// decline; `stage()` refuses to re-stage discarded items. Returns how
-    /// many were discarded.
-    fn discard_staged_by_initiator(
-        &self,
-        user: MacroUserIdStr<'static>,
-        initiator: Initiator,
-    ) -> impl Future<Output = Result<u64>> + Send;
-
-    /// Delete remaining unreserved staged rows with `initiator` (onboarding
-    /// completion cleanup). Candidates reserved by active or retryable
-    /// configured auto-import runs survive. Unlike discarding, deleted
-    /// candidates were never reviewed and stay re-stageable by later gathers
-    /// or chat. Returns how many were removed.
-    fn delete_staged_by_initiator(
-        &self,
-        user: MacroUserIdStr<'static>,
-        initiator: Initiator,
-    ) -> impl Future<Output = Result<u64>> + Send;
 }
 
 /// Staging operations the AI tools drive. Split from [`ImportService`] so
@@ -406,181 +326,43 @@ where
     S: ConnectorSelect,
     C: EntityCreator,
 {
-    /// Spawn the gather session for one source; finishes the run row either
-    /// way and nudges the client.
-    fn spawn_gather(&self, user: MacroUserIdStr<'static>, source: ImportSource, mode: GatherMode) {
+    /// Spawn Slack discovery; finishes the run row either way and nudges the
+    /// client.
+    fn spawn_slack_discovery(&self, user: MacroUserIdStr<'static>) {
         let service = self.clone();
         tokio::spawn(async move {
             let outcome = tokio::time::timeout(
-                gather_timeout(source, mode),
-                service.run_gather_session(&user, source, mode),
+                SLACK_DISCOVERY_TIMEOUT,
+                slack_discovery::discover_slack(&service, &user),
             )
             .await
-            .unwrap_or_else(|_| Err(anyhow::anyhow!("gather session timed out")));
-            let gather_succeeded = outcome.is_ok();
-
+            .unwrap_or_else(|_| Err(anyhow::anyhow!("Slack discovery timed out").into()));
             let finished = match outcome {
-                Ok(()) => {
+                Ok(_) => {
                     service
                         .repo
-                        .finish_run(&user, source, RunStatus::Ready, None)
+                        .finish_run(&user, ImportSource::Slack, RunStatus::Ready, None)
                         .await
                 }
                 Err(e) => {
-                    tracing::warn!(source = source.as_ref(), error = ?e, "gather session failed");
+                    tracing::warn!(error = ?e, "Slack discovery failed");
+                    let reason = match e {
+                        SlackSourceError::ToolsUnavailable(_) => {
+                            "Your Slack connection does not expose channel tools".to_string()
+                        }
+                        e => e.to_string(),
+                    };
                     service
                         .repo
-                        .finish_run(
-                            &user,
-                            source,
-                            RunStatus::Failed,
-                            Some(&admission::failure_reason(&e)),
-                        )
+                        .finish_run(&user, ImportSource::Slack, RunStatus::Failed, Some(&reason))
                         .await
                 }
             };
-            match finished {
-                Ok(true) if gather_succeeded => {
-                    let _ = service
-                        .maybe_start_auto_import(&user, source)
-                        .await
-                        .inspect_err(|e| {
-                            tracing::error!(source = source.as_ref(), error = ?e, "failed to start automatic import");
-                        });
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::error!(source = source.as_ref(), error = ?e, "failed to persist gather outcome");
-                }
-            }
+            let _ = finished.inspect_err(|e| {
+                tracing::error!(error = ?e, "failed to persist Slack discovery outcome");
+            });
             service.notify(&user).await;
         });
-    }
-
-    /// Claim and spawn a configured automatic import once gathering is ready.
-    /// The repository CAS makes this safe when completion, configuration, and
-    /// read-path reconciliation race across service replicas.
-    async fn maybe_start_auto_import(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-    ) -> Result<bool> {
-        let Some(rows) = self.repo.begin_auto_import(user, source).await? else {
-            return Ok(false);
-        };
-        let ids: Vec<Uuid> = rows.iter().map(|row| row.id).collect();
-        self.notify(user).await;
-        if rows.is_empty() {
-            self.finish_auto_import_batch(user, source, &ids).await;
-        } else {
-            self.spawn_import_batch(user.clone(), rows, Some(source));
-        }
-        Ok(true)
-    }
-
-    async fn finish_auto_import_batch(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-        ids: &[Uuid],
-    ) {
-        match self.repo.finish_auto_import(user, source, ids).await {
-            Ok(Some(status)) => {
-                tracing::info!(
-                    source = source.as_ref(),
-                    status = status.as_ref(),
-                    "automatic import finished"
-                );
-                self.notify(user).await;
-            }
-            Ok(None) => {}
-            Err(e) => {
-                tracing::error!(source = source.as_ref(), error = ?e, "failed to persist automatic import outcome");
-            }
-        }
-    }
-
-    /// Run typed Slack discovery or an agent gather with locked staging tools.
-    /// Candidates land incrementally; any final agent text is ignored.
-    #[tracing::instrument(skip(self, user), err)]
-    async fn run_gather_session(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-        mode: GatherMode,
-    ) -> anyhow::Result<()> {
-        // Recheck queued AI work before loading tools. Slack stays deterministic
-        // until its onboarding fallback actually needs an agent.
-        self.admit_gather(user, source).await?;
-        self.gather_with_tools(user, source, mode).await
-    }
-
-    async fn gather_with_tools(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-        mode: GatherMode,
-    ) -> anyhow::Result<()> {
-        // Typed Slack discovery runs before loading agent tools. Only
-        // onboarding may fall back to an agent when workspace reads fail.
-        if source == ImportSource::Slack {
-            match slack_discovery::gather_slack(self, user, mode).await {
-                Ok(_) => return Ok(()),
-                Err(SlackSourceError::ToolsUnavailable(_)) if mode == GatherMode::Manual => {
-                    anyhow::bail!("Your Slack connection does not expose channel tools");
-                }
-                Err(e) if mode == GatherMode::Manual => return Err(e.into()),
-                Err(e) => {
-                    tracing::warn!(error = ?e, "direct slack gather failed; trying the agent");
-                }
-            }
-        }
-
-        let mcp_tools = self.connector_tools(user, source).await?;
-
-        // Staging is idempotent (the ledger dedups already-staged rows), so
-        // rerunning the whole session on the fallback model is safe even
-        // when the primary died mid-way through staging.
-        match self
-            .gather_agent_session(user, source, GATHER_MODEL, mcp_tools.clone())
-            .await
-        {
-            Ok(()) => Ok(()),
-            Err(e) if e.is::<ai_billing::AiAdmissionError>() => Err(e),
-            Err(e) => {
-                tracing::warn!(model = GATHER_MODEL, error = ?e, "gather session failed; retrying on the fallback model");
-                self.gather_agent_session(user, source, GATHER_FALLBACK_MODEL, mcp_tools)
-                    .await
-            }
-        }
-    }
-
-    /// One agent gather session on a specific model.
-    #[tracing::instrument(skip(self, user, mcp_tools), err)]
-    async fn gather_agent_session<M: ToolSet<ImportToolContext<Self>> + 'static>(
-        &self,
-        user: &MacroUserIdStr<'static>,
-        source: ImportSource,
-        model: &str,
-        mcp_tools: Arc<M>,
-    ) -> anyhow::Result<()> {
-        let native = gather_toolset::<Self>();
-        let toolset = NativePlusMcp::new(native, mcp_tools);
-        let context = ImportToolContext {
-            service: Some(Arc::new(self.clone())),
-            policy: ToolPolicy::gather(source),
-        };
-
-        self.drive_session(
-            user,
-            model,
-            GATHER_MAX_TURNS,
-            toolset,
-            context,
-            &prompts::gather_system(source),
-            prompts::gather_prompt(source),
-        )
-        .await
     }
 
     /// Copy one accepted Notion page in WITHOUT a model: call the
@@ -655,10 +437,7 @@ where
     ) -> anyhow::Result<()> {
         let native = notion_import_toolset::<Self>();
         let toolset = NativePlusMcp::new(native, mcp_tools);
-        let context = ImportToolContext {
-            service: Some(Arc::new(self.clone())),
-            policy: ToolPolicy::import_job(),
-        };
+        let context = ImportToolContext::wired(Arc::new(self.clone()));
 
         self.drive_session(
             user,
@@ -865,15 +644,8 @@ where
         outcome
     }
 
-    /// Run a claimed import batch in the background. Manual batches only
-    /// update their entity rows; automatic batches also settle their owning
-    /// run after every row reaches a terminal state.
-    fn spawn_import_batch(
-        &self,
-        user: MacroUserIdStr<'static>,
-        rows: Vec<ImportEntity>,
-        auto_run: Option<ImportSource>,
-    ) {
+    /// Run a claimed import batch in the background.
+    fn spawn_import_batch(&self, user: MacroUserIdStr<'static>, rows: Vec<ImportEntity>) {
         let service = self.clone();
         tokio::spawn(async move {
             let batch_ids: Vec<Uuid> = rows.iter().map(|row| row.id).collect();
@@ -922,11 +694,6 @@ where
                             .fail_unfinished(&user, &ids, &format!("notion unavailable: {e}"))
                             .await;
                         service.notify(&user).await;
-                        if let Some(source) = auto_run {
-                            service
-                                .finish_auto_import_batch(&user, source, &batch_ids)
-                                .await;
-                        }
                         return;
                     }
                 };
@@ -942,12 +709,6 @@ where
                     })
                     .await;
                 service.notify(&user).await;
-            }
-
-            if let Some(source) = auto_run {
-                service
-                    .finish_auto_import_batch(&user, source, &batch_ids)
-                    .await;
             }
         });
     }
@@ -979,58 +740,9 @@ where
             Err(e) => tracing::warn!(error = ?e, "failed to reap stale imports"),
         }
 
-        match self.repo.reconcile_auto_import_runs(&user).await {
-            Ok(0) => {}
-            Ok(reconciled) => {
-                tracing::warn!(reconciled, "reconciled interrupted automatic import runs");
-                self.notify(&user).await;
-            }
-            // A read must never fail because recovery did.
-            Err(e) => tracing::warn!(error = ?e, "failed to reconcile automatic import runs"),
-        }
-
-        // Self-heal the small window between persisting gather completion and
-        // spawning its configured follow-on batch. The begin CAS makes this
-        // safe across concurrent readers and replicas.
-        let mut runs = self.repo.list_runs(&user).await?;
-        let auto_ready: Vec<ImportSource> = runs
-            .iter()
-            .filter(|run| run.auto_import && run.status == RunStatus::Ready)
-            .map(|run| run.source)
-            .collect();
-        let mut started = false;
-        for source in auto_ready {
-            match self.maybe_start_auto_import(&user, source).await {
-                Ok(did_start) => started |= did_start,
-                Err(e) => {
-                    tracing::warn!(source = source.as_ref(), error = ?e, "failed to self-heal automatic import start");
-                }
-            }
-        }
-        if started {
-            runs = self.repo.list_runs(&user).await?;
-        }
+        let runs = self.repo.list_runs(&user).await?;
         let entities = self.repo.list(&user, None, None).await?;
         Ok(ImportState { runs, entities })
-    }
-
-    #[tracing::instrument(skip(self, user), err)]
-    async fn start_gather(
-        &self,
-        user: MacroUserIdStr<'static>,
-        source: ImportSource,
-        auto_import: bool,
-    ) -> Result<bool> {
-        if !self.prepare_gather(&user, source, &[]).await? {
-            return Ok(false);
-        }
-        // The CAS still decides the winner if another request raced admission.
-        let won = self.repo.start_run(&user, source, &[], auto_import).await?;
-        if won {
-            self.spawn_gather(user.clone(), source, GatherMode::Onboarding);
-            self.notify(&user).await;
-        }
-        Ok(won)
     }
 
     #[tracing::instrument(skip(self, user), err)]
@@ -1048,60 +760,12 @@ where
             RunStatus::Failed,
             RunStatus::Dismissed,
         ];
-        if !self.prepare_gather(&user, source, &from).await? {
-            return Ok(false);
-        }
-        let won = self.repo.start_manual_run(&user, source, &from).await?;
+        let won = self.repo.start_run(&user, source, &from).await?;
         if won {
-            self.spawn_gather(user.clone(), source, GatherMode::Manual);
+            self.spawn_slack_discovery(user.clone());
             self.notify(&user).await;
         }
         Ok(won)
-    }
-
-    #[tracing::instrument(skip(self, user), err)]
-    async fn retry_gather(
-        &self,
-        user: MacroUserIdStr<'static>,
-        source: ImportSource,
-    ) -> Result<bool> {
-        if !self
-            .prepare_gather(&user, source, &[RunStatus::Failed, RunStatus::Dismissed])
-            .await?
-        {
-            return Ok(false);
-        }
-        let won = self
-            .repo
-            .start_run(
-                &user,
-                source,
-                &[RunStatus::Failed, RunStatus::Dismissed],
-                false,
-            )
-            .await?;
-        if won {
-            self.spawn_gather(user.clone(), source, GatherMode::Onboarding);
-            self.notify(&user).await;
-        }
-        Ok(won)
-    }
-
-    #[tracing::instrument(skip(self, user), err)]
-    async fn dismiss_run(&self, user: MacroUserIdStr<'static>, source: ImportSource) -> Result<()> {
-        let dismissed = self
-            .repo
-            .transition_run(
-                &user,
-                source,
-                &[RunStatus::Ready, RunStatus::Failed],
-                RunStatus::Dismissed,
-            )
-            .await?;
-        if dismissed {
-            self.notify(&user).await;
-        }
-        Ok(())
     }
 
     #[tracing::instrument(skip(self, user, import_ids, discard_ids), fields(imports = import_ids.len(), discards = discard_ids.len()), err)]
@@ -1126,45 +790,13 @@ where
         self.notify(&user).await;
 
         if !rows.is_empty() {
-            self.spawn_import_batch(user.clone(), rows, None);
+            self.spawn_import_batch(user.clone(), rows);
         }
 
         Ok(RunImportOutcome {
             discarded,
             importing,
         })
-    }
-
-    #[tracing::instrument(skip(self, user), err)]
-    async fn discard_staged_by_initiator(
-        &self,
-        user: MacroUserIdStr<'static>,
-        initiator: Initiator,
-    ) -> Result<u64> {
-        let discarded = self
-            .repo
-            .discard_staged_by_initiator(&user, initiator)
-            .await?;
-        if discarded > 0 {
-            self.notify(&user).await;
-        }
-        Ok(discarded)
-    }
-
-    #[tracing::instrument(skip(self, user), err)]
-    async fn delete_staged_by_initiator(
-        &self,
-        user: MacroUserIdStr<'static>,
-        initiator: Initiator,
-    ) -> Result<u64> {
-        let removed = self
-            .repo
-            .delete_staged_by_initiator(&user, initiator)
-            .await?;
-        if removed > 0 {
-            self.notify(&user).await;
-        }
-        Ok(removed)
     }
 }
 
@@ -1219,7 +851,14 @@ where
 
         match self
             .repo
-            .upsert_staged(user, source, initiator, &foreign_id, &metadata)
+            .upsert_staged(
+                user,
+                source,
+                source.default_kind(),
+                initiator,
+                &foreign_id,
+                &metadata,
+            )
             .await?
         {
             Some(row) => {
@@ -1295,6 +934,7 @@ where
             .upsert_imported(
                 user,
                 source,
+                source.default_kind(),
                 initiator,
                 &foreign_id,
                 &metadata,
