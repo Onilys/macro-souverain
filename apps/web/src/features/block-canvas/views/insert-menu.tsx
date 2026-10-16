@@ -133,6 +133,7 @@ export function CanvasInsertMenu(props: {
               <Popover.Content
                 class="menu-surface z-action-menu flex w-80 max-w-[calc(100vw-1rem)] min-h-0 flex-col rounded-xl text-sm outline-none"
                 style={{
+                  height: type === 'media' ? '28rem' : '21rem',
                   'max-height':
                     'min(28rem, var(--kb-popper-content-available-height, calc(100dvh - 1rem)))',
                 }}

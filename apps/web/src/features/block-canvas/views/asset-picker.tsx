@@ -97,7 +97,7 @@ export function CanvasAssetPicker(props: {
   });
   return (
     <div
-      class="flex min-h-0 flex-col"
+      class="flex h-full min-h-0 flex-col"
       use:ctrlJKMenuNavigation={{ macOnly: false }}
       on:keydown={(event) => {
         if (event.key !== 'Tab') event.stopPropagation();
@@ -107,7 +107,7 @@ export function CanvasAssetPicker(props: {
         }
       }}
     >
-      <div class="flex items-center gap-2 border-b border-edge-muted px-3 py-2">
+      <div class="flex shrink-0 items-center gap-2 border-b border-edge-muted px-3 py-2">
         <SearchIcon class="size-4 shrink-0 text-ink-muted" />
         <input
           type="search"
@@ -190,13 +190,13 @@ export function CanvasAssetPicker(props: {
           />
         </div>
       </Show>
-      <div class="flex min-h-0 max-h-72 flex-col py-1.5">
+      <div class="flex min-h-0 flex-1 flex-col py-1.5">
         <div
           id={listId}
           role="listbox"
           aria-label={`Available ${props.mode}`}
-          class="min-h-0 overflow-hidden"
-          style={{ height: `${Math.min(288, items().length * 36)}px` }}
+          class="min-h-0 flex-1 overflow-hidden"
+          classList={{ hidden: !items().length }}
         >
           <VList
             ref={(handle) => {

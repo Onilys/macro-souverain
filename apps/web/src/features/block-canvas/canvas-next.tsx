@@ -1,6 +1,7 @@
 import { useSplitLayout } from '@components/app/split-layout/layout';
+import { useMacroMentionLinkResolver } from '@components/app/split-layout/split-router/mention-links';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
-import { parseMacroAppUrl } from '@core/component/LexicalMarkdown/plugins';
+import { resolvePastedMacroAppUrl } from '@core/component/LexicalMarkdown/plugins/text-paste/textPastePlugin';
 import {
   fileTypeToBlockName,
   resolveBlockAlias,
@@ -75,6 +76,7 @@ function EditableCanvasNext(props: {
   const assets = createAssetState(state, canvasAssetSource);
   const insert = createCanvasInsertState(editor.getCamera);
   const { openWithSplit } = useSplitLayout();
+  const resolveAppLink = useMacroMentionLinkResolver();
   let viewport: HTMLElement | undefined;
   const center = () =>
     screenToWorld(editor.getCamera(), {
@@ -85,8 +87,8 @@ function EditableCanvasNext(props: {
     editor,
     state.setNotice,
     (text, html) => {
-      const link = parseMacroAppUrl(text);
-      if (link.isValid && link.id && link.block) {
+      const link = resolvePastedMacroAppUrl(text, resolveAppLink);
+      if (link?.id && link.block) {
         assets.document(
           { id: link.id, name: 'Document', fileType: link.block },
           center()

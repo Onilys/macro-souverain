@@ -83,7 +83,10 @@ replace the radial menu with searchable mentions-style pickers. Upload media
 opens the OS picker directly for local images/videos. References insert document
 preview cards; creating new embeds is unavailable. Arrow keys or Ctrl+J/K navigate;
 Enter selects and Escape closes. Selected rows scroll with the same inset as the
-menu padding. Media retains its dashed drop area and **Add files** button, with no
+menu padding. Picker height stays fixed through loading, search results, and no
+results, capped by the available viewport space. Verify typing an unmatched query
+and clearing it does not move the search field or resize the menu.
+Media retains its dashed drop area and **Add files** button, with no
 folder option. Insertion uses the position captured when I is pressed. Verify
 keyboard selection, closing/reopening, upload cancellation, and placement after
 pan/zoom. The shortcut is inactive during text/embed editing and in read-only canvases.
@@ -91,6 +94,11 @@ Reference cards register with the shared reference system when the canvas saves.
 Verify the backlink on the target, duplicate cards retaining one reference, and
 removing the final card followed by undo/redo. Reload must preserve tracking.
 Existing untracked cards register on their next content save.
+Pasting a same-host Macro file URL uses the same link resolver as Markdown and
+inserts a reference card at the viewport center, including nested Drive routes
+and copied split layouts (the rightmost pane). Legacy `/app/md/<id>` links still
+work. Verify a `/app/drive/md/<id>` paste becomes a card and registers a backlink;
+foreign-host links and unrecognized routes remain text.
 
 Pasting or dropping image files shows local previews while the static-file upload
 finishes. Previews become selectable image nodes after upload and remote loading
