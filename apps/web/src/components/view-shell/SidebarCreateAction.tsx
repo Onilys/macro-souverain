@@ -72,7 +72,7 @@ export function SidebarCreateAction(
             props['aria-haspopup'] === 'true'
           }
         >
-          <CaretDownIcon class="size-3 shrink-0" />
+          <CaretDownIcon class="size-4 shrink-0" />
         </Show>
       </Show>
     </Button>

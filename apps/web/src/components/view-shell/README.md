@@ -36,7 +36,7 @@ Use `SidebarActionRow` to register search and creation under the feature owner.
 The sidebar's first row replaces the visible title with a large, unframed creation
 action, sized to show its complete label without an entity icon, background, border,
 or shadow, followed by Search and close/collapse controls in the same 48px header.
-Views without creation keep their title. Multiple creation choices use a dropdown with a trailing chevron.
+Views without creation keep their title. Multiple creation choices use a dropdown with a 16px trailing chevron.
 Creation uses buttons, never radio semantics.
 Search expands on demand; Escape hides it without losing the query.
 
