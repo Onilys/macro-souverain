@@ -180,6 +180,33 @@ test('touch taps select, edit, apply, and cancel cell drafts', async ({
   await expect(formulaBar(page)).toHaveValue('42');
 });
 
+test('touch taps pick an @date day on screen without dropping the cell editor', async ({
+  page,
+}) => {
+  await page.goto('/?mentions');
+  await expect(cell(page, 'B4')).toHaveText('30');
+  const fifteenth = await page.evaluate(() => {
+    const now = new Date();
+    return `${now.getMonth() + 1}/15/${now.getFullYear()}`;
+  });
+  await cell(page, 'A6').tap();
+  await cell(page, 'A6').tap();
+  const input = page.getByRole('textbox', { name: 'Edit A6' });
+  await expect(input).toBeFocused();
+  await input.pressSequentially('@date');
+  const picker = page.locator('[data-cell-date-picker]');
+  await expectInsideViewport(page, picker);
+  await picker.getByRole('gridcell', { name: '15', exact: true }).tap();
+  await expect(picker).toBeHidden();
+  await expect(input).toBeFocused();
+  await expect(input).toHaveText(`${fifteenth} `);
+  await button(page, 'Apply edit').tap();
+  await expect(cell(page, 'A6')).toHaveText(fifteenth);
+  expect(
+    await page.evaluate(() => window.spreadsheetFixture.snapshot()[0].cells.A6)
+  ).toEqual({ value: fifteenth, format: 'date' });
+});
+
 test('selection handles extend a range (WebKit drag uses a mouse pointer)', async ({
   page,
   browserName,

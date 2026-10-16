@@ -74,7 +74,8 @@ bunx playwright test --config src/features/block-spreadsheet/browser-test/playwr
 ```
 
 The `android-chrome` (Pixel 7) and `iphone-webkit` (iPhone 13) projects exercise
-touch taps, edit/apply/cancel, formula suggestions, selection/reference handles,
+touch taps, edit/apply/cancel, tapping a day in the `@date` calendar, formula
+suggestions, selection/reference handles,
 formatting menus, sheet creation/rename, find, viewer permissions, and the narrow
 footer. Landscape and reduced viewport checks cover layout with less vertical
 space. Chromium swipes and handle drags use CDP's trusted touch input, including
