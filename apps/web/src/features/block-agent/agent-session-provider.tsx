@@ -83,6 +83,7 @@ export function AgentSessionProvider(
         pending: true,
         segments: [],
         phase: null,
+        postedAt: null,
       },
     ];
   };

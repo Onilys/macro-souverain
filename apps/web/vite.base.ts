@@ -170,8 +170,7 @@ const HTML_PRELOADS = [
 
 /**
  * Adds `<link rel="preload">` for HTML_PRELOADS, so their downloads start with
- * the HTML instead of after the entry runs. The service worker caches preloads
- * with the shell.
+ * the HTML instead of after the entry runs.
  */
 function htmlPreloads(): Plugin {
   let base = '/';

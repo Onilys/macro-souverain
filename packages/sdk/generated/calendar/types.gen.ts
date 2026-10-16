@@ -519,8 +519,16 @@ export type RefreshCalendarEvent = {
      * Connected inbox whose calendars changed.
      */
     link_id: string;
+    /**
+     * False only when the run excludes changes to teammate OOO projections.
+     */
+    team_ooo_changed: boolean;
 } | {
     event: 'team_sharing_changed';
+    /**
+     * True for sharing changes and any possibly affected OOO projection.
+     */
+    team_ooo_changed: boolean;
 };
 
 /**

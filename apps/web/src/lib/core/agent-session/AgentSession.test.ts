@@ -1153,6 +1153,7 @@ describe('AgentSession', () => {
           pending: false,
           segments: [],
           phase: null,
+          postedAt: null,
         },
         {
           agentSessionId: SESSION,
@@ -1167,6 +1168,7 @@ describe('AgentSession', () => {
           pending: false,
           segments: [],
           phase: null,
+          postedAt: null,
         },
       ]);
       const [span] = renderSpans();
@@ -1294,6 +1296,7 @@ describe('AgentSession', () => {
             pending: false,
             segments: [],
             phase: null,
+            postedAt: null,
           },
         },
         {
@@ -1308,6 +1311,7 @@ describe('AgentSession', () => {
             pending: false,
             segments: [],
             phase: null,
+            postedAt: null,
           },
         },
       ] satisfies FoldedStreamEvent[]);
@@ -1361,6 +1365,7 @@ describe('AgentSession', () => {
             pending: false,
             segments: [],
             phase: null,
+            postedAt: null,
           },
         },
       ] satisfies FoldedStreamEvent[]);

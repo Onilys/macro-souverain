@@ -75,6 +75,7 @@ fn sync_plan_extends_only_the_uncovered_tail() {
     let materialized = OccurrenceRange::historical_sync(now);
     let stored = StoredGoogleCalendar {
         id: Uuid::now_v7(),
+        team_ooo_changed: false,
         sync_token: Some("token".to_string()),
         materialized_range: Some(materialized.clone()),
         synced_at: None,
@@ -107,6 +108,7 @@ fn sync_plan_extends_only_the_uncovered_tail() {
 
     let uninitialized = StoredGoogleCalendar {
         id: Uuid::now_v7(),
+        team_ooo_changed: false,
         sync_token: None,
         materialized_range: Some(materialized.clone()),
         synced_at: None,
@@ -120,6 +122,7 @@ fn sync_plan_extends_only_the_uncovered_tail() {
 
     let unmaterialized = StoredGoogleCalendar {
         id: Uuid::now_v7(),
+        team_ooo_changed: false,
         sync_token: Some("token".to_string()),
         materialized_range: None,
         synced_at: None,
@@ -137,6 +140,7 @@ fn watch_renewal_skips_calendars_that_recently_refused_push() {
     let now = Utc.with_ymd_and_hms(2026, 9, 23, 12, 0, 0).unwrap();
     let calendar = StoredGoogleCalendar {
         id: Uuid::now_v7(),
+        team_ooo_changed: false,
         sync_token: None,
         materialized_range: None,
         synced_at: None,

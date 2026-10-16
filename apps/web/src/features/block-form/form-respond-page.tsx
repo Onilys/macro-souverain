@@ -6,7 +6,6 @@
  * redirect (`withFormRespondShell` in `routes/shells.tsx`). The form itself is the shared
  * `RespondView`.
  */
-import { settingsTabToSlug } from '@core/constant/settingsTabsConfig';
 import { useUserId } from '@core/context/user';
 import Eye from '@phosphor/eye.svg';
 import { useNavigate, useSearchParams } from '@solidjs/router';
@@ -43,8 +42,7 @@ function FormRespondContent(props: { formId: string }) {
     openRelated: (destination) =>
       navigate(`/database/${destination.databaseId}`),
     openChannel: (channelId) => navigate(`/channel/${channelId}`),
-    openCalendarSettings: () =>
-      navigate(`/settings/${settingsTabToSlug('Booking links')}`),
+    openCalendarSettings: () => navigate('/scheduling'),
   });
   const source = context.createFormSource(() => props.formId);
   return (

@@ -530,6 +530,12 @@ export type FoldedMessage = {
    *  has ended and on a user's message.
    */
   phase: TurnPhase | null;
+  /**
+   *  When a user's prompt was posted, RFC 3339. Absent on agent and control
+   *  messages, until the log confirms a prompt, and on history a runtime
+   *  replayed on load.
+   */
+  postedAt: string | null;
 };
 
 /**

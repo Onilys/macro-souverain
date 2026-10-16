@@ -1244,6 +1244,7 @@ impl TryFrom<AgentSessionLogRow> for StoredAgentSessionLog {
                 agent_session_id: AgentSessionId::new_from_uuid(row.agent_session_id),
                 user_id: row.user_id,
                 content: parse_message(&row.direction, row.content)?,
+                logged_at: Some(row.created_at),
             },
         })
     }

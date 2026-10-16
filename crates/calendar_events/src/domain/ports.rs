@@ -379,6 +379,8 @@ pub struct CalendarEventWriteOutcome {
     pub owner_id: String,
     /// What happened to the row.
     pub change: CalendarEventChange,
+    /// A changed source was or is OOO; it may revoke a teammate's status/title.
+    pub team_ooo_changed: bool,
 }
 
 /// One event's fate after its sources were retired.
@@ -638,11 +640,13 @@ pub trait CalendarRepository: Send + Sync + 'static {
 /// Macro-originated mutation changed them. Best effort: implementations log
 /// and swallow delivery failures, since the mutation is already committed.
 pub trait CalendarRefreshNotifier: Send + Sync + 'static {
-    /// Signal that `email_link_id`'s calendar projection changed.
+    /// Signal that `email_link_id`'s calendar projection changed. Only pass
+    /// `team_ooo_changed: false` when the change cannot affect team OOO access.
     fn calendar_changed(
         &self,
         owner_id: &str,
         email_link_id: Uuid,
+        team_ooo_changed: bool,
     ) -> impl Future<Output = ()> + Send;
 }
 

@@ -32,3 +32,5 @@ pub mod retention;
 pub mod sns_endpoint;
 pub mod user_existence_checker;
 pub mod websocket;
+/// Durable suppression of superseded notification delivery.
+pub mod withdrawal;

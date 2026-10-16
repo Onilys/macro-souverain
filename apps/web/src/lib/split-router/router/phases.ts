@@ -123,11 +123,10 @@ export function createPhaseScopes(
       if (!from) return [];
 
       const depth = firstChangedDepth(routes, from, to);
-      if (depth === undefined) return [];
 
       const context = { pane, from, to, cause: navigation.cause, signal };
 
-      return checksFor(guards.select(pane, depth), context);
+      return checksFor(guards.select(pane, depth, context), context);
     });
 
   const removalChecks = ({ navigation, signal }: RunContext): Check[] => {

@@ -24,6 +24,7 @@ use tokio::sync::Notify;
 use tracing::instrument::WithSubscriber as _;
 
 mod first_output;
+mod presentation;
 
 struct Fixture {
     service: AgentSessionServiceImpl<
@@ -187,6 +188,7 @@ async fn only_the_first_prompt_is_selected_for_automatic_naming() {
                 )
                 .expect("a set-model frame builds"),
         ),
+        logged_at: None,
     }]);
     assert_eq!(
         initial_prompt_for_rename(&folds, session, &prompt).await,
@@ -1357,6 +1359,7 @@ fn any_event(session: AgentSessionId) -> AgentSessionLog {
         content: Message::ToServer(ToServerMessage::Event {
             event: agent_runtime_protocol::domain::schema::v0::SystemEvent::AcpReady,
         }),
+        logged_at: None,
     }
 }
 
@@ -1850,8 +1853,11 @@ async fn shared_transport_copies_durable_initialization_before_load() {
         Arc::new(crate::domain::ports::NoOpToolCatalog),
     );
     let ready = actor.next_input().await;
-    assert!(matches!(ready, Input::SharedReady { .. }));
-    actor.dispatch(ready).await;
+    assert!(matches!(
+        ready,
+        ActorInput::Protocol(Input::SharedReady { .. })
+    ));
+    actor.dispatch_input(ready).await;
     let ToRuntimeMessage::Acp(AcpMessage(RawJsonRpcMessage::Request(load))) =
         received.recv().await.unwrap()
     else {
@@ -1968,8 +1974,11 @@ async fn assert_restore_persistence_failure_does_not_send_prompt(failure: Restor
         .await
         .unwrap();
     let queued = actor.next_input().await;
-    assert!(matches!(queued, Input::Command { .. }));
-    assert_eq!(actor.dispatch(queued).await, Stepped::Continue);
+    assert!(matches!(
+        queued,
+        ActorInput::Protocol(Input::Command { .. })
+    ));
+    assert_eq!(actor.dispatch_input(queued).await, Stepped::Continue);
     assert!(received.try_recv().is_err());
 
     let init_id = RequestId::Str("shared-transport-initialization".into());
@@ -2000,8 +2009,11 @@ async fn assert_restore_persistence_failure_does_not_send_prompt(failure: Restor
         })
         .unwrap();
     let ready = actor.next_input().await;
-    assert!(matches!(ready, Input::SharedReady { .. }));
-    let step = actor.dispatch(ready).await;
+    assert!(matches!(
+        ready,
+        ActorInput::Protocol(Input::SharedReady { .. })
+    ));
+    let step = actor.dispatch_input(ready).await;
     let mut failed_response_id = None;
     if matches!(failure, RestoreLogFailure::LoadResponse) {
         assert_eq!(step, Stepped::Continue);
@@ -2427,6 +2439,7 @@ mod fold_signals {
                 content: Message::ToServer(ToServerMessage::Event {
                     event: SystemEvent::AcpReady,
                 }),
+                logged_at: None,
             })
             .await
             .expect("append succeeds");
@@ -2458,6 +2471,7 @@ fn streamed_frame(text: &str) -> AgentSessionLog {
             )
             .unwrap(),
         ))),
+        logged_at: None,
     }
 }
 
@@ -2566,6 +2580,7 @@ async fn system_events_flush_pending_frames_through() {
             content: Message::ToServer(ToServerMessage::Event {
                 event: SystemEvent::AcpReady,
             }),
+            logged_at: None,
         },
     )
     .await
@@ -2725,6 +2740,7 @@ async fn a_load_boundary_lands_after_the_frames_buffered_before_it() {
             )
             .unwrap(),
         ))),
+        logged_at: None,
     };
     let initialization_log_id = AgentSessionLogWriter::append(&mut logs, initialize)
         .await
@@ -2743,6 +2759,7 @@ async fn a_load_boundary_lands_after_the_frames_buffered_before_it() {
                 Ok(serde_json::json!({})),
             ),
         ))),
+        logged_at: None,
     };
     let response_id = AgentSessionLogWriter::append_with_boundary(
         &mut logs,

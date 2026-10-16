@@ -347,9 +347,9 @@ Four vocabularies must agree:
 - **Agent prompt:** add the kind to `crates/prompt/src/mentions.rs` and, if it has
   URLs, `crates/prompt/src/mcp_item_links.rs`. Without it agents linked forms as
   plain URLs.
-- **Deploy skew:** lexical-service deploys on every push to `main` that touches
-  `packages/lexical-core` or `services/lexical-service`, but the web app ships on
-  releases. New node data must parse in the old composer and vice versa; run
+- **Deploy skew:** lexical-service and the web app deploy separately, so either
+  can run against the other's previous release. New node data must parse in the
+  old composer and vice versa; run
   `bun run check` in `services/lexical-service`, and bump
   `MARKDOWN_VERSION_COUNTER` per `.agents/rules/web/lexical-nodes.md`.
 - Record mentions on create as well as on edit, or References misses them.
