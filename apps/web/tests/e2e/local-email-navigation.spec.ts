@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 
-import { gotoApp, LOCAL_E2E } from './helpers/local-app';
+import { gotoApp, LOCAL_E2E, uniqueE2EText } from './helpers/local-app';
 
 test.skip(!LOCAL_E2E, 'local email navigation tests require LOCAL_E2E=true');
 
@@ -15,7 +15,7 @@ async function expectEmailTab(page: Page, label: string) {
 }
 
 async function openEmail(page: Page) {
-  await gotoApp(page, '/component/mail');
+  await gotoApp(page, '/mail');
   await expectEmailTab(page, 'Signal');
   await page.getByRole('grid', { name: 'Email' }).focus();
 }
@@ -71,7 +71,7 @@ test.describe('local email keyboard navigation', () => {
       await goTo(page, key);
       await expectEmailTab(page, label);
     }
-    await expect(page).toHaveURL(/\/app\/component\/mail/);
+    await expect(page).toHaveURL(/\/app\/mail\b/);
 
     await page.keyboard.press('ControlOrMeta+k');
     const menu = page.getByRole('dialog');
@@ -81,11 +81,44 @@ test.describe('local email keyboard navigation', () => {
     await expect(menu).toHaveCount(0);
   });
 
+  test('g l picks a tag, and Escape leaves the tag view for Signal', async ({
+    page,
+  }) => {
+    await openEmail(page);
+    const tagName = uniqueE2EText('Email nav');
+    await page.getByRole('button', { name: 'New tag' }).click();
+    await page.getByPlaceholder('Tag name').fill(tagName);
+    await page.getByRole('button', { name: /^Save/ }).click();
+    const tagRow = page
+      .getByRole('navigation', { name: 'Tags' })
+      .getByRole('button', { name: tagName });
+    await expect(tagRow).toBeVisible();
+
+    await page.getByRole('grid', { name: 'Email' }).focus();
+    await goTo(page, 'l');
+    const picker = page.getByRole('dialog');
+    const query = picker.getByPlaceholder('Go to tag...');
+    await expect(query).toBeFocused();
+    await expect(picker.getByText('docs', { exact: true })).toBeVisible();
+    await query.fill(tagName);
+    // The starter `docs` tag drops out once the debounced query applies.
+    await expect(picker.getByText('docs', { exact: true })).toBeHidden();
+    await page.keyboard.press('Enter');
+    await expect(picker).toHaveCount(0);
+    await expectEmailTab(page, 'All');
+    await expect(tagRow).toHaveAttribute('aria-current', 'page');
+
+    await page.getByRole('grid', { name: 'Email' }).focus();
+    await page.keyboard.press('Escape');
+    await expectEmailTab(page, 'Signal');
+    await expect(tagRow).not.toHaveAttribute('aria-current', 'page');
+  });
+
   test('other g keys keep their app destinations', async ({ page }) => {
     await openEmail(page);
     await goTo(page, 'f');
-    await expect(page).toHaveURL(/\/app\/component\/documents/);
+    await expect(page).toHaveURL(/\/app\/drive\b/);
     await goTo(page, 'e');
-    await expect(page).toHaveURL(/\/app\/component\/mail/);
+    await expect(page).toHaveURL(/\/app\/mail\b/);
   });
 });
