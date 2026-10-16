@@ -16,13 +16,23 @@ type EmailAttachmentPillProps = {
   onClick?: () => void;
 };
 
+/** The file-type icon for an attachment's MIME type; unknown types get the generic file icon. */
+export function EmailAttachmentIcon(props: { mimeType?: string }) {
+  const fileType = () =>
+    props.mimeType
+      ? (mimeToFileExtTypeMap.get(props.mimeType) as FileType)
+      : undefined;
+
+  return (
+    <EntityIcon
+      targetType={fileType() ?? (props.mimeType as FileType)}
+      size="xs"
+    />
+  );
+}
+
 export function EmailAttachmentPill(props: EmailAttachmentPillProps) {
   let parentDiv!: HTMLDivElement;
-
-  const fileType = () =>
-    props.attachment.mimeType
-      ? (mimeToFileExtTypeMap.get(props.attachment.mimeType) as FileType)
-      : undefined;
 
   return (
     <div
@@ -41,11 +51,8 @@ export function EmailAttachmentPill(props: EmailAttachmentPillProps) {
           if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
         }}
       >
-        <Show when={fileType() !== undefined || props.attachment.mimeType}>
-          <EntityIcon
-            targetType={fileType() ?? (props.attachment.mimeType as FileType)}
-            size="xs"
-          />
+        <Show when={props.attachment.mimeType}>
+          {(mimeType) => <EmailAttachmentIcon mimeType={mimeType()} />}
         </Show>
         <span class="ph-no-capture truncate ml-1">
           {props.attachment.fileName}

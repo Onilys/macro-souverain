@@ -1,6 +1,7 @@
 import '@entity/composed/ListEntity.css';
 import { type ListActivation, useListInteractions } from '@app/components/list';
 import { CommandState } from '@app/features/command/state';
+import { createEmailAttachmentOpener } from '@app/features/email-message/attachment-action-adapter';
 import {
   resolveEntityActionViewContext,
   toEntityActionListState,
@@ -24,6 +25,7 @@ import {
   EntitySelectionToolbar,
   ListEntity,
   ListLayoutProvider,
+  type SearchLocation,
   type WithNotification,
 } from '@entity';
 import CaretDownIcon from '@phosphor/caret-down.svg';
@@ -58,12 +60,18 @@ import {
   type EmailListStateSnapshot,
 } from '../persistence';
 import { createEmailRowActionState } from '../primitives/row-action-state';
+import type {
+  EmailFileRow,
+  EmailFilesToggleRow,
+  EmailSearchFile,
+} from '../queries/email-search-files';
 import type { EmailDataSourceItem } from '../queries/use-email-query';
 import { EMAIL_TOUR } from '../tour';
 import { useEmailListHotkeys } from '../use-email-list-hotkeys';
-import { EmailDateGroupHeader } from './EmailDateGroupHeader';
 import { EmailEmptyState } from './EmailEmptyState';
+import { EmailListHeading } from './EmailListHeading';
 import { EmailRowActions, EmailStarAction } from './EmailRowActions';
+import { EmailSearchFileRow, EmailSearchFilesToggle } from './EmailSearchFiles';
 
 type EmailActionRow = {
   entity: WithNotification<EntityData>;
@@ -91,6 +99,7 @@ export function EmailList(props: EmailListProps) {
     options: {
       event?: MouseEvent;
       openInNewSplit?: boolean;
+      location?: SearchLocation;
     } = {}
   ) {
     const finishTouchHighlight = options.event
@@ -101,7 +110,51 @@ export function EmailList(props: EmailListProps) {
       splitHandle: panel.handle,
       referredFrom: 'mail',
       openInNewSplit: options.openInNewSplit,
+      location: options.location,
     }).finally(() => finishTouchHighlight?.());
+  }
+
+  const openAttachment = createEmailAttachmentOpener();
+
+  function openFileEmail(file: EmailSearchFile, event?: MouseEvent) {
+    const { thread, messageId } = file;
+    if (
+      event?.altKey !== true &&
+      openThread(
+        { id: thread.id, fallbackName: thread.name, messageId },
+        { event }
+      )
+    )
+      return;
+
+    openEntity(thread, {
+      event,
+      openInNewSplit: event?.shiftKey === true,
+      location: messageId ? { type: 'email', messageId } : undefined,
+    });
+  }
+
+  const opensAlternate = (metadata?: EmailListActivationMetadata) =>
+    metadata?.newSplit === true || metadata?.event?.shiftKey === true;
+
+  // A file row's alternate activation (Shift+Enter, Shift-click) opens its email.
+  function activateFilesRow(
+    item: EmailFileRow | EmailFilesToggleRow,
+    metadata?: EmailListActivationMetadata
+  ) {
+    if (item.kind === 'email-files-toggle') {
+      source.toggleSearchFiles?.();
+      return;
+    }
+    if (opensAlternate(metadata)) {
+      openFileEmail(item.file, metadata?.event);
+      return;
+    }
+    void openAttachment({
+      db_id: item.file.attachmentId,
+      filename: item.file.filename,
+      mime_type: item.file.mimeType,
+    });
   }
 
   function onActivate({
@@ -114,14 +167,18 @@ export function EmailList(props: EmailListProps) {
       return;
     }
 
+    if (item.kind === 'email-file' || item.kind === 'email-files-toggle') {
+      activateFilesRow(item, metadata);
+      return;
+    }
+
     if (item.kind !== 'entity') return;
 
     const sourceRow = source.items().find((row) => row.id === item.id);
 
     if (sourceRow?.kind !== 'entity') return;
 
-    const newSplit =
-      metadata?.newSplit === true || metadata?.event?.shiftKey === true;
+    const newSplit = opensAlternate(metadata);
 
     if (
       !newSplit &&
@@ -259,7 +316,9 @@ export function EmailList(props: EmailListProps) {
       shouldHandleKeyEvent: (event) =>
         !(
           event?.target instanceof Element &&
-          event.target.closest('button[data-reminder-action]')
+          event.target.closest(
+            'button[data-reminder-action], button[data-file-action]'
+          )
         ),
       createMetadata: (intent) => ({ newSplit: intent === 'alternate' }),
       alternateDescription: 'Open in new split',
@@ -551,12 +610,65 @@ export function EmailList(props: EmailListProps) {
                       {(row) => (
                         <Switch>
                           <Match
-                            when={row.kind === 'group-header' ? row : undefined}
+                            when={
+                              row.kind === 'group-header' ||
+                              row.kind === 'section-header'
+                                ? row
+                                : undefined
+                            }
                           >
-                            {(group) => (
-                              <EmailDateGroupHeader
-                                row={group()}
-                                isFirst={rows()[0]?.id === group().id}
+                            {(heading) => (
+                              <EmailListHeading
+                                row={heading()}
+                                isFirst={rows()[0]?.id === heading().id}
+                              />
+                            )}
+                          </Match>
+                          <Match
+                            when={row.kind === 'email-file' ? row : undefined}
+                          >
+                            {(fileRow) => (
+                              <EmailSearchFileRow
+                                row={fileRow()}
+                                highlighted={list.focus.key() === fileRow().id}
+                                onHover={() =>
+                                  list.focus.set(fileRow().id, {
+                                    reason: 'hover',
+                                  })
+                                }
+                                onOpen={(event) =>
+                                  list.activate.key(fileRow().id, {
+                                    reason: 'pointer',
+                                    metadata: { event },
+                                  })
+                                }
+                                onOpenEmail={(event) =>
+                                  openFileEmail(fileRow().file, event)
+                                }
+                              />
+                            )}
+                          </Match>
+                          <Match
+                            when={
+                              row.kind === 'email-files-toggle'
+                                ? row
+                                : undefined
+                            }
+                          >
+                            {(toggle) => (
+                              <EmailSearchFilesToggle
+                                row={toggle()}
+                                highlighted={list.focus.key() === toggle().id}
+                                onHover={() =>
+                                  list.focus.set(toggle().id, {
+                                    reason: 'hover',
+                                  })
+                                }
+                                onToggle={() =>
+                                  list.activate.key(toggle().id, {
+                                    reason: 'pointer',
+                                  })
+                                }
                               />
                             )}
                           </Match>
