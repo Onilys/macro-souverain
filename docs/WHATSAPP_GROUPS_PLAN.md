@@ -45,7 +45,7 @@ No line-removal target. Do not turn every convention observation into a rewrite.
 | Browser harness | Move equivalent scenarios into the existing functional runner if it supports the same isolation. Verify both discovery and CI execution before deleting the old runner; main-only coverage is not automatically a PR check. Keep normal-channel regression coverage. |
 | Shared code changes | Compare against current main. Remove unrelated changes introduced by this PR; do not revert main's agent-DM behavior or route fixes because they appear in the branch history. Confirm any Slack-import author-rendering impact is intended. |
 
-Three proposed deletions need more than a grep:
+These deletions must preserve the stated guarantees:
 
 - **Temporary Instagram copies:** keep opaque keys, private originals and
   15-minute signed URLs. The email bucket declares a one-day `temp/` lifecycle
@@ -61,8 +61,8 @@ Three proposed deletions need more than a grep:
   size/type checks and abandoned-upload cleanup. `document_id` in the send API
   does not by itself prove equivalence. Delete the dedicated staging route only
   once the existing upload path supplies those guarantees.
-- **Fairness caps:** the proposed product choice is to remove account fairness
-  caps, not to remove dispatch safety. Keep bounded workers, per-conversation
+- **Fairness caps — decided:** remove account fairness caps and their claim
+  machinery, while preserving dispatch safety. Keep bounded workers, per-conversation
   ordering and fencing across replicas. Prove simultaneous claims cannot send
   two replies in one conversation out of order before removing the global claim
   lock. Meta rate limits do not prevent a busy account occupying Macro workers;
@@ -97,6 +97,9 @@ The local developer number remains local-only and recipient-allowlisted.
 Admin demotion alone no longer revokes a connection while its connector remains a
 member. If the connector leaves, stop receiving/sending under that authorization,
 retain eligible receipts for recovery and show a clear reconnect explanation.
+Check connector membership before new inbound effects and external dispatch, not
+only at hourly maintenance. Already-accepted replies must still finish native
+recovery without sending again or requiring renewed connector access.
 A current admin can reauthorize the same account or disconnect it. Reconnect
 changes the connector but does not transfer existing channel/file grants. Make
 that limitation explicit; do not advertise account recovery as channel takeover.
@@ -123,6 +126,9 @@ Required outcomes:
   revision tombstones and queued/accepted send recovery. Keep enough previous-ID
   resolution for late events; `ON UPDATE CASCADE` alone does not cover JSON
   payloads, unlinked pending revisions or redelivered old identifiers.
+- On an authoritative identity/phone change, retire obsolete phone routing;
+  queued replies must resolve the current verified destination at dispatch.
+  A retained phone must not override a newer identity association.
 - Conflicting identities fail safely rather than merging two customer histories.
 - Use the documented phone destination when valid, otherwise the documented
   BSUID destination once verified for the configured API/account. Do not invent
@@ -130,6 +136,8 @@ Required outcomes:
 - Validate both phone and BSUID destinations against the controlled developer
   recipient allowlist. Username/display changes never change permissions.
 
+Disposable Macro demo records do not eliminate phone-only provider history or
+echo formats: support those actual source contracts, not obsolete Macro schemas.
 Keep changes inside messaging records and adapters. Do not prebuild a group
 participant model in this step. Official field names, update payloads and BSUID
 send availability are implementation prerequisites to verify, not assumptions
@@ -152,8 +160,10 @@ For a number requiring registration:
 - Check actual registration state before another attempt. On timeout or crash,
   reconcile with Meta rather than blindly registering again. If the PIN must be
   re-entered, say so without losing the retained connection.
-- Activate sending only after required registration/subscription succeeds. Keep
-  coexistence behavior unchanged and give registration errors understandable copy.
+- Activate sending only after required registration/subscription succeeds. The
+  same readiness rule must govern maintenance, reconnect and worker paths: an
+  hourly subscription check cannot promote an unregistered number to connected.
+  Keep coexistence behavior unchanged and give registration errors clear copy.
 
 Store only account mode needed by current policy. Do not add OBA-only fields,
 “Groups ready” copy or group eligibility polling until group support uses them.
@@ -163,16 +173,17 @@ promise of OBA approval or a guaranteed 30-day route to groups.
 
 ### Migration handling
 
-The user has confirmed that this task's existing local demo data is disposable.
+The user has confirmed that the feature migrations have not run on a shared
+database and this task's existing local demo data is disposable.
 Do not build a backfill, compatibility layer or data-preservation workflow for
 that demo. Recreate its isolated database when needed, preserving source work
 and the configuration needed to reconnect the controlled test accounts.
 
-Confirm that the feature migrations have not run in a shared environment, then
-squash the unshipped feature migrations and validate a fresh isolated database.
+Squash the unshipped feature migrations and validate a fresh isolated database.
+Do not reopen the settled deployment/data decision without new contrary evidence.
 Disposable demo data does not authorize resetting shared databases, other tasks'
-instances or Meta accounts. If a shared deployment is discovered, use forward
-migrations for that boundary; continue independent work.
+instances or Meta accounts. If new evidence reveals a shared deployment, use forward migrations for that
+boundary; continue independent work.
 Finalize schema cleanup and the identity/onboarding changes before regenerating
 SQLx/OpenAPI/SDK contracts; keep only required generated changes.
 
@@ -224,8 +235,9 @@ The original proposal can be reused after resolving these requirements:
 - Keep group authors stable and membership changes idempotent/out-of-order safe.
   Apply names from authoritative group facts, not participant display names.
 - Use server capabilities for recipient type, content restrictions and reply
-  windows. Enforce known suspended/deleted state before dispatch. Do not assume
-  the direct-chat window policy applies unchanged until Meta confirms it.
+  windows. Enforce known suspended/deleted state before dispatch. Apply the
+  group customer-service window documented on Meta's pricing page; do not
+  silently inherit unrelated direct-chat exceptions.
 - Delivery/read receipts may be per participant. Do not mark the entire group
   delivered/read because one participant acknowledged it. Define truthful
   aggregation or omit that claim; no read-receipt UI is required.
@@ -242,14 +254,44 @@ change. Reuse the existing batched channel presentation pattern (`agent_dm` is a
 reference) without granting access or adding a per-row messaging request. Verify
 all surfaces consume the metadata; changing `EntityIcon` alone is not proof.
 
+## Execution pointers (symbols are stable; line numbers may move)
+
+| Concern | Start here |
+| --- | --- |
+| Member versus manager checks | `crates/meta_messaging/src/inbound/router.rs`; `domain/meta.rs` (`team_actor`, begin/complete/disconnect); `domain/meta/history.rs` (consent, import and execution); `domain/meta/worker.rs` (ingestion/maintenance); `services/document_storage_service/src/native_messaging/native.rs` (`require_admin`/`require_send`) |
+| Settings and browser proof | `apps/web/src/features/meta-messaging/views/account-settings.tsx`; `queries/instagram-login.ts`; preserve browser proof and initiating user/team binding while changing role eligibility |
+| WhatsApp eligibility/registration | `crates/meta_messaging/src/outbound/provider.rs` (`whatsapp_authorize`); `apps/web/src/features/meta-messaging/queries/facebook-signup.ts`; rename/update `production_requires_coexistence_but_explicit_test_number_does_not` for both supported production modes |
+| Identity and routing | `inbound/webhook.rs`; `outbound/provider/history.rs`; `outbound/provider/sending.rs`; `outbound/repository/native.rs`, `revisions.rs`, `sends.rs`; find every `customer_id` consumer and durable payload |
+| Recovery regressions | DSS `native_messaging/native/test/http/{oauth,lifecycle,history,recovery}.rs`; `native/test/{reconciliation,revisions}.rs`; messaging `outbound/repository/test/{fairness,policies}.rs`; preserve behavioral assertions while updating the selected policy |
+| Existing frontend checks | `apps/web/src/features/meta-messaging/{queries,views,primitives}` tests and `apps/web/tests/meta-messaging`; verify functional-runner discovery before moving scenarios |
+| Unrelated branch changes | Compare `apps/web/src/routes/lazy-route-views.ts`, `features/channels-view/route-views.tsx` and agent-DM call gating to the current PR base; earlier review identified these as branch-only. Remove or separate only after checking whether messaging depends on the fix. |
+
+Preflight the existing Nix/tooling and isolated database before expensive builds.
+Docker and PostgreSQL binaries were present in the local Nix store during this
+review; the old Colima socket and database listeners were absent. Check current
+service health, not just shell PATH. Use local PostgreSQL for database tests when
+sufficient; Docker is needed only for the chosen stack/dependencies. Start only
+missing task-scoped services and avoid duplicate compilers. An environment issue
+does not require moving machines or blocking independent implementation by default.
+
 ## Provider evidence and rollout
 
-Meta pages linked below returned HTTP 429 during this review. Their earlier
-claims have therefore not been independently revalidated here. Do not present
-exact participant limits, BSUID rollout dates, registration-code lifetime, OBA
-eligibility or a 30-day approval schedule as confirmed implementation facts.
-Confirm the relevant official contract before implementing each dependent path;
-a blocked group fact does not block independent step-1 cleanup.
+Earlier session research reports the following as verified from Meta on
+2026-10-16. Preserve that evidence; this review's HTTP 429 responses do not
+invalidate it. Recheck the referenced contract/version before relying on it,
+and distinguish documented behavior from live verification on our test account.
+
+| Contract retained from the earlier research | Implementation consequence |
+| --- | --- |
+| WhatsApp message webhooks carry `messages[].from_user_id` and `contacts[].user_id` from the April 2026 rollout; `user_id_update` supplies previous/current IDs | Use BSUIDs. This is not a claim that every history, echo or status payload has the same fields; inspect those separately. |
+| The send API uses `recipient` for a BSUID, versus `to` for a phone | Implement the documented destination shape; confirm availability for the chosen API/account and surface unsupported-recipient errors. |
+| Registration uses a six-digit PIN, a 14-day registration deadline, and a limit of ten attempts per 72 hours; errors include 133005/133006/133016 | Respect retry limits and translate errors. Check code-exchange expiry separately; do not conflate it with the registration deadline. |
+| Group creation is asynchronous and correlated by `request_id` | Future group binding uses that identity, never the subject. |
+| Meta's group pricing page defines a group customer-service window | Preserve that documented group policy when implementing groups; group work remains outside step 1. |
+
+Do not turn an OBA application waiting period into a promise of approval or group
+availability. Where a source cannot be fetched, use retained source evidence,
+record its provenance, and isolate only a genuinely unresolved dependency.
 
 - [BSUIDs and identity updates](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids)
 - [Phone registration](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-phone-numbers/registration)
