@@ -124,6 +124,7 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/companies` | Customers (CRM; needs a team). The selected tab is `sN.crm.tab` |
 | `/app/activity` | Activity heatmap + feed |
 | `/app/calendar/<month-or-week-or-day>` | Calendar; the focused event, its occurrence, and the locator range use `sN.calendar.*` |
+| `/app/scheduling` | Scheduling workspace: booking links, availability, bookings, insights, and booking page |
 | `/app/<document-type>/<uuid>` | Legacy document URL (including `md`, `pdf`, `canvas`, `spreadsheet`, and the other Drive document types); redirects to `/app/drive/<document-type>/<uuid>` |
 | `/app/database/<uuid>` | A database with table and board views (requires the Databases flag). Links and opens outside Drive stay at this URL; opened from Drive, it shows inline at `/app/drive/database/<uuid>` |
 | `/app/documents`, `/app/files` | Legacy Files views; redirect to `/app/drive` |
@@ -205,8 +206,12 @@ Customers store the selected tab under `sN.home.tab`, `sN.mail.tab`,
 omits the key. Channels also stores the phone list selection as
 `sN.channels.mobileTab`. Omitted tab keys mean each view's default.
 Changing tabs updates the URL, and browser Back and Forward restore the
-selection independently in each pane. Inline detail links preserve these keys. Desktop panes expose Close when available and omit
-split-history back/forward buttons. Mobile content panes retain their back button.
+selection independently in each pane. Inline detail links preserve these keys.
+Desktop panes expose Close when available and omit split-history back/forward
+buttons. Mobile content panes retain their back button; Scheduling omits it in
+favor of its owner and view-navigation islands, except while creating or editing
+a schedule: a separate **Back to availability** pill sits beside the editor
+title, matching other mobile routes.
 
 Projects are enabled by default in development; production uses the PostHog
 `enable-projects` flag. `VITE_ENABLE_PROJECTS` overrides either environment.
@@ -349,6 +354,10 @@ cannot be hidden. Verify that hovering within a destination row keeps the drag
 preview stable, dropping saves the order, and reopening retains it. In short
 desktop windows, the app list scrolls while More and the footer remain reachable.
 Touch devices retain the flag-gated Reviews tab in Tasks.
+Scheduling appears in Customize sidebar only when the calendar-scheduling flag is
+on. It starts hidden in More, including for existing sidebar preferences. Enable
+its checkbox to place it on the rail, then reorder or hide it like other apps.
+Showing Scheduling removes its duplicate from More; the choice survives reload.
 
 - Top: buttons `Create` and `Search`. Clicking `Search` opens a menu
   with `Command Menu` (⌘K on Mac / Ctrl+K elsewhere) and `Search everything`
@@ -545,6 +554,10 @@ reverse order. More and the separate bottom-right Search button always retain
 their space. Search opens the search input and scope pills.
 Once every view fits, the navigation island stops growing; Search stays aligned
 to the right edge.
+Scheduling is a drawer-only destination in **More views** when the
+calendar-scheduling feature flag is enabled; it does not add a search-scope pill or
+a fixed dock button. It opens `/app/scheduling`, highlights while Scheduling is
+active, and uses header islands for its section and Personal/team owner drawers.
 
 Primary dock navigation buttons, including Search, give haptic feedback on
 pointer down and activate on click/release. Holding a button only shows its

@@ -8317,6 +8317,16 @@ export const EditWordDocument = z.object({
 
 export const WordDocumentResponse = z.object({ content: z.string() });
 
+export const ExportPipelineCsv = z.object({ pipelineId: z.string().uuid() });
+
+export const ExportPipelineCsvResponse = z.object({
+  documentId: z.string().uuid(),
+  fileName: z.string(),
+  rows: z.number().int().gte(0),
+  complete: z.boolean(),
+  summary: z.string(),
+});
+
 export const FindPipelineEntries = z.object({
   pipelineId: z.union([z.string().uuid(), z.null()]).optional(),
   filters: z
@@ -8769,6 +8779,45 @@ export const GetThreadResponse = z.object({
   summary: z.string(),
 });
 
+export const ImportCompaniesCsv = z.object({
+  csv: z.union([z.string(), z.null()]).optional(),
+  documentId: z.union([z.string().uuid(), z.null()]).optional(),
+  pipelineId: z.union([z.string().uuid(), z.null()]).optional(),
+  newPipelineName: z.union([z.string(), z.null()]).optional(),
+  shareNewPipeline: z.union([z.boolean(), z.null()]).optional(),
+});
+
+export const ImportCompaniesCsvResponse = z.object({
+  created: z.number().int().gte(0),
+  existing: z.number().int().gte(0),
+  skippedRows: z.number().int().gte(0),
+  failedCount: z.number().int().gte(0),
+  failed: z.array(z.object({ key: z.string(), reason: z.string() })),
+  pipeline: z
+    .union([
+      z.object({
+        pipelineId: z.string().uuid(),
+        pipelineName: z.string(),
+        added: z.number().int().gte(0),
+        alreadyPresent: z.number().int().gte(0),
+        createdRecords: z.number().int().gte(0),
+        unresolvedCount: z.number().int().gte(0),
+        unresolved: z.array(z.object({ key: z.string(), reason: z.string() })),
+        invalidCount: z.number().int().gte(0),
+        invalid: z.array(z.object({ key: z.string(), reason: z.string() })),
+        skippedRows: z.number().int().gte(0),
+        filledFields: z.array(z.string()),
+        ignoredColumns: z.array(z.string()),
+        addedOptions: z.array(
+          z.object({ field: z.string(), labels: z.array(z.string()) })
+        ),
+      }),
+      z.null(),
+    ])
+    .optional(),
+  summary: z.string(),
+});
+
 export const ImportNotionPage = z.object({ pageUrl: z.string() });
 
 export const ImportNotionPageResponse = z.object({
@@ -8827,6 +8876,31 @@ export const ImportNotionPageResponse = z.object({
     importedByTeammate: z.boolean(),
   }),
   message: z.string(),
+});
+
+export const ImportPipelineCsv = z.object({
+  pipelineId: z.string().uuid(),
+  csv: z.union([z.string(), z.null()]).optional(),
+  documentId: z.union([z.string().uuid(), z.null()]).optional(),
+});
+
+export const ImportPipelineCsvResponse = z.object({
+  pipelineId: z.string().uuid(),
+  pipelineName: z.string(),
+  added: z.number().int().gte(0),
+  alreadyPresent: z.number().int().gte(0),
+  createdRecords: z.number().int().gte(0),
+  unresolvedCount: z.number().int().gte(0),
+  unresolved: z.array(z.object({ key: z.string(), reason: z.string() })),
+  invalidCount: z.number().int().gte(0),
+  invalid: z.array(z.object({ key: z.string(), reason: z.string() })),
+  skippedRows: z.number().int().gte(0),
+  filledFields: z.array(z.string()),
+  ignoredColumns: z.array(z.string()),
+  addedOptions: z.array(
+    z.object({ field: z.string(), labels: z.array(z.string()) })
+  ),
+  summary: z.string(),
 });
 
 export const IssueBotCredential = z.object({

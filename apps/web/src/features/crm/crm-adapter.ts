@@ -54,6 +54,7 @@ import {
 } from './primitives/team-config';
 import { useCrmActivityQuery } from './queries/activity';
 import {
+  createCompanyImporter,
   useCompanyQuery,
   useCreateCompanyMutation,
   useCreateContactMutation,
@@ -70,6 +71,7 @@ import {
 } from './queries/contacts';
 import { fetchCrmExportCompanies } from './queries/export';
 import { useCrmLists } from './queries/lists';
+import { createPipelineTransfer } from './queries/pipeline-transfer';
 import { createPipelinesSource } from './queries/pipelines';
 import {
   recordListFailure,
@@ -190,6 +192,8 @@ export function createAppCrmContext(): CrmContext {
       storage: deps.storage,
     }),
     PipelineSharing: PipelineShare,
+    createPipelineTransfer: (pipeline) =>
+      createPipelineTransfer(deps, pipeline),
     feedback: toast,
     downloadCsv: downloadCrmCsv,
     createContactPhoto: (email) =>
@@ -304,6 +308,7 @@ export function createAppCrmContext(): CrmContext {
     createTeamViews: () => useTeamCrmViews(deps, userId, createSettings()),
     createLists: (teamId) => useCrmLists(deps, teamId),
     createCompany: (...args) => useCreateCompanyMutation(deps, ...args),
+    createCompanyImporter: () => createCompanyImporter(deps),
     createContact: (...args) => useCreateContactMutation(deps, ...args),
     renameCompany: (...args) => useSetCompanyNameMutation(deps, ...args),
     renameContact: (...args) => useSetContactNameMutation(deps, ...args),

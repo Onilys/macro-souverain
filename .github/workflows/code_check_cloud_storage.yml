@@ -282,6 +282,8 @@ jobs:
         else
           echo "::warning::Namespace remote sccache setup failed; using local cache fallback"
         fi
+    - name: Check embedded code execution assets
+      run: nix build --no-link .#checks.x86_64-linux.code-execution-assets
     - name: fmt
       run: cargo fmt --check
     - name: clippy

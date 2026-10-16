@@ -9202,6 +9202,40 @@ export interface WordDocumentResponse {
   content: string;
 }
 /**
+ * Export a CRM pipeline's deals (entries) to a CSV file saved in the user's Macro files: Company and Domain (or Contact and Email), then one column per field, with people as emails. Use it to back up a pipeline, move it to another team (ImportPipelineCsv reads the same file), or share it as a spreadsheet; to answer questions about deals, use FindPipelineEntries instead. Returns the file's documentId and how many entries it holds.
+ */
+export interface ExportPipelineCsv {
+  /**
+   * The pipeline's id from ListPipelines.
+   */
+  pipelineId: string;
+}
+/**
+ * The saved file.
+ */
+export interface ExportPipelineCsvResponse {
+  /**
+   * The CSV file in Macro.
+   */
+  documentId: string;
+  /**
+   * The file's name.
+   */
+  fileName: string;
+  /**
+   * Entries written.
+   */
+  rows: number;
+  /**
+   * Whether every entry was written.
+   */
+  complete: boolean;
+  /**
+   * What happened.
+   */
+  summary: string;
+}
+/**
  * Find deals (entries) in a CRM pipeline: which companies or contacts are in which stage, who owns them, their revenue and other fields. Filter by field values (e.g. Stage is Demo or Trial, Owner is me), by company or contact name/domain/email with `search`, or by record id; sort by any field (Stage sorts in pipeline order). Returns each entry's entryId, the record it tracks (id and name) and its filled-in fields, plus, over every match, the count per stage (and per option of each single-select field) and the total of each number field such as Revenue: use these for questions like "how many deals are in Negotiation" or "what is the pipeline worth". To find where a company or contact is across all pipelines ("what stage is Acme in?"), leave out pipelineId and pass its name as `search` (or its recordIds). Get pipeline ids and field names from ListPipelines.
  */
 export interface FindPipelineEntries {
@@ -10032,6 +10066,147 @@ export interface ToolContact {
   name?: string | null;
 }
 /**
+ * Import companies into the team CRM from a CSV, such as a Macro companies export or a list from another CRM. Each row needs a domain (a Domain, Domains or Website column) and may name the company (Company or Name); a row takes its first valid domain, and companies the team already has are left as they are. Stage, Owner and Revenue live on pipeline entries rather than companies: when the CSV has them, they go on entries of pipelineId, or of a new pipeline (private unless shareNewPipeline) named after the file. Give the CSV as text in csv, or as documentId for a CSV file in Macro. Returns counts and the rows that could not be imported. To add rows to a pipeline without this, use ImportPipelineCsv.
+ */
+export interface ImportCompaniesCsv {
+  /**
+   * The CSV text with a header row. Give this or documentId, not both.
+   */
+  csv?: string | null;
+  /**
+   * The id of a CSV file in Macro the user can open, e.g. one they uploaded. Give this or csv, not both.
+   */
+  documentId?: string | null;
+  /**
+   * A company pipeline (id from ListPipelines) to put the CSV's Stage, Owner and Revenue on. Omit to create a new pipeline when the CSV has them.
+   */
+  pipelineId?: string | null;
+  /**
+   * The name of the new pipeline, when one is created. Defaults to the file's name.
+   */
+  newPipelineName?: string | null;
+  /**
+   * Share the new pipeline with the team instead of keeping it private to the user. Defaults to false.
+   */
+  shareNewPipeline?: boolean | null;
+}
+/**
+ * What the import did.
+ */
+export interface ImportCompaniesCsvResponse {
+  /**
+   * Companies created.
+   */
+  created: number;
+  /**
+   * Companies the team already had.
+   */
+  existing: number;
+  /**
+   * Rows without a domain like acme.com.
+   */
+  skippedRows: number;
+  /**
+   * How many companies could not be created.
+   */
+  failedCount: number;
+  /**
+   * The first of them, with why.
+   */
+  failed: ToolSkippedRecord[];
+  /**
+   * The pipeline entries made from Stage, Owner and Revenue.
+   */
+  pipeline?: ToolPipelineImport | null;
+  /**
+   * What happened.
+   */
+  summary: string;
+}
+/**
+ * A record an import could not add.
+ */
+export interface ToolSkippedRecord {
+  /**
+   * The company's domain or the contact's email.
+   */
+  key: string;
+  /**
+   * Why it was not added.
+   */
+  reason: string;
+}
+/**
+ * What a pipeline import did.
+ */
+export interface ToolPipelineImport {
+  /**
+   * The pipeline filled.
+   */
+  pipelineId: string;
+  /**
+   * Its name.
+   */
+  pipelineName: string;
+  /**
+   * Entries added.
+   */
+  added: number;
+  /**
+   * Rows whose record the pipeline already had, so were not added again.
+   */
+  alreadyPresent: number;
+  /**
+   * Companies or contacts created to add their entries.
+   */
+  createdRecords: number;
+  /**
+   * How many records could not be found or created.
+   */
+  unresolvedCount: number;
+  /**
+   * The first of them, with why.
+   */
+  unresolved: ToolSkippedRecord[];
+  /**
+   * How many rows were refused for a value their field cannot hold.
+   */
+  invalidCount: number;
+  /**
+   * The first of them, with why.
+   */
+  invalid: ToolSkippedRecord[];
+  /**
+   * Rows without a domain or email.
+   */
+  skippedRows: number;
+  /**
+   * Pipeline fields the CSV filled.
+   */
+  filledFields: string[];
+  /**
+   * CSV columns that match no field the import can fill.
+   */
+  ignoredColumns: string[];
+  /**
+   * Options added to select fields so the CSV's values fit.
+   */
+  addedOptions: ToolAddedOptions[];
+}
+/**
+ * A select field and the options an import added to it.
+ */
+export interface ToolAddedOptions {
+  /**
+   * The field.
+   */
+  field: string;
+  /**
+   * The labels added.
+   */
+  labels: string[];
+}
+/**
  * Import one specific Notion page through Macro's canonical Notion importer. Use this when the user explicitly asks to import a page URL or id. The tool performs deduplication, fetches through the user's connected Notion MCP, normalizes the page, creates the Macro markdown document, and returns its entity id. Do not fetch and recreate the page manually with generic document tools. Notion databases and database-first pages are intentionally not imported.
  */
 export interface ImportNotionPage {
@@ -10055,6 +10230,84 @@ export interface ImportNotionPageResponse {
    * Human-readable result and next action.
    */
   message: string;
+}
+/**
+ * Import a CSV into a CRM pipeline as new deals (entries), such as a pipeline export or a sheet of deals. In a company pipeline each row needs a domain (Domain, Domains or Website column) and may name the company (Company); in a contact pipeline each row needs an Email and may name the contact (Contact). Missing companies and contacts are created. Other columns fill the pipeline fields with the same name (Stage, Owner as an email, Revenue, custom fields); stage labels the pipeline lacks are added. Records already in the pipeline are not added again, so retrying an interrupted import adds only what is missing; several rows for one new record become separate deals. Give the CSV as text in csv, or as documentId for a CSV file in Macro. Returns counts and the rows that could not be added.
+ */
+export interface ImportPipelineCsv {
+  /**
+   * The pipeline's id from ListPipelines.
+   */
+  pipelineId: string;
+  /**
+   * The CSV text with a header row. Give this or documentId, not both.
+   */
+  csv?: string | null;
+  /**
+   * The id of a CSV file in Macro the user can open, e.g. one they uploaded or an ExportPipelineCsv result. Give this or csv, not both.
+   */
+  documentId?: string | null;
+}
+/**
+ * What the import did.
+ */
+export interface ImportPipelineCsvResponse {
+  /**
+   * The pipeline filled.
+   */
+  pipelineId: string;
+  /**
+   * Its name.
+   */
+  pipelineName: string;
+  /**
+   * Entries added.
+   */
+  added: number;
+  /**
+   * Rows whose record the pipeline already had, so were not added again.
+   */
+  alreadyPresent: number;
+  /**
+   * Companies or contacts created to add their entries.
+   */
+  createdRecords: number;
+  /**
+   * How many records could not be found or created.
+   */
+  unresolvedCount: number;
+  /**
+   * The first of them, with why.
+   */
+  unresolved: ToolSkippedRecord[];
+  /**
+   * How many rows were refused for a value their field cannot hold.
+   */
+  invalidCount: number;
+  /**
+   * The first of them, with why.
+   */
+  invalid: ToolSkippedRecord[];
+  /**
+   * Rows without a domain or email.
+   */
+  skippedRows: number;
+  /**
+   * Pipeline fields the CSV filled.
+   */
+  filledFields: string[];
+  /**
+   * CSV columns that match no field the import can fill.
+   */
+  ignoredColumns: string[];
+  /**
+   * Options added to select fields so the CSV's values fit.
+   */
+  addedOptions: ToolAddedOptions[];
+  /**
+   * What happened.
+   */
+  summary: string;
 }
 /**
  * Prepare a new bot credential for a bot the current user can manage. This does not mint the secret. Tell the user to click the chat card or open bot settings to create the token. The secret is shown only while that card is open. Use this when the user asks for bot credentials or a webhook token; existing raw secrets cannot be recovered safely.
