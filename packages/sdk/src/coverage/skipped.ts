@@ -220,6 +220,8 @@ export const contactsBacklog =
   [] as const satisfies readonly (keyof ContactsSdk)[];
 
 export const emailExcluded = [
+  // Mail view bulk selection: takes the web app's Soup email filter tree.
+  'applyBulkThreadAction',
   'cancelBackfillGmail',
   'deleteLink',
   'disableLinkCalendar',
@@ -231,6 +233,7 @@ export const emailExcluded = [
   'healthHandler',
   'initUser',
   'listBackfillGmail',
+  'listBulkThreadTargets',
   'patchSettings',
   'resyncLink',
 ] as const satisfies readonly (keyof EmailSdk)[];
