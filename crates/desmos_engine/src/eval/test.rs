@@ -39,3 +39,16 @@ fn abs_factorial_and_piecewise() {
     assert!((eval_rhs("y={x<0:-x, x}", 3.0) - 3.0).abs() < 1e-9);
     assert!((eval_rhs("y=nCr(5,2)", 0.0) - 10.0).abs() < 1e-9);
 }
+
+#[test]
+fn recursive_user_function_errors_instead_of_overflowing() {
+    let Statement::Function { name, params, body } = parse_statement("f(x)=f(x)+1").unwrap() else {
+        panic!();
+    };
+    let mut env = Env::default();
+    env.fns.insert(name, (params, body));
+    let Statement::Relation { right, .. } = parse_statement("y=f(1)").unwrap() else {
+        panic!();
+    };
+    assert!(env.eval(&right).is_err());
+}

@@ -46,7 +46,7 @@ export function GraphPaper(props: {
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    if (!props.scene || event.button !== 0) return;
+    if (!props.scene || !props.canEdit || event.button !== 0) return;
     drag = {
       x: event.clientX,
       y: event.clientY,
@@ -117,8 +117,9 @@ export function GraphPaper(props: {
           type="button"
           class="px-2.5 py-1 text-lg leading-none text-ink hover:bg-ink-extra-muted/10"
           title="Zoom in"
+          disabled={!props.canEdit}
           onClick={() => {
-            if (!props.scene) return;
+            if (!props.scene || !props.canEdit) return;
             const v = props.scene.viewport;
             props.onViewport(
               zoomViewport(v, 0.7, (v.xmin + v.xmax) / 2, (v.ymin + v.ymax) / 2)
@@ -131,8 +132,9 @@ export function GraphPaper(props: {
           type="button"
           class="border-t border-edge px-2.5 py-1 text-lg leading-none text-ink hover:bg-ink-extra-muted/10"
           title="Zoom out"
+          disabled={!props.canEdit}
           onClick={() => {
-            if (!props.scene) return;
+            if (!props.scene || !props.canEdit) return;
             const v = props.scene.viewport;
             props.onViewport(
               zoomViewport(v, 1.4, (v.xmin + v.xmax) / 2, (v.ymin + v.ymax) / 2)
@@ -145,8 +147,9 @@ export function GraphPaper(props: {
           type="button"
           class="border-t border-edge px-2.5 py-1 text-[11px] text-ink hover:bg-ink-extra-muted/10"
           title="Default viewport"
+          disabled={!props.canEdit}
           onClick={() => {
-            if (!canvas) return;
+            if (!canvas || !props.canEdit) return;
             const rect = canvas.getBoundingClientRect();
             props.onViewport(defaultViewport(rect.width, rect.height));
           }}

@@ -81,14 +81,22 @@ export default function DesmosBlock() {
   >('saved');
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let pending: GraphDocument | undefined;
+  let flushTail: Promise<void> = Promise.resolve();
 
-  const flush = async () => {
-    if (!pending || !canEdit()) return;
-    const next = pending;
-    pending = undefined;
-    setSaveState('saving');
-    const result = await saveDesmosDocument(documentId, next);
-    setSaveState(result.saved ? 'saved' : 'error');
+  const flush = () => {
+    flushTail = flushTail.then(async () => {
+      if (!pending || !canEdit()) return;
+      const next = pending;
+      pending = undefined;
+      setSaveState('saving');
+      const result = await saveDesmosDocument(documentId, next);
+      if (pending) {
+        setSaveState('unsaved');
+      } else {
+        setSaveState(result.saved ? 'saved' : 'error');
+      }
+    });
+    return flushTail;
   };
 
   const queueSave = (next: GraphDocument) => {

@@ -20,4 +20,8 @@ describe('desmos document format', () => {
   it('rejects the wrong version', () => {
     expect(parseDesmosDocument('{"version":2,"expressions":[]}')).toBeNull();
   });
+
+  it('rejects documents missing a viewport', () => {
+    expect(parseDesmosDocument('{"version":1,"expressions":[]}')).toBeNull();
+  });
 });

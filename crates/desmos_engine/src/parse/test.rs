@@ -118,3 +118,43 @@ fn latex_frac_and_trig() {
     let env = crate::eval::Env::default();
     assert!((env.eval(&right).unwrap() - 0.5).abs() < 1e-9);
 }
+
+#[test]
+fn exponent_stops_before_implicit_multiply() {
+    let Statement::Relation { right, .. } = parse(r"y=x^{2}y") else {
+        panic!();
+    };
+    // x^(2)*y, not x^(2*y)
+    let Expr::Mul(left, _) = right else {
+        panic!("expected product, got {right:?}");
+    };
+    let Expr::Pow(_, exp) = *left else {
+        panic!("expected power on the left");
+    };
+    assert_eq!(*exp, Expr::Number(2.0));
+}
+
+#[test]
+fn unparenthesized_sin_includes_product() {
+    let Statement::Relation { right, .. } = parse(r"y=\sin 2x") else {
+        panic!();
+    };
+    let Expr::Call(name, args) = right else {
+        panic!("expected call, got {right:?}");
+    };
+    assert_eq!(name, "sin");
+    assert_eq!(args.len(), 1);
+    assert!(matches!(args[0], Expr::Mul(_, _)));
+}
+
+#[test]
+fn number_does_not_eat_bare_e() {
+    let Statement::Relation { right, .. } = parse("y=2e") else {
+        panic!();
+    };
+    let Expr::Mul(coeff, name) = right else {
+        panic!("expected 2*e, got {right:?}");
+    };
+    assert_eq!(*coeff, Expr::Number(2.0));
+    assert_eq!(*name, Expr::Name("e".into()));
+}

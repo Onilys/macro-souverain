@@ -22,3 +22,12 @@ fn needed_sliders_for_line() {
     doc.set_latex("1", "y=mx+b".into()).unwrap();
     assert_eq!(doc.needed_sliders(), vec!["b", "m"]);
 }
+
+#[test]
+fn function_name_is_not_a_needed_slider() {
+    let mut doc = GraphDocument::default();
+    let second = doc.add_expression();
+    doc.set_latex("1", "f(x)=x^2".into()).unwrap();
+    doc.set_latex(&second, "y=f(x)".into()).unwrap();
+    assert!(doc.needed_sliders().is_empty());
+}

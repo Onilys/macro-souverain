@@ -154,11 +154,12 @@ impl<'a> Lexer<'a> {
                 self.bump();
             }
         }
-        if matches!(self.peek(), Some(b'e' | b'E')) {
+        // Only treat `e`/`E` as a scientific exponent when digits follow.
+        // Otherwise `2e` / `2e^{x}` stay as number + name (Desmos: `2·e`).
+        if matches!(self.peek(), Some(b'e' | b'E'))
+            && self.src.get(self.i + 1).is_some_and(u8::is_ascii_digit)
+        {
             self.bump();
-            if matches!(self.peek(), Some(b'+' | b'-')) {
-                self.bump();
-            }
             while self.peek().is_some_and(|c| c.is_ascii_digit()) {
                 self.bump();
             }
@@ -375,13 +376,15 @@ impl Parser {
                 lhs = Expr::Fact(Box::new(lhs));
                 continue;
             }
-            if !self.stop_at_pipe && self.peek() == Some(&Token::Pipe) && min_bp <= 7 {
+            // Implicit multiply binds between `*` (3/4) and `^` (8/7), so an
+            // exponent operand stops before following terms (`x^{2}y` → `x^2*y`).
+            if !self.stop_at_pipe && self.peek() == Some(&Token::Pipe) && min_bp <= 5 {
                 let rhs = self.prefix()?;
                 lhs = Expr::Mul(Box::new(lhs), Box::new(rhs));
                 continue;
             }
-            if self.should_implicit_mul() {
-                let rhs = self.expr_bp(7)?;
+            if self.should_implicit_mul() && min_bp <= 5 {
+                let rhs = self.expr_bp(6)?;
                 lhs = Expr::Mul(Box::new(lhs), Box::new(rhs));
                 continue;
             }
@@ -416,7 +419,8 @@ impl Parser {
                     let args = self.args()?;
                     Ok(Expr::Call(name, args))
                 } else if is_builtin(&name) && self.starts_value() {
-                    let arg = self.expr_bp(9)?;
+                    // Include products in the unparenthesized arg (`\sin 2x`).
+                    let arg = self.expr_bp(5)?;
                     Ok(Expr::Call(name, vec![arg]))
                 } else {
                     Ok(expand_juxtaposed_name(name))

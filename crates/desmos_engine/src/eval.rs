@@ -4,6 +4,8 @@ use crate::error::{DesmosError, Result};
 use crate::expr::{Expr, is_builtin};
 use std::collections::HashMap;
 
+const MAX_CALL_DEPTH: usize = 64;
+
 /// Names to values, plus user functions.
 #[derive(Debug, Clone, Default)]
 pub struct Env {
@@ -11,6 +13,8 @@ pub struct Env {
     pub vars: HashMap<String, f64>,
     /// User-defined functions.
     pub fns: HashMap<String, (Vec<String>, Expr)>,
+    /// Nesting depth of user-function calls (not cloned across plot samples).
+    depth: usize,
 }
 
 impl Env {
@@ -64,6 +68,9 @@ impl Env {
 
     fn eval_call(&self, name: &str, args: &[Expr]) -> Result<f64> {
         if let Some((params, body)) = self.fns.get(name) {
+            if self.depth >= MAX_CALL_DEPTH {
+                return Err(DesmosError::Eval(format!("{name} recurses too deeply")));
+            }
             if params.len() != args.len() {
                 return Err(DesmosError::Eval(format!(
                     "{name} takes {} arguments",
@@ -71,6 +78,7 @@ impl Env {
                 )));
             }
             let mut child = self.clone();
+            child.depth = self.depth + 1;
             for (param, arg) in params.iter().zip(args) {
                 child.set(param.clone(), self.eval(arg)?);
             }

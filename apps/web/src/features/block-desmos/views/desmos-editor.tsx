@@ -22,6 +22,7 @@ export function DesmosEditor(props: {
   );
   const engine = new DesmosEngine();
   let viewportTimer: ReturnType<typeof setTimeout> | undefined;
+  let pendingViewport: GraphDocument | undefined;
 
   onMount(() => {
     void engine
@@ -35,6 +36,7 @@ export function DesmosEditor(props: {
   });
   onCleanup(() => {
     if (viewportTimer) clearTimeout(viewportTimer);
+    if (pendingViewport) props.onChange(pendingViewport);
     engine.dispose();
   });
 
@@ -50,8 +52,13 @@ export function DesmosEditor(props: {
   }) => {
     setDocument(next.document);
     setScene(next.scene);
+    pendingViewport = next.document;
     if (viewportTimer) clearTimeout(viewportTimer);
-    viewportTimer = setTimeout(() => props.onChange(next.document), 400);
+    viewportTimer = setTimeout(() => {
+      const doc = pendingViewport;
+      pendingViewport = undefined;
+      if (doc) props.onChange(doc);
+    }, 400);
   };
 
   return (
@@ -71,32 +78,38 @@ export function DesmosEditor(props: {
           scene={scene()}
           canEdit={props.canEdit}
           onChange={(id, latex) => {
-            void engine.setLatex(id, latex).then(apply);
+            void engine.setLatex(id, latex).then(apply).catch(() => setStatus('error'));
           }}
           onToggle={(id, hidden) => {
-            void engine.setHidden(id, hidden).then(apply);
+            void engine
+              .setHidden(id, hidden)
+              .then(apply)
+              .catch(() => setStatus('error'));
           }}
           onColor={(id, color) => {
-            void engine.setColor(id, color).then(apply);
+            void engine.setColor(id, color).then(apply).catch(() => setStatus('error'));
           }}
           onSlider={(id, value) => {
-            void engine.setSlider(id, value).then(apply);
+            void engine.setSlider(id, value).then(apply).catch(() => setStatus('error'));
           }}
           onAddSlider={(name) => {
-            void engine.addSlider(name).then(apply);
+            void engine.addSlider(name).then(apply).catch(() => setStatus('error'));
           }}
           onRemove={(id) => {
-            void engine.remove(id).then(apply);
+            void engine.remove(id).then(apply).catch(() => setStatus('error'));
           }}
           onAdd={() => {
-            void engine.addExpression().then(apply);
+            void engine.addExpression().then(apply).catch(() => setStatus('error'));
           }}
         />
         <GraphPaper
           scene={scene()}
           canEdit={props.canEdit}
           onViewport={(viewport: Viewport) => {
-            void engine.setViewport(viewport).then(persistViewport);
+            void engine
+              .setViewport(viewport)
+              .then(persistViewport)
+              .catch(() => setStatus('error'));
           }}
         />
       </Show>

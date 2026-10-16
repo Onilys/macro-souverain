@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /** MIME type stored on new Desmos graph documents. */
 export const DESMOS_MIME = 'application/x-macro-desmos';
 
@@ -54,6 +56,33 @@ export const DESMOS_COLORS = [
   '#000000',
 ] as const;
 
+const viewportSchema = z.object({
+  xmin: z.number(),
+  xmax: z.number(),
+  ymin: z.number(),
+  ymax: z.number(),
+});
+
+const sliderSchema = z.object({
+  min: z.number(),
+  max: z.number(),
+  step: z.number().nullable(),
+});
+
+const expressionSchema = z.object({
+  id: z.string(),
+  latex: z.string(),
+  color: z.string(),
+  hidden: z.boolean(),
+  slider: sliderSchema.nullish(),
+});
+
+const graphDocumentSchema = z.object({
+  version: z.literal(1),
+  viewport: viewportSchema,
+  expressions: z.array(expressionSchema),
+});
+
 export function emptyDesmosDocument(): GraphDocument {
   return {
     version: 1,
@@ -76,9 +105,8 @@ export function serializeDesmosDocument(document: GraphDocument): string {
 export function parseDesmosDocument(source: string): GraphDocument | null {
   if (!source.trim()) return emptyDesmosDocument();
   try {
-    const parsed = JSON.parse(source) as GraphDocument;
-    if (parsed.version !== 1 || !Array.isArray(parsed.expressions)) return null;
-    return parsed;
+    const result = graphDocumentSchema.safeParse(JSON.parse(source));
+    return result.success ? result.data : null;
   } catch {
     return null;
   }

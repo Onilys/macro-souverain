@@ -237,7 +237,8 @@ impl GraphDocument {
             }
             match parse_statement(&expr.latex) {
                 Ok(Statement::Assignment { name, .. }) => defined.push(name),
-                Ok(Statement::Function { params, body, .. }) => {
+                Ok(Statement::Function { name, params, body }) => {
+                    defined.push(name);
                     for name in body.names() {
                         if !params.contains(&name) && !is_reserved(&name) {
                             used.push(name);
