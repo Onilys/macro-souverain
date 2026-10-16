@@ -42,7 +42,7 @@ function NotificationsDemo() {
             toast.custom(
               {
                 title: 'Reconnect email and calendar',
-                content: () => 'Sync stopped for alex@example.com.',
+                content: () => 'alex@example.com',
                 icon: LinkIcon,
                 actions: [
                   {
