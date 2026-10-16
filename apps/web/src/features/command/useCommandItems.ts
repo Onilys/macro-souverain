@@ -235,6 +235,26 @@ function nestedCommandScopeDisplaySequence(command: CommandWithInfo) {
   return [{ shortcut: activationKey }, childStep];
 }
 
+/**
+ * The first of a go-to command's keys that it actually runs on: a view can
+ * claim a sidebar link's key with a higher handler priority (Email's `g h`
+ * over Home's), and then that key belongs to the view's command.
+ */
+function goToDisplayHotkey(
+  command: CommandWithInfo,
+  goToCommands: CommandWithInfo[]
+) {
+  const priority = command.handlerPriority ?? 0;
+  return command.hotkeys?.find(
+    (hotkey) =>
+      !goToCommands.some(
+        (other) =>
+          (other.handlerPriority ?? 0) > priority &&
+          other.hotkeys?.includes(hotkey)
+      )
+  );
+}
+
 function getSurfacedNestedCommands(commands: CommandWithInfo[]) {
   return commands.flatMap((command) => {
     if (!command.surfaceNestedCommands || !command.activateCommandScopeId) {
@@ -341,7 +361,7 @@ function useCommandsList(
       ),
       ...availableItems(goToCommands, {
         displayHotkeySequence: (command) => {
-          const hotkey = command.hotkeys?.[0];
+          const hotkey = goToDisplayHotkey(command, goToCommands);
           return hotkey
             ? [{ shortcut: GO_TO_LEADER_KEY }, { shortcut: hotkey }]
             : undefined;

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   requestedBuckets: [] as Bucket[],
   entityMode: (): boolean => false,
   scope: (): CommandWithInfo[] => [],
+  goTo: [] as CommandWithInfo[],
 }));
 // These tests exercise entity loading independently of Projects and its providers.
 vi.mock('@app/lib/analytics/posthog', () => ({
@@ -48,7 +49,7 @@ vi.mock('@core/context/quickAccess', () => ({
 vi.mock('@core/hotkey/getCommands', () => ({
   getActiveCommandsFromScope: (scope: string) =>
     scope === 'go-to'
-      ? []
+      ? mocks.goTo
       : [
           {
             scopeId: 'global',
@@ -74,6 +75,7 @@ vi.mock('./state', () => ({
 let dispose: (() => void) | undefined;
 afterEach(() => {
   dispose?.();
+  mocks.goTo = [];
 });
 function setup() {
   return createRoot((cleanup) => {
@@ -167,6 +169,63 @@ describe('command menu entity loading', () => {
       },
     ]);
     expect(result.isLoadingEntities()).toBe(false);
+  });
+});
+
+describe('command menu go-to shortcuts', () => {
+  function goTo(
+    description: string,
+    hotkeys: CommandWithInfo['hotkeys'],
+    handlerPriority: CommandWithInfo['handlerPriority'] = 0
+  ): CommandWithInfo {
+    return {
+      scopeId: 'go-to',
+      description,
+      hotkeys,
+      handlerPriority,
+      runWithInputFocused: false,
+      scopeLevel: 0,
+      hotkeyIsShadowed: false,
+    };
+  }
+
+  function shortcuts(items: ReturnType<typeof setup>['result']['items']) {
+    return Object.fromEntries(
+      items()
+        .filter((item) => item.kind === 'command')
+        .map((item) => [
+          item.data.description,
+          item.displayHotkeySequence?.map((step) => step.shortcut),
+        ])
+    );
+  }
+
+  it('shows a key on the view command that runs it, not the sidebar link it shadows', () => {
+    mocks.goTo = [
+      goTo('Go to Home', ['h', 'i']),
+      goTo('Go to Email', ['e']),
+      goTo('Go to Reminders', ['h'], 3),
+      goTo('Go to Signal', ['i'], 3),
+    ];
+    const { result } = setup();
+    expect(shortcuts(result.items)).toMatchObject({
+      'Go to Home': undefined,
+      'Go to Email': ['g', 'e'],
+      'Go to Reminders': ['g', 'h'],
+      'Go to Signal': ['g', 'i'],
+    });
+  });
+
+  it("falls back to a link's other key when only one is claimed", () => {
+    mocks.goTo = [
+      goTo('Go to Home', ['h', 'i']),
+      goTo('Go to Signal', ['i'], 3),
+    ];
+    const { result } = setup();
+    expect(shortcuts(result.items)).toMatchObject({
+      'Go to Home': ['g', 'h'],
+      'Go to Signal': ['g', 'i'],
+    });
   });
 });
 
