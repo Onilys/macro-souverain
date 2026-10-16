@@ -1,5 +1,9 @@
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { cellPlainText } from '@macro-inc/spreadsheet/cell-mentions';
+import {
+  checkboxChecked,
+  selectedCheckboxes,
+} from '@macro-inc/spreadsheet/checkboxes';
 import type { ConditionalAppearance } from '@macro-inc/spreadsheet/conditional-formatting';
 import {
   accountingParts,
@@ -13,6 +17,8 @@ import type {
 } from '@macro-inc/spreadsheet/sheet-drawings';
 import { sqrefBounds } from '@macro-inc/spreadsheet/sheet-rules';
 import CaretDown from '@phosphor/caret-down.svg';
+import Square from '@phosphor/square.svg';
+import CheckSquare from '@phosphor-fill/check-square-fill.svg';
 import { createElementSize } from '@solid-primitives/resize-observer';
 import {
   createEffect,
@@ -54,6 +60,7 @@ import {
 } from '../core/spreadsheet-document';
 import type { SpreadsheetCursor } from '../core/spreadsheet-presence';
 import type { CompleteFormula } from '../primitives/create-formula-assistance';
+import { CellDatePicker, datePickerKeyDay } from './CellDatePicker';
 import { CellListMenu } from './CellListMenu';
 import { ChoiceChip } from './ChoiceChip';
 import { ConditionalIcon } from './ConditionalIcon';
@@ -210,11 +217,16 @@ export function SpreadsheetGrid(props: {
   /** The active cell's list of allowed values, offered in a dropdown. */
   listItems?: string[];
   onPickListItem?: (item: string) => void;
+  /** The active cell offers a calendar while it is edited; `date` is its day. */
+  datePicker?: { date?: Date };
+  onPickDate?: (day: Date) => void;
   /**
    * Dropdown rules: their ranges (Excel sqrefs), whose cells show an arrow,
    * and their choice colors by lowercase text.
    */
   dropdowns?: { range: string; colors?: Map<string, string> }[];
+  /** Select a checkbox cell and toggle it. */
+  onToggleCheckbox?: (position: CellPosition) => void;
   /** Images and charts over the sheet. */
   drawings?: SheetDrawing[];
   image?: (key: string) => string | undefined;
@@ -288,6 +300,27 @@ export function SpreadsheetGrid(props: {
     !props.editing &&
     !props.formulaEditing &&
     !!props.listItems?.length;
+  // Opening an editor without typing asks for a calendar, shown once the cell
+  // is known to offer one. Typing, Escape and ending the edit close it.
+  const [pickerOpen, setPickerOpen] = createSignal(false);
+  // The day its keys moved to; it starts at the cell's day, or today.
+  const [pickerDay, setPickerDay] = createSignal<Date>();
+  const shownPickerDay = () => {
+    if (!props.editing || !pickerOpen() || !props.datePicker) return;
+    const now = new Date();
+    return (
+      pickerDay() ??
+      props.datePicker.date ??
+      new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    );
+  };
+  function openDatePicker() {
+    setPickerDay(undefined);
+    setPickerOpen(props.editing);
+  }
+  createEffect(() => {
+    if (!props.editing) setPickerOpen(false);
+  });
   const dropdownAreas = createMemo(() =>
     (props.dropdowns ?? []).map((dropdown) => ({
       bounds: sqrefBounds(dropdown.range),
@@ -695,6 +728,7 @@ export function SpreadsheetGrid(props: {
       props.onSelect(position);
       if (repeat && !props.readonly) {
         props.onEdit();
+        openDatePicker();
         // iOS may synthesize mousedown on the old cell after mounting its editor.
         keepReferenceFocus = true;
         lastTap = undefined;
@@ -846,6 +880,8 @@ export function SpreadsheetGrid(props: {
     target instanceof HTMLTextAreaElement ||
     (target instanceof HTMLElement && !!target.closest('[contenteditable]'));
   const focusGrid = () => grid.focus({ preventScroll: true });
+  const modified = (event: MouseEvent) =>
+    event.shiftKey || event.metaKey || event.ctrlKey;
   const selectHeaderRange = (
     axis: 'row' | 'column',
     index: number,
@@ -1042,6 +1078,8 @@ export function SpreadsheetGrid(props: {
   function editKeyDown(event: KeyboardEvent) {
     event.stopPropagation();
     if (event.isComposing) return;
+    const day = shownPickerDay();
+    if (day && datePickerKeyDown(event, day)) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       props.onCancel();
@@ -1059,6 +1097,28 @@ export function SpreadsheetGrid(props: {
       focusGrid();
       revealSelection();
     }
+  }
+
+  /** Keys of an open date picker. Others, such as typing, stay the editor's. */
+  function datePickerKeyDown(event: KeyboardEvent, day: Date) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setPickerOpen(false);
+      return true;
+    }
+    if (event.key === 'Enter' && !event.altKey) {
+      event.preventDefault();
+      props.onPickDate?.(day);
+      props.onMove(event.shiftKey ? -1 : 1, 0);
+      focusGrid();
+      revealSelection();
+      return true;
+    }
+    const next = datePickerKeyDay(event, day);
+    if (!next) return false;
+    event.preventDefault();
+    setPickerDay(next);
+    return true;
   }
 
   function copyCells(event: ClipboardEvent) {
@@ -1236,6 +1296,9 @@ export function SpreadsheetGrid(props: {
         selectionBounds(props.selection).right >
         selectionBounds(props.selection).left
       }
+      hasCheckboxes={() =>
+        selectedCheckboxes(props.cells, props.selection).length > 0
+      }
       onRestoreFocus={focusGrid}
       onAction={cellAction}
     >
@@ -1337,6 +1400,7 @@ export function SpreadsheetGrid(props: {
               (event.metaKey || event.ctrlKey) &&
               event.key.toLowerCase() === 'a';
             props.onKeyDown(event);
+            if (event.key === 'Enter' || event.key === 'F2') openDatePicker();
             // Select all ends at the last cell; revealing it would scroll away
             // from the cells the user is looking at.
             if (
@@ -1694,19 +1758,25 @@ export function SpreadsheetGrid(props: {
                         value()
                           ? value()!.number !== undefined
                           : literalNumber(cell()) !== undefined;
+                      const checked = () =>
+                        cell()?.checkbox
+                          ? checkboxChecked(display(address))
+                          : undefined;
                       const horizontalAlign = () => {
                         const align = cell()?.horizontalAlign;
                         // Indenting an automatic cell aligns it left, as in Excel.
                         return align && align !== 'auto'
                           ? align
-                          : numeric() &&
-                              !cell()?.indent &&
-                              !(
-                                props.showFormulas &&
-                                cell()?.value.startsWith('=')
-                              )
-                            ? 'right'
-                            : 'left';
+                          : checked() !== undefined
+                            ? 'center'
+                            : numeric() &&
+                                !cell()?.indent &&
+                                !(
+                                  props.showFormulas &&
+                                  cell()?.value.startsWith('=')
+                                )
+                              ? 'right'
+                              : 'left';
                       };
                       const indentPadding = (side: 'left' | 'right') => {
                         const width = indentWidth(cell()) * scale();
@@ -1740,7 +1810,13 @@ export function SpreadsheetGrid(props: {
                           id={`${id}-${address}`}
                           role="gridcell"
                           aria-colindex={column + 2}
-                          aria-label={`${address}${display(address) ? `: ${display(address)}` : ''}`}
+                          aria-label={`${address}${
+                            checked() !== undefined
+                              ? `: ${checked() ? 'checked' : 'not checked'}`
+                              : display(address)
+                                ? `: ${display(address)}`
+                                : ''
+                          }`}
                           aria-selected={selected()}
                           data-address={address}
                           aria-description={
@@ -1878,8 +1954,9 @@ export function SpreadsheetGrid(props: {
                             else dragging = false;
                           }}
                           onDblClick={() => {
-                            if (!touchMode() && !props.referenceSelection)
-                              props.onEdit();
+                            if (touchMode() || props.referenceSelection) return;
+                            props.onEdit();
+                            openDatePicker();
                           }}
                         >
                           <Show when={look()?.dataBar}>
@@ -1941,6 +2018,49 @@ export function SpreadsheetGrid(props: {
                                 >
                                   {look()?.showValue === false ? (
                                     ''
+                                  ) : checked() !== undefined ? (
+                                    <button
+                                      type="button"
+                                      tabIndex={-1}
+                                      role="checkbox"
+                                      aria-checked={checked()}
+                                      aria-label={address}
+                                      aria-disabled={props.readonly}
+                                      data-checkbox
+                                      class="relative inline-flex size-[1.2em] align-top rounded-sm bg-transparent p-0 text-current before:absolute before:-inset-1 not-touch:hover:bg-hover touch:before:-inset-3"
+                                      classList={{
+                                        'pointer-events-none':
+                                          props.readonly ||
+                                          props.editing ||
+                                          !!props.formulaEditing,
+                                      }}
+                                      // Modified clicks extend or add to the
+                                      // selection, as on any other cell.
+                                      onPointerDown={(event) => {
+                                        if (
+                                          event.button !== 0 ||
+                                          modified(event)
+                                        )
+                                          return;
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                      }}
+                                      onClick={(event) => {
+                                        if (modified(event)) return;
+                                        event.stopPropagation();
+                                        props.onToggleCheckbox?.(position);
+                                        focusGrid();
+                                      }}
+                                      onDblClick={(event) =>
+                                        event.stopPropagation()
+                                      }
+                                    >
+                                      {checked() ? (
+                                        <CheckSquare class="size-full" />
+                                      ) : (
+                                        <Square class="size-full" />
+                                      )}
+                                    </button>
                                   ) : chipColor() ? (
                                     <ChoiceChip color={chipColor()!}>
                                       {display(address)}
@@ -1999,7 +2119,10 @@ export function SpreadsheetGrid(props: {
                                     : 'text-left'
                               }`}
                               value={props.draft}
-                              onInput={props.onDraft}
+                              onInput={(value) => {
+                                setPickerOpen(false);
+                                props.onDraft(value);
+                              }}
                               onKeyDown={editKeyDown}
                               onBlur={() => {
                                 if (props.editing) props.onCommit();
@@ -2265,6 +2388,30 @@ export function SpreadsheetGrid(props: {
                   />
                 );
               }}
+            </Show>
+            <Show when={shownPickerDay()}>
+              {(day) => (
+                <Show
+                  when={renderedSelectionCell(grid, {
+                    anchor: props.selection.anchor,
+                    focus: props.selection.anchor,
+                  })}
+                >
+                  {(anchor) => (
+                    <CellDatePicker
+                      anchor={anchor()}
+                      value={props.datePicker?.date}
+                      day={day()}
+                      onDayChange={setPickerDay}
+                      onPick={(picked) => {
+                        props.onPickDate?.(picked);
+                        focusGrid();
+                      }}
+                      onDismiss={() => setPickerOpen(false)}
+                    />
+                  )}
+                </Show>
+              )}
             </Show>
             <Show
               when={

@@ -407,6 +407,14 @@ export const storageExcluded = [
 ] as const satisfies readonly (keyof StorageSdk)[];
 
 export const storageBacklog = [
+  // Sharing requests and direct grants are available through the generated client.
+  'accessRequestsCancel',
+  'accessRequestsDirect',
+  'accessRequestsRemoveDirect',
+  'accessRequestsResolve',
+  'accessRequestsSetDirect',
+  'accessRequestsState',
+  'accessRequestsSubmit',
   // Email follow-ups are available through the generated client.
   'getEmailFollowup',
   'setEmailFollowup',

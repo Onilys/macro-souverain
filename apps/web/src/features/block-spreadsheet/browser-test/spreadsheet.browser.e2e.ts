@@ -1016,6 +1016,103 @@ test('mention editing switches back from formulas and leaves other inputs focusa
   ).toBeFocused();
 });
 
+test('@ dates enter date values that formulas and Excel read as dates', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 16, 12));
+  await page.goto('/?mentions');
+  await expect(page.locator('[data-address="B4"]')).toHaveText('30');
+  await page.locator('[data-address="A6"]').dblclick();
+  const editor = page.getByRole('textbox', { name: 'Edit A6', exact: true });
+  await editor.pressSequentially('@tod');
+  await page.getByRole('button', { name: 'Pick today' }).click();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText('10/16/2026 ');
+  await expect(editor.locator('[data-cell-mention]')).toHaveCount(0);
+  await editor.press('Enter');
+  await expect(page.locator('[data-address="A6"]')).toHaveText('10/16/2026');
+  // Stored like a typed date: its serial number, shown as a date.
+  expect(
+    await page.evaluate(() => window.spreadsheetFixture.snapshot()[0].cells.A6)
+  ).toEqual({ value: '46311', format: 'date' });
+
+  for (const [address, formula] of [
+    ['B6', '=A6+30'],
+    ['C6', '=DATEDIF(A6,B6,"d")'],
+  ]) {
+    await page.locator(`[data-address="${address}"]`).dblclick();
+    await page
+      .getByRole('textbox', { name: `Edit ${address}`, exact: true })
+      .pressSequentially(formula);
+    await page.keyboard.press('Enter');
+  }
+  await expect(page.locator('[data-address="B6"]')).toHaveText('11/15/2026');
+  await expect(page.locator('[data-address="C6"]')).toHaveText('30');
+
+  const downloaded = page.waitForEvent('download');
+  await menu(page, 'Import and export', 'Download as Excel (.xlsx)');
+  const path = await (await downloaded).path();
+  if (!path) throw new Error('Workbook download missing');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(path);
+  const cell = workbook.worksheets[0].getCell('A6');
+  expect(cell.value).toEqual(new Date(Date.UTC(2026, 9, 16)));
+  expect(cell.numFmt).toMatch(/[dy]/);
+});
+
+test('@date opens a calendar that picks a day by keyboard or pointer while the cell keeps its draft', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 16, 12));
+  await page.goto('/?mentions');
+  await expect(page.locator('[data-address="B4"]')).toHaveText('30');
+  const picker = page.locator('[data-cell-date-picker]');
+
+  await page.locator('[data-address="A6"]').dblclick();
+  let editor = page.getByRole('textbox', { name: 'Edit A6', exact: true });
+  await editor.pressSequentially('@date');
+  await expect(picker).toBeVisible();
+  await expect(picker.locator('[data-active]')).toHaveText('16');
+  await editor.press('ArrowRight');
+  await expect(picker.locator('[data-active]')).toHaveText('17');
+  await editor.press('Enter');
+  await expect(picker).toBeHidden();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText('10/17/2026 ');
+  await editor.press('Enter');
+  await expect(page.locator('[data-address="A6"]')).toHaveText('10/17/2026');
+
+  // Around other text, the date stays text.
+  await page.locator('[data-address="A7"]').dblclick();
+  editor = page.getByRole('textbox', { name: 'Edit A7', exact: true });
+  await editor.pressSequentially('Due @date');
+  await picker
+    .getByRole('gridcell', { name: '15', exact: true, disabled: false })
+    .click();
+  await expect(picker).toBeHidden();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText('Due 10/15/2026 ');
+  await editor.press('Enter');
+  await expect(page.locator('[data-address="A7"]')).toHaveText(
+    'Due 10/15/2026'
+  );
+
+  await page.locator('[data-address="A8"]').dblclick();
+  editor = page.getByRole('textbox', { name: 'Edit A8', exact: true });
+  await editor.pressSequentially('@date');
+  await expect(picker).toBeVisible();
+  await editor.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText('@date');
+
+  const cells = await page.evaluate(
+    () => window.spreadsheetFixture.snapshot()[0].cells
+  );
+  expect(cells.A6).toEqual({ value: '46312', format: 'date' });
+  expect(cells.A7).toEqual({ value: 'Due 10/15/2026 ' });
+});
+
 test('header menu keyboard navigation keeps the targeted row selected', async ({
   page,
 }) => {

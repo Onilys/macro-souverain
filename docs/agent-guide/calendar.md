@@ -470,6 +470,11 @@ In `/app/component/mail`, open an invitation message; the same card appears in
 `/app/email/:threadId`. Saved details appear below the sender without waiting for calendar
 sync. Expand guests and descriptions with their explicit controls. `View original email`
 is an accessible disclosure that starts closed; attachments remain below it.
+ICS attachments show a calendar icon in the attachment pill and file headers on
+desktop and mobile, including when the email uses `application/ics` or a
+parameterized `text/calendar` MIME type. Opening the attachment still shows the
+generic file viewer with download and share actions; the invitation card above
+is the event preview.
 Related recurring components are grouped behind their own disclosure. Only mail synced
 after the feature shipped gets a card; older invitations render as plain email.
 A newly arrived scheduling update shows RSVP and Join only once its calendar state has

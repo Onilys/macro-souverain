@@ -38,6 +38,8 @@ export type CalculatedCell = {
   number?: number;
   error?: string;
   warning?: string;
+  /** The number shows as a calendar date. */
+  date?: boolean;
   /** Included only for callers requesting typed results. */
   type?: 'blank' | 'number' | 'text' | 'boolean' | 'error';
   value?: string | number | boolean | null;
@@ -160,11 +162,12 @@ function dateMentionSerial(iso: string): number {
 }
 
 /**
- * IronCalc assigns date and time number formats to typed dates and to formulas
- * that operate on them, as Excel does. Honor those for cells without an
- * explicit Macro format; other inferred formats stay general.
+ * Whether an Excel number format shows a date or a time of day. IronCalc
+ * assigns such formats to typed dates and to formulas that operate on them,
+ * as Excel does. Cells without an explicit Macro format honor those; other
+ * inferred formats stay general.
  */
-function inferredFormat(numberFormat: string): 'date' | 'time' | undefined {
+function dateTimeFormat(numberFormat: string): 'date' | 'time' | undefined {
   const tokens = numberFormat.replace(/"[^"]*"|\\.|\[[^\]]*\]/g, '');
   if (/[dy]/i.test(tokens)) return 'date';
   if (/[hs]/i.test(tokens)) return 'time';
@@ -991,7 +994,7 @@ function readCell(
   // The engine infers display formats for typed dates and for formulas that
   // refer to them, as Excel does.
   const engineFormat = entered.inferable.has(address)
-    ? inferredFormat(model.getCellNumberFormat(sheetIndex, row + 1, column + 1))
+    ? dateTimeFormat(model.getCellNumberFormat(sheetIndex, row + 1, column + 1))
     : undefined;
   // IronCalc also formats a difference of two dates as a date, so
   // formula results only count as dates from 2000 onwards; a day
@@ -1000,10 +1003,12 @@ function readCell(
     engineFormat !== 'date' ||
     !cell?.value.startsWith('=') ||
     number >= MIN_FORMULA_DATE_SERIAL;
-  let formatted = displayNumber(
-    number,
-    engineFormat && dateLike ? { ...cell!, format: engineFormat } : cell
-  );
+  const shown =
+    engineFormat && dateLike ? { ...cell!, format: engineFormat } : cell;
+  let formatted = displayNumber(number, shown);
+  const date = cell?.numberFormat
+    ? dateTimeFormat(cell.numberFormat) === 'date'
+    : shown?.format === 'date';
   let warning: string | undefined;
   if (cell?.numberFormat) {
     try {
@@ -1017,6 +1022,7 @@ function readCell(
     display: formatted,
     ...(warning && { warning }),
     number,
+    ...(date && { date }),
     ...(includeTypes && { type: 'number' as const, value: number }),
   };
 }
@@ -1211,6 +1217,7 @@ function sameCalculatedCell(left: CalculatedCell, right: CalculatedCell) {
     left.number === right.number &&
     left.error === right.error &&
     left.warning === right.warning &&
+    left.date === right.date &&
     left.type === right.type &&
     left.value === right.value &&
     left.spill?.rows === right.spill?.rows &&

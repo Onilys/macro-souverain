@@ -32,6 +32,7 @@ function sameResult(left: CalculatedCell, right: CalculatedCell) {
     left.number === right.number &&
     left.error === right.error &&
     left.warning === right.warning &&
+    left.date === right.date &&
     left.type === right.type &&
     left.value === right.value &&
     left.spill?.rows === right.spill?.rows &&

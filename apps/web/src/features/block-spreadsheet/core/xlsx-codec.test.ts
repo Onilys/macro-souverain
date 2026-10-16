@@ -199,6 +199,55 @@ describe('Excel workbook files', () => {
     });
   });
 
+  it("exports checkboxes as Excel's checkbox format over boolean values and imports them back", async () => {
+    const sheet = simpleSheet();
+    sheet.cells = {
+      A1: { value: 'TRUE', checkbox: true },
+      A2: { value: 'FALSE', checkbox: true, horizontalAlign: 'left' },
+      A3: { value: 'TRUE' },
+    };
+    const encoded = await encodeXlsx({ sheets: [sheet] });
+    const entries = unzipSync(encoded.bytes);
+    expect(
+      strFromU8(entries['xl/featurePropertyBag/featurePropertyBag.xml'])
+    ).toContain('<bag type="Checkbox"/>');
+    expect(strFromU8(entries['[Content_Types].xml'])).toContain(
+      '<Override PartName="/xl/featurePropertyBag/featurePropertyBag.xml" ContentType="application/vnd.ms-excel.featurepropertybag+xml"/>'
+    );
+    expect(strFromU8(entries['xl/_rels/workbook.xml.rels'])).toContain(
+      'Type="http://schemas.microsoft.com/office/2022/11/relationships/FeaturePropertyBag" Target="featurePropertyBag/featurePropertyBag.xml"'
+    );
+    const styles = strFromU8(entries['xl/styles.xml']);
+    expect(styles.match(/<xfpb:xfComplement i="0"\/>/g)).toHaveLength(2);
+    expect(styles).toContain(
+      '<alignment horizontal="left" vertical="center"/><extLst><ext uri="{C7286773-470A-42A8-94C5-96B5CB345126}"'
+    );
+    const worksheet = strFromU8(entries['xl/worksheets/sheet1.xml']);
+    expect(worksheet).toMatch(/<c r="A1" s="\d+" t="b"><v>1<\/v><\/c>/);
+    expect(worksheet).toMatch(/<c r="A2" s="\d+" t="b"><v>0<\/v><\/c>/);
+    expect((await decodeXlsx(encoded.bytes)).sheets[0].cells).toEqual(
+      sheet.cells
+    );
+
+    // Excel may number and order its bags differently; follow the links.
+    entries['xl/featurePropertyBag/featurePropertyBag.xml'] =
+      strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<FeaturePropertyBags xmlns="http://schemas.microsoft.com/office/spreadsheetml/2022/featurepropertybag"><bag type="XFComplements" extRef="XFComplementsMapperExtRef"><a k="MappedFeaturePropertyBags"><bagId>3</bagId><bagId>1</bagId></a></bag><bag type="XFComplement"><bagId k="XFControls">2</bagId></bag><bag type="XFControls"><bagId k="CellControl">4</bagId></bag><bag type="XFComplement"/><bag type="Checkbox"><i k="default">0</i></bag></FeaturePropertyBags>`);
+    const reordered = (index: string) => {
+      entries['xl/styles.xml'] = strToU8(
+        styles.replaceAll('xfComplement i="0"', `xfComplement i="${index}"`)
+      );
+      return decodeXlsx(zipSync(entries));
+    };
+    expect((await reordered('1')).sheets[0].cells.A1).toEqual({
+      value: 'TRUE',
+      checkbox: true,
+    });
+    expect((await reordered('0')).sheets[0].cells.A1).toEqual({
+      value: 'TRUE',
+    });
+  });
+
   it('round trips indented line items through Excel alignment', async () => {
     const sheet = simpleSheet();
     sheet.cells = {

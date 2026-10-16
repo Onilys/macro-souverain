@@ -66,6 +66,8 @@ export type SpreadsheetCell = {
   borderBottomColor?: string;
   borderLeftStyle?: string;
   borderLeftColor?: string;
+  /** Shows a TRUE or FALSE value as a checkbox, like Excel's checkbox format. */
+  checkbox?: boolean;
 };
 export type SpreadsheetCellStyle = Omit<SpreadsheetCell, 'value'>;
 export type SpreadsheetCells = Record<string, SpreadsheetCell>;
@@ -100,6 +102,7 @@ export const SPREADSHEET_DEFAULT_STYLE: Required<SpreadsheetCellStyle> = {
   borderBottomColor: '',
   borderLeftStyle: '',
   borderLeftColor: '',
+  checkbox: false,
 };
 
 const booleanStyle = (value: unknown): value is boolean =>
@@ -212,6 +215,7 @@ const styleFields: {
       value.length <= 512 &&
       Array.from(value).every((character) => character.charCodeAt(0) >= 32),
   },
+  checkbox: { map: 'spreadsheetCheckboxes', valid: booleanStyle },
 };
 const styleKeys = Object.keys(styleFields) as (keyof SpreadsheetCellStyle)[];
 const styleFieldsByMap = new Map(

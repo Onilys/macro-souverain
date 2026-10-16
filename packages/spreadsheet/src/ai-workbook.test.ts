@@ -573,6 +573,72 @@ describe('spreadsheet AI atomic editing', () => {
     expect(readSpreadsheetWorkbook(doc)[0].metadata).toBeUndefined();
   });
 
+  it('adds checkboxes backed by TRUE and FALSE that formulas count', () => {
+    const doc = document();
+    writeSpreadsheetCells(doc, {
+      A2: { value: 'TRUE' },
+      A4: { value: 'Skip' },
+    });
+    const edit = (
+      operations: Parameters<typeof prepareSpreadsheetEdit>[1]['operations']
+    ) => {
+      const result = prepareSpreadsheetEdit(
+        doc,
+        { action: 'edit', expectedRevision: 'v', operations },
+        calculator
+      );
+      doc.import(result.update);
+      return result;
+    };
+    const added = edit([
+      { type: 'insert_checkboxes', sheetId: 'sheet1', range: 'a1:a4' },
+      {
+        type: 'set_cells',
+        sheetId: 'sheet1',
+        cells: [
+          { address: 'A3', value: 'TRUE' },
+          { address: 'B1', value: '=COUNTIF(A1:A4,TRUE)' },
+          { address: 'B2', value: '=COUNTIF(A:A,FALSE)' },
+        ],
+      },
+    ]);
+    expect(added.changes[0].summary).toBe(
+      'Added checkboxes to A1:A4 in “Sheet1”.'
+    );
+    expect(readSpreadsheetCells(doc)).toMatchObject({
+      A1: { value: 'FALSE', checkbox: true },
+      A2: { value: 'TRUE', checkbox: true },
+      A3: { value: 'TRUE', checkbox: true },
+      A4: { value: 'Skip', checkbox: true },
+    });
+    const cells = readSpreadsheetForAi(
+      doc,
+      'v',
+      { action: 'read', ranges: ['A1:B2'], includeStyles: true },
+      calculator
+    ).ranges[0].cells;
+    expect(cells.find((cell) => cell.address === 'A1')).toMatchObject({
+      type: 'boolean',
+      value: false,
+      style: { checkbox: true },
+    });
+    expect(cells.find((cell) => cell.address === 'B1')).toMatchObject({
+      value: 2,
+    });
+    expect(cells.find((cell) => cell.address === 'B2')).toMatchObject({
+      value: 1,
+    });
+    edit([
+      {
+        type: 'format_cells',
+        sheetId: 'sheet1',
+        range: 'A1:A4',
+        style: { checkbox: false },
+      },
+    ]);
+    expect(readSpreadsheetCells(doc).A1).toEqual({ value: 'FALSE' });
+  });
+
   it('rejects oversized batches and invalid cells/styles/row counts without silently clamping', () => {
     const doc = document();
     const edit = (

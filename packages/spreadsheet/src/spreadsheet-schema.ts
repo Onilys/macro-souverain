@@ -73,6 +73,9 @@ export const SPREADSHEET_LORO_SCHEMA = schema({
   spreadsheetWrap: schema.LoroMap(
     {} as Record<string, ReturnType<typeof schema.Boolean>>
   ),
+  spreadsheetCheckboxes: schema.LoroMap(
+    {} as Record<string, ReturnType<typeof schema.Boolean>>
+  ),
   spreadsheetBorderTop: schema.LoroMap(
     {} as Record<string, ReturnType<typeof schema.Boolean>>
   ),

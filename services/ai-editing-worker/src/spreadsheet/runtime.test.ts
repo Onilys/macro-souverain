@@ -446,3 +446,22 @@ it('accepts dropdown operations and rejects unknown dropdown fields', () => {
   );
   expect(colored({ Done: '#b7e1cd' })).toBe(false);
 });
+
+it('accepts checkbox insertion and the checkbox style in AI edits', () => {
+  const edit = (operation: Record<string, unknown>) =>
+    spreadsheetBodySchema.safeParse({
+      documentId: crypto.randomUUID(),
+      documentToken: 'token',
+      request: {
+        action: 'edit',
+        expectedRevision: 'rev',
+        operations: [{ sheetId: 'sheet1', range: 'C2:C20', ...operation }],
+      },
+    }).success;
+  expect(edit({ type: 'insert_checkboxes' })).toBe(true);
+  expect(edit({ type: 'insert_checkboxes', checked: true })).toBe(false);
+  expect(edit({ type: 'format_cells', style: { checkbox: false } })).toBe(true);
+  expect(edit({ type: 'format_cells', style: { checkbox: 'yes' } })).toBe(
+    false
+  );
+});

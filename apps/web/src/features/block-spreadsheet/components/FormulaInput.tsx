@@ -1,12 +1,4 @@
 import {
-  autoUpdate,
-  computePosition,
-  flip,
-  offset,
-  shift,
-  size,
-} from '@floating-ui/dom';
-import {
   createEffect,
   createSignal,
   createUniqueId,
@@ -33,6 +25,7 @@ import {
   createFormulaAssistance,
 } from '../primitives/create-formula-assistance';
 import { createTouchPress } from '../primitives/create-touch-press';
+import { EditorPopup } from './EditorPopup';
 
 /** Shared cell/formula-bar input. The popup keeps focus and editing in the textarea. */
 export type FormulaInputProps = {
@@ -242,9 +235,10 @@ function FormulaTextarea(props: FormulaInputProps & { typed?: boolean }) {
       </Show>
       <Show when={popupVisible()}>
         <Portal>
-          <FormulaPopup
+          <EditorPopup
             anchor={input}
             interactive={choices().length > 0}
+            class="w-72"
             onReady={(element) => {
               popup = element;
             }}
@@ -325,7 +319,7 @@ function FormulaTextarea(props: FormulaInputProps & { typed?: boolean }) {
                 </p>
               </Show>
             </div>
-          </FormulaPopup>
+          </EditorPopup>
         </Portal>
       </Show>
     </>
@@ -416,73 +410,6 @@ function ReferenceMirror(props: {
           )}
         </For>
       </span>
-    </div>
-  );
-}
-
-function FormulaPopup(props: {
-  anchor: HTMLElement;
-  interactive: boolean;
-  children: import('solid-js').JSX.Element;
-  onReady: (element: HTMLDivElement) => void;
-  onOutsidePress: () => void;
-}) {
-  let element!: HTMLDivElement;
-  onMount(() => {
-    props.onReady(element);
-    // Pressing a cell, sheet tab, or toolbar keeps the draft but closes help.
-    const press = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!element.contains(target) && !props.anchor.contains(target))
-        props.onOutsidePress();
-    };
-    document.addEventListener('pointerdown', press, true);
-    onCleanup(() => document.removeEventListener('pointerdown', press, true));
-    let alive = true;
-    const update = async () => {
-      const position = await computePosition(props.anchor, element, {
-        strategy: 'fixed',
-        placement: 'bottom-start',
-        middleware: [
-          offset(5),
-          flip(),
-          shift({ padding: 12 }),
-          size({
-            padding: 12,
-            apply({ availableHeight, elements }) {
-              elements.floating.style.maxHeight = `${Math.max(0, availableHeight)}px`;
-            },
-          }),
-        ],
-      });
-      if (alive)
-        Object.assign(element.style, {
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          visibility: 'visible',
-        });
-    };
-    const cleanup = autoUpdate(props.anchor, element, () => {
-      void update();
-    });
-    onCleanup(() => {
-      alive = false;
-      cleanup();
-    });
-  });
-  return (
-    <div
-      ref={element}
-      style={{ visibility: 'hidden' }}
-      class="fixed z-[100] flex w-72 max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-lg border border-edge bg-panel text-ink shadow-xl"
-      classList={{ 'pointer-events-none': !props.interactive }}
-      onPointerDown={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      {props.children}
     </div>
   );
 }

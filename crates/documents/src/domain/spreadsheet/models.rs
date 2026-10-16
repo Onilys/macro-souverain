@@ -192,6 +192,9 @@ pub struct SpreadsheetStyle {
     /// How to interpret and display the input.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<SpreadsheetNumberFormat>,
+    /// Show the cell's TRUE/FALSE value as a checkbox; false removes it and keeps the value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkbox: Option<bool>,
 }
 
 /// Source text for one cell. Formulas start with =; a leading apostrophe forces literal text.
@@ -358,6 +361,14 @@ pub enum SpreadsheetOperation {
         /// Stable sheet ID or exact name.
         sheet_id: String,
         /// A1 rectangle.
+        range: String,
+    },
+    /// Turn a rectangle into checkboxes backed by TRUE/FALSE values: blank cells become FALSE
+    /// (unchecked) and other values are kept. Check or uncheck them with set_cells TRUE or FALSE.
+    InsertCheckboxes {
+        /// Stable sheet ID or exact name.
+        sheet_id: String,
+        /// A1 rectangle, for example D2:D50.
         range: String,
     },
 }

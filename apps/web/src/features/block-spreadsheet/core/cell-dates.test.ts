@@ -1,6 +1,11 @@
 import { format as formatExcelNumber } from 'ssf';
 import { describe, expect, it } from 'vitest';
-import { dateFormatStyle, parseTypedDate, typedDateText } from './cell-dates';
+import {
+  dateFormatStyle,
+  parseTypedDate,
+  typedDateText,
+  typedDayText,
+} from './cell-dates';
 import { SPREADSHEET_DATE_FORMATS } from './toolbar-types';
 
 const isoDate = (serial: number) => formatExcelNumber('yyyy-mm-dd', serial);
@@ -97,6 +102,18 @@ describe('typed dates', () => {
         expect(
           parseTypedDate(typedDateText(serial, locale)!, locale)?.serial
         ).toBe(serial);
+  });
+
+  it('enters a picked local day as text that reads back as that day', () => {
+    // Late in the evening, so a UTC conversion would land on the next day.
+    const day = new Date(2026, 9, 16, 23, 59);
+    expect(typedDayText(day, 'en-US')).toBe('10/16/2026');
+    expect(typedDayText(day, 'en-GB')).toBe('16/10/2026');
+    expect(typedDayText(day, 'ja-JP')).toBe('2026/10/16');
+    for (const locale of ['en-US', 'en-GB', 'de-DE', 'ja-JP'])
+      expect(
+        parseTypedDate(`${typedDayText(day, locale)} `, locale)?.serial
+      ).toBe(46311);
   });
 
   it('leaves times of day and out-of-range serials to the raw number', () => {

@@ -119,6 +119,10 @@ function renderGrid(
           onFill={options.onFill}
           onResizeColumn={options.onResizeColumn}
           dropdowns={options.dropdowns}
+          onToggleCheckbox={(position) => {
+            controller.select(position);
+            controller.toggleCheckboxes();
+          }}
           values={options.values ?? {}}
           remoteCursors={[]}
           selection={controller.selection()}
@@ -277,6 +281,79 @@ describe('spreadsheet dropdown cells', () => {
     expect(view.getByRole('gridcell', { name: 'B4: Elsewhere' })).toBeTruthy();
     // Outside the dropdown the same text stays plain.
     expect(chip('C2')).toBeNull();
+  });
+});
+
+describe('spreadsheet checkbox cells', () => {
+  const cells: SpreadsheetCells = {
+    B2: { value: 'TRUE', checkbox: true, textColor: '#AA0000' },
+    B3: { value: 'FALSE', checkbox: true, horizontalAlign: 'left' },
+    B4: { value: '', checkbox: true },
+    B5: { value: 'Pending', checkbox: true },
+    B6: { value: 'TRUE' },
+  };
+
+  it('shows TRUE, FALSE and blank checkbox cells as boxes in the cell color and alignment', () => {
+    const view = renderGrid(cells);
+    expect(
+      view.getByRole('checkbox', { name: 'B2' }).getAttribute('aria-checked')
+    ).toBe('true');
+    expect(
+      view.getByRole('checkbox', { name: 'B3' }).getAttribute('aria-checked')
+    ).toBe('false');
+    expect(
+      view.getByRole('checkbox', { name: 'B4' }).getAttribute('aria-checked')
+    ).toBe('false');
+    expect(view.queryByRole('checkbox', { name: 'B5' })).toBeNull();
+    expect(view.getByRole('gridcell', { name: 'B5: Pending' })).toBeTruthy();
+    expect(view.queryByRole('checkbox', { name: 'B6' })).toBeNull();
+    const checked = view.getByRole('gridcell', { name: 'B2: checked' });
+    expect(checked.style.textAlign).toBe('center');
+    expect(checked.style.color).toBe('rgb(170, 0, 0)');
+    expect(
+      view.getByRole('gridcell', { name: 'B3: not checked' }).style.textAlign
+    ).toBe('left');
+  });
+
+  it('selects and toggles a box when it is clicked, without starting an edit', () => {
+    const view = renderGrid(cells);
+    const box = view.getByRole('checkbox', { name: 'B3' });
+    fireEvent(box, new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+    fireEvent.click(box);
+    fireEvent.dblClick(box);
+    expect(view.controller.activeAddress()).toBe('B3');
+    expect(view.cells().B3.value).toBe('TRUE');
+    expect(view.controller.editing()).toBeUndefined();
+    fireEvent.click(view.getByRole('checkbox', { name: 'B3' }));
+    expect(view.cells().B3.value).toBe('FALSE');
+  });
+
+  it('extends the selection on a Shift+click over a box without toggling it', () => {
+    const view = renderGrid(cells);
+    view.controller.select({ row: 1, column: 1 });
+    const box = view.getByRole('checkbox', { name: 'B4' });
+    fireEvent(
+      box,
+      new MouseEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        shiftKey: true,
+      })
+    );
+    fireEvent.click(box, { shiftKey: true });
+    expect(view.controller.selection()).toEqual({
+      anchor: { row: 1, column: 1 },
+      focus: { row: 3, column: 1 },
+    });
+    expect(view.cells().B4.value).toBe('');
+  });
+
+  it('shows boxes that cannot be toggled in a view-only sheet', () => {
+    const view = renderGrid(cells, { readonly: true });
+    const box = view.getByRole('checkbox', { name: 'B2' });
+    expect(box.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(box);
+    expect(view.cells().B2.value).toBe('TRUE');
   });
 });
 

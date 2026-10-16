@@ -1,4 +1,9 @@
 import {
+  deleteCellEdits,
+  insertCheckboxEdits,
+  toggleCheckboxEdits,
+} from '@macro-inc/spreadsheet/checkboxes';
+import {
   type Accessor,
   batch,
   createEffect,
@@ -470,6 +475,12 @@ export function createGridController(source: GridSource) {
     );
   }
 
+  function deleteCells() {
+    if (!source.canEdit()) return;
+    cancelPendingCopy();
+    source.setCells(deleteCellEdits(source.cells(), selection()));
+  }
+
   /** Styles `target`, by default the current selection. */
   function format(
     patch: Partial<SpreadsheetCell>,
@@ -483,6 +494,25 @@ export function createGridController(source: GridSource) {
         selectionAddresses(target).map((address) => [address, patch])
       )
     );
+  }
+
+  function insertCheckboxes() {
+    commit();
+    if (!source.canEdit()) return;
+    cancelPendingCopy();
+    source.setCells(insertCheckboxEdits(source.cells(), selection()));
+  }
+
+  /** Toggles the selection's checkboxes; false when it has none. */
+  function toggleCheckboxes() {
+    commit();
+    const edits = toggleCheckboxEdits(source.cells(), selection());
+    if (!edits) return false;
+    if (source.canEdit() && Object.keys(edits).length) {
+      cancelPendingCopy();
+      source.setCells(edits);
+    }
+    return true;
   }
 
   function copy(): string {
@@ -709,7 +739,7 @@ export function createGridController(source: GridSource) {
       beginEdit('cell');
     } else if (event.key === 'Backspace' || event.key === 'Delete') {
       event.preventDefault();
-      clear();
+      deleteCells();
     } else if (event.key === 'Escape') {
       event.preventDefault();
       if (editing()) cancel();
@@ -722,6 +752,7 @@ export function createGridController(source: GridSource) {
       );
     } else if (!command && !event.altKey && event.key.length === 1) {
       event.preventDefault();
+      if (event.key === ' ' && toggleCheckboxes()) return;
       beginEdit('cell', event.key);
     }
   }
@@ -763,6 +794,8 @@ export function createGridController(source: GridSource) {
     move,
     clear,
     format,
+    insertCheckboxes,
+    toggleCheckboxes,
     copy,
     paste,
     keyDown,

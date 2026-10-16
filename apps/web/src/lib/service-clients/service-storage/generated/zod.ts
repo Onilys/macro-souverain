@@ -18161,6 +18161,409 @@ export const getDocumentVersionResponse = zod.object({
 });
 
 /**
+ * @summary State access request state through the domain service.
+ */
+export const accessRequestsStateParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsStateQueryOffsetMin = 0;
+
+export const accessRequestsStateQueryParams = zod.object({
+  offset: zod
+    .number()
+    .min(accessRequestsStateQueryOffsetMin)
+    .optional()
+    .describe(
+      'Offset into pending requests; page size is bounded by the service.'
+    ),
+});
+
+export const accessRequestsStateResponseNextOffsetMin = 0;
+
+export const accessRequestsStateResponse = zod
+  .object({
+    accessLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    canReview: zod
+      .boolean()
+      .describe(
+        'Whether this viewer can resolve requests and manage direct grants.'
+      ),
+    mine: zod
+      .union([
+        zod.null(),
+        zod
+          .object({
+            createdAt: zod.iso
+              .datetime({})
+              .describe('Start of this request attempt.'),
+            grantedLevel: zod
+              .union([
+                zod.null(),
+                zod
+                  .enum(['view', 'comment', 'edit', 'owner'])
+                  .describe('Ordered from least to most access top -> bottom'),
+              ])
+              .optional(),
+            id: zod
+              .uuid()
+              .describe('Stable request identity across revisions.'),
+            requestedLevel: zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+            requesterId: zod.string().describe('Person requesting access.'),
+            resolvedAt: zod.iso
+              .datetime({})
+              .nullish()
+              .describe('When the request stopped being pending.'),
+            retryAfter: zod.iso
+              .datetime({})
+              .nullish()
+              .describe(
+                'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+              ),
+            revision: zod.number().describe('Optimistic concurrency token.'),
+            status: zod
+              .enum(['pending', 'granted', 'denied', 'cancelled'])
+              .describe(
+                'Durable outcome; reading a notification never changes it.'
+              ),
+            updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+          })
+          .describe('Latest request for one person and one entity.'),
+      ])
+      .optional(),
+    nextOffset: zod
+      .number()
+      .min(accessRequestsStateResponseNextOffsetMin)
+      .nullish()
+      .describe('Next page offset, absent at the end.'),
+    owner: zod
+      .string()
+      .nullish()
+      .describe(
+        'Recorded owner principal, visible to reviewers and callers with access.'
+      ),
+    pendingCount: zod
+      .number()
+      .describe('Total outstanding requests, for the Share badge.'),
+    requests: zod
+      .array(
+        zod
+          .object({
+            createdAt: zod.iso
+              .datetime({})
+              .describe('Start of this request attempt.'),
+            grantedLevel: zod
+              .union([
+                zod.null(),
+                zod
+                  .enum(['view', 'comment', 'edit', 'owner'])
+                  .describe('Ordered from least to most access top -> bottom'),
+              ])
+              .optional(),
+            id: zod
+              .uuid()
+              .describe('Stable request identity across revisions.'),
+            requestedLevel: zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+            requesterId: zod.string().describe('Person requesting access.'),
+            resolvedAt: zod.iso
+              .datetime({})
+              .nullish()
+              .describe('When the request stopped being pending.'),
+            retryAfter: zod.iso
+              .datetime({})
+              .nullish()
+              .describe(
+                'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+              ),
+            revision: zod.number().describe('Optimistic concurrency token.'),
+            status: zod
+              .enum(['pending', 'granted', 'denied', 'cancelled'])
+              .describe(
+                'Durable outcome; reading a notification never changes it.'
+              ),
+            updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+          })
+          .describe('Latest request for one person and one entity.')
+      )
+      .describe('Reviewer-only pending page, oldest first.'),
+    supportedLevels: zod
+      .array(
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom')
+      )
+      .describe('Permitted access choices for this surface.'),
+  })
+  .describe('Share state visible to one authenticated viewer.');
+
+/**
+ * @summary Submit access request state through the domain service.
+ */
+export const accessRequestsSubmitParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsSubmitBody = zod
+  .object({
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    revision: zod
+      .number()
+      .nullish()
+      .describe('Last observed revision; omitted only for the first request.'),
+  })
+  .describe(
+    'Requester submission; an existing pending request requires its revision.'
+  );
+
+export const accessRequestsSubmitResponse = zod
+  .object({
+    createdAt: zod.iso.datetime({}).describe('Start of this request attempt.'),
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    id: zod.uuid().describe('Stable request identity across revisions.'),
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    requesterId: zod.string().describe('Person requesting access.'),
+    resolvedAt: zod.iso
+      .datetime({})
+      .nullish()
+      .describe('When the request stopped being pending.'),
+    retryAfter: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+      ),
+    revision: zod.number().describe('Optimistic concurrency token.'),
+    status: zod
+      .enum(['pending', 'granted', 'denied', 'cancelled'])
+      .describe('Durable outcome; reading a notification never changes it.'),
+    updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+  })
+  .describe('Latest request for one person and one entity.');
+
+/**
+ * @summary Cancel access request state through the domain service.
+ */
+export const accessRequestsCancelParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsCancelQueryParams = zod.object({
+  revision: zod.number().describe('Last observed request revision.'),
+});
+
+export const accessRequestsCancelResponseDefault = null;
+
+export const accessRequestsCancelResponse = zod.unknown();
+
+/**
+ * @summary Resolve access request state through the domain service.
+ */
+export const accessRequestsResolveParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  request_id: zod.uuid(),
+});
+
+export const accessRequestsResolveBody = zod
+  .object({
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    revision: zod.number().describe('Request revision being reviewed.'),
+  })
+  .describe("Owner's decision; omission of a granted level means deny.");
+
+export const accessRequestsResolveResponse = zod
+  .object({
+    createdAt: zod.iso.datetime({}).describe('Start of this request attempt.'),
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    id: zod.uuid().describe('Stable request identity across revisions.'),
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    requesterId: zod.string().describe('Person requesting access.'),
+    resolvedAt: zod.iso
+      .datetime({})
+      .nullish()
+      .describe('When the request stopped being pending.'),
+    retryAfter: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+      ),
+    revision: zod.number().describe('Optimistic concurrency token.'),
+    status: zod
+      .enum(['pending', 'granted', 'denied', 'cancelled'])
+      .describe('Durable outcome; reading a notification never changes it.'),
+    updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+  })
+  .describe('Latest request for one person and one entity.');
+
+/**
+ * @summary Direct access request state through the domain service.
+ */
+export const accessRequestsDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsDirectResponseItem = zod
+  .object({
+    accessLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    userId: zod.string().describe('Recipient.'),
+  })
+  .describe(
+    'A direct user grant; inherited grants are deliberately not editable here.'
+  );
+export const accessRequestsDirectResponse = zod.array(
+  accessRequestsDirectResponseItem
+);
+
+/**
+ * @summary Set direct access request state through the domain service.
+ */
+export const accessRequestsSetDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  user_id: zod.string(),
+});
+
+export const accessRequestsSetDirectBody = zod
+  .object({
+    accessLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+  })
+  .describe(
+    'Direct-grant change. A null level removes only that direct grant.'
+  );
+
+export const accessRequestsSetDirectResponseDefault = null;
+
+export const accessRequestsSetDirectResponse = zod.unknown();
+
+/**
+ * @summary Remove direct access request state through the domain service.
+ */
+export const accessRequestsRemoveDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  user_id: zod.string(),
+});
+
+export const accessRequestsRemoveDirectResponseDefault = null;
+
+export const accessRequestsRemoveDirectResponse = zod.unknown();
+
+/**
  * @summary Get the current user's permission for a given entity.
  */
 export const getEntityPermissionParams = zod.object({

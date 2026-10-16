@@ -362,7 +362,7 @@ Touch devices retain the flag-gated Reviews tab in Tasks.
 - Bottom: `Settings` (`Ctrl ;`) — a gear with the signed-in account's profile
   photo as a badge in its corner. It opens Settings directly in the active
   split (Shift-click for a new split); there is no account menu. Log out lives
-  at the bottom of the Settings sidebar, and the command menu is `Ctrl K`.
+  on **Settings → Account**, and the command menu is `Ctrl K`.
 
 The rail highlights the workspace shown by the **active split**, not every app
 named in the multi-split URL. Nested details keep their owning workspace selected
@@ -520,8 +520,8 @@ changes the button shortcut to Shift+Enter; clicking while holding Shift uses
 the same new-split behavior where supported.
 
 The **Search mode** toggle (or **/**) switches between direct entity shortcuts
-shown beside each choice and the standard create search input. The preference
-persists across opens. Search filters both Recents and categories. Up/Down moves
+shown beside each choice and the standard create search input. Search mode is
+the default; the preference persists across opens. Search filters both Recents and categories. Up/Down moves
 through the displayed order and scrolls the selected row into view; Left/Right
 edits the search input. Enter creates the selected item, Shift+Enter opens it in a
 new split where supported, and Escape closes the launcher. Typing in search mode

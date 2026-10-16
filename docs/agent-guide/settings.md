@@ -155,10 +155,12 @@ like any other rail item, and Shift-click opens it in a new split.
 `/app/settings/<tab>` opens it as the only split with the app rail still
 visible, and `/app/home/~/settings/<tab>` places it beside Home. Its inner
 sidebar matches Email and Tasks: a **Settings** title bar, a rounded
-**Search settings** field, the grouped section pills, and **Log out** pinned to
-the bottom. Unlike other views, it cannot be hidden at desktop widths: there is
-no **Hide navigation** toggle and `Cmd .` does nothing, even if it was hidden
-before. Below 720px the sidebar becomes an overlay opened from **Show
+**Search settings** field, the grouped section pills, and a team action pinned
+to the bottom: **Invite your team** (opens the invite dialog; hidden for members
+when the team limits invites to admins) or, with no team, **Create a team**
+(opens the create-team dialog). Unlike other views, it cannot be hidden at
+desktop widths: there is no **Hide navigation** toggle and `Cmd .` does
+nothing, even if it was hidden before. Below 720px the sidebar becomes an overlay opened from **Show
 navigation** (or `Cmd .`), which starts closed. Escape closes a
 settings split that shares the layout, or steps back to the previous view when
 it is the only split (Home when there is none). Leave settings by picking any
@@ -194,6 +196,12 @@ show this native updater row.
 Below Profile, **Account** shows a card naming the current plan (**Free plan**,
 **Pro plan**, or **Max plan**; **Loading plan…** until the billing summary
 arrives). Clicking it opens **Billing** settings.
+
+Below the plan card, a **Log out** card signs out. Under it, outside any card,
+**Delete account** opens a two-step dialog: an irreversibility warning with
+optional feedback (and a **Log out instead** link), then a final step whose
+**Hold to delete my account** button deletes only after it is held for 5
+seconds (pointer, or Space/Enter); releasing early cancels.
 
 Left nav (feature and platform gates still apply):
 

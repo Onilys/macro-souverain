@@ -123,6 +123,7 @@ rustls = { version = "0.23", default-features = false, features = ["logging", "p
 rustls-webpki = { version = "0.103", default-features = false, features = ["aws-lc-rs", "ring", "std"] }
 schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = { version = "1" }
+scraper = { version = "0.18", features = ["deterministic"] }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
@@ -274,6 +275,7 @@ rustls = { version = "0.23", default-features = false, features = ["logging", "p
 rustls-webpki = { version = "0.103", default-features = false, features = ["aws-lc-rs", "ring", "std"] }
 schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = { version = "1" }
+scraper = { version = "0.18", features = ["deterministic"] }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }

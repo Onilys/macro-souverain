@@ -38,6 +38,10 @@ Dropdowns added, used and removed from the toolbar and cell menus (with
 choice colors drawn as chips in cells and in the open list), open lists
 kept clear of their cell (above it near the bottom edge) and moved to another
 dropdown cell with one click,
+checkboxes inserted, toggled by click and Space, counted by formulas, removed
+with Delete and the cell menu, and downloaded in Excel's checkbox format,
+date calendars on typed, imported and date-validated cells (keys, clicks and
+the stored form of the picked day),
 imported conditional formatting, validation lists and notes, imported charts
 and images (drawn over their cells, following edits, deleted and restored with
 undo, and kept in the download), radar, bubble, stock and contour charts
@@ -112,6 +116,10 @@ or permission-token refresh. The ordinary fixture remains local-only unless the
 explicit test document/socket query parameters are supplied.
 
 ## Editor interaction regressions
+
+`spreadsheet.browser.e2e.ts` also enters `@` dates (a menu pick, and the `@date`
+calendar by keyboard, pointer and Escape) as date values that `=A6+30`, `DATEDIF`
+and the Excel download read as dates; the phone suite taps an `@date` day.
 
 `range-move.browser.e2e.ts` drags a selection by its border: the destination
 outline and label, formulas following the moved cells, a single undo, the

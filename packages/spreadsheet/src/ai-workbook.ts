@@ -18,6 +18,7 @@ import type {
   WorkbookCalculation,
 } from './calculation';
 import { fillCopies } from './cell-copy';
+import { insertCheckboxEdits } from './checkboxes';
 import {
   dropdownRule,
   literalListItems,
@@ -608,6 +609,14 @@ export function prepareSpreadsheetEdit(
               replaceValidations(sheet.metadata?.validations, range)
             );
             summary = `Removed data validation from ${range} in “${sheet.name}”.`;
+            break;
+          }
+          case 'insert_checkboxes': {
+            const selection = checkedRange(operation.range, sheet);
+            const edits = insertCheckboxEdits(sheet.cells, selection);
+            count(Object.keys(edits).length);
+            writeSpreadsheetCells(fork, edits, sheet.id);
+            summary = `Added checkboxes to ${rangeName(selection)} in “${sheet.name}”.`;
             break;
           }
         }

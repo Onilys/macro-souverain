@@ -36,7 +36,9 @@ export type SpreadsheetCommand =
   | 'insert-average'
   | 'insert-count'
   | 'insert-min'
-  | 'insert-max';
+  | 'insert-max'
+  | 'insert-checkbox'
+  | 'remove-checkbox';
 
 export type SpreadsheetToolbarProps = {
   readonly: boolean;

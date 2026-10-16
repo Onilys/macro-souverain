@@ -45,7 +45,8 @@ export type SpreadsheetOperation =
       rejectInvalid?: boolean;
       colors?: DropdownColor[];
     }
-  | { type: 'clear_validation'; sheetId: string; range: string };
+  | { type: 'clear_validation'; sheetId: string; range: string }
+  | { type: 'insert_checkboxes'; sheetId: string; range: string };
 
 export type SpreadsheetReadRequest = {
   action: 'read';

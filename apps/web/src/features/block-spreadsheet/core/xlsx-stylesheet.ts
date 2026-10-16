@@ -87,6 +87,8 @@ type Xf = {
   fillId: number;
   borderId: number;
   alignment?: Attributes;
+  /** Its feature property bag, such as Excel's checkbox format. */
+  complement?: number;
 };
 
 function attributes(node: SaxesTagNS): Attributes {
@@ -252,7 +254,9 @@ export type XlsxStylesheet = {
 export function readXlsxStylesheet(
   text: string,
   theme: (string | undefined)[],
-  warnings: Set<string>
+  warnings: Set<string>,
+  /** The `xfComplement` indexes that are checkboxes. */
+  checkboxes: ReadonlySet<number>
 ): XlsxStylesheet {
   const formats = new Map<number, string>();
   const fonts: Font[] = [];
@@ -317,6 +321,9 @@ export function readXlsxStylesheet(
         return;
       case 'alignment':
         if (xf && parent === 'xf') xf.alignment = value;
+        return;
+      case 'xfComplement':
+        if (xf) xf.complement = Number(value.i);
         return;
     }
     if (font && parent === 'font') {
@@ -555,6 +562,11 @@ export function readXlsxStylesheet(
     }
     if (cellBorder?.diagonal?.style && cellBorder.diagonal.style !== 'none')
       warnings.add('Diagonal borders are not imported.');
+    if (
+      definition.complement !== undefined &&
+      checkboxes.has(definition.complement)
+    )
+      result.checkbox = true;
     return Object.fromEntries(
       Object.entries(result).filter(
         ([key, value]) =>

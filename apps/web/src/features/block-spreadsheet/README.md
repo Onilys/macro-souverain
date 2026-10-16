@@ -61,7 +61,7 @@ implementation. Three document tools expose bounded reads, scratch calculations,
 and revision-guarded edit batches. Source inputs, formulas, typed results, errors,
 and optional styles are explicit in reads. Scratch what-if overrides never write.
 The edit vocabulary includes values/formulas, range styles/clear/fill, append rows,
-column widths, and sheet lifecycle. Whole-workbook creation still uses the normal
+column widths, dropdowns, checkboxes, and sheet lifecycle. Whole-workbook creation still uses the normal
 native document creation flow.
 
 Rust tool adapters obtain typed View/Edit receipts, then pass them to the document
@@ -377,6 +377,21 @@ compare formula, error, and formatting behavior before replacing it.
   numbers in the `date` format (formula results only from the year 2000 on, so day
   counts stay numbers). A cell holding one `<m-date-mention>` pill calculates as
   that local calendar date.
+  Results shown as a calendar date (not a time) carry `date: true`. Editing such a
+  literal cell, or any cell under a date validation rule, without typing
+  (double-click, double-tap, Enter or F2) opens `components/CellDatePicker.tsx`
+  below the editor in the shared `EditorPopup`, so the editor keeps focus. The
+  grid sends it arrows (a day or a week), Page Up/Down (a month, Shift a year),
+  Enter (pick and move down) and Escape (close); typing closes it. A picked day
+  goes through the normal commit and validation, written the way the cell stores
+  dates (`core/cell-date.ts`): a serial keeps its time of day, a date pill stays a
+  pill, ISO text stays ISO, and other text becomes month/day/year.
+  Dates from the cell editor's `@` menu (`@today`, `@tomorrow`, `@friday` and so
+  on) enter as typed date text in the locale's order, not a pill, so a cell
+  holding only that date commits as a date value like any typed date; around
+  other text it stays text. `@date` shows the same calendar in place of the menu
+  (`views/DateMentionMenu.tsx`), starting at today: it takes the calendar's keys
+  before the editor, Enter or a click enters the day, and Escape closes it.
   Plain text treats formula-looking input literally. Wrapped rows grow to 160px at
   100% zoom; larger content remains available in the formula bar/editor.
 - Internal copying preserves formatting and translates relative/mixed references
@@ -384,9 +399,20 @@ compare formula, error, and formatting behavior before replacing it.
   source range in one direction; Cmd/Ctrl+D fills from the top row and Cmd/Ctrl+R
   from the left column. Fill repeats values; it does not infer numeric series.
   Plain-text clipboard data and cut preserve raw formulas verbatim.
+- Checkboxes are a cell format, as in Excel: the `checkbox` style property in
+  its own `spreadsheetCheckboxes` map, so it copies, fills, sorts and clears
+  like other formatting. Insert → Checkbox and the cell menu apply it to the
+  selection and write `FALSE` into blank cells so formulas count them
+  (`packages/spreadsheet/src/checkboxes.ts`, shared with the AI
+  `insert_checkboxes` operation). A checkbox cell showing TRUE, FALSE or
+  nothing draws a box, centered unless the cell is aligned, in its text color
+  and font size; other values show as text. Clicking a box or pressing Space
+  toggles the selection (all checked unless all already are); formulas keep
+  their result. Shift/Ctrl/Cmd clicks on a box select instead. Delete unchecks
+  boxes, then removes them on the next press, as Excel does.
 - The toolbar's Insert menu adds a chart of the selection (from one cell, of
   the block of filled cells around it, read as Excel reads it:
-  `core/chart-builder.ts`) or an image file, as one undoable change. Its More
+  `core/chart-builder.ts`), an image file, or checkboxes, as one undoable change. Its More
   charts submenu holds radar, filled radar, bubble (x values, then pairs of
   values and sizes), stock (three or four series: high, low and close, with
   open first for up-down bars) and contour charts. Drawings
@@ -428,6 +454,12 @@ Import keeps what Excel calculates and shows:
   workbook's default font (cells store only differences from it), borders, fills,
   alignment and indent, column widths, row heights, hidden rows/columns/sheets, merges,
   frozen panes, gridlines, tab colors and autofilters.
+- Excel's checkbox cell format. `core/xlsx-checkboxes.ts` follows each cell
+  format's `xfComplement` through the feature property bags to a Checkbox bag
+  on import, and export writes checkbox cells as booleans with that format
+  and part. Excel versions without checkboxes, and Google Sheets, show the
+  TRUE/FALSE values; no list validation is added, which Excel would show as a
+  dropdown arrow beside each box.
 - 1904-based dates are converted. Unknown error literals, rich text, phonetic
   runs, and invalid cell or merge references degrade to text or warnings rather
   than failing the import.
@@ -443,6 +475,7 @@ Import keeps what Excel calculates and shows:
   rejects the entry, warnings and information accept it, and each shows the
   rule's message in the footer. List rules offer their values in a dropdown on the
   active cell (Alt+Down), and every cell they cover shows an arrow that opens it.
+  Date rules open the date calendar on their cells, empty ones included.
   `components/CellListMenu.tsx` anchors the non-modal list to the cell: below it,
   or above or beside it when there is no room, never over it. While a list is
   open, pressing another dropdown cell opens that cell's list instead.
@@ -591,6 +624,7 @@ The [browser fixture](browser-test/README.md) runs the composed editor with real
 calculation and Excel workers. Its Playwright suite covers formula autocomplete
 and range picking, dragging a selection to move it, menu/dialog focus, sheet navigation, read-only transitions,
 Excel round trips, imported conditional formatting, data validation and notes,
+date cell calendars,
 imported charts and images (following edits, Delete and undo, and download),
 radar, bubble, stock and contour charts, shapes, SmartArt and EMF images,
 workbook import undo, and formatting without remounts or flashes.

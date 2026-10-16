@@ -76,6 +76,7 @@ const style = z
         'text',
       ])
       .optional(),
+    checkbox: z.boolean().optional(),
   })
   .strict();
 const name = z.string().min(1).max(31);
@@ -160,6 +161,7 @@ const operation = z.discriminatedUnion('type', [
     })
     .strict(),
   z.object({ type: z.literal('clear_validation'), sheetId, range }).strict(),
+  z.object({ type: z.literal('insert_checkboxes'), sheetId, range }).strict(),
 ]);
 
 export const spreadsheetRequestSchema = z.discriminatedUnion('action', [

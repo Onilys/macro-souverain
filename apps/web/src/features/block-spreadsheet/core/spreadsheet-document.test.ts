@@ -161,6 +161,7 @@ describe('spreadsheet document', () => {
       borderLeft: true,
       decimals: 4,
       format: 'scientific',
+      checkbox: true,
     };
     writeSpreadsheetCells(original, {
       A1: { value: '=1/3', ...style },
