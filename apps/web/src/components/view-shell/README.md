@@ -33,23 +33,24 @@ align trailing controls by their outer edges or offset an individual icon.
 ## Search and creation
 
 Use `SidebarActionRow` to register search and creation under the feature owner.
-The sidebar's first row replaces the visible title with a fully rounded creation
-pill, at least 120px wide and 32px high, sized to show its complete label, followed by Search and close/collapse controls.
-Views without creation keep their title. Multiple creation choices use a dropdown.
+The sidebar's first row replaces the visible title with a large, unframed creation
+action, sized to show its complete label without an entity icon, background, border,
+or shadow, followed by Search and close/collapse controls in the same 48px header.
+Views without creation keep their title. Multiple creation choices use a dropdown with a trailing chevron.
 Creation uses buttons, never radio semantics.
 Search expands on demand; Escape hides it without losing the query.
 
 Homepage headers use `ViewShell.TopBar workspaceActions` with title children
 and a `controls` slot. `WorkspaceActions` provides the same composition for
 custom headers: title left; view/filter controls and muted New right.
-Page titles use 20px semibold text. Editor/detail toolbars keep their own layout.
+Main-area titles use 14px semibold text, matching document and task breadcrumbs. Editor/detail toolbars keep their own layout.
 
 Creation takes a render function, `create={() => <MyCreateMenu />}`, so each
 placement owns independent menu state under the feature context.
-`SidebarCreateAction` renders a centered creation pill in the sidebar and a
+`SidebarCreateAction` renders a 20px semibold creation title in the sidebar and a
 compact muted New button in the main toolbar. Provide `sidebarCreate` when the
 sidebar needs a different menu from the main toolbar. Explicit
-`sidebarLabel` and `sidebarIcon` describe secondary actions such as New Project.
+`sidebarLabel` describes secondary actions such as New Project.
 Use `Search [thing]` placeholders. `SidebarActionOverride` supplies subview
 controls and restores the parent on exit. `useSidebarSearchFocus` reveals
 navigation before focusing; `onSearch` can leave a detail view on input focus.

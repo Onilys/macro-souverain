@@ -143,6 +143,8 @@ describe('mixed Agents sidebar', () => {
     const open = vi.fn();
     const create = vi.fn();
     const openPage = vi.fn();
+    const createAgent = vi.fn();
+    const createRoutine = vi.fn();
     render(() => (
       <SidebarActionsProvider>
         <AgentsSidebar
@@ -160,6 +162,8 @@ describe('mixed Agents sidebar', () => {
           error={false}
           hasNextPage={false}
           loadingNextPage={false}
+          onCreateRoutine={createRoutine}
+          onCreateAgent={createAgent}
           onNewConversation={create}
           onSearchChange={vi.fn()}
           onOpenConversation={open}
@@ -203,9 +207,40 @@ describe('mixed Agents sidebar', () => {
     const createButtons = screen.getAllByRole('button', {
       name: 'New conversation',
     });
-    expect(createButtons).toHaveLength(2);
-    for (const button of createButtons) fireEvent.click(button);
-    expect(create).toHaveBeenCalledTimes(2);
+    expect(createButtons).toHaveLength(1);
+    fireEvent.click(createButtons[0]);
+    expect(create).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(
+      await screen.findByRole('button', { name: 'New agent' }),
+      {
+        key: 'Enter',
+      }
+    );
+    fireEvent.keyDown(
+      await screen.findByRole('menuitem', { name: 'Work agent' }),
+      { key: 'Enter' }
+    );
+    expect(createAgent).toHaveBeenLastCalledWith('agent');
+    fireEvent.keyDown(
+      await screen.findByRole('button', { name: 'New agent' }),
+      {
+        key: 'Enter',
+      }
+    );
+    fireEvent.keyDown(
+      await screen.findByRole('menuitem', { name: 'Coding agent' }),
+      { key: 'Enter' }
+    );
+    expect(createAgent).toHaveBeenLastCalledWith('coder');
+    fireEvent.keyDown(
+      await screen.findByRole('button', { name: 'New agent' }),
+      { key: 'Enter' }
+    );
+    fireEvent.keyDown(
+      await screen.findByRole('menuitem', { name: 'Routine' }),
+      { key: 'Enter' }
+    );
+    expect(createRoutine).toHaveBeenCalledOnce();
   });
 
   it('keeps paging while the chosen mode has too few conversations to scroll', () => {
@@ -227,6 +262,8 @@ describe('mixed Agents sidebar', () => {
         error={false}
         hasNextPage
         loadingNextPage={false}
+        onCreateRoutine={vi.fn()}
+        onCreateAgent={vi.fn()}
         onNewConversation={vi.fn()}
         onSearchChange={vi.fn()}
         onOpenConversation={vi.fn()}
@@ -273,6 +310,8 @@ describe('mixed Agents sidebar', () => {
         error={false}
         hasNextPage={false}
         loadingNextPage={false}
+        onCreateRoutine={vi.fn()}
+        onCreateAgent={vi.fn()}
         onNewConversation={vi.fn()}
         onSearchChange={vi.fn()}
         onOpenConversation={vi.fn()}
@@ -356,6 +395,8 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
           error={false}
           hasNextPage={false}
           loadingNextPage={false}
+          onCreateRoutine={vi.fn()}
+          onCreateAgent={vi.fn()}
           onNewConversation={vi.fn()}
           onSearchChange={vi.fn()}
           onOpenConversation={open}

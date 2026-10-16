@@ -89,7 +89,7 @@ export function WorkspaceActions(
     >
       <div
         data-workspace-leading=""
-        class="flex min-w-0 items-center gap-1 [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:leading-7 [&_h1]:tracking-[-0.025em] [&_[aria-current=page]]:h-auto [&_[aria-current=page]]:text-xl [&_[aria-current=page]]:font-semibold [&_[aria-current=page]]:leading-7 [&_[aria-current=page]]:tracking-[-0.025em]"
+        class="flex min-w-0 items-center gap-1 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:leading-5 [&_h1]:tracking-[-0.03em]"
       >
         {props.children}
       </div>

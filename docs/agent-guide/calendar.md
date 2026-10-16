@@ -262,8 +262,8 @@ titles or private event metadata.
 
 The desktop Calendar workspace shows the month/year heading on the left and
 previous, Today, next, view, settings, and New controls on the right. Its sidebar
-creation pill and Search icon share the standard workspace header. The heading
-uses 20px type; weekday labels are smaller uppercase labels, with a round
+unframed **New Event** label and Search icon share the standard workspace header. The heading
+uses the shared 14px semibold toolbar type; weekday labels are smaller uppercase labels, with a round
 highlight on today's date.
 
 In the desktop workspace, click the sidebar Search icon or press Cmd/Ctrl+F to

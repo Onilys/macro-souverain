@@ -105,6 +105,7 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
       : undefined
   );
   const [mobileList, setMobileList] = createSignal(!isRoutinesPage());
+  const [createAgentKind, setCreateAgentKind] = createSignal<AgentKind>();
   const [draft, setDraft] = createSignal('');
   const [search, setSearch] = createSignal('');
   const rosterSource = createAgentRosterSource();
@@ -217,6 +218,13 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
             ? parseAgentsPage(content.params?.agentPage)
             : undefined;
         if (next) openPage(next);
+        const createKind =
+          content.type === 'component'
+            ? content.params?.createAgentKind
+            : undefined;
+        if (createKind === 'agent' || createKind === 'coder') {
+          setCreateAgentKind(createKind);
+        }
       }
     )
   );
@@ -321,6 +329,32 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
       hasNextPage={Boolean(query.hasNextPage)}
       loadingNextPage={query.isFetchingNextPage}
       onNewConversation={showComposer}
+      onCreateRoutine={() => {
+        layout.openWithSplit(routineContent('new'), {
+          handle: panel.handle,
+          activate: true,
+          search: {},
+        });
+      }}
+      onCreateAgent={(kind) => {
+        if (isRoutinesPage()) {
+          layout.openWithSplit(
+            {
+              type: 'component',
+              id: 'agents',
+              params: {
+                agentPage: 'agents',
+                agentPageRequest: crypto.randomUUID(),
+                createAgentKind: kind,
+              },
+            },
+            { handle: panel.handle, activate: true, search: {} }
+          );
+          return;
+        }
+        openPage('agents');
+        setCreateAgentKind(kind);
+      }}
       onSearchChange={setSearch}
       onOpenConversation={(conversation, event) =>
         openConversation(conversation, event, modeForConversation(conversation))
@@ -387,7 +421,12 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
                                 <McpConnections />
                               </Match>
                               <Match when={page() === 'agents'}>
-                                <AgentSettings />
+                                <AgentSettings
+                                  createKind={createAgentKind()}
+                                  onCloseCreate={() =>
+                                    setCreateAgentKind(undefined)
+                                  }
+                                />
                               </Match>
                             </Switch>
                             <div

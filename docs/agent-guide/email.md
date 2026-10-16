@@ -685,9 +685,10 @@ select All inboxes to combine accounts again. The plus button beside Accounts
 connects another account. The compact header retains an inbox menu when needed.
 
 
-Workspace sidebars place a fully rounded creation pill (at least 120px wide by 32px high, growing to fit its full label)
-in the title position, with Search and close/collapse controls to its right.
-Views without creation keep their title. Multiple creation choices use the pill's
+Workspace sidebars place a large, unframed creation label in the title position,
+with no entity icon, background, border, or shadow. Search and close/collapse
+controls remain to its right in the 48px header.
+Views without creation keep their title. Multiple creation choices use a trailing-chevron
 dropdown: Tasks offers **New Task** and **New Project**, and Chat offers
 **New Message** and **New Channel**. The main **New** action remains available.
 Search expands on demand and Escape hides it without discarding the query.

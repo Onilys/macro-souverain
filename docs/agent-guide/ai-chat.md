@@ -263,7 +263,10 @@ the shimmer.
 
 - Open **Go to Agents** → `/app/component/agents`. With AI agents enabled
   (`enable-chat-v3-agents`), the workspace uses one sidebar for Chat and Code.
-  Below **New conversation**, **Agents** opens the same roster as the composer’s
+  The sidebar **New agent** dropdown opens creation forms for **Work agent** or
+  **Coding agent**, with that type preselected. **Routine** opens the scheduled-agent
+  creator. The main **New** action still
+  starts a conversation. Below **New agent**, **Agents** opens the same roster as the composer’s
   **Create agent** action. **Connections** manages MCP integrations (including
   app authentication and disconnection); this section has moved out of Settings.
   Home’s **Connect your tools** and agent replies’ **Connect app** chips open this
@@ -293,7 +296,7 @@ the shimmer.
   first; `slack_v2` remains a separate row in Connections where it can be disabled
   or disconnected.
 
-  **New conversation** opens the composer. **Conversations** is a mixed list
+  The main **New** action opens the composer. **Conversations** is a mixed list
   of chats and coding sessions, newest first, with one search across both.
   Chat rows use a chat icon; coding rows use `</>` (the PR status icon when a
   pull request is linked). Home and the Agents sidebar share these agent rows.
@@ -442,8 +445,7 @@ the shimmer.
   private agents, each with a TEAM/PRIVATE pill and an "In Macro / In Cursor /
   In your harness · model · channels" subtitle, plus Edit / Delete actions.
   **Add agent**, the setup strips, and Edit replace the list with full pages,
-  not dialogs; Back/Cancel returns to the list. Use **New conversation** in the
-  sidebar to return to the composer.
+  not dialogs; Back/Cancel returns to the list. Use the main **New** action to return to the composer.
   The agent editor has Profile, Instructions, **Where it runs** (In Macro, In
   Cursor, In your harness; In Claude Code too with the `claude-cloud` flag once
   Claude lists models) and **Who can use it** (Private / Team). The selected

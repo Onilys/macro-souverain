@@ -18,8 +18,8 @@ off-topic text) keep the typed text and show a red error there instead. The box 
 focus while you type even if the pointer drifts over the rows; ArrowDown moves into
 the rows and hovering a submenu hands focus to it as usual. The mobile drawer has no
 AI box.
-Task creation is available from the sidebar **New Task** pill and the main top-right
-**New** button. When Projects is enabled, the sidebar pill menu offers **New Task**
+Task creation is available from the sidebar **New Task** label and the main top-right
+**New** button. When Projects is enabled, the sidebar label’s dropdown menu offers **New Task**
 and **New Project**. With Projects
 enabled, `My projects` appears below the tabs and favorites. It lists
 accessible projects by most recently updated, with a capped height and its own scroll

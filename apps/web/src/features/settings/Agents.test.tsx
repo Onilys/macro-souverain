@@ -19,7 +19,7 @@ import {
   QueryClientProvider,
   useQuery,
 } from '@tanstack/solid-query';
-import { Suspense } from 'solid-js';
+import { createSignal, Suspense } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Agents } from './Agents';
@@ -373,6 +373,70 @@ describe('Agents', () => {
       }
     }
   );
+
+  it.each(['agent', 'coder'] as const)(
+    'opens the requested %s creation form and clears it on cancel',
+    (kind) => {
+      const [createKind, setCreateKind] = createSignal<typeof kind | undefined>(
+        kind
+      );
+      const close = vi.fn(() => setCreateKind(undefined));
+      render(() => (
+        <Agents
+          {...agentsPageProps}
+          createKind={createKind()}
+          onCloseCreate={close}
+        />
+      ));
+      const form = screen.getByRole('region', { name: 'New agent' });
+      fireEvent.click(within(form).getByRole('button', { name: 'Show' }));
+      expect(
+        within(form).getByLabelText(
+          kind === 'coder' ? 'Coding agent' : 'Chat agent'
+        )
+      ).toHaveProperty('checked', true);
+      fireEvent.click(within(form).getByRole('button', { name: 'Cancel' }));
+      expect(close).toHaveBeenCalledOnce();
+      expect(screen.queryByRole('region', { name: 'New agent' })).toBeNull();
+    }
+  );
+
+  it('replaces an existing editor when a new agent type is requested', () => {
+    agentMocks.query.data = [
+      {
+        bot: {
+          id: 'agent-1',
+          kind: 'owned',
+          owner: { type: 'user', user_id: 'macro|user@example.com' },
+          name: 'Bug fixer',
+          handle: 'bug-fixer',
+          has_agent: true,
+        },
+        instructions: 'Fix bugs.',
+        harness: 'in-memory',
+        default_model: Model.sonnet55,
+        channel_scope: 'all',
+        channel_ids: [],
+      },
+    ];
+    const [kind, setKind] = createSignal<'coder' | undefined>();
+    render(() => (
+      <Agents
+        {...agentsPageProps}
+        createKind={kind()}
+        onCloseCreate={() => setKind(undefined)}
+      />
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Bug fixer' }));
+    expect(screen.getByRole('region', { name: 'Edit agent' })).toBeTruthy();
+    setKind('coder');
+    expect(screen.queryByRole('region', { name: 'Edit agent' })).toBeNull();
+    const form = screen.getByRole('region', { name: 'New agent' });
+    fireEvent.click(within(form).getByRole('button', { name: 'Cancel' }));
+    expect(
+      screen.queryByRole('region', { name: /^(New|Edit) agent$/ })
+    ).toBeNull();
+  });
 
   it('opens the new-agent form from a link and clears the action on cancel', () => {
     updateSearchParams({ createAgent: 'true' });

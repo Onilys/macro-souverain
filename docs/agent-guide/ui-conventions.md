@@ -80,12 +80,13 @@ and contact views (both inside the CRM workspace and in standalone blocks).
 
 ## Workspace creation and search
 
-Workspace sidebars use a fully rounded 32px-high creation pill in the title position.
-It is at least 120px wide and grows to show its complete label. Its left edge aligns
-with the controls below. Search and close/collapse controls sit on the right in the
+Workspace sidebars use a large, unframed creation label in the title position.
+It shows its complete label with 20px semibold text and no entity icon, pill
+background, border, or shadow. Search and close/collapse controls sit on the right in the
 48px topbar. Views without creation retain their label. Multiple creation choices
-use the pill's dropdown, including New Task / New Project and New Message / New
-Channel. The main toolbar retains its contextual controls and New action.
+use the label's trailing-chevron dropdown, including New Task / New Project and New Message / New
+Channel. The main toolbar retains its contextual controls and New action. Main-area titles
+use the same 14px semibold type as document and task breadcrumbs.
 
 Search expands below the sidebar header on demand. Escape hides it without clearing
 the query; the search shortcut reveals navigation and focuses the field. Projects

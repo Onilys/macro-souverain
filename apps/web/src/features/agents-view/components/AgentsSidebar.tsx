@@ -28,9 +28,10 @@ import PlugIcon from '@icon/system/regular/plugs-connected.svg';
 import AgentIcon from '@icon/system/regular/sparkle.svg';
 import TrayIcon from '@icon/system/regular/tray.svg';
 import { Key } from '@solid-primitives/keyed';
-import { cn, Tabs } from '@ui';
+import { cn, Dropdown, Tabs } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { createEffect, createSignal, type JSX, Show } from 'solid-js';
+import type { AgentKind } from '../core/agent-kind';
 import { compactAge } from '../core/format-age';
 import { type AgentsMode, agentsModeLabel } from '../core/mode';
 import type { AgentsPage } from '../core/pages';
@@ -67,6 +68,8 @@ export type AgentsSidebarProps = {
   hasNextPage: boolean;
   loadingNextPage: boolean;
   onNewConversation: () => void;
+  onCreateAgent: (kind: AgentKind) => void;
+  onCreateRoutine: () => void;
   onSearchChange: (search: string) => void;
   onOpenConversation: (
     conversation: AgentConversationEntity,
@@ -265,6 +268,24 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
             >
               New
             </SidebarCreateAction>
+          )}
+          sidebarCreate={() => (
+            <Dropdown placement="bottom-start">
+              <Dropdown.Trigger as={SidebarCreateAction} aria-label="New agent">
+                New
+              </Dropdown.Trigger>
+              <Dropdown.Content>
+                <Dropdown.Item onSelect={() => props.onCreateAgent('agent')}>
+                  Work agent
+                </Dropdown.Item>
+                <Dropdown.Item onSelect={() => props.onCreateAgent('coder')}>
+                  Coding agent
+                </Dropdown.Item>
+                <Dropdown.Item onSelect={props.onCreateRoutine}>
+                  Routine
+                </Dropdown.Item>
+              </Dropdown.Content>
+            </Dropdown>
           )}
         />
         <div

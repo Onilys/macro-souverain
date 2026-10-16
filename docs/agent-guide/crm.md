@@ -3,7 +3,7 @@
 ## Customers (CRM) — `/app/component/companies`
 
 On desktop, the local sidebar uses the same navigation primitives as Email and Tasks.
-Its **New** menu creates a **Company**, a **Contact**, or a **Pipeline** (Pipeline
+Its sidebar **New record** menu creates a **Company**, a **Contact**, or a **Pipeline** (Pipeline
 only when pipelines are enabled; disabled until the team's CRM is enabled). The
 **Records** section lists **Companies** and **People**; Pipelines and Lists follow.
 There are no built-in company views or Board/List layout. Companies and People
