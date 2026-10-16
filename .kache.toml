@@ -2,6 +2,13 @@
 # nix/cloud-storage.nix). Credentials come from `nsc docker login`, through
 # docker-credential-nsc. On GitHub Actions kache writes only from pushes to
 # protected branches; deploy and release jobs ignore this remote entirely.
+[cache]
+# kache does not see the dev shell's C toolchain flags (NIX_CFLAGS_COMPILE,
+# NIX_LDFLAGS): a build-script run recorded under older flags still restores,
+# and its archives then poison every key above them. Bump this whenever those
+# flags change in nix/cloud-storage.nix.
+key_salt = "devshell-c-flags-1"
+
 [cache.remote]
 type = "oci"
 repository = "nscr.io/m7cba6eboskcq/kache-shared"

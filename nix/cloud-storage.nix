@@ -1192,6 +1192,9 @@
                 if [ -n "''${CARGO_TARGET_DIR-}" ]; then
                   prefix_maps+=" -ffile-prefix-map=$CARGO_TARGET_DIR=/target"
                 fi
+                # Changing any flag below changes compiler output kache cannot
+                # see: bump key_salt in .kache.toml with it.
+                #
                 # kache keys every unit on the set of path roots it remaps, and
                 # adds rustup's only when that directory exists: it does on CI
                 # runners and not on NixOS laptops, so no key matched between them.
@@ -1209,6 +1212,10 @@
                   # from $out, a path in the checkout. Later flags win.
                   ''
                     export NIX_CFLAGS_COMPILE="''${NIX_CFLAGS_COMPILE-} $prefix_maps -gno-record-gcc-switches -frandom-seed=macro"
+                    # stdenv adds `-rpath $out/lib`, a path inside the checkout,
+                    # to every link; it would make each proc macro, build script
+                    # and test binary differ per checkout.
+                    export NIX_LDFLAGS="''${NIX_LDFLAGS//"-rpath $out/lib"/}"
                   ''
               )
               + pkgs.lib.optionalString isLinux ''

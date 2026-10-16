@@ -266,7 +266,15 @@ http-body-util = "0.1.2"
 httpdate = "1"
 hyper = "1"
 hyper-util = { version = "0.1", features = ["tokio"] }
-image = "0.25"
+# image's default formats minus "avif": its AVIF encoder pulls in rav1e, whose
+# build script records whether it runs in CI, so rav1e and everything above it
+# (attachment, image_optimizer, ...) never shared a kache entry between
+# developer machines and CI. Nothing here decodes AVIF (that needs
+# "avif-native"), so AVIF inputs already failed before reaching the encoder.
+image = { version = "0.25", default-features = false, features = [
+  "rayon", "bmp", "dds", "exr", "ff", "gif", "hdr", "ico", "jpeg", "png", "pnm",
+  "qoi", "tga", "tiff", "webp",
+] }
 image-webp = "0.2"
 indexmap = "2"
 infer = "0.19.0"
