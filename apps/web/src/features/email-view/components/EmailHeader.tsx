@@ -86,22 +86,7 @@ export function EmailTopBar(props: ParentProps = {}) {
                   state.tab === tab ? 'text-ink' : 'text-ink-muted'
                 )}
               >
-                <span class="inline-grid">
-                  <span
-                    aria-hidden="true"
-                    class="invisible col-start-1 row-start-1 font-bold"
-                  >
-                    {EMAIL_TABS.find((item) => item.id === tab)?.label}
-                  </span>
-                  <span
-                    class={cn(
-                      'col-start-1 row-start-1',
-                      state.tab === tab ? 'font-bold' : 'font-semibold'
-                    )}
-                  >
-                    {EMAIL_TABS.find((item) => item.id === tab)?.label}
-                  </span>
-                </span>
+                {EMAIL_TABS.find((item) => item.id === tab)?.label}
                 <Show when={counts()[tab] !== undefined && counts()[tab] !== 0}>
                   <span class="text-xs font-normal tabular-nums text-ink-muted">
                     {counts()[tab]?.toLocaleString()}
