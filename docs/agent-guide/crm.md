@@ -11,15 +11,20 @@ There are no built-in company views or Board/List layout. Companies and People
 are plain soup lists with the shared pagination. Existing personal/team saved
 views stay in the toolbar's Views menu.
 
-**Rollout:** Tasks, Email, Notes, Calls and the contextual task composer require
-PostHog `enable-crm-activity` (off by default; local override:
-`VITE_ENABLE_CRM_ACTIVITY=true`). With it off, only Companies and People appear
-in Records, activity queries do not run, and activity deep links return to
+**Rollout:** Tasks, Email, Notes and Calls require PostHog `enable-crm-activity`
+(off by default; local override: `VITE_ENABLE_CRM_ACTIVITY=true`). CRM also uses
+this flag to decide whether to supply its task-composer preset; the shared
+composer itself is not feature-flagged. With it off, only Companies and People
+appear in Records, activity queries do not run, and activity deep links return to
 Companies after flags finish loading. Global task creation uses the standard
 composer; record-level New task still associates the new task with that record.
 With it on, the activity and contextual composer behavior below applies.
-A rollout change does not reset an already open composer or its record links;
-close and reopen the composer to use the new rollout value.
+Task creation opens immediately from the focused pane's registered preset,
+without fetching record details. Contact company prefills use already-loaded
+details. If CRM's flag is still loading, CRM supplies no preset. Later flag,
+focus or record changes do not reset an open composer; reopen to use the new
+context. If an embedded record shows a loading error, global task creation still
+targets the selected record until you close its details.
 
 The selected Customers tab is stored on the pane as `sN.crm.tab`. People uses
 `people`, activity tabs use `tasks`, `email`, `notes`, or `calls`, a pipeline uses

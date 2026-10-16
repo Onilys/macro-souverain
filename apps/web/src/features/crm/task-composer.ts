@@ -1,24 +1,7 @@
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import type { PropertyApiValues } from '@property/types';
 import type { TaskComposerContext } from '../task-composer/core/context';
-import type { CrmRecordTarget } from './core/record';
-
-export const CRM_TASK_COMPOSER_RECORD_KEY = 'crm.task-composer-record';
-
-/** Read only a record identity from captured workspace state. */
-export function readCrmTaskComposerRecord(
-  value: unknown
-): CrmRecordTarget | undefined {
-  if (typeof value !== 'object' || value === null) return;
-  if (!('type' in value) || !('id' in value)) return;
-  if (value.type !== 'company' && value.type !== 'contact') return;
-  if (typeof value.id !== 'string' || !value.id) return;
-  return { type: value.type, id: value.id };
-}
-
-export type CrmTaskRecord =
-  | { type: 'company'; id: string }
-  | { type: 'contact'; id: string; companyId?: string };
+import type { CrmTaskRecord } from './core/record';
 
 const reference = (
   entityId: string,

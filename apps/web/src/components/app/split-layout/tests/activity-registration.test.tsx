@@ -1,5 +1,13 @@
+import { crmTaskComposerContext } from '@app/features/crm/task-composer';
+import {
+  registerTaskComposerContext,
+  snapshotTaskComposerContext,
+} from '@app/features/task-composer/launch-context';
+import { globalSplitManager } from '@app/signal/splitLayout';
+import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, Suspense } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveComponent } from '../componentRegistry';
 
@@ -16,6 +24,9 @@ const state = vi.hoisted(() => ({
   saveTask: vi.fn(),
   isPopover: false,
   close: vi.fn(),
+  split: undefined as { id: string } | undefined,
+  managerPublished: true,
+  unregister: [] as (() => void)[],
 }));
 
 vi.mock('@service-storage/websocket', () => ({
@@ -42,6 +53,17 @@ vi.mock('@app/lib/analytics/posthog', () => ({
     loading: !state.flagsLoaded(),
   }),
 }));
+vi.mock('@core/constant/featureFlags', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('@core/constant/featureFlags')>();
+  return {
+    ...original,
+    isFeatureEnabled: (flag: typeof original.enableCrmActivity) =>
+      flag === original.enableCrmActivity
+        ? state.enabled()
+        : original.isFeatureEnabled(flag),
+  };
+});
 vi.mock('@app/lib/analytics/analytics-context', () => ({
   useAnalytics: () => ({ pageView: state.pageView, track: state.track }),
 }));
@@ -124,7 +146,12 @@ vi.mock('@app/features/tasks-view/tasks-view', () => ({}));
 vi.mock('@app/features/tasks-view/components/TasksDetailView', () => ({
   TasksDetailRouteView: () => null,
 }));
-vi.mock('@app/signal/splitLayout', () => ({}));
+vi.mock('@app/signal/splitLayout', () => {
+  const manager = { activeSplit: () => state.split };
+  return {
+    globalSplitManager: () => (state.managerPublished ? manager : undefined),
+  };
+});
 vi.mock('@block-calendar/components/EventComposerSplit', () => ({}));
 vi.mock('@block-channel/component/Compose', () => ({}));
 vi.mock('@block-md/component/ComposeSkill', () => ({}));
@@ -187,8 +214,13 @@ beforeEach(() => {
   state.enabled = () => false;
   state.flagsLoaded = () => true;
   state.touch = () => false;
+  state.split = undefined;
+  state.managerPublished = true;
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  for (const unregister of state.unregister.splice(0)) unregister();
+});
 
 /** Registry views are lazy chunks; settle the chunk so assertions see the view. */
 async function renderActivity() {
@@ -275,25 +307,46 @@ describe('activity registration', () => {
 
 describe('contextual task composer registration', () => {
   it.each([false, true])(
-    'waits before resolving a restored task context (enabled: %s)',
+    'opens immediately while flags load and keeps its opening mode (enabled after load: %s)',
     async (enabled) => {
       const [flagEnabled, setFlagEnabled] = createSignal(false);
-      const [loaded, setLoaded] = createSignal(false);
+      const [flagsLoaded, setFlagsLoaded] = createSignal(false);
       state.enabled = flagEnabled;
-      state.flagsLoaded = loaded;
+      state.flagsLoaded = flagsLoaded;
       const component = resolveComponent('task-compose', {
         initialTitle: 'Follow up',
-        composerContext: { key: 'CRM', visiblePropertyIds: [] },
+        composerContext: { key: 'crm:company:acme', visiblePropertyIds: [] },
       });
-      render(() => <Suspense>{component.element()}</Suspense>);
-      expect(screen.getByText('Authenticating')).toBeTruthy();
-      expect(screen.queryByText(/composer:/)).toBeNull();
-      setFlagEnabled(enabled);
-      setLoaded(true);
+      render(() => (
+        <Suspense>
+          <Dynamic component={component.element} />
+        </Suspense>
+      ));
       expect(
-        await screen.findByText(
-          `${enabled ? 'CRM' : 'Standard'} composer: Follow up`
-        )
+        await screen.findByText('crm:company:acme composer: Follow up')
+      ).toBeTruthy();
+      const title = screen.getByRole('textbox', { name: 'Task title' });
+      fireEvent.input(title, { target: { value: 'Draft saved' } });
+
+      setFlagEnabled(enabled);
+      setFlagsLoaded(true);
+      expect(
+        screen.getByText('crm:company:acme composer: Follow up')
+      ).toBeTruthy();
+      expect(screen.getByRole('textbox', { name: 'Task title' })).toBe(title);
+      expect(title).toHaveProperty('value', 'Draft saved');
+
+      const next = resolveComponent('task-compose', {
+        initialTitle: 'Next',
+        composerContext: { key: 'crm:company:acme', visiblePropertyIds: [] },
+      });
+      render(() => (
+        <Suspense>
+          <Dynamic component={next.element} />
+        </Suspense>
+      ));
+      expect(
+        await screen.findByText('crm:company:acme composer: Next')
       ).toBeTruthy();
     }
   );
@@ -303,7 +356,11 @@ describe('contextual task composer registration', () => {
     const component = resolveComponent('task-compose', {
       initialTitle: 'Plan',
     });
-    render(() => <Suspense>{component.element()}</Suspense>);
+    render(() => (
+      <Suspense>
+        <Dynamic component={component.element} />
+      </Suspense>
+    ));
     expect(await screen.findByText('Standard composer: Plan')).toBeTruthy();
   });
 
@@ -325,7 +382,11 @@ describe('contextual task composer registration', () => {
           initialPropertyValues: properties,
         },
       });
-      render(() => <Suspense>{component.element()}</Suspense>);
+      render(() => (
+        <Suspense>
+          <Dynamic component={component.element} />
+        </Suspense>
+      ));
       const title = await screen.findByRole('textbox', { name: 'Task title' });
       const description = screen.getByRole('textbox', {
         name: 'Task description',
@@ -343,10 +404,200 @@ describe('contextual task composer registration', () => {
       expect(state.saveTask).toHaveBeenCalledExactlyOnceWith({
         title: 'Follow up with Acme',
         content: 'Discuss the renewal',
-        properties: initiallyEnabled ? properties : undefined,
+        properties,
+      });
+      const next = resolveComponent('task-compose', {
+        initialTitle: 'New draft',
+        composerContext: { key: 'CRM', initialPropertyValues: properties },
+      });
+      render(() => (
+        <Suspense>
+          <Dynamic component={next.element} />
+        </Suspense>
+      ));
+      expect(await screen.findByText('CRM composer: New draft')).toBeTruthy();
+    }
+  );
+
+  it.each([true, false])(
+    'uses supplied context when flags change before mounting (enabled at launch: %s)',
+    async (initiallyEnabled) => {
+      const [enabled, setEnabled] = createSignal(initiallyEnabled);
+      state.enabled = enabled;
+      const properties = {
+        companies: {
+          valueType: 'ENTITY',
+          refs: [{ entity_id: 'acme', entity_type: 'COMPANY' }],
+        },
+      };
+      const component = resolveComponent('task-compose', {
+        initialTitle: 'Follow up',
+        composerContext: { key: 'CRM', initialPropertyValues: properties },
+      });
+      setEnabled(!initiallyEnabled);
+      render(() => (
+        <Suspense>
+          <Dynamic component={component.element} />
+        </Suspense>
+      ));
+      await screen.findByRole('textbox', { name: 'Task title' });
+      fireEvent.click(screen.getByRole('button', { name: 'Save task' }));
+      expect(state.saveTask).toHaveBeenCalledExactlyOnceWith({
+        title: 'Follow up',
+        content: '',
+        properties,
       });
     }
   );
+});
+
+const manager = globalSplitManager();
+if (!manager) throw new Error('Missing test split manager');
+describe('pane task context registration', () => {
+  it('registers during pane mount before the global manager is published', () => {
+    state.managerPublished = false;
+    state.split = { id: 'cold-pane' };
+    state.unregister.push(
+      registerTaskComposerContext(manager, 'cold-pane', () => ({
+        key: 'mounted',
+      }))
+    );
+    expect(snapshotTaskComposerContext()).toBeUndefined();
+    state.managerPublished = true;
+    expect(snapshotTaskComposerContext()).toEqual({ key: 'mounted' });
+  });
+
+  it('isolates registrations with identical pane IDs in different layouts', () => {
+    const anotherManager = { ...manager };
+    state.split = { id: 'pane' };
+    state.unregister.push(
+      registerTaskComposerContext(manager, 'pane', () => ({ key: 'current' }))
+    );
+    state.unregister.push(
+      registerTaskComposerContext(anotherManager, 'pane', () => ({
+        key: 'another-layout',
+      }))
+    );
+    expect(snapshotTaskComposerContext()).toEqual({ key: 'current' });
+  });
+  it('reads the focused pane without inspecting its route or capturing history', () => {
+    const source = vi.fn(() => ({ key: 'custom-view' }));
+    state.unregister.push(registerTaskComposerContext(manager, 'one', source));
+    state.unregister.push(
+      registerTaskComposerContext(manager, 'two', () => ({
+        key: 'second-view',
+      }))
+    );
+    state.split = { id: 'one' };
+    expect(snapshotTaskComposerContext()).toEqual({ key: 'custom-view' });
+    expect(source).toHaveBeenCalledOnce();
+    state.split = { id: 'two' };
+    expect(snapshotTaskComposerContext()).toEqual({ key: 'second-view' });
+    expect(snapshotTaskComposerContext('one')).toEqual({ key: 'custom-view' });
+    state.split = { id: 'unregistered' };
+    expect(snapshotTaskComposerContext()).toBeUndefined();
+    state.split = undefined;
+    expect(snapshotTaskComposerContext()).toBeUndefined();
+  });
+
+  it('restores the parent after nested cleanup and tolerates repeated teardown', () => {
+    state.split = { id: 'pane' };
+    const removeParent = registerTaskComposerContext(manager, 'pane', () => ({
+      key: 'parent',
+    }));
+    const removeChild = registerTaskComposerContext(manager, 'pane', () => ({
+      key: 'child',
+    }));
+    state.unregister.push(removeParent, removeChild);
+    expect(snapshotTaskComposerContext()?.key).toBe('child');
+    removeChild();
+    expect(snapshotTaskComposerContext()?.key).toBe('parent');
+    removeChild();
+    expect(snapshotTaskComposerContext()?.key).toBe('parent');
+    removeParent();
+    expect(snapshotTaskComposerContext()).toBeUndefined();
+  });
+
+  it('keeps the child when its parent unmounts first', () => {
+    state.split = { id: 'pane' };
+    const removeParent = registerTaskComposerContext(manager, 'pane', () => ({
+      key: 'parent',
+    }));
+    const removeChild = registerTaskComposerContext(manager, 'pane', () => ({
+      key: 'child',
+    }));
+    state.unregister.push(removeParent, removeChild);
+    removeParent();
+    expect(snapshotTaskComposerContext()?.key).toBe('child');
+    removeChild();
+    expect(snapshotTaskComposerContext()).toBeUndefined();
+  });
+
+  it('reads loaded associations at launch and leaves an earlier snapshot unchanged', () => {
+    state.split = { id: 'pane' };
+    const [companyId, setCompanyId] = createSignal<string>();
+    state.unregister.push(
+      registerTaskComposerContext(manager, 'pane', () =>
+        crmTaskComposerContext({
+          type: 'contact',
+          id: 'maya',
+          companyId: companyId(),
+        })
+      )
+    );
+    const first = snapshotTaskComposerContext();
+    expect(
+      first?.initialPropertyValues?.[SYSTEM_PROPERTY_IDS.COMPANIES]
+    ).toBeUndefined();
+    setCompanyId('acme');
+    const next = snapshotTaskComposerContext();
+    expect(next?.initialPropertyValues?.[SYSTEM_PROPERTY_IDS.CONTACTS]).toEqual(
+      {
+        valueType: 'ENTITY',
+        refs: [{ entity_id: 'maya', entity_type: 'CONTACT' }],
+      }
+    );
+    expect(
+      next?.initialPropertyValues?.[SYSTEM_PROPERTY_IDS.COMPANIES]
+    ).toEqual({
+      valueType: 'ENTITY',
+      refs: [{ entity_id: 'acme', entity_type: 'COMPANY' }],
+    });
+    expect(
+      first?.initialPropertyValues?.[SYSTEM_PROPERTY_IDS.COMPANIES]
+    ).toBeUndefined();
+  });
+
+  it('isolates snapshots from mutable provider values', () => {
+    const context = crmTaskComposerContext({ type: 'company', id: 'acme' });
+    state.split = { id: 'pane' };
+    state.unregister.push(
+      registerTaskComposerContext(manager, 'pane', () => context)
+    );
+    const snapshot = snapshotTaskComposerContext();
+    context.visiblePropertyIds?.push('new-property');
+    expect(snapshot?.visiblePropertyIds).not.toContain('new-property');
+  });
+
+  it('lets the provider gate its value without falling through to a parent', () => {
+    state.split = { id: 'pane' };
+    const [enabled, setEnabled] = createSignal(false);
+    state.unregister.push(
+      registerTaskComposerContext(manager, 'pane', () => ({ key: 'parent' }))
+    );
+    state.unregister.push(
+      registerTaskComposerContext(manager, 'pane', () =>
+        enabled() ? { key: 'CRM' } : undefined
+      )
+    );
+    expect(snapshotTaskComposerContext()).toBeUndefined();
+    setEnabled(true);
+    const snapshot = snapshotTaskComposerContext();
+    expect(snapshot?.key).toBe('CRM');
+    setEnabled(false);
+    expect(snapshotTaskComposerContext()).toBeUndefined();
+    expect(snapshot?.key).toBe('CRM');
+  });
 });
 
 describe('project registration', () => {

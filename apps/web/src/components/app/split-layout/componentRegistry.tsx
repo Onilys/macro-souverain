@@ -10,7 +10,6 @@ import { LoadingBlock } from '@core/component/LoadingBlock';
 import {
   DEV_MODE_ENV,
   enableChatV3Agents,
-  enableCrmActivity,
   enableProjects,
   isFeatureEnabled,
   LOCAL_ONLY,
@@ -20,13 +19,11 @@ import type { ViewId } from '@core/types/view';
 import { lazyNamed } from '@core/util/lazyNamed';
 import {
   type ComponentProps,
-  createMemo,
   type JSXElement,
   lazy,
   onMount,
   type ParentProps,
   Show,
-  splitProps,
 } from 'solid-js';
 import { useSplitPanelOrThrow } from './layoutUtils';
 import {
@@ -423,23 +420,7 @@ registerComponent('document-compose', (params) => {
 
 registerComponent('task-compose', (params) => {
   usePageViewTracking('task-compose');
-  const flag = useFeatureFlag(enableCrmActivity);
-  const [, standardParams] = splitProps(params, ['composerContext']);
-  // A rollout change must not replace an open form or drop its record association.
-  // Resolve the launch policy once, after flags load, for this composer instance.
-  const contextual = createMemo<boolean | undefined>((resolved) => {
-    if (!params.composerContext) return false;
-    if (resolved !== undefined) return resolved;
-    const current = flag();
-    return current.loading ? undefined : current.enabled;
-  });
-  return (
-    <Show when={contextual() !== undefined} fallback={<LoadingBlock />}>
-      <Show when={contextual()} fallback={<ComposeTask {...standardParams} />}>
-        <ComposeTask {...params} />
-      </Show>
-    </Show>
-  );
+  return <ComposeTask {...params} />;
 });
 // Restore old composer URLs into the shared Agents page.
 registerComponent('agent-session-compose', () => (

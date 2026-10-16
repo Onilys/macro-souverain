@@ -63,6 +63,7 @@ export function CrmRecordDetail(props: {
 }) {
   const [trail, setTrail] = createSignal<CrmRecordRef[]>([props.record]);
   const current = () => trail()[trail().length - 1];
+  // Keep the selected identity available even if the detail body shows an error.
   onCleanup(useCrmContext().registerTaskComposerRecord(current));
   const [companySection, setCompanySection] =
     createSignal<CompanySection>('overview');

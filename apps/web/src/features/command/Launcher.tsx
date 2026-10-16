@@ -9,7 +9,7 @@ import { createSpreadsheetDocument } from '@app/features/block-spreadsheet/queri
 import { isSpreadsheetEnabledForCurrentUser } from '@app/features/block-spreadsheet/queries/spreadsheet-access';
 import { EMAIL_COMPOSE_TO_INPUT_ID } from '@app/features/email-compose/core/constants';
 import { useQuickCallsFlag } from '@app/features/meetings/use-quick-calls-flag';
-import { focusedTaskComposerContext } from '@app/features/task-composer/launch-context';
+import { snapshotTaskComposerContext } from '@app/features/task-composer/launch-context';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import {
   endTrackedDocumentSpan,
@@ -222,7 +222,7 @@ const createBlock = async (spec: {
   span?.event('doc.navigated');
 };
 
-const createComponent = async (spec: {
+const createComponent = (spec: {
   componentId: string;
   shouldInsert?: boolean;
   asPopover?: boolean;
@@ -252,19 +252,6 @@ const createComponent = async (spec: {
     }
   );
 };
-
-async function createTaskComponent() {
-  try {
-    const composerContext = await focusedTaskComposerContext();
-    await createComponent({
-      componentId: 'task-compose',
-      asPopover: true,
-      params: { composerContext },
-    });
-  } catch {
-    toast.failure('Could not load the task context. Please try again.');
-  }
-}
 
 export function runCreateAction(
   blockName: CreatableName,
@@ -378,7 +365,11 @@ export function runCreateAction(
       });
       return;
     case 'task':
-      void createTaskComponent();
+      createComponent({
+        componentId: 'task-compose',
+        asPopover: true,
+        params: { composerContext: snapshotTaskComposerContext() },
+      });
       return;
     case 'initiative':
       if (!isFeatureEnabled(enableProjects)) return;

@@ -1,7 +1,12 @@
 import { useQuickAccessCrmCompaniesQuery } from '@app/features/crm/crm-search';
 import { withEntityNotifications } from '@app/features/soup/entity-notifications';
+import {
+  registerTaskComposerContext,
+  snapshotTaskComposerContext,
+} from '@app/features/task-composer/launch-context';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
+import { SplitLayoutContext } from '@components/app/split-layout/context';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
@@ -9,13 +14,11 @@ import {
   enableCrmActivity,
   enableCrmLists,
   enableCrmPipelines,
-  isFeatureEnabled,
 } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { useProfilePictureUrl } from '@core/signal/profilePicture';
 import { emailToMacroId, getInitialsFromName } from '@core/user';
 import { idToEmail } from '@core/user/util';
-import { queryClient } from '@queries/client';
 import { queryReadyGate } from '@queries/gate';
 import { useListPropertiesQuery } from '@queries/properties/definitions';
 import { useBulkSaveEntityPropertiesMutation } from '@queries/properties/entity';
@@ -33,10 +36,9 @@ import { patchTeamCrmSettings } from '@service-auth/crm';
 import { storageServiceClient } from '@service-storage/client';
 import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { useQueryClient } from '@tanstack/solid-query';
-import { type Accessor, createMemo, lazy, onCleanup } from 'solid-js';
+import { createMemo, lazy, useContext } from 'solid-js';
 import type { CrmContext } from './context/crm-context';
 import type { CrmQuery, ItemListSource } from './context/crm-sources';
-import type { CrmRecordTarget } from './core/record';
 import {
   openCreateCompanyModal,
   openCreateContactModal,
@@ -66,7 +68,6 @@ import {
 import { useCompanyEmailsQuery } from './queries/company-emails';
 import { useContactEmailsQuery } from './queries/contact-emails';
 import {
-  fetchContact,
   useContactQuery,
   useSetContactHiddenMutation,
   useSetContactNameMutation,
@@ -88,10 +89,7 @@ import {
 } from './queries/stages';
 import { useTeamCrmConfig } from './queries/team-config';
 import { createAppDealStages } from './stage-adapter';
-import {
-  CRM_TASK_COMPOSER_RECORD_KEY,
-  crmTaskComposerContext,
-} from './task-composer';
+import { crmTaskComposerContext } from './task-composer';
 
 // Loaded on demand: the Tasks list imports soup, which imports CRM entry points.
 const CrmRecordTasks = lazy(async () => ({
@@ -179,25 +177,18 @@ export function createAppCrmContext(): CrmContext {
   const userId = useUserId();
   const layout = useSplitLayout();
   const panel = useSplitPanel();
-  let taskComposerRecord: Accessor<CrmRecordTarget> | undefined;
-  if (panel) {
-    onCleanup(
-      panel.handle.registerEntryStateCaptor(
-        CRM_TASK_COMPOSER_RECORD_KEY,
-        () => {
-          const record = taskComposerRecord?.();
-          return record ? { type: record.type, id: record.id } : undefined;
-        }
-      )
-    );
-  }
+  const splitLayout = useContext(SplitLayoutContext);
+  const activityFlag = useFeatureFlag(enableCrmActivity);
   const createSettings = () => useTeamCrmConfig(deps);
   return {
     registerTaskComposerRecord(source) {
-      taskComposerRecord = source;
-      return () => {
-        if (taskComposerRecord === source) taskComposerRecord = undefined;
-      };
+      if (!panel || !splitLayout) return () => {};
+      return registerTaskComposerContext(
+        splitLayout.manager,
+        panel.handle.id,
+        () =>
+          activityFlag().enabled ? crmTaskComposerContext(source()) : undefined
+      );
     },
     createPipelines: (teamId) => createPipelinesSource(deps, teamId),
     PipelineEditor: PipelineDatabaseEditor,
@@ -240,8 +231,8 @@ export function createAppCrmContext(): CrmContext {
         type: 'component',
         id: 'task-compose',
         params: {
-          composerContext: isFeatureEnabled(enableCrmActivity)
-            ? crmTaskComposerContext()
+          composerContext: panel
+            ? snapshotTaskComposerContext(panel.handle.id)
             : undefined,
         },
       }),
@@ -327,17 +318,4 @@ export function createAppCrmContext(): CrmContext {
     hideContact: (...args) => useSetContactHiddenMutation(deps, ...args),
     setEmailSync: (...args) => useSetEmailSyncMutation(deps, ...args),
   };
-}
-
-/** Resolve both CRM associations through the existing contact detail cache. */
-export async function contactTaskComposerContext(contactId: string) {
-  const contact = await fetchContact(
-    { client: queryClient, storage: storageServiceClient },
-    contactId
-  );
-  return crmTaskComposerContext({
-    type: 'contact',
-    id: contact.id,
-    companyId: contact.companyId,
-  });
 }

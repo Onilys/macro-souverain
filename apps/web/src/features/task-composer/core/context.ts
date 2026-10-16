@@ -1,6 +1,6 @@
 import type { PropertyApiValues } from '@property/types';
 
-/** Host-specific draft identity and starting task properties. */
+/** Plain, cloneable preset data supplied by the originating view. */
 export type TaskComposerContext = {
   key: string;
   visiblePropertyIds?: string[];

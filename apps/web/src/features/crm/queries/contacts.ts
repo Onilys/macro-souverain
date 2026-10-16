@@ -63,11 +63,6 @@ function contactQueryOptions(deps: CrmRecordDependencies, contactId: string) {
   });
 }
 
-/** Reuse the detail query for imperative callers without duplicating requests. */
-export function fetchContact(deps: CrmRecordDependencies, contactId: string) {
-  return deps.client.ensureQueryData(contactQueryOptions(deps, contactId));
-}
-
 /**
  * Fetches a single CRM contact by id via `GET /crm/contacts/{id}`.
  * The endpoint is role-aware: admins/owners see hidden contacts too,
