@@ -50,6 +50,7 @@ pub enum PlotItem {
 
 /// Everything the UI needs to paint one frame.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PlotScene {
     /// Current window.
     pub viewport: Viewport,

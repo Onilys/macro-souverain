@@ -31,9 +31,11 @@ export function loadDesmosEngineWasm(): Promise<DesmosEngineWasmModule> {
   if (!modulePromise) {
     modulePromise = (async () => {
       try {
-        const base = new URL('./wasm/desmos_engine.js', import.meta.url);
+        // Static relative imports let Vite emit/serve the generated package
+        // and rewrite the wasm URL (same pattern as other engines, without
+        // @vite-ignore absolute-href dynamic import which 404s in some workers).
         const mod = (await import(
-          /* @vite-ignore */ base.href
+          './wasm/desmos_engine.js'
         )) as DesmosEngineWasmModule;
         const wasmUrl = new URL(
           './wasm/desmos_engine_bg.wasm',

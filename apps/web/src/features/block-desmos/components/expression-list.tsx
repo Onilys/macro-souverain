@@ -173,7 +173,7 @@ export function ExpressionList(props: {
           }}
         </For>
         <Show
-          when={(props.scene?.neededSliders.length ?? 0) > 0 && props.canEdit}
+          when={(props.scene?.neededSliders?.length ?? 0) > 0 && props.canEdit}
         >
           <div class="flex flex-wrap gap-1 px-3 py-2 text-[12px]">
             <For each={props.scene?.neededSliders ?? []}>
