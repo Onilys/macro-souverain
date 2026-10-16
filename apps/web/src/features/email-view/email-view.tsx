@@ -30,6 +30,7 @@ import { EMAIL_TABS } from './constants';
 import { EmailViewProvider, useEmailView } from './email-view-context';
 import { emailTour } from './tour';
 import type { EmailTab, EmailViewStateOptions } from './types';
+import { useEmailGoToHotkeys } from './use-email-go-to-hotkeys';
 
 export type EmailViewProps = {
   /** Explicit navigation state. When present, it wins over entry restoration. */
@@ -142,6 +143,7 @@ function EmailViewRoot() {
   const [listElement, setListElement] = createSignal<HTMLDivElement>();
 
   onMount(() => panel.handle.setDisplayName('Email'));
+  useEmailGoToHotkeys(panel.splitHotkeyScope);
 
   const list = () => (
     <Suspense fallback={<EmailListFallback />}>

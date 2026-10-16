@@ -32,7 +32,10 @@ import { EmailInboxList } from './EmailInboxSelector';
 // Email is personal, so the sidebar lists only the user's own tags.
 const SIDEBAR_TAG_SCOPES: readonly TagScope[] = ['user'];
 
-const TAB_ICONS: Record<EmailTab, Component<{ class?: string }>> = {
+export const EMAIL_TAB_ICONS: Record<
+  EmailTab,
+  Component<{ class?: string }>
+> = {
   important: SignalIcon,
   noise: NoiseIcon,
   favorites: StarIcon,
@@ -58,7 +61,7 @@ function Tab(props: { item: EmailTabItem; onNavigate?: () => void }) {
       })}
     >
       <ViewSidebar.Icon>
-        <Dynamic component={TAB_ICONS[props.item.id]} class="size-4" />
+        <Dynamic component={EMAIL_TAB_ICONS[props.item.id]} class="size-4" />
       </ViewSidebar.Icon>
       <span class="truncate">{props.item.label}</span>
     </ViewSidebar.Item>
