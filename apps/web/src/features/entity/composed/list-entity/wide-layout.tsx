@@ -128,19 +128,21 @@ export function WideLayout(props: LayoutProps) {
           isGithubPrEntity(props.entity) && 'min-w-[min(26rem,50cqw)]'
         )}
       >
-        <div class="size-4 shrink-0">
-          <Show
-            when={props.icon}
-            fallback={
-              <Entity.Icon
-                entity={props.entity}
-                streamState={props.streamState}
-              />
-            }
-          >
-            {props.icon}
-          </Show>
-        </div>
+        <Show when={!props.hideIcon}>
+          <div class="size-4 shrink-0">
+            <Show
+              when={props.icon}
+              fallback={
+                <Entity.Icon
+                  entity={props.entity}
+                  streamState={props.streamState}
+                />
+              }
+            >
+              {props.icon}
+            </Show>
+          </div>
+        </Show>
         {props.titleLeading}
         <Switch>
           <Match when={isEmailEntity(props.entity) && props.entity}>

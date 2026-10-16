@@ -40,6 +40,8 @@ export interface BaseListEntityProps<E extends EntityData = EntityData>
   titleLeading?: JSX.Element;
   /** Caller-owned leading visual inside the standard Soup icon slot. */
   icon?: JSX.Element;
+  /** Omit the standard row type glyph and its space; narrow mobile inboxes retain their selection visual. */
+  hideIcon?: boolean;
   /** Supporting text after the title in the standard content slot. */
   titleTrailing?: JSX.Element;
   /** Caller-owned metadata ahead of the entity's own, in wide rows only. */
@@ -81,6 +83,8 @@ export interface LayoutProps {
   titleLeading?: JSX.Element;
   /** Caller-owned leading visual inside the standard Soup icon slot. */
   icon?: JSX.Element;
+  /** Omit the standard row type glyph and its space; narrow mobile inboxes retain their selection visual. */
+  hideIcon?: boolean;
   /** Supporting text after the title in the standard content slot. */
   titleTrailing?: JSX.Element;
   meta?: JSX.Element;

@@ -55,19 +55,21 @@ export function NarrowSingleLineLayout(props: LayoutProps) {
         placement="title"
         class="ph-no-capture flex min-w-0 items-center gap-2 truncate"
       >
-        <div class="size-4 shrink-0">
-          <Show
-            when={props.icon}
-            fallback={
-              <Entity.Icon
-                entity={props.entity}
-                streamState={props.streamState}
-              />
-            }
-          >
-            {props.icon}
-          </Show>
-        </div>
+        <Show when={!props.hideIcon}>
+          <div class="size-4 shrink-0">
+            <Show
+              when={props.icon}
+              fallback={
+                <Entity.Icon
+                  entity={props.entity}
+                  streamState={props.streamState}
+                />
+              }
+            >
+              {props.icon}
+            </Show>
+          </div>
+        </Show>
         <Switch>
           <Match when={isEmailEntity(props.entity) && props.entity}>
             {(entity) => (

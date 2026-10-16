@@ -582,6 +582,7 @@ export function EmailList(props: EmailListProps) {
                                 >
                                   <div role="gridcell">
                                     <ListEntity
+                                      hideIcon
                                       entity={entityRow().entity}
                                       onFilterByTag={filterByTag}
                                       scheduleStatus={

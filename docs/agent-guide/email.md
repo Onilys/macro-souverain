@@ -705,3 +705,5 @@ Counts cover each view’s server results for the selected inbox/alias, not just
 the currently loaded page. The Calendar shortcut now lives in the header.
 
 Inbox view tabs use text-color feedback on hover without a background highlight.
+
+Desktop Email list rows omit email/calendar type glyphs; unread indicators remain visible.
