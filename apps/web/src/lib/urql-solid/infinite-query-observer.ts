@@ -56,6 +56,8 @@ type InfiniteQueryObserverState<SelectedData> = {
   fetchingNextPage: boolean;
   refetching: boolean;
   paginationError: CombinedError | undefined;
+  /** A continuation page that failed to refetch; its stale rows stay mounted. */
+  refetchError: CombinedError | undefined;
 };
 
 type NextPageParamResult<PageParam> = {
@@ -135,6 +137,7 @@ export class InfiniteQueryObserver<
     fetchingNextPage: false,
     refetching: false,
     paginationError: undefined,
+    refetchError: undefined,
   };
   private failedNextPage: Page<PageData, Variables, PageParam> | undefined;
   private currentResult!: InfiniteResult<
@@ -208,7 +211,12 @@ export class InfiniteQueryObserver<
       derivationError = nextPage.error;
     }
 
-    const error = this.state.paginationError ?? derivationError ?? pageError;
+    const error =
+      this.state.paginationError ??
+      derivationError ??
+      pageError ??
+      this.state.refetchError ??
+      null;
     const hasNextPage =
       !this.state.paginationError &&
       !derivationError &&
@@ -535,6 +543,7 @@ export class InfiniteQueryObserver<
     this.setState({
       fetchingNextPage: false,
       refetching: false,
+      refetchError: undefined,
     });
   }
 
@@ -678,6 +687,7 @@ export class InfiniteQueryObserver<
     this.setState({
       refetching: true,
       paginationError: undefined,
+      refetchError: undefined,
     });
     this.emit();
 
@@ -728,13 +738,15 @@ export class InfiniteQueryObserver<
 
         if (page && Object.is(page.pageParam, expectedPageParam)) {
           await page.observer.refetch(refetchOptions);
-        } else {
-          await this.replacePage(
+        } else if (
+          !(await this.replacePage(
             pageIndex,
             expectedPageParam,
             refetchOptions,
             signal
-          );
+          ))
+        ) {
+          break;
         }
       }
 
@@ -753,25 +765,37 @@ export class InfiniteQueryObserver<
   /**
    * Fetches the page behind a changed cursor before swapping it in. The stale
    * page it replaces stays mounted until its rows have arrived, so the list
-   * keeps its height and the viewport its scroll position.
+   * keeps its height and the viewport its scroll position. A failed fetch
+   * keeps the stale page and reports the error; the chain stops there.
    */
   private async replacePage(
     pageIndex: number,
     pageParam: PageParam,
     refetchOptions: UrqlQueryRefetchOptions,
     signal: AbortSignal
-  ): Promise<void> {
+  ): Promise<boolean> {
     const replacement = this.createPage(pageParam, pageIndex, undefined, false);
+    // A cancelled action releases the detached page at once, not when its
+    // network result eventually lands.
+    const abort = () => this.destroyPage(replacement);
+    signal.addEventListener('abort', abort, { once: true });
     let replaced = false;
     try {
       await replacement.observer.refetch(refetchOptions);
-      if (signal.aborted || this.destroyed) return;
+      if (signal.aborted || this.destroyed) return false;
+      const result = replacement.observer.getCurrentResult();
+      if (result.data === undefined) {
+        this.setState({ refetchError: result.error ?? undefined });
+        return false;
+      }
       const stale = this.pages[pageIndex];
       this.pages.splice(pageIndex, 1, replacement);
       if (stale) this.destroyPage(stale);
       replaced = true;
       this.emit();
+      return true;
     } finally {
+      signal.removeEventListener('abort', abort);
       if (!replaced) this.destroyPage(replacement);
     }
   }
