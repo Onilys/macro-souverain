@@ -68,7 +68,7 @@ export function NewChatPage(props: {
   autoFocus?: boolean;
   registerFocus?: (focus: () => void) => void;
   roster: RosterAgent[];
-  /** Offer only this kind; the Agents workspace passes its Work or Code mode. */
+  /** Offer only this kind; omit to offer both work and coding agents. */
   kind?: AgentKind;
   rosterLoading: boolean;
   /** Agents are listed but whether they can start is still unknown. */

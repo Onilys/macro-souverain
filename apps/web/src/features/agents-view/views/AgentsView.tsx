@@ -42,7 +42,7 @@ import { AgentSessionPane } from '../components/AgentSessionPane';
 import { AgentsSidebar } from '../components/AgentsSidebar';
 import { Topbar } from '../components/Topbar';
 import { DataModeProvider, dataModeFor } from '../context/data-mode';
-import { type AgentKind, kindForMode, modeForKind } from '../core/agent-kind';
+import { type AgentKind, modeForKind } from '../core/agent-kind';
 import type { AgentsMode } from '../core/mode';
 import { type AgentsPage, parseAgentsPage } from '../core/pages';
 import {
@@ -231,12 +231,6 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
   const openRoster = (_kind: AgentKind) => {
     openPage('agents');
   };
-  const changeMode = (next: AgentsMode) => {
-    if (next === workspace.mode()) return;
-    workspace.setMode(next);
-    // The open conversation belongs to the other mode now.
-    if (selected()) showComposer();
-  };
   const openConversation = (
     conversation: AgentConversationTarget,
     event?: MouseEvent,
@@ -313,8 +307,6 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
 
   const sidebar = () => (
     <AgentsSidebar
-      mode={workspace.mode()}
-      onModeChange={changeMode}
       activePage={selected() ? undefined : page()}
       onOpenPage={(next) =>
         next === 'agents' ? openRoster('agent') : openPage(next)
@@ -433,28 +425,23 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
                               class="contents"
                               classList={{ hidden: page() !== 'new' }}
                             >
-                              <Show when={workspace.mode()} keyed>
-                                {(kind) => (
-                                  <NewChatPage
-                                    kind={kindForMode(kind)}
-                                    active={
-                                      !isTouchDevice() ||
-                                      (!mobileList() && page() === 'new')
-                                    }
-                                    registerFocus={(focus) => {
-                                      composerFocus = focus;
-                                    }}
-                                    workspaceId={panel.handle.id}
-                                    draft={draft()}
-                                    onDraftChange={setDraft}
-                                    roster={rosterSource.roster()}
-                                    rosterLoading={rosterSource.loading()}
-                                    availabilityLoading={rosterSource.availabilityLoading()}
-                                    onStart={startConversation}
-                                    onOpenRoster={openRoster}
-                                  />
-                                )}
-                              </Show>
+                              <NewChatPage
+                                active={
+                                  !isTouchDevice() ||
+                                  (!mobileList() && page() === 'new')
+                                }
+                                registerFocus={(focus) => {
+                                  composerFocus = focus;
+                                }}
+                                workspaceId={panel.handle.id}
+                                draft={draft()}
+                                onDraftChange={setDraft}
+                                roster={rosterSource.roster()}
+                                rosterLoading={rosterSource.loading()}
+                                availabilityLoading={rosterSource.availabilityLoading()}
+                                onStart={startConversation}
+                                onOpenRoster={openRoster}
+                              />
                             </div>
                           </Suspense>
                         </div>

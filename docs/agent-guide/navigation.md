@@ -428,13 +428,10 @@ the list. Check that reading that item keeps the dot lit if another loaded row
 is unread, and that completing the last one clears it. Query bounds and
 pagination are unchanged.
 
-The Agents sidebar opens with a **Work** / **Code** switch (radio group
-"Agents mode") under its title; Work is the default and the choice is remembered
-per user across reloads. Work lists chat sessions and legacy chats; Code lists
-coding sessions only, newest first. Each mode's empty state is its own ("No
-conversations yet." / "No coding conversations yet."). Opening a session of the
-other kind from outside Agents (a link, Home, Ask AI) switches the mode to match;
-switching modes while a session is open returns to that mode's New conversation.
+The Agents sidebar combines work and coding conversations in one history, newest
+activity first, without a Work / Code toggle. Search covers both kinds. Archived
+conversations remain in their separate section. Opening a conversation selects
+its appropriate composer mode without filtering the sidebar.
 New agent sessions use one dot in the left slot for activity and notifications:
 pulsing accent for starting/working, amber for waiting for input, and solid accent
 for an unread dormant session. Read dormant sessions leave that slot empty.
@@ -449,13 +446,11 @@ the selected background. Legacy chat rows keep their chat icon.
 Use **Search conversations** beside the Conversations heading to filter by title.
 Results stay packed at the top with compact spacing, even with only a few matches;
 clearing the search restores the list.
-Its **New conversation** button opens the composer for the current mode with one
-**Agent** selector on the right. In Work the selector lists Macro's models and
-chat agents, and the composer stays on one line. In Code it lists coding agents
-only, the composer opens expanded with the repository drawer below it, and the
-greeting reads "What should we build?". New sessions use the selected agent's
-default model and the URL for its kind. Home's composer is unchanged and still
-offers both kinds. Opening an existing row restores its own kind and URL.
+Its **New conversation** button opens one composer whose **Agent** selector offers
+Macro's models, work agents, and coding agents. Selecting a coding agent expands
+the composer with the repository drawer and the greeting "What should we build?".
+New sessions use the selected agent's default model and the URL for its kind.
+Home's composer is unchanged. Opening an existing row restores its own kind and URL.
 Right-click a conversation for Rename, Favorite, Copy link, Share, Delete, and
 the other entity actions used on Home.
 

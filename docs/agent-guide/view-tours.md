@@ -37,7 +37,7 @@ Shift+Tab cycling in the mail list.
 
 ## Per view
 
-- **Agents:** the Work / Code switch (beacon on the sidebar toggle), then the
+- **Agents:** the unified conversation history (beacon on the sidebar toggle), then the
   agent and model picker (beacon on New conversation), then the
   Your agents list and the Cursor / Bring your own agent strips (beacon on
   Agents), then Create for automations.

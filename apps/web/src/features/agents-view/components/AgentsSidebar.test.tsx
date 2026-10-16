@@ -12,7 +12,6 @@ import {
 } from '@solidjs/testing-library';
 import { createSignal, type JSX } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AgentsMode } from '../core/mode';
 import {
   type AgentConversationEntity,
   partitionArchived,
@@ -116,7 +115,7 @@ vi.mock('@app/components/view-shell/SidebarCreateButton', () => ({
 }));
 
 describe('mixed Agents sidebar', () => {
-  it('lists only the conversations of the chosen mode and switches between Work and Code', async () => {
+  it('lists work and coding conversations together without a mode toggle', async () => {
     const conversations: AgentConversationEntity[] = [
       {
         type: 'agent_session',
@@ -138,8 +137,6 @@ describe('mixed Agents sidebar', () => {
         status: 'disconnected',
       },
     ];
-    const [mode, setMode] = createSignal<AgentsMode>('chat');
-    const changeMode = vi.fn(setMode);
     const open = vi.fn();
     const create = vi.fn();
     const openPage = vi.fn();
@@ -148,8 +145,6 @@ describe('mixed Agents sidebar', () => {
     render(() => (
       <SidebarActionsProvider>
         <AgentsSidebar
-          mode={mode()}
-          onModeChange={changeMode}
           activePage="new"
           onOpenPage={openPage}
           {...partitionArchived(conversations)}
@@ -180,23 +175,16 @@ describe('mixed Agents sidebar', () => {
       expect(openPage).toHaveBeenLastCalledWith(label.toLowerCase());
     }
 
-    const work = screen.getByRole('radio', {
-      name: 'Work',
-    }) as HTMLInputElement;
-    expect(work.checked).toBe(true);
+    expect(screen.queryByRole('radio', { name: 'Work' })).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Code' })).toBeNull();
     const chat = screen.getByRole('button', { name: /Plan launch/ });
     expect(chat.getAttribute('data-kind')).toBe('chat');
     expect(chat.getAttribute('aria-current')).toBe('page');
-    expect(screen.queryByRole('button', { name: /Fix build/ })).toBeNull();
-    expect(screen.queryByText('Archived')).toBeNull();
     fireEvent.click(chat);
     expect(open).toHaveBeenLastCalledWith(conversations[1], expect.anything());
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Code' }));
-    expect(changeMode).toHaveBeenCalledWith('code');
     const code = await screen.findByRole('button', { name: /Fix build/ });
     expect(code.closest('[data-kind]')?.getAttribute('data-kind')).toBe('code');
-    expect(screen.queryByRole('button', { name: /Plan launch/ })).toBeNull();
     expect(screen.getByText('Archived')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Old spike/ })).toBeTruthy();
     fireEvent.click(code, { shiftKey: true });
@@ -243,12 +231,10 @@ describe('mixed Agents sidebar', () => {
     expect(createRoutine).toHaveBeenCalledOnce();
   });
 
-  it('keeps paging while the chosen mode has too few conversations to scroll', () => {
+  it('keeps paging while the unified history has too few conversations to scroll', () => {
     const loadMore = vi.fn();
     render(() => (
       <AgentsSidebar
-        mode="code"
-        onModeChange={vi.fn()}
         activePage="new"
         onOpenPage={vi.fn()}
         conversations={[
@@ -272,14 +258,13 @@ describe('mixed Agents sidebar', () => {
       />
     ));
     expect(loadMore).toHaveBeenCalledOnce();
-    expect(screen.getByText('No coding conversations yet.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Plan launch/ })).toBeTruthy();
+    expect(screen.queryByText('No conversations yet.')).toBeNull();
   });
 
   it('opens rename and delete on a session or chat right-click', async () => {
     render(() => (
       <AgentsSidebar
-        mode="chat"
-        onModeChange={vi.fn()}
         activePage="new"
         onOpenPage={vi.fn()}
         {...partitionArchived([
@@ -382,8 +367,6 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
         />
       ) : (
         <AgentsSidebar
-          mode="code"
-          onModeChange={vi.fn()}
           activePage="new"
           onOpenPage={vi.fn()}
           conversations={[entity()]}

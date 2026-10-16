@@ -26,9 +26,9 @@ export const agentsTour = defineViewTour({
       target: AGENTS_TOUR.modeSwitch,
       entry: [VIEW_SHELL_TOUR.sidebarToggle],
       entryLabel: 'Open the sidebar to continue',
-      title: 'Switch between Work and Code',
+      title: 'Find all your conversations',
       description:
-        'Work shows your chat agents and their conversations. Code shows your coding agents, their sessions, and the repository each one works in.',
+        'Work and coding conversations share one history, with the most recently active first. Coding sessions also show their repository.',
     },
     {
       target: AGENTS_TOUR.picker,
@@ -36,7 +36,7 @@ export const agentsTour = defineViewTour({
       entryLabel: 'Start a new conversation to continue',
       title: 'Choose your agent and model',
       description:
-        'Open this picker to choose an agent for the current mode. In Work, Macro’s models are listed here too; each agent’s submenu lets you choose a model for that conversation.',
+        'Open this picker to choose a work or coding agent. Macro’s models are listed here too; each agent’s submenu lets you choose a model for that conversation.',
     },
     {
       target: AGENTS_TOUR.agentList,

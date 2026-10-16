@@ -28,12 +28,12 @@ import PlugIcon from '@icon/system/regular/plugs-connected.svg';
 import AgentIcon from '@icon/system/regular/sparkle.svg';
 import TrayIcon from '@icon/system/regular/tray.svg';
 import { Key } from '@solid-primitives/keyed';
-import { cn, Dropdown, Tabs } from '@ui';
+import { cn, Dropdown } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { createEffect, createSignal, type JSX, Show } from 'solid-js';
 import type { AgentKind } from '../core/agent-kind';
 import { compactAge } from '../core/format-age';
-import { type AgentsMode, agentsModeLabel } from '../core/mode';
+import type { AgentsMode } from '../core/mode';
 import type { AgentsPage } from '../core/pages';
 import {
   type AgentConversationEntity,
@@ -43,8 +43,8 @@ import { AGENTS_TOUR } from '../tour';
 import { AgentSessionListItem } from '../views/AgentSessionListItem';
 import { AgentSessionListSkeleton } from './AgentSessionListSkeleton';
 
-/** Rows a mode should fill before paging stops waiting for a scroll. */
-const MODE_PAGE_FILL = 20;
+/** Rows to fill before paging waits for a scroll. */
+const CONVERSATION_PAGE_FILL = 20;
 
 const AGENTS_ACTION_VIEW_CONTEXT: EntityActionViewContext = {
   supportsMarkDone: false,
@@ -53,9 +53,6 @@ const AGENTS_ACTION_VIEW_CONTEXT: EntityActionViewContext = {
 };
 
 export type AgentsSidebarProps = {
-  /** Only conversations of this mode are listed. */
-  mode: AgentsMode;
-  onModeChange: (mode: AgentsMode) => void;
   activePage: AgentsPage | undefined;
   onOpenPage: (page: AgentsPage) => void;
   modeForConversation: (conversation: AgentConversationEntity) => AgentsMode;
@@ -167,12 +164,8 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
   const [conversationsOpen, setConversationsOpen] = createSignal(true);
   let searchInput: HTMLInputElement | undefined;
   const focusSearch = useSidebarSearchFocus(() => searchInput);
-  const inMode = (conversations: AgentConversationEntity[]) =>
-    conversations.filter(
-      (conversation) => props.modeForConversation(conversation) === props.mode
-    );
-  const conversations = () => inMode(props.conversations);
-  const archived = () => inMode(props.archived);
+  const conversations = () => props.conversations;
+  const archived = () => props.archived;
   const actionController = createListController({
     items: () => [...conversations(), ...archived()],
     getKey: (conversation) => conversation.id,
@@ -183,11 +176,10 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
     getEntity: (conversation) => conversation,
   });
   const total = () => conversations().length + archived().length;
-  // Both modes page through one mixed query, so a short filtered list never
-  // scrolls far enough to ask for more; keep paging until it fills.
+  // Fill the unified history before waiting for scrolling.
   createEffect(() => {
     if (
-      total() < MODE_PAGE_FILL &&
+      total() < CONVERSATION_PAGE_FILL &&
       props.hasNextPage &&
       !props.loading &&
       !props.loadingNextPage &&
@@ -290,24 +282,6 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
             </Dropdown>
           )}
         />
-        <div
-          ref={tourTarget(AGENTS_TOUR.modeSwitch)}
-          class="px-(--sidebar-gutter) pt-1 touch:pt-0"
-        >
-          <Tabs
-            aria-label="Agents mode"
-            fullWidth
-            list={(['chat', 'code'] as const).map((mode) => ({
-              value: mode,
-              label: agentsModeLabel(mode),
-            }))}
-            value={props.mode}
-            onChange={(value) =>
-              props.onModeChange(value === 'code' ? 'code' : 'chat')
-            }
-          />
-        </div>
-
         <ViewSidebar.Content class="gap-2 overflow-hidden pt-2">
           <Show when={!isTouchDevice()}>
             <ViewSidebar.Nav aria-label="Agent tools">
@@ -350,7 +324,10 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
             )}
           >
             <CollapsibleSection.Header>
-              <CollapsibleSection.Trigger class="flex-1">
+              <CollapsibleSection.Trigger
+                class="flex-1"
+                ref={tourTarget(AGENTS_TOUR.modeSwitch)}
+              >
                 <span class="min-w-0 truncate">Conversations</span>
                 <CollapsibleSection.Indicator />
               </CollapsibleSection.Trigger>
@@ -376,9 +353,7 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
                   <p class="px-(--sidebar-item-inset) py-2 text-xs text-ink-muted">
                     {props.search.trim()
                       ? `No results for "${props.search.trim()}"`
-                      : props.mode === 'code'
-                        ? 'No coding conversations yet.'
-                        : 'No conversations yet.'}
+                      : 'No conversations yet.'}
                   </p>
                 </Show>
                 <Show when={props.loadingNextPage}>
