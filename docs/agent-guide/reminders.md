@@ -93,7 +93,7 @@ For UI failure checks against hosted data, intercept
 - Opening the menu from a row clock does not open or complete the email.
 
 Use local fixtures for real create/edit/remove/undo and due-delivery checks.
-For delivery, keep Reminders open through the firing, then switch to Signal and
+For delivery, keep Reminders open through the firing, then switch to Important and
 verify the conversation is in the newest time group without reloading. Repeat
 with an older conversation, a sent-only conversation, and a backgrounded tab.
 Also verify reply cancellation, caller isolation, multiple concurrent set

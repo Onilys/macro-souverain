@@ -17,9 +17,9 @@ export const emailTour = defineViewTour({
   steps: [
     {
       target: EMAIL_TOUR.signalNoise,
-      title: 'Find the signal in your inbox',
+      title: 'Move between inbox views',
       description:
-        'Signal keeps important conversations in focus. Noise gives lower-priority mail its own space, so you can catch up when it suits you.',
+        'Important keeps priority conversations in focus. Other holds lower-priority mail, and Calendar shows calendar-related messages. Press Tab or Shift+Tab in the mail list to cycle through these views.',
     },
     {
       target: EMAIL_TOUR.tags,

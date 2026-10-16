@@ -9,12 +9,13 @@ import { useSidebarSearchFocus } from '@app/components/view-shell/SidebarActionR
 import { SidebarCreateAction } from '@app/components/view-shell/SidebarCreateAction';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
-import { TabsInset } from '@ui';
+import { Button, cn } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
-import { createSignal, type ParentProps, Show } from 'solid-js';
+import { createSignal, For, type ParentProps, Show } from 'solid-js';
 import { composeEmail } from '../compose-email';
-import { EMAIL_TABS } from '../constants';
+import { EMAIL_INBOX_TAB_IDS, EMAIL_TABS } from '../constants';
 import { useEmailView } from '../email-view-context';
+import { useInboxViewCounts } from '../queries/use-inbox-view-counts';
 import { EMAIL_TOUR } from '../tour';
 import { EmailControls } from './EmailControls';
 import { EmailInboxMenu } from './EmailInboxSelector';
@@ -53,7 +54,11 @@ export function EmailViewBreadcrumbItem() {
 
 export function EmailTopBar(props: ParentProps = {}) {
   const { state, setTab } = useEmailView();
-  const isInbox = () => state.tab === 'important' || state.tab === 'noise';
+  const counts = useInboxViewCounts(state);
+  const isInbox = () =>
+    state.tab === 'important' ||
+    state.tab === 'noise' ||
+    state.tab === 'calendar';
 
   return (
     <ViewShell.TopBar
@@ -64,24 +69,33 @@ export function EmailTopBar(props: ParentProps = {}) {
       class="h-12 gap-3 px-4 not-touch:pl-4 touch:flex touch:mt-[var(--safe-top,0px)]"
     >
       <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-        <Show when={isInbox()}>
-          <h1 class="min-w-0 truncate text-ink">Inbox</h1>
-        </Show>
-        <div class="shrink-0" ref={tourTarget(EMAIL_TOUR.signalNoise)}>
-          <TabsInset
-            aria-label="Inbox view"
-            class="h-8"
-            labelClass="px-3 py-1 text-sm"
-            value={isInbox() ? state.tab : ''}
-            list={[
-              { value: 'important', label: 'Signal' },
-              { value: 'noise', label: 'Noise' },
-            ]}
-            onChange={(tab) => {
-              if (tab === 'important' || tab === 'noise') setTab(tab);
-            }}
-          />
-        </div>
+        <nav
+          aria-label="Inbox views"
+          class="flex min-w-0 items-center gap-6 overflow-x-auto"
+          ref={tourTarget(EMAIL_TOUR.signalNoise)}
+        >
+          <For each={EMAIL_INBOX_TAB_IDS}>
+            {(tab) => (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-current={state.tab === tab ? 'page' : undefined}
+                onClick={() => setTab(tab)}
+                class={cn(
+                  'h-8 shrink-0 gap-1.5 rounded-none border-0 px-0 text-base font-normal',
+                  state.tab === tab ? 'text-ink' : 'text-ink-muted'
+                )}
+              >
+                {EMAIL_TABS.find((item) => item.id === tab)?.label}
+                <Show when={counts()[tab] !== undefined && counts()[tab] !== 0}>
+                  <span class="text-xs font-normal tabular-nums text-ink-muted">
+                    {counts()[tab]?.toLocaleString()}
+                  </span>
+                </Show>
+              </Button>
+            )}
+          </For>
+        </nav>
         <Show when={!isInbox()}>
           <ViewBreadcrumbs.Outlet aria-label="Email location" />
         </Show>

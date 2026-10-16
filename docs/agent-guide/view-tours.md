@@ -32,6 +32,9 @@ and highlights.
   sidebar opens. The dot stays until the feature itself is on screen, however
   you get there; then the card appears at it. Leaving again brings the dot back.
 
+The Email inbox step explains Important, Other, and Calendar, including Tab and
+Shift+Tab cycling in the mail list.
+
 ## Per view
 
 - **Agents:** the Work / Code switch (beacon on the sidebar toggle), then the
@@ -40,7 +43,7 @@ and highlights.
   Agents), then Create for automations.
 - **Channels:** channels and DMs, creation, then threads, @mentions, and calls,
   which wait on the channel list until a conversation is open. No Slack action.
-- **Email:** Signal/Noise in the main top bar (available with the sidebar collapsed), tags, then keyboard shortcuts.
+- **Email:** Important/Other/Calendar in the main top bar (available with the sidebar collapsed), tags, then keyboard shortcuts.
 - **Customers:** Companies and People records, relationship details, then the
   **New** menu.
 - **Calendar:** calendar sources and copy availability (beacon on the sidebar

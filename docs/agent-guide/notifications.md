@@ -74,7 +74,7 @@ filtered list, loading pages until another email is found or the list ends.
 On native mobile, stepping replaces the current email while preserving the
 filtered list behind it for swipe-back. In the newer Email view it retargets the
 view-owned detail stack instead of opening another block. To verify, open the
-first email from Signal or Noise, tap Next and then Previous, and return to the
+first email from Important or Other, tap Next and then Previous, and return to the
 same filtered list.
 Leaving the email cancels pending
 navigation and archiving while a page loads. At the end it opens the previous

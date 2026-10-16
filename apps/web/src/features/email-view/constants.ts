@@ -1,15 +1,15 @@
 /**
- * Existing tab ids match the legacy mail view (`important` is Signal).
+ * Persisted tab ids stay compatible with the legacy mail view; labels are Important and Other.
  * Favorites extends that list; entity action capabilities use `${view}-${tab}`.
  */
 export const EMAIL_TAB_IDS = [
   'important',
   'noise',
+  'calendar',
   'favorites',
   'sent',
   'scheduled',
   'reminders',
-  'calendar',
   'drafts',
   'shared',
   'archived',
@@ -19,8 +19,8 @@ export const EMAIL_TAB_IDS = [
 export type EmailTab = (typeof EMAIL_TAB_IDS)[number];
 
 const EMAIL_TAB_LABELS = {
-  important: 'Signal',
-  noise: 'Noise',
+  important: 'Important',
+  noise: 'Other',
   favorites: 'Favorites',
   sent: 'Sent',
   scheduled: 'Scheduled',
@@ -43,3 +43,6 @@ export const EMAIL_TABS: readonly EmailTabItem[] = EMAIL_TAB_IDS.map((id) => ({
 }));
 
 export const DEFAULT_EMAIL_TAB: EmailTab = 'important';
+
+/** Primary inbox views, in keyboard-cycling order. */
+export const EMAIL_INBOX_TAB_IDS = ['important', 'noise', 'calendar'] as const;

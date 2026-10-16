@@ -156,11 +156,11 @@ describe('buildEmailQuery', () => {
     expect(EMAIL_TAB_IDS.map((tab) => [tab, emailViewForTab(tab)])).toEqual([
       ['important', 'inbox'],
       ['noise', 'inbox'],
+      ['calendar', 'all'],
       ['favorites', 'all'],
       ['sent', 'sent'],
       ['scheduled', 'drafts'],
       ['reminders', 'all'],
-      ['calendar', 'all'],
       ['drafts', 'drafts'],
       ['shared', 'all'],
       ['archived', 'all'],

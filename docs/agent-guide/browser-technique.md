@@ -19,7 +19,7 @@
 - Token comboboxes (channel invites, participant add): click the combobox, `type_text` the
   value, watch for the `N option(s) available` live-region text, press Enter to commit the
   chip before submitting the form.
-- Radio tab strips (Messages/Attachments/Participants, Signal/Noise/All): clicking the radio
+- Radio tab strips (Messages/Attachments/Participants): clicking the radio
   input can fail with "element did not become interactive" — click the adjacent StaticText
   label instead.
 - Clicking a menu button once can merely focus it. If the expected menu/form is absent from

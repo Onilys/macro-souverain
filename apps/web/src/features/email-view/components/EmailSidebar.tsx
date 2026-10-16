@@ -1,4 +1,4 @@
-import { useViewTabHotkeys, ViewSidebar } from '@app/components/view-shell';
+import { ViewSidebar } from '@app/components/view-shell';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { enableReminders } from '@core/constant/featureFlags';
@@ -19,10 +19,11 @@ import { pressHandlers } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
 import { type Component, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { EMAIL_TAB_IDS, EMAIL_TABS, type EmailTabItem } from '../constants';
+import { EMAIL_TABS, type EmailTabItem } from '../constants';
 import { useEmailView } from '../email-view-context';
 import { EMAIL_TOUR } from '../tour';
 import type { EmailTab } from '../types';
+import { useEmailInboxHotkeys } from '../use-email-inbox-hotkeys';
 import { EmailPrimaryActions } from './EmailHeader';
 import { EmailInboxList } from './EmailInboxSelector';
 
@@ -87,7 +88,7 @@ export function EmailNavigation(props: { onNavigate?: () => void }) {
           Library
         </h2>
         <ViewSidebar.Nav aria-label="Email library">
-          <For each={items(['all', 'archived', 'shared', 'calendar'])}>
+          <For each={items(['all', 'archived', 'shared'])}>
             {(item) => (
               <Tab
                 item={item.id === 'all' ? { ...item, label: 'All mail' } : item}
@@ -102,33 +103,21 @@ export function EmailNavigation(props: { onNavigate?: () => void }) {
 }
 
 export function EmailSidebar(props: { onSearchEscape?: () => void }) {
-  const reminders = useFeatureFlag(enableReminders);
   const panel = useSplitPanelOrThrow();
   const {
     state,
     setTab,
+    selectedThread,
     showTags,
     isSidebarSectionOpen,
     setSidebarSectionOpen,
   } = useEmailView();
 
-  useViewTabHotkeys({
+  useEmailInboxHotkeys({
     scopeId: panel.splitHotkeyScope,
-    enabled: panel.isPanelActive,
-    ids: () =>
-      EMAIL_TAB_IDS.filter(
-        (id) =>
-          id !== 'reminders' ||
-          reminders().enabled ||
-          (reminders().loading && state.tab === 'reminders')
-      ),
+    enabled: () => panel.isPanelActive() && !selectedThread(),
     activeId: () => state.tab,
     setActiveId: setTab,
-    shouldHandleSequentialKeyEvent: (event) =>
-      !(
-        event?.target instanceof Element &&
-        event.target.closest('[role="grid"][aria-label="Email"]')
-      ),
   });
 
   return (

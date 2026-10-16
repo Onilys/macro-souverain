@@ -14,7 +14,7 @@ and switch the mailbox to All. Parent selection does not include descendant tags
 Unlike Calls, it lists only personal tags; team-shared tags are hidden,
 and its `New tag` action creates a personal tag with no Team sharing option.
 
-Full email client. Tabs: `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled` / `Calendar` / `Drafts` / `Shared` /
+Full email client. Tabs: `Important` / `Other` / `Calendar` / `Favorites` / `Sent` / `Scheduled` / `Drafts` / `Shared` /
 `Archived` / `All`. Compose via the `Email` button (or `Create` → `Email E`). On a fresh local user it
 shows `Connect your email` (Gmail/Google Workspace OAuth) — most functionality needs a
 connected account. Search is `Ctrl+F` within the surface.
@@ -27,8 +27,8 @@ query: load more threads from the same address, then check that existing row
 names and their hover cards do not change. Repeat with a text query to exercise
 the search-service results.
 
-`Favorites`, directly below Noise, lists starred Macro emails across Signal,
-Noise, and archived mail. It respects the selected inboxes and filters; search
+`Favorites` in the sidebar lists starred Macro emails across Important,
+Other, and archived mail. It respects the selected inboxes and filters; search
 within the tab is also restricted to favorites. Removing a star removes the row
 from this view. The tab persists across reloads. With `enable-graphql-soup` on,
 the paginated GraphQL Soup query uses `favoritesOnly: true`. With the flag off,
@@ -60,7 +60,7 @@ When switching email tabs or inboxes, the list shows current-query cached result
 or a scoped `Loading email` spinner until they arrive—not the previous tab's rows
 under the new heading. Active searches also hide retained results and show loading
 while selected tag sets are pending. Background refreshes retain the current list. To check this,
-rapidly alternate Signal, Noise, and Sent, then change inboxes; a delayed cache or
+rapidly alternate Important, Other, and Sent, then change inboxes; a delayed cache or
 network read must not leave the old rows visible or expose their Load more action.
 
 Opening an email shows loading while its local draft identity and thread data
@@ -130,7 +130,7 @@ without refetching over optimism. Callers preserve the queued disposition and
 skip REST/TanStack email invalidations as well, including Done/Undo batches and
 thread archive replay. Committed writes and failed non-queued batches still
 reconcile. Permanent failures roll back the failed intent.
-Check Signal/Noise removal and All's done indicator, then Undo/Redo, including an
+Check Important/Other removal and All's done indicator, then Undo/Redo, including an
 offline action followed by reconnect. Also wait for provider/metadata synchronization
 before Undo, and repeat after reloading: an archived received thread can lose its
 inbox-sorting timestamp but must still be unarchivable. Sent-only threads and
@@ -181,7 +181,7 @@ write after closing the connection, then clear/logout during recovery: old-accou
 entries must not return. Only transaction creation retries automatically; persistent
 storage failures still follow the existing cache fallback behavior.
 
-Performance check: switch Signal → All twice against a large synchronized cache.
+Performance check: switch Important → All twice against a large synchronized cache.
 Dense local pages use bounded sort-index candidates rather than sorting the entire
 mailbox. Sparse filters and large timestamp ties retain the exact fallback plan.
 A filter result, row fragments, and final revision that agree must be accepted even
@@ -190,10 +190,10 @@ that alone must not trigger another filter scan. Also verify local Load more,
 same-timestamp ordering, and pending archive/read changes.
 
 With GraphQL caching enabled (browser or native Tauri) and the email metadata backfill synchronized,
-All, Signal, Noise, Drafts, Sent, Calendar, and Shared support tab changes and new
+All, Important, Other, Drafts, Sent, Calendar, and Shared support tab changes and new
 filter combinations while offline: account selection
 (including delegated inboxes), read/unread, and archive-based Done/Not Done. Mail Done
-means `inboxVisible = false`; it is **not** notification lifecycle state. Signal/Noise
+means `inboxVisible = false`; it is **not** notification lifecycle state. Important/Other
 retain their Inbox scope, so archived mail is found in Archived (All + Done).
 
 A `Showing cached mail` notice identifies results over synchronized metadata, not a
@@ -243,12 +243,12 @@ can be removed once a full native release includes the filter command and OTA
 delivery excludes older binaries.
 
 For Linux desktop automation, see the [native E2E guide](../../apps/web/tests/native/README.md).
-The first scenario covers Signal → Noise → All after disconnecting both native
+The first scenario covers Important → Other → All after disconnecting both native
 HTTP and WebSockets. iOS shares the native cache code but is not yet covered by
 that driver.
 
 In the new Email view, ordinary row activation opens the thread inside
-`/app/component/mail`; the view breadcrumb (for example Signal) has a hover
+`/app/component/mail`; the view breadcrumb (for example Important) has a hover
 background and returns to the filtered list. Pressing `Escape` in the open thread
 with focus outside any input does the same once there is nothing left to unwind
 (an open reply, an expanded body, or a focused message each take one `Escape`
@@ -503,7 +503,7 @@ Make multiple edits while offline, reconnect, wait for syncing to finish, then
 send. Repeat after refreshing with queued edits: the first attempted save must
 recover its server identity and let newer saves complete, rather than leaving
 Send permanently blocked by "Draft still syncing".
-After restarting offline, reconnect and visit Signal and Drafts. The queued draft
+After restarting offline, reconnect and visit Important and Drafts. The queued draft
 must stay visible when the first server list arrives, including in date-grouped
 views, until its save settles; it must not briefly appear and then disappear.
 Repeat with discard before reconnect, including a save that was already attempted
@@ -594,7 +594,7 @@ queue rows are not scheduled drafts and must not appear.
 With the new app views enabled, mobile and tablet Email use a floating, horizontally
 scrolling row of those tabs, with `Open email filters` at the left. The rest of the
 view is the email list, which scrolls beneath the header and supports pull to refresh
-and swiping left to mark emails done in Signal and Noise. The filter button opens a
+and swiping left to mark emails done in Important and Other. The filter button opens a
 glass bottom sheet for status, done, attachment, calendar and tag filters, plus an `Inbox`
 section when the user can pick one: `All inboxes` or a single address, never several.
 `Clear all` resets those filters and the inbox selection. Desktop keeps its sidebar,
@@ -679,10 +679,10 @@ Cancel and failed saves keep the current email. H on a pending snooze edits it;
 remains ordinary typing.
 
 
-The Email sidebar's **Accounts** switcher always shows **All inboxes** and every
-connected email address. Select an address directly to scope the current view;
-select All inboxes to combine accounts again. The plus button beside Accounts
-connects another account. The compact header retains an inbox menu when needed.
+The Email sidebar's **Accounts & Aliases** section uses compact account rows,
+including aliases and **All inboxes** when there are multiple choices. Select a row
+to scope the view. A full-width **Add account** row connects another account.
+
 
 
 Workspace sidebars place a large, unframed creation label in the title position,
@@ -696,8 +696,10 @@ Projects and Routines follow the same layout. Editor/detail toolbars keep their
 contextual actions.
 
 
-The sidebar Accounts switcher shows All inboxes and each connected account directly.
-Select an account to scope mail or All inboxes to combine accounts. Long email
-addresses stay on one line and fade at the edge. The plus beside Accounts connects
-another account. Signal and Noise are inset tabs in the main inbox topbar; Favorites
-and Drafts use the same sidebar item style as Sent and Scheduled.
+The header uses plain-text Important, Other, and Calendar controls with account-scoped
+server totals. Tab/Shift+Tab cycle these views in the mail list; inputs, menus,
+dialogs, and open-thread details retain native focus navigation.
+
+Unknown or locally incomplete counts are omitted rather than shown as zero.
+Counts cover each view’s server results for the selected inbox/alias, not just
+the currently loaded page. The Calendar shortcut now lives in the header.
