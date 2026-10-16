@@ -56,6 +56,8 @@ export function EmailSearchFileRow(props: {
   onOpen: (event: MouseEvent) => void;
   onOpenEmail: (event: MouseEvent) => void;
 }) {
+  const listLayout = useListLayout();
+  const isWide = () => listLayout?.isWide() ?? true;
   const file = () => props.row.file;
   const origin = () => {
     const sentAt = file().sentAt;
@@ -74,11 +76,24 @@ export function EmailSearchFileRow(props: {
       <span class="size-4 shrink-0">
         <EmailAttachmentIcon mimeType={file().mimeType} />
       </span>
-      <span class="ph-no-capture min-w-0 truncate font-medium text-ink">
-        {file().filename}
-      </span>
-      <span class="ph-no-capture ml-auto min-w-0 truncate text-ink-muted">
-        {origin()}
+      {/* Narrow lists stack the origin under the name so the name stays readable. */}
+      <span
+        class={cn(
+          'flex min-w-0 flex-1',
+          isWide() ? 'items-center gap-2' : 'flex-col py-1'
+        )}
+      >
+        <span class="ph-no-capture min-w-0 truncate font-medium text-ink">
+          {file().filename}
+        </span>
+        <span
+          class={cn(
+            'ph-no-capture min-w-0 truncate text-ink-muted',
+            isWide() ? 'ml-auto' : 'text-xs'
+          )}
+        >
+          {origin()}
+        </span>
       </span>
       <Button
         variant="ghost"
