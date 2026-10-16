@@ -1,6 +1,7 @@
 import {
   $getStoredPinnedProperties,
-  UPDATE_PINNED_PROPERTIES_COMMAND,
+  ADD_PINNED_PROPERTY_COMMAND,
+  REMOVE_PINNED_PROPERTY_COMMAND,
 } from '@core/component/LexicalMarkdown/plugins/pinned-properties/pinnedPropertiesPlugin';
 import { resolvePinnedPropertyIds } from '@property/core/pinned-property-ids';
 import type { Property } from '@property/types';
@@ -39,20 +40,34 @@ export function createPinnedProperties(
       propertyDefinitionId ??
       properties.find((property) => property.propertyId === id)
         ?.propertyDefinitionId;
-    current.dispatchCommand(UPDATE_PINNED_PROPERTIES_COMMAND, (storedIds) => {
+    current.update(() => {
+      const storedIds = $getStoredPinnedProperties();
       const selected = resolvePinnedPropertyIds(
         properties,
         storedIds,
         defaults
       );
-      return pin
-        ? selected.includes(id)
-          ? [...selected]
-          : [...selected, id]
-        : selected.filter(
-            (selectedId) =>
-              selectedId !== id && selectedId !== `pending:${definitionId}`
-          );
+      // Materialize defaults and resolve placeholder IDs using the existing commands.
+      for (const propertyId of selected) {
+        if (!storedIds?.includes(propertyId)) {
+          current.dispatchCommand(ADD_PINNED_PROPERTY_COMMAND, propertyId);
+        }
+      }
+      for (const propertyId of storedIds ?? []) {
+        if (!selected.includes(propertyId)) {
+          current.dispatchCommand(REMOVE_PINNED_PROPERTY_COMMAND, propertyId);
+        }
+      }
+      current.dispatchCommand(
+        pin ? ADD_PINNED_PROPERTY_COMMAND : REMOVE_PINNED_PROPERTY_COMMAND,
+        id
+      );
+      if (!pin && definitionId) {
+        current.dispatchCommand(
+          REMOVE_PINNED_PROPERTY_COMMAND,
+          `pending:${definitionId}`
+        );
+      }
     });
   };
   return {
