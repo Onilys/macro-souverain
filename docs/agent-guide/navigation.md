@@ -20,7 +20,8 @@ must load through the webview, not native HTTP. A `vite:preloadError` with
 same bundle does not resolve it.
 
 When multiple desktop splits are open, each split's **Close split** button sits
-2px inside its top-left corner in a 16px circle with a 10px X. It is absolutely
+flush in its top-left corner as a 16px nested control with a 10px X. It has
+only right and bottom borders, with its bottom-right radius matching the split. It is absolutely
 positioned over the split and does not move the header content. It closes only that
 split; the last remaining page keeps its existing return-to-list navigation.
 Mobile keeps its existing navigation controls. Verify both collection and document
