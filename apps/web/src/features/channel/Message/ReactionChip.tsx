@@ -90,9 +90,10 @@ export function ReactionChip(props: ReactionChipProps) {
               }))
             }
             size="sm"
-            variant={props.selected ? 'accent' : 'outline'}
+            variant="outline"
             class={cn(
               'flex flex-row items-center h-7 min-w-7 gap-1',
+              props.selected && 'border-ink/30 bg-ink/10 text-ink',
               !props.interactive && 'pointer-events-auto'
             )}
             disabled={!props.interactive}

@@ -1250,3 +1250,5 @@ between its views. Keyboard arrow selection and icon-only collapsed headers
 retain the same behavior; reduced-motion preferences disable the sliding transition.
 
 Share and New Channel use the same floating dialog shell as Cmd+K and Create: a separated header, scrolling body, and footer actions. New Channel still follows Name → Visibility → Add people; advancing past Visibility creates the channel. Escape or clicking outside dismisses the dialog when no request is pending.
+
+Selected emoji reactions use a subtle ink-tinted fill and border in both themes, rather than the high-contrast primary action fill. Emoji retain their native colors.
