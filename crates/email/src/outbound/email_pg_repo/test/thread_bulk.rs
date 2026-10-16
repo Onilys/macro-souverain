@@ -139,6 +139,17 @@ async fn pages_continue_after_the_cursor_without_repeating_threads(
     .await?;
     assert_eq!(ids(&second), vec![SIGNAL_4]);
     assert_eq!(second.next, None);
+
+    // A page that ends exactly at the last thread is the last page.
+    let exact = list(
+        &service,
+        inbox_tab(true),
+        BulkThreadStart::FromThread(SIGNAL_2),
+        3,
+    )
+    .await?;
+    assert_eq!(ids(&exact), vec![SIGNAL_2, SIGNAL_3, SIGNAL_4]);
+    assert_eq!(exact.next, None);
     Ok(())
 }
 

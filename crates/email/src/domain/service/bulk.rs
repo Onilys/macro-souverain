@@ -152,15 +152,20 @@ where
             }
         };
 
+        // One row past the page tells whether another page exists.
         let remaining = limit.saturating_sub(threads.len() as u32);
-        let mut has_more = remaining == 0;
-        if remaining > 0 {
-            let page = self
-                .bulk_thread_page(&macro_id, &link_ids, &query.view, filter, after, remaining)
-                .await?;
-            has_more = page.len() as u32 == remaining;
-            threads.extend(page);
-        }
+        let page = self
+            .bulk_thread_page(
+                &macro_id,
+                &link_ids,
+                &query.view,
+                filter,
+                after,
+                remaining + 1,
+            )
+            .await?;
+        let has_more = page.len() as u32 > remaining;
+        threads.extend(page.into_iter().take(remaining as usize));
 
         Ok(BulkThreadTargetsPage {
             next: threads.last().filter(|_| has_more).map(cursor_of),
