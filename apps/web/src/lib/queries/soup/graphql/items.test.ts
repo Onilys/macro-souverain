@@ -190,7 +190,7 @@ describe('createGraphqlSoupAstItemsQuery', () => {
     });
   });
 
-  it('dates INBOX rows by the inbox sort key, not the sortTs another view stored on the record', async () => {
+  it("hands the query's email view to the item mapper", async () => {
     const fake = makeFakeClient();
     getGraphqlSoupClientMock.mockReturnValue(fake.client);
     makeGraphqlSoupInputMock.mockReturnValue({
@@ -206,33 +206,17 @@ describe('createGraphqlSoupAstItemsQuery', () => {
     try {
       fake.executions[0].next(
         graphqlSoupPage({
-          items: [
-            {
-              __typename: 'GraphqlSoupEmailThread',
-              id: 'invite',
-              sortTs: '2026-09-28T19:32:00+00:00',
-              latestInboundMessageTs: '2026-09-28T19:32:00+00:00',
-              reminderReturnedAt: '2026-10-06T21:14:00+00:00',
-            },
-            {
-              __typename: 'GraphqlSoupEmailThread',
-              id: 'plain',
-              sortTs: '2026-10-01T20:30:00+00:00',
-              latestInboundMessageTs: '2026-10-01T20:30:00+00:00',
-              reminderReturnedAt: null,
-            },
-          ],
+          items: [{ __typename: 'GraphqlSoupEmailThread', id: 'invite' }],
           next_cursor: null,
         })
       );
-      const sortTs = () =>
-        query
-          .data()
-          ?.entities.map((entity) => (entity as { sortTs: string }).sortTs);
-      expect(sortTs()).toEqual([
-        '2026-10-06T21:14:00+00:00',
-        '2026-10-01T20:30:00+00:00',
+      expect(query.data()?.entities.map((entity) => entity.id)).toEqual([
+        'invite',
       ]);
+      expect(mapGraphqlSoupItemMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'invite' }),
+        { emailView: 'INBOX' }
+      );
     } finally {
       dispose();
     }
@@ -1851,7 +1835,6 @@ describe('createGraphqlSoupAstItemsQuery', () => {
             __typename: 'GraphqlSoupEmailThread',
             id: key.split(':')[1],
             name: key,
-            sortTs: 'wrong-view-timestamp',
             mailAllPreview: {
               id: `${key}-preview`,
               subject: key,
@@ -1911,10 +1894,6 @@ describe('createGraphqlSoupAstItemsQuery', () => {
       ]);
       expect(query.hasNextPage()).toBe(false);
       expect(fake.executions).toHaveLength(1);
-      expect(
-        (query.data()?.entities[0] as unknown as { sortTs: string } | undefined)
-          ?.sortTs
-      ).toBe(ts);
       fake.executions[0].next(
         graphqlSoupPage({ items: [], next_cursor: 'server-cursor' }),
         { source: 'normalized-cache-hit', revision: REVISION_0 }
