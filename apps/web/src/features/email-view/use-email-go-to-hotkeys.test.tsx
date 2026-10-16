@@ -53,7 +53,7 @@ const disposers: (() => void)[] = [];
 function setup() {
   registerScope({ scopeId: EMAIL_SCOPE, parentScopeId: 'global', type: 'dom' });
   registerScope({ scopeId: OTHER_SCOPE, parentScopeId: 'global', type: 'dom' });
-  const sidebar = vi.fn(() => true);
+  const sidebar = vi.fn((_key: ValidHotkey) => true);
   const registerSidebarLink = (key: ValidHotkey) =>
     registerHotkey({
       hotkey: key,
