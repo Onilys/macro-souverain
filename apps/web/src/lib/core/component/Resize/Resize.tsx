@@ -528,6 +528,10 @@ function Gutter(props: GutterProps) {
   onCleanup(() => {
     removeDragListeners();
     if (frame !== undefined) cancelAnimationFrame(frame);
+    if (ptrDown()) {
+      pointerId = undefined;
+      props.onChangeEnd();
+    }
   });
 
   function onKeyDown(ev: KeyboardEvent) {

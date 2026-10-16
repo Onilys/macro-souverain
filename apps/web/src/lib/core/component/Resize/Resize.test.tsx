@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@solidjs/testing-library';
+import { createSignal } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Resize } from './Resize';
 
@@ -29,8 +30,9 @@ function pointer(target: EventTarget, type: string, x: number, pointerId = 1) {
 
 function setup(direction: 'horizontal' | 'vertical' = 'horizontal', zoom = 1) {
   const onSizeChangeEnd = vi.fn();
+  const [gutter, setGutter] = createSignal(8);
   const view = render(() => (
-    <Resize.Zone direction={direction} gutter={8}>
+    <Resize.Zone direction={direction} gutter={gutter()}>
       <Resize.Panel id="first" minSize={100} onSizeChangeEnd={onSizeChangeEnd}>
         First
       </Resize.Panel>
@@ -56,10 +58,29 @@ function setup(direction: 'horizontal' | 'vertical' = 'horizontal', zoom = 1) {
     panel,
     measure,
     onSizeChangeEnd,
+    setGutter,
   };
 }
 
 describe('split resize interactions', () => {
+  it('finishes an applied drag when its handle unmounts but the zone stays mounted', () => {
+    const view = setup();
+    pointer(view.handle, 'pointerdown', 500);
+    pointer(window, 'pointermove', 560);
+    vi.advanceTimersToNextFrame();
+    expect(view.panel.style.width).toBe('556px');
+    pointer(window, 'pointermove', 600);
+    view.setGutter(0);
+    expect(view.queryByRole('separator')).toBeNull();
+    expect(view.onSizeChangeEnd).toHaveBeenCalledOnce();
+    expect(view.onSizeChangeEnd).toHaveBeenCalledWith(556);
+    pointer(window, 'pointerup', 600);
+    vi.advanceTimersToNextFrame();
+    expect(view.onSizeChangeEnd).toHaveBeenCalledOnce();
+    expect(view.measure).toHaveBeenCalledTimes(1);
+    view.unmount();
+  });
+
   it('coalesces pointer samples and saves the final release position', () => {
     const view = setup();
     expect(view.panel.style.width).toBe('496px');
