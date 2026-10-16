@@ -135,6 +135,15 @@ fn ios_native_check_alert_only_fires_for_a_failed_gate() {
         alert.contains("jq -n --arg content"),
         "jq escapes the message into the payload the DSS webhook expects: {script}"
     );
+    // An unanswered request would otherwise hold a runner for hours.
+    assert!(
+        script.contains("--max-time") && script.contains("--retry-max-time"),
+        "the webhook request bounds one attempt and the retry window: {script}"
+    );
+    assert!(
+        alert.contains("timeout-minutes: 5"),
+        "the reporting job cannot outlive one bounded request: {alert}"
+    );
     let status = yaml
         .split("\n  status-check:\n")
         .nth(1)

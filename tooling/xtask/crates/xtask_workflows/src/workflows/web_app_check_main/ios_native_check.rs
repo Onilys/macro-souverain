@@ -248,6 +248,8 @@ pub(super) fn alert_job() -> Job {
         .cond(Expression::new(format!(
             "failure() && needs.{JOB_ID}.result == 'failure'"
         )))
+        // One bounded HTTP request; the default 6 hours would be absurd here.
+        .timeout_minutes(5u32)
         .permissions(Permissions::default().contents(Level::None))
         .add_step(alert_step())
 }
