@@ -115,10 +115,11 @@ Files rows are part of list navigation: `j`/`k` and the arrows move through
 them, though focus still starts on the first email. Enter or a click opens the
 attachment preview in a split. `Shift+Enter` or the row's **Open email** button
 opens the thread inline at the message carrying the file, expanded and
-highlighted; Shift-click opens it in a new split. On touch, Open email is always
-visible and a tap on the row opens the preview. To verify, search for a word in
-a thread with attachments, check that a matching filename sorts first, open the
-preview, then use Open email from another row.
+highlighted; Shift-click opens it in a new split. On phones, search from the
+dock and pick the Email scope; narrow lists put the sender and date under the
+filename, Open email is always visible, and a tap on the row opens the preview.
+To verify, search for a word in a thread with attachments, check that a matching
+filename sorts first, open the preview, then use Open email from another row.
 
 ### Read state and trash
 
