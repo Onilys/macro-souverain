@@ -275,15 +275,17 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
                 New
               </Dropdown.Trigger>
               <Dropdown.Content>
-                <Dropdown.Item onSelect={() => props.onCreateAgent('agent')}>
-                  Work agent
-                </Dropdown.Item>
-                <Dropdown.Item onSelect={() => props.onCreateAgent('coder')}>
-                  Coding agent
-                </Dropdown.Item>
-                <Dropdown.Item onSelect={props.onCreateRoutine}>
-                  Routine
-                </Dropdown.Item>
+                <Dropdown.Group>
+                  <Dropdown.Item onSelect={() => props.onCreateAgent('agent')}>
+                    Work agent
+                  </Dropdown.Item>
+                  <Dropdown.Item onSelect={() => props.onCreateAgent('coder')}>
+                    Coding agent
+                  </Dropdown.Item>
+                  <Dropdown.Item onSelect={props.onCreateRoutine}>
+                    Routine
+                  </Dropdown.Item>
+                </Dropdown.Group>
               </Dropdown.Content>
             </Dropdown>
           )}
