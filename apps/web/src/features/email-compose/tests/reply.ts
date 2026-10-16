@@ -49,6 +49,7 @@ export function mountReplyComposer(
           isPersonalReply: () => false,
           onDraftRemoved() {},
           exitToThread: () => false,
+          returnToList: () => false,
           replyRequest: { replyType: () => undefined, clear() {} },
         },
       },

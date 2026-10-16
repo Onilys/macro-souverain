@@ -23,6 +23,8 @@ export interface EmailReplySession {
   isPersonalReply: Accessor<boolean>;
   onDraftRemoved(): void;
   exitToThread(target: 'last' | 'selected'): boolean;
+  /** Closes the thread back to its list; false when the host has none. */
+  returnToList(): boolean;
   replyRequest: {
     replyType: Accessor<ReplyType | undefined>;
     clear(): void;

@@ -17,7 +17,7 @@ import Trash from '@phosphor/trash.svg';
 import { isIOS } from '@solid-primitives/platform';
 import { Button, cn, SendButton, Surface, Tooltip } from '@ui';
 import type { LexicalEditor } from 'lexical';
-import { $getRoot } from 'lexical';
+import { $getRoot, COMMAND_PRIORITY_LOW, KEY_ESCAPE_COMMAND } from 'lexical';
 import { createResource, createSignal, For, onMount, Show } from 'solid-js';
 import { createAttachmentViewer } from '../components/attachment-viewer';
 import { DraftSyncStatus } from '../components/draft-sync-status';
@@ -199,6 +199,17 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
     isMobileDrawer() ? signatureHtml() : undefined;
   const footerSignatureHtml = () =>
     isMobileDrawer() ? undefined : signatureHtml();
+  // Escape leaves for the list and keeps the draft; an empty reply is
+  // discarded first. A thread with no list hands focus back to its messages.
+  const closeReply = () => {
+    if (collectDraft() === null) {
+      void deleteDraftAndReset();
+      ctx.returnToList();
+    } else if (!ctx.returnToList() && !ctx.exitToThread('selected')) {
+      ctx.exitToThread('last');
+    }
+    return true;
+  };
   // File sharing and editor plugin wiring belong to this view. The controller only
   // needs to know when editor content has changed and requires another save.
   const editorConfig = buildConfig('markdown')
@@ -221,6 +232,15 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
     .withSelectionData()
     .withFloatingFormatMenu()
     .use(registerToggleAppendedThread)
+    // Below the editor's menus, above rich text's default blur, which would
+    // leave focus on <body> with nothing to receive the next Escape.
+    .use((lexical) =>
+      lexical.registerCommand(
+        KEY_ESCAPE_COMMAND,
+        () => !composeContext.presentation.isTouch() && closeReply(),
+        COMMAND_PRIORITY_LOW
+      )
+    )
     .onChange(state.onContentChange)
     .withFilePaste({
       onPasteFilesAndDirs: (files, directories) => {
@@ -305,20 +325,9 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
         hotkey: 'escape',
         scopeId: composeHotkeyScope,
         description: 'Close reply',
-        keyDownHandler: () => {
-          const draft = collectDraft();
-          const isEmpty = draft === null;
-
-          if (isEmpty) {
-            // Delete draft and close reply
-            deleteDraftAndReset();
-          } else {
-            // Move focus back to the message
-            ctx.exitToThread('selected');
-          }
-          return true;
-        },
-        // Let editable fields handle Escape before closing the reply.
+        keyDownHandler: closeReply,
+        // Focused fields reach closeReply through their own Escape handling,
+        // once their menus and typed text are dismissed.
         runWithInputFocused: false,
         hotkeyToken: TOKENS.email.cancelReply,
         displayPriority: 8,
@@ -466,6 +475,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
           portalScope={composePortalScope}
           replyType={state.replyType}
           disabled={editingDisabled}
+          onEscape={closeReply}
         />
         <div
           class={cn(

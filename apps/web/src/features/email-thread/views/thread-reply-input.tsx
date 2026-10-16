@@ -135,6 +135,7 @@ function ThreadReplyInputSession(props: ThreadReplyInputProps) {
                   if (!id) return false;
                   return focusMessage(id);
                 },
+                returnToList: ctx.returnToList,
               }}
               sourceEntityId={
                 ctx.thread()?.db_id ??
