@@ -26,6 +26,7 @@ import { useCompose } from '../context/compose-context';
 export function EmailComposeToolbar(props: {
   editor?: () => LexicalEditor | undefined;
   status?: JSX.Element;
+  hotkeyScope?: string;
 }) {
   const ctx = useCompose();
   const [showFormatRibbon, setShowFormatRibbon] = createSignal(false);
@@ -138,6 +139,7 @@ export function EmailComposeToolbar(props: {
                 onCancelSchedule={ctx.schedule.onCancel}
                 operation={ctx.schedule.operation()}
                 disabled={ctx.schedule.pickerDisabled()}
+                hotkeyScope={props.hotkeyScope}
               />
             </div>
           </Show>

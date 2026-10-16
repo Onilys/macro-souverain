@@ -1,12 +1,14 @@
 import { DatePickerUI } from '@core/component/DatePicker/DatePickerUI';
-import { useDateSearch } from '@core/util/dateSearch/useDateSearch';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { createTimeOptions } from '@core/util/dateSearch/timeOptions';
+import { formatDateWithContext } from '@core/util/dateSearch/useDateSearch';
 import {
   Combobox,
   type ComboboxRootItemComponentProps,
 } from '@kobalte/core/combobox';
 import SearchIcon from '@phosphor/magnifying-glass.svg';
 import { useSearchInputFocus } from '@property/utils/focus';
-import { Surface } from '@ui';
+import { Hotkey, highlightFirstMenuItemOnOpen, Surface } from '@ui';
 import { format, setHours, setMinutes, startOfDay } from 'date-fns';
 import {
   type Component,
@@ -18,22 +20,28 @@ import {
   on,
   Show,
 } from 'solid-js';
+import {
+  SEND_LATER_DEFAULT_TIME,
+  sendLaterPresets,
+} from '../core/send-later-presets';
 
 type DateSelectorMode = 'search' | 'calendar';
 
 type DateSelectorOption =
   | {
       type: 'option';
-      displayText: string;
-      secondaryText?: string;
+      id: string;
+      label: string;
       date: Date;
+      /** Opt+digit picks this preset; numbered from 1. */
+      presetNumber?: number;
     }
   | { type: 'select-custom' }
   | { type: 'custom'; date: Date };
 
 type DateSelectorProps = {
   open?: boolean;
-  onClose?: VoidFunction;
+  onOpenChange?: (open: boolean) => void;
   selectedDate?: Date | null;
   /** Return false (or reject) to leave the confirmed selection unchanged. */
   onSelectDate?: (
@@ -92,19 +100,24 @@ export const DateSelector = (props: DateSelectorProps) => {
     )
   );
 
-  const [internalOpen, setInternalOpen] = createSignal(props.open ?? false);
-  createEffect(
-    on(
-      () => props.open,
-      (open) => {
-        if (open !== undefined) setInternalOpen(open);
-      },
-      { defer: true }
-    )
-  );
-  const isControlled = () => props.open !== undefined;
-  const isOpen = () => (isControlled() ? props.open! : internalOpen());
+  const [internalOpen, setInternalOpen] = createSignal(false);
+  const isOpen = () => props.open ?? internalOpen();
   const [mode, setMode] = createSignal<DateSelectorMode>('search');
+
+  // Where focus was when the menu opened. Closing returns it there so the
+  // composer keeps its shortcuts; left to Kobalte it ends up on the page.
+  // Touch keeps Kobalte's behavior so closing never raises the keyboard.
+  let focusOnClose: HTMLElement | undefined;
+  createEffect(
+    on(isOpen, (open) => {
+      if (!open || isTouchDevice()) return;
+      const active = document.activeElement;
+      focusOnClose =
+        active instanceof HTMLElement && active !== document.body
+          ? active
+          : undefined;
+    })
+  );
 
   const [searchQuery, setSearchQuery] = createSignal('');
   const [listboxRef, setListboxRef] = createSignal<HTMLElement | undefined>();
@@ -112,10 +125,10 @@ export const DateSelector = (props: DateSelectorProps) => {
     HTMLInputElement | undefined
   >();
 
-  const dateOptions = useDateSearch({
+  const timeOptions = createTimeOptions({
     query: searchQuery,
-    baseDate: startOfDay(new Date()),
-    defaultTime: { hours: 8, minutes: 0 },
+    defaultTime: SEND_LATER_DEFAULT_TIME,
+    presets: sendLaterPresets,
   });
 
   const dispatchKeyToListbox = (key: string) => {
@@ -129,6 +142,20 @@ export const DateSelector = (props: DateSelectorProps) => {
     const target = e.target;
     const isNonComboboxInput =
       target instanceof HTMLInputElement && target !== searchInputRef();
+
+    // `code`, not `key`: macOS types "¡" for Option+1.
+    const presetDigit =
+      e.altKey && !e.metaKey && !e.ctrlKey
+        ? /^Digit([1-9])$/.exec(e.code)?.[1]
+        : undefined;
+    const preset = presetDigit
+      ? sendLaterPresets(new Date())[Number(presetDigit) - 1]
+      : undefined;
+    if (preset) {
+      e.preventDefault();
+      void onChange({ type: 'option', ...preset });
+      return;
+    }
 
     switch (e.key) {
       case 'Delete':
@@ -164,7 +191,7 @@ export const DateSelector = (props: DateSelectorProps) => {
 
   useSearchInputFocus(
     () => searchInputRef(),
-    () => true
+    () => isTouchDevice()
   );
 
   const onInputChange = (value: string) => {
@@ -182,12 +209,14 @@ export const DateSelector = (props: DateSelectorProps) => {
     setMode('search');
   };
 
-  const onOpenChange = (open: boolean) => {
+  const setOpen = (open: boolean) => {
     setInternalOpen(open);
-    if (!open) {
-      resetState();
-      props.onClose?.();
-    }
+    props.onOpenChange?.(open);
+    if (open) return;
+    resetState();
+    // Kobalte restores focus a tick after the input is gone, leaving the page
+    // focused in between; restore it while the input still exists.
+    if (focusOnClose?.isConnected) focusOnClose.focus();
   };
 
   const onChange = async (option: DateSelectorOption | null) => {
@@ -196,7 +225,7 @@ export const DateSelector = (props: DateSelectorProps) => {
       return;
     }
 
-    onOpenChange(false);
+    setOpen(false);
     const dateValue = option?.date ?? null;
     try {
       const accepted = await props.onSelectDate?.(dateValue);
@@ -206,34 +235,33 @@ export const DateSelector = (props: DateSelectorProps) => {
     }
   };
 
-  const options = createMemo(() => {
-    const list: DateSelectorOption[] = [];
-
-    for (const option of dateOptions()) {
-      list.push({
-        type: 'option',
-        displayText: option.displayText,
-        secondaryText: option.secondaryText,
-        date: option.date,
-      });
-    }
-
-    list.push({
-      type: 'select-custom',
-    });
-
-    return list;
+  const options = createMemo((): DateSelectorOption[] => {
+    const presetIds = sendLaterPresets(new Date()).map((preset) => preset.id);
+    return [
+      ...timeOptions().map((option): DateSelectorOption => {
+        const index = presetIds.indexOf(option.id);
+        return {
+          type: 'option',
+          ...option,
+          presetNumber: index >= 0 ? index + 1 : undefined,
+        };
+      }),
+      { type: 'select-custom' },
+    ];
   });
 
+  // Ids, not dates: on Sundays "Tomorrow morning" and "Monday morning" are
+  // the same instant.
   const getOptionValue = (option: DateSelectorOption) => {
     if (option.type === 'select-custom') return '';
+    if (option.type === 'option') return option.id;
     return option.date.toString();
   };
 
   const getOptionTextValue = (option: DateSelectorOption) => {
     if (option.type === 'select-custom') return 'Custom date';
 
-    return option.type === 'option' ? option.displayText : '';
+    return option.type === 'option' ? option.label : '';
   };
 
   const selectedDate = () => {
@@ -284,14 +312,14 @@ export const DateSelector = (props: DateSelectorProps) => {
       optionValue={getOptionValue}
       optionTextValue={getOptionTextValue}
       optionLabel={() => ''}
-      onOpenChange={onOpenChange}
+      onOpenChange={setOpen}
       onChange={onChange}
       onInputChange={onInputChange}
       allowsEmptyCollection
       placement="bottom-start"
       placeholder={props.placeholder ?? 'Select date'}
       closeOnSelection={false}
-      // Filtering is done by `useDateSearch`
+      // Filtering is done by `createTimeOptions`
       defaultFilter={() => true}
       itemComponent={DateSelectorItem}
     >
@@ -304,7 +332,7 @@ export const DateSelector = (props: DateSelectorProps) => {
             onKeyDown={(e: KeyboardEvent) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                setInternalOpen(true);
+                setOpen(true);
               }
             }}
           >
@@ -321,6 +349,9 @@ export const DateSelector = (props: DateSelectorProps) => {
           as={Surface}
           depth={3}
           on:keydown={handleKeyDown}
+          onCloseAutoFocus={(event: Event) => {
+            if (focusOnClose?.isConnected) event.preventDefault();
+          }}
         >
           <WithCustomDateMode
             selectedDate={selectedDate()}
@@ -329,13 +360,21 @@ export const DateSelector = (props: DateSelectorProps) => {
             mode={mode()}
             onSelectDate={(date) => {
               void onChange({ type: 'custom', date });
-              setInternalOpen(false);
             }}
           >
             <div class="flex w-full items-center py-2 gap-2 px-2 border-b border-edge-muted">
               <SearchIcon class="size-4 text-ink-muted" />
               <Combobox.Input
-                ref={setSearchInputRef}
+                ref={(el) => {
+                  setSearchInputRef(el);
+                  // Keys typed right after Cmd+Shift+L belong to the search,
+                  // not the editor that still has focus. Kobalte re-creates
+                  // the input while handling Escape, so check it is still open.
+                  if (isTouchDevice()) return;
+                  queueMicrotask(() => {
+                    if (isOpen()) el.focus({ preventScroll: true });
+                  });
+                }}
                 class="w-full caret-accent"
                 autofocus
               />
@@ -363,7 +402,7 @@ export const DateSelector = (props: DateSelectorProps) => {
             </Show>
             <div class="p-1.5">
               <div class="max-h-56 overflow-y-auto overflow-x-hidden scrollbar-hidden">
-                <Show when={dateOptions().length === 0}>
+                <Show when={timeOptions().length === 0}>
                   <Show
                     when={searchQuery().trim()}
                     fallback={
@@ -377,7 +416,12 @@ export const DateSelector = (props: DateSelectorProps) => {
                     </div>
                   </Show>
                 </Show>
-                <Combobox.Listbox ref={setListboxRef} />
+                <Combobox.Listbox
+                  ref={(el) => {
+                    setListboxRef(el);
+                    highlightFirstMenuItemOnOpen(el);
+                  }}
+                />
               </div>
             </div>
             <Show when={props.withTime}>
@@ -399,10 +443,10 @@ export const DateSelector = (props: DateSelectorProps) => {
             <div class="px-2 py-1.5 border-t border-edge-muted">
               <div class="text-xs text-ink-muted">
                 <span>Use queries like </span>
-                <code class="bg-active px-1">3d</code>,{' '}
-                <code class="bg-active px-1">1w</code>,{' '}
-                <code class="bg-active px-1">feb 17</code>, or{' '}
-                <code class="bg-active px-1">tomorrow</code>
+                <code class="bg-active px-1">tom 5</code>,{' '}
+                <code class="bg-active px-1">fri 9am</code>,{' '}
+                <code class="bg-active px-1">in 2h</code>, or{' '}
+                <code class="bg-active px-1">feb 17</code>
               </div>
             </div>
             <Show when={props.footer}>
@@ -492,7 +536,7 @@ const DateSelectorItem: Component<
   const label = () => {
     const item = props.item.rawValue;
 
-    if (item.type === 'option') return item.displayText;
+    if (item.type === 'option') return item.label;
 
     return 'Custom date...';
   };
@@ -500,8 +544,13 @@ const DateSelectorItem: Component<
   const description = () => {
     const item = props.item.rawValue;
 
-    if (item.type === 'option') return item.secondaryText;
+    if (item.type === 'option') return formatDateWithContext(item.date);
     return 'Pick from calendar';
+  };
+
+  const presetNumber = () => {
+    const item = props.item.rawValue;
+    return item.type === 'option' ? item.presetNumber : undefined;
   };
 
   const item = () => (
@@ -525,6 +574,15 @@ const DateSelectorItem: Component<
         <Combobox.ItemDescription as="span" class="text-xs text-ink-muted">
           {description()}
         </Combobox.ItemDescription>
+      </Show>
+      <Show when={presetNumber()}>
+        {(number) => (
+          <Hotkey
+            shortcut={`opt+${number()}`}
+            theme="subtle"
+            class="touch:hidden"
+          />
+        )}
       </Show>
     </Combobox.Item>
   );

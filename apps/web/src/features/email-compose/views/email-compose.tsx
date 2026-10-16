@@ -250,9 +250,13 @@ function LoadedEmailComposeView(
             )}
           >
             <ComposeLayout
-              toolbar={
-                <EmailComposeToolbar editor={editor} status={<SyncStatus />} />
-              }
+              toolbar={(hotkeyScope) => (
+                <EmailComposeToolbar
+                  editor={editor}
+                  status={<SyncStatus />}
+                  hotkeyScope={hotkeyScope}
+                />
+              )}
               notice={hasInboxError() ? <EmailPermissionsBanner /> : undefined}
               class="size-full p-4 touch:bg-surface max-h-full touch:max-h-none overflow-hidden flex flex-col min-h-0 touch:min-h-full"
             />

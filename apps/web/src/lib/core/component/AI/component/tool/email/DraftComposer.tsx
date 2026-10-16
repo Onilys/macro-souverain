@@ -369,9 +369,9 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
           )}
           header={header()}
           toolbar={
-            props.readOnly === true ? undefined : (
-              <EmailComposeToolbar editor={editor} />
-            )
+            props.readOnly === true
+              ? undefined
+              : () => <EmailComposeToolbar editor={editor} />
           }
         />
         <Show when={uiDisabled()}>
