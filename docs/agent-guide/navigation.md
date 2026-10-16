@@ -1007,3 +1007,5 @@ settings, add, and agent icons can also animate after a short hover. This does n
 change navigation, selection, or the outer rail's two-second tooltip delay.
 Reduced-motion preferences disable this feedback. The icon gallery at
 `/app/debug/icon-gallery` includes interactive light and dark specimens.
+
+On desktop, the right-edge plus opens a half-radial split launcher. Split opens a fresh Home pane; Email and Doc create in a new split, and More opens the full creation menu. The plus rotates to an X; cancel, Escape, leaving focus, or clicking outside reverses the fan animation. Arrow keys move between actions, and reduced-motion preferences disable transitions. Touch keeps its existing creation controls.

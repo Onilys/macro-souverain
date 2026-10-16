@@ -16,6 +16,7 @@ import {
   Suspense,
 } from 'solid-js';
 import { PopoverSplitRenderer } from './components/PopoverSplitRenderer';
+import { SplitEdgeLauncher } from './components/SplitEdgeLauncher';
 import { SplitPanel } from './components/SplitPanel';
 import { SplitLayoutContext } from './context';
 import { createSplitLayout, type SplitId } from './layoutManager';
@@ -80,7 +81,7 @@ export function SplitLayout() {
         when={paneStack}
         fallback={
           <div
-            class="size-full"
+            class="relative size-full"
             classList={{ 'py-1.5 pr-1.5': useBentoLayout() }}
           >
             <Resize.Zone
@@ -115,6 +116,9 @@ export function SplitLayout() {
                 )}
               </For>
             </Resize.Zone>
+            <Show when={!isTouchDevice()}>
+              <SplitEdgeLauncher />
+            </Show>
           </div>
         }
       >
