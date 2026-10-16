@@ -257,14 +257,14 @@ export function WideLayout(props: LayoutProps) {
         </Show>
         <Show when={isEmailEntity(props.entity) && props.entity}>
           {(entity) => (
-            <span class="flex shrink-0 items-center gap-1">
+            <span class="flex shrink-0 items-center gap-2">
               <RowTags
                 entityId={entity().id}
                 entityType={EntityType.THREAD}
                 properties={entity().properties}
                 onFilterByTag={props.onFilterByTag}
               />
-              <EmailInboxChip entity={entity()} />
+              <EmailInboxChip entity={entity()} size="md" />
             </span>
           )}
         </Show>
