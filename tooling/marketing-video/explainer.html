@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Macro explainer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* The long-form explainer: 16:9, about 80 s, led by a voiceover. A stack of apps that don't talk becomes one
+   connected workspace, which unfolds into a flowchart of one demo call moving through Macro: the call is recorded,
+   transcribed and summarized into team memory; an agent reads the call, the CRM and the email history, then updates
+   the deal, makes tasks, proposes the onboarding and drafts the reply; you review and send; the team picks it up;
+   search and your own MCP clients reach all of it. It folds back into one workspace and the end card.
+   Every beat is timed from the voiceover's word clock (explainer-vo.js, built by vo/build_vo.py). */
+@font-face { font-family: "Inter"; src: url("fonts/inter-variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+@font-face { font-family: "display"; src: url("fonts/roboto-slab-variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+@font-face { font-family: "mono"; src: url("fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+:root { --bg: #f5f1e8; --rail: #efebe3; --panel: #e9e5dc; --surf: #ece8df; --tile: #dfdbd3; --ink: #1d1c1a; --body: #54524f; --lab: #72706c; --mut: #8f8c86;
+  --ok: #2e9e5b; --warn: #f59e0b; --doc: #7c5cd6; --blue: #5b9be6; --claude: #d97757; --red: #e5484d; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+body { display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+html.render body { display: block; min-height: 0; }
+#stage { position: relative; overflow: hidden; flex: none; background: var(--bg); color: var(--ink);
+  font-family: "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; font-feature-settings: "cv11", "ss01"; }
+#world, #screen, .layer { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+.a { position: absolute; }
+.flex { display: flex; align-items: center; }
+.nowrap { white-space: nowrap; }
+.ic { display: inline-block; flex: none; vertical-align: -3px; }
+.slab { font-family: display; font-weight: 320; letter-spacing: -0.035em; line-height: 1; color: var(--ink); white-space: nowrap; }
+.w { display: inline-block; }
+.t1 { line-height: 1; white-space: nowrap; }
+.mono { font-family: mono, ui-monospace, monospace; letter-spacing: -0.01em; }
+.card { position: absolute; background: var(--surf); border-radius: 30px; box-shadow: 0 10px 40px -12px #1d1c1a26; }
+.card::after, .rim::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1px;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  background: linear-gradient(135deg, #ffffffb3, #ffffff00 45%), linear-gradient(#1d1c1a12, #1d1c1a12); }
+.who { font-size: 15px; color: var(--lab); margin: 0 0 3px 0; display: flex; gap: 7px; align-items: baseline; }
+.who i { font-style: normal; font-size: 12px; color: var(--mut); }
+.av { width: 44px; height: 44px; border-radius: 50%; flex: none; background-size: cover; background-position: center; box-shadow: inset 0 0 0 1px #1d1c1a14; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 14px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 13px 0 11px; border-radius: 18px; background: #1d1c1a0d; font-size: 16px; color: var(--ink); white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; background: #1d1c1a0d; color: var(--lab); font-size: 13.5px; font-weight: 500; white-space: nowrap; }
+.disc { position: absolute; border-radius: 50%; background: #e4e0d8; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12px 26px -16px #1d1c1a4d, inset 0 1px 0 #ffffffa0, inset 0 0 0 1px #1d1c1a0a; }
+.caret { display: inline-block; position: relative; width: 2px; height: 1.15em; vertical-align: -0.22em; background: var(--claude); margin-left: 2px; }
+.caret b { position: absolute; left: 0; bottom: 100%; margin-bottom: 3px; background: var(--claude); color: #fff; font-size: 12px; line-height: 1; font-weight: 600; padding: 4px 7px; border-radius: 5px 5px 5px 0; white-space: nowrap; font-style: normal; }
+.node { position: absolute; transform-origin: 50% 50%; }
+.ring { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: 0 0 0 1.5px #1d1c1a6b, 0 0 0 9px #1d1c1a0c; }
+.nh { position: absolute; left: 22px; top: 17px; display: flex; align-items: center; gap: 10px; height: 26px; font-size: 18px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.cap { position: absolute; font-size: 12.5px; font-weight: 600; letter-spacing: .13em; color: var(--lab); line-height: 1; white-space: nowrap; }
+.tag { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px; border-radius: 13px; background: var(--bg);
+  box-shadow: inset 0 0 0 1px #1d1c1a1f; font-size: 12.5px; font-weight: 600; letter-spacing: .13em; color: var(--lab); white-space: nowrap; transform-origin: 50% 50%; }
+.lbl { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 18px 0 14px; border-radius: 22px; background: #f8f5ef;
+  box-shadow: 0 10px 24px -12px #1d1c1a59, inset 0 0 0 1px #1d1c1a14; font-size: 21px; font-weight: 600; color: var(--ink); white-space: nowrap; transform-origin: 50% 50%; }
+.hl { background-image: linear-gradient(#ead9ae, #ead9ae); background-repeat: no-repeat; background-position: 0 92%; background-size: 0% 48%; }
+.fld { position: absolute; left: 22px; right: 22px; height: 52px; border-top: 1px solid #1d1c1a12; font-size: 18px; border-radius: 6px; }
+.fld .k { position: absolute; left: 2px; top: 0; line-height: 52px; color: var(--lab); }
+.fld .v { position: absolute; left: 118px; top: 0; height: 52px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.row { position: absolute; left: 14px; right: 14px; border-radius: 14px; }
+.ri { position: absolute; left: 10px; top: 50%; margin-top: -20px; width: 40px; height: 40px; border-radius: 50%; background: #e4e0d8; display: flex; align-items: center; justify-content: center; }
+.rt { position: absolute; left: 64px; top: 9px; font-size: 18px; font-weight: 600; line-height: 22px; white-space: nowrap; }
+.rs { position: absolute; left: 64px; top: 33px; font-size: 15px; line-height: 19px; color: var(--lab); white-space: nowrap; }
+.rs b { color: var(--ink); font-weight: 600; background: #ead9ae; border-radius: 3px; padding: 0 2px; }
+.rr { position: absolute; right: 12px; top: 12px; font-size: 13.5px; color: var(--mut); white-space: nowrap; }
+.tile { position: absolute; width: 250px; height: 164px; border-radius: 20px; background: var(--surf); box-shadow: 0 16px 36px -18px #1d1c1a4d, inset 0 0 0 1px #1d1c1a12; transform-origin: 50% 50%; }
+.sk { position: absolute; left: 20px; height: 9px; border-radius: 5px; background: #1d1c1a14; }
+.cta { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--ink); color: #f5f1e8; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 20px 44px -20px #1d1c1aa6, inset 0 1px 0 #ffffff26; }
+.spin { display: inline-flex; }
+.prow { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; color: var(--body); }
+.kick { position: absolute; left: 66px; font-size: 16px; font-weight: 600; letter-spacing: .15em; color: var(--lab); white-space: nowrap; line-height: 1; }
+</style>
+<script src="icons.js"></script>
+<script src="phx.js"></script>
+<script src="phx2.js"></script>
+<script src="explainer-vo.js"></script>
+</head>
+<body>
+<div id="stage"><div id="world"></div><div id="screen"></div></div>
+<script>
+"use strict";
+// ---------- film ----------
+const W = 1920, H = 1080;
+const VO = window.VO, T = VO.T, LN = VO.lines;
+const nrm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+// when the voiceover says a word: the n-th word of line `id` that starts with `w` (edge 1: when it ends)
+function vw(id, w, n = 0, edge = 0) {
+  const k = nrm(w); let c = 0;
+  for (const x of LN[id].words) if (nrm(x[0]).startsWith(k) && c++ === n) return x[1 + edge];
+  throw new Error(`"${w}" is not in ${id}`);
+}
+const L0 = (id) => LN[id].t0, L1 = (id) => LN[id].t1;
+const B = (x) => x;   // the timeline is in seconds (render.mjs stills call window.B)
+// music: "Swish Swed" (Arulo, Mixkit 201), 100 BPM, a bar every 2.4 s. The film opens in the song's breakdown, so its
+// first drop lands at 14.4 s as the camera dives into the flowchart; the riser before drop B sits under the fold and
+// drop B lands on the end card (bar 24 = 72 s). The mixer keeps all of it far below the voice.
+const BAR = (k) => 14.4 + 2.4 * k;
+const END = BAR(24);
+const SONG = "song-swish-swed-arulo-100.wav";
+const MUSIC = [   // [song second, film second, seconds, options]
+  [33.6382, 0, END - 2.4, { fadeIn: 0.6 }],
+  [122.4382, END - 2.4, 2.4, {}],
+  [124.8382, END, T - END, { fadeOut: 2.6 }],
+];
+
+// ---------- math ----------
+const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
+const lerp = (a, b, p) => a + (b - a) * p;
+const sm = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const TAU = Math.PI * 2;
+// Closed-form unit step response of a damped spring. resp = undamped period (s), damp = damping ratio.
+function spr(t, resp = 0.42, damp = 0.82) {
+  if (t <= 0) return 0;
+  const w = TAU / resp;
+  if (damp >= 1) { const e = Math.exp(-w * t); return 1 - e * (1 + w * t); }
+  const wd = w * Math.sqrt(1 - damp * damp), e = Math.exp(-damp * w * t);
+  return 1 - e * (Math.cos(wd * t) + (damp * w / wd) * Math.sin(wd * t));
+}
+const mj = (x) => { x = clamp(x); return x * x * x * (10 + x * (-15 + 6 * x)); }; // minimum-jerk
+const bell = (x) => (x <= 0 || x >= 1 ? 0 : 16 * x * x * (1 - x) * (1 - x));
+// A value that changes target several times: one spring per change ([t, value, resp, damp]); the film plays once.
+function Tr(evs) {
+  const E = evs.map(([t, v, r, d]) => ({ t, v, r: r ?? 1, d: d ?? 0.9 }));
+  return (t) => { let v = E[0].v; for (let i = 1; i < E.length; i++) v += (E[i].v - E[i - 1].v) * spr(t - E[i].t, E[i].r, E[i].d); return v; };
+}
+const ease = (x) => 0.35 * x + 0.65 * sm(x);
+
+// ---------- icons and small parts ----------
+const px_ = (n, size, color = "currentColor") => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 256 256" fill="${color}">${window.PHX[n]}</svg>`;
+const pxb = (n, size, color = "currentColor") => `<svg width="${size}" height="${size}" viewBox="0 0 256 256" fill="${color}" style="display:block">${window.PHX[n]}</svg>`;
+const ic = (name, size, color = "currentColor") => `<span class="ic" style="width:${size}px;height:${size}px;color:${color}">${window.ICONS[name]}</span>`;
+const photo = (n, s = 44) => `<div class="av" style="width:${s}px;height:${s}px;background-image:url(img/${n}.webp)"></div>`;
+const ini = (ch, s, bg) => `<div class="av flex" style="width:${s}px;height:${s}px;justify-content:center;background:${bg};color:#fff;font-size:${Math.round(s * 0.42)}px;font-weight:600">${ch}</div>`;
+const glyphAv = (inner, s = 44, bg = "#1d1c1a") => `<div class="av flex" style="width:${s}px;height:${s}px;justify-content:center;background:${bg}">${inner}</div>`;
+// the real logo (img/macro-logo.svg): the mark's three pieces and the MACRO letterforms, 126.4 units tall
+const LOGO_MARK = ["M0 47.151L16.199 40.81C22.551 47.236 34.299 57.491 39.832 63.809L39.88 99.564C39.876 105.615 40.12 114.034 39.774 119.931C34.433 121.982 29.103 124.064 23.786 126.177C19.631 122.268 1.946 106.135 0 102.379L0 47.151Z", "M47.632 0L48.504 0C50.116 1.598 52.174 3.051 53.824 4.712C73.817 24.845 95.62 43.76 115.445 63.991C115.552 66.818 115.592 69.696 115.513 72.523C115.075 88.301 115.701 104.194 115.444 119.951C111.602 121.871 103.313 124.848 99.214 126.339C94.102 120.866 86.899 114.298 81.323 109.052C71.856 100.234 62.526 91.27 53.337 82.163C50.385 79.209 45.332 75.304 43.124 72.361C43.132 68.995 43.082 65.629 42.976 62.264C40.676 59.71 35.402 55.12 32.496 52.172C32.501 37.889 32.044 20.249 32.654 6.207C36.92 4.311 43.939 2.079 47.632 0Z", "M123.569 0L124.699 0C128.214 3.816 134.12 9.106 138.047 12.948L177.874 51.237C181.701 54.971 188.687 60.396 191.23 64.633L191.308 120.003C187.261 121.904 179.556 124.694 175.227 126.234C171.746 123.787 160.568 112.286 156.725 108.629C144.592 97.087 130.339 84.409 118.9 72.353C118.953 69.16 118.982 65.966 118.986 62.772C117.614 60.894 110.311 54.369 108.016 51.991C107.405 39.273 107.793 19.202 108.018 6.291C111.901 4.493 120.969 1.705 123.569 0Z"];
+const LOGO_TYPE = ["M300.92 74.009C303.615 65.501 314.262 28.568 318.438 24.27C319.069 23.621 320.033 23.468 320.898 23.383C325.453 22.938 330.369 23.327 334.959 23.34C344.903 23.418 354.847 23.409 364.79 23.313C365.435 28.476 365.159 47.453 365.049 53.72C364.76 70.195 365.603 88.708 364.891 104.92C359.092 104.67 351.994 104.855 346.096 104.868C345.405 87.158 345.97 65.92 345.975 47.942L345.975 42.119C342.414 41.927 334.922 41.484 331.931 42.955C329.991 45.279 313.144 97.492 310.719 104.744C304.754 105.034 297.264 104.878 291.222 104.896C288.559 98.001 272.305 45.132 269.992 43.053C267.621 40.923 258.972 42.055 255.716 42.198C256.161 48.995 255.924 58.249 255.925 65.211L255.935 104.789C249.665 104.935 243.166 104.872 236.878 104.882C236.574 94.772 236.811 83.325 236.808 73.094L236.883 23.444C243.865 23.268 278.739 22.963 283.378 24.014C285.689 24.538 298.601 67.413 300.92 74.009Z", "M395.967 23.803C398.277 23.364 414.299 23.575 417.612 23.582C433.177 23.668 448.746 23.647 464.311 23.52C472.343 23.502 477.848 23.959 484.031 29.966C492.494 38.188 490.209 52.684 490.192 63.875L490.197 104.955L471.479 104.952C470.916 96.84 471.623 88.213 470.997 79.669C463.765 79.265 453.206 79.593 445.779 79.594L396.684 79.632C397.07 86.718 396.698 97.491 396.691 104.932L377.688 104.949C376.997 94.08 377.811 80.689 377.521 69.546C377.662 60.66 377.214 51.725 377.742 42.859C378.359 32.511 386.5 25.768 395.967 23.803ZM396.525 60.895C420.379 60.944 446.825 61.49 470.481 60.867C471.86 59.149 471.627 45.245 470.358 43.104C467.556 41.2 405.961 41.902 397.844 42.391C395.636 44.958 396.866 56.326 396.525 60.895Z", "M522.79 23.419C530.395 23.053 539.793 23.502 547.572 23.38C569.962 23.031 593.076 23.871 615.412 23.271C615.78 28.658 615.585 36.536 615.598 42.116C587.143 41.263 557.796 42.418 529.26 42.034C527.259 42.007 524.432 42.404 522.595 43.18C522.35 43.559 522.164 43.976 522.054 44.415C521.047 48.287 522.375 75.786 521.774 81.689C521.69 82.522 522.126 84.198 522.6 85.003C525.249 86.762 554.977 86.034 560.504 86.019L615.56 85.992C615.606 92.272 615.602 98.552 615.547 104.832L553.729 104.862C542.096 104.861 522.286 106.802 512.392 101.015C500.895 93.871 502.35 80.027 502.761 68.524C503.463 48.961 497.044 28.443 522.79 23.419Z", "M628.023 23.423L687.86 23.349C698.415 23.346 709.045 23.201 719.557 23.509C732.988 23.902 740.546 34.132 740.72 46.907C740.927 62.171 741.52 71.402 725.794 78.315C729.671 87.236 734.935 96.141 738.536 104.878L726.814 104.839L718.021 104.824C713.247 97.434 708.766 87.719 705.08 79.668C686.032 79.254 665.821 79.606 646.685 79.619L646.702 104.947C640.54 104.716 634.082 104.833 627.913 104.9C627.35 85.968 628.179 66.507 627.828 47.527C627.688 39.873 627.578 31.009 628.023 23.423ZM646.664 60.92L694.437 60.958C699.456 60.961 718.131 61.618 721.579 59.898C722.324 56.863 722.193 46.423 721.11 43.41C718.778 41.117 699.087 41.949 694.809 41.951L651.996 42.012C650.307 42.034 648.619 42.078 646.926 42.142C646.414 44.538 646.642 57.699 646.664 60.92Z", "M773.622 23.423C792.145 23.184 810.799 23.439 829.33 23.344C835.53 23.761 843.447 22.578 849.478 24.136C867.501 28.796 866.367 45.886 865.766 60.547C865.419 69.063 866.756 79.557 865.355 87.263C864.767 90.557 863.405 93.663 861.378 96.322C857.285 101.702 852.11 103.801 845.635 104.68C842.406 104.992 836.566 104.83 833.075 104.831L810.418 104.85L787.359 104.857C778.899 104.852 768.629 105.79 761.651 100.217C756.805 96.65 752.548 88.79 753.115 82.502C754.203 70.468 751.507 52.227 753.72 40.77C754.359 37.381 755.802 34.196 757.927 31.481C762.07 26.201 767.198 24.208 773.622 23.423ZM844.027 86.04C848.128 83.916 847.248 78.015 846.799 73.885C846.13 67.731 848.28 47.736 846.075 43.201C843.6 41.958 837.946 41.865 835.064 41.967C815.382 42.661 794.384 41.048 774.816 42.108C773.724 42.46 773 42.546 772.425 43.642C771.354 45.694 771.507 81.49 772.332 83.863C772.569 84.54 772.759 85.098 773.432 85.431C776.398 86.889 835.593 85.87 844.027 86.04Z"];
+const markSvg = (w, c) => `<svg width="${w}" height="${(w * 126.4) / 191.3}" viewBox="0 0 191.3 126.4" fill="${c}" style="display:block">${LOGO_MARK.map((d) => `<path d="${d}"/>`).join("")}</svg>`;
+const macroAv = (s) => glyphAv(markSvg(Math.round(s * 0.58), "#f5f1e8"), s, "#1d1c1a");
+const STATUS = { todo: ["square-task-created-circle", "#3bb273"], prog: ["square-task-in-progress-circle", "#f59e0b"], done: ["square-task-done-circle", "#5b9be6"] };
+const stat = (k, s = 26) => ic(STATUS[k][0], s, STATUS[k][1]);
+const dana = (s) => `<div class="av" style="width:${s}px;height:${s}px;background-image:url(img/call-pip-feed.webp);background-size:${((720 * s) / 200).toFixed(1)}px auto;background-position:${((-250 * s) / 200).toFixed(1)}px ${((-100 * s) / 200).toFixed(1)}px"></div>`;
+const stack = (avs, ov = 9, ring = "var(--surf)") => `<div class="flex">${avs.map((a, i) => `<div style="margin-left:${i ? -ov : 0}px;border-radius:50%;box-shadow:0 0 0 2.5px ${ring}">${a}</div>`).join("")}</div>`;
+const pill = (x, bg, fg) => `<span class="pill" style="background:${bg};color:${fg}">${x}</span>`;
+const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const DING = [1, 1.122, 1.26, 1.335, 1.498, 1.682, 1.888, 2];
+const slabLine = (id, words, x, base, fs, align = "l") => {
+  const ws = words.map((w, i) => `<span class="w" id="${id}w${i}">${w}</span>`).join(" ");
+  const L = align === "l" ? x : x - 1200, wd = align === "l" ? "" : "width:2400px;text-align:center;";
+  return `<div class="a slab" id="${id}" style="left:${L}px;top:${(base - 0.89 * fs).toFixed(2)}px;font-size:${fs}px;${wd}">${ws}</div>`;
+};
+const TEAM = [dana(28), ini("M", 28, "#7a8b6f"), ini("O", 28, "#8a6f9e"), ini("R", 28, "#b0715e"), ini("S", 28, "#5f7f9e"), ini("K", 28, "#9e8a5f")];
+const CREW = [photo("jacob", 30), photo("julia", 30), ini("O", 30, "#8a6f9e"), ini("P", 30, "#b0715e"), ini("A", 30, "#5f7f9e")];   // #northwind
+
+// =====================================================================
+// layout (graph px). The flowchart reads left to right, and every surface hangs off one memory rail.
+// =====================================================================
+const RAIL = 1030, TRUNK = 3380;
+const NL = {   // [x, y, w, h, corner]
+  call: [0, 120, 540, 640, 30],
+  crm: [680, 60, 480, 300, 28], mail: [680, 470, 480, 260, 28],
+  agent: [1300, 160, 640, 500, 32],
+  tasks: [2080, 0, 540, 250, 28], event: [2080, 290, 540, 160, 26], draft: [2080, 500, 540, 460, 30],
+  inbox: [2760, 0, 540, 340, 28], chan: [2760, 400, 540, 250, 28], doc: [2760, 700, 540, 240, 28],
+  search: [3440, 40, 560, 480, 30], mcp: [3440, 600, 560, 300, 28],
+  cl0: [4180, 600, 300, 84, 22], cl1: [4180, 708, 300, 84, 22], cl2: [4180, 816, 300, 84, 22],
+};
+const BOUND = [-70, -110, 4070, 1120];   // the workspace outline: everything but your own AI tools
+const HC = [2200, 500], RR = 300;         // the hub, in the middle of the flowchart
+// the ring of surfaces the voiceover names, and the node each one unfolds onto
+const RING = [["email", "envelope", "Email", "draft"], ["chat", "chats", "Chat", "chan"], ["docs", "file-text", "Docs", "doc"], ["tasks", "list-checks", "Tasks", "tasks"],
+  ["calls", "phone-call", "Calls", "call"], ["crm", "building-office", "CRM", "crm"], ["agents", "sparkle", "AI agents", "agent"]];
+const SLOT_IC = { call: "phone-call", crm: "building-office", mail: "envelope", agent: "sparkle", tasks: "list-checks", event: "calendar-check", draft: "envelope",
+  inbox: "bell", chan: "hash", doc: "file-text", search: "magnifying-glass", mcp: "terminal-window", cl0: "terminal-window", cl1: "terminal-window", cl2: "terminal-window" };
+const LABEL = { call: "Calls", crm: "CRM", mail: "Email", agent: "Agents", tasks: "Tasks", event: "Calendar", draft: "Drafts", inbox: "Inbox", chan: "Channels", doc: "Docs",
+  search: "Search", mcp: "MCP", cl0: "Claude Code", cl1: "Codex", cl2: "Cursor" };
+const HOME_OF = Object.fromEntries(RING.map((r, i) => [r[3], i]));
+// the opening's scattered apps (offsets from the hub, degrees)
+const TILE = { email: [-650, -150, -5], chat: [-250, -290, 4], docs: [290, -270, -3], tasks: [660, -110, 5], calls: [-560, 210, 3], crm: [40, 250, -4], agents: [600, 230, 4] };
+const LINKS = [["email", "chat"], ["chat", "docs"], ["docs", "tasks"], ["calls", "crm"], ["crm", "agents"], ["email", "calls"], ["tasks", "agents"]];
+
+// =====================================================================
+// the story (seconds, mostly from the voiceover's words)
+// =====================================================================
+const S = {
+  tiles: -0.35, talk: vw("s1", "talk"), other: vw("s1", "other"),
+  mark: vw("s2", "macro") - 0.05,
+  disc: RING.map(([k]) => vw("s2", k === "agents" ? "agents" : k) - 0.06),
+  ring: vw("s2", "connected"),
+  unfold: vw("s2", "workspace") + 0.6,
+  dive: BAR(0) - 0.7,
+  // 01 capture
+  call: BAR(0) - 0.1, callEnd: vw("s4", "finished") + 0.15,
+  rec: vw("s5", "recorded"), tr: vw("s5", "transcribed"), sum: vw("s5", "summarized"), mem: vw("s5", "memory") - 0.2,
+  // 02 context
+  agent: L0("s6") - 0.5, type: [L0("s6") - 0.2, vw("s6", "up") + 0.05], enter: vw("s6", "up", 0, 1) + 0.12,
+  ctx: vw("s7", "context"), chip: [vw("s7", "call") + 0.05, vw("s7", "record") + 0.1, vw("s7", "email") + 0.1],
+  crm: vw("s7", "northwind") - 0.1, mail: vw("s7", "every") - 0.1,
+  // 03 action
+  act: [vw("s8", "updates"), vw("s8", "creates"), vw("s8", "schedules"), vw("s8", "drafts")],
+  // 04 review
+  ps: [vw("s9", "review") + 0.2, vw("s9", "line", 0, 1) - 0.1], send: vw("s9", "send") + 0.18,
+  // 05 team
+  inbox: L0("s10") - 0.35, iTask: vw("s10", "tasks"), iMail: vw("s10", "email"), iMsg: vw("s10", "messages"),
+  chan: vw("s11", "mention") - 0.25, everyone: vw("s11", "everyone"), noReq: vw("s11", "requests"),
+  // 06 search, 07 connect
+  search: L0("s12") - 0.45, q: [L0("s12") - 0.2, vw("s12", "everything") + 0.2], ev: vw("s12", "everything"), fifty: vw("s12", "fifty"),
+  res: [vw("s12", "email") + 0.05, vw("s12", "call") + 0.05, vw("s12", "transcripts") + 0.25, vw("s12", "in") + 0.1, vw("s12", "under") + 0.1],
+  mcp: L0("s13") - 0.3, cl: [vw("s13", "claude") - 0.1, vw("s13", "codex") - 0.1, vw("s13", "cursor") - 0.1], via: vw("s13", "mcp"),
+  // close
+  over: BAR(22), shared: vw("s14", "shared"), fold: vw("s14", "for") - 0.05, end: END,
+};
+S.sent = S.send + 0.05;
+// The cursor: it types the request to the agent, then the P.S. and Send. [time, x, y, opts] moves in graph px.
+const CUR = [
+  { t0: S.type[0] - 0.75, t1: S.enter + 0.45, seed: 3, clicks: [S.type[0] - 0.15], from: [1880, 620], moves: [[S.type[0] - 0.75, S.type[0] - 0.15, "aIn", 0.62, 0.55, { over: 0.06 }], [S.enter + 0.05, S.enter + 0.45, 1900, 700, {}]] },
+  { t0: S.ps[0] - 0.75, t1: S.sent + 0.6, seed: 5, clicks: [S.ps[0] - 0.12, S.send], from: [2560, 1010], moves: [[S.ps[0] - 0.75, S.ps[0] - 0.12, "ePS", 0.03, 0.5, { over: 0.05 }],
+    [S.ps[1] + 0.02, S.send - 0.03, "eSend", 0.45, 0.55, { over: 0.05, side: -0.03, split: 0.75 }], [S.sent + 0.2, S.sent + 0.6, 2540, 1000, {}]] },
+];
+const HEADS = [   // [in, out, kicker, headline]
+  [0.35, L1("s1") + 0.2, "", "Apps that don’t talk to each other."],
+  [S.mark + 0.15, S.unfold + 0.55, "", "One connected workspace."],
+  [S.unfold + 0.75, S.dive + 0.15, "", "How it all works together."],
+  [S.dive + 0.35, S.agent - 0.15, "01 · Capture", "It starts with a call."],
+  [S.agent + 0.1, L0("s8") - 0.35, "02 · Context", "Your agent already knows the deal."],
+  [L0("s8") - 0.15, L0("s9") - 0.35, "03 · Action", "It handles the follow-through."],
+  [L0("s9") - 0.15, S.inbox - 0.1, "04 · Review", "Nothing goes out without you."],
+  [S.inbox + 0.15, S.search - 0.15, "05 · Team", "Your team is already in the loop."],
+  [S.search + 0.1, S.mcp - 0.15, "06 · Search", "Find anything in under 50 ms."],
+  [S.mcp + 0.1, S.over - 0.3, "07 · Connect", "Bring your own AI tools."],
+  [S.over - 0.1, END - 0.25, "", "One workspace. One shared memory."],
+];
+
+// the call
+const TR = [["d", "We’d like to roll it out to all six of us."], ["j", "Great, I’ll send pricing today."], ["d", "Can onboarding start Thursday?"]];
+const SUMMARY = ["Rolling out to all 6 seats", "Pricing to Dana today", "Onboarding Thursday at 10"];
+const CRM_OLD = [pill("Pilot", "#f59e0b24", "#a86a08"), `<span>3</span>`, `${dana(24)}Dana Whitfield`, `${pxb("phone-call", 17, "var(--body)")}Demo call · today`];
+const CRM_NEW = [pill("Rollout", "#2e9e5b24", "#23794a"), `<span style="font-weight:600">6</span>`, null, `${pxb("envelope", 17, "var(--body)")}Pricing sent · now`];
+const MAILS = [["Re: Pilot results", "Dana: The team loved it, and…", "Oct 2"], ["Security questionnaire", "Attached the completed answers", "Sep 24"], ["Intro: Macro × Northwind", "Great to meet you yesterday", "Sep 12"]];
+const CHIPS = [["phone-call", "Demo call · transcript"], ["building-office", "Northwind · CRM"], ["envelope", "12 emails"]];
+const ACTS = [["building-office", "Moved Northwind to Rollout"], ["list-checks", "Created 3 tasks for the team"], ["calendar-check", "Proposed onboarding · Thu 10:00"], ["envelope", "Drafted a reply to Dana"]];
+const TASKS = [["Send pricing to Dana", photo("jacob", 22), "Jacob", "Today"], ["Prepare the onboarding workspace", photo("julia", 22), "Julia", "Wed"], ["Import Northwind’s Notion", ini("O", 22, "#8a6f9e"), "Omar", "Thu"]];
+const BODY = ["Hi Dana,", "Great talking today. Here’s pricing for", "your team of six, and you’re all set for", "Thursday’s onboarding at 10."];
+const PS_TXT = "P.S. See you Thursday!";
+const INBOX = [["list-checks", "Prepare the onboarding workspace", "Task · assigned by Jacob", "now"], ["envelope", "Dana Whitfield", "Re: Security review", "9:41"],
+  ["hash", "#northwind", "Omar: The kickoff deck is in the plan", "9:30"], ["at", "Jacob mentioned you", "in Q4 launch checklist", "9:12"]];
+const ITEMS = [["Invite Dana’s team (6)", "Julia", "#8b6fd6"], ["Onboarding · Thu 10:00", "Omar", "#5f7f9e"], ["Import their Notion and Slack", "Julia", "#8b6fd6"]];
+const QUERY = "northwind pricing";
+const RESULTS = [["envelope", "Pricing for your team of six", "…here’s <b>pricing</b> for your team of six…", "Email"], ["phone-call", "Demo · Northwind", "Jacob: “I’ll send <b>pricing</b> today.”", "Call transcript"],
+  ["file-text", "Northwind rollout plan", "…<b>pricing</b> signed off, onboarding Thu…", "Doc"], ["list-checks", "Send pricing to Dana", "Done · Jacob", "Task"], ["hash", "#northwind", "Julia: <b>pricing</b> looks good to me", "Message"]];
+const TOOLS = ["ContentSearch", "ReadCallRecord", "SendEmail", "CreateCalendarEvent", "SendChannelMessage", "SetEntityProperty"];
+const CLIENTS = [["Claude Code", "claude mcp add macro"], ["Codex", "codex mcp add macro"], ["Cursor", "mcpServers › macro"]];
+const PROOF = [`${pxb("trend-up", 22, "var(--body)")}Backed by a16z`, `${pxb("shield-check", 22, "var(--body)")}SOC 2 Type II · ISO 27001`, `${ic("icon-github", 21, "var(--body)")}Fully open source`];
+
+// transcript line → word spans
+function tLine(id, s) {
+  let k = 0;
+  const html = s.split(/(\s+)/).map((w) => (!w || /^\s+$/.test(w) ? w : `<span class="w" id="${id}w${k++}">${w}</span>`)).join("");
+  return { html, n: k };
+}
+const TRL = TR.map(([w, s], i) => ({ av: w === "d" ? dana(28) : photo("jacob", 28), ...tLine("kL" + i, s) }));
+
+// =====================================================================
+// nodes (graph px, each at its own origin)
+// =====================================================================
+const NH = {
+  call: () => `
+    <div class="card" style="inset:0;border-radius:30px"></div>
+    <div class="nh">${pxb("phone-call", 20, "var(--ink)")}Demo · Northwind</div>
+    <div class="a flex nowrap" id="kRec" style="right:22px;top:16px;height:28px;gap:9px">
+      <div class="flex" style="height:28px;gap:7px;padding:0 11px;border-radius:14px;background:#e5484d18;color:#c43d42;font-size:13px;font-weight:700;letter-spacing:.06em"><span id="kDot" style="width:8px;height:8px;border-radius:50%;background:#e5484d"></span>REC</div>
+      <div id="kTime" style="font-size:16px;color:var(--lab);font-variant-numeric:tabular-nums">32:02</div></div>
+    <div class="a flex nowrap" id="kEnd" style="right:22px;top:16px;height:28px;gap:7px;padding:0 12px 0 10px;border-radius:14px;background:#1d1c1a0d;color:var(--body);font-size:14px;font-weight:600">${pxb("check-circle", 17, "var(--ok)")}Call ended · 32:04</div>
+    <div class="a" style="left:20px;top:60px;width:500px;height:240px;border-radius:20px;overflow:hidden;background:url(img/call-pip-feed.webp) 50% 28%/cover">
+      <div class="a" id="kSpk" style="inset:0;border-radius:20px;box-shadow:inset 0 0 0 3px #3bb273"></div>
+      <div class="a" id="kDim" style="inset:0;background:#1d1c1a"></div>
+      <div class="a flex nowrap" style="left:12px;bottom:12px;height:28px;padding:0 11px;border-radius:14px;background:#1d1c1a8c;color:#fff;font-size:14px;font-weight:500">Dana Whitfield</div>
+      <div class="a flex nowrap" id="kSaved" style="left:12px;bottom:12px;height:30px;gap:8px;padding:0 13px 0 10px;border-radius:15px;background:#f5f1e8;color:var(--ink);font-size:14px;font-weight:600;box-shadow:0 6px 16px -8px #0006">${pxb("record", 17, "#e5484d")}Recording saved</div>
+    </div>
+    <div class="a rim" style="left:362px;top:198px;width:146px;height:88px;border-radius:14px;background:#2d2c29;box-shadow:0 10px 22px -10px #1d1c1a80">
+      <div class="a" style="left:51px;top:11px">${photo("jacob", 44)}</div>
+      <div class="a t1" style="left:0;right:0;top:67px;text-align:center;font-size:12px;color:#ffffffb8">Jacob</div></div>
+    <div class="a flex nowrap" id="kWait" style="left:22px;top:330px;height:24px;gap:9px;font-size:16px;color:var(--mut)">${pxb("waveform", 18, "var(--mut)")}Transcript and summary arrive when the call ends</div>
+    <div class="cap" id="kTrC" style="left:22px;top:322px">TRANSCRIPT</div>
+    ${TRL.map((l, i) => `<div class="a flex nowrap" id="kL${i}" style="left:20px;top:${342 + i * 44}px;height:34px;gap:12px;font-size:18px">${l.av}<span>${l.html}</span></div>`).join("")}
+    <div class="a flex nowrap" id="kSuC" style="left:22px;top:486px;height:16px;gap:7px">${pxb("sparkle", 15, "var(--claude)")}<span class="cap" style="position:static">AI SUMMARY</span></div>
+    ${SUMMARY.map((s, i) => `<div class="a flex nowrap" id="kS${i}" style="left:24px;top:${514 + i * 36}px;height:30px;gap:11px;font-size:18px"><span style="width:6px;height:6px;border-radius:3px;background:var(--ink)"></span>${s}</div>`).join("")}`,
+  crm: () => `
+    <div class="card" style="inset:0;border-radius:28px"></div>
+    <div class="a flex nowrap" style="left:22px;top:20px;height:44px;gap:12px">${ini("N", 42, "#4f6f5f")}<div><div style="font-size:20px;font-weight:600;line-height:23px">Northwind</div><div style="font-size:14px;color:var(--lab);line-height:19px">Company · northwind.co</div></div></div>
+    <div class="a" style="right:22px;top:29px"><span class="badge">${px_("building-office", 15)}CRM</span></div>
+    ${["Stage", "Seats", "Contact", "Last touch"].map((k, i) => `<div class="fld" id="mF${i}" style="top:${84 + i * 52}px"><span class="k">${k}</span>
+      <div class="v" id="mV${i}a">${CRM_OLD[i]}</div>${CRM_NEW[i] ? `<div class="v" id="mV${i}b">${CRM_NEW[i]}</div>` : ""}</div>`).join("")}`,
+  mail: () => `
+    <div class="card" style="inset:0;border-radius:28px"></div>
+    <div class="nh">${pxb("envelope", 20, "var(--ink)")}Email · Northwind</div>
+    <div class="a" style="right:22px;top:17px"><span class="badge">12 threads</span></div>
+    ${MAILS.map(([s, p, d], i) => `<div class="row" id="lR${i}" style="top:${58 + i * 64}px;height:58px">${i === 0 ? `<div class="a" style="left:10px;top:9px">${dana(40)}</div>` : `<div class="a" style="left:10px;top:9px">${ini(i === 1 ? "D" : "J", 40, i === 1 ? "#5f7f9e" : "#7a8b6f")}</div>`}
+      <div class="rt" style="top:8px">${s}</div><div class="rs" style="top:32px">${p}</div><div class="rr">${d}</div></div>`).join("")}`,
+  agent: () => `
+    <div class="card" style="inset:0;border-radius:32px"></div>
+    <div class="a flex nowrap" style="left:22px;top:18px;height:40px;gap:12px">${macroAv(40)}<span style="font-size:21px;font-weight:600">Agent</span><span class="badge">Team memory</span></div>
+    <div class="a flex nowrap" style="right:24px;top:27px;height:22px;gap:8px;font-size:16px;color:var(--lab)"><span class="spin" id="gSpin">${pxb("circle-notch", 17, "var(--lab)")}</span><span id="gChk">${pxb("check-circle", 18, "var(--ok)")}</span><span id="gCnt"></span></div>
+    <div class="a" id="aIn" style="left:22px;right:22px;top:74px;height:58px;border-radius:18px;background:var(--bg);box-shadow:inset 0 0 0 1px #1d1c1a1f">
+      <div class="a flex nowrap" style="left:12px;top:0;height:58px;gap:12px;font-size:20px">${photo("jacob", 32)}<span id="aPh" style="color:var(--mut)">Ask anything…</span><span><span id="aInT"></span><span class="caret" id="aInC" style="background:var(--ink)"></span></span></div>
+      <div class="a flex" id="aGo" style="right:10px;top:11px;width:36px;height:36px;border-radius:18px;background:var(--ink);justify-content:center">${pxb("arrow-up", 19, "#f5f1e8")}</div></div>
+    <div class="cap" style="left:24px;top:156px">CONTEXT</div>
+    <div class="a flex" style="left:22px;top:176px;gap:10px">${CHIPS.map(([n, l], i) => `<span class="chip" id="gC${i}" style="background:var(--bg);box-shadow:inset 0 0 0 1px #1d1c1a14">${pxb(n, 18, "var(--body)")}${l}</span>`).join("")}</div>
+    <div class="a" style="left:22px;right:22px;top:234px;height:1px;background:#1d1c1a12"></div>
+    <div class="cap" style="left:24px;top:254px">UPDATES</div>
+    ${ACTS.map(([n, l], i) => `<div class="a flex nowrap" id="gA${i}" style="left:22px;top:${276 + i * 52}px;height:44px;gap:13px;font-size:19px">
+      <span class="a" id="gAs${i}" style="left:0;top:11px">${pxb("circle-notch", 22, "var(--lab)")}</span><span class="a" id="gAc${i}" style="left:0;top:11px">${pxb("check-circle", 22, "var(--ok)")}</span>
+      <span style="width:22px"></span>${pxb(n, 19, "var(--body)")}<span>${l}</span></div>`).join("")}`,
+  tasks: () => `
+    <div class="card" style="inset:0;border-radius:28px"></div>
+    <div class="nh">${pxb("list-checks", 20, "var(--ink)")}Tasks</div>
+    <div class="a" style="right:22px;top:17px"><span class="badge">${px_("phone-call", 14)}From the call</span></div>
+    ${TASKS.map(([x, av, who, due], i) => `<div class="a" id="tR${i}" style="left:22px;right:22px;top:${60 + i * 62}px;height:56px">
+      <div class="a" id="tS${i}a" style="left:0;top:2px">${stat("todo", 24)}</div><div class="a" id="tS${i}b" style="left:0;top:2px">${stat("done", 24)}</div>
+      <div class="a nowrap" id="tT${i}" style="left:36px;top:0;font-size:19px;line-height:28px;font-weight:500">${x}</div>
+      <div class="a" id="tX${i}" style="left:36px;top:14px;height:1.5px;background:var(--mut);transform-origin:0 50%"></div>
+      <div class="a flex nowrap" style="left:36px;top:30px;height:24px;gap:8px;font-size:14.5px;color:var(--body)">${av}${who}<span class="badge" style="height:22px;margin-left:2px">${px_("clock", 13)}${due}</span></div></div>`).join("")}`,
+  event: () => `
+    <div class="card" style="inset:0;border-radius:26px"></div>
+    <div class="a" style="left:22px;top:22px;width:6px;height:116px;border-radius:3px;background:var(--ok)"></div>
+    <div class="a flex nowrap" style="left:44px;top:22px;height:22px;gap:7px;font-size:15px;font-weight:500;color:var(--lab)">${pxb("calendar-check", 16, "var(--lab)")}Thu · 10:00 – 11:00</div>
+    <div class="a nowrap" style="left:44px;top:50px;font-size:23px;font-weight:600;line-height:30px">Onboarding · Northwind</div>
+    <div class="a flex nowrap" style="left:44px;top:94px;height:34px;gap:11px;font-size:15px;color:var(--body)">${stack(TEAM, 8)}<span>Dana’s team · 6</span></div>
+    <div class="a" style="right:22px;top:20px">${pill(`${pxb("clock", 15, "#a86a08")}Proposed`, "#f59e0b24", "#a86a08")}</div>
+    <div class="a flex" style="right:22px;top:92px;height:40px;padding:0 18px;border-radius:20px;background:#1d1c1a0d;font-size:16px;font-weight:600">Confirm</div>`,
+  draft: () => `
+    <div class="card" style="inset:0;border-radius:30px"></div>
+    <div class="nh">${pxb("envelope", 20, "var(--ink)")}<span id="eH0">Reply to Dana</span></div>
+    <div class="a nowrap" id="eH1" style="left:52px;top:17px;font-size:18px;font-weight:600;line-height:26px">Sent to Dana · just now</div>
+    <div class="a flex nowrap" id="eBadge" style="right:22px;top:16px;height:28px;gap:7px;padding:0 12px 0 10px;border-radius:14px;background:#d977571c;color:#b25a3a;font-size:14px;font-weight:600">${pxb("sparkle", 15, "#d97757")}Drafted by your agent</div>
+    <div class="a" style="left:22px;right:22px;top:60px;height:1px;background:#1d1c1a12"></div>
+    <div class="a flex nowrap" style="left:22px;top:70px;height:36px;gap:10px;font-size:17px"><span style="color:var(--mut);width:70px">To</span><span class="chip" style="height:32px;padding:0 12px 0 4px;gap:8px">${dana(24)}Dana Whitfield</span></div>
+    <div class="a flex nowrap" style="left:22px;top:112px;height:36px;gap:10px;font-size:17px"><span style="color:var(--mut);width:70px">Subject</span><span style="font-size:19px;font-weight:600">Pricing for your team of six</span></div>
+    <div class="a" style="left:22px;right:22px;top:156px;height:1px;background:#1d1c1a12"></div>
+    ${BODY.map((l, i) => `<div class="a nowrap" id="eB${i}" style="left:22px;top:${170 + i * 31}px;font-size:18.5px;line-height:29px">${l}</div>`).join("")}
+    <div class="a nowrap" id="ePS" style="left:22px;top:${170 + 4 * 31 + 8}px;font-size:18.5px;line-height:29px;height:29px;min-width:40px"><span id="ePSt"></span><span class="caret" id="ePSc" style="background:var(--ink)"></span></div>
+    <div class="a flex nowrap" style="left:22px;top:350px;height:42px;gap:10px;padding:0 14px 0 12px;border-radius:12px;background:var(--bg);box-shadow:inset 0 0 0 1px #1d1c1a14;font-size:16px">${pxb("file-pdf", 22, "#d64545")}<span style="font-weight:500">Northwind pricing.pdf</span><span style="color:var(--mut)">2 pages</span></div>
+    <div class="a flex" style="left:24px;top:408px;height:36px;gap:18px">${pxb("paperclip", 22, "var(--lab)")}${pxb("text-aa", 22, "var(--lab)")}${pxb("sparkle", 22, "var(--lab)")}</div>
+    <div class="a flex nowrap" id="eWait" style="right:150px;top:409px;height:30px;gap:7px;font-size:15px;font-weight:500;color:var(--lab)">${pxb("clock", 16, "var(--lab)")}Waiting for you</div>
+    <div class="a flex" id="eSend" style="right:22px;top:400px;height:48px;padding:0 20px 0 22px;border-radius:24px;background:var(--ink);color:#f5f1e8;font-size:18px;font-weight:600;gap:9px">Send${pxb("paper-plane-right", 18, "#f5f1e8")}</div>
+    <div class="a flex" id="eSent" style="right:22px;top:400px;height:48px;padding:0 20px;border-radius:24px;background:var(--ok);color:#fff;font-size:18px;font-weight:600;gap:8px">${pxb("check", 18, "#fff")}Sent</div>
+    <div class="a" id="eRing" style="right:22px;top:400px;width:110px;height:48px;border-radius:24px;box-shadow:0 0 0 2px var(--ok)"></div>`,
+  inbox: () => `
+    <div class="card" style="inset:0;border-radius:28px"></div>
+    <div class="a flex nowrap" style="left:22px;top:16px;height:30px;gap:11px;font-size:18px;font-weight:600">${photo("julia", 30)}Julia’s inbox</div>
+    <div class="a" style="right:22px;top:18px"><span class="badge" style="gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok)"></span>Signal</span></div>
+    ${INBOX.map(([n, a, b, tm], i) => `<div class="row" id="iR${i}" style="top:${62 + i * 68}px;height:62px"><div class="a" id="iH${i}" style="inset:0;border-radius:14px;background:#ead9ae"></div>
+      <div class="ri">${pxb(n, 20, "var(--ink)")}</div><div class="rt">${a}</div><div class="rs">${b}</div><div class="rr">${tm}</div>
+      ${i === 0 ? `<span class="a" id="iDot" style="left:-6px;top:26px;width:9px;height:9px;border-radius:50%;background:var(--blue)"></span>` : ""}</div>`).join("")}`,
+  chan: () => `
+    <div class="card" style="inset:0;border-radius:28px"></div>
+    <div class="nh">${pxb("hash", 20, "var(--ink)")}northwind</div>
+    <div class="a flex nowrap" style="right:22px;top:14px;height:32px;gap:9px;font-size:15px;color:var(--lab)"><div class="flex">${CREW.map((a, i) => `<div id="hA${i}" style="position:relative;margin-left:${i ? -8 : 0}px;border-radius:50%;box-shadow:0 0 0 2.5px var(--surf)">${a}<span class="a" id="hK${i}" style="right:-3px;bottom:-3px;width:15px;height:15px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--surf);display:flex;align-items:center;justify-content:center">${pxb("check", 10, "#fff")}</span></div>`).join("")}</div>5</div>
+    <div class="a flex" id="hM" style="left:20px;top:62px;gap:12px;align-items:flex-start">${photo("jacob", 34)}<div><div class="who">Jacob <i>now</i></div>
+      <div style="font-size:17px;line-height:25px;width:430px">Kicking off the rollout. The plan is here: <span class="chip" id="hMen" style="height:30px;padding:0 11px 0 8px;gap:7px;font-size:16px;vertical-align:-8px;background:#7c5cd61f;color:#5b3fb5">${pxb("file-text", 17, "#7c5cd6")}Northwind rollout plan</span></div></div></div>
+    <div class="a flex nowrap" id="hAcc" style="left:66px;top:190px;height:26px;gap:8px;font-size:15.5px;font-weight:600;color:var(--ok)">${pxb("check-circle", 18, "var(--ok)")}Everyone in #northwind can open it</div>`,
+  doc: () => `
+    <div class="card" style="inset:0;border-radius:28px"></div>
+    <div class="nh">${pxb("file-text", 20, "var(--doc)")}Northwind rollout plan</div>
+    <div class="a" style="right:22px;top:17px"><span class="badge">${px_("hash", 14)}Shared with #northwind</span></div>
+    ${ITEMS.map(([x, who, c], i) => `<div class="a flex nowrap" id="dI${i}" style="left:22px;top:${70 + i * 52}px;height:34px;gap:12px;font-size:18px"><span style="width:20px;height:20px;border-radius:6px;box-shadow:inset 0 0 0 1.5px #1d1c1a40;flex:none"></span><span><span id="dT${i}"></span><span class="caret" id="dC${i}" style="background:${c}"><b style="background:${c}">${who}</b></span></span></div>`).join("")}`,
+  search: () => `
+    <div class="card" style="inset:0;border-radius:30px"></div>
+    <div class="a flex nowrap" style="left:20px;right:20px;top:20px;height:58px;padding:0 14px 0 18px;gap:12px;border-radius:29px;background:var(--bg);box-shadow:inset 0 0 0 1px #1d1c1a1f;font-size:20px">
+      ${pxb("magnifying-glass", 22, "var(--body)")}<span><span id="sQ"></span><span class="caret" id="sQc" style="background:var(--ink)"></span></span>
+      <span style="flex:1"></span><span class="pill" id="sMs" style="background:#f59e0b24;color:#a86a08">${pxb("lightning", 15, "#a86a08")}under 50 ms</span></div>
+    <div class="a flex" style="left:22px;top:94px;gap:8px">${["All", "Email", "Calls", "Docs", "Tasks", "Messages"].map((x, i) => `<span class="badge" style="${i ? "" : "background:var(--ink);color:#f5f1e8"}">${x}</span>`).join("")}</div>
+    ${RESULTS.map(([n, a, b, ty], i) => `<div class="row" id="sR${i}" style="top:${134 + i * 66}px;height:60px"><div class="ri">${pxb(n, 20, n === "file-text" ? "var(--doc)" : "var(--ink)")}</div>
+      <div class="rt">${a}</div><div class="rs">${b}</div><div class="rr">${ty}</div></div>`).join("")}`,
+  mcp: () => `
+    <div class="card" style="inset:0;border-radius:28px"></div>
+    <div class="nh">${pxb("terminal-window", 20, "var(--ink)")}Macro MCP server</div>
+    <div class="a" style="right:22px;top:17px"><span class="badge">Every plan, including Free</span></div>
+    <div class="a flex nowrap mono" style="left:22px;top:62px;height:40px;gap:10px;padding:0 14px 0 12px;border-radius:12px;background:#1d1c1a;color:#f5f1e8;font-size:16px">${pxb("link", 17, "#f5f1e8")}https://mcp-server.macro.com/mcp</div>
+    <div class="cap" style="left:24px;top:124px">TOOLS YOUR AI CAN CALL</div>
+    <div class="a" style="left:22px;right:22px;top:144px;display:flex;flex-wrap:wrap;gap:9px">${TOOLS.map((x, i) => `<span class="badge mono" id="mT${i}" style="height:32px;padding:0 12px;font-size:15px;color:var(--ink);background:var(--bg);box-shadow:inset 0 0 0 1px #1d1c1a14">${x}</span>`).join("")}</div>`,
+  ...Object.fromEntries(CLIENTS.map(([n, cmd], i) => [`cl${i}`, () => `
+    <div class="card" style="inset:0;border-radius:22px;background:#f8f5ef"></div>
+    <div class="a flex" style="left:14px;top:14px;width:56px;height:56px;border-radius:16px;background:#1d1c1a;justify-content:center">${pxb("terminal-window", 26, "#f5f1e8")}</div>
+    <div class="a nowrap" style="left:84px;top:16px;font-size:21px;font-weight:600;line-height:26px">${n}</div>
+    <div class="a nowrap mono" style="left:84px;top:46px;font-size:14px;line-height:20px;color:var(--lab)">${cmd}</div>`])),
+};
+
+// =====================================================================
+// DOM
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+const stage = $("stage"), world = $("world"), scr = $("screen");
+stage.style.width = W + "px"; stage.style.height = H + "px";
+const add = (parent, html) => { const d = document.createElement("div"); d.innerHTML = html.trim(); const n = d.firstElementChild; parent.appendChild(n); return n; };
+const PULSE = (id) => `<g id="${id}" style="display:none"><circle fill="#1d1c1a" fill-opacity=".07"/><circle fill="#1d1c1a" fill-opacity=".3"/><circle fill="#1d1c1a" fill-opacity=".55"/><circle fill="#1d1c1a"/></g>`;
+// world layers, back to front: the blueprint (outlines, rail), the wires, the nodes, the intro, labels
+const BP = add(world, `<svg class="a" id="bp" width="10" height="10" style="left:0;top:0;overflow:visible"></svg>`);
+const WIRES = add(world, `<svg class="a" id="wires" width="10" height="10" style="left:0;top:0;overflow:visible"></svg>`);
+const LG = add(world, `<div class="layer" id="LG"></div>`);
+const LI = add(world, `<div class="layer" id="LI"></div>`);
+const TAGS = add(world, `<div class="layer" id="tags"></div>`);
+const LX = add(scr, `<div class="layer" id="LX"></div>`), LH = add(scr, `<div class="layer" id="LH"></div>`), LL = add(scr, `<div class="layer" id="LL"></div>`);
+
+// ----- the blueprint: the workspace outline, a dashed slot per node, the memory rail -----
+const rr = (x, y, w, h, r) => `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`;
+BP.innerHTML = `<path id="bound" d="${rr(BOUND[0], BOUND[1], BOUND[2] - BOUND[0], BOUND[3] - BOUND[1], 56)}" pathLength="1000" fill="none" stroke="#1d1c1a"/>
+  <circle id="hubRing" cx="${HC[0]}" cy="${HC[1]}" r="${RR + 96}" pathLength="1000" fill="none" stroke="#1d1c1a" transform="rotate(-90 ${HC[0]} ${HC[1]})"/>
+  ${Object.entries(NL).map(([k, [x, y, w, h, r]]) => `<path id="sl_${k}" d="${rr(x, y, w, h, r)}" fill="#1d1c1a" fill-opacity=".018" stroke="#1d1c1a"/>`).join("")}`;
+const NODE = {};
+Object.entries(NL).forEach(([k, [x, y, w, h, r]]) => {
+  const el = add(LG, `<div class="node" id="n_${k}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:${r}px">${NH[k]()}<div class="ring" id="r_${k}" style="border-radius:${r}px"></div></div>`);
+  NODE[k] = { k, el, x, y, w, h, cx: x + w / 2, cy: y + h / 2, hits: [] };
+});
+// slot discs: each node's icon sits in its outline until the node fills in (the ring's discs fly in to be theirs)
+Object.keys(NL).forEach((k) => add(LI, `<div class="a" id="sd_${k}" style="left:0;top:0;width:0;height:0"><div class="disc" style="left:-42px;top:-42px;width:84px;height:84px">${pxb(SLOT_IC[k], 34, "#1d1c1a")}</div></div>`));
+// the opening: scattered app windows, broken links between them, the hub (mark, ring discs and their labels)
+add(LI, `<svg class="a" id="lk" width="10" height="10" style="left:0;top:0;overflow:visible">${LINKS.map((_, i) => `<path id="lk${i}a" fill="none" stroke="#1d1c1a" stroke-width="1.8" stroke-dasharray="7 7" stroke-linecap="round"/><path id="lk${i}b" fill="none" stroke="#1d1c1a" stroke-width="1.8" stroke-dasharray="7 7" stroke-linecap="round"/>`).join("")}
+  ${RING.map((_, i) => `<path id="hs${i}" pathLength="1000" stroke-dasharray="1000 1000" fill="none" stroke="#1d1c1a" stroke-width="1.6"/>`).join("")}${RING.map((_, i) => PULSE("hp" + i)).join("")}</svg>`);
+RING.forEach(([k, n, l]) => {
+  const [dx, dy, rot] = TILE[k];
+  add(LI, `<div class="tile" id="ti_${k}" style="left:${HC[0] + dx - 125}px;top:${HC[1] + dy - 82}px">
+    <div class="a flex" style="left:16px;top:14px;gap:6px">${[0, 1, 2].map(() => `<span style="width:8px;height:8px;border-radius:50%;background:#1d1c1a26"></span>`).join("")}</div>
+    <div class="a flex nowrap" style="left:18px;top:40px;height:36px;gap:11px;font-size:19px;font-weight:600">${glyphAv(pxb(n, 19, "#1d1c1a"), 36, "#e1ddd5")}${l}</div>
+    <div class="sk" style="top:94px;width:180px"></div><div class="sk" style="top:114px;width:140px"></div><div class="sk" style="top:134px;width:160px"></div></div>`);
+});
+RING.forEach(([k, n, l], i) => add(LI, `<div class="a" id="hd${i}" style="left:0;top:0;width:0;height:0"><div class="disc" style="left:-42px;top:-42px;width:84px;height:84px">${pxb(n, 34, "#1d1c1a")}</div>
+  <div class="a t1" id="hl${i}" style="left:-150px;width:300px;text-align:center;top:52px;font-size:22px;color:var(--body)">${l}</div></div>`));
+add(LI, `<div class="disc" id="hub" style="left:${HC[0] - 66}px;top:${HC[1] - 66}px;width:132px;height:132px;background:#dedad3">${markSvg(60, "#141312")}</div>`);
+// the workspace's name tag (where the hub's mark lands when the ring unfolds)
+add(TAGS, `<div class="tag" id="wsTag" style="gap:9px;letter-spacing:.06em;font-size:15px;color:var(--ink);height:34px;padding:0 14px 0 12px;border-radius:17px">${markSvg(26, "#141312")}MACRO WORKSPACE</div>`);
+add(TAGS, `<div class="tag" id="memTag" style="gap:8px;height:34px;padding:0 14px 0 11px;border-radius:17px;font-size:14px">${pxb("brain", 19, "var(--ink)")}TEAM MEMORY</div>`);
+// overview labels, one per node, kept at a readable size at any zoom
+Object.keys(NL).forEach((k) => add(TAGS, `<div class="lbl" id="lb_${k}">${pxb(SLOT_IC[k], 22, "var(--ink)")}${LABEL[k]}</div>`));
+
+// ----- header (screen): lockup, kicker, headline over a cream band -----
+add(LH, `<div class="a" id="band" style="left:0;top:0;width:${W}px;height:310px;background:linear-gradient(to bottom, var(--bg) 0, var(--bg) 226px, #f5f1e800 300px)"></div>`);
+HEADS.forEach(([, , kick, line], k) => {
+  if (kick) add(LH, `<div class="kick" id="hk${k}" style="top:${126 - 8}px">${kick.toUpperCase()}</div>`);
+  add(LH, slabLine(`hh${k}`, line.split(" "), 64, 198, 60));
+});
+// ----- end card (screen) -----
+add(LX, `<div class="a" id="xglow" style="left:-200px;top:-260px;width:2320px;height:1600px;background:radial-gradient(ellipse 22% 26% at 50% 40%, #e4eadf 0%, #e4eadf00 100%),
+  radial-gradient(ellipse 20% 30% at 33% 52%, #ebe2d5 0%, #ebe2d500 100%), radial-gradient(ellipse 20% 30% at 67% 52%, #ece1d4 0%, #ece1d400 100%)"></div>`);
+add(LX, slabLine("xh0", ["One", "workspace.", "One", "shared", "memory."], 960, 452, 92, "c"));
+add(LX, `<div class="a" id="xsub" style="left:0;width:${W}px;top:498px;text-align:center;font-size:29px;line-height:40px;color:var(--body)">Email, chat, docs, tasks, calls, CRM and AI agents, for <span style="color:var(--ink);font-weight:600">$40 a seat</span>.</div>`);
+add(LX, `<div class="a" id="xcta" style="left:0;width:${W}px;top:600px;height:88px;text-align:center"><div class="cta" style="height:88px;padding:0 44px;gap:15px;font-size:30px">Get started at macro.com<span id="xarr" style="display:inline-flex">${pxb("arrow-right", 32, "#f5f1e8")}</span></div></div>`);
+add(LX, `<div class="a t1" id="xdemo" style="left:0;width:${W}px;top:722px;text-align:center;font-size:22px;color:var(--lab)">or <span style="color:var(--body);text-decoration:underline;text-underline-offset:4px;text-decoration-color:#1d1c1a40">book a demo</span></div>`);
+add(LX, `<div class="a flex" id="xproof" style="left:0;width:${W}px;top:${872 - 15}px;height:30px;justify-content:center;gap:30px;font-size:21px">${PROOF.map((p, i) => `${i ? `<span id="xs${i}" style="width:1px;height:22px;background:#1d1c1a26"></span>` : ""}<span class="prow" id="xp${i}">${p}</span>`).join("")}</div>`);
+// ----- the lockup (mark + MACRO): small in the header, then the end card's -----
+const MW0 = 191.3, MH0 = 126.4, GAP0 = 44.7, WMW0 = 630.7, HALF = (MW0 + GAP0 + WMW0) / 2 - MW0 / 2;   // mark center → lockup center
+add(LH, `<div class="a" id="lock" style="left:0;top:0;transform-origin:0 0">
+  <svg class="a" width="${MW0}" height="${MH0}" viewBox="0 0 191.3 126.4" fill="#141312" style="left:${-MW0 / 2}px;top:${-MH0 / 2}px;overflow:visible">${LOGO_MARK.map((d) => `<path d="${d}"/>`).join("")}</svg>
+  <svg class="a" width="${WMW0}" height="${MH0}" viewBox="236 0 630.7 126.4" fill="#141312" style="left:${MW0 / 2 + GAP0}px;top:${-MH0 / 2}px;overflow:visible">${LOGO_TYPE.map((d) => `<path d="${d}"/>`).join("")}</svg>
+</div>`);
+const LS_H = 28 / MH0, HX = 64 + (MW0 * LS_H) / 2, HY = 64;
+const LS_E = 62 / MH0, EX = 960 - LS_E * HALF, EY = 300;
+// ----- the cursor -----
+add(LL, `<div class="a" id="cring" style="left:-20px;top:-20px;width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 2px rgba(29,28,26,.35)"></div>`);
+add(LL, `<div class="a" id="cur" style="left:0;top:0;transform-origin:2px 2px"><svg width="27" height="37" viewBox="0 0 27 37" style="display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))"><path d="M2 2v27.5l7-6.6 4.6 10.6 4.6-2-4.5-10.4h9.6z" fill="#111" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg></div>`);
+const E = {};
+document.querySelectorAll("#stage [id]").forEach((n) => { E[n.id] = n; });
+
+// ---------- motion helpers ----------
+const px = (v) => v.toFixed(3) + "px";
+function show(n, o) { if (o <= 0.002) { n.style.display = "none"; return false; } n.style.display = ""; n.style.opacity = Math.min(1, o).toFixed(4); return true; }
+function fx(n, o, blur, tr) { if (!show(n, o)) return false; n.style.filter = blur > 0.04 ? `blur(${blur.toFixed(3)}px)` : "none"; n.style.transform = tr || "none"; return true; }
+const pop = (n, t, at, dy = 10, resp = 0.26) => { const p = spr(t - at, resp, 1); fx(n, t < at ? 0 : p, (1 - p) * 6, `translate3d(0,${px((1 - p) * dy)},0)`); };
+function write(n, t, a, b) { const p = sm((t - a) / (b - a)); if (!show(n, p > 0 ? 0.3 + 0.7 * p : 0)) return; n.style.clipPath = p >= 1 ? "none" : `inset(-8px ${((1 - p) * 100).toFixed(2)}% -8px -8px)`; }
+function rise(n, t, tin, tout, dy = 34, blur = 10, resp = 0.42, damp = 0.78) {
+  if (t < tin) { show(n, 0); return; }
+  const p = spr(t - tin, resp, damp), q = tout == null ? 0 : sm((t - tout) / 0.22);
+  fx(n, clamp(spr(t - tin, 0.3, 1) * 1.3) * (1 - q), (1 - clamp(p)) * blur + q * blur, `translate3d(0,${px((1 - p) * dy - q * dy * 0.6)},0)`);
+}
+function popScale(n, t, at, s0 = 0.4, resp = 0.34, damp = 0.62, extra = "") {
+  if (t < at) { show(n, 0); return false; }
+  const p = spr(t - at, resp, damp);
+  return fx(n, clamp(spr(t - at, 0.2, 1) * 1.2), 0, `${extra} scale(${(s0 + (1 - s0) * p).toFixed(4)})`);
+}
+function swap(a, b, t, at) {
+  const p = t < at ? 0 : spr(t - at, 0.32, 0.8);
+  fx(a, 1 - sm(p * 1.6), p * 4, `translate3d(0,${px(-p * 14)},0)`);
+  fx(b, t < at ? 0 : clamp(p * 1.4), (1 - clamp(p)) * 4, `translate3d(0,${px((1 - p) * 14)},0)`);
+}
+const flash = (n, t, at, a = 0.75) => { const u = t - at; n.style.background = u >= 0 && u < 2.5 ? `rgba(234,217,174,${(a * Math.exp(-u * 2.2) * clamp(u / 0.05)).toFixed(3)})` : "transparent"; };
+const setHtml = (n, h) => { if (n._h !== h) { n.innerHTML = h; n._h = h; } };
+const typed = (s, t, a, b) => s.slice(0, Math.round(s.length * clamp((t - a) / (b - a))));
+
+// ---------- the cursor: aimed moves that land a little off and correct, with a faint tremor ----------
+const tremor = (t, k, a) => [a * (0.6 * Math.sin(t * 9.3 + k) + 0.4 * Math.sin(t * 14.9 + 2.1 * k)) + 1.4 * Math.sin(t * 0.9 + k), a * (0.6 * Math.sin(t * 8.1 + 1.7 * k) + 0.4 * Math.sin(t * 13.3 + 0.6 * k)) + 1.1 * Math.sin(t * 1.2 + 2 * k)];
+function reach(t, t0, t1, A, Bp, o = {}) {
+  const over = o.over ?? 0.07, side = o.side ?? 0.035, bow = o.bow ?? 0.1, split = o.split ?? 0.68;
+  const dx = Bp[0] - A[0], dy = Bp[1] - A[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+  const P = [Bp[0] + ux * L * over - uy * L * side, Bp[1] + uy * L * over + ux * L * side];
+  const tm = t0 + (t1 - t0) * split;
+  if (t <= t0) return A;
+  if (t < tm) {
+    const u = Math.pow((t - t0) / (tm - t0), 0.8), m = mj(u), b = bell(u) * bow, ex = P[0] - A[0], ey = P[1] - A[1];
+    return [A[0] + ex * m - ey * b, A[1] + ey * m + ex * b];
+  }
+  const m = mj((t - tm) / (t1 - tm));
+  return [P[0] + (Bp[0] - P[0]) * m, P[1] + (Bp[1] - P[1]) * m];
+}
+function Hand(from, moves) {
+  const M = moves.map(([t0, t1, x, y, o]) => ({ t0, t1, to: [x, y], o: o || {} }));
+  return (t) => { let a = from, p = from; for (const m of M) { if (t < m.t0) break; p = reach(t, m.t0, m.t1, a, m.to, m.o); a = m.to; } return p; };
+}
+
+// ---------- connectors: rounded orthogonal routes, sampled for pulses ----------
+function route(P, r = 18) {
+  let d = `M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;
+  const pts = [[P[0][0], P[0][1]]];
+  for (let i = 1; i < P.length; i++) {
+    const [bx, by] = P[i];
+    if (i < P.length - 1 && r > 0) {
+      const [ax, ay] = P[i - 1], [cx, cy] = P[i + 1];
+      const l1 = Math.hypot(bx - ax, by - ay), l2 = Math.hypot(cx - bx, cy - by), k = Math.min(r, l1 / 2, l2 / 2);
+      const p1 = [bx - ((bx - ax) / l1) * k, by - ((by - ay) / l1) * k], p2 = [bx + ((cx - bx) / l2) * k, by + ((cy - by) / l2) * k];
+      d += ` L${p1[0].toFixed(1)} ${p1[1].toFixed(1)} Q${bx.toFixed(1)} ${by.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+      pts.push(p1);
+      for (let j = 1; j <= 6; j++) { const u = j / 6, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u; pts.push([a * p1[0] + b * bx + c * p2[0], a * p1[1] + b * by + c * p2[1]]); }
+    } else { d += ` L${bx.toFixed(1)} ${by.toFixed(1)}`; pts.push([bx, by]); }
+  }
+  let s = 0;
+  const L = pts.map((p, i) => { if (i) s += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]); return [p[0], p[1], s]; });
+  return { d, pts: L, len: s };
+}
+function lutAt(L, u) {
+  const s = clamp(u) * L.len, P = L.pts;
+  let a = 0, b = P.length - 1;
+  while (b - a > 1) { const m = (a + b) >> 1; if (P[m][2] < s) a = m; else b = m; }
+  const p = P[a], q = P[b], f = q[2] > p[2] ? (s - p[2]) / (q[2] - p[2]) : 0;
+  return [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
+}
+function pulseU(g, L, u, o, s, dir = 1) {
+  if (o <= 0.003) { g.style.display = "none"; return; }
+  g.style.display = "";
+  const du = (11 * s) / L.len, f = (v) => lutAt(L, dir > 0 ? clamp(v) : 1 - clamp(v));
+  const h = f(u), a = f(u - du), b = f(u - 2 * du), c = g.children;
+  g.setAttribute("opacity", o.toFixed(3));
+  const set = (n, p, r) => { n.setAttribute("cx", p[0].toFixed(2)); n.setAttribute("cy", p[1].toFixed(2)); n.setAttribute("r", (r * s).toFixed(2)); };
+  set(c[0], h, 12); set(c[1], b, 2.4); set(c[2], a, 3.5); set(c[3], h, 4.8);
+}
+
+// The wires. Each: route, from/to nodes, draw [start, seconds], an optional tag, ambient flow, and event pulses
+// ([start, direction, seconds]) for things that travel along it later (an update, a sync, a search).
+let WL = [], WM = {}, ANCH = {}, NODE_AT = {}, CURS = [], RAILP = [];
+function rel(el) {   // an element's box in graph px (offsets up to its node)
+  let x = 0, y = 0, n = el;
+  while (n && !n.classList.contains("node")) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+  return { x: x + n.offsetLeft, y: y + n.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+}
+// when each node fills in (the rest of the timeline hangs off these)
+NODE_AT.call = S.call; NODE_AT.agent = S.agent; NODE_AT.crm = S.crm; NODE_AT.mail = S.mail;
+NODE_AT.tasks = S.act[1] + 0.25; NODE_AT.event = S.act[2] + 0.25; NODE_AT.draft = S.act[3] + 0.25;
+NODE_AT.inbox = S.inbox; NODE_AT.chan = S.chan; NODE_AT.doc = S.everyone + 0.1; NODE_AT.search = S.search; NODE_AT.mcp = S.mcp;
+CLIENTS.forEach((_, i) => { NODE_AT["cl" + i] = S.cl[i]; });
+function init() {
+  ["aIn", "eSend", "ePS", "eSent", "hMen"].forEach((id) => { ANCH[id] = rel(E[id]); });
+  E.eRing.style.width = E.eSent.offsetWidth + "px";
+  TASKS.forEach((_, i) => { E["tX" + i].style.width = E["tT" + i].offsetWidth + "px"; });
+  const men = ANCH.hMen, my = men.y + men.h / 2;
+  const DEF = {   // id: [points, from, to, draw start, draw seconds, tag]
+    tr: [[[540, 420], [1300, 420]], "call", "agent", S.chip[0] - 0.5, 0.5, "TRANSCRIPT"],
+    cr: [[[1160, 270], [1300, 270]], "crm", "agent", S.chip[1] - 0.3, 0.3],
+    ml: [[[1160, 600], [1300, 600]], "mail", "agent", S.chip[2] - 0.3, 0.3],
+    tk: [[[1940, 250], [2010, 250], [2010, 125], [2080, 125]], "agent", "tasks", S.act[1] - 0.2, 0.42, "TASKS"],
+    ev: [[[1940, 370], [2080, 370]], "agent", "event", S.act[2] - 0.2, 0.42],
+    dr: [[[1940, 560], [2010, 560], [2010, 730], [2080, 730]], "agent", "draft", S.act[3] - 0.2, 0.42, "DRAFT"],
+    ib: [[[2620, 125], [2760, 125]], "tasks", "inbox", S.iTask - 0.35, 0.35],
+    mn: [[[men.x + men.w + 6, my], [3340, my], [3340, 820], [3300, 820]], "chan", "doc", S.everyone - 0.4, 0.5, "MENTION"],
+    // the memory rail and what joins it
+    dCall: [[[270, 760], [270, RAIL]], "call", null, S.mem, 0.3],
+    railR: [[[270, RAIL], [TRUNK, RAIL]], null, null, S.mem + 0.28, 1.5],
+    railL: [[[270, RAIL], [236, RAIL]], null, null, S.mem + 0.28, 0.12],
+    dMail: [[[920, 730], [920, RAIL]], "mail", null, S.mail + 0.75, 0.3],
+    dAgent: [[[1620, 660], [1620, RAIL]], "agent", null, S.chip[2] + 0.55, 0.3],
+    dDraft: [[[2350, 960], [2350, RAIL]], "draft", null, S.sent + 0.15, 0.25],
+    dDoc: [[[3030, 940], [3030, RAIL]], "doc", null, NODE_AT.doc + 0.7, 0.25],
+    tSearch: [[[TRUNK, RAIL], [TRUNK, 280], [3440, 280]], null, "search", S.ev - 0.3, 0.55],
+    tMcp: [[[TRUNK, RAIL], [TRUNK, 750], [3440, 750]], null, "mcp", S.via - 0.45, 0.45],
+    ...Object.fromEntries(CLIENTS.map((_, i) => [`k${i}`, [[[4180, 642 + i * 108], [4000, 642 + i * 108]], "cl" + i, "mcp", S.cl[i] + 0.2, 0.32]])),
+  };
+  let idx = 0;
+  for (const [id, [P, from, to, d0, d1, tag]] of Object.entries(DEF)) {
+    const L = route(P);
+    const w = { id, L, from, to, a: P[0], b: P[P.length - 1], draw: [d0, d1], ev: [], edur: clamp(L.len / 600, 0.3, 1.1) };
+    const per = 1.6 + 0.3 * (idx % 3);
+    if (!id.startsWith("rail")) w.amb = { s: d0 + d1 + 0.7, e: S.fold, per, dur: clamp(L.len / 380, 0.45, 1.5), ph: (idx * 0.37) % per, dir: 1 };
+    idx++;
+    if (tag) w.tag = tag;
+    WL.push(w); WM[id] = w;
+    if (to) NODE[to].hits.push(d0 + d1);
+  }
+  // things travelling along wires after they're drawn: [wire, start, direction]
+  const EV = [["cr", S.act[0] - 0.05, -1],                                   // the deal update goes back to the CRM
+    ["dr", S.sent + 0.05, -1], ["cr", S.sent + 0.05 + WM.dr.edur, -1], ["tk", S.sent + 0.05 + WM.dr.edur, 1],   // Send syncs the CRM and the task
+    ["dCall", S.shared - 0.2, 1], ["dMail", S.shared - 0.15, 1], ["dAgent", S.shared - 0.1, 1], ["dDraft", S.shared - 0.05, 1], ["dDoc", S.shared, 1]];
+  for (const [id, t0, dir] of EV) {
+    const w = WM[id]; w.ev.push([t0, dir]);
+    const dest = dir > 0 ? w.to : w.from;
+    if (dest) NODE[dest].hits.push(t0 + w.edur);
+  }
+  S.deal = S.act[0] - 0.05 + WM.cr.edur; S.syncCrm = S.sent + 0.05 + WM.dr.edur + WM.cr.edur; S.syncTask = S.sent + 0.05 + WM.dr.edur + WM.tk.edur;
+  // search reads everything: pulses run from each drop along the rail and up the trunk; MCP calls do the same
+  const drops = [[270, 760], [920, 730], [1620, 660], [2350, 960], [3030, 940]];
+  drops.forEach(([x, y], i) => {
+    RAILP.push({ L: route([[x, y], [x, RAIL], [TRUNK, RAIL], [TRUNK, 280], [3440, 280]]), t0: S.ev + 0.15 + i * 0.12, dur: 1.15 });
+    RAILP.push({ L: route([[3440, 750], [TRUNK, 750], [TRUNK, RAIL], [x, RAIL], [x, y]]), t0: S.via + 0.1 + i * 0.1, dur: 1.05 + i * 0.12 });
+  });
+  // the rail carries a slow ambient flow once it exists, and a wave when the voiceover says "shared memory"
+  for (let k = 0; k < 3; k++) RAILP.push({ L: WM.railR.L, t0: S.mem + 1.9, rep: 3.3, ph: k * 1.1, dur: 2.8, amb: true });
+  WIRES.innerHTML = WL.map((w) => `<g id="wg_${w.id}" style="display:none"><path id="wp_${w.id}" d="${w.L.d}" pathLength="1000" stroke-dasharray="1000 1000" fill="none" stroke="#1d1c1a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect id="wa_${w.id}" x="-4.5" y="-4.5" width="9" height="9" fill="#8c897f"/><rect id="wb_${w.id}" x="-4.5" y="-4.5" width="9" height="9" fill="#8c897f"/>${[0, 1, 2, 3].map((i) => PULSE(`wq_${w.id}_${i}`)).join("")}</g>`).join("")
+    + RAILP.map((_, i) => PULSE("rp" + i)).join("");
+  TAGS.insertAdjacentHTML("beforeend", WL.filter((w) => w.tag).map((w) => `<div class="tag" id="tg_${w.id}">${w.tag}</div>`).join(""));
+  WIRES.querySelectorAll("[id]").forEach((n) => { E[n.id] = n; });
+  TAGS.querySelectorAll("[id]").forEach((n) => { E[n.id] = n; });
+  WL.forEach((w) => {
+    w.g = E["wg_" + w.id]; w.path = E["wp_" + w.id]; w.da = E["wa_" + w.id]; w.db = E["wb_" + w.id]; w.pool = [0, 1, 2, 3].map((i) => E[`wq_${w.id}_${i}`]);
+    if (w.tag) { w.tagEl = E["tg_" + w.id]; w.tagW = w.tagEl.offsetWidth; w.tagP = lutAt(w.L, w.id === "mn" ? 0.62 : 0.5); }
+  });
+  RAILP.forEach((p, i) => { p.g = E["rp" + i]; });
+  ["wsTag", "memTag", ...Object.keys(NL).map((k) => "lb_" + k)].forEach((id) => { E[id]._w = E[id].offsetWidth; });
+  CURS = CUR.map((c) => ({ t0: c.t0, t1: c.t1, seed: c.seed, clicks: c.clicks,
+    hand: Hand(c.from, c.moves.map((m) => typeof m[2] === "string" ? (() => { const a = ANCH[m[2]]; return [m[0], m[1], a.x + a.w * m[3], a.y + a.h * m[4], m[5]]; })() : m)) }));
+  buildCues();
+}
+
+// =====================================================================
+// camera: the frame below the header that each shot fits its subject into
+// =====================================================================
+const F = [70, 250, 1850, 1046], FW = [40, 236, 1880, 1060];
+const RECT = {
+  callTop: [-30, 100, 570, 470], call: [-50, 70, 590, 790], callMem: [-80, 330, 1060, 1100], agent: [1080, 110, 2010, 700], ctx: [-60, 20, 1990, 800], deal: [660, 20, 1960, 690], tasksEv: [1280, -30, 2640, 690], draftA: [1280, 140, 2640, 990],
+  draft: [2050, 470, 2650, 990], team: [2050, -40, 3330, 420], team2: [2740, 380, 3360, 1000], search: [3330, 0, 4060, 560], mcp: [3330, 560, 4520, 1070],
+  over: [BOUND[0] - 40, BOUND[1] - 40, NL.cl0[0] + NL.cl0[2] + 40, BOUND[3] + 40],
+};
+function camKey(name) {
+  if (name === "hub") return [HC[0], HC[1] - ((F[1] + F[3]) / 2 - H / 2), 1];
+  const r = RECT[name], f = name === "over" ? FW : F, zmax = name === "callTop" ? 1.55 : 1.35;
+  const z = Math.min(zmax, (f[2] - f[0]) / (r[2] - r[0]), (f[3] - f[1]) / (r[3] - r[1]));
+  return [(r[0] + r[2]) / 2 - ((f[0] + f[2]) / 2 - W / 2) / z, (r[1] + r[3]) / 2 - ((f[1] + f[3]) / 2 - H / 2) / z, z];
+}
+const SHOTS = [[0, "hub"], [S.unfold + 0.1, "over", 1.5, 0.96], [S.dive, "callTop", 1.25, 0.9], [S.tr - 0.55, "call", 1.1, 0.92], [S.mem - 0.35, "callMem", 1.15, 0.92],
+  [S.agent - 0.55, "agent", 1.15, 0.9], [S.chip[0] - 0.75, "ctx", 1.3, 0.94], [L0("s8") - 0.45, "deal", 1.1, 0.92], [S.act[1] - 0.35, "tasksEv", 1.1, 0.92], [S.act[3] - 0.45, "draftA", 1.1, 0.92],
+  [L0("s9") - 0.5, "draft", 1.15, 0.92],
+  [S.inbox - 0.55, "team", 1.3, 0.92], [S.chan - 0.25, "team2", 1.15, 0.92], [S.search - 0.6, "search", 1.3, 0.92], [S.mcp - 0.45, "mcp", 1.15, 0.92],
+  [S.over, "over", 1.6, 0.96], [S.fold, "hub", 1.35, 0.95]];
+const CK = SHOTS.map(([t, n, r, d]) => [t, ...camKey(n), r ?? 1.0, d ?? 0.9]);
+const CX = Tr(CK.map((k) => [k[0], k[1], k[4], k[5]])), CY = Tr(CK.map((k) => [k[0], k[2], k[4], k[5]])), LZ = Tr(CK.map((k) => [k[0], Math.log(k[3]), k[4], k[5]]));
+let CAM = { cx: HC[0], cy: HC[1], z: 1, dx: 0, dy: 0 };
+const toS = (x, y) => [(x - CAM.cx) * CAM.z + W / 2 + CAM.dx, (y - CAM.cy) * CAM.z + H / 2 + CAM.dy];   // graph → screen
+
+// =====================================================================
+// sound: sparse and quiet, under the voice (the mixer sets the levels)
+// =====================================================================
+const CUES = [];
+function buildCues() {
+  const cue = (t, type, gain = 1, extra = {}) => CUES.push({ t, type, gain, ...extra });
+  RING.forEach((_, i) => cue(S.tiles + i * 0.1 + 0.05, "pop", 0.22, { pitch: 0.9 + 0.05 * i }));
+  cue(S.mark + 0.03, "pop", 0.4, { pitch: 0.9 });
+  S.disc.forEach((t, i) => { cue(t + 0.12, "tick", 0.3, { pitch: DING[i] }); });
+  cue(S.ring, "chime", 0.25);
+  cue(S.unfold + 0.05, "swoosh", 0.45);
+  cue(BAR(0), "impact", 0.35); cue(BAR(0), "revcrash", 0.25);
+  Object.entries(NODE_AT).forEach(([k, at], i) => cue(at + 0.03, "pop", 0.3, { pitch: [0.9, 1, 1.12, 1.26, 1.335][i % 5] }));
+  WL.forEach((w, i) => { if (w.id.startsWith("rail")) return; cue(w.draw[0], "swish", 0.12); cue(w.draw[0] + w.draw[1], "tick", 0.22, { pitch: DING[(i + 2) % 8] }); });
+  WM.railR && cue(WM.railR.draw[0], "swoosh", 0.25);
+  // the call
+  cue(S.callEnd, "blip", 0.2); cue(S.rec, "tick", 0.25, { pitch: 1.5 });
+  SUMMARY.forEach((_, i) => cue(S.sum + i * 0.28, "tick", 0.16, { pitch: 1.6 + 0.08 * i }));
+  // the request: typed, then sent
+  { const s = "Follow up with Northwind"; for (let k = 0; k < s.length; k += 2) cue(S.type[0] + (k / s.length) * (S.type[1] - S.type[0]) + (k % 5) * 0.006, "key", 0.18, { seed: 10 + (k % 40) }); }
+  cue(S.enter, "click", 0.45);
+  S.chip.forEach((t, i) => cue(t, "pop", 0.28, { pitch: DING[i + 1] * 1.12 }));
+  S.act.forEach((t, i) => cue(t + 0.35, "tick", 0.3, { pitch: DING[i + 3] }));
+  CURS.forEach((c) => c.clicks.forEach((tc) => cue(tc, "click", 0.5)));
+  for (let k = 0; k < PS_TXT.length; k += 2) cue(S.ps[0] + (k / PS_TXT.length) * (S.ps[1] - S.ps[0]) + (k % 5) * 0.006, "key", 0.2, { seed: 60 + (k % 40) });
+  cue(S.sent + 0.02, "chime", 0.4);
+  cue(S.syncCrm, "tick", 0.25, { pitch: 1.5 }); cue(S.syncTask, "tick", 0.25, { pitch: 1.682 });
+  // team
+  cue(S.iTask, "pop", 0.25, { pitch: 1.2 }); CREW.forEach((_, i) => cue(S.everyone + 0.15 + i * 0.07, "tick", 0.14, { pitch: 1.5 + 0.06 * i }));
+  // search
+  for (let k = 0; k < QUERY.length; k += 2) cue(S.q[0] + (k / QUERY.length) * (S.q[1] - S.q[0]), "key", 0.18, { seed: 30 + k });
+  S.res.forEach((t, i) => cue(t, "tick", 0.18, { pitch: 1.26 + 0.1 * i })); cue(S.fifty + 0.1, "blip", 0.2);
+  // the close
+  cue(S.over - 0.2, "swoosh", 0.35); cue(S.fold + 0.1, "swoosh", 0.35);
+  cue(END, "impact", 0.5); cue(END, "revcrash", 0.3); cue(END, "crash", 0.22, { seed: 739 });
+  cue(END + 1.3, "pop", 0.3, { pitch: 1.0 });
+}
+
+// =====================================================================
+// seek(t)
+// =====================================================================
+// node internals
+const FXN = {
+  call(t, at) {
+    const live = t < S.callEnd;
+    setHtml(E.kTime, mmss(32 * 60 + 4.05 - (S.callEnd - at) + clamp(t - at, 0, S.callEnd - at)));
+    E.kDot.style.opacity = (0.5 + 0.5 * Math.cos(t * 5.5)).toFixed(3);
+    swap(E.kRec, E.kEnd, t, S.callEnd);
+    E.kSpk.style.opacity = live ? (0.55 + 0.45 * Math.sin(t * 3.1)).toFixed(3) : "0";
+    show(E.kDim, 0.32 * sm((t - S.callEnd) / 0.4));
+    popScale(E.kSaved, t, S.rec, 0.7, 0.3, 0.65);
+    show(E.kWait, 1 - sm((t - S.tr + 0.25) / 0.2));
+    show(E.kTrC, sm((t - S.tr + 0.1) / 0.25));
+    TRL.forEach((l, i) => {
+      const t0 = S.tr + i * 0.26, t1 = t0 + 0.55;
+      show(E["kL" + i], t >= t0 - 0.05 ? 1 : 0);
+      for (let k = 0; k < l.n; k++) { const tw = t0 + (k / l.n) * (t1 - t0), p = spr(t - tw, 0.22, 1); fx(E[`kL${i}w${k}`], t < tw ? 0 : clamp(p * 1.3), (1 - clamp(p)) * 4, `translate3d(0,${px((1 - p) * 6)},0)`); }
+    });
+    show(E.kSuC, sm((t - S.sum + 0.1) / 0.25));
+    SUMMARY.forEach((_, i) => write(E["kS" + i], t, S.sum + i * 0.28, S.sum + i * 0.28 + 0.45));
+  },
+  crm(t) {
+    [0, 1].forEach((i) => { swap(E[`mV${i}a`], E[`mV${i}b`], t, S.deal + i * 0.12); flash(E["mF" + i], t, S.deal + i * 0.12); });
+    swap(E.mV3a, E.mV3b, t, S.syncCrm); flash(E.mF3, t, S.syncCrm);
+  },
+  mail(t, at) { MAILS.forEach((_, i) => pop(E["lR" + i], t, at + 0.15 + i * 0.09, 8)); },
+  agent(t) {
+    const done = S.act[3] + 0.35;
+    show(E.aPh, t < S.type[0] ? 1 : 0);
+    setHtml(E.aInT, typed("Follow up with Northwind", t, S.type[0], S.type[1]));
+    E.aInC.style.opacity = t >= S.type[0] - 0.1 && t < S.enter && (t < S.type[1] || Math.floor((t - S.type[1]) * 2.6) % 2 === 0) ? 1 : 0;
+    const pr = t > S.enter - 0.03 && t < S.enter + 0.2 ? Math.sin(Math.PI * clamp((t - S.enter + 0.03) / 0.23)) : 0;
+    fx(E.aGo, 1 - sm((t - S.enter - 0.1) / 0.2), 0, `scale(${(1 - 0.12 * pr).toFixed(4)})`);
+    E.aIn.style.background = t >= S.enter + 0.05 ? "#1d1c1a0a" : "var(--bg)";
+    let n = 0; S.chip.forEach((ct, i) => { if (t >= ct) n++; popScale(E["gC" + i], t, ct, 0.5, 0.3, 0.62); });
+    const working = t >= S.enter + 0.1 && t < done;
+    if (show(E.gSpin, working ? 1 : 0)) E.gSpin.style.transform = `rotate(${((t * 300) % 360).toFixed(1)}deg)`;
+    show(E.gChk, t >= done ? 1 : 0);
+    setHtml(E.gCnt, t < S.enter + 0.1 ? "" : t < S.act[0] ? (n ? `Read ${n} source${n > 1 ? "s" : ""}` : "Reading the context") : t < done ? "Working…" : "4 updates");
+    ACTS.forEach((_, i) => {
+      const a = S.act[i]; pop(E["gA" + i], t, a, 8);
+      const c = a + 0.35;
+      if (show(E["gAs" + i], t >= a && t < c ? 1 : 0)) E["gAs" + i].style.transform = `rotate(${((t * 300) % 360).toFixed(1)}deg)`;
+      popScale(E["gAc" + i], t, c, 0.4, 0.28, 0.6);
+    });
+  },
+  tasks(t, at) {
+    TASKS.forEach((_, i) => {
+      pop(E["tR" + i], t, at + 0.12 + i * 0.12, 8);
+      const dn = i === 0 ? S.syncTask : 1e9, p = t < dn ? 0 : spr(t - dn, 0.3, 0.6);
+      show(E[`tS${i}a`], 1 - clamp(p * 2.5));
+      if (t < dn) show(E[`tS${i}b`], 0); else fx(E[`tS${i}b`], clamp(p * 1.6), 0, `scale(${(0.4 + 0.6 * p).toFixed(4)})`);
+      E["tT" + i].style.color = t >= dn + 0.1 ? "var(--mut)" : "";
+      if (show(E["tX" + i], t >= dn + 0.1 ? 1 : 0)) E["tX" + i].style.transform = `scaleX(${mj((t - dn - 0.1) / 0.28).toFixed(4)})`;
+    });
+  },
+  event() {},
+  draft(t, at) {
+    BODY.forEach((_, i) => write(E["eB" + i], t, at + 0.1 + i * 0.22, at + 0.5 + i * 0.22));
+    popScale(E.eBadge, t, at + 0.9, 0.7, 0.3, 0.6);
+    const on = t >= S.ps[0] - 0.12;
+    if (show(E.ePS, on ? 1 : 0)) {
+      setHtml(E.ePSt, typed(PS_TXT, t, S.ps[0], S.ps[1]));
+      E.ePSc.style.opacity = t < S.ps[1] ? 1 : t < S.ps[1] + 1.2 && Math.floor((t - S.ps[1]) * 2.6) % 2 === 1 ? 1 : 0;
+    }
+    const u = t - S.send, pr = u > -0.03 && u < 0.2 ? Math.sin(Math.PI * clamp((u + 0.03) / 0.2)) : 0;
+    const q = t < S.sent ? 0 : spr(t - S.sent, 0.3, 0.68);
+    const c1 = CURS[1], tgt = [ANCH.eSend.x + ANCH.eSend.w / 2, ANCH.eSend.y + ANCH.eSend.h / 2];
+    const hov = c1 && t >= c1.t0 && t <= c1.t1 ? clamp(1 - Math.hypot(...c1.hand(t).map((v, i) => v - tgt[i])) / 70) : 0;
+    fx(E.eSend, 1 - clamp(q * 2), 0, `scale(${(1 + 0.03 * hov * (1 - pr) - 0.07 * pr).toFixed(4)})`);
+    E.eSend.style.background = hov > 0.5 && t < S.sent ? "#000" : "var(--ink)";
+    fx(E.eSent, t < S.sent ? 0 : clamp(q * 1.6), 0, `scale(${(0.86 + 0.14 * q).toFixed(4)})`);
+    if (t >= S.sent && t < S.sent + 0.7) { const r = (t - S.sent) / 0.7; fx(E.eRing, (1 - sm(r)) * 0.85, 0, `scale(${(1 + 0.32 * mj(r)).toFixed(4)},${(1 + 0.75 * mj(r)).toFixed(4)})`); } else show(E.eRing, 0);
+    swap(E.eH0, E.eH1, t, S.sent + 0.12);
+    pop(E.eWait, t, L0("s9") + 0.25, 6); if (t > S.sent) show(E.eWait, 1 - sm((t - S.sent) / 0.2));
+  },
+  inbox(t, at) {
+    INBOX.forEach((_, i) => {
+      pop(E["iR" + i], t, at + 0.1 + i * 0.1, 8);
+      const hit = [S.iTask, S.iMail, S.iMsg, 1e9][i], u = t - hit;
+      show(E["iH" + i], i === 0 ? Math.max(0.28 * sm((t - at - 0.3) / 0.3), u >= 0 ? 0.75 * Math.exp(-u * 1.6) : 0) : u >= 0 ? 0.6 * Math.exp(-u * 2.2) * clamp(u / 0.05) : 0);
+    });
+    E.iDot.style.transform = `scale(${(1 + 0.35 * Math.exp(-Math.max(0, t - S.iTask) * 3) * (t > S.iTask ? 1 : 0)).toFixed(3)})`;
+  },
+  chan(t, at) {
+    pop(E.hM, t, at + 0.15, 12);
+    E.hMen.style.boxShadow = t > S.everyone - 0.45 ? `0 0 0 ${(2.5 * Math.exp(-Math.max(0, t - S.everyone + 0.45) * 2.5) + 1).toFixed(2)}px #7c5cd666` : "none";
+    CREW.forEach((_, i) => popScale(E["hK" + i], t, S.everyone + 0.15 + i * 0.07, 0.3, 0.26, 0.6));
+    pop(E.hAcc, t, S.everyone + 0.55, 8);
+  },
+  doc(t, at) {
+    ITEMS.forEach(([x], i) => {
+      const a = at + 0.35 + i * 0.75, b = a + 0.8;
+      if (!show(E["dI" + i], t >= a - 0.15 ? 1 : 0)) return;
+      setHtml(E["dT" + i], typed(x, t, a, b));
+      E["dC" + i].style.display = t < b + 0.25 && (i === ITEMS.length - 1 || t < at + 0.35 + (i + 1) * 0.75 - 0.1) ? "" : "none";
+    });
+  },
+  search(t) {
+    setHtml(E.sQ, typed(QUERY, t, S.q[0], S.q[1]));
+    E.sQc.style.opacity = t < S.q[1] ? 1 : Math.floor((t - S.q[1]) * 2.6) % 2 === 0 ? 1 : 0;
+    RESULTS.forEach((_, i) => pop(E["sR" + i], t, S.res[i], 10));
+    popScale(E.sMs, t, S.fifty, 0.6, 0.3, 0.55);
+  },
+  mcp(t, at) { TOOLS.forEach((_, i) => popScale(E["mT" + i], t, at + 0.35 + i * 0.07, 0.6, 0.28, 0.65)); },
+  cl0() {}, cl1() {}, cl2() {},
+};
+
+// The hub's geometry: ring slots for the named surfaces.
+const ringPos = (i) => { const a = -Math.PI / 2 + (TAU * i) / RING.length; return [HC[0] + RR * Math.cos(a), HC[1] + RR * Math.sin(a)]; };
+const unfoldQ = (i, t) => spr(t - S.unfold - 0.06 * i, 0.95, 0.92);   // ring → slots
+const foldQ = (k, t) => { const n = NODE[k], d = Math.hypot(n.cx - HC[0], n.cy - HC[1]); return spr(t - S.fold - 0.05 - d / 9000, 0.8, 0.9); };
+const slotIn = (k) => S.unfold + 0.25 + (NODE[k].cx + 400) / 9000;   // outlines draw left to right
+
+function nodeFx(k, t) {
+  const n = NODE[k], at = NODE_AT[k];
+  if (t < at) { show(n.el, 0); return 0; }
+  const p = spr(t - at, 0.5, 0.8);
+  let o = clamp(spr(t - at, 0.22, 1) * 1.3), tx = 0, ty = 0, sc = 0.9 + 0.1 * p, blur = (1 - clamp(p)) * 5;
+  const f = t > S.fold ? foldQ(k, t) : 0;
+  if (f > 0) {   // fold into the hub
+    const tgt = HOME_OF[k] != null ? ringPos(HOME_OF[k]) : HC, sEnd = 84 / Math.max(n.w, n.h);
+    tx += (tgt[0] - n.cx) * f; ty += (tgt[1] - n.cy) * f; sc *= 1 - (1 - sEnd) * f; o *= 1 - sm(f / 0.6); blur += f * 3;
+  }
+  if (!fx(n.el, o, blur, `translate3d(${px(tx)},${px(ty)},0) scale(${sc.toFixed(4)})`)) return p;
+  let fl = 0;
+  for (const h of n.hits) { const u = t - h; if (u >= 0 && u < 1) fl = Math.max(fl, Math.exp(-u * 4.5) * clamp(u / 0.05)); }
+  E["r_" + k].style.opacity = (0.75 * fl).toFixed(3);
+  FXN[k](t, at);
+  return p;
+}
+
+function wireFx(w, t, sw, ps, out) {
+  const [d0, d1] = w.draw;
+  const p = t < d0 ? 0 : mj((t - d0) / d1);
+  if (p <= 0 || !show(w.g, out)) { show(w.g, 0); return; }
+  const list = [];
+  if (t < d0 + d1 + 0.15) list.push([mj((t - d0) / d1), Math.min(1, (d0 + d1 + 0.15 - t) / 0.15), 1, 1]);
+  if (w.amb) {
+    const { s, e, per, dur, ph, dir } = w.amb, k1 = Math.floor((t - s - ph) / per);
+    for (let k = Math.max(0, k1 - 2); k <= k1; k++) {
+      const t0 = s + ph + k * per, x = (t - t0) / dur;
+      if (t0 > e - dur * 0.6 || x < 0 || x >= 1.2) continue;
+      list.push([ease(clamp(x)), 0.42 * Math.min(1, x / 0.08, (1.2 - x) / 0.2), dir, 0.45]);
+    }
+  }
+  for (const [t0, dir] of w.ev) { const x = (t - t0) / w.edur; if (x >= 0 && x < 1.2) list.push([ease(clamp(x)), Math.min(1, x / 0.06, (1.2 - x) / 0.2), dir, 1]); }
+  let act = 0;
+  list.forEach((q) => { act = Math.max(act, q[1] * q[3]); });
+  const rail = w.id.startsWith("rail");
+  w.path.style.strokeDasharray = "1000 1000"; w.path.style.strokeDashoffset = (1000 * (1 - p)).toFixed(2);
+  const glow = rail ? 0.25 * bell(clamp((t - S.shared + 0.1) / 1.6)) : 0;
+  w.path.style.strokeWidth = (sw * (rail ? 1.9 + 1.2 * glow : 1)).toFixed(3);
+  w.path.style.strokeOpacity = (rail ? 0.34 + glow : 0.24 + 0.24 * act).toFixed(3);
+  const ea = rail ? 0 : clamp((t - d0) / 0.1), eb = rail || t < d0 + d1 ? 0 : spr(t - d0 - d1, 0.26, 0.6);
+  w.da.setAttribute("transform", `translate(${w.a[0].toFixed(2)} ${w.a[1].toFixed(2)}) rotate(45) scale(${(ps * ea).toFixed(3)})`);
+  w.db.setAttribute("transform", `translate(${w.b[0].toFixed(2)} ${w.b[1].toFixed(2)}) rotate(45) scale(${(ps * eb).toFixed(3)})`);
+  w.pool.forEach((g, i) => { const q = list[i]; if (!q) { g.style.display = "none"; return; } pulseU(g, w.L, q[0], q[1], ps, q[2]); });
+}
+
+function introFx(t, sw, ps) {
+  // the scattered apps: they drift, try to link up and fail, then each flies into the ring as it is named
+  RING.forEach(([k], i) => {
+    const el = E["ti_" + k], [dx, dy, rot] = TILE[k], tin = S.tiles + i * 0.1, tn = S.disc[i];
+    if (t < tin) { show(el, 0); return; }
+    const a = spr(t - tin, 0.5, 0.75), q = t < tn ? 0 : spr(t - tn, 0.55, 0.85), [rx, ry] = ringPos(i);
+    const fl = [6 * Math.sin(t * 0.8 + i * 1.7), 5 * Math.sin(t * 0.6 + i * 2.3)];
+    const x = lerp(fl[0], rx - HC[0] - dx, q), y = lerp(fl[1] + (1 - a) * 30, ry - HC[1] - dy, q), s = lerp(0.9 + 0.1 * a, 84 / 250, q);
+    fx(el, clamp(a * 1.3) * (1 - sm((q - 0.35) / 0.4)), (1 - clamp(a)) * 6, `translate3d(${px(x)},${px(y)},0) rotate(${(rot * (1 - q)).toFixed(3)}deg) scale(${s.toFixed(4)})`);
+  });
+  const lkOn = sm((t - 1.2) / 0.5) * (1 - sm((t - S.other) / 0.3)) * (1 - sm((t - S.mark + 0.3) / 0.3));
+  LINKS.forEach(([a, b], i) => {
+    const A = [HC[0] + TILE[a][0], HC[1] + TILE[a][1]], Bq = [HC[0] + TILE[b][0], HC[1] + TILE[b][1]];
+    // each half reaches toward the other and stops short; on "talk" the gap opens wider
+    const reachP = 0.15 * mj((t - 1.25 - i * 0.12) / 0.7) - 0.09 * sm((t - S.talk) / 0.35);
+    const cut = (P, Q) => { const u0 = 0.29, u1 = u0 + Math.max(0, reachP); return `M${lerp(P[0], Q[0], u0).toFixed(1)} ${lerp(P[1], Q[1], u0).toFixed(1)}L${lerp(P[0], Q[0], u1).toFixed(1)} ${lerp(P[1], Q[1], u1).toFixed(1)}`; };
+    [["a", A, Bq], ["b", Bq, A]].forEach(([s, P, Q]) => { const el = E[`lk${i}${s}`]; if (!show(el, lkOn * 0.4 * (reachP > 0.005 ? 1 : 0))) return; el.setAttribute("d", cut(P, Q)); });
+  });
+  // the hub: the mark, the discs (each takes over from its app window), spokes, then the ring unfolds into the slots
+  const hubIn = t < S.mark ? 0 : spr(t - S.mark, 0.4, 0.62), uf0 = unfoldQ(0, t);
+  const back = t > S.fold ? spr(t - S.fold - 0.75, 0.4, 0.7) : 0;
+  fx(E.hub, (clamp(hubIn * 1.3) * (1 - sm((t - S.unfold) / 0.6)) + clamp(back * 1.3)) * (1 - sm((t - END + 0.1) / 0.25)), 0, `scale(${(t > S.fold ? 0.5 + 0.5 * back : 0.5 + 0.5 * hubIn).toFixed(4)})`);
+  RING.forEach(([k, , , home], i) => {
+    const el = E["hd" + i], tn = S.disc[i], [rx, ry] = ringPos(i);
+    if (t < tn + 0.18) { show(el, 0); show(E["hs" + i], 0); show(E["hp" + i], 0); return; }
+    const p = spr(t - tn - 0.18, 0.34, 0.62), u = unfoldQ(i, t), n = NODE[home];
+    const x = lerp(rx, n.cx, u), y = lerp(ry, n.cy, u);
+    const fillOut = sm((t - NODE_AT[home] - 0.05) / 0.25), foldBack = t > S.fold ? foldQ(home, t) : 0;
+    let o = clamp(spr(t - tn - 0.18, 0.2, 1) * 1.2) * (1 - fillOut), X = x, Y = y, s = 0.5 + 0.5 * p;
+    if (foldBack > 0) { o = sm((foldBack - 0.3) / 0.4); X = lerp(n.cx, rx, foldBack); Y = lerp(n.cy, ry, foldBack); s = 1; }
+    o *= 1 - sm((t - END + 0.1) / 0.25);
+    if (fx(el, o, 0, `translate3d(${px(X)},${px(Y)},0) scale(${(s / Math.max(0.55, Math.pow(CAM.z, 0.35))).toFixed(4)})`))
+      show(E["hl" + i], foldBack > 0 ? sm((foldBack - 0.6) / 0.3) : 1 - sm(u / 0.25));
+    // spoke to the mark
+    const sp = E["hs" + i], spOn = clamp((t - tn - 0.25) / 0.1) * (1 - sm(u / 0.2)) + (foldBack > 0.85 ? sm((t - S.fold - 1.1) / 0.3) : 0);
+    if (show(sp, Math.min(1, spOn) * (1 - sm((t - END + 0.1) / 0.25)))) {
+      const L = Math.hypot(HC[0] - rx, HC[1] - ry), ux = (HC[0] - rx) / L, uy = (HC[1] - ry) / L;
+      sp.setAttribute("d", `M${(rx + ux * 50).toFixed(1)} ${(ry + uy * 50).toFixed(1)}L${(HC[0] - ux * 74).toFixed(1)} ${(HC[1] - uy * 74).toFixed(1)}`);
+      sp.style.strokeDashoffset = (1000 * (1 - mj((t - tn - 0.25) / 0.35))).toFixed(1);
+      sp.style.strokeWidth = sw.toFixed(3); sp.style.strokeOpacity = "0.22";
+      const L2 = route([[rx + ux * 50, ry + uy * 50], [HC[0] - ux * 74, HC[1] - uy * 74]], 0);
+      const x1 = (t - tn - 0.25) / 0.4, x2 = (t - S.ring - i * 0.04) / 0.5, x3 = (t - S.fold - 1.25 - i * 0.04) / 0.5;
+      const xx = x1 >= 0 && x1 < 1.2 ? x1 : x2 >= 0 && x2 < 1.2 ? x2 : x3 >= 0 && x3 < 1.2 ? x3 : -1;
+      if (xx >= 0) pulseU(E["hp" + i], L2, ease(clamp(xx)), Math.min(1, xx / 0.06, (1.2 - xx) / 0.2) * (1 - sm(u / 0.2)), ps, 1); else show(E["hp" + i], 0);
+    } else show(E["hp" + i], 0);
+  });
+  // the ring's outline: drawn on "connected", it gives way to the workspace outline as the ring unfolds
+  const hr = E.hubRing, rOn = t < S.ring ? 0 : 1;
+  if (show(hr, rOn * (1 - sm((t - S.unfold) / 0.5)) + (t > S.fold + 1.0 ? sm((t - S.fold - 1.0) / 0.4) * (1 - sm((t - END + 0.1) / 0.25)) : 0))) {
+    const dp = t > S.fold ? mj((t - S.fold - 1.0) / 0.7) : mj((t - S.ring) / 0.8);
+    hr.style.strokeDasharray = `${(1000 * dp).toFixed(1)} 1000`; hr.style.strokeWidth = sw.toFixed(3); hr.style.strokeOpacity = "0.16";
+  }
+  // slot discs and outlines
+  Object.keys(NL).forEach((k) => {
+    const el = E["sd_" + k], sl = E["sl_" + k], n = NODE[k], home = HOME_OF[k] != null;
+    const a = slotIn(k), fillOut = sm((t - NODE_AT[k] - 0.05) / 0.25), foldBack = t > S.fold ? foldQ(k, t) : 0;
+    if (show(sl, t < a ? 0 : sm((t - a) / 0.35) * (1 - fillOut) * (1 - sm((t - END + 0.2) / 0.2)))) {
+      sl.style.strokeWidth = (1.4 * sw / 1.6).toFixed(3); sl.style.strokeOpacity = "0.3";
+      sl.style.strokeDasharray = `${(7 / Math.pow(CAM.z, 0.8)).toFixed(2)} ${(7 / Math.pow(CAM.z, 0.8)).toFixed(2)}`;
+    }
+    if (home) { show(el, 0); return; }
+    let o = t < a ? 0 : clamp(spr(t - a - 0.1, 0.2, 1) * 1.2) * (1 - fillOut), X = n.cx, Y = n.cy, s = t < a ? 0 : 0.5 + 0.5 * spr(t - a - 0.1, 0.34, 0.62);
+    if (foldBack > 0) { o = sm((foldBack - 0.3) / 0.4) * (1 - sm((foldBack - 0.75) / 0.25)); X = lerp(n.cx, HC[0], foldBack); Y = lerp(n.cy, HC[1], foldBack); s = 1 - 0.6 * foldBack; }
+    fx(el, o, 0, `translate3d(${px(X)},${px(Y)},0) scale(${(s / Math.max(0.55, Math.pow(CAM.z, 0.35))).toFixed(4)})`);
+  });
+  // the workspace outline and its tag
+  const bd = E.bound, bIn = S.unfold + 0.15, bOut = 1 - sm((t - S.fold - 0.2) / 0.5);
+  if (show(bd, t < bIn ? 0 : bOut)) {
+    bd.style.strokeDasharray = `${(1000 * mj((t - bIn) / 1.3)).toFixed(1)} 1000`; bd.style.strokeWidth = (sw * 1.15).toFixed(3); bd.style.strokeOpacity = "0.2";
+  }
+  const tg = E.wsTag, tIn = S.unfold + 0.6;
+  if (fx(tg, t < tIn ? 0 : clamp(spr(t - tIn, 0.3, 1) * 1.3) * bOut, 0, `translate3d(${px(BOUND[0] + 64)},${px(BOUND[1] - 17)},0) scale(${Math.pow(1 / CAM.z, 0.55).toFixed(4)})`)) {}
+}
+
+function labelsFx(t) {
+  // the memory rail's tag, and in the overview a label on every node
+  const mIn = WM.railR.draw[0] - 0.05;
+  fx(E.memTag, t < mIn ? 0 : clamp(spr(t - mIn, 0.3, 1) * 1.3) * (1 - sm((t - S.fold - 0.2) / 0.4)), 0, `translate3d(${px(100 - E.memTag._w / 2 + 40)},${px(RAIL - 17)},0) scale(${Math.pow(1 / CAM.z, 0.6).toFixed(4)})`);
+  Object.keys(NL).forEach((k, i) => {
+    const el = E["lb_" + k], n = NODE[k], a = S.over + 0.25 + (n.cx + 400) / 12000, b = S.fold + 0.05;
+    const p = t < a ? 0 : spr(t - a, 0.32, 0.75);
+    if (!show(el, clamp(p * 1.4) * (1 - sm((t - b) / 0.25)))) return;
+    el.style.transform = `translate(${px(n.cx)},${px(n.cy)}) scale(${(1 / CAM.z).toFixed(4)}) translate(${px(-el._w / 2)},${px(-22 + (1 - p) * 12)}) scale(${(0.85 + 0.15 * p).toFixed(4)})`;
+  });
+}
+
+function headerFx(t) {
+  show(E.band, 1 - sm((t - END + 0.1) / 0.25));
+  const p2 = spr(t - END, 0.55, 0.88);
+  const x = lerp(HX, EX, p2), y = lerp(HY, EY, p2), s = lerp(LS_H, LS_E, p2);
+  fx(E.lock, clamp(spr(t + 0.3, 0.4, 1) * 1.2), 0, `translate3d(${px(x)},${px(y)},0) scale(${s.toFixed(5)})`);
+  HEADS.forEach(([a, b, kick, line], k) => {
+    if (kick) rise(E["hk" + k], t, a - 0.05, b, 14, 6, 0.4, 0.85);
+    line.split(" ").forEach((_, j) => rise(E[`hh${k}w${j}`], t, a + 0.06 * j + 0.02 * Math.sin(j * 2.7 + k * 1.3), b + j * 0.015, 30 + 5 * Math.sin(j + k), 10, 0.42 + 0.04 * Math.sin(j * 1.9 + k), 0.8));
+  });
+}
+
+function endFx(t) {
+  const e = END;
+  if (!show(LX, t >= e - 0.05 ? 1 : 0)) return;
+  const g = clamp(spr(t - e, 0.9, 1) * 1.1);
+  fx(E.xglow, g, 0, `translate3d(${px(Math.sin(t * 0.7) * 16)},${px(Math.cos(t * 0.5) * 9)},0) scale(${(0.94 + 0.06 * g).toFixed(4)})`);
+  "One workspace. One shared memory.".split(" ").forEach((_, j) => rise(E[`xh0w${j}`], t, e + 0.3 + j * 0.07, null, 36, 12, 0.44, 0.8));
+  rise(E.xsub, t, e + 0.85, null, 18, 8);
+  popScale(E.xcta, t, vw("s15", "get") - 0.1, 0.7, 0.42, 0.6);
+  E.xarr.style.transform = `translateX(${px(5 * Math.max(0, Math.sin((t - vw("s15", "get") - 0.2) * 3.4)) * clamp((t - vw("s15", "get") - 0.2) / 0.3))})`;
+  rise(E.xdemo, t, vw("s15", "get") + 0.35, null, 12, 6);
+  [0, 1, 2].forEach((i) => { rise(E["xp" + i], t, e + 2.4 + i * 0.12, null, 10, 6); if (i) show(E["xs" + i], clamp((t - e - 2.4 - i * 0.12) / 0.2)); });
+}
+
+function handsFx(t) {
+  let k = null;
+  for (const q of CURS) if (t >= q.t0 && t <= q.t1) { k = q; break; }
+  if (!k) { show(E.cur, 0); show(E.cring, 0); return; }
+  let [x, y] = toS(...k.hand(t));
+  const [jx, jy] = tremor(t, k.seed, 0.6); x += jx; y += jy;
+  const o = clamp((t - k.t0) / 0.12) * (1 - clamp((t - (k.t1 - 0.2)) / 0.2));
+  let press = 0, ring = null;
+  for (const tc of k.clicks) { const u = t - tc; if (u > -0.02 && u < 0.14) press = Math.max(press, Math.sin(Math.PI * clamp((u + 0.02) / 0.16))); if (u >= 0 && u < 0.4) ring = u / 0.4; }
+  fx(E.cur, o, 0, `translate3d(${px(x - 2)},${px(y - 2)},0) scale(${(1 - 0.1 * press).toFixed(4)})`);
+  if (ring != null) fx(E.cring, (1 - ring) * 0.9 * o, 0, `translate3d(${px(x)},${px(y)},0) scale(${(0.3 + 0.9 * mj(ring)).toFixed(4)})`); else show(E.cring, 0);
+}
+
+function seek(tIn) {
+  const t = clamp(tIn, 0, T);   // the film plays once: the shutter's samples before 0 hold frame 0
+  {
+    const env = sm((t - 0.3) / 1.5) * (1 - sm((t - END) / 0.6));
+    const dx = env * (1.6 * Math.sin(t * 0.83 + 1.1) + 0.7 * Math.sin(t * 1.97 + 0.4)), dy = env * (1.3 * Math.sin(t * 0.61 + 2.3) + 0.6 * Math.sin(t * 1.49 + 1.7));
+    const rot = env * (0.05 * Math.sin(t * 0.47 + 0.7) + 0.015 * Math.sin(t * 1.3));
+    let z = Math.exp(LZ(t));
+    for (const [tp, a] of [[BAR(0), 0.025], [END, 0.02]]) { const u = t - tp; if (u >= 0) z *= 1 + a * clamp(u / 0.025) * Math.exp(-u / 0.13); }
+    CAM = { cx: CX(t), cy: CY(t), z, dx, dy };
+    world.style.transform = `translate(${(W / 2 + dx).toFixed(3)}px,${(H / 2 + dy).toFixed(3)}px) rotate(${rot.toFixed(4)}deg) scale(${z.toFixed(5)}) translate(${(-CAM.cx).toFixed(3)}px,${(-CAM.cy).toFixed(3)}px)`;
+  }
+  const gOut = 1 - sm((t - END + 0.04) / 0.3);
+  const z = CAM.z, sw = 1.7 / Math.pow(z, 0.72), ps = Math.pow(1 / z, 0.55);
+  if (show(world, gOut)) {
+    Object.keys(NL).forEach((k) => nodeFx(k, t));
+    WL.forEach((w) => wireFx(w, t, sw, ps, 1 - sm((t - S.fold + 0.05) / 0.3)));
+    RAILP.forEach((r) => {
+      let x;
+      if (r.amb) { if (t < r.t0 || t > S.fold) { show(r.g, 0); return; } const k = Math.floor((t - r.t0 - r.ph) / r.rep), t0 = r.t0 + r.ph + k * r.rep; x = k < 0 ? -1 : (t - t0) / r.dur; }
+      else x = (t - r.t0) / r.dur;
+      if (x < 0 || x >= 1.2) { show(r.g, 0); return; }
+      pulseU(r.g, r.L, ease(clamp(x)), (r.amb ? 0.35 : 0.95) * Math.min(1, x / 0.06, (1.2 - x) / 0.2), ps, 1);
+    });
+    WL.forEach((w) => {
+      if (!w.tagEl) return;
+      const at = w.draw[0] + w.draw[1] * 0.5, p = t < at ? 0 : spr(t - at, 0.3, 0.7);
+      fx(w.tagEl, clamp(p * 1.4) * (1 - sm((t - S.over) / 0.3)), 0, `translate3d(${px(w.tagP[0] - w.tagW / 2)},${px(w.tagP[1] - 13)},0) scale(${(Math.pow(1 / z, 0.5) * (0.8 + 0.2 * p)).toFixed(4)})`);
+    });
+    introFx(t, sw, ps);
+    labelsFx(t);
+  }
+  headerFx(t);
+  endFx(t);
+  handsFx(t);
+}
+
+// ---------- the YouTube thumbnail (?thumb=1): the finished flowchart under a large title ----------
+function thumb() {
+  const t = S.over + 2.0;
+  seek(t);
+  show(LH, 0); show(LL, 0);
+  Object.keys(NL).forEach((k) => show(E["lb_" + k], 0));
+  world.style.transform = world.style.transform.replace(/^translate\(([-\d.]+)px,\s*([-\d.]+)px\)/, (m, x, y) => `translate(${x}px,${(+y + 112).toFixed(3)}px)`);
+  add(scr, `<div class="layer" id="TH"><div class="a" style="left:0;top:0;width:${W}px;height:470px;background:linear-gradient(to bottom, var(--bg) 0, var(--bg) 400px, #f5f1e800 470px)"></div>
+    <div class="a" style="left:72px;top:64px">${markSvg(84, "#141312")}</div>
+    ${slabLine("thT", ["How", "Macro", "works"], 70, 300, 156)}
+    <div class="a" style="left:76px;top:338px;font-size:40px;line-height:48px;color:var(--body);white-space:nowrap">Email, chat, docs, tasks, calls, CRM and AI agents, connected</div>
+    <div class="a flex" style="left:${W - 72}px;transform:translateX(-100%);white-space:nowrap;top:84px;height:64px;padding:0 28px;border-radius:32px;background:var(--ink);color:#f5f1e8;font-size:30px;font-weight:600">80-second explainer</div></div>`);
+}
+// ---------- boot ----------
+const params = new URLSearchParams(location.search);
+window.seek = seek; window.DURATION = T; window.CUES = CUES; window.B = B; window.MUSIC = MUSIC; window.SONGS = { song: [SONG, 0] }; window.FMT = [W, H];
+window.ready = Promise.all(['400 20px "Inter"', '500 20px "Inter"', '600 20px "Inter"', '700 20px "Inter"', '320 40px "display"', '400 16px "mono"'].map((f) => document.fonts.load(f)))
+  .then(() => document.fonts.ready)
+  .then(() => Promise.all([...document.querySelectorAll("[style*='url(img']")].map((a) => { const u = a.style.backgroundImage.match(/url\("?(.*?)"?\)/); if (!u) return 0; return new Promise((r) => { const i = new Image(); i.onload = i.onerror = r; i.src = u[1]; }); })))
+  .then(() => { init(); seek(0); if (params.has("thumb")) thumb(); return true; });
+if (params.has("render")) document.documentElement.classList.add("render");
+else {
+  const fit = () => { const k = Math.min(innerWidth / W, innerHeight / H); Object.assign(stage.style, { position: "fixed", left: "50%", top: "50%", transformOrigin: "50% 50%", transform: `translate(-50%,-50%) scale(${k})` }); };
+  addEventListener("resize", fit); fit();
+  const at = params.has("t") ? parseFloat(params.get("t")) : null;
+  window.ready.then(() => { if (at != null) { seek(at); return; } const t0 = performance.now(); const loop = () => { seek((performance.now() - t0) / 1000); requestAnimationFrame(loop); }; requestAnimationFrame(loop); });
+}
+</script>
+</body>
+</html>

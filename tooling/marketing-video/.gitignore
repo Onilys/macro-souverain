@@ -3,3 +3,8 @@ audio/*.wav
 audio/cues.json
 stills/
 /macro-trailer*.mp4
+audio/explainer-cues.json
+vo/models/
+vo/lines/
+vo/cache/
+/macro-explainer*.mp4

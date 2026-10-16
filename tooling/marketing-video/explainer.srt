@@ -1,0 +1,106 @@
+1
+00:00:00,700 --> 00:00:04,210
+Most teams run on a stack of apps
+that don't talk to each other.
+
+2
+00:00:04,550 --> 00:00:08,240
+Macro puts email, chat,
+docs, tasks, calls,
+
+3
+00:00:08,290 --> 00:00:11,940
+your CRM and AI agents into
+one connected workspace.
+
+4
+00:00:12,450 --> 00:00:14,140
+Here's how it all works together.
+
+5
+00:00:15,100 --> 00:00:17,250
+Say you just finished
+a demo with Northwind.
+
+6
+00:00:17,650 --> 00:00:20,940
+Macro recorded it,
+transcribed it and summarized it,
+
+7
+00:00:20,990 --> 00:00:22,580
+straight into your team's memory.
+
+8
+00:00:23,700 --> 00:00:25,670
+Now ask an agent to follow up.
+
+9
+00:00:26,100 --> 00:00:28,610
+It already has the context: the call,
+
+10
+00:00:28,900 --> 00:00:32,610
+Northwind's record in your CRM,
+and every email you've exchanged.
+
+11
+00:00:33,300 --> 00:00:35,710
+It updates the deal, creates the tasks,
+
+12
+00:00:36,360 --> 00:00:38,410
+schedules the onboarding
+and drafts your reply.
+
+13
+00:00:39,000 --> 00:00:40,950
+Nothing goes out until you say so.
+
+14
+00:00:41,240 --> 00:00:43,550
+Review the draft, tweak a line, and send.
+
+15
+00:00:44,700 --> 00:00:47,330
+Your teammates get their
+tasks in one inbox,
+
+16
+00:00:47,600 --> 00:00:49,670
+right next to their email and messages.
+
+17
+00:00:50,250 --> 00:00:54,040
+Mention the rollout plan in a channel,
+and everyone in it gets access.
+
+18
+00:00:54,370 --> 00:00:55,620
+No requests needed.
+
+19
+00:00:56,300 --> 00:00:59,470
+Search covers everything,
+from email to call transcripts,
+
+20
+00:00:59,520 --> 00:01:01,170
+in under 50 milliseconds.
+
+21
+00:01:01,850 --> 00:01:04,420
+And your own AI tools, like Claude Code,
+
+22
+00:01:04,470 --> 00:01:07,000
+Codex or Cursor, connect through MCP.
+
+23
+00:01:07,750 --> 00:01:11,440
+One workspace, one shared memory,
+for $40 a seat.
+
+24
+00:01:12,450 --> 00:01:14,420
+Get started at macro.com.
