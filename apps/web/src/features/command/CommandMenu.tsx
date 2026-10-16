@@ -728,10 +728,14 @@ export function CommandMenuInner(props: {
             </span>
           }
         >
+          {/* Not a tab stop: Tab switches categories and Escape goes back,
+              and a menu opened straight onto a sub-view focuses its first
+              tab stop, which must be the search field. */}
           <button
             class="flex size-5 shrink-0 items-center justify-center text-ink-muted hover:text-ink transition-colors"
             onClick={handleBack}
             title="Back (Esc)"
+            tabIndex={-1}
           >
             <ArrowLeft class="size-3" />
           </button>
