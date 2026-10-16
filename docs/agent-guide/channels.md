@@ -684,7 +684,7 @@ in the title row. Open the hamburger button labeled `Chat sidebar views` to choo
 `All`, `Recent`, or `Threads` (when enabled); a check marks the current view.
 Search expands below the title row, and New Message opens the creation menu.
 `New` is available in every view, including search. All contains an optional
-`Favorites` section and independently paginated `Channels` and `Direct messages`
+`Favorites` section with a compact 4px desktop top inset, and independently paginated `Channels` and `Direct messages`
 sections. Favorites appears when
 the user has channel favorites and only lists channels. Channel favorites open
 in the shared channel detail. Shift-clicking a favorite, channel, or DM opens that

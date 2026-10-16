@@ -874,7 +874,7 @@ function ExpandedBrowse() {
         <ChannelsEmptyState scope="channels" topAligned />
       </Match>
       <Match when={true}>
-        <ViewSidebar.Content class="h-full overflow-hidden">
+        <ViewSidebar.Content class="h-full overflow-hidden not-touch:pt-1">
           <ChannelFavoritesSection />
           {/* The groups split the height left after favorites between them.
               Their half-height caps resolve against this column, not the
