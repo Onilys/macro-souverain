@@ -17,8 +17,25 @@ type ActiveGraphqlSoupQuery = {
 };
 
 const activeQueries = new Set<ActiveGraphqlSoupQuery>();
-type ReaderRefresh = { inFlight: Promise<void>; followUp?: Promise<void> };
+type ReaderRefresh = {
+  generation: number;
+  inFlight: Promise<void>;
+  followUp?: Promise<void>;
+};
 const readerRefreshes = new Map<ActiveGraphqlSoupQuery, ReaderRefresh>();
+let refreshGeneration = 0;
+
+async function runReaderRefresh(
+  query: ActiveGraphqlSoupQuery,
+  generation: number
+): Promise<void> {
+  try {
+    await query.refresh();
+  } finally {
+    if (readerRefreshes.get(query)?.generation === generation)
+      readerRefreshes.delete(query);
+  }
+}
 
 /** One refresh per reader at a time. A request made while one is in flight
  * shares a single follow-up that starts after it, so each caller still gets a
@@ -29,18 +46,10 @@ async function refreshReader(query: ActiveGraphqlSoupQuery): Promise<void> {
     current.followUp ??= refreshAfter(current.inFlight, query);
     return current.followUp;
   }
-  const refresh: ReaderRefresh = {
-    inFlight: (async () => {
-      try {
-        await query.refresh();
-      } finally {
-        if (readerRefreshes.get(query) === refresh)
-          readerRefreshes.delete(query);
-      }
-    })(),
-  };
-  readerRefreshes.set(query, refresh);
-  return refresh.inFlight;
+  const generation = ++refreshGeneration;
+  const inFlight = runReaderRefresh(query, generation);
+  readerRefreshes.set(query, { generation, inFlight });
+  return inFlight;
 }
 
 async function refreshAfter(
