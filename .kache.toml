@@ -9,7 +9,7 @@
 # NIX_LDFLAGS): a build-script run recorded under older flags still restores,
 # and its archives then poison every key above them. Bump this whenever those
 # flags change in nix/cloud-storage.nix.
-key_salt = "devshell-c-flags-1"
+key_salt = "devshell-c-flags-2"
 
 [cache.remote]
 type = "s3"

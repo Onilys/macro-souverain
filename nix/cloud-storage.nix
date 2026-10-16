@@ -1140,7 +1140,16 @@
                 export PATH="${kache}/shims:$PATH"
                 export KACHE_CACHE_DIR="''${KACHE_CACHE_DIR:-$HOME/macro-kache}"
                 export KACHE_MAX_SIZE="''${KACHE_MAX_SIZE:-256GiB}"
-                export KACHE_BASE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+                # CI re-enters the shell in every bash process through BASH_ENV,
+                # the Nix compiler wrapper included. Inside target/ (a separate
+                # cache-volume mount there) git cannot see the checkout and the
+                # fallback would make each build directory its own base, so the
+                # enclosing shell's value wins while we are still inside it.
+                case "$PWD/" in
+                  "''${KACHE_BASE_DIR:-/nonexistent}"/*) ;;
+                  *) KACHE_BASE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)" ;;
+                esac
+                export KACHE_BASE_DIR
                 # Registry dependencies compile from ~/.cargo, outside the
                 # checkout, where kache's walk-up never finds .kache.toml.
                 if [ -z "''${KACHE_CONFIG-}" ] && [ -f "$KACHE_BASE_DIR/.kache.toml" ]; then
