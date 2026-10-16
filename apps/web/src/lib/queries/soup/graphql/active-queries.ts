@@ -17,6 +17,43 @@ type ActiveGraphqlSoupQuery = {
 };
 
 const activeQueries = new Set<ActiveGraphqlSoupQuery>();
+type ReaderRefresh = { inFlight: Promise<void>; followUp?: Promise<void> };
+const readerRefreshes = new Map<ActiveGraphqlSoupQuery, ReaderRefresh>();
+
+/** One refresh per reader at a time. A request made while one is in flight
+ * shares a single follow-up that starts after it, so each caller still gets a
+ * fetch issued after its write instead of a burst of chain refetches. */
+async function refreshReader(query: ActiveGraphqlSoupQuery): Promise<void> {
+  const current = readerRefreshes.get(query);
+  if (current) {
+    current.followUp ??= refreshAfter(current.inFlight, query);
+    return current.followUp;
+  }
+  const refresh: ReaderRefresh = {
+    inFlight: (async () => {
+      try {
+        await query.refresh();
+      } finally {
+        if (readerRefreshes.get(query) === refresh)
+          readerRefreshes.delete(query);
+      }
+    })(),
+  };
+  readerRefreshes.set(query, refresh);
+  return refresh.inFlight;
+}
+
+async function refreshAfter(
+  inFlight: Promise<void>,
+  query: ActiveGraphqlSoupQuery
+): Promise<void> {
+  try {
+    await inFlight;
+  } catch {
+    // The follow-up runs whether or not the refresh it waited on succeeded.
+  }
+  return refreshReader(query);
+}
 const revalidationSources = new Set<{
   queries: () => readonly QueryRevalidation[];
   client?: () => Pick<Client, 'query'>;
@@ -81,7 +118,7 @@ export async function refreshActiveGraphqlSoupQueries(
     [...activeQueries].map(async (query) => {
       if (!applicable(query)) return;
       try {
-        await query.refresh();
+        await refreshReader(query);
         refreshed.add(query);
       } catch (error) {
         console.error('[graphql-soup] failed to refresh active query', error);
