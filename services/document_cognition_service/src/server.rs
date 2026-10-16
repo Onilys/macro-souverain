@@ -905,14 +905,9 @@ pub async fn run() -> anyhow::Result<()> {
 
     tracing::info!("initialized ai projections service");
 
-    // The onboarding flow drives the import pipeline: reads/hooks start
-    // auto-importing gather runs for authenticated connectors, and
-    // completion deletes unreserved onboarding-staged candidates.
     let onboarding_service = Arc::new(onboarding::domain::service::OnboardingServiceImpl::new(
         onboarding::outbound::pg_onboarding_repo::PgOnboardingRepo::new(db.clone()),
         Arc::new(mcp_server_repo.clone()),
-        import_service.clone(),
-        mcp_selector.clone(),
     ));
 
     tracing::info!("initialized onboarding service");
@@ -932,53 +927,18 @@ pub async fn run() -> anyhow::Result<()> {
         mcp_client_metadata.clone(),
         mcp_pre_registered,
     );
-    // The moment a connector finishes OAuth, reconcile onboarding for that
-    // user — gather jobs start before the user even returns to their
-    // original tab. Spawned so the callback response never waits on them.
-    let onboarding_for_auth_hook = onboarding_service.clone();
-    let mcp_auth_hook: mcp_client::inbound::axum_router::McpAuthCompletedHook =
-        Arc::new(move |record: mcp_client::domain::models::McpServerRecord| {
-            let service = onboarding_for_auth_hook.clone();
-            Box::pin(async move {
-                tokio::spawn(async move {
-                    use onboarding::domain::service::OnboardingService;
-                    if let Err(e) = service.reconcile(record.user_id).await {
-                        tracing::warn!(error = ?e, "post-auth onboarding reconcile failed");
-                    }
-                });
-            })
-        });
     let mcp_state = mcp_client::inbound::McpRouterState::new(
         mcp_server_repo,
         mcp_oauth,
         authorization_state.clone(),
         mcp_client_metadata,
-    )
-    .with_auth_completed_hook(mcp_auth_hook);
+    );
 
-    // The Pipedream stack gets the same post-connect reconcile hook as the
-    // native one: a finished Connect flow starts gather jobs immediately.
-    let onboarding_for_pipedream_hook = onboarding_service.clone();
-    let pipedream_auth_hook: pipedream_mcp::inbound::axum_router::PipedreamAuthCompletedHook =
-        Arc::new(
-            move |connection: pipedream_mcp::domain::models::PipedreamConnection| {
-                let service = onboarding_for_pipedream_hook.clone();
-                Box::pin(async move {
-                    tokio::spawn(async move {
-                        use onboarding::domain::service::OnboardingService;
-                        if let Err(e) = service.reconcile(connection.user_id).await {
-                            tracing::warn!(error = ?e, "post-connect onboarding reconcile failed");
-                        }
-                    });
-                })
-            },
-        );
     let pipedream_state = pipedream_mcp::inbound::PipedreamRouterState::new(
         pipedream_repo,
         pipedream_client,
         authorization_state.clone(),
-    )
-    .with_auth_completed_hook(pipedream_auth_hook);
+    );
 
     let api_result = api::setup_and_serve(ApiContext {
         db: db.clone(),

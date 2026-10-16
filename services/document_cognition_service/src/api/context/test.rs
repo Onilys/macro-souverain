@@ -630,8 +630,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         let onboarding_service = Arc::new(onboarding::domain::service::OnboardingServiceImpl::new(
             onboarding::outbound::pg_onboarding_repo::PgOnboardingRepo::new(pool.clone()),
             Arc::new(mcp_repo),
-            import_service.clone(),
-            mcp_selector.clone(),
         ));
         (import_service, onboarding_service, mcp_selector)
     };
