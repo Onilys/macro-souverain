@@ -14,7 +14,7 @@ import {
   rangeCopies,
   readCopiedRange,
 } from '../core/cell-copy';
-import { cellEditValue, normalizeCellInput } from '../core/cell-input';
+import { cellEditValue, cellEntry } from '../core/cell-input';
 import {
   type FormulaTextSelection,
   formulaRangeReference,
@@ -140,6 +140,7 @@ export function createGridController(source: GridSource) {
   const activeAddress = () => cellAddress(selection().anchor);
   let originalValue = '';
   let originalCell: SpreadsheetCell | undefined;
+  let pickedDate: string | undefined;
   let editTarget: { sheetId: string; address: string } | undefined;
   let switchingReferenceSheet: string | undefined;
   const [referenceSheetId, setReferenceSheetId] = createSignal<string>();
@@ -276,8 +277,10 @@ export function createGridController(source: GridSource) {
     const value = draft();
     const target = editTarget;
     const address = editingAddress();
+    const date = pickedDate;
     setEditing(undefined);
     editTarget = undefined;
+    pickedDate = undefined;
     resetReference();
     if (source.canEdit() && value !== originalValue) {
       const outcome = source.validate?.(
@@ -298,9 +301,7 @@ export function createGridController(source: GridSource) {
           return;
         }
       }
-      const edits = {
-        [address]: { value: normalizeCellInput(value, originalCell) },
-      };
+      const edits = { [address]: cellEntry(value, originalCell, date) };
       if (target && source.setSheetCells)
         source.setSheetCells(target.sheetId, edits);
       else source.setCells(edits);
@@ -343,6 +344,7 @@ export function createGridController(source: GridSource) {
     }
     originalCell = source.cells()[activeAddress()];
     originalValue = cellEditValue(originalCell);
+    pickedDate = undefined;
     editTarget = source.sheetId
       ? { sheetId: source.sheetId(), address: activeAddress() }
       : undefined;
@@ -354,6 +356,7 @@ export function createGridController(source: GridSource) {
   function cancel(returnToOrigin = true) {
     const target = editTarget;
     editTarget = undefined;
+    pickedDate = undefined;
     setEditing(undefined);
     setDraft('');
     if (returnToOrigin && target && target.sheetId !== source.sheetId?.())
@@ -376,6 +379,11 @@ export function createGridController(source: GridSource) {
 
   function setTextSelection(start: number, end: number) {
     textSelection = { start, end };
+  }
+
+  /** Records date text the editor inserted from the `@` menu into the draft. */
+  function pickDate(text: string) {
+    if (editing()) pickedDate = text;
   }
 
   function beginReference(position: CellPosition) {
@@ -733,6 +741,7 @@ export function createGridController(source: GridSource) {
     draft,
     setDraft,
     setTextSelection,
+    pickDate,
     editorSelection,
     referenceSelection: () =>
       referenceSheetId() === source.sheetId?.()

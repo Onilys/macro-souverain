@@ -51,6 +51,7 @@ export type FormulaInputProps = {
   onSelectionChange?: (start: number, end: number) => void;
   onFocus?: () => void;
   onInput: (value: string) => void;
+  onPickDate?: (text: string) => void;
   onKeyDown: (event: KeyboardEvent) => void;
   onBlur: () => void;
 };

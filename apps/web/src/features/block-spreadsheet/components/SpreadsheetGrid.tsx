@@ -237,6 +237,7 @@ export function SpreadsheetGrid(props: {
   onSelectRange: (anchor: CellPosition, focus: CellPosition) => void;
   onEdit: () => void;
   onDraft: (value: string) => void;
+  onPickDate?: (text: string) => void;
   onCommit: () => void;
   onCancel: () => void;
   onMove: (row: number, column: number) => void;
@@ -1900,6 +1901,7 @@ export function SpreadsheetGrid(props: {
                               class="absolute inset-0 size-full resize-none overflow-hidden bg-panel px-[var(--spreadsheet-cell-padding)] py-[var(--spreadsheet-cell-padding-y)] font-normal text-left text-ink outline-none select-text"
                               value={props.draft}
                               onInput={props.onDraft}
+                              onPickDate={props.onPickDate}
                               onKeyDown={editKeyDown}
                               onBlur={() => {
                                 if (props.editing) props.onCommit();

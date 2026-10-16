@@ -937,6 +937,113 @@ test('mention editing switches back from formulas and leaves other inputs focusa
   ).toBeFocused();
 });
 
+test('@today enters a Date-formatted value that formulas and Excel read as a date', async ({
+  page,
+}) => {
+  await page.goto('/?mentions');
+  await expect(page.locator('[data-address="B4"]')).toHaveText('30');
+  const [today, in30Days] = await page.evaluate(() => {
+    const text = (date: Date) =>
+      `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+    const now = new Date();
+    return [
+      text(now),
+      text(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30)),
+    ];
+  });
+  await page.locator('[data-address="A6"]').dblclick();
+  const editor = page.getByRole('textbox', { name: 'Edit A6', exact: true });
+  await editor.pressSequentially('@tod');
+  await page.getByRole('button', { name: 'Pick today' }).click();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText(`${today} `);
+  await expect(editor.locator('[data-cell-mention]')).toHaveCount(0);
+  await editor.press('Enter');
+  await expect(page.locator('[data-address="A6"]')).toHaveText(today);
+  expect(
+    await page.evaluate(() => window.spreadsheetFixture.snapshot()[0].cells.A6)
+  ).toEqual({ value: today, format: 'date' });
+
+  for (const [address, formula] of [
+    ['B6', '=A6+30'],
+    ['C6', '=DATEDIF(A6,B6,"d")'],
+  ]) {
+    await page.locator(`[data-address="${address}"]`).dblclick();
+    await page
+      .getByRole('textbox', { name: `Edit ${address}`, exact: true })
+      .pressSequentially(formula);
+    await page.keyboard.press('Enter');
+  }
+  await expect(page.locator('[data-address="B6"]')).toHaveText(in30Days);
+  await expect(page.locator('[data-address="C6"]')).toHaveText('30');
+
+  const downloaded = page.waitForEvent('download');
+  await menu(page, 'Import and export', 'Download as Excel (.xlsx)');
+  const path = await (await downloaded).path();
+  if (!path) throw new Error('Workbook download missing');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(path);
+  const cell = workbook.worksheets[0].getCell('A6');
+  const [month, day, year] = today.split('/').map(Number);
+  expect(cell.value).toEqual(new Date(Date.UTC(year, month - 1, day)));
+  expect(cell.numFmt).toMatch(/[dy]/);
+});
+
+test('@date opens a calendar that picks a day by keyboard or pointer while the cell keeps its draft', async ({
+  page,
+}) => {
+  await page.goto('/?mentions');
+  await expect(page.locator('[data-address="B4"]')).toHaveText('30');
+  const [tomorrow, fifteenth] = await page.evaluate(() => {
+    const text = (date: Date) =>
+      `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+    const now = new Date();
+    return [
+      text(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)),
+      text(new Date(now.getFullYear(), now.getMonth(), 15)),
+    ];
+  });
+  const picker = page.locator('[data-cell-date-picker]');
+
+  await page.locator('[data-address="A6"]').dblclick();
+  let editor = page.getByRole('textbox', { name: 'Edit A6', exact: true });
+  await editor.pressSequentially('@date');
+  await expect(picker).toBeVisible();
+  await editor.press('ArrowRight');
+  await editor.press('Enter');
+  await expect(picker).toBeHidden();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText(`${tomorrow} `);
+  await editor.press('Enter');
+  await expect(page.locator('[data-address="A6"]')).toHaveText(tomorrow);
+
+  await page.locator('[data-address="A7"]').dblclick();
+  editor = page.getByRole('textbox', { name: 'Edit A7', exact: true });
+  await editor.pressSequentially('Due @date');
+  await picker.getByRole('gridcell', { name: '15', exact: true }).click();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText(`Due ${fifteenth} `);
+  await editor.press('Enter');
+  await expect(page.locator('[data-address="A7"]')).toHaveText(
+    `Due ${fifteenth} `
+  );
+
+  await page.locator('[data-address="A8"]').dblclick();
+  editor = page.getByRole('textbox', { name: 'Edit A8', exact: true });
+  await editor.pressSequentially('@date');
+  await expect(picker).toBeVisible();
+  await editor.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveText('@date');
+
+  const cells = await page.evaluate(
+    () => window.spreadsheetFixture.snapshot()[0].cells
+  );
+  expect(cells.A6).toEqual({ value: tomorrow, format: 'date' });
+  expect(cells.A7).toEqual({ value: `Due ${fifteenth} ` });
+});
+
 test('header menu keyboard navigation keeps the targeted row selected', async ({
   page,
 }) => {

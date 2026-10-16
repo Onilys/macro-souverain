@@ -15,9 +15,11 @@ import {
   cellPlainText,
   encodeCellMention,
 } from '@macro-inc/spreadsheet/cell-mentions';
-import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { render } from 'solid-js/web';
+import { CellDatePicker } from '../components/CellDatePicker';
 import type { SpreadsheetDocumentSource } from '../context/spreadsheet-source';
+import { dateInput } from '../core/cell-input';
 import type { SpreadsheetWorkbookSheet } from '../core/workbook-document';
 import { createLocalSpreadsheetSource } from '../primitives/create-local-spreadsheet-source';
 import { createSpreadsheetStore } from '../primitives/create-spreadsheet-store';
@@ -132,27 +134,55 @@ function Fixture() {
                   <CellMentionEditor
                     {...props}
                     convertPaste={(value) => value}
-                    renderMenu={(menu, _anchor, pick) => (
-                      <button
-                        type="button"
-                        class="fixed right-4 top-4 z-[100]"
-                        aria-label="Mention Taylor"
-                        onPointerDown={(e) => e.preventDefault()}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() =>
-                          pick(
-                            encodeCellMention({
-                              type: 'user',
-                              userId: 'macro|taylor@macro.com',
-                              email: 'taylor@macro.com',
-                              displayName: 'Taylor',
-                            })
-                          )
-                        }
-                      >
-                        Taylor ({menu.searchTerm()})
-                      </button>
-                    )}
+                    renderMenu={(menu, anchor, pick) => {
+                      const pickDate = (date: Date) => {
+                        const text = dateInput(date);
+                        pick(text);
+                        props.onPickDate?.(text);
+                      };
+                      return (
+                        <Show
+                          when={menu.searchTerm().toLowerCase() !== 'date'}
+                          fallback={
+                            <CellDatePicker
+                              anchor={anchor}
+                              onPick={pickDate}
+                              onClose={menu.closeMenu}
+                            />
+                          }
+                        >
+                          <div class="fixed right-4 top-4 z-[100] flex gap-2">
+                            <button
+                              type="button"
+                              aria-label="Mention Taylor"
+                              onPointerDown={(e) => e.preventDefault()}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() =>
+                                pick(
+                                  encodeCellMention({
+                                    type: 'user',
+                                    userId: 'macro|taylor@macro.com',
+                                    email: 'taylor@macro.com',
+                                    displayName: 'Taylor',
+                                  })
+                                )
+                              }
+                            >
+                              Taylor ({menu.searchTerm()})
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Pick today"
+                              onPointerDown={(e) => e.preventDefault()}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => pickDate(new Date())}
+                            >
+                              Today
+                            </button>
+                          </div>
+                        </Show>
+                      );
+                    }}
                   />
                 ),
               }

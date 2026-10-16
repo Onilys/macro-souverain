@@ -1,3 +1,4 @@
+import { hasDateFormat } from '@macro-inc/spreadsheet/number-display';
 import type { SpreadsheetCell } from './spreadsheet-document';
 
 const numericInput = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
@@ -32,4 +33,26 @@ export function cellEditValue(cell?: SpreadsheetCell) {
   // Spreadsheets display 15 significant decimal digits. Rounding here also
   // avoids exposing binary float artifacts such as 0.07 * 100 = 7.000000000001.
   return `${Number(percent.toPrecision(15))}%`;
+}
+
+/** A local calendar day as typed date text, which calculates as that date. */
+export function dateInput(date: Date) {
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+}
+
+/**
+ * The edit a committed draft makes. A draft holding only the date picked from
+ * the `@` menu enters a date value: the cell keeps its own date format or
+ * takes the Date format.
+ */
+export function cellEntry(
+  value: string,
+  cell?: SpreadsheetCell,
+  pickedDate?: string
+): Partial<SpreadsheetCell> {
+  if (!pickedDate || value.trim() !== pickedDate)
+    return { value: normalizeCellInput(value, cell) };
+  return hasDateFormat(cell)
+    ? { value: pickedDate }
+    : { value: pickedDate, format: 'date' };
 }

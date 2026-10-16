@@ -310,6 +310,7 @@ export function FormulaBar(props: {
   onNavigate: (address: string) => void;
   onEdit: () => void;
   onInput: (value: string) => void;
+  onPickDate?: (text: string) => void;
   onCommit: () => void;
   onCancel: () => void;
   onReturnToGrid: () => void;
@@ -374,6 +375,7 @@ export function FormulaBar(props: {
         value={props.value}
         onFocus={props.onEdit}
         onInput={props.onInput}
+        onPickDate={props.onPickDate}
         onBlur={props.onCommit}
         onKeyDown={(event) => {
           event.stopPropagation();

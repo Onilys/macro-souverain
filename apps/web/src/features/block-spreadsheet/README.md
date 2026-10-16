@@ -312,6 +312,14 @@ compare formula, error, and formatting behavior before replacing it.
   typed dates, `DATE()`-style results and arithmetic on date cells (formula results
   only from the year 2000 on, so day counts stay numbers). A cell holding one
   `<m-date-mention>` pill calculates as that local calendar date.
+  Dates chosen from the `@` menu (`@today`, `@tomorrow`, `@yesterday`, `@friday`
+  and so on) enter the local calendar day as typed text such as `10/16/2026`,
+  not a pill. A draft holding only that date commits as a date value: the cell
+  keeps a date format it already has, or takes the Date format, so formulas and
+  Excel export read it as a date. Around other text the date stays text. `@date`
+  replaces the menu with a calendar (`components/CellDatePicker.tsx`) that never
+  takes focus from the editor: arrow keys and Page Up/Down move the highlighted
+  day, Enter or a click inserts it, and Escape closes it.
   Plain text treats formula-looking input literally. Wrapped rows grow to 160px at
   100% zoom; larger content remains available in the formula bar/editor.
 - Internal copying preserves formatting and translates relative/mixed references
@@ -518,7 +526,8 @@ and range picking, menu/dialog focus, sheet navigation, read-only transitions,
 Excel round trips, imported conditional formatting, data validation and notes,
 imported charts and images (following edits, Delete and undo, and download),
 radar, bubble, stock and contour charts, shapes, SmartArt and EMF images,
-workbook import undo, and formatting without remounts or flashes.
+workbook import undo, formatting without remounts or flashes, and dates entered
+with `@today` and the `@date` calendar (calculated and exported as dates).
 Its separate mobile suite uses Android Chrome and iPhone WebKit emulation for
 touch editing, formula suggestions, selection/reference handles, menus, sheets,
 permissions, and compact layouts. Android gestures use trusted touch input;

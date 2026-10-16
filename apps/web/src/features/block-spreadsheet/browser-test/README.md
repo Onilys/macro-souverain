@@ -14,7 +14,10 @@ bunx vite --config src/features/block-spreadsheet/browser-test/vite.config.ts
 
 Open `http://127.0.0.1:3017/`. The seeded `B4` should calculate to `30`.
 Use `?readonly` for a viewer and `?load=1500` to hold the workbook back for 1.5
-seconds and show the loading skeleton. Test-only `window.spreadsheetFixture.snapshot()`
+seconds and show the loading skeleton. `?mentions` enables the cell mention
+editor: while an `@` query is open, **Mention Taylor** and **Today** buttons
+stand in for the production menu's person and date items, and `@date` shows the
+real calendar. Test-only `window.spreadsheetFixture.snapshot()`
 returns the current workbook and `setReadonly(boolean)` simulates permission
 changes without replacing the editor.
 The fixture applies the app's coarse-pointer touch attribute and keyboard viewport
@@ -34,6 +37,8 @@ without a calculation-status flash or grid remount. Further regressions cover
 immediate typing after the workbook loads (without taking focus from a control
 reached while loading) and after adding or duplicating sheets, returning focus from toolbar
 fields, range formatting/sorting, and footer controls down to a 360-pixel panel.
+`@today` and the `@date` calendar (keyboard, pointer and Escape) enter
+Date-formatted values that `=A6+30`, `DATEDIF` and the Excel download read as dates.
 Dropdowns added, used and removed from the toolbar and cell menus,
 imported conditional formatting, validation lists and notes, imported charts
 and images (drawn over their cells, following edits, deleted and restored with

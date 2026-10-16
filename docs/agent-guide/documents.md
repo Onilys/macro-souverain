@@ -363,10 +363,17 @@ or use the formula bar to edit link text. AI `set_cells` accepts Macro URLs or t
 same `<m-user-mention>` / `<m-document-mention>` / `<m-date-mention>` encoding as docs.
 Formula references to mention cells use literal labels, never execute a label as a formula.
 
-Dates: `@tomorrow`, `@next friday` or `@sep 28` offer a **Dates** bucket and insert
-the same clock chip as docs; hover it for the full date, and edit the cell to change
-it. A cell holding only a date chip is a date value: `=A1+7` produces a date, and
-Excel export writes a dated number rather than the label. Typed dates such as
+Dates: `@today`, `@tomorrow`, `@yesterday`, `@next friday` or `@sep 28` offer a
+**Dates** bucket. Choosing one enters the date as text such as `10/16/2026`, not a
+chip. A cell holding only that date becomes a date value in the Date number format
+(a date format the cell already has is kept), so `=A1+30` and `DATEDIF` work and
+Excel export writes a date; around other text the date stays text. Typing `@date`
+shows a calendar instead of the menu: arrow keys and Page Up/Down move the
+highlighted day, Enter or a click inserts it, Escape closes it, and the cell editor
+keeps focus throughout. Date chips written earlier, or by AI `set_cells`, still show
+as clock chips; hover one for the full date. A cell holding only a date chip is a
+date value too: `=A1+7` produces a date, and Excel export writes a dated number
+rather than the label. Typed dates such as
 `9/28/2026` or `2026-09-28`, `=DATE(...)`, and arithmetic on date cells display as
 dates without choosing the Date number format. A difference of two dates stays a
 plain day count, and an explicit number format from the toolbar always wins.

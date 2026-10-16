@@ -299,6 +299,19 @@ describe('spreadsheet calculation with IronCalc', () => {
     expect(result.A14.display).toBe('46300.0');
   });
 
+  it('calculates a date entered from the @ menu in date arithmetic and DATEDIF', () => {
+    const result = calculator.calculate({
+      A1: { value: '10/16/2026', format: 'date' },
+      A2: { value: '=A1+30' },
+      A3: { value: '=DATEDIF(A1,A2,"d")' },
+      A4: { value: '=A1-DATE(2026,1,1)' },
+    });
+    expect(result.A1).toEqual({ display: '10/16/2026', number: 46311 });
+    expect(result.A2).toEqual({ display: '11/15/2026', number: 46341 });
+    expect(result.A3).toEqual({ display: '30', number: 30 });
+    expect(result.A4).toEqual({ display: '288', number: 288 });
+  });
+
   it('keeps text-formatted values literal during calculation and copying', () => {
     const result = calculator.calculate({
       A1: { value: '=SUM(B1:B2)', format: 'text' },

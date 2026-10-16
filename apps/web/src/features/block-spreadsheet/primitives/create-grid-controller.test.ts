@@ -212,6 +212,34 @@ describe('spreadsheet grid editing', () => {
     expect(setCells).not.toHaveBeenCalled();
   });
 
+  it('commits a date picked from the @ menu as a Date-formatted value, and only that edit', () => {
+    const { grid, cells } = setup({ A2: { value: '5', bold: true } });
+    grid.pickDate('10/16/2026');
+    grid.beginEdit('cell', '@tod');
+    grid.setDraft('10/16/2026 ');
+    grid.pickDate('10/16/2026');
+    // Moving to the formula bar keeps the same edit.
+    grid.beginEdit('formula');
+    grid.commit();
+    expect(cells().A1).toEqual({ value: '10/16/2026', format: 'date' });
+
+    grid.select({ row: 1, column: 0 });
+    grid.beginEdit('cell', '@tom');
+    grid.setDraft('10/17/2026 ');
+    grid.pickDate('10/17/2026');
+    grid.cancel();
+    grid.beginEdit('cell', '10/17/2026');
+    grid.commit();
+    expect(cells().A2).toEqual({ value: '10/17/2026', bold: true });
+
+    grid.select({ row: 2, column: 0 });
+    grid.beginEdit('cell', '@tom');
+    grid.setDraft('Due 10/17/2026 ');
+    grid.pickDate('10/17/2026');
+    grid.commit();
+    expect(cells().A3).toEqual({ value: 'Due 10/17/2026 ' });
+  });
+
   it('ignores IME composition keystrokes', () => {
     const { grid, key } = setup();
     const event = key('a', { isComposing: true });

@@ -1,5 +1,58 @@
 import { describe, expect, it } from 'vitest';
-import { cellEditValue, normalizeCellInput } from './cell-input';
+import {
+  cellEditValue,
+  cellEntry,
+  dateInput,
+  normalizeCellInput,
+} from './cell-input';
+
+describe('dates picked from the @ menu', () => {
+  it('enters the local calendar day as typed date text, whatever the time of day', () => {
+    expect(dateInput(new Date(2026, 9, 16, 23, 59, 59))).toBe('10/16/2026');
+    expect(dateInput(new Date(2027, 0, 1, 0, 0))).toBe('1/1/2027');
+  });
+
+  it('makes a cell holding only the picked date a date value in the Date format', () => {
+    expect(cellEntry('10/16/2026 ', undefined, '10/16/2026')).toEqual({
+      value: '10/16/2026',
+      format: 'date',
+    });
+    for (const cell of [
+      { value: '12', format: 'currency' as const },
+      { value: 'note', format: 'text' as const },
+      { value: '0.5', numberFormat: '0.00%' },
+    ])
+      expect(cellEntry('10/16/2026', cell, '10/16/2026')).toEqual({
+        value: '10/16/2026',
+        format: 'date',
+      });
+  });
+
+  it('keeps a date format the cell already has, including an imported Excel one', () => {
+    expect(
+      cellEntry(
+        '10/16/2026 ',
+        { value: '46000', numberFormat: 'yyyy-mm-dd' },
+        '10/16/2026'
+      )
+    ).toEqual({ value: '10/16/2026' });
+    expect(
+      cellEntry('10/16/2026', { value: '', format: 'date' }, '10/16/2026')
+    ).toEqual({ value: '10/16/2026' });
+  });
+
+  it('leaves text around a picked date, other dates and unpicked drafts to ordinary entry', () => {
+    expect(cellEntry('Due 10/16/2026 ', undefined, '10/16/2026')).toEqual({
+      value: 'Due 10/16/2026 ',
+    });
+    expect(cellEntry('10/17/2026', undefined, '10/16/2026')).toEqual({
+      value: '10/17/2026',
+    });
+    expect(cellEntry('5', { value: '', format: 'percent' })).toEqual({
+      value: '5%',
+    });
+  });
+});
 
 describe('percentage cell entry', () => {
   it.each([

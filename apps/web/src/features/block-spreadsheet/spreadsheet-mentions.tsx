@@ -1,5 +1,4 @@
 import { CellMentionEditor } from '@app/components/cell-text-editor/CellMentionEditor';
-import type { CellTextEditorProps } from '@app/components/cell-text-editor/types';
 import {
   type MacroMentionLinkResolver,
   useMacroMentionLinkResolver,
@@ -17,8 +16,13 @@ import {
   encodeCellMention,
 } from '@macro-inc/spreadsheet/cell-mentions';
 import ClockIcon from '@phosphor/clock.svg';
-import { For, Suspense } from 'solid-js';
-import type { SpreadsheetMentions } from './context/spreadsheet-mentions';
+import { For, Show, Suspense } from 'solid-js';
+import { CellDatePicker } from './components/CellDatePicker';
+import type {
+  SpreadsheetMentions,
+  SpreadsheetTextEditorProps,
+} from './context/spreadsheet-mentions';
+import { dateInput } from './core/cell-input';
 import { SpreadsheetCellLinks } from './spreadsheet-cell-links';
 
 export function linkMentions(
@@ -60,12 +64,6 @@ function fromItem(item: MentionItem): string | undefined {
       documentId: item.id,
       documentName: item.data.name ?? '',
       blockName: getBlockNameFromEntity(item),
-    });
-  if (item.kind === 'date')
-    return encodeCellMention({
-      type: 'date',
-      date: item.data.date.toISOString(),
-      displayFormat: item.data.displayText,
     });
 }
 /** Same chip as docs, without the picker: edit the cell to change the date. */
@@ -120,24 +118,47 @@ function CellMentions(props: { value: string }) {
     </For>
   );
 }
-function SpreadsheetMentionEditor(props: CellTextEditorProps) {
+/** Dates enter cells as date values that formulas can use, not as chips. */
+function SpreadsheetMentionEditor(props: SpreadsheetTextEditorProps) {
   const resolveAppLink = useMacroMentionLinkResolver();
   return (
     <CellMentionEditor
       {...props}
       convertPaste={(text) => linkMentions(text, resolveAppLink)}
-      renderMenu={(menu, anchor, pick) => (
-        <MentionsMenu
-          menu={menu}
-          anchor={anchor}
-          sources={['users', 'documents', 'channels', 'emails', 'dates']}
-          showOpenTabs={false}
-          onPick={(item) => {
-            const value = fromItem(item);
-            if (value) pick(value);
-          }}
-        />
-      )}
+      renderMenu={(menu, anchor, pick) => {
+        const pickDate = (date: Date) => {
+          const text = dateInput(date);
+          pick(text);
+          props.onPickDate?.(text);
+        };
+        return (
+          <Show
+            when={menu.searchTerm().toLowerCase() !== 'date'}
+            fallback={
+              <CellDatePicker
+                anchor={anchor}
+                onPick={pickDate}
+                onClose={menu.closeMenu}
+              />
+            }
+          >
+            <MentionsMenu
+              menu={menu}
+              anchor={anchor}
+              sources={['users', 'documents', 'channels', 'emails', 'dates']}
+              showOpenTabs={false}
+              onPick={(item) => {
+                if (item.kind === 'date') {
+                  pickDate(item.data.date);
+                  return;
+                }
+                const value = fromItem(item);
+                if (value) pick(value);
+              }}
+            />
+          </Show>
+        );
+      }}
     />
   );
 }

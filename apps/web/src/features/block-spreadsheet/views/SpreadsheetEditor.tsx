@@ -913,6 +913,7 @@ export function SpreadsheetEditor(props: {
           }}
           onEdit={() => grid.beginEdit('formula')}
           onInput={grid.setDraft}
+          onPickDate={grid.pickDate}
           onCommit={grid.commit}
           onCancel={grid.cancel}
           onReturnToGrid={focusGrid}
@@ -1025,6 +1026,7 @@ export function SpreadsheetEditor(props: {
             if (editable()) grid.beginEdit('cell');
           }}
           onDraft={grid.setDraft}
+          onPickDate={grid.pickDate}
           onCommit={grid.commit}
           onCancel={grid.cancel}
           onMove={(row, column) => {
