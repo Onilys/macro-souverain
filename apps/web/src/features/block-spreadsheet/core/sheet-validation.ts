@@ -31,9 +31,21 @@ export function dropdownOptions(
   const rejectInvalid =
     !!rule.showError && (rule.errorStyle ?? 'stop') === 'stop';
   const items = literalListItems(source);
-  return items
-    ? { items, rejectInvalid }
-    : { range: source.replace(/\$/g, ''), rejectInvalid };
+  return {
+    ...(items ? { items } : { range: source.replace(/\$/g, '') }),
+    rejectInvalid,
+    ...(rule.colors && { colors: rule.colors }),
+  };
+}
+
+/** A list rule's choice colors by lowercase text, as Excel matches choices. */
+export function choiceColors(
+  rule: DataValidation
+): Map<string, string> | undefined {
+  if (!rule.colors?.length) return;
+  return new Map(
+    rule.colors.map(({ item, color }) => [item.toLowerCase(), color])
+  );
 }
 
 /** A cell's displayed text, and its number when it holds one. */

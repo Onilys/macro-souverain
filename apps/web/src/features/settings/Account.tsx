@@ -19,7 +19,6 @@ import { staticFileIdEndpoint } from '@core/constant/servers';
 import { useSettingsTabAvailable } from '@core/constant/settingsTabsConfig';
 import { useEmail, useUserId } from '@core/context/user';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
-import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import {
   type ProfilePictureItem,
   useProfilePictureUrl,
@@ -35,6 +34,7 @@ import CheckIcon from '@phosphor/check.svg';
 import PencilIcon from '@phosphor/pencil-simple.svg';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
 import TrashIcon from '@phosphor/trash.svg';
+import WarningIcon from '@phosphor/warning.svg';
 import WarningCircleIcon from '@phosphor/warning-circle.svg';
 import SignOutIcon from '@phosphor-icons/core/regular/sign-out.svg?component-solid';
 import IconUpload from '@phosphor-icons/core/regular/upload-simple.svg?component-solid';
@@ -45,7 +45,7 @@ import {
 } from '@queries/auth/user-name-self';
 import { authServiceClient } from '@service-auth/client';
 import { invoke } from '@tauri-apps/api/core';
-import { Button, Dialog, Dropdown, Panel, Tooltip } from '@ui';
+import { Button, Dialog, Dropdown, HoldButton, Panel, Tooltip } from '@ui';
 import {
   createEffect,
   createMemo,
@@ -73,6 +73,8 @@ import {
   SettingsRow,
   SettingsSection,
 } from './primitives';
+
+const DELETE_HOLD_MS = 5000;
 
 // 16 megabytes
 const MAX_PROFILE_PICTURE_SIZE = 16 * 1000 * 1000;
@@ -486,43 +488,39 @@ export function Account() {
         <AccountPlanCard />
       </Show>
 
-      <Show when={isTouchDevice()}>
-        <SettingsSection>
-          <SettingsCard>
-            <div class="px-6 py-3.5">
-              <Button
-                fullWidth
-                variant="accent"
-                depth={4}
-                onClick={() => logout()}
-              >
-                <SignOutIcon class="size-4" />
-                Log out
-              </Button>
-            </div>
-          </SettingsCard>
-        </SettingsSection>
-      </Show>
-
-      <SettingsSection title="Danger zone">
+      <SettingsSection>
         <SettingsCard>
           <SettingsRow
-            label="Delete account"
-            description="Permanently delete your account and all associated data."
+            label="Log out"
+            description="Sign out of Macro on this device."
           >
-            <Button
-              variant="danger"
-              depth={3}
-              onClick={() => {
-                resetDeleteFlow();
-                setShowDeleteModal(true);
-              }}
-            >
-              Delete Account
+            <Button variant="outline" depth={3} onClick={() => logout()}>
+              <SignOutIcon class="size-4" />
+              Log out
             </Button>
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>
+
+      {/* Deliberately quiet and outside a card, so it isn't mistaken for
+          Log out. */}
+      <SettingsRow
+        class="px-5"
+        label="Delete account"
+        description="Permanently delete your account and all associated data."
+      >
+        <Button
+          variant="danger"
+          size="sm"
+          depth={3}
+          onClick={() => {
+            resetDeleteFlow();
+            setShowDeleteModal(true);
+          }}
+        >
+          Delete account
+        </Button>
+      </SettingsRow>
       <Dialog
         open={showDeleteModal()}
         onOpenChange={(open) => {
@@ -539,10 +537,19 @@ export function Account() {
             </Dialog.Title>
           </Panel.Header>
           <Panel.Body class="p-6 font-sans flex flex-col gap-3">
-            <Dialog.Description class="text-ink-muted text-sm/tight font-normal">
-              Are you sure you want to delete your account? This action is
-              permanent and cannot be undone.
+            <Dialog.Description as="div">
+              <IrreversibleWarning />
             </Dialog.Description>
+            <p class="text-ink-muted text-sm/tight">
+              Only want to sign out?{' '}
+              <button
+                type="button"
+                class="text-ink underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-edge-focus"
+                onClick={() => logout()}
+              >
+                Log out instead
+              </button>
+            </p>
             <div class="flex flex-col gap-3 pt-2">
               <label class="flex flex-col gap-1.5 text-sm" for="delete-reason">
                 <span>
@@ -634,9 +641,11 @@ export function Account() {
             </Dialog.Title>
           </Panel.Header>
           <Panel.Body class="p-6 font-sans flex flex-col gap-3">
-            <Dialog.Description class="text-ink-muted text-sm/tight font-normal">
-              This will permanently delete your account and all associated data.
-              This cannot be undone.
+            <Dialog.Description as="div" class="flex flex-col gap-3">
+              <IrreversibleWarning />
+              <p class="text-ink-muted text-sm/tight">
+                To confirm, press and hold the button below for 5 seconds.
+              </p>
             </Dialog.Description>
             <div class="pt-3 justify-end items-center gap-3 inline-flex">
               <Button
@@ -650,22 +659,41 @@ export function Account() {
               >
                 Cancel
               </Button>
-              <Button
-                variant="strong"
+              <HoldButton
+                variant="danger"
                 depth={3}
+                duration={DELETE_HOLD_MS}
                 disabled={isDeleting()}
-                onClick={deleteAccountHandler}
+                onConfirm={deleteAccountHandler}
               >
-                <Show when={isDeleting()} fallback="Delete My Account">
+                <Show when={isDeleting()} fallback="Hold to delete my account">
                   <SpinnerIcon class="size-4 animate-spin" />
                   Deleting…
                 </Show>
-              </Button>
+              </HoldButton>
             </div>
           </Panel.Body>
         </Panel>
       </Dialog>
     </SettingsPage>
+  );
+}
+
+/** The deletion dialogs' warning; people kept deleting accounts by mistake. */
+function IrreversibleWarning() {
+  return (
+    <div class="flex gap-3 rounded-lg border border-failure/30 bg-failure/10 p-3 text-sm/tight">
+      <WarningIcon class="size-5 shrink-0 text-failure" />
+      <div class="flex flex-col gap-1">
+        <span class="font-semibold text-failure">
+          This is permanent and irreversible.
+        </span>
+        <span class="text-ink">
+          Your account and everything in it, including your documents, messages,
+          files, and settings, will be deleted and cannot be recovered.
+        </span>
+      </div>
+    </div>
   );
 }
 

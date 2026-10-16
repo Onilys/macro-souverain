@@ -195,6 +195,27 @@ test('touch taps select, edit, apply, and cancel cell drafts', async ({
   await expect(formulaBar(page)).toHaveValue('42');
 });
 
+test('editing a date cell by touch opens its calendar, and a tapped day is written', async ({
+  page,
+}) => {
+  await cell(page, 'C2').tap();
+  await cell(page, 'C2').tap();
+  await page.getByRole('textbox', { name: 'Edit C2' }).fill('10/16/2026');
+  await button(page, 'Apply edit').tap();
+  await expect(cell(page, 'C2')).toHaveText('10/16/2026');
+
+  await cell(page, 'C2').tap();
+  await cell(page, 'C2').tap();
+  const picker = page.locator('[data-cell-date-picker]');
+  await expect(picker).toBeVisible();
+  await expectInsideViewport(page, picker);
+  await picker
+    .getByRole('gridcell', { name: '20', exact: true, disabled: false })
+    .tap();
+  await expect(cell(page, 'C2')).toHaveText('10/20/2026');
+  await expect(picker).toBeHidden();
+});
+
 test('selection handles extend a range (WebKit drag uses a mouse pointer)', async ({
   page,
   browserName,
@@ -327,6 +348,32 @@ test('touch formatting and sheet navigation preserve workbook state', async ({
   await expect(addressBar(page)).toHaveValue('A2');
 });
 
+test('touch taps pick an @date day on screen without dropping the cell editor', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 16, 12));
+  await page.goto('/?mentions');
+  await expect(cell(page, 'B4')).toHaveText('30');
+  await cell(page, 'A6').tap();
+  await cell(page, 'A6').tap();
+  const input = page.getByRole('textbox', { name: 'Edit A6' });
+  await expect(input).toBeFocused();
+  await input.pressSequentially('@date');
+  const picker = page.locator('[data-cell-date-picker]');
+  await expectInsideViewport(page, picker);
+  await picker
+    .getByRole('gridcell', { name: '15', exact: true, disabled: false })
+    .tap();
+  await expect(picker).toBeHidden();
+  await expect(input).toBeFocused();
+  await expect(input).toHaveText('10/15/2026 ');
+  await button(page, 'Apply edit').tap();
+  await expect(cell(page, 'A6')).toHaveText('10/15/2026');
+  expect(
+    await page.evaluate(() => window.spreadsheetFixture.snapshot()[0].cells.A6)
+  ).toEqual({ value: '46310', format: 'date' });
+});
+
 test('tapping another dropdown cell moves the open list there, and other cells close it', async ({
   page,
 }) => {
@@ -334,9 +381,13 @@ test('tapping another dropdown cell moves the open list there, and other cells c
     await cell(page, address).tap();
     await tapMenu(page, 'Format and data', 'Dropdown…');
     const dialog = page.getByRole('dialog', { name: 'Dropdown' });
-    await dialog
-      .getByRole('textbox', { name: 'Choices, one per line' })
-      .fill('Low\nMedium\nHigh');
+    const choice = (number: number) =>
+      dialog.getByRole('textbox', { name: `Choice ${number}`, exact: true });
+    await choice(1).fill('Low');
+    for (const [index, value] of ['Medium', 'High'].entries()) {
+      await button(page, 'Add choice').tap();
+      await choice(index + 2).fill(value);
+    }
     await button(page, 'Save').tap();
     await expect(dialog).toBeHidden();
   }

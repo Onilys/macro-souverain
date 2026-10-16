@@ -20,10 +20,17 @@ test('a dropdown added from the menu shows arrows, offers its choices and reject
   await page.getByRole('menuitem', { name: 'Dropdown…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Dropdown' });
   await expect(dialog).toContainText('Cells C2:C5');
-  await dialog
-    .getByRole('textbox', { name: 'Choices, one per line' })
-    .fill('Low\nMedium\nHigh');
-  await dialog.getByRole('button', { name: 'Save' }).click();
+  const choice = (number: number) =>
+    dialog.getByRole('textbox', { name: `Choice ${number}`, exact: true });
+  await choice(1).fill('Low');
+  await choice(1).press('Enter');
+  await expect(choice(2)).toBeFocused();
+  await choice(2).fill('Medium');
+  await choice(2).press('Enter');
+  await choice(3).fill('High');
+  await choice(3).press('Enter');
+  // Enter on the empty fourth choice saves.
+  await choice(4).press('Enter');
   await expect(dialog).toBeHidden();
   await expect(grid).toBeFocused();
 
@@ -58,9 +65,11 @@ test('a dropdown added from the menu shows arrows, offers its choices and reject
   const removeFromSelection = async () => {
     await page.getByRole('menuitem', { name: 'Dropdown…' }).click();
     await expect(
-      dialog.getByRole('textbox', { name: 'Choices, one per line' })
-    ).toHaveValue('Low\nMedium\nHigh');
-    await dialog.getByRole('button', { name: 'Remove' }).click();
+      dialog.getByRole('textbox', { name: /^Choice \d+$/ })
+    ).toHaveCount(3);
+    for (const [index, value] of ['Low', 'Medium', 'High'].entries())
+      await expect(choice(index + 1)).toHaveValue(value);
+    await dialog.getByRole('button', { name: 'Remove', exact: true }).click();
     await expect(dialog).toBeHidden();
   };
   await cell(page, 'C5').click({ button: 'right' });
@@ -75,6 +84,58 @@ test('a dropdown added from the menu shows arrows, offers its choices and reject
   await expect(cell(page, 'C4')).toHaveText('High');
 });
 
+test('dropdown choices show their colors in cells and in the open list', async ({
+  page,
+}) => {
+  const chip = (address: string) =>
+    cell(page, address).locator('[data-choice-chip]');
+  await cell(page, 'E2').click();
+  await cell(page, 'E4').click({ modifiers: ['Shift'] });
+  await page.getByRole('button', { name: 'Format and data' }).click();
+  await page.getByRole('menuitem', { name: 'Dropdown…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Dropdown' });
+  await dialog
+    .getByRole('textbox', { name: 'Choice 1', exact: true })
+    .fill('Open');
+  await dialog.getByRole('button', { name: 'Add choice' }).click();
+  await dialog
+    .getByRole('textbox', { name: 'Choice 2', exact: true })
+    .fill('Done');
+  await dialog.getByRole('button', { name: 'Color of Done' }).click();
+  await page.getByRole('menuitem', { name: 'Green' }).click();
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+
+  await marker(page, 'E3').click();
+  const menu = page.getByRole('menu');
+  await expect(
+    menu.getByRole('menuitem', { name: 'Open' }).locator('[data-choice-chip]')
+  ).toHaveCSS('background-color', 'rgb(191, 219, 254)');
+  await expect(
+    menu.getByRole('menuitem', { name: 'Done' }).locator('[data-choice-chip]')
+  ).toHaveCSS('background-color', 'rgb(187, 247, 208)');
+  await menu.getByRole('menuitem', { name: 'Done' }).click();
+  await expect(chip('E3')).toHaveText('Done');
+  await expect(chip('E3')).toHaveCSS('background-color', 'rgb(187, 247, 208)');
+
+  // Typed values pick up their choice's color, ignoring case.
+  await cell(page, 'E2').dblclick();
+  const input = page.getByRole('textbox', { name: 'Edit E2', exact: true });
+  await input.fill('open');
+  await input.press('Enter');
+  await expect(chip('E2')).toHaveCSS('background-color', 'rgb(191, 219, 254)');
+
+  await cell(page, 'E3').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Dropdown…' }).click();
+  await dialog.getByRole('button', { name: 'Color of Done' }).click();
+  await page.getByRole('menuitem', { name: 'No color' }).click();
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(chip('E3')).toHaveCount(0);
+  await expect(cell(page, 'E3')).toHaveText('Done');
+  await expect(chip('E2')).toHaveText('open');
+});
+
 test('an open list stays beside its cell and moves to another dropdown cell in one click', async ({
   page,
 }) => {
@@ -84,9 +145,13 @@ test('an open list stays beside its cell and moves to another dropdown cell in o
   await page.getByRole('button', { name: 'Format and data' }).click();
   await page.getByRole('menuitem', { name: 'Dropdown…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Dropdown' });
-  await dialog
-    .getByRole('textbox', { name: 'Choices, one per line' })
-    .fill('Low\nMedium\nHigh');
+  const choice = (number: number) =>
+    dialog.getByRole('textbox', { name: `Choice ${number}`, exact: true });
+  await choice(1).fill('Low');
+  await choice(1).press('Enter');
+  await choice(2).fill('Medium');
+  await choice(2).press('Enter');
+  await choice(3).fill('High');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
 

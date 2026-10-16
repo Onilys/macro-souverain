@@ -164,6 +164,10 @@ pub struct SpreadsheetStyle {
     /// Horizontal alignment.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub horizontal_align: Option<SpreadsheetHorizontalAlign>,
+    /// Indent level, 0 through 250, as Excel's Increase Indent: each level is three spaces from the
+    /// left edge, or from the right edge of right-aligned cells. Centered cells ignore it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub indent: Option<u8>,
     /// Vertical alignment.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vertical_align: Option<SpreadsheetVerticalAlign>,
@@ -188,6 +192,9 @@ pub struct SpreadsheetStyle {
     /// How to interpret and display the input.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<SpreadsheetNumberFormat>,
+    /// Show the cell's TRUE/FALSE value as a checkbox; false removes it and keeps the value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkbox: Option<bool>,
 }
 
 /// Source text for one cell. Formulas start with =; a leading apostrophe forces literal text.
@@ -234,6 +241,16 @@ pub struct SpreadsheetColumnWidth {
     pub column: String,
     /// Width in pixels, 8 through 640.
     pub width: u16,
+}
+
+/// A dropdown choice's color. Cells showing the choice draw it as a chip of this color.
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpreadsheetDropdownColor {
+    /// The choice, matched to cell text ignoring case.
+    pub item: String,
+    /// Chip color as #RRGGBB. Light colors such as #D9EAD3 keep dark text legible.
+    pub color: String,
 }
 
 /// One operation in an atomic workbook edit. All operations validate before any write.
@@ -335,12 +352,23 @@ pub enum SpreadsheetOperation {
         /// Defaults to true: reject typed entries that are not a choice. False only suggests the choices.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reject_invalid: Option<bool>,
+        /// Optional color per choice, shown as a colored chip in cells and in the open list. With typed items, each must name one of them.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        colors: Option<Vec<SpreadsheetDropdownColor>>,
     },
     /// Remove dropdowns and any other data validation from a rectangle.
     ClearValidation {
         /// Stable sheet ID or exact name.
         sheet_id: String,
         /// A1 rectangle.
+        range: String,
+    },
+    /// Turn a rectangle into checkboxes backed by TRUE/FALSE values: blank cells become FALSE
+    /// (unchecked) and other values are kept. Check or uncheck them with set_cells TRUE or FALSE.
+    InsertCheckboxes {
+        /// Stable sheet ID or exact name.
+        sheet_id: String,
+        /// A1 rectangle, for example D2:D50.
         range: String,
     },
 }
@@ -503,6 +531,9 @@ pub struct SpreadsheetReadValidation {
     pub dropdown: Option<bool>,
     /// Whether entries that break the rule are rejected.
     pub reject_invalid: bool,
+    /// A dropdown's choice colors.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colors: Option<Vec<SpreadsheetDropdownColor>>,
 }
 
 /// One hypothetical formula result.

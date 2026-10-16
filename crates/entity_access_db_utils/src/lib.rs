@@ -6,6 +6,7 @@
 mod test;
 
 pub mod channel_share;
+pub mod direct_share;
 pub mod source_grants;
 pub mod team_share;
 

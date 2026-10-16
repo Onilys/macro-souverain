@@ -3,7 +3,10 @@ import type {
   GoalSeekResult,
 } from '@macro-inc/spreadsheet/goal-seek';
 import { sheetPivotLayouts } from '@macro-inc/spreadsheet/pivot-layout';
-import type { AxisChange } from '@macro-inc/spreadsheet/workbook-structure';
+import type {
+  AxisChange,
+  RangeMove,
+} from '@macro-inc/spreadsheet/workbook-structure';
 import {
   type Accessor,
   createEffect,
@@ -446,6 +449,12 @@ export function createCalculation(
       const result = await copier.run({ type: 'change-axis', sheets, change });
       if (result.type !== 'change-axis')
         throw new Error('Unable to change sheet structure.');
+      return result.sheets;
+    },
+    async moveRange(sheets: SpreadsheetWorkbookSheet[], move: RangeMove) {
+      const result = await copier.run({ type: 'move-range', sheets, move });
+      if (result.type !== 'move-range')
+        throw new Error('Unable to move cells.');
       return result.sheets;
     },
     async copy(copies: CellCopy[]) {

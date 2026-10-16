@@ -194,6 +194,7 @@ function SpreadsheetBlockContent(props: { share?: string }) {
                 <SpreadsheetComments documentId={documentId} store={store}>
                   {(commentLocation, comments) => (
                     <SpreadsheetEditor
+                      documentId={documentId}
                       autoFocus={canAutofocus && !navigatedFromJK()}
                       commentLocation={commentLocation()}
                       comments={comments}

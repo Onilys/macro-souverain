@@ -30,11 +30,15 @@ export type SpreadsheetCommand =
   | 'border-all'
   | 'border-outer'
   | 'border-none'
+  | 'indent-decrease'
+  | 'indent-increase'
   | 'insert-sum'
   | 'insert-average'
   | 'insert-count'
   | 'insert-min'
-  | 'insert-max';
+  | 'insert-max'
+  | 'insert-checkbox'
+  | 'remove-checkbox';
 
 export type SpreadsheetToolbarProps = {
   readonly: boolean;

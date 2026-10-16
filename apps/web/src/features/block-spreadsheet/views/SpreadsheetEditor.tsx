@@ -30,7 +30,10 @@ import {
 } from '../components/DropdownDialog';
 import { SpreadsheetFileMenu } from '../components/SpreadsheetActionMenus';
 import { SpreadsheetDialog } from '../components/SpreadsheetDialog';
-import { SpreadsheetFindDialog } from '../components/SpreadsheetDialogs';
+import {
+  SpreadsheetFindDialog,
+  SpreadsheetMoveDialog,
+} from '../components/SpreadsheetDialogs';
 import { SpreadsheetGoalSeekDialog } from '../components/SpreadsheetGoalSeekDialog';
 import {
   renderedSelectionCell,
@@ -49,6 +52,7 @@ import {
 } from '../components/SpreadsheetWorkbookDialogs';
 import type { SpreadsheetCommentsCapability } from '../context/spreadsheet-comments';
 import type { SpreadsheetMentions } from '../context/spreadsheet-mentions';
+import { cellDateInput, serialDay } from '../core/cell-date';
 import { cellEditValue } from '../core/cell-input';
 import { chartData, createChartReader } from '../core/chart-data';
 import { encodeCsv } from '../core/csv-export';
@@ -61,6 +65,7 @@ import {
 } from '../core/grid-selection';
 import { selectionToggleStyles } from '../core/selection-formatting';
 import {
+  choiceColors,
   dropdownOptions,
   listItems,
   type RangeValues,
@@ -84,11 +89,14 @@ import { createCalculationStatus } from '../primitives/create-calculation-status
 import { createDrawingActions } from '../primitives/create-drawing-actions';
 import { createGoalSeek } from '../primitives/create-goal-seek';
 import { createGridController } from '../primitives/create-grid-controller';
+import { createRangeMove } from '../primitives/create-range-move';
 import { createSheetActions } from '../primitives/create-sheet-actions';
 import type { SpreadsheetStore } from '../primitives/create-spreadsheet-store';
 import { createWorkbookActions } from '../primitives/create-workbook-actions';
 
 export function SpreadsheetEditor(props: {
+  /** A saved workbook's document, recorded on traces. */
+  documentId?: string;
   store: SpreadsheetStore;
   mentions?: SpreadsheetMentions;
   name: string;
@@ -200,15 +208,24 @@ export function SpreadsheetEditor(props: {
       ? { title: rule.promptTitle, message: rule.prompt ?? '' }
       : undefined;
   };
-  const dropdownRanges = createMemo(() =>
+  const dropdowns = createMemo(() =>
     (props.store.activeSheet().metadata?.validations ?? [])
       .filter((rule) => rule.type === 'list' && rule.dropdown !== false)
-      .map((rule) => rule.range)
+      .map((rule) => ({ range: rule.range, colors: choiceColors(rule) }))
   );
   const [dropdownDialog, setDropdownDialog] = createSignal<
     DropdownDialogState & { sheetId: string }
   >();
   const [dropdownError, setDropdownError] = createSignal<string>();
+  const rangeChoices = (range: string) => {
+    const dialog = dropdownDialog();
+    if (!dialog) return;
+    return listItems(
+      { range: dialog.range, type: 'list', formulas: [range] },
+      rangeValues(dialog.sheetId),
+      definedNames(dialog.sheetId)
+    );
+  };
   const selectionRange = () => {
     const bounds = selectionBounds(grid.selection());
     const first = cellAddress({ row: bounds.top, column: bounds.left });
@@ -335,10 +352,31 @@ export function SpreadsheetEditor(props: {
     },
     grid
   );
+  const canMoveCells = () => editable() && props.store.canChangeStructure();
+  const rangeMove = createRangeMove({
+    documentId: props.documentId,
+    store: props.store,
+    canMove: canMoveCells,
+    moveRange: calculation.moveRange,
+    setBusy: setStructureBusy,
+    setNotice: actions.setNotice,
+    select: grid.selectRange,
+  });
   const remoteCursors = createMemo(() =>
     spreadsheetCursors(props.store.peers(), props.store.rowCount())
   );
   const activeCell = () => props.store.cells()[grid.activeAddress()];
+  // A calendar edits literal dates, and any value of a date-validated cell.
+  const activeDatePicker = createMemo(() => {
+    const cell = activeCell();
+    if (cell?.value.startsWith('=') && cell.format !== 'text') return;
+    const result = values()[grid.activeAddress()];
+    const date =
+      result?.date && result.number !== undefined
+        ? serialDay(result.number)
+        : undefined;
+    if (date || activeValidation()?.type === 'date') return { date };
+  });
   const footerNotice = () =>
     workbookActions.busy() ||
     workbookActions.notice() ||
@@ -590,11 +628,15 @@ export function SpreadsheetEditor(props: {
       .with('border-all', () => actions.borders('all'))
       .with('border-outer', () => actions.borders('outer'))
       .with('border-none', () => actions.borders('none'))
+      .with('indent-decrease', () => actions.indent(-1))
+      .with('indent-increase', () => actions.indent(1))
       .with('insert-sum', () => actions.insertFunction('SUM'))
       .with('insert-average', () => actions.insertFunction('AVERAGE'))
       .with('insert-count', () => actions.insertFunction('COUNT'))
       .with('insert-min', () => actions.insertFunction('MIN'))
       .with('insert-max', () => actions.insertFunction('MAX'))
+      .with('insert-checkbox', grid.insertCheckboxes)
+      .with('remove-checkbox', () => grid.format({ checkbox: false }))
       .exhaustive();
   }
 
@@ -1005,6 +1047,15 @@ export function SpreadsheetEditor(props: {
           onResizeColumn={props.store.resizeColumn}
           onFill={grid.fill}
           onCopyMetadata={grid.copyMetadata}
+          onMoveSelection={
+            canMoveCells()
+              ? (selection, rows, columns) => {
+                  grid.commit();
+                  actions.clearNotice();
+                  void rangeMove.move(selection, rows, columns);
+                }
+              : undefined
+          }
           values={values()}
           notes={props.store.activeSheet().metadata?.notes}
           drawings={props.store.activeSheet().metadata?.drawings}
@@ -1036,7 +1087,12 @@ export function SpreadsheetEditor(props: {
           revealDrawing={revealDrawing()}
           inputMessage={inputMessage()}
           listItems={activeList()}
-          dropdownRanges={dropdownRanges()}
+          dropdowns={dropdowns()}
+          onToggleCheckbox={(position) => {
+            actions.clearNotice();
+            grid.select(position);
+            grid.toggleCheckboxes();
+          }}
           onPickListItem={(item) => {
             if (!editable()) return;
             grid.commit();
@@ -1046,6 +1102,12 @@ export function SpreadsheetEditor(props: {
                 value: item.startsWith('=') ? `'${item}` : item,
               },
             });
+          }}
+          datePicker={activeDatePicker()}
+          onPickDate={(day) => {
+            if (day.getTime() !== activeDatePicker()?.date?.getTime())
+              grid.setDraft(cellDateInput(activeCell()?.value ?? '', day));
+            grid.commit();
           }}
           pendingFormulas={
             calculation.busy() &&
@@ -1315,9 +1377,16 @@ export function SpreadsheetEditor(props: {
           else focusGrid();
         }}
       />
+      <SpreadsheetMoveDialog
+        open={!!rangeMove.confirming()}
+        onConfirm={() => void rangeMove.confirm()}
+        onClose={rangeMove.cancel}
+        onRestoreFocus={focusGrid}
+      />
       <DropdownDialog
         dialog={dropdownDialog()}
         error={dropdownError()}
+        rangeChoices={rangeChoices}
         onSave={changeDropdown}
         onRemove={() => changeDropdown()}
         onClose={() => setDropdownDialog(undefined)}

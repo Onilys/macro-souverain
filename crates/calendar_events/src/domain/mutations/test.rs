@@ -215,11 +215,13 @@ impl CalendarRepository for FakeRepo {
             panic!("mutations must persist through the UserMutation authority");
         };
         let owner_id = upsert.event.owner_id.clone();
+        let team_ooo_changed = upsert.event.event_type == EventType::OutOfOffice;
         self.upserts.lock().unwrap().push(upsert);
         Ok(CalendarEventWriteOutcome {
             event_id: self.persisted_event_id.unwrap_or_else(Uuid::now_v7),
             owner_id,
             change: self.write_change,
+            team_ooo_changed,
         })
     }
 
@@ -723,15 +725,16 @@ impl macro_event_broker::MacroEventBroker for RecordingEventBroker {
 /// Records every viewer refresh nudge the service emits.
 #[derive(Clone, Default)]
 struct RecordingRefreshNotifier {
-    notified: Arc<Mutex<Vec<(String, Uuid)>>>,
+    notified: Arc<Mutex<Vec<(String, Uuid, bool)>>>,
 }
 
 impl CalendarRefreshNotifier for RecordingRefreshNotifier {
-    async fn calendar_changed(&self, owner_id: &str, email_link_id: Uuid) {
-        self.notified
-            .lock()
-            .expect("notifier lock")
-            .push((owner_id.to_string(), email_link_id));
+    async fn calendar_changed(&self, owner_id: &str, email_link_id: Uuid, team_ooo_changed: bool) {
+        self.notified.lock().expect("notifier lock").push((
+            owner_id.to_string(),
+            email_link_id,
+            team_ooo_changed,
+        ));
     }
 }
 
@@ -992,6 +995,10 @@ async fn a_persisted_mutation_nudges_the_links_calendar_viewers() {
     let notified = refresh.notified.lock().expect("notifier lock").clone();
     assert_eq!(notified.len(), 1);
     assert_eq!(notified[0].0, "macro|self@example.com");
+    assert!(
+        !notified[0].2,
+        "ordinary event edits preserve cached OOO rows"
+    );
 }
 
 #[tokio::test]
@@ -2493,7 +2500,7 @@ async fn disconnecting_calendar_nudges_the_links_calendar_viewers() {
 
     assert_eq!(
         refresh.notified.lock().expect("notifier lock").as_slice(),
-        [("macro|user".to_string(), link_id)]
+        [("macro|user".to_string(), link_id, true)]
     );
 }
 

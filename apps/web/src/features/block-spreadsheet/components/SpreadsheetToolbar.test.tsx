@@ -82,6 +82,18 @@ describe('spreadsheet toolbar', () => {
     expect(view.onCommand).toHaveBeenCalledWith('undo');
   });
 
+  it('indents the selection and returns focus to the sheet', () => {
+    const onRestoreFocus = vi.fn();
+    const view = toolbar({ onRestoreFocus });
+    fireEvent.click(view.getByRole('button', { name: 'Increase indent' }));
+    fireEvent.click(view.getByRole('button', { name: 'Decrease indent' }));
+    expect(view.onCommand.mock.calls).toEqual([
+      ['indent-increase'],
+      ['indent-decrease'],
+    ]);
+    expect(onRestoreFocus).toHaveBeenCalledTimes(2);
+  });
+
   it('cancels a font size draft and restores keyboard focus without applying it', () => {
     const editor = document.createElement('textarea');
     document.body.append(editor);
@@ -309,6 +321,8 @@ describe('spreadsheet toolbar', () => {
       'Italic',
       'Fill color',
       'Number format',
+      'Increase indent',
+      'Decrease indent',
       'Functions',
       'Undo',
       'Paste special',

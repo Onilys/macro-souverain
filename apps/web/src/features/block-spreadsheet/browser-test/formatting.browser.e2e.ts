@@ -242,6 +242,92 @@ test('lays accounting figures across the cell with parentheses, dashes and digit
   ).toBeLessThanOrEqual(1);
 });
 
+test('indents line items from their aligned edge and keeps nested levels apart', async ({
+  page,
+}) => {
+  const grid = page.getByRole('grid', { name: 'Spreadsheet' });
+  const increase = page.getByRole('button', {
+    name: 'Increase indent',
+    exact: true,
+  });
+  const decrease = page.getByRole('button', {
+    name: 'Decrease indent',
+    exact: true,
+  });
+  await page.locator('[data-address="B2"]').click();
+  await page.locator('[data-address="B3"]').click({ modifiers: ['Shift'] });
+  await choose(page, 'Horizontal alignment', 'Right');
+  await page.locator('[data-address="A2"]').click();
+  await page.locator('[data-address="A3"]').click({ modifiers: ['Shift'] });
+  await increase.click();
+  await expect(grid).toBeFocused();
+  await page.locator('[data-address="A3"]').click();
+  await increase.click();
+  await page.locator('[data-address="B3"]').click();
+  await increase.click();
+
+  const textEdges = () =>
+    page.evaluate(() =>
+      Object.fromEntries(
+        ['A1', 'A2', 'A3', 'B2', 'B3'].map((address) => {
+          const cell = document.querySelector(`[data-address="${address}"]`)!;
+          const text = document
+            .createTreeWalker(cell, NodeFilter.SHOW_TEXT, (node) =>
+              node.textContent?.trim()
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_SKIP
+            )
+            .nextNode()!;
+          const range = document.createRange();
+          range.selectNodeContents(text);
+          const box = range.getBoundingClientRect();
+          const bounds = cell.getBoundingClientRect();
+          return [
+            address,
+            { left: box.left - bounds.left, right: bounds.right - box.right },
+          ];
+        })
+      )
+    );
+  // Each level is three spaces of the 10 pt default font: 10 pixels.
+  let edges = await textEdges();
+  expect(edges.A2.left - edges.A1.left).toBeCloseTo(10, 0);
+  expect(edges.A3.left - edges.A1.left).toBeCloseTo(20, 0);
+  expect(edges.B3.right - edges.B2.right).toBeCloseTo(10, 0);
+  let saved = await page.evaluate(
+    () => window.spreadsheetFixture.snapshot()[0].cells
+  );
+  expect(saved.A2).toEqual({ value: 'Design', indent: 1 });
+  expect(saved.A3).toEqual({ value: 'Engineering', indent: 2 });
+  expect(saved.B3).toEqual({
+    value: '20',
+    horizontalAlign: 'right',
+    indent: 1,
+  });
+  // Editing keeps the text where it is shown: 3 px of cell padding plus the indent.
+  await page.locator('[data-address="A3"]').dblclick();
+  const editor = page.getByRole('textbox', { name: 'Edit A3', exact: true });
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveCSS('padding-left', '23px');
+  await editor.press('Escape');
+
+  await page.locator('[data-address="A2"]').click();
+  await page.locator('[data-address="A3"]').click({ modifiers: ['Shift'] });
+  await decrease.click();
+  edges = await textEdges();
+  expect(edges.A2.left).toBeCloseTo(edges.A1.left, 0);
+  expect(edges.A3.left - edges.A1.left).toBeCloseTo(10, 0);
+  saved = await page.evaluate(
+    () => window.spreadsheetFixture.snapshot()[0].cells
+  );
+  expect(saved.A2).toEqual({ value: 'Design' });
+  expect(saved.A3).toEqual({ value: 'Engineering', indent: 1 });
+
+  await grid.press('ControlOrMeta+z');
+  edges = await textEdges();
+  expect(edges.A3.left - edges.A1.left).toBeCloseTo(20, 0);
+});
+
 test('reads typed partial dates as dates and restyles them from Date formats', async ({
   page,
 }) => {

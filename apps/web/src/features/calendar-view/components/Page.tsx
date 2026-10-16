@@ -233,6 +233,7 @@ export function Page(props: {
   });
   const teamOoo = useTeamOooEvents({
     range,
+    isSourceVisible: isRenderedSourceVisible,
     refetchOnWindowFocus: isActive,
   });
   const visibleEvents = createMemo(() =>

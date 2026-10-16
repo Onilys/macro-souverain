@@ -88,10 +88,14 @@ export function snapObjectResize(
     };
   } else {
     const gridEnd = transformPoint(fallback.transform, moving);
-    if (!match.guides.some((guide) => guide.axis === 'x'))
-      desired.x = gridEnd.x;
-    if (!match.guides.some((guide) => guide.axis === 'y'))
-      desired.y = gridEnd.y;
+    desired = {
+      x: match.guides.some((guide) => guide.axis === 'x')
+        ? desired.x
+        : gridEnd.x,
+      y: match.guides.some((guide) => guide.axis === 'y')
+        ? desired.y
+        : gridEnd.y,
+    };
   }
   const resized = resizeBox(
     bounds,

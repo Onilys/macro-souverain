@@ -221,4 +221,52 @@ describe('AI formatting preserves spreadsheet values', () => {
       doc.free();
     }
   });
+
+  it('indents line items, reads their levels back and clears them with the formatting', () => {
+    const doc = new LoroDoc();
+    try {
+      doc.getMap('spreadsheetMeta').set('formatVersion', 1);
+      writeSpreadsheetCells(doc, {
+        A1: { value: 'Revenue' },
+        A2: { value: 'Product' },
+        A3: { value: 'Services' },
+      });
+      const edit = (style: { indent: number }) =>
+        prepareSpreadsheetEdit(
+          doc,
+          {
+            action: 'edit',
+            expectedRevision: 'v',
+            operations: [
+              {
+                type: 'format_cells',
+                sheetId: 'sheet1',
+                range: 'A2:A3',
+                style,
+              },
+            ],
+          },
+          calculator
+        );
+      doc.import(edit({ indent: 2 }).update);
+      const result = readSpreadsheetForAi(
+        doc,
+        'v',
+        { action: 'read', ranges: ['A1:A3'], includeStyles: true },
+        calculator
+      );
+      expect(
+        result.ranges[0].cells.map(({ address, style }) => ({ address, style }))
+      ).toEqual([
+        { address: 'A1', style: {} },
+        { address: 'A2', style: { indent: 2 } },
+        { address: 'A3', style: { indent: 2 } },
+      ]);
+      expect(() => edit({ indent: 251 })).toThrow('Invalid cell formatting');
+      doc.import(edit({ indent: 0 }).update);
+      expect(readSpreadsheetCells(doc).A2).toEqual({ value: 'Product' });
+    } finally {
+      doc.free();
+    }
+  });
 });

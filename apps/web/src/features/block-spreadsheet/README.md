@@ -2,7 +2,7 @@
 
 A native Macro document with multiple worksheets of up to 100,000 rows and
 16,384 columns (A–XFD), Excel-style formulas, keyboard navigation, rectangular selection, formula-aware copying and
-fill, resizable columns, added rows, rich cell formatting, Excel workbook
+fill, dragging a selection to move it, resizable columns, added rows, rich cell formatting, Excel workbook
 import/export, CSV import/value export, find and replace, range sorting, local
 undo/redo, and live collaboration. Existing uploaded `.xlsx` files are not
 automatically converted; open **Import and export** at the bottom right of a native
@@ -61,7 +61,7 @@ implementation. Three document tools expose bounded reads, scratch calculations,
 and revision-guarded edit batches. Source inputs, formulas, typed results, errors,
 and optional styles are explicit in reads. Scratch what-if overrides never write.
 The edit vocabulary includes values/formulas, range styles/clear/fill, append rows,
-column widths, and sheet lifecycle. Whole-workbook creation still uses the normal
+column widths, dropdowns, checkboxes, and sheet lifecycle. Whole-workbook creation still uses the normal
 native document creation flow.
 
 Rust tool adapters obtain typed View/Edit receipts, then pass them to the document
@@ -130,6 +130,27 @@ only while connected, so an offline coordinate shift cannot merge later over
 collaborators' edits. Rows and columns have no stable identities: an edit that a
 collaborator commits to old coordinates after the shift arrives still lands at
 those coordinates.
+
+Dragging the selection's border (`components/SelectionMoveHandle.tsx`, mouse or
+pen only) moves its cells the same way: `moveWorkbookRange` in
+`packages/spreadsheet/src/workbook-structure.ts` runs in the calculation worker,
+and `primitives/create-range-move.ts` commits the result as one revision-checked
+structural change, so it is one undo step, needs a connection in saved
+workbooks, and is cancelled by a collaborator's edit made meanwhile. It follows
+Excel's cut and paste: values, formats, notes, merges, legacy arrays, pivot
+table locations and data validation and conditional formatting ranges go with
+the cells (a rule that only partly moves is split in two), and replace what was
+at the destination after a confirmation when that held values. References to
+the moved cells from every sheet's formulas, names, rules, charts and pivot
+sources follow them; a range follows only when all of it moves, and moving
+whole rows or columns of the sheet also moves references like `1:2` or `A:A`. References
+inside moved formulas keep their cells, and references to replaced cells become
+`#REF!`. Moving part of a merge, array or pivot table is refused. Drawings,
+row heights and column widths stay, and comments stay on their addresses.
+While dragging, the grid scrolls near or past its edges and the cells land at
+the last visible row or column. Each move records a `spreadsheet.move_range`
+span (document, sheet, size, whether it replaced values, and any error) with
+`calculate` (the worker) and `commit` phases.
 
 ### Workbook sheets
 
@@ -261,8 +282,8 @@ formula awaits a reference keeps its draft, even when the formula's row is past
 the other sheet's last row, and every tab change scrolls to that sheet's own
 selection.
 
-Dragging a range, row or column headers, the fill handle, a formula reference, or
-a touch selection handle scrolls the grid while the pointer is within 24 pixels
+Dragging a range, row or column headers, the fill handle, a selection's move
+border, a formula reference, or a touch selection handle scrolls the grid while the pointer is within 24 pixels
 of an edge of the cells or past it, and extends the drag to the cell under the
 pointer or the nearest one in view. Speed grows with the pointer's depth into
 that edge (20 pixels per second per pixel), and a header drag scrolls only along
@@ -323,8 +344,13 @@ compare formula, error, and formatting behavior before replacing it.
 - Array results are shown within the visible grid. There is no grid expansion for
   an array that spills beyond its edges.
 - The ribbon exposes font family/size, bold/italic/underline/strikethrough,
-  text/fill colors, per-edge borders, horizontal/vertical alignment, and wrapping.
-  All cell styles persist, sync independently, copy/fill, and undo. Number formats
+  text/fill colors, per-edge borders, horizontal/vertical alignment, indent, and
+  wrapping. All cell styles persist, sync independently, copy/fill, and undo.
+  Increase and Decrease indent move each selected cell one level from its own,
+  as in Excel. A level is three spaces of the workbook's default font, measured
+  from the right edge of right-aligned cells and the left edge otherwise; an
+  indented cell with automatic alignment aligns left, and indenting centered text
+  makes it left-aligned. Indents round-trip as Excel's alignment `indent`. Number formats
   include general, number, USD currency, USD accounting, percent, scientific, date,
   time, and plain text, with adjustable decimal places. Accounting follows Excel:
   the grid pins `$` to the cell's left edge and the amount to its right, negatives
@@ -351,6 +377,21 @@ compare formula, error, and formatting behavior before replacing it.
   numbers in the `date` format (formula results only from the year 2000 on, so day
   counts stay numbers). A cell holding one `<m-date-mention>` pill calculates as
   that local calendar date.
+  Results shown as a calendar date (not a time) carry `date: true`. Editing such a
+  literal cell, or any cell under a date validation rule, without typing
+  (double-click, double-tap, Enter or F2) opens `components/CellDatePicker.tsx`
+  below the editor in the shared `EditorPopup`, so the editor keeps focus. The
+  grid sends it arrows (a day or a week), Page Up/Down (a month, Shift a year),
+  Enter (pick and move down) and Escape (close); typing closes it. A picked day
+  goes through the normal commit and validation, written the way the cell stores
+  dates (`core/cell-date.ts`): a serial keeps its time of day, a date pill stays a
+  pill, ISO text stays ISO, and other text becomes month/day/year.
+  Dates from the cell editor's `@` menu (`@today`, `@tomorrow`, `@friday` and so
+  on) enter as typed date text in the locale's order, not a pill, so a cell
+  holding only that date commits as a date value like any typed date; around
+  other text it stays text. `@date` shows the same calendar in place of the menu
+  (`views/DateMentionMenu.tsx`), starting at today: it takes the calendar's keys
+  before the editor, Enter or a click enters the day, and Escape closes it.
   Plain text treats formula-looking input literally. Wrapped rows grow to 160px at
   100% zoom; larger content remains available in the formula bar/editor.
 - Internal copying preserves formatting and translates relative/mixed references
@@ -358,9 +399,20 @@ compare formula, error, and formatting behavior before replacing it.
   source range in one direction; Cmd/Ctrl+D fills from the top row and Cmd/Ctrl+R
   from the left column. Fill repeats values; it does not infer numeric series.
   Plain-text clipboard data and cut preserve raw formulas verbatim.
+- Checkboxes are a cell format, as in Excel: the `checkbox` style property in
+  its own `spreadsheetCheckboxes` map, so it copies, fills, sorts and clears
+  like other formatting. Insert → Checkbox and the cell menu apply it to the
+  selection and write `FALSE` into blank cells so formulas count them
+  (`packages/spreadsheet/src/checkboxes.ts`, shared with the AI
+  `insert_checkboxes` operation). A checkbox cell showing TRUE, FALSE or
+  nothing draws a box, centered unless the cell is aligned, in its text color
+  and font size; other values show as text. Clicking a box or pressing Space
+  toggles the selection (all checked unless all already are); formulas keep
+  their result. Shift/Ctrl/Cmd clicks on a box select instead. Delete unchecks
+  boxes, then removes them on the next press, as Excel does.
 - The toolbar's Insert menu adds a chart of the selection (from one cell, of
   the block of filled cells around it, read as Excel reads it:
-  `core/chart-builder.ts`) or an image file, as one undoable change. Its More
+  `core/chart-builder.ts`), an image file, or checkboxes, as one undoable change. Its More
   charts submenu holds radar, filled radar, bubble (x values, then pairs of
   values and sizes), stock (three or four series: high, low and close, with
   open first for up-down bars) and contour charts. Drawings
@@ -400,8 +452,14 @@ Import keeps what Excel calculates and shows:
   cached values with a warning.
 - Theme and indexed colors with tints, built-in and custom number formats, the
   workbook's default font (cells store only differences from it), borders, fills,
-  alignment, column widths, row heights, hidden rows/columns/sheets, merges,
+  alignment and indent, column widths, row heights, hidden rows/columns/sheets, merges,
   frozen panes, gridlines, tab colors and autofilters.
+- Excel's checkbox cell format. `core/xlsx-checkboxes.ts` follows each cell
+  format's `xfComplement` through the feature property bags to a Checkbox bag
+  on import, and export writes checkbox cells as booleans with that format
+  and part. Excel versions without checkboxes, and Google Sheets, show the
+  TRUE/FALSE values; no list validation is added, which Excel would show as a
+  dropdown arrow beside each box.
 - 1904-based dates are converted. Unknown error literals, rich text, phonetic
   runs, and invalid cell or merge references degrade to text or warnings rather
   than failing the import.
@@ -417,6 +475,7 @@ Import keeps what Excel calculates and shows:
   rejects the entry, warnings and information accept it, and each shows the
   rule's message in the footer. List rules offer their values in a dropdown on the
   active cell (Alt+Down), and every cell they cover shows an arrow that opens it.
+  Date rules open the date calendar on their cells, empty ones included.
   `components/CellListMenu.tsx` anchors the non-modal list to the cell: below it,
   or above or beside it when there is no room, never over it. While a list is
   open, pressing another dropdown cell opens that cell's list instead.
@@ -424,7 +483,14 @@ Import keeps what Excel calculates and shows:
   adds, edits and removes list rules on the selection through
   `packages/spreadsheet/src/data-validation.ts`, which the AI `set_dropdown` and
   `clear_validation` operations share: a new rule takes its range out of the rules
-  it overlaps, since a cell has one rule. Input messages and notes show beside the active cell.
+  it overlaps, since a cell has one rule. A list rule's `colors` are Macro's own,
+  keyed by choice text ignoring case: cells showing a colored choice, and the open
+  list, draw it as a chip (`components/ChoiceChip.tsx`). The dialog gives new
+  choices the next unused color of a light palette and lists a range source's
+  current values to color. Excel has no such colors, so export writes each as a
+  `cellIs` equal rule filling the dropdown's range, after the sheet's own
+  conditional formats; import folds fill-only equal rules over exactly a
+  dropdown's range, naming one of its choices, back into its colors. Input messages and notes show beside the active cell.
   Inserting or deleting rows and columns moves rule ranges, rule formulas and
   notes.
 - Images and charts. `core/xlsx-drawings.ts` reads a sheet's drawing part
@@ -556,8 +622,9 @@ production transport.
 
 The [browser fixture](browser-test/README.md) runs the composed editor with real
 calculation and Excel workers. Its Playwright suite covers formula autocomplete
-and range picking, menu/dialog focus, sheet navigation, read-only transitions,
+and range picking, dragging a selection to move it, menu/dialog focus, sheet navigation, read-only transitions,
 Excel round trips, imported conditional formatting, data validation and notes,
+date cell calendars,
 imported charts and images (following edits, Delete and undo, and download),
 radar, bubble, stock and contour charts, shapes, SmartArt and EMF images,
 workbook import undo, and formatting without remounts or flashes.

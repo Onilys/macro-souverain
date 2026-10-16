@@ -49,6 +49,8 @@ pub(crate) static BLOCKABLE_NOTIFICATIONS: LazyLock<HashSet<&'static str>> = Laz
         MentionedInDocumentCommentMetadata::TYPE_NAME,
         RepliedToDocumentCommentThreadMetadata::TYPE_NAME,
         CommentedOnDocumentMetadata::TYPE_NAME,
+        model_notifications::EntityAccessRequestedMetadata::TYPE_NAME,
+        model_notifications::EntityAccessGrantedMetadata::TYPE_NAME,
         InitiativeDiscussionMetadata::TYPE_NAME,
         CrmDiscussionMetadata::TYPE_NAME,
         CalendarEventReminderMetadata::TYPE_NAME,

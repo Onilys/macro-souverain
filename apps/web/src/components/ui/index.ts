@@ -86,6 +86,7 @@ export { EmptyStatePanel } from './components/EmptyStatePanel';
 export { EntityComposer } from './components/EntityComposer';
 export type { FilteredHiddenBannerProps } from './components/FilteredHiddenBanner';
 export { FilteredHiddenBanner } from './components/FilteredHiddenBanner';
+export { HoldButton, type HoldButtonProps } from './components/HoldButton';
 export { Hotkey } from './components/Hotkey';
 export { HoverCard } from './components/HoverCard';
 export type {

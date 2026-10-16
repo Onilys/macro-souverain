@@ -1,6 +1,7 @@
 import CaretDown from '@phosphor/caret-down.svg';
 import { Dropdown, type DropdownContentProps } from '@ui/components/Dropdown';
-import { For, type JSX } from 'solid-js';
+import { For, type JSX, Show } from 'solid-js';
+import { ChoiceChip } from './ChoiceChip';
 
 /**
  * A list-validated cell's choices, opened from a button beside the active
@@ -11,6 +12,8 @@ import { For, type JSX } from 'solid-js';
 export function CellListMenu(props: {
   address: string;
   items: string[];
+  /** Choice colors by lowercase text. */
+  colors?: Map<string, string>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The active cell and its button, at the bottom right of this box. */
@@ -74,7 +77,12 @@ export function CellListMenu(props: {
                   closeOnSelect
                   onSelect={() => props.onPick(item)}
                 >
-                  <span class="truncate">{item}</span>
+                  <Show
+                    when={props.colors?.get(item.toLowerCase())}
+                    fallback={<span class="truncate">{item}</span>}
+                  >
+                    {(color) => <ChoiceChip color={color()}>{item}</ChoiceChip>}
+                  </Show>
                 </Dropdown.Item>
               )}
             </For>

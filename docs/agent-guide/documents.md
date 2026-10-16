@@ -4,6 +4,38 @@ The document header has separate Share, Copy Share Link, and Side Panel buttons.
 They are borderless with a soft rounded background on hover. Share opens the
 sharing dialog; copying a link is a separate action.
 
+Opening a private file link while signed in shows **You don't have access to
+this file**, the signed-in email, and **Request access**. View is selected by
+default; choose View, Comment, or Edit where supported, submit, then verify
+**Request sent** and **Cancel request**.
+On touch devices, document links open the full-page document route; the same
+request controls appear there, including at phone widths.
+The document stays unavailable until its owner approves. The open denied view
+reloads when it receives the grant update. Signed-out visitors are prompted to
+sign in first; ordinary load failures retain **Try again**.
+An already-open document reloads after a permission upgrade on desktop and touch
+devices. Removing its last grant closes the editor and returns to Request access;
+a failed background refresh must not restore the revoked document.
+
+In **People with access**, a non-owner can use **Request access** beneath the
+owner to request a supported upgrade (**Comment** or **Edit**). PDFs offer
+Comment; view-only email sharing has no upgrade. Requests can be sent or changed
+once per minute; cancellation stays available immediately. Approval allows a
+further upgrade immediately. After a denial, the requester must wait 24 hours
+to request again.
+This workflow also applies to the existing chat, folder, project, database, call,
+and agent-session Share menus, using the access levels that each supports.
+
+Reviewers see a pending count on **Share**. Entering an item with pending requests
+opens Share once for that visit; requests arriving during the visit update the
+badge. On mobile, review requests in the **People** tab. **Permission requests**
+lets a reviewer choose an access level and **Grant access**, or **Deny**. Team
+owners/admins and the human responsible for a bot-owned item review on its behalf.
+Only the first review of a request succeeds. Grants notify the requester; denials
+do not. Approved users appear in People with access, with controls to change or
+remove their direct grant. Opening a permission-request notification navigates
+to its item and opens Share.
+
 Both **Edit with AI** and selected-text AI edits open the shared usage-limit dialog
 when the backend refuses a request with a usage-limit code. Free users can choose
 **View plans**; paid users can choose **Open usage settings** to add credits. The
@@ -243,13 +275,22 @@ values change.
 
 To add an in-cell dropdown, select the cells and choose **Format and data →
 Dropdown…** in the toolbar (sliders icon), or **Dropdown…** in the cell context
-menu. The **Dropdown** dialog takes **Type the choices** (one per line in
-**Choices, one per line**) or **Use the values of a range** (**Range of choices**,
-such as `A2:A10` or `'Sheet 2'!A2:A10`), and **Reject values that are not a
-choice** (on by default). **Save** replaces any validation on the selected cells;
+menu. The **Dropdown** dialog takes **Type the choices** (one per row, **Choice 1**,
+**Choice 2**, …: Enter on a filled choice adds the next one and Enter on an empty
+one saves, **Add choice** appends a row, and pasting several lines adds a row for
+each) or **Use the values of a range** (**Range of choices**, such as `A2:A10` or
+`'Sheet 2'!A2:A10`, whose current values are listed below it), and **Reject values
+that are not a choice** (on by default). Each choice has a color button (**Color
+of Low**) offering **No color** and nine light colors. New choices take the next
+unused color; a dropdown saved without colors stays plain until one of its choices
+is colored. Cells showing a colored choice draw it as a chip, and the open list
+shows the same chips. **Save** replaces any validation on the selected cells;
 **Remove** clears it from them. Reopening the dialog on a dropdown cell shows its
-current choices. Agents add the same dropdowns with `EditSpreadsheet`'s
-`set_dropdown` operation and remove them with `clear_validation`.
+current choices and colors. Agents add the same dropdowns with `EditSpreadsheet`'s
+`set_dropdown` operation (choice colors in `colors: [{ item, color }]`), see them
+in `ReadSpreadsheet`, and remove them with `clear_validation`. Excel downloads
+write choice colors as conditional formatting fills; importing such a file
+restores them as choice colors.
 
 Every cell with a dropdown (from the dialog, an agent, or an Excel list rule) shows
 a small arrow at its right edge; clicking it selects the cell and opens its
@@ -263,6 +304,35 @@ shows the rule's message in the footer, and a "stop" rule keeps the previous val
 A red corner marks a cell with a note; selecting the cell shows the note, and any
 input message, beside it.
 
+To add checkboxes, select the cells and choose **Checkbox** in the toolbar's
+**Insert chart, image or checkbox** menu (chart icon), or **Insert checkbox** in
+the cell context menu. Blank cells become unchecked boxes backed by `FALSE`;
+cells holding `TRUE` or `FALSE` keep their value, and other values stay visible as
+text. Each box is a `checkbox` named after its cell (`B2`) and sits centered in
+the cell unless the cell is aligned left or right; it takes the cell's text color
+and font size. Click a box, or press Space, to toggle it; Space over a range checks
+every box, or unchecks them all once all are checked. Shift+click on a box extends
+the selection without toggling it. Delete unchecks any checked boxes and, pressed
+again, removes them; **Remove checkbox** in the cell menu (or Clear formatting)
+removes them and keeps their values. Formulas read the values, so
+`=COUNTIF(C:C,TRUE)` counts checked boxes. Agents add them with
+`EditSpreadsheet`'s `insert_checkboxes` operation and toggle them by setting
+`TRUE` or `FALSE`. Downloads use Excel's checkbox format, and imported Excel
+checkboxes stay checkboxes.
+
+Double-clicking a cell that holds a date (typed, imported or a date pill, but not
+a formula), or pressing Enter or F2 on it, opens a calendar below its editor; an
+Excel date validation rule opens it on its cells even when they are empty,
+starting at today. The editor keeps focus: arrows move the outlined day by a day
+or a week, Page Up and Page Down by a month (with Shift, a year), Enter writes the
+day and moves down, and Escape closes the calendar (a second Escape cancels the
+edit). Clicking a day writes it and keeps the cell selected. Typing closes the
+calendar and edits the text as usual. The day is written the way the cell stores
+dates, so its format stays: a serial number keeps its time of day, a date pill
+stays a pill and ISO text stays ISO. The calendar is `[data-cell-date-picker]`;
+its days are `gridcell` buttons marked `data-active` (the keyboard's day),
+`data-selected` (the cell's date) and `data-today`.
+
 Images and charts (column, bar, line and area, each clustered, stacked or
 100% stacked, plus pie, doughnut, scatter, combo, radar, bubble, stock and
 surface, drawn as a contour) are drawn over their cells and move with them;
@@ -271,7 +341,7 @@ category to 100% of its positive values and to 100% of its negative values.
 Scatter charts plot markers without connecting lines. A combo chart draws
 every series but the last as columns and the last series as a line on a second
 axis. Each is a `figure` named after the chart title ("Chart: Revenue") or the
-image description. The toolbar's **Insert chart or image** menu (chart icon)
+image description. The toolbar's **Insert chart, image or checkbox** menu (chart icon)
 adds a chart of the selected cells — or, from one cell, of the table around
 it, placed beside it — or an image file (PNG, JPEG, GIF, WebP or BMP up to
 2 MB) at the active cell. Its **More charts** submenu holds Radar, Filled
@@ -376,6 +446,19 @@ irregular patterns repeat; relative formula references translate. Keyboard/menu
 Fill down/right explicitly copies the starting row/column. Plain-text paste from
 other apps keeps formulas as supplied.
 
+With a mouse, hover the selection's border until the cursor becomes a move
+cursor, then drag it to move the cells; a dashed outline and its address (for
+example `D6:E9`) show where they will land, and the grid scrolls when the pointer
+nears or passes its edge. Escape cancels the drag. Values, formatting, notes and
+validation go with the cells, the moved cells stay selected, and formulas that
+refer to them follow: `=SUM(B2:B3)` becomes `=SUM(D6:D7)` after moving B2:B3 to
+D6. Moving onto cells that hold values asks **Replace cells?** first (Cancel is
+focused); formulas that referred to the replaced cells show `#REF!`. One undo
+reverses the move. Like insert/delete, moving is unavailable while a saved
+workbook is offline, and a collaborator's edit made meanwhile cancels it with a
+footer notice. Moving part of a merged cell is refused. Touch screens keep the
+selection handles instead.
+
 Drag a column header's right boundary or row header's bottom boundary to resize;
 double-click the boundary to auto-fit. Row separators support Up/Down arrows and
 Enter to restore automatic height. Explicit row heights take precedence over wrap.
@@ -387,9 +470,12 @@ and row additions save collaboratively and can be undone.
 
 The document title and Share button sit above a compact formatting ribbon:
 undo/redo, paste, zoom and view options, currency/percent/decimals/number format,
-font and size, text styles, text/fill color, borders, alignment, wrapping,
-functions, format/data actions, and find. Icon controls expose accessible button
-names and tooltips. **Number format → Accounting** shows Excel's accounting layout:
+font and size, text styles, text/fill color, borders, alignment, **Decrease
+indent**/**Increase indent**, wrapping, functions, format/data actions, and find.
+Icon controls expose accessible button names and tooltips. The indent buttons move
+each selected cell one level (three spaces) from its own level, from the cell's
+right edge when it is right-aligned and its left edge otherwise; indenting a
+centered cell aligns it left. **Number format → Accounting** shows Excel's accounting layout:
 `$` at the cell's left edge, the amount at the right, negatives in parentheses and
 zero as a dash; the cell's accessible name reads like `B2: $(1,234.50)`.
 **Paste special** offers **Paste** and **Paste values only**.
@@ -449,10 +535,17 @@ or use the formula bar to edit link text. AI `set_cells` accepts Macro URLs or t
 same `<m-user-mention>` / `<m-document-mention>` / `<m-date-mention>` encoding as docs.
 Formula references to mention cells use literal labels, never execute a label as a formula.
 
-Dates: `@tomorrow`, `@next friday` or `@sep 28` offer a **Dates** bucket and insert
-the same clock chip as docs; hover it for the full date, and edit the cell to change
-it. A cell holding only a date chip is a date value: `=A1+7` produces a date, and
-Excel export writes a dated number rather than the label. Typing a date stores it
+Dates: `@today`, `@tomorrow`, `@next friday` or `@sep 28` offer a **Dates** bucket.
+Choosing one enters the date as text such as `10/16/2026` (in the browser locale's
+day/month order), not a chip, so a cell holding only that date becomes a date value
+like any typed date; around other text it stays text. Typing `@date` shows a
+calendar (`[data-cell-date-picker]`) in place of the menu, starting at today: arrow
+keys and Page Up/Down move the highlighted day, Enter or a click enters it, Escape
+closes it, and the cell editor keeps focus throughout. Date chips written earlier,
+or by AI `set_cells`, still show as clock chips; hover one for the full date, and
+edit the cell to change it. A cell holding only a date chip is a date value:
+`=A1+7` produces a date, and Excel export writes a dated number rather than the
+label. Typing a date stores it
 as a date in a matching format: `01/2026` or `Jan 2026` shows `Jan 2026`,
 `Jan 01 2026` shows `Jan 01, 2026`, `2026-01-01` stays ISO and `1/1/26` shows
 `1/1/2026` (day first in day-first browser locales). The snapshot value is the

@@ -225,6 +225,15 @@ export function typedDateText(
   }
 }
 
+/**
+ * A local calendar day as the numeric date `parseTypedDate` reads back in the
+ * same locale, for entering a picked day as if it were typed.
+ */
+export function typedDayText(day: Date, locale: string): string | undefined {
+  const time = Date.UTC(day.getFullYear(), day.getMonth(), day.getDate());
+  return typedDateText((time - SERIAL_EPOCH) / DAY_MILLISECONDS, locale);
+}
+
 const readDateFormat = Result.fromThrowable(
   (code: string): SpreadsheetCellStyle | undefined => {
     if (!is_date(code)) return;

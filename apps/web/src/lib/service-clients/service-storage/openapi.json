@@ -10940,6 +10940,48 @@
         }
       }
     },
+    "/documents/{document_id}/text-content": {
+      "get": {
+        "tags": ["document"],
+        "summary": "Read current Markdown or extracted file text with the document's view receipt.",
+        "operationId": "get_document_text_content",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "description": "Document identity",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentTextContent"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Document access denied"
+          },
+          "404": {
+            "description": "Document not found"
+          },
+          "500": {
+            "description": "Document text unavailable"
+          }
+        }
+      }
+    },
     "/documents/{document_id}/views": {
       "get": {
         "tags": ["document"],
@@ -11066,6 +11108,473 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/entities/{entity_type}/{entity_id}/access-requests": {
+      "get": {
+        "tags": ["access-requests"],
+        "summary": "State access request state through the domain service.",
+        "operationId": "access_requests_state",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ShareEntityType"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Offset into pending requests; page size is bounded by the service.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequestState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/entities/{entity_type}/{entity_id}/access-requests/mine": {
+      "put": {
+        "tags": ["access-requests"],
+        "summary": "Submit access request state through the domain service.",
+        "operationId": "access_requests_submit",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ShareEntityType"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestAccess"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "tags": ["access-requests"],
+        "summary": "Cancel access request state through the domain service.",
+        "operationId": "access_requests_cancel",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ShareEntityType"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "description": "Last observed request revision.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/entities/{entity_type}/{entity_id}/access-requests/{request_id}/resolve": {
+      "post": {
+        "tags": ["access-requests"],
+        "summary": "Resolve access request state through the domain service.",
+        "operationId": "access_requests_resolve",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ShareEntityType"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/entities/{entity_type}/{entity_id}/direct-access": {
+      "get": {
+        "tags": ["access-requests"],
+        "summary": "Direct access request state through the domain service.",
+        "operationId": "access_requests_direct",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ShareEntityType"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DirectAccess"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/entities/{entity_type}/{entity_id}/direct-access/{user_id}": {
+      "put": {
+        "tags": ["access-requests"],
+        "summary": "Set direct access request state through the domain service.",
+        "operationId": "access_requests_set_direct",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ShareEntityType"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDirectAccess"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "tags": ["access-requests"],
+        "summary": "Remove direct access request state through the domain service.",
+        "operationId": "access_requests_remove_direct",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ShareEntityType"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "429": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
           }
         }
       }
@@ -17888,6 +18397,141 @@
         "type": "string",
         "description": "Ordered from least to most access top -> bottom",
         "enum": ["view", "comment", "edit", "owner"]
+      },
+      "AccessRequest": {
+        "type": "object",
+        "description": "Latest request for one person and one entity.",
+        "required": [
+          "id",
+          "requesterId",
+          "requestedLevel",
+          "status",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Start of this request attempt."
+          },
+          "grantedLevel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessLevel",
+                "description": "Level selected by the reviewer."
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable request identity across revisions."
+          },
+          "requestedLevel": {
+            "$ref": "#/components/schemas/AccessLevel",
+            "description": "Requested upgrade."
+          },
+          "requesterId": {
+            "type": "string",
+            "description": "Person requesting access."
+          },
+          "resolvedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "When the request stopped being pending."
+          },
+          "retryAfter": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Optimistic concurrency token."
+          },
+          "status": {
+            "$ref": "#/components/schemas/RequestStatus",
+            "description": "Current outcome."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Most recent change."
+          }
+        }
+      },
+      "AccessRequestState": {
+        "type": "object",
+        "description": "Share state visible to one authenticated viewer.",
+        "required": [
+          "canReview",
+          "supportedLevels",
+          "requests",
+          "pendingCount"
+        ],
+        "properties": {
+          "accessLevel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessLevel",
+                "description": "Current effective permission, absent when requesting initial access."
+              }
+            ]
+          },
+          "canReview": {
+            "type": "boolean",
+            "description": "Whether this viewer can resolve requests and manage direct grants."
+          },
+          "mine": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessRequest",
+                "description": "This viewer's last request, if any."
+              }
+            ]
+          },
+          "nextOffset": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Next page offset, absent at the end.",
+            "minimum": 0
+          },
+          "owner": {
+            "type": ["string", "null"],
+            "description": "Recorded owner principal, visible to reviewers and callers with access."
+          },
+          "pendingCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total outstanding requests, for the Share badge."
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessRequest"
+            },
+            "description": "Reviewer-only pending page, oldest first."
+          },
+          "supportedLevels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessLevel"
+            },
+            "description": "Permitted access choices for this surface."
+          }
+        }
       },
       "AccessiblePipeline": {
         "allOf": [
@@ -25100,6 +25744,21 @@
           }
         ]
       },
+      "DirectAccess": {
+        "type": "object",
+        "description": "A direct user grant; inherited grants are deliberately not editable here.",
+        "required": ["userId", "accessLevel"],
+        "properties": {
+          "accessLevel": {
+            "$ref": "#/components/schemas/AccessLevel",
+            "description": "Direct permission level."
+          },
+          "userId": {
+            "type": "string",
+            "description": "Recipient."
+          }
+        }
+      },
       "DocumentBasic": {
         "type": "object",
         "description": "Returns basic information of a document used for some db queries",
@@ -26019,6 +26678,17 @@
             "type": ["string", "null"],
             "format": "uuid",
             "description": "The owner's team the document is (or would be) shared with. `None` when\nthe owner does not belong to a team."
+          }
+        }
+      },
+      "DocumentTextContent": {
+        "type": "object",
+        "description": "Text representation when the document supports one. Other file formats\nretain their existing download/export behavior.",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": ["string", "null"],
+            "description": "Current Markdown, or extracted PDF/Word text. Null means use file export."
           }
         }
       },
@@ -34763,6 +35433,27 @@
           }
         }
       },
+      "RequestAccess": {
+        "type": "object",
+        "description": "Requester submission; an existing pending request requires its revision.",
+        "required": ["requestedLevel"],
+        "properties": {
+          "requestedLevel": {
+            "$ref": "#/components/schemas/AccessLevel",
+            "description": "Desired View, Comment, or Edit permission."
+          },
+          "revision": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Last observed revision; omitted only for the first request."
+          }
+        }
+      },
+      "RequestStatus": {
+        "type": "string",
+        "description": "Durable outcome; reading a notification never changes it.",
+        "enum": ["pending", "granted", "denied", "cancelled"]
+      },
       "RequestedHarnessScope": {
         "type": "string",
         "description": "The ownership scope a daemon's config asks for.\n\nAdvisory, not binding: the approving user confirms it in the dialog, which\narrives preselected to this. Approval is what actually sets ownership.",
@@ -34836,6 +35527,29 @@
           }
         ],
         "description": "A layout as an op asks for it: a board may leave its card title out."
+      },
+      "ResolveRequest": {
+        "type": "object",
+        "description": "Owner's decision; omission of a granted level means deny.",
+        "required": ["revision"],
+        "properties": {
+          "grantedLevel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessLevel",
+                "description": "Supported access to grant, or null to deny."
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Request revision being reviewed."
+          }
+        }
       },
       "ResponseStatus": {
         "type": "string",
@@ -35639,6 +36353,23 @@
           }
         }
       },
+      "SetDirectAccess": {
+        "type": "object",
+        "description": "Direct-grant change. A null level removes only that direct grant.",
+        "properties": {
+          "accessLevel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessLevel",
+                "description": "New level, or removal."
+              }
+            ]
+          }
+        }
+      },
       "SetDocumentTeamShareRequest": {
         "type": "object",
         "description": "Request body for setting a document's team-share state.",
@@ -35827,6 +36558,36 @@
       "Sha256Digest": {
         "type": "string",
         "description": "SHA-256 encoded as exactly 64 lowercase hexadecimal characters."
+      },
+      "ShareEntity": {
+        "type": "object",
+        "description": "A validated shared-entity address.",
+        "required": ["entityType", "entityId"],
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entity identifier."
+          },
+          "entityType": {
+            "$ref": "#/components/schemas/ShareEntityType",
+            "description": "Canonical entity kind."
+          }
+        }
+      },
+      "ShareEntityType": {
+        "type": "string",
+        "description": "An entity type with an existing Share surface.",
+        "enum": [
+          "document",
+          "chat",
+          "project",
+          "initiative",
+          "database",
+          "call",
+          "email_thread",
+          "agent_session"
+        ]
       },
       "SharePermissionV2": {
         "type": "object",
