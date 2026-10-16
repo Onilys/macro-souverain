@@ -7,8 +7,14 @@ import type { DriveState } from '@app/features/drive-view/core/types';
 import { useSoup } from '@app/features/next-soup/soup-context';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { projectRouteId } from '@app/features/projects/core/route';
+import {
+  getListNavigationSource,
+  ListNavigationCancelled,
+  listNavigationSourceId,
+} from '@app/features/soup/collection/list-navigation-source';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { type BlockName, NonDocumentBlockTypes } from '@core/block';
+import { toast } from '@core/component/Toast/Toast';
 import { fileTypeToBlockName } from '@core/constant/allBlocks';
 import { TOKENS } from '@core/hotkey/tokens';
 import { isMobile } from '@core/mobile/isMobile';
@@ -302,9 +308,35 @@ function SoupNavigationButtons() {
     return rows().length > 0 && currentIndex() !== rows().length - 1;
   });
 
-  const navigate = (offset: number) => {
+  let navigating = false;
+  const navigate = async (offset: -1 | 1) => {
+    const source = getListNavigationSource(
+      listNavigationSourceId(context.handle)
+    );
+    if (source?.hasOrderedGroups?.()) {
+      if (navigating) return;
+      navigating = true;
+      const content = context.handle.content();
+      try {
+        const entity = await source.resolveAdjacent?.(content.id, offset);
+        if (entity && context.handle.content() === content) {
+          await openEntityInSplitFromUnifiedList(entity, {
+            splitHandle: context.handle,
+            mergeHistory: true,
+            referredFrom: navigationReferredFrom(),
+            notificationSource,
+          });
+        }
+      } catch (error) {
+        if (!(error instanceof ListNavigationCancelled))
+          toast.failure('Unable to load the next item');
+      } finally {
+        navigating = false;
+      }
+      return;
+    }
     const next = soup.navigate.by(offset, { skipGroupHeaders: true });
-    if (!next) return;
+    if (!next || next.row.kind !== 'entity') return;
 
     void openEntityInSplitFromUnifiedList(next.row.original, {
       splitHandle: context.handle,

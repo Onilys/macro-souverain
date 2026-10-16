@@ -2,8 +2,8 @@
 edition = "2024"
 name = "cache-wasm"
 publish = false
-# Rebuild with thread-local email participant cache semantics.
-version = "0.6.48"
+# Rebuild with rollback-managed grouped directory count recipes.
+version = "0.6.49"
 
 [features]
 default = []

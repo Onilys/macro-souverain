@@ -376,6 +376,8 @@ export const [TasksViewProvider, useTasksView] = createAssertedContextProvider<
         return;
       }
       if (!task) return;
+      const focused = list.focus.item();
+      if (focused?.kind === 'entity' && focused.entity.id === task.id) return;
       const row = source
         .items()
         .find((item) => item.kind === 'entity' && item.entity.id === task.id);

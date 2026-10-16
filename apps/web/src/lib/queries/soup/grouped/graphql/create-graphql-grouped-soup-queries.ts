@@ -1,11 +1,17 @@
 import { createUrqlInfiniteQuery } from '@app/lib/urql-solid';
 import type { EntityData } from '@entity';
 import { createKeyedProjection } from '@queries/soup/create-keyed-projection';
+import { soupQueryExcludesDone } from '@queries/soup/excludes-done';
 import {
   makeGraphqlGroupedSoupContinuationInput,
   makeGraphqlGroupedSoupInput,
 } from '@queries/soup/graphql/ast';
-import { registerGroupedSoupContinuation } from '@queries/soup/grouped/graphql-operation-registry';
+import { createGraphqlSoupDoneProjection } from '@queries/soup/graphql/done-projection';
+import { usePendingGraphqlSoupDone } from '@queries/soup/graphql/optimistic-done';
+import {
+  groupedSoupInputKey,
+  registerGroupedSoupContinuation,
+} from '@queries/soup/grouped/graphql-operation-registry';
 import type { GroupByField, GroupMeta } from '@queries/soup/grouped/types';
 import type {
   SoupApiItemFilter,
@@ -29,6 +35,7 @@ import {
   getGraphqlSoupClient,
   mapGraphqlGroupedSoupPage,
 } from '@service-storage/graphql-soup';
+import { until } from '@solid-primitives/promise';
 import {
   type Accessor,
   createComputed,
@@ -38,12 +45,9 @@ import {
   on,
   onCleanup,
 } from 'solid-js';
-
 import { registerGraphqlSoupRevalidations } from '../../graphql/active-queries';
-import {
-  usePendingGraphqlSoupDeleteIds,
-  withoutPendingSoupEntities,
-} from '../../graphql/optimistic-deletions';
+import { usePendingGraphqlSoupDeleteIds } from '../../graphql/optimistic-deletions';
+import { createGraphqlDirectoryGroupQueries } from './create-graphql-directory-group-queries';
 
 export type GroupQueryData = {
   entities: EntityData[];
@@ -76,6 +80,8 @@ type GraphqlGroupedInitialPage = {
 };
 
 type CreateGraphqlGroupedSoupQueriesArgs = {
+  lazyGroupPagination?: Accessor<boolean>;
+  networkPaused?: Accessor<boolean>;
   initialPage: Accessor<GraphqlGroupedInitialPage | undefined>;
   groupByField: Accessor<GroupByField | undefined>;
   soupParams: Accessor<SoupParams>;
@@ -108,7 +114,7 @@ function groupPage(
 }
 
 /** Derives initial bins from the live parent and observes loaded continuations. */
-export function createGraphqlGroupedSoupQueries(
+function createGraphqlInitialGroupQueries(
   args: CreateGraphqlGroupedSoupQueriesArgs
 ): {
   list: Accessor<GraphqlGroupQuery[]>;
@@ -117,6 +123,7 @@ export function createGraphqlGroupedSoupQueries(
 } {
   const instructionsIdQuery = useInstructionsMdIdQuery();
   const pendingDeleteIds = usePendingGraphqlSoupDeleteIds();
+  const pendingDone = usePendingGraphqlSoupDone();
 
   const mapItems = (
     items: SoupAstItemsGroupedPage['items'],
@@ -182,6 +189,9 @@ export function createGraphqlGroupedSoupQueries(
 
     const queryResult = createRoot((rootDispose) => {
       dispose = rootDispose;
+      const projectDone = createGraphqlSoupDoneProjection();
+      const [disposed, setDisposed] = createSignal(false);
+      onCleanup(() => setDisposed(true));
       const getConfig = createMemo(
         () => configs().find((config) => config.key === key) ?? initialConfig
       );
@@ -194,6 +204,10 @@ export function createGraphqlGroupedSoupQueries(
         return createRoot((continuationRootDispose) => {
           continuationDispose = continuationRootDispose;
           const [activated, setActivated] = createSignal(false);
+          const registrations = new Map<string, () => void>();
+          onCleanup(() => {
+            for (const unregister of registrations.values()) unregister();
+          });
           let initialPageDidSettle = false;
           let settleInitialPage = () => undefined;
           const initialPageSettled = new Promise<void>((resolve) => {
@@ -221,7 +235,15 @@ export function createGraphqlGroupedSoupQueries(
                   groupKey: config.key,
                   cursor,
                 });
-                registerGroupedSoupContinuation(config.initialInput, input);
+                const operationKey = groupedSoupInputKey([
+                  config.initialInput,
+                  input,
+                ]);
+                if (!registrations.has(operationKey))
+                  registrations.set(
+                    operationKey,
+                    registerGroupedSoupContinuation(config.initialInput, input)
+                  );
                 return { input };
               },
               getNextPageParam: (lastPage) =>
@@ -240,14 +262,16 @@ export function createGraphqlGroupedSoupQueries(
                 }),
               }),
               enabled: activated() && config.enabled,
-              requestPolicy: 'cache-first',
+              requestPolicy: args.networkPaused?.()
+                ? 'cache-only'
+                : 'cache-first',
               keepPreviousData: false,
             };
           });
 
           onCleanup(
             registerGraphqlSoupRevalidations(() => {
-              if (!query.isEnabled) return [];
+              if (!query.isEnabled || args.networkPaused?.()) return [];
               const config = getConfig();
               const cursors = new Set([
                 firstCursor,
@@ -333,11 +357,13 @@ export function createGraphqlGroupedSoupQueries(
         const combined = continued
           ? { entities: [...initial.entities, ...continued.entities] }
           : initial;
-        const entities = withoutPendingSoupEntities(
-          combined.entities,
+        return projectDone(
+          JSON.stringify([getConfig().initialInput, key]),
+          { ...combined, groups: undefined },
+          pendingDone(),
+          soupQueryExcludesDone([args.soupBody()]),
           pendingDeleteIds()
         );
-        return entities === combined.entities ? combined : { entities };
       });
 
       const trackFirstPage = (action: Promise<unknown>): Promise<void> => {
@@ -360,6 +386,11 @@ export function createGraphqlGroupedSoupQueries(
       };
 
       const fetchNextPage = async (): Promise<void> => {
+        if (args.networkPaused?.())
+          await until(
+            () => disposed() || !args.enabled() || !args.networkPaused?.()
+          );
+        if (disposed()) return;
         const config = getConfig();
         if (!config.enabled || cachedMail()) return;
         if (firstPagePromise) return firstPagePromise;
@@ -466,6 +497,32 @@ export function createGraphqlGroupedSoupQueries(
     map,
     resetToInitialPage: () => {
       for (const query of list()) query.resetToInitialPage();
+    },
+  };
+}
+
+/** Initial pages and directories have different entity and cursor ownership. */
+export function createGraphqlGroupedSoupQueries(
+  args: CreateGraphqlGroupedSoupQueriesArgs
+) {
+  const lazy = () =>
+    args.lazyGroupPagination?.() === true &&
+    args.groupByField()?.type !== 'date';
+  const initial = createGraphqlInitialGroupQueries({
+    ...args,
+    initialPage: () => (lazy() ? undefined : args.initialPage()),
+  });
+  const directory = createGraphqlDirectoryGroupQueries({
+    ...args,
+    initialPage: () => (lazy() ? args.initialPage() : undefined),
+  });
+  const active = () => (lazy() ? directory : initial);
+  return {
+    list: () => active().list(),
+    map: () => active().map(),
+    resetToInitialPage: () => {
+      initial.resetToInitialPage();
+      directory.resetToInitialPage();
     },
   };
 }

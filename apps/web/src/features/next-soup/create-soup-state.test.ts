@@ -55,20 +55,17 @@ const buildTestRow = (
   index: number,
   group?: GroupMeta,
   kind: 'entity' | 'header' | 'load-more' = 'entity'
-) =>
-  state.buildRow({
-    id:
-      kind === 'header'
-        ? `header:${group?.key}`
-        : kind === 'load-more'
-          ? `loadmore:${group?.key}`
-          : original.id,
+) => {
+  if (kind === 'entity') {
+    return state.buildRow({ id: original.id, index, original, group });
+  }
+  return state.buildRow({
+    id: kind === 'header' ? `header:${group?.key}` : `loadmore:${group?.key}`,
     index,
-    original,
     group,
-    isGrouped: kind === 'header',
-    isLoadMore: kind === 'load-more',
+    kind: kind === 'header' ? 'group-header' : 'load-more',
   });
+};
 
 describe('createSoupState', () => {
   describe('initial state', () => {
@@ -135,7 +132,8 @@ describe('createSoupState', () => {
         const observedNames: string[] = [];
         let rowUpdates = 0;
         createComputed(() => {
-          observedNames.push(storedRow.original.name);
+          if (storedRow.kind === 'entity')
+            observedNames.push(storedRow.original.name);
         });
         createComputed(() => {
           state.rows();
@@ -157,7 +155,7 @@ describe('createSoupState', () => {
         expect(storedRow.index).toBe(1);
         expect(storedRow.isFocused()).toBe(true);
         expect(state.focus.index()).toBe(1);
-        expect(storedRow.original.name).toBe('After');
+        expect(storedRow.original?.name).toBe('After');
         expect(observedNames).toEqual(['Before', 'After']);
         expect(rowUpdates).toBe(2);
 
@@ -215,12 +213,12 @@ describe('createSoupState', () => {
         expect(state.rows()[0].group?.count).toBe(1);
         expect(state.rows()[1]).toBe(staysInARow);
         expect(state.rows()[1].index).toBe(1);
-        expect(state.rows()[2]).not.toBe(headerB);
-        expect(state.rows()[2].original.id).toBe('moved');
+        expect(state.rows()[2]).toBe(headerB);
+        expect(state.rows()[2].original).toBeUndefined();
         expect(state.rows()[2].group?.count).toBe(2);
         expect(state.rows()[3]).not.toBe(movedInA);
         expect(state.rows()[4]).toBe(staysInBRow);
-        expect(state.rows()[4].original.id).toBe('stays-b');
+        expect(state.rows()[4].original?.id).toBe('stays-b');
         expect(state.rows()[5]).toBe(loadMoreB);
         expect(state.rows()[5].group?.count).toBe(2);
 

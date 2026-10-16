@@ -71,10 +71,7 @@ import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component
 import { LoadingBlock } from '@core/component/LoadingBlock';
 import { ENABLE_UNIFIED_LIST_AI_INPUT } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
-import {
-  soupListContainerAttribute,
-  soupListContainerSelector,
-} from '@core/dom-selectors';
+import { soupListContainerSelector } from '@core/dom-selectors';
 import { registerHotkey, useHotkeyDOMScope } from '@core/hotkey/hotkeys';
 import { TOKENS } from '@core/hotkey/tokens';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
@@ -97,7 +94,6 @@ import CheckIcon from '@phosphor/check.svg';
 import InfoIcon from '@phosphor/info.svg';
 import SearchIcon from '@phosphor/magnifying-glass.svg';
 import Spinner from '@phosphor/spinner.svg';
-import { createElementSize } from '@solid-primitives/resize-observer';
 import { debounce } from '@solid-primitives/scheduled';
 import { Button, cn, Layer, Tooltip } from '@ui';
 import { tourTarget } from '@ui/components/Tour';
@@ -117,9 +113,10 @@ import {
   Switch,
 } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { Virtualizer, type VirtualizerHandle } from 'virtua/solid';
+import type { VirtualizerHandle } from 'virtua/solid';
 import type { CacheSnapshot } from 'virtua/unstable_core';
 import { makeMarkNotDoneAction } from '../actions/make-mark-not-done-action';
+import { SoupList } from '../components/soup-list';
 import { SOUP_TOUR } from '../tour';
 import { SearchAskAiButton } from './search-ask-ai-button';
 import { SoupEntitySelectionToolbar } from './soup-entity-selection-toolbar';
@@ -632,6 +629,10 @@ const SoupViewListContent = (props: SoupViewListProps) => {
     clientSort,
     fetchNextGroupPage,
     isFetchingGroupPage,
+    orderedGroups,
+    groupNavigationIdentity,
+    groupPageError,
+    loadOrderedGroup,
   } = useSoupView();
   const { hasActiveRefinements, hasHiddenItems, resetToTabDefaults } =
     useFilterRefinements();
@@ -757,6 +758,10 @@ const SoupViewListContent = (props: SoupViewListProps) => {
     isFetchingNextPage: source.isFetchingNextPage,
     fetchNextPage: source.fetchNextPage,
     error: source.error,
+    orderedGroups,
+    groupNavigationIdentity,
+    loadOrderedGroup,
+    groupPageError,
   });
 
   // Register entity action hotkeys
@@ -954,7 +959,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
       // The anchor can be stale (rows changed since the last click), so guard
       // against indexing past the current list.
       const entity = entityList[i];
-      if (entity && !entity.isSelected()) {
+      if (entity?.kind === 'entity' && !entity.isSelected()) {
         newEntitiesForSelection.push(entity.original);
       }
     }
@@ -1018,7 +1023,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
       const list = rows() ?? [];
       const map = new Map<string, SoupRow>();
       for (const entity of list) {
-        map.set(entity.original.id, entity);
+        if (entity.kind === 'entity') map.set(entity.original.id, entity);
       }
       return map;
     },
@@ -1218,7 +1223,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                       container={localEntityListRef}
                       canSwipeLeft={(entityId) => {
                         const entity = entityById().get(entityId);
-                        if (!entity) return false;
+                        if (entity?.kind !== 'entity') return false;
 
                         if (!entityActionViewContext().supportsMarkDone) {
                           return false;
@@ -1228,12 +1233,13 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                       }}
                       onSwipeLeft={(entityId) => {
                         const entity = entityById().get(entityId);
-                        if (!entity) return;
+                        if (entity?.kind !== 'entity') return;
                         markDoneAction.executeWithSoup([entity.original], soup);
                       }}
                       setCollapseEntity={soup.collapseEntity.set}
                     >
                       <SoupList
+                        touch={isTouchDevice()}
                         cache={readListEntryState()?.virtualCache}
                         ref={(el) => {
                           setLocalEntityListRef(el);
@@ -1245,10 +1251,21 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                         virtualizerRef={registerVirtualizerHandler}
                         onScrollBottom={debouncedFetchMore}
                         scrollBottomOffset={300}
+                        paginationIdentity={groupNavigationIdentity()}
+                        onGroupBoundary={
+                          orderedGroups()
+                            ? (key) => {
+                                void loadOrderedGroup(key);
+                              }
+                            : undefined
+                        }
+                        groupIsLoading={isFetchingGroupPage}
+                        groupError={groupPageError}
                         rows={rows()}
                       >
                         {(row, i) => {
                           const timestamp = () => {
+                            if (row.kind !== 'entity') return;
                             if (props.timestamp)
                               return props.timestamp(row.original) ?? undefined;
                             const sort_ = clientSort();
@@ -1308,6 +1325,45 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                       isFirst={row.index === 0}
                                       rowFamily={rowEntry().family}
                                     />
+                                  )}
+                                </Match>
+
+                                <Match
+                                  when={
+                                    row.kind === 'group-status' &&
+                                    row.group?.isExpanded() &&
+                                    row.group
+                                  }
+                                >
+                                  {(group) => (
+                                    <div
+                                      class="min-h-9 flex items-center justify-center gap-2 text-xs text-ink-muted"
+                                      role="status"
+                                    >
+                                      <Show
+                                        when={groupPageError(group().key)}
+                                        fallback={
+                                          <>
+                                            <Spinner class="size-3 animate-spin" />
+                                            Loading...
+                                          </>
+                                        }
+                                      >
+                                        <span>Couldn’t load this group.</span>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            void loadOrderedGroup(
+                                              group().key,
+                                              true
+                                            );
+                                          }}
+                                        >
+                                          Retry
+                                        </Button>
+                                      </Show>
+                                    </div>
                                   )}
                                 </Match>
 
@@ -1375,89 +1431,101 @@ const SoupViewListContent = (props: SoupViewListProps) => {
 
                                 {/* Entity row */}
                                 <Match
-                                  when={!row.group || row.group?.isExpanded()}
+                                  when={
+                                    row.kind === 'entity' &&
+                                    (!row.group || row.group.isExpanded()) &&
+                                    row
+                                  }
                                 >
-                                  <SoupEntityContextMenu
-                                    entity={row.original}
-                                    list={soup}
-                                    selectedEntities={soup.selection.selected}
-                                    viewContext={entityActionViewContext()}
-                                  >
-                                    <Dynamic
-                                      component={rowEntry().component}
-                                      deferInteractions={
-                                        source.deferRowInteractions?.() === true
-                                      }
-                                      entity={row.original}
-                                      timestamp={timestamp()}
-                                      highlighted={row.isFocused()}
-                                      onMouseMove={() => {
-                                        if (isKeypressActive()) return;
-                                        soup.focus.setIndex(row.index);
-                                      }}
-                                      showUnrollNotifications={
-                                        row.original.type !== 'email' &&
-                                        soup.predicates.isActive('inbox') &&
-                                        !soup.predicates.isActive('noise')
-                                      }
-                                      isLastInGroup={(() => {
-                                        const next = rows()[i() + 1];
-                                        return !next || next.getIsGrouped();
-                                      })()}
-                                      checked={row.isSelected()}
-                                      onChecked={(
-                                        next: boolean,
-                                        shiftKey: boolean
-                                      ) =>
-                                        handleMultiSelectChecked({
-                                          entity: row.original,
-                                          entityIndex: i(),
-                                          next,
-                                          shiftKey: shiftKey ?? false,
-                                        })
-                                      }
-                                      onClick={(event: MouseEvent) => {
-                                        onEntityClick({
-                                          type: 'entity',
-                                          entity: row.original,
-                                          event,
-                                          location: undefined,
-                                          rowIndex: row.index,
-                                        });
-                                      }}
-                                      onProjectClick={(
-                                        projectEntity,
-                                        event
-                                      ) => {
-                                        onEntityClick({
-                                          type: 'project',
-                                          projectEntity,
-                                          entity: row.original,
-                                          event,
-                                          location: undefined,
-                                          rowIndex: row.index,
-                                        });
-                                      }}
-                                      onContentHitClick={(
-                                        e: PointerEvent | MouseEvent,
-                                        location?: SearchLocation
-                                      ) => {
-                                        onEntityClick({
-                                          type: 'entity',
-                                          entity: row.original,
-                                          event: e,
-                                          location,
-                                          rowIndex: row.index,
-                                        });
-                                      }}
-                                      entityRowConfig={{
-                                        swipeLeftColor: 'bg-success',
-                                        swipeLeftRevealedComponent: (
-                                          <CheckIcon class="size-8 text-panel" />
-                                        ),
-                                      }}
-                                    />
-                                  </SoupEntityContextMenu>
+                                  {(entityRow) => {
+                                    const row = entityRow();
+                                    return (
+                                      <SoupEntityContextMenu
+                                        entity={row.original}
+                                        list={soup}
+                                        selectedEntities={
+                                          soup.selection.selected
+                                        }
+                                        viewContext={entityActionViewContext()}
+                                      >
+                                        <Dynamic
+                                          component={rowEntry().component}
+                                          deferInteractions={
+                                            source.deferRowInteractions?.() ===
+                                            true
+                                          }
+                                          entity={row.original}
+                                          timestamp={timestamp()}
+                                          highlighted={row.isFocused()}
+                                          onMouseMove={() => {
+                                            if (isKeypressActive()) return;
+                                            soup.focus.setIndex(row.index);
+                                          }}
+                                          showUnrollNotifications={
+                                            row.original.type !== 'email' &&
+                                            soup.predicates.isActive('inbox') &&
+                                            !soup.predicates.isActive('noise')
+                                          }
+                                          isLastInGroup={(() => {
+                                            const next = rows()[i() + 1];
+                                            return !next || next.getIsGrouped();
+                                          })()}
+                                          checked={row.isSelected()}
+                                          onChecked={(
+                                            next: boolean,
+                                            shiftKey: boolean
+                                          ) =>
+                                            handleMultiSelectChecked({
+                                              entity: row.original,
+                                              entityIndex: i(),
+                                              next,
+                                              shiftKey: shiftKey ?? false,
+                                            })
+                                          }
+                                          onClick={(event: MouseEvent) => {
+                                            onEntityClick({
+                                              type: 'entity',
+                                              entity: row.original,
+                                              event,
+                                              location: undefined,
+                                              rowIndex: row.index,
+                                            });
+                                          }}
+                                          onProjectClick={(
+                                            projectEntity,
+                                            event
+                                          ) => {
+                                            onEntityClick({
+                                              type: 'project',
+                                              projectEntity,
+                                              entity: row.original,
+                                              event,
+                                              location: undefined,
+                                              rowIndex: row.index,
+                                            });
+                                          }}
+                                          onContentHitClick={(
+                                            e: PointerEvent | MouseEvent,
+                                            location?: SearchLocation
+                                          ) => {
+                                            onEntityClick({
+                                              type: 'entity',
+                                              entity: row.original,
+                                              event: e,
+                                              location,
+                                              rowIndex: row.index,
+                                            });
+                                          }}
+                                          entityRowConfig={{
+                                            swipeLeftColor: 'bg-success',
+                                            swipeLeftRevealedComponent: (
+                                              <CheckIcon class="size-8 text-panel" />
+                                            ),
+                                          }}
+                                        />
+                                      </SoupEntityContextMenu>
+                                    );
+                                  }}
                                 </Match>
                               </Switch>
                               <Show
@@ -1513,123 +1581,5 @@ const SoupViewListContent = (props: SoupViewListProps) => {
         </Show>
       </div>
     </MaybeSoupEntityActionDrawerManager>
-  );
-};
-
-const DEFAULT_OVERSCAN = 5;
-const DEFAULT_ITEM_SIZE_ESTIMATE = 40;
-
-interface SoupListProps {
-  ref?: (el: HTMLDivElement) => void;
-  /** Receives the inner scroll container (the element that owns scrollTop). */
-  scrollerRef?: (el: HTMLDivElement) => void;
-  virtualizerRef?: (handle: VirtualizerHandle) => void;
-  class?: string;
-  virtualizerClass?: string;
-  itemSize?: number;
-  overscan?: number;
-  children: (row: SoupRow, index: Accessor<number>) => JSX.Element;
-  onScrollOffsetChange?: (offset: number) => void;
-  onScrollBottom?: VoidFunction;
-  scrollBottomOffset?: number;
-  rows: SoupRow[];
-  cache?: CacheSnapshot;
-}
-
-const SoupList = (props: SoupListProps) => {
-  const [virtualizerHandle, setVirtualizerHandle] =
-    createSignal<VirtualizerHandle>();
-
-  const overscan = createMemo(() => props.overscan ?? DEFAULT_OVERSCAN);
-
-  const [topSpacerRef, setTopSpacerRef] = createSignal<HTMLDivElement>();
-  const topSpacerSize = createElementSize(topSpacerRef);
-
-  // Full-frame touch devices: rows under-scroll the status bar; this in-scroll
-  // spacer is their resting inset (safe-top — list views have no header).
-  // Keyed on touch, not width: an iPad is a full-frame native app but is wider
-  // than the mobile breakpoint, so a width check would leave it at 0.
-  const topInset = () => (isTouchDevice() ? (topSpacerSize.height ?? 0) : 0);
-
-  const handleScroll = (offset: number) => {
-    const handle = virtualizerHandle();
-
-    if (!handle) return;
-
-    props.onScrollOffsetChange?.(offset);
-
-    // Trigger within a viewport of the bottom so the next page is usually
-    // loaded before the user reaches the end. scrollBottomOffset is a floor
-    // for tiny viewports.
-    const threshold = Math.max(
-      props.scrollBottomOffset ?? 100,
-      handle.viewportSize
-    );
-
-    if (handle.scrollSize - handle.viewportSize - offset <= threshold) {
-      props.onScrollBottom?.();
-    }
-  };
-
-  const registerVirtualizerHandler = (
-    handle: VirtualizerHandle | undefined
-  ) => {
-    setVirtualizerHandle(handle);
-
-    if (handle) props.virtualizerRef?.(handle);
-  };
-
-  return (
-    <div
-      ref={props.ref}
-      // `soup-list` scopes the --soup-inbox-* metrics (ListEntity.css) for
-      // everything in the list; the row geometry itself travels with the rows
-      // and the group headers, which each carry their own family class.
-      class={cn(
-        'soup-list unified-table-body w-full flex-1 min-h-0 relative',
-        props.class
-      )}
-    >
-      {/* Hand-rolled VList (scroller + Virtualizer) so the full-frame mobile
-          insets can live inside the scroller: rows rest clear of the chrome
-          but still slide beneath it. `startMargin` keeps virtua's scroll
-          math correct for the leading spacer. */}
-      <div
-        ref={props.scrollerRef}
-        class={cn('overscroll-none', props.virtualizerClass)}
-        style={{
-          display: 'block',
-          'overflow-y': 'auto',
-          contain: 'strict',
-          width: '100%',
-          height: '100%',
-        }}
-        {...soupListContainerAttribute}
-      >
-        <div
-          ref={setTopSpacerRef}
-          aria-hidden
-          class="h-0 block touch:h-(--mobile-content-inset-top)"
-        />
-        <Virtualizer
-          cache={props.cache}
-          ref={registerVirtualizerHandler}
-          startMargin={topInset()}
-          data={props.rows}
-          // Leave itemSize unset for heterogeneous lists so Virtua measures
-          // larger rows; 40px is only the default overscan estimate.
-          itemSize={props.itemSize}
-          bufferSize={
-            overscan() * (props.itemSize ?? DEFAULT_ITEM_SIZE_ESTIMATE)
-          }
-          onScroll={handleScroll}
-        >
-          {(row, i) => props.children(row, i)}
-        </Virtualizer>
-        <Show when={isTouchDevice()}>
-          <div aria-hidden class="h-(--mobile-content-inset-bottom)" />
-        </Show>
-      </div>
-    </div>
   );
 };

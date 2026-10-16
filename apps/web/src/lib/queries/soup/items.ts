@@ -35,6 +35,7 @@ import {
 import { type Accessor, onCleanup } from 'solid-js';
 import { queryClient } from '../client';
 import { registerActiveGraphqlSoupQuery } from './graphql/active-queries';
+import { createGraphqlSoupGroupDirectoryQuery } from './graphql/group-directory';
 import { createGraphqlGroupedSoupAstItemsQuery } from './graphql/grouped-items';
 import { createGraphqlSoupAstItemsQuery } from './graphql/items';
 import { soupPageTimestamp } from './page-timestamp';
@@ -68,6 +69,8 @@ export type SoupAstItemsQueryArgs = {
 export type SoupApiItemFilter = (item: SoupApiItem) => boolean;
 
 interface SoupItemsQueryOptions {
+  /** Discover group metadata first; the caller requests entity pages on demand. */
+  lazyGroupPagination?: boolean;
   networkPaused?: boolean;
   keepPreviousData?: boolean;
   enabled?: boolean;
@@ -404,6 +407,8 @@ export function useSoupAstItemsQuery(
   const graphqlSoupFlag = useFeatureFlag(enableGraphqlSoup);
 
   const queryEnabled = () => options?.().enabled !== false;
+  const lazyGroups = () =>
+    options?.().lazyGroupPagination === true && args().groupBy?.type !== 'date';
   const graphqlRequested = () => {
     const requestedTransport = args().transport;
     if (requestedTransport === 'rest') return false;
@@ -431,7 +436,28 @@ export function useSoupAstItemsQuery(
     }),
     () => ({
       enabled:
-        graphqlRequested() && queryEnabled() && args().groupBy !== undefined,
+        graphqlRequested() &&
+        queryEnabled() &&
+        args().groupBy !== undefined &&
+        !lazyGroups(),
+      networkPaused: options?.().networkPaused,
+      keepPreviousData: options?.().keepPreviousData,
+      showSupportedForeignEntities: options?.().showSupportedForeignEntities,
+    })
+  );
+
+  const graphqlGroupDirectoryQuery = createGraphqlSoupGroupDirectoryQuery(
+    () => ({
+      params: args().params,
+      body: args().body,
+      groupBy: args().groupBy,
+    }),
+    () => ({
+      enabled:
+        graphqlRequested() &&
+        queryEnabled() &&
+        args().groupBy !== undefined &&
+        lazyGroups(),
       networkPaused: options?.().networkPaused,
       keepPreviousData: options?.().keepPreviousData,
       showSupportedForeignEntities: options?.().showSupportedForeignEntities,
@@ -439,7 +465,11 @@ export function useSoupAstItemsQuery(
   );
 
   const activeGraphqlQuery = () =>
-    args().groupBy === undefined ? graphqlFlatQuery : graphqlGroupedQuery;
+    args().groupBy === undefined
+      ? graphqlFlatQuery
+      : lazyGroups()
+        ? graphqlGroupDirectoryQuery
+        : graphqlGroupedQuery;
   const usesGraphql = () =>
     graphqlRequested() && activeGraphqlQuery().isSupported();
 
@@ -458,8 +488,10 @@ export function useSoupAstItemsQuery(
         activeGraphqlQuery().isEnabled() &&
         !options?.().networkPaused,
       refresh: async () => {
-        activeGraphqlQuery().resetToInitialPage();
-        options?.().onBeforeGraphqlRefresh?.();
+        if (!lazyGroups() || args().groupBy === undefined) {
+          activeGraphqlQuery().resetToInitialPage();
+          options?.().onBeforeGraphqlRefresh?.();
+        }
         await activeGraphqlQuery().refresh();
       },
       body: () => args().body,

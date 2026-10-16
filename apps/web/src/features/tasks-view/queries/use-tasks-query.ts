@@ -1,4 +1,5 @@
 import type { ListDataSource } from '@app/components/list';
+import { createOrderedGroupPagination } from '@app/features/next-soup/primitives/ordered-group-pagination';
 import {
   buildFlatSoupRows,
   buildGroupedSoupRows,
@@ -73,11 +74,20 @@ export type TasksDataSource = ListDataSource<TasksDataSourceItem> & {
   loadMoreGroup: (groupId: string) => Promise<void>;
   paginationError?: Accessor<unknown>;
   retryPagination?: () => void;
+  /** Retained rows may render while their replacement query is not ready to page. */
+  paginationReady?: Accessor<boolean>;
   /** Uncollapsed rows for alternative layouts; the query owner is shared. */
   boardRows?: Accessor<TasksDataSourceItem[]>;
   boardSearching?: Accessor<boolean>;
   boardLoading?: Accessor<boolean>;
   groupError?: (groupId: string) => unknown;
+  orderedGroups?: {
+    enabled: Accessor<boolean>;
+    identity: Accessor<string>;
+    retain: () => void;
+    error: (key: string) => Error | null;
+    load: (key: string, retry?: boolean) => Promise<void>;
+  };
 };
 
 type TaskGroupContinuationReader = {
@@ -144,7 +154,10 @@ export function useTasksDataSource(
   const queryArgs = () => queryArgsFor();
 
   const scoped = Boolean(options.reference || options.crm);
+  const lazyPaginationRequested = () =>
+    !options.loadAll && queryArgs().groupBy?.type !== 'date';
   const query = useSoupAstItemsQuery(queryArgs, () => ({
+    lazyGroupPagination: lazyPaginationRequested(),
     enabled: facetOptionsReady(),
     networkPaused: options.networkPaused?.(),
     keepPreviousData: scoped,
@@ -251,6 +264,8 @@ export function useTasksDataSource(
     transport: () => query.transport,
     queryOptions: () => ({
       enabled: !search.isSearching() && facetOptionsReady(),
+      lazyGroupPagination: lazyPaginationRequested(),
+      networkPaused: options.networkPaused?.(),
     }),
   });
 
@@ -320,6 +335,41 @@ export function useTasksDataSource(
     },
   };
 
+  const orderedEnabled = () =>
+    lazyPaginationRequested() &&
+    !options.board?.() &&
+    query.transport === 'graphql' &&
+    !!queryArgs().groupBy &&
+    !search.isSearching();
+  const identity = () =>
+    JSON.stringify([
+      options.userId(),
+      queryArgs(),
+      state.search,
+      lazyPaginationRequested(),
+      options.board?.() ?? false,
+    ]);
+  const ordered = createOrderedGroupPagination({
+    identity,
+    groups: () =>
+      (query.isLoading ? [] : (query.data?.groups ?? [])).map((group) => ({
+        key: group.key,
+        hasMore: () => continuations.hasMore(group.key),
+        isLoading: () => continuations.isLoading(group.key),
+        error: () => {
+          const query = groupQueryFor(group.key);
+          return query && 'error' in query ? query.error() : null;
+        },
+        load: () => continuations.loadMore(group.key),
+      })),
+    isExpanded: options.isGroupExpanded,
+  });
+  const loadOrderedGroup = async (key: string, retry = false) => {
+    await ordered.load(key, retry);
+    const error = ordered.error(key);
+    if (error) throw error;
+  };
+
   const tasks = createMemo<TaskEntityWithProperties[]>((previous) => {
     if (!search.isSearching()) return baseTasks();
 
@@ -352,7 +402,11 @@ export function useTasksDataSource(
       const tasksById = new Map(currentTasks.map((task) => [task.id, task]));
       const taskGroups: SoupGroup<TaskEntityWithProperties>[] = [];
 
+      const visibleKeys = orderedEnabled()
+        ? new Set(ordered.visible().map((group) => group.key))
+        : undefined;
       for (const group of groups) {
+        if (visibleKeys && !visibleKeys.has(group.key)) continue;
         const initialTasks = group.itemIds.flatMap((id) => {
           const task = tasksById.get(id);
           return task ? [task] : [];
@@ -402,6 +456,15 @@ export function useTasksDataSource(
 
   const usesServiceSearch = search.usesServiceSearch;
 
+  const paginationReady = () => {
+    if (!facetOptionsReady() || options.networkPaused?.()) return false;
+    if (search.isSearching()) {
+      if (search.isSettling()) return false;
+      if (usesServiceSearch()) return !search.isLoading();
+    }
+    return !query.isPending && !query.isPlaceholderData;
+  };
+
   const isLoading = () => {
     if (options.enabled?.() === false) return false;
     if (!search.isSearching()) {
@@ -448,6 +511,7 @@ export function useTasksDataSource(
       await search.refetch();
       return;
     }
+    ordered.reset();
     groupedQueries.resetToInitialPage();
     await query.refresh();
   };
@@ -491,9 +555,18 @@ export function useTasksDataSource(
     error,
     hasMore,
     isLoadingMore,
-    loadMoreGroup: continuations.loadMore,
+    loadMoreGroup: (key) =>
+      orderedEnabled() ? loadOrderedGroup(key) : continuations.loadMore(key),
+    orderedGroups: {
+      enabled: orderedEnabled,
+      identity,
+      retain: ordered.retain,
+      error: ordered.error,
+      load: loadOrderedGroup,
+    },
     loadMore,
     refresh,
+    paginationReady,
     paginationError: automatic.error,
     retryPagination: automatic.retry,
   } satisfies TasksDataSource;

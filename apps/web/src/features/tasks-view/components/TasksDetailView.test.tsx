@@ -99,7 +99,9 @@ it('steps within the provider task source without switching to tasks outside the
     setSelected(task);
     return true;
   });
+  const [focusedKey, setFocusedKey] = createSignal('first-task');
   calls.context = {
+    list: { focus: { key: focusedKey, set: setFocusedKey } },
     source,
     selectedTask: selected,
     openTask,

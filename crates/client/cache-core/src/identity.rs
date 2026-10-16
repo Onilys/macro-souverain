@@ -235,6 +235,7 @@ pub fn remap_patch(
         | LinkOperation::UpsertByField { entity_key, .. }
         | LinkOperation::RemoveEmbeddedLink { entity_key, .. }
         | LinkOperation::UpsertEmbeddedLink { entity_key, .. } => entity_key,
+        LinkOperation::AdjustCount { .. } => return,
     };
     if let Some(target) = identities.get(key) {
         *key = target.clone();

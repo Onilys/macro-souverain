@@ -11,6 +11,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { Gantt } from './gantt';
 import { useGantt } from './gantt-context';
 import type { GanttGroupMove } from './gantt-group-drag';
+import type { GanttRowViewport } from './gantt-row-viewport';
 
 afterEach(() => {
   cleanup();
@@ -26,6 +27,7 @@ function fixture(withPreview = false) {
   const move = vi.fn(async (_move: GanttGroupMove) => {});
   const open = vi.fn();
   const [rows, setRows] = createSignal([{ id: 'a:one', name: 'Original row' }]);
+  let rowViewport: GanttRowViewport<{ id: string; name: string }> | undefined;
   const renderNormal = vi.fn((row: { id: string; name: string }) => {
     const element = document.createElement('div');
     element.dataset.stableRow = row.id;
@@ -105,6 +107,9 @@ function fixture(withPreview = false) {
                     getKey: (row) => row.id,
                     children: renderNormal,
                     renderDropPreview: () => 'Destination ghost',
+                    viewportRef: (value) => {
+                      rowViewport = value;
+                    },
                   })
                 );
               return viewport;
@@ -138,6 +143,7 @@ function fixture(withPreview = false) {
     viewport,
     renderNormal,
     setRows,
+    rowViewport: () => rowViewport,
   };
 }
 
@@ -250,4 +256,28 @@ it('snapshots the visible bar and keeps its clone inert while reserving a destin
   );
   chart.release();
   expect(chart.move).not.toHaveBeenCalled();
+});
+
+it('exposes preview-aware row geometry without moving the horizontal calendar', () => {
+  const chart = fixture(true);
+  const viewport = chart.rowViewport()!;
+  chart.viewport.scrollLeft = 350;
+  expect(viewport.rows().map((row) => row.item?.id)).toEqual(['a:one']);
+  chart.press('Bar');
+  chart.hover();
+  expect(viewport.rows().map((row) => row.item?.id)).toEqual([
+    undefined,
+    'a:one',
+  ]);
+  expect(viewport.handle.getItemOffset(1)).toBe(88);
+  viewport.handle.scrollTo(88);
+  expect(viewport.handle.findItemIndex(chart.viewport.scrollTop)).toBe(1);
+  expect(chart.viewport.scrollLeft).toBe(350);
+  chart.setRows([]);
+  expect(viewport.rows().map((row) => row.item?.id)).toEqual([
+    undefined,
+    'a:one',
+  ]);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(viewport.rows()).toEqual([]);
 });

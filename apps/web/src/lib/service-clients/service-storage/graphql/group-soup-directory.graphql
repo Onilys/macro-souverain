@@ -1,0 +1,11 @@
+query GroupSoupDirectory($input: GroupedSoupDirectoryInput!) {
+  user {
+    id
+    groupSoupDirectory(input: $input) {
+      key
+      label
+      displayOrder
+      totalCount
+    }
+  }
+}

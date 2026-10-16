@@ -596,6 +596,7 @@ export const makeMarkDoneAction = (options: MakeMarkDoneOptions) => {
         previousCandidateIndex = candidate.index;
 
         if (
+          candidate.row.kind !== 'entity' ||
           candidate.row.id === focusedIdBeforeMarkDone ||
           markedEntityIds.has(candidate.row.original.id)
         ) {

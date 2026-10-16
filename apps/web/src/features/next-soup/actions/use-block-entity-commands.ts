@@ -175,7 +175,7 @@ export const useBlockEntityCommands = (
     // that follows moves to the next row exactly as Mark done does rather than
     // leaving the split on one the list has dropped.
     const selectedRow = triageRow();
-    if (soup && selectedRow) {
+    if (soup && selectedRow?.kind === 'entity') {
       void createReminderAction.executeWithSoup([selectedRow.original], soup, {
         advances: true,
         onNavigate: advanceSplitTo,
@@ -203,7 +203,7 @@ export const useBlockEntityCommands = (
     // Plain mark done, no advance: the command-menu registration outside the
     // triage flow, or the entity is no longer in the surviving soup list.
     const selectedRow = triageRow();
-    if (!soup || !selectedRow) {
+    if (!soup || selectedRow?.kind !== 'entity') {
       markDone.execute([entity]);
       return true;
     }

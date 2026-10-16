@@ -1,4 +1,5 @@
 use super::*;
+use uuid::Uuid;
 
 async fn assert_membership(pool: &Pool<Postgres>) -> anyhow::Result<()> {
     let items = expanded_dynamic_cursor_soup_grouped(
@@ -196,5 +197,91 @@ async fn calendar_owner_or_linked_account_only(pool: Pool<Postgres>) -> anyhow::
             assert_eq!(item.index_in_group, index + 1);
         }
     }
+    Ok(())
+}
+
+#[sqlx::test(
+    fixtures(
+        path = "../../../../../../macro_db_client/fixtures",
+        scripts("mixed_items_expanded")
+    ),
+    fixtures(path = ".", scripts("access")),
+    migrator = "MACRO_DB_MIGRATIONS"
+)]
+async fn directory_counts_match_authorized_memberships(pool: Pool<Postgres>) -> anyhow::Result<()> {
+    use crate::domain::models::GroupedSortRequest;
+    use crate::outbound::pg_soup_repo::expanded::dynamic::grouped_directory;
+    let request = |user| GroupedSortRequest {
+        user_id: MacroUserIdStr::parse_from_str(user).unwrap(),
+        limit: 1,
+        cursor: Query::Sort(SimpleSortMethod::UpdatedAt, EntityFilterAst::mock_empty()),
+        grouping: GroupingConfig {
+            field: GroupByField::EntityType,
+            group_key: None,
+            per_group_limit: None,
+        },
+    };
+    let groups = grouped_directory(&pool, request("macro|user-1@test.com")).await?;
+    for (key, count) in [("document", 5), ("chat", 4), ("project", 4)] {
+        assert_eq!(
+            groups
+                .iter()
+                .find(|group| group.key == key)
+                .unwrap()
+                .total_count,
+            count
+        );
+    }
+    assert!(
+        grouped_directory(&pool, request("macro|inaccessible@test.com"))
+            .await?
+            .is_empty()
+    );
+    Ok(())
+}
+
+#[sqlx::test(
+    fixtures(
+        path = "../../../../../../macro_db_client/fixtures",
+        scripts("mixed_items_expanded")
+    ),
+    migrator = "MACRO_DB_MIGRATIONS"
+)]
+async fn directory_binds_document_id_filters_after_fixed_parameters(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let filter = EntityFilterAst {
+        document_filter: Some(Arc::new(Expr::or(
+            Expr::val(DocumentLiteral::Id(Uuid::parse_str(
+                "11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            )?)),
+            Expr::val(DocumentLiteral::Id(Uuid::parse_str(
+                "11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            )?)),
+        ))),
+        ..EntityFilterAst::mock_empty()
+    };
+    let groups = crate::outbound::pg_soup_repo::expanded::dynamic::grouped_directory(
+        &pool,
+        crate::domain::models::GroupedSortRequest {
+            user_id: MacroUserIdStr::parse_from_str("macro|user-1@test.com")?,
+            limit: 1,
+            cursor: Query::Sort(SimpleSortMethod::UpdatedAt, filter),
+            grouping: GroupingConfig {
+                field: GroupByField::EntityType,
+                group_key: None,
+                per_group_limit: None,
+            },
+        },
+    )
+    .await?;
+    assert_eq!(
+        groups
+            .iter()
+            .find(|group| group.key == "document")
+            .unwrap()
+            .total_count,
+        2
+    );
     Ok(())
 }

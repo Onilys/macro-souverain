@@ -24,8 +24,8 @@ export type ListDetailNavigation<TEntity> = ListDetailNavigationTarget & {
   open: (entity: TEntity) => void;
 };
 
-type NavigationStep<TEntity> =
-  | { kind: 'entity'; entity: TEntity }
+type NavigationStep<TEntity, TItem> =
+  | { kind: 'entity'; entity: TEntity; item: TItem }
   | { kind: 'continuation'; load: () => Promise<unknown> };
 
 export function useListDetailNavigation<
@@ -33,11 +33,15 @@ export function useListDetailNavigation<
   TEntity extends { id: string },
 >(options: {
   currentId: Accessor<string>;
+  currentKey?: Accessor<string | undefined>;
+  getKey?: (item: TItem) => string;
+  identity?: Accessor<string>;
   source: Pick<
     ListDataSource<TItem>,
     'items' | 'hasMore' | 'loadMore' | 'error'
   >;
   getEntity: (item: TItem) => TEntity | undefined;
+  onResolved?: (item: TItem) => void;
   getContinuation?: (item: TItem) => (() => Promise<unknown>) | undefined;
   open: (entity: TEntity) => void;
   onError?: (error: unknown) => void;
@@ -56,11 +60,24 @@ export function useListDetailNavigation<
       .map(options.getEntity)
       .find((entity) => entity?.id === options.currentId());
 
-  const target = (direction: -1 | 1): NavigationStep<TEntity> | undefined => {
+  const target = (
+    direction: -1 | 1
+  ): NavigationStep<TEntity, TItem> | undefined => {
     const items = options.source.items();
-    const currentIndex = items.findIndex(
-      (item) => options.getEntity(item)?.id === options.currentId()
-    );
+    const occurrenceIndex =
+      options.currentKey?.() === undefined
+        ? -1
+        : items.findIndex(
+            (item) =>
+              options.getKey?.(item) === options.currentKey?.() &&
+              options.getEntity(item)?.id === options.currentId()
+          );
+    const currentIndex =
+      occurrenceIndex >= 0
+        ? occurrenceIndex
+        : items.findIndex(
+            (item) => options.getEntity(item)?.id === options.currentId()
+          );
     if (currentIndex === -1) return;
 
     for (
@@ -72,7 +89,7 @@ export function useListDetailNavigation<
       if (!item) continue;
 
       const entity = options.getEntity(item);
-      if (entity) return { kind: 'entity', entity };
+      if (entity) return { kind: 'entity', entity, item };
 
       const load =
         direction === 1 ? options.getContinuation?.(item) : undefined;
@@ -86,15 +103,15 @@ export function useListDetailNavigation<
 
   const resolve = async (
     direction: -1 | 1,
-    currentId: string
-  ): Promise<TEntity | undefined> => {
-    while (isCurrent(currentId)) {
+    requestIsCurrent: () => boolean
+  ): Promise<{ entity: TEntity; item: TItem } | undefined> => {
+    while (requestIsCurrent()) {
       const step = target(direction);
       if (!step) return;
-      if (step.kind === 'entity') return step.entity;
+      if (step.kind === 'entity') return step;
 
       await step.load();
-      if (!isCurrent(currentId)) return;
+      if (!requestIsCurrent()) return;
 
       const error = options.source.error();
       if (error) throw error;
@@ -113,21 +130,34 @@ export function useListDetailNavigation<
     setNavigating(true);
     const currentId = options.currentId();
     const current = currentEntity();
+    const identity = options.identity?.();
+    const currentKey = options.currentKey?.();
+    const requestIsCurrent = () =>
+      isCurrent(currentId) &&
+      identity === options.identity?.() &&
+      currentKey === options.currentKey?.();
 
     try {
-      let next = await resolve(direction, currentId);
+      let next = await resolve(direction, requestIsCurrent);
       if (
         !next &&
         navigationOptions.fallbackDirection !== undefined &&
-        isCurrent(currentId)
+        requestIsCurrent()
       ) {
-        next = await resolve(navigationOptions.fallbackDirection, currentId);
+        next = await resolve(
+          navigationOptions.fallbackDirection,
+          requestIsCurrent
+        );
       }
-      if (!isCurrent(currentId)) return;
-      if (navigationOptions.beforeOpen?.(next, current) === false) return;
-      if (next) open(next);
+      if (!requestIsCurrent()) return;
+      if (navigationOptions.beforeOpen?.(next?.entity, current) === false)
+        return;
+      if (next) {
+        options.onResolved?.(next.item);
+        open(next.entity);
+      }
     } catch (error) {
-      if (isCurrent(currentId)) options.onError?.(error);
+      if (requestIsCurrent()) options.onError?.(error);
     } finally {
       setNavigating(false);
     }

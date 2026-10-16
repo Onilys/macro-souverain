@@ -625,6 +625,20 @@ Both the list and a detail query for that thread observe the same effective
 value. Changes to `isRead` preserve row objects and do not notify subscribers to
 unrelated fields.
 
+Grouped directory count adjustments are additive pending-layer recipes scoped to
+the authenticated logical view and proven source membership. Repeated pages or
+readers contribute once per mutation; overlapping mutations compose and roll back
+independently. A concurrently arriving authoritative directory response can
+already include a pending move, so its displayed count can temporarily include
+both that response and the pending adjustment. Count recipes are discarded at
+settlement rather than committed to base records; success and rollback revalidate
+the directory to converge on authoritative counts. Unknown destination metadata
+is discovered by revalidation rather than synthesized.
+
+The durable v3 queue envelope stores these recipes in optional `countPatches`.
+Older v3 runtimes ignore that field while retaining the original property mutation
+and its revalidations; no compatibility epoch or unrelated offline queue is reset.
+
 ### Adoption and mutation coverage
 
 Mounted project details, project identity chips, and agent-session mentions use

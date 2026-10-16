@@ -68,6 +68,211 @@ mutation SetEntityProperty($input: SetEntityPropertyInput!) {
 }
 "#;
 
+const DIRECTORY_QUERY: &str = r#"
+query GroupSoupDirectory($input: GroupedSoupDirectoryInput!) {
+  user { id groupSoupDirectory(input: $input) { key label displayOrder totalCount } }
+}
+"#;
+
+fn directory_variables() -> serde_json::Map<String, Json> {
+    object(
+        json!({"input": {"groupBy": {"field": "PROPERTY", "propertyDefinitionId": "status-def"}}}),
+    )
+}
+
+fn directory_patch(key: &str, delta: i64) -> OptimisticLinkPatch {
+    OptimisticLinkPatch {
+        record_root: None,
+        query: DIRECTORY_QUERY.into(),
+        operation_name: Some("GroupSoupDirectory".into()),
+        variables_json: serde_json::to_string(&directory_variables()).unwrap(),
+        path: vec![
+            LinkPathSegment::Field {
+                field: "user".into(),
+            },
+            LinkPathSegment::Field {
+                field: "groupSoupDirectory".into(),
+            },
+            LinkPathSegment::ListItem {
+                list_item: ListItemByScalar {
+                    where_field: "key".into(),
+                    equals: json!(key),
+                },
+            },
+            LinkPathSegment::Field {
+                field: "totalCount".into(),
+            },
+        ],
+        operation: LinkOperation::AdjustCount { delta },
+    }
+}
+
+async fn read_directory(engine: &mut Engine<InMemoryStorage>) -> Json {
+    match engine
+        .read_query(
+            None,
+            DIRECTORY_QUERY,
+            Some("GroupSoupDirectory"),
+            &directory_variables(),
+        )
+        .await
+        .unwrap()
+    {
+        ReadResult::Hit { data } => data["user"]["groupSoupDirectory"].clone(),
+        ReadResult::Miss => panic!("expected directory cache hit"),
+    }
+}
+
+#[test]
+fn directory_counts_compose_once_survive_restart_and_settle_safely() {
+    block_on(async {
+        for commit in [false, true] {
+            let mut engine = setup().await;
+            engine.write_query(None, DIRECTORY_QUERY, Some("GroupSoupDirectory"), &directory_variables(), &json!({"user": {
+            "id": "user-1", "groupSoupDirectory": [
+                {"key":"in-progress", "label":"In progress", "displayOrder":0, "totalCount":10},
+                {"key":"completed", "label":"Completed", "displayOrder":1, "totalCount":4},
+                {"key":"empty", "label":"Empty", "displayOrder":2, "totalCount":0}
+            ]
+        }}), None).await.unwrap();
+            let patches = [
+                directory_patch("in-progress", -1),
+                directory_patch("in-progress", -1),
+                directory_patch("completed", 1),
+                directory_patch("empty", -1),
+            ];
+            let (transaction, _) = engine
+                .begin_optimistic_write(
+                    None,
+                    BeginOptimisticWrite {
+                        client_metadata: None,
+                        uuid: "00000000-0000-4000-8000-000000000091",
+                        query: MUTATION,
+                        operation_name: Some("SetEntityProperty"),
+                        variables: &mutation_variables("completed"),
+                        data: &mutation_response("completed"),
+                        link_patches: &patches,
+                        revalidations: &[],
+                        created_at_ms: 0,
+                        identity_bindings: &[],
+                    },
+                )
+                .await
+                .unwrap();
+            for _ in 0..2 {
+                let directory = read_directory(&mut engine).await;
+                assert_eq!(directory[0]["totalCount"], 9);
+                assert_eq!(directory[1]["totalCount"], 5);
+                assert_eq!(directory[2]["totalCount"], 0);
+            }
+            let mut reopened = Engine::new(engine.storage().clone());
+            assert_eq!(read_directory(&mut reopened).await[0]["totalCount"], 9);
+            let claim = claim(&mut engine, transaction).await;
+            if commit {
+                // The directory can acknowledge the mutation before its response
+                // settles the queue. Never permanently apply the delta a second time.
+                let directory = read_directory(&mut engine).await;
+                engine
+                    .write_query(
+                        None,
+                        DIRECTORY_QUERY,
+                        Some("GroupSoupDirectory"),
+                        &directory_variables(),
+                        &json!({"user": {"id":"user-1", "groupSoupDirectory":directory}}),
+                        None,
+                    )
+                    .await
+                    .unwrap();
+                // Aggregate responses cannot identify which pending mutation
+                // they include. The overlay remains approximate until settlement.
+                let pending = read_directory(&mut engine).await;
+                assert_eq!(pending[0]["totalCount"], 8);
+                assert_eq!(pending[1]["totalCount"], 6);
+                let settled = engine
+                    .commit_optimistic_write(
+                        transaction,
+                        claim,
+                        MUTATION,
+                        Some("SetEntityProperty"),
+                        &mutation_variables("completed"),
+                        &mutation_response("completed"),
+                    )
+                    .await
+                    .unwrap();
+                assert!(settled.revalidations.iter().any(|query| {
+                    query.operation_name.as_deref() == Some("GroupSoupDirectory")
+                }));
+            } else {
+                engine
+                    .rollback_optimistic_write(transaction, claim)
+                    .await
+                    .unwrap();
+            }
+            let restored = read_directory(&mut engine).await;
+            assert_eq!(restored[0]["totalCount"], if commit { 9 } else { 10 });
+            assert_eq!(restored[1]["totalCount"], if commit { 5 } else { 4 });
+        }
+    });
+}
+
+#[test]
+fn directory_count_layers_compose_when_an_earlier_mutation_rolls_back() {
+    block_on(async {
+        let mut engine = setup().await;
+        engine.write_query(None, DIRECTORY_QUERY, Some("GroupSoupDirectory"), &directory_variables(), &json!({"user": {
+            "id": "user-1", "groupSoupDirectory": [
+                {"key":"in-progress", "label":"In progress", "displayOrder":0, "totalCount":10}
+            ]
+        }}), None).await.unwrap();
+        let mut transactions = Vec::new();
+        for uuid in [
+            "00000000-0000-4000-8000-000000000092",
+            "00000000-0000-4000-8000-000000000093",
+        ] {
+            let (transaction, _) = engine
+                .begin_optimistic_write(
+                    None,
+                    BeginOptimisticWrite {
+                        client_metadata: None,
+                        uuid,
+                        query: MUTATION,
+                        operation_name: Some("SetEntityProperty"),
+                        variables: &mutation_variables("completed"),
+                        data: &mutation_response("completed"),
+                        link_patches: &[directory_patch("in-progress", -1)],
+                        revalidations: &[],
+                        created_at_ms: 0,
+                        identity_bindings: &[],
+                    },
+                )
+                .await
+                .unwrap();
+            transactions.push(transaction);
+        }
+        assert_eq!(read_directory(&mut engine).await[0]["totalCount"], 8);
+        let first_claim = claim(&mut engine, transactions[0]).await;
+        let rollback = engine
+            .rollback_optimistic_write(transactions[0], first_claim)
+            .await
+            .unwrap();
+        assert!(
+            rollback
+                .revalidations
+                .iter()
+                .any(|query| query.operation_name.as_deref() == Some("GroupSoupDirectory"))
+        );
+        assert_eq!(read_directory(&mut engine).await[0]["totalCount"], 9);
+        let mut reopened = Engine::new(engine.storage().clone());
+        assert_eq!(read_directory(&mut reopened).await[0]["totalCount"], 9);
+        let second_claim = claim(&mut engine, transactions[1]).await;
+        engine
+            .rollback_optimistic_write(transactions[1], second_claim)
+            .await
+            .unwrap();
+        assert_eq!(read_directory(&mut engine).await[0]["totalCount"], 10);
+    });
+}
+
 fn object(value: Json) -> serde_json::Map<String, Json> {
     let Json::Object(value) = value else {
         unreachable!()

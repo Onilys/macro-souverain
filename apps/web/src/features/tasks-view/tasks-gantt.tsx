@@ -8,7 +8,6 @@ import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils'
 import { SoupEntityContextMenu } from '@app/features/soup';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
-import { toast } from '@core/component/Toast/Toast';
 import { getTaskStatusOptionId, type TaskEntityWithProperties } from '@entity';
 import { PropertyValueIcon } from '@property/component/propertyValue';
 import { usePropertyUserDisplay } from '@property/hooks/usePropertyUserDisplay';
@@ -134,24 +133,18 @@ export function TasksGantt(props: { ref?: (element: HTMLDivElement) => void }) {
               return 0;
             },
           }),
-        onMove: async (move) => {
-          await queries.moveGroup(move);
-          try {
-            await source.refresh?.();
-          } catch {
-            toast.failure('Task moved, but the timeline could not refresh');
-          }
-        },
+        onMove: queries.moveGroup,
       }}
       createAssigneeName={(id) => usePropertyUserDisplay(id).name}
       isGroupExpanded={(id) => !state.collapsedGroupIds.includes(id)}
-      onToggleGroup={(id) =>
+      onToggleGroup={(id) => {
+        source.orderedGroups?.retain();
         setState('collapsedGroupIds', (ids) =>
           ids.includes(id)
             ? ids.filter((current) => current !== id)
             : [...ids, id]
-        )
-      }
+        );
+      }}
       onCreate={onCreate() && ((dates) => onCreate()?.(dates.end))}
       onOpen={onOpen}
       renderEntity={renderEntity}

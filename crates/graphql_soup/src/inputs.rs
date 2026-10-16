@@ -77,6 +77,8 @@ impl GraphqlSortDirection {
 pub enum GroupedSoupInput {
     /// Start a new grouped Soup query.
     Initial(Box<GroupedSoupInitialInput>),
+    /// Start the first page of one bin without fetching other bins.
+    StartGroup(Box<GroupedSoupStartInput>),
     /// Continue one bin from a cursor returned by a previous grouped query.
     Continuation(GroupedSoupContinuationInput),
 }
@@ -92,6 +94,67 @@ pub struct GroupedSoupInitialInput {
     sort_method: Option<GraphqlSimpleSortMethod>,
     /// AST-shaped filters applied to each Soup entity type.
     filters: Option<GraphqlEntityFilterAst>,
+}
+
+/// Input for discovering grouped memberships without loading entities.
+#[derive(async_graphql::InputObject)]
+pub struct GroupedSoupDirectoryInput {
+    /// Field used to divide entities into groups.
+    group_by: GraphqlGroupByInput,
+    /// Timestamp used when grouping depends on ordering.
+    sort_method: Option<GraphqlSimpleSortMethod>,
+    /// Filters shared by the directory and its entity pages.
+    filters: Option<GraphqlEntityFilterAst>,
+}
+
+impl GroupedSoupDirectoryInput {
+    /// Reuse grouped request validation and defaults.
+    pub(crate) fn into_request(
+        self,
+        user: MacroUserIdStr<'static>,
+    ) -> async_graphql::Result<GroupedSortRequest<'static>> {
+        GroupedSoupInitialInput {
+            group_by: self.group_by,
+            sort_method: self.sort_method,
+            filters: self.filters,
+            limit: None,
+        }
+        .into_request(user)
+    }
+}
+
+/// Input for starting a single group's entity pages.
+#[derive(async_graphql::InputObject)]
+pub struct GroupedSoupStartInput {
+    /// Field used to divide entities into groups.
+    group_by: GraphqlGroupByInput,
+    /// Membership key, including the empty unset key.
+    group_key: String,
+    /// Maximum page size; defaults to 20, capped at 500.
+    limit: Option<u16>,
+    /// Sort order within the group.
+    sort_method: Option<GraphqlSimpleSortMethod>,
+    /// Filters shared with the directory.
+    filters: Option<GraphqlEntityFilterAst>,
+}
+
+impl GroupedSoupStartInput {
+    /// Start a single group with the same policy as the existing initial query.
+    fn into_request(
+        self,
+        user: MacroUserIdStr<'static>,
+    ) -> async_graphql::Result<GroupedSortRequest<'static>> {
+        let mut request = GroupedSoupInitialInput {
+            group_by: self.group_by,
+            sort_method: self.sort_method,
+            filters: self.filters,
+            limit: self.limit,
+        }
+        .into_request(user)?;
+        request.grouping.group_key = Some(self.group_key);
+        request.grouping.per_group_limit = None;
+        Ok(request)
+    }
 }
 
 /// Input for continuing a single grouped Soup bin.
@@ -113,6 +176,7 @@ impl GroupedSoupInput {
     ) -> async_graphql::Result<GroupedSortRequest<'static>> {
         match self {
             Self::Initial(input) => input.into_request(macro_user_id),
+            Self::StartGroup(input) => input.into_request(macro_user_id),
             Self::Continuation(input) => input.into_request(macro_user_id),
         }
     }

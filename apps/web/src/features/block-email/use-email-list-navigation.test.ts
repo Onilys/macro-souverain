@@ -1,5 +1,8 @@
 import type { ArchiveThreadOptions } from '@app/features/email-thread/context/email-thread-context';
-import { registerListNavigationSource } from '@app/features/soup/collection/list-navigation-source';
+import {
+  ListNavigationCancelled,
+  registerListNavigationSource,
+} from '@app/features/soup/collection/list-navigation-source';
 import type { SplitId } from '@components/app/split-layout/layoutManager';
 import type { EntityData } from '@entity';
 import { createRoot } from 'solid-js';
@@ -9,11 +12,13 @@ import { useEmailListNavigation } from './use-email-list-navigation';
 const mocks = vi.hoisted(() => ({
   open: vi.fn(async () => {}),
   loadMore: vi.fn(async () => {}),
+  resolveOrdered: undefined as (() => Promise<void>) | undefined,
   rows: [
     { id: 'a', type: 'email' },
     { id: 'b', type: 'email' },
   ],
   hasMore: false,
+  ordered: false,
   active: true,
   currentId: 'a',
   viewId: 'mail' as 'mail' | 'home',
@@ -64,6 +69,8 @@ beforeEach(() => {
     { id: 'b', type: 'email' },
   ];
   mocks.hasMore = false;
+  mocks.ordered = false;
+  mocks.resolveOrdered = undefined;
   mocks.active = true;
   mocks.sourceId = 'email-split';
   mocks.viewId = 'mail';
@@ -79,6 +86,19 @@ beforeEach(() => {
         entities: () => mocks.rows as EntityData[],
         hasMore: () => mocks.hasMore,
         loadMore: mocks.loadMore,
+        hasOrderedGroups: () => mocks.ordered,
+        resolveAdjacent: async (currentId, direction, accept) => {
+          await mocks.resolveOrdered?.();
+          const index = mocks.rows.findIndex((row) => row.id === currentId);
+          for (
+            let i = index + direction;
+            i >= 0 && i < mocks.rows.length;
+            i += direction
+          ) {
+            const entity = mocks.rows[i] as EntityData;
+            if (!accept || accept(entity)) return entity;
+          }
+        },
       }
     );
     return dispose;
@@ -86,6 +106,59 @@ beforeEach(() => {
 });
 
 describe('email list navigation adapter', () => {
+  it('keeps ordered navigation email-only and archives the final email back to the previous one', async () => {
+    mocks.ordered = true;
+    mocks.rows = [
+      { id: 'a', type: 'email' },
+      { id: 'task', type: 'document' },
+      { id: 'b', type: 'email' },
+    ];
+    const [first, disposeFirst] = createRoot(
+      (dispose) => [createNavigation(() => 'a'), dispose] as const
+    );
+    first.next();
+    await vi.waitFor(() =>
+      expect(mocks.open).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'b', type: 'email' }),
+        expect.anything()
+      )
+    );
+    disposeFirst();
+    mocks.open.mockClear();
+    const [last, disposeLast] = createRoot(
+      (dispose) => [createNavigation(() => 'b'), dispose] as const
+    );
+    const archive = vi.fn(() => true);
+    last.markDone(archive);
+    await vi.waitFor(() =>
+      expect(mocks.open).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'a', type: 'email' }),
+        expect.anything()
+      )
+    );
+    expect(archive).toHaveBeenCalledOnce();
+    disposeLast();
+  });
+
+  it('does not archive or fall back when an ordered move was canceled', async () => {
+    mocks.ordered = true;
+    let cancel!: () => void;
+    mocks.resolveOrdered = () =>
+      new Promise<void>((_resolve, reject) => {
+        cancel = () => reject(new ListNavigationCancelled());
+      });
+    const [nav, dispose] = createRoot(
+      (dispose) => [createNavigation(() => 'b'), dispose] as const
+    );
+    const archive = vi.fn(() => true);
+    nav.markDone(archive);
+    cancel();
+    await vi.waitFor(() => expect(nav.canPrevious()).toBe(true));
+    expect(archive).not.toHaveBeenCalled();
+    expect(mocks.open).not.toHaveBeenCalled();
+    dispose();
+  });
+
   it('finds the source list when native navigation gives the email a new split', () => {
     mocks.handle.id = 'native-detail';
     const [nav, dispose] = createRoot(

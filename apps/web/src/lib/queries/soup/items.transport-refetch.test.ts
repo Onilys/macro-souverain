@@ -11,6 +11,7 @@ const restRefetch = vi.hoisted(() => vi.fn(async () => undefined));
 const fetchSoup = vi.hoisted(() => vi.fn());
 const flatQuery = vi.hoisted(() => makeGraphqlQuery(false));
 const groupedQuery = vi.hoisted(() => makeGraphqlQuery(true));
+const directoryQuery = vi.hoisted(() => makeGraphqlQuery(false));
 
 function makeGraphqlQuery(enabled: boolean) {
   return {
@@ -99,6 +100,9 @@ vi.mock('./graphql/items', () => ({
 }));
 vi.mock('./graphql/grouped-items', () => ({
   createGraphqlGroupedSoupAstItemsQuery: vi.fn(() => groupedQuery),
+}));
+vi.mock('./graphql/group-directory', () => ({
+  createGraphqlSoupGroupDirectoryQuery: vi.fn(() => directoryQuery),
 }));
 
 import { refreshActiveGraphqlSoupQueries } from './graphql/active-queries';

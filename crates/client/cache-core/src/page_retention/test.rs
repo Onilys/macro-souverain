@@ -110,8 +110,14 @@ fn legacy_compaction_prefers_initial_pages_and_is_idempotent() {
     }
     let initial = "soup({\"input\":{\"initial\":{\"limit\":50}}})";
     record.fields.insert(initial.into(), page());
+    let start = "groupSoup({\"input\":{\"startGroup\":{\"groupKey\":\"\"}}})";
+    let directory = "groupSoupDirectory({\"input\":{\"groupBy\":{\"field\":\"ENTITY_TYPE\"}}})";
+    record.fields.insert(start.into(), page());
+    record.fields.insert(directory.into(), page());
     assert!(compact_soup_pages(&mut record));
     assert!(record.fields.contains_key(initial));
+    assert!(record.fields.contains_key(start));
+    assert!(record.fields.contains_key(directory));
     assert!(!compact_soup_pages(&mut record));
     assert_eq!(
         record
@@ -127,6 +133,9 @@ fn legacy_compaction_prefers_initial_pages_and_is_idempotent() {
 fn hydration_drops_only_viewer_pages_not_children_or_other_relations() {
     let mut user = viewer();
     user.fields.insert(key(1), page());
+    user.fields.insert("groupSoupDirectory({})".into(), page());
+    user.fields
+        .insert("groupSoup({\"input\":{\"startGroup\":{}}})".into(), page());
     let mut child = Record::default();
     child.fields.insert(
         "__typename".into(),

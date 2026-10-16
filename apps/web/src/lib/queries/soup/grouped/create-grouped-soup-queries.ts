@@ -60,6 +60,8 @@ export type CreateGroupedSoupQueriesArgs = {
   transport: Accessor<SoupAstItemsQueryTransport>;
   queryOptions: Accessor<{
     enabled?: boolean;
+    lazyGroupPagination?: boolean;
+    networkPaused?: boolean;
     meta?: {
       groupBy?: GroupByField;
       groupKey?: string;
@@ -219,6 +221,8 @@ export function createGroupedSoupQueries(args: CreateGroupedSoupQueriesArgs) {
     soupParams: args.soupParams,
     soupBody: args.soupBody,
     enabled: () => usesGraphql() && args.queryOptions().enabled === true,
+    lazyGroupPagination: () => args.queryOptions().lazyGroupPagination === true,
+    networkPaused: () => args.queryOptions().networkPaused === true,
     itemFilter: () => args.queryOptions().meta?.itemFilter,
   });
 

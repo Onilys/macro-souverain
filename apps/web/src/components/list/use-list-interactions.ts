@@ -33,6 +33,9 @@ export type ListInteractionNavigation<TItem> = {
    * Useful when a list must load more rows before crossing a boundary.
    */
   onBeforeMove?: (event: ListInteractionBeforeMoveEvent<TItem>) => boolean;
+  onBeforeExtendSelection?: (
+    event: ListInteractionBeforeMoveEvent<TItem>
+  ) => boolean;
   move?: ListNavigationOptions<TItem>;
   first?: ListNavigationOptions<TItem>;
   last?: ListNavigationOptions<TItem>;
@@ -166,6 +169,13 @@ export function useListInteractions<TItem, TMetadata = unknown>(
   };
 
   const extendSelection = (offset: 1 | -1) => {
+    if (
+      options.navigation?.onBeforeExtendSelection?.({
+        direction: offset,
+        current: list.focus.result(),
+      }) === false
+    )
+      return true;
     const currentKey = list.focus.key();
     if (currentKey === undefined) return false;
 

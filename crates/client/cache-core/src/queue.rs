@@ -6,7 +6,7 @@
 //! reconstructs an operation using the current client configuration.
 
 use crate::identity::IdentityBinding;
-use crate::link_patch::{OptimisticLinkPatch, QueryRevalidation};
+use crate::link_patch::{LinkOperation, OptimisticLinkPatch, QueryRevalidation};
 use crate::normalize::RecordUpdates;
 use crate::value::{EntityKey, canonical_json};
 use predicate_index::OptimisticProjectionMutation;
@@ -115,6 +115,10 @@ struct OptimisticSourceEnvelope {
     mutation_data: Json,
     #[serde(default)]
     link_patches: Vec<OptimisticLinkPatch>,
+    // Older v3 readers ignore this field and still replay the underlying mutation.
+    // Keep new count operations out of their exhaustively decoded link enum.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    count_patches: Vec<OptimisticLinkPatch>,
     #[serde(default)]
     revalidations: Vec<QueryRevalidation>,
     projection_mutations: Vec<OptimisticProjectionMutation>,
@@ -141,7 +145,18 @@ pub fn encode_optimistic_source(source: &OptimisticSource) -> String {
             identity_bindings: source.identity_bindings.clone(),
             version: OPTIMISTIC_SOURCE_VERSION,
             mutation_data: source.mutation_data.clone(),
-            link_patches: source.link_patches.clone(),
+            link_patches: source
+                .link_patches
+                .iter()
+                .filter(|patch| !matches!(patch.operation, LinkOperation::AdjustCount { .. }))
+                .cloned()
+                .collect(),
+            count_patches: source
+                .link_patches
+                .iter()
+                .filter(|patch| matches!(patch.operation, LinkOperation::AdjustCount { .. }))
+                .cloned()
+                .collect(),
             revalidations: source.revalidations.clone(),
             projection_mutations: source.projection_mutations.clone(),
             uncertain_calendar_event_keys: source.uncertain_calendar_event_keys.clone(),
@@ -192,7 +207,11 @@ pub fn decode_optimistic_source(value: &str) -> Result<OptimisticSource, String>
                 client_metadata: envelope.client_metadata,
                 identity_bindings: envelope.identity_bindings,
                 mutation_data: envelope.mutation_data,
-                link_patches: envelope.link_patches,
+                link_patches: envelope
+                    .link_patches
+                    .into_iter()
+                    .chain(envelope.count_patches)
+                    .collect(),
                 revalidations: envelope.revalidations,
                 projection_mutations: envelope.projection_mutations,
                 uncertain_calendar_event_keys: envelope.uncertain_calendar_event_keys,

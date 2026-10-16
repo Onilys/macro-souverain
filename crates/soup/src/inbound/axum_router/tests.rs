@@ -202,6 +202,16 @@ impl SoupService for MockSoup {
         }
     }
 
+    async fn get_user_soup_group_directory(
+        &self,
+        _req: crate::domain::models::GroupedSortRequest<'_>,
+    ) -> Result<
+        Vec<crate::domain::models::grouping::GroupDirectoryEntry>,
+        crate::domain::models::SoupErr,
+    > {
+        Ok(Vec::new())
+    }
+
     async fn get_user_soup_grouped(
         &self,
         _req: GroupedSortRequest<'_>,

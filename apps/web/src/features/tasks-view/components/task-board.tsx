@@ -84,6 +84,7 @@ function Cards(props: {
   empty?: JSX.Element;
   footer?: JSX.Element;
   itemsLabel?: string;
+  onNearEnd?: () => void;
 }) {
   const column = useContext(TaskColumnContext);
   if (!column) throw new Error('TaskBoard.Columns is required');
@@ -95,6 +96,7 @@ function Cards(props: {
       empty={props.empty}
       footer={props.footer}
       itemsLabel={props.itemsLabel ?? 'tasks'}
+      onNearEnd={props.onNearEnd}
     >
       {(id) => (
         <Show when={tasksById().get(id)}>{(task) => props.children(task)}</Show>

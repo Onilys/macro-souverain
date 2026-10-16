@@ -7296,6 +7296,28 @@ type GraphqlSoupDatabaseRow implements GraphqlSoupEntity {
 }
 
 """
+Metadata for a nonempty group, independent of any loaded entity page.
+"""
+type GraphqlSoupDirectoryEntry {
+	"""
+	Group membership key.
+	"""
+	key: String!
+	"""
+	Number of matching entities before pagination.
+	"""
+	totalCount: Int!
+	"""
+	Fallback label, resolved without a representative entity.
+	"""
+	label: String!
+	"""
+	Default group display ordering.
+	"""
+	displayOrder: Int
+}
+
+"""
 GraphQL representation of the soup document.
 """
 type GraphqlSoupDocument implements GraphqlSoupEntity {
@@ -8537,6 +8559,10 @@ type GraphqlUser {
 	"""
 	agentSession(sessionId: ID!): GraphqlSoupAgentSession
 	"""
+	Discover accessible groups without loading their entity pages.
+	"""
+	groupSoupDirectory(input: GroupedSoupDirectoryInput!): [GraphqlSoupDirectoryEntry!]!
+	"""
 	Fetch Soup items nested into grouping bins.
 	"""
 	groupSoup(input: GroupedSoupInput!): GroupedSoup!
@@ -8575,6 +8601,24 @@ input GroupedSoupContinuationInput {
 }
 
 """
+Input for discovering grouped memberships without loading entities.
+"""
+input GroupedSoupDirectoryInput {
+	"""
+	Field used to divide entities into groups.
+	"""
+	groupBy: GraphqlGroupByInput!
+	"""
+	Timestamp used when grouping depends on ordering.
+	"""
+	sortMethod: GraphqlSimpleSortMethod
+	"""
+	Filters shared by the directory and its entity pages.
+	"""
+	filters: GraphqlEntityFilterAst
+}
+
+"""
 Input for starting a grouped Soup query.
 """
 input GroupedSoupInitialInput {
@@ -8605,9 +8649,39 @@ input GroupedSoupInput @oneOf {
 	"""
 	initial: GroupedSoupInitialInput
 	"""
+	Start the first page of one bin without fetching other bins.
+	"""
+	startGroup: GroupedSoupStartInput
+	"""
 	Continue one bin from a cursor returned by a previous grouped query.
 	"""
 	continuation: GroupedSoupContinuationInput
+}
+
+"""
+Input for starting a single group's entity pages.
+"""
+input GroupedSoupStartInput {
+	"""
+	Field used to divide entities into groups.
+	"""
+	groupBy: GraphqlGroupByInput!
+	"""
+	Membership key, including the empty unset key.
+	"""
+	groupKey: String!
+	"""
+	Maximum page size; defaults to 20, capped at 500.
+	"""
+	limit: Int
+	"""
+	Sort order within the group.
+	"""
+	sortMethod: GraphqlSimpleSortMethod
+	"""
+	Filters shared with the directory.
+	"""
+	filters: GraphqlEntityFilterAst
 }
 
 """

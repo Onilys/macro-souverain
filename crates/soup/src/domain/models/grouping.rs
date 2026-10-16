@@ -32,6 +32,32 @@ fn resolve_group_label_and_order(key: &str, group_by: &GroupByField) -> (String,
     }
 }
 
+/// A nonempty group in the directory, independent of loaded entity pages.
+#[derive(Debug, Clone)]
+pub struct GroupDirectoryEntry {
+    /// Group membership key (empty for unset values).
+    pub key: String,
+    /// Number of matching entities before pagination.
+    pub total_count: u32,
+    /// Fallback display label; clients may resolve property/user labels.
+    pub label: String,
+    /// Default display order, where the grouping supplies one.
+    pub display_order: Option<i32>,
+}
+
+impl GroupDirectoryEntry {
+    /// Attach display metadata without loading a representative entity.
+    pub fn new(key: String, total_count: u32, field: &GroupByField) -> Self {
+        let (label, display_order) = resolve_group_label_and_order(&key, field);
+        Self {
+            key,
+            total_count,
+            label,
+            display_order,
+        }
+    }
+}
+
 /// Metadata about a group of items.
 #[derive(Debug, Clone, Serialize)]
 pub struct GroupMeta {

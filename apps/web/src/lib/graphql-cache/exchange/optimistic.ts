@@ -360,6 +360,23 @@ export function update<TItem extends object>(
   } as OptimisticUpdate;
 }
 
+/** Adjusts an existing count in the durable layer; rollback removes its delta. */
+export function adjustCount(
+  selection: Selection<number>,
+  delta: number
+): OptimisticUpdate {
+  if (!Number.isSafeInteger(delta))
+    throw new Error('Count delta must be a safe integer');
+  return {
+    query: stringifyDocument(selection.document),
+    operationName: documentOperationName(selection.document),
+    variablesJson: JSON.stringify(selection.variables ?? {}),
+    path: [...selection.path],
+    ...(selection.recordRoot ? { recordRoot: selection.recordRoot } : {}),
+    operation: { kind: 'adjustCount', delta },
+  } as OptimisticUpdate;
+}
+
 /**
  * Upserts a logical list member using its matching mutation-response record.
  * Settlement resolves the server's ID rather than persisting a temporary ID.

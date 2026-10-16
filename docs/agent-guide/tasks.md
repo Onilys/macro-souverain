@@ -86,6 +86,8 @@ delay the GraphQL mutation and change Status, an existing Priority, and an unset
 Priority in the list and task detail. In a view grouped by that property, the task
 should move groups and update both counts immediately. Reject a save to check that
 the value, group membership, and counts all roll back without refreshing the page.
+Counts can be temporarily approximate if a background update arrives during a
+pending save; they settle after the save finishes.
 
 For tags, include a task with no prior tag assignment. Delay
 `UpdateEntityPropertyOptions` and the following `EntityProperties` query: the tag
@@ -253,7 +255,8 @@ Layout, primary sort, sort direction, and grouping are reflected in `tasks.layou
 `tasks.sort`, `tasks.sortReversed`, and `tasks.groupBy` search parameters.
 Explicit URL values override saved preferences; back/forward navigation
 restores the corresponding controls, including the layout.
-Columns are 336px wide. Each column pages independently with **Load more tasks**.
+Columns are 336px wide. Visible columns load cards automatically to fill their
+viewport and as you scroll toward the bottom. A failed request shows **Retry**.
 Use the horizontal scrollbar to reach more columns. Vertical wheel input over
 empty board background or gaps also scrolls horizontally. A wheel gesture stays
 with its original scroll area until momentum stops, even if another column moves
@@ -325,12 +328,43 @@ The shared board primitives remain independent of Tasks queries and mutations.
 
 With GraphQL caching enabled, previously loaded grouped task lists remain usable
 when their background refresh fails without an HTTP response. Load a Priority-grouped
-view online, navigate away, then reopen it offline. Repeat by holding its GroupSoup
-request: cached rows should appear before the response, and rejecting that request
-must not replace them with **Tasks couldn’t be loaded**. A cached empty result is
+view online, navigate away, then reopen it offline. Repeat by holding its group
+directory or entity-page request: cached rows should appear before the response,
+and rejecting that request must not replace them with **Tasks couldn’t be loaded**.
+A cached empty result is
 also usable. An initial cache miss still shows failure; HTTP and GraphQL errors
 remain visible even with cached rows. Change filters while retaining prior rows:
 those older results must not hide a failure for the new, uncached query.
+
+## Automatic pagination
+
+With GraphQL tasks enabled, Status, Priority, Assignee, and Project grouping in
+List and Gantt layouts loads automatically in one scroll area.
+The first expanded group loads enough rows to fill the viewport and a prefetch
+buffer. Later group headers appear after that group is exhausted. Collapsing a
+group skips its unloaded rows; expanding it again retains the later groups and
+already loaded tasks. Group header counts show the total, including unloaded tasks.
+
+Check Status, Priority, Assignee, and Project grouping with more than one page in
+the first group. Scroll, resize the viewport, collapse/re-expand an early group,
+and use ArrowDown/J or task-detail Next across a page boundary. Navigation should
+wait for that group's next page. A failed page keeps existing tasks visible and
+shows Retry at its boundary; retry does not require refreshing the whole list.
+Explicit refresh resets loaded depth. Background task edits retain it. REST
+fallback lists retain their existing Load More controls. Project lists keep their
+automatic full-list loading.
+
+Board uses the same group directory and lazy page readers, with independent
+demand for visible columns. Each visible column fills its viewport and loads more
+cards near its bottom. Offscreen columns wait until they become visible; collapse
+state from List does not hide Board columns. A failed column keeps its cards and
+shows Retry without blocking other columns. Scroll horizontally, resize the
+board, change grouping, and drag a task between partially loaded columns.
+
+Board and Gantt also paginate search results and fallback queries automatically.
+Neither layout has a Load More button. Gantt preserves its horizontal date
+position and vertical task anchor as pages arrive, including during group
+collapse/re-expansion and drag previews.
 
 ## Reviews view
 

@@ -2,7 +2,15 @@ import { toast } from '@core/component/Toast/Toast';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import { hasValue } from '@property/utils/typeGuards';
 import { Button } from '@ui/components/Button';
-import { type Accessor, createSignal, For, Show, Suspense } from 'solid-js';
+import {
+  type Accessor,
+  createEffect,
+  createSignal,
+  For,
+  on,
+  Show,
+  Suspense,
+} from 'solid-js';
 import { TaskBoard } from '../components/task-board';
 import {
   TaskBoardColumnIcon,
@@ -17,8 +25,10 @@ import {
   toTaskBoardGrouping,
 } from '../core/task-board';
 import { createTaskBoard } from '../primitives/create-task-board';
+import { createTaskPagination } from '../primitives/create-task-pagination';
 import { taskBoardFacetId, taskBoardPropertyId } from '../queries/task-board';
-import { useTasksView } from '../tasks-view-context';
+import type { TasksDataSource } from '../queries/use-tasks-query';
+import type { TasksViewState } from '../types';
 
 const CARD_PROPERTY_IDS = [
   SYSTEM_PROPERTY_IDS.PRIORITY,
@@ -28,10 +38,14 @@ const CARD_PROPERTY_IDS = [
 
 export function TaskBoardView(props: {
   data: TaskBoardData;
+  source: TasksDataSource;
+  state: Pick<TasksViewState, 'tab' | 'groupBy' | 'search' | 'facets' | 'sort'>;
+  projectsEnabled: Accessor<boolean>;
+  onFacetsChange: (facets: TasksViewState['facets']) => void;
   onOpen(task: TaskBoardTask, event: MouseEvent): void;
   ref?: (element: HTMLDivElement) => void;
 }) {
-  const { state, source, projectsEnabled, setFacets } = useTasksView();
+  const { state, source } = props;
   const grouping = () => toTaskBoardGrouping(state.groupBy);
   const scope = () =>
     JSON.stringify([
@@ -61,13 +75,13 @@ export function TaskBoardView(props: {
         return false;
       }
 
-      return id !== SYSTEM_PROPERTY_IDS.PROJECT || projectsEnabled();
+      return id !== SYSTEM_PROPERTY_IDS.PROJECT || props.projectsEnabled();
     });
 
   const revealHiddenColumns = () => {
     const facets = { ...state.facets };
     delete facets[taskBoardFacetId(grouping())];
-    setFacets(facets);
+    props.onFacetsChange(facets);
   };
 
   const read = async (operation: () => Promise<void>) => {
@@ -80,24 +94,50 @@ export function TaskBoardView(props: {
     }
   };
 
-  const loadMore = async (columnId?: string) => {
-    if (columnId === undefined) {
-      await source.loadMore();
-      const error = source.error();
-
-      if (error) {
-        throw error;
+  const pagination = createTaskPagination({
+    identity: () => JSON.stringify([scope(), source.orderedGroups?.identity()]),
+    error: (columnId) =>
+      columnId === undefined ? source.error() : source.groupError?.(columnId),
+    load: (columnId) =>
+      columnId === undefined
+        ? source.loadMore()
+        : source.loadMoreGroup(columnId),
+  });
+  const paginationReady = () =>
+    (source.paginationReady?.() ?? true) && !loading();
+  const canLoadGlobalPage = () =>
+    paginationReady() &&
+    source.hasMore() &&
+    !source.isLoadingMore() &&
+    !pagination.isLoading() &&
+    !pagination.error();
+  // Dynamic facets may yield no columns in a partial search page. Keep looking
+  // for matches even though there is no lane that can request the next page.
+  createEffect(
+    on(
+      () => board.columns().length === 0 && canLoadGlobalPage(),
+      (ready) => {
+        if (ready) void pagination.load();
       }
-
+    )
+  );
+  const requestMore = (column: TaskBoardColumn) => {
+    if (!paginationReady()) return;
+    if (column.hasMore) {
+      if (
+        !column.loadingMore &&
+        !pagination.isLoading(column.id) &&
+        !pagination.error(column.id)
+      )
+        return () => {
+          void pagination.load(column.id);
+        };
       return;
     }
-
-    await source.loadMoreGroup(columnId);
-    const error = source.groupError?.(columnId);
-
-    if (error) {
-      throw error;
-    }
+    if (canLoadGlobalPage())
+      return () => {
+        void pagination.load();
+      };
   };
 
   const renderProperty = (
@@ -249,21 +289,32 @@ export function TaskBoardView(props: {
                 Board sorted by {sortLabel()}
               </TaskBoard.DropOverlay>
               <TaskBoard.Cards
+                onNearEnd={requestMore(column())}
                 empty={
-                  <p class="px-2 py-6 text-center text-xs text-ink-extra-muted">
-                    No matching tasks
-                  </p>
+                  <Show when={!column().hasMore && !loading()}>
+                    <p class="px-2 py-6 text-center text-xs text-ink-extra-muted">
+                      No matching tasks
+                    </p>
+                  </Show>
                 }
                 footer={
                   <Show when={column().hasMore}>
-                    <div class="py-3">
-                      <Button
-                        size="sm"
-                        disabled={column().loadingMore}
-                        onClick={() => void read(() => loadMore(column().id))}
+                    <div class="py-3 text-center text-sm text-ink-muted">
+                      <Show
+                        when={pagination.error(column().id)}
+                        fallback={<span role="status">Loading…</span>}
                       >
-                        {column().loadingMore ? 'Loading…' : 'Load more tasks'}
-                      </Button>
+                        <span>Could not load tasks. </span>
+                        <Button
+                          size="sm"
+                          disabled={pagination.isLoading(column().id)}
+                          onClick={() =>
+                            void pagination.load(column().id, true)
+                          }
+                        >
+                          Retry
+                        </Button>
+                      </Show>
                     </div>
                   </Show>
                 }
@@ -290,14 +341,20 @@ export function TaskBoardView(props: {
         </TaskBoard.Columns>
       </TaskBoard.Root>
       <Show when={source.hasMore()}>
-        <div class="p-3">
-          <Button
-            size="sm"
-            disabled={source.isLoadingMore()}
-            onClick={() => void read(() => loadMore())}
+        <div class="p-3 text-sm text-ink-muted">
+          <Show
+            when={pagination.error()}
+            fallback={<span role="status">Loading…</span>}
           >
-            {source.isLoadingMore() ? 'Loading…' : 'Load more tasks'}
-          </Button>
+            <span>Could not load tasks. </span>
+            <Button
+              size="sm"
+              disabled={pagination.isLoading()}
+              onClick={() => void pagination.load(undefined, true)}
+            >
+              Retry
+            </Button>
+          </Show>
         </div>
       </Show>
     </div>

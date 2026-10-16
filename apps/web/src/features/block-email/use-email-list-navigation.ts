@@ -7,6 +7,7 @@ import { useMaybeSoup } from '@app/features/next-soup/soup-context';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import {
   getListNavigationSource,
+  ListNavigationCancelled,
   listNavigationSourceId,
 } from '@app/features/soup/collection/list-navigation-source';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
@@ -38,7 +39,15 @@ export function useEmailListNavigation(
     if (list) return list.entities();
     const from = panel?.handle.referredFrom();
     if (from !== 'mail' && from !== 'home') return [];
-    return soup?.rows().map((row) => row.original) ?? [];
+    return (
+      soup
+        ?.rows()
+        .flatMap((row) =>
+          row.kind === 'entity' && (!row.group || row.group.isExpanded())
+            ? [row.original]
+            : []
+        ) ?? []
+    );
   };
   const target = (direction: -1 | 1) =>
     adjacentEmail(entities(), threadId(), direction);
@@ -55,9 +64,12 @@ export function useEmailListNavigation(
     const row = soup
       ?.rows()
       .find(
-        (row) => row.original.type === 'email' && row.original.id === entity.id
+        (row) =>
+          row.kind === 'entity' &&
+          row.original.type === 'email' &&
+          row.original.id === entity.id
       );
-    if (row) soup?.focus.set(row.id);
+    if (row && soup?.focus.item()?.id !== entity.id) soup?.focus.set(row.id);
     try {
       await openEntityInSplitFromUnifiedList(entity, {
         splitHandle: panel.handle,
@@ -90,15 +102,27 @@ export function useEmailListNavigation(
       (!wasActive || panel.isPanelActive()) &&
       source() === list;
     try {
-      while (direction === 1 && !target(direction) && canLoadNext()) {
+      while (
+        !list?.hasOrderedGroups?.() &&
+        direction === 1 &&
+        !target(direction) &&
+        canLoadNext()
+      ) {
         await list?.loadMore();
         if (!isCurrent()) return;
       }
       if (!isCurrent()) return;
       // Capture the destination before archiving removes the current list row.
       // At the end of the list, triage falls back to the previous email.
-      const next =
-        target(direction) ?? (archiveThread ? target(-1) : undefined);
+      const ordered = list?.hasOrderedGroups?.();
+      const acceptsEmail = (entity: EntityData) => entity.type === 'email';
+      let next = ordered
+        ? await list?.resolveAdjacent?.(currentId, direction, acceptsEmail)
+        : (target(direction) ?? (archiveThread ? target(-1) : undefined));
+      if (ordered && !next && archiveThread && isCurrent()) {
+        next = await list?.resolveAdjacent?.(currentId, -1, acceptsEmail);
+      }
+      if (!isCurrent()) return;
       if (
         archiveThread &&
         !archiveThread({
@@ -112,7 +136,8 @@ export function useEmailListNavigation(
         return;
       if (!next) return;
       await open(next, referredFrom);
-    } catch {
+    } catch (error) {
+      if (error instanceof ListNavigationCancelled) return;
       if (isCurrent())
         toast.failure('Unable to open the next or previous email');
     } finally {

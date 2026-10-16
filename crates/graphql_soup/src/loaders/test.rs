@@ -131,6 +131,16 @@ impl SoupService for RecordingSoupService {
         unreachable!("loader only performs raw Soup queries")
     }
 
+    async fn get_user_soup_group_directory(
+        &self,
+        _req: soup::domain::models::GroupedSortRequest<'_>,
+    ) -> Result<
+        Vec<soup::domain::models::grouping::GroupDirectoryEntry>,
+        soup::domain::models::SoupErr,
+    > {
+        Ok(Vec::new())
+    }
+
     async fn get_user_soup_grouped(
         &self,
         _req: GroupedSortRequest<'_>,

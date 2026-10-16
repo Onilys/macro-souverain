@@ -67,6 +67,7 @@ vi.mock('@core/hotkey/tokens', () => ({
 
 import {
   getListNavigationSource,
+  ListNavigationCancelled,
   listNavigationSourceId,
   withListNavigationSource,
 } from '@app/features/soup/collection/list-navigation-source';
@@ -110,18 +111,16 @@ const setGroupedRows = (soup: SoupState) => {
     soup.buildRow({
       id: 'header:a',
       index: 0,
-      original: a1,
       group: groupA,
-      isGrouped: true,
+      kind: 'group-header',
     }),
     soup.buildRow({ id: 'a1', index: 1, original: a1, group: groupA }),
     soup.buildRow({ id: 'a2', index: 2, original: a2, group: groupA }),
     soup.buildRow({
       id: 'header:b',
       index: 3,
-      original: b1,
       group: groupB,
-      isGrouped: true,
+      kind: 'group-header',
     }),
     soup.buildRow({ id: 'b1', index: 4, original: b1, group: groupB }),
     soup.buildRow({ id: 'b2', index: 5, original: b2, group: groupB }),
@@ -149,12 +148,13 @@ const handlerFor = (key: ValidHotkey) => {
   return handler!;
 };
 
-const setupHotkeys = () =>
+const setupHotkeys = (orderedGroups = false) =>
   createRoot((dispose) => {
     const soup = createSoupState();
     setGroupedRows(soup);
     useSoupNavigationHotkeys({
       scopeId: 'test-scope',
+      orderedGroups: () => orderedGroups,
       soup,
       splitHandle: createSplitHandleStub(),
       virtualizerHandle: () => undefined,
@@ -187,6 +187,31 @@ describe('useSoupNavigationHotkeys', () => {
     }
   });
 
+  it.each([
+    ['j', 'b1'],
+    ['k', 'a2'],
+  ] as const)(
+    'keeps ordered %s navigation anchored to a focused group header',
+    async (key, expected) => {
+      const { soup, dispose } = setupHotkeys(true);
+      try {
+        soup.focus.setIndex(3);
+        const setIndex = soup.focus.setIndex;
+        const focused = new Promise<void>((resolve) => {
+          vi.spyOn(soup.focus, 'setIndex').mockImplementation((index) => {
+            setIndex(index);
+            resolve();
+          });
+        });
+        handlerFor(key)();
+        await focused;
+        expect(soup.focus.item()?.id).toBe(expected);
+      } finally {
+        dispose();
+      }
+    }
+  );
+
   it('collapses task groups with H without consuming H on emails', () => {
     const { soup, dispose } = setupHotkeys();
     try {
@@ -194,31 +219,39 @@ describe('useSoupNavigationHotkeys', () => {
       const row = soup.focus.row()!;
       const toggle = vi.spyOn(row.group!, 'toggle');
       soup.setRows(
-        soup.rows().map((r) => ({
-          ...r,
-          original:
-            r.id === 'a1'
-              ? ({ ...r.original, type: 'email' } as EntityData)
-              : r.original,
-        }))
+        soup.rows().map((r) =>
+          r.kind !== 'entity'
+            ? r
+            : {
+                ...r,
+                original:
+                  r.id === 'a1'
+                    ? ({ ...r.original, type: 'email' } as EntityData)
+                    : r.original,
+              }
+        )
       );
       expect(
         handlerFor('arrowleft')(new KeyboardEvent('keydown', { key: 'h' }))
       ).toBe(false);
       expect(toggle).not.toHaveBeenCalled();
       soup.setRows(
-        soup.rows().map((r) => ({
-          ...r,
-          original:
-            r.id === 'a1'
-              ? ({
-                  ...r.original,
-                  type: 'document',
-                  fileType: 'md',
-                  subType: { type: 'task', is_completed: false },
-                } as EntityData)
-              : r.original,
-        }))
+        soup.rows().map((r) =>
+          r.kind !== 'entity'
+            ? r
+            : {
+                ...r,
+                original:
+                  r.id === 'a1'
+                    ? ({
+                        ...r.original,
+                        type: 'document',
+                        fileType: 'md',
+                        subType: { type: 'task', is_completed: false },
+                      } as EntityData)
+                    : r.original,
+              }
+        )
       );
       expect(
         handlerFor('arrowleft')(new KeyboardEvent('keydown', { key: 'h' }))
@@ -241,6 +274,60 @@ describe('useSoupNavigationHotkeys', () => {
       vi.mocked(group.isExpanded).mockReturnValue(false);
       expect(handlerFor('h')()).toBe(true);
       expect(toggle).toHaveBeenCalledOnce();
+    } finally {
+      dispose();
+    }
+  });
+
+  it('distinguishes an obsolete pending move from group exhaustion', async () => {
+    let finish!: () => void;
+    const load = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const { soup, dispose } = createRoot((dispose) => {
+      const soup = createSoupState();
+      const group = createTestGroup('a', 10);
+      soup.setRows([
+        soup.buildRow({
+          id: 'a',
+          index: 0,
+          original: createTestEntity('a'),
+          group,
+        }),
+        soup.buildRow({
+          id: 'status:a',
+          index: 1,
+          kind: 'group-status',
+          group,
+        }),
+        soup.buildRow({ id: 'b', index: 2, original: createTestEntity('b') }),
+      ]);
+      soup.focus.setIndex(0);
+      useSoupNavigationHotkeys({
+        scopeId: 'test-scope',
+        soup,
+        splitHandle: createSplitHandleStub(),
+        virtualizerHandle: () => undefined,
+        orderedGroups: () => true,
+        loadOrderedGroup: load,
+      });
+      return { soup, dispose };
+    });
+    try {
+      const pending = getListNavigationSource('split-test')!.resolveAdjacent!(
+        'a',
+        1
+      );
+      const rejected = expect(pending).rejects.toBeInstanceOf(
+        ListNavigationCancelled
+      );
+      soup.focus.setIndex(2);
+      finish();
+      await rejected;
+      expect(soup.focus.item()?.id).toBe('b');
     } finally {
       dispose();
     }

@@ -112,6 +112,7 @@ export function toEntityActionListState<TItem, TMetadata>(
 
       const key = controller.items.keyOf(item);
       const row: SoupRow = {
+        kind: 'entity',
         identityKey: key,
         id: key,
         index: result.length,

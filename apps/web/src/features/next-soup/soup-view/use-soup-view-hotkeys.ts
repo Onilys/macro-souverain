@@ -236,13 +236,25 @@ export const useSoupViewHotkeys = (options: UseSoupViewHotkeysOptions) => {
     scopeId,
     description: 'Toggle select all',
     keyDownHandler: (e) => {
-      const rows = soup.rows();
+      const rows = soup
+        .rows()
+        .filter(
+          (row) =>
+            row.kind === 'entity' && (!row.group || row.group.isExpanded())
+        );
       if (rows.length === 0) return false;
       e?.preventDefault();
-      if (soup.selection.count() === rows.length) {
+      if (
+        rows.every(
+          (row) =>
+            row.kind === 'entity' && soup.selection.isSelected(row.original.id)
+        )
+      ) {
         soup.selection.clear();
       } else {
-        soup.selection.set(rows.map((r) => r.original));
+        soup.selection.set(
+          rows.flatMap((r) => (r.kind === 'entity' ? [r.original] : []))
+        );
       }
       return true;
     },

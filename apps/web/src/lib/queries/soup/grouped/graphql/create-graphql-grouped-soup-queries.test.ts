@@ -1,3 +1,7 @@
+vi.mock('@core/context/user', () => ({
+  useUserId: () => () => 'macro|test@example.com',
+}));
+
 import {
   type Client,
   CombinedError,

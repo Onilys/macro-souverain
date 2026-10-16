@@ -6,11 +6,21 @@ import type {
 import type { EntityData } from '@entity';
 import { type Accessor, createSignal, onCleanup } from 'solid-js';
 
+/** A pending move became obsolete; callers must not treat it as end-of-list. */
+export class ListNavigationCancelled extends Error {}
+
 export interface ListNavigationSource {
   viewId: ListView;
   entities: Accessor<EntityData[]>;
   hasMore: Accessor<boolean>;
   loadMore: () => Promise<unknown>;
+  /** Optional occurrence-aware navigation for lists with unfinished internal boundaries. */
+  resolveAdjacent?: (
+    currentId: string,
+    direction: -1 | 1,
+    accept?: (entity: EntityData) => boolean
+  ) => Promise<EntityData | undefined>;
+  hasOrderedGroups?: Accessor<boolean>;
 }
 
 const [sources, setSources] = createSignal(

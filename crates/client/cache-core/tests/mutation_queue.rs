@@ -1,3 +1,4 @@
+use cache_core::link_patch::{LinkOperation, LinkPathSegment, OptimisticLinkPatch};
 use cache_core::predicate::OptimisticUpsertReconciliation;
 use cache_core::queue::{
     MutationClaimRequest, MutationClaimToken, MutationRequest, MutationUpsertKind,
@@ -12,6 +13,54 @@ use predicate_index::{
     OptimisticProjectionMutation, Profile, RecordKey, Token,
 };
 use serde_json::json;
+
+#[test]
+fn count_recipes_preserve_legacy_queue_replay_without_changing_source_version() {
+    let patch = OptimisticLinkPatch {
+        record_root: None,
+        query: "query Counts { count }".into(),
+        operation_name: Some("Counts".into()),
+        variables_json: "{}".into(),
+        path: vec![LinkPathSegment::Field {
+            field: "count".into(),
+        }],
+        operation: LinkOperation::AdjustCount { delta: 1 },
+    };
+    let source = OptimisticSource {
+        client_metadata: None,
+        identity_bindings: Vec::new(),
+        mutation_data: json!({"rename":{"id":"task-1","name":"next"}}),
+        link_patches: vec![patch],
+        revalidations: Vec::new(),
+        projection_mutations: Vec::new(),
+        uncertain_calendar_event_keys: Vec::new(),
+    };
+    let encoded = encode_optimistic_source(&source);
+    assert_eq!(decode_optimistic_source(&encoded).unwrap(), source);
+    let envelope: serde_json::Value = serde_json::from_str(
+        encoded
+            .strip_prefix("@macro-cache/optimistic-source:")
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(envelope["version"], 3);
+    assert_eq!(envelope["linkPatches"], json!([]));
+    assert_eq!(
+        envelope["countPatches"][0]["operation"]["kind"],
+        "adjustCount"
+    );
+    // Version-three readers ignore unknown envelope fields. Their replayable
+    // mutation response and ordinary recipes are unchanged after a downgrade.
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct LegacyEnvelope {
+        mutation_data: serde_json::Value,
+        link_patches: Vec<OptimisticLinkPatch>,
+    }
+    let legacy: LegacyEnvelope = serde_json::from_value(envelope).unwrap();
+    assert_eq!(legacy.mutation_data, source.mutation_data);
+    assert!(legacy.link_patches.is_empty());
+}
 
 #[test]
 fn optimistic_source_supports_versioned_and_legacy_json() {

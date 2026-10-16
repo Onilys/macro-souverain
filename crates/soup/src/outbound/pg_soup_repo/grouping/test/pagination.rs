@@ -102,6 +102,26 @@ async fn fanout_caps_counts_and_tied_cursor_pages(pool: Pool<Postgres>) -> anyho
                 },
             )
         };
+        let directory = crate::outbound::pg_soup_repo::expanded::dynamic::grouped_directory(
+            &pool,
+            crate::domain::models::GroupedSortRequest {
+                user_id: MacroUserIdStr::parse_from_str("macro|user-1@test.com")?,
+                limit: 2,
+                cursor: Query::Sort(SimpleSortMethod::UpdatedAt, task_filter()),
+                grouping: grouping.clone(),
+            },
+        )
+        .await?;
+        for key in ["a", "b", "c"] {
+            assert_eq!(
+                directory
+                    .iter()
+                    .find(|entry| entry.key == key)
+                    .unwrap()
+                    .total_count,
+                15
+            );
+        }
         let result = fetch(
             Query::Sort(SimpleSortMethod::UpdatedAt, task_filter()),
             grouping.clone(),

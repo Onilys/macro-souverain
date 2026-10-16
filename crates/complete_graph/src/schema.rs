@@ -874,6 +874,15 @@ where
         .await
     }
 
+    /// Discover accessible groups without loading their entity pages.
+    async fn group_soup_directory(
+        &self,
+        ctx: &Context<'_>,
+        input: graphql_soup::GroupedSoupDirectoryInput,
+    ) -> async_graphql::Result<Vec<graphql_soup::GraphqlSoupDirectoryEntry>> {
+        graphql_soup::resolve_grouped_soup_directory::<S, Auth, St>(&self.service, ctx, input).await
+    }
+
     /// Fetch Soup items nested into grouping bins.
     async fn group_soup(
         &self,

@@ -290,6 +290,13 @@ impl SoupRepo for PgSoupRepo {
         .map_err(|e| sqlx::Error::Decode(e.into()))
     }
 
+    async fn grouped_soup_directory<'a>(
+        &self,
+        req: GroupedSortRequest<'a>,
+    ) -> Result<Vec<crate::domain::models::grouping::GroupDirectoryEntry>, Self::Err> {
+        expanded::dynamic::grouped_directory(&self.pool.0, req).await
+    }
+
     async fn expanded_grouped_cursor_soup<'a>(
         &self,
         req: GroupedSortRequest<'a>,

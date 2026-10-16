@@ -1,7 +1,10 @@
 import { listOwnedSlotName } from '@app/components/list';
 import { isListViewID } from '@app/constants/list-views';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
-import { registerListNavigationSource } from '@app/features/soup/collection/list-navigation-source';
+import {
+  ListNavigationCancelled,
+  registerListNavigationSource,
+} from '@app/features/soup/collection/list-navigation-source';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import type { SplitHandle } from '@components/app/split-layout/layoutManager';
 import { withSplitPanelOwner } from '@components/app/split-layout/layoutUtils';
@@ -12,6 +15,7 @@ import { type EntityData, isTaskEntity } from '@entity/types/entity';
 import { type Accessor, createMemo, onCleanup } from 'solid-js';
 import type { VirtualizerHandle } from 'virtua/solid';
 import type { SoupState } from '../create-soup-state';
+import { resolveGroupedNeighbor } from '../primitives/resolve-grouped-neighbor';
 
 type UseSoupNavigationHotkeysOptions = {
   scopeId: string;
@@ -23,6 +27,10 @@ type UseSoupNavigationHotkeysOptions = {
   isFetchingNextPage?: Accessor<boolean>;
   fetchNextPage?: () => Promise<void>;
   error?: Accessor<Error | null>;
+  orderedGroups?: Accessor<boolean>;
+  groupNavigationIdentity?: Accessor<string>;
+  loadOrderedGroup?: (key: string) => Promise<void>;
+  groupPageError?: (key: string) => Error | null;
 };
 
 export const useSoupNavigationHotkeys = (
@@ -52,26 +60,85 @@ export const useSoupNavigationHotkeys = (
     return isListViewID(referredFrom) ? referredFrom : undefined;
   });
 
+  let disposed = false;
+  let pendingNavigation: Promise<void> | undefined;
+  const resolveAdjacent = async (
+    currentId: string,
+    direction: -1 | 1,
+    moveFocus = true,
+    accept?: (entity: EntityData) => boolean
+  ) => {
+    const focused = soup.focus.row();
+    const anchor =
+      (!currentId && focused) || focused?.original?.id === currentId
+        ? focused
+        : soup.rows().find((row) => row.original?.id === currentId);
+    const focusedKey = soup.focus.row()?.identityKey;
+    const identity = options.groupNavigationIdentity?.();
+    const isCurrent = () =>
+      !disposed &&
+      options.orderedGroups?.() === true &&
+      soup.focus.row()?.identityKey === focusedKey &&
+      options.groupNavigationIdentity?.() === identity;
+    const row = await resolveGroupedNeighbor({
+      rows: soup.rows,
+      accept: (row) => accept?.(row.original) ?? true,
+      currentKey: anchor?.identityKey,
+      direction,
+      isCurrent,
+      load: async (key) => {
+        await options.loadOrderedGroup?.(key);
+      },
+      error: (key) => options.groupPageError?.(key) ?? null,
+    });
+    if (!isCurrent()) throw new ListNavigationCancelled();
+    if (row && moveFocus) soup.focus.setIndex(row.index);
+    return row?.original;
+  };
+
   const viewId = navigationReferredFrom();
   if (viewId) {
     // Keep navigation available when the list view leaves the split's content.
-    withSplitPanelOwner(listOwnedSlotName('navigation-source'), () =>
-      registerListNavigationSource(splitHandle, {
+    withSplitPanelOwner(listOwnedSlotName('navigation-source'), () => {
+      onCleanup(() => {
+        disposed = true;
+      });
+      return registerListNavigationSource(splitHandle, {
         viewId,
         entities: () =>
           soup
             .rows()
             .flatMap((row) =>
-              row.getIsGrouped() || row.getIsLoadMore() ? [] : [row.original]
+              row.kind === 'entity' && (!row.group || row.group.isExpanded())
+                ? [row.original]
+                : []
             ),
-        hasMore: () => options.hasNextPage?.() ?? false,
+        resolveAdjacent: async (currentId, direction, accept) => {
+          if (options.orderedGroups?.())
+            return resolveAdjacent(currentId, direction, true, accept);
+          return undefined;
+        },
+        hasOrderedGroups: options.orderedGroups,
+        hasMore: () =>
+          options.orderedGroups?.()
+            ? soup
+                .rows()
+                .some(
+                  (row) =>
+                    row.kind === 'group-status' && row.group?.isExpanded()
+                )
+            : (options.hasNextPage?.() ?? false),
         loadMore: async () => {
           await options.fetchNextPage?.();
           const error = options.error?.();
           if (error) throw error;
         },
-      })
-    );
+      });
+    });
+  } else {
+    onCleanup(() => {
+      disposed = true;
+    });
   }
 
   const openEntity = (entity: EntityData) => {
@@ -93,12 +160,32 @@ export const useSoupNavigationHotkeys = (
   const navigateAndSelectEntity = (offset: number) => {
     const nextRow = soup.navigate.by(offset, { skipGroupHeaders: true });
     if (!nextRow) return true;
-    soup.selection.select(nextRow.row.original);
+    if (nextRow.row.kind === 'entity')
+      soup.selection.select(nextRow.row.original);
     scrollTo(nextRow.index);
     return true;
   };
 
-  const handleNavigationSelection = (offset: number) => {
+  const handleNavigationSelection = (offset: -1 | 1, ready = false) => {
+    if (options.orderedGroups?.() && !ready) {
+      if (pendingNavigation) return true;
+      const select = async () => {
+        try {
+          const next = await resolveAdjacent(
+            soup.focus.item()?.id ?? '',
+            offset,
+            false
+          );
+          if (next) handleNavigationSelection(offset, true);
+        } catch {
+          /* The group boundary exposes Retry. */
+        } finally {
+          pendingNavigation = undefined;
+        }
+      };
+      pendingNavigation = select();
+      return true;
+    }
     const focusedEntity = soup.focus.item();
     const next = soup.navigate.peekOffset(offset, { skipGroupHeaders: true });
 
@@ -154,7 +241,30 @@ export const useSoupNavigationHotkeys = (
     fetchNextPage?.();
   };
 
+  const navigateOrdered = (direction: -1 | 1) => {
+    if (pendingNavigation) return true;
+    const action = async () => {
+      try {
+        const entity = await resolveAdjacent(
+          soup.focus.item()?.id ?? '',
+          direction
+        );
+        if (entity) {
+          scrollTo(soup.focus.index());
+          openEntity(entity);
+        }
+      } catch {
+        // The boundary renders the error and exposes a keyboard-accessible Retry.
+      } finally {
+        pendingNavigation = undefined;
+      }
+    };
+    pendingNavigation = action();
+    return true;
+  };
+
   const navigateDown = () => {
+    if (options.orderedGroups?.()) return navigateOrdered(1);
     const rowCount = soup.rows().length;
     const next = navigateToOpenableEntity(1);
 
@@ -164,7 +274,7 @@ export const useSoupNavigationHotkeys = (
     }
 
     scrollTo(next.index);
-    openEntity(next.row.original);
+    if (next.row.kind === 'entity') openEntity(next.row.original);
 
     if (next.index >= rowCount - 1 - LOAD_MORE_DISTANCE_FROM_END) {
       fetchNextPageIfNeeded();
@@ -174,12 +284,13 @@ export const useSoupNavigationHotkeys = (
   };
 
   const navigateUp = () => {
+    if (options.orderedGroups?.()) return navigateOrdered(-1);
     const next = navigateToOpenableEntity(-1);
 
     if (!next) return true;
 
     scrollTo(next.index);
-    openEntity(next.row.original);
+    if (next.row.kind === 'entity') openEntity(next.row.original);
 
     return true;
   };
@@ -309,9 +420,10 @@ export const useSoupNavigationHotkeys = (
     description: 'Collapse item',
     hotkeyToken: TOKENS.unifiedList.navigation.parent,
     keyDownHandler: (event) => {
+      const focusedEntity = soup.focus.item();
       if (
         event?.key.toLowerCase() === 'h' &&
-        (!soup.focus.row() || !isTaskEntity(soup.focus.row()!.original))
+        (!focusedEntity || !isTaskEntity(focusedEntity))
       )
         return false;
       const groupHandled = toggleFocusedGroupHeader(false);

@@ -52,17 +52,36 @@ export type GroupMeta = {
   renderHeader?: (props: GroupHeaderProps) => JSX.Element;
 };
 
-export type SoupRow = {
+type SoupRowBase = {
   /** Stable identity used to preserve this row's store proxy across updates. */
   identityKey: string;
   id: string;
   index: number;
-  original: SoupEntity;
   group: GroupMeta | undefined;
   getIsGrouped: () => boolean;
   getIsLoadMore: () => boolean;
   isFocused: () => boolean;
   isSelected: () => boolean;
+};
+
+export type SoupEntityRow = SoupRowBase & {
+  kind: 'entity';
+  original: SoupEntity;
+};
+export type SoupStructuralRow = SoupRowBase & {
+  kind: 'group-header' | 'load-more' | 'group-status';
+  original?: undefined;
+};
+export type SoupRow = SoupEntityRow | SoupStructuralRow;
+
+type RowOptions = { id: string; index: number; group?: GroupMeta };
+type EntityRowOptions = RowOptions & {
+  kind?: 'entity';
+  original: SoupEntity;
+};
+type StructuralRowOptions = RowOptions & {
+  kind: SoupStructuralRow['kind'];
+  original?: never;
 };
 
 type NavigationResult = { row: SoupRow; index: number } | undefined;
@@ -140,51 +159,41 @@ export const createSoupState = (options: SoupContextOptions = {}) => {
 
   const isGroupExpanded = (groupId: string) => !collapsedGroups().has(groupId);
 
-  const buildRow = (options: {
-    id: string;
-    index: number;
-    original: SoupEntity;
-    group?: GroupMeta;
-    isGrouped?: boolean;
-    isLoadMore?: boolean;
-  }): SoupRow => {
-    const {
+  function buildRow(options: EntityRowOptions): SoupEntityRow;
+  function buildRow(options: StructuralRowOptions): SoupStructuralRow;
+  function buildRow(options: EntityRowOptions | StructuralRowOptions): SoupRow {
+    const { id, index, group } = options;
+    const kind = options.kind ?? 'entity';
+    const common = {
       id,
       index,
-      original,
       group,
-      isGrouped = false,
-      isLoadMore = false,
-    } = options;
-    const kind = isGrouped
-      ? 'group-header'
-      : isLoadMore
-        ? 'load-more'
-        : 'entity';
-    // Group membership distinguishes duplicate entities and makes a moved task
-    // a new row. Structural rows also include their representative entity so
-    // Solid never merges a new header/load-more entity into an aliased proxy.
-    const identityKey = JSON.stringify([
-      kind,
-      group?.key ?? null,
-      original.type,
-      original.id,
-      id,
-    ]);
-
-    return {
-      identityKey,
-      id,
-      index,
-      original,
-      group,
-      getIsGrouped: () => isGrouped,
-      getIsLoadMore: () => isLoadMore,
+      getIsGrouped: () => kind === 'group-header',
+      getIsLoadMore: () => kind === 'load-more',
       isFocused: () => focusedIndex() === index,
-      isSelected: () =>
-        !isGrouped && !isLoadMore && selection.isSelected(original.id),
     };
-  };
+    if (options.kind !== undefined && options.kind !== 'entity')
+      return {
+        ...common,
+        kind: options.kind,
+        identityKey: JSON.stringify([kind, group?.key ?? null, id]),
+        isSelected: () => false,
+      };
+    const original = options.original;
+    return {
+      ...common,
+      kind: 'entity',
+      original,
+      identityKey: JSON.stringify([
+        kind,
+        group?.key ?? null,
+        original.type,
+        original.id,
+        id,
+      ]),
+      isSelected: () => selection.isSelected(original.id),
+    };
+  }
 
   const initialRows =
     initialData?.map((e, i) => buildRow({ id: e.id, index: i, original: e })) ??
@@ -263,6 +272,7 @@ export const createSoupState = (options: SoupContextOptions = {}) => {
     row: SoupRow,
     options?: NavigationOptions
   ): boolean => {
+    if (row.kind === 'group-status') return true;
     if (options?.skip?.(row)) return true;
     if (row.getIsLoadMore() && options?.skipLoadMore) return true;
     if (!row.group) return false;

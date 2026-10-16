@@ -83,3 +83,49 @@ async fn favorites_are_scoped_before_pagination_and_cursor_keeps_the_filter() {
         serde_json::to_value(filters).unwrap()
     );
 }
+
+#[tokio::test]
+async fn group_directory_resolves_favorites_without_hydrating_items() {
+    let mut repo = MockSoupRepo::new();
+    repo.expect_grouped_soup_directory()
+        .times(1)
+        .returning(|request| {
+            let filter = request.cursor.filter();
+            assert_eq!(filter.favorites_only, None);
+            assert_matches!(filter.document_filter.as_deref().unwrap(),
+                Expr::Literal(item_filters::ast::document::DocumentLiteral::Id(id)) => {
+                    assert_eq!(*id, Uuid::from_u128(1));
+                }
+            );
+            Box::pin(async { Ok(Vec::new()) })
+        });
+    let mut service = SoupImpl::new(
+        repo,
+        FrecencyQueryServiceImpl::new(MockFrecencyStorage::new()),
+        NoopEmailPreviewService,
+        NoopCommsService,
+        NoopCallRecordQueryService,
+        NoOpCrmService,
+        NoopPullRequestListing,
+    );
+    service.favorites = Some(Arc::new(ViewerFavorites));
+    service
+        .get_user_soup_group_directory(GroupedSortRequest {
+            user_id: MacroUserIdStr::parse_from_str("macro|test@example.com").unwrap(),
+            limit: 20,
+            cursor: Query::Sort(
+                SimpleSortMethod::UpdatedAt,
+                EntityFilterAst {
+                    favorites_only: Some(true),
+                    ..Default::default()
+                },
+            ),
+            grouping: GroupingConfig {
+                field: GroupByField::EntityType,
+                group_key: None,
+                per_group_limit: None,
+            },
+        })
+        .await
+        .unwrap();
+}

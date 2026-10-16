@@ -58,7 +58,7 @@ it('advances to the current next row only after the email snooze has been saved'
   const previousNext = entity('email', 'previous-next');
   const next = entity('email', 'next');
   const peekOffset = vi.fn(() => ({
-    row: { id: previousNext.id, original: previousNext },
+    row: { kind: 'entity', id: previousNext.id, original: previousNext },
   }));
   const soup = {
     navigate: { peekOffset },
@@ -72,11 +72,37 @@ it('advances to the current next row only after the email snooze has been saved'
     { advances: true, onNavigate }
   );
   expect(soup.selection.clear).not.toHaveBeenCalled();
-  peekOffset.mockReturnValue({ row: { id: next.id, original: next } });
+  peekOffset.mockReturnValue({
+    row: { kind: 'entity', id: next.id, original: next },
+  });
   await mocks.open.mock.calls[0][1].onCreated();
   expect(soup.focus.set).toHaveBeenCalledWith('next');
   expect(onNavigate).toHaveBeenCalledWith({
     actionId: 'create-reminder',
     entity: next,
+  });
+});
+
+it('does not treat a structural row as a reminder navigation destination', async () => {
+  const soup = {
+    navigate: {
+      peekOffset: vi.fn(() => ({
+        row: { kind: 'group-status', id: 'status:a' },
+      })),
+    },
+    selection: { clear: vi.fn() },
+    focus: { set: vi.fn() },
+  };
+  const onNavigate = vi.fn();
+  await makeCreateReminderAction().executeWithSoup(
+    [entity('email')],
+    soup as unknown as EntityActionListState,
+    { advances: true, onNavigate }
+  );
+  await mocks.open.mock.calls[0][1].onCreated();
+  expect(soup.focus.set).toHaveBeenCalledWith(undefined);
+  expect(onNavigate).toHaveBeenCalledWith({
+    actionId: 'create-reminder',
+    entity: undefined,
   });
 });

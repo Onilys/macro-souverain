@@ -47,11 +47,17 @@ export function TasksDetailView(props: {
   onClose?: () => void;
   breadcrumbOrder?: number;
 }) {
-  const { source, openTask, closeTask, selectedTask } = useTasksView();
+  const { source, list, openTask, closeTask, selectedTask } = useTasksView();
   const panel = useSplitPanelOrThrow();
   const listNavigation = useListDetailNavigation({
     currentId: () => props.task.id,
     source,
+    currentKey: () => list.focus.key(),
+    getKey: (row) => row.id,
+    onResolved: (row) => {
+      list.focus.set(row.id, { reason: 'programmatic', force: true });
+    },
+    identity: () => source.orderedGroups?.identity() ?? '',
     getEntity: (row) => (row.kind === 'entity' ? row.entity : undefined),
     getContinuation: (row) => {
       if (row.kind !== 'load-more') return;

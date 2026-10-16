@@ -5,6 +5,9 @@ import { expect, it, vi } from 'vitest';
 const fixture = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
   groupQueries: new Map<string, unknown>(),
+  groupOptions: undefined as
+    | (() => { networkPaused?: boolean; lazyGroupPagination?: boolean })
+    | undefined,
   calls: [] as { args: () => unknown; options?: () => unknown }[],
   searchState: vi.fn(),
   mapItem: vi.fn(),
@@ -41,7 +44,12 @@ vi.mock('@queries/soup/items', () => ({
   },
 }));
 vi.mock('@queries/soup/grouped/create-grouped-soup-queries', () => ({
-  createGroupedSoupQueries: () => ({ map: () => fixture.groupQueries }),
+  createGroupedSoupQueries: (args: {
+    queryOptions: NonNullable<typeof fixture.groupOptions>;
+  }) => {
+    fixture.groupOptions = args.queryOptions;
+    return { map: () => fixture.groupQueries };
+  },
 }));
 
 import { useTasksDataSource } from './use-tasks-query';
@@ -503,6 +511,272 @@ it('admits only optimistic CRM tasks that name the record', () => {
       expect(options.meta.insertFilter({})).toBe(false);
       fixture.mapItem.mockReturnValueOnce(crmTask('cached'));
       expect(options.meta.insertFilter({})).toBe(false);
+    } finally {
+      dispose();
+    }
+  });
+});
+
+it('starts groups in order, skips collapsed groups, and retains revealed groups on expansion', async () => {
+  await createRoot(async (dispose) => {
+    try {
+      const [collapsed, setCollapsed] = createSignal(new Set<string>());
+      const queries = ['a', 'b', 'c'].map((key) => {
+        const [loaded, setLoaded] = createSignal(false);
+        const fetchNextPage = vi.fn(async () => {
+          setLoaded(true);
+        });
+        return {
+          key,
+          data: () => ({ entities: [] }),
+          hasNextPage: () => !loaded(),
+          isFetchingNextPage: () => false,
+          error: () => null,
+          fetchNextPage,
+        };
+      });
+      fixture.groupQueries = new Map(
+        queries.map((query) => [query.key, query])
+      );
+      fixture.query = {
+        transport: 'graphql',
+        isLoading: false,
+        data: {
+          entities: [],
+          itemsById: {},
+          groups: queries.map(({ key }) => ({
+            key,
+            label: key,
+            totalCount: 30,
+            itemIds: [],
+            nextCursor: null,
+          })),
+        },
+      };
+      const source = useTasksDataSource(
+        {
+          tab: 'team-tasks',
+          search: '',
+          facets: {},
+          groupBy: 'status',
+          sort: [],
+        },
+        {
+          userId: () => 'viewer',
+          tagSets: () => [],
+          tagSetsReady: () => true,
+          isGroupExpanded: (key) => !collapsed().has(key),
+        }
+      );
+      const headers = () =>
+        source
+          .items()
+          .flatMap((row) => (row.kind === 'group-header' ? [row.groupId] : []));
+      expect(headers()).toEqual(['a']);
+      expect(
+        queries.every((query) => query.fetchNextPage.mock.calls.length === 0)
+      ).toBe(true);
+      source.orderedGroups!.retain();
+      setCollapsed(new Set(['a']));
+      expect(headers()).toEqual(['a', 'b']);
+      source.orderedGroups!.retain();
+      setCollapsed(new Set<string>());
+      expect(headers()).toEqual(['a', 'b']);
+      await source.loadMoreGroup('a');
+      expect(headers()).toEqual(['a', 'b']);
+      await source.loadMoreGroup('b');
+      expect(headers()).toEqual(['a', 'b', 'c']);
+    } finally {
+      fixture.groupQueries.clear();
+      dispose();
+    }
+  });
+});
+
+it.each(['list', 'board', 'gantt', 'loadAll', 'date'] as const)(
+  'shares lazy group pages while keeping board columns independent (%s)',
+  (layout) => {
+    fixture.calls = [];
+    fixture.query = {
+      transport: 'graphql',
+      isLoading: false,
+      isPending: false,
+      isPlaceholderData: false,
+      data: {
+        entities: [],
+        itemsById: {},
+        groups: ['a', 'b'].map((key) => ({
+          key,
+          label: key,
+          totalCount: 1,
+          itemIds: [],
+          nextCursor: null,
+        })),
+      },
+    };
+    const groupQueries = new Map(
+      ['a', 'b'].map((key) => [
+        key,
+        {
+          key,
+          data: () => ({ entities: [] }),
+          hasNextPage: () => true,
+          isFetchingNextPage: () => false,
+          error: () => null,
+          fetchNextPage: vi.fn(async () => {}),
+        },
+      ])
+    );
+    fixture.groupQueries = groupQueries;
+    createRoot((dispose) => {
+      try {
+        const source = useTasksDataSource(
+          {
+            tab: 'team-tasks',
+            search: '',
+            facets: {},
+            groupBy: layout === 'date' ? 'date' : 'status',
+            sort: [],
+          },
+          {
+            userId: () => 'viewer',
+            tagSets: () => [],
+            tagSetsReady: () => true,
+            isGroupExpanded: () => true,
+            board: () => layout === 'board',
+            loadAll: layout === 'loadAll',
+          }
+        );
+        const parentOptions = fixture.calls[0]?.options?.() as {
+          lazyGroupPagination: boolean;
+        };
+        expect(parentOptions.lazyGroupPagination).toBe(
+          layout === 'list' || layout === 'gantt' || layout === 'board'
+        );
+        expect(source.orderedGroups?.enabled()).toBe(
+          layout === 'list' || layout === 'gantt'
+        );
+        expect(
+          source
+            .boardRows?.()
+            .flatMap((row) =>
+              row.kind === 'group-header' ? [row.groupId] : []
+            )
+        ).toEqual(layout === 'list' || layout === 'gantt' ? ['a'] : ['a', 'b']);
+        if (layout === 'board') {
+          const first = groupQueries.get('a');
+          const second = groupQueries.get('b');
+          expect(first?.fetchNextPage).not.toHaveBeenCalled();
+          expect(second?.fetchNextPage).not.toHaveBeenCalled();
+          void source.loadMoreGroup('b');
+          expect(second?.fetchNextPage).toHaveBeenCalledOnce();
+          expect(first?.fetchNextPage).not.toHaveBeenCalled();
+        }
+      } finally {
+        dispose();
+        fixture.groupQueries = new Map();
+      }
+    });
+  }
+);
+
+it('passes a reactive network pause to both directory and group readers', () => {
+  fixture.calls = [];
+  fixture.query = {
+    transport: 'graphql',
+    isLoading: false,
+    data: { entities: [], itemsById: {}, groups: [] },
+  };
+  fixture.groupQueries = new Map();
+  createRoot((dispose) => {
+    try {
+      const [networkPaused, setNetworkPaused] = createSignal(true);
+      const source = useTasksDataSource(
+        {
+          tab: 'team-tasks',
+          search: '',
+          facets: {},
+          groupBy: 'status',
+          sort: [],
+        },
+        {
+          userId: () => 'viewer',
+          tagSets: () => [],
+          tagSetsReady: () => true,
+          isGroupExpanded: () => true,
+          networkPaused,
+        }
+      );
+      expect(fixture.calls[0]?.options?.()).toMatchObject({
+        networkPaused: true,
+        lazyGroupPagination: true,
+      });
+      expect(fixture.groupOptions?.()).toMatchObject({
+        networkPaused: true,
+        lazyGroupPagination: true,
+      });
+      expect(source.paginationReady?.()).toBe(false);
+      setNetworkPaused(false);
+      expect(fixture.calls[0]?.options?.()).toMatchObject({
+        networkPaused: false,
+      });
+      expect(fixture.groupOptions?.()).toMatchObject({ networkPaused: false });
+      expect(source.paginationReady?.()).toBe(true);
+    } finally {
+      dispose();
+    }
+  });
+});
+
+it('keeps retained rows visible but pauses pagination until the current query is ready', () => {
+  createRoot((dispose) => {
+    try {
+      const [pending, setPending] = createSignal(false);
+      const [placeholder, setPlaceholder] = createSignal(false);
+      fixture.query = {
+        transport: 'graphql',
+        get isLoading() {
+          return pending();
+        },
+        get isPending() {
+          return pending();
+        },
+        get isPlaceholderData() {
+          return placeholder();
+        },
+        data: {
+          entities: [],
+          itemsById: {},
+          groups: [{ key: 'a', label: 'A', totalCount: 1, itemIds: [] }],
+        },
+      };
+      fixture.groupQueries = new Map();
+      const source = useTasksDataSource(
+        {
+          tab: 'team-tasks',
+          search: '',
+          facets: {},
+          groupBy: 'status',
+          sort: [],
+        },
+        {
+          userId: () => 'viewer',
+          tagSets: () => [],
+          tagSetsReady: () => true,
+          isGroupExpanded: () => true,
+        }
+      );
+      expect(source.items()).toHaveLength(1);
+      expect(source.paginationReady?.()).toBe(true);
+      setPending(true);
+      expect(source.items()).toHaveLength(1);
+      expect(source.isLoading()).toBe(false);
+      expect(source.paginationReady?.()).toBe(false);
+      setPending(false);
+      setPlaceholder(true);
+      expect(source.paginationReady?.()).toBe(false);
+      setPlaceholder(false);
+      expect(source.paginationReady?.()).toBe(true);
     } finally {
       dispose();
     }

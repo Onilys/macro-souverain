@@ -1,3 +1,4 @@
+use crate::domain::models::grouping::GroupDirectoryEntry;
 use std::sync::Arc;
 
 use crate::domain::models::{
@@ -82,6 +83,12 @@ pub trait SoupRepo: Send + Sync + 'static {
         &self,
         user_id: MacroUserIdStr<'a>,
     ) -> impl Future<Output = Result<Vec<PropertyDefinitionWithOptions>, Self::Err>> + Send;
+
+    /// Count accessible group memberships without hydrating entity details.
+    fn grouped_soup_directory<'a>(
+        &self,
+        req: GroupedSortRequest<'a>,
+    ) -> impl Future<Output = Result<Vec<GroupDirectoryEntry>, Self::Err>> + Send;
 
     /// Fetches expanded soup items with group metadata.
     fn expanded_grouped_cursor_soup<'a>(
@@ -321,6 +328,12 @@ pub trait SoupService: Send + Sync + 'static {
         >,
     > + Send;
 
+    /// List accessible nonempty groups without loading their entity pages.
+    fn get_user_soup_group_directory(
+        &self,
+        req: GroupedSortRequest<'_>,
+    ) -> impl Future<Output = Result<Vec<GroupDirectoryEntry>, SoupErr>> + Send;
+
     /// Fetch the tag definitions visible to a user — their own plus their
     /// teams' — with options attached.
     fn caller_tag_sets<'a>(
@@ -441,6 +454,13 @@ where
         (**self).get_user_soup_grouped(req).await
     }
 
+    async fn get_user_soup_group_directory(
+        &self,
+        req: GroupedSortRequest<'_>,
+    ) -> Result<Vec<GroupDirectoryEntry>, SoupErr> {
+        (**self).get_user_soup_group_directory(req).await
+    }
+
     async fn caller_tag_sets<'a>(
         &self,
         user_id: MacroUserIdStr<'a>,
@@ -521,6 +541,13 @@ impl SoupService for NoOpSoupService {
         _req: GroupedSortRequest<'_>,
     ) -> Result<impl Iterator<Item = ItemGroupingInfo<SoupPropertiesField>> + Send, SoupErr> {
         Err::<std::vec::IntoIter<ItemGroupingInfo<SoupPropertiesField>>, _>(no_op_soup_err())
+    }
+
+    async fn get_user_soup_group_directory(
+        &self,
+        _req: GroupedSortRequest<'_>,
+    ) -> Result<Vec<GroupDirectoryEntry>, SoupErr> {
+        Err(no_op_soup_err())
     }
 
     async fn caller_tag_sets<'a>(

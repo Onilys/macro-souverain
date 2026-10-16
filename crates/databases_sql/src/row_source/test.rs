@@ -186,6 +186,13 @@ impl SoupService for ReplaySoup {
         )))
     }
 
+    async fn get_user_soup_group_directory(
+        &self,
+        _request: GroupedSortRequest<'_>,
+    ) -> Result<Vec<soup::domain::models::grouping::GroupDirectoryEntry>, SoupErr> {
+        unreachable!("SQL reads grouped rows directly")
+    }
+
     async fn get_user_soup_grouped(
         &self,
         request: GroupedSortRequest<'_>,

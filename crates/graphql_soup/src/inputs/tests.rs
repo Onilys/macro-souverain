@@ -117,3 +117,28 @@ fn maps_grouped_cursor_continuation() {
     assert_eq!(request.grouping.group_key.as_deref(), Some("document"));
     assert!(matches!(request.cursor, Query::Cursor(_)));
 }
+
+#[test]
+fn starts_only_the_requested_group_including_unset() {
+    for key in ["", "document"] {
+        let request = GroupedSoupInput::StartGroup(Box::new(GroupedSoupStartInput {
+            group_by: GraphqlGroupByInput {
+                field: GraphqlGroupByField::EntityType,
+                property_definition_id: None,
+                entity_type: None,
+            },
+            group_key: key.to_owned(),
+            limit: Some(100),
+            sort_method: Some(GraphqlSimpleSortMethod::UpdatedAt),
+            filters: None,
+        }))
+        .into_request(test_macro_user_id())
+        .unwrap();
+        assert_eq!(request.grouping.group_key.as_deref(), Some(key));
+        assert_eq!(request.limit, 100);
+        assert!(matches!(
+            request.cursor,
+            Query::Sort(SimpleSortMethod::UpdatedAt, _)
+        ));
+    }
+}

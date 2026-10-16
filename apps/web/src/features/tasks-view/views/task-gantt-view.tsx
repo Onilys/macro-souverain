@@ -1,6 +1,8 @@
 import type { GanttCreation } from '@app/components/gantt/create-gantt-creation';
 import { Gantt } from '@app/components/gantt/gantt';
 import { deriveGanttRange } from '@app/components/gantt/gantt-date';
+import type { GanttRowViewport } from '@app/components/gantt/gantt-row-viewport';
+import { createGroupPaginationViewport } from '@app/features/next-soup/primitives/group-pagination-viewport';
 import { UserIcon } from '@core/component/UserIcon';
 import {
   getPropertyOptionLabel,
@@ -17,13 +19,17 @@ import { Button, cn, Layer } from '@ui';
 import type { ComponentProps } from 'solid-js';
 import {
   type Accessor,
+  createEffect,
   createMemo,
+  createSignal,
   type JSX,
   Match,
+  onCleanup,
   Show,
   Switch,
 } from 'solid-js';
 import { STATUS_GROUP_HEADER_TINTS } from '../components/task-list/TaskGroupHeader';
+import { createTaskPagination } from '../primitives/create-task-pagination';
 import { taskGanttDates } from '../queries/task-gantt';
 import type {
   TasksDataSource,
@@ -61,20 +67,99 @@ export function TaskGanttView(props: {
   );
   const range = createMemo(() => deriveGanttRange(dates()));
   const error = () => props.source.error?.();
-  const hasGlobalLoadMoreRow = () =>
-    props.source
-      .items()
-      .some((row) => row.kind === 'load-more' && row.groupId === undefined);
-  const loadMore = (row: TasksDataSourceItem) => {
-    if (row.kind !== 'load-more') return;
-
-    if (row.groupId !== undefined) {
-      void props.source.loadMoreGroup(row.groupId);
-      return;
-    }
-
-    void props.source.loadMore?.();
-  };
+  const [viewport, setViewport] =
+    createSignal<GanttRowViewport<TasksDataSourceItem>>();
+  const globalBoundary = '\0tasks-gantt-global';
+  const identity = () =>
+    props.source.orderedGroups?.identity() ?? props.groupBy;
+  const rows = createMemo<readonly TasksDataSourceItem[]>(() => {
+    const items = props.source.items();
+    if (
+      !props.source.hasMore?.() ||
+      items.some((row) => row.kind === 'load-more' && row.groupId === undefined)
+    )
+      return items;
+    return [
+      ...items,
+      {
+        kind: 'load-more',
+        id: 'tasks-gantt:more',
+        scopeId: 'tasks-gantt',
+        isLoading: props.source.isLoadingMore?.(),
+      },
+    ];
+  });
+  const boundaryKey = (row: TasksDataSourceItem) =>
+    row.kind === 'load-more' ? (row.groupId ?? globalBoundary) : undefined;
+  const pages = createTaskPagination({
+    identity,
+    error: (key) =>
+      key === undefined
+        ? props.source.error?.()
+        : props.source.orderedGroups?.enabled()
+          ? props.source.orderedGroups.error(key)
+          : props.source.groupError?.(key),
+    load: async (key, retry) => {
+      if (key === undefined) await props.source.loadMore?.();
+      else if (props.source.orderedGroups?.enabled())
+        await props.source.orderedGroups.load(key, retry);
+      else await props.source.loadMoreGroup(key);
+    },
+  });
+  const pageKey = (key: string) => (key === globalBoundary ? undefined : key);
+  const pageError = (key: string) => pages.error(pageKey(key));
+  const load = (key: string, retry = false) => pages.load(pageKey(key), retry);
+  const pagination = createGroupPaginationViewport({
+    enabled: () =>
+      !!viewport()?.element() &&
+      !props.source.isLoading?.() &&
+      (props.source.paginationReady?.() ?? true),
+    identity,
+    rows: () => viewport()?.rows() ?? [],
+    handle: () => viewport()?.handle,
+    viewport: () => viewport()?.element(),
+    key: (row) => String(row.key),
+    group: (row) =>
+      row.item && row.item.kind !== 'section-header'
+        ? row.item.groupId
+        : undefined,
+    header: (row) => row.item?.kind === 'group-header',
+    boundary: (row) => (row.item ? boundaryKey(row.item) : undefined),
+    loading: (key) =>
+      pages.isLoading(pageKey(key)) ||
+      rows().some(
+        (row) =>
+          row.kind === 'load-more' && boundaryKey(row) === key && row.isLoading
+      ),
+    error: (key) => (pageError(key) ? new Error('Could not load tasks') : null),
+    load: (key) => void load(key),
+  });
+  createEffect(() => {
+    const element = viewport()?.element();
+    if (!element) return;
+    element.addEventListener('scroll', pagination.onScroll);
+    onCleanup(() => element.removeEventListener('scroll', pagination.onScroll));
+  });
+  const paginationStatus = (key: string) => (
+    <Show
+      when={pageError(key)}
+      fallback={
+        <span role="status" class="text-xs text-ink-muted">
+          Loading tasks…
+        </span>
+      }
+    >
+      <span
+        role="alert"
+        class="inline-flex items-center gap-2 text-xs text-ink-muted"
+      >
+        Couldn’t load tasks.
+        <Button size="sm" variant="ghost" onClick={() => void load(key, true)}>
+          Retry
+        </Button>
+      </span>
+    </Show>
+  );
 
   return (
     <div ref={props.ref} class="flex size-full min-h-0 min-w-0 flex-col">
@@ -98,7 +183,7 @@ export function TaskGanttView(props: {
             </Button>
           </div>
         </Match>
-        <Match when={!props.source.items().length && !props.onCreate}>
+        <Match when={!rows().length && !props.onCreate}>
           <div class="grid flex-1 place-items-center text-sm text-ink-muted">
             No matching tasks
           </div>
@@ -119,7 +204,8 @@ export function TaskGanttView(props: {
               <Gantt.Chart>
                 <Gantt.Header />
                 <Gantt.Rows
-                  items={props.source.items()}
+                  items={rows()}
+                  viewportRef={setViewport}
                   getKey={(row) => row.id}
                   getPanelKey={(row) =>
                     row.kind === 'entity' || row.kind === 'load-more'
@@ -302,35 +388,11 @@ export function TaskGanttView(props: {
                             <>
                               <div class="absolute inset-0">
                                 <Gantt.Label>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    disabled={more().isLoading}
-                                    onClick={() => loadMore(more())}
-                                  >
-                                    <Show when={more().isLoading}>
-                                      <SpinnerIcon class="size-3 animate-spin" />
-                                    </Show>
-                                    {more().isLoading
-                                      ? 'Loading tasks…'
-                                      : 'Load more tasks'}
-                                  </Button>
+                                  {paginationStatus(boundaryKey(more())!)}
                                 </Gantt.Label>
                               </div>
                               <Gantt.Pagination>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={more().isLoading}
-                                  onClick={() => loadMore(more())}
-                                >
-                                  <Show when={more().isLoading}>
-                                    <SpinnerIcon class="size-3 animate-spin" />
-                                  </Show>
-                                  {more().isLoading
-                                    ? 'Loading tasks…'
-                                    : 'Load more tasks'}
-                                </Button>
+                                {paginationStatus(boundaryKey(more())!)}
                               </Gantt.Pagination>
                             </>
                           )}
@@ -346,44 +408,6 @@ export function TaskGanttView(props: {
                     </Gantt.Row>
                   )}
                 </Gantt.Rows>
-                <Show
-                  when={props.source.hasMore?.() && !hasGlobalLoadMoreRow()}
-                >
-                  <Gantt.Row>
-                    <div class="absolute inset-0">
-                      <Gantt.Label>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={props.source.isLoadingMore?.()}
-                          onClick={() => void props.source.loadMore?.()}
-                        >
-                          <Show when={props.source.isLoadingMore?.()}>
-                            <SpinnerIcon class="size-3 animate-spin" />
-                          </Show>
-                          {props.source.isLoadingMore?.()
-                            ? 'Loading tasks…'
-                            : 'Load more tasks'}
-                        </Button>
-                      </Gantt.Label>
-                    </div>
-                    <Gantt.Pagination>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={props.source.isLoadingMore?.()}
-                        onClick={() => void props.source.loadMore?.()}
-                      >
-                        <Show when={props.source.isLoadingMore?.()}>
-                          <SpinnerIcon class="size-3 animate-spin" />
-                        </Show>
-                        {props.source.isLoadingMore?.()
-                          ? 'Loading tasks…'
-                          : 'Load more tasks'}
-                      </Button>
-                    </Gantt.Pagination>
-                  </Gantt.Row>
-                </Show>
                 <Gantt.TodayMarker />
                 <Gantt.CreateArea
                   minDate={new Date()}

@@ -2146,6 +2146,24 @@ fn build_grouped_query<'a>(
     sort_method: SimpleSortMethod,
     document_ids: &mut DocumentIdArrays,
 ) -> (QueryBuilder<'a, Postgres>, Option<String>) {
+    build_grouped_query_mode(
+        filter_ast,
+        exclude_frecency,
+        grouping,
+        sort_method,
+        document_ids,
+        false,
+    )
+}
+
+fn build_grouped_query_mode<'a>(
+    filter_ast: &'a EntityFilterAst,
+    exclude_frecency: bool,
+    grouping: &'a GroupingConfig,
+    sort_method: SimpleSortMethod,
+    document_ids: &mut DocumentIdArrays,
+    directory: bool,
+) -> (QueryBuilder<'a, Postgres>, Option<String>) {
     let mut builder = sqlx::QueryBuilder::new(PREFIX);
 
     // Determine which entity types to include based on filters (same logic as build_query)
@@ -2302,6 +2320,21 @@ fn build_grouped_query<'a>(
 
     // Ranking windows and the final SELECT provide their own ordering.
     builder.push("), ");
+
+    if directory {
+        let key = group_select_expr(&grouping.field);
+        builder.push("DirectoryMembership AS (SELECT DISTINCT t.item_type, t.id, ");
+        builder.push(&key);
+        builder.push(" AS group_key FROM TopItems t ");
+        let entity_type_bind = if let Some(join) = group_join_clause(&grouping.field) {
+            builder.push(join.sql);
+            join.entity_type_bind
+        } else {
+            None
+        };
+        builder.push(") SELECT group_key, COUNT(*)::bigint AS total_count FROM DirectoryMembership GROUP BY group_key ORDER BY group_key");
+        return (builder, entity_type_bind);
+    }
 
     // GroupedItems CTE: adds group metadata (and FilteredGroupedItems if not single-group mode)
     let entity_type_bind = build_grouped_items_cte(&mut builder, grouping);
@@ -2462,4 +2495,53 @@ pub async fn expanded_dynamic_cursor_soup_grouped(
         .collect::<Result<Vec<_>, sqlx::Error>>()?;
 
     Ok(items.into_iter())
+}
+
+/// Aggregate the same authorized candidates as grouped pages, without detail joins.
+#[tracing::instrument(
+    name = "soup.group_directory",
+    skip(db, req),
+    fields(group_by = ?req.grouping.field, group_count = tracing::field::Empty),
+    err
+)]
+pub async fn grouped_directory(
+    db: &PgPool,
+    req: crate::domain::models::GroupedSortRequest<'_>,
+) -> Result<Vec<crate::domain::models::grouping::GroupDirectoryEntry>, sqlx::Error> {
+    let mut document_ids = DocumentIdArrays::starting_at(11);
+    let (mut builder, entity_type_bind) = build_grouped_query_mode(
+        req.cursor.filter(),
+        false,
+        &req.grouping,
+        *req.cursor.sort_method(),
+        &mut document_ids,
+        true,
+    );
+    let mut query = builder
+        .build_query_as::<(String, i64)>()
+        .bind(req.user_id.as_ref())
+        .bind(req.cursor.sort_method().to_string())
+        .bind(i64::from(req.limit))
+        .bind(None::<DateTime<Utc>>)
+        .bind(None::<String>)
+        .bind(StatusOption::COMPLETED_UUID.to_string())
+        .bind(SystemPropertyKey::STATUS_UUID)
+        .bind(SystemPropertyKey::ASSIGNEES_UUID)
+        .bind(None::<String>)
+        .bind(entity_type_bind);
+    for ids in document_ids.into_binds() {
+        query = query.bind(ids);
+    }
+    let rows = query.persistent(false).fetch_all(db).await?;
+    tracing::Span::current().record("group_count", rows.len());
+    Ok(rows
+        .into_iter()
+        .map(|(key, count)| {
+            crate::domain::models::grouping::GroupDirectoryEntry::new(
+                key,
+                count.clamp(0, i64::from(u32::MAX)) as u32,
+                &req.grouping.field,
+            )
+        })
+        .collect())
 }

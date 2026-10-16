@@ -147,10 +147,11 @@ export const makeDeleteAction = (options: MakeDeleteOptions) => {
     const currentIndex = soup.focus.index();
     const nextRow =
       soup.items.at(currentIndex + 1) ?? soup.items.at(currentIndex - 1);
-    const isFocusableRow = (row: SoupRow | undefined): row is SoupRow =>
+    const isFocusableRow = (
+      row: SoupRow | undefined
+    ): row is SoupRow & { original: EntityData } =>
       row !== undefined &&
-      !row.getIsGrouped() &&
-      !row.getIsLoadMore() &&
+      row.kind === 'entity' &&
       (!row.group || row.group.isExpanded());
     const captureAnchor = (row: SoupRow | undefined) =>
       isFocusableRow(row)
@@ -161,7 +162,8 @@ export const makeDeleteAction = (options: MakeDeleteOptions) => {
       wrapNavigation: false,
       skipGroupHeaders: true,
       skipLoadMore: true,
-      skip: (row: SoupRow) => requestedIds.has(row.original.id),
+      skip: (row: SoupRow) =>
+        row.kind !== 'entity' || requestedIds.has(row.original.id),
     };
     // Capture identities while the focused row still exists. The immediate
     // neighbour can belong to the selected block, so also remember the first
@@ -181,13 +183,15 @@ export const makeDeleteAction = (options: MakeDeleteOptions) => {
     const nextSurvivingRow = (alsoRemoved: string[] = []) => {
       if (!hadPartialDeletion) return nextRow;
       const removed = new Set([...cleanup.deletedIds, ...alsoRemoved]);
-      const survives = (row: SoupRow | undefined): row is SoupRow =>
+      const survives = (
+        row: SoupRow | undefined
+      ): row is SoupRow & { original: EntityData } =>
         isFocusableRow(row) && !removed.has(row.original.id);
       for (const anchor of focusAnchors) {
         if (!anchor || removed.has(anchor.entityId)) continue;
         const keyed = soup.items.get(anchor.rowId);
         const live =
-          keyed?.original.id === anchor.entityId
+          keyed?.original?.id === anchor.entityId
             ? keyed
             : soup.items.get(anchor.entityId);
         if (survives(live) && live.original.id === anchor.entityId) return live;

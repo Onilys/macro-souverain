@@ -10,7 +10,8 @@ import { TaskBoardView } from './views/task-board-view';
 
 /** Connects the task view to query adapters and app navigation. */
 export function TasksBoard(props: { ref?: (element: HTMLDivElement) => void }) {
-  const { state, source, openTask, projectsEnabled } = useTasksView();
+  const { state, source, openTask, projectsEnabled, setFacets } =
+    useTasksView();
   const panel = useSplitPanelOrThrow();
   const queries = createTaskBoardQueries({
     rows: source.boardRows ?? source.items,
@@ -32,6 +33,10 @@ export function TasksBoard(props: { ref?: (element: HTMLDivElement) => void }) {
       <TaskBoardView
         ref={props.ref}
         data={data}
+        source={source}
+        state={state}
+        projectsEnabled={projectsEnabled}
+        onFacetsChange={setFacets}
         onOpen={(task, event) => {
           const opened = openTask(
             { id: task.id, fallbackName: task.name },

@@ -546,6 +546,7 @@ export type OptimisticLinkPatchWire = {
   /** Response-key path beginning at the query root. */
   path: EmbeddedLinkPathSegment[];
   operation:
+    | { kind: 'adjustCount'; delta: number }
     | { kind: 'remove'; entityKey: string }
     | { kind: 'prependUnique'; entityKey: string }
     | {

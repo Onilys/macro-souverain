@@ -28,7 +28,7 @@ export function OnboardingEntityList(props: OnboardingEntityListProps) {
         class="flex flex-col size-full scrollbar-hidden overflow-scroll"
         role="listbox"
       >
-        <For each={props.soup.rows()}>
+        <For each={props.soup.rows().filter((row) => row.kind === 'entity')}>
           {(row) => {
             const entity = () => row.original;
             const isFocused = () => props.soup.focus.id() === row.id;
@@ -44,7 +44,7 @@ export function OnboardingEntityList(props: OnboardingEntityListProps) {
             return (
               <Entity.Root
                 ref={rowRef}
-                entity={entity() as EntityData}
+                entity={entity()}
                 class={cn(
                   'relative w-full min-h-10 flex items-center gap-2 px-5 text-sm font-semibold',
                   {
@@ -67,11 +67,11 @@ export function OnboardingEntityList(props: OnboardingEntityListProps) {
                     <>
                       <span class="size-1.5 shrink-0" />
                       <div class="size-4 shrink-0">
-                        <Entity.Icon entity={entity() as EntityData} />
+                        <Entity.Icon entity={entity()} />
                       </div>
-                      <Entity.Title entity={entity() as EntityData} />
+                      <Entity.Title entity={entity()} />
                       <span class="ml-auto font-light text-xs text-ink/40 shrink-0">
-                        <Entity.Timestamp entity={entity() as EntityData} />
+                        <Entity.Timestamp entity={entity()} />
                       </span>
                     </>
                   }
@@ -86,7 +86,7 @@ export function OnboardingEntityList(props: OnboardingEntityListProps) {
                       })}
                     />
                     <div class="size-4 shrink-0">
-                      <Entity.Icon entity={entity() as EntityData} />
+                      <Entity.Icon entity={entity()} />
                     </div>
                     <span
                       class={cn('truncate', {
@@ -115,14 +115,14 @@ export function OnboardingEntityList(props: OnboardingEntityListProps) {
                         ).isRead,
                       })}
                     >
-                      <Entity.Title entity={entity() as EntityData} />
+                      <Entity.Title entity={entity()} />
                     </span>
                     <span class="truncate text-ink/50 font-normal">
                       {(entity() as EntityData & { snippet: string }).snippet}
                     </span>
                   </span>
                   <span class="ml-auto font-light text-xs text-ink/40 shrink-0">
-                    <Entity.Timestamp entity={entity() as EntityData} />
+                    <Entity.Timestamp entity={entity()} />
                   </span>
                 </Show>
               </Entity.Root>

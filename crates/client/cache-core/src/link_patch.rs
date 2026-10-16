@@ -1,4 +1,4 @@
-//! Constrained optimistic updates for link lists nested in embedded values.
+//! Constrained optimistic updates for links and counts in embedded values.
 //!
 //! Patch recipes are transport-neutral and serializable so they can be kept
 //! with durable optimistic mutations and replayed after a restart.
@@ -56,10 +56,16 @@ pub struct ListItemByScalar {
     pub equals: Json,
 }
 
-/// Idempotent operation on the selected normalized-link list.
+/// Mutation-scoped operation on a selected cache value.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum LinkOperation {
+    /// Adjusts an existing non-negative integer count in the optimistic layer.
+    /// Layer replay starts from base records, so each transaction contributes once.
+    AdjustCount {
+        /// Signed change, clamped at zero on subtraction.
+        delta: i64,
+    },
     /// Removes every occurrence of the entity reference.
     Remove {
         /// Normalized entity key to remove.
@@ -123,13 +129,14 @@ pub enum LinkOperation {
 }
 
 impl LinkOperation {
-    fn entity_key(&self) -> EntityKey<'_> {
+    fn entity_key(&self) -> Option<EntityKey<'_>> {
         match self {
             Self::Remove { entity_key }
             | Self::PrependUnique { entity_key }
             | Self::UpsertByField { entity_key, .. }
             | Self::RemoveEmbeddedLink { entity_key, .. }
-            | Self::UpsertEmbeddedLink { entity_key, .. } => entity_key.borrowed(),
+            | Self::UpsertEmbeddedLink { entity_key, .. } => Some(entity_key.borrowed()),
+            Self::AdjustCount { .. } => None,
         }
     }
 
@@ -143,7 +150,9 @@ impl LinkOperation {
             Self::PrependUnique { entity_key }
             | Self::UpsertByField { entity_key, .. }
             | Self::UpsertEmbeddedLink { entity_key, .. } => Some(entity_key),
-            Self::Remove { .. } | Self::RemoveEmbeddedLink { .. } => None,
+            Self::Remove { .. } | Self::RemoveEmbeddedLink { .. } | Self::AdjustCount { .. } => {
+                None
+            }
         }
     }
 }
@@ -180,7 +189,7 @@ pub struct OptimisticLinkPatch {
     pub variables_json: String,
     /// Response-key traversal beginning at the query root or selected record.
     pub path: Vec<LinkPathSegment>,
-    /// Idempotent relation operation.
+    /// Relation operation or pending-only count adjustment.
     pub operation: LinkOperation,
 }
 
@@ -305,7 +314,9 @@ fn validate_recipe(
         return Err(LinkPatchError::InvalidDepth(patch.path.len()));
     }
     validate_entrypoint(schema, patch)?;
-    validate_entity_key(patch.operation.entity_key())?;
+    if let Some(key) = patch.operation.entity_key() {
+        validate_entity_key(key)?;
+    }
     for segment in &patch.path {
         if let LinkPathSegment::ListItem { list_item } = segment
             && !is_json_scalar(&list_item.equals)
@@ -348,7 +359,9 @@ fn validate_recipe(
                 return Err(LinkPatchError::NonScalarInsertField);
             }
         }
-        LinkOperation::Remove { .. } | LinkOperation::PrependUnique { .. } => {}
+        LinkOperation::Remove { .. }
+        | LinkOperation::PrependUnique { .. }
+        | LinkOperation::AdjustCount { .. } => {}
     }
     Ok(())
 }
@@ -499,6 +512,18 @@ fn apply_one(
         })?;
     let target = traverse(&mut field_value, &resolved.path)?;
     match &patch.operation {
+        LinkOperation::AdjustCount { delta } => {
+            let CacheValue::Number(CacheNumber::PosInt(count)) = target else {
+                return Err(LinkPatchError::InvalidLinkCount);
+            };
+            *count = if *delta >= 0 {
+                count
+                    .checked_add(delta.unsigned_abs())
+                    .ok_or(LinkPatchError::LinkCountOverflow)?
+            } else {
+                count.saturating_sub(delta.unsigned_abs())
+            };
+        }
         LinkOperation::Remove { entity_key } => {
             let links = normalized_links(target)?;
             links.retain(
@@ -1031,7 +1056,8 @@ fn resolve_embedded_link_fields(
         } => (list_item, link_field, count_field, Some(insert_fields)),
         LinkOperation::Remove { .. }
         | LinkOperation::PrependUnique { .. }
-        | LinkOperation::UpsertByField { .. } => return Ok(None),
+        | LinkOperation::UpsertByField { .. }
+        | LinkOperation::AdjustCount { .. } => return Ok(None),
     };
 
     let selector_key = selected_storage_key(

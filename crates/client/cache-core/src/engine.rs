@@ -2558,6 +2558,15 @@ impl<S: Storage> Engine<S> {
         } else {
             (Vec::new(), Vec::new())
         };
+        // Count deltas describe pending intent, not an idempotent membership
+        // change. Authoritative queries may already include the committed move;
+        // leave their base counts to settlement revalidation instead of doubling it.
+        recipes.retain(|patch| {
+            !matches!(
+                patch.operation,
+                crate::link_patch::LinkOperation::AdjustCount { .. }
+            )
+        });
         for patch in &mut recipes {
             identity::remap_patch(patch, &bindings, &identities);
         }

@@ -4,12 +4,16 @@ import type {
   InspectQueryVariantsArgs,
 } from '@graphql-cache/host/types';
 import {
+  GroupSoupDirectoryDocument,
   GroupSoupDocument,
   SoupDocument,
 } from '@service-storage/graphql/generated/graphql';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { registerGraphqlSoupRevalidations } from '../graphql/active-queries';
-import { registerGroupedSoupContinuation } from './graphql-operation-registry';
+import {
+  registerGroupedSoupContinuation,
+  registerGroupedSoupDirectory,
+} from './graphql-operation-registry';
 import {
   buildOptimisticGroupedPropertyUpdates,
   createGroupedPropertyPreparation,
@@ -42,6 +46,78 @@ function continuationInput(propertyDefinitionId: string) {
 
 const input = initialInput('status-def');
 const continuation = continuationInput('status-def');
+
+function directoryHost(
+  options: {
+    destination?: boolean;
+    directoryUser?: string;
+    sourcePresent?: boolean;
+  } = {}
+) {
+  const directory = { groupBy: input.initial.groupBy };
+  const start = { startGroup: { ...input.initial, groupKey: 'in-progress' } };
+  for (const page of [start, continuation])
+    onTestFinished(registerGroupedSoupContinuation(input, page, 'viewer'));
+  onTestFinished(
+    registerGroupedSoupDirectory(
+      input,
+      directory,
+      options.directoryUser ?? 'viewer'
+    )
+  );
+  const queries = [
+    { document: GroupSoupDocument, variables: { input: start } },
+    { document: GroupSoupDocument, variables: { input: continuation } },
+    { document: GroupSoupDirectoryDocument, variables: { input: directory } },
+  ];
+  // Two mounted consumers must not multiply a directory's delta.
+  onTestFinished(registerGraphqlSoupRevalidations(() => queries));
+  onTestFinished(registerGraphqlSoupRevalidations(() => queries));
+  const cache = host({ register: false });
+  cache.readQuery = vi.fn(async (request) => ({
+    kind: 'hit' as const,
+    data: {
+      user:
+        request.operationName === 'GroupSoupDirectory'
+          ? {
+              groupSoupDirectory: [
+                {
+                  key: 'in-progress',
+                  label: 'In progress',
+                  displayOrder: 0,
+                  totalCount: 10,
+                },
+                ...(options.destination === false
+                  ? []
+                  : [
+                      {
+                        key: 'completed',
+                        label: 'Completed',
+                        displayOrder: 1,
+                        totalCount: 4,
+                      },
+                    ]),
+              ],
+            }
+          : {
+              groupSoup: {
+                bins: [
+                  {
+                    key: 'in-progress',
+                    totalCount: 10,
+                    nextCursor: 'next',
+                    items:
+                      options.sourcePresent === false
+                        ? []
+                        : [{ __typename: 'GraphqlSoupDocument', id: 'task-1' }],
+                  },
+                ],
+              },
+            },
+    },
+  }));
+  return cache;
+}
 
 function host(args?: {
   destination?: boolean;
@@ -155,6 +231,63 @@ function host(args?: {
 }
 
 describe('buildOptimisticGroupedPropertyUpdates', () => {
+  it('adjusts directory counts once across duplicate pages and consumers without opening the destination', async () => {
+    const cache = directoryHost();
+    const result = await buildOptimisticGroupedPropertyUpdates({
+      host: cache,
+      entityId: 'task-1',
+      propertyDefinitionId: 'status-def',
+      oldGroupKeys: ['in-progress'],
+      newGroupKeys: ['completed'],
+    });
+    const counts = result.updates.filter(
+      (patch) => patch.operation.kind === 'adjustCount'
+    );
+    expect(counts.map((patch) => patch.operation)).toEqual([
+      { kind: 'adjustCount', delta: -1 },
+      { kind: 'adjustCount', delta: 1 },
+    ]);
+    expect(counts.map((patch) => patch.path)).toEqual(
+      ['in-progress', 'completed'].map((key) => [
+        { field: 'user' },
+        { field: 'groupSoupDirectory' },
+        { listItem: { whereField: 'key', equals: key } },
+        { field: 'totalCount' },
+      ])
+    );
+    expect(
+      result.updates.filter(
+        (patch) => patch.operation.kind === 'upsertEmbeddedLink'
+      )
+    ).toHaveLength(0);
+    expect(cache.readQuery).toHaveBeenCalledTimes(3);
+    expect(
+      result.revalidations.some(
+        (query) => query.document === GroupSoupDirectoryDocument
+      )
+    ).toBe(true);
+  });
+
+  it.each([
+    { directoryUser: 'other', expected: 0 },
+    { sourcePresent: false, expected: 0 },
+    { destination: false, expected: 1 },
+  ])(
+    'requires matching user, membership evidence, and existing metadata: %j',
+    async ({ expected, ...options }) => {
+      const result = await buildOptimisticGroupedPropertyUpdates({
+        host: directoryHost(options),
+        entityId: 'task-1',
+        propertyDefinitionId: 'status-def',
+        oldGroupKeys: ['in-progress'],
+        newGroupKeys: ['completed'],
+      });
+      expect(
+        result.updates.filter((patch) => patch.operation.kind === 'adjustCount')
+      ).toHaveLength(expected);
+    }
+  );
+
   it('builds source removal then destination prepend for a status move', async () => {
     const onInspect = vi.fn();
     const onRead = vi.fn();

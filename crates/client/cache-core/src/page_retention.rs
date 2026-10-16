@@ -16,7 +16,10 @@ pub(crate) const PAGE_ORDER_FIELD: &str = "__cache_soup_page_order_v1";
 const ORDER_OVERHEAD_BYTES: usize = PAGE_ORDER_FIELD.len() + 32;
 
 fn is_page_field(key: &str) -> bool {
-    matches!(key.split('(').next(), Some("soup" | "groupSoup"))
+    matches!(
+        key.split('(').next(),
+        Some("soup" | "groupSoup" | "groupSoupDirectory")
+    )
 }
 
 /// Remove only the viewer's page wrappers from hydration updates. Normalized
@@ -69,7 +72,11 @@ pub(crate) fn retain_soup_pages(record: &mut Record, updated: &[String]) -> bool
         }))
         .chain(
             legacy()
-                .filter(|key| key.contains("\"initial\":"))
+                .filter(|key| {
+                    key.contains("\"initial\":")
+                        || key.contains("\"startGroup\":")
+                        || key.starts_with("groupSoupDirectory(")
+                })
                 .map(String::as_str),
         )
         .chain(legacy().map(String::as_str));

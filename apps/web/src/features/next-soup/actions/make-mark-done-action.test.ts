@@ -136,7 +136,7 @@ const notificationSource = {} as NotificationSource;
 
 function createSoup() {
   const focusSet = vi.fn();
-  const nextRow = { id: 'next-row', original: nextEntity };
+  const nextRow = { kind: 'entity', id: 'next-row', original: nextEntity };
   const soup = {
     focus: {
       id: () => 'current-row',

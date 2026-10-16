@@ -1,6 +1,8 @@
 import {
   createVirtualizer,
   defaultRangeExtractor,
+  observeElementOffset,
+  observeElementRect,
   type Range,
   type VirtualItem,
 } from '@tanstack/solid-virtual';
@@ -43,6 +45,16 @@ export function createKanbanVirtualizer(options: KanbanVirtualizerOptions) {
 
   const [state, actions] = context;
   const [scrollElement, setScrollElement] = createSignal<HTMLDivElement>();
+  const [viewport, setViewport] = createSignal(
+    {
+      offset: options.snapshot?.offset ?? 0,
+      size: 0,
+    },
+    {
+      equals: (left, right) =>
+        left.offset === right.offset && left.size === right.size,
+    }
+  );
 
   onMount(() => {
     // Suspense can create the viewport in an inert document before attaching it.
@@ -82,6 +94,21 @@ export function createKanbanVirtualizer(options: KanbanVirtualizerOptions) {
   };
 
   const virtualizer = createVirtualizer<HTMLDivElement, HTMLDivElement>({
+    // onChange only fires when the virtual range changes, which misses empty
+    // lanes and scrolls within the same overscan range. Observe the raw metrics.
+    observeElementRect: (instance, callback) =>
+      observeElementRect(instance, (rect) => {
+        setViewport((previous) => ({
+          ...previous,
+          size: options.direction === 'horizontal' ? rect.width : rect.height,
+        }));
+        callback(rect);
+      }),
+    observeElementOffset: (instance, callback) =>
+      observeElementOffset(instance, (offset, scrolling) => {
+        setViewport((previous) => ({ ...previous, offset }));
+        callback(offset, scrolling);
+      }),
     get count() {
       return options.keys().length;
     },
@@ -132,5 +159,5 @@ export function createKanbanVirtualizer(options: KanbanVirtualizerOptions) {
     )
   );
 
-  return virtualizer;
+  return { virtualizer, viewport };
 }

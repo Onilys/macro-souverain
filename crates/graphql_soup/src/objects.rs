@@ -210,6 +210,30 @@ impl<E: SoupEntityEdges> SoupPage<E> {
     }
 }
 
+/// Metadata for a nonempty group, independent of any loaded entity page.
+#[derive(SimpleObject)]
+pub struct GraphqlSoupDirectoryEntry {
+    /// Group membership key.
+    pub key: String,
+    /// Number of matching entities before pagination.
+    pub total_count: u32,
+    /// Fallback label, resolved without a representative entity.
+    pub label: String,
+    /// Default group display ordering.
+    pub display_order: Option<i32>,
+}
+
+impl From<soup::domain::models::grouping::GroupDirectoryEntry> for GraphqlSoupDirectoryEntry {
+    fn from(entry: soup::domain::models::grouping::GroupDirectoryEntry) -> Self {
+        Self {
+            key: entry.key,
+            total_count: entry.total_count,
+            label: entry.label,
+            display_order: entry.display_order,
+        }
+    }
+}
+
 /// GraphQL representation of grouped Soup items.
 #[derive(SimpleObject)]
 pub struct GroupedSoup<E: SoupEntityEdges> {

@@ -21,6 +21,7 @@ type Variables = { cursor: string | null };
 
 type FakeExecution = {
   variables: Variables;
+  policy: OperationContext['requestPolicy'];
   next(data: Page): void;
   readonly unsubscribed: boolean;
 };
@@ -42,6 +43,7 @@ function makeFakeClient(): {
     } as Operation<Page, Variables>;
     executions.push({
       variables: request.variables,
+      policy: context.requestPolicy ?? 'cache-first',
       next: (data) =>
         subject.next({ operation, data } as OperationResult<Page, Variables>),
       get unsubscribed() {
@@ -77,6 +79,50 @@ afterEach(() => {
 });
 
 describe('createUrqlInfiniteQuery', () => {
+  it('changes network policy without discarding loaded cursor pages', async () => {
+    const fake = makeFakeClient();
+    const [policy, setPolicy] =
+      createSignal<OperationContext['requestPolicy']>('cache-first');
+    const query = createRoot((dispose) => {
+      disposals.push(dispose);
+      return createUrqlInfiniteQuery(() => ({
+        client: fake.client,
+        query: DOCUMENT,
+        requestPolicy: policy(),
+        initialPageParam: null as string | null,
+        variables: (cursor: string | null) => ({ cursor }),
+        getNextPageParam: (page: Page) => page.nextCursor,
+        select: ({ pages }: { pages: Page[] }) =>
+          pages.flatMap((page) => page.values),
+      }));
+    });
+    fake.executions[0].next({ values: ['a'], nextCursor: 'next' });
+    const next = query.fetchNextPage();
+    fake.executions[1].next({ values: ['b'], nextCursor: null });
+    await next;
+
+    setPolicy('cache-only');
+    expect(
+      fake.executions
+        .slice(2)
+        .map(({ variables, policy }) => ({ variables, policy }))
+    ).toEqual([
+      { variables: { cursor: null }, policy: 'cache-only' },
+      { variables: { cursor: 'next' }, policy: 'cache-only' },
+    ]);
+    expect(query.data).toEqual(['a', 'b']);
+    fake.executions[2].next({ values: ['a'], nextCursor: 'next' });
+    fake.executions[3].next({ values: ['b'], nextCursor: null });
+    setPolicy('cache-first');
+    expect(
+      fake.executions.slice(4).map((execution) => execution.policy)
+    ).toEqual(['cache-first', 'cache-first']);
+    fake.executions[4].next({ values: ['a'], nextCursor: 'next' });
+    fake.executions[5].next({ values: ['b'], nextCursor: null });
+    expect(query.data).toEqual(['a', 'b']);
+    expect(query.hasNextPage).toBe(false);
+  });
+
   it('reselects when a live page changes without another result emission', () => {
     const fake = makeFakeClient();
     const [page, setPage] = createStore<Page>({

@@ -328,6 +328,29 @@ where
         Ok(candidates.into_iter())
     }
 
+    async fn resolve_grouped_filters<'a>(
+        &self,
+        mut req: GroupedSortRequest<'a>,
+    ) -> Result<GroupedSortRequest<'a>, SoupErr> {
+        if let Some(entities) = self
+            .favorite_entities(&req.user_id, Some(req.cursor.filter()))
+            .await?
+        {
+            req.cursor = req
+                .cursor
+                .map_filter(|ast| favorites::apply(ast, &entities));
+        }
+        // Grouped queries carry no team receipt, so associations resolve
+        // under the viewer's own CRM teams.
+        if let Some(resolved) = self
+            .resolve_crm_associations(&req.user_id, None, Some(req.cursor.filter()))
+            .await?
+        {
+            req.cursor = req.cursor.map_filter(|ast| resolved.apply(ast));
+        }
+        Ok(req)
+    }
+
     #[tracing::instrument(err, skip(self, req))]
     async fn handle_grouped_soup_request(
         &self,
@@ -2027,27 +2050,25 @@ where
     #[tracing::instrument(err, skip(self, req))]
     async fn get_user_soup_grouped(
         &self,
-        mut req: GroupedSortRequest<'_>,
+        req: GroupedSortRequest<'_>,
     ) -> Result<impl Iterator<Item = ItemGroupingInfo<SoupPropertiesField>> + Send, SoupErr> {
         let user_id = req.user_id.clone();
-        if let Some(entities) = self
-            .favorite_entities(&user_id, Some(req.cursor.filter()))
-            .await?
-        {
-            req.cursor = req
-                .cursor
-                .map_filter(|ast| favorites::apply(ast, &entities));
-        }
-        // Grouped queries carry no team receipt, so associations resolve
-        // under the viewer's own CRM teams.
-        if let Some(resolved) = self
-            .resolve_crm_associations(&user_id, None, Some(req.cursor.filter()))
-            .await?
-        {
-            req.cursor = req.cursor.map_filter(|ast| resolved.apply(ast));
-        }
+        let req = self.resolve_grouped_filters(req).await?;
         let items = self.handle_grouped_soup_request(req).await?;
         self.populate_grouped_items(user_id, items).await
+    }
+
+    #[tracing::instrument(err, skip(self, req))]
+    async fn get_user_soup_group_directory(
+        &self,
+        req: GroupedSortRequest<'_>,
+    ) -> Result<Vec<crate::domain::models::grouping::GroupDirectoryEntry>, SoupErr> {
+        let req = self.resolve_grouped_filters(req).await?;
+        self.soup_storage
+            .grouped_soup_directory(req)
+            .await
+            .map_err(anyhow::Error::from)
+            .map_err(Into::into)
     }
 
     #[tracing::instrument(err, skip(self))]

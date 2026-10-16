@@ -77,6 +77,27 @@ where
     })
 }
 
+/// Resolve group metadata through the authenticated Soup service.
+pub async fn resolve_grouped_soup_directory<S, Auth, St>(
+    service: &S,
+    ctx: &Context<'_>,
+    input: crate::inputs::GroupedSoupDirectoryInput,
+) -> async_graphql::Result<Vec<crate::objects::GraphqlSoupDirectoryEntry>>
+where
+    S: SoupService,
+    Auth: MacroAuthorizationService,
+    MacroAuthorizationState<Auth>: FromRef<St>,
+    St: Clone + Send + Sync + 'static,
+{
+    let user = require_authorized_user::<Auth, St>(ctx).await?;
+    Ok(service
+        .get_user_soup_group_directory(input.into_request(user)?)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
 /// Resolve Soup items nested into grouping bins for the authenticated user.
 pub async fn resolve_grouped_soup<S, Auth, St, Edges>(
     service: &S,

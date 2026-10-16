@@ -55,7 +55,8 @@ export const makeCreateReminderAction = (
             )
             .find(
               (candidate) =>
-                candidate && candidate.row.original.id !== entity.id
+                candidate?.row.kind === 'entity' &&
+                candidate.row.original.id !== entity.id
             )?.row;
           soup.selection.clear();
           soup.focus.set(next?.id);

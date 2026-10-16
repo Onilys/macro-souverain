@@ -13,6 +13,8 @@ import {
   For,
   type JSX,
   on,
+  onCleanup,
+  onMount,
   Show,
   splitProps,
 } from 'solid-js';
@@ -22,6 +24,10 @@ import {
   type GanttGroupMove,
   useGanttGroupDrag,
 } from './gantt-group-drag';
+import {
+  createGanttRowViewport,
+  type GanttRowViewport,
+} from './gantt-row-viewport';
 import { GanttSidebarPanelRow } from './gantt-sidebar';
 
 type RowsProps<T> = {
@@ -172,8 +178,10 @@ type RowEntry<T> = {
 export function GanttRows<T>(
   props: RowsProps<T> & {
     renderDropPreview?: (move: GanttGroupMove) => JSX.Element;
+    viewportRef?: (viewport: GanttRowViewport<T> | undefined) => void;
   }
 ) {
+  const gantt = useGantt();
   const drag = useGanttGroupDrag();
   const previewKey = `gantt-preview:${createUniqueId()}`;
   const normal = createMemo<RowEntry<T>[]>((previous) => {
@@ -215,6 +223,19 @@ export function GanttRows<T>(
     );
     return rows;
   });
+  const viewportRows = createMemo(() =>
+    entries().map((row) => ({
+      key: row.key,
+      item: row.kind === 'item' ? row.item : undefined,
+    }))
+  );
+  const viewport = createGanttRowViewport({
+    rows: viewportRows,
+    element: gantt.viewport,
+    rowHeight: gantt.rowHeight,
+  });
+  onMount(() => props.viewportRef?.(viewport));
+  onCleanup(() => props.viewportRef?.(undefined));
   return (
     <Rows
       items={entries()}

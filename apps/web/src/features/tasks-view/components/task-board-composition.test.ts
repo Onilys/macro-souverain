@@ -17,7 +17,13 @@ const drag = vi.hoisted(() => ({
   drop: undefined as ((drop: KanbanDrop) => void) | undefined,
 }));
 const scrolled = vi.hoisted(() => vi.fn());
-const visibility = vi.hoisted(() => ({ end: (): boolean => true }));
+const visibility = vi.hoisted(() => ({
+  end: (): boolean => true,
+  left: (): number => 0,
+  top: (): number => 0,
+  width: (): number => 100,
+  height: (): number => 100,
+}));
 
 vi.mock('@app/components/kanban/kanban', async (importOriginal) => {
   const original =
@@ -41,24 +47,36 @@ vi.mock('@app/components/kanban/kanban-virtualizer', () => ({
     keys: Accessor<readonly (string | number)[]>;
     getScrollElement: () => HTMLDivElement | undefined;
   }) => ({
-    get scrollElement() {
-      return options.getScrollElement();
+    viewport: () => ({
+      offset:
+        options.direction === 'horizontal'
+          ? visibility.left()
+          : visibility.top(),
+      size:
+        options.direction === 'horizontal'
+          ? visibility.width()
+          : visibility.height(),
+    }),
+    virtualizer: {
+      get scrollElement() {
+        return options.getScrollElement();
+      },
+      getVirtualItems: () =>
+        options
+          .keys()
+          .map((key, index) => ({
+            key,
+            index,
+            start: index * 100,
+            size: 100,
+          }))
+          .filter((item) => item.key !== -1 || visibility.end()),
+      getTotalSize: () => options.keys().length * 100,
+      scrollToIndex: (index: number, scrollOptions: { align?: string }) =>
+        scrolled(options.direction, index, scrollOptions),
+      measureElement: vi.fn(),
+      takeSnapshot: () => [],
     },
-    getVirtualItems: () =>
-      options
-        .keys()
-        .map((key, index) => ({
-          key,
-          index,
-          start: index * 100,
-          size: 100,
-        }))
-        .filter((item) => item.key !== -1 || visibility.end()),
-    getTotalSize: () => options.keys().length * 100,
-    scrollToIndex: (index: number, scrollOptions: { align?: string }) =>
-      scrolled(options.direction, index, scrollOptions),
-    measureElement: vi.fn(),
-    takeSnapshot: () => [],
   }),
 }));
 
@@ -77,6 +95,10 @@ afterEach(() => {
   drag.drop = undefined;
   vi.clearAllMocks();
   visibility.end = () => true;
+  visibility.left = () => 0;
+  visibility.top = () => 0;
+  visibility.width = () => 100;
+  visibility.height = () => 100;
   vi.unstubAllGlobals();
 });
 
@@ -96,6 +118,7 @@ function mountBoard(options: {
   columns: Accessor<readonly TaskBoardColumn[]>;
   hidden: Accessor<boolean>;
   endColumn?: () => JSX.Element;
+  onNearEnd?: (id: string) => void;
   move(): Promise<boolean>;
 }) {
   const card = (current: Accessor<TaskBoardTask>) => {
@@ -117,6 +140,11 @@ function mountBoard(options: {
   const cards = (current: Accessor<TaskBoardColumn>) =>
     createComponent(TaskBoard.Cards, {
       children: card,
+      get onNearEnd() {
+        return options.onNearEnd
+          ? () => options.onNearEnd?.(current().id)
+          : undefined;
+      },
       get footer() {
         const footer = document.createElement('button');
         footer.textContent = `${current().id} paging`;
@@ -252,4 +280,54 @@ it('creates final-column resources only while that virtual column is mounted', (
   setHidden(false);
   expect(disposed).toHaveBeenCalledTimes(2);
   expect(view.queryByText('Hidden')).toBeNull();
+});
+
+it('requests only horizontally visible columns, excluding mounted overscan and pinned lanes', () => {
+  const [left, setLeft] = createSignal(0);
+  const [width, setWidth] = createSignal(100);
+  visibility.left = left;
+  visibility.width = width;
+  const request = vi.fn();
+  mountBoard({
+    columns: () => [column('a', []), column('b', []), column('c', [])],
+    hidden: () => false,
+    move: async () => true,
+    onNearEnd: request,
+  });
+  expect(request.mock.calls).toEqual([['a']]);
+  request.mockClear();
+  setLeft(100);
+  expect(request.mock.calls).toEqual([['b']]);
+  request.mockClear();
+  setWidth(200);
+  expect(request.mock.calls).toEqual([['b'], ['c']]);
+});
+
+it('requests more after vertical scroll or viewport growth reaches a lane end', () => {
+  const [top, setTop] = createSignal(0);
+  const [height, setHeight] = createSignal(100);
+  visibility.top = top;
+  visibility.height = height;
+  const request = vi.fn();
+  mountBoard({
+    columns: () => [
+      column(
+        'a',
+        Array.from({ length: 10 }, (_, index) => ({
+          ...task,
+          id: String(index),
+        }))
+      ),
+    ],
+    hidden: () => false,
+    move: async () => true,
+    onNearEnd: request,
+  });
+  expect(request).not.toHaveBeenCalled();
+  setTop(650);
+  expect(request.mock.calls).toEqual([['a']]);
+  setTop(0);
+  request.mockClear();
+  setHeight(500);
+  expect(request.mock.calls).toEqual([['a']]);
 });

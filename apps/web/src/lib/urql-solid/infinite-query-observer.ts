@@ -103,7 +103,6 @@ function sameQuery<PageParam>(
     left !== undefined &&
     left.key === right.key &&
     Object.is(left.initialPageParam, right.initialPageParam) &&
-    left.requestPolicy === right.requestPolicy &&
     shallowEqualContext(left.context, right.context)
   );
 }
@@ -416,6 +415,8 @@ export class InfiniteQueryObserver<
         context: options.context,
       };
       const queryChanged = !sameQuery(this.queryKey, queryKey);
+      const policyChanged =
+        this.queryKey?.requestPolicy !== queryKey.requestPolicy;
 
       if (queryChanged) {
         this.cancelActions();
@@ -426,14 +427,17 @@ export class InfiniteQueryObserver<
               : undefined,
           paginationError: undefined,
         });
-        this.queryKey = queryKey;
         this.destroyPages();
+      } else if (policyChanged) {
+        // A network pause changes execution policy, not the loaded cursor chain.
+        this.cancelActions();
       }
+      this.queryKey = queryKey;
 
       this.setState({ enabled: true });
       if (this.pages.length === 0) {
         this.appendPage(options.initialPageParam, 0, initialVariables);
-      } else if (!wasEnabled) {
+      } else if (!wasEnabled || policyChanged) {
         for (const page of this.pages) {
           page.observer.setOptions(this.pageOptions(page, true), client);
         }

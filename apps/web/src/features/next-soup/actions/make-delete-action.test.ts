@@ -164,6 +164,7 @@ function listState(entities: EntityData[]) {
         original,
         index,
         group: undefined,
+        kind: 'entity',
         getIsGrouped: () => false,
         getIsLoadMore: () => false,
         isFocused: () => focused === original.id,
@@ -402,7 +403,9 @@ describe.each(['legacy', 'controller'] as const)(
       modal.onFinish();
       const focusId = soup.focus.id();
       expect(
-        focusId === undefined ? undefined : soup.items.get(focusId)?.original.id
+        focusId === undefined
+          ? undefined
+          : soup.items.get(focusId)?.original?.id
       ).toBe(expected);
       expect(mocks.restoreFocus).toHaveBeenLastCalledWith(focusId);
     });
@@ -430,16 +433,14 @@ it('skips grouped headers and load-more rows when anchoring partial-delete focus
     soup.buildRow({
       id: 'header',
       index: 3,
-      original: neighbour,
       group,
-      isGrouped: true,
+      kind: 'group-header',
     }),
     soup.buildRow({
       id: 'more',
       index: 4,
-      original: neighbour,
       group,
-      isLoadMore: true,
+      kind: 'load-more',
     }),
   ];
   soup.setRows([

@@ -1,11 +1,13 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
 import {
+  GroupSoupDirectoryDocument,
   GroupSoupMembershipDocument,
   PropertyAssignmentParentFragmentDoc,
 } from '@service-storage/graphql/generated/graphql';
 import type { Client } from '@urql/core';
 import { describe, expect, it } from 'vitest';
 import {
+  adjustCount,
   executeOptimisticMutation,
   prependUnique,
   remove,
@@ -37,6 +39,28 @@ function itemsIn(groupKey: string) {
 }
 
 describe('typed optimistic graph updates', () => {
+  it('serializes count deltas on a generated numeric selection', () => {
+    const count = select(GroupSoupDirectoryDocument, {
+      input: { groupBy: input.initial.groupBy },
+    })
+      .field('user')
+      .field('groupSoupDirectory')
+      .item('key', 'in-progress')
+      .field('totalCount');
+    expect(adjustCount(count, -1)).toMatchObject({
+      operationName: 'GroupSoupDirectory',
+      path: [
+        { field: 'user' },
+        { field: 'groupSoupDirectory' },
+        { listItem: { whereField: 'key', equals: 'in-progress' } },
+        { field: 'totalCount' },
+      ],
+      operation: { kind: 'adjustCount', delta: -1 },
+    });
+    expect(() => adjustCount(count, 0.5)).toThrow();
+    expect(() => adjustCount(count, Number.MAX_SAFE_INTEGER + 1)).toThrow();
+  });
+
   it('serializes a generated query entrypoint, variables, path, and diff', () => {
     const removal = update(
       itemsIn('in-progress'),

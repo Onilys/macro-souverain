@@ -1,4 +1,5 @@
 import {
+  adjustCount,
   type OptimisticUpdate,
   type QueryRevalidation,
   removeEmbeddedLink,
@@ -9,6 +10,9 @@ import type { CacheHost } from '@graphql-cache/host/types';
 import { getOperationName, stringifyDocument } from '@urql/core';
 import {
   type GroupedSoupInput,
+  GroupSoupDirectoryDocument,
+  type GroupSoupDirectoryQuery,
+  type GroupSoupDirectoryQueryVariables,
   GroupSoupDocument,
   GroupSoupMembershipDocument,
   type GroupSoupMembershipQuery,
@@ -65,7 +69,7 @@ export function isRelevantPropertyGrouping(
   input: GroupedSoupInput,
   propertyDefinitionId: string
 ): boolean {
-  const page = input.initial ?? input.continuation;
+  const page = input.initial ?? input.startGroup ?? input.continuation;
   return (
     page.groupBy.field === 'PROPERTY' &&
     String(page.groupBy.propertyDefinitionId) === propertyDefinitionId
@@ -108,6 +112,10 @@ function activePropertyGroupedInputs(
 }
 
 type ReadGroupPage = (input: GroupedSoupInput) => Promise<GroupPage | null>;
+type DirectoryInput = GroupSoupDirectoryQueryVariables['input'];
+type ReadDirectory = (
+  input: DirectoryInput
+) => Promise<GroupSoupDirectoryQuery['user']['groupSoupDirectory'] | undefined>;
 export type PrepareGroupedPropertyUpdates = (
   args: Omit<BuildArgs, 'host'>
 ) => Promise<OptimisticGroupedPropertyUpdates>;
@@ -123,6 +131,7 @@ export function createGroupedPropertyPreparation(
   host: CacheHost
 ): PrepareGroupedPropertyUpdates {
   const pages = new Map<string, Promise<GroupPage | null>>();
+  const directories = new Map<string, ReturnType<ReadDirectory>>();
   const preparedEntities = new Set<string>();
   const readPage: ReadGroupPage = (input) => {
     const key = groupedSoupInputKey(input);
@@ -133,14 +142,38 @@ export function createGroupedPropertyPreparation(
     }
     return pending;
   };
+  const readDirectory: ReadDirectory = (input) => {
+    const key = groupedSoupInputKey(input);
+    let pending = directories.get(key);
+    if (!pending) {
+      pending = host
+        .readQuery({
+          query: stringifyDocument(GroupSoupDirectoryDocument),
+          operationName: getOperationName(GroupSoupDirectoryDocument),
+          variables: { input },
+          priority: 'user-visible',
+        })
+        .then((result) =>
+          result.kind === 'miss'
+            ? undefined
+            : (result.data as GroupSoupDirectoryQuery).user.groupSoupDirectory
+        );
+      directories.set(key, pending);
+    }
+    return pending;
+  };
   return async (args) => {
-    if (preparedEntities.has(args.entityId)) pages.clear();
+    if (preparedEntities.has(args.entityId)) {
+      pages.clear();
+      directories.clear();
+    }
     preparedEntities.add(args.entityId);
     try {
-      return await prepareGroupedPropertyUpdates(args, readPage);
+      return await prepareGroupedPropertyUpdates(args, readPage, readDirectory);
     } catch (error) {
       // A transient cache failure must not poison the rest of a bulk edit.
       pages.clear();
+      directories.clear();
       throw error;
     }
   };
@@ -170,7 +203,8 @@ export function buildOptimisticGroupedPropertyUpdates(
 
 async function prepareGroupedPropertyUpdates(
   args: Omit<BuildArgs, 'host'>,
-  readPage: ReadGroupPage
+  readPage: ReadGroupPage,
+  readDirectory: ReadDirectory
 ): Promise<OptimisticGroupedPropertyUpdates> {
   const changes = diffGroupKeys(args.oldGroupKeys, args.newGroupKeys);
   if (!changes && !args.revalidateOnly) {
@@ -178,10 +212,16 @@ async function prepareGroupedPropertyUpdates(
   }
 
   const inputs = activePropertyGroupedInputs(args.propertyDefinitionId);
-  const revalidations: QueryRevalidation[] = inputs.map((input) => ({
-    document: GroupSoupMembershipDocument,
-    variables: { input },
-  }));
+  const directoryQueries = getActiveGraphqlSoupRevalidations().filter(
+    (query) => query.document === GroupSoupDirectoryDocument
+  );
+  const revalidations: QueryRevalidation[] = [
+    ...inputs.map((input) => ({
+      document: GroupSoupMembershipDocument,
+      variables: { input },
+    })),
+    ...directoryQueries,
+  ];
   if (args.revalidateOnly || !changes) {
     return { updates: [], revalidations };
   }
@@ -192,7 +232,7 @@ async function prepareGroupedPropertyUpdates(
   );
   const { removed, added } = changes;
   const updates: OptimisticUpdate[] = [];
-  for (const pages of views.values()) {
+  for (const [view, pages] of views) {
     const sourceGroupKeys = removed.length > 0 ? removed : args.oldGroupKeys;
     const sourcePages = pages.filter((page) =>
       sourceGroupKeys.some((key) =>
@@ -216,10 +256,42 @@ async function prepareGroupedPropertyUpdates(
       continue;
     }
 
-    const destinationPages = pages.filter((page) => isInitialInput(page.input));
-    // Never expose a source-only move when this logical view has no initial
-    // page where the destination can be shown.
-    if (added.length > 0 && destinationPages.length === 0) continue;
+    for (const query of directoryQueries) {
+      const { input } = query.variables as GroupSoupDirectoryQueryVariables;
+      if (groupedSoupLogicalViewKey({ directory: input }) !== view) continue;
+      const groups = await readDirectory(input);
+      if (!groups) continue;
+      const directory = select(GroupSoupDirectoryDocument, { input })
+        .field('user')
+        .field('groupSoupDirectory');
+      for (const [keys, delta] of [
+        [removed, -1],
+        [added, 1],
+      ] as const) {
+        for (const key of keys) {
+          // Existing metadata is authoritative. Unknown destinations remain lazy
+          // and are discovered by settlement revalidation, never synthesized.
+          if (!groups.some((group) => group.key === key)) continue;
+          const contains = pages.some((page) =>
+            page.bins.some(
+              (bin) =>
+                bin.key === key &&
+                bin.items.some((item) => item.id === args.entityId)
+            )
+          );
+          if ((delta < 0 && !contains) || (delta > 0 && contains)) continue;
+          updates.push(
+            adjustCount(directory.item('key', key).field('totalCount'), delta)
+          );
+        }
+      }
+    }
+
+    const destinationPages = pages.filter(
+      (page) =>
+        isInitialInput(page.input) || page.input.startGroup !== undefined
+    );
+    // Unopened destinations stay lazy; their directory metadata is revalidated.
 
     for (const page of sourcePages) {
       for (const key of removed) {
@@ -243,6 +315,8 @@ async function prepareGroupedPropertyUpdates(
     }
     for (const page of destinationPages) {
       for (const key of added) {
+        if (page.input.startGroup && page.input.startGroup.groupKey !== key)
+          continue;
         const bins = select(GroupSoupMembershipDocument, {
           input: page.input,
         })

@@ -545,3 +545,68 @@ async fn associations_require_an_expanded_query() {
     }
     assert!(comms.targets.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn group_directory_resolves_crm_scope_before_counting() {
+    let mut repo = MockSoupRepo::new();
+    repo.expect_crm_property_edges()
+        .times(1)
+        .returning(|companies, contacts| {
+            assert_eq!(companies, [COMPANY]);
+            assert_eq!(contacts, [CONTACT, SIBLING_CONTACT]);
+            Box::pin(async { Ok(Vec::new()) })
+        });
+    repo.expect_grouped_soup_directory()
+        .times(1)
+        .returning(|request| {
+            let filter = request.cursor.filter();
+            assert_eq!(filter.crm_association, None);
+            assert_eq!(
+                document_ids(filter.document_filter.as_deref().unwrap()),
+                [Uuid::from_u128(1), Uuid::from_u128(2)]
+            );
+            Box::pin(async { Ok(Vec::new()) })
+        });
+    service(repo, ReferencingComms::default())
+        .get_user_soup_group_directory(GroupedSortRequest {
+            user_id: MacroUserIdStr::parse_from_str(USER).unwrap(),
+            limit: 20,
+            cursor: Query::Sort(
+                SimpleSortMethod::UpdatedAt,
+                EntityFilterAst {
+                    crm_association: Some(Record::Company(COMPANY)),
+                    ..Default::default()
+                },
+            ),
+            grouping: GroupingConfig {
+                field: GroupByField::EntityType,
+                group_key: None,
+                per_group_limit: None,
+            },
+        })
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn group_directory_rejects_inaccessible_crm_scope_before_repository() {
+    let result = service(MockSoupRepo::new(), ReferencingComms::default())
+        .get_user_soup_group_directory(GroupedSortRequest {
+            user_id: MacroUserIdStr::parse_from_str(USER).unwrap(),
+            limit: 20,
+            cursor: Query::Sort(
+                SimpleSortMethod::UpdatedAt,
+                EntityFilterAst {
+                    crm_association: Some(Record::Company(Uuid::from_u128(0xdead))),
+                    ..Default::default()
+                },
+            ),
+            grouping: GroupingConfig {
+                field: GroupByField::EntityType,
+                group_key: None,
+                per_group_limit: None,
+            },
+        })
+        .await;
+    assert!(result.is_err());
+}

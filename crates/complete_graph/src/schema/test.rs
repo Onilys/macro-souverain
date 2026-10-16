@@ -292,6 +292,21 @@ impl SoupService for CountingSoupService {
         Err(test_soup_err())
     }
 
+    async fn get_user_soup_group_directory(
+        &self,
+        _req: soup::domain::models::GroupedSortRequest<'_>,
+    ) -> Result<
+        Vec<soup::domain::models::grouping::GroupDirectoryEntry>,
+        soup::domain::models::SoupErr,
+    > {
+        Ok(vec![soup::domain::models::grouping::GroupDirectoryEntry {
+            key: "document".into(),
+            total_count: 3,
+            label: "Documents".into(),
+            display_order: None,
+        }])
+    }
+
     async fn get_user_soup_grouped(
         &self,
         _req: soup::domain::models::GroupedSortRequest<'_>,
@@ -1897,6 +1912,21 @@ async fn soup_passes_team_receipt_to_frecency_enriched_path() {
     );
     assert_eq!(harness.inbox_calls.load(Ordering::SeqCst), 1);
     assert_eq!(harness.team_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn group_directory_does_not_load_items_and_groups_start_independently() {
+    let harness = harness();
+    let response = harness.execute("{ user { groupSoupDirectory(input: {groupBy: {field: ENTITY_TYPE}}) { key label totalCount } } }").await;
+    assert!(response.errors.is_empty(), "{:?}", response.errors);
+    let data = response.data.into_json().unwrap();
+    assert_eq!(data["user"]["groupSoupDirectory"][0]["totalCount"], 3);
+    assert_eq!(harness.grouped_soup_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(harness.authorization_calls.load(Ordering::SeqCst), 1);
+    let response = harness.execute("{ user { groupSoup(input: {startGroup: {groupBy: {field: ENTITY_TYPE}, groupKey: \"document\", limit: 2}}) { bins { key items { id } } } } }").await;
+    assert!(response.errors.is_empty(), "{:?}", response.errors);
+    assert_eq!(harness.grouped_soup_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(harness.authorization_calls.load(Ordering::SeqCst), 2);
 }
 
 #[tokio::test]
