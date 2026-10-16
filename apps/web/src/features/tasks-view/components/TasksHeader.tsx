@@ -146,21 +146,23 @@ export function TasksPrimaryActions(props: TasksHeaderProps) {
               New
             </Dropdown.Trigger>
             <Dropdown.Content>
-              <Dropdown.Item onSelect={createTask}>
-                <TaskIcon class="size-4" />
-                New Task
-              </Dropdown.Item>
-              <Dropdown.Item
-                onSelect={() =>
-                  layout.popoverSplit({
-                    type: 'component',
-                    id: 'project-compose',
-                  })
-                }
-              >
-                <ProjectIcon class="size-4" />
-                New Project
-              </Dropdown.Item>
+              <Dropdown.Group>
+                <Dropdown.Item onSelect={createTask}>
+                  <TaskIcon class="size-4" />
+                  New Task
+                </Dropdown.Item>
+                <Dropdown.Item
+                  onSelect={() =>
+                    layout.popoverSplit({
+                      type: 'component',
+                      id: 'project-compose',
+                    })
+                  }
+                >
+                  <ProjectIcon class="size-4" />
+                  New Project
+                </Dropdown.Item>
+              </Dropdown.Group>
             </Dropdown.Content>
           </Dropdown>
         </Show>
