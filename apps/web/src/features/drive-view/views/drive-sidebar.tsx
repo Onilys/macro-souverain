@@ -3,27 +3,22 @@ import {
   SearchBar,
   ViewSidebar,
 } from '@app/components/view-shell';
+import { ConnectorImportSidebar } from '@app/features/connector-import/connector-import';
 import { FavoriteContextMenu } from '@app/features/favorites/FavoriteContextMenu';
 import { FavoriteIcon } from '@app/features/favorites/FavoriteIcon';
 import { useFavoriteDisplayName } from '@app/util/favorites';
-import { lazyNamed } from '@core/util/lazyNamed';
 import FolderIcon from '@phosphor/folder.svg';
 import SearchIcon from '@phosphor/magnifying-glass.svg';
 import UploadIcon from '@phosphor/upload-simple.svg';
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
 import { Button } from '@ui';
-import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import { DriveNavigation } from '../components/drive-navigation';
 import { FolderTree } from '../components/folder-tree';
 import { useDriveView } from '../context/drive-context';
 import { buildFolderTree, filterFolderTree } from '../core/folder-tree';
 import { DriveCreateMenu } from '../drive-create-menu';
 import { DriveLocationMenu } from '../drive-location-menu';
-
-const ConnectorImportSidebar = lazyNamed(
-  () => import('@app/features/connector-import/connector-import'),
-  'ConnectorImportSidebar'
-);
 
 function DriveFavorite(props: { favorite: Favorite; onNavigate?: () => void }) {
   const { actions } = useDriveView();
@@ -242,9 +237,7 @@ export function DriveSidebar() {
       </ViewSidebar.Primary>
       <ViewSidebar.Content>
         <DriveSidebarContent />
-        <Suspense>
-          <DriveImportPromotion />
-        </Suspense>
+        <DriveImportPromotion />
       </ViewSidebar.Content>
     </ViewSidebar.Root>
   );

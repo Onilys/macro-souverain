@@ -5,6 +5,7 @@ import { HomeSetupPromotion } from './HomeSetupPromotion';
 const host = vi.hoisted(() => ({
   team: null as null | { team: { allow_non_admin_invites?: boolean } },
   admin: false,
+  pending: false,
   openSettings: vi.fn(),
 }));
 vi.mock('@core/context/user', () => ({ useUserId: () => () => 'user' }));
@@ -22,10 +23,11 @@ vi.mock('@queries/prompt-dismissals', () => ({
 vi.mock('@core/constant/SettingsState', () => ({
   useSettingsState: () => ({ openSettings: host.openSettings }),
 }));
-vi.mock('@queries/gate', () => ({ queryReadyGate: () => true }));
 vi.mock('@queries/team/teams', () => ({
   useCurrentTeamQuery: () => ({
-    isSuccess: true,
+    get isPending() {
+      return host.pending;
+    },
     get data() {
       return host.team;
     },
@@ -37,6 +39,7 @@ afterEach(() => {
   cleanup();
   host.team = null;
   host.admin = false;
+  host.pending = false;
   host.openSettings.mockReset();
 });
 
@@ -58,6 +61,15 @@ describe('HomeSetupPromotion', () => {
   it('keeps invites for admins of such a team', () => {
     host.team = { team: { allow_non_admin_invites: false } };
     host.admin = true;
+    render(() => <HomeSetupPromotion />);
+    expect(screen.getByRole('button', { name: 'Invite team' })).toBeTruthy();
+  });
+
+  it('renders with its last known actions at once while the team loads', () => {
+    const view = render(() => <HomeSetupPromotion />);
+    expect(screen.getByRole('button', { name: 'Invite team' })).toBeTruthy();
+    view.unmount();
+    host.pending = true;
     render(() => <HomeSetupPromotion />);
     expect(screen.getByRole('button', { name: 'Invite team' })).toBeTruthy();
   });

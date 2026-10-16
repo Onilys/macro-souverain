@@ -11,6 +11,7 @@ const host = vi.hoisted(() => ({
     | undefined
     | {
         category: string;
+        applies: boolean | undefined;
         alternatives: { label: string; onSelect(opener?: unknown): void }[];
       },
   slackImport: undefined as undefined | { historyOnly?: boolean },
@@ -34,7 +35,7 @@ vi.mock('./slack-import', () => ({
 vi.mock('@app/features/connector-import/connector-import', () => ({
   ConnectorImportPromotion: (props: NonNullable<typeof host.promotion>) => {
     host.promotion = props;
-    return <p>Shared import card</p>;
+    return props.applies ? <p>Shared import card</p> : null;
   },
 }));
 
@@ -48,11 +49,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Slack import sidebar', () => {
-  it('renders the shared channels card with history import as its alternative', () => {
+  it('renders the shared channels card with history import as its alternative', async () => {
     render(() => <SlackImportSidebar />);
     expect(screen.getByText('Shared import card')).toBeTruthy();
     expect(host.promotion?.category).toBe('channels');
-    expect(host.slackImport?.historyOnly).toBe(true);
+    // The archive dialog loads behind the card.
+    await vi.waitFor(() => expect(host.slackImport?.historyOnly).toBe(true));
     expect(host.promotion?.alternatives[0]?.label).toBe('Import with history');
     const opener = document.createElement('button');
     host.promotion?.alternatives[0]?.onSelect(opener);

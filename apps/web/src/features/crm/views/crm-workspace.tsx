@@ -5,6 +5,7 @@ import {
   ViewShell,
 } from '@app/components/view-shell';
 import { VIEW_SHELL_TOUR } from '@app/components/view-shell/tour';
+import { ConnectorImportSidebar } from '@app/features/connector-import/connector-import';
 import { NIL_UUID } from '@app/features/next-soup/filters/filter-store';
 import { getViewPreset } from '@app/features/next-soup/sidebar/soup-filter-presets';
 import { MobileFilterDrawer } from '@app/features/next-soup/soup-view/filters-bar/mobile-filter-drawer';
@@ -17,7 +18,6 @@ import { useFilterRefinements } from '@app/features/next-soup/soup-view/filters-
 import { usePreference } from '@app/preferences/use-preference';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { debounce } from '@core/util/debounce';
-import { lazyNamed } from '@core/util/lazyNamed';
 import {
   type EntityData,
   isCrmCompanyEntity,
@@ -58,11 +58,6 @@ import {
   useCurrentTeamQuery,
   useQuickAccessCrmCompaniesQuery,
 } from './use-crm';
-
-const ConnectorImportSidebar = lazyNamed(
-  () => import('@app/features/connector-import/connector-import'),
-  'ConnectorImportSidebar'
-);
 
 function NavigationToggle(props: {
   onExpand: () => void;
@@ -370,22 +365,19 @@ export function CrmWorkspaceView(props: {
   const sidebar = () => (
     <CrmSidebar
       promotion={
-        <Show when={teamId()}>
-          <Suspense>
-            <ConnectorImportSidebar
-              category="crm"
-              class="mt-auto"
-              alternatives={[
-                {
-                  icon: FileCsvIcon,
-                  label: 'Upload a CSV',
-                  description: 'Import companies from a spreadsheet export.',
-                  onSelect: () => setImporting(true),
-                },
-              ]}
-            />
-          </Suspense>
-        </Show>
+        <ConnectorImportSidebar
+          category="crm"
+          class="mt-auto"
+          applies={teamQuery.isSuccess ? !!teamId() : undefined}
+          alternatives={[
+            {
+              icon: FileCsvIcon,
+              label: 'Upload a CSV',
+              description: 'Import companies from a spreadsheet export.',
+              onSelect: () => setImporting(true),
+            },
+          ]}
+        />
       }
       pipelines={
         <Show when={pipelinesEnabled()}>

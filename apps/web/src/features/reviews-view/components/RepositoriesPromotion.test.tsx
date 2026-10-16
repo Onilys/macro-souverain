@@ -4,6 +4,7 @@ import { RepositoriesPromotion } from './RepositoriesPromotion';
 
 const host = vi.hoisted(() => ({
   status: 'linked' as string,
+  pending: false,
   authorize: vi.fn(async () => false),
 }));
 vi.mock('@core/context/user', () => ({ useUserId: () => () => 'user' }));
@@ -23,7 +24,9 @@ vi.mock('@core/auth/authorize-github', () => ({
 }));
 vi.mock('@queries/auth', () => ({
   useGithubLinkStatusQuery: () => ({
-    isSuccess: true,
+    get isPending() {
+      return host.pending;
+    },
     get data() {
       return { status: host.status };
     },
@@ -33,6 +36,8 @@ vi.mock('@queries/auth', () => ({
 }));
 
 beforeEach(() => {
+  host.status = 'linked';
+  host.pending = false;
   host.authorize.mockClear();
   vi.stubGlobal('open', vi.fn());
 });
@@ -72,5 +77,24 @@ describe('RepositoriesPromotion', () => {
     );
     expect(window.open).not.toHaveBeenCalled();
     host.status = 'linked';
+  });
+
+  it('renders the last known GitHub status at once while it reloads', () => {
+    const view = render(() => <RepositoriesPromotion />);
+    expect(
+      screen.getByRole('button', { name: 'Add repositories' })
+    ).toBeTruthy();
+    view.unmount();
+    host.pending = true;
+    render(() => <RepositoriesPromotion />);
+    expect(
+      screen.getByRole('button', { name: 'Add repositories' })
+    ).toBeTruthy();
+  });
+
+  it('shows nothing while GitHub status loads on a first visit', () => {
+    host.pending = true;
+    render(() => <RepositoriesPromotion />);
+    expect(screen.queryByRole('button', { name: 'Connect GitHub' })).toBeNull();
   });
 });

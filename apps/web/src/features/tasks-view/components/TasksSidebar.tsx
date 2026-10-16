@@ -4,6 +4,7 @@ import {
   ViewSidebar,
 } from '@app/components/view-shell';
 import { SidebarCreateHeader } from '@app/components/view-shell/SidebarCreateButton';
+import { ConnectorImportSidebar } from '@app/features/connector-import/connector-import';
 import { FavoriteContextMenu } from '@app/features/favorites/FavoriteContextMenu';
 import { FavoriteIcon } from '@app/features/favorites/FavoriteIcon';
 import { openProject } from '@app/features/projects/open-project';
@@ -17,22 +18,16 @@ import {
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
-import { lazyNamed } from '@core/util/lazyNamed';
 import CheckSquareIcon from '@phosphor/check-square.svg';
 import ListChecksIcon from '@phosphor/list-checks.svg';
 import NoteIcon from '@phosphor/note-pencil.svg';
 import StackIcon from '@phosphor/stack.svg';
 import { useFavoritesData } from '@queries/favorites/favorites';
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
-import { createMemo, For, Show, Suspense } from 'solid-js';
+import { createMemo, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { useTasksView } from '../tasks-view-context';
 import type { TasksTab } from '../types';
-
-const ConnectorImportSidebar = lazyNamed(
-  () => import('@app/features/connector-import/connector-import'),
-  'ConnectorImportSidebar'
-);
 
 const TASK_NAV_ITEMS = [
   { id: 'my-tasks', label: 'My Tasks', icon: CheckSquareIcon },
@@ -211,9 +206,7 @@ export function TasksSidebar() {
             }}
           />
         </Show>
-        <Suspense>
-          <ConnectorImportSidebar category="tasks" class="mt-auto" />
-        </Suspense>
+        <ConnectorImportSidebar category="tasks" class="mt-auto" />
       </ViewSidebar.Content>
     </ViewSidebar.Root>
   );

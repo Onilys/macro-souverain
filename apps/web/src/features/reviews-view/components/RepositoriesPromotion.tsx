@@ -1,17 +1,24 @@
 import { PULL_REQUEST_REPOSITORIES_PROMOTION as COPY } from '@app/features/sidebar-promotion/core/promotions';
-import { SidebarPromotion } from '@app/features/sidebar-promotion/sidebar-promotion';
+import { createLastKnown } from '@app/features/sidebar-promotion/primitives/last-known';
+import {
+  allOf,
+  flagVerdict,
+  SidebarPromotion,
+} from '@app/features/sidebar-promotion/sidebar-promotion';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { authorizeGithub } from '@core/auth/authorize-github';
 import { toast } from '@core/component/Toast/Toast';
 import { enableSidebarPromotions } from '@core/constant/featureFlags';
 import { SERVER_HOSTS } from '@core/constant/servers';
+import { useUserId } from '@core/context/user';
 import {
   useGithubLinkStatusQuery,
   useInitGithubLinkMutation,
   useReauthenticateGithubMutation,
 } from '@queries/auth';
-import { Show } from 'solid-js';
+import { untrack } from 'solid-js';
 import { match } from 'ts-pattern';
+import { z } from 'zod';
 
 /** The GitHub App install page, where orgs and repositories are chosen. */
 const GITHUB_APP_INSTALL_URL = `${SERVER_HOSTS['document-storage-service']}/github/install-sync`;
@@ -28,9 +35,15 @@ export function RepositoriesPromotion(props: { class?: string }) {
   });
   const initGithubLink = useInitGithubLinkMutation();
   const reauthenticateGithub = useReauthenticateGithubMutation();
-  // Gate the status read so a pending query never suspends the sidebar.
-  const status = () =>
-    githubLink.isSuccess ? (githubLink.data?.status ?? 'unlinked') : 'unlinked';
+  const userId = useUserId();
+  // Gate the status read so a pending query never suspends the sidebar; until
+  // it loads, the card keeps the status this browser last saw.
+  const status = createLastKnown(
+    'pull-request-repositories:github',
+    untrack(userId),
+    () => (githubLink.isPending ? undefined : githubLink.data?.status),
+    z.enum(['linked', 'reauthentication_required', 'unlinked'])
+  );
 
   // Settings → GitHub runs the same two grants; an expired link must be
   // reauthenticated rather than linked again.
@@ -69,16 +82,18 @@ export function RepositoriesPromotion(props: { class?: string }) {
       }));
 
   return (
-    <Show when={promotions().enabled && githubLink.isSuccess}>
-      <SidebarPromotion
-        id={COPY.id}
-        logos={COPY.logos}
-        headline={COPY.headline}
-        pitch={COPY.pitch}
-        class={props.class}
-        dismissLabel={`Dismiss ${COPY.headline.toLowerCase()}`}
-        action={action()}
-      />
-    </Show>
+    <SidebarPromotion
+      id={COPY.id}
+      applies={allOf(
+        flagVerdict(promotions()),
+        status() === undefined ? undefined : true
+      )}
+      logos={COPY.logos}
+      headline={COPY.headline}
+      pitch={COPY.pitch}
+      class={props.class}
+      dismissLabel={`Dismiss ${COPY.headline.toLowerCase()}`}
+      action={action()}
+    />
   );
 }

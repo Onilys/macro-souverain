@@ -69,9 +69,22 @@ the bottom of three more sidebars.
 
 Every card (import, Slack, and setup) has a close button. Dismissing is
 permanent and per account: `POST /onboarding/prompts/<id>/dismiss` stores it
-server-side, so the card stays gone on every device and browser. Cards wait
-for `GET /onboarding/prompts` before showing, so a card dismissed elsewhere
-never flashes; if that request fails, the browser's own record of dismissals
-is used. Ids are `import:<files|tasks|crm|channels>`, `home-setup`,
+server-side, so the card stays gone on every device and browser. If
+`GET /onboarding/prompts` fails, the browser's own record of dismissals is
+used. Ids are `import:<files|tasks|crm|channels>`, `home-setup`,
 `calendar-accounts`, and `pull-request-repositories`. Account deletion removes
 them.
+
+## Rendering on view switches
+
+A card renders in the same frame as its sidebar. Each card remembers, per
+account and in local storage (`sidebar-promotion:last-known:v1:*`), whether
+it was last shown and the data behind its buttons (calendar account, GitHub
+status, invite access). While feature flags, `GET /onboarding/prompts`, or the
+host's queries load, the card shows that remembered state: a shown card
+appears at once, and a hidden one never flashes. With nothing remembered
+(first visit on a browser) it stays hidden until everything has loaded. The
+one stale case is a card dismissed on another device since this browser last
+loaded: it shows until the dismissal list arrives, then hides. The import
+dialog's code loads on first open (fetched ahead when the pointer or focus
+reaches the card).

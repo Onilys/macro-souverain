@@ -41,6 +41,7 @@ describe('SidebarPromotion', () => {
     const view = render(() => (
       <SidebarPromotion
         id="test"
+        applies
         logos={logos}
         headline="Set up"
         pitch="Do the thing."
@@ -61,6 +62,7 @@ describe('SidebarPromotion', () => {
     render(() => (
       <SidebarPromotion
         id="test"
+        applies
         logos={logos}
         headline="Set up"
         pitch="Do the thing."
@@ -70,21 +72,22 @@ describe('SidebarPromotion', () => {
     expect(screen.queryByText('Set up')).toBeNull();
   });
 
-  it('hides while satisfied without recording a dismissal', () => {
-    const [satisfied, setSatisfied] = createSignal(true);
+  it('hides while it does not apply without recording a dismissal', () => {
+    const [applies, setApplies] = createSignal(false);
     render(() => (
       <SidebarPromotion
         id="satisfied"
+        applies={applies()}
         logos={logos}
         headline="More calendars"
         pitch="Add one."
-        satisfied={satisfied()}
         action={{ label: 'Connect', onClick: () => {} }}
       />
     ));
     expect(screen.queryByText('More calendars')).toBeNull();
-    setSatisfied(false);
+    setApplies(true);
     expect(screen.getByText('More calendars')).toBeTruthy();
+    expect(server.dismiss).not.toHaveBeenCalled();
   });
 
   it('stays hidden when another device dismissed it', () => {
@@ -92,6 +95,7 @@ describe('SidebarPromotion', () => {
     render(() => (
       <SidebarPromotion
         id="elsewhere"
+        applies
         logos={logos}
         headline="Dismissed elsewhere"
         pitch="Gone."
@@ -106,6 +110,7 @@ describe('SidebarPromotion', () => {
     const view = render(() => (
       <SidebarPromotion
         id="loading"
+        applies
         logos={logos}
         headline="Loading card"
         pitch="Wait."
@@ -118,6 +123,7 @@ describe('SidebarPromotion', () => {
     render(() => (
       <SidebarPromotion
         id="loading"
+        applies
         logos={logos}
         headline="Loading card"
         pitch="Wait."
@@ -125,5 +131,41 @@ describe('SidebarPromotion', () => {
       />
     ));
     expect(screen.getByText('Loading card')).toBeTruthy();
+  });
+
+  it('renders its last decision at once while inputs load', () => {
+    const card = (applies: boolean | undefined) => (
+      <SidebarPromotion
+        id="remembered"
+        applies={applies}
+        logos={logos}
+        headline="Remembered"
+        pitch="Instant."
+        action={{ label: 'Go', onClick: () => {} }}
+      />
+    );
+    // Nothing known yet: stay hidden rather than guess.
+    server.status = 'pending';
+    let view = render(() => card(undefined));
+    expect(screen.queryByText('Remembered')).toBeNull();
+    view.unmount();
+    // Settled as shown, then remounted while flags and dismissals load.
+    server.status = 'success';
+    view = render(() => card(true));
+    expect(screen.getByText('Remembered')).toBeTruthy();
+    view.unmount();
+    server.status = 'pending';
+    view = render(() => card(undefined));
+    expect(screen.getByText('Remembered')).toBeTruthy();
+    view.unmount();
+    // Settled as hidden: a remount while loading must not flash it.
+    server.status = 'success';
+    server.dismissed = ['remembered'];
+    view = render(() => card(true));
+    expect(screen.queryByText('Remembered')).toBeNull();
+    view.unmount();
+    server.status = 'pending';
+    render(() => card(undefined));
+    expect(screen.queryByText('Remembered')).toBeNull();
   });
 });
