@@ -85,7 +85,7 @@ It shows its complete label with 20px semibold text and no entity icon, pill
 background, border, or shadow. Search and close/collapse controls sit on the right in the
 48px topbar. Views without creation retain a noninteractive label with the same typography and gradient.
 All sidebar titles show a decorative 16px trailing chevron, including single actions and static labels. Multiple creation choices
-use the label's trailing-chevron dropdown, including New Task / New Project and New Message / New
+use the label's trailing-chevron dropdown, including New Task / New Subtask / New Project / New Tag and New Message / New
 Channel. The main toolbar retains its contextual controls and New action. Main-area titles
 use the same 14px semibold type as document and task breadcrumbs.
 

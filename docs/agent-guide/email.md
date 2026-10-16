@@ -689,7 +689,7 @@ Workspace sidebars place a large, unframed creation label in the title position,
 with no entity icon, background, border, or shadow. Search and close/collapse
 controls remain to its right in the 48px header.
 Views without creation keep their title. Multiple creation choices use a trailing-chevron
-dropdown: Tasks offers **New Task** and **New Project**, and Chat offers
+dropdown: Tasks offers **New Task**, **New Subtask**, **New Project**, and **New Tag**, and Chat offers
 **New Message** and **New Channel**. The main **New** action remains available.
 Search expands on demand and Escape hides it without discarding the query.
 Projects and Routines follow the same layout. Editor/detail toolbars keep their

@@ -866,3 +866,5 @@ See [Tasks](tasks.md#reviews-view) for verification.
 The desktop `Create` → `Task` modal uses the standard dialog panel, circular
 icon controls, and a pill-shaped `Create Task` button with 16px outer padding.
 The mobile task drawer retains its existing layout.
+
+The Tasks sidebar creation menu has four icon-led actions with muted descriptions. New Task opens the composer; New Subtask first chooses a parent task and creates a task linked to it. New Project opens project creation (when enabled), and New Tag opens the personal/team tag editor. The menu is 320px wide and descriptions explain when to use each action.

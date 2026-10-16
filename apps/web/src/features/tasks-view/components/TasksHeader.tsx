@@ -10,13 +10,11 @@ import { SidebarCreateAction } from '@app/components/view-shell/SidebarCreateAct
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
-import TaskIcon from '@icon/system/regular/check-square.svg';
-import ProjectIcon from '@icon/system/regular/folder.svg';
-import { Dropdown } from '@ui';
 import { type ParentProps, Show } from 'solid-js';
 import { TASK_TABS } from '../constants';
 import { useTasksView } from '../tasks-view-context';
 import { TasksControls } from './TasksControls';
+import { TasksCreateMenu } from './TasksCreateMenu';
 import { TasksMobileTabs } from './TasksMobileTabs';
 
 export type TasksHeaderProps = {
@@ -130,42 +128,10 @@ export function TasksPrimaryActions(props: TasksHeaderProps) {
         />
       }
       sidebarCreate={() => (
-        <Show
-          when={projectsEnabled()}
-          fallback={
-            <SidebarCreateAction aria-label="New task" onClick={createTask}>
-              New
-            </SidebarCreateAction>
-          }
-        >
-          <Dropdown placement="bottom-start">
-            <Dropdown.Trigger
-              as={SidebarCreateAction}
-              aria-label="New task or project"
-            >
-              New
-            </Dropdown.Trigger>
-            <Dropdown.Content>
-              <Dropdown.Group>
-                <Dropdown.Item onSelect={createTask}>
-                  <TaskIcon class="size-4" />
-                  New Task
-                </Dropdown.Item>
-                <Dropdown.Item
-                  onSelect={() =>
-                    layout.popoverSplit({
-                      type: 'component',
-                      id: 'project-compose',
-                    })
-                  }
-                >
-                  <ProjectIcon class="size-4" />
-                  New Project
-                </Dropdown.Item>
-              </Dropdown.Group>
-            </Dropdown.Content>
-          </Dropdown>
-        </Show>
+        <TasksCreateMenu
+          projectsEnabled={projectsEnabled()}
+          onCreateTask={createTask}
+        />
       )}
       create={() => (
         <SidebarCreateAction aria-label="New task" onClick={createTask}>
