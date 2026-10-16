@@ -1,9 +1,7 @@
-import type { TimeOption } from '@core/util/dateSearch/timeOptions';
-
 export const SEND_LATER_DEFAULT_TIME = { hours: 8, minutes: 0 } as const;
 
 /** Superhuman's send-later suggestions, relative to the supplied time. */
-export function sendLaterPresets(now: Date): TimeOption[] {
+export function sendLaterPresets(now: Date) {
   const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
   const day = (offset: number, hours: number) =>
     new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, hours);
