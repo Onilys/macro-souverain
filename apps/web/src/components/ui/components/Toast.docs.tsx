@@ -72,7 +72,7 @@ export default defineDoc({
   name: 'Toast',
   category: 'Feedback',
   description:
-    'Compact notifications with soft light-theme shadows, a layered desktop stack, gentle entrance and exit motion, and accessible actions. Hover or focus the stack to expand it and pause dismissal.',
+    'Compact notifications with soft light-theme shadows, raised dark-theme surfaces, a layered desktop stack, gentle entrance and exit motion, and accessible actions. Hover or focus the stack to expand it and pause dismissal.',
   import: "import { toast } from '@core/component/Toast/Toast';",
   demos: [
     { id: 'notifications', title: 'Notifications', render: NotificationsDemo },
