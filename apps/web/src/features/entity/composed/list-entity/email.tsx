@@ -125,7 +125,7 @@ export function EmailWideContent(props: {
 }) {
   return (
     <>
-      <span class="w-(--title-width) shrink-0 flex items-center gap-2">
+      <span class="w-(--title-width) shrink-0 flex items-center gap-2 not-touch:mr-5">
         <span class="truncate max-w-32 flex gap-2 items-center">
           <EmailIdentity entity={props.entity} />
         </span>
