@@ -1,7 +1,6 @@
 import { DatePickerUI } from '@core/component/DatePicker/DatePickerUI';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { createTimeOptions } from '@core/util/dateSearch/timeOptions';
-import { formatDateWithContext } from '@core/util/dateSearch/useDateSearch';
 import {
   Combobox,
   type ComboboxRootItemComponentProps,
@@ -9,7 +8,13 @@ import {
 import SearchIcon from '@phosphor/magnifying-glass.svg';
 import { useSearchInputFocus } from '@property/utils/focus';
 import { Hotkey, highlightFirstMenuItemOnOpen, Surface } from '@ui';
-import { format, setHours, setMinutes, startOfDay } from 'date-fns';
+import {
+  differenceInCalendarDays,
+  format,
+  setHours,
+  setMinutes,
+  startOfDay,
+} from 'date-fns';
 import {
   type Component,
   createEffect,
@@ -345,7 +350,7 @@ export const DateSelector = (props: DateSelectorProps) => {
 
       <DateSelectorPortalWrapper disabled={props.disablePortal}>
         <Combobox.Content
-          class="rounded-xl size-auto z-action-menu menu-open-animation glass w-full max-w-70 text-ink bg-menu-glass"
+          class="rounded-xl size-auto z-action-menu menu-open-animation glass w-full max-w-76 text-ink bg-menu-glass"
           as={Surface}
           depth={3}
           on:keydown={handleKeyDown}
@@ -544,7 +549,13 @@ const DateSelectorItem: Component<
   const description = () => {
     const item = props.item.rawValue;
 
-    if (item.type === 'option') return formatDateWithContext(item.date);
+    if (item.type === 'option')
+      return format(
+        item.date,
+        differenceInCalendarDays(item.date, new Date()) < 7
+          ? 'EEE, h:mm a'
+          : 'MMM d, h:mm a'
+      );
     return 'Pick from calendar';
   };
 
