@@ -265,6 +265,24 @@ describe('split router', () => {
     expect(solid.location.pathname).toBe('/app/mail');
   });
 
+  it('guards same-view search history through the Solid Router adapter', async () => {
+    vi.useFakeTimers();
+    const { router, solid } = track(setupSolid('/app/drive'));
+    vi.runAllTimers();
+    const pane = router.panes()[0]!;
+    router.updateSearch(pane, 'drive', { sort: ['date'] });
+    vi.runAllTimers();
+    const current = router.entry(pane);
+    const guard = vi.fn(() => false);
+    router.registerGuard(pane, PANE_ROUTE_LEVEL, guard, { search: ['drive'] });
+    solid.traverse(-1);
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    vi.runAllTimers();
+    expect(guard).toHaveBeenCalledOnce();
+    expect(router.entry(pane)).toBe(current);
+    expect(solid.location.search).toBe('?s0.drive.sort=date');
+  });
+
   it('keeps an async-guarded navigation pending until the guard settles', async () => {
     const { router, pane } = track(setup('/home'));
     let allow: (value: boolean) => void = () => {};
@@ -834,6 +852,74 @@ describe('split router', () => {
     router.updateSearch(pane(0), 'drive', { sort: ['date'] });
     expect(router.entry(pane(0))!.id).not.toBe(first);
     expect(history.entries()).toHaveLength(2);
+  });
+
+  it('only opts watched search namespaces into guards while views remain mounted', () => {
+    const routes = withPaneRoutes(
+      defineRoute({
+        id: 'scheduling',
+        path: 'scheduling',
+        search: ['scheduling', 'other'],
+      })
+    );
+    const { router, pane } = track(setup('/scheduling', { routes }));
+    const ordinary = vi.fn(() => false);
+    const watched = vi.fn(() => false);
+    router.registerGuard(pane(0), PANE_ROUTE_LEVEL, ordinary);
+    router.registerGuard(pane(0), PANE_ROUTE_LEVEL, watched, {
+      search: ['scheduling'],
+    });
+    expect(
+      router.updateSearch(pane(0), 'other', { value: ['updated'] })
+    ).toMatchObject({ status: 'committed' });
+    expect(ordinary).not.toHaveBeenCalled();
+    expect(watched).not.toHaveBeenCalled();
+    expect(
+      router.updateSearch(pane(0), 'scheduling', { tab: ['page'] })
+    ).toMatchObject({ status: 'cancelled' });
+    expect(watched).toHaveBeenCalledOnce();
+    expect(ordinary).not.toHaveBeenCalled();
+    expect(router.entry(pane(0))?.location.search?.scheduling).toBeUndefined();
+  });
+
+  it('awaits watched search guards on browser history and restores refused URLs', async () => {
+    const routes = withPaneRoutes(
+      defineRoute({
+        id: 'scheduling',
+        path: 'scheduling',
+        search: ['scheduling'],
+      })
+    );
+    const { router, history, pane } = track(setup('/scheduling', { routes }));
+    router.updateSearch(pane(0), 'scheduling', {
+      tab: ['page'],
+      owner: ['me'],
+    });
+    let answer!: (allowed: boolean) => void;
+    const guard = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          answer = resolve;
+        })
+    );
+    router.registerGuard(pane(0), PANE_ROUTE_LEVEL, guard, {
+      search: ['scheduling'],
+    });
+    const current = router.entry(pane(0));
+    const url = history.read();
+    history.back();
+    expect(guard).toHaveBeenCalledOnce();
+    expect(router.entry(pane(0))).toBe(current);
+    answer(false);
+    await router.settled();
+    expect(router.entry(pane(0))).toBe(current);
+    expect(history.read()).toEqual(url);
+    expect(history.index()).toBe(1);
+    history.back();
+    answer(true);
+    await router.settled();
+    expect(router.entry(pane(0))?.location.search?.scheduling).toBeUndefined();
+    expect(history.index()).toBe(0);
   });
 
   it('jumps back to the nearest matching entry', () => {

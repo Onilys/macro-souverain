@@ -1,6 +1,6 @@
-import { Button } from '@ui';
+import { Button, DatePicker } from '@ui';
 import { createSignal, Show } from 'solid-js';
-import { Field, SelectInput, TextInput } from './fields';
+import { Field, SelectInput } from './fields';
 
 export function RescheduleForm(props: {
   timeZone: string;
@@ -65,12 +65,12 @@ export function RescheduleForm(props: {
         label="Date"
         hint={`Dates and times in ${props.timeZone.replaceAll('_', ' ')}`}
       >
-        <TextInput
-          type="date"
+        <DatePicker
+          aria-label="Date"
           disabled={saving()}
           required
           value={date()}
-          onInput={(e) => void load(e.currentTarget.value)}
+          onChange={(value) => void load(value)}
         />
       </Field>
       <Show

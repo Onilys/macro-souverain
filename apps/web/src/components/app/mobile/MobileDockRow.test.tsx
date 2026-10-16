@@ -1,3 +1,4 @@
+import { enableCalendarScheduling } from '@core/constant/featureFlags';
 import {
   cleanup,
   fireEvent,
@@ -9,14 +10,19 @@ import {
 import type { ParentProps } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MobileDockRow } from './MobileDockRow';
+import { isMobileNavViewId } from './mobile-nav-views';
 
-const { navigate, toggleSettings, reviewsFlag } = vi.hoisted(() => ({
-  navigate: vi.fn(),
-  toggleSettings: vi.fn(),
-  reviewsFlag: { enabled: false },
-}));
+const { navigate, toggleSettings, reviewsFlag, schedulingFlag, foreground } =
+  vi.hoisted(() => ({
+    navigate: vi.fn(),
+    toggleSettings: vi.fn(),
+    reviewsFlag: { enabled: false },
+    schedulingFlag: { enabled: false },
+    foreground: { id: 'tasks' },
+  }));
 vi.mock('@app/lib/analytics/posthog', () => ({
-  useFeatureFlag: () => () => reviewsFlag,
+  useFeatureFlag: (flag: unknown) => () =>
+    flag === enableCalendarScheduling ? schedulingFlag : reviewsFlag,
 }));
 vi.mock('@app/features/command/mobile/MobileSearchInput', () => ({
   MobileAskAiButton: () => null,
@@ -41,7 +47,7 @@ vi.mock('@solid-primitives/resize-observer', () => ({
   createElementSize: () => ({ width: 80, height: 40 }),
 }));
 vi.mock('./use-mobile-nav', () => ({
-  useForegroundMobileView: () => () => 'tasks',
+  useForegroundMobileView: () => () => foreground.id,
   useMobileNavNavigate: () => navigate,
 }));
 vi.mock('./mobile-dock-views', () => ({
@@ -57,6 +63,8 @@ let drawerStyles: HTMLStyleElement;
 beforeEach(() => {
   // Supply browser motion defaults missing in jsdom for Corvu's presence tracking.
   reviewsFlag.enabled = false;
+  schedulingFlag.enabled = false;
+  foreground.id = 'tasks';
   drawerStyles = document.createElement('style');
   drawerStyles.textContent =
     '[data-corvu-drawer-content], [data-corvu-drawer-overlay] { transition-duration: 0s; animation-name: none; }';
@@ -110,6 +118,24 @@ describe('dock overflow drawer', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
+  it('opens Scheduling from More when enabled without adding a dock button', async () => {
+    expect(isMobileNavViewId('booking-links')).toBe(true);
+    schedulingFlag.enabled = true;
+    foreground.id = 'booking-links';
+    render(() => <MobileDockRow />);
+    expect(screen.queryByRole('button', { name: 'Scheduling' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More views' }));
+    const drawer = within(screen.getByRole('dialog', { name: 'More views' }));
+    expect(
+      drawer
+        .getByRole('button', { name: 'Scheduling' })
+        .getAttribute('aria-current')
+    ).toBe('page');
+    fireEvent.click(drawer.getByRole('button', { name: 'Scheduling' }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('booking-links');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
   it('closes after opening Settings and supports dismissing without selection', async () => {
     render(() => <MobileDockRow />);
     const trigger = screen.getByRole('button', { name: 'More views' });

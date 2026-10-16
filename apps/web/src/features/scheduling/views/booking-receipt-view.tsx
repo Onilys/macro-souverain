@@ -36,10 +36,10 @@ export function BookingReceiptView(props: {
     <main
       class={cn(
         'min-h-screen bg-panel px-4 text-ink',
-        props.embedded ? 'py-4' : 'py-20'
+        props.embedded ? 'py-4' : 'py-10 sm:py-16'
       )}
     >
-      <div class="mx-auto max-w-lg rounded-2xl border border-edge-muted bg-surface-1 p-8">
+      <div class="mx-auto max-w-xl rounded-2xl border border-edge-muted bg-surface-1 p-6 sm:p-9">
         <Show
           when={props.receipt}
           fallback={
@@ -52,7 +52,17 @@ export function BookingReceiptView(props: {
         >
           {(r) => (
             <>
-              <h1 class="text-2xl font-semibold">
+              <div
+                aria-hidden="true"
+                class="mb-5 flex size-12 items-center justify-center rounded-full bg-accent-bg text-xl text-accent"
+              >
+                {r().booking.status === 'confirmed'
+                  ? '✓'
+                  : r().booking.status === 'cancelled'
+                    ? '−'
+                    : '◷'}
+              </div>
+              <h1 class="text-2xl font-semibold tracking-tight">
                 {r().booking.status === 'cancelled'
                   ? 'Booking cancelled'
                   : r().booking.status === 'pending'
@@ -63,18 +73,34 @@ export function BookingReceiptView(props: {
                         ? 'We’re updating your booking'
                         : 'Booking is processing'}
               </h1>
-              <h2 class="mt-6 font-semibold">{r().booking.title}</h2>
-              <p class="mt-2 text-sm">
-                {new Date(r().booking.startsAt).toLocaleString([], {
-                  dateStyle: 'full',
-                  timeStyle: 'short',
-                  timeZone: r().booking.timeZone,
-                })}
-              </p>
-              <p class="mt-1 text-sm text-ink-muted">
-                {r().booking.timeZone.replaceAll('_', ' ')}
-              </p>
-              <p class="mt-4 text-sm">{r().booking.location}</p>
+              <div class="mt-6 rounded-xl bg-surface-0 p-5">
+                <h2 class="font-semibold">{r().booking.title}</h2>
+                <dl class="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm">
+                  <dt class="text-ink-muted">When</dt>
+                  <dd>
+                    {new Date(r().booking.startsAt).toLocaleString([], {
+                      dateStyle: 'full',
+                      timeStyle: 'short',
+                      timeZone: r().booking.timeZone,
+                    })}
+                  </dd>
+                  <dt class="text-ink-muted">Time zone</dt>
+                  <dd class="break-words">
+                    {r().booking.timeZone.replaceAll('_', ' ')}
+                  </dd>
+                  <Show when={r().booking.location}>
+                    <dt class="text-ink-muted">Where</dt>
+                    <dd class="break-words">{r().booking.location}</dd>
+                  </Show>
+                  <dt class="text-ink-muted">Guest</dt>
+                  <dd class="min-w-0 break-words">
+                    {r().booking.name}
+                    <span class="mt-1 block text-xs text-ink-muted">
+                      {r().booking.email}
+                    </span>
+                  </dd>
+                </dl>
+              </div>
               <p class="mt-5 text-sm text-ink-muted">
                 {r().booking.status === 'pending'
                   ? 'Your host will confirm this meeting. The time is held while they review it.'
@@ -84,8 +110,8 @@ export function BookingReceiptView(props: {
                       ? 'Your time is reserved. We’re retrying the calendar update automatically; keep this page to check its status and avoid making another booking.'
                       : ''}
               </p>
-              <p class="mt-3 text-xs text-ink-muted">
-                Keep this private link to manage your booking.
+              <p class="mt-4 text-xs leading-relaxed text-ink-muted">
+                Keep this private link to reschedule or cancel your booking.
               </p>
               <Show
                 when={
@@ -93,7 +119,7 @@ export function BookingReceiptView(props: {
                   r().booking.status === 'pending'
                 }
               >
-                <div class="mt-6 flex flex-wrap gap-2">
+                <div class="mt-6 flex flex-wrap gap-2 border-t border-edge-muted pt-6">
                   <Button
                     variant="outline"
                     disabled={busy()}
@@ -164,6 +190,7 @@ export function BookingReceiptView(props: {
           )}
         </Show>
       </div>
+      <p class="mt-7 text-center text-xs text-ink-muted">Scheduling by Macro</p>
     </main>
   );
 }

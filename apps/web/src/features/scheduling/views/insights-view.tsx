@@ -3,6 +3,7 @@ import { InsightsPanel } from '../components/insights-panel';
 import type { SchedulingSource } from '../context/scheduling-context';
 import type { EventType, SchedulingMember } from '../core/types';
 import { createInsightsState } from '../primitives/insights-state';
+import { InsightsHostAvatar } from './insights-host-avatar';
 
 export function InsightsView(props: {
   source: SchedulingSource;
@@ -19,6 +20,7 @@ export function InsightsView(props: {
       bookings={state.bookings()}
       events={props.events}
       members={props.members}
+      renderHostAvatar={(host) => <InsightsHostAvatar host={host} />}
       timeZone={props.timeZone}
       loading={state.loading()}
       error={state.error()}

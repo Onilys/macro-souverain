@@ -4,10 +4,14 @@ import {
 } from '@app/features/command/mobile/MobileSearchInput';
 import { SearchState } from '@app/features/command/mobile/mobileSearchState';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
-import { enableTasksReviews } from '@core/constant/featureFlags';
+import {
+  enableCalendarScheduling,
+  enableTasksReviews,
+} from '@core/constant/featureFlags';
 import { useSettingsState } from '@core/constant/SettingsState';
 import { triggerFocusInput } from '@core/directive/focusInput';
 import { hapticImpact } from '@core/mobile/haptics';
+import CalendarCheckIcon from '@phosphor/calendar-check.svg';
 import CaretUpIcon from '@phosphor/caret-up.svg';
 import IconGear from '@phosphor/gear.svg';
 import GitPullRequestIcon from '@phosphor/git-pull-request.svg';
@@ -34,6 +38,7 @@ function MoreViewsDrawer(props: {
 }) {
   const { settingsOpen, toggleSettings } = useSettingsState();
   const reviewsFlag = useFeatureFlag(enableTasksReviews);
+  const schedulingFlag = useFeatureFlag(enableCalendarScheduling);
 
   return (
     <MobileDrawer
@@ -65,7 +70,13 @@ function MoreViewsDrawer(props: {
                 <IconGear class="size-4 shrink-0" />
                 <span>Settings</span>
               </MobileDrawer.Close>
-              <Show when={props.views.length > 0 || reviewsFlag().enabled}>
+              <Show
+                when={
+                  props.views.length > 0 ||
+                  reviewsFlag().enabled ||
+                  schedulingFlag().enabled
+                }
+              >
                 <div class="-mx-1 h-px shrink-0 bg-edge" />
               </Show>
               <For each={props.views.toReversed()}>
@@ -98,6 +109,25 @@ function MoreViewsDrawer(props: {
                 >
                   <GitPullRequestIcon class="size-4 shrink-0" />
                   <span>Reviews</span>
+                </MobileDrawer.Close>
+              </Show>
+              <Show when={schedulingFlag().enabled}>
+                <MobileDrawer.Close
+                  as={MobileDrawer.Item}
+                  aria-label="Scheduling"
+                  class={
+                    props.isActive('booking-links') ? 'text-accent' : undefined
+                  }
+                  aria-current={
+                    props.isActive('booking-links') ? 'page' : undefined
+                  }
+                  onClick={() => {
+                    hapticImpact('light');
+                    props.onNavigate('booking-links');
+                  }}
+                >
+                  <CalendarCheckIcon class="size-4 shrink-0" />
+                  <span>Scheduling</span>
                 </MobileDrawer.Close>
               </Show>
               <div class="-mx-1 h-px shrink-0 bg-edge" />
