@@ -82,7 +82,7 @@ export function EmailTopBar(props: ParentProps = {}) {
                 aria-current={state.tab === tab ? 'page' : undefined}
                 onClick={() => setTab(tab)}
                 class={cn(
-                  'h-8 shrink-0 gap-1.5 rounded-none border-0 px-0 text-base font-normal',
+                  'h-8 shrink-0 gap-1.5 rounded-none border-0 bg-none! px-0 text-base font-normal',
                   state.tab === tab ? 'text-ink' : 'text-ink-muted'
                 )}
               >

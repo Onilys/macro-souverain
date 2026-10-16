@@ -703,3 +703,5 @@ dialogs, and open-thread details retain native focus navigation.
 Unknown or locally incomplete counts are omitted rather than shown as zero.
 Counts cover each view’s server results for the selected inbox/alias, not just
 the currently loaded page. The Calendar shortcut now lives in the header.
+
+Inbox view tabs use text-color feedback on hover without a background highlight.
