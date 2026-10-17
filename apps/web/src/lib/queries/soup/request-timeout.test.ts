@@ -19,14 +19,34 @@ describe('createSoupRequestSignal', () => {
   });
 
   it('uses the bounded Soup request deadline', () => {
-    const timeout = vi
-      .spyOn(AbortSignal, 'timeout')
-      .mockReturnValue(new AbortController().signal);
+    vi.useFakeTimers();
+    try {
+      const signal = createSoupRequestSignal(new AbortController().signal);
 
-    createSoupRequestSignal(new AbortController().signal);
+      vi.advanceTimersByTime(SOUP_REQUEST_TIMEOUT_MS - 1);
+      expect(signal.aborted).toBe(false);
+      vi.advanceTimersByTime(1);
 
-    expect(timeout).toHaveBeenCalledWith(SOUP_REQUEST_TIMEOUT_MS);
-    timeout.mockRestore();
+      expect(signal.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('works on webviews without AbortSignal.any or AbortSignal.timeout', () => {
+    const { any, timeout } = AbortSignal;
+    Reflect.deleteProperty(AbortSignal, 'any');
+    Reflect.deleteProperty(AbortSignal, 'timeout');
+    try {
+      const query = new AbortController();
+      const signal = createSoupRequestSignal(query.signal);
+
+      query.abort();
+
+      expect(signal.aborted).toBe(true);
+    } finally {
+      Object.assign(AbortSignal, { any, timeout });
+    }
   });
 
   it('pauses while offline and resumes when connectivity returns', async () => {
