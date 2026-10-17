@@ -178,18 +178,10 @@
             ln -s ${lib.getExe pkgs.bun} "$TMPDIR/bun-as-node/node"
             PATH="$TMPDIR/bun-as-node:$PATH" patchShebangs --build node_modules/vite/bin/vite.js
 
+            # Also fails the build when VITE_POSTHOG_API_KEY was supplied but
+            # never reached the bundle, or the telemetry exporter URL is missing.
             BUNDLE_BUILD_NUMBER=${toString desktopRelease.bundleBuild} MIN_NATIVE_BUILD=0 \
               bash apps/web/scripts/build-tauri-frontend.sh production
-
-            # A supplied key that never reaches the bundle means PostHog — and
-            # every feature flag behind it — is silently off in the shipped app.
-            # Fail the build instead, the way the signed DMG fails on a missing
-            # signing identity.
-            if [ -n "''${VITE_POSTHOG_API_KEY:-}" ] \
-              && ! grep -rqF -- "$VITE_POSTHOG_API_KEY" apps/web/dist; then
-              echo "VITE_POSTHOG_API_KEY was set but Vite did not inline it into apps/web/dist" >&2
-              exit 1
-            fi
 
             runHook postBuild
         '';
