@@ -61,7 +61,9 @@ export function bundleProblems(distPath: string): string[] {
   }
 
   const appVersion = `${version}+${commit}`;
-  const literal = new RegExp(`["'\`]${appVersion.replaceAll('.', '\\.')}["'\`]`);
+  const literal = new RegExp(
+    `["'\`]${appVersion.replace(/[.+]/g, '\\$&')}["'\`]`
+  );
   const inlined = files.some(
     (path) => path.endsWith('.js') && literal.test(readFileSync(path, 'utf8'))
   );
