@@ -96,6 +96,35 @@ async fn disconnect_keeps_other_teams_shared_waba_then_removes_the_last_subscrip
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn repeated_disconnect_is_authorized_and_read_only_while_subscription_is_locked(
+    pool: PgPool,
+) {
+    let f = fixture(&pool, Provider::Whatsapp, None).await;
+    f.repo.disconnect(f.c.team_id, f.c.id).await.unwrap();
+    let _guard = f.repo.lock_subscription(&f.c).await.unwrap().unwrap();
+
+    let (status, body) = disconnect(&f, f.c.id).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["remote_unsubscribed"], false);
+    assert_eq!(body["shared_subscription_kept"], false);
+    let (status, body) = request(
+        &f.app,
+        "POST",
+        &format!("/connections/{}/disconnect", f.c.id),
+        Some("outsider"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert!(f.repo.credential(f.c.id).await.is_err());
+    assert_eq!(f.remote.unsubscriptions.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        f.repo.connection(f.c.id).await.unwrap().unwrap().status,
+        ConnectionStatus::Disconnected
+    );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn instagram_disconnect_remains_account_scoped(pool: PgPool) {
     let f = fixture(&pool, Provider::Instagram, None).await;
     let mut other = f.c.clone();

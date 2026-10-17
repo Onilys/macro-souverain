@@ -353,6 +353,15 @@ impl MetaService {
         let (team, user) = team_actor(access)?;
         self.native.require_member(team, user).await?;
         let connection = self.team_connection(team, id).await?;
+        if connection.status == ConnectionStatus::Disconnected {
+            self.require_manager(&connection, user).await?;
+            // Repeating a completed disconnect is read-only. It must not race
+            // the previous guard's asynchronous PostgreSQL rollback.
+            return Ok(DisconnectResult {
+                remote_unsubscribed: false,
+                shared_subscription_kept: self.repository.subscription_in_use(&connection).await?,
+            });
+        }
         let _guard = self
             .repository
             .lock_subscription(&connection)

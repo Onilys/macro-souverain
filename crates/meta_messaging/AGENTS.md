@@ -12,6 +12,8 @@ Instagram completion requires the independent browser proof returned at begin,
 plus the initiating authenticated Macro team/user and current membership.
 Reconnect, disconnect and import initiation require the current connector/member
 or a current team admin. Recheck connector membership before new effects.
+Repeated disconnects still verify manager authority, but return read-only status
+without acquiring the provider subscription lock once locally disconnected.
 Never add a public state-only completion path. WhatsApp uses Embedded Signup.
 See `docs/META_MESSAGING.md` for redirect configuration and rollout gates.
 
