@@ -49,9 +49,7 @@ pub async fn handler(
             ExtractorError::Unauthorized
             | ExtractorError::UnauthorizedWithMessage(_)
             | ExtractorError::Forbidden(_),
-        ) => {
-            (StatusCode::OK, Json(EntityPermissionResponse::NoAccess)).into_response()
-        }
+        ) => (StatusCode::OK, Json(EntityPermissionResponse::NoAccess)).into_response(),
         Err(e) => e.into_response(),
     }
 }

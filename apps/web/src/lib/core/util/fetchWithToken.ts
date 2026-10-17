@@ -148,7 +148,8 @@ export async function fetchToken(): Promise<TokenResult> {
           return failure;
         }
 
-        if (generation === refreshGeneration) publishRefreshOutcome('refreshed');
+        if (generation === refreshGeneration)
+          publishRefreshOutcome('refreshed');
         return ok(undefined);
       } finally {
         if (generation === refreshGeneration) {

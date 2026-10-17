@@ -652,10 +652,7 @@ async fn user_scoped_bot_without_team_membership_has_no_team_access() {
     let error = extract_required_v2(bot_request(VALID_BOT_TOKEN, BotScope::User), &state)
         .await
         .expect_err("acting user without a team should fail required extraction");
-    assert!(matches!(
-        error,
-        ExtractorError::Forbidden("not in a team")
-    ));
+    assert!(matches!(error, ExtractorError::Forbidden("not in a team")));
     assert_eq!(
         state.entity_access.membership_lookups(),
         [
@@ -696,10 +693,7 @@ async fn required_v2_preserves_no_membership_error() {
         .await
         .expect_err("required extraction should reject absent membership");
 
-    assert!(matches!(
-        error,
-        ExtractorError::Forbidden("not in a team")
-    ));
+    assert!(matches!(error, ExtractorError::Forbidden("not in a team")));
 }
 
 #[tokio::test]

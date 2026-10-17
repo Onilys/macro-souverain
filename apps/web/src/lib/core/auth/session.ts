@@ -1,7 +1,10 @@
 import { hasLoginCookie } from '@core/util/cookies';
 import { thrownResultErrorHasCode } from '@core/util/result';
 import { createSignal } from 'solid-js';
-import { type RefreshOutcome, subscribeRefreshOutcome } from './refresh-outcome';
+import {
+  type RefreshOutcome,
+  subscribeRefreshOutcome,
+} from './refresh-outcome';
 
 /**
  * - `pending`: a login marker exists but user-info has not answered yet.

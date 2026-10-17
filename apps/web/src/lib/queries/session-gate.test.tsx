@@ -14,15 +14,15 @@ const auth = vi.hoisted(() => ({
 
 vi.mock('@core/util/cookies', () => ({ hasLoginCookie: () => false }));
 
-
 type Identity = 'pending' | 'signed-in' | 'signed-out';
 
 async function setup(initial: Identity) {
   // Imported after the module reset so `instanceof` matches the gate's copy.
   const { ThrownResultError } = await import('@core/util/result');
   const session = await import('@core/auth/session');
-  auth.publish = (await import('@core/auth/refresh-outcome'))
-    .publishRefreshOutcome;
+  auth.publish = (
+    await import('@core/auth/refresh-outcome')
+  ).publishRefreshOutcome;
   const { SessionGatedQueryClient, requiresSession, establishesSession } =
     await import('./session-gate');
   let identity = initial;

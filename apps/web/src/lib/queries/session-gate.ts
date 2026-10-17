@@ -1,8 +1,8 @@
 import { type SessionStatus, sessionStatus } from '@core/auth/session';
 import { thrownResultErrorHasCode } from '@core/util/result';
 import {
-  type DefaultedQueryObserverOptions,
   type DefaultError,
+  type DefaultedQueryObserverOptions,
   QueryClient,
   type QueryKey,
   type QueryObserverOptions,

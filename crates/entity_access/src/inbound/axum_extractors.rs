@@ -132,7 +132,9 @@ impl IntoResponse for ExtractorError {
             error @ (ExtractorError::Unauthorized | ExtractorError::UnauthorizedWithMessage(_)) => {
                 (StatusCode::UNAUTHORIZED, error.to_string().into())
             }
-            error @ ExtractorError::Forbidden(_) => (StatusCode::FORBIDDEN, error.to_string().into()),
+            error @ ExtractorError::Forbidden(_) => {
+                (StatusCode::FORBIDDEN, error.to_string().into())
+            }
             error @ ExtractorError::BadRequest(_) => {
                 (StatusCode::BAD_REQUEST, error.to_string().into())
             }
