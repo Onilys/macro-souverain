@@ -350,6 +350,55 @@ it('moves the live turn with the newest row rather than starting it over', () =>
   expect(within(view.getByTestId('thread')).queryByRole('status')).toBeNull();
 });
 
+it('keeps the live turn in the newest row when the old row redraws as it lets go', () => {
+  typing('waiting');
+  setMessages([writing('')]);
+  setMetadata(asking('ask-1'));
+  const [first, setFirst] = createSignal(true);
+  const [second, setSecond] = createSignal(false);
+  const view = render(() => (
+    <AgentTypingProvider parent={parent} threadId={null}>
+      <div data-testid="prompt">
+        <Show when={first()}>
+          <AgentTyping parent={parent} threadId={null} />
+        </Show>
+      </div>
+      <div data-testid="passage">
+        <Show when={second()}>
+          <AgentTyping parent={parent} threadId={null} />
+        </Show>
+      </div>
+    </AgentTypingProvider>
+  ));
+  const answer = within(view.getByTestId('prompt')).getByRole<HTMLInputElement>(
+    'textbox',
+    { name: 'Answer' }
+  );
+  answer.value = 'main';
+
+  // The agent posts a passage before it asks. The list mounts the new
+  // newest row before it lets the old one go, and the old row redraws as it
+  // does: for a moment it shows the turn again.
+  setSecond(true);
+  setFirst(false);
+  setFirst(true);
+  setFirst(false);
+  expect(
+    within(view.getByTestId('passage')).getByRole('textbox', { name: 'Answer' })
+  ).toBe(answer);
+  expect(answer.isConnected).toBe(true);
+  expect(answer.value).toBe('main');
+  expect(mocks.cards).toBe(1);
+
+  // Scrolled away and back, the newest row has it as before.
+  setSecond(false);
+  expect(view.queryByRole('textbox', { name: 'Answer' })).toBeNull();
+  setSecond(true);
+  expect(
+    within(view.getByTestId('passage')).getByRole('textbox', { name: 'Answer' })
+  ).toBe(answer);
+});
+
 it('keeps the row of a turn waiting on the viewer after its typing lapses', () => {
   vi.useFakeTimers();
   typing('waiting');
