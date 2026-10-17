@@ -190,7 +190,7 @@ pub async fn delete_cursor_api_key(
         "DELETE FROM cursor_configs WHERE user_id = $1 AND provider = 'cursor'",
         user_id
     )
-        .execute(executor)
-        .await?;
+    .execute(executor)
+    .await?;
     Ok(result.rows_affected() > 0)
 }
