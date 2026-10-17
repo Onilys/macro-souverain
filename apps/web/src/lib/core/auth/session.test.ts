@@ -13,18 +13,16 @@ vi.mock('@core/util/cookies', () => ({
   hasLoginCookie: () => auth.loginCookie,
 }));
 
-vi.mock('@core/util/fetchWithToken', () => ({
-  fetchToken: auth.fetchToken,
-  subscribeRefreshOutcome: (listener: (outcome: Outcome) => void) => {
-    auth.publish = listener;
-    return () => {};
-  },
-}));
+vi.mock('@core/util/fetchWithToken', () => ({ fetchToken: auth.fetchToken }));
 
 type Identity = 'pending' | 'signed-in' | 'signed-out';
 
 async function loadSession(initial: Identity) {
-  const session = await import('./session');
+  const session = {
+    ...(await import('./session')),
+    ...(await import('./refreshed-session')),
+  };
+  auth.publish = (await import('./refresh-outcome')).publishRefreshOutcome;
   let identity = initial;
   let changed = () => {};
   session.bindSessionIdentity(

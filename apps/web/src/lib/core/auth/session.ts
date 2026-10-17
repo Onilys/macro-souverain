@@ -1,11 +1,7 @@
 import { hasLoginCookie } from '@core/util/cookies';
-import {
-  fetchToken,
-  type RefreshOutcome,
-  subscribeRefreshOutcome,
-} from '@core/util/fetchWithToken';
 import { thrownResultErrorHasCode } from '@core/util/result';
 import { createSignal } from 'solid-js';
+import { type RefreshOutcome, subscribeRefreshOutcome } from './refresh-outcome';
 
 /**
  * - `pending`: a login marker exists but user-info has not answered yet.
@@ -124,36 +120,6 @@ export function resolvedSession(): Promise<Exclude<SessionStatus, 'pending'>> {
 /** Resolves once a user is signed in; waits through sign-out and expiry. */
 export function waitForSession(): Promise<'signed-in'> {
   return until((status): status is 'signed-in' => status === 'signed-in');
-}
-
-/** The cookie refresh failed for a transient reason, such as an outage. */
-export class SessionRefreshUnavailableError extends Error {
-  constructor() {
-    super('Unable to refresh the session cookie');
-  }
-}
-
-/**
- * Waits for a signed-in session and refreshes its cookie, for transports that
- * cannot refresh on a 401 themselves (websocket handshakes). A rejected
- * refresh expires the session, so this waits for the next sign-in instead of
- * failing; a transient refresh failure throws for the caller's backoff.
- */
-export async function refreshedSession(): Promise<void> {
-  for (;;) {
-    await waitForSession();
-    const result = await fetchToken();
-    if (result.isOk()) return;
-    if (!result.error.some((error) => error.code === 'UNAUTHORIZED')) {
-      throw new SessionRefreshUnavailableError();
-    }
-    // A rejection normally expires the session, so the next wait blocks. One
-    // that raced a sign-in did not; hand it to the caller's backoff rather
-    // than refreshing again straight away.
-    if (sessionStatus() === 'signed-in') {
-      throw new SessionRefreshUnavailableError();
-    }
-  }
 }
 
 /**

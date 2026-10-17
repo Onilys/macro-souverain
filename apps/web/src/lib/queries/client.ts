@@ -11,7 +11,7 @@ import {
 } from '@core/mobile/native-network-status';
 import { isPlatform } from '@core/util/platform';
 import { thrownResultErrorHasCode } from '@core/util/result';
-import { hashKey, onlineManager } from '@tanstack/query-core';
+import { hashKey, onlineManager, type QueryState } from '@tanstack/query-core';
 import { authKeys } from './auth/keys';
 import type { UserInfoData } from './auth/user-info';
 import { setupQueryPersistence } from './persistence';
@@ -45,9 +45,11 @@ const userInfoHash = hashKey(authKeys.userInfo.queryKey);
 
 bindSessionIdentity(
   () => {
-    const state = queryClient.getQueryState<UserInfoData>(
-      authKeys.userInfo.queryKey
-    );
+    // Read the cache by hash: `getQueryState` runs `defaultQueryOptions`,
+    // which reads the session, which would recurse back here.
+    const state: QueryState<UserInfoData> | undefined = queryClient
+      .getQueryCache()
+      .get(userInfoHash)?.state;
     return identityFromAuthenticated(
       deriveIsAuthenticated({
         isLoading: shouldQueryUserInfo() && state?.status !== 'success',

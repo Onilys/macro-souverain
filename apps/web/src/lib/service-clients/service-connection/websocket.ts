@@ -1,4 +1,5 @@
-import { refreshedSession, waitForSession } from '@core/auth/session';
+import { refreshedSession } from '@core/auth/refreshed-session';
+import { waitForSession } from '@core/auth/session';
 import { createBlockEffect, inBlock } from '@core/block';
 import { ENABLE_BEARER_TOKEN_AUTH } from '@core/constant/featureFlags';
 import { SERVER_HOSTS } from '@core/constant/servers';

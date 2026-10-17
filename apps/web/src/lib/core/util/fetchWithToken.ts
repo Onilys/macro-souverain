@@ -1,3 +1,4 @@
+import { publishRefreshOutcome } from '@core/auth/refresh-outcome';
 import { ENABLE_BEARER_TOKEN_AUTH } from '@core/constant/featureFlags';
 import { SERVER_HOSTS } from '@core/constant/servers';
 import { Telemetry } from '@macro-inc/observability';
@@ -72,26 +73,6 @@ const REFRESH_UNAVAILABLE_TTL_MS = 60_000;
 // generation, so once the session has moved on (e.g. a login) it can neither
 // re-latch refreshUnavailable nor clear a newer tokenPromise on completion.
 let refreshGeneration = 0;
-
-/**
- * `rejected`: /jwt/refresh definitively refused the session. `refreshed`: a
- * refresh succeeded. `reset`: the session changed (login, logout).
- */
-export type RefreshOutcome = 'rejected' | 'refreshed' | 'reset';
-
-const refreshOutcomeListeners = new Set<(outcome: RefreshOutcome) => void>();
-
-/** Observes refresh outcomes; the session gate uses this to notice expiry. */
-export function subscribeRefreshOutcome(
-  listener: (outcome: RefreshOutcome) => void
-): () => void {
-  refreshOutcomeListeners.add(listener);
-  return () => refreshOutcomeListeners.delete(listener);
-}
-
-function publishRefreshOutcome(outcome: RefreshOutcome) {
-  for (const listener of refreshOutcomeListeners) listener(outcome);
-}
 
 function clearRefreshLatch() {
   refreshUnavailable = null;
