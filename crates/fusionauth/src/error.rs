@@ -41,10 +41,14 @@ pub enum FusionAuthClientError {
     /// Microsoft OAuth credentials were not configured.
     #[error("Microsoft OAuth not configured")]
     MicrosoftOAuthNotConfigured,
-    /// FusionAuth, or the provider it called, was unreachable, overloaded, or
-    /// answered with something unusable. Not the caller's fault; retry later.
-    #[error("FusionAuth {failure}")]
+    /// FusionAuth, or a provider this crate calls directly (Google), was
+    /// unreachable, overloaded, or answered with something unusable. Not the
+    /// caller's fault; retry later.
+    #[error("{service} {failure}")]
     Upstream {
+        /// The failing service's user-facing name.
+        #[serde(skip)]
+        service: &'static str,
         /// What went wrong.
         #[serde(skip)]
         failure: UpstreamFailure,
@@ -62,8 +66,8 @@ impl FusionAuthClientError {
     /// that map errors to HTTP responses.
     pub fn upstream(&self) -> Option<UpstreamError> {
         match self {
-            Self::Upstream { failure } => Some(UpstreamError {
-                service: SERVICE_NAME,
+            Self::Upstream { service, failure } => Some(UpstreamError {
+                service,
                 failure: *failure,
             }),
             _ => None,
@@ -73,8 +77,14 @@ impl FusionAuthClientError {
     /// A request that got no usable answer: FusionAuth was unreachable, the
     /// connection dropped, or the body could not be decoded.
     pub(crate) fn transport(error: reqwest::Error) -> Self {
-        tracing::error!(error=?error, "request to fusionauth failed");
+        Self::provider_transport(SERVICE_NAME, error)
+    }
+
+    /// [`Self::transport`] for a request to another provider.
+    pub(crate) fn provider_transport(service: &'static str, error: reqwest::Error) -> Self {
+        tracing::error!(error=?error, service, "request failed");
         Self::Upstream {
+            service,
             failure: UpstreamFailure::from_transport(&error),
         }
     }
@@ -100,7 +110,10 @@ impl FusionAuthClientError {
     ) -> Self {
         if let Some(failure) = UpstreamFailure::from_status(status, headers) {
             tracing::error!(status=%status, body=%body, "fusionauth is failing");
-            return Self::Upstream { failure };
+            return Self::Upstream {
+                service: SERVICE_NAME,
+                failure,
+            };
         }
         if names_unknown_user(&body) {
             tracing::warn!(status=%status, body=%body, "fusionauth does not know the user");
