@@ -227,10 +227,7 @@ export class CloudStorageService extends pulumi.ComponentResource {
           Statement: [
             {
               Effect: 'Allow',
-              Action: [
-                's3:PutObject',
-                's3:GetObject',
-              ],
+              Action: ['s3:PutObject', 's3:GetObject'],
               Resource: pulumi.interpolate`${emailAttachmentsBucketArn}/temp/macro-messaging/*`,
             },
           ],
