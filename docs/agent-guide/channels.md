@@ -1373,3 +1373,18 @@ an account does not make its conversations visible to the whole team, and
 reconnecting does not transfer existing channel or file ownership. Source unsends
 remove message content and attachment references; underlying files follow native
 sharing/deletion rules. There is no automatic-member list or ownership backfill.
+
+### Messaging cleanup checks
+
+Opening an ordinary channel, Participants, and Rename must produce zero `/meta/*`
+requests in the browser network log. External routing comes from native channel
+metadata; unjoined team channels use the native detail query. The create dialog
+loads lazily; accounts load only after selecting **Create a WhatsApp group**.
+Turning the option off preserves the normal visibility and auto-join choices.
+An uncertain create keeps its submitted subject/account and exposes the same setup.
+
+At 390px touch width, Participants has separate People, WhatsApp, and Bots tabs.
+The WhatsApp pane has one scroller. Copy its invite link and verify the clipboard;
+unauthorized viewers fetch no link. Delete/discard must remove the channel from
+split history and stop its polling. Failed/unknown setups use idle refresh, while
+creating/pending setups refresh quickly. A late signed binding remains observable.

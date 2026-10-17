@@ -213,8 +213,10 @@ be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 
 The messaging scenario uses a fresh context, blocks nonlocal traffic and mounts
 the real frontend; provider/API responses are fixtures, not live delivery
-evidence. It is discovered by `*.spec.ts` and runs in the Build job of Web App Pr
-Checks, reusing that job's existing build with the same environment above. Keep
+evidence. It is discovered by `*.spec.ts` and runs in the required Messaging Browser Check job of Web App Pr
+Checks when messaging, shared channel/composer/permission surfaces, or dependencies
+change. Its isolated build uses the environment above; the shared Build environment
+is unchanged. Keep
 ordinary channels, external replies, templates, recovery, member Settings,
 registration recovery and mobile composition in this runner. Screenshots use
 Playwright’s per-test output directory; scenario stages appear as `test.step` entries.
