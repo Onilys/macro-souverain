@@ -8,7 +8,9 @@ use crate::{UpstreamError, UpstreamFailure};
 
 /// What kind of upstream failure a 502 or 503 reports, for clients that
 /// branch on it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum UpstreamErrorCode {
     /// The provider is down or timed out. Retry later.
