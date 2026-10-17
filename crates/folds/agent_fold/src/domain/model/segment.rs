@@ -147,6 +147,27 @@ pub enum ActivityCard {
         /// How the agent asked to show it: `table`, `bar`, `line`.
         display: Option<String>,
     },
+    /// Drafts the agent saved for the user to edit and send: a saved review
+    /// it presented. Only the review's id and what its drafts are is
+    /// stored. A reader loads the drafts with their own access to the
+    /// session, and only the person the agent works for decides them.
+    Review {
+        /// The saved review.
+        #[serde(rename = "reviewId")]
+        review_id: String,
+        /// What its drafts are.
+        drafts: ReviewDrafts,
+    },
+}
+
+/// What a saved review's drafts are.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewDrafts {
+    /// Emails to send.
+    Email,
+    /// Calendar events to create.
+    Calendar,
 }
 
 /// Something an answer rests on.
@@ -650,6 +671,44 @@ const DELEGATE: Verbs = Verbs {
     done: "Delegated",
     failed: "Delegation failed",
 };
+const PRESENT_REVIEW: Verbs = Verbs {
+    running: "Preparing drafts to review",
+    done: "Prepared drafts to review",
+    failed: "Couldn't prepare drafts to review",
+};
+
+/// Macro's internal server: the tools it serves every session itself.
+const MACRO_INTERNAL: &str = "macro_internal";
+
+/// Whether a call is to the tool that saves drafts for the user to review.
+fn is_present_review(name: &ToolName) -> bool {
+    matches!(name, ToolName::Mcp { server, tool } if server == MACRO_INTERNAL && tool == "PresentReview")
+}
+
+/// The card for a saved review: the presentation Macro writes into the
+/// session for it, whose id names the review. An agent's own call to the
+/// tool only asks for one, and earns none, so a review is one card however
+/// it came to be presented.
+fn presented_review_card(
+    id: &str,
+    name: &ToolName,
+    input: Option<&serde_json::Value>,
+) -> Option<ActivityCard> {
+    if !is_present_review(name) {
+        return None;
+    }
+    let review_id = text(input, "reviewId")?;
+    macro_uuid::Uuid::try_parse(&review_id).ok()?;
+    if id.strip_prefix("review_") != Some(review_id.as_str()) {
+        return None;
+    }
+    let drafts = match text(input, "kind")?.as_str() {
+        "email" => ReviewDrafts::Email,
+        "calendar" => ReviewDrafts::Calendar,
+        _ => return None,
+    };
+    Some(ActivityCard::Review { review_id, drafts })
+}
 
 fn tool_row(
     id: String,
@@ -669,6 +728,9 @@ fn tool_row(
             macro_card(tool_name(name), input, output.as_ref())
         }
         ToolDetail::UserTool { input, outcome } => user_tool_card(tool_name(name), input, outcome),
+        ToolDetail::Other { input, .. } if status == ActivityStatus::Completed => {
+            presented_review_card(&id, name, input.as_ref())
+        }
         _ => None,
     };
     let named = humanize(tool_name(name));
@@ -702,6 +764,9 @@ fn tool_row(
         }
         ToolDetail::Fetch { .. } => verbed(&FETCH, None),
         ToolDetail::Think { .. } => ("Thought it through".to_owned(), None),
+        ToolDetail::Other { input, .. } if is_present_review(name) => {
+            verbed(&PRESENT_REVIEW, input.as_ref().and_then(input_detail))
+        }
         ToolDetail::Other { input, .. } => (
             named_label(&named, status),
             input.as_ref().and_then(input_detail),

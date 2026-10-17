@@ -63,6 +63,19 @@ export type ActivityCard =
       databaseId: string | null;
       /**  How the agent asked to show it: `table`, `bar`, `line`. */
       display: string | null;
+    }
+  /**
+   *  Drafts the agent saved for the user to edit and send: a saved review
+   *  it presented. Only the review's id and what its drafts are is
+   *  stored. A reader loads the drafts with their own access to the
+   *  session, and only the person the agent works for decides them.
+   */
+  | {
+      kind: 'review';
+      /**  The saved review. */
+      reviewId: string;
+      /**  What its drafts are. */
+      drafts: ReviewDrafts;
     };
 
 /**  One step of work, worded for a person reading a conversation. */
@@ -1040,6 +1053,13 @@ export type PlanEntryStatus =
   | 'in_progress'
   /**  Successfully completed. */
   | 'completed';
+
+/**  What a saved review's drafts are. */
+export type ReviewDrafts =
+  /**  Emails to send. */
+  | 'email'
+  /**  Calendar events to create. */
+  | 'calendar';
 
 /**  A run of a reply's parts that reads as one unit. */
 export type Segment = {

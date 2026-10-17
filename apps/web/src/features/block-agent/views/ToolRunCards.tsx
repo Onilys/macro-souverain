@@ -14,7 +14,8 @@ const RunCards = lazy(
  *
  * The fold words each call as a step and attaches its card once the call
  * has finished, so a card appears as soon as its call does. A composed view
- * is not one of them here: the session shows `DisplayResults` where it ran.
+ * and drafts saved for review are not among them here: the session shows
+ * each where its call ran.
  */
 export function ToolRunCards(props: {
   message: FoldedMessage;
@@ -28,7 +29,9 @@ export function ToolRunCards(props: {
         .map((row) => [row.id, row])
     );
     const rows = props.calls.flatMap((id) => steps.get(id) ?? []);
-    return runCards(rows).filter((card) => card.kind !== 'view');
+    return runCards(rows).filter(
+      (card) => card.kind !== 'view' && card.kind !== 'review'
+    );
   });
   return (
     <Show when={cards().length > 0}>

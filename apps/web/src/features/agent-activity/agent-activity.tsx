@@ -1,6 +1,6 @@
 import {
-  isViewCard,
   type RunCard,
+  replacesStep,
   runCards,
   runDuration,
 } from '@app/features/agent-cards/core/run-cards';
@@ -33,7 +33,12 @@ const RunCards = lazy(
 export function AgentActivity(props: AgentActivityData) {
   return (
     <div class="min-w-0 max-w-full" data-agent-activity={props.agentSessionId}>
-      <Show when={!props.sealed} fallback={<Run rows={props.rows} sealed />}>
+      <Show
+        when={!props.sealed}
+        fallback={
+          <Run rows={props.rows} sealed sessionId={props.agentSessionId} />
+        }
+      >
         <LiveActivity {...props} />
       </Show>
     </div>
@@ -46,7 +51,7 @@ function LiveActivity(props: AgentActivityData) {
     const reply = replyToTurn(live.messages(), props.turn);
     return (reply && segmentRows(reply, props.segment)) ?? props.rows;
   };
-  return <Run rows={rows()} sealed={false} />;
+  return <Run rows={rows()} sealed={false} sessionId={props.agentSessionId} />;
 }
 
 /**
@@ -61,10 +66,12 @@ function LiveActivity(props: AgentActivityData) {
 function Run(props: {
   rows: readonly (ActivityRowView & { card?: unknown })[];
   sealed: boolean;
+  /** The session the run is in. */
+  sessionId: string;
 }) {
   const message = useOptionalMessage();
   const cards = createMemo(() => runCards(props.rows));
-  const steps = () => props.rows.filter((row) => !isViewCard(row.card));
+  const steps = () => props.rows.filter((row) => !replacesStep(row.card));
   const failed = () =>
     steps().some(
       (row) => row.status === 'failed' || row.status === 'interrupted'
@@ -96,9 +103,13 @@ function Run(props: {
           <ActivityRows
             rows={props.rows}
             all={foldable()}
-            inPlace={(row) => isViewCard(row.card)}
-            after={(id) => <Cards cards={cardsOf([id])} />}
-            earlier={(ids) => <Cards cards={cardsOf(ids())} />}
+            inPlace={(row) => replacesStep(row.card)}
+            after={(id) => (
+              <Cards cards={cardsOf([id])} sessionId={props.sessionId} />
+            )}
+            earlier={(ids) => (
+              <Cards cards={cardsOf(ids())} sessionId={props.sessionId} />
+            )}
           />
         </>
       }
@@ -109,17 +120,17 @@ function Run(props: {
         open={false}
         onToggle={() => setOpen(true)}
       />
-      <Cards cards={cards()} />
+      <Cards cards={cards()} sessionId={props.sessionId} />
     </Show>
   );
 }
 
 /** Cards, loaded only when a run has any. */
-function Cards(props: { cards: readonly RunCard[] }) {
+function Cards(props: { cards: readonly RunCard[]; sessionId: string }) {
   return (
     <Show when={props.cards.length > 0}>
       <Suspense>
-        <RunCards cards={props.cards} />
+        <RunCards cards={props.cards} sessionId={props.sessionId} />
       </Suspense>
     </Show>
   );

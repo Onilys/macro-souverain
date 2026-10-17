@@ -39,6 +39,15 @@ export type RunCard =
       sources: AgentActivitySource[];
       /** How many different things the run found in all. */
       total: number;
+    }
+  | {
+      kind: 'review';
+      key: string;
+      rowId: string;
+      /** The saved review the agent presented. */
+      reviewId: string;
+      /** What its drafts are: emails, or events. */
+      drafts: 'email' | 'calendar';
     };
 
 // Which of two things done to one item a receipt says: making or removing
@@ -56,9 +65,16 @@ const STRENGTH: Record<CardAction, number> = {
   failed: 1,
 };
 
-/** Whether a row's card is a view the agent composed for the user. */
-export function isViewCard(card: unknown): boolean {
-  return isAgentActivityCard(card) && card.kind === 'view';
+/**
+ * Whether a row's card is shown in place of its step: a view the agent
+ * composed for the user, or drafts it saved for the user to review. Showing
+ * them is what the step did.
+ */
+export function replacesStep(card: unknown): boolean {
+  return (
+    isAgentActivityCard(card) &&
+    (card.kind === 'view' || card.kind === 'review')
+  );
 }
 
 function sourceKey(source: AgentActivitySource): string {
@@ -87,6 +103,16 @@ export function runCards(
     if (!isAgentActivityCard(card)) continue;
     if (card.kind === 'view') {
       cards.push({ kind: 'view', key: row.id, rowId: row.id, view: card.view });
+      continue;
+    }
+    if (card.kind === 'review') {
+      cards.push({
+        kind: 'review',
+        key: `review:${card.reviewId}`,
+        rowId: row.id,
+        reviewId: card.reviewId,
+        drafts: card.drafts,
+      });
       continue;
     }
     if (card.kind === 'data') {

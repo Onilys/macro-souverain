@@ -1,6 +1,7 @@
 import {
   AGENT_ACTIVITY_CARD_ACTIONS,
   AGENT_ACTIVITY_CARD_ITEM_TYPES,
+  AGENT_ACTIVITY_REVIEW_DRAFTS,
   AGENT_ACTIVITY_STATUSES,
 } from '@macro-inc/lexical-core/nodes/AgentActivityNode';
 import { CONNECT_APP_TARGETS } from '@macro-inc/lexical-core/nodes/ConnectAppNode';
@@ -76,7 +77,7 @@ const activitySource = z.discriminatedUnion('kind', [
 
 /**
  * What a step produced: an item it made, changed or sent, a view, what a
- * search found, or a database answer to show.
+ * search found, a database answer to show, or drafts saved for review.
  */
 const activityCard = z.discriminatedUnion('kind', [
   z.object({
@@ -100,6 +101,11 @@ const activityCard = z.discriminatedUnion('kind', [
     sql: z.string().min(1),
     databaseId: z.string().nullish(),
     display: z.string().nullish(),
+  }),
+  z.object({
+    kind: z.literal('review'),
+    reviewId: z.string().min(1),
+    drafts: z.enum(AGENT_ACTIVITY_REVIEW_DRAFTS),
   }),
 ]);
 

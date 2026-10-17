@@ -19,8 +19,11 @@ vi.mock('@app/features/block-agent/ui', () => ({
   TextShimmer: (props: { text: string }) => <>{props.text}</>,
 }));
 vi.mock('@app/features/agent-cards/components/run-cards', () => ({
-  default: (props: { cards: { key: string; rowId: string }[] }) => (
-    <aside aria-label="Cards">
+  default: (props: {
+    cards: { key: string; rowId: string }[];
+    sessionId?: string;
+  }) => (
+    <aside aria-label="Cards" data-session={props.sessionId}>
       {props.cards.map((card) => `${card.rowId}:${card.key}`).join(',')}
     </aside>
   ),
@@ -374,6 +377,37 @@ it('shows what a step produced under it, and a composed view in place of its ste
   expect(view.getByText('Create document')).toBeTruthy();
   expect(view.queryByText('Display results')).toBeNull();
   expect(live.acquired).toEqual([]);
+});
+
+it('shows drafts saved for review in place of the step that presented them', async () => {
+  const view = render(() => (
+    <AgentActivity
+      agentSessionId="session"
+      turn={2}
+      segment={1}
+      rows={[
+        {
+          id: 'call_1',
+          label: 'Prepared drafts to review',
+          status: 'completed',
+        },
+        {
+          id: 'review_r-1',
+          label: 'Prepared drafts to review',
+          status: 'completed',
+          card: { kind: 'review', reviewId: 'r-1', drafts: 'email' },
+        },
+      ]}
+      sealed
+    />
+  ));
+  const cards = await view.findAllByRole('complementary', { name: 'Cards' });
+  expect(cards.map((card) => card.textContent)).toEqual([
+    'review_r-1:review:r-1',
+  ]);
+  expect(cards[0].dataset.session).toBe('session');
+  // The agent's own call stays a step; the presentation is its card.
+  expect(view.getAllByText('Prepared drafts to review')).toHaveLength(1);
 });
 
 it('loads no cards for a run that produced none', () => {

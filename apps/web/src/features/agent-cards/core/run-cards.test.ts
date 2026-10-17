@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isViewCard, runCards } from './run-cards';
+import { replacesStep, runCards } from './run-cards';
 
 const document = (
   itemId: string,
@@ -108,9 +108,35 @@ describe('the cards a run produced', () => {
     ).toEqual([]);
   });
 
-  it('tell a composed view from an item', () => {
-    expect(isViewCard({ kind: 'view', view: {} })).toBe(true);
-    expect(isViewCard(document('doc-1', 'created'))).toBe(false);
-    expect(isViewCard(undefined)).toBe(false);
+  it('carry drafts saved for review, once per review, under the step that presented them', () => {
+    const review = {
+      kind: 'review',
+      reviewId: '0199f3a2-1b2c-7d4e-8f90-a1b2c3d4e5f6',
+      drafts: 'email',
+    };
+    expect(
+      runCards([
+        { id: 'review_1', card: review },
+        { id: 'b', card: document('doc-1', 'created') },
+      ])
+    ).toEqual([
+      {
+        kind: 'review',
+        key: 'review:0199f3a2-1b2c-7d4e-8f90-a1b2c3d4e5f6',
+        rowId: 'review_1',
+        reviewId: '0199f3a2-1b2c-7d4e-8f90-a1b2c3d4e5f6',
+        drafts: 'email',
+      },
+      expect.objectContaining({ kind: 'item', rowId: 'b' }),
+    ]);
+  });
+
+  it('tell a card shown in place of its step from a receipt', () => {
+    expect(replacesStep({ kind: 'view', view: {} })).toBe(true);
+    expect(
+      replacesStep({ kind: 'review', reviewId: 'r', drafts: 'calendar' })
+    ).toBe(true);
+    expect(replacesStep(document('doc-1', 'created'))).toBe(false);
+    expect(replacesStep(undefined)).toBe(false);
   });
 });

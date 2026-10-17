@@ -48,6 +48,22 @@ describe('isAgentActivityCard', () => {
     ).toBe(true);
   });
 
+  it('accepts drafts saved for review, by the review and what its drafts are', () => {
+    expect(
+      isAgentActivityCard({
+        kind: 'review',
+        reviewId: '0199f3a2-1b2c-7d4e-8f90-a1b2c3d4e5f6',
+        drafts: 'calendar',
+      })
+    ).toBe(true);
+    expect(
+      isAgentActivityCard({ kind: 'review', reviewId: '', drafts: 'email' })
+    ).toBe(false);
+    expect(
+      isAgentActivityCard({ kind: 'review', reviewId: 'r', drafts: 'memo' })
+    ).toBe(false);
+  });
+
   it('refuses a source a reader could not safely open', () => {
     expect(
       isAgentActivityCard({

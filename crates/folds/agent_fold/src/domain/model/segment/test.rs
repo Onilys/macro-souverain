@@ -1337,3 +1337,152 @@ fn session_activity_retains_command_and_tool_input_details_for_authorized_live_v
     assert_eq!(live[0].rows[0].detail.as_deref(), Some(command));
     assert_eq!(live[0].rows[1].detail.as_deref(), Some(query));
 }
+
+const REVIEW: &str = "0199f3a2-1b2c-7d4e-8f90-a1b2c3d4e5f6";
+
+fn presentation(
+    id: &str,
+    server: &str,
+    input: serde_json::Value,
+    status: ToolStatus,
+) -> MessagePart {
+    MessagePart::ToolUse {
+        id: ToolUseId(id.to_owned()),
+        name: ToolName::Mcp {
+            server: server.to_owned(),
+            tool: "PresentReview".to_owned(),
+        },
+        status,
+        detail: ToolDetail::Other {
+            kind: "other".to_owned(),
+            output: None,
+            input: Some(input),
+            result: None,
+            error: None,
+        },
+    }
+}
+
+fn review_input(review: &str, kind: &str) -> serde_json::Value {
+    serde_json::json!({"reviewId": review, "kind": kind, "title": "Follow-ups"})
+}
+
+#[test]
+fn a_presented_review_is_its_card_and_the_agents_call_for_it_is_a_step() {
+    // The agent asks for the review, and Macro presents it under the
+    // review's own id: one card, under the presentation.
+    let parts = [
+        presentation(
+            "call_1",
+            "macro_internal",
+            review_input(REVIEW, "email"),
+            ToolStatus::Completed,
+        ),
+        presentation(
+            &format!("review_{REVIEW}"),
+            "macro_internal",
+            review_input(REVIEW, "email"),
+            ToolStatus::Completed,
+        ),
+    ];
+    let rows = &segments(&parts, true)[0].rows;
+    assert_eq!(rows[0].card, None);
+    assert_eq!(rows[0].label, "Prepared drafts to review");
+    assert_eq!(rows[0].detail.as_deref(), Some("Follow-ups"));
+    assert_eq!(
+        rows[1].card,
+        Some(ActivityCard::Review {
+            review_id: REVIEW.to_owned(),
+            drafts: ReviewDrafts::Email,
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(rows[1].card.as_ref().unwrap()).unwrap(),
+        serde_json::json!({"kind": "review", "reviewId": REVIEW, "drafts": "email"})
+    );
+}
+
+#[test]
+fn a_calendar_review_says_its_drafts_are_events() {
+    let parts = [presentation(
+        &format!("review_{REVIEW}"),
+        "macro_internal",
+        review_input(REVIEW, "calendar"),
+        ToolStatus::Completed,
+    )];
+    assert_eq!(
+        segments(&parts, true)[0].rows[0].card,
+        Some(ActivityCard::Review {
+            review_id: REVIEW.to_owned(),
+            drafts: ReviewDrafts::Calendar,
+        })
+    );
+}
+
+#[test]
+fn only_a_finished_presentation_macro_wrote_for_its_review_is_a_card() {
+    let presented = format!("review_{REVIEW}");
+    let other = "0199f3a2-1b2c-7d4e-8f90-000000000000";
+    let cases = [
+        // Still being presented.
+        presentation(
+            &presented,
+            "macro_internal",
+            review_input(REVIEW, "email"),
+            ToolStatus::Running,
+        ),
+        // A connected server that happens to have a tool by that name.
+        presentation(
+            &presented,
+            "acme",
+            review_input(REVIEW, "email"),
+            ToolStatus::Completed,
+        ),
+        // Drafts of a kind this version does not know.
+        presentation(
+            &presented,
+            "macro_internal",
+            review_input(REVIEW, "task"),
+            ToolStatus::Completed,
+        ),
+        // Not a review id.
+        presentation(
+            "review_not-a-review",
+            "macro_internal",
+            review_input("not-a-review", "email"),
+            ToolStatus::Completed,
+        ),
+        // Named for another review than the one it carries.
+        presentation(
+            &presented,
+            "macro_internal",
+            review_input(other, "email"),
+            ToolStatus::Completed,
+        ),
+    ];
+    for part in cases {
+        let rows = &segments(std::slice::from_ref(&part), true)[0].rows;
+        assert_eq!(rows[0].card, None, "{part:?}");
+    }
+}
+
+#[test]
+fn a_presentation_is_worded_as_preparing_the_drafts() {
+    let row = |status| {
+        segments(
+            &[presentation(
+                "call_1",
+                "macro_internal",
+                review_input(REVIEW, "email"),
+                status,
+            )],
+            false,
+        )[0]
+        .rows[0]
+            .label
+            .clone()
+    };
+    assert_eq!(row(ToolStatus::Running), "Preparing drafts to review");
+    assert_eq!(row(ToolStatus::Completed), "Prepared drafts to review");
+    assert_eq!(row(ToolStatus::Failed), "Couldn't prepare drafts to review");
+}

@@ -222,6 +222,49 @@ describe('agent announcements', () => {
     for (const card of cards) expect(markdown).toContain(JSON.stringify(card));
   });
 
+  it('keeps drafts saved for review, by the review and what its drafts are', async () => {
+    const card = {
+      kind: 'review',
+      reviewId: '0199f3a2-1b2c-7d4e-8f90-a1b2c3d4e5f6',
+      drafts: 'email',
+    };
+    const response = await request({
+      chatReply: {
+        sessionId: 'session',
+        link: false,
+        body: {
+          kind: 'segments',
+          segments: [
+            {
+              kind: 'activity',
+              turn: 2,
+              segment: 0,
+              sealed: true,
+              rows: [
+                {
+                  id: 'review_0199f3a2-1b2c-7d4e-8f90-a1b2c3d4e5f6',
+                  label: 'Prepared drafts to review',
+                  status: 'completed',
+                  card,
+                },
+                {
+                  id: 't2',
+                  label: 'Prepared drafts to review',
+                  status: 'completed',
+                  card: { ...card, drafts: 'memo' },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(response.status).toBe(200);
+    const { markdown }: { markdown: string } = await response.json();
+    expect(markdown).toContain(JSON.stringify(card));
+    expect(markdown).not.toContain('memo');
+  });
+
   it('drops a card it does not know and keeps the step', async () => {
     const response = await request({
       chatReply: {

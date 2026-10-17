@@ -54,10 +54,14 @@ export const AGENT_ACTIVITY_CARD_ACTIONS = [
   'failed',
 ] as const;
 
+/** What a saved review's drafts are: emails to send, or events to create. */
+export const AGENT_ACTIVITY_REVIEW_DRAFTS = ['email', 'calendar'] as const;
+
 /**
  * Something a step produced, shown as a card after the steps of its run: a
- * workspace item it created, changed or sent, or a view the agent composed
- * for the user. The same shape the session's fold gives its rows.
+ * workspace item it created, changed or sent, a view the agent composed for
+ * the user, what its searches found, a database answer, or drafts it saved
+ * for the user to review. The same shape the session's fold gives its rows.
  */
 export type AgentActivityCard =
   | {
@@ -93,6 +97,12 @@ export type AgentActivityCard =
       databaseId?: string | null;
       /** How the agent asked to show it: `table`, `bar`, `line`. */
       display?: string | null;
+    }
+  | {
+      kind: 'review';
+      /** The saved review, which readers load with their own access. */
+      reviewId: string;
+      drafts: (typeof AGENT_ACTIVITY_REVIEW_DRAFTS)[number];
     };
 
 /**
@@ -144,6 +154,20 @@ export function isAgentActivitySource(
   );
 }
 
+function isItemCard(card: Record<string, unknown>) {
+  return (
+    (AGENT_ACTIVITY_CARD_ITEM_TYPES as readonly unknown[]).includes(
+      card.itemType
+    ) &&
+    typeof card.itemId === 'string' &&
+    card.itemId.length > 0 &&
+    (AGENT_ACTIVITY_CARD_ACTIONS as readonly unknown[]).includes(card.action) &&
+    isOptionalText(card.fileType) &&
+    isOptionalText(card.title) &&
+    isOptionalText(card.summary)
+  );
+}
+
 /** Return whether a value is a card this version knows how to show. */
 export function isAgentActivityCard(
   value: unknown
@@ -158,6 +182,12 @@ export function isAgentActivityCard(
       Array.isArray(card.sources) &&
       card.sources.every(isAgentActivitySource)
     );
+  if (card.kind === 'review')
+    return (
+      typeof card.reviewId === 'string' &&
+      card.reviewId.length > 0 &&
+      (AGENT_ACTIVITY_REVIEW_DRAFTS as readonly unknown[]).includes(card.drafts)
+    );
   if (card.kind === 'data')
     return (
       typeof card.sql === 'string' &&
@@ -165,18 +195,7 @@ export function isAgentActivityCard(
       isOptionalText(card.databaseId) &&
       isOptionalText(card.display)
     );
-  return (
-    card.kind === 'item' &&
-    (AGENT_ACTIVITY_CARD_ITEM_TYPES as readonly unknown[]).includes(
-      card.itemType
-    ) &&
-    typeof card.itemId === 'string' &&
-    card.itemId.length > 0 &&
-    (AGENT_ACTIVITY_CARD_ACTIONS as readonly unknown[]).includes(card.action) &&
-    isOptionalText(card.fileType) &&
-    isOptionalText(card.title) &&
-    isOptionalText(card.summary)
-  );
+  return card.kind === 'item' && isItemCard(card);
 }
 
 /**
