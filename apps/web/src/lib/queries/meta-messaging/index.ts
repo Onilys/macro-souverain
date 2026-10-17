@@ -137,6 +137,14 @@ export function useMetaActions() {
     ]);
   };
   return {
+    // A registration PIN must not be retained in a mutation cache or persisted draft.
+    register: async (id: string, pin?: string) => {
+      const result = await throwOnErr(() =>
+        metaMessagingClient.register(id, pin)
+      );
+      void refresh();
+      return result;
+    },
     begin: useMutation(() => ({
       mutationFn: (args: { provider: MetaProvider; reconnectId?: string }) =>
         throwOnErr(() =>

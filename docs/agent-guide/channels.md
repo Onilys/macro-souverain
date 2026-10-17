@@ -117,16 +117,14 @@ use the same compact rows as other accounts: provider logo, account name, and
 **Manage** (or **Connect** for a new account). **Manage** contains history import
 and an overflow menu for reconnect/disconnect. Disconnected accounts stay collapsed.
 Setup details appear in the dialog, and account errors remain visible on the row.
-A team owner or administrator connects the business account. Each customer gets
-one private native channel per connected account. The connecting administrator
-starts as its participant; use ordinary channel invitations for teammates.
+Any current team member can connect a business account and view account metadata, including Connected by. The connector or a current team admin can manage it. Each customer gets one private native channel per connected account, initially accessible to the connector; use ordinary invitations for teammates. Reconnecting does not transfer existing channel/file grants.
 Connecting brings in new activity only. Past conversations are not automatically
 imported. The first new customer message or phone-app echo creates the channel;
 subsequent activity reuses it. To bring old conversations in, click **Import history**
 beside the connected account, review its limits, then **Import available history**.
 This imports all history available through Meta into the same private channels;
 there is no conversation picker or export-upload flow. WhatsApp coexistence offers
-up to six months during its 24-hour onboarding window (media: 14 days); test numbers
+up to six months during its 24-hour onboarding window (media: 14 days); test and Platform numbers
 do not support it. Instagram exposes up to the latest 20 messages per conversation
 and excludes message requests inactive over 30 days. The dialog shows progress,
 unavailable-account explanations and recovery. Import never sends a message or
@@ -135,16 +133,17 @@ opens a reply window. New messages reuse imported channels and preserve renames.
 
 Account errors appear in both Settings and the customer composer. Follow the
 specific action: expired authorization needs reconnecting; Meta access blocks need
-Meta account confirmation/permission checks; lost Macro admin access needs a current
-admin to reconnect. Temporary failures are retried automatically. Disconnecting one
+Meta account confirmation/permission checks; a connector leaving the team requires a current admin to reconnect. Demotion alone does not revoke the connection or existing import consent. Temporary failures are retried automatically. Disconnecting one
 WhatsApp number keeps the subscription required by other connected numbers; that
 is a successful disconnect, not a provider-removal failure.
+
+For WhatsApp, choose the Business-app coexistence flow or **Connect Platform number**. An unregistered Platform account retains its authorization and shows a six-digit PIN field. **Register number** makes one explicit attempt; **Check registration** only reconciles a pending result. PINs are never restored as drafts. Disconnect uses the shared confirmation dialog. No group or OBA controls are offered.
 
 Customer channels have one composer that replies to the customer. There is no
 internal-note composer or destination switch. Click the send arrow or press
 **Enter** on desktop to send; **Shift+Enter** inserts a new line. Mobile Return
 keeps its native newline behavior. The composer uses the shared channel layout and send button. Ordinary Macro
-channels keep their existing composer. Agent work stays private and is never
+channels render their existing composer without waiting for the external chunk. Newer text typed while an earlier reply is sending is retained. Agent work stays private and is never
 forwarded automatically. Native thread replies, reactions, edits, and deletes
 are hidden in customer channels because those actions do not reach the provider.
 Customer conversations also hide Call, the Call/Calls tabs, and the active-call

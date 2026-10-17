@@ -68,6 +68,7 @@ export async function whatsappSignup(config: {
   configurationId: string;
   version: string;
   state: string;
+  mode?: 'coexistence' | 'platform';
 }): Promise<{
   code: string;
   business_account_id: string;
@@ -119,9 +120,11 @@ export async function whatsappSignup(config: {
         return;
       }
       if (
-        !['FINISH', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'].includes(
-          String(data.event)
-        ) ||
+        ![
+          'FINISH',
+          'FINISH_ONLY_WABA',
+          'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',
+        ].includes(String(data.event)) ||
         !('data' in data) ||
         !data.data ||
         typeof data.data !== 'object'
@@ -165,8 +168,12 @@ export async function whatsappSignup(config: {
         state: config.state,
         extras: {
           setup: {},
-          featureType: 'whatsapp_business_app_onboarding',
-          sessionInfoVersion: '3',
+          ...(config.mode === 'platform'
+            ? {}
+            : {
+                featureType: 'whatsapp_business_app_onboarding',
+                sessionInfoVersion: '3',
+              }),
         },
       }
     );

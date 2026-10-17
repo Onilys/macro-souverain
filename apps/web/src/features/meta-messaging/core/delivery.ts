@@ -35,6 +35,10 @@ export function messagingError(
     number === '200'
   )
     return `Meta hasn’t granted this app access to ${name}. Ask a team admin to check the app’s status and messaging permissions in Meta.`;
+  if (value.includes('choose one phone number'))
+    return 'Select one verified phone number in Meta and try connecting again.';
+  if (value.includes('selected whatsapp signup mode'))
+    return 'This number does not match the selected setup. Choose Business app for coexistence or Platform for a Cloud API number without the app.';
   if (value.includes('coexistence'))
     return 'This number isn’t ready to connect while keeping the WhatsApp Business app. Check its connection eligibility in WhatsApp Manager.';
   if (/identity is already bound|conflict/.test(value))
@@ -50,6 +54,8 @@ export function messagingError(
     return 'WhatsApp’s reply window has closed. Use an approved template, or wait for the customer to message again.';
   if (value.includes('reply window'))
     return `The ${name} reply window has closed. Wait for the customer to message again.`;
+  if (number === '131062')
+    return 'Meta does not support business-scoped recipients for this account yet. Ask the customer to share their phone number in WhatsApp.';
   if (number === '131030' || value.includes('recipient allowlist'))
     return 'This number is not an approved test recipient. Add and verify it in Meta’s WhatsApp API Setup.';
   if (number === '131026')

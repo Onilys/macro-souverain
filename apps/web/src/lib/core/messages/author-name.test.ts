@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
 import { displayAuthorName } from './author-name';
 
-it('removes only the generated test-phone suffix and preserves real names', () => {
+it('preserves all provider author labels, including literal test-number suffixes', () => {
   expect(displayAuthorName('+1 555-643-5162 (test number)')).toBe(
-    '+1 555-643-5162'
+    '+1 555-643-5162 (test number)'
   );
   expect(displayAuthorName('Jamie Chen')).toBe('Jamie Chen');
   expect(displayAuthorName('Studio (test number)')).toBe(

@@ -1,4 +1,4 @@
-/** Keep legacy test-phone metadata out of visible author/account names. */
+/** Preserve provider-supplied author labels, including names from other integrations. */
 export function displayAuthorName(name: string): string {
-  return name.trim().replace(/^(\+\d[\d ()-]*?)\s+\(test number\)$/i, '$1');
+  return name.trim();
 }

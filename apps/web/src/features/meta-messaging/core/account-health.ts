@@ -10,6 +10,36 @@ export function accountHealthMessage(
   if (status === 'disconnected' || !code) return undefined;
   const authorization = `${providerName(provider)} authorization expired or was revoked. Reconnect this account.`;
   return match(code)
+    .with(
+      'registration_required',
+      () =>
+        'Enter the six-digit WhatsApp PIN to register this Platform number. Your account authorization is saved.'
+    )
+    .with(
+      'registration_unconfirmed',
+      () =>
+        'Meta has not confirmed registration yet. Check registration before trying again; Macro will not repeat an uncertain request.'
+    )
+    .with(
+      'registration_pin_incorrect',
+      () =>
+        'The WhatsApp PIN was incorrect. Re-enter the correct six-digit PIN. Your account authorization is saved.'
+    )
+    .with(
+      'registration_pin_attempts_exceeded',
+      () =>
+        'Meta has blocked further PIN attempts. Follow the PIN recovery instructions in WhatsApp Manager before trying again.'
+    )
+    .with(
+      'registration_rate_limited',
+      () =>
+        'Meta has reached its registration limit. Wait 72 hours before another attempt; you can still check whether registration completed.'
+    )
+    .with(
+      'registration_rejected',
+      () =>
+        'Meta rejected registration. Check the number’s verification and two-step PIN in WhatsApp Manager.'
+    )
     .with('meta_authorization_expired_or_revoked', () => authorization)
     .with(
       'meta_access_required',
@@ -17,9 +47,9 @@ export function accountHealthMessage(
         'Meta is blocking this app’s access. Complete any account confirmation and check messaging permissions in Meta, then reconnect in Settings.'
     )
     .with(
-      'connecting_admin_access_lost',
+      'connecting_member_access_lost',
       () =>
-        'The person who connected this account no longer has team admin access. A current team admin needs to reconnect it.'
+        'The person who connected this account is no longer a team member. A current team admin needs to reconnect it. Existing conversation and file access stays unchanged.'
     )
     .with(
       'connection_temporarily_unavailable',

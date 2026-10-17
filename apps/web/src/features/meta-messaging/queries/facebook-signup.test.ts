@@ -60,3 +60,41 @@ it.each(['error', 'timeout', 'missing SDK'])(
     expect(vi.getTimerCount()).toBe(0);
   }
 );
+
+it.each(['platform', 'coexistence'] as const)(
+  'uses the supported %s signup options',
+  async (mode) => {
+    const login = vi.fn(
+      (callback: (response: { authResponse: { code: string } }) => void) => {
+        callback({ authResponse: { code: 'test-code' } });
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            origin: 'https://www.facebook.com',
+            data: {
+              type: 'WA_EMBEDDED_SIGNUP',
+              event: 'FINISH',
+              data: { waba_id: 'test-waba', phone_number_id: 'test-phone' },
+            },
+          })
+        );
+      }
+    );
+    window.FB = { init: vi.fn(), login };
+    await expect(whatsappSignup({ ...config, mode })).resolves.toMatchObject({
+      code: 'test-code',
+    });
+    expect(login).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        extras:
+          mode === 'platform'
+            ? { setup: {} }
+            : {
+                setup: {},
+                featureType: 'whatsapp_business_app_onboarding',
+                sessionInfoVersion: '3',
+              },
+      })
+    );
+  }
+);

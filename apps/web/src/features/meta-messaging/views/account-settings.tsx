@@ -1,9 +1,15 @@
 import { ConnectionMore } from '@app/features/settings/connections/connection-more';
 import {
+  type DisconnectConfirm,
+  DisconnectConfirmDialog,
+} from '@app/features/settings/connections/disconnect-confirm';
+import {
   IntegrationRow,
   SettingsCard,
 } from '@app/features/settings/primitives';
+import { useUserId } from '@core/context/user';
 import { displayAuthorName } from '@core/messages/author-name';
+import { getDisplayName, tryMacroId } from '@core/user';
 import InstagramIcon from '@phosphor/instagram-logo.svg';
 import WhatsAppIcon from '@phosphor/whatsapp-logo.svg';
 import {
@@ -14,7 +20,7 @@ import {
 import { useCurrentTeamQuery, useIsTeamAdmin } from '@queries/team/teams';
 import type { MetaConnection } from '@service-storage/generated/schemas/metaConnection';
 import type { MetaProvider } from '@service-storage/generated/schemas/metaProvider';
-import { Button, Dialog, Panel } from '@ui';
+import { Button, Dialog, Panel, TextField } from '@ui';
 import { createSignal, For, onCleanup, Show, Suspense } from 'solid-js';
 import {
   accountHealthMessage,
@@ -43,9 +49,14 @@ export function BusinessMessagingSettings() {
 function Accounts() {
   const team = useCurrentTeamQuery();
   const isAdmin = useIsTeamAdmin();
+  const userId = useUserId();
+  const canManage = (account: MetaConnection) =>
+    isAdmin() || account.user_id === userId();
+  const [disconnectRequest, setDisconnectRequest] =
+    createSignal<DisconnectConfirm | null>(null);
   const configuration = useMetaConfiguration();
   const teamId = () => (team.isSuccess ? (team.data?.team.id ?? '') : '');
-  const connections = useMetaConnections(teamId, isAdmin);
+  const connections = useMetaConnections(teamId, () => !!teamId());
   const actions = useMetaActions();
   const [working, setWorking] = createSignal(false);
   const [notice, setNotice] = createSignal('');
@@ -55,7 +66,8 @@ function Accounts() {
   const rows = () => (connections.isSuccess ? connections.data : []);
   const available = (provider: MetaProvider) =>
     provider === 'whatsapp'
-      ? !!config()?.whatsapp_configuration_id
+      ? !!config()?.whatsapp_configuration_id ||
+        !!config()?.whatsapp_platform_configuration_id
       : !!config()?.instagram_app_id;
 
   let instagram: ReturnType<typeof instagramLoginWindow> | undefined;
@@ -65,7 +77,11 @@ function Accounts() {
     instagram?.close();
   });
 
-  async function connect(provider: MetaProvider, existing?: MetaConnection) {
+  async function connect(
+    provider: MetaProvider,
+    existing?: MetaConnection,
+    mode: 'coexistence' | 'platform' = existing?.whatsapp_mode ?? 'coexistence'
+  ) {
     if (working()) return;
     setWorking(true);
     setError('');
@@ -83,15 +99,24 @@ function Accounts() {
       });
       if (provider === 'whatsapp') {
         const c = begin.configuration;
-        if (!c.whatsapp_app_id || !c.whatsapp_configuration_id)
+        const configurationId =
+          mode === 'platform'
+            ? c.whatsapp_platform_configuration_id
+            : c.whatsapp_configuration_id;
+        if (!c.whatsapp_app_id || !configurationId)
           throw new Error('WhatsApp signup is not configured.');
         const result = await whatsappSignup({
           appId: c.whatsapp_app_id,
-          configurationId: c.whatsapp_configuration_id,
+          configurationId,
+          mode,
           version: c.graph_version,
           state: begin.state,
         });
-        await actions.complete.mutateAsync({ ...result, state: begin.state });
+        await actions.complete.mutateAsync({
+          ...result,
+          state: begin.state,
+          whatsapp_mode: mode,
+        });
         setNotice('Connecting… This page updates automatically.');
       } else {
         if (!active) return;
@@ -122,7 +147,7 @@ function Accounts() {
           : e instanceof Error && /cancel|closed/i.test(e.message)
             ? 'Connection canceled. You can try again whenever you’re ready.'
             : e instanceof Error &&
-                /not configured|permission|reconnect|revoked|coexistence/i.test(
+                /not configured|permission|reconnect|revoked|coexistence|signup mode|choose one phone number/i.test(
                   e.message
                 )
               ? messagingError(e.message, provider)
@@ -164,55 +189,71 @@ function Accounts() {
   }
 
   return (
-    <SettingsCard>
-      <For each={['whatsapp', 'instagram'] as const}>
-        {(provider) => (
-          <ProviderAccounts
-            provider={provider}
-            accounts={rows().filter(
-              (connection) => connection.provider === provider
-            )}
-            teamName={team.isSuccess ? team.data?.team.name : undefined}
-            canManage={!!teamId() && isAdmin()}
-            loading={
-              team.isPending ||
-              configuration.isPending ||
-              (isAdmin() && connections.isPending)
-            }
-            unavailable={
-              team.isError || configuration.isError || connections.isError
-            }
-            canConnect={available(provider)}
-            testAvailable={
-              provider === 'whatsapp' &&
-              !!config()?.whatsapp_developer_available
-            }
-            working={working()}
-            notice={notice()}
-            error={error()}
-            onOpen={() => {
-              setNotice('');
-              setError('');
-            }}
-            onConnect={(existing) => void connect(provider, existing)}
-            onConnectTest={() => void connectTestAccount()}
-            onDisconnect={(connection) => void disconnect(connection)}
-            onRefresh={() => {
-              void team.refetch();
-              void connections.refetch();
-              void configuration.refetch();
-            }}
-          />
-        )}
-      </For>
-      <Show when={team.isSuccess && (!teamId() || !isAdmin())}>
-        <p class="px-4 pb-4 text-sm text-ink-muted">
-          {teamId()
-            ? 'A team admin can manage messaging accounts.'
-            : 'Join a team to connect messaging accounts.'}
-        </p>
-      </Show>
-    </SettingsCard>
+    <>
+      <SettingsCard>
+        <For each={['whatsapp', 'instagram'] as const}>
+          {(provider) => (
+            <ProviderAccounts
+              provider={provider}
+              accounts={rows().filter(
+                (connection) => connection.provider === provider
+              )}
+              teamName={team.isSuccess ? team.data?.team.name : undefined}
+              isMember={!!teamId()}
+              canManage={canManage}
+              loading={
+                team.isPending ||
+                configuration.isPending ||
+                (!!teamId() && connections.isPending)
+              }
+              unavailable={
+                team.isError || configuration.isError || connections.isError
+              }
+              canConnect={available(provider)}
+              coexistenceAvailable={!!config()?.whatsapp_configuration_id}
+              platformAvailable={!!config()?.whatsapp_platform_configuration_id}
+              onRegister={actions.register}
+              testAvailable={
+                provider === 'whatsapp' &&
+                !!config()?.whatsapp_developer_available
+              }
+              working={working()}
+              notice={notice()}
+              error={error()}
+              onOpen={() => {
+                setNotice('');
+                setError('');
+              }}
+              onConnect={(existing, mode) =>
+                void connect(provider, existing, mode)
+              }
+              onConnectTest={() => void connectTestAccount()}
+              onDisconnect={(connection) =>
+                setDisconnectRequest({
+                  title: `Disconnect ${connection.display_name}?`,
+                  body: 'New customer messages and replies will stop. Existing channels keep their content and permissions.',
+                  onConfirm: () => void disconnect(connection),
+                })
+              }
+              onRefresh={() => {
+                void team.refetch();
+                void connections.refetch();
+                void configuration.refetch();
+              }}
+            />
+          )}
+        </For>
+        <Show when={team.isSuccess && !teamId()}>
+          <p class="px-4 pb-4 text-sm text-ink-muted">
+            Join a team to connect messaging accounts.
+          </p>
+        </Show>
+      </SettingsCard>
+      <DisconnectConfirmDialog
+        request={disconnectRequest()}
+        onClose={() => setDisconnectRequest(null)}
+      />
+    </>
   );
 }
 
@@ -220,16 +261,23 @@ function ProviderAccounts(props: {
   provider: MetaProvider;
   accounts: MetaConnection[];
   teamName?: string;
-  canManage: boolean;
+  isMember: boolean;
+  canManage: (connection: MetaConnection) => boolean;
   loading: boolean;
   unavailable: boolean;
   canConnect: boolean;
+  coexistenceAvailable: boolean;
+  platformAvailable: boolean;
+  onRegister: (id: string, pin?: string) => Promise<MetaConnection>;
   testAvailable: boolean;
   working: boolean;
   notice: string;
   error: string;
   onOpen: () => void;
-  onConnect: (existing?: MetaConnection) => void;
+  onConnect: (
+    existing?: MetaConnection,
+    mode?: 'coexistence' | 'platform'
+  ) => void;
   onConnectTest: () => void;
   onDisconnect: (connection: MetaConnection) => void;
   onRefresh: () => void;
@@ -274,7 +322,8 @@ function ProviderAccounts(props: {
         <Button
           variant="ghost"
           size="sm"
-          disabled={!props.canManage || props.loading}
+          disabled={!props.isMember || props.loading}
+          class="min-h-11 min-w-11"
           ref={trigger}
           aria-label={`${props.accounts.length ? 'Manage' : 'Connect'} ${title()}`}
           onClick={() => {
@@ -305,8 +354,9 @@ function ProviderAccounts(props: {
             </Panel.Header>
             <Panel.Body class="space-y-4 p-5 max-h-[65vh] overflow-y-auto">
               <Dialog.Description class="text-sm text-ink-muted">
-                Accounts for {props.teamName}. Invite teammates from each
-                conversation.
+                Accounts for {props.teamName}. The connector or a team admin can
+                manage each account. Invite teammates from each conversation.
+                Reconnecting does not transfer channel or file access.
               </Dialog.Description>
               <Show when={props.unavailable}>
                 <p role="alert" class="text-sm text-ink-muted">
@@ -319,6 +369,8 @@ function ProviderAccounts(props: {
               <div class="divide-y divide-edge-muted">
                 <AccountRows
                   accounts={active()}
+                  canManage={props.canManage}
+                  onRegister={props.onRegister}
                   working={props.working}
                   onConnect={props.onConnect}
                   onDisconnect={props.onDisconnect}
@@ -332,6 +384,8 @@ function ProviderAccounts(props: {
                   <div class="mt-2 divide-y divide-edge-muted">
                     <AccountRows
                       accounts={disconnected()}
+                      canManage={props.canManage}
+                      onRegister={props.onRegister}
                       working={props.working}
                       onConnect={props.onConnect}
                       onDisconnect={props.onDisconnect}
@@ -345,7 +399,7 @@ function ProviderAccounts(props: {
                     ? 'Connect a Business or Creator account to receive DMs in Macro.'
                     : props.testAvailable && !props.canConnect
                       ? 'Use Meta’s test number to try messaging.'
-                      : 'Connect your WhatsApp Business app number to receive messages in Macro.'}
+                      : 'Connect a WhatsApp Business app number or a Cloud API Platform number.'}
                 </p>
               </Show>
               <Show when={props.provider === 'whatsapp' && props.canConnect}>
@@ -395,7 +449,24 @@ function ProviderAccounts(props: {
                   Connect test number
                 </Button>
               </Show>
-              <Show when={props.canConnect}>
+              <Show
+                when={props.provider === 'whatsapp' && props.platformAvailable}
+              >
+                <Button
+                  variant="strong"
+                  size="sm"
+                  disabled={props.working}
+                  onClick={() => props.onConnect(undefined, 'platform')}
+                >
+                  Connect Platform number
+                </Button>
+              </Show>
+              <Show
+                when={
+                  props.canConnect &&
+                  (props.provider !== 'whatsapp' || props.coexistenceAvailable)
+                }
+              >
                 <Button
                   variant="strong"
                   size="sm"
@@ -419,6 +490,8 @@ function ProviderAccounts(props: {
 
 function AccountRows(props: {
   accounts: MetaConnection[];
+  canManage: (connection: MetaConnection) => boolean;
+  onRegister: (id: string, pin?: string) => Promise<MetaConnection>;
   working: boolean;
   onConnect: (connection: MetaConnection) => void;
   onDisconnect: (connection: MetaConnection) => void;
@@ -430,6 +503,8 @@ function AccountRows(props: {
           {(account) => (
             <AccountRow
               connection={account()}
+              canManage={props.canManage(account())}
+              onRegister={props.onRegister}
               working={props.working}
               onReconnect={() => props.onConnect(account())}
               onDisconnect={() => props.onDisconnect(account())}
@@ -443,6 +518,8 @@ function AccountRows(props: {
 
 function AccountRow(props: {
   connection: MetaConnection;
+  canManage: boolean;
+  onRegister: (id: string, pin?: string) => Promise<MetaConnection>;
   working: boolean;
   onReconnect: () => void;
   onDisconnect: () => void;
@@ -456,41 +533,60 @@ function AccountRow(props: {
       error: 'Needs attention',
     })[props.connection.status];
   return (
-    <div class="py-3 first:pt-0 last:pb-0">
+    <div
+      class="py-3 first:pt-0 last:pb-0"
+      data-messaging-account={props.connection.id}
+    >
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="min-w-0">
           <p class="text-sm font-medium break-words">
             {displayAuthorName(props.connection.display_name)}
           </p>
           <p class="text-xs text-ink-muted">{status()}</p>
+          <ConnectedBy userId={props.connection.user_id} />
         </div>
-        <div class="flex items-center gap-1">
-          <Show when={props.connection.status !== 'disconnected'}>
-            <AccountHistoryImport connection={props.connection} />
-          </Show>
-          <ConnectionMore
-            items={[
-              {
-                label: 'Reconnect',
-                icon: 'reconnect',
-                disabled: props.working,
-                onSelect: props.onReconnect,
-              },
-              ...(props.connection.status !== 'disconnected'
-                ? [
-                    {
-                      label: 'Disconnect',
-                      icon: 'disconnect' as const,
-                      danger: true,
-                      disabled: props.working,
-                      onSelect: props.onDisconnect,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        </div>
+        <Show when={props.canManage}>
+          <div class="flex items-center gap-1">
+            <Show when={props.connection.status !== 'disconnected'}>
+              <AccountHistoryImport connection={props.connection} />
+            </Show>
+            <ConnectionMore
+              items={[
+                {
+                  label: 'Reconnect',
+                  icon: 'reconnect',
+                  disabled: props.working,
+                  onSelect: props.onReconnect,
+                },
+                ...(props.connection.status !== 'disconnected'
+                  ? [
+                      {
+                        label: 'Disconnect',
+                        icon: 'disconnect' as const,
+                        danger: true,
+                        disabled: props.working,
+                        onSelect: props.onDisconnect,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </div>
+        </Show>
       </div>
+      <Show
+        when={
+          props.canManage &&
+          props.connection.whatsapp_mode === 'platform' &&
+          props.connection.registration_status !== 'registered' &&
+          !['disconnected', 'revoked'].includes(props.connection.status)
+        }
+      >
+        <PhoneRegistration
+          connection={props.connection}
+          onRegister={props.onRegister}
+        />
+      </Show>
       <Show
         when={accountHealthMessage(
           props.connection.status,
@@ -499,6 +595,77 @@ function AccountRow(props: {
         )}
       >
         {(message) => <p class="mt-2 text-sm text-ink-muted">{message()}</p>}
+      </Show>
+    </div>
+  );
+}
+
+function ConnectedBy(props: { userId: string }) {
+  const name = () =>
+    getDisplayName(tryMacroId(props.userId), { emailFallback: 'local-part' }) ||
+    props.userId;
+  return <p class="text-xs text-ink-muted">Connected by {name()}</p>;
+}
+
+function PhoneRegistration(props: {
+  connection: MetaConnection;
+  onRegister: (id: string, pin?: string) => Promise<MetaConnection>;
+}) {
+  const [pin, setPin] = createSignal('');
+  const [pending, setPending] = createSignal(false);
+  const [error, setError] = createSignal('');
+  const needsPin = () =>
+    props.connection.registration_status === 'required' ||
+    (props.connection.registration_status === 'rate_limited' &&
+      !!props.connection.registration_attempted_at &&
+      Date.now() - Date.parse(props.connection.registration_attempted_at) >=
+        72 * 3600_000);
+  async function submit() {
+    if (pending()) return;
+    const secret = needsPin() ? pin() : undefined;
+    setPin('');
+    setPending(true);
+    setError('');
+    try {
+      await props.onRegister(props.connection.id, secret);
+    } catch {
+      setError(
+        'Registration could not be confirmed. Your connection is saved; check its status before trying again.'
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <div class="mt-3 space-y-2">
+      <Show when={needsPin()}>
+        <TextField value={pin()} onChange={setPin}>
+          <TextField.Label>WhatsApp two-step verification PIN</TextField.Label>
+          <TextField.Input
+            type="password"
+            inputMode="numeric"
+            autocomplete="off"
+            maxLength={6}
+            pattern="[0-9]{6}"
+            disabled={pending()}
+          />
+        </TextField>
+      </Show>
+      <Button
+        size="sm"
+        disabled={pending() || (needsPin() && !/^[0-9]{6}$/.test(pin()))}
+        onClick={() => void submit()}
+      >
+        {pending()
+          ? 'Checking…'
+          : needsPin()
+            ? 'Register number'
+            : 'Check registration'}
+      </Button>
+      <Show when={error()}>
+        <p role="alert" class="text-sm text-failure">
+          {error()}
+        </p>
       </Show>
     </div>
   );

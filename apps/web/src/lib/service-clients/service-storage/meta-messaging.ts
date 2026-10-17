@@ -76,6 +76,11 @@ export const metaMessagingClient = {
     ),
   complete: (request: MetaCompleteAuthorization) =>
     metaFetch<MetaConnection>('/meta/authorize/complete', json(request)),
+  register: (id: string, pin?: string) =>
+    metaFetch<MetaConnection>(
+      `/meta/connections/${encodeURIComponent(id)}/register`,
+      json({ pin })
+    ),
   developer: () =>
     metaFetch<MetaConnection>('/meta/developer/whatsapp', json({})),
   disconnect: (id: string) =>

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { accountHealthMessage, disconnectMessage } from './account-health';
 
 describe('account health and disconnect recovery', () => {
-  it('distinguishes expired authorization, blocked Meta access, and local admin access', () => {
+  it('distinguishes expired authorization, blocked Meta access, and connector membership', () => {
     expect(
       accountHealthMessage(
         'revoked',
@@ -16,10 +16,10 @@ describe('account health and disconnect recovery', () => {
     expect(
       accountHealthMessage(
         'revoked',
-        'connecting_admin_access_lost',
+        'connecting_member_access_lost',
         'instagram'
       )
-    ).toContain('team admin access');
+    ).toContain('no longer a team member');
   });
   it('does not ask for a fresh login for a temporary outage', () => {
     const message = accountHealthMessage(
