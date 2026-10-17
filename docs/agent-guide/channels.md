@@ -1388,3 +1388,4 @@ The WhatsApp pane has one scroller. Copy its invite link and verify the clipboar
 unauthorized viewers fetch no link. Delete/discard must remove the channel from
 split history and stop its polling. Failed/unknown setups use idle refresh, while
 creating/pending setups refresh quickly. A late signed binding remains observable.
+A channel opened directly must also close when it is the only history entry.
