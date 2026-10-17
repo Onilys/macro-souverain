@@ -589,7 +589,7 @@ function AccountRow(props: {
               <SettingsRow
                 stackOnNarrow
                 label="Conversation history"
-                description="Bring earlier conversations into Macro. You’ll review what’s available before importing."
+                description="Import past customer conversations into Macro."
               >
                 <AccountHistoryImport connection={props.connection} />
               </SettingsRow>

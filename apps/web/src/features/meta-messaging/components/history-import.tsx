@@ -1,4 +1,3 @@
-import { SettingsCard, SettingsRow } from '@app/features/settings/primitives';
 import InstagramIcon from '@phosphor/instagram-logo.svg';
 import WhatsAppIcon from '@phosphor/whatsapp-logo.svg';
 import { Button, Dialog, Panel } from '@ui';
@@ -47,7 +46,7 @@ export function HistoryImportControl(props: {
           }}
           position="center"
           visibleScrim
-          class="w-[min(560px,calc(100vw-24px))]"
+          class="w-[min(520px,calc(100vw-24px))]"
         >
           <Panel
             depth={2}
@@ -74,48 +73,23 @@ export function HistoryImportControl(props: {
               </div>
             </Panel.Header>
             <Panel.Body class="space-y-5 overflow-y-auto px-6 py-5">
-              <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1">
-                  <p class="text-2xl font-medium tracking-tight">
-                    {props.provider === 'instagram'
-                      ? '20 messages'
-                      : '6 months'}
-                  </p>
-                  <p class="text-xs text-ink-muted">
-                    {props.provider === 'instagram'
-                      ? 'Up to the latest messages per conversation'
-                      : 'Available message history'}
-                  </p>
-                </div>
-                <div class="space-y-1">
-                  <p class="text-2xl font-medium tracking-tight">
-                    {props.provider === 'instagram' ? 'All chats' : '14 days'}
-                  </p>
-                  <p class="text-xs text-ink-muted">
-                    {props.provider === 'instagram'
-                      ? 'Conversations made available by Instagram'
-                      : 'Available attachments'}
-                  </p>
-                </div>
-              </div>
-              <SettingsCard>
-                <SettingsRow
-                  label="Private conversations"
-                  description="History appears in private Macro channels. Existing conversations are reused."
-                />
-                <SettingsRow
-                  label="No messages sent"
-                  description="Importing sends no messages and doesn’t reopen reply windows."
-                />
-              </SettingsCard>
-              <div class="space-y-1.5">
-                <h3 class="text-xs font-medium text-ink">Provider limits</h3>
-                <p class="text-xs leading-relaxed text-ink-muted">
-                  {historyDescription(props.provider)}
+              <Show when={props.canImport || props.job}>
+                <p class="text-sm leading-relaxed text-ink-muted">
+                  Import past conversations into private Macro channels.
+                  Existing conversations are reused.
                 </p>
-              </div>
+                <div class="space-y-1.5 rounded-lg bg-ink/4 p-3">
+                  <h3 class="text-sm font-medium">What’s available</h3>
+                  <p class="text-sm leading-relaxed text-ink-muted">
+                    {historyDescription(props.provider)}
+                  </p>
+                </div>
+                <p class="text-xs leading-relaxed text-ink-muted">
+                  Importing sends no messages and doesn’t reopen reply windows.
+                </p>
+              </Show>
               <Show when={props.reason}>
-                <p class="rounded-lg bg-ink/4 px-3 py-2.5 text-sm leading-relaxed text-ink-muted">
+                <p class="text-sm leading-relaxed text-ink-muted">
                   {props.reason}
                 </p>
               </Show>
