@@ -2126,6 +2126,7 @@ dependencies = [
  "tower-cookies",
  "tower-http",
  "tracing",
+ "upstream_error",
  "url",
  "urlencoding",
  "user_quota",
