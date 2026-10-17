@@ -120,6 +120,7 @@ import { CHANNEL_TOUR } from '../tour';
 import { isUnifiedInputMode } from '../unified-input-mode';
 import { ActiveCallMessage } from './ActiveCallMessage';
 import { ChannelDropZone } from './ChannelDropZone';
+import { channelCallsAllowed } from './channel-calls-allowed';
 import { createChannelDragState } from './create-channel-drag-state';
 import { createChannelFindBar } from './create-channel-find-bar';
 import { createChannelHotkeys } from './create-channel-hotkeys';
@@ -1074,7 +1075,12 @@ export function Channel(props: ChannelProps) {
                         </MessageNotificationIndexContext.Provider>
                       </div>
                     </Show>
-                    <Show when={internalInteraction() && !channel()?.agent_dm}>
+                    <Show
+                      when={channelCallsAllowed(
+                        messaging.interaction(),
+                        !!channel()?.agent_dm
+                      )}
+                    >
                       <DebugSuspense name="Channel.active-call">
                         <ActiveCallMessage channelId={props.channelId} />
                       </DebugSuspense>
@@ -1149,76 +1155,84 @@ export function Channel(props: ChannelProps) {
                             )}
                           </Match>
                           <Match when={true}>
-                            <Suspense>
-                              <ChannelMessagingComposer
+                            <Show
+                              when={internalInteraction()}
+                              fallback={
+                                <Suspense>
+                                  <ChannelMessagingComposer
+                                    channelId={props.channelId}
+                                    interaction={messaging.interaction()}
+                                    onRefresh={messaging.refresh}
+                                    onRecoverReady={messaging.registerRecovery}
+                                  >
+                                    {null}
+                                  </ChannelMessagingComposer>
+                                </Suspense>
+                              }
+                            >
+                              <AgentDmComposer
                                 channelId={props.channelId}
-                                interaction={messaging.interaction()}
-                                onRefresh={messaging.refresh}
-                                onRecoverReady={messaging.registerRecovery}
+                                botId={channel()?.agent_dm?.bot_id}
                               >
-                                <AgentDmComposer
-                                  channelId={props.channelId}
-                                  botId={channel()?.agent_dm?.bot_id}
-                                >
-                                  <ChannelInput
-                                    autofocus={props.autofocus}
-                                    collapsible
-                                    input={{
-                                      mode: 'channel',
-                                      id: `channel-input-${props.channelId}`,
-                                      placeholder: inputPlaceholder(),
-                                    }}
-                                    participants={participants.users}
-                                    bots={channelBotMentionUsers}
-                                    attachmentTracker={attachmentTracker}
-                                    persistenceKey={makeInputValuePersistenceKey(
-                                      {
-                                        channelId: props.channelId,
-                                      }
-                                    )}
-                                    onReady={(handle) => {
-                                      dragState.setAttachFilesToChannel(
-                                        handle.attachFiles
-                                      );
-                                      dragState.setEntityMentionInputHandlers(
-                                        handle
-                                      );
-                                      setChannelInputHandle(handle);
-                                    }}
-                                    onChange={(snapshot) =>
-                                      void setChannelInputSnapshot(snapshot)
-                                    }
-                                    onSend={onSend}
-                                    onStartCall={
-                                      ENABLE_CALLS &&
-                                      !channel()?.agent_dm &&
-                                      !channelCall.isInThisChannel()
-                                        ? () => void channelCall.start()
-                                        : undefined
-                                    }
-                                    callInProgress={channelCall.isCallInProgress()}
-                                    onStartTyping={() =>
-                                      typingMutation.mutate({
-                                        parent: {
-                                          type: 'channel',
-                                          id: props.channelId,
-                                        },
-                                        action: 'start',
-                                      })
-                                    }
-                                    onStopTyping={() =>
-                                      typingMutation.mutate({
-                                        parent: {
-                                          type: 'channel',
-                                          id: props.channelId,
-                                        },
-                                        action: 'stop',
-                                      })
-                                    }
-                                  />
-                                </AgentDmComposer>
-                              </ChannelMessagingComposer>
-                            </Suspense>
+                                <ChannelInput
+                                  autofocus={props.autofocus}
+                                  collapsible
+                                  input={{
+                                    mode: 'channel',
+                                    id: `channel-input-${props.channelId}`,
+                                    placeholder: inputPlaceholder(),
+                                  }}
+                                  participants={participants.users}
+                                  bots={channelBotMentionUsers}
+                                  attachmentTracker={attachmentTracker}
+                                  persistenceKey={makeInputValuePersistenceKey({
+                                    channelId: props.channelId,
+                                  })}
+                                  onReady={(handle) => {
+                                    dragState.setAttachFilesToChannel(
+                                      handle.attachFiles
+                                    );
+                                    dragState.setEntityMentionInputHandlers(
+                                      handle
+                                    );
+                                    setChannelInputHandle(handle);
+                                  }}
+                                  onChange={(snapshot) =>
+                                    void setChannelInputSnapshot(snapshot)
+                                  }
+                                  onSend={onSend}
+                                  onStartCall={
+                                    ENABLE_CALLS &&
+                                    channelCallsAllowed(
+                                      messaging.interaction(),
+                                      !!channel()?.agent_dm
+                                    ) &&
+                                    !channelCall.isInThisChannel()
+                                      ? () => void channelCall.start()
+                                      : undefined
+                                  }
+                                  callInProgress={channelCall.isCallInProgress()}
+                                  onStartTyping={() =>
+                                    typingMutation.mutate({
+                                      parent: {
+                                        type: 'channel',
+                                        id: props.channelId,
+                                      },
+                                      action: 'start',
+                                    })
+                                  }
+                                  onStopTyping={() =>
+                                    typingMutation.mutate({
+                                      parent: {
+                                        type: 'channel',
+                                        id: props.channelId,
+                                      },
+                                      action: 'stop',
+                                    })
+                                  }
+                                />
+                              </AgentDmComposer>
+                            </Show>
                           </Match>
                         </Switch>
                       </ChannelInputContainer>

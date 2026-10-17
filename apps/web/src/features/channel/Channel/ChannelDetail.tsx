@@ -56,6 +56,7 @@ import {
 } from './ChannelSurface';
 import { ChannelTabProvider, useChannelTab } from './ChannelTabContext';
 import { ChannelLiveIndicators } from './ChannelTopBarLiveIndicators';
+import { channelCallsAllowed } from './channel-calls-allowed';
 import { toIconTabItems } from './channel-tab-icons';
 import { type ChannelTabId, DEFAULT_CHANNEL_TAB } from './channel-tabs';
 import {
@@ -163,7 +164,7 @@ export function ChannelDetailActions(props: ChannelDetailHeaderProps) {
     channelType,
   });
   const callsAllowed = () =>
-    messaging.interaction().kind === 'internal' && !channel()?.agent_dm;
+    channelCallsAllowed(messaging.interaction(), !!channel()?.agent_dm);
 
   // Seed for "Ask Macro": a new chat with this channel @mentioned.
   const askMacroEntity = () => {
@@ -274,8 +275,10 @@ function ChannelDetailContent(props: ChannelDetailProps) {
     channelType,
   });
   const callsAllowed = () =>
-    messaging.interaction().kind === 'internal' &&
-    !conversationChannel()?.agent_dm;
+    channelCallsAllowed(
+      messaging.interaction(),
+      !!conversationChannel()?.agent_dm
+    );
   useSplitDisplayName(() => channelName() ?? 'New Channel');
 
   const requestFromTarget = (

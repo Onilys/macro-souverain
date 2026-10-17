@@ -2,7 +2,7 @@ import { Layout } from '@channel/Input/Layout';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { openFilePicker } from '@core/util/upload';
 import PaperclipIcon from '@phosphor/paperclip.svg';
-import { Button, ComposerSurface, SendButton } from '@ui';
+import { Button, ComposerSurface, SendButton, TextField } from '@ui';
 import {
   createSignal,
   For,
@@ -118,11 +118,6 @@ function ExternalReply(props: {
   let active = true;
   let closePicker: (() => void) | undefined;
   let textInput: HTMLTextAreaElement | undefined;
-  const fitInput = () => {
-    if (!textInput?.isConnected) return;
-    textInput.style.height = 'auto';
-    textInput.style.height = `${Math.min(textInput.scrollHeight, 225)}px`;
-  };
   onCleanup(() => {
     active = false;
     closePicker?.();
@@ -194,7 +189,6 @@ function ExternalReply(props: {
       : new TextEncoder().encode(draft.text).length;
   const changeText = (value: string) => {
     setDraft('text', value);
-    fitInput();
     setDraft('intent', undefined);
     setError('');
   };
@@ -291,7 +285,6 @@ function ExternalReply(props: {
       .exhaustive();
     setDraft('humanSupport', send.payload.human_support ?? false);
     queueMicrotask(() => {
-      fitInput();
       textInput?.focus();
     });
   }
@@ -323,9 +316,14 @@ function ExternalReply(props: {
               }
             : { type: 'text', text: draft.text },
     };
+    const sentDraft = JSON.stringify(draft);
     try {
       await source.send(request);
       if (!active) return;
+      if (JSON.stringify(draft) !== sentDraft) {
+        if (draft.intent === id) setDraft('intent', undefined);
+        return;
+      }
       // A template does not include the separate text draft; keep it for later.
       const sentTemplate = request.message.type === 'template';
       setDraft({
@@ -351,7 +349,6 @@ function ExternalReply(props: {
     } finally {
       queueMicrotask(() => {
         if (!active) return;
-        fitInput();
         if (
           textInput?.isConnected &&
           (document.activeElement === focusAtSend ||
@@ -425,32 +422,31 @@ function ExternalReply(props: {
                   <Show
                     when={!draft.attachment || mediaCapability()?.caption_limit}
                   >
-                    <textarea
-                      ref={(element) => {
-                        textInput = element;
-                        queueMicrotask(fitInput);
-                      }}
-                      rows={1}
-                      class="block w-full resize-none min-h-6 bg-transparent p-0 text-base leading-6 text-composer-ink placeholder:text-ink-placeholder outline-none"
-                      aria-label="External customer reply"
-                      placeholder={`Message ${props.account.conversation.customer_display_name ?? props.account.conversation.customer_handle ?? props.account.conversation.customer_phone ?? props.account.conversation.customer_id}…`}
-                      value={draft.text}
-                      onInput={(e) => changeText(e.currentTarget.value)}
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === 'Enter' &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          !event.isComposing &&
-                          event.keyCode !== 229 &&
-                          !isTouchDevice()
-                        ) {
-                          event.preventDefault();
-                          void send();
-                        }
-                      }}
-                      disabled={source.isSending()}
-                    />
+                    <TextField value={draft.text} onChange={changeText}>
+                      <TextField.TextArea
+                        autoResize
+                        ref={(element) => {
+                          textInput = element;
+                        }}
+                        rows={1}
+                        class="block w-full resize-none min-h-6 max-h-[225px] rounded-none border-0 bg-transparent p-0 text-base leading-6 text-composer-ink placeholder:text-ink-placeholder outline-none focus-visible:shadow-none"
+                        aria-label="External customer reply"
+                        placeholder={`Message ${props.account.conversation.customer_display_name ?? props.account.conversation.customer_handle ?? props.account.conversation.customer_phone ?? props.account.conversation.customer_id}…`}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === 'Enter' &&
+                            !event.shiftKey &&
+                            !event.altKey &&
+                            !event.isComposing &&
+                            event.keyCode !== 229 &&
+                            !isTouchDevice()
+                          ) {
+                            event.preventDefault();
+                            void send();
+                          }
+                        }}
+                      />
+                    </TextField>
                   </Show>
                   <Show when={draft.attachment}>
                     {(file) => (

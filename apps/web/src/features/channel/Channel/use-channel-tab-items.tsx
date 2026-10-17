@@ -8,6 +8,7 @@ import { useActiveCallQuery } from '@queries/call/call';
 import { ChannelType } from '@service-storage/generated/schemas/channelType';
 import type { Accessor } from 'solid-js';
 import { useChannelTab } from './ChannelTabContext';
+import { channelCallsAllowed } from './channel-calls-allowed';
 import {
   CHANNEL_TABS,
   type ChannelTabId,
@@ -48,7 +49,7 @@ export function useChannelTabItems(channelId: string): Accessor<TabItem[]> {
     channelType,
   });
   const callsAllowed = () =>
-    interaction.interaction().kind === 'internal' && !channel()?.agent_dm;
+    channelCallsAllowed(interaction.interaction(), !!channel()?.agent_dm);
   const channel = useChannel(channelId);
   const call = useCall(() => channelId);
   const activeCallQuery = useActiveCallQuery(() => channelId);

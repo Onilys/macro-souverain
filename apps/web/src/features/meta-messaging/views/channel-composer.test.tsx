@@ -72,7 +72,6 @@ function account(
       customer_id: 'customer-one',
       customer_display_name: 'Customer One',
       last_customer_message_at: new Date().toISOString(),
-      standard_window_until: new Date(Date.now() + 3600000).toISOString(),
     },
   };
 }
@@ -637,4 +636,37 @@ it('accepts template fields filled out of order and keeps the draft restorable',
     'Ada',
     '42',
   ]);
+});
+
+it('keeps newer text in the same channel when an earlier send completes', async () => {
+  let finish!: (value: unknown) => void;
+  fixture.reply.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+  );
+  mount();
+  fireEvent.input(screen.getByRole('textbox'), {
+    target: { value: 'First reply' },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+  );
+  fireEvent.input(screen.getByRole('textbox'), {
+    target: { value: 'New reply while waiting' },
+  });
+  finish({});
+  await Promise.resolve();
+  expect(screen.getByRole('textbox')).toHaveProperty(
+    'value',
+    'New reply while waiting'
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+  );
+  await waitFor(() => expect(fixture.reply).toHaveBeenCalledTimes(2));
+  expect(fixture.reply.mock.calls[1][0].idempotency_key).not.toBe(
+    fixture.reply.mock.calls[0][0].idempotency_key
+  );
 });

@@ -19,7 +19,7 @@ export function CustomerIdentity(props: {
       <Popover.Trigger
         aria-label={`${providerName(props.provider)} conversation details`}
         title={providerName(props.provider)}
-        class="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
+        class="flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted not-touch:hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
       >
         <Dynamic
           component={
