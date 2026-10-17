@@ -38,11 +38,16 @@ export function useEmailDetailListNavigation(
     ...navigation,
     // A saved reminder hides the thread; navigation follows its old position.
     afterReminderSaved: () => navigation.navigate(1, { fallbackDirection: -1 }),
-    markDone: (archiveThread: EmailThreadCommands['archiveThread']) => {
-      void navigation.navigate(1, {
+    markDone: async (
+      archiveThread: EmailThreadCommands['archiveThread'],
+      requested?: string
+    ) => {
+      if (requested !== undefined && requested !== threadId()) return false;
+      let archived = false;
+      await navigation.navigate(1, {
         fallbackDirection: -1,
-        beforeOpen: (next, current) =>
-          archiveThread({
+        beforeOpen: (next, current) => {
+          archived = archiveThread({
             navigate: false,
             nextEntityId: next?.id,
             navigateBack:
@@ -51,8 +56,11 @@ export function useEmailDetailListNavigation(
                     navigation.open(current);
                   }
                 : undefined,
-          }),
+          });
+          return archived;
+        },
       });
+      return archived;
     },
   };
 }

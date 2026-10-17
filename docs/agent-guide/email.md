@@ -417,8 +417,12 @@ Macro Markdown messages retain document mentions. Ordinary HTML bodies use an
 open shadow root: Playwright text locators can reach them, but a card's ordinary
 `innerText` or `querySelector` does not traverse that root.
 
-Sending a reply from an inbox thread marks that thread done but stays on it;
-only the explicit Mark done action opens the next email.
+Sending a reply from an inbox thread marks that thread done but stays on it.
+Send and mark done (Shift+Cmd+Enter) and Mark done open the next email, counted
+from where the thread sat when it was opened (a reply draft lifts its thread to
+the top of Signal while it is written). If the user has already moved to
+another thread when the send finishes, the replied thread is marked done
+without navigating; Undo before then leaves it in the inbox.
 Sending a message shows it in the open thread immediately, while delivery is
 still pending. It stays visible until the thread refresh confirms it, with no
 duplicate message. Failed delivery removes that message and restores the reply
