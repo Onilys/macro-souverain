@@ -213,7 +213,7 @@
         extraFileset = lib.fileset.unions [
           ../static_assets/schema.graphql
           ../apps/web/tauri/src-tauri/tauri.macos.conf.json
-          ../apps/web/tauri/src-tauri/Entitlements.plist
+          ../apps/web/tauri/src-tauri/Entitlements.macos.plist
         ];
         inherit frontend;
 
@@ -843,7 +843,7 @@
 
               # Re-signing replaces the entitlements Tauri applied; the hardened
               # runtime blocks the camera and microphone without them.
-              codesign "''${sign_args[@]}" --entitlements ${../apps/web/tauri/src-tauri/Entitlements.plist} --deep "$app"
+              codesign "''${sign_args[@]}" --entitlements ${../apps/web/tauri/src-tauri/Entitlements.macos.plist} --deep "$app"
               codesign --verify --deep --strict --verbose=2 "$app"
             }
 
