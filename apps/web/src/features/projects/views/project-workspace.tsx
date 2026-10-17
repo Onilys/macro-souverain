@@ -172,7 +172,8 @@ export function ProjectWorkspace(props: {
               <ProjectTimeView
                 projectId={props.project.id}
                 projectName={props.project.name}
-                entries={[]}
+                data={undefined}
+                isLoading={false}
               />
             </Match>
           </Switch>

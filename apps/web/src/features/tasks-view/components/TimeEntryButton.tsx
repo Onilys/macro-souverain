@@ -1,3 +1,5 @@
+import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { enableTimeTracking } from '@core/constant/featureFlags';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import type { Property, PropertyApiValues } from '@property/types';
 import {
@@ -44,6 +46,7 @@ function parseDuration(input: string): number | null {
 }
 
 export function TimeEntryButton(props: TimeEntryButtonProps) {
+  const timeTrackingFlag = useFeatureFlag(enableTimeTracking);
   const [open, setOpen] = createSignal(false);
   const [inputValue, setInputValue] = createSignal('');
 
@@ -106,69 +109,71 @@ export function TimeEntryButton(props: TimeEntryButtonProps) {
   };
 
   return (
-    <Popover.Root open={open()} onOpenChange={setOpen}>
-      <Tooltip.Root>
-        <Tooltip.Trigger as={Popover.Trigger}>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="relative gap-1.5 px-2"
-            aria-label="Log time"
-          >
-            <ClockIcon class="size-4" />
+    <Show when={timeTrackingFlag().enabled}>
+      <Popover.Root open={open()} onOpenChange={setOpen}>
+        <Tooltip.Root>
+          <Tooltip.Trigger as={Popover.Trigger}>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="relative gap-1.5 px-2"
+              aria-label="Log time"
+            >
+              <ClockIcon class="size-4" />
+              <Show when={currentMinutes() > 0}>
+                <span class="text-xs text-ink-muted">
+                  {formatDuration(currentMinutes())}
+                </span>
+              </Show>
+            </Button>
+          </Tooltip.Trigger>
+          <Tooltip.Content>Log time</Tooltip.Content>
+        </Tooltip.Root>
+        <Popover.Content class="w-64 p-3">
+          <div class="space-y-3">
+            <div class="text-sm font-medium">Log Time</div>
             <Show when={currentMinutes() > 0}>
-              <span class="text-xs text-ink-muted">
-                {formatDuration(currentMinutes())}
-              </span>
+              <div class="text-xs text-ink-muted">
+                Current: {formatDuration(currentMinutes())}
+              </div>
             </Show>
-          </Button>
-        </Tooltip.Trigger>
-        <Tooltip.Content>Log time</Tooltip.Content>
-      </Tooltip.Root>
-      <Popover.Content class="w-64 p-3">
-        <div class="space-y-3">
-          <div class="text-sm font-medium">Log Time</div>
-          <Show when={currentMinutes() > 0}>
-            <div class="text-xs text-ink-muted">
-              Current: {formatDuration(currentMinutes())}
+            <input
+              type="text"
+              value={inputValue()}
+              onInput={(e) => setInputValue(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleSave();
+                }
+              }}
+              placeholder="e.g. 1h 30m or 1.5"
+              class="w-full rounded-md border border-edge bg-panel px-2.5 py-1.5 text-sm outline-none focus:border-focus focus:ring-1 focus:ring-focus"
+            />
+            <div class="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                class="flex-1"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                class="flex-1"
+                onClick={() => void handleSave()}
+                disabled={
+                  saveMutation.isPending || parseDuration(inputValue()) === null
+                }
+              >
+                {saveMutation.isPending ? 'Saving...' : 'Add'}
+              </Button>
             </div>
-          </Show>
-          <input
-            type="text"
-            value={inputValue()}
-            onInput={(e) => setInputValue(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void handleSave();
-              }
-            }}
-            placeholder="e.g. 1h 30m or 1.5"
-            class="w-full rounded-md border border-edge bg-panel px-2.5 py-1.5 text-sm outline-none focus:border-focus focus:ring-1 focus:ring-focus"
-          />
-          <div class="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              class="flex-1"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              class="flex-1"
-              onClick={() => void handleSave()}
-              disabled={
-                saveMutation.isPending || parseDuration(inputValue()) === null
-              }
-            >
-              {saveMutation.isPending ? 'Saving...' : 'Add'}
-            </Button>
           </div>
-        </div>
-      </Popover.Content>
-    </Popover.Root>
+        </Popover.Content>
+      </Popover.Root>
+    </Show>
   );
 }
