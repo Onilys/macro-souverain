@@ -462,6 +462,10 @@ export function CrmWorkspaceView(props: {
                 <PipelineView
                   pipeline={pipeline()}
                   source={pipelines}
+                  transfer={{
+                    source: useCrmContext().createPipelineTransfer(pipeline()),
+                    downloadCsv: useCrmContext().downloadCsv,
+                  }}
                   Sharing={useCrmContext().PipelineSharing}
                   Editor={PipelineEditor}
                   onCopyLink={() =>
@@ -632,7 +636,35 @@ export function CrmWorkspaceView(props: {
         />
       </Show>
       <Show when={importing()}>
-        <CrmImport onClose={() => setImporting(false)} />
+        <CrmImport
+          onClose={() => setImporting(false)}
+          pipelines={
+            canCreatePipeline()
+              ? {
+                  existing: () =>
+                    pipelines
+                      .pipelines()
+                      .filter(
+                        (pipeline) =>
+                          pipeline.recordType === 'company' &&
+                          (pipeline.grant === 'owner' ||
+                            pipeline.grant === 'edit')
+                      ),
+                  create: (name, sharing) =>
+                    pipelines.create({
+                      name,
+                      recordType: 'company',
+                      sharing,
+                    }),
+                  transfer: useCrmContext().createPipelineTransfer,
+                }
+              : undefined
+          }
+          onOpenPipeline={(id) => {
+            setImporting(false);
+            selectPipeline(id);
+          }}
+        />
       </Show>
     </ViewShell.Root>
   );

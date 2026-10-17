@@ -155,10 +155,12 @@ like any other rail item, and Shift-click opens it in a new split.
 `/app/settings/<tab>` opens it as the only split with the app rail still
 visible, and `/app/home/~/settings/<tab>` places it beside Home. Its inner
 sidebar matches Email and Tasks: a **Settings** title bar, a rounded
-**Search settings** field, the grouped section pills, and **Log out** pinned to
-the bottom. Unlike other views, it cannot be hidden at desktop widths: there is
-no **Hide navigation** toggle and `Cmd .` does nothing, even if it was hidden
-before. Below 720px the sidebar becomes an overlay opened from **Show
+**Search settings** field, the grouped section pills, and a team action pinned
+to the bottom: **Invite your team** (opens the invite dialog; hidden for members
+when the team limits invites to admins) or, with no team, **Create a team**
+(opens the create-team dialog). Unlike other views, it cannot be hidden at
+desktop widths: there is no **Hide navigation** toggle and `Cmd .` does
+nothing, even if it was hidden before. Below 720px the sidebar becomes an overlay opened from **Show
 navigation** (or `Cmd .`), which starts closed. Escape closes a
 settings split that shares the layout, or steps back to the previous view when
 it is the only split (Home when there is none). Leave settings by picking any
@@ -195,6 +197,12 @@ Below Profile, **Account** shows a card naming the current plan (**Free plan**,
 **Pro plan**, or **Max plan**; **Loading plan…** until the billing summary
 arrives). Clicking it opens **Billing** settings.
 
+Below the plan card, a **Log out** card signs out. Under it, outside any card,
+**Delete account** opens a two-step dialog: an irreversibility warning with
+optional feedback (and a **Log out instead** link), then a final step whose
+**Hold to delete my account** button deletes only after it is held for 5
+seconds (pointer, or Space/Enter); releasing early cancels.
+
 Left nav (feature and platform gates still apply):
 
 - **Blocks**: Email, Calendar, Agents, CRM.
@@ -208,6 +216,9 @@ built, not when it was installed on the computer. In the browser it links to the
 latest desktop release on GitHub, and only appears when the `desktop-app` PostHog
 flag is enabled. Native desktop always shows this section regardless of the flag;
 native mobile never shows it.
+
+The **Mobile App** page is titled **Mobile app (Alpha)** and offers a QR code
+to download **Macro Alpha** from the App Store.
 
 Search checks individual setting titles and keywords, tolerates common typos,
 and shows the parent page below each control result. Selecting a result opens
@@ -314,10 +325,25 @@ See [Billing Lab setup and boundaries](../../apps/web/src/features/billing-lab/R
 
 `Billing` shows the current plan and `Manage`. Free users see separate Pro
 (`Get Pro`) and Max (`Get Max`) cards, side by side when the panel is wide enough
-and stacked on narrow panels. The Pro card shows `Free for one month!` for Free
-users. `Get Pro` requests the same server-validated 30-day first-subscription
-trial as onboarding; checkout redirects only after the server confirms the trial.
-Ineligible accounts see the rejection reason and are not silently charged.
+and stacked on narrow panels. The Pro card shows `Free for one month!` only after
+`GET /user/stripe/trial_eligibility` confirms eligibility. Eligible customers get
+the server-validated 30-day first-subscription trial; returning customers see
+paid terms and `Get Pro` opens ordinary paid checkout. Eligibility loading
+disables Pro checkout without showing a trial offer; a failed lookup adds
+`Try again`. Checkout revalidates eligibility, and a stale trial offer reports
+the server rejection rather than silently switching to an immediate charge.
+Returning to the tab or reconnecting refreshes the offer. Accounts with an
+existing recoverable subscription see `Manage` and payment-management guidance
+instead of new checkout cards, even when their access is Free. A failed background
+eligibility refresh preserves known subscription management but hides trial
+claims. Management remains available if team lookup fails; plan changes wait for
+team data. Checkout rejection clears the offer until eligibility refreshes. Retries reuse the
+same open offer; changing plans invalidates the old link first. Competing tabs
+can show a retryable checkout conflict without creating two payable sessions.
+Reference captures from the isolated billing fixture: [returning customer](media/billing/returning-customer.png)
+and [subscription recovery](media/billing/subscription-recovery.png). These show
+phone-width layouts; payment-provider interactions are covered separately.
+
 `Get Max` keeps standard paid terms. Prices read `/ month` for solo users and
 `per seat / month` for team accounts. Each card puts its button beside the price when wide enough and below
 the price when narrow. Free lists 2 connected email accounts; Pro and Max list
@@ -340,8 +366,8 @@ lookup; failed lookups show `Try again` rather than guessed upgrade options.
 On a local HMR dev server, `Preview billing & paywall` opens an opt-in preview in
 Billing. Choose Solo, a team-paid member, a self-paying member, or a team owner,
 and Free, Pro, or Max. `Permissions, loading, and feature states` exposes the
-billing summary status, billing permission, active/trialing license, AI usage
-flag, and pending plan actions. The preview uses the real Billing UI with local
+billing summary status, billing permission, active/trialing license, Pro trial
+eligibility, AI usage flag, and pending plan actions. The preview uses the real Billing UI with local
 fixtures; checkout, plan changes, Manage, and Team settings only show preview
 status messages. `Preview paywall` opens the same modal for the selected state,
 without developer controls inside it. Dismissing the modal returns to Billing

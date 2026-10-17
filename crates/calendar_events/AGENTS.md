@@ -54,6 +54,8 @@ dispatch, team availability, and Google/Postgres persistence.
   occurrence projections, not separate events — don't model them as new entities.
 - Imported point (non-recurring) events must survive sync and cache round-trips
   unchanged (#7762) — a regression here silently drops user events.
+- Preserve the conservative OOO refresh hint on write outcomes and sync reports;
+  its contract is in [team sharing](../../docs/design/calendar-team-sharing.md).
 
 ## Related
 

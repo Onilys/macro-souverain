@@ -20,6 +20,8 @@ files:
   - apps/web/src/features/meta-messaging/primitives/**
   - apps/web/src/features/meta-messaging/components/**
   - apps/web/src/features/meta-messaging/views/**
+  - apps/web/src/features/access-requests/primitives/**
+  - apps/web/src/features/access-requests/views/**
   - apps/web/src/features/agent-activity/queries/**
   - apps/web/src/features/agent-dms/queries/**
   - apps/web/src/features/agent-conversations/queries/**

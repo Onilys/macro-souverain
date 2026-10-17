@@ -10,7 +10,9 @@ import Minus from '@phosphor/minus.svg';
 import Percent from '@phosphor/percent.svg';
 import Plus from '@phosphor/plus.svg';
 import TextB from '@phosphor/text-b.svg';
+import TextIndent from '@phosphor/text-indent.svg';
 import TextItalic from '@phosphor/text-italic.svg';
+import TextOutdent from '@phosphor/text-outdent.svg';
 import TextStrikethrough from '@phosphor/text-strikethrough.svg';
 import TextUnderline from '@phosphor/text-underline.svg';
 import X from '@phosphor/x.svg';
@@ -249,6 +251,28 @@ export function SpreadsheetToolbar(props: SpreadsheetToolbarProps) {
         <Divider />
         <BorderMenu {...props} />
         <AlignmentMenu {...props} />
+        <ToolbarButton
+          size="icon-sm"
+          label="Decrease indent"
+          disabled={props.readonly}
+          onClick={() => {
+            props.onCommand('indent-decrease');
+            props.onRestoreFocus?.();
+          }}
+        >
+          <TextOutdent class="size-[18px]" />
+        </ToolbarButton>
+        <ToolbarButton
+          size="icon-sm"
+          label="Increase indent"
+          disabled={props.readonly}
+          onClick={() => {
+            props.onCommand('indent-increase');
+            props.onRestoreFocus?.();
+          }}
+        >
+          <TextIndent class="size-[18px]" />
+        </ToolbarButton>
         <VerticalAlignmentMenu {...props} />
         <ToolbarButton
           size="icon-sm"

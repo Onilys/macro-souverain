@@ -993,6 +993,38 @@ function mapGraphqlNotificationMetadata(
         }) satisfies NotifEventMember<'replied_to_document_comment_thread'>
     )
     .with(
+      { __typename: 'GraphqlEntityAccessRequestedMetadata' },
+      (metadata) =>
+        ({
+          tag: 'entity_access_requested',
+          content: {
+            requestId: metadata.entityAccessRequestedRequestId,
+            revision: metadata.entityAccessRequestedRevision,
+            entityName: metadata.entityAccessRequestedEntityName,
+            fileType: metadata.entityAccessRequestedFileType,
+            accessLevel: match(metadata.entityAccessRequestedAccessLevel)
+              .with('view', 'comment', 'edit', (level) => level)
+              .otherwise(() => 'comment' as const),
+          },
+        }) satisfies NotifEventMember<'entity_access_requested'>
+    )
+    .with(
+      { __typename: 'GraphqlEntityAccessGrantedMetadata' },
+      (metadata) =>
+        ({
+          tag: 'entity_access_granted',
+          content: {
+            requestId: metadata.entityAccessGrantedRequestId,
+            revision: metadata.entityAccessGrantedRevision,
+            entityName: metadata.entityAccessGrantedEntityName,
+            fileType: metadata.entityAccessGrantedFileType,
+            accessLevel: match(metadata.entityAccessGrantedAccessLevel)
+              .with('view', 'comment', 'edit', (level) => level)
+              .otherwise(() => 'comment' as const),
+          },
+        }) satisfies NotifEventMember<'entity_access_granted'>
+    )
+    .with(
       { __typename: 'GraphqlCommentedOnDocumentMetadata' },
       (metadata) =>
         ({

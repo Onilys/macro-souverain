@@ -552,7 +552,7 @@ export type EntityIconProps = {
    * like 'directMessage; If an unrecognized type or no type at all is passed,
    * a default gray file icon will be used.
    */
-  targetType?: FileType | EntityWithValidIcon;
+  targetType?: FileType | EntityWithValidIcon | (string & {});
   /**
    * The size of the Icon.
    * sm = "w-4 h-4"

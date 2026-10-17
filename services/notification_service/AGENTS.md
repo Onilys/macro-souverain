@@ -41,6 +41,10 @@ worker that sends email/mobile-push/websocket notifications.
 
 ## Gotchas
 
+- PostgreSQL delete forwarding emits `notification.delete.publish` spans and
+  logs publication failures. The retention Lambda is a separate binary/role;
+  see `services/notification_retention_handler` and its rollout runbook.
+
 - Don't log notification payloads on tracing spans (#7892) — they can carry
   sensitive content; log ids/types instead.
 

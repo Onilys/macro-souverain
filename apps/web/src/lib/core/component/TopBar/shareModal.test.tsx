@@ -70,7 +70,10 @@ vi.mock('@service-connection/client', () => ({
   useRefreshTrackedEntitiesOnFocus: () => {},
   useReopenTrackedEntitiesOnReconnect: () => {},
 }));
-vi.mock('@service-connection/websocket', () => ({ ws: {} }));
+vi.mock('@service-connection/websocket', () => ({
+  ws: {},
+  createConnectionWebsocketEffect: () => {},
+}));
 
 vi.mock('./ShareButton', () => ({
   ShareModal: (props: {

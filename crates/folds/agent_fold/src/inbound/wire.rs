@@ -48,6 +48,10 @@ pub struct FoldedMessage {
     /// What an agent's unfinished reply is doing now; absent once its turn
     /// has ended and on a user's message.
     phase: Option<TurnPhase>,
+    /// When a user's prompt was posted, RFC 3339. Absent on agent and control
+    /// messages, until the log confirms a prompt, and on history a runtime
+    /// replayed on load.
+    posted_at: Option<String>,
 }
 
 impl FoldedMessage {
@@ -74,6 +78,7 @@ impl FoldedMessage {
             pending: message.pending,
             segments,
             phase,
+            posted_at: message.posted_at.map(|at| at.to_rfc3339()),
         }
     }
 }

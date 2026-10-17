@@ -11,6 +11,57 @@ import type {
   SoupItemFieldsFragment,
 } from './graphql/generated/graphql';
 
+it.each(['view', 'comment', 'edit'] as const)(
+  'preserves %s access on request and grant notifications',
+  async (level) => {
+    const { mapGraphqlNotification } = await import('./graphql-soup');
+    const base = {
+      __typename: 'GraphqlNotification' as const,
+      id: 'access-notification',
+      entityId: 'document',
+      entityType: 'DOCUMENT' as const,
+      state: 'UNSEEN' as const,
+      sent: true,
+      senderId: 'owner',
+      viewedAt: null,
+      createdAt: '2026-10-15T10:00:00Z',
+      updatedAt: '2026-10-15T10:00:00Z',
+    };
+    const requested = mapGraphqlNotification({
+      ...base,
+      eventType: 'entity_access_requested',
+      metadata: {
+        __typename: 'GraphqlEntityAccessRequestedMetadata',
+        entityAccessRequestedRequestId: 'request',
+        entityAccessRequestedRevision: 1,
+        entityAccessRequestedEntityName: 'Private document',
+        entityAccessRequestedFileType: 'md',
+        entityAccessRequestedAccessLevel: level,
+      },
+    });
+    const granted = mapGraphqlNotification({
+      ...base,
+      eventType: 'entity_access_granted',
+      metadata: {
+        __typename: 'GraphqlEntityAccessGrantedMetadata',
+        entityAccessGrantedRequestId: 'request',
+        entityAccessGrantedRevision: 2,
+        entityAccessGrantedEntityName: 'Private document',
+        entityAccessGrantedFileType: 'md',
+        entityAccessGrantedAccessLevel: level,
+      },
+    });
+    expect(requested.notification_metadata).toMatchObject({
+      tag: 'entity_access_requested',
+      content: { accessLevel: level },
+    });
+    expect(granted.notification_metadata).toMatchObject({
+      tag: 'entity_access_granted',
+      content: { accessLevel: level },
+    });
+  }
+);
+
 it('preserves initiative identity, properties, and metadata separately from folders', async () => {
   const { mapGraphqlSoupItem } = await import('./graphql-soup');
   expect(

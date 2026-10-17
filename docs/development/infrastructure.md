@@ -117,6 +117,15 @@ specifically:
   must live in Pulumi itself.
 - Never resolve `secretString` into a plaintext env var.
 
+## Embedded build assets
+
+Deployment builds use the filtered source in `nix/cloud-storage.nix`, rather than
+an entire checkout. Include any new `include_str!` or `include_bytes!` assets in
+its source filter. The `code-execution-assets` Nix check verifies that the Deno
+bootstrap, SDK and Handlebars bundles survive both the workspace filter and the
+pruned agent-harness deployment source; Rust CI runs this check before clippy.
+Run it locally with `nix build --no-link .#checks.x86_64-linux.code-execution-assets`.
+
 ## Other resources
 
 | Need | Use | Example |
@@ -175,5 +184,4 @@ local resources.
 
 Stale docs to treat with suspicion: `SLACK_IMPORT_ROLLOUT.md` (the worker is on
 and receives `APP_SECRETS_JSON` now), `web-app/README.md` (`yarn`),
-`fusion-auth/README.md`. `lexical-service` runs on ECS, but
-`deploy-lexical-service.yml` still deploys its old Cloudflare worker.
+`fusion-auth/README.md`.

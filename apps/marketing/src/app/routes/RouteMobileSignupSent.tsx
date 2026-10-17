@@ -68,9 +68,7 @@ export const RouteMobileSignupSent: Component = () => {
   return (
     <section class="mobile-signup-card">
       <MobileSignupMark />
-      <h1 class="mobile-signup-card-title">
-        Continue onboarding on desktop
-      </h1>
+      <h1 class="mobile-signup-card-title">Continue onboarding on desktop</h1>
       <p class="mobile-signup-card-subtitle">
         <Show
           when={email()}
@@ -105,7 +103,7 @@ export const RouteMobileSignupSent: Component = () => {
             });
           }}
         >
-          Download our mobile app
+          Download our mobile app (Alpha)
         </a>
       </div>
     </section>

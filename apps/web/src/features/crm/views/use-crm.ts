@@ -34,6 +34,7 @@ export const useCrmLists = (...args: Parameters<CrmContext['createLists']>) =>
 export const useCreateCompanyMutation = (
   ...args: Parameters<CrmContext['createCompany']>
 ) => useCrmContext().createCompany(...args);
+export const useCompanyImporter = () => useCrmContext().createCompanyImporter();
 export const useCreateContactMutation = (
   ...args: Parameters<CrmContext['createContact']>
 ) => useCrmContext().createContact(...args);

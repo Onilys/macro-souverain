@@ -3593,6 +3593,32 @@ type GraphqlEntity {
 }
 
 """
+Metadata for an approved access request and its granted permission.
+"""
+type GraphqlEntityAccessGrantedMetadata {
+	"""
+	Stable access request id.
+	"""
+	requestId: ID!
+	"""
+	Request revision.
+	"""
+	revision: Int!
+	"""
+	Entity display name.
+	"""
+	entityName: String!
+	"""
+	Document file extension, when applicable.
+	"""
+	fileType: String
+	"""
+	Requested or granted access.
+	"""
+	accessLevel: String!
+}
+
+"""
 Item access level resolved for the current viewer.
 """
 enum GraphqlEntityAccessLevel {
@@ -3612,6 +3638,32 @@ enum GraphqlEntityAccessLevel {
 	Owner access.
 	"""
 	OWNER
+}
+
+"""
+Metadata for a request to view, comment on, or edit a shared item.
+"""
+type GraphqlEntityAccessRequestedMetadata {
+	"""
+	Stable access request id.
+	"""
+	requestId: ID!
+	"""
+	Request revision.
+	"""
+	revision: Int!
+	"""
+	Entity display name.
+	"""
+	entityName: String!
+	"""
+	Document file extension, when applicable.
+	"""
+	fileType: String
+	"""
+	Requested or granted access.
+	"""
+	accessLevel: String!
 }
 
 """
@@ -5173,7 +5225,7 @@ type GraphqlNewNotification {
 """
 Typed GraphQL union containing every supported notification event payload.
 """
-union GraphqlNotifEvent = GraphqlChannelMentionMetadata | GraphqlDocumentMentionMetadata | GraphqlMentionedInDocumentCommentMetadata | GraphqlRepliedToDocumentCommentThreadMetadata | GraphqlCommentedOnDocumentMetadata | GraphqlInitiativeDiscussionMetadata | GraphqlCrmDiscussionMetadata | GraphqlChannelInviteMetadata | GraphqlChannelMessageSendMetadata | GraphqlChannelMessageReactionMetadata | GraphqlChannelReplyMetadata | GraphqlCallStartedMetadata | GraphqlNewEmailMetadata | GraphqlInboxReauthRequiredMetadata | GraphqlInviteToTeamMetadata | GraphqlTaskAssignedMetadata | GraphqlReminderMetadata | GraphqlCalendarEventReminderMetadata | GraphqlAiResponseMetadata | GraphqlGithubPrStatusChangedMetadata | GraphqlGithubPrCheckRunMetadata | GraphqlGithubReviewRequestedMetadata | GraphqlGithubPrCommentMetadata | GraphqlGithubPrMentionMetadata | GraphqlGithubPrReviewMetadata | GraphqlAgentSessionSettledMetadata | GraphqlAgentSessionWaitingForInputMetadata | GraphqlAgentSessionMentionedMetadata
+union GraphqlNotifEvent = GraphqlEntityAccessGrantedMetadata | GraphqlEntityAccessRequestedMetadata | GraphqlChannelMentionMetadata | GraphqlDocumentMentionMetadata | GraphqlMentionedInDocumentCommentMetadata | GraphqlRepliedToDocumentCommentThreadMetadata | GraphqlCommentedOnDocumentMetadata | GraphqlInitiativeDiscussionMetadata | GraphqlCrmDiscussionMetadata | GraphqlChannelInviteMetadata | GraphqlChannelMessageSendMetadata | GraphqlChannelMessageReactionMetadata | GraphqlChannelReplyMetadata | GraphqlCallStartedMetadata | GraphqlNewEmailMetadata | GraphqlInboxReauthRequiredMetadata | GraphqlInviteToTeamMetadata | GraphqlTaskAssignedMetadata | GraphqlReminderMetadata | GraphqlCalendarEventReminderMetadata | GraphqlAiResponseMetadata | GraphqlGithubPrStatusChangedMetadata | GraphqlGithubPrCheckRunMetadata | GraphqlGithubReviewRequestedMetadata | GraphqlGithubPrCommentMetadata | GraphqlGithubPrMentionMetadata | GraphqlGithubPrReviewMetadata | GraphqlAgentSessionSettledMetadata | GraphqlAgentSessionWaitingForInputMetadata | GraphqlAgentSessionMentionedMetadata
 
 """
 A notification associated with a Soup entity.

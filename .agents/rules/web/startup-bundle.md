@@ -25,9 +25,8 @@ alwaysApply: false
   background, the rail column, and the desktop app's content card — no app
   content. The first shell to mount dismisses it (`dismissBootShell`). Keep its
   rail width and desktop inset in step with `SidebarRail` and `SplitLayout`.
-- Production web builds register `public/sw.js`: it serves the cached
-  `index.html` and content-hashed assets from Cache Storage and moves tabs to
-  newer builds. Set localStorage `macro:sw` to `off` to bypass it while
-  debugging.
+- Do not register an asset-caching service worker. Keep `public/sw.js` at its
+  deployed URL so existing workers can update, clear their shell and asset
+  caches, and unregister; it must not intercept requests.
 - The build fails if any emitted file exceeds CloudFront's 10 MB compression
   limit; split it rather than raising the limit.

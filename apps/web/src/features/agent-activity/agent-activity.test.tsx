@@ -45,6 +45,7 @@ function reply(rows: ActivityRow[]): FoldedMessage {
       { index: 1, kind: 'activity', start: 1, end: 3, sealed: false, rows },
     ],
     phase: 'working',
+    postedAt: null,
   };
 }
 

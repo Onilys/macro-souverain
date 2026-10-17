@@ -1371,6 +1371,8 @@ impl CalendarCreationTarget {
 pub struct StoredGoogleCalendar {
     /// Persisted Macro calendar identifier.
     pub id: Uuid,
+    /// Calendar metadata changed and may invalidate teammate OOO projections.
+    pub team_ooo_changed: bool,
     /// Last provider continuation token successfully committed for this calendar.
     pub sync_token: Option<String>,
     /// Exact recurrence window materialized by the last full snapshot.
@@ -1535,6 +1537,8 @@ pub struct GoogleCalendarSyncSnapshot {
 /// What one Google backfill run changed, for change-driven notifications.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct GoogleBackfillRunReport {
+    /// A source, calendar, or failed coverage check may have changed OOO access.
+    pub team_ooo_changed: bool,
     /// Events written through the ingestion upsert this run.
     pub events_upserted: usize,
     /// Cancellation tombstones the change feed reported this run.
@@ -1549,7 +1553,10 @@ impl GoogleBackfillRunReport {
     /// Whether the run plausibly changed the local projection. Quiet
     /// token-only polls report nothing and skip client notifications.
     pub fn changed(&self) -> bool {
-        self.events_upserted > 0 || self.cancellations_observed > 0 || self.events_retired > 0
+        self.team_ooo_changed
+            || self.events_upserted > 0
+            || self.cancellations_observed > 0
+            || self.events_retired > 0
     }
 }
 
@@ -1563,9 +1570,14 @@ pub enum RefreshCalendarEvent {
     Synced {
         /// Connected inbox whose calendars changed.
         link_id: Uuid,
+        /// False only when the run excludes changes to teammate OOO projections.
+        team_ooo_changed: bool,
     },
-    /// A team entitlement changed; discard cached team projections before refetching.
-    TeamSharingChanged,
+    /// Team projections need refreshing after a sync or entitlement change.
+    TeamSharingChanged {
+        /// True for sharing changes and any possibly affected OOO projection.
+        team_ooo_changed: bool,
+    },
 }
 
 /// Identity of one scheduled reminder firing: an occurrence, an offset, and

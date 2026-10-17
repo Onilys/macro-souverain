@@ -13,6 +13,7 @@
 //! said, what it ran, and what it wanted permission to do.
 
 use agent_runtime_protocol::domain::action::AgentActionId;
+use chrono::{DateTime, Utc};
 use macro_user_id::user_id::MacroUserIdStr;
 use non_empty::NonEmpty;
 use serde::Serialize;
@@ -229,6 +230,10 @@ pub struct FoldedMessage {
     /// confirmed: a prompt on the wire, a stop just pressed. Cleared when the
     /// confirmed frame folds in its place. Always false on the server's fold.
     pub pending: bool,
+    /// When the log stored the prompt this user message came from. `None` on
+    /// agent and control messages, on a prompt not stored yet, and on history
+    /// a runtime replays on load, whose frames are as old as the load.
+    pub posted_at: Option<DateTime<Utc>>,
 }
 
 impl FoldedMessage {

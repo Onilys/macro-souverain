@@ -1,16 +1,16 @@
 import { ROUTER_BASE_CONCAT } from '@app/constants/routerBase';
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { toast } from '@core/component/Toast/Toast';
+import { SERVER_HOSTS } from '@core/constant/servers';
 import { deriveIsAuthenticated } from '@core/context/user';
 import { useAddInboxFlow } from '@core/email-link';
-import {
-  createPipedreamCatalogConnect,
-  createPipedreamCatalogSearch,
-} from '@core/pipedream/catalog';
 import { idToDisplayName, idToEmail } from '@core/user/util';
 import {
   useAiBillingPlansQuery,
+  useCreateBillingPortalMutation,
   useCreateCheckoutSessionMutation,
+  useGithubLinkStatusQuery,
+  useTrialEligibilityQuery,
 } from '@queries/auth';
 import { useCompleteTutorialMutation } from '@queries/auth/tutorial';
 import { type UserInfoData, useUserInfoQuery } from '@queries/auth/user-info';
@@ -19,11 +19,12 @@ import { invalidateEmailLinks, useEmailLinksQuery } from '@queries/email/link';
 import { queryReadyGate } from '@queries/gate';
 import { useGithubStarsQuery } from '@queries/github-stars';
 import { useGtmInviteOfferQuery } from '@queries/gtm-invite/links';
+import { useMcpServersQuery } from '@queries/mcp-servers';
 import {
   useCompleteOnboardingMutation,
   useOnboardingQuery,
 } from '@queries/onboarding';
-import { usePipedreamConnectedSlugs } from '@queries/pipedream-connectors';
+import { usePipedreamConnectionsQuery } from '@queries/pipedream-connectors';
 import {
   useJoinTeamMutation,
   useUserInvitesQuery,
@@ -38,7 +39,13 @@ import type {
   ViewerState,
 } from './context/onboarding-context';
 import { onboardingCheckoutRequest } from './core/checkout';
+import {
+  onboardingConnectedTools,
+  onboardingToolState,
+} from './queries/connected-tools';
 import { loadableQuery } from './queries/loadable-query';
+import { createOnboardingToolCatalog } from './queries/tool-catalog';
+import { createOnboardingToolConnect } from './queries/tool-connect';
 
 /** How often connected tools re-check while the user is on the tools step. */
 const CONNECTED_TOOLS_POLL_MS = 5_000;
@@ -83,8 +90,10 @@ export function createAppOnboardingContext(): OnboardingContext {
   const createTeam = useCreateTeamWithInvitesMutation();
   const joinTeam = useJoinTeamMutation();
   const checkout = useCreateCheckoutSessionMutation();
+  const billingPortal = useCreateBillingPortalMutation();
   const completeOnboarding = useCompleteOnboardingMutation();
   const completeTutorial = useCompleteTutorialMutation();
+  const connectTool = createOnboardingToolConnect();
 
   const viewer = () => toViewerState(userInfo);
   const needsOnboarding = () => {
@@ -126,34 +135,61 @@ export function createAppOnboardingContext(): OnboardingContext {
     },
     connectInbox: () => startAddInbox(),
 
-    createToolCatalog: () => {
-      const catalog = createPipedreamCatalogSearch(() => new Set<string>());
-      return {
-        search: catalog.searchInput,
-        setSearch: catalog.onSearchInput,
-        entries: () =>
-          catalog.entries().map((entry) => ({
-            slug: entry.app_slug,
-            name: entry.display_name,
-            iconUrl: entry.icon_url ?? null,
-          })),
-        fetching: () => catalog.query.isFetching,
-        failed: () => catalog.query.isError,
-        hasMore: () => catalog.query.hasNextPage,
-        loadMore: () => void catalog.query.fetchNextPage(),
-        retry: () => void catalog.query.refetch(),
-      };
-    },
+    createToolCatalog: createOnboardingToolCatalog,
     createConnectedTools: ({ poll }) => {
-      const connected = usePipedreamConnectedSlugs({
+      const connected = usePipedreamConnectionsQuery({
+        neverSuspend: true,
         refetchInterval: poll ? CONNECTED_TOOLS_POLL_MS : undefined,
       });
-      return () => (connected.ready() ? connected.slugs() : undefined);
+      const native = useMcpServersQuery({
+        neverSuspend: true,
+        refetchInterval: poll ? CONNECTED_TOOLS_POLL_MS : undefined,
+      });
+      const github = useGithubLinkStatusQuery({
+        refetchInterval: poll ? CONNECTED_TOOLS_POLL_MS : undefined,
+        refetchOnMount: 'always',
+      });
+      const pdState = () =>
+        connected.isPlaceholderData
+          ? { t: 'loading' as const }
+          : loadableQuery(connected, (data) => data);
+      const nativeState = () =>
+        native.isPlaceholderData
+          ? { t: 'loading' as const }
+          : loadableQuery(native, (data) => data);
+      return {
+        connected: () =>
+          onboardingConnectedTools(
+            new Set(
+              queryReadyGate(connected)
+                ? connected.data.filter((c) => c.enabled).map((c) => c.app_slug)
+                : []
+            ),
+            queryReadyGate(native) ? native.data : [],
+            queryReadyGate(github) && github.data.status === 'linked'
+          ),
+        state: (slug) =>
+          onboardingToolState(
+            slug,
+            pdState(),
+            nativeState(),
+            loadableQuery(github, (data) => data.status)
+          ),
+        retry: () => {
+          if (connected.isError) void connected.refetch();
+          if (native.isError) void native.refetch();
+          if (github.isError) void github.refetch();
+        },
+      };
     },
-    connectTool: (tool) =>
-      createPipedreamCatalogConnect({
-        entry: () => ({ app_slug: tool.slug, display_name: tool.name }),
-      }).connect(),
+    connectTool,
+    configureGithubRepositories: () => {
+      window.open(
+        `${SERVER_HOSTS['document-storage-service']}/github/install-sync`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+    },
 
     createTeamDirectory: () => {
       const teams = useUserTeamsQuery();
@@ -192,6 +228,33 @@ export function createAppOnboardingContext(): OnboardingContext {
     createInviteOffer: () => {
       const query = useGtmInviteOfferQuery({ enabled: needsOnboarding });
       return () => loadableQuery(query, (offer) => offer ?? null);
+    },
+    createTrialEligibility: () => {
+      const query = useTrialEligibilityQuery({ enabled: needsOnboarding });
+      return {
+        eligibility: () =>
+          loadableQuery(query, (data) => data.eligible, {
+            retainDataOnError: false,
+          }),
+        existingSubscription: () =>
+          queryReadyGate(query) && query.data.existingSubscription,
+        managing: () => billingPortal.isPending,
+        manage: async () => {
+          try {
+            const result = await billingPortal.mutateAsync({
+              returnUrl: window.location.href,
+            });
+            window.location.href = result;
+          } catch {
+            toast.failure(
+              "Couldn't open billing management. Please try again."
+            );
+          }
+        },
+        retry: () => {
+          void query.refetch();
+        },
+      };
     },
     createPlanCatalog: () => {
       const query = useAiBillingPlansQuery();

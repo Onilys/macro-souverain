@@ -159,7 +159,36 @@ where
         &self,
         message: QueueMessage<'static, serde_json::Value, serde_json::Value>,
     ) -> Vec<Result<DeliverySuccess, Report<DeliveryFailure>>> {
+        let access_request = message.message_type() == "entity_access_requested";
         let content = message.into_inner();
+        if access_request {
+            let notification_id = match &content {
+                NotificationChannel::ConnGateway(conn) => conn.notif.notification_id,
+                NotificationChannel::Ios(apns) => {
+                    match serde_json::from_value::<crate::domain::models::apple::PushNotificationData>(
+                        apns.notif.push_notification_data.clone(),
+                    ) {
+                        Ok(data) => data.notification_id,
+                        Err(error) => {
+                            return vec![Err(report!(error).context(DeliveryFailure::Other))];
+                        }
+                    }
+                }
+                NotificationChannel::Email(_) => {
+                    return vec![Err(report!("access requests do not use email delivery")
+                        .context(DeliveryFailure::Other))];
+                }
+            };
+            match self
+                .repository
+                .notification_is_withdrawn(notification_id)
+                .await
+            {
+                Ok(true) => return Vec::new(),
+                Ok(false) => {}
+                Err(error) => return vec![Err(error.context(DeliveryFailure::Other))],
+            }
+        }
 
         let results = match content {
             NotificationChannel::ConnGateway(ref conn) => Either::Left([self

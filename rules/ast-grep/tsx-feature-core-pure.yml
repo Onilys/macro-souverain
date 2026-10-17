@@ -16,6 +16,7 @@ note: |-
   Block-agent names its rendering layers `ui/` and `component/`.
 files:
   - apps/web/src/features/meta-messaging/core/**
+  - apps/web/src/features/access-requests/core/**
   - apps/web/src/features/agent-activity/core/**
   - apps/web/src/features/agent-dms/core/**
   - apps/web/src/features/agent-conversations/core/**

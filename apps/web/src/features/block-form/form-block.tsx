@@ -26,7 +26,6 @@ import { BlockLiveIndicators } from '@core/component/LiveIndicators';
 import { ShareTrigger } from '@core/component/TopBar/ShareButton';
 import { useShareModal } from '@core/component/TopBar/shareModal';
 import { enableForms } from '@core/constant/featureFlags';
-import { useSettingsState } from '@core/constant/SettingsState';
 import { isMobile } from '@core/mobile/isMobile';
 import { openExternalUrl } from '@core/util/url';
 import { useCopyLink } from '@core/util/useCopyLink';
@@ -63,13 +62,13 @@ function FormBlockContent(props: {
 }) {
   const formId = useBlockId();
   const { replaceOrInsertSplit, insertSplit } = useSplitLayout();
-  const settings = useSettingsState();
   const panel = useSplitPanelOrThrow();
   const context = createAppFormContext({
     openRelated: (destination) =>
       replaceOrInsertSplit({ type: 'database', id: destination.databaseId }),
     openChannel: (channelId) => insertSplit({ type: 'channel', id: channelId }),
-    openCalendarSettings: () => settings.openSettingsInSplit('Booking links'),
+    openCalendarSettings: () =>
+      insertSplit({ type: 'component', id: 'booking-links' }),
   });
   const source = context.createFormSource(
     () => formId,
@@ -234,12 +233,12 @@ function FormBlockContent(props: {
 function FormCardContent() {
   const formId = useBlockId();
   const { insertSplit } = useSplitLayout();
-  const settings = useSettingsState();
   const context = createAppFormContext({
     openRelated: (destination) =>
       insertSplit({ type: 'database', id: destination.databaseId }),
     openChannel: (channelId) => insertSplit({ type: 'channel', id: channelId }),
-    openCalendarSettings: () => settings.openSettingsInSplit('Booking links'),
+    openCalendarSettings: () =>
+      insertSplit({ type: 'component', id: 'booking-links' }),
   });
   const source = context.createFormSource(() => formId);
   const open = () => {

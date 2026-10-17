@@ -22,6 +22,8 @@ pub mod historical;
 /// Legacy channel list service implementation.
 #[cfg(feature = "list")]
 pub mod list_service;
+/// Reserved uploads for images and videos attached to channel messages.
+pub mod media_upload;
 /// Kafka event models for the `macro.mentions` topic.
 pub mod mention_events;
 /// Channel side effects for messages committed by the shared message service.

@@ -454,6 +454,9 @@ export const SpreadsheetResponse = z.any().superRefine((x, ctx) => {
                           z.null(),
                         ])
                         .optional(),
+                      indent: z
+                        .union([z.number().int().gte(0).lte(255), z.null()])
+                        .optional(),
                       verticalAlign: z
                         .union([
                           z.any().superRefine((x, ctx) => {
@@ -526,6 +529,7 @@ export const SpreadsheetResponse = z.any().superRefine((x, ctx) => {
                           z.null(),
                         ])
                         .optional(),
+                      checkbox: z.union([z.boolean(), z.null()]).optional(),
                     })
                     .strict(),
                   z.null(),
@@ -572,6 +576,14 @@ export const SpreadsheetResponse = z.any().superRefine((x, ctx) => {
                 formulas: z.union([z.array(z.string()), z.null()]).optional(),
                 dropdown: z.union([z.boolean(), z.null()]).optional(),
                 rejectInvalid: z.boolean(),
+                colors: z
+                  .union([
+                    z.array(
+                      z.object({ item: z.string(), color: z.string() }).strict()
+                    ),
+                    z.null(),
+                  ])
+                  .optional(),
               })
             )
             .optional(),
@@ -4146,6 +4158,15 @@ export const CreateTagResponse = z.object({
     }
   }),
   summary: z.string(),
+});
+
+export const Decide = z.intersection(
+  z.object({ input: z.any(), questions: z.record(z.string()) }).strict(),
+  z.any()
+);
+
+export const DecisionResponse = z.object({
+  probabilities: z.record(z.number()),
 });
 
 export const DeleteBot = z.object({ botId: z.string().uuid() });
@@ -7977,6 +7998,9 @@ export const EditSpreadsheet = z.object({
                     z.null(),
                   ])
                   .optional(),
+                indent: z
+                  .union([z.number().int().gte(0).lte(255), z.null()])
+                  .optional(),
                 verticalAlign: z
                   .union([
                     z.any().superRefine((x, ctx) => {
@@ -8047,6 +8071,7 @@ export const EditSpreadsheet = z.object({
                     z.null(),
                   ])
                   .optional(),
+                checkbox: z.union([z.boolean(), z.null()]).optional(),
               })
               .strict(),
             type: z.literal('format_cells'),
@@ -8114,6 +8139,14 @@ export const EditSpreadsheet = z.object({
             items: z.union([z.array(z.string()), z.null()]).optional(),
             source: z.union([z.string(), z.null()]).optional(),
             rejectInvalid: z.union([z.boolean(), z.null()]).optional(),
+            colors: z
+              .union([
+                z.array(
+                  z.object({ item: z.string(), color: z.string() }).strict()
+                ),
+                z.null(),
+              ])
+              .optional(),
             type: z.literal('set_dropdown'),
           })
           .strict(),
@@ -8122,6 +8155,13 @@ export const EditSpreadsheet = z.object({
             sheetId: z.string(),
             range: z.string(),
             type: z.literal('clear_validation'),
+          })
+          .strict(),
+        z
+          .object({
+            sheetId: z.string(),
+            range: z.string(),
+            type: z.literal('insert_checkboxes'),
           })
           .strict(),
       ];
@@ -8277,6 +8317,16 @@ export const EditWordDocument = z.object({
 
 export const WordDocumentResponse = z.object({ content: z.string() });
 
+export const ExportPipelineCsv = z.object({ pipelineId: z.string().uuid() });
+
+export const ExportPipelineCsvResponse = z.object({
+  documentId: z.string().uuid(),
+  fileName: z.string(),
+  rows: z.number().int().gte(0),
+  complete: z.boolean(),
+  summary: z.string(),
+});
+
 export const FindPipelineEntries = z.object({
   pipelineId: z.union([z.string().uuid(), z.null()]).optional(),
   filters: z
@@ -8383,6 +8433,20 @@ export const GenerateImageResponse = z.object({
   markdown: z.union([z.string(), z.null()]).optional(),
   note: z.union([z.string(), z.null()]).optional(),
 });
+
+export const GenerateObject = z.intersection(
+  z
+    .object({
+      prompt: z.string(),
+      system: z.union([z.string(), z.null()]).optional(),
+      model: z.union([z.string(), z.null()]).optional(),
+      schema: z.any(),
+    })
+    .strict(),
+  z.any()
+);
+
+export const GenerateObjectResponse = z.object({ object: z.any() });
 
 export const GetBookingInsights = z
   .object({
@@ -8715,6 +8779,45 @@ export const GetThreadResponse = z.object({
   summary: z.string(),
 });
 
+export const ImportCompaniesCsv = z.object({
+  csv: z.union([z.string(), z.null()]).optional(),
+  documentId: z.union([z.string().uuid(), z.null()]).optional(),
+  pipelineId: z.union([z.string().uuid(), z.null()]).optional(),
+  newPipelineName: z.union([z.string(), z.null()]).optional(),
+  shareNewPipeline: z.union([z.boolean(), z.null()]).optional(),
+});
+
+export const ImportCompaniesCsvResponse = z.object({
+  created: z.number().int().gte(0),
+  existing: z.number().int().gte(0),
+  skippedRows: z.number().int().gte(0),
+  failedCount: z.number().int().gte(0),
+  failed: z.array(z.object({ key: z.string(), reason: z.string() })),
+  pipeline: z
+    .union([
+      z.object({
+        pipelineId: z.string().uuid(),
+        pipelineName: z.string(),
+        added: z.number().int().gte(0),
+        alreadyPresent: z.number().int().gte(0),
+        createdRecords: z.number().int().gte(0),
+        unresolvedCount: z.number().int().gte(0),
+        unresolved: z.array(z.object({ key: z.string(), reason: z.string() })),
+        invalidCount: z.number().int().gte(0),
+        invalid: z.array(z.object({ key: z.string(), reason: z.string() })),
+        skippedRows: z.number().int().gte(0),
+        filledFields: z.array(z.string()),
+        ignoredColumns: z.array(z.string()),
+        addedOptions: z.array(
+          z.object({ field: z.string(), labels: z.array(z.string()) })
+        ),
+      }),
+      z.null(),
+    ])
+    .optional(),
+  summary: z.string(),
+});
+
 export const ImportNotionPage = z.object({ pageUrl: z.string() });
 
 export const ImportNotionPageResponse = z.object({
@@ -8773,6 +8876,31 @@ export const ImportNotionPageResponse = z.object({
     importedByTeammate: z.boolean(),
   }),
   message: z.string(),
+});
+
+export const ImportPipelineCsv = z.object({
+  pipelineId: z.string().uuid(),
+  csv: z.union([z.string(), z.null()]).optional(),
+  documentId: z.union([z.string().uuid(), z.null()]).optional(),
+});
+
+export const ImportPipelineCsvResponse = z.object({
+  pipelineId: z.string().uuid(),
+  pipelineName: z.string(),
+  added: z.number().int().gte(0),
+  alreadyPresent: z.number().int().gte(0),
+  createdRecords: z.number().int().gte(0),
+  unresolvedCount: z.number().int().gte(0),
+  unresolved: z.array(z.object({ key: z.string(), reason: z.string() })),
+  invalidCount: z.number().int().gte(0),
+  invalid: z.array(z.object({ key: z.string(), reason: z.string() })),
+  skippedRows: z.number().int().gte(0),
+  filledFields: z.array(z.string()),
+  ignoredColumns: z.array(z.string()),
+  addedOptions: z.array(
+    z.object({ field: z.string(), labels: z.array(z.string()) })
+  ),
+  summary: z.string(),
 });
 
 export const IssueBotCredential = z.object({
@@ -14035,6 +14163,37 @@ export const SendChannelMessage = z.object({
   content: z.string(),
   channel_id: z.string().uuid(),
   thread_id: z.union([z.string().uuid(), z.null()]).optional(),
+  attachments: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.any().superRefine((x, ctx) => {
+          const schemas = [
+            z.literal('image'),
+            z.literal('video'),
+            z.literal('document'),
+          ];
+          const errors = schemas.reduce<z.ZodError[]>(
+            (errors, schema) =>
+              ((result) => (result.error ? [...errors, result.error] : errors))(
+                schema.safeParse(x)
+              ),
+            []
+          );
+          if (schemas.length - errors.length !== 1) {
+            ctx.addIssue({
+              path: ctx.path,
+              code: 'invalid_union',
+              unionErrors: errors,
+              message: 'Invalid input: Should pass single schema',
+            });
+          }
+        }),
+        width: z.union([z.number().int(), z.null()]).optional(),
+        height: z.union([z.number().int(), z.null()]).optional(),
+      })
+    )
+    .optional(),
 });
 
 export const SendChannelMessageResponse = z.object({
@@ -15510,6 +15669,117 @@ export const WebSearchResponse = z.object({
     z.object({ type: z.string(), error_code: z.string() }),
   ]),
   tool_use_id: z.string(),
+});
+
+export const DescribeCodeTools = z
+  .object({
+    names: z.array(z.string()).optional(),
+    topics: z
+      .array(
+        z.any().superRefine((x, ctx) => {
+          const schemas = [
+            z.literal('search'),
+            z.literal('ai'),
+            z.literal('templates'),
+            z.literal('examples'),
+          ];
+          const errors = schemas.reduce<z.ZodError[]>(
+            (errors, schema) =>
+              ((result) => (result.error ? [...errors, result.error] : errors))(
+                schema.safeParse(x)
+              ),
+            []
+          );
+          if (schemas.length - errors.length !== 1) {
+            ctx.addIssue({
+              path: ctx.path,
+              code: 'invalid_union',
+              unionErrors: errors,
+              message: 'Invalid input: Should pass single schema',
+            });
+          }
+        })
+      )
+      .optional(),
+  })
+  .strict();
+
+export const CodeToolsDescription = z.object({
+  sdk_guide: z.union([z.string(), z.null()]).optional(),
+  guides: z.array(
+    z.object({
+      topic: z.any().superRefine((x, ctx) => {
+        const schemas = [
+          z.literal('search'),
+          z.literal('ai'),
+          z.literal('templates'),
+          z.literal('examples'),
+        ];
+        const errors = schemas.reduce<z.ZodError[]>(
+          (errors, schema) =>
+            ((result) => (result.error ? [...errors, result.error] : errors))(
+              schema.safeParse(x)
+            ),
+          []
+        );
+        if (schemas.length - errors.length !== 1) {
+          ctx.addIssue({
+            path: ctx.path,
+            code: 'invalid_union',
+            unionErrors: errors,
+            message: 'Invalid input: Should pass single schema',
+          });
+        }
+      }),
+      markdown: z.string(),
+    })
+  ),
+  instructions: z.string(),
+  tools: z.array(
+    z.object({
+      name: z.string(),
+      description: z.string(),
+      documentation: z.union([z.string(), z.null()]).optional(),
+    })
+  ),
+});
+
+export const ExecuteCode = z
+  .object({
+    execution_id: z.string(),
+    source: z.string(),
+    timeout_ms: z.number().int().gte(0).optional(),
+  })
+  .strict();
+
+export const ExecutionReceipt = z.object({
+  executionId: z.string(),
+  status: z.any().superRefine((x, ctx) => {
+    const schemas = [
+      z.literal('running'),
+      z.literal('succeeded'),
+      z.literal('failed'),
+      z.literal('cancelled'),
+      z.literal('timed_out'),
+    ];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) => (result.error ? [...errors, result.error] : errors))(
+          schema.safeParse(x)
+        ),
+      []
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        path: ctx.path,
+        code: 'invalid_union',
+        unionErrors: errors,
+        message: 'Invalid input: Should pass single schema',
+      });
+    }
+  }),
+  result: z.any().optional(),
+  error: z.union([z.string(), z.null()]).optional(),
 });
 
 export const ReadThread = z.object({

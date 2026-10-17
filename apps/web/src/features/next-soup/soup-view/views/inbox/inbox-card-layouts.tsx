@@ -249,9 +249,13 @@ const tagBubbleIcon = (tag: NotificationTag) =>
     .with('channel_message_send', () => () => (
       <ChatTextIcon class={AVATAR_GLYPH_CLASS} />
     ))
-    .with('channel_invite', 'invite_to_team', () => () => (
-      <UserPlusIcon class={AVATAR_GLYPH_CLASS} />
-    ))
+    .with(
+      'entity_access_requested',
+      'entity_access_granted',
+      'channel_invite',
+      'invite_to_team',
+      () => () => <UserPlusIcon class={AVATAR_GLYPH_CLASS} />
+    )
     .with('call_started', () => () => <PhoneIcon class={AVATAR_GLYPH_CLASS} />)
     .with('agent_session_settled', () => () => (
       <AgentIcon class={AVATAR_GLYPH_CLASS} />

@@ -513,6 +513,7 @@ async fn refuses_known_prompt_replays_even_after_completion() {
         agent_session_id: fx.session.id,
         user_id: Some(action.owner.clone()),
         content: crate::domain::model::Message::ToRuntime(content),
+        logged_at: None,
     }]);
     let response = serde_json::json!({
         "direction": "to_server",

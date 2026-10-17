@@ -1,4 +1,5 @@
 import { openPipedreamConnectUI } from '@core/pipedream/connect-ui';
+import { pipedreamSlugsMatch } from '@core/pipedream/slugs';
 import { ThrownResultError, throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
 import { queryReadyGate } from '@queries/gate';
@@ -34,6 +35,10 @@ function fetchPipedreamConnections() {
   );
 }
 
+export function pipedreamConnectionsQueryOptions() {
+  return { queryKey: KEYS.list, queryFn: fetchPipedreamConnections };
+}
+
 export function usePipedreamConnectionsQuery(options?: {
   /**
    * Poll for connection changes. Connecting finishes in the Connect UI
@@ -45,8 +50,7 @@ export function usePipedreamConnectionsQuery(options?: {
   neverSuspend?: boolean;
 }) {
   return useQuery(() => ({
-    queryKey: KEYS.list,
-    queryFn: fetchPipedreamConnections,
+    ...pipedreamConnectionsQueryOptions(),
     refetchOnMount: 'always' as const,
     refetchOnWindowFocus: 'always' as const,
     refetchInterval: options?.refetchInterval,
@@ -236,7 +240,10 @@ export async function connectPipedreamApp(args: {
                     server_name: args.serverName,
                   })
               );
-              if (connection.app_slug !== args.appSlug || !connection.enabled) {
+              if (
+                !pipedreamSlugsMatch(connection.app_slug, args.appSlug) ||
+                !connection.enabled
+              ) {
                 throw new Error('The requested connector was not enabled');
               }
               upsertConnection(connection);

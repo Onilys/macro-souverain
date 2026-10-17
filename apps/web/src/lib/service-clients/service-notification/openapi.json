@@ -1678,6 +1678,10 @@
             "$ref": "#/components/schemas/DeviceType",
             "description": "The device platform type (iOS or Android)."
           },
+          "nativeCallCapable": {
+            "type": "boolean",
+            "description": "Whether this Android binary supports native Telecom incoming calls."
+          },
           "token": {
             "type": "string",
             "description": "The device push notification token."
@@ -1741,6 +1745,64 @@
           "entity_type": {
             "$ref": "#/components/schemas/EntityType",
             "description": "The type of entity we are describing"
+          }
+        }
+      },
+      "EntityAccessGrantedMetadata": {
+        "type": "object",
+        "description": "A person granted you access to a shared entity.",
+        "required": ["requestId", "revision", "entityName", "accessLevel"],
+        "properties": {
+          "accessLevel": {
+            "$ref": "#/components/schemas/RequestedAccessLevel",
+            "description": "Requested or granted permission."
+          },
+          "entityName": {
+            "type": "string",
+            "description": "Shared item's name."
+          },
+          "fileType": {
+            "type": ["string", "null"],
+            "description": "Document file type for routing."
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable request identity."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Revision that generated this notification."
+          }
+        }
+      },
+      "EntityAccessRequestedMetadata": {
+        "type": "object",
+        "description": "A person requested access to a shared entity.",
+        "required": ["requestId", "revision", "entityName", "accessLevel"],
+        "properties": {
+          "accessLevel": {
+            "$ref": "#/components/schemas/RequestedAccessLevel",
+            "description": "Requested or granted permission."
+          },
+          "entityName": {
+            "type": "string",
+            "description": "Shared item's name."
+          },
+          "fileType": {
+            "type": ["string", "null"],
+            "description": "Document file type for routing."
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable request identity."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Revision that generated this notification."
           }
         }
       },
@@ -2424,6 +2486,36 @@
           },
           {
             "type": "object",
+            "description": "Someone requested more access to a shared entity.",
+            "required": ["content", "tag"],
+            "properties": {
+              "content": {
+                "$ref": "#/components/schemas/EntityAccessRequestedMetadata",
+                "description": "Someone requested more access to a shared entity."
+              },
+              "tag": {
+                "type": "string",
+                "enum": ["entity_access_requested"]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "An owner granted requested access.",
+            "required": ["content", "tag"],
+            "properties": {
+              "content": {
+                "$ref": "#/components/schemas/EntityAccessGrantedMetadata",
+                "description": "An owner granted requested access."
+              },
+              "tag": {
+                "type": "string",
+                "enum": ["entity_access_granted"]
+              }
+            }
+          },
+          {
+            "type": "object",
             "description": "Someone commented, replied, or mentioned the recipient on a project.",
             "required": ["content", "tag"],
             "properties": {
@@ -3009,6 +3101,11 @@
             "description": "the thread id"
           }
         }
+      },
+      "RequestedAccessLevel": {
+        "type": "string",
+        "description": "Permission level used by an access request, excluding ownership.",
+        "enum": ["view", "comment", "edit"]
       },
       "TaskAssignedMetadata": {
         "type": "object",

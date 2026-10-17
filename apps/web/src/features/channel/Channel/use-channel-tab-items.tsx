@@ -1,6 +1,6 @@
 import { createChannelInteraction } from '@app/features/meta-messaging/queries/channel-messaging';
 import { useCall } from '@channel/Call/use-call';
-import { isNativeIosCallKitEnabled } from '@channel/Call/use-callkit';
+import { isNativeCallEnabled } from '@channel/Call/use-callkit';
 import type { TabItem } from '@core/component/Tabs';
 import { ENABLE_CALLS } from '@core/constant/featureFlags';
 import {
@@ -20,7 +20,7 @@ import {
 } from './channel-tabs';
 
 export const canUseInlineCallTab = () => {
-  return !isNativeIosCallKitEnabled();
+  return !isNativeCallEnabled();
 };
 
 // Native iOS CallKit owns the call surface, so the embedded Call tab should

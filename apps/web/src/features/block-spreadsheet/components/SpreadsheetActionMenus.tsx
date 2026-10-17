@@ -3,6 +3,7 @@ import ArrowRight from '@phosphor/arrow-right.svg';
 import CaretCircleDown from '@phosphor/caret-circle-down.svg';
 import CaretRight from '@phosphor/caret-right.svg';
 import ChartBar from '@phosphor/chart-bar.svg';
+import CheckSquare from '@phosphor/check-square.svg';
 import Clipboard from '@phosphor/clipboard-text.svg';
 import Crosshair from '@phosphor/crosshair.svg';
 import Download from '@phosphor/download-simple.svg';
@@ -97,7 +98,7 @@ export function PasteMenu(props: SpreadsheetToolbarProps) {
 export function InsertMenu(props: SpreadsheetToolbarProps) {
   return (
     <ActionMenu
-      label="Insert chart or image"
+      label="Insert chart, image or checkbox"
       icon={<ChartBar class="size-[18px]" />}
       disabled={props.readonly || !props.onInsertChart}
       onRestoreFocus={props.onRestoreFocus}
@@ -149,6 +150,13 @@ export function InsertMenu(props: SpreadsheetToolbarProps) {
           <ImageIcon class="size-4 shrink-0" />
           Image…
         </Dropdown.Item>
+        <Dropdown.Item
+          closeOnSelect
+          onSelect={() => props.onCommand('insert-checkbox')}
+        >
+          <CheckSquare class="size-4 shrink-0" />
+          Checkbox
+        </Dropdown.Item>
         <Show when={props.onSelectDrawings}>
           <Dropdown.Item
             closeOnSelect
@@ -174,6 +182,7 @@ export function ViewMenu(props: SpreadsheetToolbarProps) {
       <Dropdown.Group>
         <Dropdown.CheckboxItem
           checked={props.showGridlines}
+          disabled={props.readonly}
           onChange={() => props.onCommand('toggle-gridlines')}
         >
           Gridlines

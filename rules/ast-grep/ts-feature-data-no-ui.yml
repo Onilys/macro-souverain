@@ -13,6 +13,8 @@ note: |-
 files:
   - apps/web/src/features/meta-messaging/queries/**
   - apps/web/src/features/meta-messaging/primitives/**
+  - apps/web/src/features/access-requests/queries/**
+  - apps/web/src/features/access-requests/primitives/**
   - apps/web/src/features/agent-activity/queries/**
   - apps/web/src/features/agent-dms/queries/**
   - apps/web/src/features/agent-conversations/queries/**

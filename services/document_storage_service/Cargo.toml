@@ -27,6 +27,8 @@ local_auth = ["macro_authorization/local_auth"]
 location_check = []
 
 [dependencies]
+access_requests = { path = "../../crates/access_requests" }
+async-trait = { workspace = true }
 ai_billing = { path = "../../crates/ai_billing" }
 roles_and_permissions = { path = "../../crates/roles_and_permissions", default-features = false, features = ["outbound"] }
 teams = { path = "../../crates/teams", default-features = false, features = ["outbound"] }
@@ -40,7 +42,6 @@ ai_tools = { path = "../../crates/ai_tools" }
 ai_usage = { path = "../../crates/ai_usage" }
 analytics_client = { path = "../../crates/analytics_client" }
 anyhow = { workspace = true }
-async-trait = { workspace = true }
 aws-sdk-kms = { workspace = true }
 channel_sender = { path = "../../crates/channel_sender" }
 meta_messaging = { path = "../../crates/meta_messaging", features = ["axum", "outbound"] }

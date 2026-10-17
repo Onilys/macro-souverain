@@ -3,8 +3,7 @@ import { invalidateCalendarInvitations } from './invitations';
 import { calendarKeys, RSVP_MUTATION_KEY } from './keys';
 import { invalidateCalendarEventPreviews } from './mention-preview';
 import { invalidateCalendarOccurrences } from './occurrences';
-import { resetTeamCalendarQueries } from './team-cache';
-import { invalidateTeamOutOfOffice } from './team-ooo';
+import { refreshTeamCalendarQueries } from './team-cache';
 
 /**
  * Refetches everything the calendar UI reads: every mounted occurrence
@@ -13,11 +12,10 @@ import { invalidateTeamOutOfOffice } from './team-ooo';
  * calendar mention chips.
  */
 export function invalidateCalendarViews(): void {
-  void resetTeamCalendarQueries();
+  void refreshTeamCalendarQueries();
   void invalidateCalendarInvitations();
   invalidateCalendarOccurrences();
   invalidateCalendarEventPreviews();
-  invalidateTeamOutOfOffice();
   queryClient.invalidateQueries({
     queryKey: calendarKeys.visibleCalendars.queryKey,
   });
@@ -34,14 +32,23 @@ export function invalidateCalendarViews(): void {
 export function handleRefreshCalendar(payload: unknown): void {
   const event =
     typeof payload === 'object' && payload !== null
-      ? (payload as { event?: unknown; link_id?: unknown })
+      ? (payload as {
+          event?: unknown;
+          link_id?: unknown;
+          team_ooo_changed?: unknown;
+        })
       : undefined;
   if (event?.event === 'team_sharing_changed') {
-    void resetTeamCalendarQueries();
+    void refreshTeamCalendarQueries({
+      outOfOfficeChanged: event.team_ooo_changed !== false,
+    });
     return;
   }
   if (event?.event !== 'synced' || typeof event.link_id !== 'string') return;
-  void resetTeamCalendarQueries();
+  // Old servers and unknown hints retain immediate revocation behavior.
+  void refreshTeamCalendarQueries({
+    outOfOfficeChanged: event.team_ooo_changed !== false,
+  });
 
   // An in-flight RSVP holds optimistic occurrence state a refetch would
   // clobber; the last RSVP to settle re-invalidates occurrences itself, so
@@ -51,7 +58,6 @@ export function handleRefreshCalendar(payload: unknown): void {
     invalidateCalendarOccurrences();
   }
   invalidateCalendarEventPreviews();
-  invalidateTeamOutOfOffice();
   queryClient.invalidateQueries({
     queryKey: calendarKeys.visibleCalendars.queryKey,
   });
