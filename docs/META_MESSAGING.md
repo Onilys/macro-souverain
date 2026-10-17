@@ -88,7 +88,7 @@ Connector departure blocks new inbound effects and dispatch immediately, even be
 rosters, team-wide discoverability, administrator takeover, ownership conversion
 and shared team-deletion changes are outside this release.
 
-Any current team member may connect through provider login and list account metadata, including Connected by. Only a current connector/member or current team admin may reconnect, disconnect or initiate history import. Domain checks apply again at completion; a fresh connect cannot take over an already-bound account.
+Any current team member may connect through provider login and list connected-account details. Only a current connector/member or current team admin may reconnect, disconnect or initiate history import. Domain checks apply again at completion; a fresh connect cannot take over an already-bound account.
 
 The connected account must be a supported WhatsApp Cloud API Platform or Business-app coexistence number, or an Instagram Business/Creator account. Customers can use ordinary personal accounts.
 Consumer inbox connection is outside these official APIs. Instagram group messaging

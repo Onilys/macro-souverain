@@ -12,8 +12,6 @@ import {
   SettingsSection,
 } from '@app/features/settings/primitives';
 import { useUserId } from '@core/context/user';
-import { getDisplayName, tryMacroId } from '@core/user';
-import CaretDownIcon from '@phosphor/caret-down.svg';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import InstagramIcon from '@phosphor/instagram-logo.svg';
 import WhatsAppIcon from '@phosphor/whatsapp-logo.svg';
@@ -206,7 +204,6 @@ function Accounts(props: MessagingSettingsProps) {
             accounts={rows().filter(
               (connection) => connection.provider === provider
             )}
-            teamName={team.isSuccess ? team.data?.team.name : undefined}
             isMember={!!teamId()}
             canManage={canManage}
             loading={
@@ -276,7 +273,6 @@ function ProviderAccounts(props: {
   detail: boolean;
   onBack: () => void;
   accounts: MetaConnection[];
-  teamName?: string;
   isMember: boolean;
   canManage: (connection: MetaConnection) => boolean;
   loading: boolean;
@@ -458,36 +454,27 @@ function ProviderAccounts(props: {
           </SettingsSection>
         </Show>
         <Show when={disconnected().length}>
-          <details class="group">
-            <summary class="flex min-h-11 items-center gap-2 text-sm text-ink-muted list-none outline-none focus-visible:text-ink">
-              <CaretDownIcon class="size-4 rotate-180 transition-transform group-open:rotate-0" />
-              Disconnected accounts{' '}
-              <span class="text-ink-extra-muted">{disconnected().length}</span>
-            </summary>
-            <div class="mt-3 flex flex-col gap-6">
-              <AccountRows
-                accounts={disconnected()}
-                canManage={props.canManage}
-                onRegister={props.onRegister}
-                working={props.working}
-                onConnect={props.onConnect}
-                onDisconnect={props.onDisconnect}
-              />
-            </div>
-          </details>
+          <SettingsSection title="Previously connected">
+            <SettingsCard>
+              <For each={disconnected()}>
+                {(account) => (
+                  <SettingsRow label={account.display_name.trim()} muted>
+                    <Show when={props.canManage(account)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={props.working}
+                        onClick={() => props.onConnect(account)}
+                      >
+                        Reconnect
+                      </Button>
+                    </Show>
+                  </SettingsRow>
+                )}
+              </For>
+            </SettingsCard>
+          </SettingsSection>
         </Show>
-        <SettingsSection title="Conversation access">
-          <SettingsCard>
-            <SettingsRow
-              label={props.teamName ?? 'Your team'}
-              description="New conversations are private. Invite teammates from each conversation to give them access."
-            />
-            <SettingsRow
-              label="Account management"
-              description="The person who connected an account or a team admin can manage it. Reconnecting keeps existing channel and file access unchanged."
-            />
-          </SettingsCard>
-        </SettingsSection>
         <Show when={props.provider === 'whatsapp' && props.canConnect}>
           <p class="text-xs leading-relaxed text-ink-muted">
             Meta’s setup may unlink companion devices or change phone-app
@@ -594,12 +581,6 @@ function AccountRow(props: {
       >
         <div>
           <SettingsCard>
-            <SettingsRow
-              label="Connected by"
-              description="Manages this account’s connection to Macro."
-            >
-              <ConnectedBy userId={props.connection.user_id} />
-            </SettingsRow>
             <Show
               when={
                 props.canManage && props.connection.status !== 'disconnected'
@@ -642,13 +623,6 @@ function AccountRow(props: {
       </SettingsSection>
     </div>
   );
-}
-
-function ConnectedBy(props: { userId: string }) {
-  const name = () =>
-    getDisplayName(tryMacroId(props.userId), { emailFallback: 'local-part' }) ||
-    props.userId;
-  return <span class="text-sm text-ink-muted">{name()}</span>;
 }
 
 function PhoneRegistration(props: {

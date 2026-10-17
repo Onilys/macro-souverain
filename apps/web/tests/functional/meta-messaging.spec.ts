@@ -1183,7 +1183,7 @@ test('native channels and external messaging preserve composition, recovery, and
         `[data-messaging-account="${otherAccount.id}"]`
       );
       await expect(
-        mine.getByText('Connected by', { exact: false })
+        mine.getByText(settingsAccount.display_name, { exact: true })
       ).toBeVisible();
       await expect(
         other.getByRole('button', { name: 'More', exact: true })

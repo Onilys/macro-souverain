@@ -144,13 +144,13 @@ through Macro. Phone-app and imported business echoes also retain this label.
 Open **Settings → Integrations → Accounts**. WhatsApp Business and Instagram
 use the same compact rows as other accounts: provider logo, account name, and
 **Manage** (or **Connect** for a new account). **Manage** opens a provider detail page with the same layout as other Settings
-pages. Account cards show connection status, ownership, a Conversation history
+pages. Account cards show the account name, connection status, a Conversation history
 row, and an overflow menu for reconnect/disconnect. **Integrations** returns to
-the overview. Disconnected accounts stay collapsed.
+the overview. Previously connected accounts appear as compact reconnect rows.
 Login instructions clear when the attempt finishes. The account row shows the
 current connection status; a canceled or failed login keeps its actionable error.
 Setup details and account errors appear on the provider detail page.
-Any current team member can connect a business account and view account metadata, including Connected by. The connector or a current team admin can manage it. Each customer gets one private native channel per connected account, initially accessible to the connector; use ordinary invitations for teammates. Reconnecting does not transfer existing channel/file grants.
+Any current team member can connect a business account and view connected-account details. The connector or a current team admin can manage it. Each customer gets one private native channel per connected account, initially accessible to the connector; use ordinary invitations for teammates. Reconnecting does not transfer existing channel/file grants.
 Connecting brings in new activity only. Past conversations are not automatically
 imported. The first new customer message or phone-app echo creates the channel;
 subsequent activity reuses it. To bring old conversations in, click **Import history**
