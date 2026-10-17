@@ -1,5 +1,4 @@
 import { useSplitLayout } from '@components/app/split-layout/layout';
-import { useSettingsState } from '@core/constant/SettingsState';
 import type { JSX } from 'solid-js';
 import type { RosterAgent } from '../agents-view/core/roster';
 import { openAgentsPage } from '../agents-view/primitives/open-page';
@@ -24,10 +23,8 @@ export function RoutineExecutionPicker(
 function ConnectedPicker(props: RoutineExecutionPickerProps): JSX.Element {
   const roster = createAgentRosterSource();
   const layout = useSplitLayout();
-  const { openSettings } = useSettingsState();
-
   function connect(agent: RosterAgent): void {
-    if (agent.harness === 'cursor') openSettings('Harness');
+    if (agent.harness === 'cursor') openAgentsPage(layout, 'agents');
   }
 
   return (

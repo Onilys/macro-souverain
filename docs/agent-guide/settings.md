@@ -208,7 +208,7 @@ Left nav (feature and platform gates still apply):
 - **Blocks**: Email, Calendar, Agents, CRM.
 - **Personal**: Account, Appearance, Notifications, Keyboard shortcuts, Usage, Billing, Desktop App, Mobile App.
 - **Workspace**: Team, Tags, Integrations (personal Gmail/GitHub accounts).
-- **Developer**: Agent connections, Runtimes, MCP server, API Keys, Bots.
+- **Developer**: Agent connections, MCP server, API Keys, Bots.
 
 **Desktop App** (`/app/settings/desktop-app`) shows a compact version and
 build-date card in the desktop app. The date is when the running app bundle was
@@ -234,7 +234,7 @@ per-mode theme selectors. Light or Dark shows its own theme selector. Each selec
 retains theme search, editing, copying, and custom theme creation.
 
 Existing settings URLs remain valid; `connections` still opens Integrations,
-`agent-connections` opens Agent connections, and `harness` aliases Runtimes.
+`agent-connections` opens Agent connections, and `harness` / `runtimes` open Agents.
 
 `Usage` appears directly above Billing, including for Free accounts. In
 production, the `enable-ai-usage-billing` PostHog flag controls activation. While
@@ -444,7 +444,7 @@ have the owner use Reconnect under Custom MCP; there is no `Connect` chip for
 custom servers. Agents configured with a fixed app selection do not receive the
 owner's custom servers.
 An agent reply's `Connect <app>` chip still starts that app's connection flow.
-Cursor stays in Agents → Runtimes with its API key and default model controls; it is not
+Cursor stays in Agents → Connect Cursor with its API key and default model controls; it is not
 featured or offered in the Connections catalog. Personal Gmail and GitHub account
 links remain in Settings → Integrations. The native-only Connections page remains
 available when `pipedream-mcp` is disabled.
@@ -474,8 +474,8 @@ New macrod sessions use the agent's saved model before sending the first prompt.
 Changing that default applies to new sessions; existing sessions keep their selected model.
 If the runtime rejects the saved model, the prompt fails instead of using a different model.
 
-The `Runtimes` section shows built-in Macro, Cursor, Claude, and Codex configuration, followed by paired macrod runtimes. Claude's card appears only with the `claude-cloud` flag, and Codex's only within the agents and Codex rollouts. The “Bring your own agent” card sits above the Agents / Runtimes navigation and is visible on both sections. It rotates Claude Code, OpenCode, OpenClaw, and Hermes; reduced motion keeps a static name. Its `New runtime` action opens the full-page pairing flow from either section: enter the code, look up the request, review the machine, name, sharing and permission consent, then Approve and Done. Back/Cancel returns to the runtime list. Destructive removal still requires confirmation. `/settings/runtimes` opens this section; legacy `/settings/harness?pair=…` links remain supported.
-Connection chips in agent replies open this page, including before any account is connected. Cursor's default-model picker uses
+There is no separate Runtimes settings tab. Claude and Codex connection cards live on the Agents page (Claude only with the `claude-cloud` flag, Codex only within the agents and Codex rollouts). The “Bring your own agent” strip sits on Agents: **Set up** opens pairing in place; **Manage** on a paired machine opens **Your harness** inside Agents (Back returns to the list). That page lists paired machines, a live model picker per connected machine, and **New runtime**. Choosing a model opens New agent with that harness and model selected. Destructive removal still requires confirmation. `/settings/runtimes` and `/settings/harness?pair=…` open Agents; a pairing code in the URL starts the pairing flow there.
+Connection chips in agent replies open the Agents page, including before any account is connected. Cursor's default-model picker uses
 the same live model discovery and retains its existing save action.
 
 The Codex row uses the OpenAI logo and the same icon, button, and status styling

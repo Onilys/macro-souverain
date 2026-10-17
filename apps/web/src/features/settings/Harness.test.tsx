@@ -1,8 +1,3 @@
-const codexAccess = vi.hoisted(() => ({ enabled: true }));
-vi.mock('@core/codex/flag', () => ({
-  useCodexAgentsAccess: () => () => codexAccess.enabled,
-}));
-
 /**
  * @vitest-environment jsdom
  */
@@ -26,51 +21,9 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Harness } from './Harness';
 import { chooseSelectOption } from './tests/select-helpers';
 
-vi.mock('@ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@ui')>()),
-  confirmDialog: vi.fn(async () => true),
-}));
-
-vi.mock('./codex/views/CodexHarness', () => ({
-  CodexHarness: () => <div data-testid="codex-harness" />,
-}));
-
-const claudeFlag = vi.hoisted(() => ({ enabled: true, source: vi.fn() }));
-vi.mock('@app/lib/analytics/posthog', () => ({
-  useFeatureFlag: (flag: { key: string }) => {
-    expect(flag.key).toBe('claude-cloud');
-    return () => ({ enabled: claudeFlag.enabled });
-  },
-}));
-
-vi.mock('@core/context/user', () => ({
-  useUserId: () => () => 'macro|demo@example.com',
-}));
-vi.mock('@queries/claude-auth/connection', () => ({
-  useClaudeConnectionSource: () => {
-    claudeFlag.source();
-    return {
-      status: () => ({ enabled: true, connected: false, ephemeral: true }),
-      failed: () => false,
-      begin: vi.fn(),
-      complete: vi.fn(),
-      disconnect: vi.fn(),
-      refresh: vi.fn(),
-    };
-  },
-}));
-
 const mocks = vi.hoisted(() => ({
-  status: {
-    isSuccess: true,
-    isError: false,
-    data: {
-      registered: false,
-      defaultModelId: null as string | null,
-      updatedAt: null as string | null,
-    },
-    isPlaceholderData: false,
-  },
+  toastSuccess: vi.fn(),
+  toastFailure: vi.fn(),
   models: {
     data: {
       status: 'available' as const,
@@ -82,11 +35,6 @@ const mocks = vi.hoisted(() => ({
     isSuccess: true,
     refetch: vi.fn(),
   },
-  save: vi.fn(),
-  disconnect: vi.fn(),
-  setDefaultModel: vi.fn(),
-  toastSuccess: vi.fn(),
-  toastFailure: vi.fn(),
 }));
 
 const harnessMocks = vi.hoisted(() => ({
@@ -109,24 +57,6 @@ const harnessMocks = vi.hoisted(() => ({
     },
     isError: false,
   },
-  searchParams: { pair: undefined as string | undefined },
-  setSearchParams: vi.fn(),
-}));
-
-vi.mock('@queries/auth/cursor-api-key', () => ({
-  useCursorApiKeyStatusQuery: () => mocks.status,
-  useSaveCursorApiKey: () => ({
-    mutateAsync: mocks.save,
-    isPending: false,
-  }),
-  useDisconnectCursorApiKey: () => ({
-    mutateAsync: mocks.disconnect,
-    isPending: false,
-  }),
-  useSetCursorDefaultModel: () => ({
-    mutateAsync: mocks.setDefaultModel,
-    isPending: false,
-  }),
 }));
 
 vi.mock('@queries/agents/models', () => ({
@@ -166,13 +96,6 @@ vi.mock('@queries/team/teams', () => ({
   useCurrentTeamQuery: () => ({ data: { team: { id: 'team-1' } } }),
 }));
 
-vi.mock('@solidjs/router', () => ({
-  useSearchParams: () => [
-    harnessMocks.searchParams,
-    harnessMocks.setSearchParams,
-  ],
-}));
-
 vi.mock('@core/component/Toast/Toast', () => ({
   toast: {
     success: mocks.toastSuccess,
@@ -197,14 +120,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  codexAccess.enabled = true;
   vi.clearAllMocks();
-  mocks.status.data = {
-    registered: false,
-    defaultModelId: null,
-    updatedAt: null,
-  };
-  mocks.status.isPlaceholderData = false;
   mocks.models.data = {
     status: 'available',
     currentModel: 'default-model',
@@ -213,247 +129,68 @@ beforeEach(() => {
   mocks.models.isPending = false;
   mocks.models.isError = false;
   mocks.models.isSuccess = true;
-  mocks.save.mockResolvedValue(undefined);
-  mocks.disconnect.mockResolvedValue(undefined);
   harnessMocks.query.data = [];
   harnessMocks.query.isError = false;
   harnessMocks.pairing.isError = false;
   harnessMocks.deleteHarness.mockResolvedValue(undefined);
   harnessMocks.approve.mockResolvedValue(REGISTERED_HARNESS);
-  harnessMocks.searchParams.pair = undefined;
 });
 
+function renderHarness(
+  props: {
+    onBack?: () => void;
+    onChooseModel?: (harness: { id: string; modelId: string }) => void;
+  } = {}
+) {
+  return render(() => (
+    <Harness
+      onBack={props.onBack ?? vi.fn()}
+      onChooseModel={props.onChooseModel ?? vi.fn()}
+    />
+  ));
+}
+
 describe('Harness', () => {
-  it.each([false, true])(
-    'shows Codex settings only within its rollout (access %s)',
-    (enabled) => {
-      codexAccess.enabled = enabled;
-      render(() => <Harness />);
-      expect(Boolean(screen.queryByTestId('codex-harness'))).toBe(enabled);
-    }
-  );
-
-  it('hides the Claude connection outside its rollout', () => {
-    claudeFlag.enabled = false;
-    claudeFlag.source.mockClear();
-    try {
-      render(() => <Harness />);
-      expect(
-        screen.queryByRole('region', { name: 'Claude Cloud connection' })
-      ).toBeNull();
-      expect(claudeFlag.source).not.toHaveBeenCalled();
-      expect(screen.getByRole('heading', { name: 'Cursor' })).toBeTruthy();
-    } finally {
-      claudeFlag.enabled = true;
-    }
+  it('shows an empty state until a machine is paired', () => {
+    renderHarness();
+    expect(screen.getByRole('heading', { name: 'Your harness' })).toBeTruthy();
+    expect(screen.getByText('No paired machines yet')).toBeTruthy();
   });
 
-  it.each(['success', 'error'] as const)(
-    'keeps settings visible while Cursor models load and after %s',
-    async (outcome) => {
-      mocks.status.data.registered = true;
-      let resolveModels!: (models: LoadAgentModelsResponse) => void;
-      let rejectModels!: (error: Error) => void;
-      const response = new Promise<LoadAgentModelsResponse>(
-        (resolve, reject) => {
-          resolveModels = resolve;
-          rejectModels = reject;
-        }
-      );
-      const client = new QueryClient({
-        defaultOptions: { queries: { retry: false } },
-      });
-      vi.mocked(useAgentModelsQuery).mockImplementationOnce(() =>
-        useQuery(() => ({
-          queryKey: ['pending-cursor-models'],
-          queryFn: () => response,
-        }))
-      );
-      const view = render(() => (
-        <QueryClientProvider client={client}>
-          <Suspense fallback={<p>Settings suspended</p>}>
-            <Harness />
-          </Suspense>
-        </QueryClientProvider>
-      ));
-      expect(screen.queryByText('Settings suspended')).toBeNull();
-      expect(screen.getByText('Loading models…')).toBeTruthy();
-      expect(
-        (screen.getByLabelText('Default model') as HTMLButtonElement).disabled
-      ).toBe(true);
-
-      if (outcome === 'error') {
-        rejectModels(new Error('Cursor is unavailable'));
-        await waitFor(() =>
-          expect(screen.getByText(/Could not load Cursor models/)).toBeTruthy()
-        );
-        expect(screen.queryByText('Settings suspended')).toBeNull();
-        expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
-      } else {
-        resolveModels({
-          status: 'available',
-          currentModel: 'loaded-model',
-          models: [
-            {
-              id: 'loaded-model',
-              name: 'Loaded Model',
-              group: 'Cursor',
-            },
-          ],
-        });
-        await waitFor(() =>
-          expect(screen.getByText('Loaded Model')).toBeTruthy()
-        );
-        expect(screen.queryByText('Settings suspended')).toBeNull();
-        expect(
-          (screen.getByLabelText('Default model') as HTMLButtonElement).disabled
-        ).toBe(false);
-      }
-      view.unmount();
-      client.clear();
-    }
-  );
-
-  it('shows Claude with the Anthropic logo above Cursor in the harness list', () => {
-    render(() => <Harness />);
-
-    expect(screen.getByRole('heading', { name: 'Macro Agent' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Cursor' })).toBeTruthy();
-    const claude = screen.getByRole('heading', { name: 'Claude Cloud' });
-    const cursor = screen.getByRole('heading', { name: 'Cursor' });
-    expect(
-      claude.compareDocumentPosition(cursor) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-    expect(screen.getByLabelText('Anthropic')).toBeTruthy();
-    expect(
-      screen.getByText(/Uses official Macro tools and MCPs to get the job done/)
-    ).toBeTruthy();
-  });
-
-  it('validates and saves a Cursor API key', async () => {
-    render(() => <Harness />);
-
-    const apiKeyInput = screen.getByLabelText('API key');
-    const saveButton = screen.getByRole('button', { name: 'Save' });
-
-    expect(apiKeyInput).toHaveProperty('type', 'password');
-    expect(saveButton).toHaveProperty('disabled', true);
-
-    fireEvent.input(apiKeyInput, { target: { value: 'not-a-cursor-key' } });
-    fireEvent.click(saveButton);
-
-    expect(mocks.save).not.toHaveBeenCalled();
-    expect(mocks.toastFailure).toHaveBeenCalledWith(
-      'Cursor API keys start with grok_ or crsr_'
-    );
-
-    fireEvent.input(apiKeyInput, { target: { value: '  grok_example  ' } });
-    fireEvent.click(saveButton);
-
-    await waitFor(() => {
-      expect(mocks.save).toHaveBeenCalledWith('grok_example');
-      expect(mocks.toastSuccess).toHaveBeenCalledWith('Cursor connected');
-      expect(apiKeyInput).toHaveProperty('value', '');
-    });
-  });
-
-  it('still accepts a Cursor API key minted with the older crsr_ prefix', async () => {
-    render(() => <Harness />);
-
-    fireEvent.input(screen.getByLabelText('API key'), {
-      target: { value: 'crsr_example' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(mocks.save).toHaveBeenCalledWith('crsr_example');
-    });
-    expect(mocks.toastFailure).not.toHaveBeenCalled();
-  });
-
-  it('shows connection status, the default model picker, and disconnect for connected Cursor', async () => {
-    mocks.status.data = {
-      registered: true,
-      defaultModelId: null,
-      updatedAt: '2026-08-27T12:00:00Z',
-    };
-    mocks.models.data.models.push({
-      id: 'another-model',
-      name: 'Another Model',
-    });
-
-    render(() => <Harness />);
-
-    expect(screen.getByText('Connected')).toBeTruthy();
-    expect(screen.queryByLabelText('API key')).toBeNull();
-    expect(screen.getByText(/does not revoke it in Cursor/)).toBeTruthy();
-
-    chooseSelectOption(screen.getByLabelText('Default model'), 'Another Model');
-    await waitFor(() => {
-      expect(mocks.setDefaultModel).toHaveBeenCalledWith('another-model');
-      expect(mocks.toastSuccess).toHaveBeenCalledWith('Default model updated');
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
-
-    await waitFor(() => {
-      expect(mocks.disconnect).toHaveBeenCalledOnce();
-      expect(mocks.toastSuccess).toHaveBeenCalledWith('Cursor disconnected');
-    });
-  });
-
-  it('does not flash the API key form while connection status loads', () => {
-    mocks.status.isPlaceholderData = true;
-
-    render(() => <Harness />);
-
-    expect(screen.getByText('Loading…')).toBeTruthy();
-    expect(screen.queryByLabelText('API key')).toBeNull();
-  });
-
-  it('hides the empty paired runtimes section', () => {
-    render(() => <Harness />);
-
-    expect(screen.queryByText('No paired runtimes yet')).toBeNull();
-    expect(
-      screen.queryByRole('heading', { name: 'Paired runtimes' })
-    ).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: 'Enter pairing code' })
-    ).toBeNull();
-  });
-
-  it('opens pairing from New runtime and returns to the runtimes list', () => {
-    render(() => <Harness />);
-
+  it('opens pairing from New runtime and returns to the list', () => {
+    renderHarness();
     fireEvent.click(screen.getByRole('button', { name: 'New runtime' }));
     expect(screen.getByRole('region', { name: 'New runtime' })).toBeTruthy();
-    expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('heading', { name: 'Runtimes' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Your harness' })).toBeTruthy();
   });
 
-  it('goes back to Agents from the runtimes page', () => {
+  it('goes back to Agents from the harness page', () => {
     const onBack = vi.fn();
-    render(() => <Harness onBack={onBack} />);
-
+    renderHarness({ onBack });
     fireEvent.click(screen.getByRole('button', { name: 'Agents' }));
     expect(onBack).toHaveBeenCalledOnce();
   });
 
-  it('renders a registered harness row', () => {
+  it('renders a registered harness and lets the user pick a model', () => {
     harnessMocks.query.data = [REGISTERED_HARNESS];
-
-    render(() => <Harness />);
+    const onChooseModel = vi.fn();
+    renderHarness({ onChooseModel });
 
     expect(screen.getByText('Dev box')).toBeTruthy();
     expect(screen.getByText('Team')).toBeTruthy();
     expect(screen.getByRole('img', { name: 'Connected' })).toBeTruthy();
-    expect(screen.getByText(/Last connected /)).toBeTruthy();
-    expect(screen.queryByText('Never connected')).toBeNull();
+    chooseSelectOption(
+      screen.getByLabelText('Models for Dev box'),
+      'Default Model'
+    );
+    expect(onChooseModel).toHaveBeenCalledWith({
+      id: REGISTERED_HARNESS.id,
+      modelId: 'default-model',
+    });
   });
 
-  it('shows a disconnected private harness that never connected', () => {
+  it('shows a disconnected private harness without a model picker', () => {
     harnessMocks.query.data = [
       {
         ...REGISTERED_HARNESS,
@@ -462,25 +199,62 @@ describe('Harness', () => {
         last_connected_at: null,
       },
     ];
-
-    render(() => <Harness />);
+    renderHarness();
 
     expect(screen.getByText('Private')).toBeTruthy();
     expect(screen.getByRole('img', { name: 'Disconnected' })).toBeTruthy();
     expect(screen.getByText('Never connected')).toBeTruthy();
+    expect(
+      screen.getByText('Reconnect this machine to load models.')
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Models for Dev box')).toBeNull();
+  });
+
+  it('keeps the harness page visible while models load', async () => {
+    harnessMocks.query.data = [REGISTERED_HARNESS];
+    let resolveModels!: (models: LoadAgentModelsResponse) => void;
+    const response = new Promise<LoadAgentModelsResponse>((resolve) => {
+      resolveModels = resolve;
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.mocked(useAgentModelsQuery).mockImplementationOnce(() =>
+      useQuery(() => ({
+        queryKey: ['pending-harness-models'],
+        queryFn: () => response,
+      }))
+    );
+    const view = render(() => (
+      <QueryClientProvider client={client}>
+        <Suspense fallback={<p>Settings suspended</p>}>
+          <Harness onBack={vi.fn()} onChooseModel={vi.fn()} />
+        </Suspense>
+      </QueryClientProvider>
+    ));
+    expect(screen.queryByText('Settings suspended')).toBeNull();
+    expect(screen.getByText('Loading models…')).toBeTruthy();
+    resolveModels({
+      status: 'available',
+      currentModel: 'loaded-model',
+      models: [{ id: 'loaded-model', name: 'Loaded Model' }],
+    });
+    await waitFor(() =>
+      expect(screen.getByText('Choose a model')).toBeTruthy()
+    );
+    expect(screen.queryByText('Loading models…')).toBeNull();
+    expect(screen.queryByText('Settings suspended')).toBeNull();
+    view.unmount();
+    client.clear();
   });
 
   it('confirms before removing a harness', async () => {
     harnessMocks.query.data = [REGISTERED_HARNESS];
-
-    render(() => <Harness />);
+    renderHarness();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('Remove Dev box?')).toBeTruthy();
-    expect(
-      within(dialog).getByText(/Agents using this runtime will stop running/)
-    ).toBeTruthy();
     expect(harnessMocks.deleteHarness).not.toHaveBeenCalled();
 
     fireEvent.click(
@@ -494,20 +268,5 @@ describe('Harness', () => {
       expect(mocks.toastSuccess).toHaveBeenCalledWith('Runtime removed');
       expect(screen.queryByRole('dialog')).toBeNull();
     });
-  });
-
-  it('opens the pairing dialog prefilled from the pair search param', async () => {
-    harnessMocks.searchParams.pair = 'KX7M-4QHD';
-
-    render(() => <Harness />);
-
-    const dialog = screen.getByRole('region', { name: 'New runtime' });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(within(dialog).getByText('KX7M-4QHD')).toBeTruthy();
-    expect(within(dialog).getByText('Dev laptop')).toBeTruthy();
-    expect(harnessMocks.setSearchParams).toHaveBeenCalledWith(
-      { pair: undefined },
-      { replace: true }
-    );
   });
 });

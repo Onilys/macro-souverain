@@ -91,9 +91,9 @@ const SETTINGS: Setting[] = [
     keywords: 'personal ai assistant configure',
   },
   {
-    tab: 'Harness',
+    tab: 'Agents',
     title: 'Agent runtimes and credentials',
-    keywords: 'cursor harness runtime api key provider pairing daemon',
+    keywords: 'cursor harness runtime api key provider pairing daemon macrod',
   },
   {
     tab: 'Account',

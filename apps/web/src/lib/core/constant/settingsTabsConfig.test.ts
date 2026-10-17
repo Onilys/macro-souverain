@@ -46,6 +46,8 @@ describe('settings navigation', () => {
     );
     expect(workspace?.items.map((item) => item.tab)).toContain('Connected');
     expect(developer?.items.map((item) => item.tab)).toContain('Connections');
-    expect(developer?.items.map((item) => item.tab)).toContain('Harness');
+    expect(developer?.items.map((item) => item.tab)).not.toContain('Harness');
+    expect(settingsSlugToTab('runtimes')).toBe('Agents');
+    expect(settingsSlugToTab('harness')).toBe('Agents');
   });
 });

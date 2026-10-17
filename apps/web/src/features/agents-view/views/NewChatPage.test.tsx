@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   freePlan: false,
   modelsPending: false,
   openSettings: vi.fn(),
+  openRoster: vi.fn(),
   capabilitiesPending: false,
   attachments: [] as InputAttachmentData[],
   recentIds: [] as string[],
@@ -216,6 +217,7 @@ vi.mock('../components/ChatComposer', () => ({
 beforeEach(() => {
   localStorage.clear();
   mocks.userId = () => 'user';
+  mocks.openRoster.mockClear();
 });
 
 function page(
@@ -241,7 +243,7 @@ function page(
       rosterLoading={false}
       availabilityLoading={availabilityLoading}
       onStart={onStart}
-      onOpenRoster={vi.fn()}
+      onOpenRoster={mocks.openRoster}
     />
   ));
   return onStart;
@@ -891,7 +893,7 @@ describe('agent-led new conversation', () => {
   it('offers Cursor setup when disconnected without switching to an unavailable agent', async () => {
     page(false);
     await selectAgent(/Cursor/);
-    expect(mocks.openSettings).toHaveBeenCalledWith('Harness');
+    expect(mocks.openRoster).toHaveBeenCalledWith('coder');
     expect(screen.getByRole('button', { name: 'Agent' }).textContent).toContain(
       'Chat default'
     );

@@ -89,9 +89,6 @@ export function SettingsTabContent(props: { tab: SettingsTab }) {
       <Show when={isCurrentTab('Agents')}>
         <AgentSettings />
       </Show>
-      <Show when={isCurrentTab('Harness')}>
-        <AgentSettings initialSection="runtimes" />
-      </Show>
       <Show when={isCurrentTab('Bots')}>
         <Bots />
       </Show>

@@ -62,6 +62,7 @@ import { botAssignableChannelOptions } from '../channel/Bots/botChannelOptions';
 import { canDeleteBot, canManageAgent } from '../channel/Bots/botPermissions';
 import { ChannelMultiSelect } from '../channel/Bots/ChannelMultiSelect';
 import { CursorConnectPage } from './CursorConnectPage';
+import { AgentCloudRuntimes } from './components/agent-cloud-runtimes';
 import { AgentSetupStrips } from './components/agent-setup-strips';
 import { CodingPreferencesSetting } from './components/coding-preferences-setting';
 import { AgentInstructionsEditor } from './components/instructions-editor';
@@ -130,17 +131,20 @@ export function Agents(props: {
   onCursor: () => void;
   onSetUpRuntime: () => void;
   onManageRuntimes: () => void;
+  startWith?: { harnessId: string; modelId: string };
 }) {
   const agentDm = ENABLE_AGENT_DMS ? useOpenAgentDm() : undefined;
   const messageAgent = (id: string) =>
     agentDm?.open(id === MACRO_AGENT_BOT_ID ? MACRO_NEW_BOT_ID : id);
   const agentList = tourTarget(AGENTS_TOUR.agentList);
   const claudeCloudFlag = useFeatureFlag(claudeCloud);
-  const [creating, setCreating] = createSignal(false);
+  const [draft, setDraft] = createSignal(props.startWith);
+  const [creating, setCreating] = createSignal(props.startWith !== undefined);
   const [searchParams, setSearchParams] = useSearchParams();
   const creatingFromLink = () => searchParams.createAgent === 'true';
   const closeCreateAgent = () => {
     setCreating(false);
+    setDraft(undefined);
     if (creatingFromLink()) {
       setSearchParams({ createAgent: undefined }, { replace: true });
     }
@@ -290,6 +294,7 @@ export function Agents(props: {
             onSetUpRuntime={props.onSetUpRuntime}
             onManageRuntimes={props.onManageRuntimes}
           />
+          <AgentCloudRuntimes />
           <section ref={agentList} aria-label="Your agents">
             <SettingsSurface class="flex flex-col gap-2 p-5 touch:p-4">
               <div class="flex flex-wrap items-start justify-between gap-3">
@@ -351,6 +356,8 @@ export function Agents(props: {
 
       <Show when={creating() || creatingFromLink()}>
         <AgentEditorPage
+          initialHarnessId={draft()?.harnessId}
+          initialModelId={draft()?.modelId}
           connectedHarnesses={connectedHarnesses()}
           currentTeamId={currentTeamId()}
           canShareWithTeam={canShareWithTeam()}
@@ -583,6 +590,8 @@ function AgentDeleteDialog(props: {
 
 function AgentEditorPage(props: {
   agent?: AgentWithHarnessId;
+  initialHarnessId?: string;
+  initialModelId?: string;
   connectedHarnesses: readonly ConnectedHarness[];
   currentTeamId?: string;
   canShareWithTeam: boolean;
@@ -604,7 +613,8 @@ function AgentEditorPage(props: {
     props.agent?.instructions ?? ''
   );
   const [harnessId, setHarnessId] = createSignal(
-    props.agent?.harness_id ??
+    props.initialHarnessId ??
+      props.agent?.harness_id ??
       props.agent?.harness ??
       props.connectedHarnesses[0]?.id ??
       ''
@@ -639,7 +649,7 @@ function AgentEditorPage(props: {
     return data.models[0]?.id ?? '';
   };
   const [defaultModelId, setDefaultModelId] = createSignal(
-    props.agent?.default_model ?? ''
+    props.initialModelId ?? props.agent?.default_model ?? ''
   );
   const selectedDefaultModelId = () =>
     defaultModelId() || preferredModelId(harnessId());

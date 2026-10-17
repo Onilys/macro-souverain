@@ -1,41 +1,61 @@
 import { useSearchParams } from '@solidjs/router';
-import { createSignal, Match, Switch } from 'solid-js';
+import { createSignal, Match, onMount, Switch } from 'solid-js';
 import { Agents } from './Agents';
 import { CursorConnectPage } from './CursorConnectPage';
 import { Harness } from './Harness';
 import { RuntimePairingPage } from './RuntimePairingPage';
 
-export type AgentManagementSection = 'agents' | 'runtimes';
-
-type AgentSettingsPage = AgentManagementSection | 'cursor' | 'pairing';
+type AgentSettingsPage = 'agents' | 'cursor' | 'pairing' | 'harness';
 
 /** One management surface, mounted by both Settings and the Agents workspace. */
-export function AgentSettings(props: {
-  initialSection?: AgentManagementSection;
-}) {
-  const [searchParams] = useSearchParams();
+export function AgentSettings() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pairingCode =
+    typeof searchParams.pair === 'string' && searchParams.pair.length > 0
+      ? searchParams.pair
+      : undefined;
   const [page, setPage] = createSignal<AgentSettingsPage>(
-    searchParams.pair ? 'runtimes' : (props.initialSection ?? 'agents')
+    pairingCode ? 'pairing' : 'agents'
   );
-  const showAgents = () => setPage('agents');
+  const [draft, setDraft] = createSignal<{
+    harnessId: string;
+    modelId: string;
+  }>();
+  const showAgents = () => {
+    setDraft(undefined);
+    setPage('agents');
+  };
+
+  onMount(() => {
+    if (pairingCode) {
+      setSearchParams({ pair: undefined }, { replace: true });
+    }
+  });
 
   return (
     <Switch>
       <Match when={page() === 'agents'}>
         <Agents
+          startWith={draft()}
           onCursor={() => setPage('cursor')}
           onSetUpRuntime={() => setPage('pairing')}
-          onManageRuntimes={() => setPage('runtimes')}
+          onManageRuntimes={() => setPage('harness')}
         />
       </Match>
       <Match when={page() === 'cursor'}>
         <CursorConnectPage onClose={showAgents} />
       </Match>
       <Match when={page() === 'pairing'}>
-        <RuntimePairingPage onClose={showAgents} />
+        <RuntimePairingPage initialCode={pairingCode} onClose={showAgents} />
       </Match>
-      <Match when={page() === 'runtimes'}>
-        <Harness onBack={showAgents} />
+      <Match when={page() === 'harness'}>
+        <Harness
+          onBack={showAgents}
+          onChooseModel={(harness) => {
+            setDraft({ harnessId: harness.id, modelId: harness.modelId });
+            setPage('agents');
+          }}
+        />
       </Match>
     </Switch>
   );

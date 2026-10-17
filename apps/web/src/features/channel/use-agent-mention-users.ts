@@ -21,7 +21,7 @@ import { useChatV3AgentsFlag } from './use-chat-v3-agents-flag';
 /**
  * Built-in agent entries shared by every message composer. Account setup does
  * not hide a mention: the harness answers with a connection prompt in the
- * thread when setup is needed, so replies link to Settings → Harness rather
+ * thread when setup is needed, so replies link to the Agents page rather
  * than the entry disappearing. The built-in Cursor, Codex, and Claude entries
  * follow their rollout flags. Mentions are re-tagged as bot mentions at send
  * time.

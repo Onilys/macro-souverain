@@ -52,6 +52,10 @@ vi.mock('./components/coding-preferences-setting', () => ({
   CodingPreferencesSetting: () => null,
 }));
 
+vi.mock('./components/agent-cloud-runtimes', () => ({
+  AgentCloudRuntimes: () => null,
+}));
+
 const claudeFlag = vi.hoisted(() => ({ enabled: true }));
 vi.mock('@app/lib/analytics/posthog', () => ({
   useFeatureFlag: (flag: { key: string }) => {
@@ -637,6 +641,27 @@ describe('Agents', () => {
       screen.getByRole('button', { name: 'Manage paired runtimes' })
     );
     expect(onManageRuntimes).toHaveBeenCalledOnce();
+  });
+
+  it('opens the new-agent form on a paired harness and model', () => {
+    harnessMocks.query.data = [MACROD_HARNESS];
+    modelMocks.queries[`macrod:${MACROD_HARNESS.id}`] = successfulModels([
+      { id: 'sonnet', name: 'Sonnet' },
+    ]);
+    render(() => (
+      <Agents
+        {...agentsPageProps}
+        startWith={{ harnessId: MACROD_HARNESS.id, modelId: 'sonnet' }}
+      />
+    ));
+    const dialog = screen.getByRole('region', { name: 'New agent' });
+    expect(within(dialog).getByLabelText('In your harness')).toHaveProperty(
+      'checked',
+      true
+    );
+    expect(
+      within(dialog).getByLabelText('Default model').textContent
+    ).toContain('Sonnet');
   });
 
   it('groups server agents into team and private sections', () => {

@@ -141,7 +141,7 @@ describe('connect-app chip', () => {
     expect(mocks.openSettings).not.toHaveBeenCalled();
   });
 
-  it('sends a harness chip to the Harness page without touching Pipedream', () => {
+  it('sends a harness chip to the Agents page without touching Pipedream', () => {
     render(() => (
       <ConnectApp
         appSlug="cursor"
@@ -152,7 +152,7 @@ describe('connect-app chip', () => {
       />
     ));
     fireEvent.click(screen.getByRole('button', { name: 'Connect Cursor' }));
-    expect(mocks.openSettings).toHaveBeenCalledWith('Harness');
+    expect(mocks.openAgentsPage).toHaveBeenCalledWith({}, 'agents');
     expect(mocks.requestConnectApp).not.toHaveBeenCalled();
   });
 
@@ -189,7 +189,7 @@ describe('connect-app chip', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Connect Another harness' })
     );
-    expect(mocks.openSettings).toHaveBeenCalledWith('Harness');
+    expect(mocks.openAgentsPage).toHaveBeenCalledWith({}, 'agents');
   });
 
   it('renders a connect action while the harness status is loading', () => {
@@ -211,23 +211,20 @@ describe('connect-app chip', () => {
   it.each([
     ['codex-cloud', 'Codex'],
     ['claude-cloud', 'Claude'],
-  ])(
-    'opens Harness settings for an unconnected %s account',
-    (appSlug, name) => {
-      render(() => (
-        <ConnectApp
-          appSlug={appSlug}
-          name={name}
-          target="harness"
-          key="node"
-          theme={{}}
-        />
-      ));
-      fireEvent.click(screen.getByRole('button', { name: `Connect ${name}` }));
-      expect(mocks.openSettings).toHaveBeenCalledWith('Harness');
-      expect(mocks.requestConnectApp).not.toHaveBeenCalled();
-    }
-  );
+  ])('opens the Agents page for an unconnected %s account', (appSlug, name) => {
+    render(() => (
+      <ConnectApp
+        appSlug={appSlug}
+        name={name}
+        target="harness"
+        key="node"
+        theme={{}}
+      />
+    ));
+    fireEvent.click(screen.getByRole('button', { name: `Connect ${name}` }));
+    expect(mocks.openAgentsPage).toHaveBeenCalledWith({}, 'agents');
+    expect(mocks.requestConnectApp).not.toHaveBeenCalled();
+  });
 
   it.each([
     ['codex-cloud', 'Codex'],
@@ -260,7 +257,7 @@ describe('connect-app chip', () => {
       />
     ));
     fireEvent.click(screen.getByRole('button', { name: 'Connect Codex' }));
-    expect(mocks.openSettings).toHaveBeenCalledWith('Harness');
+    expect(mocks.openAgentsPage).toHaveBeenCalledWith({}, 'agents');
   });
 
   it('does not let a Cursor key satisfy a Pipedream chip for an app of the same name', () => {

@@ -364,7 +364,7 @@ the shimmer.
   model. Escape dismisses the picker and restores focus to its trigger.
   A checkmark identifies the selected model,
   including when it is the agent’s configured default; there is no separate default row.
-  Disconnected Cursor offers **Connect Cursor**, opening Settings → Agents → Runtimes.
+  Disconnected Cursor offers **Connect Cursor**, opening Agents so the reader can connect.
   The built-in sandbox and paired macrod runtimes are not offered here.
 - Selecting an agent changes the heading: **What should we work on?** for chat
   agents and **What should we build?** for coding agents. The draft stays intact
@@ -466,9 +466,9 @@ the shimmer.
   Keys page with **Open API & SSH Keys** (cursor.com/dashboard/api), an API key
   field focused on open, and a default model picker that enables once the key is
   saved. Connected, the same page shows the saved date, **Disconnect**, and
-  **Done**. **Manage** on a paired machine opens **Runtimes** (Back returns to
-  Agents): built-in providers, **New runtime**, and the **Paired runtimes** list,
-  which appears once you have a paired runtime.
+  **Done**. **Manage** on a paired machine opens **Your harness** inside Agents
+  (Back returns to the list): paired machines, a model picker on each connected
+  machine, and **New runtime**.
   **New runtime** shows three steps: install macrod from the linked release,
   run `./macrod` and configure your agent in Quickstart, then enter your pairing
   code and click **Look up**. Review the request and click **Approve** to connect.
@@ -1584,7 +1584,7 @@ must stay hidden; subsequent live messages must still appear.
   Several permissions may be pending alongside one question; answering one leaves
   the others available. Controls disappear when their turn ends, is stopped, or
   disconnects, and old transcript requests cannot answer a later turn's request.
-- **Runtime bypass consent.** Settings → Agents → Runtimes → New runtime offers
+- **Runtime bypass consent.** Settings → Agents → Your harness → New runtime offers
   `Allow bypassing permission requests`, off by default. Enabling it warns that
   agents may run commands and edit files on the machine without approval.
   Macrod Quickstart and Config also offer `Full Access`, off by

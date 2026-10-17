@@ -169,7 +169,7 @@ export const enableGantt = defineFlag({
   env: 'ENABLE_GANTT',
 });
 
-// Claude Cloud: the built-in @claude mention and agent assignee, its Runtimes
+// Claude Cloud: the built-in @claude mention and agent assignee, its Agents
 // connection card, and harness/model discovery. Off until PostHog enables it,
 // including in dev; override locally with VITE_CLAUDE_CLOUD.
 export const claudeCloud = defineFlag({

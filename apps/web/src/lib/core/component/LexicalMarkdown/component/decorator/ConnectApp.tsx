@@ -1,7 +1,6 @@
 import { openAgentsPage } from '@app/features/agents-view/primitives/open-page';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { HarnessIcon } from '@core/component/HarnessIcon';
-import { useSettingsState } from '@core/constant/SettingsState';
 import { useUserId } from '@core/context/user';
 import { PipedreamConnectorIcon } from '@core/pipedream/ConnectorIcon';
 import { AppConnectionContext } from '@core/pipedream/connection-context';
@@ -18,7 +17,7 @@ import { LexicalWrapperContext } from '../../context/LexicalWrapperContext';
 /**
  * The chip a reply renders when the reader has to connect something before
  * the agent can continue: a Pipedream app or an agent harness account.
- * Clicking it opens the settings surface
+ * Clicking it opens the Agents page
  * that connects it. Once the reader has connected it, the same chip reads as
  * connected rather than nagging.
  */
@@ -55,7 +54,7 @@ function ConnectPipedreamApp(props: ConnectAppDecoratorProps) {
 }
 
 function ConnectHarness(props: ConnectAppDecoratorProps) {
-  const { openSettings } = useSettingsState();
+  const layout = useSplitLayout();
   const connected = useHarnessConnectionStatus(
     () => props.appSlug,
     useUserId()
@@ -65,7 +64,7 @@ function ConnectHarness(props: ConnectAppDecoratorProps) {
       {...props}
       connected={connected}
       icon={<HarnessIcon harness={props.appSlug} class="size-3.5" />}
-      onConnect={() => openSettings('Harness')}
+      onConnect={() => openAgentsPage(layout, 'agents')}
     />
   );
 }
