@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE comms_channels SET provider_managed=true WHERE id=$1 AND channel_type='private' AND team_id IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3ef35abb64b0ead3214f83e19ad94a519bb352e3ab778060f87380f3f138a2f4"
+}

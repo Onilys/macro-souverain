@@ -44,7 +44,8 @@ DMs, and the shared message store other domains discuss things on.
 
 ## Checks
 
-- `cargo test -p channels` (`SQLX_OFFLINE` unset).
+- `cargo test -p channels --all-features` (`SQLX_OFFLINE` unset); default features
+  do not execute the mutation service or provider lifecycle guard tests.
 
 ## Gotchas
 
@@ -56,3 +57,11 @@ DMs, and the shared message store other domains discuss things on.
 ## Related
 
 - Rules: `.agents/rules/rust/architecture.md`, `.agents/rules/rust/db.md`
+
+## Provider-managed groups
+
+`ChannelInfo.provider_managed` is set atomically with group setup. The domain blocks
+local name/visibility mutations and requires `ProviderChannelLifecycle` before
+deleting these channels; hosts without that port fail closed. Private-chat reuse
+excludes managed groups. `pg_channels_repo/provider.rs` owns transactional provider
+subject changes; DSS publishes the returned ordinary channel event.

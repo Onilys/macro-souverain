@@ -553,6 +553,8 @@ async fn accepted_recovery_backoff_yields_past_a_full_failed_page_after_restart(
 
 fn conversation(c: &Connection, channel: Uuid) -> Conversation {
     Conversation {
+        kind: crate::domain::groups::ConversationKind::Direct,
+        group_status: None,
         channel_id: channel,
         connection_id: c.id,
         customer_id: channel.to_string().try_into().unwrap(),

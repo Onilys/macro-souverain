@@ -334,6 +334,9 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
     ) -> Result<Message, MessageError> {
         let parent = parent_from_receipt(&access)?;
         let actor = actor_from_receipt(&access, &parent)?;
+        if actor.as_bot().is_none() && self.repo.provider_managed(&parent).await? {
+            return Err(MessageError::Forbidden);
+        }
         self.ensure_parent(&parent).await?;
         if actor.as_bot().is_some() && input.mentions.is_empty() {
             input.mentions = self.mentions.extract(&input.content).await?;
@@ -410,6 +413,9 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
     ) -> Result<Message, MessageError> {
         let parent = parent_from_receipt(&access)?;
         let actor = actor_from_receipt(&access, &parent)?;
+        if actor.as_bot().is_none() && self.repo.provider_managed(&parent).await? {
+            return Err(MessageError::Forbidden);
+        }
         self.ensure_parent(&parent).await?;
         let current = self.active_message(&parent, id, false).await?;
         if current.sender_id != actor
@@ -508,6 +514,9 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
     ) -> Result<Message, MessageError> {
         let parent = parent_from_receipt(&access)?;
         let actor = actor_from_receipt(&access, &parent)?;
+        if actor.as_bot().is_none() && self.repo.provider_managed(&parent).await? {
+            return Err(MessageError::Forbidden);
+        }
         self.ensure_parent(&parent).await?;
         let current = self.active_message(&parent, id, false).await?;
         // A comment's replies and its place in the document belong to the comment,
@@ -553,6 +562,9 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
     ) -> Result<Message, MessageError> {
         let parent = parent_from_receipt(&access)?;
         let actor = actor_from_receipt(&access, &parent)?;
+        if actor.as_bot().is_none() && self.repo.provider_managed(&parent).await? {
+            return Err(MessageError::Forbidden);
+        }
         self.ensure_parent(&parent).await?;
         self.active_message(&parent, id, false).await?;
         if emoji.is_empty() || emoji.chars().count() > 32 || emoji.chars().any(char::is_control) {
@@ -591,6 +603,9 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
     ) -> Result<ThreadState, MessageError> {
         let parent = parent_from_receipt(&access)?;
         let actor = actor_from_receipt(&access, &parent)?;
+        if actor.as_bot().is_none() && self.repo.provider_managed(&parent).await? {
+            return Err(MessageError::Forbidden);
+        }
         if !parent.is_discussion() {
             return Err(MessageError::Invalid(
                 "only entity discussions support thread updates",
@@ -640,6 +655,9 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
     ) -> Result<ThreadState, MessageError> {
         let parent = parent_from_receipt(&access)?;
         let actor = actor_from_receipt(&access, &parent)?;
+        if actor.as_bot().is_none() && self.repo.provider_managed(&parent).await? {
+            return Err(MessageError::Forbidden);
+        }
         if !parent.is_discussion() {
             return Err(MessageError::Invalid(
                 "only entity discussions support whole-thread deletion",

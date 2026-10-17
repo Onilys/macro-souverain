@@ -67,20 +67,23 @@ impl HttpMetaProvider {
         request: &SendReply,
         media: Option<&OutboundMedia>,
     ) -> PortResult<PreparedReply> {
-        let destination =
-            if c.provider == Provider::Whatsapp && !conversation.customer_id.is_whatsapp_bsuid() {
-                conversation
-                    .customer_phone
-                    .as_deref()
-                    .map(|phone| phone.trim_start_matches('+'))
-                    .map(str::to_owned)
-                    .map(ProviderId::try_from)
-                    .transpose()?
-                    .unwrap_or_else(|| conversation.customer_id.clone())
-            } else {
-                conversation.customer_id.clone()
-            };
+        let destination = if c.provider == Provider::Whatsapp
+            && conversation.kind == crate::domain::groups::ConversationKind::Direct
+            && !conversation.customer_id.is_whatsapp_bsuid()
+        {
+            conversation
+                .customer_phone
+                .as_deref()
+                .map(|phone| phone.trim_start_matches('+'))
+                .map(str::to_owned)
+                .map(ProviderId::try_from)
+                .transpose()?
+                .unwrap_or_else(|| conversation.customer_id.clone())
+        } else {
+            conversation.customer_id.clone()
+        };
         if c.developer_account
+            && conversation.kind == crate::domain::groups::ConversationKind::Direct
             && !self.developer.as_ref().is_some_and(|dev| {
                 dev.phone_number_id == c.account_id && dev.recipients.contains(&destination)
             })
@@ -99,7 +102,10 @@ impl HttpMetaProvider {
             Provider::Whatsapp => {
                 let mut payload =
                     json!({"messaging_product":"whatsapp","recipient_type":"individual"});
-                if destination.is_whatsapp_bsuid() {
+                if conversation.kind == crate::domain::groups::ConversationKind::Group {
+                    payload["recipient_type"] = json!("group");
+                    payload["to"] = json!(destination.as_str());
+                } else if destination.is_whatsapp_bsuid() {
                     payload["recipient"] = json!(destination.as_str());
                 } else if (6..=15).contains(&destination.as_str().len())
                     && destination.as_str().bytes().all(|b| b.is_ascii_digit())
@@ -140,6 +146,14 @@ impl HttpMetaProvider {
                     .ok_or(MessagingError::Invalid(
                         "template is no longer approved for this account/language",
                     ))?;
+                if conversation.kind == crate::domain::groups::ConversationKind::Group
+                    && !matches!(template.category.as_deref(), Some("MARKETING" | "UTILITY"))
+                {
+                    return Err(MessagingError::Invalid(
+                        "this template category is unsupported for groups",
+                    )
+                    .into());
+                }
                 let components = template_parameters(&template, parameters)?;
                 rendered_text =
                     crate::domain::templates::render_text(&template.components, parameters)?;

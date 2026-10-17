@@ -145,6 +145,7 @@ async fn setup(pool: &PgPool, provider: Provider) -> (NativeChannels, Connection
 }
 fn incoming(c: &Connection, id: &str) -> IncomingMessage {
     IncomingMessage {
+        group_id: None,
         provider: c.provider,
         account_id: c.account_id.clone(),
         customer_id: "customer-scoped-id".to_owned().try_into().unwrap(),
@@ -621,6 +622,7 @@ async fn fixture_native(pool: &PgPool) -> NativeChannels {
         )),
         Arc::new(TextOnlyFiles),
         Arc::new(NoEffects),
+        Arc::new(channels::domain::service::NoopChannelEventDispatcher),
     )
 }
 

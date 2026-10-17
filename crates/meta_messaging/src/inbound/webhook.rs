@@ -12,6 +12,7 @@ use crate::domain::{
 };
 
 mod content;
+mod groups;
 #[cfg(test)]
 mod test;
 mod whatsapp;
@@ -179,6 +180,7 @@ fn instagram(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> 
                     });
                 } else if let Some(read) = event.get("read") {
                     events.push(IncomingEvent::Status {
+                        group_id: None,
                         provenance: Provenance::Customer,
                         account_id: account.clone(),
                         message_id: id(read, "mid")?,
@@ -316,6 +318,7 @@ fn instagram(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> 
                 content = "Content unavailable".to_owned();
             }
             events.push(IncomingEvent::Message(IncomingMessage {
+                group_id: None,
                 provider: Provider::Instagram,
                 account_id: account.clone(),
                 customer_id: customer,

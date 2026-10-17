@@ -334,6 +334,11 @@ pub struct ReactionResult {
 
 /// Persistence boundary. Implementations enforce parent/thread integrity atomically.
 pub trait MessageRepository: Send + Sync + 'static {
+    /// Whether native human mutations are controlled by an external provider.
+    fn provider_managed(
+        &self,
+        parent: &MessageParent,
+    ) -> impl Future<Output = Result<bool, MessageError>> + Send;
     /// Whether the parent still exists and permits messaging lifecycle-wise.
     fn parent_exists(
         &self,

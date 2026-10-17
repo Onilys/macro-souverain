@@ -534,6 +534,20 @@ impl PgMessageRepository {
 }
 
 impl MessageRepository for PgMessageRepository {
+    async fn provider_managed(&self, parent: &MessageParent) -> Result<bool, MessageError> {
+        let MessageParent::Channel(id) = parent else {
+            return Ok(false);
+        };
+        sqlx::query_scalar!(
+            "SELECT provider_managed FROM comms_channels WHERE id=$1",
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map(|v| v.unwrap_or(false))
+        .map_err(database_error)
+    }
+
     async fn replies(
         &self,
         parent: &MessageParent,

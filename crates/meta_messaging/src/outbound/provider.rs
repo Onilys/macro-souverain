@@ -11,6 +11,7 @@ use url::Url;
 
 use crate::domain::{connection::*, events::*, models::*, ports::*};
 
+mod groups;
 mod history;
 mod media;
 mod registration;
@@ -170,7 +171,10 @@ impl HttpMetaProvider {
         if let Some(body) = body {
             request = request.json(body);
         }
+        let mut headers = reqwest::header::HeaderMap::new();
+        macro_tower_layers::inject_trace_headers(&mut headers);
         let response = request
+            .headers(headers)
             .send()
             .await
             .map_err(|_| MessagingError::Unavailable)?;
@@ -643,7 +647,7 @@ impl MetaProvider for HttpMetaProvider {
         let mut after = String::new();
         for _ in 0..10 {
             let mut params = vec![
-                ("fields", "id,name,language,status,components"),
+                ("fields", "id,name,language,status,category,components"),
                 ("limit", "100"),
             ];
             if !after.is_empty() {
@@ -671,6 +675,7 @@ impl MetaProvider for HttpMetaProvider {
                         .unwrap_or_default();
                     let unsupported_reason = layout.err().map(|e| e.to_string());
                     templates.push(Template {
+                        category: item["category"].as_str().map(str::to_owned),
                         parameter_labels,
                         unsupported_reason,
                         id: required(item, "id")?.to_owned().try_into()?,

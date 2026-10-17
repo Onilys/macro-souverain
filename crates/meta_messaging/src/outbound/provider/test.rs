@@ -253,6 +253,8 @@ pub(super) fn connection(provider: Provider) -> Connection {
 }
 fn conversation(c: &Connection, customer: &str) -> Conversation {
     Conversation {
+        kind: crate::domain::groups::ConversationKind::Direct,
+        group_status: None,
         channel_id: Uuid::now_v7(),
         connection_id: c.id,
         customer_id: customer.to_owned().try_into().unwrap(),

@@ -1,4 +1,5 @@
 use super::*;
+mod provider;
 use crate::domain::{
     dm::ensure_dms_for_joining_member,
     events::ChannelEvent,
@@ -36,6 +37,7 @@ struct FakeMutationRepo {
 }
 
 struct FakeMutationRepoState {
+    provider_managed: bool,
     channel_id: Uuid,
     channel_picture_id: Option<Uuid>,
     channel_name: Option<String>,
@@ -61,6 +63,7 @@ impl FakeMutationRepo {
         Self {
             picture_updates: Arc::default(),
             state: Arc::new(Mutex::new(FakeMutationRepoState {
+                provider_managed: false,
                 channel_id,
                 channel_picture_id: None,
                 channel_name: Some("Project".to_string()),
@@ -147,6 +150,7 @@ impl ChannelRepo for FakeMutationRepo {
     async fn get_channel_info(&self, channel_id: Uuid) -> Result<ChannelInfo, Self::Err> {
         let state = self.state.lock().unwrap();
         Ok(ChannelInfo {
+            provider_managed: state.provider_managed,
             id: channel_id,
             name: state.channel_name.clone(),
             channel_type: state.channel_type,
@@ -171,6 +175,7 @@ impl ChannelRepo for FakeMutationRepo {
     ) -> Result<Option<ChannelInfo>, Self::Err> {
         let state = self.state.lock().unwrap();
         Ok((state.join_code == Some(join_code)).then(|| ChannelInfo {
+            provider_managed: state.provider_managed,
             id: state.channel_id,
             name: state.channel_name.clone(),
             channel_type: state.channel_type,

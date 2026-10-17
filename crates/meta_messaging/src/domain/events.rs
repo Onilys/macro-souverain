@@ -62,6 +62,9 @@ pub struct IncomingMessage {
     pub provider: Provider,
     /// Connected phone-number ID or Instagram professional account ID.
     pub account_id: ProviderId,
+    /// Group destination, separate from the individual author. Absent for direct messages.
+    #[serde(default)]
+    pub group_id: Option<ProviderId>,
     /// Customer's account-scoped stable identifier.
     pub customer_id: ProviderId,
     /// Separately supplied WhatsApp phone, never inferred from a BSUID.
@@ -115,6 +118,8 @@ impl From<Vec<IncomingEvent>> for ReceiptBatch {
 #[serde(tag = "type", rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", schema(as = MetaIncomingEvent))]
 pub enum IncomingEvent {
+    /// A signed group metadata fact.
+    Group(super::groups::GroupEvent),
     /// A message, echo or historical message.
     Message(IncomingMessage),
     /// Authoritative previous/current association from a WhatsApp system message.
@@ -136,6 +141,9 @@ pub enum IncomingEvent {
     Revision(IncomingRevision),
     /// Delivery/read/failure status; may arrive before the message.
     Status {
+        /// Group destination for group-level facts; participant receipts are discarded at decode.
+        #[serde(default)]
+        group_id: Option<ProviderId>,
         /// Source policy; historical statuses require recorded import consent.
         provenance: Provenance,
         /// Business account's provider ID.
@@ -179,6 +187,7 @@ impl IncomingEvent {
     /// accounts in that delivery to progress independently.
     pub fn account_id(&self) -> Option<&ProviderId> {
         match self {
+            Self::Group(event) => Some(&event.account_id),
             Self::Message(message) => Some(&message.account_id),
             Self::IdentityUpdate(update) => Some(&update.account_id),
             Self::IdentityObserved { account_id, .. } => Some(account_id),

@@ -110,6 +110,31 @@ succeeded, failed, stopped, and interrupted attempts. Check completion latency,
 failed/interrupted turns, queue age, and duplicate source admissions during
 internal rollout. Model usage continues through the existing session metering.
 
+## Create and manage a WhatsApp group
+
+In **Create channel**, enter a name and enable **Create a WhatsApp group** when a
+ready Platform account connected by you is available. A picker appears only for
+multiple eligible local connections. Confirm private visibility, then create.
+The server verifies OBA/permissions/subscriptions. Pending confirmation and failure
+are shown honestly; **Could not confirm creation** never retries automatically.
+**Retry creation** warns that the earlier request may have left an unused group.
+**Discard setup** removes only unbound local setup, with no remote deletion claim.
+
+After binding, use **Copy WhatsApp invite link** in Participants. Native teammate
+sharing remains separate. Desktop and mobile show **Macro teammates** and
+**WhatsApp participants**; names fall back to username/phone or a BSUID label.
+Only channel participant admins on the account team can remove external people.
+Removal warns that the participant cannot rejoin using the invite link and waits
+for WhatsApp confirmation before changing the list. A join alone does not open a
+reply window. Replies use the existing human composer and approved-template rules.
+
+The group subject controls the native name; local rename/team conversion and
+unsupported message actions/calls are blocked. Owner **Delete WhatsApp group**
+warns that it deletes the group for everyone. A rejected or uncertain request keeps
+the channel and permits deliberate retry. A remotely deleted group remains
+read-only until its owner deletes the local channel. Team-admin status alone grants
+neither private access nor external sending/group creation rights.
+
 ## WhatsApp Business and Instagram customer channels
 
 Open **Settings → Integrations → Accounts**. WhatsApp Business and Instagram
@@ -137,7 +162,7 @@ Meta account confirmation/permission checks; a connector leaving the team requir
 WhatsApp number keeps the subscription required by other connected numbers; that
 is a successful disconnect, not a provider-removal failure.
 
-For WhatsApp, choose the Business-app coexistence flow or **Connect Platform number**. An unregistered Platform account retains its authorization and shows a six-digit PIN field. **Register number** makes one explicit attempt; **Check registration** only reconciles a pending result. An unsupported provider state must be resolved in Meta; it is not treated as an unregistered number. PINs are never restored as drafts. Disconnect uses the shared confirmation dialog. No group or OBA controls are offered.
+For WhatsApp, choose the Business-app coexistence flow or **Connect Platform number**. An unregistered Platform account retains its authorization and shows a six-digit PIN field. **Register number** makes one explicit attempt; **Check registration** only reconciles a pending result. An unsupported provider state must be resolved in Meta; it is not treated as an unregistered number. PINs are never restored as drafts. Disconnect uses the shared confirmation dialog. OBA applications and new-number registration are not part of group setup.
 
 Customer channels have one composer that replies to the customer. There is no
 internal-note composer or destination switch. Click the send arrow or press

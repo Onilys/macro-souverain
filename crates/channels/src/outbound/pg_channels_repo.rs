@@ -1,5 +1,6 @@
 /// Silent historical persistence and transaction-aware activity updates.
 pub mod historical;
+mod provider;
 #[cfg(feature = "list")]
 mod references;
 
@@ -100,6 +101,7 @@ struct ParticipantRow {
 /// Intermediate row for channel info.
 #[derive(Debug, sqlx::FromRow)]
 struct ChannelInfoRow {
+    provider_managed: bool,
     id: Uuid,
     name: Option<String>,
     channel_type: ChannelType,
@@ -1919,7 +1921,7 @@ impl ChannelRepo for PgChannelsRepo {
         let row = sqlx::query_as!(
             ChannelInfoRow,
             r#"
-            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id
+            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id, provider_managed
             FROM comms_channels
             WHERE id = $1
             "#,
@@ -1928,6 +1930,7 @@ impl ChannelRepo for PgChannelsRepo {
         .fetch_one(&self.pool)
         .await?;
         Ok(ChannelInfo {
+            provider_managed: row.provider_managed,
             id: row.id,
             name: row.name,
             channel_type: row.channel_type,
@@ -1978,7 +1981,7 @@ impl ChannelRepo for PgChannelsRepo {
         let row = sqlx::query_as!(
             ChannelInfoRow,
             r#"
-            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id
+            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id, provider_managed
             FROM comms_channels
             WHERE join_code = $1
             "#,
@@ -1987,6 +1990,7 @@ impl ChannelRepo for PgChannelsRepo {
         .fetch_optional(&self.pool)
         .await?;
         Ok(row.map(|row| ChannelInfo {
+            provider_managed: row.provider_managed,
             id: row.id,
             name: row.name,
             channel_type: row.channel_type,
@@ -2049,6 +2053,7 @@ impl ChannelRepo for PgChannelsRepo {
             .map(|row| ChannelPreviewRow {
                 profile_picture_id: row.profile_picture_id,
                 info: ChannelInfo {
+                    provider_managed: false,
                     id: row.id,
                     name: row.name,
                     channel_type: row.channel_type,
@@ -2317,7 +2322,7 @@ impl ChannelRepo for PgChannelsRepo {
             r#"
             SELECT id
             FROM comms_channels
-            WHERE channel_type = 'private'::comms_channel_type
+            WHERE channel_type = 'private'::comms_channel_type AND NOT provider_managed
               AND (
                   (
                       SELECT COUNT(*)

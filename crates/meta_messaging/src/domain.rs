@@ -3,6 +3,7 @@
 pub mod connection;
 pub mod content;
 pub mod events;
+pub mod groups;
 pub mod health;
 pub mod history;
 pub mod media;

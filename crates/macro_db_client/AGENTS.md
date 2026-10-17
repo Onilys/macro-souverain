@@ -59,3 +59,8 @@ queries used across Rust services.
 
 - Rules: `.agents/rules/rust/db.md`, `.agents/rules/rust/architecture.md` ·
   Docs: `docs/development/database.md` · Skill: `dump-schema`
+
+The unshipped squashed native Meta messaging migration includes direct/group
+conversation namespaces, current group setup and participant state. The channel
+`provider_managed` marker is committed with setup and read by native domain guards;
+Meta lifecycle policy stays in `meta_messaging`, not this schema owner.

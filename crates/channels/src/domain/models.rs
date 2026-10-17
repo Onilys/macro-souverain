@@ -828,6 +828,8 @@ pub struct MutatedMessage {
 /// Channel info row used by mutation logic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChannelInfo {
+    /// Native channel whose lifecycle is owned by a connected provider.
+    pub provider_managed: bool,
     /// Channel id.
     pub id: Uuid,
     /// Stored channel name.

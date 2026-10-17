@@ -187,6 +187,20 @@ pub enum MessagingError {
     /// Provider explicitly rejected the operation.
     #[error("the provider rejected this operation; review account health and message requirements")]
     ProviderRejected,
+    /// A known in-flight binding may resolve this fact; receipt retry is bounded.
+    #[error("waiting for the current group binding")]
+    GroupBindingPending,
+    /// Account is not eligible for the official Groups API.
+    #[error(
+        "WhatsApp groups require an eligible Official Business Account and group webhook subscriptions"
+    )]
+    GroupIneligible,
+    /// Provider has suspended or deleted the group.
+    #[error("this WhatsApp group is read-only")]
+    GroupReadOnly,
+    /// Provider response did not positively confirm the requested effect.
+    #[error("could not confirm the WhatsApp operation; you can deliberately retry")]
+    GroupUnconfirmed,
     /// Retryable work remains durably recorded.
     #[error("messaging is temporarily unavailable; retry shortly")]
     Unavailable,
@@ -213,6 +227,10 @@ impl MessagingError {
             Self::ProviderAccessRequired => "meta_access_required",
             Self::ProviderRejected => "provider_rejected",
             Self::Unavailable => "temporarily_unavailable",
+            Self::GroupBindingPending => "group_binding_pending",
+            Self::GroupIneligible => "group_ineligible",
+            Self::GroupReadOnly => "group_read_only",
+            Self::GroupUnconfirmed => "group_unconfirmed",
         }
     }
 }

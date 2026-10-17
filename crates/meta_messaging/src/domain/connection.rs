@@ -223,6 +223,12 @@ pub struct Conversation {
     pub channel_id: Uuid,
     /// Owning account's connection.
     pub connection_id: Uuid,
+    /// Destination kind; group identifiers never enter person alias resolution.
+    #[serde(default)]
+    pub kind: super::groups::ConversationKind,
+    /// Authoritative group availability, absent for direct conversations.
+    #[serde(default)]
+    pub group_status: Option<super::groups::GroupStatus>,
     /// Recipient's account-scoped identity.
     pub customer_id: ProviderId,
     /// Account-scoped display label; never a Macro or CRM identity.
@@ -240,6 +246,9 @@ pub struct Conversation {
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "schema", schema(as = MetaTemplate))]
 pub struct Template {
+    /// Provider category; authentication templates cannot be sent to groups.
+    #[serde(default)]
+    pub category: Option<String>,
     /// Provider template identity.
     pub id: ProviderId,
     /// Exact approved name.
@@ -366,6 +375,8 @@ pub struct ConversationView {
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "schema", schema(as = MetaConversationResponse))]
 pub struct ConversationResponse {
+    /// Present for pending or bound WhatsApp groups, without an invite link.
+    pub group: Option<super::groups::GroupView>,
     /// Absent for ordinary internal Macro channels.
     pub messaging: Option<ConversationView>,
 }

@@ -94,6 +94,7 @@ fn repo() -> MockChannelRepo {
     repo.expect_get_channel_info().returning(|id| {
         Box::pin(async move {
             Ok(ChannelInfo {
+                provider_managed: false,
                 id,
                 name: Some("Test".into()),
                 channel_type: ChannelType::Private,

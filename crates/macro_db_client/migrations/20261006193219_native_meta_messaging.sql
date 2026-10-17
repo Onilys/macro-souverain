@@ -54,6 +54,11 @@ CREATE INDEX meta_messaging_oauth_expiry_idx ON meta_messaging_oauth(expires_at)
 CREATE TABLE meta_messaging_conversation (
     connection_id uuid NOT NULL REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
     customer_id text NOT NULL,
+    kind text NOT NULL DEFAULT 'direct' CHECK (kind IN ('direct','group')),
+    group_status text CHECK (group_status IN ('active','suspended','deleted')),
+    group_status_at timestamptz,
+    group_subject_at timestamptz,
+    group_invite_link text,
     channel_id uuid NOT NULL UNIQUE REFERENCES comms_channels(id) ON DELETE CASCADE,
     customer_display_name text,
     customer_phone text,
@@ -62,7 +67,8 @@ CREATE TABLE meta_messaging_conversation (
     external_sender_id uuid NOT NULL,
     last_customer_message_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY(connection_id, customer_id)
+    PRIMARY KEY(connection_id, kind, customer_id),
+    CHECK ((kind='direct' AND group_status IS NULL AND group_invite_link IS NULL) OR (kind='group' AND group_status IS NOT NULL))
 );
 
 -- Acknowledged webhooks survive restarts. The hash deduplicates exact envelopes;
@@ -92,6 +98,8 @@ CREATE TABLE meta_messaging_message (
     provider_message_id text NOT NULL,
     message_id uuid NOT NULL UNIQUE REFERENCES comms_messages(id) ON DELETE CASCADE,
     customer_id text NOT NULL,
+    conversation_kind text NOT NULL DEFAULT 'direct',
+    sender_customer_id text,
     provenance text NOT NULL CHECK (provenance IN ('customer', 'macro_reply', 'phone_echo', 'onboarding_history')),
     direction text NOT NULL CHECK (direction IN ('inbound', 'outbound')),
     delivery_state text NOT NULL CHECK (delivery_state IN ('pending', 'sending', 'unknown', 'accepted', 'sent', 'delivered', 'read', 'failed')),
@@ -101,7 +109,7 @@ CREATE TABLE meta_messaging_message (
     native_retry_at timestamptz NOT NULL DEFAULT now(),
     created_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY(connection_id, provider_message_id),
-    FOREIGN KEY(connection_id, customer_id) REFERENCES meta_messaging_conversation(connection_id, customer_id) ON UPDATE CASCADE ON DELETE CASCADE
+    FOREIGN KEY(connection_id, conversation_kind, customer_id) REFERENCES meta_messaging_conversation(connection_id, kind, customer_id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 -- Statuses may precede the corresponding message/HTTP response. Retain them
@@ -232,4 +240,36 @@ CREATE TABLE meta_messaging_customer_alias (
     identifier text NOT NULL,
     customer_id text NOT NULL,
     PRIMARY KEY (connection_id, identifier)
+);
+
+-- Native policy marker is owned/read by channels, messages and calls. Creation
+-- sets it in the same transaction as the private channel and pending binding.
+ALTER TABLE comms_channels ADD COLUMN provider_managed boolean NOT NULL DEFAULT false;
+
+-- Only the current unbound attempt is retained. No operation history or tombstone.
+CREATE TABLE meta_messaging_group_setup (
+    channel_id uuid PRIMARY KEY REFERENCES comms_channels(id) ON DELETE CASCADE,
+    connection_id uuid NOT NULL REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
+    subject text NOT NULL,
+    state text NOT NULL CHECK (state IN ('creating','pending','failed','unknown')),
+    attempt_id uuid NOT NULL,
+    generation timestamptz,
+    request_id text,
+    error_code text,
+    started_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE(connection_id,request_id)
+);
+
+-- Keep departed people for stable authorship; membership facts use source time.
+CREATE TABLE meta_messaging_group_participant (
+    channel_id uuid NOT NULL REFERENCES comms_channels(id) ON DELETE CASCADE,
+    customer_id text NOT NULL,
+    external_sender_id uuid NOT NULL,
+    display_name text,
+    username text,
+    phone text,
+    active boolean NOT NULL,
+    membership_at timestamptz NOT NULL,
+    profile_at timestamptz NOT NULL,
+    PRIMARY KEY(channel_id,customer_id)
 );

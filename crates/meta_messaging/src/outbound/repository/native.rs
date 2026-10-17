@@ -53,9 +53,12 @@ impl PgMessagingRepository {
         .fetch_one(&mut **tx)
         .await
         .map_err(failure)?;
-        let route=sqlx::query!("SELECT v.customer_id,v.customer_phone FROM meta_messaging_send s JOIN meta_messaging_conversation v ON v.channel_id=s.channel_id AND v.connection_id=s.connection_id WHERE s.id=$1 AND s.connection_id=$2 AND s.provider_message_id=$3",send,c.id,m.message_id.as_str())
+        let route=sqlx::query!("SELECT v.customer_id,v.customer_phone,v.kind FROM meta_messaging_send s JOIN meta_messaging_conversation v ON v.channel_id=s.channel_id AND v.connection_id=s.connection_id WHERE s.id=$1 AND s.connection_id=$2 AND s.provider_message_id=$3",send,c.id,m.message_id.as_str())
             .fetch_optional(&mut **tx).await.map_err(failure)?.ok_or(MessagingError::Conflict)?;
         let mut m = m.clone();
+        if route.kind == "group" {
+            m.group_id = Some(route.customer_id.clone().try_into()?);
+        }
         m.customer_id = route.customer_id.try_into()?;
         m.customer_phone = route.customer_phone.map(ProviderId::try_from).transpose()?;
         Ok(m)
@@ -85,14 +88,43 @@ impl PgMessagingRepository {
         if native_id.is_none() && matches!(account.status.as_str(), "disconnected" | "revoked") {
             return Err(MessagingError::Disconnected.into());
         }
-        let conversation=sqlx::query!("SELECT channel_id,external_sender_id FROM meta_messaging_conversation WHERE connection_id = $1 AND customer_id = $2",c.id,m.customer_id.as_str()).fetch_optional(&mut **tx).await.map_err(failure)?;
-        let (channel_id, sender_id, create_channel) = conversation.map_or_else(
+        let kind = if m.group_id.is_some() {
+            "group"
+        } else {
+            "direct"
+        };
+        let peer = m.group_id.as_ref().unwrap_or(&m.customer_id);
+        let conversation=sqlx::query!("SELECT channel_id,external_sender_id FROM meta_messaging_conversation WHERE connection_id = $1 AND customer_id = $2 AND kind=$3",c.id,peer.as_str(),kind).fetch_optional(&mut **tx).await.map_err(failure)?;
+        if kind == "group" && conversation.is_none() {
+            return Err(MessagingError::GroupBindingPending.into());
+        }
+        let (channel_id, mut sender_id, create_channel) = conversation.map_or_else(
             || (Uuid::now_v7(), Uuid::now_v7(), true),
             |r| (r.channel_id, r.external_sender_id, false),
         );
-        let message=sqlx::query!("SELECT message_id,customer_id,direction FROM meta_messaging_message WHERE connection_id = $1 AND provider_message_id = $2",c.id,m.message_id.as_str()).fetch_optional(&mut **tx).await.map_err(failure)?;
+        let message=sqlx::query!("SELECT message_id,customer_id,conversation_kind,direction FROM meta_messaging_message WHERE connection_id = $1 AND provider_message_id = $2",c.id,m.message_id.as_str()).fetch_optional(&mut **tx).await.map_err(failure)?;
+        if m.group_id.is_some() && m.direction == Direction::Inbound && message.is_none() {
+            sender_id = Self::participant_in(
+                tx,
+                channel_id,
+                &m.customer_id,
+                &crate::domain::groups::ParticipantFact {
+                    customer_id: m.customer_id.clone(),
+                    phone: m.customer_phone.clone(),
+                    display_name: m.author_name.clone(),
+                    username: m.author_handle.clone(),
+                    active: true,
+                },
+                m.timestamp,
+                false,
+            )
+            .await?;
+        }
+
         if message.as_ref().is_some_and(|r| {
-            r.customer_id != m.customer_id.as_str() || r.direction != spelling(m.direction)
+            r.customer_id != peer.as_str()
+                || r.conversation_kind != kind
+                || r.direction != spelling(m.direction)
         }) {
             return Err(MessagingError::Conflict.into());
         }
@@ -127,8 +159,17 @@ impl PgMessagingRepository {
         } else {
             None
         };
-        sqlx::query!("INSERT INTO meta_messaging_conversation (connection_id,customer_id,channel_id,external_sender_id,customer_display_name,customer_handle) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (connection_id,customer_id) DO UPDATE SET customer_display_name = COALESCE(EXCLUDED.customer_display_name,meta_messaging_conversation.customer_display_name),customer_handle=COALESCE(EXCLUDED.customer_handle,meta_messaging_conversation.customer_handle)",c.id,m.customer_id.as_str(),r.channel_id,r.sender_id,customer_name,customer_handle).execute(&mut **tx).await.map_err(failure)?;
-        if send.is_none()
+        let kind = if m.group_id.is_some() {
+            "group"
+        } else {
+            "direct"
+        };
+        let peer = m.group_id.as_ref().unwrap_or(&m.customer_id);
+        if m.group_id.is_none() {
+            sqlx::query!("INSERT INTO meta_messaging_conversation (connection_id,customer_id,channel_id,external_sender_id,customer_display_name,customer_handle) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (connection_id,kind,customer_id) DO UPDATE SET customer_display_name = COALESCE(EXCLUDED.customer_display_name,meta_messaging_conversation.customer_display_name),customer_handle=COALESCE(EXCLUDED.customer_handle,meta_messaging_conversation.customer_handle)",c.id,m.customer_id.as_str(),r.channel_id,r.sender_id,customer_name,customer_handle).execute(&mut **tx).await.map_err(failure)?;
+        }
+        if m.group_id.is_none()
+            && send.is_none()
             && let Some(phone) = m.customer_phone.as_ref()
         {
             Self::observe_phone_in(
@@ -141,7 +182,7 @@ impl PgMessagingRepository {
             .await?;
         }
         if window_until.is_some() {
-            sqlx::query!("UPDATE meta_messaging_conversation SET last_customer_message_at = GREATEST(last_customer_message_at,$3) WHERE connection_id = $1 AND customer_id = $2",c.id,m.customer_id.as_str(),m.timestamp).execute(&mut **tx).await.map_err(failure)?;
+            sqlx::query!("UPDATE meta_messaging_conversation SET last_customer_message_at = GREATEST(last_customer_message_at,$3) WHERE connection_id = $1 AND customer_id = $2 AND kind=$4",c.id,peer.as_str(),m.timestamp,kind).execute(&mut **tx).await.map_err(failure)?;
         }
         if r.create_message {
             let states=sqlx::query_scalar!("SELECT state FROM meta_messaging_status WHERE connection_id = $1 AND provider_message_id = $2",c.id,m.message_id.as_str()).fetch_all(&mut **tx).await.map_err(failure)?;
@@ -149,7 +190,7 @@ impl PgMessagingRepository {
             for s in states {
                 state = state.reconcile(decode(serde_json::Value::String(s))?);
             }
-            sqlx::query!("INSERT INTO meta_messaging_message (connection_id,provider_message_id,message_id,customer_id,provenance,direction,delivery_state,media_state) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",c.id,m.message_id.as_str(),r.message_id,m.customer_id.as_str(),spelling(m.provenance),spelling(m.direction),spelling(state),if m.media.is_empty()&&m.message_type!="macro_media_reply"{"none"}else{"pending"}).execute(&mut **tx).await.map_err(failure)?;
+            sqlx::query!("INSERT INTO meta_messaging_message (connection_id,provider_message_id,message_id,customer_id,provenance,direction,delivery_state,media_state,conversation_kind,sender_customer_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",c.id,m.message_id.as_str(),r.message_id,peer.as_str(),spelling(m.provenance),spelling(m.direction),spelling(state),if m.media.is_empty()&&m.message_type!="macro_media_reply"{"none"}else{"pending"},kind,m.group_id.as_ref().map(|_|m.customer_id.as_str())).execute(&mut **tx).await.map_err(failure)?;
         }
         if let Some(send) = send {
             sqlx::query!(
@@ -177,7 +218,7 @@ impl PgMessagingRepository {
     /// Pending native realtime/search delivery, including accepted replies and
     /// silent history. This feed deliberately does not publish routine/agent triggers.
     pub async fn pending_native_effects(&self) -> PortResult<Vec<NativeEffect>> {
-        sqlx::query!("SELECT c.channel_id,m.message_id,m.effect_revision,m.published_revision,m.provenance,m.direction FROM meta_messaging_message m JOIN meta_messaging_conversation c ON c.connection_id = m.connection_id AND c.customer_id = m.customer_id WHERE m.published_revision<m.effect_revision AND m.native_retry_at<=now() ORDER BY m.native_retry_at,m.created_at,m.message_id LIMIT 100")
+        sqlx::query!("SELECT c.channel_id,m.message_id,m.effect_revision,m.published_revision,m.provenance,m.direction FROM meta_messaging_message m JOIN meta_messaging_conversation c ON c.connection_id = m.connection_id AND c.customer_id = m.customer_id AND c.kind=m.conversation_kind WHERE m.published_revision<m.effect_revision AND m.native_retry_at<=now() ORDER BY m.native_retry_at,m.created_at,m.message_id LIMIT 100")
             .fetch_all(&self.pool).await.map_err(failure)?
             .into_iter().map(|r| Ok(NativeEffect {
                 channel_id: r.channel_id,

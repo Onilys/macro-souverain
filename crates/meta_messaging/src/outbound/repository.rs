@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::domain::{connection::*, history::*, models::*, ports::*};
 
+pub mod groups;
 mod history;
 pub mod identity;
 pub mod media;
@@ -361,7 +362,7 @@ impl MessagingRepository for PgMessagingRepository {
         connection: Uuid,
         customer: &ProviderId,
     ) -> PortResult<Option<CustomerProfile>> {
-        Ok(sqlx::query!("SELECT customer_display_name,customer_handle FROM meta_messaging_conversation WHERE connection_id=$1 AND customer_id=$2",connection,customer.as_str()).fetch_optional(&self.pool).await.map_err(failure)?.map(|r|CustomerProfile{name:r.customer_display_name,handle:r.customer_handle}))
+        Ok(sqlx::query!("SELECT customer_display_name,customer_handle FROM meta_messaging_conversation WHERE connection_id=$1 AND kind='direct' AND customer_id=$2",connection,customer.as_str()).fetch_optional(&self.pool).await.map_err(failure)?.map(|r|CustomerProfile{name:r.customer_display_name,handle:r.customer_handle}))
     }
     async fn media_stored(&self, connection: Uuid, message: &ProviderId) -> PortResult<bool> {
         Ok(sqlx::query_scalar!("SELECT media_state='stored' AS \"stored!\" FROM meta_messaging_message WHERE connection_id=$1 AND provider_message_id=$2",connection,message.as_str()).fetch_optional(&self.pool).await.map_err(failure)?.unwrap_or(false))
@@ -385,7 +386,7 @@ impl ConversationRepository for PgMessagingRepository {
         conversation: &Conversation,
         message: &ProviderId,
     ) -> PortResult<bool> {
-        sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_message WHERE connection_id=$1 AND customer_id=$2 AND provider_message_id=$3) AS \"exists!\"",conversation.connection_id,conversation.customer_id.as_str(),message.as_str()).fetch_one(&self.pool).await.map_err(failure)
+        sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_message WHERE connection_id=$1 AND customer_id=$2 AND provider_message_id=$3 AND conversation_kind=$4) AS \"exists!\"",conversation.connection_id,conversation.customer_id.as_str(),message.as_str(),spelling(conversation.kind)).fetch_one(&self.pool).await.map_err(failure)
     }
     async fn enqueue_send(
         &self,
@@ -436,7 +437,7 @@ impl ConversationRepository for PgMessagingRepository {
         if active.is_none() {
             return Err(MessagingError::Disconnected.into());
         }
-        let invalid_route = sqlx::query_scalar!(r#"SELECT
+        let invalid_route = conversation.kind==crate::domain::groups::ConversationKind::Direct && sqlx::query_scalar!(r#"SELECT
             EXISTS(SELECT 1 FROM meta_messaging_customer_alias WHERE connection_id=$1 AND identifier=$2 AND customer_id<>$2)
             OR EXISTS(SELECT 1 FROM meta_messaging_conversation v JOIN meta_messaging_connection c ON c.id=v.connection_id
                 WHERE v.connection_id=$1 AND v.customer_id=$2 AND $3 AND c.provider='whatsapp'
@@ -446,9 +447,13 @@ impl ConversationRepository for PgMessagingRepository {
         if invalid_route {
             return Err(MessagingError::IdentityConflict.into());
         }
-        let routing=sqlx::query!("SELECT customer_id,customer_phone FROM meta_messaging_conversation WHERE connection_id=$1 AND channel_id=$2",c.id,conversation.channel_id)
+        let routing=sqlx::query!("SELECT customer_id,customer_phone,kind,group_status FROM meta_messaging_conversation WHERE connection_id=$1 AND channel_id=$2",c.id,conversation.channel_id)
             .fetch_optional(&mut *tx).await.map_err(failure)?.ok_or(MessagingError::NotFound)?;
-        if routing.customer_id != conversation.customer_id.as_str()
+        if routing.kind == "group" && routing.group_status.as_deref() != Some("active") {
+            return Err(MessagingError::GroupReadOnly.into());
+        }
+        if routing.kind != spelling(conversation.kind)
+            || routing.customer_id != conversation.customer_id.as_str()
             || routing.customer_phone != conversation.customer_phone
         {
             return Err(MessagingError::Unavailable.into());

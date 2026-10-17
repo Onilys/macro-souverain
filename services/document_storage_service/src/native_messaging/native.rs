@@ -40,6 +40,7 @@ use uuid::Uuid;
 
 use super::effects::NativeMessageEffects;
 use crate::api::context::EntityAccessService;
+mod groups;
 #[cfg(test)]
 mod test;
 
@@ -51,6 +52,7 @@ pub(crate) struct NativeChannels {
     search: sqs_client::SQS,
     files: Arc<dyn super::files::MessageFiles>,
     effects: Arc<dyn NativeMessageEffects>,
+    channel_events: Arc<dyn channels::domain::ports::ChannelEventDispatcher>,
 }
 impl NativeChannels {
     pub(crate) fn new(
@@ -60,6 +62,7 @@ impl NativeChannels {
         search: sqs_client::SQS,
         files: Arc<dyn super::files::MessageFiles>,
         effects: Arc<dyn NativeMessageEffects>,
+        channel_events: Arc<dyn channels::domain::ports::ChannelEventDispatcher>,
     ) -> Self {
         Self {
             pool,
@@ -68,6 +71,7 @@ impl NativeChannels {
             search,
             files,
             effects,
+            channel_events,
         }
     }
 
@@ -161,7 +165,9 @@ impl NativeChannels {
             .map_err(error)?;
         }
         PgMessagingRepository::finish_message_in(&mut tx, c, m, &reservation, send).await?;
-        apply_revision(&mut tx, c.id, &m.customer_id, &m.message_id, m.direction).await?;
+        if m.group_id.is_none() {
+            apply_revision(&mut tx, c.id, &m.customer_id, &m.message_id, m.direction).await?;
+        }
         tx.commit().await.map_err(error)?;
         Ok(())
     }
@@ -488,6 +494,7 @@ impl NativeConversation for NativeChannels {
                 .map_err(|_| MessagingError::Forbidden)?,
         );
         let m = IncomingMessage {
+            group_id: None,
             provider: c.provider,
             account_id: c.account_id.clone(),
             customer_id: conversation.customer_id.clone(),

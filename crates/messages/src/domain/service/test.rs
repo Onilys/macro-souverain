@@ -6,9 +6,11 @@ use std::sync::{Arc, Mutex};
 mod call_retries;
 mod event_posts;
 mod initiative;
+mod provider;
 
 #[derive(Clone)]
 struct Repo {
+    provider_managed: bool,
     message: Message,
     replies: Vec<Message>,
     state: ThreadState,
@@ -31,6 +33,9 @@ impl Repo {
 }
 
 impl MessageRepository for Repo {
+    async fn provider_managed(&self, _: &MessageParent) -> Result<bool, MessageError> {
+        Ok(self.provider_managed)
+    }
     async fn document_file_type(&self, _: &str) -> Result<Option<String>, MessageError> {
         Ok(self.file_type.clone())
     }
@@ -241,6 +246,7 @@ fn fixture() -> Repo {
     let id = Uuid::from_u128(1);
     let user = "macro|author@example.com";
     Repo {
+        provider_managed: false,
         message: Message {
             id,
             parent: MessageParent::parse("document", "doc").unwrap(),
@@ -1281,6 +1287,9 @@ struct StrictRepo {
 }
 
 impl MessageRepository for StrictRepo {
+    async fn provider_managed(&self, _: &MessageParent) -> Result<bool, MessageError> {
+        Ok(false)
+    }
     async fn document_file_type(&self, id: &str) -> Result<Option<String>, MessageError> {
         self.inner.document_file_type(id).await
     }

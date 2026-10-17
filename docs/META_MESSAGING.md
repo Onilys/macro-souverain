@@ -60,7 +60,7 @@ never resends an accepted or uncertain intent.
 
 The composer receives implemented capabilities and current server eligibility
 through a feature-owned reply source. Native Channel consumes one interaction
-state: internal, external, loading or error. Provider content is normalized into
+state: internal, external, pending group, loading or error. Provider content is normalized into
 plain text and validated supplied links before native rendering; private files,
 source-scoped revisions retain their existing owning-domain paths.
 Queued requests retain intent hashes and IDs. Explicit import jobs, last-customer
@@ -94,8 +94,87 @@ The connected account must be a supported WhatsApp Cloud API Platform or Busines
 Consumer inbox connection is outside these official APIs. Instagram group messaging
 is unsupported; Meta's separate WhatsApp Groups API requires Official Business
 Account eligibility and excludes Business-app coexistence numbers. This integration
-therefore stays one-to-one. More provider message actions and team workflow could
-be added later, but they are separate from the first release's scope.
+supports only groups created through Macro on eligible Platform accounts. Existing
+group adoption, coexistence groups and Instagram groups remain unsupported.
+
+## WhatsApp groups
+
+One group is one private native channel. The current connector (`connection.user_id`),
+still a member of the account team, may create through **Create channel → Create a
+WhatsApp group**. Team-admin status does not grant this authority or private-channel
+access. The server checks Platform readiness, OBA, messaging/management permissions,
+and the configured app's `messages`, `group_lifecycle_update`,
+`group_participants_update`, `group_settings_update`, `group_status_update`
+subscriptions using read-only Graph v26 calls, plus a bounded active-groups
+capability probe whose returned IDs are never adopted. Business-app, Multi-solution
+Conversations and Instagram flows are excluded; no eligibility cache or OBA
+application workflow is introduced. Missing eligibility is an actionable dependency.
+
+The transaction reserves the native channel and one pending binding keyed by its
+ID before calling Meta with `join_approval_mode: auto_approve`. The only binding
+correlation is the returned `request_id` for the current attempt and connection
+generation. Tracked server work survives a client disconnect. No automatic create
+retry occurs. Definite failures and uncertain results allow a deliberate retry;
+unknown results warn that an earlier attempt may have left an unused remote group.
+An unbound failed/unknown setup can be discarded locally, with no remote-deletion
+claim. Its explicit discard route rejects a channel that has since bound.
+
+| Control | Server authorization |
+| --- | --- |
+| View participants | Native channel view |
+| Copy invite link / external reply | Account-team membership and native `MessageWrite` |
+| Remove WhatsApp participant | Account-team membership and native `AdminParticipantRole` |
+| Delete group | Account-team membership and native channel ownership |
+
+Copying the link does not require an open reply window. Links are excluded from
+conversation/search metadata and are fetched only by the authorized copy action.
+Native Participants/Bots presentation distinguishes **Macro teammates** and
+**WhatsApp participants**, including mobile. Removing a participant warns that they
+cannot rejoin through the invite link; only confirmed provider facts change the
+list. Adding Macro teammates never adds WhatsApp phones. External sends still
+require an explicit human reply; ordinary permissioned internal bot behavior stays
+internal. Native human posts, unsupported edits/deletes/reactions/threads, local
+rename, team conversion and calls are blocked server-side for pending/bound groups.
+A native channel policy marker makes unwired hosts fail closed on group deletion.
+
+`meta_messaging_conversation` routes by connection + `kind` + peer ID. Group IDs
+never enter person aliases. A separate participant table preserves native author
+IDs across departure/rejoining and BSUID changes without creating direct chats or
+advancing their windows. Membership/subject/suspension timestamps reject stale
+facts. Participant messages refresh the group customer-service window; joins do
+not. Existing text/media and supported approved marketing/utility template inputs
+are reused, with `recipient_type: "group"` and `to: group_id`. Authentication and
+unsupported template components remain blocked. Error 131020 asks the user to
+share the invite link. No free-messaging or receipt aggregation claim is made.
+
+Owner deletion explicitly warns that it deletes the WhatsApp group for everyone.
+Meta is called first; only `success: true`, or an already confirmed signed remote
+deletion, permits native deletion. HTTP 200 alone, generic 404, permission failures
+and 131041 (missing **or** not a member) do not. Rejection/timeout keeps the channel
+for deliberate retry against the same ID. Signed remote deletion leaves a retained
+read-only channel until its owner finishes local deletion. Suspension blocks new
+external dispatch until a newer authoritative clearance; deletion never clears.
+The existing durable send fence and accepted-native recovery remain in use.
+
+All four group metadata fields reuse signed receipts. Partial valid siblings still
+process; only group-level sent/failed facts enter reconciliation. Participant
+read/delivered facts are dropped before aggregation or identity observation. Early
+facts use bounded receipt retry and retain a terminal `group_binding_pending`
+diagnostic on exhaustion. Unknown requests/groups with no current dependency are
+ignored and logged. There is no replay-on-bind, reconciliation worker, operation
+history, automatic invitation or post-deletion tombstone.
+
+Contract sources rechecked directly on 2026-10-17:
+[Groups](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups),
+[creation](https://developers.facebook.com/documentation/business-messaging/whatsapp/reference/whatsapp-business-phone-number/groups-management-api),
+[deletion](https://developers.facebook.com/documentation/business-messaging/whatsapp/reference/groups/groups-query-api),
+[management](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/reference),
+[webhooks](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/webhooks),
+[BSUIDs](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids),
+[pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/pricing).
+The BSUID contract uses `user_id` for removal and `removed_participants[].input`
+for business-initiated confirmation. Group metadata is persisted by messaging;
+DSS composes native channel effects, which use the channels mutation/event path.
 
 ## WhatsApp identity and Platform registration
 

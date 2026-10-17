@@ -1,12 +1,8 @@
 # WhatsApp messaging: finish #7981, then add groups
 
-Status: implementation plan, reviewed against local head `cdb27b219` on
-2026-10-16. Verify the current head and deployment state before implementing.
-
-**Current scope is step 1 below, not group support.** Step 1 means the first
-item in the former “Order of work”: simplify #7981, allow member connection,
-support WhatsApp business-scoped identities, and support Cloud API numbers
-without the Business app. Member connection alone is only one part of it.
+Status: steps 1 and 2 implemented locally on `codex/messaging-lean`; identity
+baseline `c7d273ec5`. The step-2 execution brief supersedes the earlier lifecycle
+proposal. Deployment and live group proof remain separate.
 
 ## Product boundary
 
@@ -17,7 +13,8 @@ the shared API for hypothetical providers.
 
 Message actions must not imply that an internal-only operation reaches the
 customer. Keep unsupported external threads, reactions, edits, deletes and calls
-hidden. Channel sharing, navigation and local renaming remain Macro operations.
+hidden. Channel sharing and navigation remain Macro operations. WhatsApp group names come
+from signed subject updates; local group rename and team conversion are blocked.
 Agent reads and output retain their ordinary permissioned, internal behavior;
 only an explicit human external reply sends to Meta.
 
@@ -209,49 +206,32 @@ Suggested order: settle verified removals and the migration strategy; member
 permissions; identity handling; Platform onboarding; final native UI/functional
 runner cleanup. Do not wait for groups or OBA approval to finish this step.
 
-## Later: WhatsApp groups (not authorized for step 1)
+## Step 2 — groups created through Macro
 
-Keep one native channel per connected account/group; distinguish group identity
-from individual customer identity. Group participants are external authors, never
-Macro channel members. Local teammates still need Macro access and send authority.
+The implemented contract is documented in [META_MESSAGING.md](META_MESSAGING.md#whatsapp-groups).
+Only the current connector/member can create a group on a ready Platform OBA.
+The native channel and pending binding commit before Meta receives one create
+request. Binding requires the current attempt's returned `request_id`; subjects
+and arrival time are never identity. A client disconnect does not cancel tracked
+server work. Failed/unknown creation can be deliberately retried or discarded;
+an earlier attempt may leave an unused remote group, and its invite link is never
+exposed. Discard is explicitly local and rejects a channel that has since bound.
 
-The original proposal can be reused after resolving these requirements:
+Confirmed membership/settings facts are source-ordered, deletion is terminal,
+and group sent/failed statuses are separate from discarded participant receipts.
+Existing signed receipt retry handles early facts and records a terminal diagnostic
+on exhaustion. No adoption, replay-on-bind, dependency queue, retry worker, orphan
+cleanup, operation log or tombstone is added.
 
-- Use the native channel creation flow, but bind only a channel the caller is
-  authorized to manage, on the account's team. Atomically reserve the empty
-  channel before it can receive normal internal messages. A pending binding must
-  already suppress unsupported customer-facing actions; team channels cannot
-  bypass external-binding lookup.
-- Match creation only with an authoritative provider correlation ID or an
-  explicitly verified recovery mechanism. Never match by newest request or group
-  subject: two groups can share a name. Retain early webhooks and uncertain
-  requests; never blindly repeat an uncertain create. Known rejection can retry
-  with a new attempt, while old callbacks cannot bind to the replacement attempt.
-- Retain unknown-group facts until their binding can be reconciled, without
-  creating a participant's direct chat. Define what happens to remotely created
-  groups if the pending native channel is deleted; an empty local channel does
-  not prove there is no remote orphan.
-- Keep group authors stable and membership changes idempotent/out-of-order safe.
-  Apply names from authoritative group facts, not participant display names.
-- Use server capabilities for recipient type, content restrictions and reply
-  windows. Enforce known suspended/deleted state before dispatch. Apply the
-  group customer-service window documented on Meta's pricing page; do not
-  silently inherit unrelated direct-chat exceptions.
-- Delivery/read receipts may be per participant. Do not mark the entire group
-  delivered/read because one participant acknowledged it. Define truthful
-  aggregation or omit that claim; no read-receipt UI is required.
-- Use native Members/Bots-style presentation for external people. View requires
-  channel access; invite-link access and removal require explicit authorized
-  group-management policy. These controls affect customer access, not just text
-  sending. Preserve the proposed minimal controls: copy invite link and remove.
-- Keep unsupported external actions hidden. Local channel deletion/renaming must
-  not silently promise deletion/renaming of the WhatsApp group. No billing,
-  participant-limit or rejoin promises beyond the supported provider contract.
+Only positive `success: true` or a signed successful `group_delete` permits native
+deletion. Generic 404 and 131041 are not proof. Ordinary channel deletion uses this
+same policy; suspended/deleted groups cannot dispatch external replies. Native
+teammates and WhatsApp participants remain separate permission/author systems.
 
-The provider logo on sidebar/search/split surfaces is a separate presentation
-change. Reuse the existing batched channel presentation pattern (`agent_dm` is a
-reference) without granting access or adding a per-row messaging request. Verify
-all surfaces consume the metadata; changing `EntityIcon` alone is not proof.
+Provider logos on sidebar/search/split surfaces remain a presentation follow-up.
+Existing-group adoption, group backfill, approvals, link reset, automated invites,
+pin/read actions, receipt aggregation, billing/analytics and new template features
+remain deferred.
 
 ## Execution pointers (symbols are stable; line numbers may move)
 
@@ -285,8 +265,8 @@ and distinguish documented behavior from live verification on our test account.
 | WhatsApp message webhooks carry `messages[].from_user_id` and `contacts[].user_id` from the April 2026 rollout; the retained research described `user_id_update` previous/current IDs (see the implementation recheck below) | Use BSUIDs. This is not a claim that every history, echo or status payload has the same fields; inspect those separately. |
 | The send API uses `recipient` for a BSUID, versus `to` for a phone | Implement the documented destination shape; confirm availability for the chosen API/account and surface unsupported-recipient errors. |
 | Registration uses a six-digit PIN, a 14-day registration deadline, and a limit of ten attempts per 72 hours; errors include 133005/133006/133016 | Respect retry limits and translate errors. Check code-exchange expiry separately; do not conflate it with the registration deadline. |
-| Group creation is asynchronous and correlated by `request_id` | Future group binding uses that identity, never the subject. |
-| Meta's group pricing page defines a group customer-service window | Preserve that documented group policy when implementing groups; group work remains outside step 1. |
+| Group creation is asynchronous and correlated by `request_id` | Group binding uses that identity, never the subject. |
+| Meta's group pricing page defines a group customer-service window | Preserve that documented group policy when implementing groups; joining alone never opens that window. |
 
 Do not turn an OBA application waiting period into a promise of approval or group
 availability. Where a source cannot be fetched, use retained source evidence,

@@ -253,6 +253,16 @@ impl PgCallRepo {
 }
 
 impl CallRepository for PgCallRepo {
+    async fn channel_allows_calls(&self, channel_id: &Uuid) -> Result<bool, Self::Err> {
+        Ok(sqlx::query_scalar!(
+            "SELECT NOT provider_managed AS \"allowed!\" FROM comms_channels WHERE id=$1",
+            channel_id
+        )
+        .fetch_optional(&self.pool)
+        .await?
+        .unwrap_or(false))
+    }
+
     type Err = sqlx::Error;
 
     async fn insert_meeting_preparation(

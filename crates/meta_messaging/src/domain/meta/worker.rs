@@ -177,8 +177,10 @@ impl MetaService {
                 let account_recovery = receipt_error_priority(error.current_context()) == 2;
                 let retry = if account_recovery {
                     Some(30)
-                } else if matches!(error.current_context(), MessagingError::Unavailable)
-                    && work.attempts < 10
+                } else if matches!(
+                    error.current_context(),
+                    MessagingError::Unavailable | MessagingError::GroupBindingPending
+                ) && work.attempts < 10
                 {
                     Some(5_u32.saturating_mul(2_u32.pow(u32::from(work.attempts.min(8)))))
                 } else {
@@ -261,6 +263,24 @@ impl MetaService {
 
     async fn process_event(&self, work: &ReceiptWork, event: IncomingEvent) -> PortResult<()> {
         match event {
+            IncomingEvent::Group(event) => {
+                let Some(c) = self
+                    .repository
+                    .account(work.provider, &event.account_id)
+                    .await?
+                else {
+                    return Ok(());
+                };
+                if accepts_inbound(&c)? {
+                    let _guard = self
+                        .repository
+                        .lock_subscription(&c)
+                        .await?
+                        .ok_or(MessagingError::GroupBindingPending)?;
+                    self.native.require_member(c.team_id, &c.user_id).await?;
+                    self.native.apply_group_event(&c, &event).await?;
+                }
+            }
             IncomingEvent::IdentityUpdate(update) => {
                 let c = self
                     .repository
@@ -343,6 +363,16 @@ impl MetaService {
                 if !accepts_inbound(&connection)? {
                     return Ok(());
                 }
+                if let Some(group) = &message.group_id
+                    && (historical
+                        || self
+                            .repository
+                            .group_channel(&connection, group)
+                            .await?
+                            .is_none())
+                {
+                    return Ok(());
+                }
                 if historical
                     && !self
                         .require_history_consent(&connection, work.received_at, true)
@@ -375,6 +405,7 @@ impl MetaService {
                 .await?;
             }
             IncomingEvent::Status {
+                group_id,
                 provenance,
                 account_id,
                 message_id,
@@ -391,6 +422,15 @@ impl MetaService {
                     && !self
                         .require_history_consent(&connection, work.received_at, true)
                         .await?
+                {
+                    return Ok(());
+                }
+                if let Some(group) = group_id
+                    && self
+                        .repository
+                        .group_channel(&connection, &group)
+                        .await?
+                        .is_none()
                 {
                     return Ok(());
                 }
@@ -551,7 +591,7 @@ fn accepts_inbound(connection: &Connection) -> Result<bool, MessagingError> {
 fn receipt_error_priority(error: &MessagingError) -> u8 {
     match error {
         MessagingError::Disconnected | MessagingError::Conflict | MessagingError::Forbidden => 2,
-        MessagingError::Unavailable => 1,
+        MessagingError::Unavailable | MessagingError::GroupBindingPending => 1,
         _ => 0,
     }
 }

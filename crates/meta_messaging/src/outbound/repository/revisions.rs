@@ -72,7 +72,7 @@ impl PgMessagingRepository {
         message: &ProviderId,
         direction: Direction,
     ) -> PortResult<Option<StoredRevision>> {
-        let row = sqlx::query!("SELECT c.channel_id,m.message_id,r.content,r.edit_number,r.edited_at,r.deleted_at FROM meta_messaging_revision r JOIN meta_messaging_message m ON m.connection_id=r.connection_id AND m.customer_id=r.customer_id AND m.provider_message_id=r.provider_message_id AND m.direction=r.direction JOIN meta_messaging_conversation c ON c.connection_id=m.connection_id AND c.customer_id=m.customer_id WHERE r.connection_id=$1 AND r.customer_id=$2 AND r.provider_message_id=$3 AND r.direction=$4",connection,customer.as_str(),message.as_str(),spelling(direction)).fetch_optional(&mut **tx).await.map_err(failure)?;
+        let row = sqlx::query!("SELECT c.channel_id,m.message_id,r.content,r.edit_number,r.edited_at,r.deleted_at FROM meta_messaging_revision r JOIN meta_messaging_message m ON m.connection_id=r.connection_id AND m.customer_id=r.customer_id AND m.provider_message_id=r.provider_message_id AND m.direction=r.direction JOIN meta_messaging_conversation c ON c.connection_id=m.connection_id AND c.customer_id=m.customer_id AND c.kind=m.conversation_kind WHERE r.connection_id=$1 AND r.customer_id=$2 AND r.provider_message_id=$3 AND r.direction=$4",connection,customer.as_str(),message.as_str(),spelling(direction)).fetch_optional(&mut **tx).await.map_err(failure)?;
         Ok(row.map(|r| StoredRevision {
             channel_id: r.channel_id,
             message_id: r.message_id,

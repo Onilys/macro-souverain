@@ -111,7 +111,9 @@ fn push_message(
         }));
         return Ok(());
     }
-    if matches!(kind, "reaction" | "edit") {
+    if matches!(kind, "reaction" | "edit")
+        || (message.get("group_id").is_some() && kind == "revoke")
+    {
         events.push(IncomingEvent::Unsupported {
             account_id: Some(account.clone()),
             field: kind.into(),
@@ -147,6 +149,7 @@ fn push_message(
         customer.name,
         Some(direction),
     )?;
+    normalized.group_id = optional_id(message, "group_id")?;
     normalized.customer_phone = customer.phone;
     normalized.author_handle = customer.handle;
     events.push(IncomingEvent::Message(normalized));
@@ -164,6 +167,15 @@ pub(super) fn decode(entry: &Value, events: &mut Decoder) -> Result<(), Messagin
                     business_account: true,
                 });
                 return Ok(());
+            }
+            if matches!(
+                field,
+                "group_lifecycle_update"
+                    | "group_participants_update"
+                    | "group_settings_update"
+                    | "group_status_update"
+            ) {
+                return super::groups::decode(field, value, events);
             }
             if !matches!(field, "messages" | "smb_message_echoes" | "history") {
                 events.push(IncomingEvent::Unsupported {
@@ -214,8 +226,21 @@ pub(super) fn decode(entry: &Value, events: &mut Decoder) -> Result<(), Messagin
                         "failed" => DeliveryState::Failed,
                         _ => return Err(MessagingError::Invalid("unsupported WhatsApp status")),
                     };
+                    let group = status["recipient_type"] == "group";
+                    if (group && !matches!(state, DeliveryState::Sent | DeliveryState::Failed))
+                        || [
+                            "recipient_participant_id",
+                            "participant_recipient_id",
+                            "recipient_participant_user_id",
+                            "recipient_participant_parent_user_id",
+                        ]
+                        .iter()
+                        .any(|field| status.get(*field).is_some())
+                    {
+                        return Ok(());
+                    }
                     let at = timestamp(&status["timestamp"], false)?;
-                    if status.get("recipient_user_id").is_some() {
+                    if !group && status.get("recipient_user_id").is_some() {
                         let identity =
                             customer(status, "recipient_user_id", "recipient_id", contacts)?;
                         events.push(IncomingEvent::IdentityObserved {
@@ -227,6 +252,11 @@ pub(super) fn decode(entry: &Value, events: &mut Decoder) -> Result<(), Messagin
                         });
                     }
                     events.push(IncomingEvent::Status {
+                        group_id: if group {
+                            Some(id(status, "recipient_id")?)
+                        } else {
+                            None
+                        },
                         provenance,
                         account_id: account.clone(),
                         message_id: id(status, "id")?,
@@ -365,6 +395,7 @@ fn wa_message(
         append_content(&mut content, &format!("From an ad: {headline}"));
     }
     Ok(IncomingMessage {
+        group_id: None,
         provider: Provider::Whatsapp,
         account_id,
         customer_id,

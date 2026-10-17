@@ -1,6 +1,7 @@
 //! Real Axum routes, access checks, database and native adapters; Meta alone is simulated.
 use super::*;
 mod content;
+mod groups;
 mod history;
 mod lifecycle;
 mod members;
@@ -74,6 +75,13 @@ impl CredentialCipher for TestCipher {
     }
 }
 struct ProviderFixture {
+    group_creates: AtomicUsize,
+    group_deletes: AtomicUsize,
+    group_removes: AtomicUsize,
+    group_outcome: std::sync::atomic::AtomicU8,
+    group_ineligible: std::sync::atomic::AtomicBool,
+    pause_group_create: std::sync::atomic::AtomicBool,
+    group_delete_error: std::sync::Mutex<Option<MessagingError>>,
     connection: Connection,
     authorizations: AtomicUsize,
     sends: AtomicUsize,
@@ -351,6 +359,7 @@ async fn connected_time(repo: &PgMessagingRepository, connection: Uuid) -> chron
 }
 
 struct Fixture {
+    group_tasks: tokio_util::task::TaskTracker,
     app: Router,
     service: Arc<MetaService>,
     repo: Arc<PgMessagingRepository>,
@@ -375,6 +384,13 @@ async fn fixture_with_files(
     let native = Arc::new(native);
     let repo = Arc::new(PgMessagingRepository::new(pool.clone()));
     let remote = Arc::new(ProviderFixture {
+        group_creates: Default::default(),
+        group_deletes: Default::default(),
+        group_removes: Default::default(),
+        group_outcome: Default::default(),
+        group_ineligible: Default::default(),
+        pause_group_create: Default::default(),
+        group_delete_error: Default::default(),
         connection: Connection {
             account_id: new_account
                 .map(|id| id.to_owned().try_into().unwrap())
@@ -398,22 +414,26 @@ async fn fixture_with_files(
         history_requests: AtomicUsize::new(0),
         history_pages: Default::default(),
     });
-    let service = Arc::new(MetaService::new(
-        repo.clone(),
-        remote.clone(),
-        Arc::new(TestCipher),
-        native.clone(),
-        PublicConfiguration {
-            whatsapp_developer_available: false,
-            whatsapp_app_id: Some("123".into()),
-            whatsapp_configuration_id: Some("123".into()),
-            whatsapp_platform_configuration_id: Some("platform-config".into()),
-            instagram_app_id: Some("456".into()),
-            instagram_redirect_uri: Some("https://example.test/callback".into()),
-            instagram_human_agent_approved: false,
-            graph_version: "v26.0".into(),
-        },
-    ));
+    let group_tasks = tokio_util::task::TaskTracker::new();
+    let service = Arc::new(
+        MetaService::new(
+            repo.clone(),
+            remote.clone(),
+            Arc::new(TestCipher),
+            native.clone(),
+            PublicConfiguration {
+                whatsapp_developer_available: false,
+                whatsapp_app_id: Some("123".into()),
+                whatsapp_configuration_id: Some("123".into()),
+                whatsapp_platform_configuration_id: Some("platform-config".into()),
+                instagram_app_id: Some("456".into()),
+                instagram_redirect_uri: Some("https://example.test/callback".into()),
+                instagram_human_agent_approved: false,
+                graph_version: "v26.0".into(),
+            },
+        )
+        .with_group_tasks(group_tasks.clone()),
+    );
     let credentials = || {
         Some(WebhookCredentials {
             signature_secret: "fixture-signature-secret".into(),
@@ -434,6 +454,7 @@ async fn fixture_with_files(
     };
     let app = router::router(state.clone()).merge(router::webhook_router(state));
     Fixture {
+        group_tasks,
         app,
         service,
         repo,
@@ -449,6 +470,7 @@ async fn workflow(pool: PgPool, provider: Provider) {
         repo,
         remote,
         c,
+        ..
     } = fixture(&pool, provider, None).await;
     let (status, begin) = request(
         &app,

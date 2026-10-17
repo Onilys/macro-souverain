@@ -32,3 +32,12 @@ from new provider dispatch.
 - DSS HTTP fixtures in `native_messaging/native/test/http/oauth.rs` exercise the
   actual domain, repository and access checks with a controlled provider.
 - Regenerate the storage OpenAPI contracts when authorization DTOs change.
+
+## WhatsApp groups
+
+`domain/meta/groups.rs` owns connector/native/team authorization and explicit create,
+retry, discard and deletion decisions. Group adapters keep Meta payloads and
+current-attempt storage separate; only signed matching request IDs bind groups.
+Participant facts never create direct chats/windows. Group callbacks share the
+existing subscription guard with create/retry/discard and use bounded receipt retry.
+See `docs/META_MESSAGING.md#whatsapp-groups` for the contract and scope.

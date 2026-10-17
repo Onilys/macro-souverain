@@ -158,6 +158,7 @@ fn decode_message(c: &Connection, m: &Value) -> Result<IncomingMessage, Messagin
         .map_err(|_| MessagingError::ProviderRejected)?
         .with_timezone(&Utc);
     Ok(IncomingMessage {
+        group_id: None,
         provider: Provider::Instagram,
         account_id: c.account_id.clone(),
         customer_id: required(customer, "id")?.to_owned().try_into()?,

@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use super::{connection::*, events::*, models::*, policy::*, ports::*};
 
+mod groups;
 mod history;
 mod registration;
 mod replies;
@@ -28,6 +29,7 @@ pub struct MetaService {
     cipher: Arc<dyn CredentialCipher>,
     native: Arc<dyn NativeMessaging>,
     configuration: PublicConfiguration,
+    group_tasks: tokio_util::task::TaskTracker,
 }
 
 impl MetaService {
@@ -55,6 +57,7 @@ impl MetaService {
             cipher,
             native,
             configuration,
+            group_tasks: tokio_util::task::TaskTracker::new(),
         }
     }
 
@@ -409,7 +412,11 @@ impl MetaService {
             .require_send(connection.team_id, conversation.channel_id, user.as_ref())
             .await?;
         let token = self.token(&connection).await?;
-        self.provider.templates(&connection, &token).await
+        let mut templates = self.provider.templates(&connection, &token).await?;
+        if conversation.kind == super::groups::ConversationKind::Group {
+            templates.retain(|t| matches!(t.category.as_deref(), Some("MARKETING" | "UTILITY")));
+        }
+        Ok(templates)
     }
 
     async fn visible_health(&self, connection: &mut Connection) -> PortResult<()> {

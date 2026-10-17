@@ -55,6 +55,8 @@ pub enum ReplyBlockReason {
     TemplateRequired,
     /// The account is not approved for explicit human support.
     HumanSupportRequired,
+    /// Remote group is suspended or deleted.
+    GroupReadOnly,
     /// This operation is not implemented by the provider.
     Unsupported,
 }
@@ -63,6 +65,7 @@ impl ReplyBlockReason {
     /// Preserve existing public errors while exposing a stable eligibility reason.
     pub fn error(self) -> MessagingError {
         match self {
+            Self::GroupReadOnly => MessagingError::GroupReadOnly,
             Self::Forbidden => MessagingError::Forbidden,
             Self::Disconnected => MessagingError::Disconnected,
             Self::WindowClosed => MessagingError::ReplyWindowClosed,

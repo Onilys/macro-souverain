@@ -1185,12 +1185,16 @@ pub async fn run() -> anyhow::Result<()> {
     )
     .with_macro_event_broker(macro_event_broker.clone());
 
+    let group_lifecycle = Arc::new(crate::native_messaging::groups::GroupLifecycle(
+        std::sync::OnceLock::new(),
+    ));
     let channels_service = Arc::new(
         ChannelServiceImpl::with_dependencies(
             channels_repo.clone(),
             SpawnedChannelEventDispatcher::new(channel_side_effects.clone()),
             PgChannelReferenceSharePermissions::new(db.clone(), entity_access_service.clone()),
         )
+        .with_provider_lifecycle(group_lifecycle.clone())
         .with_agent_direct_messages(Arc::new(channels::domain::agent_dm::AgentDmService::new(
             channels_repo,
             outbound::agent_dm_authorizer::BotServiceDmAuthorizer(bots_service.clone()),
@@ -1349,7 +1353,9 @@ pub async fn run() -> anyhow::Result<()> {
     macro_agent_tool_context.channel_tool_context =
         ai_tools::build_channel_tool_context_with_dispatcher(
             db.clone(),
-            std::sync::Arc::new(SpawnedChannelEventDispatcher::new(channel_side_effects)),
+            std::sync::Arc::new(SpawnedChannelEventDispatcher::new(
+                channel_side_effects.clone(),
+            )),
             message_service.clone(),
         );
     let macro_agent_tools = ai_tools::tools_for(ai_tools::AiHost::ChannelBot);
@@ -1432,6 +1438,9 @@ pub async fn run() -> anyhow::Result<()> {
     };
 
     let meta_state = crate::native_messaging::build(crate::native_messaging::Dependencies {
+        channel_events: Arc::new(SpawnedChannelEventDispatcher::new(
+            channel_side_effects.clone(),
+        )),
         tracker: consumer_tracker.clone(),
         cancellation: consumer_cancellation_token.clone(),
         pool: db.clone(),
@@ -1445,6 +1454,11 @@ pub async fn run() -> anyhow::Result<()> {
         notifications: notification_ingress_service.clone(),
     })
     .await?;
+
+    group_lifecycle
+        .0
+        .set(meta_state.service.clone())
+        .map_err(|_| anyhow::anyhow!("group lifecycle initialized twice"))?;
 
     // Held by value here and behind an `Arc` in the router state: the impl is a
     // pool handle, so cloning is cheap and `SoupImpl` needs an owned service.

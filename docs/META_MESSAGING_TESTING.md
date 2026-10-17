@@ -226,3 +226,20 @@ registration, and reconcile uncertain outcomes before retrying. Do not register 
 migrate a new number without explicit authorization. A connected Meta test number
 can verify Cloud API requests but cannot establish production signup, coexistence
 history or BSUID rollout on an account. Record those results separately.
+
+## Group fixture and live evidence
+
+The shared `meta-messaging.spec.ts` journey covers create → pending → bound →
+explicit reply, desktop/mobile Participants, failed removal, confirmed removal,
+and the owner deletion warning. These are synthetic provider/API responses.
+DSS `native_messaging::native::test::http::groups` uses real isolated PostgreSQL,
+real native permissions and signed receipts with controlled provider effects.
+Provider adapter fixtures check request-ID correlation, BSUID removal payloads,
+group addressing and positive deletion success versus 200 ambiguity/404/131041.
+
+On 2026-10-17 the existing configured test number passed read-only v26 checks for
+CONNECTED/CLOUD_API and both required permissions, but `is_official_business_account`
+was false and all four group subscriptions were absent. This blocks live group
+proof. No group, participant, subscription or number was changed by this check.
+Do not pursue an OBA application or another number. Real creation, deletion,
+removal, subscription changes and messages require explicit user authorization.

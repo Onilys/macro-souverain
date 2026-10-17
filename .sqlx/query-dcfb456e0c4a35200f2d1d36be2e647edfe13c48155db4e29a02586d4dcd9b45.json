@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_group_setup SET state='creating',attempt_id=$3,generation=$4,request_id=NULL,error_code=NULL,started_at=now() WHERE channel_id=$1 AND connection_id=$2 AND (state IN ('failed','unknown') OR started_at<now()-interval '2 minutes') RETURNING subject",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "subject",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dcfb456e0c4a35200f2d1d36be2e647edfe13c48155db4e29a02586d4dcd9b45"
+}

@@ -1,5 +1,7 @@
 //! Thin HTTP adapters: typed access receipts flow to the domain service.
 
+mod groups;
+
 use crate::domain::{
     connection::*,
     history::HistoryImportView,
@@ -81,6 +83,7 @@ where
     S: Send + Sync + 'static,
 {
     Router::new()
+        .merge(groups::router::<Eas, Auth>())
         .route("/configuration", get(configuration::<Eas, Auth>))
         .route("/connections", get(connections::<Eas, Auth>))
         .route("/authorize", post(begin::<Eas, Auth>))
@@ -283,6 +286,7 @@ async fn conversation<Eas: EntityAccessService, Auth: MacroAuthorizationService>
     headers: HeaderMap,
 ) -> Result<Json<ConversationResponse>, ApiError> {
     Ok(Json(ConversationResponse {
+        group: s.service.group_view(&a.entity_access_receipt).await?,
         messaging: s
             .service
             .conversation_view(&a.entity_access_receipt, send_authority(&headers))
@@ -465,6 +469,11 @@ async fn receive<E: Send + Sync + 'static, A: Send + Sync + 'static>(
 /// API contracts merged into DSS's generated OpenAPI document.
 #[derive(utoipa::OpenApi)]
 #[openapi(paths(
+    groups::discard,
+    groups::create,
+    groups::retry,
+    groups::link,
+    groups::remove,
     configuration,
     connections,
     begin,

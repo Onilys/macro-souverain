@@ -20,7 +20,7 @@ impl PgMessagingRepository {
         connection: Uuid,
         provider_message: &str,
     ) -> PortResult<(Uuid, Uuid)> {
-        let row=sqlx::query!("SELECT c.channel_id,m.message_id FROM meta_messaging_message m JOIN meta_messaging_conversation c ON c.connection_id=m.connection_id AND c.customer_id=m.customer_id WHERE m.connection_id=$1 AND m.provider_message_id=$2",connection,provider_message).fetch_optional(&self.pool).await.map_err(failure)?.ok_or(MessagingError::NotFound)?;
+        let row=sqlx::query!("SELECT c.channel_id,m.message_id FROM meta_messaging_message m JOIN meta_messaging_conversation c ON c.connection_id=m.connection_id AND c.customer_id=m.customer_id AND c.kind=m.conversation_kind WHERE m.connection_id=$1 AND m.provider_message_id=$2",connection,provider_message).fetch_optional(&self.pool).await.map_err(failure)?.ok_or(MessagingError::NotFound)?;
         Ok((row.channel_id, row.message_id))
     }
 

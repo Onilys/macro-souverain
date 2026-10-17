@@ -54,6 +54,8 @@ fn fixture() -> (MessagingService, Arc<Fixture>) {
         status: ConnectionStatus::Connected,
     };
     let conversation = Conversation {
+        kind: crate::domain::groups::ConversationKind::Direct,
+        group_status: None,
         channel_id: Uuid::now_v7(),
         connection_id: account.id,
         customer_id: "peer-in-a-chat".to_owned().try_into().unwrap(),

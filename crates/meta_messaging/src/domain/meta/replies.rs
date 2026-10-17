@@ -136,19 +136,27 @@ pub(super) fn reply_options(
         last_customer_message_at: conversation.last_customer_message_at,
         human_agent_approved: connection.human_agent_approved && app_human_agent_approved,
     };
+    let group_blocked = conversation.kind == crate::domain::groups::ConversationKind::Group
+        && conversation.group_status != Some(crate::domain::groups::GroupStatus::Active);
     let eligibility = modes
         .iter()
         .map(|&mode| {
-            let reason = authorize_send(&window, SendAuthority::Human, mode, now)
-                .err()
-                .map(|error| match error {
-                    MessagingError::Forbidden => ReplyBlockReason::Forbidden,
-                    MessagingError::Disconnected => ReplyBlockReason::Disconnected,
-                    MessagingError::TemplateRequired => ReplyBlockReason::TemplateRequired,
-                    MessagingError::ReplyWindowClosed => ReplyBlockReason::WindowClosed,
-                    MessagingError::HumanSupportRequired => ReplyBlockReason::HumanSupportRequired,
-                    _ => ReplyBlockReason::Unsupported,
-                });
+            let reason = if group_blocked {
+                Some(ReplyBlockReason::GroupReadOnly)
+            } else {
+                authorize_send(&window, SendAuthority::Human, mode, now)
+                    .err()
+                    .map(|error| match error {
+                        MessagingError::Forbidden => ReplyBlockReason::Forbidden,
+                        MessagingError::Disconnected => ReplyBlockReason::Disconnected,
+                        MessagingError::TemplateRequired => ReplyBlockReason::TemplateRequired,
+                        MessagingError::ReplyWindowClosed => ReplyBlockReason::WindowClosed,
+                        MessagingError::HumanSupportRequired => {
+                            ReplyBlockReason::HumanSupportRequired
+                        }
+                        _ => ReplyBlockReason::Unsupported,
+                    })
+            };
             let expires_at = if reason.is_some() {
                 None
             } else {

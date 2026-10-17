@@ -61,7 +61,9 @@ pub trait SubscriptionGuard: Send {}
 /// Meta-owned durable state. All mutations preserve account/team bindings and
 /// compare lease tokens/expiry for worker transitions.
 #[async_trait]
-pub trait MessagingRepository: ConversationRepository {
+pub trait MessagingRepository:
+    ConversationRepository + super::groups::ports::GroupRepository
+{
     /// Try to serialize lifecycle operations across every connection using this subscription.
     /// A busy scope returns None, so queued callers cannot exhaust database connections.
     async fn lock_subscription(
@@ -235,7 +237,7 @@ pub trait MessagingRepository: ConversationRepository {
 
 /// Official Meta calls. Transport adapters never decide send authorization.
 #[async_trait]
-pub trait MetaProvider: Send + Sync {
+pub trait MetaProvider: super::groups::ports::GroupProvider {
     /// One official WhatsApp sync request. The domain fences it before dispatch.
     async fn request_whatsapp_history(
         &self,
@@ -373,7 +375,7 @@ pub trait CredentialCipher: Send + Sync {
 /// Owning Macro domain services are supplied at the composition root. This
 /// boundary never constructs repositories from another crate's outbound module.
 #[async_trait]
-pub trait NativeMessaging: NativeConversation {
+pub trait NativeMessaging: NativeConversation + super::groups::ports::NativeGroups {
     /// Retain and apply a source-scoped revision without creating a message.
     async fn revise(&self, connection: &Connection, revision: &IncomingRevision) -> PortResult<()>;
     /// Revalidate the current management role before background work.

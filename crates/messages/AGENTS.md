@@ -60,3 +60,10 @@ they need.
 
 - Rules: `.agents/rules/rust/architecture.md`, `.agents/rules/rust/db.md` ·
   Skill: `collab-surface-core`
+
+## Provider-managed channels
+
+The repository exposes native channel lifecycle policy through `provider_managed`.
+The domain blocks ordinary human posts and unsupported edits/deletes/reactions/
+threads on pending or bound provider groups. Existing permissioned bot behavior
+remains internal. Explicit external replies use the separate messaging domain.

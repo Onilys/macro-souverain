@@ -2,6 +2,7 @@
 
 mod effects;
 mod files;
+pub(crate) mod groups;
 mod native;
 mod settings;
 mod workers;
@@ -22,6 +23,7 @@ pub(crate) type State = MessagingRouterState<EntityAccessService, AuthorizationS
 
 pub(crate) struct Dependencies {
     pub tracker: TaskTracker,
+    pub channel_events: Arc<dyn channels::domain::ports::ChannelEventDispatcher>,
     pub cancellation: CancellationToken,
     pub pool: sqlx::PgPool,
     pub access: Arc<EntityAccessService>,
@@ -37,6 +39,7 @@ pub(crate) struct Dependencies {
 pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
     let Dependencies {
         tracker,
+        channel_events,
         cancellation,
         pool,
         access,
@@ -98,20 +101,24 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         ),
         notifications: (*notifications).clone(),
     });
-    let service = Arc::new(MetaService::new(
-        repository,
-        Arc::new(settings.provider),
-        cipher,
-        Arc::new(native::NativeChannels::new(
-            pool,
-            access.clone(),
-            ConnectionGatewayMessages(gateway),
-            (*search).clone(),
-            files,
-            effects,
-        )),
-        settings.public,
-    ));
+    let service = Arc::new(
+        MetaService::new(
+            repository,
+            Arc::new(settings.provider),
+            cipher,
+            Arc::new(native::NativeChannels::new(
+                pool,
+                access.clone(),
+                ConnectionGatewayMessages(gateway),
+                (*search).clone(),
+                files,
+                effects,
+                channel_events,
+            )),
+            settings.public,
+        )
+        .with_group_tasks(tracker.clone()),
+    );
     if let Some(copies) = temporary_media {
         tracker.spawn(workers::temporary_media(copies, cancellation.clone()));
     }
