@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS(SELECT 1 FROM meta_messaging_conversation WHERE connection_id=$1 AND customer_id=$2) AS \"occupied!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "occupied!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3f709dbc63f024918baa7585db77e4686de77b670fa6b420aedbdf5c15b3a532"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT customer_id FROM meta_messaging_conversation WHERE connection_id=$1 AND customer_id=$2 AND customer_phone=$2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "customer_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f02aa9fa58364adc13dfafd85b0695fe48805cbd45e7b95acc55ddae4bd08863"
+}
