@@ -79,7 +79,7 @@ Examples: [session query factory](../../../apps/web/src/lib/queries/agent-sessio
   Query keys hold exactly the fetch inputs.
 - **FE-51** State moved into the URL round-trips every field. Removed or renamed
   routes and route ids get redirects, and saved split layouts keep working.
-- **FE-56** Auth-dependent work waits for the session gate
+- **FE-58** Auth-dependent work waits for the session gate
   (`@core/auth/session`). Queries run on the app `queryClient`, which stops all
   queries when the session expires, never retries a 401, and stops polling after
   one; tag a query whose endpoint 401s without a user with

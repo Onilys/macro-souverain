@@ -5,7 +5,7 @@ language: typescript
 severity: error
 message: Don't construct a QueryClient in app code — use the app `queryClient` from @queries/client, which applies the session gate.
 note: |-
-  Rule FE-56 in .agents/rules/web/data.md. The app client is a
+  Rule FE-58 in .agents/rules/web/data.md. The app client is a
   SessionGatedQueryClient: every query it runs stops when the session expires,
   waits for sign-in when tagged `meta: requiresSession`, never retries a 401,
   and stops polling after one. A second client skips all of that and brings
