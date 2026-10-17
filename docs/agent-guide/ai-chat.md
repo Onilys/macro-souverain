@@ -1234,8 +1234,11 @@ cards, tags, and channel messages, using the same full-width view as AI chat.
 Tags nest to any depth, each with its colour and what it is for; a tag that exists
 shows its current name and opens the items tagged with it. A card of more than
 eight tags holds its height and offers **Show all**. Incomplete arguments stay hidden while
-streaming; a valid view updates as arguments arrive. Malformed completed views
-show **Couldn't render dashboard**; failed calls show a **Failed** summary row
+streaming; a valid view updates as arguments arrive. A completed view renders
+every widget that matches the schema and says how many it left out, and one with
+no matching widget shows **Couldn't render dashboard**. The tool turns back a view
+that does not match the schema, naming what to fix, so the agent sends it again;
+failed calls show a **Failed** summary row
 without a disclosure. Macro's built-in agents receive the complete view schema
 with the tool definition. External coding agents connected through Macro's MCP
 server do not currently receive this tool.

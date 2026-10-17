@@ -20,7 +20,7 @@ export function displayResultsToolSchema() {
         'To show calendar events, use an events widget with the eventIds a calendar tool returned: it renders an agenda loaded live from the calendar, so never restate the times in prose. When the answer is about one to four specific items - a document or spreadsheet, an email thread, an event - show them in a cards widget; mention items in passing as chips instead.',
         "To show tags - the user's own, or a taxonomy or ontology of any depth - use a tags widget, never a table or a list in markdown. Nest narrower tags under the tags they belong to, and give a tag that exists the tagId a tag tool returned.",
         'In a channel or a private conversation with the user, the view is posted with your reply.',
-        'The frontend renders the view from the tool arguments immediately; this tool only acknowledges it.',
+        'The view is checked against this schema before it is shown: a view that does not match is not shown, and the error says what to fix.',
       ].join(' '),
     }),
     // The existing soup Query schema is an opaque pass-through owned by the

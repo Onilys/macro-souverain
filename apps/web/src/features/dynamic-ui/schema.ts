@@ -38,10 +38,14 @@ export const QuerySchema = z.custom<Query>();
 
 /** Static markdown — the narrative glue between data widgets. Supports the full
  *  markdown feature set (headings, lists, bold/italic, links, blockquotes, …). */
-export const MdWidgetSchema = z.object({
-  type: z.literal('md'),
-  markdown: z.string(),
-});
+export const MdWidgetSchema = z
+  .object({
+    type: z.literal('md'),
+    markdown: z.string(),
+  })
+  .describe(
+    'Markdown text: the narrative between the other widgets. Its type is "md", never "markdown".'
+  );
 export type MdWidget = z.infer<typeof MdWidgetSchema>;
 
 /** A chronological sequence of events. Great for "what happened" answers. */
