@@ -127,9 +127,17 @@ cargo tauri ios build
 cargo tauri android build
 ```
 
-The `beforeBuildCommand` is `just build-tauri`, which runs `bun run build` and
-emits the frontend into `dist`. Tauri then packages that output
-according to `tauri.conf.json`.
+The `beforeBuildCommand` is `just build-tauri`, which builds every WASM package
+in `apps/web/wasm-packages.json`, then runs `scripts/build-tauri-frontend.sh`
+to emit the frontend into `dist`. Tauri then packages that output according to
+`tauri.conf.json`. The Nix desktop release (`nix/tauri-desktop.nix`) runs the
+same script after building the same WASM packages. The script applies the
+public build-time env in `apps/web/build-env.json`, such as the telemetry
+exporter URL, and ends with `scripts/verify-tauri-bundle.ts`. That check fails
+the build when a WASM package or build-env value is missing from the bundle,
+or when the version lacks a real commit. Outside a git checkout, set
+`MACRO_GIT_SHA`. The `check_desktop_bundle_nix` workflow builds the Nix
+frontend on pull requests that touch these files.
 
 From `apps/web`, use `just ios-build` for a release build or
 `just ios-build --no-update` to disable automatic bundle updates.
