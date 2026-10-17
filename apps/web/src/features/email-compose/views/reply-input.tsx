@@ -164,7 +164,6 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
     savedDraftId,
     handleEditorConnect,
     isSending,
-    collectDraft,
     scheduleDraftSave,
     persistDraftOnSenderSwitch,
     hasPaidAccess,
@@ -199,17 +198,10 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
     isMobileDrawer() ? signatureHtml() : undefined;
   const footerSignatureHtml = () =>
     isMobileDrawer() ? undefined : signatureHtml();
-  // Escape leaves for the list and keeps the draft; an empty reply is
-  // discarded first. A thread with no list hands focus back to its messages.
-  const closeReply = () => {
-    if (collectDraft() === null) {
-      void deleteDraftAndReset();
-      ctx.returnToList();
-    } else if (!ctx.returnToList() && !ctx.exitToThread('selected')) {
-      ctx.exitToThread('last');
-    }
-    return true;
-  };
+  // Escape in a field leaves the reply, not the thread: focus moves to the
+  // message it answers and the reply stays open with its draft.
+  const leaveReply = () =>
+    ctx.exitToThread('reply') || ctx.exitToThread('last');
   // File sharing and editor plugin wiring belong to this view. The controller only
   // needs to know when editor content has changed and requires another save.
   const editorConfig = buildConfig('markdown')
@@ -237,7 +229,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
     .use((lexical) =>
       lexical.registerCommand(
         KEY_ESCAPE_COMMAND,
-        () => !composeContext.presentation.isTouch() && closeReply(),
+        () => !composeContext.presentation.isTouch() && leaveReply(),
         COMMAND_PRIORITY_LOW
       )
     )
@@ -319,18 +311,6 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
           return ctx.exitToThread('last');
         },
         hotkeyToken: TOKENS.email.previousMessage,
-      });
-
-      registerHotkey({
-        hotkey: 'escape',
-        scopeId: composeHotkeyScope,
-        description: 'Close reply',
-        keyDownHandler: closeReply,
-        // Focused fields reach closeReply through their own Escape handling,
-        // once their menus and typed text are dismissed.
-        runWithInputFocused: false,
-        hotkeyToken: TOKENS.email.cancelReply,
-        displayPriority: 8,
       });
     }
   });
@@ -475,7 +455,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
           portalScope={composePortalScope}
           replyType={state.replyType}
           disabled={editingDisabled}
-          onEscape={closeReply}
+          onEscape={leaveReply}
         />
         <div
           class={cn(

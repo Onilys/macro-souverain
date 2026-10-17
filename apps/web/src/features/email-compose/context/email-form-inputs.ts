@@ -22,9 +22,8 @@ export interface EmailReplySession {
   recipientOptions: Accessor<EmailRecipient[]>;
   isPersonalReply: Accessor<boolean>;
   onDraftRemoved(): void;
-  exitToThread(target: 'last' | 'selected'): boolean;
-  /** Closes the thread back to its list; false when the host has none. */
-  returnToList(): boolean;
+  /** Focuses the latest message, or the one this reply answers. */
+  exitToThread(target: 'last' | 'reply'): boolean;
   replyRequest: {
     replyType: Accessor<ReplyType | undefined>;
     clear(): void;

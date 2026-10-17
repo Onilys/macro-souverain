@@ -19,11 +19,12 @@ async function openThread(page: Page, search = '') {
   ).toBeVisible();
 }
 
+const editor = (page: Page) =>
+  page.locator('[contenteditable="true"][role="textbox"]');
+
 async function openReply(page: Page) {
   await page.keyboard.press('r');
-  const editor = page.locator('[contenteditable="true"][role="textbox"]');
-  await expect(editor).toBeFocused();
-  return editor;
+  await expect(editor(page)).toBeFocused();
 }
 
 const inbox = (page: Page) => page.getByRole('region', { name: 'Inbox' });
@@ -46,16 +47,12 @@ const firstPressCases: [string, (page: Page) => Promise<void>][] = [
     (page) => page.keyboard.press('ArrowUp'),
   ],
   [
-    'from an empty reply',
+    'with a reply open but focus back on the message',
     async (page) => {
       await openReply(page);
-    },
-  ],
-  [
-    'from a new forward with focus in To',
-    async (page) => {
-      await page.keyboard.press('f');
-      await expect(page.getByRole('combobox').first()).toBeFocused();
+      await editor(page).pressSequentially('Draft in progress');
+      await page.getByText('Here is the invoice for September.').click();
+      await expect(editor(page)).not.toBeFocused();
     },
   ],
 ];
@@ -70,38 +67,71 @@ for (const [name, setup] of firstPressCases) {
   });
 }
 
-test('one Escape returns to the list from a reply with text and keeps the draft', async ({
+const replyCases: [string, string, (page: Page) => Promise<void>][] = [
+  ['an empty reply', '', openReply],
+  [
+    'a reply with text',
+    '',
+    async (page) => {
+      await openReply(page);
+      await editor(page).pressSequentially('See you Monday');
+    },
+  ],
+  [
+    'a saved draft the thread focused on open',
+    '?draft',
+    async (page) => {
+      await expect(editor(page)).toBeFocused();
+      await expect(editor(page)).toContainText('Saved reply');
+    },
+  ],
+  [
+    'a new forward with focus in To',
+    '',
+    async (page) => {
+      await page.keyboard.press('f');
+      await expect(page.getByRole('combobox').first()).toBeFocused();
+    },
+  ],
+];
+
+for (const [name, search, setup] of replyCases) {
+  test(`Escape leaves ${name} for its message, then returns to the list`, async ({
+    page,
+  }) => {
+    await openThread(page, search);
+    await setup(page);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-message-body-id="last"]')).toBeFocused();
+    await expect(editor(page)).toBeVisible();
+    await expect(inbox(page)).toBeHidden();
+    await page.keyboard.press('Escape');
+    await expect(inbox(page)).toBeVisible();
+    await expect(page.getByTestId('deleted-drafts')).toBeEmpty();
+  });
+}
+
+test('a reply with text is still a draft after leaving the thread', async ({
   page,
 }) => {
   await openThread(page);
-  const editor = await openReply(page);
-  await editor.pressSequentially('See you Monday');
+  await openReply(page);
+  await editor(page).pressSequentially('See you Monday');
+  await page.keyboard.press('Escape');
+  await expect(editor(page)).toContainText('See you Monday');
   await page.keyboard.press('Escape');
   await expect(inbox(page)).toBeVisible();
   await expect(page.getByTestId('saved-drafts')).toContainText(
     'See you Monday'
   );
-  await expect(page.getByTestId('deleted-drafts')).toBeEmpty();
-});
-
-test('one Escape returns to the list from a saved draft the thread focused on open', async ({
-  page,
-}) => {
-  await openThread(page, '?draft');
-  const editor = page.locator('[contenteditable="true"][role="textbox"]');
-  await expect(editor).toBeFocused();
-  await expect(editor).toContainText('Saved reply');
-  await page.keyboard.press('Escape');
-  await expect(inbox(page)).toBeVisible();
-  await expect(page.getByTestId('deleted-drafts')).toBeEmpty();
 });
 
 test('Escape closes the open send-time picker first, then returns to the list', async ({
   page,
 }) => {
   await openThread(page);
-  const editor = await openReply(page);
-  await editor.pressSequentially('Later');
+  await openReply(page);
+  await editor(page).pressSequentially('Later');
   const trigger = page.getByRole('button', { name: 'Choose send time' });
   await trigger.click();
   const search = page.getByRole('combobox');
