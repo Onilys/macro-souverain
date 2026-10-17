@@ -61,16 +61,7 @@ impl ReplyPolicy for MetaReplies {
         now: DateTime<Utc>,
     ) -> PortResult<ReplyOptions> {
         let mut connection = self.connection(scope).await?;
-        if let Err(error) = self
-            .native
-            .require_member(connection.team_id, &connection.user_id)
-            .await
-        {
-            if !matches!(error.current_context(), MessagingError::Forbidden) {
-                return Err(error);
-            }
-            connection.status = ConnectionStatus::Revoked;
-        }
+        super::visible_health(self.native.as_ref(), &mut connection).await?;
         Ok(reply_options(
             &connection,
             conversation,
@@ -204,9 +195,6 @@ impl ReplyTransport for MetaReplies {
         media: Option<&OutboundMedia>,
     ) -> PortResult<Box<dyn PreparedSend>> {
         let connection = self.connection(scope).await?;
-        self.native
-            .require_member(connection.team_id, &connection.user_id)
-            .await?;
         let token = self.token(&connection).await?;
         let prepared = self
             .provider

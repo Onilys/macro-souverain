@@ -184,10 +184,13 @@ impl MetaService {
                 } else {
                     None
                 };
+                if matches!(error.current_context(), MessagingError::IdentityConflict) {
+                    tracing::warn!(receipt_id=%work.lease.id, error_code="identity_conflict", "provider identity conflict requires inspection");
+                }
                 let code = if account_recovery {
                     "account_state_changed".to_owned()
                 } else {
-                    error.current_context().to_string()
+                    error.current_context().code().to_owned()
                 };
                 self.repository
                     .settle_receipt(&work.lease, Some(&code), retry)
@@ -204,8 +207,8 @@ impl MetaService {
         batch: impl Into<ReceiptBatch>,
     ) -> PortResult<()> {
         let batch = batch.into();
-        let mut failure = (batch.invalid_items > 0)
-            .then(|| MessagingError::Invalid("invalid_provider_payload").into());
+        let mut failure =
+            (batch.invalid_items > 0).then(|| MessagingError::InvalidProviderPayload.into());
         if batch.invalid_items > 0 {
             tracing::warn!(receipt_id=%work.lease.id, invalid_items=batch.invalid_items,
                 "provider receipt contains malformed items");
@@ -272,7 +275,8 @@ impl MetaService {
                     return Ok(());
                 }
                 if accepts_inbound(&c)? {
-                    self.native.update_identity(&c, &update).await?;
+                    self.native.require_member(c.team_id, &c.user_id).await?;
+                    self.repository.update_identity(&c, &update).await?;
                 }
             }
             IncomingEvent::IdentityObserved {
@@ -295,7 +299,8 @@ impl MetaService {
                     return Ok(());
                 }
                 if accepts_inbound(&c)? {
-                    self.native
+                    self.native.require_member(c.team_id, &c.user_id).await?;
+                    self.repository
                         .observe_identity(&c, &customer_id, phone.as_ref(), timestamp)
                         .await?;
                 }
@@ -374,7 +379,7 @@ impl MetaService {
                 account_id,
                 message_id,
                 state,
-                timestamp,
+                timestamp: _,
                 error_code,
             } => {
                 let connection = self
@@ -390,13 +395,7 @@ impl MetaService {
                     return Ok(());
                 }
                 self.repository
-                    .record_status(
-                        connection.id,
-                        &message_id,
-                        state,
-                        timestamp,
-                        error_code.as_deref(),
-                    )
+                    .record_status(connection.id, &message_id, state, error_code.as_deref())
                     .await?;
             }
             IncomingEvent::HistoryProgress {
@@ -480,6 +479,9 @@ impl MetaService {
                 if !self.reconcile_registration(&connection, &token).await? {
                     return Ok(());
                 }
+                self.native
+                    .require_member(connection.team_id, &connection.user_id)
+                    .await?;
                 self.provider.subscribe(&connection, &token).await?;
                 if self
                     .repository
@@ -536,9 +538,7 @@ impl MetaService {
 /// An explicit disconnect stops receiving. Authorization that needs renewal keeps
 /// customer activity as failed work, which a reconnect replays.
 fn accepts_inbound(connection: &Connection) -> Result<bool, MessagingError> {
-    if connection.whatsapp_mode == Some(WhatsappMode::Platform)
-        && connection.registration_status != Some(RegistrationStatus::Registered)
-    {
+    if !connection.registration_ready() {
         return Err(MessagingError::Disconnected);
     }
     match connection.status {

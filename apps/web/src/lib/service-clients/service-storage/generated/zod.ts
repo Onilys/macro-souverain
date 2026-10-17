@@ -48028,7 +48028,13 @@ export const metaAuthorizeCompleteResponse = zod
       .union([
         zod.null(),
         zod
-          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .enum([
+            'required',
+            'unconfirmed',
+            'registered',
+            'rate_limited',
+            'unavailable',
+          ])
           .describe(
             'Durable registration uncertainty is separate from account health.'
           ),
@@ -48950,7 +48956,13 @@ export const metaConnectionsResponseItem = zod
       .union([
         zod.null(),
         zod
-          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .enum([
+            'required',
+            'unconfirmed',
+            'registered',
+            'rate_limited',
+            'unavailable',
+          ])
           .describe(
             'Durable registration uncertainty is separate from account health.'
           ),
@@ -49210,7 +49222,13 @@ export const metaRegisterResponse = zod
       .union([
         zod.null(),
         zod
-          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .enum([
+            'required',
+            'unconfirmed',
+            'registered',
+            'rate_limited',
+            'unavailable',
+          ])
           .describe(
             'Durable registration uncertainty is separate from account health.'
           ),
@@ -49298,7 +49316,13 @@ export const metaDeveloperWhatsappResponse = zod
       .union([
         zod.null(),
         zod
-          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .enum([
+            'required',
+            'unconfirmed',
+            'registered',
+            'rate_limited',
+            'unavailable',
+          ])
           .describe(
             'Durable registration uncertainty is separate from account health.'
           ),

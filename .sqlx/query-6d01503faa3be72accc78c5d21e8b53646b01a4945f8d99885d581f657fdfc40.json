@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id,i.current_id,i.phone,i.phone_observed_at,i.changed_at,a.retired_at\n        FROM meta_messaging_identifier a JOIN meta_messaging_identity i\n          ON i.connection_id=a.connection_id AND i.id=a.identity_id\n        WHERE a.connection_id=$1 AND a.identifier=$2",
+  "query": "SELECT i.id,i.current_id,i.phone,i.phone_observed_at,i.changed_at,a.retired_at,a.bound_at\n        FROM meta_messaging_identifier a JOIN meta_messaging_identity i\n          ON i.connection_id=a.connection_id AND i.id=a.identity_id\n        WHERE a.connection_id=$1 AND a.identifier=$2",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,11 @@
         "ordinal": 5,
         "name": "retired_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "bound_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -46,8 +51,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "3b378edb3b8264e29e7c4258d469022e8168ef13f050efa1984a55f716f1081e"
+  "hash": "6d01503faa3be72accc78c5d21e8b53646b01a4945f8d99885d581f657fdfc40"
 }

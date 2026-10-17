@@ -3,11 +3,11 @@ use super::*;
 
 impl HttpMetaProvider {
     #[tracing::instrument(skip_all, fields(connection_id=%c.id), err)]
-    pub(super) async fn whatsapp_registered_impl(
+    pub(super) async fn phone_registration_impl(
         &self,
         c: &Connection,
         token: &AccessToken,
-    ) -> PortResult<bool> {
+    ) -> PortResult<PhoneRegistration> {
         let phone = self
             .graph(
                 Provider::Whatsapp,
@@ -20,12 +20,11 @@ impl HttpMetaProvider {
             .await?;
         if phone["id"].as_str() != Some(c.account_id.as_str())
             || phone["is_on_biz_app"] != false
-            || phone["platform_type"] != "CLOUD_API"
+            || phone["platform_type"] == "ON_PREMISE"
         {
             return Err(MessagingError::ProviderRejected.into());
         }
-        let status = required(&phone, "status")?;
-        Ok(status == "CONNECTED")
+        phone_registration(&phone)
     }
 
     #[tracing::instrument(skip_all, fields(connection_id=%c.id))]
@@ -47,17 +46,18 @@ impl HttpMetaProvider {
             Err(_) => return RegistrationResult::Unknown,
         };
         let status = response.status();
-        let bytes = match bounded_bytes(response, 1024 * 1024).await {
-            Ok(bytes) => bytes,
-            Err(_) => return RegistrationResult::Unknown,
-        };
-        let body: Value = match serde_json::from_slice(&bytes) {
-            Ok(body) => body,
-            Err(_) => return RegistrationResult::Unknown,
-        };
-        if status.is_server_error() {
+        if status.is_server_error() || status == reqwest::StatusCode::REQUEST_TIMEOUT {
             return RegistrationResult::Unknown;
         }
+        let bytes = match bounded_bytes(response, 1024 * 1024).await {
+            Ok(bytes) => bytes,
+            Err(_) if status.is_client_error() => {
+                return RegistrationResult::Rejected(RegistrationFailure::Rejected);
+            }
+            Err(_) => return RegistrationResult::Unknown,
+        };
+        // A known client rejection remains a rejection even if its body is HTML.
+        let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
         if status.is_success() && body["success"] == true {
             return RegistrationResult::Accepted;
         }
@@ -71,4 +71,13 @@ impl HttpMetaProvider {
         }
         RegistrationResult::Unknown
     }
+}
+
+/// CONNECTED is verified. Other states cannot prove registration is missing.
+pub(super) fn phone_registration(phone: &Value) -> PortResult<PhoneRegistration> {
+    let platform = required(phone, "platform_type")?;
+    Ok(match required(phone, "status")? {
+        "CONNECTED" if platform == "CLOUD_API" => PhoneRegistration::Registered,
+        _ => PhoneRegistration::Unavailable,
+    })
 }

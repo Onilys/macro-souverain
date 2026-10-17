@@ -47,7 +47,7 @@ impl PgMessagingRepository {
         // Uncertainty is terminal for dispatch. After a bounded lease it releases
         // the conversation; delivered/read receipts are never needed to proceed.
         sqlx::query!(r#"WITH expired AS (
-            SELECT id FROM meta_messaging_send WHERE state='sending' AND (lease_until<=now() OR lease_until IS NULL)
+            SELECT id FROM meta_messaging_send WHERE state='sending' AND lease_until<=now()
             ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT 100
         ) UPDATE meta_messaging_send s SET
             state=CASE WHEN dispatch_started_at IS NULL THEN 'pending' ELSE 'unknown' END,

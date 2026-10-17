@@ -183,7 +183,7 @@ impl HttpMetaProvider {
         let config = self
             .whatsapp
             .as_ref()
-            .ok_or(MessagingError::Invalid("WhatsApp is not configured"))?;
+            .ok_or(MessagingError::ConfigurationRequired)?;
         let account = input
             .business_account_id
             .as_ref()
@@ -259,27 +259,25 @@ impl HttpMetaProvider {
                 .ok_or(MessagingError::Forbidden)?,
             None if choices.len() == 1 => &choices[0],
             None => {
-                return Err(MessagingError::Invalid(
-                    "choose one phone number in Embedded Signup and try connecting again",
-                )
-                .into());
+                return Err(MessagingError::PhoneSelectionRequired.into());
             }
         };
         let mode = input.whatsapp_mode.unwrap_or(WhatsappMode::Coexistence);
         let on_app = phone["is_on_biz_app"]
             .as_bool()
             .ok_or(MessagingError::ProviderRejected)?;
-        if phone["platform_type"] != "CLOUD_API" || on_app != (mode == WhatsappMode::Coexistence) {
-            return Err(MessagingError::Invalid(
-                "this number is not eligible for the selected WhatsApp signup mode",
-            )
-            .into());
+        let platform = required(phone, "platform_type")?;
+        if on_app != (mode == WhatsappMode::Coexistence)
+            || (mode == WhatsappMode::Coexistence && platform != "CLOUD_API")
+            || (mode == WhatsappMode::Platform && platform == "ON_PREMISE")
+        {
+            return Err(MessagingError::WhatsappModeMismatch.into());
         }
         let registration_status = if mode == WhatsappMode::Platform {
-            Some(if required(phone, "status")? == "CONNECTED" {
-                RegistrationStatus::Registered
-            } else {
-                RegistrationStatus::Required
+            Some(match registration::phone_registration(phone)? {
+                PhoneRegistration::Registered => RegistrationStatus::Registered,
+                PhoneRegistration::Unregistered => RegistrationStatus::Required,
+                PhoneRegistration::Unavailable => RegistrationStatus::Unavailable,
             })
         } else {
             None
@@ -310,7 +308,7 @@ impl HttpMetaProvider {
         let config = self
             .instagram
             .as_ref()
-            .ok_or(MessagingError::Invalid("Instagram is not configured"))?;
+            .ok_or(MessagingError::ConfigurationRequired)?;
         let response = self
             .client
             .post(self.instagram_token_endpoint(true))
@@ -558,8 +556,12 @@ impl MetaProvider for HttpMetaProvider {
             Provider::Instagram => self.instagram_authorize(input).await,
         }
     }
-    async fn whatsapp_registered(&self, c: &Connection, token: &AccessToken) -> PortResult<bool> {
-        self.whatsapp_registered_impl(c, token).await
+    async fn phone_registration(
+        &self,
+        c: &Connection,
+        token: &AccessToken,
+    ) -> PortResult<PhoneRegistration> {
+        self.phone_registration_impl(c, token).await
     }
     async fn register_whatsapp(
         &self,

@@ -35891,7 +35891,13 @@
       "RegistrationStatus": {
         "type": "string",
         "description": "Durable registration uncertainty is separate from account health.",
-        "enum": ["required", "unconfirmed", "registered", "rate_limited"]
+        "enum": [
+          "required",
+          "unconfirmed",
+          "registered",
+          "rate_limited",
+          "unavailable"
+        ]
       },
       "RemoveParticipantsRequest": {
         "type": "object",

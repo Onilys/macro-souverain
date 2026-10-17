@@ -150,13 +150,13 @@ impl IntoResponse for ApiError {
         let status = match self.0 {
             MessagingError::Forbidden => StatusCode::FORBIDDEN,
             MessagingError::NotFound => StatusCode::NOT_FOUND,
-            MessagingError::Conflict => StatusCode::CONFLICT,
+            MessagingError::Conflict | MessagingError::IdentityConflict => StatusCode::CONFLICT,
             MessagingError::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };
         (
             status,
-            Json(serde_json::json!({"message":self.0.to_string()})),
+            Json(serde_json::json!({"code":self.0.code(),"message":self.0.to_string()})),
         )
             .into_response()
     }

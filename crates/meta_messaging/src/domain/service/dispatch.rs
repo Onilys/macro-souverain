@@ -36,7 +36,7 @@ impl MessagingService {
                         &work.lease,
                         DeliveryState::Failed,
                         None,
-                        Some(&error.current_context().to_string()),
+                        Some(error.current_context().code()),
                         None,
                     )
                     .await?;

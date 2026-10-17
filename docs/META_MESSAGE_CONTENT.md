@@ -45,7 +45,7 @@ deleted does not notify as fresh customer content.
 ## Recovery and verification
 
 Source replays deduplicate by provider message identity and preserve native
-permissions and timestamps. Obsolete demo placeholder-repair logic is removed.
+permissions and timestamps.
 Edits and unsends still use revision fences and tombstones, including across
 WhatsApp identity updates. Replaying a receipt never resets send state.
 

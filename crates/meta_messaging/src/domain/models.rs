@@ -140,6 +140,18 @@ pub enum MessagingError {
     /// Invalid input with actionable non-sensitive detail.
     #[error("{0}")]
     Invalid(&'static str),
+    /// A webhook envelope contains malformed provider items.
+    #[error("invalid_provider_payload")]
+    InvalidProviderPayload,
+    /// Required environment/app setup is absent.
+    #[error("messaging setup is incomplete")]
+    ConfigurationRequired,
+    /// Signup returned more than one phone without selecting one.
+    #[error("select one verified phone number")]
+    PhoneSelectionRequired,
+    /// The selected account does not match the requested signup mode.
+    #[error("number does not match the selected WhatsApp setup")]
+    WhatsappModeMismatch,
     /// Entity is absent or outside the caller's authorized scope.
     #[error("conversation or connection not found")]
     NotFound,
@@ -149,6 +161,9 @@ pub enum MessagingError {
     /// An existing account/source/idempotency mapping has different semantics.
     #[error("this identity is already bound; reconnect the original connection")]
     Conflict,
+    /// Authoritative provider facts cannot describe one consistent customer history.
+    #[error("identity_conflict")]
+    IdentityConflict,
     /// The original intent expired before any uncertain or accepted attempt.
     #[error("send_expired")]
     SendExpired,
@@ -175,4 +190,29 @@ pub enum MessagingError {
     /// Retryable work remains durably recorded.
     #[error("messaging is temporarily unavailable; retry shortly")]
     Unavailable,
+}
+
+impl MessagingError {
+    /// Stable transport/queue code; human messages are not a wire protocol.
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::Invalid(_) => "invalid_input",
+            Self::InvalidProviderPayload => "invalid_provider_payload",
+            Self::ConfigurationRequired => "configuration_required",
+            Self::PhoneSelectionRequired => "phone_selection_required",
+            Self::WhatsappModeMismatch => "whatsapp_mode_mismatch",
+            Self::NotFound => "not_found",
+            Self::Forbidden => "forbidden",
+            Self::Conflict => "conflict",
+            Self::IdentityConflict => "identity_conflict",
+            Self::SendExpired => "send_expired",
+            Self::Disconnected => "disconnected",
+            Self::TemplateRequired => "template_required",
+            Self::ReplyWindowClosed => "reply_window_closed",
+            Self::HumanSupportRequired => "human_support_required",
+            Self::ProviderAccessRequired => "meta_access_required",
+            Self::ProviderRejected => "provider_rejected",
+            Self::Unavailable => "temporarily_unavailable",
+        }
+    }
 }

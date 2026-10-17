@@ -491,7 +491,7 @@ async fn import_eligibility_disconnect_and_ambiguous_whatsapp_request(pool: PgPo
     let work = f.repo.claim_history_import().await.unwrap().unwrap();
     // Mark the one-time request before external I/O; emulate crash after dispatch.
     f.repo
-        .checkpoint_history_import(&work, HistoryStep::ContactsRequested, None, None)
+        .checkpoint_history_import(&work, HistoryStep::ContactsRequested, None)
         .await
         .unwrap();
     sqlx::query!("UPDATE meta_messaging_history_import SET lease_until=now()-interval '1 second' WHERE connection_id=$1",f.c.id).execute(&pool).await.unwrap();

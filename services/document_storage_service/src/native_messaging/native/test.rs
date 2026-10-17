@@ -237,7 +237,7 @@ async fn workflow(pool: PgPool, provider: Provider) {
     .await
     .unwrap();
     // Provider read notification precedes local message recovery after restart.
-    repo.record_status(c.id, &provider_id, DeliveryState::Read, Utc::now(), None)
+    repo.record_status(c.id, &provider_id, DeliveryState::Read, None)
         .await
         .unwrap();
     let pending = repo.accepted_sends().await.unwrap();

@@ -11158,7 +11158,7 @@ export type RegistrationPin = string;
 /**
  * Durable registration uncertainty is separate from account health.
  */
-export type RegistrationStatus = 'required' | 'unconfirmed' | 'registered' | 'rate_limited';
+export type RegistrationStatus = 'required' | 'unconfirmed' | 'registered' | 'rate_limited' | 'unavailable';
 
 /**
  * Request to remove participants.

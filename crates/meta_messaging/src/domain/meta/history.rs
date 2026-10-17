@@ -145,14 +145,13 @@ impl MetaService {
                     return Err(MessagingError::ProviderRejected.into());
                 }
                 self.repository
-                    .checkpoint_history_import(w, HistoryStep::ContactsRequested, None, None)
+                    .checkpoint_history_import(w, HistoryStep::ContactsRequested, None)
                     .await?;
-                let id = self
-                    .provider
+                self.provider
                     .request_whatsapp_history(&c, &token, true)
                     .await?;
                 self.repository
-                    .checkpoint_history_import(w, HistoryStep::Messages, None, Some(&id))
+                    .checkpoint_history_import(w, HistoryStep::Messages, None)
                     .await?;
                 Ok(HistoryStatus::Pending)
             }
@@ -162,15 +161,11 @@ impl MetaService {
                     return Err(MessagingError::ProviderRejected.into());
                 }
                 self.repository
-                    .checkpoint_history_import(w, HistoryStep::Waiting, None, None)
+                    .checkpoint_history_import(w, HistoryStep::Waiting, None)
                     .await?;
                 // A timeout may still produce webhooks. Keep consent and never resend this request.
-                let id = self
-                    .provider
+                self.provider
                     .request_whatsapp_history(&c, &token, false)
-                    .await?;
-                self.repository
-                    .checkpoint_history_import(w, HistoryStep::Waiting, None, Some(&id))
                     .await?;
                 Ok(HistoryStatus::Syncing)
             }
@@ -197,12 +192,7 @@ impl MetaService {
                         .await?;
                 }
                 self.repository
-                    .checkpoint_history_import(
-                        w,
-                        HistoryStep::Instagram,
-                        page.next.as_deref(),
-                        None,
-                    )
+                    .checkpoint_history_import(w, HistoryStep::Instagram, page.next.as_deref())
                     .await?;
                 Ok(if page.next.is_some() {
                     HistoryStatus::Pending

@@ -3,7 +3,8 @@
 Owns Meta authorization, provider account lifecycle, webhook ingestion and the
 adapter behind native customer messaging. Domain policy lives in `src/domain`;
 `src/inbound` adapts HTTP/webhooks; `src/outbound` implements provider, encrypted
-credential and database ports. DSS wires the native channel and access adapters.
+credential and database ports. DSS wires the native channel and access adapters. Identity-only persistence belongs
+to the messaging repository; domain services gate membership at each effect boundary.
 
 ## OAuth boundary
 
@@ -19,7 +20,8 @@ See `docs/META_MESSAGING.md` for redirect configuration and rollout gates.
 Use connection-scoped provider aliases for late WhatsApp facts. Never derive phones
 from BSUIDs or join by display names. Platform registration stays pending until
 Meta confirms registration and subscription; preserve uncertain attempts and
-encrypted credentials without persisting PINs. Accepted native recovery is separate
+encrypted credentials without persisting PINs. Never infer missing registration
+from an arbitrary non-CONNECTED provider status. Accepted native recovery is separate
 from new provider dispatch.
 
 ## Checks

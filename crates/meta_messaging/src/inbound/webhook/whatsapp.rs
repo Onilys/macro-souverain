@@ -51,7 +51,7 @@ fn customer(
                 .as_ref()
                 .is_some_and(|id| number.as_ref().is_some_and(|p| p != id))
         {
-            return Err(MessagingError::Conflict);
+            return Err(MessagingError::IdentityConflict);
         }
         bsuid = bsuid.or(contact_id);
         number = number.or(contact_phone);
@@ -74,7 +74,7 @@ fn customer(
 fn push_message(
     message: &Value,
     account: &ProviderId,
-    customer: Customer,
+    customer: impl FnOnce() -> Result<Customer, MessagingError>,
     provenance: Provenance,
     direction: Direction,
     events: &mut Decoder,
@@ -118,6 +118,7 @@ fn push_message(
         });
         return Ok(());
     }
+    let customer = customer()?;
     if kind == "revoke" {
         let timestamp = timestamp(&message["timestamp"], false)?;
         events.push(IncomingEvent::IdentityObserved {
@@ -184,31 +185,15 @@ pub(super) fn decode(entry: &Value, events: &mut Decoder) -> Result<(), Messagin
             ] {
                 for message in items(value, collection, events) {
                     events.capture(|events| {
-                        if matches!(message["type"].as_str(), Some("reaction" | "edit")) {
-                            events.push(IncomingEvent::Unsupported {
-                                account_id: Some(account.clone()),
-                                field: string(message, "type")?.into(),
-                            });
-                            return Ok(());
-                        }
-                        // System changes may have no sender identifier outside their system object.
-                        let identity = if message["type"] == "system" {
-                            let system = &message["system"];
-                            Customer {
-                                id: optional_id(system, "previous_user_id")?
-                                    .or(optional_id(message, "from")?)
-                                    .ok_or(MessagingError::Invalid(
-                                        "previous WhatsApp identity is missing",
-                                    ))?,
-                                phone: None,
-                                name: None,
-                                handle: None,
-                            }
-                        } else {
-                            customer(message, bsuid_key, phone_key, contacts)?
-                        };
                         let before = events.batch.events.len();
-                        push_message(message, &account, identity, provenance, direction, events)?;
+                        push_message(
+                            message,
+                            &account,
+                            || customer(message, bsuid_key, phone_key, contacts),
+                            provenance,
+                            direction,
+                            events,
+                        )?;
                         if field == "history"
                             && let Some(IncomingEvent::Message(normalized)) =
                                 events.batch.events.get_mut(before)
@@ -309,7 +294,7 @@ pub(super) fn decode(entry: &Value, events: &mut Decoder) -> Result<(), Messagin
                                     push_message(
                                         message,
                                         &account,
-                                        customer,
+                                        || Ok(customer),
                                         Provenance::OnboardingHistory,
                                         direction,
                                         events,

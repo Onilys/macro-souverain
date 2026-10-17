@@ -27,7 +27,7 @@ impl PgMessagingRepository {
             requested_at=CASE WHEN meta_messaging_history_import.connected_at<>EXCLUDED.connected_at THEN now() ELSE meta_messaging_history_import.requested_at END,
             status='pending',step=EXCLUDED.step,
             cursor=CASE WHEN meta_messaging_history_import.connected_at=EXCLUDED.connected_at THEN meta_messaging_history_import.cursor ELSE NULL END,
-            contacts_request_id=NULL,history_request_id=NULL,progress=NULL,error_code=NULL,attempts=0,available_at=now(),lease_id=NULL,lease_until=NULL,updated_at=now()
+            progress=NULL,error_code=NULL,attempts=0,available_at=now(),lease_id=NULL,lease_until=NULL,updated_at=now()
             WHERE meta_messaging_history_import.connected_at<>EXCLUDED.connected_at OR
                 ($4='instagram' AND meta_messaging_history_import.status='failed')"#,
             c.id,c.connected_at,user,if c.provider==Provider::Whatsapp {"contacts"}else{"instagram"})
@@ -77,14 +77,11 @@ impl PgMessagingRepository {
         w: &HistoryWork,
         step: HistoryStep,
         cursor: Option<&str>,
-        request: Option<&str>,
     ) -> PortResult<()> {
         let changed=sqlx::query!(r#"UPDATE meta_messaging_history_import SET step=$3,cursor=$4,
-            contacts_request_id=CASE WHEN $3='messages' THEN $5 ELSE contacts_request_id END,
-            history_request_id=CASE WHEN $3='waiting' THEN COALESCE($5,history_request_id) ELSE history_request_id END,
             updated_at=now() WHERE connection_id=$1 AND lease_id=$2 AND lease_until>now()
                 AND EXISTS(SELECT 1 FROM meta_messaging_connection c WHERE c.id=$1 AND c.connected_at=meta_messaging_history_import.connected_at AND c.status='connected')"#,
-            w.lease.id,w.lease.token,spelling(step),cursor,request).execute(&self.pool).await.map_err(failure)?;
+            w.lease.id,w.lease.token,spelling(step),cursor).execute(&self.pool).await.map_err(failure)?;
         fenced(changed.rows_affected())
     }
     pub(super) async fn settle_history_import_impl(

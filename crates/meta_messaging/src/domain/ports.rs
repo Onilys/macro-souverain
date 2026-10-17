@@ -72,6 +72,20 @@ pub trait MessagingRepository: ConversationRepository {
     /// Includes other teams; only a boolean crosses the domain boundary.
     async fn subscription_in_use(&self, connection: &Connection) -> PortResult<bool>;
 
+    /// Retain an authoritative identity change without creating a native channel.
+    async fn update_identity(
+        &self,
+        connection: &Connection,
+        update: &crate::domain::events::IdentityUpdate,
+    ) -> PortResult<()>;
+    /// Retain an authoritative status association without customer activity.
+    async fn observe_identity(
+        &self,
+        connection: &Connection,
+        customer: &ProviderId,
+        phone: Option<&ProviderId>,
+        at: DateTime<Utc>,
+    ) -> PortResult<()>;
     /// Persist a registration checkpoint under the same authorization generation.
     async fn registration_state(
         &self,
@@ -93,7 +107,6 @@ pub trait MessagingRepository: ConversationRepository {
         work: &HistoryWork,
         step: HistoryStep,
         cursor: Option<&str>,
-        request_id: Option<&str>,
     ) -> PortResult<()>;
     /// Finish or release one fenced attempt. Failed reads may retry with bounded backoff.
     async fn settle_history_import(
@@ -208,7 +221,6 @@ pub trait MessagingRepository: ConversationRepository {
         connection: Uuid,
         message: &ProviderId,
         state: DeliveryState,
-        occurred_at: DateTime<Utc>,
         error: Option<&str>,
     ) -> PortResult<()>;
     /// Existing account-scoped identity, to avoid a provider profile lookup per message.
@@ -257,11 +269,11 @@ pub trait MetaProvider: Send + Sync {
     /// Subscribe the verified account to the app's configured webhook fields.
     async fn subscribe(&self, connection: &Connection, token: &AccessToken) -> PortResult<()>;
     /// Verify current phone identity/mode and CONNECTED status before activation or retry.
-    async fn whatsapp_registered(
+    async fn phone_registration(
         &self,
         connection: &Connection,
         token: &AccessToken,
-    ) -> PortResult<bool>;
+    ) -> PortResult<PhoneRegistration>;
     /// One explicit registration attempt; never persist the PIN.
     async fn register_whatsapp(
         &self,
@@ -366,20 +378,6 @@ pub trait NativeMessaging: NativeConversation {
     async fn revise(&self, connection: &Connection, revision: &IncomingRevision) -> PortResult<()>;
     /// Revalidate the current management role before background work.
     async fn require_admin(&self, team: Uuid, user: &str) -> PortResult<()>;
-    /// Retain an authoritative identity change without creating a native channel.
-    async fn update_identity(
-        &self,
-        connection: &Connection,
-        update: &crate::domain::events::IdentityUpdate,
-    ) -> PortResult<()>;
-    /// Retain an authoritative status association without customer activity.
-    async fn observe_identity(
-        &self,
-        connection: &Connection,
-        customer: &ProviderId,
-        phone: Option<&ProviderId>,
-        at: DateTime<Utc>,
-    ) -> PortResult<()>;
     /// Current team membership, independent of administrative role.
     async fn require_member(&self, team: Uuid, user: &str) -> PortResult<()>;
     /// Commit channel/mapping/message atomically, with deduplication and silent

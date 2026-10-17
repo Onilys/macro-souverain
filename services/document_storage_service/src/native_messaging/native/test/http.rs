@@ -80,6 +80,8 @@ struct ProviderFixture {
     subscriptions: AtomicUsize,
     registrations: AtomicUsize,
     registered: std::sync::atomic::AtomicBool,
+    registration_unavailable: std::sync::atomic::AtomicBool,
+    pause_registration_check: std::sync::atomic::AtomicBool,
     registration_result: std::sync::Mutex<u8>,
     unsubscriptions: AtomicUsize,
     subscribe_error: std::sync::Mutex<Option<MessagingError>>,
@@ -147,8 +149,22 @@ impl MetaProvider for ProviderFixture {
             expires_at: None,
         })
     }
-    async fn whatsapp_registered(&self, _: &Connection, _: &AccessToken) -> PortResult<bool> {
-        Ok(self.registered.load(Ordering::SeqCst))
+    async fn phone_registration(
+        &self,
+        _: &Connection,
+        _: &AccessToken,
+    ) -> PortResult<PhoneRegistration> {
+        if self.pause_registration_check.load(Ordering::SeqCst) {
+            self.operation_entered.notify_one();
+            self.operation_release.notified().await;
+        }
+        Ok(if self.registration_unavailable.load(Ordering::SeqCst) {
+            PhoneRegistration::Unavailable
+        } else if self.registered.load(Ordering::SeqCst) {
+            PhoneRegistration::Registered
+        } else {
+            PhoneRegistration::Unregistered
+        })
     }
     async fn register_whatsapp(
         &self,
@@ -370,6 +386,8 @@ async fn fixture_with_files(
         subscriptions: AtomicUsize::new(0),
         registrations: AtomicUsize::new(0),
         registered: Default::default(),
+        registration_unavailable: Default::default(),
+        pause_registration_check: Default::default(),
         registration_result: Default::default(),
         unsubscriptions: AtomicUsize::new(0),
         subscribe_error: Default::default(),
@@ -512,7 +530,6 @@ async fn workflow(pool: PgPool, provider: Provider) {
         c.id,
         &"fixture-accepted".to_owned().try_into().unwrap(),
         DeliveryState::Read,
-        Utc::now(),
         None,
     )
     .await
@@ -521,7 +538,6 @@ async fn workflow(pool: PgPool, provider: Provider) {
         c.id,
         &"fixture-accepted".to_owned().try_into().unwrap(),
         DeliveryState::Sent,
-        Utc::now(),
         None,
     )
     .await

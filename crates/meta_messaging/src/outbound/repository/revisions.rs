@@ -45,11 +45,11 @@ impl PgMessagingRepository {
         if target.is_some_and(|m| {
             m.customer_id != r.customer_id.as_str() || m.direction != spelling(r.direction)
         }) {
-            return Err(MessagingError::Conflict.into());
+            return Err(MessagingError::IdentityConflict.into());
         }
         let prior = sqlx::query_scalar!("SELECT direction FROM meta_messaging_revision WHERE connection_id=$1 AND customer_id=$2 AND provider_message_id=$3",c.id,r.customer_id.as_str(),r.message_id.as_str()).fetch_optional(&mut **tx).await.map_err(failure)?;
         if prior.is_some_and(|direction| direction != spelling(r.direction)) {
-            return Err(MessagingError::Conflict.into());
+            return Err(MessagingError::IdentityConflict.into());
         }
         let (content, number, edited, deleted) = match &r.change {
             MessageRevision::Edited { text, number } => (

@@ -14,7 +14,7 @@ CREATE TABLE meta_messaging_connection (
     human_agent_approved boolean NOT NULL DEFAULT false,
     developer_account boolean NOT NULL DEFAULT false,
     whatsapp_mode text CHECK (whatsapp_mode IN ('coexistence','platform')),
-    registration_status text CHECK (registration_status IN ('required','unconfirmed','registered','rate_limited')),
+    registration_status text CHECK (registration_status IN ('required','unconfirmed','registered','rate_limited','unavailable')),
     registration_attempted_at timestamptz,
     health_error text,
     connected_at timestamptz,
@@ -93,11 +93,8 @@ CREATE TABLE meta_messaging_message (
     customer_id text NOT NULL,
     provenance text NOT NULL CHECK (provenance IN ('customer', 'macro_reply', 'phone_echo', 'onboarding_history')),
     direction text NOT NULL CHECK (direction IN ('inbound', 'outbound')),
-    provider_timestamp timestamptz NOT NULL,
-    reply_to_id text,
     delivery_state text NOT NULL CHECK (delivery_state IN ('pending', 'sending', 'unknown', 'accepted', 'sent', 'delivered', 'read', 'failed')),
     media_state text NOT NULL DEFAULT 'none' CHECK (media_state IN ('none', 'pending', 'stored', 'missing', 'unsupported', 'failed')),
-    provider_type text NOT NULL,
     effect_revision bigint NOT NULL DEFAULT 1,
     published_revision bigint NOT NULL DEFAULT 0,
     native_retry_at timestamptz NOT NULL DEFAULT now(),
@@ -112,8 +109,6 @@ CREATE TABLE meta_messaging_status (
     connection_id uuid NOT NULL REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
     provider_message_id text NOT NULL,
     state text NOT NULL CHECK (state IN ('sent', 'delivered', 'read', 'failed')),
-    occurred_at timestamptz NOT NULL,
-    error_code text,
     PRIMARY KEY(connection_id, provider_message_id, state)
 );
 
@@ -137,6 +132,7 @@ CREATE TABLE meta_messaging_send (
     error_code text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (state <> 'sending' OR (lease_id IS NOT NULL AND lease_until IS NOT NULL)),
     UNIQUE(channel_id, user_id, idempotency_key),
     UNIQUE(connection_id, provider_message_id)
 );
@@ -167,8 +163,6 @@ CREATE TABLE meta_messaging_history_import (
     status text NOT NULL CHECK (status IN ('pending','syncing','complete','declined','failed')),
     step text NOT NULL CHECK (step IN ('contacts','contacts_requested','messages','waiting','instagram')),
     cursor text,
-    contacts_request_id text,
-    history_request_id text,
     progress smallint CHECK (progress BETWEEN 0 AND 100),
     error_code text,
     unavailable_media boolean NOT NULL DEFAULT false,
@@ -249,6 +243,7 @@ CREATE TABLE meta_messaging_identifier (
     identifier text NOT NULL,
     identity_id uuid NOT NULL,
     retired_at timestamptz,
+    bound_at timestamptz,
     PRIMARY KEY (connection_id, identifier),
     FOREIGN KEY (connection_id, identity_id) REFERENCES meta_messaging_identity(connection_id, id) ON DELETE CASCADE
 );

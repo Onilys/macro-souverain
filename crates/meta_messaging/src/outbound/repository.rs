@@ -61,6 +61,27 @@ pub(super) fn spelling(value: impl serde::Serialize) -> String {
 
 #[async_trait]
 impl MessagingRepository for PgMessagingRepository {
+    async fn update_identity(
+        &self,
+        c: &Connection,
+        update: &crate::domain::events::IdentityUpdate,
+    ) -> PortResult<()> {
+        let mut tx = self.pool.begin().await.map_err(failure)?;
+        PgMessagingRepository::update_identity_in(&mut tx, c, update).await?;
+        tx.commit().await.map_err(failure)
+    }
+    async fn observe_identity(
+        &self,
+        c: &Connection,
+        customer: &ProviderId,
+        phone: Option<&ProviderId>,
+        at: chrono::DateTime<Utc>,
+    ) -> PortResult<()> {
+        let mut tx = self.pool.begin().await.map_err(failure)?;
+        PgMessagingRepository::observe_identity_in(&mut tx, c, customer, phone, at, false).await?;
+        tx.commit().await.map_err(failure)
+    }
+
     async fn lock_subscription(
         &self,
         c: &Connection,
@@ -105,10 +126,8 @@ impl MessagingRepository for PgMessagingRepository {
         w: &HistoryWork,
         step: HistoryStep,
         cursor: Option<&str>,
-        request: Option<&str>,
     ) -> PortResult<()> {
-        self.checkpoint_history_import_impl(w, step, cursor, request)
-            .await
+        self.checkpoint_history_import_impl(w, step, cursor).await
     }
     async fn settle_history_import(
         &self,
@@ -332,10 +351,9 @@ impl MessagingRepository for PgMessagingRepository {
         connection: Uuid,
         message: &ProviderId,
         state: DeliveryState,
-        at: DateTime<Utc>,
         error: Option<&str>,
     ) -> PortResult<()> {
-        self.record_status_impl(connection, message, state, at, error)
+        self.record_status_impl(connection, message, state, error)
             .await
     }
     async fn customer_profile(

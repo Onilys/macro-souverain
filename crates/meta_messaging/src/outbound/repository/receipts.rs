@@ -83,7 +83,6 @@ impl PgMessagingRepository {
         connection: Uuid,
         message: &ProviderId,
         state: DeliveryState,
-        at: DateTime<Utc>,
         error: Option<&str>,
     ) -> PortResult<()> {
         let mut tx = self.pool.begin().await.map_err(failure)?;
@@ -96,7 +95,7 @@ impl PgMessagingRepository {
         .fetch_one(&mut *tx)
         .await
         .map_err(failure)?;
-        sqlx::query!("INSERT INTO meta_messaging_status (connection_id,provider_message_id,state,occurred_at,error_code) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (connection_id,provider_message_id,state) DO UPDATE SET occurred_at = GREATEST(meta_messaging_status.occurred_at, EXCLUDED.occurred_at)", connection, message.as_str(), spelling(state), at, error)
+        sqlx::query!("INSERT INTO meta_messaging_status (connection_id,provider_message_id,state) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", connection, message.as_str(), spelling(state))
             .execute(&mut *tx).await.map_err(failure)?;
         let states = sqlx::query_scalar!("SELECT state FROM meta_messaging_status WHERE connection_id = $1 AND provider_message_id = $2",connection,message.as_str()).fetch_all(&mut *tx).await.map_err(failure)?;
         let mut merged = DeliveryState::Pending;

@@ -138,19 +138,18 @@ impl PgMessagingRepository {
             for s in states {
                 state = state.reconcile(decode(serde_json::Value::String(s))?);
             }
-            sqlx::query!("INSERT INTO meta_messaging_message (connection_id,provider_message_id,message_id,customer_id,provenance,direction,provider_timestamp,reply_to_id,delivery_state,media_state,provider_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",c.id,m.message_id.as_str(),r.message_id,m.customer_id.as_str(),spelling(m.provenance),spelling(m.direction),m.timestamp,m.reply_to.as_ref().map(ProviderId::as_str),spelling(state),if m.media.is_empty()&&m.message_type!="macro_media_reply"{"none"}else{"pending"},m.message_type).execute(&mut **tx).await.map_err(failure)?;
+            sqlx::query!("INSERT INTO meta_messaging_message (connection_id,provider_message_id,message_id,customer_id,provenance,direction,delivery_state,media_state) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",c.id,m.message_id.as_str(),r.message_id,m.customer_id.as_str(),spelling(m.provenance),spelling(m.direction),spelling(state),if m.media.is_empty()&&m.message_type!="macro_media_reply"{"none"}else{"pending"}).execute(&mut **tx).await.map_err(failure)?;
         }
         if let Some(send) = send {
             sqlx::query!(
-                r#"UPDATE meta_messaging_message SET provenance='macro_reply',provider_type=$4,
-                media_state=CASE WHEN EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=$1 AND r.provider_message_id=$2 AND r.deleted_at IS NOT NULL) THEN 'stored' WHEN $5 THEN 'pending' ELSE 'none' END,
+                r#"UPDATE meta_messaging_message SET provenance='macro_reply',
+                media_state=CASE WHEN EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=$1 AND r.provider_message_id=$2 AND r.deleted_at IS NOT NULL) THEN 'stored' WHEN $4 THEN 'pending' ELSE 'none' END,
                 effect_revision=effect_revision+1,native_retry_at=now()
                 WHERE connection_id=$1 AND provider_message_id=$2 AND message_id=$3
                   AND direction='outbound' AND provenance<>'macro_reply'"#,
                 c.id,
                 m.message_id.as_str(),
                 r.message_id,
-                m.message_type,
                 m.message_type == "macro_media_reply"
             )
             .execute(&mut **tx)

@@ -407,14 +407,30 @@ pub enum RegistrationStatus {
     Registered,
     /// Meta imposed its 72-hour registration limit.
     RateLimited,
+    /// Provider state does not establish whether registration is appropriate.
+    Unavailable,
+}
+
+/// Authoritative phone facts; an operational restriction is not missing registration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhoneRegistration {
+    /// Cloud API registration is active.
+    Registered,
+    /// The number is pending registration and may accept an explicit PIN request.
+    Unregistered,
+    /// Restricted, transitional or unknown provider state; check again without POST.
+    Unavailable,
 }
 
 impl Connection {
+    /// Registration prerequisite shared by inbound and outbound policy.
+    pub fn registration_ready(&self) -> bool {
+        self.whatsapp_mode != Some(WhatsappMode::Platform)
+            || self.registration_status == Some(RegistrationStatus::Registered)
+    }
     /// One readiness rule for views, replies and lifecycle maintenance.
     pub fn is_ready(&self) -> bool {
-        self.status == ConnectionStatus::Connected
-            && (self.whatsapp_mode != Some(WhatsappMode::Platform)
-                || self.registration_status == Some(RegistrationStatus::Registered))
+        self.status == ConnectionStatus::Connected && self.registration_ready()
     }
 }
 

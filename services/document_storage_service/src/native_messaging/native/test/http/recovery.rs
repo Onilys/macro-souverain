@@ -151,3 +151,54 @@ async fn replay_after_receipt_deletion_keeps_source_deduplication_and_unsend_tom
         Some(1)
     );
 }
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn permanent_identity_conflict_stops_retrying_without_blocking_a_healthy_sibling(
+    pool: PgPool,
+) {
+    let f = fixture(&pool, Provider::Whatsapp, None).await;
+    let at = connected_time(&f.repo, f.c.id).await.timestamp();
+    let message = |id: &str, user: &str| json!({"id":id,"from_user_id":user,"type":"text","timestamp":at,"text":{"body":"Hello"}});
+    let envelope = |messages: Value| json!({"object":"whatsapp_business_account","entry":[{"id":"waba","changes":[{"field":"messages","value":{"metadata":{"phone_number_id":f.c.account_id},"messages":messages}}]}]});
+    assert_eq!(
+        signed(
+            &f.app,
+            Provider::Whatsapp,
+            envelope(json!([message("a", "US.A"), message("b", "US.B")])),
+            true
+        )
+        .await,
+        StatusCode::OK
+    );
+    drain(&f.service).await;
+    let conflicting = json!({"id":"change","type":"system","timestamp":at,"system":{"type":"user_changed_user_id","previous_user_id":"US.A","user_id":"US.B"}});
+    assert_eq!(
+        signed(
+            &f.app,
+            Provider::Whatsapp,
+            envelope(json!([conflicting, message("healthy", "US.C")])),
+            true
+        )
+        .await,
+        StatusCode::OK
+    );
+    let work = f.repo.claim_receipt().await.unwrap().unwrap();
+    f.service
+        .process_receipt_attempt(
+            &work,
+            webhook::decode(work.provider, &work.payload).unwrap(),
+        )
+        .await
+        .unwrap();
+    let row = sqlx::query!(
+        "SELECT status,error_code FROM meta_messaging_receipt WHERE id=$1",
+        work.lease.id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row.status, "failed");
+    assert_eq!(row.error_code.as_deref(), Some("identity_conflict"));
+    assert!(f.repo.claim_receipt().await.unwrap().is_none());
+    assert!(f.repo.message_target(f.c.id, "healthy").await.is_ok());
+}

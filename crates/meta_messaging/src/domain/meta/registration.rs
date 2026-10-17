@@ -30,25 +30,25 @@ impl MetaService {
         }
         let token = self.token(&c).await?;
         if self.reconcile_registration(&c, &token).await? {
+            self.require_manager(&c, user).await?;
+            self.native.require_member(team, &c.user_id).await?;
             self.provider.subscribe(&c, &token).await?;
             self.repository
                 .health(&c, ConnectionStatus::Connected, None)
                 .await?;
             return self.team_connection(team, id).await;
         }
-        if c.registration_status == Some(RegistrationStatus::Unconfirmed) {
-            return self.team_connection(team, id).await;
-        }
-        if c.registration_status == Some(RegistrationStatus::RateLimited)
-            && c.registration_attempted_at
-                .is_none_or(|at| Utc::now() < at + Duration::hours(72))
-        {
+        let c = self.team_connection(team, id).await?;
+        if c.registration_status != Some(RegistrationStatus::Required) {
             return self.team_connection(team, id).await;
         }
         let Some(pin) = request.pin else {
             return self.team_connection(team, id).await;
         };
-        // Mark before POST: a crash after acceptance can only reconcile, never replay.
+        // Provider verification may have taken time; authority must still hold at POST.
+        self.require_manager(&c, user).await?;
+        self.native.require_member(team, &c.user_id).await?;
+        // Mark before POST. Any later retry must first obtain fresh provider facts.
         self.repository
             .registration_state(
                 &c,
@@ -57,12 +57,15 @@ impl MetaService {
             )
             .await?;
         match self.provider.register_whatsapp(&c, &token, &pin).await {
-            RegistrationResult::Accepted | RegistrationResult::Unknown => {
+            RegistrationResult::Unknown => {}
+            RegistrationResult::Accepted => {
                 // A failed GET leaves the durable Unconfirmed marker for maintenance.
                 if self
                     .reconcile_registration(&self.team_connection(team, id).await?, &token)
                     .await?
                 {
+                    self.require_manager(&c, user).await?;
+                    self.native.require_member(team, &c.user_id).await?;
                     self.provider.subscribe(&c, &token).await?;
                     self.repository
                         .health(&c, ConnectionStatus::Connected, None)
@@ -91,28 +94,25 @@ impl MetaService {
         if c.whatsapp_mode != Some(WhatsappMode::Platform) {
             return Ok(true);
         }
-        let registered = self.provider.whatsapp_registered(c, token).await?;
-        if registered {
-            self.repository
-                .registration_state(c, RegistrationStatus::Registered, None)
-                .await?;
-        } else {
-            let state = match c.registration_status {
-                Some(RegistrationStatus::Unconfirmed) => RegistrationStatus::Unconfirmed,
-                Some(RegistrationStatus::RateLimited) => RegistrationStatus::RateLimited,
-                _ => RegistrationStatus::Required,
-            };
-            let code = match state {
-                RegistrationStatus::Unconfirmed => Some("registration_unconfirmed"),
-                RegistrationStatus::RateLimited => Some("registration_rate_limited"),
-                _ => c
-                    .health_error
-                    .as_deref()
-                    .filter(|c| c.starts_with("registration_"))
-                    .or(Some("registration_required")),
-            };
-            self.repository.registration_state(c, state, code).await?;
+        let observed = self.provider.phone_registration(c, token).await?;
+        if observed != PhoneRegistration::Registered
+            && c.registration_status == Some(RegistrationStatus::RateLimited)
+            && c.registration_attempted_at
+                .is_none_or(|at| Utc::now() < at + Duration::hours(72))
+        {
+            return Ok(false);
         }
-        Ok(registered)
+        let (state, code) = match observed {
+            PhoneRegistration::Registered => (RegistrationStatus::Registered, None),
+            PhoneRegistration::Unregistered => {
+                (RegistrationStatus::Required, Some("registration_required"))
+            }
+            PhoneRegistration::Unavailable => (
+                RegistrationStatus::Unavailable,
+                Some("registration_unavailable"),
+            ),
+        };
+        self.repository.registration_state(c, state, code).await?;
+        Ok(state == RegistrationStatus::Registered)
     }
 }

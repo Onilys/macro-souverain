@@ -25,7 +25,9 @@ impl ConnectionFailure {
             MessagingError::ProviderAccessRequired => Self::MetaAccess,
             MessagingError::Forbidden => Self::Connector,
             MessagingError::Unavailable => Self::Temporary,
-            MessagingError::Invalid(_) => Self::Configuration,
+            MessagingError::Invalid(_) | MessagingError::ConfigurationRequired => {
+                Self::Configuration
+            }
             _ => Self::Provider,
         }
     }

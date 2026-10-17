@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_identity SET phone=NULL,phone_observed_at=$3 WHERE connection_id=$1 AND id=$2 AND phone=$4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "922f36a0e6e471b00e6f71936aa3921f645e146b78d349c1b938ba70ab643c48"
+}

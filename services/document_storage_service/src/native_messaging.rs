@@ -133,7 +133,7 @@ impl CredentialCipher for UnconfiguredCipher {
         _connection: uuid::Uuid,
         _token: &meta_messaging::domain::connection::AccessToken,
     ) -> PortResult<Vec<u8>> {
-        Err(MessagingError::Invalid("Meta credential encryption is not configured").into())
+        Err(MessagingError::ConfigurationRequired.into())
     }
     async fn decrypt(
         &self,
@@ -141,7 +141,7 @@ impl CredentialCipher for UnconfiguredCipher {
         _connection: uuid::Uuid,
         _bytes: &[u8],
     ) -> PortResult<meta_messaging::domain::connection::AccessToken> {
-        Err(MessagingError::Invalid("Meta credential encryption is not configured").into())
+        Err(MessagingError::ConfigurationRequired.into())
     }
 }
 

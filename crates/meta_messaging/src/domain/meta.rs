@@ -111,7 +111,11 @@ impl MetaService {
             registration_attempted_at: None,
             developer_account: true,
 
-            health_error: None,
+            health_error: match account.registration_status {
+                Some(RegistrationStatus::Required) => Some("registration_required".into()),
+                Some(RegistrationStatus::Unavailable) => Some("registration_unavailable".into()),
+                _ => None,
+            },
         };
         self.repository
             .connect(&connection, &sealed, reconnect)
@@ -208,7 +212,7 @@ impl MetaService {
             }
         };
         if !configured {
-            return Err(MessagingError::Invalid("this provider is not configured; ask the server administrator to complete Meta setup").into());
+            return Err(MessagingError::ConfigurationRequired.into());
         }
         if let Some(id) = reconnect {
             let original = self.team_connection(team, id).await?;
@@ -291,7 +295,7 @@ impl MetaService {
                 .whatsapp_platform_configuration_id
                 .is_none()
         {
-            return Err(MessagingError::Invalid("Platform number signup is not configured").into());
+            return Err(MessagingError::ConfigurationRequired.into());
         }
         let account = self.provider.authorize(attempt.provider, &input).await?;
         let id = attempt.reconnect_id.unwrap_or_else(Uuid::now_v7);
@@ -409,21 +413,7 @@ impl MetaService {
     }
 
     async fn visible_health(&self, connection: &mut Connection) -> PortResult<()> {
-        if connection.status == ConnectionStatus::Disconnected {
-            return Ok(());
-        }
-        if let Err(error) = self
-            .native
-            .require_member(connection.team_id, &connection.user_id)
-            .await
-        {
-            if !matches!(error.current_context(), MessagingError::Forbidden) {
-                return Err(error);
-            }
-            connection.status = ConnectionStatus::Revoked;
-            connection.health_error = Some("connecting_member_access_lost".into());
-        }
-        Ok(())
+        visible_health(self.native.as_ref(), connection).await
     }
 
     async fn require_manager(&self, connection: &Connection, user: &str) -> PortResult<()> {
@@ -484,4 +474,24 @@ fn authorization_digest(state: &str, browser_transaction: Option<&str>) -> Vec<u
     }
     digest.update(state.as_bytes());
     digest.finalize().to_vec()
+}
+
+async fn visible_health(
+    native: &dyn NativeMessaging,
+    connection: &mut Connection,
+) -> PortResult<()> {
+    if connection.status == ConnectionStatus::Disconnected {
+        return Ok(());
+    }
+    if let Err(error) = native
+        .require_member(connection.team_id, &connection.user_id)
+        .await
+    {
+        if !matches!(error.current_context(), MessagingError::Forbidden) {
+            return Err(error);
+        }
+        connection.status = ConnectionStatus::Revoked;
+        connection.health_error = Some("connecting_member_access_lost".into());
+    }
+    Ok(())
 }

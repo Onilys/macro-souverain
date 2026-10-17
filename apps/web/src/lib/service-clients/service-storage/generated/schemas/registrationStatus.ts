@@ -17,4 +17,5 @@ export const RegistrationStatus = {
   unconfirmed: 'unconfirmed',
   registered: 'registered',
   rate_limited: 'rate_limited',
+  unavailable: 'unavailable',
 } as const;

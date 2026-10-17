@@ -67,18 +67,19 @@ impl HttpMetaProvider {
         request: &SendReply,
         media: Option<&OutboundMedia>,
     ) -> PortResult<PreparedReply> {
-        let destination = if c.provider == Provider::Whatsapp {
-            conversation
-                .customer_phone
-                .as_deref()
-                .map(|phone| phone.trim_start_matches('+'))
-                .map(str::to_owned)
-                .map(ProviderId::try_from)
-                .transpose()?
-                .unwrap_or_else(|| conversation.customer_id.clone())
-        } else {
-            conversation.customer_id.clone()
-        };
+        let destination =
+            if c.provider == Provider::Whatsapp && !conversation.customer_id.is_whatsapp_bsuid() {
+                conversation
+                    .customer_phone
+                    .as_deref()
+                    .map(|phone| phone.trim_start_matches('+'))
+                    .map(str::to_owned)
+                    .map(ProviderId::try_from)
+                    .transpose()?
+                    .unwrap_or_else(|| conversation.customer_id.clone())
+            } else {
+                conversation.customer_id.clone()
+            };
         if c.developer_account
             && !self.developer.as_ref().is_some_and(|dev| {
                 dev.phone_number_id == c.account_id && dev.recipients.contains(&destination)

@@ -4,6 +4,7 @@ use axum::{
     body::Bytes,
     extract::State,
     http::{HeaderMap, StatusCode, Uri},
+    response::{IntoResponse, Response},
     routing::any,
 };
 use std::sync::{
@@ -18,6 +19,7 @@ struct Scenario {
     status: AtomicU16,
     registered: AtomicBool,
     registration_error: AtomicU32,
+    registration_http: AtomicU16,
     messages: Mutex<Vec<Value>>,
     instagram_permissions_array: AtomicBool,
     instagram_missing_messaging: AtomicBool,
@@ -38,7 +40,7 @@ async fn server() -> Server {
         uri: Uri,
         headers: HeaderMap,
         body: Bytes,
-    ) -> (StatusCode, Json<Value>) {
+    ) -> Response {
         assert_eq!(headers["user-agent"], "MacroMessaging/1.0");
         let path = uri.path();
         let data = match path {
@@ -82,6 +84,11 @@ async fn server() -> Server {
                 json!({"id":"phone","is_on_biz_app":s.coexistence.load(Ordering::SeqCst),"platform_type":"CLOUD_API","status":if s.registered.load(Ordering::SeqCst) {"CONNECTED"}else{"PENDING"}})
             }
             "/v26.0/phone/register" => {
+                let status = s.registration_http.load(Ordering::SeqCst);
+                if status != 0 {
+                    return (StatusCode::from_u16(status).unwrap(), "non-JSON response")
+                        .into_response();
+                }
                 let request: Value = serde_json::from_slice(&body).unwrap();
                 assert_eq!(
                     request,
@@ -92,7 +99,8 @@ async fn server() -> Server {
                     return (
                         StatusCode::BAD_REQUEST,
                         Json(json!({"error":{"code":code}})),
-                    );
+                    )
+                        .into_response();
                 }
                 s.registered.store(true, Ordering::SeqCst);
                 json!({"success":true})
@@ -108,7 +116,8 @@ async fn server() -> Server {
                     return (
                         StatusCode::from_u16(status).unwrap(),
                         Json(json!({"error":{"code":if status==429 {130429}else{2}}})),
-                    );
+                    )
+                        .into_response();
                 }
                 if data["messaging_product"] == "whatsapp" {
                     json!({"messages":[{"id":"accepted-wa"}]})
@@ -116,9 +125,12 @@ async fn server() -> Server {
                     json!({"message_id":"accepted-ig"})
                 }
             }
-            _ => return (StatusCode::NOT_FOUND, Json(json!({"error":{"code":100}}))),
+            _ => {
+                return (StatusCode::NOT_FOUND, Json(json!({"error":{"code":100}})))
+                    .into_response();
+            }
         };
-        (StatusCode::OK, Json(data))
+        (StatusCode::OK, Json(data)).into_response()
     }
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
@@ -280,7 +292,7 @@ async fn production_signup_verifies_the_selected_mode_and_preserves_the_develope
         .unwrap();
     assert!(matches!(
         rejected.current_context(),
-        MessagingError::Invalid(_)
+        MessagingError::WhatsappModeMismatch
     ));
     let client = client
         .with_developer_account(WhatsappDeveloperAccount {
@@ -403,16 +415,14 @@ async fn platform_signup_verifies_mode_and_registration_uses_only_the_documented
     assert_eq!(account.whatsapp_mode, Some(WhatsappMode::Platform));
     assert_eq!(
         account.registration_status,
-        Some(RegistrationStatus::Required)
+        Some(RegistrationStatus::Unavailable)
     );
     let mut c = connection(Provider::Whatsapp);
     c.whatsapp_mode = Some(WhatsappMode::Platform);
     let pin = RegistrationPin::try_from("123456".to_owned()).unwrap();
-    assert!(
-        !client
-            .whatsapp_registered(&c, &account.token)
-            .await
-            .unwrap()
+    assert_eq!(
+        client.phone_registration(&c, &account.token).await.unwrap(),
+        PhoneRegistration::Unavailable
     );
     for (code, expected) in [
         (133005, "registration_pin_incorrect"),
@@ -435,20 +445,13 @@ async fn platform_signup_verifies_mode_and_registration_uses_only_the_documented
         client.register_whatsapp(&c, &account.token, &pin).await,
         RegistrationResult::Accepted
     ));
-    assert!(
-        client
-            .whatsapp_registered(&c, &account.token)
-            .await
-            .unwrap()
+    assert_eq!(
+        client.phone_registration(&c, &account.token).await.unwrap(),
+        PhoneRegistration::Registered
     );
     server.state.coexistence.store(true, Ordering::SeqCst);
     assert!(client.authorize(Provider::Whatsapp, &input).await.is_err());
-    assert!(
-        client
-            .whatsapp_registered(&c, &account.token)
-            .await
-            .is_err()
-    );
+    assert!(client.phone_registration(&c, &account.token).await.is_err());
     assert!(RegistrationPin::try_from("12 456".to_owned()).is_err());
 }
 
@@ -481,8 +484,14 @@ async fn bsuid_and_phone_destinations_are_distinct_and_both_require_the_develope
         .prepare_reply(&c, &token, &conversation, &text(), None)
         .await
         .unwrap();
+    assert_eq!(prepared.provider_document["recipient"], "US.A");
+    assert!(prepared.provider_document.get("to").is_none());
+    conversation.customer_id = "15550000001".to_owned().try_into().unwrap();
+    let prepared = client
+        .prepare_reply(&c, &token, &conversation, &text(), None)
+        .await
+        .unwrap();
     assert_eq!(prepared.provider_document["to"], "15550000001");
-    assert!(prepared.provider_document.get("recipient").is_none());
     conversation.customer_phone = Some("15550000002".into());
     assert!(
         client
@@ -506,4 +515,40 @@ fn invalid_pin_types_never_echo_secret_values_in_deserialization_errors() {
         .err()
         .unwrap();
     assert!(!error.to_string().contains("123456"));
+}
+
+#[tokio::test]
+async fn registration_http_rejection_does_not_depend_on_json_but_uncertainty_is_preserved() {
+    let server = server().await;
+    let client = client(&server);
+    let c = connection(Provider::Whatsapp);
+    let token = AccessToken::new("fixture".into()).unwrap();
+    let pin = RegistrationPin::try_from("123456".to_owned()).unwrap();
+    for status in [400, 401, 403] {
+        server
+            .state
+            .registration_http
+            .store(status, Ordering::SeqCst);
+        assert!(matches!(
+            client.register_whatsapp(&c, &token, &pin).await,
+            RegistrationResult::Rejected(_)
+        ));
+    }
+    for status in [200, 408, 503] {
+        server
+            .state
+            .registration_http
+            .store(status, Ordering::SeqCst);
+        assert!(matches!(
+            client.register_whatsapp(&c, &token, &pin).await,
+            RegistrationResult::Unknown
+        ));
+    }
+    for status in ["FLAGGED", "RESTRICTED", "UNKNOWN_FUTURE_STATUS"] {
+        assert_eq!(
+            registration::phone_registration(&json!({"status":status,"platform_type":"CLOUD_API"}))
+                .unwrap(),
+            PhoneRegistration::Unavailable
+        );
+    }
 }

@@ -63,12 +63,10 @@ through a feature-owned reply source. Native Channel consumes one interaction
 state: internal, external, loading or error. Provider content is normalized into
 plain text and validated supplied links before native rendering; private files,
 source-scoped revisions retain their existing owning-domain paths.
-Queued requests retain intent hashes, IDs and v1 draft keys. The unshipped feature
-migrations are consolidated in `20261006193219_native_meta_messaging.sql`; validate
-a fresh isolated database before deployment. Connection history projections,
-stored standard-window deadlines and event-publication timestamps are removed;
-explicit import jobs, last-customer activity and revision fences remain the source
-of truth. Generated API/SDK contracts change with those fields.
+Queued requests retain intent hashes and IDs. Explicit import jobs, last-customer
+activity and revision fences are the source of truth for history, reply windows
+and native recovery. API errors return a stable `code` and a sanitized `message`;
+clients select recovery copy by code.
 
 ## Account and team model
 
@@ -106,7 +104,9 @@ Connection-scoped identity rows and aliases preserve native channel IDs, externa
 author IDs, messages and pending revisions. Authoritative pairs reconcile earlier
 phone-only facts; conflicting BSUIDs or two materialized histories are rejected.
 Names and usernames never join identities. Retired phones resolve only late facts
-at or before retirement and cannot restore obsolete routing. The dispatch fence
+strictly before retirement and cannot restore obsolete routing. Phone-only facts
+at a reassignment boundary are ambiguous; authoritative system-edge replays remain
+idempotent. The dispatch fence
 compares both customer ID and phone under the same account lock as identity updates;
 a changed destination retries preparation before any external send.
 
@@ -116,16 +116,17 @@ for history threads, and `recipient_user_id` for statuses. BSUID changes are sys
 messages on the existing `messages` subscription (`user_changed_number` or
 `user_changed_user_id`, with `previous_user_id` and `user_id`). There is no separate
 subscribable `user_id_update` field. Legacy phone-only payloads remain supported.
-Sending uses `to` for a verified phone, otherwise `recipient` for a BSUID; Meta
+Sending prefers `recipient` for a BSUID and uses `to` for phone-only customers; Meta
 error 131062 explains account availability rather than inventing a phone. Both
 routes use the local developer allowlist.
 
-Platform signup verifies the selected WABA/phone, token scopes, `CLOUD_API` and
-`is_on_biz_app=false` server-side. Credentials are encrypted before registration.
-Settings then requests the six-digit PIN in an ephemeral password field; it is
+Platform signup verifies the selected WABA/phone, token scopes and
+`is_on_biz_app=false` server-side, and excludes On-Premises migration. Credentials are encrypted before registration.
+When the server confirms registration is required, Settings requests the six-digit
+PIN in an ephemeral password field; it is
 excluded from drafts, mutation caches, logs, URLs and durable work. The registration
 endpoint checks current manager/connector membership and Meta status before an
-attempt. Uncertain attempts stay pending until a status check confirms registration;
+attempt. Uncertain attempts require a fresh provider check before an explicit retry;
 they are never automatically repeated. Known PIN failures permit correction; a
 133016 response imposes a fresh 72-hour cooldown. Maintenance and sends use the
 same registration/readiness policy, so subscription success alone cannot activate
@@ -137,13 +138,24 @@ dated 14-day registration guidance and its ten-attempts-per-72-hours limit. Curr
 and account eligibility remain the authority. No new number is registered by local
 setup or workers; registration requires an explicit user PIN submission.
 
+Only `CONNECTED` with `CLOUD_API` is verified as ready in the current provider
+adapter. Other phone states are unavailable for registration until an authoritative
+unregistered-state contract is established; `PENDING` or an unknown platform value
+is not treated as permission to register. Verified account credentials are retained
+for reconciliation. The domain supports explicit retry after a positive
+unregistered result, but current live evidence covers the registered test number
+only. Platform signup rejects Business-app and On-Premises migration accounts.
+
+A new authoritative customer BSUID/phone pair may transfer a recycled phone's
+routing association without merging conversations. Late BSUID events retain their
+original customer; ambiguous phone-only facts before a transfer boundary fail
+without attribution. Permanent identity conflicts stop automatic retry; connection
+generation and lease races remain recoverable.
+
 ## Development isolation
 
-Use a named local stack and a fresh messaging-only database. The user identified
-this task's isolated demo data as disposable and confirmed the feature migrations
-have not reached a shared database. Its database may be recreated while preserving
-source and controlled-account configuration. This does not authorize resetting
-other task environments, shared databases or Meta accounts.
+Use a named local stack and a fresh isolated database. Preserve other tasks'
+services, shared data and Meta account configuration.
 See [running locally](development/running-locally.md) for stack setup and port allocation.
 
 ## Meta setup dependencies
@@ -330,7 +342,7 @@ original durable enqueue time. The fence uses database time after acquiring the
 account lock. The UI shows **Not sent**, and **Edit and retry** restores the draft
 with a new intent key. A dispatch marker is authorization to attempt a request,
 not evidence of provider receipt: a crash after that marker remains Unknown.
-A claim that crashed before its dispatch marker can retry. There is no rolling-upgrade compatibility for this unshipped feature.
+A claim that crashed before its dispatch marker can retry.
 Definitive rate-limit retries keep the original deadline. Expiry never applies
 to accepted or uncertain work.
 
@@ -339,7 +351,7 @@ replicas. Pending retries block later replies in that conversation. Acceptance,
 definitive failure, expiry, or a settled uncertain outcome releases it; no
 optional delivered/read event is required. A crashed uncertain attempt settles
 when its five-minute lease expires. Receipt and send drivers each drain four
-local slots. Account fairness caps and global claim locks are removed: a busy account may occupy all worker slots. The FIFO predicate still excludes a locked pending/sending predecessor across replicas. Different accounts within a receipt progress with bounded concurrency. Worker tasks use DSS’s tracker and cancellation token, stop claiming on shutdown and drain active work.
+local slots. A busy account may occupy all worker slots. The FIFO predicate still excludes a locked pending/sending predecessor across replicas. Different accounts within a receipt progress with bounded concurrency. Worker tasks use DSS’s tracker and cancellation token, stop claiming on shutdown and drain active work.
 No provider/media request is made inside a claim/fence transaction.
 
 Each webhook item is decoded independently. A receipt records its decode-failure
@@ -363,9 +375,7 @@ The existing bucket's `temp/` one-day lifecycle is additional protection. These
 objects are outside the native document bucket and its event consumers.
 WhatsApp still uploads authorized bytes directly.
 
-The cleanup ledger remains because equivalent lifecycle coverage has not been
-established for every configurable attachment bucket, including versioned copies.
-The dedicated attachment staging route also remains: ordinary channel uploads
+Attachment staging is deliberately private: ordinary channel uploads
 send images/videos through static storage and normal document creation inherits
 the team's default link sharing. That API cannot request the staging path's exact
 private initial share without unrelated document API changes. Messaging staging
