@@ -73,9 +73,16 @@ export function bindSessionIdentity(
   subscribe: (onChange: () => void) => () => void
 ): () => void {
   readIdentity = read;
+  let last = read();
   bumpIdentity(0);
   notifyWaiters();
+  // The source fires for events that leave the identity unchanged (observer
+  // option updates among them). Re-gating every query on those feeds the
+  // events back in, so only a real change reaches the signal.
   return subscribe(() => {
+    const next = read();
+    if (next === last) return;
+    last = next;
     bumpIdentity(0);
     notifyWaiters();
   });

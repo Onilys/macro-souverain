@@ -1,10 +1,14 @@
 import { publishRefreshOutcome } from '@core/auth/refresh-outcome';
 import { sessionStatus } from '@core/auth/session';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render, waitFor } from '@solidjs/testing-library';
+import { QueryClientProvider, useQuery } from '@tanstack/solid-query';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { authKeys } from './auth/keys';
 import { queryClient } from './client';
+import { establishesSession } from './session-gate';
 
 afterEach(() => {
+  cleanup();
   publishRefreshOutcome('reset');
   queryClient.clear();
 });
@@ -50,5 +54,37 @@ describe('app queryClient session binding', () => {
       staleTime: 0,
     });
     expect(sessionStatus()).toBe('signed-in');
+  });
+
+  it('settles when user-info fails with other queries mounted', async () => {
+    const userInfo = vi.fn(async (): Promise<{ authenticated: boolean }> => {
+      throw new Error('400');
+    });
+    const other = vi.fn(async () => 'public');
+    let renders = 0;
+    function View() {
+      useQuery(() => ({
+        queryKey: authKeys.userInfo.queryKey,
+        queryFn: userInfo,
+        retry: false,
+        meta: establishesSession,
+      }));
+      const doc = useQuery(() => ({
+        queryKey: ['public-doc'],
+        queryFn: other,
+      }));
+      return <>{(renders++, doc.status)}</>;
+    }
+    render(() => (
+      <QueryClientProvider client={queryClient}>
+        <View />
+        <View />
+      </QueryClientProvider>
+    ));
+
+    await waitFor(() => expect(userInfo).toHaveBeenCalledOnce());
+    await waitFor(() => expect(other).toHaveBeenCalledOnce());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(renders).toBeLessThan(10);
   });
 });
