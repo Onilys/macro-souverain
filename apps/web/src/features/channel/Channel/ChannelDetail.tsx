@@ -32,6 +32,7 @@ import { ENABLE_CALLS } from '@core/constant/featureFlags';
 import {
   useChannel,
   useChannelCanCall,
+  useChannelMessagingBinding,
   useChannelName,
   useChannelType,
 } from '@core/context/channels';
@@ -103,6 +104,7 @@ type ChannelDetailHeaderProps = {
 export function ChannelDetailTitle(props: ChannelDetailHeaderProps) {
   const channelName = useChannelName(props.channelId, props.fallbackName);
   const channelType = useChannelType(props.channelId);
+  const messagingBinding = useChannelMessagingBinding(props.channelId);
   const participantsQuery = useChannelParticipantsQuery(() => props.channelId);
   const participants = () =>
     participantsQuery.isSuccess ? (participantsQuery.data ?? []) : [];
@@ -111,7 +113,7 @@ export function ChannelDetailTitle(props: ChannelDetailHeaderProps) {
     <div class="ph-no-capture flex min-w-0 shrink items-center gap-2">
       <ChannelMessagingIdentity
         channelId={props.channelId}
-        channelType={channelType()}
+        binding={messagingBinding()}
       >
         <ChannelTopIcon
           channelId={props.channelId}
@@ -161,7 +163,7 @@ export function ChannelDetailActions(props: ChannelDetailHeaderProps) {
   const call = useCall(() => props.channelId);
   const messaging = createChannelInteraction({
     channelId: () => props.channelId,
-    channelType,
+    binding: useChannelMessagingBinding(props.channelId),
   });
   const callsAllowed = () =>
     channelCallsAllowed(messaging.interaction(), !!channel()?.agent_dm);
@@ -269,10 +271,9 @@ function ChannelDetailContent(props: ChannelDetailProps) {
   const conversationChannel = useChannel(channelId);
   const canCall = useChannelCanCall(channelId);
   const channelName = useChannelName(channelId, props.fallbackName);
-  const channelType = useChannelType(channelId);
   const messaging = createChannelInteraction({
     channelId: () => channelId,
-    channelType,
+    binding: useChannelMessagingBinding(channelId),
   });
   const callsAllowed = () =>
     channelCallsAllowed(

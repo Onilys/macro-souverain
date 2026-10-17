@@ -7,6 +7,7 @@
 
 import type { ApiChannelParticipant } from './apiChannelParticipant';
 import type { ChannelType } from './channelType';
+import type { MessagingBinding } from './messagingBinding';
 
 /**
  * Channel detail: metadata and active participants.
@@ -20,6 +21,8 @@ export interface ApiChannelDetail {
   channel_name: string;
   /** Channel type. */
   channel_type: ChannelType;
+  /** Authoritative external binding. */
+  messaging_binding: MessagingBinding;
   /** Active participants. */
   participants: ApiChannelParticipant[];
 }

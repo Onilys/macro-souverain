@@ -15263,6 +15263,139 @@
         }
       }
     },
+    "/meta/channels/{channel_id}/group": {
+      "delete": {
+        "tags": ["groups"],
+        "operationId": "meta_delete_group",
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/meta/channels/{channel_id}/group/discard": {
+      "post": {
+        "tags": ["groups"],
+        "operationId": "meta_discard_group_setup",
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/meta/channels/{channel_id}/group/link": {
+      "get": {
+        "tags": ["groups"],
+        "operationId": "meta_group_link",
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaGroupInviteLink"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/meta/channels/{channel_id}/group/participants/{participant_id}": {
+      "delete": {
+        "tags": ["groups"],
+        "operationId": "meta_remove_group_participant",
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "participant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/meta/channels/{channel_id}/group/retry": {
+      "post": {
+        "tags": ["groups"],
+        "operationId": "meta_retry_group",
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaGroupSetup"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/meta/channels/{channel_id}/replies": {
       "post": {
         "tags": [],
@@ -15395,6 +15528,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DisconnectResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/meta/connections/{connection_id}/groups": {
+      "post": {
+        "tags": ["groups"],
+        "operationId": "meta_create_group",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetaCreateGroup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaGroupSetup"
                 }
               }
             }
@@ -18302,156 +18474,6 @@
           }
         }
       }
-    },
-    "/meta/channels/{channel_id}/group/discard": {
-      "post": {
-        "tags": ["groups"],
-        "operationId": "meta_discard_group_setup",
-        "parameters": [
-          {
-            "name": "channel_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/meta/channels/{channel_id}/group/link": {
-      "get": {
-        "tags": ["groups"],
-        "operationId": "meta_group_link",
-        "parameters": [
-          {
-            "name": "channel_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetaGroupInviteLink"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/meta/channels/{channel_id}/group/participants/{participant_id}": {
-      "delete": {
-        "tags": ["groups"],
-        "operationId": "meta_remove_group_participant",
-        "parameters": [
-          {
-            "name": "channel_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "participant_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/meta/channels/{channel_id}/group/retry": {
-      "post": {
-        "tags": ["groups"],
-        "operationId": "meta_retry_group",
-        "parameters": [
-          {
-            "name": "channel_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetaGroupSetup"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/meta/connections/{connection_id}/groups": {
-      "post": {
-        "tags": ["groups"],
-        "operationId": "meta_create_group",
-        "parameters": [
-          {
-            "name": "connection_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MetaCreateGroup"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetaGroupSetup"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -19396,6 +19418,7 @@
         "type": "object",
         "description": "Channel detail: metadata and active participants.\n\nMessages are read through `/messages/channel/{channel_id}`.",
         "required": [
+          "messaging_binding",
           "channel_id",
           "channel_type",
           "channel_name",
@@ -19414,6 +19437,10 @@
           "channel_type": {
             "$ref": "#/components/schemas/ChannelType",
             "description": "Channel type."
+          },
+          "messaging_binding": {
+            "$ref": "#/components/schemas/MessagingBinding",
+            "description": "Authoritative external binding."
           },
           "participants": {
             "type": "array",
@@ -19560,6 +19587,7 @@
         "type": "object",
         "description": "Channel list response item.",
         "required": [
+          "messaging_binding",
           "id",
           "channel_type",
           "auto_join_team",
@@ -19634,6 +19662,10 @@
                 "description": "Latest top-level non-thread message."
               }
             ]
+          },
+          "messaging_binding": {
+            "$ref": "#/components/schemas/MessagingBinding",
+            "description": "Authoritative external binding, including pending provider group setup."
           },
           "name": {
             "type": ["string", "null"],
@@ -21811,6 +21843,7 @@
         "type": "object",
         "description": "Channel metadata in soup payloads.",
         "required": [
+          "messaging_binding",
           "id",
           "channel_type",
           "created_at",
@@ -21831,6 +21864,10 @@
             "type": "string",
             "format": "uuid",
             "description": "Channel id."
+          },
+          "messaging_binding": {
+            "$ref": "#/components/schemas/MessagingBinding",
+            "description": "Authoritative external binding, including pending group setup."
           },
           "name": {
             "type": ["string", "null"],
@@ -33085,6 +33122,16 @@
         ],
         "description": "Lifecycle events for the common message service, one per committed fact.\nReactions and typing never reach the topic."
       },
+      "MessagingBinding": {
+        "type": "string",
+        "description": "Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.",
+        "enum": [
+          "native",
+          "whatsapp_direct",
+          "instagram_direct",
+          "whatsapp_group"
+        ]
+      },
       "MetaBeginAuthorization": {
         "type": "object",
         "description": "Browser OAuth initiation result. State is scoped to the authenticated initiator.",
@@ -33321,6 +33368,11 @@
           }
         }
       },
+      "MetaConversationKind": {
+        "type": "string",
+        "description": "Provider destination namespace, independent of an individual author.",
+        "enum": ["direct", "group"]
+      },
       "MetaConversationResponse": {
         "type": "object",
         "description": "Optional messaging metadata for an ordinary native channel.",
@@ -33434,6 +33486,22 @@
           }
         }
       },
+      "MetaCreateGroup": {
+        "type": "object",
+        "description": "Human request to create a private native channel and its WhatsApp group.",
+        "required": ["channel_id", "subject"],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-retained native identity, also used after a lost HTTP response."
+          },
+          "subject": {
+            "type": "string",
+            "description": "WhatsApp subject (1–128 characters)."
+          }
+        }
+      },
       "MetaDeliveryState": {
         "type": "string",
         "description": "Observed outbound state. Unknown outcomes require reconciliation, not resend.",
@@ -33447,6 +33515,148 @@
           "read",
           "failed"
         ]
+      },
+      "MetaGroupInviteLink": {
+        "type": "object",
+        "description": "Link returned only through the explicit authorized operation.",
+        "required": ["invite_link"],
+        "properties": {
+          "invite_link": {
+            "type": "string",
+            "description": "Validated Meta invite URL."
+          }
+        }
+      },
+      "MetaGroupParticipant": {
+        "type": "object",
+        "description": "Confirmed external participant, independent of native teammate membership.",
+        "required": ["external_sender_id", "customer_id"],
+        "properties": {
+          "customer_id": {
+            "$ref": "#/components/schemas/MetaProviderId",
+            "description": "Current scoped BSUID or legacy phone."
+          },
+          "display_name": {
+            "type": ["string", "null"],
+            "description": "Optional provider display name."
+          },
+          "external_sender_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable native external author across departure and identity updates."
+          },
+          "phone": {
+            "type": ["string", "null"],
+            "description": "Separately supplied phone."
+          },
+          "username": {
+            "type": ["string", "null"],
+            "description": "Optional mutable username."
+          }
+        }
+      },
+      "MetaGroupSetup": {
+        "type": "object",
+        "description": "Public pending binding; never contains a speculative remote group ID/link.",
+        "required": ["channel_id", "connection_id", "subject", "state"],
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Native identity, reserved before provider I/O."
+          },
+          "connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Selected business connection."
+          },
+          "error_code": {
+            "type": ["string", "null"],
+            "description": "Sanitized diagnostic."
+          },
+          "state": {
+            "$ref": "#/components/schemas/MetaGroupSetupState",
+            "description": "Current creation outcome."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Native owner's requested subject."
+          }
+        }
+      },
+      "MetaGroupSetupState": {
+        "type": "string",
+        "description": "State of the current, unbound create attempt only.",
+        "enum": ["creating", "pending", "failed", "unknown"]
+      },
+      "MetaGroupStatus": {
+        "type": "string",
+        "description": "Monotonic remote lifecycle; deletion cannot be cleared by a later status.",
+        "enum": ["active", "suspended", "deleted"]
+      },
+      "MetaGroupView": {
+        "type": "object",
+        "description": "Restricted group controls and participants; invite link is fetched separately.",
+        "required": [
+          "channel_id",
+          "participants",
+          "can_retry",
+          "can_copy_link",
+          "can_remove",
+          "can_delete"
+        ],
+        "properties": {
+          "can_copy_link": {
+            "type": "boolean",
+            "description": "Native posting permission and business team membership."
+          },
+          "can_delete": {
+            "type": "boolean",
+            "description": "Native ownership and business team membership."
+          },
+          "can_remove": {
+            "type": "boolean",
+            "description": "Native participant admin permission and team membership."
+          },
+          "can_retry": {
+            "type": "boolean",
+            "description": "Current connector and owner may deliberately retry creation."
+          },
+          "channel_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Native identity."
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetaGroupParticipant"
+            },
+            "description": "Confirmed current participants."
+          },
+          "setup": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MetaGroupSetup",
+                "description": "Present until a signed matching create result binds the group."
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MetaGroupStatus",
+                "description": "Authoritative remote availability after binding."
+              }
+            ]
+          }
+        }
       },
       "MetaHistoryImport": {
         "type": "object",
@@ -42500,173 +42710,6 @@
         "properties": {
           "id": {
             "type": "string"
-          }
-        }
-      },
-      "MetaConversationKind": {
-        "type": "string",
-        "description": "Provider destination namespace, independent of an individual author.",
-        "enum": ["direct", "group"]
-      },
-      "MetaCreateGroup": {
-        "type": "object",
-        "description": "Human request to create a private native channel and its WhatsApp group.",
-        "required": ["channel_id", "subject"],
-        "properties": {
-          "channel_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Client-retained native identity, also used after a lost HTTP response."
-          },
-          "subject": {
-            "type": "string",
-            "description": "WhatsApp subject (1–128 characters)."
-          }
-        }
-      },
-      "MetaGroupInviteLink": {
-        "type": "object",
-        "description": "Link returned only through the explicit authorized operation.",
-        "required": ["invite_link"],
-        "properties": {
-          "invite_link": {
-            "type": "string",
-            "description": "Validated Meta invite URL."
-          }
-        }
-      },
-      "MetaGroupParticipant": {
-        "type": "object",
-        "description": "Confirmed external participant, independent of native teammate membership.",
-        "required": ["external_sender_id", "customer_id", "active"],
-        "properties": {
-          "active": {
-            "type": "boolean",
-            "description": "Latest confirmed membership, never inferred from a local request."
-          },
-          "customer_id": {
-            "$ref": "#/components/schemas/MetaProviderId",
-            "description": "Current scoped BSUID or legacy phone."
-          },
-          "display_name": {
-            "type": ["string", "null"],
-            "description": "Optional provider display name."
-          },
-          "external_sender_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Stable native external author across departure and identity updates."
-          },
-          "phone": {
-            "type": ["string", "null"],
-            "description": "Separately supplied phone."
-          },
-          "username": {
-            "type": ["string", "null"],
-            "description": "Optional mutable username."
-          }
-        }
-      },
-      "MetaGroupSetup": {
-        "type": "object",
-        "description": "Public pending binding; never contains a speculative remote group ID/link.",
-        "required": ["channel_id", "connection_id", "subject", "state"],
-        "properties": {
-          "channel_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Native identity, reserved before provider I/O."
-          },
-          "connection_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Selected business connection."
-          },
-          "error_code": {
-            "type": ["string", "null"],
-            "description": "Sanitized diagnostic."
-          },
-          "state": {
-            "$ref": "#/components/schemas/MetaGroupSetupState",
-            "description": "Current creation outcome."
-          },
-          "subject": {
-            "type": "string",
-            "description": "Native owner's requested subject."
-          }
-        }
-      },
-      "MetaGroupSetupState": {
-        "type": "string",
-        "description": "State of the current, unbound create attempt only.",
-        "enum": ["creating", "pending", "failed", "unknown"]
-      },
-      "MetaGroupStatus": {
-        "type": "string",
-        "description": "Monotonic remote lifecycle; deletion cannot be cleared by a later status.",
-        "enum": ["active", "suspended", "deleted"]
-      },
-      "MetaGroupView": {
-        "type": "object",
-        "description": "Restricted group controls and participants; invite link is fetched separately.",
-        "required": [
-          "channel_id",
-          "participants",
-          "can_retry",
-          "can_copy_link",
-          "can_remove",
-          "can_delete"
-        ],
-        "properties": {
-          "can_copy_link": {
-            "type": "boolean",
-            "description": "Native posting permission and business team membership."
-          },
-          "can_delete": {
-            "type": "boolean",
-            "description": "Native ownership and business team membership."
-          },
-          "can_remove": {
-            "type": "boolean",
-            "description": "Native participant admin permission and team membership."
-          },
-          "can_retry": {
-            "type": "boolean",
-            "description": "Current connector and owner may deliberately retry creation."
-          },
-          "channel_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Native identity."
-          },
-          "participants": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MetaGroupParticipant"
-            },
-            "description": "Confirmed current participants."
-          },
-          "setup": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MetaGroupSetup",
-                "description": "Present until a signed matching create result binds the group."
-              }
-            ]
-          },
-          "status": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MetaGroupStatus",
-                "description": "Authoritative remote availability after binding."
-              }
-            ]
           }
         }
       }

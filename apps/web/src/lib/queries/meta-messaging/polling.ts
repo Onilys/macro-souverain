@@ -52,3 +52,13 @@ export function connectionPollInterval(
     ? 3_000
     : false;
 }
+
+/** A late signed result remains observable after setup leaves its fast phase. */
+export function groupPollInterval(
+  state: string | undefined,
+  failed = false
+): number {
+  return !failed && (state === 'creating' || state === 'pending')
+    ? 2_000
+    : 30_000;
+}

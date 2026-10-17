@@ -3,7 +3,11 @@ import { useCall } from '@channel/Call/use-call';
 import { isNativeIosCallKitEnabled } from '@channel/Call/use-callkit';
 import type { TabItem } from '@core/component/Tabs';
 import { ENABLE_CALLS } from '@core/constant/featureFlags';
-import { useChannel, useChannelType } from '@core/context/channels';
+import {
+  useChannel,
+  useChannelMessagingBinding,
+  useChannelType,
+} from '@core/context/channels';
 import { useActiveCallQuery } from '@queries/call/call';
 import { ChannelType } from '@service-storage/generated/schemas/channelType';
 import type { Accessor } from 'solid-js';
@@ -46,7 +50,7 @@ export function useChannelTabItems(channelId: string): Accessor<TabItem[]> {
   const channelType = useChannelType(channelId);
   const interaction = createChannelInteraction({
     channelId: () => channelId,
-    channelType,
+    binding: useChannelMessagingBinding(channelId),
   });
   const callsAllowed = () =>
     channelCallsAllowed(interaction.interaction(), !!channel()?.agent_dm);

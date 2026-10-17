@@ -46,6 +46,7 @@ import { ENABLE_CALLS } from '@core/constant/featureFlags';
 import {
   useChannel,
   useChannelActivity,
+  useChannelMessagingBinding,
   useChannelName,
   useChannelType,
 } from '@core/context/channels';
@@ -289,7 +290,7 @@ export function Channel(props: ChannelProps) {
   const channelType = useChannelType(props.channelId);
   const messaging = createChannelMessaging({
     channelId: () => props.channelId,
-    channelType,
+    binding: useChannelMessagingBinding(props.channelId),
     messages,
     entries: () =>
       messageIndex.entries.map((entry) => ({

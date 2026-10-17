@@ -1,6 +1,9 @@
 import type { DateValue } from '@core/util/date';
 import { useChannelsActivityQuery } from '@queries/channel/activity';
-import { useListChannelsQuery } from '@queries/channel/channels';
+import {
+  useChannelMetadataQuery,
+  useListChannelsQuery,
+} from '@queries/channel/channels';
 import { queryReadyGate } from '@queries/gate';
 import type { ApiChannelWithLatest } from '@service-storage/channel-list-types';
 import { ChannelTypeEnum } from '@service-storage/client';
@@ -84,6 +87,18 @@ export function useChannelCanCall(
 export function useChannelName(channelId: string, fallback?: string) {
   const ctx = useChannelsContext();
   return createMemo(() => ctx.channelsById()[channelId]?.name ?? fallback);
+}
+
+/** Undefined means native metadata has not loaded; it never implies ordinary. */
+export function useChannelMessagingBinding(channelId: string) {
+  const channel = useChannel(channelId);
+  const metadata = useChannelMetadataQuery(
+    () => channelId,
+    () => !channel()?.messaging_binding
+  );
+  return () =>
+    channel()?.messaging_binding ??
+    (queryReadyGate(metadata) ? metadata.data.messaging_binding : undefined);
 }
 
 export function useChannelType(channelId: string) {

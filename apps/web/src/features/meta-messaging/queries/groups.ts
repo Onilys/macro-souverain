@@ -1,12 +1,21 @@
+import { useChannelsContext } from '@core/context/channels';
+import { useUserId } from '@core/context/user';
+import { writeClipboardData } from '@core/util/dataTransfer';
 import { throwOnErr } from '@core/util/result';
 import { invalidateListChannels } from '@queries/channel/channels';
+import { queryReadyGate } from '@queries/gate';
 import { useMetaBinding } from '@queries/meta-messaging';
 import { metaMessagingKeys } from '@queries/meta-messaging/keys';
-import { storageServiceClient } from '@service-storage/client';
 import type { MetaCreateGroup as CreateGroup } from '@service-storage/generated/schemas/metaCreateGroup';
 import { metaMessagingClient } from '@service-storage/meta-messaging';
 import { useMutation, useQueryClient } from '@tanstack/solid-query';
-import type { Accessor } from 'solid-js';
+import {
+  type Accessor,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+} from 'solid-js';
 
 export function useCreateWhatsappGroup() {
   return useMutation(() => ({
@@ -23,7 +32,47 @@ export function useCreateWhatsappGroup() {
 
 export function useWhatsappGroup(channelId: Accessor<string>) {
   const client = useQueryClient();
-  const binding = useMetaBinding(channelId);
+  const channels = useChannelsContext();
+  const channel = () => channels.channelsById()[channelId()];
+  const user = useUserId();
+  const binding = useMetaBinding(
+    channelId,
+    () => channel()?.messaging_binding === 'whatsapp_group'
+  );
+  const group = () =>
+    queryReadyGate(binding) ? binding.data.group : undefined;
+  const [link, setLink] = createSignal<string>();
+  const [linkError, setLinkError] = createSignal(false);
+  const [linkRequest, requestLink] = createSignal(0);
+  // Capability URLs live only in this component owner. A mobile copy gesture
+  // must call the native clipboard primitive before any network await.
+  const accessScope = createMemo(
+    () =>
+      `${channelId()}:${user() ?? ''}:${!!group()?.can_copy_link && !binding.isError}`
+  );
+  createEffect(() => {
+    accessScope();
+    const id = channelId();
+    const viewer = user();
+    const allowed = accessScope().endsWith(':true');
+    linkRequest();
+    setLink(undefined);
+    setLinkError(false);
+    let current = true;
+    onCleanup(() => {
+      current = false;
+      setLink(undefined);
+    });
+    if (!viewer || !allowed) return;
+    void throwOnErr(() => metaMessagingClient.groupLink(id)).then(
+      ({ invite_link }) => {
+        if (current) setLink(invite_link);
+      },
+      () => {
+        if (current) setLinkError(true);
+      }
+    );
+  });
   const refresh = () => {
     void client.invalidateQueries({
       queryKey: metaMessagingKeys.conversation(channelId()).queryKey,
@@ -38,10 +87,11 @@ export function useWhatsappGroup(channelId: Accessor<string>) {
   const copy = useMutation(() => ({
     gcTime: 0,
     mutationFn: async () => {
-      const { invite_link } = await throwOnErr(() =>
-        metaMessagingClient.groupLink(channelId())
-      );
-      await navigator.clipboard.writeText(invite_link);
+      const invite = link();
+      if (!invite || !group()?.can_copy_link || binding.isError)
+        throw new Error('Link unavailable');
+      if (!(await writeClipboardData({ 'text/plain': invite })))
+        throw new Error('Copy failed');
     },
   }));
   const remove = useMutation(() => ({
@@ -54,21 +104,22 @@ export function useWhatsappGroup(channelId: Accessor<string>) {
   }));
   const destroy = useMutation(() => ({
     retry: false,
-    mutationFn: async (discard: boolean) => {
-      if (discard)
-        await throwOnErr(() => metaMessagingClient.discardGroup(channelId()));
-      else
-        await throwOnErr(() =>
-          storageServiceClient.deleteChannel({ channel_id: channelId() })
-        );
+    mutationFn: async ({ id, discard }: { id: string; discard: boolean }) => {
+      if (discard) await throwOnErr(() => metaMessagingClient.discardGroup(id));
+      else await throwOnErr(() => metaMessagingClient.deleteGroup(id));
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
+      if (id === channelId()) setLink(undefined);
       void invalidateListChannels();
     },
   }));
   return {
     binding,
-    group: () => binding.data?.group,
+    group,
+    linkReady: () => !!link(),
+    linkError,
+    refreshLink: () => requestLink((value) => value + 1),
     retry,
     copy,
     remove,

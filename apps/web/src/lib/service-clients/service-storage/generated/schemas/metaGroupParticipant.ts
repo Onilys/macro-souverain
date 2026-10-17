@@ -14,8 +14,6 @@ import type { MetaProviderId } from './metaProviderId';
  * Confirmed external participant, independent of native teammate membership.
  */
 export interface MetaGroupParticipant {
-  /** Latest confirmed membership, never inferred from a local request. */
-  active: boolean;
   /** Current scoped BSUID or legacy phone. */
   customer_id: MetaProviderId;
   /** Optional provider display name. */

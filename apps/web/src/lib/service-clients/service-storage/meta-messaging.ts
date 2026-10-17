@@ -67,6 +67,11 @@ export const metaMessagingClient = {
       `/meta/channels/${encodeURIComponent(id)}/group/retry`,
       json({})
     ),
+  deleteGroup: (id: string) =>
+    metaFetch<Record<string, never>>(
+      `/meta/channels/${encodeURIComponent(id)}/group`,
+      { method: 'DELETE' }
+    ),
   groupLink: (id: string) =>
     metaFetch<GroupInviteLink>(
       `/meta/channels/${encodeURIComponent(id)}/group/link`

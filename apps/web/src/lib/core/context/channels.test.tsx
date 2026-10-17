@@ -6,9 +6,10 @@ import { cleanup, render } from '@solidjs/testing-library';
 import { createStore } from 'solid-js/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ channels: vi.fn() }));
+const mocks = vi.hoisted(() => ({ channels: vi.fn(), native: vi.fn() }));
 vi.mock('@queries/channel/channels', () => ({
   useListChannelsQuery: mocks.channels,
+  useChannelMetadataQuery: mocks.native,
 }));
 vi.mock('@queries/channel/activity', () => ({
   useChannelsActivityQuery: () => ({
@@ -19,7 +20,11 @@ vi.mock('@queries/channel/activity', () => ({
 }));
 vi.mock('./user', () => ({ useUserId: () => () => undefined }));
 
-import { ChannelsContextProvider, useChannelCanCall } from './channels';
+import {
+  ChannelsContextProvider,
+  useChannelCanCall,
+  useChannelMessagingBinding,
+} from './channels';
 
 afterEach(() => {
   cleanup();
@@ -78,4 +83,38 @@ describe('useChannelCanCall', () => {
     setList({ loading: false, channels: [{ id: 'other' }] });
     expect(value()).toBe('true');
   });
+});
+
+it('waits for authoritative native metadata for channels absent from the participant list', () => {
+  const [native, setNative] = createStore<{
+    isPending: boolean;
+    data?: {
+      messaging_binding: string;
+    };
+  }>({ isPending: true });
+  mocks.native.mockReturnValue(native);
+  mocks.channels.mockReturnValue({
+    isPending: false,
+    isLoading: false,
+    data: [],
+  });
+  function Binding() {
+    const binding = useChannelMessagingBinding('team');
+    return <output>{binding() ?? 'waiting'}</output>;
+  }
+  const view = render(() => (
+    <ChannelsContextProvider>
+      <Binding />
+    </ChannelsContextProvider>
+  ));
+  expect(view.getByRole('status').textContent).toBe('waiting');
+  expect(mocks.native.mock.calls[0][0]()).toBe('team');
+  expect(mocks.native.mock.calls[0][1]()).toBe(true);
+  setNative({
+    isPending: false,
+    data: {
+      messaging_binding: 'native',
+    },
+  });
+  expect(view.getByRole('status').textContent).toBe('native');
 });

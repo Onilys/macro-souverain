@@ -3,6 +3,7 @@ import {
   bindingRetryInterval,
   connectionPollInterval,
   deliveryPollInterval,
+  groupPollInterval,
 } from './polling';
 
 const now = Date.parse('2026-10-12T05:00:00Z');
@@ -102,4 +103,12 @@ it('stops account polling after a failed refresh even when stale data still says
       true
     )
   ).toBe(false);
+});
+
+it('fast group polling stops on uncertainty or failure but still observes late binding', () => {
+  for (const state of ['creating', 'pending'])
+    expect(groupPollInterval(state)).toBe(2_000);
+  for (const state of ['unknown', 'failed', undefined])
+    expect(groupPollInterval(state)).toBe(30_000);
+  expect(groupPollInterval('pending', true)).toBe(30_000);
 });

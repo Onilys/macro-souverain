@@ -94,7 +94,7 @@ const account = (sends = [send()]): MetaConversationView => ({
 });
 function setup(
   initial?: MetaConversationView | null,
-  channelType: string | undefined = 'private'
+  nativeBinding: string | undefined = 'whatsapp_direct'
 ) {
   return createRoot((cleanup) => {
     dispose = cleanup;
@@ -106,7 +106,7 @@ function setup(
     const [messages, setMessages] = createSignal<MessageData[]>([]);
     const state = createChannelMessaging({
       channelId,
-      channelType: () => channelType,
+      binding: () => nativeBinding,
       messages,
       entries: () =>
         messages().map((message) => ({
@@ -196,9 +196,9 @@ it('uses one safe interaction contract across unknown, internal and external bin
   expect(state.interaction().kind).toBe('error');
   setError(false);
   setAccount(null);
-  expect(state.interaction().kind).toBe('internal');
+  expect(state.interaction().kind).toBe('error');
   setError(true);
-  expect(state.interaction().kind).toBe('internal');
+  expect(state.interaction().kind).toBe('error');
   setError(false);
   setAccount(account());
   expect(state.interaction().kind).toBe('external');
@@ -213,24 +213,25 @@ it('uses one safe interaction contract across unknown, internal and external bin
 });
 
 it('keeps a cached internal binding when a remounted channel cannot refresh it', () => {
-  const { state, setError } = setup(null);
+  const { state, setError } = setup(null, 'native');
   setError(true);
   dispose();
-  const remounted = setup(null);
+  const remounted = setup(null, 'native');
   remounted.setError(true);
   expect(remounted.state.interaction().kind).toBe('internal');
   expect(state.interaction().kind).toBe('internal');
 });
 
 it('never makes direct messages or public channels depend on messaging lookups', () => {
-  for (const type of ['direct_message', 'public']) {
-    const { state, setError } = setup(undefined, type);
+  for (const _type of ['private', 'team', 'direct_message', 'public']) {
+    const { state, setError } = setup(undefined, 'native');
     setError(true);
     expect(state.interaction().kind).toBe('internal');
     expect(state.account()).toBeUndefined();
     dispose();
   }
-  const { state } = setup(undefined, 'team');
+  const { state, setError } = setup(undefined, '');
+  setError(true);
   expect(state.interaction().kind).toBe('loading');
 });
 
@@ -249,7 +250,7 @@ it('pending groups never expose an ordinary internal composer', () => {
     can_remove: false,
     can_delete: true,
   });
-  const { state } = setup(null);
+  const { state } = setup(null, 'whatsapp_group');
   expect(state.interaction().kind).toBe('group_setup');
   expect(state.account()).toBeUndefined();
 });

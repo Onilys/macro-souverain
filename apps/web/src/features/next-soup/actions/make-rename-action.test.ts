@@ -2,17 +2,7 @@ import { openBulkEditModal } from '@app/features/entity/bulk-edit/BulkEditEntity
 import type { EntityData } from '@entity';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const binding = vi.hoisted(() => ({
-  known: false,
-  canRename: vi.fn(async () => true),
-}));
-vi.mock('@queries/meta-messaging', () => ({
-  isKnownWhatsappGroup: () => binding.known,
-  canRenameNativeChannel: binding.canRename,
-}));
 beforeEach(() => {
-  binding.known = false;
-  binding.canRename.mockReset().mockResolvedValue(true);
   vi.mocked(openBulkEditModal).mockClear();
 });
 
@@ -42,6 +32,7 @@ const channel = (
 ) =>
   entity('channel', {
     channelType: 'private',
+    messagingBinding: 'native',
     ...overrides,
   });
 
@@ -121,11 +112,17 @@ describe('makeRenameAction.canExecute', () => {
   });
 });
 
-it('hides known group rename and refuses to open an editor for an unvisited group', async () => {
-  binding.known = true;
-  expect(canExecute(channel())).toBe(false);
-  binding.known = false;
-  binding.canRename.mockResolvedValue(false);
-  await makeRenameAction({ userId: () => ME }).execute([channel()]);
+it('uses native metadata for rename with no messaging lookup', async () => {
+  const action = makeRenameAction({ userId: () => ME });
+  for (const messagingBinding of ['whatsapp_group', undefined] as const) {
+    const group = channel({ messagingBinding });
+    expect(canExecute(group)).toBe(false);
+    await action.execute([group]);
+  }
   expect(openBulkEditModal).not.toHaveBeenCalled();
+  await action.execute([channel()]);
+  expect(openBulkEditModal).toHaveBeenCalledOnce();
+  expect(canExecute(channel({ messagingBinding: 'whatsapp_direct' }))).toBe(
+    true
+  );
 });

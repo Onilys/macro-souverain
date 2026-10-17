@@ -69,6 +69,7 @@ import { ENABLE_CALLS } from '@core/constant/featureFlags';
 import {
   useChannel,
   useChannelCanCall,
+  useChannelMessagingBinding,
   useChannelName,
   useChannelType,
 } from '@core/context/channels';
@@ -133,9 +134,10 @@ function NewTop(props: { channelId: string }) {
   const { activeTab, setActiveTab } = useChannelTab();
   const channelName = useChannelName(props.channelId);
   const channelType = useChannelType(props.channelId);
+  const binding = useChannelMessagingBinding(props.channelId);
   const messaging = createChannelInteraction({
     channelId: () => props.channelId,
-    channelType,
+    binding,
   });
   const callsAllowed = () =>
     channelCallsAllowed(messaging.interaction(), !!channel()?.agent_dm);
@@ -167,6 +169,7 @@ function NewTop(props: { channelId: string }) {
       name: ch.name ?? 'New Channel',
       blockName: 'channel',
       channelType: ch.channel_type,
+      messagingBinding: ch.messaging_binding,
       ownerId: ch.owner_id,
       isParticipant: participantsQuery.isSuccess
         ? (participantsQuery.data ?? []).some(
@@ -210,9 +213,7 @@ function NewTop(props: { channelId: string }) {
         channelType={channelType()!}
         participants={participants() ?? []}
         channelName={channelName() ?? 'New Channel'}
-        lockRename={
-          messaging.interaction().kind === 'group_setup' || !!messaging.group()
-        }
+        lockRename={!binding() || binding() === 'whatsapp_group'}
         tabs={tabs()}
         activeTab={activeTab()}
         onTabChange={setActiveTab}
@@ -417,10 +418,9 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
     !isOpenCallTabRequested(searchParams[CHANNEL_URL_PARAMS.openCallTab]) &&
     !hasInitialTargetRequest();
 
-  const channelType = useChannelType(channelId);
   const messaging = createChannelInteraction({
     channelId: () => channelId,
-    channelType,
+    binding: useChannelMessagingBinding(channelId),
   });
   const callsAllowed = () =>
     channelCallsAllowed(

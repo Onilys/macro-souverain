@@ -3488,6 +3488,11 @@ export const getChannelResponse = zod
     channel_type: zod
       .enum(['public', 'private', 'direct_message', 'team'])
       .describe('Type of channel.'),
+    messaging_binding: zod
+      .enum(['native', 'whatsapp_direct', 'instagram_direct', 'whatsapp_group'])
+      .describe(
+        'Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.'
+      ),
     participants: zod
       .array(
         zod
@@ -4046,6 +4051,16 @@ export const getChannelsResponse = zod
                   .describe('Channel message in API responses.'),
               ])
               .optional(),
+            messaging_binding: zod
+              .enum([
+                'native',
+                'whatsapp_direct',
+                'instagram_direct',
+                'whatsapp_group',
+              ])
+              .describe(
+                'Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.'
+              ),
             name: zod.string().nullish().describe('Channel name.'),
             org_id: zod
               .number()
@@ -24916,6 +24931,16 @@ export const getItemsSoupResponse = zod
                         .datetime({})
                         .describe('Creation timestamp.'),
                       id: zod.uuid().describe('Channel id.'),
+                      messaging_binding: zod
+                        .enum([
+                          'native',
+                          'whatsapp_direct',
+                          'instagram_direct',
+                          'whatsapp_group',
+                        ])
+                        .describe(
+                          'Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.'
+                        ),
                       name: zod
                         .string()
                         .nullish()
@@ -29559,6 +29584,16 @@ export const postItemsSoupResponse = zod
                         .datetime({})
                         .describe('Creation timestamp.'),
                       id: zod.uuid().describe('Channel id.'),
+                      messaging_binding: zod
+                        .enum([
+                          'native',
+                          'whatsapp_direct',
+                          'instagram_direct',
+                          'whatsapp_group',
+                        ])
+                        .describe(
+                          'Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.'
+                        ),
                       name: zod
                         .string()
                         .nullish()
@@ -33676,6 +33711,16 @@ export const postItemsSoupAstResponse = zod
                         .datetime({})
                         .describe('Creation timestamp.'),
                       id: zod.uuid().describe('Channel id.'),
+                      messaging_binding: zod
+                        .enum([
+                          'native',
+                          'whatsapp_direct',
+                          'instagram_direct',
+                          'whatsapp_group',
+                        ])
+                        .describe(
+                          'Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.'
+                        ),
                       name: zod
                         .string()
                         .nullish()
@@ -38138,6 +38183,16 @@ export const postItemsSoupAstGroupedResponse = zod
                               .datetime({})
                               .describe('Creation timestamp.'),
                             id: zod.uuid().describe('Channel id.'),
+                            messaging_binding: zod
+                              .enum([
+                                'native',
+                                'whatsapp_direct',
+                                'instagram_direct',
+                                'whatsapp_group',
+                              ])
+                              .describe(
+                                'Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.'
+                              ),
                             name: zod
                               .string()
                               .nullish()
@@ -42236,6 +42291,16 @@ export const postItemsSoupAstGroupedResponse = zod
                               .datetime({})
                               .describe('Creation timestamp.'),
                             id: zod.uuid().describe('Channel id.'),
+                            messaging_binding: zod
+                              .enum([
+                                'native',
+                                'whatsapp_direct',
+                                'instagram_direct',
+                                'whatsapp_group',
+                              ])
+                              .describe(
+                                'Authoritative external binding, including an unbound provider group setup.\nNative authorization always reads this from storage, never from a client.'
+                              ),
                             name: zod
                               .string()
                               .nullish()
@@ -48110,11 +48175,6 @@ export const metaConversationResponse = zod
               .array(
                 zod
                   .object({
-                    active: zod
-                      .boolean()
-                      .describe(
-                        'Latest confirmed membership, never inferred from a local request.'
-                      ),
                     customer_id: zod
                       .string()
                       .describe(
@@ -48746,6 +48806,49 @@ export const metaMessageDeliveryResponse = zod.array(
   metaMessageDeliveryResponseItem
 );
 
+export const metaDeleteGroupParams = zod.object({
+  channel_id: zod.uuid(),
+});
+
+export const metaDiscardGroupSetupParams = zod.object({
+  channel_id: zod.uuid(),
+});
+
+export const metaGroupLinkParams = zod.object({
+  channel_id: zod.uuid(),
+});
+
+export const metaGroupLinkResponse = zod
+  .object({
+    invite_link: zod.string().describe('Validated Meta invite URL.'),
+  })
+  .describe('Link returned only through the explicit authorized operation.');
+
+export const metaRemoveGroupParticipantParams = zod.object({
+  channel_id: zod.uuid(),
+  participant_id: zod.uuid(),
+});
+
+export const metaRetryGroupParams = zod.object({
+  channel_id: zod.uuid(),
+});
+
+export const metaRetryGroupResponse = zod
+  .object({
+    channel_id: zod
+      .uuid()
+      .describe('Native identity, reserved before provider I\/O.'),
+    connection_id: zod.uuid().describe('Selected business connection.'),
+    error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
+    state: zod
+      .enum(['creating', 'pending', 'failed', 'unknown'])
+      .describe('State of the current, unbound create attempt only.'),
+    subject: zod.string().describe("Native owner's requested subject."),
+  })
+  .describe(
+    'Public pending binding; never contains a speculative remote group ID\/link.'
+  );
+
 export const metaReplyParams = zod.object({
   channel_id: zod.uuid(),
 });
@@ -49139,6 +49242,39 @@ export const metaDisconnectResponse = zod
   })
   .describe(
     'Disconnect outcome; removing one phone must preserve a shared WABA subscription.'
+  );
+
+export const metaCreateGroupParams = zod.object({
+  connection_id: zod.uuid(),
+});
+
+export const metaCreateGroupBody = zod
+  .object({
+    channel_id: zod
+      .uuid()
+      .describe(
+        'Client-retained native identity, also used after a lost HTTP response.'
+      ),
+    subject: zod.string().describe('WhatsApp subject (1–128 characters).'),
+  })
+  .describe(
+    'Human request to create a private native channel and its WhatsApp group.'
+  );
+
+export const metaCreateGroupResponse = zod
+  .object({
+    channel_id: zod
+      .uuid()
+      .describe('Native identity, reserved before provider I\/O.'),
+    connection_id: zod.uuid().describe('Selected business connection.'),
+    error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
+    state: zod
+      .enum(['creating', 'pending', 'failed', 'unknown'])
+      .describe('State of the current, unbound create attempt only.'),
+    subject: zod.string().describe("Native owner's requested subject."),
+  })
+  .describe(
+    'Public pending binding; never contains a speculative remote group ID\/link.'
   );
 
 export const metaHistoryParams = zod.object({
@@ -54964,75 +55100,3 @@ export const validateWebhookResponse = zod
     webhook_id: zod.string(),
   })
   .describe('Sanitized result of validating a webhook endpoint.');
-
-export const metaDiscardGroupSetupParams = zod.object({
-  channel_id: zod.uuid(),
-});
-
-export const metaGroupLinkParams = zod.object({
-  channel_id: zod.uuid(),
-});
-
-export const metaGroupLinkResponse = zod
-  .object({
-    invite_link: zod.string().describe('Validated Meta invite URL.'),
-  })
-  .describe('Link returned only through the explicit authorized operation.');
-
-export const metaRemoveGroupParticipantParams = zod.object({
-  channel_id: zod.uuid(),
-  participant_id: zod.uuid(),
-});
-
-export const metaRetryGroupParams = zod.object({
-  channel_id: zod.uuid(),
-});
-
-export const metaRetryGroupResponse = zod
-  .object({
-    channel_id: zod
-      .uuid()
-      .describe('Native identity, reserved before provider I\/O.'),
-    connection_id: zod.uuid().describe('Selected business connection.'),
-    error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
-    state: zod
-      .enum(['creating', 'pending', 'failed', 'unknown'])
-      .describe('State of the current, unbound create attempt only.'),
-    subject: zod.string().describe("Native owner's requested subject."),
-  })
-  .describe(
-    'Public pending binding; never contains a speculative remote group ID\/link.'
-  );
-
-export const metaCreateGroupParams = zod.object({
-  connection_id: zod.uuid(),
-});
-
-export const metaCreateGroupBody = zod
-  .object({
-    channel_id: zod
-      .uuid()
-      .describe(
-        'Client-retained native identity, also used after a lost HTTP response.'
-      ),
-    subject: zod.string().describe('WhatsApp subject (1–128 characters).'),
-  })
-  .describe(
-    'Human request to create a private native channel and its WhatsApp group.'
-  );
-
-export const metaCreateGroupResponse = zod
-  .object({
-    channel_id: zod
-      .uuid()
-      .describe('Native identity, reserved before provider I\/O.'),
-    connection_id: zod.uuid().describe('Selected business connection.'),
-    error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
-    state: zod
-      .enum(['creating', 'pending', 'failed', 'unknown'])
-      .describe('State of the current, unbound create attempt only.'),
-    subject: zod.string().describe("Native owner's requested subject."),
-  })
-  .describe(
-    'Public pending binding; never contains a speculative remote group ID\/link.'
-  );

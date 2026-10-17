@@ -52,14 +52,6 @@ export type ConversationAccount = {
   };
 };
 
-/**
- * Customer conversations are created as private channels and may later become
- * team channels. Direct messages and public channels never carry a binding.
- */
-export function mayHaveExternalBinding(channelType: string | undefined) {
-  return channelType !== 'direct_message' && channelType !== 'public';
-}
-
 /** Unknown bindings fail closed; known internal channels retain native behavior. */
 export type ChannelInteraction =
   | { kind: 'internal' }

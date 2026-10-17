@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   expect as baseExpect,
@@ -42,6 +42,11 @@ test('native channels and external messaging preserve composition, recovery, and
   page.setDefaultNavigationTimeout(90000);
   const errors: string[] = [];
   const unknown = new Set<string>();
+  const metaRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.includes('/meta/'))
+      metaRequests.push(request.url());
+  });
   page.on('pageerror', (error) => errors.push(error.message));
   const gateways = new Set<WebSocketRoute>();
   await page.routeWebSocket('**/*', (socket) => {
@@ -78,6 +83,7 @@ test('native channels and external messaging preserve composition, recovery, and
   let groupRemovalFails = true;
   let groupDeleteCalls = 0;
   let groupCreateCalls = 0;
+  let loseCreateResponse = true;
   let activeUser = USER_ID;
   let denied = false;
   let bindingError = false;
@@ -261,6 +267,12 @@ test('native channels and external messaging preserve composition, recovery, and
       name: channel.name,
       displayName: channel.name,
       channelType: 'private',
+      messagingBinding:
+        channel.id === groupChannelId
+          ? 'whatsapp_group'
+          : channel.provider
+            ? `${channel.provider}_direct`
+            : 'native',
       ownerId: activeUser,
       organizationId: null,
       teamId: null,
@@ -340,7 +352,7 @@ test('native channels and external messaging preserve composition, recovery, and
       path === '/' ||
       path.endsWith('.wasm')
     )
-      return route.fulfill({ response: await route.fetch() });
+      return route.continue();
     if (path === '/auth/team' && showSettings)
       return respond({
         team: {
@@ -370,6 +382,14 @@ test('native channels and external messaging preserve composition, recovery, and
         channel_id: string;
         subject: string;
       };
+      if (groupChannelId === input.channel_id && group) {
+        assert.equal(
+          input.subject,
+          group.setup?.subject,
+          'an uncertain create retains its subject'
+        );
+        return respond(group.setup);
+      }
       groupCreateCalls++;
       groupChannelId = input.channel_id;
       channels.push({
@@ -393,6 +413,10 @@ test('native channels and external messaging preserve composition, recovery, and
         can_remove: false,
         can_delete: true,
       };
+      if (loseCreateResponse) {
+        loseCreateResponse = false;
+        return route.abort('failed');
+      }
       return respond(group.setup);
     }
     if (group && path === `/dss/meta/channels/${groupChannelId}/group/link`)
@@ -411,10 +435,11 @@ test('native channels and external messaging preserve composition, recovery, and
     }
     if (
       group &&
-      path === `/dss/channels/${groupChannelId}` &&
+      path === `/dss/meta/channels/${groupChannelId}/group` &&
       request.method() === 'DELETE'
     ) {
       groupDeleteCalls++;
+      // A stale list must not keep the confirmed-deleted channel open.
       return respond({ message: 'deleted' });
     }
     if (path === '/dss/meta/connections')
@@ -462,6 +487,19 @@ test('native channels and external messaging preserve composition, recovery, and
         variableValues: body.variables,
         operationName: body.operationName,
         rootValue: {
+          renameEntities: ({
+            inputs,
+          }: {
+            inputs: { entity: { id: string }; displayName: string }[];
+          }) => ({
+            results: inputs.map((input) => {
+              const channel = channels.find(
+                (channel) => channel.id === input.entity.id
+              )!;
+              channel.name = input.displayName;
+              return { __typename: 'GraphqlMutationSuccess', effects: [] };
+            }),
+          }),
           updateNotifications: ({
             input,
           }: {
@@ -651,6 +689,12 @@ test('native channels and external messaging preserve composition, recovery, and
           id: channel.id,
           name: channel.name,
           channel_type: 'private',
+          messaging_binding:
+            channel.id === groupChannelId
+              ? 'whatsapp_group'
+              : channel.provider
+                ? `${channel.provider}_direct`
+                : 'native',
           owner_id: activeUser,
           created_at: time(0),
           updated_at: new Date().toISOString(),
@@ -714,6 +758,33 @@ test('native channels and external messaging preserve composition, recovery, and
     }
     if (/^\/dss\/messages\/channel\/[^/]+\/typing$/.test(path))
       return respond({});
+    const channelDetail = path.match(/^\/dss\/channels\/([^/]+)$/);
+    if (channelDetail && request.method() === 'GET') {
+      const channel = channels.find(
+        (channel) => channel.id === channelDetail[1]
+      );
+      if (!channel) return respond({}, 404);
+      return respond({
+        channel_id: channel.id,
+        channel_name: channel.name,
+        channel_type: 'private',
+        messaging_binding:
+          channel.id === groupChannelId
+            ? 'whatsapp_group'
+            : channel.provider
+              ? `${channel.provider}_direct`
+              : 'native',
+        participants: [
+          {
+            channel_id: channel.id,
+            user_id: activeUser,
+            role: 'owner',
+            joined_at: time(0),
+            left_at: null,
+          },
+        ],
+      });
+    }
     const participants = path.match(/^\/dss\/channels\/([^/]+)\/participants$/);
     if (participants)
       return respond([
@@ -806,6 +877,43 @@ test('native channels and external messaging preserve composition, recovery, and
           .locator('[data-channel-message-list]')
           .getByText('Native browser reply', { exact: true })
       ).toHaveCount(1);
+    });
+    await test.step('ordinary participants and rename make zero messaging requests', async () => {
+      await page.getByText('Participants', { exact: true }).first().click();
+      await expect(
+        page.getByText('WhatsApp participants', { exact: true })
+      ).toHaveCount(0);
+      await page
+        .getByRole('button', { name: 'Channel actions', exact: true })
+        .click();
+      await page.getByRole('menuitem', { name: /^Rename(?:\s|$)/ }).click();
+      await page
+        .getByRole('textbox', { name: 'Name', exact: true })
+        .fill('Renamed native conversation');
+      await page
+        .getByRole('button', { name: 'Save name', exact: true })
+        .click();
+      await expect(page.getByText('Rename item', { exact: true })).toHaveCount(
+        0
+      );
+      await page
+        .getByRole('button', { name: 'Create channel', exact: true })
+        .click();
+      await expect(
+        page.getByText('Create a WhatsApp group', { exact: true })
+      ).toBeVisible();
+      await page.getByRole('button', { name: 'Close', exact: true }).click();
+      assert.deepEqual(
+        metaRequests,
+        [],
+        'ordinary channel open/participants/rename must not request /meta/*'
+      );
+      const networkLog = testInfo.outputPath('ordinary-channel-network.json');
+      writeFileSync(networkLog, JSON.stringify(metaRequests));
+      await testInfo.attach('ordinary-channel-network.json', {
+        path: networkLog,
+        contentType: 'application/json',
+      });
     });
     await test.step('external replies and native row reconciliation', async () => {
       await open(`${channels[1].id}?join_call=true&open_call_tab=true`);
@@ -1110,6 +1218,22 @@ test('native channels and external messaging preserve composition, recovery, and
       await expect(
         page.getByText('Private WhatsApp group', { exact: false })
       ).toBeVisible();
+      // Group-only settings must not overwrite the ordinary creation choices.
+      await page.getByRole('button', { name: 'Back', exact: true }).click();
+      await page.getByText('Create a WhatsApp group', { exact: true }).click();
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
+      await expect(page.getByRole('radio', { name: /Team/ })).toBeChecked();
+      await page.getByRole('button', { name: 'Back', exact: true }).click();
+      await page.getByText('Create a WhatsApp group', { exact: true }).click();
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
+      await page.getByRole('button', { name: 'Create', exact: true }).click();
+      await expect(page.getByRole('alert')).toContainText('group setup');
+      await page.getByRole('button', { name: 'Back', exact: true }).click();
+      await expect(page.getByLabel('Name', { exact: true })).toBeDisabled();
+      await expect(page.getByLabel('Name', { exact: true })).toHaveValue(
+        'Browser WhatsApp project'
+      );
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
       await page.getByRole('button', { name: 'Create', exact: true }).click();
       await expect(
         page.getByText('Waiting for WhatsApp to confirm this group…')
@@ -1126,7 +1250,6 @@ test('native channels and external messaging preserve composition, recovery, and
           customer_id: 'US.GROUP',
           display_name: 'Group Customer',
           username: 'group.customer',
-          active: true,
         },
       ];
       const incoming = message(
@@ -1160,6 +1283,13 @@ test('native channels and external messaging preserve composition, recovery, and
       await expect(
         page.getByText('Convert to team channel', { exact: false })
       ).toHaveCount(0);
+      await page
+        .getByRole('button', { name: 'Channel actions', exact: true })
+        .click();
+      await expect(
+        page.getByRole('menuitem', { name: /^Rename(?:\s|$)/ })
+      ).toHaveCount(0);
+      await page.keyboard.press('Escape');
       await page
         .getByRole('button', { name: 'Delete WhatsApp group', exact: true })
         .click();
@@ -1251,13 +1381,45 @@ test('native channels and external messaging preserve composition, recovery, and
           .getByRole('radio', { name: 'Participants', exact: true })
           .click();
       }
+      await page
+        .getByRole('radiogroup', { name: 'Channel participants', exact: true })
+        .getByText('WhatsApp', { exact: true })
+        .click();
       await expect(
         page.getByText('WhatsApp participants', { exact: true })
       ).toBeInViewport();
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      await page
+        .getByRole('button', { name: 'Copy WhatsApp invite link', exact: true })
+        .click();
+      await expect(
+        page.getByRole('button', { name: 'Invite link copied', exact: true })
+      ).toBeVisible();
+      assert.equal(
+        await page.evaluate(() => navigator.clipboard.readText()),
+        'https://chat.whatsapp.com/fixture'
+      );
       await expect(
         page.getByText('Group Customer', { exact: true })
       ).toBeVisible();
-      await expect(page.locator('[aria-label="File actions"]')).toBeHidden();
+      const scrollingAncestors = await page
+        .getByText('Group Customer', { exact: true })
+        .evaluate((element) => {
+          let count = 0;
+          for (
+            let parent = element.parentElement;
+            parent;
+            parent = parent.parentElement
+          )
+            if (['auto', 'scroll'].includes(getComputedStyle(parent).overflowY))
+              count++;
+          return count;
+        });
+      assert.equal(
+        scrollingAncestors,
+        1,
+        'mobile participants has one scrolling owner'
+      );
       await page.screenshot({
         animations: 'disabled',
         path: testInfo.outputPath('whatsapp-group-mobile.png'),
@@ -1276,13 +1438,21 @@ test('native channels and external messaging preserve composition, recovery, and
       await page
         .getByRole('button', { name: 'Delete WhatsApp group', exact: true })
         .click();
+      const deleted = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'DELETE' &&
+          new URL(response.url()).pathname ===
+            `/dss/meta/channels/${groupChannelId}/group`
+      );
       await page
         .getByRole('button', { name: 'Delete group for everyone', exact: true })
         .click();
-      await expect(
-        page.getByText('Group deleted.', { exact: true })
-      ).toBeVisible();
+      await deleted;
       assert.equal(groupDeleteCalls, 1);
+      await expect(
+        page.getByText('WhatsApp participants', { exact: true })
+      ).toHaveCount(0);
+      await expect(page).not.toHaveURL(new RegExp(groupChannelId));
     });
     assert.deepEqual(errors, []);
     assert.deepEqual([...unknown], []);

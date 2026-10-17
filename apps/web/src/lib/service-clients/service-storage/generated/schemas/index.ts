@@ -1263,6 +1263,7 @@ export * from './messageTimelineQueryAround';
 export * from './messageTimelineQueryCursor';
 export * from './messageTimelineQueryLimit';
 export * from './messageTriggeredBy';
+export * from './messagingBinding';
 export * from './metaBeginAuthorization';
 export * from './metaBeginAuthorizationBrowserTransaction';
 export * from './metaCompleteAuthorization';

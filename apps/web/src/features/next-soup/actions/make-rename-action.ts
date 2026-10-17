@@ -1,10 +1,6 @@
 import { openBulkEditModal } from '@app/features/entity/bulk-edit/BulkEditEntityModal';
 import { toast } from '@core/component/Toast/Toast';
 import type { EntityData } from '@entity';
-import {
-  canRenameNativeChannel,
-  isKnownWhatsappGroup,
-} from '@queries/meta-messaging';
 import { restoreSoupFocus } from '../utils';
 import type { EntityActionListState } from './entity-action-context';
 
@@ -31,7 +27,8 @@ export const makeRenameAction = (options: MakeRenameOptions) => {
     if (entity.type === 'channel') {
       if (
         entity.channelType === 'direct_message' ||
-        isKnownWhatsappGroup(entity.id)
+        entity.messagingBinding === 'whatsapp_group' ||
+        !entity.messagingBinding
       )
         return false;
       return entity.isParticipant !== false;
@@ -40,31 +37,8 @@ export const makeRenameAction = (options: MakeRenameOptions) => {
     return entity.ownerId === userId();
   };
 
-  const mayOpen = async (entities: EntityData[]) => {
-    try {
-      const decisions = await Promise.all(
-        entities
-          .filter(
-            (entity) =>
-              entity.type === 'channel' && entity.channelType !== 'public'
-          )
-          .map((entity) => canRenameNativeChannel(entity.id))
-      );
-      if (decisions.some((allowed) => !allowed)) {
-        toast.failure(
-          'WhatsApp controls this group name. Rename it in WhatsApp.'
-        );
-        return false;
-      }
-      return true;
-    } catch {
-      toast.failure('Could not check channel settings. Try again.');
-      return false;
-    }
-  };
-
   const execute = async (entities: EntityData[]) => {
-    if (!(await mayOpen(entities))) return;
+    if (!entities.every(canExecute)) return;
     openBulkEditModal({
       view: 'rename',
       entities,
@@ -80,7 +54,7 @@ export const makeRenameAction = (options: MakeRenameOptions) => {
     entities: EntityData[],
     soup: EntityActionListState
   ) => {
-    if (!(await mayOpen(entities))) return;
+    if (!entities.every(canExecute)) return;
     const firstEntity = entities[0];
 
     openBulkEditModal({

@@ -2,16 +2,15 @@ import { queryReadyGate } from '@queries/gate';
 import { useMetaConversation } from '@queries/meta-messaging';
 import { type JSX, Show } from 'solid-js';
 import { CustomerIdentity } from '../components/customer-identity';
-import { mayHaveExternalBinding } from '../core/conversation';
 
 export function ChannelMessagingIdentity(props: {
   channelId: string;
-  channelType: string | undefined;
+  binding: string | undefined;
   children: JSX.Element;
 }) {
   const query = useMetaConversation(
     () => props.channelId,
-    () => mayHaveExternalBinding(props.channelType)
+    () => !!props.binding && props.binding !== 'native'
   );
   const account = () => (queryReadyGate(query) ? query.data : undefined);
   return (

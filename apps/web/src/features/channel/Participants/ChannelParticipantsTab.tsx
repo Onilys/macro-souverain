@@ -11,6 +11,7 @@ import {
   useAddParticipantsMutation,
   useRemoveParticipantsMutation,
 } from '@queries/channel/participants';
+import { queryReadyGate } from '@queries/gate';
 import { useMetaBinding } from '@queries/meta-messaging';
 import { useCurrentTeamQuery } from '@queries/team/teams';
 import { ChannelType } from '@service-storage/generated/schemas/channelType';
@@ -36,8 +37,12 @@ export function ChannelParticipantsTab(props: {
   const userId = useUserId();
   const channel = useChannel(props.channelId);
   const channelType = useChannelType(props.channelId);
-  const binding = useMetaBinding(() => props.channelId);
-  const group = () => binding.data?.group;
+  const binding = useMetaBinding(
+    () => props.channelId,
+    () => channel()?.messaging_binding === 'whatsapp_group'
+  );
+  const group = () =>
+    queryReadyGate(binding) ? binding.data.group : undefined;
   const participantsQuery = useChannelParticipantsQuery(() => props.channelId);
   const currentTeamQuery = useCurrentTeamQuery();
   const patchChannelMutation = usePatchChannelMutation();
@@ -65,8 +70,8 @@ export function ChannelParticipantsTab(props: {
       : (channel()?.auto_join_team ?? false);
   };
   const supportsTeamSettings = () =>
-    binding.isSuccess &&
-    !group() &&
+    !!channel()?.messaging_binding &&
+    channel()?.messaging_binding !== 'whatsapp_group' &&
     (channelType() === ChannelType.private ||
       channelType() === ChannelType.public ||
       channelType() === ChannelType.team);
@@ -228,7 +233,9 @@ export function ChannelParticipantsTab(props: {
                 </div>
               </Panel.Body>
             </Panel>
-            <WhatsappGroupControls channelId={props.channelId} />
+            <Show when={group()}>
+              <WhatsappGroupControls channelId={props.channelId} />
+            </Show>
             <Show when={props.botManagementEnabled}>{bots()}</Show>
           </div>
         </div>
@@ -238,7 +245,11 @@ export function ChannelParticipantsTab(props: {
         peopleLabel={group() ? 'Macro teammates' : undefined}
         externalPeople={
           group()
-            ? () => <WhatsappGroupControls channelId={props.channelId} />
+            ? () => (
+                <Show when={group()}>
+                  <WhatsappGroupControls channelId={props.channelId} />
+                </Show>
+              )
             : undefined
         }
         search={() => (

@@ -1,6 +1,11 @@
+import { isRecord } from '@app/lib/split-router';
+import { channelDetailRoute, homeChannelRoute } from '@app/routes/routes';
+import { globalSplitManager } from '@app/signal/splitLayout';
+import { globalRemoveFromSplitHistory } from '@components/app/split-layout/layoutUtils';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { Button, ConfirmDialog, confirmDialog, Panel } from '@ui';
-import { createSignal, For, Show } from 'solid-js';
-import { messagingError } from '../core/delivery';
+import { createSignal, For, onCleanup, Show } from 'solid-js';
+import { groupError } from '../core/group';
 import { useWhatsappGroup } from '../queries/groups';
 
 /** Existing Participants surface hosts external people; controls never add phone numbers. */
@@ -12,6 +17,10 @@ export function WhatsappGroupControls(props: {
   const [deleting, setDeleting] = createSignal<'discard' | 'delete'>();
   const [removing, setRemoving] = createSignal<string>();
   const [removedRequest, setRemovedRequest] = createSignal<string>();
+  let mounted = true;
+  onCleanup(() => {
+    mounted = false;
+  });
   const setup = () => source.group()?.setup;
   const removalError =
     'Could not confirm the removal request. Check the participant list before retrying.';
@@ -19,7 +28,7 @@ export function WhatsappGroupControls(props: {
     'The channel could not be deleted. It is still available so you can retry.';
   const error = () =>
     source.retry.error
-      ? messagingError(source.retry.error.message, 'whatsapp')
+      ? groupError(source.retry.error.message)
       : source.copy.error
         ? 'Could not copy the invite link. Try again.'
         : source.remove.error
@@ -39,10 +48,48 @@ export function WhatsappGroupControls(props: {
       return;
     source.retry.mutate();
   };
+  const destroy = async () => {
+    const id = props.channelId;
+    try {
+      await source.destroy.mutateAsync({
+        id,
+        discard: deleting() === 'discard',
+      });
+    } catch {
+      // The mutation exposes the error and leaves the channel available.
+      return;
+    }
+    if (mounted && props.channelId === id) setDeleting(undefined);
+    // This continuation survives leaving Participants while deletion is pending.
+    const manager = globalSplitManager();
+    if (manager)
+      globalRemoveFromSplitHistory(manager, (entry) => {
+        if (entry.type === 'channel' && entry.id === id) return true;
+        // Routed channel details retain the list shell's id in SplitContent.
+        const metadata = isRecord(entry.entryMetadata)
+          ? entry.entryMetadata
+          : undefined;
+        const route = isRecord(metadata?.route) ? metadata.route : undefined;
+        return (
+          Array.isArray(route?.matches) &&
+          route.matches.some(
+            (match) =>
+              isRecord(match) &&
+              (match.id === channelDetailRoute.id ||
+                match.id === homeChannelRoute.id) &&
+              isRecord(match.params) &&
+              match.params.channelId === id
+          )
+        );
+      });
+  };
   return (
     <Show when={source.group()}>
       {(group) => (
-        <Panel depth={2} class="h-auto max-h-96 shrink-0 text-ink">
+        <Panel
+          depth={2}
+          class="h-auto max-h-96 shrink-0 text-ink touch:max-h-none"
+        >
           <Panel.Header class="flex-wrap justify-between gap-2 px-6 py-2">
             <h3 class="text-sm font-semibold">
               {setup() ? 'WhatsApp group setup' : 'WhatsApp participants'}
@@ -51,16 +98,28 @@ export function WhatsappGroupControls(props: {
               <Button
                 variant="outline"
                 class="min-h-11"
-                disabled={source.copy.isPending}
-                onClick={() => source.copy.mutate()}
+                disabled={
+                  source.copy.isPending ||
+                  (!source.linkReady() && !source.linkError())
+                }
+                onClick={() =>
+                  source.linkError()
+                    ? source.refreshLink()
+                    : source.copy.mutate()
+                }
               >
-                {source.copy.isSuccess
-                  ? 'Invite link copied'
-                  : 'Copy WhatsApp invite link'}
+                {source.linkError()
+                  ? 'Retry invite link'
+                  : source.copy.isSuccess
+                    ? 'Invite link copied'
+                    : 'Copy WhatsApp invite link'}
               </Button>
             </Show>
           </Panel.Header>
-          <Panel.Body scroll class="px-6 py-3">
+          <Panel.Body
+            scroll={!isTouchDevice()}
+            class="px-6 py-3 touch:overflow-visible"
+          >
             <Show
               when={!source.destroy.isSuccess}
               fallback={
@@ -76,13 +135,15 @@ export function WhatsappGroupControls(props: {
                       {pending().state === 'unknown'
                         ? 'Could not confirm creation'
                         : pending().state === 'failed'
-                          ? 'WhatsApp could not create this group.'
+                          ? groupError(pending().error_code)
                           : 'Waiting for WhatsApp to confirm this group…'}
                     </p>
                     <Show when={pending().state === 'unknown'}>
                       <p class="text-sm text-ink-muted">
-                        The earlier attempt may have left an unused remote
-                        group. Creation will not repeat automatically.
+                        The account’s group callback setup may be incomplete.
+                        The earlier attempt may have created a group; check
+                        setup before retrying. Creation will not repeat
+                        automatically.
                       </p>
                     </Show>
                     <Show when={group().can_retry}>
@@ -118,14 +179,25 @@ export function WhatsappGroupControls(props: {
                 <Show
                   when={group().participants.length > 0}
                   fallback={
-                    <p class="py-2 text-sm text-ink-muted">
-                      No one has joined yet — share the invite link.
-                    </p>
+                    <Show
+                      when={
+                        group().can_copy_link && group().status === 'active'
+                      }
+                      fallback={
+                        <p class="py-2 text-sm text-ink-muted">
+                          No participants to display.
+                        </p>
+                      }
+                    >
+                      <p class="py-2 text-sm text-ink-muted">
+                        No one has joined yet — share the invite link.
+                      </p>
+                    </Show>
                   }
                 >
                   <ul
                     aria-label="WhatsApp participants"
-                    class="max-h-64 overflow-y-auto"
+                    class="divide-y divide-edge-divider"
                   >
                     <For each={group().participants}>
                       {(person) => (
@@ -266,14 +338,12 @@ export function WhatsappGroupControls(props: {
             confirmLabel={
               deleting() === 'discard'
                 ? 'Discard setup'
-                : 'Delete group for everyone'
+                : group().status === 'deleted'
+                  ? 'Delete remaining Macro channel'
+                  : 'Delete group for everyone'
             }
             pending={source.destroy.isPending}
-            onConfirm={() =>
-              source.destroy.mutate(deleting() === 'discard', {
-                onSuccess: () => setDeleting(undefined),
-              })
-            }
+            onConfirm={destroy}
           />
         </Panel>
       )}

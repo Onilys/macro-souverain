@@ -14,6 +14,7 @@ import {
   bindingRetryInterval,
   connectionPollInterval,
   deliveryPollInterval,
+  groupPollInterval,
 } from './polling';
 
 export function useMetaConfiguration() {
@@ -89,12 +90,12 @@ function conversationQueryOptions(channelId: string, enabled: boolean) {
         return status === 'error'
           ? bindingRetryInterval(errorUpdateCount)
           : false;
-      if (data.group?.setup) return status === 'error' ? 30_000 : 2_000;
+      if (data.group?.setup)
+        return groupPollInterval(data.group.setup.state, status === 'error');
       if (!data.messaging && !data.group) return false;
       return status === 'error'
         ? 30_000
-        : deliveryPollInterval(data.messaging?.sends ?? []) ||
-            (data.group ? 5_000 : 30_000);
+        : deliveryPollInterval(data.messaging?.sends ?? []) || 30_000;
     },
   });
 }
@@ -236,19 +237,4 @@ export function useMetaUpload(channelId: Accessor<string>) {
     mutationFn: (file: File) =>
       throwOnErr(() => metaMessagingClient.upload(channelId(), file)),
   }));
-}
-
-/** Known bindings hide local rename actions without a per-row network request. */
-export function isKnownWhatsappGroup(channelId: string) {
-  return !!queryClient.getQueryData<MetaConversationResponse>(
-    metaMessagingKeys.conversation(channelId).queryKey
-  )?.group;
-}
-
-/** Resolve an unopened channel before showing a local rename editor. */
-export async function canRenameNativeChannel(channelId: string) {
-  const binding = await queryClient.fetchQuery(
-    conversationQueryOptions(channelId, true)
-  );
-  return !binding.group;
 }
