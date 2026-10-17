@@ -1,5 +1,6 @@
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { enableTimeTracking } from '@core/constant/featureFlags';
+import { Popover } from '@kobalte/core/popover';
 import ClockIcon from '@phosphor/clock.svg';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import type { Property, PropertyApiValues } from '@property/types';
@@ -7,7 +8,7 @@ import {
   useBulkSaveEntityPropertiesMutation,
   useEntityPropertiesQuery,
 } from '@queries/properties/entity';
-import { Button, Popover, Tooltip } from '@ui';
+import { Button, Tooltip } from '@ui';
 import { createMemo, createSignal, Show } from 'solid-js';
 
 type TimeEntryButtonProps = {
@@ -51,8 +52,9 @@ export function TimeEntryButton(props: TimeEntryButtonProps) {
   const [inputValue, setInputValue] = createSignal('');
 
   const propertiesQuery = useEntityPropertiesQuery(
+    () => 'TASK',
     () => props.documentId,
-    () => 'TASK'
+    false
   );
 
   const saveMutation = useBulkSaveEntityPropertiesMutation();
@@ -78,18 +80,11 @@ export function TimeEntryButton(props: TimeEntryButtonProps) {
     const newTotal = currentMinutes() + parsed;
 
     const prop = timeProperty();
-    const property: Property = prop ?? {
-      propertyId: `pending:${SYSTEM_PROPERTY_IDS.TIME_LOGGED}`,
-      propertyDefinitionId: SYSTEM_PROPERTY_IDS.TIME_LOGGED,
-      displayName: 'Time Logged',
-      valueType: 'NUMBER',
-      value: null,
-      isMultiSelect: false,
-    };
+    if (!prop) return;
 
     const apiValues: PropertyApiValues = {
       valueType: 'NUMBER',
-      values: [newTotal],
+      value: newTotal,
     };
 
     await saveMutation.mutateAsync({
@@ -97,7 +92,7 @@ export function TimeEntryButton(props: TimeEntryButtonProps) {
         {
           entityId: props.documentId,
           entityType: 'TASK',
-          property,
+          property: prop,
           apiValues,
         },
       ],
@@ -110,26 +105,24 @@ export function TimeEntryButton(props: TimeEntryButtonProps) {
 
   return (
     <Show when={timeTrackingFlag().enabled}>
-      <Popover.Root open={open()} onOpenChange={setOpen}>
-        <Tooltip.Root>
-          <Tooltip.Trigger as={Popover.Trigger}>
-            <Button
-              variant="ghost"
-              size="sm"
-              class="relative gap-1.5 px-2"
-              aria-label="Log time"
-            >
-              <ClockIcon class="size-4" />
-              <Show when={currentMinutes() > 0}>
-                <span class="text-xs text-ink-muted">
-                  {formatDuration(currentMinutes())}
-                </span>
-              </Show>
-            </Button>
-          </Tooltip.Trigger>
-          <Tooltip.Content>Log time</Tooltip.Content>
-        </Tooltip.Root>
-        <Popover.Content class="w-64 p-3">
+      <Popover open={open()} onOpenChange={setOpen}>
+        <Tooltip label="Log time">
+          <Popover.Trigger
+            as={Button}
+            variant="ghost"
+            size="sm"
+            class="relative gap-1.5 px-2"
+            aria-label="Log time"
+          >
+            <ClockIcon class="size-4" />
+            <Show when={currentMinutes() > 0}>
+              <span class="text-xs text-ink-muted">
+                {formatDuration(currentMinutes())}
+              </span>
+            </Show>
+          </Popover.Trigger>
+        </Tooltip>
+        <Popover.Content class="z-popover w-64 rounded-lg border border-edge bg-panel p-3 shadow-md">
           <div class="space-y-3">
             <div class="text-sm font-medium">Log Time</div>
             <Show when={currentMinutes() > 0}>
@@ -160,7 +153,7 @@ export function TimeEntryButton(props: TimeEntryButtonProps) {
                 Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="cta"
                 size="sm"
                 class="flex-1"
                 onClick={() => void handleSave()}
@@ -173,7 +166,7 @@ export function TimeEntryButton(props: TimeEntryButtonProps) {
             </div>
           </div>
         </Popover.Content>
-      </Popover.Root>
+      </Popover>
     </Show>
   );
 }

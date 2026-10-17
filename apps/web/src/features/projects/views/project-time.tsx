@@ -123,7 +123,9 @@ export function ProjectTimeView(props: ProjectTimeProps) {
           }
         >
           <Show
-            when={props.data && props.data.byPerson.length > 0}
+            when={
+              props.data && props.data.byPerson.length > 0 ? props.data : false
+            }
             fallback={
               <div class="text-center text-ink-muted py-12">
                 <ClockIcon class="mx-auto size-12 mb-4 opacity-50" />
