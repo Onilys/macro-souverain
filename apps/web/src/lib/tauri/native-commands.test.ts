@@ -97,7 +97,7 @@ describe('native commands', () => {
   it('lists every command the web bundle calls in native-commands.json', () => {
     // An over-the-air bundle can reach native builds older than the command.
     // Before adding one here, raise min-native-build.json to the first build
-    // with it, or handle `Command … not found` (see the src-tauri README).
+    // with it, or handle `Command … not found` (see apps/web/AGENTS.md).
     expect([...invoked.keys()].sort()).toEqual(nativeCommands.commands);
     expect(nativeCommands.commands.length).toBeGreaterThan(50);
   });
