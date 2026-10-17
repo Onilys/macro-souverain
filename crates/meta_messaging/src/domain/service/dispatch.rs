@@ -188,11 +188,14 @@ impl MessagingService {
     }
 
     /// Finish accepted native messages and publication without repeating provider sends.
-    pub async fn recover_native(&self) -> PortResult<()> {
+    /// Returns whether a due batch was processed; callers drain until false.
+    pub async fn recover_native(&self) -> PortResult<bool> {
         // These intents already crossed the provider boundary. Only finish native
         // persistence; never call send() while reconciling an accepted reply.
         let mut first_error = None;
-        for (work, id) in self.repository.accepted_sends().await? {
+        let sends = self.repository.accepted_sends().await?;
+        let mut worked = !sends.is_empty();
+        for (work, id) in sends {
             let result: PortResult<()> = async {
                 let conversation = self
                     .repository
@@ -216,9 +219,12 @@ impl MessagingService {
                 }
             }
         }
-        if let Err(error) = self.native.reconcile_effects().await {
-            first_error.get_or_insert(error);
+        match self.native.reconcile_effects().await {
+            Ok(count) => worked |= count > 0,
+            Err(error) => {
+                first_error.get_or_insert(error);
+            }
         }
-        first_error.map_or(Ok(()), Err)
+        first_error.map_or(Ok(worked), Err)
     }
 }

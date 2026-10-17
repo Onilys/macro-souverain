@@ -519,10 +519,12 @@ impl NativeConversation for NativeChannels {
             .await?;
         self.files.attach_sent(work, c, id).await
     }
-    async fn reconcile_effects(&self) -> PortResult<()> {
+    async fn reconcile_effects(&self) -> PortResult<usize> {
         let repo = PgMessagingRepository::new(self.pool.clone());
         let mut first_error = None;
-        for effect in repo.pending_native_effects().await? {
+        let effects = repo.pending_native_effects().await?;
+        let count = effects.len();
+        for effect in effects {
             let (message, revision) = (effect.message_id, effect.revision);
             if let Err(error) = self.reconcile_effect(&repo, effect).await {
                 // A failed publication stays pending, but cannot hold up the
@@ -533,6 +535,6 @@ impl NativeConversation for NativeChannels {
                 }
             }
         }
-        first_error.map_or(Ok(()), Err)
+        first_error.map_or(Ok(count), Err)
     }
 }

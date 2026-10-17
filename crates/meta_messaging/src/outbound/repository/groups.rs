@@ -227,6 +227,7 @@ impl GroupRepository for PgMessagingRepository {
         if changed.rows_affected() != 1 {
             return Err(MessagingError::Conflict.into());
         }
+        self.work_ready.receipts.notify_one();
         Ok(())
     }
     async fn group_participants(&self, channel: Uuid) -> PortResult<Vec<GroupParticipant>> {

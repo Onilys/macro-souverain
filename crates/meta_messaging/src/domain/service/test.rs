@@ -392,8 +392,8 @@ impl NativeConversation for Fixture {
         memory.state = DeliveryState::Sent;
         Ok(())
     }
-    async fn reconcile_effects(&self) -> PortResult<()> {
-        Ok(())
+    async fn reconcile_effects(&self) -> PortResult<usize> {
+        Ok(0)
     }
 }
 

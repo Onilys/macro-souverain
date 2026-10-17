@@ -9,15 +9,22 @@ use meta_messaging::{
     inbound::webhook,
 };
 use tokio::{
+    sync::Notify,
     task::JoinSet,
-    time::{MissedTickBehavior, interval},
+    time::{Instant, MissedTickBehavior, interval, interval_at},
 };
 
 const WORKER_SLOTS: usize = 4;
+/// Cross-replica, retry and restart recovery deadline when a local signal is absent.
+pub(super) const SWEEP_INTERVAL: Duration = Duration::from_secs(5);
 
-pub(super) async fn receipts(service: Arc<MetaService>, cancellation: CancellationToken) {
+pub(super) async fn receipts(
+    service: Arc<MetaService>,
+    ready: Arc<Notify>,
+    cancellation: CancellationToken,
+) {
     let mut running = JoinSet::new();
-    let mut tick = interval(Duration::from_millis(500));
+    let mut tick = interval_at(Instant::now() + SWEEP_INTERVAL, SWEEP_INTERVAL);
     tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
     loop {
         while running.len() < WORKER_SLOTS && !cancellation.is_cancelled() {
@@ -50,6 +57,7 @@ pub(super) async fn receipts(service: Arc<MetaService>, cancellation: Cancellati
                 return;
             },
             _ = tick.tick() => {},
+            _ = ready.notified() => {},
             result = running.join_next(), if !running.is_empty() => {
                 if let Some(Err(error)) = result {
                     tracing::warn!(?error, "receipt task interrupted; durable lease will recover");
@@ -59,9 +67,13 @@ pub(super) async fn receipts(service: Arc<MetaService>, cancellation: Cancellati
     }
 }
 
-pub(super) async fn sends(service: MessagingService, cancellation: CancellationToken) {
+pub(super) async fn sends(
+    service: MessagingService,
+    ready: Arc<Notify>,
+    cancellation: CancellationToken,
+) {
     let mut running = JoinSet::new();
-    let mut tick = interval(Duration::from_millis(500));
+    let mut tick = interval_at(Instant::now() + SWEEP_INTERVAL, SWEEP_INTERVAL);
     tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
     loop {
         while running.len() < WORKER_SLOTS && !cancellation.is_cancelled() {
@@ -88,6 +100,7 @@ pub(super) async fn sends(service: MessagingService, cancellation: CancellationT
                 return;
             },
             _ = tick.tick() => {},
+            _ = ready.notified() => {},
             result = running.join_next(), if !running.is_empty() => {
                 if let Some(Err(error)) = result {
                     tracing::warn!(?error, "reply task interrupted; durable lease will recover");

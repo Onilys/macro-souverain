@@ -22,11 +22,27 @@ mod subscription;
 #[cfg(test)]
 mod test;
 
+/// Local wakeups after successful durable writes. Other replicas and lost wakeups
+/// are covered by the worker's bounded sweep; these signals contain no work.
+#[derive(Clone, Default)]
+pub struct WorkReady {
+    /// Newly committed webhook receipt or saved group request correlation.
+    pub receipts: std::sync::Arc<tokio::sync::Notify>,
+    /// Newly committed outbound intent.
+    pub sends: std::sync::Arc<tokio::sync::Notify>,
+    /// Explicitly requested history import.
+    pub history: std::sync::Arc<tokio::sync::Notify>,
+    /// Accepted replies and native effects awaiting recovery.
+    pub recovery: std::sync::Arc<tokio::sync::Notify>,
+}
+
 /// PostgreSQL-backed messaging lifecycle and durable work queues.
 #[derive(Clone)]
 pub struct PgMessagingRepository {
     /// Shared MacroDB pool for cross-domain composition transactions.
     pub pool: PgPool,
+    /// Local optimizations only; durable due-time claims remain authoritative.
+    pub work_ready: WorkReady,
     subscription_slots: std::sync::Arc<tokio::sync::Semaphore>,
 }
 
@@ -38,6 +54,7 @@ impl PgMessagingRepository {
         let slots = (pool.options().get_max_connections() / 2).min(4) as usize;
         Self {
             pool,
+            work_ready: WorkReady::default(),
             subscription_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(slots)),
         }
     }
@@ -113,7 +130,9 @@ impl MessagingRepository for PgMessagingRepository {
         self.history_import_impl(c).await
     }
     async fn request_history_import(&self, c: &Connection, user: &str) -> PortResult<()> {
-        self.request_history_import_impl(c, user).await
+        self.request_history_import_impl(c, user).await?;
+        self.work_ready.history.notify_one();
+        Ok(())
     }
     async fn claim_history_import(&self) -> PortResult<Option<HistoryWork>> {
         self.claim_history_import_impl().await
@@ -319,7 +338,9 @@ impl MessagingRepository for PgMessagingRepository {
         digest: &[u8],
         payload: &serde_json::Value,
     ) -> PortResult<()> {
-        self.accept_receipt_impl(provider, digest, payload).await
+        self.accept_receipt_impl(provider, digest, payload).await?;
+        self.work_ready.receipts.notify_one();
+        Ok(())
     }
     async fn claim_receipt(&self) -> PortResult<Option<ReceiptWork>> {
         self.claim_receipt_impl().await
@@ -344,7 +365,9 @@ impl MessagingRepository for PgMessagingRepository {
         error: Option<&str>,
         retry: Option<u32>,
     ) -> PortResult<()> {
-        self.settle_receipt_impl(lease, error, retry).await
+        self.settle_receipt_impl(lease, error, retry).await?;
+        self.work_ready.recovery.notify_one();
+        Ok(())
     }
     async fn record_status(
         &self,
@@ -395,8 +418,11 @@ impl ConversationRepository for PgMessagingRepository {
         request: &SendReply,
         digest: &[u8],
     ) -> PortResult<SendProgress> {
-        self.enqueue_send_impl(connection, channel, user, request, digest)
-            .await
+        let send = self
+            .enqueue_send_impl(connection, channel, user, request, digest)
+            .await?;
+        self.work_ready.sends.notify_one();
+        Ok(send)
     }
     async fn sends(&self, channel: Uuid) -> PortResult<Vec<SendProgress>> {
         self.sends_impl(channel).await
@@ -490,6 +516,8 @@ impl ConversationRepository for PgMessagingRepository {
         retry: Option<u32>,
     ) -> PortResult<()> {
         self.settle_send_impl(lease, state, provider_id, error, retry)
-            .await
+            .await?;
+        self.work_ready.recovery.notify_one();
+        Ok(())
     }
 }

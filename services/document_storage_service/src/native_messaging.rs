@@ -61,6 +61,7 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         Arc::new(UnconfiguredCipher)
     };
     let repository = Arc::new(PgMessagingRepository::new(pool.clone()));
+    let work_ready = repository.work_ready.clone();
     let temporary_media: Option<Arc<dyn meta_messaging::domain::temporary_media::TemporaryMedia>> =
         if let Some(bucket) = settings.temporary_media_bucket {
             Some(Arc::new(
@@ -118,7 +119,7 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         )
         .with_group_tasks(tracker.clone()),
     );
-    spawn(service.clone(), tracker, cancellation);
+    spawn(service.clone(), work_ready, tracker, cancellation);
     Ok(State {
         service,
         entity_access_service: access,
@@ -148,16 +149,22 @@ impl CredentialCipher for UnconfiguredCipher {
     }
 }
 
-fn spawn(service: Arc<MetaService>, tracker: TaskTracker, cancellation: CancellationToken) {
+fn spawn(
+    service: Arc<MetaService>,
+    ready: meta_messaging::outbound::repository::WorkReady,
+    tracker: TaskTracker,
+    cancellation: CancellationToken,
+) {
     let history = service.clone();
     let shutdown = cancellation.clone();
     tracker.spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        let mut interval = tokio::time::interval(workers::SWEEP_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            tokio::select! { _=shutdown.cancelled()=>break, _=interval.tick()=>{} }
+            tokio::select! { _=shutdown.cancelled()=>break, _=interval.tick()=>{}, _=ready.history.notified()=>{} }
             let result: PortResult<()> = async {
-                if let Some(work) = history.repository.claim_history_import().await? {
+                while !shutdown.is_cancelled() {
+                    let Some(work) = history.repository.claim_history_import().await? else { break; };
                     history.process_history_import(&work).await?;
                 }
                 Ok(())
@@ -169,20 +176,32 @@ fn spawn(service: Arc<MetaService>, tracker: TaskTracker, cancellation: Cancella
         }
     });
     tracker.spawn(workers::retention(service.clone(), cancellation.clone()));
-    tracker.spawn(workers::receipts(service.clone(), cancellation.clone()));
+    tracker.spawn(workers::receipts(
+        service.clone(),
+        ready.receipts,
+        cancellation.clone(),
+    ));
     tracker.spawn(workers::sends(
         service.messaging.clone(),
+        ready.sends,
         cancellation.clone(),
     ));
     let recovery = service.messaging.clone();
     let shutdown = cancellation.clone();
     tracker.spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        let mut interval = tokio::time::interval(workers::SWEEP_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            tokio::select! { _=shutdown.cancelled()=>break, _=interval.tick()=>{} }
-            if let Err(error) = recovery.recover_native().await {
-                tracing::warn!(error=?error.current_context(),"Meta native delivery recovery will retry");
+            tokio::select! { _=shutdown.cancelled()=>break, _=interval.tick()=>{}, _=ready.recovery.notified()=>{} }
+            while !shutdown.is_cancelled() {
+                match recovery.recover_native().await {
+                    Ok(true) => {},
+                    Ok(false) => break,
+                    Err(error) => {
+                        tracing::warn!(error=?error.current_context(),"Meta native delivery recovery will retry");
+                        break;
+                    }
+                }
             }
         }
     });

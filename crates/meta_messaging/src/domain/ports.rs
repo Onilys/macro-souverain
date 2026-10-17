@@ -488,8 +488,9 @@ pub trait NativeConversation: Send + Sync {
         provider_id: &ProviderId,
     ) -> PortResult<()>;
     /// Publish pending new-message facts and reconcile search using existing
-    /// Macro infrastructure; history never becomes live events.
-    async fn reconcile_effects(&self) -> PortResult<()>;
+    /// Macro infrastructure; history never becomes live events. Returns the due
+    /// batch size so the driver can drain a backlog before waiting again.
+    async fn reconcile_effects(&self) -> PortResult<usize>;
 }
 
 /// Provider domain rules evaluated using small, generation-bound account scopes.
