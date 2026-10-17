@@ -164,14 +164,14 @@ async fn permanent_identity_conflict_stops_retrying_without_blocking_a_healthy_s
         signed(
             &f.app,
             Provider::Whatsapp,
-            envelope(json!([message("a", "US.A"), message("b", "US.B")])),
+            envelope(json!([{"id":"a","from_user_id":"US.A","from":"15550000001","type":"text","timestamp":at,"text":{"body":"Hello"}}])),
             true
         )
         .await,
         StatusCode::OK
     );
     drain(&f.service).await;
-    let conflicting = json!({"id":"change","type":"system","timestamp":at,"system":{"type":"user_changed_user_id","previous_user_id":"US.A","user_id":"US.B"}});
+    let conflicting = json!({"id":"ambiguous","from":"15550000001","type":"text","timestamp":at,"text":{"body":"Legacy phone-only fact"}});
     assert_eq!(
         signed(
             &f.app,

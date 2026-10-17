@@ -1,102 +1,50 @@
-//! Resolve provider-authenticated associations without changing native authors or channels.
-//! Account row locks serialize identity changes with ingestion and the send fence.
+//! Connection-scoped BSUID aliases; phones are conversation attributes.
 use super::*;
 use crate::domain::events::{IdentityUpdate, IncomingMessage};
 use sqlx::{Postgres, Transaction};
-
-struct Identity {
-    id: Uuid,
-    current_id: String,
-    phone: Option<String>,
-    phone_observed_at: Option<DateTime<Utc>>,
-    changed_at: Option<DateTime<Utc>>,
-    retired_at: Option<DateTime<Utc>>,
-    bound_at: Option<DateTime<Utc>>,
-}
 
 async fn find(
     tx: &mut Transaction<'_, Postgres>,
     connection: Uuid,
     identifier: &str,
-) -> PortResult<Option<Identity>> {
-    sqlx::query_as!(
-        Identity,
-        r#"SELECT i.id,i.current_id,i.phone,i.phone_observed_at,i.changed_at,a.retired_at,a.bound_at
-        FROM meta_messaging_identifier a JOIN meta_messaging_identity i
-          ON i.connection_id=a.connection_id AND i.id=a.identity_id
-        WHERE a.connection_id=$1 AND a.identifier=$2"#,
-        connection,
-        identifier
-    )
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(failure)
+) -> PortResult<Option<String>> {
+    sqlx::query_scalar!("SELECT customer_id FROM meta_messaging_customer_alias WHERE connection_id=$1 AND identifier=$2", connection, identifier)
+        .fetch_optional(&mut **tx).await.map_err(failure)
 }
 
 async fn alias(
     tx: &mut Transaction<'_, Postgres>,
     connection: Uuid,
-    identity: Uuid,
     identifier: &str,
+    customer: &str,
 ) -> PortResult<()> {
-    let changed=sqlx::query!(r#"INSERT INTO meta_messaging_identifier(connection_id,identifier,identity_id)
-        VALUES ($1,$2,$3) ON CONFLICT (connection_id,identifier) DO UPDATE SET identifier=EXCLUDED.identifier
-        WHERE meta_messaging_identifier.identity_id=EXCLUDED.identity_id"#,connection,identifier,identity)
-        .execute(&mut **tx).await.map_err(failure)?;
-    if changed.rows_affected() != 1 {
-        return Err(MessagingError::IdentityConflict.into());
-    }
-    Ok(())
-}
-
-// Historical phone facts cannot take an alias away from a subsequently observed owner.
-async fn retire_phone(
-    tx: &mut Transaction<'_, Postgres>,
-    connection: Uuid,
-    identity: Uuid,
-    phone: &str,
-    at: DateTime<Utc>,
-) -> PortResult<()> {
-    if find(tx, connection, phone)
-        .await?
-        .is_some_and(|owner| owner.id != identity)
-    {
-        return Ok(());
-    }
-    alias(tx, connection, identity, phone).await?;
-    sqlx::query!("UPDATE meta_messaging_identifier SET retired_at=LEAST(retired_at,$3) WHERE connection_id=$1 AND identifier=$2 AND identity_id=$4",connection,phone,at,identity)
+    sqlx::query!("INSERT INTO meta_messaging_customer_alias(connection_id,identifier,customer_id) VALUES ($1,$2,$3) ON CONFLICT (connection_id,identifier) DO UPDATE SET customer_id=EXCLUDED.customer_id",connection,identifier,customer)
         .execute(&mut **tx).await.map_err(failure)?;
     Ok(())
 }
 
-async fn create(
+async fn persisted_customer(
     tx: &mut Transaction<'_, Postgres>,
     connection: Uuid,
-    identifier: &ProviderId,
-) -> PortResult<Identity> {
-    let identity = Identity {
-        id: Uuid::now_v7(),
-        current_id: identifier.as_str().into(),
-        phone: None,
-        phone_observed_at: None,
-        changed_at: None,
-        retired_at: None,
-        bound_at: None,
-    };
-    sqlx::query!(
-        "INSERT INTO meta_messaging_identity(connection_id,id,current_id) VALUES ($1,$2,$3)",
-        connection,
-        identity.id,
-        identity.current_id
-    )
-    .execute(&mut **tx)
-    .await
-    .map_err(failure)?;
-    alias(tx, connection, identity.id, identifier.as_str()).await?;
-    Ok(identity)
+    raw: &ProviderId,
+    message: &ProviderId,
+) -> PortResult<Option<ProviderId>> {
+    let Some(stored) = sqlx::query_scalar!("SELECT customer_id FROM meta_messaging_message WHERE connection_id=$1 AND provider_message_id=$2",connection,message.as_str())
+        .fetch_optional(&mut **tx).await.map_err(failure)? else { return Ok(None); };
+    if raw.is_whatsapp_bsuid() {
+        let supplied = find(tx, connection, raw.as_str())
+            .await?
+            .unwrap_or_else(|| raw.as_str().to_owned());
+        let owner = find(tx, connection, &stored)
+            .await?
+            .unwrap_or_else(|| stored.clone());
+        if supplied != owner {
+            return Err(MessagingError::IdentityConflict.into());
+        }
+    }
+    Ok(Some(stored.try_into()?))
 }
 
-// Two already-materialized customer histories are never silently merged.
 async fn rekey(
     tx: &mut Transaction<'_, Postgres>,
     connection: Uuid,
@@ -106,22 +54,23 @@ async fn rekey(
     if old == current {
         return Ok(());
     }
-    let incompatible=sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_revision a JOIN meta_messaging_revision b ON b.connection_id=a.connection_id AND b.provider_message_id=a.provider_message_id WHERE a.connection_id=$1 AND a.customer_id=$2 AND b.customer_id=$3 AND a.direction<>b.direction)",connection,old,current)
+    let occupied=sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_conversation WHERE connection_id=$1 AND customer_id=$2) AS \"occupied!\"",connection,current)
+        .fetch_one(&mut **tx).await.map_err(failure)?;
+    if occupied {
+        tracing::warn!(connection_id=%connection, "identity update retained separate conversations");
+    } else {
+        sqlx::query!("UPDATE meta_messaging_conversation SET customer_id=$3 WHERE connection_id=$1 AND customer_id=$2",connection,old,current)
+            .execute(&mut **tx).await.map_err(failure)?;
+    }
+    let incompatible=sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_revision a JOIN meta_messaging_revision b ON b.connection_id=a.connection_id AND b.provider_message_id=a.provider_message_id WHERE a.connection_id=$1 AND a.customer_id=$2 AND b.customer_id=$3 AND a.direction<>b.direction AND NOT EXISTS(SELECT 1 FROM meta_messaging_message m WHERE m.connection_id=a.connection_id AND m.customer_id=$2 AND m.provider_message_id=a.provider_message_id))",connection,old,current)
         .fetch_one(&mut **tx).await.map_err(failure)?.unwrap_or(false);
     if incompatible {
         return Err(MessagingError::IdentityConflict.into());
     }
-    let count=sqlx::query_scalar!("SELECT count(*) FROM meta_messaging_conversation WHERE connection_id=$1 AND customer_id=ANY($2)",connection,&[old.to_owned(),current.to_owned()])
-        .fetch_one(&mut **tx).await.map_err(failure)?.unwrap_or_default();
-    if count > 1 {
-        return Err(MessagingError::IdentityConflict.into());
-    }
-    sqlx::query!("UPDATE meta_messaging_conversation SET customer_id=$3 WHERE connection_id=$1 AND customer_id=$2",connection,old,current)
-        .execute(&mut **tx).await.map_err(failure)?;
-    // Revisions can precede their messages and have no conversation foreign key.
     sqlx::query!(r#"INSERT INTO meta_messaging_revision(connection_id,customer_id,provider_message_id,direction,edit_number,content,edited_at,deleted_at)
         SELECT connection_id,$3,provider_message_id,direction,edit_number,content,edited_at,deleted_at
-        FROM meta_messaging_revision WHERE connection_id=$1 AND customer_id=$2
+        FROM meta_messaging_revision r WHERE connection_id=$1 AND customer_id=$2
+          AND NOT EXISTS(SELECT 1 FROM meta_messaging_message m WHERE m.connection_id=r.connection_id AND m.customer_id=$2 AND m.provider_message_id=r.provider_message_id)
         ON CONFLICT (connection_id,customer_id,provider_message_id) DO UPDATE SET
           content=CASE WHEN EXCLUDED.edit_number>meta_messaging_revision.edit_number THEN EXCLUDED.content ELSE meta_messaging_revision.content END,
           edited_at=CASE WHEN EXCLUDED.edit_number>meta_messaging_revision.edit_number THEN EXCLUDED.edited_at ELSE meta_messaging_revision.edited_at END,
@@ -129,7 +78,7 @@ async fn rekey(
           deleted_at=COALESCE(meta_messaging_revision.deleted_at,EXCLUDED.deleted_at)
         WHERE meta_messaging_revision.direction=EXCLUDED.direction"#,connection,old,current).execute(&mut **tx).await.map_err(failure)?;
     sqlx::query!(
-        "DELETE FROM meta_messaging_revision WHERE connection_id=$1 AND customer_id=$2",
+        "DELETE FROM meta_messaging_revision r WHERE connection_id=$1 AND customer_id=$2 AND NOT EXISTS(SELECT 1 FROM meta_messaging_message m WHERE m.connection_id=r.connection_id AND m.customer_id=$2 AND m.provider_message_id=r.provider_message_id)",
         connection,
         old
     )
@@ -139,56 +88,8 @@ async fn rekey(
     Ok(())
 }
 
-async fn merge(
-    tx: &mut Transaction<'_, Postgres>,
-    connection: Uuid,
-    old: &Identity,
-    current: &Identity,
-) -> PortResult<()> {
-    if old.id == current.id {
-        return Ok(());
-    }
-    rekey(tx, connection, &old.current_id, &current.current_id).await?;
-    sqlx::query!("UPDATE meta_messaging_identifier SET identity_id=$3 WHERE connection_id=$1 AND identity_id=$2",connection,old.id,current.id)
-        .execute(&mut **tx).await.map_err(failure)?;
-    sqlx::query!(
-        "DELETE FROM meta_messaging_identity WHERE connection_id=$1 AND id=$2",
-        connection,
-        old.id
-    )
-    .execute(&mut **tx)
-    .await
-    .map_err(failure)?;
-    Ok(())
-}
-
-async fn route(
-    tx: &mut Transaction<'_, Postgres>,
-    connection: Uuid,
-    identity: &Identity,
-    phone: Option<&str>,
-    at: DateTime<Utc>,
-) -> PortResult<()> {
-    if let Some(phone) = phone {
-        alias(tx, connection, identity.id, phone).await?;
-        sqlx::query!("UPDATE meta_messaging_identifier SET retired_at=NULL WHERE connection_id=$1 AND identifier=$2 AND identity_id=$3",connection,phone,identity.id)
-            .execute(&mut **tx).await.map_err(failure)?;
-    }
-    if identity.phone.as_deref() != phone
-        && let Some(old) = identity.phone.as_deref()
-    {
-        sqlx::query!("UPDATE meta_messaging_identifier SET retired_at=COALESCE(retired_at,$3) WHERE connection_id=$1 AND identifier=$2 AND identity_id=$4",connection,old,at,identity.id)
-            .execute(&mut **tx).await.map_err(failure)?;
-    }
-    sqlx::query!("UPDATE meta_messaging_identity SET phone=$3,phone_observed_at=$4 WHERE connection_id=$1 AND id=$2",connection,identity.id,phone,at)
-        .execute(&mut **tx).await.map_err(failure)?;
-    sqlx::query!("UPDATE meta_messaging_conversation SET customer_phone=$3 WHERE connection_id=$1 AND customer_id=$2",connection,identity.current_id,phone)
-        .execute(&mut **tx).await.map_err(failure)?;
-    Ok(())
-}
-
 impl PgMessagingRepository {
-    /// Normalize a message inside the same transaction as native materialization.
+    /// Resolve provider IDs before native channel/message materialization.
     pub async fn resolve_message_in(
         tx: &mut Transaction<'_, Postgres>,
         c: &Connection,
@@ -197,299 +98,145 @@ impl PgMessagingRepository {
         if c.provider != Provider::Whatsapp {
             return Ok(message.clone());
         }
-        if !message.customer_id.is_whatsapp_bsuid() {
-            // A provider message ID remains authoritative after its phone is recycled.
-            // Replays and delayed media completion must reuse the original native row.
-            Self::lock_identity_in(tx, c).await?;
-            if let Some(existing) = sqlx::query!(
-                "SELECT c.customer_id,c.customer_phone FROM meta_messaging_message m JOIN meta_messaging_conversation c ON c.connection_id=m.connection_id AND c.customer_id=m.customer_id WHERE m.connection_id=$1 AND m.provider_message_id=$2",
-                c.id, message.message_id.as_str()
-            ).fetch_optional(&mut **tx).await.map_err(failure)? {
-                let mut normalized = message.clone();
-                normalized.customer_id = existing.customer_id.try_into()?;
-                normalized.customer_phone = existing.customer_phone.map(ProviderId::try_from).transpose()?;
-                return Ok(normalized);
-            }
+        Self::lock_identity_in(tx, c).await?;
+        let mut message = message.clone();
+        if let Some(existing) =
+            persisted_customer(tx, c.id, &message.customer_id, &message.message_id).await?
+        {
+            message.customer_id = existing;
+            message.customer_phone = None;
+            return Ok(message);
         }
-        let (customer_id, phone) = Self::observe_identity_in(
+        let current = Self::observe_identity_in(
             tx,
             c,
             &message.customer_id,
             message.customer_phone.as_ref(),
             message.timestamp,
-            matches!(
-                message.provenance,
-                Provenance::Customer | Provenance::PhoneEcho
-            ),
         )
         .await?;
-        let mut message = message.clone();
-        message.customer_id = customer_id;
-        message.customer_phone = phone;
+        if current != message.customer_id {
+            message.customer_phone = None;
+        }
+        if !current.is_whatsapp_bsuid() {
+            message.customer_phone = Some(current.clone());
+        }
+        message.customer_id = current;
         Ok(message)
     }
 
-    /// Retain a verified identity/phone association without creating a channel.
+    /// Resolve a verified association without creating a native channel.
     pub async fn observe_identity_in(
         tx: &mut Transaction<'_, Postgres>,
         c: &Connection,
         raw: &ProviderId,
         phone: Option<&ProviderId>,
         at: DateTime<Utc>,
-        current_message: bool,
-    ) -> PortResult<(ProviderId, Option<ProviderId>)> {
-        Self::lock_identity_in(tx, c).await?;
-        let phone = phone.map(ProviderId::as_str);
-        let mut known = find(tx, c.id, raw.as_str()).await?;
-        let mut by_phone = match phone {
-            Some(phone) => find(tx, c.id, phone).await?,
-            None => None,
-        };
-        if !raw.is_whatsapp_bsuid()
-            && known.as_ref().is_some_and(|i| {
-                i.retired_at.is_some_and(|cutoff| at >= cutoff)
-                    || i.bound_at.is_some_and(|cutoff| at <= cutoff)
-            })
+    ) -> PortResult<ProviderId> {
+        let customer = Self::resolve_identifier_in(tx, c, raw, None).await?;
+        if customer.is_whatsapp_bsuid()
+            && customer == *raw
+            && let Some(phone) = phone
         {
-            return Err(MessagingError::IdentityConflict.into());
-        }
-        // A fresh message BSUID may own a recycled phone. Transfer only routing,
-        // never native history. Historical/status facts cannot reclaim that route.
-        if raw.is_whatsapp_bsuid()
-            && let Some(owner) = by_phone.as_ref()
-            && known
-                .as_ref()
-                .is_none_or(|identity| identity.id != owner.id)
-            && (ProviderId::try_from(owner.current_id.clone())?.is_whatsapp_bsuid()
-                || owner.retired_at.is_some())
-        {
-            let identity = match known.take() {
-                Some(identity) => identity,
-                None => create(tx, c.id, raw).await?,
-            };
-            let may_transfer = current_message
-                && identity.current_id == raw.as_str()
-                && owner.phone_observed_at.is_none_or(|observed| at > observed)
-                && owner.bound_at.is_none_or(|bound| at > bound);
-            if !may_transfer {
-                return Ok((
-                    identity.current_id.try_into()?,
-                    identity.phone.map(ProviderId::try_from).transpose()?,
-                ));
-            }
-            sqlx::query!("UPDATE meta_messaging_identity SET phone=NULL,phone_observed_at=$3 WHERE connection_id=$1 AND id=$2 AND phone=$4",c.id,owner.id,at,phone)
-                .execute(&mut **tx).await.map_err(failure)?;
-            sqlx::query!("UPDATE meta_messaging_conversation SET customer_phone=NULL WHERE connection_id=$1 AND customer_id=$2 AND customer_phone=$3",c.id,owner.current_id,phone)
-                .execute(&mut **tx).await.map_err(failure)?;
-            let retired_at = if identity.phone.as_deref() != phone {
-                identity
-                    .changed_at
-                    .into_iter()
-                    .chain(identity.phone_observed_at)
-                    .filter(|boundary| *boundary > at)
-                    .max()
-            } else {
-                None
-            };
-            sqlx::query!("UPDATE meta_messaging_identifier SET identity_id=$3,bound_at=$4,retired_at=$5 WHERE connection_id=$1 AND identifier=$2",c.id,phone,identity.id,at,retired_at)
-                .execute(&mut **tx).await.map_err(failure)?;
-            known = Some(identity);
-            by_phone = None;
-        }
-        let mut identity = match (known, by_phone) {
-            (Some(known), Some(phone)) if known.id != phone.id => {
-                // A current BSUID association is not proof that a recycled phone's
-                // previous BSUID belonged to the same person.
-                if ProviderId::try_from(phone.current_id.clone())?.is_whatsapp_bsuid()
-                    || phone.retired_at.is_some()
-                {
-                    return Err(MessagingError::IdentityConflict.into());
-                }
-                merge(tx, c.id, &phone, &known).await?;
-                known
-            }
-            (Some(known), _) => known,
-            (None, Some(mut phone)) => {
-                if ProviderId::try_from(phone.current_id.clone())?.is_whatsapp_bsuid()
-                    || phone.retired_at.is_some()
-                {
-                    return Err(MessagingError::IdentityConflict.into());
-                }
-                rekey(tx, c.id, &phone.current_id, raw.as_str()).await?;
-                sqlx::query!("UPDATE meta_messaging_identity SET current_id=$3 WHERE connection_id=$1 AND id=$2",c.id,phone.id,raw.as_str())
+            let legacy = sqlx::query_scalar!("SELECT customer_id FROM meta_messaging_conversation WHERE connection_id=$1 AND customer_id=$2 AND customer_phone=$2",c.id,phone.as_str())
+                .fetch_optional(&mut **tx).await.map_err(failure)?;
+            if let Some(legacy) = legacy {
+                rekey(tx, c.id, &legacy, customer.as_str()).await?;
+                sqlx::query!("DELETE FROM meta_messaging_customer_alias WHERE connection_id=$1 AND identifier=$2",c.id,legacy)
                     .execute(&mut **tx).await.map_err(failure)?;
-                alias(tx, c.id, phone.id, raw.as_str()).await?;
-                phone.current_id = raw.as_str().into();
-                phone
             }
-            (None, None) => create(tx, c.id, raw).await?,
-        };
-        // Old aliases resolve late facts but can never restore obsolete routing.
-        if raw.as_str() == identity.current_id
-            && phone.is_some()
-            && (identity.phone.as_deref() != phone || current_message)
-            && identity
-                .changed_at
-                .is_none_or(|changed_at| at >= changed_at)
-            && identity
-                .phone_observed_at
-                .is_none_or(|observed_at| at >= observed_at)
-        {
-            route(tx, c.id, &identity, phone, at).await?;
-            identity.phone = phone.map(str::to_owned);
+            Self::observe_phone_in(tx, c.id, customer.as_str(), Some(phone.as_str()), at).await?;
         }
-        Ok((
-            identity.current_id.try_into()?,
-            identity.phone.map(ProviderId::try_from).transpose()?,
-        ))
+        Ok(customer)
     }
 
-    /// Retain an authoritative system identity change, including before the first message.
+    pub(super) async fn observe_phone_in(
+        tx: &mut Transaction<'_, Postgres>,
+        connection: Uuid,
+        customer: &str,
+        phone: Option<&str>,
+        at: DateTime<Utc>,
+    ) -> PortResult<()> {
+        let changed = sqlx::query!(r#"UPDATE meta_messaging_conversation c SET customer_phone=$3,customer_phone_at=$4
+            WHERE connection_id=$1 AND customer_id=$2 AND (customer_phone_at IS NULL OR customer_phone_at<=$4)
+            AND NOT EXISTS (SELECT 1 FROM meta_messaging_conversation other WHERE other.connection_id=$1
+                AND other.customer_id<>$2 AND other.customer_phone=$3 AND other.customer_phone_at>$4)"#,connection,customer,phone,at)
+            .execute(&mut **tx).await.map_err(failure)?;
+        if changed.rows_affected() > 0 && phone.is_some() {
+            sqlx::query!("UPDATE meta_messaging_conversation SET customer_phone=NULL,customer_phone_at=$4 WHERE connection_id=$1 AND customer_id<>$2 AND customer_phone=$3",connection,customer,phone,at)
+                .execute(&mut **tx).await.map_err(failure)?;
+        }
+        Ok(())
+    }
+
+    /// Retain the old BSUID as an alias, without merging native histories.
     pub async fn update_identity_in(
         tx: &mut Transaction<'_, Postgres>,
         c: &Connection,
         update: &IdentityUpdate,
     ) -> PortResult<()> {
         Self::lock_identity_in(tx, c).await?;
-        // Both pairs are provider facts. Resolve legacy phone-only records before
-        // applying the edge; never infer this relationship from display names.
-        let previous_alias = find(tx, c.id, update.previous.as_str()).await?;
-        let current_alias = find(tx, c.id, update.current.as_str()).await?;
-        let replayed_edge = previous_alias.as_ref().is_some_and(|previous| {
-            previous.retired_at == Some(update.timestamp)
-                && current_alias
-                    .as_ref()
-                    .is_some_and(|current| previous.id == current.id)
-        });
-        if !replayed_edge {
-            Self::observe_identity_in(
-                tx,
-                c,
-                &update.previous,
-                update.previous_phone.as_ref(),
-                update.timestamp,
-                false,
-            )
-            .await?;
-        }
-        let previous = find(tx, c.id, update.previous.as_str()).await?;
-        if let Some(phone) = update.phone.as_ref()
-            && let Some(known) = find(tx, c.id, phone.as_str()).await?
-            && previous
-                .as_ref()
-                .is_none_or(|previous| previous.id != known.id)
-        {
-            Self::observe_identity_in(tx, c, &update.current, Some(phone), update.timestamp, true)
-                .await?;
-        }
-        let current = find(tx, c.id, update.current.as_str()).await?;
-        let successor_boundary = current.as_ref().and_then(|identity| identity.retired_at);
-        let mut identity = match (previous, current) {
-            (Some(previous), Some(current)) if previous.id != current.id => {
-                if previous.phone.as_ref()
-                    != update
-                        .phone
-                        .as_ref()
-                        .map(|p| p.as_str())
-                        .map(str::to_owned)
-                        .as_ref()
-                    && let Some(phone) = previous.phone.as_deref()
-                {
-                    sqlx::query!("UPDATE meta_messaging_identifier SET retired_at=COALESCE(retired_at,$3) WHERE connection_id=$1 AND identifier=$2 AND identity_id=$4",c.id,phone,update.timestamp,previous.id)
-                        .execute(&mut **tx).await.map_err(failure)?;
-                }
-                merge(tx, c.id, &previous, &current).await?;
-                sqlx::query!("UPDATE meta_messaging_conversation SET customer_phone=$3 WHERE connection_id=$1 AND customer_id=$2",c.id,current.current_id,current.phone)
-                    .execute(&mut **tx).await.map_err(failure)?;
-                current
-            }
-            (Some(previous), Some(_)) => previous,
-            (Some(mut previous), None) => {
-                // A different successor is conflicting evidence, not a second rename.
-                if previous.current_id != update.previous.as_str() {
-                    return Err(MessagingError::IdentityConflict.into());
-                }
-                rekey(tx, c.id, &previous.current_id, update.current.as_str()).await?;
-                sqlx::query!("UPDATE meta_messaging_identity SET current_id=$3 WHERE connection_id=$1 AND id=$2",c.id,previous.id,update.current.as_str())
-                    .execute(&mut **tx).await.map_err(failure)?;
-                previous.current_id = update.current.as_str().into();
-                previous.phone_observed_at = None;
-                previous
-            }
-            (None, Some(current)) => current,
-            (None, None) => create(tx, c.id, &update.current).await?,
-        };
-        alias(tx, c.id, identity.id, update.previous.as_str()).await?;
-        alias(tx, c.id, identity.id, update.current.as_str()).await?;
-        if update.previous != update.current {
-            sqlx::query!("UPDATE meta_messaging_identifier SET retired_at=LEAST(retired_at,$3) WHERE connection_id=$1 AND identifier=$2",c.id,update.previous.as_str(),update.timestamp)
+        let previous = Self::observe_identity_in(
+            tx,
+            c,
+            &update.previous,
+            update.previous_phone.as_ref(),
+            update.timestamp,
+        )
+        .await?;
+        let current = find(tx, c.id, update.current.as_str())
+            .await?
+            .unwrap_or_else(|| update.current.as_str().to_owned());
+        rekey(tx, c.id, previous.as_str(), &current).await?;
+        sqlx::query!("UPDATE meta_messaging_customer_alias SET customer_id=$3 WHERE connection_id=$1 AND customer_id=$2",c.id,previous.as_str(),current)
+            .execute(&mut **tx).await.map_err(failure)?;
+        if update.previous.is_whatsapp_bsuid() {
+            alias(tx, c.id, update.previous.as_str(), &current).await?;
+        } else {
+            sqlx::query!("DELETE FROM meta_messaging_customer_alias WHERE connection_id=$1 AND identifier=$2",c.id,update.previous.as_str())
                 .execute(&mut **tx).await.map_err(failure)?;
         }
-
-        if let Some(phone) = update
-            .previous_phone
-            .as_ref()
-            .filter(|phone| update.phone.as_ref() != Some(*phone))
-        {
-            retire_phone(tx, c.id, identity.id, phone.as_str(), update.timestamp).await?;
-        }
-        if identity.current_id != update.current.as_str()
-            && let Some(phone) = update.phone.as_ref()
-            && identity.phone.as_deref() != Some(phone.as_str())
-        {
-            let retired_at = successor_boundary
-                .or(identity.changed_at)
-                .unwrap_or(update.timestamp);
-            retire_phone(tx, c.id, identity.id, phone.as_str(), retired_at).await?;
-        }
-        // B -> C can arrive before A -> B. The later edge remains the destination.
-        if identity.current_id == update.current.as_str()
-            && identity.changed_at.is_none_or(|at| update.timestamp > at)
-        {
-            if identity
-                .phone_observed_at
-                .is_none_or(|at| at <= update.timestamp)
-            {
-                let phone = match update.phone.as_ref() {
-                    Some(phone)
-                        if find(tx, c.id, phone.as_str())
-                            .await?
-                            .is_none_or(|owner| owner.id == identity.id) =>
-                    {
-                        Some(phone.as_str())
-                    }
-                    _ => None,
-                };
-                route(tx, c.id, &identity, phone, update.timestamp).await?;
-            }
-            identity.changed_at = Some(update.timestamp);
-            sqlx::query!(
-                "UPDATE meta_messaging_identity SET changed_at=$3 WHERE connection_id=$1 AND id=$2",
-                c.id,
-                identity.id,
-                identity.changed_at
-            )
-            .execute(&mut **tx)
-            .await
-            .map_err(failure)?;
-        }
-        Ok(())
+        alias(tx, c.id, update.current.as_str(), &current).await?;
+        Self::observe_phone_in(
+            tx,
+            c.id,
+            &current,
+            update.phone.as_ref().map(ProviderId::as_str),
+            update.timestamp,
+        )
+        .await
     }
 
-    /// Resolve a previous identifier for a source revision without new routing data.
+    /// Resolve current/previous BSUIDs or an unambiguous legacy phone identity.
     pub async fn resolve_identifier_in(
         tx: &mut Transaction<'_, Postgres>,
         c: &Connection,
         identifier: &ProviderId,
+        message: Option<&ProviderId>,
     ) -> PortResult<ProviderId> {
         if c.provider != Provider::Whatsapp {
             return Ok(identifier.clone());
         }
         Self::lock_identity_in(tx, c).await?;
-        Ok(match find(tx, c.id, identifier.as_str()).await? {
-            Some(identity) => identity.current_id.try_into()?,
-            None => create(tx, c.id, identifier).await?.current_id.try_into()?,
-        })
+        if let Some(message) = message
+            && let Some(customer) = persisted_customer(tx, c.id, identifier, message).await?
+        {
+            return Ok(customer);
+        }
+        if !identifier.is_whatsapp_bsuid() {
+            let ambiguous = sqlx::query_scalar!(r#"SELECT EXISTS(SELECT 1 FROM meta_messaging_conversation WHERE connection_id=$1
+                AND ((customer_phone=$2 AND customer_id<>$2) OR (customer_id=$2 AND customer_phone IS DISTINCT FROM $2))) AS "ambiguous!""#,c.id,identifier.as_str())
+                .fetch_one(&mut **tx).await.map_err(failure)?;
+            if ambiguous {
+                tracing::warn!(connection_id=%c.id, "ambiguous phone-only fact dropped");
+                return Err(MessagingError::IdentityConflict.into());
+            }
+        }
+        if let Some(customer) = find(tx, c.id, identifier.as_str()).await? {
+            return Ok(customer.try_into()?);
+        }
+        alias(tx, c.id, identifier.as_str(), identifier.as_str()).await?;
+        Ok(identifier.clone())
     }
 
     async fn lock_identity_in(

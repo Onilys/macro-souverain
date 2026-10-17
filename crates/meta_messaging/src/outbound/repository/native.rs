@@ -117,7 +117,6 @@ impl PgMessagingRepository {
         send: Option<Uuid>,
     ) -> PortResult<()> {
         let window_until = crate::domain::meta_policy::customer_window_until(c, m, Utc::now());
-        let phone = m.customer_phone.as_ref().map(ProviderId::as_str);
         let customer_name = if m.direction == Direction::Inbound {
             m.author_name.as_deref()
         } else {
@@ -128,7 +127,19 @@ impl PgMessagingRepository {
         } else {
             None
         };
-        sqlx::query!("INSERT INTO meta_messaging_conversation (connection_id,customer_id,channel_id,external_sender_id,customer_display_name,customer_phone,customer_handle) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (connection_id,customer_id) DO UPDATE SET customer_display_name = COALESCE(EXCLUDED.customer_display_name,meta_messaging_conversation.customer_display_name),customer_handle=COALESCE(EXCLUDED.customer_handle,meta_messaging_conversation.customer_handle),customer_phone=EXCLUDED.customer_phone",c.id,m.customer_id.as_str(),r.channel_id,r.sender_id,customer_name,phone,customer_handle).execute(&mut **tx).await.map_err(failure)?;
+        sqlx::query!("INSERT INTO meta_messaging_conversation (connection_id,customer_id,channel_id,external_sender_id,customer_display_name,customer_handle) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (connection_id,customer_id) DO UPDATE SET customer_display_name = COALESCE(EXCLUDED.customer_display_name,meta_messaging_conversation.customer_display_name),customer_handle=COALESCE(EXCLUDED.customer_handle,meta_messaging_conversation.customer_handle)",c.id,m.customer_id.as_str(),r.channel_id,r.sender_id,customer_name,customer_handle).execute(&mut **tx).await.map_err(failure)?;
+        if send.is_none()
+            && let Some(phone) = m.customer_phone.as_ref()
+        {
+            Self::observe_phone_in(
+                tx,
+                c.id,
+                m.customer_id.as_str(),
+                Some(phone.as_str()),
+                m.timestamp,
+            )
+            .await?;
+        }
         if window_until.is_some() {
             sqlx::query!("UPDATE meta_messaging_conversation SET last_customer_message_at = GREATEST(last_customer_message_at,$3) WHERE connection_id = $1 AND customer_id = $2",c.id,m.customer_id.as_str(),m.timestamp).execute(&mut **tx).await.map_err(failure)?;
         }

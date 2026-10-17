@@ -215,9 +215,7 @@ pub(super) fn decode(entry: &Value, events: &mut Decoder) -> Result<(), Messagin
                         _ => return Err(MessagingError::Invalid("unsupported WhatsApp status")),
                     };
                     let at = timestamp(&status["timestamp"], false)?;
-                    if status.get("recipient_user_id").is_some()
-                        || status.get("recipient_id").is_some()
-                    {
+                    if status.get("recipient_user_id").is_some() {
                         let identity =
                             customer(status, "recipient_user_id", "recipient_id", contacts)?;
                         events.push(IncomingEvent::IdentityObserved {

@@ -1,26 +1,6 @@
-//! Native channel/author invariants across authoritative WhatsApp identity facts.
 use super::*;
 use meta_messaging::domain::events::IdentityUpdate;
-use sha2::Digest;
 
-fn update(
-    c: &Connection,
-    previous: &str,
-    current: &str,
-    previous_phone: Option<&str>,
-    phone: Option<&str>,
-    timestamp: chrono::DateTime<Utc>,
-) -> IdentityUpdate {
-    IdentityUpdate {
-        provenance: Provenance::Customer,
-        account_id: c.account_id.clone(),
-        previous: previous.to_owned().try_into().unwrap(),
-        current: current.to_owned().try_into().unwrap(),
-        previous_phone: previous_phone.map(|p| p.to_owned().try_into().unwrap()),
-        phone: phone.map(|p| p.to_owned().try_into().unwrap()),
-        timestamp,
-    }
-}
 fn message(
     c: &Connection,
     id: &str,
@@ -35,324 +15,101 @@ fn message(
     m
 }
 
+fn update(
+    c: &Connection,
+    previous: &str,
+    current: &str,
+    at: chrono::DateTime<Utc>,
+) -> IdentityUpdate {
+    IdentityUpdate {
+        provenance: Provenance::Customer,
+        account_id: c.account_id.clone(),
+        previous: previous.to_owned().try_into().unwrap(),
+        current: current.to_owned().try_into().unwrap(),
+        previous_phone: None,
+        phone: None,
+        timestamp: at,
+    }
+}
+
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn authoritative_pairs_keep_history_and_recycled_phones_create_a_distinct_customer(
-    pool: PgPool,
-) {
+async fn phone_only_upgrades_to_bsuid_without_changing_native_history(pool: PgPool) {
     let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let at = Utc::now();
     let repo = PgMessagingRepository::new(pool.clone());
-    native
-        .ingest(
-            &c,
-            &message(&c, "phone-first", "15550000001", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let (channel, first) = repo.message_target(c.id, "phone-first").await.unwrap();
+    let at = Utc::now();
+    let legacy = message(&c, "legacy", "15550000001", Some("15550000001"), at);
+    native.ingest(&c, &legacy, vec![]).await.unwrap();
+    let target = repo.message_target(c.id, "legacy").await.unwrap();
     let sender = sqlx::query_scalar!(
         "SELECT external_sender_id FROM meta_messaging_conversation WHERE channel_id=$1",
-        channel
+        target.0
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(&c, "bsuid-next", "US.A", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
+    let current = message(&c, "current", "US.A", Some("15550000001"), at);
+    native.ingest(&c, &current, vec![]).await.unwrap();
     assert_eq!(
-        repo.message_target(c.id, "bsuid-next").await.unwrap().0,
-        channel
+        repo.message_target(c.id, "current").await.unwrap().0,
+        target.0
     );
-    assert_eq!(
-        repo.conversation(channel)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_id
-            .as_str(),
-        "US.A"
-    );
+    assert_eq!(repo.message_target(c.id, "legacy").await.unwrap(), target);
+    let conversation = repo.conversation(target.0).await.unwrap().unwrap();
+    assert_eq!(conversation.customer_id.as_str(), "US.A");
+    assert_eq!(conversation.customer_phone.as_deref(), Some("15550000001"));
     assert_eq!(
         sqlx::query_scalar!(
             "SELECT external_sender_id FROM meta_messaging_conversation WHERE channel_id=$1",
-            channel
+            target.0
         )
         .fetch_one(&pool)
         .await
         .unwrap(),
         sender
     );
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.A",
-                "US.B",
-                Some("15550000001"),
-                None,
-                at + chrono::Duration::seconds(1),
-            ),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        repo.conversation(channel)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone,
-        None
-    );
-    native
-        .ingest(
-            &c,
-            &message(&c, "late-old", "15550000001", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        repo.message_target(c.id, "late-old").await.unwrap().0,
-        channel
-    );
-    assert!(
-        native
-            .ingest(
-                &c,
-                &message(
-                    &c,
-                    "recycled",
-                    "15550000001",
-                    Some("15550000001"),
-                    at + chrono::Duration::seconds(2)
-                ),
-                vec![]
-            )
-            .await
-            .is_err()
-    );
-    native
-        .ingest(
-            &c,
-            &message(
-                &c,
-                "new-owner",
-                "US.OTHER",
-                Some("15550000001"),
-                at + chrono::Duration::seconds(2),
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
-    assert_ne!(
-        repo.message_target(c.id, "new-owner").await.unwrap().0,
-        channel
-    );
-    native
-        .ingest(
-            &c,
-            &message(&c, "phone-first", "15550000001", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(
-        repo.message_target(c.id, "phone-first").await.unwrap(),
-        (channel, first)
-    );
+    assert_eq!(sqlx::query_scalar!("SELECT count(*) FROM meta_messaging_customer_alias WHERE connection_id=$1 AND identifier=$2",c.id,"15550000001")
+        .fetch_one(&pool).await.unwrap(), Some(0));
+    native.ingest(&c, &legacy, vec![]).await.unwrap();
+    assert_eq!(repo.message_target(c.id, "legacy").await.unwrap(), target);
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn reversed_identity_edges_and_late_old_phone_observations_keep_the_latest_route(
-    pool: PgPool,
-) {
+async fn bsuid_only_creates_one_conversation(pool: PgPool) {
     let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let at = Utc::now();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.B",
-                "US.C",
-                None,
-                Some("15550000003"),
-                at + chrono::Duration::seconds(2),
-            ),
-        )
-        .await
-        .unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.A",
-                "US.B",
-                Some("15550000001"),
-                Some("15550000002"),
-                at + chrono::Duration::seconds(1),
-            ),
-        )
-        .await
-        .unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.B",
-                "US.C",
-                None,
-                Some("15550000003"),
-                at + chrono::Duration::seconds(2),
-            ),
-        )
-        .await
-        .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(&c, "late-a", "US.A", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let repo = PgMessagingRepository::new(pool.clone());
-    let (channel, _) = repo.message_target(c.id, "late-a").await.unwrap();
-    let latest = repo.conversation(channel).await.unwrap().unwrap();
-    assert_eq!(latest.customer_id.as_str(), "US.C");
-    assert_eq!(latest.customer_phone.as_deref(), Some("15550000003"));
-    PgMessagingRepository::new(pool.clone())
-        .observe_identity(
-            &c,
-            &"US.C".to_owned().try_into().unwrap(),
-            Some(&"15550000004".to_owned().try_into().unwrap()),
-            at + chrono::Duration::seconds(4),
-        )
-        .await
-        .unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .observe_identity(
-            &c,
-            &"US.C".to_owned().try_into().unwrap(),
-            Some(&"15550000003".to_owned().try_into().unwrap()),
-            at + chrono::Duration::seconds(3),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        repo.conversation(channel)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone
-            .as_deref(),
-        Some("15550000004")
-    );
+    let repo = PgMessagingRepository::new(pool);
+    let m = message(&c, "hidden", "US.A", None, Utc::now());
+    native.ingest(&c, &m, vec![]).await.unwrap();
+    let target = repo.message_target(c.id, "hidden").await.unwrap();
+    native.ingest(&c, &m, vec![]).await.unwrap();
+    assert_eq!(repo.message_target(c.id, "hidden").await.unwrap(), target);
+    let conversation = repo.conversation(target.0).await.unwrap().unwrap();
+    assert_eq!(conversation.customer_id.as_str(), "US.A");
+    assert_eq!(conversation.customer_phone, None);
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn system_change_links_legacy_previous_phone_and_current_phone_without_merging_two_histories(
-    pool: PgPool,
-) {
+async fn user_id_update_rekeys_or_retains_separate_histories(pool: PgPool) {
     let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let at = Utc::now();
     let repo = PgMessagingRepository::new(pool.clone());
-    native
-        .ingest(
-            &c,
-            &message(&c, "legacy", "15550000001", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let (channel, _) = repo.message_target(c.id, "legacy").await.unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.A",
-                "US.B",
-                Some("15550000001"),
-                Some("15550000002"),
-                at + chrono::Duration::seconds(1),
-            ),
-        )
-        .await
-        .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(
-                &c,
-                "current",
-                "US.B",
-                None,
-                at + chrono::Duration::seconds(2),
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
+    let at = Utc::now();
+    let first = message(&c, "first", "US.A", None, at);
+    native.ingest(&c, &first, vec![]).await.unwrap();
+    let target = repo.message_target(c.id, "first").await.unwrap();
+    let revision = IncomingRevision {
+        provenance: Provenance::Customer,
+        account_id: c.account_id.clone(),
+        customer_id: first.customer_id.clone(),
+        message_id: "pending".to_owned().try_into().unwrap(),
+        direction: Direction::Inbound,
+        timestamp: at,
+        change: MessageRevision::Deleted,
+    };
+    native.revise(&c, &revision).await.unwrap();
+    let edge = update(&c, "US.A", "US.B", at);
+    repo.update_identity(&c, &edge).await.unwrap();
+    repo.update_identity(&c, &edge).await.unwrap();
     assert_eq!(
-        repo.message_target(c.id, "current").await.unwrap().0,
-        channel
-    );
-    // A new account has an independent alias namespace.
-    let mut other = c.clone();
-    other.id = Uuid::now_v7();
-    other.account_id = "other-business".to_owned().try_into().unwrap();
-    let other = repo.connect(&other, b"test", None).await.unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .observe_identity(&other, &"US.B".to_owned().try_into().unwrap(), None, at)
-        .await
-        .unwrap();
-    native
-        .ingest(
-            &other,
-            &message(
-                &other,
-                "phone-new-first",
-                "15550000002",
-                Some("15550000002"),
-                at,
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let (other_channel, _) = repo
-        .message_target(other.id, "phone-new-first")
-        .await
-        .unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &other,
-            &update(
-                &other,
-                "US.A",
-                "US.B",
-                None,
-                Some("15550000002"),
-                at + chrono::Duration::seconds(1),
-            ),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        repo.conversation(other_channel)
+        repo.conversation(target.0)
             .await
             .unwrap()
             .unwrap()
@@ -360,323 +117,90 @@ async fn system_change_links_legacy_previous_phone_and_current_phone_without_mer
             .as_str(),
         "US.B"
     );
-    assert_ne!(channel, other_channel);
-    native
-        .ingest(
-            &other,
-            &message(&other, "other-history", "US.X", None, at),
-            vec![],
-        )
+    let mut unrelated = revision.clone();
+    unrelated.customer_id = "US.OTHER".to_owned().try_into().unwrap();
+    unrelated.message_id = first.message_id.clone();
+    let error = native.revise(&c, &unrelated).await.unwrap_err();
+    assert!(matches!(
+        error.current_context(),
+        MessagingError::IdentityConflict
+    ));
+    let other = message(&c, "other", "US.C", None, at);
+    native.ingest(&c, &other, vec![]).await.unwrap();
+    let other_target = repo.message_target(c.id, "other").await.unwrap();
+    repo.update_identity(&c, &update(&c, "US.B", "US.C", at))
         .await
         .unwrap();
+    let pending = message(&c, "pending", "US.A", None, at);
+    native.ingest(&c, &pending, vec![]).await.unwrap();
+    let deleted = repo.message_target(c.id, "pending").await.unwrap();
     assert!(
-        PgMessagingRepository::new(pool.clone())
-            .update_identity(
-                &other,
-                &update(
-                    &other,
-                    "US.X",
-                    "US.B",
-                    None,
-                    Some("15550000002"),
-                    at + chrono::Duration::seconds(2)
-                )
-            )
-            .await
-            .is_err()
-    );
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn updates_before_first_message_retire_old_phones_and_preserve_pending_tombstones(
-    pool: PgPool,
-) {
-    let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let at = Utc::now();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(&c, "15550000001", "US.B", Some("15550000001"), None, at),
-        )
-        .await
-        .unwrap();
-    assert!(
-        native
-            .ingest(
-                &c,
-                &message(
-                    &c,
-                    "recycled",
-                    "15550000001",
-                    Some("15550000001"),
-                    at + chrono::Duration::seconds(1)
-                ),
-                vec![]
-            )
-            .await
-            .is_err()
-    );
-    let revision = IncomingRevision {
-        provenance: Provenance::Customer,
-        account_id: c.account_id.clone(),
-        customer_id: "US.X".to_owned().try_into().unwrap(),
-        message_id: "deleted-before-original".to_owned().try_into().unwrap(),
-        direction: Direction::Inbound,
-        timestamp: at,
-        change: MessageRevision::Deleted,
-    };
-    native.revise(&c, &revision).await.unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(&c, &update(&c, "US.X", "US.Y", None, None, at))
-        .await
-        .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(&c, "deleted-before-original", "US.Y", None, at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let repo = PgMessagingRepository::new(pool.clone());
-    let (channel, id) = repo
-        .message_target(c.id, "deleted-before-original")
-        .await
-        .unwrap();
-    assert!(
-        PgMessageRepository::new(pool)
-            .get(&MessageParent::Channel(channel), id)
+        PgMessageRepository::new(pool.clone())
+            .get(&MessageParent::Channel(deleted.0), deleted.1)
             .await
             .unwrap()
             .unwrap()
             .deleted_at
             .is_some()
     );
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn accepted_recovery_keeps_current_routing_after_rename_and_connector_departure(
-    pool: PgPool,
-) {
-    let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let at = Utc::now();
-    native
-        .ingest(
-            &c,
-            &message(&c, "start", "US.A", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let repo = PgMessagingRepository::new(pool.clone());
-    let (channel, _) = repo.message_target(c.id, "start").await.unwrap();
-    let stale = repo.conversation(channel).await.unwrap().unwrap();
-    let request = SendReply {
-        idempotency_key: Uuid::now_v7(),
-        message: ReplyContent::Text {
-            text: "accepted before leaving".into(),
-        },
-        reply_to: None,
-        human_support: false,
+    assert_ne!(target.0, other_target.0);
+    assert_eq!(repo.message_target(c.id, "first").await.unwrap(), target);
+    native.ingest(&c, &first, vec![]).await.unwrap();
+    let late = message(&c, "late", "US.A", None, at);
+    native.ingest(&c, &late, vec![]).await.unwrap();
+    assert_eq!(
+        repo.message_target(c.id, "late").await.unwrap().0,
+        other_target.0
+    );
+    let old = repo.conversation(target.0).await.unwrap().unwrap();
+    let lease = meta_messaging::domain::ports::Lease {
+        id: Uuid::now_v7(),
+        token: Uuid::now_v7(),
     };
-    repo.enqueue_send(
-        c.id,
-        channel,
-        &c.user_id,
-        &request,
-        &sha2::Sha256::digest(b"accepted-identity"),
-    )
-    .await
-    .unwrap();
-    let work = repo.claim_send().await.unwrap().unwrap();
-    let provider: ProviderId = "accepted-identity".to_owned().try_into().unwrap();
-    repo.settle_send(
-        &work.lease,
-        DeliveryState::Accepted,
-        Some(&provider),
-        None,
-        None,
-    )
-    .await
-    .unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.A",
-                "US.B",
-                Some("15550000001"),
-                Some("15550000002"),
-                at + chrono::Duration::seconds(1),
-            ),
-        )
+    let error = repo
+        .prepare_send(&lease, &(&c).into(), &old, "blocked")
         .await
-        .unwrap();
-    sqlx::query!(
-        "DELETE FROM team_user WHERE team_id=$1 AND user_id=$2",
-        c.team_id,
-        c.user_id
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-    repo.disconnect(c.team_id, c.id).await.unwrap();
-    native
-        .sent(&work, &stale, &(&c).into(), &provider)
-        .await
-        .unwrap();
-    native
-        .sent(&work, &stale, &(&c).into(), &provider)
-        .await
-        .unwrap();
-    let latest = repo.conversation(channel).await.unwrap().unwrap();
-    assert_eq!(latest.customer_id.as_str(), "US.B");
-    assert_eq!(latest.customer_phone.as_deref(), Some("15550000002"));
-    assert_eq!(
-        repo.message_target(c.id, provider.as_str())
-            .await
-            .unwrap()
-            .0,
-        channel
-    );
-    assert!(repo.claim_send().await.unwrap().is_none());
+        .unwrap_err();
+    assert!(matches!(
+        error.current_context(),
+        MessagingError::IdentityConflict
+    ));
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn reversed_three_edge_chain_uses_each_successor_boundary_for_retired_phones(pool: PgPool) {
+async fn recycled_phone_moves_only_the_latest_attribute(pool: PgPool) {
     let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
+    let repo = PgMessagingRepository::new(pool);
     let at = Utc::now();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.C",
-                "US.D",
-                None,
-                None,
-                at + chrono::Duration::seconds(30),
-            ),
-        )
-        .await
-        .unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.B",
-                "US.C",
-                None,
-                None,
-                at + chrono::Duration::seconds(20),
-            ),
-        )
-        .await
-        .unwrap();
-    PgMessagingRepository::new(pool.clone())
-        .update_identity(
-            &c,
-            &update(
-                &c,
-                "US.A",
-                "US.B",
-                None,
-                Some("15550000002"),
-                at + chrono::Duration::seconds(10),
-            ),
-        )
-        .await
-        .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(
-                &c,
-                "late-intermediate",
-                "15550000002",
-                Some("15550000002"),
-                at + chrono::Duration::seconds(15),
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let repo = PgMessagingRepository::new(pool.clone());
-    let (channel, _) = repo
-        .message_target(c.id, "late-intermediate")
-        .await
-        .unwrap();
+    let old = message(&c, "old", "US.A", Some("15550000001"), at);
+    let new = message(
+        &c,
+        "new",
+        "US.B",
+        Some("15550000001"),
+        at + chrono::Duration::seconds(2),
+    );
+    native.ingest(&c, &old, vec![]).await.unwrap();
+    native.ingest(&c, &new, vec![]).await.unwrap();
+    let old_channel = repo.message_target(c.id, "old").await.unwrap().0;
+    let new_channel = repo.message_target(c.id, "new").await.unwrap().0;
+    assert_ne!(old_channel, new_channel);
+    let stale = message(&c, "stale", "US.A", Some("15550000001"), at);
+    native.ingest(&c, &stale, vec![]).await.unwrap();
     assert_eq!(
-        repo.conversation(channel)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_id
-            .as_str(),
-        "US.D"
-    );
-    assert!(
-        native
-            .ingest(
-                &c,
-                &message(
-                    &c,
-                    "recycled-intermediate",
-                    "15550000002",
-                    Some("15550000002"),
-                    at + chrono::Duration::seconds(25)
-                ),
-                vec![]
-            )
-            .await
-            .is_err()
-    );
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn recycled_phone_retires_the_old_route_without_merging_history_or_restoring_it_from_status(
-    pool: PgPool,
-) {
-    let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let repo = PgMessagingRepository::new(pool.clone());
-    let at = Utc::now();
-    native
-        .ingest(
-            &c,
-            &message(&c, "old-owner", "US.OLD", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(
-                &c,
-                "new-owner",
-                "US.NEW",
-                Some("15550000001"),
-                at + chrono::Duration::seconds(2),
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let old = repo.message_target(c.id, "old-owner").await.unwrap().0;
-    let new = repo.message_target(c.id, "new-owner").await.unwrap().0;
-    assert_ne!(old, new);
-    assert!(
-        repo.conversation(old)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone
-            .is_none()
+        repo.message_target(c.id, "stale").await.unwrap().0,
+        old_channel
     );
     assert_eq!(
-        repo.conversation(new)
+        repo.conversation(old_channel)
+            .await
+            .unwrap()
+            .unwrap()
+            .customer_phone,
+        None
+    );
+    assert_eq!(
+        repo.conversation(new_channel)
             .await
             .unwrap()
             .unwrap()
@@ -684,265 +208,93 @@ async fn recycled_phone_retires_the_old_route_without_merging_history_or_restori
             .as_deref(),
         Some("15550000001")
     );
-    repo.observe_identity(
+    let ambiguous = message(&c, "ambiguous", "15550000001", Some("15550000001"), at);
+    let error = native.ingest(&c, &ambiguous, vec![]).await.unwrap_err();
+    assert!(matches!(
+        error.current_context(),
+        MessagingError::IdentityConflict
+    ));
+    let legacy = message(&c, "legacy", "15550000002", Some("15550000002"), at);
+    native.ingest(&c, &legacy, vec![]).await.unwrap();
+    let legacy_channel = repo.message_target(c.id, "legacy").await.unwrap().0;
+    let pair = message(
         &c,
-        &"US.OLD".to_owned().try_into().unwrap(),
-        Some(&"15550000001".to_owned().try_into().unwrap()),
+        "pair",
+        "US.B",
+        Some("15550000002"),
         at + chrono::Duration::seconds(3),
-    )
-    .await
-    .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(&c, "late-bsuid", "US.OLD", Some("15550000001"), at),
-            vec![],
-        )
+    );
+    native.ingest(&c, &pair, vec![]).await.unwrap();
+    let superseded = repo.conversation(legacy_channel).await.unwrap().unwrap();
+    assert_eq!(superseded.customer_phone, None);
+    let lease = meta_messaging::domain::ports::Lease {
+        id: Uuid::now_v7(),
+        token: Uuid::now_v7(),
+    };
+    let error = repo
+        .prepare_send(&lease, &(&c).into(), &superseded, "blocked")
         .await
-        .unwrap();
-    assert_eq!(
-        repo.message_target(c.id, "late-bsuid").await.unwrap().0,
-        old
-    );
-    assert!(
-        repo.conversation(old)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone
-            .is_none()
-    );
-    assert!(
-        native
-            .ingest(
-                &c,
-                &message(
-                    &c,
-                    "ambiguous-old-phone",
-                    "15550000001",
-                    Some("15550000001"),
-                    at
-                ),
-                vec![]
-            )
-            .await
-            .is_err()
-    );
-    native
-        .ingest(
-            &c,
-            &message(
-                &c,
-                "current-phone",
-                "15550000001",
-                Some("15550000001"),
-                at + chrono::Duration::seconds(4),
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        repo.message_target(c.id, "current-phone").await.unwrap().0,
-        new
-    );
-    assert!(
-        native
-            .ingest(
-                &c,
-                &message(
-                    &c,
-                    "same-second-phone",
-                    "15550000001",
-                    Some("15550000001"),
-                    at + chrono::Duration::seconds(2)
-                ),
-                vec![]
-            )
-            .await
-            .is_err()
-    );
+        .unwrap_err();
+    assert!(matches!(
+        error.current_context(),
+        MessagingError::IdentityConflict
+    ));
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn delayed_system_change_preserves_the_old_customer_after_its_phone_was_reassigned(
-    pool: PgPool,
-) {
+async fn late_old_bsuid_keeps_the_channel_without_restoring_its_phone(pool: PgPool) {
     let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let repo = PgMessagingRepository::new(pool.clone());
+    let repo = PgMessagingRepository::new(pool);
     let at = Utc::now();
-    native
-        .ingest(
-            &c,
-            &message(&c, "old", "US.A", Some("15550000001"), at),
-            vec![],
-        )
+    let m = message(&c, "first", "US.A", Some("15550000001"), at);
+    native.ingest(&c, &m, vec![]).await.unwrap();
+    let channel = repo.message_target(c.id, "first").await.unwrap().0;
+    let mut edge = update(&c, "US.A", "US.B", at + chrono::Duration::seconds(1));
+    edge.phone = Some("15550000002".to_owned().try_into().unwrap());
+    repo.update_identity(&c, &edge).await.unwrap();
+    let late = message(&c, "late", "US.A", Some("15550000001"), at);
+    native.ingest(&c, &late, vec![]).await.unwrap();
+    assert_eq!(repo.message_target(c.id, "late").await.unwrap().0, channel);
+    let conversation = repo.conversation(channel).await.unwrap().unwrap();
+    assert_eq!(conversation.customer_id.as_str(), "US.B");
+    assert_eq!(conversation.customer_phone.as_deref(), Some("15550000002"));
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn aliases_are_isolated_by_connection(pool: PgPool) {
+    let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
+    let repo = PgMessagingRepository::new(pool);
+    let mut other = c.clone();
+    other.id = Uuid::now_v7();
+    other.account_id = "another-account".to_owned().try_into().unwrap();
+    let other = repo.connect(&other, b"fixture", None).await.unwrap();
+    let at = Utc::now();
+    repo.update_identity(&c, &update(&c, "US.A", "US.B", at))
         .await
         .unwrap();
-    native
-        .ingest(
-            &c,
-            &message(
-                &c,
-                "new",
-                "US.B",
-                Some("15550000001"),
-                at + chrono::Duration::seconds(20),
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let old = repo.message_target(c.id, "old").await.unwrap().0;
-    let new = repo.message_target(c.id, "new").await.unwrap().0;
-    repo.update_identity(
-        &c,
-        &update(
-            &c,
-            "US.A",
-            "US.C",
-            Some("15550000001"),
-            None,
-            at + chrono::Duration::seconds(10),
-        ),
-    )
-    .await
-    .unwrap();
+    let first = message(&c, "same", "US.A", None, at);
+    let second = message(&other, "same", "US.A", None, at);
+    native.ingest(&c, &first, vec![]).await.unwrap();
+    native.ingest(&other, &second, vec![]).await.unwrap();
+    let a = repo.message_target(c.id, "same").await.unwrap().0;
+    let b = repo.message_target(other.id, "same").await.unwrap().0;
+    assert_ne!(a, b);
     assert_eq!(
-        repo.conversation(old)
+        repo.conversation(a)
             .await
             .unwrap()
             .unwrap()
             .customer_id
             .as_str(),
-        "US.C"
-    );
-    assert!(
-        repo.conversation(old)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone
-            .is_none()
+        "US.B"
     );
     assert_eq!(
-        repo.conversation(new)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone
-            .as_deref(),
-        Some("15550000001")
-    );
-    native
-        .ingest(
-            &c,
-            &message(
-                &c,
-                "current",
-                "15550000001",
-                Some("15550000001"),
-                at + chrono::Duration::seconds(30),
-            ),
-            vec![],
-        )
-        .await
-        .unwrap();
-    assert_eq!(repo.message_target(c.id, "current").await.unwrap().0, new);
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn a_legacy_phone_system_edge_is_idempotent_at_its_retirement_boundary(pool: PgPool) {
-    let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let repo = PgMessagingRepository::new(pool.clone());
-    let at = Utc::now();
-    native
-        .ingest(
-            &c,
-            &message(&c, "legacy", "15550000001", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let edge = update(
-        &c,
-        "15550000001",
-        "US.NEXT",
-        Some("15550000001"),
-        None,
-        at + chrono::Duration::seconds(2),
-    );
-    repo.update_identity(&c, &edge).await.unwrap();
-    repo.update_identity(&c, &edge).await.unwrap();
-    let channel = repo.message_target(c.id, "legacy").await.unwrap().0;
-    assert_eq!(
-        repo.conversation(channel)
+        repo.conversation(b)
             .await
             .unwrap()
             .unwrap()
             .customer_id
             .as_str(),
-        "US.NEXT"
-    );
-    assert!(
-        native
-            .ingest(
-                &c,
-                &message(
-                    &c,
-                    "ambiguous",
-                    "15550000001",
-                    Some("15550000001"),
-                    edge.timestamp
-                ),
-                vec![]
-            )
-            .await
-            .is_err()
-    );
-}
-
-#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn a_phone_app_echo_can_establish_the_new_owner_of_a_recycled_phone(pool: PgPool) {
-    let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
-    let repo = PgMessagingRepository::new(pool.clone());
-    let at = Utc::now();
-    native
-        .ingest(
-            &c,
-            &message(&c, "prior-owner", "US.OLD", Some("15550000001"), at),
-            vec![],
-        )
-        .await
-        .unwrap();
-    let mut echo = message(
-        &c,
-        "new-owner-echo",
-        "US.NEW",
-        Some("15550000001"),
-        at + chrono::Duration::seconds(2),
-    );
-    echo.provenance = Provenance::PhoneEcho;
-    echo.direction = Direction::Outbound;
-    native.ingest(&c, &echo, vec![]).await.unwrap();
-    let old = repo.message_target(c.id, "prior-owner").await.unwrap().0;
-    let new = repo.message_target(c.id, "new-owner-echo").await.unwrap().0;
-    assert_ne!(old, new);
-    assert!(
-        repo.conversation(old)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone
-            .is_none()
-    );
-    assert_eq!(
-        repo.conversation(new)
-            .await
-            .unwrap()
-            .unwrap()
-            .customer_phone
-            .as_deref(),
-        Some("15550000001")
+        "US.A"
     );
 }

@@ -24,7 +24,7 @@ threads, pins, recents, notifications, folders, activity.
   user/team, membership, expiry, replay and reconnect HTTP/database regressions.
 - `native_messaging/native/test/http/{members,registration}.rs` and
   `native_messaging/native/test/identity.rs`: account management, Platform readiness
-  and native identity/recovery invariants. Messaging workers share the DSS task
+  and native channel preservation through BSUID aliasing. Messaging workers share the DSS task
   tracker and drain claimed work on cancellation. Messaging domain services own
   connector authorization; the native adapter commits channel/message/file effects.
 - `README.md`: local setup (`just run_dbs`, `.env` from `.env.sample`).

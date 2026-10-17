@@ -17,8 +17,9 @@ See `docs/META_MESSAGING.md` for redirect configuration and rollout gates.
 
 ## Identity and readiness
 
-Use connection-scoped provider aliases for late WhatsApp facts. Never derive phones
-from BSUIDs or join by display names. Platform registration stays pending until
+Use one connection-scoped BSUID alias table; keep phone and its timestamp on the
+conversation. Remove legacy phone aliases on upgrade, never merge histories, and
+drop ambiguous phone-only facts terminally. Never join by display names. Platform registration stays pending until
 Meta confirms registration and subscription; preserve uncertain attempts and
 encrypted credentials without persisting PINs. Never infer missing registration
 from an arbitrary non-CONNECTED provider status. Accepted native recovery is separate

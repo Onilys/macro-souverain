@@ -111,10 +111,9 @@ Use Meta's BSUID as the preferred WhatsApp identity when supplied; retain phone
 numbers separately as optional routing/display data. Preserve connection/business
 scope. Do not turn customers into Macro users or CRM records.
 
-Before choosing the final schema, trace live messages, contacts, statuses, phone
-app echoes, history, sends, revisions and identity-update system messages. Legacy and phone-only
-payloads must still resolve safely. Do not assume every source or API version has
-already adopted BSUIDs.
+Use the September 15, 2026 contract: messages and sent/delivered/read statuses
+include BSUIDs. Failed phone-only statuses match by message ID; legacy phone-only
+history is supported without arbitrating historical phone ownership.
 
 Required outcomes:
 
@@ -126,10 +125,10 @@ Required outcomes:
   revision tombstones and queued/accepted send recovery. Keep enough previous-ID
   resolution for late events; `ON UPDATE CASCADE` alone does not cover JSON
   payloads, unlinked pending revisions or redelivered old identifiers.
-- On an authoritative identity/phone change, retire obsolete phone routing;
-  queued replies must resolve the current verified destination at dispatch.
-  A retained phone must not override a newer identity association.
-- Conflicting identities fail safely rather than merging two customer histories.
+- Keep one alias table and one phone timestamp on the conversation. Latest phone
+  observations clear another holder; never merge native histories.
+- ID updates rekey only when the destination has no conversation; otherwise retain
+  the alias and log. Ambiguous phone-only facts fail terminally.
 - Prefer the documented BSUID destination when known and supported for the message,
   retaining the documented phone destination for phone-only identities. Do not invent
   a phone or silently drop an unaddressable reply; surface a clear limitation.

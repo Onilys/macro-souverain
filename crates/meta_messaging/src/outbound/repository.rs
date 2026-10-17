@@ -78,7 +78,7 @@ impl MessagingRepository for PgMessagingRepository {
         at: chrono::DateTime<Utc>,
     ) -> PortResult<()> {
         let mut tx = self.pool.begin().await.map_err(failure)?;
-        PgMessagingRepository::observe_identity_in(&mut tx, c, customer, phone, at, false).await?;
+        PgMessagingRepository::observe_identity_in(&mut tx, c, customer, phone, at).await?;
         tx.commit().await.map_err(failure)
     }
 
@@ -435,6 +435,16 @@ impl ConversationRepository for PgMessagingRepository {
             .fetch_optional(&mut *tx).await.map_err(failure)?;
         if active.is_none() {
             return Err(MessagingError::Disconnected.into());
+        }
+        let invalid_route = sqlx::query_scalar!(r#"SELECT
+            EXISTS(SELECT 1 FROM meta_messaging_customer_alias WHERE connection_id=$1 AND identifier=$2 AND customer_id<>$2)
+            OR EXISTS(SELECT 1 FROM meta_messaging_conversation v JOIN meta_messaging_connection c ON c.id=v.connection_id
+                WHERE v.connection_id=$1 AND v.customer_id=$2 AND $3 AND c.provider='whatsapp'
+                AND v.customer_phone_at IS NOT NULL AND v.customer_phone IS DISTINCT FROM v.customer_id) AS "invalid_route!""#,
+            c.id,conversation.customer_id.as_str(),!conversation.customer_id.is_whatsapp_bsuid())
+            .fetch_one(&mut *tx).await.map_err(failure)?;
+        if invalid_route {
+            return Err(MessagingError::IdentityConflict.into());
         }
         let routing=sqlx::query!("SELECT customer_id,customer_phone FROM meta_messaging_conversation WHERE connection_id=$1 AND channel_id=$2",c.id,conversation.channel_id)
             .fetch_optional(&mut *tx).await.map_err(failure)?.ok_or(MessagingError::NotFound)?;

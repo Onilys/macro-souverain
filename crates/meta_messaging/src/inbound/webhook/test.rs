@@ -495,3 +495,17 @@ fn history_uses_the_business_sender_even_with_customer_context_bsuid() {
     };
     assert_eq!(message.direction, Direction::Outbound);
 }
+
+#[test]
+fn failed_phone_status_matches_only_the_message_id() {
+    let payload = whatsapp_payload(
+        "messages",
+        json!({"metadata":{"phone_number_id":"phone"},
+        "statuses":[{"recipient_id":"15550000001","id":"failed-message","status":"failed","timestamp":"1700000000"}]}),
+    );
+    let decoded = decode(Provider::Whatsapp, &payload).unwrap();
+    assert_eq!(decoded.invalid_items, 0);
+    assert!(
+        matches!(decoded.events.as_slice(), [IncomingEvent::Status { message_id, state: DeliveryState::Failed, .. }] if message_id.as_str() == "failed-message")
+    );
+}

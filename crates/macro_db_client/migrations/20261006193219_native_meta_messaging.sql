@@ -57,6 +57,7 @@ CREATE TABLE meta_messaging_conversation (
     channel_id uuid NOT NULL UNIQUE REFERENCES comms_channels(id) ON DELETE CASCADE,
     customer_display_name text,
     customer_phone text,
+    customer_phone_at timestamptz,
     customer_handle text,
     external_sender_id uuid NOT NULL,
     last_customer_message_at timestamptz,
@@ -226,25 +227,9 @@ CREATE TABLE meta_messaging_media_copy (
     lease_until timestamptz
 );
 CREATE INDEX meta_messaging_media_copy_cleanup_idx ON meta_messaging_media_copy(available_at,id);
--- Provider aliases are connection-scoped and may exist before a native channel.
--- The identity row holds current routing; aliases retain old IDs for late facts.
-CREATE TABLE meta_messaging_identity (
+CREATE TABLE meta_messaging_customer_alias (
     connection_id uuid NOT NULL REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
-    id uuid NOT NULL,
-    current_id text NOT NULL,
-    phone text,
-    phone_observed_at timestamptz,
-    changed_at timestamptz,
-    PRIMARY KEY (connection_id, id),
-    UNIQUE (connection_id, current_id)
-);
-CREATE TABLE meta_messaging_identifier (
-    connection_id uuid NOT NULL,
     identifier text NOT NULL,
-    identity_id uuid NOT NULL,
-    retired_at timestamptz,
-    bound_at timestamptz,
-    PRIMARY KEY (connection_id, identifier),
-    FOREIGN KEY (connection_id, identity_id) REFERENCES meta_messaging_identity(connection_id, id) ON DELETE CASCADE
+    customer_id text NOT NULL,
+    PRIMARY KEY (connection_id, identifier)
 );
-CREATE INDEX meta_messaging_identifier_identity_idx ON meta_messaging_identifier(connection_id, identity_id);

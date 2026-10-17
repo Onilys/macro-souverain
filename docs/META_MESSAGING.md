@@ -99,16 +99,19 @@ be added later, but they are separate from the first release's scope.
 
 ## WhatsApp identity and Platform registration
 
-WhatsApp prefers BSUIDs, with an optional phone kept separately for routing/display.
-Connection-scoped identity rows and aliases preserve native channel IDs, external
-author IDs, messages and pending revisions. Authoritative pairs reconcile earlier
-phone-only facts; conflicting BSUIDs or two materialized histories are rejected.
-Names and usernames never join identities. Retired phones resolve only late facts
-strictly before retirement and cannot restore obsolete routing. Phone-only facts
-at a reassignment boundary are ambiguous; authoritative system-edge replays remain
-idempotent. The dispatch fence
-compares both customer ID and phone under the same account lock as identity updates;
-a changed destination retries preparation before any external send.
+WhatsApp identity uses one connection-scoped alias table from current/previous
+BSUIDs to customer IDs. Phones are optional conversation attributes with one
+latest-observation timestamp. Legacy phone-keyed conversations upgrade when a
+verified BSUID/phone pair arrives; their phone alias is then removed. A recycled
+phone clears the other conversation's phone attribute without merging histories.
+Phone-only facts use legacy conversations; ambiguous facts are logged and dropped
+with the terminal identity-conflict code, without historical phone arbitration.
+
+A system ID update retains old BSUID aliases and rekeys a conversation only when
+the destination has none. Otherwise both histories remain and the alias is logged;
+new sends from the old conversation fail terminally. Existing provider message IDs
+preserve replay/revision attribution, and accepted replies can still finish native
+recovery. The connection lock serializes identity changes and the send fence.
 
 The September 15, 2026 [Meta contract](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids)
 uses `from_user_id` for live messages, `to_user_id` for echoes, `context.user_id`
@@ -145,12 +148,6 @@ is not treated as permission to register. Verified account credentials are retai
 for reconciliation. The domain supports explicit retry after a positive
 unregistered result, but current live evidence covers the registered test number
 only. Platform signup rejects Business-app and On-Premises migration accounts.
-
-A new authoritative customer BSUID/phone pair may transfer a recycled phone's
-routing association without merging conversations. Late BSUID events retain their
-original customer; ambiguous phone-only facts before a transfer boundary fail
-without attribution. Permanent identity conflicts stop automatic retry; connection
-generation and lease races remain recoverable.
 
 ## Development isolation
 

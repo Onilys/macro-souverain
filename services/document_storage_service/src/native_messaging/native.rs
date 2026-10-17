@@ -226,8 +226,13 @@ impl NativeMessaging for NativeChannels {
     async fn revise(&self, c: &Connection, revision: &IncomingRevision) -> PortResult<()> {
         let mut tx = self.pool.begin().await.map_err(error)?;
         let mut revision = revision.clone();
-        revision.customer_id =
-            PgMessagingRepository::resolve_identifier_in(&mut tx, c, &revision.customer_id).await?;
+        revision.customer_id = PgMessagingRepository::resolve_identifier_in(
+            &mut tx,
+            c,
+            &revision.customer_id,
+            Some(&revision.message_id),
+        )
+        .await?;
         PgMessagingRepository::record_revision_in(&mut tx, c, &revision).await?;
         apply_revision(
             &mut tx,
