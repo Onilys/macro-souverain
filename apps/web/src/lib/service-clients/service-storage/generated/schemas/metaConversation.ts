@@ -7,6 +7,8 @@
 import type { MetaConversationCustomerDisplayName } from './metaConversationCustomerDisplayName';
 import type { MetaConversationCustomerHandle } from './metaConversationCustomerHandle';
 import type { MetaConversationCustomerPhone } from './metaConversationCustomerPhone';
+import type { MetaConversationGroupStatus } from './metaConversationGroupStatus';
+import type { MetaConversationKind } from './metaConversationKind';
 import type { MetaConversationLastCustomerMessageAt } from './metaConversationLastCustomerMessageAt';
 import type { MetaProviderId } from './metaProviderId';
 
@@ -26,6 +28,9 @@ export interface MetaConversation {
   customer_id: MetaProviderId;
   /** Verified phone, when present. */
   customer_phone?: MetaConversationCustomerPhone;
+  group_status?: MetaConversationGroupStatus;
+  /** Destination kind; group identifiers never enter person alias resolution. */
+  kind?: MetaConversationKind;
   /** Latest eligible inbound source timestamp. */
   last_customer_message_at?: MetaConversationLastCustomerMessageAt;
 }

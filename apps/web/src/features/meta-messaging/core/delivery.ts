@@ -56,6 +56,13 @@ export function messagingError(
     return operation === 'connection'
       ? 'You no longer have permission to manage this account. Ask its connector or a team admin to check access.'
       : 'You no longer have access to send this reply. Ask a team admin to check your channel and account access.';
+  if (number === '131020')
+    return 'No one has joined yet — share the invite link.';
+  if (value === 'group_read_only') return 'This WhatsApp group is read-only.';
+  if (value === 'group_ineligible')
+    return 'WhatsApp groups require an eligible Official Business Account and group webhook subscriptions.';
+  if (value === 'group_unconfirmed')
+    return 'Could not confirm the WhatsApp operation. You can deliberately retry.';
   if (number === '131047' || value === 'template_required')
     return 'WhatsApp’s reply window has closed. Use an approved template, or wait for the customer to message again.';
   if (value === 'reply_window_closed')

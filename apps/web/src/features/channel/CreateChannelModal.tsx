@@ -1,3 +1,5 @@
+import { messagingError } from '@app/features/meta-messaging/core/delivery';
+import { useCreateWhatsappGroup } from '@app/features/meta-messaging/queries/groups';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { RecipientSelector } from '@core/component/RecipientSelector';
 import { toast } from '@core/component/Toast/Toast';
@@ -17,16 +19,21 @@ import {
   usePatchChannelMutation,
 } from '@queries/channel/channels';
 import { useAddParticipantsMutation } from '@queries/channel/participants';
+import { useMetaConnections } from '@queries/meta-messaging';
 import { useCurrentTeamQuery } from '@queries/team/teams';
+import type { MetaConnection } from '@service-storage/generated/schemas/metaConnection';
 import {
   Button,
+  Checkbox,
   Dialog,
   InputGroup,
   Panel,
   RadioGroup,
+  Select,
   ToggleSwitch,
 } from '@ui';
 import { createMemo, createSignal, Show } from 'solid-js';
+import { v7 as uuidv7 } from 'uuid';
 
 const [newChannelModalOpen, setNewChannelModalOpen] = createSignal(false);
 const newChannelModalFocusLock = useFocusLock('create-channel');
@@ -52,6 +59,26 @@ export function CreateChannelModal() {
   const addParticipantsMutation = useAddParticipantsMutation();
   const addAgentMutation = useAddBotToChannelMutation();
   const currentTeamQuery = useCurrentTeamQuery();
+  const [whatsapp, setWhatsapp] = createSignal(false);
+  const [groupConnectionId, setGroupConnectionId] = createSignal<string>();
+  const [groupChannelId, setGroupChannelId] = createSignal<string>();
+  const groupCreate = useCreateWhatsappGroup();
+  const groupConnections = useMetaConnections(
+    () => currentTeamQuery.data?.team?.id ?? '',
+    newChannelModalOpen
+  );
+  const accounts = () =>
+    (groupConnections.data ?? []).filter(
+      (account) =>
+        account.user_id === userId() &&
+        account.provider === 'whatsapp' &&
+        account.whatsapp_mode === 'platform' &&
+        account.registration_status === 'registered' &&
+        account.status === 'connected'
+    );
+  const selectedAccount = () =>
+    accounts().find((account) => account.id === groupConnectionId()) ??
+    (accounts().length === 1 ? accounts()[0] : undefined);
   const [name, setName] = createSignal('');
   const [visibility, setVisibility] = createSignal<ChannelVisibility>('team');
   const [autoJoinTeam, setAutoJoinTeam] = createSignal(true);
@@ -75,6 +102,9 @@ export function CreateChannelModal() {
   let visibilityOptions: HTMLDivElement | undefined;
 
   function reset() {
+    setWhatsapp(false);
+    setGroupConnectionId(undefined);
+    setGroupChannelId(undefined);
     setStep('name');
     setName('');
     setVisibility('team');
@@ -94,6 +124,7 @@ export function CreateChannelModal() {
 
   function close() {
     if (
+      groupCreate.isPending ||
       createChannelMutation.isPending ||
       patchChannelMutation.isPending ||
       addParticipantsMutation.isPending ||
@@ -109,6 +140,7 @@ export function CreateChannelModal() {
 
   function goBack() {
     if (
+      groupCreate.isPending ||
       createChannelMutation.isPending ||
       patchChannelMutation.isPending ||
       addParticipantsMutation.isPending ||
@@ -121,7 +153,32 @@ export function CreateChannelModal() {
   }
 
   async function createChannel() {
-    if (createChannelMutation.isPending) return;
+    if (createChannelMutation.isPending || groupCreate.isPending) return;
+    if (whatsapp()) {
+      const account = selectedAccount();
+      if (!account) {
+        setError('Choose a WhatsApp account connected by you.');
+        return;
+      }
+      const id = groupChannelId() ?? uuidv7();
+      setGroupChannelId(id);
+      try {
+        await groupCreate.mutateAsync({
+          connectionId: account.id,
+          request: { channel_id: id, subject: channelName() },
+        });
+        replaceOrInsertSplit({ type: 'channel', id });
+        resetAndClose();
+      } catch (cause) {
+        setError(
+          messagingError(
+            cause instanceof Error ? cause.message : undefined,
+            'whatsapp'
+          )
+        );
+      }
+      return;
+    }
     const selectedVisibility = visibility();
     const selectedTeam = team();
     if (selectedVisibility === 'team' && !selectedTeam) {
@@ -202,6 +259,7 @@ export function CreateChannelModal() {
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     if (
+      groupCreate.isPending ||
       createChannelMutation.isPending ||
       patchChannelMutation.isPending ||
       addParticipantsMutation.isPending ||
@@ -214,6 +272,10 @@ export function CreateChannelModal() {
       if (!channelName()) {
         setError('Enter a channel name');
         return;
+      }
+      if (whatsapp()) {
+        setVisibility('private');
+        setAutoJoinTeam(false);
       }
       setStep('visibility');
       queueMicrotask(() =>
@@ -290,6 +352,7 @@ export function CreateChannelModal() {
                 label="Close"
                 tabIndex={-1}
                 disabled={
+                  groupCreate.isPending ||
                   createChannelMutation.isPending ||
                   patchChannelMutation.isPending ||
                   addParticipantsMutation.isPending ||
@@ -347,7 +410,61 @@ export function CreateChannelModal() {
               </div>
             </Show>
 
-            <Show when={step() === 'visibility'}>
+            <Show when={step() === 'name' && accounts().length > 0}>
+              <div class="flex flex-col gap-3">
+                <Checkbox
+                  checked={whatsapp()}
+                  onChange={setWhatsapp}
+                  class="min-h-11"
+                >
+                  <Checkbox.Control />
+                  <Checkbox.Label>Create a WhatsApp group</Checkbox.Label>
+                </Checkbox>
+                <Show when={whatsapp()}>
+                  <Show
+                    when={accounts().length > 1}
+                    fallback={
+                      <p class="text-sm text-ink-muted">
+                        Connected account: {selectedAccount()?.display_name}
+                      </p>
+                    }
+                  >
+                    <Select<MetaConnection>
+                      options={accounts()}
+                      optionValue="id"
+                      optionTextValue="display_name"
+                      value={selectedAccount() ?? null}
+                      onChange={(account) => setGroupConnectionId(account?.id)}
+                      placeholder="Choose a connected account"
+                    >
+                      <Select.Label>WhatsApp account</Select.Label>
+                      <Select.Trigger>
+                        <Select.Value<MetaConnection>>
+                          {(state) => state.selectedOption().display_name}
+                        </Select.Value>
+                        <Select.Icon />
+                      </Select.Trigger>
+                      <Select.Content portalScope="local">
+                        <Select.Listbox />
+                      </Select.Content>
+                    </Select>
+                  </Show>
+                  <p class="text-sm text-ink-muted">
+                    Creates a private Macro channel and a WhatsApp group.
+                    WhatsApp participants join using its invite link. Adding
+                    Macro teammates does not add their phones to WhatsApp.
+                  </p>
+                </Show>
+              </div>
+            </Show>
+            <Show when={step() === 'visibility' && whatsapp()}>
+              <p>
+                Private WhatsApp group · Only invited Macro teammates can access
+                this channel. WhatsApp eligibility is checked when you create
+                it.
+              </p>
+            </Show>
+            <Show when={step() === 'visibility' && !whatsapp()}>
               <div ref={visibilityOptions} class="flex flex-col gap-3">
                 <span class="text-sm font-medium text-ink">Visibility</span>
                 <RadioGroup
@@ -457,6 +574,7 @@ export function CreateChannelModal() {
                   variant="strong"
                   disabled={
                     (step() !== 'invite' && !channelName()) ||
+                    groupCreate.isPending ||
                     createChannelMutation.isPending ||
                     patchChannelMutation.isPending ||
                     addParticipantsMutation.isPending ||
@@ -469,7 +587,7 @@ export function CreateChannelModal() {
                   {step() === 'name'
                     ? 'Next'
                     : step() === 'visibility'
-                      ? createChannelMutation.isPending
+                      ? groupCreate.isPending || createChannelMutation.isPending
                         ? 'Creating…'
                         : 'Create'
                       : patchChannelMutation.isPending ||

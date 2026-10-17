@@ -1,6 +1,7 @@
 import { debouncedDependent } from '@core/util/debounce';
 import { throwOnErr } from '@core/util/result';
 import type { MetaCompleteAuthorization } from '@service-storage/generated/schemas/metaCompleteAuthorization';
+import type { MetaConversationResponse } from '@service-storage/generated/schemas/metaConversationResponse';
 import type { MetaConversationView } from '@service-storage/generated/schemas/metaConversationView';
 import type { MetaProvider } from '@service-storage/generated/schemas/metaProvider';
 import type { MetaSendReply } from '@service-storage/generated/schemas/metaSendReply';
@@ -48,17 +49,34 @@ export function useMetaConversation(
   channelId: Accessor<string>,
   enabled: Accessor<boolean> = () => true
 ) {
+  return useQuery<
+    MetaConversationResponse,
+    Error,
+    MetaConversationView | null,
+    ReturnType<typeof metaMessagingKeys.conversation>['queryKey']
+  >(() => ({
+    ...conversationQueryOptions(channelId(), enabled()),
+    reconcile: false,
+    select: (binding: MetaConversationResponse) => binding.messaging ?? null,
+  }));
+}
+
+/** Full binding distinguishes pending groups from ordinary native channels. */
+export function useMetaBinding(
+  channelId: Accessor<string>,
+  enabled: Accessor<boolean> = () => true
+) {
   return useQuery(() => conversationQueryOptions(channelId(), enabled()));
 }
 
 function conversationQueryOptions(channelId: string, enabled: boolean) {
   return queryOptions({
     queryKey: metaMessagingKeys.conversation(channelId).queryKey,
-    queryFn: async (): Promise<MetaConversationView | null> => {
+    queryFn: async (): Promise<MetaConversationResponse> => {
       const result = await throwOnErr(() =>
         metaMessagingClient.conversation(channelId)
       );
-      return result.messaging ?? null;
+      return result;
     },
     enabled: !!channelId && enabled,
     staleTime: 30_000,
@@ -71,10 +89,12 @@ function conversationQueryOptions(channelId: string, enabled: boolean) {
         return status === 'error'
           ? bindingRetryInterval(errorUpdateCount)
           : false;
-      if (!data) return false;
+      if (data.group?.setup) return status === 'error' ? 30_000 : 2_000;
+      if (!data.messaging && !data.group) return false;
       return status === 'error'
         ? 30_000
-        : deliveryPollInterval(data.sends) || 30_000;
+        : deliveryPollInterval(data.messaging?.sends ?? []) ||
+            (data.group ? 5_000 : 30_000);
     },
   });
 }
@@ -179,20 +199,21 @@ export function useMetaReply(channelId: Accessor<string>) {
       throwOnErr(() => metaMessagingClient.reply(channelId(), request)),
     onSuccess: (send) => {
       const queryKey = metaMessagingKeys.conversation(send.channel_id).queryKey;
-      queryClient.setQueryData<MetaConversationView | null>(
-        queryKey,
-        (account) =>
-          account
-            ? {
-                ...account,
+      queryClient.setQueryData<MetaConversationResponse>(queryKey, (account) =>
+        account?.messaging
+          ? {
+              ...account,
+              messaging: {
+                ...account.messaging,
                 sends: [
                   send,
-                  ...account.sends.filter(
+                  ...account.messaging.sends.filter(
                     (existing) => existing.id !== send.id
                   ),
                 ],
-              }
-            : account
+              },
+            }
+          : account
       );
       // A refresh failure must not turn an accepted enqueue into a failed send.
       void refreshAcceptedReply(queryKey);
@@ -215,4 +236,19 @@ export function useMetaUpload(channelId: Accessor<string>) {
     mutationFn: (file: File) =>
       throwOnErr(() => metaMessagingClient.upload(channelId(), file)),
   }));
+}
+
+/** Known bindings hide local rename actions without a per-row network request. */
+export function isKnownWhatsappGroup(channelId: string) {
+  return !!queryClient.getQueryData<MetaConversationResponse>(
+    metaMessagingKeys.conversation(channelId).queryKey
+  )?.group;
+}
+
+/** Resolve an unopened channel before showing a local rename editor. */
+export async function canRenameNativeChannel(channelId: string) {
+  const binding = await queryClient.fetchQuery(
+    conversationQueryOptions(channelId, true)
+  );
+  return !binding.group;
 }

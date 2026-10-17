@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import type { MessageData } from '@core/messages/types';
 import type { MetaConversationView } from '@service-storage/generated/schemas/metaConversationView';
+import type { MetaGroupView } from '@service-storage/generated/schemas/metaGroupView';
 import type { MetaSendProgress } from '@service-storage/generated/schemas/metaSendProgress';
 import { createRoot, createSignal } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -9,13 +10,14 @@ import { createChannelMessaging } from './channel-messaging';
 
 const fixture = vi.hoisted(() => ({
   account: () => undefined as MetaConversationView | null | undefined,
+  group: () => null as MetaGroupView | null,
   error: (): boolean => false,
   history: [] as MetaSendProgress[],
   readHistory: undefined as (() => string[]) | undefined,
   refetch: vi.fn(),
 }));
 vi.mock('@queries/meta-messaging', () => ({
-  useMetaConversation: (_: unknown, enabled: () => boolean) => ({
+  useMetaBinding: (_: unknown, enabled: () => boolean) => ({
     get enabled() {
       return enabled();
     },
@@ -25,7 +27,7 @@ vi.mock('@queries/meta-messaging', () => ({
     get data() {
       if (fixture.account() === undefined)
         throw new Error('Pending resource must not be read');
-      return fixture.account();
+      return { messaging: fixture.account(), group: fixture.group() };
     },
     get isError() {
       return fixture.error();
@@ -46,6 +48,7 @@ let dispose: () => void;
 afterEach(() => {
   dispose?.();
   fixture.history = [];
+  fixture.group = () => null;
   fixture.refetch.mockClear();
 });
 const created_at = '2026-10-12T05:00:00Z';
@@ -229,4 +232,24 @@ it('never makes direct messages or public channels depend on messaging lookups',
   }
   const { state } = setup(undefined, 'team');
   expect(state.interaction().kind).toBe('loading');
+});
+
+it('pending groups never expose an ordinary internal composer', () => {
+  fixture.group = () => ({
+    channel_id: 'one',
+    setup: {
+      channel_id: 'one',
+      connection_id: 'connection',
+      subject: 'Project',
+      state: 'unknown',
+    },
+    participants: [],
+    can_retry: true,
+    can_copy_link: false,
+    can_remove: false,
+    can_delete: true,
+  });
+  const { state } = setup(null);
+  expect(state.interaction().kind).toBe('group_setup');
+  expect(state.account()).toBeUndefined();
 });

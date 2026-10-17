@@ -7,6 +7,9 @@ import type { MetaBeginAuthorization } from './generated/schemas/metaBeginAuthor
 import type { MetaCompleteAuthorization } from './generated/schemas/metaCompleteAuthorization';
 import type { MetaConnection } from './generated/schemas/metaConnection';
 import type { MetaConversationResponse } from './generated/schemas/metaConversationResponse';
+import type { MetaCreateGroup as CreateGroup } from './generated/schemas/metaCreateGroup';
+import type { MetaGroupInviteLink as GroupInviteLink } from './generated/schemas/metaGroupInviteLink';
+import type { MetaGroupSetup as GroupSetup } from './generated/schemas/metaGroupSetup';
 import type { MetaHistoryImportView } from './generated/schemas/metaHistoryImportView';
 import type { MetaProvider } from './generated/schemas/metaProvider';
 import type { MetaPublicConfiguration } from './generated/schemas/metaPublicConfiguration';
@@ -49,6 +52,30 @@ function metaFetch<T extends ObjectLike>(path: string, init?: SafeFetchInit) {
 }
 
 export const metaMessagingClient = {
+  createGroup: (id: string, request: CreateGroup) =>
+    metaFetch<GroupSetup>(
+      `/meta/connections/${encodeURIComponent(id)}/groups`,
+      json(request)
+    ),
+  discardGroup: (id: string) =>
+    metaFetch<Record<string, never>>(
+      `/meta/channels/${encodeURIComponent(id)}/group/discard`,
+      json({})
+    ),
+  retryGroup: (id: string) =>
+    metaFetch<GroupSetup>(
+      `/meta/channels/${encodeURIComponent(id)}/group/retry`,
+      json({})
+    ),
+  groupLink: (id: string) =>
+    metaFetch<GroupInviteLink>(
+      `/meta/channels/${encodeURIComponent(id)}/group/link`
+    ),
+  removeGroupParticipant: (id: string, participant: string) =>
+    metaFetch<Record<string, never>>(
+      `/meta/channels/${encodeURIComponent(id)}/group/participants/${encodeURIComponent(participant)}`,
+      { method: 'DELETE' }
+    ),
   upload: (id: string, file: File) => {
     const body = new FormData();
     body.append('file', file, file.name);

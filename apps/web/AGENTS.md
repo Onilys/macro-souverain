@@ -170,3 +170,13 @@ Keep `public/instagram-callback.html` standalone and free of app boot, telemetry
 external assets and URL logging. Completion belongs to the initiating Settings
 window and uses the authenticated Meta query mutation with its in-memory proof.
 See `docs/META_MESSAGING.md` at repository root for the server boundary and setup.
+
+## WhatsApp groups
+
+`CreateChannelModal` offers ready Platform accounts connected by the caller.
+`useMetaBinding` caches the full binding so pending group setup cannot fall through
+to an internal composer; `useMetaConversation` selects only bound messaging data.
+Group controls live in the messaging feature and the existing desktop/mobile
+Participants surfaces. Keep discard and remote-delete confirmations distinct, and
+fetch invite links only through the authorized action. The shared functional
+messaging scenario covers this journey using fixtures, not live Meta effects.

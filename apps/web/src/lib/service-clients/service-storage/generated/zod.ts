@@ -48082,6 +48082,114 @@ export const metaConversationResponseMessagingTextLimitMin = 0;
 
 export const metaConversationResponse = zod
   .object({
+    group: zod
+      .union([
+        zod.null(),
+        zod
+          .object({
+            can_copy_link: zod
+              .boolean()
+              .describe(
+                'Native posting permission and business team membership.'
+              ),
+            can_delete: zod
+              .boolean()
+              .describe('Native ownership and business team membership.'),
+            can_remove: zod
+              .boolean()
+              .describe(
+                'Native participant admin permission and team membership.'
+              ),
+            can_retry: zod
+              .boolean()
+              .describe(
+                'Current connector and owner may deliberately retry creation.'
+              ),
+            channel_id: zod.uuid().describe('Native identity.'),
+            participants: zod
+              .array(
+                zod
+                  .object({
+                    active: zod
+                      .boolean()
+                      .describe(
+                        'Latest confirmed membership, never inferred from a local request.'
+                      ),
+                    customer_id: zod
+                      .string()
+                      .describe(
+                        'Provider identifier, scoped separately by the persisted connection.'
+                      ),
+                    display_name: zod
+                      .string()
+                      .nullish()
+                      .describe('Optional provider display name.'),
+                    external_sender_id: zod
+                      .uuid()
+                      .describe(
+                        'Stable native external author across departure and identity updates.'
+                      ),
+                    phone: zod
+                      .string()
+                      .nullish()
+                      .describe('Separately supplied phone.'),
+                    username: zod
+                      .string()
+                      .nullish()
+                      .describe('Optional mutable username.'),
+                  })
+                  .describe(
+                    'Confirmed external participant, independent of native teammate membership.'
+                  )
+              )
+              .describe('Confirmed current participants.'),
+            setup: zod
+              .union([
+                zod.null(),
+                zod
+                  .object({
+                    channel_id: zod
+                      .uuid()
+                      .describe(
+                        'Native identity, reserved before provider I\/O.'
+                      ),
+                    connection_id: zod
+                      .uuid()
+                      .describe('Selected business connection.'),
+                    error_code: zod
+                      .string()
+                      .nullish()
+                      .describe('Sanitized diagnostic.'),
+                    state: zod
+                      .enum(['creating', 'pending', 'failed', 'unknown'])
+                      .describe(
+                        'State of the current, unbound create attempt only.'
+                      ),
+                    subject: zod
+                      .string()
+                      .describe("Native owner's requested subject."),
+                  })
+                  .describe(
+                    'Public pending binding; never contains a speculative remote group ID\/link.'
+                  ),
+              ])
+              .optional(),
+            status: zod
+              .union([
+                zod.null(),
+                zod
+                  .enum(['active', 'suspended', 'deleted'])
+                  .describe(
+                    'Monotonic remote lifecycle; deletion cannot be cleared by a later status.'
+                  ),
+              ])
+              .optional(),
+          })
+          .describe(
+            'Restricted group controls and participants; invite link is fetched separately.'
+          ),
+      ])
+      .optional(),
     messaging: zod
       .union([
         zod.null(),
@@ -48189,6 +48297,22 @@ export const metaConversationResponse = zod
                   .string()
                   .nullish()
                   .describe('Verified phone, when present.'),
+                group_status: zod
+                  .union([
+                    zod.null(),
+                    zod
+                      .enum(['active', 'suspended', 'deleted'])
+                      .describe(
+                        'Monotonic remote lifecycle; deletion cannot be cleared by a later status.'
+                      ),
+                  ])
+                  .optional(),
+                kind: zod
+                  .enum(['direct', 'group'])
+                  .optional()
+                  .describe(
+                    'Provider destination namespace, independent of an individual author.'
+                  ),
                 last_customer_message_at: zod.iso
                   .datetime({})
                   .nullish()
@@ -48241,6 +48365,7 @@ export const metaConversationResponse = zod
                                 'window_closed',
                                 'template_required',
                                 'human_support_required',
+                                'group_read_only',
                                 'unsupported',
                               ])
                               .describe(
@@ -48827,6 +48952,12 @@ export const metaTemplatesParams = zod.object({
 
 export const metaTemplatesResponseItem = zod
   .object({
+    category: zod
+      .string()
+      .nullish()
+      .describe(
+        'Provider category; authentication templates cannot be sent to groups.'
+      ),
     components: zod
       .unknown()
       .describe('Approved components used for preview\/parameter collection.'),
@@ -54833,3 +54964,75 @@ export const validateWebhookResponse = zod
     webhook_id: zod.string(),
   })
   .describe('Sanitized result of validating a webhook endpoint.');
+
+export const metaDiscardGroupSetupParams = zod.object({
+  channel_id: zod.uuid(),
+});
+
+export const metaGroupLinkParams = zod.object({
+  channel_id: zod.uuid(),
+});
+
+export const metaGroupLinkResponse = zod
+  .object({
+    invite_link: zod.string().describe('Validated Meta invite URL.'),
+  })
+  .describe('Link returned only through the explicit authorized operation.');
+
+export const metaRemoveGroupParticipantParams = zod.object({
+  channel_id: zod.uuid(),
+  participant_id: zod.uuid(),
+});
+
+export const metaRetryGroupParams = zod.object({
+  channel_id: zod.uuid(),
+});
+
+export const metaRetryGroupResponse = zod
+  .object({
+    channel_id: zod
+      .uuid()
+      .describe('Native identity, reserved before provider I\/O.'),
+    connection_id: zod.uuid().describe('Selected business connection.'),
+    error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
+    state: zod
+      .enum(['creating', 'pending', 'failed', 'unknown'])
+      .describe('State of the current, unbound create attempt only.'),
+    subject: zod.string().describe("Native owner's requested subject."),
+  })
+  .describe(
+    'Public pending binding; never contains a speculative remote group ID\/link.'
+  );
+
+export const metaCreateGroupParams = zod.object({
+  connection_id: zod.uuid(),
+});
+
+export const metaCreateGroupBody = zod
+  .object({
+    channel_id: zod
+      .uuid()
+      .describe(
+        'Client-retained native identity, also used after a lost HTTP response.'
+      ),
+    subject: zod.string().describe('WhatsApp subject (1–128 characters).'),
+  })
+  .describe(
+    'Human request to create a private native channel and its WhatsApp group.'
+  );
+
+export const metaCreateGroupResponse = zod
+  .object({
+    channel_id: zod
+      .uuid()
+      .describe('Native identity, reserved before provider I\/O.'),
+    connection_id: zod.uuid().describe('Selected business connection.'),
+    error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
+    state: zod
+      .enum(['creating', 'pending', 'failed', 'unknown'])
+      .describe('State of the current, unbound create attempt only.'),
+    subject: zod.string().describe("Native owner's requested subject."),
+  })
+  .describe(
+    'Public pending binding; never contains a speculative remote group ID\/link.'
+  );

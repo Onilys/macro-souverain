@@ -4,11 +4,13 @@
  * document_storage_service
  * OpenAPI spec version: 0.1.0
  */
+import type { MetaConversationResponseGroup } from './metaConversationResponseGroup';
 import type { MetaConversationResponseMessaging } from './metaConversationResponseMessaging';
 
 /**
  * Optional messaging metadata for an ordinary native channel.
  */
 export interface MetaConversationResponse {
+  group?: MetaConversationResponseGroup;
   messaging?: MetaConversationResponseMessaging;
 }

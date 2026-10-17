@@ -18,5 +18,6 @@ export const ReplyBlockReason = {
   window_closed: 'window_closed',
   template_required: 'template_required',
   human_support_required: 'human_support_required',
+  group_read_only: 'group_read_only',
   unsupported: 'unsupported',
 } as const;

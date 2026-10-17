@@ -1,6 +1,10 @@
 import type { MessageData } from '@core/messages/types';
 import { queryReadyGate } from '@queries/gate';
-import { useMetaConversation, useMetaDelivery } from '@queries/meta-messaging';
+import {
+  useMetaBinding,
+  type useMetaConversation,
+  useMetaDelivery,
+} from '@queries/meta-messaging';
 import type { MetaSendProgress } from '@service-storage/generated/schemas/metaSendProgress';
 import {
   type Accessor,
@@ -27,22 +31,29 @@ export function createChannelInteraction(options: {
   channelType: Accessor<string | undefined>;
 }) {
   const possible = () => mayHaveExternalBinding(options.channelType());
-  const messagingQuery = useMetaConversation(
-    () => options.channelId(),
-    possible
-  );
+  const messagingQuery = useMetaBinding(() => options.channelId(), possible);
   const binding = createMemo<
-    { channelId: string; account: typeof messagingQuery.data } | undefined
+    | {
+        channelId: string;
+        account: NonNullable<typeof messagingQuery.data>['messaging'];
+        group?: NonNullable<typeof messagingQuery.data>['group'];
+      }
+    | undefined
   >((previous) => {
     const channelId = options.channelId();
     if (!possible()) return { channelId, account: null };
     // Cached data stays authoritative after a failed refetch; external sends
     // remain unavailable until the server answers again.
     if (queryReadyGate(messagingQuery)) {
-      const account = messagingQuery.data;
+      const account = messagingQuery.data.messaging;
+      if (
+        messagingQuery.data.group &&
+        messagingQuery.data.group.channel_id !== channelId
+      )
+        return undefined;
       if (account && account.conversation.channel_id !== channelId)
         return undefined;
-      return { channelId, account };
+      return { channelId, account, group: messagingQuery.data.group };
     }
     return previous?.channelId === channelId ? previous : undefined;
   });
@@ -50,6 +61,7 @@ export function createChannelInteraction(options: {
   const interaction = (): ChannelInteraction => {
     const known = binding();
     if (known) {
+      if (known.group?.setup) return { kind: 'group_setup' };
       if (!known.account) return { kind: 'internal' };
       if (!known.account.capabilities || !known.account.eligibility)
         return { kind: 'error' };
@@ -63,6 +75,7 @@ export function createChannelInteraction(options: {
   };
   return {
     account: messaging,
+    group: () => binding()?.group,
     interaction,
     refresh: () => void messagingQuery.refetch(),
   };

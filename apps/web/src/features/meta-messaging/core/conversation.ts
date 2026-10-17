@@ -8,7 +8,8 @@ export type ReplyBlockReason =
   | 'window_closed'
   | 'template_required'
   | 'human_support_required'
-  | 'unsupported';
+  | 'unsupported'
+  | 'group_read_only';
 
 export type MediaCapability = {
   kind: MediaKind;
@@ -63,6 +64,7 @@ export function mayHaveExternalBinding(channelType: string | undefined) {
 export type ChannelInteraction =
   | { kind: 'internal' }
   | { kind: 'external'; account: ConversationAccount; available: boolean }
+  | { kind: 'group_setup' }
   | { kind: 'loading' }
   | { kind: 'error' };
 

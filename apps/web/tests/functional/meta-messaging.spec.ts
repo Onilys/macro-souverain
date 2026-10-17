@@ -11,6 +11,7 @@ import { replyOptions } from '../../src/features/meta-messaging/tests/reply-opti
 import type { MessageEvent } from '../../src/lib/service-clients/service-storage/generated/schemas/messageEvent';
 import type { MetaConnection } from '../../src/lib/service-clients/service-storage/generated/schemas/metaConnection';
 import type { MetaConversationView } from '../../src/lib/service-clients/service-storage/generated/schemas/metaConversationView';
+import type { MetaGroupView } from '../../src/lib/service-clients/service-storage/generated/schemas/metaGroupView';
 import type { MetaSendProgress } from '../../src/lib/service-clients/service-storage/generated/schemas/metaSendProgress';
 import type { MetaSendReply } from '../../src/lib/service-clients/service-storage/generated/schemas/metaSendReply';
 import type { SoupInput } from '../../src/lib/service-clients/service-storage/graphql/generated/graphql';
@@ -63,11 +64,20 @@ test('native channels and external messaging preserve composition, recovery, and
   });
   const id = (number: number) =>
     `019a0000-0000-7000-8000-${number.toString().padStart(12, '0')}`;
-  const channels = [
+  const channels: Array<{
+    id: string;
+    name: string;
+    provider: 'whatsapp' | 'instagram' | null;
+  }> = [
     { id: id(101), name: 'Native team conversation', provider: null },
     { id: id(102), name: 'WhatsApp customer', provider: 'whatsapp' },
     { id: id(103), name: 'Instagram customer', provider: 'instagram' },
-  ] as const;
+  ];
+  let group: MetaGroupView | undefined;
+  let groupChannelId = '';
+  let groupRemovalFails = true;
+  let groupDeleteCalls = 0;
+  let groupCreateCalls = 0;
   let activeUser = USER_ID;
   let denied = false;
   let bindingError = false;
@@ -186,7 +196,8 @@ test('native channels and external messaging preserve composition, recovery, and
   }
   function conversation(channelId: string): MetaConversationView | null {
     const channel = channels.find((channel) => channel.id === channelId)!;
-    if (!channel.provider) return null;
+    if (!channel.provider || (channelId === groupChannelId && group?.setup))
+      return null;
     const options = replyOptions(channel.provider);
     if (windowClosed)
       options.eligibility.modes[0] = {
@@ -215,7 +226,10 @@ test('native channels and external messaging preserve composition, recovery, and
       conversation: {
         channel_id: channelId,
         connection_id: id(500),
-        customer_id: 'test-customer',
+        kind: channelId === groupChannelId ? 'group' : 'direct',
+        group_status: channelId === groupChannelId ? 'active' : null,
+        customer_id:
+          channelId === groupChannelId ? 'opaque-group' : 'test-customer',
         customer_display_name: 'Test Customer',
         customer_handle:
           channel.provider === 'instagram' ? 'test.customer' : null,
@@ -226,18 +240,20 @@ test('native channels and external messaging preserve composition, recovery, and
     };
   }
   function soupItem(channel: (typeof channels)[number]) {
-    const latest = messages.get(channel.id)!.at(-1)!;
-    const preview = {
-      messageId: latest.id,
-      channelId: channel.id,
-      threadId: null,
-      senderId: latest.sender_id,
-      content: latest.content,
-      createdAt: latest.created_at,
-      updatedAt: latest.updated_at,
-      deletedAt: null,
-      mentions: [],
-    };
+    const latest = messages.get(channel.id)?.at(-1);
+    const preview = latest
+      ? {
+          messageId: latest.id,
+          channelId: channel.id,
+          threadId: null,
+          senderId: latest.sender_id,
+          content: latest.content,
+          createdAt: latest.created_at,
+          updatedAt: latest.updated_at,
+          deletedAt: null,
+          mentions: [],
+        }
+      : null;
     return {
       __typename: 'GraphqlSoupChannel',
       id: channel.id,
@@ -249,7 +265,7 @@ test('native channels and external messaging preserve composition, recovery, and
       organizationId: null,
       teamId: null,
       createdAt: time(0),
-      updatedAt: latest.updated_at,
+      updatedAt: latest?.updated_at ?? time(0),
       viewedAt: null,
       interactedAt: null,
       isParticipant: true,
@@ -349,6 +365,58 @@ test('native channels and external messaging preserve composition, recovery, and
         instagram_redirect_uri: null,
         graph_version: 'v26.0',
       });
+    if (path === `/dss/meta/connections/${settingsAccount.id}/groups`) {
+      const input = request.postDataJSON() as {
+        channel_id: string;
+        subject: string;
+      };
+      groupCreateCalls++;
+      groupChannelId = input.channel_id;
+      channels.push({
+        id: groupChannelId,
+        name: input.subject,
+        provider: 'whatsapp',
+      });
+      messages.set(groupChannelId, []);
+      group = {
+        channel_id: groupChannelId,
+        setup: {
+          channel_id: groupChannelId,
+          connection_id: settingsAccount.id,
+          subject: input.subject,
+          state: 'pending',
+        },
+        status: null,
+        participants: [],
+        can_retry: false,
+        can_copy_link: false,
+        can_remove: false,
+        can_delete: true,
+      };
+      return respond(group.setup);
+    }
+    if (group && path === `/dss/meta/channels/${groupChannelId}/group/link`)
+      return respond({ invite_link: 'https://chat.whatsapp.com/fixture' });
+    if (
+      group &&
+      path ===
+        `/dss/meta/channels/${groupChannelId}/group/participants/${id(950)}`
+    ) {
+      if (groupRemovalFails) {
+        groupRemovalFails = false;
+        return respond({ code: 'temporarily_unavailable' }, 503);
+      }
+      group.participants = [];
+      return respond(null);
+    }
+    if (
+      group &&
+      path === `/dss/channels/${groupChannelId}` &&
+      request.method() === 'DELETE'
+    ) {
+      groupDeleteCalls++;
+      return respond({ message: 'deleted' });
+    }
     if (path === '/dss/meta/connections')
       return respond([settingsAccount, otherAccount]);
     if (path === `/dss/meta/connections/${settingsAccount.id}/history`)
@@ -466,7 +534,10 @@ test('native channels and external messaging preserve composition, recovery, and
         if (holdBinding) return;
         return bindingError
           ? respond({}, 503)
-          : respond({ messaging: conversation(channel) });
+          : respond({
+              messaging: conversation(channel),
+              group: channel === groupChannelId ? group : null,
+            });
       }
       if (meta[2] === 'delivery') return respond(sends.get(channel) ?? []);
       if (meta[2] === 'templates')
@@ -574,6 +645,28 @@ test('native channels and external messaging preserve composition, recovery, and
         : respond({}, 404);
     }
     if (/^\/dss\/call\/[^/]+\/active$/.test(path)) return respond(null);
+    if (path === '/dss/comms/channels')
+      return respond({
+        items: channels.map((channel) => ({
+          id: channel.id,
+          name: channel.name,
+          channel_type: 'private',
+          owner_id: activeUser,
+          created_at: time(0),
+          updated_at: new Date().toISOString(),
+          auto_join_team: false,
+          is_participant: true,
+          participants: [
+            {
+              channel_id: channel.id,
+              user_id: activeUser,
+              role: 'owner',
+              joined_at: time(0),
+            },
+          ],
+        })),
+        next_cursor: null,
+      });
     if (path === '/dss/channels/preview') return respond({ previews: [] });
     const parent = path.match(/^\/dss\/messages\/channel\/([^/]+)$/);
     if (parent && request.method() === 'GET') {
@@ -1001,6 +1094,102 @@ test('native channels and external messaging preserve composition, recovery, and
       ).toBeVisible();
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     });
+    await test.step('create a private WhatsApp group, bind, reply, and manage participants', async () => {
+      await open(channels[0].id);
+      await page
+        .getByRole('button', { name: 'Create channel', exact: true })
+        .click();
+      await page
+        .getByLabel('Name', { exact: true })
+        .fill('Browser WhatsApp project');
+      await page.getByText('Create a WhatsApp group', { exact: true }).click();
+      await expect(
+        page.getByText('Connected account: Controlled Platform account')
+      ).toBeVisible();
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
+      await expect(
+        page.getByText('Private WhatsApp group', { exact: false })
+      ).toBeVisible();
+      await page.getByRole('button', { name: 'Create', exact: true }).click();
+      await expect(
+        page.getByText('Waiting for WhatsApp to confirm this group…')
+      ).toBeVisible();
+      assert.equal(groupCreateCalls, 1);
+      assert.ok(group);
+      group.setup = null;
+      group.status = 'active';
+      group.can_copy_link = true;
+      group.can_remove = true;
+      group.participants = [
+        {
+          external_sender_id: id(950),
+          customer_id: 'US.GROUP',
+          display_name: 'Group Customer',
+          username: 'group.customer',
+          active: true,
+        },
+      ];
+      const incoming = message(
+        groupChannelId,
+        9200,
+        'Ready for our group discussion',
+        true
+      );
+      messages.get(groupChannelId)!.push(incoming);
+      event(incoming);
+      await expect(input).toBeVisible();
+      await input.fill('Reply from the Macro team');
+      await page
+        .getByRole('button', { name: 'Send reply via WhatsApp', exact: true })
+        .click();
+      await expect(
+        page
+          .locator('[data-channel-message-list]')
+          .getByText('Reply from the Macro team', { exact: true })
+      ).toBeVisible();
+      await page.getByText('Participants', { exact: true }).first().click();
+      await expect(
+        page.getByText('Macro teammates', { exact: true })
+      ).toBeInViewport({ ratio: 1 });
+      await expect(
+        page.getByText('WhatsApp participants', { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByText('Group Customer', { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByText('Convert to team channel', { exact: false })
+      ).toHaveCount(0);
+      await page
+        .getByRole('button', { name: 'Delete WhatsApp group', exact: true })
+        .click();
+      await expect(
+        page.getByText('Delete WhatsApp group for everyone?', { exact: true })
+      ).toBeVisible();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(groupDeleteCalls, 0);
+      await page
+        .getByRole('button', { name: 'Remove', exact: true })
+        .last()
+        .click();
+      await expect(
+        page.getByText(
+          'This person will be removed from the WhatsApp group and cannot rejoin through its invite link.'
+        )
+      ).toBeVisible();
+      await page
+        .getByRole('button', { name: 'Remove participant', exact: true })
+        .click();
+      await expect(page.getByRole('alert').last()).toBeVisible();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await expect(
+        page.getByText('Group Customer', { exact: true })
+      ).toBeVisible();
+      await page.screenshot({
+        path: testInfo.outputPath('whatsapp-group-desktop.png'),
+        fullPage: true,
+      });
+    });
     await test.step('mobile controls and composition', async () => {
       await page.setViewportSize({ width: 390, height: 844 });
       // Switch the same isolated Chromium context to touch for the mobile stage.
@@ -1045,6 +1234,55 @@ test('native channels and external messaging preserve composition, recovery, and
         path: testInfo.outputPath('composer-mobile.png'),
         fullPage: true,
       });
+    });
+    await test.step('mobile group participants and confirmed removal/deletion', async () => {
+      await open(groupChannelId);
+      // The persisted Participants tab is shared by desktop and the mobile views menu.
+      if (
+        !(await page
+          .getByText('WhatsApp participants', { exact: true })
+          .isVisible())
+      ) {
+        await page
+          .getByText('Browser WhatsApp project', { exact: true })
+          .first()
+          .click();
+        await page
+          .getByRole('radio', { name: 'Participants', exact: true })
+          .click();
+      }
+      await expect(
+        page.getByText('WhatsApp participants', { exact: true })
+      ).toBeInViewport();
+      await expect(
+        page.getByText('Group Customer', { exact: true })
+      ).toBeVisible();
+      await expect(page.locator('[aria-label="File actions"]')).toBeHidden();
+      await page.screenshot({
+        animations: 'disabled',
+        path: testInfo.outputPath('whatsapp-group-mobile.png'),
+        fullPage: true,
+      });
+      await page
+        .getByRole('button', { name: 'Remove', exact: true })
+        .last()
+        .click();
+      await page
+        .getByRole('button', { name: 'Remove participant', exact: true })
+        .click();
+      await expect(
+        page.getByText('Group Customer', { exact: true })
+      ).toHaveCount(0);
+      await page
+        .getByRole('button', { name: 'Delete WhatsApp group', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Delete group for everyone', exact: true })
+        .click();
+      await expect(
+        page.getByText('Group deleted.', { exact: true })
+      ).toBeVisible();
+      assert.equal(groupDeleteCalls, 1);
     });
     assert.deepEqual(errors, []);
     assert.deepEqual([...unknown], []);

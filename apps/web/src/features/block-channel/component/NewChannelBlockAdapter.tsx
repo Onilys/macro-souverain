@@ -210,6 +210,9 @@ function NewTop(props: { channelId: string }) {
         channelType={channelType()!}
         participants={participants() ?? []}
         channelName={channelName() ?? 'New Channel'}
+        lockRename={
+          messaging.interaction().kind === 'group_setup' || !!messaging.group()
+        }
         tabs={tabs()}
         activeTab={activeTab()}
         onTabChange={setActiveTab}
@@ -248,7 +251,12 @@ function NewTop(props: { channelId: string }) {
               },
               condition: () => {
                 const entity = channelEntity();
-                return !!entity && renameAction.canExecute(entity);
+                return (
+                  !messaging.group() &&
+                  messaging.interaction().kind !== 'group_setup' &&
+                  !!entity &&
+                  renameAction.canExecute(entity)
+                );
               },
             },
             {

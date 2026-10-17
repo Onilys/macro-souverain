@@ -4,13 +4,17 @@
  * document_storage_service
  * OpenAPI spec version: 0.1.0
  */
+
 import type { MetaProviderId } from './metaProviderId';
+import type { MetaTemplateCategory } from './metaTemplateCategory';
 import type { MetaTemplateUnsupportedReason } from './metaTemplateUnsupportedReason';
 
 /**
  * An approved WhatsApp template returned from this connection's account.
  */
 export interface MetaTemplate {
+  /** Provider category; authentication templates cannot be sent to groups. */
+  category?: MetaTemplateCategory;
   /** Approved components used for preview/parameter collection. */
   components: unknown;
   /** Provider template identity. */

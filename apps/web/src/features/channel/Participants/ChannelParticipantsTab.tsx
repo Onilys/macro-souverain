@@ -1,9 +1,9 @@
+import { WhatsappGroupControls } from '@app/features/meta-messaging/views/group-controls';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useChannel, useChannelType } from '@core/context/channels';
 import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { getDisplayName, idToEmail, tryMacroId } from '@core/user';
-
 import { useChannelParticipantsQuery } from '@queries/channel/channel-participants';
 import { usePatchChannelMutation } from '@queries/channel/channels';
 import { useGetOrCreateDirectMessageMutation } from '@queries/channel/get-or-create-dm';
@@ -11,6 +11,7 @@ import {
   useAddParticipantsMutation,
   useRemoveParticipantsMutation,
 } from '@queries/channel/participants';
+import { useMetaBinding } from '@queries/meta-messaging';
 import { useCurrentTeamQuery } from '@queries/team/teams';
 import { ChannelType } from '@service-storage/generated/schemas/channelType';
 import { ParticipantRole } from '@service-storage/generated/schemas/participantRole';
@@ -35,6 +36,8 @@ export function ChannelParticipantsTab(props: {
   const userId = useUserId();
   const channel = useChannel(props.channelId);
   const channelType = useChannelType(props.channelId);
+  const binding = useMetaBinding(() => props.channelId);
+  const group = () => binding.data?.group;
   const participantsQuery = useChannelParticipantsQuery(() => props.channelId);
   const currentTeamQuery = useCurrentTeamQuery();
   const patchChannelMutation = usePatchChannelMutation();
@@ -62,9 +65,11 @@ export function ChannelParticipantsTab(props: {
       : (channel()?.auto_join_team ?? false);
   };
   const supportsTeamSettings = () =>
-    channelType() === ChannelType.private ||
-    channelType() === ChannelType.public ||
-    channelType() === ChannelType.team;
+    binding.isSuccess &&
+    !group() &&
+    (channelType() === ChannelType.private ||
+      channelType() === ChannelType.public ||
+      channelType() === ChannelType.team);
   const currentTeam = () => currentTeamQuery.data?.team;
   const canConvertToTeam = () => !isTeamChannel() && !!currentTeam();
   const conversionUnavailableReason = () => {
@@ -183,7 +188,9 @@ export function ChannelParticipantsTab(props: {
           <div class="max-w-200 size-full flex flex-col gap-2">
             <Panel depth={2} class="min-h-0 flex-1 overflow-hidden text-ink">
               <Panel.Header class="justify-between gap-2 px-6">
-                <div class="text-sm font-semibold">Participants</div>
+                <div class="text-sm font-semibold">
+                  {group() ? 'Macro teammates' : 'Participants'}
+                </div>
                 <Show when={channelType() === ChannelType.private}>
                   <ChannelJoinLinkButton channelId={props.channelId} />
                 </Show>
@@ -221,12 +228,19 @@ export function ChannelParticipantsTab(props: {
                 </div>
               </Panel.Body>
             </Panel>
+            <WhatsappGroupControls channelId={props.channelId} />
             <Show when={props.botManagementEnabled}>{bots()}</Show>
           </div>
         </div>
       }
     >
       <ParticipantsMobileLayout
+        peopleLabel={group() ? 'Macro teammates' : undefined}
+        externalPeople={
+          group()
+            ? () => <WhatsappGroupControls channelId={props.channelId} />
+            : undefined
+        }
         search={() => (
           <ParticipantsSearchInput
             value={searchQuery()}
