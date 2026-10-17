@@ -38,10 +38,11 @@ import { buildEntityData } from '@entity';
 import { useThreadQuery } from '@queries/email/thread';
 import { representativeThreadMessage } from '@queries/email/thread-subject';
 import { ButtonGroup } from '@ui';
-import { createMemo, createSignal, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, Show } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { emailDetailSearch } from '../email-route';
 import { useEmailView } from '../email-view-context';
+import { useEmailReaderPane } from '../reader-pane';
 import type { EmailThreadTarget } from '../types';
 import { useEmailDetailListNavigation } from '../use-email-detail-list-navigation';
 
@@ -120,6 +121,10 @@ export function EmailDetailView(props: {
 }) {
   const { closeThread, selectedThread } = useEmailView();
   const panel = useSplitPanelOrThrow();
+  // In the reading pane the thread keeps its keys in the reader's scope, and
+  // Escape hands the keyboard back to the list instead of closing it.
+  const pane = useEmailReaderPane();
+  const keyScope = pane?.hotkeyScope ?? panel.splitHotkeyScope;
   const notificationSource = useGlobalNotificationSource();
   const canAutofocus = useCanAutofocusSplitContent();
   const [controlsMount, setControlsMount] = createSignal<HTMLDivElement>();
@@ -168,7 +173,7 @@ export function EmailDetailView(props: {
   });
   useBlockEntityCommands({
     id: props.thread.id,
-    scopeId: panel.splitHotkeyScope,
+    scopeId: keyScope,
     resolveEntity: commandEntity,
     onDeleted: closeThread,
     onEmailReminderSaved: async () => {
@@ -182,8 +187,13 @@ export function EmailDetailView(props: {
     element: () => container ?? null,
     enabled: () => canAutofocus && panel.isPanelActive() && !isTouchDevice(),
   });
+  createEffect(() => {
+    if (!pane || pane.focusRequest() !== props.thread.id) return;
+    pane.clearFocusRequest();
+    focusContainer();
+  });
   const listNavigation = useEmailDetailListNavigation(threadId);
-  const hotkeyScope = () => panel.splitHotkeyScope;
+  const hotkeyScope = () => keyScope;
   const host: EmailThreadHost = {
     returnToList: closeThread,
     listNavigation,
@@ -208,7 +218,7 @@ export function EmailDetailView(props: {
         // back to the list this thread was opened from.
         keyDownHandler: () => {
           if (handlers.cancel()) return true;
-          closeThread();
+          (pane?.focusList ?? closeThread)();
           return true;
         },
         hotkeyToken: TOKENS.email.cancelReply,
@@ -218,7 +228,7 @@ export function EmailDetailView(props: {
   };
   const breadcrumbValue = () => `email-thread:${props.thread.id}`;
   useListNavigationHotkeys({
-    scopeId: panel.splitHotkeyScope,
+    scopeId: keyScope,
     enabled: () =>
       panel.isPanelActive() && selectedThread()?.id === props.thread.id,
     navigation: listNavigation,
@@ -248,7 +258,7 @@ export function EmailDetailView(props: {
                 onClick={openShare}
                 id={props.thread.id}
                 blockType="email"
-                hotkeyScope={panel.splitHotkeyScope}
+                hotkeyScope={keyScope}
               />
             </Show>
             <SidePanel.Toggle />
