@@ -1,5 +1,5 @@
-// `AbortSignal.any` needs Safari 17.4 and `AbortSignal.timeout` Safari 16,
-// both newer than the webview floor in apps/web/package.json `browserslist`.
+// `AbortSignal.any` needs Safari 17.4, newer than the webview floor in
+// apps/web/package.json `browserslist`.
 
 /**
  * Aborts with the first input's reason as soon as any input aborts. Listeners
@@ -20,16 +20,5 @@ export function anyAbortSignal(signals: readonly AbortSignal[]): AbortSignal {
       signal: controller.signal,
     });
   }
-  return controller.signal;
-}
-
-/** Aborts with a `TimeoutError` after `milliseconds`. */
-export function timeoutAbortSignal(milliseconds: number): AbortSignal {
-  const controller = new AbortController();
-  setTimeout(
-    () =>
-      controller.abort(new DOMException('signal timed out', 'TimeoutError')),
-    milliseconds
-  );
   return controller.signal;
 }

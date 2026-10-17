@@ -4399,8 +4399,11 @@ describe('normalizedCacheExchange', () => {
     });
 
     it('bounds queued network attempts to one minute', async () => {
+      const timeoutSignal = new AbortController().signal;
       const existing = new AbortController();
-      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+      const timeout = vi
+        .spyOn(AbortSignal, 'timeout')
+        .mockReturnValue(timeoutSignal);
       const operationFetch = vi.fn().mockResolvedValue(new Response());
       try {
         const mutation = makeMutationOp(1, optimistic);
@@ -4419,17 +4422,14 @@ describe('normalizedCacheExchange', () => {
         ops.next(mutationWithFetch);
         await tick();
 
-        expect(setTimeoutSpy).toHaveBeenCalledWith(
-          expect.any(Function),
-          60_000
-        );
+        expect(timeout).toHaveBeenCalledWith(60_000);
         const signal: AbortSignal = operationFetch.mock.calls[0]?.[1].signal;
         expect(signal.aborted).toBe(false);
         existing.abort('cancelled');
         expect(signal.aborted).toBe(true);
         expect(signal.reason).toBe('cancelled');
       } finally {
-        setTimeoutSpy.mockRestore();
+        timeout.mockRestore();
       }
     });
 

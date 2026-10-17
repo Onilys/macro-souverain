@@ -19,24 +19,19 @@ describe('createSoupRequestSignal', () => {
   });
 
   it('uses the bounded Soup request deadline', () => {
-    vi.useFakeTimers();
-    try {
-      const signal = createSoupRequestSignal(new AbortController().signal);
+    const timeout = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(new AbortController().signal);
 
-      vi.advanceTimersByTime(SOUP_REQUEST_TIMEOUT_MS - 1);
-      expect(signal.aborted).toBe(false);
-      vi.advanceTimersByTime(1);
+    createSoupRequestSignal(new AbortController().signal);
 
-      expect(signal.aborted).toBe(true);
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(timeout).toHaveBeenCalledWith(SOUP_REQUEST_TIMEOUT_MS);
+    timeout.mockRestore();
   });
 
-  it('works on webviews without AbortSignal.any or AbortSignal.timeout', () => {
-    const { any, timeout } = AbortSignal;
+  it('works on webviews without AbortSignal.any', () => {
+    const { any } = AbortSignal;
     Reflect.deleteProperty(AbortSignal, 'any');
-    Reflect.deleteProperty(AbortSignal, 'timeout');
     try {
       const query = new AbortController();
       const signal = createSoupRequestSignal(query.signal);
@@ -45,7 +40,7 @@ describe('createSoupRequestSignal', () => {
 
       expect(signal.aborted).toBe(true);
     } finally {
-      Object.assign(AbortSignal, { any, timeout });
+      Object.assign(AbortSignal, { any });
     }
   });
 

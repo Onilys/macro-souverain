@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { anyAbortSignal, timeoutAbortSignal } from './abort-signal';
+import { describe, expect, it, vi } from 'vitest';
+import { anyAbortSignal } from './abort-signal';
 
 describe('anyAbortSignal', () => {
   it('aborts with the reason of the first input to abort', () => {
@@ -32,26 +32,7 @@ describe('anyAbortSignal', () => {
 
     shortLived.abort();
 
-    const options = add.mock.calls[0]?.[2] as AddEventListenerOptions;
-    expect(options.signal?.aborted).toBe(true);
-  });
-});
-
-describe('timeoutAbortSignal', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('aborts with a TimeoutError once the deadline passes', () => {
-    vi.useFakeTimers();
-    const signal = timeoutAbortSignal(1_000);
-
-    vi.advanceTimersByTime(999);
-    expect(signal.aborted).toBe(false);
-    vi.advanceTimersByTime(1);
-
-    expect(signal.aborted).toBe(true);
-    expect(signal.reason).toBeInstanceOf(DOMException);
-    expect((signal.reason as DOMException).name).toBe('TimeoutError');
+    const options = add.mock.calls[0]?.[2];
+    expect(typeof options === 'object' && options.signal?.aborted).toBe(true);
   });
 });

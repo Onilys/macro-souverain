@@ -1,5 +1,5 @@
 import { getNativeNetworkAbortSignal } from '@core/mobile/native-network-status';
-import { anyAbortSignal, timeoutAbortSignal } from '@core/util/abort-signal';
+import { anyAbortSignal } from '@core/util/abort-signal';
 
 /** Maximum time an active Soup view may wait for its network response. */
 export const SOUP_REQUEST_TIMEOUT_MS = 12_000;
@@ -21,6 +21,6 @@ export function createSoupRequestSignal(
   return anyAbortSignal([
     querySignal,
     getNativeNetworkAbortSignal(),
-    timeoutAbortSignal(timeoutMs),
+    AbortSignal.timeout(timeoutMs),
   ]);
 }
