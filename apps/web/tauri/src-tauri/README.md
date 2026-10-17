@@ -10,7 +10,8 @@ bundle.
 The macOS icon reuses the iOS marketing artwork through the Icon Composer source
 in `icons/macos/Macro.icon`. The macOS-only Tauri configuration bundles its
 compiled `Assets.car` and `Macro.icns`, and merges the generated icon names into
-Info.plist. Tahoe uses the icon composition; older macOS uses the generated
+Info.plist. That plist also holds the camera and microphone usage strings
+meetings need; `tooling/platform-compat` checks they stay. Tahoe uses the icon composition; older macOS uses the generated
 fallback. The mobile artwork has no baked-in rounded tile or transparent border
 for macOS to place inside another enclosure.
 
