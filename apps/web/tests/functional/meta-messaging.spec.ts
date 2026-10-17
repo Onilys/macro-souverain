@@ -33,7 +33,7 @@ test('native channels and external messaging preserve composition, recovery, and
   page,
   context,
   baseURL,
-}) => {
+}, testInfo) => {
   test.setTimeout(600_000);
   const origin = baseURL!;
   await context.addCookies([{ name: 'login', value: 'true', url: origin }]);
@@ -368,6 +368,8 @@ test('native channels and external messaging preserve composition, recovery, and
       settingsAccount.health_error = input.pin
         ? 'registration_unconfirmed'
         : null;
+      // The server retains uncertainty even if the first registration response is lost.
+      if (input.pin) return route.abort('failed');
       return respond(settingsAccount);
     }
     if (path === '/auth/jwt/refresh') return respond({});
@@ -666,352 +668,391 @@ test('native channels and external messaging preserve composition, recovery, and
       page.getByText('A call is active in this channel', { exact: true })
     ).toHaveCount(0);
   }
+  const input = page.getByRole('textbox', {
+    name: 'External customer reply',
+  });
+  const sendButton = page.getByRole('button', {
+    name: 'Send reply via WhatsApp',
+  });
+  const picker = page.getByRole('button', {
+    name: 'Approved WhatsApp template',
+  });
   try {
-    await open(channels[0].id);
-    await expect(
-      page.locator('[data-header-action][aria-label="Call"]')
-    ).toBeVisible();
-    await expect(page.getByText('Calls', { exact: true })).toBeVisible();
-    await expect(
-      page.getByText('Conversation ready', { exact: false })
-    ).toBeVisible();
-    const nativeInput = page
-      .locator(
-        `[data-input-id="channel-input-${channels[0].id}"] [contenteditable="true"]`
-      )
-      .first();
-    await expect(nativeInput).toBeVisible();
-    await page
-      .getByRole('button', { name: /unread notification.*above/ })
-      .click();
-    await expect(
-      page.locator(`[data-message-id="${unreadReply.id}"]`)
-    ).toBeInViewport();
-    await nativeInput.fill('Native browser reply');
-    await page
-      .locator(
-        `[data-input-id="channel-input-${channels[0].id}"] [data-input-action="send"]`
-      )
-      .click();
-    await page
-      .locator('[data-channel-scroll]')
-      .evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
-    await expect(
-      page
-        .locator('[data-channel-message-list]')
-        .getByText('Native browser reply', { exact: true })
-    ).toHaveCount(1);
-
-    await open(`${channels[1].id}?join_call=true&open_call_tab=true`);
-    await expectNoCustomerCalls();
-    const input = page.getByRole('textbox', {
-      name: 'External customer reply',
-    });
-    await expect(
-      page.locator('[data-input-id^="channel-input-"] [contenteditable="true"]')
-    ).toHaveCount(0);
-    await input.fill('External browser reply');
-    await page.getByRole('button', { name: 'Send reply via WhatsApp' }).click();
-    await expect(
-      page
-        .locator('[data-channel-message-list]')
-        .getByText('External browser reply', { exact: true })
-    ).toHaveCount(1);
-    await expect
-      .poll(() => sends.get(channels[1].id)?.[0]?.state)
-      .toBe('accepted');
-    await expect(
-      page.locator(
-        `[data-message-id="${sends.get(channels[1].id)![0].message_id}"]`
-      )
-    ).toBeVisible();
-    await expect(
-      page
-        .locator('[data-channel-message-list]')
-        .getByText('External browser reply', { exact: true })
-    ).toHaveCount(1);
-    await input.fill('Saved WhatsApp draft');
-    await open(channels[2].id);
-    await expect(input).toHaveValue('');
-    await page
-      .getByRole('button', { name: 'Instagram conversation details' })
-      .click();
-    await expect(
-      page.getByText('@test.customer', { exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByText('Test Customer', { exact: true }).last()
-    ).toBeVisible();
-    await page.keyboard.press('Escape');
-    const revised = messages.get(channels[2].id)!.at(-1)!;
-    revised.content = 'Edited customer message';
-    revised.edited_at = new Date().toISOString();
-    event(revised, 'edited');
-    await expect(
-      page.locator(`[data-message-id="${revised.id}"]`)
-    ).toContainText('Edited customer message');
-    revised.content = '';
-    revised.deleted_at = new Date().toISOString();
-    event(revised, 'message_deleted');
-    messages.set(
-      channels[2].id,
-      messages
-        .get(channels[2].id)!
-        .filter((message) => message.id !== revised.id)
-    );
-    await expect(page.locator(`[data-message-id="${revised.id}"]`)).toHaveCount(
-      0
-    );
-    await input.fill('Saved Instagram draft');
-    await open(channels[1].id);
-    await expect(input).toHaveValue('Saved WhatsApp draft');
-    await page.reload({ waitUntil: 'commit' });
-    await expect(input).toHaveValue('Saved WhatsApp draft');
-    activeUser = 'macro|second-browser-user@example.com';
-    await page.reload({ waitUntil: 'commit' });
-    await expect(input).toHaveValue('');
-    await input.fill('Second user draft');
-    activeUser = USER_ID;
-    await page.reload({ waitUntil: 'commit' });
-    await expect(input).toHaveValue('Saved WhatsApp draft');
-    holdBinding = true;
-    await page.reload({ waitUntil: 'commit' });
-    await expect(
-      page.getByLabel('Loading conversation', { exact: true })
-    ).toBeVisible();
-    await expect(input).toHaveCount(0);
-    await expectNoCustomerCalls();
-    holdBinding = false;
-    bindingError = true;
-    await page.reload({ waitUntil: 'commit' });
-    await expect(
-      page.getByText('Conversation unavailable.', { exact: false })
-    ).toBeVisible();
-    await expect(input).toHaveCount(0);
-    await expectNoCustomerCalls();
-    bindingError = false;
-    denied = true;
-    await page.reload({ waitUntil: 'commit' });
-    await expect(input).toHaveValue('Saved WhatsApp draft');
-    await expect(
-      page.getByRole('button', { name: 'Send reply via WhatsApp' })
-    ).toBeDisabled();
-    denied = false;
-    await page.reload({ waitUntil: 'commit' });
-    await input.fill('Uncertain browser reply');
-    unknownSend = true;
-    await page.getByRole('button', { name: 'Send reply via WhatsApp' }).click();
-    await page
-      .getByRole('button', { name: 'Review reply', exact: true })
-      .click();
-    await expect(page.getByRole('checkbox')).not.toBeChecked();
-    await expect(
-      page.getByRole('button', { name: 'Send reply via WhatsApp' })
-    ).toBeDisabled();
-    await page.getByRole('checkbox').check();
-    await expect(
-      page.getByRole('button', { name: 'Send reply via WhatsApp' })
-    ).toBeEnabled();
-    await page.reload({ waitUntil: 'commit' });
-    await expect(page.getByRole('checkbox')).not.toBeChecked();
-    unknownSend = false;
-
-    // Templates stay out of normal replies and appear only when required.
-    activeUser = 'macro|template-browser-user@example.com';
-    await page.reload({ waitUntil: 'commit' });
-    await expect(input).toHaveValue('');
-    await expect(page.getByRole('combobox')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /template/i })).toHaveCount(
-      0
-    );
-    await expect(page.getByText(/template/i)).toHaveCount(0);
-    await page
-      .getByRole('button', { name: 'WhatsApp conversation details' })
-      .click();
-    await expect(page.getByText('WhatsApp messages sent from')).toBeVisible();
-    await expect(
-      page.getByText('+1 202 555 0147', { exact: true })
-    ).toBeVisible();
-    await expect(page.getByText(/test account/i)).toHaveCount(0);
-    await page.keyboard.press('Escape');
-    await page.screenshot({ path: '/tmp/macro-messaging-browser-normal.png' });
-
-    windowClosed = true;
-    await page.reload({ waitUntil: 'commit' });
-    await input.fill('Typed before the window closed');
-    const sendButton = page.getByRole('button', {
-      name: 'Send reply via WhatsApp',
-    });
-    await expect(sendButton).toBeDisabled();
-    await expect(page.getByRole('combobox')).toHaveCount(0);
-    await expect(page.getByText('The reply window is closed.')).toBeVisible();
-    await page.screenshot({ path: '/tmp/macro-messaging-browser-closed.png' });
-    await page.getByRole('button', { name: 'Choose template' }).click();
-    const picker = page.getByRole('combobox', {
-      name: 'Approved WhatsApp template',
-    });
-    await picker.selectOption('approved-template');
-    await page.getByLabel('body 1').fill('Avery');
-    await page.reload({ waitUntil: 'commit' });
-    await expect(picker).toHaveValue('approved-template');
-    await expect(page.getByLabel('body 1')).toHaveValue('Avery');
-    await page.screenshot({
-      path: '/tmp/macro-messaging-browser-template.png',
-    });
-    await page.getByRole('button', { name: 'Back to text reply' }).click();
-    await expect(input).toHaveValue('Typed before the window closed');
-    await page.getByRole('button', { name: 'Choose template' }).click();
-    await expect(picker).toHaveValue('approved-template');
-    failSend = true;
-    await sendButton.click();
-    await expect(input).toHaveValue('Typed before the window closed');
-    assert.deepEqual(submissions.at(-1)?.message, {
-      type: 'template',
-      template_id: 'approved-template',
-      language: 'en_US',
-      parameters: ['Avery'],
-    });
-    failSend = false;
-    await input.fill('');
-    await page.getByRole('button', { name: 'Edit and retry' }).last().click();
-    await expect(picker).toHaveValue('approved-template');
-    await expect(page.getByLabel('body 1')).toHaveValue('Avery');
-    await expect(sendButton).toBeEnabled();
-    windowClosed = false;
-    await page.reload({ waitUntil: 'commit' });
-    await expect(picker).toHaveValue('approved-template');
-    await page.getByRole('button', { name: 'Back to text reply' }).click();
-    await expect(page.getByRole('combobox')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /template/i })).toHaveCount(
-      0
-    );
-    activeUser = 'macro|expiry-browser-user@example.com';
-    await page.reload({ waitUntil: 'commit' });
-    await expect(input).toHaveValue('');
-    await input.fill('Expired reply kept for editing');
-    expireSend = true;
-    await sendButton.click();
-    const expiredIntent = submissions.at(-1)!;
-    const expiredId = sends.get(channels[1].id)!.at(-1)!.id;
-    const expiredRow = page.locator(`[data-external-send-id="${expiredId}"]`);
-    await expect(
-      expiredRow.getByRole('status', { name: 'Not sent', exact: true })
-    ).toBeVisible();
-    await expiredRow.getByRole('button', { name: 'Edit and retry' }).click();
-    await expect(input).toHaveValue('Expired reply kept for editing');
-    await expect(page.getByRole('checkbox')).toHaveCount(0);
-    expireSend = false;
-    await sendButton.click();
-    assert.notEqual(
-      submissions.at(-1)!.idempotency_key,
-      expiredIntent.idempotency_key
-    );
-    await expectNoCustomerCalls();
-    activeUser = USER_ID;
-    await page.screenshot({
-      path: '/tmp/macro-messaging-browser.png',
-      fullPage: true,
-    });
-    showSettings = true;
-    await page.goto(`${origin}/app/settings/connections`, {
-      waitUntil: 'commit',
-    });
-    const manage = page.getByRole('button', {
-      name: 'Manage WhatsApp Business',
-      exact: true,
-    });
-    await expect(manage).toBeEnabled();
-    await manage.click();
-    await expect(
-      page.getByRole('button', { name: 'Connect Platform number', exact: true })
-    ).toBeVisible();
-    const mine = page.locator(
-      `[data-messaging-account="${settingsAccount.id}"]`
-    );
-    const other = page.locator(`[data-messaging-account="${otherAccount.id}"]`);
-    await expect(
-      mine.getByText('Connected by', { exact: false })
-    ).toBeVisible();
-    await expect(
-      other.getByRole('button', { name: 'More', exact: true })
-    ).toHaveCount(0);
-    const pin = mine.getByLabel('WhatsApp two-step verification PIN');
-    await pin.fill('123456');
-    await mine
-      .getByRole('button', { name: 'Register number', exact: true })
-      .click();
-    await expect(
-      mine.getByRole('button', { name: 'Check registration', exact: true })
-    ).toBeVisible();
-    assert.equal(registrations[0]?.pin, '123456');
-    assert.equal(
-      await page.evaluate(() =>
-        Object.values(localStorage).some((value) =>
-          String(value).includes('123456')
+    await test.step('ordinary channels and unread navigation', async () => {
+      await open(channels[0].id);
+      await expect(
+        page.locator('[data-header-action][aria-label="Call"]')
+      ).toBeVisible();
+      await expect(page.getByText('Calls', { exact: true })).toBeVisible();
+      await expect(
+        page.getByText('Conversation ready', { exact: false })
+      ).toBeVisible();
+      const nativeInput = page
+        .locator(
+          `[data-input-id="channel-input-${channels[0].id}"] [contenteditable="true"]`
         )
-      ),
-      false
-    );
-    await mine
-      .getByRole('button', { name: 'Check registration', exact: true })
-      .click();
-    await expect(mine.getByText('Connected', { exact: true })).toBeVisible();
-    assert.equal(registrations[1]?.pin, undefined);
-    await mine.getByRole('button', { name: 'More', exact: true }).click();
-    await page
-      .getByRole('menuitem', { name: 'Disconnect', exact: true })
-      .click();
-    await expect(
-      page.getByText('Disconnect Controlled Platform account?', { exact: true })
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({
-      path: '/tmp/messaging-step-1/settings-mobile.png',
-      fullPage: true,
+        .first();
+      await expect(nativeInput).toBeVisible();
+      await page
+        .getByRole('button', { name: /unread notification.*above/ })
+        .click();
+      await expect(
+        page.locator(`[data-message-id="${unreadReply.id}"]`)
+      ).toBeInViewport();
+      await nativeInput.fill('Native browser reply');
+      await page
+        .locator(
+          `[data-input-id="channel-input-${channels[0].id}"] [data-input-action="send"]`
+        )
+        .click();
+      await page
+        .locator('[data-channel-scroll]')
+        .evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+      await expect(
+        page
+          .locator('[data-channel-message-list]')
+          .getByText('Native browser reply', { exact: true })
+      ).toHaveCount(1);
     });
-    await page.keyboard.press('Escape');
-    await open(channels[1].id);
-    const provider = page.getByRole('button', {
-      name: 'WhatsApp conversation details',
+    await test.step('external replies and native row reconciliation', async () => {
+      await open(`${channels[1].id}?join_call=true&open_call_tab=true`);
+      await expectNoCustomerCalls();
+      await expect(
+        page.locator(
+          '[data-input-id^="channel-input-"] [contenteditable="true"]'
+        )
+      ).toHaveCount(0);
+      await input.fill('External browser reply');
+      await page
+        .getByRole('button', { name: 'Send reply via WhatsApp' })
+        .click();
+      await expect(
+        page
+          .locator('[data-channel-message-list]')
+          .getByText('External browser reply', { exact: true })
+      ).toHaveCount(1);
+      await expect
+        .poll(() => sends.get(channels[1].id)?.[0]?.state)
+        .toBe('accepted');
+      await expect(
+        page.locator(
+          `[data-message-id="${sends.get(channels[1].id)![0].message_id}"]`
+        )
+      ).toBeVisible();
+      await expect(
+        page
+          .locator('[data-channel-message-list]')
+          .getByText('External browser reply', { exact: true })
+      ).toHaveCount(1);
     });
-    const box = await provider.boundingBox();
-    assert.ok(box && box.width >= 44 && box.height >= 44);
-    await input.fill('Mobile layout controlled draft');
-    await page.screenshot({
-      path: '/tmp/messaging-step-1/composer-mobile.png',
-      fullPage: true,
+    await test.step('draft isolation and provider revisions', async () => {
+      await input.fill('Saved WhatsApp draft');
+      await open(channels[2].id);
+      await expect(input).toHaveValue('');
+      await page
+        .getByRole('button', { name: 'Instagram conversation details' })
+        .click();
+      await expect(
+        page.getByText('@test.customer', { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByText('Test Customer', { exact: true }).last()
+      ).toBeVisible();
+      await page.keyboard.press('Escape');
+      const revised = messages.get(channels[2].id)!.at(-1)!;
+      revised.content = 'Edited customer message';
+      revised.edited_at = new Date().toISOString();
+      event(revised, 'edited');
+      await expect(
+        page.locator(`[data-message-id="${revised.id}"]`)
+      ).toContainText('Edited customer message');
+      revised.content = '';
+      revised.deleted_at = new Date().toISOString();
+      event(revised, 'message_deleted');
+      messages.set(
+        channels[2].id,
+        messages
+          .get(channels[2].id)!
+          .filter((message) => message.id !== revised.id)
+      );
+      await expect(
+        page.locator(`[data-message-id="${revised.id}"]`)
+      ).toHaveCount(0);
+      await input.fill('Saved Instagram draft');
+      await open(channels[1].id);
+      await expect(input).toHaveValue('Saved WhatsApp draft');
+      await page.reload({ waitUntil: 'commit' });
+      await expect(input).toHaveValue('Saved WhatsApp draft');
+      activeUser = 'macro|second-browser-user@example.com';
+      await page.reload({ waitUntil: 'commit' });
+      await expect(input).toHaveValue('');
+      await input.fill('Second user draft');
+      activeUser = USER_ID;
+      await page.reload({ waitUntil: 'commit' });
+      await expect(input).toHaveValue('Saved WhatsApp draft');
+    });
+    await test.step('binding failures and send permissions', async () => {
+      holdBinding = true;
+      await page.reload({ waitUntil: 'commit' });
+      await expect(
+        page.getByLabel('Loading conversation', { exact: true })
+      ).toBeVisible();
+      await expect(input).toHaveCount(0);
+      await expectNoCustomerCalls();
+      holdBinding = false;
+      bindingError = true;
+      await page.reload({ waitUntil: 'commit' });
+      await expect(
+        page.getByText('Conversation unavailable.', { exact: false })
+      ).toBeVisible();
+      await expect(input).toHaveCount(0);
+      await expectNoCustomerCalls();
+      bindingError = false;
+      denied = true;
+      await page.reload({ waitUntil: 'commit' });
+      await expect(input).toHaveValue('Saved WhatsApp draft');
+      await expect(
+        page.getByRole('button', { name: 'Send reply via WhatsApp' })
+      ).toBeDisabled();
+      denied = false;
+      await page.reload({ waitUntil: 'commit' });
+    });
+    await test.step('uncertain send recovery', async () => {
+      await input.fill('Uncertain browser reply');
+      unknownSend = true;
+      await page
+        .getByRole('button', { name: 'Send reply via WhatsApp' })
+        .click();
+      await page
+        .getByRole('button', { name: 'Review reply', exact: true })
+        .click();
+      await expect(page.getByRole('checkbox')).not.toBeChecked();
+      await expect(
+        page.getByRole('button', { name: 'Send reply via WhatsApp' })
+      ).toBeDisabled();
+      await page
+        .getByText(/I checked WhatsApp and want to send this again/)
+        .click();
+      await expect(
+        page.getByRole('button', { name: 'Send reply via WhatsApp' })
+      ).toBeEnabled();
+      await page.reload({ waitUntil: 'commit' });
+      await expect(page.getByRole('checkbox')).not.toBeChecked();
+      unknownSend = false;
+    });
+    await test.step('template visibility and draft recovery', async () => {
+      // Templates stay out of normal replies and appear only when required.
+      activeUser = 'macro|template-browser-user@example.com';
+      await page.reload({ waitUntil: 'commit' });
+      await expect(input).toHaveValue('');
+      await expect(page.getByRole('combobox')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /template/i })).toHaveCount(
+        0
+      );
+      await expect(page.getByText(/template/i)).toHaveCount(0);
+      await page
+        .getByRole('button', { name: 'WhatsApp conversation details' })
+        .click();
+      await expect(page.getByText('WhatsApp messages sent from')).toBeVisible();
+      await expect(
+        page.getByText('+1 202 555 0147', { exact: true })
+      ).toBeVisible();
+      await expect(page.getByText(/test account/i)).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await page.screenshot({
+        path: testInfo.outputPath('macro-messaging-browser-normal.png'),
+      });
+
+      windowClosed = true;
+      await page.reload({ waitUntil: 'commit' });
+      await input.fill('Typed before the window closed');
+      await expect(sendButton).toBeDisabled();
+      await expect(page.getByRole('combobox')).toHaveCount(0);
+      await expect(page.getByText('The reply window is closed.')).toBeVisible();
+      await page.screenshot({
+        path: testInfo.outputPath('macro-messaging-browser-closed.png'),
+      });
+      await page.getByRole('button', { name: 'Choose template' }).click();
+      await picker.click();
+      await page.getByRole('option', { name: 'order_update' }).click();
+      await page.getByLabel('body 1').fill('Avery');
+      await page.reload({ waitUntil: 'commit' });
+      await expect(picker).toContainText('order_update');
+      await expect(page.getByLabel('body 1')).toHaveValue('Avery');
+      await page.screenshot({
+        path: testInfo.outputPath('macro-messaging-browser-template.png'),
+      });
+      await page.getByRole('button', { name: 'Back to text reply' }).click();
+      await expect(input).toHaveValue('Typed before the window closed');
+      await page.getByRole('button', { name: 'Choose template' }).click();
+      await expect(picker).toContainText('order_update');
+      failSend = true;
+      await sendButton.click();
+      await expect(input).toHaveValue('Typed before the window closed');
+      assert.deepEqual(submissions.at(-1)?.message, {
+        type: 'template',
+        template_id: 'approved-template',
+        language: 'en_US',
+        parameters: ['Avery'],
+      });
+      failSend = false;
+      await input.fill('');
+      await page.getByRole('button', { name: 'Edit and retry' }).last().click();
+      await expect(picker).toContainText('order_update');
+      await expect(page.getByLabel('body 1')).toHaveValue('Avery');
+      await expect(sendButton).toBeEnabled();
+      windowClosed = false;
+      await page.reload({ waitUntil: 'commit' });
+      await expect(picker).toContainText('order_update');
+      await page.getByRole('button', { name: 'Back to text reply' }).click();
+      await expect(page.getByRole('combobox')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /template/i })).toHaveCount(
+        0
+      );
+    });
+    await test.step('expired intent recovery', async () => {
+      activeUser = 'macro|expiry-browser-user@example.com';
+      await page.reload({ waitUntil: 'commit' });
+      await expect(input).toHaveValue('');
+      await input.fill('Expired reply kept for editing');
+      expireSend = true;
+      await sendButton.click();
+      const expiredIntent = submissions.at(-1)!;
+      const expiredId = sends.get(channels[1].id)!.at(-1)!.id;
+      const expiredRow = page.locator(`[data-external-send-id="${expiredId}"]`);
+      await expect(
+        expiredRow.getByRole('status', { name: 'Not sent', exact: true })
+      ).toBeVisible();
+      await expiredRow.getByRole('button', { name: 'Edit and retry' }).click();
+      await expect(input).toHaveValue('Expired reply kept for editing');
+      await expect(page.getByRole('checkbox')).toHaveCount(0);
+      expireSend = false;
+      await sendButton.click();
+      assert.notEqual(
+        submissions.at(-1)!.idempotency_key,
+        expiredIntent.idempotency_key
+      );
+      await expectNoCustomerCalls();
+      activeUser = USER_ID;
+      await page.screenshot({
+        path: testInfo.outputPath('macro-messaging-browser.png'),
+        fullPage: true,
+      });
+    });
+    await test.step('member settings and registration recovery', async () => {
+      showSettings = true;
+      await page.goto(`${origin}/app/settings/connections`, {
+        waitUntil: 'commit',
+      });
+      const manage = page.getByRole('button', {
+        name: 'Manage WhatsApp Business',
+        exact: true,
+      });
+      await expect(manage).toBeEnabled();
+      await manage.click();
+      await expect(
+        page.getByRole('button', {
+          name: 'Connect Platform number',
+          exact: true,
+        })
+      ).toBeVisible();
+      const mine = page.locator(
+        `[data-messaging-account="${settingsAccount.id}"]`
+      );
+      const other = page.locator(
+        `[data-messaging-account="${otherAccount.id}"]`
+      );
+      await expect(
+        mine.getByText('Connected by', { exact: false })
+      ).toBeVisible();
+      await expect(
+        other.getByRole('button', { name: 'More', exact: true })
+      ).toHaveCount(0);
+      const pin = mine.getByLabel('WhatsApp two-step verification PIN');
+      await pin.fill('123456');
+      await mine
+        .getByRole('button', { name: 'Register number', exact: true })
+        .click();
+      await expect(
+        mine.getByRole('button', { name: 'Check registration', exact: true })
+      ).toBeVisible();
+      assert.equal(registrations[0]?.pin, '123456');
+      assert.equal(
+        await page.evaluate(() =>
+          Object.values(localStorage).some((value) =>
+            String(value).includes('123456')
+          )
+        ),
+        false
+      );
+      await mine
+        .getByRole('button', { name: 'Check registration', exact: true })
+        .click();
+      await expect(mine.getByText('Connected', { exact: true })).toBeVisible();
+      assert.equal(registrations[1]?.pin, undefined);
+      await mine.getByRole('button', { name: 'More', exact: true }).click();
+      await page
+        .getByRole('menuitem', { name: 'Disconnect', exact: true })
+        .click();
+      await expect(
+        page.getByText('Disconnect Controlled Platform account?', {
+          exact: true,
+        })
+      ).toBeVisible();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    });
+    await test.step('mobile controls and composition', async () => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      // Switch the same isolated Chromium context to touch for the mobile stage.
+      const touch = await context.newCDPSession(page);
+      await touch.send('Emulation.setTouchEmulationEnabled', {
+        enabled: true,
+        maxTouchPoints: 1,
+      });
+      // Changing the shell to touch closes desktop overlays; open Settings in the mobile shell.
+      await page.goto(`${origin}/app/settings/connections`, {
+        waitUntil: 'commit',
+      });
+      await page
+        .getByRole('button', { name: 'Manage WhatsApp Business', exact: true })
+        .click();
+      await expect(
+        page.getByText('Controlled Platform account', { exact: true })
+      ).toBeInViewport({ ratio: 1 });
+      await expect(
+        page.getByRole('button', {
+          name: 'Connect Platform number',
+          exact: true,
+        })
+      ).toBeInViewport({ ratio: 1 });
+      await page.screenshot({
+        path: testInfo.outputPath('settings-mobile.png'),
+        animations: 'disabled',
+        fullPage: true,
+      });
+      await page.keyboard.press('Escape');
+      await open(channels[1].id);
+      const provider = page.getByRole('button', {
+        name: 'WhatsApp conversation details',
+      });
+      const box = await provider.boundingBox();
+      assert.ok(box && box.width >= 44 && box.height >= 44);
+      await provider.click();
+      await expect(page.getByText('WhatsApp messages sent from')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await input.fill('Mobile layout controlled draft');
+      await page.screenshot({
+        path: testInfo.outputPath('composer-mobile.png'),
+        fullPage: true,
+      });
     });
     assert.deepEqual(errors, []);
     assert.deepEqual([...unknown], []);
-    console.log(
-      JSON.stringify({
-        passed: [
-          'ordinary channel send/activity and preserved Call controls',
-          'hidden customer Call surfaces during loading/error and join-call deep links',
-          'Not sent expiry and recovered draft with a new intent key',
-          'external send/native replacement',
-          'cross-channel, reload and user-switch drafts',
-          'loading/error binding',
-          'unread navigation',
-          'server denial',
-          'unknown acknowledgement reset',
-          'source edit/unsend display',
-          'no template controls or developer label in normal replies',
-          'explicit template only when the window is closed',
-          'template draft persistence and failed-template recovery',
-          'member metadata and connector-only account controls',
-          'ephemeral PIN and uncertain registration reconciliation',
-          'shared disconnect confirmation and mobile composition',
-        ],
-        submissions: submissions.length,
-      })
-    );
   } catch (error) {
     console.log('Scenario failure:', error);
     await page
       .screenshot({
-        path: '/tmp/macro-messaging-browser-failure.png',
+        path: testInfo.outputPath('macro-messaging-browser-failure.png'),
         fullPage: true,
         timeout: 3000,
       })
@@ -1019,7 +1060,5 @@ test('native channels and external messaging preserve composition, recovery, and
     console.log((await page.locator('body').innerText()).slice(0, 5000));
 
     throw error;
-  } finally {
-    console.log(JSON.stringify({ errors, unknown: [...unknown] }));
   }
 });

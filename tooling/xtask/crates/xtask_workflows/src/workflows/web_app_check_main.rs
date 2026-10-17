@@ -405,6 +405,7 @@ fn run_tests() -> Step<Run> {
 fn run_functional_tests() -> Step<Run> {
     Step::new("Test Native Messaging and Optimistic Mutations in Chromium")
         .run("bun run test:functional")
+        .add_env(("FUNCTIONAL_MESSAGING", "1"))
         .working_directory(xtask_paths::repo_dir!("apps/web"))
 }
 

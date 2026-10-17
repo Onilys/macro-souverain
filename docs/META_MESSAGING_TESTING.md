@@ -201,12 +201,13 @@ Build once with local fixture routing before starting the runner:
 VITE_LOCAL_SERVERS=ALL VITE_LOCAL_BACKEND_ORIGIN=same-origin \
 VITE_ENABLE_GRAPHQL_SOUP=true VITE_DISABLE_BROWSER_TURSO_CACHE=true \
 VITE_ENABLE_IN_APP_TOURS=false VITE_ENABLE_BROWSER_OTEL=false just build-dev
-bun run test:functional --list
-bun run test:functional meta-messaging.spec.ts
+FUNCTIONAL_MESSAGING=1 bun run test:functional --list
+FUNCTIONAL_MESSAGING=1 bun run test:functional meta-messaging.spec.ts
 ```
 
-The runner serves `dist` with Vite preview and the optimistic-mutation fixtures
-with Vite dev. Set `FUNCTIONAL_TEST_PORT` (default 4191) and `FUNCTIONAL_APP_PORT`
+The default `bun run test:functional` runs lightweight fixtures with Vite dev and
+does not require `dist`. `FUNCTIONAL_MESSAGING=1` adds the bundled messaging
+scenario and its Vite preview server. Set `FUNCTIONAL_TEST_PORT` (default 4191) and `FUNCTIONAL_APP_PORT`
 (default the next port) when either port is occupied. An installed Chromium can
 be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 
@@ -215,7 +216,8 @@ the real frontend; provider/API responses are fixtures, not live delivery
 evidence. It is discovered by `*.spec.ts` and runs in the Build job of Web App Pr
 Checks, reusing that job's existing build with the same environment above. Keep
 ordinary channels, external replies, templates, recovery, member Settings,
-registration recovery and mobile composition in this runner.
+registration recovery and mobile composition in this runner. Screenshots use
+Playwright’s per-test output directory; scenario stages appear as `test.step` entries.
 
 For live Platform signup, configure an existing v4 Platform login configuration
 in `META_WHATSAPP_PLATFORM_CONFIGURATION_ID`, use a controlled authorized number,

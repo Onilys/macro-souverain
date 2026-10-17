@@ -130,8 +130,8 @@ Required outcomes:
   queued replies must resolve the current verified destination at dispatch.
   A retained phone must not override a newer identity association.
 - Conflicting identities fail safely rather than merging two customer histories.
-- Use the documented phone destination when valid, otherwise the documented
-  BSUID destination once verified for the configured API/account. Do not invent
+- Prefer the documented BSUID destination when known and supported for the message,
+  retaining the documented phone destination for phone-only identities. Do not invent
   a phone or silently drop an unaddressable reply; surface a clear limitation.
 - Validate both phone and BSUID destinations against the controlled developer
   recipient allowlist. Username/display changes never change permissions.

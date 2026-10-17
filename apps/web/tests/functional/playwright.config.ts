@@ -1,12 +1,14 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from '@playwright/test';
 
+const messaging = process.env.FUNCTIONAL_MESSAGING === '1';
 const port = Number(process.env.FUNCTIONAL_TEST_PORT ?? 4191);
 const appPort = Number(process.env.FUNCTIONAL_APP_PORT ?? port + 1);
 
 export default defineConfig({
   testDir: '.',
   testMatch: '*.spec.ts',
+  testIgnore: messaging ? [] : ['meta-messaging.spec.ts'],
   timeout: 60_000,
   expect: { timeout: 10_000 },
   workers: 1,
@@ -37,13 +39,17 @@ export default defineConfig({
         VITE_ENABLE_BROWSER_OTEL: 'false',
       },
     },
-    {
-      cwd: fileURLToPath(new URL('../../', import.meta.url)),
-      command: `bunx --bun vite preview --config tests/functional/vite.config.ts --base /app --host 127.0.0.1 --port ${appPort} --strictPort`,
-      url: `http://127.0.0.1:${appPort}/app/`,
-      reuseExistingServer: false,
-      timeout: 30_000,
-      env: { MACRO_DEV_HTTPS: 'false' },
-    },
+    ...(messaging
+      ? [
+          {
+            cwd: fileURLToPath(new URL('../../', import.meta.url)),
+            command: `bunx --bun vite preview --config tests/functional/vite.config.ts --base /app --host 127.0.0.1 --port ${appPort} --strictPort`,
+            url: `http://127.0.0.1:${appPort}/app/`,
+            reuseExistingServer: false,
+            timeout: 30_000,
+            env: { MACRO_DEV_HTTPS: 'false' },
+          },
+        ]
+      : []),
   ],
 });
