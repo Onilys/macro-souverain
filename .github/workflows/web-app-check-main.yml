@@ -349,9 +349,15 @@ jobs:
     - name: Build
       run: just build-dev
       env:
+        VITE_LOCAL_SERVERS: ALL
+        VITE_LOCAL_BACKEND_ORIGIN: same-origin
+        VITE_ENABLE_GRAPHQL_SOUP: 'true'
+        VITE_DISABLE_BROWSER_TURSO_CACHE: 'true'
+        VITE_ENABLE_IN_APP_TOURS: 'false'
+        VITE_ENABLE_BROWSER_OTEL: 'false'
         WASM_PKG_CACHE_DIR: /home/runner/.cache/wasm-pkgs
       working-directory: apps/web
-    - name: Test Optimistic Mutations in Chromium
+    - name: Test Native Messaging and Optimistic Mutations in Chromium
       run: bun run test:functional
       working-directory: apps/web
     - name: show sccache stats

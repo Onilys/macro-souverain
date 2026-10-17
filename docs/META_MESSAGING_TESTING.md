@@ -61,7 +61,7 @@ short-lived attachment URLs; prove the text flow first.
 After server configuration, open **Macro → Settings → Integrations → Accounts**:
 
 - WhatsApp: open **Connect** or **Manage**, then **Connect test number**. The regular
-  WhatsApp connection uses production Embedded Signup and checks coexistence
+  WhatsApp connection uses production Embedded Signup and checks the selected mode
   eligibility; the test button is the intended local developer path.
 - Instagram: open **Connect** or **Manage**, choose **Connect account** or
   **Add account**, and authorize the professional account in the Instagram window.
@@ -112,7 +112,7 @@ Verify: without clicking import, old messages create no channels; after clicking
 history appears in the same private channels with original authors/times. Rename a
 channel and receive a new live message: it reuses that channel and retains the name.
 History alone must not enable free-form sending. Replay history, restart a worker,
-and revoke account/admin access. No duplicate chats, external sends, or unauthorized
+and revoke account or connector membership. No duplicate chats, external sends, or unauthorized
 attachment access should result. Progress must settle or expose a recovery message.
 
 ## 3. Do this on your phone and in Macro
@@ -166,7 +166,7 @@ after a subscription request must retain a sibling's subscription. Instagram
 subscriptions remain scoped to the individual professional account.
 
 Health tests exercise the real service and API response for authorization expiry,
-Meta access denial, Macro administrator removal, temporary errors, setup errors
+Meta access denial, Macro connector departure, temporary errors, setup errors
 and successful recovery. In the browser, check the message both in Settings and
 above the customer composer, with the draft preserved and sending disabled.
 
@@ -191,3 +191,36 @@ The old public DSS OAuth completion path must return 404 on the fixed backend.
 Do not test live login against an older running DSS binary. Update only the
 existing test app’s redirect allowlist after confirming the new callback is
 served; preserve working webhook callbacks and unrelated applications.
+
+## Step 1 regression and live evidence
+
+Run the shared functional runner in `apps/web`, inside the repository Nix shell.
+Build once with local fixture routing before starting the runner:
+
+```sh
+VITE_LOCAL_SERVERS=ALL VITE_LOCAL_BACKEND_ORIGIN=same-origin \
+VITE_ENABLE_GRAPHQL_SOUP=true VITE_DISABLE_BROWSER_TURSO_CACHE=true \
+VITE_ENABLE_IN_APP_TOURS=false VITE_ENABLE_BROWSER_OTEL=false just build-dev
+bun run test:functional --list
+bun run test:functional meta-messaging.spec.ts
+```
+
+The runner serves `dist` with Vite preview and the optimistic-mutation fixtures
+with Vite dev. Set `FUNCTIONAL_TEST_PORT` (default 4191) and `FUNCTIONAL_APP_PORT`
+(default the next port) when either port is occupied. An installed Chromium can
+be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+
+The messaging scenario uses a fresh context, blocks nonlocal traffic and mounts
+the real frontend; provider/API responses are fixtures, not live delivery
+evidence. It is discovered by `*.spec.ts` and runs in the Build job of Web App Pr
+Checks, reusing that job's existing build with the same environment above. Keep
+ordinary channels, external replies, templates, recovery, member Settings,
+registration recovery and mobile composition in this runner.
+
+For live Platform signup, configure an existing v4 Platform login configuration
+in `META_WHATSAPP_PLATFORM_CONFIGURATION_ID`, use a controlled authorized number,
+and complete Meta consent. Confirm the credential remains stored after a rejected
+registration, and reconcile uncertain outcomes before retrying. Do not register or
+migrate a new number without explicit authorization. A connected Meta test number
+can verify Cloud API requests but cannot establish production signup, coexistence
+history or BSUID rollout on an account. Record those results separately.

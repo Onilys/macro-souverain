@@ -6,6 +6,7 @@
 - `bun run format`: format changes with biome 
 - `bun run knip`: to check for dead code
 - Email rendering is isolated in `packages/email-renderer` at the repository root. Run `just test-email-rendering` for its Node and Chromium suites. Add fixtures under `packages/email-renderer/tests/fixtures`, run `just test-email-rendering-update`, and review changed images. These are renderer tests, not inbox e2e.
+- `bun run test:functional` runs optimistic-mutation fixtures and the bundled native messaging app. Build `dist` with the fixture environment in [the messaging test guide](../../docs/META_MESSAGING_TESTING.md#step-1-regression-and-live-evidence) first; CI reuses its Build job output. The runner owns two configurable ports and blocks external traffic for messaging scenarios.
 
 ## Verifying a change in a real browser
 

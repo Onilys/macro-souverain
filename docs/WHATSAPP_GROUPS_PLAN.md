@@ -112,7 +112,7 @@ numbers separately as optional routing/display data. Preserve connection/busines
 scope. Do not turn customers into Macro users or CRM records.
 
 Before choosing the final schema, trace live messages, contacts, statuses, phone
-app echoes, history, sends, revisions and `user_id_update`. Legacy and phone-only
+app echoes, history, sends, revisions and identity-update system messages. Legacy and phone-only
 payloads must still resolve safely. Do not assume every source or API version has
 already adopted BSUIDs.
 
@@ -263,7 +263,7 @@ all surfaces consume the metadata; changing `EntityIcon` alone is not proof.
 | WhatsApp eligibility/registration | `crates/meta_messaging/src/outbound/provider.rs` (`whatsapp_authorize`); `apps/web/src/features/meta-messaging/queries/facebook-signup.ts`; rename/update `production_requires_coexistence_but_explicit_test_number_does_not` for both supported production modes |
 | Identity and routing | `inbound/webhook.rs`; `outbound/provider/history.rs`; `outbound/provider/sending.rs`; `outbound/repository/native.rs`, `revisions.rs`, `sends.rs`; find every `customer_id` consumer and durable payload |
 | Recovery regressions | DSS `native_messaging/native/test/http/{oauth,lifecycle,history,recovery}.rs`; `native/test/{reconciliation,revisions}.rs`; messaging `outbound/repository/test/{fairness,policies}.rs`; preserve behavioral assertions while updating the selected policy |
-| Existing frontend checks | `apps/web/src/features/meta-messaging/{queries,views,primitives}` tests and `apps/web/tests/meta-messaging`; verify functional-runner discovery before moving scenarios |
+| Existing frontend checks | `apps/web/src/features/meta-messaging/{queries,views,primitives}` tests and `apps/web/tests/functional/meta-messaging.spec.ts`; the shared runner uses the existing CI build and local transport fixtures |
 | Unrelated branch changes | Compare `apps/web/src/routes/lazy-route-views.ts`, `features/channels-view/route-views.tsx` and agent-DM call gating to the current PR base; earlier review identified these as branch-only. Remove or separate only after checking whether messaging depends on the fix. |
 
 Preflight the existing Nix/tooling and isolated database before expensive builds.
@@ -283,7 +283,7 @@ and distinguish documented behavior from live verification on our test account.
 
 | Contract retained from the earlier research | Implementation consequence |
 | --- | --- |
-| WhatsApp message webhooks carry `messages[].from_user_id` and `contacts[].user_id` from the April 2026 rollout; `user_id_update` supplies previous/current IDs | Use BSUIDs. This is not a claim that every history, echo or status payload has the same fields; inspect those separately. |
+| WhatsApp message webhooks carry `messages[].from_user_id` and `contacts[].user_id` from the April 2026 rollout; the retained research described `user_id_update` previous/current IDs (see the implementation recheck below) | Use BSUIDs. This is not a claim that every history, echo or status payload has the same fields; inspect those separately. |
 | The send API uses `recipient` for a BSUID, versus `to` for a phone | Implement the documented destination shape; confirm availability for the chosen API/account and surface unsupported-recipient errors. |
 | Registration uses a six-digit PIN, a 14-day registration deadline, and a limit of ten attempts per 72 hours; errors include 133005/133006/133016 | Respect retry limits and translate errors. Check code-exchange expiry separately; do not conflate it with the registration deadline. |
 | Group creation is asynchronous and correlated by `request_id` | Future group binding uses that identity, never the subject. |
@@ -301,6 +301,14 @@ record its provenance, and isolate only a genuinely unresolved dependency.
 - [Official Business Accounts](https://developers.facebook.com/documentation/business-messaging/whatsapp/official-business-accounts)
 - [Group pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/pricing)
 - [S3 expiration semantics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html)
+
+Implementation recheck on 2026-10-16: the September 15 Meta BSUID documentation
+clarifies that `user_id_update` is not a subscribable webhook field. Changes arrive
+as `messages` system events with `previous_user_id`/`user_id` and system type
+`user_changed_number` or `user_changed_user_id`. History uses `context.user_id`,
+echoes use `to_user_id`, and statuses use `recipient_user_id`. These newer field
+contracts supersede the earlier payload assumption without discarding its dated
+provenance. Current v4 signup documentation gives exchanged codes a 30-second TTL.
 
 Production still requires company-owned Meta configuration, appropriate access,
 secure callbacks, secrets/storage configuration and live smoke checks. Existing

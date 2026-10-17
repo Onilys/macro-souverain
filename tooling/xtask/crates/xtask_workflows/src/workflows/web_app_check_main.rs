@@ -403,7 +403,7 @@ fn run_tests() -> Step<Run> {
 }
 
 fn run_functional_tests() -> Step<Run> {
-    Step::new("Test Optimistic Mutations in Chromium")
+    Step::new("Test Native Messaging and Optimistic Mutations in Chromium")
         .run("bun run test:functional")
         .working_directory(xtask_paths::repo_dir!("apps/web"))
 }
@@ -431,6 +431,13 @@ fn collaboration_cycles_import_check() -> Step<Run> {
 fn run_build() -> Step<Run> {
     Step::new("Build")
         .run("just build-dev")
+        // The functional app preview uses this same build with isolated transports.
+        .add_env(("VITE_LOCAL_SERVERS", "ALL"))
+        .add_env(("VITE_LOCAL_BACKEND_ORIGIN", "same-origin"))
+        .add_env(("VITE_ENABLE_GRAPHQL_SOUP", "true"))
+        .add_env(("VITE_DISABLE_BROWSER_TURSO_CACHE", "true"))
+        .add_env(("VITE_ENABLE_IN_APP_TOURS", "false"))
+        .add_env(("VITE_ENABLE_BROWSER_OTEL", "false"))
         .add_env(("WASM_PKG_CACHE_DIR", vars::WASM_PKG_CACHE_DIR))
         .working_directory(xtask_paths::repo_dir!("apps/web"))
 }
