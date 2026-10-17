@@ -11,6 +11,8 @@ import {
 import { ApprovalCard } from '@app/features/agent-interactions/components/ApprovalCard';
 import { DraftCard } from '@app/features/agent-interactions/components/DraftCard';
 import { QuestionCard } from '@app/features/agent-interactions/components/QuestionCard';
+import type { Review } from '@app/features/agent-reviews/core/review';
+import { ReviewStack } from '@app/features/agent-reviews/views/review-stack';
 import { AppAnswerDisplay } from '@app/features/database-query/answer-display';
 import { QueryResults } from '@app/features/database-query/components/query-results';
 import { useAnswerDisplay } from '@app/features/database-query/context/answer-display';
@@ -39,6 +41,7 @@ import {
 import { CardRow, SkeletonSingle, Tile } from '../components/kit/parts';
 import { NoticeCard } from '../components/notice';
 import { ReferenceCardView } from '../components/reference-card';
+import { ReviewWaitingCard } from '../components/review-card';
 import { RoutineCardView } from '../components/routine-card';
 import {
   type SourceRef,
@@ -254,6 +257,56 @@ const DRAFT_EMAIL = {
   cc: [{ email: 'maya@macro.example', name: 'Maya Chen' }],
   subject: 'Re: Q4 pricing proposal',
   body: 'Hi Ana,\n\nThanks for the quick turnaround. We can do the annual plan at **$42k** if we sign by Oct 31. That includes the 60 seats and SSO.\n\nBest,\nMaya',
+};
+
+const DRAFT_EVENT = {
+  title: 'Globex renewal call',
+  time: {
+    kind: 'timed' as const,
+    startsAt: '2026-10-20T15:00:00Z',
+    endsAt: '2026-10-20T15:30:00Z',
+    timeZone: 'America/New_York',
+  },
+  attendees: [{ email: 'ana@globex.example' }],
+  location: 'Zoom',
+  description: 'Walk through the renewal terms.',
+};
+
+/** A saved review of three follow-ups, as the agent presented it. */
+const REVIEW: Review = {
+  id: 'gallery-review',
+  sessionId: 'gallery-session',
+  kind: 'email',
+  title: 'Follow-ups from the Globex call',
+  revision: 1,
+  updatedAt: 0,
+  presentedAt: 0,
+  items: [
+    { id: 'ana', draft: DRAFT_EMAIL, status: 'pending' },
+    {
+      id: 'leo',
+      draft: {
+        ...DRAFT_EMAIL,
+        to: [{ email: 'leo@globex.example', name: 'Leo Park' }],
+        subject: 'SSO setup for Globex',
+      },
+      status: 'pending',
+    },
+    {
+      id: 'kim',
+      draft: {
+        ...DRAFT_EMAIL,
+        to: [{ email: 'kim@globex.example', name: 'Kim Lee' }],
+        subject: 'Renewal paperwork',
+      },
+      status: 'completed',
+    },
+  ],
+};
+
+const reviewActions = {
+  reload: async () => REVIEW,
+  decide: async () => REVIEW,
 };
 
 const cell = (value: string | number) =>
@@ -686,14 +739,59 @@ export default function AgentCardsGallery() {
               )}
             </For>
           </Example>
-          <Example label="Draft · an email to send as you">
+          <Example label="Draft · an email to send as you, in its composer">
             <DraftCard
               tool={{ name: 'SendEmail', data: DRAFT_EMAIL }}
               toolCall="gallery"
               message="Send email?"
               review={{ canAnswer: () => true, respond: answering }}
+              composes
               fallback={<span />}
             />
+          </Example>
+          <Example label="Draft · an event to create, in the calendar's composer">
+            <DraftCard
+              tool={{ name: 'CreateCalendarEvent', data: DRAFT_EVENT }}
+              toolCall="gallery-event"
+              message="Create event?"
+              review={{ canAnswer: () => true, respond: answering }}
+              composes
+              fallback={<span />}
+            />
+          </Example>
+          <Example label="Draft · in someone else's conversation, as the agent wrote it">
+            <DraftCard
+              tool={{ name: 'SendEmail', data: DRAFT_EMAIL }}
+              toolCall="gallery-shared"
+              message="Send email?"
+              review={{ canAnswer: () => true, respond: answering }}
+              fallback={<span />}
+            />
+          </Example>
+          <Example label="Draft · to someone who cannot send it">
+            <DraftCard
+              tool={{ name: 'CreateCalendarEvent', data: DRAFT_EVENT }}
+              toolCall="gallery-locked"
+              message="Create event?"
+              review={{ canAnswer: () => false, respond: answering }}
+              canAnswer={false}
+              fallback={<span />}
+            />
+          </Example>
+        </Section>
+
+        <Section
+          title="Review"
+          note="Drafts the agent saved for you without waiting on you: a saved review, in its reply"
+        >
+          <Example label="For the person the agent works for">
+            <div class="w-full max-w-xl">
+              <ReviewStack review={REVIEW} canAct actions={reviewActions} />
+            </div>
+          </Example>
+          <Example label="For anyone else in the thread">
+            <ReviewWaitingCard drafts="email" waitingOn="Maya Chen" />
+            <ReviewWaitingCard drafts="calendar" waitingOn="Maya Chen" />
           </Example>
         </Section>
 
