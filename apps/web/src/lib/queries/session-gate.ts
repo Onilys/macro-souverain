@@ -3,6 +3,7 @@ import { thrownResultErrorHasCode } from '@core/util/result';
 import {
   type DefaultError,
   type DefaultedQueryObserverOptions,
+  partialMatchKey,
   QueryClient,
   type QueryKey,
   type QueryObserverOptions,
@@ -24,11 +25,14 @@ function isUnauthorized(error: unknown): boolean {
   return thrownResultErrorHasCode(error, 'UNAUTHORIZED');
 }
 
+function sessionPolicy(meta: unknown): unknown {
+  return meta !== null && typeof meta === 'object' && 'session' in meta
+    ? meta.session
+    : undefined;
+}
+
 function isBlocked(meta: unknown, status: SessionStatus): boolean {
-  const policy =
-    meta !== null && typeof meta === 'object' && 'session' in meta
-      ? meta.session
-      : undefined;
+  const policy = sessionPolicy(meta);
   if (policy === establishesSession.session) return false;
   if (policy === requiresSession.session) return status !== 'signed-in';
   return status === 'expired';
@@ -92,6 +96,26 @@ export function gateQueryOnSession<
  * re-evaluates mounted queries when the session changes.
  */
 export class SessionGatedQueryClient extends QueryClient {
+  #sessionFamilies: QueryKey[] = [];
+
+  /**
+   * Treats every query under these key prefixes as `requiresSession`, for
+   * whole families whose endpoints all answer 401 without a session. A
+   * query's own `meta.session` still wins.
+   */
+  requireSessionFor(families: readonly QueryKey[]): void {
+    this.#sessionFamilies.push(...families);
+  }
+
+  #familyMeta(queryKey: QueryKey | undefined, meta: unknown): unknown {
+    if (sessionPolicy(meta) !== undefined || !queryKey) return meta;
+    const inFamily = this.#sessionFamilies.some((family) =>
+      partialMatchKey(queryKey, family)
+    );
+    if (!inFamily) return meta;
+    return { ...(meta as object | undefined), ...requiresSession };
+  }
+
   override defaultQueryOptions<
     TQueryFnData = unknown,
     TError = DefaultError,
@@ -125,6 +149,12 @@ export class SessionGatedQueryClient extends QueryClient {
   > {
     const defaulted = super.defaultQueryOptions(options);
     if (options._defaulted) return defaulted;
-    return gateQueryOnSession(defaulted, sessionStatus());
+    const meta = this.#familyMeta(defaulted.queryKey, defaulted.meta);
+    return gateQueryOnSession(
+      meta === defaulted.meta
+        ? defaulted
+        : { ...defaulted, meta: meta as typeof defaulted.meta },
+      sessionStatus()
+    );
   }
 }

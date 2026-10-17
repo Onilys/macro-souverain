@@ -110,6 +110,42 @@ describe('pre-login', () => {
       expect(userInfo).toHaveBeenCalledOnce();
     });
   });
+
+  it('holds every query in a session-only family, keeping its own meta', async () => {
+    const gate = await setup('signed-out');
+    gate.client.requireSessionFor([['notification']]);
+    const notifications = vi.fn(async () => 'inbox');
+    const publicDoc = vi.fn(async () => 'doc');
+    gate.mount(() => ({
+      queryKey: ['notification', 'user', 'active'],
+      queryFn: notifications,
+      meta: { groupBy: 'status' },
+    }));
+    gate.mount(() => ({ queryKey: ['public-doc'], queryFn: publicDoc }));
+
+    await waitFor(() => expect(publicDoc).toHaveBeenCalledOnce());
+    expect(notifications).not.toHaveBeenCalled();
+    expect(
+      gate.client
+        .getQueryCache()
+        .find({ queryKey: ['notification', 'user', 'active'] })?.meta
+    ).toMatchObject({ groupBy: 'status' });
+
+    gate.setIdentity('signed-in');
+    await waitFor(() => expect(notifications).toHaveBeenCalledOnce());
+  });
+
+  it('lets a family member opt back in with its own session policy', async () => {
+    const gate = await setup('signed-out');
+    gate.client.requireSessionFor([['auth']]);
+    const userInfo = vi.fn(async () => 'anonymous');
+    gate.mount(() => ({
+      queryKey: ['auth', 'user-info'],
+      queryFn: userInfo,
+      meta: gate.establishesSession,
+    }));
+    await waitFor(() => expect(userInfo).toHaveBeenCalledOnce());
+  });
 });
 
 describe('expired session', () => {

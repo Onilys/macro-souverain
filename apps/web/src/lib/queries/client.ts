@@ -16,6 +16,7 @@ import { authKeys } from './auth/keys';
 import type { UserInfoData } from './auth/user-info';
 import { setupQueryPersistence } from './persistence';
 import { createQueryPersistenceScopes } from './persistence-scopes';
+import { SESSION_ONLY_QUERY_KEYS } from './session-families';
 import { SessionGatedQueryClient } from './session-gate';
 import { initSoupNormalizer } from './soup/normalized-cache/normalizer';
 
@@ -40,6 +41,8 @@ export const queryClient = new SessionGatedQueryClient({
     },
   },
 });
+
+queryClient.requireSessionFor(SESSION_ONLY_QUERY_KEYS);
 
 const userInfoHash = hashKey(authKeys.userInfo.queryKey);
 
