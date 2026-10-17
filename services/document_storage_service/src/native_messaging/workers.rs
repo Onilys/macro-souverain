@@ -120,28 +120,3 @@ pub(super) async fn retention(service: Arc<MetaService>, cancellation: Cancellat
         }
     }
 }
-
-pub(super) async fn temporary_media(
-    copies: Arc<dyn meta_messaging::domain::temporary_media::TemporaryMedia>,
-    cancellation: CancellationToken,
-) {
-    let mut tick = interval(Duration::from_secs(60));
-    tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
-    loop {
-        tokio::select! { _=cancellation.cancelled()=>return, _=tick.tick()=>{} }
-        match copies.cleanup().await {
-            Ok(counts) if counts.deleted + counts.deferred + counts.failed > 0 => {
-                tracing::info!(
-                    deleted = counts.deleted,
-                    deferred = counts.deferred,
-                    failed = counts.failed,
-                    "temporary messaging media cleanup"
-                );
-            }
-            Ok(_) => {}
-            Err(error) => {
-                tracing::warn!(error=?error.current_context(),"temporary messaging media cleanup will retry")
-            }
-        }
-    }
-}

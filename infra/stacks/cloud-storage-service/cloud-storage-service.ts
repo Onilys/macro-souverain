@@ -230,18 +230,8 @@ export class CloudStorageService extends pulumi.ComponentResource {
               Action: [
                 's3:PutObject',
                 's3:GetObject',
-                's3:DeleteObject',
-                's3:DeleteObjectVersion',
               ],
               Resource: pulumi.interpolate`${emailAttachmentsBucketArn}/temp/macro-messaging/*`,
-            },
-            {
-              Effect: 'Allow',
-              Action: ['s3:ListBucketVersions'],
-              Resource: emailAttachmentsBucketArn,
-              Condition: {
-                StringLike: { 's3:prefix': 'temp/macro-messaging/*' },
-              },
             },
           ],
         }),

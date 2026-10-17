@@ -65,7 +65,6 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         if let Some(bucket) = settings.temporary_media_bucket {
             Some(Arc::new(
                 meta_messaging::domain::temporary_media::TemporaryMediaService::new(
-                    repository.clone(),
                     Arc::new(
                         meta_messaging::outbound::temporary_media::S3MediaCopies::new(
                             aws_sdk_s3::Client::new(
@@ -119,9 +118,6 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         )
         .with_group_tasks(tracker.clone()),
     );
-    if let Some(copies) = temporary_media {
-        tracker.spawn(workers::temporary_media(copies, cancellation.clone()));
-    }
     spawn(service.clone(), tracker, cancellation);
     Ok(State {
         service,

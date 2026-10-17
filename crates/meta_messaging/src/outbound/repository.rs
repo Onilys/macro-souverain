@@ -19,7 +19,6 @@ mod retention;
 pub mod revisions;
 mod sends;
 mod subscription;
-mod temporary_media;
 #[cfg(test)]
 mod test;
 

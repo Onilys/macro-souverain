@@ -174,6 +174,30 @@ async fn create_buckets(s3: &aws_sdk_s3::Client) -> Result<()> {
             .send()
             .await
             .with_context(|| format!("setting CORS on {name}"))?;
+        if bucket.env_key == "ATTACHMENT_BUCKET" {
+            let lifecycle = s3_types::BucketLifecycleConfiguration::builder()
+                .rules(
+                    s3_types::LifecycleRule::builder()
+                        .id("temp-files-1d")
+                        .status(s3_types::ExpirationStatus::Enabled)
+                        .filter(
+                            s3_types::LifecycleRuleFilter::builder()
+                                .prefix("temp/")
+                                .build(),
+                        )
+                        .expiration(s3_types::LifecycleExpiration::builder().days(1).build())
+                        .build()
+                        .context("building temp expiration rule")?,
+                )
+                .build()
+                .context("building temp lifecycle")?;
+            s3.put_bucket_lifecycle_configuration()
+                .bucket(name)
+                .lifecycle_configuration(lifecycle)
+                .send()
+                .await
+                .context("setting email temp lifecycle")?;
+        }
     }
     Ok(())
 }

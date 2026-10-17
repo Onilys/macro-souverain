@@ -1,4 +1,4 @@
-//! Version-aware cleanup for opaque objects in the existing email temp namespace.
+//! Opaque copies in the email bucket temp/ lifecycle namespace.
 
 use super::repository::failure;
 use crate::domain::{
@@ -19,61 +19,6 @@ impl S3MediaCopies {
     /// Reuse the existing email attachment bucket; never use a native document key.
     pub fn new(client: Client) -> Self {
         Self { client }
-    }
-    async fn remove_versions(&self, bucket: &str, id: Uuid) -> PortResult<bool> {
-        let key = copy_key(id);
-        let listing = self
-            .client
-            .list_object_versions()
-            .bucket(bucket)
-            .prefix(&key)
-            .max_keys(100)
-            .send()
-            .await
-            .map_err(failure)?;
-        for (object, version) in listing
-            .versions()
-            .iter()
-            .map(|v| (v.key(), v.version_id()))
-            .chain(
-                listing
-                    .delete_markers()
-                    .iter()
-                    .map(|v| (v.key(), v.version_id())),
-            )
-        {
-            if object != Some(key.as_str()) {
-                continue;
-            }
-            let version = version.ok_or(MessagingError::Unavailable)?;
-            self.client
-                .delete_object()
-                .bucket(bucket)
-                .key(&key)
-                .version_id(version)
-                .send()
-                .await
-                .map_err(failure)?;
-        }
-        // Expiration alone, or adding a delete marker, is not physical deletion.
-        let remaining = self
-            .client
-            .list_object_versions()
-            .bucket(bucket)
-            .prefix(&key)
-            .max_keys(100)
-            .send()
-            .await
-            .map_err(failure)?;
-        Ok(!remaining.is_truncated().unwrap_or(false)
-            && !remaining
-                .versions()
-                .iter()
-                .any(|v| v.key() == Some(key.as_str()))
-            && !remaining
-                .delete_markers()
-                .iter()
-                .any(|v| v.key() == Some(key.as_str())))
     }
 }
 #[async_trait]
@@ -106,12 +51,6 @@ impl MediaCopyStorage for S3MediaCopies {
         })
         .await
         .map_err(|_| MessagingError::Unavailable)?
-    }
-    #[tracing::instrument(skip_all, err)]
-    async fn remove_copy(&self, bucket: &str, id: Uuid) -> PortResult<bool> {
-        tokio::time::timeout(Duration::from_secs(30), self.remove_versions(bucket, id))
-            .await
-            .map_err(|_| MessagingError::Unavailable)?
     }
 }
 

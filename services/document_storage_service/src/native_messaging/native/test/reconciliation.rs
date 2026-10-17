@@ -244,11 +244,6 @@ impl meta_messaging::domain::temporary_media::TemporaryMedia for CopyCounter {
         self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok("https://storage.example.test/temp/macro-messaging/opaque".into())
     }
-    async fn cleanup(
-        &self,
-    ) -> PortResult<meta_messaging::domain::temporary_media::MediaCopyCleanup> {
-        Ok(Default::default())
-    }
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]

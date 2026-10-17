@@ -226,15 +226,6 @@ CREATE INDEX meta_messaging_receipt_completed_retention_idx ON meta_messaging_re
 CREATE INDEX meta_messaging_receipt_metadata_retention_idx ON meta_messaging_receipt(created_at,id)
     WHERE payload_cleared_at IS NOT NULL;
 
-CREATE TABLE meta_messaging_media_copy (
-    id uuid PRIMARY KEY,
-    bucket text NOT NULL,
-    delete_after timestamptz NOT NULL DEFAULT now()+interval '1 day',
-    available_at timestamptz NOT NULL DEFAULT now()+interval '1 day',
-    lease_id uuid,
-    lease_until timestamptz
-);
-CREATE INDEX meta_messaging_media_copy_cleanup_idx ON meta_messaging_media_copy(available_at,id);
 CREATE TABLE meta_messaging_customer_alias (
     connection_id uuid NOT NULL REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
     identifier text NOT NULL,
