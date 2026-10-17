@@ -3,6 +3,7 @@ import type { SplitManager } from '@components/app/split-layout/layoutManager';
 import { createRoutedSplitLayout } from '@components/app/split-layout/tests/fixtures';
 import { toast } from '@core/component/Toast/Toast';
 import type { BlockOrchestrator } from '@core/orchestrator';
+import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createRoot } from 'solid-js';
 import { beforeEach, expect, it, onTestFinished, vi } from 'vitest';
 import { openDocument } from './BlockLink';
@@ -110,12 +111,17 @@ it('orients users when an activity-list selection reuses a previewed channel', (
 it('opens a mention at its location from a click handler, which has no owner', async () => {
   const { navigate } = setup();
   const params = { channel_message_id: 'message' };
-  const mention = document.createElement('span');
-  mention.addEventListener('click', () =>
-    openDocument('channel', 'channel', params)
-  );
+  render(() => (
+    <button
+      type="button"
+      onClick={() => openDocument('channel', 'channel', params)}
+    >
+      mention
+    </button>
+  ));
 
-  mention.click();
+  fireEvent.click(screen.getByRole('button', { name: 'mention' }));
 
   await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith(params));
+  expect(toast.alert).not.toHaveBeenCalled();
 });
