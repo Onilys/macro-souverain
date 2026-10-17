@@ -999,6 +999,16 @@ const shortcutSections: ShortcutSection[] = [
       },
     ],
   },
+  {
+    title: 'Email',
+    items: [
+      {
+        keys: [`shift+${cmdOrCtrl}+p`],
+        codes: ['ShiftLeft', CmdOrCtrl, 'KeyP'],
+        description: 'Pop a reply out into a window, or back into its thread',
+      },
+    ],
+  },
 ];
 
 const [hoveredCodes, setHoveredCodes] = createSignal<string[]>([]);
