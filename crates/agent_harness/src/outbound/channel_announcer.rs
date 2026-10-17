@@ -85,15 +85,26 @@ fn chat_reply(session_id: AgentSessionId, body: AgentChatReplyBody) -> AgentChat
 const MAX_STORED_CARD_BYTES: usize = 32 * 1024;
 
 /// A step's card as a message stores it, unless it is too large to store.
+///
+/// A message is readable by its whole conversation, which may include people
+/// who cannot open the item a card is about. What was done to the item -
+/// `to Ana Ruiz`, `3 changes`, the name it had before - shows only to a
+/// reader who can open it, so a stored card leaves it out: a posted receipt
+/// names the item, as a mention does, and says what happened to it. The line
+/// stays in the session's own view, whose readers can open the work.
 fn stored_card(
     card: &agent_fold::domain::model::ActivityCard,
 ) -> Option<agent_fold::domain::model::ActivityCard> {
-    let size = serde_json::to_vec(card).map_or(usize::MAX, |bytes| bytes.len());
+    let mut stored = card.clone();
+    if let agent_fold::domain::model::ActivityCard::Item { summary, .. } = &mut stored {
+        *summary = None;
+    }
+    let size = serde_json::to_vec(&stored).map_or(usize::MAX, |bytes| bytes.len());
     if size > MAX_STORED_CARD_BYTES {
         tracing::warn!(size, "dropping an activity card too large to store");
         return None;
     }
-    Some(card.clone())
+    Some(stored)
 }
 
 /// A reply's segments as the message composer takes them: passages as the

@@ -208,6 +208,26 @@ fn a_steps_card_travels_with_its_row() {
     );
 }
 
+/// A message is read by the whole conversation, so what was done to an
+/// item (here, who an email went to) stays out of the card it stores.
+#[test]
+fn a_stored_card_leaves_out_what_only_the_items_readers_may_see() {
+    use agent_fold::domain::model::{ActivityCard, CardAction, CardItemType};
+    let card = ActivityCard::Item {
+        item_type: CardItemType::EmailThread,
+        item_id: "thread-1".to_owned(),
+        file_type: None,
+        action: CardAction::Sent,
+        title: Some("Launch plan".to_owned()),
+        summary: Some("to Ana Ruiz".to_owned()),
+    };
+    let segments = reply_segments(TurnId(2), &[carded_run(card)]);
+    let stored = &serde_json::to_value(&segments).unwrap()[0]["rows"][0]["card"];
+    assert_eq!(stored["action"], "sent");
+    assert_eq!(stored["title"], "Launch plan");
+    assert_eq!(stored["summary"], serde_json::Value::Null);
+}
+
 /// A runaway view is not stored; its row still says what the step did.
 #[test]
 fn a_card_too_large_to_store_leaves_its_row() {

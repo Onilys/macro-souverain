@@ -73,7 +73,11 @@ export type AgentActivityCard =
       action: (typeof AGENT_ACTIVITY_CARD_ACTIONS)[number];
       /** The item's name as the step knew it, until the item loads. */
       title?: string | null;
-      /** What happened to it, without quoting it: `3 changes`. */
+      /**
+       * What happened to it, without quoting it: `3 changes`. A message
+       * stores none, since its whole conversation reads it; older messages
+       * may still hold one.
+       */
       summary?: string | null;
     }
   | {
