@@ -99,6 +99,29 @@ group adoption, coexistence groups and Instagram groups remain unsupported.
 
 ## WhatsApp groups
 
+For customers: create a new group in Macro, share its invite link, and reply from
+the resulting private channel while participants use WhatsApp normally. Existing
+personal groups cannot be imported or attached. Meta currently limits groups to
+eight participants and one Cloud API business; an Official Business Account on
+an eligible Platform number is required. A regular Business-app connection does
+not qualify. Adding a Macro teammate grants native access only, not a WhatsApp
+participant slot.
+
+Any participant's message refreshes the group's 24-hour service window; joining
+alone does not. Outside that window, use a supported approved template. Supported
+content is text, media and supported approved text templates, without calls,
+disappearing/view-once messages or message edits/deletes. Macro additionally defers
+reactions, quoted replies, pin/read actions and aggregate read receipts.
+
+Do not describe group messaging as free. Meta bills applicable sends per delivered
+recipient. Since October 1, 2026, group utility templates are charged even inside
+the service window; non-template messages are free only within the business
+number's shared 1,000-delivery free tier. See the official
+[limits](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups)
+and [pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/pricing).
+The implementation has automated coverage; live group qualification still requires
+an eligible account and the production configuration below.
+
 One group is one private native channel. The current connector (`connection.user_id`),
 still a member of the account team, may create through **Create channel → Create a
 WhatsApp group**. Team-admin status does not grant this authority or private-channel
