@@ -12,7 +12,8 @@ import { useQuickAccess } from '@core/context/quickAccess';
 import { useUserId } from '@core/context/user';
 import { HotkeyTags } from '@core/hotkey/constants';
 import { createHotkeyGroup, registerHotkey } from '@core/hotkey/hotkeys';
-import { TOKENS } from '@core/hotkey/tokens';
+import { type HotkeyToken, TOKENS } from '@core/hotkey/tokens';
+import type { ValidHotkey } from '@core/hotkey/types';
 import { blockHotkeyScopeSignal } from '@core/signal/blockElement';
 import { type EntityData, isEmailEntity, isTaskEntity } from '@entity';
 import { SYSTEM_PROPERTY_IDS } from '@property/constants';
@@ -54,6 +55,8 @@ export type UseBlockEntityCommandsOptions = {
   resolveEntity?: () => EntityData | undefined;
   onDeleted?: () => void;
   onEmailReminderSaved?: () => void | Promise<void>;
+  /** A second key for Favorite, such as Email's `s` star. */
+  extraFavoriteHotkey?: { hotkey: ValidHotkey; hotkeyToken: HotkeyToken };
 };
 
 export const useBlockEntityCommands = (
@@ -311,10 +314,7 @@ export const useBlockEntityCommands = (
       tags: [HotkeyTags.SelectionModification],
     }).withGroup(group);
 
-    // Favorite - 'opt+f' (macOS emits 'ƒ'; normalizeEventKeyPress maps it back to 'f')
-    registerHotkey({
-      hotkey: ['opt+f'],
-      hotkeyToken: TOKENS.entity.action.favorite,
+    const favoriteCommand = {
       scopeId,
       description: () => {
         const entity = getEntity();
@@ -333,9 +333,23 @@ export const useBlockEntityCommands = (
         const entity = getEntity();
         return entity !== undefined && favoriteAction.canExecute(entity);
       },
-      displayPriority: 10,
+      displayPriority: 10 as const,
       tags: [HotkeyTags.SelectionModification],
+    };
+    // Favorite - 'opt+f' (macOS emits 'ƒ'; normalizeEventKeyPress maps it back to 'f')
+    registerHotkey({
+      hotkey: 'opt+f',
+      hotkeyToken: TOKENS.entity.action.favorite,
+      ...favoriteCommand,
     }).withGroup(group);
+    if (options.extraFavoriteHotkey) {
+      // Hidden so the command menu lists Favorite once.
+      registerHotkey({
+        ...options.extraFavoriteHotkey,
+        ...favoriteCommand,
+        hide: true,
+      }).withGroup(group);
+    }
 
     // Mute notifications (command menu only, no keybinding)
     registerHotkey({

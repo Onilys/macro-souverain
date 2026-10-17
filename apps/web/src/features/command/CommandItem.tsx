@@ -51,9 +51,10 @@ function CommandItemHotkey(props: { item: CommandMenuItem }) {
   };
 
   const hasHotkey = () =>
-    hasValidHotkey(token()) ||
-    Boolean(shortcut()) ||
-    Boolean(sequence()?.length);
+    !commandItem()?.hideHotkey &&
+    (hasValidHotkey(token()) ||
+      Boolean(shortcut()) ||
+      Boolean(sequence()?.length));
 
   const StepHotkey = (step: DisplayHotkeyStep) => (
     <div class="p-2 py-0.5 border border-edge-muted rounded-md">
