@@ -1,16 +1,25 @@
 import {
+  bindSessionIdentity,
+  deriveIsAuthenticated,
+  identityFromAuthenticated,
+  markSessionConfirmed,
+} from '@core/auth/session';
+import { shouldQueryUserInfo } from '@core/context/user-info-gate';
+import {
   initializeNativeNetworkStatus,
   subscribeNativeNetworkStatus,
 } from '@core/mobile/native-network-status';
 import { isPlatform } from '@core/util/platform';
 import { thrownResultErrorHasCode } from '@core/util/result';
-import { onlineManager } from '@tanstack/query-core';
-import { QueryClient } from '@tanstack/solid-query';
+import { hashKey, onlineManager } from '@tanstack/query-core';
+import { authKeys } from './auth/keys';
+import type { UserInfoData } from './auth/user-info';
 import { setupQueryPersistence } from './persistence';
 import { createQueryPersistenceScopes } from './persistence-scopes';
+import { SessionGatedQueryClient } from './session-gate';
 import { initSoupNormalizer } from './soup/normalized-cache/normalizer';
 
-export const queryClient = new QueryClient({
+export const queryClient = new SessionGatedQueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
@@ -31,6 +40,37 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+const userInfoHash = hashKey(authKeys.userInfo.queryKey);
+
+bindSessionIdentity(
+  () => {
+    const state = queryClient.getQueryState<UserInfoData>(
+      authKeys.userInfo.queryKey
+    );
+    return identityFromAuthenticated(
+      deriveIsAuthenticated({
+        isLoading: shouldQueryUserInfo() && state?.status !== 'success',
+        isError: state?.status === 'error',
+        error: state?.error,
+        data: state?.data,
+      })
+    );
+  },
+  (onChange) =>
+    queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryHash !== userInfoHash) return;
+      if (
+        event.type === 'updated' &&
+        event.action.type === 'success' &&
+        !event.action.manual &&
+        event.query.state.data?.authenticated
+      ) {
+        markSessionConfirmed();
+      }
+      onChange();
+    })
+);
 
 if (isPlatform(['ios', 'android'])) {
   // Use the native default network path on both mobile platforms.

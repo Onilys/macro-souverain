@@ -5,7 +5,7 @@
 import { ThrownResultError } from '@core/util/result';
 import type { UserInfoData } from '@queries/auth/user-info';
 import { describe, expect, test, vi } from 'vitest';
-import { deriveIsAuthenticated } from './user';
+import { deriveIsAuthenticated } from '@core/auth/session';
 
 vi.mock('@queries/auth/user-info', () => ({
   useUserInfoQuery: vi.fn(),

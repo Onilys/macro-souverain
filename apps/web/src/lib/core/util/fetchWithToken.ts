@@ -73,6 +73,26 @@ const REFRESH_UNAVAILABLE_TTL_MS = 60_000;
 // re-latch refreshUnavailable nor clear a newer tokenPromise on completion.
 let refreshGeneration = 0;
 
+/**
+ * `rejected`: /jwt/refresh definitively refused the session. `refreshed`: a
+ * refresh succeeded. `reset`: the session changed (login, logout).
+ */
+export type RefreshOutcome = 'rejected' | 'refreshed' | 'reset';
+
+const refreshOutcomeListeners = new Set<(outcome: RefreshOutcome) => void>();
+
+/** Observes refresh outcomes; the session gate uses this to notice expiry. */
+export function subscribeRefreshOutcome(
+  listener: (outcome: RefreshOutcome) => void
+): () => void {
+  refreshOutcomeListeners.add(listener);
+  return () => refreshOutcomeListeners.delete(listener);
+}
+
+function publishRefreshOutcome(outcome: RefreshOutcome) {
+  for (const listener of refreshOutcomeListeners) listener(outcome);
+}
+
 function clearRefreshLatch() {
   refreshUnavailable = null;
 }
@@ -142,10 +162,12 @@ export async function fetchToken(): Promise<TokenResult> {
           ) {
             refreshUnavailable = failure;
             refreshUnavailableAt = Date.now();
+            publishRefreshOutcome('rejected');
           }
           return failure;
         }
 
+        if (generation === refreshGeneration) publishRefreshOutcome('refreshed');
         return ok(undefined);
       } finally {
         if (generation === refreshGeneration) {
@@ -248,4 +270,5 @@ export function unsetTokenPromise() {
   refreshGeneration++;
   tokenPromise = null;
   refreshUnavailable = null;
+  publishRefreshOutcome('reset');
 }
