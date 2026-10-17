@@ -253,7 +253,8 @@ background and returns to the filtered list. One `Escape` in the open thread doe
 the same, whatever is selected or expanded and wherever focus is in the message
 bodies; the list keeps the row you came from focused. An open menu, popover, or
 picker (including the send-time picker) takes the first `Escape` and returns focus
-to its trigger. The inline header uses the existing
+to its trigger; so does a reply you are typing in (see replies below). The inline
+header uses the existing
 email title menu: open the menu button beside the subject for **Ask AI**, **Create a
 Task**, and the other thread actions. On desktop, **Mark as unread**, **Mark done**,
 and **Previous item** / **Next item** sit at the right of that header. The arrows
@@ -300,13 +301,14 @@ Standalone compose uses one right-aligned row inside its 16px content padding:
 delete, attach, format, schedule, and send. Touch compose uses its header toolbar.
 `R` and `Alt+R` (`Option+R` on macOS) open reply-all for the selected message,
 or the latest message when none is selected. `F` opens a forward and focuses To.
-`Escape` in the reply body leaves the thread on the first press, as in the rest
-of the thread: a reply with text stays a draft, and an empty one is discarded.
-The editor's own menus (mentions, emoji, formatting) close first; in the
-recipient fields, suggestions close and typed text clears first. A standalone
-`/app/email/<thread-id>` split has no list: there `Escape` from a reply with text
-moves focus to the messages, and later presses collapse, then unselect, the
-selected message.
+While you type in a reply (body, recipients, or subject), `Escape` leaves the
+reply first: focus moves to the message it answers and the reply stays open
+with its draft. The next `Escape` returns to the list. `Escape` never discards a
+reply. The editor's own menus (mentions, emoji, formatting) close first; in the
+recipient fields, suggestions close and typed text clears first. With a reply
+open but focus elsewhere in the thread, one `Escape` returns to the list. A
+standalone `/app/email/<thread-id>` split has no list: there later presses
+collapse, then unselect, the selected message.
 For keyboard regressions, run `just test-email-thread-browser` in `apps/web`.
 An edited reply remains a draft when navigating away and returning. Standalone
 compose also flushes pending edits when leaving through app navigation. Switch
