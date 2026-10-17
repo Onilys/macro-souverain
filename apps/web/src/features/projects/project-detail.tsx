@@ -255,6 +255,7 @@ function ProjectDetailHost(props: ProjectDetailProps) {
             list={[
               { value: 'overview', label: 'Overview' },
               { value: 'tasks', label: 'Tasks' },
+              { value: 'time', label: 'Time' },
             ]}
             value={props.route.section}
             onChange={(value) => section(value as ProjectSection)}
