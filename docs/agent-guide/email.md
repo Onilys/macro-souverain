@@ -284,6 +284,16 @@ or inbox metadata. Inbox-dependent actions stay gated while ownership is unknown
 explicit inbox IDs must never silently route to primary while links are loading.
 Background refreshes and older-message loading still update the same thread.
 Verify with API traffic delayed and with previously opened bodies offline.
+Stepping between threads keeps the current one on screen until the next has
+rendered its messages (at most one second), so the reader is never empty
+between threads. The incoming thread loads hidden and inert: it marks itself
+read, takes keys and focus only once shown. Until it is shown, action keys
+(`e`, `r`, `#`, star) do nothing, so they never act on the thread the user
+stepped away from; j/k and Escape keep working. Verify with a mutation observer
+that the visible reader never has zero messages during j/k, that held j
+advances one row per press, and that `z` after `e` returns to the archived
+thread. The mail backfill caches most threads locally, so block
+`SoupMailBackfill` to see a slow switch.
 Collapsed thread cards use a compact text snippet; expanding mounts the message
 body and its attachments. On phones, messages form flat rows with horizontal
 separators and 16px side gutters; collapsed previews show one line. Desktop

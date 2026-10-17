@@ -77,6 +77,8 @@ function Root(
     defaultOpen?: boolean;
     persistKey?: string;
     floating?: boolean;
+    /** False while the panel's content is hidden, so `]` toggles another. */
+    keyboard?: boolean;
   }>
 ) {
   const splitPanel = useSplitPanel();
@@ -135,7 +137,8 @@ function Root(
   };
 
   const hasSections = createMemo(() => sections().length > 0);
-  if (splitPanel?.splitHotkeyScope) {
+  createEffect(() => {
+    if (!splitPanel?.splitHotkeyScope || props.keyboard === false) return;
     registerHotkey({
       hotkey: ']',
       scopeId: splitPanel.splitHotkeyScope,
@@ -147,7 +150,7 @@ function Root(
         return true;
       },
     });
-  }
+  });
 
   const ctx: SidePanelContextType = {
     headerActionsMount,
