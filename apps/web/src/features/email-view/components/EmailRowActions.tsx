@@ -1,3 +1,4 @@
+import { TOKENS } from '@core/hotkey/tokens';
 import ArrowCounterClockwiseIcon from '@phosphor/arrow-counter-clockwise.svg';
 import CheckIcon from '@phosphor/check.svg';
 import LightningIcon from '@phosphor/lightning.svg';
@@ -76,6 +77,11 @@ export function EmailRowActions(props: {
         variant="ghost"
         size="icon-sm"
         label={props.archived ? 'Unarchive email' : 'Archive email'}
+        hotkey={
+          props.archived
+            ? TOKENS.entity.action.markNotDone
+            : TOKENS.entity.action.markDone
+        }
         class="text-ink-extra-muted"
         disabled={!props.canArchive || props.pending}
         onClick={props.onArchive}
@@ -88,6 +94,7 @@ export function EmailRowActions(props: {
         variant="ghost"
         size="icon-sm"
         label="Open command menu"
+        hotkey={TOKENS.global.commandMenu}
         class="text-ink-extra-muted"
         onClick={props.onCommands}
       >
