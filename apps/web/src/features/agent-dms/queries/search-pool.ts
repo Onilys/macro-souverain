@@ -1,12 +1,13 @@
 import type { ChannelEntity } from '@entity/types/entity';
 import { useListChannelsQuery } from '@queries/channel/channels';
+import { queryReadyGate } from '@queries/gate';
 import { createMemo } from 'solid-js';
 
 /** The existing complete channel list finds personas beyond the visible soup page. */
 export function useAgentDmSearchPool() {
   const channels = useListChannelsQuery();
   return createMemo<ChannelEntity[]>(() =>
-    channels.isSuccess
+    queryReadyGate(channels)
       ? channels.data.flatMap((channel) =>
           channel.agent_dm
             ? [

@@ -24,7 +24,10 @@ import {
 } from 'solid-js';
 import { ChannelsViewProvider, useChannelsView } from './channels-view-context';
 import { ChannelDetailView } from './components/ChannelDetailView';
-import { ChannelsMobileView } from './components/ChannelsMobileView';
+import {
+  ChannelsMobileHeader,
+  ChannelsMobileView,
+} from './components/ChannelsMobileView';
 import { ChannelThreadsView } from './components/ChannelThreadsView';
 import { ChannelsRail } from './components/rail/ChannelsRail';
 import { createChannelDetail } from './primitives/create-channel-detail';
@@ -49,11 +52,32 @@ export type ChannelsViewProps = {
   initialState?: ChannelsViewStateOptions;
 };
 
-// Mounted inside the mobile list's Suspense boundary.
 function MobileChannelsList(props: { sources: ChannelsSources }) {
+  const { state, setMobileTab } = useChannelsView();
+  return (
+    <>
+      <ChannelsMobileHeader tab={state.mobileTab} onTabChange={setMobileTab} />
+      <DebugSuspense
+        name="ChannelsView.mobile"
+        fallback={
+          <div class="grid size-full place-items-center text-ink-muted">
+            <SpinnerIcon
+              aria-label="Loading channels"
+              class="size-5 animate-spin"
+            />
+          </div>
+        }
+      >
+        <MobileChannelsListBody sources={props.sources} />
+      </DebugSuspense>
+    </>
+  );
+}
+
+function MobileChannelsListBody(props: { sources: ChannelsSources }) {
   const agentDms = useAgentDmSearchPool();
   const panel = useSplitPanelOrThrow();
-  const { state, setMobileTab } = useChannelsView();
+  const { state } = useChannelsView();
   const mobileSearchText = useMobileSearchText(() => '', panel.handle.isActive);
   const mobileSearchSource = createChannelSearchSource({
     additionalLocalChannels: agentDms,
@@ -67,7 +91,6 @@ function MobileChannelsList(props: { sources: ChannelsSources }) {
       searchQuery={mobileSearchText()}
       onClearSearch={() => SearchState.setQuery('')}
       tab={state.mobileTab}
-      onTabChange={setMobileTab}
     />
   );
 }
@@ -226,19 +249,7 @@ function ChannelsViewRoot() {
               }
             >
               <MaybeSoupEntityActionDrawerManager>
-                <DebugSuspense
-                  name="ChannelsView.mobile"
-                  fallback={
-                    <div class="grid size-full place-items-center text-ink-muted">
-                      <SpinnerIcon
-                        aria-label="Loading channels"
-                        class="size-5 animate-spin"
-                      />
-                    </div>
-                  }
-                >
-                  <MobileChannelsList sources={sources} />
-                </DebugSuspense>
+                <MobileChannelsList sources={sources} />
               </MaybeSoupEntityActionDrawerManager>
             </Show>
           </SplitPanel.Body>

@@ -903,6 +903,8 @@ Channels, and DMs section headers.
 
 On touch layouts, the `Recent`, `Channels`, and `DMs` pill tabs each retain
 their own loaded pages and load more as their active list approaches the end.
+Those pills stay mounted while the conversation list loads; a pending calls or
+agent-DM query must not replace them with a Suspense fallback.
 The mobile dock search filters the selected tab by conversation name as you type:
 `DMs` searches people, `Channels` searches non-DM channels, and `Recent` searches
 both. Loaded matches appear immediately; queries of at least three characters

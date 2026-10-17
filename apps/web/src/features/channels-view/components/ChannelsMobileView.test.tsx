@@ -44,7 +44,15 @@ vi.mock('@app/lib/debugSettings', () => ({
 vi.mock('@components/app/GlobalAppState', () => ({
   useGlobalNotificationSource: () => mocks.source,
 }));
-vi.mock('@components/app/mobile/PillTabs', () => ({ PillTabs: () => null }));
+vi.mock('@components/app/mobile/PillTabs', () => ({
+  PillTabs: (props: { items: { label: string }[] }) => (
+    <div>
+      <For each={props.items}>
+        {(item) => <button type="button">{item.label}</button>}
+      </For>
+    </div>
+  ),
+}));
 vi.mock('@components/app/mobile/PullToRefresh', () => ({
   PullToRefresh: () => null,
 }));
@@ -92,7 +100,7 @@ vi.mock('./rail/hooks/useChannelRailActivity', () => ({
   }),
 }));
 
-import { ChannelsMobileView } from './ChannelsMobileView';
+import { ChannelsMobileHeader, ChannelsMobileView } from './ChannelsMobileView';
 
 const channel: ChannelEntity = {
   id: 'one',
@@ -122,6 +130,17 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+describe('mobile channel tabs', () => {
+  it('renders the DMs tab', () => {
+    render(() => (
+      <ChannelsMobileHeader tab="channels" onTabChange={() => {}} />
+    ));
+    expect(screen.getByRole('button', { name: 'DMs' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Recent' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Channels' })).toBeTruthy();
+  });
+});
+
 describe('mobile channel activation', () => {
   it.each<ChannelsQueryScope>(['recents', 'channels', 'direct_messages'])(
     'opens immediately at latest with top-level read marking from %s',
@@ -132,7 +151,6 @@ describe('mobile channel activation', () => {
           searchQuery=""
           onClearSearch={() => {}}
           tab={tab}
-          onTabChange={() => {}}
         />
       ));
 
@@ -164,7 +182,6 @@ describe('mobile channel activation', () => {
           searchQuery=""
           onClearSearch={() => {}}
           tab="channels"
-          onTabChange={() => {}}
         />
       ));
       fireEvent.click(screen.getByRole('button', { name: 'One' }));

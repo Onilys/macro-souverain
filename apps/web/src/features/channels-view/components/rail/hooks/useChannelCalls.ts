@@ -1,11 +1,14 @@
 import { useVisibleIncomingCalls } from '@app/features/block-call/sidebar/incoming-calls';
 import { useActiveCallsQuery } from '@queries/call/call';
+import { queryReadyGate } from '@queries/gate';
 import { createMemo } from 'solid-js';
 import type { ChannelCallStatus } from '../ChannelRailItems';
 
 export function useChannelCalls() {
   const activeCallsQuery = useActiveCallsQuery();
   const incomingCalls = useVisibleIncomingCalls();
+  const activeCalls = () =>
+    queryReadyGate(activeCallsQuery) ? activeCallsQuery.data : [];
 
   const callActivity = createMemo(() => {
     const calls = new Map<
@@ -20,7 +23,7 @@ export function useChannelCalls() {
     for (const call of incomingCalls()) {
       calls.set(call.callId, { ...call, status: 'incoming' });
     }
-    for (const call of activeCallsQuery.data ?? []) {
+    for (const call of activeCalls()) {
       if (calls.has(call.callId)) continue;
 
       calls.set(call.callId, { ...call, status: 'active' });
@@ -39,7 +42,7 @@ export function useChannelCalls() {
   const callStatuses = createMemo(() => {
     const statuses = new Map<string, ChannelCallStatus>();
 
-    for (const call of activeCallsQuery.data ?? []) {
+    for (const call of activeCalls()) {
       statuses.set(call.channelId, 'active');
     }
     for (const call of incomingCalls()) {

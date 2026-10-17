@@ -3,6 +3,7 @@ import {
   PriorityCollapseOverflowSensor,
 } from '@components/app/split-layout/components/PriorityCollapseOverflowSensor';
 import {
+  createLayoutRefs,
   type SplitFileMenuActionGroups,
   SplitPanelContext,
   type SplitPanelContextType,
@@ -58,7 +59,7 @@ function CanvasBlockEmbedContent(props: CanvasEmbedViewProps) {
   const slots = createOwnedSlots();
   const header = createPriorityCollapseController();
   const toolbar = createPriorityCollapseController();
-  const layoutRefs: SplitPanelContextType['layoutRefs'] = {};
+  const layoutRefs = createLayoutRefs();
   // A local panel handle prevents an embedded block from changing the outer
   // canvas title, navigation history, toolbar, or hotkey registrations.
   const handle: SplitHandle = {

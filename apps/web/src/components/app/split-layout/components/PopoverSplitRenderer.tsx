@@ -6,6 +6,7 @@ import { Dialog, Panel } from '@ui';
 import { createMemo, createSignal, For, Show, Suspense } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
+  createLayoutRefs,
   type SplitFileMenuActionGroups,
   SplitPanelContext,
   type SplitPanelContextType,
@@ -126,7 +127,7 @@ function PopoverSplitModal(props: {
     setContentOffsetTop,
     bottomPanel: () => undefined,
     registerBottomPanel: () => () => {},
-    layoutRefs: {},
+    layoutRefs: createLayoutRefs(),
     titleFileMenuRef,
     setTitleFileMenuRef,
     titleFileMenuTrigger,

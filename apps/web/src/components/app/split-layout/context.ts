@@ -4,6 +4,7 @@ import {
   type Accessor,
   type Component,
   createContext,
+  createSignal,
   type JSX,
   type Setter,
 } from 'solid-js';
@@ -77,6 +78,13 @@ export function getSplitFileMenuActionSections(
   return sections.filter((section) => section.actions.length > 0);
 }
 
+export type SplitLayoutRefs = {
+  headerLeft?: HTMLDivElement;
+  headerRight?: HTMLDivElement;
+  toolbarLeft?: HTMLDivElement;
+  toolbarRight?: HTMLDivElement;
+};
+
 export type SplitPanelContextType = {
   handle: SplitHandle;
   splitHotkeyScope: string;
@@ -91,12 +99,7 @@ export type SplitPanelContextType = {
   setContentOffsetTop: Setter<number>;
   bottomPanel: Accessor<SplitBottomPanelRegistration | undefined>;
   registerBottomPanel: (panel: SplitBottomPanelRegistration) => () => void;
-  layoutRefs: {
-    headerLeft?: HTMLDivElement;
-    headerRight?: HTMLDivElement;
-    toolbarLeft?: HTMLDivElement;
-    toolbarRight?: HTMLDivElement;
-  };
+  layoutRefs: SplitLayoutRefs;
   titleFileMenuRef: Accessor<HTMLDivElement | undefined>;
   setTitleFileMenuRef: Setter<HTMLDivElement | undefined>;
   titleFileMenuTrigger: Accessor<(() => void) | undefined>;
@@ -107,5 +110,44 @@ export type SplitPanelContextType = {
   headerCollapser: PriorityCollapser;
   toolbarCollapser: PriorityCollapser;
 };
+
+/**
+ * Header/toolbar portal targets. Property reads are tracked so
+ * `<SplitHeaderLeft>` can attach after the chrome node mounts; a plain object
+ * assignment is not reactive and leaves the DMs/Recent pills unmounted.
+ */
+export function createLayoutRefs(): SplitLayoutRefs {
+  const [headerLeft, setHeaderLeft] = createSignal<HTMLDivElement>();
+  const [headerRight, setHeaderRight] = createSignal<HTMLDivElement>();
+  const [toolbarLeft, setToolbarLeft] = createSignal<HTMLDivElement>();
+  const [toolbarRight, setToolbarRight] = createSignal<HTMLDivElement>();
+
+  return {
+    get headerLeft() {
+      return headerLeft();
+    },
+    set headerLeft(element) {
+      setHeaderLeft(() => element);
+    },
+    get headerRight() {
+      return headerRight();
+    },
+    set headerRight(element) {
+      setHeaderRight(() => element);
+    },
+    get toolbarLeft() {
+      return toolbarLeft();
+    },
+    set toolbarLeft(element) {
+      setToolbarLeft(() => element);
+    },
+    get toolbarRight() {
+      return toolbarRight();
+    },
+    set toolbarRight(element) {
+      setToolbarRight(() => element);
+    },
+  };
+}
 
 export const SplitPanelContext = createContext<SplitPanelContextType>();

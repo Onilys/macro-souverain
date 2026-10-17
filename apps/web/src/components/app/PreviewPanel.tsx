@@ -23,6 +23,7 @@ import {
   PriorityCollapseOverflowSensor,
 } from './split-layout/components/PriorityCollapseOverflowSensor';
 import {
+  createLayoutRefs,
   SplitPanelContext,
   type SplitPanelContextType,
 } from './split-layout/context';
@@ -55,7 +56,7 @@ export type PreviewFrameProps = {
  * split-panel context scoped to the preview. Content mounts as children.
  */
 export function PreviewFrame(props: PreviewFrameProps) {
-  const scopedLayoutRefs: SplitPanelContextType['layoutRefs'] = {};
+  const scopedLayoutRefs = createLayoutRefs();
   const headerCollapseController = createPriorityCollapseController();
   const toolbarCollapseController = createPriorityCollapseController();
   const [interactedWith, setInteractedWith] = createSignal(false);

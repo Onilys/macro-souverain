@@ -9,7 +9,14 @@ import {
   waitFor,
 } from '@solidjs/testing-library';
 import { CombinedError } from '@urql/core';
-import { batch, createSignal, For, type JSX, Show } from 'solid-js';
+import {
+  batch,
+  createResource,
+  createSignal,
+  For,
+  type JSX,
+  Show,
+} from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,6 +33,8 @@ const mocks = vi.hoisted(() => ({
   searchOpen: (): boolean => false,
   searchText: (): string => '',
   mobileTab: (): ChannelsQueryScope => 'channels',
+  listReady: (): boolean => true,
+  listSuspend: new Promise<never>(() => {}),
   selectedQuery: vi.fn(),
   markRead: vi.fn(),
   resolveTarget: vi.fn(() => ({ kind: 'message', messageId: 'unread' })),
@@ -121,18 +130,34 @@ vi.mock('./components/ChannelDetailView', () => ({
 vi.mock('./components/ChannelThreadsView', () => ({
   ChannelThreadsView: () => <div data-testid="channel-threads" />,
 }));
-vi.mock('./components/ChannelsMobileView', () => ({
-  ChannelsMobileView: (props: {
-    source: ChannelsDataSource;
-    searchQuery: string;
-  }) => (
-    <div data-testid="mobile-channels" data-query={props.searchQuery}>
-      <For each={props.source.items()}>
-        {(channel) => <div>{channel.name}</div>}
-      </For>
-    </div>
-  ),
-}));
+vi.mock('./components/ChannelsMobileView', () => {
+  function PendingList() {
+    const [pending] = createResource(() => mocks.listSuspend);
+    pending();
+    return null;
+  }
+  return {
+    ChannelsMobileHeader: () => (
+      <div role="tablist" aria-label="Chat sidebar views">
+        <button type="button">Recent</button>
+        <button type="button">Channels</button>
+        <button type="button">DMs</button>
+      </div>
+    ),
+    ChannelsMobileView: (props: {
+      source: ChannelsDataSource;
+      searchQuery: string;
+    }) => (
+      <Show when={mocks.listReady()} fallback={<PendingList />}>
+        <div data-testid="mobile-channels" data-query={props.searchQuery}>
+          <For each={props.source.items()}>
+            {(channel) => <div>{channel.name}</div>}
+          </For>
+        </div>
+      </Show>
+    ),
+  };
+});
 vi.mock('./components/rail/ChannelsRail', () => ({ ChannelsRail: () => null }));
 vi.mock('@core/mobile/isTouchDevice', () => ({
   isTouchDevice: () => mocks.mobileLayout(),
@@ -232,6 +257,7 @@ beforeEach(() => {
   mocks.searchOpen = () => false;
   mocks.searchText = () => '';
   mocks.mobileTab = () => 'channels';
+  mocks.listReady = () => true;
   [mocks.selectedId, setSelectedId] = createSignal<string | undefined>('one');
   [mocks.rows, setRows] = createSignal([row('one', 'new'), row('two')]);
   const [query, update] = createStore<QueryState>({
@@ -266,6 +292,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('mobile dock search wiring', () => {
+  it('keeps the DMs tab mounted while the conversation list is pending', () => {
+    mocks.mobileLayout = () => true;
+    mocks.listReady = () => false;
+    render(() => <ChannelsView />);
+    expect(screen.getByRole('button', { name: 'DMs' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Recent' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Channels' })).toBeTruthy();
+    expect(screen.queryByTestId('mobile-channels')).toBeNull();
+  });
+
   it('filters DMs from the active dock session and restores rows on close or navigation', async () => {
     mocks.mobileLayout = () => true;
     mocks.mobileTab = () => 'direct_messages';

@@ -21,10 +21,10 @@ import { createEffect, createSignal, Show, Suspense } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { splitBackInterceptor } from '../back-interceptor';
 import {
+  createLayoutRefs,
   type SplitBottomPanelRegistration,
   type SplitFileMenuActionGroups,
   SplitPanelContext,
-  type SplitPanelContextType,
 } from '../context';
 import { useSplitLayout } from '../layout';
 import type { SplitHandle, SplitState } from '../layoutManager';
@@ -62,7 +62,7 @@ export function SplitPanel(props: SplitPanelProps) {
   const panelSize = createElementSize(panelRef);
   let pointerTarget: Element | undefined;
 
-  const layoutRefs: SplitPanelContextType['layoutRefs'] = {};
+  const layoutRefs = createLayoutRefs();
   const headerCollapseController = createPriorityCollapseController();
   const toolbarCollapseController = createPriorityCollapseController();
   const ownedSlots = createOwnedSlots();
