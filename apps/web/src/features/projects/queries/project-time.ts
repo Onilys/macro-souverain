@@ -67,7 +67,10 @@ export function useProjectTimeQuery(projectId: Accessor<string>) {
           userId: string;
           userName: string;
           totalMinutes: number;
-          tasks: Map<string, { taskId: string; taskName: string; minutes: number }>;
+          tasks: Map<
+            string,
+            { taskId: string; taskName: string; minutes: number }
+          >;
         }
       >();
 
@@ -84,7 +87,9 @@ export function useProjectTimeQuery(projectId: Accessor<string>) {
         const assignees = getAssigneesFromProperty(properties);
         const taskName = task?.name ?? 'Untitled task';
 
-        for (const userId of assignees.length > 0 ? assignees : ['unassigned']) {
+        for (const userId of assignees.length > 0
+          ? assignees
+          : ['unassigned']) {
           const entry: TimeEntry = {
             userId,
             userName: userId === 'unassigned' ? 'Unassigned' : userId,

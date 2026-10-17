@@ -1,14 +1,14 @@
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { enableTimeTracking } from '@core/constant/featureFlags';
+import ClockIcon from '@phosphor/clock.svg';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import type { Property, PropertyApiValues } from '@property/types';
 import {
   useBulkSaveEntityPropertiesMutation,
   useEntityPropertiesQuery,
 } from '@queries/properties/entity';
-import ClockIcon from '@phosphor/clock.svg';
 import { Button, Popover, Tooltip } from '@ui';
-import { createSignal, Show, createMemo } from 'solid-js';
+import { createMemo, createSignal, Show } from 'solid-js';
 
 type TimeEntryButtonProps = {
   documentId: string;

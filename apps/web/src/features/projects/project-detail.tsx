@@ -20,14 +20,21 @@ import {
 } from '@components/app/split-layout/layoutUtils';
 import { TabsInset } from '@core/component/TabsInset';
 import { toast } from '@core/component/Toast/Toast';
-import { enableTimeTracking } from '@core/constant/featureFlags';
 import { ShareTrigger } from '@core/component/TopBar/ShareButton';
+import { enableTimeTracking } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import StackIcon from '@phosphor/stack.svg';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import type { Property } from '@property/types';
 import { Button } from '@ui';
-import { createMemo, createSignal, Match, Show, Suspense, Switch } from 'solid-js';
+import {
+  createMemo,
+  createSignal,
+  Match,
+  Show,
+  Suspense,
+  Switch,
+} from 'solid-js';
 import { DeleteProjectsDialog } from './components/delete-projects-dialog';
 import { ProjectMenuDropdown } from './components/project-row-menu';
 import { ProjectContentSkeleton } from './components/project-skeletons';
