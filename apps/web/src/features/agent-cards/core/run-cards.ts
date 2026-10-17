@@ -1,12 +1,9 @@
-import type {
-  CardAction,
-  CardItem,
-} from '@app/features/agent-cards/core/types';
 import {
   type AgentActivityCard,
   type AgentActivitySource,
   isAgentActivityCard,
 } from '@macro-inc/lexical-core';
+import type { CardAction, CardItem } from './types';
 
 /**
  * A card as a run of steps shows it, once per item, attached to the step

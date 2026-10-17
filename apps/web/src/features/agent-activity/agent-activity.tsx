@@ -1,3 +1,9 @@
+import {
+  isViewCard,
+  type RunCard,
+  runCards,
+  runDuration,
+} from '@app/features/agent-cards/core/run-cards';
 import { useOptionalMessage } from '@app/features/channel/Message/context';
 import type { AgentActivityData } from '@macro-inc/lexical-core';
 import { createMemo, createSignal, lazy, Show, Suspense } from 'solid-js';
@@ -6,11 +12,12 @@ import {
   type ActivityRowView,
   RunSummary,
 } from './components/activity-rows';
-import { isViewCard, type RunCard, runCards, runDuration } from './core/cards';
 import { replyToTurn, segmentRows } from './core/live-reply';
 import { createLiveSession } from './queries/live-session';
 
-const ActivityCards = lazy(() => import('./components/activity-cards'));
+const RunCards = lazy(
+  () => import('@app/features/agent-cards/components/run-cards')
+);
 
 /**
  * The steps of an agent's reply inside a channel message, and what they
@@ -112,7 +119,7 @@ function Cards(props: { cards: readonly RunCard[] }) {
   return (
     <Show when={props.cards.length > 0}>
       <Suspense>
-        <ActivityCards cards={props.cards} />
+        <RunCards cards={props.cards} />
       </Suspense>
     </Show>
   );

@@ -1,7 +1,7 @@
 import { cleanup, render } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { RunCard } from '../core/cards';
+import type { RunCard } from '../core/run-cards';
 
 const mounts = vi.hoisted(() => ({ item: 0, view: 0 }));
 vi.mock('@app/features/agent-cards/components/item-card', () => ({
@@ -27,7 +27,7 @@ vi.mock('@app/features/agent-cards/components/sources', () => ({
   Sources: () => null,
 }));
 
-import ActivityCards from './activity-cards';
+import RunCards from './run-cards';
 
 afterEach(() => {
   cleanup();
@@ -51,7 +51,7 @@ function cards(summary: string): RunCard[] {
 
 it('keeps each card mounted while a live run works its cards out again', async () => {
   const [current, setCurrent] = createSignal(cards('2 changes'));
-  const view = render(() => <ActivityCards cards={current()} />);
+  const view = render(() => <RunCards cards={current()} />);
   await view.findByRole('region', { name: 'View' });
   // Every paint of a live run builds new card objects under the same keys.
   setCurrent(cards('3 changes'));

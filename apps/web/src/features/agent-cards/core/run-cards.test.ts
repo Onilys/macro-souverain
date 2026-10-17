@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isViewCard, runCards } from './cards';
+import { isViewCard, runCards } from './run-cards';
 
 const document = (
   itemId: string,

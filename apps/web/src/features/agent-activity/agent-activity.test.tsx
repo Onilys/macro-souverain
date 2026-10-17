@@ -18,7 +18,7 @@ vi.mock('./queries/live-session', () => ({
 vi.mock('@app/features/block-agent/ui', () => ({
   TextShimmer: (props: { text: string }) => <>{props.text}</>,
 }));
-vi.mock('./components/activity-cards', () => ({
+vi.mock('@app/features/agent-cards/components/run-cards', () => ({
   default: (props: { cards: { key: string; rowId: string }[] }) => (
     <aside aria-label="Cards">
       {props.cards.map((card) => `${card.rowId}:${card.key}`).join(',')}
