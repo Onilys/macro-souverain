@@ -1596,7 +1596,7 @@
     "/onboarding": {
       "get": {
         "tags": ["onboarding"],
-        "summary": "Get the authenticated user's onboarding state. While the flow is active\nthis also starts any gather runs that are due, so polling this endpoint\nis what keeps onboarding moving.",
+        "summary": "Get the authenticated user's onboarding state.",
         "operationId": "get_state_handler",
         "responses": {
           "200": {

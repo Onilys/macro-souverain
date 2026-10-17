@@ -541,6 +541,29 @@ impl ImportRepo for PgImportRepo {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn fail_stale_runs(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        older_than_secs: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE import_run
+            SET status = 'failed',
+                error = 'discovery was interrupted — try again',
+                updated_at = NOW()
+            WHERE user_id = $1 AND status IN ('running', 'importing')
+              AND updated_at < NOW() - ($2::double precision * interval '1 second')
+            "#,
+            user.as_ref(),
+            older_than_secs as f64,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn finish_run(
         &self,
         user: &MacroUserIdStr<'static>,

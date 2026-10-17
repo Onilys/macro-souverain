@@ -385,9 +385,7 @@ export class Sdk extends HeyApiClient {
     }
     
     /**
-     * Get the authenticated user's onboarding state. While the flow is active
-     * this also starts any gather runs that are due, so polling this endpoint
-     * is what keeps onboarding moving.
+     * Get the authenticated user's onboarding state.
      */
     public getStateHandler2<ThrowOnError extends boolean = false>(options?: Options<GetStateHandler2Data, ThrowOnError>): RequestResult<GetStateHandler2Responses, GetStateHandler2Errors, ThrowOnError> {
         return (options?.client ?? this.client).get<GetStateHandler2Responses, GetStateHandler2Errors, ThrowOnError>({ url: '/onboarding', ...options });

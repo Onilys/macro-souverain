@@ -557,9 +557,9 @@ pub async fn run() -> anyhow::Result<()> {
         crate::service::structured_completion::ToolFreeCompletionService::new(recorder.clone()),
     );
 
-    // The import pipeline: staged/imported external items, gather jobs over
-    // the user's connectors, and the Haiku import job. Built before the tool
-    // service context so the chat toolset gets a wired import context.
+    // The import pipeline: staged/imported external items, Slack discovery,
+    // and the Notion page import job. Built before the tool service context
+    // so the chat toolset gets a wired import context.
     let mcp_encryption_key = mcp_client::domain::models::AesKey::try_from(
         config.mcp_credentials_key_secret_name.as_ref(),
     )

@@ -171,8 +171,6 @@
   "cognition.healthHandler": "Health",
   "cognition.runImportHandler": "Run Import",
   "cognition.discoverHandler": "Discover",
-  "cognition.dismissRunHandler": "Dismiss Run",
-  "cognition.retryGatherHandler": "Retry Gather",
   "cognition.getStateHandler": "Get State",
   "cognition.deleteMcpServer": "Delete Mcp Server",
   "cognition.listMcpServers": "List Mcp Servers",

@@ -56,6 +56,10 @@ const NOTION_IMPORT_CONCURRENCY: usize = 4;
 /// membership reads for every channel.
 const SLACK_DISCOVERY_TIMEOUT: Duration = Duration::from_secs(360);
 
+/// How long a discovery run may stay `running` before the read path declares
+/// its process dead. Twice the discovery timeout, so a live run is never reaped.
+const STALE_RUN_AFTER: Duration = Duration::from_secs(SLACK_DISCOVERY_TIMEOUT.as_secs() * 2);
+
 /// How often a running import batch touches its rows' `updated_at`. The
 /// heartbeat covers every row the batch owns — queued AND in-flight — so a
 /// fresh `updated_at` means "a live process is still responsible for this
@@ -128,7 +132,7 @@ pub enum DiscardOutcome {
     NotDiscardable(ImportStatus),
 }
 
-/// The API the import router (and host services like onboarding) talk to.
+/// The API the import router talks to.
 pub trait ImportService: Send + Sync + 'static {
     /// The full import aggregate for the user.
     fn state(
@@ -738,6 +742,18 @@ where
             }
             // A read must never fail because the reap did.
             Err(e) => tracing::warn!(error = ?e, "failed to reap stale imports"),
+        }
+
+        // Same for discovery runs: a run that outlived its own timeout died
+        // with its process and would otherwise block a new discovery forever.
+        match self
+            .repo
+            .fail_stale_runs(&user, STALE_RUN_AFTER.as_secs() as i64)
+            .await
+        {
+            Ok(0) => {}
+            Ok(reaped) => tracing::warn!(reaped, "reaped orphaned discovery runs"),
+            Err(e) => tracing::warn!(error = ?e, "failed to reap stale discovery runs"),
         }
 
         let runs = self.repo.list_runs(&user).await?;

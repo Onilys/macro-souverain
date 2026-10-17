@@ -70,10 +70,10 @@ pub enum SlackSourceError {
 
 /// Opens live Slack workspace sessions for import discovery and membership reads.
 pub trait SlackWorkspaceSource: Send + Sync + 'static {
-    /// Workspace reader scoped to one gather or one import batch.
+    /// Workspace reader scoped to one discovery or one import batch.
     type Session: SlackWorkspaceSession;
 
-    /// Open a session scoped to one gather or one import batch.
+    /// Open a session scoped to one discovery or one import batch.
     /// Returns [`SlackSourceError::NotConnected`] when the user has no Slack
     /// connector, or [`SlackSourceError::ToolsUnavailable`] when the connector
     /// lacks a needed capability.
@@ -83,7 +83,7 @@ pub trait SlackWorkspaceSource: Send + Sync + 'static {
     ) -> impl Future<Output = std::result::Result<Self::Session, SlackSourceError>> + Send;
 }
 
-/// Paginated workspace reads scoped to one gather or one import batch.
+/// Paginated workspace reads scoped to one discovery or one import batch.
 /// Pass `None` to read the first page, then the returned continuation cursor.
 pub trait SlackWorkspaceSession: Send + Sync {
     /// List conversations visible to the connected user.
@@ -257,6 +257,17 @@ pub trait ImportRepo: Send + Sync + 'static {
         source: ImportSource,
         from: &[RunStatus],
     ) -> impl Future<Output = Result<bool>> + Send;
+
+    /// CAS the user's runs stuck in `running` (or the legacy `importing`) for
+    /// more than `older_than_secs` to `failed`. Discovery is an in-process
+    /// task: a crash or deploy mid-run leaves the row behind, and the UI
+    /// cannot start a new run while one looks active. Returns how many were
+    /// reaped.
+    fn fail_stale_runs(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        older_than_secs: i64,
+    ) -> impl Future<Output = Result<u64>> + Send;
 
     /// CAS the `running` run for `source` to `to` (ready/failed), recording
     /// `error` when there is one. Returns whether it happened.

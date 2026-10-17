@@ -103,6 +103,60 @@ async fn run_does_not_take_over_a_running_run(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn runs_left_running_or_importing_are_reaped_once_stale(pool: PgPool) {
+    let stale = ledger_actor(&pool, "stale-run").await;
+    let legacy = ledger_actor(&pool, "legacy-run").await;
+    let fresh = ledger_actor(&pool, "fresh-run").await;
+    let repo = PgImportRepo::new(pool.clone());
+    for actor in [&stale, &legacy, &fresh] {
+        assert!(
+            repo.start_run(actor, ImportSource::Slack, &[])
+                .await
+                .unwrap()
+        );
+    }
+    sqlx::query!(
+        "UPDATE import_run SET updated_at = NOW() - interval '1 hour' WHERE user_id = $1",
+        stale.as_ref(),
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        r#"
+        UPDATE import_run SET status = 'importing', updated_at = NOW() - interval '1 hour'
+        WHERE user_id = $1
+        "#,
+        legacy.as_ref(),
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    for actor in [&stale, &legacy] {
+        assert_eq!(repo.fail_stale_runs(actor, 600).await.unwrap(), 1);
+        let run = repo.list_runs(actor).await.unwrap().pop().unwrap();
+        assert_eq!(run.status, RunStatus::Failed);
+        assert_eq!(
+            run.error.as_deref(),
+            Some("discovery was interrupted — try again")
+        );
+        // A reaped run is terminal, so discovery can start again.
+        assert!(
+            repo.start_run(actor, ImportSource::Slack, &[RunStatus::Failed])
+                .await
+                .unwrap()
+        );
+    }
+
+    assert_eq!(repo.fail_stale_runs(&fresh, 600).await.unwrap(), 0);
+    assert_eq!(
+        repo.list_runs(&fresh).await.unwrap()[0].status,
+        RunStatus::Running
+    );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn staged_manual_entity_round_trips(pool: PgPool) {
     let actor = ledger_actor(&pool, "manual-entity").await;
     let repo = PgImportRepo::new(pool);

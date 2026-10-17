@@ -1417,9 +1417,7 @@ export const discoverHandler = async (
 };
 
 /**
- * @summary Get the authenticated user's onboarding state. While the flow is active
-this also starts any gather runs that are due, so polling this endpoint
-is what keeps onboarding moving.
+ * @summary Get the authenticated user's onboarding state.
  */
 export type getStateHandlerResponse200 = {
   data: OnboardingState;

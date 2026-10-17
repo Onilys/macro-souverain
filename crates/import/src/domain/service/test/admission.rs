@@ -282,6 +282,9 @@ impl ImportRepo for Repo {
     async fn fail_stale_importing(&self, _: &MacroUserIdStr<'static>, _: i64) -> Result<u64> {
         Ok(0)
     }
+    async fn fail_stale_runs(&self, _: &MacroUserIdStr<'static>, _: i64) -> Result<u64> {
+        Ok(0)
+    }
     async fn touch_importing(&self, _: &MacroUserIdStr<'static>, _: &[Uuid]) -> Result<u64> {
         Ok(0)
     }
