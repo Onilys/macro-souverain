@@ -868,6 +868,10 @@ restart rules still apply.
 ## Keyboard model (from the in-app guide; verified partially)
 
 - `Ctrl/Cmd+K` — jump to anything by name.
+- `?` — the focused view's shortcuts, read from its registered keys (hidden
+  navigation keys and `g` sequences included); `?` again closes it. Only the
+  key opens it: the command menu does not list it, since run from there it
+  would describe the menu. A view's `g` letters are listed under that view.
 - `c` then `d`/`t`/`e`/`m`/`a` — create doc / task / email / channel / AI chat.
   Single-letter shortcuts only work when no editor has focus; press `Escape` first.
 - `/` — search everything. `j`/`k` — move in lists. `e` — mark done.
