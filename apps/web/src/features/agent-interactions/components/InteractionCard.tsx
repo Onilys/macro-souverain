@@ -69,6 +69,7 @@ export function InteractionCard(props: {
         input={approvalInput(props.tool)}
         options={request.options}
         canAnswer={props.controller.canAnswer()}
+        answerers={props.controller.answerers}
         disabled={locked()}
         onSelect={(optionId) =>
           void props.controller.respond({
@@ -92,6 +93,7 @@ export function InteractionCard(props: {
           }
           locked={locked()}
           canAnswer={props.controller.canAnswer()}
+          answerers={props.controller.answerers}
           onRespond={onRespond}
           draft={{
             saved: kept?.form,
@@ -111,6 +113,9 @@ export function InteractionCard(props: {
               toolCall={toolCall}
               message={request.message}
               review={{ canAnswer: () => !locked(), respond: onRespond }}
+              canAnswer={props.controller.canAnswer()}
+              answerers={props.controller.answerers}
+              composes={props.controller.owns()}
               fallback={question}
               draft={{
                 saved: kept?.tool,

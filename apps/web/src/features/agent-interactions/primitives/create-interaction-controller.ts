@@ -1,11 +1,12 @@
 import { createStore } from 'solid-js/store';
 import { match } from 'ts-pattern';
-import type {
-  InteractionController,
-  InteractionDraft,
-  InteractionIdentity,
-  InteractionResponse,
-  InteractionSource,
+import {
+  DEFAULT_ANSWERERS,
+  type InteractionController,
+  type InteractionDraft,
+  type InteractionIdentity,
+  type InteractionResponse,
+  type InteractionSource,
 } from '../context/interaction';
 
 /**
@@ -85,6 +86,8 @@ export function createInteractionController(
   return {
     pending: source.pending,
     canAnswer,
+    answerers: source.answerers ?? DEFAULT_ANSWERERS,
+    owns: () => source.owns?.() === true,
     answering: (request) => answering[key(request)] === true,
     respond,
     draft: (request) => drafts.get(key(request)),

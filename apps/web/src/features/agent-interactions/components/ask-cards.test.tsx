@@ -4,19 +4,29 @@ import type { ElicitationSchema } from '@service-agent-fold/generated/types';
 import { cleanup, fireEvent, render } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+type StubSink = {
+  canAct: () => boolean;
+  lockedNotice: () => string | undefined;
+  onEdit?: (args: unknown) => void;
+  onExecute: (args: unknown) => Promise<boolean>;
+  onReject: () => Promise<boolean>;
+};
+type StubProps = { initialData: unknown; sink: StubSink };
 const composer = vi.hoisted(() => ({
-  props: undefined as
-    | { initialData: unknown; sink: { onEdit?: (args: unknown) => void } }
-    | undefined,
+  email: undefined as StubProps | undefined,
+  event: undefined as StubProps | undefined,
 }));
 vi.mock('@core/component/AI/component/tool/email/DraftComposer', () => ({
-  EmailDraftComposer: (props: NonNullable<typeof composer.props>) => {
-    composer.props = props;
+  EmailDraftComposer: (props: StubProps) => {
+    composer.email = props;
     return <div>email composer</div>;
   },
 }));
 vi.mock('@core/component/AI/component/tool/calendar/DraftComposer', () => ({
-  CalendarDraftComposer: () => <div>event composer</div>,
+  CalendarDraftComposer: (props: StubProps) => {
+    composer.event = props;
+    return <div>event composer</div>;
+  },
 }));
 vi.mock('@app/features/block-agent/component/parts/UserToolCall', () => ({
   EmailDraft: (props: { email: { body: string } }) => (
@@ -30,14 +40,15 @@ import type {
   InteractionDraft,
 } from '../context/interaction';
 import { ApprovalCard } from './ApprovalCard';
-import { DraftCard, recipientsTitle } from './DraftCard';
+import { DraftCard, emailDraftLabel, recipientsTitle } from './DraftCard';
 import { InteractionCard } from './InteractionCard';
 import { QuestionCard, quickAnswers } from './QuestionCard';
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  composer.props = undefined;
+  composer.email = undefined;
+  composer.event = undefined;
 });
 
 function answer(options: string[]): ElicitationSchema {
@@ -202,18 +213,112 @@ describe('a draft card', () => {
     subject: 'Launch plan',
     body: 'Hi Ana, here is the plan.',
   };
-
-  it('shows the email as it will go out, and sends it as it is', () => {
-    const respond = vi.fn(async () => true);
-    const view = render(() => (
+  const event = {
+    title: 'Launch review',
+    time: {
+      kind: 'timed' as const,
+      startsAt: '2026-10-20T15:00:00Z',
+      endsAt: '2026-10-20T15:30:00Z',
+      timeZone: 'UTC',
+    },
+  };
+  const draft = (
+    tool: { name: string; data: unknown },
+    respond = vi.fn(async () => true),
+    review?: { canAnswer: () => boolean },
+    canAnswer?: boolean,
+    composes = true
+  ) =>
+    render(() => (
       <DraftCard
-        tool={{ name: 'SendEmail', data: email }}
+        tool={tool}
         toolCall="call-1"
         message="Send email?"
-        review={{ canAnswer: () => true, respond }}
+        review={{ canAnswer: review?.canAnswer ?? (() => true), respond }}
+        canAnswer={canAnswer}
+        composes={composes}
         fallback={<div>flat form</div>}
       />
     ));
+
+  it('is the email in its composer, whose Send sends it as it stands', async () => {
+    const respond = vi.fn(async () => true);
+    const view = draft({ name: 'SendEmail', data: email }, respond);
+    expect(view.getByText('email composer')).toBeTruthy();
+    expect(
+      view.getByRole('region', {
+        name: 'Draft email to Ana Ruiz and 1 other: Launch plan',
+      })
+    ).toBeTruthy();
+    expect(composer.email?.initialData).toEqual(email);
+    expect(composer.email?.sink.lockedNotice()).toBeUndefined();
+    await composer.email?.sink.onExecute(email);
+    expect(respond).toHaveBeenCalledWith({
+      action: 'accept',
+      content: { draft: JSON.stringify(email) },
+    });
+  });
+
+  it('discards from under the composer, which has only Send', () => {
+    const respond = vi.fn(async () => true);
+    const view = draft({ name: 'SendEmail', data: email }, respond);
+    fireEvent.click(view.getByRole('button', { name: 'Discard' }));
+    expect(respond).toHaveBeenCalledWith({ action: 'decline' });
+  });
+
+  it('tells a viewer who cannot send it who can, with nothing to press', () => {
+    const respond = vi.fn(async () => true);
+    const view = draft(
+      { name: 'SendEmail', data: email },
+      respond,
+      { canAnswer: () => false },
+      false
+    );
+    expect(composer.email?.sink.canAct()).toBe(false);
+    expect(composer.email?.sink.lockedNotice()).toBe(
+      'Only someone who can edit this agent can send this.'
+    );
+    expect(view.queryByRole('button', { name: 'Discard' })).toBeNull();
+  });
+
+  it('says nothing of who can while its own answer is on its way', () => {
+    const view = draft({ name: 'SendEmail', data: email }, undefined, {
+      canAnswer: () => false,
+    });
+    expect(composer.email?.sink.lockedNotice()).toBeUndefined();
+    const discard = view.getByRole('button', { name: 'Discard' });
+    expect((discard as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("is the event in the calendar's composer, whose Cancel discards it", async () => {
+    const respond = vi.fn(async () => true);
+    const view = draft({ name: 'CreateCalendarEvent', data: event }, respond);
+    expect(view.getByText('event composer')).toBeTruthy();
+    expect(
+      view.getByRole('region', { name: 'Draft event: Launch review' })
+    ).toBeTruthy();
+    expect(view.queryByRole('button', { name: 'Discard' })).toBeNull();
+    await composer.event?.sink.onReject();
+    expect(respond).toHaveBeenCalledWith({ action: 'decline' });
+    await composer.event?.sink.onExecute(event);
+    expect(respond).toHaveBeenLastCalledWith({
+      action: 'accept',
+      content: { draft: JSON.stringify(event) },
+    });
+  });
+
+  it("is someone else's draft as the agent wrote it, sent as written", async () => {
+    // The session is not the viewer's: the composer, with its inbox and
+    // signature, is the owner's.
+    const respond = vi.fn(async () => true);
+    const view = draft(
+      { name: 'SendEmail', data: email },
+      respond,
+      undefined,
+      undefined,
+      false
+    );
+    expect(view.queryByText('email composer')).toBeNull();
     expect(view.getByText('Ana Ruiz and 1 other')).toBeTruthy();
     expect(view.getByText('Draft email · Launch plan')).toBeTruthy();
     expect(view.getByText('Hi Ana, here is the plan.')).toBeTruthy();
@@ -222,24 +327,30 @@ describe('a draft card', () => {
       action: 'accept',
       content: { draft: JSON.stringify(email) },
     });
+    fireEvent.click(view.getByRole('button', { name: 'Discard' }));
+    expect(respond).toHaveBeenLastCalledWith({ action: 'decline' });
   });
 
-  it('edits in the real composer, in place, and discards', () => {
-    const respond = vi.fn(async () => true);
-    const view = render(() => (
-      <DraftCard
-        tool={{ name: 'SendEmail', data: email }}
-        toolCall="call-1"
-        message="Send email?"
-        review={{ canAnswer: () => true, respond }}
-        fallback={<div>flat form</div>}
-      />
-    ));
-    fireEvent.click(view.getByRole('button', { name: 'Edit' }));
-    expect(view.getByText('email composer')).toBeTruthy();
-    expect(view.queryByRole('button', { name: 'Send' })).toBeNull();
-    fireEvent.click(view.getByRole('button', { name: 'Discard' }));
-    expect(respond).toHaveBeenCalledWith({ action: 'decline' });
+  it("tells a viewer who cannot answer someone else's draft who can", () => {
+    const view = draft(
+      { name: 'CreateCalendarEvent', data: event },
+      undefined,
+      { canAnswer: () => false },
+      false,
+      false
+    );
+    expect(view.queryByText('event composer')).toBeNull();
+    expect(view.getByText('event draft')).toBeTruthy();
+    expect(
+      view.getByText('Only someone who can edit this agent can create this.')
+    ).toBeTruthy();
+    expect(view.queryByRole('button')).toBeNull();
+  });
+
+  it('asks in a card for a tool this client has no composer for', () => {
+    const view = draft({ name: 'CreateBookingLink', data: {} });
+    expect(view.getByText('Send email?')).toBeTruthy();
+    expect(view.getByRole('button', { name: 'Dismiss request' })).toBeTruthy();
   });
 
   it('names who an email goes to', () => {
@@ -252,6 +363,12 @@ describe('a draft card', () => {
         { email: 'c@x.test' },
       ])
     ).toBe('Ada and 2 others');
+    expect(emailDraftLabel({ to: [], subject: ' ', body: '' })).toBe(
+      'Draft email'
+    );
+    expect(
+      emailDraftLabel({ to: [{ email: 'a@x.test' }], subject: 'Hi', body: '' })
+    ).toBe('Draft email to a@x.test: Hi');
   });
 });
 
@@ -272,6 +389,8 @@ describe('an ask card that comes back', () => {
     const controller: InteractionController = {
       pending: () => [question],
       canAnswer: () => true,
+      answerers: 'someone who can edit this agent',
+      owns: () => true,
       answering: () => false,
       respond,
       draft: (request) => drafts.get(String(request.requestId)),
@@ -310,20 +429,22 @@ describe('an ask card that comes back', () => {
         toolCall="call-1"
         message="Send email?"
         review={{ canAnswer: () => true, respond: vi.fn(async () => true) }}
+        composes
         fallback={<div>flat form</div>}
         draft={{ saved: kept, save: (draft) => (kept = draft) }}
       />
     );
     const first = render(card);
-    fireEvent.click(first.getByRole('button', { name: 'Edit' }));
     const edited = { ...email, subject: 'Launch plan (final)' };
-    composer.props?.sink.onEdit?.(edited);
+    composer.email?.sink.onEdit?.(edited);
     first.unmount();
 
     const again = render(card);
-    expect(again.getByText('email composer')).toBeTruthy();
-    expect(again.queryByRole('button', { name: 'Send' })).toBeNull();
-    expect(composer.props?.initialData).toEqual(edited);
-    expect(again.getByText('Editing · the changes are yours')).toBeTruthy();
+    expect(composer.email?.initialData).toEqual(edited);
+    expect(
+      again.getByRole('region', {
+        name: 'Draft email to Ana Ruiz: Launch plan (final)',
+      })
+    ).toBeTruthy();
   });
 });

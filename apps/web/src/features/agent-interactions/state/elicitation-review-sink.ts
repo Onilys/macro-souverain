@@ -21,12 +21,19 @@ export function createElicitationReviewSink<T>(options: {
   respond: (answer: ElicitationAnswer) => Promise<boolean>;
   /** Keep an edit in progress, so it outlives the composer. */
   onEdit?: (args: T) => void;
+  /**
+   * Why the composer is read-only, when the surface can say better than a
+   * locked composer can: an answer on its way is no reason to say anything.
+   */
+  lockedNotice?: Accessor<string | undefined>;
 }): UserToolReviewSink<T> {
   const canAct = () => options.canAnswer();
   return {
     canAct,
-    lockedNotice: () =>
-      options.canAnswer() ? undefined : 'Waiting for an editor to answer.',
+    lockedNotice:
+      options.lockedNotice ??
+      (() =>
+        options.canAnswer() ? undefined : 'Waiting for an editor to answer.'),
     onEdit: options.onEdit,
     onExecute: (args) =>
       canAct()

@@ -73,6 +73,9 @@ vi.mock(
     StaticMarkdown: (props: { markdown: string }) => <p>{props.markdown}</p>,
   })
 );
+vi.mock('@core/context/user', () => ({
+  useUserId: () => () => 'macro|me@example.com',
+}));
 vi.mock('@core/component/Toast/Toast', () => ({
   toast: { failure: mocks.failure },
 }));

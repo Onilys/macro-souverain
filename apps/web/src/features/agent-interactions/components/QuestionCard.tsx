@@ -10,7 +10,7 @@ import type { ElicitationOption } from '@service-agent-fold/generated/types';
 import type { ElicitationAnswer } from '@service-agent-harness/generated/schemas';
 import { Button } from '@ui';
 import { For, Show } from 'solid-js';
-import type { DraftKeeper } from '../context/interaction';
+import { DEFAULT_ANSWERERS, type DraftKeeper } from '../context/interaction';
 import type { FormValues } from '../state/elicitation-form';
 import {
   answerQuestion,
@@ -55,6 +55,8 @@ export function QuestionCard(props: {
   /** An answer is on its way, or this viewer cannot answer. */
   locked: boolean;
   canAnswer: boolean;
+  /** Who can, for a viewer who cannot: `someone who can edit this agent`. */
+  answerers?: string;
   onRespond: RespondToElicitation;
   /** Where what the user types is kept, so it outlives the card. */
   draft?: DraftKeeper<FormValues>;
@@ -83,7 +85,7 @@ export function QuestionCard(props: {
           subtitle={
             props.canAnswer
               ? undefined
-              : 'Only someone who can edit this agent can answer.'
+              : `Only ${props.answerers ?? DEFAULT_ANSWERERS} can answer.`
           }
         />
         <Show when={!quick}>

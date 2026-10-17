@@ -42,17 +42,32 @@ export type DraftKeeper<T> = {
   save: (draft: T) => void;
 };
 
+/** Who can answer a request, as a card names them to a viewer who cannot. */
+export const DEFAULT_ANSWERERS = 'someone who can edit this agent';
+
 export type InteractionSource = {
   sessionId: Accessor<string | undefined>;
   pending: Accessor<readonly PendingInteraction[]>;
   canEdit: Accessor<boolean | undefined>;
   issue: (action: AgentAction) => Promise<IssueResult> | undefined;
   onFailure: (message: string) => void;
+  /** Who can answer, when not {@link DEFAULT_ANSWERERS}. */
+  answerers?: string;
+  /**
+   * Whether the viewer owns the session: what the agent drafts - an email,
+   * an event - goes out under the owner's name, from the owner's inbox and
+   * calendar.
+   */
+  owns?: Accessor<boolean | undefined>;
 };
 
 export type InteractionController = {
   pending: Accessor<readonly PendingInteraction[]>;
   canAnswer: Accessor<boolean>;
+  /** Who can answer: `someone who can edit this session`. */
+  answerers: string;
+  /** The viewer owns the session, so its drafts go out under their name. */
+  owns: Accessor<boolean>;
   answering: (request: InteractionIdentity) => boolean;
   respond: (response: InteractionResponse) => Promise<boolean>;
   /** What the user has typed into `request` so far, until it is answered. */

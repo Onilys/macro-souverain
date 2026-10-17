@@ -13,6 +13,7 @@ import CaretRight from '@phosphor/caret-right.svg';
 import ShieldCheck from '@phosphor/shield-check.svg';
 import { cn } from '@ui';
 import { createSignal, Show } from 'solid-js';
+import { DEFAULT_ANSWERERS } from '../context/interaction';
 import {
   PermissionOptions,
   type PermissionOptionsProps,
@@ -33,6 +34,8 @@ export function ApprovalCard(
     /** The tool's raw input, for someone who wants to check it. */
     input?: string;
     canAnswer: boolean;
+    /** Who can, for a viewer who cannot: `someone who can edit this agent`. */
+    answerers?: string;
   }
 ) {
   const [showInput, setShowInput] = createSignal(false);
@@ -50,7 +53,7 @@ export function ApprovalCard(
           subtitle={
             props.canAnswer
               ? 'Approval needed'
-              : 'Waiting for someone who can edit this agent to approve'
+              : `Waiting for ${props.answerers ?? DEFAULT_ANSWERERS} to approve`
           }
         />
         <Show when={props.detail || props.input}>

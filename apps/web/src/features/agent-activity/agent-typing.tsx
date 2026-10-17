@@ -11,6 +11,7 @@ import {
   subscribeSessionTurns,
 } from '@core/agent-session/session-turn';
 import { toast } from '@core/component/Toast/Toast';
+import { useUserId } from '@core/context/user';
 import { useAgentSessionQuery } from '@queries/agent-session/session';
 import { firstPartyBotName } from '@queries/bots/first-party-bot-name';
 import { useBotProfile } from '@queries/bots/profiles';
@@ -172,12 +173,19 @@ function AgentTypingEntry(props: {
       (request): request is AgentInteraction =>
         request.kind !== 'tool_approval' && request.turn === reply()?.turn
     );
+  const viewer = useUserId();
   const interactions = createInteractionController({
     sessionId: () => props.sessionId,
     pending,
     canEdit,
     issue: (action) => live.issue(action),
     onFailure: (message) => toast.failure(message),
+    owns: () => {
+      const id = viewer();
+      return queryReadyGate(sessionQuery) && id
+        ? sessionQuery.data?.ownerId === id
+        : undefined;
+    },
   });
   const toolFor = (toolCall: string | null) => {
     const part = reply()?.parts.find(
