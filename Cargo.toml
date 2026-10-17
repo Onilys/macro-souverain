@@ -458,7 +458,7 @@ strum_macros = "0.27.1"
 unicode-segmentation = "1.9.0"
 url = "2.5.0"
 zip = "=2.4.2"
-ammonia = "4.1.7"
+ammonia = "4.1.8"
 html-escape = "0.2"
 subtle = "2.6.1"
 
