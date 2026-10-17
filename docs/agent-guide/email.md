@@ -256,7 +256,9 @@ first); the list keeps the row you came from focused. The inline header uses the
 email title menu: open the menu button beside the subject for **Ask AI**, **Create a
 Task**, and the other thread actions. On desktop, **Mark as unread**, **Mark done**,
 and **Previous item** / **Next item** sit at the right of that header. The arrows
-follow the current filtered list and disable at its ends. Mark done advances in
+follow the current filtered list and disable at its ends. When the open thread
+leaves the list while it stays open (a reply in Signal marks it done, or another
+device archives it), they step from its former neighbours. Mark done advances in
 that list. Mark as unread (in the header or title menu) returns to the originating
 list with its tab, inbox, and filters preserved. Mark as not done and Mark as read
 stay on the current thread.

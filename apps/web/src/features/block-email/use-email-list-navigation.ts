@@ -2,7 +2,11 @@ import type {
   EmailThreadCommands,
   EmailThreadListNavigation,
 } from '@app/features/email-thread/context/email-thread-context';
-import { adjacentEmail } from '@app/features/email-thread/core/adjacent-email';
+import {
+  adjacentEmail,
+  type EmailPosition,
+  emailPosition,
+} from '@app/features/email-thread/core/adjacent-email';
 import { useMaybeSoup } from '@app/features/next-soup/soup-context';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import {
@@ -13,7 +17,7 @@ import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import type { EntityData } from '@entity';
-import { type Accessor, createSignal, onCleanup } from 'solid-js';
+import { type Accessor, createMemo, createSignal, onCleanup } from 'solid-js';
 
 /** Keep thread controls tied to the list and filters the user opened it from. */
 export function useEmailListNavigation(
@@ -40,13 +44,24 @@ export function useEmailListNavigation(
     if (from !== 'mail' && from !== 'home') return [];
     return soup?.rows().map((row) => row.original) ?? [];
   };
+  // Where the open thread sat when it was opened: next and previous keep
+  // stepping from there after it moves or leaves the list.
+  const position = createMemo<EmailPosition | undefined>((previous) =>
+    previous?.id === threadId()
+      ? previous
+      : emailPosition(entities(), threadId())
+  );
   const target = (direction: -1 | 1) =>
-    adjacentEmail(entities(), threadId(), direction);
-  const canLoadNext = () =>
-    !!source()?.hasMore() &&
-    entities().some(
-      (entity) => entity.type === 'email' && entity.id === threadId()
-    );
+    adjacentEmail(entities(), threadId(), direction, position());
+  // More pages place a thread that left the list only after a surviving
+  // earlier neighbour (their first row follows it). With none, paging could
+  // never find a next email, so it would load the whole mailbox.
+  const canLoadNext = () => {
+    const at = position();
+    if (!source()?.hasMore() || at?.id !== threadId()) return false;
+    const listed = new Set(entities().map((entity) => entity.id));
+    return listed.has(at.id) || at.previous.some((id) => listed.has(id));
+  };
   const open = async (
     entity: EntityData,
     referredFrom = panel?.handle.referredFrom()
