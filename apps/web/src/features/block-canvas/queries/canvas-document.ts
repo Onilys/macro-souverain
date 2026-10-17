@@ -1,4 +1,3 @@
-import { timeoutAbortSignal } from '@core/util/abort-signal';
 import { storageServiceClient } from '@service-storage/client';
 import type { CanvasFile } from '../core/document-format';
 
@@ -14,7 +13,7 @@ export async function fetchCanvasViewLocation(
   const result = await storageServiceClient.getDocumentMetadata({
     documentId,
     init: {
-      signal: timeoutAbortSignal(3000),
+      signal: AbortSignal.timeout(3000),
     },
   });
   if (result.isErr()) return null;
