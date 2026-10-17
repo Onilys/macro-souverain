@@ -9,8 +9,10 @@ import type {
   CrmDisplayOptions,
   CrmListColumnId,
 } from '../core/display-options';
+import type { Pipeline } from '../core/pipeline';
 import type { CrmRecordScope } from '../core/record';
 import type {
+  CompanyImporter,
   CompanySource,
   ContactSource,
   CrmCapabilities,
@@ -34,6 +36,7 @@ import type {
   PipelineEntriesView,
   PipelineSharing,
   PipelinesSource,
+  PipelineTransfer,
 } from './pipelines';
 
 export type CrmContext = {
@@ -41,6 +44,7 @@ export type CrmContext = {
   PipelineEditor: PipelineEditor;
   PipelineEntries: PipelineEntriesView;
   PipelineSharing: PipelineSharing;
+  createPipelineTransfer(pipeline: Pipeline): PipelineTransfer;
   downloadCsv(content: string, filename: string): Promise<{ saved: boolean }>;
   /** Profile picture lookup for a contact; presentation owns the fallback. */
   createContactPhoto?(email: string): Accessor<string | undefined>;
@@ -134,6 +138,7 @@ export type CrmContext = {
     { name: string; domain: string },
     { id: string }
   >;
+  createCompanyImporter(): CompanyImporter;
   createContact(): CrmMutation<
     { companyId: string; name: string; email: string },
     { id: string }

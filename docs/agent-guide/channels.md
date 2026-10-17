@@ -658,7 +658,7 @@ seen without moving the conversation. No notification read marking runs
 from an abbreviated list result, even if that result is empty. Access failures
 show **Conversation unavailable** and stay hidden during retry until access is
 confirmed. A route without cached channel metadata shows **Loading conversation**
-until its channel arrives. On mobile, opening from Recent, Channels, or DMs
+until its channel arrives. On mobile, opening from the Recent conversation list
 also navigates immediately: a slow or failed notification lookup must not prevent
 messages and the composer from loading. Full-edge notification hydration runs
 only after navigation is accepted; failure leaves unread state unchanged and
@@ -860,18 +860,13 @@ conversation cards on `Recent`. Switching tabs preserves the active search and
 query, then scrolls the results to the selected channel when present or to the
 start. Closing search restores the active tab and applies the same scroll
 behavior to its lists. An empty result uses the standard search empty state
-artwork and wraps long queries. Desktop and the mobile dock use the same channel
-name search: local fuzzy matches plus service results, deduplicated by channel
-ID. Desktop searches across channels and DMs; mobile retains its Recent,
-Channels, or DMs scope. An empty query shows the ordinary list. Scrolling search
-results loads the next search page; clearing the query restores ordinary list
-pagination. Check both surfaces with a matching query, a query with no matches,
-and a clear/reopen cycle.
-On mobile, a nonempty query with no matches shows **No results**, echoes the
-query, and offers **Clear search**. Clearing restores the selected tab's list
-and keeps the dock search session open. The tab's usual empty state and create
-actions appear only when no search text is entered; loading and request errors
-keep their own states.
+artwork and wraps long queries. Desktop channel name search combines local fuzzy
+matches and service results,
+deduplicated by channel ID, across channels and DMs. An empty query shows the
+ordinary list. Scrolling search results loads the next search page; clearing the
+query restores ordinary list pagination. Check a matching query, a query with no
+matches, and a clear/reopen cycle. Mobile dock search uses the independent Search
+route described below.
 Recent search includes both channels and DMs, including service hits without
 message previews. It does not require message metadata or an importance filter.
 Loaded conversation metadata is preserved when a service hit has the same ID.
@@ -901,25 +896,18 @@ into the appended rows. If the section has no next page, navigation proceeds
 to the next section. `[` and `]` jump between the visible Favorites,
 Channels, and DMs section headers.
 
-On touch layouts, the `Recent`, `Channels`, and `DMs` pill tabs each retain
-their own loaded pages and load more as their active list approaches the end.
-The mobile dock search filters the selected tab by conversation name as you type:
-`DMs` searches people, `Channels` searches non-DM channels, and `Recent` searches
-both. Loaded matches appear immediately; queries of at least three characters
-also search the server, including conversations beyond the loaded page. Changing
-tabs keeps the query and changes its scope. Closing search restores the ordinary
-list. Verify `Channels` → `DMs` → type a person's name with GraphQL enabled:
-unrelated rows disappear, no matches shows **No results**, and switching to
-Channels never keeps DM search hits. Changing the query resets list scroll
-without blurring the dock input. While a background browse-list refresh is still
-pending, scroll near the end of search results: the next search page should load
-without waiting for that refresh or requiring another scroll. Clearing search
-restores the browse list's own pagination and fetching state. A failed browse
-request must not show a load-error message over valid search hits or replace
-**No results**, including during debounce and short local-only queries. Search
-failures still show their own error; clearing search restores the browse error.
-With `enable-graphql-soup` enabled, open an unread conversation from each tab
-and return to the list: all notifications on top-level messages should be seen,
+On touch layouts, Channels shows only the Recent conversation feed, with channel
+and DM message previews. There are no view tabs or reserved tab-header space;
+older saved tab selections and mobile-tab links cannot change the list. It loads
+more as the list approaches the end and supports pull to refresh.
+The mobile dock Search button opens the independent Search route. Its Channels
+and People categories search cached channel names and people directly; the
+conversation list does not constrain results. Full-text search is explicit,
+and People uses the existing channel-content scope. Closing search resets its
+session; the conversation list retains its browse pagination. See
+[Search](search.md) for mode, keyboard, and session-reset checks.
+With `enable-graphql-soup` enabled, open an unread conversation from the mobile
+list and return to the list: all notifications on top-level messages should be seen,
 including mentions and reactions older than the global feed's loaded page.
 Replies and mentions inside threads remain unread. Channel-view unread badges
 only represent top-level messages and mentions; unread replies and reactions do
@@ -1121,12 +1109,12 @@ conversation renders an inline detail whose top bar holds the channel avatar
 and name, the same inset tab strip, live viewer avatars, and the `Call` and
 `Ask Macro` buttons. In Chat an ellipsis follows the name and opens the same
 entity actions as right-clicking the conversation's rail row — `Open in new
-split`, `Rename`, `Favorite`/`Unfavorite`, `Snooze notifications…`, `Mute
-notifications`, `Remind me`, `Copy Link`, `Copy ID` — so a channel can be
-favorited without finding its row. A channel inlined in another view's detail
-stack has no such menu. Channel-picture actions are in neither: they belong to
-the split's own title `...` menu, so open the channel as a split (shift-click a
-rail row) to reach them.
+split`, `Rename`, `Set channel picture`, `Remove channel picture` (only when the
+channel has one), `Favorite`/`Unfavorite`, `Remind me`, `Snooze notifications…`, `Mute
+notifications`, `Copy Link`, `Copy ID` — so a channel can be favorited or given
+a picture without finding its row. A channel inlined in
+another view's detail stack has no such menu. The split's own title `...` menu
+offers the same picture actions.
 
 `Calls` tab: recordings, transcriptions, and summaries for this channel. Click a
 row to open the call. The search field above the list matches call names and
@@ -1169,8 +1157,9 @@ and admins when team settings are available. People keeps search and the compact
 `Add participants` opens a bottom sheet; Bots has its own full-height list and an
 `Invite bot` sheet. Bots uses the same search toolbar and plain rows as People;
 `Search bots` filters existing bots by name, handle, or description, with compact
-`New bot` and `Invite bot` actions beside it. The fallback AI composer and New
-button are hidden throughout this page and return when leaving it. Both sheets use the standard mobile keyboard-aware layout and
+`New bot` and `Invite bot` actions beside it. The fallback New button is hidden
+throughout this page and returns when leaving it. Channel views have no floating
+AI composer. Both sheets use the standard mobile keyboard-aware layout and
 close after a successful add. Check switching tabs, closing/reopening both sheets,
 and scrolling a long participant list above the bottom dock, with and without the
 keyboard open. An invite-bot request from the channel menu opens the Bots tab and
@@ -1218,18 +1207,21 @@ message or acknowledgement and verify that it does not pull you to latest.
 
 ## Channel pictures
 
-Channels and group chats can have a custom picture. Any active participant can
-`Rename` a named channel from the title menu. Direct messages cannot be renamed.
-Only admins and owners also get `Set channel picture` and `Remove channel
-picture`. Choose `Set channel picture` to add or replace a picture. Select a PNG, JPG,
-WebP, or GIF up to 16 MB. The upload must finish before the picture is saved;
-the server accepts only supported images uploaded by the person setting the
-picture. An error leaves the previous picture in place. When a picture is set, the menu also offers
-`Remove channel picture` to restore the standard channel icon. The picture
+Channels and group chats can have a custom picture. Anyone who can `Rename` a
+channel can also set its picture: any active participant of a named channel,
+from the channel's rail context menu, the Chat title ellipsis, or the split's
+own title `...` menu. Direct messages can be neither renamed nor given a
+picture. Choose `Set channel picture` to add or replace a picture. Select a PNG,
+JPG, WebP, or GIF up to 16 MB. The upload must finish before the picture is
+saved; the server accepts only supported images uploaded by the person setting
+the picture. An error leaves the previous picture in place. When a picture is
+set, the menu also offers `Remove channel picture` to restore the standard
+channel icon. The picture
 beside the title is display-only and also appears in shared channel rows.
 Picture changes refresh other participants' open sessions, including after
 reconnecting.
-Members see the picture without editing controls. One-to-one direct messages
+A team channel the viewer has not joined shows its picture without editing
+controls. One-to-one direct messages
 continue to show the other person's user picture.
 
 Opening the slash menu with `/` lists Normal Text, headings, and the other
