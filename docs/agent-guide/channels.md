@@ -84,7 +84,9 @@ What a step made, changed, or showed appears as a card under its step: a
 document, a sent email, an event, a composed view. The cards of steps folded
 behind `N earlier steps` show above that control, and a finished run that
 folds into `Worked for … · N steps` keeps its cards. A card's short summary
-(`3 changes`, `to Ana Ruiz`) shows only to a reader who can open the item.
+(`3 changes`, `to Ana Ruiz`) shows only while its run is live, to a reader of
+the session who can open the item. Once the run is over, the card shows the
+item's kind and when it last changed instead; the session keeps the summary.
 A drafted email or event the agent waits on is its composer for the person
 the agent works for, as in the agent's session: the email composer's Send
 sends it and **Discard** under it declines; the calendar's composer creates
@@ -101,8 +103,8 @@ on its own. The drafts are the session owner's to decide; anyone else in the
 thread sees `Email drafts to review · Waiting for <owner>` and nothing of the
 drafts. When the agent needs an app, its reply ends with a
 **Connect** card. Connecting from the agent's latest reply, while nothing else
-runs or waits, tells the agent to continue; from an older reply, or while the
-agent works, it only connects, and a toast says so.
+runs or waits once the sign-in finishes, tells the agent to continue; from an
+older reply, or while the agent works, it only connects, and a toast says so.
 
 Each failed, stopped, or interrupted source message has its own **Retry message**
 action in the current context. Retry is explicit because an interrupted attempt
