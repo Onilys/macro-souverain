@@ -52,6 +52,13 @@ Before live testing, the local instance needs:
 | Credential encryption | Local KMS alias provisioned and `META_CREDENTIAL_KMS_KEY` set; instructions in the server guide |
 | WhatsApp recipient | The verified test number also listed in `META_WHATSAPP_TEST_RECIPIENTS` |
 
+When a signed customer webhook includes both a BSUID and a phone, the developer
+test account sends to the current phone only if it is explicitly allowlisted for
+that sender. Production still addresses the BSUID. Check absent/unallowlisted
+phones, sender mismatch, and a phone change during preparation: none may widen
+the allowlist or dispatch against a stale destination. A provider rejection is
+settled; retry only through an explicit new composer submission.
+
 Meta cannot call `localhost`. Provide a public HTTPS callback gateway forwarding
 only the webhook paths to this local instance. Instagram OAuth returns in the
 user’s browser to the trusted HTTPS Macro web origin, not the webhook gateway. Do not expose

@@ -482,12 +482,31 @@ async fn bsuid_and_phone_destinations_are_distinct_and_both_require_the_develope
     assert_eq!(prepared.provider_document["recipient"], "US.A");
     assert!(prepared.provider_document.get("to").is_none());
     conversation.customer_phone = Some("+15550000001".into());
+    c.developer_account = false;
     let prepared = client
         .prepare_reply(&c, &token, &conversation, &text(), None)
         .await
         .unwrap();
     assert_eq!(prepared.provider_document["recipient"], "US.A");
     assert!(prepared.provider_document.get("to").is_none());
+    conversation.customer_phone = Some(String::new());
+    for developer in [false, true] {
+        c.developer_account = developer;
+        let prepared = client
+            .prepare_reply(&c, &token, &conversation, &text(), None)
+            .await
+            .unwrap();
+        assert_eq!(prepared.provider_document["recipient"], "US.A");
+        assert!(prepared.provider_document.get("to").is_none());
+    }
+    conversation.customer_phone = Some("+15550000001".into());
+    c.developer_account = true;
+    let prepared = client
+        .prepare_reply(&c, &token, &conversation, &text(), None)
+        .await
+        .unwrap();
+    assert_eq!(prepared.provider_document["to"], "15550000001");
+    assert!(prepared.provider_document.get("recipient").is_none());
     conversation.customer_id = "15550000001".to_owned().try_into().unwrap();
     let prepared = client
         .prepare_reply(&c, &token, &conversation, &text(), None)
@@ -501,9 +520,31 @@ async fn bsuid_and_phone_destinations_are_distinct_and_both_require_the_develope
             .await
             .is_err()
     );
-    // A permitted phone cannot authorize a different, preferred BSUID destination.
+    // Authorizing a phone permits only that phone, not a different BSUID.
     conversation.customer_phone = Some("15550000001".into());
     conversation.customer_id = "US.OTHER".to_owned().try_into().unwrap();
+    let prepared = client
+        .prepare_reply(&c, &token, &conversation, &text(), None)
+        .await
+        .unwrap();
+    assert_eq!(prepared.provider_document["to"], "15550000001");
+    assert!(prepared.provider_document.get("recipient").is_none());
+    conversation.customer_phone = Some("15550000002".into());
+    assert!(
+        client
+            .prepare_reply(&c, &token, &conversation, &text(), None)
+            .await
+            .is_err()
+    );
+    conversation.customer_phone = None;
+    assert!(
+        client
+            .prepare_reply(&c, &token, &conversation, &text(), None)
+            .await
+            .is_err()
+    );
+    conversation.customer_phone = Some("15550000001".into());
+    c.account_id = "different-sender".to_owned().try_into().unwrap();
     assert!(
         client
             .prepare_reply(&c, &token, &conversation, &text(), None)

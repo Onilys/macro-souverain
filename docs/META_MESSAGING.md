@@ -216,7 +216,12 @@ messages on the existing `messages` subscription (`user_changed_number` or
 subscribable `user_id_update` field. Legacy phone-only payloads remain supported.
 Sending prefers `recipient` for a BSUID and uses `to` for phone-only customers; Meta
 error 131062 explains account availability rather than inventing a phone. Both
-routes use the local developer allowlist.
+routes use the local developer allowlist. A developer test account prefers the
+current observed phone when that exact phone is allowlisted for its configured
+test sender; it emits only `to`. This supports Meta's verified test recipients
+without authorizing a different BSUID, inferring an old phone, changing the
+conversation identity, or falling back after a provider send. Production keeps
+BSUID preference. Dispatch still rechecks both identity and phone after preparation.
 
 Platform signup verifies the selected WABA/phone, token scopes and
 `is_on_biz_app=false` server-side, and excludes On-Premises migration. Credentials are encrypted before registration.

@@ -24,6 +24,9 @@ Meta confirms registration and subscription; preserve uncertain attempts and
 encrypted credentials without persisting PINs. Never infer missing registration
 from an arbitrary non-CONNECTED provider status. Accepted native recovery is separate
 from new provider dispatch.
+Production replies prefer BSUIDs. Developer test accounts may address the current
+phone only when that exact phone is allowlisted for the configured test sender;
+keep the dispatch identity/phone race checks and never infer historical phones.
 
 ## Checks
 

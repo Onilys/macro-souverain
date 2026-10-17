@@ -67,7 +67,28 @@ impl HttpMetaProvider {
         request: &SendReply,
         media: Option<&OutboundMedia>,
     ) -> PortResult<PreparedReply> {
+        // Test senders verify recipient phones. An exact configured match is
+        // already a valid provider ID; an unusable optional phone is ignored.
+        let test_phone = self
+            .developer
+            .as_ref()
+            .filter(|dev| c.developer_account && dev.phone_number_id == c.account_id)
+            .and_then(|dev| {
+                let phone = conversation
+                    .customer_phone
+                    .as_deref()?
+                    .trim_start_matches('+');
+                dev.recipients
+                    .iter()
+                    .find(|id| id.as_str() == phone)
+                    .cloned()
+            });
         let destination = if c.provider == Provider::Whatsapp
+            && conversation.kind == crate::domain::groups::ConversationKind::Direct
+            && let Some(phone) = test_phone
+        {
+            phone
+        } else if c.provider == Provider::Whatsapp
             && conversation.kind == crate::domain::groups::ConversationKind::Direct
             && !conversation.customer_id.is_whatsapp_bsuid()
         {
