@@ -1,3 +1,4 @@
+import { TOKENS } from '@core/hotkey/tokens';
 import ArrowCounterClockwiseIcon from '@phosphor/arrow-counter-clockwise.svg';
 import CheckIcon from '@phosphor/check.svg';
 import LightningIcon from '@phosphor/lightning.svg';
@@ -50,6 +51,7 @@ export function EmailStarAction(props: {
         label={props.starred ? 'Unstar email' : 'Star email'}
         class={props.starred ? 'text-ink-muted' : 'text-ink-extra-muted'}
         tooltip={props.starred ? 'Remove from favorites' : 'Add to favorites'}
+        hotkey={TOKENS.email.star}
         aria-pressed={props.starred}
         disabled={props.pending}
         onClick={props.onStar}

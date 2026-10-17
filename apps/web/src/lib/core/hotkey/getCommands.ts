@@ -91,6 +91,18 @@ export function getActiveCommandsFromScope(
     : commands;
 }
 
+/** Every key a command registered in this scope would run for right now. */
+export function getRunnableHotkeys(scopeId: string): Set<ValidHotkey> {
+  return new Set(
+    getActiveCommandsFromScope(scopeId, {
+      limitToCurrentScope: true,
+      hideCommandsWithoutHotkeys: true,
+      ignoreInputFocused: true,
+      includeHidden: true,
+    }).flatMap((command) => command.hotkeys ?? [])
+  );
+}
+
 const filterCommands = (displayOptions: sortAndFilterOptions) => {
   return (command: HotkeyCommand) => {
     const hideValue =
