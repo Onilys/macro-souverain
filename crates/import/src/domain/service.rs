@@ -330,6 +330,21 @@ where
     S: ConnectorSelect,
     C: EntityCreator,
 {
+    /// Fail discovery runs that outlived their own timeout: their process died
+    /// (crash or deploy) and the run would otherwise block a new discovery
+    /// forever. Best-effort, so a read or a restart never fails because of it.
+    async fn reap_stale_runs(&self, user: &MacroUserIdStr<'static>) {
+        match self
+            .repo
+            .fail_stale_runs(user, STALE_RUN_AFTER.as_secs() as i64)
+            .await
+        {
+            Ok(0) => {}
+            Ok(reaped) => tracing::warn!(reaped, "reaped orphaned discovery runs"),
+            Err(e) => tracing::warn!(error = ?e, "failed to reap stale discovery runs"),
+        }
+    }
+
     /// Spawn Slack discovery; finishes the run row either way and nudges the
     /// client.
     fn spawn_slack_discovery(&self, user: MacroUserIdStr<'static>) {
@@ -744,18 +759,7 @@ where
             Err(e) => tracing::warn!(error = ?e, "failed to reap stale imports"),
         }
 
-        // Same for discovery runs: a run that outlived its own timeout died
-        // with its process and would otherwise block a new discovery forever.
-        match self
-            .repo
-            .fail_stale_runs(&user, STALE_RUN_AFTER.as_secs() as i64)
-            .await
-        {
-            Ok(0) => {}
-            Ok(reaped) => tracing::warn!(reaped, "reaped orphaned discovery runs"),
-            Err(e) => tracing::warn!(error = ?e, "failed to reap stale discovery runs"),
-        }
-
+        self.reap_stale_runs(&user).await;
         let runs = self.repo.list_runs(&user).await?;
         let entities = self.repo.list(&user, None, None).await?;
         Ok(ImportState { runs, entities })
@@ -776,6 +780,7 @@ where
             RunStatus::Failed,
             RunStatus::Dismissed,
         ];
+        self.reap_stale_runs(&user).await;
         let won = self.repo.start_run(&user, source, &from).await?;
         if won {
             self.spawn_slack_discovery(user.clone());

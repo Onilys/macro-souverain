@@ -314,7 +314,11 @@ async fn a_kind_from_another_source_is_rejected(pool: PgPool) {
             &serde_json::json!({"title": "Roadmap"}),
         )
         .await;
-    assert!(matches!(result, Err(ImportError::Db(_))), "{result:?}");
+    let error = result.expect_err("a Linear kind cannot describe a Notion row");
+    assert!(
+        error.to_string().contains("import_entity_kind_check"),
+        "{error}"
+    );
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
@@ -352,9 +356,10 @@ async fn a_team_keeps_one_copy_of_each_notion_object(pool: PgPool) {
             Some(team),
         )
         .await;
+    let error = duplicate.expect_err("a teammate cannot import a second copy");
     assert!(
-        matches!(duplicate, Err(ImportError::Db(_))),
-        "{duplicate:?}"
+        error.to_string().contains("import_entity_team_object_key"),
+        "{error}"
     );
 
     // Without a team scope each user keeps their own row, as before.
@@ -371,6 +376,24 @@ async fn a_team_keeps_one_copy_of_each_notion_object(pool: PgPool) {
     )
     .await
     .unwrap();
+
+    // Slack rows carry team_id but keep their own reservations, so teammates'
+    // rows for one channel are not constrained.
+    for actor in [&owner, &teammate] {
+        repo.upsert_imported(
+            actor,
+            ImportSource::Slack,
+            ImportKind::Channel,
+            Initiator::Manual,
+            "C0123456789",
+            &serde_json::json!({"name": "general"}),
+            "channel-1",
+            "channel",
+            Some(team),
+        )
+        .await
+        .unwrap();
+    }
 }
 
 async fn ledger_actor(pool: &PgPool, label: &str) -> MacroUserIdStr<'static> {
