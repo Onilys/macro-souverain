@@ -7,7 +7,13 @@ use serde::de::DeserializeOwned;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{connection::*, history::*, models::*, ports::*};
+use crate::domain::{
+    connection::*,
+    groups::{ConversationKind, GroupStatus},
+    history::*,
+    models::*,
+    ports::*,
+};
 
 pub mod groups;
 mod history;
@@ -408,7 +414,7 @@ impl ConversationRepository for PgMessagingRepository {
         conversation: &Conversation,
         message: &ProviderId,
     ) -> PortResult<bool> {
-        sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_message WHERE connection_id=$1 AND customer_id=$2 AND provider_message_id=$3 AND conversation_kind=$4) AS \"exists!\"",conversation.connection_id,conversation.customer_id.as_str(),message.as_str(),spelling(conversation.kind)).fetch_one(&self.pool).await.map_err(failure)
+        sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_message WHERE connection_id=$1 AND customer_id=$2 AND provider_message_id=$3 AND conversation_kind=$4) AS \"exists!\"",conversation.connection_id,conversation.customer_id.as_str(),message.as_str(),conversation.kind.as_ref()).fetch_one(&self.pool).await.map_err(failure)
     }
     async fn enqueue_send(
         &self,
@@ -472,12 +478,14 @@ impl ConversationRepository for PgMessagingRepository {
         if invalid_route {
             return Err(MessagingError::IdentityConflict.into());
         }
-        let routing=sqlx::query!("SELECT customer_id,customer_phone,kind,group_status FROM meta_messaging_conversation WHERE connection_id=$1 AND channel_id=$2",c.id,conversation.channel_id)
+        let routing=sqlx::query!("SELECT customer_id,customer_phone,kind AS \"kind: ConversationKind\",group_status AS \"group_status: GroupStatus\" FROM meta_messaging_conversation WHERE connection_id=$1 AND channel_id=$2",c.id,conversation.channel_id)
             .fetch_optional(&mut *tx).await.map_err(failure)?.ok_or(MessagingError::NotFound)?;
-        if routing.kind == "group" && routing.group_status.as_deref() != Some("active") {
+        if routing.kind == ConversationKind::Group
+            && routing.group_status != Some(GroupStatus::Active)
+        {
             return Err(MessagingError::GroupReadOnly.into());
         }
-        if routing.kind != spelling(conversation.kind)
+        if routing.kind != conversation.kind
             || routing.customer_id != conversation.customer_id.as_str()
             || routing.customer_phone != conversation.customer_phone
         {

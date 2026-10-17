@@ -1,5 +1,6 @@
 //! Signed HTTP/database group journeys with controlled provider effects.
 use super::*;
+mod cleanup;
 use channels::domain::ports::ChannelService;
 use meta_messaging::domain::groups::{ports::*, *};
 
@@ -359,25 +360,43 @@ async fn group_create_permissions_and_deletion_rejections_keep_native_channel(po
         *f.remote.group_delete_error.lock().unwrap() = Some(error);
         assert!(
             f.service
-                .prepare_group_deletion(channel, &f.c.user_id)
+                .delete_group(
+                    channel,
+                    &f.c.user_id,
+                    meta_messaging::domain::policy::SendAuthority::Human
+                )
                 .await
                 .is_err()
         );
         assert!(f.repo.conversation(channel).await.unwrap().is_some());
     }
     *f.remote.group_delete_error.lock().unwrap() = None;
-    let lifecycle = crate::native_messaging::groups::GroupLifecycle(std::sync::OnceLock::new());
-    lifecycle.0.set(f.service.clone()).ok().unwrap();
     let native =
-        channels::domain::service::ChannelServiceImpl::new(PgChannelsRepo::new(pool.clone()))
-            .with_provider_lifecycle(Arc::new(lifecycle));
-    native
-        .delete_channel(
-            ChannelSender::new_from_user(MacroUserIdStr::try_from(f.c.user_id.clone()).unwrap()),
-            channel,
+        channels::domain::service::ChannelServiceImpl::new(PgChannelsRepo::new(pool.clone()));
+    assert!(
+        native
+            .delete_channel(
+                ChannelSender::new_from_user(
+                    MacroUserIdStr::try_from(f.c.user_id.clone()).unwrap()
+                ),
+                channel
+            )
+            .await
+            .is_err(),
+        "ordinary native deletion fails closed for managed groups"
+    );
+    assert_eq!(
+        request(
+            &f.app,
+            "DELETE",
+            &format!("/channels/{channel}/group"),
+            Some("owner"),
+            json!({})
         )
         .await
-        .unwrap();
+        .0,
+        StatusCode::OK
+    );
     assert!(f.repo.conversation(channel).await.unwrap().is_none());
     bind(&f, "request-1", "delete-group", Utc::now().timestamp()).await;
     assert_eq!(
@@ -398,7 +417,7 @@ async fn early_group_facts_retry_boundedly_and_unknown_requests_are_terminal(poo
     group_fact(&f,"group_participants_update",json!({"timestamp":at.to_string(),"type":"group_participants_add","group_id":"early-group","added_participants":[{"user_id":"US.EARLY"}]})).await;
     let receipt=sqlx::query!("SELECT id,status,error_code FROM meta_messaging_receipt WHERE error_code='group_binding_pending'").fetch_one(&pool).await.unwrap();
     assert_eq!(receipt.status, "pending");
-    // UI uncertainty is not receipt exhaustion: an extant current attempt still waits.
+    // Once setup becomes stale it no longer holds unrelated facts in retry.
     sqlx::query!("UPDATE meta_messaging_group_setup SET started_at=now()-interval '5 minutes' WHERE channel_id=$1",channel).execute(&pool).await.unwrap();
     sqlx::query!(
         "UPDATE meta_messaging_receipt SET available_at=now() WHERE id=$1",
@@ -416,17 +435,14 @@ async fn early_group_facts_retry_boundedly_and_unknown_requests_are_terminal(poo
         .fetch_one(&pool)
         .await
         .unwrap(),
-        "pending"
+        "complete"
     );
     bind(&f, "request-1", "early-group", at - 1).await;
-    sqlx::query!(
-        "UPDATE meta_messaging_receipt SET available_at=now() WHERE id=$1",
-        receipt.id
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-    drain_groups(&f.service).await;
+    assert!(
+        f.repo.group_participants(channel).await.unwrap().is_empty(),
+        "stale unrelated facts are not replayed on bind"
+    );
+    group_fact(&f,"group_participants_update",json!({"timestamp":(at+1).to_string(),"type":"group_participants_add","group_id":"early-group","added_participants":[{"user_id":"US.EARLY"}]})).await;
     assert_eq!(f.repo.group_participants(channel).await.unwrap().len(), 1);
     assert!(
         f.repo
@@ -547,7 +563,11 @@ async fn group_native_roles_subject_order_and_remote_delete_fence(pool: PgPool) 
     );
     assert!(
         f.service
-            .prepare_group_deletion(channel, teammate)
+            .delete_group(
+                channel,
+                teammate,
+                meta_messaging::domain::policy::SendAuthority::Human
+            )
             .await
             .is_err()
     );
@@ -563,7 +583,11 @@ async fn group_native_roles_subject_order_and_remote_delete_fence(pool: PgPool) 
     );
     assert!(
         f.service
-            .discard_group_setup(channel, &f.c.user_id)
+            .discard_group_setup(
+                channel,
+                &f.c.user_id,
+                meta_messaging::domain::policy::SendAuthority::Human
+            )
             .await
             .is_err(),
         "stale local-discard confirmation cannot delete a now-bound group"
@@ -598,12 +622,21 @@ async fn group_native_roles_subject_order_and_remote_delete_fence(pool: PgPool) 
             .group_status,
         Some(GroupStatus::Deleted)
     );
-    let guard = f
-        .service
-        .prepare_group_deletion(channel, &f.c.user_id)
+    sqlx::query!(
+        "UPDATE meta_messaging_connection SET status='disconnected' WHERE id=$1",
+        f.c.id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    f.service
+        .delete_group(
+            channel,
+            &f.c.user_id,
+            meta_messaging::domain::policy::SendAuthority::Human,
+        )
         .await
         .unwrap();
-    drop(guard);
     assert_eq!(
         f.remote.group_deletes.load(Ordering::SeqCst),
         0,

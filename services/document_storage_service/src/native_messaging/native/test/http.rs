@@ -238,6 +238,7 @@ impl MetaProvider for ProviderFixture {
     }
     async fn send(&self, _: &Connection, _: &AccessToken, _: &PreparedReply) -> ProviderSendResult {
         self.sends.fetch_add(1, Ordering::SeqCst);
+        self.operation_entered.notify_one();
         ProviderSendResult::Accepted("fixture-accepted".to_owned().try_into().unwrap())
     }
     async fn download(
@@ -452,7 +453,16 @@ async fn fixture_with_files(
             instagram: credentials(),
         }),
     };
-    let app = router::router(state.clone()).merge(router::webhook_router(state));
+    let native_router = channels::inbound::axum_router::channels_router(
+        channels::inbound::axum_router::ChannelsRouterState::new(
+            channels::domain::service::ChannelServiceImpl::new(PgChannelsRepo::new(pool.clone())),
+            (*native.access).clone(),
+            state.authorization_state.clone(),
+        ),
+    );
+    let app = router::router(state.clone())
+        .merge(router::webhook_router(state))
+        .nest("/native/channels", native_router);
     Fixture {
         group_tasks,
         app,

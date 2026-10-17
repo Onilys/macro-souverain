@@ -62,5 +62,5 @@ queries used across Rust services.
 
 The unshipped squashed native Meta messaging migration includes direct/group
 conversation namespaces, current group setup and participant state. The channel
-`provider_managed` marker is committed with setup and read by native domain guards;
+`messaging_binding` enum text is committed with direct binding/setup and read by native guards;
 Meta lifecycle policy stays in `meta_messaging`, not this schema owner.

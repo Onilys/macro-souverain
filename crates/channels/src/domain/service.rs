@@ -43,7 +43,6 @@ pub struct ChannelServiceImpl<
     reference_share_permissions: P,
     picture_files: F,
     agent_direct_messages: Option<Arc<dyn super::agent_dm::AgentDirectMessages>>,
-    provider_lifecycle: Option<Arc<dyn super::provider::ProviderChannelLifecycle>>,
 }
 
 /// Fail-closed picture metadata source for contexts that do not wire uploads.
@@ -100,7 +99,6 @@ where
             reference_share_permissions: NoopChannelReferenceSharePermissions,
             picture_files: UnavailableChannelPictureFiles,
             agent_direct_messages: None,
-            provider_lifecycle: None,
         }
     }
 }
@@ -114,21 +112,11 @@ impl<R, E, P> ChannelServiceImpl<R, E, P> {
             reference_share_permissions,
             picture_files: UnavailableChannelPictureFiles,
             agent_direct_messages: None,
-            provider_lifecycle: None,
         }
     }
 }
 
 impl<R, E, P, F> ChannelServiceImpl<R, E, P, F> {
-    /// Wire remote deletion for provider-managed channels; other hosts deny deletion.
-    pub fn with_provider_lifecycle(
-        mut self,
-        lifecycle: Arc<dyn super::provider::ProviderChannelLifecycle>,
-    ) -> Self {
-        self.provider_lifecycle = Some(lifecycle);
-        self
-    }
-
     /// Enable private conversations with authorized agent personas.
     pub fn with_agent_direct_messages(
         mut self,
@@ -149,7 +137,6 @@ impl<R, E, P, F> ChannelServiceImpl<R, E, P, F> {
             reference_share_permissions: self.reference_share_permissions,
             picture_files,
             agent_direct_messages: self.agent_direct_messages,
-            provider_lifecycle: self.provider_lifecycle,
         }
     }
 }
@@ -399,9 +386,9 @@ where
             .get_channel_info(channel_id)
             .await
             .map_err(|e| ChannelMutationErr::Repo(e.into()))?;
-        if info.provider_managed {
+        if info.messaging_binding.is_group() {
             return Err(ChannelMutationErr::Forbidden(
-                "WhatsApp owns this group name and private visibility".into(),
+                "Provider-managed owns this group name and private visibility".into(),
             ));
         }
         if matches!(info.channel_type, ChannelType::DirectMessage) && req.channel_name.is_some() {
@@ -503,21 +490,11 @@ where
             .get_channel_info(channel_id)
             .await
             .map_err(|e| ChannelMutationErr::Repo(e.into()))?;
-        let _provider_guard = if info.provider_managed {
-            Some(
-                self.provider_lifecycle
-                    .as_ref()
-                    .ok_or_else(|| {
-                        ChannelMutationErr::Forbidden(
-                            "WhatsApp group deletion is unavailable in this service".into(),
-                        )
-                    })?
-                    .prepare_delete(channel_id, actor.clone())
-                    .await?,
-            )
-        } else {
-            None
-        };
+        if info.messaging_binding.is_group() {
+            return Err(ChannelMutationErr::Forbidden(
+                "Provider-managed groups require explicit provider deletion".into(),
+            ));
+        }
         self.repo
             .delete_channel(channel_id, actor.as_ref().to_string())
             .await

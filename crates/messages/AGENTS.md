@@ -63,7 +63,8 @@ they need.
 
 ## Provider-managed channels
 
-The repository exposes native channel lifecycle policy through `provider_managed`.
+The repository reads native group policy and existence together as `ParentState`;
+mutations use the same parent lookup as reads, without an extra per-channel query.
 The domain blocks ordinary human posts and unsupported edits/deletes/reactions/
 threads on pending or bound provider groups. Existing permissioned bot behavior
 remains internal. Explicit external replies use the separate messaging domain.

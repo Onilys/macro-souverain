@@ -191,6 +191,7 @@ async fn added_reaction_notifies_message_author() {
                 thread_id: None,
                 message_content: "Great idea".to_string(),
                 metadata: ChannelMetadata {
+                    messaging_binding: Default::default(),
                     channel_type: ChannelType::Public,
                     channel_name: "general".to_string(),
                 },
@@ -238,6 +239,7 @@ async fn self_reactions_do_not_notify() {
                 thread_id: None,
                 message_content: "No notification".to_string(),
                 metadata: ChannelMetadata {
+                    messaging_binding: Default::default(),
                     channel_type: ChannelType::Public,
                     channel_name: "general".to_string(),
                 },
@@ -341,6 +343,7 @@ async fn message_posted_derives_notification_effects_without_legacy_realtime() {
         .handle(ChannelEvent::MessagePosted {
             channel_id,
             metadata: ChannelMetadata {
+                messaging_binding: Default::default(),
                 channel_type: ChannelType::Private,
                 channel_name: "Project".to_string(),
             },
@@ -412,6 +415,7 @@ fn bot_message_posted_event(
     ChannelEvent::MessagePosted {
         channel_id,
         metadata: ChannelMetadata {
+            messaging_binding: Default::default(),
             channel_type: ChannelType::Private,
             channel_name: "Project".to_string(),
         },
@@ -463,6 +467,7 @@ async fn silent_message_posted_skips_notifications_only() {
         .handle(ChannelEvent::MessagePosted {
             channel_id,
             metadata: ChannelMetadata {
+                messaging_binding: Default::default(),
                 channel_type: ChannelType::Private,
                 channel_name: "Project".to_string(),
             },
@@ -539,6 +544,7 @@ async fn mentions_only_skips_failing_invite_lookup_and_sends_mention() {
         .handle(ChannelEvent::MessagePosted {
             channel_id,
             metadata: ChannelMetadata {
+                messaging_binding: Default::default(),
                 channel_type: ChannelType::Private,
                 channel_name: "Macro Support".to_string(),
             },
@@ -793,6 +799,7 @@ async fn document_mentions_notify_participants_except_sender() {
         .handle(ChannelEvent::MessagePosted {
             channel_id,
             metadata: ChannelMetadata {
+                messaging_binding: Default::default(),
                 channel_type: ChannelType::Private,
                 channel_name: "Project".to_string(),
             },
@@ -932,6 +939,7 @@ fn contact_sync_ignores_bot_actor() {
         invited_by: Sender::new_from_bot(BotId::new_from_uuid(Uuid::new_v4())),
         recipient_user_ids: users(&["bob@example.com"]),
         metadata: ChannelMetadata {
+            messaging_binding: Default::default(),
             channel_type: ChannelType::Team,
             channel_name: "team".to_string(),
         },
@@ -950,6 +958,7 @@ fn contact_sync_is_derived_from_team_participants_added() {
         invited_by: Sender::new_from_user(user("alice@example.com")),
         recipient_user_ids: users(&["bob@example.com"]),
         metadata: ChannelMetadata {
+            messaging_binding: Default::default(),
             channel_type: ChannelType::Team,
             channel_name: "team".to_string(),
         },
@@ -1209,6 +1218,7 @@ fn mention_broker_events_map_message_posted_mentions() {
     let events = mention_broker_events_for_event(&ChannelEvent::MessagePosted {
         channel_id,
         metadata: ChannelMetadata {
+            messaging_binding: Default::default(),
             channel_type: ChannelType::Team,
             channel_name: "Project".to_string(),
         },

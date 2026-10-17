@@ -320,6 +320,13 @@ export const storageExcluded = [
   'metaReply',
   'metaRegister',
   'metaUploadAttachment',
+  // Group mutation and invite-link capabilities require a verified human session.
+  'metaCreateGroup',
+  'metaDeleteGroup',
+  'metaDiscardGroupSetup',
+  'metaGroupLink',
+  'metaRemoveGroupParticipant',
+  'metaRetryGroup',
   // Browser Loro-session initialization/publication; SDK layout writes use putFormLayout.
   'collaborateForm',
   // Slack archive imports are browser-admin workflows, not SDK surface in v1.

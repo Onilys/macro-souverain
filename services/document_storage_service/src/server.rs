@@ -727,7 +727,10 @@ pub async fn run() -> anyhow::Result<()> {
     );
     let call_connection_service =
         ConnectionServiceImpl::new(entity_access_service.clone(), connection_gateway.clone());
-    let call_repo = PgCallRepo::new(db.clone());
+    let call_repo = PgCallRepo::new(
+        db.clone(),
+        channels::outbound::pg_channels_repo::PgChannelsRepo::new(db.clone()),
+    );
     let egress_config = match (
         config::CallRecordingS3Bucket::new(),
         config::CallRecordingS3Region::new(),
@@ -1080,9 +1083,7 @@ pub async fn run() -> anyhow::Result<()> {
         let cancellation_token = consumer_cancellation_token.clone();
         let consumer = crm::inbound::call_archived::CallArchivedConsumer::new(
             crm::domain::call_links::CallRecordLinker::new(
-                call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(
-                    db.clone(),
-                )),
+                call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone(), channels::outbound::pg_channels_repo::PgChannelsRepo::new(db.clone()))),
                 crm::outbound::call_link::PgCallCrmLinker::new(
                     db.clone(),
                     (*system_properties_service).clone(),
@@ -1185,16 +1186,12 @@ pub async fn run() -> anyhow::Result<()> {
     )
     .with_macro_event_broker(macro_event_broker.clone());
 
-    let group_lifecycle = Arc::new(crate::native_messaging::groups::GroupLifecycle(
-        std::sync::OnceLock::new(),
-    ));
     let channels_service = Arc::new(
         ChannelServiceImpl::with_dependencies(
             channels_repo.clone(),
             SpawnedChannelEventDispatcher::new(channel_side_effects.clone()),
             PgChannelReferenceSharePermissions::new(db.clone(), entity_access_service.clone()),
         )
-        .with_provider_lifecycle(group_lifecycle.clone())
         .with_agent_direct_messages(Arc::new(channels::domain::agent_dm::AgentDmService::new(
             channels_repo,
             outbound::agent_dm_authorizer::BotServiceDmAuthorizer(bots_service.clone()),
@@ -1455,11 +1452,6 @@ pub async fn run() -> anyhow::Result<()> {
     })
     .await?;
 
-    group_lifecycle
-        .0
-        .set(meta_state.service.clone())
-        .map_err(|_| anyhow::anyhow!("group lifecycle initialized twice"))?;
-
     // Held by value here and behind an `Arc` in the router state: the impl is a
     // pool handle, so cloning is cheap and `SoupImpl` needs an owned service.
     // Additional connections for guards spanning email I/O. HTTP requests and
@@ -1580,7 +1572,10 @@ pub async fn run() -> anyhow::Result<()> {
                 frecency_storage.clone(),
             )
             .with_agent_dm_profiles(agent_dm_profiles),
-            call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
+            call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(
+                db.clone(),
+                channels::outbound::pg_channels_repo::PgChannelsRepo::new(db.clone()),
+            )),
             crm_service.clone(),
             GithubPullRequestServiceImpl::new(
                 ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
@@ -1616,6 +1611,7 @@ pub async fn run() -> anyhow::Result<()> {
             )),
             call::domain::service::CallRecordQueryServiceImpl::new(PgCallRepo::new(
                 readonly_db.clone(),
+                channels::outbound::pg_channels_repo::PgChannelsRepo::new(readonly_db.clone()),
             )),
             crm_service.clone(),
             GithubPullRequestServiceImpl::new(

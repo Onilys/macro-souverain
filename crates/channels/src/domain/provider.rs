@@ -1,19 +1,12 @@
-//! Provider-managed native channels retain native ownership but require a remote
-//! deletion decision. Unwired hosts fail closed for these channels.
-use super::ports::ChannelMutationErr;
-use macro_user_id::user_id::MacroUserIdStr;
+//! Native channel policy consumed through the owning domain.
 use uuid::Uuid;
 
-/// Held through native deletion to exclude a concurrent provider setup attempt.
-pub trait ProviderDeletionGuard: Send {}
-
-/// Owning provider's deletion use case, wired by the host.
+/// Native channel policy consumed by calls without querying another domain's tables.
+/// Object-safe so composition roots can supply the owning domain adapter.
 #[async_trait::async_trait]
-pub trait ProviderChannelLifecycle: Send + Sync {
-    /// Revalidate native ownership/team permission and confirm remote deletion.
-    async fn prepare_delete(
-        &self,
-        channel: Uuid,
-        user: MacroUserIdStr<'_>,
-    ) -> Result<Box<dyn ProviderDeletionGuard>, ChannelMutationErr>;
+pub trait ChannelCallPolicy: Send + Sync {
+    /// Adapter failure.
+    type Err: std::error::Error + Send + Sync + 'static;
+    /// Missing and provider-managed group channels fail closed.
+    async fn allows_calls(&self, channel: Uuid) -> Result<bool, Self::Err>;
 }

@@ -235,7 +235,8 @@ CREATE TABLE meta_messaging_customer_alias (
 
 -- Native policy marker is owned/read by channels, messages and calls. Creation
 -- sets it in the same transaction as the private channel and pending binding.
-ALTER TABLE comms_channels ADD COLUMN provider_managed boolean NOT NULL DEFAULT false;
+ALTER TABLE comms_channels ADD COLUMN messaging_binding text NOT NULL DEFAULT 'native'
+    CHECK (messaging_binding IN ('native','whatsapp_direct','instagram_direct','whatsapp_group'));
 
 -- Only the current unbound attempt is retained. No operation history or tombstone.
 CREATE TABLE meta_messaging_group_setup (

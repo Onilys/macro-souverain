@@ -59,7 +59,7 @@ impl MetaService {
         request.subject = request.subject.trim().to_owned();
         if request.channel_id.get_version_num() != 7
             || request.subject.is_empty()
-            || request.subject.chars().count() > 128
+            || request.subject.chars().count() > GROUP_SUBJECT_MAX_CHARS
             || request.subject.chars().any(char::is_control)
         {
             return Err(
@@ -232,6 +232,7 @@ impl MetaService {
     pub async fn group_view(
         &self,
         access: &EntityAccessReceipt<MessageView>,
+        authority: SendAuthority,
     ) -> PortResult<Option<GroupView>> {
         let channel = channel_id(access)?;
         let user = access
@@ -243,7 +244,8 @@ impl MetaService {
             Err(e) if matches!(e.current_context(), MessagingError::NotFound) => return Ok(None),
             result => result?,
         };
-        let member = self.native.require_member(c.team_id, user).await.is_ok();
+        let member = authority == SendAuthority::Human
+            && self.native.require_member(c.team_id, user).await.is_ok();
         let can_delete = member
             && self
                 .native
@@ -280,7 +282,15 @@ impl MetaService {
     }
 
     /// Link access is independent of the customer-service reply window.
-    pub async fn group_link(&self, channel: Uuid, user: &str) -> PortResult<GroupInviteLink> {
+    pub async fn group_link(
+        &self,
+        channel: Uuid,
+        user: &str,
+        authority: SendAuthority,
+    ) -> PortResult<GroupInviteLink> {
+        if authority != SendAuthority::Human {
+            return Err(MessagingError::Forbidden.into());
+        }
         let (c, _, _) = self.group_connection(channel).await?;
         self.native.require_member(c.team_id, user).await?;
         self.native
@@ -349,7 +359,15 @@ impl MetaService {
     /// Discard only an unbound failed/unknown setup. A callback that bound it
     /// meanwhile requires a new, explicit remote-deletion confirmation instead.
     #[tracing::instrument(skip_all,fields(channel_id=%channel),err)]
-    pub async fn discard_group_setup(&self, channel: Uuid, user: &str) -> PortResult<()> {
+    pub async fn discard_group_setup(
+        &self,
+        channel: Uuid,
+        user: &str,
+        authority: SendAuthority,
+    ) -> PortResult<()> {
+        if authority != SendAuthority::Human {
+            return Err(MessagingError::Forbidden.into());
+        }
         let attempt = self
             .repository
             .group_attempt(channel)
@@ -380,13 +398,37 @@ impl MetaService {
         self.native
             .require_group_permission(channel, user, GroupPermission::Delete)
             .await?;
-        self.native.discard_group_channel(channel, user).await
+        self.native
+            .delete_group_channel(&c, channel, user, true)
+            .await
     }
 
-    /// Called by ordinary native deletion. The returned guard stays held through
+    /// Explicit human deletion owns the provider effect and retains synchronization
+    /// through native teardown. Generic native deletion remains fail closed.
+    #[tracing::instrument(skip_all, fields(channel_id=%channel), err)]
+    pub async fn delete_group(
+        &self,
+        channel: Uuid,
+        user: &str,
+        authority: SendAuthority,
+    ) -> PortResult<()> {
+        if authority != SendAuthority::Human {
+            return Err(MessagingError::Forbidden.into());
+        }
+        let (c, setup, _) = self.group_connection(channel).await?;
+        if setup.is_some() {
+            return Err(MessagingError::Conflict.into());
+        }
+        let _guard = self.prepare_group_deletion(channel, user).await?;
+        self.native
+            .delete_group_channel(&c, channel, user, false)
+            .await
+    }
+
+    /// Prepare explicit provider deletion. The returned guard stays held through
     /// local deletion, preventing a retry/reconnect racing a discarded setup.
     #[tracing::instrument(skip_all, fields(channel_id=%channel), err)]
-    pub async fn prepare_group_deletion(
+    async fn prepare_group_deletion(
         &self,
         channel: Uuid,
         user: &str,

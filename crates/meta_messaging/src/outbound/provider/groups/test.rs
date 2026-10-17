@@ -21,7 +21,7 @@ struct Scenario {
 }
 
 #[tokio::test]
-async fn group_preflight_checks_oba_platform_permissions_and_both_subscription_scopes() {
+async fn group_preflight_checks_oba_modes_and_capability_with_startup_callback_gate() {
     async fn respond(State(mode): State<Arc<AtomicU8>>, method: HttpMethod, uri: Uri) -> Response {
         assert_eq!(
             method,
@@ -84,11 +84,18 @@ async fn group_preflight_checks_oba_platform_permissions_and_both_subscription_s
     provider.test_origin = Some(format!("http://{address}/").parse().unwrap());
     let c = super::super::test::connection(Provider::Whatsapp);
     let token = AccessToken::new("token".into()).unwrap();
+    assert!(
+        provider
+            .require_group_eligibility(&c, &token)
+            .await
+            .is_err()
+    );
+    provider.check_group_configuration().await.unwrap();
     provider
         .require_group_eligibility(&c, &token)
         .await
         .unwrap();
-    for failure in 1..=8 {
+    for failure in [1, 2, 3, 4, 7] {
         mode.store(failure, Ordering::SeqCst);
         assert!(
             provider
@@ -98,6 +105,20 @@ async fn group_preflight_checks_oba_platform_permissions_and_both_subscription_s
             "preflight mode {failure}"
         );
     }
+    mode.store(5, Ordering::SeqCst);
+    assert!(provider.check_group_configuration().await.is_err());
+    mode.store(0, Ordering::SeqCst);
+    assert!(
+        provider
+            .require_group_eligibility(&c, &token)
+            .await
+            .is_err()
+    );
+    provider.check_group_configuration().await.unwrap();
+    provider
+        .require_group_eligibility(&c, &token)
+        .await
+        .unwrap();
     server.abort();
 }
 

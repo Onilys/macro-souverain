@@ -11,8 +11,6 @@ use uuid::Uuid;
 /// Required native permission for an external control.
 #[derive(Clone, Copy)]
 pub enum GroupPermission {
-    /// Native channel view only.
-    View,
     /// Native message posting.
     Reply,
     /// Native participant admin.
@@ -101,7 +99,13 @@ pub trait NativeGroups: Send + Sync {
         request: &CreateGroup,
     ) -> PortResult<GroupAttempt>;
     /// Delete a failed/unknown local setup under the domain's deletion guard.
-    async fn discard_group_channel(&self, channel: Uuid, user: &str) -> PortResult<()>;
+    async fn delete_group_channel(
+        &self,
+        connection: &Connection,
+        channel: Uuid,
+        user: &str,
+        discard: bool,
+    ) -> PortResult<()>;
     /// Apply a signed fact and native subject mutation in one transaction, then publish.
     async fn apply_group_event(
         &self,

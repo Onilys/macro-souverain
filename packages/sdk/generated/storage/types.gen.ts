@@ -593,6 +593,10 @@ export type ApiChannelDetail = {
      */
     channel_type: ChannelType;
     /**
+     * Authoritative external binding.
+     */
+    messaging_binding: MessagingBinding;
+    /**
      * Active participants.
      */
     participants: Array<ApiChannelParticipant>;
@@ -738,6 +742,10 @@ export type ApiChannelWithLatest = {
     is_participant: boolean;
     latest_message?: null | ApiChannelListMessage;
     latest_non_thread_message?: null | ApiChannelListMessage;
+    /**
+     * Authoritative external binding, including pending provider group setup.
+     */
+    messaging_binding: MessagingBinding;
     /**
      * Channel name.
      */
@@ -2354,6 +2362,10 @@ export type Channel = {
      * Channel id.
      */
     id: string;
+    /**
+     * Authoritative external binding, including pending group setup.
+     */
+    messaging_binding: MessagingBinding;
     /**
      * Channel display name.
      */
@@ -9439,6 +9451,12 @@ export type MessageTopicEvent = {
 };
 
 /**
+ * Authoritative external binding, including an unbound provider group setup.
+ * Native authorization always reads this from storage, never from a client.
+ */
+export type MessagingBinding = 'native' | 'whatsapp_direct' | 'instagram_direct' | 'whatsapp_group';
+
+/**
  * Browser OAuth initiation result. State is scoped to the authenticated initiator.
  */
 export type MetaBeginAuthorization = {
@@ -9571,6 +9589,11 @@ export type MetaConversation = {
      * Verified phone, when present.
      */
     customer_phone?: string | null;
+    group_status?: null | MetaGroupStatus;
+    /**
+     * Destination kind; group identifiers never enter person alias resolution.
+     */
+    kind?: MetaConversationKind;
     /**
      * Latest eligible inbound source timestamp.
      */
@@ -9578,9 +9601,15 @@ export type MetaConversation = {
 };
 
 /**
+ * Provider destination namespace, independent of an individual author.
+ */
+export type MetaConversationKind = 'direct' | 'group';
+
+/**
  * Optional messaging metadata for an ordinary native channel.
  */
 export type MetaConversationResponse = {
+    group?: null | MetaGroupView;
     messaging?: null | MetaConversationView;
 };
 
@@ -9647,9 +9676,127 @@ export type MetaConversationView = {
 };
 
 /**
+ * Human request to create a private native channel and its WhatsApp group.
+ */
+export type MetaCreateGroup = {
+    /**
+     * Client-retained native identity, also used after a lost HTTP response.
+     */
+    channel_id: string;
+    /**
+     * WhatsApp subject (1–128 characters).
+     */
+    subject: string;
+};
+
+/**
  * Observed outbound state. Unknown outcomes require reconciliation, not resend.
  */
 export type MetaDeliveryState = 'pending' | 'sending' | 'unknown' | 'accepted' | 'sent' | 'delivered' | 'read' | 'failed';
+
+/**
+ * Link returned only through the explicit authorized operation.
+ */
+export type MetaGroupInviteLink = {
+    /**
+     * Validated Meta invite URL.
+     */
+    invite_link: string;
+};
+
+/**
+ * Confirmed external participant, independent of native teammate membership.
+ */
+export type MetaGroupParticipant = {
+    /**
+     * Current scoped BSUID or legacy phone.
+     */
+    customer_id: MetaProviderId;
+    /**
+     * Optional provider display name.
+     */
+    display_name?: string | null;
+    /**
+     * Stable native external author across departure and identity updates.
+     */
+    external_sender_id: string;
+    /**
+     * Separately supplied phone.
+     */
+    phone?: string | null;
+    /**
+     * Optional mutable username.
+     */
+    username?: string | null;
+};
+
+/**
+ * Public pending binding; never contains a speculative remote group ID/link.
+ */
+export type MetaGroupSetup = {
+    /**
+     * Native identity, reserved before provider I/O.
+     */
+    channel_id: string;
+    /**
+     * Selected business connection.
+     */
+    connection_id: string;
+    /**
+     * Sanitized diagnostic.
+     */
+    error_code?: string | null;
+    /**
+     * Current creation outcome.
+     */
+    state: MetaGroupSetupState;
+    /**
+     * Native owner's requested subject.
+     */
+    subject: string;
+};
+
+/**
+ * State of the current, unbound create attempt only.
+ */
+export type MetaGroupSetupState = 'creating' | 'pending' | 'failed' | 'unknown';
+
+/**
+ * Monotonic remote lifecycle; deletion cannot be cleared by a later status.
+ */
+export type MetaGroupStatus = 'active' | 'suspended' | 'deleted';
+
+/**
+ * Restricted group controls and participants; invite link is fetched separately.
+ */
+export type MetaGroupView = {
+    /**
+     * Native posting permission and business team membership.
+     */
+    can_copy_link: boolean;
+    /**
+     * Native ownership and business team membership.
+     */
+    can_delete: boolean;
+    /**
+     * Native participant admin permission and team membership.
+     */
+    can_remove: boolean;
+    /**
+     * Current connector and owner may deliberately retry creation.
+     */
+    can_retry: boolean;
+    /**
+     * Native identity.
+     */
+    channel_id: string;
+    /**
+     * Confirmed current participants.
+     */
+    participants: Array<MetaGroupParticipant>;
+    setup?: null | MetaGroupSetup;
+    status?: null | MetaGroupStatus;
+};
 
 /**
  * Durable import status safe to display in account settings.
@@ -9874,6 +10021,10 @@ export type MetaSendReply = {
  * An approved WhatsApp template returned from this connection's account.
  */
 export type MetaTemplate = {
+    /**
+     * Provider category; authentication templates cannot be sent to groups.
+     */
+    category?: string | null;
     /**
      * Approved components used for preview/parameter collection.
      */
@@ -11229,7 +11380,7 @@ export type ReplaceCrmStagesRequest = {
 /**
  * Stable reason a supported operation cannot run now.
  */
-export type ReplyBlockReason = 'forbidden' | 'disconnected' | 'window_closed' | 'template_required' | 'human_support_required' | 'unsupported';
+export type ReplyBlockReason = 'forbidden' | 'disconnected' | 'window_closed' | 'template_required' | 'human_support_required' | 'group_read_only' | 'unsupported';
 
 /**
  * Operations implemented by this integration, independently of current permission.
@@ -21608,6 +21759,76 @@ export type MetaMessageDeliveryResponses = {
 
 export type MetaMessageDeliveryResponse = MetaMessageDeliveryResponses[keyof MetaMessageDeliveryResponses];
 
+export type MetaDeleteGroupData = {
+    body?: never;
+    path: {
+        channel_id: string;
+    };
+    query?: never;
+    url: '/meta/channels/{channel_id}/group';
+};
+
+export type MetaDeleteGroupResponses = {
+    200: unknown;
+};
+
+export type MetaDiscardGroupSetupData = {
+    body?: never;
+    path: {
+        channel_id: string;
+    };
+    query?: never;
+    url: '/meta/channels/{channel_id}/group/discard';
+};
+
+export type MetaDiscardGroupSetupResponses = {
+    200: unknown;
+};
+
+export type MetaGroupLinkData = {
+    body?: never;
+    path: {
+        channel_id: string;
+    };
+    query?: never;
+    url: '/meta/channels/{channel_id}/group/link';
+};
+
+export type MetaGroupLinkResponses = {
+    200: MetaGroupInviteLink;
+};
+
+export type MetaGroupLinkResponse = MetaGroupLinkResponses[keyof MetaGroupLinkResponses];
+
+export type MetaRemoveGroupParticipantData = {
+    body?: never;
+    path: {
+        channel_id: string;
+        participant_id: string;
+    };
+    query?: never;
+    url: '/meta/channels/{channel_id}/group/participants/{participant_id}';
+};
+
+export type MetaRemoveGroupParticipantResponses = {
+    200: unknown;
+};
+
+export type MetaRetryGroupData = {
+    body?: never;
+    path: {
+        channel_id: string;
+    };
+    query?: never;
+    url: '/meta/channels/{channel_id}/group/retry';
+};
+
+export type MetaRetryGroupResponses = {
+    200: MetaGroupSetup;
+};
+
+export type MetaRetryGroupResponse = MetaRetryGroupResponses[keyof MetaRetryGroupResponses];
+
 export type MetaReplyData = {
     body: MetaSendReply;
     path: {
@@ -21678,6 +21899,21 @@ export type MetaDisconnectResponses = {
 };
 
 export type MetaDisconnectResponse = MetaDisconnectResponses[keyof MetaDisconnectResponses];
+
+export type MetaCreateGroupData = {
+    body: MetaCreateGroup;
+    path: {
+        connection_id: string;
+    };
+    query?: never;
+    url: '/meta/connections/{connection_id}/groups';
+};
+
+export type MetaCreateGroupResponses = {
+    200: MetaGroupSetup;
+};
+
+export type MetaCreateGroupResponse = MetaCreateGroupResponses[keyof MetaCreateGroupResponses];
 
 export type MetaHistoryData = {
     body?: never;

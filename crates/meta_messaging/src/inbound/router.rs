@@ -286,7 +286,10 @@ async fn conversation<Eas: EntityAccessService, Auth: MacroAuthorizationService>
     headers: HeaderMap,
 ) -> Result<Json<ConversationResponse>, ApiError> {
     Ok(Json(ConversationResponse {
-        group: s.service.group_view(&a.entity_access_receipt).await?,
+        group: s
+            .service
+            .group_view(&a.entity_access_receipt, send_authority(&headers))
+            .await?,
         messaging: s
             .service
             .conversation_view(&a.entity_access_receipt, send_authority(&headers))
@@ -469,6 +472,7 @@ async fn receive<E: Send + Sync + 'static, A: Send + Sync + 'static>(
 /// API contracts merged into DSS's generated OpenAPI document.
 #[derive(utoipa::OpenApi)]
 #[openapi(paths(
+    groups::delete,
     groups::discard,
     groups::create,
     groups::retry,

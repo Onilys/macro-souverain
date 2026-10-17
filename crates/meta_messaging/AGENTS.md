@@ -38,6 +38,8 @@ from new provider dispatch.
 `domain/meta/groups.rs` owns connector/native/team authorization and explicit create,
 retry, discard and deletion decisions. Group adapters keep Meta payloads and
 current-attempt storage separate; only signed matching request IDs bind groups.
-Participant facts never create direct chats/windows. Group callbacks share the
-existing subscription guard with create/retry/discard and use bounded receipt retry.
+Participant facts never create direct chats/windows. Group callbacks use short connection/setup row-locked transactions and bounded receipt
+retry. User operations retain the subscription guard through native deletion; atomic
+discard rejects a concurrently bound setup. Invite-link access and deletion require
+explicit human authority. App-level group callback configuration is checked at startup.
 See `docs/META_MESSAGING.md#whatsapp-groups` for the contract and scope.

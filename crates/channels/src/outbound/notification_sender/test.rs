@@ -60,6 +60,7 @@ async fn invite_delivery_preserves_dm_context_for_email_and_push() {
                 sender_profile_picture_url: None,
                 message_content: Some("Hey".to_string()),
                 metadata: ChannelMetadata {
+                    messaging_binding: Default::default(),
                     channel_type,
                     channel_name: channel_name.to_string(),
                 },

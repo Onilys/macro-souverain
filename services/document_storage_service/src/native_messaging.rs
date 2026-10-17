@@ -2,7 +2,6 @@
 
 mod effects;
 mod files;
-pub(crate) mod groups;
 mod native;
 mod settings;
 mod workers;
@@ -51,7 +50,10 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         broker,
         notifications,
     } = dependencies;
-    let settings = settings::Settings::load(environment)?;
+    let mut settings = settings::Settings::load(environment)?;
+    if let Err(error) = settings.provider.check_group_configuration().await {
+        tracing::warn!(error=?error.current_context(), "group callbacks are not configured; group creation is disabled");
+    }
     let cipher: Arc<dyn CredentialCipher> = if let Some(key) = settings.kms_key {
         Arc::new(KmsCredentialCipher::new(
             aws_sdk_kms::Client::new(&macro_aws_config::get_macro_aws_config().await),

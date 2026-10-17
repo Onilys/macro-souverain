@@ -66,8 +66,7 @@ threads, pins, recents, notifications, folders, activity.
 
 - Rules: `.agents/rules/rust/db.md`, `.agents/rules/observability.md`
 
-Group wiring lives in `native_messaging/groups.rs` and `native/groups.rs`. It
-composes pending binding/native channel creation atomically, delegates ordinary
-channel deletion to Meta policy, and publishes provider subject changes through
+Group wiring lives in `native_messaging/native/groups.rs`. It
+composes pending binding/native channel creation atomically, fails generic native group deletion closed and handles explicit human deletion through Meta policy, and publishes provider subject changes through
 channel events. `native/test/http/groups.rs` covers signed group receipts, explicit
 retry, dropped clients, ordered membership, native permissions and deletion fences.

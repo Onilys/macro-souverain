@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT NOT provider_managed AS \"allowed!\" FROM comms_channels WHERE id=$1",
+  "query": "SELECT EXISTS(SELECT 1 FROM meta_messaging_conversation WHERE channel_id=$1 AND connection_id=$2 AND kind='group' AND group_status='deleted') AS \"allowed!\"",
   "describe": {
     "columns": [
       {
@@ -11,6 +11,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -18,5 +19,5 @@
       null
     ]
   },
-  "hash": "e9b5c57c1ffaf8f17c8c58c251acee6cd0a688443b39f8c677a8b5b780f5b710"
+  "hash": "6de7617d2493264bd553d805bdfad9f76481d300d6b85e7994bd16c4a1409df8"
 }

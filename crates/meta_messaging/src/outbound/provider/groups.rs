@@ -2,66 +2,16 @@
 use super::*;
 use crate::domain::groups::{GroupCreateResult, ports::GroupProvider};
 
-#[async_trait]
-impl GroupProvider for HttpMetaProvider {
-    #[tracing::instrument(skip_all, fields(connection_id=%c.id), err)]
-    async fn require_group_eligibility(
-        &self,
-        c: &Connection,
-        token: &AccessToken,
-    ) -> PortResult<()> {
-        let phone = self
-            .graph(
-                Provider::Whatsapp,
-                token,
-                Method::GET,
-                &[c.account_id.as_str()],
-                &[(
-                    "fields",
-                    "id,status,platform_type,is_on_biz_app,is_official_business_account",
-                )],
-                None,
-            )
-            .await?;
-        if phone["id"].as_str() != Some(c.account_id.as_str())
-            || phone["status"] != "CONNECTED"
-            || phone["platform_type"] != "CLOUD_API"
-            || phone["is_on_biz_app"] != false
-            || phone["is_official_business_account"] != true
-        {
-            return Err(MessagingError::GroupIneligible.into());
-        }
-        let app = self
-            .whatsapp
-            .as_ref()
-            .ok_or(MessagingError::ConfigurationRequired)?;
+impl HttpMetaProvider {
+    /// Verify app-wide webhook configuration once at startup. Failure disables
+    /// group creation until setup is corrected and the service is restarted.
+    #[tracing::instrument(skip_all, err)]
+    pub async fn check_group_configuration(&mut self) -> PortResult<()> {
+        self.group_callbacks_ready = false;
+        let Some(app) = self.whatsapp.as_ref() else {
+            return Ok(());
+        };
         let app_token = AccessToken::new(format!("{}|{}", app.app_id, app.app_secret.expose()))?;
-        let permissions = self
-            .graph(
-                Provider::Whatsapp,
-                &app_token,
-                Method::GET,
-                &["debug_token"],
-                &[("input_token", token.expose())],
-                None,
-            )
-            .await?;
-        let data = &permissions["data"];
-        if data["is_valid"] != true
-            || data["app_id"].as_str() != Some(&app.app_id)
-            || ![
-                "whatsapp_business_messaging",
-                "whatsapp_business_management",
-            ]
-            .iter()
-            .all(|scope| {
-                data["scopes"]
-                    .as_array()
-                    .is_some_and(|scopes| scopes.iter().any(|v| v == scope))
-            })
-        {
-            return Err(MessagingError::GroupIneligible.into());
-        }
         let subscriptions = self
             .graph(
                 Provider::Whatsapp,
@@ -93,25 +43,41 @@ impl GroupProvider for HttpMetaProvider {
         if !subscribed {
             return Err(MessagingError::GroupIneligible.into());
         }
-        let waba = c
-            .business_account_id
-            .as_ref()
-            .ok_or(MessagingError::GroupIneligible)?;
-        let accounts = self
+        self.group_callbacks_ready = true;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl GroupProvider for HttpMetaProvider {
+    #[tracing::instrument(skip_all, fields(connection_id=%c.id), err)]
+    async fn require_group_eligibility(
+        &self,
+        c: &Connection,
+        token: &AccessToken,
+    ) -> PortResult<()> {
+        if !self.group_callbacks_ready {
+            return Err(MessagingError::GroupIneligible.into());
+        }
+        let phone = self
             .graph(
                 Provider::Whatsapp,
                 token,
                 Method::GET,
-                &[waba.as_str(), "subscribed_apps"],
-                &[],
+                &[c.account_id.as_str()],
+                &[(
+                    "fields",
+                    "id,status,platform_type,is_on_biz_app,is_official_business_account",
+                )],
                 None,
             )
             .await?;
-        if !accounts["data"].as_array().is_some_and(|entries| {
-            entries.iter().any(|entry| {
-                entry["whatsapp_business_api_data"]["id"].as_str() == Some(app.app_id.as_str())
-            })
-        }) {
+        if phone["id"].as_str() != Some(c.account_id.as_str())
+            || phone["status"] != "CONNECTED"
+            || phone["platform_type"] != "CLOUD_API"
+            || phone["is_on_biz_app"] != false
+            || phone["is_official_business_account"] != true
+        {
             return Err(MessagingError::GroupIneligible.into());
         }
         // Probe the documented read-only Groups capability, including Meta's

@@ -113,6 +113,13 @@ impl NativeChannels {
             )
             .await
             .map_err(error)?;
+            let binding = match c.provider {
+                Provider::Whatsapp => channels::domain::models::MessagingBinding::WhatsappDirect,
+                Provider::Instagram => channels::domain::models::MessagingBinding::InstagramDirect,
+            };
+            PgChannelsRepo::bind_messaging_in(&mut tx, reservation.channel_id, binding)
+                .await
+                .map_err(error)?;
         }
         if reservation.create_message {
             let author = sender.clone().unwrap_or_else(|| {

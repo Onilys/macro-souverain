@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT channel_id,group_status FROM meta_messaging_conversation WHERE connection_id=$1 AND kind='group' AND customer_id=$2 FOR UPDATE",
+  "query": "SELECT channel_id,group_status AS \"group_status: GroupStatus\" FROM meta_messaging_conversation WHERE connection_id=$1 AND kind='group' AND customer_id=$2 FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "group_status",
+        "name": "group_status: GroupStatus",
         "type_info": "Text"
       }
     ],
@@ -25,5 +25,5 @@
       true
     ]
   },
-  "hash": "67ce32fd1424b91bcd8a2d236bf088ed288fbfa77dcfb5e2df815c55b2a22f42"
+  "hash": "6246b4ab9e2ed687a8371585a63c80b7714efd8d964cc321eaf65f002def32de"
 }

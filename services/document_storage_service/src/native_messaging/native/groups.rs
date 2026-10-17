@@ -15,17 +15,6 @@ impl NativeGroups for NativeChannels {
             MacroUserIdStr::try_from(user.to_owned()).map_err(|_| MessagingError::Forbidden)?;
         let channel = channel.to_string();
         match permission {
-            GroupPermission::View => {
-                self.access
-                    .generate_entity_access_receipt::<messages::domain::service::MessageView>(
-                        &user.0,
-                        None,
-                        &channel,
-                        EntityType::Channel,
-                    )
-                    .await
-                    .map_err(access_error)?;
-            }
             GroupPermission::Reply => {
                 self.access
                     .generate_entity_access_receipt::<MessageWrite>(
@@ -88,9 +77,13 @@ impl NativeGroups for NativeChannels {
         if !reserved.created {
             return Err(MessagingError::Conflict.into());
         }
-        PgChannelsRepo::mark_provider_managed_in(&mut tx, request.channel_id)
-            .await
-            .map_err(error)?;
+        PgChannelsRepo::bind_messaging_in(
+            &mut tx,
+            request.channel_id,
+            channels::domain::models::MessagingBinding::WhatsappGroup,
+        )
+        .await
+        .map_err(error)?;
         let attempt = PgMessagingRepository::create_group_in(&mut tx, c, request).await?;
         tx.commit().await.map_err(error)?;
         self.channel_events
@@ -105,11 +98,19 @@ impl NativeGroups for NativeChannels {
         Ok(attempt)
     }
 
-    async fn discard_group_channel(&self, channel: Uuid, user: &str) -> PortResult<()> {
-        PgChannelsRepo::new(self.pool.clone())
-            .delete_channel(channel, user.to_owned())
+    async fn delete_group_channel(
+        &self,
+        c: &Connection,
+        channel: Uuid,
+        user: &str,
+        discard: bool,
+    ) -> PortResult<()> {
+        let mut tx = self.pool.begin().await.map_err(error)?;
+        PgMessagingRepository::lock_group_deletion_in(&mut tx, c, channel, discard).await?;
+        PgChannelsRepo::delete_channel_in(&mut tx, channel, user)
             .await
             .map_err(error)?;
+        tx.commit().await.map_err(error)?;
         let actor = ChannelSender::new_from_user(
             MacroUserIdStr::try_from(user.to_owned()).map_err(|_| MessagingError::Forbidden)?,
         );

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT customer_id,external_sender_id,display_name,username,phone,active FROM meta_messaging_group_participant WHERE channel_id=$1 AND active ORDER BY customer_id LIMIT 100",
+  "query": "SELECT customer_id,external_sender_id,display_name,username,phone FROM meta_messaging_group_participant WHERE channel_id=$1 AND active ORDER BY customer_id LIMIT 100",
   "describe": {
     "columns": [
       {
@@ -27,11 +27,6 @@
         "ordinal": 4,
         "name": "phone",
         "type_info": "Text"
-      },
-      {
-        "ordinal": 5,
-        "name": "active",
-        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -44,9 +39,8 @@
       false,
       true,
       true,
-      true,
-      false
+      true
     ]
   },
-  "hash": "1eabc262d18de49ec029e542f6a5bbc636b60762a794a41bda99c93eb08b4f9d"
+  "hash": "5dd9456cb3440a41e802eceb4492d76d5c37dfbcc8f213ef514315ef3dc5a0ae"
 }

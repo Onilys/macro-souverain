@@ -60,8 +60,10 @@ DMs, and the shared message store other domains discuss things on.
 
 ## Provider-managed groups
 
-`ChannelInfo.provider_managed` is set atomically with group setup. The domain blocks
-local name/visibility mutations and requires `ProviderChannelLifecycle` before
-deleting these channels; hosts without that port fail closed. Private-chat reuse
-excludes managed groups. `pg_channels_repo/provider.rs` owns transactional provider
+`ChannelInfo.messaging_binding` is set atomically for direct bindings and group setup;
+channel detail, lists and GraphQL expose the same enum. Native detail reads require
+view access, including public and unjoined team viewers; mutation role checks stay separate. The domain blocks
+local name/visibility mutations and fails generic deletion closed for these channels; provider-owned explicit deletion
+revalidates human authority and synchronizes through native teardown. DSS uses explicit human-authorized messaging deletion, so its generic native
+delete remains fail closed for groups. Private-chat reuse excludes managed groups. `pg_channels_repo/provider.rs` owns transactional provider
 subject changes; DSS publishes the returned ordinary channel event.

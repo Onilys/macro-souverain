@@ -22,6 +22,10 @@ pub(super) fn router<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
         )
         .route("/channels/{channel_id}/group/link", get(link::<Eas, Auth>))
         .route(
+            "/channels/{channel_id}/group",
+            axum::routing::delete(delete::<Eas, Auth>),
+        )
+        .route(
             "/channels/{channel_id}/group/participants/{participant_id}",
             axum::routing::delete(remove::<Eas, Auth>),
         )
@@ -83,9 +87,15 @@ pub(super) async fn retry<Eas: EntityAccessService, Auth: MacroAuthorizationServ
 pub(super) async fn link<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
     a: ChannelAccessLevelExtractor<MessageWrite, Eas, Auth>,
+    _auth: MacroAuthorizationExtractor<Auth, UserOnly>,
+    headers: HeaderMap,
 ) -> Result<Json<GroupInviteLink>, ApiError> {
     let (channel, user) = actor(&a.entity_access_receipt)?;
-    Ok(Json(s.service.group_link(channel, &user).await?))
+    Ok(Json(
+        s.service
+            .group_link(channel, &user, send_authority(&headers))
+            .await?,
+    ))
 }
 
 #[utoipa::path(delete,path="/meta/channels/{channel_id}/group/participants/{participant_id}",operation_id="meta_remove_group_participant",params(("channel_id"=Uuid,Path),("participant_id"=Uuid,Path)),responses((status=200)))]
@@ -108,8 +118,25 @@ pub(super) async fn discard<Eas: EntityAccessService, Auth: MacroAuthorizationSe
     State(s): State<MessagingRouterState<Eas, Auth>>,
     a: ChannelAccessLevelExtractor<OwnerParticipantRole, Eas, Auth>,
     _auth: MacroAuthorizationExtractor<Auth, UserOnly>,
+    headers: HeaderMap,
 ) -> Result<Json<()>, ApiError> {
     let (channel, user) = actor(&a.entity_access_receipt)?;
-    s.service.discard_group_setup(channel, &user).await?;
+    s.service
+        .discard_group_setup(channel, &user, send_authority(&headers))
+        .await?;
+    Ok(Json(()))
+}
+
+#[utoipa::path(delete,path="/meta/channels/{channel_id}/group",operation_id="meta_delete_group",params(("channel_id"=Uuid,Path)),responses((status=200)))]
+pub(super) async fn delete<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
+    State(s): State<MessagingRouterState<Eas, Auth>>,
+    a: ChannelAccessLevelExtractor<OwnerParticipantRole, Eas, Auth>,
+    _auth: MacroAuthorizationExtractor<Auth, UserOnly>,
+    headers: HeaderMap,
+) -> Result<Json<()>, ApiError> {
+    let (channel, user) = actor(&a.entity_access_receipt)?;
+    s.service
+        .delete_group(channel, &user, send_authority(&headers))
+        .await?;
     Ok(Json(()))
 }

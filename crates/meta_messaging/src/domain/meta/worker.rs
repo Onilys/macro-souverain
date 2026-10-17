@@ -272,11 +272,6 @@ impl MetaService {
                     return Ok(());
                 };
                 if accepts_inbound(&c)? {
-                    let _guard = self
-                        .repository
-                        .lock_subscription(&c)
-                        .await?
-                        .ok_or(MessagingError::GroupBindingPending)?;
                     self.native.require_member(c.team_id, &c.user_id).await?;
                     self.native.apply_group_event(&c, &event).await?;
                 }

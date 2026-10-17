@@ -33,9 +33,6 @@ impl Repo {
 }
 
 impl MessageRepository for Repo {
-    async fn provider_managed(&self, _: &MessageParent) -> Result<bool, MessageError> {
-        Ok(self.provider_managed)
-    }
     async fn document_file_type(&self, _: &str) -> Result<Option<String>, MessageError> {
         Ok(self.file_type.clone())
     }
@@ -63,8 +60,12 @@ impl MessageRepository for Repo {
             .cloned()
             .collect())
     }
-    async fn parent_exists(&self, _: &MessageParent) -> Result<bool, MessageError> {
-        Ok(true)
+    async fn parent_state(&self, _: &MessageParent) -> Result<ParentState, MessageError> {
+        Ok(if self.provider_managed {
+            ParentState::ProviderManaged
+        } else {
+            ParentState::Native
+        })
     }
     async fn get(&self, parent: &MessageParent, id: Uuid) -> Result<Option<Message>, MessageError> {
         if self.concurrent_create && self.creates.lock().unwrap().is_empty() {
@@ -1287,9 +1288,6 @@ struct StrictRepo {
 }
 
 impl MessageRepository for StrictRepo {
-    async fn provider_managed(&self, _: &MessageParent) -> Result<bool, MessageError> {
-        Ok(false)
-    }
     async fn document_file_type(&self, id: &str) -> Result<Option<String>, MessageError> {
         self.inner.document_file_type(id).await
     }
@@ -1309,8 +1307,12 @@ impl MessageRepository for StrictRepo {
     ) -> Result<Vec<Message>, MessageError> {
         self.inner.replies(parent, root).await
     }
-    async fn parent_exists(&self, _: &MessageParent) -> Result<bool, MessageError> {
-        Ok(self.parent_exists)
+    async fn parent_state(&self, _: &MessageParent) -> Result<ParentState, MessageError> {
+        Ok(if self.parent_exists {
+            ParentState::Native
+        } else {
+            ParentState::Missing
+        })
     }
     async fn get(&self, parent: &MessageParent, id: Uuid) -> Result<Option<Message>, MessageError> {
         self.inner.get(parent, id).await

@@ -243,24 +243,26 @@ fn status_set_for_expr(expr: &Expr<CallLiteral>) -> Option<CallStatusSet> {
 #[derive(Clone)]
 pub struct PgCallRepo {
     pool: PgPool,
+    channel_policy:
+        std::sync::Arc<dyn channels::domain::provider::ChannelCallPolicy<Err = sqlx::Error>>,
 }
 
 impl PgCallRepo {
     /// Create a new repo with the given connection pool.
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(
+        pool: PgPool,
+        channel_policy: impl channels::domain::provider::ChannelCallPolicy<Err = sqlx::Error> + 'static,
+    ) -> Self {
+        Self {
+            pool,
+            channel_policy: std::sync::Arc::new(channel_policy),
+        }
     }
 }
 
 impl CallRepository for PgCallRepo {
     async fn channel_allows_calls(&self, channel_id: &Uuid) -> Result<bool, Self::Err> {
-        Ok(sqlx::query_scalar!(
-            "SELECT NOT provider_managed AS \"allowed!\" FROM comms_channels WHERE id=$1",
-            channel_id
-        )
-        .fetch_optional(&self.pool)
-        .await?
-        .unwrap_or(false))
+        self.channel_policy.allows_calls(*channel_id).await
     }
 
     type Err = sqlx::Error;

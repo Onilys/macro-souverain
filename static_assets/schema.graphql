@@ -6644,6 +6644,10 @@ type GraphqlSoupChannel implements GraphqlSoupEntity {
 	"""
 	name: String
 	"""
+	Authoritative external binding, including pending provider group setup.
+	"""
+	messagingBinding: String!
+	"""
 	The channel type.
 	"""
 	channelType: String!

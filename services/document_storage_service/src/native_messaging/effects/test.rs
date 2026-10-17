@@ -122,7 +122,7 @@ fn fixture() -> (NativeEffect, MessageEvent, ChannelInfo, HashSet<String>) {
         effect,
         event,
         ChannelInfo {
-            provider_managed: false,
+            messaging_binding: Default::default(),
             id: channel,
             name: Some("Customer".into()),
             channel_type: ChannelType::Private,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT name,owner_id FROM comms_channels WHERE id=$1 AND provider_managed FOR UPDATE",
+  "query": "SELECT name,owner_id FROM comms_channels WHERE id=$1 AND messaging_binding='whatsapp_group' FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "36aa501462de0092d5493222e8baeff310d046cc2f03ae538a5b4267bdb5d87b"
+  "hash": "6ed8529c3200c481d64eab7995b10cd7e09b6f35192148c499a2509d6c338faa"
 }

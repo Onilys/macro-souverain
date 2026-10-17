@@ -7,11 +7,23 @@ use uuid::Uuid;
 
 use super::models::ProviderId;
 
+/// Setup stops being an active dependency after two minutes; saved IDs still correlate.
+pub const GROUP_SETUP_TIMEOUT_SECONDS: i32 = 120;
+/// Provider subject limit.
+pub const GROUP_SUBJECT_MAX_CHARS: usize = 128;
+
 /// Provider destination namespace, independent of an individual author.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", schema(as = MetaConversationKind))]
+#[derive(strum::EnumString, strum::Display, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
+#[cfg_attr(feature = "outbound", derive(sqlx::Type))]
+#[cfg_attr(
+    feature = "outbound",
+    sqlx(type_name = "text", rename_all = "snake_case")
+)]
 pub enum ConversationKind {
     /// One external person.
     #[default]
@@ -25,6 +37,13 @@ pub enum ConversationKind {
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", schema(as = MetaGroupStatus))]
+#[derive(strum::EnumString, strum::Display, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
+#[cfg_attr(feature = "outbound", derive(sqlx::Type))]
+#[cfg_attr(
+    feature = "outbound",
+    sqlx(type_name = "text", rename_all = "snake_case")
+)]
 pub enum GroupStatus {
     /// External replies are subject to the ordinary group reply window.
     Active,
@@ -39,6 +58,13 @@ pub enum GroupStatus {
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "schema", schema(as = MetaGroupSetupState))]
+#[derive(strum::EnumString, strum::Display, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
+#[cfg_attr(feature = "outbound", derive(sqlx::Type))]
+#[cfg_attr(
+    feature = "outbound",
+    sqlx(type_name = "text", rename_all = "snake_case")
+)]
 pub enum GroupSetupState {
     /// No automatic retry is allowed while a server request is in flight.
     Creating,
@@ -75,8 +101,6 @@ pub struct GroupAttempt {
     pub attempt_id: Uuid,
     /// Authorization generation that initiated the attempt.
     pub generation: Option<DateTime<Utc>>,
-    /// Meta's correlation identity, never inferred from names or timestamps.
-    pub request_id: Option<ProviderId>,
 }
 
 /// Human request to create a private native channel and its WhatsApp group.
@@ -115,8 +139,6 @@ pub struct GroupParticipant {
     pub username: Option<String>,
     /// Separately supplied phone.
     pub phone: Option<String>,
-    /// Latest confirmed membership, never inferred from a local request.
-    pub active: bool,
 }
 
 /// Restricted group controls and participants; invite link is fetched separately.

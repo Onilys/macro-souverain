@@ -846,7 +846,7 @@ impl<
             .map_err(|e| CallError::Internal(e.into()))?
         {
             return Err(CallError::InvalidRequest(
-                "WhatsApp groups do not support calls".into(),
+                "Provider-managed groups do not support calls".into(),
             ));
         }
         let call = match self

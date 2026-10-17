@@ -277,7 +277,10 @@ pub async fn build_tool_service_context_from_env(
             ReadonlyEmailPreviewAdapter(email_service),
             channels_service,
             call::domain::service::CallRecordQueryServiceImpl::new(
-                call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
+                call::outbound::pg_call_repo::PgCallRepo::new(
+                    pool.clone(),
+                    channels::outbound::pg_channels_repo::PgChannelsRepo::new(pool.clone()),
+                ),
             ),
             crm::domain::service::NoOpCrmService,
             github_pull_request_service,
@@ -421,7 +424,10 @@ pub async fn build_tool_service_context_from_env(
     );
 
     let call_service = call::domain::service::CallServiceImpl::new(
-        call::outbound::pg_call_repo::PgCallRepo::new(pool.clone()),
+        call::outbound::pg_call_repo::PgCallRepo::new(
+            pool.clone(),
+            channels::outbound::pg_channels_repo::PgChannelsRepo::new(pool.clone()),
+        ),
         NoOpCallRtcClient,
         NoOpConnectionService,
         (*entity_access_service).clone(),

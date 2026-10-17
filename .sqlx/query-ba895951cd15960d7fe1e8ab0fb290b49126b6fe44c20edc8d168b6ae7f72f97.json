@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, channel_type AS \"channel_type: ChannelType\", org_id, team_id, provider_managed\n            FROM comms_channels\n            WHERE id = $1\n            ",
+  "query": "\n            SELECT id, name, channel_type AS \"channel_type: ChannelType\", org_id, team_id, messaging_binding AS \"messaging_binding: MessagingBinding\"\n            FROM comms_channels\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -42,8 +42,8 @@
       },
       {
         "ordinal": 5,
-        "name": "provider_managed",
-        "type_info": "Bool"
+        "name": "messaging_binding: MessagingBinding",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -60,5 +60,5 @@
       false
     ]
   },
-  "hash": "50dff4f90f5c9254871494d13b3385c44474d8041d1efb7c6a9d10ab4535923f"
+  "hash": "ba895951cd15960d7fe1e8ab0fb290b49126b6fe44c20edc8d168b6ae7f72f97"
 }
