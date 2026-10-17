@@ -174,7 +174,10 @@ globally to work around an iOS link failure.
 GraphQL schema SDL is loaded from the frontend bundle through
 `graphql_cache_init_with_schema`; the cache engine and Turso remain native.
 Set `MIN_NATIVE_BUILD` to the first native release containing this command before
-shipping the corresponding OTA bundle. See [runtime schema behavior](../../../../crates/client/README.md#runtime-graphql-schema)
+shipping the corresponding OTA bundle. A bundle that still reaches an older
+binary runs uncached and opens the update-required dialog once; it never falls
+back to `graphql_cache_init`, whose compiled-in schema can lack fields the
+bundle reads. See [runtime schema behavior](../../../../crates/client/README.md#runtime-graphql-schema)
 for compatible additions, queued work, and rollback behavior.
 
 GraphQL hydration checkpoints require the native
@@ -194,8 +197,13 @@ cannot establish Android compatibility. `MIN_NATIVE_BUILD` remains supported
 for iOS/desktop-only schema 2 releases.
 
 Every new native command used by shared JS must raise the corresponding
-platform minimum to a binary that implements it. Optional reachability falls
-back to browser connectivity if an older native binary lacks the command.
+platform minimum to a binary that implements it, or its caller must handle
+`Command … not found`. `apps/web/native-commands.json` lists every command the
+web bundle calls; `src/lib/tauri/native-commands.test.ts` fails when code calls
+a command missing from that list or from the app's `generate_handler!` (or an
+in-repo plugin's `build.rs`), so each new native dependency shows up in review
+next to `min-native-build.json`. Optional reachability falls back to browser
+connectivity if an older native binary lacks the command.
 Deploy the updated native_app_service before publishing schema 3 archives;
 an old server returns the legacy minimum and the client rejects the mismatch.
 Never lower a minimum to force an incompatible update to apply.
@@ -229,8 +237,8 @@ Durable email-draft recovery additionally requires
 `MIN_NATIVE_BUILD` to the first full native build containing both before publishing
 this frontend as an OTA bundle. The frontend probes this command before claiming
 or enqueueing mutations. An older binary uses the existing uncached fallback and
-shows an update-required notice; its existing mutation queue stays intact until
-the user installs the native update.
+opens the update-required dialog once; its existing mutation queue stays intact
+until the user installs the native update.
 
 ## Desktop window state
 
