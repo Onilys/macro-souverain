@@ -44,14 +44,10 @@ deleted does not notify as fresh customer content.
 
 ## Recovery and verification
 
-New parsing does not automatically rewrite history. An explicitly replayed retained
-share receipt can replace only an exact old standalone technical placeholder or
-the exact previous plain-text representation of that share,
-scoped by native channel/message and integration source. The original must be
-unedited, undeleted and match the retained source body. Replays retain message identity,
-native permissions, original timestamp and source download limits. Replaying a
-completed receipt is an operator action, not a bulk import or a reset of send state.
-If retained media has expired, retain the honest fallback.
+Source replays deduplicate by provider message identity and preserve native
+permissions and timestamps. Obsolete demo placeholder-repair logic is removed.
+Edits and unsends still use revision fences and tombstones, including across
+WhatsApp identity updates. Replaying a receipt never resets send state.
 
 For release verification, run the affected `meta_messaging`, `messages` and DSS
 native messaging tests with `SQLX_OFFLINE` unset and an isolated database. Regenerate

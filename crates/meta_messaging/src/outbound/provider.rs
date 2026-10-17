@@ -13,6 +13,7 @@ use crate::domain::{connection::*, events::*, models::*, ports::*};
 
 mod history;
 mod media;
+mod registration;
 mod sending;
 #[cfg(all(test, feature = "axum"))]
 mod test;
@@ -241,7 +242,7 @@ impl HttpMetaProvider {
                 &[
                     (
                         "fields",
-                        "id,verified_name,display_phone_number,is_on_biz_app,platform_type",
+                        "id,verified_name,display_phone_number,is_on_biz_app,platform_type,status",
                     ),
                     ("limit", "100"),
                 ],
@@ -264,17 +265,32 @@ impl HttpMetaProvider {
                 .into());
             }
         };
-        if phone["is_on_biz_app"] != true || phone["platform_type"] != "CLOUD_API" {
+        let mode = input.whatsapp_mode.unwrap_or(WhatsappMode::Coexistence);
+        let on_app = phone["is_on_biz_app"]
+            .as_bool()
+            .ok_or(MessagingError::ProviderRejected)?;
+        if phone["platform_type"] != "CLOUD_API" || on_app != (mode == WhatsappMode::Coexistence) {
             return Err(MessagingError::Invalid(
-                "this number is not registered for WhatsApp Business app coexistence",
+                "this number is not eligible for the selected WhatsApp signup mode",
             )
             .into());
         }
+        let registration_status = if mode == WhatsappMode::Platform {
+            Some(if required(phone, "status")? == "CONNECTED" {
+                RegistrationStatus::Registered
+            } else {
+                RegistrationStatus::Required
+            })
+        } else {
+            None
+        };
         let expires_at = data["expires_at"]
             .as_i64()
             .filter(|n| *n > 0)
             .and_then(|n| DateTime::from_timestamp(n, 0));
         Ok(AuthorizedAccount {
+            whatsapp_mode: Some(mode),
+            registration_status,
             developer_account: false,
             account_id: required(phone, "id")?.to_owned().try_into()?,
             business_account_id: Some(account.clone()),
@@ -357,6 +373,8 @@ impl HttpMetaProvider {
             .filter(|s| *s > 0)
             .ok_or(MessagingError::ProviderRejected)?;
         Ok(AuthorizedAccount {
+            whatsapp_mode: None,
+            registration_status: None,
             developer_account: false,
             account_id: account,
             business_account_id: None,
@@ -520,10 +538,12 @@ impl MetaProvider for HttpMetaProvider {
             })
             .ok_or(MessagingError::Forbidden)?;
         Ok(AuthorizedAccount {
+            whatsapp_mode: None,
+            registration_status: None,
             developer_account: true,
             account_id: c.phone_number_id.clone(),
             business_account_id: Some(c.business_account_id.clone()),
-            display_name: format!("{} (test number)", required(phone, "display_phone_number")?),
+            display_name: required(phone, "display_phone_number")?.to_owned(),
             token: AccessToken::new(c.token.expose().to_owned())?,
             expires_at: None,
         })
@@ -537,6 +557,17 @@ impl MetaProvider for HttpMetaProvider {
             Provider::Whatsapp => self.whatsapp_authorize(input).await,
             Provider::Instagram => self.instagram_authorize(input).await,
         }
+    }
+    async fn whatsapp_registered(&self, c: &Connection, token: &AccessToken) -> PortResult<bool> {
+        self.whatsapp_registered_impl(c, token).await
+    }
+    async fn register_whatsapp(
+        &self,
+        c: &Connection,
+        token: &AccessToken,
+        pin: &RegistrationPin,
+    ) -> RegistrationResult {
+        self.register_whatsapp_impl(c, token, pin).await
     }
     async fn subscribe(&self, c: &Connection, token: &AccessToken) -> PortResult<()> {
         let account = c.business_account_id.as_ref().unwrap_or(&c.account_id);

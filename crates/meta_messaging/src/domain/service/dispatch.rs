@@ -5,15 +5,6 @@ use crate::domain::{
 };
 
 impl MessagingService {
-    /// Claim and process the next available attempt; returns whether one was claimed.
-    pub async fn process_next_send(&self) -> PortResult<bool> {
-        let Some(work) = self.repository.claim_send().await? else {
-            return Ok(false);
-        };
-        self.process_send(&work).await?;
-        Ok(true)
-    }
-
     /// Dispatch exactly one attempt and settle its durable outcome. A network attempt
     /// is never blindly repeated following a timeout/crash. Rate limits, and transient
     /// failures before the dispatch fence, are the only retries.
@@ -152,14 +143,20 @@ impl MessagingService {
         if current.team_id != connection.team_id || current.generation != connection.generation {
             return Err(MessagingError::Conflict.into());
         }
-        let conversation = self
+        let latest = self
             .repository
             .conversation(work.channel_id)
             .await?
-            .filter(|latest| {
-                latest.connection_id == current.id && latest.customer_id == conversation.customer_id
-            })
-            .ok_or(MessagingError::Conflict)?;
+            .ok_or(MessagingError::NotFound)?;
+        if latest.connection_id != current.id {
+            return Err(MessagingError::Conflict.into());
+        }
+        if latest.customer_id != conversation.customer_id
+            || latest.customer_phone != conversation.customer_phone
+        {
+            return Err(MessagingError::Unavailable.into());
+        }
+        let conversation = latest;
         self.policy
             .validate_content(&current, &work.request)
             .await?;
@@ -180,7 +177,12 @@ impl MessagingService {
             .eligibility
             .require(reply_mode(&work.request), Utc::now())?;
         self.repository
-            .prepare_send(&work.lease, &current, prepared.rendered_text())
+            .prepare_send(
+                &work.lease,
+                &current,
+                &conversation,
+                prepared.rendered_text(),
+            )
             .await?;
         Ok((prepared, conversation, connection))
     }

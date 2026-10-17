@@ -13,6 +13,7 @@ macro_env_var::maybe_env_vars! {
     pub struct MetaWhatsappAppId;
     pub struct MetaWhatsappAppSecret;
     pub struct MetaWhatsappConfigurationId;
+    pub struct MetaWhatsappPlatformConfigurationId;
     pub struct MetaWhatsappVerifyToken;
     pub struct MetaInstagramAppId;
     pub struct MetaInstagramAppSecret;
@@ -39,13 +40,23 @@ impl Settings {
         let wa_id = MetaWhatsappAppId::new().map(|v| v.to_string());
         let wa_secret = MetaWhatsappAppSecret::new().map(|v| v.to_string());
         let wa_configuration = MetaWhatsappConfigurationId::new().map(|v| v.to_string());
+        let wa_platform_configuration = MetaWhatsappPlatformConfigurationId::new()
+            .map(|v| v.to_string())
+            .filter(|value| !value.is_empty());
         let wa_verify = MetaWhatsappVerifyToken::new().map(|v| v.to_string());
         let ig_id = MetaInstagramAppId::new().map(|v| v.to_string());
         let ig_secret = MetaInstagramAppSecret::new().map(|v| v.to_string());
         let ig_redirect = MetaInstagramRedirectUri::new().map(|v| v.to_string());
         let ig_verify = MetaInstagramVerifyToken::new().map(|v| v.to_string());
         let kms_key = MetaCredentialKmsKey::new().map(|v| v.to_string());
-        let whatsapp = match (&wa_id, &wa_secret, &wa_configuration, &wa_verify) {
+        let whatsapp = match (
+            &wa_id,
+            &wa_secret,
+            wa_configuration
+                .as_ref()
+                .or(wa_platform_configuration.as_ref()),
+            &wa_verify,
+        ) {
             (Some(id), Some(secret), Some(_), Some(_)) => Some(WhatsappCredentials {
                 app_id: id.clone(),
                 app_secret: AccessToken::new(secret.clone())?,
@@ -133,6 +144,7 @@ impl Settings {
             },
             whatsapp_app_id: wa_id,
             whatsapp_configuration_id: wa_configuration,
+            whatsapp_platform_configuration_id: wa_platform_configuration,
             instagram_app_id: ig_id,
             instagram_redirect_uri: ig_redirect,
             graph_version: "v26.0".into(),

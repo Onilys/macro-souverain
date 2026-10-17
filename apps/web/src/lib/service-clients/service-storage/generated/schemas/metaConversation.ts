@@ -8,7 +8,6 @@ import type { MetaConversationCustomerDisplayName } from './metaConversationCust
 import type { MetaConversationCustomerHandle } from './metaConversationCustomerHandle';
 import type { MetaConversationCustomerPhone } from './metaConversationCustomerPhone';
 import type { MetaConversationLastCustomerMessageAt } from './metaConversationLastCustomerMessageAt';
-import type { MetaConversationStandardWindowUntil } from './metaConversationStandardWindowUntil';
 import type { MetaProviderId } from './metaProviderId';
 
 /**
@@ -29,6 +28,4 @@ export interface MetaConversation {
   customer_phone?: MetaConversationCustomerPhone;
   /** Latest eligible inbound source timestamp. */
   last_customer_message_at?: MetaConversationLastCustomerMessageAt;
-  /** Standard reply window, including verified provider-specific extensions. */
-  standard_window_until?: MetaConversationStandardWindowUntil;
 }

@@ -21,19 +21,5 @@ pub fn normalize(message: &IncomingMessage) -> NormalizedContent<'_> {
             }
         })
         .collect();
-    let legacy_placeholders = if shared_content {
-        vec![
-            format!(
-                "[Unsupported Instagram {}; view it in Instagram]",
-                message.message_type
-            ),
-            message.content.clone(),
-        ]
-    } else {
-        vec![]
-    };
-    NormalizedContent {
-        lines,
-        legacy_placeholders,
-    }
+    NormalizedContent { lines }
 }

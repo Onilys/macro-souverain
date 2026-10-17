@@ -72,6 +72,13 @@ pub trait MessagingRepository: ConversationRepository {
     /// Includes other teams; only a boolean crosses the domain boundary.
     async fn subscription_in_use(&self, connection: &Connection) -> PortResult<bool>;
 
+    /// Persist a registration checkpoint under the same authorization generation.
+    async fn registration_state(
+        &self,
+        connection: &Connection,
+        status: RegistrationStatus,
+        error: Option<&str>,
+    ) -> PortResult<()>;
     /// Explicit consent/status for this authorization generation only.
     async fn history_import(&self, connection: &Connection) -> PortResult<Option<HistoryImport>>;
     /// Atomically schedule explicit import or resume a failed Instagram checkpoint.
@@ -107,8 +114,9 @@ pub trait MessagingRepository: ConversationRepository {
         &self,
         connection: &Connection,
         received_at: DateTime<Utc>,
+        waiting: bool,
     ) -> PortResult<Option<String>>;
-    /// Stop an import after its consenting administrator loses access.
+    /// Stop an import after its consenting member leaves the team.
     async fn revoke_history_consent(&self, connection: &Connection) -> PortResult<()>;
     /// Apply monotonic provider progress without changing live account health.
     async fn history_import_progress(
@@ -132,6 +140,7 @@ pub trait MessagingRepository: ConversationRepository {
         user: &str,
     ) -> PortResult<OAuthAttempt>;
     /// Bind a verified provider identity, rejecting cross-team or wrong-account reconnects.
+    // On reconnect, connected_at is the authorized original generation and is fenced at commit.
     async fn connect(
         &self,
         connection: &Connection,
@@ -247,6 +256,19 @@ pub trait MetaProvider: Send + Sync {
     async fn developer_account(&self) -> PortResult<AuthorizedAccount>;
     /// Subscribe the verified account to the app's configured webhook fields.
     async fn subscribe(&self, connection: &Connection, token: &AccessToken) -> PortResult<()>;
+    /// Verify current phone identity/mode and CONNECTED status before activation or retry.
+    async fn whatsapp_registered(
+        &self,
+        connection: &Connection,
+        token: &AccessToken,
+    ) -> PortResult<bool>;
+    /// One explicit registration attempt; never persist the PIN.
+    async fn register_whatsapp(
+        &self,
+        connection: &Connection,
+        token: &AccessToken,
+        pin: &RegistrationPin,
+    ) -> RegistrationResult;
     /// Remove this app's account subscription.
     async fn unsubscribe(&self, connection: &Connection, token: &AccessToken) -> PortResult<()>;
     /// Refresh an eligible long-lived Instagram token; return actual new expiry.
@@ -344,6 +366,22 @@ pub trait NativeMessaging: NativeConversation {
     async fn revise(&self, connection: &Connection, revision: &IncomingRevision) -> PortResult<()>;
     /// Revalidate the current management role before background work.
     async fn require_admin(&self, team: Uuid, user: &str) -> PortResult<()>;
+    /// Retain an authoritative identity change without creating a native channel.
+    async fn update_identity(
+        &self,
+        connection: &Connection,
+        update: &crate::domain::events::IdentityUpdate,
+    ) -> PortResult<()>;
+    /// Retain an authoritative status association without customer activity.
+    async fn observe_identity(
+        &self,
+        connection: &Connection,
+        customer: &ProviderId,
+        phone: Option<&ProviderId>,
+        at: DateTime<Utc>,
+    ) -> PortResult<()>;
+    /// Current team membership, independent of administrative role.
+    async fn require_member(&self, team: Uuid, user: &str) -> PortResult<()>;
     /// Commit channel/mapping/message atomically, with deduplication and silent
     /// history semantics. Live facts go into durable post-commit publication.
     /// Media slots retain provider ordinals; unavailable items cannot renumber or
@@ -408,6 +446,7 @@ pub trait ConversationRepository: Send + Sync {
         &self,
         lease: &Lease,
         connection: &super::replies::AccountScope,
+        conversation: &Conversation,
         rendered_text: &str,
     ) -> PortResult<()>;
     /// Persist provider result; ambiguous outcomes never automatically retry.

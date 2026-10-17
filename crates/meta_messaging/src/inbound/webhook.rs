@@ -14,6 +14,7 @@ use crate::domain::{
 mod content;
 #[cfg(test)]
 mod test;
+mod whatsapp;
 
 /// Largest accepted raw notification body.
 pub const MAX_WEBHOOK_BYTES: usize = 4 * 1024 * 1024;
@@ -63,7 +64,7 @@ pub fn decode(provider: Provider, payload: &Value) -> Result<ReceiptBatch, Messa
     let mut events = Decoder::default();
     for entry in entries {
         events.capture(|events| match provider {
-            Provider::Whatsapp => whatsapp(entry, events),
+            Provider::Whatsapp => whatsapp::decode(entry, events),
             Provider::Instagram => instagram(entry, events),
         });
     }
@@ -141,228 +142,6 @@ fn optional_string(v: &Value, key: &str) -> Option<String> {
     v.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
-fn whatsapp(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> {
-    for change in array(entry, "changes")? {
-        events.capture(|events| {
-            let field = string(change, "field")?;
-            let value = &change["value"];
-            if field == "account_update" && value["event"] == "PARTNER_REMOVED" {
-                events.push(IncomingEvent::Disconnected {
-                    account_id: id(entry, "id")?,
-                    business_account: true,
-                });
-                return Ok(());
-            }
-            let account = match id(&value["metadata"], "phone_number_id") {
-                Ok(account) => account,
-                Err(error) if matches!(field, "messages" | "smb_message_echoes" | "history") => {
-                    return Err(error);
-                }
-                Err(_) => {
-                    events.push(IncomingEvent::Unsupported {
-                        account_id: Some(id(entry, "id")?),
-                        field: field.to_owned(),
-                    });
-                    return Ok(());
-                }
-            };
-            let provenance = match field {
-                "messages" => Provenance::Customer,
-                "smb_message_echoes" => Provenance::PhoneEcho,
-                "history" => Provenance::OnboardingHistory,
-                _ => {
-                    events.push(IncomingEvent::Unsupported {
-                        account_id: Some(account),
-                        field: field.to_owned(),
-                    });
-                    return Ok(());
-                }
-            };
-            for message in items(
-                value,
-                if field == "smb_message_echoes" {
-                    "message_echoes"
-                } else {
-                    "messages"
-                },
-                events,
-            ) {
-                events.capture(|events| {
-                    if message["type"] == "reaction" {
-                        // A reaction is a revision, never a new customer message/window.
-                        // Native external-author reaction storage is deliberately deferred.
-                        events.push(IncomingEvent::Unsupported {
-                            account_id: Some(account.clone()),
-                            field: "reaction".into(),
-                        });
-                        return Ok(());
-                    }
-                    let customer = if provenance == Provenance::PhoneEcho {
-                        id(message, "to")?
-                    } else {
-                        id(message, "from")?
-                    };
-                    let name = optional_array(value, "contacts")
-                        .iter()
-                        .find(|contact| contact["wa_id"].as_str() == Some(customer.as_str()))
-                        .and_then(|contact| optional_string(&contact["profile"], "name"));
-                    let mut normalized =
-                        wa_message(message, account.clone(), customer, provenance, name, None)?;
-                    if provenance == Provenance::OnboardingHistory && !normalized.media.is_empty() {
-                        normalized.message_type = "history_media".into();
-                    }
-                    events.push(IncomingEvent::Message(normalized));
-
-                    Ok(())
-                });
-            }
-            for status in items(value, "statuses", events) {
-                events.capture(|events| {
-                    let state = match string(status, "status")? {
-                        "sent" => DeliveryState::Sent,
-                        "delivered" => DeliveryState::Delivered,
-                        "read" => DeliveryState::Read,
-                        "failed" => DeliveryState::Failed,
-                        other => {
-                            events.push(IncomingEvent::Unsupported {
-                                account_id: Some(account.clone()),
-                                field: format!("status:{other}"),
-                            });
-                            return Ok(());
-                        }
-                    };
-                    events.push(IncomingEvent::Status {
-                        account_id: account.clone(),
-                        message_id: id(status, "id")?,
-                        state,
-                        timestamp: timestamp(&status["timestamp"], false)?,
-                        error_code: optional_array(status, "errors")
-                            .first()
-                            .and_then(|e| e["code"].as_i64())
-                            .map(|c| c.to_string()),
-                    });
-
-                    Ok(())
-                });
-            }
-            for chunk in items(value, "history", events) {
-                events.capture(|events| {
-                    for thread in items(chunk, "threads", events) {
-                        events.capture(|events| {
-                            let customer = id(thread, "id")?;
-                            for message in array(thread, "messages")? {
-                                events.capture(|events| {
-                                    if message["type"] == "reaction" {
-                                        return Ok(());
-                                    }
-                                    let direction = if string(message, "from")? == customer.as_str()
-                                    {
-                                        Direction::Inbound
-                                    } else {
-                                        Direction::Outbound
-                                    };
-                                    events.push(IncomingEvent::Message(wa_message(
-                                        message,
-                                        account.clone(),
-                                        customer.clone(),
-                                        Provenance::OnboardingHistory,
-                                        None,
-                                        Some(direction),
-                                    )?));
-
-                                    Ok(())
-                                });
-                            }
-
-                            Ok(())
-                        });
-                    }
-                    events.push(IncomingEvent::HistoryProgress {
-                        account_id: account.clone(),
-                        progress: chunk["metadata"]["progress"]
-                            .as_u64()
-                            .and_then(|n| u8::try_from(n).ok())
-                            .filter(|n| *n <= 100),
-                        declined: optional_array(chunk, "errors")
-                            .iter()
-                            .any(|e| e["code"] == 2593109),
-                    });
-
-                    Ok(())
-                });
-            }
-
-            Ok(())
-        });
-    }
-    Ok(())
-}
-
-fn wa_message(
-    message: &Value,
-    account_id: ProviderId,
-    customer_id: ProviderId,
-    provenance: Provenance,
-    author_name: Option<String>,
-    direction: Option<Direction>,
-) -> Result<IncomingMessage, MessagingError> {
-    let kind = string(message, "type")?;
-    let mut media = Vec::new();
-    let content = match kind {
-        "text" => string(&message["text"], "body")?.to_owned(),
-        "image" | "sticker" | "audio" | "video" | "document" => {
-            let source = &message[kind];
-            media.push(IncomingMedia {
-                kind: match kind {
-                    "audio" => MediaKind::Audio,
-                    "video" => MediaKind::Video,
-                    "document" => MediaKind::Document,
-                    _ => MediaKind::Image,
-                },
-                id: Some(id(source, "id")?),
-                url: None,
-                mime_type: optional_string(source, "mime_type"),
-                filename: optional_string(source, "filename"),
-                sha256: optional_string(source, "sha256"),
-            });
-            optional_string(source, "caption").unwrap_or_default()
-        }
-        "location" => content::whatsapp_location(&message["location"]),
-        "contacts" => content::whatsapp_contacts(&message["contacts"]),
-        "button" => {
-            content::label(&message["button"], "text").unwrap_or_else(|| "Selected a button".into())
-        }
-        "interactive" => content::whatsapp_selection(&message["interactive"]),
-        "media_placeholder" => {
-            "Attachment not provided by WhatsApp. View it in the original app.".to_owned()
-        }
-        _ => "Content unavailable".to_owned(),
-    };
-    let mut content = content;
-    if let Some(headline) = content::label(&message["referral"], "headline") {
-        append_content(&mut content, &format!("From an ad: {headline}"));
-    }
-    Ok(IncomingMessage {
-        provider: Provider::Whatsapp,
-        account_id,
-        customer_id,
-        message_id: id(message, "id")?,
-        author_name,
-        author_handle: None,
-        content,
-        timestamp: timestamp(&message["timestamp"], false)?,
-        direction: direction.unwrap_or(if provenance == Provenance::PhoneEcho {
-            Direction::Outbound
-        } else {
-            Direction::Inbound
-        }),
-        provenance,
-        message_type: kind.to_owned(),
-        reply_to: message.get("context").and_then(|c| id(c, "id").ok()),
-        media,
-    })
-}
-
 fn instagram(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> {
     let account = id(entry, "id")?;
     for event in items(entry, "messaging", events) {
@@ -400,6 +179,7 @@ fn instagram(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> 
                     });
                 } else if let Some(read) = event.get("read") {
                     events.push(IncomingEvent::Status {
+                        provenance: Provenance::Customer,
                         account_id: account.clone(),
                         message_id: id(read, "mid")?,
                         state: DeliveryState::Read,
@@ -539,6 +319,7 @@ fn instagram(entry: &Value, events: &mut Decoder) -> Result<(), MessagingError> 
                 provider: Provider::Instagram,
                 account_id: account.clone(),
                 customer_id: customer,
+                customer_phone: None,
                 message_id: id(message, "mid")?,
                 author_handle: None,
                 author_name: None,
@@ -593,6 +374,7 @@ fn instagram_revision(
         ));
     };
     Ok(IncomingRevision {
+        provenance: Provenance::Customer,
         account_id: account.clone(),
         customer_id,
         message_id: id(payload, "mid")?,

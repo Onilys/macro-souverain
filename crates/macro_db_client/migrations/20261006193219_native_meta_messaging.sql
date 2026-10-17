@@ -13,9 +13,9 @@ CREATE TABLE meta_messaging_connection (
     status text NOT NULL CHECK (status IN ('connecting', 'connected', 'disconnected', 'revoked', 'error')),
     human_agent_approved boolean NOT NULL DEFAULT false,
     developer_account boolean NOT NULL DEFAULT false,
-    history_status text NOT NULL DEFAULT 'not_requested'
-        CHECK (history_status IN ('not_requested', 'pending', 'syncing', 'complete', 'declined', 'failed')),
-    history_progress smallint CHECK (history_progress BETWEEN 0 AND 100),
+    whatsapp_mode text CHECK (whatsapp_mode IN ('coexistence','platform')),
+    registration_status text CHECK (registration_status IN ('required','unconfirmed','registered','rate_limited')),
+    registration_attempted_at timestamptz,
     health_error text,
     connected_at timestamptz,
     checked_at timestamptz,
@@ -60,7 +60,6 @@ CREATE TABLE meta_messaging_conversation (
     customer_handle text,
     external_sender_id uuid NOT NULL,
     last_customer_message_at timestamptz,
-    standard_window_until timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY(connection_id, customer_id)
 );
@@ -78,6 +77,9 @@ CREATE TABLE meta_messaging_receipt (
     lease_id uuid,
     lease_until timestamptz,
     error_code text,
+    decode_failures integer NOT NULL DEFAULT 0 CHECK (decode_failures >= 0),
+    completed_at timestamptz,
+    payload_cleared_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE(provider, body_sha256)
 );
@@ -96,13 +98,13 @@ CREATE TABLE meta_messaging_message (
     delivery_state text NOT NULL CHECK (delivery_state IN ('pending', 'sending', 'unknown', 'accepted', 'sent', 'delivered', 'read', 'failed')),
     media_state text NOT NULL DEFAULT 'none' CHECK (media_state IN ('none', 'pending', 'stored', 'missing', 'unsupported', 'failed')),
     provider_type text NOT NULL,
-    event_published_at timestamptz,
+    effect_revision bigint NOT NULL DEFAULT 1,
+    published_revision bigint NOT NULL DEFAULT 0,
+    native_retry_at timestamptz NOT NULL DEFAULT now(),
     created_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY(connection_id, provider_message_id),
-    FOREIGN KEY(connection_id, customer_id) REFERENCES meta_messaging_conversation(connection_id, customer_id) ON DELETE CASCADE
+    FOREIGN KEY(connection_id, customer_id) REFERENCES meta_messaging_conversation(connection_id, customer_id) ON UPDATE CASCADE ON DELETE CASCADE
 );
-CREATE INDEX meta_messaging_message_events_idx ON meta_messaging_message(created_at, message_id)
-    WHERE provenance = 'customer' AND event_published_at IS NULL;
 
 -- Statuses may precede the corresponding message/HTTP response. Retain them
 -- independently and reconcile by provider ID, never by arrival order.
@@ -121,6 +123,8 @@ CREATE TABLE meta_messaging_send (
     channel_id uuid NOT NULL REFERENCES comms_channels(id) ON DELETE CASCADE,
     user_id text NOT NULL,
     idempotency_key uuid NOT NULL,
+    dispatch_started_at timestamptz,
+    native_retry_at timestamptz NOT NULL DEFAULT now(),
     request_sha256 bytea NOT NULL CHECK (octet_length(request_sha256) = 32),
     payload jsonb NOT NULL CHECK (pg_column_size(payload) <= 1048576),
     state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'sending', 'unknown', 'accepted', 'sent', 'delivered', 'read', 'failed')),
@@ -139,3 +143,113 @@ CREATE TABLE meta_messaging_send (
 CREATE INDEX meta_messaging_send_work_idx ON meta_messaging_send(available_at, id)
     WHERE state IN ('pending', 'sending');
 
+
+CREATE TABLE meta_messaging_attachment (
+    connection_id uuid NOT NULL,
+    provider_message_id text NOT NULL,
+    ordinal smallint NOT NULL CHECK (ordinal BETWEEN 0 AND 9),
+    document_id uuid NOT NULL UNIQUE,
+    sha256 text NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','stored')),
+    lease_id uuid,
+    lease_until timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY(connection_id,provider_message_id,ordinal),
+    FOREIGN KEY(connection_id,provider_message_id)
+        REFERENCES meta_messaging_message(connection_id,provider_message_id) ON DELETE CASCADE
+);
+
+CREATE TABLE meta_messaging_history_import (
+    connection_id uuid PRIMARY KEY REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
+    connected_at timestamptz NOT NULL,
+    user_id text NOT NULL,
+    requested_at timestamptz NOT NULL DEFAULT now(),
+    status text NOT NULL CHECK (status IN ('pending','syncing','complete','declined','failed')),
+    step text NOT NULL CHECK (step IN ('contacts','contacts_requested','messages','waiting','instagram')),
+    cursor text,
+    contacts_request_id text,
+    history_request_id text,
+    progress smallint CHECK (progress BETWEEN 0 AND 100),
+    error_code text,
+    unavailable_media boolean NOT NULL DEFAULT false,
+    attempts smallint NOT NULL DEFAULT 0,
+    available_at timestamptz NOT NULL DEFAULT now(),
+    lease_id uuid,
+    lease_until timestamptz,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX meta_messaging_history_import_work ON meta_messaging_history_import(available_at)
+    WHERE status IN ('pending','syncing') AND step <> 'waiting';
+
+CREATE INDEX meta_messaging_connection_business_idx
+    ON meta_messaging_connection (provider, business_account_id)
+    WHERE business_account_id IS NOT NULL;
+
+
+CREATE INDEX meta_messaging_native_effect_retry_idx
+    ON meta_messaging_message(native_retry_at, created_at, message_id)
+    WHERE published_revision < effect_revision;
+CREATE INDEX meta_messaging_native_send_retry_idx
+    ON meta_messaging_send(native_retry_at, id)
+    WHERE provider_message_id IS NOT NULL
+        AND state IN ('accepted', 'sent', 'delivered', 'read', 'failed');
+
+CREATE TABLE meta_messaging_revision (
+    connection_id uuid NOT NULL REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
+    customer_id text NOT NULL,
+    provider_message_id text NOT NULL,
+    direction text NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    edit_number bigint NOT NULL DEFAULT 0 CHECK (edit_number BETWEEN 0 AND 4294967295),
+    content text CHECK (octet_length(content) <= 65536),
+    edited_at timestamptz,
+    deleted_at timestamptz,
+    PRIMARY KEY (connection_id, customer_id, provider_message_id)
+);
+
+CREATE INDEX meta_messaging_send_conversation_order_idx
+    ON meta_messaging_send (connection_id, channel_id, created_at, id)
+    WHERE state IN ('pending', 'sending');
+CREATE INDEX meta_messaging_send_active_lease_idx
+    ON meta_messaging_send (lease_until, id) WHERE state = 'sending';
+
+
+CREATE INDEX meta_messaging_send_expiry_idx ON meta_messaging_send(created_at,id)
+    WHERE state='pending' OR (state='sending' AND dispatch_started_at IS NULL);
+
+CREATE INDEX meta_messaging_receipt_retention_idx ON meta_messaging_receipt(created_at,id)
+    WHERE payload_cleared_at IS NULL;
+CREATE INDEX meta_messaging_receipt_completed_retention_idx ON meta_messaging_receipt(completed_at,id)
+    WHERE status='complete' AND decode_failures=0 AND payload_cleared_at IS NULL;
+CREATE INDEX meta_messaging_receipt_metadata_retention_idx ON meta_messaging_receipt(created_at,id)
+    WHERE payload_cleared_at IS NOT NULL;
+
+CREATE TABLE meta_messaging_media_copy (
+    id uuid PRIMARY KEY,
+    bucket text NOT NULL,
+    delete_after timestamptz NOT NULL DEFAULT now()+interval '1 day',
+    available_at timestamptz NOT NULL DEFAULT now()+interval '1 day',
+    lease_id uuid,
+    lease_until timestamptz
+);
+CREATE INDEX meta_messaging_media_copy_cleanup_idx ON meta_messaging_media_copy(available_at,id);
+-- Provider aliases are connection-scoped and may exist before a native channel.
+-- The identity row holds current routing; aliases retain old IDs for late facts.
+CREATE TABLE meta_messaging_identity (
+    connection_id uuid NOT NULL REFERENCES meta_messaging_connection(id) ON DELETE CASCADE,
+    id uuid NOT NULL,
+    current_id text NOT NULL,
+    phone text,
+    phone_observed_at timestamptz,
+    changed_at timestamptz,
+    PRIMARY KEY (connection_id, id),
+    UNIQUE (connection_id, current_id)
+);
+CREATE TABLE meta_messaging_identifier (
+    connection_id uuid NOT NULL,
+    identifier text NOT NULL,
+    identity_id uuid NOT NULL,
+    retired_at timestamptz,
+    PRIMARY KEY (connection_id, identifier),
+    FOREIGN KEY (connection_id, identity_id) REFERENCES meta_messaging_identity(connection_id, id) ON DELETE CASCADE
+);
+CREATE INDEX meta_messaging_identifier_identity_idx ON meta_messaging_identifier(connection_id, identity_id);

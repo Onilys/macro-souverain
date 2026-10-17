@@ -1,6 +1,6 @@
 //! Shared subscription ownership and actionable health, through actual domain/DB/HTTP paths.
 use super::*;
-use entity_access::domain::models::{AdminTeamRole, EntityType};
+use entity_access::domain::models::{EntityType, MemberTeamRole};
 use std::time::Duration;
 
 async fn phone(f: &Fixture, name: &str, business: &str) -> Connection {
@@ -78,7 +78,7 @@ async fn disconnect_keeps_other_teams_shared_waba_then_removes_the_last_subscrip
     let access = fixture_native(&pool)
         .await
         .access
-        .generate_entity_access_receipt::<AdminTeamRole>(
+        .generate_entity_access_receipt::<MemberTeamRole>(
             &actor.0,
             None,
             &other_team.to_string(),
@@ -217,7 +217,7 @@ async fn health_failures_keep_specific_safe_recovery_codes(pool: PgPool) {
         (
             MessagingError::Forbidden,
             ConnectionStatus::Revoked,
-            "connecting_admin_access_lost",
+            "connecting_member_access_lost",
         ),
         // A transient check failure keeps the account's current status.
         (
@@ -237,8 +237,9 @@ async fn health_failures_keep_specific_safe_recovery_codes(pool: PgPool) {
         ),
     ];
     for (error, status, code) in cases {
+        let current = f.repo.connection(f.c.id).await.unwrap().unwrap();
         f.repo
-            .connect(&f.c, b"fixture-token", Some(f.c.id))
+            .connect(&current, b"fixture-token", Some(f.c.id))
             .await
             .unwrap();
         *f.remote.subscribe_error.lock().unwrap() = Some(error);
@@ -269,8 +270,9 @@ async fn health_failures_keep_specific_safe_recovery_codes(pool: PgPool) {
         }
     }
     *f.remote.subscribe_error.lock().unwrap() = None;
+    let current = f.repo.connection(f.c.id).await.unwrap().unwrap();
     f.repo
-        .connect(&f.c, b"renewed", Some(f.c.id))
+        .connect(&current, b"renewed", Some(f.c.id))
         .await
         .unwrap();
     f.service.maintain().await.unwrap();

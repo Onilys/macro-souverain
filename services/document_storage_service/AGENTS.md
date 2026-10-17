@@ -21,7 +21,11 @@ threads, pins, recents, notifications, folders, activity.
 - `src/service/conn_gateway.rs`: pushes realtime updates through
   `connection_gateway` (feature-gated: `connection_gateway`).
 - `src/native_messaging/native/test/http/oauth.rs`: Instagram browser-proof,
-  user/team, admin, expiry, replay and reconnect HTTP/database regressions.
+  user/team, membership, expiry, replay and reconnect HTTP/database regressions.
+- `native_messaging/native/test/http/{members,registration}.rs` and
+  `native_messaging/native/test/identity.rs`: account management, Platform readiness
+  and native identity/recovery invariants. Messaging workers share the DSS task
+  tracker and drain claimed work on cancellation.
 - `README.md`: local setup (`just run_dbs`, `.env` from `.env.sample`).
 
 ## Scope

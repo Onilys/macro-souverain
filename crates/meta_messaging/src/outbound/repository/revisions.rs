@@ -89,7 +89,7 @@ impl PgMessagingRepository {
         message: Uuid,
         deleted: bool,
     ) -> PortResult<()> {
-        sqlx::query!("UPDATE meta_messaging_message SET effect_revision=effect_revision+1,event_published_at=NULL,native_retry_at=now(),media_state=CASE WHEN $2 THEN 'stored' ELSE media_state END WHERE message_id=$1",message,deleted).execute(&mut **tx).await.map_err(failure)?;
+        sqlx::query!("UPDATE meta_messaging_message SET effect_revision=effect_revision+1,native_retry_at=now(),media_state=CASE WHEN $2 THEN 'stored' ELSE media_state END WHERE message_id=$1",message,deleted).execute(&mut **tx).await.map_err(failure)?;
         Ok(())
     }
 }

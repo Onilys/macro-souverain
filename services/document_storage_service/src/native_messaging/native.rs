@@ -79,6 +79,12 @@ impl NativeChannels {
         send: Option<Uuid>,
     ) -> PortResult<()> {
         let mut tx = self.pool.begin().await.map_err(error)?;
+        let normalized = if let Some(send) = send {
+            PgMessagingRepository::accepted_message_in(&mut tx, c, m, send).await?
+        } else {
+            PgMessagingRepository::resolve_message_in(&mut tx, c, m).await?
+        };
+        let m = &normalized;
         let reservation = PgMessagingRepository::reserve_message_in(&mut tx, c, m, send).await?;
         if reservation.create_channel {
             let owner = MacroUserIdStr::try_from(c.user_id.clone())
@@ -155,29 +161,6 @@ impl NativeChannels {
             .map_err(error)?;
         }
         PgMessagingRepository::finish_message_in(&mut tx, c, m, &reservation, send).await?;
-        let normalized = meta_messaging::domain::meta_content::normalize(m);
-        if !reservation.create_message && !normalized.legacy_placeholders.is_empty() {
-            let placeholders = normalized
-                .legacy_placeholders
-                .iter()
-                .map(|text| plain_markdown(text))
-                .collect::<Vec<_>>();
-            if PgMessageRepository::repair_external_placeholder_in(
-                &mut tx,
-                reservation.channel_id,
-                reservation.message_id,
-                c.id,
-                m.message_id.as_str(),
-                &placeholders,
-                &render_message_content(m),
-            )
-            .await
-            .map_err(error)?
-            {
-                PgMessagingRepository::revision_applied_in(&mut tx, reservation.message_id, false)
-                    .await?;
-            }
-        }
         apply_revision(&mut tx, c.id, &m.customer_id, &m.message_id, m.direction).await?;
         tx.commit().await.map_err(error)?;
         Ok(())
@@ -241,8 +224,12 @@ pub(super) fn render_message_content(message: &IncomingMessage) -> String {
 #[async_trait]
 impl NativeMessaging for NativeChannels {
     async fn revise(&self, c: &Connection, revision: &IncomingRevision) -> PortResult<()> {
+        self.require_member(c.team_id, &c.user_id).await?;
         let mut tx = self.pool.begin().await.map_err(error)?;
-        PgMessagingRepository::record_revision_in(&mut tx, c, revision).await?;
+        let mut revision = revision.clone();
+        revision.customer_id =
+            PgMessagingRepository::resolve_identifier_in(&mut tx, c, &revision.customer_id).await?;
+        PgMessagingRepository::record_revision_in(&mut tx, c, &revision).await?;
         apply_revision(
             &mut tx,
             c.id,
@@ -266,12 +253,48 @@ impl NativeMessaging for NativeChannels {
             .map_err(access_error)?;
         Ok(())
     }
+    async fn update_identity(
+        &self,
+        c: &Connection,
+        update: &meta_messaging::domain::events::IdentityUpdate,
+    ) -> PortResult<()> {
+        self.require_member(c.team_id, &c.user_id).await?;
+        let mut tx = self.pool.begin().await.map_err(error)?;
+        PgMessagingRepository::update_identity_in(&mut tx, c, update).await?;
+        tx.commit().await.map_err(error)
+    }
+    async fn observe_identity(
+        &self,
+        c: &Connection,
+        customer: &ProviderId,
+        phone: Option<&ProviderId>,
+        at: chrono::DateTime<Utc>,
+    ) -> PortResult<()> {
+        self.require_member(c.team_id, &c.user_id).await?;
+        let mut tx = self.pool.begin().await.map_err(error)?;
+        PgMessagingRepository::observe_identity_in(&mut tx, c, customer, phone, at).await?;
+        tx.commit().await.map_err(error)
+    }
+    async fn require_member(&self, team: Uuid, user: &str) -> PortResult<()> {
+        let user = MacroUserIdStr::try_from(user).map_err(|_| MessagingError::Forbidden)?;
+        self.access
+            .generate_entity_access_receipt::<MemberTeamRole>(
+                &user.0,
+                None,
+                &team.to_string(),
+                EntityType::Team,
+            )
+            .await
+            .map_err(access_error)?;
+        Ok(())
+    }
     async fn ingest(
         &self,
         c: &Connection,
         m: &IncomingMessage,
         media: Vec<Option<MediaBytes>>,
     ) -> PortResult<()> {
+        self.require_member(c.team_id, &c.user_id).await?;
         self.persist(c, m, None, None).await?;
         if !media.is_empty() {
             self.files.receive(c, m, media).await?;
@@ -279,6 +302,7 @@ impl NativeMessaging for NativeChannels {
         Ok(())
     }
     async fn media_unavailable(&self, c: &Connection, m: &IncomingMessage) -> PortResult<()> {
+        self.require_member(c.team_id, &c.user_id).await?;
         let repo = PgMessagingRepository::new(self.pool.clone());
         let (channel, message) = repo.message_target(c.id, m.message_id.as_str()).await?;
         let notice = if m.media.len() > 1 {
@@ -487,6 +511,7 @@ impl NativeConversation for NativeChannels {
             provider: c.provider,
             account_id: c.account_id.clone(),
             customer_id: conversation.customer_id.clone(),
+            customer_phone: None,
             message_id: id.clone(),
             author_handle: None,
             author_name: Some(c.display_name.clone()),

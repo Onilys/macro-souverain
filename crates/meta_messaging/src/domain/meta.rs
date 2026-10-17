@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use super::service::{MessagingService, channel_id};
 use chrono::{Duration, Utc};
-use entity_access::domain::models::{AdminTeamRole, EntityAccessReceipt, EntityType};
+use entity_access::domain::models::{EntityAccessReceipt, EntityType, MemberTeamRole};
 use messages::domain::service::MessageView;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -12,6 +12,7 @@ use uuid::Uuid;
 use super::{connection::*, events::*, models::*, policy::*, ports::*};
 
 mod history;
+mod registration;
 mod replies;
 mod worker;
 use worker::IngestionLease;
@@ -43,6 +44,7 @@ impl MetaService {
             provider: provider.clone(),
             cipher: cipher.clone(),
             human_agent_approved: configuration.instagram_human_agent_approved,
+            native: native.clone(),
         });
         let messaging =
             MessagingService::new(repository.clone(), replies.clone(), replies, native.clone());
@@ -64,9 +66,10 @@ impl MetaService {
     /// Connect an explicitly enabled local test number using server-only credentials.
     pub async fn connect_developer(
         &self,
-        access: &EntityAccessReceipt<AdminTeamRole>,
+        access: &EntityAccessReceipt<MemberTeamRole>,
     ) -> PortResult<Connection> {
         let (team, user) = team_actor(access)?;
+        self.native.require_member(team, user).await?;
         if !self.configuration.whatsapp_developer_available {
             return Err(MessagingError::Forbidden.into());
         }
@@ -81,8 +84,12 @@ impl MetaService {
         {
             return Err(MessagingError::Conflict.into());
         }
+        if let Some(existing) = &existing {
+            self.require_manager(existing, user).await?;
+        }
         let reconnect = existing.as_ref().map(|c| c.id);
         let id = reconnect.unwrap_or_else(Uuid::now_v7);
+        self.native.require_member(team, user).await?;
         let sealed = self.cipher.encrypt(team, id, &account.token).await?;
         let connection = Connection {
             id,
@@ -93,12 +100,17 @@ impl MetaService {
             business_account_id: account.business_account_id,
             display_name: account.display_name,
             status: ConnectionStatus::Connecting,
-            connected_at: Some(Utc::now()),
+            connected_at: existing
+                .as_ref()
+                .and_then(|c| c.connected_at)
+                .or(Some(Utc::now())),
             credential_expires_at: account.expires_at,
             human_agent_approved: false,
+            whatsapp_mode: account.whatsapp_mode,
+            registration_status: account.registration_status,
+            registration_attempted_at: None,
             developer_account: true,
-            history_status: HistoryStatus::NotRequested,
-            history_progress: None,
+
             health_error: None,
         };
         self.repository
@@ -127,7 +139,7 @@ impl MetaService {
         let Some(state) = self.messaging.conversation_view(access, authority).await? else {
             return Ok(None);
         };
-        let account = self
+        let mut account = self
             .repository
             .connection(state.account.id)
             .await?
@@ -137,6 +149,7 @@ impl MetaService {
         {
             return Err(MessagingError::Conflict.into());
         }
+        self.visible_health(&mut account).await?;
         Ok(Some(ConversationView {
             can_reply: state.can_reply,
             text_limit: state.capabilities.text_limit,
@@ -156,28 +169,38 @@ impl MetaService {
         }))
     }
 
-    /// List team account health using a verified administrator receipt.
+    /// List team account health for current team members.
     pub async fn connections(
         &self,
-        access: &EntityAccessReceipt<AdminTeamRole>,
+        access: &EntityAccessReceipt<MemberTeamRole>,
     ) -> PortResult<Vec<Connection>> {
-        let (team, _) = team_actor(access)?;
-        self.repository.connections(team).await
+        let (team, user) = team_actor(access)?;
+        self.native.require_member(team, user).await?;
+        let mut connections = self.repository.connections(team).await?;
+        for connection in &mut connections {
+            self.visible_health(connection).await?;
+        }
+        Ok(connections)
     }
 
     /// Start one caller-bound authorization attempt, including reconnect identity.
     #[tracing::instrument(skip_all, err)]
     pub async fn begin_authorization(
         &self,
-        access: &EntityAccessReceipt<AdminTeamRole>,
+        access: &EntityAccessReceipt<MemberTeamRole>,
         provider: Provider,
         reconnect: Option<Uuid>,
     ) -> PortResult<BeginAuthorization> {
         let (team, user) = team_actor(access)?;
+        self.native.require_member(team, user).await?;
         let configured = match provider {
             Provider::Whatsapp => {
                 self.configuration.whatsapp_app_id.is_some()
-                    && self.configuration.whatsapp_configuration_id.is_some()
+                    && (self.configuration.whatsapp_configuration_id.is_some()
+                        || self
+                            .configuration
+                            .whatsapp_platform_configuration_id
+                            .is_some())
             }
             Provider::Instagram => {
                 self.configuration.instagram_app_id.is_some()
@@ -188,7 +211,11 @@ impl MetaService {
             return Err(MessagingError::Invalid("this provider is not configured; ask the server administrator to complete Meta setup").into());
         }
         if let Some(id) = reconnect {
-            self.team_connection(team, id).await?;
+            let original = self.team_connection(team, id).await?;
+            self.require_manager(&original, user).await?;
+            if original.provider != provider {
+                return Err(MessagingError::Conflict.into());
+            }
         }
         // These are random CSRF tokens, not database identifiers.
         let state = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
@@ -216,10 +243,11 @@ impl MetaService {
     #[tracing::instrument(skip_all, err)]
     pub async fn complete_authorization(
         &self,
-        access: &EntityAccessReceipt<AdminTeamRole>,
+        access: &EntityAccessReceipt<MemberTeamRole>,
         input: CompleteAuthorization,
     ) -> PortResult<Connection> {
         let (team, user) = team_actor(access)?;
+        self.native.require_member(team, user).await?;
         if input.state.len() != 64 || input.code.is_empty() || input.code.len() > 8192 {
             return Err(MessagingError::Invalid("invalid authorization callback").into());
         }
@@ -230,7 +258,6 @@ impl MetaService {
         {
             return Err(MessagingError::Forbidden.into());
         }
-        self.native.require_admin(team, user).await?;
         let attempt = self
             .repository
             .consume_authorization(
@@ -239,9 +266,13 @@ impl MetaService {
                 user,
             )
             .await?;
-        // Reject pre-upgrade Instagram attempts too; no public/state-only fallback.
+        // Instagram completion always requires the initiating browser proof.
         if attempt.provider == Provider::Instagram && input.browser_transaction.is_none() {
             return Err(MessagingError::Forbidden.into());
+        }
+        if let Some(id) = attempt.reconnect_id {
+            let original = self.team_connection(team, id).await?;
+            self.require_manager(&original, user).await?;
         }
         self.finish_authorization(attempt, input).await
     }
@@ -253,10 +284,22 @@ impl MetaService {
     ) -> PortResult<Connection> {
         let team = attempt.team_id;
         let user = attempt.user_id.as_str();
+        if attempt.provider == Provider::Whatsapp
+            && input.whatsapp_mode == Some(WhatsappMode::Platform)
+            && self
+                .configuration
+                .whatsapp_platform_configuration_id
+                .is_none()
+        {
+            return Err(MessagingError::Invalid("Platform number signup is not configured").into());
+        }
         let account = self.provider.authorize(attempt.provider, &input).await?;
         let id = attempt.reconnect_id.unwrap_or_else(Uuid::now_v7);
+        let mut connected_at = Some(Utc::now());
         if let Some(existing) = attempt.reconnect_id {
             let original = self.team_connection(team, existing).await?;
+            self.require_manager(&original, user).await?;
+            connected_at = original.connected_at;
             if original.provider != attempt.provider
                 || original.account_id != account.account_id
                 || original.business_account_id != account.business_account_id
@@ -264,6 +307,7 @@ impl MetaService {
                 return Err(MessagingError::Conflict.into());
             }
         }
+        self.native.require_member(team, user).await?;
         let sealed = self.cipher.encrypt(team, id, &account.token).await?;
         let connection = Connection {
             id,
@@ -274,13 +318,15 @@ impl MetaService {
             business_account_id: account.business_account_id,
             display_name: account.display_name,
             status: ConnectionStatus::Connecting,
-            connected_at: Some(Utc::now()),
+            connected_at,
             credential_expires_at: account.expires_at,
             human_agent_approved: attempt.provider == Provider::Instagram
                 && self.configuration.instagram_human_agent_approved,
+            whatsapp_mode: account.whatsapp_mode,
+            registration_status: account.registration_status,
+            registration_attempted_at: None,
             developer_account: false,
-            history_status: HistoryStatus::NotRequested,
-            history_progress: None,
+
             health_error: None,
         };
         // Subscription is retryable maintenance, so a provider outage cannot lose
@@ -294,19 +340,20 @@ impl MetaService {
     /// removal of its subscription so the UI can explain any remaining app action.
     pub async fn disconnect(
         &self,
-        access: &EntityAccessReceipt<AdminTeamRole>,
+        access: &EntityAccessReceipt<MemberTeamRole>,
         id: Uuid,
     ) -> PortResult<DisconnectResult> {
         let (team, user) = team_actor(access)?;
+        self.native.require_member(team, user).await?;
         let connection = self.team_connection(team, id).await?;
         let _guard = self
             .repository
             .lock_subscription(&connection)
             .await?
             .ok_or(MessagingError::Unavailable)?;
-        self.native.require_admin(team, user).await?;
         // Authorization can have changed while waiting for another lifecycle operation.
         let connection = self.team_connection(team, id).await?;
+        self.require_manager(&connection, user).await?;
         let token = self.token(&connection).await.ok();
         self.repository.disconnect(team, id).await?;
         self.remove_unused_subscription(&connection, token.as_ref())
@@ -361,6 +408,32 @@ impl MetaService {
         self.provider.templates(&connection, &token).await
     }
 
+    async fn visible_health(&self, connection: &mut Connection) -> PortResult<()> {
+        if connection.status == ConnectionStatus::Disconnected {
+            return Ok(());
+        }
+        if let Err(error) = self
+            .native
+            .require_member(connection.team_id, &connection.user_id)
+            .await
+        {
+            if !matches!(error.current_context(), MessagingError::Forbidden) {
+                return Err(error);
+            }
+            connection.status = ConnectionStatus::Revoked;
+            connection.health_error = Some("connecting_member_access_lost".into());
+        }
+        Ok(())
+    }
+
+    async fn require_manager(&self, connection: &Connection, user: &str) -> PortResult<()> {
+        self.native.require_member(connection.team_id, user).await?;
+        if connection.user_id != user {
+            self.native.require_admin(connection.team_id, user).await?;
+        }
+        Ok(())
+    }
+
     async fn team_connection(&self, team: Uuid, id: Uuid) -> PortResult<Connection> {
         self.repository
             .connection(id)
@@ -382,7 +455,9 @@ impl MetaService {
     }
 }
 
-fn team_actor(access: &EntityAccessReceipt<AdminTeamRole>) -> Result<(Uuid, &str), MessagingError> {
+fn team_actor(
+    access: &EntityAccessReceipt<MemberTeamRole>,
+) -> Result<(Uuid, &str), MessagingError> {
     if access.entity().entity_type != EntityType::Team {
         return Err(MessagingError::Forbidden);
     }

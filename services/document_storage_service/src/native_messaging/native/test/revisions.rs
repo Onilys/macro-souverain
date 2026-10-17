@@ -1,11 +1,9 @@
 use super::*;
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn replay_repairs_only_the_untouched_share_placeholder_without_duplicates(pool: PgPool) {
+async fn replayed_shared_content_deduplicates_and_cannot_resurrect_an_unsend(pool: PgPool) {
     let (native, c, _) = setup(&pool, Provider::Instagram).await;
     let mut original = incoming(&c, "shared-reel");
-    original.content = "\n[Unsupported Instagram ig_reel; view it in Instagram]".into();
-    native.ingest(&c, &original, vec![]).await.unwrap();
     original.message_type = "ig_reel".into();
     original.content =
         "Shared Instagram reel\nAn actual title\n\nhttps://www.instagram.com/reel/Example123/"
@@ -32,7 +30,7 @@ async fn replay_repairs_only_the_untouched_share_placeholder_without_duplicates(
         .fetch_one(&pool)
         .await
         .unwrap(),
-        2
+        1
     );
     native
         .revise(&c, &revision(&c, &original, MessageRevision::Deleted))
@@ -56,6 +54,7 @@ fn revision(
     change: MessageRevision,
 ) -> IncomingRevision {
     IncomingRevision {
+        provenance: Provenance::Customer,
         account_id: c.account_id.clone(),
         customer_id: message.customer_id.clone(),
         message_id: message.message_id.clone(),
@@ -92,7 +91,7 @@ async fn pending_edits_reorder_without_new_messages_or_reply_window_changes(pool
         .await
         .unwrap();
     let window = sqlx::query_scalar!(
-        "SELECT standard_window_until FROM meta_messaging_conversation WHERE channel_id=$1",
+        "SELECT last_customer_message_at FROM meta_messaging_conversation WHERE channel_id=$1",
         channel
     )
     .fetch_one(&pool)
@@ -129,7 +128,7 @@ async fn pending_edits_reorder_without_new_messages_or_reply_window_changes(pool
     );
     assert_eq!(
         sqlx::query_scalar!(
-            "SELECT standard_window_until FROM meta_messaging_conversation WHERE channel_id=$1",
+            "SELECT last_customer_message_at FROM meta_messaging_conversation WHERE channel_id=$1",
             channel
         )
         .fetch_one(&pool)

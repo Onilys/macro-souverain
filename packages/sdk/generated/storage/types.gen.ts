@@ -9474,6 +9474,7 @@ export type MetaCompleteAuthorization = {
      * State returned by the server for this caller/team/provider.
      */
     state: string;
+    whatsapp_mode?: null | WhatsappMode;
 };
 
 /**
@@ -9506,14 +9507,6 @@ export type MetaConnection = {
      */
     health_error?: string | null;
     /**
-     * Latest provider-reported progress.
-     */
-    history_progress?: number | null;
-    /**
-     * Provider history synchronization status.
-     */
-    history_status: MetaHistoryStatus;
-    /**
      * Verified HUMAN_AGENT approval; false by default.
      */
     human_agent_approved: boolean;
@@ -9526,6 +9519,11 @@ export type MetaConnection = {
      */
     provider: MetaProvider;
     /**
+     * Time of the latest uncertain or rate-limited registration attempt; never a PIN.
+     */
+    registration_attempted_at?: string | null;
+    registration_status?: null | RegistrationStatus;
+    /**
      * Current local connection health.
      */
     status: MetaConnectionStatus;
@@ -9534,9 +9532,10 @@ export type MetaConnection = {
      */
     team_id: string;
     /**
-     * Original administrator. New conversations start with explicit membership.
+     * Current connector. Reconnect changes this user without transferring existing channel/file grants.
      */
     user_id: string;
+    whatsapp_mode?: null | WhatsappMode;
 };
 
 /**
@@ -9576,10 +9575,6 @@ export type MetaConversation = {
      * Latest eligible inbound source timestamp.
      */
     last_customer_message_at?: string | null;
-    /**
-     * Standard reply window, including verified provider-specific extensions.
-     */
-    standard_window_until?: string | null;
 };
 
 /**
@@ -9687,7 +9682,7 @@ export type MetaHistoryImport = {
  */
 export type MetaHistoryImportView = {
     /**
-     * Whether the administrator may start or resume an import now.
+     * Whether the connector or administrator may start or resume an import now.
      */
     can_import: boolean;
     import?: null | MetaHistoryImport;
@@ -9771,6 +9766,10 @@ export type MetaPublicConfiguration = {
      * A server-configured, recipient-restricted local WhatsApp test account exists.
      */
     whatsapp_developer_available: boolean;
+    /**
+     * Optional dedicated v4 configuration for Platform signup.
+     */
+    whatsapp_platform_configuration_id?: string | null;
 };
 
 /**
@@ -11134,6 +11133,13 @@ export type RecentlyDeletedResponseData = {
 };
 
 /**
+ * A request without a PIN only checks whether a previous attempt completed.
+ */
+export type RegisterPhone = {
+    pin?: null | RegistrationPin;
+};
+
+/**
  * Batched registration, also used to renew an unchanged descriptor's grant.
  */
 export type RegisterUploads = {
@@ -11142,6 +11148,17 @@ export type RegisterUploads = {
      */
     descriptors: Array<UploadDescriptor>;
 };
+
+/**
+ * A six-digit secret, accepted only in an explicit registration request.
+ * Deliberately neither Debug nor Serialize, and never persisted.
+ */
+export type RegistrationPin = string;
+
+/**
+ * Durable registration uncertainty is separate from account health.
+ */
+export type RegistrationStatus = 'required' | 'unconfirmed' | 'registered' | 'rate_limited';
 
 /**
  * Request to remove participants.
@@ -15317,6 +15334,11 @@ export type WebhookValidationTestEvent = {
      */
     webhook_id: String;
 };
+
+/**
+ * Supported production WhatsApp onboarding paths.
+ */
+export type WhatsappMode = 'coexistence' | 'platform';
 
 /**
  * How a question is asked. Each column kind takes a few, the first its
@@ -21686,6 +21708,21 @@ export type MetaImportHistoryResponses = {
 };
 
 export type MetaImportHistoryResponse = MetaImportHistoryResponses[keyof MetaImportHistoryResponses];
+
+export type MetaRegisterData = {
+    body: RegisterPhone;
+    path: {
+        connection_id: string;
+    };
+    query?: never;
+    url: '/meta/connections/{connection_id}/register';
+};
+
+export type MetaRegisterResponses = {
+    200: MetaConnection;
+};
+
+export type MetaRegisterResponse = MetaRegisterResponses[keyof MetaRegisterResponses];
 
 export type MetaDeveloperWhatsappData = {
     body?: never;

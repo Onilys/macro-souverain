@@ -161,6 +161,7 @@ fn decode_message(c: &Connection, m: &Value) -> Result<IncomingMessage, Messagin
         provider: Provider::Instagram,
         account_id: c.account_id.clone(),
         customer_id: required(customer, "id")?.to_owned().try_into()?,
+        customer_phone: None,
         message_id: required(m, "id")?.to_owned().try_into()?,
         author_name: handle.as_ref().map(|h| format!("@{h}")),
         author_handle: handle,

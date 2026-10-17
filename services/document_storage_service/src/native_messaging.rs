@@ -16,10 +16,13 @@ use meta_messaging::{
     outbound::{repository::PgMessagingRepository, storage::KmsCredentialCipher},
 };
 use std::{sync::Arc, time::Duration};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 pub(crate) type State = MessagingRouterState<EntityAccessService, AuthorizationService>;
 
 pub(crate) struct Dependencies {
+    pub tracker: TaskTracker,
+    pub cancellation: CancellationToken,
     pub pool: sqlx::PgPool,
     pub access: Arc<EntityAccessService>,
     pub authorization: macro_authorization::MacroAuthorizationState<AuthorizationService>,
@@ -33,6 +36,8 @@ pub(crate) struct Dependencies {
 
 pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
     let Dependencies {
+        tracker,
+        cancellation,
         pool,
         access,
         authorization,
@@ -108,9 +113,9 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         settings.public,
     ));
     if let Some(copies) = temporary_media {
-        tokio::spawn(workers::temporary_media(copies));
+        tracker.spawn(workers::temporary_media(copies, cancellation.clone()));
     }
-    spawn(service.clone());
+    spawn(service.clone(), tracker, cancellation);
     Ok(State {
         service,
         entity_access_service: access,
@@ -140,13 +145,14 @@ impl CredentialCipher for UnconfiguredCipher {
     }
 }
 
-fn spawn(service: Arc<MetaService>) {
+fn spawn(service: Arc<MetaService>, tracker: TaskTracker, cancellation: CancellationToken) {
     let history = service.clone();
-    tokio::spawn(async move {
+    let shutdown = cancellation.clone();
+    tracker.spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            interval.tick().await;
+            tokio::select! { _=shutdown.cancelled()=>break, _=interval.tick()=>{} }
             let result: PortResult<()> = async {
                 if let Some(work) = history.repository.claim_history_import().await? {
                     history.process_history_import(&work).await?;
@@ -159,25 +165,30 @@ fn spawn(service: Arc<MetaService>) {
             }
         }
     });
-    tokio::spawn(workers::retention(service.clone()));
-    tokio::spawn(workers::receipts(service.clone()));
-    tokio::spawn(workers::sends(service.messaging.clone()));
+    tracker.spawn(workers::retention(service.clone(), cancellation.clone()));
+    tracker.spawn(workers::receipts(service.clone(), cancellation.clone()));
+    tracker.spawn(workers::sends(
+        service.messaging.clone(),
+        cancellation.clone(),
+    ));
     let recovery = service.messaging.clone();
-    tokio::spawn(async move {
+    let shutdown = cancellation.clone();
+    tracker.spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            interval.tick().await;
+            tokio::select! { _=shutdown.cancelled()=>break, _=interval.tick()=>{} }
             if let Err(error) = recovery.recover_native().await {
                 tracing::warn!(error=?error.current_context(),"Meta native delivery recovery will retry");
             }
         }
     });
-    tokio::spawn(async move {
+    let shutdown = cancellation.clone();
+    tracker.spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            interval.tick().await;
+            tokio::select! { _=shutdown.cancelled()=>break, _=interval.tick()=>{} }
             if let Err(error) = service.maintain().await {
                 tracing::warn!(error=?error.current_context(),"Meta account/native delivery maintenance will retry");
             }

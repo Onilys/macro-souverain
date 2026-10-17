@@ -13,6 +13,7 @@ pub(super) struct MetaReplies {
     pub provider: Arc<dyn MetaProvider>,
     pub cipher: Arc<dyn CredentialCipher>,
     pub human_agent_approved: bool,
+    pub native: Arc<dyn NativeMessaging>,
 }
 
 impl From<&Connection> for AccountScope {
@@ -59,7 +60,17 @@ impl ReplyPolicy for MetaReplies {
         conversation: &Conversation,
         now: DateTime<Utc>,
     ) -> PortResult<ReplyOptions> {
-        let connection = self.connection(scope).await?;
+        let mut connection = self.connection(scope).await?;
+        if let Err(error) = self
+            .native
+            .require_member(connection.team_id, &connection.user_id)
+            .await
+        {
+            if !matches!(error.current_context(), MessagingError::Forbidden) {
+                return Err(error);
+            }
+            connection.status = ConnectionStatus::Revoked;
+        }
         Ok(reply_options(
             &connection,
             conversation,
@@ -130,7 +141,7 @@ pub(super) fn reply_options(
     };
     let window = ReplyWindow {
         provider: connection.provider,
-        connected: connection.status == ConnectionStatus::Connected,
+        connected: connection.is_ready(),
         last_customer_message_at: conversation.last_customer_message_at,
         human_agent_approved: connection.human_agent_approved && app_human_agent_approved,
     };
@@ -193,6 +204,9 @@ impl ReplyTransport for MetaReplies {
         media: Option<&OutboundMedia>,
     ) -> PortResult<Box<dyn PreparedSend>> {
         let connection = self.connection(scope).await?;
+        self.native
+            .require_member(connection.team_id, &connection.user_id)
+            .await?;
         let token = self.token(&connection).await?;
         let prepared = self
             .provider

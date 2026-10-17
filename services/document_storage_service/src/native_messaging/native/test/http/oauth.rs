@@ -136,7 +136,7 @@ async fn instagram_handoff_wrong_user_expiry_and_replay_have_no_effect(pool: PgP
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn instagram_revoked_admin_and_changed_team_are_rejected(pool: PgPool) {
+async fn instagram_departed_member_and_changed_team_are_rejected(pool: PgPool) {
     let f = fixture(&pool, Provider::Instagram, Some("fresh-instagram")).await;
     let (_, begin) = request(
         &f.app,
@@ -148,7 +148,7 @@ async fn instagram_revoked_admin_and_changed_team_are_rejected(pool: PgPool) {
     .await;
     let body = json!({"state":begin["state"],"browser_transaction":begin["browser_transaction"],"code":"fixture-code"});
     sqlx::query!(
-        "UPDATE team_user SET team_role='member' WHERE team_id=$1 AND user_id=$2",
+        "DELETE FROM team_user WHERE team_id=$1 AND user_id=$2",
         f.c.team_id,
         f.c.user_id
     )
@@ -186,9 +186,8 @@ async fn instagram_revoked_admin_and_changed_team_are_rejected(pool: PgPool) {
     .await
     .unwrap();
     sqlx::query!(
-        "UPDATE team_user SET team_id=$1,team_role='admin' WHERE team_id=$2 AND user_id=$3",
+        "INSERT INTO team_user (team_id,user_id,team_role) VALUES ($1,$2,'admin')",
         other_team,
-        f.c.team_id,
         f.c.user_id
     )
     .execute(&pool)

@@ -1432,6 +1432,8 @@ pub async fn run() -> anyhow::Result<()> {
     };
 
     let meta_state = crate::native_messaging::build(crate::native_messaging::Dependencies {
+        tracker: consumer_tracker.clone(),
+        cancellation: consumer_cancellation_token.clone(),
         pool: db.clone(),
         access: entity_access_service.clone(),
         authorization: authorization_state.clone(),

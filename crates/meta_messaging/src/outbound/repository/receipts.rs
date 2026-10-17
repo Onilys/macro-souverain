@@ -9,27 +9,23 @@ impl PgMessagingRepository {
         digest: &[u8],
         payload: &serde_json::Value,
     ) -> PortResult<()> {
-        sqlx::query!(r#"
-            INSERT INTO meta_messaging_receipt (id, provider, body_sha256, payload, routing_keys)
-            VALUES ($1, $2, $3, $4, ARRAY(
-                SELECT DISTINCT $2 || ':' || (account #>> '{}')
-                FROM jsonb_path_query($4, CASE WHEN $2 = 'instagram'
-                    THEN '$.entry[*].id'::jsonpath
-                    ELSE '$.entry[*].changes[*].value.metadata.phone_number_id'::jsonpath END) account
-                WHERE jsonb_typeof(account) = 'string'
-            )) ON CONFLICT (provider, body_sha256) DO NOTHING
-            "#, Uuid::now_v7(), provider.as_str(), digest, payload)
-            .execute(&self.pool).await.map_err(failure)?;
+        sqlx::query!(
+            r#"
+            INSERT INTO meta_messaging_receipt (id, provider, body_sha256, payload)
+            VALUES ($1, $2, $3, $4) ON CONFLICT (provider, body_sha256) DO NOTHING
+            "#,
+            Uuid::now_v7(),
+            provider.as_str(),
+            digest,
+            payload
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(failure)?;
         Ok(())
     }
     pub(super) async fn claim_receipt_impl(&self) -> PortResult<Option<ReceiptWork>> {
         let mut tx = self.pool.begin().await.map_err(failure)?;
-        // Only the short claim transaction is serialized. The durable leases cap
-        // each account at two slots across replicas; provider I/O holds no DB lock.
-        sqlx::query!("SELECT pg_advisory_xact_lock(1296389185, 1)")
-            .execute(&mut *tx)
-            .await
-            .map_err(failure)?;
         sqlx::query!(
             r#"WITH expired AS (
             SELECT id FROM meta_messaging_receipt WHERE status='processing'
@@ -51,13 +47,6 @@ impl PgMessagingRepository {
                   AND r.created_at > now() - interval '30 days' AND r.payload_cleared_at IS NULL
                   AND r.available_at <= now()
                   AND (r.status='pending' OR (r.status='processing' AND r.lease_until<now()))
-                  AND NOT EXISTS (
-                    SELECT 1 FROM unnest(COALESCE(NULLIF(r.routing_keys,'{}'), ARRAY[r.provider])) account
-                    WHERE (SELECT count(*) FROM meta_messaging_receipt busy
-                        WHERE busy.status='processing' AND busy.lease_until>now()
-                          AND COALESCE(NULLIF(busy.routing_keys,'{}'),ARRAY[busy.provider]) @> ARRAY[account]
-                    ) >= 2
-                  )
                 ORDER BY r.available_at,r.id FOR UPDATE SKIP LOCKED LIMIT 1
             ) UPDATE meta_messaging_receipt r SET status='processing',lease_id=$1,
                 lease_until=LEAST(now()+interval '5 minutes',created_at+interval '30 days'),attempts=LEAST(20,attempts+1)

@@ -108,37 +108,6 @@ impl PgMessageRepository {
         Ok(changed)
     }
 
-    /// Repair only an untouched technical placeholder from retained evidence.
-    /// Human edits, changed bodies, unsends and other source messages are fenced.
-    pub async fn repair_external_placeholder_in(
-        tx: &mut Transaction<'_, Postgres>,
-        channel: Uuid,
-        message: Uuid,
-        connection: Uuid,
-        provider_message: &str,
-        expected: &[String],
-        content: &str,
-    ) -> Result<bool, MessageError> {
-        Ok(sqlx::query!(
-            r#"UPDATE comms_messages SET content=$6,updated_at=now()
-            WHERE id=$1 AND parent_entity_type='channel' AND parent_entity_id=$2
-            AND import_metadata->>'connection_id'=$3 AND import_metadata->>'provider_message_id'=$4
-            AND btrim(content,E' \n\r\t')=ANY($5::text[]) AND content<>$6
-            AND deleted_at IS NULL AND edited_at IS NULL
-            "#,
-            message,
-            channel.to_string(),
-            connection.to_string(),
-            provider_message,
-            expected,
-            content
-        )
-        .execute(&mut **tx)
-        .await
-        .map_err(database_error)?
-        .rows_affected()
-            == 1)
-    }
     /// Append a document reference only to the exact integration-owned message.
     /// Caller first authorizes and grants the document through its owning services.
     pub async fn attach_external_file_in(

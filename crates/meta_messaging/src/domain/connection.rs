@@ -18,7 +18,7 @@ pub struct Connection {
     pub id: Uuid,
     /// Owning Macro team.
     pub team_id: Uuid,
-    /// Original administrator. New conversations start with explicit membership.
+    /// Current connector. Reconnect changes this user without transferring existing channel/file grants.
     pub user_id: String,
     /// Official API used by this connection.
     pub provider: Provider,
@@ -36,12 +36,14 @@ pub struct Connection {
     pub credential_expires_at: Option<DateTime<Utc>>,
     /// Verified HUMAN_AGENT approval; false by default.
     pub human_agent_approved: bool,
+    /// Server-verified WhatsApp onboarding mode; absent for Instagram.
+    pub whatsapp_mode: Option<WhatsappMode>,
+    /// Registration state for Platform numbers only.
+    pub registration_status: Option<RegistrationStatus>,
+    /// Time of the latest uncertain or rate-limited registration attempt; never a PIN.
+    pub registration_attempted_at: Option<DateTime<Utc>>,
     /// Development test number; never evidence of coexistence.
     pub developer_account: bool,
-    /// Provider history synchronization status.
-    pub history_status: HistoryStatus,
-    /// Latest provider-reported progress.
-    pub history_progress: Option<u8>,
     /// Sanitized operational error code.
     pub health_error: Option<String>,
 }
@@ -114,6 +116,10 @@ impl AccessToken {
 
 /// Account facts resolved by the official provider using an exchanged code.
 pub struct AuthorizedAccount {
+    /// Server-verified mode, independent of browser assertions.
+    pub whatsapp_mode: Option<WhatsappMode>,
+    /// Verified registration state; coexistence and Instagram do not register here.
+    pub registration_status: Option<RegistrationStatus>,
     /// Account was verified through the explicitly enabled local developer path.
     pub developer_account: bool,
     /// Identity independently verified by the provider, not trusted from the browser.
@@ -166,6 +172,8 @@ pub struct PublicConfiguration {
     pub whatsapp_app_id: Option<String>,
     /// Facebook Login for Business v4 configuration ID with coexistence enabled.
     pub whatsapp_configuration_id: Option<String>,
+    /// Optional dedicated v4 configuration for Platform signup.
+    pub whatsapp_platform_configuration_id: Option<String>,
     /// Instagram app ID within the configured Meta business app.
     pub instagram_app_id: Option<String>,
     /// Approved redirect URI for Instagram Login.
@@ -202,6 +210,8 @@ pub struct CompleteAuthorization {
     pub business_account_id: Option<ProviderId>,
     /// Phone-number selection; verified as belonging to the selected account.
     pub phone_number_id: Option<ProviderId>,
+    /// Explicit signup path; the provider independently verifies its eligibility.
+    pub whatsapp_mode: Option<WhatsappMode>,
 }
 
 /// Native conversation metadata, available only after ordinary channel access.
@@ -223,8 +233,6 @@ pub struct Conversation {
     pub customer_handle: Option<String>,
     /// Latest eligible inbound source timestamp.
     pub last_customer_message_at: Option<DateTime<Utc>>,
-    /// Standard reply window, including verified provider-specific extensions.
-    pub standard_window_until: Option<DateTime<Utc>>,
 }
 
 /// An approved WhatsApp template returned from this connection's account.
@@ -373,4 +381,113 @@ pub struct UploadedAttachment {
     pub filename: String,
     /// Verified attachment category.
     pub kind: MediaKind,
+}
+
+/// Supported production WhatsApp onboarding paths.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum WhatsappMode {
+    /// Keep the WhatsApp Business app and its supported history.
+    Coexistence,
+    /// Cloud API number without the Business app.
+    Platform,
+}
+
+/// Durable registration uncertainty is separate from account health.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RegistrationStatus {
+    /// Await explicit PIN entry.
+    Required,
+    /// An attempt may have succeeded; reconcile without repeating it.
+    Unconfirmed,
+    /// Meta confirmed CONNECTED.
+    Registered,
+    /// Meta imposed its 72-hour registration limit.
+    RateLimited,
+}
+
+impl Connection {
+    /// One readiness rule for views, replies and lifecycle maintenance.
+    pub fn is_ready(&self) -> bool {
+        self.status == ConnectionStatus::Connected
+            && (self.whatsapp_mode != Some(WhatsappMode::Platform)
+                || self.registration_status == Some(RegistrationStatus::Registered))
+    }
+}
+
+/// A six-digit secret, accepted only in an explicit registration request.
+/// Deliberately neither Debug nor Serialize, and never persisted.
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "schema", schema(value_type = String, pattern = "^[0-9]{6}$"))]
+pub struct RegistrationPin(String);
+impl<'de> Deserialize<'de> for RegistrationPin {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let Some(pin) = value.as_str() else {
+            return Err(serde::de::Error::custom(
+                "enter the six-digit WhatsApp PIN as text",
+            ));
+        };
+        Self::try_from(pin.to_owned()).map_err(serde::de::Error::custom)
+    }
+}
+impl TryFrom<String> for RegistrationPin {
+    type Error = super::models::MessagingError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.len() != 6 || !value.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(super::models::MessagingError::Invalid(
+                "enter the six-digit WhatsApp two-step verification PIN",
+            ));
+        }
+        Ok(Self(value))
+    }
+}
+impl RegistrationPin {
+    /// Expose only to the official provider request.
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
+}
+
+/// A request without a PIN only checks whether a previous attempt completed.
+#[derive(Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct RegisterPhone {
+    /// Kept only for this request; absence never starts a new registration attempt.
+    pub pin: Option<RegistrationPin>,
+}
+
+/// Registration outcomes distinguish known rejections from an uncertain POST.
+pub enum RegistrationResult {
+    /// Meta returned success; verify CONNECTED before activation.
+    Accepted,
+    /// Definitive failure, with a sanitized user-facing reason.
+    Rejected(RegistrationFailure),
+    /// A timeout or malformed response may conceal success.
+    Unknown,
+}
+/// Actionable provider registration failures.
+pub enum RegistrationFailure {
+    /// Meta code 133005.
+    IncorrectPin,
+    /// Meta code 133006.
+    PinAttemptsExceeded,
+    /// Meta code 133016.
+    RateLimited,
+    /// Another definitive rejection.
+    Rejected,
+}
+impl RegistrationFailure {
+    /// Stable sanitized health code; never provider error details.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::IncorrectPin => "registration_pin_incorrect",
+            Self::PinAttemptsExceeded => "registration_pin_attempts_exceeded",
+            Self::RateLimited => "registration_rate_limited",
+            Self::Rejected => "registration_rejected",
+        }
+    }
 }

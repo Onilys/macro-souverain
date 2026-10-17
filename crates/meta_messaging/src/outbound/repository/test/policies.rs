@@ -15,6 +15,7 @@ async fn ready(pool: &PgPool, name: &str) -> (PgMessagingRepository, Connection,
 }
 async fn queued(repo: &PgMessagingRepository, c: &Connection, channel: Uuid) -> SendProgress {
     let request = reply();
+    bind_conversation(repo, c, channel).await;
     repo.enqueue_send(
         c.id,
         channel,
@@ -42,21 +43,32 @@ async fn unattempted_crash_retries_but_a_crash_after_the_fence_never_does(pool: 
     assert_eq!(retry.lease.id, send.id);
     assert_ne!(retry.lease.token, unattempted.lease.token);
     assert!(
-        repo.prepare_send(&unattempted.lease, &(&c).into(), "stale")
-            .await
-            .is_err()
+        repo.prepare_send(
+            &unattempted.lease,
+            &(&c).into(),
+            &conversation(&c, channel),
+            "stale"
+        )
+        .await
+        .is_err()
     );
     repo.prepare_send(
         &retry.lease,
         &(&c).into(),
+        &conversation(&c, channel),
         "authorized, not proof of delivery",
     )
     .await
     .unwrap();
     assert!(
-        repo.prepare_send(&retry.lease, &(&c).into(), "cannot fence twice")
-            .await
-            .is_err()
+        repo.prepare_send(
+            &retry.lease,
+            &(&c).into(),
+            &conversation(&c, channel),
+            "cannot fence twice"
+        )
+        .await
+        .is_err()
     );
     sqlx::query!("UPDATE meta_messaging_send SET created_at=now()-interval '11 minutes',lease_until=now()-interval '1 second' WHERE id=$1",send.id).execute(&pool).await.unwrap();
     assert!(repo.claim_send().await.unwrap().is_none());
@@ -66,21 +78,26 @@ async fn unattempted_crash_retries_but_a_crash_after_the_fence_never_does(pool: 
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn an_older_workers_untracked_attempt_stays_uncertain_during_rolling_deploy(pool: PgPool) {
+async fn an_expired_unattempted_claim_fails_and_rejects_its_old_worker(pool: PgPool) {
     let (repo, c, channel) = ready(&pool, "old-worker").await;
     let send = queued(&repo, &c, channel).await;
     let work = repo.claim_send().await.unwrap().unwrap();
-    // An old version changes lease_id, leaving the newer tracking token stale.
-    sqlx::query!("UPDATE meta_messaging_send SET lease_id=$2,lease_until=now()-interval '1 second',created_at=now()-interval '20 minutes' WHERE id=$1",send.id,Uuid::now_v7()).execute(&pool).await.unwrap();
+    // No dispatch fence was crossed; expiration can safely fail this intent.
+    sqlx::query!("UPDATE meta_messaging_send SET lease_until=now()-interval '1 second',created_at=now()-interval '20 minutes' WHERE id=$1",send.id).execute(&pool).await.unwrap();
     assert!(repo.claim_send().await.unwrap().is_none());
     assert_eq!(
         repo.sends(channel).await.unwrap()[0].state,
-        DeliveryState::Unknown
+        DeliveryState::Failed
     );
     assert!(
-        repo.prepare_send(&work.lease, &(&c).into(), "stale")
-            .await
-            .is_err()
+        repo.prepare_send(
+            &work.lease,
+            &(&c).into(),
+            &conversation(&c, channel),
+            "stale"
+        )
+        .await
+        .is_err()
     );
 }
 
@@ -91,9 +108,14 @@ async fn definitive_retry_keeps_original_deadline_and_expiry_releases_the_conver
     let (repo, c, channel) = ready(&pool, "retry-expiry").await;
     let first = queued(&repo, &c, channel).await;
     let work = repo.claim_send().await.unwrap().unwrap();
-    repo.prepare_send(&work.lease, &(&c).into(), "rate limited")
-        .await
-        .unwrap();
+    repo.prepare_send(
+        &work.lease,
+        &(&c).into(),
+        &conversation(&c, channel),
+        "rate limited",
+    )
+    .await
+    .unwrap();
     repo.settle_send(
         &work.lease,
         DeliveryState::Pending,
@@ -149,7 +171,12 @@ async fn fence_uses_database_time_after_waiting_for_the_account_lock(pool: PgPoo
     let lease = work.lease.clone();
     let mut fence = tokio::spawn(async move {
         worker
-            .prepare_send(&lease, &scope, "expired during account wait")
+            .prepare_send(
+                &lease,
+                &scope,
+                &conversation(&c, channel),
+                "expired during account wait",
+            )
             .await
     });
     assert!(
@@ -334,4 +361,46 @@ async fn cleanup_is_bounded_and_retries_do_not_extend_the_original_deadline(pool
     assert_eq!(second.receipts_deleted, 500);
     assert_eq!(repo.cleanup_receipts().await.unwrap().receipts_deleted, 2);
     assert!(!repo.cleanup_receipts().await.unwrap().changed());
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn dispatch_fence_rejects_a_retired_phone_even_when_bsuid_is_unchanged(pool: PgPool) {
+    let (repo, c, channel) = ready(&pool, "routing-fence").await;
+    queued(&repo, &c, channel).await;
+    let work = repo.claim_send().await.unwrap().unwrap();
+    let stale = repo.conversation(channel).await.unwrap().unwrap();
+    sqlx::query!(
+        "UPDATE meta_messaging_conversation SET customer_phone='15550000002' WHERE channel_id=$1",
+        channel
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        *repo
+            .prepare_send(&work.lease, &(&c).into(), &stale, "stale destination")
+            .await
+            .unwrap_err()
+            .current_context(),
+        MessagingError::Unavailable
+    );
+    assert!(
+        sqlx::query_scalar!(
+            "SELECT dispatch_started_at FROM meta_messaging_send WHERE id=$1",
+            work.lease.id
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+        .is_none()
+    );
+    let current = repo.conversation(channel).await.unwrap().unwrap();
+    repo.prepare_send(
+        &work.lease,
+        &(&c).into(),
+        &current,
+        "verified current destination",
+    )
+    .await
+    .unwrap();
 }

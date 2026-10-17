@@ -106,14 +106,15 @@ impl PgMessagingRepository {
         &self,
         c: &Connection,
         received_at: DateTime<Utc>,
+        waiting: bool,
     ) -> PortResult<Option<String>> {
         sqlx::query_scalar!(
             "SELECT user_id FROM meta_messaging_history_import
-            WHERE connection_id=$1 AND connected_at=$2 AND requested_at<=$3 AND step='waiting'
-                AND status IN ('syncing','complete','failed') AND error_code IS DISTINCT FROM 'history_permission_lost'",
+            WHERE connection_id=$1 AND connected_at=$2 AND requested_at<=$3 AND (NOT $4 OR step='waiting')
+                AND status IN ('pending','syncing','complete','failed') AND error_code IS DISTINCT FROM 'history_permission_lost'",
             c.id,
             c.connected_at,
-            received_at
+            received_at, waiting
         )
         .fetch_optional(&self.pool)
         .await

@@ -309,7 +309,7 @@ export const staticFilesBacklog =
   [] as const satisfies readonly (keyof StaticFilesSdk)[];
 
 export const storageExcluded = [
-  // Meta setup/import are browser-admin workflows. External replies require a
+  // Meta setup/import are authenticated member/manager browser workflows. External replies require a
   // deliberate user session; SDK API keys must not gain external-send authority.
   'metaAuthorize',
   'metaAuthorizeComplete',
@@ -318,6 +318,7 @@ export const storageExcluded = [
   'metaDisconnect',
   'metaImportHistory',
   'metaReply',
+  'metaRegister',
   'metaUploadAttachment',
   // Browser Loro-session initialization/publication; SDK layout writes use putFormLayout.
   'collaborateForm',

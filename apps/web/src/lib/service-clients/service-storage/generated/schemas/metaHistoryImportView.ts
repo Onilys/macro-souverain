@@ -11,7 +11,7 @@ import type { MetaHistoryImportViewReason } from './metaHistoryImportViewReason'
  * Server-authorized import affordance and current progress.
  */
 export interface MetaHistoryImportView {
-  /** Whether the administrator may start or resume an import now. */
+  /** Whether the connector or administrator may start or resume an import now. */
   can_import: boolean;
   import?: MetaHistoryImportViewImport;
   /** Explanation when unavailable; no credentials or provider response bodies. */

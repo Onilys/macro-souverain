@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_identifier SET identity_id=$3 WHERE connection_id=$1 AND identity_id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ce5404e7d8efff76707867337cbb99699c3d6d9a392824da9b5c7bfd2e375df3"
+}

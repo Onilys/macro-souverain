@@ -8,13 +8,7 @@ use crate::domain::retention::{
 
 impl PgMessagingRepository {
     pub(super) async fn cleanup_receipts_impl(&self) -> PortResult<ReceiptCleanup> {
-        // Older workers did not record completion time. Observe it once, never
-        // invent an earlier success time or shorten the seven-day diagnostic window.
-        let initialized=sqlx::query!(r#"WITH candidates AS (
-            SELECT id FROM meta_messaging_receipt WHERE status='complete' AND decode_failures=0
-                AND completed_at IS NULL AND payload_cleared_at IS NULL
-            ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT $1
-        ) UPDATE meta_messaging_receipt r SET completed_at=now() FROM candidates c WHERE r.id=c.id"#,CLEANUP_BATCH_SIZE)
+        let oauth_deleted=sqlx::query!("DELETE FROM meta_messaging_oauth WHERE state_sha256 IN (SELECT state_sha256 FROM meta_messaging_oauth WHERE expires_at<=now() ORDER BY expires_at LIMIT $1 FOR UPDATE SKIP LOCKED)",CLEANUP_BATCH_SIZE)
             .execute(&self.pool).await.map_err(failure)?.rows_affected();
         let cleared=sqlx::query!(r#"WITH candidates AS (
             SELECT id,status FROM meta_messaging_receipt
@@ -46,7 +40,7 @@ impl PgMessagingRepository {
         .map_err(failure)?
         .rows_affected();
         Ok(ReceiptCleanup {
-            completion_times_initialized: initialized,
+            oauth_deleted,
             payloads_cleared: cleared.len() as u64,
             work_expired: cleared.iter().filter(|row| row.expired).count() as u64,
             receipts_deleted: deleted,

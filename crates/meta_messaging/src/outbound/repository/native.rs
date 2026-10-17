@@ -37,6 +37,30 @@ pub struct NativeEffect {
 }
 
 impl PgMessagingRepository {
+    /// Accepted recovery resolves the retained send's native channel even after
+    /// identity or authorization changes. This path cannot dispatch externally.
+    pub async fn accepted_message_in(
+        tx: &mut Transaction<'_, Postgres>,
+        c: &Connection,
+        m: &IncomingMessage,
+        send: Uuid,
+    ) -> PortResult<IncomingMessage> {
+        sqlx::query!(
+            "SELECT id FROM meta_messaging_connection WHERE id=$1 AND team_id=$2 FOR UPDATE",
+            c.id,
+            c.team_id
+        )
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(failure)?;
+        let route=sqlx::query!("SELECT v.customer_id,v.customer_phone FROM meta_messaging_send s JOIN meta_messaging_conversation v ON v.channel_id=s.channel_id AND v.connection_id=s.connection_id WHERE s.id=$1 AND s.connection_id=$2 AND s.provider_message_id=$3",send,c.id,m.message_id.as_str())
+            .fetch_optional(&mut **tx).await.map_err(failure)?.ok_or(MessagingError::Conflict)?;
+        let mut m = m.clone();
+        m.customer_id = route.customer_id.try_into()?;
+        m.customer_phone = route.customer_phone.map(ProviderId::try_from).transpose()?;
+        Ok(m)
+    }
+
     /// Lock a live account so concurrent arrivals share one conversation and
     /// disconnect cannot race its commit. Accepted sends may finish after disconnect.
     pub async fn reserve_message_in(
@@ -93,13 +117,7 @@ impl PgMessagingRepository {
         send: Option<Uuid>,
     ) -> PortResult<()> {
         let window_until = crate::domain::meta_policy::customer_window_until(c, m, Utc::now());
-        let phone = if c.provider == Provider::Whatsapp
-            && m.customer_id.as_str().bytes().all(|b| b.is_ascii_digit())
-        {
-            Some(format!("+{}", m.customer_id.as_str()))
-        } else {
-            None
-        };
+        let phone = m.customer_phone.as_ref().map(ProviderId::as_str);
         let customer_name = if m.direction == Direction::Inbound {
             m.author_name.as_deref()
         } else {
@@ -110,9 +128,9 @@ impl PgMessagingRepository {
         } else {
             None
         };
-        sqlx::query!("INSERT INTO meta_messaging_conversation (connection_id,customer_id,channel_id,external_sender_id,customer_display_name,customer_phone,customer_handle) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (connection_id,customer_id) DO UPDATE SET customer_display_name = COALESCE(EXCLUDED.customer_display_name,meta_messaging_conversation.customer_display_name),customer_handle=COALESCE(EXCLUDED.customer_handle,meta_messaging_conversation.customer_handle)",c.id,m.customer_id.as_str(),r.channel_id,r.sender_id,customer_name,phone,customer_handle).execute(&mut **tx).await.map_err(failure)?;
-        if let Some(window_until) = window_until {
-            sqlx::query!("UPDATE meta_messaging_conversation SET last_customer_message_at = GREATEST(last_customer_message_at,$3),standard_window_until = GREATEST(standard_window_until,$4) WHERE connection_id = $1 AND customer_id = $2",c.id,m.customer_id.as_str(),m.timestamp,window_until).execute(&mut **tx).await.map_err(failure)?;
+        sqlx::query!("INSERT INTO meta_messaging_conversation (connection_id,customer_id,channel_id,external_sender_id,customer_display_name,customer_phone,customer_handle) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (connection_id,customer_id) DO UPDATE SET customer_display_name = COALESCE(EXCLUDED.customer_display_name,meta_messaging_conversation.customer_display_name),customer_handle=COALESCE(EXCLUDED.customer_handle,meta_messaging_conversation.customer_handle),customer_phone=EXCLUDED.customer_phone",c.id,m.customer_id.as_str(),r.channel_id,r.sender_id,customer_name,phone,customer_handle).execute(&mut **tx).await.map_err(failure)?;
+        if window_until.is_some() {
+            sqlx::query!("UPDATE meta_messaging_conversation SET last_customer_message_at = GREATEST(last_customer_message_at,$3) WHERE connection_id = $1 AND customer_id = $2",c.id,m.customer_id.as_str(),m.timestamp).execute(&mut **tx).await.map_err(failure)?;
         }
         if r.create_message {
             let states=sqlx::query_scalar!("SELECT state FROM meta_messaging_status WHERE connection_id = $1 AND provider_message_id = $2",c.id,m.message_id.as_str()).fetch_all(&mut **tx).await.map_err(failure)?;
@@ -126,7 +144,7 @@ impl PgMessagingRepository {
             sqlx::query!(
                 r#"UPDATE meta_messaging_message SET provenance='macro_reply',provider_type=$4,
                 media_state=CASE WHEN EXISTS (SELECT 1 FROM meta_messaging_revision r WHERE r.connection_id=$1 AND r.provider_message_id=$2 AND r.deleted_at IS NOT NULL) THEN 'stored' WHEN $5 THEN 'pending' ELSE 'none' END,
-                effect_revision=effect_revision+1,event_published_at=NULL,native_retry_at=now()
+                effect_revision=effect_revision+1,native_retry_at=now()
                 WHERE connection_id=$1 AND provider_message_id=$2 AND message_id=$3
                   AND direction='outbound' AND provenance<>'macro_reply'"#,
                 c.id,
@@ -170,7 +188,7 @@ impl PgMessagingRepository {
     /// Mark after the native delivery systems accepted the change. Replays use
     /// stable message/activity/notification identities and idempotent updates.
     pub async fn native_effects_complete(&self, message: Uuid, revision: i64) -> PortResult<()> {
-        let changed=sqlx::query!("UPDATE meta_messaging_message SET event_published_at=now(),published_revision=$2 WHERE message_id=$1 AND effect_revision=$2",message,revision).execute(&self.pool).await.map_err(failure)?;
+        let changed=sqlx::query!("UPDATE meta_messaging_message SET published_revision=$2 WHERE message_id=$1 AND effect_revision=$2",message,revision).execute(&self.pool).await.map_err(failure)?;
         if changed.rows_affected() != 1 {
             return Err(MessagingError::Conflict.into());
         }

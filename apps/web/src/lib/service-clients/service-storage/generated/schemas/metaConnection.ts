@@ -9,9 +9,10 @@ import type { MetaConnectionBusinessAccountId } from './metaConnectionBusinessAc
 import type { MetaConnectionConnectedAt } from './metaConnectionConnectedAt';
 import type { MetaConnectionCredentialExpiresAt } from './metaConnectionCredentialExpiresAt';
 import type { MetaConnectionHealthError } from './metaConnectionHealthError';
-import type { MetaConnectionHistoryProgress } from './metaConnectionHistoryProgress';
+import type { MetaConnectionRegistrationAttemptedAt } from './metaConnectionRegistrationAttemptedAt';
+import type { MetaConnectionRegistrationStatus } from './metaConnectionRegistrationStatus';
 import type { MetaConnectionStatus } from './metaConnectionStatus';
-import type { MetaHistoryStatus } from './metaHistoryStatus';
+import type { MetaConnectionWhatsappMode } from './metaConnectionWhatsappMode';
 import type { MetaProvider } from './metaProvider';
 import type { MetaProviderId } from './metaProviderId';
 
@@ -32,23 +33,20 @@ export interface MetaConnection {
   display_name: string;
   /** Sanitized operational error code. */
   health_error?: MetaConnectionHealthError;
-  /**
-   * Latest provider-reported progress.
-   * @minimum 0
-   */
-  history_progress?: MetaConnectionHistoryProgress;
-  /** Provider history synchronization status. */
-  history_status: MetaHistoryStatus;
   /** Verified HUMAN_AGENT approval; false by default. */
   human_agent_approved: boolean;
   /** Macro connection identity, preserved through reconnect. */
   id: string;
   /** Official API used by this connection. */
   provider: MetaProvider;
+  /** Time of the latest uncertain or rate-limited registration attempt; never a PIN. */
+  registration_attempted_at?: MetaConnectionRegistrationAttemptedAt;
+  registration_status?: MetaConnectionRegistrationStatus;
   /** Current local connection health. */
   status: MetaConnectionStatus;
   /** Owning Macro team. */
   team_id: string;
-  /** Original administrator. New conversations start with explicit membership. */
+  /** Current connector. Reconnect changes this user without transferring existing channel/file grants. */
   user_id: string;
+  whatsapp_mode?: MetaConnectionWhatsappMode;
 }

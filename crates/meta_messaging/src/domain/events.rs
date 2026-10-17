@@ -64,6 +64,9 @@ pub struct IncomingMessage {
     pub account_id: ProviderId,
     /// Customer's account-scoped stable identifier.
     pub customer_id: ProviderId,
+    /// Separately supplied WhatsApp phone, never inferred from a BSUID.
+    #[serde(default)]
+    pub customer_phone: Option<ProviderId>,
     /// Stable provider message identifier, shared by echoes and history.
     pub message_id: ProviderId,
     /// Display label, not identity or authorization.
@@ -114,10 +117,27 @@ impl From<Vec<IncomingEvent>> for ReceiptBatch {
 pub enum IncomingEvent {
     /// A message, echo or historical message.
     Message(IncomingMessage),
+    /// Authoritative previous/current association from a WhatsApp system message.
+    IdentityUpdate(IdentityUpdate),
+    /// A status carries an authoritative identity/phone pair without a new message.
+    IdentityObserved {
+        /// Source policy, retained for history consent checks.
+        provenance: Provenance,
+        /// Receiving business phone-number ID.
+        account_id: ProviderId,
+        /// Preferred BSUID, or the legacy phone identifier.
+        customer_id: ProviderId,
+        /// Phone supplied for this same person, when available.
+        phone: Option<ProviderId>,
+        /// Provider observation time.
+        timestamp: DateTime<Utc>,
+    },
     /// Edit or unsend of a scoped message; never new customer activity.
     Revision(IncomingRevision),
     /// Delivery/read/failure status; may arrive before the message.
     Status {
+        /// Source policy; historical statuses require recorded import consent.
+        provenance: Provenance,
         /// Business account's provider ID.
         account_id: ProviderId,
         /// Provider message being reconciled.
@@ -160,6 +180,8 @@ impl IncomingEvent {
     pub fn account_id(&self) -> Option<&ProviderId> {
         match self {
             Self::Message(message) => Some(&message.account_id),
+            Self::IdentityUpdate(update) => Some(&update.account_id),
+            Self::IdentityObserved { account_id, .. } => Some(account_id),
             Self::Revision(revision) => Some(&revision.account_id),
             Self::Status { account_id, .. }
             | Self::HistoryProgress { account_id, .. }
@@ -173,6 +195,8 @@ impl IncomingEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct IncomingRevision {
+    /// Source policy, retained for history consent checks.
+    pub provenance: Provenance,
     /// Receiving business account.
     pub account_id: ProviderId,
     /// Customer paired with that account.
@@ -217,4 +241,24 @@ pub fn instagram_permalink(url: &str) -> Option<&str> {
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-')))
     .then_some(url)
+}
+
+/// A provider-authenticated change, never derived from names or message text.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct IdentityUpdate {
+    /// Source policy, retained for history consent checks.
+    pub provenance: Provenance,
+    /// Receiving business phone-number ID.
+    pub account_id: ProviderId,
+    /// Previous BSUID, or explicitly supplied previous phone on legacy updates.
+    pub previous: ProviderId,
+    /// Old phone supplied alongside the previous BSUID by a number-change system message.
+    pub previous_phone: Option<ProviderId>,
+    /// New BSUID, or the new phone on a legacy phone-only system update.
+    pub current: ProviderId,
+    /// New phone, absent when Meta hides it; absence retires the old route.
+    pub phone: Option<ProviderId>,
+    /// Provider event time for duplicate/out-of-order reconciliation.
+    pub timestamp: DateTime<Utc>,
 }

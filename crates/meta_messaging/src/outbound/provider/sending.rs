@@ -67,10 +67,21 @@ impl HttpMetaProvider {
         request: &SendReply,
         media: Option<&OutboundMedia>,
     ) -> PortResult<PreparedReply> {
+        let destination = if c.provider == Provider::Whatsapp {
+            conversation
+                .customer_phone
+                .as_deref()
+                .map(|phone| phone.trim_start_matches('+'))
+                .map(str::to_owned)
+                .map(ProviderId::try_from)
+                .transpose()?
+                .unwrap_or_else(|| conversation.customer_id.clone())
+        } else {
+            conversation.customer_id.clone()
+        };
         if c.developer_account
             && !self.developer.as_ref().is_some_and(|dev| {
-                dev.phone_number_id == c.account_id
-                    && dev.recipients.contains(&conversation.customer_id)
+                dev.phone_number_id == c.account_id && dev.recipients.contains(&destination)
             })
         {
             return Err(MessagingError::Invalid(
@@ -85,7 +96,18 @@ impl HttpMetaProvider {
         };
         let mut payload = match c.provider {
             Provider::Whatsapp => {
-                json!({"messaging_product":"whatsapp","recipient_type":"individual","to":conversation.customer_id.as_str()})
+                let mut payload =
+                    json!({"messaging_product":"whatsapp","recipient_type":"individual"});
+                if destination.is_whatsapp_bsuid() {
+                    payload["recipient"] = json!(destination.as_str());
+                } else if (6..=15).contains(&destination.as_str().len())
+                    && destination.as_str().bytes().all(|b| b.is_ascii_digit())
+                {
+                    payload["to"] = json!(destination.as_str());
+                } else {
+                    return Err(MessagingError::Invalid("WhatsApp has not provided an addressable phone number or business-scoped user ID").into());
+                }
+                payload
             }
             Provider::Instagram => json!({"recipient":{"id":conversation.customer_id.as_str()}}),
         };

@@ -7,11 +7,17 @@ impl MetaService {
         &self,
         c: &Connection,
         received_at: chrono::DateTime<Utc>,
+        waiting: bool,
     ) -> PortResult<bool> {
-        let Some(user) = self.repository.history_consent_user(c, received_at).await? else {
+        self.native.require_member(c.team_id, &c.user_id).await?;
+        let Some(user) = self
+            .repository
+            .history_consent_user(c, received_at, waiting)
+            .await?
+        else {
             return Ok(false);
         };
-        if let Err(error) = self.native.require_admin(c.team_id, &user).await {
+        if let Err(error) = self.native.require_member(c.team_id, &user).await {
             if matches!(error.current_context(), MessagingError::Forbidden) {
                 self.repository.revoke_history_consent(c).await?;
             }
@@ -20,15 +26,25 @@ impl MetaService {
         Ok(true)
     }
 
-    /// Read import availability using the same team-admin receipt as account management.
+    /// Read import availability using the current team membership.
     pub async fn history_import_view(
         &self,
-        access: &EntityAccessReceipt<AdminTeamRole>,
+        access: &EntityAccessReceipt<MemberTeamRole>,
         id: Uuid,
     ) -> PortResult<HistoryImportView> {
-        let (team, _) = team_actor(access)?;
+        let (team, user) = team_actor(access)?;
+        self.native.require_member(team, user).await?;
         let c = self.team_connection(team, id).await?;
-        self.history_view(&c).await
+        let mut view = self.history_view(&c).await?;
+        if let Err(error) = self.require_manager(&c, user).await {
+            if !matches!(error.current_context(), MessagingError::Forbidden) {
+                return Err(error);
+            }
+            view.can_import = false;
+            view.reason =
+                Some("Only the connector or a current team admin can import history.".into());
+        }
+        Ok(view)
     }
     async fn history_view(&self, c: &Connection) -> PortResult<HistoryImportView> {
         let import = self.repository.history_import(c).await?;
@@ -54,7 +70,7 @@ impl MetaService {
     /// Record explicit consent; connecting an account alone never requests history.
     pub async fn import_history(
         &self,
-        access: &EntityAccessReceipt<AdminTeamRole>,
+        access: &EntityAccessReceipt<MemberTeamRole>,
         id: Uuid,
     ) -> PortResult<HistoryImportView> {
         let (team, user) = team_actor(access)?;
@@ -62,7 +78,8 @@ impl MetaService {
         if let Some(reason) = unavailable_reason(&c, Utc::now()) {
             return Err(MessagingError::Invalid(reason).into());
         }
-        self.native.require_admin(team, user).await?;
+        self.require_manager(&c, user).await?;
+        self.native.require_member(c.team_id, &c.user_id).await?;
         self.repository.request_history_import(&c, user).await?;
         self.history_view(&c).await
     }
@@ -115,8 +132,9 @@ impl MetaService {
         if c.connected_at != Some(w.connected_at) {
             return Err(MessagingError::Conflict.into());
         }
-        self.native.require_admin(c.team_id, &w.user_id).await?;
-        self.native.require_admin(c.team_id, &c.user_id).await?;
+        if !self.require_history_consent(&c, Utc::now(), false).await? {
+            return Err(MessagingError::Forbidden.into());
+        }
         if !self.repository.heartbeat_history_import(&w.lease).await? {
             return Err(MessagingError::Conflict.into());
         }
@@ -172,7 +190,9 @@ impl MetaService {
                     {
                         return Err(MessagingError::ProviderRejected.into());
                     }
-                    self.native.require_admin(c.team_id, &w.user_id).await?;
+                    if !self.require_history_consent(&c, Utc::now(), false).await? {
+                        return Err(MessagingError::Forbidden.into());
+                    }
                     self.ingest_message(&c, &mut message, IngestionLease::History(&w.lease))
                         .await?;
                 }

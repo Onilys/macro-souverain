@@ -21,6 +21,4 @@ pub enum ContentLine<'a> {
 pub struct NormalizedContent<'a> {
     /// Bounded lines from the already-bounded decoded message.
     pub lines: Vec<ContentLine<'a>>,
-    /// Exact old plain-text bodies eligible for source-scoped placeholder repair.
-    pub legacy_placeholders: Vec<String>,
 }

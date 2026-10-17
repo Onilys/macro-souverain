@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE meta_messaging_identifier SET retired_at=COALESCE(retired_at,$3) WHERE connection_id=$1 AND identifier=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5d87b141fdc8daea403211f5658aedcaf3b02e333cc1c75fc38e359814c25160"
+}

@@ -122,6 +122,7 @@ fn revisions_are_not_customer_messages_and_deleted_payloads_never_download_media
     assert!(matches!(
         &events[0],
         IncomingEvent::Revision(IncomingRevision {
+            provenance: Provenance::Customer,
             change: MessageRevision::Deleted,
             ..
         })
@@ -133,6 +134,7 @@ fn revisions_are_not_customer_messages_and_deleted_payloads_never_download_media
     assert!(matches!(
         &events[0],
         IncomingEvent::Revision(IncomingRevision {
+            provenance: Provenance::Customer,
             change: MessageRevision::Edited { number: 2, .. },
             ..
         })
@@ -414,4 +416,82 @@ fn malformed_collection_does_not_hide_a_valid_status() {
             ..
         }]
     ));
+}
+
+#[test]
+fn bsuid_only_live_echo_history_and_status_use_the_documented_identity_fields() {
+    let live = whatsapp_payload(
+        "messages",
+        json!({"metadata":{"phone_number_id":"phone"},"contacts":[{"user_id":"US.A","profile":{"username":"display-only"}}],"messages":[{"from_user_id":"US.A","id":"live","timestamp":"1700000000","type":"text","text":{"body":"phone hidden"}}],"statuses":[{"recipient_user_id":"US.A","id":"sent","status":"delivered","timestamp":"1700000001"}]}),
+    );
+    let events = decode(Provider::Whatsapp, &live).unwrap();
+    assert_eq!(events.invalid_items, 0);
+    let IncomingEvent::Message(message) = &events.events[0] else {
+        panic!("message missing")
+    };
+    assert_eq!(message.customer_id.as_str(), "US.A");
+    assert_eq!(message.customer_phone, None);
+    assert_eq!(message.author_handle.as_deref(), Some("display-only"));
+    assert!(
+        matches!(&events.events[1],IncomingEvent::IdentityObserved{customer_id,..} if customer_id.as_str()=="US.A")
+    );
+    let echo = whatsapp_payload(
+        "smb_message_echoes",
+        json!({"metadata":{"phone_number_id":"phone"},"message_echoes":[{"to_user_id":"US.A","id":"echo","timestamp":"1700000001","type":"text","text":{"body":"echo"}}]}),
+    );
+    let events = decode(Provider::Whatsapp, &echo).unwrap();
+    let IncomingEvent::Message(message) = &events.events[0] else {
+        panic!("echo missing")
+    };
+    assert_eq!(message.direction, Direction::Outbound);
+    assert_eq!(message.customer_id.as_str(), "US.A");
+    let history = whatsapp_payload(
+        "history",
+        json!({"metadata":{"phone_number_id":"phone"},"history":[{"threads":[{"context":{"user_id":"US.A"},"messages":[{"from_user_id":"US.A","id":"past","timestamp":"1700000000","type":"text","text":{"body":"past"}}]}]}]}),
+    );
+    let events = decode(Provider::Whatsapp, &history).unwrap();
+    assert_eq!(events.invalid_items, 0);
+    let IncomingEvent::Message(message) = &events.events[0] else {
+        panic!("history missing")
+    };
+    assert_eq!(message.provenance, Provenance::OnboardingHistory);
+    assert_eq!(message.customer_id.as_str(), "US.A");
+}
+
+#[test]
+fn system_identity_updates_preserve_both_old_ids_without_customer_activity() {
+    let payload = whatsapp_payload(
+        "messages",
+        json!({"metadata":{"phone_number_id":"phone"},"messages":[{"from":"15550000001","id":"change","timestamp":"1700000000","type":"system","system":{"type":"user_changed_number","previous_user_id":"US.A","user_id":"US.B","wa_id":"15550000002"}},{"id":"hidden-change","timestamp":"1700000001","type":"system","system":{"type":"user_changed_user_id","previous_user_id":"US.B","user_id":"US.C"}}]}),
+    );
+    let events = decode(Provider::Whatsapp, &payload).unwrap();
+    assert_eq!(events.invalid_items, 0);
+    assert_eq!(events.events.len(), 2);
+    let IncomingEvent::IdentityUpdate(first) = &events.events[0] else {
+        panic!("update missing")
+    };
+    assert_eq!(first.previous.as_str(), "US.A");
+    assert_eq!(
+        first.previous_phone.as_ref().map(ProviderId::as_str),
+        Some("15550000001")
+    );
+    let IncomingEvent::IdentityUpdate(second) = &events.events[1] else {
+        panic!("hidden update missing")
+    };
+    assert_eq!(second.current.as_str(), "US.C");
+    assert_eq!(second.phone, None);
+}
+
+#[test]
+fn history_uses_the_business_sender_even_with_customer_context_bsuid() {
+    let payload = whatsapp_payload(
+        "history",
+        json!({"metadata":{"phone_number_id":"phone","display_phone_number":"+1 555 000 0000"},"history":[{"threads":[{"context":{"user_id":"US.A"},"messages":[{"from":"15550000000","from_user_id":"US.A","id":"business-history","timestamp":"1700000000","type":"text","text":{"body":"Business reply"}}]}]}]}),
+    );
+    let decoded = decode(Provider::Whatsapp, &payload).unwrap();
+    assert_eq!(decoded.invalid_items, 0);
+    let IncomingEvent::Message(message) = &decoded.events[0] else {
+        panic!("history message missing")
+    };
+    assert_eq!(message.direction, Direction::Outbound);
 }

@@ -61,7 +61,6 @@ fn fixture() -> (MessagingService, Arc<Fixture>) {
         customer_phone: None,
         customer_handle: None,
         last_customer_message_at: None,
-        standard_window_until: None,
     };
     let fixture = Arc::new(Fixture(Mutex::new(Memory {
         account,
@@ -216,9 +215,15 @@ impl ConversationRepository for Fixture {
         &self,
         lease: &Lease,
         account: &AccountScope,
+        conversation: &Conversation,
         rendered_text: &str,
     ) -> PortResult<()> {
         let mut memory = self.0.lock().unwrap();
+        if memory.conversation.customer_id != conversation.customer_id
+            || memory.conversation.customer_phone != conversation.customer_phone
+        {
+            return Err(MessagingError::Unavailable.into());
+        }
         if memory.account != *account
             || memory.account.status != ConnectionStatus::Connected
             || memory.state != DeliveryState::Sending
@@ -465,7 +470,6 @@ async fn preparation_cannot_bypass_current_access_policy_generation_or_lease() {
         DuringPreparation::Disconnect,
         DuringPreparation::Reconnect,
         DuringPreparation::MoveTeam,
-        DuringPreparation::ChangeRecipient,
         DuringPreparation::ClosePolicy,
         DuringPreparation::RejectContent,
         DuringPreparation::ExpireLease,
@@ -513,7 +517,8 @@ async fn unrecorded_acceptance_is_never_settled_as_a_failed_send() {
         .unwrap();
     fixture.0.lock().unwrap().fail_settle = Some(DeliveryState::Accepted);
     // Exercise the worker entry point, which owns the failure fallback.
-    assert!(service.process_next_send().await.is_err());
+    let work = fixture.claim_send().await.unwrap().unwrap();
+    assert!(service.process_send(&work).await.is_err());
     let memory = fixture.0.lock().unwrap();
     assert_eq!(memory.dispatches, 1);
     // The attempt stays leased; expiry records Unknown, so no resend is offered.
@@ -602,4 +607,22 @@ fn original_queued_requests_keep_v1_serialization_and_hashes() {
             serde_json::to_vec(&request).unwrap()
         );
     }
+}
+
+#[tokio::test]
+async fn identity_changes_during_preparation_retry_with_the_current_recipient() {
+    let (service, fixture) = fixture();
+    service
+        .send_reply(&receipt(&fixture), request(), SendAuthority::Human)
+        .await
+        .unwrap();
+    fixture.0.lock().unwrap().change = DuringPreparation::ChangeRecipient;
+    let work = fixture.claim_send().await.unwrap().unwrap();
+    service.process_send(&work).await.unwrap();
+    assert_eq!(fixture.0.lock().unwrap().dispatches, 0);
+    assert_eq!(fixture.0.lock().unwrap().state, DeliveryState::Pending);
+    fixture.0.lock().unwrap().change = DuringPreparation::None;
+    let work = fixture.claim_send().await.unwrap().unwrap();
+    service.process_send(&work).await.unwrap();
+    assert_eq!(fixture.0.lock().unwrap().dispatches, 1);
 }

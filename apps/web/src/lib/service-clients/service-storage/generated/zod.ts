@@ -47907,6 +47907,10 @@ export const metaAuthorizeResponse = zod
           .describe(
             'A server-configured, recipient-restricted local WhatsApp test account exists.'
           ),
+        whatsapp_platform_configuration_id: zod
+          .string()
+          .nullish()
+          .describe('Optional dedicated v4 configuration for Platform signup.'),
       })
       .describe(
         'Public setup configuration, returned by the server rather than hardcoded in UI.'
@@ -47953,10 +47957,16 @@ export const metaAuthorizeCompleteBody = zod
       .describe(
         'State returned by the server for this caller\/team\/provider.'
       ),
+    whatsapp_mode: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['coexistence', 'platform'])
+          .describe('Supported production WhatsApp onboarding paths.'),
+      ])
+      .optional(),
   })
   .describe('Callback input. Tokens are always exchanged server-side.');
-
-export const metaAuthorizeCompleteResponseHistoryProgressMin = 0;
 
 export const metaAuthorizeCompleteResponse = zod
   .object({
@@ -47997,21 +48007,6 @@ export const metaAuthorizeCompleteResponse = zod
       .string()
       .nullish()
       .describe('Sanitized operational error code.'),
-    history_progress: zod
-      .number()
-      .min(metaAuthorizeCompleteResponseHistoryProgressMin)
-      .nullish()
-      .describe('Latest provider-reported progress.'),
-    history_status: zod
-      .enum([
-        'not_requested',
-        'pending',
-        'syncing',
-        'complete',
-        'declined',
-        'failed',
-      ])
-      .describe('History progress is independent from live account health.'),
     human_agent_approved: zod
       .boolean()
       .describe('Verified HUMAN_AGENT approval; false by default.'),
@@ -48023,6 +48018,22 @@ export const metaAuthorizeCompleteResponse = zod
       .describe(
         'The official API used for an account. Personal accounts are not supported.'
       ),
+    registration_attempted_at: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Time of the latest uncertain or rate-limited registration attempt; never a PIN.'
+      ),
+    registration_status: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .describe(
+            'Durable registration uncertainty is separate from account health.'
+          ),
+      ])
+      .optional(),
     status: zod
       .enum(['connecting', 'connected', 'disconnected', 'revoked', 'error'])
       .describe(
@@ -48032,8 +48043,16 @@ export const metaAuthorizeCompleteResponse = zod
     user_id: zod
       .string()
       .describe(
-        'Original administrator. New conversations start with explicit membership.'
+        'Current connector. Reconnect changes this user without transferring existing channel\/file grants.'
       ),
+    whatsapp_mode: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['coexistence', 'platform'])
+          .describe('Supported production WhatsApp onboarding paths.'),
+      ])
+      .optional(),
   })
   .describe('Public account health; never includes credentials.');
 
@@ -48168,12 +48187,6 @@ export const metaConversationResponse = zod
                   .datetime({})
                   .nullish()
                   .describe('Latest eligible inbound source timestamp.'),
-                standard_window_until: zod.iso
-                  .datetime({})
-                  .nullish()
-                  .describe(
-                    'Standard reply window, including verified provider-specific extensions.'
-                  ),
               })
               .describe(
                 'Native conversation metadata, available only after ordinary channel access.'
@@ -48868,12 +48881,14 @@ export const metaConfigurationResponse = zod
       .describe(
         'A server-configured, recipient-restricted local WhatsApp test account exists.'
       ),
+    whatsapp_platform_configuration_id: zod
+      .string()
+      .nullish()
+      .describe('Optional dedicated v4 configuration for Platform signup.'),
   })
   .describe(
     'Public setup configuration, returned by the server rather than hardcoded in UI.'
   );
-
-export const metaConnectionsResponseHistoryProgressMin = 0;
 
 export const metaConnectionsResponseItem = zod
   .object({
@@ -48914,21 +48929,6 @@ export const metaConnectionsResponseItem = zod
       .string()
       .nullish()
       .describe('Sanitized operational error code.'),
-    history_progress: zod
-      .number()
-      .min(metaConnectionsResponseHistoryProgressMin)
-      .nullish()
-      .describe('Latest provider-reported progress.'),
-    history_status: zod
-      .enum([
-        'not_requested',
-        'pending',
-        'syncing',
-        'complete',
-        'declined',
-        'failed',
-      ])
-      .describe('History progress is independent from live account health.'),
     human_agent_approved: zod
       .boolean()
       .describe('Verified HUMAN_AGENT approval; false by default.'),
@@ -48940,6 +48940,22 @@ export const metaConnectionsResponseItem = zod
       .describe(
         'The official API used for an account. Personal accounts are not supported.'
       ),
+    registration_attempted_at: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Time of the latest uncertain or rate-limited registration attempt; never a PIN.'
+      ),
+    registration_status: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .describe(
+            'Durable registration uncertainty is separate from account health.'
+          ),
+      ])
+      .optional(),
     status: zod
       .enum(['connecting', 'connected', 'disconnected', 'revoked', 'error'])
       .describe(
@@ -48949,8 +48965,16 @@ export const metaConnectionsResponseItem = zod
     user_id: zod
       .string()
       .describe(
-        'Original administrator. New conversations start with explicit membership.'
+        'Current connector. Reconnect changes this user without transferring existing channel\/file grants.'
       ),
+    whatsapp_mode: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['coexistence', 'platform'])
+          .describe('Supported production WhatsApp onboarding paths.'),
+      ])
+      .optional(),
   })
   .describe('Public account health; never includes credentials.');
 export const metaConnectionsResponse = zod.array(metaConnectionsResponseItem);
@@ -48984,7 +49008,9 @@ export const metaHistoryResponse = zod
   .object({
     can_import: zod
       .boolean()
-      .describe('Whether the administrator may start or resume an import now.'),
+      .describe(
+        'Whether the connector or administrator may start or resume an import now.'
+      ),
     import: zod
       .union([
         zod.null(),
@@ -49046,7 +49072,9 @@ export const metaImportHistoryResponse = zod
   .object({
     can_import: zod
       .boolean()
-      .describe('Whether the administrator may start or resume an import now.'),
+      .describe(
+        'Whether the connector or administrator may start or resume an import now.'
+      ),
     import: zod
       .union([
         zod.null(),
@@ -49098,7 +49126,117 @@ export const metaImportHistoryResponse = zod
   })
   .describe('Server-authorized import affordance and current progress.');
 
-export const metaDeveloperWhatsappResponseHistoryProgressMin = 0;
+export const metaRegisterParams = zod.object({
+  connection_id: zod.uuid(),
+});
+
+export const metaRegisterBodyPinRegExpTwo = new RegExp('^[0-9]{6}$');
+
+export const metaRegisterBody = zod
+  .object({
+    pin: zod
+      .union([
+        zod.null(),
+        zod
+          .string()
+          .regex(metaRegisterBodyPinRegExpTwo)
+          .describe(
+            'A six-digit secret, accepted only in an explicit registration request.\nDeliberately neither Debug nor Serialize, and never persisted.'
+          ),
+      ])
+      .optional(),
+  })
+  .describe(
+    'A request without a PIN only checks whether a previous attempt completed.'
+  );
+
+export const metaRegisterResponse = zod
+  .object({
+    account_id: zod
+      .string()
+      .describe(
+        'Provider identifier, scoped separately by the persisted connection.'
+      ),
+    business_account_id: zod
+      .union([
+        zod.null(),
+        zod
+          .string()
+          .describe(
+            'Provider identifier, scoped separately by the persisted connection.'
+          ),
+      ])
+      .optional(),
+    connected_at: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Last successful connection time, not the start of imported history.'
+      ),
+    credential_expires_at: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Expiry returned by the provider; absence does not mean irrevocable access.'
+      ),
+    developer_account: zod
+      .boolean()
+      .describe('Development test number; never evidence of coexistence.'),
+    display_name: zod
+      .string()
+      .describe('Display label returned by the provider.'),
+    health_error: zod
+      .string()
+      .nullish()
+      .describe('Sanitized operational error code.'),
+    human_agent_approved: zod
+      .boolean()
+      .describe('Verified HUMAN_AGENT approval; false by default.'),
+    id: zod
+      .uuid()
+      .describe('Macro connection identity, preserved through reconnect.'),
+    provider: zod
+      .enum(['whatsapp', 'instagram'])
+      .describe(
+        'The official API used for an account. Personal accounts are not supported.'
+      ),
+    registration_attempted_at: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Time of the latest uncertain or rate-limited registration attempt; never a PIN.'
+      ),
+    registration_status: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .describe(
+            'Durable registration uncertainty is separate from account health.'
+          ),
+      ])
+      .optional(),
+    status: zod
+      .enum(['connecting', 'connected', 'disconnected', 'revoked', 'error'])
+      .describe(
+        'Connection state transitions do not delete retained channels\/content.'
+      ),
+    team_id: zod.uuid().describe('Owning Macro team.'),
+    user_id: zod
+      .string()
+      .describe(
+        'Current connector. Reconnect changes this user without transferring existing channel\/file grants.'
+      ),
+    whatsapp_mode: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['coexistence', 'platform'])
+          .describe('Supported production WhatsApp onboarding paths.'),
+      ])
+      .optional(),
+  })
+  .describe('Public account health; never includes credentials.');
 
 export const metaDeveloperWhatsappResponse = zod
   .object({
@@ -49139,21 +49277,6 @@ export const metaDeveloperWhatsappResponse = zod
       .string()
       .nullish()
       .describe('Sanitized operational error code.'),
-    history_progress: zod
-      .number()
-      .min(metaDeveloperWhatsappResponseHistoryProgressMin)
-      .nullish()
-      .describe('Latest provider-reported progress.'),
-    history_status: zod
-      .enum([
-        'not_requested',
-        'pending',
-        'syncing',
-        'complete',
-        'declined',
-        'failed',
-      ])
-      .describe('History progress is independent from live account health.'),
     human_agent_approved: zod
       .boolean()
       .describe('Verified HUMAN_AGENT approval; false by default.'),
@@ -49165,6 +49288,22 @@ export const metaDeveloperWhatsappResponse = zod
       .describe(
         'The official API used for an account. Personal accounts are not supported.'
       ),
+    registration_attempted_at: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Time of the latest uncertain or rate-limited registration attempt; never a PIN.'
+      ),
+    registration_status: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['required', 'unconfirmed', 'registered', 'rate_limited'])
+          .describe(
+            'Durable registration uncertainty is separate from account health.'
+          ),
+      ])
+      .optional(),
     status: zod
       .enum(['connecting', 'connected', 'disconnected', 'revoked', 'error'])
       .describe(
@@ -49174,8 +49313,16 @@ export const metaDeveloperWhatsappResponse = zod
     user_id: zod
       .string()
       .describe(
-        'Original administrator. New conversations start with explicit membership.'
+        'Current connector. Reconnect changes this user without transferring existing channel\/file grants.'
       ),
+    whatsapp_mode: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['coexistence', 'platform'])
+          .describe('Supported production WhatsApp onboarding paths.'),
+      ])
+      .optional(),
   })
   .describe('Public account health; never includes credentials.');
 

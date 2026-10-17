@@ -1,5 +1,6 @@
 use super::*;
 mod http;
+mod identity;
 mod reconciliation;
 mod revisions;
 use entity_access::{
@@ -112,9 +113,11 @@ async fn setup(pool: &PgPool, provider: Provider) -> (NativeChannels, Connection
         connected_at: Some(Utc::now() - chrono::Duration::minutes(1)),
         credential_expires_at: None,
         human_agent_approved: false,
+        whatsapp_mode: None,
+        registration_status: None,
+        registration_attempted_at: None,
         developer_account: true,
-        history_status: HistoryStatus::NotRequested,
-        history_progress: None,
+
         health_error: None,
     };
     let repo = PgMessagingRepository::new(pool.clone());
@@ -145,6 +148,7 @@ fn incoming(c: &Connection, id: &str) -> IncomingMessage {
         provider: c.provider,
         account_id: c.account_id.clone(),
         customer_id: "customer-scoped-id".to_owned().try_into().unwrap(),
+        customer_phone: None,
         message_id: id.to_owned().try_into().unwrap(),
         author_handle: None,
         author_name: Some("Customer without email".into()),

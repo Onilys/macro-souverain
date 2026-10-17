@@ -8,6 +8,7 @@ import type { MetaPublicConfigurationInstagramAppId } from './metaPublicConfigur
 import type { MetaPublicConfigurationInstagramRedirectUri } from './metaPublicConfigurationInstagramRedirectUri';
 import type { MetaPublicConfigurationWhatsappAppId } from './metaPublicConfigurationWhatsappAppId';
 import type { MetaPublicConfigurationWhatsappConfigurationId } from './metaPublicConfigurationWhatsappConfigurationId';
+import type { MetaPublicConfigurationWhatsappPlatformConfigurationId } from './metaPublicConfigurationWhatsappPlatformConfigurationId';
 
 /**
  * Public setup configuration, returned by the server rather than hardcoded in UI.
@@ -27,4 +28,6 @@ export interface MetaPublicConfiguration {
   whatsapp_configuration_id?: MetaPublicConfigurationWhatsappConfigurationId;
   /** A server-configured, recipient-restricted local WhatsApp test account exists. */
   whatsapp_developer_available: boolean;
+  /** Optional dedicated v4 configuration for Platform signup. */
+  whatsapp_platform_configuration_id?: MetaPublicConfigurationWhatsappPlatformConfigurationId;
 }

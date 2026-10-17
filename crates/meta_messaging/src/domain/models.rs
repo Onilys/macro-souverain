@@ -55,6 +55,17 @@ impl Provenance {
 pub struct ProviderId(String);
 
 impl ProviderId {
+    /// Meta's documented country-prefixed business-scoped WhatsApp identifier.
+    pub fn is_whatsapp_bsuid(&self) -> bool {
+        let Some((country, value)) = self.0.split_once('.') else {
+            return false;
+        };
+        country.len() == 2
+            && country.bytes().all(|b| b.is_ascii_uppercase())
+            && !value.is_empty()
+            && value.len() <= 128
+            && value.bytes().all(|b| b.is_ascii_alphanumeric())
+    }
     /// Opaque validated identifier, never a display name or handle.
     pub fn as_str(&self) -> &str {
         &self.0

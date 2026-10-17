@@ -8,8 +8,8 @@ pub enum ConnectionFailure {
     Authorization,
     /// The app/account lacks Meta API access, possibly pending account confirmation.
     MetaAccess,
-    /// The authorizing Macro administrator no longer has the required team role.
-    Administrator,
+    /// The connecting Macro user is no longer a member of this team.
+    Connector,
     /// Retryable transport or infrastructure problem.
     Temporary,
     /// Server configuration must be corrected before reconnecting.
@@ -23,7 +23,7 @@ impl ConnectionFailure {
         match error {
             MessagingError::Disconnected => Self::Authorization,
             MessagingError::ProviderAccessRequired => Self::MetaAccess,
-            MessagingError::Forbidden => Self::Administrator,
+            MessagingError::Forbidden => Self::Connector,
             MessagingError::Unavailable => Self::Temporary,
             MessagingError::Invalid(_) => Self::Configuration,
             _ => Self::Provider,
@@ -34,7 +34,7 @@ impl ConnectionFailure {
         match self {
             Self::Authorization => "meta_authorization_expired_or_revoked",
             Self::MetaAccess => "meta_access_required",
-            Self::Administrator => "connecting_admin_access_lost",
+            Self::Connector => "connecting_member_access_lost",
             Self::Temporary => "connection_temporarily_unavailable",
             Self::Configuration => "connection_configuration_required",
             Self::Provider => "provider_connection_rejected",
@@ -43,7 +43,7 @@ impl ConnectionFailure {
     /// Lost authority requires a new grant; transient/provider failures remain retryable checks.
     pub const fn status(self) -> ConnectionStatus {
         match self {
-            Self::Authorization | Self::Administrator => ConnectionStatus::Revoked,
+            Self::Authorization | Self::Connector => ConnectionStatus::Revoked,
             _ => ConnectionStatus::Error,
         }
     }

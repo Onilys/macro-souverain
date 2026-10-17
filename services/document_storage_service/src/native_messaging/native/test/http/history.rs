@@ -59,7 +59,6 @@ async fn new_connections_skip_history_and_new_activity_still_creates_channels(po
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(c.history_status, HistoryStatus::NotRequested);
     service.maintain().await.unwrap();
     assert_eq!(
         repo.connection(c.id).await.unwrap().unwrap().status,
@@ -75,8 +74,6 @@ async fn new_connections_skip_history_and_new_activity_still_creates_channels(po
     assert_eq!(native_counts(&pool).await, (0, 0));
     assert!(repo.claim_receipt().await.unwrap().is_none());
     let after = repo.connection(c.id).await.unwrap().unwrap();
-    assert_eq!(after.history_status, HistoryStatus::NotRequested);
-    assert_eq!(after.history_progress, None);
     assert_eq!(after.status, ConnectionStatus::Connected);
     assert_eq!(after.health_error, None);
 
@@ -117,7 +114,10 @@ async fn new_connections_skip_history_and_new_activity_still_creates_channels(po
         before.last_customer_message_at,
         after.last_customer_message_at
     );
-    assert_eq!(before.standard_window_until, after.standard_window_until);
+    assert_eq!(
+        before.last_customer_message_at,
+        after.last_customer_message_at
+    );
     let stored = PgMessageRepository::new(pool.clone())
         .get(&MessageParent::Channel(channel), message)
         .await
@@ -168,7 +168,7 @@ async fn new_connections_skip_history_and_new_activity_still_creates_channels(po
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn queued_history_is_ignored_even_with_legacy_sync_flags_or_no_account(pool: PgPool) {
+async fn queued_history_requires_explicit_consent_even_after_maintenance(pool: PgPool) {
     let Fixture {
         app,
         service,
@@ -176,29 +176,28 @@ async fn queued_history_is_ignored_even_with_legacy_sync_flags_or_no_account(poo
         c,
         ..
     } = fixture(&pool, Provider::Whatsapp, None).await;
-    let mut legacy_ids = Vec::new();
-    for (index, status) in [
-        HistoryStatus::Pending,
-        HistoryStatus::Syncing,
-        HistoryStatus::Complete,
-        HistoryStatus::Failed,
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let mut legacy = c.clone();
-        legacy.id = Uuid::now_v7();
-        legacy.account_id = format!("legacy-{index}").try_into().unwrap();
-        legacy.history_status = status;
-        legacy_ids.push(legacy.id);
-        repo.connect(&legacy, b"fixture-token", None).await.unwrap();
+    let mut connection_ids = Vec::new();
+    for index in 0..2 {
+        let mut connected = c.clone();
+        connected.id = Uuid::now_v7();
+        connected.account_id = format!("connected-{index}").try_into().unwrap();
+        connection_ids.push(connected.id);
+        repo.connect(&connected, b"fixture-token", None)
+            .await
+            .unwrap();
         assert_eq!(
-            signed(&app, Provider::Whatsapp, history(&legacy.account_id), true).await,
+            signed(
+                &app,
+                Provider::Whatsapp,
+                history(&connected.account_id),
+                true
+            )
+            .await,
             StatusCode::OK
         );
         let sync = envelope(
             "smb_app_state_sync",
-            json!({"metadata":{"phone_number_id":legacy.account_id},"contacts":[{"wa_id":"old-contact","name":"Old contact"}]}),
+            json!({"metadata":{"phone_number_id":connected.account_id},"contacts":[{"wa_id":"old-contact","name":"Old contact"}]}),
         );
         assert_eq!(
             signed(&app, Provider::Whatsapp, sync, true).await,
@@ -215,7 +214,7 @@ async fn queued_history_is_ignored_even_with_legacy_sync_flags_or_no_account(poo
     drain(&service).await;
     assert_eq!(native_counts(&pool).await, (0, 0));
     assert!(repo.claim_receipt().await.unwrap().is_none());
-    for id in legacy_ids {
+    for id in connection_ids {
         let account = repo.connection(id).await.unwrap().unwrap();
         assert_eq!(account.status, ConnectionStatus::Connected);
         assert_eq!(account.health_error, None);
@@ -268,7 +267,7 @@ async fn explicit_whatsapp_import_reuses_channels_and_never_opens_reply_windows(
         request(&f.app, "POST", &path, Some("outsider"), json!({}))
             .await
             .0,
-        StatusCode::UNAUTHORIZED
+        StatusCode::FORBIDDEN
     );
     assert_eq!(
         request(
@@ -318,7 +317,7 @@ async fn explicit_whatsapp_import_reuses_channels_and_never_opens_reply_windows(
     );
     let imported = f.repo.conversation(channel).await.unwrap().unwrap();
     assert!(imported.last_customer_message_at.is_none());
-    assert!(imported.standard_window_until.is_none());
+    assert!(imported.last_customer_message_at.is_none());
     assert_eq!(
         sqlx::query_scalar!(
             "SELECT COUNT(*) FROM comms_activity WHERE channel_id=$1",
@@ -667,8 +666,8 @@ async fn failed_instagram_import_resumes_without_resetting_completed_pages(pool:
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn whatsapp_history_stops_when_its_consenting_admin_loses_access(pool: PgPool) {
-    use entity_access::domain::models::AdminTeamRole;
+async fn whatsapp_history_stops_when_its_consenting_member_leaves(pool: PgPool) {
+    use entity_access::domain::models::MemberTeamRole;
     let f = fixture(&pool, Provider::Whatsapp, None).await;
     sqlx::query!(
         "UPDATE meta_messaging_connection SET developer_account=false WHERE id=$1",
@@ -691,7 +690,7 @@ async fn whatsapp_history_stops_when_its_consenting_admin_loses_access(pool: PgP
     let actor = MacroUserIdStr::try_from(importer.clone()).unwrap();
     let access = native
         .access
-        .generate_entity_access_receipt::<AdminTeamRole>(
+        .generate_entity_access_receipt::<MemberTeamRole>(
             &actor.0,
             None,
             &c.team_id.to_string(),
@@ -703,7 +702,7 @@ async fn whatsapp_history_stops_when_its_consenting_admin_loses_access(pool: PgP
     run_import(&f).await;
     assert_eq!(f.remote.history_requests.load(Ordering::SeqCst), 2);
     sqlx::query!(
-        "UPDATE team_user SET team_role='member' WHERE team_id=$1 AND user_id=$2",
+        "DELETE FROM team_user WHERE team_id=$1 AND user_id=$2",
         c.team_id,
         importer
     )
@@ -749,5 +748,58 @@ async fn whatsapp_history_stops_when_its_consenting_admin_loses_access(pool: PgP
     assert_eq!(
         f.repo.connection(c.id).await.unwrap().unwrap().status,
         ConnectionStatus::Connected
+    );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn historical_identity_changes_and_revokes_require_current_generation_consent(pool: PgPool) {
+    let f = fixture(&pool, Provider::Whatsapp, None).await;
+    let native = fixture_native(&pool).await;
+    let mut original = incoming(&f.c, "protected-history-source");
+    original.customer_id = "US.A".to_owned().try_into().unwrap();
+    native.ingest(&f.c, &original, vec![]).await.unwrap();
+    let (channel, id) = f
+        .repo
+        .message_target(f.c.id, original.message_id.as_str())
+        .await
+        .unwrap();
+    let mut payload = envelope(
+        "history",
+        json!({"metadata":{"phone_number_id":f.c.account_id},"history":[{"threads":[{"context":{"user_id":"US.A"},"messages":[
+            {"from_user_id":"US.A","id":"history-change","timestamp":"1700000000","type":"system","system":{"type":"user_changed_user_id","previous_user_id":"US.A","user_id":"US.B"}},
+            {"from_user_id":"US.A","id":"history-revoke","timestamp":"1700000001","type":"revoke","revoke":{"original_message_id":original.message_id}}
+        ]}]}]}),
+    );
+    payload["entry"][0]["changes"][0]["value"]["statuses"] = json!([{"id":original.message_id,"status":"read","timestamp":"1700000002","recipient_user_id":"US.UNRELATED","recipient_id":"15550000009"}]);
+    signed(&f.app, Provider::Whatsapp, payload, true).await;
+    drain(&f.service).await;
+    assert_eq!(
+        sqlx::query_scalar!(
+            "SELECT count(*) FROM meta_messaging_status WHERE connection_id=$1",
+            f.c.id
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap(),
+        Some(0)
+    );
+    assert_eq!(
+        f.repo
+            .conversation(channel)
+            .await
+            .unwrap()
+            .unwrap()
+            .customer_id
+            .as_str(),
+        "US.A"
+    );
+    assert!(
+        PgMessageRepository::new(pool)
+            .get(&MessageParent::Channel(channel), id)
+            .await
+            .unwrap()
+            .unwrap()
+            .deleted_at
+            .is_none()
     );
 }

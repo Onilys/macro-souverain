@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::domain::{connection::*, history::*, models::*, ports::*};
 
 mod history;
+pub mod identity;
 pub mod media;
 pub mod native;
 mod receipts;
@@ -70,6 +71,23 @@ impl MessagingRepository for PgMessagingRepository {
         self.subscription_in_use_impl(c).await
     }
 
+    async fn registration_state(
+        &self,
+        c: &Connection,
+        status: RegistrationStatus,
+        error: Option<&str>,
+    ) -> PortResult<()> {
+        let changed=sqlx::query!(r#"UPDATE meta_messaging_connection SET registration_status=$3,
+            registration_attempted_at=CASE WHEN $3 IN ('unconfirmed','rate_limited') THEN CASE WHEN registration_status IS DISTINCT FROM $3 THEN now() ELSE COALESCE(registration_attempted_at,now()) END ELSE NULL END,
+            status=CASE WHEN $3='registered' THEN status ELSE 'connecting' END,
+            health_error=$4,checked_at=now(),updated_at=now()
+            WHERE id=$1 AND connected_at=$2 AND status NOT IN ('disconnected','revoked')"#,c.id,c.connected_at,spelling(status),error)
+            .execute(&self.pool).await.map_err(failure)?;
+        if changed.rows_affected() != 1 {
+            return Err(MessagingError::Conflict.into());
+        }
+        Ok(())
+    }
     async fn history_import(&self, c: &Connection) -> PortResult<Option<HistoryImport>> {
         self.history_import_impl(c).await
     }
@@ -114,8 +132,9 @@ impl MessagingRepository for PgMessagingRepository {
         &self,
         c: &Connection,
         at: DateTime<Utc>,
+        waiting: bool,
     ) -> PortResult<Option<String>> {
-        self.history_consent_user_impl(c, at).await
+        self.history_consent_user_impl(c, at, waiting).await
     }
     async fn revoke_history_consent(&self, c: &Connection) -> PortResult<()> {
         self.revoke_history_consent_impl(c).await
@@ -167,25 +186,29 @@ impl MessagingRepository for PgMessagingRepository {
         reconnect: Option<Uuid>,
     ) -> PortResult<Connection> {
         let (_slot, mut tx) = self.connect_transaction(connection).await?;
-        let existing = sqlx::query!("SELECT id, team_id FROM meta_messaging_connection WHERE provider = $1 AND account_id = $2 FOR UPDATE", connection.provider.as_str(), connection.account_id.as_str())
+        let existing = sqlx::query!("SELECT id, team_id, connected_at FROM meta_messaging_connection WHERE provider = $1 AND account_id = $2 FOR UPDATE", connection.provider.as_str(), connection.account_id.as_str())
             .fetch_optional(&mut *tx).await.map_err(failure)?;
         match existing {
             Some(ref row)
                 if row.team_id == connection.team_id
                     && reconnect == Some(row.id)
-                    && row.id == connection.id => {}
+                    && row.id == connection.id
+                    && row.connected_at == connection.connected_at => {}
             Some(_) => return Err(MessagingError::Conflict.into()),
             None if reconnect.is_some() => return Err(MessagingError::Conflict.into()),
             None => {}
         }
         sqlx::query!(
-            r#"INSERT INTO meta_messaging_connection (id,team_id,user_id,provider,account_id,business_account_id,display_name,credential,credential_expires_at,status,connected_at,history_status,developer_account,human_agent_approved)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'connecting',now(),$10,$11,$12)
+            r#"INSERT INTO meta_messaging_connection (id,team_id,user_id,provider,account_id,business_account_id,display_name,credential,credential_expires_at,status,connected_at,developer_account,human_agent_approved,whatsapp_mode,registration_status)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'connecting',now(),$10,$11,$12,$13)
                ON CONFLICT (id) DO UPDATE SET credential = EXCLUDED.credential, credential_expires_at = EXCLUDED.credential_expires_at,
                    user_id = EXCLUDED.user_id, display_name = EXCLUDED.display_name, status = 'connecting',
-                   human_agent_approved = EXCLUDED.human_agent_approved, connected_at = now(), health_error = NULL, checked_at = NULL, updated_at = now()"#,
+                   human_agent_approved = EXCLUDED.human_agent_approved, whatsapp_mode=EXCLUDED.whatsapp_mode,
+                   registration_status=CASE WHEN EXCLUDED.registration_status='registered' THEN 'registered'
+                       WHEN meta_messaging_connection.registration_status IN ('unconfirmed','rate_limited') THEN meta_messaging_connection.registration_status ELSE EXCLUDED.registration_status END,
+                   connected_at = now(), health_error = NULL, checked_at = NULL, updated_at = now()"#,
             connection.id, connection.team_id, connection.user_id, connection.provider.as_str(), connection.account_id.as_str(),
-            connection.business_account_id.as_ref().map(ProviderId::as_str), connection.display_name, encrypted, connection.credential_expires_at, spelling(connection.history_status), connection.developer_account, connection.human_agent_approved,
+            connection.business_account_id.as_ref().map(ProviderId::as_str), connection.display_name, encrypted, connection.credential_expires_at, connection.developer_account, connection.human_agent_approved, connection.whatsapp_mode.map(spelling),connection.registration_status.map(spelling),
         ).execute(&mut *tx).await.map_err(failure)?;
         // Retry this account's failed inbound work after authorization is renewed.
         // Message identities deduplicate replay; outbound intents are never reset.
@@ -384,15 +407,23 @@ impl ConversationRepository for PgMessagingRepository {
         &self,
         lease: &Lease,
         c: &crate::domain::replies::AccountScope,
+        conversation: &Conversation,
         rendered_text: &str,
     ) -> PortResult<()> {
         let mut tx = self.pool.begin().await.map_err(failure)?;
         // Share the connection row lock with lifecycle changes. This commit is
         // the dispatch boundary, so a prior disconnect/reconnect wins atomically.
-        let active = sqlx::query_scalar!("SELECT id FROM meta_messaging_connection WHERE id=$1 AND team_id=$2 AND connected_at=$3 AND status='connected' FOR UPDATE",c.id,c.team_id,c.generation)
+        let active = sqlx::query_scalar!("SELECT id FROM meta_messaging_connection WHERE id=$1 AND team_id=$2 AND connected_at=$3 AND status='connected' AND (whatsapp_mode IS DISTINCT FROM 'platform' OR registration_status='registered') FOR UPDATE",c.id,c.team_id,c.generation)
             .fetch_optional(&mut *tx).await.map_err(failure)?;
         if active.is_none() {
             return Err(MessagingError::Disconnected.into());
+        }
+        let routing=sqlx::query!("SELECT customer_id,customer_phone FROM meta_messaging_conversation WHERE connection_id=$1 AND channel_id=$2",c.id,conversation.channel_id)
+            .fetch_optional(&mut *tx).await.map_err(failure)?.ok_or(MessagingError::NotFound)?;
+        if routing.customer_id != conversation.customer_id.as_str()
+            || routing.customer_phone != conversation.customer_phone
+        {
+            return Err(MessagingError::Unavailable.into());
         }
         let expired = sqlx::query_scalar!(r#"
             WITH fence AS MATERIALIZED (SELECT clock_timestamp() AS at),
@@ -406,7 +437,7 @@ impl ConversationRepository for PgMessagingRepository {
                 lease_until=CASE WHEN s.created_at<=f.oldest THEN NULL ELSE f.at+interval '5 minutes' END,
                 updated_at=f.at
             FROM deadline f WHERE s.id=$1 AND s.lease_id=$2 AND s.lease_until>f.at
-              AND s.tracked_lease_id=s.lease_id AND s.dispatch_started_at IS NULL
+              AND s.dispatch_started_at IS NULL
               AND s.provider_message_id IS NULL AND s.state='sending' AND s.connection_id=$4
             RETURNING s.state='failed' AS "expired!"
             "#,lease.id,lease.token,rendered_text,c.id,crate::domain::policy::SEND_EXPIRY_SECONDS)

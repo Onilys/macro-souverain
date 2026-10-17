@@ -15,7 +15,7 @@ use axum::{
     routing::{get, post},
 };
 use entity_access::{
-    domain::{models::AdminTeamRole, ports::EntityAccessService},
+    domain::{models::MemberTeamRole, ports::EntityAccessService},
     inbound::axum_extractors::{ChannelAccessLevelExtractor, MacroUserTeamExtractorV2},
 };
 use macro_authorization::{
@@ -85,6 +85,10 @@ where
         .route("/connections", get(connections::<Eas, Auth>))
         .route("/authorize", post(begin::<Eas, Auth>))
         .route("/authorize/complete", post(complete::<Eas, Auth>))
+        .route(
+            "/connections/{connection_id}/register",
+            post(register::<Eas, Auth>),
+        )
         .route("/developer/whatsapp", post(developer::<Eas, Auth>))
         .route(
             "/connections/{connection_id}/disconnect",
@@ -177,14 +181,14 @@ async fn configuration<Eas: EntityAccessService, Auth: MacroAuthorizationService
 #[utoipa::path(get,path="/meta/connections",operation_id="meta_connections",responses((status=200,body=Vec<Connection>)))]
 async fn connections<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
-    a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
 ) -> Result<Json<Vec<Connection>>, ApiError> {
     Ok(Json(s.service.connections(&a.entity_access_receipt).await?))
 }
 #[utoipa::path(post,path="/meta/authorize",operation_id="meta_authorize",request_body=BeginRequest,responses((status=200,body=BeginAuthorization)))]
 async fn begin<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
-    a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
     Json(body): Json<BeginRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     Ok((
@@ -199,7 +203,7 @@ async fn begin<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
 #[utoipa::path(post,path="/meta/authorize/complete",operation_id="meta_authorize_complete",request_body=CompleteAuthorization,responses((status=200,body=Connection)))]
 async fn complete<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
-    a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
     Json(body): Json<CompleteAuthorization>,
 ) -> Result<impl IntoResponse, ApiError> {
     Ok((
@@ -211,10 +215,26 @@ async fn complete<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
         ),
     ))
 }
+#[utoipa::path(post,path="/meta/connections/{connection_id}/register",operation_id="meta_register",params(("connection_id"=Uuid,Path)),request_body=RegisterPhone,responses((status=200,body=Connection)))]
+async fn register<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
+    State(s): State<MessagingRouterState<Eas, Auth>>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<RegisterPhone>,
+) -> Result<impl IntoResponse, ApiError> {
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(
+            s.service
+                .register_phone(&a.entity_access_receipt, id, body)
+                .await?,
+        ),
+    ))
+}
 #[utoipa::path(post,path="/meta/developer/whatsapp",operation_id="meta_developer_whatsapp",responses((status=200,body=Connection)))]
 async fn developer<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
-    a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
 ) -> Result<Json<Connection>, ApiError> {
     Ok(Json(
         s.service
@@ -225,7 +245,7 @@ async fn developer<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
 #[utoipa::path(post,path="/meta/connections/{connection_id}/disconnect",operation_id="meta_disconnect",params(("connection_id"=Uuid,Path)),responses((status=200,body=DisconnectResult)))]
 async fn disconnect<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
-    a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<DisconnectResult>, ApiError> {
     Ok(Json(
@@ -235,7 +255,7 @@ async fn disconnect<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
 #[utoipa::path(get,path="/meta/connections/{connection_id}/history",operation_id="meta_history",params(("connection_id"=Uuid,Path)),responses((status=200,body=HistoryImportView)))]
 async fn history<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
-    a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<HistoryImportView>, ApiError> {
     Ok(Json(
@@ -247,7 +267,7 @@ async fn history<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
 #[utoipa::path(post,path="/meta/connections/{connection_id}/history",operation_id="meta_import_history",params(("connection_id"=Uuid,Path)),responses((status=200,body=HistoryImportView)))]
 async fn import_history<Eas: EntityAccessService, Auth: MacroAuthorizationService>(
     State(s): State<MessagingRouterState<Eas, Auth>>,
-    a: MacroUserTeamExtractorV2<AdminTeamRole, Eas, Auth>,
+    a: MacroUserTeamExtractorV2<MemberTeamRole, Eas, Auth>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<HistoryImportView>, ApiError> {
     Ok(Json(
@@ -450,6 +470,7 @@ async fn receive<E: Send + Sync + 'static, A: Send + Sync + 'static>(
     begin,
     complete,
     developer,
+    register,
     disconnect,
     history,
     import_history,

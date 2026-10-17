@@ -51,9 +51,11 @@ fn connection(team_id: Uuid, user_id: String, account: &str) -> Connection {
         connected_at: Some(Utc::now()),
         credential_expires_at: None,
         human_agent_approved: false,
+        whatsapp_mode: None,
+        registration_status: None,
+        registration_attempted_at: None,
         developer_account: true,
-        history_status: HistoryStatus::NotRequested,
-        history_progress: None,
+
         health_error: None,
     }
 }
@@ -79,7 +81,8 @@ async fn account_mapping_cannot_move_between_teams_or_reconnect_to_another_ident
     let (beta, other) = team(&pool, "beta").await;
     let repo = PgMessagingRepository::new(pool);
     let original = connection(alpha, user, "phone1");
-    repo.connect(&original, b"fixture-ciphertext", None)
+    let original = repo
+        .connect(&original, b"fixture-ciphertext", None)
         .await
         .unwrap();
     let hijack = connection(beta, other, "phone1");
@@ -210,6 +213,7 @@ async fn crashed_network_attempt_is_unknown_and_never_automatically_resent(pool:
     let repo = PgMessagingRepository::new(pool.clone());
     repo.connect(&c, b"fixture", None).await.unwrap();
     let request = reply();
+    bind_conversation(&repo, &c, channel).await;
     repo.enqueue_send(c.id, channel, &user, &request, &Sha256::digest(b"send"))
         .await
         .unwrap();
@@ -218,9 +222,14 @@ async fn crashed_network_attempt_is_unknown_and_never_automatically_resent(pool:
     repo.health(&current, ConnectionStatus::Connected, None)
         .await
         .unwrap();
-    repo.prepare_send(&work.lease, &(&current).into(), "An attempted reply")
-        .await
-        .unwrap();
+    repo.prepare_send(
+        &work.lease,
+        &(&current).into(),
+        &conversation(&current, channel),
+        "An attempted reply",
+    )
+    .await
+    .unwrap();
     sqlx::query!(
         "UPDATE meta_messaging_send SET lease_until = now() - interval '1 second' WHERE id = $1",
         work.lease.id
@@ -384,6 +393,7 @@ async fn send_dispatch_fences_lifecycle_changes_and_keeps_inflight_acceptance(po
         .await
         .unwrap();
     let request = reply();
+    bind_conversation(&repo, &c, channel).await;
     repo.enqueue_send(c.id, channel, &user, &request, &Sha256::digest(b"dispatch"))
         .await
         .unwrap();
@@ -404,6 +414,7 @@ async fn send_dispatch_fences_lifecycle_changes_and_keeps_inflight_acceptance(po
             .prepare_send(
                 &dispatch_lease,
                 &(&dispatch_connection).into(),
+                &conversation(&dispatch_connection, channel),
                 "Rendered body",
             )
             .await
@@ -431,15 +442,25 @@ async fn send_dispatch_fences_lifecycle_changes_and_keeps_inflight_acceptance(po
         .unwrap();
     assert_eq!(
         *repo
-            .prepare_send(&work.lease, &(&c).into(), "Stale body")
+            .prepare_send(
+                &work.lease,
+                &(&c).into(),
+                &conversation(&c, channel),
+                "Stale body"
+            )
             .await
             .unwrap_err()
             .current_context(),
         MessagingError::Disconnected
     );
-    repo.prepare_send(&work.lease, &(&fresh).into(), "Rendered body")
-        .await
-        .unwrap();
+    repo.prepare_send(
+        &work.lease,
+        &(&fresh).into(),
+        &conversation(&fresh, channel),
+        "Rendered body",
+    )
+    .await
+    .unwrap();
     repo.disconnect(team, c.id).await.unwrap();
     let provider_id = "accepted-inflight".to_owned().try_into().unwrap();
     repo.settle_send(
@@ -528,4 +549,19 @@ async fn accepted_recovery_backoff_yields_past_a_full_failed_page_after_restart(
     .unwrap();
     assert_eq!(restarted.accepted_sends().await.unwrap().len(), 50);
     assert!(restarted.claim_send().await.unwrap().is_none());
+}
+
+fn conversation(c: &Connection, channel: Uuid) -> Conversation {
+    Conversation {
+        channel_id: channel,
+        connection_id: c.id,
+        customer_id: channel.to_string().try_into().unwrap(),
+        customer_display_name: None,
+        customer_phone: None,
+        customer_handle: None,
+        last_customer_message_at: None,
+    }
+}
+async fn bind_conversation(repo: &PgMessagingRepository, c: &Connection, channel: Uuid) {
+    sqlx::query!("INSERT INTO meta_messaging_conversation(connection_id,customer_id,channel_id,external_sender_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",c.id,channel.to_string(),channel,Uuid::now_v7()).execute(&repo.pool).await.unwrap();
 }

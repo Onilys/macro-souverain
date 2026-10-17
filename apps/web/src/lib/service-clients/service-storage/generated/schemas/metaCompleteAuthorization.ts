@@ -7,6 +7,7 @@
 import type { MetaCompleteAuthorizationBrowserTransaction } from './metaCompleteAuthorizationBrowserTransaction';
 import type { MetaCompleteAuthorizationBusinessAccountId } from './metaCompleteAuthorizationBusinessAccountId';
 import type { MetaCompleteAuthorizationPhoneNumberId } from './metaCompleteAuthorizationPhoneNumberId';
+import type { MetaCompleteAuthorizationWhatsappMode } from './metaCompleteAuthorizationWhatsappMode';
 
 /**
  * Callback input. Tokens are always exchanged server-side.
@@ -20,4 +21,5 @@ export interface MetaCompleteAuthorization {
   phone_number_id?: MetaCompleteAuthorizationPhoneNumberId;
   /** State returned by the server for this caller/team/provider. */
   state: string;
+  whatsapp_mode?: MetaCompleteAuthorizationWhatsappMode;
 }

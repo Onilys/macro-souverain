@@ -2,6 +2,7 @@ use super::*;
 
 async fn enqueue(repo: &PgMessagingRepository, c: &Connection, channel: Uuid) -> SendProgress {
     let reply = reply();
+    bind_conversation(repo, c, channel).await;
     repo.enqueue_send(
         c.id,
         channel,
@@ -14,7 +15,7 @@ async fn enqueue(repo: &PgMessagingRepository, c: &Connection, channel: Uuid) ->
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn claims_are_account_fair_and_conversation_fifo_through_retry_and_uncertainty(pool: PgPool) {
+async fn concurrent_claims_preserve_conversation_fifo_through_retry_and_uncertainty(pool: PgPool) {
     let (team, user) = team(&pool, "fair-sends").await;
     let repo = PgMessagingRepository::new(pool.clone());
     let slow = repo
@@ -47,16 +48,12 @@ async fn claims_are_account_fair_and_conversation_fifo_through_retry_and_uncerta
         .collect();
     assert_eq!(
         work.len(),
-        3,
-        "two slots for slow account, one for healthy; no duplicate claims"
+        4,
+        "all conversations are eligible without account caps; no duplicate claims"
     );
     assert!(work.iter().any(|w| w.lease.id == good.id));
     assert!(work.iter().any(|w| w.lease.id == parallel.id));
-    assert!(
-        !work
-            .iter()
-            .any(|w| w.lease.id == later.id || w.lease.id == capped.id)
-    );
+    assert!(!work.iter().any(|w| w.lease.id == later.id));
     let first_work = work.iter().find(|w| w.lease.id == first.id).unwrap();
     repo.settle_send(
         &first_work.lease,
@@ -67,20 +64,12 @@ async fn claims_are_account_fair_and_conversation_fifo_through_retry_and_uncerta
     )
     .await
     .unwrap();
-    let capped_work = repo.claim_send().await.unwrap().unwrap();
-    assert_eq!(
-        capped_work.lease.id, capped.id,
-        "a different conversation progresses during the retry"
-    );
+    assert!(work.iter().any(|w| w.lease.id == capped.id));
     assert!(
         repo.claim_send().await.unwrap().is_none(),
         "later same-conversation reply cannot overtake the retry"
     );
-    for w in work
-        .iter()
-        .filter(|w| w.lease.id != first.id)
-        .chain(std::iter::once(&capped_work))
-    {
+    for w in work.iter().filter(|w| w.lease.id != first.id) {
         repo.settle_send(
             &w.lease,
             DeliveryState::Unknown,
@@ -154,9 +143,14 @@ async fn equal_enqueue_times_use_id_order_and_expired_attempt_releases_the_conve
     repo.health(&c, ConnectionStatus::Connected, None)
         .await
         .unwrap();
-    repo.prepare_send(&first.lease, &(&c).into(), "Attempted before lease expiry")
-        .await
-        .unwrap();
+    repo.prepare_send(
+        &first.lease,
+        &(&c).into(),
+        &conversation(&c, channel),
+        "Attempted before lease expiry",
+    )
+    .await
+    .unwrap();
     assert_eq!(first.lease.id, a.id.min(b.id));
     assert!(repo.claim_send().await.unwrap().is_none());
     sqlx::query!(
@@ -182,7 +176,7 @@ async fn equal_enqueue_times_use_id_order_and_expired_attempt_releases_the_conve
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn receipt_claims_cap_a_slow_account_but_do_not_block_a_healthy_one(pool: PgPool) {
+async fn receipt_claims_are_unique_without_account_caps(pool: PgPool) {
     let repo = PgMessagingRepository::new(pool);
     for (n, account) in ["slow", "slow", "slow", "healthy"].into_iter().enumerate() {
         let payload = serde_json::json!({"object":"instagram","entry":[{"id":account}]});
@@ -204,12 +198,12 @@ async fn receipt_claims_cap_a_slow_account_but_do_not_block_a_healthy_one(pool: 
         .into_iter()
         .filter_map(|r| r.unwrap())
         .collect();
-    assert_eq!(work.len(), 3);
+    assert_eq!(work.len(), 4);
     assert_eq!(
         work.iter()
             .filter(|w| w.payload["entry"][0]["id"] == "slow")
             .count(),
-        2
+        3
     );
     assert_eq!(
         work.iter()
@@ -240,8 +234,11 @@ async fn account_failure_settled_after_concurrent_reconnects_recovers_without_an
         repo.connect(&c, b"first", Some(c.id)),
         repo.connect(&c, b"second", Some(c.id))
     );
-    reconnects.0.unwrap();
-    reconnects.1.unwrap();
+    assert_ne!(
+        reconnects.0.is_ok(),
+        reconnects.1.is_ok(),
+        "only the first reconnect can replace this generation"
+    );
     // The worker read revoked/old generation before either reconnect, then settled after both.
     repo.settle_receipt(&old.lease, Some("account_state_changed"), Some(30))
         .await
@@ -326,4 +323,41 @@ async fn decode_diagnostics_survive_recovery_and_reject_stale_leases(pool: PgPoo
         .unwrap(),
         2
     );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn another_replica_cannot_skip_a_locked_predecessor_in_the_same_conversation(pool: PgPool) {
+    let (team, user) = team(&pool, "replica-order").await;
+    let repo = PgMessagingRepository::new(pool.clone());
+    let replica = PgMessagingRepository::new(pool.clone());
+    let c = repo
+        .connect(
+            &connection(team, user.clone(), "replica-phone"),
+            b"test",
+            None,
+        )
+        .await
+        .unwrap();
+    let channel = channel(&pool, &user).await;
+    let first = enqueue(&repo, &c, channel).await;
+    let later = enqueue(&repo, &c, channel).await;
+    let mut claim = pool.begin().await.unwrap();
+    sqlx::query!(
+        "SELECT id FROM meta_messaging_send WHERE id=$1 FOR UPDATE",
+        first.id
+    )
+    .fetch_one(&mut *claim)
+    .await
+    .unwrap();
+    assert!(
+        replica.claim_send().await.unwrap().is_none(),
+        "SKIP LOCKED must not overtake the visible predecessor"
+    );
+    claim.commit().await.unwrap();
+    let (a, b) = tokio::join!(repo.claim_send(), replica.claim_send());
+    let claims: Vec<_> = [a.unwrap(), b.unwrap()].into_iter().flatten().collect();
+    assert_eq!(claims.len(), 1);
+    assert_eq!(claims[0].lease.id, first.id);
+    assert_ne!(claims[0].lease.id, later.id);
+    assert!(replica.claim_send().await.unwrap().is_none());
 }

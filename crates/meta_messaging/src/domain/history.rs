@@ -25,7 +25,7 @@ pub struct HistoryImport {
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "schema", schema(as = MetaHistoryImportView))]
 pub struct HistoryImportView {
-    /// Whether the administrator may start or resume an import now.
+    /// Whether the connector or administrator may start or resume an import now.
     pub can_import: bool,
     /// Explanation when unavailable; no credentials or provider response bodies.
     pub reason: Option<String>,
@@ -56,7 +56,7 @@ pub struct HistoryWork {
     pub lease: super::ports::Lease,
     /// Authorization generation; reconnect invalidates pending work.
     pub connected_at: DateTime<Utc>,
-    /// Initiating administrator, rechecked before every page.
+    /// Consenting user; current membership and recorded consent are rechecked before every page.
     pub user_id: String,
     /// Current provider step.
     pub step: HistoryStep,
@@ -84,8 +84,11 @@ pub fn unavailable_reason(c: &Connection, now: DateTime<Utc>) -> Option<&'static
             "Meta hasn't granted this app access. Complete any account confirmation and review messaging permissions in Meta before reconnecting.",
         );
     }
-    if c.status != ConnectionStatus::Connected {
+    if !c.is_ready() {
         return Some("Reconnect this account before importing history.");
+    }
+    if c.whatsapp_mode == Some(WhatsappMode::Platform) && !c.developer_account {
+        return Some("Platform numbers have no WhatsApp Business-app history to import.");
     }
     if c.provider == Provider::Whatsapp {
         if c.developer_account {

@@ -8,7 +8,7 @@ use axum::{
 };
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicU16, Ordering},
+    atomic::{AtomicBool, AtomicU16, AtomicU32, Ordering},
 };
 use uuid::Uuid;
 
@@ -16,6 +16,8 @@ use uuid::Uuid;
 struct Scenario {
     coexistence: AtomicBool,
     status: AtomicU16,
+    registered: AtomicBool,
+    registration_error: AtomicU32,
     messages: Mutex<Vec<Value>>,
     instagram_permissions_array: AtomicBool,
     instagram_missing_messaging: AtomicBool,
@@ -74,7 +76,26 @@ async fn server() -> Server {
                 json!({"data":{"is_valid":true,"app_id":"123","scopes":["whatsapp_business_management","whatsapp_business_messaging"],"expires_at":0}})
             }
             "/v26.0/waba/phone_numbers" => {
-                json!({"data":[{"id":"phone","display_phone_number":"+15550000001","is_on_biz_app":s.coexistence.load(Ordering::SeqCst),"platform_type":"CLOUD_API"}]})
+                json!({"data":[{"id":"phone","display_phone_number":"+15550000001","is_on_biz_app":s.coexistence.load(Ordering::SeqCst),"platform_type":"CLOUD_API","status":if s.registered.load(Ordering::SeqCst) {"CONNECTED"}else{"PENDING"}}]})
+            }
+            "/v26.0/phone" => {
+                json!({"id":"phone","is_on_biz_app":s.coexistence.load(Ordering::SeqCst),"platform_type":"CLOUD_API","status":if s.registered.load(Ordering::SeqCst) {"CONNECTED"}else{"PENDING"}})
+            }
+            "/v26.0/phone/register" => {
+                let request: Value = serde_json::from_slice(&body).unwrap();
+                assert_eq!(
+                    request,
+                    json!({"messaging_product":"whatsapp","pin":"123456"})
+                );
+                let code = s.registration_error.load(Ordering::SeqCst);
+                if code != 0 {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({"error":{"code":code}})),
+                    );
+                }
+                s.registered.store(true, Ordering::SeqCst);
+                json!({"success":true})
             }
             "/v26.0/waba/message_templates" => {
                 json!({"data":[{"id":"approved","name":"order_update","language":"en_US","status":"APPROVED","components":[{"type":"BODY","text":"Hi {{first_name}}"}]}]})
@@ -138,6 +159,7 @@ async fn instagram_oauth_exchanges_tokens_and_requires_both_scopes() {
         code: "fixture-code".into(),
         business_account_id: None,
         phone_number_id: None,
+        whatsapp_mode: None,
     };
     for array in [false, true] {
         server
@@ -209,9 +231,11 @@ pub(super) fn connection(provider: Provider) -> Connection {
         connected_at: Some(Utc::now()),
         credential_expires_at: None,
         human_agent_approved: false,
+        whatsapp_mode: None,
+        registration_status: None,
+        registration_attempted_at: None,
         developer_account: false,
-        history_status: HistoryStatus::NotRequested,
-        history_progress: None,
+
         health_error: None,
     }
 }
@@ -224,7 +248,6 @@ fn conversation(c: &Connection, customer: &str) -> Conversation {
         customer_phone: None,
         customer_handle: None,
         last_customer_message_at: Some(Utc::now()),
-        standard_window_until: Some(Utc::now() + chrono::Duration::hours(24)),
     }
 }
 fn text() -> SendReply {
@@ -239,7 +262,7 @@ fn text() -> SendReply {
 }
 
 #[tokio::test]
-async fn production_requires_coexistence_but_explicit_test_number_does_not() {
+async fn production_signup_verifies_the_selected_mode_and_preserves_the_developer_path() {
     let server = server().await;
     let client = client(&server);
     let input = CompleteAuthorization {
@@ -248,6 +271,7 @@ async fn production_requires_coexistence_but_explicit_test_number_does_not() {
         code: "fixture-code".into(),
         business_account_id: Some("waba".to_owned().try_into().unwrap()),
         phone_number_id: Some("phone".to_owned().try_into().unwrap()),
+        whatsapp_mode: None,
     };
     let rejected = client
         .authorize(Provider::Whatsapp, &input)
@@ -297,7 +321,7 @@ async fn both_transports_send_the_prepared_text_and_classify_uncertain_outcomes(
     for provider in [Provider::Whatsapp, Provider::Instagram] {
         let c = connection(provider);
         let prepared = client
-            .prepare_reply(&c, &token, &conversation(&c, "customer"), &text(), None)
+            .prepare_reply(&c, &token, &conversation(&c, "15551234567"), &text(), None)
             .await
             .unwrap();
         assert_eq!(prepared.rendered_text, "Deliberate reply");
@@ -314,10 +338,10 @@ async fn both_transports_send_the_prepared_text_and_classify_uncertain_outcomes(
             .cloned()
             .unwrap();
         if provider == Provider::Whatsapp {
-            assert_eq!(captured["to"], "customer");
+            assert_eq!(captured["to"], "15551234567");
             assert_eq!(captured["text"]["body"], "Deliberate reply");
         } else {
-            assert_eq!(captured["recipient"]["id"], "customer");
+            assert_eq!(captured["recipient"]["id"], "15551234567");
             assert_eq!(captured["message"]["text"], "Deliberate reply");
         }
         server.state.status.store(429, Ordering::SeqCst);
@@ -347,7 +371,7 @@ async fn approved_named_template_uses_verified_account_and_exact_rendered_text()
         parameters: vec!["Sam".into()],
     };
     let prepared = client
-        .prepare_reply(&c, &token, &conversation(&c, "customer"), &request, None)
+        .prepare_reply(&c, &token, &conversation(&c, "15551234567"), &request, None)
         .await
         .unwrap();
     assert_eq!(prepared.rendered_text, "Hi Sam");
@@ -361,4 +385,125 @@ async fn approved_named_template_uses_verified_account_and_exact_rendered_text()
         body["template"]["components"][0]["parameters"][0],
         json!({"type":"text","parameter_name":"first_name","text":"Sam"})
     );
+}
+
+#[tokio::test]
+async fn platform_signup_verifies_mode_and_registration_uses_only_the_documented_pin_request() {
+    let server = server().await;
+    let client = client(&server);
+    let input = CompleteAuthorization {
+        state: "fixture".into(),
+        browser_transaction: None,
+        code: "fixture".into(),
+        business_account_id: Some("waba".to_owned().try_into().unwrap()),
+        phone_number_id: Some("phone".to_owned().try_into().unwrap()),
+        whatsapp_mode: Some(WhatsappMode::Platform),
+    };
+    let account = client.authorize(Provider::Whatsapp, &input).await.unwrap();
+    assert_eq!(account.whatsapp_mode, Some(WhatsappMode::Platform));
+    assert_eq!(
+        account.registration_status,
+        Some(RegistrationStatus::Required)
+    );
+    let mut c = connection(Provider::Whatsapp);
+    c.whatsapp_mode = Some(WhatsappMode::Platform);
+    let pin = RegistrationPin::try_from("123456".to_owned()).unwrap();
+    assert!(
+        !client
+            .whatsapp_registered(&c, &account.token)
+            .await
+            .unwrap()
+    );
+    for (code, expected) in [
+        (133005, "registration_pin_incorrect"),
+        (133006, "registration_pin_attempts_exceeded"),
+        (133016, "registration_rate_limited"),
+    ] {
+        server
+            .state
+            .registration_error
+            .store(code, Ordering::SeqCst);
+        let RegistrationResult::Rejected(reason) =
+            client.register_whatsapp(&c, &account.token, &pin).await
+        else {
+            panic!("expected rejection")
+        };
+        assert_eq!(reason.code(), expected);
+    }
+    server.state.registration_error.store(0, Ordering::SeqCst);
+    assert!(matches!(
+        client.register_whatsapp(&c, &account.token, &pin).await,
+        RegistrationResult::Accepted
+    ));
+    assert!(
+        client
+            .whatsapp_registered(&c, &account.token)
+            .await
+            .unwrap()
+    );
+    server.state.coexistence.store(true, Ordering::SeqCst);
+    assert!(client.authorize(Provider::Whatsapp, &input).await.is_err());
+    assert!(
+        client
+            .whatsapp_registered(&c, &account.token)
+            .await
+            .is_err()
+    );
+    assert!(RegistrationPin::try_from("12 456".to_owned()).is_err());
+}
+
+#[tokio::test]
+async fn bsuid_and_phone_destinations_are_distinct_and_both_require_the_developer_allowlist() {
+    let server = server().await;
+    let client = client(&server)
+        .with_developer_account(WhatsappDeveloperAccount {
+            business_account_id: "waba".to_owned().try_into().unwrap(),
+            phone_number_id: "phone".to_owned().try_into().unwrap(),
+            token: AccessToken::new("fixture".into()).unwrap(),
+            recipients: vec![
+                "US.A".to_owned().try_into().unwrap(),
+                "15550000001".to_owned().try_into().unwrap(),
+            ],
+        })
+        .unwrap();
+    let mut c = connection(Provider::Whatsapp);
+    c.developer_account = true;
+    let token = AccessToken::new("fixture".into()).unwrap();
+    let mut conversation = conversation(&c, "US.A");
+    let prepared = client
+        .prepare_reply(&c, &token, &conversation, &text(), None)
+        .await
+        .unwrap();
+    assert_eq!(prepared.provider_document["recipient"], "US.A");
+    assert!(prepared.provider_document.get("to").is_none());
+    conversation.customer_phone = Some("+15550000001".into());
+    let prepared = client
+        .prepare_reply(&c, &token, &conversation, &text(), None)
+        .await
+        .unwrap();
+    assert_eq!(prepared.provider_document["to"], "15550000001");
+    assert!(prepared.provider_document.get("recipient").is_none());
+    conversation.customer_phone = Some("15550000002".into());
+    assert!(
+        client
+            .prepare_reply(&c, &token, &conversation, &text(), None)
+            .await
+            .is_err()
+    );
+    conversation.customer_phone = None;
+    conversation.customer_id = "US.OTHER".to_owned().try_into().unwrap();
+    assert!(
+        client
+            .prepare_reply(&c, &token, &conversation, &text(), None)
+            .await
+            .is_err()
+    );
+}
+
+#[test]
+fn invalid_pin_types_never_echo_secret_values_in_deserialization_errors() {
+    let error = serde_json::from_str::<RegistrationPin>("123456")
+        .err()
+        .unwrap();
+    assert!(!error.to_string().contains("123456"));
 }

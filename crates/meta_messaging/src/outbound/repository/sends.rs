@@ -44,26 +44,21 @@ impl PgMessagingRepository {
     }
     pub(super) async fn claim_send_impl(&self) -> PortResult<Option<SendWork>> {
         let mut tx = self.pool.begin().await.map_err(failure)?;
-        sqlx::query!("SELECT pg_advisory_xact_lock(1296389185, 2)")
-            .execute(&mut *tx)
-            .await
-            .map_err(failure)?;
         // Uncertainty is terminal for dispatch. After a bounded lease it releases
         // the conversation; delivered/read receipts are never needed to proceed.
         sqlx::query!(r#"WITH expired AS (
             SELECT id FROM meta_messaging_send WHERE state='sending' AND (lease_until<=now() OR lease_until IS NULL)
             ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT 100
         ) UPDATE meta_messaging_send s SET
-            state=CASE WHEN tracked_lease_id=lease_id AND dispatch_started_at IS NULL THEN 'pending' ELSE 'unknown' END,
-            error_code=CASE WHEN tracked_lease_id=lease_id AND dispatch_started_at IS NULL THEN 'preparation_interrupted' ELSE 'interrupted_send_check_provider' END,
+            state=CASE WHEN dispatch_started_at IS NULL THEN 'pending' ELSE 'unknown' END,
+            error_code=CASE WHEN dispatch_started_at IS NULL THEN 'preparation_interrupted' ELSE 'interrupted_send_check_provider' END,
             lease_id=NULL,lease_until=NULL,available_at=now(),updated_at=now() FROM expired WHERE s.id=expired.id"#)
             .execute(&mut *tx).await.map_err(failure)?;
-        // Only current, explicitly tracked claims prove they are unattempted.
-        // Old workers leave a different tracked_lease_id and settle as Unknown.
+        // Only attempts before the dispatch fence may expire or be retried.
         sqlx::query!(r#"WITH expired AS (
             SELECT id FROM meta_messaging_send WHERE created_at<=clock_timestamp()-make_interval(secs=>$1::integer)
               AND provider_message_id IS NULL
-              AND (state='pending' OR (state='sending' AND tracked_lease_id=lease_id AND dispatch_started_at IS NULL))
+              AND (state='pending' OR (state='sending' AND dispatch_started_at IS NULL))
             ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 100
         ) UPDATE meta_messaging_send s SET state='failed',error_code='send_expired',lease_id=NULL,lease_until=NULL,
             updated_at=clock_timestamp() FROM expired WHERE s.id=expired.id"#,crate::domain::policy::SEND_EXPIRY_SECONDS)
@@ -77,11 +72,8 @@ impl PgMessagingRepository {
                   WHERE earlier.connection_id=s.connection_id AND earlier.channel_id=s.channel_id
                     AND earlier.state IN ('pending','sending')
                     AND (earlier.created_at,earlier.id)<(s.created_at,s.id))
-              AND (SELECT count(*) FROM meta_messaging_send busy
-                  WHERE busy.connection_id=s.connection_id AND busy.state='sending'
-                    AND busy.lease_until>now()) < 2
             ORDER BY s.created_at,s.id FOR UPDATE SKIP LOCKED LIMIT 1
-        ) UPDATE meta_messaging_send s SET state='sending',lease_id=$1,tracked_lease_id=$1,dispatch_started_at=NULL,
+        ) UPDATE meta_messaging_send s SET state='sending',lease_id=$1,dispatch_started_at=NULL,
             lease_until=now()+interval '5 minutes',attempts=attempts+1,updated_at=now()
           FROM candidate c WHERE s.id=c.id
           RETURNING s.id,s.connection_id,s.channel_id,s.user_id,s.created_at,s.payload,s.attempts

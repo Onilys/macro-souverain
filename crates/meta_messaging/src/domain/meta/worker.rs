@@ -18,6 +18,24 @@ impl MetaService {
             IngestionLease::History(l) => self.repository.heartbeat_history_import(l).await,
         }
     }
+    async fn require_ingestion(
+        &self,
+        connection: &Connection,
+        message: &IncomingMessage,
+    ) -> PortResult<()> {
+        self.native
+            .require_member(connection.team_id, &connection.user_id)
+            .await?;
+        if message.provenance == Provenance::OnboardingHistory
+            && !self
+                .require_history_consent(connection, Utc::now(), false)
+                .await?
+        {
+            return Err(MessagingError::Forbidden.into());
+        }
+        Ok(())
+    }
+
     pub(super) async fn ingest_message(
         &self,
         connection: &Connection,
@@ -55,6 +73,7 @@ impl MetaService {
         if !self.renew_ingestion(lease).await? {
             return Err(MessagingError::Conflict.into());
         }
+        self.require_ingestion(connection, message).await?;
         self.native.ingest(connection, message, vec![]).await?;
         if !message.media.is_empty()
             && !self
@@ -94,6 +113,7 @@ impl MetaService {
                     if !self.renew_ingestion(lease).await? {
                         return Err(MessagingError::Conflict.into());
                     }
+                    self.require_ingestion(connection, message).await?;
                     self.native.ingest(connection, message, media).await?;
                 }
                 download_error.map_or(Ok(()), Err)
@@ -103,6 +123,7 @@ impl MetaService {
                 if matches!(error.current_context(), MessagingError::Conflict) {
                     return Err(error);
                 }
+                self.require_ingestion(connection, message).await?;
                 self.native.media_unavailable(connection, message).await?;
                 if matches!(error.current_context(), MessagingError::Disconnected) {
                     self.repository
@@ -237,19 +258,68 @@ impl MetaService {
 
     async fn process_event(&self, work: &ReceiptWork, event: IncomingEvent) -> PortResult<()> {
         match event {
+            IncomingEvent::IdentityUpdate(update) => {
+                let c = self
+                    .repository
+                    .account(work.provider, &update.account_id)
+                    .await?
+                    .ok_or(MessagingError::Unavailable)?;
+                if update.provenance == Provenance::OnboardingHistory
+                    && !self
+                        .require_history_consent(&c, work.received_at, true)
+                        .await?
+                {
+                    return Ok(());
+                }
+                if accepts_inbound(&c)? {
+                    self.native.update_identity(&c, &update).await?;
+                }
+            }
+            IncomingEvent::IdentityObserved {
+                provenance,
+                account_id,
+                customer_id,
+                phone,
+                timestamp,
+            } => {
+                let c = self
+                    .repository
+                    .account(work.provider, &account_id)
+                    .await?
+                    .ok_or(MessagingError::Unavailable)?;
+                if provenance == Provenance::OnboardingHistory
+                    && !self
+                        .require_history_consent(&c, work.received_at, true)
+                        .await?
+                {
+                    return Ok(());
+                }
+                if accepts_inbound(&c)? {
+                    self.native
+                        .observe_identity(&c, &customer_id, phone.as_ref(), timestamp)
+                        .await?;
+                }
+            }
             IncomingEvent::Revision(revision) => {
                 let connection = self
                     .repository
                     .account(work.provider, &revision.account_id)
                     .await?
                     .ok_or(MessagingError::Unavailable)?;
+                if revision.provenance == Provenance::OnboardingHistory
+                    && !self
+                        .require_history_consent(&connection, work.received_at, true)
+                        .await?
+                {
+                    return Ok(());
+                }
                 // A replayed revision, such as an unsend, still applies after reconnect;
                 // the repository fences it to the current generation.
                 if !accepts_inbound(&connection)? {
                     return Ok(());
                 }
                 self.native
-                    .require_admin(connection.team_id, &connection.user_id)
+                    .require_member(connection.team_id, &connection.user_id)
                     .await?;
                 self.native.revise(&connection, &revision).await?;
             }
@@ -270,7 +340,7 @@ impl MetaService {
                 }
                 if historical
                     && !self
-                        .require_history_consent(&connection, work.received_at)
+                        .require_history_consent(&connection, work.received_at, true)
                         .await?
                 {
                     return Ok(());
@@ -290,7 +360,7 @@ impl MetaService {
                     }
                 }
                 self.native
-                    .require_admin(connection.team_id, &connection.user_id)
+                    .require_member(connection.team_id, &connection.user_id)
                     .await?;
                 self.ingest_message(
                     &connection,
@@ -300,6 +370,7 @@ impl MetaService {
                 .await?;
             }
             IncomingEvent::Status {
+                provenance,
                 account_id,
                 message_id,
                 state,
@@ -311,6 +382,13 @@ impl MetaService {
                     .account(work.provider, &account_id)
                     .await?
                     .ok_or(MessagingError::Unavailable)?;
+                if provenance == Provenance::OnboardingHistory
+                    && !self
+                        .require_history_consent(&connection, work.received_at, true)
+                        .await?
+                {
+                    return Ok(());
+                }
                 self.repository
                     .record_status(
                         connection.id,
@@ -331,7 +409,9 @@ impl MetaService {
                         c.status,
                         ConnectionStatus::Disconnected | ConnectionStatus::Revoked
                     )
-                    && self.require_history_consent(&c, work.received_at).await?
+                    && self
+                        .require_history_consent(&c, work.received_at, true)
+                        .await?
                 {
                     self.repository
                         .history_import_progress(&c, progress, declined)
@@ -394,9 +474,12 @@ impl MetaService {
             }
             let result: PortResult<()> = async {
                 self.native
-                    .require_admin(connection.team_id, &connection.user_id)
+                    .require_member(connection.team_id, &connection.user_id)
                     .await?;
                 let token = self.token(&connection).await?;
+                if !self.reconcile_registration(&connection, &token).await? {
+                    return Ok(());
+                }
                 self.provider.subscribe(&connection, &token).await?;
                 if self
                     .repository
@@ -453,6 +536,11 @@ impl MetaService {
 /// An explicit disconnect stops receiving. Authorization that needs renewal keeps
 /// customer activity as failed work, which a reconnect replays.
 fn accepts_inbound(connection: &Connection) -> Result<bool, MessagingError> {
+    if connection.whatsapp_mode == Some(WhatsappMode::Platform)
+        && connection.registration_status != Some(RegistrationStatus::Registered)
+    {
+        return Err(MessagingError::Disconnected);
+    }
     match connection.status {
         ConnectionStatus::Disconnected => Ok(false),
         ConnectionStatus::Revoked => Err(MessagingError::Disconnected),

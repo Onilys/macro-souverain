@@ -8,9 +8,19 @@ credential and database ports. DSS wires the native channel and access adapters.
 ## OAuth boundary
 
 Instagram completion requires the independent browser proof returned at begin,
-plus the initiating authenticated Macro team/user and current admin access.
+plus the initiating authenticated Macro team/user and current membership.
+Reconnect, disconnect and import initiation require the current connector/member
+or a current team admin. Recheck connector membership before new effects.
 Never add a public state-only completion path. WhatsApp uses Embedded Signup.
 See `docs/META_MESSAGING.md` for redirect configuration and rollout gates.
+
+## Identity and readiness
+
+Use connection-scoped provider aliases for late WhatsApp facts. Never derive phones
+from BSUIDs or join by display names. Platform registration stays pending until
+Meta confirms registration and subscription; preserve uncertain attempts and
+encrypted credentials without persisting PINs. Accepted native recovery is separate
+from new provider dispatch.
 
 ## Checks
 

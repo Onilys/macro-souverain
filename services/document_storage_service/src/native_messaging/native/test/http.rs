@@ -3,8 +3,10 @@ use super::*;
 mod content;
 mod history;
 mod lifecycle;
+mod members;
 mod oauth;
 mod recovery;
+mod registration;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -76,6 +78,9 @@ struct ProviderFixture {
     authorizations: AtomicUsize,
     sends: AtomicUsize,
     subscriptions: AtomicUsize,
+    registrations: AtomicUsize,
+    registered: std::sync::atomic::AtomicBool,
+    registration_result: std::sync::Mutex<u8>,
     unsubscriptions: AtomicUsize,
     subscribe_error: std::sync::Mutex<Option<MessagingError>>,
     pause_subscribe: std::sync::atomic::AtomicBool,
@@ -126,11 +131,14 @@ impl MetaProvider for ProviderFixture {
     async fn authorize(
         &self,
         p: Provider,
-        _: &CompleteAuthorization,
+        input: &CompleteAuthorization,
     ) -> PortResult<AuthorizedAccount> {
         self.authorizations.fetch_add(1, Ordering::SeqCst);
         assert_eq!(p, self.connection.provider);
         Ok(AuthorizedAccount {
+            whatsapp_mode: input.whatsapp_mode,
+            registration_status: (input.whatsapp_mode == Some(WhatsappMode::Platform))
+                .then_some(RegistrationStatus::Required),
             developer_account: false,
             account_id: self.connection.account_id.clone(),
             business_account_id: None,
@@ -138,6 +146,27 @@ impl MetaProvider for ProviderFixture {
             token: AccessToken::new("test-only".into())?,
             expires_at: None,
         })
+    }
+    async fn whatsapp_registered(&self, _: &Connection, _: &AccessToken) -> PortResult<bool> {
+        Ok(self.registered.load(Ordering::SeqCst))
+    }
+    async fn register_whatsapp(
+        &self,
+        _: &Connection,
+        _: &AccessToken,
+        pin: &RegistrationPin,
+    ) -> RegistrationResult {
+        assert_eq!(pin.expose(), "123456");
+        self.registrations.fetch_add(1, Ordering::SeqCst);
+        match *self.registration_result.lock().unwrap() {
+            1 => RegistrationResult::Rejected(RegistrationFailure::IncorrectPin),
+            2 => RegistrationResult::Unknown,
+            3 => RegistrationResult::Rejected(RegistrationFailure::RateLimited),
+            _ => {
+                self.registered.store(true, Ordering::SeqCst);
+                RegistrationResult::Accepted
+            }
+        }
     }
     async fn developer_account(&self) -> PortResult<AuthorizedAccount> {
         panic!("not the developer flow")
@@ -339,6 +368,9 @@ async fn fixture_with_files(
         authorizations: AtomicUsize::new(0),
         sends: AtomicUsize::new(0),
         subscriptions: AtomicUsize::new(0),
+        registrations: AtomicUsize::new(0),
+        registered: Default::default(),
+        registration_result: Default::default(),
         unsubscriptions: AtomicUsize::new(0),
         subscribe_error: Default::default(),
         pause_subscribe: Default::default(),
@@ -357,6 +389,7 @@ async fn fixture_with_files(
             whatsapp_developer_available: false,
             whatsapp_app_id: Some("123".into()),
             whatsapp_configuration_id: Some("123".into()),
+            whatsapp_platform_configuration_id: Some("platform-config".into()),
             instagram_app_id: Some("456".into()),
             instagram_redirect_uri: Some("https://example.test/callback".into()),
             instagram_human_agent_approved: false,

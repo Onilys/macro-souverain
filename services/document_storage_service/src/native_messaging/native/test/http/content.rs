@@ -2,7 +2,7 @@ use super::*;
 use crate::native_messaging::files::MessageFiles;
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn provider_revision_requires_the_connecting_administrator_to_retain_access(pool: PgPool) {
+async fn provider_revision_requires_the_connector_to_remain_a_member(pool: PgPool) {
     let f = fixture(&pool, Provider::Instagram, None).await;
     let original = incoming(&f.c, "permissioned-revision");
     fixture_native(&pool)
@@ -21,6 +21,14 @@ async fn provider_revision_requires_the_connecting_administrator_to_retain_acces
         )
         .await
         .unwrap();
+    sqlx::query!(
+        "DELETE FROM team_user WHERE team_id=$1 AND user_id<>$2",
+        f.c.team_id,
+        f.c.user_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let at = connected_time(&f.repo, f.c.id).await;
     let payload = json!({"object":"instagram","entry":[{"id":f.c.account_id,"messaging":[{"sender":{"id":original.customer_id},"recipient":{"id":f.c.account_id},"timestamp":at.timestamp_millis(),"message":{"mid":original.message_id,"is_deleted":true}}]}]});
     assert_eq!(

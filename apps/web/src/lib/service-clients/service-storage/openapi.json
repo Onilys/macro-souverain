@@ -15458,6 +15458,45 @@
         }
       }
     },
+    "/meta/connections/{connection_id}/register": {
+      "post": {
+        "tags": [],
+        "operationId": "meta_register",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPhone"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaConnection"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/meta/developer/whatsapp": {
       "post": {
         "tags": [],
@@ -32953,6 +32992,17 @@
           "state": {
             "type": "string",
             "description": "State returned by the server for this caller/team/provider."
+          },
+          "whatsapp_mode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WhatsappMode",
+                "description": "Explicit signup path; the provider independently verifies its eligibility."
+              }
+            ]
           }
         }
       },
@@ -32968,8 +33018,7 @@
           "display_name",
           "status",
           "human_agent_approved",
-          "developer_account",
-          "history_status"
+          "developer_account"
         ],
         "properties": {
           "account_id": {
@@ -33009,16 +33058,6 @@
             "type": ["string", "null"],
             "description": "Sanitized operational error code."
           },
-          "history_progress": {
-            "type": ["integer", "null"],
-            "format": "int32",
-            "description": "Latest provider-reported progress.",
-            "minimum": 0
-          },
-          "history_status": {
-            "$ref": "#/components/schemas/MetaHistoryStatus",
-            "description": "Provider history synchronization status."
-          },
           "human_agent_approved": {
             "type": "boolean",
             "description": "Verified HUMAN_AGENT approval; false by default."
@@ -33032,6 +33071,22 @@
             "$ref": "#/components/schemas/MetaProvider",
             "description": "Official API used by this connection."
           },
+          "registration_attempted_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Time of the latest uncertain or rate-limited registration attempt; never a PIN."
+          },
+          "registration_status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegistrationStatus",
+                "description": "Registration state for Platform numbers only."
+              }
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/MetaConnectionStatus",
             "description": "Current local connection health."
@@ -33043,7 +33098,18 @@
           },
           "user_id": {
             "type": "string",
-            "description": "Original administrator. New conversations start with explicit membership."
+            "description": "Current connector. Reconnect changes this user without transferring existing channel/file grants."
+          },
+          "whatsapp_mode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WhatsappMode",
+                "description": "Server-verified WhatsApp onboarding mode; absent for Instagram."
+              }
+            ]
           }
         }
       },
@@ -33087,11 +33153,6 @@
             "type": ["string", "null"],
             "format": "date-time",
             "description": "Latest eligible inbound source timestamp."
-          },
-          "standard_window_until": {
-            "type": ["string", "null"],
-            "format": "date-time",
-            "description": "Standard reply window, including verified provider-specific extensions."
           }
         }
       },
@@ -33248,7 +33309,7 @@
         "properties": {
           "can_import": {
             "type": "boolean",
-            "description": "Whether the administrator may start or resume an import now."
+            "description": "Whether the connector or administrator may start or resume an import now."
           },
           "import": {
             "oneOf": [
@@ -33359,6 +33420,10 @@
           "whatsapp_developer_available": {
             "type": "boolean",
             "description": "A server-configured, recipient-restricted local WhatsApp test account exists."
+          },
+          "whatsapp_platform_configuration_id": {
+            "type": ["string", "null"],
+            "description": "Optional dedicated v4 configuration for Platform signup."
           }
         }
       },
@@ -35785,6 +35850,23 @@
           }
         }
       },
+      "RegisterPhone": {
+        "type": "object",
+        "description": "A request without a PIN only checks whether a previous attempt completed.",
+        "properties": {
+          "pin": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegistrationPin",
+                "description": "Kept only for this request; absence never starts a new registration attempt."
+              }
+            ]
+          }
+        }
+      },
       "RegisterUploads": {
         "type": "object",
         "description": "Batched registration, also used to renew an unchanged descriptor's grant.",
@@ -35800,6 +35882,16 @@
           }
         },
         "additionalProperties": false
+      },
+      "RegistrationPin": {
+        "type": "string",
+        "description": "A six-digit secret, accepted only in an explicit registration request.\nDeliberately neither Debug nor Serialize, and never persisted.",
+        "pattern": "^[0-9]{6}$"
+      },
+      "RegistrationStatus": {
+        "type": "string",
+        "description": "Durable registration uncertainty is separate from account health.",
+        "enum": ["required", "unconfirmed", "registered", "rate_limited"]
       },
       "RemoveParticipantsRequest": {
         "type": "object",
@@ -42162,6 +42254,11 @@
             "description": "Webhook being validated."
           }
         }
+      },
+      "WhatsappMode": {
+        "type": "string",
+        "description": "Supported production WhatsApp onboarding paths.",
+        "enum": ["coexistence", "platform"]
       },
       "Widget": {
         "type": "string",
