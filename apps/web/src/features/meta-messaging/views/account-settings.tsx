@@ -116,7 +116,6 @@ function Accounts() {
           state: begin.state,
           whatsapp_mode: mode,
         });
-        setNotice('Connecting… This page updates automatically.');
       } else {
         if (!active) return;
         if (!instagram || !begin.browser_transaction)
@@ -131,7 +130,6 @@ function Accounts() {
           state: begin.state,
           browser_transaction: begin.browser_transaction,
         });
-        setNotice('Connecting… This page updates automatically.');
       }
     } catch (e) {
       setError(
@@ -146,6 +144,7 @@ function Accounts() {
     } finally {
       instagram?.close();
       instagram = undefined;
+      setNotice('');
       setWorking(false);
     }
   }

@@ -175,6 +175,13 @@ above the customer composer, with the draft preserved and sending disabled.
 1. Keep the initiating Settings window open, allow its popup, and connect through
    the real Meta test app. Confirm the expected team’s account ID and actual
    connection state. The callback URL must lose its query/fragment immediately.
+   Check the opener survives every navigation, not just popup creation. The
+   controlled Firefox test succeeded with the local preview's default COOP
+   behavior (no COOP header on Settings or the callback); adding
+   `same-origin-allow-popups` to both caused a closed-window error. This local
+   result does not validate production headers. Preserve the callback's
+   no-store/no-referrer headers and query-log exclusion; never replace the
+   browser proof with a public callback fallback.
 2. In a separate controlled browser session, open the authorization URL initiated
    in session A. Session B must not complete A’s connection. Inspect the isolated
    DB/provider counters as well as the UI: no credential, subscription, import or
@@ -184,6 +191,8 @@ above the customer composer, with the draft preserved and sending disabled.
    unchanged. Selecting another Instagram account must fail. Cancel once; let an
    attempt expire or expire only a disposable local transaction; replay a handled
    callback. Settings must offer a clear retry, with no second connection.
+   After success, show the account's current status without stale login
+   instructions. After cancellation, retain the error and clear those instructions.
 4. Distinguish HTTP/database fixture tests from live Meta authorization and from
    actual customer message delivery. Never describe simulated transport as live.
 

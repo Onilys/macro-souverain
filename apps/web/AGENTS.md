@@ -200,6 +200,8 @@ cannot impersonate a Macro teammate or a reply submitted through Macro.
 Keep `public/instagram-callback.html` standalone and free of app boot, telemetry,
 external assets and URL logging. Completion belongs to the initiating Settings
 window and uses the authenticated Meta query mutation with its in-memory proof.
+Clear transient login instructions when the attempt settles; account rows own
+the current connection status, and failed attempts retain their error message.
 See `docs/META_MESSAGING.md` at repository root for the server boundary and setup.
 
 ## WhatsApp groups

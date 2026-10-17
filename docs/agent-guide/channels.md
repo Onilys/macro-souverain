@@ -145,6 +145,8 @@ Open **Settings → Integrations → Accounts**. WhatsApp Business and Instagram
 use the same compact rows as other accounts: provider logo, account name, and
 **Manage** (or **Connect** for a new account). **Manage** contains history import
 and an overflow menu for reconnect/disconnect. Disconnected accounts stay collapsed.
+Login instructions clear when the attempt finishes. The account row shows the
+current connection status; a canceled or failed login keeps its actionable error.
 Setup details appear in the dialog, and account errors remain visible on the row.
 Any current team member can connect a business account and view account metadata, including Connected by. The connector or a current team admin can manage it. Each customer gets one private native channel per connected account, initially accessible to the connector; use ordinary invitations for teammates. Reconnecting does not transfer existing channel/file grants.
 Connecting brings in new activity only. Past conversations are not automatically

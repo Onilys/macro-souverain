@@ -646,9 +646,12 @@ reporting, and serve it with `Cache-Control: no-store` and
 The current website CloudFront distribution uses legacy access logging, which
 includes query strings. Changing only the redirect allowlist is unsafe: disable
 or replace that query-bearing logging before enabling this callback. Its shared
-response-header policy must also preserve the popup opener (COOP
-`same-origin-allow-popups` or compatible behavior), and the callback needs a
-no-store response policy instead of the static-asset max-age policy. These are
+response-header policy must also preserve the popup opener through the whole
+`about:blank` → Meta → callback navigation chain. Do not assume COOP
+`same-origin-allow-popups` is sufficient: subsequent cross-origin navigations
+have different matching rules from `window.open()` ([MDN navigation rules](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy#navigations)).
+The callback also needs a no-store response policy instead of the static-asset
+max-age policy. These are
 release configuration gates; local tests do not validate deployed policies.
 For local testing, the callback may be on a trusted HTTPS loopback origin that
 the browser can reach and Meta accepts in its redirect allowlist. Webhooks still
