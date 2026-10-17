@@ -19,6 +19,12 @@ must load through the webview, not native HTTP. A `vite:preloadError` with
 `scheme tauri not supported` indicates an asset-routing failure; reloading the
 same bundle does not resolve it.
 
+A `vite:preloadError` (a lazy chunk or its CSS failed, usually after a deploy)
+reloads the tab right away, once per build per tab session, when it is online,
+holds no call or upload, and has no text being typed. Otherwise, and on a second
+failure in the same build, the rail's update button (a toast on touch layouts)
+offers the reload.
+
 ## External links in the native app
 
 Desktop external links open in the system browser, whether activated by a normal
