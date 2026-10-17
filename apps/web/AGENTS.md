@@ -194,6 +194,9 @@ On a physical iPhone, WKWebView still synthesises the compatibility `mousedown`/
 
 ## Instagram OAuth
 
+Customer timeline rows keep a visible External label so provider display names
+cannot impersonate a Macro teammate or a reply submitted through Macro.
+
 Keep `public/instagram-callback.html` standalone and free of app boot, telemetry,
 external assets and URL logging. Completion belongs to the initiating Settings
 window and uses the authenticated Meta query mutation with its in-memory proof.

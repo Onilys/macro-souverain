@@ -548,6 +548,9 @@ and files retain their native ownership; this release has no ownership backfill.
 ## UI and refresh behavior
 
 Customer conversations show the full customer name and a small provider logo.
+Incoming customer rows also show a visible **External** label, independent of
+the provider display name, to distinguish them from replies submitted through Macro.
+Phone-app and imported business echoes also retain external attribution.
 Click the 44px provider trigger for phone/handle and account details. Its hover treatment is limited to pointer devices. One customer reply composer
 replaces the internal-note switch. Agent work remains private. Successful replies
 show no delivery/read markers; progress, failures and uncertain outcomes retain

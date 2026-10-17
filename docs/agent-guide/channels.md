@@ -137,6 +137,10 @@ neither private access nor external sending/group creation rights.
 
 ## WhatsApp Business and Instagram customer channels
 
+Incoming customer rows show a visible **External** label. A matching provider
+display name does not identify the sender as a Macro teammate or a reply submitted
+through Macro. Phone-app and imported business echoes also retain this label.
+
 Open **Settings → Integrations → Accounts**. WhatsApp Business and Instagram
 use the same compact rows as other accounts: provider logo, account name, and
 **Manage** (or **Connect** for a new account). **Manage** contains history import

@@ -353,6 +353,15 @@ test('native channels and external messaging preserve composition, recovery, and
       path.endsWith('.wasm')
     )
       return route.continue();
+    if (path === '/auth/team/user')
+      return respond([
+        {
+          id: id(800),
+          name: 'Controlled team',
+          owner_id: 'macro|other-connector@example.com',
+          default_link_share: 'off',
+        },
+      ]);
     if (path === '/auth/team' && showSettings)
       return respond({
         team: {
@@ -918,6 +927,16 @@ test('native channels and external messaging preserve composition, recovery, and
     await test.step('external replies and native row reconciliation', async () => {
       await open(`${channels[1].id}?join_call=true&open_call_tab=true`);
       await expectNoCustomerCalls();
+      const externalBadge = page
+        .locator('[data-channel-message-list]')
+        .getByText('External', { exact: true })
+        .first();
+      await expect(externalBadge).toBeVisible();
+      const badgeBounds = await externalBadge.boundingBox();
+      assert.ok(
+        badgeBounds && badgeBounds.width > 20 && badgeBounds.height > 10,
+        'external attribution must be readable by sighted users'
+      );
       await expect(
         page.locator(
           '[data-input-id^="channel-input-"] [contenteditable="true"]'

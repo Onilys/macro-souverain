@@ -13,8 +13,9 @@ import {
 } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ChannelMessagingComposer } from '../channel-messaging';
+import { createReplySource } from '../queries/reply-source';
 import { replyOptions } from '../tests/reply-options';
+import { ChannelMessagingComposer } from './channel-composer';
 
 const fixture = vi.hoisted(() => ({
   account: undefined as MetaConversationView | undefined,
@@ -87,6 +88,8 @@ function mount(channel: () => string = () => 'channel-one') {
   render(() => (
     <ChannelMessagingComposer
       channelId={channel()}
+      userId={fixture.userId()}
+      createSource={createReplySource}
       interaction={
         fixture.account
           ? {

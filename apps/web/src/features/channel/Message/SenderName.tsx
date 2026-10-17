@@ -27,7 +27,10 @@ export function ExternalBadge() {
   const message = useMessage();
   return (
     <Show when={message().sender_id.startsWith('external|')}>
-      <span class="sr-only" title="Sent from a connected external account">
+      <span
+        class="shrink-0 rounded px-1 text-xs text-ink-muted ring ring-edge-muted"
+        title="Sent from a connected external account"
+      >
         External
       </span>
     </Show>
