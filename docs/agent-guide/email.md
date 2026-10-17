@@ -254,14 +254,18 @@ pane follows it (replacing history rather than adding entries) while the list
 keeps focus, even if the thread is still loading; Mark done on
 the open row follows the next row (an action on another row, such as the one
 under the pointer, leaves the pane alone), and the open row keeps an accent
-marker while the pointer highlights others. Enter or a click opens the row and
-moves the keyboard into the reader, as does any click inside the reader. Its
-keys live in a child hotkey scope so they never replace the list's, and while
-it has the keyboard the list's keys stand down, so `x`, `Cmd+A`, `End` or
-`Shift+Enter` in the reader never act on the list. j/k in the reader step
-threads and move the list cursor with them, replacing history. Escape in the
-reader, once there is nothing to unwind, hands the keyboard back to the list
-without closing the thread. Narrow rows stack sender, subject and snippet.
+marker while the pointer highlights others. Rows there are full-bleed bands, not
+rounded insets, and the open row's accent bar runs the row's full height. Enter
+or a click opens the row and moves the keyboard into the reader, as does any
+click inside the reader. Its keys live in a child hotkey scope so they never
+replace the list's, and while it has the keyboard the list's keys stand down,
+so `x`, `Cmd+A`, `End` or `Shift+Enter` in the reader never act on the list.
+j/k in the reader step threads and move the list cursor with them, replacing
+history. Escape in the reader, once there is nothing to unwind, hands the
+keyboard back to the list without closing the thread. Narrow email rows, here
+and on phones, stack senders and date, subject, and one preview line beside a
+slim unread-dot gutter (no per-type icon); unread rows are bold, hovering swaps
+the date for the row actions, and hovering the gutter shows the select checkbox.
 Without room for both (narrow split, collapsed window) the pane folds away and
 a thread replaces the list as usual; the thread remounts, but a reply draft
 survives. The divider can be dragged; the list width is remembered. Verify that
