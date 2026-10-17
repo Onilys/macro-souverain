@@ -232,7 +232,7 @@ impl MessagingRepository for PgMessagingRepository {
         // Retry this account's failed inbound work after authorization is renewed.
         // Message identities deduplicate replay; outbound intents are never reset.
         sqlx::query!(r#"UPDATE meta_messaging_receipt SET status='pending',attempts=0,available_at=now(),error_code=NULL,lease_id=NULL,lease_until=NULL
-            WHERE provider=$1 AND status='failed' AND error_code <> 'invalid_provider_payload' AND created_at>now()-interval '30 days' AND payload_cleared_at IS NULL AND
+            WHERE provider=$1 AND status='failed' AND error_code NOT IN ('invalid_provider_payload','identity_conflict') AND created_at>now()-interval '30 days' AND payload_cleared_at IS NULL AND
             (payload @> jsonb_build_object('entry',jsonb_build_array(jsonb_build_object('id',$2::text))) OR
              payload @> jsonb_build_object('entry',jsonb_build_array(jsonb_build_object('changes',jsonb_build_array(jsonb_build_object('value',jsonb_build_object('metadata',jsonb_build_object('phone_number_id',$2::text))))))))"#,
             connection.provider.as_str(),connection.account_id.as_str()).execute(&mut *tx).await.map_err(failure)?;

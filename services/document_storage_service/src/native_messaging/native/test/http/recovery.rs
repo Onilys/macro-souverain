@@ -201,4 +201,9 @@ async fn permanent_identity_conflict_stops_retrying_without_blocking_a_healthy_s
     assert_eq!(row.error_code.as_deref(), Some("identity_conflict"));
     assert!(f.repo.claim_receipt().await.unwrap().is_none());
     assert!(f.repo.message_target(f.c.id, "healthy").await.is_ok());
+    f.repo
+        .connect(&f.c, b"renewed-credential", Some(f.c.id))
+        .await
+        .unwrap();
+    assert!(f.repo.claim_receipt().await.unwrap().is_none());
 }
