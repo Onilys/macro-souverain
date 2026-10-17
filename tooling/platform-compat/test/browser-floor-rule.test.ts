@@ -5,7 +5,6 @@ import { browserFloorRule } from '../src/browser-floor-rule';
 
 RuleTester.describe = describe;
 RuleTester.it = it;
-RuleTester.itOnly = it.only;
 
 const safari = [{ browserslist: ['safari >= 15.4'] }];
 const tester = new RuleTester({
