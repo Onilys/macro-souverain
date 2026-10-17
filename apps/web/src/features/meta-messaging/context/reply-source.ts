@@ -10,6 +10,7 @@ import type {
 export type ReplySource = {
   send: (request: ReplyRequest) => Promise<ReplyAttempt>;
   isSending: Accessor<boolean>;
+  isQueued: (intent: string) => boolean;
   upload: (file: File) => Promise<ReplyAttachment>;
   isUploading: Accessor<boolean>;
   templates: (enabled: Accessor<boolean>) => {

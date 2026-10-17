@@ -20,7 +20,7 @@ it.each(['error', 'timeout', 'missing SDK'])(
   async (failure) => {
     vi.useFakeTimers();
     const first = whatsappSignup(config);
-    const rejected = expect(first).rejects.toThrow('Facebook signup');
+    const rejected = expect(first).rejects.toThrow('signup_unavailable');
     const failedScript = document.getElementById('macro-meta-signup-sdk');
     expect(failedScript).toBeInstanceOf(HTMLScriptElement);
     if (failure === 'timeout') await vi.advanceTimersByTimeAsync(20_000);

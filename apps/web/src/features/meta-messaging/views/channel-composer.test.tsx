@@ -23,6 +23,7 @@ const fixture = vi.hoisted(() => ({
   touch: false,
   userId: (): string => 'macro|owner@fixture.test',
   templates: [] as MetaTemplate[],
+  templatesReady: (): boolean => true,
   upload: vi.fn(),
   selectFiles: undefined as ((files: File[]) => Promise<void>) | undefined,
   recover: undefined as ((send: MetaSendProgress) => void) | undefined,
@@ -40,9 +41,16 @@ vi.mock('@core/util/upload', () => ({
   },
 }));
 vi.mock('@queries/meta-messaging', () => ({
+  useMetaConversation: () => ({
+    get data() {
+      return fixture.account;
+    },
+  }),
   useMetaReply: () => ({ mutateAsync: fixture.reply, isPending: false }),
   useMetaTemplates: () => ({
-    isSuccess: true,
+    get isSuccess() {
+      return fixture.templatesReady();
+    },
     isError: false,
     get data() {
       return fixture.templates;
@@ -97,9 +105,7 @@ function mount(channel: () => string = () => 'channel-one') {
           fixture.recover = undefined;
         };
       }}
-    >
-      <button type="button">Post internal note</button>
-    </ChannelMessagingComposer>
+    />
   ));
 }
 beforeEach(() => {
@@ -110,6 +116,7 @@ beforeEach(() => {
   fixture.touch = false;
   fixture.userId = () => 'macro|owner@fixture.test';
   fixture.templates = [];
+  fixture.templatesReady = () => true;
   fixture.upload.mockReset();
   fixture.selectFiles = undefined;
 });
@@ -198,12 +205,9 @@ describe('native external-reply boundary', () => {
     await screen.findByRole('alert');
     cleanup();
     mount();
-    expect(screen.getByRole('textbox')).toHaveProperty(
-      'value',
-      'Deliberate reply'
-    );
+    expect(screen.getByRole('textbox')).toHaveProperty('value', '');
     fireEvent.click(
-      screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+      screen.getByRole('button', { name: 'Retry previous reply' })
     );
     await waitFor(() => expect(fixture.reply).toHaveBeenCalledTimes(2));
     expect(fixture.reply.mock.calls[1][0].idempotency_key).toBe(
@@ -456,9 +460,7 @@ describe('native external-reply boundary', () => {
     expect(fixture.reply).not.toHaveBeenCalled();
   });
   it('does not display raw server errors or a delivery history inside the composer', async () => {
-    fixture.reply.mockRejectedValueOnce(
-      new Error('Meta credential encryption is not configured')
-    );
+    fixture.reply.mockRejectedValueOnce(new Error('configuration_required'));
     mount();
     fireEvent.input(
       screen.getByRole('textbox', { name: 'External customer reply' }),
@@ -571,9 +573,11 @@ it.each(['text', 'media'] as const)(
       )
     );
     fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
-    fireEvent.change(screen.getByRole('combobox'), {
-      target: { value: 'approved' },
-    });
+    fireEvent.keyDown(
+      screen.getByRole('button', { name: /Approved WhatsApp template/ }),
+      { key: 'ArrowDown' }
+    );
+    fireEvent.click(screen.getByRole('option'));
     const send = screen.getByRole('button', {
       name: 'Send reply via WhatsApp',
     });
@@ -610,9 +614,11 @@ it('accepts template fields filled out of order and keeps the draft restorable',
   ];
   mount();
   fireEvent.click(screen.getByRole('button', { name: 'Choose template' }));
-  fireEvent.change(screen.getByRole('combobox'), {
-    target: { value: 'approved' },
-  });
+  fireEvent.keyDown(
+    screen.getByRole('button', { name: /Approved WhatsApp template/ }),
+    { key: 'ArrowDown' }
+  );
+  fireEvent.click(screen.getByRole('option'));
   const send = screen.getByRole('button', { name: 'Send reply via WhatsApp' });
   fireEvent.input(screen.getByLabelText('order'), { target: { value: '4' } });
   fireEvent.input(screen.getByLabelText('order'), { target: { value: '42' } });
@@ -668,5 +674,113 @@ it('keeps newer text in the same channel when an earlier send completes', async 
   await waitFor(() => expect(fixture.reply).toHaveBeenCalledTimes(2));
   expect(fixture.reply.mock.calls[1][0].idempotency_key).not.toBe(
     fixture.reply.mock.calls[0][0].idempotency_key
+  );
+});
+
+it('separates the submitted text from the next draft and retains an uncertain enqueue across remount', async () => {
+  let reject!: (reason: Error) => void;
+  fixture.reply.mockImplementationOnce(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail;
+      })
+  );
+  mount();
+  const input = screen.getByRole('textbox', {
+    name: 'External customer reply',
+  });
+  fireEvent.input(input, { target: { value: 'First reply' } });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+  );
+  expect(input).toHaveProperty('value', '');
+  fireEvent.input(input, { target: { value: 'Next reply' } });
+  reject(new Error('Network interrupted'));
+  await screen.findByRole('alert');
+  expect(input).toHaveProperty('value', 'Next reply');
+  const original = fixture.reply.mock.calls[0][0];
+  cleanup();
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry previous reply' }));
+  await waitFor(() => expect(fixture.reply).toHaveBeenCalledTimes(2));
+  expect(fixture.reply.mock.calls[1][0]).toEqual(original);
+  expect(screen.getByRole('textbox')).toHaveProperty('value', 'Next reply');
+});
+
+it('reconciles queued evidence after a lost response without restoring already-queued content', async () => {
+  let reject!: (reason: Error) => void;
+  const [sends, setSends] = createSignal<MetaSendProgress[]>([]);
+  Object.defineProperty(fixture.account!, 'sends', {
+    get: sends,
+    configurable: true,
+  });
+  fixture.reply.mockImplementationOnce(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail;
+      })
+  );
+  mount();
+  fireEvent.input(screen.getByRole('textbox'), {
+    target: { value: 'Accepted but response lost' },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Send reply via WhatsApp' })
+  );
+  reject(new Error('Network interrupted'));
+  await screen.findByRole('alert');
+  const queued = failedReply({
+    type: 'text',
+    text: 'Accepted but response lost',
+  });
+  queued.state = 'pending';
+  queued.payload = fixture.reply.mock.calls[0][0];
+  setSends([queued]);
+  expect(screen.getByRole('textbox')).toHaveProperty('value', '');
+  expect(
+    screen.queryByRole('button', { name: 'Retry previous reply' })
+  ).toBeNull();
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('keeps restored parameters when approved template options arrive after the draft', async () => {
+  const [ready, setReady] = createSignal(false);
+  fixture.templatesReady = ready;
+  fixture.templates = [
+    {
+      id: 'approved',
+      name: 'order_update',
+      language: 'en_US',
+      components: [{ type: 'BODY', text: 'Hello {{1}}' }],
+      parameter_labels: ['body 1'],
+    },
+  ];
+  localStorage.setItem(
+    `macro:meta-reply:v1:channel-one:${encodeURIComponent('macro|owner@fixture.test')}`,
+    JSON.stringify({
+      text: 'Separate text',
+      templateMode: true,
+      templateId: 'approved',
+      parameters: ['Avery'],
+    })
+  );
+  mount();
+  expect(screen.queryByLabelText('body 1')).toBeNull();
+  setReady(true);
+  await waitFor(() =>
+    expect(screen.getByLabelText('body 1')).toHaveProperty('value', 'Avery')
+  );
+});
+
+it('renders attachment permission failures from the stable server code', async () => {
+  enableImages();
+  fixture.upload.mockRejectedValueOnce(new Error('forbidden'));
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: 'Attach file' }));
+  await fixture.selectFiles!([
+    new File(['fixture'], 'photo.png', { type: 'image/png' }),
+  ]);
+  expect(screen.getByRole('alert').textContent).toContain(
+    'channel and account access'
   );
 });

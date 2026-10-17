@@ -34,7 +34,7 @@ it('puts understandable failure and explicit recovery together', () => {
     <DeliveryStatus
       state="failed"
       provider="instagram"
-      error="Meta credential encryption is not configured"
+      error="configuration_required"
       onRecover={recover}
     />
   ));

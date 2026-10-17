@@ -4,6 +4,7 @@ import {
   ChatWithAgentIcon,
   openChatWithAgent,
 } from '@app/features/chat/ChatWithAgentButton';
+import { CustomerIdentity } from '@app/features/meta-messaging/components/customer-identity';
 import { createChannelInteraction } from '@app/features/meta-messaging/queries/channel-messaging';
 import {
   makeRenameAction,
@@ -33,6 +34,7 @@ import {
   useChannelTab,
 } from '@channel/Channel/ChannelTabContext';
 import { ChannelTopBarLiveIndicators } from '@channel/Channel/ChannelTopBarLiveIndicators';
+import { channelCallsAllowed } from '@channel/Channel/channel-calls-allowed';
 import { CHANNEL_TAB_ICONS } from '@channel/Channel/channel-tab-icons';
 import {
   type ChannelTabId,
@@ -136,7 +138,7 @@ function NewTop(props: { channelId: string }) {
     channelType,
   });
   const callsAllowed = () =>
-    messaging.interaction().kind === 'internal' && !channel()?.agent_dm;
+    channelCallsAllowed(messaging.interaction(), !!channel()?.agent_dm);
   const channel = useChannel(props.channelId);
   const userId = useUserId();
   const renameAction = makeRenameAction({ userId });
@@ -306,6 +308,15 @@ function NewTop(props: { channelId: string }) {
           </HeaderIsland>
         </SplitHeaderRight>
       </Show>
+      <Show when={isMobile() && messaging.account()}>
+        {(account) => (
+          <SplitHeaderRight>
+            <HeaderIsland>
+              <CustomerIdentity account={account()} />
+            </HeaderIsland>
+          </SplitHeaderRight>
+        )}
+      </Show>
       <ChannelTopBarLiveIndicators />
     </Suspense>
   );
@@ -404,8 +415,10 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
     channelType,
   });
   const callsAllowed = () =>
-    messaging.interaction().kind === 'internal' &&
-    !conversationChannel()?.agent_dm;
+    channelCallsAllowed(
+      messaging.interaction(),
+      !!conversationChannel()?.agent_dm
+    );
   const [requestedTab, setActiveTabInternal] = createSignal<ChannelTabId>(
     initialChannelTab({
       wantsJoinCall,

@@ -8,7 +8,6 @@ import {
   SettingsCard,
 } from '@app/features/settings/primitives';
 import { useUserId } from '@core/context/user';
-import { displayAuthorName } from '@core/messages/author-name';
 import { getDisplayName, tryMacroId } from '@core/user';
 import InstagramIcon from '@phosphor/instagram-logo.svg';
 import WhatsAppIcon from '@phosphor/whatsapp-logo.svg';
@@ -104,7 +103,7 @@ function Accounts() {
             ? c.whatsapp_platform_configuration_id
             : c.whatsapp_configuration_id;
         if (!c.whatsapp_app_id || !configurationId)
-          throw new Error('WhatsApp signup is not configured.');
+          throw new Error('configuration_required');
         const result = await whatsappSignup({
           appId: c.whatsapp_app_id,
           configurationId,
@@ -121,37 +120,28 @@ function Accounts() {
       } else {
         if (!active) return;
         if (!instagram || !begin.browser_transaction)
-          throw new Error('Instagram login is not configured.');
+          throw new Error('configuration_required');
         setNotice(
           'Finish connecting in the Instagram window. Keep Settings open.'
         );
         const result = await instagram.authorize(begin);
         if (!active) return;
-        try {
-          await actions.complete.mutateAsync({
-            ...result,
-            state: begin.state,
-            browser_transaction: begin.browser_transaction,
-          });
-        } catch {
-          throw new InstagramLoginError(
-            'Instagram login expired, your Macro account changed, or this Instagram account does not match the reconnect. Sign in with the original Macro account and start again from Settings.'
-          );
-        }
+        await actions.complete.mutateAsync({
+          ...result,
+          state: begin.state,
+          browser_transaction: begin.browser_transaction,
+        });
         setNotice('Connecting… This page updates automatically.');
       }
     } catch (e) {
       setError(
         e instanceof InstagramLoginError
           ? e.message
-          : e instanceof Error && /cancel|closed/i.test(e.message)
-            ? 'Connection canceled. You can try again whenever you’re ready.'
-            : e instanceof Error &&
-                /not configured|permission|reconnect|revoked|coexistence|signup mode|choose one phone number/i.test(
-                  e.message
-                )
-              ? messagingError(e.message, provider)
-              : 'We couldn’t connect this account. Try again, and make sure you approve messaging access in Meta.'
+          : messagingError(
+              e instanceof Error ? e.message : undefined,
+              provider,
+              'connection'
+            )
       );
     } finally {
       instagram?.close();
@@ -297,8 +287,7 @@ function ProviderAccounts(props: {
   const description = () => {
     if (props.loading) return 'Loading…';
     if (props.unavailable) return 'Couldn’t load accounts';
-    if (active().length === 1)
-      return displayAuthorName(active()[0].display_name);
+    if (active().length === 1) return active()[0].display_name.trim();
     if (active().length > 1) return `${active().length} accounts`;
     return props.provider === 'whatsapp'
       ? 'Business messages in Macro.'
@@ -361,9 +350,9 @@ function ProviderAccounts(props: {
               <Show when={props.unavailable}>
                 <p role="alert" class="text-sm text-ink-muted">
                   Accounts couldn’t load.{' '}
-                  <button class="underline" onClick={props.onRefresh}>
+                  <Button class="underline" onClick={props.onRefresh}>
                     Retry
-                  </button>
+                  </Button>
                 </p>
               </Show>
               <div class="divide-y divide-edge-muted">
@@ -540,7 +529,7 @@ function AccountRow(props: {
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="min-w-0">
           <p class="text-sm font-medium break-words">
-            {displayAuthorName(props.connection.display_name)}
+            {props.connection.display_name.trim()}
           </p>
           <p class="text-xs text-ink-muted">{status()}</p>
           <ConnectedBy userId={props.connection.user_id} />
@@ -614,12 +603,7 @@ function PhoneRegistration(props: {
   const [pin, setPin] = createSignal('');
   const [pending, setPending] = createSignal(false);
   const [error, setError] = createSignal('');
-  const needsPin = () =>
-    props.connection.registration_status === 'required' ||
-    (props.connection.registration_status === 'rate_limited' &&
-      !!props.connection.registration_attempted_at &&
-      Date.now() - Date.parse(props.connection.registration_attempted_at) >=
-        72 * 3600_000);
+  const needsPin = () => props.connection.registration_status === 'required';
   async function submit() {
     if (pending()) return;
     const secret = needsPin() ? pin() : undefined;

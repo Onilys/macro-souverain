@@ -1,4 +1,3 @@
-import { displayAuthorName } from '@core/messages/author-name';
 import type { MetaConnection } from '@service-storage/generated/schemas/metaConnection';
 import { HistoryImportControl } from '../components/history-import';
 import { useHistoryImport } from '../queries/history-import';
@@ -13,7 +12,7 @@ export function AccountHistoryImport(props: { connection: MetaConnection }) {
   return (
     <HistoryImportControl
       provider={props.connection.provider}
-      accountName={displayAuthorName(props.connection.display_name)}
+      accountName={props.connection.display_name.trim()}
       ready={query.isSuccess}
       canImport={view()?.can_import ?? false}
       reason={view()?.reason}

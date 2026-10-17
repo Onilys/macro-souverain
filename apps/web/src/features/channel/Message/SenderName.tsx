@@ -1,4 +1,3 @@
-import { displayAuthorName } from '@core/messages/author-name';
 import type { MessageData } from '@core/messages/types';
 import { getDisplayName, tryMacroId } from '@core/user';
 import { getBotDisplayName } from '@queries/messages/message-sender';
@@ -40,9 +39,7 @@ export function SenderName(props: { message: MessageData }) {
   const displayName = () => getDisplayName(macroId());
   const agentName = () =>
     getBotDisplayName(props.message.sender_id, props.message.sender);
-  const importedName = () => {
-    const name = props.message.imported_author?.name?.trim();
-    return name ? displayAuthorName(name) : undefined;
-  };
+  const importedName = () =>
+    props.message.imported_author?.name?.trim() || undefined;
   return <>{importedName() ?? agentName() ?? displayName()}</>;
 }

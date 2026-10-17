@@ -1,4 +1,5 @@
 import {
+  useMetaConversation,
   useMetaReply,
   useMetaTemplates,
   useMetaUpload,
@@ -7,11 +8,16 @@ import type { ReplySource } from '../context/reply-source';
 
 /** Existing clients retain request formats, cache invalidation and query ownership. */
 export function createReplySource(channelId: string): ReplySource {
+  const conversation = useMetaConversation(() => channelId);
   const reply = useMetaReply(() => channelId);
   const upload = useMetaUpload(() => channelId);
   return {
     send: (request) => reply.mutateAsync(request),
     isSending: () => reply.isPending,
+    isQueued: (intent) =>
+      conversation.data?.sends.some(
+        (send) => send.payload.idempotency_key === intent
+      ) ?? false,
     upload: (file) => upload.mutateAsync(file),
     isUploading: () => upload.isPending,
     templates: (enabled) => {

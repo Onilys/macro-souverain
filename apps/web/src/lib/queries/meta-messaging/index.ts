@@ -9,7 +9,11 @@ import { queryOptions, useMutation, useQuery } from '@tanstack/solid-query';
 import type { Accessor } from 'solid-js';
 import { queryClient } from '../client';
 import { metaMessagingKeys } from './keys';
-import { bindingRetryInterval, deliveryPollInterval } from './polling';
+import {
+  bindingRetryInterval,
+  connectionPollInterval,
+  deliveryPollInterval,
+} from './polling';
 
 export function useMetaConfiguration() {
   return useQuery(() => ({
@@ -34,11 +38,9 @@ function connectionsQueryOptions(teamId: string, enabled: boolean) {
     staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
+    // Signup/register mutations invalidate this list; waiting for human input is idle.
     refetchInterval: (query) =>
-      query.state.status !== 'error' &&
-      query.state.data?.some((account) => account.status === 'connecting')
-        ? 3_000
-        : 30_000,
+      connectionPollInterval(query.state.data, query.state.status === 'error'),
   });
 }
 
@@ -126,24 +128,27 @@ function deliveryQueryOptions(
 }
 
 export function useMetaActions() {
-  const refresh = async () => {
-    await Promise.all([
+  const refresh = () => {
+    void Promise.all([
       queryClient.invalidateQueries({
         queryKey: metaMessagingKeys.connections._def,
       }),
       queryClient.invalidateQueries({
         queryKey: metaMessagingKeys.conversation._def,
       }),
-    ]);
+    ]).catch(() => {
+      /* The queries expose refresh failure independently of mutation acceptance. */
+    });
   };
   return {
     // A registration PIN must not be retained in a mutation cache or persisted draft.
     register: async (id: string, pin?: string) => {
-      const result = await throwOnErr(() =>
-        metaMessagingClient.register(id, pin)
-      );
-      void refresh();
-      return result;
+      try {
+        return await throwOnErr(() => metaMessagingClient.register(id, pin));
+      } finally {
+        // A lost response may still have changed registration or management authority.
+        refresh();
+      }
     },
     begin: useMutation(() => ({
       mutationFn: (args: { provider: MetaProvider; reconnectId?: string }) =>
@@ -154,16 +159,16 @@ export function useMetaActions() {
     complete: useMutation(() => ({
       mutationFn: (args: MetaCompleteAuthorization) =>
         throwOnErr(() => metaMessagingClient.complete(args)),
-      onSuccess: refresh,
+      onSettled: refresh,
     })),
     developer: useMutation(() => ({
       mutationFn: () => throwOnErr(() => metaMessagingClient.developer()),
-      onSuccess: refresh,
+      onSettled: refresh,
     })),
     disconnect: useMutation(() => ({
       mutationFn: (id: string) =>
         throwOnErr(() => metaMessagingClient.disconnect(id)),
-      onSuccess: refresh,
+      onSettled: refresh,
     })),
   };
 }

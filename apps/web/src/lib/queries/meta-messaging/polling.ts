@@ -30,3 +30,25 @@ export function deliveryPollInterval(
   }
   return interval;
 }
+
+/** Only background subscription completion needs polling; PIN entry and retry are human actions. */
+export function connectionPollInterval(
+  accounts:
+    | ReadonlyArray<{
+        status: string;
+        whatsapp_mode?: string | null;
+        registration_status?: string | null;
+      }>
+    | undefined,
+  failed = false
+): number | false {
+  return !failed &&
+    accounts?.some(
+      (account) =>
+        account.status === 'connecting' &&
+        (account.whatsapp_mode !== 'platform' ||
+          account.registration_status === 'registered')
+    )
+    ? 3_000
+    : false;
+}

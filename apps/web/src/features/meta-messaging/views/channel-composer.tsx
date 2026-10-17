@@ -1,17 +1,25 @@
 import { Layout } from '@channel/Input/Layout';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { usePreserveFocusOnButtonTaps } from '@core/mobile/usePreserveFocusOnButtonTaps';
+import { useTouchOutsideToDismissKeyboard } from '@core/mobile/useTouchOutsideToDismissKeyboard';
 import { openFilePicker } from '@core/util/upload';
 import PaperclipIcon from '@phosphor/paperclip.svg';
-import { Button, ComposerSurface, SendButton, TextField } from '@ui';
 import {
+  Button,
+  Checkbox,
+  ComposerSurface,
+  Select,
+  SendButton,
+  TextField,
+} from '@ui';
+import {
+  createEffect,
   createSignal,
   For,
-  type JSX,
   Match,
   onCleanup,
   onMount,
   Show,
-  Suspense,
   Switch,
 } from 'solid-js';
 import { match } from 'ts-pattern';
@@ -21,15 +29,20 @@ import type {
   ChannelInteraction,
   ConversationAccount,
   ReplyRequest,
+  ReplyTemplate,
   ReplyAttempt as SendAttempt,
 } from '../core/conversation';
 import { messagingError, providerName } from '../core/delivery';
-import { createReplyDraft, emptyReplyDraft } from '../primitives/reply-draft';
+import {
+  createReplyDraft,
+  emptyReplyDraft,
+  type ReplyDraftContent,
+  snapshotReplyDraft,
+} from '../primitives/reply-draft';
 import { createReplyEligibility } from '../primitives/reply-eligibility';
 
 export type MessagingComposerProps = {
   channelId: string;
-  children: JSX.Element;
   interaction: ChannelInteraction;
   userId: string | undefined;
   createSource: (channelId: string) => ReplySource;
@@ -48,19 +61,11 @@ export function ChannelMessagingComposer(props: MessagingComposerProps) {
         const channelId = props.channelId;
         const draftUserId = props.userId;
         return (
-          <Suspense
-            fallback={
-              <div class="w-full h-16" aria-label="Loading conversation" />
-            }
-          >
-            <MessagingComposer
-              {...props}
-              channelId={channelId}
-              draftUserId={draftUserId}
-            >
-              {props.children}
-            </MessagingComposer>
-          </Suspense>
+          <MessagingComposer
+            {...props}
+            channelId={channelId}
+            draftUserId={draftUserId}
+          />
         );
       }}
     </Show>
@@ -80,13 +85,10 @@ function MessagingComposer(
       <Match when={props.interaction.kind === 'error'}>
         <p role="status" class="px-3 py-2 text-sm text-ink-muted">
           Conversation unavailable.{' '}
-          <button class="underline" onClick={props.onRefresh}>
+          <Button class="underline" onClick={props.onRefresh}>
             Try again
-          </button>
+          </Button>
         </p>
-      </Match>
-      <Match when={props.interaction.kind === 'internal'}>
-        {props.children}
       </Match>
       <Match when={external()}>
         {(interaction) => (
@@ -114,16 +116,35 @@ function ExternalReply(props: {
 }) {
   const source = props.createSource(props.channelId);
   const [draft, setDraft] = createReplyDraft(props.userId, props.channelId);
+  const [error, setError] = createSignal('');
+  createEffect(() => {
+    const submitted = draft.submitted;
+    if (submitted && source.isQueued(submitted.intent)) {
+      setDraft('submitted', undefined);
+      setError('');
+    }
+    if (draft.intent && source.isQueued(draft.intent)) {
+      setDraft({
+        ...emptyReplyDraft(),
+        text: draft.templateMode ? draft.text : '',
+        attachment: draft.templateMode ? draft.attachment : undefined,
+        intent: undefined,
+        submitted: undefined,
+      });
+    }
+  });
   const [checkedOriginalApp, setCheckedOriginalApp] = createSignal(false);
   let active = true;
   let closePicker: (() => void) | undefined;
   let textInput: HTMLTextAreaElement | undefined;
+  let container: HTMLDivElement | undefined;
+  usePreserveFocusOnButtonTaps(() => container);
+  useTouchOutsideToDismissKeyboard(() => container);
   onCleanup(() => {
     active = false;
     closePicker?.();
   });
   onMount(() => onCleanup(props.onRecoverReady(restoreReply)));
-  const [error, setError] = createSignal('');
   const eligible = createReplyEligibility(() => props.account.eligibility);
   const supports = (mode: 'approved_template' | 'human_support') =>
     props.account.capabilities.modes.includes(mode);
@@ -164,6 +185,7 @@ function ExternalReply(props: {
         ? 'human_support'
         : 'free_form';
   const allowed = () =>
+    !draft.submitted &&
     props.available &&
     connected() &&
     props.account.can_reply &&
@@ -237,7 +259,13 @@ function ExternalReply(props: {
           if (!active) return;
           setError(
             e instanceof Error &&
-              /permission|not configured|reconnect|attachment/.test(e.message)
+              [
+                'forbidden',
+                'not_found',
+                'configuration_required',
+                'disconnected',
+                'invalid_attachment',
+              ].includes(e.message)
               ? messagingError(e.message, props.account.provider)
               : 'We couldn’t upload this file. Your draft is still here. Check your connection and attach the file again.'
           );
@@ -289,52 +317,97 @@ function ExternalReply(props: {
     });
   }
 
-  async function send() {
-    if (!active || !allowed() || source.isSending()) return;
-    const focusAtSend = document.activeElement;
-    const id = draft.intent ?? crypto.randomUUID();
-    setDraft('intent', id);
-    setError('');
-    const template = selected();
-    const request: ReplyRequest = {
-      idempotency_key: id,
-      human_support: mode() === 'human_support',
-      message:
-        needsTemplate() && template
+  function requestFor(
+    snapshot: ReplyDraftContent & { intent: string; templateLanguage?: string }
+  ): ReplyRequest {
+    return {
+      idempotency_key: snapshot.intent,
+      human_support: snapshot.humanSupport,
+      message: snapshot.templateMode
+        ? {
+            type: 'template',
+            template_id: snapshot.templateId,
+            language: snapshot.templateLanguage ?? '',
+            parameters: [...snapshot.parameters],
+          }
+        : snapshot.attachment
           ? {
-              type: 'template',
-              template_id: template.id,
-              language: template.language,
-              parameters: [...draft.parameters],
+              type: 'media',
+              document_id: snapshot.attachment.document_id,
+              kind: snapshot.attachment.kind,
+              caption: snapshot.text.trim() || null,
             }
-          : draft.attachment
-            ? {
-                type: 'media',
-                document_id: draft.attachment!.document_id,
-                kind: draft.attachment!.kind,
-                caption: draft.text.trim() || null,
-              }
-            : { type: 'text', text: draft.text },
+          : { type: 'text', text: snapshot.text },
     };
-    const sentDraft = JSON.stringify(draft);
+  }
+
+  async function send(retry = false) {
+    if (
+      !active ||
+      source.isSending() ||
+      (retry ? !draft.submitted : !allowed())
+    )
+      return;
+    const focusAtSend = document.activeElement;
+    const snapshot = retry
+      ? draft.submitted!
+      : {
+          ...snapshotReplyDraft(draft),
+          intent: draft.intent ?? crypto.randomUUID(),
+          humanSupport: mode() === 'human_support',
+          templateMode: needsTemplate(),
+          templateLanguage: selected()?.language,
+        };
+    const request = requestFor(snapshot);
+    if (!retry) {
+      // Persist the submission separately before giving the editor a fresh draft.
+      setDraft({
+        ...emptyReplyDraft(),
+        text: snapshot.templateMode ? draft.text : '',
+        attachment: snapshot.templateMode ? draft.attachment : undefined,
+        intent: undefined,
+        submitted: snapshot,
+      });
+    }
+    const emptyAfterSubmit = JSON.stringify(snapshotReplyDraft(draft));
+    setError('');
     try {
       await source.send(request);
       if (!active) return;
-      if (JSON.stringify(draft) !== sentDraft) {
-        if (draft.intent === id) setDraft('intent', undefined);
-        return;
-      }
-      // A template does not include the separate text draft; keep it for later.
-      const sentTemplate = request.message.type === 'template';
-      setDraft({
-        ...emptyReplyDraft(),
-        text: sentTemplate ? draft.text : '',
-        attachment: sentTemplate ? draft.attachment : undefined,
-        intent: undefined,
-      });
+      setDraft('submitted', undefined);
       setCheckedOriginalApp(false);
     } catch (e) {
       if (!active) return;
+      if (source.isQueued(snapshot.intent)) {
+        setDraft('submitted', undefined);
+        return;
+      }
+      // Unknown enqueue outcomes stay separate and reconcile through their original key.
+      const definitive =
+        e instanceof Error &&
+        [
+          'invalid_input',
+          'invalid_attachment',
+          'invalid_template',
+          'configuration_required',
+          'forbidden',
+          'not_found',
+          'conflict',
+          'disconnected',
+          'template_required',
+          'reply_window_closed',
+          'human_support_required',
+          'meta_access_required',
+          'provider_rejected',
+        ].includes(e.message);
+      if (
+        !retry &&
+        definitive &&
+        !source.isQueued(snapshot.intent) &&
+        JSON.stringify(snapshotReplyDraft(draft)) === emptyAfterSubmit
+      ) {
+        setDraft({ ...snapshot, submitted: undefined });
+      }
       setError(
         e instanceof Error &&
           /network|failed to fetch|fetch failed|timed? ?out|timeout/i.test(
@@ -361,7 +434,11 @@ function ExternalReply(props: {
   }
 
   return (
-    <ComposerSurface>
+    <ComposerSurface
+      ref={(element) => {
+        container = element;
+      }}
+    >
       <Layout
         oneLineInput={
           !draft.text.includes('\n') &&
@@ -384,18 +461,18 @@ function ExternalReply(props: {
               </p>
             </Show>
             <Show when={draft.uncertainReply}>
-              <label class="flex items-start gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  disabled={source.isSending()}
-                  checked={checkedOriginalApp()}
-                  onChange={(e) =>
-                    setCheckedOriginalApp(e.currentTarget.checked)
-                  }
-                />
-                I checked {providerName(props.account.provider)} and want to
-                send this again. The previous reply may already have arrived.
-              </label>
+              <Checkbox
+                class="items-start text-xs"
+                disabled={source.isSending()}
+                checked={checkedOriginalApp()}
+                onChange={setCheckedOriginalApp}
+              >
+                <Checkbox.Control />
+                <Checkbox.Label>
+                  I checked {providerName(props.account.provider)} and want to
+                  send this again. The previous reply may already have arrived.
+                </Checkbox.Label>
+              </Checkbox>
             </Show>
             <Show when={!connected()}>
               <p role="status" class="text-sm text-ink-muted">
@@ -482,30 +559,32 @@ function ExternalReply(props: {
                         <p class="text-xs text-ink-muted">
                           The reply window is closed. Send an approved template,
                           or wait for a new customer message.{' '}
-                          <button
+                          <Button
                             type="button"
                             class="underline"
                             disabled={source.isSending()}
                             onClick={() => chooseTemplateMode(true)}
                           >
                             Choose template
-                          </button>
+                          </Button>
                         </p>
                       </Match>
                       <Match when={withinHumanWindow()}>
-                        <label class="flex items-start gap-2 text-xs">
-                          <input
-                            type="checkbox"
-                            disabled={source.isSending()}
-                            checked={draft.humanSupport}
-                            onChange={(e) => {
-                              setDraft('humanSupport', e.currentTarget.checked);
-                              setDraft('intent', undefined);
-                            }}
-                          />
-                          This is a human-authored reply to an unresolved
-                          support request. It is not automated or promotional.
-                        </label>
+                        <Checkbox
+                          class="items-start text-xs"
+                          disabled={source.isSending()}
+                          checked={draft.humanSupport}
+                          onChange={(checked) => {
+                            setDraft('humanSupport', checked);
+                            setDraft('intent', undefined);
+                          }}
+                        >
+                          <Checkbox.Control />
+                          <Checkbox.Label>
+                            This is a human-authored reply to an unresolved
+                            support request. It is not automated or promotional.
+                          </Checkbox.Label>
+                        </Checkbox>
                       </Match>
                     </Switch>
                   </Show>
@@ -529,44 +608,45 @@ function ExternalReply(props: {
                 {open()
                   ? 'Send an approved template instead of a text reply.'
                   : 'The reply window is closed. Only an approved template can be sent.'}{' '}
-                <button
+                <Button
                   type="button"
                   class="underline"
                   disabled={source.isSending()}
                   onClick={() => chooseTemplateMode(false)}
                 >
                   Back to text reply
-                </button>
+                </Button>
               </p>
-              <label class="text-xs">
-                Approved template
-                <select
-                  class="mt-1 w-full bg-input border border-edge-muted rounded p-2 text-sm"
-                  aria-label={`Approved ${providerName(props.account.provider)} template`}
-                  disabled={source.isSending()}
-                  value={draft.templateId}
-                  onChange={(e) => {
-                    setDraft('templateId', e.currentTarget.value);
-                    setDraft('parameters', []);
-                    setDraft('intent', undefined);
-                  }}
-                >
-                  <option value="">Choose a template and language</option>
-                  <For each={approved()}>
-                    {(t) => (
-                      <option
-                        value={t.id}
-                        disabled={!!t.unsupported_reason}
-                        // Options load after a restored draft sets the select's value.
-                        selected={t.id === draft.templateId}
-                      >
-                        {t.name} · {t.language}
-                        {t.unsupported_reason ? ' · Unsupported format' : ''}
-                      </option>
-                    )}
-                  </For>
-                </select>
-              </label>
+              <Select<ReplyTemplate>
+                options={approved()}
+                optionValue="id"
+                optionTextValue="name"
+                optionDisabled={(template) => !!template.unsupported_reason}
+                value={selected() ?? null}
+                disabled={source.isSending()}
+                placeholder="Choose a template and language"
+                onChange={(template) => {
+                  if (!template || template.id === draft.templateId) return;
+                  setDraft('templateId', template.id);
+                  setDraft('parameters', []);
+                  setDraft('intent', undefined);
+                }}
+              >
+                <Select.Label>
+                  Approved {providerName(props.account.provider)} template
+                </Select.Label>
+                <Select.Trigger class="w-full">
+                  <Select.Value<ReplyTemplate>>
+                    {(state) =>
+                      `${state.selectedOption().name} · ${state.selectedOption().language}`
+                    }
+                  </Select.Value>
+                  <Select.Icon />
+                </Select.Trigger>
+                <Select.Content portalScope="local">
+                  <Select.Listbox />
+                </Select.Content>
+              </Select>
               <Show when={selected()}>
                 {(t) => (
                   <pre class="whitespace-pre-wrap break-words text-xs text-ink-muted max-h-32 overflow-auto">
@@ -576,23 +656,23 @@ function ExternalReply(props: {
               </Show>
               <For each={parameterLabels()}>
                 {(label, index) => (
-                  <label class="text-xs capitalize">
-                    {label}
-                    <input
-                      disabled={source.isSending()}
-                      class="mt-1 w-full bg-input border border-edge-muted rounded p-2 text-sm"
-                      value={draft.parameters[index()] ?? ''}
-                      onInput={(e) => {
-                        // Dense, so fields filled out of order never leave holes.
-                        const next = parameterLabels().map(
-                          (_, i) => draft.parameters[i] ?? ''
-                        );
-                        next[index()] = e.currentTarget.value;
-                        setDraft('parameters', next);
-                        setDraft('intent', undefined);
-                      }}
-                    />
-                  </label>
+                  <TextField
+                    value={draft.parameters[index()] ?? ''}
+                    onChange={(value) => {
+                      const next = parameterLabels().map(
+                        (_, i) => draft.parameters[i] ?? ''
+                      );
+                      next[index()] = value;
+                      setDraft('parameters', next);
+                      setDraft('intent', undefined);
+                    }}
+                    disabled={source.isSending()}
+                  >
+                    <TextField.Label class="text-xs capitalize">
+                      {label}
+                    </TextField.Label>
+                    <TextField.Input />
+                  </TextField>
                 )}
               </For>
               <Show when={templates.ready() && approved().length === 0}>
@@ -603,16 +683,31 @@ function ExternalReply(props: {
               <Show when={templates.failed()}>
                 <p role="alert" class="text-xs text-ink-muted">
                   Templates could not load.{' '}
-                  <button
+                  <Button
                     class="underline"
                     onClick={() => void templates.refresh()}
                   >
                     Retry
-                  </button>
+                  </Button>
                 </p>
               </Show>
             </Show>
 
+            <Show when={draft.submitted && !source.isSending()}>
+              <p role="status" class="text-sm text-ink-muted">
+                Your previous reply has not been confirmed. Your next draft is
+                saved.
+                <Button size="sm" onClick={() => void send(true)}>
+                  Retry previous reply
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setDraft('submitted', undefined)}
+                >
+                  Discard previous draft
+                </Button>
+              </p>
+            </Show>
             <Show when={error()}>
               <p role="alert" class="text-sm text-ink-muted">
                 {error()}

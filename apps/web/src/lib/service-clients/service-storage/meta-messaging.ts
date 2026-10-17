@@ -38,9 +38,9 @@ function metaFetch<T extends ObjectLike>(path: string, init?: SafeFetchInit) {
           message:
             body &&
             typeof body === 'object' &&
-            'message' in body &&
-            typeof body.message === 'string'
-              ? body.message
+            'code' in body &&
+            typeof body.code === 'string'
+              ? body.code
               : `Customer messaging request failed (${response.status}).`,
         };
       },

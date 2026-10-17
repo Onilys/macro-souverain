@@ -3,7 +3,7 @@ import { createUserScopedStorage } from '@core/util/userScopedStorage';
 import { createStore } from 'solid-js/store';
 import { z } from 'zod';
 
-const replyDraftSchema = z.object({
+const contentSchema = z.object({
   text: z.string().default(''),
   attachment: z
     .object({
@@ -23,6 +23,17 @@ const replyDraftSchema = z.object({
   intent: z.string().uuid().optional(),
 });
 
+const replyDraftSchema = contentSchema.extend({
+  submitted: contentSchema
+    .extend({
+      intent: z.string().uuid(),
+      templateLanguage: z.string().optional(),
+    })
+    .optional(),
+});
+export type ReplyDraftContent = z.infer<typeof contentSchema>;
+export const snapshotReplyDraft = (draft: ReplyDraftContent) =>
+  contentSchema.parse(draft);
 export const emptyReplyDraft = () => replyDraftSchema.parse({});
 
 /** A draft and its retry identity belong to one signed-in user and customer. */

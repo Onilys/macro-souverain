@@ -16,6 +16,11 @@ export function accountHealthMessage(
         'Enter the six-digit WhatsApp PIN to register this Platform number. Your account authorization is saved.'
     )
     .with(
+      'registration_unavailable',
+      () =>
+        'Meta has not confirmed that this number can be registered. Check its status in WhatsApp Manager, then check registration again.'
+    )
+    .with(
       'registration_unconfirmed',
       () =>
         'Meta has not confirmed registration yet. Check registration before trying again; Macro will not repeat an uncertain request.'

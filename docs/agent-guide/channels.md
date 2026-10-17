@@ -137,13 +137,13 @@ Meta account confirmation/permission checks; a connector leaving the team requir
 WhatsApp number keeps the subscription required by other connected numbers; that
 is a successful disconnect, not a provider-removal failure.
 
-For WhatsApp, choose the Business-app coexistence flow or **Connect Platform number**. An unregistered Platform account retains its authorization and shows a six-digit PIN field. **Register number** makes one explicit attempt; **Check registration** only reconciles a pending result. PINs are never restored as drafts. Disconnect uses the shared confirmation dialog. No group or OBA controls are offered.
+For WhatsApp, choose the Business-app coexistence flow or **Connect Platform number**. An unregistered Platform account retains its authorization and shows a six-digit PIN field. **Register number** makes one explicit attempt; **Check registration** only reconciles a pending result. An unsupported provider state must be resolved in Meta; it is not treated as an unregistered number. PINs are never restored as drafts. Disconnect uses the shared confirmation dialog. No group or OBA controls are offered.
 
 Customer channels have one composer that replies to the customer. There is no
 internal-note composer or destination switch. Click the send arrow or press
 **Enter** on desktop to send; **Shift+Enter** inserts a new line. Mobile Return
 keeps its native newline behavior. The composer uses the shared channel layout and send button. Ordinary Macro
-channels render their existing composer without waiting for the external chunk. Newer text typed while an earlier reply is sending is retained. Agent work stays private and is never
+channels render their existing composer without waiting for the external chunk. Submitting clears only the submitted content into a separate recovery snapshot. Newer text stays in the editor; an unconfirmed enqueue can retry with the same intent or discard its local recovery draft. Agent work stays private and is never
 forwarded automatically. Native thread replies, reactions, edits, and deletes
 are hidden in customer channels because those actions do not reach the provider.
 Customer conversations also hide Call, the Call/Calls tabs, and the active-call

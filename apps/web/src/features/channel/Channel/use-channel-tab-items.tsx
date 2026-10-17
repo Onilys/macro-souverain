@@ -63,7 +63,7 @@ export function useChannelTabItems(channelId: string): Accessor<TabItem[]> {
     (call.isInThisChannel() ||
       call.isJoining() ||
       activeTab() === 'call' ||
-      (activeCallQuery.isSuccess && !!activeCallQuery.data));
+      !!activeCallQuery.data);
   const availableTabs = () => {
     let filtered = [...CHANNEL_TABS];
     if (channelType() === ChannelType.direct_message)

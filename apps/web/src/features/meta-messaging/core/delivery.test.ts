@@ -40,18 +40,15 @@ describe('external delivery presentation', () => {
     expect(status.detail).toContain('Check WhatsApp');
   });
   it('turns server/provider details into actions and keeps unknown errors private', () => {
-    expect(
-      messagingError('Meta credential encryption is not configured', 'whatsapp')
-    ).toContain('administrator');
+    expect(messagingError('configuration_required', 'whatsapp')).toContain(
+      'administrator'
+    );
     expect(messagingError('provider_error_190', 'instagram')).toContain(
       'reconnect'
     );
-    expect(
-      messagingError(
-        'this number is not registered for WhatsApp Business app coexistence',
-        'whatsapp'
-      )
-    ).toContain('WhatsApp Manager');
+    expect(messagingError('whatsapp_mode_mismatch', 'whatsapp')).toContain(
+      'selected setup'
+    );
     expect(messagingError('131047', 'whatsapp')).toContain('approved template');
     expect(messagingError('provider_error_131030', 'whatsapp')).toContain(
       'test recipient'
@@ -175,12 +172,9 @@ describe('native message and send-attempt timeline', () => {
 
 it('distinguishes Meta app access from Macro channel permissions', () => {
   expect(messagingError('200', 'instagram')).toContain('in Meta');
-  expect(
-    messagingError(
-      'Meta has not granted this app messaging access',
-      'instagram'
-    )
-  ).toContain('in Meta');
+  expect(messagingError('meta_access_required', 'instagram')).toContain(
+    'in Meta'
+  );
   expect(messagingError('forbidden', 'instagram')).toContain(
     'channel and account access'
   );
@@ -211,4 +205,29 @@ it('keeps native activity ordering and microseconds when inserting pending sends
       true
     )
   ).toEqual(['activity:0b', 'external-send:attempt', '0a']);
+});
+
+it('uses stable signup and server codes without interpreting arbitrary English', () => {
+  expect(
+    messagingError('signup_cancelled', 'whatsapp', 'connection')
+  ).toContain('canceled');
+  expect(messagingError('forbidden', 'instagram', 'connection')).toContain(
+    'manage this account'
+  );
+  expect(
+    messagingError('meta_access_required', 'instagram', 'connection')
+  ).toContain('in Meta');
+  expect(
+    messagingError(
+      'server said the connection closed unexpectedly',
+      'whatsapp',
+      'connection'
+    )
+  ).not.toContain('canceled');
+});
+
+it('does not suggest a phone fallback when a known BSUID is unsupported', () => {
+  const message = messagingError('provider_error_131062', 'whatsapp');
+  expect(message).toContain('business-scoped recipient');
+  expect(message).not.toContain('share their phone');
 });

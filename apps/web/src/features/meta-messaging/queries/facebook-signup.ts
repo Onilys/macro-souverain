@@ -38,18 +38,14 @@ async function sdk(): Promise<FacebookSDK> {
     };
     const loaded = () => {
       if (!window.FB) {
-        fail('Facebook signup is unavailable.');
+        fail('signup_unavailable');
         return;
       }
       cleanup();
       resolve();
     };
-    const failed = () => fail('Facebook signup could not load.');
-    const timer = window.setTimeout(
-      () =>
-        fail('Facebook signup did not load. Check your network and try again.'),
-      20_000
-    );
+    const failed = () => fail('signup_unavailable');
+    const timer = window.setTimeout(() => fail('signup_unavailable'), 20_000);
     script.addEventListener('load', loaded);
     script.addEventListener('error', failed);
     if (!existing) {
@@ -59,7 +55,7 @@ async function sdk(): Promise<FacebookSDK> {
       document.head.appendChild(script);
     }
   });
-  if (!window.FB) throw new Error('Facebook signup is unavailable.');
+  if (!window.FB) throw new Error('signup_unavailable');
   return window.FB;
 }
 
@@ -116,7 +112,11 @@ export async function whatsappSignup(config: {
         return;
       if (data.event === 'CANCEL' || data.event === 'ERROR') {
         cleanup();
-        reject(new Error('WhatsApp signup was cancelled or could not finish.'));
+        reject(
+          new Error(
+            data.event === 'CANCEL' ? 'signup_cancelled' : 'signup_failed'
+          )
+        );
         return;
       }
       if (
@@ -142,9 +142,7 @@ export async function whatsappSignup(config: {
     };
     const timer = window.setTimeout(() => {
       cleanup();
-      reject(
-        new Error('WhatsApp signup timed out. Start the connection again.')
-      );
+      reject(new Error('signup_timeout'));
     }, 5 * 60_000);
     const cleanup = () => {
       window.clearTimeout(timer);
@@ -156,7 +154,7 @@ export async function whatsappSignup(config: {
         code = response.authResponse?.code;
         if (!code) {
           cleanup();
-          reject(new Error('WhatsApp access was not granted.'));
+          reject(new Error('signup_denied'));
           return;
         }
         finish();

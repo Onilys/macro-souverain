@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { bindingRetryInterval, deliveryPollInterval } from './polling';
+import {
+  bindingRetryInterval,
+  connectionPollInterval,
+  deliveryPollInterval,
+} from './polling';
 
 const now = Date.parse('2026-10-12T05:00:00Z');
 const at = (age: number) => new Date(now - age).toISOString();
@@ -54,4 +58,48 @@ describe('binding lookup retry', () => {
       2000, 4000, 8000, 16000, 30000, 30000,
     ]);
   });
+});
+
+it('stops polling while Platform setup awaits a person, but follows active subscription completion', () => {
+  for (const registration_status of [
+    'required',
+    'unconfirmed',
+    'rate_limited',
+    'unavailable',
+  ]) {
+    expect(
+      connectionPollInterval([
+        {
+          status: 'connecting',
+          whatsapp_mode: 'platform',
+          registration_status,
+        },
+      ])
+    ).toBe(false);
+  }
+  expect(
+    connectionPollInterval([
+      {
+        status: 'connecting',
+        whatsapp_mode: 'platform',
+        registration_status: 'registered',
+      },
+    ])
+  ).toBe(3000);
+  expect(connectionPollInterval([{ status: 'connected' }])).toBe(false);
+});
+
+it('stops account polling after a failed refresh even when stale data still says connecting', () => {
+  expect(
+    connectionPollInterval(
+      [
+        {
+          status: 'connecting',
+          whatsapp_mode: 'platform',
+          registration_status: 'registered',
+        },
+      ],
+      true
+    )
+  ).toBe(false);
 });
