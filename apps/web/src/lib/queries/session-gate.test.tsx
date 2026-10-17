@@ -1,7 +1,7 @@
 import { cleanup, render, waitFor } from '@solidjs/testing-library';
 import {
   QueryClientProvider,
-  type UseQueryOptions,
+  type QueryMeta,
   useQuery,
 } from '@tanstack/solid-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +15,13 @@ const auth = vi.hoisted(() => ({
 vi.mock('@core/util/cookies', () => ({ hasLoginCookie: () => false }));
 
 type Identity = 'pending' | 'signed-in' | 'signed-out';
+
+type TestQuery = {
+  queryKey: string[];
+  queryFn: () => Promise<string>;
+  meta?: QueryMeta;
+  refetchInterval?: number;
+};
 
 async function setup(initial: Identity) {
   // Imported after the module reset so `instanceof` matches the gate's copy.
@@ -37,10 +44,10 @@ async function setup(initial: Identity) {
   const client = new SessionGatedQueryClient({
     defaultOptions: { queries: { retryDelay: 0 } },
   });
-  const mount = (options: () => UseQueryOptions<string>) =>
+  const mount = (options: () => TestQuery) =>
     render(() => {
       function View() {
-        useQuery(options);
+        useQuery(() => options());
         return null;
       }
       return (
