@@ -8735,10 +8735,12 @@ dependencies = [
  "tokio",
  "tower 0.5.3",
  "tracing",
+ "upstream_error",
  "url",
  "urlencoding",
  "utoipa",
  "uuid",
+ "wiremock",
  "workspace-hack",
 ]
 
