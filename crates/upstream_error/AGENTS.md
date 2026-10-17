@@ -42,6 +42,9 @@ with an `UpstreamErrorResponse { message, code }` body.
 ## Checks
 
 - `cargo test -p upstream_error`
+- `rules/ast-grep/rust-fusionauth-classify-transport.yml` (run by `just check`)
+  fails a FusionAuth `send()`/`json()`/`text()` mapped to anything but
+  `FusionAuthClientError::transport`.
 
 ## Gotchas
 
@@ -51,7 +54,9 @@ with an `UpstreamErrorResponse { message, code }` body.
 - Providers signal throttling differently. GitHub's primary limit is a 403 with
   `x-ratelimit-remaining: 0`, which `from_status` cannot see; the GitHub
   adapter detects it before falling back to `from_status`.
-- `service` is user-facing ("GitHub", "The sign-in service"), not a log tag.
+- `service` is user-facing ("GitHub", "Google", "The sign-in service"), not a
+  log tag. A crate that calls several providers names each one: `fusionauth`
+  reports Google token refresh failures as "Google", not as itself.
 
 ## Related
 
