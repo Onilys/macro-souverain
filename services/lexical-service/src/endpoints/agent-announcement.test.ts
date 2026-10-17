@@ -175,7 +175,7 @@ describe('agent announcements', () => {
       },
     });
     expect(response.status).toBe(200);
-    const { markdown } = await response.json<{ markdown: string }>();
+    const { markdown }: { markdown: string } = await response.json();
     expect(markdown).toBe(
       `<m-agent-activity>{"agentSessionId":"session","turn":2,"segment":0,"rows":[{"id":"t1","label":"Create document","status":"completed","detail":"Launch FAQ","card":${JSON.stringify(card)}}],"sealed":true}</m-agent-activity>`
     );
@@ -218,7 +218,7 @@ describe('agent announcements', () => {
       },
     });
     expect(response.status).toBe(200);
-    const { markdown } = await response.json<{ markdown: string }>();
+    const { markdown }: { markdown: string } = await response.json();
     for (const card of cards) expect(markdown).toContain(JSON.stringify(card));
   });
 
@@ -259,7 +259,7 @@ describe('agent announcements', () => {
       },
     });
     expect(response.status).toBe(200);
-    const { markdown } = await response.json<{ markdown: string }>();
+    const { markdown }: { markdown: string } = await response.json();
     expect(markdown).toBe(
       '<m-agent-activity>{"agentSessionId":"session","turn":2,"segment":0,"rows":[{"id":"t1","label":"Ran","status":"completed"},{"id":"t2","label":"Searched","status":"completed"}],"sealed":true}</m-agent-activity>'
     );
