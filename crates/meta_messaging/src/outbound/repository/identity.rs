@@ -217,7 +217,10 @@ impl PgMessagingRepository {
             &message.customer_id,
             message.customer_phone.as_ref(),
             message.timestamp,
-            message.provenance == Provenance::Customer,
+            matches!(
+                message.provenance,
+                Provenance::Customer | Provenance::PhoneEcho
+            ),
         )
         .await?;
         let mut message = message.clone();
@@ -233,7 +236,7 @@ impl PgMessagingRepository {
         raw: &ProviderId,
         phone: Option<&ProviderId>,
         at: DateTime<Utc>,
-        current_customer_message: bool,
+        current_message: bool,
     ) -> PortResult<(ProviderId, Option<ProviderId>)> {
         Self::lock_identity_in(tx, c).await?;
         let phone = phone.map(ProviderId::as_str);
@@ -250,7 +253,7 @@ impl PgMessagingRepository {
         {
             return Err(MessagingError::IdentityConflict.into());
         }
-        // A fresh customer BSUID may own a recycled phone. Transfer only routing,
+        // A fresh message BSUID may own a recycled phone. Transfer only routing,
         // never native history. Historical/status facts cannot reclaim that route.
         if raw.is_whatsapp_bsuid()
             && let Some(owner) = by_phone.as_ref()
@@ -264,7 +267,7 @@ impl PgMessagingRepository {
                 Some(identity) => identity,
                 None => create(tx, c.id, raw).await?,
             };
-            let may_transfer = current_customer_message
+            let may_transfer = current_message
                 && identity.current_id == raw.as_str()
                 && owner.phone_observed_at.is_none_or(|observed| at > observed)
                 && owner.bound_at.is_none_or(|bound| at > bound);
@@ -324,7 +327,7 @@ impl PgMessagingRepository {
         // Old aliases resolve late facts but can never restore obsolete routing.
         if raw.as_str() == identity.current_id
             && phone.is_some()
-            && (identity.phone.as_deref() != phone || current_customer_message)
+            && (identity.phone.as_deref() != phone || current_message)
             && identity
                 .changed_at
                 .is_none_or(|changed_at| at >= changed_at)

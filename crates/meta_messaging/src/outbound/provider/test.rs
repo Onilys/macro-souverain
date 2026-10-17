@@ -499,7 +499,8 @@ async fn bsuid_and_phone_destinations_are_distinct_and_both_require_the_develope
             .await
             .is_err()
     );
-    conversation.customer_phone = None;
+    // A permitted phone cannot authorize a different, preferred BSUID destination.
+    conversation.customer_phone = Some("15550000001".into());
     conversation.customer_id = "US.OTHER".to_owned().try_into().unwrap();
     assert!(
         client

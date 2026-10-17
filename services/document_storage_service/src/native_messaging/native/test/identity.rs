@@ -901,3 +901,48 @@ async fn a_legacy_phone_system_edge_is_idempotent_at_its_retirement_boundary(poo
             .is_err()
     );
 }
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn a_phone_app_echo_can_establish_the_new_owner_of_a_recycled_phone(pool: PgPool) {
+    let (native, c, _) = setup(&pool, Provider::Whatsapp).await;
+    let repo = PgMessagingRepository::new(pool.clone());
+    let at = Utc::now();
+    native
+        .ingest(
+            &c,
+            &message(&c, "prior-owner", "US.OLD", Some("15550000001"), at),
+            vec![],
+        )
+        .await
+        .unwrap();
+    let mut echo = message(
+        &c,
+        "new-owner-echo",
+        "US.NEW",
+        Some("15550000001"),
+        at + chrono::Duration::seconds(2),
+    );
+    echo.provenance = Provenance::PhoneEcho;
+    echo.direction = Direction::Outbound;
+    native.ingest(&c, &echo, vec![]).await.unwrap();
+    let old = repo.message_target(c.id, "prior-owner").await.unwrap().0;
+    let new = repo.message_target(c.id, "new-owner-echo").await.unwrap().0;
+    assert_ne!(old, new);
+    assert!(
+        repo.conversation(old)
+            .await
+            .unwrap()
+            .unwrap()
+            .customer_phone
+            .is_none()
+    );
+    assert_eq!(
+        repo.conversation(new)
+            .await
+            .unwrap()
+            .unwrap()
+            .customer_phone
+            .as_deref(),
+        Some("15550000001")
+    );
+}
