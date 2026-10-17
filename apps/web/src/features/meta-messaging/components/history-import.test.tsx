@@ -1,24 +1,7 @@
+/** @vitest-environment jsdom */
 import { fireEvent, render, screen } from '@solidjs/testing-library';
-import type { JSX } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import { HistoryImportControl } from './history-import';
-
-vi.mock('@ui', () => {
-  type BoxProps = { children?: JSX.Element };
-  type ButtonProps = BoxProps & { disabled?: boolean; onClick?: () => void };
-  const Box = (props: BoxProps) => <div>{props.children}</div>;
-  const Dialog = Object.assign(Box, { Title: Box, Description: Box });
-  const Panel = Object.assign(Box, { Header: Box, Body: Box, Footer: Box });
-  return {
-    Dialog,
-    Panel,
-    Button: (props: ButtonProps) => (
-      <button disabled={props.disabled} onClick={props.onClick}>
-        {props.children}
-      </button>
-    ),
-  };
-});
 
 describe('account history action', () => {
   it('requires deliberate confirmation and explains all-conversation scope', async () => {

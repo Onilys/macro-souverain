@@ -3,12 +3,18 @@ import {
   type DisconnectConfirm,
   DisconnectConfirmDialog,
 } from '@app/features/settings/connections/disconnect-confirm';
+import { StatusDot } from '@app/features/settings/integration-ui';
 import {
   IntegrationRow,
   SettingsCard,
+  SettingsPage,
+  SettingsRow,
+  SettingsSection,
 } from '@app/features/settings/primitives';
 import { useUserId } from '@core/context/user';
 import { getDisplayName, tryMacroId } from '@core/user';
+import CaretDownIcon from '@phosphor/caret-down.svg';
+import CaretRightIcon from '@phosphor/caret-right.svg';
 import InstagramIcon from '@phosphor/instagram-logo.svg';
 import WhatsAppIcon from '@phosphor/whatsapp-logo.svg';
 import {
@@ -19,7 +25,7 @@ import {
 import { useCurrentTeamQuery, useIsTeamAdmin } from '@queries/team/teams';
 import type { MetaConnection } from '@service-storage/generated/schemas/metaConnection';
 import type { MetaProvider } from '@service-storage/generated/schemas/metaProvider';
-import { Button, Dialog, Panel, TextField } from '@ui';
+import { Button, TextField } from '@ui';
 import { createSignal, For, onCleanup, Show, Suspense } from 'solid-js';
 import {
   accountHealthMessage,
@@ -33,19 +39,25 @@ import {
 } from '../queries/instagram-login';
 import { AccountHistoryImport } from './history-import';
 
-export function BusinessMessagingSettings() {
+type MessagingSettingsProps = {
+  provider?: MetaProvider;
+  onSelectProvider: (provider: MetaProvider) => void;
+  onBack: () => void;
+};
+
+export function BusinessMessagingSettings(props: MessagingSettingsProps) {
   return (
     <Suspense
       fallback={
         <p class="px-4 text-sm text-ink-muted">Loading messaging accounts…</p>
       }
     >
-      <Accounts />
+      <Accounts {...props} />
     </Suspense>
   );
 }
 
-function Accounts() {
+function Accounts(props: MessagingSettingsProps) {
   const team = useCurrentTeamQuery();
   const isAdmin = useIsTeamAdmin();
   const userId = useUserId();
@@ -177,67 +189,80 @@ function Accounts() {
     }
   }
 
+  const providerViews = () => (
+    <>
+      <For
+        each={
+          props.provider
+            ? [props.provider]
+            : (['whatsapp', 'instagram'] as const)
+        }
+      >
+        {(provider) => (
+          <ProviderAccounts
+            provider={provider}
+            detail={!!props.provider}
+            onBack={props.onBack}
+            accounts={rows().filter(
+              (connection) => connection.provider === provider
+            )}
+            teamName={team.isSuccess ? team.data?.team.name : undefined}
+            isMember={!!teamId()}
+            canManage={canManage}
+            loading={
+              team.isPending ||
+              configuration.isPending ||
+              (!!teamId() && connections.isPending)
+            }
+            unavailable={
+              team.isError || configuration.isError || connections.isError
+            }
+            canConnect={available(provider)}
+            coexistenceAvailable={!!config()?.whatsapp_configuration_id}
+            platformAvailable={!!config()?.whatsapp_platform_configuration_id}
+            onRegister={actions.register}
+            testAvailable={
+              provider === 'whatsapp' &&
+              !!config()?.whatsapp_developer_available
+            }
+            working={working()}
+            notice={notice()}
+            error={error()}
+            onOpen={() => props.onSelectProvider(provider)}
+            onConnect={(existing, mode) =>
+              void connect(provider, existing, mode)
+            }
+            onConnectTest={() => void connectTestAccount()}
+            onDisconnect={(connection) =>
+              setDisconnectRequest({
+                title: `Disconnect ${connection.display_name}?`,
+                body: 'New customer messages and replies will stop. Existing channels keep their content and permissions.',
+                onConfirm: () => void disconnect(connection),
+              })
+            }
+            onRefresh={() => {
+              void team.refetch();
+              void connections.refetch();
+              void configuration.refetch();
+            }}
+          />
+        )}
+      </For>
+      <Show when={team.isSuccess && !teamId()}>
+        <p class="px-4 pb-4 text-sm text-ink-muted">
+          Join a team to connect messaging accounts.
+        </p>
+      </Show>
+    </>
+  );
   return (
     <>
-      <SettingsCard>
-        <For each={['whatsapp', 'instagram'] as const}>
-          {(provider) => (
-            <ProviderAccounts
-              provider={provider}
-              accounts={rows().filter(
-                (connection) => connection.provider === provider
-              )}
-              teamName={team.isSuccess ? team.data?.team.name : undefined}
-              isMember={!!teamId()}
-              canManage={canManage}
-              loading={
-                team.isPending ||
-                configuration.isPending ||
-                (!!teamId() && connections.isPending)
-              }
-              unavailable={
-                team.isError || configuration.isError || connections.isError
-              }
-              canConnect={available(provider)}
-              coexistenceAvailable={!!config()?.whatsapp_configuration_id}
-              platformAvailable={!!config()?.whatsapp_platform_configuration_id}
-              onRegister={actions.register}
-              testAvailable={
-                provider === 'whatsapp' &&
-                !!config()?.whatsapp_developer_available
-              }
-              working={working()}
-              notice={notice()}
-              error={error()}
-              onOpen={() => {
-                setNotice('');
-                setError('');
-              }}
-              onConnect={(existing, mode) =>
-                void connect(provider, existing, mode)
-              }
-              onConnectTest={() => void connectTestAccount()}
-              onDisconnect={(connection) =>
-                setDisconnectRequest({
-                  title: `Disconnect ${connection.display_name}?`,
-                  body: 'New customer messages and replies will stop. Existing channels keep their content and permissions.',
-                  onConfirm: () => void disconnect(connection),
-                })
-              }
-              onRefresh={() => {
-                void team.refetch();
-                void connections.refetch();
-                void configuration.refetch();
-              }}
-            />
-          )}
-        </For>
-        <Show when={team.isSuccess && !teamId()}>
-          <p class="px-4 pb-4 text-sm text-ink-muted">
-            Join a team to connect messaging accounts.
-          </p>
-        </Show>
-      </SettingsCard>
+      <Show
+        when={props.provider}
+        fallback={<SettingsCard>{providerViews()}</SettingsCard>}
+      >
+        {providerViews()}
+      </Show>
       <DisconnectConfirmDialog
         request={disconnectRequest()}
         onClose={() => setDisconnectRequest(null)}
@@ -248,6 +273,8 @@ function Accounts() {
 
 function ProviderAccounts(props: {
   provider: MetaProvider;
+  detail: boolean;
+  onBack: () => void;
   accounts: MetaConnection[];
   teamName?: string;
   isMember: boolean;
@@ -271,8 +298,6 @@ function ProviderAccounts(props: {
   onDisconnect: (connection: MetaConnection) => void;
   onRefresh: () => void;
 }) {
-  const [open, setOpen] = createSignal(false);
-  let trigger: HTMLButtonElement | undefined;
   const title = () =>
     props.provider === 'whatsapp' ? 'WhatsApp Business' : 'Instagram';
   const active = () =>
@@ -293,186 +318,184 @@ function ProviderAccounts(props: {
       : 'Direct messages in Macro.';
   };
 
-  return (
-    <>
-      <IntegrationRow
-        icon={
-          props.provider === 'whatsapp' ? <WhatsAppIcon /> : <InstagramIcon />
-        }
-        title={title()}
-        description={description()}
-        status={
-          <Show when={needsAttention()}>
-            <span class="text-xs text-failure">Needs attention</span>
-          </Show>
+  const connectActions = () => (
+    <div class="flex flex-wrap items-center gap-2">
+      <Show
+        when={
+          props.testAvailable &&
+          !active().some((account) => account.developer_account)
         }
       >
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          disabled={!props.isMember || props.loading}
-          class="min-h-11 min-w-11"
-          ref={trigger}
-          aria-label={`${props.accounts.length ? 'Manage' : 'Connect'} ${title()}`}
-          onClick={() => {
-            props.onOpen();
-            setOpen(true);
-          }}
+          disabled={props.working}
+          onClick={props.onConnectTest}
         >
-          {props.accounts.length ? 'Manage' : 'Connect'}
+          Connect test number
         </Button>
-      </IntegrationRow>
-      <Show when={open()}>
-        <Dialog
-          open
-          onOpenChange={setOpen}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            trigger?.focus();
-          }}
-          position="center"
-          visibleScrim
-          class="w-[min(520px,calc(100vw-16px))]"
-        >
-          <Panel depth={2} class="rounded-xl text-ink">
-            <Panel.Header class="px-5 py-3">
-              <Dialog.Title class="text-sm font-semibold">
-                {title()}
-              </Dialog.Title>
-            </Panel.Header>
-            <Panel.Body class="space-y-4 p-5 max-h-[65vh] overflow-y-auto">
-              <Dialog.Description class="text-sm text-ink-muted">
-                Accounts for {props.teamName}. The connector or a team admin can
-                manage each account. Invite teammates from each conversation.
-                Reconnecting does not transfer channel or file access.
-              </Dialog.Description>
-              <Show when={props.unavailable}>
-                <p role="alert" class="text-sm text-ink-muted">
-                  Accounts couldn’t load.{' '}
-                  <Button class="underline" onClick={props.onRefresh}>
-                    Retry
-                  </Button>
-                </p>
-              </Show>
-              <div class="divide-y divide-edge-muted">
-                <AccountRows
-                  accounts={active()}
-                  canManage={props.canManage}
-                  onRegister={props.onRegister}
-                  working={props.working}
-                  onConnect={props.onConnect}
-                  onDisconnect={props.onDisconnect}
-                />
-              </div>
-              <Show when={disconnected().length}>
-                <details class="text-sm text-ink-muted">
-                  <summary>
-                    Disconnected accounts ({disconnected().length})
-                  </summary>
-                  <div class="mt-2 divide-y divide-edge-muted">
-                    <AccountRows
-                      accounts={disconnected()}
-                      canManage={props.canManage}
-                      onRegister={props.onRegister}
-                      working={props.working}
-                      onConnect={props.onConnect}
-                      onDisconnect={props.onDisconnect}
-                    />
-                  </div>
-                </details>
-              </Show>
-              <Show when={!active().length && !props.unavailable}>
-                <p class="text-sm text-ink-muted">
-                  {props.provider === 'instagram'
-                    ? 'Connect a Business or Creator account to receive DMs in Macro.'
-                    : props.testAvailable && !props.canConnect
-                      ? 'Use Meta’s test number to try messaging.'
-                      : 'Connect a WhatsApp Business app number or a Cloud API Platform number.'}
-                </p>
-              </Show>
-              <Show when={props.provider === 'whatsapp' && props.canConnect}>
-                <p class="text-xs text-ink-muted">
-                  Meta’s setup may unlink companion devices or change phone-app
-                  features. Cloud API messaging rates apply.
-                </p>
-              </Show>
-              <Show
-                when={
-                  !props.canConnect &&
-                  !props.testAvailable &&
-                  !props.unavailable
-                }
-              >
-                <p class="text-sm text-ink-muted">
-                  Your Macro administrator needs to enable account connections.
-                </p>
-              </Show>
-              <Show when={props.notice}>
-                <p role="status" class="text-sm text-ink-muted">
-                  {props.notice}
-                </p>
-              </Show>
-              <Show when={props.error}>
-                <p role="alert" class="text-sm text-failure">
-                  {props.error}
-                </p>
-              </Show>
-            </Panel.Body>
-            <Panel.Footer class="justify-end gap-2 px-5 py-3">
-              <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-                Close
-              </Button>
-              <Show
-                when={
-                  props.testAvailable &&
-                  !active().some((account) => account.developer_account)
-                }
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={props.working}
-                  onClick={props.onConnectTest}
-                >
-                  Connect test number
-                </Button>
-              </Show>
-              <Show
-                when={props.provider === 'whatsapp' && props.platformAvailable}
-              >
-                <Button
-                  variant="strong"
-                  size="sm"
-                  disabled={props.working}
-                  onClick={() => props.onConnect(undefined, 'platform')}
-                >
-                  Connect Platform number
-                </Button>
-              </Show>
-              <Show
-                when={
-                  props.canConnect &&
-                  (props.provider !== 'whatsapp' || props.coexistenceAvailable)
-                }
-              >
-                <Button
-                  variant="strong"
-                  size="sm"
-                  disabled={props.working}
-                  onClick={() => props.onConnect()}
-                >
-                  {props.working
-                    ? 'Connecting…'
-                    : active().length
-                      ? 'Add account'
-                      : 'Connect account'}
-                </Button>
-              </Show>
-            </Panel.Footer>
-          </Panel>
-        </Dialog>
       </Show>
-    </>
+      <Show when={props.provider === 'whatsapp' && props.platformAvailable}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={props.working}
+          onClick={() => props.onConnect(undefined, 'platform')}
+        >
+          Connect Platform number
+        </Button>
+      </Show>
+      <Show
+        when={
+          props.canConnect &&
+          (props.provider !== 'whatsapp' || props.coexistenceAvailable)
+        }
+      >
+        <Button
+          variant="strong"
+          size="sm"
+          disabled={props.working}
+          onClick={() => props.onConnect()}
+        >
+          {props.working
+            ? 'Connecting…'
+            : active().length
+              ? 'Add account'
+              : 'Connect account'}
+        </Button>
+      </Show>
+    </div>
+  );
+  return (
+    <Show
+      when={props.detail}
+      fallback={
+        <IntegrationRow
+          icon={
+            props.provider === 'whatsapp' ? <WhatsAppIcon /> : <InstagramIcon />
+          }
+          title={title()}
+          description={description()}
+          status={
+            <Show when={needsAttention()}>
+              <StatusDot state="attention" label="Needs attention" />
+            </Show>
+          }
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!props.isMember || props.loading}
+            class="min-h-11 gap-2"
+            aria-label={`${props.accounts.length ? 'Manage' : 'Connect'} ${title()}`}
+            onClick={props.onOpen}
+          >
+            {props.accounts.length ? 'Manage' : 'Connect'}
+            <CaretRightIcon class="size-4 text-ink-muted" />
+          </Button>
+        </IntegrationRow>
+      }
+    >
+      <SettingsPage
+        title={title()}
+        icon={
+          props.provider === 'whatsapp' ? <WhatsAppIcon /> : <InstagramIcon />
+        }
+        description={
+          props.provider === 'instagram'
+            ? 'Receive Instagram DMs and reply to customers from Macro.'
+            : 'Manage customer conversations from WhatsApp in Macro.'
+        }
+        onBack={props.onBack}
+        backLabel="Integrations"
+        actions={active().length ? connectActions() : undefined}
+      >
+        <Show when={props.unavailable}>
+          <SettingsSection title="Accounts couldn’t load">
+            <p role="alert" class="text-sm text-ink-muted">
+              Try loading your connected accounts again.
+            </p>
+            <Button variant="outline" size="sm" onClick={props.onRefresh}>
+              Retry
+            </Button>
+          </SettingsSection>
+        </Show>
+        <Show when={props.notice}>
+          <p role="status" class="text-sm text-ink-muted">
+            {props.notice}
+          </p>
+        </Show>
+        <Show when={props.error}>
+          <p role="alert" class="text-sm text-failure">
+            {props.error}
+          </p>
+        </Show>
+        <AccountRows
+          accounts={active()}
+          canManage={props.canManage}
+          onRegister={props.onRegister}
+          working={props.working}
+          onConnect={props.onConnect}
+          onDisconnect={props.onDisconnect}
+        />
+        <Show when={!active().length && !props.unavailable}>
+          <SettingsSection
+            title="Connect an account"
+            description={
+              props.provider === 'instagram'
+                ? 'Connect a Business or Creator account to bring your customer messages into Macro.'
+                : props.testAvailable && !props.canConnect
+                  ? 'Use Meta’s test number to try messaging.'
+                  : 'Connect your WhatsApp Business app or a Cloud API Platform number.'
+            }
+          >
+            <div class="pt-3">{connectActions()}</div>
+            <Show when={!props.canConnect && !props.testAvailable}>
+              <p class="text-sm text-ink-muted">
+                Your Macro administrator needs to enable account connections.
+              </p>
+            </Show>
+          </SettingsSection>
+        </Show>
+        <Show when={disconnected().length}>
+          <details class="group">
+            <summary class="flex min-h-11 items-center gap-2 text-sm text-ink-muted list-none outline-none focus-visible:text-ink">
+              <CaretDownIcon class="size-4 rotate-180 transition-transform group-open:rotate-0" />
+              Disconnected accounts{' '}
+              <span class="text-ink-extra-muted">{disconnected().length}</span>
+            </summary>
+            <div class="mt-3 flex flex-col gap-6">
+              <AccountRows
+                accounts={disconnected()}
+                canManage={props.canManage}
+                onRegister={props.onRegister}
+                working={props.working}
+                onConnect={props.onConnect}
+                onDisconnect={props.onDisconnect}
+              />
+            </div>
+          </details>
+        </Show>
+        <SettingsSection title="Conversation access">
+          <SettingsCard>
+            <SettingsRow
+              label={props.teamName ?? 'Your team'}
+              description="New conversations are private. Invite teammates from each conversation to give them access."
+            />
+            <SettingsRow
+              label="Account management"
+              description="The person who connected an account or a team admin can manage it. Reconnecting keeps existing channel and file access unchanged."
+            />
+          </SettingsCard>
+        </SettingsSection>
+        <Show when={props.provider === 'whatsapp' && props.canConnect}>
+          <p class="text-xs leading-relaxed text-ink-muted">
+            Meta’s setup may unlink companion devices or change phone-app
+            features. Cloud API messaging rates apply.
+          </p>
+        </Show>
+      </SettingsPage>
+    </Show>
   );
 }
 
@@ -521,69 +544,102 @@ function AccountRow(props: {
       error: 'Needs attention',
     })[props.connection.status];
   return (
-    <div
-      class="py-3 first:pt-0 last:pb-0"
-      data-messaging-account={props.connection.id}
-    >
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="min-w-0">
-          <p class="text-sm font-medium break-words">
+    <div data-messaging-account={props.connection.id}>
+      <SettingsSection
+        title={
+          <span class="break-words">
             {props.connection.display_name.trim()}
-          </p>
-          <p class="text-xs text-ink-muted">{status()}</p>
-          <ConnectedBy userId={props.connection.user_id} />
-        </div>
-        <Show when={props.canManage}>
-          <div class="flex items-center gap-1">
-            <Show when={props.connection.status !== 'disconnected'}>
-              <AccountHistoryImport connection={props.connection} />
+          </span>
+        }
+        actions={
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-2 text-xs text-ink-muted">
+              <StatusDot
+                state={
+                  props.connection.status === 'connected'
+                    ? 'connected'
+                    : ['revoked', 'error'].includes(props.connection.status)
+                      ? 'attention'
+                      : 'disconnected'
+                }
+                label={status()}
+              />
+              {status()}
+            </span>
+            <Show when={props.canManage}>
+              <ConnectionMore
+                items={[
+                  {
+                    label: 'Reconnect',
+                    icon: 'reconnect',
+                    disabled: props.working,
+                    onSelect: props.onReconnect,
+                  },
+                  ...(props.connection.status !== 'disconnected'
+                    ? [
+                        {
+                          label: 'Disconnect',
+                          icon: 'disconnect' as const,
+                          danger: true,
+                          disabled: props.working,
+                          onSelect: props.onDisconnect,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             </Show>
-            <ConnectionMore
-              items={[
-                {
-                  label: 'Reconnect',
-                  icon: 'reconnect',
-                  disabled: props.working,
-                  onSelect: props.onReconnect,
-                },
-                ...(props.connection.status !== 'disconnected'
-                  ? [
-                      {
-                        label: 'Disconnect',
-                        icon: 'disconnect' as const,
-                        danger: true,
-                        disabled: props.working,
-                        onSelect: props.onDisconnect,
-                      },
-                    ]
-                  : []),
-              ]}
-            />
           </div>
-        </Show>
-      </div>
-      <Show
-        when={
-          props.canManage &&
-          props.connection.whatsapp_mode === 'platform' &&
-          props.connection.registration_status !== 'registered' &&
-          !['disconnected', 'revoked'].includes(props.connection.status)
         }
       >
-        <PhoneRegistration
-          connection={props.connection}
-          onRegister={props.onRegister}
-        />
-      </Show>
-      <Show
-        when={accountHealthMessage(
-          props.connection.status,
-          props.connection.health_error,
-          props.connection.provider
-        )}
-      >
-        {(message) => <p class="mt-2 text-sm text-ink-muted">{message()}</p>}
-      </Show>
+        <div>
+          <SettingsCard>
+            <SettingsRow
+              label="Connected by"
+              description="Manages this account’s connection to Macro."
+            >
+              <ConnectedBy userId={props.connection.user_id} />
+            </SettingsRow>
+            <Show
+              when={
+                props.canManage && props.connection.status !== 'disconnected'
+              }
+            >
+              <SettingsRow
+                stackOnNarrow
+                label="Conversation history"
+                description="Bring earlier conversations into Macro. You’ll review what’s available before importing."
+              >
+                <AccountHistoryImport connection={props.connection} />
+              </SettingsRow>
+            </Show>
+          </SettingsCard>
+          <Show
+            when={
+              props.canManage &&
+              props.connection.whatsapp_mode === 'platform' &&
+              props.connection.registration_status !== 'registered' &&
+              !['disconnected', 'revoked'].includes(props.connection.status)
+            }
+          >
+            <PhoneRegistration
+              connection={props.connection}
+              onRegister={props.onRegister}
+            />
+          </Show>
+          <Show
+            when={accountHealthMessage(
+              props.connection.status,
+              props.connection.health_error,
+              props.connection.provider
+            )}
+          >
+            {(message) => (
+              <p class="mt-2 text-sm text-ink-muted">{message()}</p>
+            )}
+          </Show>
+        </div>
+      </SettingsSection>
     </div>
   );
 }
@@ -592,7 +648,7 @@ function ConnectedBy(props: { userId: string }) {
   const name = () =>
     getDisplayName(tryMacroId(props.userId), { emailFallback: 'local-part' }) ||
     props.userId;
-  return <p class="text-xs text-ink-muted">Connected by {name()}</p>;
+  return <span class="text-sm text-ink-muted">{name()}</span>;
 }
 
 function PhoneRegistration(props: {

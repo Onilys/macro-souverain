@@ -1,5 +1,7 @@
 /** @vitest-environment jsdom */
+
 import type { MetaConnection } from '@service-storage/generated/schemas/metaConnection';
+import type { MetaProvider } from '@service-storage/generated/schemas/metaProvider';
 import {
   cleanup,
   fireEvent,
@@ -88,7 +90,16 @@ it('clears transient login instructions after completion and shows the account s
     setConnections([account]);
     return account;
   });
-  render(() => <BusinessMessagingSettings />);
+  render(() => {
+    const [provider, setProvider] = createSignal<MetaProvider>();
+    return (
+      <BusinessMessagingSettings
+        provider={provider()}
+        onSelectProvider={setProvider}
+        onBack={() => setProvider(undefined)}
+      />
+    );
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Connect Instagram' }));
   fireEvent.click(screen.getByRole('button', { name: 'Connect account' }));
   await screen.findByText(
@@ -109,7 +120,16 @@ it('clears transient login instructions after completion and shows the account s
 it('clears the popup instruction on cancellation while retaining the error', async () => {
   const authorization = Promise.withResolvers<{ code: string }>();
   mocks.authorize.mockReturnValue(authorization.promise);
-  render(() => <BusinessMessagingSettings />);
+  render(() => {
+    const [provider, setProvider] = createSignal<MetaProvider>();
+    return (
+      <BusinessMessagingSettings
+        provider={provider()}
+        onSelectProvider={setProvider}
+        onBack={() => setProvider(undefined)}
+      />
+    );
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Connect Instagram' }));
   fireEvent.click(screen.getByRole('button', { name: 'Connect account' }));
   await screen.findByText(
