@@ -465,13 +465,22 @@ impl NativeConversation for NativeChannels {
             .map_err(access_error)?;
         Ok(())
     }
-    async fn outgoing_media(
+    async fn read_media(
         &self,
         user: &str,
         channel: Uuid,
         document: Uuid,
+    ) -> PortResult<MediaBytes> {
+        self.files.read(user, channel, document).await
+    }
+    async fn prepare_media(
+        &self,
+        user: &str,
+        channel: Uuid,
+        document: Uuid,
+        file: MediaBytes,
     ) -> PortResult<OutboundMedia> {
-        self.files.outgoing(user, channel, document).await
+        self.files.prepare(user, channel, document, file).await
     }
     async fn sent(
         &self,

@@ -37,8 +37,11 @@ impl super::super::files::MessageFiles for TextOnlyFiles {
     ) -> PortResult<()> {
         panic!("text workflow must not request file storage")
     }
-    async fn outgoing(&self, _: &str, _: Uuid, _: Uuid) -> PortResult<OutboundMedia> {
+    async fn read(&self, _: &str, _: Uuid, _: Uuid) -> PortResult<MediaBytes> {
         panic!("text workflow must not read files")
+    }
+    async fn prepare(&self, _: &str, _: Uuid, _: Uuid, _: MediaBytes) -> PortResult<OutboundMedia> {
+        panic!("text workflow must not prepare files")
     }
     async fn attach_sent(&self, work: &SendWork, _: &Connection, _: &ProviderId) -> PortResult<()> {
         assert!(matches!(work.request.message, ReplyContent::Text { .. }));

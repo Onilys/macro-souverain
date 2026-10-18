@@ -72,13 +72,17 @@ impl MessageFiles for PartialFiles {
     ) -> PortResult<UploadedAttachment> {
         TextOnlyFiles.upload(user, channel, file).await
     }
-    async fn outgoing(
+    async fn read(&self, user: &str, channel: Uuid, document: Uuid) -> PortResult<MediaBytes> {
+        TextOnlyFiles.read(user, channel, document).await
+    }
+    async fn prepare(
         &self,
         user: &str,
         channel: Uuid,
         document: Uuid,
+        file: MediaBytes,
     ) -> PortResult<OutboundMedia> {
-        TextOnlyFiles.outgoing(user, channel, document).await
+        TextOnlyFiles.prepare(user, channel, document, file).await
     }
     async fn attach_sent(
         &self,

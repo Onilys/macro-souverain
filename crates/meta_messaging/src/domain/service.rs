@@ -161,15 +161,10 @@ impl MessagingService {
             document_id, kind, ..
         } = &request.message
         {
-            let file = self
-                .native
-                .outgoing_media(user, channel, *document_id)
-                .await?;
-            options.capabilities.validate_media(
-                *kind,
-                &file.file.mime_type,
-                file.file.bytes.len(),
-            )?;
+            let file = self.native.read_media(user, channel, *document_id).await?;
+            options
+                .capabilities
+                .validate_media(*kind, &file.mime_type, file.bytes.len())?;
         }
         // Preserve the v1 serializer, including default fields, and its exact intent hash.
         let encoded = serde_json::to_vec(&request)

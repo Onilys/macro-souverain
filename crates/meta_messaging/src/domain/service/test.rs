@@ -41,6 +41,10 @@ struct Memory {
     unknown: bool,
     fail_settle: Option<DeliveryState>,
     unavailable_checks: usize,
+    media_reads: usize,
+    media_copies: usize,
+    media_valid: bool,
+    media_readable: bool,
 }
 struct Fixture(Mutex<Memory>);
 struct Transport(Arc<Fixture>);
@@ -83,6 +87,10 @@ fn fixture() -> (MessagingService, Arc<Fixture>) {
         unknown: false,
         fail_settle: None,
         unavailable_checks: 0,
+        media_reads: 0,
+        media_copies: 0,
+        media_valid: true,
+        media_readable: true,
     })));
     let service = MessagingService::new(
         fixture.clone(),
@@ -272,8 +280,13 @@ impl ReplyPolicy for Fixture {
                 modes: vec![ReplyMode::FreeForm],
                 text_limit: 200,
                 text_limit_in_bytes: false,
-                media: vec![],
-                max_attachments: 0,
+                media: vec![crate::domain::media::MediaCapability {
+                    kind: MediaKind::Image,
+                    mime_types: vec!["image/png".into()],
+                    max_bytes: 100,
+                    caption_limit: None,
+                }],
+                max_attachments: 1,
             },
             eligibility: ReplyEligibility {
                 evaluated_at: now,
@@ -302,9 +315,21 @@ impl ReplyTransport for Transport {
         request: &SendReply,
         media: Option<&OutboundMedia>,
     ) -> PortResult<Box<dyn PreparedSend>> {
-        assert!(media.is_none());
-        let ReplyContent::Text { text } = &request.message else {
-            panic!("text-only test transport");
+        let text = match &request.message {
+            ReplyContent::Text { text } => {
+                assert!(media.is_none());
+                text.clone()
+            }
+            ReplyContent::Media { .. } => {
+                let media = media.unwrap();
+                assert_eq!(media.file.bytes, b"\x89PNG\r\n\x1a\nfixture");
+                assert_eq!(
+                    media.url.as_deref(),
+                    Some("https://temporary.example.test/copy")
+                );
+                String::new()
+            }
+            _ => panic!("unexpected template"),
         };
         let mut memory = self.0.0.lock().unwrap();
         memory.preparations += 1;
@@ -365,8 +390,34 @@ impl NativeConversation for Fixture {
     ) -> PortResult<UploadedAttachment> {
         Err(MessagingError::Invalid("text only").into())
     }
-    async fn outgoing_media(&self, _: &str, _: Uuid, _: Uuid) -> PortResult<OutboundMedia> {
-        Err(MessagingError::Invalid("text only").into())
+    async fn read_media(&self, _: &str, _: Uuid, _: Uuid) -> PortResult<MediaBytes> {
+        let mut memory = self.0.lock().unwrap();
+        memory.media_reads += 1;
+        if !memory.media_readable {
+            return Err(MessagingError::Forbidden.into());
+        }
+        Ok(MediaBytes {
+            filename: "fixture.png".into(),
+            mime_type: "image/png".into(),
+            bytes: if memory.media_valid {
+                b"\x89PNG\r\n\x1a\nfixture".to_vec()
+            } else {
+                vec![]
+            },
+        })
+    }
+    async fn prepare_media(
+        &self,
+        _: &str,
+        _: Uuid,
+        _: Uuid,
+        file: MediaBytes,
+    ) -> PortResult<OutboundMedia> {
+        self.0.lock().unwrap().media_copies += 1;
+        Ok(OutboundMedia {
+            file,
+            url: Some("https://temporary.example.test/copy".into()),
+        })
     }
     async fn sent(
         &self,
@@ -381,10 +432,12 @@ impl NativeConversation for Fixture {
             DeliveryState::Accepted,
             "acceptance must precede native materialization"
         );
-        assert_eq!(
-            work.rendered_text.as_deref(),
-            Some("A deliberate text reply")
-        );
+        let expected = if matches!(work.request.message, ReplyContent::Media { .. }) {
+            ""
+        } else {
+            "A deliberate text reply"
+        };
+        assert_eq!(work.rendered_text.as_deref(), Some(expected));
         memory.materializations += 1;
         if memory.fail_native {
             return Err(MessagingError::Unavailable.into());
@@ -632,4 +685,94 @@ async fn identity_changes_during_preparation_retry_with_the_current_recipient() 
     let work = fixture.claim_send().await.unwrap().unwrap();
     service.process_send(&work).await.unwrap();
     assert_eq!(fixture.0.lock().unwrap().dispatches, 1);
+}
+
+#[tokio::test]
+async fn attachment_replays_validate_without_staging_and_recovery_never_prepares_again() {
+    let (service, fixture) = fixture();
+    let receipt = receipt(&fixture);
+    let request = SendReply {
+        message: ReplyContent::Media {
+            document_id: Uuid::now_v7(),
+            kind: MediaKind::Image,
+            caption: None,
+        },
+        ..request()
+    };
+    let first = service
+        .send_reply(&receipt, request.clone(), SendAuthority::Human)
+        .await
+        .unwrap();
+    let replay = service
+        .send_reply(&receipt, request, SendAuthority::Human)
+        .await
+        .unwrap();
+    assert_eq!(first.id, replay.id);
+    {
+        let memory = fixture.0.lock().unwrap();
+        assert_eq!(memory.media_reads, 2);
+        assert_eq!(
+            memory.media_copies, 0,
+            "enqueue, including replays, must not prepare provider delivery"
+        );
+    }
+    let work = fixture.claim_send().await.unwrap().unwrap();
+    service.process_send(&work).await.unwrap();
+    fixture.0.lock().unwrap().fail_native = true;
+    assert!(service.recover_native().await.is_err());
+    fixture.0.lock().unwrap().fail_native = false;
+    service.recover_native().await.unwrap();
+    let memory = fixture.0.lock().unwrap();
+    assert_eq!(
+        (memory.media_reads, memory.media_copies, memory.dispatches),
+        (3, 1, 1)
+    );
+    assert_eq!(memory.state, DeliveryState::Sent);
+}
+
+#[tokio::test]
+async fn invalid_or_inaccessible_attachment_is_rejected_before_copying_at_each_boundary() {
+    for at_dispatch in [false, true] {
+        for unreadable in [false, true] {
+            let (service, fixture) = fixture();
+            let receipt = receipt(&fixture);
+            let request = SendReply {
+                message: ReplyContent::Media {
+                    document_id: Uuid::now_v7(),
+                    kind: MediaKind::Image,
+                    caption: None,
+                },
+                ..request()
+            };
+            if at_dispatch {
+                service
+                    .send_reply(&receipt, request.clone(), SendAuthority::Human)
+                    .await
+                    .unwrap();
+            }
+            {
+                let mut memory = fixture.0.lock().unwrap();
+                memory.media_readable = !unreadable;
+                memory.media_valid = unreadable;
+            }
+            if at_dispatch {
+                let work = fixture.claim_send().await.unwrap().unwrap();
+                assert!(service.process_send(&work).await.is_err());
+                assert_eq!(fixture.0.lock().unwrap().state, DeliveryState::Failed);
+            } else {
+                assert!(
+                    service
+                        .send_reply(&receipt, request, SendAuthority::Human)
+                        .await
+                        .is_err()
+                );
+                assert!(fixture.0.lock().unwrap().work.is_none());
+            }
+            let memory = fixture.0.lock().unwrap();
+            assert_eq!(
+                (memory.media_copies, memory.fences, memory.dispatches),
+                (0, 0, 0)
+            );
+        }
+    }
 }

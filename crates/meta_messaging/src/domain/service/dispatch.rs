@@ -114,20 +114,24 @@ impl MessagingService {
             .validate_send(&connection, &conversation, &work.request)
             .await?;
         let media = match &work.request.message {
-            ReplyContent::Media { document_id, .. } => Some(
-                self.native
-                    .outgoing_media(&work.user_id, work.channel_id, *document_id)
-                    .await?,
-            ),
+            ReplyContent::Media {
+                document_id, kind, ..
+            } => {
+                let file = self
+                    .native
+                    .read_media(&work.user_id, work.channel_id, *document_id)
+                    .await?;
+                options
+                    .capabilities
+                    .validate_media(*kind, &file.mime_type, file.bytes.len())?;
+                Some(
+                    self.native
+                        .prepare_media(&work.user_id, work.channel_id, *document_id, file)
+                        .await?,
+                )
+            }
             _ => None,
         };
-        if let (ReplyContent::Media { kind, .. }, Some(media)) = (&work.request.message, &media) {
-            options.capabilities.validate_media(
-                *kind,
-                &media.file.mime_type,
-                media.file.bytes.len(),
-            )?;
-        }
         let prepared = self
             .transport
             .prepare(&connection, &conversation, &work.request, media.as_ref())

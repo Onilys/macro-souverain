@@ -353,8 +353,8 @@ pub struct MediaBytes {
 pub struct OutboundMedia {
     /// Authorized original bytes (WhatsApp upload).
     pub file: MediaBytes,
-    /// Short-lived URL for Instagram's server fetch.
-    pub url: String,
+    /// Expiring temporary-copy URL for server fetch; absent for byte uploads.
+    pub url: Option<String>,
 }
 
 /// Server-only credential protection bound to team and connection as authenticated context.
@@ -472,12 +472,16 @@ pub trait NativeConversation: Send + Sync {
     ) -> PortResult<UploadedAttachment>;
     /// Revalidate current channel posting access plus account team membership.
     async fn require_send(&self, team: Uuid, channel: Uuid, user: &str) -> PortResult<()>;
-    /// Read bytes only with current document and channel permissions.
-    async fn outgoing_media(
+    /// Read and validate native bytes with current document/channel access; never stage a provider copy.
+    async fn read_media(&self, user: &str, channel: Uuid, document: Uuid)
+    -> PortResult<MediaBytes>;
+    /// Prepare already validated bytes for delivery, rechecking access before provider staging.
+    async fn prepare_media(
         &self,
         user: &str,
         channel: Uuid,
         document: Uuid,
+        file: MediaBytes,
     ) -> PortResult<OutboundMedia>;
     /// Materialize a provider-accepted reply in the native channel, idempotently.
     async fn sent(

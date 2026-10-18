@@ -35,6 +35,7 @@ use meta_messaging::{
     domain::{
         connection::*,
         events::IncomingMessage,
+        media::MAX_FILE_BYTES,
         models::{MessagingError, ProviderId},
         ports::*,
     },
@@ -71,8 +72,6 @@ pub(super) async fn temporary_url<E: entity_access::domain::ports::EntityAccessS
     copies.stage(file).await
 }
 
-const MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
-
 /// Narrow file capability, separately injectable in text-only integration tests.
 #[async_trait]
 pub(super) trait MessageFiles: Send + Sync {
@@ -88,11 +87,13 @@ pub(super) trait MessageFiles: Send + Sync {
         message: &IncomingMessage,
         files: Vec<Option<MediaBytes>>,
     ) -> PortResult<()>;
-    async fn outgoing(
+    async fn read(&self, user: &str, channel: Uuid, document: Uuid) -> PortResult<MediaBytes>;
+    async fn prepare(
         &self,
         user: &str,
         channel: Uuid,
         document: Uuid,
+        file: MediaBytes,
     ) -> PortResult<OutboundMedia>;
     async fn attach_sent(
         &self,
@@ -450,12 +451,8 @@ impl MessageFiles for NativeFiles {
         tx.commit().await.map_err(error)
     }
 
-    async fn outgoing(
-        &self,
-        user: &str,
-        channel: Uuid,
-        document: Uuid,
-    ) -> PortResult<OutboundMedia> {
+    #[tracing::instrument(skip_all, fields(channel_id = %channel, document_id = %document), err)]
+    async fn read(&self, user: &str, channel: Uuid, document: Uuid) -> PortResult<MediaBytes> {
         let user = MacroUserIdStr::try_from(user).map_err(|_| MessagingError::Forbidden)?;
         self.access
             .generate_entity_access_receipt::<MemberParticipantRole>(
@@ -519,6 +516,38 @@ impl MessageFiles for NativeFiles {
             bytes,
         };
         received_type(&file)?;
+        // The private read can outlive either grant. Do not enqueue or stage
+        // bytes whose document/channel access was revoked during that I/O.
+        self.access
+            .generate_entity_access_receipt::<ViewAccessLevel>(
+                &user.0,
+                None,
+                &document.to_string(),
+                EntityType::Document,
+            )
+            .await
+            .map_err(access_error)?;
+        self.access
+            .generate_entity_access_receipt::<MemberParticipantRole>(
+                &user.0,
+                None,
+                &channel.to_string(),
+                EntityType::Channel,
+            )
+            .await
+            .map_err(access_error)?;
+        Ok(file)
+    }
+
+    #[tracing::instrument(skip_all, fields(channel_id = %channel, document_id = %document), err)]
+    async fn prepare(
+        &self,
+        user: &str,
+        channel: Uuid,
+        document: Uuid,
+        file: MediaBytes,
+    ) -> PortResult<OutboundMedia> {
+        let user = MacroUserIdStr::try_from(user).map_err(|_| MessagingError::Forbidden)?;
         let repo = PgMessagingRepository::new(self.pool.clone());
         let conversation = repo
             .conversation(channel)
@@ -531,18 +560,20 @@ impl MessageFiles for NativeFiles {
         let url = if connection.provider == meta_messaging::domain::models::Provider::Instagram {
             // Access may have changed during the read. Verify it again before
             // creating any externally fetchable copy of these native bytes.
-            temporary_url(
-                &*self.access,
-                self.temporary_media
-                    .as_deref()
-                    .ok_or(MessagingError::Unavailable)?,
-                &user,
-                document,
-                &file,
+            Some(
+                temporary_url(
+                    &*self.access,
+                    self.temporary_media
+                        .as_deref()
+                        .ok_or(MessagingError::Unavailable)?,
+                    &user,
+                    document,
+                    &file,
+                )
+                .await?,
             )
-            .await?
         } else {
-            presigned_url
+            None
         };
         Ok(OutboundMedia { file, url })
     }

@@ -242,8 +242,8 @@ impl HttpMetaProvider {
                         MediaKind::Video => "video",
                         MediaKind::Document => "file",
                     };
-                    payload["message"] =
-                        json!({"attachment":{"type":kind,"payload":{"url":media.url}}});
+                    let url = media.url.as_ref().ok_or(MessagingError::Unavailable)?;
+                    payload["message"] = json!({"attachment":{"type":kind,"payload":{"url":url}}});
                 }
             }
         }
