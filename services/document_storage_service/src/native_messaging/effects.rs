@@ -5,7 +5,11 @@ use activity::domain::{
     ports::{ActivityRealtimePublisher, ActivityRepo},
 };
 use async_trait::async_trait;
-use channels::domain::models::{ChannelInfo, ChannelType};
+use channels::domain::{
+    models::{ChannelInfo, ChannelMetadata},
+    ports::ChannelNotificationSender,
+    side_effects::{ChannelNotificationEffect, NotificationSender},
+};
 use macro_user_id::user_id::MacroUserIdStr;
 use messages::domain::{
     events::MessagePostedMetadata,
@@ -16,8 +20,6 @@ use meta_messaging::{
     outbound::repository::native::NativeEffect,
 };
 use model_entity::EntityType;
-use model_notifications::{ChannelMessageSendMetadata, CommonChannelMetadata};
-use notification::domain::{models::SendNotificationRequestBuilder, service::NotificationIngress};
 use soup_realtime::domain::{
     models::{Patch, SoupRealtimePatch},
     ports::SoupRealtimeService,
@@ -53,7 +55,7 @@ where
     S: SoupRealtimeService,
     R: ActivityRepo + Send + Sync,
     A: ActivityRealtimePublisher,
-    N: NotificationIngress,
+    N: ChannelNotificationSender,
 {
     async fn publish(
         &self,
@@ -90,47 +92,29 @@ where
                     .collect::<PortResult<HashSet<_>>>()?;
                 if !recipients.is_empty() {
                     self.notifications
-                        .send_notification(
-                            SendNotificationRequestBuilder {
-                                notification_entity: EntityType::Channel
-                                    .with_entity_string(channel.id.to_string()),
-                                secondary_notification_entity: None,
-                                notification: ChannelMessageSendMetadata {
-                                    message_id: message.id.to_string(),
-                                    sender: None,
-                                    sender_display_name: message
-                                        .imported_author
-                                        .as_ref()
-                                        .map(|author| author.name.clone()),
-                                    message_content: message.content.clone(),
-                                    has_attachments: !message.attachments.is_empty(),
-                                    common: CommonChannelMetadata {
-                                        channel_type: match channel.channel_type {
-                                            ChannelType::Private => {
-                                                model_notifications::ChannelType::Private
-                                            }
-                                            ChannelType::Team => {
-                                                model_notifications::ChannelType::Team
-                                            }
-                                            ChannelType::Public => {
-                                                model_notifications::ChannelType::Public
-                                            }
-                                            ChannelType::DirectMessage => {
-                                                model_notifications::ChannelType::DirectMessage
-                                            }
-                                        },
-                                        channel_name: channel.name.clone().unwrap_or_default(),
-                                    },
-                                    sender_profile_picture_url: None,
-                                },
-                                sender_id: None,
-                                recipient_ids: recipients,
-                            }
-                            .into_request_with_id(message.id)
-                            .with_apns()
-                            .with_conn_gateway(),
-                        )
+                        .send(ChannelNotificationEffect::ChannelMessage {
+                            notification_id: Some(message.id),
+                            channel_id: channel.id,
+                            message_id: message.id,
+                            sender: NotificationSender::External {
+                                name: message
+                                    .imported_author
+                                    .as_ref()
+                                    .map(|author| author.name.clone()),
+                            },
+                            message_content: message.content.clone(),
+                            has_attachments: !message.attachments.is_empty(),
+                            metadata: ChannelMetadata {
+                                auto_join_team: channel.auto_join_team,
+                                messaging_binding: channel.messaging_binding,
+                                channel_type: channel.channel_type,
+                                channel_name: channel.name.clone().unwrap_or_default(),
+                            },
+                            sender_profile_picture_url: None,
+                            recipient_ids: recipients,
+                        })
                         .await
+                        .map_err(Into::<anyhow::Error>::into)
                         .map_err(error)?;
                 }
             }

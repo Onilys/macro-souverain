@@ -58,6 +58,10 @@ DMs, and the shared message store other domains discuss things on.
 
 - Rules: `.agents/rules/rust/architecture.md`, `.agents/rules/rust/db.md`
 
+The notification port accepts external display names and an optional stable source ID
+for recovered channel-message notifications. Ordinary posts retain fresh IDs. Callers
+select authorized recipients; this port does not invoke human-post agent triggers.
+
 ## Provider-managed groups
 
 `ChannelInfo.messaging_binding` is set atomically for direct bindings and group setup;

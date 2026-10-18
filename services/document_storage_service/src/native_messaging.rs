@@ -92,7 +92,9 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
                 crate::service::activity::EntityAccessActivityAudience::new(access.clone()),
             ),
         ),
-        notifications: (*notifications).clone(),
+        notifications: channels::outbound::notification_sender::NotificationChannelSender::new(
+            notifications,
+        ),
     });
     let service = Arc::new(
         MetaService::new(

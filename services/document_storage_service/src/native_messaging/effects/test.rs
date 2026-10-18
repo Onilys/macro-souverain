@@ -1,6 +1,9 @@
 use super::*;
 use activity::Activity;
 use channel_sender::ChannelSender;
+use channels::{
+    domain::models::ChannelType, outbound::notification_sender::NotificationChannelSender,
+};
 use chrono::Utc;
 use messages::domain::models::{
     ImportedAuthor, Message, MessageParent, PostMessageNotificationPolicy,
@@ -73,9 +76,9 @@ fn publisher(capture: &Captured) -> impl NativeMessageEffects {
     NativeEffects {
         soup: capture.clone(),
         activity: ActivityMaterializer::new(capture.clone(), capture.clone()),
-        notifications: SqsNotificationIngress {
+        notifications: NotificationChannelSender::new(Arc::new(SqsNotificationIngress {
             queue: capture.clone(),
-        },
+        })),
     }
 }
 
@@ -243,4 +246,15 @@ async fn business_replies_record_activity_without_customer_unread_notifications(
     assert!(capture.notifications.lock().unwrap().is_empty());
     assert_eq!(capture.activities.lock().unwrap().len(), 2);
     assert_eq!(capture.soup.lock().unwrap().len(), 4);
+}
+
+#[tokio::test]
+async fn no_authorized_viewers_means_no_notification() {
+    let capture = Captured::default();
+    let (effect, event, channel, _) = fixture();
+    publisher(&capture)
+        .publish(&effect, &event, &channel, &HashSet::new())
+        .await
+        .unwrap();
+    assert!(capture.notifications.lock().unwrap().is_empty());
 }
