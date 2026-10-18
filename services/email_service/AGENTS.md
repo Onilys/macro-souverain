@@ -46,6 +46,8 @@ the gateway `/email` prefix.
 
 ## Gotchas
 
+- Forwarded attachments use the source inbox's provider credentials; the email
+  domain rechecks the scheduled actor's access before cross-inbox downloads.
 - Macro's own digest emails are filtered out of Signal/email notifications
   (#7039) — don't reintroduce a path that notifies on our own sends.
 - Long attachment names are truncated to the DSS limit before upload (#7893);

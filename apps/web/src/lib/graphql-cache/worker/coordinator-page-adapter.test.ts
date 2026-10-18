@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CACHE_ENGINE_ID } from '../app-build';
 import {
-  coordinatorWorkerName,
   createCacheCoordinatorPageAdapter,
   type DedicatedWorkerLike,
   type SharedWorkerLike,
@@ -327,41 +325,63 @@ describe('CacheCoordinatorPageAdapter', () => {
     });
   });
 
-  it('names its coordinator by the cache engine, so builds with different schemas never share one', async () => {
-    expect(coordinatorWorkerName('scope', 'engine-a')).not.toBe(
-      coordinatorWorkerName('scope', 'engine-b')
-    );
-    expect(coordinatorWorkerName('scope', 'engine-a')).toBe(
-      coordinatorWorkerName('scope', 'engine-a')
-    );
+  it('isolates different builds when their coordinator script URL is unchanged', async () => {
+    const workers: Array<{
+      url: string;
+      name: string | undefined;
+      port: FakeCoordinatorPort;
+    }> = [];
+    for (const [tabId, buildTime] of [
+      ['old-a', 1_000],
+      ['old-b', 1_000],
+      ['new-a', 2_000],
+    ] as const) {
+      const registration = Promise.withResolvers<FakeCoordinatorPort>();
+      vi.stubGlobal(
+        'SharedWorker',
+        class {
+          readonly port = new FakeCoordinatorPort();
 
-    const names: string[] = [];
-    const port = new FakeCoordinatorPort();
-    vi.stubGlobal(
-      'SharedWorker',
-      class {
-        readonly port = port as unknown as MessagePort;
-        constructor(_url: URL, options: WorkerOptions) {
-          names.push(options.name ?? '');
+          constructor(url: URL, options: WorkerOptions) {
+            workers.push({
+              url: url.href,
+              name: options.name,
+              port: this.port,
+            });
+            const postMessage = this.port.postMessage.bind(this.port);
+            vi.spyOn(this.port, 'postMessage').mockImplementation(
+              (message, transfer) => {
+                postMessage(message, transfer);
+                registration.resolve(this.port);
+              }
+            );
+          }
         }
-      }
-    );
-    try {
+      );
       const adapter = createCacheCoordinatorPageAdapter({
         scope: 'scope',
-        tabId: 'tab-a',
+        tabId,
+        buildTime,
         lockManager: heldLockManager(),
         createDedicatedWorker: () => new FakeWorker(),
       });
       const started = adapter.start();
-      await vi.waitFor(() => expect(port.messages).toHaveLength(1));
-      port.receive({ ...version, kind: 'registered', tabId: 'tab-a' });
+      const port = await registration.promise;
+      expect(port.messages[0]?.message).toMatchObject({
+        kind: 'register-tab',
+        scope: 'scope',
+        tabId,
+        buildTime,
+      });
+      port.receive({ ...version, kind: 'registered', tabId });
       await started;
-    } finally {
-      vi.unstubAllGlobals();
+      await adapter.dispose({ graceful: false });
     }
 
-    expect(names).toEqual([coordinatorWorkerName('scope', CACHE_ENGINE_ID)]);
+    expect(workers).toHaveLength(3);
+    expect(workers[0]?.url).toBe(workers[2]?.url);
+    expect(workers[0]?.name).toBe(workers[1]?.name);
+    expect(workers[0]?.name).not.toBe(workers[2]?.name);
   });
 
   it('deletes stale databases in a disposable worker, once, for its own engine', async () => {
