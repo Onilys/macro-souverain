@@ -473,6 +473,16 @@ describe('Email list query transitions', () => {
     expect(ids(source)).toEqual(['noise']);
   });
 
+  it('drops a done row from Signal and Noise even when the page still lists it', () => {
+    const { source, setState, setEntities } = mount();
+    const archived = { ...email('archived'), done: true };
+    const active = { ...email('active'), done: false };
+    setEntities([archived, active]);
+    expect(ids(source)).toEqual(['active']);
+    setState('tab', 'important');
+    expect(ids(source)).toEqual(['active']);
+  });
+
   it('lists done rows on Archived and drops a row when it is unarchived', () => {
     const { source, setState, setEntities } = mount();
     const archived = { ...email('archived'), done: true };
@@ -487,6 +497,16 @@ describe('Email list query transitions', () => {
     setEntities([{ ...archived, done: false }, active]);
     expect(ids(source)).toEqual([]);
     expect(source.isLoading()).toBe(false);
+  });
+
+  it('keeps archived hits when searching Signal and Noise', () => {
+    const { source, setState, setSearchEntities } = mount('invoice');
+    const archived = { ...email('archived'), done: true };
+    const active = { ...email('active'), done: false };
+    setSearchEntities([archived, active]);
+    expect(ids(source)).toEqual(['archived', 'active']);
+    setState('tab', 'important');
+    expect(ids(source)).toEqual(['archived', 'active']);
   });
 
   it('trims archived search results to done threads', () => {
