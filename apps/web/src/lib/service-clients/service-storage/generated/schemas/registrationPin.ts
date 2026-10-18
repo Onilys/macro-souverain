@@ -7,7 +7,7 @@
 
 /**
  * A six-digit secret, accepted only in an explicit registration request.
-Deliberately neither Debug nor Serialize, and never persisted.
+Zeroized on drop, deliberately neither Debug nor Serialize, and never persisted.
  * @pattern ^[0-9]{6}$
  */
 export type RegistrationPin = string;

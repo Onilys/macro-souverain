@@ -11407,7 +11407,7 @@ export type RegisterUploads = {
 
 /**
  * A six-digit secret, accepted only in an explicit registration request.
- * Deliberately neither Debug nor Serialize, and never persisted.
+ * Zeroized on drop, deliberately neither Debug nor Serialize, and never persisted.
  */
 export type RegistrationPin = string;
 

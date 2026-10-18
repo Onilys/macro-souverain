@@ -49856,7 +49856,7 @@ export const metaRegisterBody = zod
           .string()
           .regex(metaRegisterBodyPinRegExpTwo)
           .describe(
-            'A six-digit secret, accepted only in an explicit registration request.\nDeliberately neither Debug nor Serialize, and never persisted.'
+            'A six-digit secret, accepted only in an explicit registration request.\nZeroized on drop, deliberately neither Debug nor Serialize, and never persisted.'
           ),
       ])
       .optional(),

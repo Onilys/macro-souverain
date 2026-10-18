@@ -36950,7 +36950,7 @@
       },
       "RegistrationPin": {
         "type": "string",
-        "description": "A six-digit secret, accepted only in an explicit registration request.\nDeliberately neither Debug nor Serialize, and never persisted.",
+        "description": "A six-digit secret, accepted only in an explicit registration request.\nZeroized on drop, deliberately neither Debug nor Serialize, and never persisted.",
         "pattern": "^[0-9]{6}$"
       },
       "RegistrationStatus": {
