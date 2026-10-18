@@ -9,6 +9,7 @@ import {
   useSetUserLanguageMutation,
   useUserLanguageQuery,
 } from '@queries/auth/user-language';
+import { queryReadyGate } from '@queries/gate';
 import {
   useCurrentTeamQuery,
   useIsTeamAdmin,
@@ -56,10 +57,13 @@ export function LanguageSettings() {
   const userLanguageQuery = useUserLanguageQuery();
   const setUserLanguage = useSetUserLanguageMutation();
 
-  const team = () => (teamQuery.isSuccess ? teamQuery.data?.team : undefined);
+  const team = () =>
+    queryReadyGate(teamQuery) ? teamQuery.data?.team : undefined;
   const teamLanguage = () => team()?.language ?? Language.en;
   const userLanguage = () =>
-    userLanguageQuery.isSuccess ? userLanguageQuery.data.language : undefined;
+    queryReadyGate(userLanguageQuery)
+      ? userLanguageQuery.data.language
+      : undefined;
 
   const changeTeamLanguage = (id: string) => {
     const current = team();
@@ -128,7 +132,7 @@ export function LanguageSettings() {
             }
             value={userLanguage() ?? (team() ? FOLLOW_TEAM : Language.en)}
             onChange={changeUserLanguage}
-            disabled={!userLanguageQuery.isSuccess}
+            disabled={!queryReadyGate(userLanguageQuery)}
           />
         </SettingsRow>
       </SettingsCard>

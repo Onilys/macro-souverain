@@ -1,4 +1,5 @@
 import { useUserLanguageQuery } from '@queries/auth/user-language';
+import { queryReadyGate } from '@queries/gate';
 import { useCurrentTeamQuery } from '@queries/team/teams';
 import { createEffect } from 'solid-js';
 import { setInterfaceLanguage } from './i18n';
@@ -14,7 +15,7 @@ export function useInterfaceLanguageSync() {
   const team = useCurrentTeamQuery();
 
   createEffect(() => {
-    if (!userLanguage.isSuccess || !team.isSuccess) return;
+    if (!queryReadyGate(userLanguage) || !queryReadyGate(team)) return;
     setInterfaceLanguage(
       resolveInterfaceLanguage(
         userLanguage.data.language,
