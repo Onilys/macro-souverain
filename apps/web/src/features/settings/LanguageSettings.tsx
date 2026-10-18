@@ -92,7 +92,7 @@ export function LanguageSettings() {
             >
               <SettingsSelect
                 label={t('settingsLanguage.teamLanguage')}
-                class="w-full @[460px]:w-64"
+                class="w-full @[460px]:w-auto @[460px]:min-w-64 @[460px]:max-w-[22rem]"
                 options={languageOptions()}
                 value={teamLanguage()}
                 onChange={changeTeamLanguage}
@@ -112,7 +112,7 @@ export function LanguageSettings() {
         >
           <SettingsSelect
             label={t('settingsLanguage.yourLanguage')}
-            class="w-full @[460px]:w-64"
+            class="w-full @[460px]:w-auto @[460px]:min-w-64 @[460px]:max-w-[22rem]"
             options={
               team()
                 ? [

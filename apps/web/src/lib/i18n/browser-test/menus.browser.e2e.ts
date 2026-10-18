@@ -18,11 +18,34 @@ for (const { code } of LANGUAGES) {
     const clipped = await page.evaluate(() =>
       [
         ...document.querySelectorAll<HTMLElement>(
-          '[role="menu"] .truncate, [data-surface] .truncate'
+          '[role="menu"] *, [data-surface] *'
         ),
       ]
-        .filter((label) => label.scrollWidth > label.clientWidth + 1)
+        .filter(
+          (label) =>
+            getComputedStyle(label).textOverflow === 'ellipsis' &&
+            label.scrollWidth > label.clientWidth + 1
+        )
         .map((label) => label.textContent?.trim())
+        .concat(
+          [
+            ...document.querySelectorAll<HTMLInputElement>(
+              '[data-surface] input[placeholder]'
+            ),
+          ]
+            .filter((input) => {
+              const style = getComputedStyle(input);
+              const context = document.createElement('canvas').getContext('2d');
+              if (!context) return false;
+              context.font = style.font;
+              const room =
+                input.clientWidth -
+                parseFloat(style.paddingLeft) -
+                parseFloat(style.paddingRight);
+              return context.measureText(input.placeholder).width > room + 1;
+            })
+            .map((input) => input.placeholder)
+        )
     );
     await page.screenshot({
       path: test.info().outputPath(`menus-${code}.png`),

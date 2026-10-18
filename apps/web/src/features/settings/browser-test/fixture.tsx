@@ -3,6 +3,7 @@ import '../../../index.css';
 import { ViewShell } from '@app/components/view-shell';
 import type { SettingsTab } from '@core/constant/SettingsState';
 import { SETTINGS_TAB_GROUPS } from '@core/constant/settingsTabsConfig';
+import { UserContextProvider } from '@core/context/user';
 import { authKeys } from '@queries/auth/keys';
 import { teamKeys } from '@queries/team/keys';
 import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
@@ -292,7 +293,9 @@ if (root)
   render(
     () => (
       <QueryClientProvider client={queryClient}>
-        <Fixture />
+        <UserContextProvider>
+          <Fixture />
+        </UserContextProvider>
       </QueryClientProvider>
     ),
     root

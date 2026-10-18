@@ -11,7 +11,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${port}`,
     headless: true,
-    viewport: { width: 1600, height: 1000 },
+    viewport: { width: 1920, height: 1080 },
     launchOptions: {
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     },
