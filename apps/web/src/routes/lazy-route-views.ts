@@ -1,5 +1,6 @@
 import { lazyNamed } from '@core/util/lazyNamed';
 import { lazy } from 'solid-js';
+import { whenLoaded } from './when-loaded';
 
 /**
  * Every view except Home (the default landing) loads as its own chunk. The
@@ -55,21 +56,31 @@ export const DriveRouteView = lazyNamed(
   () => import('@app/features/drive-view/route-views'),
   'DriveRouteView'
 );
-export const EmailDetailRouteView = lazyNamed(
-  () => import('@app/features/email-view/components/EmailDetailView'),
-  'EmailDetailRouteView'
+// Renders only once its code has loaded, so no thread open after the first
+// suspends again (see `whenLoaded`).
+export const EmailDetailRouteView = whenLoaded(
+  lazyNamed(
+    () => import('@app/features/email-view/components/EmailDetailView'),
+    'EmailDetailRouteView'
+  )
 );
-export const MailRouteView = lazyNamed(async () => {
-  // Load the thread view before Email renders, even when the first visit is a
-  // thread URL. A lazy component first rendered before its code loads forgets
-  // it on unmount, so it would suspend again on every later thread open. A
-  // failed thread chunk must not block the list; the thread route reports it.
-  const [module] = await Promise.all([
-    import('@app/features/email-view/route-views'),
-    EmailDetailRouteView.preload().catch(() => undefined),
-  ]);
-  return module;
+export const MailRouteView = lazyNamed(() => {
+  // Start the thread view's code with Email's without waiting for it, so a
+  // visit that only shows the list never sits behind the thread chunk. A
+  // thread that opens first waits for it in the thread route's own loading
+  // view.
+  void warmThreadView();
+  return import('@app/features/email-view/route-views');
 }, 'MailRouteView');
+
+async function warmThreadView() {
+  try {
+    await EmailDetailRouteView.preload();
+  } catch {
+    // The thread route reports a failed chunk when a thread opens.
+  }
+}
+
 export const HomeEntityDetailRouteView = lazyNamed(
   () => import('@app/features/home/components/HomeEntityDetailRouteView'),
   'HomeEntityDetailRouteView'
