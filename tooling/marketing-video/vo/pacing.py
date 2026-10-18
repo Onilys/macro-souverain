@@ -6,6 +6,9 @@ soundtrack is the audio, so you can follow along in headphones.
 
     python vo/pacing.py OUT_DIR [explainer.mp4]     (run from the tooling folder; needs Pillow and ffmpeg)
 
+Environment: VO_JS (the timed voiceover, default explainer-vo.js), TITLE and NOTES (the script's heading and
+reading notes, NOTES lines split on "|"), and TALL=1 for a 9:16 video, which plays tall on the right.
+
 Writes OUT_DIR/pacing.mp4 and OUT_DIR/script.txt.
 """
 
@@ -27,9 +30,10 @@ LABEL, MONO = (
     ImageFont.truetype(SANS, 28),
     ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 30),
 )
-TEXT_W, TEXT_X, LINE_H = 1560, 180, 96
+TALL = os.environ.get("TALL") == "1"
+TEXT_W, TEXT_X, LINE_H = (1100, 110, 96) if TALL else (1560, 180, 96)
 
-js = open(os.path.join(ROOT, "explainer-vo.js")).read()
+js = open(os.environ.get("VO_JS", os.path.join(ROOT, "explainer-vo.js"))).read()
 VO = json.loads(js[js.index("{") : js.rstrip().rindex("}") + 1])
 T = VO["T"]
 LINES = sorted(VO["lines"].items(), key=lambda kv: kv[1]["t0"])
@@ -111,12 +115,15 @@ def frame(t):
 
 def script_txt():
     out = [
-        "HOW MACRO WORKS: VOICEOVER SCRIPT (explainer v2, 81.6 s)",
+        os.environ.get("TITLE", f"VOICEOVER SCRIPT ({T:g} s)"),
         "",
         "Each line starts at the time shown and should end near the second time. Pauses between lines are marked;",
         "the animation is timed to these starts. Slightly faster is fine, slower will run into the next beat.",
-        'Say numbers in words: "twenty-seven", "eighty-four dollars", "forty", "fifty milliseconds",',
-        '"macro dot com". "MCP" is spelled out: M-C-P. "CRM" is C-R-M.',
+        *os.environ.get(
+            "NOTES",
+            'Say numbers in words: "twenty-seven", "eighty-four dollars", "forty", "fifty milliseconds",|'
+            '"macro dot com". "MCP" is spelled out: M-C-P. "CRM" is C-R-M.',
+        ).split("|"),
         "",
     ]
     prev = 0.0
@@ -157,7 +164,8 @@ def main():
             "-i",
             video,
             "-filter_complex",
-            "[1:v]fps=30,scale=480:-2,pad=iw+4:ih+4:2:2:color=0xc9c3b6[p];[0:v][p]overlay=W-w-70:50[v]",
+            f"[1:v]fps=30,scale={'-2:900' if TALL else '480:-2'},pad=iw+4:ih+4:2:2:color=0xc9c3b6[p];"
+            f"[0:v][p]overlay=W-w-70:{70 if TALL else 50}[v]",
             "-map",
             "[v]",
             "-map",
