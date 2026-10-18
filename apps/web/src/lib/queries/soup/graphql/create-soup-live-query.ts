@@ -195,6 +195,9 @@ export function createSoupLiveQuery(
   const [baselineInputKey, setBaselineInputKey] = createSignal<string>();
   let previousInitialInput: GraphqlSoupInput | undefined;
   let networkAuthorityInput: GraphqlSoupInput | undefined;
+  // The server page fetched only to keep the server pages as deep as a local
+  // Mail list (fetchNextPage). It never takes over from that list.
+  let inStepPageIndex: number | undefined;
   let staleFallbackSpan: ReturnType<typeof Telemetry.span> | undefined;
 
   const recordAuthority = (source: 'network' | 'local' | 'stale-fallback') => {
@@ -383,6 +386,13 @@ export function createSoupLiveQuery(
           return;
         }
         if (metadata.persistence) {
+          if (
+            page.pageIndex === inStepPageIndex &&
+            untrack(displayLocalProjection)?.mail
+          ) {
+            forgetUnpersistedPage(page.pageIndex);
+            return;
+          }
           const pending: UnpersistedPage = {
             input: firstInput,
             generation: cacheGeneration,
@@ -566,9 +576,13 @@ export function createSoupLiveQuery(
   // (unsupported filters, a cold cache) still read the server after writes.
   const cacheMaintained = (): boolean => {
     if (!getGraphqlSoupCacheHost()) return false;
-    return localSource()?.mailView
-      ? localMailCurrent()
-      : maintainedQueryAvailable();
+    if (localSource()?.mailView) return localMailCurrent();
+    // A folder list keeps its email rows from the server, and a maintained
+    // query still loading leaves the server page on screen.
+    return (
+      options().localReconciliation !== 'without-email' &&
+      live.status() === 'ready'
+    );
   };
   const liveRecords = createMemo(
     () => {
@@ -841,8 +855,14 @@ export function createSoupLiveQuery(
     return additions.length ? [...local.records, ...additions] : local.records;
   });
 
+  const cachedMail = createMemo(
+    () => !networkIsAuthoritative() && Boolean(displayLocalProjection()?.mail)
+  );
   const error = (): CombinedError | undefined => {
     const error = query.error;
+    // A local Mail list pages from the cache; the server page kept in step
+    // behind it is retried on the next scroll and must not replace the list.
+    if (query.isFetchNextPageError && cachedMail()) return undefined;
     // A background transport failure must not replace usable current-query
     // cache results (including an empty result) with the full-screen error state.
     // A normalized page is usable before local reconciliation finishes. Keep
@@ -880,15 +900,14 @@ export function createSoupLiveQuery(
       return records && withoutPendingSoupEntities(records, pendingDeleteIds());
     }),
     fetchedRecords: () => query.data?.records() ?? [],
-    cachedMail: createMemo(
-      () => !networkIsAuthoritative() && Boolean(displayLocalProjection()?.mail)
-    ),
+    cachedMail,
     error,
     isSupported,
     isEnabled: () => query.isEnabled,
     isLoading: () => query.isLoading && displayLocalProjection() === undefined,
     isFetching: () => query.isFetching,
-    isFetchingNextPage: () => fetchingMailPage() || query.isFetchingNextPage,
+    isFetchingNextPage: () =>
+      fetchingMailPage() || (!cachedMail() && query.isFetchingNextPage),
     isFetchNextPageError: () => query.isFetchNextPageError,
     // Current-query cache results are usable data, not previous-tab
     // placeholders. In particular, local recomputation must not animate the
@@ -904,11 +923,13 @@ export function createSoupLiveQuery(
       // is what the user sees, and a failed server page is retried on the
       // next scroll.
       const fetchServerPageInStep = async () => {
-        if (!query.hasNextPage) return;
+        if (!query.hasNextPage || offline()) return;
+        inStepPageIndex = query.data?.pageParams.length;
         await ResultAsync.fromPromise(query.fetchNextPage(), (error) => error);
       };
       const local = displayLocalProjection();
       if (!local?.mail || networkIsAuthoritative()) {
+        inStepPageIndex = undefined;
         await query.fetchNextPage();
         return;
       }
@@ -968,7 +989,9 @@ export function createSoupLiveQuery(
             mail: {
               nextCursor: result.nextCursor,
               revision: result.revision,
-              optimistic: result.optimistic,
+              // Pending writes shown on earlier pages are still pending.
+              optimistic:
+                (local.mail?.optimistic ?? false) || result.optimistic,
             },
             records,
           });
