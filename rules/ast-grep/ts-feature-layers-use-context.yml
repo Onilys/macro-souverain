@@ -137,6 +137,8 @@ files:
   - apps/web/src/features/email-compose/queries/**
   - apps/web/src/features/email-compose/primitives/**
   - apps/web/src/features/email-compose/views/**
+  - apps/web/src/features/email-reply-window/primitives/**
+  - apps/web/src/features/email-reply-window/views/**
   - apps/web/src/features/changes/components/**
   - apps/web/src/features/changes/queries/**
   - apps/web/src/features/changes/primitives/**

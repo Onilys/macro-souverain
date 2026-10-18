@@ -1027,6 +1027,11 @@ const shortcutSections: ShortcutSection[] = [
         codes: ['ShiftLeft', 'KeyV'],
         description: 'Show or hide the reading pane',
       },
+      {
+        keys: [`shift+${cmdOrCtrl}+p`],
+        codes: ['ShiftLeft', CmdOrCtrl, 'KeyP'],
+        description: 'Pop a reply out into a window, or back into its thread',
+      },
     ],
   },
 ];

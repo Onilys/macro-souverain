@@ -1448,6 +1448,17 @@ export function createReplyComposer(
 
   return {
     retryDraft,
+    /**
+     * Saves the reply now, for a hand-off to another editor, and again while
+     * edits arrive during the save, so the other editor gets every keystroke.
+     */
+    saveDraftNow: async () => {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const version = editVersion;
+        await executeSaveDraft();
+        if (version === editVersion) return;
+      }
+    },
     flushLocal: autosave.flushLocal,
     localSaveState: autosave.localSaveState,
     acknowledgeSaved: autosave.acknowledgeSaved,
