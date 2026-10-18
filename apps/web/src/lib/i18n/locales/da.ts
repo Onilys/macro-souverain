@@ -69,7 +69,8 @@ export default {
     setDefaultLightTheme: 'Angiv lyst standardtema',
     setDefaultDarkTheme: 'Angiv mørkt standardtema',
     autoDetectColorScheme: 'Registrer farveskema automatisk',
-    turnOffAutoDetectColorScheme: 'Slå automatisk registrering af farveskema fra',
+    turnOffAutoDetectColorScheme:
+      'Slå automatisk registrering af farveskema fra',
     uploadFiles: 'Upload filer',
     uploadFolders: 'Upload mapper',
     undo: 'Fortryd',
@@ -103,7 +104,8 @@ export default {
     agentDescription: 'Opret agentsession',
     agentHint: 'Dedikeret agentsession',
     routineLabel: 'Rutine',
-    routineDescription: 'Kør en model eller agent efter en tidsplan eller ved aktivitet i Macro',
+    routineDescription:
+      'Kør en model eller agent efter en tidsplan eller ved aktivitet i Macro',
     routineHint: 'Tidsplaner og aktivitetsudløsere',
     databaseLabel: 'Database',
     databaseDescription: 'Opret database',
@@ -448,7 +450,8 @@ export default {
     toastAddedSomeToFavorites:
       '{{succeeded}} af {{total}} elementer føjet til favoritter; {{failed}} mislykkedes',
     toastRemovedFromFavorites: 'Fjernet fra favoritter',
-    toastRemovedCountFromFavorites: '{{count}} elementer fjernet fra favoritter',
+    toastRemovedCountFromFavorites:
+      '{{count}} elementer fjernet fra favoritter',
     toastRemovedSomeFromFavorites:
       '{{succeeded}} af {{total}} elementer fjernet fra favoritter; {{failed}} mislykkedes',
     toastFavoritesUpdateFailed: 'Kunne ikke opdatere favoritter',
@@ -464,7 +467,8 @@ export default {
     toastUnmuteFailed: 'Kunne ikke slå notifikationer til',
     toastMarkedDone: 'Markeret som færdig',
     toastMarkedDoneCount: '{{count}} elementer markeret som færdige',
-    toastMarkedDonePartial: '{{completed}} af {{total}} elementer markeret som færdige',
+    toastMarkedDonePartial:
+      '{{completed}} af {{total}} elementer markeret som færdige',
     toastMarkedDonePartialUnsaved:
       '{{completed}} af {{total}} elementer markeret som færdige. Nogle ændringer kunne ikke gemmes.',
     toastMarkDoneUnsaved:
@@ -733,12 +737,12 @@ export default {
     tasks: 'Opgaver',
     mail: 'E-mail',
     files: 'Filer',
-    githubPrs: 'GitHub-PR\'er',
+    githubPrs: "GitHub-PR'er",
     unread: 'Ulæst',
     read: 'Læst',
     notDone: 'Ikke færdig',
     done: 'Færdig',
-    pdfs: 'PDF\'er',
+    pdfs: "PDF'er",
     images: 'Billeder',
     documents: 'Dokumenter',
     hasCalendarInvite: 'Har kalenderinvitation',
