@@ -10,6 +10,82 @@ export type ClientOptions = {
 export type AccessLevel = 'view' | 'comment' | 'edit' | 'owner';
 
 /**
+ * Latest request for one person and one entity.
+ */
+export type AccessRequest = {
+    /**
+     * Start of this request attempt.
+     */
+    createdAt: string;
+    grantedLevel?: null | AccessLevel;
+    /**
+     * Stable request identity across revisions.
+     */
+    id: string;
+    /**
+     * Requested upgrade.
+     */
+    requestedLevel: AccessLevel;
+    /**
+     * Person requesting access.
+     */
+    requesterId: string;
+    /**
+     * When the request stopped being pending.
+     */
+    resolvedAt?: string | null;
+    /**
+     * Earliest next submission or level change; cancellation preserves this deadline.
+     * Submissions wait one minute, denials wait 24 hours, and approval clears it.
+     */
+    retryAfter?: string | null;
+    /**
+     * Optimistic concurrency token.
+     */
+    revision: number;
+    /**
+     * Current outcome.
+     */
+    status: RequestStatus;
+    /**
+     * Most recent change.
+     */
+    updatedAt: string;
+};
+
+/**
+ * Share state visible to one authenticated viewer.
+ */
+export type AccessRequestState = {
+    accessLevel?: null | AccessLevel;
+    /**
+     * Whether this viewer can resolve requests and manage direct grants.
+     */
+    canReview: boolean;
+    mine?: null | AccessRequest;
+    /**
+     * Next page offset, absent at the end.
+     */
+    nextOffset?: number | null;
+    /**
+     * Recorded owner principal, visible to reviewers and callers with access.
+     */
+    owner?: string | null;
+    /**
+     * Total outstanding requests, for the Share badge.
+     */
+    pendingCount: number;
+    /**
+     * Reviewer-only pending page, oldest first.
+     */
+    requests: Array<AccessRequest>;
+    /**
+     * Permitted access choices for this surface.
+     */
+    supportedLevels: Array<AccessLevel>;
+};
+
+/**
  * Metadata together with the caller's effective grant.
  */
 export type AccessiblePipeline = Pipeline & {
@@ -4994,6 +5070,20 @@ export type DeleteUnthreadedPdfAnchorRequest = {
 };
 
 /**
+ * A direct user grant; inherited grants are deliberately not editable here.
+ */
+export type DirectAccess = {
+    /**
+     * Direct permission level.
+     */
+    accessLevel: AccessLevel;
+    /**
+     * Recipient.
+     */
+    userId: string;
+};
+
+/**
  * Returns basic information of a document used for some db queries
  */
 export type DocumentBasic = {
@@ -5558,6 +5648,17 @@ export type DocumentTeamShareResponse = {
      * the owner does not belong to a team.
      */
     teamId?: string | null;
+};
+
+/**
+ * Text representation when the document supports one. Other file formats
+ * retain their existing download/export behavior.
+ */
+export type DocumentTextContent = {
+    /**
+     * Current Markdown, or extracted PDF/Word text. Null means use file export.
+     */
+    text: string | null;
 };
 
 /**
@@ -10672,6 +10773,25 @@ export type ReplaceCrmStagesRequest = {
 };
 
 /**
+ * Requester submission; an existing pending request requires its revision.
+ */
+export type RequestAccess = {
+    /**
+     * Desired View, Comment, or Edit permission.
+     */
+    requestedLevel: AccessLevel;
+    /**
+     * Last observed revision; omitted only for the first request.
+     */
+    revision?: number | null;
+};
+
+/**
+ * Durable outcome; reading a notification never changes it.
+ */
+export type RequestStatus = 'pending' | 'granted' | 'denied' | 'cancelled';
+
+/**
  * The ownership scope a daemon's config asks for.
  *
  * Advisory, not binding: the approving user confirms it in the dialog, which
@@ -10713,6 +10833,17 @@ export type RequestedLayout = {
      * title it has, and a new board takes the table's first column.
      */
     title?: string;
+};
+
+/**
+ * Owner's decision; omission of a granted level means deny.
+ */
+export type ResolveRequest = {
+    grantedLevel?: null | AccessLevel;
+    /**
+     * Request revision being reviewed.
+     */
+    revision: number;
 };
 
 /**
@@ -11254,6 +11385,13 @@ export type SetContactNameRequest = {
 };
 
 /**
+ * Direct-grant change. A null level removes only that direct grant.
+ */
+export type SetDirectAccess = {
+    accessLevel?: null | AccessLevel;
+};
+
+/**
  * Request body for setting a document's team-share state.
  */
 export type SetDocumentTeamShareRequest = {
@@ -11323,6 +11461,25 @@ export type SetPropertyValue = {
  * SHA-256 encoded as exactly 64 lowercase hexadecimal characters.
  */
 export type Sha256Digest = string;
+
+/**
+ * A validated shared-entity address.
+ */
+export type ShareEntity = {
+    /**
+     * Entity identifier.
+     */
+    entityId: string;
+    /**
+     * Canonical entity kind.
+     */
+    entityType: ShareEntityType;
+};
+
+/**
+ * An entity type with an existing Share surface.
+ */
+export type ShareEntityType = 'document' | 'chat' | 'project' | 'initiative' | 'database' | 'call' | 'email_thread' | 'agent_session';
 
 export type SharePermissionV2 = {
     /**
@@ -19287,6 +19444,43 @@ export type SetDocumentTeamShareResponses = {
 
 export type SetDocumentTeamShareResponse = SetDocumentTeamShareResponses[keyof SetDocumentTeamShareResponses];
 
+export type GetDocumentTextContentData = {
+    body?: never;
+    path: {
+        /**
+         * Document identity
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/documents/{document_id}/text-content';
+};
+
+export type GetDocumentTextContentErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Document access denied
+     */
+    403: unknown;
+    /**
+     * Document not found
+     */
+    404: unknown;
+    /**
+     * Document text unavailable
+     */
+    500: unknown;
+};
+
+export type GetDocumentTextContentResponses = {
+    200: DocumentTextContent;
+};
+
+export type GetDocumentTextContentResponse = GetDocumentTextContentResponses[keyof GetDocumentTextContentResponses];
+
 export type GetDocumentViewsHandlerData = {
     body?: never;
     path: {
@@ -19342,6 +19536,188 @@ export type GetDocumentVersionResponses = {
 };
 
 export type GetDocumentVersionResponse = GetDocumentVersionResponses[keyof GetDocumentVersionResponses];
+
+export type AccessRequestsStateData = {
+    body?: never;
+    path: {
+        entity_type: ShareEntityType;
+        entity_id: string;
+    };
+    query?: {
+        /**
+         * Offset into pending requests; page size is bounded by the service.
+         */
+        offset?: number;
+    };
+    url: '/entities/{entity_type}/{entity_id}/access-requests';
+};
+
+export type AccessRequestsStateErrors = {
+    400: unknown;
+    403: unknown;
+    404: unknown;
+    409: unknown;
+    429: unknown;
+    500: unknown;
+};
+
+export type AccessRequestsStateResponses = {
+    200: AccessRequestState;
+};
+
+export type AccessRequestsStateResponse = AccessRequestsStateResponses[keyof AccessRequestsStateResponses];
+
+export type AccessRequestsCancelData = {
+    body?: never;
+    path: {
+        entity_type: ShareEntityType;
+        entity_id: string;
+    };
+    query: {
+        /**
+         * Last observed request revision.
+         */
+        revision: number;
+    };
+    url: '/entities/{entity_type}/{entity_id}/access-requests/mine';
+};
+
+export type AccessRequestsCancelErrors = {
+    400: unknown;
+    403: unknown;
+    404: unknown;
+    409: unknown;
+    429: unknown;
+    500: unknown;
+};
+
+export type AccessRequestsCancelResponses = {
+    200: unknown;
+};
+
+export type AccessRequestsSubmitData = {
+    body: RequestAccess;
+    path: {
+        entity_type: ShareEntityType;
+        entity_id: string;
+    };
+    query?: never;
+    url: '/entities/{entity_type}/{entity_id}/access-requests/mine';
+};
+
+export type AccessRequestsSubmitErrors = {
+    400: unknown;
+    403: unknown;
+    404: unknown;
+    409: unknown;
+    429: unknown;
+    500: unknown;
+};
+
+export type AccessRequestsSubmitResponses = {
+    200: AccessRequest;
+};
+
+export type AccessRequestsSubmitResponse = AccessRequestsSubmitResponses[keyof AccessRequestsSubmitResponses];
+
+export type AccessRequestsResolveData = {
+    body: ResolveRequest;
+    path: {
+        entity_type: ShareEntityType;
+        entity_id: string;
+        request_id: string;
+    };
+    query?: never;
+    url: '/entities/{entity_type}/{entity_id}/access-requests/{request_id}/resolve';
+};
+
+export type AccessRequestsResolveErrors = {
+    400: unknown;
+    403: unknown;
+    404: unknown;
+    409: unknown;
+    429: unknown;
+    500: unknown;
+};
+
+export type AccessRequestsResolveResponses = {
+    200: AccessRequest;
+};
+
+export type AccessRequestsResolveResponse = AccessRequestsResolveResponses[keyof AccessRequestsResolveResponses];
+
+export type AccessRequestsDirectData = {
+    body?: never;
+    path: {
+        entity_type: ShareEntityType;
+        entity_id: string;
+    };
+    query?: never;
+    url: '/entities/{entity_type}/{entity_id}/direct-access';
+};
+
+export type AccessRequestsDirectErrors = {
+    400: unknown;
+    403: unknown;
+    404: unknown;
+    409: unknown;
+    429: unknown;
+    500: unknown;
+};
+
+export type AccessRequestsDirectResponses = {
+    200: Array<DirectAccess>;
+};
+
+export type AccessRequestsDirectResponse = AccessRequestsDirectResponses[keyof AccessRequestsDirectResponses];
+
+export type AccessRequestsRemoveDirectData = {
+    body?: never;
+    path: {
+        entity_type: ShareEntityType;
+        entity_id: string;
+        user_id: string;
+    };
+    query?: never;
+    url: '/entities/{entity_type}/{entity_id}/direct-access/{user_id}';
+};
+
+export type AccessRequestsRemoveDirectErrors = {
+    400: unknown;
+    403: unknown;
+    404: unknown;
+    409: unknown;
+    429: unknown;
+    500: unknown;
+};
+
+export type AccessRequestsRemoveDirectResponses = {
+    200: unknown;
+};
+
+export type AccessRequestsSetDirectData = {
+    body: SetDirectAccess;
+    path: {
+        entity_type: ShareEntityType;
+        entity_id: string;
+        user_id: string;
+    };
+    query?: never;
+    url: '/entities/{entity_type}/{entity_id}/direct-access/{user_id}';
+};
+
+export type AccessRequestsSetDirectErrors = {
+    400: unknown;
+    403: unknown;
+    404: unknown;
+    409: unknown;
+    429: unknown;
+    500: unknown;
+};
+
+export type AccessRequestsSetDirectResponses = {
+    200: unknown;
+};
 
 export type GetEntityPermissionData = {
     body?: never;

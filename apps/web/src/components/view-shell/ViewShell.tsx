@@ -502,7 +502,15 @@ function Aside(props: ViewShellAsideProps) {
         <div
           class="absolute inset-0 z-20"
           onKeyDown={(event) => {
-            if (event.key === 'Escape') {
+            // Portaled menus own Escape even though Solid bubbles through here.
+            if (
+              event.key === 'Escape' &&
+              !event.defaultPrevented &&
+              event.currentTarget.contains(event.target as Node) &&
+              !(event.target as Element).closest(
+                '[aria-haspopup][aria-expanded="true"]'
+              )
+            ) {
               event.stopPropagation();
               ws.aside.collapse();
             }

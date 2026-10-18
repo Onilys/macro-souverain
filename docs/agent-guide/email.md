@@ -301,6 +301,12 @@ Standalone compose uses one right-aligned row inside its 16px content padding:
 delete, attach, format, schedule, and send. Touch compose uses its header toolbar.
 `R` and `Alt+R` (`Option+R` on macOS) open reply-all for the selected message,
 or the latest message when none is selected. `F` opens a forward and focuses To.
+In new emails, replies, reply-alls, and forwards, `Cmd+Shift+C` (`Ctrl+Shift+C`)
+reveals and focuses Cc and `Cmd+Shift+B` does the same for Bcc, expanding a
+collapsed reply header; inside a composer they never fall through to the
+thread's Copy link. `bunx playwright test --config
+src/features/email-compose/browser-test/playwright.app.config.ts` (from
+`apps/web`) checks both shortcuts in all four composers.
 While you type in a reply (body, recipients, or subject), `Escape` leaves the
 reply first: focus moves to the message it answers and the reply stays open
 with its draft. The next `Escape` returns to the list. `Escape` never discards a
@@ -323,8 +329,22 @@ During send or discard, its sender and scheduling controls cannot change the ope
 Attachments that can be opened are buttons named by their filename; Tab to one
 and press Enter or Space. Removal is a separate button named `Remove <filename>`.
 Removing a forwarded file keeps the received original.
+To forward from another inbox, open Forward, expand the forwarding envelope on
+desktop, and select a different account in From (already visible on mobile).
+Forwarded files must remain attached after switching to an owned or delegated
+inbox, saving, and reopening the draft. Send must fetch the original files from
+the receiving inbox while using the selected From inbox for delivery. A scheduled
+cross-inbox forward must not download a source whose inbox access was revoked
+after saving.
 When checking draft autosave, edit the body of a draft with uploaded or forwarded
 attachments, wait for the save, and reopen it; the attachments should remain visible.
+In a long thread, scroll away from the bottom while a draft save is pending.
+After repeated saves, the scroll position, editor selection, and received-message
+DOM must remain stable on desktop and mobile. Reopening must show the saved body.
+Repeat with a save completing after the thread closes; reopening must still
+load the latest saved draft.
+Ordinary queued saves must not request another `EmailThreadPage`; a missing
+thread snapshot or a move between inboxes still requires reconciliation.
 AI email tool drafts persist body-only edits; changing recipients or the subject
 is not required to save the body.
 

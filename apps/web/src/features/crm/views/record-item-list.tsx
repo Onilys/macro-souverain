@@ -88,6 +88,7 @@ export function RecordItemList(props: {
                 {(entity) => (
                   <ListEntity
                     entity={entity}
+                    hideCheckbox
                     timestamp={entity.updatedAt}
                     onClick={() => openEntity(entity)}
                   />

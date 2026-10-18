@@ -6,3 +6,6 @@ pub mod invitation_extraction;
 pub mod email_api;
 /// Persistence and provider adapters for scheduled-delivery claims.
 pub mod scheduled_delivery;
+
+/// Forwarded-attachment persistence facts.
+pub mod forwarded_attachments;

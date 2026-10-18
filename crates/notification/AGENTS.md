@@ -24,7 +24,8 @@ through the same service.
 - `src/outbound/`: one file per channel/concern — `fanout_realtime.rs` +
   `kafka_realtime.rs` (live WebSocket fan-out), `mobile.rs` + `sns_endpoint.rs`
   (push), `email.rs` + `digest_batcher.rs` (digest emails), `repository.rs`
-  (owned Postgres queries), `item_preferences.rs` (snooze/mute).
+  (owned Postgres queries), `withdrawal.rs` (durable suppression),
+  `item_preferences.rs` (snooze/mute).
 - `outbound/notification_consumer/health.rs`: periodic per-instance Kafka
   backlog and telemetry-health logs; offsets stay uncommitted.
 - `domain/retention.rs` + `outbound/retention.rs`: bounded 30-day cleanup.
@@ -67,6 +68,10 @@ through the same service.
   `schema`); building without the feature a caller needs silently drops the
   module instead of failing loudly — check `Cargo.toml` before assuming an
   adapter is compiled in.
+- Ingress records publication completion only after the queue accepts the
+  notification. Retries preserve original IDs, recipients, and lifecycle state.
+- Access-request withdrawals suppress delayed ingress and queued push/realtime
+  delivery; keep tombstone checks when changing either delivery boundary.
 - Independent Kafka consumers have no durable group lag. Health logs distinguish
   stale/unknown measurements from zero; they are not client-delivery ACKs.
 - Notification payloads must not be logged on tracing spans (see the

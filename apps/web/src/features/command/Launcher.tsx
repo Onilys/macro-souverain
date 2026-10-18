@@ -108,7 +108,7 @@ const [launcherFrecencyStore, setLauncherFrecencyStore] = makePersisted(
   { name: LAUNCHER_FRECENCY_STORE }
 );
 const [launcherSearchMode, setLauncherSearchModePreference] = makePersisted(
-  createSignal(false),
+  createSignal(true),
   { name: LAUNCHER_SEARCH_MODE_STORE }
 );
 

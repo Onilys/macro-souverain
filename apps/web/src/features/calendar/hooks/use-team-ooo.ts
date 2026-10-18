@@ -80,6 +80,7 @@ export interface TeamOooEventData {
 
 export interface TeamOooEventOptions {
   range: Accessor<CalendarOccurrenceQueryRange | undefined>;
+  isSourceVisible?: (sourceId: string) => boolean;
   refetchOnWindowFocus?: Accessor<boolean>;
 }
 
@@ -93,10 +94,12 @@ export function useTeamOooEvents(
     const range = options.range();
     return range !== undefined && isCalendarRangeSupported(range);
   });
+  const isOverlayVisible = () =>
+    teamOooEnabled() && options.isSourceVisible?.(TEAM_OOO_SOURCE_ID) !== false;
   const query = useTeamOutOfOfficeQuery(
     () => ({ userId: userId(), range: options.range() }),
     () => ({
-      enabled: isRangeSupported() && teamOooEnabled(),
+      enabled: isRangeSupported() && isOverlayVisible(),
       refetchOnWindowFocus: options.refetchOnWindowFocus?.(),
     })
   );
@@ -104,7 +107,7 @@ export function useTeamOooEvents(
     // Pending reads suspend, and placeholder data belongs to the previous
     // range. Neither can supply events for the current viewport.
     if (
-      !teamOooEnabled() ||
+      !isOverlayVisible() ||
       !isRangeSupported() ||
       !query.isSuccess ||
       query.isPaused ||

@@ -53,6 +53,8 @@ export type DatabaseMentionPickerProps = {
   onSearchChange?: (search: string) => void;
   onSelect: (mention: DatabaseMention, direction?: 1 | -1) => void;
   onClose: (restoreFocus?: boolean) => void;
+  /** Where the picker mounts in place of the page body. */
+  mount?: HTMLElement;
 };
 
 export type DatabaseTextEditorProps = CellTextEditorProps & {
@@ -69,6 +71,8 @@ export type GridCellProps = GridCellEditorOptions & {
   renderTextValue?: (value: string) => JSX.Element;
   renderMentionPicker?: (props: DatabaseMentionPickerProps) => JSX.Element;
   renderMentionValue?: (id: string, type: DatabaseEntityType) => JSX.Element;
+  /** Where the cell's popups mount in place of the page body, such as inside a modal dialog. */
+  popupMount?: HTMLElement;
   onMention?: (mention: DatabaseMention) => Promise<boolean>;
   /** Click and Enter open the cell's mention instead of editing it; F2 and typing still edit. */
   onOpenMention?: (id: string, type: DatabaseEntityType) => void;
@@ -187,7 +191,7 @@ export function GridCell(props: GridCellProps) {
       ? { width: `${size.width}px`, height: `${size.height}px` }
       : undefined;
   };
-  const updateEditor = (seed?: string) => {
+  const updateEditor = (seed?: string, selectAll = true) => {
     if (!editable()) return;
     setSelectedMention(undefined);
     if (isEntity()) {
@@ -198,7 +202,7 @@ export function GridCell(props: GridCellProps) {
       setMentionOpen(true);
       return;
     }
-    setSelectAll(seed === undefined);
+    setSelectAll(seed === undefined && selectAll);
     setDraft(
       seed !== undefined
         ? seed
@@ -216,13 +220,13 @@ export function GridCell(props: GridCellProps) {
       setMentionOpen(true);
     }
   };
-  const beginEdit = (seed?: string, event?: Event) => {
+  const beginEdit = (seed?: string, event?: Event, selectAll = true) => {
     if (!editable()) return;
     if (props.preserveSize && !editing() && trigger) {
       const { width, height } = trigger.getBoundingClientRect();
       setEditorSize({ width, height });
     }
-    opening.measure(() => updateEditor(seed), event, !editing());
+    opening.measure(() => updateEditor(seed, selectAll), event, !editing());
   };
   const updateDraft = (value: string) => {
     setDraft(value);
@@ -284,12 +288,12 @@ export function GridCell(props: GridCellProps) {
         else if (isBoolean() && !editable()) booleanWrapper?.focus();
         else trigger?.focus();
       },
-      edit: (seed) => {
+      edit: (seed, options) => {
         if (!editable()) return;
         if (hasPopupEditor()) popupControl?.edit(seed);
         else if (props.column.dataType === 'BOOLEAN') trigger?.focus();
         else if (editing()) focusEditor?.();
-        else beginEdit(seed);
+        else beginEdit(seed, undefined, options?.selectAll);
       },
     })
   );
@@ -346,7 +350,7 @@ export function GridCell(props: GridCellProps) {
   );
 
   return (
-    <div ref={cell} class="relative min-w-0" style={editorStyle()}>
+    <div ref={cell} class="relative grid min-w-0" style={editorStyle()}>
       <Switch>
         <Match when={cellKind() === 'editing'}>{renderEditor()}</Match>
         <Match when={cellKind() === 'boolean'}>
@@ -397,9 +401,10 @@ export function GridCell(props: GridCellProps) {
           </div>
         </Match>
         <Match when={cellKind() === 'text'}>
-          <div class="relative">
+          <div class="relative grid">
             {/* Keep the resolved label and its subscription alive while picking. */}
             <div
+              class="grid"
               inert={isEntity() && editing()}
               classList={{
                 invisible: isEntity() && editing() && draft() !== '',
@@ -421,7 +426,7 @@ export function GridCell(props: GridCellProps) {
                 onNavigate={props.onNavigate}
                 onOpen={openMention()}
                 onBeginEdit={beginEdit}
-                onClearEntity={() => {
+                onClear={() => {
                   setSelectedMention(undefined);
                   void write(null);
                 }}
@@ -449,6 +454,9 @@ export function GridCell(props: GridCellProps) {
           get search() {
             return mentionSearch();
           },
+          get mount() {
+            return props.popupMount;
+          },
           onSearchChange: (value) => {
             setMentionSearch(value);
             if (!isEntity()) setDraft(`@${value}`);
@@ -470,6 +478,16 @@ function navigateOnTab(
     event.preventDefault();
     event.stopPropagation();
   }
+}
+
+function isClearCellKey(event: KeyboardEvent) {
+  return (
+    (event.key === 'Delete' || event.key === 'Backspace') &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    !isComposingKey(event)
+  );
 }
 
 function BooleanCell(props: {
@@ -501,6 +519,12 @@ function BooleanCell(props: {
       disabled={!props.editable}
       onChange={(checked) => void props.onWrite(checked ? 1 : 0)}
       onKeyDown={(event: KeyboardEvent) => {
+        if (props.editable && isClearCellKey(event)) {
+          event.preventDefault();
+          event.stopPropagation();
+          void props.onWrite(null);
+          return;
+        }
         if (!isComposingKey(event)) navigateOnTab(event, props.onNavigate);
       }}
     >
@@ -530,7 +554,7 @@ function TextCell(props: {
   onNavigate?: (direction: 1 | -1) => boolean;
   onOpen?: () => void;
   onBeginEdit: (seed?: string, event?: Event) => void;
-  onClearEntity: () => void;
+  onClear: () => void;
 }) {
   // Refreshes rebuild row objects; only a changed value may rerun renderers and remount previews.
   const value = createMemo(() => props.value);
@@ -593,22 +617,15 @@ function TextCell(props: {
           event.altKey
         )
           return;
-        if (
-          props.isEntity &&
-          (event.key === 'Backspace' || event.key === 'Delete')
-        ) {
+        if (isClearCellKey(event)) {
           event.preventDefault();
           event.stopPropagation();
-          props.onClearEntity();
+          props.onClear();
         } else if (event.key === 'Enter' || event.key === 'F2') {
           event.preventDefault();
           event.stopPropagation();
           props.onBeginEdit(undefined, event);
-        } else if (
-          event.key.length === 1 ||
-          event.key === 'Backspace' ||
-          event.key === 'Delete'
-        ) {
+        } else if (event.key.length === 1) {
           event.preventDefault();
           event.stopPropagation();
           props.onBeginEdit(event.key.length === 1 ? event.key : '', event);
@@ -626,7 +643,7 @@ function TextCell(props: {
             props.renderTextValue
               ? props.renderTextValue(String(value()))
               : formatted()) || (
-              <span class="opacity-40">{props.emptyLabel || '—'}</span>
+              <span class="opacity-40">{props.emptyLabel ?? '—'}</span>
             )
           }
         >
@@ -679,6 +696,10 @@ function InlineEditor(props: {
     props.column.dataType === 'ENTITY' &&
     props.originalValue !== null &&
     props.draft === '';
+  // An earlier row's save can settle this column's type while this editor is
+  // focused. Keep its DOM for this edit; use the latest type when committing.
+  const renderTextEditor =
+    props.column.dataType === 'STRING' ? props.renderTextEditor : undefined;
   const initialDraft =
     props.originalValue === null ? '' : String(props.originalValue);
   const focus = () => {
@@ -728,7 +749,8 @@ function InlineEditor(props: {
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      commit();
+      if (commit(!props.onNavigateRow))
+        props.onNavigateRow?.(event.shiftKey ? -1 : 1);
     }
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -763,7 +785,7 @@ function InlineEditor(props: {
     >
       <Tooltip.Trigger as="div" tabindex={-1} class="relative min-w-0">
         <Show
-          when={props.column.dataType === 'STRING' && props.renderTextEditor}
+          when={renderTextEditor}
           fallback={
             <input
               ref={(element) => {
@@ -794,9 +816,9 @@ function InlineEditor(props: {
                 if (!props.mentionOpen) commit(false);
               }}
               onKeyDown={onKeyDown}
-              class="min-h-9 w-full min-w-0 rounded border border-ink/40 px-2.5 py-1.5 text-[13px] text-ink outline-none ring-2 ring-ink/10 aria-invalid:border-failure aria-invalid:ring-failure"
+              class="min-h-9 w-full min-w-0 px-2.5 py-1.5 text-[13px] text-ink outline-none"
               classList={{
-                'bg-input-focus': !showingReference(),
+                'bg-transparent': !showingReference(),
                 'bg-transparent caret-transparent': showingReference(),
               }}
             />
@@ -809,7 +831,7 @@ function InlineEditor(props: {
                 return props.draft;
               },
               class:
-                'min-h-9 w-full min-w-0 rounded border border-ink/40 bg-input-focus px-2.5 py-1.5 text-[13px] text-ink outline-none ring-2 ring-ink/10',
+                'min-h-9 w-full min-w-0 bg-transparent px-2.5 py-1.5 text-[13px] text-ink outline-none',
               autoFocus: true,
               selectAll: props.selectAll,
               inferType: props.column.inferType,
@@ -924,7 +946,9 @@ function SelectCell(props: GridCellProps) {
     edit: (event) => edit(undefined, event),
     close: () => setOpen(false),
   });
-  onMount(() => props.onReady?.({ focus: keys.focus, edit }));
+  onMount(() =>
+    props.onReady?.({ focus: keys.focus, edit: (seed) => edit(seed) })
+  );
   onCleanup(() => props.onReady?.(undefined));
   function tabAway(event: KeyboardEvent, chosen: string | undefined) {
     if (event.key !== 'Tab' || !props.onNavigate) return;
@@ -971,6 +995,12 @@ function SelectCell(props: GridCellProps) {
         return;
       }
       if (keys.tabFromTrigger(event)) return;
+      if (isClearCellKey(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void props.onWrite(null);
+        return;
+      }
       if (
         event.key.length === 1 &&
         !event.ctrlKey &&
@@ -988,7 +1018,15 @@ function SelectCell(props: GridCellProps) {
       <Show
         when={label()}
         fallback={
-          <span class="text-xs text-ink-placeholder opacity-40">—</span>
+          <span
+            class="text-ink-placeholder opacity-40"
+            classList={{
+              'text-xs': !props.emptyLabel,
+              'text-[13px] leading-5': !!props.emptyLabel,
+            }}
+          >
+            {props.emptyLabel || '—'}
+          </span>
         }
       >
         <span class="flex min-w-0 flex-wrap gap-1">
@@ -1029,9 +1067,9 @@ function SelectCell(props: GridCellProps) {
         gutter={4}
       >
         <Popover.Trigger {...trigger}>{shown()}</Popover.Trigger>
-        <Popover.Portal>
+        <Popover.Portal mount={props.popupMount}>
           <Popover.Content
-            class="menu-surface z-action-menu p-1 outline-none"
+            class="menu-surface z-action-menu min-w-[var(--kb-popper-anchor-width)] max-w-[min(32rem,calc(100vw-16px))] p-1.5 outline-none"
             onOpenAutoFocus={(event) => {
               event.preventDefault();
               searchInput?.focus();
@@ -1094,7 +1132,9 @@ function DateCell(props: GridCellProps) {
     edit: (event) => edit(undefined, event),
     close: () => setOpen(false),
   });
-  onMount(() => props.onReady?.({ focus: keys.focus, edit }));
+  onMount(() =>
+    props.onReady?.({ focus: keys.focus, edit: (seed) => edit(seed) })
+  );
   onCleanup(() => props.onReady?.(undefined));
   const trigger = {
     'data-cell-display': '',
@@ -1110,7 +1150,7 @@ function DateCell(props: GridCellProps) {
     },
     onKeyDown: (event: KeyboardEvent) => {
       if (isComposingKey(event) || keys.tabFromTrigger(event)) return;
-      if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (isClearCellKey(event)) {
         event.preventDefault();
         event.stopPropagation();
         void props.onWrite(null);
