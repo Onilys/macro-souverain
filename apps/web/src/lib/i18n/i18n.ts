@@ -1,6 +1,6 @@
 import { makePersistedState } from '@app/lib/persistence';
 import { ResultAsync } from 'neverthrow';
-import { createSignal } from 'solid-js';
+import { createSignal, untrack } from 'solid-js';
 import { z } from 'zod';
 import type {
   PartialDictionary,
@@ -103,13 +103,31 @@ async function loadTranslation(next: Exclude<Language, 'en'>) {
   if (language() === next) setTranslation(loaded.value.default);
 }
 
+let englishOnly = false;
+
+/**
+ * Runs `read` with every `t` call answering in English. For values that must
+ * not depend on the interface language — persisted ids, analytics — derived
+ * from a label that is otherwise translated.
+ */
+export function inEnglish<T>(read: () => T): T {
+  englishOnly = true;
+  try {
+    return untrack(read);
+  } finally {
+    englishOnly = false;
+  }
+}
+
 /**
  * The message for `key` in the interface language, falling back to English.
  * Reactive: reading it inside JSX or a memo updates when the language changes.
  */
 export function t(key: TranslationKey, params?: TranslationParams): string {
-  const template =
-    lookupMessage(translation(), key) ?? lookupMessage(en, key) ?? key;
+  const translated = englishOnly
+    ? undefined
+    : lookupMessage(translation(), key);
+  const template = translated ?? lookupMessage(en, key) ?? key;
   return formatMessage(template, params);
 }
 

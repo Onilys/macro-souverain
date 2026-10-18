@@ -2,6 +2,7 @@ import { useCrmContactDiscovery } from '@app/features/crm/record-adapter';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { projectRouteId } from '@app/features/projects/core/route';
 import { createSoupRowStore } from '@app/features/soup/collection/row-store';
+import { t } from '@app/lib/i18n';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
@@ -91,7 +92,7 @@ function MobileNameResults() {
     try {
       await open(item);
     } catch {
-      toast.failure('Unable to open result. Please try again.');
+      toast.failure(t('commandMenu.unableToOpenResult'));
     }
   };
   return (
@@ -110,7 +111,9 @@ function MobileNameResults() {
             onClick={SearchState.searchFullText}
           >
             <span class="truncate">
-              Search full text for “{SearchState.query().trim()}”
+              {t('commandMenu.searchFullTextFor', {
+                query: SearchState.query().trim(),
+              })}
             </span>
           </CommandMenuListItem>
         </div>
@@ -122,7 +125,7 @@ function MobileNameResults() {
           }}
           data={items()}
           role="region"
-          aria-label="Search results"
+          aria-label={t('commandMenu.searchResults')}
           class="min-h-0 flex-1 overscroll-none"
           onScroll={loadMoreNearEnd}
         >
@@ -138,11 +141,11 @@ function MobileNameResults() {
       </Show>
       <Show when={source.isLoadingEntities()}>
         <p role="status" class="p-3 text-ink-muted">
-          Loading…
+          {t('commandMenu.loading')}
         </p>
       </Show>
       <Show when={!source.isLoadingEntities() && items().length === 0}>
-        <p class="p-3 text-ink-muted">No results</p>
+        <p class="p-3 text-ink-muted">{t('commandMenu.noResults')}</p>
       </Show>
     </div>
   );
@@ -198,14 +201,14 @@ function MobileFullTextResults() {
         });
       });
     } catch {
-      toast.failure('Unable to open result. Please try again.');
+      toast.failure(t('commandMenu.unableToOpenResult'));
     }
   };
   return (
     <div
       ref={setContainer}
       role="region"
-      aria-label="Search results"
+      aria-label={t('commandMenu.searchResults')}
       onScroll={loadMoreNearEnd}
       class="soup-list h-full overflow-y-auto overscroll-none mobile:pt-(--mobile-content-inset-top) mobile:pb-(--mobile-content-inset-bottom)"
     >
@@ -231,14 +234,16 @@ function MobileFullTextResults() {
       </ListEntityMetadataQueryProvider>
       <Show when={search.isSettling() && results().items.length === 0}>
         <p role="status" class="p-3 text-ink-muted">
-          Searching…
+          {t('commandMenu.searching')}
         </p>
       </Show>
       <Show when={search.error()}>
         <p role="alert" class="p-3 text-ink-muted">
-          Search failed. Please try again.
+          {t('commandMenu.searchFailed')}
         </p>
-        <Button onClick={() => void search.refetch()}>Retry</Button>
+        <Button onClick={() => void search.refetch()}>
+          {t('commandMenu.retry')}
+        </Button>
       </Show>
       <Show
         when={
@@ -247,7 +252,7 @@ function MobileFullTextResults() {
           results().items.length === 0
         }
       >
-        <p class="p-3 text-ink-muted">No results</p>
+        <p class="p-3 text-ink-muted">{t('commandMenu.noResults')}</p>
       </Show>
     </div>
   );
@@ -256,7 +261,7 @@ function MobileFullTextResults() {
 /** The dock owns the input; only the result subtree changes search modes. */
 export function MobileSearchResults() {
   return (
-    <Suspense fallback={<p role="status">Loading…</p>}>
+    <Suspense fallback={<p role="status">{t('commandMenu.loading')}</p>}>
       <Show
         when={SearchState.mode() === 'full-text'}
         fallback={<MobileNameResults />}

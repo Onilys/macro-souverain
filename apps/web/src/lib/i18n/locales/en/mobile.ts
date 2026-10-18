@@ -16,7 +16,6 @@ export default {
   newDocument: 'New document',
   newTask: 'New task',
   newCompany: 'New company',
-  newEvent: 'New event',
   company: 'Company',
   event: 'Event',
   call: 'Call',

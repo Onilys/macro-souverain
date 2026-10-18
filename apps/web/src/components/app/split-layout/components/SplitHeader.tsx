@@ -7,6 +7,7 @@ import type { DriveState } from '@app/features/drive-view/core/types';
 import { useSoup } from '@app/features/next-soup/soup-context';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { projectRouteId } from '@app/features/projects/core/route';
+import { t } from '@app/lib/i18n';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { type BlockName, NonDocumentBlockTypes } from '@core/block';
 import { fileTypeToBlockName } from '@core/constant/allBlocks';
@@ -126,7 +127,7 @@ function SplitBackButton() {
       square
       size="sm"
       class="p-1 touch:active:bg-transparent"
-      label="Go Back"
+      label={t('splitMenu.goBack')}
       hotkey={TOKENS.split.go.back}
       disabled={
         !context.handle.canGoBack() &&
@@ -162,7 +163,9 @@ function _SplitSpotlightButton() {
       <Button
         class="p-1 hidden"
         label={
-          context.handle.isSpotLight() ? 'Minimize Split' : 'Spotlight Split'
+          context.handle.isSpotLight()
+            ? t('splitMenu.minimizeSplit')
+            : t('splitMenu.spotlightSplit')
         }
         hotkey={TOKENS.window.spotlight.toggle}
         onClick={() => context.handle.toggleSpotlight()}
@@ -185,7 +188,9 @@ function SplitCloseButton() {
   const label = createMemo(() => {
     const isOnlySplit = !shouldShowSplitCloseButton(layout.manager);
     const isNotUnifiedList = !isListViewID(context.handle.content().id);
-    return isOnlySplit && isNotUnifiedList ? 'Return to list' : 'Close';
+    return isOnlySplit && isNotUnifiedList
+      ? t('splitMenu.returnToList')
+      : t('splitMenu.close');
   });
 
   return (
@@ -337,7 +342,7 @@ export function ListNavigationButtons(props: {
     <div class={cn('flex items-center gap-0.5', props.class)}>
       <Button
         size="icon-md"
-        label="Previous item"
+        label={t('splitMenu.previousItem')}
         hotkey={TOKENS.entity.step.start}
         disabled={!props.navigation.canPrevious()}
         onMouseDown={(event) => event.preventDefault()}
@@ -347,7 +352,7 @@ export function ListNavigationButtons(props: {
       </Button>
       <Button
         size="icon-md"
-        label="Next item"
+        label={t('splitMenu.nextItem')}
         hotkey={TOKENS.entity.step.end}
         disabled={!props.navigation.canNext()}
         onMouseDown={(event) => event.preventDefault()}
@@ -440,7 +445,7 @@ export function SplitHeader(props: {
                 >
                   <div class="max-w-[min(28rem,calc(100%-3rem))] min-w-0 bg-surface border border-edge rounded-full shadow-lg shadow-drop-shadow px-4 py-2 flex items-center gap-2 font-sans text-xs text-ink">
                     <span class="shrink-0 text-ink-muted">
-                      Open in this split
+                      {t('splitMenu.openInThisSplit')}
                     </span>
                   </div>
                 </div>

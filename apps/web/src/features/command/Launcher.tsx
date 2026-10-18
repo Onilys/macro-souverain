@@ -10,6 +10,7 @@ import { isSpreadsheetEnabledForCurrentUser } from '@app/features/block-spreadsh
 import { EMAIL_COMPOSE_TO_INPUT_ID } from '@app/features/email-compose/core/constants';
 import { useQuickCallsFlag } from '@app/features/meetings/use-quick-calls-flag';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { t } from '@app/lib/i18n';
 import {
   endTrackedDocumentSpan,
   registerDocumentSpan,
@@ -83,7 +84,11 @@ import {
 } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Dynamic } from 'solid-js/web';
-import type { CreateMenuSection } from './core/create-menu-details';
+import {
+  type CreateMenuSection,
+  creatableDescription,
+  creatableId,
+} from './core/create-menu-details';
 import {
   launcherItemKey,
   recentLauncherBlocks,
@@ -131,9 +136,12 @@ function matchesLauncherSearch(item: CreatableBlock, query: string) {
 
   if (terms.length === 0) return true;
 
+  // Translated text plus the English id and keywords, so English terms keep
+  // matching in every interface language.
   const searchableText = [
     item.label,
-    item.description,
+    creatableId(item),
+    creatableDescription(item),
     item.launcherHint,
     item.blockName,
     ...(item.keywords ?? []),
@@ -459,7 +467,7 @@ export function runCreateAction(
             source,
           });
           if (created.isErr()) {
-            toast.failure('Could not create the database');
+            toast.failure(t('create.couldNotCreateDatabase'));
             return;
           }
           return created.value;
@@ -479,7 +487,7 @@ export function runCreateAction(
             source
           );
           if (created.isErr()) {
-            toast.failure('Could not create the form');
+            toast.failure(t('create.couldNotCreateForm'));
             return;
           }
           return created.value.form.id;
@@ -556,9 +564,12 @@ export type { CreatableBlock, CreatableName } from './types';
 
 export const CREATABLE_BLOCKS: CreatableBlock[] = [
   {
-    label: 'Email',
+    id: 'Email',
+    get label() {
+      return t('create.emailLabel');
+    },
     icon: getIconConfig('email').icon,
-    description: 'Create email',
+    description: () => t('create.emailDescription'),
     keywords: ['new', 'make', 'add', 'compose'],
     blockName: 'email',
     hotkeyToken: TOKENS.create.email,
@@ -573,10 +584,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     // The pre-agent-session chat, kept on `a` for anyone the new agent flag
     // has not reached. Mutually exclusive with the Agent entry below:
     // both bind `a`, and exactly one is ever enabled.
-    label: 'Agent',
+    id: 'Agent',
+    get label() {
+      return t('create.agentLabel');
+    },
     icon: getIconConfig('chat').icon,
-    description: 'Create agent chat',
-    launcherHint: 'New agent session',
+    description: () => t('create.chatDescription'),
+    get launcherHint() {
+      return t('create.chatHint');
+    },
     keywords: ['new', 'make', 'add', 'agent'],
     blockName: 'chat',
     hotkeyToken: TOKENS.create.chat,
@@ -593,10 +609,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Routine',
+    id: 'Routine',
+    get label() {
+      return t('create.routineLabel');
+    },
     icon: getIconConfig('routine').icon,
-    description: 'Run a model or agent on a schedule or Macro activity',
-    launcherHint: 'Schedules and activity triggers',
+    description: () => t('create.routineDescription'),
+    get launcherHint() {
+      return t('create.routineHint');
+    },
     keywords: ['new', 'make', 'add', 'schedule', 'agent', 'event', 'trigger'],
     blockName: 'routine',
     hotkeyToken: TOKENS.create.routine,
@@ -607,10 +628,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Agent',
+    id: 'Agent',
+    get label() {
+      return t('create.agentLabel');
+    },
     icon: getIconConfig('agent').icon,
-    description: 'Create agent session',
-    launcherHint: 'Dedicated Agent Session',
+    description: () => t('create.agentDescription'),
+    get launcherHint() {
+      return t('create.agentHint');
+    },
     keywords: ['new', 'make', 'add', 'agent', 'code', 'coder', 'session'],
     blockName: 'agent',
     hotkeyToken: TOKENS.create.agent,
@@ -624,10 +650,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Database',
+    id: 'Database',
+    get label() {
+      return t('create.databaseLabel');
+    },
     icon: getIconConfig('database').icon,
-    description: 'Create database',
-    launcherHint: 'Tables and boards',
+    description: () => t('create.databaseDescription'),
+    get launcherHint() {
+      return t('create.databaseHint');
+    },
     keywords: ['new', 'make', 'add', 'database', 'table', 'db'],
     blockName: 'database',
     enabled: () => isFeatureEnabled(enableDatabases),
@@ -640,10 +671,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Form',
+    id: 'Form',
+    get label() {
+      return t('create.formLabel');
+    },
     icon: getIconConfig('form').icon,
-    description: 'Create form',
-    launcherHint: 'Questions answered into a database',
+    description: () => t('create.formDescription'),
+    get launcherHint() {
+      return t('create.formHint');
+    },
     keywords: ['new', 'make', 'add', 'form', 'survey', 'questionnaire', 'poll'],
     blockName: 'form',
     enabled: () => isFeatureEnabled(enableForms),
@@ -656,10 +692,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Skill',
+    id: 'Skill',
+    get label() {
+      return t('create.skillLabel');
+    },
     icon: getIconConfig('skill').icon,
-    description: 'Create skill',
-    launcherHint: 'Custom agent skill',
+    description: () => t('create.skillDescription'),
+    get launcherHint() {
+      return t('create.skillHint');
+    },
     keywords: ['new', 'make', 'add', 'instruction', 'prompt'],
     blockName: 'skill',
     hotkeyToken: TOKENS.create.skill,
@@ -670,9 +711,12 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Document',
+    id: 'Document',
+    get label() {
+      return t('create.documentLabel');
+    },
     icon: getIconConfig('md').icon,
-    description: 'Create doc',
+    description: () => t('create.documentDescription'),
     keywords: ['new', 'make', 'add', 'document', 'note'],
     blockName: 'md',
     hotkeyToken: TOKENS.create.note,
@@ -684,9 +728,12 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Task',
+    id: 'Task',
+    get label() {
+      return t('create.taskLabel');
+    },
     icon: getIconConfig('task').icon,
-    description: 'Create task',
+    description: () => t('create.taskDescription'),
     keywords: ['new', 'make', 'add', 'todo'],
     blockName: 'task',
     hotkeyToken: TOKENS.create.task,
@@ -698,9 +745,12 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Project',
+    id: 'Project',
+    get label() {
+      return t('create.projectLabel');
+    },
     icon: getIconConfig('initiative').icon,
-    description: 'Create project',
+    description: () => t('create.projectDescription'),
     keywords: ['new', 'make', 'add', 'project'],
     blockName: 'initiative',
     enabled: () => isFeatureEnabled(enableProjects),
@@ -712,10 +762,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Snippet',
+    id: 'Snippet',
+    get label() {
+      return t('create.snippetLabel');
+    },
     icon: getIconConfig('snippet').icon,
-    description: 'Create snippet',
-    launcherHint: 'Reusable document template',
+    description: () => t('create.snippetDescription'),
+    get launcherHint() {
+      return t('create.snippetHint');
+    },
     keywords: ['new', 'make', 'add'],
     blockName: 'snippet',
     hotkeyToken: TOKENS.create.snippet,
@@ -727,10 +782,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Message',
+    id: 'Message',
+    get label() {
+      return t('create.messageLabel');
+    },
     icon: ChatIcon,
-    description: 'Create message',
-    launcherHint: 'Quick send message',
+    description: () => t('create.messageDescription'),
+    get launcherHint() {
+      return t('create.messageHint');
+    },
     keywords: ['new', 'make', 'add', 'channel'],
     blockName: 'channel',
     hotkeyToken: TOKENS.create.message,
@@ -742,10 +802,15 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Channel',
+    id: 'Channel',
+    get label() {
+      return t('create.channelLabel');
+    },
     icon: getIconConfig('channel').icon,
-    description: 'Create channel',
-    launcherHint: 'Team-wide or group chat',
+    description: () => t('create.channelDescription'),
+    get launcherHint() {
+      return t('create.channelHint');
+    },
     keywords: ['new', 'make', 'add', 'channel', 'group', 'conversation'],
     blockName: 'channel',
     hotkeyToken: TOKENS.create.channel,
@@ -757,9 +822,12 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Canvas',
+    id: 'Canvas',
+    get label() {
+      return t('create.canvasLabel');
+    },
     icon: getIconConfig('canvas').icon,
-    description: 'Create canvas',
+    description: () => t('create.canvasDescription'),
     keywords: ['new', 'make', 'add', 'diagram'],
     blockName: 'canvas',
     hotkeyToken: TOKENS.create.canvas,
@@ -773,11 +841,16 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Photoshop file',
+    id: 'Photoshop file',
+    get label() {
+      return t('create.photoshopLabel');
+    },
     enabled: () => isFeatureEnabled(enablePsdEditor),
     icon: getIconConfig('psd').icon,
-    description: 'New Photoshop file',
-    launcherHint: 'Layered image editing, saved as .psd',
+    description: () => t('create.photoshopDescription'),
+    get launcherHint() {
+      return t('create.photoshopHint');
+    },
     keywords: ['new', 'make', 'add', 'photoshop', 'psd', 'image', 'photo'],
     blockName: 'psd',
     hotkeyToken: TOKENS.create.photoshop,
@@ -789,11 +862,16 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Design',
+    id: 'Design',
+    get label() {
+      return t('create.designLabel');
+    },
     enabled: () => isFeatureEnabled(enableFigViewer),
     icon: getIconConfig('fig').icon,
-    description: 'Create design',
-    launcherHint: 'Figma-compatible canvas for UI and graphics',
+    description: () => t('create.designDescription'),
+    get launcherHint() {
+      return t('create.designHint');
+    },
     keywords: ['new', 'make', 'add', 'design', 'figma', 'mockup', 'ui'],
     blockName: 'fig',
     hotkeyToken: TOKENS.create.design,
@@ -805,11 +883,16 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Illustrator file',
+    id: 'Illustrator file',
+    get label() {
+      return t('create.illustratorLabel');
+    },
     enabled: () => isFeatureEnabled(enableAiEditor),
     icon: getIconConfig('ai').icon,
-    description: 'Create Illustrator file',
-    launcherHint: 'Vector artwork on artboards, saved as .ai',
+    description: () => t('create.illustratorDescription'),
+    get launcherHint() {
+      return t('create.illustratorHint');
+    },
     keywords: [
       'new',
       'make',
@@ -829,11 +912,16 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Spreadsheet',
+    id: 'Spreadsheet',
+    get label() {
+      return t('create.spreadsheetLabel');
+    },
     enabled: isSpreadsheetEnabledForCurrentUser,
     icon: getIconConfig('spreadsheet').icon,
-    description: 'Create spreadsheet',
-    launcherHint: 'Tables, formulas, and shared calculations',
+    description: () => t('create.spreadsheetDescription'),
+    get launcherHint() {
+      return t('create.spreadsheetHint');
+    },
     keywords: ['new', 'make', 'add', 'sheet', 'table', 'formula'],
     blockName: 'spreadsheet',
     hotkeyToken: TOKENS.create.spreadsheet,
@@ -847,9 +935,12 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Folder',
+    id: 'Folder',
+    get label() {
+      return t('create.folderLabel');
+    },
     icon: getIconConfig('project').icon,
-    description: 'Create folder',
+    description: () => t('create.folderDescription'),
     keywords: ['new', 'make', 'add', 'project'],
     blockName: 'project',
     hotkeyToken: TOKENS.create.project,
@@ -861,9 +952,12 @@ export const CREATABLE_BLOCKS: CreatableBlock[] = [
     },
   },
   {
-    label: 'Code',
+    id: 'Code',
+    get label() {
+      return t('create.codeLabel');
+    },
     icon: getIconConfig('code').icon,
-    description: 'Create code file',
+    description: () => t('create.codeDescription'),
     keywords: ['new', 'make', 'add'],
     blockName: 'code',
     hotkeyToken: TOKENS.create.code,
@@ -1048,7 +1142,7 @@ export const LauncherShell = (
     () =>
       props.groupItems?.(filteredBlocks(), recentBlocks()) ?? [
         {
-          group: { id: 'other', label: 'Results', tagline: '' },
+          group: { id: 'other', label: t('create.results'), tagline: '' },
           items: filteredBlocks(),
         },
       ]
@@ -1123,7 +1217,10 @@ export const LauncherShell = (
         hotkeyToken: item.altHotkeyToken,
         hotkey: `shift+${item.hotkey}` as ValidHotkey,
         scopeId: launcherScope,
-        description: `${item.description} in new split`,
+        description: () =>
+          t('create.descriptionInNewSplit', {
+            description: creatableDescription(item),
+          }),
         condition: () => !searchMode() && availableBlocks().includes(item),
         registrationType: item.registrationType,
         runWithInputFocused: item.runWithInputFocused,
@@ -1137,7 +1234,7 @@ export const LauncherShell = (
   registerHotkey({
     hotkey: 'c',
     scopeId: launcherScope,
-    description: 'Close Launcher',
+    description: () => t('create.closeLauncher'),
     condition: () =>
       createMenuOpen() &&
       !availableBlocks().some((item) => item.hotkey === 'c'),
@@ -1153,7 +1250,7 @@ export const LauncherShell = (
       ? ['arrowleft', 'arrowup', 'ctrl+k', 'shift+tab']
       : ['arrowup', 'ctrl+k', 'shift+tab'],
     scopeId: launcherScope,
-    description: 'Navigate up',
+    description: () => t('create.navigateUp'),
     keyDownHandler: (event) => {
       if (
         event?.key === 'ArrowLeft' &&
@@ -1171,7 +1268,7 @@ export const LauncherShell = (
       ? ['arrowright', 'arrowdown', 'ctrl+j', 'tab']
       : ['arrowdown', 'ctrl+j', 'tab'],
     scopeId: launcherScope,
-    description: 'Navigate down',
+    description: () => t('create.navigateDown'),
     keyDownHandler: (event) => {
       if (
         event?.key === 'ArrowRight' &&
@@ -1187,7 +1284,7 @@ export const LauncherShell = (
   const searchModeHotkey = registerHotkey({
     hotkey: '/',
     scopeId: launcherScope,
-    description: 'Toggle search mode',
+    description: () => t('create.toggleSearchMode'),
     keyDownHandler: () => {
       setLauncherSearchMode(!searchMode());
       return true;
@@ -1199,7 +1296,7 @@ export const LauncherShell = (
   registerHotkey({
     hotkey: 'escape',
     scopeId: launcherScope,
-    description: 'Exit',
+    description: () => t('create.exit'),
     runWithInputFocused: true,
     keyDownHandler: () => {
       props.onClose();
@@ -1210,7 +1307,7 @@ export const LauncherShell = (
   registerHotkey({
     hotkey: 'shift+enter',
     scopeId: launcherScope,
-    description: 'Open in new split',
+    description: () => t('create.openInNewSplit'),
     keyDownHandler: () => {
       return runLauncherItem(blocks()[focusedIndex()]);
     },
@@ -1221,7 +1318,7 @@ export const LauncherShell = (
   const confirmHotkey = registerHotkey({
     hotkey: 'enter' as ValidHotkey,
     scopeId: launcherScope,
-    description: 'Open in current split',
+    description: () => t('create.openInCurrentSplit'),
     keyDownHandler: () => {
       return runLauncherItem(blocks()[focusedIndex()]);
     },
@@ -1283,7 +1380,9 @@ export const LauncherShell = (
             fallback={
               <div class="min-w-0 flex h-7 flex-1 items-center gap-2 text-ink-muted">
                 <PlusIcon class="size-4 shrink-0 text-ink-extra-muted" />
-                <h1 class="truncate text-base font-normal">Create New</h1>
+                <h1 class="truncate text-base font-normal">
+                  {t('create.createNew')}
+                </h1>
               </div>
             }
           >
@@ -1292,7 +1391,7 @@ export const LauncherShell = (
               <CommandMenuSearchInput
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search create options"
+                placeholder={t('create.searchCreateOptions')}
                 value={searchQuery()}
                 onInput={(event) => {
                   setSearchQuery(event.currentTarget.value);
@@ -1307,7 +1406,7 @@ export const LauncherShell = (
             size="xs"
             label={
               <span class="flex items-center gap-1 text-[11px] font-medium leading-none text-ink-extra-muted/70">
-                Search mode{' '}
+                {t('create.searchMode')}{' '}
                 <Hotkey
                   shortcut={searchModeHotkey.hotkey()}
                   theme="subtle"
@@ -1365,16 +1464,16 @@ export const LauncherShell = (
                 />
               </div>
             </div>
-            Navigate
+            {t('create.navigate')}
           </span>
           <span class="flex items-center gap-1">
             <div class="flex w-7 justify-center border border-ink/12 text-xxs rounded-md items-center px-1.5 py-px font-normal">
               <Hotkey shortcut={confirmHotkey.hotkey()} />
             </div>
-            Create
+            {t('create.create')}
           </span>
           <span class="hidden touch:hidden md:flex items-center gap-1">
-            Hold
+            {t('create.hold')}
             <span class="relative inline-flex place-items-center">
               <span
                 ref={shiftRippleRef}
@@ -1391,7 +1490,7 @@ export const LauncherShell = (
                 {getNormalizedKeyString({ shortcut: 'shift' })}
               </span>
             </span>
-            New split
+            {t('create.newSplit')}
           </span>
         </CommandMenuShell.Footer>
       </CommandMenuShell>
@@ -1452,7 +1551,7 @@ const DesktopLauncher = (props: LauncherProps) => {
       <Dialog.Portal>
         <Dialog.Overlay class="fixed inset-0 z-modal scrim-glass dialog-overlay-open-animation" />
         <Dialog.Content
-          aria-label="Create New"
+          aria-label={t('create.createNew')}
           class="fixed inset-x-0 top-0 bottom-(--virtual-keyboard-height,0) z-modal flex items-start justify-center px-2 pt-[10vh] outline-none [--color-surface:var(--color-dialog)]"
           onClick={(e) => {
             if (e.target === e.currentTarget) {

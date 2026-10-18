@@ -19,6 +19,9 @@ export default {
   teams: 'Teams',
   missed: 'Missed',
   unattended: 'Unattended',
+  calls: 'Calls',
+  missedCalls: 'Missed calls',
+  unattendedCalls: 'Unattended calls',
 
   // Sort options
   sort: 'Sort',
@@ -93,6 +96,7 @@ export default {
   searchCreators: 'Search creators...',
   searchCreatorsLabel: 'Search creators',
   noResults: 'No results',
+  searchCategory: 'Search {{category}}...',
 
   // Inbox selector
   allInboxes: 'All inboxes',

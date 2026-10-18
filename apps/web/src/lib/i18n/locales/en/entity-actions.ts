@@ -25,6 +25,12 @@ export default {
   duplicate: 'Duplicate',
   copyLink: 'Copy Link',
   copyBranchName: 'Copy Branch Name',
+  // Command-menu and tooltip wording (sentence case)
+  markDoneCommand: 'Mark done',
+  markReadCommand: 'Mark read',
+  markUnreadCommand: 'Mark unread',
+  copyLinkCommand: 'Copy link',
+  copyBranchNameCommand: 'Copy branch name',
   copyId: 'Copy ID',
   share: 'Share',
   senderToSignal: 'Sender → Signal',
@@ -105,7 +111,8 @@ export default {
   toastMarkedNotDonePartial:
     'Marked {{accepted}} of {{total}} items as not done',
   toastMarkNotDoneFailed: 'Failed to mark as not done',
-  toastThreadStaysDone: 'This thread has no received messages, so it stays done',
+  toastThreadStaysDone:
+    'This thread has no received messages, so it stays done',
   toastThreadsStayDone:
     'These threads have no received messages, so they stay done',
   toastCountNotRestored: '{{count}} could not be restored.',

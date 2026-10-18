@@ -1,5 +1,10 @@
 export type { TranslationKey } from './dictionary';
-export { interfaceLanguage, setInterfaceLanguage, t } from './i18n';
+export {
+  inEnglish,
+  interfaceLanguage,
+  setInterfaceLanguage,
+  t,
+} from './i18n';
 export {
   DEFAULT_LANGUAGE,
   isLanguage,

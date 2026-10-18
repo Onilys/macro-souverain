@@ -247,6 +247,19 @@ export default {
   skillExample3: 'Report format',
   skillShortTagline: 'Reusable agent instructions',
 
+  // Detailed and carousel launchers
+  createOptions: 'Create options',
+  noMatchingCreateOptions: 'No matching create options',
+  itemDetails: '{{label}} details',
+  shortcut: 'Shortcut',
+  shortcutThen: 'then',
+  inNewSplit: 'In new split',
+  createItem: 'Create {{label}}',
+  createItemInNewSplit: 'Create {{label}} in new split',
+  previousCreateOption: 'Previous create option',
+  nextCreateOption: 'Next create option',
+  browseCreateOptions: 'Browse create options {{start}}–{{end}}',
+
   // Mobile sheet
   createNewSheetTitle: 'Create new',
   closeCreateMenu: 'Close create menu',
