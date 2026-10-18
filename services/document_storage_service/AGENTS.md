@@ -73,3 +73,7 @@ Group wiring lives in `native_messaging/native/groups.rs`. It
 composes pending binding/native channel creation atomically, fails generic native group deletion closed and handles explicit human deletion through Meta policy, and publishes provider subject changes through
 channel events. `native/test/http/groups.rs` covers signed group receipts, explicit
 retry, dropped clients, ordered membership, native permissions and deletion fences.
+
+Accepted sends are finalized only by the durable native recovery worker; dispatch
+records acceptance and wakes it. `files.rs` shares private file preparation/upload
+plumbing while callers retain native permission checks and source reservations.

@@ -6,7 +6,7 @@
 - `bun run format`: format changes with biome 
 - `bun run knip`: to check for dead code
 - Email rendering is isolated in `packages/email-renderer` at the repository root. Run `just test-email-rendering` for its Node and Chromium suites. Add fixtures under `packages/email-renderer/tests/fixtures`, run `just test-email-rendering-update`, and review changed images. These are renderer tests, not inbox e2e.
-- `bun run test:functional` runs lightweight fixtures without a prebuilt app. Set `FUNCTIONAL_MESSAGING=1` to include bundled messaging scenarios after building `dist` with the environment in [the messaging test guide](../../docs/META_MESSAGING_TESTING.md#step-1-regression-and-live-evidence). PR CI keeps lightweight coverage and runs the bundled messaging scenario in its
+- `bun run test:functional` runs lightweight fixtures without a prebuilt app. Set `FUNCTIONAL_MESSAGING=1` to include bundled messaging scenarios after building `dist` with the environment in [the messaging test guide](../../docs/META_MESSAGING_TESTING.md#browser-journeys). PR CI keeps lightweight coverage and runs the bundled messaging scenario in its
 required path-gated job, with an isolated build. Screenshot paths belong to Playwright's per-test output directory.
 - The app does not register a service worker. Keep `public/sw.js` as a retirement
   endpoint for existing installations; see the [startup bundle rule](../../.agents/rules/web/startup-bundle.md).
@@ -216,4 +216,6 @@ to an internal composer; `useMetaConversation` selects only bound messaging data
 Group controls live in the messaging feature and the existing desktop/mobile
 Participants surfaces. Keep discard and remote-delete confirmations distinct, and
 fetch invite links only through the authorized action. The shared functional
-messaging scenario covers this journey using fixtures, not live Meta effects.
+messaging journeys cover these flows using fixtures, not live Meta effects.
+
+Native metadata loading/error state gates the composer and exposes a retry; unknown metadata never implies native. Participants/team controls read channel detail, independent of sidebar membership. Keep cached account rows mounted through refresh errors so transient PIN input survives only in memory.

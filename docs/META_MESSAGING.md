@@ -1,337 +1,187 @@
 # Native WhatsApp Business and Instagram messaging
 
-This release is scoped to two-way messaging in native Macro channels. This scope
-supersedes the original broader integration brief. Export import, CRM changes,
-new routines/proactive automation, and Support ticketing are deferred. Ordinary
-agent reads retain the channel's existing permissions; agent output and notes
-are internal unless a human deliberately submits an external reply.
-
-See [message content coverage](META_MESSAGE_CONTENT.md) for the bounded follow-up:
-Instagram share previews/links, story reply context, edit/unsend reconciliation,
-readable WhatsApp structured content and deliberate remaining limitations.
-
-For the first real phone-to-Macro test, follow [the practical testing walkthrough](META_MESSAGING_TESTING.md).
-
-Connecting receives **new activity only by default**. A new customer message or
-phone-app echo creates/reuses its native channel. The connector or a current team admin can explicitly
-choose **Import history** beside that account in Settings → Integrations →
-Accounts → Manage, review the provider limits, then confirm **Import available history**.
-There is no automatic backfill and no export-upload parser or conversation picker.
-
-The account-level import brings all provider-available one-to-one conversations
-into the same private native channels. Provider IDs deduplicate overlapping live
-and historical messages. Original times, manual channel names, permissions and
-private attachments are preserved. History does not open reply windows or send
-messages. A subsequent eligible live customer message can establish its normal
-reply window even if its historical copy arrived first.
-
-- **WhatsApp:** coexistence only; up to 180 days of messages, with media available
-  from the last 14 days. The business must consent in WhatsApp Business and the
-  import must start within Meta's 24-hour onboarding window. Keep the phone app
-  open. Test numbers cannot import Business-app history. Contacts synchronization
-  is requested first as required by Meta; it does not restructure Macro contacts.
-- **Instagram:** all API-visible conversations, up to the latest 20 messages in
-  each. Requests inactive for over 30 days and older message content are not
-  available. This is not a complete account archive.
-
-Imports use an explicit generation-bound consent record and leased checkpoints.
-Receipts queued before consent cannot start an import.
-Instagram reads resume after worker restart and transient failures; failed imports
-can be resumed from Settings. WhatsApp's one-time POSTs are fenced before dispatch:
-unknown acceptance is never blindly replayed, and signed late results can recover.
-Unprovided/expired media has an honest notice in the original message. Reconnecting
-invalidates old import consent while retaining all already imported content.
-History workers and receipts recheck current membership of both the connector and consenting user before effects. Admin demotion alone keeps existing consent valid; leaving the team revokes it.
-
-Provider limits verified against Meta's [WhatsApp coexistence guide](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users),
-[history webhook reference](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/history), and
-[Instagram Conversations API](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/conversations-api).
-
-## Code boundaries
-
-`meta_messaging::domain::service` owns native conversation access, explicit human
-send authority, durable intents, dispatch fencing and accepted-message recovery.
-Its ports use account identity, team, health and authorization generation; they
-carry no Meta configuration or credentials. `domain::meta` owns account lifecycle,
-subscriptions, credentials and explicit history. Meta reply policy and transport
-implement the shared ports, including preparation before the final access/policy
-recheck. Provider acceptance is recorded before native materialization; recovery
-never resends an accepted or uncertain intent.
-
-The composer receives implemented capabilities and current server eligibility
-through a feature-owned reply source. Native Channel consumes one interaction
-state: internal, external, pending group, loading or error. Provider content is normalized into
-plain text and validated supplied links before native rendering; private files,
-source-scoped revisions retain their existing owning-domain paths.
-Queued requests retain intent hashes and IDs. Explicit import jobs, last-customer
-activity and revision fences are the source of truth for history, reply windows
-and native recovery. API errors return a stable `code` and a sanitized `message`;
-clients select recovery copy by code.
+Receive and deliberately reply to customers through private native Macro channels.
+This supports official WhatsApp Cloud API Platform/coexistence accounts and Instagram
+Business/Creator accounts. Personal inbox connection, Instagram groups, existing-group
+adoption, CRM changes, export uploads and proactive automation are outside scope.
+See [content coverage](META_MESSAGE_CONTENT.md) and [verification](META_MESSAGING_TESTING.md).
 
 ## Account and team model
 
-A connected WhatsApp number or Instagram professional account belongs to one Macro
-team. A team can connect several accounts. Each customer/account pair maps to one
-private native channel; only the connecting member initially has access.
-Viewing and attachments use ordinary channel permissions. Sending additionally
-requires membership in the connected account's team and current channel posting
-permission. Authorized teammates all send as the same external business account;
-Macro retains the human send initiator for audit. Adding Macro teammates does not
-create an external group chat.
+Each account belongs to one team; each account/customer pair maps to one private
+channel, initially accessible only to the connector. Native permissions govern
+channel/file reads. External replies additionally require an explicit human session,
+current account-team membership, channel posting permission and provider eligibility.
+Teammates send as the business; external authors remain visibly marked **External**.
+API keys, bots and harnesses cannot submit external replies. Agent output stays internal.
 
-This is a messaging integration, not a new team ownership system. Channel owners
-share conversations using the existing member controls. Account reconnection does
-not transfer ownership or grant access to old conversations. Leaving a team stops
-external sending through that account, but native channel/file access follows the
-existing explicit grants; it is not automatically revoked by this integration.
-Connector departure blocks new inbound effects and dispatch immediately, even before maintenance. Already-accepted native recovery completes without another provider send. A current admin may reauthorize the account; this does not grant existing channel/file access. Automatic account
-rosters, team-wide discoverability, administrator takeover, ownership conversion
-and shared team-deletion changes are outside this release.
+Any current member can connect and list account details. The current connecting
+member or a team admin can reconnect, disconnect or import history; authority is
+rechecked at completion. A fresh connection cannot take over an existing account.
+Reconnect does not transfer channel/file ownership or grant access. Leaving the
+team blocks new inbound effects and external dispatch, but does not revoke separate
+native read grants. Accepted replies still finish native recovery. Automatic account
+rosters, administrator takeover and ownership conversion are not implemented.
 
-Any current team member may connect through provider login and list connected-account details. Only a current connector/member or current team admin may reconnect, disconnect or initiate history import. Domain checks apply again at completion; a fresh connect cannot take over an already-bound account.
+## Code boundaries
 
-The connected account must be a supported WhatsApp Cloud API Platform or Business-app coexistence number, or an Instagram Business/Creator account. Customers can use ordinary personal accounts.
-Consumer inbox connection is outside these official APIs. Instagram group messaging
-is unsupported; Meta's separate WhatsApp Groups API requires Official Business
-Account eligibility and excludes Business-app coexistence numbers. This integration
-supports only groups created through Macro on eligible Platform accounts. Existing
-group adoption, coexistence groups and Instagram groups remain unsupported.
+`meta_messaging::domain::service` owns conversation access, human send authority,
+durable intents, dispatch fencing and accepted-message recovery. Its ports carry
+account identity, team, health and generation without Meta credentials.
+`domain::meta` owns account lifecycle, subscriptions, history and group controls.
+Provider/database adapters implement ports; DSS composes native channel, message
+and private-file effects through their owning domains. Stable sanitized error codes
+select recovery guidance; provider diagnostics and credentials are never returned.
+
+The frontend reply source translates generated transport types into feature-owned
+capabilities. One channel interaction state gates internal, external, group setup,
+loading and error UI. `messaging_binding` is committed with native binding/setup and
+exposed by detail, list and GraphQL reads. Unknown metadata cannot enable sending;
+errors offer a retry of the native metadata request. Confirmed ordinary channels make
+zero `/meta/*` requests. Settings and group controls use authoritative channel detail,
+independently of sidebar membership. Cached account rows survive refresh errors;
+registration PINs remain only in the mounted password field.
 
 ## WhatsApp groups
 
-For customers: create a new group in Macro, share its invite link, and reply from
-the resulting private channel while participants use WhatsApp normally. Existing
-personal groups cannot be imported or attached. Meta currently limits groups to
-eight participants and one Cloud API business; an Official Business Account on
-an eligible Platform number is required. A regular Business-app connection does
-not qualify. Adding a Macro teammate grants native access only, not a WhatsApp
-participant slot.
+Only new groups created through Macro on eligible Official Business Account Platform
+numbers are supported. The current connector must still belong to the account team;
+team-admin status alone does not grant creation or private-channel access. Business-app
+coexistence and Instagram groups are unsupported. Adding Macro teammates changes native
+access only. Participants join WhatsApp through an invite link.
 
-Any participant's message refreshes the group's 24-hour service window; joining
-alone does not. Outside that window, use a supported approved template. Supported
-content is text, media and supported approved text templates, without calls,
-disappearing/view-once messages or message edits/deletes. Macro additionally defers
-reactions, quoted replies, pin/read actions and aggregate read receipts.
-
-Do not describe group messaging as free. Meta bills applicable sends per delivered
-recipient. Since October 1, 2026, group utility templates are charged even inside
-the service window; non-template messages are free only within the business
-number's shared 1,000-delivery free tier. See the official
+Meta limits groups to eight participants and one Cloud API business. A participant’s
+message refreshes the 24-hour service window; joining does not. Text, supported media
+and approved text templates are supported. Calls, disappearing/view-once content,
+edits/deletes, reactions, quoted-reply UI, pin/read actions and aggregate read receipts
+are unavailable. Applicable sends are billed per delivered recipient. Since October 1,
+2026, group utility templates are charged inside the service window; non-template
+messages are free only within the number’s shared 1,000-delivery tier. See Meta’s
 [limits](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups)
 and [pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/pricing).
-The implementation has automated coverage; live group qualification still requires
-an eligible account and the production configuration below.
 
-One group is one private native channel. The current connector (`connection.user_id`),
-still a member of the account team, may create through **Create channel → Create a
-WhatsApp group**. Team-admin status does not grant this authority or private-channel
-access. Connection authorization/readiness establishes messaging/management permissions
-and per-account WABA subscription. Creation checks OBA and the eligible Platform
-phone mode, and keeps the bounded active-groups capability probe because it excludes
-Multi-solution Conversations. Returned group IDs are never adopted. DSS verifies
-app-level `messages`, `group_lifecycle_update`, `group_participants_update`,
-`group_settings_update` and `group_status_update` subscriptions once at startup.
-A missing field or failed check disables group creation until configuration is
-corrected and DSS is restarted; direct messaging remains available. Business-app
-and Instagram groups remain unsupported.
+Create/retry preflight checks OBA/Platform mode, the bounded Groups capability probe,
+and app subscriptions for `messages`, `group_lifecycle_update`,
+`group_participants_update`, `group_settings_update` and `group_status_update`.
+Missing subscriptions and transient provider errors fail closed for that request.
+The next deliberate attempt checks again; startup and recovery require no readiness
+request or restart. Returned remote group IDs are never adopted.
 
-The transaction reserves the native channel and one pending binding keyed by its
-ID before calling Meta with `join_approval_mode: auto_approve`. The only binding
-correlation is the returned `request_id` for the current attempt and connection
-generation. Tracked server work survives a client disconnect. No automatic create
-retry occurs. Definite failures and uncertain results allow a deliberate retry;
-unknown results warn that an earlier attempt may have left an unused remote group.
-An unbound failed/unknown setup can be discarded locally, with no remote-deletion
-claim. Its explicit discard route rejects a channel that has since bound.
+Creation reserves the native channel and one setup row before a single Meta POST
+with `join_approval_mode: auto_approve`. Only the current request ID, authenticated
+signed callback and connection generation can bind it. Tracked work survives client
+disconnects. Definite failure or uncertainty permits deliberate retry; unknown outcomes
+warn that the earlier attempt may have left an unused group. There is no automatic
+remote create retry. After binding removes setup, the original subject and generation
+remain with the conversation: authorized create/retry replays return `bound` without
+another provider create. Changed account, subject, generation or native authority
+cannot reuse that result. Bindings lacking creation evidence are never adopted.
 
-| Control | Server authorization |
+| Control | Required server authority |
 | --- | --- |
 | View participants | Native channel view |
-| Copy invite link / external reply | Explicit human session, account-team membership and native `MessageWrite` |
-| Remove WhatsApp participant | Explicit human session, account-team membership and native `AdminParticipantRole` |
-| Delete group | Explicit human session, account-team membership and native channel ownership |
+| Copy link / reply | Human session, account-team membership, native `MessageWrite` |
+| Remove participant | Human session, account-team membership, native `AdminParticipantRole` |
+| Delete group | Human session, account-team membership, native ownership |
 
-Copying the link does not require an open reply window. Links are excluded from
-conversation/search metadata and shared/persistent caches. The mounted controls prefetch
-only when link access is authorized, keep the URL in component memory, and clear it
-on channel/user/access changes. Copy calls the native clipboard primitive from the
-user gesture. Mobile gives WhatsApp its own Participants tab with one scroller.
-Native Participants/Bots presentation distinguishes **Macro teammates** and
-**WhatsApp participants**, including mobile. Removing a participant warns that they
-cannot rejoin through the invite link; only confirmed provider facts change the
-list. Adding Macro teammates never adds WhatsApp phones. External sends still
-require an explicit human reply; ordinary permissioned internal bot behavior stays
-internal. Native human posts, unsupported edits/deletes/reactions/threads, local
-rename, team conversion and calls are blocked server-side for pending/bound groups.
-The native `messaging_binding` enum (`native`, `whatsapp_direct`, `instagram_direct`,
-`whatsapp_group`) is committed atomically with native creation/binding and exposed
-in channel detail, lists and GraphQL hydration/events. An unloaded field waits for
-native metadata. Ordinary channels do not probe `/meta/*`, including Participants
-and Rename. Only the group value restricts local rename. Server policy reads
-storage independently of client metadata. Generic native/entity/API-key deletion
-fails closed for groups; the explicit human `/meta/channels/{id}/group` DELETE
-route owns remote deletion and holds its lifecycle guard through native teardown.
+Invite URLs never enter conversation/search metadata or persistent/shared caches.
+Authorized mounted controls prefetch them into component memory and clear them on
+channel/user/access changes; the copy gesture uses the native clipboard and transient
+success feedback. Link access does not require an open reply window. Participant
+removal warns that rejoining through the link is unavailable; only signed confirmation
+changes membership. Desktop/mobile Participants distinguish Macro and WhatsApp members.
 
-`meta_messaging_conversation` routes by connection + `kind` + peer ID. Group IDs
-never enter person aliases. A separate participant table preserves native author
-IDs across departure/rejoining and BSUID changes without creating direct chats or
-advancing their windows. Membership/subject/suspension timestamps reject stale
-facts. Participant messages refresh the group customer-service window; joins do
-not. Existing text/media and supported approved marketing/utility template inputs
-are reused, with `recipient_type: "group"` and `to: group_id`. Authentication and
-unsupported template components remain blocked. Error 131020 asks the user to
-share the invite link. No free-messaging or receipt aggregation claim is made.
+Pending/bound groups reject native human posts, unsupported mutations, local rename,
+team conversion and calls server-side. Generic native/entity/API-key deletion fails
+closed. Explicit owner deletion retains the lifecycle guard through native teardown;
+only Meta `success: true` or a confirmed signed deletion authorizes that teardown.
+HTTP 200 alone, 404, permission errors and 131041 do not. Failed deletion keeps the
+channel for retry; remote deletion leaves it read-only until the owner removes it.
+Discard deletes only a failed/unknown unbound setup and rechecks atomically against binding.
+Navigation removes deleted channels from open panes and history.
 
-Owner deletion explicitly warns that it deletes the WhatsApp group for everyone.
-Meta is called first; only `success: true`, or an already confirmed signed remote
-deletion, permits native deletion. HTTP 200 alone, generic 404, permission failures
-and 131041 (missing **or** not a member) do not. Rejection/timeout keeps the channel
-for deliberate retry against the same ID. Signed remote deletion leaves a retained
-read-only channel until its owner finishes local deletion. Suspension blocks new
-external dispatch until a newer authoritative clearance; deletion never clears.
-The existing durable send fence and accepted-native recovery remain in use.
+Group routing uses connection + conversation kind + peer ID. Group IDs never become
+person aliases. Participant identities survive departure/rejoining and BSUID changes
+without creating direct chats or changing their windows. Source timestamps fence stale
+membership, subject and suspension events; deletion never clears. Group sending uses
+`recipient_type: "group"` with the group ID; unsupported template components stay blocked.
+Error 131020 asks the user to share the link. Removal uses BSUID `user_id` and confirmation
+`removed_participants[].input` per the [group contract](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/reference).
 
-All four group metadata fields reuse signed receipts. Partial valid siblings still
-process; only group-level sent/failed facts enter reconciliation. Participant
-read/delivered facts are dropped before aggregation or identity observation. Early
-facts use bounded receipt retry and retain a terminal `group_binding_pending`
-diagnostic on exhaustion. Unknown requests/groups with no current dependency are
-ignored and logged. A setup older than two minutes is no longer a dependency for
-unrelated facts; its matching saved request ID can still bind. Callbacks use short
-connection/setup row-locked transactions, never the scarce subscription guard.
-Discard rechecks unbound failed/stale setup in the same transaction as native deletion.
-No row lock spans provider I/O. There is no replay-on-bind, reconciliation worker, operation
-history, automatic invitation or post-deletion tombstone.
+Signed group receipts process valid siblings independently. Only group-level sent/failed
+facts reconcile sends; participant read/delivery facts do not aggregate or observe identity.
+Early callbacks retry within bounds, terminating with `group_binding_pending` if exhausted.
+Unknown request/group IDs are ignored. After two minutes a setup stops blocking unrelated
+facts, but its saved matching request ID can still bind. Callback transactions lock
+connection/setup rows briefly; no row lock spans provider I/O. There is no orphan adoption,
+replay-on-bind worker, operation history, automatic invitation or deletion tombstone.
 
-Contract sources rechecked directly on 2026-10-17:
-[Groups](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups),
-[creation](https://developers.facebook.com/documentation/business-messaging/whatsapp/reference/whatsapp-business-phone-number/groups-management-api),
-[deletion](https://developers.facebook.com/documentation/business-messaging/whatsapp/reference/groups/groups-query-api),
-[management](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/reference),
-[webhooks](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/webhooks),
-[BSUIDs](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids),
-[pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/pricing).
-The BSUID contract uses `user_id` for removal and `removed_participants[].input`
-for business-initiated confirmation. Group metadata is persisted by messaging;
-DSS composes native channel effects, which use the channels mutation/event path.
+## History import
+
+Connections receive new activity by default. The connector or a current team admin
+explicitly starts **Import history → Import available history** in Settings. Import
+covers all provider-available one-to-one conversations, without a picker or export parser:
+
+- WhatsApp coexistence: up to 180 days of messages and 14 days of media, with phone consent,
+  the app kept open and initiation within the 24-hour onboarding window. Contact sync
+  precedes history but creates no CRM records. Test/Platform numbers cannot import it.
+- Instagram: API-visible conversations and the latest 20 messages each; Requests inactive
+  over 30 days and older content are unavailable. This is not a full account archive.
+
+Generation-bound consent, provider IDs and leased checkpoints preserve channels, original
+authors/times, manual names, permissions and private files across overlap and restart.
+History does not send or open reply windows; a later eligible live message can. Receipts
+queued before consent cannot initiate import. Both connector and consenting-user membership
+are rechecked before effects; admin demotion alone does not revoke existing consent.
+Reconnect invalidates consent but retains imported content. Instagram reads can resume;
+WhatsApp one-shot POSTs are fenced and unknown acceptance is never blindly repeated.
+Signed late results can recover, and missing media has an explicit notice.
 
 ## WhatsApp identity and Platform registration
 
-WhatsApp identity uses one connection-scoped alias table from current/previous
-BSUIDs to customer IDs. Phones are optional conversation attributes with one
-latest-observation timestamp. Legacy phone-keyed conversations upgrade when a
-verified BSUID/phone pair arrives; their phone alias is then removed. A recycled
-phone clears the other conversation's phone attribute without merging histories.
-Phone-only facts use legacy conversations; ambiguous facts are logged and dropped
-with the terminal identity-conflict code, without historical phone arbitration.
+One connection-scoped alias table tracks current/previous BSUIDs; phone and its observation
+time live on the conversation. A verified BSUID/phone pair upgrades a legacy conversation
+and removes its phone alias. Recycled numbers clear stale phone attributes without merging
+histories. Ambiguous phone-only facts terminate with an identity-conflict diagnostic.
+BSUID updates retain aliases, rekey only into unused destinations and otherwise preserve
+both histories while blocking stale new sends. Provider message IDs retain revision scope.
 
-A system ID update retains old BSUID aliases and rekeys a conversation only when
-the destination has none. Otherwise both histories remain and the alias is logged;
-new sends from the old conversation fail terminally. Existing provider message IDs
-preserve replay/revision attribution, and accepted replies can still finish native
-recovery. The connection lock serializes identity changes and the send fence.
+Live/echo/history/status payloads use `from_user_id`, `to_user_id`, `context.user_id` and
+`recipient_user_id`. `user_changed_number` / `user_changed_user_id` arrive on `messages`;
+there is no separate identity subscription. Production sends prefer BSUID `recipient`;
+legacy phones use `to`. Only an explicitly configured developer sender may prefer a current
+allowlisted phone. No inferred phone or fallback after a send is permitted. Dispatch
+rechecks identity and phone after preparation; 131062 reports account availability.
 
-The September 15, 2026 [Meta contract](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids)
-uses `from_user_id` for live messages, `to_user_id` for echoes, `context.user_id`
-for history threads, and `recipient_user_id` for statuses. BSUID changes are system
-messages on the existing `messages` subscription (`user_changed_number` or
-`user_changed_user_id`, with `previous_user_id` and `user_id`). There is no separate
-subscribable `user_id_update` field. Legacy phone-only payloads remain supported.
-Sending prefers `recipient` for a BSUID and uses `to` for phone-only customers; Meta
-error 131062 explains account availability rather than inventing a phone. Both
-routes use the local developer allowlist. A developer test account prefers the
-current observed phone when that exact phone is allowlisted for its configured
-test sender; it emits only `to`. This supports Meta's verified test recipients
-without authorizing a different BSUID, inferring an old phone, changing the
-conversation identity, or falling back after a provider send. Production keeps
-BSUID preference. Dispatch still rechecks both identity and phone after preparation.
-
-Platform signup verifies the selected WABA/phone, token scopes and
-`is_on_biz_app=false` server-side, and excludes On-Premises migration. Credentials are encrypted before registration.
-When the server confirms registration is required, Settings requests the six-digit
-PIN in an ephemeral password field; it is
-excluded from drafts, mutation caches, logs, URLs and durable work. The registration
-endpoint checks current manager/connector membership and Meta status before an
-attempt. Uncertain attempts require a fresh provider check before an explicit retry;
-they are never automatically repeated. Known PIN failures permit correction; a
-133016 response imposes a fresh 72-hour cooldown. Maintenance and sends use the
-same registration/readiness policy, so subscription success alone cannot activate
-an unregistered account. Platform numbers do not offer coexistence history.
-
-Registration's deadline is distinct from the 30-second code exchange: retain Meta's
-dated 14-day registration guidance and its ten-attempts-per-72-hours limit. Current
-[registration documentation](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-phone-numbers/registration)
-and account eligibility remain the authority. No new number is registered by local
-setup or workers; registration requires an explicit user PIN submission.
-
-Only `CONNECTED` with `CLOUD_API` is verified as ready in the current provider
-adapter. Other phone states are unavailable for registration until an authoritative
-unregistered-state contract is established; `PENDING` or an unknown platform value
-is not treated as permission to register. Verified account credentials are retained
-for reconciliation. The domain supports explicit retry after a positive
-unregistered result, but current live evidence covers the registered test number
-only. Platform signup rejects Business-app and On-Premises migration accounts.
-
-## Development isolation
-
-Use a named local stack and a fresh isolated database. Preserve other tasks'
-services, shared data and Meta account configuration.
-See [running locally](development/running-locally.md) for stack setup and port allocation.
+Platform signup verifies WABA/phone, token scopes and non-Business-app Cloud API mode.
+Encrypted credentials survive recoverable registration failures. Only a confirmed
+unregistered state enables explicit PIN registration; `PENDING` and unknown modes do not.
+Only `CONNECTED` + `CLOUD_API` establishes readiness. PINs never enter drafts, mutation
+caches, logs, URLs or durable work. Uncertain registration needs a provider status check
+before retry; known PIN rejection permits correction, while 133016 imposes a fresh 72-hour
+cooldown. Follow Meta’s [registration limits](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-phone-numbers/registration)
+(14-day deadline, ten attempts per 72 hours). No worker or local setup registers a number.
 
 ## Meta setup dependencies
 
-Use Meta directly with Graph API **v26.0**, the version examined for this release.
-One Meta business app can host the WhatsApp and Instagram use cases, but
-Instagram Login has its own Instagram app ID/secret. Configure the correct
-credentials and callback signature secret for each product; they are not
-interchangeable.
+Use Graph API **v26.0**. WhatsApp and Instagram can share a Meta business app, but Instagram
+Login uses its own app ID/secret. WhatsApp production requires business verification,
+Tech Provider onboarding and Advanced Access to `whatsapp_business_management` and
+`whatsapp_business_messaging`. Configure Embedded Signup **v4**, exact HTTPS origins and
+redirect allowlists. Coexistence uses `featureType: whatsapp_business_app_onboarding`;
+Platform uses its separate standard v4 configuration. Exchange the code immediately
+(30-second provider TTL, independent of local transaction expiry). Never register a
+coexistence number; onboarding may unlink companion devices and excludes group history.
 
-For WhatsApp production onboarding, complete business verification and Tech
-Provider onboarding. Obtain Advanced Access to `whatsapp_business_management`
-and `whatsapp_business_messaging`. Configure Facebook Login for Business
-Embedded Signup **v4** with coexistence enabled and the exact HTTPS origin and
-redirect URI allowlisted. Meta documents retirement of v2/v3 on October 15, 2026.
-Keep `featureType: whatsapp_business_app_onboarding` in coexistence SDK launch extras. Platform signup uses the standard v4 launch without that feature type. Configure `META_WHATSAPP_PLATFORM_CONFIGURATION_ID` with a v4 Platform configuration; the coexistence configuration remains `META_WHATSAPP_CONFIGURATION_ID`. Exchange the returned authorization code immediately: Meta documents a 30-second TTL. The local OAuth transaction lifetime is separate.
-Coexistence numbers are already registered: do not call the registration API.
-
-For development, use Meta's WhatsApp API Setup test phone, its messaging-account
-ID, phone-number ID, and a server-side token. Add and verify intended test
-recipients in Meta's dashboard. The development connection must be explicitly
-enabled and account/recipient allowlisted in local configuration. A test-number
-connection never proves coexistence, phone-app echoes, or onboarding history.
-
-For Instagram, use a Business or Creator account and Instagram Login with
-`instagram_business_basic` and `instagram_business_manage_messages`. Add test
-roles/account access for development; request Advanced Access for accounts not
-owned/managed by the app business. Instagram Login does not require a linked
-Facebook Page. Register the exact HTTPS redirect URI and messaging subscriptions.
-HUMAN_AGENT requires the applicable approval and must not be used by automated
-sends. Request that approval separately if the extended support window is needed.
-
-Provide a public HTTPS webhook endpoint for each product, configure its
-verification token, and test signed notifications. Do not expose the entire
-passwordless local stack publicly. Provide local secret-file paths rather than
-pasting secrets into chat or committing them. Real test sends require authorized
-test recipients; no shared deployment or customer messaging is implied.
-
-## Provider references
-
-Recheck Meta’s documentation before changing versions or supported sending rules.
-
-- [WhatsApp coexistence](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users/)
-- [Tech Provider onboarding](https://developers.facebook.com/documentation/business-messaging/whatsapp/solution-providers/get-started-for-tech-providers/)
-- [Embedded Signup implementation](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation/)
-- [Instagram Login](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login)
-- [Instagram messaging](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/messaging-api)
-- [Instagram webhooks](https://developers.facebook.com/documentation/instagram-platform/webhooks)
-
-Coexistence changes some phone-app features and unlinks companion devices during
-onboarding; eligible devices can be linked again. Group history is not included.
-Phone-app echoes and historical messages do not open Cloud API reply windows.
-Cloud API pricing applies independently of messages sent in the phone app.
-Instagram normally permits a 24-hour reply window, with separately documented
-ad-entry and human-support exceptions. Local policy must not assume every
-conversation qualifies for an extension.
+Instagram requires Business/Creator accounts, Instagram Login, `instagram_business_basic`
+and `instagram_business_manage_messages`, exact redirect and messaging subscriptions.
+A Facebook Page is unnecessary. Development needs tester roles; other businesses require
+Advanced Access. HUMAN_AGENT requires separate approval and explicit human support, never
+automation. Ordinary Instagram replies use 24 hours; ad-entry/support extensions require
+server-confirmed eligibility. Test numbers do not qualify coexistence, history or groups.
+Recheck [Meta onboarding](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation/)
+and [Instagram messaging](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/messaging-api)
+before changing versions or policy.
 
 ## Server configuration
 
@@ -385,9 +235,10 @@ If another number still uses the same WABA, including on another Macro team, the
 shared subscription stays active and Settings reports a successful local disconnect.
 The last disconnected number can remove the subscription. Connect and subscription
 maintenance coordinate through the same PostgreSQL advisory lock; contended
-maintenance is deferred, and OAuth persistence waits without occupying the DB pool.
-The guard is released on cancellation. A small per-repository limit keeps DB
-connections available for the guarded operations' ordinary queries.
+maintenance is deferred. Requests first queue for bounded local capacity before
+acquiring a pool connection; OAuth persistence then waits on the database lock.
+The capacity limit reserves pool headroom for the lock owner’s ordinary queries.
+Capacity pressure is not an account conflict. Cancellation releases both resources.
 
 Account health retains stable, sanitized reasons for expired/revoked authorization,
 blocked Meta API access, connector departure, transient failures, setup
@@ -398,215 +249,83 @@ OAuth. Raw provider diagnostics, tokens and message contents are not exposed.
 
 ## Supported sending and recovery
 
-Ordinary channel posts, thread replies, and agent output do not reach providers.
-Customer channels expose a single external reply composer; the internal-note
-composer and local-only message mutation controls are absent there. Progress,
-failures and uncertain delivery appear beside their message. Successful sends
-have no visible delivered/read markers; provider state is retained for recovery. A bounded channel-authorized history lookup keeps
-older visible replies covered beyond the recent 100-send feed. Recovery actions
-restore a draft without sending or overwriting another draft. The
-server rechecks team membership, native channel write permission, account state,
-quoted-message scope and the reply window after preparation, immediately before
-dispatch. User API keys, bots and harness credentials cannot submit external
-replies. Existing permissioned channel reads continue through Macro's ordinary
-message APIs.
+Customer channels have one external composer with progress/failure/uncertainty feedback.
+Successful replies have no delivery/read badge; server state remains available. Bounded,
+channel-authorized history lookup covers older visible replies. Recovery restores a draft
+without sending or replacing a newer draft. Drafts use existing local persistence scoped
+to user/channel, including files, templates and intent key. PINs and invite links are excluded.
 
-WhatsApp supports text (4096 characters), JPEG/PNG (5 MiB), supported AAC/MP4/MP3/OGG
-audio (16 MiB), MP4 video (16 MiB), PDF and plain text files (32 MiB). Non-audio
-captions allow 1024 characters. Instagram supports text (1000 UTF-8 bytes),
-JPEG/PNG (8 MiB), AAC/MP4/WAV audio, MP4/MOV/WebM video and PDF (25 MiB).
-Instagram attachments are sent separately from text. Provider codec and account
-restrictions still apply. Unsupported incoming types produce a visible notice;
-unsupported or oversized outgoing files are rejected before dispatch.
+Server dispatch rechecks team/channel authority, generation, provider state, quote scope,
+content/size limits and reply eligibility after preparation. Approved template content is
+resolved and saved before the provider call. Unsupported template inputs are disabled;
+templates appear only outside the free-form window and preserve the text draft.
+The outbound format limits are:
 
-Approved WhatsApp templates support positional and named text parameters in
-headers/bodies, plus static supported buttons and footers. Templates needing
-media headers, dynamic buttons or other interactive inputs are visibly disabled.
-Approval is checked again at dispatch and resolved text is retained before the
-provider call, so restart recovery can display what was sent. The composer offers
-templates only when the free-form window is closed, as an explicit choice that keeps
-any typed text as a draft; template drafts and failed template sends restore intact.
+| Provider | Supported payloads |
+| --- | --- |
+| WhatsApp | Text: 4096 characters. JPEG/PNG: 5 MiB. AAC/MP4/MP3/OGG audio and MP4 video: 16 MiB. PDF/plain text: 32 MiB. Non-audio captions: 1024 characters. |
+| Instagram | Text: 1000 UTF-8 bytes. JPEG/PNG: 8 MiB. AAC/MP4/WAV audio, MP4/MOV/WebM video and PDF: 25 MiB. Attachments send separately from text. |
 
-Provider acceptance is persisted before native message creation. Recovery creates
-only the missing native message/attachment/effects and never repeats that provider
-send. Rate limits, and temporary failures before the dispatch fence, retry a bounded
-number of times. After dispatch starts, a timeout, interrupted attempt or
-unrecorded acceptance becomes **Unknown**, because it may have been accepted.
-Definitive provider rejections can still fail or safely return to Pending. Restoring an unknown reply requires a person to check the
-original app and explicitly confirm sending again. Reconnect retains account/channel
-mappings and retries failed inbound work for that account, including customer
-messages and revisions received while its authorization needed renewal; it never
-resets outbound sends. An explicit disconnect stops receiving.
-Lease and publication-revision mismatches are errors, not successful settlement.
+Provider codecs/account restrictions still apply; unsupported incoming types show a
+notice and oversized/unsupported outgoing files fail before dispatch. See
+[content coverage](META_MESSAGE_CONTENT.md) for structured content and revision limits.
 
-Webhook events within one decoded batch are independent: an unavailable account or
-failed attachment does not prevent the remaining messages from being processed.
-The receipt still retains its failure/retry outcome. A queued provider revocation
-cannot disconnect a newer authorization generation. Dispatch preparation atomically
-checks the connected account generation; an attempt already dispatched can still
-record provider acceptance after disconnect so recovery never sends it twice.
-Failed native materialization and publication retain a durable 30-second retry time.
-They yield to later records, including beyond the worker's bounded page, without
-making an accepted reply sendable again. New attachment revisions can publish
-immediately and are protected from an older worker's retry update.
+Durable acceptance queues native finalization; only recovery materializes accepted replies.
+It never resends accepted or uncertain work. Pre-fence transient failures and definitive
+rate limits retry within bounds. Interrupted dispatch/unrecorded acceptance becomes Unknown,
+requiring a human to check the provider before explicitly submitting a new intent.
+Unattempted intents expire ten minutes after enqueue, using database time after the account
+lock. Retry retains that deadline; accepted/uncertain work never expires into resendable work.
 
-Files are private Macro documents. Source reservations retain the same document
-ID and content hash after a crash. Channel sharing uses Macro's existing access
-services. A ready file is never overwritten during recovery, and loss of access
-after provider acceptance produces an explicit unavailable-attachment notice.
+Conversation FIFO `(created_at,id)` spans replicas. Pending retries and locked predecessors
+block later sends only in that conversation. Acceptance, definite failure, expiry or settled
+uncertainty releases it. Crashed dispatch becomes Unknown after its five-minute lease.
+Receipt/send drivers each drain four local slots; independent accounts in a receipt progress
+with bounded concurrency. Notify follows committed work and a five-second sweep covers other
+replicas, retries, restart and lost wakes. Recovery drains bounded batches; failed native
+materialization/publication defers 30 seconds without starving later work. DSS tracks and
+drains tasks on cancellation. No provider/media I/O occurs in claim/fence transactions.
 
-### Dispatch, receipt and media policies
+Independent webhook items preserve healthy siblings. Permanent decode errors are counted;
+account-state failures retry within retention. Revocations cannot affect a newer generation;
+already-dispatched sends can record acceptance after disconnect. Reconnect retries inbound
+work without resetting outbound intents. Lease/publication revision mismatches fail explicitly;
+new attachment revisions are protected from older retry updates.
 
-An intent that has not crossed the dispatch fence expires ten minutes after its
-original durable enqueue time. The fence uses database time after acquiring the
-account lock. The UI shows **Not sent**, and **Edit and retry** restores the draft
-with a new intent key. A dispatch marker is authorization to attempt a request,
-not evidence of provider receipt: a crash after that marker remains Unknown.
-A claim that crashed before its dispatch marker can retry.
-Definitive rate-limit retries keep the original deadline. Expiry never applies
-to accepted or uncertain work.
+Successful raw receipts clear after seven days. Failed/incomplete/partially decoded payloads
+retain the original thirty-day deadline; late success still receives its seven-day window.
+Cleanup skips leases, bounds each write to 500 rows and removes metadata at the original thirty-day threshold once
+the payload is cleared. OAuth digests expire too. Native message/revision/acceptance records are
+independent. Operational diagnostics contain IDs, states and counts, never content/tokens.
 
-Replies dispatch in `(created_at, id)` order within a bound conversation across
-replicas. Pending retries block later replies in that conversation. Acceptance,
-definitive failure, expiry, or a settled uncertain outcome releases it; no
-optional delivered/read event is required. A crashed uncertain attempt settles
-when its five-minute lease expires. Receipt and send drivers each drain four
-local slots. A busy account may occupy all worker slots. The FIFO predicate still excludes a locked pending/sending predecessor across replicas. Different accounts within a receipt progress with bounded concurrency. Worker tasks use DSS’s tracker and cancellation token, stop claiming on shutdown and drain active work.
-No provider/media request is made inside a claim/fence transaction. Local `Notify`
-wakeups follow committed receipts, sends, history requests and acceptance. Workers
-drain at startup and after wakes; a five-second database sweep handles other replicas,
-due retries, restarts and lost notifications. Five seconds bounds discovery of due
-work, excluding queue backlog/provider I/O. Acceptance wakes native recovery; it drains
-due batches while respecting cancellation. Due-time and ordering predicates remain
-in PostgreSQL. This is an optimization, not a cross-replica queue.
+Files remain private user-owned Macro documents. Source reservations retain IDs/hashes across
+crashes; recovery never overwrites ready content. Sharing uses native access services, and
+loss of access after acceptance creates an unavailable-attachment notice. Unsend removes
+content/references, not separately reused documents. Messaging staging explicitly requests
+private initial sharing rather than inheriting team link defaults.
 
-Each webhook item is decoded independently. A receipt records its decode-failure
-count before processing healthy siblings. Permanent malformed items do not cause
-otherwise successful siblings to be replayed repeatedly. Account-state failures
-retry independently of reconnect timing, up to the original retention deadline.
-Successful raw receipts are cleared seven days after completion. Failed, incomplete and partially
-decoded receipts keep their payload until that original thirty-day deadline.
-Metadata waits for that seven-day window even if success occurred near day thirty. Expired OAuth digests are also removed in bounded batches. Cleanup skips valid leases, bounds each write to 500 rows,
-and removes metadata after thirty days once its payload is cleared. Native
-message IDs, tombstones, revisions and provider acceptance remain independent.
-Cleanup logs counts, not customer content.
+Instagram stages opaque copies under `ATTACHMENT_BUCKET/temp/macro-messaging/<UUID>` after
+rechecking native file access. Originals never become public. Signed URLs last 15 minutes;
+the existing unversioned email bucket’s `temp/` lifecycle expires objects after one day
+(eventual deletion). S3 operations have a 60-second bound. Grant only GetObject/PutObject on
+the prefix, verify lifecycle/versioning and configure Meta-reachable URLs before rollout.
+No cleanup ledger/worker or version-list/delete permission is needed. WhatsApp uploads bytes.
 
-Instagram media uses an opaque temporary copy in the email attachment viewer's
-`ATTACHMENT_BUCKET`, under `temp/macro-messaging/<UUID>`. Current native file access
-is rechecked immediately before creating the copy; the original document is
-never made public. Signed URLs last fifteen minutes. The email attachment bucket's
-`temp/` lifecycle marks copies for expiration after one day; deletion is eventual,
-not guaranteed by a deadline. Versioning is not enabled for this bucket. Local
-provisioning installs the same lifecycle rule. No per-copy ledger, version cleanup
-worker or version-list/delete permissions remain. These objects are outside the
-native document bucket and its event consumers.
-WhatsApp still uploads authorized bytes directly.
+Native publication uses existing permission-scoped Soup, activity, notifications and search.
+Live customer messages can notify; history, business replies and attachment revisions do not
+trigger customer notifications or agent/routine topics. Metadata queries pause offline/in
+background and refresh on focus. Active sends poll at two seconds, delivery at ten and idle
+conversations at thirty; history leaves fast polling after its initial receipt window.
+Workers remain authoritative independently of open UI.
 
-Attachment staging is deliberately private: ordinary channel uploads
-send images/videos through static storage and normal document creation inherits
-the team's default link sharing. That API cannot request the staging path's exact
-private initial share without unrelated document API changes. Messaging staging
-already reuses native document creation/upload/readiness and channel sharing;
-send time rechecks file access, byte size and provider type limits.
+## Running locally and verification
 
-Before deploying this change, apply the cloud-storage stack's scoped temporary
-object policy and `ATTACHMENT_BUCKET` environment wiring. The role requires
-GetObject/PutObject only under the messaging temp prefix. The bucket name already
-exists in email configuration; no new credential is introduced. Verify the target
-email bucket lifecycle and disabled versioning before rollout. The feature is
-unshipped, so no prior copies require a migration or cleanup ledger.
-No infrastructure or Meta account was changed by local verification.
-
-Customer channels hide Call, Calls, call auto-join, and the active-call join link.
-Loading/error bindings fail closed; known ordinary channels keep their calls.
-Saved/deep-linked call tabs resolve to Messages when calls are unavailable.
-
-This release uses existing private-channel and user-owned file behavior. An
-unsend removes source content and attachment references, but does not delete or
-trash the underlying Macro document. Native file sharing and deletion remain
-under Macro’s existing rules.
-
-## Verification
-
-Use the repository Nix shell and an isolated database. Set `DATABASE_URL` inside
-the shell to a new disposable database; do not reuse a demo or shared database.
-See [database development](development/database.md) for provisioning and SQLx rules.
-
-```sh
-: "${DATABASE_URL:?Set DATABASE_URL to an isolated test database}"
-sqlx database create
-sqlx migrate run --source crates/macro_db_client/migrations
-unset SQLX_OFFLINE
-cargo test -p meta_messaging --all-features
-cargo test -p document_storage_service --lib native_messaging
-```
-
-Run affected channel, document, access and team suites when their boundaries
-change. Regenerate SQLx metadata when queries change, retaining only relevant
-outputs. Regenerate the storage API when its contract changes. Run `just check`,
-affected Clippy and frontend checks using the repository development guides.
-Confirm checks actually execute; a Git/tooling failure is not “nothing to check.”
-
-The HTTP/database tests exercise native services with controlled Meta transport.
-The [shared functional runner](META_MESSAGING_TESTING.md#step-1-regression-and-live-evidence) exercises the
-bundled app with synthetic responses. Neither establishes live delivery or
-production storage access. Use the [live testing walkthrough](META_MESSAGING_TESTING.md)
-for provider receive/reply/media and access checks on the deployed revision.
-
-## Running locally
-
-Create or reuse an isolated named stack using [Running locally](development/running-locally.md).
-Use that stack’s generated ports, database URLs, container names and environment
-file; preserve any existing demo stack and data.
-
-Configure the provider variables listed above in the instance’s private environment,
-provision its KMS alias, and start the frontend through its trusted HTTPS proxy.
-Recreate affected containers when changing environment variables; restarting alone
-does not reload them. Shared sender/activity changes also require the corresponding
-consumers to run the same revision.
-
-Expose only the documented Meta webhook paths through a public HTTPS gateway.
-Instagram login returns in the user’s browser to the same-origin web callback;
-it does not use the public webhook gateway. Instagram outbound media also requires the configured temporary-copy
-bucket and signing/cleanup permissions. Keep the local app and databases private.
-
-In Settings → Integrations → Accounts, use Connect or Manage. Existing channels
-and files retain their native ownership; this release has no ownership backfill.
-
-## UI and refresh behavior
-
-Customer conversations show the full customer name and a small provider logo.
-Incoming customer rows also show a visible **External** label, independent of
-the provider display name, to distinguish them from replies submitted through Macro.
-Phone-app and imported business echoes also retain external attribution.
-Click the 44px provider trigger for phone/handle and account details. Its hover treatment is limited to pointer devices. One customer reply composer
-replaces the internal-note switch. Agent work remains private. Successful replies
-show no delivery/read markers; progress, failures and uncertain outcomes retain
-visible feedback and an explicit recovery action. Captionless files use native attachment cards with no
-synthetic message label; real captions and unavailable-file notices remain.
-
-Channel-specific messaging orchestration lives in
-`features/meta-messaging/queries/channel-messaging.ts`; the native channel only
-supplies its timeline and viewport and renders the composed slots. Native message
-publication still uses Macro’s existing realtime services. Account/window and
-receipt metadata use bounded polling: 2 seconds for recent active sends, 10 seconds
-for recent delivery, 30 seconds for idle conversations. History stops fast polling
-after the initial receipt window. Queries pause in background/offline tabs and
-refresh stale data on focus; local account changes invalidate open conversations.
-The worker remains responsible for durable processing, independent of open UI.
-
-External drafts use the same local persistence mechanism as native composers,
-scoped to the signed-in user and customer channel. Text, staged files, templates
-and the enqueue idempotency key survive navigation. Restoring an uncertain reply
-still requires a fresh check of the original app before sending again. A send completion clears only its unchanged draft; newer text or attachments remain. The textarea uses the native TextField autosize primitive, and known internal channels render their composer without loading the external composer chunk.
-
-Native publication also refreshes the Soup channel/thread lists through the existing
-permission-scoped stream. Live customer messages record native activity and create
-notifications with an external display name and no impersonated Macro user. History,
-later attachment revisions and business replies do not create customer notifications.
-These presentation events do not publish message topics that trigger agents or routines.
-Background query rereads resume on visibility changes; a new channel should appear
-without reloading when its tab is visible.
+Use an isolated named stack/database per [running locally](development/running-locally.md).
+Keep credentials in its private environment and recreate affected containers after variable
+changes. Run native consumers from the same revision. Expose only webhook paths publicly;
+Instagram OAuth returns to the trusted same-origin browser callback. Keep the passwordless
+app and databases private. Follow [automated and live checks](META_MESSAGING_TESTING.md);
+fixtures do not establish delivery or production access.
 
 ## Production rollout gates
 
@@ -685,9 +404,3 @@ For local testing, the callback may be on a trusted HTTPS loopback origin that
 the browser can reach and Meta accepts in its redirect allowlist. Webhooks still
 need their narrowly exposed public HTTPS endpoint. Do not expose the local
 passwordless app to the internet just to receive the browser redirect.
-
-Deferred group presentation and capabilities remain unchanged: sidebar/search/split
-provider logos can reuse `messaging_binding`; adoption, group backfill, approvals,
-link reset, automated invites, pin/read actions, receipt aggregation, billing/analytics
-and new templates remain out of scope. Live readiness still requires an eligible
-controlled account and verified callbacks; the developer test-number path remains.

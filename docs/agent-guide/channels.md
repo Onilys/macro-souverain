@@ -1390,3 +1390,14 @@ unauthorized viewers fetch no link. Delete/discard must remove the channel from
 split history and stop its polling. Failed/unknown setups use idle refresh, while
 creating/pending setups refresh quickly. A late signed binding remains observable.
 A channel opened directly must also close when it is the only history entry.
+
+### Conversation metadata recovery
+
+Open a channel absent from the sidebar list. While native metadata loads, its
+composer shows loading and cannot send. A metadata failure shows **Conversation
+unavailable → Try again**; retry reloads native metadata and restores the appropriate
+composer. Confirmed ordinary channels make no `/meta/*` requests. Participants and
+team settings use channel detail, including auto-join, while retaining native role
+checks. Account refresh errors keep registration rows and unsubmitted PINs mounted;
+PINs must never persist outside that password field. Invite-link copy uses a transient
+success toast, and confirmed group deletion removes the channel from pane history.

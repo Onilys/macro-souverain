@@ -64,3 +64,5 @@ The unshipped squashed native Meta messaging migration includes direct/group
 conversation namespaces, current group setup and participant state. The channel
 `messaging_binding` enum text is committed with direct binding/setup and read by native guards;
 Meta lifecycle policy stays in `meta_messaging`, not this schema owner.
+
+Completed group bindings retain the original creation subject and authorization generation for idempotent responses after setup removal. Existing bindings without this evidence cannot be adopted as creation results.

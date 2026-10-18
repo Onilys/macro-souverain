@@ -65,5 +65,5 @@ channel detail, lists and GraphQL expose the same enum. Native detail reads requ
 view access, including public and unjoined team viewers; mutation role checks stay separate. The domain blocks
 local name/visibility mutations and fails generic deletion closed for these channels; provider-owned explicit deletion
 revalidates human authority and synchronizes through native teardown. DSS uses explicit human-authorized messaging deletion, so its generic native
-delete remains fail closed for groups. Private-chat reuse excludes managed groups. `pg_channels_repo/provider.rs` owns transactional provider
+delete remains fail closed for groups. Private-chat reuse selects only native bindings, excluding every external conversation. `pg_channels_repo/provider.rs` owns transactional provider
 subject changes; DSS publishes the returned ordinary channel event.

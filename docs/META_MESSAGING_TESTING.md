@@ -1,263 +1,116 @@
-# Your first real WhatsApp and Instagram test
+# Messaging verification
 
-Use Meta’s WhatsApp test number and accounts you control. Synthetic fixture
-conversations are not evidence of real delivery.
+Configuration, permissions, supported behavior and rollout requirements live in
+[META_MESSAGING.md](META_MESSAGING.md). Automated fixtures use isolated PostgreSQL,
+HTTP doubles and a bundled browser app; they do not establish live provider delivery.
 
-## 1. Get the Meta accounts ready
+## Automated checks
 
-Open [Meta’s app dashboard](https://developers.facebook.com/apps/), create or use
-the business app for this integration, and add the WhatsApp and Instagram use
-cases. Dashboard labels vary: WhatsApp testing may appear under **API Setup**,
-**Getting Started**, or **Use cases → Test**.
+Use the repository Nix shell and a fresh disposable database per the
+[database guide](development/database.md). Never reset a shared/demo database.
 
-For **WhatsApp**, use the provided test phone number. Add your own WhatsApp number
-as a recipient and complete its verification. Generate a fresh testing access
-token and record the app ID, WhatsApp Business Account ID and Phone Number ID.
-First use Meta’s sample test message and confirm it arrives on your phone.
-The dashboard token is short-lived; refresh it if a later test loses access.
-Meta’s [Cloud API reference](https://www.postman.com/meta/whatsapp-business-platform/collection/wlk6lh4/whatsapp-cloud-api)
-and [official quickstart](https://whatsapp.github.io/WhatsApp-Nodejs-SDK/) describe
-these test resources and sending the sample message. We use the existing Rust
-adapter; you do not need to install the archived Node SDK.
+```sh
+: "${DATABASE_URL:?Set DATABASE_URL to an isolated test database}"
+sqlx database create
+sqlx migrate run --source crates/macro_db_client/migrations
+unset SQLX_OFFLINE
+cargo test -p meta_messaging --all-features
+cargo test -p channels --all-features
+cargo test -p document_storage_service --lib native_messaging
+```
 
-For **Instagram**, choose **API setup with Instagram Login** and use a Business
-or Creator account you control. This flow does not require a linked Facebook
-Page. The scopes Macro requests are `instagram_business_basic` and
-`instagram_business_manage_messages`. The customer must message the professional
-account before Macro can reply. Use another account you control as that customer.
-See [Meta’s Instagram Login and Send API reference](https://www.postman.com/meta/workspace/instagram/documentation/23987686-9386f468-7714-490f-9bfc-9442db5c8f00).
+Run affected document/access/team tests when those boundaries change. Run `just check`,
+applicable Clippy/type/frontend tests and cargo-deny. Regenerate production-only SQLx
+metadata via `just prepare_db` (never `--tests`), plus OpenAPI/generated clients when
+contracts change. A command that did not execute is not a passing check.
 
-Add the applicable accounts under **App Roles → Instagram Testers**, accept the
-invitations, and grant the requested messaging access. Confirm message access for
-connected tools is enabled in the professional account’s Instagram settings.
-[AWS’s working setup guide](https://github.com/aws-samples/sample-amazon-connect-social-integration/blob/main/instagram_setup.md#62-testing-in-development-mode)
-also walks through tester invitations; use Meta’s reference above for the current
-account types and scopes.
+Coverage responsibilities:
 
-## 2. Wire those accounts to this Macro instance
+- Domain/database: permission and reconnect fences, account/WABA serialization and pool
+  headroom, ordering, ambiguous sends, accepted-only native recovery, identity scoping,
+  history consent/checkpoints and attachment reservations.
+- DSS HTTP/database: signed callbacks, OAuth browser proof and management roles, registration,
+  private channels/files, group create/retry after binding, deletion and native mutation guards.
+- Provider HTTP: request-ID correlation, missing/transient subscriptions and recovery, BSUID
+  payloads, limits and positive deletion confirmation versus HTTP 200 ambiguity/404/131041.
+- Browser: real routing/composer/query/socket integration, drafts, metadata failure/retry,
+  zero Meta requests for native channels, Settings PIN retention and desktop/mobile group controls.
 
-Keep tokens and app secrets in a local private file, not chat. The implementation
-and exact variable names are in [the server setup guide](META_MESSAGING.md#server-configuration).
-The identifiers alone are not sufficient: we also need the matching app secrets,
-the WhatsApp test token and the verified recipient number.
+## Browser journeys
 
-Before live testing, the local instance needs:
-
-| Item | Exact value or requirement |
-| --- | --- |
-| WhatsApp webhook | `<public-origin>/dss/meta/webhooks/whatsapp` |
-| Instagram webhook | `<public-origin>/dss/meta/webhooks/instagram` |
-| Instagram OAuth redirect | `<Macro-web-origin>/app/instagram-callback.html` — same origin as Settings, identical in Meta and `META_INSTAGRAM_REDIRECT_URI` |
-| Verification tokens | Separate secrets chosen for each webhook, matching Macro’s configuration |
-| Credential encryption | Local KMS alias provisioned and `META_CREDENTIAL_KMS_KEY` set; instructions in the server guide |
-| WhatsApp recipient | The verified test number also listed in `META_WHATSAPP_TEST_RECIPIENTS` |
-
-When a signed customer webhook includes both a BSUID and a phone, the developer
-test account sends to the current phone only if it is explicitly allowlisted for
-that sender. Production still addresses the BSUID. Check absent/unallowlisted
-phones, sender mismatch, and a phone change during preparation: none may widen
-the allowlist or dispatch against a stale destination. A provider rejection is
-settled; retry only through an explicit new composer submission.
-
-Meta cannot call `localhost`. Provide a public HTTPS callback gateway forwarding
-only the webhook paths to this local instance. Instagram OAuth returns in the
-user’s browser to the trusted HTTPS Macro web origin, not the webhook gateway. Do not expose
-the passwordless local app or its databases. Keep callback origins in local configuration. Instagram attachment testing additionally needs publicly reachable,
-short-lived attachment URLs; prove the text flow first.
-
-After server configuration, open **Macro → Settings → Integrations → Accounts**:
-
-- WhatsApp: open **Connect** or **Manage**, then **Connect test number**. The regular
-  WhatsApp connection uses production Embedded Signup and checks the selected mode
-  eligibility; the test button is the intended local developer path.
-- Instagram: open **Connect** or **Manage**, choose **Connect account** or
-  **Add account**, and authorize the professional account in the Instagram window.
-  Return to Settings and wait for **Connected**.
-
-Meta’s webhook verification and the account’s messaging subscription must both
-be active. Macro subscribes the connected account as part of connection. The
-dashboard verification check or a synthetic webhook test alone does not prove
-that real customer messages will be forwarded.
-
-Before the phone test, check the published/unpublished notice on each product’s
-Webhooks page. If it requires publication for real inbound events, complete those
-requirements using the app’s actual privacy/data-deletion information. Meta app
-publication, Advanced Access review, and deploying Macro are separate operations.
-
-## What appears after connection
-
-Connecting does not populate the entire existing inbox. The next live customer
-message or business phone-app echo creates/reuses that customer's native channel.
-Without explicit import consent, onboarding-history webhooks are ignored, including
-after reconnect/restart. In **Settings → Integrations → Accounts → Manage**, each
-account has an **Import history** action. Open it to inspect limits and availability;
-only **Import available history** starts the job. This imports all API-visible
-conversations into native channels; there is no individual picker or export upload.
-
-For WhatsApp, use an eligible coexistence Business-app number, enable history
-sharing on the phone during setup, subscribe `history` and `smb_app_state_sync`,
-and start within 24 hours. Keep WhatsApp Business open. Expect up to six months of
-text but only 14 days of media; the developer test number cannot prove this flow.
-An uncertain one-time request must not be blindly repeated. Meta may require the
-business to disconnect Business Platform on the phone and complete setup again.
-
-For Instagram, approve the two existing messaging scopes and ensure the app has
-API access. Only the most recent 20 messages per conversation are retrievable;
-Requests inactive over 30 days are absent. A working OAuth login alone does not
-establish Conversations API access. If the API reports access blocked, resolve
-any developer-account confirmation in Meta’s dashboard, then retry the import.
-Check Spam if a required confirmation email does not arrive.
-
-Meta's current WhatsApp setup navigation is **Use cases → WhatsApp → Basic setup →
-Step 1. Try it out** (older dashboards label this **API Setup**). Generate a fresh
-short-lived test token there when it expires, update the ignored local environment,
-recreate DSS, then use Reconnect on the configured test account in Macro. This
-keeps the same channel and customer mapping. Production uses the approved business
-onboarding flow rather than this developer-only token path.
-
-Verify: without clicking import, old messages create no channels; after clicking,
-history appears in the same private channels with original authors/times. Rename a
-channel and receive a new live message: it reuses that channel and retains the name.
-History alone must not enable free-form sending. Replay history, restart a worker,
-and revoke account or connector membership. No duplicate chats, external sends, or unauthorized
-attachment access should result. Progress must settle or expose a recovery message.
-
-## 3. Do this on your phone and in Macro
-
-Keep the local stack, frontend and callback gateway running. In Settings, confirm
-both accounts are Connected and credentials have not expired. Use a fresh customer
-message to establish a reply window. Start with text; Instagram outbound media
-also requires the signed public attachment URLs described above.
-
-1. From your verified personal WhatsApp number, send “Hi Macro” to Meta’s test
-   number. From your second Instagram account, DM the connected professional
-   account. Accept a message request in Instagram if needed.
-2. In Macro, open the new customer channel. Check the customer and account label.
-3. Verify that the customer conversation has one reply box and no internal-note
-   switch. The provider logo opens the customer and connected-account details.
-4. Write a reply and click the send arrow. Confirm the text actually arrives in
-   the original app. Pending or failed sends show feedback beside their message.
-5. Confirm successful replies have no visible read/delivery badges. Delivery
-   events are retained on the server for recovery and verification, and provider
-   acceptance alone is not proof of customer delivery.
-6. Test a small PNG/PDF after text works. Check that an invited teammate can use
-   the channel and an uninvited teammate cannot access the channel or its files.
-7. Disconnect/reconnect the test account and repeat. A failed message should show
-   an explanation beside it. **Edit and retry** restores the customer draft; it never sends
-   automatically. For **Delivery not confirmed**, check the phone before resending.
-
-## Troubleshooting
-
-- **WhatsApp accepts a reply but nothing arrives:** inspect its status webhook
-  and confirm receipt on the phone; an API message ID is not a delivery receipt.
-- **Test number missing or recipient error 131030:** verify the app/WABA, token
-  and verified recipient list before debugging Macro’s send path.
-- **Synthetic Instagram events arrive but real DMs do not:** check tester roles,
-  permissions, account subscriptions, message requests and the Webhooks page’s
-  publication notice. App publication and Advanced Access review are separate.
-- **Events stop arriving:** keep the local stack and callback gateway running.
-  If the public hostname changes, update Meta’s callbacks and local configuration.
-
-Do not mix Instagram Login with older Facebook Login / Page-token instructions.
-Test WhatsApp coexistence separately with an eligible Business-app number through
-Embedded Signup; test-number delivery does not prove phone-app synchronization.
-For other businesses, complete the [production rollout requirements](META_MESSAGING.md#production-rollout-gates).
-
-## Account lifecycle regressions
-
-The `native_messaging::native::test::http::lifecycle` tests cover two phone
-connections sharing a WABA across separate Macro teams. Disconnecting one must
-retain the other; disconnecting the last removes the provider subscription. A new
-connection must not subscribe before an in-flight removal finishes. Late cleanup
-after a subscription request must retain a sibling's subscription. Instagram
-subscriptions remain scoped to the individual professional account.
-
-Health tests exercise the real service and API response for authorization expiry,
-Meta access denial, Macro connector departure, temporary errors, setup errors
-and successful recovery. In the browser, check the message both in Settings and
-above the customer composer, with the draft preserved and sending disabled.
-
-## Verify Instagram login isolation
-
-1. Keep the initiating Settings window open, allow its popup, and connect through
-   the real Meta test app. Confirm the expected team’s account ID and actual
-   connection state. The callback URL must lose its query/fragment immediately.
-   Check the opener survives every navigation, not just popup creation. The
-   controlled Firefox test succeeded with the local preview's default COOP
-   behavior (no COOP header on Settings or the callback); adding
-   `same-origin-allow-popups` to both caused a closed-window error. This local
-   result does not validate production headers. Preserve the callback's
-   no-store/no-referrer headers and query-log exclusion; never replace the
-   browser proof with a public callback fallback.
-2. In a separate controlled browser session, open the authorization URL initiated
-   in session A. Session B must not complete A’s connection. Inspect the isolated
-   DB/provider counters as well as the UI: no credential, subscription, import or
-   conversation may be created for A. Repeat with a different authenticated Macro
-   user/team when one is available; record unavailable branches explicitly.
-3. Reconnect the same account and verify the connection ID and conversations stay
-   unchanged. Selecting another Instagram account must fail. Cancel once; let an
-   attempt expire or expire only a disposable local transaction; replay a handled
-   callback. Settings must offer a clear retry, with no second connection.
-   After success, show the account's current status without stale login
-   instructions. After cancellation, retain the error and clear those instructions.
-4. Distinguish HTTP/database fixture tests from live Meta authorization and from
-   actual customer message delivery. Never describe simulated transport as live.
-
-The old public DSS OAuth completion path must return 404 on the fixed backend.
-Do not test live login against an older running DSS binary. Update only the
-existing test app’s redirect allowlist after confirming the new callback is
-served; preserve working webhook callbacks and unrelated applications.
-
-## Step 1 regression and live evidence
-
-Run the shared functional runner in `apps/web`, inside the repository Nix shell.
-Build once with local fixture routing before starting the runner:
+Build once in `apps/web` with local fixture routing:
 
 ```sh
 VITE_LOCAL_SERVERS=ALL VITE_LOCAL_BACKEND_ORIGIN=same-origin \
 VITE_ENABLE_GRAPHQL_SOUP=true VITE_DISABLE_BROWSER_TURSO_CACHE=true \
 VITE_ENABLE_IN_APP_TOURS=false VITE_ENABLE_BROWSER_OTEL=false just build-dev
-FUNCTIONAL_MESSAGING=1 bun run test:functional --list
 FUNCTIONAL_MESSAGING=1 bun run test:functional meta-messaging.spec.ts
 ```
 
-The default `bun run test:functional` runs lightweight fixtures with Vite dev and
-does not require `dist`. `FUNCTIONAL_MESSAGING=1` adds the bundled messaging
-scenario and its Vite preview server. Set `FUNCTIONAL_TEST_PORT` (default 4191) and `FUNCTIONAL_APP_PORT`
-(default the next port) when either port is occupied. An installed Chromium can
-be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+The shared runner defaults to lightweight Vite fixtures. `FUNCTIONAL_MESSAGING=1` adds the
+bundled messaging tests and preview server; CI runs them in Messaging Browser Check when
+messaging/shared channel/composer/permission paths or dependencies change. Set
+`FUNCTIONAL_TEST_PORT` (default 4191), `FUNCTIONAL_APP_PORT` (default next port) or
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` when needed.
 
-The messaging scenario uses a fresh context, blocks nonlocal traffic and mounts
-the real frontend; provider/API responses are fixtures, not live delivery
-evidence. It is discovered by `*.spec.ts` and runs in the required Messaging Browser Check job of Web App Pr
-Checks when messaging, shared channel/composer/permission surfaces, or dependencies
-change. Its isolated build uses the environment above; the shared Build environment
-is unchanged. Keep
-ordinary channels, external replies, templates, recovery, member Settings,
-registration recovery and mobile composition in this runner. Screenshots use
-Playwright’s per-test output directory; scenario stages appear as `test.step` entries.
+`fixtures/meta-messaging.ts` owns synthetic transport and blocks nonlocal traffic. Independent
+journeys cover native channels, external composition/recovery, account registration/mobile
+composition, and group creation/desktop/mobile management. Keep browser integration and real
+HTTP/database coverage: neither substitutes for the other. Screenshots and traces belong in
+Playwright’s per-test output directory; no recording or real account activity is required.
 
-For live Platform signup, configure an existing v4 Platform login configuration
-in `META_WHATSAPP_PLATFORM_CONFIGURATION_ID`, use a controlled authorized number,
-and complete Meta consent. Confirm the credential remains stored after a rejected
-registration, and reconcile uncertain outcomes before retrying. Do not register or
-migrate a new number without explicit authorization. A connected Meta test number
-can verify Cloud API requests but cannot establish production signup, coexistence
-history or BSUID rollout on an account. Record those results separately.
+## Controlled live verification
 
-## Group fixture and live evidence
+Live messages, account changes, registration, group mutations and deployments require explicit
+authorization. Use only controlled recipients/accounts and the final deployed revision.
+Preserve existing applications, callbacks, local stacks and data. Store secrets privately.
 
-The shared `meta-messaging.spec.ts` journey covers create → pending → bound →
-explicit reply, desktop/mobile Participants, failed removal, confirmed removal,
-and the owner deletion warning. These are synthetic provider/API responses.
-DSS `native_messaging::native::test::http::groups` uses real isolated PostgreSQL,
-real native permissions and signed receipts with controlled provider effects.
-Provider adapter fixtures check request-ID correlation, BSUID removal payloads,
-group addressing and positive deletion success versus 200 ambiguity/404/131041.
+Prepare Meta’s WhatsApp API Setup test number and verified recipient allowlist, or an eligible
+coexistence/Platform number for flows the test number cannot prove. Instagram needs a controlled
+Business/Creator account, tester invitation acceptance, messaging access and a second customer
+account. Use Instagram Login, not older Page-token/Facebook Login instructions.
 
-On 2026-10-17 the existing configured test number passed read-only v26 checks for
-CONNECTED/CLOUD_API and both required permissions, but `is_official_business_account`
-was false and all four group subscriptions were absent. This blocks live group
-proof. No group, participant, subscription or number was changed by this check.
-Do not pursue an OBA application or another number. Real creation, deletion,
-removal, subscription changes and messages require explicit user authorization.
+Configure the [server variables and callbacks](META_MESSAGING.md#server-configuration), KMS,
+account subscriptions and required app publication/review. Webhook verification and synthetic
+notifications alone do not prove real delivery. Expose only webhook paths over public HTTPS;
+Instagram login returns to the same web origin as Settings. Media URLs must be provider-reachable.
+
+1. Connect via Settings → Integrations → Accounts. Use the local **Connect test number** action
+   only for the allowlisted developer account. Other WhatsApp accounts use Embedded Signup v4.
+2. Send a fresh customer message from each controlled provider account. Confirm the private native
+   channel, External author label, account identity and single reply composer.
+3. Submit a human reply and verify it in the original app. A provider acceptance ID is not a
+   delivery receipt. Verify failed/unknown recovery is deliberate and never automatically resends.
+4. Test supported media, signed URL expiration, invited-teammate access and uninvited-user denial.
+5. Verify disconnect/reconnect, token expiry, connector departure, worker restart and newer
+   generation fencing. Existing channel/file ownership must remain unchanged.
+6. Exercise explicit history import separately: no consent means no backfill; imported content
+   keeps original authors/times, private permissions and manual names, deduplicates live overlap,
+   and does not open reply windows. Reconnect invalidates old consent.
+
+Coexistence history needs phone consent, history/sync subscriptions and initiation within
+24 hours; keep the phone app open. Test numbers cannot qualify coexistence or groups. Instagram
+history needs Conversations API access independently of OAuth. For registration, prove encrypted
+credential retention after rejection and reconciliation of uncertainty; never register/migrate a
+new number without authorization. Eligible groups require OBA/Platform qualification and every
+required callback. Prove creation, invite/link permissions, participant facts, reply windows,
+suspension, confirmed deletion and lost-response retries without adopting arbitrary groups.
+
+## Instagram login isolation
+
+Verify the same-origin callback and backend together. Test begin/complete with the correct
+browser proof; reject missing/wrong proof, another user/team, expired/replayed state, revoked
+membership and the wrong reconnect identity before exchanging credentials. Test cancellation,
+closed popup, page reload and mobile web without leaking codes or losing unrelated Settings UI.
+The former public DSS completion route must return 404. Verify no-store/no-referrer, no query
+logging and popup-compatible headers on the deployed origin; local tests cannot validate CDN policy.
+
+## Troubleshooting
+
+- Accepted but undelivered: inspect the status webhook and original app; do not resend blindly.
+- WhatsApp 131030 or missing test number: verify app/WABA, token, sender and recipient allowlist.
+- Real Instagram DMs missing: verify tester roles, permissions, account subscriptions, requests
+  and app publication. OAuth success does not prove Conversations API or webhook access.
+- Group preflight fails: repair subscriptions/eligibility and retry; no service restart is needed.
+- Callback hostname or server variables changed: update the exact local configuration and recreate
+  affected services while preserving unrelated endpoints. Never expose the entire local stack.
