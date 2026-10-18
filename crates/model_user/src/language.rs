@@ -64,6 +64,10 @@ pub enum Language {
     #[serde(rename = "pl")]
     #[strum(serialize = "pl")]
     Polish,
+    /// Russian
+    #[serde(rename = "ru")]
+    #[strum(serialize = "ru")]
+    Russian,
     /// Japanese
     #[serde(rename = "ja")]
     #[strum(serialize = "ja")]
