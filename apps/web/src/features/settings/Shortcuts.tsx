@@ -1022,6 +1022,11 @@ const shortcutSections: ShortcutSection[] = [
         description:
           'Then i Signal, o Noise, s Favorites, t Sent, d Drafts, e Archived, a All',
       },
+      {
+        keys: ['shift+v'],
+        codes: ['ShiftLeft', 'KeyV'],
+        description: 'Show or hide the reading pane',
+      },
     ],
   },
 ];
