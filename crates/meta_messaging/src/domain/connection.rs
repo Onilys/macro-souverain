@@ -96,11 +96,12 @@ pub enum HistoryStatus {
     Failed,
 }
 
-/// Secret material deliberately lacks Debug and Serialize implementations.
-pub struct AccessToken(String);
+/// Secret material zeroizes on drop and deliberately lacks Debug and Serialize.
+pub struct AccessToken(zeroize::Zeroizing<String>);
 impl AccessToken {
     /// Validate the bounded token without ever echoing it in errors.
     pub fn new(value: String) -> Result<Self, super::models::MessagingError> {
+        let value = zeroize::Zeroizing::new(value);
         if value.is_empty() || value.len() > 4096 || value.chars().any(char::is_control) {
             return Err(super::models::MessagingError::Invalid(
                 "invalid provider credential",
@@ -446,24 +447,25 @@ impl Connection {
 }
 
 /// A six-digit secret, accepted only in an explicit registration request.
-/// Deliberately neither Debug nor Serialize, and never persisted.
+/// Zeroized on drop, deliberately neither Debug nor Serialize, and never persisted.
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "schema", schema(value_type = String, pattern = "^[0-9]{6}$"))]
-pub struct RegistrationPin(String);
+pub struct RegistrationPin(zeroize::Zeroizing<String>);
 impl<'de> Deserialize<'de> for RegistrationPin {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let value = serde_json::Value::deserialize(deserializer)?;
-        let Some(pin) = value.as_str() else {
+        let serde_json::Value::String(pin) = value else {
             return Err(serde::de::Error::custom(
                 "enter the six-digit WhatsApp PIN as text",
             ));
         };
-        Self::try_from(pin.to_owned()).map_err(serde::de::Error::custom)
+        Self::try_from(pin).map_err(serde::de::Error::custom)
     }
 }
 impl TryFrom<String> for RegistrationPin {
     type Error = super::models::MessagingError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
+        let value = zeroize::Zeroizing::new(value);
         if value.len() != 6 || !value.bytes().all(|b| b.is_ascii_digit()) {
             return Err(super::models::MessagingError::Invalid(
                 "enter the six-digit WhatsApp two-step verification PIN",

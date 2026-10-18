@@ -11,7 +11,7 @@ required-features = ["axum"]
 [features]
 default = []
 ports = ["dep:entity_access", "dep:messages", "dep:futures", "dep:tokio", "dep:tokio-util"]
-outbound = ["ports", "dep:base64", "dep:sqlx", "dep:reqwest", "dep:aws-sdk-kms", "dep:aws-sdk-s3", "dep:zeroize", "dep:url", "dep:tokio", "dep:macro_tower_layers"]
+outbound = ["ports", "dep:base64", "dep:sqlx", "dep:reqwest", "dep:aws-sdk-kms", "dep:aws-sdk-s3", "dep:url", "dep:tokio", "dep:macro_tower_layers"]
 axum = ["ports", "dep:axum", "dep:macro_authorization", "entity_access/inbound", "schema"]
 schema = ["dep:utoipa"]
 
@@ -42,7 +42,7 @@ tracing = { workspace = true }
 url = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 uuid = { workspace = true }
-zeroize = { workspace = true, optional = true }
+zeroize = { workspace = true }
 workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 [dev-dependencies]
