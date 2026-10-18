@@ -41,6 +41,7 @@ import {
 } from '@ui/signals/signals';
 import { createSignal, For, Show } from 'solid-js';
 import { AppearanceModePicker } from './components/appearance-mode-picker';
+import { LanguageSettings } from './LanguageSettings';
 import {
   SettingsCard,
   SettingsPage,
@@ -549,6 +550,8 @@ export function Appearance() {
             </SettingsRow>
           </SettingsCard>
         </SettingsSection>
+
+        <LanguageSettings />
       </SettingsPage>
     </div>
   );

@@ -49,7 +49,7 @@ function Fixture() {
   };
   onMount(() => applyTheme(false));
   const groups = SETTINGS_TAB_GROUPS.filter(
-    (group) => group.label !== 'Admin'
+    (group) => !group.items.some((item) => item.tab === 'Admin')
   ).map((group) => ({
     ...group,
     items: group.items.filter((item) => !item.searchOnly),

@@ -73,6 +73,7 @@ import type { ToggleAutoJoinDomainResponse } from './generated/schemas/toggleAut
 import type { ToggleNonAdminInvitesResponse } from './generated/schemas/toggleNonAdminInvitesResponse';
 import type { UserLinkResponse } from './generated/schemas/userLinkResponse';
 import type { UserName } from './generated/schemas/userName';
+import type { UserLanguage } from './generated/schemas/userLanguage';
 import type { UserNames } from './generated/schemas/userNames';
 import type { UserOrganizationResponse } from './generated/schemas/userOrganizationResponse';
 import type { UserTokensResponse } from './generated/schemas/userTokensResponse';
@@ -450,6 +451,21 @@ export const authServiceClient = {
     return (
       await fetchWithAuth<UserName>(`${authHost}/user/name?${queryString}`, {
         method: 'PUT',
+      })
+    ).map((result) => result);
+  },
+  async getUserLanguage() {
+    return (
+      await fetchWithAuth<UserLanguage>(`${authHost}/user/language`, {
+        method: 'GET',
+      })
+    ).map((result) => result);
+  },
+  async putUserLanguage(args: UserLanguage) {
+    return (
+      await fetchWithAuth<EmptyResponse>(`${authHost}/user/language`, {
+        method: 'PUT',
+        body: JSON.stringify(args),
       })
     ).map((result) => result);
   },

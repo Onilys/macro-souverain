@@ -3,6 +3,7 @@ import { IncomingMeetingInvitationsProvider } from '@app/features/meetings/incom
 import { usePendingNotificationNavigationEffect } from '@app/features/notifications/PendingNotificationNavigationEffect';
 import { SearchProvider } from '@app/features/soup/search/context';
 import { useCalendarCache } from '@app/lib/queries/calendar/graphql/use-calendar-cache';
+import { useInterfaceLanguageSync } from '@app/lib/i18n/use-interface-language-sync';
 import { useInvalidateQueriesOnReconnect } from '@app/lib/queries/invalidate-on-reconnect';
 import { useSoupBackfills } from '@app/lib/queries/soup/backfill';
 import { MacOSNotificationUpdateRequiredError } from '@app/lib/tauri/notification';
@@ -97,6 +98,7 @@ export function AppProviders(props: ParentProps) {
   useSoupBackfills(userId);
   useCalendarCache(() => userId() !== undefined);
   useGlobalAttachableHistory();
+  useInterfaceLanguageSync();
 
   return (
     <TeamContextProvider>
