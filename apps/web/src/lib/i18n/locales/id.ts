@@ -483,7 +483,8 @@ export default {
     toastThreadsStayDone:
       'Utas-utas ini belum menerima pesan apa pun, jadi tetap selesai',
     toastCountNotRestored: '{{count}} tidak dapat dipulihkan.',
-    toastNotificationsNotRestored: 'Beberapa notifikasi tidak dapat dipulihkan.',
+    toastNotificationsNotRestored:
+      'Beberapa notifikasi tidak dapat dipulihkan.',
     toastWithWarnings: '{{message}}. {{warnings}}',
     toastMarkedRead: 'Ditandai sudah dibaca',
     toastMarkedReadCount: '{{count}} item ditandai sudah dibaca',

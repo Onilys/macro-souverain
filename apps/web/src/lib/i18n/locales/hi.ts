@@ -273,8 +273,7 @@ export default {
     emailExample3: 'क्लाइंट को अपडेट',
     emailShortTagline: 'इनबॉक्स से लिखें',
     messageTagline: 'किसी व्यक्ति या ग्रुप को झटपट DM',
-    messageDetails:
-      'चैनल बनाए बिना एक या ज़्यादा साथियों को डायरेक्ट मैसेज भेजें।',
+    messageDetails: 'चैनल बनाए बिना एक या ज़्यादा साथियों को डायरेक्ट मैसेज भेजें।',
     messageExample1: 'छोटा-सा सवाल',
     messageExample2: 'पहले से सूचना',
     messageExample3: 'ग्रुप DM',
@@ -287,8 +286,7 @@ export default {
     channelExample3: '#support',
     channelShortTagline: 'टीम चर्चा',
     callTagline: 'ऑडियो या वीडियो कॉल शुरू करें',
-    callDetails:
-      'तुरंत कॉल शुरू करें और साथियों या बाहरी मेहमानों को न्योता दें।',
+    callDetails: 'तुरंत कॉल शुरू करें और साथियों या बाहरी मेहमानों को न्योता दें।',
     callExample1: 'झटपट सिंक',
     callExample2: 'पेयरिंग',
     callExample3: 'ग्राहक कॉल',
@@ -477,10 +475,8 @@ export default {
     toastMarkedNotDonePartial:
       '{{total}} में से {{accepted}} आइटम अधूरे मार्क किए गए',
     toastMarkNotDoneFailed: 'अधूरा मार्क नहीं किया जा सका',
-    toastThreadStaysDone:
-      'इस थ्रेड में कोई मैसेज नहीं आया है, इसलिए यह पूरा हुआ ही रहेगा',
-    toastThreadsStayDone:
-      'इन थ्रेड में कोई मैसेज नहीं आया है, इसलिए ये पूरे हुए ही रहेंगे',
+    toastThreadStaysDone: 'इस थ्रेड में कोई मैसेज नहीं आया है, इसलिए यह पूरा हुआ ही रहेगा',
+    toastThreadsStayDone: 'इन थ्रेड में कोई मैसेज नहीं आया है, इसलिए ये पूरे हुए ही रहेंगे',
     toastCountNotRestored: '{{count}} वापस नहीं लाए जा सके।',
     toastNotificationsNotRestored: 'कुछ सूचनाएं वापस नहीं लाई जा सकीं।',
     toastWithWarnings: '{{message}}। {{warnings}}',
@@ -634,8 +630,7 @@ export default {
     noSettingsFound: 'कोई सेटिंग नहीं मिली',
     searchResults: 'सेटिंग खोज के नतीजे',
     searchResultCount: '{{count}} सेटिंग मिलीं',
-    searchNoResults:
-      'कोई सेटिंग नहीं मिली। “हस्ताक्षर”, “थीम” या “कैलेंडर” खोजकर देखें।',
+    searchNoResults: 'कोई सेटिंग नहीं मिली। “हस्ताक्षर”, “थीम” या “कैलेंडर” खोजकर देखें।',
     backToSettings: 'सेटिंग पर वापस जाएं',
     closeSettings: 'सेटिंग बंद करें',
     goToTab: 'सेटिंग टैब {{number}} पर जाएं',
