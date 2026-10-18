@@ -628,7 +628,7 @@ export default {
     tabTags: 'Tagi',
     tabIntegrations: 'Integracje',
     tabAgentConnections: 'Połączenia agentów',
-    tabRuntimes: 'Środowiska uruchomieniowe',
+    tabRuntimes: 'Środowiska',
     tabMcpServer: 'Serwer MCP',
     tabApiKeys: 'Klucze API',
     tabBots: 'Boty',

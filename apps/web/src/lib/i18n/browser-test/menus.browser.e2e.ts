@@ -37,7 +37,7 @@ for (const { code } of LANGUAGES) {
               const style = getComputedStyle(input);
               const context = document.createElement('canvas').getContext('2d');
               if (!context) return false;
-              context.font = style.font;
+              context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
               const room =
                 input.clientWidth -
                 parseFloat(style.paddingLeft) -

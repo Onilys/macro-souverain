@@ -639,7 +639,7 @@ export default {
     tabDebug: 'Debug',
     settings: 'Einstellungen',
     settingsNavigation: 'Einstellungsnavigation',
-    searchSettings: 'Einstellungen durchsuchen',
+    searchSettings: 'Einstellungen suchen',
     noSettingsFound: 'Keine Einstellungen gefunden',
     searchResults: 'Suchergebnisse in Einstellungen',
     searchResultCount: '{{count}} Einstellungen gefunden',

@@ -620,7 +620,7 @@ export default {
     tabShortcuts: 'Сочетания клавиш',
     tabUsage: 'Использование',
     tabBilling: 'Оплата',
-    tabDesktopApp: 'Приложение для компьютера',
+    tabDesktopApp: 'Приложение для ПК',
     tabMobileApp: 'Мобильное приложение',
     tabTeam: 'Команда',
     tabTags: 'Теги',
