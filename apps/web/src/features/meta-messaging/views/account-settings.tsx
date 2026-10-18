@@ -15,6 +15,7 @@ import { useUserId } from '@core/context/user';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import InstagramIcon from '@phosphor/instagram-logo.svg';
 import WhatsAppIcon from '@phosphor/whatsapp-logo.svg';
+import { queryReadyGate } from '@queries/gate';
 import {
   useMetaActions,
   useMetaConfiguration,
@@ -64,15 +65,15 @@ function Accounts(props: MessagingSettingsProps) {
   const [disconnectRequest, setDisconnectRequest] =
     createSignal<DisconnectConfirm | null>(null);
   const configuration = useMetaConfiguration();
-  const teamId = () => (team.isSuccess ? (team.data?.team.id ?? '') : '');
+  const teamId = () => (queryReadyGate(team) ? (team.data?.team.id ?? '') : '');
   const connections = useMetaConnections(teamId, () => !!teamId());
   const actions = useMetaActions();
   const [working, setWorking] = createSignal(false);
   const [notice, setNotice] = createSignal('');
   const [error, setError] = createSignal('');
   const config = () =>
-    configuration.isSuccess ? configuration.data : undefined;
-  const rows = () => (connections.isSuccess ? connections.data : []);
+    queryReadyGate(configuration) ? configuration.data : undefined;
+  const rows = () => (queryReadyGate(connections) ? connections.data : []);
   const available = (provider: MetaProvider) =>
     provider === 'whatsapp'
       ? !!config()?.whatsapp_configuration_id ||

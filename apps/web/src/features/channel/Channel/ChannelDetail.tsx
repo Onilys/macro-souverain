@@ -113,7 +113,7 @@ export function ChannelDetailTitle(props: ChannelDetailHeaderProps) {
     <div class="ph-no-capture flex min-w-0 shrink items-center gap-2">
       <ChannelMessagingIdentity
         channelId={props.channelId}
-        binding={messagingBinding()}
+        binding={messagingBinding.value()}
       >
         <ChannelTopIcon
           channelId={props.channelId}

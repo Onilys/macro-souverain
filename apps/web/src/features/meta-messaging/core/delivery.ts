@@ -51,7 +51,7 @@ export function messagingError(
       ? 'The account connection changed. Refresh Settings and reconnect the account.'
       : 'The account or reply changed while you were sending. Refresh the conversation and review your draft.';
   if (number === '190' || value === 'disconnected')
-    return `This account needs to reconnect to ${name}. Ask a team admin to reconnect it in Settings.`;
+    return `This account needs to reconnect to ${name}. Ask the person who connected it or a team admin to reconnect it in Settings.`;
   if (['forbidden', 'not_found'].includes(value))
     return operation === 'connection'
       ? 'You no longer have permission to manage this account. Ask its connector or a team admin to check access.'

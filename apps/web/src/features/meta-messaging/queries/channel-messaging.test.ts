@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import type { MessageData } from '@core/messages/types';
+import type { MessagingBinding } from '@service-storage/generated/schemas/messagingBinding';
 import type { MetaConversationView } from '@service-storage/generated/schemas/metaConversationView';
 import type { MetaGroupView } from '@service-storage/generated/schemas/metaGroupView';
 import type { MetaSendProgress } from '@service-storage/generated/schemas/metaSendProgress';
@@ -15,25 +16,29 @@ const fixture = vi.hoisted(() => ({
   history: [] as MetaSendProgress[],
   readHistory: undefined as (() => string[]) | undefined,
   refetch: vi.fn(),
+  enabled: () => false as boolean,
 }));
 vi.mock('@queries/meta-messaging', () => ({
-  useMetaBinding: (_: unknown, enabled: () => boolean) => ({
-    get enabled() {
-      return enabled();
-    },
-    get isPending() {
-      return fixture.account() === undefined;
-    },
-    get data() {
-      if (fixture.account() === undefined)
-        throw new Error('Pending resource must not be read');
-      return { messaging: fixture.account(), group: fixture.group() };
-    },
-    get isError() {
-      return fixture.error();
-    },
-    refetch: fixture.refetch,
-  }),
+  useMetaBinding: (_: unknown, enabled: () => boolean) => {
+    fixture.enabled = enabled;
+    return {
+      get enabled() {
+        return enabled();
+      },
+      get isPending() {
+        return fixture.account() === undefined;
+      },
+      get data() {
+        if (fixture.account() === undefined)
+          throw new Error('Pending resource must not be read');
+        return { messaging: fixture.account(), group: fixture.group() };
+      },
+      get isError() {
+        return fixture.error();
+      },
+      refetch: fixture.refetch,
+    };
+  },
   useMetaDelivery: (_: unknown, ids: () => string[]) => {
     fixture.readHistory = ids;
     return {
@@ -94,7 +99,7 @@ const account = (sends = [send()]): MetaConversationView => ({
 });
 function setup(
   initial?: MetaConversationView | null,
-  nativeBinding: string | undefined = 'whatsapp_direct'
+  nativeBinding: MessagingBinding | undefined = 'whatsapp_direct'
 ) {
   return createRoot((cleanup) => {
     dispose = cleanup;
@@ -103,10 +108,20 @@ function setup(
     const [error, setError] = createSignal(false);
     fixture.error = error;
     const [channelId, setChannel] = createSignal('one');
+    const [metadata, setMetadata] = createSignal<MessagingBinding | undefined>(
+      nativeBinding
+    );
+    const [metadataError, setMetadataError] = createSignal<Error | null>(null);
+    const refetchMetadata = vi.fn();
     const [messages, setMessages] = createSignal<MessageData[]>([]);
     const state = createChannelMessaging({
       channelId,
-      binding: () => nativeBinding,
+      binding: {
+        value: metadata,
+        error: metadataError,
+        isPending: () => !metadata(),
+        refetch: refetchMetadata,
+      },
       messages,
       entries: () =>
         messages().map((message) => ({
@@ -116,7 +131,16 @@ function setup(
       includesLatest: () => true,
       visibleRange: () => undefined,
     });
-    return { state, setAccount, setChannel, setMessages, setError };
+    return {
+      state,
+      setAccount,
+      setChannel,
+      setMessages,
+      setError,
+      setMetadata,
+      setMetadataError,
+      refetchMetadata,
+    };
   });
 }
 it('never reads a pending resource and hands an accepted send to its native row without a gap', () => {
@@ -222,17 +246,12 @@ it('keeps a cached internal binding when a remounted channel cannot refresh it',
   expect(state.interaction().kind).toBe('internal');
 });
 
-it('never makes direct messages or public channels depend on messaging lookups', () => {
-  for (const _type of ['private', 'team', 'direct_message', 'public']) {
-    const { state, setError } = setup(undefined, 'native');
-    setError(true);
-    expect(state.interaction().kind).toBe('internal');
-    expect(state.account()).toBeUndefined();
-    dispose();
-  }
-  const { state, setError } = setup(undefined, '');
+it('known native channels never depend on messaging lookups', () => {
+  const { state, setError } = setup(undefined, 'native');
   setError(true);
-  expect(state.interaction().kind).toBe('loading');
+  expect(state.interaction().kind).toBe('internal');
+  expect(state.account()).toBeUndefined();
+  expect(fixture.enabled()).toBe(false);
 });
 
 it('pending groups never expose an ordinary internal composer', () => {
@@ -253,4 +272,26 @@ it('pending groups never expose an ordinary internal composer', () => {
   const { state } = setup(null, 'whatsapp_group');
   expect(state.interaction().kind).toBe('group_setup');
   expect(state.account()).toBeUndefined();
+});
+
+it('retries unknown native metadata without enabling native sends or Meta requests', () => {
+  const { state, setMetadata, setMetadataError, refetchMetadata } = setup(
+    null,
+    'native'
+  );
+  setMetadata(undefined);
+  expect(state.interaction()).toEqual({ kind: 'loading' });
+  expect(fixture.enabled()).toBe(false);
+  setMetadataError(new Error('Metadata unavailable'));
+  expect(state.interaction()).toEqual({ kind: 'error' });
+  state.refresh();
+  expect(refetchMetadata).toHaveBeenCalledOnce();
+  expect(fixture.refetch).not.toHaveBeenCalled();
+  setMetadataError(null);
+  setMetadata('native');
+  expect(state.interaction()).toEqual({ kind: 'internal' });
+  expect(fixture.enabled()).toBe(false);
+  setMetadata('instagram_direct');
+  expect(fixture.enabled()).toBe(true);
+  expect(state.interaction().kind).not.toBe('internal');
 });

@@ -210,7 +210,11 @@ function NewTop(props: { channelId: string }) {
         channelType={channelType()!}
         participants={participants() ?? []}
         channelName={channelName() ?? 'New Channel'}
-        lockRename={!binding() || binding() === 'whatsapp_group'}
+        lockRename={
+          !binding.value() ||
+          !!binding.error() ||
+          binding.value() === 'whatsapp_group'
+        }
         tabs={tabs()}
         activeTab={activeTab()}
         onTabChange={setActiveTab}

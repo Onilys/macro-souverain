@@ -1,11 +1,13 @@
 import { WhatsappGroupControls } from '@app/features/meta-messaging/views/group-controls';
 import { useSplitLayout } from '@components/app/split-layout/layout';
-import { useChannel, useChannelType } from '@core/context/channels';
 import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { getDisplayName, idToEmail, tryMacroId } from '@core/user';
 import { useChannelParticipantsQuery } from '@queries/channel/channel-participants';
-import { usePatchChannelMutation } from '@queries/channel/channels';
+import {
+  useChannelMetadataQuery,
+  usePatchChannelMutation,
+} from '@queries/channel/channels';
 import { useGetOrCreateDirectMessageMutation } from '@queries/channel/get-or-create-dm';
 import {
   useAddParticipantsMutation,
@@ -35,8 +37,12 @@ export function ChannelParticipantsTab(props: {
 }) {
   const { openWithSplit } = useSplitLayout();
   const userId = useUserId();
-  const channel = useChannel(props.channelId);
-  const channelType = useChannelType(props.channelId);
+  const metadata = useChannelMetadataQuery(
+    () => props.channelId,
+    () => true
+  );
+  const channel = () => (queryReadyGate(metadata) ? metadata.data : undefined);
+  const channelType = () => channel()?.channel_type;
   const binding = useMetaBinding(
     () => props.channelId,
     () => channel()?.messaging_binding === 'whatsapp_group'
@@ -132,7 +138,7 @@ export function ChannelParticipantsTab(props: {
     if (!canManageChannel() || !canConvertToTeam()) return;
     patchChannelMutation.mutate({
       channelId: props.channelId,
-      channel_name: channel()?.name,
+      channel_name: channel()?.channel_name,
       convert_to_team_channel: true,
     });
   };

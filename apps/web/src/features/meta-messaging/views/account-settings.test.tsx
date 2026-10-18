@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   close: vi.fn(),
 }));
 const [connections, setConnections] = createSignal<MetaConnection[]>([]);
+const [refreshError, setRefreshError] = createSignal(false);
 vi.mock('@core/context/user', () => ({
   useUserId: () => () => 'macro|owner@fixture.test',
 }));
@@ -41,7 +42,14 @@ vi.mock('@queries/meta-messaging', () => ({
     data: { instagram_app_id: 'app' },
   }),
   useMetaConnections: () => ({
-    isSuccess: true,
+    get isSuccess() {
+      return !refreshError();
+    },
+    get isError() {
+      return refreshError();
+    },
+    isPending: false,
+    refetch: vi.fn(),
     get data() {
       return connections();
     },
@@ -75,6 +83,7 @@ const account: MetaConnection = {
 beforeEach(() => {
   vi.clearAllMocks();
   setConnections([]);
+  setRefreshError(false);
   mocks.begin.mockResolvedValue({
     state: 'state',
     browser_transaction: 'proof',
@@ -144,4 +153,31 @@ it('clears the popup instruction on cancellation while retaining the error', asy
   expect(screen.queryByRole('status')).toBeNull();
   expect(mocks.complete).not.toHaveBeenCalled();
   expect(mocks.close).toHaveBeenCalledOnce();
+});
+
+it('keeps the registration PIN mounted in memory through a background refresh failure', async () => {
+  setConnections([
+    {
+      ...account,
+      provider: 'whatsapp',
+      whatsapp_mode: 'platform',
+      registration_status: 'required',
+      status: 'connecting',
+    },
+  ]);
+  render(() => (
+    <BusinessMessagingSettings
+      provider="whatsapp"
+      onSelectProvider={() => {}}
+      onBack={() => {}}
+    />
+  ));
+  const pin = screen.getByLabelText('WhatsApp two-step verification PIN');
+  fireEvent.input(pin, { target: { value: '123' } });
+  setRefreshError(true);
+  await screen.findByText('Accounts couldn’t load');
+  expect(screen.getByLabelText('WhatsApp two-step verification PIN')).toBe(pin);
+  expect((pin as HTMLInputElement).value).toBe('123');
+  setRefreshError(false);
+  expect(screen.getByLabelText('WhatsApp two-step verification PIN')).toBe(pin);
 });

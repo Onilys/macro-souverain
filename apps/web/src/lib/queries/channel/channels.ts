@@ -192,6 +192,9 @@ export function usePatchChannelMutation(callbacks?: PatchChannelCallbacks) {
             channelKeys.listChannels.queryKey,
             (channels) => updateCachedChannel(channels, vars)
           );
+          await queryClient.invalidateQueries({
+            queryKey: channelKeys.withID(vars.channelId).queryKey,
+          });
           if (typeof vars.auto_join_team === 'boolean') {
             await invalidateChannelParticipants(vars.channelId);
           }

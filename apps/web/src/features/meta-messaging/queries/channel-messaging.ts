@@ -1,3 +1,4 @@
+import type { useChannelMessagingBinding } from '@core/context/channels';
 import type { MessageData } from '@core/messages/types';
 import { queryReadyGate } from '@queries/gate';
 import {
@@ -27,9 +28,10 @@ import {
 /** Resolve the shared interaction state before exposing native channel actions. */
 export function createChannelInteraction(options: {
   channelId: Accessor<string>;
-  binding: Accessor<string | undefined>;
+  binding: ReturnType<typeof useChannelMessagingBinding>;
 }) {
-  const possible = () => !!options.binding() && options.binding() !== 'native';
+  const possible = () =>
+    !!options.binding.value() && options.binding.value() !== 'native';
   const messagingQuery = useMetaBinding(() => options.channelId(), possible);
   const binding = createMemo<
     | {
@@ -40,8 +42,9 @@ export function createChannelInteraction(options: {
     | undefined
   >((previous) => {
     const channelId = options.channelId();
-    if (!options.binding()) return undefined;
-    if (options.binding() === 'native') return { channelId, account: null };
+    if (!options.binding.value()) return undefined;
+    if (options.binding.value() === 'native')
+      return { channelId, account: null };
     if (!possible()) return undefined;
     // Cached data stays authoritative after a failed refetch; external sends
     // remain unavailable until the server answers again.
@@ -60,12 +63,16 @@ export function createChannelInteraction(options: {
   });
   const messaging = () => binding()?.account ?? undefined;
   const interaction = (): ChannelInteraction => {
-    if (!options.binding()) return { kind: 'loading' };
+    if (!options.binding.value())
+      return { kind: options.binding.error() ? 'error' : 'loading' };
+    if (options.binding.error()) return { kind: 'error' };
     const known = binding();
     if (known) {
       if (known.group?.setup) return { kind: 'group_setup' };
       if (!known.account)
-        return { kind: options.binding() === 'native' ? 'internal' : 'error' };
+        return {
+          kind: options.binding.value() === 'native' ? 'internal' : 'error',
+        };
       if (!known.account.capabilities || !known.account.eligibility)
         return { kind: 'error' };
       return {
@@ -81,7 +88,9 @@ export function createChannelInteraction(options: {
     group: () => binding()?.group,
     interaction,
     refresh: () => {
-      if (possible()) void messagingQuery.refetch();
+      if (!options.binding.value() || options.binding.error()) {
+        void options.binding.refetch();
+      } else if (possible()) void messagingQuery.refetch();
     },
   };
 }
@@ -89,7 +98,7 @@ export function createChannelInteraction(options: {
 /** Own the external send feed and its handoff to the native message timeline. */
 export function createChannelMessaging(options: {
   channelId: Accessor<string>;
-  binding: Accessor<string | undefined>;
+  binding: ReturnType<typeof useChannelMessagingBinding>;
   messages: Accessor<readonly MessageData[]>;
   entries: Accessor<readonly MessagingTimelineEntry[]>;
   includesLatest: Accessor<boolean>;

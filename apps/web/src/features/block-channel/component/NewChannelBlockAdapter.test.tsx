@@ -81,7 +81,12 @@ vi.mock('@components/app/split-layout/components/SplitLabel', () => ({}));
 vi.mock('@components/app/split-layout/components/SplitHeader', () => ({}));
 vi.mock('@core/context/channels', () => ({
   useChannelType: () => () => 'private',
-  useChannelMessagingBinding: () => () => 'native',
+  useChannelMessagingBinding: () => ({
+    value: () => 'native',
+    error: () => null,
+    isPending: () => false,
+    refetch: vi.fn(),
+  }),
   useChannel: () => () => undefined,
   useChannelCanCall: () => () => true,
 }));

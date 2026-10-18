@@ -24,6 +24,8 @@ import {
   ChannelsContextProvider,
   useChannelCanCall,
   useChannelMessagingBinding,
+  useChannelName,
+  useChannelType,
 } from './channels';
 
 afterEach(() => {
@@ -90,6 +92,8 @@ it('waits for authoritative native metadata for channels absent from the partici
     isPending: boolean;
     data?: {
       messaging_binding: string;
+      channel_name: string;
+      channel_type: string;
     };
   }>({ isPending: true });
   mocks.native.mockReturnValue(native);
@@ -100,7 +104,15 @@ it('waits for authoritative native metadata for channels absent from the partici
   });
   function Binding() {
     const binding = useChannelMessagingBinding('team');
-    return <output>{binding() ?? 'waiting'}</output>;
+    const name = useChannelName('team', 'Loading');
+    const type = useChannelType('team');
+    return (
+      <>
+        <output>{binding.value() ?? 'waiting'}</output>
+        <span data-testid="name">{name()}</span>
+        <span data-testid="type">{type()}</span>
+      </>
+    );
   }
   const view = render(() => (
     <ChannelsContextProvider>
@@ -114,7 +126,11 @@ it('waits for authoritative native metadata for channels absent from the partici
     isPending: false,
     data: {
       messaging_binding: 'native',
+      channel_name: 'Authoritative channel',
+      channel_type: 'team',
     },
   });
   expect(view.getByRole('status').textContent).toBe('native');
+  expect(view.getByTestId('name').textContent).toBe('Authoritative channel');
+  expect(view.getByTestId('type').textContent).toBe('team');
 });

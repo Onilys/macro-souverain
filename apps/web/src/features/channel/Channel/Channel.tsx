@@ -1185,7 +1185,16 @@ export function Channel(props: ChannelProps) {
                             <Show
                               when={internalInteraction()}
                               fallback={
-                                <Suspense>
+                                <Suspense
+                                  fallback={
+                                    <p
+                                      role="status"
+                                      class="px-3 py-2 text-sm text-ink-muted"
+                                    >
+                                      Loading conversation…
+                                    </p>
+                                  }
+                                >
                                   <ChannelMessagingComposer
                                     channelId={props.channelId}
                                     interaction={messaging.interaction()}

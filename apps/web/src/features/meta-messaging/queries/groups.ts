@@ -1,8 +1,10 @@
-import { useChannelsContext } from '@core/context/channels';
 import { useUserId } from '@core/context/user';
 import { writeClipboardData } from '@core/util/dataTransfer';
 import { throwOnErr } from '@core/util/result';
-import { invalidateListChannels } from '@queries/channel/channels';
+import {
+  invalidateListChannels,
+  useChannelMetadataQuery,
+} from '@queries/channel/channels';
 import { queryReadyGate } from '@queries/gate';
 import { useMetaBinding } from '@queries/meta-messaging';
 import { metaMessagingKeys } from '@queries/meta-messaging/keys';
@@ -32,8 +34,8 @@ export function useCreateWhatsappGroup() {
 
 export function useWhatsappGroup(channelId: Accessor<string>) {
   const client = useQueryClient();
-  const channels = useChannelsContext();
-  const channel = () => channels.channelsById()[channelId()];
+  const metadata = useChannelMetadataQuery(channelId, () => true);
+  const channel = () => (queryReadyGate(metadata) ? metadata.data : undefined);
   const user = useUserId();
   const binding = useMetaBinding(
     channelId,

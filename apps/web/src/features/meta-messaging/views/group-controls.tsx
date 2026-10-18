@@ -2,6 +2,7 @@ import { isRecord } from '@app/lib/split-router';
 import { channelDetailRoute, homeChannelRoute } from '@app/routes/routes';
 import { globalSplitManager } from '@app/signal/splitLayout';
 import { globalRemoveFromSplitHistory } from '@components/app/split-layout/layoutUtils';
+import { toast } from '@core/component/Toast/Toast';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { Button, ConfirmDialog, confirmDialog, Panel } from '@ui';
 import { createSignal, For, onCleanup, Show } from 'solid-js';
@@ -105,14 +106,14 @@ export function WhatsappGroupControls(props: {
                 onClick={() =>
                   source.linkError()
                     ? source.refreshLink()
-                    : source.copy.mutate()
+                    : source.copy.mutate(undefined, {
+                        onSuccess: () => toast.success('Invite link copied'),
+                      })
                 }
               >
                 {source.linkError()
                   ? 'Retry invite link'
-                  : source.copy.isSuccess
-                    ? 'Invite link copied'
-                    : 'Copy WhatsApp invite link'}
+                  : 'Copy WhatsApp invite link'}
               </Button>
             </Show>
           </Panel.Header>

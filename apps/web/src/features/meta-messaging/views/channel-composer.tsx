@@ -80,7 +80,13 @@ function MessagingComposer(
   return (
     <Switch>
       <Match when={props.interaction.kind === 'loading'}>
-        <div class="w-full h-16" aria-label="Loading conversation" />
+        <p
+          role="status"
+          aria-label="Loading conversation"
+          class="px-3 py-2 text-sm text-ink-muted"
+        >
+          Loading conversation…
+        </p>
       </Match>
       <Match when={props.interaction.kind === 'error'}>
         <p role="status" class="px-3 py-2 text-sm text-ink-muted">

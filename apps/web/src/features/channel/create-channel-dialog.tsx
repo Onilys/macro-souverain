@@ -452,9 +452,13 @@ export function CreateChannelDialog() {
                   <Show
                     when={accounts().length > 1}
                     fallback={
-                      <p class="text-sm text-ink-muted">
-                        Connected account: {selectedAccount()?.display_name}
-                      </p>
+                      <Show when={selectedAccount()}>
+                        {(account) => (
+                          <p class="text-sm text-ink-muted">
+                            Connected account: {account().display_name}
+                          </p>
+                        )}
+                      </Show>
                     }
                   >
                     <Select<MetaConnection>
