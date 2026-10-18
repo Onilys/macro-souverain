@@ -14,6 +14,7 @@ Reconnect, disconnect and import initiation require the current connector/member
 or a current team admin. Recheck connector membership before new effects.
 Repeated disconnects still verify manager authority, but return read-only status
 without acquiring the provider subscription lock once locally disconnected.
+Keep access tokens and registration PINs in zeroizing buffers with no Debug or Serialize.
 Never add a public state-only completion path. WhatsApp uses Embedded Signup.
 See `docs/META_MESSAGING.md` for redirect configuration and rollout gates.
 
@@ -25,7 +26,9 @@ drop ambiguous phone-only facts terminally. Never join by display names. Platfor
 Meta confirms registration and subscription; preserve uncertain attempts and
 encrypted credentials without persisting PINs. Never infer missing registration
 from an arbitrary non-CONNECTED provider status. Accepted native recovery is separate
-from new provider dispatch.
+from new provider dispatch. Enqueue only reads/validates native attachments; dispatch
+repeats that read and validation before preparing provider media. Never stage copies
+during enqueue or its idempotent replays.
 Production replies prefer BSUIDs. Developer test accounts may address the current
 phone only when that exact phone is allowlisted for the configured test sender;
 keep the dispatch identity/phone race checks and never infer historical phones.

@@ -305,6 +305,10 @@ loss of access after acceptance creates an unavailable-attachment notice. Unsend
 content/references, not separately reused documents. Messaging staging explicitly requests
 private initial sharing rather than inheriting team link defaults.
 
+Enqueue validates an authorized read of the ready native file, including content and provider
+limits, without preparing provider delivery. Dispatch reads and validates again before staging;
+idempotent enqueue replays cannot create unused provider copies.
+
 Instagram stages opaque copies under `ATTACHMENT_BUCKET/temp/macro-messaging/<UUID>` after
 rechecking native file access. Originals never become public. Signed URLs last 15 minutes;
 the existing unversioned email bucket’s `temp/` lifecycle expires objects after one day
@@ -313,6 +317,9 @@ the prefix, verify lifecycle/versioning and configure Meta-reachable URLs before
 No cleanup ledger/worker or version-list/delete permission is needed. WhatsApp uploads bytes.
 
 Native publication uses existing permission-scoped Soup, activity, notifications and search.
+The channel notification adapter owns metadata and delivery routing, including external author
+names and stable notification IDs for recovery; messaging selects authorized recipients and
+suppresses history/revision notifications without invoking ordinary human-post triggers.
 Live customer messages can notify; history, business replies and attachment revisions do not
 trigger customer notifications or agent/routine topics. Metadata queries pause offline/in
 background and refresh on focus. Active sends poll at two seconds, delivery at ten and idle

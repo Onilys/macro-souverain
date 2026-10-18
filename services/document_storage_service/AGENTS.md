@@ -75,5 +75,8 @@ channel events. `native/test/http/groups.rs` covers signed group receipts, expli
 retry, dropped clients, ordered membership, native permissions and deletion fences.
 
 Accepted sends are finalized only by the durable native recovery worker; dispatch
-records acceptance and wakes it. `files.rs` shares private file preparation/upload
-plumbing while callers retain native permission checks and source reservations.
+records acceptance and wakes it. `files.rs` separates authorized native reads from dispatch-only provider preparation
+and shares private upload plumbing. Reads retain readiness/content checks and recheck
+permissions after I/O; temporary staging rechecks file access. Native effects select
+authorized recipients and suppress history/revisions, then use the channels notification
+port for external author metadata, stable recovery IDs and delivery routing.
