@@ -59,10 +59,17 @@ export const EmailDetailRouteView = lazyNamed(
   () => import('@app/features/email-view/components/EmailDetailView'),
   'EmailDetailRouteView'
 );
-export const MailRouteView = lazyNamed(
-  () => import('@app/features/email-view/route-views'),
-  'MailRouteView'
-);
+export const MailRouteView = lazyNamed(async () => {
+  // Load the thread view before Email renders, even when the first visit is a
+  // thread URL. A lazy component first rendered before its code loads forgets
+  // it on unmount, so it would suspend again on every later thread open. A
+  // failed thread chunk must not block the list; the thread route reports it.
+  const [module] = await Promise.all([
+    import('@app/features/email-view/route-views'),
+    EmailDetailRouteView.preload().catch(() => undefined),
+  ]);
+  return module;
+}, 'MailRouteView');
 export const HomeEntityDetailRouteView = lazyNamed(
   () => import('@app/features/home/components/HomeEntityDetailRouteView'),
   'HomeEntityDetailRouteView'
