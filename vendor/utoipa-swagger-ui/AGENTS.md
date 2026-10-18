@@ -6,6 +6,8 @@ licenses, and the recorded archive checksum; do not apply repository-wide
 formatting or structural refactors to this copy.
 
 The crate is excluded from workspace membership and patched at the root.
+Standalone tests leave an ignored `Cargo.lock`; the workspace `Cargo.lock`
+pins production dependencies.
 Keep `vendor/` in the Nix pruned-source inputs. Remove the patch when a Utoipa-5
 compatible upstream release has patched ZIP support.
 
