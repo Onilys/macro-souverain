@@ -301,6 +301,16 @@ for 500 ms), and the open thread's neighbours once it has loaded. A failed warm
 is retried no sooner than 30 seconds later. With network latency added, j/k and
 Enter on a rested row should show the next body without waiting for
 `EmailThreadPage`.
+Stepping between threads keeps the current one on screen until the next has
+rendered its messages (at most one second), so the reader is never empty
+between threads. The incoming thread loads hidden and inert: it marks itself
+read, takes keys and focus only once shown. Until it is shown, action keys
+(`e`, `r`, `#`, star) do nothing, so they never act on the thread the user
+stepped away from; j/k and Escape keep working. Verify with a mutation observer
+that the visible reader never has zero messages during j/k, that held j
+advances one row per press, and that `z` after `e` returns to the archived
+thread. The mail backfill caches most threads locally, so block
+`SoupMailBackfill` to see a slow switch.
 Collapsed thread cards use a compact text snippet; expanding mounts the message
 body and its attachments. On phones, messages form flat rows with horizontal
 separators and 16px side gutters; collapsed previews show one line. Desktop
