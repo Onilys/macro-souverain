@@ -56,12 +56,7 @@ describe('translations', () => {
     const files = Object.keys(translations)
       .map((path) => path.replace('./locales/', '').replace('.ts', ''))
       .sort();
-    expect(files).toEqual(
-      LANGUAGES.map(({ code }) => code)
-        .filter((code) => code !== 'en')
-        .concat('en')
-        .sort()
-    );
+    expect(files).toEqual(LANGUAGES.map(({ code }) => code).sort());
   });
 
   it.each(
