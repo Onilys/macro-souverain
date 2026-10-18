@@ -657,6 +657,10 @@ export type ApiChannelAttachmentsPage = {
  */
 export type ApiChannelDetail = {
     /**
+     * Whether new team members automatically join this channel.
+     */
+    auto_join_team: boolean;
+    /**
      * Channel id.
      */
     channel_id: string;
@@ -9832,7 +9836,7 @@ export type MetaGroupParticipant = {
 };
 
 /**
- * Public pending binding; never contains a speculative remote group ID/link.
+ * Public creation result; never contains a speculative remote group ID/link.
  */
 export type MetaGroupSetup = {
     /**
@@ -9858,9 +9862,9 @@ export type MetaGroupSetup = {
 };
 
 /**
- * State of the current, unbound create attempt only.
+ * Creation outcome, including an idempotent response after successful binding.
  */
-export type MetaGroupSetupState = 'creating' | 'pending' | 'failed' | 'unknown';
+export type MetaGroupSetupState = 'bound' | 'creating' | 'pending' | 'failed' | 'unknown';
 
 /**
  * Monotonic remote lifecycle; deletion cannot be cleared by a later status.

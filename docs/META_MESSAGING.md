@@ -60,7 +60,7 @@ messages are free only within the number’s shared 1,000-delivery tier. See Met
 [limits](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups)
 and [pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/groups/pricing).
 
-Create/retry preflight checks OBA/Platform mode, the bounded Groups capability probe,
+Before each new remote create attempt, preflight checks OBA/Platform mode, the bounded Groups capability probe,
 and app subscriptions for `messages`, `group_lifecycle_update`,
 `group_participants_update`, `group_settings_update` and `group_status_update`.
 Missing subscriptions and transient provider errors fail closed for that request.
@@ -238,7 +238,8 @@ maintenance coordinate through the same PostgreSQL advisory lock; contended
 maintenance is deferred. Requests first queue for bounded local capacity before
 acquiring a pool connection; OAuth persistence then waits on the database lock.
 The capacity limit reserves pool headroom for the lock owner’s ordinary queries.
-Capacity pressure is not an account conflict. Cancellation releases both resources.
+Capacity pressure is not an account conflict. Canceled blocking connect waiters close
+their connection, so queued rollback cannot consume the owner’s pool headroom.
 
 Account health retains stable, sanitized reasons for expired/revoked authorization,
 blocked Meta API access, connector departure, transient failures, setup

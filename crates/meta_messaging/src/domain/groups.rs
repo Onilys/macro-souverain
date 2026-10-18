@@ -53,7 +53,7 @@ pub enum GroupStatus {
     Deleted,
 }
 
-/// State of the current, unbound create attempt only.
+/// Creation outcome, including an idempotent response after successful binding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -66,6 +66,8 @@ pub enum GroupStatus {
     sqlx(type_name = "text", rename_all = "snake_case")
 )]
 pub enum GroupSetupState {
+    /// A signed matching result already bound this request to its group.
+    Bound,
     /// No automatic retry is allowed while a server request is in flight.
     Creating,
     /// A request ID was saved; waiting for its signed result.
@@ -76,7 +78,7 @@ pub enum GroupSetupState {
     Unknown,
 }
 
-/// Public pending binding; never contains a speculative remote group ID/link.
+/// Public creation result; never contains a speculative remote group ID/link.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "schema", schema(as = MetaGroupSetup))]

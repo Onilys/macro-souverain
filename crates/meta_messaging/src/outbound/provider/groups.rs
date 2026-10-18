@@ -3,13 +3,12 @@ use super::*;
 use crate::domain::groups::{GroupCreateResult, ports::GroupProvider};
 
 impl HttpMetaProvider {
-    /// Verify app-wide webhook configuration once at startup. Failure disables
-    /// group creation until setup is corrected and the service is restarted.
+    /// Verify required callbacks before each create attempt. A transient failure
+    /// fails closed for this attempt and can recover on the next user request.
     #[tracing::instrument(skip_all, err)]
-    pub async fn check_group_configuration(&mut self) -> PortResult<()> {
-        self.group_callbacks_ready = false;
+    async fn check_group_configuration(&self) -> PortResult<()> {
         let Some(app) = self.whatsapp.as_ref() else {
-            return Ok(());
+            return Err(MessagingError::GroupIneligible.into());
         };
         let app_token = AccessToken::new(format!("{}|{}", app.app_id, app.app_secret.expose()))?;
         let subscriptions = self
@@ -43,7 +42,6 @@ impl HttpMetaProvider {
         if !subscribed {
             return Err(MessagingError::GroupIneligible.into());
         }
-        self.group_callbacks_ready = true;
         Ok(())
     }
 }
@@ -56,9 +54,7 @@ impl GroupProvider for HttpMetaProvider {
         c: &Connection,
         token: &AccessToken,
     ) -> PortResult<()> {
-        if !self.group_callbacks_ready {
-            return Err(MessagingError::GroupIneligible.into());
-        }
+        self.check_group_configuration().await?;
         let phone = self
             .graph(
                 Provider::Whatsapp,

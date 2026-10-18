@@ -2,7 +2,7 @@
 
 > **MetaGroupSetup** = \{ `channel_id`: `string`; `connection_id`: `string`; `error_code?`: `string` \| `null`; `state`: [`MetaGroupSetupState`](MetaGroupSetupState.md); `subject`: `string`; \}
 
-Public pending binding; never contains a speculative remote group ID/link.
+Public creation result; never contains a speculative remote group ID/link.
 
 ## Properties
 

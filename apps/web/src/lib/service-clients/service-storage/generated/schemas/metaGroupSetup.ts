@@ -8,7 +8,7 @@ import type { MetaGroupSetupErrorCode } from './metaGroupSetupErrorCode';
 import type { MetaGroupSetupState } from './metaGroupSetupState';
 
 /**
- * Public pending binding; never contains a speculative remote group ID/link.
+ * Public creation result; never contains a speculative remote group ID/link.
  */
 export interface MetaGroupSetup {
   /** Native identity, reserved before provider I/O. */

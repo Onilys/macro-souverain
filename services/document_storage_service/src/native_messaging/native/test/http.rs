@@ -556,6 +556,18 @@ async fn workflow(pool: PgPool, provider: Provider) {
     assert_eq!(intent["id"], duplicate["id"]);
     let work = repo.claim_send().await.unwrap().unwrap();
     service.messaging.process_send(&work).await.unwrap();
+    // This fixture deliberately has no gateway. Recovery must still materialize
+    // the accepted reply and retain its failed publication for a later worker.
+    assert_eq!(
+        service
+            .messaging
+            .recover_native()
+            .await
+            .unwrap_err()
+            .current_context(),
+        &MessagingError::Unavailable
+    );
+    assert!(sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM meta_messaging_message WHERE connection_id=$1 AND published_revision<effect_revision) AS \"pending!\"", c.id).fetch_one(&pool).await.unwrap());
     assert!(repo.claim_send().await.unwrap().is_none());
     assert_eq!(remote.sends.load(Ordering::SeqCst), 1);
     repo.record_status(

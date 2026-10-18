@@ -150,6 +150,7 @@ impl ChannelRepo for FakeMutationRepo {
     async fn get_channel_info(&self, channel_id: Uuid) -> Result<ChannelInfo, Self::Err> {
         let state = self.state.lock().unwrap();
         Ok(ChannelInfo {
+            auto_join_team: false,
             messaging_binding: state.messaging_binding,
             id: channel_id,
             name: state.channel_name.clone(),
@@ -175,6 +176,7 @@ impl ChannelRepo for FakeMutationRepo {
     ) -> Result<Option<ChannelInfo>, Self::Err> {
         let state = self.state.lock().unwrap();
         Ok((state.join_code == Some(join_code)).then(|| ChannelInfo {
+            auto_join_team: false,
             messaging_binding: state.messaging_binding,
             id: state.channel_id,
             name: state.channel_name.clone(),
@@ -190,6 +192,7 @@ impl ChannelRepo for FakeMutationRepo {
         _viewer_user_id: MacroUserIdStr<'static>,
     ) -> Result<ChannelMetadata, Self::Err> {
         Ok(ChannelMetadata {
+            auto_join_team: false,
             messaging_binding: Default::default(),
             channel_type: ChannelType::Private,
             channel_name: "Project".to_string(),

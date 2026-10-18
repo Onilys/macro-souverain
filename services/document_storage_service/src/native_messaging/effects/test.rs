@@ -122,6 +122,7 @@ fn fixture() -> (NativeEffect, MessageEvent, ChannelInfo, HashSet<String>) {
         effect,
         event,
         ChannelInfo {
+            auto_join_team: false,
             messaging_binding: Default::default(),
             id: channel,
             name: Some("Customer".into()),

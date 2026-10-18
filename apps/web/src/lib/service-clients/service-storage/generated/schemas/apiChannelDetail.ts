@@ -15,6 +15,8 @@ import type { MessagingBinding } from './messagingBinding';
 Messages are read through `/messages/channel/{channel_id}`.
  */
 export interface ApiChannelDetail {
+  /** Whether new team members automatically join this channel. */
+  auto_join_team: boolean;
   /** Channel id. */
   channel_id: string;
   /** Resolved display name from the viewer's perspective. */

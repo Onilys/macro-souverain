@@ -836,6 +836,8 @@ pub struct RemoveParticipantsRequest {
 /// Channel metadata needed for notifications.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChannelMetadata {
+    /// Whether new team members automatically join this channel.
+    pub auto_join_team: bool,
     /// External binding read alongside the native channel metadata.
     pub messaging_binding: MessagingBinding,
     /// Channel type.
@@ -872,6 +874,8 @@ pub struct MutatedMessage {
 /// Channel info row used by mutation logic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChannelInfo {
+    /// Whether new team members automatically join this channel.
+    pub auto_join_team: bool,
     /// External binding and lifecycle policy.
     pub messaging_binding: MessagingBinding,
     /// Channel id.

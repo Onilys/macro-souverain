@@ -3481,6 +3481,9 @@ export const getChannelParams = zod.object({
 
 export const getChannelResponse = zod
   .object({
+    auto_join_team: zod
+      .boolean()
+      .describe('Whether new team members automatically join this channel.'),
     channel_id: zod.uuid().describe('Channel id.'),
     channel_name: zod
       .string()
@@ -48644,16 +48647,22 @@ export const metaConversationResponse = zod
                       .nullish()
                       .describe('Sanitized diagnostic.'),
                     state: zod
-                      .enum(['creating', 'pending', 'failed', 'unknown'])
+                      .enum([
+                        'bound',
+                        'creating',
+                        'pending',
+                        'failed',
+                        'unknown',
+                      ])
                       .describe(
-                        'State of the current, unbound create attempt only.'
+                        'Creation outcome, including an idempotent response after successful binding.'
                       ),
                     subject: zod
                       .string()
                       .describe("Native owner's requested subject."),
                   })
                   .describe(
-                    'Public pending binding; never contains a speculative remote group ID\/link.'
+                    'Public creation result; never contains a speculative remote group ID\/link.'
                   ),
               ])
               .optional(),
@@ -49264,12 +49273,14 @@ export const metaRetryGroupResponse = zod
     connection_id: zod.uuid().describe('Selected business connection.'),
     error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
     state: zod
-      .enum(['creating', 'pending', 'failed', 'unknown'])
-      .describe('State of the current, unbound create attempt only.'),
+      .enum(['bound', 'creating', 'pending', 'failed', 'unknown'])
+      .describe(
+        'Creation outcome, including an idempotent response after successful binding.'
+      ),
     subject: zod.string().describe("Native owner's requested subject."),
   })
   .describe(
-    'Public pending binding; never contains a speculative remote group ID\/link.'
+    'Public creation result; never contains a speculative remote group ID\/link.'
   );
 
 export const metaReplyParams = zod.object({
@@ -49692,12 +49703,14 @@ export const metaCreateGroupResponse = zod
     connection_id: zod.uuid().describe('Selected business connection.'),
     error_code: zod.string().nullish().describe('Sanitized diagnostic.'),
     state: zod
-      .enum(['creating', 'pending', 'failed', 'unknown'])
-      .describe('State of the current, unbound create attempt only.'),
+      .enum(['bound', 'creating', 'pending', 'failed', 'unknown'])
+      .describe(
+        'Creation outcome, including an idempotent response after successful binding.'
+      ),
     subject: zod.string().describe("Native owner's requested subject."),
   })
   .describe(
-    'Public pending binding; never contains a speculative remote group ID\/link.'
+    'Public creation result; never contains a speculative remote group ID\/link.'
   );
 
 export const metaHistoryParams = zod.object({

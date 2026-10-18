@@ -101,6 +101,7 @@ struct ParticipantRow {
 /// Intermediate row for channel info.
 #[derive(Debug, sqlx::FromRow)]
 struct ChannelInfoRow {
+    auto_join_team: bool,
     messaging_binding: MessagingBinding,
     id: Uuid,
     name: Option<String>,
@@ -112,6 +113,7 @@ struct ChannelInfoRow {
 /// Intermediate row for batch channel preview lookups.
 #[derive(Debug, sqlx::FromRow)]
 struct ChannelPreviewQueryRow {
+    auto_join_team: bool,
     messaging_binding: MessagingBinding,
     profile_picture_id: Option<Uuid>,
     id: Uuid,
@@ -1926,7 +1928,7 @@ impl ChannelRepo for PgChannelsRepo {
         let row = sqlx::query_as!(
             ChannelInfoRow,
             r#"
-            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id, messaging_binding AS "messaging_binding: MessagingBinding"
+            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id, auto_join_team, messaging_binding AS "messaging_binding: MessagingBinding"
             FROM comms_channels
             WHERE id = $1
             "#,
@@ -1935,6 +1937,7 @@ impl ChannelRepo for PgChannelsRepo {
         .fetch_one(&self.pool)
         .await?;
         Ok(ChannelInfo {
+            auto_join_team: row.auto_join_team,
             messaging_binding: row.messaging_binding,
             id: row.id,
             name: row.name,
@@ -1986,7 +1989,7 @@ impl ChannelRepo for PgChannelsRepo {
         let row = sqlx::query_as!(
             ChannelInfoRow,
             r#"
-            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id, messaging_binding AS "messaging_binding: MessagingBinding"
+            SELECT id, name, channel_type AS "channel_type: ChannelType", org_id, team_id, auto_join_team, messaging_binding AS "messaging_binding: MessagingBinding"
             FROM comms_channels
             WHERE join_code = $1
             "#,
@@ -1995,6 +1998,7 @@ impl ChannelRepo for PgChannelsRepo {
         .fetch_optional(&self.pool)
         .await?;
         Ok(row.map(|row| ChannelInfo {
+            auto_join_team: row.auto_join_team,
             messaging_binding: row.messaging_binding,
             id: row.id,
             name: row.name,
@@ -2012,6 +2016,7 @@ impl ChannelRepo for PgChannelsRepo {
         let info = self.get_channel_info(channel_id).await?;
         let channel_name = resolve_channel_display_name(&self.pool, &info, viewer_user_id).await?;
         Ok(ChannelMetadata {
+            auto_join_team: info.auto_join_team,
             messaging_binding: info.messaging_binding,
             channel_type: info.channel_type,
             channel_name,
@@ -2031,6 +2036,7 @@ impl ChannelRepo for PgChannelsRepo {
                 c.id,
                 c.name,
                 c.profile_picture_id,
+                c.auto_join_team,
                 c.messaging_binding AS "messaging_binding: MessagingBinding",
                 c.channel_type AS "channel_type: ChannelType",
                 c.org_id,
@@ -2060,6 +2066,7 @@ impl ChannelRepo for PgChannelsRepo {
             .map(|row| ChannelPreviewRow {
                 profile_picture_id: row.profile_picture_id,
                 info: ChannelInfo {
+                    auto_join_team: row.auto_join_team,
                     messaging_binding: row.messaging_binding,
                     id: row.id,
                     name: row.name,
@@ -2329,7 +2336,7 @@ impl ChannelRepo for PgChannelsRepo {
             r#"
             SELECT id
             FROM comms_channels
-            WHERE channel_type = 'private'::comms_channel_type AND messaging_binding <> 'whatsapp_group'
+            WHERE channel_type = 'private'::comms_channel_type AND messaging_binding = 'native'
               AND (
                   (
                       SELECT COUNT(*)

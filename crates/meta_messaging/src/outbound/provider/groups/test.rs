@@ -21,7 +21,7 @@ struct Scenario {
 }
 
 #[tokio::test]
-async fn group_preflight_checks_oba_modes_and_capability_with_startup_callback_gate() {
+async fn group_preflight_fails_closed_and_recovers_without_restarting() {
     async fn respond(State(mode): State<Arc<AtomicU8>>, method: HttpMethod, uri: Uri) -> Response {
         assert_eq!(
             method,
@@ -37,6 +37,9 @@ async fn group_preflight_checks_oba_modes_and_capability_with_startup_callback_g
                 json!({"data":{"is_valid":true,"app_id":"123","scopes":if mode==8{vec!["whatsapp_business_management"]}else{vec!["whatsapp_business_management","whatsapp_business_messaging"]}}})
             }
             "/v26.0/123/subscriptions" => {
+                if mode == 9 {
+                    return StatusCode::SERVICE_UNAVAILABLE.into_response();
+                }
                 let fields = [
                     "messages",
                     "group_lifecycle_update",
@@ -84,18 +87,11 @@ async fn group_preflight_checks_oba_modes_and_capability_with_startup_callback_g
     provider.test_origin = Some(format!("http://{address}/").parse().unwrap());
     let c = super::super::test::connection(Provider::Whatsapp);
     let token = AccessToken::new("token".into()).unwrap();
-    assert!(
-        provider
-            .require_group_eligibility(&c, &token)
-            .await
-            .is_err()
-    );
-    provider.check_group_configuration().await.unwrap();
     provider
         .require_group_eligibility(&c, &token)
         .await
         .unwrap();
-    for failure in [1, 2, 3, 4, 7] {
+    for failure in [1, 2, 3, 4, 5, 7, 9] {
         mode.store(failure, Ordering::SeqCst);
         assert!(
             provider
@@ -105,16 +101,8 @@ async fn group_preflight_checks_oba_modes_and_capability_with_startup_callback_g
             "preflight mode {failure}"
         );
     }
-    mode.store(5, Ordering::SeqCst);
-    assert!(provider.check_group_configuration().await.is_err());
+    // Same provider instance recovers from missing subscriptions and transient I/O.
     mode.store(0, Ordering::SeqCst);
-    assert!(
-        provider
-            .require_group_eligibility(&c, &token)
-            .await
-            .is_err()
-    );
-    provider.check_group_configuration().await.unwrap();
     provider
         .require_group_eligibility(&c, &token)
         .await

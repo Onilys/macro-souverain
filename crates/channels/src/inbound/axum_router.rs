@@ -831,6 +831,8 @@ pub async fn get_channel_attachments_handler<
 /// Messages are read through `/messages/channel/{channel_id}`.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ApiChannelDetail {
+    /// Whether new team members automatically join this channel.
+    auto_join_team: bool,
     /// Authoritative external binding.
     messaging_binding: crate::domain::models::MessagingBinding,
     /// Channel id.
@@ -882,6 +884,7 @@ pub async fn get_channel_handler<
     let participants = state.service.get_channel_participants(channel_id).await?;
 
     Ok(Json(ApiChannelDetail {
+        auto_join_team: metadata.auto_join_team,
         channel_id,
         channel_type: metadata.channel_type,
         messaging_binding: metadata.messaging_binding,

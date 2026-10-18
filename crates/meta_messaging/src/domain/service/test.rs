@@ -422,6 +422,7 @@ async fn non_meta_text_transport_needs_no_oauth_templates_history_or_reply_windo
         .unwrap();
     let work = fixture.claim_send().await.unwrap().unwrap();
     service.process_send(&work).await.unwrap();
+    service.recover_native().await.unwrap();
     let memory = fixture.0.lock().unwrap();
     assert_eq!(
         (
@@ -506,6 +507,7 @@ async fn transient_failures_before_the_fence_retry_without_dispatching() {
     assert_eq!(fixture.0.lock().unwrap().dispatches, 0);
     let work = fixture.claim_send().await.unwrap().unwrap();
     service.process_send(&work).await.unwrap();
+    service.recover_native().await.unwrap();
     let memory = fixture.0.lock().unwrap();
     assert_eq!((memory.dispatches, memory.state), (1, DeliveryState::Sent));
 }
@@ -537,8 +539,11 @@ async fn durable_acceptance_recovers_native_content_without_resending() {
         .unwrap();
     fixture.0.lock().unwrap().fail_native = true;
     let work = fixture.claim_send().await.unwrap().unwrap();
-    assert!(service.process_send(&work).await.is_err());
+    service.process_send(&work).await.unwrap();
+    assert_eq!(fixture.0.lock().unwrap().materializations, 0);
     assert_eq!(fixture.0.lock().unwrap().state, DeliveryState::Accepted);
+    assert!(fixture.claim_send().await.unwrap().is_none());
+    assert!(service.recover_native().await.is_err());
     fixture.0.lock().unwrap().fail_native = false;
     fixture.0.lock().unwrap().access = false;
     service.recover_native().await.unwrap();

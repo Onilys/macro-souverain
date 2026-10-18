@@ -1,5 +1,5 @@
 use super::*;
-use crate::domain::temporary_media::{TemporaryMedia, TemporaryMediaService};
+use crate::domain::temporary_media::TemporaryMedia;
 use axum::{
     Router,
     body::Bytes,
@@ -53,7 +53,9 @@ async fn storage() -> (Server, Arc<Store>, Arc<S3MediaCopies>) {
     (
         server,
         state,
-        Arc::new(S3MediaCopies::new(Client::from_conf(config))),
+        Arc::new(
+            S3MediaCopies::new(Client::from_conf(config), "temporary-fixture".into()).unwrap(),
+        ),
     )
 }
 fn file() -> MediaBytes {
@@ -65,8 +67,7 @@ fn file() -> MediaBytes {
 }
 #[tokio::test]
 async fn opaque_copy_has_an_expiring_scoped_url_and_preserves_private_original() {
-    let (_server, objects, storage) = storage().await;
-    let service = TemporaryMediaService::new(storage, "temporary-fixture".into()).unwrap();
+    let (_server, objects, service) = storage().await;
     let original = "macro|alice@example.test/document/version";
     objects
         .objects

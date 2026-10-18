@@ -24,6 +24,13 @@ pub enum GroupPermission {
 pub trait GroupRepository: Send + Sync {
     /// Current unbound attempt for a native channel.
     async fn group_attempt(&self, channel: Uuid) -> PortResult<Option<GroupAttempt>>;
+    /// Completed creation for this channel, account and authorization generation.
+    /// Only signed bindings with retained creation evidence qualify.
+    async fn completed_group(
+        &self,
+        connection: &Connection,
+        channel: Uuid,
+    ) -> PortResult<Option<GroupSetup>>;
     /// Replace only a settled failed/unknown attempt; never an in-flight request.
     async fn retry_group(&self, connection: &Connection, channel: Uuid)
     -> PortResult<GroupAttempt>;

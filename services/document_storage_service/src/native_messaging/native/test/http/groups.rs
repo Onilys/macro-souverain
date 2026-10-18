@@ -91,6 +91,104 @@ async fn bind(f: &Fixture, request_id: &str, group_id: &str, at: i64) {
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn completed_creation_replays_only_the_authorized_channel_account_and_generation(
+    pool: PgPool,
+) {
+    let f = platform(&pool).await;
+    let channel = Uuid::now_v7();
+    create(&f, channel).await;
+    bind(&f, "request-1", "completed", Utc::now().timestamp()).await;
+    assert!(f.repo.group_attempt(channel).await.unwrap().is_none());
+    // The initial response was lost; even a later provider rename cannot change
+    // which original request is safe to replay.
+    group_fact(&f, "group_settings_update", json!({"timestamp":(Utc::now().timestamp()+1).to_string(),"type":"group_settings_update","group_id":"completed","group_subject":{"text":"Renamed","update_successful":true}})).await;
+    let busy = f.repo.lock_subscription(&f.c).await.unwrap().unwrap();
+    assert_eq!(create(&f, channel).await["state"], "bound");
+    let path = format!("/channels/{channel}/group/retry");
+    let (status, body) = request(&f.app, "POST", &path, Some("owner"), json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["state"], "bound");
+    drop(busy);
+    assert_eq!(
+        request(&f.app, "POST", &path, Some("outsider"), json!({}))
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let create_path = format!("/connections/{}/groups", f.c.id);
+    assert_eq!(
+        request(
+            &f.app,
+            "POST",
+            &create_path,
+            Some("owner"),
+            json!({"channel_id":channel,"subject":"Different request"})
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    sqlx::query!(
+        "UPDATE meta_messaging_conversation SET group_creation_subject=NULL WHERE channel_id=$1",
+        channel
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        request(&f.app, "POST", &path, Some("owner"), json!({}))
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    sqlx::query!("UPDATE meta_messaging_conversation SET group_creation_subject='Customer project' WHERE channel_id=$1", channel).execute(&pool).await.unwrap();
+    let mut other = f.c.clone();
+    other.id = Uuid::now_v7();
+    other.account_id = "other-phone".to_owned().try_into().unwrap();
+    let other = f
+        .repo
+        .connect(&other, b"fixture-token", None)
+        .await
+        .unwrap();
+    f.repo
+        .health(&other, ConnectionStatus::Connected, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        request(
+            &f.app,
+            "POST",
+            &format!("/connections/{}/groups", other.id),
+            Some("owner"),
+            json!({"channel_id":channel,"subject":"Customer project"})
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    sqlx::query!("UPDATE meta_messaging_connection SET connected_at=connected_at+interval '1 second' WHERE id=$1", f.c.id).execute(&pool).await.unwrap();
+    assert_eq!(
+        request(&f.app, "POST", &path, Some("owner"), json!({}))
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        request(
+            &f.app,
+            "POST",
+            &create_path,
+            Some("owner"),
+            json!({"channel_id":channel,"subject":"Customer project"})
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(f.remote.group_creates.load(Ordering::SeqCst), 1);
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
 async fn group_timeout_explicit_retry_fences_old_callbacks_and_dropped_clients(pool: PgPool) {
     let f = platform(&pool).await;
     let channel = Uuid::now_v7();

@@ -53,7 +53,6 @@ pub struct HttpMetaProvider {
     whatsapp: Option<WhatsappCredentials>,
     instagram: Option<InstagramCredentials>,
     developer: Option<WhatsappDeveloperAccount>,
-    group_callbacks_ready: bool,
     #[cfg(all(test, feature = "axum"))]
     test_origin: Option<Url>,
 }
@@ -106,7 +105,6 @@ impl HttpMetaProvider {
             whatsapp,
             instagram,
             developer: None,
-            group_callbacks_ready: false,
             #[cfg(all(test, feature = "axum"))]
             test_origin: None,
         })

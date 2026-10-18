@@ -66,6 +66,14 @@ impl MetaService {
                 MessagingError::Invalid("choose a group subject of 1–128 characters").into(),
             );
         }
+        // Completed requests are authorized reads, even while another lifecycle
+        // operation holds this account's subscription lock.
+        if let Some(existing) = self.completed_group(&c, request.channel_id, user).await? {
+            if existing.subject != request.subject {
+                return Err(MessagingError::Conflict.into());
+            }
+            return Ok(existing);
+        }
         let service = self.clone();
         let user = user.to_owned();
         self.group_tasks
@@ -89,11 +97,21 @@ impl MetaService {
                             )
                             .await?;
                         if existing.setup.connection_id != c.id
+                            || existing.generation != c.connected_at
                             || existing.setup.subject != request.subject
                         {
                             return Err(MessagingError::Conflict.into());
                         }
                         return Ok(existing.setup);
+                    }
+                    if let Some(existing) = service
+                        .completed_group(&c, request.channel_id, &user)
+                        .await?
+                    {
+                        if existing.subject != request.subject {
+                            return Err(MessagingError::Conflict.into());
+                        }
+                        return Ok(existing);
                     }
                     let token = service.token(&c).await?;
                     service
@@ -135,18 +153,35 @@ impl MetaService {
         {
             return Ok(current.setup);
         }
-        if self
-            .repository
-            .conversation(attempt.setup.channel_id)
+        self.completed_group(c, attempt.setup.channel_id, user)
             .await?
-            .is_some()
-        {
-            return Ok(GroupSetup {
-                state: GroupSetupState::Pending,
-                ..attempt.setup
-            });
+            .ok_or_else(|| MessagingError::Conflict.into())
+    }
+
+    async fn completed_group(
+        &self,
+        c: &Connection,
+        channel: Uuid,
+        user: &str,
+    ) -> PortResult<Option<GroupSetup>> {
+        let Some(conversation) = self.repository.conversation(channel).await? else {
+            return Ok(None);
+        };
+        self.native
+            .require_group_permission(channel, user, GroupPermission::Delete)
+            .await?;
+        if conversation.connection_id != c.id || conversation.kind != ConversationKind::Group {
+            return Err(MessagingError::Conflict.into());
         }
-        Err(MessagingError::Conflict.into())
+        let existing = self
+            .repository
+            .completed_group(c, channel)
+            .await?
+            .ok_or(MessagingError::Conflict)?;
+        // Recheck the current generation after reading the retained creation
+        // identity; the read-only replay does not need a provider lifecycle lock.
+        self.require_group_connector(c, user).await?;
+        Ok(Some(existing))
     }
 
     /// Deliberate retry replaces the previous request correlation, under the same
@@ -161,20 +196,14 @@ impl MetaService {
         if authority != SendAuthority::Human {
             return Err(MessagingError::Forbidden.into());
         }
-        let attempt = self
-            .repository
-            .group_attempt(channel)
-            .await?
-            .ok_or(MessagingError::NotFound)?;
-        let c = self
-            .repository
-            .connection(attempt.setup.connection_id)
-            .await?
-            .ok_or(MessagingError::NotFound)?;
+        let (c, _, _) = self.group_connection(channel).await?;
         self.require_group_connector(&c, user).await?;
         self.native
             .require_group_permission(channel, user, GroupPermission::Delete)
             .await?;
+        if let Some(existing) = self.completed_group(&c, channel, user).await? {
+            return Ok(existing);
+        }
         let service = self.clone();
         let user = user.to_owned();
         self.group_tasks
@@ -186,13 +215,27 @@ impl MetaService {
                         .await?
                         .ok_or(MessagingError::Conflict)?;
                     service.require_group_connector(&c, &user).await?;
+                    if let Some(existing) = service.completed_group(&c, channel, &user).await? {
+                        return Ok(existing);
+                    }
                     let token = service.token(&c).await?;
                     service
                         .provider
                         .require_group_eligibility(&c, &token)
                         .await?;
                     service.require_group_connector(&c, &user).await?;
-                    let attempt = service.repository.retry_group(&c, channel).await?;
+                    let attempt = match service.repository.retry_group(&c, channel).await {
+                        Ok(attempt) => attempt,
+                        Err(error)
+                            if matches!(error.current_context(), MessagingError::Conflict) =>
+                        {
+                            return service
+                                .completed_group(&c, channel, &user)
+                                .await?
+                                .ok_or(error);
+                        }
+                        Err(error) => return Err(error),
+                    };
                     service.submit_group(&c, &user, &token, attempt).await
                 }
                 .instrument(tracing::Span::current()),

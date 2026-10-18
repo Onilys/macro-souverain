@@ -9,7 +9,7 @@ impl MessagingService {
     /// is never blindly repeated following a timeout/crash. Rate limits, and transient
     /// failures before the dispatch fence, are the only retries.
     pub async fn process_send(&self, work: &SendWork) -> PortResult<()> {
-        let (prepared, conversation, connection) = match self.fence_dispatch(work).await {
+        let prepared = match self.fence_dispatch(work).await {
             Ok(ready) => ready,
             Err(error) => {
                 if matches!(error.current_context(), MessagingError::SendExpired) {
@@ -43,19 +43,15 @@ impl MessagingService {
                 return Err(error);
             }
         };
-        let mut prepared_work = work.clone();
-        prepared_work.rendered_text = Some(prepared.rendered_text().to_owned());
         // Past the fence, an error leaves the attempt `sending`: lease expiry records
         // it as Unknown, never Failed, because the provider may have accepted it.
         match prepared.dispatch().await? {
             ProviderSendResult::Accepted(id) => {
-                // Record acceptance BEFORE local rendering: if native materialization
-                // fails, recovery may create the message but must not resend it.
+                // Acceptance durably queues native finalization and wakes recovery.
+                // Only recovery materializes accepted replies; dispatch never races
+                // it or resends a message after acceptance.
                 self.repository
                     .settle_send(&work.lease, DeliveryState::Accepted, Some(&id), None, None)
-                    .await?;
-                self.native
-                    .sent(&prepared_work, &conversation, &connection, &id)
                     .await?;
             }
             ProviderSendResult::RetryAfter(seconds) if work.attempts < 10 => {
@@ -101,10 +97,7 @@ impl MessagingService {
     }
 
     /// Prepare and recheck one attempt, then commit the durable dispatch fence.
-    async fn fence_dispatch(
-        &self,
-        work: &SendWork,
-    ) -> PortResult<(Box<dyn PreparedSend>, Conversation, AccountScope)> {
+    async fn fence_dispatch(&self, work: &SendWork) -> PortResult<Box<dyn PreparedSend>> {
         let conversation = self
             .repository
             .conversation(work.channel_id)
@@ -184,7 +177,7 @@ impl MessagingService {
                 prepared.rendered_text(),
             )
             .await?;
-        Ok((prepared, conversation, connection))
+        Ok(prepared)
     }
 
     /// Finish accepted native messages and publication without repeating provider sends.

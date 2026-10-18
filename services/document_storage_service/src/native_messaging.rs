@@ -50,10 +50,7 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
         broker,
         notifications,
     } = dependencies;
-    let mut settings = settings::Settings::load(environment)?;
-    if let Err(error) = settings.provider.check_group_configuration().await {
-        tracing::warn!(error=?error.current_context(), "group callbacks are not configured; group creation is disabled");
-    }
+    let settings = settings::Settings::load(environment)?;
     let cipher: Arc<dyn CredentialCipher> = if let Some(key) = settings.kms_key {
         Arc::new(KmsCredentialCipher::new(
             aws_sdk_kms::Client::new(&macro_aws_config::get_macro_aws_config().await),
@@ -67,14 +64,8 @@ pub(crate) async fn build(dependencies: Dependencies) -> anyhow::Result<State> {
     let temporary_media: Option<Arc<dyn meta_messaging::domain::temporary_media::TemporaryMedia>> =
         if let Some(bucket) = settings.temporary_media_bucket {
             Some(Arc::new(
-                meta_messaging::domain::temporary_media::TemporaryMediaService::new(
-                    Arc::new(
-                        meta_messaging::outbound::temporary_media::S3MediaCopies::new(
-                            aws_sdk_s3::Client::new(
-                                &macro_aws_config::get_macro_aws_config().await,
-                            ),
-                        ),
-                    ),
+                meta_messaging::outbound::temporary_media::S3MediaCopies::new(
+                    aws_sdk_s3::Client::new(&macro_aws_config::get_macro_aws_config().await),
                     bucket,
                 )?,
             ))

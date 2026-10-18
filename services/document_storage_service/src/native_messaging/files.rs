@@ -23,7 +23,7 @@ use documents_hex::domain::{
     response::LocationResponseV3,
 };
 use entity_access::domain::{
-    models::{EntityType, MemberParticipantRole, ViewAccessLevel},
+    models::{EntityAccessReceipt, EntityType, MemberParticipantRole, ViewAccessLevel},
     ports::EntityAccessService as _,
 };
 use macro_user_id::user_id::MacroUserIdStr;
@@ -158,6 +158,42 @@ impl NativeFiles {
             _ => Err(MessagingError::Forbidden.into()),
         }
     }
+    async fn store_private_file(
+        &self,
+        source: EntityAccessReceipt<MemberParticipantRole>,
+        document: NewDocument,
+        file: MediaBytes,
+        checksum: String,
+    ) -> PortResult<()> {
+        let id = document.id.ok_or(MessagingError::Unavailable)?;
+        let prepared = self
+            .documents
+            .prepare_received_file(source, document)
+            .await
+            .map_err(error)?;
+        // No upload URL means the exact reserved file is already ready. Recovery
+        // never overwrites it; owner, hash and file type are checked by documents.
+        if let Some(url) = prepared.document_response.presigned_url {
+            self.uploads
+                .upload_document_bytes(DocumentBytesUpload {
+                    presigned_url: url,
+                    content_type: prepared.content_type,
+                    base64_sha256: checksum,
+                    bytes: file.bytes,
+                })
+                .await
+                .map_err(error)?;
+            DocumentCreationService::set_document_content(
+                &self.documents,
+                &id.to_string(),
+                DocumentContent::ready(DocumentContentLocation::ObjectStorage),
+            )
+            .await
+            .map_err(error)?;
+        }
+        Ok(())
+    }
+
     async fn read_url(&self, url: &str) -> PortResult<Vec<u8>> {
         let url = macro_aws_config::transform_aws_url_for_internal_fetch(url);
         let mut response = self
@@ -223,46 +259,26 @@ impl MessageFiles for NativeFiles {
             .map(|b| format!("{b:02x}"))
             .collect::<String>();
         let name = document_name(&file.filename);
-        let prepared = self
-            .documents
-            .prepare_received_file(
-                source,
-                NewDocument {
-                    id: Some(id),
-                    sha,
-                    document_name: name,
-                    file_type: Some(kind),
-                    project_id: None,
-                    team_id: None,
-                    share_with_team: false,
-                    created_at: None,
-                    sub_type: None,
-                    skip_history: true,
-                    initial_link_share: InitialLinkShare::Exact(LinkShareState::Off),
-                },
-            )
-            .await
-            .map_err(error)?;
-        let url = prepared
-            .document_response
-            .presigned_url
-            .ok_or(MessagingError::Unavailable)?;
-        self.uploads
-            .upload_document_bytes(DocumentBytesUpload {
-                presigned_url: url,
-                content_type: prepared.content_type,
-                base64_sha256: base64::engine::general_purpose::STANDARD.encode(digest),
-                bytes: file.bytes,
-            })
-            .await
-            .map_err(error)?;
-        DocumentCreationService::set_document_content(
-            &self.documents,
-            &id.to_string(),
-            DocumentContent::ready(DocumentContentLocation::ObjectStorage),
+        let filename = file.filename.clone();
+        self.store_private_file(
+            source,
+            NewDocument {
+                id: Some(id),
+                sha,
+                document_name: name,
+                file_type: Some(kind),
+                project_id: None,
+                team_id: None,
+                share_with_team: false,
+                created_at: None,
+                sub_type: None,
+                skip_history: true,
+                initial_link_share: InitialLinkShare::Exact(LinkShareState::Off),
+            },
+            file,
+            base64::engine::general_purpose::STANDARD.encode(digest),
         )
-        .await
-        .map_err(error)?;
+        .await?;
         let category = if kind.mime_type().starts_with("image/") {
             meta_messaging::domain::events::MediaKind::Image
         } else if kind.mime_type().starts_with("audio/") {
@@ -274,7 +290,7 @@ impl MessageFiles for NativeFiles {
         };
         Ok(UploadedAttachment {
             document_id: id,
-            filename: file.filename,
+            filename,
             kind: category,
         })
     }
@@ -356,44 +372,25 @@ impl MessageFiles for NativeFiles {
                     .await
                     .map_err(access_error)?;
                 let name = document_name(&file.filename);
-                let prepared = self
-                    .documents
-                    .prepare_received_file(
-                        source,
-                        NewDocument {
-                            id: Some(reservation.document_id),
-                            sha,
-                            document_name: name,
-                            file_type: Some(kind),
-                            project_id: None,
-                            team_id: None,
-                            share_with_team: false,
-                            created_at: Some(m.timestamp),
-                            sub_type: None,
-                            skip_history: true,
-                            initial_link_share: InitialLinkShare::Exact(LinkShareState::Off),
-                        },
-                    )
-                    .await
-                    .map_err(error)?;
-                if let Some(url) = prepared.document_response.presigned_url {
-                    self.uploads
-                        .upload_document_bytes(DocumentBytesUpload {
-                            presigned_url: url,
-                            content_type: prepared.content_type,
-                            base64_sha256: base64::engine::general_purpose::STANDARD.encode(digest),
-                            bytes: file.bytes,
-                        })
-                        .await
-                        .map_err(error)?;
-                    DocumentCreationService::set_document_content(
-                        &self.documents,
-                        &reservation.document_id.to_string(),
-                        DocumentContent::ready(DocumentContentLocation::ObjectStorage),
-                    )
-                    .await
-                    .map_err(error)?;
-                }
+                self.store_private_file(
+                    source,
+                    NewDocument {
+                        id: Some(reservation.document_id),
+                        sha,
+                        document_name: name,
+                        file_type: Some(kind),
+                        project_id: None,
+                        team_id: None,
+                        share_with_team: false,
+                        created_at: Some(m.timestamp),
+                        sub_type: None,
+                        skip_history: true,
+                        initial_link_share: InitialLinkShare::Exact(LinkShareState::Off),
+                    },
+                    file,
+                    base64::engine::general_purpose::STANDARD.encode(digest),
+                )
+                .await?;
                 let mut tx = self.pool.begin().await.map_err(error)?;
                 PgMessageRepository::attach_external_file_in(
                     &mut tx,

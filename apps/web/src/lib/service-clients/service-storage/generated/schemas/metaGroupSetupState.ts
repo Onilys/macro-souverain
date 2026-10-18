@@ -6,13 +6,14 @@
  */
 
 /**
- * State of the current, unbound create attempt only.
+ * Creation outcome, including an idempotent response after successful binding.
  */
 export type MetaGroupSetupState =
   (typeof MetaGroupSetupState)[keyof typeof MetaGroupSetupState];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const MetaGroupSetupState = {
+  bound: 'bound',
   creating: 'creating',
   pending: 'pending',
   failed: 'failed',

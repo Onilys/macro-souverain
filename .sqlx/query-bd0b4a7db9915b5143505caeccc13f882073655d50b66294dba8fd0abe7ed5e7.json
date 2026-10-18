@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, name, channel_type AS \"channel_type: ChannelType\", org_id, team_id, messaging_binding AS \"messaging_binding: MessagingBinding\"\n            FROM comms_channels\n            WHERE join_code = $1\n            ",
+  "query": "\n            SELECT id, name, channel_type AS \"channel_type: ChannelType\", org_id, team_id, auto_join_team, messaging_binding AS \"messaging_binding: MessagingBinding\"\n            FROM comms_channels\n            WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -42,6 +42,11 @@
       },
       {
         "ordinal": 5,
+        "name": "auto_join_team",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
         "name": "messaging_binding: MessagingBinding",
         "type_info": "Text"
       }
@@ -57,8 +62,9 @@
       false,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "975682095b741044983c3a2dc057ed407823bb59e93af13a2ce00af902704a87"
+  "hash": "bd0b4a7db9915b5143505caeccc13f882073655d50b66294dba8fd0abe7ed5e7"
 }

@@ -34,7 +34,7 @@ async fn concurrent_claims_preserve_conversation_fifo_through_retry_and_uncertai
     let first = enqueue(&repo, &slow, channels[0]).await;
     let later = enqueue(&repo, &slow, channels[0]).await;
     let parallel = enqueue(&repo, &slow, channels[1]).await;
-    let capped = enqueue(&repo, &slow, channels[2]).await;
+    let independent = enqueue(&repo, &slow, channels[2]).await;
     let good = enqueue(&repo, &healthy, channel(&pool, &user).await).await;
     let claims = tokio::join!(
         repo.claim_send(),
@@ -49,7 +49,7 @@ async fn concurrent_claims_preserve_conversation_fifo_through_retry_and_uncertai
     assert_eq!(
         work.len(),
         4,
-        "all conversations are eligible without account caps; no duplicate claims"
+        "independent conversations are eligible; no duplicate claims"
     );
     assert!(work.iter().any(|w| w.lease.id == good.id));
     assert!(work.iter().any(|w| w.lease.id == parallel.id));
@@ -64,7 +64,7 @@ async fn concurrent_claims_preserve_conversation_fifo_through_retry_and_uncertai
     )
     .await
     .unwrap();
-    assert!(work.iter().any(|w| w.lease.id == capped.id));
+    assert!(work.iter().any(|w| w.lease.id == independent.id));
     assert!(
         repo.claim_send().await.unwrap().is_none(),
         "later same-conversation reply cannot overtake the retry"
@@ -176,10 +176,10 @@ async fn equal_enqueue_times_use_id_order_and_expired_attempt_releases_the_conve
 }
 
 #[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
-async fn receipt_claims_are_unique_without_account_caps(pool: PgPool) {
+async fn concurrent_receipt_claims_are_unique(pool: PgPool) {
     let repo = PgMessagingRepository::new(pool);
-    for (n, account) in ["slow", "slow", "slow", "healthy"].into_iter().enumerate() {
-        let payload = serde_json::json!({"object":"instagram","entry":[{"id":account}]});
+    for n in 0..4 {
+        let payload = serde_json::json!({"object":"instagram","entry":[{"id":"business"}]});
         repo.accept_receipt(
             Provider::Instagram,
             &Sha256::digest(n.to_string()),
@@ -199,18 +199,6 @@ async fn receipt_claims_are_unique_without_account_caps(pool: PgPool) {
         .filter_map(|r| r.unwrap())
         .collect();
     assert_eq!(work.len(), 4);
-    assert_eq!(
-        work.iter()
-            .filter(|w| w.payload["entry"][0]["id"] == "slow")
-            .count(),
-        3
-    );
-    assert_eq!(
-        work.iter()
-            .filter(|w| w.payload["entry"][0]["id"] == "healthy")
-            .count(),
-        1
-    );
     let ids: std::collections::HashSet<_> = work.iter().map(|w| w.lease.id).collect();
     assert_eq!(ids.len(), work.len());
 }

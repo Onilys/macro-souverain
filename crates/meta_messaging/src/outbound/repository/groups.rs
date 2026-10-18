@@ -106,7 +106,7 @@ impl PgMessagingRepository {
             else {
                 return Err(MessagingError::InvalidProviderPayload.into());
             };
-            sqlx::query!("INSERT INTO meta_messaging_conversation(connection_id,kind,customer_id,channel_id,external_sender_id,customer_display_name,group_status,group_status_at,group_subject_at,group_invite_link) VALUES ($1,'group',$2,$3,$4,$5,'active',$6,$6,$7)",c.id,group.as_str(),setup.channel_id,Uuid::now_v7(),subject,event.timestamp,invite_link).execute(&mut **tx).await.map_err(failure)?;
+            sqlx::query!("INSERT INTO meta_messaging_conversation(connection_id,kind,customer_id,channel_id,external_sender_id,customer_display_name,group_status,group_status_at,group_subject_at,group_invite_link,group_creation_subject,group_creation_generation) VALUES ($1,'group',$2,$3,$4,$5,'active',$6,$6,$7,$8,$9)",c.id,group.as_str(),setup.channel_id,Uuid::now_v7(),subject,event.timestamp,invite_link,setup.subject,setup.generation).execute(&mut **tx).await.map_err(failure)?;
             sqlx::query!(
                 "DELETE FROM meta_messaging_group_setup WHERE channel_id=$1",
                 setup.channel_id
@@ -213,6 +213,26 @@ impl GroupRepository for PgMessagingRepository {
                 },
                 attempt_id: r.attempt_id,
                 generation: r.generation,
+            })
+        })
+        .transpose()
+    }
+    async fn completed_group(
+        &self,
+        c: &Connection,
+        channel: Uuid,
+    ) -> PortResult<Option<GroupSetup>> {
+        let row = sqlx::query!(
+            "SELECT group_creation_subject AS subject FROM meta_messaging_conversation WHERE channel_id=$1 AND connection_id=$2 AND kind='group' AND group_creation_subject IS NOT NULL AND group_creation_generation IS NOT DISTINCT FROM $3",
+            channel, c.id, c.connected_at
+        ).fetch_optional(&self.pool).await.map_err(failure)?;
+        row.map(|row| {
+            Ok(GroupSetup {
+                channel_id: channel,
+                connection_id: c.id,
+                subject: row.subject.ok_or(MessagingError::Unavailable)?,
+                state: GroupSetupState::Bound,
+                error_code: None,
             })
         })
         .transpose()

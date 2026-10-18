@@ -1,5 +1,5 @@
 # Type Alias: MetaGroupSetupState
 
-> **MetaGroupSetupState** = `"creating"` \| `"pending"` \| `"failed"` \| `"unknown"`
+> **MetaGroupSetupState** = `"bound"` \| `"creating"` \| `"pending"` \| `"failed"` \| `"unknown"`
 
-State of the current, unbound create attempt only.
+Creation outcome, including an idempotent response after successful binding.
