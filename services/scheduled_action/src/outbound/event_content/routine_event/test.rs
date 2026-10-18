@@ -446,6 +446,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
     };
     let content = EventContent::Channel {
         channel: ChannelMetadata {
+            auto_join_team: false,
             messaging_binding: MessagingBinding::Native,
             channel_type: ChannelKind::Public,
             channel_name: "eng".into(),
