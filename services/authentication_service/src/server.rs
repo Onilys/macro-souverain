@@ -74,6 +74,9 @@ use teams::{
 use gtm_invite::{
     domain::service::GtmInviteServiceImpl, outbound::pg_gtm_invite_repo::PgGtmInviteRepo,
 };
+use user_language::{
+    domain::service::UserLanguageServiceImpl, outbound::pg_user_language_repo::PgUserLanguageRepo,
+};
 use referral::{
     domain::service::ReferralServiceImpl,
     outbound::{pg_referral_repo::PgReferralRepo, stripe_discount_client::StripeDiscountClient},
@@ -675,6 +678,9 @@ pub async fn run() -> anyhow::Result<()> {
             favorites_service: Arc::new(favorites_service),
             entity_access_service: entity_access_service_impl,
             referral_service: Arc::new(referral_service),
+            user_language_service: Arc::new(UserLanguageServiceImpl::new(PgUserLanguageRepo::new(
+                db.clone(),
+            ))),
             gtm_invite_service,
             native_app_service: Arc::new(NativeAppServiceImpl {
                 bundle_fetcher: DefaultBundleFetcher::new(

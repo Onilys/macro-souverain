@@ -86,6 +86,8 @@ export const authExcluded = [
   // Introductory offers belong to the app's subscription checkout flow.
   'getTrialEligibility',
   'getUserInvites',
+  // The interface language is an app setting, not SDK surface.
+  'getUserLanguage',
   'getUserLinkExists',
   'getUserName',
   'getUserNames',

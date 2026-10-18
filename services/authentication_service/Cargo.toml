@@ -148,6 +148,7 @@ rand = { workspace = true }
 rate_limit = { path = "../../crates/rate_limit" }
 redis = { workspace = true }
 referral = { path = "../../crates/referral" }
+user_language = { path = "../../crates/user_language", features = ["inbound", "postgres"] }
 remote_env_var = { path = "../../crates/remote_env_var" }
 reqwest = { workspace = true, features = ["query"] }
 roles_and_permissions = { path = "../../crates/roles_and_permissions" }

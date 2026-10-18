@@ -46,6 +46,9 @@ use notification::{
     domain::service::SqsNotificationIngress, outbound::rate_limit::RedisRateLimitAdapter,
 };
 use rate_limit::domain::service::RateLimitServiceImpl;
+use user_language::{
+    domain::service::UserLanguageServiceImpl, outbound::pg_user_language_repo::PgUserLanguageRepo,
+};
 use referral::{
     domain::service::ReferralServiceImpl,
     outbound::{pg_referral_repo::PgReferralRepo, stripe_discount_client::StripeDiscountClient},
@@ -133,6 +136,8 @@ pub(crate) type ReferralServiceType = ReferralServiceImpl<
 
 pub(crate) type GtmInviteServiceType = GtmInviteServiceImpl<PgGtmInviteRepo>;
 
+pub(crate) type UserLanguageServiceType = UserLanguageServiceImpl<PgUserLanguageRepo>;
+
 pub(crate) type GithubLinkServiceType = GithubLinkServiceImpl<
     PgGithubRepo,
     GithubOauthImpl,
@@ -207,6 +212,7 @@ pub(crate) struct ApiContext {
     pub loops_client: Arc<LoopsClient>,
     pub referral_service: Arc<ReferralServiceType>,
     pub gtm_invite_service: Arc<GtmInviteServiceType>,
+    pub user_language_service: Arc<UserLanguageServiceType>,
     pub rate_limit_service: RateLimiter,
     /// The stripe price ids for each paid plan's seat
     pub stripe_prices: crate::api::user::stripe::StripePrices,
