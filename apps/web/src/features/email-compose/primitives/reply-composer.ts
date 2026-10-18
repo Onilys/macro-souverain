@@ -65,7 +65,10 @@ import {
   prepareMacroBody,
   TOGGLE_APPEND_EMAIL_THREAD_COMMAND,
 } from './prepare-email-body';
-import { createReplyComposerFocus } from './reply-composer-focus';
+import {
+  createReplyComposerFocus,
+  takesFocusOnMount,
+} from './reply-composer-focus';
 import { createReplyRecipientFields } from './reply-recipient-fields';
 import {
   refuseSend,
@@ -247,6 +250,12 @@ export function createReplyComposer(
   // A pending undo-send restore that belongs to this thread (inline reply
   // remount case). It carries a just-undone send. Consumed below.
   const restoredSnapshot = replyUndo.takePending(undoKey);
+  let mountFocus = takesFocusOnMount({
+    savedReply: draftSeed !== undefined && replyTarget !== undefined,
+    requested: untrack(() => ctx.replyRequest.replyType()) !== undefined,
+    restoredSend: restoredSnapshot !== undefined,
+    desktop: untrack(props.focusAfterReplyRequest),
+  });
 
   // Switching inboxes can move a draft out of the displayed thread. Keep its
   // persisted identity together for subsequent saves, discard, schedule and undo.
@@ -445,11 +454,14 @@ export function createReplyComposer(
   createEffect(() => {
     const rt = form.replyType();
     if (!editorConnected()) return;
+    // Later reply-type changes are the user's, and always take focus.
+    const takeFocus = mountFocus;
+    mountFocus = true;
     untrack(() => {
       setComposerExpanded(false);
       if (rt === 'forward') {
         setQuoteCollapsed(true);
-        focus.forward();
+        if (takeFocus) focus.forward();
         const message = replyTarget;
         const currentEditor = editor();
         if (message && currentEditor && form.replyAppended()) {
@@ -469,7 +481,7 @@ export function createReplyComposer(
           );
           onCleanup(() => clearTimeout(timer));
         }
-      } else {
+      } else if (takeFocus) {
         focus.reply();
       }
     });
