@@ -46,9 +46,6 @@ use notification::{
     domain::service::SqsNotificationIngress, outbound::rate_limit::RedisRateLimitAdapter,
 };
 use rate_limit::domain::service::RateLimitServiceImpl;
-use user_language::{
-    domain::service::UserLanguageServiceImpl, outbound::pg_user_language_repo::PgUserLanguageRepo,
-};
 use referral::{
     domain::service::ReferralServiceImpl,
     outbound::{pg_referral_repo::PgReferralRepo, stripe_discount_client::StripeDiscountClient},
@@ -59,6 +56,9 @@ use roles_and_permissions::{
 };
 use sqlx::PgPool;
 use tokio_util::task::TaskTracker;
+use user_language::{
+    domain::service::UserLanguageServiceImpl, outbound::pg_user_language_repo::PgUserLanguageRepo,
+};
 
 use crate::account_link_state::AccountLinkStateKey;
 use crate::microsoft_token_cipher::MicrosoftTokenCipher;

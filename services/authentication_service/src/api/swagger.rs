@@ -60,8 +60,8 @@ use model::authentication::{
 };
 use model::response::{EmptyResponse, ErrorResponse, UserTokensResponse};
 use model::user::{
-    ProfilePictureQueryParams, ProfilePictures, PutUserNameQueryParams, Language, UserLanguage, UserName, UserNames,
-    UserProfilePicture,
+    Language, ProfilePictureQueryParams, ProfilePictures, PutUserNameQueryParams, UserLanguage,
+    UserName, UserNames, UserProfilePicture,
 };
 
 #[derive(OpenApi)]
