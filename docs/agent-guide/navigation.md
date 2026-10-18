@@ -868,13 +868,21 @@ restart rules still apply.
 ## Keyboard model (from the in-app guide; verified partially)
 
 - `Ctrl/Cmd+K` — jump to anything by name.
+- `?` — the focused view's shortcuts, read from its registered keys (hidden
+  navigation keys and `g` sequences included); `?` again closes it. Only the
+  key opens it: the command menu does not list it, since run from there it
+  would describe the menu. A view's `g` letters are listed under that view.
 - `c` then `d`/`t`/`e`/`m`/`a` — create doc / task / email / channel / AI chat.
   Single-letter shortcuts only work when no editor has focus; press `Escape` first.
-- `/` — search everything. `j`/`k` — move in lists. `e` — mark done.
+  In Email, `c` alone opens a new email instead.
+- `/` — search everything (in Email it focuses email search). `j`/`k` — move in
+  lists. `e` — mark done.
 - `#` — move email to Trash, with an Undo toast. Works on the selected or focused
   rows in a mail list and on the thread open in an email detail or block. Email
   only; other entity types keep Delete/Backspace and do not answer `#`.
-- `g` then `h` — Home; `g` then `i` remains an alias.
+- `g` then `h` — Home; `g` then `i` remains an alias. While Email is focused,
+  `g i`/`o`/`s`/`t`/`d`/`e`/`a` open its tabs instead (`g i` Signal, `g t` Sent;
+  see `email.md`); `g h` still goes Home.
 - In Email and Tasks search, `Escape` returns focus to the list and keeps the query.
   Use the search field's clear button to clear it.
 - Splits: `` ` `` split, `Shift+H`/`Shift+L` move focus, `Shift+Esc` maximize.

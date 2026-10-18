@@ -4,6 +4,7 @@ import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { SplitRouter } from '@app/lib/split-router';
 import { type PillTabItem, PillTabs } from '@components/app/mobile/PillTabs';
 import { SplitHeaderLeft } from '@components/app/split-layout/components/SplitHeader';
+import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { SplitPanel } from '@components/app/split-panel';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
@@ -26,10 +27,12 @@ import {
 } from './components/EmailHeader';
 import { EmailList } from './components/EmailList';
 import { EmailSidebar } from './components/EmailSidebar';
+import { composeEmail } from './compose-email';
 import { EMAIL_TABS } from './constants';
 import { EmailViewProvider, useEmailView } from './email-view-context';
 import { emailTour } from './tour';
 import type { EmailTab, EmailViewStateOptions } from './types';
+import { useEmailViewHotkeys } from './use-email-view-hotkeys';
 
 export type EmailViewProps = {
   /** Explicit navigation state. When present, it wins over entry restoration. */
@@ -139,9 +142,26 @@ function EmailMobileLayout(props: ParentProps) {
 
 function EmailViewRoot() {
   const panel = useSplitPanelOrThrow();
+  const { openWithSplit } = useSplitLayout();
+  const {
+    state,
+    setTab,
+    selectedThread,
+    list: listController,
+  } = useEmailView();
   const [listElement, setListElement] = createSignal<HTMLDivElement>();
 
   onMount(() => panel.handle.setDisplayName('Email'));
+
+  useEmailViewHotkeys({
+    scopeId: panel.splitHotkeyScope,
+    enabled: () => panel.isPanelActive() && !isTouchDevice(),
+    tab: () => state.tab,
+    setTab,
+    threadOpen: () => selectedThread() !== undefined,
+    hasSelection: () => listController.selection.count() > 0,
+    compose: () => composeEmail(openWithSplit, state.inboxIds),
+  });
 
   const list = () => (
     <Suspense fallback={<EmailListFallback />}>

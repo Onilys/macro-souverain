@@ -904,6 +904,11 @@ const shortcutSections: ShortcutSection[] = [
         description: 'Focus AI chat',
       },
       { keys: ['g'], codes: ['KeyG'], description: 'Go to a view' },
+      {
+        keys: ['?'],
+        codes: ['ShiftLeft', 'Slash'],
+        description: 'Show shortcuts for the current view',
+      },
     ],
   },
   {
@@ -996,6 +1001,26 @@ const shortcutSections: ShortcutSection[] = [
         keys: ['#'],
         codes: ['ShiftLeft', 'Digit3'],
         description: 'Delete email',
+      },
+    ],
+  },
+  {
+    title: 'Email',
+    items: [
+      { keys: ['c'], codes: ['KeyC'], description: 'New email' },
+      { keys: ['/'], codes: ['Slash'], description: 'Search email' },
+      { keys: ['s'], codes: ['KeyS'], description: 'Star or unstar' },
+      { keys: ['z'], codes: ['KeyZ'], description: 'Undo the last action' },
+      {
+        keys: ['escape'],
+        codes: ['Escape'],
+        description: 'Back to the list, then to Signal',
+      },
+      {
+        keys: ['g'],
+        codes: ['KeyG'],
+        description:
+          'Then i Signal, o Noise, s Favorites, t Sent, d Drafts, e Archived, a All',
       },
     ],
   },

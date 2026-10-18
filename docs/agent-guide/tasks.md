@@ -501,7 +501,7 @@ scrollable, keyboard-aware content. Its glass pane has broad screen-scaled
 corners, an 8px outer inset, and a blurred backdrop, matching the create and
 filter sheets. Desktop uses the centered composer dialog.
 
-1. Click the `Task` button (or `Create` → `Task T`, or keyboard `c` then `t`).
+1. Click the `Task` button (or `Create` → `Task T`, or keyboard `c` then `t` outside Email).
 2. A dialog opens with the title contenteditable focused (placeholder `New task`), plus
    `Add description...`, and property buttons: `Not Started` (status), `Priority`, assignee
    chip (defaults to you), `Due Date`, `Project` (when Projects is enabled; the standard

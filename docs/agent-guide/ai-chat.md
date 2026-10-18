@@ -42,7 +42,7 @@ authorization does not add apps outside that scope.
 
 ## Checking first-response latency
 
-From outside an editor, press `c`, then `a`, type a prompt, and press Enter.
+From outside an editor and Email, press `c`, then `a`, type a prompt, and press Enter.
 Repeat with the default model and with an explicit model/effort selection.
 The first visible output and the first answer text should appear as they arrive;
 later chunks can arrive in batches. Reasoning or a tool row should not delay the
@@ -589,7 +589,7 @@ composer with placeholder **`Ask AI, @mention anything`**. Click it, `type_text`
 press Enter — the app creates a chat and navigates to `/app/chat/<uuid>`. Alternatively,
 when `enable-chat-v3-agents` is on (default in dev;
 `VITE_ENABLE_CHAT_V3_AGENTS` overrides), `Create` → `Agent`, or keyboard `c`
-then `a`, opens `/app/component/agents` with the new-conversation input focused
+then `a` outside Email, opens `/app/component/agents` with the new-conversation input focused
 and ready to type. No session is created until you send a prompt. If Agents is
 already open on its roster, the shortcut returns it to the composer; if its
 composer already has a draft, that draft stays intact. `C Shift+A` requests a
@@ -1079,7 +1079,7 @@ two answers is the rollout's decision, not a second choice in the menu.
 ## Agent sessions
 
 An agent session is `/app/agent/<uuid>`. The composer placeholder is
-**`Message the agent, @mention anything`**. Creating one (`c` then `a`, or
+**`Message the agent, @mention anything`**. Creating one (`c` then `a` outside Email, or
 `Create` → `Agent`) leaves that composer focused — on mobile that is the same
 Create-menu `triggerFocusInput` as chat, so the keyboard opens. Type `/` to
 open sections for **Skills**, **Pull requests**, and **Commands**. Skills are
