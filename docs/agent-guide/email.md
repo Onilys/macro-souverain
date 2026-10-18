@@ -313,6 +313,9 @@ does not add an accent-colored ring; keyboard focus has a neutral outline.
 Replies appear inline on desktop and in a composer drawer on touch devices.
 On touch, a saved reply shows as a **Draft** row with its opening words under the
 message it answers (which stays expanded); tapping it reopens the draft.
+On desktop, a saved reply that reappears with its thread (opening it, stepping
+to it with j/k, the reading pane following the list) stays unfocused, so the
+next j moves on instead of typing into it; `r` or a click continues it.
 Desktop draft bodies and app-controlled message text use 15px, matching channels.
 HTML messages with preserved sender typography retain their explicit sizes.
 Desktop reply actions sit together at the bottom right: discard, attach, schedule,
