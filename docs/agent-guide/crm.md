@@ -161,7 +161,8 @@ the entity actions menu and command menu with stage requests delayed; cancel the
 editors without changing hosted data.
 
 `Collapse CRM sidebar` persists across visits; `Expand CRM sidebar` restores it.
-At narrow widths, `Show CRM navigation` opens the same navigation in a menu.
+At narrow widths, `Show CRM navigation` opens the same navigation in a menu;
+`Collapse CRM sidebar` there closes the menu and leaves the saved preference alone.
 While the sidebar is collapsed, the split's **Close** sits before either toggle,
 including on a pipeline, and stays hidden when the split cannot close.
 The sidebar's Records and Lists sections can also collapse independently.
