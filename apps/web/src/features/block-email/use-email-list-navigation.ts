@@ -2,7 +2,11 @@ import type {
   EmailThreadCommands,
   EmailThreadListNavigation,
 } from '@app/features/email-thread/context/email-thread-context';
-import { adjacentEmail } from '@app/features/email-thread/core/adjacent-email';
+import {
+  adjacentEmail,
+  type EmailPosition,
+  emailPosition,
+} from '@app/features/email-thread/core/adjacent-email';
 import { useMaybeSoup } from '@app/features/next-soup/soup-context';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import {
@@ -13,7 +17,7 @@ import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import type { EntityData } from '@entity';
-import { type Accessor, createSignal, onCleanup } from 'solid-js';
+import { type Accessor, createMemo, createSignal, onCleanup } from 'solid-js';
 
 /** Keep thread controls tied to the list and filters the user opened it from. */
 export function useEmailListNavigation(
@@ -40,13 +44,24 @@ export function useEmailListNavigation(
     if (from !== 'mail' && from !== 'home') return [];
     return soup?.rows().map((row) => row.original) ?? [];
   };
+  // Where the open thread sat when it was opened: next and previous keep
+  // stepping from there after it moves or leaves the list.
+  const position = createMemo<EmailPosition | undefined>((previous) =>
+    previous?.id === threadId()
+      ? previous
+      : emailPosition(entities(), threadId())
+  );
   const target = (direction: -1 | 1) =>
-    adjacentEmail(entities(), threadId(), direction);
-  const canLoadNext = () =>
-    !!source()?.hasMore() &&
-    entities().some(
-      (entity) => entity.type === 'email' && entity.id === threadId()
-    );
+    adjacentEmail(entities(), threadId(), direction, position());
+  // More pages place a thread that left the list only after a surviving
+  // earlier neighbour (their first row follows it). With none, paging could
+  // never find a next email, so it would load the whole mailbox.
+  const canLoadNext = () => {
+    const at = position();
+    if (!source()?.hasMore() || at?.id !== threadId()) return false;
+    const listed = new Set(entities().map((entity) => entity.id));
+    return listed.has(at.id) || at.previous.some((id) => listed.has(id));
+  };
   const open = async (
     entity: EntityData,
     referredFrom = panel?.handle.referredFrom()
@@ -70,11 +85,12 @@ export function useEmailListNavigation(
       toast.failure('Unable to open the next or previous email');
     }
   };
+  /** Resolves whether it archived the thread through `archiveThread`. */
   const navigate = async (
     direction: -1 | 1,
     archiveThread?: EmailThreadCommands['archiveThread']
-  ) => {
-    if (!panel || disposed || navigating()) return;
+  ): Promise<boolean> => {
+    if (!panel || disposed || navigating()) return false;
     setNavigating(true);
     const currentId = threadId();
     const current = entities().find(
@@ -92,29 +108,29 @@ export function useEmailListNavigation(
     try {
       while (direction === 1 && !target(direction) && canLoadNext()) {
         await list?.loadMore();
-        if (!isCurrent()) return;
+        if (!isCurrent()) return false;
       }
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       // Capture the destination before archiving removes the current list row.
       // At the end of the list, triage falls back to the previous email.
       const next =
         target(direction) ?? (archiveThread ? target(-1) : undefined);
-      if (
-        archiveThread &&
-        !archiveThread({
+      const archived =
+        !!archiveThread &&
+        archiveThread({
           navigate: false,
           navigateBack:
             current && next
               ? () => void open(current, referredFrom)
               : undefined,
-        })
-      )
-        return;
-      if (!next) return;
-      await open(next, referredFrom);
+        });
+      if (archiveThread && !archived) return false;
+      if (next) await open(next, referredFrom);
+      return archived;
     } catch {
       if (isCurrent())
         toast.failure('Unable to open the next or previous email');
+      return false;
     } finally {
       setNavigating(false);
     }
@@ -128,8 +144,9 @@ export function useEmailListNavigation(
     next: () => {
       void navigate(1);
     },
-    markDone: (archiveThread) => {
-      void navigate(1, archiveThread);
+    markDone: async (archiveThread, requested) => {
+      if (requested !== undefined && requested !== threadId()) return false;
+      return navigate(1, archiveThread);
     },
   };
 }

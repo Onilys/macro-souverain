@@ -129,6 +129,8 @@ export type ReplyComposerOptions = {
     onUndoHandle?: (handle: EmailUndoHandle) => void;
     /** False keeps the view on this thread instead of opening the next one. */
     navigate?: boolean;
+    /** True once the send was undone; marking done may still be pending. */
+    cancelled?: () => boolean;
   }) => void;
   setShowReply?: Setter<boolean>;
   /** Reopens this reply's thread when the composer is no longer on screen. */
@@ -1036,12 +1038,16 @@ export function createReplyComposer(
       // Each undo action retains this send's inbox, thread and mark-done, even
       // if the composer sends again or navigation disposes the view.
       let markDoneUndoHandle: EmailUndoHandle | undefined;
+      // Advancing may archive after a page loads; an undo before then must
+      // not leave the restored thread marked done.
+      let sendUndone = false;
       const undoSend = (draftId: string) =>
         props.delivery.undoSend({
           threadId: result.threadId,
           draftId,
           inboxId,
           onUndone: async () => {
+            sendUndone = true;
             await restoreAfterUndoSend(draftId, result.threadId, inboxId);
             const doneHandle = markDoneUndoHandle;
             markDoneUndoHandle = undefined;
@@ -1081,13 +1087,15 @@ export function createReplyComposer(
       }
       if (willMarkDone) {
         try {
-          // Sending a reply stays on the thread; explicit Mark done advances.
+          // A plain send stays on the thread; Send and mark done advances to
+          // the next thread, like Mark done.
           props.onMarkDone?.({
             silent: true,
             onUndoHandle: (handle) => {
               markDoneUndoHandle = handle;
             },
-            navigate: false,
+            navigate: markDone,
+            cancelled: () => sendUndone,
           });
         } catch (error) {
           props.notices.reportError(error);
