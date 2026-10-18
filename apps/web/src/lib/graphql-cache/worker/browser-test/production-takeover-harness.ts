@@ -3,8 +3,8 @@ import type {
   ProductionHarnessEnvelope,
 } from './production-browser-wire';
 
-// Tabs of three simulated builds share one scope. Each build runs its own
-// coordinator over the one database, as deployed builds do. The newer build
+// Tabs of three simulated builds share one scope and coordinator script URL.
+// Each build must run its own coordinator over the one database. The newer build
 // must take the database over without wiping it, and send the older build's
 // tabs on; an even older build must be turned away.
 
@@ -132,7 +132,6 @@ const run = async (): Promise<Record<string, unknown>> => {
     const url = new URL('./production-tab.html', location.href);
     url.searchParams.set('scope', scope);
     url.searchParams.set('tabId', tabId);
-    url.searchParams.set('build', build);
     url.searchParams.set('buildTime', String(BUILDS[build]));
     const popup = window.open(url, `${scope}:${tabId}`);
     if (!popup) throw new Error(`popup blocked for ${tabId}`);

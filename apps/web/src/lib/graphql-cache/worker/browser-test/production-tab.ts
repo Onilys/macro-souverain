@@ -13,9 +13,7 @@ const parameters = new URLSearchParams(location.search);
 const tabId = parameters.get('tabId') ?? '';
 const scope = parameters.get('scope') ?? '';
 if (!tabId || !scope) throw new Error('missing production harness parameters');
-// A named build gets its own coordinator, as each deployed build does, and
-// reports its build time so the newer build can take the database over.
-const build = parameters.get('build');
+// Exercise the real coordinator identity even when builds share its script URL.
 const buildTime = Number(parameters.get('buildTime') ?? 0);
 
 const QUERY = `query Soup($input: SoupInput!) {
@@ -54,18 +52,6 @@ const adapter = createCacheCoordinatorPageAdapter({
   scope,
   tabId,
   buildTime,
-  ...(build
-    ? {
-        createSharedWorker: (workerScope: string) =>
-          new SharedWorker(
-            new URL('../cache.coordinator.shared-worker.ts', import.meta.url),
-            {
-              type: 'module',
-              name: `graphql-cache-coordinator:${workerScope}:build-${build}`,
-            }
-          ),
-      }
-    : {}),
   createDedicatedWorker: (_workerScope, ownerEpoch) =>
     new Worker(
       new URL('./production-cache.engine-worker.ts', import.meta.url),

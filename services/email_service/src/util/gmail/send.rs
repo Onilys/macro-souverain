@@ -1,5 +1,9 @@
-use crate::outbound::email_api::GmailApi;
 use anyhow::Context;
+use email::domain::forwarded_attachments::ForwardedAttachmentSource;
+use email_api_client::domain::{
+    ports::{MailboxAttachmentClient, ProviderRateLimiter, ProviderTokenSource},
+    service::EmailApiClientServiceImpl,
+};
 use models_email::service::attachment::{AttachmentDraft, AttachmentToSend};
 use models_email::service::link::Link;
 use models_email::service::message;
@@ -109,35 +113,29 @@ pub async fn fetch_and_attach_draft_attachments(
 /// Forwarded attachments reference original Gmail attachments, so their data is fetched
 /// from Gmail at send time rather than from S3.
 #[tracing::instrument(
-    skip(db, email_api, message_to_send),
-    fields(message_db_id = ?message_to_send.db_id), err
+    skip(email_api, sources, message_to_send),
+    fields(message_db_id = ?message_to_send.db_id, source_count = sources.len()), err
 )]
-pub async fn fetch_and_attach_forwarded_attachments(
-    db: &PgPool,
-    email_api: &GmailApi,
-    link: &Link,
+pub async fn fetch_and_attach_forwarded_attachments<R, T, L>(
+    email_api: &EmailApiClientServiceImpl<R, T, L>,
+    sources: &[ForwardedAttachmentSource],
     message_to_send: &mut message::MessageToSend,
-) -> anyhow::Result<()> {
-    let Some(db_id) = message_to_send.db_id else {
-        return Ok(());
-    };
-
-    let fwd_attachments =
-        email_db_client::attachments::forwarded::fetch_forwarded_attachments_by_draft_id(
-            db, link.id, db_id,
-        )
-        .await
-        .context("unable to fetch forwarded attachments from database")?;
-
-    if fwd_attachments.is_empty() {
+) -> anyhow::Result<()>
+where
+    R: MailboxAttachmentClient,
+    T: ProviderTokenSource,
+    L: ProviderRateLimiter,
+{
+    if sources.is_empty() {
         return Ok(());
     }
 
-    let fetch_futures = fwd_attachments.iter().map(|fwd_att| async move {
+    let fetch_futures = sources.iter().map(|source| async move {
+        let fwd_att = &source.attachment;
         let provider_att_id = fwd_att.provider_attachment_id.as_deref().unwrap_or_default();
 
         let data = email_api
-            .get_attachment(link.id, &fwd_att.message_provider_id, provider_att_id)
+            .get_attachment(source.source_link_id, &fwd_att.message_provider_id, provider_att_id)
             .await
             .with_context(|| {
                 format!(
@@ -201,3 +199,6 @@ pub async fn cleanup_draft_attachments(
         }
     }
 }
+
+#[cfg(test)]
+mod test;
