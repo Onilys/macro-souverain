@@ -14,16 +14,12 @@ import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { SplitPanel } from '@components/app/split-panel';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
 import { enableReminders } from '@core/constant/featureFlags';
-import { useHotkeyDOMScope } from '@core/hotkey/hotkeys';
-import { isScopeInActiveBranch } from '@core/hotkey/utils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { ListEntityMetadataQueryProvider } from '@entity';
-import EnvelopeOpenIcon from '@phosphor/envelope-simple-open.svg';
 import SpinnerIcon from '@phosphor/spinner.svg';
 import {
   createSignal,
   type JSX,
-  onCleanup,
   onMount,
   type ParentProps,
   Show,
@@ -36,11 +32,12 @@ import {
   EmailViewBreadcrumbItem,
 } from './components/EmailHeader';
 import { EmailList } from './components/EmailList';
+import { EmailReader } from './components/EmailReader';
 import { EmailSidebar } from './components/EmailSidebar';
 import { composeEmail } from './compose-email';
 import { EMAIL_TABS } from './constants';
 import { EmailViewProvider, useEmailView } from './email-view-context';
-import { type EmailListPane, EmailReaderPaneContext } from './reader-pane';
+import type { EmailListPane } from './reader-pane';
 import { emailTour } from './tour';
 import type { EmailTab, EmailViewStateOptions } from './types';
 import { useEmailViewHotkeys } from './use-email-view-hotkeys';
@@ -75,52 +72,6 @@ function EmailListFallback() {
   return (
     <div class="grid size-full min-h-0 min-w-0 place-items-center text-ink-muted touch:pt-(--mobile-content-inset-top) touch:pb-(--mobile-content-inset-bottom)">
       <SpinnerIcon aria-label="Loading email" class="size-5 animate-spin" />
-    </div>
-  );
-}
-
-function EmailReaderEmpty() {
-  return (
-    <div class="flex size-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 px-6 text-center">
-      <EnvelopeOpenIcon class="mb-2 size-6 text-ink-extra-muted" />
-      <p class="text-sm text-ink-muted">No conversation selected</p>
-      <p class="text-xs text-ink-extra-muted">
-        Pick one from the list, or move with j and k
-      </p>
-    </div>
-  );
-}
-
-/** The reading pane: the thread route, in its own hotkey scope. */
-function EmailReader(props: {
-  focusList: () => void;
-  setListPane: (pane: EmailListPane | undefined) => void;
-}) {
-  const [attachHotkeys, hotkeyScope] = useHotkeyDOMScope('email-reader');
-  const [focusRequest, setFocusRequest] = createSignal<string>();
-  props.setListPane({
-    focusReader: (threadId) => setFocusRequest(threadId),
-    readerHasKeyboard: () => isScopeInActiveBranch(hotkeyScope),
-  });
-  onCleanup(() => props.setListPane(undefined));
-  return (
-    <div
-      ref={attachHotkeys}
-      role="region"
-      aria-label="Reading pane"
-      class="size-full min-h-0 min-w-0"
-    >
-      <EmailReaderPaneContext.Provider
-        value={{
-          hotkeyScope,
-          focusList: props.focusList,
-          focusRequest,
-          requestFocus: setFocusRequest,
-          clearFocusRequest: () => setFocusRequest(undefined),
-        }}
-      >
-        <SplitRouter.Outlet fallback={EmailReaderEmpty} />
-      </EmailReaderPaneContext.Provider>
     </div>
   );
 }
