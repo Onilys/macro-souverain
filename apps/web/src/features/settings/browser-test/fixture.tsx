@@ -3,6 +3,9 @@ import '../../../index.css';
 import { ViewShell } from '@app/components/view-shell';
 import type { SettingsTab } from '@core/constant/SettingsState';
 import { SETTINGS_TAB_GROUPS } from '@core/constant/settingsTabsConfig';
+import { authKeys } from '@queries/auth/keys';
+import { teamKeys } from '@queries/team/keys';
+import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
 import { ToggleSwitch } from '@ui';
 import { createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import { render } from 'solid-js/web';
@@ -279,4 +282,18 @@ function FixtureSignature(props: { email: string }) {
   );
 }
 const root = document.getElementById('root');
-if (root) render(() => <Fixture />, root);
+// Appearance's Language section reads these; the fixture has no backend.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+});
+queryClient.setQueryData(authKeys.userLanguage.queryKey, { language: null });
+queryClient.setQueryData(teamKeys.currentTeam.queryKey, null);
+if (root)
+  render(
+    () => (
+      <QueryClientProvider client={queryClient}>
+        <Fixture />
+      </QueryClientProvider>
+    ),
+    root
+  );

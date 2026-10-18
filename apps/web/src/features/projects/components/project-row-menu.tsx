@@ -257,7 +257,7 @@ export function ProjectRowMenu(
           </ContextMenuTrigger>
           <ContextMenu.Portal>
             <ContextMenuContent
-              class="w-64 text-xs text-ink-muted"
+              class="min-w-64 max-w-[min(22rem,calc(100vw-1rem))] text-xs text-ink-muted"
               onCloseAutoFocus={props.onCloseAutoFocus}
             >
               <ProjectMenuItems {...props} />
@@ -279,7 +279,7 @@ export function ProjectMenuDropdown(props: ProjectMenuProps) {
       >
         <DotsThreeIcon />
       </Dropdown.Trigger>
-      <Dropdown.Content class="w-64 text-xs text-ink-muted">
+      <Dropdown.Content class="min-w-64 max-w-[min(22rem,calc(100vw-1rem))] text-xs text-ink-muted">
         <Dropdown.Group>
           <ProjectMenuItems {...props} />
         </Dropdown.Group>
@@ -315,7 +315,7 @@ function ProjectMenuItems(props: ProjectMenuProps) {
                     <SubTrigger text={entry.label} />
                     <ContextMenuContent
                       submenu
-                      class="w-48 text-xs text-ink-muted"
+                      class="min-w-48 max-w-[min(22rem,calc(100vw-1rem))] text-xs text-ink-muted"
                     >
                       <For each={entry.options}>
                         {(option) => (

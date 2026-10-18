@@ -101,7 +101,7 @@ export function SplitHeaderContextMenu(props: ParentProps) {
         {props.children}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenuContent class="w-60">
+        <ContextMenuContent class="min-w-60 max-w-[min(22rem,calc(100vw-1rem))]">
           <MenuItem
             icon={SplitIcon}
             iconClass="rotate-180"
