@@ -1,6 +1,6 @@
+import { t } from '@app/lib/i18n';
 import { toast } from '@core/component/Toast/Toast';
 import { throwOnErr } from '@core/util/result';
-import { t } from '@app/lib/i18n';
 import { queryClient } from '@queries/client';
 import { authServiceClient } from '@service-auth/client';
 import type { Language } from '@service-auth/generated/schemas/language';

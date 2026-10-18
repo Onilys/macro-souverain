@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PartialDictionary } from './dictionary';
 import { formatMessage, lookupMessage } from './dictionary';
-import { Language, LANGUAGES, resolveInterfaceLanguage } from './languages';
+import { LANGUAGES, Language, resolveInterfaceLanguage } from './languages';
 import en from './locales/en';
 
 const translations = import.meta.glob<{ default: PartialDictionary }>(
@@ -61,27 +61,33 @@ describe('translations', () => {
 
   it.each(
     LANGUAGES.filter(({ code }) => code !== 'en').map(({ code }) => code)
-  )('%s translates every English message with the same placeholders', (code) => {
-    const translation = translationFor(code);
-    const missing: string[] = [];
-    const mismatched: string[] = [];
-    for (const key of englishKeys) {
-      const [namespace, message] = key.split('.') as [keyof typeof en, string];
-      const english = (en[namespace] as Record<string, string>)[message];
-      const translated = translation[namespace]?.[message as never] as
-        | string
-        | undefined;
-      if (!translated?.trim()) {
-        missing.push(key);
-        continue;
+  )(
+    '%s translates every English message with the same placeholders',
+    (code) => {
+      const translation = translationFor(code);
+      const missing: string[] = [];
+      const mismatched: string[] = [];
+      for (const key of englishKeys) {
+        const [namespace, message] = key.split('.') as [
+          keyof typeof en,
+          string,
+        ];
+        const english = (en[namespace] as Record<string, string>)[message];
+        const translated = translation[namespace]?.[message as never] as
+          | string
+          | undefined;
+        if (!translated?.trim()) {
+          missing.push(key);
+          continue;
+        }
+        if (
+          placeholders(translated).join() !== placeholders(english ?? '').join()
+        ) {
+          mismatched.push(key);
+        }
       }
-      if (
-        placeholders(translated).join() !== placeholders(english ?? '').join()
-      ) {
-        mismatched.push(key);
-      }
+      expect(missing).toEqual([]);
+      expect(mismatched).toEqual([]);
     }
-    expect(missing).toEqual([]);
-    expect(mismatched).toEqual([]);
-  });
+  );
 });

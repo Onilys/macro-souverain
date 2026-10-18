@@ -1,4 +1,3 @@
-import { t } from '@app/lib/i18n';
 import type { ListView } from '@app/constants/list-views';
 import { isListViewID, TAGGABLE_LIST_VIEWS } from '@app/constants/list-views';
 import {
@@ -22,6 +21,7 @@ import {
   VIEW_TAB_PRESETS,
 } from '@app/features/next-soup/sidebar/soup-filter-presets';
 import { useSoupView } from '@app/features/next-soup/soup-view/soup-view-context';
+import { t } from '@app/lib/i18n';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { UserIcon } from '@core/component/UserIcon';
 import { useUserContext, useUserId } from '@core/context/user';

@@ -1,6 +1,6 @@
-import { inEnglish } from '@app/lib/i18n';
 import { GO_TO_COMMAND_SCOPE, GO_TO_LEADER_KEY } from '@app/constants/hotkeys';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { inEnglish } from '@app/lib/i18n';
 import { enableProjects } from '@core/constant/featureFlags';
 import type {
   EntityItem,

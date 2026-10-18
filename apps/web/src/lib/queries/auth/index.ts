@@ -28,10 +28,6 @@ export {
 export { useInitGmailLink } from './gmail-link';
 export { authKeys } from './keys';
 export { useSendMobileWelcomeEmail } from './mobile-welcome-email';
-export {
-  useSetUserLanguageMutation,
-  useUserLanguageQuery,
-} from './user-language';
 export {} from './mutations';
 export {
   type CreateCheckoutSessionArgs,
@@ -40,6 +36,10 @@ export {
   useTrialEligibilityQuery,
 } from './stripe-checkout';
 export type { UserInfoData } from './user-info';
+export {
+  useSetUserLanguageMutation,
+  useUserLanguageQuery,
+} from './user-language';
 export {
   normalizeUserNameQueryId,
   userNameQueryOptions,

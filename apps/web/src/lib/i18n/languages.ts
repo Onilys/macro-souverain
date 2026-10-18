@@ -39,7 +39,9 @@ export function isLanguage(value: unknown): value is Language {
 }
 
 export function nativeLanguageName(code: Language): string {
-  return LANGUAGES.find((language) => language.code === code)?.nativeName ?? code;
+  return (
+    LANGUAGES.find((language) => language.code === code)?.nativeName ?? code
+  );
 }
 
 /**
