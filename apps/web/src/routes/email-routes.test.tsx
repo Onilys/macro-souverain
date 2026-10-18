@@ -100,7 +100,7 @@ it('opens a thread inside the Email view instead of replacing it with the skelet
   expect(screen.getByText('Email list')).toBe(list);
 });
 
-it('loads the thread view with the Email view, so later opens never suspend', async () => {
+it('starts loading the thread view with the Email view', async () => {
   const { MailRouteView } =
     await vi.importActual<typeof import('./lazy-route-views')>(
       './lazy-route-views'
@@ -116,7 +116,7 @@ it('loads the thread view with the Email view, so later opens never suspend', as
   await vi.waitFor(() => expect(threadView).toHaveBeenCalledOnce());
 });
 
-it('waits for the thread view, so a thread URL opened first renders it loaded', async () => {
+it("does not hold the Email view back for the thread view's code", async () => {
   vi.resetModules();
   vi.doMock('@app/features/email-view/route-views', () => ({
     MailRouteView: () => null,
@@ -125,24 +125,17 @@ it('waits for the thread view, so a thread URL opened first renders it loaded', 
     await vi.importActual<typeof import('./lazy-route-views')>(
       './lazy-route-views'
     );
-  let loadThread!: () => void;
-  const threadLoaded = new Promise<{ default: () => null }>((resolve) => {
-    loadThread = () => resolve({ default: () => null });
-  });
+  // The thread view's code never arrives.
   const preloadThread = vi
     .spyOn(EmailDetailRouteView, 'preload')
-    .mockReturnValue(threadLoaded);
+    .mockReturnValue(new Promise(() => {}));
 
   let mailLoaded = false;
-  const mail = MailRouteView.preload().then(() => {
+  void (async () => {
+    await MailRouteView.preload();
     mailLoaded = true;
-  });
-  // Email's own module has loaded; only the thread view is outstanding.
-  await vi.dynamicImportSettled();
-  expect(preloadThread).toHaveBeenCalledOnce();
-  expect(mailLoaded).toBe(false);
+  })();
 
-  loadThread();
-  await mail;
-  expect(mailLoaded).toBe(true);
+  await vi.waitFor(() => expect(mailLoaded).toBe(true));
+  expect(preloadThread).toHaveBeenCalledOnce();
 });
